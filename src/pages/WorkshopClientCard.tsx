@@ -12,23 +12,26 @@ import {
 import { CheckCircle2, FileSignature, Loader2, Car, User, Wrench, Lock, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 
-const statusLabels: Record<string, { label: string; color: string }> = {
-  'Nowe zlecenie': { label: 'Nowe zlecenie', color: 'bg-red-500 text-white' },
-  'Przyjęcie do serwisu': { label: 'Przyjęcie do serwisu', color: 'bg-orange-500 text-white' },
-  'Wycena gotowa': { label: 'Wycena gotowa', color: 'bg-yellow-500 text-black' },
-  'Wycena wysłana': { label: 'Oczekuje na akceptację', color: 'bg-orange-400 text-black' },
-  'Zaakceptowano': { label: 'Zaakceptowano przez klienta', color: 'bg-green-500 text-white' },
-  'Akceptacja klienta': { label: 'Zaakceptowano przez klienta', color: 'bg-green-500 text-white' },
-  'W trakcie naprawy': { label: 'W trakcie naprawy', color: 'bg-blue-500 text-white' },
-  'Zadania wykonane': { label: 'Zadania wykonane', color: 'bg-green-500 text-white' },
-  'Gotowy do odbioru': { label: 'Gotowy do odbioru', color: 'bg-gray-500 text-white' },
-  'Zakończone': { label: 'Zakończone', color: 'bg-gray-700 text-white' },
+const statusColors: Record<string, string> = {
+  'Nowe zlecenie': 'bg-red-500 text-white',
+  'Przyjęcie do serwisu': 'bg-orange-500 text-white',
+  'Wycena gotowa': 'bg-yellow-500 text-black',
+  'Wycena wysłana': 'bg-orange-400 text-black',
+  'Zaakceptowano': 'bg-green-500 text-white',
+  'Akceptacja klienta': 'bg-green-500 text-white',
+  'W trakcie naprawy': 'bg-blue-500 text-white',
+  'Zadania wykonane': 'bg-green-500 text-white',
+  'Gotowy do odbioru': 'bg-gray-500 text-white',
+  'Zakończone': 'bg-gray-700 text-white',
 };
 
 type TabKey = 'reception' | 'estimate' | 'release';
 
 export default function WorkshopClientCard() {
+  const { t } = useTranslation();
   const { code } = useParams<{ code: string }>();
   const [searchParams] = useSearchParams();
   const isAdminPreview = searchParams.get('admin') === '1';
@@ -128,7 +131,7 @@ export default function WorkshopClientCard() {
           body: { order_id: order.id, event: 'quote_accepted' },
         }).catch(() => {});
       }
-      toast.success('Dokument został podpisany');
+      toast.success(t('workshop.clientCard.documentSigned'));
       setSigningDoc(null);
       setAccepted(false);
       await loadOrder();
@@ -151,7 +154,7 @@ export default function WorkshopClientCard() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
         <Card className="p-8 text-center">
-          <p className="text-lg text-muted-foreground">Nie znaleziono zlecenia</p>
+          <p className="text-lg text-muted-foreground">{t('workshop.clientCard.orderNotFound')}</p>
         </Card>
       </div>
     );
@@ -171,14 +174,15 @@ export default function WorkshopClientCard() {
 
   const receptionSigned = hasSigned('reception_protocol');
   const estimateSigned = hasSigned('cost_estimate');
-  const status = statusLabels[order.status_name] || { label: order.status_name, color: 'bg-muted' };
+  const statusLabel = translateWorkshopStatus(order.status_name, t);
+  const statusColor = statusColors[order.status_name] || 'bg-muted';
 
   const estimateAvailable = isAdminPreview || (receptionSigned && order.estimate_sent_to_client && !order.estimate_changed_after_send);
 
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; locked?: boolean }[] = [
-    { key: 'reception', label: 'Protokół przyjęcia', icon: <Wrench className="h-4 w-4" /> },
-    { key: 'estimate', label: 'Kosztorys', icon: <FileSignature className="h-4 w-4" />, locked: !estimateAvailable },
-    { key: 'release', label: 'Protokół wydania', icon: <Shield className="h-4 w-4" />, locked: !isAdminPreview && !estimateSigned },
+    { key: 'reception', label: t('workshop.clientCard.receptionProtocol'), icon: <Wrench className="h-4 w-4" /> },
+    { key: 'estimate', label: t('workshop.clientCard.estimate'), icon: <FileSignature className="h-4 w-4" />, locked: !estimateAvailable },
+    { key: 'release', label: t('workshop.clientCard.releaseProtocol'), icon: <Shield className="h-4 w-4" />, locked: !isAdminPreview && !estimateSigned },
   ];
 
   return (
@@ -193,7 +197,7 @@ export default function WorkshopClientCard() {
               {provider?.logo_url ? (
                 <img
                   src={provider.logo_url}
-                  alt={provider?.company_name || 'Logo'}
+                  alt={provider?.company_name || t('workshop.clientCard.logoAlt')}
                   className="max-h-16 w-auto object-contain shrink-0"
                 />
               ) : (
@@ -202,7 +206,7 @@ export default function WorkshopClientCard() {
                 </div>
               )}
               <div className="min-w-0">
-                <h1 className="text-lg md:text-xl font-bold text-foreground truncate">{provider?.company_name || 'Serwis'}</h1>
+                <h1 className="text-lg md:text-xl font-bold text-foreground truncate">{provider?.company_name || t('workshop.clientCard.serviceFallback')}</h1>
                 <p className="text-sm text-muted-foreground truncate">
                   {[provider?.company_address, provider?.company_city].filter(Boolean).join(', ')}
                   {provider?.company_nip && ` · NIP: ${provider.company_nip}`}
@@ -215,7 +219,7 @@ export default function WorkshopClientCard() {
               <p className="text-sm text-muted-foreground">
                 {order.created_at ? format(new Date(order.created_at), 'dd.MM.yyyy') : '---'}
               </p>
-              <Badge className={`${status.color} border-0`}>{status.label}</Badge>
+              <Badge className={`${statusColor} border-0`}>{statusLabel}</Badge>
             </div>
           </div>
 
@@ -225,7 +229,7 @@ export default function WorkshopClientCard() {
               {provider?.logo_url ? (
                 <img
                   src={provider.logo_url}
-                  alt={provider?.company_name || 'Logo'}
+                  alt={provider?.company_name || t('workshop.clientCard.logoAlt')}
                   className="h-12 w-12 object-contain shrink-0 rounded-md bg-white"
                 />
               ) : (
@@ -234,7 +238,7 @@ export default function WorkshopClientCard() {
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <h1 className="text-sm font-bold text-foreground leading-tight">{provider?.company_name || 'Serwis'}</h1>
+                <h1 className="text-sm font-bold text-foreground leading-tight">{provider?.company_name || t('workshop.clientCard.serviceFallback')}</h1>
                 <p className="text-[11px] text-muted-foreground leading-tight mt-0.5 truncate">
                   {[provider?.company_address, provider?.company_city].filter(Boolean).join(', ')}
                 </p>
@@ -252,7 +256,7 @@ export default function WorkshopClientCard() {
                   {order.created_at ? format(new Date(order.created_at), 'dd.MM.yyyy') : '---'}
                 </p>
               </div>
-              <Badge className={`${status.color} border-0 text-[11px]`}>{status.label}</Badge>
+              <Badge className={`${statusColor} border-0 text-[11px]`}>{statusLabel}</Badge>
             </div>
           </div>
         </div>
@@ -265,14 +269,14 @@ export default function WorkshopClientCard() {
             <CardContent className="pt-5 pb-4">
               <div className="flex items-center gap-2 mb-3">
                 <User className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-primary">Dane klienta</h3>
+                <h3 className="font-semibold text-primary">{t('workshop.clientCard.clientData')}</h3>
               </div>
               <div className="space-y-1.5 text-sm">
-                <p><span className="text-muted-foreground">Imię i nazwisko:</span> <span className="font-semibold">{clientName || '---'}</span></p>
-                {order.client?.phone && <p><span className="text-muted-foreground">Telefon:</span> <span className="font-medium">{order.client.phone}</span></p>}
-                {order.client?.email && <p><span className="text-muted-foreground">Email:</span> <span className="font-medium">{order.client.email}</span></p>}
-                {order.client?.address && <p><span className="text-muted-foreground">Adres:</span> <span className="font-medium">{order.client.address}</span></p>}
-                {order.client?.nip && <p><span className="text-muted-foreground">NIP:</span> <span className="font-medium">{order.client.nip}</span></p>}
+                <p><span className="text-muted-foreground">{t('workshop.clientCard.fullName')}:</span> <span className="font-semibold">{clientName || '---'}</span></p>
+                {order.client?.phone && <p><span className="text-muted-foreground">{t('workshop.clientCard.phone')}:</span> <span className="font-medium">{order.client.phone}</span></p>}
+                {order.client?.email && <p><span className="text-muted-foreground">{t('workshop.clientCard.email')}:</span> <span className="font-medium">{order.client.email}</span></p>}
+                {order.client?.address && <p><span className="text-muted-foreground">{t('workshop.clientCard.address')}:</span> <span className="font-medium">{order.client.address}</span></p>}
+                {order.client?.nip && <p><span className="text-muted-foreground">{t('workshop.clientCard.nip')}:</span> <span className="font-medium">{order.client.nip}</span></p>}
               </div>
             </CardContent>
           </Card>
@@ -281,15 +285,15 @@ export default function WorkshopClientCard() {
             <CardContent className="pt-5 pb-4">
               <div className="flex items-center gap-2 mb-3">
                 <Car className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-primary">Dane pojazdu</h3>
+                <h3 className="font-semibold text-primary">{t('workshop.clientCard.vehicleData')}</h3>
               </div>
               <div className="space-y-1.5 text-sm">
-                <p><span className="text-muted-foreground">Marka i model:</span> <span className="font-semibold">{order.vehicle?.brand} {order.vehicle?.model}</span></p>
-                <p><span className="text-muted-foreground">Nr rejestracyjny:</span> <span className="font-medium">{order.vehicle?.plate || '---'}</span></p>
-                <p><span className="text-muted-foreground">VIN:</span> <span className="font-medium">{order.vehicle?.vin || '---'}</span></p>
-                <p><span className="text-muted-foreground">Rocznik:</span> <span className="font-medium">{order.vehicle?.year || '---'}</span></p>
-                <p><span className="text-muted-foreground">Poziom paliwa:</span> <span className="font-medium">{order.fuel_level || '---'}</span></p>
-                {order.mileage && <p><span className="text-muted-foreground">Przebieg:</span> <span className="font-medium">{order.mileage} km</span></p>}
+                <p><span className="text-muted-foreground">{t('workshop.clientCard.brandModel')}:</span> <span className="font-semibold">{order.vehicle?.brand} {order.vehicle?.model}</span></p>
+                <p><span className="text-muted-foreground">{t('workshop.clientCard.plateNumber')}:</span> <span className="font-medium">{order.vehicle?.plate || '---'}</span></p>
+                <p><span className="text-muted-foreground">{t('workshop.clientCard.vin')}:</span> <span className="font-medium">{order.vehicle?.vin || '---'}</span></p>
+                <p><span className="text-muted-foreground">{t('workshop.clientCard.year')}:</span> <span className="font-medium">{order.vehicle?.year || '---'}</span></p>
+                <p><span className="text-muted-foreground">{t('workshop.clientCard.fuelLevel')}:</span> <span className="font-medium">{order.fuel_level || '---'}</span></p>
+                {order.mileage && <p><span className="text-muted-foreground">{t('workshop.clientCard.mileage')}:</span> <span className="font-medium">{order.mileage} km</span></p>}
               </div>
             </CardContent>
           </Card>
@@ -332,7 +336,7 @@ export default function WorkshopClientCard() {
                 {/* Order description */}
                 {order.description && (
                   <div>
-                    <h4 className="text-sm font-bold text-primary mb-1">Opis zlecenia:</h4>
+                    <h4 className="text-sm font-bold text-primary mb-1">{t('workshop.clientCard.orderDescription')}:</h4>
                     <p className="text-sm font-medium bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.description}</p>
                   </div>
                 )}
@@ -340,26 +344,26 @@ export default function WorkshopClientCard() {
                 {/* Damage */}
                 {order.damage_description && (
                   <div>
-                    <h4 className="text-sm font-bold text-primary mb-1">Opis uszkodzeń:</h4>
+                    <h4 className="text-sm font-bold text-primary mb-1">{t('workshop.clientCard.damageDescription')}:</h4>
                     <p className="text-sm font-medium bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.damage_description}</p>
                   </div>
                 )}
 
                 {/* Checklist */}
                 <div>
-                  <h4 className="text-sm font-semibold text-primary mb-2">Dodatkowe informacje:</h4>
+                  <h4 className="text-sm font-semibold text-primary mb-2">{t('workshop.clientCard.additionalInfo')}:</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {[
-                      { label: 'Jazda testowa', val: order.test_drive_consent },
-                      { label: 'Zwrot części do klienta', val: order.return_parts_to_client },
-                      { label: 'Dowód rejestracyjny', val: order.registration_document },
-                      { label: 'Uzupełnić płyny', val: order.top_up_fluids },
-                      { label: 'Uzupełnić oświetlenie', val: order.top_up_lights },
+                      { labelKey: 'workshop.clientCard.testDrive', val: order.test_drive_consent },
+                      { labelKey: 'workshop.clientCard.returnParts', val: order.return_parts_to_client },
+                      { labelKey: 'workshop.clientCard.registrationDoc', val: order.registration_document },
+                      { labelKey: 'workshop.clientCard.refillFluids', val: order.top_up_fluids },
+                      { labelKey: 'workshop.clientCard.refillLights', val: order.top_up_lights },
                     ].map(item => (
-                      <div key={item.label} className="flex items-center justify-between py-2 px-3 bg-muted/20 rounded-lg">
-                        <span className="text-sm">{item.label}</span>
+                      <div key={item.labelKey} className="flex items-center justify-between py-2 px-3 bg-muted/20 rounded-lg">
+                        <span className="text-sm">{t(item.labelKey)}</span>
                         <Badge variant="outline" className={item.val ? 'border-green-500 text-green-600 bg-green-50' : 'border-red-400 text-red-500 bg-red-50'}>
-                          {item.val ? 'TAK' : 'NIE'}
+                          {item.val ? t('workshop.clientCard.yes') : t('workshop.clientCard.no')}
                         </Badge>
                       </div>
                     ))}
@@ -369,13 +373,13 @@ export default function WorkshopClientCard() {
                 {/* Photos */}
                 {order.reception_photos && Array.isArray(JSON.parse(order.reception_photos || '[]')) && JSON.parse(order.reception_photos || '[]').length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-primary mb-2">Zdjęcia z przyjęcia:</h4>
+                    <h4 className="text-sm font-semibold text-primary mb-2">{t('workshop.clientCard.receptionPhotos')}:</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {JSON.parse(order.reception_photos).map((photo: any, idx: number) => (
                         <div key={idx} className="rounded-xl overflow-hidden border aspect-[4/3]">
                           <img
                             src={photo.url || photo}
-                            alt={photo.label || `Zdjęcie ${idx + 1}`}
+                            alt={photo.label || t('workshop.clientCard.photoAlt', { index: idx + 1 })}
                             className="w-full h-full object-cover"
                           />
                         </div>
@@ -387,7 +391,7 @@ export default function WorkshopClientCard() {
                 {/* Service scope */}
                 {tasks.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-primary mb-2">Zakres usług:</h4>
+                    <h4 className="text-sm font-semibold text-primary mb-2">{t('workshop.clientCard.serviceScope')}:</h4>
                     <div className="space-y-1">
                       {tasks.map((t: any, i: number) => (
                         <div key={t.id} className="flex items-center gap-2 py-1.5 px-3 bg-muted/20 rounded-lg text-sm">
@@ -403,17 +407,17 @@ export default function WorkshopClientCard() {
                 {!receptionSigned ? (
                   <div className="flex justify-end pt-2">
                     <Button onClick={() => setSigningDoc('reception_protocol')} size="lg" className="gap-2 shadow-lg" disabled={isAdminPreview}>
-                      <FileSignature className="h-5 w-5" /> {isAdminPreview ? 'Oczekuje na podpis klienta' : 'Podpisz protokół przyjęcia'}
+                      <FileSignature className="h-5 w-5" /> {isAdminPreview ? t('workshop.clientCard.awaitingClientSignature') : t('workshop.clientCard.signReceptionProtocol')}
                     </Button>
                   </div>
                 ) : (
                   <div className="rounded-xl bg-green-50 border border-green-200 p-4 text-center space-y-1">
                     <p className="flex items-center justify-center gap-2 text-green-700 font-medium">
-                      <CheckCircle2 className="h-5 w-5" /> Protokół przyjęcia zaakceptowany
+                      <CheckCircle2 className="h-5 w-5" /> {t('workshop.clientCard.receptionProtocolAccepted')}
                     </p>
                     {signatures.find(s => s.document_type === 'reception_protocol') && (
                       <p className="text-xs text-green-600">
-                        Data podpisu: {format(new Date(signatures.find(s => s.document_type === 'reception_protocol')!.signed_at), 'dd.MM.yyyy HH:mm')}
+                        {t('workshop.clientCard.signatureDate')}: {format(new Date(signatures.find(s => s.document_type === 'reception_protocol')!.signed_at), 'dd.MM.yyyy HH:mm')}
                       </p>
                     )}
                   </div>
@@ -425,35 +429,35 @@ export default function WorkshopClientCard() {
               (!isAdminPreview && !receptionSigned) ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-muted-foreground font-medium">Najpierw zaakceptuj protokół przyjęcia</p>
-                  <p className="text-sm text-muted-foreground/60 mt-1">Kosztorys będzie dostępny po podpisaniu protokołu.</p>
+                  <p className="text-muted-foreground font-medium">{t('workshop.clientCard.acceptReceptionFirst')}</p>
+                  <p className="text-sm text-muted-foreground/60 mt-1">{t('workshop.clientCard.estimateAfterProtocol')}</p>
                 </div>
               ) : (!isAdminPreview && !order.estimate_sent_to_client) ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-muted-foreground font-medium">Kosztorys jest w trakcie przygotowania</p>
-                  <p className="text-sm text-muted-foreground/60 mt-1">Otrzymasz powiadomienie SMS, gdy kosztorys będzie gotowy do akceptacji.</p>
+                  <p className="text-muted-foreground font-medium">{t('workshop.clientCard.estimateInPreparation')}</p>
+                  <p className="text-sm text-muted-foreground/60 mt-1">{t('workshop.clientCard.estimateSmsNotice')}</p>
                 </div>
               ) : (
                 <div className="space-y-6">
                   {isAdminPreview && (
                     <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-800 flex items-center justify-between gap-3">
-                      <span>👁️ Podgląd menedżera — dane na żywo. Klient widzi wersję wysłaną SMS-em.</span>
+                      <span>👁️ {t('workshop.clientCard.managerPreview')}</span>
                       {order.estimate_changed_after_send && (
-                        <span className="font-semibold text-destructive">⚠ Zmieniono po wysłaniu — wyślij ponownie</span>
+                        <span className="font-semibold text-destructive">⚠ {t('workshop.clientCard.changedAfterSend')}</span>
                       )}
                     </div>
                   )}
                   {order.description && (
                     <div>
-                      <h4 className="text-sm font-semibold text-primary mb-1">Opis zlecenia:</h4>
+                      <h4 className="text-sm font-semibold text-primary mb-1">{t('workshop.clientCard.orderDescription')}:</h4>
                       <p className="text-sm bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.description}</p>
                     </div>
                   )}
 
                   {tasks.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-semibold text-primary mb-2">Usługi:</h4>
+                      <h4 className="text-sm font-semibold text-primary mb-2">{t('workshop.clientCard.services')}:</h4>
                       <div className="border rounded-xl overflow-hidden">
                         <Table>
                           <colgroup>
@@ -464,10 +468,10 @@ export default function WorkshopClientCard() {
                           </colgroup>
                           <TableHeader>
                             <TableRow className="bg-muted/30">
-                              <TableHead>Lp.</TableHead>
-                              <TableHead>Nazwa</TableHead>
-                              <TableHead className="text-right">Netto</TableHead>
-                              <TableHead className="text-right">Brutto</TableHead>
+                              <TableHead>{t('workshop.clientCard.colNo')}</TableHead>
+                              <TableHead>{t('workshop.clientCard.colName')}</TableHead>
+                              <TableHead className="text-right">{t('workshop.clientCard.colNet')}</TableHead>
+                              <TableHead className="text-right">{t('workshop.clientCard.colGross')}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -480,7 +484,7 @@ export default function WorkshopClientCard() {
                               </TableRow>
                             ))}
                             <TableRow className="font-bold bg-muted/20">
-                              <TableCell colSpan={2}>Razem usługi</TableCell>
+                              <TableCell colSpan={2}>{t('workshop.clientCard.totalServices')}</TableCell>
                               <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(tasksNetTotal)}&nbsp;zł</TableCell>
                               <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(tasksTotal)}&nbsp;zł</TableCell>
                             </TableRow>
@@ -492,7 +496,7 @@ export default function WorkshopClientCard() {
 
                   {goods.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-semibold text-primary mb-2">Części i materiały:</h4>
+                      <h4 className="text-sm font-semibold text-primary mb-2">{t('workshop.clientCard.partsAndMaterials')}:</h4>
                       <div className="border rounded-xl overflow-hidden">
                         <Table>
                           <colgroup>
@@ -505,12 +509,12 @@ export default function WorkshopClientCard() {
                           </colgroup>
                           <TableHeader>
                             <TableRow className="bg-muted/30">
-                              <TableHead>Lp.</TableHead>
-                              <TableHead>Nazwa</TableHead>
-                              <TableHead className="text-right">Ilość</TableHead>
-                              <TableHead>J.m.</TableHead>
-                              <TableHead className="text-right">Netto</TableHead>
-                              <TableHead className="text-right">Brutto</TableHead>
+                              <TableHead>{t('workshop.clientCard.colNo')}</TableHead>
+                              <TableHead>{t('workshop.clientCard.colName')}</TableHead>
+                              <TableHead className="text-right">{t('workshop.clientCard.colQty')}</TableHead>
+                              <TableHead>{t('workshop.clientCard.colUnit')}</TableHead>
+                              <TableHead className="text-right">{t('workshop.clientCard.colNet')}</TableHead>
+                              <TableHead className="text-right">{t('workshop.clientCard.colGross')}</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -525,7 +529,7 @@ export default function WorkshopClientCard() {
                               </TableRow>
                             ))}
                             <TableRow className="font-bold bg-muted/20">
-                              <TableCell colSpan={4}>Razem części</TableCell>
+                              <TableCell colSpan={4}>{t('workshop.clientCard.totalParts')}</TableCell>
                               <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(goodsNetTotal)}&nbsp;zł</TableCell>
                               <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(goodsTotal)}&nbsp;zł</TableCell>
                             </TableRow>
@@ -538,10 +542,10 @@ export default function WorkshopClientCard() {
                   {/* Grand total */}
                   <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
                     <div className="flex flex-wrap justify-between items-center gap-3">
-                      <span className="font-bold text-lg">Łącznie do zapłaty</span>
+                      <span className="font-bold text-lg">{t('workshop.clientCard.totalToPay')}</span>
                       <div className="text-right">
-                        <p className="text-sm text-muted-foreground whitespace-nowrap">Netto: {fmt(tasksNetTotal + goodsNetTotal)}&nbsp;zł</p>
-                        <p className="text-xl font-bold text-primary whitespace-nowrap">{fmt(tasksTotal + goodsTotal)}&nbsp;zł brutto</p>
+                        <p className="text-sm text-muted-foreground whitespace-nowrap">{t('workshop.clientCard.colNet')}: {fmt(tasksNetTotal + goodsNetTotal)}&nbsp;zł</p>
+                        <p className="text-xl font-bold text-primary whitespace-nowrap">{fmt(tasksTotal + goodsTotal)}&nbsp;zł {t('workshop.clientCard.grossSuffix')}</p>
                       </div>
                     </div>
                   </div>
@@ -549,17 +553,17 @@ export default function WorkshopClientCard() {
                   {!estimateSigned ? (
                     <div className="flex justify-end pt-2">
                       <Button onClick={() => setSigningDoc('cost_estimate')} size="lg" className="gap-2 shadow-lg" disabled={isAdminPreview}>
-                        <FileSignature className="h-5 w-5" /> {isAdminPreview ? 'Oczekuje na akceptację klienta' : 'Akceptuję kosztorys'}
+                        <FileSignature className="h-5 w-5" /> {isAdminPreview ? t('workshop.clientCard.awaitingClientAcceptance') : t('workshop.clientCard.acceptEstimate')}
                       </Button>
                     </div>
                   ) : (
                     <div className="rounded-xl bg-green-50 border border-green-200 p-4 text-center space-y-1">
                       <p className="flex items-center justify-center gap-2 text-green-700 font-medium">
-                        <CheckCircle2 className="h-5 w-5" /> Kosztorys zaakceptowany
+                        <CheckCircle2 className="h-5 w-5" /> {t('workshop.clientCard.estimateAccepted')}
                       </p>
                       {signatures.find(s => s.document_type === 'cost_estimate') && (
                         <p className="text-xs text-green-600">
-                          Data podpisu: {format(new Date(signatures.find(s => s.document_type === 'cost_estimate')!.signed_at), 'dd.MM.yyyy HH:mm')}
+                          {t('workshop.clientCard.signatureDate')}: {format(new Date(signatures.find(s => s.document_type === 'cost_estimate')!.signed_at), 'dd.MM.yyyy HH:mm')}
                         </p>
                       )}
                     </div>
@@ -572,11 +576,11 @@ export default function WorkshopClientCard() {
               !estimateSigned ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-muted-foreground font-medium">Protokół wydania będzie dostępny po akceptacji kosztorysu</p>
+                  <p className="text-muted-foreground font-medium">{t('workshop.clientCard.releaseAfterEstimate')}</p>
                 </div>
               ) : (
                 <div className="py-12 text-center text-muted-foreground">
-                  Protokół wydania — wkrótce dostępny
+                  {t('workshop.clientCard.releaseComingSoon')}
                 </div>
               )
             )}
@@ -587,25 +591,25 @@ export default function WorkshopClientCard() {
         {signatures.length > 0 && (
           <Card className="shadow-md border-0 mb-8">
             <CardContent className="pt-5 pb-4">
-              <h3 className="font-semibold text-primary mb-3">Historia podpisów</h3>
+              <h3 className="font-semibold text-primary mb-3">{t('workshop.clientCard.signatureHistory')}</h3>
               <div className="border rounded-xl overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/30">
-                      <TableHead>Rodzaj dokumentu</TableHead>
-                      <TableHead>Data podpisu</TableHead>
-                      <TableHead>Metoda</TableHead>
+                      <TableHead>{t('workshop.clientCard.documentType')}</TableHead>
+                      <TableHead>{t('workshop.clientCard.signatureDate')}</TableHead>
+                      <TableHead>{t('workshop.clientCard.method')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {signatures.map(sig => (
                       <TableRow key={sig.id}>
                         <TableCell className="font-medium">
-                          {sig.document_type === 'reception_protocol' ? 'Protokół przyjęcia' :
-                           sig.document_type === 'cost_estimate' ? 'Kosztorys' : 'Protokół wydania'}
+                          {sig.document_type === 'reception_protocol' ? t('workshop.clientCard.receptionProtocol') :
+                           sig.document_type === 'cost_estimate' ? t('workshop.clientCard.estimate') : t('workshop.clientCard.releaseProtocol')}
                         </TableCell>
                         <TableCell>{sig.signed_at ? format(new Date(sig.signed_at), 'dd.MM.yyyy HH:mm') : '---'}</TableCell>
-                        <TableCell>Przycisk potwierdzenia</TableCell>
+                        <TableCell>{t('workshop.clientCard.confirmationButton')}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -626,15 +630,15 @@ export default function WorkshopClientCard() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-lg">
-              Podpisz dokument — {signingDoc === 'reception_protocol' ? 'Protokół przyjęcia' :
-                signingDoc === 'cost_estimate' ? 'Kosztorys' : 'Protokół wydania'}
+              {t('workshop.clientCard.signDocument')} — {signingDoc === 'reception_protocol' ? t('workshop.clientCard.receptionProtocol') :
+                signingDoc === 'cost_estimate' ? t('workshop.clientCard.estimate') : t('workshop.clientCard.releaseProtocol')}
             </DialogTitle>
           </DialogHeader>
 
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
             <p className="flex items-center gap-2 text-primary font-semibold text-sm">
               <CheckCircle2 className="h-5 w-5" />
-              Kliknij przycisk poniżej, aby podpisać dokument
+              {t('workshop.clientCard.clickToSign')}
             </p>
           </div>
 
@@ -647,18 +651,18 @@ export default function WorkshopClientCard() {
             />
             <div>
               <label htmlFor="accept-terms" className="text-sm font-medium leading-relaxed cursor-pointer">
-                Oświadczam, że zapoznałem/am się z poniższą treścią i akceptuję ją
+                {t('workshop.clientCard.declarationCheckbox')}
               </label>
               <details className="mt-2 text-xs text-muted-foreground">
-                <summary className="cursor-pointer text-primary font-medium hover:underline">Rozwiń treść oświadczenia</summary>
+                <summary className="cursor-pointer text-primary font-medium hover:underline">{t('workshop.clientCard.expandDeclaration')}</summary>
                 <div className="mt-2 space-y-2 border-l-2 border-primary/20 pl-3">
                   <div>
-                    <p className="font-semibold text-foreground">Dane osobowe</p>
-                    <p>Administrator Państwa danych osobowych i sposoby kontaktu z nim określono na wstępie karty zlecenia. Podanie danych jest konieczne dla realizacji zamówienia. Administrator może przetwarzać te dane (w szczególności: imię i nazwisko, nazwę, adresy, NIP, PESEL, REGON, nr telefonu, adres e-mail, dane dotyczące wykonanych dla Państwa usług i informacje o Państwa płatnościach).</p>
+                    <p className="font-semibold text-foreground">{t('workshop.clientCard.personalDataTitle')}</p>
+                    <p>{t('workshop.clientCard.personalDataBody')}</p>
                   </div>
                   <div>
-                    <p className="font-semibold text-foreground">Prawo zatrzymania</p>
-                    <p>Informujemy, że zgodnie z art. 461 Kodeksu cywilnego przysługuje nam prawo zatrzymania pojazdu i innych powierzonych nam rzeczy do chwili zaspokojenia lub zabezpieczenia przysługujących nam roszczeń o zwrot nakładów na te rzeczy lub o naprawienie szkody przez nie wyrządzonej.</p>
+                    <p className="font-semibold text-foreground">{t('workshop.clientCard.retentionRightTitle')}</p>
+                    <p>{t('workshop.clientCard.retentionRightBody')}</p>
                   </div>
                 </div>
               </details>
@@ -672,14 +676,14 @@ export default function WorkshopClientCard() {
             size="lg"
           >
             <CheckCircle2 className="h-5 w-5" />
-            {signing ? 'Podpisywanie...' : 'Akceptuję dokument'}
+            {signing ? t('workshop.clientCard.signing') : t('workshop.clientCard.acceptDocument')}
           </Button>
 
           <button
             onClick={() => { setSigningDoc(null); setAccepted(false); }}
             className="text-sm text-muted-foreground hover:text-foreground text-center transition-colors"
           >
-            Zamknij
+            {t('workshop.clientCard.close')}
           </button>
         </DialogContent>
       </Dialog>

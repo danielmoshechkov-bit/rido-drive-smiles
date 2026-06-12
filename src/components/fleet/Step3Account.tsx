@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,6 +39,7 @@ export function Step3Account({
   setIsHuman,
   renderField,
 }: Step3AccountProps) {
+  const { t } = useTranslation();
   // Real-time password match validation
   const passwordMismatch = useMemo(() => {
     if (!formData.confirmPassword) return false;
@@ -47,15 +49,15 @@ export function Step3Account({
   return (
     <>
       <div className="p-4 bg-muted rounded-lg mb-4">
-        <h4 className="font-medium mb-1">Konto administratora floty</h4>
-        <p className="text-sm text-muted-foreground">Dane do logowania w portalu do zarządzania flotą</p>
+        <h4 className="font-medium mb-1">{t('fleetRegister.adminAccountTitle')}</h4>
+        <p className="text-sm text-muted-foreground">{t('fleetRegister.adminAccountDesc')}</p>
       </div>
-      
-      {renderField("email", "Email", <Mail className="h-4 w-4" />, "email", "admin@firma.pl")}
+
+      {renderField("email", t('register.email'), <Mail className="h-4 w-4" />, "email", t('fleetRegister.adminEmailPlaceholder'))}
       
       {/* Password field with strength indicator */}
       <div className="space-y-2">
-        <Label htmlFor="password">Hasło *</Label>
+        <Label htmlFor="password">{t('fleetRegister.passwordRequired')}</Label>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
             <ShieldCheck className="h-4 w-4" />
@@ -68,7 +70,7 @@ export function Step3Account({
               setFormData({ ...formData, password: e.target.value });
               if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: undefined });
             }}
-            placeholder="Minimum 6 znaków, 1 duża litera, 1 znak specjalny"
+            placeholder={t('fleetRegister.passwordPlaceholder')}
             className={`pl-10 ${fieldErrors.password ? 'border-destructive ring-1 ring-destructive' : ''}`}
             required
           />
@@ -83,7 +85,7 @@ export function Step3Account({
       
       {/* Confirm password with real-time validation */}
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Potwierdź hasło *</Label>
+        <Label htmlFor="confirmPassword">{t('fleetRegister.confirmPasswordRequired')}</Label>
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
             <ShieldCheck className="h-4 w-4" />
@@ -96,13 +98,13 @@ export function Step3Account({
               setFormData({ ...formData, confirmPassword: e.target.value });
               if (fieldErrors.confirmPassword) setFieldErrors({ ...fieldErrors, confirmPassword: undefined });
             }}
-            placeholder="Powtórz hasło"
+            placeholder={t('register.confirmPasswordPlaceholder')}
             className={`pl-10 ${(fieldErrors.confirmPassword || passwordMismatch) ? 'border-destructive ring-1 ring-destructive' : ''}`}
             required
           />
         </div>
         {passwordMismatch && (
-          <p className="text-sm text-destructive">Hasła nie są takie same</p>
+          <p className="text-sm text-destructive">{t('register.passwordsMismatch')}</p>
         )}
         {fieldErrors.confirmPassword && !passwordMismatch && (
           <p className="text-sm text-destructive">{fieldErrors.confirmPassword}</p>
@@ -118,7 +120,7 @@ export function Step3Account({
           />
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-green-600 dark:text-green-500" />
-            <label htmlFor="human" className="text-sm font-medium">Nie jestem robotem</label>
+            <label htmlFor="human" className="text-sm font-medium">{t('register.notRobot')}</label>
           </div>
         </div>
         
@@ -129,7 +131,7 @@ export function Step3Account({
             onCheckedChange={(checked) => setFormData({ ...formData, acceptTerms: checked === true })}
           />
           <label htmlFor="terms" className="text-sm text-muted-foreground">
-            Akceptuję <a href="/prawne?tab=regulamin" className="text-primary hover:underline">regulamin</a> *
+            {t('register.acceptPrefix')} <a href="/prawne?tab=regulamin" className="text-primary hover:underline">{t('register.termsLink')}</a> *
           </label>
         </div>
 
@@ -140,7 +142,7 @@ export function Step3Account({
             onCheckedChange={(checked) => setFormData({ ...formData, acceptRodo: checked === true })}
           />
           <label htmlFor="rodo" className="text-sm text-muted-foreground">
-            Akceptuję <a href="/prawne?tab=prywatnosc" className="text-primary hover:underline">politykę prywatności</a> *
+            {t('register.acceptPrefix')} <a href="/prawne?tab=prywatnosc" className="text-primary hover:underline">{t('register.privacyLink')}</a> *
           </label>
         </div>
       </div>
