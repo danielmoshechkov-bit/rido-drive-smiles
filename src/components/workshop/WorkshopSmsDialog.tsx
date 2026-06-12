@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useQuotaGuard } from '@/components/quota/QuotaGuardProvider';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -55,6 +56,7 @@ const smsTemplates = {
 };
 
 export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { runWithQuota } = useQuotaGuard();
   const clientName = order.client
@@ -83,14 +85,14 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
 
   const handleSend = async () => {
     if (!phone) {
-      toast.error('Brak numeru telefonu');
+      toast.error(t('workshop.sms.noPhone'));
       return;
     }
     setSending(true);
     try {
       const smsPhone = toSmsPhone(phone);
       if (!smsPhone || smsPhone === phone) {
-        throw new Error('Nieprawidłowy numer telefonu');
+        throw new Error(t('workshop.sms.invalidPhone'));
       }
 
       const result = await runWithQuota('sms', async () => {
@@ -106,7 +108,7 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
         if (error) throw error;
         if ((data as any)?.error === 'NO_SMS') throw new Error('NO_SMS');
         return data;
-      }, { retryLabel: 'wysłanie SMS do klienta' });
+      }, { retryLabel: t('workshop.sms.retryLabel') });
       if (!result) { setSending(false); return; }
 
       // Update order flags based on SMS type
@@ -132,10 +134,10 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
       await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
       await qc.invalidateQueries({ queryKey: ['sms-credits'] });
       
-      toast.success('SMS wysłany do klienta');
+      toast.success(t('workshop.sms.sentSuccess'));
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(`Błąd wysyłania: ${e.message}`);
+      toast.error(t('workshop.sms.sendError', { error: e.message }));
     } finally {
       setSending(false);
     }
@@ -147,27 +149,27 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />
-            Wyślij wiadomość SMS do klienta
+            {t('workshop.sms.title')}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Klient</Label>
+            <Label>{t('workshop.sms.client')}</Label>
             <Input value={clientName} disabled />
           </div>
 
           <div className="space-y-1.5">
-            <Label>Numer telefonu</Label>
+            <Label>{t('workshop.sms.phoneNumber')}</Label>
             <div className="flex gap-2">
               <span className="flex items-center px-3 border rounded-md bg-muted text-sm">+48</span>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Numer telefonu" />
+              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder={t('workshop.sms.phonePlaceholder')} />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label>Treść wiadomości</Label>
-            <Textarea 
+            <Label>{t('workshop.sms.messageContent')}</Label>
+            <Textarea
               value={message} 
               onChange={e => setMessage(e.target.value)} 
               rows={6}
@@ -176,17 +178,17 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
           </div>
 
           <div className="text-sm text-muted-foreground">
-            Liczba SMS: {smsCount} · Liczba znaków do końca SMS: {charsLeft}
+            {t('workshop.sms.smsCountInfo', { count: smsCount, charsLeft })}
           </div>
         </div>
 
         <DialogFooter className="flex justify-between sm:justify-between">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Anuluj, nie wysyłaj SMS
+            {t('workshop.sms.cancelNoSend')}
           </Button>
           <Button onClick={handleSend} disabled={sending} className="gap-2">
             <Send className="h-4 w-4" />
-            {sending ? 'Wysyłanie...' : 'Wyślij wiadomość SMS do klienta'}
+            {sending ? t('workshop.sms.sending') : t('workshop.sms.send')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Separator } from '@/components/ui/separator';
 import { Wrench, Package } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   open: boolean;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Props) {
+  const { t } = useTranslation();
   const { data: tasks = [] } = useQuery({
     queryKey: ['workshop-order-tasks-preview', order?.id],
     queryFn: async () => {
@@ -59,12 +61,12 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-lg">Podgląd kosztorysu — {order?.order_number}</DialogTitle>
+          <DialogTitle className="text-lg">{t('workshop.estimatePreview.title', { number: order?.order_number })}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-1 text-sm text-muted-foreground">
-          <p>Klient: <span className="text-foreground font-medium">{clientName}</span></p>
-          <p>Pojazd: <span className="text-foreground font-medium">{vehicleName}</span></p>
+          <p>{t('workshop.estimatePreview.client')}: <span className="text-foreground font-medium">{clientName}</span></p>
+          <p>{t('workshop.estimatePreview.vehicle')}: <span className="text-foreground font-medium">{vehicleName}</span></p>
         </div>
 
         <Separator />
@@ -72,17 +74,17 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
         {/* Services */}
         <div>
           <h3 className="font-semibold text-sm flex items-center gap-2 mb-2">
-            <Wrench className="h-4 w-4" /> Robocizna / Usługi ({tasks.length})
+            <Wrench className="h-4 w-4" /> {t('workshop.estimatePreview.laborServices', { count: tasks.length })}
           </h3>
           {tasks.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Brak pozycji</p>
+            <p className="text-xs text-muted-foreground">{t('workshop.estimatePreview.noItems')}</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-muted-foreground border-b">
-                  <th className="text-left py-1 pr-2">LP</th>
-                  <th className="text-left py-1">Usługa</th>
-                  <th className="text-right py-1">Cena brutto</th>
+                  <th className="text-left py-1 pr-2">{t('workshop.estimatePreview.colNo')}</th>
+                  <th className="text-left py-1">{t('workshop.estimatePreview.colService')}</th>
+                  <th className="text-right py-1">{t('workshop.estimatePreview.colPriceGross')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -96,7 +98,7 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
               </tbody>
               <tfoot>
                 <tr className="font-semibold">
-                  <td colSpan={2} className="py-1.5 text-right">Razem usługi:</td>
+                  <td colSpan={2} className="py-1.5 text-right">{t('workshop.estimatePreview.totalServices')}</td>
                   <td className="py-1.5 text-right">{fmt(servicesTotal)} zł</td>
                 </tr>
               </tfoot>
@@ -109,19 +111,19 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
         {/* Parts */}
         <div>
           <h3 className="font-semibold text-sm flex items-center gap-2 mb-2">
-            <Package className="h-4 w-4" /> Części i materiały ({parts.length})
+            <Package className="h-4 w-4" /> {t('workshop.estimatePreview.partsMaterials', { count: parts.length })}
           </h3>
           {parts.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Brak pozycji</p>
+            <p className="text-xs text-muted-foreground">{t('workshop.estimatePreview.noItems')}</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-muted-foreground border-b">
-                  <th className="text-left py-1 pr-2">LP</th>
-                  <th className="text-left py-1">Nazwa</th>
-                  <th className="text-right py-1">Ilość</th>
-                  <th className="text-right py-1">Cena</th>
-                  <th className="text-right py-1">Wartość</th>
+                  <th className="text-left py-1 pr-2">{t('workshop.estimatePreview.colNo')}</th>
+                  <th className="text-left py-1">{t('workshop.estimatePreview.colName')}</th>
+                  <th className="text-right py-1">{t('workshop.estimatePreview.colQuantity')}</th>
+                  <th className="text-right py-1">{t('workshop.estimatePreview.colPrice')}</th>
+                  <th className="text-right py-1">{t('workshop.estimatePreview.colValue')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,7 +139,7 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
               </tbody>
               <tfoot>
                 <tr className="font-semibold">
-                  <td colSpan={4} className="py-1.5 text-right">Razem części:</td>
+                  <td colSpan={4} className="py-1.5 text-right">{t('workshop.estimatePreview.totalParts')}</td>
                   <td className="py-1.5 text-right">{fmt(partsTotal)} zł</td>
                 </tr>
               </tfoot>
@@ -148,7 +150,7 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
         <Separator />
 
         <div className="flex justify-between items-center text-base font-bold">
-          <span>RAZEM DO ZAPŁATY:</span>
+          <span>{t('workshop.estimatePreview.grandTotal')}</span>
           <span>{fmt(grandTotal)} zł</span>
         </div>
       </DialogContent>
