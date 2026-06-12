@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,15 +14,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Edit, UserX, Loader2, Users, Mail, Send, X } from 'lucide-react';
 
 const DEFAULT_ROLES = [
-  { value: 'mechanic', label: 'Mechanik' },
-  { value: 'reception', label: 'Recepcja' },
-  { value: 'manager', label: 'Kierownik' },
-  { value: 'owner', label: 'Właściciel' },
+  { value: 'mechanic', labelKey: 'workshop.employees.roles.mechanic' },
+  { value: 'reception', labelKey: 'workshop.employees.roles.reception' },
+  { value: 'manager', labelKey: 'workshop.employees.roles.manager' },
+  { value: 'owner', labelKey: 'workshop.employees.roles.owner' },
 ];
 
 const RATE_TYPES = [
-  { value: 'hourly', label: 'godzinowa', suffix: '/h' },
-  { value: 'daily', label: 'dobowa', suffix: '/dzień' },
+  { value: 'hourly', labelKey: 'workshop.employees.rateType.hourly' },
+  { value: 'daily', labelKey: 'workshop.employees.rateType.daily' },
 ];
 
 interface Employee {
@@ -38,8 +39,10 @@ interface Employee {
 }
 
 export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | null }) => {
+  const { t } = useTranslation();
   const rolesKey = `workshop_roles_${providerId || 'na'}`;
   const rateKey = `workshop_rate_types_${providerId || 'na'}`;
+  const defaultRoles = DEFAULT_ROLES.map(r => ({ value: r.value, label: t(r.labelKey) }));
 
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -51,7 +54,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [poolSaving, setPoolSaving] = useState(false);
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
 
-  const [roles, setRoles] = useState<{ value: string; label: string }[]>(DEFAULT_ROLES);
+  const [roles, setRoles] = useState<{ value: string; label: string }[]>(defaultRoles);
   const [newRoleLabel, setNewRoleLabel] = useState('');
   const [rateTypes, setRateTypes] = useState<Record<string, 'hourly' | 'daily'>>({});
 
@@ -92,7 +95,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     if (!label) return;
     const value = label.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 30) || `role_${Date.now()}`;
     if (roles.some(r => r.value === value)) {
-      toast.error('Taka rola już istnieje');
+      toast.error(t('workshop.employees.roleExists'));
       return;
     }
     saveRoles([...roles, { value, label }]);
@@ -100,7 +103,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   };
   const removeRole = (value: string) => {
     if (roles.length <= 1) {
-      toast.error('Musi pozostać przynajmniej jedna rola');
+      toast.error(t('workshop.employees.atLeastOneRole'));
       return;
     }
     saveRoles(roles.filter(r => r.value !== value));
@@ -149,36 +152,36 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         .upsert({ user_id: ownerUserId, employees_can_claim_orders: val }, { onConflict: 'user_id' });
       if (error) throw error;
       setPoolEnabled(val);
-      toast.success(val ? 'Pula zleceń włączona' : 'Pula zleceń wyłączona');
+      toast.success(val ? t('workshop.employees.poolEnabled') : t('workshop.employees.poolDisabled'));
     } catch (e: any) { toast.error(e.message); }
     finally { setPoolSaving(false); }
   };
 
   const statusFor = (emp: any): { key: string; label: string; className: string } => {
     if (emp.is_active === false || emp.status === 'inactive') {
-      return { key: 'inactive', label: 'Nieaktywny', className: 'bg-muted text-muted-foreground' };
+      return { key: 'inactive', label: t('workshop.employees.status.inactive'), className: 'bg-muted text-muted-foreground' };
     }
     if (emp.user_id && emp.status === 'active') {
-      return { key: 'active', label: 'Aktywny', className: 'bg-green-500 text-white hover:bg-green-600' };
+      return { key: 'active', label: t('workshop.employees.status.active'), className: 'bg-green-500 text-white hover:bg-green-600' };
     }
     const inv = emp.email
       ? invitations.find(i => (i.invited_email || '').toLowerCase() === emp.email.toLowerCase())
       : null;
-    if (inv?.status === 'accepted') return { key: 'active', label: 'Aktywny', className: 'bg-green-500 text-white hover:bg-green-600' };
-    if (inv?.status === 'rejected') return { key: 'rejected', label: 'Odrzucony', className: 'bg-destructive text-destructive-foreground' };
-    if (inv?.status === 'pending') return { key: 'pending', label: 'Zaproszony', className: 'bg-yellow-500 text-black hover:bg-yellow-600' };
-    if (emp.email) return { key: 'pending', label: 'Zaproszony', className: 'bg-yellow-500 text-black hover:bg-yellow-600' };
-    return { key: 'inactive', label: 'Bez konta', className: 'bg-muted text-muted-foreground' };
+    if (inv?.status === 'accepted') return { key: 'active', label: t('workshop.employees.status.active'), className: 'bg-green-500 text-white hover:bg-green-600' };
+    if (inv?.status === 'rejected') return { key: 'rejected', label: t('workshop.employees.status.rejected'), className: 'bg-destructive text-destructive-foreground' };
+    if (inv?.status === 'pending') return { key: 'pending', label: t('workshop.employees.status.invited'), className: 'bg-yellow-500 text-black hover:bg-yellow-600' };
+    if (emp.email) return { key: 'pending', label: t('workshop.employees.status.invited'), className: 'bg-yellow-500 text-black hover:bg-yellow-600' };
+    return { key: 'inactive', label: t('workshop.employees.status.noAccount'), className: 'bg-muted text-muted-foreground' };
   };
 
   const removeEmployee = async (emp: any) => {
-    if (!confirm(`Usunąć pracownika ${emp.name}? Konto zostanie zdezaktywowane.`)) return;
+    if (!confirm(t('workshop.employees.confirmRemove', { name: emp.name }))) return;
     try {
       const { error } = await (supabase.from('workshop_employees') as any)
         .update({ is_active: false, status: 'inactive', removed_at: new Date().toISOString() })
         .eq('id', emp.id);
       if (error) throw error;
-      toast.success('Pracownik usunięty');
+      toast.success(t('workshop.employees.employeeRemoved'));
       fetchAll();
     } catch (e: any) { toast.error(e.message); }
   };
@@ -219,7 +222,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
 
   const handleSendInvite = async (emp: Employee) => {
     if (!emp.email) {
-      toast.error('Brak adresu email — edytuj pracownika i dodaj email');
+      toast.error(t('workshop.employees.noEmailEditFirst'));
       return;
     }
     setInvitingId(emp.id);
@@ -234,16 +237,16 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
       });
       if (error) throw error;
       if ((data as any)?.email_sent) {
-        toast.success(`Zaproszenie wysłane na ${emp.email}`);
+        toast.success(t('workshop.employees.inviteSentTo', { email: emp.email }));
       } else if ((data as any)?.action_link) {
         await navigator.clipboard.writeText((data as any).action_link);
-        toast.success('Link zaproszenia skopiowany do schowka');
+        toast.success(t('workshop.employees.inviteLinkCopied'));
       } else {
-        toast.success('Zaproszenie zarejestrowane');
+        toast.success(t('workshop.employees.inviteRegistered'));
       }
       fetchAll();
     } catch (e: any) {
-      toast.error(e.message || 'Błąd wysyłki zaproszenia');
+      toast.error(e.message || t('workshop.employees.inviteSendError'));
     } finally {
       setInvitingId(null);
     }
@@ -251,12 +254,12 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
 
   const handleSave = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      toast.error('Imię i nazwisko są wymagane');
+      toast.error(t('workshop.employees.nameRequired'));
       return;
     }
     const cleanEmail = emailAddr.trim().toLowerCase();
     if (!editingId && (!cleanEmail || !cleanEmail.includes('@'))) {
-      toast.error('Email pracownika jest wymagany — pracownik dostanie zaproszenie');
+      toast.error(t('workshop.employees.emailRequiredForInvite'));
       return;
     }
     setSaving(true);
@@ -279,7 +282,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         const { error } = await (supabase.from('workshop_employees') as any)
           .update(payload).eq('id', editingId);
         if (error) throw error;
-        toast.success('Pracownik zaktualizowany');
+        toast.success(t('workshop.employees.employeeUpdated'));
       } else {
         const { data: ins, error } = await (supabase.from('workshop_employees') as any)
           .insert(payload).select('id').single();
@@ -292,18 +295,18 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
             });
             if (invErr) throw invErr;
             if ((data as any)?.email_sent) {
-              toast.success(`Pracownik dodany. Zaproszenie wysłane na ${cleanEmail}`);
+              toast.success(t('workshop.employees.addedInviteSentTo', { email: cleanEmail }));
             } else if ((data as any)?.action_link) {
               await navigator.clipboard.writeText((data as any).action_link);
-              toast.success('Pracownik dodany. Link zaproszenia skopiowany do schowka');
+              toast.success(t('workshop.employees.addedInviteLinkCopied'));
             } else {
-              toast.success('Pracownik dodany');
+              toast.success(t('workshop.employees.employeeAdded'));
             }
           } catch (invE: any) {
-            toast.warning(`Pracownik dodany, ale zaproszenie nie zostało wysłane: ${invE.message}`);
+            toast.warning(t('workshop.employees.addedInviteFailed', { error: invE.message }));
           }
         } else {
-          toast.success('Pracownik dodany. Zaproszenie nie zostało wysłane — możesz wysłać je później przyciskiem koperty.');
+          toast.success(t('workshop.employees.addedNoInvite'));
         }
       }
 
@@ -317,7 +320,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
       resetForm();
       fetchAll();
     } catch (err: any) {
-      toast.error(err.message || 'Błąd zapisu');
+      toast.error(err.message || t('workshop.employees.saveError'));
     } finally {
       setSaving(false);
     }
@@ -325,13 +328,13 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
 
   const roleLabel = (r: string) => roles.find(x => x.value === r)?.label || r;
   const rateLabel = (emp: any) => {
-    const t = rateTypes[emp.id] || 'hourly';
-    const suffix = RATE_TYPES.find(x => x.value === t)?.suffix || '/h';
+    const rt = rateTypes[emp.id] || 'hourly';
+    const suffix = rt === 'daily' ? t('workshop.employees.rateSuffix.daily') : t('workshop.employees.rateSuffix.hourly');
     return `${emp.hourly_rate} PLN${suffix}`;
   };
 
   if (!providerId) {
-    return <p className="text-center text-muted-foreground py-8">Najpierw aktywuj konto usługodawcy.</p>;
+    return <p className="text-center text-muted-foreground py-8">{t('workshop.employees.activateProviderFirst')}</p>;
   }
 
   if (loading) {
@@ -343,18 +346,17 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold">Pracownicy ({employees.length})</h3>
+          <h3 className="text-lg font-semibold">{t('workshop.employees.title', { count: employees.length })}</h3>
         </div>
-        <Button onClick={openAdd} size="sm"><Plus className="h-4 w-4 mr-1" />Dodaj pracownika</Button>
+        <Button onClick={openAdd} size="sm"><Plus className="h-4 w-4 mr-1" />{t('workshop.employees.addEmployee')}</Button>
       </div>
 
       <Card>
         <CardContent className="p-4 flex items-start gap-3">
           <div className="flex-1">
-            <Label className="text-sm font-semibold">Pula dostępnych zleceń</Label>
+            <Label className="text-sm font-semibold">{t('workshop.employees.poolTitle')}</Label>
             <p className="text-xs text-muted-foreground mt-1">
-              Gdy włączone, pracownicy widzą nieprzydzielone zlecenia i mogą sami je przyjąć.
-              Każde przyjęcie i zwrot zostaje zapisane w historii.
+              {t('workshop.employees.poolDesc')}
             </p>
           </div>
           <Switch checked={poolEnabled} disabled={poolSaving || !ownerUserId} onCheckedChange={togglePool} />
@@ -366,18 +368,18 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Imię i nazwisko</TableHead>
-                <TableHead>Rola</TableHead>
-                <TableHead>Telefon</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Stawka</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Akcje</TableHead>
+                <TableHead>{t('workshop.employees.colName')}</TableHead>
+                <TableHead>{t('workshop.employees.colRole')}</TableHead>
+                <TableHead>{t('workshop.employees.colPhone')}</TableHead>
+                <TableHead>{t('workshop.employees.colEmail')}</TableHead>
+                <TableHead>{t('workshop.employees.colRate')}</TableHead>
+                <TableHead>{t('workshop.employees.colStatus')}</TableHead>
+                <TableHead className="text-right">{t('workshop.employees.colActions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {employees.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Brak pracowników</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">{t('workshop.employees.noEmployees')}</TableCell></TableRow>
               )}
               {employees.map(emp => {
                 const st = statusFor(emp);
@@ -395,14 +397,14 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                       <Button
                         variant="ghost"
                         size="icon"
-                        title={st.key === 'rejected' ? 'Wyślij ponownie' : 'Wyślij zaproszenie'}
+                        title={st.key === 'rejected' ? t('workshop.employees.resendInvite') : t('workshop.employees.sendInvite')}
                         onClick={() => handleSendInvite(emp)}
                         disabled={invitingId === emp.id || !emp.email}
                       >
                         {invitingId === emp.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 text-primary" />}
                       </Button>
-                      <Button variant="ghost" size="icon" title="Edytuj" onClick={() => openEdit(emp)}><Edit className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" title="Usuń pracownika" onClick={() => removeEmployee(emp)}>
+                      <Button variant="ghost" size="icon" title={t('workshop.employees.edit')} onClick={() => openEdit(emp)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" title={t('workshop.employees.removeEmployee')} onClick={() => removeEmployee(emp)}>
                         <UserX className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
@@ -417,24 +419,24 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? 'Edytuj pracownika' : 'Dodaj pracownika'}</DialogTitle>
+            <DialogTitle>{editingId ? t('workshop.employees.editEmployee') : t('workshop.employees.addEmployee')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Imię *</Label>
+                <Label>{t('workshop.employees.firstNameRequired')}</Label>
                 <Input value={firstName} onChange={e => setFirstName(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Nazwisko *</Label>
+                <Label>{t('workshop.employees.lastNameRequired')}</Label>
                 <Input value={lastName} onChange={e => setLastName(e.target.value)} />
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Rola</Label>
-                <span className="text-xs text-muted-foreground">Możesz dodać własną rolę</span>
+                <Label>{t('workshop.employees.role')}</Label>
+                <span className="text-xs text-muted-foreground">{t('workshop.employees.canAddCustomRole')}</span>
               </div>
               <Select value={role} onValueChange={setRole}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -446,7 +448,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                         type="button"
                         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); removeRole(r.value); }}
                         className="p-1 mr-1 rounded hover:bg-destructive/10 text-destructive"
-                        title="Usuń rolę"
+                        title={t('workshop.employees.removeRole')}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -456,21 +458,21 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
               </Select>
               <div className="flex gap-2">
                 <Input
-                  placeholder="Nowa rola, np. Lakiernik"
+                  placeholder={t('workshop.employees.newRolePlaceholder')}
                   value={newRoleLabel}
                   onChange={e => setNewRoleLabel(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRole(); } }}
                   className="h-9"
                 />
                 <Button type="button" size="sm" variant="outline" onClick={addRole}>
-                  <Plus className="h-4 w-4 mr-1" />Dodaj
+                  <Plus className="h-4 w-4 mr-1" />{t('workshop.employees.add')}
                 </Button>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Stawka netto (PLN)</Label>
+                <Label>{t('workshop.employees.netRate')}</Label>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -481,41 +483,41 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                 />
               </div>
               <div className="space-y-2">
-                <Label>Rodzaj stawki</Label>
+                <Label>{t('workshop.employees.rateTypeLabel')}</Label>
                 <Select value={rateType} onValueChange={(v) => setRateType(v as 'hourly' | 'daily')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {RATE_TYPES.map(rt => <SelectItem key={rt.value} value={rt.value}>{rt.label}</SelectItem>)}
+                    {RATE_TYPES.map(rt => <SelectItem key={rt.value} value={rt.value}>{t(rt.labelKey)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Telefon służbowy</Label>
+              <Label>{t('workshop.employees.businessPhone')}</Label>
               <Input value={phone} onChange={e => setPhone(e.target.value)} />
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> Email * <span className="text-xs text-muted-foreground font-normal">(pracownik dostanie zaproszenie)</span></Label>
-              <Input type="email" required value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="pracownik@firma.pl" />
+              <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> {t('workshop.employees.emailRequired')} <span className="text-xs text-muted-foreground font-normal">{t('workshop.employees.emailInviteHint')}</span></Label>
+              <Input type="email" required value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder={t('workshop.employees.emailPlaceholder')} />
             </div>
             <div className="space-y-2">
-              <Label>PIN (4 cyfry, opcjonalny)</Label>
+              <Label>{t('workshop.employees.pinLabel')}</Label>
               <Input value={pinCode} onChange={e => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} placeholder="••••" />
             </div>
             <div className="flex items-center justify-between">
-              <Label>Aktywny</Label>
+              <Label>{t('workshop.employees.active')}</Label>
               <Switch checked={isActive} onCheckedChange={setIsActive} />
             </div>
             {!editingId && (
               <label className="flex items-center justify-between gap-2 p-3 rounded-lg border bg-primary/5 cursor-pointer">
                 <div>
                   <div className="text-sm font-medium flex items-center gap-1.5">
-                    <Mail className="h-4 w-4 text-primary" /> Wyślij zaproszenie e-mail
+                    <Mail className="h-4 w-4 text-primary" /> {t('workshop.employees.sendEmailInvite')}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Pracownik otrzyma link aktywacyjny od razu po dodaniu
+                    {t('workshop.employees.sendEmailInviteHint')}
                   </div>
                 </div>
                 <Switch checked={sendInvite} onCheckedChange={setSendInvite} />
@@ -523,10 +525,10 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Anuluj</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              {editingId ? 'Zapisz zmiany' : 'Dodaj'}
+              {editingId ? t('workshop.employees.saveChanges') : t('workshop.employees.add')}
             </Button>
           </DialogFooter>
         </DialogContent>

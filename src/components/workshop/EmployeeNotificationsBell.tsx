@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ type Notification = {
 };
 
 export function EmployeeNotificationsBell() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -75,10 +77,10 @@ export function EmployeeNotificationsBell() {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
         <div className="flex items-center justify-between p-2.5 border-b">
-          <div className="font-semibold text-sm">Powiadomienia</div>
+          <div className="font-semibold text-sm">{t('workshop.notifications.title')}</div>
           {unread > 0 && (
             <Button variant="ghost" size="sm" onClick={markAllRead}>
-              <CheckCheck className="h-3.5 w-3.5 mr-1" /> Oznacz przeczytane
+              <CheckCheck className="h-3.5 w-3.5 mr-1" /> {t('workshop.notifications.markAllRead')}
             </Button>
           )}
         </div>
@@ -86,7 +88,7 @@ export function EmployeeNotificationsBell() {
           {loading ? (
             <div className="flex justify-center p-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
           ) : items.length === 0 ? (
-            <div className="text-center text-sm text-muted-foreground p-6">Brak powiadomień</div>
+            <div className="text-center text-sm text-muted-foreground p-6">{t('workshop.notifications.empty')}</div>
           ) : (
             items.map(n => (
               <button key={n.id} onClick={() => click(n)}

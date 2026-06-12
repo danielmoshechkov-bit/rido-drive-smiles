@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -12,6 +13,7 @@ import { toast } from 'sonner';
  * is performed server-side using the invitation UUID as token.
  */
 export function WorkshopInvitationHandler() {
+  const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const invitationId = params.get('invitation');
@@ -44,7 +46,7 @@ export function WorkshopInvitationHandler() {
         const res = await acceptInvitation(invitationId);
         if (cancelled) return;
 
-        setCompanyName(res.company_name || 'warsztat');
+        setCompanyName(res.company_name || t('workshop.invitation.workshopFallback'));
         setInvitedEmail(res.invited_email || '');
 
         // Check auth status to tailor welcome message
@@ -61,7 +63,7 @@ export function WorkshopInvitationHandler() {
         next.delete('invitation');
         setParams(next, { replace: true });
       } catch (e: any) {
-        toast.error(`Nie udało się przyjąć zaproszenia: ${e.message || e}`);
+        toast.error(t('workshop.invitation.acceptError', { error: e.message || e }));
       } finally {
         if (!cancelled) setProcessing(false);
       }
@@ -116,7 +118,7 @@ export function WorkshopInvitationHandler() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="bg-card border rounded-xl p-6 flex items-center gap-3 shadow-xl">
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
-            <span className="text-sm">Aktywujemy Twoje konto pracownika…</span>
+            <span className="text-sm">{t('workshop.invitation.activatingAccount')}</span>
           </div>
         </div>
       )}
@@ -126,60 +128,56 @@ export function WorkshopInvitationHandler() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-6 w-6 text-green-600" />
-              Witaj w gronie pracowników!
+              {t('workshop.invitation.welcomeTitle')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
               <Building2 className="h-5 w-5 text-primary" />
               <div className="text-sm">
-                Zostałeś/aś dodany/a do zespołu <strong>{companyName}</strong>.
-                Twoje konto pracownika jest już <strong>aktywne</strong>.
+                <Trans i18nKey="workshop.invitation.addedToTeam" values={{ company: companyName }} components={{ strong: <strong /> }} />
               </div>
             </div>
 
             <div className="space-y-3 text-sm">
               {!isLoggedIn ? (
                 <>
-                  <p className="font-medium">Jak zacząć:</p>
+                  <p className="font-medium">{t('workshop.invitation.howToStart')}</p>
                   <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                    <li>Zaloguj się na swoje konto <strong>{invitedEmail}</strong>.</li>
-                    <li>W prawym górnym rogu wejdź w <strong>Moje konto</strong>.</li>
-                    <li>Otwórz <strong>„Wybierz moduł"</strong> i kliknij <strong>„Moja Praca"</strong> <Users className="inline h-3.5 w-3.5 -mt-0.5" />.</li>
+                    <li><Trans i18nKey="workshop.invitation.stepLoginEmail" values={{ email: invitedEmail }} components={{ strong: <strong /> }} /></li>
+                    <li><Trans i18nKey="workshop.invitation.stepMyAccount" components={{ strong: <strong /> }} /></li>
+                    <li><Trans i18nKey="workshop.invitation.stepSelectModule" components={{ strong: <strong /> }} /> <Users className="inline h-3.5 w-3.5 -mt-0.5" /></li>
                   </ol>
                 </>
               ) : emailMatchesUser ? (
                 <>
-                  <p className="font-medium">Jak zacząć:</p>
+                  <p className="font-medium">{t('workshop.invitation.howToStart')}</p>
                   <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                    <li>Wejdź w <strong>Moje konto</strong> w prawym górnym rogu.</li>
-                    <li>Otwórz <strong>„Wybierz moduł"</strong>.</li>
-                    <li>Kliknij kafelek <strong>„Moja Praca"</strong> <Users className="inline h-3.5 w-3.5 -mt-0.5" />.</li>
+                    <li><Trans i18nKey="workshop.invitation.stepMyAccountShort" components={{ strong: <strong /> }} /></li>
+                    <li><Trans i18nKey="workshop.invitation.stepOpenSelectModule" components={{ strong: <strong /> }} /></li>
+                    <li><Trans i18nKey="workshop.invitation.stepClickMyWork" components={{ strong: <strong /> }} /> <Users className="inline h-3.5 w-3.5 -mt-0.5" /></li>
                   </ol>
                 </>
               ) : (
                 <p className="text-muted-foreground">
-                  Jesteś zalogowany/a na inne konto. Aby korzystać z modułu Pracownika,
-                  zaloguj się na <strong>{invitedEmail}</strong>.
+                  <Trans i18nKey="workshop.invitation.differentAccount" values={{ email: invitedEmail }} components={{ strong: <strong /> }} />
                 </p>
               )}
 
               <div className="bg-muted/50 rounded-lg p-3 mt-3">
                 <p className="font-medium mb-1 flex items-center gap-1.5">
                   <Users className="h-4 w-4 text-primary" />
-                  Moduł Pracownika Warsztatu
+                  {t('workshop.invitation.moduleTitle')}
                 </p>
                 <p className="text-muted-foreground text-xs leading-relaxed">
-                  Zobaczysz listę zleceń przydzielonych Ci przez warsztat — dane pojazdu,
-                  klienta i listę zadań. Wypełniasz protokół naprawczy i wysyłasz do akceptacji,
-                  warsztat zatwierdza i automatycznie przenosi pozycje na kartę zlecenia.
+                  {t('workshop.invitation.moduleDesc')}
                 </p>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button onClick={handleClose} className="w-full">
-              {!isLoggedIn || !emailMatchesUser ? 'Przejdź do logowania' : 'OK, rozumiem'}
+              {!isLoggedIn || !emailMatchesUser ? t('workshop.invitation.goToLogin') : t('workshop.invitation.okUnderstood')}
             </Button>
           </DialogFooter>
         </DialogContent>

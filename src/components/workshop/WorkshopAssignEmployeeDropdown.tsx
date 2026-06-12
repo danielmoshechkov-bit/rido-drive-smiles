@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId, onAssignmentChanged }: Props) => {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,7 +53,7 @@ export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId, onAssignme
         const { error } = await (supabase.from('workshop_order_assignments') as any)
           .delete().eq('order_id', orderId).eq('employee_user_id', emp.user_id);
         if (error) throw error;
-        toast.success(`Usunięto przydział: ${emp.name}`);
+        toast.success(t('workshop.assign.unassigned', { name: emp.name }));
         onAssignmentChanged?.(false);
       } else {
         const { data: { user } } = await supabase.auth.getUser();
@@ -64,7 +66,7 @@ export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId, onAssignme
             status: 'assigned',
           });
         if (error) throw error;
-        toast.success(`Przydzielono: ${emp.name}`);
+        toast.success(t('workshop.assign.assigned', { name: emp.name }));
         onAssignmentChanged?.(true);
 
         // Centralized notification + SMS via edge function
@@ -88,11 +90,11 @@ export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId, onAssignme
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5">
           <UserCog className="h-4 w-4" />
-          {assignedEmps.length === 0 ? 'Przydziel pracownika' : `Pracownicy: ${assignedEmps.length}`}
+          {assignedEmps.length === 0 ? t('workshop.assign.assignEmployee') : t('workshop.assign.employeesCount', { count: assignedEmps.length })}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-2" align="end">
-        <div className="text-xs font-semibold px-2 py-1.5 text-muted-foreground">Przydziel do zlecenia</div>
+        <div className="text-xs font-semibold px-2 py-1.5 text-muted-foreground">{t('workshop.assign.assignToOrder')}</div>
         {assignedEmps.length > 0 && (
           <div className="flex flex-wrap gap-1 p-2 border-b mb-1">
             {assignedEmps.map(e => (
@@ -109,7 +111,7 @@ export const WorkshopAssignEmployeeDropdown = ({ orderId, providerId, onAssignme
           <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
         ) : employees.length === 0 ? (
           <div className="px-2 py-4 text-center text-xs text-muted-foreground">
-            Brak aktywnych pracowników z kontem.<br /> Zaproś ich w "Pracownicy".
+            {t('workshop.assign.noActiveEmployees')}<br /> {t('workshop.assign.inviteThem')}
           </div>
         ) : (
           <div className="max-h-64 overflow-y-auto">
