@@ -10,6 +10,7 @@ import { Save, Calendar, Bell, Globe, MessageSquare } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 
 interface Props {
@@ -26,24 +27,25 @@ const DEFAULT_SMS_TEMPLATES = {
 };
 
 const REMINDER_OPTIONS = [
-  { value: '24h', label: '24 godziny przed' },
-  { value: '12h', label: '12 godzin przed' },
-  { value: '6h', label: '6 godzin przed' },
-  { value: '4h', label: '4 godziny przed' },
-  { value: '2h', label: '2 godziny przed' },
-  { value: '1h', label: '1 godzina przed' },
+  { value: '24h', labelKey: 'workshop.settings.calendar.reminder.before24h' },
+  { value: '12h', labelKey: 'workshop.settings.calendar.reminder.before12h' },
+  { value: '6h', labelKey: 'workshop.settings.calendar.reminder.before6h' },
+  { value: '4h', labelKey: 'workshop.settings.calendar.reminder.before4h' },
+  { value: '2h', labelKey: 'workshop.settings.calendar.reminder.before2h' },
+  { value: '1h', labelKey: 'workshop.settings.calendar.reminder.before1h' },
 ];
 
-const SMS_TEMPLATE_LABELS: Record<string, string> = {
-  reception: 'Przyjęcie pojazdu',
-  estimate: 'Wysłanie kosztorysu',
-  ready: 'Pojazd gotowy do odbioru',
-  reminder_24h: 'Przypomnienie 24h',
-  reminder_2h: 'Przypomnienie 2h',
-  completed: 'Zakończenie naprawy',
+const SMS_TEMPLATE_LABEL_KEYS: Record<string, string> = {
+  reception: 'workshop.settings.calendar.smsTemplate.reception',
+  estimate: 'workshop.settings.calendar.smsTemplate.estimate',
+  ready: 'workshop.settings.calendar.smsTemplate.ready',
+  reminder_24h: 'workshop.settings.calendar.smsTemplate.reminder24h',
+  reminder_2h: 'workshop.settings.calendar.smsTemplate.reminder2h',
+  completed: 'workshop.settings.calendar.smsTemplate.completed',
 };
 
 export function CalendarSettingsPage({ providerId }: Props) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('przypomnienia');
   const queryClient = useQueryClient();
 
@@ -112,16 +114,16 @@ export function CalendarSettingsPage({ providerId }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workshop-settings'] });
-      toast.success('Ustawienia zapisane');
+      toast.success(t('workshop.settings.calendar.settingsSaved'));
     },
     onError: (e: any) => toast.error(e.message),
   });
 
   const tabs = [
-    { value: 'przypomnienia', label: 'Przypomnienia SMS', visible: true },
-    { value: 'szablony', label: 'Szablony SMS', visible: true },
-    { value: 'rezerwacje', label: 'Rezerwacje', visible: true },
-    { value: 'integracje', label: 'Integracje', visible: true },
+    { value: 'przypomnienia', label: t('workshop.settings.calendar.tabReminders'), visible: true },
+    { value: 'szablony', label: t('workshop.settings.calendar.tabTemplates'), visible: true },
+    { value: 'rezerwacje', label: t('workshop.settings.calendar.tabBookings'), visible: true },
+    { value: 'integracje', label: t('workshop.settings.calendar.tabIntegrations'), visible: true },
   ];
 
   return (
@@ -133,13 +135,13 @@ export function CalendarSettingsPage({ providerId }: Props) {
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-2 mb-4">
               <Bell className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Ustawienia przypomnień SMS</h3>
+              <h3 className="font-semibold">{t('workshop.settings.calendar.remindersTitle')}</h3>
             </div>
 
             <label className="flex items-center justify-between p-3 border rounded-lg">
               <div>
-                <p className="text-sm font-medium">Wyślij SMS potwierdzający przy rezerwacji</p>
-                <p className="text-xs text-muted-foreground">Klient otrzyma SMS z potwierdzeniem wizyty</p>
+                <p className="text-sm font-medium">{t('workshop.settings.calendar.sendConfirmationSms')}</p>
+                <p className="text-xs text-muted-foreground">{t('workshop.settings.calendar.sendConfirmationSmsDesc')}</p>
               </div>
               <Switch
                 checked={reminderForm.sms_confirmation_on_booking}
@@ -148,8 +150,8 @@ export function CalendarSettingsPage({ providerId }: Props) {
             </label>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Domyślne przypomnienia</Label>
-              <p className="text-xs text-muted-foreground">Wybierz kiedy mają być wysyłane przypomnienia SMS. Możesz wybrać kilka.</p>
+              <Label className="text-sm font-medium">{t('workshop.settings.calendar.defaultReminders')}</Label>
+              <p className="text-xs text-muted-foreground">{t('workshop.settings.calendar.defaultRemindersHint')}</p>
               <div className="grid grid-cols-2 gap-2">
                 {REMINDER_OPTIONS.map(opt => (
                   <label key={opt.value} className={`flex items-center gap-2 cursor-pointer p-3 rounded-lg border transition-colors ${
@@ -163,29 +165,29 @@ export function CalendarSettingsPage({ providerId }: Props) {
                       onChange={() => toggleReminder(opt.value)}
                       className="rounded"
                     />
-                    <span className="text-sm">{opt.label}</span>
+                    <span className="text-sm">{t(opt.labelKey)}</span>
                   </label>
                 ))}
               </div>
             </div>
 
             <div className="space-y-1 max-w-[200px]">
-              <Label className="text-xs">Domyślny czas usługi</Label>
+              <Label className="text-xs">{t('workshop.settings.calendar.defaultServiceDuration')}</Label>
               <Select value={reminderForm.default_duration} onValueChange={v => setReminderForm(f => ({ ...f, default_duration: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="30">30 min</SelectItem>
-                  <SelectItem value="60">1 godz.</SelectItem>
-                  <SelectItem value="120">2 godz.</SelectItem>
-                  <SelectItem value="180">3 godz.</SelectItem>
-                  <SelectItem value="240">4 godz.</SelectItem>
+                  <SelectItem value="30">{t('workshop.settings.calendar.duration30min')}</SelectItem>
+                  <SelectItem value="60">{t('workshop.settings.calendar.duration1h')}</SelectItem>
+                  <SelectItem value="120">{t('workshop.settings.calendar.duration2h')}</SelectItem>
+                  <SelectItem value="180">{t('workshop.settings.calendar.duration3h')}</SelectItem>
+                  <SelectItem value="240">{t('workshop.settings.calendar.duration4h')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex justify-end pt-2">
               <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="gap-2">
-                <Save className="h-4 w-4" /> Zapisz ustawienia
+                <Save className="h-4 w-4" /> {t('workshop.settings.calendar.saveSettings')}
               </Button>
             </div>
           </CardContent>
@@ -197,16 +199,16 @@ export function CalendarSettingsPage({ providerId }: Props) {
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-2 mb-2">
               <MessageSquare className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Szablony wiadomości SMS</h3>
+              <h3 className="font-semibold">{t('workshop.settings.calendar.smsTemplatesTitle')}</h3>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Dostępne zmienne: {'{POJAZD}'}, {'{LINK}'}, {'{GODZINA}'}, {'{DATA}'}, {'{NUMER_ZLECENIA}'}
+              {t('workshop.settings.calendar.availableVariables', { vars: '{POJAZD}, {LINK}, {GODZINA}, {DATA}, {NUMER_ZLECENIA}' })}
             </p>
 
             <div className="space-y-4">
-              {Object.entries(SMS_TEMPLATE_LABELS).map(([key, label]) => (
+              {Object.entries(SMS_TEMPLATE_LABEL_KEYS).map(([key, labelKey]) => (
                 <div key={key} className="space-y-1.5">
-                  <Label className="text-sm font-medium">{label}</Label>
+                  <Label className="text-sm font-medium">{t(labelKey)}</Label>
                   <Textarea
                     value={smsTemplates[key] || ''}
                     onChange={e => setSmsTemplates(t => ({ ...t, [key]: e.target.value }))}
@@ -215,7 +217,7 @@ export function CalendarSettingsPage({ providerId }: Props) {
                     placeholder={DEFAULT_SMS_TEMPLATES[key as keyof typeof DEFAULT_SMS_TEMPLATES]}
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    {(smsTemplates[key] || '').length}/160 znaków (GSM-7)
+                    {t('workshop.settings.calendar.charCounter', { len: (smsTemplates[key] || '').length })}
                   </p>
                 </div>
               ))}
@@ -223,7 +225,7 @@ export function CalendarSettingsPage({ providerId }: Props) {
 
             <div className="flex justify-end pt-2">
               <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="gap-2">
-                <Save className="h-4 w-4" /> Zapisz szablony
+                <Save className="h-4 w-4" /> {t('workshop.settings.calendar.saveTemplates')}
               </Button>
             </div>
           </CardContent>
@@ -235,13 +237,13 @@ export function CalendarSettingsPage({ providerId }: Props) {
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-2 mb-4">
               <Calendar className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Ustawienia rezerwacji online</h3>
+              <h3 className="font-semibold">{t('workshop.settings.calendar.onlineBookingTitle')}</h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              Rezerwacje online pozwolą klientom umawiać się na wizytę przez stronę internetową Twojego warsztatu.
+              {t('workshop.settings.calendar.onlineBookingDesc')}
             </p>
             <div className="p-4 border rounded-lg bg-muted/30 text-sm text-muted-foreground text-center">
-              🚧 Wkrótce dostępne — system rezerwacji online jest w przygotowaniu
+              {t('workshop.settings.calendar.onlineBookingComingSoon')}
             </div>
           </CardContent>
         </Card>
@@ -252,13 +254,13 @@ export function CalendarSettingsPage({ providerId }: Props) {
           <CardContent className="pt-6 space-y-4">
             <div className="flex items-center gap-2 mb-4">
               <Globe className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Integracja z Google Calendar</h3>
+              <h3 className="font-semibold">{t('workshop.settings.calendar.googleCalendarTitle')}</h3>
             </div>
             <p className="text-sm text-muted-foreground">
-              Połącz kalendarz warsztatu z Google Calendar, aby synchronizować wizyty i rezerwacje.
+              {t('workshop.settings.calendar.googleCalendarDesc')}
             </p>
             <div className="p-4 border rounded-lg bg-muted/30 text-sm text-muted-foreground text-center">
-              🚧 Wkrótce dostępne — integracja z Google Calendar jest w przygotowaniu
+              {t('workshop.settings.calendar.googleCalendarComingSoon')}
             </div>
           </CardContent>
         </Card>

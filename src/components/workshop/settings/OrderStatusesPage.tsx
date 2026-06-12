@@ -11,6 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Edit2, Zap, Hand } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
+import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import { useWorkshopStatusSettings, useUpdateWorkshopStatusSettings } from '@/hooks/useWorkshop';
 
 interface Props {
@@ -18,13 +20,13 @@ interface Props {
 }
 
 const AUTO_TRIGGER_OPTIONS = [
-  { value: '', label: 'Brak (ręczna zmiana)' },
-  { value: 'order_created', label: 'Utworzenie zlecenia' },
-  { value: 'protocol_signed', label: 'Podpisanie protokołu przez klienta' },
-  { value: 'estimate_prepared', label: 'Przygotowanie wyceny (dodanie pozycji)' },
-  { value: 'estimate_sent', label: 'Wysłanie kosztorysu SMS do klienta' },
-  { value: 'estimate_accepted', label: 'Akceptacja kosztorysu przez klienta' },
-  { value: 'ready_sms_sent', label: 'Wysłanie SMS o gotowości do odbioru' },
+  { value: '', labelKey: 'workshop.settings.orderStatuses.trigger.none' },
+  { value: 'order_created', labelKey: 'workshop.settings.orderStatuses.trigger.orderCreated' },
+  { value: 'protocol_signed', labelKey: 'workshop.settings.orderStatuses.trigger.protocolSigned' },
+  { value: 'estimate_prepared', labelKey: 'workshop.settings.orderStatuses.trigger.estimatePrepared' },
+  { value: 'estimate_sent', labelKey: 'workshop.settings.orderStatuses.trigger.estimateSent' },
+  { value: 'estimate_accepted', labelKey: 'workshop.settings.orderStatuses.trigger.estimateAccepted' },
+  { value: 'ready_sms_sent', labelKey: 'workshop.settings.orderStatuses.trigger.readySmsSent' },
 ];
 
 const DEFAULT_AUTO_STATUSES = [
@@ -38,6 +40,7 @@ const DEFAULT_AUTO_STATUSES = [
 ];
 
 export function OrderStatusesPage({ providerId }: Props) {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -83,7 +86,7 @@ export function OrderStatusesPage({ providerId }: Props) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['order-statuses-settings'] });
-      toast.success(editId ? 'Status zaktualizowany' : 'Status dodany');
+      toast.success(editId ? t('workshop.settings.orderStatuses.statusUpdated') : t('workshop.settings.orderStatuses.statusAdded'));
       closeDialog();
     },
     onError: (e: any) => toast.error(e.message),
@@ -96,7 +99,7 @@ export function OrderStatusesPage({ providerId }: Props) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['order-statuses-settings'] });
-      toast.success('Status usunięty');
+      toast.success(t('workshop.settings.orderStatuses.statusDeleted'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -122,11 +125,11 @@ export function OrderStatusesPage({ providerId }: Props) {
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-semibold text-base">Tryb zarządzania statusami</h3>
+              <h3 className="font-semibold text-base">{t('workshop.settings.orderStatuses.modeTitle')}</h3>
               <p className="text-sm text-muted-foreground">
                 {isAutoMode
-                  ? 'Statusy zmieniają się automatycznie na podstawie akcji (podpis protokołu, wysłanie kosztorysu, akceptacja klienta itp.)'
-                  : 'Statusy zmieniane są ręcznie przez użytkownika'}
+                  ? t('workshop.settings.orderStatuses.modeAutoDesc')
+                  : t('workshop.settings.orderStatuses.modeManualDesc')}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -136,7 +139,7 @@ export function OrderStatusesPage({ providerId }: Props) {
                 className="gap-1.5"
                 onClick={() => providerId && updateStatusSettings.mutate({ providerId, status_mode: 'manual' })}
               >
-                <Hand className="h-4 w-4" /> Ręczny
+                <Hand className="h-4 w-4" /> {t('workshop.settings.orderStatuses.modeManual')}
               </Button>
               <Button
                 variant={isAutoMode ? 'default' : 'outline'}
@@ -144,7 +147,7 @@ export function OrderStatusesPage({ providerId }: Props) {
                 className="gap-1.5"
                 onClick={() => providerId && updateStatusSettings.mutate({ providerId, status_mode: 'auto' })}
               >
-                <Zap className="h-4 w-4" /> Automatyczny
+                <Zap className="h-4 w-4" /> {t('workshop.settings.orderStatuses.modeAuto')}
               </Button>
             </div>
           </div>
@@ -153,10 +156,10 @@ export function OrderStatusesPage({ providerId }: Props) {
 
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold">Statusy zleceń</h3>
-          <p className="text-sm text-muted-foreground">Definiuj własne statusy dla zleceń warsztatowych</p>
+          <h3 className="font-semibold">{t('workshop.settings.orderStatuses.title')}</h3>
+          <p className="text-sm text-muted-foreground">{t('workshop.settings.orderStatuses.subtitle')}</p>
         </div>
-        <Button onClick={() => setShowAdd(true)} className="gap-2"><Plus className="h-4 w-4" /> Dodaj status</Button>
+        <Button onClick={() => setShowAdd(true)} className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.settings.orderStatuses.addStatus')}</Button>
       </div>
 
       <div className="space-y-2">
@@ -165,15 +168,18 @@ export function OrderStatusesPage({ providerId }: Props) {
             <CardContent className="py-3 px-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: s.color }} />
-                <span className="font-medium">{s.name}</span>
-                {s.is_default && <Badge variant="secondary" className="text-xs">Domyślny</Badge>}
+                <span className="font-medium">{translateWorkshopStatus(s.name, t)}</span>
+                {s.is_default && <Badge variant="secondary" className="text-xs">{t('workshop.settings.orderStatuses.defaultBadge')}</Badge>}
                 {isAutoMode && s.auto_trigger && (
                   <Badge variant="outline" className="text-xs gap-1">
                     <Zap className="h-3 w-3" />
-                    {AUTO_TRIGGER_OPTIONS.find(o => o.value === s.auto_trigger)?.label || s.auto_trigger}
+                    {(() => {
+                      const opt = AUTO_TRIGGER_OPTIONS.find(o => o.value === s.auto_trigger);
+                      return opt ? t(opt.labelKey) : s.auto_trigger;
+                    })()}
                   </Badge>
                 )}
-                <span className="text-xs text-muted-foreground">Kolejność: {s.sort_order}</span>
+                <span className="text-xs text-muted-foreground">{t('workshop.settings.orderStatuses.order')}: {s.sort_order}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}><Edit2 className="h-4 w-4" /></Button>
@@ -186,47 +192,47 @@ export function OrderStatusesPage({ providerId }: Props) {
 
       <Dialog open={showAdd} onOpenChange={v => !v && closeDialog()}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editId ? 'Edytuj status' : 'Dodaj status'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? t('workshop.settings.orderStatuses.editStatus') : t('workshop.settings.orderStatuses.addStatus')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Nazwa *</Label>
+              <Label>{t('workshop.settings.orderStatuses.nameLabel')}</Label>
               <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
             </div>
             <div className="flex items-center gap-4">
               <div className="space-y-2">
-                <Label>Kolor</Label>
+                <Label>{t('workshop.settings.orderStatuses.colorLabel')}</Label>
                 <input type="color" value={form.color} onChange={e => setForm(p => ({ ...p, color: e.target.value }))} className="w-12 h-10 rounded border cursor-pointer" />
               </div>
               <div className="space-y-2">
-                <Label>Kolejność</Label>
+                <Label>{t('workshop.settings.orderStatuses.orderLabel')}</Label>
                 <Input type="number" value={form.sort_order} onChange={e => setForm(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))} className="w-20" />
               </div>
             </div>
             {isAutoMode && (
               <div className="space-y-2">
-                <Label>Automatyczny wyzwalacz</Label>
+                <Label>{t('workshop.settings.orderStatuses.autoTriggerLabel')}</Label>
                 <Select value={form.auto_trigger} onValueChange={v => setForm(p => ({ ...p, auto_trigger: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Wybierz akcję..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('workshop.settings.orderStatuses.selectActionPlaceholder')} /></SelectTrigger>
                   <SelectContent>
                     {AUTO_TRIGGER_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value || '__none'}>{opt.label}</SelectItem>
+                      <SelectItem key={opt.value} value={opt.value || '__none'}>{t(opt.labelKey)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">Status zmieni się automatycznie po wykonaniu wybranej akcji</p>
+                <p className="text-xs text-muted-foreground">{t('workshop.settings.orderStatuses.autoTriggerHint')}</p>
               </div>
             )}
             <div className="flex items-center gap-2">
               <Switch checked={form.is_default} onCheckedChange={v => setForm(p => ({ ...p, is_default: v }))} />
-              <Label>Domyślny status</Label>
+              <Label>{t('workshop.settings.orderStatuses.defaultStatusLabel')}</Label>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>Anuluj</Button>
+            <Button variant="outline" onClick={closeDialog}>{t('common.cancel')}</Button>
             <Button onClick={() => saveMut.mutate({
               ...form,
               auto_trigger: form.auto_trigger === '__none' ? null : (form.auto_trigger || null),
-            })} disabled={!form.name.trim()}>Zapisz</Button>
+            })} disabled={!form.name.trim()}>{t('common.save')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -10,8 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 export function TaskTemplatesPage() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export function TaskTemplatesPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['task-templates'] });
-      toast.success(editId ? 'Szablon zaktualizowany' : 'Szablon dodany');
+      toast.success(editId ? t('workshop.settings.taskTemplates.templateUpdated') : t('workshop.settings.taskTemplates.templateAdded'));
       closeDialog();
     },
     onError: (e: any) => toast.error(e.message),
@@ -55,7 +57,7 @@ export function TaskTemplatesPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['task-templates'] });
-      toast.success('Szablon usunięty');
+      toast.success(t('workshop.settings.taskTemplates.templateDeleted'));
     },
   });
 
@@ -77,39 +79,39 @@ export function TaskTemplatesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold">Szablony zadań</h3>
-          <p className="text-sm text-muted-foreground">Predefiniowane operacje do szybkiego dodawania do zleceń</p>
+          <h3 className="font-semibold">{t('workshop.settings.taskTemplates.title')}</h3>
+          <p className="text-sm text-muted-foreground">{t('workshop.settings.taskTemplates.subtitle')}</p>
         </div>
-        <Button onClick={() => setShowDialog(true)} className="gap-2"><Plus className="h-4 w-4" /> Dodaj szablon</Button>
+        <Button onClick={() => setShowDialog(true)} className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.settings.taskTemplates.addTemplate')}</Button>
       </div>
 
       {templates.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          <p>Brak szablonów zadań</p>
-          <p className="text-sm">Dodaj szablony, aby szybciej wypełniać zlecenia</p>
+          <p>{t('workshop.settings.taskTemplates.empty')}</p>
+          <p className="text-sm">{t('workshop.settings.taskTemplates.emptyHint')}</p>
         </div>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nazwa</TableHead>
-              <TableHead>Opis</TableHead>
-              <TableHead className="text-right">Czas [h]</TableHead>
-              <TableHead className="text-right">Cena netto</TableHead>
+              <TableHead>{t('workshop.settings.taskTemplates.colName')}</TableHead>
+              <TableHead>{t('workshop.settings.taskTemplates.colDescription')}</TableHead>
+              <TableHead className="text-right">{t('workshop.settings.taskTemplates.colHours')}</TableHead>
+              <TableHead className="text-right">{t('workshop.settings.taskTemplates.colNetPrice')}</TableHead>
               <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {templates.map((t: any) => (
-              <TableRow key={t.id}>
-                <TableCell className="font-medium">{t.name}</TableCell>
-                <TableCell className="text-muted-foreground">{t.description || '—'}</TableCell>
-                <TableCell className="text-right tabular-nums">{t.hours || 0}</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(t.price || 0)} zł</TableCell>
+            {templates.map((tpl: any) => (
+              <TableRow key={tpl.id}>
+                <TableCell className="font-medium">{tpl.name}</TableCell>
+                <TableCell className="text-muted-foreground">{tpl.description || '—'}</TableCell>
+                <TableCell className="text-right tabular-nums">{tpl.hours || 0}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(tpl.price || 0)} zł</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1 justify-end">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}><Edit2 className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMut.mutate(t.id)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(tpl)}><Edit2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMut.mutate(tpl.id)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -120,18 +122,18 @@ export function TaskTemplatesPage() {
 
       <Dialog open={showDialog} onOpenChange={v => !v && closeDialog()}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editId ? 'Edytuj szablon' : 'Dodaj szablon'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? t('workshop.settings.taskTemplates.editTemplate') : t('workshop.settings.taskTemplates.addTemplate')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Nazwa *</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="np. Wymiana oleju" /></div>
-            <div className="space-y-2"><Label>Opis</Label><Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={2} /></div>
+            <div className="space-y-2"><Label>{t('workshop.settings.taskTemplates.nameLabel')}</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder={t('workshop.settings.taskTemplates.namePlaceholder')} /></div>
+            <div className="space-y-2"><Label>{t('workshop.settings.taskTemplates.descriptionLabel')}</Label><Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={2} /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Czas normatywny [h]</Label><Input type="number" step="0.25" value={form.hours || ''} onChange={e => setForm(p => ({ ...p, hours: parseFloat(e.target.value) || 0 }))} /></div>
-              <div className="space-y-2"><Label>Cena netto [zł]</Label><Input type="number" value={form.price || ''} onChange={e => setForm(p => ({ ...p, price: parseFloat(e.target.value) || 0 }))} /></div>
+              <div className="space-y-2"><Label>{t('workshop.settings.taskTemplates.standardHoursLabel')}</Label><Input type="number" step="0.25" value={form.hours || ''} onChange={e => setForm(p => ({ ...p, hours: parseFloat(e.target.value) || 0 }))} /></div>
+              <div className="space-y-2"><Label>{t('workshop.settings.taskTemplates.netPriceLabel')}</Label><Input type="number" value={form.price || ''} onChange={e => setForm(p => ({ ...p, price: parseFloat(e.target.value) || 0 }))} /></div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>Anuluj</Button>
-            <Button onClick={() => saveMut.mutate(form)} disabled={!form.name.trim()}>Zapisz</Button>
+            <Button variant="outline" onClick={closeDialog}>{t('common.cancel')}</Button>
+            <Button onClick={() => saveMut.mutate(form)} disabled={!form.name.trim()}>{t('common.save')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

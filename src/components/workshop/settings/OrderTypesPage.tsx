@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 export function OrderTypesPage() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [newName, setNewName] = useState('');
 
@@ -41,7 +43,7 @@ export function OrderTypesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['order-types-settings'] });
       setNewName('');
-      toast.success('Rodzaj dodany');
+      toast.success(t('workshop.settings.orderTypes.typeAdded'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -53,7 +55,7 @@ export function OrderTypesPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['order-types-settings'] });
-      toast.success('Rodzaj usunięty');
+      toast.success(t('workshop.settings.orderTypes.typeDeleted'));
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -61,25 +63,25 @@ export function OrderTypesPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="font-semibold">Rodzaje zleceń</h3>
-        <p className="text-sm text-muted-foreground">Definiuj typy zleceń dla warsztatu</p>
+        <h3 className="font-semibold">{t('workshop.settings.orderTypes.title')}</h3>
+        <p className="text-sm text-muted-foreground">{t('workshop.settings.orderTypes.subtitle')}</p>
       </div>
 
       <div className="flex items-center gap-2">
-        <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nazwa nowego rodzaju..." className="max-w-xs"
+        <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder={t('workshop.settings.orderTypes.newNamePlaceholder')} className="max-w-xs"
           onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) addMut.mutate(newName.trim()); }} />
-        <Button onClick={() => newName.trim() && addMut.mutate(newName.trim())} disabled={!newName.trim()} className="gap-2"><Plus className="h-4 w-4" /> Dodaj</Button>
+        <Button onClick={() => newName.trim() && addMut.mutate(newName.trim())} disabled={!newName.trim()} className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.settings.orderTypes.add')}</Button>
       </div>
 
       <div className="space-y-2">
-        {types.map((t: any) => (
-          <Card key={t.id} className="border">
+        {types.map((type: any) => (
+          <Card key={type.id} className="border">
             <CardContent className="py-3 px-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="font-medium">{t.name}</span>
-                {t.is_active ? <Badge className="bg-primary/10 text-primary text-xs">Aktywny</Badge> : <Badge variant="secondary" className="text-xs">Nieaktywny</Badge>}
+                <span className="font-medium">{type.name}</span>
+                {type.is_active ? <Badge className="bg-primary/10 text-primary text-xs">{t('workshop.settings.orderTypes.activeBadge')}</Badge> : <Badge variant="secondary" className="text-xs">{t('workshop.settings.orderTypes.inactiveBadge')}</Badge>}
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMut.mutate(t.id)}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMut.mutate(type.id)}><Trash2 className="h-4 w-4" /></Button>
             </CardContent>
           </Card>
         ))}

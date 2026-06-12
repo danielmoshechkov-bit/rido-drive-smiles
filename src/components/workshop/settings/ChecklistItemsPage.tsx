@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Trash2, Edit2, GripVertical, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 export function ChecklistItemsPage() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export function ChecklistItemsPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['checklist-items'] });
-      toast.success(editId ? 'Pozycja zaktualizowana' : 'Pozycja dodana');
+      toast.success(editId ? t('workshop.settings.checklist.itemUpdated') : t('workshop.settings.checklist.itemAdded'));
       closeDialog();
     },
     onError: (e: any) => toast.error(e.message),
@@ -70,7 +72,7 @@ export function ChecklistItemsPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['checklist-items'] });
-      toast.success('Pozycja usunięta');
+      toast.success(t('workshop.settings.checklist.itemDeleted'));
     },
   });
 
@@ -86,22 +88,26 @@ export function ChecklistItemsPage() {
     setShowDialog(true);
   };
 
-  const typeLabels: Record<string, string> = { checkbox: 'Checkbox', text: 'Tekst', select: 'Wybór' };
+  const typeLabels: Record<string, string> = {
+    checkbox: t('workshop.settings.checklist.typeCheckbox'),
+    text: t('workshop.settings.checklist.typeText'),
+    select: t('workshop.settings.checklist.typeSelect'),
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold">Lista kontrolna przyjęcia pojazdu</h3>
-          <p className="text-sm text-muted-foreground">Pozycje do sprawdzenia przy przyjęciu pojazdu do serwisu</p>
+          <h3 className="font-semibold">{t('workshop.settings.checklist.title')}</h3>
+          <p className="text-sm text-muted-foreground">{t('workshop.settings.checklist.subtitle')}</p>
         </div>
-        <Button onClick={() => { setForm(p => ({ ...p, sort_order: items.length })); setShowDialog(true); }} className="gap-2"><Plus className="h-4 w-4" /> Dodaj pozycję</Button>
+        <Button onClick={() => { setForm(p => ({ ...p, sort_order: items.length })); setShowDialog(true); }} className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.settings.checklist.addItem')}</Button>
       </div>
 
       {items.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <CheckSquare className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p>Brak pozycji kontrolnych</p>
+          <p>{t('workshop.settings.checklist.empty')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -112,7 +118,7 @@ export function ChecklistItemsPage() {
                   <GripVertical className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">{item.label}</span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{typeLabels[item.item_type] || item.item_type}</span>
-                  {item.is_required && <span className="text-xs text-destructive font-medium">Wymagane</span>}
+                  {item.is_required && <span className="text-xs text-destructive font-medium">{t('workshop.settings.checklist.required')}</span>}
                 </div>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}><Edit2 className="h-4 w-4" /></Button>
@@ -126,34 +132,34 @@ export function ChecklistItemsPage() {
 
       <Dialog open={showDialog} onOpenChange={v => !v && closeDialog()}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editId ? 'Edytuj pozycję' : 'Dodaj pozycję'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editId ? t('workshop.settings.checklist.editItem') : t('workshop.settings.checklist.addItem')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Nazwa *</Label><Input value={form.label} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} placeholder="np. Dowód rejestracyjny" /></div>
+            <div className="space-y-2"><Label>{t('workshop.settings.checklist.nameLabel')}</Label><Input value={form.label} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} placeholder={t('workshop.settings.checklist.namePlaceholder')} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Typ pola</Label>
+                <Label>{t('workshop.settings.checklist.fieldTypeLabel')}</Label>
                 <Select value={form.item_type} onValueChange={v => setForm(p => ({ ...p, item_type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="checkbox">Checkbox</SelectItem>
-                    <SelectItem value="text">Tekst</SelectItem>
-                    <SelectItem value="select">Wybór</SelectItem>
+                    <SelectItem value="checkbox">{t('workshop.settings.checklist.typeCheckbox')}</SelectItem>
+                    <SelectItem value="text">{t('workshop.settings.checklist.typeText')}</SelectItem>
+                    <SelectItem value="select">{t('workshop.settings.checklist.typeSelect')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Kolejność</Label>
+                <Label>{t('workshop.settings.checklist.orderLabel')}</Label>
                 <Input type="number" value={form.sort_order} onChange={e => setForm(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))} />
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Switch checked={form.is_required} onCheckedChange={v => setForm(p => ({ ...p, is_required: v }))} />
-              <Label>Wymagane</Label>
+              <Label>{t('workshop.settings.checklist.required')}</Label>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeDialog}>Anuluj</Button>
-            <Button onClick={() => saveMut.mutate(form)} disabled={!form.label.trim()}>Zapisz</Button>
+            <Button variant="outline" onClick={closeDialog}>{t('common.cancel')}</Button>
+            <Button onClick={() => saveMut.mutate(form)} disabled={!form.label.trim()}>{t('common.save')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
