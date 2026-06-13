@@ -14,6 +14,7 @@ import {
   Loader2, X, Check, PackagePlus, Plus, Wrench, ClipboardList,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 
 interface Props {
   open: boolean;
@@ -101,6 +102,25 @@ export function EmployeeWorkListDialog({
       return a.key.localeCompare(b.key);
     });
   }, [items]);
+
+  // CORE: batchowe tłumaczenie pozycji pracy (nazwy usług/części + nagłówki grup
+  // + opis) na język mechanika. Terminologia automotive.
+  const trFields = useMemo<TranslatableField[]>(() => {
+    const out: TranslatableField[] = [];
+    const seen = new Set<string>();
+    const push = (et: string, id: string, field: string, text?: string | null) => {
+      if (!id || !text) return;
+      const k = `${et}:${id}:${field}`;
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push({ entity_type: et, entity_id: id, field, text: String(text) });
+    };
+    for (const it of items) push('item', String(it.id), 'name', it.name);
+    for (const g of groups) push('item', `grp_${g.key}`, 'name', g.key);
+    if (order?.description) push('order', String(order.id), 'description', order.description);
+    return out;
+  }, [items, groups, order]);
+  const { t: tr } = useWorkshopTranslations(trFields, 'pl');
 
   const removeItem = async (id: string) => {
     if (!confirm(t('workshop.workList.confirmRemoveItem'))) return;
@@ -262,7 +282,7 @@ export function EmployeeWorkListDialog({
                   g.isAddon ? 'border-orange-300 ring-1 ring-orange-200' : ''
                 }`}>
                   <div className="flex items-center gap-2">
-                    <div className="font-semibold text-sm flex-1">{g.key}</div>
+                    <div className="font-semibold text-sm flex-1">{tr('item', `grp_${g.key}`, 'name', g.key)}</div>
                     {g.isAddon && (
                       <Badge className="bg-orange-500 text-white text-[10px]">{t('workshop.workList.addonBadge')}</Badge>
                     )}
@@ -272,7 +292,7 @@ export function EmployeeWorkListDialog({
                     <div className="rounded-md border bg-background px-3 py-2 flex items-center gap-2">
                       <Wrench className="h-4 w-4 text-primary shrink-0" />
                       <div className="flex-1">
-                        <div className="text-sm font-medium">{g.service.name || t('workshop.workList.labor')}</div>
+                        <div className="text-sm font-medium">{tr('item', g.service.id, 'name', g.service.name) || t('workshop.workList.labor')}</div>
                         {g.service.labor_hours ? (
                           <div className="text-xs text-muted-foreground">{g.service.labor_hours} h</div>
                         ) : null}
@@ -296,7 +316,7 @@ export function EmployeeWorkListDialog({
                       {g.parts.map(p => (
                         <div key={p.id} className="flex items-center gap-2 px-3 py-2">
                           <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
-                          <span className="flex-1 text-sm">{p.name}</span>
+                          <span className="flex-1 text-sm">{tr('item', p.id, 'name', p.name)}</span>
                           <button
                             type="button"
                             disabled={busy === p.id}
