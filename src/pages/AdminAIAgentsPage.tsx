@@ -47,6 +47,7 @@ const MODULES = [
   { value: 'marketplace', label: 'Marketplace Pojazdów', icon: ShoppingCart },
   { value: 'faktury', label: 'Faktury / Księgowość', icon: Calculator },
   { value: 'sprzedaz', label: 'Sprzedaż / CRM', icon: BarChart3 },
+  { value: 'voice', label: 'Agenci głosowi', icon: Phone },
   { value: 'komunikacja', label: 'Komunikacja', icon: MessageSquare },
   { value: 'translation', label: 'Tłumaczenia', icon: Globe },
   { value: 'ogolne', label: 'Ogólne / System', icon: Bot },
@@ -158,6 +159,9 @@ export default function AdminAIAgentsPage() {
   // Group agents by module (using description keyword matching as fallback)
   const getAgentModule = (agent: AgentConfig): string => {
     const desc = (agent.description + ' ' + agent.agent_id).toLowerCase();
+    // Agenci głosowi (silnik telefoniczny) — łap przed sprzedażą/warsztatem,
+    // bo persony (voice_sales_agent, voice_workshop_secretary) inaczej by się rozsypały.
+    if (agent.agent_id.startsWith('voice_') || desc.includes('głos') || desc.includes('telefon') || desc.includes('rozmow')) return 'voice';
     if (desc.includes('tłumacz') || desc.includes('translat') || desc.includes('translation')) return 'translation';
     if (desc.includes('nieruchom') || desc.includes('listing') || desc.includes('asari')) return 'nieruchomosci';
     if (desc.includes('warsztat') || desc.includes('workshop') || desc.includes('parts') || desc.includes('serwis')) return 'warsztat';
