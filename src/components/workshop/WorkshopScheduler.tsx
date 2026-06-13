@@ -533,7 +533,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
               <div className="text-sm text-muted-foreground py-3 text-center w-full">{t('workshop.scheduler.noTasksToSchedule')}</div>
             ) : (
               unplannedOrders.map((o: any) => (
-                <OrderCard key={o.id} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} isFocused={o.id === focusOrderId} employees={employees} updateOrder={updateOrder} />
+                <OrderCard key={o.id} tc={tc} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} isFocused={o.id === focusOrderId} employees={employees} updateOrder={updateOrder} />
               ))
             )}
           </div>
@@ -710,6 +710,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                             >
                               {scheduledOrder ? (
                                 <ScheduledOrderBlock
+                                  tc={tc}
                                   order={scheduledOrder}
                                   displaySpan={displaySpan}
                                   employees={employees}
@@ -786,6 +787,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
 
       {/* Slot dialog */}
       <SlotDialog
+        tc={tc}
         open={showSlotDialog}
         onOpenChange={setShowSlotDialog}
         slotData={slotData}
@@ -816,8 +818,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
 }
 
 // ---- Scheduled order block with quick preview ----
-function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDragStart, onDragEnd, onResizeStart }: {
-  order: any; displaySpan: number; employees: any[]; updateOrder: any;
+function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDragStart, onDragEnd, onResizeStart, tc }: {
+  order: any; displaySpan: number; employees: any[]; updateOrder: any; tc: (t?: string) => string;
   onDragStart: () => void; onDragEnd: () => void;
   onResizeStart: (e: React.MouseEvent, order: any, direction: 'top' | 'bottom') => void;
 }) {
@@ -962,7 +964,7 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
   );
 }
 
-function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, updateOrder }: { order: any; onDragStart: () => void; onDragEnd: () => void; isFocused?: boolean; employees: any[]; updateOrder: any }) {
+function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, updateOrder, tc }: { order: any; onDragStart: () => void; onDragEnd: () => void; isFocused?: boolean; employees: any[]; updateOrder: any; tc: (t?: string) => string; }) {
   const { t } = useTranslation();
   const [showPreview, setShowPreview] = useState(false);
   const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || 'none');
@@ -1053,7 +1055,8 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
   );
 }
 
-function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, allWorkstations, categories, activeCategory, onCategoryChange, stationName: _stationName, onSchedule, onStationChange }: {
+function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, allWorkstations, categories, activeCategory, onCategoryChange, stationName: _stationName, onSchedule, onStationChange, tc }: {
+  tc: (t?: string) => string;
   open: boolean; onOpenChange: (v: boolean) => void;
   slotData: { day: Date; hour: number; stationId: string } | null;
   providerId: string;
