@@ -200,7 +200,7 @@ function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; o
             onChange={(e) => setFormData((prev) => ({ ...prev, plate_number: e.target.value.toUpperCase() }))}
             onBlur={(e) => saveField("plate_number", e.target.value)}
             className="uppercase"
-            placeholder=t('cp.vehicles.enterPlate')
+            placeholder={t('cp.vehicles.enterPlate')}
           />
         </div>
 
@@ -211,7 +211,7 @@ function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; o
             onChange={(e) => setFormData((prev) => ({ ...prev, vin: e.target.value.toUpperCase() }))}
             onBlur={(e) => saveField("vin", e.target.value)}
             className="uppercase"
-            placeholder=t('cp.vehicles.enterVin')
+            placeholder={t('cp.vehicles.enterVin')}
           />
         </div>
 
@@ -247,7 +247,7 @@ function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; o
             value={formData.color}
             onChange={(e) => setFormData((prev) => ({ ...prev, color: e.target.value }))}
             onBlur={(e) => saveField("color", e.target.value)}
-            placeholder=t('cp.vehicles.colorPlaceholder')
+            placeholder={t('cp.vehicles.colorPlaceholder')}
           />
         </div>
 
@@ -370,7 +370,7 @@ function ClientVehicleDocumentsPanel({ vehicleId }: { vehicleId: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Input value={type} onChange={(e) => setType(e.target.value)} placeholder=t('cp.vehicles.documentType') />
+          <Input value={type} onChange={(e) => setType(e.target.value)} placeholder={t('cp.vehicles.documentType')} />
           <Input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           <Button onClick={uploadDocument} disabled={!file || uploading}>{uploading ? t('cp.vehicles.adding') : t('cp.vehicles.add')}</Button>
         </div>
@@ -902,7 +902,7 @@ function ClientVehicleAddDialog({
               <div>
                 <Label>VIN</Label>
                 <div className="relative">
-                  <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder=t('cp.vehicles.vinPlaceholder') className="uppercase pr-10" />
+                  <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder={t('cp.vehicles.vinPlaceholder')} className="uppercase pr-10" />
                   <button type="button" onClick={handleSearchVin} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded transition-colors hover:bg-accent">
                     {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground" />}
                   </button>
@@ -939,7 +939,7 @@ function ClientVehicleAddDialog({
 
               <div>
                 <Label>{t('cp.vehicles.color')}</Label>
-                <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder=t('cp.vehicles.colorPlaceholder') />
+                <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder={t('cp.vehicles.colorPlaceholder')} />
               </div>
 
               <div>
