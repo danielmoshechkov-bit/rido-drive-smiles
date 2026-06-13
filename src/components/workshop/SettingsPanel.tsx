@@ -21,7 +21,7 @@ import { OrderTypesPage } from './settings/OrderTypesPage';
 import { TaskTemplatesPage } from './settings/TaskTemplatesPage';
 import { ChecklistItemsPage } from './settings/ChecklistItemsPage';
 import { CalendarSettingsPage } from './settings/CalendarSettingsPage';
-import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SERVICE_PROVIDER_TAB_ORDER, type ServiceProviderNavTabKey } from '@/components/service-provider/navConfig';
+import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SERVICE_PROVIDER_TAB_LABEL_KEYS, SERVICE_PROVIDER_TAB_ORDER, type ServiceProviderNavTabKey } from '@/components/service-provider/navConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
@@ -372,7 +372,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                         checked={primaryTabs.includes(tab)}
                         onCheckedChange={(checked) => handlePrimaryTabToggle(tab, checked === true)}
                       />
-                      <span className="text-sm font-medium flex-1">{SERVICE_PROVIDER_TAB_LABELS[tab]}</span>
+                      <span className="text-sm font-medium flex-1">{t(SERVICE_PROVIDER_TAB_LABEL_KEYS[tab])}</span>
                       {primaryTabs.includes(tab) && (
                         <Select
                           value={String(primaryTabs.indexOf(tab) + 1)}

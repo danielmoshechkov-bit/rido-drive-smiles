@@ -51,3 +51,19 @@ export const SERVICE_PROVIDER_TAB_LABELS: Record<ServiceProviderNavTabKey, strin
   website: 'Strona WWW',
   settings: 'Ustawienia',
 };
+
+
+export const SERVICE_PROVIDER_TAB_LABEL_KEYS: Record<ServiceProviderNavTabKey, string> = {
+  dashboard: 'sp.tabs.dashboard',
+  services: 'sp.tabs.services',
+  workshop: 'sp.tabs.workshop',
+  accounting: 'sp.tabs.accounting',
+  calendar: 'sp.tabs.calendar',
+  leads: 'sp.tabs.leads',
+  ads: 'sp.tabs.ads',
+  'ai-agent': 'sp.tabs.aiAgent',
+  account: 'sp.tabs.selectModule',
+  workspace: 'sp.tabs.workspace',
+  website: 'sp.tabs.website',
+  settings: 'sp.tabs.settings',
+};
