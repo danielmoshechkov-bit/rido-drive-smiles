@@ -410,11 +410,6 @@ export default function PropertyDetailPage() {
               <div className="flex items-start justify-between gap-4 mb-2">
                 <h1 className="text-2xl md:text-3xl font-bold">
                   {translatedTitle}
-                  {isTranslated && (
-                    <span className="text-xs font-normal text-muted-foreground ml-2">
-                      {i18n.language === 'en' ? '(Translated)' : i18n.language === 'ru' ? '(Переведено)' : ''}
-                    </span>
-                  )}
                 </h1>
                 {listing.transactionType && (
                   <Badge 
