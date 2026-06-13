@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -29,19 +30,20 @@ import {
 import { toast } from 'sonner';
 
 const accountingSubTabs = [
-  { value: 'przeglad', label: 'Przegląd', icon: BarChart3, visible: true },
-  { value: 'faktury', label: 'Faktury', icon: FileText, visible: true },
-  { value: 'zakupy', label: 'Zakupy', icon: ShoppingBag, visible: true },
-  { value: 'oczekujace', label: 'Do sprawdzenia', icon: Mail, visible: true },
-  { value: 'dokumenty', label: 'Dokumenty', icon: FileSpreadsheet, visible: true },
-  { value: 'platnosci', label: 'Płatności', icon: CreditCard, visible: true },
-  { value: 'magazyn', label: 'Stan magazynowy', icon: Package, visible: true },
-  { value: 'email-faktury', label: 'Email faktury', icon: Mail, visible: true },
-  { value: 'ksef', label: 'KSeF', icon: Shield, visible: true },
-  { value: 'cykliczne', label: 'Cykliczne', icon: Clock, visible: true },
+  { value: 'przeglad', labelKey: 'cp.accounting.przeglad', label: 'Przegląd', icon: BarChart3, visible: true },
+  { value: 'faktury', labelKey: 'cp.accounting.invoices', label: 'Faktury', icon: FileText, visible: true },
+  { value: 'zakupy', labelKey: 'cp.accounting.purchases', label: 'Zakupy', icon: ShoppingBag, visible: true },
+  { value: 'oczekujace', labelKey: 'cp.accounting.review', label: 'Do sprawdzenia', icon: Mail, visible: true },
+  { value: 'dokumenty', labelKey: 'cp.accounting.documents', label: 'Dokumenty', icon: FileSpreadsheet, visible: true },
+  { value: 'platnosci', labelKey: 'cp.accounting.payments', label: 'Płatności', icon: CreditCard, visible: true },
+  { value: 'magazyn', labelKey: 'cp.accounting.warehouse', label: 'Stan magazynowy', icon: Package, visible: true },
+  { value: 'email-faktury', labelKey: 'cp.accounting.emailInvoices', label: 'Email faktury', icon: Mail, visible: true },
+  { value: 'ksef', labelKey: '', label: 'KSeF', icon: Shield, visible: true },
+  { value: 'cykliczne', labelKey: 'cp.accounting.recurring', label: 'Cykliczne', icon: Clock, visible: true },
 ];
 
 export function ServiceProviderAccountingView() {
+  const { t } = useTranslation();
   const [subTab, setSubTab] = useState('przeglad');
   const { count: ksefUnread, markAllRead: markKsefRead } = useKsefUnreadCount();
   const [user, setUser] = useState<any>(null);
@@ -100,7 +102,7 @@ export function ServiceProviderAccountingView() {
           setSubTab(tab);
           if (tab === 'ksef') markKsefRead();
         }}
-        tabs={accountingSubTabs.map(t => t.value === 'ksef' && ksefUnread > 0 ? { ...t, label: `KSeF (${ksefUnread})` } : t)}
+        tabs={accountingSubTabs.map(tab => tab.value === 'ksef' && ksefUnread > 0 ? { ...tab, label: `KSeF (${ksefUnread})` } : { ...tab, label: tab.labelKey ? t(tab.labelKey) : tab.label })}
       />
 
       {/* Przegląd */}
@@ -110,12 +112,12 @@ export function ServiceProviderAccountingView() {
             <Card className="border-dashed border-2 border-primary/30">
               <CardContent className="py-8 text-center">
                 <Building2 className="h-12 w-12 mx-auto mb-4 text-primary/50" />
-                <p className="font-semibold mb-2">Skonfiguruj dane firmy</p>
+                <p className="font-semibold mb-2">{t('cp.accounting.configureCompany')}</p>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Dodaj dane firmy, aby móc wystawiać faktury
+                  {t('cp.accounting.addCompanyDataHint')}
                 </p>
                 <Button onClick={() => setShowCompanySetup(true)}>
-                  <Plus className="h-4 w-4 mr-2" />Dodaj firmę
+                  <Plus className="h-4 w-4 mr-2" />{t('cp.settings.addCompany')}
                 </Button>
               </CardContent>
             </Card>
@@ -129,10 +131,10 @@ export function ServiceProviderAccountingView() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Faktury (miesiąc)</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.accounting.invoicesMonth')}</p>
                     <p className="text-3xl font-bold">{invoices.length}</p>
                     <p className="text-sm text-muted-foreground">
-                      {invoices.filter(i => i.is_paid === true).length} opłaconych
+                      {invoices.filter(i => i.is_paid === true).length} {t('cp.accounting.paidCount')}
                     </p>
                   </div>
                   <FileText className="h-6 w-6 text-muted-foreground" />
@@ -143,11 +145,11 @@ export function ServiceProviderAccountingView() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Przychód brutto</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.accounting.grossRevenue')}</p>
                     <p className="text-3xl font-bold">
                       {invoices.reduce((sum, i) => sum + Number(i.gross_total || 0), 0).toLocaleString('pl-PL')} zł
                     </p>
-                    <p className="text-sm text-muted-foreground">Suma faktur</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.accounting.invoiceSum')}</p>
                   </div>
                   <FileText className="h-6 w-6 text-muted-foreground" />
                 </div>
@@ -157,11 +159,11 @@ export function ServiceProviderAccountingView() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Do zapłaty</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.accounting.toPay')}</p>
                     <p className="text-3xl font-bold text-destructive">
                       {invoices.filter(i => i.is_paid !== true).length}
                     </p>
-                    <p className="text-sm text-muted-foreground">Nieopłacone faktury</p>
+                    <p className="text-sm text-muted-foreground">{t('cp.accounting.unpaidInvoices')}</p>
                   </div>
                   <FileText className="h-6 w-6 text-muted-foreground" />
                 </div>
@@ -170,14 +172,14 @@ export function ServiceProviderAccountingView() {
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold mb-4">Szybkie akcje</h3>
+            <h3 className="text-lg font-semibold mb-4">{t('cp.accounting.quickActions')}</h3>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <Button onClick={handleNewInvoice} className="h-auto py-3">
-                  <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
+                  <Plus className="h-4 w-4 mr-2" />{t('cp.accounting.issueInvoice')}
                 </Button>
                 <Button variant="outline" className="h-auto py-3" onClick={() => setShowCostInvoice(true)}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />Dodaj fakturę kosztową
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />{t('cp.accounting.addCostInvoice')}
                 </Button>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -186,11 +188,11 @@ export function ServiceProviderAccountingView() {
                 </Button>
                 {userEntities.length === 0 ? (
                   <Button variant="outline" className="h-auto py-3" onClick={() => setShowCompanySetup(true)}>
-                    <Building2 className="h-4 w-4 mr-2" />Dodaj firmę
+                    <Building2 className="h-4 w-4 mr-2" />{t('cp.settings.addCompany')}
                   </Button>
                 ) : (
                   <Button variant="outline" className="h-auto py-3" onClick={() => { setEditingEntity(userEntities[0]); setShowCompanySetup(true); }}>
-                    <Building2 className="h-4 w-4 mr-2" />Edytuj firmę
+                    <Building2 className="h-4 w-4 mr-2" />{t('cp.accounting.editCompany')}
                   </Button>
                 )}
               </div>
@@ -201,8 +203,8 @@ export function ServiceProviderAccountingView() {
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <CardTitle>Ostatnie faktury</CardTitle>
-                  <CardDescription>Najnowsze dokumenty sprzedażowe</CardDescription>
+                  <CardTitle>{t('cp.accounting.recentInvoices')}</CardTitle>
+                  <CardDescription>{t('cp.accounting.recentInvoicesDesc')}</CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   <select value={invoiceMonth} onChange={e => setInvoiceMonth(parseInt(e.target.value))} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
@@ -236,9 +238,9 @@ export function ServiceProviderAccountingView() {
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Brak faktur w wybranym okresie</p>
+                    <p>{t('cp.accounting.noInvoicesPeriod')}</p>
                     <Button className="mt-4" onClick={handleNewInvoice}>
-                      <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
+                      <Plus className="h-4 w-4 mr-2" />{t('cp.accounting.issueInvoice')}
                     </Button>
                   </div>
                 );
@@ -254,11 +256,11 @@ export function ServiceProviderAccountingView() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Faktury</CardTitle>
-                <CardDescription>Lista wszystkich faktur</CardDescription>
+                <CardTitle>{t('cp.accounting.invoices')}</CardTitle>
+                <CardDescription>{t('cp.accounting.allInvoices')}</CardDescription>
               </div>
               <Button onClick={handleNewInvoice}>
-                <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
+                <Plus className="h-4 w-4 mr-2" />{t('cp.accounting.issueInvoice')}
               </Button>
             </div>
           </CardHeader>
@@ -272,9 +274,9 @@ export function ServiceProviderAccountingView() {
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Brak faktur</p>
+                <p>{t('cp.accounting.noInvoices')}</p>
                 <Button className="mt-4" onClick={handleNewInvoice}>
-                  <Plus className="h-4 w-4 mr-2" />Wystaw fakturę
+                  <Plus className="h-4 w-4 mr-2" />{t('cp.accounting.issueInvoice')}
                 </Button>
               </div>
             )}
@@ -304,8 +306,8 @@ export function ServiceProviderAccountingView() {
         <Card>
           <CardContent className="py-12 text-center">
             <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-            <p className="font-semibold mb-2">{accountingSubTabs.find(s => s.value === subTab)?.label}</p>
-            <p className="text-sm text-muted-foreground">Ta sekcja jest w trakcie budowy</p>
+            <p className="font-semibold mb-2">{(() => { const st = accountingSubTabs.find(s => s.value === subTab); return st?.labelKey ? t(st.labelKey) : st?.label; })()}</p>
+            <p className="text-sm text-muted-foreground">{t('cp.accounting.underConstruction')}</p>
           </CardContent>
         </Card>
       )}
@@ -313,7 +315,7 @@ export function ServiceProviderAccountingView() {
       {/* Modals */}
       <Dialog open={showNewInvoice} onOpenChange={(open) => { setShowNewInvoice(open); if (!open) loadData(); }}>
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
-          <DialogTitle className="sr-only">Wystaw fakturę</DialogTitle>
+          <DialogTitle className="sr-only">{t('cp.accounting.issueInvoice')}</DialogTitle>
           <SimpleFreeInvoice
             onClose={() => { setShowNewInvoice(false); loadData(); }}
             onSaved={() => { setShowNewInvoice(false); loadData(); }}
@@ -341,12 +343,12 @@ export function ServiceProviderAccountingView() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Uzupełnij dane firmy
+              {t('cp.accounting.fillCompanyData')}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Przed wystawieniem faktury musisz uzupełnić dane firmy, w tym NIP. 
-            Przejdź do zakładki KSeF → sekcji Token, aby uzupełnić dane.
+            {t('cp.accounting.mustFillCompany')} 
+            {t('cp.accounting.goToKsefToken')}
           </p>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowMissingCompanyModal(false)}>
@@ -360,7 +362,7 @@ export function ServiceProviderAccountingView() {
                 setSubTab('ksef');
               }
             }}>
-              {!hasCompanySetup ? 'Dodaj firmę' : 'Uzupełnij dane'}
+              {!hasCompanySetup ? t('cp.settings.addCompany') : t('cp.accounting.fillData')}
             </Button>
           </DialogFooter>
         </DialogContent>

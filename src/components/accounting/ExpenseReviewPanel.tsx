@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import { 
   FileText, 
   Check, 
@@ -49,16 +50,17 @@ interface ExpenseReviewPanelProps {
   entityId: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  inbox: { label: 'Nowe', color: 'bg-blue-100 text-blue-800' },
-  processing: { label: 'Przetwarzanie', color: 'bg-yellow-100 text-yellow-800' },
-  needs_review: { label: 'Do sprawdzenia', color: 'bg-orange-100 text-orange-800' },
-  approved: { label: 'Zatwierdzone', color: 'bg-green-100 text-green-800' },
-  booked: { label: 'Zaksięgowane', color: 'bg-primary/20 text-primary' },
-  rejected: { label: 'Odrzucone', color: 'bg-red-100 text-red-800' },
+const STATUS_CONFIG: Record<string, { labelKey: string; color: string }> = {
+  inbox: { labelKey: 'cp.accounting.statusNew', color: 'bg-blue-100 text-blue-800' },
+  processing: { labelKey: 'cp.accounting.statusProcessing', color: 'bg-yellow-100 text-yellow-800' },
+  needs_review: { labelKey: 'cp.accounting.review', color: 'bg-orange-100 text-orange-800' },
+  approved: { labelKey: 'cp.accounting.statusApproved', color: 'bg-green-100 text-green-800' },
+  booked: { labelKey: 'cp.accounting.booked', color: 'bg-primary/20 text-primary' },
+  rejected: { labelKey: 'cp.accounting.statusRejected', color: 'bg-red-100 text-red-800' },
 };
 
 export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
+  const { t } = useTranslation();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
@@ -89,7 +91,7 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
       setDocuments((data || []) as Document[]);
     } catch (error) {
       console.error('Error fetching documents:', error);
-      toast.error('Błąd ładowania dokumentów');
+      toast.error(t('cp.accounting.loadDocsError'));
     } finally {
       setLoading(false);
     }
@@ -126,13 +128,13 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
 
       if (updateError) throw updateError;
 
-      toast.success('Dokument zatwierdzony i zaksięgowany');
+      toast.success(t('cp.accounting.docApproved'));
       setComment('');
       setSelectedDoc(null);
       fetchDocuments();
     } catch (error) {
       console.error('Error approving document:', error);
-      toast.error('Błąd zatwierdzania dokumentu');
+      toast.error(t('cp.accounting.approveError'));
     } finally {
       setProcessing(false);
     }
@@ -152,13 +154,13 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
 
       if (error) throw error;
 
-      toast.success('Dokument odrzucony');
+      toast.success(t('cp.accounting.docRejected'));
       setComment('');
       setSelectedDoc(null);
       fetchDocuments();
     } catch (error) {
       console.error('Error rejecting document:', error);
-      toast.error('Błąd odrzucania dokumentu');
+      toast.error(t('cp.accounting.rejectError'));
     } finally {
       setProcessing(false);
     }
@@ -166,7 +168,7 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
 
   const handleRequestClarification = async (doc: Document) => {
     if (!comment.trim()) {
-      toast.error('Wpisz pytanie do klienta');
+      toast.error(t('cp.accounting.enterQuestion'));
       return;
     }
 
@@ -182,12 +184,12 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
 
       if (error) throw error;
 
-      toast.success('Wysłano pytanie do klienta');
+      toast.success(t('cp.accounting.questionSent'));
       setComment('');
       fetchDocuments();
     } catch (error) {
       console.error('Error requesting clarification:', error);
-      toast.error('Błąd wysyłania pytania');
+      toast.error(t('cp.accounting.questionError'));
     } finally {
       setProcessing(false);
     }
@@ -216,7 +218,7 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
               </p>
             </div>
             <Badge className={STATUS_CONFIG[doc.status]?.color || 'bg-muted'}>
-              {STATUS_CONFIG[doc.status]?.label || doc.status}
+              {(() => { const c = STATUS_CONFIG[doc.status]; return c?.labelKey ? t(c.labelKey) : doc.status; })()}
             </Badge>
           </div>
         </CardHeader>
@@ -243,7 +245,7 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
             <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Sparkles className="h-4 w-4 text-primary" />
-                AI rozpoznał:
+                {t('cp.accounting.aiRecognized')}:
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
@@ -255,25 +257,25 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
                   <p className="font-medium">{(extraction.supplier_nip as string) || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Netto:</span>
+                  <span className="text-muted-foreground">{t('cp.accounting.net')}:</span>
                   <p className="font-medium">{formatCurrency(extraction.net_amount)}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Brutto:</span>
+                  <span className="text-muted-foreground">{t('cp.accounting.gross')}:</span>
                   <p className="font-medium">{formatCurrency(extraction.gross_amount)}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Data:</span>
+                  <span className="text-muted-foreground">{t('cp.accounting.date')}:</span>
                   <p className="font-medium">{(extraction.invoice_date as string) || '-'}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Numer:</span>
+                  <span className="text-muted-foreground">{t('cp.accounting.number')}:</span>
                   <p className="font-medium">{(extraction.invoice_number as string) || '-'}</p>
                 </div>
               </div>
               {extraction.confidence && (
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs text-muted-foreground">Pewność AI:</span>
+                  <span className="text-xs text-muted-foreground">{t('cp.accounting.aiConfidence')}:</span>
                   <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-primary rounded-full"
@@ -300,7 +302,7 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
             <Textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Dodaj komentarz lub pytanie..."
+              placeholder={t('cp.accounting.commentPlaceholder')}
               rows={2}
             />
           </div>
@@ -315,7 +317,7 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
               disabled={processing}
             >
               <X className="h-4 w-4 mr-1" />
-              Odrzuć
+              {t('cp.accounting.reject')}
             </Button>
             <Button
               variant="outline"
@@ -336,7 +338,7 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
               ) : (
                 <Check className="h-4 w-4 mr-1" />
               )}
-              Zatwierdź
+              {t('cp.accounting.approve')}
             </Button>
           </div>
         </CardContent>
@@ -357,10 +359,10 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
         <div>
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Panel weryfikacji dokumentów
+            {t('cp.accounting.reviewPanelTitle')}
           </h3>
           <p className="text-sm text-muted-foreground">
-            Przeglądaj i zatwierdzaj dokumenty kosztowe
+            {t('cp.accounting.reviewPanelDesc')}
           </p>
         </div>
         <Select value={filter} onValueChange={setFilter}>
@@ -385,7 +387,7 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
         </div>
       ) : documents.length === 0 ? (
         <Card className="py-12 text-center">
-          <p className="text-muted-foreground">Brak dokumentów do przeglądania</p>
+          <p className="text-muted-foreground">{t('cp.accounting.noDocsToReview')}</p>
         </Card>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
