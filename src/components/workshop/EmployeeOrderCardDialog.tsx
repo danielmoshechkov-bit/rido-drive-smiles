@@ -162,6 +162,16 @@ export function EmployeeOrderCardDialog({
 
   const confirmedCount = useMemo(() => tasks.filter(t => t.confirmed).length, [tasks]);
 
+  // Blokada edycji diagnozy gdy wycena już poszła do klienta (oczekuje/zaakceptowana).
+  // Edycja wraca tylko przez "Dodatek do naprawy" po akceptacji. Przed wyceną — edytowalne.
+  const orderStatus = String(order?.status_name || '');
+  const estimateLocked =
+    !!order?.estimate_sent_to_client ||
+    ['Do wyceny', 'Oczekuje na akceptację', 'Wycena gotowa', 'Wycena wysłana',
+     'Zaakceptowano', 'Akceptacja klienta', 'Zgoda na naprawę', 'W trakcie naprawy',
+     'Dodatek do naprawy', 'Zadania wykonane', 'Naprawione', 'Gotowy do odbioru', 'Zakończone'].includes(orderStatus);
+  const ro = readOnly || estimateLocked;
+
   // CORE: tłumaczenie treści zgłoszenia klienta (tytuł pozycji + "Обращение клиента")
   // na język mechanika. Parts to edytowalne pola robocze — nie tłumaczymy.
   const tcFields = useMemo<TranslatableField[]>(() => {
@@ -308,7 +318,7 @@ export function EmployeeOrderCardDialog({
   };
 
   const handleFinishDiagnosis = async () => {
-    if (!orderId || readOnly) return;
+    if (!orderId || ro) return;
     if (!allConfirmed) return;
     setSaving(true);
     try {
@@ -355,7 +365,7 @@ export function EmployeeOrderCardDialog({
                 {vehicle?.plate ? ` · ${vehicle.plate}` : ''}
               </div>
             </div>
-            {readOnly && (
+            {ro && (
               <Badge variant="outline" className="gap-1 text-amber-700 border-amber-300 bg-amber-50 shrink-0">
                 <Lock className="h-3 w-3" /> {tr('workshop.employeeCard.preview')}
               </Badge>
@@ -437,7 +447,7 @@ export function EmployeeOrderCardDialog({
                               {t.parts.map((p, pi) => (
                                 <div key={pi} className="flex items-center gap-2 px-3 py-2">
                                   <span className="flex-1 text-sm">{p.name}</span>
-                                  {!readOnly && (
+                                  {!ro && (
                                     <button
                                       type="button" onClick={() => removePart(ti, pi)}
                                       className="text-muted-foreground hover:text-destructive p-1"
@@ -449,7 +459,7 @@ export function EmployeeOrderCardDialog({
                               ))}
                             </div>
                           )}
-                          {!readOnly && (
+                          {!ro && (
                             <div className="flex gap-2">
                               <Input
                                 ref={el => { partInputRefs.current[ti] = el; }}
@@ -477,7 +487,7 @@ export function EmployeeOrderCardDialog({
                             </div>
                           )}
                         </div>
-                        {!readOnly && (
+                        {!ro && (
                           <div>
                             <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">
                               {tr('workshop.employeeCard.workDoneLabor')}
@@ -501,7 +511,7 @@ export function EmployeeOrderCardDialog({
                               <Input
                                 ref={el => { timeInputRefs.current[ti] = el; }}
                                 type="number" step="0.25" min="0" inputMode="decimal"
-                                value={t.time} disabled={readOnly}
+                                value={t.time} disabled={ro}
                                 onFocus={e => e.currentTarget.select()}
                                 onChange={e => setTime(ti, e.target.value)}
                                 placeholder="0.5"
@@ -517,7 +527,7 @@ export function EmployeeOrderCardDialog({
                             <div className="relative">
                               <Input
                                 type="number" step="0.01" min="0" inputMode="decimal"
-                                value={t.cost} disabled={readOnly}
+                                value={t.cost} disabled={ro}
                                 onFocus={e => e.currentTarget.select()}
                                 onChange={e => setCost(ti, e.target.value)}
                                 placeholder={tr('workshop.employeeCard.optional')}
@@ -531,7 +541,7 @@ export function EmployeeOrderCardDialog({
                           <p className="text-xs text-destructive">{t.timeError}</p>
                         )}
 
-                        {!readOnly && (
+                        {!ro && (
                           <Button
                             onClick={() => confirmTask(ti)}
                             className="w-full h-11"
@@ -546,7 +556,7 @@ export function EmployeeOrderCardDialog({
                 );
               })}
 
-              {!readOnly && (
+              {!ro && (
                 <Button
                   variant="outline"
                   className="w-full h-11 border-dashed"
@@ -572,7 +582,7 @@ export function EmployeeOrderCardDialog({
                 </Button>
               )}
 
-              {readOnly && (
+              {ro && (
                 <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                   <Trans i18nKey="workshop.employeeCard.poolHint" components={{ b: <b /> }} />
                 </div>
@@ -583,7 +593,7 @@ export function EmployeeOrderCardDialog({
 
         {/* FOOTER */}
         <div className="sticky bottom-0 bg-card border-t p-3 space-y-2">
-          {readOnly ? (
+          {ro ? (
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1 h-11" onClick={() => onOpenChange(false)}>{tr('workshop.employeeCard.close')}</Button>
               {onClaim && (
