@@ -3589,7 +3589,8 @@
       "tasks_one": "Задачи ({{count}})",
       "tasks_few": "Задачи ({{count}})",
       "tasks_many": "Задачи ({{count}})",
-      "tasks_other": "Задачи ({{count}})"
+      "tasks_other": "Задачи ({{count}})",
+      "defaultStation": "Пост 1"
     },
     "bookings": {
       "status": {

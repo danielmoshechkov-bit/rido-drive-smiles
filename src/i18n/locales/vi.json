@@ -3424,7 +3424,8 @@
       "orderAddedToSchedule": "Đã thêm đơn hàng vào lịch",
       "andMore_other": "+{{count}} nữa",
       "andMoreEllipsis_other": "...và {{count}} nữa",
-      "tasks_other": "Công việc ({{count}})"
+      "tasks_other": "Công việc ({{count}})",
+      "defaultStation": "Trạm 1"
     },
     "bookings": {
       "status": {

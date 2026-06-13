@@ -3448,7 +3448,8 @@
       "andMoreEllipsis_one": "...und {{count}} weitere",
       "andMoreEllipsis_other": "...und {{count}} weitere",
       "tasks_one": "Aufgaben ({{count}})",
-      "tasks_other": "Aufgaben ({{count}})"
+      "tasks_other": "Aufgaben ({{count}})",
+      "defaultStation": "Station 1"
     },
     "bookings": {
       "status": {

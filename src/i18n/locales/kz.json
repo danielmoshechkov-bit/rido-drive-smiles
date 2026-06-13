@@ -3541,7 +3541,8 @@
       "andMoreEllipsis_one": "...және тағы {{count}}",
       "andMoreEllipsis_other": "...және тағы {{count}}",
       "tasks_one": "Тапсырмалар ({{count}})",
-      "tasks_other": "Тапсырмалар ({{count}})"
+      "tasks_other": "Тапсырмалар ({{count}})",
+      "defaultStation": "Бекет 1"
     },
     "bookings": {
       "status": {

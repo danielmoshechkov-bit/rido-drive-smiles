@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 
 interface Props {
   providerId: string;
@@ -231,6 +232,24 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
     const filtered = workstations.filter((ws: any) => (ws.category || 'Warsztat') === activeCategory);
     return filtered.length > 0 ? filtered : [{ id: '__default', name: 'Stanowisko 1', category: activeCategory }];
   }, [workstations, activeCategory]);
+
+  // CORE: tłumaczenie treści (stanowiska, kategorie, pozycje) na język oglądającego.
+  // auto — treść mógł wpisać admin (PL) lub mechanik (UA/RU); kluczujemy po treści.
+  const schedTexts = useMemo(() => {
+    const set = new Set<string>();
+    (workstations as any[]).forEach((ws: any) => { if (ws?.name) set.add(String(ws.name)); });
+    categories.forEach((c: string) => { if (c) set.add(c); });
+    (allCalendarItems as any[]).forEach((o: any) => {
+      (o.items || []).forEach((it: any) => { if (it?.name) set.add(String(it.name)); });
+    });
+    return Array.from(set);
+  }, [workstations, categories, allCalendarItems]);
+  const schedTransFields = useMemo<TranslatableField[]>(
+    () => schedTexts.map((txt) => ({ entity_type: 'sched', entity_id: txt, field: 'name', text: txt })),
+    [schedTexts],
+  );
+  const { t: tcMap } = useWorkshopTranslations(schedTransFields, 'auto');
+  const tc = (txt?: string) => (txt ? (tcMap('sched', txt, 'name', txt) || txt) : (txt || ''));
 
   const addStationMut = useMutation({
     mutationFn: async ({ name, category }: { name: string; category: string }) => {
@@ -527,7 +546,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           <div className="flex items-center gap-1 border rounded-lg p-0.5 bg-muted/30">
             {categories.map(cat => (
               <Button key={cat} variant={activeCategory === cat ? 'default' : 'ghost'} size="sm" onClick={() => setActiveCategory(cat)} className="text-xs h-7">
-                {cat}
+                {tc(cat)}
               </Button>
             ))}
             <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => setShowAddCategory(true)}>
@@ -602,7 +621,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                     <th key={st.id} colSpan={weekDays.length} className={`bg-[hsl(220,80%,50%)] text-white border-b border-foreground/20 p-1.5 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-[3px] border-r-foreground/40' : 'border-r-2 border-r-foreground/20'}`}>
                       <div className="flex items-center justify-center gap-1">
                         <Wrench className="h-3 w-3" />
-                        <span className="font-semibold text-xs truncate">{st.name}</span>
+                        <span className="font-semibold text-xs truncate">{st.id === '__default' ? t('workshop.scheduler.defaultStation') : tc(st.name)}</span>
                         {st.id !== '__default' && (
                           <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-50 hover:opacity-100 ml-0.5">
                             <X className="h-3 w-3" />
@@ -731,7 +750,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
               <Select value={newStationCategory} onValueChange={setNewStationCategory}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {categories.map(c => <SelectItem key={c} value={c}>{tc(c)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -851,7 +870,7 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
           {isBooking ? (
             <>
               {order.vehicle?.plate && <div className="text-white/70 truncate ml-4">{order.vehicle.plate}</div>}
-              {order.items?.[0]?.name && <div className="text-white/60 truncate ml-4 text-[9px]">{order.items[0].name}</div>}
+              {order.items?.[0]?.name && <div className="text-white/60 truncate ml-4 text-[9px]">{tc(order.items[0].name)}</div>}
             </>
           ) : (
             <>
@@ -916,7 +935,7 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
               {order.items.slice(0, 5).map((item: any, idx: number) => (
                 <div key={idx} className="text-xs flex items-start gap-1">
                   <Wrench className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                  <span>{item.name}</span>
+                  <span>{tc(item.name)}</span>
                 </div>
               ))}
               {order.items.length > 5 && <div className="text-[10px] text-muted-foreground">{t('workshop.scheduler.andMoreEllipsis', { count: order.items.length - 5 })}</div>}
@@ -976,7 +995,7 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
             <div className="text-[10px] text-muted-foreground">{order.order_number}</div>
             {order.items?.slice(0, 2).map((item: any, idx: number) => (
               <div key={idx} className="flex items-center text-[10px]">
-                <Wrench className="h-2.5 w-2.5 flex-shrink-0 mr-1" /> <span className="truncate">{item.name}</span>
+                <Wrench className="h-2.5 w-2.5 flex-shrink-0 mr-1" /> <span className="truncate">{tc(item.name)}</span>
               </div>
             ))}
           </CardContent>
@@ -1011,7 +1030,7 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
             <div className="space-y-1 border-b pb-2">
               <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{t('workshop.scheduler.tasks', { count: order.items.length })}</div>
               {order.items.slice(0, 5).map((item: any, idx: number) => (
-                <div key={idx} className="text-xs flex items-start gap-1"><Wrench className="h-3 w-3 flex-shrink-0 mt-0.5" /><span>{item.name}</span></div>
+                <div key={idx} className="text-xs flex items-start gap-1"><Wrench className="h-3 w-3 flex-shrink-0 mt-0.5" /><span>{tc(item.name)}</span></div>
               ))}
               {order.items.length > 5 && <div className="text-[10px] text-muted-foreground">{t('workshop.scheduler.andMoreEllipsis', { count: order.items.length - 5 })}</div>}
             </div>
@@ -1300,7 +1319,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c: string) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                    <SelectItem key={c} value={c}>{tc(c)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1311,7 +1330,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {stations.map((st: any) => (
-                    <SelectItem key={st.id} value={st.id}>{st.name}</SelectItem>
+                    <SelectItem key={st.id} value={st.id}>{tc(st.name)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

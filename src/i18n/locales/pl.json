@@ -3589,7 +3589,8 @@
       "tasks_one": "Zadania ({{count}})",
       "tasks_few": "Zadania ({{count}})",
       "tasks_many": "Zadania ({{count}})",
-      "tasks_other": "Zadania ({{count}})"
+      "tasks_other": "Zadania ({{count}})",
+      "defaultStation": "Stanowisko 1"
     },
     "bookings": {
       "status": {
