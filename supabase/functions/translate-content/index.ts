@@ -63,6 +63,7 @@ serve(async (req) => {
     // zwracamy mapę pierwszego targetu + licznik — prewarm i tak czyta z cache.
     const primaryTarget = targets[0];
     const result: Record<string, string> = {};
+    const providerErrors: string[] = [];
     let translatedCount = 0;
     let providerUsed = '';
 
@@ -116,7 +117,7 @@ serve(async (req) => {
       }
 
       for (const [sl, group] of bySource) {
-        const { translations, provider, ok } = await translateTexts({
+        const { translations, provider, ok, error } = await translateTexts({
           texts: group.map(g => g.text),
           sourceLang: sl,
           targetLang: target,
@@ -124,6 +125,7 @@ serve(async (req) => {
           domainHint,
         });
         providerUsed = provider;
+        if (!ok && error) providerErrors.push(error);
         for (let i = 0; i < group.length; i++) {
           const g = group[i];
           const tr = translations[i] ?? g.text;
@@ -157,8 +159,10 @@ serve(async (req) => {
     return json({
       translations: result,
       provider: providerUsed || undefined,
+      model,
       translated_count: translatedCount,
       cached: translatedCount === 0,
+      errors: providerErrors.length ? providerErrors.slice(0, 3) : undefined,
     });
   } catch (e) {
     console.error('translate-content error:', e);

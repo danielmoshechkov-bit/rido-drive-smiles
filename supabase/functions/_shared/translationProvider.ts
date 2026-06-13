@@ -33,6 +33,12 @@ export function detectSourceLang(text: string): string {
 
 export type Provider = 'anthropic' | 'gemini' | 'kimi';
 
+/** Oczyść klucz API: usuń znaki spoza drukowalnego ASCII (śmieci z wklejenia:
+ *  smart-quotes, zero-width, nbsp, \r\n) — inaczej fetch rzuca „invalid ByteString". */
+function cleanKey(v: string | undefined): string {
+  return (v || '').replace(/[^\x20-\x7E]/g, '').trim();
+}
+
 /** Wykryj providera ze stringa modelu (np. 'claude-haiku-4-5' → anthropic). */
 export function detectProvider(model: string): Provider {
   const m = (model || '').toLowerCase();
@@ -96,7 +102,7 @@ ${numbered}`;
     let raw = '{}';
 
     if (provider === 'anthropic') {
-      const key = Deno.env.get('ANTHROPIC_API_KEY');
+      const key = cleanKey(Deno.env.get('ANTHROPIC_API_KEY'));
       if (!key) throw new Error('ANTHROPIC_API_KEY missing');
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -113,7 +119,7 @@ ${numbered}`;
       raw = d.content?.[0]?.text?.trim() || '{}';
     } else if (provider === 'gemini') {
       // Lovable AI Gateway (Google Gemini / OpenAI — OpenAI-compatible)
-      const key = Deno.env.get('LOVABLE_API_KEY');
+      const key = cleanKey(Deno.env.get('LOVABLE_API_KEY'));
       if (!key) throw new Error('LOVABLE_API_KEY missing');
       const gwModel = /^(google|openai)\//.test(model) ? model : `google/${model}`;
       const r = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -130,7 +136,7 @@ ${numbered}`;
       raw = d.choices?.[0]?.message?.content?.trim() || '{}';
     } else {
       // Kimi / Moonshot (default)
-      const key = Deno.env.get('MOONSHOT_API_KEY') || Deno.env.get('KIMI_API_KEY');
+      const key = cleanKey(Deno.env.get('MOONSHOT_API_KEY') || Deno.env.get('KIMI_API_KEY'));
       if (!key) throw new Error('MOONSHOT_API_KEY/KIMI_API_KEY missing');
       const r = await fetch('https://api.moonshot.ai/v1/chat/completions', {
         method: 'POST',
