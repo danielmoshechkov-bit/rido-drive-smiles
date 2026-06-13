@@ -4099,6 +4099,8 @@
     "addModule": "Add module",
     "extendFunctionality": "Extend functionality",
     "addNewModule": "Add a new module",
-    "selectToActivate": "Select the module you want to activate"
+    "selectToActivate": "Select the module you want to activate",
+    "comingSoon": "Soon",
+    "allAccountTypes": "You already have all available account types"
   }
 }

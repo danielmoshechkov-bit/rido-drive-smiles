@@ -3968,6 +3968,8 @@
     "addModule": "Thêm mô-đun",
     "extendFunctionality": "Mở rộng chức năng",
     "addNewModule": "Thêm mô-đun mới",
-    "selectToActivate": "Chọn mô-đun bạn muốn kích hoạt"
+    "selectToActivate": "Chọn mô-đun bạn muốn kích hoạt",
+    "comingSoon": "Sắp có",
+    "allAccountTypes": "Bạn đã có tất cả loại tài khoản khả dụng"
   }
 }

@@ -378,7 +378,7 @@ export function AccountSwitcherPanel({
 
             {availableRegistrationOptions.length === 0 && (
               <p className="col-span-2 text-center text-muted-foreground py-4">
-                Masz już wszystkie dostępne typy kont
+                {t('accountSwitcher.allAccountTypes')}
               </p>
             )}
           </div>

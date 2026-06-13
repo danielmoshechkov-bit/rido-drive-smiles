@@ -4099,6 +4099,8 @@
     "addModule": "Модуль қосу",
     "extendFunctionality": "Функционалды кеңейту",
     "addNewModule": "Жаңа модуль қосу",
-    "selectToActivate": "Іске қосқыңыз келетін модульді таңдаңыз"
+    "selectToActivate": "Іске қосқыңыз келетін модульді таңдаңыз",
+    "comingSoon": "Жақында",
+    "allAccountTypes": "Сізде барлық қолжетімді аккаунт түрлері бар"
   }
 }

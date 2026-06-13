@@ -4175,6 +4175,8 @@
     "addModule": "Dodaj moduł",
     "extendFunctionality": "Rozszerz funkcjonalność",
     "addNewModule": "Dodaj nowy moduł",
-    "selectToActivate": "Wybierz moduł, który chcesz aktywować"
+    "selectToActivate": "Wybierz moduł, który chcesz aktywować",
+    "comingSoon": "Wkrótce",
+    "allAccountTypes": "Masz już wszystkie dostępne typy kont"
   }
 }
