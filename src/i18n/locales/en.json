@@ -1507,7 +1507,49 @@
       "title": "Messages",
       "empty": "No new messages",
       "emptyDesc": "Messages from sellers and buyers will appear here"
-    }
+    },
+    "status": {
+      "active": "Active",
+      "pending": "Pending",
+      "completed": "Finished",
+      "inactive": "Inactive"
+    },
+    "toasts": {
+      "loginRequired": "Sign in to get access",
+      "settingsSaved": "Account settings saved",
+      "settingsError": "Error saving settings",
+      "disableCompanyConfirm": "Are you sure you want to disable the company account? You will lose the ability to issue invoices but keep access to history.",
+      "companyDisabled": "Company account disabled",
+      "companyDisableError": "Failed to disable company account",
+      "companyEnabled": "Company account enabled",
+      "companyEnableError": "Failed to enable company account"
+    },
+    "settings": {
+      "enableCompany": "Enable company account",
+      "disableCompany": "Disable company account",
+      "clickCompanyEdit": "Click a company to edit its details",
+      "addAnother": "Add another",
+      "noCompany": "You have not added a company yet",
+      "addCompanyHint": "Add a company to issue invoices",
+      "addCompany": "Add company",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "phone": "Phone",
+      "emailNotif": "Email notifications",
+      "emailNotifDesc": "Receive notifications about new messages",
+      "soon": "Soon",
+      "darkMode": "Dark mode",
+      "darkModeDesc": "Change the interface appearance"
+    },
+    "addDialog": {
+      "title": "What do you want to add?",
+      "subtitle": "Choose a listing category",
+      "vehicleDesc": "Add a vehicle listing",
+      "realEstateDesc": "Requires an agent account",
+      "servicesDesc": "Company or individual"
+    },
+    "userFallback": "User"
   },
   "fleetRegister": {
     "companyNameRequired": "Company name is required",

@@ -1414,7 +1414,49 @@
       "title": "Nachrichten",
       "empty": "Keine neuen Nachrichten",
       "emptyDesc": "Hier erscheinen Nachrichten von Verkäufern und Käufern"
-    }
+    },
+    "status": {
+      "active": "Aktiv",
+      "pending": "Ausstehend",
+      "completed": "Beendet",
+      "inactive": "Inaktiv"
+    },
+    "toasts": {
+      "loginRequired": "Melden Sie sich an, um Zugriff zu erhalten",
+      "settingsSaved": "Kontoeinstellungen gespeichert",
+      "settingsError": "Fehler beim Speichern der Einstellungen",
+      "disableCompanyConfirm": "Möchten Sie das Firmenkonto wirklich deaktivieren? Sie verlieren die Möglichkeit, Rechnungen auszustellen, behalten aber den Zugriff auf die Historie.",
+      "companyDisabled": "Firmenkonto deaktiviert",
+      "companyDisableError": "Firmenkonto konnte nicht deaktiviert werden",
+      "companyEnabled": "Firmenkonto aktiviert",
+      "companyEnableError": "Firmenkonto konnte nicht aktiviert werden"
+    },
+    "settings": {
+      "enableCompany": "Firmenkonto aktivieren",
+      "disableCompany": "Firmenkonto deaktivieren",
+      "clickCompanyEdit": "Klicken Sie auf ein Unternehmen, um die Daten zu bearbeiten",
+      "addAnother": "Weitere hinzufügen",
+      "noCompany": "Sie haben noch kein Unternehmen hinzugefügt",
+      "addCompanyHint": "Fügen Sie ein Unternehmen hinzu, um Rechnungen auszustellen",
+      "addCompany": "Unternehmen hinzufügen",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "emailNotif": "E-Mail-Benachrichtigungen",
+      "emailNotifDesc": "Erhalten Sie Benachrichtigungen über neue Nachrichten",
+      "soon": "Bald",
+      "darkMode": "Dunkelmodus",
+      "darkModeDesc": "Ändern Sie das Erscheinungsbild der Oberfläche"
+    },
+    "addDialog": {
+      "title": "Was möchten Sie hinzufügen?",
+      "subtitle": "Wählen Sie eine Anzeigenkategorie",
+      "vehicleDesc": "Fahrzeuganzeige hinzufügen",
+      "realEstateDesc": "Erfordert ein Maklerkonto",
+      "servicesDesc": "Unternehmen oder Privatperson"
+    },
+    "userFallback": "Benutzer"
   },
   "fleetRegister": {
     "companyNameRequired": "Firmenname ist erforderlich",

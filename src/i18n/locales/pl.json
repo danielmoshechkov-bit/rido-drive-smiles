@@ -1507,7 +1507,49 @@
       "title": "Wiadomości",
       "empty": "Brak nowych wiadomości",
       "emptyDesc": "Tutaj pojawią się wiadomości od sprzedawców i kupujących"
-    }
+    },
+    "status": {
+      "active": "Aktywne",
+      "pending": "Oczekuje",
+      "completed": "Zakończone",
+      "inactive": "Nieaktywne"
+    },
+    "toasts": {
+      "loginRequired": "Zaloguj się, aby uzyskać dostęp",
+      "settingsSaved": "Ustawienia konta zostały zapisane",
+      "settingsError": "Błąd zapisywania ustawień",
+      "disableCompanyConfirm": "Czy na pewno chcesz wyłączyć konto firmowe? Stracisz możliwość wystawiania faktur, ale zachowasz dostęp do historii.",
+      "companyDisabled": "Konto firmowe zostało wyłączone",
+      "companyDisableError": "Nie udało się wyłączyć konta firmowego",
+      "companyEnabled": "Konto firmowe zostało włączone",
+      "companyEnableError": "Nie udało się włączyć konta firmowego"
+    },
+    "settings": {
+      "enableCompany": "Włącz konto firmowe",
+      "disableCompany": "Wyłącz konto firmowe",
+      "clickCompanyEdit": "Kliknij firmę, aby edytować dane",
+      "addAnother": "Dodaj kolejną",
+      "noCompany": "Nie masz jeszcze dodanej firmy",
+      "addCompanyHint": "Dodaj firmę, aby móc wystawiać faktury",
+      "addCompany": "Dodaj firmę",
+      "firstName": "Imię",
+      "lastName": "Nazwisko",
+      "email": "Email",
+      "phone": "Telefon",
+      "emailNotif": "Powiadomienia email",
+      "emailNotifDesc": "Otrzymuj powiadomienia o nowych wiadomościach",
+      "soon": "Wkrótce",
+      "darkMode": "Tryb ciemny",
+      "darkModeDesc": "Zmień wygląd interfejsu"
+    },
+    "addDialog": {
+      "title": "Co chcesz dodać?",
+      "subtitle": "Wybierz kategorię ogłoszenia",
+      "vehicleDesc": "Dodaj ogłoszenie pojazdu",
+      "realEstateDesc": "Wymaga konta agenta",
+      "servicesDesc": "Firma lub osoba fizyczna"
+    },
+    "userFallback": "Użytkownik"
   },
   "fleetRegister": {
     "companyNameRequired": "Nazwa firmy jest wymagana",

@@ -1414,7 +1414,49 @@
       "title": "Tin nhắn",
       "empty": "Không có tin nhắn mới",
       "emptyDesc": "Tin nhắn từ người bán và người mua sẽ xuất hiện ở đây"
-    }
+    },
+    "status": {
+      "active": "Đang hoạt động",
+      "pending": "Đang chờ",
+      "completed": "Đã kết thúc",
+      "inactive": "Không hoạt động"
+    },
+    "toasts": {
+      "loginRequired": "Đăng nhập để truy cập",
+      "settingsSaved": "Đã lưu cài đặt tài khoản",
+      "settingsError": "Lỗi khi lưu cài đặt",
+      "disableCompanyConfirm": "Bạn có chắc muốn tắt tài khoản công ty? Bạn sẽ mất khả năng xuất hóa đơn nhưng vẫn giữ quyền truy cập lịch sử.",
+      "companyDisabled": "Đã tắt tài khoản công ty",
+      "companyDisableError": "Không thể tắt tài khoản công ty",
+      "companyEnabled": "Đã bật tài khoản công ty",
+      "companyEnableError": "Không thể bật tài khoản công ty"
+    },
+    "settings": {
+      "enableCompany": "Bật tài khoản công ty",
+      "disableCompany": "Tắt tài khoản công ty",
+      "clickCompanyEdit": "Nhấp vào công ty để chỉnh sửa thông tin",
+      "addAnother": "Thêm cái khác",
+      "noCompany": "Bạn chưa thêm công ty",
+      "addCompanyHint": "Thêm công ty để xuất hóa đơn",
+      "addCompany": "Thêm công ty",
+      "firstName": "Tên",
+      "lastName": "Họ",
+      "email": "Email",
+      "phone": "Điện thoại",
+      "emailNotif": "Thông báo email",
+      "emailNotifDesc": "Nhận thông báo về tin nhắn mới",
+      "soon": "Sắp có",
+      "darkMode": "Chế độ tối",
+      "darkModeDesc": "Thay đổi giao diện"
+    },
+    "addDialog": {
+      "title": "Bạn muốn thêm gì?",
+      "subtitle": "Chọn danh mục tin đăng",
+      "vehicleDesc": "Thêm tin đăng xe",
+      "realEstateDesc": "Yêu cầu tài khoản đại lý",
+      "servicesDesc": "Công ty hoặc cá nhân"
+    },
+    "userFallback": "Người dùng"
   },
   "fleetRegister": {
     "companyNameRequired": "Tên công ty là bắt buộc",

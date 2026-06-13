@@ -213,7 +213,7 @@ export default function ClientPortal() {
     setUser(currentUser);
     
     if (!currentUser) {
-      toast.error('Zaloguj się, aby uzyskać dostęp');
+      toast.error(t('cp.toasts.loginRequired'));
       navigate('/easy/login');
       return;
     }
@@ -450,10 +450,10 @@ export default function ClientPortal() {
 
       if (error) throw error;
       
-      toast.success('Ustawienia konta zostały zapisane');
+      toast.success(t('cp.toasts.settingsSaved'));
     } catch (err: any) {
       console.error('Save account error:', err);
-      toast.error(err.message || 'Błąd zapisywania ustawień');
+      toast.error(err.message || t('cp.toasts.settingsError'));
     } finally {
       setSavingAccount(false);
     }
@@ -461,7 +461,7 @@ export default function ClientPortal() {
 
   // Handle company deactivation (switch to private account)
   const handleDeactivateCompany = async (entityId: string) => {
-    if (!confirm('Czy na pewno chcesz wyłączyć konto firmowe? Stracisz możliwość wystawiania faktur, ale zachowasz dostęp do historii.')) {
+    if (!confirm(t('cp.toasts.disableCompanyConfirm'))) {
       return;
     }
     
@@ -477,10 +477,10 @@ export default function ClientPortal() {
       if (user) {
         await fetchUserEntities(user.id);
       }
-      toast.success('Konto firmowe zostało wyłączone');
+      toast.success(t('cp.toasts.companyDisabled'));
     } catch (err: any) {
       console.error('Deactivate company error:', err);
-      toast.error('Nie udało się wyłączyć konta firmowego');
+      toast.error(t('cp.toasts.companyDisableError'));
     }
   };
 
@@ -498,10 +498,10 @@ export default function ClientPortal() {
       if (user) {
         await fetchUserEntities(user.id);
       }
-      toast.success('Konto firmowe zostało włączone');
+      toast.success(t('cp.toasts.companyEnabled'));
     } catch (err: any) {
       console.error('Reactivate company error:', err);
-      toast.error('Nie udało się włączyć konta firmowego');
+      toast.error(t('cp.toasts.companyEnableError'));
     }
   };
 
@@ -516,14 +516,14 @@ export default function ClientPortal() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge className="bg-green-500/10 text-green-600">Aktywne</Badge>;
+        return <Badge className="bg-green-500/10 text-green-600">{t('cp.status.active')}</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-500/10 text-yellow-600">Oczekuje</Badge>;
+        return <Badge className="bg-yellow-500/10 text-yellow-600">{t('cp.status.pending')}</Badge>;
       case 'sold':
       case 'completed':
-        return <Badge className="bg-blue-500/10 text-blue-600">Zakończone</Badge>;
+        return <Badge className="bg-blue-500/10 text-blue-600">{t('cp.status.completed')}</Badge>;
       case 'inactive':
-        return <Badge className="bg-muted text-muted-foreground">Nieaktywne</Badge>;
+        return <Badge className="bg-muted text-muted-foreground">{t('cp.status.inactive')}</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -558,7 +558,7 @@ export default function ClientPortal() {
     }
     
     // Fallback to email username
-    return userData?.email?.split('@')[0] || 'Użytkownik';
+    return userData?.email?.split('@')[0] || t('cp.userFallback');
   };
 
   // Build tabs dynamically - Księgowość only for users with company setup, Ulubione moved to Ogłoszenia
@@ -1573,7 +1573,7 @@ export default function ClientPortal() {
                                   handleReactivateCompany(entity.id);
                                 }}
                               >
-                                Włącz konto firmowe
+                                {t('cp.settings.enableCompany')}
                               </Button>
                             ) : (
                               <Button 
@@ -1585,7 +1585,7 @@ export default function ClientPortal() {
                                   handleDeactivateCompany(entity.id);
                                 }}
                               >
-                                Wyłącz konto firmowe
+                                {t('cp.settings.disableCompany')}
                               </Button>
                             )}
                           </div>
@@ -1593,7 +1593,7 @@ export default function ClientPortal() {
                       ))}
                       <div className="flex justify-between items-center pt-2">
                         <p className="text-xs text-muted-foreground">
-                          Kliknij firmę, aby edytować dane
+                          {t('cp.settings.clickCompanyEdit')}
                         </p>
                         {/* Regular users can only have 1 company - hide "Add another" button for them */}
                         {isAdminAccount && (
@@ -1606,7 +1606,7 @@ export default function ClientPortal() {
                             }}
                           >
                             <Plus className="h-4 w-4 mr-1" />
-                            Dodaj kolejną
+                            {t('cp.settings.addAnother')}
                           </Button>
                         )}
                       </div>
@@ -1614,16 +1614,16 @@ export default function ClientPortal() {
                   ) : (
                     <div className="text-center py-8">
                       <Building2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <p className="text-muted-foreground mb-2">Nie masz jeszcze dodanej firmy</p>
+                      <p className="text-muted-foreground mb-2">{t('cp.settings.noCompany')}</p>
                       <p className="text-sm text-muted-foreground mb-4">
-                        Dodaj firmę, aby móc wystawiać faktury
+                        {t('cp.settings.addCompanyHint')}
                       </p>
                       <Button onClick={() => {
                         setEditingEntity(null);
                         setShowCompanySetup(true);
                       }}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Dodaj firmę
+                        {t('cp.settings.addCompany')}
                       </Button>
                     </div>
                   )}
@@ -1644,7 +1644,7 @@ export default function ClientPortal() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="account-first-name">Imię</Label>
+                        <Label htmlFor="account-first-name">{t('cp.settings.firstName')}</Label>
                         <Input
                           id="account-first-name"
                           type="text"
@@ -1654,7 +1654,7 @@ export default function ClientPortal() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="account-last-name">Nazwisko</Label>
+                        <Label htmlFor="account-last-name">{t('cp.settings.lastName')}</Label>
                         <Input
                           id="account-last-name"
                           type="text"
@@ -1666,7 +1666,7 @@ export default function ClientPortal() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="account-email">Email</Label>
+                        <Label htmlFor="account-email">{t('cp.settings.email')}</Label>
                         <Input
                           id="account-email"
                           type="email"
@@ -1676,7 +1676,7 @@ export default function ClientPortal() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="account-phone">Telefon</Label>
+                        <Label htmlFor="account-phone">{t('cp.settings.phone')}</Label>
                         <Input
                           id="account-phone"
                           type="tel"
@@ -1726,17 +1726,17 @@ export default function ClientPortal() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
-                        <p className="font-medium">Powiadomienia email</p>
-                        <p className="text-sm text-muted-foreground">Otrzymuj powiadomienia o nowych wiadomościach</p>
+                        <p className="font-medium">{t('cp.settings.emailNotif')}</p>
+                        <p className="text-sm text-muted-foreground">{t('cp.settings.emailNotifDesc')}</p>
                       </div>
-                      <Badge variant="secondary">Wkrótce</Badge>
+                      <Badge variant="secondary">{t('cp.settings.soon')}</Badge>
                     </div>
                     <div className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
-                        <p className="font-medium">Tryb ciemny</p>
-                        <p className="text-sm text-muted-foreground">Zmień wygląd interfejsu</p>
+                        <p className="font-medium">{t('cp.settings.darkMode')}</p>
+                        <p className="text-sm text-muted-foreground">{t('cp.settings.darkModeDesc')}</p>
                       </div>
-                      <Badge variant="secondary">Wkrótce</Badge>
+                      <Badge variant="secondary">{t('cp.settings.soon')}</Badge>
                     </div>
                   </div>
                 </CardContent>
@@ -1801,10 +1801,10 @@ export default function ClientPortal() {
           <DialogHeader className="p-6 pb-4 bg-gradient-to-r from-amber-50 to-amber-100">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Plus className="h-5 w-5 text-amber-600" />
-              Co chcesz dodać?
+              {t('cp.addDialog.title')}
             </DialogTitle>
             <DialogDescription>
-              Wybierz kategorię ogłoszenia
+              {t('cp.addDialog.subtitle')}
             </DialogDescription>
           </DialogHeader>
           <div className="p-6 pt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1819,8 +1819,8 @@ export default function ClientPortal() {
                   <div className="p-1.5 rounded-lg w-fit bg-white/20 backdrop-blur-sm mb-1">
                     <Car className="h-4 w-4 text-white" />
                   </div>
-                  <h3 className="font-bold text-sm text-white">Motoryzacja</h3>
-                  <p className="text-[11px] text-white/80">Dodaj ogłoszenie pojazdu</p>
+                  <h3 className="font-bold text-sm text-white">{t('cp.listings.catAuto')}</h3>
+                  <p className="text-[11px] text-white/80">{t('cp.addDialog.vehicleDesc')}</p>
                 </div>
               </div>
             </Card>
@@ -1836,8 +1836,8 @@ export default function ClientPortal() {
                   <div className="p-1.5 rounded-lg w-fit bg-white/20 backdrop-blur-sm mb-1">
                     <Building2 className="h-4 w-4 text-white" />
                   </div>
-                  <h3 className="font-bold text-sm text-white">Nieruchomości</h3>
-                  <p className="text-[11px] text-white/80">Wymaga konta agenta</p>
+                  <h3 className="font-bold text-sm text-white">{t('cp.listings.catRealEstate')}</h3>
+                  <p className="text-[11px] text-white/80">{t('cp.addDialog.realEstateDesc')}</p>
                 </div>
               </div>
             </Card>
@@ -1853,8 +1853,8 @@ export default function ClientPortal() {
                   <div className="p-1.5 rounded-lg w-fit bg-white/20 backdrop-blur-sm mb-1">
                     <Sparkles className="h-4 w-4 text-white" />
                   </div>
-                  <h3 className="font-bold text-sm text-white">Usługi</h3>
-                  <p className="text-[11px] text-white/80">Firma lub osoba fizyczna</p>
+                  <h3 className="font-bold text-sm text-white">{t('cp.listings.catServices')}</h3>
+                  <p className="text-[11px] text-white/80">{t('cp.addDialog.servicesDesc')}</p>
                 </div>
               </div>
             </Card>
