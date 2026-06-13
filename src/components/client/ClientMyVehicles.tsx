@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -115,13 +117,13 @@ const buildDocumentBadges = (vehicle: ClientVehicle) => {
 
   // Przegląd badge
   if (!vehicle.mot_expiry) {
-    badges.push({ label: "Przegląd: —", variant: "muted" });
+    badges.push({ label: `${i18n.t('cp.vehicles.inspection')}: —`, variant: "muted" });
   } else if (isDateExpired(vehicle.mot_expiry)) {
-    badges.push({ label: `Przegląd: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "destructive" });
+    badges.push({ label: `${i18n.t('cp.vehicles.inspection')}: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "destructive" });
   } else if (isDateExpiringSoon(vehicle.mot_expiry)) {
-    badges.push({ label: `Przegląd: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "warning" });
+    badges.push({ label: `${i18n.t('cp.vehicles.inspection')}: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "warning" });
   } else {
-    badges.push({ label: `Przegląd: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "success" });
+    badges.push({ label: `${i18n.t('cp.vehicles.inspection')}: ${formatDisplayDate(vehicle.mot_expiry)}`, variant: "success" });
   }
 
   return badges;
@@ -141,6 +143,7 @@ function DocumentBadge({ label, variant }: { label: string; variant: "destructiv
 }
 
 function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; onSave: (patch: Partial<ClientVehicle>) => Promise<void> }) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     plate_number: vehicle.plate_number || "",
     vin: vehicle.vin || "",
@@ -197,7 +200,7 @@ function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; o
             onChange={(e) => setFormData((prev) => ({ ...prev, plate_number: e.target.value.toUpperCase() }))}
             onBlur={(e) => saveField("plate_number", e.target.value)}
             className="uppercase"
-            placeholder="Wpisz numer rejestracyjny"
+            placeholder=t('cp.vehicles.enterPlate')
           />
         </div>
 
@@ -208,7 +211,7 @@ function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; o
             onChange={(e) => setFormData((prev) => ({ ...prev, vin: e.target.value.toUpperCase() }))}
             onBlur={(e) => saveField("vin", e.target.value)}
             className="uppercase"
-            placeholder="Wpisz numer VIN"
+            placeholder=t('cp.vehicles.enterVin')
           />
         </div>
 
@@ -228,33 +231,33 @@ function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; o
         </div>
 
         <div>
-          <Label>Rok</Label>
+          <Label>{t('cp.vehicles.year')}</Label>
           <Input
             type="number"
             value={formData.year}
             onChange={(e) => setFormData((prev) => ({ ...prev, year: e.target.value }))}
             onBlur={(e) => saveField("year", e.target.value)}
-            placeholder="np. 2018"
+            placeholder={t('cp.vehicles.yearPlaceholder')}
           />
         </div>
 
         <div>
-          <Label>Kolor</Label>
+          <Label>{t('cp.vehicles.color')}</Label>
           <Input
             value={formData.color}
             onChange={(e) => setFormData((prev) => ({ ...prev, color: e.target.value }))}
             onBlur={(e) => saveField("color", e.target.value)}
-            placeholder="np. biały"
+            placeholder=t('cp.vehicles.colorPlaceholder')
           />
         </div>
 
         <div>
-          <Label>Pojemność silnika</Label>
+          <Label>{t('cp.vehicles.engineCapacity')}</Label>
           <Input
             value={formData.engine_capacity}
             onChange={(e) => setFormData((prev) => ({ ...prev, engine_capacity: e.target.value }))}
             onBlur={(e) => saveField("engine_capacity", e.target.value)}
-            placeholder="np. 2.0"
+            placeholder={t('cp.vehicles.enginePlaceholder')}
           />
         </div>
 
@@ -268,7 +271,7 @@ function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; o
             }}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Wybierz rodzaj paliwa" />
+              <SelectValue placeholder={t('cp.vehicles.selectFuel')} />
             </SelectTrigger>
             <SelectContent>
               {FUEL_TYPES.map((fuel) => (
@@ -279,7 +282,7 @@ function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; o
         </div>
 
         <div>
-          <Label>Przegląd ważny do</Label>
+          <Label>{t('cp.vehicles.inspectionValidTo')}</Label>
           <Input
             type="date"
             value={formData.mot_expiry}
@@ -289,7 +292,7 @@ function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; o
         </div>
 
         <div>
-          <Label>OC ważne do</Label>
+          <Label>{t('cp.vehicles.ocValidTo')}</Label>
           <Input
             type="date"
             value={formData.oc_expiry}
@@ -303,11 +306,12 @@ function ClientVehicleInfoPanel({ vehicle, onSave }: { vehicle: ClientVehicle; o
 }
 
 function ClientVehicleDocumentsPanel({ vehicleId }: { vehicleId: string }) {
+  const { t } = useTranslation();
   const [documents, setDocuments] = useState<StoredDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [type, setType] = useState("Inny dokument");
+  const [type, setType] = useState(t('cp.vehicles.otherDocument'));
 
   const folder = useMemo(() => `client-vehicles/${vehicleId}/documents`, [vehicleId]);
 
@@ -351,7 +355,7 @@ function ClientVehicleDocumentsPanel({ vehicleId }: { vehicleId: string }) {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Dodano dokument");
+      toast.success(t('cp.vehicles.documentAdded'));
       setFile(null);
       await loadDocuments();
     }
@@ -366,19 +370,19 @@ function ClientVehicleDocumentsPanel({ vehicleId }: { vehicleId: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Input value={type} onChange={(e) => setType(e.target.value)} placeholder="Typ dokumentu" />
+          <Input value={type} onChange={(e) => setType(e.target.value)} placeholder=t('cp.vehicles.documentType') />
           <Input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          <Button onClick={uploadDocument} disabled={!file || uploading}>{uploading ? "Dodawanie..." : "Dodaj"}</Button>
+          <Button onClick={uploadDocument} disabled={!file || uploading}>{uploading ? t('cp.vehicles.adding') : t('cp.vehicles.add')}</Button>
         </div>
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">Ładowanie dokumentów...</p>
+          <p className="text-sm text-muted-foreground">{t('cp.vehicles.loadingDocuments')}</p>
         ) : documents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Brak dokumentów.</p>
+          <p className="text-sm text-muted-foreground">{t('cp.vehicles.noDocuments')}</p>
         ) : (
           <div className="space-y-2">
             {documents.map((document) => {
-              const typeLabel = document.name.split("_").slice(1, -1).join(" ") || "Dokument";
+              const typeLabel = document.name.split("_").slice(1, -1).join(" ") || t('cp.vehicles.documentFallback');
 
               return (
                 <a
@@ -404,6 +408,7 @@ function ClientVehicleDocumentsPanel({ vehicleId }: { vehicleId: string }) {
 }
 
 function ClientVehicleServicePanel({ vehicleId }: { vehicleId: string }) {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<ServiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -435,7 +440,7 @@ function ClientVehicleServicePanel({ vehicleId }: { vehicleId: string }) {
 
   const addEntry = async () => {
     if (!form.date || !form.notes.trim()) {
-      toast.error("Uzupełnij datę i opis serwisu");
+      toast.error(t('cp.vehicles.fillServiceDate'));
       return;
     }
 
@@ -479,32 +484,32 @@ function ClientVehicleServicePanel({ vehicleId }: { vehicleId: string }) {
   return (
     <Card className="rounded-2xl border-border/60 shadow-sm">
       <CardHeader>
-        <CardTitle>Serwis</CardTitle>
+        <CardTitle>{t('cp.vehicles.service')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Input value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))} placeholder="Typ serwisu" />
+          <Input value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))} placeholder={t('cp.vehicles.serviceTypePlaceholder')} />
           <Input type="date" value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} />
-          <Input value={form.workshop} onChange={(e) => setForm((prev) => ({ ...prev, workshop: e.target.value }))} placeholder="Warsztat" />
-          <Input type="number" value={form.mileage} onChange={(e) => setForm((prev) => ({ ...prev, mileage: e.target.value }))} placeholder="Przebieg (km)" />
-          <Input type="number" value={form.cost} onChange={(e) => setForm((prev) => ({ ...prev, cost: e.target.value }))} placeholder="Koszt (zł)" />
+          <Input value={form.workshop} onChange={(e) => setForm((prev) => ({ ...prev, workshop: e.target.value }))} placeholder={t('cp.vehicles.workshop')} />
+          <Input type="number" value={form.mileage} onChange={(e) => setForm((prev) => ({ ...prev, mileage: e.target.value }))} placeholder={t('cp.vehicles.mileagePlaceholder')} />
+          <Input type="number" value={form.cost} onChange={(e) => setForm((prev) => ({ ...prev, cost: e.target.value }))} placeholder={t('cp.vehicles.costPlaceholder')} />
           <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setForm((prev) => ({ ...prev, file: e.target.files?.[0] ?? null }))} />
-          <Input className="md:col-span-2" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Opis wykonanych prac" />
-          <Button onClick={addEntry} disabled={saving}>{saving ? "Zapisywanie..." : "Zapisz wpis"}</Button>
+          <Input className="md:col-span-2" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder={t('cp.vehicles.workDescPlaceholder')} />
+          <Button onClick={addEntry} disabled={saving}>{saving ? t('cp.vehicles.saving') : t('cp.vehicles.saveEntry')}</Button>
         </div>
 
         {loading ? (
-          <p className="text-sm text-muted-foreground">Ładowanie historii serwisowej...</p>
+          <p className="text-sm text-muted-foreground">{t('cp.vehicles.loadingServiceHistory')}</p>
         ) : entries.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Brak wpisów serwisowych.</p>
+          <p className="text-sm text-muted-foreground">{t('cp.vehicles.noServiceEntries')}</p>
         ) : (
           <div className="space-y-3">
             {entries.map((entry) => (
               <div key={entry.id} className="rounded-xl border p-4">
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <p className="font-medium">{entry.description || "Serwis"}</p>
-                    <p className="text-sm text-muted-foreground">{entry.workshop_name || "Warsztat niepodany"}</p>
+                    <p className="font-medium">{entry.description || t('cp.vehicles.service')}</p>
+                    <p className="text-sm text-muted-foreground">{entry.workshop_name || t('cp.vehicles.workshopUnknown')}</p>
                   </div>
                   <div className="text-sm md:text-right">
                     <p className="font-medium">{formatDisplayDate(entry.service_date)}</p>
@@ -515,7 +520,7 @@ function ClientVehicleServicePanel({ vehicleId }: { vehicleId: string }) {
                   {entry.mileage ? <span>Przebieg: {entry.mileage.toLocaleString("pl-PL")} km</span> : null}
                   {entry.signed_estimate_url ? (
                     <a href={entry.signed_estimate_url} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">
-                      Kosztorys / załącznik
+                      {t('cp.vehicles.estimateAttachment')}
                     </a>
                   ) : null}
                 </div>
@@ -529,6 +534,7 @@ function ClientVehicleServicePanel({ vehicleId }: { vehicleId: string }) {
 }
 
 function ClientVehiclePhotosPanel({ vehicle, onPhotosUpdated }: { vehicle: ClientVehicle; onPhotosUpdated: (photos: string[]) => void }) {
+  const { t } = useTranslation();
   const [photos, setPhotos] = useState<string[]>(vehicle.photos || []);
   const [uploading, setUploading] = useState(false);
 
@@ -540,7 +546,7 @@ function ClientVehiclePhotosPanel({ vehicle, onPhotosUpdated }: { vehicle: Clien
     const { error } = await supabase.from("client_vehicles").update({ photos: nextPhotos }).eq("id", vehicle.id);
 
     if (error) {
-      toast.error("Błąd zapisu zdjęć");
+      toast.error(t('cp.vehicles.savePhotosError'));
       return false;
     }
 
@@ -568,9 +574,9 @@ function ClientVehiclePhotosPanel({ vehicle, onPhotosUpdated }: { vehicle: Clien
       const nextPhotos = [...photos, ...uploaded];
       setPhotos(nextPhotos);
       const saved = await savePhotos(nextPhotos);
-      if (saved) toast.success(`Dodano ${uploaded.length} zdjęć`);
+      if (saved) toast.success(t('cp.vehicles.photosAdded', { count: uploaded.length }));
     } catch (error: any) {
-      toast.error(error.message || "Błąd przesyłania zdjęć");
+      toast.error(error.message || t('cp.vehicles.uploadPhotosError'));
     } finally {
       setUploading(false);
       event.target.value = "";
@@ -581,23 +587,23 @@ function ClientVehiclePhotosPanel({ vehicle, onPhotosUpdated }: { vehicle: Clien
     const nextPhotos = photos.filter((_, currentIndex) => currentIndex !== index);
     setPhotos(nextPhotos);
     const saved = await savePhotos(nextPhotos);
-    if (saved) toast.success("Zdjęcie usunięte");
+    if (saved) toast.success(t('cp.vehicles.photoDeleted'));
   };
 
   return (
     <Card className="rounded-2xl border-border/60 shadow-sm">
       <CardHeader>
-        <CardTitle>Zdjęcia</CardTitle>
+        <CardTitle>{t('cp.vehicles.photos')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {photos.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-border p-8 text-center">
             <Camera className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
-            <p className="mb-4 text-sm text-muted-foreground">Brak zdjęć pojazdu</p>
+            <p className="mb-4 text-sm text-muted-foreground">{t('cp.vehicles.noVehiclePhotos')}</p>
             <label>
               <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" disabled={uploading} />
               <Button variant="outline" asChild disabled={uploading}>
-                <span className="cursor-pointer">{uploading ? "Ładowanie..." : "Dodaj zdjęcia"}</span>
+                <span className="cursor-pointer">{uploading ? t('cp.vehicles.loading') : t('cp.vehicles.addPhotos')}</span>
               </Button>
             </label>
           </div>
@@ -606,7 +612,7 @@ function ClientVehiclePhotosPanel({ vehicle, onPhotosUpdated }: { vehicle: Clien
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {photos.map((photo, index) => (
                 <div key={`${photo}-${index}`} className="relative overflow-hidden rounded-xl border bg-muted/20 aspect-square">
-                  <img src={photo} alt={`Zdjęcie pojazdu ${index + 1}`} className="h-full w-full object-cover" />
+                  <img src={photo} alt={t('cp.vehicles.photoAlt', { n: index + 1 })} className="h-full w-full object-cover" />
                   <button
                     type="button"
                     onClick={() => removePhoto(index)}
@@ -620,10 +626,10 @@ function ClientVehiclePhotosPanel({ vehicle, onPhotosUpdated }: { vehicle: Clien
               <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border text-center transition-colors hover:bg-muted/30">
                 <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} className="hidden" disabled={uploading} />
                 <Upload className="mb-2 h-6 w-6 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{uploading ? "Ładowanie..." : "Dodaj"}</span>
+                <span className="text-sm text-muted-foreground">{uploading ? t('cp.vehicles.loading') : t('cp.vehicles.add')}</span>
               </label>
             </div>
-            <p className="text-xs text-muted-foreground">Pierwsze zdjęcie będzie głównym zdjęciem pojazdu.</p>
+            <p className="text-xs text-muted-foreground">{t('cp.vehicles.firstPhotoMain')}.</p>
           </>
         )}
       </CardContent>
@@ -642,6 +648,7 @@ function ClientVehicleCard({
   onSave: (patch: Partial<ClientVehicle>) => Promise<void>;
   onPhotosUpdated: (photos: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(!!defaultOpen);
   const reminderBadges = buildDocumentBadges(vehicle);
 
@@ -657,7 +664,7 @@ function ClientVehicleCard({
                     <Car className="h-5 w-5 text-primary" />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">{vehicle.make || "Auto"} {vehicle.model || ""}</p>
+                    <p className="truncate font-semibold">{vehicle.make || t('cp.vehicles.autoFallback')} {vehicle.model || ""}</p>
                     <p className="text-sm text-muted-foreground">{vehicle.plate_number || "Bez tablic"}</p>
                   </div>
                 </div>
@@ -671,7 +678,7 @@ function ClientVehicleCard({
                 </div>
 
                 <div>
-                  <span className="text-xs text-muted-foreground">Pojazd:</span>
+                  <span className="text-xs text-muted-foreground">{t('cp.vehicles.vehicleLabel')}</span>
                   <div className="font-semibold text-lg">{vehicle.make || "—"} {vehicle.model || ""}</div>
                 </div>
 
@@ -702,10 +709,10 @@ function ClientVehicleCard({
           <div className="border-t px-4 py-4 md:px-6 md:py-6">
             <Tabs defaultValue="info" className="w-full">
               <TabsList className="grid w-full grid-cols-4 rounded-xl bg-muted/50 p-1 text-xs md:text-sm">
-                <TabsTrigger value="info" className="rounded-lg data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-accent hover:text-accent-foreground">Info</TabsTrigger>
-                <TabsTrigger value="documents" className="rounded-lg data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-accent hover:text-accent-foreground">Dokumenty</TabsTrigger>
-                <TabsTrigger value="service" className="rounded-lg data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-accent hover:text-accent-foreground">Serwis</TabsTrigger>
-                <TabsTrigger value="photos" className="rounded-lg data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-accent hover:text-accent-foreground">Zdjęcia</TabsTrigger>
+                <TabsTrigger value="info" className="rounded-lg data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-accent hover:text-accent-foreground">{t('cp.vehicles.info')}</TabsTrigger>
+                <TabsTrigger value="documents" className="rounded-lg data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-accent hover:text-accent-foreground">{t('cp.vehicles.documents')}</TabsTrigger>
+                <TabsTrigger value="service" className="rounded-lg data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-accent hover:text-accent-foreground">{t('cp.vehicles.service')}</TabsTrigger>
+                <TabsTrigger value="photos" className="rounded-lg data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-accent hover:text-accent-foreground">{t('cp.vehicles.photos')}</TabsTrigger>
               </TabsList>
 
               <div className="mt-4">
@@ -744,6 +751,7 @@ function ClientVehicleAddDialog({
   onSaved: () => Promise<void>;
   userId: string;
 }) {
+  const { t } = useTranslation();
   const [plate, setPlate] = useState("");
   const [vin, setVin] = useState("");
   const [brand, setBrand] = useState("");
@@ -786,7 +794,7 @@ function ClientVehicleAddDialog({
 
   const handleSearchPlate = async () => {
     if (!plate || plate.length < 3) {
-      toast.error("Wpisz numer rejestracyjny");
+      toast.error(t('cp.vehicles.enterPlate'));
       return;
     }
     if (!credits || credits.remaining_credits < 1) {
@@ -800,7 +808,7 @@ function ClientVehicleAddDialog({
 
   const handleSearchVin = async () => {
     if (!vin || vin.length < 5) {
-      toast.error("Wpisz numer VIN");
+      toast.error(t('cp.vehicles.enterVin'));
       return;
     }
     if (!credits || credits.remaining_credits < 1) {
@@ -821,7 +829,7 @@ function ClientVehicleAddDialog({
     setValidationErrors(errors);
 
     if (errors.size > 0) {
-      toast.error("Uzupełnij wymagane pola podświetlone na czerwono.");
+      toast.error(t('cp.vehicles.requiredFields'));
       return;
     }
 
@@ -842,9 +850,9 @@ function ClientVehicleAddDialog({
     });
 
     if (error) {
-      toast.error("Błąd dodawania pojazdu");
+      toast.error(t('cp.vehicles.addVehicleError'));
     } else {
-      toast.success("Pojazd dodany");
+      toast.success(t('cp.vehicles.vehicleAdded'));
       await onSaved();
       onOpenChange(false);
       resetForm();
@@ -864,7 +872,7 @@ function ClientVehicleAddDialog({
       >
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-4 sm:p-6 pb-0">
-            <DialogTitle>Dodaj pojazd</DialogTitle>
+            <DialogTitle>{t('cp.vehicles.addVehicle')}</DialogTitle>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
@@ -882,7 +890,7 @@ function ClientVehicleAddDialog({
                         return next;
                       });
                     }}
-                    placeholder="np. WX1234A"
+                    placeholder={t('cp.vehicles.platePlaceholder')}
                     className={`uppercase pr-10 ${validationErrors.has("plate") ? "border-destructive ring-1 ring-destructive" : ""}`}
                   />
                   <button type="button" onClick={handleSearchPlate} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded transition-colors hover:bg-accent">
@@ -894,7 +902,7 @@ function ClientVehicleAddDialog({
               <div>
                 <Label>VIN</Label>
                 <div className="relative">
-                  <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="17 znaków" className="uppercase pr-10" />
+                  <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder=t('cp.vehicles.vinPlaceholder') className="uppercase pr-10" />
                   <button type="button" onClick={handleSearchVin} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded transition-colors hover:bg-accent">
                     {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground" />}
                   </button>
@@ -925,18 +933,18 @@ function ClientVehicleAddDialog({
               </div>
 
               <div>
-                <Label>Rok</Label>
-                <Input type="number" value={year} onChange={(e) => setYear(e.target.value === "" ? "" : Number(e.target.value))} placeholder="np. 2018" />
+                <Label>{t('cp.vehicles.year')}</Label>
+                <Input type="number" value={year} onChange={(e) => setYear(e.target.value === "" ? "" : Number(e.target.value))} placeholder={t('cp.vehicles.yearPlaceholder')} />
               </div>
 
               <div>
-                <Label>Kolor</Label>
-                <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="np. biały" />
+                <Label>{t('cp.vehicles.color')}</Label>
+                <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder=t('cp.vehicles.colorPlaceholder') />
               </div>
 
               <div>
-                <Label>Pojemność silnika</Label>
-                <Input value={engineCapacity} onChange={(e) => setEngineCapacity(e.target.value)} placeholder="np. 2.0" />
+                <Label>{t('cp.vehicles.engineCapacity')}</Label>
+                <Input value={engineCapacity} onChange={(e) => setEngineCapacity(e.target.value)} placeholder={t('cp.vehicles.enginePlaceholder')} />
               </div>
 
               <div>
@@ -953,7 +961,7 @@ function ClientVehicleAddDialog({
                   }}
                 >
                   <SelectTrigger className={validationErrors.has("fuelType") ? "border-destructive ring-1 ring-destructive" : ""}>
-                    <SelectValue placeholder="Wybierz rodzaj paliwa" />
+                    <SelectValue placeholder={t('cp.vehicles.selectFuel')} />
                   </SelectTrigger>
                   <SelectContent>
                     {FUEL_TYPES.map((fuel) => (
@@ -964,20 +972,20 @@ function ClientVehicleAddDialog({
               </div>
 
               <div>
-                <Label>Przegląd ważny do</Label>
+                <Label>{t('cp.vehicles.inspectionValidTo')}</Label>
                 <Input type="date" value={motExpiry} onChange={(e) => setMotExpiry(e.target.value)} />
               </div>
 
               <div>
-                <Label>OC ważne do</Label>
+                <Label>{t('cp.vehicles.ocValidTo')}</Label>
                 <Input type="date" value={ocExpiry} onChange={(e) => setOcExpiry(e.target.value)} />
               </div>
             </div>
           </div>
 
           <DialogFooter className="shrink-0 border-t bg-background p-4 pt-4 sm:p-6">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-            <Button onClick={handleSave} disabled={savingVehicle}>{savingVehicle ? "Zapisywanie..." : "Zapisz pojazd"}</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>{t('cp.vehicles.cancel')}</Button>
+            <Button onClick={handleSave} disabled={savingVehicle}>{savingVehicle ? t('cp.vehicles.saving') : t('cp.vehicles.saveVehicle')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -995,6 +1003,7 @@ function ClientVehicleAddDialog({
 }
 
 export function ClientMyVehicles({ userId, userPhone }: Props) {
+  const { t } = useTranslation();
   const [vehicles, setVehicles] = useState<ClientVehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddVehicle, setShowAddVehicle] = useState(false);
@@ -1037,7 +1046,7 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
     const { error } = await supabase.from("client_vehicles").update(patch).eq("id", vehicleId);
 
     if (error) {
-      toast.error("Błąd zapisu pojazdu");
+      toast.error(t('cp.vehicles.saveVehicleError'));
       return;
     }
 
@@ -1061,7 +1070,7 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
     ].filter(Boolean).length;
 
     if (matches < 3) {
-      toast.error("Dane nie pasują do pojazdu. Sprawdź i spróbuj ponownie.");
+      toast.error(t('cp.vehicles.ownershipMismatch'));
       return;
     }
 
@@ -1077,7 +1086,7 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
     });
 
     if (vehicleError) {
-      toast.error("Błąd weryfikacji");
+      toast.error(t('cp.vehicles.verifyError'));
       return;
     }
 
@@ -1086,7 +1095,7 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
       .update({ status: "verified", verified_by_user_id: userId, verified_at: new Date().toISOString() })
       .eq("id", requestId);
 
-    toast.success("Pojazd zweryfikowany i dodany do konta");
+    toast.success(t('cp.vehicles.vehicleVerified'));
     setVerifyingRequestId(null);
     setVerifyForm({ plate: "", vin: "", make: "", model: "" });
     fetchVehicles();
@@ -1100,17 +1109,17 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <AlertTriangle className="h-5 w-5 text-primary" />
-              Potwierdzenie własności pojazdu
+              {t('cp.vehicles.ownershipTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {ownershipRequests.map((request) => (
               <div key={request.id} className="rounded-xl border bg-background p-4">
                 <p className="text-sm">
-                  Wykryto pojazd <strong>{request.make} {request.model}</strong> ({request.plate_number}) powiązany z Twoim numerem telefonu.
+                  {t('cp.vehicles.detectedVehicle', { vehicle: `${request.make} ${request.model}`, plate: request.plate_number })}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Potwierdź dane z dowodu rejestracyjnego, aby przenieść historię pojazdu na swoje konto.
+                  {t('cp.vehicles.confirmFromReg')}
                 </p>
 
                 {verifyingRequestId === request.id ? (
@@ -1125,22 +1134,22 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
                         <Input value={verifyForm.vin} onChange={(e) => setVerifyForm((prev) => ({ ...prev, vin: e.target.value }))} />
                       </div>
                       <div>
-                        <Label>Marka</Label>
+                        <Label>{t('cp.vehicles.brand')}</Label>
                         <Input value={verifyForm.make} onChange={(e) => setVerifyForm((prev) => ({ ...prev, make: e.target.value }))} />
                       </div>
                       <div>
-                        <Label>Model</Label>
+                        <Label>{t('cp.vehicles.model')}</Label>
                         <Input value={verifyForm.model} onChange={(e) => setVerifyForm((prev) => ({ ...prev, model: e.target.value }))} />
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button onClick={() => handleVerifyOwnership(request.id)}>Potwierdź</Button>
-                      <Button variant="outline" onClick={() => setVerifyingRequestId(null)}>Anuluj</Button>
+                      <Button onClick={() => handleVerifyOwnership(request.id)}>{t('cp.vehicles.confirm')}</Button>
+                      <Button variant="outline" onClick={() => setVerifyingRequestId(null)}>{t('cp.vehicles.cancel')}</Button>
                     </div>
                   </div>
                 ) : (
                   <Button className="mt-4" variant="outline" onClick={() => setVerifyingRequestId(request.id)}>
-                    Weryfikuj własność
+                    {t('cp.vehicles.verifyOwnership')}
                   </Button>
                 )}
               </div>
@@ -1153,27 +1162,27 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Car className="h-5 w-5 text-primary" />
-            Moje auta
+            {t('cp.vehicles.myVehicles')}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            1 auto za darmo. Kolejne będą płatne — kwota zostanie ogłoszona wkrótce.
+            {t('cp.vehicles.freeOneNote')}
           </p>
         </div>
 
         <Button size="sm" onClick={() => setShowAddVehicle(true)}>
-          <Plus className="mr-1 h-4 w-4" /> Dodaj auto
+          <Plus className="mr-1 h-4 w-4" />{" "}{t('cp.vehicles.addCar')}
         </Button>
       </div>
 
       {loading ? (
-        <div className="py-10 text-center text-muted-foreground">Ładowanie...</div>
+        <div className="py-10 text-center text-muted-foreground">{t('cp.vehicles.loading')}</div>
       ) : activeVehicles.length === 0 ? (
         <Card className="rounded-2xl border-dashed text-center">
           <CardContent className="py-10">
             <Car className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
-            <p className="text-muted-foreground">Nie masz jeszcze żadnego pojazdu</p>
+            <p className="text-muted-foreground">{t('cp.vehicles.noVehicle')}</p>
             <Button className="mt-4" onClick={() => setShowAddVehicle(true)}>
-              <Plus className="mr-1 h-4 w-4" /> Dodaj swoje auto
+              <Plus className="mr-1 h-4 w-4" />{" "}{t('cp.vehicles.addOwnCar')}
             </Button>
           </CardContent>
         </Card>
