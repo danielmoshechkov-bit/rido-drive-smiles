@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 const statusColors: Record<string, string> = {
   'Nowe zlecenie': 'bg-red-500 text-white',
@@ -203,6 +204,12 @@ export default function WorkshopClientCard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      {/* Language bar — klient wybiera język; treść wyceny tłumaczy się na żywo */}
+      <div className="border-b bg-background/80 backdrop-blur">
+        <div className="max-w-5xl mx-auto px-4 py-2 md:px-8 flex justify-end">
+          <LanguageSwitcher variant="outline" />
+        </div>
+      </div>
       {/* Company Header — clean, no heavy gradient */}
       <div className="border-b bg-background">
         <div className="max-w-5xl mx-auto px-4 py-5 md:px-8">
