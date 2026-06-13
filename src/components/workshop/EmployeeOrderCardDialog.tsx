@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useTranslation, Trans } from 'react-i18next';
 import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
+import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 
 interface Props {
   open: boolean;
@@ -160,6 +161,20 @@ export function EmployeeOrderCardDialog({
   }, [open, orderId]);
 
   const confirmedCount = useMemo(() => tasks.filter(t => t.confirmed).length, [tasks]);
+
+  // CORE: tłumaczenie treści zgłoszenia klienta (tytuł pozycji + "Обращение клиента")
+  // na język mechanika. Parts to edytowalne pola robocze — nie tłumaczymy.
+  const tcFields = useMemo<TranslatableField[]>(() => {
+    const out: TranslatableField[] = [];
+    tasks.forEach(t => {
+      const txt = t.complaint || t.text;
+      if (txt && orderId) out.push({ entity_type: 'order', entity_id: `${orderId}#${t.index}`, field: 'complaint', text: txt });
+    });
+    return out;
+  }, [tasks, orderId]);
+  const { t: tc } = useWorkshopTranslations(tcFields, 'pl');
+  const tComplaint = (t: TaskBlock) =>
+    tc('order', `${orderId}#${t.index}`, 'complaint', t.complaint || t.text);
   const allConfirmed = tasks.length > 0 && confirmedCount === tasks.length;
   const progressPct = tasks.length ? (confirmedCount / tasks.length) * 100 : 0;
 
@@ -393,7 +408,7 @@ export function EmployeeOrderCardDialog({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold truncate">
-                          {t.index}. {t.complaint || t.text || tr('workshop.employeeCard.task')}
+                          {t.index}. {tComplaint(t) || tr('workshop.employeeCard.task')}
                           {t.isAddon && (
                             <Badge className="ml-2 bg-yellow-400 text-yellow-950 text-[10px]">{tr('workshop.employeeCard.addon')}</Badge>
                           )}
@@ -410,7 +425,7 @@ export function EmployeeOrderCardDialog({
                         {t.complaint && (
                           <div className="rounded-md bg-muted/60 border px-3 py-2">
                             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{tr('workshop.employeeCard.clientComplaint')}</div>
-                            <div className="text-sm text-foreground">{t.complaint}</div>
+                            <div className="text-sm text-foreground">{tComplaint(t)}</div>
                           </div>
                         )}
                         <div>
