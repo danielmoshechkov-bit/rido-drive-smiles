@@ -48,7 +48,9 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
     ...tasks.map((t: any) => ({ entity_type: 'workshop_estimate', entity_id: t.id, field: 'description', text: t.description || '' })),
     ...parts.map((p: any) => ({ entity_type: 'workshop_estimate', entity_id: p.id, field: 'name', text: p.name || '' })),
   ], [tasks, parts]);
-  const { t: tc } = useWorkshopTranslations(trFields, 'pl');
+  // 'auto' — pozycje wyceny mógł wpisać mechanik w swoim języku (UA/RU);
+  // admin (PL) i klient (jego język) mają je widzieć u siebie.
+  const { t: tc } = useWorkshopTranslations(trFields, 'auto');
 
   const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

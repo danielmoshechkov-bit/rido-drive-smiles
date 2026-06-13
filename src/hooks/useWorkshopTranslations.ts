@@ -17,7 +17,10 @@ export interface TranslatableField {
 export function useWorkshopTranslations(fields: TranslatableField[], sourceLang = 'pl') {
   const { i18n } = useTranslation();
   const targetLang = (i18n.language || 'pl').slice(0, 2);
-  const src = (sourceLang || 'pl').slice(0, 2);
+  // 'auto' = wykryj język źródłowy per pozycję (treść może być w dowolnym języku,
+  // np. mechanik UA wpisał wycenę → admin PL / klient EN ma ją widzieć u siebie).
+  const isAuto = sourceLang === 'auto';
+  const src = isAuto ? 'auto' : (sourceLang || 'pl').slice(0, 2);
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const lastKeyRef = useRef<string>('');
@@ -27,12 +30,14 @@ export function useWorkshopTranslations(fields: TranslatableField[], sourceLang 
     if (cacheKey === lastKeyRef.current) return;
     lastKeyRef.current = cacheKey;
 
-    // Pre-fill originałami (gdy target===source) — w innym razie czekamy na tłumaczenie
+    // Nie pokazujemy oryginału przed tłumaczeniem (poza przypadkiem target===source
+    // przy znanym źródle). Dla 'auto' zawsze próbujemy — core no-opuje gdy źródło==cel.
+    const sameLang = !isAuto && targetLang === src;
     const initial: Record<string, string> = {};
-    for (const f of fields) initial[`${f.entity_type}:${f.entity_id}:${f.field}`] = (targetLang === src) ? (f.text || '') : '';
+    for (const f of fields) initial[`${f.entity_type}:${f.entity_id}:${f.field}`] = sameLang ? (f.text || '') : '';
     setTranslations(initial);
 
-    if (!fields.length || targetLang === src) return;
+    if (!fields.length || sameLang) return;
 
     let cancelled = false;
     setLoading(true);

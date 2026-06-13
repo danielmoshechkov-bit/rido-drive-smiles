@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
+import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 
 const statusColors: Record<string, string> = {
   'Nowe zlecenie': 'bg-red-500 text-white',
@@ -63,6 +64,21 @@ export default function WorkshopClientCard() {
       window.removeEventListener('focus', onFocus);
     };
   }, [isAdminPreview, order?.id]);
+
+  // CORE: tłumaczenie treści zlecenia/wyceny na język KLIENTA (i18n.language).
+  // 'auto' — opisy pisze admin (PL), pozycje mógł wpisać mechanik (UA/RU); klient widzi u siebie.
+  const tcFields = useMemo<TranslatableField[]>(() => {
+    if (!order) return [];
+    const out: TranslatableField[] = [];
+    const oid = String(order.id);
+    if (order.description) out.push({ entity_type: 'order', entity_id: oid, field: 'description', text: order.description });
+    if (order.damage_description) out.push({ entity_type: 'order', entity_id: oid, field: 'damage_description', text: order.damage_description });
+    for (const it of (order.items || [])) {
+      if (it?.id && it?.name) out.push({ entity_type: 'item', entity_id: String(it.id), field: 'name', text: it.name });
+    }
+    return out;
+  }, [order]);
+  const { t: tc } = useWorkshopTranslations(tcFields, 'auto');
 
   const loadOrder = async () => {
     if (!code) return;
@@ -337,7 +353,7 @@ export default function WorkshopClientCard() {
                 {order.description && (
                   <div>
                     <h4 className="text-sm font-bold text-primary mb-1">{t('workshop.clientCard.orderDescription')}:</h4>
-                    <p className="text-sm font-medium bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.description}</p>
+                    <p className="text-sm font-medium bg-muted/30 rounded-lg p-3 whitespace-pre-line">{tc('order', String(order.id), 'description', order.description)}</p>
                   </div>
                 )}
 
@@ -345,7 +361,7 @@ export default function WorkshopClientCard() {
                 {order.damage_description && (
                   <div>
                     <h4 className="text-sm font-bold text-primary mb-1">{t('workshop.clientCard.damageDescription')}:</h4>
-                    <p className="text-sm font-medium bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.damage_description}</p>
+                    <p className="text-sm font-medium bg-muted/30 rounded-lg p-3 whitespace-pre-line">{tc('order', String(order.id), 'damage_description', order.damage_description)}</p>
                   </div>
                 )}
 
@@ -396,7 +412,7 @@ export default function WorkshopClientCard() {
                       {tasks.map((t: any, i: number) => (
                         <div key={t.id} className="flex items-center gap-2 py-1.5 px-3 bg-muted/20 rounded-lg text-sm">
                           <span className="text-muted-foreground font-medium">{i + 1}.</span>
-                          <span>{t.name}</span>
+                          <span>{tc('item', String(t.id), 'name', t.name)}</span>
                         </div>
                       ))}
                     </div>
@@ -451,7 +467,7 @@ export default function WorkshopClientCard() {
                   {order.description && (
                     <div>
                       <h4 className="text-sm font-semibold text-primary mb-1">{t('workshop.clientCard.orderDescription')}:</h4>
-                      <p className="text-sm bg-muted/30 rounded-lg p-3 whitespace-pre-line">{order.description}</p>
+                      <p className="text-sm bg-muted/30 rounded-lg p-3 whitespace-pre-line">{tc('order', String(order.id), 'description', order.description)}</p>
                     </div>
                   )}
 
@@ -478,7 +494,7 @@ export default function WorkshopClientCard() {
                             {tasks.map((t: any, i: number) => (
                               <TableRow key={t.id}>
                                 <TableCell className="text-muted-foreground align-top">{i + 1}</TableCell>
-                                <TableCell className="font-medium break-words">{t.name}</TableCell>
+                                <TableCell className="font-medium break-words">{tc('item', String(t.id), 'name', t.name)}</TableCell>
                                 <TableCell className="text-right tabular-nums whitespace-nowrap align-top">{fmt(t.total_net || 0)}&nbsp;zł</TableCell>
                                 <TableCell className="text-right font-medium tabular-nums whitespace-nowrap align-top">{fmt(t.total_gross || 0)}&nbsp;zł</TableCell>
                               </TableRow>
@@ -521,7 +537,7 @@ export default function WorkshopClientCard() {
                             {goods.map((g: any, i: number) => (
                               <TableRow key={g.id}>
                                 <TableCell className="text-muted-foreground align-top">{i + 1}</TableCell>
-                                <TableCell className="font-medium break-words">{g.name}</TableCell>
+                                <TableCell className="font-medium break-words">{tc('item', String(g.id), 'name', g.name)}</TableCell>
                                 <TableCell className="text-right tabular-nums whitespace-nowrap align-top">{g.quantity}</TableCell>
                                 <TableCell className="align-top">{g.unit}</TableCell>
                                 <TableCell className="text-right tabular-nums whitespace-nowrap align-top">{fmt(g.total_net || 0)}&nbsp;zł</TableCell>

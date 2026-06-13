@@ -120,7 +120,9 @@ export function EmployeeWorkListDialog({
     if (order?.description) push('order', String(order.id), 'description', order.description);
     return out;
   }, [items, groups, order]);
-  const { t: tr } = useWorkshopTranslations(trFields, 'pl');
+  // 'auto' — pozycje to mix: zadania od admina (PL) + części dopisane przez mechanika
+  // w jego języku. Wykrywamy źródło per pozycję, każdy widzi u siebie.
+  const { t: tr } = useWorkshopTranslations(trFields, 'auto');
 
   const removeItem = async (id: string) => {
     if (!confirm(t('workshop.workList.confirmRemoveItem'))) return;
