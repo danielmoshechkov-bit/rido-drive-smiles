@@ -81,18 +81,24 @@ export async function translateTexts(opts: {
     : '';
 
   const system = opts.systemPrompt ||
-    'You are a professional translator. Use correct professional domain terminology ' +
-    '(especially automotive parts/repair and real-estate vocabulary). Keep brand names, ' +
-    'model codes, OE/part numbers, prices, units and URLs EXACTLY as in the source. ' +
-    'Never transliterate part codes.';
+    'You are a faithful, literal translation engine for an automotive / services / real-estate ' +
+    'marketplace. Translate ONLY what is in the source — never add information, words, explanations ' +
+    'or causes that are not there, never guess reasons, never expand a short fragment into a full ' +
+    'sentence. Use correct professional domain terminology (e.g. PL "wahacz"=control arm, "klocki ' +
+    'hamulcowe"=brake pads, "płyn chłodniczy"=coolant). Keep brand names, model/OE/part codes, ' +
+    'numbers, prices, units and URLs EXACTLY. On a typo, translate the nearest sensible intended ' +
+    'word but never invent meaning. Output only the translation.';
 
   const numbered = texts.map((t, i) => `[${i + 1}] ${t}`).join('\n---\n');
   const userPrompt =
 `Translate each numbered text from ${sourceName} to ${targetName}.
 ${domainLine}
-Rules:
-- Translate naturally and professionally.
-- Preserve part names, brand names, model codes, numbers and prices EXACTLY.
+STRICT RULES:
+- Translate LITERALLY and FAITHFULLY. Output ONLY the meaning present in the source.
+- Do NOT add any words, explanations or causes not in the source. Do NOT guess reasons.
+- Do NOT expand a short fragment into a full sentence. A short phrase stays a short phrase of equal length and meaning.
+- Preserve brand names, model/OE/part codes, numbers, prices, units and URLs EXACTLY.
+- On a typo, translate the nearest sensible intended word — never invent extra meaning.
 - Output ONLY a valid JSON object with numeric string keys "1","2",… mapping to the translated text. No markdown, no commentary.
 
 Texts:
@@ -110,6 +116,7 @@ ${numbered}`;
         body: JSON.stringify({
           model,
           max_tokens: 4096,
+          temperature: 0,
           system,
           messages: [{ role: 'user', content: userPrompt + '\n\nReturn ONLY JSON.' }],
         }),
@@ -127,6 +134,7 @@ ${numbered}`;
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({
           model: gwModel,
+          temperature: 0,
           messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }],
           response_format: { type: 'json_object' },
         }),
@@ -145,7 +153,7 @@ ${numbered}`;
           model,
           messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }],
           max_tokens: 4096,
-          temperature: 0.1,
+          temperature: 0,
           response_format: { type: 'json_object' },
         }),
       });
@@ -166,19 +174,20 @@ ${numbered}`;
   }
 }
 
-/** Odczyt aktywnego modelu agenta z ai_agents_config (z domyślnym Haiku). */
-export async function resolveModel(
+/** Odczyt aktywnego agenta z ai_agents_config: model + system_prompt
+ *  (panel admina realnie steruje promptem i modelem). Domyślnie Haiku. */
+export async function resolveAgent(
   sb: { from: (t: string) => any },
   agentId = 'content_translation',
-  fallback = 'claude-haiku-4-5-20251001',
-): Promise<string> {
+  fallbackModel = 'claude-haiku-4-5-20251001',
+): Promise<{ model: string; systemPrompt?: string }> {
   try {
     const { data } = await sb
       .from('ai_agents_config')
-      .select('model,is_active')
+      .select('model,system_prompt')
       .eq('agent_id', agentId)
       .maybeSingle();
-    if (data?.model) return data.model as string;
+    if (data?.model) return { model: data.model as string, systemPrompt: data.system_prompt || undefined };
   } catch (_) { /* ignore */ }
-  return fallback;
+  return { model: fallbackModel };
 }

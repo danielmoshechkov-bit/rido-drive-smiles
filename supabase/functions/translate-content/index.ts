@@ -17,7 +17,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { translateTexts, resolveModel, detectSourceLang } from '../_shared/translationProvider.ts';
+import { translateTexts, resolveAgent, detectSourceLang } from '../_shared/translationProvider.ts';
 
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -55,7 +55,7 @@ serve(async (req) => {
     }
 
     const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const model = await resolveModel(sb, 'content_translation');
+    const { model, systemPrompt } = await resolveAgent(sb, 'content_translation');
 
     const keyOf = (it: Item) => `${it.entity_type}:${it.entity_id}:${it.field}`;
 
@@ -122,6 +122,7 @@ serve(async (req) => {
           sourceLang: sl,
           targetLang: target,
           model,
+          systemPrompt,
           domainHint,
         });
         providerUsed = provider;
