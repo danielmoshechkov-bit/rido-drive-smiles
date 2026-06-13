@@ -172,17 +172,26 @@ export function EmployeeOrderCardDialog({
 
   // CORE: tłumaczenie treści zgłoszenia klienta (tytuł pozycji + "Обращение клиента")
   // na język mechanika. Parts to edytowalne pola robocze — nie tłumaczymy.
-  const tcFields = useMemo<TranslatableField[]>(() => {
-    const out: TranslatableField[] = [];
+  // CORE: tłumaczenie CAŁEJ treści karty (zgłoszenia + części + robocizny) na język
+  // oglądającego. 'auto' — mechanik mógł wpisać po UA/RU; każdy widzi u siebie.
+  // Klucz po treści; istniejące pozycje są display-only (usuwasz/dodajesz, nie edytujesz
+  // w miejscu) → tłumaczenie wyświetlania jest bezpieczne. Nowy wpis (input) nietłumaczony.
+  const tcTexts = useMemo(() => {
+    const set = new Set<string>();
     tasks.forEach(t => {
-      const txt = t.complaint;
-      if (txt && orderId) out.push({ entity_type: 'order', entity_id: `${orderId}#${t.index}`, field: 'complaint', text: txt });
+      if (t.complaint) set.add(t.complaint);
+      t.parts.forEach(p => { if (p.name) set.add(p.name); });
+      t.labor.forEach(l => { if (l.name) set.add(l.name); });
     });
-    return out;
-  }, [tasks, orderId]);
-  const { t: tc } = useWorkshopTranslations(tcFields, 'pl');
-  const tComplaint = (t: TaskBlock) =>
-    tc('order', `${orderId}#${t.index}`, 'complaint', t.complaint);
+    return Array.from(set);
+  }, [tasks]);
+  const tcFields = useMemo<TranslatableField[]>(
+    () => tcTexts.map(txt => ({ entity_type: 'card', entity_id: txt, field: 'name', text: txt })),
+    [tcTexts],
+  );
+  const { t: tcMap } = useWorkshopTranslations(tcFields, 'auto');
+  const tc = (txt?: string) => (txt ? (tcMap('card', txt, 'name', txt) || txt) : (txt || ''));
+  const tComplaint = (t: TaskBlock) => tc(t.complaint);
   const allConfirmed = tasks.length > 0 && confirmedCount === tasks.length;
   const progressPct = tasks.length ? (confirmedCount / tasks.length) * 100 : 0;
 
@@ -477,7 +486,7 @@ export function EmployeeOrderCardDialog({
                             <div className="divide-y border rounded-md mb-2 bg-background">
                               {t.parts.map((p, pi) => (
                                 <div key={pi} className="flex items-center gap-2 px-3 py-2">
-                                  <span className="flex-1 text-sm">{p.name}</span>
+                                  <span className="flex-1 text-sm">{tc(p.name)}</span>
                                   {!ro && (
                                     <button
                                       type="button" onClick={() => removePart(ti, pi)}
@@ -526,7 +535,7 @@ export function EmployeeOrderCardDialog({
                             <div className="divide-y border rounded-md mb-2 bg-background">
                               {t.labor.map((l, li) => (
                                 <div key={li} className="flex items-center gap-2 px-3 py-2">
-                                  <span className="flex-1 text-sm">{l.name}</span>
+                                  <span className="flex-1 text-sm">{tc(l.name)}</span>
                                   {!ro && (
                                     <button
                                       type="button" onClick={() => removeLabor(ti, li)}
