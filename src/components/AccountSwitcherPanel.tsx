@@ -243,7 +243,7 @@ export function AccountSwitcherPanel({
                     <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
                       <Badge variant="secondary" className="text-xs">
                         <Lock className="h-3 w-3 mr-1" />
-                        Wkrótce
+                        {t('accountSwitcher.comingSoon')}
                       </Badge>
                     </div>
                   )}
@@ -364,7 +364,7 @@ export function AccountSwitcherPanel({
                     <div className="absolute inset-0 bg-background/60 flex items-center justify-center">
                       <Badge variant="secondary" className="text-xs">
                         <Lock className="h-3 w-3 mr-1" />
-                        Wkrótce
+                        {t('accountSwitcher.comingSoon')}
                       </Badge>
                     </div>
                   )}
