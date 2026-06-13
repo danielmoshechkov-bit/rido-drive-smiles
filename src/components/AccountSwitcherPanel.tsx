@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +68,7 @@ export function AccountSwitcherPanel({
   navigate,
   hideDriverForFleet = false
 }: AccountSwitcherPanelProps) {
+  const { t } = useTranslation();
   const [showAddAccountDialog, setShowAddAccountDialog] = useState(false);
   const { isWorkshopEmployee, records: workshopEmpRecords } = useIsWorkshopEmployee();
 
@@ -77,58 +79,58 @@ export function AccountSwitcherPanel({
   const accounts: AccountOption[] = [
     {
       type: 'admin',
-      label: 'Administrator',
-      description: 'Zarządzaj całym portalem',
+      label: t('accountSwitcher.admin'),
+      description: t('accountSwitcher.adminDesc'),
       image: adminImg,
       route: '/admin/dashboard',
       isEnabled: isAdminAccount
     },
     {
       type: 'sales',
-      label: isSalesAdmin ? 'CRM Sprzedaż' : 'Handlowiec',
-      description: 'Kontakty, leady i sprzedaż',
+      label: isSalesAdmin ? t('accountSwitcher.crmSales') : t('accountSwitcher.salesRep'),
+      description: t('accountSwitcher.salesDesc'),
       image: salesImg,
       route: '/sprzedaz',
       isEnabled: hasSalesAccess
     },
     {
       type: 'fleet',
-      label: 'Flota',
-      description: 'Zarządzaj pojazdami i kierowcami',
+      label: t('accountSwitcher.fleet'),
+      description: t('accountSwitcher.fleetDesc'),
       image: fleetImg,
       route: '/fleet/dashboard',
       isEnabled: isFleetAccount
     },
     {
       type: 'driver',
-      label: 'Kierowca',
-      description: 'Rozliczenia i dokumenty',
+      label: t('accountSwitcher.driver'),
+      description: t('accountSwitcher.driverDesc'),
       image: driverImg,
       route: '/driver',
       isEnabled: showDriverOption
     },
     {
       type: 'service_provider',
-      label: 'Panel Usługodawcy',
-      description: 'Zarządzanie usługami i zleceniami',
+      label: t('accountSwitcher.serviceProvider'),
+      description: t('accountSwitcher.serviceProviderDesc'),
       image: clientPortalImg,
       route: '/uslugi/panel',
       isEnabled: isServiceProvider
     },
     {
       type: 'workshop_employee',
-      label: 'Moja Praca',
+      label: t('accountSwitcher.myWork'),
       description: workshopEmpRecords[0]?.provider_name
         ? `${workshopEmpRecords[0].provider_name}`
-        : 'Twoje zlecenia i kalendarz',
+        : t('accountSwitcher.myWorkDesc'),
       image: workshopEmployeeImg,
       route: '/pracownik-warsztat',
       isEnabled: isWorkshopEmployee
     },
     {
       type: 'client',
-      label: 'Portal Klienta',
-      description: 'Twoje konto i ustawienia',
+      label: t('accountSwitcher.clientPortal'),
+      description: t('accountSwitcher.clientPortalDesc'),
       image: clientPortalImg,
       route: '/klient',
       isEnabled: isClientPortal
@@ -145,40 +147,40 @@ export function AccountSwitcherPanel({
   const registrationOptions: RegistrationOption[] = [
     {
       id: 'driver',
-      label: 'Portal Kierowcy',
-      description: 'Dla kierowców pracujących we flotach',
+      label: t('accountSwitcher.driverPortal'),
+      description: t('accountSwitcher.driverPortalDesc'),
       image: driverImg,
       route: '/driver/register',
       available: true
     },
     {
       id: 'fleet',
-      label: 'Rozliczenia i Flota',
-      description: 'Zarządzanie flotą i kierowcami',
+      label: t('accountSwitcher.settlementsFleet'),
+      description: t('accountSwitcher.settlementsFleetDesc'),
       image: fleetImg,
       route: '/fleet/rejestracja',
       available: true
     },
     {
       id: 'marketplace',
-      label: 'Giełda Aut',
-      description: 'Kupuj i sprzedawaj pojazdy',
+      label: t('accountSwitcher.carMarket'),
+      description: t('accountSwitcher.carMarketDesc'),
       image: clientPortalImg,
       route: '/gielda/rejestracja',
       available: false
     },
     {
       id: 'real_estate',
-      label: 'Nieruchomości',
-      description: 'Dla agencji nieruchomości',
+      label: t('accountSwitcher.realEstate'),
+      description: t('accountSwitcher.realEstateDesc'),
       image: clientPortalImg,
       route: '/nieruchomosci/agent/rejestracja',
       available: false
     },
     {
       id: 'services',
-      label: 'Usługi',
-      description: 'Dla firm usługowych',
+      label: t('accountSwitcher.services'),
+      description: t('accountSwitcher.servicesDesc'),
       image: clientPortalImg,
       route: '/uslugi/rejestracja',
       available: false
@@ -208,12 +210,12 @@ export function AccountSwitcherPanel({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Building2 className="h-5 w-5" />
-          {hasNoSpecializedAccounts ? "Dodaj nowe konto" : "Wybierz moduł"}
+          {hasNoSpecializedAccounts ? t('accountSwitcher.addAccount') : t('accountSwitcher.selectModule')}
         </CardTitle>
         <CardDescription>
           {hasNoSpecializedAccounts 
-            ? "Wybierz rodzaj konta, które chcesz utworzyć"
-            : "Przełącz między modułami lub dodaj nowy"
+            ? t('accountSwitcher.selectAccountType')
+            : t('accountSwitcher.switchOrAdd')
           }
         </CardDescription>
       </CardHeader>
@@ -273,13 +275,13 @@ export function AccountSwitcherPanel({
                 />
                 {currentAccountType === 'client' && (
                   <div className="absolute top-2 right-2">
-                    <Badge className="text-xs bg-primary">aktywne</Badge>
+                    <Badge className="text-xs bg-primary">{t('accountSwitcher.active')}</Badge>
                   </div>
                 )}
               </div>
               <div className="p-3 text-center bg-background">
-                <p className="font-medium text-sm">Portal Klienta</p>
-                <p className="text-xs text-muted-foreground mt-1">Twoje konto i ustawienia</p>
+                <p className="font-medium text-sm">{t('accountSwitcher.clientPortal')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('accountSwitcher.clientPortalDesc')}</p>
               </div>
             </div>
 
@@ -303,7 +305,7 @@ export function AccountSwitcherPanel({
                     />
                     {isActive && (
                       <div className="absolute top-2 right-2">
-                        <Badge className="text-xs bg-primary">aktywne</Badge>
+                        <Badge className="text-xs bg-primary">{t('accountSwitcher.active')}</Badge>
                       </div>
                     )}
                   </div>
@@ -324,8 +326,8 @@ export function AccountSwitcherPanel({
                 <Plus className="h-12 w-12 text-muted-foreground" />
               </div>
               <div className="p-3 text-center bg-background">
-                <p className="font-medium text-sm text-muted-foreground">Dodaj moduł</p>
-                <p className="text-xs text-muted-foreground mt-1">Rozszerz funkcjonalność</p>
+                <p className="font-medium text-sm text-muted-foreground">{t('accountSwitcher.addModule')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('accountSwitcher.extendFunctionality')}</p>
               </div>
             </div>
           </div>
@@ -336,9 +338,9 @@ export function AccountSwitcherPanel({
       <Dialog open={showAddAccountDialog} onOpenChange={setShowAddAccountDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Dodaj nowy moduł</DialogTitle>
+            <DialogTitle>{t('accountSwitcher.addNewModule')}</DialogTitle>
             <DialogDescription>
-              Wybierz moduł, który chcesz aktywować
+              {t('accountSwitcher.selectToActivate')}
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 pt-4">
