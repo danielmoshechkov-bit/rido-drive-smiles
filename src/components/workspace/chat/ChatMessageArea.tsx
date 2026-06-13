@@ -517,19 +517,6 @@ export function ChatMessageArea({
                             </div>
                             {tr && (
                               <div className="flex items-center gap-2 mt-1">
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-                                        <Globe className="h-3 w-3" />
-                                        Przetłumaczono{srcLabel ? ` z ${srcLabel.flag} ${srcLabel.label}` : ''}
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p className="text-xs">Auto-tłumaczenie Premium 🌍</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
                                 <button
                                   className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
                                   onClick={() => translation.toggleOriginal(msg.id)}
