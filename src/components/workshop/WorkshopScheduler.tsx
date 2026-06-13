@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye } from 'lucide-react';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getDateLocale } from '@/lib/dateLocale';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -26,7 +26,7 @@ interface Props {
 const ROW_HEIGHT = 56; // px — stała wysokość każdego wiersza godziny
 
 export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrderId }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const resolvedTitle = title ?? t('workshop.scheduler.title');
   // For 'day' view: anchor = current day. For 'week' view: anchor = Monday of week.
@@ -353,10 +353,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
   const weekStartMonday = startOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStartMonday, 4);
   const headerLabel = viewMode === 'day'
-    ? format(currentDay, 'EEEE, d MMMM yyyy', { locale: pl })
+    ? format(currentDay, 'EEEE, d MMMM yyyy', { locale: getDateLocale(i18n.language) })
     : viewMode === 'month'
-    ? format(currentMonth, 'LLLL yyyy', { locale: pl })
-    : `${format(weekStartMonday, 'd', { locale: pl })} – ${format(weekEnd, 'd MMM yyyy', { locale: pl })}`;
+    ? format(currentMonth, 'LLLL yyyy', { locale: getDateLocale(i18n.language) })
+    : `${format(weekStartMonday, 'd', { locale: getDateLocale(i18n.language) })} – ${format(weekEnd, 'd MMM yyyy', { locale: getDateLocale(i18n.language) })}`;
 
   const handleCellClick = (day: Date, hour: number, stationId: string) => {
     if (isCellOccupied(stationId, day, hour)) return;
@@ -638,7 +638,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                       const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                       return (
                         <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-foreground/20 p-1 text-center ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${today ? 'bg-[hsl(220,80%,50%)] text-white' : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'}`}>
-                          <div className="font-bold text-[10px]">{format(day, 'EEE', { locale: pl })}</div>
+                          <div className="font-bold text-[10px]">{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
                           <div className={`text-xs font-black ${today ? 'text-white' : ''}`}>{format(day, 'dd.MM')}</div>
                         </th>
                       );
@@ -823,7 +823,7 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
   onDragStart: () => void; onDragEnd: () => void;
   onResizeStart: (e: React.MouseEvent, order: any, direction: 'top' | 'bottom') => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isBooking = !!order._isBooking;
   const [showPreview, setShowPreview] = useState(false);
   const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || 'none');
@@ -965,7 +965,7 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
 }
 
 function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, updateOrder, tc }: { order: any; onDragStart: () => void; onDragEnd: () => void; isFocused?: boolean; employees: any[]; updateOrder: any; tc: (t?: string) => string; }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [showPreview, setShowPreview] = useState(false);
   const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || 'none');
 
@@ -1066,7 +1066,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
   onSchedule: (orderId: string, day: Date, hour: number, stationId: string) => Promise<void>;
   onStationChange: (stationId: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [activeTab, setActiveTab] = useState<'client' | 'event' | 'order'>('client');
