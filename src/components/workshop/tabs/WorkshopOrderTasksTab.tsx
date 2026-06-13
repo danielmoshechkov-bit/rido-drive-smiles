@@ -1,4 +1,4 @@
-import { DragEvent, useEffect, useRef, useState } from 'react';
+import { DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import { useSaveServicePrice, useSaveAnonymousPrice } from '@/hooks/useServicePr
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
+import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 
 interface Props {
   order: any;
@@ -222,6 +223,19 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const sortedGoodsItems = sortItemsBySortOrder((order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other'));
   const tasks = taskPreview ?? sortedTaskItems;
   const goods = goodsPreview ?? sortedGoodsItems;
+
+  // CORE: nazwy pozycji w języku admina ('auto' — mechanik mógł wpisać po UA/RU).
+  // Podgląd i edycja pokazują tłumaczenie; saveEdit pomija nazwę gdy admin jej nie
+  // zmienił → oryginał mechanika zostaje (klient nadal dostaje tłumaczenie ze źródła).
+  const nameTransFields = useMemo<TranslatableField[]>(() => {
+    const out: TranslatableField[] = [];
+    for (const it of (order.items || [])) {
+      if (it?.id && it?.name) out.push({ entity_type: 'item', entity_id: String(it.id), field: 'name', text: String(it.name) });
+    }
+    return out;
+  }, [order.items]);
+  const { t: tName } = useWorkshopTranslations(nameTransFields, 'auto');
+  const nameDisplay = (item: any) => tName('item', String(item.id), 'name', item.name || '') || (item.name || '');
 
   const isTaskGross = taskPriceMode === 'gross';
   const isGoodsGross = goodsPriceMode === 'gross';
@@ -635,7 +649,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     const gross = isService ? isTaskGross : isGoodsGross;
 
     if (myField === 'name') {
-      updates.name = myValue;
+      // Nie nadpisuj oryginału mechanika, jeśli admin nie zmienił przetłumaczonej nazwy
+      if (myValue !== nameDisplay(item)) updates.name = myValue;
     } else if (myField === 'quantity') {
       const newQty = Math.max(1, parseInt(myValue) || 1);
       updates.quantity = newQty;
@@ -681,6 +696,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
     }
 
+    if (Object.keys(updates).length === 0) return; // nic się nie zmieniło — nie zapisuj
     await updateItem.mutateAsync({ id: myId, ...updates });
   };
 
@@ -1004,7 +1020,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     const inputAlignClass = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
 
     const getFieldValue = () => {
-      if (field === 'name') return item.name || '';
+      if (field === 'name') return nameDisplay(item);
       if (field === 'mechanic') return item.mechanic || '';
       if (field === 'unit') return item.unit || '';
       if (field === 'price') {
@@ -1179,7 +1195,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             {task.is_addon && (
                               <Badge className="mr-2 bg-red-600 text-white text-[9px] uppercase px-1.5 py-0 animate-pulse">{t('workshop.orderTasks.addonBadge')}</Badge>
                             )}
-                            {renderEditableCell(task, 'name', task.name)}
+                            {renderEditableCell(task, 'name', nameDisplay(task))}
                           </div>
                         </div>
                       </td>
@@ -1512,7 +1528,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             {g.is_addon && (
                               <Badge className="mr-2 bg-red-600 text-white text-[9px] uppercase px-1.5 py-0 animate-pulse">{t('workshop.orderTasks.addonBadge')}</Badge>
                             )}
-                            {renderEditableCell(g, 'name', g.name)}
+                            {renderEditableCell(g, 'name', nameDisplay(g))}
                           </div>
                         </div>
                       </td>
