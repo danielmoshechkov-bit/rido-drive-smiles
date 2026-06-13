@@ -1,5 +1,25 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// Limiter współbieżności wywołań edge translate-content. Anthropic ma niski limit
+// równoczesnych połączeń — bez tego marketplace (dziesiątki kart naraz) dostaje 429
+// i część ogłoszeń zostaje nieprzetłumaczona. Max N naraz, reszta czeka w kolejce.
+const MAX_CONCURRENT = 3;
+let activeInvokes = 0;
+const invokeQueue: Array<() => void> = [];
+async function withInvokeLimit<T>(fn: () => Promise<T>): Promise<T> {
+  if (activeInvokes >= MAX_CONCURRENT) {
+    await new Promise<void>(resolve => invokeQueue.push(resolve));
+  }
+  activeInvokes++;
+  try {
+    return await fn();
+  } finally {
+    activeInvokes--;
+    const next = invokeQueue.shift();
+    if (next) next();
+  }
+}
+
 /**
  * Klient wspólnego silnika tłumaczenia treści (CORE).
  * Szybka ścieżka: bezpośredni odczyt globalnego cache (translation_cache_global,
@@ -90,7 +110,7 @@ export async function translateContentBatch(
 
   if (misses.length) {
     try {
-      const { data } = await supabase.functions.invoke('translate-content', {
+      const { data } = await withInvokeLimit(() => supabase.functions.invoke('translate-content', {
         body: {
           items: misses.map(m => ({
             entity_type: m.entity_type, entity_id: m.entity_id, field: m.field,
@@ -100,7 +120,7 @@ export async function translateContentBatch(
           source_lang: defaultSource,
           domain_hint: domainHint,
         },
-      });
+      }));
       const tr = (data?.translations || {}) as Record<string, string>;
       for (const m of misses) out[m.key] = tr[m.key] ?? m.text; // fallback: oryginał tylko przy twardym błędzie
     } catch {

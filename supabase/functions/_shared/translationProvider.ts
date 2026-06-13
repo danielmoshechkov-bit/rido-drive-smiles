@@ -33,6 +33,16 @@ export function detectSourceLang(text: string): string {
 
 export type Provider = 'anthropic' | 'gemini' | 'kimi';
 
+/** fetch z retry/backoff na limity (429) i chwilowe błędy (503/529 — Anthropic overloaded). */
+async function fetchRetry(url: string, opts: RequestInit, retries = 3): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const r = await fetch(url, opts);
+    if (![429, 503, 529].includes(r.status) || attempt >= retries) return r;
+    const wait = 500 * Math.pow(2, attempt) + Math.floor(Math.random() * 300);
+    await new Promise(res => setTimeout(res, wait));
+  }
+}
+
 /** Oczyść klucz API: usuń znaki spoza drukowalnego ASCII (śmieci z wklejenia:
  *  smart-quotes, zero-width, nbsp, \r\n) — inaczej fetch rzuca „invalid ByteString". */
 function cleanKey(v: string | undefined): string {
@@ -110,7 +120,7 @@ ${numbered}`;
     if (provider === 'anthropic') {
       const key = cleanKey(Deno.env.get('ANTHROPIC_API_KEY'));
       if (!key) throw new Error('ANTHROPIC_API_KEY missing');
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
+      const r = await fetchRetry('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
@@ -129,7 +139,7 @@ ${numbered}`;
       const key = cleanKey(Deno.env.get('LOVABLE_API_KEY'));
       if (!key) throw new Error('LOVABLE_API_KEY missing');
       const gwModel = /^(google|openai)\//.test(model) ? model : `google/${model}`;
-      const r = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const r = await fetchRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({
@@ -146,7 +156,7 @@ ${numbered}`;
       // Kimi / Moonshot (default)
       const key = cleanKey(Deno.env.get('MOONSHOT_API_KEY') || Deno.env.get('KIMI_API_KEY'));
       if (!key) throw new Error('MOONSHOT_API_KEY/KIMI_API_KEY missing');
-      const r = await fetch('https://api.moonshot.ai/v1/chat/completions', {
+      const r = await fetchRetry('https://api.moonshot.ai/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({
