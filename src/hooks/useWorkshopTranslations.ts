@@ -33,9 +33,16 @@ export function useWorkshopTranslations(fields: TranslatableField[], sourceLang 
     // Nie pokazujemy oryginału przed tłumaczeniem (poza przypadkiem target===source
     // przy znanym źródle). Dla 'auto' zawsze próbujemy — core no-opuje gdy źródło==cel.
     const sameLang = !isAuto && targetLang === src;
-    const initial: Record<string, string> = {};
-    for (const f of fields) initial[`${f.entity_type}:${f.entity_id}:${f.field}`] = sameLang ? (f.text || '') : '';
-    setTranslations(initial);
+    // Zachowaj już-przetłumaczone wartości (odporność na re-fetch danych, który
+    // zmienia referencję fields). Nowe/nieznane klucze → oryginał gdy sameLang, inaczej ''.
+    setTranslations(prev => {
+      const next: Record<string, string> = { ...prev };
+      for (const f of fields) {
+        const key = `${f.entity_type}:${f.entity_id}:${f.field}`;
+        if (!next[key]) next[key] = sameLang ? (f.text || '') : '';
+      }
+      return next;
+    });
 
     if (!fields.length || sameLang) return;
 
