@@ -886,30 +886,63 @@ function ClientVehicleAddDialog({
     }
 
     setSavingVehicle(true);
-    const { error } = await supabase.from("client_vehicles").insert({
-      user_id: userId,
-      plate_number: plate.trim().toUpperCase(),
-      vin: vin.trim().toUpperCase() || null,
-      make: brand || null,
-      model: model || null,
-      year: year === "" ? null : Number(year),
-      engine_capacity: engineCapacity || null,
-      fuel_type: fuelType || null,
-      color: color || null,
-      mot_expiry: motExpiry || null,
-      oc_expiry: ocExpiry || null,
-      photos: [],
-    });
+    const vinClean = vin.trim().toUpperCase();
+    const { data: inserted, error } = await supabase
+      .from("client_vehicles")
+      .insert({
+        user_id: userId,
+        plate_number: plate.trim().toUpperCase(),
+        vin: vinClean || null,
+        make: brand || null,
+        model: model || null,
+        year: year === "" ? null : Number(year),
+        engine_capacity: engineCapacity || null,
+        fuel_type: fuelType || null,
+        color: color || null,
+        mot_expiry: motExpiry || null,
+        oc_expiry: ocExpiry || null,
+        photos: [],
+      })
+      .select("id")
+      .single();
 
-    if (error) {
+    if (error || !inserted) {
       toast.error(t('cp.vehicles.addVehicleError'));
-    } else {
-      toast.success(t('cp.vehicles.vehicleAdded'));
-      await onSaved();
-      onOpenChange(false);
-      resetForm();
+      setSavingVehicle(false);
+      return;
     }
 
+    // Option B: if a VIN was provided, try to verify ownership against
+    // workshop records — a VIN known to a workshop proves the car was
+    // serviced here, so we can pull its full repair history automatically.
+    if (vinClean) {
+      try {
+        const { data: res } = await supabase.functions.invoke("client-verify-vehicle-ownership", {
+          body: { verify_vehicle_id: inserted.id, vin: vinClean },
+        });
+        if (res?.verified) {
+          toast.success(res.transferred
+            ? t('cp.vehicles.vehicleTransferred', {
+                defaultValue: 'Pojazd przypisany do Ciebie. Historia napraw została przeniesiona, a poprzedni właściciel powiadomiony.',
+              })
+            : t('cp.vehicles.vehicleVerifiedHistory', {
+                defaultValue: 'Auto zweryfikowane po VIN — historia napraw z warsztatu została wczytana.',
+              }));
+        } else {
+          toast.success(t('cp.vehicles.vehicleAddedNoHistory', {
+            defaultValue: 'Auto zapisane. Historia napraw pojawi się, gdy warsztat obsłuży ten pojazd w systemie.',
+          }));
+        }
+      } catch {
+        toast.success(t('cp.vehicles.vehicleAdded'));
+      }
+    } else {
+      toast.success(t('cp.vehicles.vehicleAdded'));
+    }
+
+    await onSaved();
+    onOpenChange(false);
+    resetForm();
     setSavingVehicle(false);
   };
 

@@ -184,6 +184,12 @@ BEGIN
   IF coalesce(NEW.is_verified, false) = false THEN
     RETURN NEW;
   END IF;
+  -- On UPDATE only backfill when the vehicle JUST became verified
+  -- (covers manual add -> later VIN verification). Already-verified rows
+  -- are skipped; the NOT EXISTS guard below also keeps it idempotent.
+  IF TG_OP = 'UPDATE' AND coalesce(OLD.is_verified, false) = true THEN
+    RETURN NEW;
+  END IF;
 
   INSERT INTO client_vehicle_service_history
     (client_vehicle_id, service_date, mileage, description, cost, workshop_name, workshop_order_id)
@@ -210,5 +216,5 @@ $$;
 
 DROP TRIGGER IF EXISTS trg_client_vehicle_backfill_service_history ON client_vehicles;
 CREATE TRIGGER trg_client_vehicle_backfill_service_history
-  AFTER INSERT ON client_vehicles
+  AFTER INSERT OR UPDATE OF is_verified ON client_vehicles
   FOR EACH ROW EXECUTE FUNCTION public.client_vehicle_backfill_service_history();
