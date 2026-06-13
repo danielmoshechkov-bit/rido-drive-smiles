@@ -1540,7 +1540,9 @@
       "emailNotifDesc": "Получайте уведомления о новых сообщениях",
       "soon": "Скоро",
       "darkMode": "Тёмная тема",
-      "darkModeDesc": "Измените внешний вид интерфейса"
+      "darkModeDesc": "Измените внешний вид интерфейса",
+      "companyDataDesc": "Данные вашей компании для выставления счетов",
+      "noAddress": "Нет адреса"
     },
     "addDialog": {
       "title": "Что вы хотите добавить?",
@@ -1549,7 +1551,41 @@
       "realEstateDesc": "Требуется аккаунт агента",
       "servicesDesc": "Компания или физлицо"
     },
-    "userFallback": "Пользователь"
+    "userFallback": "Пользователь",
+    "accounting": {
+      "przeglad": "Обзор",
+      "invoices": "Счета",
+      "purchases": "Закупки",
+      "documents": "Документы",
+      "payments": "Платежи",
+      "warehouse": "Склад",
+      "recurring": "Регулярные",
+      "issueInvoice": "Выставить счёт",
+      "issueInvoiceDesc": "Быстро выставьте счёт-фактуру для контрагента",
+      "invoicesMonth": "Счета (месяц)",
+      "paidCount": "оплачено",
+      "grossRevenue": "Валовой доход",
+      "invoiceSum": "Сумма счетов",
+      "toPay": "К оплате",
+      "unpaidInvoices": "Неоплаченные счета",
+      "quickActions": "Быстрые действия",
+      "addCostInvoice": "Добавить счёт расходов",
+      "exportCsv": "Экспорт CSV",
+      "editCompany": "Изменить компанию",
+      "recentInvoices": "Последние счета",
+      "recentInvoicesDesc": "Последние документы продаж",
+      "issued": "Выставленные",
+      "autoInvoices": "Автосчета",
+      "seeAll": "Смотреть все",
+      "noInvoicesPeriod": "Нет счетов за выбранный период",
+      "changeMonthYear": "Измените месяц или год, чтобы увидеть другие счета",
+      "autoInvoicesB2B": "B2B-автосчета",
+      "autoInvoicesDesc": "Счета генерируются автоматически системой расчётов",
+      "goToDriverPortal": "Перейдите в Портал водителя, чтобы увидеть автосчета",
+      "allInvoices": "Список всех счетов",
+      "noInvoices": "Нет счетов",
+      "issueFirstInvoice": "Выставьте первый счёт"
+    }
   },
   "fleetRegister": {
     "companyNameRequired": "Название компании обязательно",

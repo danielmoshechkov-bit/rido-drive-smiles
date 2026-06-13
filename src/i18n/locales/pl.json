@@ -1540,7 +1540,9 @@
       "emailNotifDesc": "Otrzymuj powiadomienia o nowych wiadomościach",
       "soon": "Wkrótce",
       "darkMode": "Tryb ciemny",
-      "darkModeDesc": "Zmień wygląd interfejsu"
+      "darkModeDesc": "Zmień wygląd interfejsu",
+      "companyDataDesc": "Dane Twojej firmy do wystawiania faktur",
+      "noAddress": "Brak adresu"
     },
     "addDialog": {
       "title": "Co chcesz dodać?",
@@ -1549,7 +1551,41 @@
       "realEstateDesc": "Wymaga konta agenta",
       "servicesDesc": "Firma lub osoba fizyczna"
     },
-    "userFallback": "Użytkownik"
+    "userFallback": "Użytkownik",
+    "accounting": {
+      "przeglad": "Przegląd",
+      "invoices": "Faktury",
+      "purchases": "Zakupy",
+      "documents": "Dokumenty",
+      "payments": "Płatności",
+      "warehouse": "Stan magazynowy",
+      "recurring": "Cykliczne",
+      "issueInvoice": "Wystaw fakturę",
+      "issueInvoiceDesc": "Szybko wystaw fakturę VAT dla kontrahenta",
+      "invoicesMonth": "Faktury (miesiąc)",
+      "paidCount": "opłaconych",
+      "grossRevenue": "Przychód brutto",
+      "invoiceSum": "Suma faktur",
+      "toPay": "Do zapłaty",
+      "unpaidInvoices": "Nieopłacone faktury",
+      "quickActions": "Szybkie akcje",
+      "addCostInvoice": "Dodaj fakturę kosztową",
+      "exportCsv": "Eksport CSV",
+      "editCompany": "Edytuj firmę",
+      "recentInvoices": "Ostatnie faktury",
+      "recentInvoicesDesc": "Najnowsze dokumenty sprzedażowe",
+      "issued": "Wystawione",
+      "autoInvoices": "Autofaktury",
+      "seeAll": "Zobacz wszystkie",
+      "noInvoicesPeriod": "Brak faktur w wybranym okresie",
+      "changeMonthYear": "Zmień miesiąc lub rok aby zobaczyć inne faktury",
+      "autoInvoicesB2B": "Autofaktury B2B",
+      "autoInvoicesDesc": "Faktury generowane automatycznie przez system rozliczeń",
+      "goToDriverPortal": "Przejdź do Portalu Kierowcy, aby zobaczyć autofaktury",
+      "allInvoices": "Lista wszystkich faktur",
+      "noInvoices": "Brak faktur",
+      "issueFirstInvoice": "Wystaw pierwszą fakturę"
+    }
   },
   "fleetRegister": {
     "companyNameRequired": "Nazwa firmy jest wymagana",

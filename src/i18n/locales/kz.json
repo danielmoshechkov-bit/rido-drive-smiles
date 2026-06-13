@@ -1540,7 +1540,9 @@
       "emailNotifDesc": "Жаңа хабарламалар туралы хабарландыру алыңыз",
       "soon": "Жақында",
       "darkMode": "Қараңғы режим",
-      "darkModeDesc": "Интерфейс көрінісін өзгерту"
+      "darkModeDesc": "Интерфейс көрінісін өзгерту",
+      "companyDataDesc": "Шот-фактура шығаруға арналған компания деректері",
+      "noAddress": "Мекенжай жоқ"
     },
     "addDialog": {
       "title": "Не қосқыңыз келеді?",
@@ -1549,7 +1551,41 @@
       "realEstateDesc": "Агент аккаунты қажет",
       "servicesDesc": "Компания немесе жеке тұлға"
     },
-    "userFallback": "Пайдаланушы"
+    "userFallback": "Пайдаланушы",
+    "accounting": {
+      "przeglad": "Шолу",
+      "invoices": "Шот-фактуралар",
+      "purchases": "Сатып алулар",
+      "documents": "Құжаттар",
+      "payments": "Төлемдер",
+      "warehouse": "Қойма",
+      "recurring": "Мерзімді",
+      "issueInvoice": "Шот-фактура шығару",
+      "issueInvoiceDesc": "Контрагентке ҚҚС шот-фактурасын жылдам шығарыңыз",
+      "invoicesMonth": "Шот-фактуралар (ай)",
+      "paidCount": "төленді",
+      "grossRevenue": "Жалпы кіріс",
+      "invoiceSum": "Шот-фактуралар сомасы",
+      "toPay": "Төлеуге",
+      "unpaidInvoices": "Төленбеген шот-фактуралар",
+      "quickActions": "Жылдам әрекеттер",
+      "addCostInvoice": "Шығын шот-фактурасын қосу",
+      "exportCsv": "CSV экспорттау",
+      "editCompany": "Компанияны өңдеу",
+      "recentInvoices": "Соңғы шот-фактуралар",
+      "recentInvoicesDesc": "Соңғы сату құжаттары",
+      "issued": "Шығарылған",
+      "autoInvoices": "Авто шот-фактуралар",
+      "seeAll": "Барлығын көру",
+      "noInvoicesPeriod": "Таңдалған кезеңде шот-фактуралар жоқ",
+      "changeMonthYear": "Басқа шот-фактураларды көру үшін айды немесе жылды өзгертіңіз",
+      "autoInvoicesB2B": "B2B авто шот-фактуралар",
+      "autoInvoicesDesc": "Шот-фактуралар есеп айырысу жүйесімен автоматты түрде жасалады",
+      "goToDriverPortal": "Авто шот-фактураларды көру үшін Жүргізуші порталына өтіңіз",
+      "allInvoices": "Барлық шот-фактуралар тізімі",
+      "noInvoices": "Шот-фактуралар жоқ",
+      "issueFirstInvoice": "Алғашқы шот-фактураңызды шығарыңыз"
+    }
   },
   "fleetRegister": {
     "companyNameRequired": "Компания атауы міндетті",

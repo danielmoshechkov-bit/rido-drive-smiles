@@ -1447,7 +1447,9 @@
       "emailNotifDesc": "Erhalten Sie Benachrichtigungen über neue Nachrichten",
       "soon": "Bald",
       "darkMode": "Dunkelmodus",
-      "darkModeDesc": "Ändern Sie das Erscheinungsbild der Oberfläche"
+      "darkModeDesc": "Ändern Sie das Erscheinungsbild der Oberfläche",
+      "companyDataDesc": "Ihre Firmendaten zum Ausstellen von Rechnungen",
+      "noAddress": "Keine Adresse"
     },
     "addDialog": {
       "title": "Was möchten Sie hinzufügen?",
@@ -1456,7 +1458,41 @@
       "realEstateDesc": "Erfordert ein Maklerkonto",
       "servicesDesc": "Unternehmen oder Privatperson"
     },
-    "userFallback": "Benutzer"
+    "userFallback": "Benutzer",
+    "accounting": {
+      "przeglad": "Übersicht",
+      "invoices": "Rechnungen",
+      "purchases": "Einkäufe",
+      "documents": "Dokumente",
+      "payments": "Zahlungen",
+      "warehouse": "Lagerbestand",
+      "recurring": "Wiederkehrend",
+      "issueInvoice": "Rechnung ausstellen",
+      "issueInvoiceDesc": "Stellen Sie schnell eine MwSt.-Rechnung für einen Geschäftspartner aus",
+      "invoicesMonth": "Rechnungen (Monat)",
+      "paidCount": "bezahlt",
+      "grossRevenue": "Bruttoumsatz",
+      "invoiceSum": "Rechnungssumme",
+      "toPay": "Zu zahlen",
+      "unpaidInvoices": "Unbezahlte Rechnungen",
+      "quickActions": "Schnellaktionen",
+      "addCostInvoice": "Kostenrechnung hinzufügen",
+      "exportCsv": "CSV exportieren",
+      "editCompany": "Unternehmen bearbeiten",
+      "recentInvoices": "Letzte Rechnungen",
+      "recentInvoicesDesc": "Neueste Verkaufsdokumente",
+      "issued": "Ausgestellt",
+      "autoInvoices": "Auto-Rechnungen",
+      "seeAll": "Alle ansehen",
+      "noInvoicesPeriod": "Keine Rechnungen im gewählten Zeitraum",
+      "changeMonthYear": "Ändern Sie Monat oder Jahr, um andere Rechnungen zu sehen",
+      "autoInvoicesB2B": "B2B-Auto-Rechnungen",
+      "autoInvoicesDesc": "Rechnungen werden automatisch vom Abrechnungssystem erstellt",
+      "goToDriverPortal": "Gehen Sie zum Fahrerportal, um Auto-Rechnungen zu sehen",
+      "allInvoices": "Liste aller Rechnungen",
+      "noInvoices": "Keine Rechnungen",
+      "issueFirstInvoice": "Stellen Sie Ihre erste Rechnung aus"
+    }
   },
   "fleetRegister": {
     "companyNameRequired": "Firmenname ist erforderlich",

@@ -1540,7 +1540,9 @@
       "emailNotifDesc": "Receive notifications about new messages",
       "soon": "Soon",
       "darkMode": "Dark mode",
-      "darkModeDesc": "Change the interface appearance"
+      "darkModeDesc": "Change the interface appearance",
+      "companyDataDesc": "Your company details for issuing invoices",
+      "noAddress": "No address"
     },
     "addDialog": {
       "title": "What do you want to add?",
@@ -1549,7 +1551,41 @@
       "realEstateDesc": "Requires an agent account",
       "servicesDesc": "Company or individual"
     },
-    "userFallback": "User"
+    "userFallback": "User",
+    "accounting": {
+      "przeglad": "Overview",
+      "invoices": "Invoices",
+      "purchases": "Purchases",
+      "documents": "Documents",
+      "payments": "Payments",
+      "warehouse": "Stock",
+      "recurring": "Recurring",
+      "issueInvoice": "Issue invoice",
+      "issueInvoiceDesc": "Quickly issue a VAT invoice for a contractor",
+      "invoicesMonth": "Invoices (month)",
+      "paidCount": "paid",
+      "grossRevenue": "Gross revenue",
+      "invoiceSum": "Invoice total",
+      "toPay": "To pay",
+      "unpaidInvoices": "Unpaid invoices",
+      "quickActions": "Quick actions",
+      "addCostInvoice": "Add cost invoice",
+      "exportCsv": "Export CSV",
+      "editCompany": "Edit company",
+      "recentInvoices": "Recent invoices",
+      "recentInvoicesDesc": "Latest sales documents",
+      "issued": "Issued",
+      "autoInvoices": "Auto-invoices",
+      "seeAll": "See all",
+      "noInvoicesPeriod": "No invoices in the selected period",
+      "changeMonthYear": "Change the month or year to see other invoices",
+      "autoInvoicesB2B": "B2B auto-invoices",
+      "autoInvoicesDesc": "Invoices generated automatically by the settlement system",
+      "goToDriverPortal": "Go to the Driver Portal to see auto-invoices",
+      "allInvoices": "List of all invoices",
+      "noInvoices": "No invoices",
+      "issueFirstInvoice": "Issue your first invoice"
+    }
   },
   "fleetRegister": {
     "companyNameRequired": "Company name is required",

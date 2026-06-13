@@ -100,14 +100,14 @@ interface Purchase {
 
 // Accounting sub-tabs - Stan magazynowy added after Płatności
 const accountingSubTabs = [
-  { id: 'przeglad', label: 'Przegląd', icon: BarChart3 },
-  { id: 'faktury', label: 'Faktury', icon: FileText },
-  { id: 'zakupy', label: 'Zakupy', icon: ShoppingBag },
-  { id: 'dokumenty', label: 'Dokumenty', icon: FileSpreadsheet },
-  { id: 'platnosci', label: 'Płatności', icon: CreditCard },
-  { id: 'magazyn', label: 'Stan magazynowy', icon: Package },
-  { id: 'cykliczne', label: 'Cykliczne', icon: Clock },
-  { id: 'ksef', label: 'KSeF', icon: Shield },
+  { id: 'przeglad', labelKey: 'cp.accounting.przeglad', label: 'Przegląd', icon: BarChart3 },
+  { id: 'faktury', labelKey: 'cp.accounting.invoices', label: 'Faktury', icon: FileText },
+  { id: 'zakupy', labelKey: 'cp.accounting.purchases', label: 'Zakupy', icon: ShoppingBag },
+  { id: 'dokumenty', labelKey: 'cp.accounting.documents', label: 'Dokumenty', icon: FileSpreadsheet },
+  { id: 'platnosci', labelKey: 'cp.accounting.payments', label: 'Płatności', icon: CreditCard },
+  { id: 'magazyn', labelKey: 'cp.accounting.warehouse', label: 'Stan magazynowy', icon: Package },
+  { id: 'cykliczne', labelKey: 'cp.accounting.recurring', label: 'Cykliczne', icon: Clock },
+  { id: 'ksef', labelKey: '', label: 'KSeF', icon: Shield },
 ];
 
 import { MandatoryReviewModal } from '@/components/services/MandatoryReviewModal';
@@ -735,7 +735,7 @@ export default function ClientPortal() {
                     className={`rounded-full ${hasUnread ? 'border-destructive text-destructive hover:bg-destructive/10' : ''}`}
                   >
                     <sub.icon className="h-4 w-4 mr-2" />
-                    {sub.label}
+                    {sub.labelKey ? t(sub.labelKey) : sub.label}
                     {hasUnread && (
                       <Badge variant="destructive" className="ml-1.5 h-5 min-w-[20px] px-1 text-[10px]">{ksefUnread}</Badge>
                     )}
@@ -806,7 +806,7 @@ export default function ClientPortal() {
                   </CardContent>
                 </Card>
 
-                {/* Wystaw fakturę tile - ukryte gdy nie ma firmy */}
+                {/* {t('cp.accounting.issueInvoice')} tile - ukryte gdy nie ma firmy */}
                 {hasCompanySetup && (
                   <Card 
                     className="cursor-pointer hover:shadow-lg transition-shadow"
@@ -818,9 +818,9 @@ export default function ClientPortal() {
                           <FileText className="h-8 w-8 text-green-600" />
                         </div>
                         <div>
-                          <h3 className="font-bold text-lg">Wystaw fakturę</h3>
+                          <h3 className="font-bold text-lg">{t('cp.accounting.issueInvoice')}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Szybko wystaw fakturę VAT dla kontrahenta
+                            {t('cp.accounting.issueInvoiceDesc')}
                           </p>
                         </div>
                       </div>
@@ -904,7 +904,7 @@ export default function ClientPortal() {
                 </Button>
               </div>
 
-              {/* Wystawione - Active Listings */}
+              {/* {t('cp.accounting.issued')} - Active Listings */}
               {oglaszeniaSubTab === 'wystawione' && (
                 <div className="space-y-6">
                   {totalListings > 0 && (
@@ -1218,10 +1218,10 @@ export default function ClientPortal() {
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-muted-foreground">Faktury (miesiąc)</p>
+                            <p className="text-sm text-muted-foreground">{t('cp.accounting.invoicesMonth')}</p>
                             <p className="text-3xl font-bold">{invoices.length}</p>
                             <p className="text-sm text-muted-foreground">
-                              {invoices.filter(i => i.is_paid === true).length} opłaconych
+                              {invoices.filter(i => i.is_paid === true).length} {t('cp.accounting.paidCount')}
                             </p>
                           </div>
                           <FileText className="h-6 w-6 text-muted-foreground" />
@@ -1233,11 +1233,11 @@ export default function ClientPortal() {
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-muted-foreground">Przychód brutto</p>
+                            <p className="text-sm text-muted-foreground">{t('cp.accounting.grossRevenue')}</p>
                             <p className="text-3xl font-bold">
                               {invoices.reduce((sum, i) => sum + Number(i.gross_total || 0), 0).toLocaleString('pl-PL')} zł
                             </p>
-                            <p className="text-sm text-muted-foreground">Suma faktur</p>
+                            <p className="text-sm text-muted-foreground">{t('cp.accounting.invoiceSum')}</p>
                           </div>
                           <FileText className="h-6 w-6 text-muted-foreground" />
                         </div>
@@ -1248,11 +1248,11 @@ export default function ClientPortal() {
                       <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-muted-foreground">Do zapłaty</p>
+                            <p className="text-sm text-muted-foreground">{t('cp.accounting.toPay')}</p>
                             <p className="text-3xl font-bold text-destructive">
                               {invoices.filter(i => i.is_paid !== true).length}
                             </p>
-                            <p className="text-sm text-muted-foreground">Nieopłacone faktury</p>
+                            <p className="text-sm text-muted-foreground">{t('cp.accounting.unpaidInvoices')}</p>
                           </div>
                           <FileText className="h-6 w-6 text-muted-foreground" />
                         </div>
@@ -1263,27 +1263,27 @@ export default function ClientPortal() {
 
               {/* Quick Actions - organized layout */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Szybkie akcje</h3>
+                <h3 className="text-lg font-semibold mb-4">{t('cp.accounting.quickActions')}</h3>
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <Button onClick={handleNewInvoice} className="h-auto py-3">
                       <Plus className="h-4 w-4 mr-2" />
-                      Wystaw fakturę
+                      {t('cp.accounting.issueInvoice')}
                     </Button>
                     <Button variant="outline" className="h-auto py-3" onClick={() => setShowCostInvoice(true)}>
                       <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Dodaj fakturę kosztową
+                      {t('cp.accounting.addCostInvoice')}
                     </Button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <Button variant="outline" className="h-auto py-3">
                       <BarChart3 className="h-4 w-4 mr-2" />
-                      Eksport CSV
+                      {t('cp.accounting.exportCsv')}
                     </Button>
                     {userEntities.length === 0 ? (
                       <Button variant="outline" className="h-auto py-3" onClick={() => setShowCompanySetup(true)}>
                         <Building2 className="h-4 w-4 mr-2" />
-                        Dodaj firmę
+                        {t('cp.settings.addCompany')}
                       </Button>
                     ) : (
                       <Button 
@@ -1295,7 +1295,7 @@ export default function ClientPortal() {
                         }}
                       >
                         <Building2 className="h-4 w-4 mr-2" />
-                        Edytuj firmę
+                        {t('cp.accounting.editCompany')}
                       </Button>
                     )}
                   </div>
@@ -1306,8 +1306,8 @@ export default function ClientPortal() {
                     <CardHeader>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div>
-                          <CardTitle>Ostatnie faktury</CardTitle>
-                          <CardDescription>Najnowsze dokumenty sprzedażowe</CardDescription>
+                          <CardTitle>{t('cp.accounting.recentInvoices')}</CardTitle>
+                          <CardDescription>{t('cp.accounting.recentInvoicesDesc')}</CardDescription>
                         </div>
                         
                         {/* Filtry rok/miesiąc */}
@@ -1344,14 +1344,14 @@ export default function ClientPortal() {
                             size="sm"
                             onClick={() => setInvoiceViewMode('manual')}
                           >
-                            Wystawione
+                            {t('cp.accounting.issued')}
                           </Button>
                           <Button 
                             variant={invoiceViewMode === 'auto' ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => setInvoiceViewMode('auto')}
                           >
-                            Autofaktury
+                            {t('cp.accounting.autoInvoices')}
                           </Button>
                         </div>
                       )}
@@ -1382,7 +1382,7 @@ export default function ClientPortal() {
                                     className="w-full text-sm"
                                     onClick={() => setAccountingSubTab('faktury')}
                                   >
-                                    Zobacz wszystkie ({filteredInvoices.length})
+                                    {t('cp.accounting.seeAll')} ({filteredInvoices.length})
                                     <ChevronRight className="h-4 w-4 ml-1" />
                                   </Button>
                                 )}
@@ -1390,13 +1390,13 @@ export default function ClientPortal() {
                             ) : (
                               <div className="text-center py-12 text-muted-foreground">
                                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                <p>Brak faktur w wybranym okresie</p>
+                                <p>{t('cp.accounting.noInvoicesPeriod')}</p>
                                 <p className="text-sm mt-1">
-                                  Zmień miesiąc lub rok aby zobaczyć inne faktury
+                                  {t('cp.accounting.changeMonthYear')}
                                 </p>
                                 <Button className="mt-4" onClick={handleNewInvoice}>
                                   <Plus className="h-4 w-4 mr-2" />
-                                  Wystaw fakturę
+                                  {t('cp.accounting.issueInvoice')}
                                 </Button>
                               </div>
                             );
@@ -1405,12 +1405,12 @@ export default function ClientPortal() {
                       ) : (
                         <div className="text-center py-12 text-muted-foreground">
                           <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                          <p>Autofaktury B2B</p>
+                          <p>{t('cp.accounting.autoInvoicesB2B')}</p>
                           <p className="text-sm mt-1">
-                            Faktury generowane automatycznie przez system rozliczeń
+                            {t('cp.accounting.autoInvoicesDesc')}
                           </p>
                           <p className="text-xs mt-2 text-muted-foreground">
-                            Przejdź do Portalu Kierowcy, aby zobaczyć autofaktury
+                            {t('cp.accounting.goToDriverPortal')}
                           </p>
                         </div>
                       )}
@@ -1424,12 +1424,12 @@ export default function ClientPortal() {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle>Faktury</CardTitle>
-                        <CardDescription>Lista wszystkich faktur</CardDescription>
+                        <CardTitle>{t('cp.accounting.invoices')}</CardTitle>
+                        <CardDescription>{t('cp.accounting.allInvoices')}</CardDescription>
                       </div>
                       <Button onClick={handleNewInvoice}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Wystaw fakturę
+                        {t('cp.accounting.issueInvoice')}
                       </Button>
                     </div>
                   </CardHeader>
@@ -1442,11 +1442,11 @@ export default function ClientPortal() {
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
                         <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>Brak faktur</p>
-                        <p className="text-sm mt-1">Wystaw pierwszą fakturę</p>
+                        <p>{t('cp.accounting.noInvoices')}</p>
+                        <p className="text-sm mt-1">{t('cp.accounting.issueFirstInvoice')}</p>
                         <Button className="mt-4" onClick={handleNewInvoice}>
                           <Plus className="h-4 w-4 mr-2" />
-                          Wystaw fakturę
+                          {t('cp.accounting.issueInvoice')}
                         </Button>
                       </div>
                     )}
@@ -1470,7 +1470,7 @@ export default function ClientPortal() {
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Calculator className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                    <p className="font-semibold mb-2">{accountingSubTabs.find(s => s.id === accountingSubTab)?.label}</p>
+                    <p className="font-semibold mb-2">{(() => { const s = accountingSubTabs.find(s => s.id === accountingSubTab); return s?.labelKey ? t(s.labelKey) : s?.label; })()}</p>
                     <p className="text-sm text-muted-foreground">
                       Ta sekcja jest w trakcie budowy
                     </p>
@@ -1521,7 +1521,7 @@ export default function ClientPortal() {
                     Moja firma
                   </CardTitle>
                   <CardDescription>
-                    Dane Twojej firmy do wystawiania faktur
+                    {t('cp.settings.companyDataDesc')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -1546,7 +1546,7 @@ export default function ClientPortal() {
                               <div>
                                 <p className="font-semibold">{entity.name}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  NIP: {entity.nip || '—'} | {entity.address_city || 'Brak adresu'}
+                                  NIP: {entity.nip || '—'} | {entity.address_city || t('cp.settings.noAddress')}
                                 </p>
                               </div>
                             </div>
@@ -1874,7 +1874,7 @@ export default function ClientPortal() {
         }}
       >
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
-          <DialogTitle className="sr-only">Wystaw fakturę</DialogTitle>
+          <DialogTitle className="sr-only">{t('cp.accounting.issueInvoice')}</DialogTitle>
           <SimpleFreeInvoice 
             onClose={() => setShowNewInvoice(false)}
             onSaved={() => {

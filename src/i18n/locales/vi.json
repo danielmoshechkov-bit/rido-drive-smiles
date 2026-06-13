@@ -1447,7 +1447,9 @@
       "emailNotifDesc": "Nhận thông báo về tin nhắn mới",
       "soon": "Sắp có",
       "darkMode": "Chế độ tối",
-      "darkModeDesc": "Thay đổi giao diện"
+      "darkModeDesc": "Thay đổi giao diện",
+      "companyDataDesc": "Thông tin công ty của bạn để xuất hóa đơn",
+      "noAddress": "Không có địa chỉ"
     },
     "addDialog": {
       "title": "Bạn muốn thêm gì?",
@@ -1456,7 +1458,41 @@
       "realEstateDesc": "Yêu cầu tài khoản đại lý",
       "servicesDesc": "Công ty hoặc cá nhân"
     },
-    "userFallback": "Người dùng"
+    "userFallback": "Người dùng",
+    "accounting": {
+      "przeglad": "Tổng quan",
+      "invoices": "Hóa đơn",
+      "purchases": "Mua hàng",
+      "documents": "Tài liệu",
+      "payments": "Thanh toán",
+      "warehouse": "Tồn kho",
+      "recurring": "Định kỳ",
+      "issueInvoice": "Xuất hóa đơn",
+      "issueInvoiceDesc": "Nhanh chóng xuất hóa đơn VAT cho đối tác",
+      "invoicesMonth": "Hóa đơn (tháng)",
+      "paidCount": "đã thanh toán",
+      "grossRevenue": "Doanh thu gộp",
+      "invoiceSum": "Tổng hóa đơn",
+      "toPay": "Cần thanh toán",
+      "unpaidInvoices": "Hóa đơn chưa thanh toán",
+      "quickActions": "Thao tác nhanh",
+      "addCostInvoice": "Thêm hóa đơn chi phí",
+      "exportCsv": "Xuất CSV",
+      "editCompany": "Chỉnh sửa công ty",
+      "recentInvoices": "Hóa đơn gần đây",
+      "recentInvoicesDesc": "Tài liệu bán hàng mới nhất",
+      "issued": "Đã xuất",
+      "autoInvoices": "Hóa đơn tự động",
+      "seeAll": "Xem tất cả",
+      "noInvoicesPeriod": "Không có hóa đơn trong kỳ đã chọn",
+      "changeMonthYear": "Thay đổi tháng hoặc năm để xem hóa đơn khác",
+      "autoInvoicesB2B": "Hóa đơn tự động B2B",
+      "autoInvoicesDesc": "Hóa đơn được tạo tự động bởi hệ thống quyết toán",
+      "goToDriverPortal": "Vào Cổng tài xế để xem hóa đơn tự động",
+      "allInvoices": "Danh sách tất cả hóa đơn",
+      "noInvoices": "Không có hóa đơn",
+      "issueFirstInvoice": "Xuất hóa đơn đầu tiên"
+    }
   },
   "fleetRegister": {
     "companyNameRequired": "Tên công ty là bắt buộc",

@@ -1540,7 +1540,9 @@
       "emailNotifDesc": "Отримуйте сповіщення про нові повідомлення",
       "soon": "Незабаром",
       "darkMode": "Темна тема",
-      "darkModeDesc": "Змініть вигляд інтерфейсу"
+      "darkModeDesc": "Змініть вигляд інтерфейсу",
+      "companyDataDesc": "Дані вашої компанії для виставлення рахунків",
+      "noAddress": "Немає адреси"
     },
     "addDialog": {
       "title": "Що ви хочете додати?",
@@ -1549,7 +1551,41 @@
       "realEstateDesc": "Потрібен акаунт агента",
       "servicesDesc": "Компанія або фізособа"
     },
-    "userFallback": "Користувач"
+    "userFallback": "Користувач",
+    "accounting": {
+      "przeglad": "Огляд",
+      "invoices": "Рахунки",
+      "purchases": "Закупівлі",
+      "documents": "Документи",
+      "payments": "Платежі",
+      "warehouse": "Склад",
+      "recurring": "Регулярні",
+      "issueInvoice": "Виставити рахунок",
+      "issueInvoiceDesc": "Швидко виставте рахунок-фактуру для контрагента",
+      "invoicesMonth": "Рахунки (місяць)",
+      "paidCount": "оплачено",
+      "grossRevenue": "Валовий дохід",
+      "invoiceSum": "Сума рахунків",
+      "toPay": "До сплати",
+      "unpaidInvoices": "Несплачені рахунки",
+      "quickActions": "Швидкі дії",
+      "addCostInvoice": "Додати витратний рахунок",
+      "exportCsv": "Експорт CSV",
+      "editCompany": "Редагувати компанію",
+      "recentInvoices": "Останні рахунки",
+      "recentInvoicesDesc": "Останні документи продажу",
+      "issued": "Виставлені",
+      "autoInvoices": "Авторахунки",
+      "seeAll": "Дивитися всі",
+      "noInvoicesPeriod": "Немає рахунків за вибраний період",
+      "changeMonthYear": "Змініть місяць або рік, щоб побачити інші рахунки",
+      "autoInvoicesB2B": "B2B-авторахунки",
+      "autoInvoicesDesc": "Рахунки генеруються автоматично системою розрахунків",
+      "goToDriverPortal": "Перейдіть до Порталу водія, щоб побачити авторахунки",
+      "allInvoices": "Список усіх рахунків",
+      "noInvoices": "Немає рахунків",
+      "issueFirstInvoice": "Виставте перший рахунок"
+    }
   },
   "fleetRegister": {
     "companyNameRequired": "Назва компанії обов'язкова",
