@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useListingTranslation } from "@/hooks/useListingTranslation";
@@ -214,6 +215,7 @@ export default function VehicleDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
+            <LanguageSwitcher variant="outline" />
             <Button variant="outline" size="sm" onClick={handleShare} className="gap-2">
               <Share2 className="h-4 w-4" />
               <span className="hidden sm:inline">Udostępnij</span>

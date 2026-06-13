@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useListingTranslation } from "@/hooks/useListingTranslation";
@@ -375,6 +376,7 @@ export default function PropertyDetailPage() {
             </div>
           </div>
           <div className="flex gap-2">
+            <LanguageSwitcher variant="outline" />
             <Button
               variant="outline"
               size="sm"
