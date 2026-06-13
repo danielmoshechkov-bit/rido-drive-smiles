@@ -1480,6 +1480,33 @@
       "wiadomosci": "Wiadomości",
       "ulubione": "Ulubione",
       "zapisane": "Zapisane wyszukiwania"
+    },
+    "listings": {
+      "published": "Wystawione",
+      "finished": "Zakończone",
+      "favorites": "Ulubione",
+      "add": "Dodaj",
+      "comingSoon": "Funkcja wkrótce",
+      "comingSoonTooltip": "Wkrótce udostępnimy tę funkcję",
+      "vehicles": "Ogłoszenia motoryzacyjne",
+      "properties": "Ogłoszenia nieruchomości",
+      "empty": "Brak ogłoszeń",
+      "emptyDesc": "Nie masz jeszcze żadnych ogłoszeń",
+      "noFinished": "Brak zakończonych ogłoszeń",
+      "finishedDesc": "Zakończone ogłoszenia pojawią się tutaj po wygaśnięciu",
+      "finishedNote": "Zakończone ogłoszenia są usuwane po 60 dniach",
+      "catAll": "Wszystkie",
+      "catAuto": "Motoryzacja",
+      "catRealEstate": "Nieruchomości",
+      "catServices": "Usługi",
+      "favTitle": "Ulubione ogłoszenia",
+      "noFavorites": "Brak ulubionych ogłoszeń",
+      "noFavoritesDesc": "Dodaj ogłoszenia do ulubionych, aby je tutaj zobaczyć"
+    },
+    "messages": {
+      "title": "Wiadomości",
+      "empty": "Brak nowych wiadomości",
+      "emptyDesc": "Tutaj pojawią się wiadomości od sprzedawców i kupujących"
     }
   },
   "fleetRegister": {

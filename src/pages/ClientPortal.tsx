@@ -885,14 +885,14 @@ export default function ClientPortal() {
                   size="sm"
                   onClick={() => setOglaszeniaSubTab('wystawione')}
                 >
-                  Wystawione
+                  {t('cp.listings.published')}
                 </Button>
                 <Button 
                   variant={oglaszeniaSubTab === 'zakonczone' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setOglaszeniaSubTab('zakonczone')}
                 >
-                  Zakończone
+                  {t('cp.listings.finished')}
                 </Button>
                 <Button 
                   variant={oglaszeniaSubTab === 'ulubione' ? 'default' : 'ghost'}
@@ -900,7 +900,7 @@ export default function ClientPortal() {
                   onClick={() => setOglaszeniaSubTab('ulubione')}
                 >
                   <Heart className="h-4 w-4 mr-1" />
-                  Ulubione
+                  {t('cp.listings.favorites')}
                 </Button>
               </div>
 
@@ -915,16 +915,16 @@ export default function ClientPortal() {
                             <Button 
                               size="sm" 
                               className={!isOwner ? 'opacity-60 cursor-not-allowed' : ''}
-                              onClick={() => isOwner ? toast.info('Funkcja wkrótce') : toast.info('Wkrótce udostępnimy tę funkcję')}
+                              onClick={() => isOwner ? toast.info(t('cp.listings.comingSoon')) : toast.info(t('cp.listings.comingSoonTooltip'))}
                             >
                               <Plus className="h-4 w-4 mr-2" />
-                              Dodaj
+                              {t('cp.listings.add')}
                               {!isOwner && <Lock className="h-3 w-3 ml-1" />}
                             </Button>
                           </TooltipTrigger>
                           {!isOwner && (
                             <TooltipContent>
-                              <p>Wkrótce udostępnimy tę funkcję</p>
+                              <p>{t('cp.listings.comingSoonTooltip')}</p>
                             </TooltipContent>
                           )}
                         </Tooltip>
@@ -937,7 +937,7 @@ export default function ClientPortal() {
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <Car className="h-5 w-5" />
-                          Ogłoszenia motoryzacyjne
+                          {t('cp.listings.vehicles')}
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -983,7 +983,7 @@ export default function ClientPortal() {
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <Home className="h-5 w-5" />
-                          Ogłoszenia nieruchomości
+                          {t('cp.listings.properties')}
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -1028,25 +1028,25 @@ export default function ClientPortal() {
                     <Card>
                       <CardContent className="py-12 text-center">
                         <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p className="font-semibold mb-2">Brak ogłoszeń</p>
+                        <p className="font-semibold mb-2">{t('cp.listings.empty')}</p>
                         <p className="text-sm text-muted-foreground mb-4">
-                          Nie masz jeszcze żadnych ogłoszeń
+                          {t('cp.listings.emptyDesc')}
                         </p>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button 
                                 className={!isOwner ? 'opacity-60 cursor-not-allowed' : ''}
-                                onClick={() => isOwner ? toast.info('Funkcja wkrótce') : toast.info('Wkrótce udostępnimy tę funkcję')}
+                                onClick={() => isOwner ? toast.info(t('cp.listings.comingSoon')) : toast.info(t('cp.listings.comingSoonTooltip'))}
                               >
                                 <Plus className="h-4 w-4 mr-2" />
-                                Dodaj ogłoszenie
+                                {t('cp.dodajOgloszenie')}
                                 {!isOwner && <Lock className="h-3 w-3 ml-1" />}
                               </Button>
                             </TooltipTrigger>
                             {!isOwner && (
                               <TooltipContent>
-                                <p>Wkrótce udostępnimy tę funkcję</p>
+                                <p>{t('cp.listings.comingSoonTooltip')}</p>
                               </TooltipContent>
                             )}
                           </Tooltip>
@@ -1062,12 +1062,12 @@ export default function ClientPortal() {
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                    <p className="font-semibold mb-2">Brak zakończonych ogłoszeń</p>
+                    <p className="font-semibold mb-2">{t('cp.listings.noFinished')}</p>
                     <p className="text-sm text-muted-foreground">
-                      Zakończone ogłoszenia pojawią się tutaj po wygaśnięciu
+                      {t('cp.listings.finishedDesc')}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Zakończone ogłoszenia są usuwane po 60 dniach
+                      {t('cp.listings.finishedNote')}
                     </p>
                   </CardContent>
                 </Card>
@@ -1083,7 +1083,7 @@ export default function ClientPortal() {
                       className="cursor-pointer"
                       onClick={() => setUlubioneFavoriteCategory('wszystkie')}
                     >
-                      Wszystkie
+                      {t('cp.listings.catAll')}
                     </Badge>
                     <Badge 
                       variant={ulubioneFavoriteCategory === 'motoryzacja' ? 'default' : 'outline'}
@@ -1091,7 +1091,7 @@ export default function ClientPortal() {
                       onClick={() => setUlubioneFavoriteCategory('motoryzacja')}
                     >
                       <Car className="h-3 w-3 mr-1" />
-                      Motoryzacja
+                      {t('cp.listings.catAuto')}
                     </Badge>
                     <Badge 
                       variant={ulubioneFavoriteCategory === 'nieruchomosci' ? 'default' : 'outline'}
@@ -1099,14 +1099,14 @@ export default function ClientPortal() {
                       onClick={() => setUlubioneFavoriteCategory('nieruchomosci')}
                     >
                       <Home className="h-3 w-3 mr-1" />
-                      Nieruchomości
+                      {t('cp.listings.catRealEstate')}
                     </Badge>
                     <Badge 
                       variant={ulubioneFavoriteCategory === 'uslugi' ? 'default' : 'outline'}
                       className="cursor-pointer"
                       onClick={() => setUlubioneFavoriteCategory('uslugi')}
                     >
-                      Usługi
+                      {t('cp.listings.catServices')}
                     </Badge>
                   </div>
 
@@ -1114,7 +1114,7 @@ export default function ClientPortal() {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Heart className="h-5 w-5" />
-                        Ulubione ogłoszenia
+                        {t('cp.listings.favTitle')}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -1156,9 +1156,9 @@ export default function ClientPortal() {
                       ) : (
                         <div className="text-center py-12 text-muted-foreground">
                           <Heart className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                          <p>Brak ulubionych ogłoszeń</p>
+                          <p>{t('cp.listings.noFavorites')}</p>
                           <p className="text-sm mt-1">
-                            Dodaj ogłoszenia do ulubionych, aby je tutaj zobaczyć
+                            {t('cp.listings.noFavoritesDesc')}
                           </p>
                         </div>
                       )}
@@ -1184,15 +1184,15 @@ export default function ClientPortal() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5" />
-                  Wiadomości
+                  {t('cp.messages.title')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-center py-12 text-muted-foreground">
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Brak nowych wiadomości</p>
+                  <p>{t('cp.messages.empty')}</p>
                   <p className="text-sm mt-1">
-                    Tutaj pojawią się wiadomości od sprzedawców i kupujących
+                    {t('cp.messages.emptyDesc')}
                   </p>
                 </div>
               </CardContent>

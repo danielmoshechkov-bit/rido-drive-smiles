@@ -1387,6 +1387,33 @@
       "wiadomosci": "Nachrichten",
       "ulubione": "Favoriten",
       "zapisane": "Gespeicherte Suchen"
+    },
+    "listings": {
+      "published": "Aktiv",
+      "finished": "Beendet",
+      "favorites": "Favoriten",
+      "add": "Hinzufügen",
+      "comingSoon": "Demnächst",
+      "comingSoonTooltip": "Wir aktivieren diese Funktion bald",
+      "vehicles": "Fahrzeuganzeigen",
+      "properties": "Immobilienanzeigen",
+      "empty": "Keine Anzeigen",
+      "emptyDesc": "Sie haben noch keine Anzeigen",
+      "noFinished": "Keine beendeten Anzeigen",
+      "finishedDesc": "Beendete Anzeigen erscheinen hier nach Ablauf",
+      "finishedNote": "Beendete Anzeigen werden nach 60 Tagen gelöscht",
+      "catAll": "Alle",
+      "catAuto": "Fahrzeuge",
+      "catRealEstate": "Immobilien",
+      "catServices": "Dienstleistungen",
+      "favTitle": "Favorisierte Anzeigen",
+      "noFavorites": "Keine Favoriten",
+      "noFavoritesDesc": "Fügen Sie Anzeigen zu Favoriten hinzu, um sie hier zu sehen"
+    },
+    "messages": {
+      "title": "Nachrichten",
+      "empty": "Keine neuen Nachrichten",
+      "emptyDesc": "Hier erscheinen Nachrichten von Verkäufern und Käufern"
     }
   },
   "fleetRegister": {

@@ -1480,6 +1480,33 @@
       "wiadomosci": "Messages",
       "ulubione": "Favorites",
       "zapisane": "Saved searches"
+    },
+    "listings": {
+      "published": "Active",
+      "finished": "Finished",
+      "favorites": "Favorites",
+      "add": "Add",
+      "comingSoon": "Coming soon",
+      "comingSoonTooltip": "We will enable this feature soon",
+      "vehicles": "Vehicle listings",
+      "properties": "Property listings",
+      "empty": "No listings",
+      "emptyDesc": "You do not have any listings yet",
+      "noFinished": "No finished listings",
+      "finishedDesc": "Finished listings will appear here after they expire",
+      "finishedNote": "Finished listings are deleted after 60 days",
+      "catAll": "All",
+      "catAuto": "Automotive",
+      "catRealEstate": "Real estate",
+      "catServices": "Services",
+      "favTitle": "Favorite listings",
+      "noFavorites": "No favorite listings",
+      "noFavoritesDesc": "Add listings to favorites to see them here"
+    },
+    "messages": {
+      "title": "Messages",
+      "empty": "No new messages",
+      "emptyDesc": "Messages from sellers and buyers will appear here"
     }
   },
   "fleetRegister": {

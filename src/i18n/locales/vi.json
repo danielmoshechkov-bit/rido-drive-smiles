@@ -1387,6 +1387,33 @@
       "wiadomosci": "Tin nhắn",
       "ulubione": "Yêu thích",
       "zapisane": "Tìm kiếm đã lưu"
+    },
+    "listings": {
+      "published": "Đang đăng",
+      "finished": "Đã kết thúc",
+      "favorites": "Yêu thích",
+      "add": "Thêm",
+      "comingSoon": "Sắp ra mắt",
+      "comingSoonTooltip": "Chúng tôi sẽ sớm mở tính năng này",
+      "vehicles": "Tin đăng xe",
+      "properties": "Tin đăng bất động sản",
+      "empty": "Chưa có tin đăng",
+      "emptyDesc": "Bạn chưa có tin đăng nào",
+      "noFinished": "Chưa có tin đăng đã kết thúc",
+      "finishedDesc": "Tin đăng đã kết thúc sẽ xuất hiện ở đây sau khi hết hạn",
+      "finishedNote": "Tin đăng đã kết thúc bị xóa sau 60 ngày",
+      "catAll": "Tất cả",
+      "catAuto": "Ô tô",
+      "catRealEstate": "Bất động sản",
+      "catServices": "Dịch vụ",
+      "favTitle": "Tin đăng yêu thích",
+      "noFavorites": "Chưa có tin yêu thích",
+      "noFavoritesDesc": "Thêm tin đăng vào yêu thích để xem ở đây"
+    },
+    "messages": {
+      "title": "Tin nhắn",
+      "empty": "Không có tin nhắn mới",
+      "emptyDesc": "Tin nhắn từ người bán và người mua sẽ xuất hiện ở đây"
     }
   },
   "fleetRegister": {
