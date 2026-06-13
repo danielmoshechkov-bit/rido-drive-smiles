@@ -15,7 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
-import { useContentTranslation } from "@/hooks/useContentTranslation";
+import { useListingTranslation } from "@/hooks/useListingTranslation";
 
 interface ListingCardProps {
   listing: {
@@ -100,8 +100,8 @@ export function ListingCard({
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [showLightbox, setShowLightbox] = useState(false);
   
-  const { text: translatedTitle } = useContentTranslation('listing', listing.id, 'title', listing.title);
-  const { text: translatedDescription } = useContentTranslation('listing', listing.id, 'description', listing.description);
+  const { title: translatedTitle, description: translatedDescription } =
+    useListingTranslation(listing.id, listing.title, listing.description || '', 'vehicle');
 
   const isCompact = compact || variant === 'compact';
   const isList = variant === 'list';
