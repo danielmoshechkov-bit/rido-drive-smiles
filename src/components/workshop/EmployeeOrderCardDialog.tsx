@@ -29,14 +29,14 @@ interface TaskBlock {
   key: string;
   index: number;
   complaint: string;       // co napisał klient (read-only nagłówek)
-  text: string;            // czynność wykonana przez pracownika
+  labor: PartItem[];       // lista robocizn/prac (jak części) — bez kwot per pozycja
   parts: PartItem[];
-  time: string;            // godziny
-  cost: string;            // zł
+  time: string;            // godziny (sumarycznie dla punktu)
+  cost: string;            // zł (sumarycznie dla punktu)
   confirmed: boolean;
   expanded: boolean;
   existingPartIds: string[];
-  existingServiceId: string | null;
+  existingServiceIds: string[];
   timeError?: string;
   isAddon?: boolean;       // dodatek do naprawy (po akceptacji klienta)
 }
@@ -55,6 +55,7 @@ export function EmployeeOrderCardDialog({
   const [vehicle, setVehicle] = useState<any>(null);
   const [tasks, setTasks] = useState<TaskBlock[]>([]);
   const partInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const laborInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const timeInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   // Addon dialog state
   const [addonOpen, setAddonOpen] = useState(false);
@@ -88,14 +89,14 @@ export function EmployeeOrderCardDialog({
             key: `${idx}. ${complaint}`,
             index: idx,
             complaint,
-            text: '',
+            labor: [],
             parts: [],
             time: '',
             cost: '',
             confirmed: false,
             expanded: false,
             existingPartIds: [],
-            existingServiceId: null,
+            existingServiceIds: [],
           };
         });
 
@@ -109,9 +110,9 @@ export function EmployeeOrderCardDialog({
         const getOther = () => {
           if (!other) {
             other = {
-              key: 'Inne', index: parsed.length + 1, complaint: 'Inne', text: '',
+              key: 'Inne', index: parsed.length + 1, complaint: 'Inne', labor: [],
               parts: [], time: '', cost: '', confirmed: false, expanded: false,
-              existingPartIds: [], existingServiceId: null,
+              existingPartIds: [], existingServiceIds: [],
             };
           }
           return other;
@@ -128,16 +129,13 @@ export function EmployeeOrderCardDialog({
             block.parts.push({ id: it.id, name: cleanName });
             block.existingPartIds.push(it.id);
           } else {
-            // Pierwszy service = źródło czasu/kosztu punktu
-            if (!block.existingServiceId) {
-              block.existingServiceId = it.id;
+            // service = pozycja robocizny; pierwszy ustala czas/koszt punktu
+            block.labor.push({ id: it.id, name: cleanName });
+            block.existingServiceIds.push(it.id);
+            if (block.existingServiceIds.length === 1) {
               block.time = it.labor_hours != null ? String(it.labor_hours) : '';
               const cost = Number(it.total_gross || it.unit_price_gross || 0);
               block.cost = cost ? String(cost) : '';
-            } else {
-              // dodatkowe service jako "część" pomocnicza
-              block.parts.push({ id: it.id, name: cleanName });
-              block.existingPartIds.push(it.id);
             }
           }
         }
@@ -177,14 +175,14 @@ export function EmployeeOrderCardDialog({
   const tcFields = useMemo<TranslatableField[]>(() => {
     const out: TranslatableField[] = [];
     tasks.forEach(t => {
-      const txt = t.complaint || t.text;
+      const txt = t.complaint;
       if (txt && orderId) out.push({ entity_type: 'order', entity_id: `${orderId}#${t.index}`, field: 'complaint', text: txt });
     });
     return out;
   }, [tasks, orderId]);
   const { t: tc } = useWorkshopTranslations(tcFields, 'pl');
   const tComplaint = (t: TaskBlock) =>
-    tc('order', `${orderId}#${t.index}`, 'complaint', t.complaint || t.text);
+    tc('order', `${orderId}#${t.index}`, 'complaint', t.complaint);
   const allConfirmed = tasks.length > 0 && confirmedCount === tasks.length;
   const progressPct = tasks.length ? (confirmedCount / tasks.length) * 100 : 0;
 
@@ -201,6 +199,16 @@ export function EmployeeOrderCardDialog({
     if (el) { el.value = ''; el.focus(); }
   };
 
+  const addLabor = (ti: number, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setTasks(ts => ts.map((t, idx) => idx === ti ? { ...t, labor: [...t.labor, { name: trimmed }] } : t));
+    const el = laborInputRefs.current[ti];
+    if (el) { el.value = ''; el.focus(); }
+  };
+  const removeLabor = (ti: number, li: number) => {
+    setTasks(ts => ts.map((t, idx) => idx === ti ? { ...t, labor: t.labor.filter((_, k) => k !== li) } : t));
+  };
   const removePart = (ti: number, pi: number) => {
     setTasks(ts => ts.map((t, idx) => idx === ti ? { ...t, parts: t.parts.filter((_, k) => k !== pi) } : t));
   };
@@ -214,12 +222,17 @@ export function EmployeeOrderCardDialog({
     // Auto-commit any unsaved part draft so the typed text doesn't get lost.
     const draftEl = partInputRefs.current[ti];
     const draftVal = draftEl?.value?.trim();
+    const laborEl = laborInputRefs.current[ti];
+    const laborVal = laborEl?.value?.trim();
     let workingTasks = tasks;
-    if (draftVal) {
+    if (draftVal || laborVal) {
       workingTasks = tasks.map((t, idx) => idx === ti
-        ? { ...t, parts: [...t.parts, { name: draftVal }] }
+        ? { ...t,
+            parts: draftVal ? [...t.parts, { name: draftVal }] : t.parts,
+            labor: laborVal ? [...t.labor, { name: laborVal }] : t.labor }
         : t);
-      if (draftEl) draftEl.value = '';
+      if (draftEl && draftVal) draftEl.value = '';
+      if (laborEl && laborVal) laborEl.value = '';
     }
     const t = workingTasks[ti];
     const hrs = parseFloat(t.time || '0');
@@ -272,34 +285,52 @@ export function EmployeeOrderCardDialog({
           });
         }
       });
-      // SERVICE (czas + koszt)
+      // SERVICE (robocizna) — każda pozycja labor = osobny service.
+      // Pierwsza pozycja niesie sumaryczny czas/koszt punktu; kolejne mają 0 (admin wycenia później).
       const hrs = parseFloat(t.time || '0') || 0;
       const cost = parseFloat(String(t.cost || '0').replace(',', '.')) || 0;
-      const hasService = hrs > 0 || cost > 0;
-      if (t.existingServiceId && hasService) {
-        keepIds.add(t.existingServiceId);
-        updates.push({
-          id: t.existingServiceId,
-          patch: {
-            name: t.text || 'Robocizna', labor_hours: hrs, task_group: group,
-            unit_price_gross: cost, total_gross: cost,
-          },
+      const laborItems = t.labor.filter(l => l.name.trim());
+      if (laborItems.length > 0) {
+        laborItems.forEach((l, li) => {
+          const isFirst = li === 0;
+          const lhrs = isFirst ? hrs : 0;
+          const lcost = isFirst ? cost : 0;
+          if (l.id) {
+            keepIds.add(l.id);
+            updates.push({
+              id: l.id,
+              patch: { name: l.name.trim(), labor_hours: lhrs, task_group: group, unit_price_gross: lcost, total_gross: lcost },
+            });
+          } else {
+            inserts.push({
+              order_id: orderId, name: l.name.trim(), item_type: 'service',
+              quantity: 1, unit: 'usł.', labor_hours: lhrs, task_group: group,
+              employee_id: employeeId || null, mechanic: employeeName || null,
+              sort_order: sort++, unit_price_net: 0, unit_price_gross: lcost,
+              total_net: 0, total_gross: lcost, discount_percent: 0,
+            });
+          }
         });
-      } else if (!t.existingServiceId && hasService) {
-        inserts.push({
-          order_id: orderId, name: t.text || 'Robocizna', item_type: 'service',
-          quantity: 1, unit: 'usł.', labor_hours: hrs, task_group: group,
-          employee_id: employeeId || null, mechanic: employeeName || null,
-          sort_order: sort++, unit_price_net: 0, unit_price_gross: cost,
-          total_net: 0, total_gross: cost, discount_percent: 0,
-        });
-      } else if (t.existingServiceId && !hasService) {
-        deletes.push(t.existingServiceId);
+      } else if (hrs > 0 || cost > 0) {
+        // brak opisów robocizny, ale ustawiony czas/koszt → jedna domyślna pozycja
+        const exist = t.existingServiceIds[0];
+        if (exist) {
+          keepIds.add(exist);
+          updates.push({ id: exist, patch: { name: 'Robocizna', labor_hours: hrs, task_group: group, unit_price_gross: cost, total_gross: cost } });
+        } else {
+          inserts.push({
+            order_id: orderId, name: 'Robocizna', item_type: 'service',
+            quantity: 1, unit: 'usł.', labor_hours: hrs, task_group: group,
+            employee_id: employeeId || null, mechanic: employeeName || null,
+            sort_order: sort++, unit_price_net: 0, unit_price_gross: cost,
+            total_net: 0, total_gross: cost, discount_percent: 0,
+          });
+        }
       }
     });
 
     // delete: istniejące not in keep i not w deletes
-    const allExisting = tasks.flatMap(t => [...t.existingPartIds, t.existingServiceId].filter(Boolean) as string[]);
+    const allExisting = tasks.flatMap(t => [...t.existingPartIds, ...t.existingServiceIds].filter(Boolean) as string[]);
     const toDelete = Array.from(new Set([...deletes, ...allExisting.filter(id => !keepIds.has(id))]));
 
     if (toDelete.length) {
@@ -487,19 +518,55 @@ export function EmployeeOrderCardDialog({
                             </div>
                           )}
                         </div>
-                        {!ro && (
-                          <div>
-                            <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">
-                              {tr('workshop.employeeCard.workDoneLabor')}
-                            </div>
-                            <Input
-                              value={t.text}
-                              onChange={(e) => setTasks(ts => ts.map((x, idx) => idx === ti ? { ...x, text: e.target.value } : x))}
-                              placeholder={tr('workshop.employeeCard.laborPlaceholder')}
-                              className="h-11 text-base"
-                            />
+                        <div>
+                          <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">
+                            {tr('workshop.employeeCard.workDoneLabor')}
                           </div>
-                        )}
+                          {t.labor.length > 0 && (
+                            <div className="divide-y border rounded-md mb-2 bg-background">
+                              {t.labor.map((l, li) => (
+                                <div key={li} className="flex items-center gap-2 px-3 py-2">
+                                  <span className="flex-1 text-sm">{l.name}</span>
+                                  {!ro && (
+                                    <button
+                                      type="button" onClick={() => removeLabor(ti, li)}
+                                      className="text-muted-foreground hover:text-destructive p-1"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {!ro && (
+                            <div className="flex gap-2">
+                              <Input
+                                ref={el => { laborInputRefs.current[ti] = el; }}
+                                placeholder={tr('workshop.employeeCard.laborPlaceholder')}
+                                className="h-11 text-base flex-1"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    addLabor(ti, (e.target as HTMLInputElement).value);
+                                  }
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-11 px-3 shrink-0"
+                                onClick={() => {
+                                  const el = laborInputRefs.current[ti];
+                                  if (el) addLabor(ti, el.value);
+                                }}
+                                aria-label={tr('workshop.employeeCard.workDoneLabor')}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
 
                         {/* Czas + koszt */}
                         <div className="grid grid-cols-2 gap-2">
@@ -573,7 +640,7 @@ export function EmployeeOrderCardDialog({
                       confirmed: false,
                       expanded: true,
                       existingPartIds: [],
-                      existingServiceId: null,
+                      existingServiceIds: [],
                     };
                     return ts.map(t => ({ ...t, expanded: false })).concat(newBlock);
                   })}
