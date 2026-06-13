@@ -8,6 +8,7 @@ import { Star, Trash2, Edit2, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
+import { useContentTranslations } from "@/hooks/useContentTranslation";
 
 interface Review {
   id: string;
@@ -38,6 +39,13 @@ export function VehicleReviewsTab({ vehicleId }: VehicleReviewsTabProps) {
   useEffect(() => {
     loadReviews();
   }, [vehicleId]);
+
+  // CORE: tłumaczenie komentarzy recenzji do języka admina (źródło wykrywane — 'auto')
+  const { t: tReview } = useContentTranslations(
+    reviews.filter(r => r.comment).map(r => ({
+      entity_type: 'review', entity_id: r.id, field: 'comment', text: r.comment || '', source_lang: 'auto',
+    })),
+  );
 
   const loadReviews = async () => {
     setLoading(true);
@@ -264,7 +272,7 @@ export function VehicleReviewsTab({ vehicleId }: VehicleReviewsTabProps) {
                 </Button>
               </div>
             ) : (
-              <p className="text-sm mt-1">{review.comment || <span className="italic text-muted-foreground">Brak komentarza</span>}</p>
+              <p className="text-sm mt-1">{review.comment ? tReview('review', review.id, 'comment', review.comment) : <span className="italic text-muted-foreground">Brak komentarza</span>}</p>
             )}
           </div>
 

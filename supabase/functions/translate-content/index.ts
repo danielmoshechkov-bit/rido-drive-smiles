@@ -17,7 +17,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
-import { translateTexts, resolveModel } from '../_shared/translationProvider.ts';
+import { translateTexts, resolveModel, detectSourceLang } from '../_shared/translationProvider.ts';
 
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -69,7 +69,8 @@ serve(async (req) => {
     // Przygotuj itemy z hashem i językiem źródłowym
     const prepared = await Promise.all(items.map(async (it) => {
       const text = (it.text || '').trim();
-      const sl = (it.source_lang || defaultSource || 'pl').slice(0, 2);
+      const rawSl = it.source_lang || defaultSource || 'pl';
+      const sl = (rawSl === 'auto' ? detectSourceLang(text) : rawSl).slice(0, 2);
       return { ...it, text, sl, hash: text ? await sha256(text) : '' };
     }));
 

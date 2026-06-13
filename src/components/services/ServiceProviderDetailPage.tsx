@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
 import { toast } from 'sonner';
+import { useContentTranslation } from '@/hooks/useContentTranslation';
 
 interface Service {
   id: string;
@@ -74,6 +75,10 @@ export function ServiceProviderDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showContactPhone, setShowContactPhone] = useState(false);
+
+  // CORE: tłumaczenie opisu usługodawcy (lazy + globalny cache)
+  const { text: providerDescription, loading: descLoading } =
+    useContentTranslation('service', provider?.id, 'description', provider?.description || '');
 
   useEffect(() => {
     const checkUser = async () => {
@@ -436,7 +441,7 @@ export function ServiceProviderDetailPage() {
             <div>
               <h2 className="text-xl font-semibold mb-4">O firmie</h2>
               <div className="prose prose-base max-w-none text-foreground/90 whitespace-pre-line leading-relaxed">
-                {provider.description || "Brak opisu"}
+                {descLoading ? "…" : (providerDescription || "Brak opisu")}
               </div>
             </div>
 

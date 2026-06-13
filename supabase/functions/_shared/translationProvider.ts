@@ -16,6 +16,21 @@ export function langName(code: string): string {
   return LANG_NAMES[(code || '').slice(0, 2)] || LANG_NAMES[code] || code;
 }
 
+/** Lekka heurystyka wykrywania języka źródłowego (gdy 'auto'). */
+export function detectSourceLang(text: string): string {
+  const s = (text || '').trim();
+  if (!s) return 'pl';
+  if (/[一-鿿]/.test(s)) return 'zh';
+  if (/[؀-ۿ]/.test(s)) return 'ar';
+  if (/[іїєґ]/i.test(s)) return 'ua';
+  if (/[Ѐ-ӿ]/.test(s)) return 'ru';
+  if (/[ăâîșț]/i.test(s)) return 'ro';
+  if (/[ạảấầẩẫậắằẳẵặ]/i.test(s)) return 'vi';
+  if (/[ąćęłńóśźż]/i.test(s)) return 'pl';
+  if (/[äöüß]/i.test(s)) return 'de';
+  return 'pl';
+}
+
 export type Provider = 'anthropic' | 'gemini' | 'kimi';
 
 /** Wykryj providera ze stringa modelu (np. 'claude-haiku-4-5' → anthropic). */

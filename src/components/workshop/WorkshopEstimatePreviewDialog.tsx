@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Separator } from '@/components/ui/separator';
 import { Wrench, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useMemo } from 'react';
+import { useWorkshopTranslations } from '@/hooks/useWorkshopTranslations';
 
 interface Props {
   open: boolean;
@@ -40,6 +42,13 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
     },
     enabled: open && !!order?.id,
   });
+
+  // CORE: tłumaczenie pozycji wyceny do języka oglądającego (klient/SMS), terminologia automotive
+  const trFields = useMemo(() => [
+    ...tasks.map((t: any) => ({ entity_type: 'workshop_estimate', entity_id: t.id, field: 'description', text: t.description || '' })),
+    ...parts.map((p: any) => ({ entity_type: 'workshop_estimate', entity_id: p.id, field: 'name', text: p.name || '' })),
+  ], [tasks, parts]);
+  const { t: tc } = useWorkshopTranslations(trFields, 'pl');
 
   const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -91,7 +100,7 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
                 {tasks.map((t: any, i: number) => (
                   <tr key={t.id} className="border-b border-dashed">
                     <td className="py-1.5 pr-2 text-muted-foreground">{i + 1}</td>
-                    <td className="py-1.5">{t.description || '—'}</td>
+                    <td className="py-1.5">{tc('workshop_estimate', t.id, 'description', t.description) || '—'}</td>
                     <td className="py-1.5 text-right font-medium">{fmt(t.price_gross)} zł</td>
                   </tr>
                 ))}
@@ -130,7 +139,7 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
                 {parts.map((p: any, i: number) => (
                   <tr key={p.id} className="border-b border-dashed">
                     <td className="py-1.5 pr-2 text-muted-foreground">{i + 1}</td>
-                    <td className="py-1.5">{p.name || '—'}</td>
+                    <td className="py-1.5">{tc('workshop_estimate', p.id, 'name', p.name) || '—'}</td>
                     <td className="py-1.5 text-right">{p.quantity || 1}</td>
                     <td className="py-1.5 text-right">{fmt(p.price_gross)} zł</td>
                     <td className="py-1.5 text-right font-medium">{fmt((p.price_gross || 0) * (p.quantity || 1))} zł</td>

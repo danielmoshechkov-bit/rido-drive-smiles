@@ -15,6 +15,26 @@ export interface ContentItem {
   source_lang?: string;
 }
 
+/**
+ * Lekka heurystyka wykrywania języka źródłowego (gdy treść może być w dowolnym
+ * języku — np. komentarze, wiadomości). Świadomie prosta; dla treści PL-domyślnych
+ * podawaj wprost 'pl'. Cyrylica → 'ru' (ru/ua nierozróżnialne pewnie — bierzemy ru).
+ */
+export function detectSourceLang(text: string): string {
+  const s = (text || '').trim();
+  if (!s) return 'pl';
+  if (/[一-鿿]/.test(s)) return 'zh';
+  if (/[؀-ۿ]/.test(s)) return 'ar';
+  // ukraiński ma znaki і/ї/є/ґ — rozróżnij od rosyjskiego
+  if (/[іїєґ]/i.test(s)) return 'ua';
+  if (/[Ѐ-ӿ]/.test(s)) return 'ru';
+  if (/[ăâîșț]/i.test(s)) return 'ro';
+  if (/[ạảấầẩẫậắằẳẵặ]/i.test(s)) return 'vi';
+  if (/[ąćęłńóśźż]/i.test(s)) return 'pl';
+  if (/[äöüß]/i.test(s)) return 'de';
+  return 'pl';
+}
+
 export async function contentHash(text: string): Promise<string> {
   const buf = new TextEncoder().encode((text || '').trim());
   const h = await crypto.subtle.digest('SHA-256', buf);
@@ -34,13 +54,15 @@ export async function translateContentBatch(
   items: ContentItem[],
   targetLang: string,
   defaultSource = 'pl',
+  domainHint?: string,
 ): Promise<Record<string, string>> {
   const t = (targetLang || 'pl').slice(0, 2);
   const out: Record<string, string> = {};
 
   const prepared = await Promise.all(items.map(async (it) => {
     const text = (it.text || '').trim();
-    const sl = (it.source_lang || defaultSource || 'pl').slice(0, 2);
+    const rawSl = it.source_lang || defaultSource || 'pl';
+    const sl = (rawSl === 'auto' ? detectSourceLang(text) : rawSl).slice(0, 2);
     return { ...it, text, sl, key: keyOf(it), hash: text ? await contentHash(text) : '' };
   }));
 
@@ -76,6 +98,7 @@ export async function translateContentBatch(
           })),
           target_lang: t,
           source_lang: defaultSource,
+          domain_hint: domainHint,
         },
       });
       const tr = (data?.translations || {}) as Record<string, string>;
