@@ -1658,6 +1658,22 @@
       "workDescPlaceholder": "Opis wykonanych prac",
       "platePlaceholder": "np. WX1234A",
       "workshopUnknown": "Warsztat niepodany"
+    },
+    "viewings": {
+      "pending": "Oczekuje",
+      "contactingAgents": "Kontaktujemy agentów",
+      "partial": "Częściowo potwierdzone",
+      "confirmed": "Potwierdzone",
+      "completed": "Zakończone",
+      "cancelled": "Anulowane",
+      "noViewings": "Brak zaplanowanych oglądań",
+      "noViewingsDesc": "Dodaj nieruchomości do ulubionych i umów wspólne oglądanie",
+      "title": "Moje oglądania",
+      "planTitle": "Plan oglądania — {{count}} nieruchomości",
+      "createdAt": "Utworzono",
+      "declined": "Odmówiono",
+      "waitingAgent": "Oczekiwanie na agenta...",
+      "contactingProgress": "Trwa kontaktowanie agentów..."
     }
   },
   "fleetRegister": {

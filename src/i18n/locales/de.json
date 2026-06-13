@@ -1565,6 +1565,22 @@
       "workDescPlaceholder": "Beschreibung der ausgeführten Arbeiten",
       "platePlaceholder": "z. B. WX1234A",
       "workshopUnknown": "Werkstatt nicht angegeben"
+    },
+    "viewings": {
+      "pending": "Ausstehend",
+      "contactingAgents": "Makler werden kontaktiert",
+      "partial": "Teilweise bestätigt",
+      "confirmed": "Bestätigt",
+      "completed": "Beendet",
+      "cancelled": "Storniert",
+      "noViewings": "Keine geplanten Besichtigungen",
+      "noViewingsDesc": "Fügen Sie Immobilien zu Favoriten hinzu und vereinbaren Sie eine gemeinsame Besichtigung",
+      "title": "Meine Besichtigungen",
+      "planTitle": "Besichtigungsplan — {{count}} Immobilien",
+      "createdAt": "Erstellt",
+      "declined": "Abgelehnt",
+      "waitingAgent": "Warten auf einen Makler...",
+      "contactingProgress": "Makler werden kontaktiert..."
     }
   },
   "fleetRegister": {

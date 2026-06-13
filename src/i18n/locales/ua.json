@@ -1658,6 +1658,22 @@
       "workDescPlaceholder": "Опис виконаних робіт",
       "platePlaceholder": "напр. WX1234A",
       "workshopUnknown": "Майстерня не вказана"
+    },
+    "viewings": {
+      "pending": "Очікує",
+      "contactingAgents": "Звʼязуємося з агентами",
+      "partial": "Частково підтверджено",
+      "confirmed": "Підтверджено",
+      "completed": "Завершено",
+      "cancelled": "Скасовано",
+      "noViewings": "Немає запланованих переглядів",
+      "noViewingsDesc": "Додайте нерухомість до обраного та домовтеся про спільний перегляд",
+      "title": "Мої перегляди",
+      "planTitle": "План перегляду — {{count}} обʼєктів",
+      "createdAt": "Створено",
+      "declined": "Відхилено",
+      "waitingAgent": "Очікування агента...",
+      "contactingProgress": "Триває звʼязок з агентами..."
     }
   },
   "fleetRegister": {

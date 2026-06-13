@@ -4,17 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, Calendar, CheckCircle, Clock, XCircle, Eye } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Oczekuje', color: 'bg-yellow-500' },
-  contacting_agents: { label: 'Kontaktujemy agentów', color: 'bg-blue-500' },
-  partial: { label: 'Częściowo potwierdzone', color: 'bg-orange-500' },
-  confirmed: { label: 'Potwierdzone', color: 'bg-green-500' },
-  completed: { label: 'Zakończone', color: 'bg-muted-foreground' },
-  cancelled: { label: 'Anulowane', color: 'bg-destructive' },
+const STATUS_MAP: Record<string, { labelKey: string; color: string }> = {
+  pending: { labelKey: 'cp.viewings.pending', color: 'bg-yellow-500' },
+  contacting_agents: { labelKey: 'cp.viewings.contactingAgents', color: 'bg-blue-500' },
+  partial: { labelKey: 'cp.viewings.partial', color: 'bg-orange-500' },
+  confirmed: { labelKey: 'cp.viewings.confirmed', color: 'bg-green-500' },
+  completed: { labelKey: 'cp.viewings.completed', color: 'bg-muted-foreground' },
+  cancelled: { labelKey: 'cp.viewings.cancelled', color: 'bg-destructive' },
 };
 
 export function MyViewingsPanel() {
+  const { t } = useTranslation();
   const [requests, setRequests] = useState<any[]>([]);
   const [slots, setSlots] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
@@ -66,9 +68,9 @@ export function MyViewingsPanel() {
     return (
       <Card className="p-8 text-center">
         <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="font-semibold mb-1">Brak zaplanowanych oglądań</h3>
+        <h3 className="font-semibold mb-1">{t('cp.viewings.noViewings')}</h3>
         <p className="text-sm text-muted-foreground">
-          Dodaj nieruchomości do ulubionych i umów wspólne oglądanie
+          {t('cp.viewings.noViewingsDesc')}
         </p>
       </Card>
     );
@@ -78,7 +80,7 @@ export function MyViewingsPanel() {
     <div className="space-y-4">
       <h2 className="text-xl font-bold flex items-center gap-2">
         <Eye className="h-5 w-5 text-primary" />
-        Moje oglądania
+        {t('cp.viewings.title')}
       </h2>
 
       {requests.map((req) => {
@@ -90,12 +92,12 @@ export function MyViewingsPanel() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">
-                  Plan oglądania — {(req.listing_ids as string[])?.length || 0} nieruchomości
+                  {t('cp.viewings.planTitle', { count: (req.listing_ids as string[])?.length || 0 })}
                 </CardTitle>
-                <Badge className={status.color}>{status.label}</Badge>
+                <Badge className={status.color}>{t(status.labelKey)}</Badge>
               </div>
               <p className="text-xs text-muted-foreground">
-                Utworzono: {new Date(req.created_at).toLocaleDateString('pl-PL')}
+                {t('cp.viewings.createdAt')}: {new Date(req.created_at).toLocaleDateString('pl-PL')}
               </p>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -109,14 +111,14 @@ export function MyViewingsPanel() {
                     <Clock className="h-4 w-4 text-yellow-500 flex-shrink-0" />
                   )}
                   <span className="flex-1">
-                    {slot.status === 'confirmed' ? 'Potwierdzone' :
-                     slot.status === 'declined' ? 'Odmówiono' : 'Oczekiwanie na agenta...'}
+                    {slot.status === 'confirmed' ? t('cp.viewings.confirmed') :
+                     slot.status === 'declined' ? t('cp.viewings.declined') : t('cp.viewings.waitingAgent')}
                   </span>
                 </div>
               ))}
 
               {requestSlots.length === 0 && (
-                <p className="text-sm text-muted-foreground">Trwa kontaktowanie agentów...</p>
+                <p className="text-sm text-muted-foreground">{t('cp.viewings.contactingProgress')}</p>
               )}
             </CardContent>
           </Card>

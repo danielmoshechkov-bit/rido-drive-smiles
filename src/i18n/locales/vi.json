@@ -1565,6 +1565,22 @@
       "workDescPlaceholder": "Mô tả công việc đã làm",
       "platePlaceholder": "vd: WX1234A",
       "workshopUnknown": "Chưa nêu xưởng"
+    },
+    "viewings": {
+      "pending": "Đang chờ",
+      "contactingAgents": "Đang liên hệ đại lý",
+      "partial": "Đã xác nhận một phần",
+      "confirmed": "Đã xác nhận",
+      "completed": "Đã kết thúc",
+      "cancelled": "Đã hủy",
+      "noViewings": "Không có lịch xem",
+      "noViewingsDesc": "Thêm bất động sản vào yêu thích và sắp xếp xem chung",
+      "title": "Lịch xem của tôi",
+      "planTitle": "Kế hoạch xem — {{count}} bất động sản",
+      "createdAt": "Đã tạo",
+      "declined": "Đã từ chối",
+      "waitingAgent": "Đang chờ đại lý...",
+      "contactingProgress": "Đang liên hệ đại lý..."
     }
   },
   "fleetRegister": {

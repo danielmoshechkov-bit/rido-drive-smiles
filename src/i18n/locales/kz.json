@@ -1658,6 +1658,22 @@
       "workDescPlaceholder": "Орындалған жұмыс сипаттамасы",
       "platePlaceholder": "мыс. WX1234A",
       "workshopUnknown": "Шеберхана көрсетілмеген"
+    },
+    "viewings": {
+      "pending": "Күтуде",
+      "contactingAgents": "Агенттермен байланысудамыз",
+      "partial": "Ішінара расталды",
+      "confirmed": "Расталды",
+      "completed": "Аяқталды",
+      "cancelled": "Бас тартылды",
+      "noViewings": "Жоспарланған қараулар жоқ",
+      "noViewingsDesc": "Жылжымайтын мүлікті таңдаулыға қосып, бірлескен қарауды ұйымдастырыңыз",
+      "title": "Менің қарауларым",
+      "planTitle": "Қарау жоспары — {{count}} нысан",
+      "createdAt": "Жасалды",
+      "declined": "Бас тартылды",
+      "waitingAgent": "Агентті күту...",
+      "contactingProgress": "Агенттермен байланысуда..."
     }
   },
   "fleetRegister": {
