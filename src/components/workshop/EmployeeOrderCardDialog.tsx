@@ -163,9 +163,11 @@ export function EmployeeOrderCardDialog({
   // Blokada edycji diagnozy gdy wycena już poszła do klienta (oczekuje/zaakceptowana).
   // Edycja wraca tylko przez "Dodatek do naprawy" po akceptacji. Przed wyceną — edytowalne.
   const orderStatus = String(order?.status_name || '');
+  // Blokada DOPIERO po wysłaniu wyceny do klienta. 'Do wyceny'/'Wycena gotowa' = mechanik
+  // wciąż przygotowuje (edytowalne). Flaga estimate_sent_to_client = pewny sygnał wysłania.
   const estimateLocked =
     !!order?.estimate_sent_to_client ||
-    ['Do wyceny', 'Oczekuje na akceptację', 'Wycena gotowa', 'Wycena wysłana',
+    ['Wycena wysłana', 'Oczekuje na akceptację',
      'Zaakceptowano', 'Akceptacja klienta', 'Zgoda na naprawę', 'W trakcie naprawy',
      'Dodatek do naprawy', 'Zadania wykonane', 'Naprawione', 'Gotowy do odbioru', 'Zakończone'].includes(orderStatus);
   const ro = readOnly || estimateLocked;
