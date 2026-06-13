@@ -42,6 +42,7 @@ interface ClientVehicle {
   photos: string[] | null;
   is_verified: boolean | null;
   is_sold: boolean | null;
+  sold_at: string | null;
   created_at: string | null;
 }
 
@@ -407,7 +408,7 @@ function ClientVehicleDocumentsPanel({ vehicleId }: { vehicleId: string }) {
   );
 }
 
-function ClientVehicleServicePanel({ vehicleId }: { vehicleId: string }) {
+function ClientVehicleServicePanel({ vehicleId, readOnly = false }: { vehicleId: string; readOnly?: boolean }) {
   const { t } = useTranslation();
   const [entries, setEntries] = useState<ServiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -487,16 +488,18 @@ function ClientVehicleServicePanel({ vehicleId }: { vehicleId: string }) {
         <CardTitle>{t('cp.vehicles.service')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Input value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))} placeholder={t('cp.vehicles.serviceTypePlaceholder')} />
-          <Input type="date" value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} />
-          <Input value={form.workshop} onChange={(e) => setForm((prev) => ({ ...prev, workshop: e.target.value }))} placeholder={t('cp.vehicles.workshop')} />
-          <Input type="number" value={form.mileage} onChange={(e) => setForm((prev) => ({ ...prev, mileage: e.target.value }))} placeholder={t('cp.vehicles.mileagePlaceholder')} />
-          <Input type="number" value={form.cost} onChange={(e) => setForm((prev) => ({ ...prev, cost: e.target.value }))} placeholder={t('cp.vehicles.costPlaceholder')} />
-          <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setForm((prev) => ({ ...prev, file: e.target.files?.[0] ?? null }))} />
-          <Input className="md:col-span-2" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder={t('cp.vehicles.workDescPlaceholder')} />
-          <Button onClick={addEntry} disabled={saving}>{saving ? t('cp.vehicles.saving') : t('cp.vehicles.saveEntry')}</Button>
-        </div>
+        {!readOnly && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Input value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))} placeholder={t('cp.vehicles.serviceTypePlaceholder')} />
+            <Input type="date" value={form.date} onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))} />
+            <Input value={form.workshop} onChange={(e) => setForm((prev) => ({ ...prev, workshop: e.target.value }))} placeholder={t('cp.vehicles.workshop')} />
+            <Input type="number" value={form.mileage} onChange={(e) => setForm((prev) => ({ ...prev, mileage: e.target.value }))} placeholder={t('cp.vehicles.mileagePlaceholder')} />
+            <Input type="number" value={form.cost} onChange={(e) => setForm((prev) => ({ ...prev, cost: e.target.value }))} placeholder={t('cp.vehicles.costPlaceholder')} />
+            <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setForm((prev) => ({ ...prev, file: e.target.files?.[0] ?? null }))} />
+            <Input className="md:col-span-2" value={form.notes} onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))} placeholder={t('cp.vehicles.workDescPlaceholder')} />
+            <Button onClick={addEntry} disabled={saving}>{saving ? t('cp.vehicles.saving') : t('cp.vehicles.saveEntry')}</Button>
+          </div>
+        )}
 
         {loading ? (
           <p className="text-sm text-muted-foreground">{t('cp.vehicles.loadingServiceHistory')}</p>
@@ -733,6 +736,55 @@ function ClientVehicleCard({
                 </TabsContent>
               </div>
             </Tabs>
+          </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+}
+
+// Read-only card for a sold vehicle: the owner keeps full access to the
+// repair history (where/when/what was done) even after selling the car.
+function SoldVehicleCard({ vehicle }: { vehicle: ClientVehicle }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <Card className={`overflow-hidden rounded-2xl border transition-all ${open ? "border-primary/40 shadow-md" : "border-border/60 shadow-sm"} opacity-90`}>
+        <CollapsibleTrigger asChild>
+          <button type="button" className="w-full text-left">
+            <div className="p-4 md:p-5 transition-colors hover:bg-muted/20">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="rounded-2xl bg-muted p-3">
+                    <Car className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate font-semibold">{vehicle.make || t('cp.vehicles.autoFallback')} {vehicle.model || ""}</p>
+                      <Badge variant="secondary" className="shrink-0">
+                        {t('cp.vehicles.soldBadge', { defaultValue: 'Sprzedany' })}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {vehicle.plate_number || t('cp.vehicles.noPlate', { defaultValue: 'Bez tablic' })}
+                      {vehicle.sold_at ? ` · ${t('cp.vehicles.soldOn', { defaultValue: 'sprzedano' })} ${formatDisplayDate(vehicle.sold_at)}` : ''}
+                    </p>
+                  </div>
+                </div>
+                {open ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+              </div>
+            </div>
+          </button>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <div className="border-t px-4 py-4 md:px-5 md:py-5">
+            <p className="mb-3 text-xs text-muted-foreground">
+              {t('cp.vehicles.soldHistoryNote', { defaultValue: 'Pojazd sprzedany — historia napraw pozostaje dostępna tylko do wglądu.' })}
+            </p>
+            <ClientVehicleServicePanel vehicleId={vehicle.id} readOnly />
           </div>
         </CollapsibleContent>
       </Card>
@@ -1012,6 +1064,7 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
   const [verifyingRequestId, setVerifyingRequestId] = useState<string | null>(null);
 
   const activeVehicles = vehicles.filter((vehicle) => !vehicle.is_sold);
+  const soldVehicles = vehicles.filter((vehicle) => vehicle.is_sold);
 
   const fetchVehicles = async () => {
     setLoading(true);
@@ -1028,10 +1081,16 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
   const fetchOwnershipRequests = async () => {
     if (!userPhone) return;
 
+    // Ownership requests are keyed by the last 9 phone digits (see
+    // normalize_pl_phone in the workshop->client history-bridge migration),
+    // so match the same normalized form here.
+    const phoneKey = userPhone.replace(/\D/g, "").slice(-9);
+    if (!phoneKey) return;
+
     const { data } = await supabase
       .from("client_vehicle_ownership_requests")
       .select("*")
-      .eq("phone", userPhone)
+      .eq("phone", phoneKey)
       .eq("status", "pending");
 
     setOwnershipRequests((data || []) as OwnershipRequest[]);
@@ -1062,40 +1121,47 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
     const request = ownershipRequests.find((item) => item.id === requestId);
     if (!request) return;
 
-    const matches = [
-      verifyForm.plate.toLowerCase() === (request.plate_number || "").toLowerCase(),
-      verifyForm.vin.toLowerCase() === (request.vin || "").toLowerCase(),
-      verifyForm.make.toLowerCase() === (request.make || "").toLowerCase(),
-      verifyForm.model.toLowerCase() === (request.model || "").toLowerCase(),
-    ].filter(Boolean).length;
+    // Verification (incl. VIN-gated owner-change transfer + old-owner email)
+    // runs server-side so it can write across RLS and detect sales safely.
+    const { data, error } = await supabase.functions.invoke("client-verify-vehicle-ownership", {
+      body: {
+        request_id: requestId,
+        plate: verifyForm.plate,
+        vin: verifyForm.vin,
+        make: verifyForm.make,
+        model: verifyForm.model,
+      },
+    });
 
-    if (matches < 3) {
+    if (error) {
+      toast.error(t('cp.vehicles.verifyError'));
+      return;
+    }
+    if (data?.needsManual) {
+      // Contested plate but no VIN on file — can't auto-transfer safely.
+      toast.error(t('cp.vehicles.ownershipNeedsManual', {
+        defaultValue: 'Ten pojazd ma już właściciela, a w zgłoszeniu brak numeru VIN. Skontaktuj się z warsztatem, aby potwierdzić zmianę właściciela.',
+      }));
+      return;
+    }
+    if (data?.error === "vin_mismatch") {
+      toast.error(t('cp.vehicles.vinMismatch', {
+        defaultValue: 'Numer VIN nie zgadza się ze zgłoszeniem.',
+      }));
+      return;
+    }
+    if (data?.error || !data?.success) {
       toast.error(t('cp.vehicles.ownershipMismatch'));
       return;
     }
 
-    const { error: vehicleError } = await supabase.from("client_vehicles").insert({
-      user_id: userId,
-      plate_number: request.plate_number,
-      vin: request.vin,
-      make: request.make,
-      model: request.model,
-      year: request.year,
-      engine_capacity: request.engine_capacity,
-      is_verified: true,
-    });
-
-    if (vehicleError) {
-      toast.error(t('cp.vehicles.verifyError'));
-      return;
+    if (data.transferred) {
+      toast.success(t('cp.vehicles.vehicleTransferred', {
+        defaultValue: 'Pojazd przypisany do Ciebie. Historia napraw została przeniesiona, a poprzedni właściciel powiadomiony.',
+      }));
+    } else {
+      toast.success(t('cp.vehicles.vehicleVerified'));
     }
-
-    await supabase
-      .from("client_vehicle_ownership_requests")
-      .update({ status: "verified", verified_by_user_id: userId, verified_at: new Date().toISOString() })
-      .eq("id", requestId);
-
-    toast.success(t('cp.vehicles.vehicleVerified'));
     setVerifyingRequestId(null);
     setVerifyForm({ plate: "", vin: "", make: "", model: "" });
     fetchVehicles();
@@ -1197,6 +1263,23 @@ export function ClientMyVehicles({ userId, userPhone }: Props) {
               onPhotosUpdated={(photos) => updateVehiclePhotos(vehicle.id, photos)}
             />
           ))}
+        </div>
+      )}
+
+      {soldVehicles.length > 0 && (
+        <div className="space-y-3 pt-2">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-muted-foreground">
+            <Car className="h-5 w-5" />
+            {t('cp.vehicles.soldSection', { defaultValue: 'Sprzedane / Archiwum' })}
+          </h2>
+          <p className="-mt-1 text-sm text-muted-foreground">
+            {t('cp.vehicles.soldSectionNote', { defaultValue: 'Pojazdy, które sprzedałeś. Historia napraw pozostaje dostępna do wglądu.' })}
+          </p>
+          <div className="space-y-3">
+            {soldVehicles.map((vehicle) => (
+              <SoldVehicleCard key={vehicle.id} vehicle={vehicle} />
+            ))}
+          </div>
         </div>
       )}
 

@@ -73,6 +73,9 @@ verify_jwt = false
 [functions.send-price-change-email]
 verify_jwt = false
 
+[functions.client-verify-vehicle-ownership]
+verify_jwt = false
+
 [functions.register-marketplace-user]
 verify_jwt = false
 
