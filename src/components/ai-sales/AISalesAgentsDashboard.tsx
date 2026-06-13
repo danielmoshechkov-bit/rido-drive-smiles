@@ -5,8 +5,9 @@ import { AISalesLeadsList } from './AISalesLeadsList';
 import { AISalesConversationsList } from './AISalesConversationsList';
 import { MyAgentPanel } from './MyAgentPanel';
 import { AISalesAgentWizard } from './AISalesAgentWizard';
+import { VoiceAgentPanel } from './VoiceAgentPanel';
 
-export function AISalesAgentsDashboard() {
+export function AISalesAgentsDashboard({ providerId = null }: { providerId?: string | null }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editAgentId, setEditAgentId] = useState<string | null>(null);
@@ -16,6 +17,7 @@ export function AISalesAgentsDashboard() {
     { value: 'leads', label: 'Leady', visible: true },
     { value: 'conversations', label: 'Konwersacje', visible: true },
     { value: 'my-agent', label: 'Mój Agent', visible: true },
+    { value: 'voice', label: 'Asystent głosowy', visible: true },
   ];
 
   if (wizardOpen) {
@@ -40,6 +42,7 @@ export function AISalesAgentsDashboard() {
       {activeTab === 'leads' && <AISalesLeadsList />}
       {activeTab === 'conversations' && <AISalesConversationsList />}
       {activeTab === 'my-agent' && <MyAgentPanel />}
+      {activeTab === 'voice' && <VoiceAgentPanel providerId={providerId} />}
     </div>
   );
 }

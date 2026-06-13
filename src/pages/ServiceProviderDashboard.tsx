@@ -1255,7 +1255,7 @@ export default function ServiceProviderDashboard() {
 
           {/* AI Agent Tab */}
           <TabsContent value="ai-agent" className="mt-6">
-            <AISalesAgentsDashboard />
+            <AISalesAgentsDashboard providerId={providerId} />
           </TabsContent>
 
           {/* Website Builder Tab */}
