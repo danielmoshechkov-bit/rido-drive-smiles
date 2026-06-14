@@ -206,6 +206,9 @@ verify_jwt = false
 [functions.voice-call-postprocess]
 verify_jwt = false
 
+[functions.voice-agent-simulate]
+verify_jwt = false
+
 [functions.ticket-ai-chat]
 verify_jwt = false
 

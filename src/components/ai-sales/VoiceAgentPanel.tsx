@@ -91,6 +91,46 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const [testOpen, setTestOpen] = useState(false);
+  const [training, setTraining] = useState(false);
+  const [trainDone, setTrainDone] = useState(0);
+  const [trainTotal, setTrainTotal] = useState(0);
+  const [trainLessons, setTrainLessons] = useState(0);
+  const [trainLog, setTrainLog] = useState<string[]>([]);
+  const [knowledgeCount, setKnowledgeCount] = useState<number | null>(null);
+
+  const loadKnowledgeCount = async (persona: string) => {
+    if (!providerId || !persona) return;
+    const { count } = await (supabase as any).from("voice_agent_knowledge")
+      .select("id", { count: "exact", head: true })
+      .eq("persona_key", persona).eq("is_active", true)
+      .or(`provider_id.eq.${providerId},provider_id.is.null`);
+    setKnowledgeCount(count ?? 0);
+  };
+
+  const runTraining = async (n: number) => {
+    if (!providerId || !cfg) return;
+    setTraining(true); setTrainTotal(n); setTrainDone(0); setTrainLessons(0); setTrainLog([]);
+    let lessons = 0;
+    for (let i = 0; i < n; i++) {
+      try {
+        const { data, error } = await supabase.functions.invoke("voice-agent-simulate", {
+          body: { provider_id: providerId, persona_key: cfg.persona_key, seed: i },
+        });
+        if (!error && data?.ok) {
+          lessons += data.lessons_learned || 0;
+          setTrainLog((l) => [`✓ ${data.outcome || "rozmowa"} · +${data.lessons_learned || 0} reguł · ${data.scenario?.slice(0, 40) || ""}`, ...l].slice(0, 12));
+        } else {
+          setTrainLog((l) => [`✗ ${data?.error || error?.message || "błąd"}`, ...l].slice(0, 12));
+        }
+      } catch (e: any) {
+        setTrainLog((l) => [`✗ ${e?.message || "błąd"}`, ...l].slice(0, 12));
+      }
+      setTrainDone(i + 1); setTrainLessons(lessons);
+    }
+    setTraining(false);
+    await loadKnowledgeCount(cfg.persona_key);
+    toast.success(`Trening zakończony: ${n} rozmów, +${lessons} reguł wiedzy`);
+  };
   const [previewing, setPreviewing] = useState(false);
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const [loadingVoice, setLoadingVoice] = useState<string | null>(null);
@@ -177,6 +217,9 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
     if (cfg && !cfg.voice_id && voices.length) setCfg((c) => (c ? { ...c, voice_id: voices[0].voice_id } : c));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voices, cfg?.persona_key]);
+
+  // 5) licznik wiedzy persony
+  useEffect(() => { if (selectedPersona && providerId) loadKnowledgeCount(selectedPersona); /* eslint-disable-next-line */ }, [selectedPersona, providerId]);
 
   const update = (patch: Partial<VoiceConfig>) => setCfg((c) => (c ? { ...c, ...patch } : c));
   const updateBC = (patch: Partial<BusinessContext>) =>
@@ -553,6 +596,37 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                 <p className="text-xs text-muted-foreground">Agent zaproponuje to tylko jeśli tu wpiszesz, że oferujecie.</p></div>
               <div className="space-y-2"><Label>Dodatkowe informacje dla AI (ceny, promocje, zasady)</Label>
                 <Textarea rows={3} value={cfg.business_context.extra_info} onChange={(e) => updateBC({ extra_info: e.target.value })} placeholder="np. Wymiana oleju od 150 zł. Nie umawiamy na niedziele." /></div>
+            </CardContent>
+          </Card>
+
+          {/* TRENING — symulacje self-play */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> Trening agenta (symulacje)</CardTitle>
+              <CardDescription>
+                Symulowani klienci rozmawiają z agentem; po każdej rozmowie system wyłapuje błędy i dopisuje reguły. Agent uczy się sprzedawać i umawiać — zanim odbierze realny telefon.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm">Wyuczone reguły dla tej roli: <strong>{knowledgeCount ?? "…"}</strong></span>
+                <div className="ml-auto flex gap-2">
+                  <Button size="sm" variant="outline" disabled={training} onClick={() => runTraining(10)}>{training ? <Loader2 className="h-4 w-4 animate-spin" /> : null} 10 symulacji</Button>
+                  <Button size="sm" disabled={training} onClick={() => runTraining(25)} className="gap-1.5"><Sparkles className="h-4 w-4" /> 25 symulacji</Button>
+                </div>
+              </div>
+              {training && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground"><span>Postęp: {trainDone}/{trainTotal}</span><span>+{trainLessons} reguł</span></div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${trainTotal ? (trainDone / trainTotal) * 100 : 0}%` }} /></div>
+                </div>
+              )}
+              {trainLog.length > 0 && (
+                <div className="rounded-lg border bg-muted/30 p-2 max-h-[160px] overflow-y-auto text-xs space-y-0.5">
+                  {trainLog.map((l, i) => <div key={i} className="truncate">{l}</div>)}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">Symulacje NIE tworzą realnych rezerwacji/zleceń (tryb suchy). Każda seria zużywa AI (koszt) — przy 100 rozmowach rób kilka serii.</p>
             </CardContent>
           </Card>
 

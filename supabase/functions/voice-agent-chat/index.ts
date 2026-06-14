@@ -53,6 +53,7 @@ serve(async (req) => {
     const providerId = String(body?.provider_id || "");
     const testMode = body?.test_mode !== false; // domyślnie test (chat); telefonia ustawi false
     const voiceGender = String(body?.voice_gender || "").toLowerCase();
+    const dryRunTools = !!body?.dry_run_tools; // symulacja treningowa — narzędzia nie piszą do bazy
 
     // KONTEKST CZASU (Europa/Warszawa) — agent musi znać dziś/teraz, by liczyć "jutro"
     const now = new Date();
@@ -155,6 +156,7 @@ serve(async (req) => {
     }
 
     const callTool = async (name: string, input: any) => {
+      if (dryRunTools) return { ok: true, simulated: true, order_id: "sim", order_number: "SIM", booking_id: "sim" };
       try {
         const r = await fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
           method: "POST",
