@@ -12,8 +12,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CompanyInterviewChat } from "./CompanyInterviewChat";
+import { VoiceAgentTestChat } from "./VoiceAgentTestChat";
 import { toast } from "sonner";
-import { Loader2, Save, Play, Phone, Volume2, Bot, Sparkles, Wand2, Building2, Search, Pause, Star, Globe, ChevronDown, CalendarCheck, ClipboardList, ShieldCheck } from "lucide-react";
+import { Loader2, Save, Play, Phone, Volume2, Bot, Sparkles, Wand2, Building2, Search, Pause, Star, Globe, ChevronDown, CalendarCheck, ClipboardList, ShieldCheck, PhoneCall } from "lucide-react";
 
 interface Persona {
   persona_key: string; name: string; description: string | null; direction: string;
@@ -85,6 +86,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const [previewLang, setPreviewLang] = useState("pl");
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
+  const [testOpen, setTestOpen] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [playingVoice, setPlayingVoice] = useState<string | null>(null);
   const [loadingVoice, setLoadingVoice] = useState<string | null>(null);
@@ -336,8 +338,30 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                 <Label>Nazwa agenta (jak się przedstawia)</Label>
                 <Input placeholder="np. Asystentka Kasia" value={cfg.display_name} onChange={(e) => update({ display_name: e.target.value })} />
               </div>
+              <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <PhoneCall className="h-4 w-4 text-primary" />
+                  <span>Sprawdź jak agent rozmawia — napisz jak klient, zobacz/usłysz odpowiedzi.</span>
+                </div>
+                <Button variant="default" size="sm" className="gap-1.5 shrink-0" onClick={() => setTestOpen(true)}>
+                  <PhoneCall className="h-4 w-4" /> Przetestuj agenta
+                </Button>
+              </div>
             </CardContent>
           </Card>
+
+          <VoiceAgentTestChat
+            open={testOpen}
+            onOpenChange={setTestOpen}
+            personaKey={cfg.persona_key}
+            displayName={cfg.display_name}
+            businessContext={cfg.business_context as unknown as Record<string, string>}
+            languages={cfg.languages}
+            calendarAccess={cfg.calendar_access}
+            ordersAccess={cfg.orders_access}
+            voiceId={cfg.voice_mode === "per_language" ? (cfg.voice_per_language["pl"] || cfg.voice_id) : cfg.voice_id}
+            voiceSettings={{ speed: cfg.voice_speed, stability: cfg.voice_stability, similarity: cfg.voice_similarity, style: cfg.voice_style }}
+          />
 
           {/* A) GŁOS */}
           <Card>
