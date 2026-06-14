@@ -36,6 +36,17 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('Warsztat');
   const [showSlotDialog, setShowSlotDialog] = useState(false);
+  const [detailItem, setDetailItem] = useState<any>(null);
+
+  const cancelDetailItem = async (item: any) => {
+    try {
+      if (item?._isPortal) await (supabase as any).from('service_bookings').update({ status: 'cancelled' }).eq('id', item._bookingId);
+      else if (item?._isBooking) await (supabase as any).from('workshop_client_bookings').update({ status: 'cancelled' }).eq('id', item._bookingId);
+      else return;
+      toast.success(t('workshop.bookings.status.cancelled') || 'Anulowano');
+      setDetailItem(null);
+    } catch (e: any) { toast.error(e?.message || 'Błąd anulowania'); }
+  };
   const [slotData, setSlotData] = useState<{ day: Date; hour: number; stationId: string } | null>(null);
   const [draggedOrder, setDraggedOrder] = useState<any>(null);
   const [dragSource, setDragSource] = useState<'unplanned' | 'scheduled' | null>(null);
@@ -703,7 +714,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                                   : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
                               } ${isDragOver && draggedOrder ? '!bg-[hsl(220,70%,85%)] dark:!bg-[hsl(220,50%,25%)] ring-2 ring-[hsl(220,70%,50%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
                               style={{ height: `${(scheduledOrder ? displaySpan : 1) * ROW_HEIGHT}px` }}
-                              onClick={() => !scheduledOrder && handleCellClick(day, hour, st.id)}
+                              onClick={() => scheduledOrder ? setDetailItem(scheduledOrder) : handleCellClick(day, hour, st.id)}
                               onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
                               onDragLeave={() => { if (dragOverCell === key) setDragOverCell(null); }}
                               onDrop={() => handleDrop(day, hour, st.id)}
@@ -759,6 +770,37 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddStation(false)}>{t('common.cancel')}</Button>
             <Button onClick={() => { if (newStationName.trim()) { addStationMut.mutate({ name: newStationName.trim(), category: newStationCategory }); setNewStationName(''); setShowAddStation(false); } }}>{t('workshop.scheduler.add')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Szczegóły zaplanowanej pozycji (klik w kalendarzu) */}
+      <Dialog open={!!detailItem} onOpenChange={(o) => !o && setDetailItem(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle className="text-base">{detailItem?.order_number}</DialogTitle></DialogHeader>
+          {detailItem && (
+            <div className="space-y-3 text-sm">
+              {detailItem.vehicle && <div>🚗 {[detailItem.vehicle.brand, detailItem.vehicle.model, detailItem.vehicle.plate].filter(Boolean).join(' · ')}</div>}
+              {detailItem.client?.phone && <div>📞 {detailItem.client.phone}</div>}
+              <div>🕐 {new Date(detailItem.scheduled_start).toLocaleString('pl-PL')}</div>
+              <div><span className="inline-block rounded-full border px-2 py-0.5 text-xs">{detailItem.status_name}</span></div>
+              {detailItem.description && (
+                <div>
+                  <div className="font-medium mb-1">Co do zrobienia:</div>
+                  <ul className="space-y-0.5">
+                    {String(detailItem.description).split('\n').map((l: string) => l.replace(/^\s*[-•*]\s*/, '').trim()).filter(Boolean).map((l: string, i: number) => (
+                      <li key={i} className="flex gap-2"><span className="text-primary">•</span><span>{l}</span></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {detailItem._isBooking && <p className="text-xs text-muted-foreground">Przypomnienie 24h: włączone. Aby przesunąć — przeciągnij kafelek na inny termin.</p>}
+              {!detailItem._isBooking && <p className="text-xs text-muted-foreground">To zlecenie — pełne zarządzanie w karcie zlecenia.</p>}
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            {detailItem?._isBooking && <Button variant="destructive" onClick={() => cancelDetailItem(detailItem)}>Anuluj rezerwację</Button>}
+            <Button variant="outline" onClick={() => setDetailItem(null)}>Zamknij</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
