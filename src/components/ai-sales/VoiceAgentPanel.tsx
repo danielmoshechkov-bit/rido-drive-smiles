@@ -16,7 +16,9 @@ import { CompanyInterviewChat } from "./CompanyInterviewChat";
 import { VoiceAgentTestChat } from "./VoiceAgentTestChat";
 import { NativeVoiceBrowser } from "./NativeVoiceBrowser";
 import { toast } from "sonner";
-import { Loader2, Save, Play, Phone, Volume2, Bot, Sparkles, Wand2, Building2, Search, Pause, Star, Globe, ChevronDown, CalendarCheck, ClipboardList, ShieldCheck, PhoneCall } from "lucide-react";
+import { Loader2, Save, Play, Phone, Volume2, Bot, Sparkles, Wand2, Building2, Search, Pause, Star, Globe, ChevronDown, CalendarCheck, ClipboardList, ShieldCheck, PhoneCall, Copy } from "lucide-react";
+
+const FUNCTIONS_BASE = "https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1";
 
 interface Persona {
   persona_key: string; name: string; description: string | null; direction: string;
@@ -647,6 +649,36 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                     </label>
                   ))}
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* TELEFONIA — URL-e do ElevenLabs (Custom LLM + post-call webhook) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><PhoneCall className="h-5 w-5" /> Telefonia na żywo (ElevenLabs)</CardTitle>
+              <CardDescription>Wklej te adresy w ustawieniach agenta ElevenLabs. Numer Twilio importujesz w ElevenLabs.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                { label: "Custom LLM URL (Agent → Custom LLM)", url: `${FUNCTIONS_BASE}/voice-agent-llm?provider_id=${providerId}&persona_key=${cfg.persona_key}` },
+                { label: "Post-call webhook URL (Agent → Post-call webhook)", url: `${FUNCTIONS_BASE}/voice-call-postprocess?provider_id=${providerId}&persona_key=${cfg.persona_key}` },
+              ].map((row) => (
+                <div key={row.label} className="space-y-1">
+                  <Label className="text-xs">{row.label}</Label>
+                  <div className="flex gap-2">
+                    <Input readOnly value={row.url} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                    <Button size="sm" variant="outline" className="shrink-0 gap-1" onClick={() => { navigator.clipboard.writeText(row.url); toast.success("Skopiowano"); }}>
+                      <Copy className="h-4 w-4" /> Kopiuj
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
+                <p className="font-medium">Przed pierwszym telefonem:</p>
+                <p>• Wygeneruj ŚWIEŻY klucz ElevenLabs i wpisz w panelu admina (stary jest spalony).</p>
+                <p>• W agencie ElevenLabs: ZRM (Zero Retention Mode) ON + „Improve the models for everyone" OFF.</p>
+                <p>• Numer Twilio: zaimportuj w ElevenLabs i dodaj swój telefon do Verified Caller IDs (trial).</p>
               </div>
             </CardContent>
           </Card>

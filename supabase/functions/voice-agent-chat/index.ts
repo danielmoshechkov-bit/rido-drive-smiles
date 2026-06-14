@@ -29,10 +29,13 @@ serve(async (req) => {
     if (!supabaseUrl || !serviceRoleKey || !anonKey) throw new Error("Brak konfiguracji Supabase");
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ success: false, error: "Brak autoryzacji" }, 401);
-    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) return json({ success: false, error: "Brak autoryzacji" }, 401);
+    const isServiceCall = authHeader === `Bearer ${serviceRoleKey}`; // proxy telefonii woła service-role
+    if (!isServiceCall) {
+      if (!authHeader) return json({ success: false, error: "Brak autoryzacji" }, 401);
+      const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+      const { data: { user }, error: authError } = await userClient.auth.getUser();
+      if (authError || !user) return json({ success: false, error: "Brak autoryzacji" }, 401);
+    }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
     let apiKey = await getSecret(admin, "ANTHROPIC_API_KEY");

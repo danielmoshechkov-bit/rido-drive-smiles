@@ -200,6 +200,12 @@ verify_jwt = false
 [functions.voice-call-analyze]
 verify_jwt = false
 
+[functions.voice-agent-llm]
+verify_jwt = false
+
+[functions.voice-call-postprocess]
+verify_jwt = false
+
 [functions.ticket-ai-chat]
 verify_jwt = false
 

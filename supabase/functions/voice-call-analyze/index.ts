@@ -86,11 +86,29 @@ serve(async (req) => {
     let a: any = {};
     try { const s = raw.indexOf("{"), e = raw.lastIndexOf("}"); a = JSON.parse(raw.slice(s, e + 1)); } catch (_) { a = {}; }
 
+    // Powiązanie ze zleceniem: order_id z body LUB fallback po telefonie (telefonia)
+    let linkedOrderId = orderId;
+    const phone = a?.customer_data?.phone;
+    if (!linkedOrderId && phone) {
+      const norm9 = (p: string) => (p || "").replace(/\D/g, "").slice(-9);
+      const sinceISO = new Date(Date.now() - 60 * 60000).toISOString();
+      const { data: recentOrders } = await admin.from("workshop_orders")
+        .select("id, client_id, created_at").eq("provider_id", providerId)
+        .gte("created_at", sinceISO).order("created_at", { ascending: false }).limit(20);
+      const ids = [...new Set((recentOrders || []).map((o: any) => o.client_id).filter(Boolean))];
+      if (ids.length) {
+        const { data: clients } = await admin.from("workshop_clients").select("id, phone").in("id", ids);
+        const match = new Set((clients || []).filter((c: any) => norm9(c.phone || "") === norm9(phone)).map((c: any) => c.id));
+        const ord = (recentOrders || []).find((o: any) => match.has(o.client_id));
+        if (ord) linkedOrderId = ord.id;
+      }
+    }
+
     // 1) voice_calls
     const { data: call } = await admin.from("voice_calls").insert({
       provider_id: providerId, persona_key: personaKey, direction: "inbound", status: "completed",
       contact_name: a?.customer_data?.name || null, summary: a?.summary || null, outcome: a?.outcome || null,
-      linked_entity_type: orderId ? "workshop_order" : null, linked_entity_id: orderId || null,
+      linked_entity_type: linkedOrderId ? "workshop_order" : null, linked_entity_id: linkedOrderId || null,
     }).select("id").maybeSingle();
     const callId = call?.id || null;
 
