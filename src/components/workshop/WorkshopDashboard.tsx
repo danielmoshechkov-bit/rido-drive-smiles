@@ -13,7 +13,7 @@ import { WorkshopReports } from './WorkshopReports';
 import { WorkshopWarehouse } from './WorkshopWarehouse';
 import { WorkshopTireStorage } from './WorkshopTireStorage';
 import { WorkshopRepairData } from './WorkshopRepairData';
-import { WorkshopSettings } from './WorkshopSettings';
+import { WorkshopSettingsStandalone } from './WorkshopSettingsStandalone';
 import { WorkshopEmployeesPage } from './WorkshopEmployeesPage';
 import { WorkshopStationsManager } from './WorkshopStationsManager';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -37,11 +37,8 @@ import tileStanowiska from '@/assets/workshop/tile-stanowiska.jpg';
 
 const modules = [
   { key: 'zlecenia', labelKey: 'workshop.dashboard.tiles.zlecenia', img: tileZlecenia, ready: true },
-  { key: 'zadania', labelKey: 'workshop.dashboard.tiles.zadania', img: tileZadania, ready: false },
   { key: 'terminarz', labelKey: 'workshop.dashboard.tiles.terminarz', img: tileTerminarz, ready: true },
-  { key: 'zakupy', labelKey: 'workshop.dashboard.tiles.zakupy', img: tileZakupy, ready: false },
   { key: 'sprzedaz', labelKey: 'workshop.dashboard.tiles.sprzedaz', img: tileSprzedaz, ready: true },
-  { key: 'towary', labelKey: 'workshop.dashboard.tiles.towary', img: tileTowary, ready: false },
   { key: 'klienci', labelKey: 'workshop.dashboard.tiles.klienci', img: tileKlienci, ready: true },
   { key: 'pojazdy', labelKey: 'workshop.dashboard.tiles.pojazdy', img: tilePojazdy, ready: true },
   { key: 'raporty', labelKey: 'workshop.dashboard.tiles.raporty', img: tileRaporty, ready: true },
@@ -274,7 +271,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           </div>
         );
       case 'ustawienia':
-        return <WorkshopSettings providerId={providerId} onBack={() => goTo(null)} />;
+        return <WorkshopSettingsStandalone providerId={providerId} onBack={() => goTo(null)} />;
       default:
         return null;
     }

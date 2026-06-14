@@ -260,13 +260,24 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
       return;
     }
     const cleanEmail = emailAddr.trim().toLowerCase();
-    if (!editingId && (!cleanEmail || !cleanEmail.includes('@'))) {
-      toast.error(t('workshop.employees.emailRequiredForInvite'));
-      return;
-    }
-    if (!editingId && sendInvite && inviteSms && !phone.trim()) {
-      toast.error('Podaj numer telefonu, aby wysłać zaproszenie SMS-em.');
-      return;
+    const cleanPhone = phone.trim();
+    if (!editingId) {
+      if (!cleanEmail && !cleanPhone) {
+        toast.error('Podaj e‑mail lub numer telefonu — na ten kanał pracownik dostanie zaproszenie.');
+        return;
+      }
+      if (cleanEmail && !cleanEmail.includes('@')) {
+        toast.error('Nieprawidłowy adres e‑mail.');
+        return;
+      }
+      if (sendInvite) {
+        const willEmail = inviteEmail && !!cleanEmail;
+        const willSms = inviteSms && !!cleanPhone;
+        if (!willEmail && !willSms) {
+          toast.error('Wybierz kanał zaproszenia: e‑mail (wymaga adresu) lub SMS (wymaga telefonu).');
+          return;
+        }
+      }
     }
     setSaving(true);
     try {
@@ -297,7 +308,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         if (sendInvite) {
           try {
             const { data, error: invErr } = await supabase.functions.invoke('workshop-invite-employee', {
-              body: { email: cleanEmail, provider_id: providerId, role, language_preference: 'pl', phone: phone.trim() || null, send_email: inviteEmail, send_sms: inviteSms },
+              body: { email: cleanEmail || null, provider_id: providerId, role, language_preference: 'pl', phone: cleanPhone || null, send_email: inviteEmail, send_sms: inviteSms },
             });
             if (invErr) throw invErr;
             const d = data as any;
@@ -507,8 +518,8 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> {t('workshop.employees.emailRequired')} <span className="text-xs text-muted-foreground font-normal">{t('workshop.employees.emailInviteHint')}</span></Label>
-              <Input type="email" required value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder={t('workshop.employees.emailPlaceholder')} />
+              <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> E‑mail <span className="text-xs text-muted-foreground font-normal">(albo telefon — wystarczy jeden kanał, na niego pójdzie zaproszenie)</span></Label>
+              <Input type="email" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder={t('workshop.employees.emailPlaceholder')} />
             </div>
             <div className="space-y-2">
               <Label>{t('workshop.employees.pinLabel')}</Label>

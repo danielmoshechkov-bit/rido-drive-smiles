@@ -10,8 +10,10 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { email, provider_id, role = 'mechanic', language_preference = 'pl', phone = null, send_email = true, send_sms = false } = await req.json();
-    if (!email || !provider_id) return json({ error: 'email and provider_id required' }, 400);
+    const { email = null, provider_id, role = 'mechanic', language_preference = 'pl', phone = null, send_email = true, send_sms = false } = await req.json();
+    const emailNorm = email ? String(email).trim().toLowerCase() : null;
+    const phoneNorm = phone ? String(phone).trim() : null;
+    if ((!emailNorm && !phoneNorm) || !provider_id) return json({ error: 'email or phone, and provider_id required' }, 400);
 
     const authHeader = req.headers.get('Authorization') || '';
     const accessToken = authHeader.replace('Bearer ', '');
@@ -30,23 +32,24 @@ serve(async (req) => {
       .eq('id', provider_id).maybeSingle();
     if (!prov || prov.user_id !== user.id) return json({ error: 'forbidden' }, 403);
 
-    // Look up user by email
+    // Look up user by email (tylko gdy mamy email)
     let invitedUserId: string | null = null;
-    try {
+    if (emailNorm) try {
       const { data: users } = await (admin.auth.admin as any).listUsers({ page: 1, perPage: 200 });
-      const found = users?.users?.find((u: any) => (u.email || '').toLowerCase() === email.toLowerCase());
+      const found = users?.users?.find((u: any) => (u.email || '').toLowerCase() === emailNorm);
       if (found) invitedUserId = found.id;
     } catch (e) {
       console.warn('listUsers failed', e);
     }
 
     // Reuse pending invitation if one already exists (prevents duplicate emails on double-click)
-    const { data: existingPending } = await admin
+    let pendingQ = admin
       .from('workshop_employee_invitations')
       .select('*')
       .eq('provider_id', provider_id)
-      .eq('invited_email', email.toLowerCase())
-      .eq('status', 'pending')
+      .eq('status', 'pending');
+    pendingQ = emailNorm ? pendingQ.eq('invited_email', emailNorm) : pendingQ.eq('invited_phone', phoneNorm);
+    const { data: existingPending } = await pendingQ
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -57,7 +60,8 @@ serve(async (req) => {
         .from('workshop_employee_invitations')
         .insert({
           provider_id,
-          invited_email: email.toLowerCase(),
+          invited_email: emailNorm,
+          invited_phone: phoneNorm,
           invited_user_id: invitedUserId,
           invited_by: user.id,
           role,
@@ -75,11 +79,11 @@ serve(async (req) => {
     let actionLink: string | null = null;
     const origin = req.headers.get('origin') || 'https://getrido.pl';
     try {
-      if (!invitedUserId) {
+      if (!invitedUserId && emailNorm) {
         const redirectTo = `${origin}/?invitation=${invitation.id}`;
         const { data: linkData } = await (admin.auth.admin as any).generateLink({
           type: 'invite',
-          email,
+          email: emailNorm,
           options: { redirectTo, data: { workshop_invitation_id: invitation.id } },
         });
         actionLink = (linkData as any)?.properties?.action_link || null;
@@ -92,7 +96,7 @@ serve(async (req) => {
     // Send email via SMTP (same path used for registration emails)
     let emailSent = false;
     let emailError: string | null = null;
-    if (send_email) try {
+    if (send_email && emailNorm) try {
       const smtpPassword = Deno.env.get('SMTP_PASSWORD');
       if (!smtpPassword) throw new Error('SMTP_PASSWORD not configured');
 
@@ -157,7 +161,7 @@ serve(async (req) => {
 
       await client.send({
         from: `${senderName} <${senderEmail}>`,
-        to: [email],
+        to: [emailNorm],
         replyTo: senderEmail,
         subject,
         content: crlfText,
@@ -169,7 +173,7 @@ serve(async (req) => {
       });
       await client.close();
       emailSent = true;
-      console.log('Workshop invitation email sent to', email);
+      console.log('Workshop invitation email sent to', emailNorm);
     } catch (e: any) {
       emailError = String(e?.message || e);
       console.error('SMTP send failed:', emailError);
@@ -177,7 +181,7 @@ serve(async (req) => {
 
     // SMS z linkiem rejestracji (best-effort)
     let smsSent = false;
-    if (send_sms && phone) {
+    if (send_sms && phoneNorm) {
       try {
         const sUrl = Deno.env.get('SUPABASE_URL');
         const sKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -185,7 +189,7 @@ serve(async (req) => {
         const r = await fetch(`${sUrl}/functions/v1/workshop-send-sms`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${sKey}`, apikey: sKey || '', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider_id, phone, message: msg, sms_type: 'employee_invite' }),
+          body: JSON.stringify({ provider_id, phone: phoneNorm, message: msg, sms_type: 'employee_invite' }),
         });
         const rj = await r.json().catch(() => ({}));
         smsSent = !rj?.error;
