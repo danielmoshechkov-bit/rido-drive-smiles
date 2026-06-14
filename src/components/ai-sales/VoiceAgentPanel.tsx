@@ -363,6 +363,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           <VoiceAgentTestChat
             open={testOpen}
             onOpenChange={setTestOpen}
+            providerId={providerId}
             personaKey={cfg.persona_key}
             displayName={cfg.display_name}
             businessContext={cfg.business_context as unknown as Record<string, string>}

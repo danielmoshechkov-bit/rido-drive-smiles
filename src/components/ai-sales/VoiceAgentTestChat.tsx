@@ -13,6 +13,7 @@ type Msg = { role: "user" | "assistant"; content: string; hidden?: boolean };
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  providerId: string | null;
   personaKey: string;
   displayName: string;
   businessContext: Record<string, string>;
@@ -39,12 +40,14 @@ export function VoiceAgentTestChat(p: Props) {
   const callBrain = async (history: Msg[]): Promise<string | null> => {
     const { data, error } = await supabase.functions.invoke("voice-agent-chat", {
       body: {
+        provider_id: p.providerId,
         persona_key: p.personaKey,
         display_name: p.displayName,
         business_context: p.businessContext,
         languages: p.languages,
         calendar_access: p.calendarAccess,
         orders_access: p.ordersAccess,
+        test_mode: true,
         messages: history.map((m) => ({ role: m.role, content: m.content })),
       },
     });

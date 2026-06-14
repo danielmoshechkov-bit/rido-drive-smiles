@@ -47,6 +47,14 @@ serve(async (req) => {
     const langs: string[] = Array.isArray(body?.languages) && body.languages.length ? body.languages : ["pl"];
     const calendarAccess = !!body?.calendar_access;
     const ordersAccess = !!body?.orders_access;
+    const providerId = String(body?.provider_id || "");
+    const testMode = body?.test_mode !== false; // domyślnie test (chat); telefonia ustawi false
+
+    // KONTEKST CZASU (Europa/Warszawa) — agent musi znać dziś/teraz, by liczyć "jutro"
+    const now = new Date();
+    const todayISO = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Warsaw" }).format(now);
+    const humanDate = new Intl.DateTimeFormat("pl-PL", { timeZone: "Europe/Warsaw", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now);
+    const nowTime = new Intl.DateTimeFormat("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" }).format(now);
 
     // Persona -> provider_agent_id -> prompt+model z ai_agents_config
     const { data: persona } = await admin
@@ -80,25 +88,84 @@ serve(async (req) => {
     if (ordersAccess) caps.push("możesz utworzyć zlecenie z danymi z rozmowy");
     if (caps.length) system += `\nUprawnienia: ${caps.join("; ")}.`;
     const firmName = bc.company_name ? String(bc.company_name) : "warsztat";
-    system += `\n\n=== JĘZYK I POWITANIE ===\n- ZAWSZE witaj po POLSKU, BARDZO krótko, jak prawdziwy warsztat: "Dzień dobry, ${firmName}, w czym mogę pomóc?". NIE wymieniaj usług w powitaniu, nie przedłużaj, nie zadawaj kilku pytań naraz.\n- Jeśli rozmówca odezwie się w innym języku (rosyjski, ukraiński, angielski) — natychmiast PRZEŁĄCZ się na ten język i prowadź w nim całą dalszą rozmowę.\n\n=== STYL (jak człowiek przez telefon) ===\n- KRÓTKO: 1-2 zdania na turę, jedno pytanie na raz. Bez monologów i wyliczanek.\n- SPÓJNY, JEDNOLITY ton: uprzejmy ale naturalny. Zwracaj się konsekwentnie przez "Pan/Pani". NIE mieszaj poufałości z oficjalnością i NIE używaj imienia rozmówcy (chyba że sam o to poprosi).\n- Ciepło i kulturalnie, ale swobodnie.\n\n=== WYMOWA — KLUCZOWE (tekst będzie CZYTANY NA GŁOS po polsku) ===\nLiczby, godziny, daty, ceny ZAWSZE zapisuj SŁOWAMI po polsku, NIGDY cyframi ani symbolami:\n- godziny: "dziewiąta rano", "wpół do dziesiątej", "czternasta trzydzieści" (NIE "9:00", "9.30", "14:30")\n- dni/daty: "w czwartek", "piętnastego maja" (NIE "15.05", "czw.")\n- ceny: "sto pięćdziesiąt złotych" (NIE "150 zł")\n- przy dyktowaniu numeru telefonu/rejestracji — słowami, grupami.\nPisz pełnymi, dokończonymi zdaniami.\n\n=== NARZĘDZIA / WYWIAD ===\nGdy użyłbyś narzędzia (sprawdzenie terminu, utworzenie zlecenia), zaznacz krótko w nawiasie [sprawdzam terminy] i mów dalej. Zbieraj po kolei: imię i nazwisko, numer telefonu, numer rejestracyjny, opis usterki, preferowany termin.`;
+    system += `\n\n=== KONTEKST CZASU ===\nDziś jest ${humanDate} (${todayISO}), godzina ${nowTime} (Europa/Warszawa). Sam wyliczaj daty względne ("jutro", "pojutrze", "w piątek") i przekazuj je do narzędzi w formacie RRRR-MM-DD. NIGDY nie pytaj klienta o dzisiejszą datę.\n\n=== JĘZYK I POWITANIE ===\n- ZAWSZE witaj po POLSKU, BARDZO krótko: "Dzień dobry, ${firmName}, w czym mogę pomóc?". NIE wymieniaj usług w powitaniu, nie zadawaj kilku pytań naraz.\n- Jeśli rozmówca odezwie się w innym języku (rosyjski, ukraiński, angielski) — natychmiast PRZEŁĄCZ się na ten język i prowadź w nim całą rozmowę.\n\n=== STYL (jak człowiek przez telefon) ===\n- KRÓTKO: 1-2 zdania na turę, jedno pytanie na raz. Bez monologów i wyliczanek.\n- Grzecznie, naturalnie i swobodnie. UNIKAJ sztucznego "Panu/Pani" — zamiast "w czym mogę Panu/Pani pomóc" mów po prostu "w czym mogę pomóc?". Jeśli znasz imię rozmówcy, możesz dopasować formę do płci (np. "Panie Marku", "Pani Aniu"), ale nie nadużywaj zwrotów grzecznościowych.\n- Bądź ciepły i konkretny.\n\n=== WYMOWA — KLUCZOWE (tekst CZYTANY NA GŁOS po polsku) ===\nLiczby, godziny, daty, ceny zapisuj SŁOWAMI po polsku, NIGDY cyframi/symbolami: "dziewiąta rano", "wpół do dziesiątej" (nie "9:00"); "w czwartek", "piętnastego maja" (nie "15.05"); "sto pięćdziesiąt złotych" (nie "150 zł"). Pełne, dokończone zdania.\n\n=== WYWIAD I NARZĘDZIA ===\nProwadź wywiad zbierając po kolei: imię i nazwisko, numer telefonu, numer rejestracyjny (jeśli nie zna — markę, model, rok), opis usterki / co sprawdzić, preferowany termin. Gdy masz dane:\n- użyj narzędzia check_availability, by sprawdzić wolny termin (jeśli masz uprawnienia),\n- użyj create_booking, by umówić wizytę,\n- następnie create_order, by utworzyć zlecenie z usterką i danymi pojazdu.\nKrótko informuj co robisz (np. "już sprawdzam wolne terminy"). Po umówieniu potwierdź termin i dane słownie. Nigdy nie zmyślaj dostępności — zawsze użyj narzędzia.`;
 
-    const chat = messages
+    const convo: any[] = messages
       .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
       .map((m: any) => ({ role: m.role, content: m.content }));
-    while (chat.length && chat[0].role !== "user") chat.shift();
-    if (chat.length === 0) chat.push({ role: "user", content: "[Rozpocznij rozmowę — przywitaj się zgodnie ze swoją rolą]" });
+    while (convo.length && convo[0].role !== "user") convo.shift();
+    if (convo.length === 0) convo.push({ role: "user", content: "[Rozpocznij rozmowę — przywitaj się zgodnie ze swoją rolą]" });
 
-    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-      body: JSON.stringify({ model, max_tokens: 400, temperature: 0.7, system, messages: chat }),
-    });
-    if (!aiRes.ok) {
-      const t = await aiRes.text().catch(() => "");
-      return json({ success: false, error: `Anthropic błąd ${aiRes.status}: ${t.slice(0, 200)}` }, 400);
+    // Narzędzia (tylko gdy są uprawnienia i znamy providera)
+    const tools: any[] = [];
+    if (providerId && calendarAccess) {
+      tools.push({
+        name: "check_availability",
+        description: "Sprawdź wolne terminy w danym dniu. Użyj zanim zaproponujesz godzinę.",
+        input_schema: { type: "object", properties: { date: { type: "string", description: "Data RRRR-MM-DD" }, duration_minutes: { type: "integer" } }, required: ["date"] },
+      });
+      tools.push({
+        name: "create_booking",
+        description: "Umów wizytę (rezerwacja w kalendarzu). Wywołaj gdy masz: imię i nazwisko, telefon, datę i godzinę.",
+        input_schema: { type: "object", properties: {
+          customer_name: { type: "string" }, customer_phone: { type: "string" },
+          scheduled_date: { type: "string", description: "RRRR-MM-DD" }, scheduled_time: { type: "string", description: "GG:MM" },
+          duration_minutes: { type: "integer" }, service_name: { type: "string" }, notes: { type: "string" },
+          vehicle: { type: "object", properties: { brand: { type: "string" }, model: { type: "string" }, year: { type: "integer" }, plate: { type: "string" } } },
+        }, required: ["customer_name", "customer_phone", "scheduled_date", "scheduled_time"] },
+      });
     }
-    const aiData = await aiRes.json();
-    const reply = aiData?.content?.[0]?.text || "";
+    if (providerId && ordersAccess) {
+      tools.push({
+        name: "create_order",
+        description: "Utwórz zlecenie warsztatowe z danymi z rozmowy. Wywołaj po umówieniu wizyty (jeśli masz booking_id z create_booking — podaj go).",
+        input_schema: { type: "object", properties: {
+          customer_name: { type: "string" }, customer_phone: { type: "string" }, complaint: { type: "string", description: "opis usterki / co sprawdzić" },
+          scheduled_date: { type: "string" }, scheduled_time: { type: "string" }, duration_minutes: { type: "integer" },
+          vehicle: { type: "object", properties: { brand: { type: "string" }, model: { type: "string" }, year: { type: "integer" }, plate: { type: "string" } } },
+          booking_id: { type: "string" },
+        }, required: ["customer_name", "customer_phone", "complaint"] },
+      });
+    }
+
+    const callTool = async (name: string, input: any) => {
+      try {
+        const r = await fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ action: name, provider_id: providerId, persona_key: personaKey, is_test: testMode, ...input }),
+        });
+        return await r.json();
+      } catch (e) { return { ok: false, error: (e as Error).message }; }
+    };
+
+    let reply = "";
+    for (let round = 0; round < 5; round++) {
+      const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+        body: JSON.stringify({ model, max_tokens: 600, temperature: 0.7, system, messages: convo, ...(tools.length ? { tools } : {}) }),
+      });
+      if (!aiRes.ok) {
+        const t = await aiRes.text().catch(() => "");
+        return json({ success: false, error: `Anthropic błąd ${aiRes.status}: ${t.slice(0, 200)}` }, 400);
+      }
+      const aiData = await aiRes.json();
+      const blocks = aiData?.content || [];
+      const toolUses = blocks.filter((b: any) => b.type === "tool_use");
+      if (aiData?.stop_reason === "tool_use" && toolUses.length && tools.length) {
+        convo.push({ role: "assistant", content: blocks });
+        const results = [];
+        for (const tu of toolUses) {
+          const out = await callTool(tu.name, tu.input || {});
+          results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out) });
+        }
+        convo.push({ role: "user", content: results });
+        continue;
+      }
+      reply = blocks.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
+      break;
+    }
     return json({ success: true, reply, model });
   } catch (e) {
     return json({ success: false, error: (e as Error).message }, 500);
