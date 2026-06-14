@@ -42,6 +42,9 @@ serve(async (req) => {
       if (res.status === 401) return json({ success: false, error: "Klucz ElevenLabs nieprawidłowy (401)" }, 400);
       return json({ success: false, error: `ElevenLabs błąd ${res.status}` }, 400);
     }
+
+    const data = await res.json();
+
     // Nasze języki. ElevenLabs używa 'uk' dla ukraińskiego -> mapujemy na 'ua'.
     const OUR = ["pl", "en", "ua", "ru"];
     const MULTI_MODELS = ["eleven_multilingual_v2", "eleven_multilingual_v1", "eleven_turbo_v2_5", "eleven_flash_v2_5"];
