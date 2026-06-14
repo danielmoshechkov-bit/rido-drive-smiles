@@ -38,16 +38,16 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const lang = toEL(String(body?.language || "pl"));
     const gender = body?.gender && body.gender !== "all" ? `&gender=${encodeURIComponent(body.gender)}` : "";
-    const pageSize = Math.min(40, Number(body?.page_size) || 24);
+    const pageSize = Math.min(100, Number(body?.page_size) || 48);
+    // 'professional' = profesjonalne klony społeczności otagowane językiem = natywne dla języka
+    const category = body?.category === "all" ? "" : (body?.category || "professional");
 
-    const url = `https://api.elevenlabs.io/v1/shared-voices?language=${encodeURIComponent(lang)}&page_size=${pageSize}${gender}`;
-    const res = await fetch(url, { headers: { "xi-api-key": apiKey } });
-    if (!res.ok) {
-      if (res.status === 401) return json({ success: false, error: "Klucz ElevenLabs nieprawidłowy (401)" }, 400);
-      return json({ success: false, error: `ElevenLabs błąd ${res.status}` }, 400);
-    }
-    const data = await res.json();
-    const voices = (data?.voices || []).map((v: any) => ({
+    const headers = { "xi-api-key": apiKey };
+    const buildUrl = (cat: string) =>
+      `https://api.elevenlabs.io/v1/shared-voices?language=${encodeURIComponent(lang)}&page_size=${pageSize}${gender}` +
+      (cat ? `&category=${encodeURIComponent(cat)}` : "");
+
+    const mapVoices = (data: any) => (data?.voices || []).map((v: any) => ({
       voice_id: v.voice_id,
       public_owner_id: v.public_owner_id || v.public_user_id || null,
       name: v.name,
@@ -55,11 +55,27 @@ serve(async (req) => {
       accent: v.accent || null,
       language: v.language || lang,
       age: v.age || null,
-      use_case: v.use_case || v.descriptive || null,
+      category: v.category || null,
+      use_case: v.use_case || v.descriptive || v.description || null,
       preview_url: v.preview_url || null,
     })).filter((v: any) => v.public_owner_id && v.voice_id);
 
-    return json({ success: true, voices });
+    // 1) próba z kategorią professional (natywne, najwyższa jakość)
+    let res = await fetch(buildUrl(category), { headers });
+    if (!res.ok) {
+      if (res.status === 401) return json({ success: false, error: "Klucz ElevenLabs nieprawidłowy (401)" }, 400);
+      return json({ success: false, error: `ElevenLabs błąd ${res.status}` }, 400);
+    }
+    let voices = mapVoices(await res.json());
+    let usedCategory = category || "all";
+
+    // 2) fallback: jeśli professional pusto, pobierz wszystkie natywne dla języka
+    if (voices.length === 0 && category) {
+      res = await fetch(buildUrl(""), { headers });
+      if (res.ok) { voices = mapVoices(await res.json()); usedCategory = "all"; }
+    }
+
+    return json({ success: true, voices, language: lang, category: usedCategory });
   } catch (e) {
     return json({ success: false, error: (e as Error).message }, 500);
   }
