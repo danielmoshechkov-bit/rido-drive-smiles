@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CompanyInterviewChat } from "./CompanyInterviewChat";
 import { toast } from "sonner";
-import { Loader2, Save, Play, Phone, Volume2, Bot, Sparkles, Wand2, Building2, Search, Pause, Star, Globe, ChevronDown } from "lucide-react";
+import { Loader2, Save, Play, Phone, Volume2, Bot, Sparkles, Wand2, Building2, Search, Pause, Star, Globe, ChevronDown, CalendarCheck, ClipboardList, ShieldCheck } from "lucide-react";
 
 interface Persona {
   persona_key: string; name: string; description: string | null; direction: string;
@@ -35,6 +35,7 @@ interface VoiceConfig {
   voice_speed: number; voice_stability: number; voice_similarity: number; voice_style: number;
   sample_text: string; languages: string[]; inbound_mode: string; inbound_rings: number;
   calling_hours: { from?: string; to?: string }; business_context: BusinessContext;
+  calendar_access: boolean; orders_access: boolean;
 }
 
 const LANGS = [
@@ -63,6 +64,7 @@ function defaultsFor(persona: Persona | undefined): VoiceConfig {
     voice_similarity: OPTIMAL.voice_similarity, voice_style: OPTIMAL.voice_style,
     sample_text: DEFAULT_SAMPLE, languages: persona?.supported_langs?.length ? persona.supported_langs : ["pl"],
     inbound_mode: "off", inbound_rings: 4, calling_hours: {}, business_context: emptyBC(),
+    calendar_access: false, orders_access: false,
   };
 }
 
@@ -137,6 +139,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           sample_text: data.sample_text ?? DEFAULT_SAMPLE, languages: data.languages?.length ? data.languages : ["pl"],
           inbound_mode: data.inbound_mode ?? "off", inbound_rings: data.inbound_rings ?? 4,
           calling_hours: data.calling_hours ?? {}, business_context: { ...emptyBC(), ...(data.business_context ?? {}) },
+          calendar_access: !!data.calendar_access, orders_access: !!data.orders_access,
         };
       } else {
         loaded = defaultsFor(persona);
@@ -241,6 +244,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
         sample_text: cfg.sample_text || null, languages: cfg.languages,
         inbound_mode: cfg.inbound_mode, inbound_rings: cfg.inbound_rings,
         calling_hours: cfg.calling_hours, business_context: cfg.business_context,
+        calendar_access: cfg.calendar_access, orders_access: cfg.orders_access,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "provider_id,persona_key" },
@@ -515,6 +519,36 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                 <Input value={cfg.business_context.purpose} onChange={(e) => updateBC({ purpose: e.target.value })} placeholder="np. umawianie klientów na serwis" /></div>
               <div className="space-y-2"><Label>Dodatkowe informacje dla AI (ceny, promocje, zasady)</Label>
                 <Textarea rows={3} value={cfg.business_context.extra_info} onChange={(e) => updateBC({ extra_info: e.target.value })} placeholder="np. Wymiana oleju od 150 zł. Nie umawiamy na niedziele." /></div>
+            </CardContent>
+          </Card>
+
+          {/* UPRAWNIENIA / INTEGRACJE */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" /> Uprawnienia agenta</CardTitle>
+              <CardDescription>Co agent może robić w systemie podczas rozmowy. Domyślnie wyłączone — włącz, gdy chcesz.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex gap-3">
+                  <CalendarCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <Label>Dostęp do kalendarza firmowego</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Agent sprawdza wolne terminy, umawia, przekłada i odwołuje wizyty w Twoim kalendarzu.</p>
+                  </div>
+                </div>
+                <Switch checked={cfg.calendar_access} onCheckedChange={(v) => update({ calendar_access: v })} />
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex gap-3">
+                  <ClipboardList className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <Label>Tworzenie zleceń</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Agent zakłada nowe zlecenie z danymi z rozmowy (klient, pojazd, usterka) — trafia do systemu zleceń do przydzielenia.</p>
+                  </div>
+                </div>
+                <Switch checked={cfg.orders_access} onCheckedChange={(v) => update({ orders_access: v })} />
+              </div>
             </CardContent>
           </Card>
 

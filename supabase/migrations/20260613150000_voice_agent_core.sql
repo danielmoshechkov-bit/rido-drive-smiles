@@ -95,6 +95,9 @@ CREATE TABLE IF NOT EXISTS public.voice_agent_configs (
   inbound_rings         int  NOT NULL DEFAULT 4,
   -- outbound
   outbound_enabled      boolean NOT NULL DEFAULT false,
+  -- uprawnienia (egzekwowane przez voice-agent-tools w Etapie 1)
+  calendar_access       boolean NOT NULL DEFAULT false, -- terminy: sprawdzanie/umawianie/przekładanie/odwoływanie
+  orders_access         boolean NOT NULL DEFAULT false, -- tworzenie nowych zleceń (workshop_orders)
   -- telefonia
   twilio_number         text,
   twilio_subaccount_sid text,
