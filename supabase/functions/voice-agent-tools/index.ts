@@ -127,6 +127,12 @@ serve(async (req) => {
       const notePrefix = isTest ? "[TEST AI] " : "[Z ROZMOWY AI] ";
       const { first, last } = splitName(name);
 
+      // dedup: ta sama rezerwacja (telefon+data+godzina) już istnieje?
+      const { data: exBk } = await admin.from("service_bookings")
+        .select("id").eq("provider_id", providerId).eq("customer_phone", phone)
+        .eq("scheduled_date", date).eq("scheduled_time", time).neq("status", "cancelled").maybeSingle();
+      if (exBk) return json({ ok: true, booking_id: exBk.id, duplicate: true, message: "Rezerwacja na ten termin już istnieje." });
+
       // 1) service_bookings (source='portal') -> "Rezerwacje z portalu" + kalendarz
       const { data: sb, error: sbErr } = await admin.from("service_bookings").insert({
         provider_id: providerId,
@@ -171,6 +177,12 @@ serve(async (req) => {
       if (!name || !phone) return json({ ok: false, error: "Wymagane: imię i telefon" }, 400);
       const { first, last } = splitName(name);
 
+      // dedup #1: po booking_id (jedno zlecenie na rezerwację)
+      if (body?.booking_id) {
+        const { data: exB } = await admin.from("workshop_orders").select("id, order_number").eq("booking_id", body.booking_id).maybeSingle();
+        if (exB) return json({ ok: true, order_id: exB.id, order_number: exB.order_number, duplicate: true, message: "Zlecenie już istnieje." });
+      }
+
       // status "Umówiony telefonicznie" — upewnij się że istnieje u providera (select-then-insert)
       const { data: stExisting } = await admin.from("workshop_order_statuses")
         .select("id").eq("provider_id", providerId).eq("name", "Umówiony telefonicznie").maybeSingle();
@@ -189,6 +201,14 @@ serve(async (req) => {
         }).select("id").single();
         clientId = nc.id;
       }
+
+      // dedup #2: świeże zlecenie tego klienta w ostatnich 15 min (ta sama rozmowa)
+      const { data: recentOrder } = await admin.from("workshop_orders")
+        .select("id, order_number")
+        .eq("provider_id", providerId).eq("client_id", clientId)
+        .gte("created_at", new Date(Date.now() - 15 * 60000).toISOString())
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (recentOrder) return json({ ok: true, order_id: recentOrder.id, order_number: recentOrder.order_number, duplicate: true, message: "Zlecenie już utworzone w tej rozmowie." });
 
       // pojazd po nr rej
       let vehicleId: string | null = null;
