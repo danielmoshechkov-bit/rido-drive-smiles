@@ -60,6 +60,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
   const [savingEdit, setSavingEdit] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [monthFilter, setMonthFilter] = useState<string>(() => new Date().toISOString().slice(0, 7));
 
   // Konwertuje rezerwację na zlecenie warsztatowe (numeracja ZLP-) i opcjonalnie otwiera kartę
   const convertToOrder = async (b: Booking, openAfter = true): Promise<any | null> => {
@@ -418,6 +419,8 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
 
   const allSelected = bookings.length > 0 && selected.size === bookings.length;
 
+  const view = monthFilter ? bookings.filter((b) => (b.scheduled_date || '').startsWith(monthFilter)) : bookings;
+
   return (
     <Card className="border-primary/30">
       <CardContent className="p-0">
@@ -425,7 +428,9 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" />
             <h3 className="font-semibold text-sm">{t('workshop.bookings.portalBookings')}</h3>
-            <Badge variant="secondary" className="text-xs">{bookings.length}</Badge>
+            <Badge variant="secondary" className="text-xs">{view.length}</Badge>
+            <input type="month" value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)} className="h-7 text-xs border rounded-md px-2 bg-background" />
+            {monthFilter && <button onClick={() => setMonthFilter('')} className="text-xs text-muted-foreground hover:text-foreground underline">wszystkie</button>}
           </div>
           <div className="flex items-center gap-2">
             {selected.size > 0 && (
@@ -457,7 +462,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : bookings.length === 0 ? (
+        ) : view.length === 0 ? (
           <div className="text-center py-6 text-sm text-muted-foreground">
             {t('workshop.bookings.noPortalBookings')}
           </div>
@@ -465,7 +470,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
           <>
             {/* Mobile */}
             <div className="md:hidden divide-y">
-              {bookings.map((b) => (
+              {view.map((b) => (
                 <div key={b.id} className="p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2 min-w-0">
@@ -533,7 +538,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bookings.map((b) => (
+                  {view.map((b) => (
                     <TableRow key={b.id} className="hover:bg-accent/40 transition-colors">
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox checked={selected.has(b.id)} onCheckedChange={() => toggleSelect(b.id)} />

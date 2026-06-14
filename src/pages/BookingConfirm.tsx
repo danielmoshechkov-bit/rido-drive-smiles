@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle2, XCircle, Clock, MapPin, Wrench, Loader2, Calendar as CalendarIcon, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, MapPin, Wrench, Loader2, Calendar as CalendarIcon, ArrowLeft, Car } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -53,7 +53,7 @@ export default function BookingConfirm() {
           method: 'GET' as any,
         } as any);
         // GET przez invoke nie działa z params — używamy fetch
-        const url = `https://qzllvpyepelhdcpojtor.supabase.co/functions/v1/booking-available-slots?token=${token}&date=${pickedDate}`;
+        const url = `https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/booking-available-slots?token=${token}&date=${pickedDate}`;
         const res = await fetch(url);
         const json = await res.json();
         setSlots(json.slots || []);
@@ -160,10 +160,17 @@ export default function BookingConfirm() {
                 </div>
               </div>
 
+              {(booking?.brand || booking?.model || booking?.plate) && (
+                <div className="flex items-start gap-3">
+                  <Car className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-foreground">{[booking?.brand, booking?.model, booking?.plate].filter(Boolean).join(' · ')}</div>
+                </div>
+              )}
+
               {booking?.service_description && (
                 <div className="flex items-start gap-3">
                   <Wrench className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-foreground">{booking.service_description}</div>
+                  <div className="text-sm text-foreground whitespace-pre-wrap">{booking.service_description}</div>
                 </div>
               )}
 

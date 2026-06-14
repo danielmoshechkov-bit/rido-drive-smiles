@@ -136,7 +136,7 @@ serve(async (req) => {
         input_schema: { type: "object", properties: {
           customer_name: { type: "string" }, customer_phone: { type: "string" },
           scheduled_date: { type: "string", description: "RRRR-MM-DD" }, scheduled_time: { type: "string", description: "GG:MM" },
-          duration_minutes: { type: "integer" }, service_name: { type: "string" }, notes: { type: "string" },
+          duration_minutes: { type: "integer" }, service_name: { type: "string" }, notes: { type: "string", description: "Krótki opis usterki / czego dotyczy wizyta (trafia do rezerwacji, widoczny w panelu)" },
           vehicle: { type: "object", properties: { brand: { type: "string" }, model: { type: "string" }, year: { type: "integer" }, plate: { type: "string" } } },
         }, required: ["customer_name", "customer_phone", "scheduled_date", "scheduled_time"] },
       });

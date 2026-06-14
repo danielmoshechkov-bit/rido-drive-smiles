@@ -161,7 +161,8 @@ serve(async (req) => {
       let manageLink: string | null = null;
       try {
         if (wcb?.confirmation_token) {
-          manageLink = `https://rido-drive-smiles.lovable.app/r/${wcb.confirmation_token}`;
+          const appBase = Deno.env.get("APP_PUBLIC_URL") || "https://preview--rido-drive-smiles.lovable.app";
+          manageLink = `${appBase}/r/${wcb.confirmation_token}`;
           const { data: prov } = await admin.from("service_providers").select("company_name, address, city").eq("id", providerId).maybeSingle();
           const company = prov?.company_name || "serwis";
           const addr = [prov?.address, prov?.city].filter(Boolean).join(", ");
