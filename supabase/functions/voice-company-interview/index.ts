@@ -92,10 +92,15 @@ serve(async (req) => {
     const model = (agent?.model && agent.model.startsWith("claude")) ? agent.model : "claude-haiku-4-5-20251001";
 
     let system = SYSTEM;
+    let siteFetched = false;
     if (websiteUrl) {
       const siteText = await fetchSiteText(websiteUrl);
-      if (siteText) system += `\n\nTREŚĆ STRONY FIRMY (${websiteUrl}):\n${siteText}`;
-      else system += `\n\n(Nie udało się pobrać treści ze strony ${websiteUrl} — poproś użytkownika o krótki opis firmy.)`;
+      if (siteText && siteText.length > 50) {
+        siteFetched = true;
+        system += `\n\nTREŚĆ STRONY FIRMY (${websiteUrl}) — przeanalizuj ją i wyciągnij dane, a w "reply" napisz krótko co z niej wyczytałeś:\n${siteText}`;
+      } else {
+        system += `\n\n(Nie udało się pobrać treści ze strony ${websiteUrl} — napisz to użytkownikowi i poproś o krótki opis firmy.)`;
+      }
     }
 
     // Anthropic wymaga, by historia zaczynała się od 'user'.
@@ -132,7 +137,14 @@ serve(async (req) => {
       for (const k of allowed) if (typeof parsed.fields[k] === "string" && parsed.fields[k].trim()) fields[k] = parsed.fields[k];
     }
 
-    return json({ success: true, reply: String(parsed?.reply || ""), fields, done: !!parsed?.done });
+    return json({
+      success: true,
+      reply: String(parsed?.reply || ""),
+      fields,
+      done: !!parsed?.done,
+      site_fetched: siteFetched,
+      site_url: websiteUrl || null,
+    });
   } catch (e) {
     return json({ success: false, error: (e as Error).message }, 500);
   }
