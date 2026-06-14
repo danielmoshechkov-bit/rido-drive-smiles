@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CompanyInterviewChat } from "./CompanyInterviewChat";
 import { VoiceAgentTestChat } from "./VoiceAgentTestChat";
@@ -119,8 +120,13 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   };
   useEffect(() => { reloadVoices(); /* eslint-disable-next-line */ }, []);
 
-  const [nativeOpen, setNativeOpen] = useState(false);
-  const [nativeLang, setNativeLang] = useState("pl");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerLang, setPickerLang] = useState("pl");
+  const [pickerMode, setPickerMode] = useState<"native" | "multi">("native");
+  const [pickerForSingle, setPickerForSingle] = useState(false);
+  const openPicker = (forSingle: boolean, lang: string, mode: "native" | "multi") => {
+    setPickerForSingle(forSingle); setPickerLang(lang); setPickerMode(mode); setPickerOpen(true);
+  };
 
   // 3) konfig tenanta + prefill firmy
   useEffect(() => {
@@ -368,14 +374,15 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           />
 
           <NativeVoiceBrowser
-            open={nativeOpen}
-            onOpenChange={setNativeOpen}
-            defaultLang={nativeLang}
-            onPicked={(lang, id) => {
-              setLangVoice(lang, id);
-              if (lang === "pl" && cfg.voice_mode !== "per_language") update({ voice_id: id }); // PL natywny jako główny też
-              update({ voice_mode: "per_language" });
-              setAdvancedOpen(true);
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+            language={pickerLang}
+            initialMode={pickerMode}
+            title={pickerForSingle ? "Wybierz głos agenta" : `Wybierz głos — ${LANGS.find((l) => l.code === pickerLang)?.label ?? pickerLang}`}
+            accountVoices={voices}
+            onPicked={(id) => {
+              if (pickerForSingle) update({ voice_id: id });
+              else { setLangVoice(pickerLang, id); update({ voice_mode: "per_language" }); }
               reloadVoices();
             }}
           />
@@ -383,118 +390,74 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           {/* A) GŁOS */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Volume2 className="h-5 w-5" /> Wybór głosu</CardTitle>
-              <CardDescription>Jeden głos na całą rozmowę. Wybierz przełącznikiem język, by usłyszeć jak brzmi w każdym z nich.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Volume2 className="h-5 w-5" /> Głos agenta</CardTitle>
+              <CardDescription>Wybierz, jak agent ma brzmieć. Jeden głos na wszystko (prosto) albo natywny lektor na każdy język (lepsze brzmienie).</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* przełącznik języka odsłuchu */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm text-muted-foreground">Odsłuch w języku:</span>
-                <div className="inline-flex rounded-lg border p-0.5">
-                  {LANGS.map((l) => (
-                    <button
-                      key={l.code}
-                      type="button"
-                      onClick={() => setPreviewLang(l.code)}
-                      className={`px-3 py-1 text-sm rounded-md transition ${previewLang === l.code ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                    >
-                      {l.short}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {voicesError && <p className="text-sm text-red-600">{voicesError} — sprawdź klucz ElevenLabs w Centrum AI.</p>}
 
-              {selectedVoice && (
-                <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    {selectedVoice.recommended && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />}
-                    Wybrany głos: <strong>{selectedVoice.name}</strong>{selectedVoice.accent ? ` · ${selectedVoice.accent}` : ""}
-                  </span>
-                  <Button size="sm" variant="ghost" className="gap-1" onClick={() => previewVoice(selectedVoice, previewLang)}>
-                    {loadingVoice === selectedVoice.voice_id ? <Loader2 className="h-4 w-4 animate-spin" /> : playingVoice === selectedVoice.voice_id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    Odsłuchaj ({previewLang.toUpperCase()})
-                  </Button>
-                </div>
-              )}
-
-              {/* filtry */}
-              <div className="flex flex-wrap gap-2 items-end">
-                <label className="flex items-center gap-2 text-sm mr-1">
-                  <Switch checked={onlyMulti} onCheckedChange={setOnlyMulti} />
-                  Tylko wielojęzyczne (zalecane)
+              <RadioGroup value={cfg.voice_mode} onValueChange={(v) => update({ voice_mode: v })} className="grid sm:grid-cols-2 gap-2">
+                <label className={`flex items-start gap-2 rounded-lg border p-3 cursor-pointer ${cfg.voice_mode === "single" ? "border-primary ring-1 ring-primary bg-primary/5" : "hover:bg-muted/50"}`}>
+                  <RadioGroupItem value="single" id="vm-single" className="mt-0.5" />
+                  <div><div className="text-sm font-medium">Jeden głos na wszystko</div><p className="text-xs text-muted-foreground">Wielojęzyczny — najprościej.</p></div>
                 </label>
-                <Select value={fGender} onValueChange={setFGender}>
-                  <SelectTrigger className="w-[120px] h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Płeć: wszystkie</SelectItem>
-                    <SelectItem value="male">Męski</SelectItem>
-                    <SelectItem value="female">Żeński</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={fAccent} onValueChange={setFAccent}>
-                  <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Akcent: wszystkie</SelectItem>
-                    {accents.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <div className="relative flex-1 min-w-[140px]">
-                  <Search className="h-4 w-4 absolute left-2 top-2.5 text-muted-foreground" />
-                  <Input className="h-9 pl-8" placeholder="szukaj…" value={fSearch} onChange={(e) => setFSearch(e.target.value)} />
-                </div>
-              </div>
+                <label className={`flex items-start gap-2 rounded-lg border p-3 cursor-pointer ${cfg.voice_mode === "per_language" ? "border-primary ring-1 ring-primary bg-primary/5" : "hover:bg-muted/50"}`}>
+                  <RadioGroupItem value="per_language" id="vm-multi" className="mt-0.5" />
+                  <div><div className="text-sm font-medium">Osobny lektor na język</div><p className="text-xs text-muted-foreground">Natywni lektorzy — najlepsze brzmienie.</p></div>
+                </label>
+              </RadioGroup>
 
-              {voicesLoading ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-              ) : voicesError ? (
-                <p className="text-sm text-red-600 py-2">{voicesError} — sprawdź klucz ElevenLabs w Centrum AI.</p>
+              {cfg.voice_mode === "single" ? (
+                <div className="rounded-lg border p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{selectedVoice?.name || "Nie wybrano głosu"}</div>
+                      {selectedVoice && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {selectedVoice.native_langs?.map((l) => <Badge key={l} className="text-[10px] bg-green-600 hover:bg-green-600">natywny {l}</Badge>)}
+                          {selectedVoice.multilingual && <Badge variant="outline" className="text-[10px] gap-0.5"><Globe className="h-2.5 w-2.5" />wielojęzyczny</Badge>}
+                        </div>
+                      )}
+                    </div>
+                    <Button size="sm" className="shrink-0" onClick={() => openPicker(true, previewLang, "multi")}>Wybierz głos</Button>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-muted-foreground">Odsłuch:</span>
+                    <div className="inline-flex rounded-lg border p-0.5">
+                      {LANGS.map((l) => (
+                        <button key={l.code} type="button" onClick={() => setPreviewLang(l.code)}
+                          className={`px-2.5 py-0.5 text-xs rounded-md transition ${previewLang === l.code ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>{l.short}</button>
+                      ))}
+                    </div>
+                    <Button size="sm" variant="outline" className="gap-1" disabled={!selectedVoice} onClick={() => previewVoice(selectedVoice, previewLang)}>
+                      {loadingVoice === selectedVoice?.voice_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} Odsłuchaj
+                    </Button>
+                  </div>
+                </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[360px] overflow-y-auto pr-1">
-                  {filteredVoices.map(voiceCard)}
-                  {filteredVoices.length === 0 && <p className="text-sm text-muted-foreground col-span-full py-4 text-center">Brak głosów dla tych filtrów.</p>}
-                </div>
-              )}
-
-              {/* ZAAWANSOWANE: osobny głos na język */}
-              <Collapsible open={advancedOpen} onOpenChange={(o) => { setAdvancedOpen(o); update({ voice_mode: o ? "per_language" : "single" }); }}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-1.5 px-0 text-muted-foreground">
-                    <ChevronDown className={`h-4 w-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
-                    Zaawansowane: osobny głos na każdy język
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3 space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    Domyślnie jeden głos obsługuje wszystkie języki. Tu możesz przypisać inny głos do konkretnego języka —
-                    np. <strong>natywnego polskiego lektora</strong> dla PL (brzmi lepiej niż wielojęzyczny).
-                  </p>
-                  <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => { setNativeLang("pl"); setNativeOpen(true); }}>
-                    <Globe className="h-4 w-4" /> Dodaj natywny głos z biblioteki ElevenLabs
-                  </Button>
+                <div className="space-y-2">
+                  {cfg.languages.length === 0 && <p className="text-sm text-muted-foreground">Najpierw zaznacz języki rozmowy (sekcja „Odbieranie i działanie").</p>}
                   {cfg.languages.map((lang) => {
                     const lbl = LANGS.find((l) => l.code === lang)?.label ?? lang;
                     const cur = cfg.voice_per_language[lang] || cfg.voice_id;
+                    const v = byId(cur);
+                    const isNative = v?.native_langs?.includes(lang);
                     return (
-                      <div key={lang} className="flex items-center gap-2">
-                        <span className="w-24 text-sm shrink-0">{lbl}</span>
-                        <Select value={cur} onValueChange={(id) => setLangVoice(lang, id)}>
-                          <SelectTrigger className="flex-1 h-9"><SelectValue placeholder="Wybierz głos" /></SelectTrigger>
-                          <SelectContent>
-                            {voices.map((v) => <SelectItem key={v.voice_id} value={v.voice_id}>{v.recommended ? "★ " : ""}{v.name}{v.gender ? ` (${v.gender === "male" ? "M" : "K"})` : ""}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <Button size="sm" variant="outline" className="gap-1 shrink-0" onClick={() => previewVoice(byId(cur), lang)}>
+                      <div key={lang} className="flex items-center gap-2 rounded-lg border p-2.5">
+                        <span className="w-24 text-sm shrink-0 font-medium">{lbl}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm truncate">{v?.name || <span className="text-muted-foreground">Nie wybrano</span>}</div>
+                          {isNative && <Badge className="text-[10px] bg-green-600 hover:bg-green-600">natywny {lang}</Badge>}
+                        </div>
+                        <Button size="sm" variant="outline" className="shrink-0" disabled={!v} onClick={() => previewVoice(v, lang)}>
                           {loadingVoice === cur ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                          {lang.toUpperCase()}
                         </Button>
-                        <Button size="sm" variant="ghost" className="gap-1 shrink-0" title="Natywne głosy z biblioteki" onClick={() => { setNativeLang(lang); setNativeOpen(true); }}>
-                          <Globe className="h-4 w-4" />
-                        </Button>
+                        <Button size="sm" className="shrink-0" onClick={() => openPicker(false, lang, "native")}>Wybierz</Button>
                       </div>
                     );
                   })}
-                </CollapsibleContent>
-              </Collapsible>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -471,11 +471,11 @@ CREATE TRIGGER trg_vch_updated BEFORE UPDATE ON public.voice_contact_history
 INSERT INTO public.ai_agents_config (agent_id, name, description, icon, model, system_prompt, is_active) VALUES
 (
   'voice_workshop_secretary',
-  'Głos: Sekretarka warsztatu',
-  'Asystent głosowy AI — odbiera telefon w warsztacie, umawia klientów na serwis, sprawdza wolne terminy w kalendarzu, tworzy rezerwację i notuje sprawę.',
+  'Głos: Sekretarka / recepcja',
+  'Asystent głosowy AI — odbiera telefon w firmie (warsztat, detailing, myjnia, wypożyczalnia, usługi), umawia klientów, sprawdza wolne terminy, tworzy rezerwację i notuje sprawę.',
   'phone',
   'claude-haiku-4-5-20251001',
-  'Jesteś profesjonalną asystentką głosową warsztatu samochodowego. Rozmawiasz naturalnie i uprzejmie, w języku rozmówcy (PL/EN/UA/RU — wykryj i dostosuj). Cel: ustalić czego klient potrzebuje (pojazd, usługa, objaw usterki), sprawdzić wolny termin przez narzędzie check_availability i umówić wizytę przez create_booking. Bądź zwięzła, potwierdzaj ustalenia, nie obiecuj cen bez danych. Na końcu podsumuj termin i dane kontaktowe. Nigdy nie zmyślaj dostępności — zawsze użyj narzędzia.',
+  'Jesteś profesjonalną asystentką głosową firmy usługowej (np. warsztat, detailing, myjnia, wypożyczalnia, usługi). Rozmawiasz naturalnie i uprzejmie, w języku rozmówcy (PL/EN/UA/RU — wykryj i dostosuj). Cel: ustalić czego klient potrzebuje, sprawdzić wolny termin przez narzędzie check_availability i umówić wizytę przez create_booking. Bądź zwięzła, potwierdzaj ustalenia, nie obiecuj cen bez danych. Na końcu podsumuj termin i dane kontaktowe. Nigdy nie zmyślaj dostępności — zawsze użyj narzędzia.',
   true
 ),
 (
@@ -533,8 +533,8 @@ INSERT INTO public.voice_agent_personas
   (persona_key, name, description, direction, allowed_tools, calendar_target, lead_sources, provider_agent_id, default_model, supported_langs, icon, priority) VALUES
 (
   'workshop_secretary',
-  'Sekretarka warsztatu',
-  'Odbiera telefon w warsztacie: umawianie na serwis, obsługa klienta, tworzenie rezerwacji.',
+  'Sekretarka / recepcja',
+  'Odbiera telefon w firmie (warsztat/detailing/myjnia/wypożyczalnia/usługi): umawianie, obsługa klienta, tworzenie rezerwacji.',
   'inbound',
   ARRAY['check_availability','create_booking','save_call_result','lookup_contact_history'],
   'workshop',
