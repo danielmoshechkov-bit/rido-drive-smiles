@@ -156,11 +156,32 @@ serve(async (req) => {
         status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
       }).select("id, confirmation_token").maybeSingle();
 
+      // 1.4 — SMS potwierdzenia OD RAZU (data, godzina, adres, link do zarządzania). Best-effort.
+      let smsSent = false;
+      let manageLink: string | null = null;
+      try {
+        if (wcb?.confirmation_token) {
+          manageLink = `https://rido-drive-smiles.lovable.app/r/${wcb.confirmation_token}`;
+          const { data: prov } = await admin.from("service_providers").select("company_name, address, city").eq("id", providerId).maybeSingle();
+          const company = prov?.company_name || "serwis";
+          const addr = [prov?.address, prov?.city].filter(Boolean).join(", ");
+          const msg = `Potwierdzenie wizyty: ${company}, ${date} godz. ${time}.` + (addr ? ` Adres: ${addr}.` : "") + ` Zarzadzaj rezerwacja (anuluj/przesun): ${manageLink}`;
+          const r = await fetch(`${supabaseUrl}/functions/v1/workshop-send-sms`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
+            body: JSON.stringify({ provider_id: providerId, phone, message: msg, sms_type: "booking_confirmation_ai", appointment_id: wcb.id }),
+          });
+          const rj = await r.json().catch(() => ({}));
+          smsSent = !rj?.error;
+        }
+      } catch (_) { /* SMS best-effort — nie blokuje rezerwacji */ }
+
       return json({
         ok: true, booking_id: sb.id,
         client_booking_id: wcb?.id || null,
         manage_token: wcb?.confirmation_token || null,
-        message: `Rezerwacja utworzona na ${date} ${time}.`,
+        manage_link: manageLink, sms_sent: smsSent,
+        message: `Rezerwacja utworzona na ${date} ${time}.${smsSent ? " Wysłano SMS potwierdzenia z linkiem." : ""}`,
       });
     }
 
