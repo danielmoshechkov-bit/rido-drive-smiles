@@ -68,6 +68,8 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const [pinCode, setPinCode] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [sendInvite, setSendInvite] = useState(true);
+  const [inviteEmail, setInviteEmail] = useState(true);
+  const [inviteSms, setInviteSms] = useState(false);
   const [invitingId, setInvitingId] = useState<string | null>(null);
 
   // Load roles + rate-type map from localStorage (per provider)
@@ -262,6 +264,10 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
       toast.error(t('workshop.employees.emailRequiredForInvite'));
       return;
     }
+    if (!editingId && sendInvite && inviteSms && !phone.trim()) {
+      toast.error('Podaj numer telefonu, aby wysłać zaproszenie SMS-em.');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -291,13 +297,15 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
         if (sendInvite) {
           try {
             const { data, error: invErr } = await supabase.functions.invoke('workshop-invite-employee', {
-              body: { email: cleanEmail, provider_id: providerId, role, language_preference: 'pl' },
+              body: { email: cleanEmail, provider_id: providerId, role, language_preference: 'pl', phone: phone.trim() || null, send_email: inviteEmail, send_sms: inviteSms },
             });
             if (invErr) throw invErr;
-            if ((data as any)?.email_sent) {
-              toast.success(t('workshop.employees.addedInviteSentTo', { email: cleanEmail }));
-            } else if ((data as any)?.action_link) {
-              await navigator.clipboard.writeText((data as any).action_link);
+            const d = data as any;
+            if (d?.sms_sent && d?.email_sent) toast.success(`Zaproszenie wysłane SMS-em i e-mailem`);
+            else if (d?.sms_sent) toast.success(`Zaproszenie wysłane SMS-em na ${phone}`);
+            else if (d?.email_sent) toast.success(t('workshop.employees.addedInviteSentTo', { email: cleanEmail }));
+            else if (d?.action_link) {
+              await navigator.clipboard.writeText(d.action_link);
               toast.success(t('workshop.employees.addedInviteLinkCopied'));
             } else {
               toast.success(t('workshop.employees.employeeAdded'));
@@ -522,6 +530,17 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
                 </div>
                 <Switch checked={sendInvite} onCheckedChange={setSendInvite} />
               </label>
+            )}
+            {!editingId && sendInvite && (
+              <div className="flex items-center gap-4 px-1 text-sm flex-wrap">
+                <span className="text-muted-foreground">Wyślij przez:</span>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" checked={inviteEmail} onChange={e => setInviteEmail(e.target.checked)} /> E‑mail
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="checkbox" checked={inviteSms} onChange={e => setInviteSms(e.target.checked)} /> SMS (link rejestracji)
+                </label>
+              </div>
             )}
           </div>
           <DialogFooter>

@@ -33,6 +33,7 @@ import tilePrzechodnia from '@/assets/workshop/tile-przechowalnia.jpg';
 import tileDaneNaprawcze from '@/assets/workshop/tile-dane-naprawcze.jpg';
 import tileUstawienia from '@/assets/workshop/tile-ustawienia.jpg';
 import tilePracownicy from '@/assets/workshop/tile-pracownicy.jpg';
+import tileStanowiska from '@/assets/workshop/tile-stanowiska.jpg';
 
 const modules = [
   { key: 'zlecenia', labelKey: 'workshop.dashboard.tiles.zlecenia', img: tileZlecenia, ready: true },
@@ -48,7 +49,7 @@ const modules = [
   { key: 'przechowalnia', labelKey: 'workshop.dashboard.tiles.przechowalnia', img: tilePrzechodnia, ready: true },
   { key: 'dane-naprawcze', labelKey: 'workshop.dashboard.tiles.daneNaprawcze', img: tileDaneNaprawcze, ready: true },
   { key: 'pracownicy', labelKey: 'workshop.dashboard.tiles.pracownicy', img: tilePracownicy, ready: true },
-  { key: 'stanowiska', labelKey: 'workshop.dashboard.tiles.stanowiska', img: tilePracownicy, ready: true },
+  { key: 'stanowiska', labelKey: 'workshop.dashboard.tiles.stanowiska', img: tileStanowiska, ready: true },
   { key: 'ustawienia', labelKey: 'workshop.dashboard.tiles.ustawienia', img: tileUstawienia, ready: true },
 ];
 

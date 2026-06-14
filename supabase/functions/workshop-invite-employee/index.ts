@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { email, provider_id, role = 'mechanic', language_preference = 'pl' } = await req.json();
+    const { email, provider_id, role = 'mechanic', language_preference = 'pl', phone = null, send_email = true, send_sms = false } = await req.json();
     if (!email || !provider_id) return json({ error: 'email and provider_id required' }, 400);
 
     const authHeader = req.headers.get('Authorization') || '';
@@ -92,7 +92,7 @@ serve(async (req) => {
     // Send email via SMTP (same path used for registration emails)
     let emailSent = false;
     let emailError: string | null = null;
-    try {
+    if (send_email) try {
       const smtpPassword = Deno.env.get('SMTP_PASSWORD');
       if (!smtpPassword) throw new Error('SMTP_PASSWORD not configured');
 
@@ -175,7 +175,24 @@ serve(async (req) => {
       console.error('SMTP send failed:', emailError);
     }
 
-    return json({ success: true, invitation_id: invitation.id, action_link: actionLink, email_sent: emailSent, email_error: emailError });
+    // SMS z linkiem rejestracji (best-effort)
+    let smsSent = false;
+    if (send_sms && phone) {
+      try {
+        const sUrl = Deno.env.get('SUPABASE_URL');
+        const sKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        const msg = `Zaproszenie do zespolu ${prov.company_name || 'warsztatu'} w GetRido. Zarejestruj sie: ${actionLink}`;
+        const r = await fetch(`${sUrl}/functions/v1/workshop-send-sms`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${sKey}`, apikey: sKey || '', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider_id, phone, message: msg, sms_type: 'employee_invite' }),
+        });
+        const rj = await r.json().catch(() => ({}));
+        smsSent = !rj?.error;
+      } catch (_) { /* sms best-effort */ }
+    }
+
+    return json({ success: true, invitation_id: invitation.id, action_link: actionLink, email_sent: emailSent, email_error: emailError, sms_sent: smsSent });
   } catch (e) {
     console.error('workshop-invite-employee error:', e);
     return json({ error: String(e) }, 500);
