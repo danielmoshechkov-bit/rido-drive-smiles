@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { CompanyInterviewChat } from "./CompanyInterviewChat";
 import { toast } from "sonner";
 import { Loader2, Save, Play, Phone, Volume2, Bot, Sparkles, Wand2, Building2, Search, Pause, Star, Globe, ChevronDown } from "lucide-react";
 
@@ -488,9 +489,14 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> O Twojej firmie</CardTitle>
-              <CardDescription>Te informacje agent wykorzysta w rozmowie — wypełnij, a agent „nauczy się” o firmie.</CardDescription>
+              <CardDescription>Najprościej: opisz firmę lub wklej link strony AI poniżej — wyciągnie dane i dopyta o braki. Możesz też wypełnić ręcznie. Pola są zawsze edytowalne.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <CompanyInterviewChat onApply={(f) => updateBC(f as Partial<BusinessContext>)} />
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <span className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">lub uzupełnij / popraw ręcznie</span></span>
+              </div>
               <div className="space-y-2"><Label>Nazwa firmy</Label>
                 <Input value={cfg.business_context.company_name} onChange={(e) => updateBC({ company_name: e.target.value })} placeholder="np. Auto-Serwis Kowalski" /></div>
               <div className="space-y-2"><Label>Czym się zajmujecie? (opis działalności)</Label>

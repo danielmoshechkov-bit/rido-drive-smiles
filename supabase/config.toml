@@ -182,6 +182,9 @@ verify_jwt = false
 [functions.voice-list]
 verify_jwt = false
 
+[functions.voice-company-interview]
+verify_jwt = false
+
 [functions.ticket-ai-chat]
 verify_jwt = false
 
