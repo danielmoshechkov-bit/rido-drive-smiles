@@ -81,7 +81,9 @@ CREATE TABLE IF NOT EXISTS public.voice_agent_configs (
   persona_key           text NOT NULL REFERENCES public.voice_agent_personas(persona_key),
   is_active             boolean NOT NULL DEFAULT false,
   display_name          text,                          -- np. "Asystentka Kasia"
-  voice_id              text,                          -- wybrany głos ElevenLabs
+  voice_id              text,                          -- wybrany głos ElevenLabs (tryb single)
+  voice_mode            text NOT NULL DEFAULT 'single', -- single | per_language
+  voice_per_language    jsonb NOT NULL DEFAULT '{}'::jsonb, -- {pl:id,en:id,ua:id,ru:id} (tryb per_language)
   voice_speed           numeric(3,2) NOT NULL DEFAULT 1.0,  -- 0.7–1.2 (ElevenLabs voice_settings.speed)
   voice_stability       numeric(3,2) NOT NULL DEFAULT 0.45, -- 0..1 (niżej = bardziej żywo)
   voice_similarity      numeric(3,2) NOT NULL DEFAULT 0.75, -- 0..1 (podobieństwo)

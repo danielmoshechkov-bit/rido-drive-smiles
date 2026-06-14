@@ -42,24 +42,53 @@ serve(async (req) => {
       if (res.status === 401) return json({ success: false, error: "Klucz ElevenLabs nieprawidłowy (401)" }, 400);
       return json({ success: false, error: `ElevenLabs błąd ${res.status}` }, 400);
     }
-    const data = await res.json();
+    // Nasze języki. ElevenLabs używa 'uk' dla ukraińskiego -> mapujemy na 'ua'.
+    const OUR = ["pl", "en", "ua", "ru"];
+    const MULTI_MODELS = ["eleven_multilingual_v2", "eleven_multilingual_v1", "eleven_turbo_v2_5", "eleven_flash_v2_5"];
+    const normLang = (c: string) => {
+      const x = (c || "").toLowerCase().split("-")[0];
+      return x === "uk" ? "ua" : x;
+    };
+
     const voices = (data?.voices || []).map((v: any) => {
       const labels = v.labels || {};
+      const models: string[] = v.high_quality_base_model_ids || [];
+      const multilingual = models.some((m) => MULTI_MODELS.includes(m)) || v.category === "premade";
+
+      // verified_languages: dostępne w nowszym API (locale + akcent + próbka per język)
+      const verifiedAll = (v.verified_languages || []).map((x: any) => ({
+        lang: normLang(x.language || x.locale || ""),
+        accent: x.accent || null,
+        preview_url: x.preview_url || null,
+      }));
+      const verifiedOur = verifiedAll.filter((x: any) => OUR.includes(x.lang));
+      const verifiedLangs = Array.from(new Set(verifiedOur.map((x: any) => x.lang)));
+
+      const recommended = verifiedLangs.length > 0 || multilingual;
+      // im więcej naszych języków zweryfikowanych, tym wyżej; multilingual = bonus
+      const score = verifiedLangs.length * 2 + (multilingual ? 1 : 0);
+
       return {
         voice_id: v.voice_id,
         name: v.name,
         gender: (labels.gender || "").toLowerCase() || null,   // male | female | null
         accent: labels.accent || null,
         age: labels.age || null,
-        language: labels.language || null,                       // bywa puste — premade są multilingual
         use_case: labels.use_case || labels.description || null,
         description: v.description || labels.description || null,
-        preview_url: v.preview_url || null,                      // gotowa próbka mp3 do szybkiego odsłuchu
-        category: v.category || null,                            // premade | cloned | generated | professional
+        preview_url: v.preview_url || null,                      // domyślna próbka (zwykle EN)
+        category: v.category || null,
+        multilingual,                                            // czy obsługuje model wielojęzyczny
+        verified_langs: verifiedLangs,                           // nasze języki potwierdzone przez ElevenLabs
+        verified_previews: verifiedOur,                          // [{lang, accent, preview_url}] dla naszych języków
+        recommended,
+        score,
       };
     });
 
-    // Zbierz dostępne wartości filtrów (do UI)
+    // Sort: zalecane / najlepsze wielojęzyczne na górę
+    voices.sort((a: any, b: any) => b.score - a.score || a.name.localeCompare(b.name));
+
     const accents = Array.from(new Set(voices.map((v: any) => v.accent).filter(Boolean))).sort();
     const genders = Array.from(new Set(voices.map((v: any) => v.gender).filter(Boolean)));
 
