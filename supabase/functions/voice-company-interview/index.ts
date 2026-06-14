@@ -86,12 +86,19 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const messages = Array.isArray(body?.messages) ? body.messages : [];
     const websiteUrl = typeof body?.website_url === "string" ? body.website_url : "";
+    const currentContext = body?.current_context && typeof body.current_context === "object" ? body.current_context : null;
 
     // Model przełączalny w panelu (agent_id voice_company_interview); fallback Haiku.
     const agent = await resolveAgent(admin, "voice_company_interview", "claude-haiku-4-5-20251001");
     const model = (agent?.model && agent.model.startsWith("claude")) ? agent.model : "claude-haiku-4-5-20251001";
 
     let system = SYSTEM;
+    if (currentContext && Object.values(currentContext).some((v) => typeof v === "string" && v.trim())) {
+      system += `\n\n=== AKTUALNY PROFIL FIRMY (już zapamiętany) ===\n${JSON.stringify(currentContext)}\n` +
+        `To jest pamięć firmy. UZUPEŁNIAJ i AKTUALIZUJ ją na podstawie tego, co pisze użytkownik — także późniejszych dodatków (promocje, akcje, zmiany godzin). ` +
+        `Dla promocji/akcji czasowych DOPISUJ do pola extra_info wraz z terminami (od–do), NIE kasując wcześniejszych informacji (w "fields.extra_info" zwróć CAŁOŚĆ: dotychczasowe + nowe). ` +
+        `Jeśli coś się zmienia (np. godziny) — zaktualizuj właściwe pole. Zwracaj w "fields" tylko pola, które faktycznie ustaliłeś lub zmieniłeś.`;
+    }
     let siteFetched = false;
     if (websiteUrl) {
       const siteText = await fetchSiteText(websiteUrl);

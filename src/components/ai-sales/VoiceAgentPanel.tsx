@@ -520,7 +520,20 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
               <CardDescription>Najprościej: opisz firmę lub wklej link strony AI poniżej — wyciągnie dane i dopyta o braki. Możesz też wypełnić ręcznie. Pola są zawsze edytowalne.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <CompanyInterviewChat onApply={(f) => updateBC(f as Partial<BusinessContext>)} />
+              <CompanyInterviewChat
+                currentContext={cfg.business_context as unknown as Record<string, string>}
+                onApply={(f) => {
+                  const merged = { ...cfg.business_context, ...(f as Partial<BusinessContext>) };
+                  updateBC(f as Partial<BusinessContext>);
+                  // trwała pamięć: zapisz wiedzę od razu (bez czekania na "Zapisz ustawienia")
+                  if (providerId) {
+                    (supabase as any).from("voice_agent_configs").upsert(
+                      { provider_id: providerId, persona_key: cfg.persona_key, business_context: merged, updated_at: new Date().toISOString() },
+                      { onConflict: "provider_id,persona_key" },
+                    ).then(({ error }: any) => { if (error) console.warn("autosave business_context:", error.message); });
+                  }
+                }}
+              />
               <div className="relative py-1">
                 <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
                 <span className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">lub uzupełnij / popraw ręcznie</span></span>

@@ -52,8 +52,10 @@ serve(async (req) => {
     const { data: persona } = await admin
       .from("voice_agent_personas").select("provider_agent_id, name, direction").eq("persona_key", personaKey).maybeSingle();
     const agentId = persona?.provider_agent_id || "voice_workshop_secretary";
-    const agent = await resolveAgent(admin, agentId, "claude-haiku-4-5-20251001");
-    const model = (agent?.model && agent.model.startsWith("claude")) ? agent.model : "claude-haiku-4-5-20251001";
+    const agent = await resolveAgent(admin, agentId, "claude-sonnet-4-6");
+    // Rozmowa = jakość naturalności > koszt. Haiku brzmi sztucznie -> Sonnet.
+    const CONVO_DEFAULT = "claude-sonnet-4-6";
+    const model = (agent?.model && agent.model.startsWith("claude") && !agent.model.includes("haiku")) ? agent.model : CONVO_DEFAULT;
     const base = body?.custom_prompt_override?.trim() || agent?.systemPrompt ||
       "Jesteś profesjonalnym asystentem głosowym. Rozmawiaj naturalnie, prowadź wywiad i pomóż klientowi.";
 
@@ -77,7 +79,7 @@ serve(async (req) => {
     if (calendarAccess) caps.push("możesz sprawdzać wolne terminy i umawiać wizyty");
     if (ordersAccess) caps.push("możesz utworzyć zlecenie z danymi z rozmowy");
     if (caps.length) system += `\nUprawnienia: ${caps.join("; ")}.`;
-    system += `\n\n=== TRYB TESTOWY (tekstowy) ===\nTo testowa rozmowa pisana — zachowuj się DOKŁADNIE jak przez telefon. Gdy normalnie użyłbyś narzędzia (np. sprawdzenie wolnego terminu, utworzenie zlecenia), napisz to krótko w nawiasie kwadratowym, np. [sprawdzam dostępne terminy] albo [tworzę zlecenie z zebranymi danymi], i kontynuuj rozmowę. Prowadź pełny wywiad i zbierz potrzebne dane. Odpowiadaj zwięźle, naturalnie, jak człowiek przez telefon.`;
+    system += `\n\n=== STYL ROZMOWY (BARDZO WAŻNE) ===\nMówisz jak prawdziwy człowiek przez telefon, nie jak bot. Zasady:\n- KRÓTKO: maksymalnie 1-2 zdania na turę. Nigdy nie wygłaszaj długich monologów ani nie wyliczaj wszystkiego naraz.\n- NATURALNIE: ciepły, potoczny język, naturalne zwroty ("jasne", "okej", "rozumiem", "świetnie"). Bez sztywnego, urzędowego tonu.\n- JEDNO PYTANIE NA RAZ. Słuchaj odpowiedzi i reaguj na nią konkretnie, zanim przejdziesz dalej.\n- Nie powtarzaj się, nie potwierdzaj nadmiarowo. Brzmij swobodnie, z empatią.\n- Pisz pełnymi, dokończonymi zdaniami (to będzie czytane na głos).\n\n=== TRYB TESTOWY ===\nGdy normalnie użyłbyś narzędzia (sprawdzenie terminu, utworzenie zlecenia), napisz to krótko w nawiasie kwadratowym, np. [sprawdzam terminy], i mów dalej. Prowadź wywiad naturalnie, zbierając po kolei: imię, telefon, nr rejestracyjny, opis usterki, preferowany termin.`;
 
     const chat = messages
       .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
@@ -88,7 +90,7 @@ serve(async (req) => {
     const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-      body: JSON.stringify({ model, max_tokens: 600, temperature: 0.6, system, messages: chat }),
+      body: JSON.stringify({ model, max_tokens: 400, temperature: 0.7, system, messages: chat }),
     });
     if (!aiRes.ok) {
       const t = await aiRes.text().catch(() => "");

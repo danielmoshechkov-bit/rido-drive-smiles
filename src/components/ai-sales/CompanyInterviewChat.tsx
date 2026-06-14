@@ -9,9 +9,9 @@ import { Loader2, Send, Sparkles, Link2, CheckCircle2, Globe, AlertTriangle } fr
 type Msg = { role: "assistant" | "user" | "system"; content: string; tone?: "ok" | "warn" };
 
 const GREETING =
-  "Cześć! Pomogę szybko ustawić Twojego agenta. Wklej link do swojej strony — przeanalizuję ją i wyciągnę dane. Możesz też po prostu opisać firmę własnymi słowami. Dopytam tylko o braki.";
+  "Cześć! To pamięć Twojej firmy — opisz czym się zajmujecie albo wklej link do strony, a wyciągnę dane. Możesz tu wracać kiedy chcesz i dodawać nowe rzeczy (np. promocje, zmiany godzin) — zapamiętam i agent będzie z tego korzystał.";
 
-export function CompanyInterviewChat({ onApply }: { onApply: (fields: Record<string, string>) => void }) {
+export function CompanyInterviewChat({ onApply, currentContext }: { onApply: (fields: Record<string, string>) => void; currentContext?: Record<string, string> }) {
   const [messages, setMessages] = useState<Msg[]>([{ role: "assistant", content: GREETING }]);
   const [input, setInput] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -41,7 +41,7 @@ export function CompanyInterviewChat({ onApply }: { onApply: (fields: Record<str
     try {
       const turns = next.filter((m) => m.role !== "system").slice(1).map((m) => ({ role: m.role, content: m.content }));
       const { data, error } = await supabase.functions.invoke("voice-company-interview", {
-        body: { messages: turns, website_url: url || undefined },
+        body: { messages: turns, website_url: url || undefined, current_context: currentContext || undefined },
       });
       if (error || !data?.success) {
         toast.error("AI: " + (data?.error || error?.message || "błąd"));

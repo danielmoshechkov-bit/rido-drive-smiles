@@ -54,10 +54,20 @@ export function VoiceAgentTestChat(p: Props) {
 
   const speak = async (text: string) => {
     if (!p.voiceId || !text) return;
+    // wyczyść tekst: usuń akcje w nawiasach, przytnij na granicy zdania (nie w połowie)
+    let clean = text.replace(/\[[^\]]*\]/g, "").replace(/\s+/g, " ").trim();
+    if (clean.length > 500) {
+      const cut = clean.slice(0, 500);
+      const lastEnd = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"));
+      clean = lastEnd > 120 ? cut.slice(0, lastEnd + 1) : cut;
+    }
+    if (!clean) return;
+    // zatrzymaj poprzednie audio, żeby się nie nakładało / nie "przerywało"
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
     setSpeaking(true);
     try {
       const { data, error } = await supabase.functions.invoke("voice-preview", {
-        body: { voice_id: p.voiceId, text: text.replace(/\[[^\]]*\]/g, "").slice(0, 300), speed: p.voiceSettings.speed, stability: p.voiceSettings.stability, similarity_boost: p.voiceSettings.similarity, style: p.voiceSettings.style },
+        body: { voice_id: p.voiceId, text: clean, speed: p.voiceSettings.speed, stability: p.voiceSettings.stability, similarity_boost: p.voiceSettings.similarity, style: p.voiceSettings.style },
       });
       if (!error && data?.success) {
         if (!audioRef.current) audioRef.current = new Audio();
