@@ -194,6 +194,9 @@ verify_jwt = false
 [functions.voice-add]
 verify_jwt = false
 
+[functions.voice-agent-tools]
+verify_jwt = false
+
 [functions.ticket-ai-chat]
 verify_jwt = false
 
