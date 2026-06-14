@@ -41,9 +41,14 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const voiceId = String(body?.voice_id || "").trim();
     const text = String(body?.text || "Dzień dobry, tu asystent głosowy. W czym mogę pomóc?").slice(0, 300);
-    let speed = Number(body?.speed);
-    if (!Number.isFinite(speed)) speed = 1.0;
-    speed = Math.min(1.2, Math.max(0.7, speed)); // zakres ElevenLabs
+    const clamp = (n: any, lo: number, hi: number, def: number) => {
+      const x = Number(n);
+      return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : def;
+    };
+    const speed = clamp(body?.speed, 0.7, 1.2, 1.0);
+    const stability = clamp(body?.stability, 0, 1, 0.45);
+    const similarity_boost = clamp(body?.similarity_boost, 0, 1, 0.75);
+    const style = clamp(body?.style, 0, 1, 0.0);
     if (!voiceId) return json({ success: false, error: "Brak voice_id" }, 400);
 
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
@@ -52,7 +57,7 @@ serve(async (req) => {
       body: JSON.stringify({
         text,
         model_id: "eleven_multilingual_v2",
-        voice_settings: { stability: 0.5, similarity_boost: 0.75, speed },
+        voice_settings: { stability, similarity_boost, style, speed, use_speaker_boost: true },
       }),
     });
 

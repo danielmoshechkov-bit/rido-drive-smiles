@@ -82,7 +82,10 @@ CREATE TABLE IF NOT EXISTS public.voice_agent_configs (
   is_active             boolean NOT NULL DEFAULT false,
   display_name          text,                          -- np. "Asystentka Kasia"
   voice_id              text,                          -- wybrany głos ElevenLabs
-  voice_speed           numeric(3,2) NOT NULL DEFAULT 1.0, -- 0.7–1.2 (ElevenLabs voice_settings.speed)
+  voice_speed           numeric(3,2) NOT NULL DEFAULT 1.0,  -- 0.7–1.2 (ElevenLabs voice_settings.speed)
+  voice_stability       numeric(3,2) NOT NULL DEFAULT 0.45, -- 0..1 (niżej = bardziej żywo)
+  voice_similarity      numeric(3,2) NOT NULL DEFAULT 0.75, -- 0..1 (podobieństwo)
+  voice_style           numeric(3,2) NOT NULL DEFAULT 0.0,  -- 0..1 (ekspresja stylu)
   sample_text           text,                          -- tekst do odsłuchu / powitanie agenta
   languages             text[] NOT NULL DEFAULT ARRAY['pl'],
   -- inbound

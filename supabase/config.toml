@@ -176,6 +176,9 @@ verify_jwt = false
 [functions.voice-preview]
 verify_jwt = false
 
+[functions.voice-list]
+verify_jwt = false
+
 [functions.ticket-ai-chat]
 verify_jwt = false
 
