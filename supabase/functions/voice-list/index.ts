@@ -67,9 +67,22 @@ serve(async (req) => {
       const verifiedOur = verifiedAll.filter((x: any) => OUR.includes(x.lang));
       const verifiedLangs = Array.from(new Set(verifiedOur.map((x: any) => x.lang)));
 
+      // Język natywny głosu (z etykiety language lub akcentu)
+      const lblLang = normLang(labels.language || "");
+      const accentLc = (labels.accent || "").toLowerCase();
+      const accentLang = accentLc.includes("pol") ? "pl"
+        : accentLc.includes("ukrain") ? "ua"
+        : accentLc.includes("russ") ? "ru"
+        : (accentLc.includes("english") || accentLc.includes("british") || accentLc.includes("american") || accentLc.includes("australian")) ? "en"
+        : "";
+      const nativeLangs = Array.from(new Set([
+        OUR.includes(lblLang) ? lblLang : "",
+        OUR.includes(accentLang) ? accentLang : "",
+      ].filter(Boolean)));
+
       const recommended = verifiedLangs.length > 0 || multilingual;
-      // im więcej naszych języków zweryfikowanych, tym wyżej; multilingual = bonus
-      const score = verifiedLangs.length * 2 + (multilingual ? 1 : 0);
+      // natywny dla naszych języków = najwyżej; potem zweryfikowane; multilingual = bonus
+      const score = nativeLangs.length * 4 + verifiedLangs.length * 2 + (multilingual ? 1 : 0);
 
       return {
         voice_id: v.voice_id,
@@ -82,6 +95,7 @@ serve(async (req) => {
         preview_url: v.preview_url || null,                      // domyślna próbka (zwykle EN)
         category: v.category || null,
         multilingual,                                            // czy obsługuje model wielojęzyczny
+        native_langs: nativeLangs,                               // nasze języki, dla których głos jest NATYWNY
         verified_langs: verifiedLangs,                           // nasze języki potwierdzone przez ElevenLabs
         verified_previews: verifiedOur,                          // [{lang, accent, preview_url}] dla naszych języków
         recommended,

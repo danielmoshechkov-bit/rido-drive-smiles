@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { CompanyInterviewChat } from "./CompanyInterviewChat";
 import { VoiceAgentTestChat } from "./VoiceAgentTestChat";
+import { NativeVoiceBrowser } from "./NativeVoiceBrowser";
 import { toast } from "sonner";
 import { Loader2, Save, Play, Phone, Volume2, Bot, Sparkles, Wand2, Building2, Search, Pause, Star, Globe, ChevronDown, CalendarCheck, ClipboardList, ShieldCheck, PhoneCall } from "lucide-react";
 
@@ -24,7 +25,7 @@ interface VerifiedPreview { lang: string; accent: string | null; preview_url: st
 interface VoiceItem {
   voice_id: string; name: string; gender: string | null; accent: string | null; age: string | null;
   use_case: string | null; description: string | null; preview_url: string | null; category: string | null;
-  multilingual: boolean; verified_langs: string[]; verified_previews: VerifiedPreview[]; recommended: boolean; score: number;
+  multilingual: boolean; native_langs?: string[]; verified_langs: string[]; verified_previews: VerifiedPreview[]; recommended: boolean; score: number;
 }
 interface BusinessContext {
   company_name: string; description: string; hours: string; location: string;
@@ -108,16 +109,18 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2) biblioteka głosów (na żywo)
-  useEffect(() => {
-    (async () => {
-      setVoicesLoading(true);
-      const { data, error } = await supabase.functions.invoke("voice-list", { body: {} });
-      if (error || !data?.success) { setVoicesError(data?.error || error?.message || "Nie udało się pobrać głosów"); setVoices([]); }
-      else { setVoices(data.voices as VoiceItem[]); setVoicesError(null); }
-      setVoicesLoading(false);
-    })();
-  }, []);
+  // 2) biblioteka głosów konta (na żywo)
+  const reloadVoices = async () => {
+    setVoicesLoading(true);
+    const { data, error } = await supabase.functions.invoke("voice-list", { body: {} });
+    if (error || !data?.success) { setVoicesError(data?.error || error?.message || "Nie udało się pobrać głosów"); setVoices([]); }
+    else { setVoices(data.voices as VoiceItem[]); setVoicesError(null); }
+    setVoicesLoading(false);
+  };
+  useEffect(() => { reloadVoices(); /* eslint-disable-next-line */ }, []);
+
+  const [nativeOpen, setNativeOpen] = useState(false);
+  const [nativeLang, setNativeLang] = useState("pl");
 
   // 3) konfig tenanta + prefill firmy
   useEffect(() => {
@@ -279,10 +282,11 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
         </button>
       </div>
       <div className="flex flex-wrap gap-1 mt-1.5">
+        {v.native_langs?.map((l) => <Badge key={`n-${l}`} className="text-[10px] font-normal uppercase bg-green-600 hover:bg-green-600">natywny {l}</Badge>)}
         {v.multilingual && <Badge variant="outline" className="text-[10px] font-normal gap-0.5"><Globe className="h-2.5 w-2.5" />wielojęzyczny</Badge>}
         {v.gender && <Badge variant="outline" className="text-[10px] font-normal">{v.gender === "male" ? "męski" : "żeński"}</Badge>}
         {v.accent && <Badge variant="outline" className="text-[10px] font-normal">{v.accent}</Badge>}
-        {v.verified_langs?.map((l) => <Badge key={l} variant="secondary" className="text-[10px] font-normal uppercase">{l}</Badge>)}
+        {v.verified_langs?.filter((l) => !v.native_langs?.includes(l)).map((l) => <Badge key={l} variant="secondary" className="text-[10px] font-normal uppercase">{l}</Badge>)}
       </div>
     </div>
   );
@@ -361,6 +365,19 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
             ordersAccess={cfg.orders_access}
             voiceId={cfg.voice_mode === "per_language" ? (cfg.voice_per_language["pl"] || cfg.voice_id) : cfg.voice_id}
             voiceSettings={{ speed: cfg.voice_speed, stability: cfg.voice_stability, similarity: cfg.voice_similarity, style: cfg.voice_style }}
+          />
+
+          <NativeVoiceBrowser
+            open={nativeOpen}
+            onOpenChange={setNativeOpen}
+            defaultLang={nativeLang}
+            onPicked={(lang, id) => {
+              setLangVoice(lang, id);
+              if (lang === "pl" && cfg.voice_mode !== "per_language") update({ voice_id: id }); // PL natywny jako główny też
+              update({ voice_mode: "per_language" });
+              setAdvancedOpen(true);
+              reloadVoices();
+            }}
           />
 
           {/* A) GŁOS */}
@@ -448,8 +465,12 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3 space-y-3">
                   <p className="text-xs text-muted-foreground">
-                    Domyślnie jeden głos obsługuje wszystkie języki. Tu możesz przypisać inny głos do konkretnego języka.
+                    Domyślnie jeden głos obsługuje wszystkie języki. Tu możesz przypisać inny głos do konkretnego języka —
+                    np. <strong>natywnego polskiego lektora</strong> dla PL (brzmi lepiej niż wielojęzyczny).
                   </p>
+                  <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => { setNativeLang("pl"); setNativeOpen(true); }}>
+                    <Globe className="h-4 w-4" /> Dodaj natywny głos z biblioteki ElevenLabs
+                  </Button>
                   {cfg.languages.map((lang) => {
                     const lbl = LANGS.find((l) => l.code === lang)?.label ?? lang;
                     const cur = cfg.voice_per_language[lang] || cfg.voice_id;
@@ -465,6 +486,9 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                         <Button size="sm" variant="outline" className="gap-1 shrink-0" onClick={() => previewVoice(byId(cur), lang)}>
                           {loadingVoice === cur ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                           {lang.toUpperCase()}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="gap-1 shrink-0" title="Natywne głosy z biblioteki" onClick={() => { setNativeLang(lang); setNativeOpen(true); }}>
+                          <Globe className="h-4 w-4" />
                         </Button>
                       </div>
                     );
