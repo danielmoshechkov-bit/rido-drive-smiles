@@ -21,6 +21,7 @@ import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import { WorkshopAssignEmployeeDropdown } from './WorkshopAssignEmployeeDropdown';
 import { WorkshopOrderEmployeeFindingsTab } from './tabs/WorkshopOrderEmployeeFindingsTab';
 import { OrderHistoryTimeline } from './OrderHistoryTimeline';
+import { OrderCallPanel } from './OrderCallPanel';
 import { WorkshopStatusPicker } from './WorkshopStatusPicker';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -522,14 +523,15 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             { value: 'schedule', labelKey: 'workshop.orderDetail.tabSchedule' },
             { value: 'files', labelKey: 'workshop.orderDetail.tabFiles' },
             { value: 'repair-data', labelKey: 'workshop.orderDetail.tabRepairData' },
-          ].map((tab) => (
+            { value: 'call', label: 'Rozmowa telefoniczna' },
+          ].map((tab: any) => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
               className="px-4 md:px-5 py-2 rounded-full text-xs md:text-sm font-medium shrink-0 transition-all duration-200 data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=inactive]:text-foreground/70 data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-[#F5C842] data-[state=inactive]:hover:text-[#1a1a1a]"
               style={activeTab === tab.value ? { backgroundColor: 'var(--nav-bar-color, #6C3CF0)' } : undefined}
             >
-              {t(tab.labelKey)}
+              {tab.label || t(tab.labelKey)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -556,6 +558,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           <div className="text-center py-12 text-muted-foreground">
             {t('workshop.orderDetail.repairDataComingSoon')}
           </div>
+        </TabsContent>
+        <TabsContent value="call">
+          <OrderCallPanel orderId={order.id} />
         </TabsContent>
       </Tabs>
 

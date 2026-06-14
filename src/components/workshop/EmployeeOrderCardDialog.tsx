@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useTranslation, Trans } from 'react-i18next';
 import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
+import { OrderCallPanel } from './OrderCallPanel';
 
 interface Props {
   open: boolean;
@@ -427,6 +428,11 @@ export function EmployeeOrderCardDialog({
             <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : (
             <>
+              {orderId && (
+                <div className="rounded-lg border bg-card p-3">
+                  <OrderCallPanel orderId={orderId} compact />
+                </div>
+              )}
               {tasks.map((t, ti) => {
                 const filled = t.confirmed;
                 const isOpen = t.expanded;

@@ -45,6 +45,8 @@ serve(async (req) => {
     let providerId = String(body?.provider_id || "");
     const personaKey = String(body?.persona_key || "workshop_secretary");
     const transcript = Array.isArray(body?.messages) ? body.messages : [];
+    const orderId = body?.order_id || null;
+    const bookingId = body?.booking_id || null;
     if (transcript.length < 2) return json({ ok: false, error: "Za krótka rozmowa do analizy" }, 400);
 
     const isServiceCall = authHeader === `Bearer ${serviceRoleKey}`;
@@ -88,6 +90,7 @@ serve(async (req) => {
     const { data: call } = await admin.from("voice_calls").insert({
       provider_id: providerId, persona_key: personaKey, direction: "inbound", status: "completed",
       contact_name: a?.customer_data?.name || null, summary: a?.summary || null, outcome: a?.outcome || null,
+      linked_entity_type: orderId ? "workshop_order" : null, linked_entity_id: orderId || null,
     }).select("id").maybeSingle();
     const callId = call?.id || null;
 

@@ -163,6 +163,7 @@ serve(async (req) => {
     };
 
     let reply = "";
+    const created: { order_id: string | null; order_number: string | null; booking_id: string | null } = { order_id: null, order_number: null, booking_id: null };
     for (let round = 0; round < 5; round++) {
       const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -181,6 +182,8 @@ serve(async (req) => {
         const results = [];
         for (const tu of toolUses) {
           const out = await callTool(tu.name, tu.input || {});
+          if (tu.name === "create_order" && out?.order_id) { created.order_id = out.order_id; created.order_number = out.order_number || null; }
+          if (tu.name === "create_booking" && out?.booking_id) { created.booking_id = out.booking_id; }
           results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out) });
         }
         convo.push({ role: "user", content: results });
@@ -189,7 +192,7 @@ serve(async (req) => {
       reply = blocks.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
       break;
     }
-    return json({ success: true, reply, model });
+    return json({ success: true, reply, model, created });
   } catch (e) {
     return json({ success: false, error: (e as Error).message }, 500);
   }

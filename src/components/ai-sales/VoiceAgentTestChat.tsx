@@ -42,7 +42,7 @@ export function VoiceAgentTestChat(p: Props) {
     setAnalyzing(true);
     try {
       const { data, error } = await supabase.functions.invoke("voice-call-analyze", {
-        body: { provider_id: p.providerId, persona_key: p.personaKey, messages: turns, is_test: true },
+        body: { provider_id: p.providerId, persona_key: p.personaKey, messages: turns, is_test: true, order_id: createdRef.current.order_id || null, booking_id: createdRef.current.booking_id || null },
       });
       if (!silent) {
         if (error || !data?.ok) toast.error("Analiza: " + (data?.error || error?.message || "błąd"));
@@ -57,6 +57,7 @@ export function VoiceAgentTestChat(p: Props) {
   };
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const createdRef = useRef<{ order_id?: string | null; booking_id?: string | null }>({});
 
   const scrollDown = () => requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; });
 
@@ -76,6 +77,8 @@ export function VoiceAgentTestChat(p: Props) {
       },
     });
     if (error || !data?.success) { toast.error("Agent: " + (data?.error || error?.message || "błąd")); return null; }
+    if (data.created?.order_id) createdRef.current.order_id = data.created.order_id;
+    if (data.created?.booking_id) createdRef.current.booking_id = data.created.booking_id;
     return data.reply as string;
   };
 
@@ -106,6 +109,7 @@ export function VoiceAgentTestChat(p: Props) {
 
   const start = async () => {
     setMsgs([]);
+    createdRef.current = {};
     setSending(true);
     const seed: Msg[] = [{ role: "user", content: KICKOFF, hidden: true }];
     const reply = await callBrain(seed);
