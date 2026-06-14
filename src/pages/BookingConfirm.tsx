@@ -23,11 +23,11 @@ export default function BookingConfirm() {
   const [slotsLoading, setSlotsLoading] = useState(false);
 
   const loadBooking = async () => {
-    const { data, error } = await (supabase as any)
-      .from('workshop_client_bookings')
-      .select('*, service_providers(company_name, short_name, company_address, company_city, company_postal_code, company_phone)')
-      .eq('confirmation_token', token)
-      .maybeSingle();
+    // Token-scoped RPC: returns only the booking matching this secret token
+    // (direct table reads are no longer public — see phone-leak hardening).
+    const { data, error } = await (supabase as any).rpc('get_workshop_booking_by_token', {
+      p_token: token,
+    });
     if (error || !data) {
       setError('Nie znaleziono rezerwacji.');
     } else {
@@ -70,24 +70,19 @@ export default function BookingConfirm() {
 
   const handleConfirm = async () => {
     setBusy(true);
-    const { error } = await (supabase as any)
-      .from('workshop_client_bookings')
-      .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
-      .eq('confirmation_token', token);
+    const { error } = await (supabase as any).rpc('confirm_workshop_booking_by_token', {
+      p_token: token,
+    });
     if (!error) await loadBooking();
     setBusy(false);
   };
 
   const handleCancel = async () => {
     setBusy(true);
-    const { error } = await (supabase as any)
-      .from('workshop_client_bookings')
-      .update({
-        status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
-        cancellation_reason: cancelReason || null,
-      })
-      .eq('confirmation_token', token);
+    const { error } = await (supabase as any).rpc('cancel_workshop_booking_by_token', {
+      p_token: token,
+      p_reason: cancelReason || null,
+    });
     if (!error) {
       setMode('view');
       await loadBooking();
@@ -98,15 +93,11 @@ export default function BookingConfirm() {
   const handleProposeReschedule = async () => {
     if (!pickedDate || !pickedTime) return;
     setBusy(true);
-    const { error } = await (supabase as any)
-      .from('workshop_client_bookings')
-      .update({
-        status: 'reschedule_requested',
-        reschedule_requested_at: new Date().toISOString(),
-        proposed_date: pickedDate,
-        proposed_time: pickedTime,
-      })
-      .eq('confirmation_token', token);
+    const { error } = await (supabase as any).rpc('reschedule_workshop_booking_by_token', {
+      p_token: token,
+      p_date: pickedDate,
+      p_time: pickedTime,
+    });
     if (!error) {
       setMode('view');
       await loadBooking();

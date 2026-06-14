@@ -733,11 +733,11 @@ export function EmployeeOrderCardDialog({
                     ✓ {tr('workshop.employeeCard.repairApprovedCanWork')}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" className="h-11 border-orange-400 text-orange-700 hover:bg-orange-50" onClick={openAddon} disabled={saving}>
-                      <PackagePlus className="h-4 w-4 mr-1" /> {tr('workshop.employeeCard.repairAddon')}
+                    <Button variant="outline" className="min-h-11 h-auto py-2 whitespace-normal text-sm leading-tight border-orange-400 text-orange-700 hover:bg-orange-50" onClick={openAddon} disabled={saving}>
+                      <PackagePlus className="h-4 w-4 mr-1 shrink-0" /> {tr('workshop.employeeCard.repairAddon')}
                     </Button>
-                    <Button className="h-11 bg-red-600 hover:bg-red-700 text-white" onClick={finishRepair} disabled={saving}>
-                      {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Check className="h-4 w-4 mr-1" />}
+                    <Button className="min-h-11 h-auto py-2 whitespace-normal text-sm leading-tight bg-red-600 hover:bg-red-700 text-white" onClick={finishRepair} disabled={saving}>
+                      {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin shrink-0" /> : <Check className="h-4 w-4 mr-1 shrink-0" />}
                       {tr('workshop.employeeCard.finishRepair')}
                     </Button>
                   </div>
