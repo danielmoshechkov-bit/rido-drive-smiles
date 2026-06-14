@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Send, Volume2, PhoneCall, RotateCcw } from "lucide-react";
+import { Loader2, Send, Volume2, PhoneCall, RotateCcw, Sparkles } from "lucide-react";
 
 type Msg = { role: "user" | "assistant"; content: string; hidden?: boolean };
 
@@ -21,6 +21,8 @@ interface Props {
   calendarAccess: boolean;
   ordersAccess: boolean;
   voiceId: string;
+  voiceGender: string;
+  learningMode: string;
   voiceSettings: { speed: number; stability: number; similarity: number; style: number };
 }
 
@@ -32,6 +34,27 @@ export function VoiceAgentTestChat(p: Props) {
   const [sending, setSending] = useState(false);
   const [voiced, setVoiced] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+
+  const analyze = async (silent: boolean) => {
+    const turns = msgs.filter((m) => !m.hidden).map((m) => ({ role: m.role, content: m.content }));
+    if (p.learningMode === "off" || turns.length < 2) return;
+    setAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("voice-call-analyze", {
+        body: { provider_id: p.providerId, persona_key: p.personaKey, messages: turns, is_test: true },
+      });
+      if (!silent) {
+        if (error || !data?.ok) toast.error("Analiza: " + (data?.error || error?.message || "błąd"));
+        else toast.success(`System się nauczył: ${data.lessons_learned || 0} reguł${data.outcome ? ` · wynik: ${data.outcome}` : ""}`);
+      }
+    } finally { setAnalyzing(false); }
+  };
+
+  const handleClose = (o: boolean) => {
+    if (!o) analyze(true); // przy zamknięciu — ucz w tle
+    p.onOpenChange(o);
+  };
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -47,6 +70,7 @@ export function VoiceAgentTestChat(p: Props) {
         languages: p.languages,
         calendar_access: p.calendarAccess,
         orders_access: p.ordersAccess,
+        voice_gender: p.voiceGender,
         test_mode: true,
         messages: history.map((m) => ({ role: m.role, content: m.content })),
       },
@@ -114,7 +138,7 @@ export function VoiceAgentTestChat(p: Props) {
   };
 
   return (
-    <Dialog open={p.open} onOpenChange={p.onOpenChange}>
+    <Dialog open={p.open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-4 py-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -128,9 +152,16 @@ export function VoiceAgentTestChat(p: Props) {
             <Volume2 className="h-4 w-4" /> Czytaj odpowiedzi głosem
             {speaking && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           </label>
-          <Button size="sm" variant="ghost" className="gap-1.5" onClick={start} disabled={sending}>
-            <RotateCcw className="h-3.5 w-3.5" /> Od nowa
-          </Button>
+          <div className="flex items-center gap-1">
+            {p.learningMode !== "off" && (
+              <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => analyze(false)} disabled={analyzing || sending}>
+                {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Zakończ i naucz
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" className="gap-1.5" onClick={start} disabled={sending}>
+              <RotateCcw className="h-3.5 w-3.5" /> Od nowa
+            </Button>
+          </div>
         </div>
 
         <div ref={scrollRef} className="h-[360px] overflow-y-auto px-4 py-3 space-y-3 bg-background">

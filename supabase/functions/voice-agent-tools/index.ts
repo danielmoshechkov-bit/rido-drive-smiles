@@ -169,7 +169,9 @@ serve(async (req) => {
       if (!ordersAccess) return json({ ok: false, error: "Agent nie ma dostępu do zleceń (włącz w panelu)." }, 403);
       const name = String(body?.customer_name || "").trim();
       const phone = String(body?.customer_phone || "").trim();
-      const complaint = String(body?.complaint || body?.notes || "").trim();
+      // opis jako czyste linie-punkty (karta pracownika sama numeruje 1. 2. 3.)
+      const complaint = String(body?.complaint || body?.notes || "").trim()
+        .split("\n").map((l) => l.replace(/^\s*[-•*–]\s*/, "").trim()).filter(Boolean).join("\n");
       const date = String(body?.scheduled_date || "");
       const time = String(body?.scheduled_time || "");
       const duration = Number(body?.duration_minutes) || 60;

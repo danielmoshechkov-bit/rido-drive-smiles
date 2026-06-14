@@ -53,6 +53,7 @@ Zbierasz te pola:
 - services (oferowane usługi — KAŻDA W NOWEJ LINII)
 - agent_intro (jak agent ma się przedstawiać i w jakim celu dzwoni/odbiera)
 - purpose (cel rozmów agenta)
+- roadside (czy oferują pomoc drogową / lawetę / dojazd do klienta — i na jakich zasadach; jeśli nie oferują, wpisz "nie")
 - extra_info (dodatkowe: ceny orientacyjne, promocje, zasady)
 
 ZASADY:
@@ -138,7 +139,7 @@ serve(async (req) => {
       parsed = { reply: raw || "Przepraszam, spróbuj jeszcze raz.", fields: {}, done: false };
     }
 
-    const allowed = ["company_name", "description", "hours", "location", "services", "agent_intro", "purpose", "extra_info"];
+    const allowed = ["company_name", "description", "hours", "location", "services", "agent_intro", "purpose", "roadside", "extra_info"];
     const fields: Record<string, string> = {};
     if (parsed?.fields && typeof parsed.fields === "object") {
       for (const k of allowed) if (typeof parsed.fields[k] === "string" && parsed.fields[k].trim()) fields[k] = parsed.fields[k];

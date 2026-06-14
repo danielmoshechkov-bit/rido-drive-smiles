@@ -30,7 +30,7 @@ interface VoiceItem {
 }
 interface BusinessContext {
   company_name: string; description: string; hours: string; location: string;
-  services: string; agent_intro: string; purpose: string; extra_info: string;
+  services: string; agent_intro: string; purpose: string; roadside: string; extra_info: string;
 }
 interface VoiceConfig {
   persona_key: string; is_active: boolean; display_name: string;
@@ -38,7 +38,7 @@ interface VoiceConfig {
   voice_speed: number; voice_stability: number; voice_similarity: number; voice_style: number;
   sample_text: string; languages: string[]; inbound_mode: string; inbound_rings: number;
   calling_hours: { from?: string; to?: string }; business_context: BusinessContext;
-  calendar_access: boolean; orders_access: boolean;
+  calendar_access: boolean; orders_access: boolean; learning_mode: string;
 }
 
 const LANGS = [
@@ -57,7 +57,7 @@ const DEFAULT_SAMPLE = SAMPLE_TEXTS.pl;
 const OPTIMAL = { voice_stability: 0.45, voice_similarity: 0.75, voice_style: 0.0, voice_speed: 1.0 };
 
 const emptyBC = (): BusinessContext => ({
-  company_name: "", description: "", hours: "", location: "", services: "", agent_intro: "", purpose: "", extra_info: "",
+  company_name: "", description: "", hours: "", location: "", services: "", agent_intro: "", purpose: "", roadside: "", extra_info: "",
 });
 function defaultsFor(persona: Persona | undefined): VoiceConfig {
   return {
@@ -67,7 +67,7 @@ function defaultsFor(persona: Persona | undefined): VoiceConfig {
     voice_similarity: OPTIMAL.voice_similarity, voice_style: OPTIMAL.voice_style,
     sample_text: DEFAULT_SAMPLE, languages: persona?.supported_langs?.length ? persona.supported_langs : ["pl"],
     inbound_mode: "off", inbound_rings: 4, calling_hours: {}, business_context: emptyBC(),
-    calendar_access: false, orders_access: false,
+    calendar_access: false, orders_access: false, learning_mode: "per_call",
   };
 }
 
@@ -151,6 +151,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           inbound_mode: data.inbound_mode ?? "off", inbound_rings: data.inbound_rings ?? 4,
           calling_hours: data.calling_hours ?? {}, business_context: { ...emptyBC(), ...(data.business_context ?? {}) },
           calendar_access: !!data.calendar_access, orders_access: !!data.orders_access,
+          learning_mode: data.learning_mode || "per_call",
         };
       } else {
         loaded = defaultsFor(persona);
@@ -256,6 +257,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
         inbound_mode: cfg.inbound_mode, inbound_rings: cfg.inbound_rings,
         calling_hours: cfg.calling_hours, business_context: cfg.business_context,
         calendar_access: cfg.calendar_access, orders_access: cfg.orders_access,
+        learning_mode: cfg.learning_mode,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "provider_id,persona_key" },
@@ -371,6 +373,8 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
             calendarAccess={cfg.calendar_access}
             ordersAccess={cfg.orders_access}
             voiceId={cfg.voice_mode === "per_language" ? (cfg.voice_per_language["pl"] || cfg.voice_id) : cfg.voice_id}
+            voiceGender={byId(cfg.voice_mode === "per_language" ? (cfg.voice_per_language["pl"] || cfg.voice_id) : cfg.voice_id)?.gender || ""}
+            learningMode={cfg.learning_mode}
             voiceSettings={{ speed: cfg.voice_speed, stability: cfg.voice_stability, similarity: cfg.voice_similarity, style: cfg.voice_style }}
           />
 
@@ -542,6 +546,9 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                 <Textarea rows={2} value={cfg.business_context.agent_intro} onChange={(e) => updateBC({ agent_intro: e.target.value })} placeholder="np. Dzień dobry, tu Kasia z Auto-Serwis Kowalski — pomogę umówić wizytę." /></div>
               <div className="space-y-2"><Label>Cel rozmowy</Label>
                 <Input value={cfg.business_context.purpose} onChange={(e) => updateBC({ purpose: e.target.value })} placeholder="np. umawianie klientów na serwis" /></div>
+              <div className="space-y-2"><Label>Pomoc drogowa / laweta / dojazd</Label>
+                <Input value={cfg.business_context.roadside} onChange={(e) => updateBC({ roadside: e.target.value })} placeholder="np. Tak — laweta na terenie miasta, 150 zł / Nie oferujemy" />
+                <p className="text-xs text-muted-foreground">Agent zaproponuje to tylko jeśli tu wpiszesz, że oferujecie.</p></div>
               <div className="space-y-2"><Label>Dodatkowe informacje dla AI (ceny, promocje, zasady)</Label>
                 <Textarea rows={3} value={cfg.business_context.extra_info} onChange={(e) => updateBC({ extra_info: e.target.value })} placeholder="np. Wymiana oleju od 150 zł. Nie umawiamy na niedziele." /></div>
             </CardContent>
@@ -573,6 +580,23 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                   </div>
                 </div>
                 <Switch checked={cfg.orders_access} onCheckedChange={(v) => update({ orders_access: v })} />
+              </div>
+              <div className="flex items-start justify-between gap-4 pt-2 border-t">
+                <div className="flex gap-3">
+                  <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <Label>Uczenie z rozmów</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Po rozmowie system analizuje przebieg, wyciąga wnioski i błędy, i poprawia kolejne rozmowy.</p>
+                  </div>
+                </div>
+                <Select value={cfg.learning_mode} onValueChange={(v) => update({ learning_mode: v })}>
+                  <SelectTrigger className="w-[170px] h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="per_call">Po każdej rozmowie</SelectItem>
+                    <SelectItem value="batched">Wsadowo (przy skali)</SelectItem>
+                    <SelectItem value="off">Wyłączone</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
