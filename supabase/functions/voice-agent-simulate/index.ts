@@ -75,7 +75,15 @@ serve(async (req) => {
       .select("business_context, display_name, languages, calendar_access, orders_access")
       .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle()).data;
 
-    const scenario = String(body?.scenario || SCENARIOS[(seed + Math.floor(Date.now() / 1000)) % SCENARIOS.length]);
+    // Scenariusz: AI sam wymyśla różnorodny (czasem podchwytliwy/edge-case); fallback do listy.
+    let scenario = String(body?.scenario || "");
+    if (!scenario) {
+      const hint = cfg?.business_context?.description ? `Profil firmy: ${cfg.business_context.description}.` : "";
+      const gen = await anthropic(apiKey, "claude-haiku-4-5-20251001",
+        `Wymyśl JEDEN realistyczny, RÓŻNORODNY scenariusz telefonu KLIENTA do firmy usługowej (warsztat/detailing/myjnia/wypożyczalnia). ${hint} Różnicuj: typ klienta, problem, nastawienie, język (czasem rosyjski/ukraiński/angielski), poziom trudności. Co kilka losowań zrób PODCHWYTLIWY/edge-case (np. niejasny problem, mocna obiekcja cenowa, żądanie czegoś czego firma nie robi, zły numer, klient zmienia zdanie). Zwróć TYLKO jedno zdanie scenariusza, bez komentarza.`,
+        [{ role: "user", content: `Wylosuj scenariusz numer ${seed}, inny niż typowe.` }], 120);
+      scenario = (gen || "").trim().replace(/^["'-]\s*/, "") || SCENARIOS[(seed + Math.floor(Date.now() / 1000)) % SCENARIOS.length];
+    }
     const custSystem = `Jesteś KLIENTEM dzwoniącym do firmy usługowej (warsztat/detailing). Scenariusz: ${scenario}. Mów krótko, naturalnie, po polsku (chyba że scenariusz mówi inaczej). Zachowuj się realistycznie — czasem dopytaj o cenę albo zgłoś wątpliwość. Podaj swoje dane (imię, telefon, markę/model/nr rej) dopiero gdy agent zapyta. Gdy wizyta jest umówiona i wszystko jasne, podziękuj i napisz na końcu [KONIEC].`;
 
     // mózg agenta (dry-run narzędzi — bez zapisu)

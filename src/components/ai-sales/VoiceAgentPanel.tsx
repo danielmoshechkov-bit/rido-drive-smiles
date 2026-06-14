@@ -602,9 +602,9 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           {/* TRENING — symulacje self-play */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> Trening agenta (symulacje)</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> Trening agenta — AI sam testuje</CardTitle>
               <CardDescription>
-                Symulowani klienci rozmawiają z agentem; po każdej rozmowie system wyłapuje błędy i dopisuje reguły. Agent uczy się sprzedawać i umawiać — zanim odbierze realny telefon.
+                AI gra OBIE role: wciela się w klienta (samo wymyśla różne, też podchwytliwe scenariusze) i rozmawia z Twoim agentem. Po każdej rozmowie wyłapuje błędy i dopisuje reguły. Ty tylko uruchamiasz serię — resztę robi AI.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
