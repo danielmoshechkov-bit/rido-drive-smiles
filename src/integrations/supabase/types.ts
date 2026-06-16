@@ -4115,6 +4115,33 @@ export type Database = {
           },
         ]
       }
+      ai_secret_store: {
+        Row: {
+          ciphertext: string
+          is_encrypted: boolean
+          secret_group: string | null
+          secret_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ciphertext: string
+          is_encrypted?: boolean
+          secret_group?: string | null
+          secret_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ciphertext?: string
+          is_encrypted?: boolean
+          secret_group?: string | null
+          secret_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       ai_settings: {
         Row: {
           ai_enabled: boolean | null
@@ -18771,6 +18798,51 @@ export type Database = {
           },
         ]
       }
+      translatable_entities: {
+        Row: {
+          created_at: string
+          domain_hint: string | null
+          enabled: boolean
+          entity_type: string
+          fields: string[]
+          label: string | null
+          priority: number
+          provider_agent_id: string
+          source_lang_default: string
+          source_table: string | null
+          target_langs: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          domain_hint?: string | null
+          enabled?: boolean
+          entity_type: string
+          fields?: string[]
+          label?: string | null
+          priority?: number
+          provider_agent_id?: string
+          source_lang_default?: string
+          source_table?: string | null
+          target_langs?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          domain_hint?: string | null
+          enabled?: boolean
+          entity_type?: string
+          fields?: string[]
+          label?: string | null
+          priority?: number
+          provider_agent_id?: string
+          source_lang_default?: string
+          source_table?: string | null
+          target_langs?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       translation_cache_global: {
         Row: {
           created_at: string
@@ -20804,6 +20876,635 @@ export type Database = {
           },
         ]
       }
+      voice_agent_configs: {
+        Row: {
+          business_context: Json
+          byo_caller_id: string | null
+          calendar_access: boolean
+          calling_hours: Json
+          contribute_to_global: boolean
+          created_at: string
+          custom_prompt_override: string | null
+          display_name: string | null
+          elevenlabs_agent_id: string | null
+          id: string
+          inbound_mode: string
+          inbound_rings: number
+          is_active: boolean
+          languages: string[]
+          learning_mode: string
+          monthly_minute_cap: number | null
+          orders_access: boolean
+          outbound_enabled: boolean
+          persona_key: string
+          privacy_confirmed: boolean
+          privacy_confirmed_at: string | null
+          provider_id: string
+          sample_text: string | null
+          timezone: string
+          twilio_number: string | null
+          twilio_subaccount_sid: string | null
+          updated_at: string
+          voice_id: string | null
+          voice_mode: string
+          voice_per_language: Json
+          voice_similarity: number
+          voice_speed: number
+          voice_stability: number
+          voice_style: number
+        }
+        Insert: {
+          business_context?: Json
+          byo_caller_id?: string | null
+          calendar_access?: boolean
+          calling_hours?: Json
+          contribute_to_global?: boolean
+          created_at?: string
+          custom_prompt_override?: string | null
+          display_name?: string | null
+          elevenlabs_agent_id?: string | null
+          id?: string
+          inbound_mode?: string
+          inbound_rings?: number
+          is_active?: boolean
+          languages?: string[]
+          learning_mode?: string
+          monthly_minute_cap?: number | null
+          orders_access?: boolean
+          outbound_enabled?: boolean
+          persona_key: string
+          privacy_confirmed?: boolean
+          privacy_confirmed_at?: string | null
+          provider_id: string
+          sample_text?: string | null
+          timezone?: string
+          twilio_number?: string | null
+          twilio_subaccount_sid?: string | null
+          updated_at?: string
+          voice_id?: string | null
+          voice_mode?: string
+          voice_per_language?: Json
+          voice_similarity?: number
+          voice_speed?: number
+          voice_stability?: number
+          voice_style?: number
+        }
+        Update: {
+          business_context?: Json
+          byo_caller_id?: string | null
+          calendar_access?: boolean
+          calling_hours?: Json
+          contribute_to_global?: boolean
+          created_at?: string
+          custom_prompt_override?: string | null
+          display_name?: string | null
+          elevenlabs_agent_id?: string | null
+          id?: string
+          inbound_mode?: string
+          inbound_rings?: number
+          is_active?: boolean
+          languages?: string[]
+          learning_mode?: string
+          monthly_minute_cap?: number | null
+          orders_access?: boolean
+          outbound_enabled?: boolean
+          persona_key?: string
+          privacy_confirmed?: boolean
+          privacy_confirmed_at?: string | null
+          provider_id?: string
+          sample_text?: string | null
+          timezone?: string
+          twilio_number?: string | null
+          twilio_subaccount_sid?: string | null
+          updated_at?: string
+          voice_id?: string | null
+          voice_mode?: string
+          voice_per_language?: Json
+          voice_similarity?: number
+          voice_speed?: number
+          voice_stability?: number
+          voice_style?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_agent_configs_persona_key_fkey"
+            columns: ["persona_key"]
+            isOneToOne: false
+            referencedRelation: "voice_agent_personas"
+            referencedColumns: ["persona_key"]
+          },
+          {
+            foreignKeyName: "voice_agent_configs_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_agent_knowledge: {
+        Row: {
+          category: string
+          confidence: number
+          created_at: string
+          embedding: Json | null
+          evidence_count: number
+          failure_count: number
+          id: string
+          is_active: boolean
+          keywords: string[]
+          language: string
+          last_reinforced_at: string | null
+          persona_key: string
+          provider_id: string | null
+          rationale: string | null
+          recommended_response: string
+          scope: string
+          situation: string
+          source: string
+          success_count: number
+          success_rate: number
+          trigger_phrases: string[]
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          confidence?: number
+          created_at?: string
+          embedding?: Json | null
+          evidence_count?: number
+          failure_count?: number
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          language?: string
+          last_reinforced_at?: string | null
+          persona_key: string
+          provider_id?: string | null
+          rationale?: string | null
+          recommended_response: string
+          scope?: string
+          situation: string
+          source?: string
+          success_count?: number
+          success_rate?: number
+          trigger_phrases?: string[]
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          confidence?: number
+          created_at?: string
+          embedding?: Json | null
+          evidence_count?: number
+          failure_count?: number
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          language?: string
+          last_reinforced_at?: string | null
+          persona_key?: string
+          provider_id?: string | null
+          rationale?: string | null
+          recommended_response?: string
+          scope?: string
+          situation?: string
+          source?: string
+          success_count?: number
+          success_rate?: number
+          trigger_phrases?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_agent_knowledge_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_agent_personas: {
+        Row: {
+          allowed_tools: string[]
+          calendar_target: string
+          created_at: string
+          default_model: string
+          default_voice_id: string | null
+          description: string | null
+          direction: string
+          enabled: boolean
+          icon: string | null
+          lead_sources: string[]
+          name: string
+          persona_key: string
+          priority: number
+          provider_agent_id: string
+          supported_langs: string[]
+          updated_at: string
+        }
+        Insert: {
+          allowed_tools?: string[]
+          calendar_target?: string
+          created_at?: string
+          default_model?: string
+          default_voice_id?: string | null
+          description?: string | null
+          direction?: string
+          enabled?: boolean
+          icon?: string | null
+          lead_sources?: string[]
+          name: string
+          persona_key: string
+          priority?: number
+          provider_agent_id: string
+          supported_langs?: string[]
+          updated_at?: string
+        }
+        Update: {
+          allowed_tools?: string[]
+          calendar_target?: string
+          created_at?: string
+          default_model?: string
+          default_voice_id?: string | null
+          description?: string | null
+          direction?: string
+          enabled?: boolean
+          icon?: string | null
+          lead_sources?: string[]
+          name?: string
+          persona_key?: string
+          priority?: number
+          provider_agent_id?: string
+          supported_langs?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      voice_call_outcomes: {
+        Row: {
+          analysis_model: string | null
+          analyzed_at: string | null
+          call_id: string
+          created_at: string
+          customer_data: Json
+          id: string
+          key_topics: string[]
+          losing_signals: Json
+          next_step: string | null
+          objections: Json
+          outcome: string | null
+          outcome_confidence: number
+          persona_key: string
+          provider_id: string
+          sentiment_arc: string | null
+          sentiment_end: string | null
+          sentiment_start: string | null
+          winning_phrases: Json
+        }
+        Insert: {
+          analysis_model?: string | null
+          analyzed_at?: string | null
+          call_id: string
+          created_at?: string
+          customer_data?: Json
+          id?: string
+          key_topics?: string[]
+          losing_signals?: Json
+          next_step?: string | null
+          objections?: Json
+          outcome?: string | null
+          outcome_confidence?: number
+          persona_key: string
+          provider_id: string
+          sentiment_arc?: string | null
+          sentiment_end?: string | null
+          sentiment_start?: string | null
+          winning_phrases?: Json
+        }
+        Update: {
+          analysis_model?: string | null
+          analyzed_at?: string | null
+          call_id?: string
+          created_at?: string
+          customer_data?: Json
+          id?: string
+          key_topics?: string[]
+          losing_signals?: Json
+          next_step?: string | null
+          objections?: Json
+          outcome?: string | null
+          outcome_confidence?: number
+          persona_key?: string
+          provider_id?: string
+          sentiment_arc?: string | null
+          sentiment_end?: string | null
+          sentiment_start?: string | null
+          winning_phrases?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_call_outcomes_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "voice_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_call_queue: {
+        Row: {
+          attempts: number
+          contact_name: string | null
+          context: Json
+          created_at: string
+          id: string
+          language: string | null
+          last_error: string | null
+          lead_id: string | null
+          lead_table: string | null
+          max_attempts: number
+          persona_key: string
+          phone: string
+          priority: number
+          provider_id: string
+          scheduled_for: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          contact_name?: string | null
+          context?: Json
+          created_at?: string
+          id?: string
+          language?: string | null
+          last_error?: string | null
+          lead_id?: string | null
+          lead_table?: string | null
+          max_attempts?: number
+          persona_key: string
+          phone: string
+          priority?: number
+          provider_id: string
+          scheduled_for?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          contact_name?: string | null
+          context?: Json
+          created_at?: string
+          id?: string
+          language?: string | null
+          last_error?: string | null
+          lead_id?: string | null
+          lead_table?: string | null
+          max_attempts?: number
+          persona_key?: string
+          phone?: string
+          priority?: number
+          provider_id?: string
+          scheduled_for?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_call_queue_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_calls: {
+        Row: {
+          answered_at: string | null
+          config_id: string | null
+          contact_name: string | null
+          cost_estimate_usd: number
+          created_at: string
+          direction: string
+          duration_seconds: number
+          elevenlabs_conversation_id: string | null
+          ended_at: string | null
+          from_number: string | null
+          id: string
+          language_detected: string | null
+          lead_id: string | null
+          lead_table: string | null
+          linked_entity_id: string | null
+          linked_entity_type: string | null
+          llm_tokens_used: number
+          outcome: string | null
+          persona_key: string
+          provider_id: string
+          recording_disabled: boolean
+          started_at: string | null
+          status: string
+          summary: string | null
+          to_number: string | null
+          twilio_call_sid: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          config_id?: string | null
+          contact_name?: string | null
+          cost_estimate_usd?: number
+          created_at?: string
+          direction: string
+          duration_seconds?: number
+          elevenlabs_conversation_id?: string | null
+          ended_at?: string | null
+          from_number?: string | null
+          id?: string
+          language_detected?: string | null
+          lead_id?: string | null
+          lead_table?: string | null
+          linked_entity_id?: string | null
+          linked_entity_type?: string | null
+          llm_tokens_used?: number
+          outcome?: string | null
+          persona_key: string
+          provider_id: string
+          recording_disabled?: boolean
+          started_at?: string | null
+          status?: string
+          summary?: string | null
+          to_number?: string | null
+          twilio_call_sid?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          config_id?: string | null
+          contact_name?: string | null
+          cost_estimate_usd?: number
+          created_at?: string
+          direction?: string
+          duration_seconds?: number
+          elevenlabs_conversation_id?: string | null
+          ended_at?: string | null
+          from_number?: string | null
+          id?: string
+          language_detected?: string | null
+          lead_id?: string | null
+          lead_table?: string | null
+          linked_entity_id?: string | null
+          linked_entity_type?: string | null
+          llm_tokens_used?: number
+          outcome?: string | null
+          persona_key?: string
+          provider_id?: string
+          recording_disabled?: boolean
+          started_at?: string | null
+          status?: string
+          summary?: string | null
+          to_number?: string | null
+          twilio_call_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_calls_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "voice_agent_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_calls_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_contact_history: {
+        Row: {
+          contact_name: string | null
+          contact_phone: string
+          created_at: string
+          do_not_call: boolean
+          id: string
+          key_facts: Json
+          last_call_id: string | null
+          last_contacted_at: string | null
+          last_outcome: string | null
+          lead_id: string | null
+          lead_table: string | null
+          persona_key: string | null
+          provider_id: string
+          summary: string | null
+          total_calls: number
+          updated_at: string
+        }
+        Insert: {
+          contact_name?: string | null
+          contact_phone: string
+          created_at?: string
+          do_not_call?: boolean
+          id?: string
+          key_facts?: Json
+          last_call_id?: string | null
+          last_contacted_at?: string | null
+          last_outcome?: string | null
+          lead_id?: string | null
+          lead_table?: string | null
+          persona_key?: string | null
+          provider_id: string
+          summary?: string | null
+          total_calls?: number
+          updated_at?: string
+        }
+        Update: {
+          contact_name?: string | null
+          contact_phone?: string
+          created_at?: string
+          do_not_call?: boolean
+          id?: string
+          key_facts?: Json
+          last_call_id?: string | null
+          last_contacted_at?: string | null
+          last_outcome?: string | null
+          lead_id?: string | null
+          lead_table?: string | null
+          persona_key?: string | null
+          provider_id?: string
+          summary?: string | null
+          total_calls?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_contact_history_last_call_id_fkey"
+            columns: ["last_call_id"]
+            isOneToOne: false
+            referencedRelation: "voice_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_contact_history_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_phone_numbers: {
+        Row: {
+          assigned_persona_key: string | null
+          created_at: string
+          id: string
+          is_verified_caller_id: boolean
+          kind: string
+          number: string
+          provider_id: string
+          status: string
+          twilio_sid: string | null
+          twilio_subaccount_sid: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_persona_key?: string | null
+          created_at?: string
+          id?: string
+          is_verified_caller_id?: boolean
+          kind?: string
+          number: string
+          provider_id: string
+          status?: string
+          twilio_sid?: string | null
+          twilio_subaccount_sid?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_persona_key?: string | null
+          created_at?: string
+          id?: string
+          is_verified_caller_id?: boolean
+          kind?: string
+          number?: string
+          provider_id?: string
+          status?: string
+          twilio_sid?: string | null
+          twilio_subaccount_sid?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_phone_numbers_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voice_phrase_cache: {
         Row: {
           audio_url: string | null
@@ -20836,6 +21537,94 @@ export type Database = {
           voice_name?: string | null
         }
         Relationships: []
+      }
+      voice_transcripts: {
+        Row: {
+          call_id: string
+          created_at: string
+          full_text: string | null
+          id: string
+          provider_id: string
+          summary: string | null
+          summary_lang: string
+          turns: Json
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          full_text?: string | null
+          id?: string
+          provider_id: string
+          summary?: string | null
+          summary_lang?: string
+          turns?: Json
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          full_text?: string | null
+          id?: string
+          provider_id?: string
+          summary?: string | null
+          summary_lang?: string
+          turns?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_transcripts_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "voice_calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_usage_monthly: {
+        Row: {
+          id: string
+          inbound_calls: number
+          inbound_minutes: number
+          llm_tokens: number
+          outbound_calls: number
+          outbound_minutes: number
+          provider_id: string
+          total_cost_estimate_usd: number
+          updated_at: string
+          year_month: string
+        }
+        Insert: {
+          id?: string
+          inbound_calls?: number
+          inbound_minutes?: number
+          llm_tokens?: number
+          outbound_calls?: number
+          outbound_minutes?: number
+          provider_id: string
+          total_cost_estimate_usd?: number
+          updated_at?: string
+          year_month: string
+        }
+        Update: {
+          id?: string
+          inbound_calls?: number
+          inbound_minutes?: number
+          llm_tokens?: number
+          outbound_calls?: number
+          outbound_minutes?: number
+          provider_id?: string
+          total_cost_estimate_usd?: number
+          updated_at?: string
+          year_month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_usage_monthly_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wallet_pln_transactions: {
         Row: {
@@ -21521,7 +22310,8 @@ export type Database = {
           created_at: string
           id: string
           invited_by: string | null
-          invited_email: string
+          invited_email: string | null
+          invited_phone: string | null
           invited_user_id: string | null
           language_preference: string | null
           provider_id: string
@@ -21535,7 +22325,8 @@ export type Database = {
           created_at?: string
           id?: string
           invited_by?: string | null
-          invited_email: string
+          invited_email?: string | null
+          invited_phone?: string | null
           invited_user_id?: string | null
           language_preference?: string | null
           provider_id: string
@@ -21549,7 +22340,8 @@ export type Database = {
           created_at?: string
           id?: string
           invited_by?: string | null
-          invited_email?: string
+          invited_email?: string | null
+          invited_phone?: string | null
           invited_user_id?: string | null
           language_preference?: string | null
           provider_id?: string
@@ -24390,6 +25182,16 @@ export type Database = {
           sms_balance: number
           user_id: string
         }[]
+      }
+      cache_global_translation: {
+        Args: {
+          p_hash: string
+          p_source_lang: string
+          p_source_text: string
+          p_target_lang: string
+          p_translated: string
+        }
+        Returns: undefined
       }
       calculate_driver_payout_with_debt: {
         Args: { p_calculated_payout: number; p_driver_id: string }
