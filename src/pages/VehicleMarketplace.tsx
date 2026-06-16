@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { VehicleTypeSelector } from "@/components/marketplace/VehicleTypeSelector";
 import { TransactionTypeChips } from "@/components/marketplace/TransactionTypeChips";
 import { VehicleSearchWithMap, VehicleSearchFilters } from "@/components/marketplace/VehicleSearchWithMap";
-import { VehicleResultsMapModal } from "@/components/marketplace/VehicleResultsMapModal";
+import { FullscreenVehicleMapView } from "@/components/marketplace/FullscreenVehicleMapView";
 import { ListingCard } from "@/components/marketplace/ListingCard";
 import { AdBanner } from "@/components/marketplace/AdBanner";
 import { CompareBar } from "@/components/marketplace/CompareBar";
