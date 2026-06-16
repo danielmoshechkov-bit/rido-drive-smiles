@@ -157,6 +157,8 @@ export default function VehicleMarketplace() {
           price_type,
           location,
           city,
+          latitude,
+          longitude,
           photos,
           brand,
           model,
