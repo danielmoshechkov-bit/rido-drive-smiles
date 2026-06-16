@@ -1,9 +1,19 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import Supercluster from "supercluster";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useGoogleMaps } from "@/hooks/useGoogleMaps";
+import { useClusterIndex } from "@/hooks/useClusterIndex";
+import { useMapDrawingTools } from "@/hooks/useMapDrawingTools";
+import { createCustomOverlayClass } from "@/lib/maps/CustomOverlay";
+import {
+  isPointInPolygon,
+  haversineDistance,
+  ensureClockwise,
+  ensureCounterClockwise,
+  createCirclePolygon,
+  WORLD_MASK_PATH,
+} from "@/lib/maps/geometry";
 import {
   X, MapPin, Search, Loader2, Home, PenTool, Circle, ChevronLeft, ChevronRight,
 } from "lucide-react";
@@ -113,22 +123,28 @@ export function FullscreenMapView({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
-  const clusterIndexRef = useRef<Supercluster | null>(null);
   const overlaysRef = useRef<any[]>([]);
 
-  // Drawing refs
-  const drawingPolygonRef = useRef<google.maps.Polygon | null>(null);
-  const drawingPolylineRef = useRef<google.maps.Polyline | null>(null);
+  // District (mask + highlight) refs — these stay portal-specific
   const districtPolygonsRef = useRef<google.maps.Polygon[]>([]);
   const districtMaskRef = useRef<google.maps.Polygon | null>(null);
-  const circleRef = useRef<google.maps.Circle | null>(null);
   const selectionMaskRef = useRef<google.maps.Polygon | null>(null);
   const selectionHighlightRef = useRef<google.maps.Polygon | null>(null);
   const districtHighlightRef = useRef<google.maps.Polygon[]>([]);
-  const drawingCleanupRef = useRef<(() => void) | null>(null);
-  const isBrushDrawingRef = useRef(false);
-  // Track if we just finished drawing to suppress click-through
-  const justFinishedDrawingRef = useRef(false);
+
+  // Freehand pen / circle drawing (shared hook)
+  const {
+    drawingMode,
+    drawnArea,
+    circleCenter,
+    circleRadius,
+    hasActiveDrawing,
+    startPolygonDrawing,
+    startCircleDrawing,
+    clearAllDrawing,
+    justFinishedDrawingRef,
+    disposeDrawing,
+  } = useMapDrawingTools({ google, mapRef, mapContainerRef });
 
   const [selectedListing, setSelectedListing] = useState<PropertyListingForMap | null>(null);
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
@@ -140,10 +156,6 @@ export function FullscreenMapView({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mapPropertyType, setMapPropertyType] = useState<string | null>(null);
   const [mapTransactionType, setMapTransactionType] = useState<string | null>(null);
-  const [drawingMode, setDrawingMode] = useState<false | "pen" | "circle">(false);
-  const [drawnArea, setDrawnArea] = useState<Array<{ lat: number; lng: number }> | null>(null);
-  const [circleCenter, setCircleCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const [circleRadius, setCircleRadius] = useState(1000);
   const [bufferDistance, setBufferDistance] = useState(0);
   const [useBuffer, setUseBuffer] = useState(false);
   const [districtBoundaries, setDistrictBoundaries] = useState<Array<Array<{ lat: number; lng: number }>>>([]);
@@ -234,69 +246,20 @@ export function FullscreenMapView({
   const formatPriceFull = (price: number) => price.toLocaleString("pl-PL") + "\u00A0zł";
 
   // === Supercluster === (higher maxZoom for better detail)
-  useEffect(() => {
-    const withCoords = filteredListings.filter((l) => l.lat && l.lng);
-    if (!withCoords.length) { clusterIndexRef.current = null; return; }
-    const index = new Supercluster({ radius: 40, maxZoom: 20, minZoom: 3 });
-    index.load(
-      withCoords.map((l) => ({
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: [l.lng!, l.lat!] },
-        properties: { listing: l },
-      }))
-    );
-    clusterIndexRef.current = index;
-  }, [filteredListings]);
-
-  const lockDrawingInteraction = useCallback(() => {
-    mapRef.current?.setOptions({ draggable: false, gestureHandling: "none" });
-    if (mapContainerRef.current) {
-      mapContainerRef.current.style.touchAction = "none";
-    }
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.touchAction = "none";
-  }, []);
-
-  const unlockDrawingInteraction = useCallback(() => {
-    mapRef.current?.setOptions({ draggable: true, gestureHandling: "cooperative" });
-    if (mapContainerRef.current) {
-      mapContainerRef.current.style.touchAction = "auto";
-    }
-    document.body.style.overflow = "";
-    document.documentElement.style.overflow = "";
-    document.body.style.touchAction = "";
-  }, []);
+  const { indexRef: clusterIndexRef, version: clusterVersion } = useClusterIndex(
+    filteredListings,
+    (l) => (l.lat && l.lng ? [l.lng, l.lat] : null),
+    { radius: 40, maxZoom: 20, minZoom: 3 },
+  );
 
   // === Overlay class ===
   const createOverlayClass = useCallback(() => {
     if (!google) return null;
-    return class extends google.maps.OverlayView {
-      private pos: google.maps.LatLng;
-      private div: HTMLDivElement;
-      private handler: () => void;
-      constructor(p: { lat: number; lng: number }, content: HTMLDivElement, map: google.maps.Map, onClick: () => void) {
-        super();
-        this.pos = new google.maps.LatLng(p.lat, p.lng);
-        this.handler = () => {
-          // Suppress click if drawing just finished
-          if (justFinishedDrawingRef.current) return;
-          onClick();
-        };
-        this.div = document.createElement("div");
-        this.div.style.position = "absolute";
-        this.div.appendChild(content);
-        this.div.addEventListener("click", this.handler);
-        this.setMap(map);
-      }
-      onAdd() { this.getPanes()?.floatPane.appendChild(this.div); }
-      draw() {
-        const pt = this.getProjection().fromLatLngToDivPixel(this.pos);
-        if (pt) { this.div.style.left = pt.x + "px"; this.div.style.top = pt.y + "px"; }
-      }
-      onRemove() { this.div.removeEventListener("click", this.handler); this.div.parentNode?.removeChild(this.div); }
-    };
-  }, [google]);
+    return createCustomOverlayClass(google, {
+      // Suppress click-through right after a freehand draw finishes
+      shouldSuppressClick: () => justFinishedDrawingRef.current ?? false,
+    });
+  }, [google, justFinishedDrawingRef]);
 
   const createPriceMarker = useCallback((listing: PropertyListingForMap): HTMLDivElement => {
     const transType = listing.transactionType?.toLowerCase() || "";
@@ -358,7 +321,7 @@ export function FullscreenMapView({
           })
         );
       } else {
-        const listing = cluster.properties.listing;
+        const listing = cluster.properties.item;
         overlaysRef.current.push(
           new Overlay({ lat, lng }, createPriceMarker(listing), map, () => {
             setSelectedListing(listing);
@@ -423,8 +386,6 @@ export function FullscreenMapView({
       clearTimeout(initTimeout);
       overlaysRef.current.forEach((o) => o.setMap?.(null));
       overlaysRef.current = [];
-      drawingPolygonRef.current?.setMap(null);
-      drawingPolylineRef.current?.setMap(null);
       selectionMaskRef.current?.setMap(null);
       selectionHighlightRef.current?.setMap(null);
       districtPolygonsRef.current.forEach(p => p.setMap(null));
@@ -433,17 +394,14 @@ export function FullscreenMapView({
       districtMaskRef.current = null;
       districtHighlightRef.current.forEach(p => p.setMap(null));
       districtHighlightRef.current = [];
-      circleRef.current?.setMap(null);
-      drawingCleanupRef.current?.();
-      drawingCleanupRef.current = null;
-      unlockDrawingInteraction();
+      disposeDrawing();
       mapRef.current = null;
     };
-  }, [open, isLoaded, google, listings, unlockDrawingInteraction]);
+  }, [open, isLoaded, google, listings, disposeDrawing]);
 
   useEffect(() => {
     if (mapRef.current && google) updateMarkers();
-  }, [updateMarkers, google]);
+  }, [updateMarkers, google, clusterVersion]);
 
   // === Rebuild drawn area / circle mask overlay ===
   useEffect(() => {
@@ -467,7 +425,6 @@ export function FullscreenMapView({
         zIndex: 1,
       });
 
-      drawingPolygonRef.current?.setMap(null);
       return;
     }
 
@@ -521,172 +478,7 @@ export function FullscreenMapView({
     });
   }, [google]);
 
-  // === Polygon drawing ===
-  const startPolygonDrawing = useCallback(() => {
-    if (!mapRef.current || !google) return;
-    drawingCleanupRef.current?.();
-    drawingCleanupRef.current = null;
-    setDrawingMode("pen");
-    setDrawnArea(null);
-    setCircleCenter(null);
-    circleRef.current?.setMap(null);
-    drawingPolygonRef.current?.setMap(null);
-    selectionMaskRef.current?.setMap(null);
-    const map = mapRef.current;
-    lockDrawingInteraction();
-    const path: google.maps.LatLng[] = [];
-    const polyline = new google.maps.Polyline({ map, path, strokeColor: "#7c3aed", strokeWeight: 3, strokeOpacity: 0.8 });
-    drawingPolylineRef.current = polyline;
-    isBrushDrawingRef.current = false;
-
-    const startDraw = (latLng: google.maps.LatLng) => {
-      isBrushDrawingRef.current = true;
-      path.length = 0;
-      path.push(latLng);
-      polyline.setPath(path);
-    };
-    const continueDraw = (latLng: google.maps.LatLng) => {
-      if (!isBrushDrawingRef.current) return;
-      path.push(latLng);
-      polyline.setPath(path);
-    };
-    const endDraw = () => {
-      if (!isBrushDrawingRef.current) return;
-      isBrushDrawingRef.current = false;
-      cleanup();
-      unlockDrawingInteraction();
-      polyline.setMap(null);
-      if (path.length < 3) { setDrawingMode(false); return; }
-      const points = path.map((p) => ({ lat: p.lat(), lng: p.lng() }));
-      const polygon = new google.maps.Polygon({
-        map, paths: points,
-        strokeColor: "#7c3aed", strokeWeight: 2, strokeOpacity: 0.9,
-        fillColor: "#ffffff", fillOpacity: 0.02,
-      });
-      drawingPolygonRef.current = polygon;
-      setDrawnArea(points);
-      setDrawingMode(false);
-      // Block marker clicks for a moment after drawing
-      justFinishedDrawingRef.current = true;
-      setTimeout(() => { justFinishedDrawingRef.current = false; }, 500);
-    };
-
-    // Mouse events (desktop)
-    const mouseDownListener = map.addListener("mousedown", (e: google.maps.MapMouseEvent) => {
-      if (e.latLng) startDraw(e.latLng);
-    });
-    const mouseMoveListener = map.addListener("mousemove", (e: google.maps.MapMouseEvent) => {
-      if (e.latLng) continueDraw(e.latLng);
-    });
-    const mouseUpListener = map.addListener("mouseup", endDraw);
-    const handleWindowMouseUp = () => endDraw();
-    window.addEventListener("mouseup", handleWindowMouseUp);
-
-    // Touch events on map container (mobile)
-    const container = mapContainerRef.current;
-    const getLatLngFromTouch = (touch: Touch): google.maps.LatLng | null => {
-      if (!container || !map.getProjection()) return null;
-      const rect = container.getBoundingClientRect();
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
-      const scale = Math.pow(2, map.getZoom()!);
-      const nw = map.getProjection()!.fromLatLngToPoint(map.getBounds()!.getNorthEast())!;
-      const sw = map.getProjection()!.fromLatLngToPoint(map.getBounds()!.getSouthWest())!;
-      const worldPoint = new google.maps.Point(
-        sw.x + (x / rect.width) * (nw.x - sw.x),
-        nw.y + (y / rect.height) * (sw.y - nw.y)
-      );
-      return map.getProjection()!.fromPointToLatLng(worldPoint);
-    };
-
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const latLng = getLatLngFromTouch(e.touches[0]);
-      if (latLng) startDraw(latLng);
-    };
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const latLng = getLatLngFromTouch(e.touches[0]);
-      if (latLng) continueDraw(latLng);
-    };
-    const handleTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      endDraw();
-    };
-
-    if (container) {
-      container.addEventListener("touchstart", handleTouchStart, { passive: false });
-    }
-    window.addEventListener("touchmove", handleTouchMove, { passive: false });
-    window.addEventListener("touchend", handleTouchEnd, { passive: false });
-    window.addEventListener("touchcancel", handleTouchEnd, { passive: false });
-
-    const cleanup = () => {
-      google.maps.event.removeListener(mouseDownListener);
-      google.maps.event.removeListener(mouseMoveListener);
-      google.maps.event.removeListener(mouseUpListener);
-      window.removeEventListener("mouseup", handleWindowMouseUp);
-      if (container) {
-        container.removeEventListener("touchstart", handleTouchStart);
-      }
-      window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("touchend", handleTouchEnd);
-      window.removeEventListener("touchcancel", handleTouchEnd);
-      drawingCleanupRef.current = null;
-    };
-    drawingCleanupRef.current = cleanup;
-  }, [google, lockDrawingInteraction, unlockDrawingInteraction]);
-
-  // === Circle drawing ===
-  const startCircleDrawing = useCallback(() => {
-    if (!mapRef.current || !google) return;
-    setDrawingMode("circle");
-    setDrawnArea(null);
-    setCircleCenter(null);
-    drawingPolygonRef.current?.setMap(null);
-    circleRef.current?.setMap(null);
-    const map = mapRef.current;
-    const clickListener = map.addListener("click", (e: google.maps.MapMouseEvent) => {
-      if (!e.latLng) return;
-      google.maps.event.removeListener(clickListener);
-      const center = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-      setCircleCenter(center);
-      const circle = new google.maps.Circle({
-        map, center, radius: circleRadius,
-        strokeColor: "#7c3aed", strokeWeight: 2, strokeOpacity: 0.8,
-        fillColor: "#7c3aed", fillOpacity: 0.1, editable: true,
-      });
-      circleRef.current = circle;
-      circle.addListener("radius_changed", () => {
-        setCircleRadius(Math.round(circle.getRadius()));
-      });
-      circle.addListener("center_changed", () => {
-        const c = circle.getCenter();
-        if (c) setCircleCenter({ lat: c.lat(), lng: c.lng() });
-      });
-      setDrawingMode(false);
-    });
-  }, [google, circleRadius]);
-
-  const clearAllDrawing = useCallback(() => {
-    drawingCleanupRef.current?.();
-    drawingCleanupRef.current = null;
-    unlockDrawingInteraction();
-    drawingPolygonRef.current?.setMap(null);
-    drawingPolygonRef.current = null;
-    drawingPolylineRef.current?.setMap(null);
-    drawingPolylineRef.current = null;
-    circleRef.current?.setMap(null);
-    circleRef.current = null;
-    selectionMaskRef.current?.setMap(null);
-    selectionMaskRef.current = null;
-    isBrushDrawingRef.current = false;
-    setDrawnArea(null);
-    setCircleCenter(null);
-    setDrawingMode(false);
-  }, [unlockDrawingInteraction]);
+  // Freehand pen / circle drawing now lives in useMapDrawingTools (shared).
 
   // === Fetch district boundary (additive - supports multi-select) ===
   const addDistrictBoundary = useCallback(async (name: string, parent?: string) => {
@@ -813,8 +605,6 @@ export function FullscreenMapView({
   };
 
   if (!open) return null;
-
-  const hasActiveDrawing = !!(drawnArea || circleCenter);
 
   return (
     <div className="flex flex-col bg-background" style={{ height: 'calc(100vh - 80px)', minHeight: '500px' }}>
@@ -1182,84 +972,4 @@ function SideListingCard({
       </div>
     </div>
   );
-}
-
-// === Utility: Point in polygon ===
-function isPointInPolygon(lat: number, lng: number, polygon: Array<{ lat: number; lng: number }>): boolean {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].lat, yi = polygon[i].lng;
-    const xj = polygon[j].lat, yj = polygon[j].lng;
-    if (((yi > lng) !== (yj > lng)) && (lat < ((xj - xi) * (lng - yi)) / (yj - yi) + xi)) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-// === Utility: Haversine distance in meters ===
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-const WORLD_MASK_PATH = [
-  { lat: -85, lng: -180 },
-  { lat: 85, lng: -180 },
-  { lat: 85, lng: 180 },
-  { lat: -85, lng: 180 },
-];
-
-function getPolygonSignedArea(points: Array<{ lat: number; lng: number }>): number {
-  let area = 0;
-
-  for (let i = 0; i < points.length; i += 1) {
-    const current = points[i];
-    const next = points[(i + 1) % points.length];
-    area += current.lng * next.lat - next.lng * current.lat;
-  }
-
-  return area / 2;
-}
-
-function ensureClockwise(points: Array<{ lat: number; lng: number }>): Array<{ lat: number; lng: number }> {
-  if (points.length < 3) return [...points];
-  return getPolygonSignedArea(points) <= 0 ? [...points] : [...points].reverse();
-}
-
-function ensureCounterClockwise(points: Array<{ lat: number; lng: number }>): Array<{ lat: number; lng: number }> {
-  if (points.length < 3) return [...points];
-  return getPolygonSignedArea(points) >= 0 ? [...points] : [...points].reverse();
-}
-
-function createCirclePolygon(
-  center: { lat: number; lng: number },
-  radiusMeters: number,
-  segments = 72,
-): Array<{ lat: number; lng: number }> {
-  const earthRadius = 6371000;
-  const latRad = center.lat * Math.PI / 180;
-  const lngRad = center.lng * Math.PI / 180;
-  const angularDistance = radiusMeters / earthRadius;
-
-  return Array.from({ length: segments }, (_, index) => {
-    const bearing = (2 * Math.PI * index) / segments;
-    const pointLat = Math.asin(
-      Math.sin(latRad) * Math.cos(angularDistance) +
-      Math.cos(latRad) * Math.sin(angularDistance) * Math.cos(bearing)
-    );
-
-    const pointLng = lngRad + Math.atan2(
-      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latRad),
-      Math.cos(angularDistance) - Math.sin(latRad) * Math.sin(pointLat)
-    );
-
-    return {
-      lat: pointLat * 180 / Math.PI,
-      lng: pointLng * 180 / Math.PI,
-    };
-  });
 }
