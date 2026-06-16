@@ -43,6 +43,8 @@ interface VehicleListing {
   price_type: string | null;
   location: string | null;
   city: string | null;
+  latitude: number | null;
+  longitude: number | null;
   photos: string[] | null;
   brand: string | null;
   model: string | null;
