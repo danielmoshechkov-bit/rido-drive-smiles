@@ -539,23 +539,34 @@ export default function VehicleMarketplace() {
         />
       </section>
 
-      {/* Map Results Modal */}
-      <VehicleResultsMapModal
-        open={showMapResults}
-        onOpenChange={setShowMapResults}
-        listings={filteredListings.map(l => ({
-          id: l.id,
-          title: l.title || `${l.brand || l.vehicle?.brand || ''} ${l.model || l.vehicle?.model || ''}`,
-          price: l.price || l.weekly_price,
-          location: l.city || l.cityName || l.fleet?.city || '',
-          lat: 0,  // TODO: Add lat/lng to vehicle_listings
-          lng: 0,
-          year: l.year || l.vehicle?.year,
-          isSale: l.transaction_type === 'sprzedaz',
-          isRent: l.transaction_type?.includes('wynajem') || false,
-        }))}
-        onViewListing={(id) => navigate(`/gielda/ogloszenie/${id}`)}
-      />
+      {/* Fullscreen Map View */}
+      {showMapResults && (
+        <section>
+          <FullscreenVehicleMapView
+            open={showMapResults}
+            onClose={() => setShowMapResults(false)}
+            listings={filteredListings
+              .map(l => ({
+                id: l.id,
+                title: l.title || `${l.brand || l.vehicle?.brand || ''} ${l.model || l.vehicle?.model || ''}`.trim() || 'Ogłoszenie',
+                price: l.price || l.weekly_price,
+                priceType: l.price_type || undefined,
+                photos: l.photos || l.vehicle?.photos || undefined,
+                location: l.city || l.cityName || l.fleet?.city || l.location || '',
+                lat: l.latitude ?? undefined,
+                lng: l.longitude ?? undefined,
+                brand: l.brand || l.vehicle?.brand || undefined,
+                model: l.model || l.vehicle?.model || undefined,
+                year: l.year ?? l.vehicle?.year ?? undefined,
+                fuelType: l.fuel_type || l.vehicle?.fuel_type || undefined,
+                mileage: l.odometer ?? l.vehicle?.odometer ?? undefined,
+                transactionType: l.transaction_type || undefined,
+              }))
+              .filter(l => l.lat != null && l.lng != null)}
+            onViewListing={(id) => navigate(`/gielda/ogloszenie/${id}`)}
+          />
+        </section>
+      )}
 
       {/* Ad Banner - below search */}
       <section className="container mx-auto px-4">
