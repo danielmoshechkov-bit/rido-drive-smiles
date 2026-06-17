@@ -15,7 +15,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   order: any;
-  type: 'reception' | 'quote' | 'ready';
+  type: 'reception' | 'quote' | 'requote' | 'ready';
 }
 
 function removePl(s: string): string {
@@ -49,6 +49,9 @@ const smsTemplates = {
   },
   quote: (order: any, link: string) =>
     removePl(`Kosztorys dla zlecenia ${order.order_number} jest gotowy. Prosimy o akceptacje: ${link}`),
+  // Ponowna wycena po dodatku — wyraźnie zaznacz, że to AKTUALIZACJA kosztorysu
+  requote: (order: any, link: string) =>
+    removePl(`Zaktualizowany kosztorys (dodatek) dla zlecenia ${order.order_number} czeka na akceptacje: ${link}`),
   ready: (order: any, link: string) => {
     const v = `${order.vehicle?.brand || ''} ${order.vehicle?.model || ''} ${order.vehicle?.plate || ''}`.trim();
     return removePl(`${v} - naprawa zakonczona, pojazd gotowy do odbioru. Szczegoly: ${link}`);
@@ -111,7 +114,14 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
       }, { retryLabel: t('workshop.sms.retryLabel') });
       if (!result) { setSending(false); return; }
 
-      // Update order flags based on SMS type
+      // SMS już poszedł (edge zwrócił sukces). Pokaż success i zamknij NATYCHMIAST —
+      // aktualizacja flag zlecenia + invalidacja lecą w tle, nie blokują UI.
+      // (wcześniej UI "myślało" czekając na 2 kolejne awaity mimo dostarczonego SMS-a)
+      toast.success(t('workshop.sms.sentSuccess'));
+      setSending(false);
+      onOpenChange(false);
+
+      // Update order flags based on SMS type (background, non-blocking)
       const updates: any = { sms_sent_count: (order.sms_sent_count || 0) + 1, last_sms_sent_at: new Date().toISOString() };
       if (type === 'ready') {
         updates.ready_notification_sent = true;
@@ -121,8 +131,8 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
           updates.status_name = 'Gotowy do odbioru';
         }
       }
-      // Auto-status: sending quote SMS → set status to "Wycena wysłana"
-      if (type === 'quote') {
+      // Auto-status: sending quote / re-quote SMS → set status to "Wycena wysłana"
+      if (type === 'quote' || type === 'requote') {
         updates.estimate_sent_to_client = true;
         updates.estimate_changed_after_send = false;
         const lower = (order.status_name || '').toLowerCase();
@@ -130,15 +140,18 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
           updates.status_name = 'Wycena wysłana';
         }
       }
-      
-      await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
-      await qc.invalidateQueries({ queryKey: ['sms-credits'] });
-      
-      toast.success(t('workshop.sms.sentSuccess'));
-      onOpenChange(false);
+
+      void (async () => {
+        try {
+          await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
+          await qc.invalidateQueries({ queryKey: ['sms-credits'] });
+          await qc.invalidateQueries({ queryKey: ['workshop-orders'] });
+        } catch (bgErr) {
+          console.warn('[WorkshopSmsDialog] post-send update failed', bgErr);
+        }
+      })();
     } catch (e: any) {
       toast.error(t('workshop.sms.sendError', { error: e.message }));
-    } finally {
       setSending(false);
     }
   };

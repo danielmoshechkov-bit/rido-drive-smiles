@@ -65,6 +65,54 @@ const keyOf = (i: { entity_type: string; entity_id: string; field: string }) =>
   `${i.entity_type}:${i.entity_id}:${i.field}`;
 
 /**
+ * Języki bazowe pre-tłumaczone PRZY ZAPISIE (translate-on-write). Gdy pracownik
+ * zapisuje treść, jednym wywołaniem edge zasilamy globalny cache na wszystkie 4 —
+ * dzięki temu admin/klient z językiem bazowym widzi treść NATYCHMIAST z cache,
+ * bez "flasha" języka źródłowego i bez czekania na tłumaczenie on-read.
+ */
+export const BASE_LANGS = ['pl', 'en', 'ru', 'ua'];
+
+/**
+ * Translate-on-write: pre-tłumaczy podane treści na wszystkie języki bazowe i
+ * zapisuje do globalnego cache (translation_cache_global). Fire-and-forget — NIE
+ * blokuje ścieżki zapisu (woła się bez await z mutacji). Edge `translate-content`
+ * dedupuje po hashu i zapisuje komplet języków jednym przebiegiem.
+ *
+ * @param items   pozycje { entity_type, entity_id, field, text, source_lang? }
+ * @param domainHint domena terminologii (domyślnie 'automotive' dla warsztatu)
+ */
+export async function pretranslateContent(
+  items: ContentItem[],
+  domainHint = 'automotive',
+): Promise<void> {
+  const usable = items
+    .map(i => ({ ...i, text: (i.text || '').trim() }))
+    .filter(i => i.text.length > 1);
+  if (!usable.length) return;
+  try {
+    await withInvokeLimit(() => supabase.functions.invoke('translate-content', {
+      body: {
+        items: usable.map(i => ({
+          entity_type: i.entity_type,
+          entity_id: i.entity_id,
+          field: i.field,
+          text: i.text,
+          source_lang: (i.source_lang === 'auto' || !i.source_lang)
+            ? detectSourceLang(i.text)
+            : i.source_lang,
+        })),
+        // klucz przebudowy: komplet języków bazowych jednym callem
+        target_langs: BASE_LANGS,
+        domain_hint: domainHint,
+      },
+    }));
+  } catch (e) {
+    // best-effort — przy błędzie i tak zadziała fallback on-read
+    console.warn('pretranslateContent failed', e);
+  }
+}
+
+/**
  * Zwraca mapę `${entity_type}:${entity_id}:${field}` → przetłumaczony tekst.
  * - target === source lub pusty tekst → tekst źródłowy
  * - trafienie w globalnym cache → natychmiast (bez edge)

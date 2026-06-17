@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -67,11 +68,35 @@ const statusColors: Record<string, string> = {
 
 export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const updateOrder = useUpdateWorkshopOrder();
   const [activeTab, setActiveTab] = useState('tasks');
   const [smsOpen, setSmsOpen] = useState(false);
-  const [smsType, setSmsType] = useState<'reception' | 'quote' | 'ready'>('reception');
+  const [smsType, setSmsType] = useState<'reception' | 'quote' | 'requote' | 'ready'>('reception');
+
+  // Wspólny handler zmiany statusu z pickera: optimistic patch cache (badge zmienia
+  // się NATYCHMIAST w detalu i na liście) + invalidacja (koniec z ręcznym odświeżaniem).
+  // Picker robi własny UPDATE w DB; tu tylko synchronizujemy widok bez czekania.
+  const handleStatusChanged = (name: string) => {
+    queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((o: any) => o.id === order.id ? { ...o, status_name: name, has_unread_notes: true } : o);
+    });
+    // prop fallback (gdy detal nie pochodzi z cache listy)
+    order.status_name = name;
+    order.has_unread_notes = true;
+    queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+
+    const lower = (name || '').toLowerCase();
+    if (lower.includes('gotow') || lower.includes('odbioru')) {
+      setSmsType('ready');
+      setSmsOpen(true);
+    } else if (lower.includes('wycena wysłana') || lower.includes('kosztorys')) {
+      setSmsType('quote');
+      setSmsOpen(true);
+    }
+  };
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [pickClientOpen, setPickClientOpen] = useState(false);
   const [editVehicleOpen, setEditVehicleOpen] = useState(false);
@@ -99,9 +124,11 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         const { data: { user } } = await supabase.auth.getUser();
         await (supabase.from('workshop_order_events') as any).insert({
           order_id: order.id,
+          provider_id: providerId,
           event_type: 'note',
           note: note.trim(),
           actor_user_id: user?.id || null,
+          actor_name: user?.user_metadata?.full_name || user?.email || null,
           actor_role: 'admin',
           to_status: newStatus,
         });
@@ -148,7 +175,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   };
 
 
-  const openSms = (type: 'reception' | 'quote' | 'ready') => {
+  const openSms = (type: 'reception' | 'quote' | 'requote' | 'ready') => {
     setSmsType(type);
     setSmsOpen(true);
   };
@@ -239,18 +266,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             orderId={order.id}
             currentStatus={order.status_name}
             hasUnreadNotes={order.has_unread_notes}
-            onChanged={(name) => {
-              order.status_name = name;
-              order.has_unread_notes = true;
-              const lower = (name || '').toLowerCase();
-              if (lower.includes('gotow') || lower.includes('odbioru')) {
-                setSmsType('ready');
-                setSmsOpen(true);
-              } else if (lower.includes('wycena wysłana') || lower.includes('kosztorys')) {
-                setSmsType('quote');
-                setSmsOpen(true);
-              }
-            }}
+            onChanged={handleStatusChanged}
           />
 
           <Button
@@ -394,7 +410,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
               // Auto-detect SMS type based on order state
               const hasQuoteItems = (order.total_gross || 0) > 0;
               const protocolSigned = order.client_acceptance_confirmed;
-              if (protocolSigned && hasQuoteItems && !order.quote_accepted) {
+              // DODATEK / zmiana wyceny po wysłaniu → PONOWNA WYCENA do akceptacji.
+              // Musi być sprawdzane PRZED gałęzią quote_accepted (która błędnie wybierała
+              // 'ready' = zakończenie naprawy, mimo że doszedł dodatek do akceptacji).
+              const needsReQuote = (order.estimate_changed_after_send || order.status_name === 'Dodatek do naprawy');
+              if (needsReQuote && hasQuoteItems) {
+                openSms('requote');
+              } else if (protocolSigned && hasQuoteItems && !order.quote_accepted) {
                 openSms('quote');
               } else if (order.quote_accepted || order.status_name === 'Gotowy do odbioru' || order.status_name === 'Zakończone') {
                 openSms('ready');
@@ -444,18 +466,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             orderId={order.id}
             currentStatus={order.status_name}
             hasUnreadNotes={order.has_unread_notes}
-            onChanged={(name) => {
-              order.status_name = name;
-              order.has_unread_notes = true;
-              const lower = (name || '').toLowerCase();
-              if (lower.includes('gotow') || lower.includes('odbioru')) {
-                setSmsType('ready');
-                setSmsOpen(true);
-              } else if (lower.includes('wycena wysłana') || lower.includes('kosztorys')) {
-                setSmsType('quote');
-                setSmsOpen(true);
-              }
-            }}
+            onChanged={handleStatusChanged}
             size="xs"
           />
         </div>

@@ -1,6 +1,35 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { pretranslateContent, type ContentItem } from '@/lib/contentTranslation';
+
+// Translate-on-write: pola tekstowe zlecenia, które warto pre-tłumaczyć na języki
+// bazowe od razu przy zapisie (admin/klient widzą je potem natychmiast z cache).
+const ORDER_TEXT_FIELDS = ['description', 'damage_description', 'mechanic_notes', 'post_completion_notes', 'internal_notes'] as const;
+
+function pretranslateOrderFields(orderId: string, src: Record<string, any>) {
+  if (!orderId) return;
+  const items: ContentItem[] = [];
+  for (const f of ORDER_TEXT_FIELDS) {
+    const text = src?.[f];
+    if (typeof text === 'string' && text.trim().length > 1) {
+      items.push({ entity_type: 'order', entity_id: String(orderId), field: f, text, source_lang: 'auto' });
+    }
+  }
+  if (items.length) void pretranslateContent(items);
+}
+
+function pretranslateItem(item: any) {
+  if (!item?.id) return;
+  const items: ContentItem[] = [];
+  if (typeof item.name === 'string' && item.name.trim().length > 1) {
+    items.push({ entity_type: 'item', entity_id: String(item.id), field: 'name', text: item.name, source_lang: 'auto' });
+  }
+  if (typeof item.description === 'string' && item.description.trim().length > 1) {
+    items.push({ entity_type: 'item', entity_id: String(item.id), field: 'description', text: item.description, source_lang: 'auto' });
+  }
+  if (items.length) void pretranslateContent(items);
+}
 
 const sortWorkshopOrderItems = (items: any[] | null | undefined) => {
   if (!Array.isArray(items)) return [];
@@ -90,8 +119,9 @@ export function useCreateWorkshopOrder() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ['workshop-orders'] });
+      if (data?.id) pretranslateOrderFields(data.id, data);
       toast.success('Zlecenie utworzone');
     },
     onError: (e: any) => toast.error(e.message),
@@ -108,8 +138,10 @@ export function useUpdateWorkshopOrder() {
         .eq('id', id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables: any) => {
       qc.invalidateQueries({ queryKey: ['workshop-orders'] });
+      // translate-on-write: jeśli aktualizacja zawierała pola tekstowe, pre-tłumacz
+      if (variables?.id) pretranslateOrderFields(variables.id, variables);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -278,8 +310,9 @@ export function useCreateWorkshopOrderItem() {
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ['workshop-orders'] });
+      pretranslateItem(data);
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -327,6 +360,10 @@ export function useUpdateWorkshopOrderItem() {
     onError: (e: any, _vars, ctx: any) => {
       if (ctx?.snapshots) ctx.snapshots.forEach(({ key, data }: any) => qc.setQueryData(key, data));
       toast.error(e.message);
+    },
+    onSuccess: (data: any) => {
+      // translate-on-write: nazwa pozycji mogła się zmienić → pre-tłumacz
+      pretranslateItem(data);
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['workshop-orders'] });

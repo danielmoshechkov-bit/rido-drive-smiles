@@ -70,19 +70,22 @@ export function WorkshopStatusPicker({
       // Background: write event log and run station handover (non-blocking)
       (async () => {
         try {
-          if (withNote) {
-            const { data: { user } } = await supabase.auth.getUser();
-            await (supabase.from('workshop_order_events') as any).insert({
-              order_id: orderId,
-              provider_id: providerId,
-              event_type: 'note',
-              note: withNote,
-              actor_user_id: user?.id || null,
-              actor_role: 'admin',
-              to_status: name,
-              station_id: st?.id || null,
-            });
-          }
+          const { data: { user } } = await supabase.auth.getUser();
+          const actorName = user?.user_metadata?.full_name || user?.email || null;
+          // ZAWSZE loguj zmianę statusu (wcześniej event leciał tylko z notatką, więc
+          // zwykłe zmiany statusu nie zostawały w historii zlecenia).
+          await (supabase.from('workshop_order_events') as any).insert({
+            order_id: orderId,
+            provider_id: providerId,
+            event_type: withNote ? 'note' : 'status_change',
+            note: withNote || null,
+            actor_user_id: user?.id || null,
+            actor_name: actorName,
+            actor_role: 'admin',
+            from_status: currentStatus || null,
+            to_status: name,
+            station_id: st?.id || null,
+          });
           const { applyStationHandover } = await import('@/utils/workshopStationHandover');
           const baseName = name.replace(/\s*[—-]\s*(realizacja|gotowe|w trakcie|w realizacji)\s*$/i, '').trim();
           await applyStationHandover({ orderId, providerId, newStatus: baseName });

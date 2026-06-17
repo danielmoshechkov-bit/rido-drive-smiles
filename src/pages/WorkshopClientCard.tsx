@@ -16,6 +16,8 @@ import { useTranslation } from 'react-i18next';
 import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { TranslationLoader } from '@/components/workshop/TranslationLoader';
+import { BASE_LANGS } from '@/lib/contentTranslation';
 
 const statusColors: Record<string, string> = {
   'Nowe zlecenie': 'bg-red-500 text-white',
@@ -41,6 +43,7 @@ export default function WorkshopClientCard() {
   const [provider, setProvider] = useState<any>(null);
   const [signatures, setSignatures] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [signingDoc, setSigningDoc] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [signing, setSigning] = useState(false);
@@ -79,42 +82,75 @@ export default function WorkshopClientCard() {
     }
     return out;
   }, [order]);
-  const { t: tc } = useWorkshopTranslations(tcFields, 'auto');
+  const { t: tc, loading: tcLoading, targetLang: tcTarget } = useWorkshopTranslations(tcFields, 'auto');
+  // Języki bazowe są pre-tłumaczone przy zapisie → cache hit, brak flasha.
+  // Tylko dla języków spoza bazowych (DE/VI/KZ…) pokazujemy brandowany loader.
+  const showTranslationLoader = tcLoading && tcFields.length > 0 && !BASE_LANGS.includes(tcTarget);
 
-  const loadOrder = async () => {
-    if (!code) return;
-    const { data } = await (supabase as any)
-      .from('workshop_orders')
-      .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
-      .eq('client_code', code)
-      .single();
-
-    if (data) {
-      setOrder(data);
-      const { data: prov } = await (supabase as any)
-        .from('service_providers')
-        .select('*')
-        .eq('id', data.provider_id)
-        .single();
-      setProvider(prov);
-
-      const { data: sigs } = await (supabase as any)
-        .from('workshop_order_signatures')
-        .select('*')
-        .eq('order_id', data.id);
-      setSignatures(sigs || []);
-
-      // Auto-open kosztorys if reception is signed AND estimate was sent to client
-      // In admin preview mode we already default to 'estimate' and skip this auto-switch
-      if (!initialTabSet && !isAdminPreview) {
-        const receptionIsSigned = (sigs || []).some((s: any) => s.document_type === 'reception_protocol');
-        if (receptionIsSigned && data.estimate_sent_to_client) {
-          setActiveTab('estimate');
-        }
-        setInitialTabSet(true);
-      }
+  const loadOrder = async (attempt = 0) => {
+    // 'null'/'undefined' jako string → stare zlecenie bez client_code (link /klient/null)
+    if (!code || code === 'null' || code === 'undefined') {
+      setLoadError(false);
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+    try {
+      // maybeSingle (nie single) — brak rekordu to NIE błąd, tylko "nie znaleziono".
+      const { data, error } = await (supabase as any)
+        .from('workshop_orders')
+        .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
+        .eq('client_code', code)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setLoadError(false);
+        setOrder(data);
+        const { data: prov } = await (supabase as any)
+          .from('service_providers')
+          .select('*')
+          .eq('id', data.provider_id)
+          .maybeSingle();
+        setProvider(prov);
+
+        const { data: sigs } = await (supabase as any)
+          .from('workshop_order_signatures')
+          .select('*')
+          .eq('order_id', data.id);
+        setSignatures(sigs || []);
+
+        // Auto-open kosztorys if reception is signed AND estimate was sent to client
+        // In admin preview mode we already default to 'estimate' and skip this auto-switch
+        if (!initialTabSet && !isAdminPreview) {
+          const receptionIsSigned = (sigs || []).some((s: any) => s.document_type === 'reception_protocol');
+          if (receptionIsSigned && data.estimate_sent_to_client) {
+            setActiveTab('estimate');
+          }
+          setInitialTabSet(true);
+        }
+        setLoading(false);
+      } else {
+        // Brak rekordu — może to świeży link, gdzie zapis statusu jeszcze nie dotarł
+        // (race po wysłaniu SMS) albo nieświeży cache PWA. Spróbuj raz ponownie
+        // (nie zdejmujemy loadera, żeby nie mignął ekran "nie znaleziono").
+        if (attempt < 1) {
+          setTimeout(() => loadOrder(attempt + 1), 1200);
+          return;
+        }
+        setLoadError(false); // realny brak → ekran "nie znaleziono" (order pozostaje null)
+        setLoading(false);
+      }
+    } catch (e) {
+      // Błąd sieci/serwera — odróżniamy od "nie znaleziono": pokaż retry, spróbuj raz sam.
+      console.warn('[WorkshopClientCard] loadOrder error', e);
+      if (attempt < 2) {
+        setTimeout(() => loadOrder(attempt + 1), 1200);
+        return;
+      }
+      setLoadError(true);
+      setLoading(false);
+    }
   };
 
   const hasSigned = (docType: string) => signatures.some(s => s.document_type === docType);
@@ -169,9 +205,18 @@ export default function WorkshopClientCard() {
 
   if (!order) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-        <Card className="p-8 text-center">
-          <p className="text-lg text-muted-foreground">{t('workshop.clientCard.orderNotFound')}</p>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 px-4">
+        <Card className="p-8 text-center space-y-4 max-w-sm">
+          <p className="text-lg text-muted-foreground">
+            {loadError
+              ? t('workshop.clientCard.loadErrorRetry', 'Nie udało się wczytać zlecenia. Sprawdź połączenie i spróbuj ponownie.')
+              : t('workshop.clientCard.orderNotFound')}
+          </p>
+          {loadError && (
+            <Button onClick={() => { setLoading(true); setLoadError(false); loadOrder(); }} className="gap-2">
+              <Loader2 className="h-4 w-4" /> {t('workshop.clientCard.retry', 'Spróbuj ponownie')}
+            </Button>
+          )}
         </Card>
       </div>
     );
@@ -332,7 +377,7 @@ export default function WorkshopClientCard() {
                 key={tab.key}
                 onClick={() => !isLocked && setActiveTab(tab.key)}
                 className={`
-                  flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-1 justify-center
+                  flex items-center gap-1.5 px-2.5 sm:px-5 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-1 min-w-0 justify-center
                   ${isActive
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : isLocked
@@ -354,7 +399,8 @@ export default function WorkshopClientCard() {
         {/* Tab content */}
         <Card className="shadow-md border-0 mb-8">
           <CardContent className="pt-6 pb-6">
-            {activeTab === 'reception' && (
+            {showTranslationLoader && <TranslationLoader />}
+            {!showTranslationLoader && activeTab === 'reception' && (
               <div className="space-y-6">
                 {/* Order description */}
                 {order.description && (
@@ -448,7 +494,7 @@ export default function WorkshopClientCard() {
               </div>
             )}
 
-            {activeTab === 'estimate' && (
+            {!showTranslationLoader && activeTab === 'estimate' && (
               (!isAdminPreview && !receptionSigned) ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
@@ -481,7 +527,29 @@ export default function WorkshopClientCard() {
                   {tasks.length > 0 && (
                     <div>
                       <h4 className="text-sm font-semibold text-primary mb-2">{t('workshop.clientCard.services')}:</h4>
-                      <div className="border rounded-xl overflow-hidden">
+
+                      {/* MOBILE: karty zamiast tabeli — cena zawsze widoczna, nic nie ucięte */}
+                      <div className="md:hidden space-y-2">
+                        {tasks.map((task: any, i: number) => (
+                          <div key={task.id} className="border rounded-lg p-3 bg-card">
+                            <div className="flex gap-2">
+                              <span className="text-muted-foreground text-sm shrink-0">{i + 1}.</span>
+                              <span className="font-medium text-sm break-words flex-1 min-w-0">{tc('item', String(task.id), 'name', task.name)}</span>
+                            </div>
+                            <div className="flex justify-between gap-3 mt-2 pt-2 border-t text-sm">
+                              <span className="text-muted-foreground">{t('workshop.clientCard.colNet')}: <span className="tabular-nums text-foreground">{fmt(task.total_net || 0)}&nbsp;zł</span></span>
+                              <span className="font-semibold tabular-nums">{fmt(task.total_gross || 0)}&nbsp;zł</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex justify-between gap-3 px-3 py-2 rounded-lg bg-muted/30 font-bold text-sm">
+                          <span>{t('workshop.clientCard.totalServices')}</span>
+                          <span className="text-primary tabular-nums">{fmt(tasksTotal)}&nbsp;zł</span>
+                        </div>
+                      </div>
+
+                      {/* DESKTOP: tabela z poziomym scrollem bezpieczeństwa */}
+                      <div className="hidden md:block border rounded-xl overflow-x-auto">
                         <Table>
                           <colgroup>
                             <col style={{ width: '44px' }} />
@@ -520,7 +588,30 @@ export default function WorkshopClientCard() {
                   {goods.length > 0 && (
                     <div>
                       <h4 className="text-sm font-semibold text-primary mb-2">{t('workshop.clientCard.partsAndMaterials')}:</h4>
-                      <div className="border rounded-xl overflow-hidden">
+
+                      {/* MOBILE: karty */}
+                      <div className="md:hidden space-y-2">
+                        {goods.map((g: any, i: number) => (
+                          <div key={g.id} className="border rounded-lg p-3 bg-card">
+                            <div className="flex gap-2">
+                              <span className="text-muted-foreground text-sm shrink-0">{i + 1}.</span>
+                              <span className="font-medium text-sm break-words flex-1 min-w-0">{tc('item', String(g.id), 'name', g.name)}</span>
+                            </div>
+                            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 mt-2 pt-2 border-t text-sm">
+                              <span className="text-muted-foreground">{t('workshop.clientCard.colQty')}: <span className="tabular-nums text-foreground">{g.quantity} {g.unit}</span></span>
+                              <span className="text-muted-foreground">{t('workshop.clientCard.colNet')}: <span className="tabular-nums text-foreground">{fmt(g.total_net || 0)}&nbsp;zł</span></span>
+                              <span className="font-semibold tabular-nums w-full text-right">{fmt(g.total_gross || 0)}&nbsp;zł</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex justify-between gap-3 px-3 py-2 rounded-lg bg-muted/30 font-bold text-sm">
+                          <span>{t('workshop.clientCard.totalParts')}</span>
+                          <span className="text-primary tabular-nums">{fmt(goodsTotal)}&nbsp;zł</span>
+                        </div>
+                      </div>
+
+                      {/* DESKTOP: tabela */}
+                      <div className="hidden md:block border rounded-xl overflow-x-auto">
                         <Table>
                           <colgroup>
                             <col style={{ width: '40px' }} />
@@ -595,7 +686,7 @@ export default function WorkshopClientCard() {
               )
             )}
 
-            {activeTab === 'release' && (
+            {!showTranslationLoader && activeTab === 'release' && (
               !estimateSigned ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />

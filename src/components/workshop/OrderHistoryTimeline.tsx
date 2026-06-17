@@ -35,8 +35,11 @@ const ICONS: Record<string, JSX.Element> = {
   repair_started: <Wrench className="h-4 w-4 text-amber-600" />,
   repair_done: <ClipboardCheck className="h-4 w-4 text-green-600" />,
   note_added: <StickyNote className="h-4 w-4 text-yellow-600" />,
+  note: <StickyNote className="h-4 w-4 text-yellow-600" />,
   station_assigned: <Building2 className="h-4 w-4 text-indigo-600" />,
 };
+
+const NOTE_PREVIEW_LEN = 140;
 
 export function OrderHistoryTimeline({ orderId, providerId }: Props) {
   const { t } = useTranslation();
@@ -44,6 +47,7 @@ export function OrderHistoryTimeline({ orderId, providerId }: Props) {
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const load = async () => {
     setLoading(true);
@@ -127,21 +131,39 @@ export function OrderHistoryTimeline({ orderId, providerId }: Props) {
                 </div>
                 <div className="rounded-md border bg-card p-2.5">
                   <div className="flex items-center gap-2 flex-wrap text-xs">
-                    <span className="font-medium">{t(`workshop.events.${ev.event_type}`, { defaultValue: ev.event_type })}</span>
-                    {ev.event_type === 'status_change' && (
+                    {/* CO za zmiana */}
+                    <span className="font-medium">{t(`workshop.events.${ev.event_type}`, { defaultValue: ev.event_type === 'note' ? t('workshop.events.note_added', { defaultValue: 'Notatka' }) : ev.event_type })}</span>
+                    {(ev.event_type === 'status_change' || (ev.from_status && ev.to_status)) && (
                       <span className="text-muted-foreground">
                         {ev.from_status ? translateWorkshopStatus(ev.from_status, t) : '—'} <ArrowRight className="h-3 w-3 inline" /> <b>{translateWorkshopStatus(ev.to_status, t)}</b>
                       </span>
                     )}
-                    <span className="ml-auto text-muted-foreground">
+                    {/* KIEDY */}
+                    <span className="ml-auto text-muted-foreground whitespace-nowrap">
                       {format(new Date(ev.created_at), 'dd.MM.yyyy HH:mm')}
                     </span>
                   </div>
-                  {ev.note && (
-                    <div className="mt-1.5 text-sm whitespace-pre-wrap text-foreground/90 bg-yellow-50 rounded px-2 py-1.5 border border-yellow-200">
-                      {ev.note}
-                    </div>
-                  )}
+                  {/* CO wpisano — krótkie wpisy w całości, długie rozwijane */}
+                  {ev.note && (() => {
+                    const isLong = ev.note.length > NOTE_PREVIEW_LEN;
+                    const isOpen = expanded[ev.id];
+                    const shown = isLong && !isOpen ? ev.note.slice(0, NOTE_PREVIEW_LEN) + '…' : ev.note;
+                    return (
+                      <div className="mt-1.5 text-sm whitespace-pre-wrap text-foreground/90 bg-yellow-50 rounded px-2 py-1.5 border border-yellow-200">
+                        {shown}
+                        {isLong && (
+                          <button
+                            type="button"
+                            onClick={() => setExpanded(s => ({ ...s, [ev.id]: !isOpen }))}
+                            className="ml-1 text-xs font-medium text-primary hover:underline"
+                          >
+                            {isOpen ? t('workshop.timeline.collapse', 'zwiń') : t('workshop.timeline.expand', 'rozwiń')}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {/* KTO */}
                   <div className="mt-1 text-xs text-muted-foreground flex items-center gap-1.5">
                     <Badge variant="outline" className="text-[10px] py-0">{ev.actor_role || 'system'}</Badge>
                     {ev.actor_name || t('workshop.timeline.system')}
