@@ -43,6 +43,10 @@ export const WorkshopSettingsPage = () => {
   const [logoUrl, setLogoUrl] = useState('');
   const [hourlyRate, setHourlyRate] = useState(150);
   const [showPricesAs, setShowPricesAs] = useState('brutto');
+  // Co klient widzi na stronie z linku (rozbicie kwot)
+  const [showClientNet, setShowClientNet] = useState(true);
+  const [showClientVat, setShowClientVat] = useState(true);
+  const [showClientGross, setShowClientGross] = useState(true);
   const [paymentDays, setPaymentDays] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [discountsEnabled, setDiscountsEnabled] = useState(true);
@@ -94,6 +98,9 @@ export const WorkshopSettingsPage = () => {
       setBankAccount(data?.bank_account || '');
       setHourlyRate(data?.hourly_rate || 150);
       setShowPricesAs(data?.show_prices_as || 'brutto');
+      setShowClientNet(data?.show_client_net ?? true);
+      setShowClientVat(data?.show_client_vat ?? true);
+      setShowClientGross(data?.show_client_gross ?? true);
       setPaymentDays(data?.payment_days || 0);
       setPaymentMethod(data?.payment_method || 'cash');
       setDiscountsEnabled(data?.discounts_enabled ?? true);
@@ -173,6 +180,9 @@ export const WorkshopSettingsPage = () => {
         logo_url: uploadedLogoUrl,
         hourly_rate: hourlyRate,
         show_prices_as: showPricesAs,
+        show_client_net: showClientNet,
+        show_client_vat: showClientVat,
+        show_client_gross: showClientGross,
         payment_days: paymentDays,
         payment_method: paymentMethod,
         discounts_enabled: discountsEnabled,
@@ -395,6 +405,25 @@ export const WorkshopSettingsPage = () => {
                       <SelectItem value="brutto">{t('workshop.settings.company.gross')}</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Co klient widzi na stronie z linku (rozbicie kwot wyceny) */}
+                <div className="space-y-3 md:col-span-2 rounded-lg border bg-muted/20 p-3">
+                  <Label className="text-sm font-semibold">{t('workshop.settings.company.clientAmountsTitle', 'Co klient widzi na wycenie (link)')}</Label>
+                  <div className="flex flex-wrap gap-x-8 gap-y-3">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={showClientNet} onCheckedChange={setShowClientNet} id="show-net" />
+                      <Label htmlFor="show-net" className="cursor-pointer font-normal">{t('workshop.settings.company.showClientNet', 'Pokaż NETTO')}</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={showClientVat} onCheckedChange={setShowClientVat} id="show-vat" />
+                      <Label htmlFor="show-vat" className="cursor-pointer font-normal">{t('workshop.settings.company.showClientVat', 'Pokaż VAT')}</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={showClientGross} onCheckedChange={setShowClientGross} id="show-gross" />
+                      <Label htmlFor="show-gross" className="cursor-pointer font-normal">{t('workshop.settings.company.showClientGross', 'Pokaż BRUTTO')}</Label>
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.defaultPaymentTerm')}</Label>

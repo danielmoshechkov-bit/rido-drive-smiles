@@ -407,8 +407,12 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             </DropdownMenu>
 
             <Button variant="ghost" size="icon" title={t('workshop.orderDetail.sendSms')} onClick={() => {
-              // Auto-detect SMS type based on order state
-              const hasQuoteItems = (order.total_gross || 0) > 0;
+              // Auto-detect SMS type based on order state.
+              // hasQuoteItems liczone z SUMY POZYCJI, bo order.total_gross bywa
+              // nieaktualne/null (sync tylko z zakładki tasków) → wcześniej po podpisie
+              // recepcji gałąź 'quote' przepadała i leciało 'ready' (zakończenie).
+              const itemsGross = (order.items || []).reduce((s: number, i: any) => s + (i.total_gross || 0), 0);
+              const hasQuoteItems = (order.total_gross || 0) > 0 || itemsGross > 0;
               const protocolSigned = order.client_acceptance_confirmed;
               // DODATEK / zmiana wyceny po wysłaniu → PONOWNA WYCENA do akceptacji.
               // Musi być sprawdzane PRZED gałęzią quote_accepted (która błędnie wybierała

@@ -17,7 +17,7 @@ import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { TranslationLoader } from '@/components/workshop/TranslationLoader';
-import { BASE_LANGS } from '@/lib/contentTranslation';
+import { BASE_LANGS, pretranslateContent, type ContentItem } from '@/lib/contentTranslation';
 
 const statusColors: Record<string, string> = {
   'Nowe zlecenie': 'bg-red-500 text-white',
@@ -44,6 +44,8 @@ export default function WorkshopClientCard() {
   const [signatures, setSignatures] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // Co klient widzi (sterowane w ustawieniach warsztatu). Domyślnie wszystko.
+  const [displaySettings, setDisplaySettings] = useState({ show_net: true, show_vat: true, show_gross: true });
   const [signingDoc, setSigningDoc] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [signing, setSigning] = useState(false);
@@ -51,6 +53,14 @@ export default function WorkshopClientCard() {
   const [initialTabSet, setInitialTabSet] = useState(false);
 
   useEffect(() => { loadOrder(); }, [code]);
+
+  // Watchdog: spinner nie może wisieć w nieskończoność (wolna/zrywająca sieć).
+  // Po 12 s bez wyniku pokaż ekran z ponowieniem zamiast wiecznego kręcenia.
+  useEffect(() => {
+    if (!loading) return;
+    const id = setTimeout(() => { setLoadError(true); setLoading(false); }, 12000);
+    return () => clearTimeout(id);
+  }, [loading]);
 
   // Admin preview: realtime live refresh of order + items
   useEffect(() => {
@@ -107,18 +117,35 @@ export default function WorkshopClientCard() {
       if (data) {
         setLoadError(false);
         setOrder(data);
-        const { data: prov } = await (supabase as any)
-          .from('service_providers')
-          .select('*')
-          .eq('id', data.provider_id)
-          .maybeSingle();
-        setProvider(prov);
 
-        const { data: sigs } = await (supabase as any)
-          .from('workshop_order_signatures')
-          .select('*')
-          .eq('order_id', data.id);
+        // Provider + podpisy RÓWNOLEGLE (wcześniej sekwencyjnie → sumowana latencja).
+        const [{ data: prov }, { data: sigs }] = await Promise.all([
+          (supabase as any).from('service_providers').select('*').eq('id', data.provider_id).maybeSingle(),
+          (supabase as any).from('workshop_order_signatures').select('*').eq('order_id', data.id),
+        ]);
+        setProvider(prov);
         setSignatures(sigs || []);
+
+        // Ustawienia wyświetlania kwot (per user_id właściciela). select('*') —
+        // bezpieczne, jeśli kolumny jeszcze nie wdrożone (?? true).
+        if (prov?.user_id) {
+          (supabase as any).from('workshop_settings').select('*').eq('user_id', prov.user_id).maybeSingle()
+            .then(({ data: ws }: any) => {
+              if (ws) setDisplaySettings({
+                show_net: ws.show_client_net ?? true,
+                show_vat: ws.show_client_vat ?? true,
+                show_gross: ws.show_client_gross ?? true,
+              });
+            });
+        }
+
+        // Warmuj globalny cache tłumaczeń dla treści klienta (fire-and-forget) —
+        // następne otwarcie (i inne języki bazowe, np. EN) trafią w cache od razu.
+        const warm: ContentItem[] = [];
+        if (data.description) warm.push({ entity_type: 'order', entity_id: String(data.id), field: 'description', text: data.description, source_lang: 'auto' });
+        if (data.damage_description) warm.push({ entity_type: 'order', entity_id: String(data.id), field: 'damage_description', text: data.damage_description, source_lang: 'auto' });
+        for (const it of (data.items || [])) if (it?.id && it?.name) warm.push({ entity_type: 'item', entity_id: String(it.id), field: 'name', text: it.name, source_lang: 'auto' });
+        if (warm.length) void pretranslateContent(warm);
 
         // Auto-open kosztorys if reception is signed AND estimate was sent to client
         // In admin preview mode we already default to 'estimate' and skip this auto-switch
@@ -157,16 +184,22 @@ export default function WorkshopClientCard() {
 
   const handleSign = async (docType: string) => {
     setSigning(true);
+    const nowIso = new Date().toISOString();
     try {
-      await (supabase as any).from('workshop_order_signatures').insert({
+      // Jedyny krytyczny, awaitowany zapis — wiersz podpisu. Reszta (flagi zlecenia,
+      // powiadomienie, reconcile) leci w tle, więc UI nie wisi (wcześniej blokujący
+      // await loadOrder() = 3 sekwencyjne zapytania + re-render tłumaczenia ≈ 15 s).
+      const { error: sigErr } = await (supabase as any).from('workshop_order_signatures').insert({
         order_id: order.id,
         document_type: docType,
-        signed_at: new Date().toISOString(),
+        signed_at: nowIso,
         ip_address: null,
         user_agent: navigator.userAgent,
         fingerprint: null,
         signature_method: 'button',
       });
+      if (sigErr) throw sigErr;
+
       const updates: any = {};
       if (docType === 'reception_protocol') {
         updates.client_acceptance_confirmed = true;
@@ -176,21 +209,34 @@ export default function WorkshopClientCard() {
         updates.quote_accepted = true;
         updates.status_name = 'Zaakceptowano';
       }
-      if (Object.keys(updates).length > 0) {
-        await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
-      }
-      if (docType === 'cost_estimate') {
-        supabase.functions.invoke('workshop-notify-employee', {
-          body: { order_id: order.id, event: 'quote_accepted' },
-        }).catch(() => {});
-      }
+
+      // OPTIMISTIC: lokalnie od razu pokaż podpisany dokument (podgląd otwiera się
+      // natychmiast, bez ponownego pobierania i bez czekania).
+      setSignatures(prev => [...prev, { id: `optim-${docType}`, order_id: order.id, document_type: docType, signed_at: nowIso, signature_method: 'button' }]);
+      setOrder((o: any) => ({ ...o, ...updates }));
       toast.success(t('workshop.clientCard.documentSigned'));
       setSigningDoc(null);
       setAccepted(false);
-      await loadOrder();
+      setSigning(false);
+
+      // Tło: utrwal flagi zlecenia + powiadom mechanika + zsynchronizuj stan
+      void (async () => {
+        try {
+          if (Object.keys(updates).length > 0) {
+            await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
+          }
+          if (docType === 'cost_estimate') {
+            supabase.functions.invoke('workshop-notify-employee', {
+              body: { order_id: order.id, event: 'quote_accepted' },
+            }).catch(() => {});
+          }
+          loadOrder(); // reconcile (nie blokuje UI)
+        } catch (bgErr) {
+          console.warn('[WorkshopClientCard] post-sign update failed', bgErr);
+        }
+      })();
     } catch (e: any) {
       toast.error(e.message);
-    } finally {
       setSigning(false);
     }
   };
@@ -233,9 +279,21 @@ export default function WorkshopClientCard() {
   const goodsTotal = goods.reduce((s: number, g: any) => s + (g.total_gross || 0), 0);
   const goodsNetTotal = goods.reduce((s: number, g: any) => s + (g.total_net || 0), 0);
   const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // VAT nie ma osobnej kolumny w DB — to różnica brutto − netto.
+  const vatOf = (it: any) => (it.total_gross || 0) - (it.total_net || 0);
+  const tasksVatTotal = tasksTotal - tasksNetTotal;
+  const goodsVatTotal = goodsTotal - goodsNetTotal;
+  const grandNet = tasksNetTotal + goodsNetTotal;
+  const grandVat = tasksVatTotal + goodsVatTotal;
+  const grandGross = tasksTotal + goodsTotal;
+  const { show_net: showNet, show_vat: showVat, show_gross: showGross } = displaySettings;
 
-  const receptionSigned = hasSigned('reception_protocol');
-  const estimateSigned = hasSigned('cost_estimate');
+  // Podpis uznany TAKŻE gdy warsztat potwierdził go w systemie (admin) — flagi
+  // client_acceptance_confirmed / quote_accepted. Wcześniej klient czytał tylko
+  // wiersze workshop_order_signatures, więc podpis admina był niewidoczny i klient
+  // musiał podpisywać drugi raz.
+  const receptionSigned = hasSigned('reception_protocol') || !!order.client_acceptance_confirmed;
+  const estimateSigned = hasSigned('cost_estimate') || !!order.quote_accepted;
   const statusLabel = translateWorkshopStatus(order.status_name, t);
   const statusColor = statusColors[order.status_name] || 'bg-muted';
 
@@ -528,7 +586,7 @@ export default function WorkshopClientCard() {
                     <div>
                       <h4 className="text-sm font-semibold text-primary mb-2">{t('workshop.clientCard.services')}:</h4>
 
-                      {/* MOBILE: karty zamiast tabeli — cena zawsze widoczna, nic nie ucięte */}
+                      {/* MOBILE: karty — netto/VAT delikatne, BRUTTO pogrubione */}
                       <div className="md:hidden space-y-2">
                         {tasks.map((task: any, i: number) => (
                           <div key={task.id} className="border rounded-lg p-3 bg-card">
@@ -536,48 +594,48 @@ export default function WorkshopClientCard() {
                               <span className="text-muted-foreground text-sm shrink-0">{i + 1}.</span>
                               <span className="font-medium text-sm break-words flex-1 min-w-0">{tc('item', String(task.id), 'name', task.name)}</span>
                             </div>
-                            <div className="flex justify-between gap-3 mt-2 pt-2 border-t text-sm">
-                              <span className="text-muted-foreground">{t('workshop.clientCard.colNet')}: <span className="tabular-nums text-foreground">{fmt(task.total_net || 0)}&nbsp;zł</span></span>
-                              <span className="font-semibold tabular-nums">{fmt(task.total_gross || 0)}&nbsp;zł</span>
+                            <div className="flex items-end justify-between gap-3 mt-2 pt-2 border-t">
+                              <div className="text-[11px] text-muted-foreground space-y-0.5">
+                                {showNet && <div>{t('workshop.clientCard.colNet')}: <span className="tabular-nums">{fmt(task.total_net || 0)}&nbsp;zł</span></div>}
+                                {showVat && <div>{t('workshop.clientCard.colVat', 'VAT')}: <span className="tabular-nums">{fmt(vatOf(task))}&nbsp;zł</span></div>}
+                              </div>
+                              {showGross && <span className="font-bold tabular-nums text-base">{fmt(task.total_gross || 0)}&nbsp;zł</span>}
                             </div>
                           </div>
                         ))}
-                        <div className="flex justify-between gap-3 px-3 py-2 rounded-lg bg-muted/30 font-bold text-sm">
-                          <span>{t('workshop.clientCard.totalServices')}</span>
-                          <span className="text-primary tabular-nums">{fmt(tasksTotal)}&nbsp;zł</span>
+                        <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-muted/30 text-sm">
+                          <span className="font-semibold">{t('workshop.clientCard.totalServices')}</span>
+                          {showGross && <span className="font-bold text-primary tabular-nums">{fmt(tasksTotal)}&nbsp;zł</span>}
                         </div>
                       </div>
 
-                      {/* DESKTOP: tabela z poziomym scrollem bezpieczeństwa */}
+                      {/* DESKTOP: tabela */}
                       <div className="hidden md:block border rounded-xl overflow-x-auto">
                         <Table>
-                          <colgroup>
-                            <col style={{ width: '44px' }} />
-                            <col />
-                            <col style={{ width: '110px' }} />
-                            <col style={{ width: '120px' }} />
-                          </colgroup>
                           <TableHeader>
                             <TableRow className="bg-muted/30">
-                              <TableHead>{t('workshop.clientCard.colNo')}</TableHead>
+                              <TableHead className="w-[44px]">{t('workshop.clientCard.colNo')}</TableHead>
                               <TableHead>{t('workshop.clientCard.colName')}</TableHead>
-                              <TableHead className="text-right">{t('workshop.clientCard.colNet')}</TableHead>
-                              <TableHead className="text-right">{t('workshop.clientCard.colGross')}</TableHead>
+                              {showNet && <TableHead className="text-right text-muted-foreground font-normal w-[110px]">{t('workshop.clientCard.colNet')}</TableHead>}
+                              {showVat && <TableHead className="text-right text-muted-foreground font-normal w-[100px]">{t('workshop.clientCard.colVat', 'VAT')}</TableHead>}
+                              {showGross && <TableHead className="text-right w-[120px]">{t('workshop.clientCard.colGross')}</TableHead>}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {tasks.map((t: any, i: number) => (
-                              <TableRow key={t.id}>
+                            {tasks.map((task: any, i: number) => (
+                              <TableRow key={task.id}>
                                 <TableCell className="text-muted-foreground align-top">{i + 1}</TableCell>
-                                <TableCell className="font-medium break-words">{tc('item', String(t.id), 'name', t.name)}</TableCell>
-                                <TableCell className="text-right tabular-nums whitespace-nowrap align-top">{fmt(t.total_net || 0)}&nbsp;zł</TableCell>
-                                <TableCell className="text-right font-medium tabular-nums whitespace-nowrap align-top">{fmt(t.total_gross || 0)}&nbsp;zł</TableCell>
+                                <TableCell className="font-medium break-words">{tc('item', String(task.id), 'name', task.name)}</TableCell>
+                                {showNet && <TableCell className="text-right tabular-nums whitespace-nowrap align-top text-muted-foreground text-sm">{fmt(task.total_net || 0)}&nbsp;zł</TableCell>}
+                                {showVat && <TableCell className="text-right tabular-nums whitespace-nowrap align-top text-muted-foreground text-sm">{fmt(vatOf(task))}&nbsp;zł</TableCell>}
+                                {showGross && <TableCell className="text-right font-bold tabular-nums whitespace-nowrap align-top">{fmt(task.total_gross || 0)}&nbsp;zł</TableCell>}
                               </TableRow>
                             ))}
-                            <TableRow className="font-bold bg-muted/20">
-                              <TableCell colSpan={2}>{t('workshop.clientCard.totalServices')}</TableCell>
-                              <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(tasksNetTotal)}&nbsp;zł</TableCell>
-                              <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(tasksTotal)}&nbsp;zł</TableCell>
+                            <TableRow className="bg-muted/20">
+                              <TableCell colSpan={2} className="font-semibold">{t('workshop.clientCard.totalServices')}</TableCell>
+                              {showNet && <TableCell className="text-right tabular-nums whitespace-nowrap text-muted-foreground text-sm">{fmt(tasksNetTotal)}&nbsp;zł</TableCell>}
+                              {showVat && <TableCell className="text-right tabular-nums whitespace-nowrap text-muted-foreground text-sm">{fmt(tasksVatTotal)}&nbsp;zł</TableCell>}
+                              {showGross && <TableCell className="text-right font-bold text-primary tabular-nums whitespace-nowrap">{fmt(tasksTotal)}&nbsp;zł</TableCell>}
                             </TableRow>
                           </TableBody>
                         </Table>
@@ -597,38 +655,34 @@ export default function WorkshopClientCard() {
                               <span className="text-muted-foreground text-sm shrink-0">{i + 1}.</span>
                               <span className="font-medium text-sm break-words flex-1 min-w-0">{tc('item', String(g.id), 'name', g.name)}</span>
                             </div>
-                            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 mt-2 pt-2 border-t text-sm">
-                              <span className="text-muted-foreground">{t('workshop.clientCard.colQty')}: <span className="tabular-nums text-foreground">{g.quantity} {g.unit}</span></span>
-                              <span className="text-muted-foreground">{t('workshop.clientCard.colNet')}: <span className="tabular-nums text-foreground">{fmt(g.total_net || 0)}&nbsp;zł</span></span>
-                              <span className="font-semibold tabular-nums w-full text-right">{fmt(g.total_gross || 0)}&nbsp;zł</span>
+                            <div className="flex items-end justify-between gap-3 mt-2 pt-2 border-t">
+                              <div className="text-[11px] text-muted-foreground space-y-0.5">
+                                <div>{t('workshop.clientCard.colQty')}: <span className="tabular-nums">{g.quantity} {g.unit}</span></div>
+                                {showNet && <div>{t('workshop.clientCard.colNet')}: <span className="tabular-nums">{fmt(g.total_net || 0)}&nbsp;zł</span></div>}
+                                {showVat && <div>{t('workshop.clientCard.colVat', 'VAT')}: <span className="tabular-nums">{fmt(vatOf(g))}&nbsp;zł</span></div>}
+                              </div>
+                              {showGross && <span className="font-bold tabular-nums text-base">{fmt(g.total_gross || 0)}&nbsp;zł</span>}
                             </div>
                           </div>
                         ))}
-                        <div className="flex justify-between gap-3 px-3 py-2 rounded-lg bg-muted/30 font-bold text-sm">
-                          <span>{t('workshop.clientCard.totalParts')}</span>
-                          <span className="text-primary tabular-nums">{fmt(goodsTotal)}&nbsp;zł</span>
+                        <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-muted/30 text-sm">
+                          <span className="font-semibold">{t('workshop.clientCard.totalParts')}</span>
+                          {showGross && <span className="font-bold text-primary tabular-nums">{fmt(goodsTotal)}&nbsp;zł</span>}
                         </div>
                       </div>
 
                       {/* DESKTOP: tabela */}
                       <div className="hidden md:block border rounded-xl overflow-x-auto">
                         <Table>
-                          <colgroup>
-                            <col style={{ width: '40px' }} />
-                            <col />
-                            <col style={{ width: '54px' }} />
-                            <col style={{ width: '50px' }} />
-                            <col style={{ width: '110px' }} />
-                            <col style={{ width: '120px' }} />
-                          </colgroup>
                           <TableHeader>
                             <TableRow className="bg-muted/30">
-                              <TableHead>{t('workshop.clientCard.colNo')}</TableHead>
+                              <TableHead className="w-[40px]">{t('workshop.clientCard.colNo')}</TableHead>
                               <TableHead>{t('workshop.clientCard.colName')}</TableHead>
-                              <TableHead className="text-right">{t('workshop.clientCard.colQty')}</TableHead>
-                              <TableHead>{t('workshop.clientCard.colUnit')}</TableHead>
-                              <TableHead className="text-right">{t('workshop.clientCard.colNet')}</TableHead>
-                              <TableHead className="text-right">{t('workshop.clientCard.colGross')}</TableHead>
+                              <TableHead className="text-right w-[54px]">{t('workshop.clientCard.colQty')}</TableHead>
+                              <TableHead className="w-[50px]">{t('workshop.clientCard.colUnit')}</TableHead>
+                              {showNet && <TableHead className="text-right text-muted-foreground font-normal w-[110px]">{t('workshop.clientCard.colNet')}</TableHead>}
+                              {showVat && <TableHead className="text-right text-muted-foreground font-normal w-[100px]">{t('workshop.clientCard.colVat', 'VAT')}</TableHead>}
+                              {showGross && <TableHead className="text-right w-[120px]">{t('workshop.clientCard.colGross')}</TableHead>}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -638,14 +692,16 @@ export default function WorkshopClientCard() {
                                 <TableCell className="font-medium break-words">{tc('item', String(g.id), 'name', g.name)}</TableCell>
                                 <TableCell className="text-right tabular-nums whitespace-nowrap align-top">{g.quantity}</TableCell>
                                 <TableCell className="align-top">{g.unit}</TableCell>
-                                <TableCell className="text-right tabular-nums whitespace-nowrap align-top">{fmt(g.total_net || 0)}&nbsp;zł</TableCell>
-                                <TableCell className="text-right font-medium tabular-nums whitespace-nowrap align-top">{fmt(g.total_gross || 0)}&nbsp;zł</TableCell>
+                                {showNet && <TableCell className="text-right tabular-nums whitespace-nowrap align-top text-muted-foreground text-sm">{fmt(g.total_net || 0)}&nbsp;zł</TableCell>}
+                                {showVat && <TableCell className="text-right tabular-nums whitespace-nowrap align-top text-muted-foreground text-sm">{fmt(vatOf(g))}&nbsp;zł</TableCell>}
+                                {showGross && <TableCell className="text-right font-bold tabular-nums whitespace-nowrap align-top">{fmt(g.total_gross || 0)}&nbsp;zł</TableCell>}
                               </TableRow>
                             ))}
-                            <TableRow className="font-bold bg-muted/20">
-                              <TableCell colSpan={4}>{t('workshop.clientCard.totalParts')}</TableCell>
-                              <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(goodsNetTotal)}&nbsp;zł</TableCell>
-                              <TableCell className="text-right text-primary tabular-nums whitespace-nowrap">{fmt(goodsTotal)}&nbsp;zł</TableCell>
+                            <TableRow className="bg-muted/20">
+                              <TableCell colSpan={4} className="font-semibold">{t('workshop.clientCard.totalParts')}</TableCell>
+                              {showNet && <TableCell className="text-right tabular-nums whitespace-nowrap text-muted-foreground text-sm">{fmt(goodsNetTotal)}&nbsp;zł</TableCell>}
+                              {showVat && <TableCell className="text-right tabular-nums whitespace-nowrap text-muted-foreground text-sm">{fmt(goodsVatTotal)}&nbsp;zł</TableCell>}
+                              {showGross && <TableCell className="text-right font-bold text-primary tabular-nums whitespace-nowrap">{fmt(goodsTotal)}&nbsp;zł</TableCell>}
                             </TableRow>
                           </TableBody>
                         </Table>
@@ -653,15 +709,30 @@ export default function WorkshopClientCard() {
                     </div>
                   )}
 
-                  {/* Grand total */}
-                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-                    <div className="flex flex-wrap justify-between items-center gap-3">
-                      <span className="font-bold text-lg">{t('workshop.clientCard.totalToPay')}</span>
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground whitespace-nowrap">{t('workshop.clientCard.colNet')}: {fmt(tasksNetTotal + goodsNetTotal)}&nbsp;zł</p>
-                        <p className="text-xl font-bold text-primary whitespace-nowrap">{fmt(tasksTotal + goodsTotal)}&nbsp;zł {t('workshop.clientCard.grossSuffix')}</p>
+                  {/* Podsumowanie — netto + VAT delikatne, BRUTTO wyróżnione (to płaci klient) */}
+                  <div className="bg-primary/5 border border-primary/20 rounded-xl overflow-hidden">
+                    {(showNet || showVat) && (
+                      <div className="px-4 py-3 space-y-1 border-b border-primary/10">
+                        {showNet && (
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>{t('workshop.clientCard.colNet')}</span>
+                            <span className="tabular-nums">{fmt(grandNet)}&nbsp;zł</span>
+                          </div>
+                        )}
+                        {showVat && (
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>{t('workshop.clientCard.colVat', 'VAT')}</span>
+                            <span className="tabular-nums">{fmt(grandVat)}&nbsp;zł</span>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    )}
+                    {showGross && (
+                      <div className="px-4 py-4 flex flex-wrap justify-between items-center gap-2">
+                        <span className="font-bold text-lg">{t('workshop.clientCard.totalToPay')}</span>
+                        <span className="text-2xl font-extrabold text-primary tabular-nums whitespace-nowrap">{fmt(grandGross)}&nbsp;zł</span>
+                      </div>
+                    )}
                   </div>
 
                   {!estimateSigned ? (

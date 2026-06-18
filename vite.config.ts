@@ -63,6 +63,9 @@ export default defineConfig(({ mode }) => ({
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-cache',
+              // Czekaj na sieć max 8 s, potem sięgnij po cache — koniec z wiszącym
+              // w nieskończoność spinnerem na zrywającej/wolnej sieci mobilnej.
+              networkTimeoutSeconds: 8,
               expiration: {
                 maxEntries: 50,
                 maxAgeSeconds: 60 * 60 * 24 // 24 hours

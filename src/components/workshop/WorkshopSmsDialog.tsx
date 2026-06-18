@@ -98,6 +98,17 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
         throw new Error(t('workshop.sms.invalidPhone'));
       }
 
+      // RACE FIX: dla wyceny ustaw flagi gotowości ZANIM link pójdzie do klienta.
+      // Inaczej klient klika link zanim estimate_sent_to_client=true → zakładka
+      // kosztorysu zablokowana i "nic nie ma, odśwież". Zapis krótki, blokuje tylko
+      // do czasu wysłania (provider justsend i tak ma ~5 s opóźnienia dostarczenia).
+      if (type === 'quote' || type === 'requote') {
+        const lower = (order.status_name || '').toLowerCase();
+        const pre: any = { estimate_sent_to_client: true, estimate_changed_after_send: false };
+        if (!lower.includes('wysłana') && !lower.includes('zaakcept')) pre.status_name = 'Wycena wysłana';
+        await (supabase as any).from('workshop_orders').update(pre).eq('id', order.id);
+      }
+
       const result = await runWithQuota('sms', async () => {
         const { data, error } = await supabase.functions.invoke('workshop-send-sms', {
           body: {
