@@ -66,6 +66,7 @@ export function CalendarSettingsPage({ providerId }: Props) {
     sms_confirmation_on_booking: true,
     default_reminders: ['24h', '2h'] as string[],
     default_duration: '60',
+    max_bookings_per_day: 0, // 0 = bez limitu
     _loaded: false,
   });
 
@@ -79,6 +80,7 @@ export function CalendarSettingsPage({ providerId }: Props) {
       sms_confirmation_on_booking: loaded.sms_confirmation_on_booking ?? true,
       default_reminders: loaded.default_reminders || ['24h', '2h'],
       default_duration: loaded.default_duration || '60',
+      max_bookings_per_day: loaded.max_bookings_per_day ?? 0,
       _loaded: true,
     });
   }
@@ -107,6 +109,7 @@ export function CalendarSettingsPage({ providerId }: Props) {
             sms_confirmation_on_booking: reminderForm.sms_confirmation_on_booking,
             default_reminders: reminderForm.default_reminders,
             default_duration: reminderForm.default_duration,
+            max_bookings_per_day: reminderForm.max_bookings_per_day,
             sms_templates: smsTemplates,
           },
         }, { onConflict: 'provider_id' });
@@ -183,6 +186,17 @@ export function CalendarSettingsPage({ providerId }: Props) {
                   <SelectItem value="240">{t('workshop.settings.calendar.duration4h')}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-1 max-w-[260px]">
+              <Label className="text-xs">{t('workshop.settings.calendar.maxBookingsPerDay', 'Limit aut dziennie (rezerwacje online)')}</Label>
+              <Input
+                type="number" min={0} inputMode="numeric"
+                value={reminderForm.max_bookings_per_day || ''}
+                onChange={e => setReminderForm(f => ({ ...f, max_bookings_per_day: Math.max(0, parseInt(e.target.value) || 0) }))}
+                placeholder="0"
+              />
+              <p className="text-[11px] text-muted-foreground">{t('workshop.settings.calendar.maxBookingsHint', '0 = bez limitu. Po osiągnięciu limitu klient nie zapisze się na ten dzień.')}</p>
             </div>
 
             <div className="flex justify-end pt-2">

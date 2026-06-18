@@ -152,6 +152,18 @@ export default function BookingConfirm() {
         {mode === 'view' && (
           <>
             <div className="space-y-3 border-t border-border pt-4">
+              {/* Klient + numer rezerwacji */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-semibold text-foreground">
+                  {[booking?.first_name, booking?.last_name].filter(Boolean).join(' ') || 'Rezerwacja'}
+                </div>
+                {booking?.id && (
+                  <span className="text-xs font-mono text-muted-foreground bg-muted/50 rounded px-2 py-0.5">
+                    #{String(booking.id).replace(/-/g, '').slice(0, 8).toUpperCase()}
+                  </span>
+                )}
+              </div>
+
               <div className="flex items-start gap-3">
                 <Clock className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                 <div>

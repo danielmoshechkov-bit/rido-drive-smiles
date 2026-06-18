@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye, Clock } from 'lucide-react';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { getDateLocale } from '@/lib/dateLocale';
 import { Input } from '@/components/ui/input';
@@ -167,6 +167,47 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
       .subscribe();
     return () => { (supabase as any).removeChannel(ch); };
   }, [providerId, queryClient]);
+
+  // Powiadomienia od klientów: prośby o zmianę terminu + świeże odwołania.
+  const { data: cancelledBookings = [] } = useQuery({
+    queryKey: ['workshop-bookings-cancelled', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data } = await (supabase as any)
+        .from('workshop_client_bookings')
+        .select('id, first_name, last_name, phone, plate, appointment_date, appointment_time, cancelled_at, cancellation_reason')
+        .eq('provider_id', providerId).eq('status', 'cancelled').gte('cancelled_at', since)
+        .order('cancelled_at', { ascending: false });
+      return data || [];
+    },
+  });
+  const rescheduleRequests = useMemo(
+    () => (clientBookings as any[]).filter(b => b.status === 'reschedule_requested'),
+    [clientBookings],
+  );
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+
+  const acceptReschedule = async (b: any) => {
+    try {
+      await (supabase as any).from('workshop_client_bookings').update({
+        appointment_date: b.proposed_date, appointment_time: b.proposed_time,
+        status: 'confirmed', confirmed_at: new Date().toISOString(),
+        proposed_date: null, proposed_time: null, reschedule_requested_at: null,
+      }).eq('id', b.id);
+      toast.success(t('workshop.scheduler.rescheduleAccepted', 'Zaakceptowano nowy termin'));
+      queryClient.invalidateQueries({ queryKey: ['workshop-bookings', providerId] });
+    } catch (e: any) { toast.error(e.message); }
+  };
+  const rejectReschedule = async (b: any) => {
+    try {
+      await (supabase as any).from('workshop_client_bookings').update({
+        status: 'scheduled', proposed_date: null, proposed_time: null, reschedule_requested_at: null,
+      }).eq('id', b.id);
+      toast.success(t('workshop.scheduler.rescheduleRejected', 'Zachowano pierwotny termin'));
+      queryClient.invalidateQueries({ queryKey: ['workshop-bookings', providerId] });
+    } catch (e: any) { toast.error(e.message); }
+  };
 
   // Convert bookings to virtual order-like objects for calendar display
   const allCalendarItems = useMemo(() => {
@@ -517,6 +558,43 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
   return (
     <div className="flex min-h-0 flex-col">
       {resolvedTitle && <h2 className="text-2xl font-bold tracking-tight mb-3">{resolvedTitle}</h2>}
+
+      {/* Powiadomienia od klientów: prośby o zmianę terminu + odwołania */}
+      {(rescheduleRequests.length > 0 || cancelledBookings.filter((c: any) => !dismissedAlerts.includes(c.id)).length > 0) && (
+        <div className="mb-3 space-y-2">
+          {rescheduleRequests.map((b: any) => (
+            <div key={b.id} className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <div className="flex items-start gap-2 flex-1 min-w-0">
+                <Clock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="text-sm min-w-0">
+                  <span className="font-semibold">{[b.first_name, b.last_name].filter(Boolean).join(' ') || b.phone}</span>
+                  {' '}{t('workshop.scheduler.wantsReschedule', 'prosi o zmianę terminu na')}{' '}
+                  <span className="font-medium whitespace-nowrap">{b.proposed_date ? b.proposed_date.split('-').reverse().join('.') : '—'} {b.proposed_time?.slice(0,5)}</span>
+                  {b.plate && <span className="text-muted-foreground"> · {b.plate}</span>}
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" className="h-8" onClick={() => acceptReschedule(b)}>{t('workshop.scheduler.accept', 'Akceptuj')}</Button>
+                <Button size="sm" variant="outline" className="h-8" onClick={() => rejectReschedule(b)}>{t('workshop.scheduler.reject', 'Odrzuć')}</Button>
+              </div>
+            </div>
+          ))}
+          {cancelledBookings.filter((c: any) => !dismissedAlerts.includes(c.id)).map((c: any) => (
+            <div key={c.id} className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/20 p-3 flex items-center gap-2">
+              <X className="h-4 w-4 text-red-600 shrink-0" />
+              <div className="text-sm flex-1 min-w-0">
+                <span className="font-semibold">{[c.first_name, c.last_name].filter(Boolean).join(' ') || c.phone}</span>
+                {' '}{t('workshop.scheduler.cancelledVisit', 'odwołał(a) wizytę')}{' '}
+                <span className="whitespace-nowrap">{c.appointment_date ? c.appointment_date.split('-').reverse().join('.') : ''} {c.appointment_time?.slice(0,5)}</span>
+                {c.cancellation_reason && <span className="text-muted-foreground"> — {c.cancellation_reason}</span>}
+              </div>
+              <button type="button" onClick={() => setDismissedAlerts(prev => [...prev, c.id])} className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-red-100 text-red-600 shrink-0" title={t('common.dismiss', 'Ukryj')}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Unplanned orders */}
       <Card
@@ -1136,6 +1214,52 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
   const [serviceItems, setServiceItems] = useState<string[]>([]);
   const [serviceInput, setServiceInput] = useState('');
 
+  // Telefon → wyszukiwarka klientów z bazy; nr rej → wybór auta z bazy
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [clientSuggest, setClientSuggest] = useState<any[]>([]);
+  const [showClientSuggest, setShowClientSuggest] = useState(false);
+  const [vehicleSuggest, setVehicleSuggest] = useState<any[]>([]);
+  const [showVehicleSuggest, setShowVehicleSuggest] = useState(false);
+  const [ownerVehicles, setOwnerVehicles] = useState<any[]>([]);
+
+  const clientLabel = (c: any) => c?.client_type === 'company'
+    ? (c.company_name || '')
+    : `${c?.first_name || ''} ${c?.last_name || ''}`.trim();
+
+  const searchClientsByPhone = async (phone: string) => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 3) { setClientSuggest([]); setShowClientSuggest(false); return; }
+    const { data } = await (supabase as any).from('workshop_clients')
+      .select('id, phone, first_name, last_name, company_name, client_type')
+      .eq('provider_id', providerId).ilike('phone', `%${digits}%`).limit(6);
+    setClientSuggest(data || []);
+    setShowClientSuggest((data || []).length > 0);
+  };
+
+  const pickClient = async (c: any) => {
+    setClientId(c.id);
+    setClientForm(f => ({ ...f, phone: c.phone || f.phone, firstName: c.first_name || '', lastName: c.last_name || '' }));
+    setShowClientSuggest(false);
+    const { data: vs } = await (supabase as any).from('workshop_vehicles')
+      .select('id, plate, brand, model, year').eq('provider_id', providerId).eq('owner_client_id', c.id).limit(10);
+    setOwnerVehicles(vs || []);
+  };
+
+  const searchVehiclesByPlate = async (plate: string) => {
+    const p = plate.trim();
+    if (p.length < 2) { setVehicleSuggest([]); setShowVehicleSuggest(false); return; }
+    const { data } = await (supabase as any).from('workshop_vehicles')
+      .select('id, plate, brand, model, year').eq('provider_id', providerId).ilike('plate', `%${p}%`).limit(6);
+    setVehicleSuggest(data || []);
+    setShowVehicleSuggest((data || []).length > 0);
+  };
+
+  const pickVehicle = (v: any) => {
+    setClientForm(f => ({ ...f, plate: v.plate || '', brand: v.brand || '', model: v.model || '', year: v.year ? String(v.year) : '' }));
+    setShowVehicleSuggest(false);
+    setVehicleSuggest([]);
+  };
+
   // Wyszukiwarka pojazdu po nr rej (lupka) — auto-fill marka/model/rok + zapis do bazy
   const [userId, setUserId] = useState<string | undefined>(undefined);
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id)); }, []);
@@ -1179,6 +1303,8 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         year: data.registration_year || null,
         fuel_type: data.fuel_type || null,
       };
+      // Przypisz do właściciela, jeśli wybrano klienta z bazy
+      if (clientId) payload.owner_client_id = clientId;
       let existingId: string | null = null;
       const { data: ex } = await (supabase as any).from('workshop_vehicles')
         .select('id').eq('provider_id', providerId).ilike('plate', plateUp).limit(1).maybeSingle();
@@ -1260,91 +1386,85 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       }).select('id, confirmation_token').single();
       if (error) throw error;
 
-      // Send confirmation SMS if enabled
-      if (clientForm.sendConfirmationSms) {
-        try {
-          const { data: providerInfo } = await supabase
-            .from('service_providers')
-            .select('company_name, company_address, company_city, company_postal_code, user_id')
-            .eq('id', providerId)
-            .maybeSingle();
-
-          // Also fetch workshop_settings for short_name and address
-          let workshopShortName = '';
-          let wsAddress = '';
-          let wsCity = '';
-          let wsPostalCode = '';
-          if (providerInfo?.user_id) {
-            const { data: wsSettings } = await (supabase as any)
-              .from('workshop_settings')
-              .select('short_name, address, city, postal_code')
-              .eq('user_id', providerInfo.user_id)
-              .maybeSingle();
-            if (wsSettings) {
-              workshopShortName = wsSettings.short_name || '';
-              wsAddress = wsSettings.address || '';
-              wsCity = wsSettings.city || '';
-              wsPostalCode = wsSettings.postal_code || '';
-            }
-          }
-
-          const smsPhone = formatPhoneForSms(clientForm.phone);
-          const [y, mo, d] = appointmentDay.split('-');
-          const dateStr = `${d}.${mo}.${y}`;
-          const timeStr = appointmentTime.slice(0, 5);
-          const nameForSms = workshopShortName || providerInfo?.company_name || 'Warsztat';
-          const workshopName = compactSpaces(removePl(nameForSms)).slice(0, 28);
-          const finalAddress = providerInfo?.company_address || wsAddress;
-          const finalCity = providerInfo?.company_city || wsCity;
-          // Adres bez kodu pocztowego — tylko ulica + miasto
-          const addressText = compactSpaces(removePl([finalAddress, finalCity].filter(Boolean).join(', ')));
-          // Link do zarządzania rezerwacją (klient może potwierdzić/odwołać/zmienić termin)
-          const token = insertedBooking?.confirmation_token;
-          const manageUrl = token ? `${window.location.origin}/r/${token}` : '';
-
-          // NIE wpisujemy opisu usługi / co dolega — tylko zaproszenie + adres + link.
-          let smsMessage = `Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.`;
-          if (addressText) smsMessage += ` Adres: ${addressText}.`;
-          if (manageUrl) smsMessage += ` Zarzadzaj rezerwacja: ${manageUrl}`;
-          smsMessage = compactSpaces(smsMessage);
-          // Bezpiecznik długości: jeśli za długie, przytnij ADRES (nie link), nie tnij w pół linku.
-          if (smsMessage.length > 320 && addressText) {
-            smsMessage = compactSpaces(`Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.${manageUrl ? ` Zarzadzaj rezerwacja: ${manageUrl}` : ''}`);
-          }
-
-          const { error: smsError } = await supabase.functions.invoke('workshop-send-sms', {
-            body: {
-              phone: smsPhone,
-              message: smsMessage,
-              sms_type: 'booking_confirmation',
-              provider_id: providerId,
-            },
-          });
-
-          if (smsError) {
-            console.error('SMS confirmation error:', smsError);
-            toast.error(t('workshop.scheduler.bookingSavedSmsFailed'));
-          } else {
-            await (supabase as any)
-              .from('workshop_client_bookings')
-              .update({ confirmation_sms_sent: true })
-              .eq('id', insertedBooking.id);
-            toast.success(t('workshop.scheduler.clientBookedSmsSent'));
-          }
-        } catch (smsErr) {
-          console.error('SMS send failed:', smsErr);
-          toast.error(t('workshop.scheduler.bookingSavedSmsFailed'));
-        }
-      } else {
-        toast.success(t('workshop.scheduler.clientBooked'));
-      }
-
+      // Sukces OD RAZU — nie czekamy na SMS. Wcześniej cały zapis czekał na
+      // cold-start edge SMS ("długo zapisuje"), a przy błędzie SMS user klikał
+      // ponownie → DUPLIKAT. Teraz: zamykamy i potwierdzamy natychmiast po insercie,
+      // SMS potwierdzenia leci w tle.
       queryClient.invalidateQueries({ queryKey: ['workshop-bookings'] });
-      queryClient.invalidateQueries({ queryKey: ['sms-credits'] });
+      toast.success(t('workshop.scheduler.clientBooked'));
+      const sendSms = clientForm.sendConfirmationSms;
+      const phoneForSms = clientForm.phone;
       onOpenChange(false);
       setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', year: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'], sendConfirmationSms: true });
       setServiceItems([]);
       setServiceInput('');
+      setClientId(null);
+      setClientSuggest([]); setShowClientSuggest(false);
+      setVehicleSuggest([]); setShowVehicleSuggest(false);
+      setOwnerVehicles([]);
+
+      // Powiąż auto z właścicielem (gdy wybrano klienta z bazy i podano nr rej)
+      if (clientId && clientForm.plate?.trim()) {
+        void (supabase as any).from('workshop_vehicles')
+          .update({ owner_client_id: clientId })
+          .eq('provider_id', providerId).ilike('plate', clientForm.plate.trim());
+      }
+
+      if (sendSms) {
+        void (async () => {
+          try {
+            const { data: providerInfo } = await supabase
+              .from('service_providers')
+              .select('company_name, company_address, company_city, company_postal_code, user_id')
+              .eq('id', providerId)
+              .maybeSingle();
+            let workshopShortName = '', wsAddress = '', wsCity = '';
+            if (providerInfo?.user_id) {
+              const { data: wsSettings } = await (supabase as any)
+                .from('workshop_settings')
+                .select('short_name, address, city, postal_code')
+                .eq('user_id', providerInfo.user_id)
+                .maybeSingle();
+              if (wsSettings) {
+                workshopShortName = wsSettings.short_name || '';
+                wsAddress = wsSettings.address || '';
+                wsCity = wsSettings.city || '';
+              }
+            }
+            const smsPhone = formatPhoneForSms(phoneForSms);
+            const [y, mo, d] = appointmentDay.split('-');
+            const dateStr = `${d}.${mo}.${y}`;
+            const timeStr = appointmentTime.slice(0, 5);
+            const nameForSms = workshopShortName || providerInfo?.company_name || 'Warsztat';
+            const workshopName = compactSpaces(removePl(nameForSms)).slice(0, 28);
+            const finalAddress = providerInfo?.company_address || wsAddress;
+            const finalCity = providerInfo?.company_city || wsCity;
+            const addressText = compactSpaces(removePl([finalAddress, finalCity].filter(Boolean).join(', ')));
+            const token = insertedBooking?.confirmation_token;
+            const manageUrl = token ? `${window.location.origin}/r/${token}` : '';
+            // NIE wpisujemy opisu usługi — tylko zaproszenie + adres + link.
+            let smsMessage = `Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.`;
+            if (addressText) smsMessage += ` Adres: ${addressText}.`;
+            if (manageUrl) smsMessage += ` Zarzadzaj rezerwacja: ${manageUrl}`;
+            smsMessage = compactSpaces(smsMessage);
+            if (smsMessage.length > 320 && addressText) {
+              smsMessage = compactSpaces(`Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.${manageUrl ? ` Zarzadzaj rezerwacja: ${manageUrl}` : ''}`);
+            }
+            const { error: smsError } = await supabase.functions.invoke('workshop-send-sms', {
+              body: { phone: smsPhone, message: smsMessage, sms_type: 'booking_confirmation', provider_id: providerId },
+            });
+            if (smsError) {
+              toast.error(t('workshop.scheduler.bookingSavedSmsFailed'));
+            } else {
+              await (supabase as any).from('workshop_client_bookings').update({ confirmation_sms_sent: true }).eq('id', insertedBooking.id);
+              queryClient.invalidateQueries({ queryKey: ['sms-credits'] });
+            }
+          } catch (smsErr) {
+            console.error('SMS send failed:', smsErr);
+            toast.error(t('workshop.scheduler.bookingSavedSmsFailed'));
+          }
+        })();
+      }
     } catch (err: any) {
       toast.error(err.message || t('workshop.scheduler.saveError'));
     } finally {
@@ -1392,28 +1512,30 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
           </div>
 
           {/* Editable date/time/category/station info */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
             <div>
               <Label className="font-medium text-xs">{t('workshop.scheduler.date')}</Label>
-              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-8 text-xs" />
+              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-9 text-sm w-full" />
             </div>
             <div>
               <Label className="font-medium text-xs">{t('workshop.scheduler.time')}</Label>
-              <div className="flex gap-1 mt-1">
+              <div className="flex items-center gap-1.5 mt-1">
                 <Input
                   inputMode="numeric"
                   value={editHourStr}
+                  onFocus={e => e.target.select()}
                   onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditHourStr(v); }}
                   onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
-                  className="h-8 text-xs w-14 text-center" placeholder="HH"
+                  className="h-9 text-sm w-16 text-center" placeholder="HH"
                 />
-                <span className="flex items-center text-xs font-bold">:</span>
+                <span className="text-sm font-bold">:</span>
                 <Input
                   inputMode="numeric"
                   value={editMinStr}
+                  onFocus={e => e.target.select()}
                   onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditMinStr(v); }}
                   onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
-                  className="h-8 text-xs w-14 text-center" placeholder="MM"
+                  className="h-9 text-sm w-16 text-center" placeholder="MM"
                 />
               </div>
             </div>
@@ -1450,9 +1572,30 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
 
           {activeTab === 'client' ? (
             <div className="space-y-3">
-              <div>
+              <div className="relative">
                 <Label className="text-sm">{t('workshop.scheduler.phoneLabel')}</Label>
-                <Input value={clientForm.phone} onChange={e => setClientForm(f => ({...f, phone: e.target.value}))} placeholder="+48 600 000 000" type="tel" />
+                <Input
+                  value={clientForm.phone}
+                  onChange={e => { const v = e.target.value; setClientForm(f => ({...f, phone: v})); setClientId(null); searchClientsByPhone(v); }}
+                  onFocus={() => { if (clientSuggest.length) setShowClientSuggest(true); }}
+                  onBlur={() => setTimeout(() => setShowClientSuggest(false), 150)}
+                  placeholder="+48 600 000 000" type="tel"
+                />
+                {showClientSuggest && clientSuggest.length > 0 && (
+                  <div className="absolute z-50 left-0 right-0 mt-1 rounded-lg border bg-popover shadow-lg max-h-52 overflow-y-auto">
+                    {clientSuggest.map(c => (
+                      <button
+                        key={c.id} type="button"
+                        onMouseDown={e => { e.preventDefault(); pickClient(c); }}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-accent transition-colors"
+                      >
+                        <span className="text-sm font-medium truncate">{clientLabel(c) || t('workshop.scheduler.clientNoName', 'Klient')}</span>
+                        <span className="text-xs text-muted-foreground shrink-0">{c.phone}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {clientId && <p className="text-[10px] text-emerald-600 mt-0.5">✓ {t('workshop.scheduler.clientFromBase', 'Klient z bazy')}</p>}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1464,13 +1607,28 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   <Input value={clientForm.lastName} onChange={e => setClientForm(f => ({...f, lastName: e.target.value}))} placeholder={t('workshop.scheduler.lastNamePlaceholder')} />
                 </div>
               </div>
-              {/* Nr rejestracyjny — pełna szerokość, działająca lupka (lookup + auto-fill + zapis do bazy) */}
+              {/* Nr rejestracyjny — wybór auta z bazy / auta właściciela / lookup po numerze */}
               <div>
                 <Label className="text-sm">{t('workshop.scheduler.plateLabel')}</Label>
+                {/* Szybki wybór aut wybranego klienta */}
+                {ownerVehicles.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-1.5">
+                    {ownerVehicles.map(v => (
+                      <button
+                        key={v.id} type="button" onClick={() => pickVehicle(v)}
+                        className="inline-flex items-center gap-1 rounded-full border bg-muted/30 px-2.5 py-1 text-xs hover:bg-accent transition-colors"
+                      >
+                        <Car className="h-3 w-3" /> {v.plate}{v.brand ? ` · ${v.brand} ${v.model || ''}` : ''}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="relative">
                   <Input
                     value={clientForm.plate}
-                    onChange={e => setClientForm(f => ({...f, plate: e.target.value.toUpperCase()}))}
+                    onChange={e => { const v = e.target.value.toUpperCase(); setClientForm(f => ({...f, plate: v})); searchVehiclesByPlate(v); }}
+                    onFocus={() => { if (vehicleSuggest.length) setShowVehicleSuggest(true); }}
+                    onBlur={() => setTimeout(() => setShowVehicleSuggest(false), 150)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleLookupPlate(); } }}
                     placeholder="KRA 12345"
                     className="pr-10"
@@ -1484,6 +1642,20 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   >
                     {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   </button>
+                  {showVehicleSuggest && vehicleSuggest.length > 0 && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 rounded-lg border bg-popover shadow-lg max-h-52 overflow-y-auto">
+                      {vehicleSuggest.map(v => (
+                        <button
+                          key={v.id} type="button"
+                          onMouseDown={e => { e.preventDefault(); pickVehicle(v); }}
+                          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left hover:bg-accent transition-colors"
+                        >
+                          <span className="text-sm font-medium">{v.plate}</span>
+                          <span className="text-xs text-muted-foreground truncate">{v.brand} {v.model} {v.year ? `· ${v.year}` : ''}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {typeof lookupCredits?.remaining_credits === 'number' && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">{t('workshop.scheduler.lookupCredits', 'Kredyty wyszukiwania')}: {lookupCredits.remaining_credits}</p>

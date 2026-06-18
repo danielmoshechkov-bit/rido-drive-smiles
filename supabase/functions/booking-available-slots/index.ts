@@ -49,6 +49,23 @@ Deno.serve(async (req) => {
 
     const { data: occupied } = await q;
 
+    // Limit aut/dzień (ustawienia kalendarza). 0 = bez limitu.
+    let dayFull = false;
+    const { data: sp } = await supabase
+      .from('service_providers').select('user_id').eq('id', booking.provider_id).maybeSingle();
+    if (sp?.user_id) {
+      const { data: ws } = await supabase
+        .from('workshop_settings').select('calendar_settings').eq('user_id', sp.user_id).maybeSingle();
+      const maxPerDay = Number((ws?.calendar_settings as any)?.max_bookings_per_day) || 0;
+      if (maxPerDay > 0) {
+        const { count } = await supabase
+          .from('workshop_client_bookings')
+          .select('id', { count: 'exact', head: true })
+          .eq('provider_id', booking.provider_id).eq('appointment_date', date).neq('status', 'cancelled');
+        if ((count || 0) >= maxPerDay) dayFull = true;
+      }
+    }
+
     // Generuj sloty co 30 min od 8:00 do 18:00
     const slots: { time: string; available: boolean }[] = [];
     const dur = booking.duration_minutes || 60;
@@ -63,10 +80,10 @@ Deno.serve(async (req) => {
       const overlaps = occupiedRanges.some(r => mins < r.end && mins + dur > r.start);
       const hh = String(Math.floor(mins / 60)).padStart(2, '0');
       const mm = String(mins % 60).padStart(2, '0');
-      slots.push({ time: `${hh}:${mm}`, available: !overlaps });
+      slots.push({ time: `${hh}:${mm}`, available: !overlaps && !dayFull });
     }
 
-    return new Response(JSON.stringify({ slots, duration: dur }), {
+    return new Response(JSON.stringify({ slots, duration: dur, dayFull }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (e: any) {
