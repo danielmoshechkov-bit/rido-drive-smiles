@@ -140,8 +140,11 @@ export default function BookingConfirm() {
     <div className="relative min-h-screen flex items-center justify-center bg-background p-4">
       <LanguageSwitcher variant="outline" className="absolute top-4 right-4" />
       <div className="max-w-md w-full bg-card border border-border rounded-2xl shadow-lg p-6 space-y-5">
-        <div className="text-center space-y-1">
-          <h1 className="text-xl font-bold text-foreground">{provider?.short_name || provider?.company_name || 'Warsztat'}</h1>
+        <div className="text-center space-y-2">
+          {provider?.logo_url ? (
+            <img src={provider.logo_url} alt={provider?.company_name || 'Warsztat'} className="h-14 w-auto max-w-[180px] object-contain mx-auto" />
+          ) : null}
+          <h1 className="text-xl font-bold text-foreground">{provider?.company_name || provider?.short_name || 'Warsztat'}</h1>
           <p className="text-sm text-muted-foreground">
             {mode === 'view' && 'Twoja wizyta'}
             {mode === 'cancel' && 'Anulowanie wizyty'}
@@ -182,14 +185,23 @@ export default function BookingConfirm() {
               {booking?.service_description && (
                 <div className="flex items-start gap-3">
                   <Wrench className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-foreground whitespace-pre-wrap">{booking.service_description}</div>
+                  <ol className="text-sm text-foreground space-y-0.5">
+                    {String(booking.service_description).split(/[,;\n]+/).map((s: string) => s.trim()).filter(Boolean).map((s: string, i: number) => (
+                      <li key={i}><span className="text-muted-foreground">{i + 1}.</span> {s}</li>
+                    ))}
+                  </ol>
                 </div>
               )}
 
-              {address && (
+              {(address || provider?.company_phone) && (
                 <div className="flex items-start gap-3">
                   <MapPin className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-foreground">{address}</div>
+                  <div className="text-sm text-foreground">
+                    {address && <div>{address}</div>}
+                    {provider?.company_phone && (
+                      <a href={`tel:${provider.company_phone}`} className="text-primary font-medium">{provider.company_phone}</a>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -230,20 +242,26 @@ export default function BookingConfirm() {
               </div>
             )}
 
-            {/* Akcje gdy scheduled */}
-            {!isConfirmed && !isCancelled && !isReschedule && (
-              <div className="space-y-2">
-                <Button onClick={handleConfirm} disabled={busy} className="w-full h-12 text-base font-semibold" size="lg">
-                  {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : (<><CheckCircle2 className="h-5 w-5 mr-2" />Potwierdzam wizytę</>)}
-                </Button>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button onClick={() => setMode('reschedule')} variant="outline" className="h-10">
-                    <CalendarIcon className="h-4 w-4 mr-1.5" />Zmień termin
-                  </Button>
-                  <Button onClick={() => setMode('cancel')} variant="outline" className="h-10 text-destructive hover:text-destructive">
-                    <XCircle className="h-4 w-4 mr-1.5" />Anuluj
-                  </Button>
+            {/* Bez wymogu potwierdzania — klient jest umówiony */}
+            {status === 'scheduled' && (
+              <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 rounded-lg p-4 flex items-center gap-3">
+                <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400 flex-shrink-0" />
+                <div>
+                  <div className="font-semibold text-green-700 dark:text-green-300">Jesteś umówiony</div>
+                  <div className="text-xs text-green-600/80 dark:text-green-400/80">Czekamy na Państwa w wyznaczonym terminie.</div>
                 </div>
+              </div>
+            )}
+
+            {/* Akcje — zawsze dostępne (oprócz odwołanej wizyty): Zmień termin + Anuluj */}
+            {!isCancelled && (
+              <div className="grid grid-cols-2 gap-2">
+                <Button onClick={() => setMode('reschedule')} variant="outline" className="h-11">
+                  <CalendarIcon className="h-4 w-4 mr-1.5" />Zmień termin
+                </Button>
+                <Button onClick={() => setMode('cancel')} variant="outline" className="h-11 text-destructive hover:text-destructive">
+                  <XCircle className="h-4 w-4 mr-1.5" />Anuluj
+                </Button>
               </div>
             )}
           </>
@@ -334,11 +352,6 @@ export default function BookingConfirm() {
           </div>
         )}
 
-        {provider?.company_phone && mode === 'view' && (
-          <p className="text-xs text-center text-muted-foreground border-t border-border pt-4">
-            Pytania? Zadzwoń: <a href={`tel:${provider.company_phone}`} className="text-primary font-medium">{provider.company_phone}</a>
-          </p>
-        )}
       </div>
     </div>
   );

@@ -197,6 +197,23 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
       }).eq('id', b.id);
       toast.success(t('workshop.scheduler.rescheduleAccepted', 'Zaakceptowano nowy termin'));
       queryClient.invalidateQueries({ queryKey: ['workshop-bookings', providerId] });
+
+      // Drugi SMS: "Twoja wizyta zostala zmieniona" + link do karty z nowym terminem
+      void (async () => {
+        try {
+          const rmPl = (s: string) => s.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, (c) => (
+            { 'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z','Ą':'A','Ć':'C','Ę':'E','Ł':'L','Ń':'N','Ó':'O','Ś':'S','Ź':'Z','Ż':'Z' } as any)[c] || c);
+          let phone = (b.phone || '').replace(/\D/g, '');
+          if (phone.length === 9) phone = `+48${phone}`; else if (phone.startsWith('48')) phone = `+${phone}`;
+          const [y, mo, d] = String(b.proposed_date).split('-');
+          const link = b.confirmation_token ? `${window.location.origin}/r/${b.confirmation_token}` : '';
+          let msg = rmPl(`Twoja wizyta zostala zmieniona na ${d}.${mo}.${y} o godz. ${String(b.proposed_time).slice(0,5)}.`);
+          if (link) msg += ` Szczegoly: ${link}`;
+          if (phone) await supabase.functions.invoke('workshop-send-sms', {
+            body: { phone, message: msg, sms_type: 'reschedule_confirmed', provider_id: providerId },
+          });
+        } catch (smsErr) { console.warn('[reschedule SMS] failed', smsErr); }
+      })();
     } catch (e: any) { toast.error(e.message); }
   };
   const rejectReschedule = async (b: any) => {
@@ -1179,6 +1196,19 @@ function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, update
   );
 }
 
+// Zapamiętywanie preferencji przypomnień SMS (jak w poprzednim zleceniu)
+const REMINDER_PREFS_KEY = 'workshop_booking_reminder_prefs';
+function readReminderPrefs(): { reminders: string[]; sms: boolean } {
+  try {
+    const raw = localStorage.getItem(REMINDER_PREFS_KEY);
+    if (raw) { const p = JSON.parse(raw); return { reminders: Array.isArray(p.reminders) ? p.reminders : ['24h', '2h'], sms: p.sms !== false }; }
+  } catch { /* ignore */ }
+  return { reminders: ['24h', '2h'], sms: true };
+}
+function saveReminderPrefs(reminders: string[], sms: boolean) {
+  try { localStorage.setItem(REMINDER_PREFS_KEY, JSON.stringify({ reminders, sms })); } catch { /* ignore */ }
+}
+
 function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders, stations, allWorkstations, categories, activeCategory, onCategoryChange, stationName: _stationName, onSchedule, onStationChange, tc }: {
   tc: (t?: string) => string;
   open: boolean; onOpenChange: (v: boolean) => void;
@@ -1202,11 +1232,14 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     service: '', type: 'Wydarzenie', color: 'Niebieski', allDay: false,
     duration: '1 godz.', worker: '', description: '',
   });
-  const [clientForm, setClientForm] = useState({
-    phone: '', firstName: '', lastName: '', plate: '',
-    brand: '', model: '', year: '', serviceDesc: '', duration: '60',
-    reminderOptions: ['24h', '2h'] as string[],
-    sendConfirmationSms: true,
+  const [clientForm, setClientForm] = useState(() => {
+    const prefs = readReminderPrefs();
+    return {
+      phone: '', firstName: '', lastName: '', plate: '',
+      brand: '', model: '', year: '', serviceDesc: '', duration: '60',
+      reminderOptions: prefs.reminders as string[],
+      sendConfirmationSms: prefs.sms,
+    };
   });
   const [saving, setSaving] = useState(false);
 
@@ -1278,10 +1311,9 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
   const handleLookupPlate = async () => {
     const plate = clientForm.plate.trim();
     if (plate.length < 3) { toast.error(t('workshop.vehicles.enterPlate', 'Wpisz numer rejestracyjny')); return; }
-    if (!lookupCredits || lookupCredits.remaining_credits < 1) {
-      toast.error(t('workshop.scheduler.noLookupCredits', 'Brak kredytów na wyszukiwanie pojazdu'));
-      return;
-    }
+    // Bez lokalnego pre-checku kredytów (lookupCredits ładuje się async → fałszywe
+    // "brak kredytów" przy szybkim kliknięciu). checkRegistration weryfikuje kredyty
+    // po stronie serwera i zwraca trafny komunikat (NO_CREDITS / nie znaleziono / itd.).
     const data: any = await checkRegistration(plate);
     if (!data) return;
     // Auto-fill
@@ -1394,8 +1426,10 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       toast.success(t('workshop.scheduler.clientBooked'));
       const sendSms = clientForm.sendConfirmationSms;
       const phoneForSms = clientForm.phone;
+      // Zapamiętaj wybór przypomnień — następne umawianie podstawi to samo
+      saveReminderPrefs(clientForm.reminderOptions, clientForm.sendConfirmationSms);
       onOpenChange(false);
-      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', year: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'], sendConfirmationSms: true });
+      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', year: '', serviceDesc: '', duration: '60', reminderOptions: clientForm.reminderOptions, sendConfirmationSms: clientForm.sendConfirmationSms });
       setServiceItems([]);
       setServiceInput('');
       setClientId(null);
