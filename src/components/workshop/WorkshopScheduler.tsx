@@ -15,6 +15,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
+import { useVehicleLookup } from '@/hooks/useVehicleLookup';
+import { Loader2 } from 'lucide-react';
 
 interface Props {
   providerId: string;
@@ -127,7 +129,9 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         .from('workshop_client_bookings')
         .select('*, confirmed_at')
         .eq('provider_id', providerId)
-        .in('status', ['scheduled', 'confirmed']);
+        // 'reschedule_requested' też — inaczej prośba klienta o zmianę znikała
+        // z kalendarza bez śladu (data-loss). Zostaje widoczna na starym terminie.
+        .in('status', ['scheduled', 'confirmed', 'reschedule_requested']);
       if (error) throw error;
       return data || [];
     },
@@ -1122,11 +1126,71 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
   });
   const [clientForm, setClientForm] = useState({
     phone: '', firstName: '', lastName: '', plate: '',
-    brand: '', model: '', serviceDesc: '', duration: '60',
+    brand: '', model: '', year: '', serviceDesc: '', duration: '60',
     reminderOptions: ['24h', '2h'] as string[],
     sendConfirmationSms: true,
   });
   const [saving, setSaving] = useState(false);
+
+  // Lista usług/pozycji (plus lub Enter dodaje kolejną) + bieżący wpis
+  const [serviceItems, setServiceItems] = useState<string[]>([]);
+  const [serviceInput, setServiceInput] = useState('');
+
+  // Wyszukiwarka pojazdu po nr rej (lupka) — auto-fill marka/model/rok + zapis do bazy
+  const [userId, setUserId] = useState<string | undefined>(undefined);
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id)); }, []);
+  const { credits: lookupCredits, loading: lookupLoading, checkRegistration } = useVehicleLookup(userId);
+
+  const addServiceItem = () => {
+    const v = serviceInput.trim();
+    if (!v) return;
+    setServiceItems(prev => [...prev, v]);
+    setServiceInput('');
+  };
+  const removeServiceItem = (idx: number) => setServiceItems(prev => prev.filter((_, i) => i !== idx));
+
+  const trimModelName = (m: string) => (m || '').split(/\s+/).slice(0, 2).join(' ').trim();
+
+  const handleLookupPlate = async () => {
+    const plate = clientForm.plate.trim();
+    if (plate.length < 3) { toast.error(t('workshop.vehicles.enterPlate', 'Wpisz numer rejestracyjny')); return; }
+    if (!lookupCredits || lookupCredits.remaining_credits < 1) {
+      toast.error(t('workshop.scheduler.noLookupCredits', 'Brak kredytów na wyszukiwanie pojazdu'));
+      return;
+    }
+    const data: any = await checkRegistration(plate);
+    if (!data) return;
+    // Auto-fill
+    setClientForm(f => ({
+      ...f,
+      brand: data.make || f.brand,
+      model: data.model ? trimModelName(data.model) : f.model,
+      year: data.registration_year ? String(data.registration_year) : f.year,
+    }));
+    // Zapis pojazdu do bazy warsztatu (UPSERT po nr rej / VIN)
+    try {
+      const plateUp = (data.registration_number || plate).toUpperCase();
+      const vinUp = data.vin ? String(data.vin).toUpperCase() : null;
+      const payload: any = {
+        brand: data.make || null,
+        model: data.model ? trimModelName(data.model) : null,
+        vin: vinUp,
+        plate: plateUp,
+        year: data.registration_year || null,
+        fuel_type: data.fuel_type || null,
+      };
+      let existingId: string | null = null;
+      const { data: ex } = await (supabase as any).from('workshop_vehicles')
+        .select('id').eq('provider_id', providerId).ilike('plate', plateUp).limit(1).maybeSingle();
+      if (ex) existingId = ex.id;
+      if (existingId) await (supabase as any).from('workshop_vehicles').update(payload).eq('id', existingId);
+      else await (supabase as any).from('workshop_vehicles').insert({ provider_id: providerId, ...payload });
+      queryClient.invalidateQueries({ queryKey: ['workshop-vehicles'] });
+      toast.success(t('workshop.scheduler.vehicleFound', 'Znaleziono pojazd i zapisano w bazie'));
+    } catch (e) {
+      console.error('[SlotDialog] auto-save vehicle error', e);
+    }
+  };
 
   // Sync editDate/editHour when slotData changes
   const prevSlotRef = useRef(slotData);
@@ -1167,6 +1231,9 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     }
     setSaving(true);
     try {
+      // Wszystkie pozycje usług (lista + ewentualny niezatwierdzony wpis)
+      const allServices = [...serviceItems, serviceInput.trim()].filter(Boolean);
+      const serviceDescription = allServices.join(', ');
       const appointmentDay = editDate || format(slotData.day, 'yyyy-MM-dd');
       const appointmentHour = parseInt(editHourStr) || 0;
       const appointmentMin = parseInt(editMinStr) || 0;
@@ -1181,7 +1248,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         plate: clientForm.plate || null,
         brand: clientForm.brand || null,
         model: clientForm.model || null,
-        service_description: clientForm.serviceDesc || null,
+        service_description: serviceDescription || null,
         appointment_date: appointmentDay,
         appointment_time: appointmentTime,
         duration_minutes: parseInt(clientForm.duration) || 60,
@@ -1190,7 +1257,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         reminder_times: clientForm.reminderOptions,
         confirmation_sms_sent: false,
         status: 'scheduled',
-      }).select('id').single();
+      }).select('id, confirmation_token').single();
       if (error) throw error;
 
       // Send confirmation SMS if enabled
@@ -1227,26 +1294,23 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
           const timeStr = appointmentTime.slice(0, 5);
           const nameForSms = workshopShortName || providerInfo?.company_name || 'Warsztat';
           const workshopName = compactSpaces(removePl(nameForSms)).slice(0, 28);
-          // Aggregate services: split by comma/semicolon/newline, first as primary, rest as count
-          const rawServices = (clientForm.serviceDesc || '')
-            .split(/[,;\n]+/)
-            .map((s) => s.trim())
-            .filter(Boolean);
-          const primaryService = rawServices[0] ? compactSpaces(removePl(rawServices[0])) : '';
-          const extraCount = Math.max(0, rawServices.length - 1);
           const finalAddress = providerInfo?.company_address || wsAddress;
           const finalCity = providerInfo?.company_city || wsCity;
           // Adres bez kodu pocztowego — tylko ulica + miasto
           const addressText = compactSpaces(removePl([finalAddress, finalCity].filter(Boolean).join(', ')));
+          // Link do zarządzania rezerwacją (klient może potwierdzić/odwołać/zmienić termin)
+          const token = insertedBooking?.confirmation_token;
+          const manageUrl = token ? `${window.location.origin}/r/${token}` : '';
 
-          let smsMessage = `Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}.`;
-          if (primaryService) {
-            smsMessage += ` Zapraszamy na ${primaryService}${extraCount > 0 ? ` (+${extraCount} inne)` : ''}.`;
-          } else {
-            smsMessage += ' Zapraszamy.';
-          }
+          // NIE wpisujemy opisu usługi / co dolega — tylko zaproszenie + adres + link.
+          let smsMessage = `Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.`;
           if (addressText) smsMessage += ` Adres: ${addressText}.`;
-          smsMessage = compactSpaces(smsMessage).slice(0, 160);
+          if (manageUrl) smsMessage += ` Zarzadzaj rezerwacja: ${manageUrl}`;
+          smsMessage = compactSpaces(smsMessage);
+          // Bezpiecznik długości: jeśli za długie, przytnij ADRES (nie link), nie tnij w pół linku.
+          if (smsMessage.length > 320 && addressText) {
+            smsMessage = compactSpaces(`Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.${manageUrl ? ` Zarzadzaj rezerwacja: ${manageUrl}` : ''}`);
+          }
 
           const { error: smsError } = await supabase.functions.invoke('workshop-send-sms', {
             body: {
@@ -1278,7 +1342,9 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       queryClient.invalidateQueries({ queryKey: ['workshop-bookings'] });
       queryClient.invalidateQueries({ queryKey: ['sms-credits'] });
       onOpenChange(false);
-      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'], sendConfirmationSms: true });
+      setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', year: '', serviceDesc: '', duration: '60', reminderOptions: ['24h', '2h'], sendConfirmationSms: true });
+      setServiceItems([]);
+      setServiceInput('');
     } catch (err: any) {
       toast.error(err.message || t('workshop.scheduler.saveError'));
     } finally {
@@ -1398,14 +1464,33 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   <Input value={clientForm.lastName} onChange={e => setClientForm(f => ({...f, lastName: e.target.value}))} placeholder={t('workshop.scheduler.lastNamePlaceholder')} />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-sm">{t('workshop.scheduler.plateLabel')}</Label>
-                  <div className="relative">
-                    <Input value={clientForm.plate} onChange={e => setClientForm(f => ({...f, plate: e.target.value.toUpperCase()}))} placeholder="KRA 12345" />
-                    <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
-                  </div>
+              {/* Nr rejestracyjny — pełna szerokość, działająca lupka (lookup + auto-fill + zapis do bazy) */}
+              <div>
+                <Label className="text-sm">{t('workshop.scheduler.plateLabel')}</Label>
+                <div className="relative">
+                  <Input
+                    value={clientForm.plate}
+                    onChange={e => setClientForm(f => ({...f, plate: e.target.value.toUpperCase()}))}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleLookupPlate(); } }}
+                    placeholder="KRA 12345"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleLookupPlate}
+                    disabled={lookupLoading}
+                    title={t('workshop.scheduler.lookupPlate', 'Wyszukaj pojazd po numerze')}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground disabled:opacity-50"
+                  >
+                    {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </button>
                 </div>
+                {typeof lookupCredits?.remaining_credits === 'number' && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{t('workshop.scheduler.lookupCredits', 'Kredyty wyszukiwania')}: {lookupCredits.remaining_credits}</p>
+                )}
+              </div>
+              {/* Marka / Model / Rok — responsywnie (1 kol. na telefonie) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
                   <Label className="text-sm">{t('workshop.scheduler.brand')}</Label>
                   <Input value={clientForm.brand} onChange={e => setClientForm(f => ({...f, brand: e.target.value}))} placeholder={t('workshop.scheduler.brandPlaceholder')} />
@@ -1414,10 +1499,39 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   <Label className="text-sm">{t('workshop.scheduler.model')}</Label>
                   <Input value={clientForm.model} onChange={e => setClientForm(f => ({...f, model: e.target.value}))} placeholder={t('workshop.scheduler.modelPlaceholder')} />
                 </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <Label className="text-sm">{t('workshop.scheduler.year', 'Rok')}</Label>
+                  <Input value={clientForm.year} onChange={e => setClientForm(f => ({...f, year: e.target.value.replace(/\D/g, '').slice(0, 4)}))} inputMode="numeric" placeholder="2019" />
+                </div>
               </div>
+              {/* Usługi — wiele pozycji: Enter lub plusik dodaje, X usuwa */}
               <div>
                 <Label className="text-sm">{t('workshop.scheduler.serviceDesc')}</Label>
-                <Input value={clientForm.serviceDesc} onChange={e => setClientForm(f => ({...f, serviceDesc: e.target.value}))} placeholder={t('workshop.scheduler.serviceDescPlaceholder')} />
+                {serviceItems.length > 0 && (
+                  <div className="space-y-1.5 mb-2">
+                    {serviceItems.map((s, idx) => (
+                      <div key={idx} className="flex items-center gap-2 rounded-md border bg-muted/20 px-2.5 py-1.5">
+                        <span className="text-muted-foreground text-xs shrink-0">{idx + 1}.</span>
+                        <span className="text-sm flex-1 min-w-0 break-words">{s}</span>
+                        <button type="button" onClick={() => removeServiceItem(idx)} className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground shrink-0">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    value={serviceInput}
+                    onChange={e => setServiceInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addServiceItem(); } }}
+                    placeholder={t('workshop.scheduler.serviceDescPlaceholder')}
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={addServiceItem} disabled={!serviceInput.trim()} title={t('workshop.scheduler.addService', 'Dodaj pozycję')}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">{t('workshop.scheduler.serviceAddHint', 'Enter lub + dodaje kolejną pozycję')}</p>
               </div>
               <div>
                 <Label className="text-sm">{t('workshop.scheduler.serviceDuration')}</Label>
