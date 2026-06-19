@@ -64,7 +64,7 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: "", assigned_name: "" });
+  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: "", assigned_name: "", assigned_user_id: "" });
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<string>("all");
   const [detailTask, setDetailTask] = useState<WorkspaceTask | null>(null);
@@ -100,12 +100,15 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
       due_date: form.due_date || null,
       assigned_name: form.assigned_name || null,
     });
-    // Send notification if task is assigned
-    if (newTask && form.assigned_name) {
+    // Przypisanie po user_id → assignees + kolumny (RLS / „Moje zadania")
+    if (newTask && form.assigned_user_id) {
+      await workspace.syncTaskAssignees(newTask.id, [
+        { user_id: form.assigned_user_id, display_name: form.assigned_name },
+      ]);
       notifyTaskAssigned(project.id, form.title.trim(), form.assigned_name, newTask.id, workspace.userEmail || undefined);
     }
     setShowCreate(false);
-    setForm({ title: "", description: "", priority: "medium", due_date: "", assigned_name: "" });
+    setForm({ title: "", description: "", priority: "medium", due_date: "", assigned_name: "", assigned_user_id: "" });
     reload();
   };
 
@@ -393,11 +396,16 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Przypisz do</Label>
-              <Select value={form.assigned_name} onValueChange={v => setForm(p => ({ ...p, assigned_name: v }))}>
+              <Select
+                value={form.assigned_user_id}
+                onValueChange={v => {
+                  const m = members.find(mm => mm.user_id === v);
+                  setForm(p => ({ ...p, assigned_user_id: v, assigned_name: m ? getMemberName(m) : "" }));
+                }}>
                 <SelectTrigger><SelectValue placeholder="Wybierz osobę" /></SelectTrigger>
                 <SelectContent>
-                  {members.map(m => (
-                    <SelectItem key={m.id} value={getMemberName(m)}>{getMemberName(m)}</SelectItem>
+                  {members.filter(m => m.status === 'active' && m.user_id).map(m => (
+                    <SelectItem key={m.id} value={m.user_id!}>{getMemberName(m)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

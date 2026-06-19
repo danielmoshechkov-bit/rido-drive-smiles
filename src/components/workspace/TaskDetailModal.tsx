@@ -80,6 +80,7 @@ export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members
   const [newTag, setNewTag] = useState("");
   const [reminder, setReminder] = useState("");
   const [saving, setSaving] = useState(false);
+  const [assignees, setAssignees] = useState<{ user_id: string | null; display_name: string }[]>([]);
 
   const timeTracking = useTaskTimeTracking(task?.id || null, userId || null, userName || null);
 
@@ -96,6 +97,17 @@ export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members
       });
       loadSubtasks(task.id);
       loadComments(task.id);
+      // Wczytaj realne przypisania; dla starych zadań fallback na assigned_name (tylko do wyświetlenia, user_id=null = „legacy")
+      (async () => {
+        const { data } = await (supabase as any)
+          .from("workspace_task_assignees").select("user_id, display_name").eq("task_id", task.id);
+        if (data && data.length) {
+          setAssignees(data.map((a: any) => ({ user_id: a.user_id, display_name: a.display_name })));
+        } else {
+          setAssignees((task.assigned_name || "").split(",").map((s: string) => s.trim()).filter(Boolean)
+            .map((name: string) => ({ user_id: null, display_name: name })));
+        }
+      })();
     }
   }, [task]);
 
@@ -123,7 +135,18 @@ export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members
   const handleSave = async () => {
     if (!task) return;
     setSaving(true);
-    const ok = await onSave(task.id, form);
+    // tylko realni członkowie (z user_id) trafiają do assignees; legacy-bez-id pomijamy
+    const real = assignees.filter(a => a.user_id) as { user_id: string; display_name: string }[];
+    await (supabase as any).from("workspace_task_assignees").delete().eq("task_id", task.id);
+    if (real.length) {
+      await (supabase as any).from("workspace_task_assignees")
+        .insert(real.map(a => ({ task_id: task.id, user_id: a.user_id, display_name: a.display_name })));
+    }
+    const ok = await onSave(task.id, {
+      ...form,
+      assigned_user_id: real[0]?.user_id ?? null,
+      assigned_name: real.map(a => a.display_name).join(", ") || null,
+    });
     if (ok) toast.success("Zadanie zapisane");
     setSaving(false);
     onClose();
@@ -331,30 +354,27 @@ export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members
                     <User className="h-3.5 w-3.5" /> Przypisz do
                   </Label>
                   <div className="mt-1.5 space-y-1.5">
-                    {(form.assigned_name || "").split(",").filter(Boolean).map((name, idx) => (
+                    {assignees.map((a, idx) => (
                       <div key={idx} className="flex items-center gap-1.5 bg-muted/50 rounded px-2 py-1 text-xs">
-                        <Avatar className="h-4 w-4"><AvatarFallback className="text-[7px]">{name.trim().slice(0,2).toUpperCase()}</AvatarFallback></Avatar>
-                        <span className="flex-1">{name.trim()}</span>
-                        <button onClick={() => {
-                          const names = (form.assigned_name || "").split(",").filter(Boolean).map(n => n.trim());
-                          names.splice(idx, 1);
-                          setForm(p => ({ ...p, assigned_name: names.join(", ") }));
-                        }} className="text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></button>
+                        <Avatar className="h-4 w-4"><AvatarFallback className="text-[7px]">{a.display_name.slice(0,2).toUpperCase()}</AvatarFallback></Avatar>
+                        <span className="flex-1">{a.display_name}{!a.user_id && <span className="opacity-50"> (legacy)</span>}</span>
+                        <button onClick={() => setAssignees(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></button>
                       </div>
                     ))}
                     <Select value="" onValueChange={v => {
                       if (v === "__invite__") { onInviteMember?.(); return; }
-                      const current = (form.assigned_name || "").split(",").filter(Boolean).map(n => n.trim());
-                      if (!current.includes(v)) {
-                        setForm(p => ({ ...p, assigned_name: [...current, v].join(", ") }));
+                      const m = members.find((mm: any) => mm.user_id === v);
+                      if (m && !assignees.some(a => a.user_id === v)) {
+                        setAssignees(prev => [...prev, { user_id: v, display_name: m.display_name || m.email || 'Użytkownik' }]);
                       }
                     }}>
                       <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="+ Dodaj osobę..." /></SelectTrigger>
                       <SelectContent>
-                        {members.map((m: any) => {
+                        {members.filter((m: any) => m.status === 'active' && m.user_id).map((m: any) => {
                           const name = m.display_name || m.email || m.user_id;
                           return (
-                            <SelectItem key={m.id} value={name}>
+                            <SelectItem key={m.id} value={m.user_id}>
                               <div className="flex items-center gap-2">
                                 <Avatar className="h-5 w-5">
                                   <AvatarFallback className="text-[8px]">

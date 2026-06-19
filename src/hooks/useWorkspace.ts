@@ -176,6 +176,26 @@ export function useWorkspace() {
     return true;
   }, []);
 
+  // Synchronizuje przypisania zadania: przepina wiersze w workspace_task_assignees
+  // (po user_id → działa RLS + „Moje zadania") ORAZ ustawia kolumny na
+  // workspace_tasks: assigned_user_id (pierwszy, dla widoków single-col) i
+  // assigned_name (CSV nazw, do wyświetlania / wsteczna kompatybilność).
+  const syncTaskAssignees = useCallback(async (
+    taskId: string,
+    assignees: { user_id: string; display_name: string }[],
+  ) => {
+    await supabase.from("workspace_task_assignees").delete().eq("task_id", taskId);
+    if (assignees.length) {
+      await supabase.from("workspace_task_assignees").insert(
+        assignees.map(a => ({ task_id: taskId, user_id: a.user_id, display_name: a.display_name })),
+      );
+    }
+    await supabase.from("workspace_tasks").update({
+      assigned_user_id: assignees[0]?.user_id ?? null,
+      assigned_name: assignees.map(a => a.display_name).join(", ") || null,
+    }).eq("id", taskId);
+  }, []);
+
   const deleteTask = useCallback(async (id: string) => {
     const { error } = await supabase.from("workspace_tasks").delete().eq("id", id);
     if (error) { toast.error("Błąd usuwania"); return; }
@@ -277,7 +297,7 @@ export function useWorkspace() {
   return {
     projects, loading, userId, userEmail,
     loadProjects, createProject, updateProject, deleteProject,
-    loadTasks, createTask, updateTask, deleteTask,
+    loadTasks, createTask, updateTask, deleteTask, syncTaskAssignees,
     loadMembers, addMember, removeMember,
     loadMessages, sendMessage,
     loadChannels, createChannel,
