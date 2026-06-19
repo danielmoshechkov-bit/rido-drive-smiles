@@ -23442,6 +23442,9 @@ export type Database = {
           phone: string | null
           postal_code: string | null
           short_name: string | null
+          show_client_gross: boolean
+          show_client_net: boolean
+          show_client_vat: boolean
           show_prices_as: string | null
           updated_at: string | null
           user_id: string
@@ -23468,6 +23471,9 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           short_name?: string | null
+          show_client_gross?: boolean
+          show_client_net?: boolean
+          show_client_vat?: boolean
           show_prices_as?: string | null
           updated_at?: string | null
           user_id: string
@@ -23494,6 +23500,9 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           short_name?: string | null
+          show_client_gross?: boolean
+          show_client_net?: boolean
+          show_client_vat?: boolean
           show_prices_as?: string | null
           updated_at?: string | null
           user_id?: string
@@ -25206,6 +25215,10 @@ export type Database = {
         Args: { _driver_id: string; _user_id: string }
         Returns: Json
       }
+      cancel_workshop_booking_by_token: {
+        Args: { p_reason: string; p_token: string }
+        Returns: undefined
+      }
       cleanup_expired_workshop_photos: { Args: never; Returns: undefined }
       complete_referral_on_first_purchase: {
         Args: {
@@ -25214,6 +25227,10 @@ export type Database = {
           p_referred_user_id: string
         }
         Returns: Json
+      }
+      confirm_workshop_booking_by_token: {
+        Args: { p_token: string }
+        Returns: undefined
       }
       credit_welcome_bonus: {
         Args: { p_amount?: number; p_user_id: string }
@@ -25265,6 +25282,10 @@ export type Database = {
           total_phrases: number
           total_size_bytes: number
         }[]
+      }
+      get_workshop_booking_by_token: {
+        Args: { p_token: string }
+        Returns: Json
       }
       get_workspace_member_project_ids: { Args: never; Returns: string[] }
       get_workspace_owned_project_ids: { Args: never; Returns: string[] }
@@ -25355,6 +25376,10 @@ export type Database = {
       peek_next_invoice_number: {
         Args: { p_month: number; p_user_id: string; p_year: number }
         Returns: number
+      }
+      reschedule_workshop_booking_by_token: {
+        Args: { p_date: string; p_time: string; p_token: string }
+        Returns: undefined
       }
       telegram_bot_token_is_set: { Args: never; Returns: boolean }
       user_can_access_driver: {
