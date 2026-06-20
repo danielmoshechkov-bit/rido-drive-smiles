@@ -16,7 +16,12 @@
 
 ## STATUS SPRINTÓW
 
-### ✅ SPRINT 0 — Bezpieczeństwo + płatność (P0) — ZROBIONE (czeka na merge)
+### ✅ SPRINT 0 — Bezpieczeństwo + płatność (P0) — ZAMKNIĘTY (2026-06-20)
+> Weryfikacja prod: bucket `car-photos` + polityki owner-only potwierdzone (anon INSERT odrzucony),
+> `documents` authenticated-only potwierdzone (luka anon-write zamknięta), funkcja `ai-photo-edit`
+> wdrożona przez CLI i potwierdzona runtime (featureKey bez JWT → 401). Test e2e: kredyt schodzi
+> SERWEROWO, saldo `user_credits` 50 → 20 (−30) po testach. Breakdown w `ai_credit_history`.
+
 - **0a/0b** Bucket `car-photos` (public read, write/del owner-only po folderze `{userId}/`).
   `VehiclePhotoUpload` pisze do `car-photos` zamiast `documents`. Ścieżka `anonymous/` usunięta,
   upload wymaga loginu.
@@ -29,6 +34,30 @@
 - Pliki: `supabase/migrations/20260620120000_sprint0_car_photos_security.sql`,
   `supabase/functions/_shared/creditGate.ts`, `supabase/functions/ai-photo-edit/index.ts`,
   `src/components/marketplace/VehiclePhotoUpload.tsx`.
+
+---
+
+## 🔥 BACKLOG (priorytety) — zgłoszone 2026-06-20, NIE robić bez „dalej"
+
+### P0 — BUGI (najpierw, blokują realne wystawianie)
+- **„Błąd podczas dodawania ogłoszenia" przy Opublikuj** — ogłoszenie się nie zapisuje.
+  Zdiagnozować: insert do `vehicle_listings` (RLS — kto może INSERT? `vehicle_listings`
+  ma polityki fleet/admin, a tu pisze zwykły marketplace user → prawdopodobny brak polityki
+  INSERT dla usera), wymagane pola/typy, czy URL z `car-photos` zapisuje się poprawnie.
+- **„Błąd generowania opisu" przy Wygeneruj opis z AI** — osobna funkcja `ai-service`
+  (`type: vehicle-description`). Zdiagnozować osobno (klucz/model/kredyty/RLS).
+- **Walidacja formularza — pokaż WSZYSTKIE braki naraz.** Teraz braki lecą po kolei
+  (toast za toastem). Ma: podświetlić wszystkie brakujące wymagane pola na czerwono
+  jednocześnie + komunikat „uzupełnij brakujące dane". Przy okazji **przegląd wymagalności**
+  pól (które naprawdę powinny być obowiązkowe).
+
+### P0/UX dodatkowo
+- Rozjazd nazw kluczy `feature_toggles`: kod (`AddListingModal`, `SearchCategoryModal`) pyta
+  o `vehicle_marketplace_enabled` / `real_estate_marketplace_enabled` / `services_marketplace_enabled`,
+  a w DB są `marketplace_vehicles_enabled` itd. → flagi nie działają jak myśli admin.
+  (Osobny task, ustalić jeden zestaw nazw.)
+
+---
 
 ### ⏳ SPRINT 1 — Ustawienia admina portalu aut (rozszerzenie routera AI) — NIE ZACZĘTE
 Rozbudowa istniejących tabel (`ai_providers`, `ai_routing_rules`, `ai_pricing`,
@@ -44,10 +73,31 @@ Rozbudowa istniejących tabel (`ai_providers`, `ai_routing_rules`, `ai_pricing`,
   - **PROMOCJE**: cena promocyjna + okres od/do lub % rabatu; gdy aktywna → obowiązuje cena
     promocyjna, po terminie wraca normalna. Strukturę (tabela cen + tabela/pola promocji)
     zaproponować do akceptacji PRZED budową.
+- **Licznik kredytów stale widoczny** (nie tylko na karcie foto) — globalny, w nagłówku/UI —
+  + przycisk **„Dokup kredyty"**.
+- **Panel ustawień AI foto**: podpięcie **API4AI** (wycinanie tła) + przypisanie modeli do funkcji.
+- **Przykład PRZED/PO** w modalu to dziś hardcode (`/example-before.jpg`, `/example-after.jpg` +
+  unsplash Toyota w `AIPhotoSection`) — DWA różne auta. Ma być **realne przykładowe foto
+  (to samo auto przed/po), edytowalne z panelu admina**.
 
-### ⏳ SPRINT 2 — Pipeline 2-krokowy + uporządkowanie — NIE ZACZĘTE
-- API4AI bg-removal (`API4AI_KEY` z Secrets) → Gemini wstawia tło. Tryb single/spin
-  (spin = wspólny seed/skala/pozycja). Galeria stylów per user (seed = user_id+timestamp).
+### ⏳ SPRINT 2 — Pipeline 2-krokowy + galeria (NAPRAWIA JAKOŚĆ) — NIE ZACZĘTE
+> Objaw dziś: czysty Gemini-edit daje nierówną jakość (np. „foto 2 słabe / samo tło"),
+> bo Gemini ignoruje instrukcję pozycji i tła.
+- **2-krokowy pipeline**: API4AI **wytnij tło** (`API4AI_KEY` z Secrets) → Gemini **wstaw tło**.
+- **WSPÓLNY SEED tła**: wszystkie zdjęcia jednego auta na TYM SAMYM tle (dziś różne).
+- **Kontrola pozycji auta**: wycięcie+wstawienie daje równe ustawienie (czysty Gemini ignoruje
+  instrukcję pozycji).
+- **Galeria teł** do wyboru z podglądem + własny opis.
+- **Fullscreen podgląd PRZED zapłatą** + znak wodny (nie da się pobrać czystego; znak NIE zamazuje
+  tablic rejestracyjnych).
+- Tryb single/spin (spin = wspólny seed/skala/pozycja). Galeria stylów per user (seed = user_id+timestamp).
+
+### ⏳ NOWA FUNKCJA — „Rido doradza" (ocena atrakcyjności ogłoszenia) — DO ROZPLANOWANIA
+Ekran podsumowania na końcu flow dodawania:
+- **% uzupełnienia** ogłoszenia, czego brakuje,
+- ocena opisu (jakość/długość), punktowe zalecenia „co dodać by zwiększyć zasięg",
+- zachęta do wygenerowania opisu przez Rido AI,
+- sekcja „Rido doradza" na końcu flow.
 
 ### ⏳ SPRINT 3 — Capture z konturem (PWA) — NIE ZACZĘTE
 ### ⏳ SPRINT 4 — Exterior 360 (viewer) — NIE ZACZĘTE
