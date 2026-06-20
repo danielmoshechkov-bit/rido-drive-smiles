@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkAndDeductCredits, refundCredits } from "../_shared/creditGate.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 interface PhotoEditRequest {
@@ -16,7 +18,8 @@ interface PhotoEditRequest {
   listingType: 'vehicle' | 'real_estate';
   listingId: string;
   photoIndex: number;
-  userId?: string;
+  userId?: string;       // ignorowane do rozliczen — userId bierzemy z JWT
+  featureKey?: string;   // 'vehicle_photo_enhance' | 'vehicle_photo_custom' (tor aut)
 }
 
 serve(async (req) => {
@@ -49,6 +52,40 @@ serve(async (req) => {
         JSON.stringify({ error: 'AI Photo Editing is disabled' }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Tozsamosc z JWT (gateway ma verify_jwt=false → weryfikujemy sami).
+    const authHeader = req.headers.get('Authorization') ?? '';
+    let authedUserId: string | null = null;
+    if (authHeader) {
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await userClient.auth.getUser();
+      authedUserId = user?.id ?? null;
+    }
+
+    // Rozliczenie SERWEROWE — tylko gdy caller podal featureKey (tor aut).
+    // Koszt WYLACZNIE z ai_pricing (creditGate). Brak drugiego zrodla kosztu.
+    let billed: { userId: string; cost: number; balanceAfter: number } | null = null;
+    if (request.featureKey) {
+      if (!authedUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const gate = await checkAndDeductCredits(supabase, authedUserId, request.featureKey, {
+        modelUsed: 'google/gemini-2.5-flash-image-preview',
+        querySummary: instruction.substring(0, 100),
+      });
+      if (!gate.allowed) {
+        return new Response(
+          JSON.stringify({ error: 'insufficient_credits', reason: gate.reason, balance: gate.balance, cost: gate.cost }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      billed = { userId: authedUserId, cost: gate.cost, balanceAfter: gate.balance_after };
     }
 
     console.log('[AI Photo] Editing photo with instruction:', instruction);
@@ -101,7 +138,8 @@ Wynik powinien wyglądać realistycznie i naturalnie.`;
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error('[AI Photo] API error:', aiResponse.status, errorText);
-      
+      if (billed) await refundCredits(supabase, billed.userId, billed.cost); // model padl → zwrot
+
       if (aiResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
@@ -128,6 +166,7 @@ Wynik powinien wyglądać realistycznie i naturalnie.`;
 
     if (!editedImageUrl) {
       console.error('[AI Photo] No edited image in response');
+      if (billed) await refundCredits(supabase, billed.userId, billed.cost); // brak wyniku → zwrot
       return new Response(
         JSON.stringify({ 
           error: 'AI could not generate edited image. Try a different instruction.',
@@ -152,17 +191,8 @@ Wynik powinien wyglądać realistycznie i naturalnie.`;
       });
     }
 
-    // Log usage
-    await supabase.from('ai_credit_history').insert({
-      user_id: userId || null,
-      query_type: 'photo_edit',
-      ai_type: 'photo_edit',
-      model_used: 'google/gemini-2.5-flash-image-preview',
-      response_time_ms: responseTime,
-      query_summary: instruction.substring(0, 100),
-      credits_used: 2, // Photo editing costs more
-      was_free: false
-    });
+    // Koszt i log obsluzone przez creditGate (ai_pricing) PRZED wywolaniem modelu.
+    // Brak innego zrodla kosztu — dawny hardcode credits_used:2 usuniety.
 
     return new Response(
       JSON.stringify({
@@ -171,7 +201,9 @@ Wynik powinien wyglądać realistycznie i naturalnie.`;
         editedUrl: editedImageUrl,
         instruction,
         responseTimeMs: responseTime,
-        aiMessage
+        aiMessage,
+        balance_after: billed ? billed.balanceAfter : null,
+        cost: billed ? billed.cost : 0
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
