@@ -34,6 +34,20 @@ interface ListingWithPhoto {
   photo_url?: string | null;
 }
 
+interface VehicleListingRow {
+  id: string;
+  title: string | null;
+  brand: string | null;
+  model: string | null;
+  year: number | null;
+  price: number | null;
+  photos: string[] | null;
+  status: string | null;
+  views: number | null;
+  listing_number: string | null;
+  created_at: string | null;
+}
+
 interface SellerMetrics {
   active: number;
   sold: number;
@@ -58,6 +72,9 @@ export function MyListingsTab({ userId }: { userId?: string }) {
   const [metrics, setMetrics] = useState<SellerMetrics>({ active: 0, sold: 0, totalViews: 0, avgRating: 0, ratingCount: 0 });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [aiTips, setAiTips] = useState<Record<string, string>>({});
+  const [vehicleListings, setVehicleListings] = useState<VehicleListingRow[]>([]);
+  const [vehLoading, setVehLoading] = useState(true);
+  const [deleteVehicleId, setDeleteVehicleId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -70,7 +87,28 @@ export function MyListingsTab({ userId }: { userId?: string }) {
   }, [statusFilter, userId]);
 
   const loadAll = async () => {
-    await Promise.all([loadListings(), loadMetrics()]);
+    await Promise.all([loadListings(), loadMetrics(), loadVehicleListings()]);
+  };
+
+  // Tor AUT (giełda): ogłoszenia z vehicle_listings, własność po created_by.
+  const loadVehicleListings = async () => {
+    if (!userId) return;
+    setVehLoading(true);
+    const { data, error } = await supabase
+      .from("vehicle_listings")
+      .select("id, title, brand, model, year, price, photos, status, views, listing_number, created_at")
+      .eq("created_by", userId)
+      .order("created_at", { ascending: false });
+    if (!error && data) setVehicleListings(data as VehicleListingRow[]);
+    setVehLoading(false);
+  };
+
+  const handleDeleteVehicle = async () => {
+    if (!deleteVehicleId) return;
+    const { error } = await supabase.from("vehicle_listings").delete().eq("id", deleteVehicleId);
+    if (error) toast.error("Nie można usunąć ogłoszenia");
+    else { toast.success("Ogłoszenie usunięte"); loadVehicleListings(); }
+    setDeleteVehicleId(null);
   };
 
   const loadMetrics = async () => {
@@ -357,6 +395,93 @@ export function MyListingsTab({ userId }: { userId?: string }) {
           )}
         </div>
       )}
+
+      {/* MOJE OGŁOSZENIA — GIEŁDA AUT (vehicle_listings po created_by) */}
+      <div className="space-y-3 pt-4 border-t">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" /> Giełda Aut — Twoje ogłoszenia
+          </h3>
+          <Button size="sm" variant="outline" className="gap-2" onClick={() => navigate("/gielda/dodaj-pojazd")}>
+            <Plus className="h-4 w-4" /> Dodaj auto
+          </Button>
+        </div>
+
+        {vehLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          </div>
+        ) : vehicleListings.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Nie masz jeszcze ogłoszeń aut
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {vehicleListings.map(v => (
+              <Card key={v.id} className="overflow-hidden">
+                <CardContent className="p-3 flex items-start gap-3">
+                  <div className="h-16 w-20 rounded bg-muted overflow-hidden shrink-0">
+                    {v.photos?.[0] ? (
+                      <img src={v.photos[0]} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4
+                      className="font-medium truncate text-sm cursor-pointer hover:text-primary"
+                      onClick={() => navigate(`/gielda/ogloszenie/${v.id}`)}
+                    >
+                      {v.title || `${v.brand ?? ""} ${v.model ?? ""} ${v.year ?? ""}`.trim() || "Ogłoszenie"}
+                    </h4>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {v.listing_number && <Badge variant="outline" className="text-[10px]">{v.listing_number}</Badge>}
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Eye className="h-3 w-3" />{v.views || 0}
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold mt-1">
+                      {v.price ? `${v.price.toLocaleString("pl-PL")} zł` : "—"}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" title="Podgląd"
+                      onClick={() => navigate(`/gielda/ogloszenie/${v.id}`)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Usuń"
+                      onClick={() => setDeleteVehicleId(v.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Delete confirmation — auta */}
+      <AlertDialog open={!!deleteVehicleId} onOpenChange={() => setDeleteVehicleId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Usunąć ogłoszenie auta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tej operacji nie można cofnąć. Ogłoszenie zostanie trwale usunięte.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteVehicle} className="bg-destructive text-destructive-foreground">
+              Usuń
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

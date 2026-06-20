@@ -39,6 +39,30 @@
 
 ## 🔥 BACKLOG (priorytety) — zgłoszone 2026-06-20, NIE robić bez „dalej"
 
+### ✅ E1 — Odblokowanie publikacji (W TOKU, 2026-06-20)
+- BUG 1 (42501 RLS): migracja `20260620130000_e1_vehicle_listings_owner_rls.sql`
+  (`created_by = auth.uid()`) + front ustawia `created_by` w insercie.
+- „Moje ogłoszenia": `MyListingsTab` rozszerzony o sekcję **Giełda Aut**
+  (`vehicle_listings` po `created_by`) — podgląd + usuwanie. **Edycja → E2.**
+- Backfill RIDO-000006 (BMW X5, `id 80b3f59d…`) → daniel (SQL ręcznie w Studio).
+- BUG 2 (401): `ai-service` używa `LOVABLE_API_KEY` na gatewayu Lovable (nie `openai_api_key_encrypted`).
+- Migracja + backfill: wykonywane RĘCZNIE w Supabase SQL Editor (merge ich nie stosuje).
+
+### ⏳ E2 — Walidacja + edycja ogłoszeń
+- Walidacja zbiorcza (wszystkie braki naraz, czerwone pola, „uzupełnij brakujące dane") + przegląd wymagalności.
+- **Tryb edycji** `AddVehicleListing` (dziś tylko „dodaj") — dopięcie edycji w „moje auta".
+
+### ⏳ E6 — Statystyki ogłoszenia (auta) — ZATWIERDZONE jako osobny etap
+Kolumny ISTNIEJĄ na `vehicle_listings` (`views`, `favorites_count`, `comparison_count`,
+`contact_reveals_count`, `vin_reveals_count`), ale **tracking dla aut NIE działa**:
+- `track-listing-interaction` wołany tylko z nieruchomości/general, nie ze stron aut;
+- aktualizuje kolumny `view_count`/`favorite_count` których `vehicle_listings` nie ma
+  (ma `views`/`favorites_count`) → niezgodność nazw;
+- woła RPC `increment_listing_counter` — brak w migracjach;
+- dla aut inkrementowany tylko `vin_reveals_count` (`VehicleDetailPage`).
+Do zrobienia: podpiąć tracking (wejścia / „Zadzwoń"-reveal / ulubione / porównania) na stronach
+aut → ujednolicić kolumny → pokazać w karcie „moje ogłoszenia (auta)".
+
 ### P0 — BUGI (najpierw, blokują realne wystawianie)
 - **„Błąd podczas dodawania ogłoszenia" przy Opublikuj** — ogłoszenie się nie zapisuje.
   Zdiagnozować: insert do `vehicle_listings` (RLS — kto może INSERT? `vehicle_listings`

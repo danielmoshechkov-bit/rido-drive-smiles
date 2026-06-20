@@ -536,6 +536,7 @@ export default function AddVehicleListing() {
         .from("vehicle_listings")
         .insert({
           title: formData.title || `${formData.brand} ${formData.model} ${formData.year}`,
+          created_by: user.id,
           brand: formData.brand,
           model: formData.model,
           year: parseInt(formData.year),
