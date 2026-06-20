@@ -14,6 +14,10 @@ export function GlobalRidoAIButton() {
 
   const isWorkshopPanel = location.pathname.startsWith('/uslugi/panel');
   const isClientPortal = location.pathname.startsWith('/warsztat/klient');
+  // Formularze dodawania/edycji mają własne przyciski Anuluj/Opublikuj u dołu —
+  // bąbel by je zasłaniał, więc go tam chowamy.
+  const isFormPage = ['/gielda/dodaj-pojazd', '/nieruchomosci/dodaj', '/uslugi/dodaj']
+    .some(p => location.pathname.startsWith(p)) || location.pathname.includes('/edytuj');
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -29,7 +33,7 @@ export function GlobalRidoAIButton() {
     return () => subscription.unsubscribe();
   }, [showAuth]);
 
-  if (isClientPortal) return null;
+  if (isClientPortal || isFormPage) return null;
 
   const handleClick = () => {
     if (!isLoggedIn) {

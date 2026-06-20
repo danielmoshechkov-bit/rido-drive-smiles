@@ -453,6 +453,10 @@ export function MyListingsTab({ userId }: { userId?: string }) {
                       onClick={() => navigate(`/gielda/ogloszenie/${v.id}`)}>
                       <Eye className="h-4 w-4" />
                     </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" title="Edytuj"
+                      onClick={() => navigate(`/gielda/dodaj-pojazd?edit=${v.id}`)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Usuń"
                       onClick={() => setDeleteVehicleId(v.id)}>
                       <Trash2 className="h-4 w-4" />

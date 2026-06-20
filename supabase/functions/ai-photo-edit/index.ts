@@ -11,6 +11,35 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const API4AI_KEY = Deno.env.get("API4AI_KEY"); // opcjonalny — wycięcie PRAWDZIWEGO auta
+
+// KROK 1 pipeline: API4AI Cars Background Removal — zwraca PRAWDZIWE auto bez tła (PNG).
+// Zwraca data-URL (base64 PNG) albo null gdy brak klucza / błąd.
+async function removeCarBackground(imageUrl: string): Promise<string | null> {
+  if (!API4AI_KEY) return null;
+  try {
+    const form = new FormData();
+    form.append("url", imageUrl); // można podać URL zamiast pliku
+    const resp = await fetch("https://api4ai.cloud/img-bg-removal/v1/cars/results", {
+      method: "POST",
+      headers: { "A4A-CLIENT-API-KEY": API4AI_KEY },
+      body: form,
+    });
+    if (!resp.ok) {
+      console.error("[API4AI] bg-removal error", resp.status, (await resp.text()).slice(0, 200));
+      return null;
+    }
+    const data = await resp.json();
+    const entities = data?.results?.[0]?.entities ?? [];
+    const b64 = entities.find((e: any) => e?.image)?.image
+      ?? entities.find((e: any) => e?.kind === "image")?.image;
+    if (!b64) { console.error("[API4AI] brak obrazu w odpowiedzi"); return null; }
+    return `data:image/png;base64,${b64}`;
+  } catch (e) {
+    console.error("[API4AI] wyjątek:", (e as any)?.message);
+    return null;
+  }
+}
 
 interface PhotoEditRequest {
   imageUrl: string;
@@ -96,19 +125,23 @@ serve(async (req) => {
                           instruction.toLowerCase() === 'auto' ||
                           instruction.toLowerCase() === 'automatycznie popraw';
     
-    // Enhance instruction for better results
-    const enhancedInstruction = isAutoEnhance
-      ? `Automatycznie popraw to zdjęcie nieruchomości/pojazdu dla ogłoszenia:
-- Zwiększ jasność i kontrast jeśli zdjęcie jest ciemne
-- Popraw nasycenie kolorów (nie przesadzaj)
-- Usuń szum i artefakty
-- Wyprostuj perspektywę jeśli to potrzebne
-- Zachowaj naturalny wygląd
-- Wynik powinien wyglądać profesjonalnie
-Zdjęcie powinno być gotowe do publikacji.`
-      : `Edytuj to zdjęcie nieruchomości/pojazdu według instrukcji: "${instruction}". 
-Zachowaj profesjonalny wygląd odpowiedni dla ogłoszenia. 
-Wynik powinien wyglądać realistycznie i naturalnie.`;
+    // KROK 1: wytnij PRAWDZIWE auto z tła (API4AI). Gdy brak klucza/błąd → fallback do oryginału.
+    const cutoutUrl = await removeCarBackground(imageUrl);
+    const sourceImageUrl = cutoutUrl || imageUrl;
+    const cutoutUsed = !!cutoutUrl;
+    console.log(`[AI Photo] API4AI cutout: ${cutoutUsed ? 'OK (realne auto)' : 'BRAK (fallback do oryginału)'}`);
+
+    // KROK 2: instrukcja dla Gemini.
+    // Gdy mamy wycięte auto — KOMPONUJEMY (auto bez zmian, zmienia się TYLKO tło).
+    const enhancedInstruction = cutoutUsed
+      ? `Na obrazie jest auto już wycięte z tła (przezroczyste/białe tło).
+Wstaw TO SAMO auto, BEZ ŻADNYCH ZMIAN, do profesjonalnego salonu/studia samochodowego:
+- NIE przerysowuj, NIE zmieniaj auta: ten sam model, kolor, felgi, uszkodzenia, rysy, kąt, tablice rejestracyjne.
+- Zmień WYŁĄCZNIE tło na czyste studyjne (gradient + delikatne odbicie na podłodze, profesjonalne światło).
+- Auto ma pozostać pikselowo wierne wycięciu. Tablic NIE zamazuj.`
+      : isAutoEnhance
+        ? `Automatycznie popraw to zdjęcie pojazdu dla ogłoszenia: jasność, kontrast, nasycenie (bez przesady), usuń szum. NIE zmieniaj samego auta. Tablic nie zamazuj.`
+        : `Edytuj to zdjęcie pojazdu: "${instruction}". Zachowaj auto bez zmian, profesjonalny wygląd. Tablic nie zamazuj.`;
 
     // Call Gemini Image API via Lovable Gateway
     const startTime = Date.now();
@@ -125,7 +158,7 @@ Wynik powinien wyglądać realistycznie i naturalnie.`;
             role: 'user',
             content: [
               { type: 'text', text: enhancedInstruction },
-              { type: 'image_url', image_url: { url: imageUrl } }
+              { type: 'image_url', image_url: { url: sourceImageUrl } }
             ]
           }
         ],

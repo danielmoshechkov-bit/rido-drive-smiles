@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,7 +33,7 @@ import {
 import { 
   ArrowLeft, Car, Fuel, Gauge, Calendar, Settings2, 
   Palette, MapPin, Phone, Mail, User, FileText, 
-  Loader2, Sparkles, Shield, CheckCircle2, Search
+  Loader2, Sparkles, Shield, CheckCircle2, Search, Image as ImageIcon, Star
 } from "lucide-react";
 
 const BODY_TYPES = [
@@ -224,6 +225,11 @@ export default function AddVehicleListing() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [vinLoading, setVinLoading] = useState(false);
   const [transactionTypes, setTransactionTypes] = useState(FALLBACK_TRANSACTION_TYPES);
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     // Load transaction types from DB
@@ -277,6 +283,39 @@ export default function AddVehicleListing() {
     loadUser();
   }, [navigate]);
 
+  // Tryb edycji: wczytaj istniejące ogłoszenie i wypełnij formularz.
+  useEffect(() => {
+    if (!editId) return;
+    const loadListing = async () => {
+      const { data, error } = await supabase
+        .from("vehicle_listings")
+        .select("*")
+        .eq("id", editId)
+        .maybeSingle();
+      if (error || !data) { toast.error("Nie udało się wczytać ogłoszenia do edycji"); return; }
+      const d: any = data;
+      setEditingId(d.id);
+      setFormData(prev => ({
+        ...prev,
+        brand: d.brand || "", model: d.model || "", year: d.year ? String(d.year) : "",
+        odometer: d.odometer ? String(d.odometer) : "", bodyType: d.body_type || "",
+        engineCapacity: d.engine_capacity ? String(d.engine_capacity) : "",
+        power: d.power ? String(d.power) : "", fuelType: d.fuel_type || "",
+        transmission: d.transmission || "", driveType: d.drive_type || prev.driveType,
+        doorsCount: d.doors_count ? String(d.doors_count) : "", seatsCount: d.seats_count ? String(d.seats_count) : "",
+        isDamaged: !!d.is_damaged, isImported: !!d.is_imported, countryOrigin: d.country_origin || prev.countryOrigin,
+        vin: d.vin || "", registrationNumber: d.registration_number || "",
+        firstRegistrationDate: d.first_registration_date || "", color: d.color || "", colorType: d.color_type || "",
+        equipment: d.equipment || {}, price: d.price != null ? String(d.price) : "",
+        transactionType: d.transaction_type || prev.transactionType, city: d.city || d.location || "",
+        contactName: d.contact_name || "", contactPhone: d.contact_phone || "", contactEmail: d.contact_email || "",
+        title: d.title || "", description: d.description_long || "",
+        photos: d.photos || [], aiPhotos: d.ai_enhanced_photos || [], hasAiPhotos: !!d.has_ai_photos,
+      }));
+    };
+    loadListing();
+  }, [editId]);
+
   // Re-check user after auth modal closes and auto-submit
   const [pendingSubmit, setPendingSubmit] = useState(false);
   
@@ -320,6 +359,7 @@ export default function AddVehicleListing() {
 
   const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setErrors(prev => (prev[field as string] ? { ...prev, [field as string]: false } : prev));
   };
 
   const generateTitle = () => {
@@ -459,13 +499,24 @@ export default function AddVehicleListing() {
 
       if (error) {
         console.error("AI description error:", error);
-        toast.error("Błąd generowania opisu");
+        const msg = (error as any)?.context?.error || (error as any)?.message || "spróbuj ponownie";
+        toast.error(`Błąd generowania opisu: ${msg}`);
+        return;
+      }
+
+      if (data?.error) {
+        console.error("AI description returned error:", data.error);
+        toast.error(`Błąd generowania opisu: ${data.error}`);
         return;
       }
 
       if (data?.description) {
         updateField("description", data.description);
-        toast.success("Opis wygenerowany! Koszt: 10 kredytów");
+        // Auto-tytuł jeśli pusty
+        if (!formData.title && formData.brand && formData.model) {
+          updateField("title", `${formData.brand} ${formData.model}${formData.year ? " " + formData.year : ""}`);
+        }
+        toast.success("Opis wygenerowany przez Rido AI");
       } else {
         toast.error("Nie udało się wygenerować opisu");
       }
@@ -478,31 +529,26 @@ export default function AddVehicleListing() {
   };
 
   const handleSubmit = async () => {
-    // Validation
-    if (!formData.brand || !formData.model) {
-      toast.error("Wybierz markę i model pojazdu");
+    // Walidacja ZBIORCZA — wszystkie braki naraz, podświetlone na czerwono.
+    const newErrors: Record<string, boolean> = {};
+    if (!formData.brand) newErrors.brand = true;
+    if (!formData.model) newErrors.model = true;
+    if (!formData.year) newErrors.year = true;
+    if (!formData.price) newErrors.price = true;
+    if (formData.photos.length === 0) newErrors.photos = true;
+    if (!formData.city) newErrors.city = true;
+    if (!formData.contactPhone) newErrors.contactPhone = true;
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      toast.error("Uzupełnij brakujące dane (zaznaczone na czerwono)");
+      const order = ["brand", "model", "year", "price", "city", "contactPhone", "photos"];
+      const firstKey = order.find(k => newErrors[k]);
+      if (firstKey && fieldRefs.current[firstKey]) {
+        fieldRefs.current[firstKey]!.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
       return;
     }
-    if (!formData.year) {
-      toast.error("Podaj rok produkcji");
-      return;
-    }
-    if (!formData.price) {
-      toast.error("Podaj cenę");
-      return;
-    }
-    if (formData.photos.length === 0) {
-      toast.error("Dodaj przynajmniej jedno zdjęcie");
-      return;
-    }
-    if (!formData.city) {
-      toast.error("Podaj lokalizację");
-      return;
-    }
-    if (!formData.contactPhone) {
-      toast.error("Podaj numer telefonu");
-      return;
-    }
+    setErrors({});
 
     // Check if user is logged in - show auth modal if not
     if (!user) {
@@ -532,11 +578,8 @@ export default function AddVehicleListing() {
         ? formData.fleetPackage
         : null;
 
-      const { data, error } = await supabase
-        .from("vehicle_listings")
-        .insert({
+      const payload: any = {
           title: formData.title || `${formData.brand} ${formData.model} ${formData.year}`,
-          created_by: user.id,
           brand: formData.brand,
           model: formData.model,
           year: parseInt(formData.year),
@@ -577,17 +620,24 @@ export default function AddVehicleListing() {
           ai_enhanced_photos: formData.hasAiPhotos ? formData.aiPhotos : null,
           has_ai_photos: formData.hasAiPhotos,
           status: "aktywne",
-        } as any)
-        .select()
-        .single();
+      };
+
+      let data: any, error: any;
+      if (editingId) {
+        ({ data, error } = await supabase
+          .from("vehicle_listings").update(payload).eq("id", editingId).select().single());
+      } else {
+        ({ data, error } = await supabase
+          .from("vehicle_listings").insert({ ...payload, created_by: user.id } as any).select().single());
+      }
 
       if (error) {
-        console.error("Insert error:", error);
-        toast.error("Błąd podczas dodawania ogłoszenia");
+        console.error("Save error:", error);
+        toast.error(`Błąd podczas zapisu ogłoszenia: ${error.message || error.code || "spróbuj ponownie"}`);
         return;
       }
 
-      toast.success("Ogłoszenie zostało dodane!");
+      toast.success(editingId ? "Ogłoszenie zaktualizowane!" : "Ogłoszenie zostało dodane!");
       navigate(`/gielda/ogloszenie/${data.id}`);
     } catch (err) {
       console.error("Submit error:", err);
@@ -647,7 +697,7 @@ export default function AddVehicleListing() {
           </div>
           <Button onClick={handleSubmit} disabled={submitting} className="gap-2">
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            Opublikuj ogłoszenie
+            {editingId ? "Zapisz zmiany" : "Opublikuj ogłoszenie"}
           </Button>
         </div>
       </header>
@@ -664,18 +714,22 @@ export default function AddVehicleListing() {
               <CardDescription>Podstawowe informacje o pojeździe</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <CarBrandModelSelector
-                brand={formData.brand}
-                model={formData.model}
-                onBrandChange={(v) => updateField("brand", v)}
-                onModelChange={(v) => { updateField("model", v); setTimeout(generateTitle, 100); }}
-              />
+              <div ref={(el) => (fieldRefs.current.brand = el)} className={cn((errors.brand || errors.model) && "rounded-lg ring-1 ring-destructive p-2 -m-2")}>
+                <Label className="mb-1 block">Marka i model *</Label>
+                <CarBrandModelSelector
+                  brand={formData.brand}
+                  model={formData.model}
+                  onBrandChange={(v) => updateField("brand", v)}
+                  onModelChange={(v) => { updateField("model", v); setTimeout(generateTitle, 100); }}
+                />
+                {(errors.brand || errors.model) && <p className="text-xs text-destructive mt-1">Wybierz markę i model</p>}
+              </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div>
+                <div ref={(el) => (fieldRefs.current.year = el)}>
                   <Label>Rok produkcji *</Label>
                   <Select value={formData.year} onValueChange={(v) => { updateField("year", v); setTimeout(generateTitle, 100); }}>
-                    <SelectTrigger>
+                    <SelectTrigger className={cn(errors.year && "border-destructive ring-1 ring-destructive")}>
                       <SelectValue placeholder="Wybierz rok" />
                     </SelectTrigger>
                     <SelectContent>
@@ -990,13 +1044,14 @@ export default function AddVehicleListing() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                <div ref={(el) => (fieldRefs.current.price = el)}>
                   <Label>Cena (PLN) *</Label>
                   <Input
                     type="number"
                     placeholder="np. 45000"
                     value={formData.price}
                     onChange={(e) => updateField("price", e.target.value)}
+                    className={cn(errors.price && "border-destructive ring-1 ring-destructive")}
                   />
                 </div>
 
@@ -1054,13 +1109,13 @@ export default function AddVehicleListing() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Lokalizacja / Miasto *</Label>
-                  <div className="relative">
+                  <div className="relative" ref={(el) => (fieldRefs.current.city = el)}>
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="np. Warszawa"
                       value={formData.city}
                       onChange={(e) => updateField("city", e.target.value)}
-                      className="pl-10"
+                      className={cn("pl-10", errors.city && "border-destructive ring-1 ring-destructive")}
                     />
                   </div>
                 </div>
@@ -1080,14 +1135,14 @@ export default function AddVehicleListing() {
 
                 <div>
                   <Label>Telefon kontaktowy *</Label>
-                  <div className="relative">
+                  <div className="relative" ref={(el) => (fieldRefs.current.contactPhone = el)}>
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="tel"
                       placeholder="np. +48 123 456 789"
                       value={formData.contactPhone}
                       onChange={(e) => updateField("contactPhone", e.target.value)}
-                      className="pl-10"
+                      className={cn("pl-10", errors.contactPhone && "border-destructive ring-1 ring-destructive")}
                     />
                   </div>
                 </div>
@@ -1161,14 +1216,16 @@ export default function AddVehicleListing() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary" />
-                Zdjęcia pojazdu
+                <ImageIcon className="h-5 w-5 text-primary" />
+                Zdjęcia pojazdu *
               </CardTitle>
               <CardDescription>
                 Dodaj do 15 zdjęć. Zalecany format 4:3. Możesz poprawić zdjęcia z AI!
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <div ref={(el) => (fieldRefs.current.photos = el)} className={cn(errors.photos && "rounded-lg ring-1 ring-destructive p-2")}>
+                {errors.photos && <p className="text-xs text-destructive mb-2">Dodaj przynajmniej jedno zdjęcie</p>}
               <VehiclePhotoUpload
                 photos={formData.photos}
                 aiPhotos={formData.aiPhotos}
@@ -1178,21 +1235,153 @@ export default function AddVehicleListing() {
                 onHasAiPhotosChange={(v) => updateField("hasAiPhotos", v)}
                 userId={user?.id}
               />
+              </div>
             </CardContent>
           </Card>
 
+          {/* Section 10: Rido doradza */}
+          <RidoAdvisor
+            formData={formData}
+            onGenerate={handleGenerateAiDescription}
+            generating={generatingDescription}
+            userId={user?.id}
+          />
+
           {/* Submit Button */}
-          <div className="flex justify-end gap-4 pt-4">
+          <div className="flex justify-end gap-4 pt-4 pb-28">
             <Button variant="outline" onClick={() => navigate("/klient")}>
               Anuluj
             </Button>
             <Button onClick={handleSubmit} disabled={submitting} size="lg" className="gap-2">
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              Opublikuj ogłoszenie
+              {editingId ? "Zapisz zmiany" : "Opublikuj ogłoszenie"}
             </Button>
           </div>
         </div>
       </main>
     </div>
+  );
+}
+
+// Ekran "Rido doradza" — ocena atrakcyjności ogłoszenia przed publikacją.
+const RECOMMENDED_FIELDS: { key: keyof FormData; label: string }[] = [
+  { key: "brand", label: "marka" }, { key: "model", label: "model" }, { key: "year", label: "rok" },
+  { key: "odometer", label: "przebieg" }, { key: "bodyType", label: "nadwozie" },
+  { key: "engineCapacity", label: "pojemność" }, { key: "power", label: "moc" },
+  { key: "fuelType", label: "paliwo" }, { key: "transmission", label: "skrzynia" },
+  { key: "color", label: "kolor" }, { key: "city", label: "lokalizacja" },
+  { key: "contactPhone", label: "telefon" }, { key: "description", label: "opis" },
+];
+
+function RidoAdvisor({ formData, onGenerate, generating, userId }: {
+  formData: FormData;
+  onGenerate: () => void;
+  generating: boolean;
+  userId?: string;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ atrakcyjnosc: number; ocenaOpisu: string; zalecenia: string[] } | null>(null);
+
+  const missing = RECOMMENDED_FIELDS.filter(f => {
+    const v = formData[f.key];
+    return v === "" || v == null;
+  });
+  const photoOk = formData.photos.length >= 5;
+  const filledCount = (RECOMMENDED_FIELDS.length - missing.length) + (photoOk ? 1 : 0);
+  const totalCount = RECOMMENDED_FIELDS.length + 1;
+  const completion = Math.round((filledCount / totalCount) * 100);
+
+  const handleAssess = async () => {
+    setLoading(true);
+    try {
+      const eq = Object.keys(formData.equipment || {}).filter(k => formData.equipment[k]);
+      const prompt = `Oceń to ogłoszenie sprzedaży auta i zwróć WYŁĄCZNIE JSON (bez markdown):
+{"atrakcyjnosc": <liczba 0-100>, "ocenaOpisu": "<1-2 zdania>", "zalecenia": ["<punkt>", "<punkt>", "<punkt>"]}
+Dane: marka=${formData.brand}, model=${formData.model}, rok=${formData.year}, przebieg=${formData.odometer}, paliwo=${formData.fuelType}, skrzynia=${formData.transmission}, moc=${formData.power}, nadwozie=${formData.bodyType}, kolor=${formData.color}, cena=${formData.price}, zdjęć=${formData.photos.length}, wyposażenie=${eq.join(", ") || "brak"}.
+Opis: """${formData.description || "(brak opisu)"}"""
+Zalecenia mają być konkretne: co dodać, by zwiększyć zainteresowanie i zasięg.`;
+      const { data, error } = await supabase.functions.invoke("ai-service", {
+        body: { type: "chat", payload: { messages: [
+          { role: "system", content: "Jesteś ekspertem sprzedaży aut (Rido AI). Odpowiadasz zwięźle, wyłącznie poprawnym JSON." },
+          { role: "user", content: prompt },
+        ] }, userId },
+      });
+      if (error || !data?.content) { toast.error("Rido nie mógł ocenić ogłoszenia"); return; }
+      const json = JSON.parse(String(data.content).replace(/```json|```/g, "").trim());
+      setResult({
+        atrakcyjnosc: Number(json.atrakcyjnosc) || 0,
+        ocenaOpisu: json.ocenaOpisu || "",
+        zalecenia: Array.isArray(json.zalecenia) ? json.zalecenia : [],
+      });
+    } catch (e) {
+      console.error("Rido advisor error:", e);
+      toast.error("Nie udało się odczytać oceny Rido");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const descWeak = !formData.description || formData.description.length < 60;
+
+  return (
+    <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" /> Rido doradza
+        </CardTitle>
+        <CardDescription>Ocena atrakcyjności ogłoszenia przed publikacją</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* % uzupełnienia */}
+        <div>
+          <div className="flex justify-between text-sm mb-1">
+            <span className="text-muted-foreground">Uzupełnienie ogłoszenia</span>
+            <span className="font-semibold">{completion}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-primary transition-all" style={{ width: `${completion}%` }} />
+          </div>
+          {(missing.length > 0 || !photoOk) && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Brakuje: {[...missing.map(m => m.label), !photoOk ? "min. 5 zdjęć" : ""].filter(Boolean).join(", ")}
+            </p>
+          )}
+        </div>
+
+        {descWeak && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <p className="text-sm">Opis jest {formData.description ? "krótki" : "pusty"} — Rido napisze lepszy za Ciebie.</p>
+            <Button size="sm" variant="outline" className="gap-2 shrink-0" onClick={onGenerate}
+              disabled={generating || !formData.brand || !formData.model}>
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Wygeneruj opis
+            </Button>
+          </div>
+        )}
+
+        {!result ? (
+          <Button variant="outline" className="gap-2" onClick={handleAssess} disabled={loading || !formData.brand}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
+            Poproś Rido o ocenę ogłoszenia
+          </Button>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl font-bold text-primary">{result.atrakcyjnosc}<span className="text-base text-muted-foreground">/100</span></div>
+              <div className="text-sm text-muted-foreground">{result.ocenaOpisu}</div>
+            </div>
+            {result.zalecenia.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-1">Co dodać, by zwiększyć zasięg:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-sm text-muted-foreground">
+                  {result.zalecenia.map((z, i) => <li key={i}>{z}</li>)}
+                </ul>
+              </div>
+            )}
+            <Button size="sm" variant="ghost" onClick={handleAssess} disabled={loading}>Oceń ponownie</Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
