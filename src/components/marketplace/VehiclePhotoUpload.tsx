@@ -101,11 +101,12 @@ export function VehiclePhotoUpload({
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [draggedPhotoIndex, setDraggedPhotoIndex] = useState<number | null>(null);
   
-  const { credits, deductCredits, loading: creditsLoading } = useUserCredits(userId);
+  const { credits, refreshCredits, loading: creditsLoading } = useUserCredits(userId);
 
   // Shared function to process files (used by both input and drag & drop)
   const processFiles = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
+    if (!userId) { toast.error("Zaloguj się, aby dodać zdjęcia"); return; } // car-photos = owner-only
 
     // Filter only images
     const imageFiles = files.filter(f => f.type.startsWith('image/') || f.name.match(/\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|tiff)$/i));
@@ -136,12 +137,11 @@ export function VehiclePhotoUpload({
         // Add watermark
         const watermarkedBlob = await addWatermark(blob);
 
-        // Upload to Supabase
-        const fileName = `vehicle-${Date.now()}-${i}.jpg`;
-        const filePath = `vehicle-listings/${userId || 'anonymous'}/${fileName}`;
+        // Upload to Supabase (bucket car-photos: owner-only po folderze {userId})
+        const filePath = `${userId}/vehicle-${Date.now()}-${i}.jpg`;
 
         const { data, error } = await supabase.storage
-          .from("documents")
+          .from("car-photos")
           .upload(filePath, watermarkedBlob, {
             contentType: "image/jpeg",
             upsert: true,
@@ -154,7 +154,7 @@ export function VehiclePhotoUpload({
         }
 
         const { data: urlData } = supabase.storage
-          .from("documents")
+          .from("car-photos")
           .getPublicUrl(data.path);
 
         newPhotos.push(urlData.publicUrl);
@@ -331,6 +331,7 @@ export function VehiclePhotoUpload({
             listingId: "draft",
             photoIndex: i,
             userId,
+            featureKey: (useCustomPrompt && customPrompt) ? "vehicle_photo_custom" : "vehicle_photo_enhance",
           },
         });
 
@@ -344,7 +345,9 @@ export function VehiclePhotoUpload({
         setAiProgress(Math.round(((i + 1) / photosToProcess.length) * 100));
       }
 
-      await deductCredits(totalCost, "vehicle_photo_enhance");
+      // Koszt pobiera SERWER (ai-photo-edit + creditGate, zrodlo ai_pricing).
+      // Front juz nie odejmuje kredytow — tylko odswieza saldo z bazy.
+      await refreshCredits();
 
       setPreviewPairs(results);
       
