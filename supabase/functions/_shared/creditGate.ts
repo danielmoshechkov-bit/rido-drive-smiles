@@ -1,170 +1,123 @@
 // supabase/functions/_shared/creditGate.ts
+// Gate kredytow AI dla marketplace foto.
+// Saldo:  user_credits.credits_balance (to, co widzi front przez useUserCredits).
+// Koszt:  ai_pricing.credits_per_use po feature_key (JEDYNE zrodlo kosztu).
+// Log:    ai_credit_history. Atomowo: optimistic-lock + retry. Brak puli trialowej.
+// NIE tworzy wiersza user_credits (zeby nie nadpisac bonusu 50 z onboardingu frontu).
 //
-// Centralny gate kredytów AI (System B: ai_user_credits).
-// Spójny ze wzorcem z supabase/functions/ai-search/index.ts, ale:
-//   - koszt liczony per typ zapytania (ai_query_costs), NIE sztywne -1,
-//   - trial mierzony w KREDYTACH (monthly_free_used + koszt), nie w liczbie zapytań,
-//   - atomowy zapis salda I resetu (optimistic lock + retry) — bez race condition,
-//   - log do ai_credit_history (z model_used / tokens_used jeśli przekazane).
-//
-// KROK 1/4 — moduł NIE jest jeszcze podpięty do żadnej edge function.
-// Świadoma różnica względem ai-search: stały TRIAL_FREE_CREDITS=30 zamiast
-// settings.user_monthly_limit, oraz licznik darmowej puli w jednostkach kosztu.
-
-export const TRIAL_FREE_CREDITS = 30;
+// SPRINT 0 — wpiety serwerowo do ai-photo-edit PRZED wywolaniem modelu.
+// (Wczesniejszy wariant uzywal ai_user_credits/ai_query_costs/trial — byl martwy.)
 
 const DEFAULT_COST = 1;
-const MAX_RETRIES = 5; // optimistic concurrency — ponów przy równoległym zapisie
+const MAX_RETRIES = 5; // optimistic concurrency — ponow przy rownoleglym zapisie
 
 export type CreditGateResult =
-  | { allowed: true; cost: number; balance_after: number; was_free: boolean }
-  | { allowed: false; reason: 'insufficient_credits'; balance: number; cost: number };
+  | { allowed: true; cost: number; balance_after: number }
+  | { allowed: false; reason: 'insufficient_credits' | 'disabled_feature' | 'no_account'; balance: number; cost: number };
 
 export interface CreditGateOptions {
   modelUsed?: string;
-  tokensUsed?: number;
   querySummary?: string;
 }
 
-/** true gdy zapytanie poszło z puli trialowej — routing może wymusić mocny model. */
-export function shouldForceStrongModel(wasFreeTrial: boolean): boolean {
-  return wasFreeTrial === true;
-}
-
-// Koszt zapytania wg ai_query_costs (domyślnie 1; ostrzeż gdy typ nieznany).
-async function getQueryCost(supabase: any, queryType: string): Promise<number> {
+// Koszt featureKey wg ai_pricing (i czy feature wlaczony).
+async function getFeatureCost(supabase: any, featureKey: string): Promise<{ cost: number; enabled: boolean }> {
   const { data, error } = await supabase
-    .from('ai_query_costs')
-    .select('cost_credits')
-    .eq('query_type', queryType)
+    .from('ai_pricing')
+    .select('credits_per_use, is_enabled')
+    .eq('feature_key', featureKey)
     .maybeSingle();
   if (error) {
-    console.warn(`[creditGate] błąd odczytu ai_query_costs dla "${queryType}":`, error.message);
+    console.warn(`[creditGate] blad odczytu ai_pricing "${featureKey}":`, error.message);
   }
   if (!data) {
-    console.warn(`[creditGate] nieznany query_type "${queryType}" — domyślny koszt ${DEFAULT_COST}`);
-    return DEFAULT_COST;
+    console.warn(`[creditGate] brak feature_key "${featureKey}" w ai_pricing — koszt ${DEFAULT_COST}`);
+    return { cost: DEFAULT_COST, enabled: true };
   }
-  const c = Number(data.cost_credits);
-  return Number.isFinite(c) && c > 0 ? c : DEFAULT_COST;
-}
-
-// Nowy miesiąc względem monthly_reset_date (porównanie rok+miesiąc, UTC).
-function isNewMonth(resetDate: string | null): boolean {
-  if (!resetDate) return true;
-  const d = new Date(resetDate);
-  const now = new Date();
-  return d.getUTCFullYear() !== now.getUTCFullYear() || d.getUTCMonth() !== now.getUTCMonth();
+  const c = Number(data.credits_per_use);
+  return { cost: Number.isFinite(c) && c > 0 ? c : DEFAULT_COST, enabled: data.is_enabled !== false };
 }
 
 async function logHistory(
-  supabase: any, userId: string, queryType: string,
-  creditsUsed: number, wasFree: boolean, opts: CreditGateOptions,
+  supabase: any, userId: string, featureKey: string, creditsUsed: number, opts: CreditGateOptions,
 ) {
   try {
     await supabase.from('ai_credit_history').insert({
       user_id: userId,
-      query_type: queryType,
+      query_type: featureKey,
       credits_used: creditsUsed,
-      was_free: wasFree,
+      was_free: false,
       query_summary: opts.querySummary ?? null,
       model_used: opts.modelUsed ?? null,
-      tokens_used: opts.tokensUsed ?? null,
     });
   } catch (e) {
-    console.warn('[creditGate] log do ai_credit_history nieudany:', (e as any)?.message);
+    console.warn('[creditGate] log ai_credit_history nieudany:', (e as any)?.message);
   }
 }
 
 /**
- * Sprawdza i (jeśli można) pobiera kredyty za jedno zapytanie AI.
- * Zwraca {allowed:true,...} po udanym pobraniu albo {allowed:false, reason:'insufficient_credits',...}.
+ * Sprawdza i (jesli mozna) pobiera koszt featureKey z salda user_credits.
+ * Zwraca {allowed:true,...} po udanym pobraniu albo {allowed:false, reason, ...}.
  */
 export async function checkAndDeductCredits(
   supabase: any,
   userId: string,
-  queryType: string,
+  featureKey: string,
   opts: CreditGateOptions = {},
 ): Promise<CreditGateResult> {
-  const cost = await getQueryCost(supabase, queryType);
-  const todayStr = new Date().toISOString().split('T')[0];
+  const { cost, enabled } = await getFeatureCost(supabase, featureKey);
+  if (!enabled) return { allowed: false, reason: 'disabled_feature', balance: 0, cost };
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    // 1) Wczytaj (lub utwórz) wiersz kredytów usera
-    let { data: row } = await supabase
-      .from('ai_user_credits')
-      .select('credits_balance, monthly_free_used, monthly_reset_date')
+    const { data: row } = await supabase
+      .from('user_credits')
+      .select('credits_balance')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (!row) {
-      const { data: created } = await supabase
-        .from('ai_user_credits')
-        .insert({ user_id: userId, credits_balance: 0, monthly_free_used: 0, monthly_reset_date: todayStr })
-        .select('credits_balance, monthly_free_used, monthly_reset_date')
-        .maybeSingle();
-      if (!created) continue; // równoległy insert → ponów (przeczytaj istniejący)
-      row = created;
-    }
+    // Front (useUserCredits) tworzy wiersz z bonusem 50 przy pierwszym wejsciu.
+    // Tu NIE tworzymy, zeby nie nadpisac bonusu zerem.
+    if (!row) return { allowed: false, reason: 'no_account', balance: 0, cost };
 
-    let balance = Number(row.credits_balance || 0);
-    let freeUsed = Number(row.monthly_free_used || 0);
+    const balance = Number(row.credits_balance || 0);
+    if (balance < cost) return { allowed: false, reason: 'insufficient_credits', balance, cost };
 
-    // 2) Reset miesięczny (nowy miesiąc) — w ramach pętli optimistic-lock,
-    //    z warunkiem na STAREJ monthly_reset_date. Bez tego dwa równoległe
-    //    zapytania na przełomie miesiąca mogłyby oddać podwójny trial.
-    const prevReset = row.monthly_reset_date as string | null;
-    if (isNewMonth(prevReset)) {
-      const resetQ = supabase
-        .from('ai_user_credits')
-        .update({ monthly_free_used: 0, monthly_reset_date: todayStr })
-        .eq('user_id', userId);
-      const { data: afterReset } = await (
-        prevReset === null
-          ? resetQ.is('monthly_reset_date', null)   // null-safe odpowiednik .eq
-          : resetQ.eq('monthly_reset_date', prevReset)
-      )
-        .select('credits_balance, monthly_free_used')
-        .maybeSingle();
-      if (!afterReset) continue;            // ktoś już zresetował → ponów (świeży stan)
-      balance = Number(afterReset.credits_balance || 0);
-      freeUsed = 0;                          // leć dalej w tej samej iteracji
-    }
+    const { data: upd } = await supabase
+      .from('user_credits')
+      .update({ credits_balance: balance - cost, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('credits_balance', balance) // optimistic lock na starym saldzie
+      .select('credits_balance')
+      .maybeSingle();
 
-    // 3) Trial — mieści się w darmowej puli miesięcznej
-    if (freeUsed + cost <= TRIAL_FREE_CREDITS) {
-      const { data: upd } = await supabase
-        .from('ai_user_credits')
-        .update({ monthly_free_used: freeUsed + cost })
-        .eq('user_id', userId)
-        .eq('monthly_free_used', freeUsed) // optimistic lock na starej wartości
-        .select('monthly_free_used')
-        .maybeSingle();
-      if (!upd) continue; // równoległa zmiana → ponów
-      await logHistory(supabase, userId, queryType, 0, true, opts);
-      return { allowed: true, cost, balance_after: balance, was_free: true };
-    }
-
-    // 4) Trial wyczerpany — odejmij koszt z salda (atomowo)
-    if (balance >= cost) {
-      const { data: upd } = await supabase
-        .from('ai_user_credits')
-        .update({ credits_balance: balance - cost })
-        .eq('user_id', userId)
-        .eq('credits_balance', balance) // optimistic lock na starym saldzie
-        .select('credits_balance')
-        .maybeSingle();
-      if (!upd) continue; // saldo zmienione równolegle → ponów
-      const balanceAfter = Number(upd.credits_balance ?? (balance - cost));
-      await logHistory(supabase, userId, queryType, cost, false, opts);
-      return { allowed: true, cost, balance_after: balanceAfter, was_free: false };
-    }
-
-    // 5) Brak kredytów
-    return { allowed: false, reason: 'insufficient_credits', balance, cost };
+    if (!upd) continue; // saldo zmienione rownolegle → ponow
+    await logHistory(supabase, userId, featureKey, cost, opts);
+    return { allowed: true, cost, balance_after: Number(upd.credits_balance ?? (balance - cost)) };
   }
 
-  // Silna kontencja — bezpiecznie odmów (nie przepuszczaj bez pobrania).
-  console.warn('[creditGate] wyczerpano próby optimistic-lock dla usera', userId);
+  // Silna kontencja — bezpiecznie odmow (nie przepuszczaj bez pobrania).
+  console.warn('[creditGate] wyczerpano proby optimistic-lock dla usera', userId);
   return { allowed: false, reason: 'insufficient_credits', balance: 0, cost };
+}
+
+/** Zwrot kredytow (np. gdy model padl po pobraniu). */
+export async function refundCredits(supabase: any, userId: string, amount: number): Promise<void> {
+  if (amount <= 0) return;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const { data: row } = await supabase
+      .from('user_credits')
+      .select('credits_balance')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!row) return;
+    const balance = Number(row.credits_balance || 0);
+    const { data: upd } = await supabase
+      .from('user_credits')
+      .update({ credits_balance: balance + amount, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('credits_balance', balance)
+      .select('credits_balance')
+      .maybeSingle();
+    if (upd) return;
+  }
 }
