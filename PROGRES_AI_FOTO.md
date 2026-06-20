@@ -91,6 +91,11 @@ Rozbudowa istniejących tabel (`ai_providers`, `ai_routing_rules`, `ai_pricing`,
 - **Fullscreen podgląd PRZED zapłatą** + znak wodny (nie da się pobrać czystego; znak NIE zamazuje
   tablic rejestracyjnych).
 - Tryb single/spin (spin = wspólny seed/skala/pozycja). Galeria stylów per user (seed = user_id+timestamp).
+- **BUG re-wybór zdjęcia AI**: po usunięciu zdjęcia nie da się ponownie wybrać wygenerowanego
+  (wejście w wygenerowane + „wybierz" nie zaznacza). Naprawić ponowny wybór.
+- **Funkcja „Twoje / Wygenerowane AI"**: przełącznik przy zdjęciach + **ręczny wybór per zdjęcie** —
+  klient miesza (część własnych, część AI) i sam decyduje, które trafiają do ogłoszenia.
+  Nie tylko tryb „wszystkie albo/albo" (dziś `hasAiPhotos` jest globalne).
 
 ### ⏳ NOWA FUNKCJA — „Rido doradza" (ocena atrakcyjności ogłoszenia) — DO ROZPLANOWANIA
 Ekran podsumowania na końcu flow dodawania:
