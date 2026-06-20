@@ -464,6 +464,7 @@ export default function AddVehicleListing() {
   };
 
   const [generatingDescription, setGeneratingDescription] = useState(false);
+  const [descVersions, setDescVersions] = useState<{ poprawiony: string; nowy: string } | null>(null);
 
   const handleGenerateAiDescription = async () => {
     if (!formData.brand || !formData.model) {
@@ -473,56 +474,38 @@ export default function AddVehicleListing() {
 
     setGeneratingDescription(true);
     try {
-      const vehicleInfo = {
-        brand: formData.brand,
-        model: formData.model,
-        year: formData.year,
-        mileage: formData.odometer,
-        fuel: formData.fuelType,
-        transmission: formData.transmission,
-        power: formData.power,
-        engine: formData.engineCapacity,
-        bodyType: formData.bodyType,
-        color: formData.color,
-        equipment: Object.keys(formData.equipment).filter(k => formData.equipment[k]),
-        isDamaged: formData.isDamaged,
-        transactionType: formData.transactionType,
-      };
+      const eq = Object.keys(formData.equipment).filter(k => formData.equipment[k]);
+      const prompt = `Auto: marka=${formData.brand}, model=${formData.model}, rok=${formData.year}, przebieg=${formData.odometer}, paliwo=${formData.fuelType}, skrzynia=${formData.transmission}, moc=${formData.power}, pojemność=${formData.engineCapacity}, nadwozie=${formData.bodyType}, kolor=${formData.color}, wyposażenie=${eq.join(", ") || "brak"}, uszkodzony=${formData.isDamaged ? "tak" : "nie"}.
+Opis wpisany przez sprzedającego: """${formData.description || "(pusty)"}"""
+Zwróć WYŁĄCZNIE JSON (bez markdown):
+{"poprawiony":"<weź tekst sprzedającego i popraw styl, gramatykę i sprzedażowość; jeśli pusty napisz krótki na bazie danych>","nowy":"<zupełnie nowy, profesjonalny opis sprzedażowy 120-200 słów po polsku, podkreśl zalety, zachęć do kontaktu>"}`;
 
       const { data, error } = await supabase.functions.invoke("ai-service", {
         body: {
-          type: "vehicle-description",
-          payload: { vehicleData: vehicleInfo },
-          userId: user?.id
+          type: "chat",
+          payload: { messages: [
+            { role: "system", content: "Jesteś ekspertem sprzedaży aut (Rido AI). Zwracasz wyłącznie poprawny JSON." },
+            { role: "user", content: prompt },
+          ] },
+          userId: user?.id,
         },
       });
 
-      if (error) {
-        console.error("AI description error:", error);
-        const msg = (error as any)?.context?.error || (error as any)?.message || "spróbuj ponownie";
-        toast.error(`Błąd generowania opisu: ${msg}`);
+      if (error || !data?.content) {
+        console.error("AI description error:", error || data);
+        toast.error(`Błąd generowania opisu: ${(error as any)?.message || data?.error || "brak odpowiedzi"}`);
         return;
       }
 
-      if (data?.error) {
-        console.error("AI description returned error:", data.error);
-        toast.error(`Błąd generowania opisu: ${data.error}`);
-        return;
+      const j = JSON.parse(String(data.content).replace(/```json|```/g, "").trim());
+      setDescVersions({ poprawiony: j.poprawiony || "", nowy: j.nowy || "" });
+      if (!formData.title && formData.brand && formData.model) {
+        updateField("title", `${formData.brand} ${formData.model}${formData.year ? " " + formData.year : ""}`);
       }
-
-      if (data?.description) {
-        updateField("description", data.description);
-        // Auto-tytuł jeśli pusty
-        if (!formData.title && formData.brand && formData.model) {
-          updateField("title", `${formData.brand} ${formData.model}${formData.year ? " " + formData.year : ""}`);
-        }
-        toast.success("Opis wygenerowany przez Rido AI");
-      } else {
-        toast.error("Nie udało się wygenerować opisu");
-      }
+      toast.success("Rido przygotował 2 wersje opisu — wybierz");
     } catch (err) {
       console.error("AI description error:", err);
-      toast.error("Błąd podczas generowania opisu");
+      toast.error("Nie udało się wygenerować opisu");
     } finally {
       setGeneratingDescription(false);
     }
@@ -1195,20 +1178,35 @@ export default function AddVehicleListing() {
                 />
               </div>
 
-              <Button 
-                variant="outline" 
-                className="gap-2" 
+              <Button
+                variant="outline"
+                className="gap-2"
                 onClick={handleGenerateAiDescription}
                 disabled={generatingDescription || !formData.brand || !formData.model}
               >
-                {generatingDescription ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                {generatingDescription ? "Generowanie..." : "Wygeneruj opis z AI"}
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">10 kredytów</span>
+                {generatingDescription ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {generatingDescription ? "Generowanie..." : "Wygeneruj / Popraw opis z Rido AI"}
               </Button>
+
+              {/* Dwie wersje do wyboru */}
+              {descVersions && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    { key: "poprawiony", title: "Twoja — poprawiona", text: descVersions.poprawiony },
+                    { key: "nowy", title: "Nowa — profesjonalna", text: descVersions.nowy },
+                  ].filter(v => v.text).map(v => (
+                    <Card key={v.key} className="border-primary/30">
+                      <CardContent className="p-3 space-y-2">
+                        <p className="text-xs font-semibold text-primary">{v.title}</p>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap max-h-40 overflow-y-auto">{v.text}</p>
+                        <Button size="sm" className="gap-2" onClick={() => { updateField("description", v.text); setDescVersions(null); toast.success("Opis wstawiony"); }}>
+                          <CheckCircle2 className="h-4 w-4" /> Użyj tej wersji
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 

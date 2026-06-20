@@ -338,7 +338,7 @@ export default function ClientPortal() {
     const vehicleResult = await (supabase as any)
       .from('vehicle_listings')
       .select('id, title, price, status, created_at, photos')
-      .eq('user_id', userId)
+      .eq('created_by', userId)
       .order('created_at', { ascending: false })
       .limit(10);
     

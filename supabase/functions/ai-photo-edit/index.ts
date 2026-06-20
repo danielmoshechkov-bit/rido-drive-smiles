@@ -22,7 +22,7 @@ async function removeCarBackground(imageUrl: string): Promise<string | null> {
     form.append("url", imageUrl); // można podać URL zamiast pliku
     const resp = await fetch("https://api4ai.cloud/img-bg-removal/v1/cars/results", {
       method: "POST",
-      headers: { "A4A-CLIENT-API-KEY": API4AI_KEY },
+      headers: { "X-API-KEY": API4AI_KEY },
       body: form,
     });
     if (!resp.ok) {
