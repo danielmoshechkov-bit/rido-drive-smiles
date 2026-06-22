@@ -96,6 +96,37 @@ export function VehiclePhotoUpload({
   const [customPrompt, setCustomPrompt] = useState("");
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
   const [bgStyle, setBgStyle] = useState<string>("studio");
+  const [removePlates, setRemovePlates] = useState(false);
+
+  // Standalone: ukryj tablice (tło bez zmian), 5 kr/zdjęcie.
+  const handleRemovePlates = async () => {
+    if (photos.length === 0) { toast.error("Najpierw dodaj zdjęcia"); return; }
+    const sources = selectedForAi.length > 0 ? selectedForAi.map(i => photos[i]) : photos;
+    const cost = sources.length * 5;
+    if (credits < cost) { toast.error(`Brak kredytów. Potrzebujesz ${cost}.`); return; }
+    setAiProcessing(true); setAiProgress(0);
+    try {
+      const gen: string[] = [];
+      for (let i = 0; i < sources.length; i++) {
+        const { data, error } = await supabase.functions.invoke("ai-photo-edit", {
+          body: { imageUrl: sources[i], listingType: "vehicle", listingId: "draft", photoIndex: i, userId, featureKey: "hide_clp", removePlates: true, changeBackground: false },
+        });
+        if (error || !data?.editedUrl) {
+          toast.error(`Błąd zdjęcia ${i + 1}: ${data?.message || (error as any)?.message || "spróbuj ponownie"}`);
+          continue;
+        }
+        gen.push(data.editedUrl);
+        setAiProgress(Math.round(((i + 1) / sources.length) * 100));
+      }
+      await refreshCredits();
+      if (gen.length > 0) {
+        onPhotosChange([...photos, ...gen]);
+        onAiPhotosChange([...aiPhotos, ...gen]);
+        onHasAiPhotosChange(true);
+        toast.success(`Ukryto tablice na ${gen.length} zdj. — dodano do galerii`);
+      }
+    } finally { setAiProcessing(false); setAiProgress(0); }
+  };
   const [previewPairs, setPreviewPairs] = useState<{ original: string; ai: string }[]>([]);
   const [selectedForAi, setSelectedForAi] = useState<number[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -322,6 +353,8 @@ export function VehiclePhotoUpload({
             featureKey: (useCustomPrompt && customPrompt) ? "vehicle_photo_custom" : "vehicle_photo_enhance",
             backgroundStyle: bgStyle,
             backgroundPrompt: useCustomPrompt ? customPrompt : undefined,
+            removePlates,
+            changeBackground: true,
           },
         });
 
@@ -595,17 +628,26 @@ export function VehiclePhotoUpload({
               </div>
             </div>
             
-            <Button
-              onClick={() => {
-                setSelectedForAi([]);
-                setShowAiModal(true);
-              }}
-              className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-              disabled={creditsLoading}
-            >
-              <Sparkles className="h-4 w-4" />
-              Popraw zdjęcia
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={() => { setSelectedForAi([]); setShowAiModal(true); }}
+                className="gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                disabled={creditsLoading}
+              >
+                <Sparkles className="h-4 w-4" />
+                Popraw zdjęcia
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRemovePlates}
+                disabled={aiProcessing || creditsLoading}
+                className="gap-2"
+                title="Zamazuje tablice bez zmiany tła"
+              >
+                {aiProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                Usuń tablice (5 kr./zdjęcie)
+              </Button>
+            </div>
           </div>
         </Card>
       )}
@@ -721,6 +763,10 @@ export function VehiclePhotoUpload({
                   onCheckedChange={setUseCustomPrompt}
                 />
                 <Label>Własny opis tła (zaawansowane)</Label>
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch checked={removePlates} onCheckedChange={setRemovePlates} />
+                <Label>Usuń też tablice rejestracyjne przy generowaniu tła</Label>
               </div>
               
               {useCustomPrompt && (

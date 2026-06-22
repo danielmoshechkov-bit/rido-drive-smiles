@@ -41,28 +41,51 @@ interface PhotoEditRequest {
   listingId: string;
   photoIndex: number;
   userId?: string;
-  featureKey?: string;            // 'vehicle_photo_enhance' | 'vehicle_photo_custom'
+  featureKey?: string;            // 'vehicle_photo_enhance' | 'vehicle_photo_custom' | 'hide_clp'
   backgroundStyle?: string;       // 'studio' | 'salon' | 'elegancki' | 'sportowy'
   backgroundPrompt?: string;      // własny opis tła (gdy custom)
+  removePlates?: boolean;         // ukryj tablice rejestracyjne
+  changeBackground?: boolean;     // domyślnie true; false = tylko tablice (bez zmiany tła)
 }
 
 // KROK 1: API4AI Cars Background Removal — zwraca PRAWDZIWE auto bez tła (base64 PNG).
-async function removeCarBackground(imageUrl: string): Promise<string | null> {
+// mode opcjonalny: 'fg-image-hide-clp' = dodatkowo ukrywa tablice rejestracyjne.
+async function removeCarBackground(imageUrl: string, mode?: string): Promise<string | null> {
   if (!API4AI_KEY) return null;
   try {
     const form = new FormData();
     form.append("url", imageUrl);
+    if (mode) form.append("mode", mode);
     const resp = await fetch("https://api4ai.cloud/img-bg-removal/v1/cars/results", {
       method: "POST",
       headers: { "X-API-KEY": API4AI_KEY },
       body: form,
     });
-    if (!resp.ok) { console.error("[API4AI] error", resp.status, (await resp.text()).slice(0, 200)); return null; }
+    if (!resp.ok) { console.error("[API4AI] bg error", resp.status, (await resp.text()).slice(0, 200)); return null; }
     const data = await resp.json();
     const entities = data?.results?.[0]?.entities ?? [];
-    const b64 = entities.find((e: any) => e?.image)?.image;
-    return b64 || null;
-  } catch (e) { console.error("[API4AI] wyjątek:", (e as any)?.message); return null; }
+    return entities.find((e: any) => e?.image)?.image || null;
+  } catch (e) { console.error("[API4AI] bg wyjątek:", (e as any)?.message); return null; }
+}
+
+// Anonimizacja tablic BEZ zmiany tła (img-anonymization, mode=hide-clp).
+// Zwraca { ok, b64 } albo { ok:false, status } — 403 = klucz bez dostępu do produktu.
+async function anonymizePlates(imageUrl: string): Promise<{ ok: boolean; b64?: string; status?: number }> {
+  if (!API4AI_KEY) return { ok: false, status: 0 };
+  try {
+    const form = new FormData();
+    form.append("url", imageUrl);
+    form.append("mode", "hide-clp");
+    const resp = await fetch("https://api4ai.cloud/img-anonymization/v1/results", {
+      method: "POST",
+      headers: { "X-API-KEY": API4AI_KEY },
+      body: form,
+    });
+    if (!resp.ok) { console.error("[API4AI] anon error", resp.status, (await resp.text()).slice(0, 200)); return { ok: false, status: resp.status }; }
+    const data = await resp.json();
+    const b64 = (data?.results?.[0]?.entities ?? []).find((e: any) => e?.image)?.image;
+    return b64 ? { ok: true, b64 } : { ok: false, status: 422 };
+  } catch (e) { console.error("[API4AI] anon wyjątek:", (e as any)?.message); return { ok: false, status: 500 }; }
 }
 
 // KROK 2: Gemini generuje SAMO tło (bez auta) wg stylu/promptu. Zwraca base64 obrazu.
@@ -121,9 +144,35 @@ serve(async (req) => {
     }
 
     const startTime = Date.now();
+    const changeBackground = request.changeBackground !== false; // domyślnie true
+    const removePlates = !!request.removePlates;
 
-    // KROK 1: wytnij PRAWDZIWE auto. WYMAGANE — bez tego nie ma realnego auta.
-    const cutoutB64 = await removeCarBackground(imageUrl);
+    const uploadToCarPhotos = async (bytes: Uint8Array): Promise<string> => {
+      const path = `${authedUserId || userId || 'anon'}/ai-${Date.now()}-${photoIndex || 0}.jpg`;
+      const { data: up, error: upErr } = await supabase.storage.from('car-photos').upload(path, bytes, { contentType: 'image/jpeg', upsert: true });
+      if (upErr || !up) return `data:image/jpeg;base64,${bytesToB64(bytes)}`;
+      return supabase.storage.from('car-photos').getPublicUrl(up.path).data.publicUrl;
+    };
+
+    // TRYB A: tylko ukrycie tablic (tło BEZ zmian) — img-anonymization.
+    if (!changeBackground && removePlates) {
+      const anon = await anonymizePlates(imageUrl);
+      if (!anon.ok) {
+        if (billed) await refundCredits(supabase, billed.userId, billed.cost);
+        const msg = anon.status === 403
+          ? 'Anonimizacja tablic niedostępna — włącz produkt "img-anonymization" dla klucza API4AI.'
+          : 'Nie udało się ukryć tablic na zdjęciu.';
+        return new Response(JSON.stringify({ error: 'plates_failed', status: anon.status, message: msg }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      let outBytes: Uint8Array;
+      try { outBytes = await (await Image.decode(b64ToBytes(anon.b64!))).encodeJPEG(90); }
+      catch { outBytes = b64ToBytes(anon.b64!); }
+      const editedUrl = await uploadToCarPhotos(outBytes);
+      return new Response(JSON.stringify({ success: true, originalUrl: imageUrl, editedUrl, balance_after: billed ? billed.balanceAfter : null, cost: billed ? billed.cost : 0 }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // KROK 1: wytnij PRAWDZIWE auto (opcjonalnie ukryj tablice w trakcie). WYMAGANE.
+    const cutoutB64 = await removeCarBackground(imageUrl, removePlates ? 'fg-image-hide-clp' : undefined);
     if (!cutoutB64) {
       if (billed) await refundCredits(supabase, billed.userId, billed.cost);
       return new Response(JSON.stringify({ error: 'cutout_failed', message: 'Nie udało się wyciąć auta (API4AI). Spróbuj inne zdjęcie.' }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -147,14 +196,7 @@ serve(async (req) => {
       bg.resize(car.width, car.height);     // tło do rozmiaru auta
       bg.composite(car, 0, 0);               // realne auto na wierzch (alpha)
       const outBytes = await bg.encodeJPEG(90);
-      // Zapis do car-photos (http URL zamiast ciężkiego data-url w bazie).
-      const path = `${authedUserId || userId || 'anon'}/ai-${Date.now()}-${photoIndex || 0}.jpg`;
-      const { data: up, error: upErr } = await supabase.storage.from('car-photos').upload(path, outBytes, { contentType: 'image/jpeg', upsert: true });
-      if (upErr || !up) {
-        editedImageUrl = `data:image/jpeg;base64,${bytesToB64(outBytes)}`; // fallback
-      } else {
-        editedImageUrl = supabase.storage.from('car-photos').getPublicUrl(up.path).data.publicUrl;
-      }
+      editedImageUrl = await uploadToCarPhotos(outBytes);
     } catch (e) {
       console.error('[compose] error:', (e as any)?.message);
       if (billed) await refundCredits(supabase, billed.userId, billed.cost);

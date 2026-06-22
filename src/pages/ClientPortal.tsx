@@ -4,6 +4,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { MoreVertical, Pencil, Trash2 as Trash2Icon, Flag } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -77,6 +84,7 @@ interface VehicleListing {
   status: string;
   created_at: string;
   photos: string[];
+  is_available?: boolean;
 }
 
 interface PropertyListing {
@@ -137,6 +145,31 @@ export default function ClientPortal() {
   // User listings
   const [vehicleListings, setVehicleListings] = useState<VehicleListing[]>([]);
   const [propertyListings, setPropertyListings] = useState<PropertyListing[]>([]);
+  const [vehDeleteId, setVehDeleteId] = useState<string | null>(null);
+  const [vehEndId, setVehEndId] = useState<string | null>(null);
+
+  const refreshVehicleListings = async () => {
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (u) fetchUserListings(u.id);
+  };
+  const handleDeleteVehicle = async () => {
+    if (!vehDeleteId) return;
+    const { error } = await (supabase as any).from('vehicle_listings').delete().eq('id', vehDeleteId);
+    if (error) toast.error('Nie można usunąć ogłoszenia');
+    else { toast.success('Ogłoszenie usunięte'); await refreshVehicleListings(); }
+    setVehDeleteId(null);
+  };
+  // Zakończ: zdejmij z giełdy (is_available=false) + zapisz wynik sprzedaży w status.
+  const handleEndVehicle = async (sold: boolean) => {
+    if (!vehEndId) return;
+    const { error } = await (supabase as any)
+      .from('vehicle_listings')
+      .update({ is_available: false, status: sold ? 'sprzedane' : 'zakonczone' })
+      .eq('id', vehEndId);
+    if (error) toast.error('Nie udało się zakończyć ogłoszenia');
+    else { toast.success(sold ? 'Gratulacje! Oznaczono jako sprzedane.' : 'Ogłoszenie zakończone.'); await refreshVehicleListings(); }
+    setVehEndId(null);
+  };
   const [favorites, setFavorites] = useState<any[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [marketplaceProfile, setMarketplaceProfile] = useState<any>(null);
@@ -337,10 +370,10 @@ export default function ClientPortal() {
     // Fetch vehicle listings
     const vehicleResult = await (supabase as any)
       .from('vehicle_listings')
-      .select('id, title, price, status, created_at, photos')
+      .select('id, title, price, status, created_at, photos, is_available')
       .eq('created_by', userId)
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(50);
     
     if (vehicleResult.data) {
       setVehicleListings(vehicleResult.data as VehicleListing[]);
@@ -932,51 +965,59 @@ export default function ClientPortal() {
                     </div>
                   )}
 
-                  {vehicleListings.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Car className="h-5 w-5" />
-                          {t('cp.listings.vehicles')}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          {vehicleListings.map((listing) => (
-                            <div
-                              key={listing.id}
-                              className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                              onClick={() => navigate(`/gielda/ogloszenie/${listing.id}`)}
-                            >
-                              <div className="flex items-center gap-4">
-                                {listing.photos?.[0] ? (
-                                  <img 
-                                    src={listing.photos[0]} 
-                                    alt={listing.title}
-                                    className="w-16 h-12 object-cover rounded-lg"
-                                  />
-                                ) : (
-                                  <div className="w-16 h-12 bg-muted rounded-lg flex items-center justify-center">
-                                    <Car className="h-6 w-6 text-muted-foreground" />
+                  {(() => {
+                    const active = vehicleListings.filter(l => l.is_available !== false);
+                    return active.length > 0 ? (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Car className="h-5 w-5" /> {t('cp.listings.vehicles')}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {active.map((listing) => (
+                              <div key={listing.id} className="relative rounded-lg border overflow-hidden group bg-card">
+                                <div className="aspect-[4/3] bg-muted cursor-pointer" onClick={() => navigate(`/gielda/ogloszenie/${listing.id}`)}>
+                                  {listing.photos?.[0] ? (
+                                    <img src={listing.photos[0]} alt={listing.title} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center"><Car className="h-8 w-8 text-muted-foreground" /></div>
+                                  )}
+                                </div>
+                                <div className="p-3">
+                                  <p className="font-semibold truncate">{listing.title}</p>
+                                  <div className="flex items-center justify-between mt-1">
+                                    <p className="font-semibold text-sm">{listing.price?.toLocaleString('pl-PL')} PLN</p>
+                                    {getStatusBadge(listing.status)}
                                   </div>
-                                )}
-                                <div>
-                                  <p className="font-semibold">{listing.title}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {new Date(listing.created_at).toLocaleDateString('pl-PL')}
-                                  </p>
+                                </div>
+                                <div className="absolute top-2 right-2">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button size="icon" variant="secondary" className="h-8 w-8 shadow"><MoreVertical className="h-4 w-4" /></Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => navigate(`/gielda/dodaj-pojazd?edit=${listing.id}`)}>
+                                        <Pencil className="h-4 w-4 mr-2" /> Edytuj
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => setVehEndId(listing.id)}>
+                                        <Flag className="h-4 w-4 mr-2" /> Zakończ
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem className="text-destructive" onClick={() => setVehDeleteId(listing.id)}>
+                                        <Trash2Icon className="h-4 w-4 mr-2" /> Usuń
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4">
-                                <p className="font-semibold">{listing.price?.toLocaleString('pl-PL')} PLN</p>
-                                {getStatusBadge(listing.status)}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : null;
+                  })()}
 
                   {propertyListings.length > 0 && (
                     <Card>
@@ -1057,21 +1098,45 @@ export default function ClientPortal() {
                 </div>
               )}
 
-              {/* Zakończone - Expired Listings */}
-              {oglaszeniaSubTab === 'zakonczone' && (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                    <p className="font-semibold mb-2">{t('cp.listings.noFinished')}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t('cp.listings.finishedDesc')}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {t('cp.listings.finishedNote')}
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Zakończone - Ended Listings */}
+              {oglaszeniaSubTab === 'zakonczone' && (() => {
+                const ended = vehicleListings.filter(l => l.is_available === false);
+                return ended.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {ended.map((listing) => (
+                      <div key={listing.id} className="relative rounded-lg border overflow-hidden bg-card opacity-90">
+                        <div className="aspect-[4/3] bg-muted cursor-pointer" onClick={() => navigate(`/gielda/ogloszenie/${listing.id}`)}>
+                          {listing.photos?.[0] ? (
+                            <img src={listing.photos[0]} alt={listing.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center"><Car className="h-8 w-8 text-muted-foreground" /></div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <p className="font-semibold truncate">{listing.title}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="font-semibold text-sm">{listing.price?.toLocaleString('pl-PL')} PLN</p>
+                            <span className={cn("text-xs px-2 py-0.5 rounded", listing.status === 'sprzedane' ? "bg-green-500/10 text-green-700" : "bg-muted text-muted-foreground")}>
+                              {listing.status === 'sprzedane' ? 'Sprzedane' : 'Zakończone'}
+                            </span>
+                          </div>
+                        </div>
+                        <button className="absolute top-2 right-2 h-8 w-8 bg-secondary rounded-full flex items-center justify-center shadow text-destructive" title="Usuń" onClick={() => setVehDeleteId(listing.id)}>
+                          <Trash2Icon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                      <p className="font-semibold mb-2">{t('cp.listings.noFinished')}</p>
+                      <p className="text-sm text-muted-foreground">{t('cp.listings.finishedDesc')}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               {/* Ulubione - Favorites (moved from main tabs) */}
               {oglaszeniaSubTab === 'ulubione' && (
@@ -1168,6 +1233,35 @@ export default function ClientPortal() {
               )}
             </div>
           )}
+
+          {/* Usuń ogłoszenie auta */}
+          <AlertDialog open={!!vehDeleteId} onOpenChange={() => setVehDeleteId(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Usunąć ogłoszenie?</AlertDialogTitle>
+                <AlertDialogDescription>Tej operacji nie można cofnąć. Ogłoszenie zostanie trwale usunięte.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteVehicle} className="bg-destructive text-destructive-foreground">Usuń</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Zakończ ogłoszenie — pytanie o sprzedaż */}
+          <AlertDialog open={!!vehEndId} onOpenChange={() => setVehEndId(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Zakończyć ogłoszenie?</AlertDialogTitle>
+                <AlertDialogDescription>Czy udało się sprzedać auto? Ogłoszenie trafi do zakładki „Zakończone".</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                <AlertDialogCancel className="mt-0">Anuluj</AlertDialogCancel>
+                <Button variant="outline" onClick={() => handleEndVehicle(false)}>Nie sprzedane</Button>
+                <AlertDialogAction onClick={() => handleEndVehicle(true)} className="bg-green-600 hover:bg-green-700 text-white">Tak, sprzedane</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Moje Auta Tab */}
           {activeTab === 'mojeauta' && (
