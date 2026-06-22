@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
-  Upload, X, Sparkles, Loader2, Image as ImageIcon, 
-  ArrowLeft, ArrowRight, Check, AlertCircle, Wand2, Star, GripVertical
+  Upload, X, Sparkles, Loader2, Image as ImageIcon,
+  ArrowLeft, ArrowRight, Check, AlertCircle, Wand2, Star, GripVertical, Download
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addWatermark } from "@/lib/watermark";
@@ -95,6 +95,7 @@ export function VehiclePhotoUpload({
   const [aiProgress, setAiProgress] = useState(0);
   const [customPrompt, setCustomPrompt] = useState("");
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
+  const [bgStyle, setBgStyle] = useState<string>("studio");
   const [previewPairs, setPreviewPairs] = useState<{ original: string; ai: string }[]>([]);
   const [selectedForAi, setSelectedForAi] = useState<number[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -302,71 +303,73 @@ export function VehiclePhotoUpload({
     setPreviewPairs([]);
 
     try {
-      const photosToProcess = selectedForAi.length > 0 
+      const photosToProcess = selectedForAi.length > 0
         ? selectedForAi.map(i => photos[i])
         : photos;
 
-      const results: { original: string; ai: string }[] = [];
-      
-      const studioPrompt = useCustomPrompt && customPrompt 
-        ? customPrompt 
-        : `Przekształć to zdjęcie pojazdu w profesjonalne zdjęcie studyjne:
-- Zachowaj dokładnie ten sam kąt, pozycję i proporcje pojazdu
-- Zachowaj WSZYSTKIE szczegóły pojazdu: uszkodzenia, rysy, wgniecenia - NIE naprawiaj!
-- Zakryj tablicę rejestracyjną delikatnym rozmyciem
-- Zmień tło na neutralne studyjne (ciemnoszary gradient)
-- Dodaj profesjonalne oświetlenie studyjne
-- Dodaj delikatne odbicie na podłodze (efekt showroom)
-- Kolory pojazdu mają pozostać takie same
-- Wynik ma wyglądać jak sesja zdjęciowa w salonie dealera`;
+      const generated: string[] = [];
+      const pairs: { original: string; ai: string }[] = [];
 
       for (let i = 0; i < photosToProcess.length; i++) {
         const photoUrl = photosToProcess[i];
-        
         const { data, error } = await supabase.functions.invoke("ai-photo-edit", {
           body: {
             imageUrl: photoUrl,
-            instruction: studioPrompt,
             listingType: "vehicle",
             listingId: "draft",
             photoIndex: i,
             userId,
             featureKey: (useCustomPrompt && customPrompt) ? "vehicle_photo_custom" : "vehicle_photo_enhance",
+            backgroundStyle: bgStyle,
+            backgroundPrompt: useCustomPrompt ? customPrompt : undefined,
           },
         });
 
         if (error || !data?.editedUrl) {
           console.error("AI edit error:", error || data?.error);
-          toast.error(`Błąd edycji zdjęcia ${i + 1}`);
+          toast.error(`Błąd zdjęcia ${i + 1}: ${(error as any)?.message || data?.error || data?.message || "spróbuj ponownie"}`);
           continue;
         }
-
-        results.push({ original: photoUrl, ai: data.editedUrl });
+        generated.push(data.editedUrl);
+        pairs.push({ original: photoUrl, ai: data.editedUrl });
         setAiProgress(Math.round(((i + 1) / photosToProcess.length) * 100));
       }
 
-      // Koszt pobiera SERWER (ai-photo-edit + creditGate, zrodlo ai_pricing).
-      // Front juz nie odejmuje kredytow — tylko odswieza saldo z bazy.
+      // Koszt liczy SERWER (creditGate/ai_pricing) — front tylko odświeża saldo.
       await refreshCredits();
 
-      setPreviewPairs(results);
-      
-      const newAiPhotos = [...photos];
-      results.forEach((result, idx) => {
-        const originalIndex = selectedForAi.length > 0 
-          ? selectedForAi[idx]
-          : idx;
-        newAiPhotos[originalIndex] = result.ai;
-      });
-      
-      onAiPhotosChange(newAiPhotos);
-      toast.success(`Poprawiono ${results.length} zdjęć z AI!`);
+      if (generated.length > 0) {
+        // Każde opłacone zdjęcie trafia do GALERII zdjęć ogłoszenia.
+        onPhotosChange([...photos, ...generated]);
+        onAiPhotosChange([...aiPhotos, ...generated]);
+        onHasAiPhotosChange(true);
+        setPreviewPairs(pairs);
+        toast.success(`Wygenerowano ${generated.length} zdjęć — dodano do galerii. Możesz generować ponownie.`);
+      } else {
+        toast.error("Nie udało się wygenerować zdjęć");
+      }
     } catch (err) {
       console.error("AI enhance error:", err);
       toast.error("Błąd podczas poprawiania zdjęć");
     } finally {
       setAiProcessing(false);
       setAiProgress(0);
+    }
+  };
+
+  const downloadPhoto = async (url: string, index: number) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `zdjecie-${index + 1}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      window.open(url, "_blank");
     }
   };
 
@@ -453,18 +456,15 @@ export function VehiclePhotoUpload({
                         "relative aspect-[4/3] rounded-lg overflow-hidden group cursor-grab active:cursor-grabbing",
                         "border-2 transition-all",
                         index === 0 ? "border-primary ring-2 ring-primary/30" : "border-transparent",
-                        hasAiPhotos && aiPhotos[index] && "border-purple-500",
+                        aiPhotos.includes(photo) && "border-purple-500",
                         draggedPhotoIndex === index && "opacity-50 scale-95"
                       )}
                     >
                       <img
-                        src={hasAiPhotos && aiPhotos[index] ? aiPhotos[index] : photo}
+                        src={photo}
                         alt={`Zdjęcie ${index + 1}`}
                         className="w-full h-full object-cover"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPreviewPhoto(hasAiPhotos && aiPhotos[index] ? aiPhotos[index] : photo);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); setPreviewPhoto(photo); }}
                       />
                       
                       {/* Main photo badge with star */}
@@ -476,12 +476,21 @@ export function VehiclePhotoUpload({
                       )}
                       
                       {/* AI badge */}
-                      {hasAiPhotos && aiPhotos[index] && (
+                      {aiPhotos.includes(photo) && (
                         <div className="absolute top-1 right-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2 py-0.5 rounded flex items-center gap-1">
                           <Sparkles className="h-3 w-3" />
                           AI
                         </div>
                       )}
+
+                      {/* Pobierz */}
+                      <button
+                        className="absolute top-1 left-1 h-6 w-6 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10"
+                        title="Pobierz"
+                        onClick={(e) => { e.stopPropagation(); downloadPhoto(photo, index); }}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
 
                       {/* Delete button - always visible in corner on hover */}
                       <button
@@ -539,33 +548,25 @@ export function VehiclePhotoUpload({
         </>
       )}
 
-      {/* Before/After AI Example - shown when photos are added */}
-      {photos.length > 0 && (
+      {/* Realne PRZED/PO — Twoje zdjęcie (pokazywane gdy jest wynik AI) */}
+      {aiPhotos.length > 0 && photos.length > 0 && (
         <Card className="p-4 bg-gradient-to-r from-purple-500/5 to-pink-500/5 border-purple-500/20">
           <p className="text-sm font-medium mb-3 text-center flex items-center justify-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
-            Zobacz różnicę z AI
+            Twoje zdjęcie: przed / po (AI)
           </p>
           <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground text-center font-medium uppercase tracking-wide">Przed</div>
-              <img 
-                src="/example-before.jpg" 
-                className="aspect-[4/3] object-cover rounded-lg border shadow-sm" 
-                alt="Przykład przed"
-              />
+              <img src={photos.find(p => !aiPhotos.includes(p)) || photos[0]} className="aspect-[4/3] object-cover rounded-lg border shadow-sm" alt="Przed" />
             </div>
             <div className="space-y-1">
               <div className="text-xs text-primary text-center font-medium uppercase tracking-wide">Po (AI)</div>
-              <img 
-                src="/example-after.jpg" 
-                className="aspect-[4/3] object-cover rounded-lg border-2 border-primary shadow-lg" 
-                alt="Przykład po"
-              />
+              <img src={aiPhotos[aiPhotos.length - 1]} className="aspect-[4/3] object-cover rounded-lg border-2 border-primary shadow-lg" alt="Po (AI)" />
             </div>
           </div>
           <p className="text-xs text-muted-foreground mt-3 text-center">
-            Profesjonalne tło studyjne, idealne oświetlenie • <strong className="text-primary">10 kredytów/zdjęcie</strong>
+            Auto pozostaje Twoje (wycięte z oryginału) — zmienia się tylko tło.
           </p>
         </Card>
       )}
@@ -684,29 +685,31 @@ export function VehiclePhotoUpload({
               </span>
             </div>
 
-            {/* Before/After example in modal */}
-            <div className="bg-muted/50 rounded-lg p-4">
-              <p className="text-sm font-medium mb-3">Przykład transformacji:</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground text-center uppercase tracking-wide">Przed</p>
-                  <img 
-                    src="/example-before.jpg" 
-                    className="aspect-[4/3] object-cover rounded-lg border" 
-                    alt="Przed"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs text-primary text-center uppercase tracking-wide">Po (AI)</p>
-                  <img 
-                    src="/example-after.jpg" 
-                    className="aspect-[4/3] object-cover rounded-lg border-2 border-primary" 
-                    alt="Po"
-                  />
-                </div>
+            {/* Wybór tła */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Wybierz tło:</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { key: "studio", label: "Studio" },
+                  { key: "salon", label: "Salon / wystawa" },
+                  { key: "elegancki", label: "Elegancki" },
+                  { key: "sportowy", label: "Sportowy" },
+                ].map(s => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => { setBgStyle(s.key); setUseCustomPrompt(false); }}
+                    className={cn(
+                      "text-sm rounded-lg border px-3 py-2 transition-colors",
+                      !useCustomPrompt && bgStyle === s.key ? "border-primary bg-primary/10 text-primary font-medium" : "hover:bg-muted"
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
               </div>
-              <p className="text-xs text-muted-foreground mt-3 text-center">
-                Tło zostanie zamienione na profesjonalne studyjne. Wszystkie szczegóły pojazdu (w tym uszkodzenia) pozostaną bez zmian.
+              <p className="text-xs text-muted-foreground">
+                Auto zostaje Twoje (wycięte z oryginału, z tablicami i uszkodzeniami) — zmienia się tylko tło.
               </p>
             </div>
 
@@ -717,7 +720,7 @@ export function VehiclePhotoUpload({
                   checked={useCustomPrompt}
                   onCheckedChange={setUseCustomPrompt}
                 />
-                <Label>Użyj własnego opisu (zaawansowane)</Label>
+                <Label>Własny opis tła (zaawansowane)</Label>
               </div>
               
               {useCustomPrompt && (
@@ -741,52 +744,40 @@ export function VehiclePhotoUpload({
               </div>
             )}
 
-            {/* Preview pairs */}
+            {/* Preview wyników — z pobieraniem; trafiają też do galerii */}
             {previewPairs.length > 0 && (
-              <div className="space-y-3">
-                <p className="font-medium">Podgląd wyników:</p>
-                <div className="grid grid-cols-2 gap-4 max-h-60 overflow-y-auto">
+              <div className="space-y-2">
+                <p className="font-medium text-sm">Wygenerowane (dodane do galerii):</p>
+                <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto">
                   {previewPairs.map((pair, i) => (
-                    <div key={i} className="grid grid-cols-2 gap-2">
-                      <img src={pair.original} alt="Oryginał" className="aspect-[4/3] object-cover rounded" />
-                      <img src={pair.ai} alt="AI" className="aspect-[4/3] object-cover rounded border-2 border-primary" />
+                    <div key={i} className="relative">
+                      <img src={pair.ai} alt="AI" className="aspect-[4/3] w-full object-cover rounded border-2 border-primary" />
+                      <button
+                        className="absolute top-1 right-1 h-7 w-7 bg-black/60 text-white rounded-full flex items-center justify-center"
+                        title="Pobierz"
+                        onClick={() => downloadPhoto(pair.ai, i)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Actions */}
+            {/* Actions — zawsze można generować (ponownie, płatnie) */}
             <div className="flex gap-3">
-              {previewPairs.length > 0 ? (
-                <>
-                  <Button variant="outline" className="flex-1" onClick={rejectAiPhotos}>
-                    Użyj oryginalnych
-                  </Button>
-                  <Button className="flex-1 gap-2" onClick={acceptAiPhotos}>
-                    <Check className="h-4 w-4" />
-                    Użyj zdjęć AI
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="outline" className="flex-1" onClick={() => setShowAiModal(false)}>
-                    Anuluj
-                  </Button>
-                  <Button 
-                    className="flex-1 gap-2"
-                    onClick={handleAiEnhance}
-                    disabled={aiProcessing || credits < aiCost}
-                  >
-                    {aiProcessing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" />
-                    )}
-                    Generuj ({aiCost} kredytów)
-                  </Button>
-                </>
-              )}
+              <Button variant="outline" className="flex-1" onClick={() => setShowAiModal(false)}>
+                {previewPairs.length > 0 ? "Gotowe" : "Anuluj"}
+              </Button>
+              <Button
+                className="flex-1 gap-2"
+                onClick={handleAiEnhance}
+                disabled={aiProcessing || credits < aiCost}
+              >
+                {aiProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {previewPairs.length > 0 ? `Generuj ponownie (${aiCost} kr.)` : `Generuj (${aiCost} kr.)`}
+              </Button>
             </div>
           </div>
         </DialogContent>

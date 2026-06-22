@@ -229,7 +229,13 @@ export default function AddVehicleListing() {
   const editId = searchParams.get("edit");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [warnFields, setWarnFields] = useState<string[]>([]);
   const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const warnCls = (key: string) => warnFields.includes(key) && "ring-1 ring-yellow-400 border-yellow-400";
+  const scrollToFirstWarn = () => {
+    const first = warnFields.find(k => fieldRefs.current[k]);
+    if (first) fieldRefs.current[first]!.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   useEffect(() => {
     // Load transaction types from DB
@@ -465,6 +471,48 @@ export default function AddVehicleListing() {
 
   const [generatingDescription, setGeneratingDescription] = useState(false);
   const [descVersions, setDescVersions] = useState<{ poprawiony: string; nowy: string } | null>(null);
+  const [regLookupNumber, setRegLookupNumber] = useState("");
+  const [regLookupLoading, setRegLookupLoading] = useState(false);
+
+  const handleRegLookup = async () => {
+    if (!regLookupNumber.trim()) { toast.error("Podaj numer rejestracyjny"); return; }
+    if (!user) { toast.error("Zaloguj się, aby pobrać dane"); return; }
+    setRegLookupLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vehicle-decode", {
+        body: { registrationNumber: regLookupNumber.trim() },
+      });
+      if (error || data?.error) {
+        const code = data?.error;
+        if (code === "NOT_FOUND") toast.error("Nie odnaleziono danych dla tego numeru");
+        else if (code === "insufficient_credits") toast.error(`Brak kredytów (potrzeba ${data?.cost || 5})`);
+        else toast.error(data?.message || (error as any)?.message || "Błąd pobierania danych");
+        return;
+      }
+      const d = data.data || {};
+      // Tolerancja braków: nie nadpisuj pustym (funkcja pomija puste pola).
+      setFormData(prev => ({
+        ...prev,
+        brand: d.brand ?? prev.brand,
+        model: d.model ?? prev.model,
+        year: d.year ? String(d.year) : prev.year,
+        vin: d.vin ?? prev.vin,
+        engineCapacity: d.engineCapacity ? String(d.engineCapacity) : prev.engineCapacity,
+        power: d.power ? String(d.power) : prev.power,
+        fuelType: d.fuelType ?? prev.fuelType,
+        odometer: d.odometer ? String(d.odometer) : prev.odometer,
+        firstRegistrationDate: d.firstRegistrationDate ?? prev.firstRegistrationDate,
+        registrationNumber: regLookupNumber.trim().toUpperCase(),
+      }));
+      setTimeout(generateTitle, 100);
+      toast.success(`Dane pobrane (−${data.cost || 5} kredytów)`);
+    } catch (e) {
+      console.error("reg lookup error:", e);
+      toast.error("Błąd pobierania danych");
+    } finally {
+      setRegLookupLoading(false);
+    }
+  };
 
   const handleGenerateAiDescription = async () => {
     if (!formData.brand || !formData.model) {
@@ -599,8 +647,8 @@ Zwróć WYŁĄCZNIE JSON (bez markdown):
           contact_phone: formData.contactPhone,
           contact_email: formData.contactEmail || null,
           description_long: formData.description || null,
-          photos: formData.hasAiPhotos ? formData.aiPhotos : formData.photos,
-          ai_enhanced_photos: formData.hasAiPhotos ? formData.aiPhotos : null,
+          photos: formData.photos,
+          ai_enhanced_photos: formData.aiPhotos.length ? formData.aiPhotos : null,
           has_ai_photos: formData.hasAiPhotos,
           status: "aktywne",
       };
@@ -697,6 +745,26 @@ Zwróć WYŁĄCZNIE JSON (bez markdown):
               <CardDescription>Podstawowe informacje o pojeździe</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Szybkie uzupełnienie po nr rejestracyjnym (decoder, 5 kredytów) */}
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Search className="h-4 w-4 text-primary" /> Pobierz dane po numerze rejestracyjnym
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="np. WU2953K"
+                    value={regLookupNumber}
+                    onChange={(e) => setRegLookupNumber(e.target.value.toUpperCase())}
+                    className="flex-1"
+                  />
+                  <Button type="button" variant="outline" onClick={handleRegLookup} disabled={regLookupLoading} className="gap-1">
+                    {regLookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    Pobierz <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">5 kr.</span>
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Auto-uzupełni markę, model, rok, VIN, pojemność, moc, paliwo, przebieg.</p>
+              </div>
+
               <div ref={(el) => (fieldRefs.current.brand = el)} className={cn((errors.brand || errors.model) && "rounded-lg ring-1 ring-destructive p-2 -m-2")}>
                 <Label className="mb-1 block">Marka i model *</Label>
                 <CarBrandModelSelector
@@ -723,20 +791,21 @@ Zwróć WYŁĄCZNIE JSON (bez markdown):
                   </Select>
                 </div>
 
-                <div>
+                <div ref={(el) => (fieldRefs.current.odometer = el)}>
                   <Label>Przebieg (km)</Label>
                   <Input
                     type="number"
                     placeholder="np. 150000"
                     value={formData.odometer}
                     onChange={(e) => updateField("odometer", e.target.value)}
+                    className={cn(warnCls("odometer"))}
                   />
                 </div>
 
-                <div>
+                <div ref={(el) => (fieldRefs.current.bodyType = el)}>
                   <Label>Typ nadwozia</Label>
                   <Select value={formData.bodyType} onValueChange={(v) => updateField("bodyType", v)}>
-                    <SelectTrigger>
+                    <SelectTrigger className={cn(warnCls("bodyType"))}>
                       <SelectValue placeholder="Wybierz typ" />
                     </SelectTrigger>
                     <SelectContent>
@@ -760,30 +829,32 @@ Zwróć WYŁĄCZNIE JSON (bez markdown):
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div>
+                <div ref={(el) => (fieldRefs.current.engineCapacity = el)}>
                   <Label>Pojemność silnika (cm³)</Label>
                   <Input
                     type="number"
                     placeholder="np. 1998"
                     value={formData.engineCapacity}
                     onChange={(e) => updateField("engineCapacity", e.target.value)}
+                    className={cn(warnCls("engineCapacity"))}
                   />
                 </div>
 
-                <div>
+                <div ref={(el) => (fieldRefs.current.power = el)}>
                   <Label>Moc (KM)</Label>
                   <Input
                     type="number"
                     placeholder="np. 150"
                     value={formData.power}
                     onChange={(e) => updateField("power", e.target.value)}
+                    className={cn(warnCls("power"))}
                   />
                 </div>
 
-                <div>
+                <div ref={(el) => (fieldRefs.current.fuelType = el)}>
                   <Label>Rodzaj paliwa</Label>
                   <Select value={formData.fuelType} onValueChange={(v) => updateField("fuelType", v)}>
-                    <SelectTrigger>
+                    <SelectTrigger className={cn(warnCls("fuelType"))}>
                       <SelectValue placeholder="Wybierz" />
                     </SelectTrigger>
                     <SelectContent>
@@ -794,10 +865,10 @@ Zwróć WYŁĄCZNIE JSON (bez markdown):
                   </Select>
                 </div>
 
-                <div>
+                <div ref={(el) => (fieldRefs.current.transmission = el)}>
                   <Label>Skrzynia biegów</Label>
                   <Select value={formData.transmission} onValueChange={(v) => updateField("transmission", v)}>
-                    <SelectTrigger>
+                    <SelectTrigger className={cn(warnCls("transmission"))}>
                       <SelectValue placeholder="Wybierz" />
                     </SelectTrigger>
                     <SelectContent>
@@ -969,10 +1040,10 @@ Zwróć WYŁĄCZNIE JSON (bez markdown):
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
-                <div>
+                <div ref={(el) => (fieldRefs.current.color = el)}>
                   <Label>Kolor</Label>
                   <Select value={formData.color} onValueChange={(v) => updateField("color", v)}>
-                    <SelectTrigger>
+                    <SelectTrigger className={cn(warnCls("color"))}>
                       <SelectValue placeholder="Wybierz kolor" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1243,6 +1314,8 @@ Zwróć WYŁĄCZNIE JSON (bez markdown):
             onGenerate={handleGenerateAiDescription}
             generating={generatingDescription}
             userId={user?.id}
+            onWarn={setWarnFields}
+            onGoToWarn={scrollToFirstWarn}
           />
 
           {/* Submit Button */}
@@ -1271,11 +1344,13 @@ const RECOMMENDED_FIELDS: { key: keyof FormData; label: string }[] = [
   { key: "contactPhone", label: "telefon" }, { key: "description", label: "opis" },
 ];
 
-function RidoAdvisor({ formData, onGenerate, generating, userId }: {
+function RidoAdvisor({ formData, onGenerate, generating, userId, onWarn, onGoToWarn }: {
   formData: FormData;
   onGenerate: () => void;
   generating: boolean;
   userId?: string;
+  onWarn: (keys: string[]) => void;
+  onGoToWarn: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ atrakcyjnosc: number; ocenaOpisu: string; zalecenia: string[] } | null>(null);
@@ -1311,6 +1386,8 @@ Zalecenia mają być konkretne: co dodać, by zwiększyć zainteresowanie i zasi
         ocenaOpisu: json.ocenaOpisu || "",
         zalecenia: Array.isArray(json.zalecenia) ? json.zalecenia : [],
       });
+      // Pola do poprawy (puste rekomendowane) → podświetl na żółto.
+      onWarn(missing.map(m => m.key as string));
     } catch (e) {
       console.error("Rido advisor error:", e);
       toast.error("Nie udało się odczytać oceny Rido");
@@ -1376,7 +1453,14 @@ Zalecenia mają być konkretne: co dodać, by zwiększyć zainteresowanie i zasi
                 </ul>
               </div>
             )}
-            <Button size="sm" variant="ghost" onClick={handleAssess} disabled={loading}>Oceń ponownie</Button>
+            <div className="flex flex-wrap gap-2">
+              {missing.length > 0 && (
+                <Button size="sm" className="gap-2" onClick={onGoToWarn}>
+                  <ArrowLeft className="h-4 w-4 rotate-90" /> Przejdź do zaleceń (żółte pola)
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" onClick={handleAssess} disabled={loading}>Oceń ponownie</Button>
+            </div>
           </div>
         )}
       </CardContent>

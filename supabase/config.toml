@@ -310,3 +310,6 @@ verify_jwt = false
 
 [functions.workshop-approve-findings]
 verify_jwt = false
+
+[functions.vehicle-decode]
+verify_jwt = false
