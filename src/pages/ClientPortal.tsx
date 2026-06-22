@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { AccountSwitcherPanel } from '@/components/AccountSwitcherPanel';
+import { WorkspaceInvitationBell } from '@/components/workspace/WorkspaceInvitationBell';
 import { TabsPill } from '@/components/ui/TabsPill';
 import { TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -600,7 +601,8 @@ export default function ClientPortal() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Button 
+              <WorkspaceInvitationBell />
+              <Button
                 className="bg-primary hover:bg-primary/90"
                 size="sm"
                 onClick={() => setShowSellModal(true)}
@@ -625,7 +627,8 @@ export default function ClientPortal() {
               <User className="h-5 w-5 text-primary" />
             </div>
             <div className="flex items-center gap-2">
-              <Button 
+              <WorkspaceInvitationBell />
+              <Button
                 size="sm"
                 onClick={() => setShowSellModal(true)}
               >

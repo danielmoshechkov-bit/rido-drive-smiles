@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { WorkspaceProject } from "@/hooks/useWorkspace";
+import { WorkspaceProject, GLOBAL_WORKFLOW_PROJECT } from "@/hooks/useWorkspace";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,8 +40,10 @@ export function WorkspaceProjectsList({ projects, onSelectProject, onCreateProje
     }
   };
 
-  const active = projects.filter(p => p.status === 'active');
-  const archived = projects.filter(p => p.status === 'archived');
+  // Ukryj „projekt globalny" Workflow z listy zwykłych projektów.
+  const visible = projects.filter(p => p.name !== GLOBAL_WORKFLOW_PROJECT);
+  const active = visible.filter(p => p.status === 'active');
+  const archived = visible.filter(p => p.status === 'archived');
 
   return (
     <div className="space-y-6">

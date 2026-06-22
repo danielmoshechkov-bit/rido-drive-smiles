@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { AssigneeCombobox } from "./AssigneeCombobox";
 import { useTaskTimeTracking } from "@/hooks/useTaskTimeTracking";
 import {
   Calendar, Clock, User, Flag, Tag, MessageSquare, ListChecks,
@@ -362,38 +363,18 @@ export function TaskDetailModal({ task, open, onClose, onSave, onDelete, members
                           className="text-muted-foreground hover:text-destructive"><X className="h-3 w-3" /></button>
                       </div>
                     ))}
-                    <Select value="" onValueChange={v => {
-                      if (v === "__invite__") { onInviteMember?.(); return; }
-                      const m = members.find((mm: any) => mm.user_id === v);
-                      if (m && !assignees.some(a => a.user_id === v)) {
-                        setAssignees(prev => [...prev, { user_id: v, display_name: m.display_name || m.email || 'Użytkownik' }]);
-                      }
-                    }}>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="+ Dodaj osobę..." /></SelectTrigger>
-                      <SelectContent>
-                        {members.filter((m: any) => m.status === 'active' && m.user_id).map((m: any) => {
-                          const name = m.display_name || m.email || m.user_id;
-                          return (
-                            <SelectItem key={m.id} value={m.user_id}>
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-5 w-5">
-                                  <AvatarFallback className="text-[8px]">
-                                    {(name || '?').slice(0, 2).toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                {name}
-                                {m.role && <Badge variant="outline" className="text-[9px] ml-1">{m.role}</Badge>}
-                              </div>
-                            </SelectItem>
-                          );
-                        })}
-                        <SelectItem value="__invite__">
-                          <div className="flex items-center gap-2 text-primary">
-                            <Plus className="h-3.5 w-3.5" /> Zaproś nową osobę
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <AssigneeCombobox
+                      members={members}
+                      placeholder="+ Dodaj / wyszukaj osobę"
+                      excludeUserIds={assignees.map(a => a.user_id).filter(Boolean) as string[]}
+                      onPick={(m) => {
+                        if (!assignees.some(a => a.user_id === m.user_id)) {
+                          const name = (m.first_name || m.last_name) ? `${m.first_name || ''} ${m.last_name || ''}`.trim() : (m.display_name || m.email || 'Użytkownik');
+                          setAssignees(prev => [...prev, { user_id: m.user_id, display_name: name }]);
+                        }
+                      }}
+                      onAddPerson={() => onInviteMember?.()}
+                    />
                   </div>
                 </div>
 

@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Nazwa-sentinel „projektu globalnego" Workflow (przestrzeń PONAD projektami).
+// project_id w workspace_tasks jest NOT NULL, więc zadania globalne trzymamy w
+// ukrytym projekcie o tej nazwie (MVP bez migracji; docelowo kolumna is_global).
+// Filtrowany z list projektów (patrz WorkspaceProjectsList).
+export const GLOBAL_WORKFLOW_PROJECT = "__workflow_global__";
+
 export interface WorkspaceProject {
   id: string;
   name: string;
@@ -211,14 +217,21 @@ export function useWorkspace() {
     return (data || []) as WorkspaceMember[];
   }, []);
 
-  const addMember = useCallback(async (projectId: string, email: string, role = 'member', firstName?: string, lastName?: string, phone?: string | null) => {
+  // userId: ustaw od razu gdy zapraszany ma już konto (link member→user_id).
+  // WAŻNE: insert BEZ .select() — zwrot reprezentacji uruchomiłby politykę
+  // SELECT (ws_members_select), która odwołuje się do auth.users → authenticated
+  // nie ma do niej praw → "permission denied for table users". Dlatego ustawiamy
+  // wszystkie pola od razu w insercie (bez późniejszego update-by-id) i nie
+  // żądamy zwrotu wiersza. Zwraca true/false. Komunikat sukcesu pokazuje wołający.
+  const addMember = useCallback(async (projectId: string, email: string, role = 'member', firstName?: string, lastName?: string, phone?: string | null, userId?: string | null, invitedBy?: string | null) => {
     const displayName = firstName ? `${firstName} ${lastName || ''}`.trim() : email;
     const { error } = await supabase.from("workspace_project_members").insert({
       project_id: projectId, email, display_name: displayName, role, status: 'invited',
       first_name: firstName || null, last_name: lastName || null, phone: phone || null,
+      user_id: userId || null, hierarchy_role: role, invited_by: invitedBy || null,
     } as any);
-    if (error) { toast.error("Błąd dodawania"); return; }
-    toast.success(`Zaproszono ${displayName}`);
+    if (error) { console.error("addMember:", error); toast.error("Błąd dodawania: " + error.message); return false; }
+    return true;
   }, []);
 
   const removeMember = useCallback(async (memberId: string) => {

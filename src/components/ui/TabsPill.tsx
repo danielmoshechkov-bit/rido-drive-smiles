@@ -33,13 +33,16 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
 
   return (
     <Tabs {...props}>
-      <div 
-        className="rounded-[9999px] p-1.5 shadow-[0_8px_30px_rgba(108,60,240,0.18)] overflow-x-auto scrollbar-hide"
-        style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
+      {/* JEDEN kontener przewijania (zewnętrzny). Wewnętrzny TabsList NIE może mieć
+          własnego overflow — zagnieżdżone overflow-x-auto blokowało scroll (zwł. mobile).
+          touch-pan-x + WebkitOverflowScrolling = płynny swipe na iOS. */}
+      <div
+        className="rounded-[9999px] p-1.5 shadow-[0_8px_30px_rgba(108,60,240,0.18)] overflow-x-auto overflow-y-hidden scrollbar-hide touch-pan-x overscroll-x-contain"
+        style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)', WebkitOverflowScrolling: 'touch' }}
       >
         <TabsList
           className="
-            flex w-max min-w-full items-center gap-1 overflow-x-auto scrollbar-hide
+            flex w-max min-w-full flex-nowrap items-center justify-start gap-1 overflow-visible
             rounded-[9999px] px-2
             min-h-[48px]
           "

@@ -70,6 +70,7 @@ import ServicesMarketplace from "./pages/ServicesMarketplace";
 import AdminRidoMarket from "./pages/AdminRidoMarket";
 import ServiceProviderDetail from "./pages/ServiceProviderDetail";
 import ServiceProviderDashboard from "./pages/ServiceProviderDashboard";
+import WorkflowModule from "./pages/WorkflowModule";
 import UniversalSearchResults from "./pages/UniversalSearchResults";
 import AccountingDashboard from "./pages/AccountingDashboard";
 import InsuranceAgentRegister from "./pages/InsuranceAgentRegister";
@@ -153,6 +154,7 @@ const App = () => (
                 <Route path="/nieruchomosci/agent/panel" element={<RealEstateAgentDashboard />} />
                 <Route path="/uslugi" element={<ServicesMarketplace />} />
                 <Route path="/uslugi/panel" element={<ServiceProviderDashboard />} />
+                <Route path="/workflow" element={<WorkflowModule />} />
                 <Route path="/uslugi/uslugodawca/:providerId" element={<ServiceProviderDetail />} />
                 <Route path="/wyniki" element={<UniversalSearchResults />} />
                 <Route path="/ksiegowosc" element={<AccountingDashboard />} />

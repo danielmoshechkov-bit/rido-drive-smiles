@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   UserPlus, Trash2, Mail, Crown, Shield, User, Users, Phone, Circle, Search,
-  Link2, Copy, Check, Eye, Globe, Clock
+  Link2, Copy, Check, Eye, Globe, Clock, RefreshCw, Pencil
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -50,6 +50,20 @@ export function WorkspaceMembersView({ project, workspace }: Props) {
   const [role, setRole] = useState("member");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  // Edycja zaproszonego/członka
+  const [editMember, setEditMember] = useState<WorkspaceMember | null>(null);
+  const [editFirst, setEditFirst] = useState("");
+  const [editLast, setEditLast] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editRole, setEditRole] = useState("member");
+
+  const openEdit = (m: WorkspaceMember) => {
+    setEditMember(m);
+    setEditFirst(m.first_name || "");
+    setEditLast(m.last_name || "");
+    setEditPhone((m as any).phone || "");
+    setEditRole(m.role || "member");
+  };
 
   useEffect(() => { reload(); }, [project.id]);
 
@@ -97,71 +111,123 @@ export function WorkspaceMembersView({ project, workspace }: Props) {
     }
 
     setInviting(true);
-    const contactEmail = email.trim() || `${phone.trim()}@phone.getrido.pl`;
-    
-    await workspace.addMember(project.id, contactEmail, role, firstName.trim(), lastName.trim(), phone.trim() || null);
+    try {
+      const contactEmail = (email.trim().toLowerCase()) || `${phone.trim()}@phone.getrido.pl`;
+      const hasRealEmail = !!email.trim();
 
-    // Update hierarchy_role & invited_by
-    const { data: newMember } = await supabase
-      .from("workspace_project_members")
-      .select("id")
-      .eq("project_id", project.id)
-      .eq("email", contactEmail)
-      .single();
-    
-    if (newMember) {
-      await (supabase as any)
-        .from("workspace_project_members")
-        .update({ hierarchy_role: role, invited_by: workspace.userEmail })
-        .eq("id", newMember.id);
-    }
+      // Czy zapraszany ma już konto? → od razu linkujemy member→user_id
+      let existingUserId: string | null = null;
+      if (hasRealEmail) {
+        const { data: existingUser } = await supabase.rpc('admin_find_user_by_email', { p_email: contactEmail });
+        existingUserId = existingUser && existingUser.length > 0 ? existingUser[0].id : null;
+      }
+      const isRegistered = !!existingUserId;
 
-    // Save invitation record
-    await (supabase as any).from("workspace_project_invitations").insert({
-      project_id: project.id,
-      invited_by: workspace.userId,
-      email: contactEmail,
-      phone: phone.trim() || null,
-      role,
-    });
+      // 1) member-row (status='invited') — JEDYNA żywa ścieżka (koniec workspace_project_invitations).
+      //    Wszystkie pola (w tym hierarchy_role + invited_by) ustawiane w insercie; BEZ .select()
+      //    (zwrot reprezentacji uruchamia politykę odwołującą się do auth.users).
+      const ok = await workspace.addMember(
+        project.id, contactEmail, role, firstName.trim(), lastName.trim(), phone.trim() || null,
+        existingUserId, workspace.userEmail || null
+      );
+      if (!ok) { setInviting(false); return; } // addMember pokazał błąd
 
-    // Notification
-    if (workspace.userId) {
-      const { data: existingUser } = await supabase.rpc('admin_find_user_by_email', { p_email: contactEmail });
-      if (existingUser && existingUser.length > 0) {
-        await (supabase as any).from("workspace_notifications").insert({
-          user_id: existingUser[0].id,
+      // 2) Notyfikacja in-app dla zarejestrowanego zapraszanego (poprawne kolumny link_type/link_id)
+      if (existingUserId) {
+        const { error: notifErr } = await (supabase as any).from("workspace_notifications").insert({
+          user_id: existingUserId,
           project_id: project.id,
           type: 'invitation',
           title: 'Zaproszenie do projektu',
-          body: `${workspace.userEmail} zaprasza Cię do projektu "${project.name}"`,
-          link: '/uslugi/panel',
+          body: `${workspace.userEmail || 'Ktoś'} zaprasza Cię do projektu „${project.name}"`,
+          link_type: 'invitation',
+          link_id: project.id,
+          sender_user_id: workspace.userId || null,
+          sender_name: workspace.userEmail || null,
         });
+        if (notifErr) console.error("notification insert:", notifErr);
       }
-    }
 
-    toast.success(`Zaproszono ${firstName.trim() || contactEmail}`);
-    resetForm();
-    setInviting(false);
-    setDialogOpen(false);
+      // 3) Mail przez DZIAŁAJĄCĄ firmową wysyłkę (Resend, noreply@getrido.pl)
+      let mailOk = true;
+      if (hasRealEmail) {
+        const { error: mailErr } = await supabase.functions.invoke('send-project-invitation', {
+          body: {
+            email: contactEmail,
+            inviterName: workspace.userEmail || 'Użytkownik',
+            projectName: project.name,
+            isRegistered,
+          },
+        });
+        if (mailErr) { mailOk = false; console.error("send-project-invitation:", mailErr); }
+      }
+
+      if (hasRealEmail && !mailOk) {
+        toast.warning(`Zaproszono ${firstName.trim() || contactEmail}, ale MAIL NIE WYSZEDŁ — użyj „Wyślij ponownie".`);
+      } else {
+        toast.success(`Zaproszono ${firstName.trim() || contactEmail}${hasRealEmail ? ' — mail wysłany' : ''}`);
+      }
+      resetForm();
+      setDialogOpen(false);
+      reload();
+    } catch (e: any) {
+      console.error("handleInvite:", e);
+      toast.error("Błąd zapraszania: " + (e?.message || e));
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  // Ponowna wysyłka maila zaproszenia dla istniejącego (invited) członka
+  const handleResend = async (member: WorkspaceMember) => {
+    if (!member.email || member.email.includes('@phone.')) {
+      toast.error("Brak adresu email do ponownej wysyłki"); return;
+    }
+    const { data: existingUser } = await supabase.rpc('admin_find_user_by_email', { p_email: member.email });
+    const isRegistered = !!(existingUser && existingUser.length > 0);
+    const { error } = await supabase.functions.invoke('send-project-invitation', {
+      body: { email: member.email, inviterName: workspace.userEmail || 'Użytkownik', projectName: project.name, isRegistered },
+    });
+    if (error) { console.error("resend:", error); toast.error("Błąd wysyłki: " + error.message); }
+    else toast.success(`Zaproszenie wysłane ponownie do ${member.email}`);
+  };
+
+  // Zapis edycji danych zaproszonego/członka
+  const handleSaveEdit = async () => {
+    if (!editMember) return;
+    const display = editFirst.trim() ? `${editFirst.trim()} ${editLast.trim()}`.trim() : (editMember.email || '');
+    const { error } = await (supabase as any)
+      .from("workspace_project_members")
+      .update({
+        first_name: editFirst.trim() || null,
+        last_name: editLast.trim() || null,
+        phone: editPhone.trim() || null,
+        role: editRole,
+        hierarchy_role: editRole,
+        display_name: display,
+      })
+      .eq("id", editMember.id);
+    if (error) { console.error("edit member:", error); toast.error("Błąd zapisu: " + error.message); return; }
+    toast.success("Zaktualizowano dane");
+    setEditMember(null);
     reload();
   };
 
   const generateInviteLink = async () => {
-    const { data, error } = await (supabase as any)
+    // Token generowany po stronie klienta → insert BEZ .select() (zwrot reprezentacji
+    // uruchamia politykę SELECT workspace_project_invitations, która odwołuje się do
+    // auth.users → "permission denied for table users"). Insert sam nie dotyka users.
+    const token = (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const { error } = await (supabase as any)
       .from("workspace_project_invitations")
       .insert({
         project_id: project.id,
         invited_by: workspace.userId,
         role,
-      })
-      .select("token")
-      .single();
-    
-    if (data) {
-      const link = `${window.location.origin}/workspace/join/${data.token}`;
-      setInviteLink(link);
-    }
+        token,
+      });
+    if (error) { console.error("generateInviteLink:", error); toast.error("Błąd generowania linku: " + error.message); return; }
+    setInviteLink(`${window.location.origin}/workspace/join/${token}`);
   };
 
   const copyLink = () => {
@@ -449,6 +515,28 @@ export function WorkspaceMembersView({ project, workspace }: Props) {
                         </Badge>
                       )}
 
+                      {member.status === 'invited' && member.email && !member.email.includes('@phone.') && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={() => handleResend(member)}>
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Wyślij zaproszenie ponownie</TooltipContent>
+                        </Tooltip>
+                      )}
+
+                      {member.role !== 'owner' && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" onClick={() => openEdit(member)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Edytuj dane</TooltipContent>
+                        </Tooltip>
+                      )}
+
                       {member.role !== 'owner' && (
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleRemove(member.id)}>
                           <Trash2 className="h-3.5 w-3.5" />
@@ -461,6 +549,46 @@ export function WorkspaceMembersView({ project, workspace }: Props) {
             )}
           </CardContent>
         </Card>
+
+        {/* Edycja danych zaproszonego/członka */}
+        <Dialog open={!!editMember} onOpenChange={(o) => { if (!o) setEditMember(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5" /> Edytuj dane</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 pt-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Imię</Label>
+                  <Input value={editFirst} onChange={e => setEditFirst(e.target.value)} className="h-9" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nazwisko</Label>
+                  <Input value={editLast} onChange={e => setEditLast(e.target.value)} className="h-9" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Telefon</Label>
+                <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="h-9" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Rola</Label>
+                <Select value={editRole} onValueChange={setEditRole}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(ROLE_CONFIG).filter(([k]) => k !== 'owner').map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setEditMember(null)}>Anuluj</Button>
+                <Button onClick={handleSaveEdit}>Zapisz</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );

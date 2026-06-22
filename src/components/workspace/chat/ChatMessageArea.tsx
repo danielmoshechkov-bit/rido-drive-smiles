@@ -442,7 +442,9 @@ export function ChatMessageArea({
             const showHeader = !prevMsg || prevMsg.user_id !== msg.user_id ||
               (new Date(msg.created_at).getTime() - new Date(prevMsg.created_at).getTime() > 300000);
             const member = getMemberByUserId(msg.user_id);
-            const displayName = msg.user_name || getMemberName(member) || 'Użytkownik';
+            // Imię Nazwisko z aktualnego członka MA PIERWSZEŃSTWO nad zapisanym
+            // user_name (które bywa mailem). Fallback: user_name → 'Użytkownik'.
+            const displayName = (member ? getMemberName(member) : null) || msg.user_name || 'Użytkownik';
             const isOwn = msg.user_id === userId;
             const isEditing = editingId === msg.id;
 

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -38,7 +39,7 @@ interface AccountSwitcherPanelProps {
 }
 
 interface AccountOption {
-  type: 'driver' | 'fleet' | 'admin' | 'client' | 'sales' | 'service_provider' | 'workshop_employee';
+  type: 'driver' | 'fleet' | 'admin' | 'client' | 'sales' | 'service_provider' | 'workshop_employee' | 'workflow';
   label: string;
   description: string;
   image: string;
@@ -71,6 +72,21 @@ export function AccountSwitcherPanel({
   const { t } = useTranslation();
   const [showAddAccountDialog, setShowAddAccountDialog] = useState(false);
   const { isWorkshopEmployee, records: workshopEmpRecords } = useIsWorkshopEmployee();
+
+  // Dostęp do modułu Workflow = członek ≥1 projektu LUB oczekujące zaproszenie.
+  const [hasWorkflow, setHasWorkflow] = useState(false);
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) return;
+      const { data } = await (supabase as any)
+        .from("workspace_project_members")
+        .select("id")
+        .or(`user_id.eq.${user.id},email.eq.${user.email.toLowerCase()}`)
+        .limit(1);
+      setHasWorkflow((data?.length || 0) > 0);
+    })();
+  }, []);
 
   const hasSalesAccess = isSalesAdmin || isSalesRep;
   const showDriverOption = isDriverAccount && !hideDriverForFleet;
@@ -126,6 +142,14 @@ export function AccountSwitcherPanel({
       image: workshopEmployeeImg,
       route: '/pracownik-warsztat',
       isEnabled: isWorkshopEmployee
+    },
+    {
+      type: 'workflow',
+      label: 'Workflow',
+      description: 'Zadania, projekty i komunikacja zespołu',
+      image: workshopEmployeeImg,
+      route: '/workflow',
+      isEnabled: hasWorkflow
     },
     {
       type: 'client',

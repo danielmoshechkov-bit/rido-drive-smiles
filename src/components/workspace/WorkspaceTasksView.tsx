@@ -18,6 +18,7 @@ import {
   ChevronDown, ChevronRight, MessageSquare, History, ListChecks, Send,
   Users, CalendarDays, Timer, Link2, Play, Square, PlusCircle
 } from "lucide-react";
+import { AssigneeCombobox } from "./AssigneeCombobox";
 import { useTaskTimeTracking } from "@/hooks/useTaskTimeTracking";
 import { useTaskDependencies } from "@/hooks/useTaskDependencies";
 import { toast } from "sonner";
@@ -396,19 +397,13 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
             </div>
             <div className="space-y-2">
               <Label>Przypisz do</Label>
-              <Select
-                value={form.assigned_user_id}
-                onValueChange={v => {
-                  const m = members.find(mm => mm.user_id === v);
-                  setForm(p => ({ ...p, assigned_user_id: v, assigned_name: m ? getMemberName(m) : "" }));
-                }}>
-                <SelectTrigger><SelectValue placeholder="Wybierz osobę" /></SelectTrigger>
-                <SelectContent>
-                  {members.filter(m => m.status === 'active' && m.user_id).map(m => (
-                    <SelectItem key={m.id} value={m.user_id!}>{getMemberName(m)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <AssigneeCombobox
+                members={members}
+                triggerLabel={form.assigned_name || null}
+                placeholder="Wybierz lub wyszukaj osobę"
+                onPick={(m) => setForm(p => ({ ...p, assigned_user_id: m.user_id, assigned_name: getMemberName(m) }))}
+                onAddPerson={() => setShowInviteFromTask(true)}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -825,7 +820,15 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
             <Button
               disabled={!inviteForm.email.trim() || !inviteForm.firstName.trim()}
               onClick={async () => {
-                await workspace.addMember(project.id, inviteForm.email.trim(), inviteForm.role, inviteForm.firstName.trim(), inviteForm.lastName.trim());
+                const contactEmail = inviteForm.email.trim().toLowerCase();
+                const { data: existingUser } = await supabase.rpc('admin_find_user_by_email', { p_email: contactEmail });
+                const existingUserId = existingUser && existingUser.length > 0 ? existingUser[0].id : null;
+                const ok = await workspace.addMember(project.id, contactEmail, inviteForm.role, inviteForm.firstName.trim(), inviteForm.lastName.trim(), null, existingUserId, workspace.userEmail || null);
+                if (!ok) return;
+                const { error: mailErr } = await supabase.functions.invoke('send-project-invitation', {
+                  body: { email: contactEmail, inviterName: workspace.userEmail || 'Użytkownik', projectName: project.name, isRegistered: !!existingUserId },
+                });
+                if (mailErr) toast.warning('Dodano, ale mail nie wyszedł'); else toast.success('Zaproszenie wysłane');
                 setInviteForm({ email: "", firstName: "", lastName: "", role: "member" });
                 setShowInviteFromTask(false);
                 const m = await workspace.loadMembers(project.id);
