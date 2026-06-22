@@ -321,7 +321,15 @@ export default function VehicleDetailPage() {
                   return trimmed.split('\n').map((line: string, j: number) => {
                     const l = line.trim();
                     if (!l) return null;
-                    return <p key={`${i}-${j}`} className="mb-2 text-foreground">{l}</p>;
+                    return (
+                      <p key={`${i}-${j}`} className="mb-2 text-foreground">
+                        {l.split(/(\*\*[^*]+\*\*)/g).map((seg: string, k: number) =>
+                          seg.startsWith('**') && seg.endsWith('**')
+                            ? <strong key={k}>{seg.slice(2, -2)}</strong>
+                            : <span key={k}>{seg}</span>
+                        )}
+                      </p>
+                    );
                   });
                 })}
               </div>

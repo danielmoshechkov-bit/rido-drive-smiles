@@ -525,8 +525,14 @@ export default function AddVehicleListing() {
       const eq = Object.keys(formData.equipment).filter(k => formData.equipment[k]);
       const prompt = `Auto: marka=${formData.brand}, model=${formData.model}, rok=${formData.year}, przebieg=${formData.odometer}, paliwo=${formData.fuelType}, skrzynia=${formData.transmission}, moc=${formData.power}, pojemność=${formData.engineCapacity}, nadwozie=${formData.bodyType}, kolor=${formData.color}, wyposażenie=${eq.join(", ") || "brak"}, uszkodzony=${formData.isDamaged ? "tak" : "nie"}.
 Opis wpisany przez sprzedającego: """${formData.description || "(pusty)"}"""
-Zwróć WYŁĄCZNIE JSON (bez markdown):
-{"poprawiony":"<weź tekst sprzedającego i popraw styl, gramatykę i sprzedażowość; jeśli pusty napisz krótki na bazie danych>","nowy":"<zupełnie nowy, profesjonalny opis sprzedażowy 120-200 słów po polsku, podkreśl zalety, zachęć do kontaktu>"}`;
+
+Napisz PROFESJONALNY opis ogłoszenia. Wymagania formatu (WAŻNE):
+- podziel na AKAPITY oddzielone pustą linią (\\n\\n): (1) wprowadzenie, (2) stan i dane techniczne, (3) zalety, (4) wyposażenie, (5) zachęta do kontaktu;
+- POGRUB markdownem (**...**) kluczowe rzeczy: nazwę modelu, przebieg, najważniejsze atuty;
+- czytelnie, nie jeden blok; 140-220 słów; bez zmyślania danych.
+
+Zwróć WYŁĄCZNIE JSON:
+{"tytul":"<krótki chwytliwy tytuł, max 60 znaków>","poprawiony":"<tekst sprzedającego poprawiony w tym samym formacie akapitów+pogrubień; jeśli pusty — krótki na bazie danych>","nowy":"<zupełnie nowy opis w powyższym formacie>"}`;
 
       const { data, error } = await supabase.functions.invoke("ai-service", {
         body: {
@@ -547,8 +553,9 @@ Zwróć WYŁĄCZNIE JSON (bez markdown):
 
       const j = JSON.parse(String(data.content).replace(/```json|```/g, "").trim());
       setDescVersions({ poprawiony: j.poprawiony || "", nowy: j.nowy || "" });
-      if (!formData.title && formData.brand && formData.model) {
-        updateField("title", `${formData.brand} ${formData.model}${formData.year ? " " + formData.year : ""}`);
+      // #5 tytuł: ustaw propozycję AI gdy puste
+      if (!formData.title) {
+        updateField("title", j.tytul || `${formData.brand} ${formData.model}${formData.year ? " " + formData.year : ""}`);
       }
       toast.success("Rido przygotował 2 wersje opisu — wybierz");
     } catch (err) {

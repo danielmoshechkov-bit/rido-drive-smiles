@@ -104,9 +104,11 @@ export function VehiclePhotoUpload({
     const sources = selectedForAi.length > 0 ? selectedForAi.map(i => photos[i]) : photos;
     const cost = sources.length * 5;
     if (credits < cost) { toast.error(`Brak kredytów. Potrzebujesz ${cost}.`); return; }
-    setAiProcessing(true); setAiProgress(0);
+    setAiProcessing(true); setAiProgress(0); setPreviewPairs([]);
     try {
       const gen: string[] = [];
+      const pairs: { original: string; ai: string }[] = [];
+      let skipped = 0;
       for (let i = 0; i < sources.length; i++) {
         const { data, error } = await supabase.functions.invoke("ai-photo-edit", {
           body: { imageUrl: sources[i], listingType: "vehicle", listingId: "draft", photoIndex: i, userId, featureKey: "hide_clp", removePlates: true, changeBackground: false },
@@ -115,7 +117,8 @@ export function VehiclePhotoUpload({
           toast.error(`Błąd zdjęcia ${i + 1}: ${data?.message || (error as any)?.message || "spróbuj ponownie"}`);
           continue;
         }
-        gen.push(data.editedUrl);
+        if (data.skipped || data.noPlate) { skipped++; } // #2: brak tablicy → bez opłaty, pomiń
+        else { gen.push(data.editedUrl); pairs.push({ original: sources[i], ai: data.editedUrl }); }
         setAiProgress(Math.round(((i + 1) / sources.length) * 100));
       }
       await refreshCredits();
@@ -123,7 +126,10 @@ export function VehiclePhotoUpload({
         onPhotosChange([...photos, ...gen]);
         onAiPhotosChange([...aiPhotos, ...gen]);
         onHasAiPhotosChange(true);
-        toast.success(`Ukryto tablice na ${gen.length} zdj. — dodano do galerii`);
+        setPreviewPairs(pairs);
+        toast.success(`Ukryto tablice na ${gen.length} zdj.${skipped ? ` (pominięto ${skipped} bez tablicy — bez opłaty)` : ""}`);
+      } else {
+        toast.info(skipped ? "Nie wykryto tablic — nie pobrano kredytów" : "Nie udało się przetworzyć zdjęć");
       }
     } finally { setAiProcessing(false); setAiProgress(0); }
   };
@@ -340,6 +346,7 @@ export function VehiclePhotoUpload({
 
       const generated: string[] = [];
       const pairs: { original: string; ai: string }[] = [];
+      let sharedBg: string | undefined; // #7: jedno spójne tło dla całej partii
 
       for (let i = 0; i < photosToProcess.length; i++) {
         const photoUrl = photosToProcess[i];
@@ -355,6 +362,7 @@ export function VehiclePhotoUpload({
             backgroundPrompt: useCustomPrompt ? customPrompt : undefined,
             removePlates,
             changeBackground: true,
+            backgroundImageUrl: sharedBg, // reużyj tła z 1. zdjęcia
           },
         });
 
@@ -363,6 +371,7 @@ export function VehiclePhotoUpload({
           toast.error(`Błąd zdjęcia ${i + 1}: ${(error as any)?.message || data?.error || data?.message || "spróbuj ponownie"}`);
           continue;
         }
+        if (data.backgroundUsedUrl && !sharedBg) sharedBg = data.backgroundUsedUrl;
         generated.push(data.editedUrl);
         pairs.push({ original: photoUrl, ai: data.editedUrl });
         setAiProgress(Math.round(((i + 1) / photosToProcess.length) * 100));
