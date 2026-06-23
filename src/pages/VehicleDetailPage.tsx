@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useListingTranslation } from "@/hooks/useListingTranslation";
 import { supabase } from "@/integrations/supabase/client";
@@ -75,6 +75,9 @@ function mapDbToDisplayListing(db: any) {
 export default function VehicleDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [backParams] = useSearchParams();
+  // #21: wróć tam skąd przyszedłeś (moje ogłoszenia vs giełda)
+  const backTo = backParams.get("from") === "klient" ? "/klient" : "/gielda";
   const [listing, setListing] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
@@ -191,7 +194,7 @@ export default function VehicleDetailPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <h1 className="text-2xl font-bold">Nie znaleziono ogłoszenia</h1>
-        <Button onClick={() => navigate("/gielda")}>
+        <Button onClick={() => navigate(backTo)}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Wróć do listy
         </Button>
@@ -205,7 +208,7 @@ export default function VehicleDetailPage() {
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/gielda")} className="gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate(backTo)} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline">Wróć do listy</span>
             </Button>

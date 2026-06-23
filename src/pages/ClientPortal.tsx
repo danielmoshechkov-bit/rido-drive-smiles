@@ -9,8 +9,31 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { MoreVertical, Pencil, Trash2 as Trash2Icon, Flag } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2 as Trash2Icon, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// #20: miniatura z przewijaniem zdjęć
+function TileCarousel({ photos, onClick }: { photos?: string[]; onClick: () => void }) {
+  const [idx, setIdx] = useState(0);
+  const list = photos && photos.length ? photos : [];
+  if (list.length === 0) return (
+    <div className="aspect-[4/3] bg-muted flex items-center justify-center cursor-pointer" onClick={onClick}>
+      <Car className="h-8 w-8 text-muted-foreground" />
+    </div>
+  );
+  return (
+    <div className="relative aspect-[4/3] bg-muted group/c overflow-hidden">
+      <img src={list[idx]} className="w-full h-full object-cover cursor-pointer" onClick={onClick} alt="" />
+      {list.length > 1 && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); setIdx((idx - 1 + list.length) % list.length); }} className="absolute left-1 top-1/2 -translate-y-1/2 h-7 w-7 bg-black/50 text-white rounded-full opacity-0 group-hover/c:opacity-100 flex items-center justify-center"><ChevronLeft className="h-4 w-4" /></button>
+          <button onClick={(e) => { e.stopPropagation(); setIdx((idx + 1) % list.length); }} className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 bg-black/50 text-white rounded-full opacity-0 group-hover/c:opacity-100 flex items-center justify-center"><ChevronRight className="h-4 w-4" /></button>
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] bg-black/60 text-white px-1.5 rounded">{idx + 1}/{list.length}</div>
+        </>
+      )}
+    </div>
+  );
+}
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -913,27 +936,27 @@ export default function ClientPortal() {
             <div className="space-y-6">
               {/* Pod-zakładki */}
               <div className="flex gap-2 border-b pb-2">
-                <Button 
+                <Button
                   variant={oglaszeniaSubTab === 'wystawione' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setOglaszeniaSubTab('wystawione')}
                 >
-                  {t('cp.listings.published')}
+                  {t('cp.listings.published')} ({vehicleListings.filter(l => l.is_available !== false).length})
                 </Button>
-                <Button 
+                <Button
                   variant={oglaszeniaSubTab === 'zakonczone' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setOglaszeniaSubTab('zakonczone')}
                 >
-                  {t('cp.listings.finished')}
+                  {t('cp.listings.finished')} ({vehicleListings.filter(l => l.is_available === false).length})
                 </Button>
-                <Button 
+                <Button
                   variant={oglaszeniaSubTab === 'ulubione' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setOglaszeniaSubTab('ulubione')}
                 >
                   <Heart className="h-4 w-4 mr-1" />
-                  {t('cp.listings.favorites')}
+                  {t('cp.listings.favorites')} ({favorites?.length || 0})
                 </Button>
               </div>
 
@@ -978,13 +1001,7 @@ export default function ClientPortal() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {active.map((listing) => (
                               <div key={listing.id} className="relative rounded-lg border overflow-hidden group bg-card">
-                                <div className="aspect-[4/3] bg-muted cursor-pointer" onClick={() => navigate(`/gielda/ogloszenie/${listing.id}`)}>
-                                  {listing.photos?.[0] ? (
-                                    <img src={listing.photos[0]} alt={listing.title} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center"><Car className="h-8 w-8 text-muted-foreground" /></div>
-                                  )}
-                                </div>
+                                <TileCarousel photos={listing.photos} onClick={() => navigate(`/gielda/ogloszenie/${listing.id}?from=klient`)} />
                                 <div className="p-3">
                                   <p className="font-semibold truncate">{listing.title}</p>
                                   <div className="flex items-center justify-between mt-1">
@@ -1105,13 +1122,7 @@ export default function ClientPortal() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {ended.map((listing) => (
                       <div key={listing.id} className="relative rounded-lg border overflow-hidden bg-card opacity-90">
-                        <div className="aspect-[4/3] bg-muted cursor-pointer" onClick={() => navigate(`/gielda/ogloszenie/${listing.id}`)}>
-                          {listing.photos?.[0] ? (
-                            <img src={listing.photos[0]} alt={listing.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center"><Car className="h-8 w-8 text-muted-foreground" /></div>
-                          )}
-                        </div>
+                        <TileCarousel photos={listing.photos} onClick={() => navigate(`/gielda/ogloszenie/${listing.id}?from=klient`)} />
                         <div className="p-3">
                           <p className="font-semibold truncate">{listing.title}</p>
                           <div className="flex items-center justify-between mt-1">

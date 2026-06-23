@@ -14,11 +14,12 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const API4AI_KEY = Deno.env.get("API4AI_KEY");
 
-const BG_STYLES: Record<string, string> = {
-  studio: "Profesjonalne studio fotograficzne do auta: gładkie ciemnoszare tło z gradientem, lśniąca podłoga z delikatnym odbiciem, miękkie światło studyjne.",
-  salon: "Nowoczesny salon samochodowy (showroom): jasne wnętrze, szklane ściany, wypolerowana posadzka, eleganckie oświetlenie.",
-  elegancki: "Eleganckie luksusowe tło: ciepłe światło, marmurowa/kamienna podłoga, wyrafinowana sceneria premium.",
-  sportowy: "Dynamiczne sportowe tło: tor wyścigowy / gładki asfalt, dramatyczne światło.",
+// #4: GOTOWE szablony teł (gradient + podłoga). BEZ Gemini. Spójne i powtarzalne.
+// [topRGB, bottomRGB(ściana), floorRGB] — dolna część = podłoga z odbiciem.
+const BG_TEMPLATES: Record<string, [number[], number[], number[]]> = {
+  studio_white: [[248, 249, 251], [225, 227, 231], [236, 238, 241]],
+  studio_dark:  [[38, 40, 44], [58, 61, 66], [30, 31, 34]],
+  salon_light:  [[235, 239, 244], [205, 212, 221], [222, 226, 232]],
 };
 
 function b64ToBytes(b64: string): Uint8Array {
@@ -81,19 +82,29 @@ async function removeCarBackground(input: { url?: string; bytes?: Uint8Array }):
   } catch (e) { console.error("[API4AI] bg ex", (e as any)?.message); return null; }
 }
 
-async function generateBackground(stylePrompt: string): Promise<string | null> {
-  const prompt = `Wygeneruj WYŁĄCZNIE tło do zdjęcia samochodu (sama scena, BEZ jakiegokolwiek auta, bez ludzi, bez napisów). ${stylePrompt}
-WAŻNE: wyraźna pozioma podłoga/posadzka w dolnej części kadru, naturalny horyzont i perspektywa, spójne miękkie światło. Realistyczne, wysoka jakość, format poziomy.`;
-  const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'google/gemini-2.5-flash-image-preview', messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }], modalities: ['image', 'text'] }),
+// Szablon tła: gradient ściana→podłoga + miękka poświata na podłodze (studio).
+function makeTemplateBg(style: string, w: number, h: number): any {
+  const [top, wall, floor] = BG_TEMPLATES[style] || BG_TEMPLATES.studio_dark;
+  const floorStart = 0.62; // 62% wysokości = początek podłogi
+  const img = new Image(w, h);
+  const cx = w / 2, fy = h * 0.9;
+  img.fill((x: number, y: number) => {
+    const t = (y - 1) / h;
+    let r: number, g: number, b: number;
+    if (t < floorStart) {
+      const k = t / floorStart; // ściana: top→wall
+      r = top[0] + (wall[0] - top[0]) * k; g = top[1] + (wall[1] - top[1]) * k; b = top[2] + (wall[2] - top[2]) * k;
+    } else {
+      const k = (t - floorStart) / (1 - floorStart); // podłoga: wall→floor + poświata
+      r = wall[0] + (floor[0] - wall[0]) * k; g = wall[1] + (floor[1] - wall[1]) * k; b = wall[2] + (floor[2] - wall[2]) * k;
+      const dist = Math.sqrt(((x - cx) / (w * 0.6)) ** 2 + ((y - fy) / (h * 0.25)) ** 2);
+      const glow = Math.max(0, 1 - dist) * 22;
+      r += glow; g += glow; b += glow;
+    }
+    const c = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+    return Image.rgbaToColor(c(r), c(g), c(b), 255);
   });
-  if (!resp.ok) { console.error("[Gemini bg]", resp.status); return null; }
-  const data = await resp.json();
-  const url: string | undefined = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!url) return null;
-  const c = url.indexOf(","); return c >= 0 ? url.slice(c + 1) : url;
+  return img;
 }
 
 // bbox nieprzezroczystego auta w cutoucie (skan co 4 px).
@@ -199,30 +210,17 @@ serve(async (req) => {
     }
     if (!cutoutB64) { await refund(); return new Response(JSON.stringify({ error: 'cutout_failed', message: 'Nie udało się wyciąć auta. Spróbuj inne zdjęcie.' }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); }
 
-    // tło: reużyj wspólnego (spójność partii) albo wygeneruj raz
-    let bgB64: string | null = null;
-    let backgroundUsedUrl: string | null = request.backgroundImageUrl || null;
-    if (request.backgroundImageUrl) {
-      try { const r = await fetch(request.backgroundImageUrl); bgB64 = bytesToB64(new Uint8Array(await r.arrayBuffer())); } catch { bgB64 = null; }
-    }
-    if (!bgB64) {
-      const stylePrompt = (request.backgroundPrompt && request.backgroundPrompt.trim()) ? request.backgroundPrompt.trim() : (BG_STYLES[request.backgroundStyle || 'studio'] || BG_STYLES.studio);
-      bgB64 = await generateBackground(stylePrompt);
-      if (!bgB64) { await refund(); return new Response(JSON.stringify({ error: 'background_failed', message: 'Nie udało się wygenerować tła.' }), { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }); }
-    }
-
+    // tło: GOTOWY szablon (deterministyczny → spójny dla całej partii). BEZ Gemini.
+    const backgroundUsedUrl: string | null = null;
     let editedImageUrl: string;
     try {
       const car = await Image.decode(b64ToBytes(cutoutB64));
-      const bg = await Image.decode(b64ToBytes(bgB64));
-      bg.resize(car.width, car.height);
+      const bg = makeTemplateBg(request.backgroundStyle || 'studio_dark', car.width, car.height);
       const bbox = carBBox(car);            // #6: cień kontaktowy → osadzenie na podłożu
       drawContactShadow(bg, bbox);
       bg.composite(car, 0, 0);              // realne auto na wierzch (alpha)
       const outBytes = await bg.encodeJPEG(90);
       editedImageUrl = await uploadJpeg(outBytes);
-      // zachowaj wspólne tło do reużycia (spójność partii)
-      if (!backgroundUsedUrl) { try { backgroundUsedUrl = await uploadJpeg(await bg.encodeJPEG(85)); } catch { /* opcjonalne */ } }
     } catch (e) {
       await refund();
       return new Response(JSON.stringify({ error: 'compose_failed', message: 'Błąd składania zdjęcia.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

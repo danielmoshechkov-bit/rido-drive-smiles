@@ -141,6 +141,7 @@ interface FormData {
   
   // Appearance
   color: string;
+  colorOther: string;
   colorType: string;
   
   // Equipment
@@ -194,6 +195,7 @@ const initialFormData: FormData = {
   registrationNumber: "",
   firstRegistrationDate: "",
   color: "",
+  colorOther: "",
   colorType: "",
   equipment: {},
   price: "",
@@ -228,6 +230,7 @@ export default function AddVehicleListing() {
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftPrompt, setDraftPrompt] = useState<FormData | null>(null);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [warnFields, setWarnFields] = useState<string[]>([]);
   const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -288,6 +291,22 @@ export default function AddVehicleListing() {
     };
     loadUser();
   }, [navigate]);
+
+  // #17: wykryj zapisaną wersję roboczą przy wejściu (poza trybem edycji).
+  useEffect(() => {
+    if (editId) return;
+    try {
+      const raw = localStorage.getItem("vehicleDraft");
+      if (raw) { const d = JSON.parse(raw); if (d && (d.brand || d.model || d.title || d.registrationNumber)) setDraftPrompt(d); }
+    } catch { /* ignore */ }
+  }, [editId]);
+
+  // #17: autozapis roboczy na bieżąco.
+  useEffect(() => {
+    if (editId) return;
+    const hasData = formData.brand || formData.model || formData.title || formData.description || formData.photos.length > 0;
+    if (hasData) { try { localStorage.setItem("vehicleDraft", JSON.stringify(formData)); } catch { /* ignore */ } }
+  }, [formData, editId]);
 
   // Tryb edycji: wczytaj istniejące ogłoszenie i wypełnij formularz.
   useEffect(() => {
@@ -367,6 +386,10 @@ export default function AddVehicleListing() {
     setFormData(prev => ({ ...prev, [field]: value }));
     setErrors(prev => (prev[field as string] ? { ...prev, [field as string]: false } : prev));
   };
+
+  // #9: tylko cyfry (blokuje e, +, -, kropki itd.)
+  const updateNum = (field: keyof FormData, raw: string) => updateField(field as any, raw.replace(/[^0-9]/g, "") as any);
+  const blockNonDigit = (e: React.KeyboardEvent) => { if (["e", "E", "+", "-", ".", ","].includes(e.key)) e.preventDefault(); };
 
   const generateTitle = () => {
     if (formData.brand && formData.model && formData.year) {
@@ -515,8 +538,10 @@ export default function AddVehicleListing() {
   };
 
   const handleGenerateAiDescription = async () => {
-    if (!formData.brand || !formData.model) {
-      toast.error("Najpierw wybierz markę i model pojazdu");
+    // #11: wymuś tytuł + opis przed generacją
+    if (!formData.title?.trim() || !formData.description?.trim()) {
+      toast.error("Wpisz tytuł i opis, żeby Rido mógł je poprawić");
+      fieldRefs.current.description?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -530,9 +555,10 @@ Napisz PROFESJONALNY opis ogłoszenia. Wymagania formatu (WAŻNE):
 - podziel na AKAPITY oddzielone pustą linią (\\n\\n): (1) wprowadzenie, (2) stan i dane techniczne, (3) zalety, (4) wyposażenie, (5) zachęta do kontaktu;
 - POGRUB markdownem (**...**) kluczowe rzeczy: nazwę modelu, przebieg, najważniejsze atuty;
 - czytelnie, nie jeden blok; 140-220 słów; bez zmyślania danych.
+- NIGDY nie pisz "brak", "nie podano", "w przekazanych danych" — pomiń nieznane dane, użyj tylko tego co znane + opisu sprzedającego.
 
 Zwróć WYŁĄCZNIE JSON:
-{"tytul":"<krótki chwytliwy tytuł, max 60 znaków>","poprawiony":"<tekst sprzedającego poprawiony w tym samym formacie akapitów+pogrubień; jeśli pusty — krótki na bazie danych>","nowy":"<zupełnie nowy opis w powyższym formacie>"}`;
+{"poprawiony":"<tekst sprzedającego poprawiony w formacie akapitów+pogrubień>","nowy":"<profesjonalny opis w powyższym formacie na bazie opisu + znanych danych>"}`;
 
       const { data, error } = await supabase.functions.invoke("ai-service", {
         body: {
@@ -553,10 +579,8 @@ Zwróć WYŁĄCZNIE JSON:
 
       const j = JSON.parse(String(data.content).replace(/```json|```/g, "").trim());
       setDescVersions({ poprawiony: j.poprawiony || "", nowy: j.nowy || "" });
-      // #5 tytuł: ustaw propozycję AI gdy puste
-      if (!formData.title) {
-        updateField("title", j.tytul || `${formData.brand} ${formData.model}${formData.year ? " " + formData.year : ""}`);
-      }
+      // #13: pokaż wynik przy polu opisu
+      setTimeout(() => fieldRefs.current.description?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
       toast.success("Rido przygotował 2 wersje opisu — wybierz");
     } catch (err) {
       console.error("AI description error:", err);
@@ -635,7 +659,7 @@ Zwróć WYŁĄCZNIE JSON:
           vin: formData.vin || null,
           registration_number: formData.registrationNumber || null,
           first_registration_date: formData.firstRegistrationDate || null,
-          color: formData.color || null,
+          color: (formData.color === "inny" ? formData.colorOther : formData.color) || null,
           color_type: formData.colorType || null,
           equipment: formData.equipment,
           price: parseFloat(formData.price),
@@ -676,6 +700,7 @@ Zwróć WYŁĄCZNIE JSON:
       }
 
       toast.success(editingId ? "Ogłoszenie zaktualizowane!" : "Ogłoszenie zostało dodane!");
+      try { localStorage.removeItem("vehicleDraft"); } catch { /* ignore */ }
       navigate(`/gielda/ogloszenie/${data.id}`);
     } catch (err) {
       console.error("Submit error:", err);
@@ -742,6 +767,20 @@ Zwróć WYŁĄCZNIE JSON:
 
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="space-y-6">
+          {/* #17: wersja robocza */}
+          {draftPrompt && (
+            <Card className="border-primary/40 bg-primary/5">
+              <CardContent className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <p className="text-sm">
+                  Masz zapisaną wersję roboczą: <strong>{[draftPrompt.brand, draftPrompt.model, draftPrompt.registrationNumber].filter(Boolean).join(" ") || "ogłoszenie"}</strong> — wrócić czy dodać nowe?
+                </p>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" variant="outline" onClick={() => { try { localStorage.removeItem("vehicleDraft"); } catch { /* ignore */ } setFormData(initialFormData); setDraftPrompt(null); }}>Dodaj nowe</Button>
+                  <Button size="sm" onClick={() => { setFormData(draftPrompt); setDraftPrompt(null); }}>Wróć do wersji roboczej</Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {/* Section 1: Basic Data */}
           <Card>
             <CardHeader>
@@ -781,6 +820,14 @@ Zwróć WYŁĄCZNIE JSON:
                   onModelChange={(v) => { updateField("model", v); setTimeout(generateTitle, 100); }}
                 />
                 {(errors.brand || errors.model) && <p className="text-xs text-destructive mt-1">Wybierz markę i model</p>}
+                {formData.brand && (
+                  <Input
+                    className="mt-2"
+                    placeholder="Nie ma modelu na liście? Wpisz model ręcznie"
+                    value={formData.model}
+                    onChange={(e) => updateField("model", e.target.value)}
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -804,7 +851,9 @@ Zwróć WYŁĄCZNIE JSON:
                     type="number"
                     placeholder="np. 150000"
                     value={formData.odometer}
-                    onChange={(e) => updateField("odometer", e.target.value)}
+                    inputMode="numeric"
+                    onKeyDown={blockNonDigit}
+                    onChange={(e) => updateNum("odometer", e.target.value)}
                     className={cn(warnCls("odometer"))}
                   />
                 </div>
@@ -842,7 +891,9 @@ Zwróć WYŁĄCZNIE JSON:
                     type="number"
                     placeholder="np. 1998"
                     value={formData.engineCapacity}
-                    onChange={(e) => updateField("engineCapacity", e.target.value)}
+                    inputMode="numeric"
+                    onKeyDown={blockNonDigit}
+                    onChange={(e) => updateNum("engineCapacity", e.target.value)}
                     className={cn(warnCls("engineCapacity"))}
                   />
                 </div>
@@ -853,7 +904,9 @@ Zwróć WYŁĄCZNIE JSON:
                     type="number"
                     placeholder="np. 150"
                     value={formData.power}
-                    onChange={(e) => updateField("power", e.target.value)}
+                    inputMode="numeric"
+                    onKeyDown={blockNonDigit}
+                    onChange={(e) => updateNum("power", e.target.value)}
                     className={cn(warnCls("power"))}
                   />
                 </div>
@@ -1059,6 +1112,9 @@ Zwróć WYŁĄCZNIE JSON:
                       ))}
                     </SelectContent>
                   </Select>
+                  {formData.color === "inny" && (
+                    <Input className="mt-2" placeholder="Wpisz kolor ręcznie" value={formData.colorOther} onChange={(e) => updateField("colorOther", e.target.value)} />
+                  )}
                 </div>
 
                 <div>
@@ -1088,10 +1144,12 @@ Zwróć WYŁĄCZNIE JSON:
               <CardDescription>Zaznacz dostępne wyposażenie pojazdu</CardDescription>
             </CardHeader>
             <CardContent>
-              <EquipmentAccordion
-                equipment={formData.equipment}
-                onChange={(eq) => updateField("equipment", eq)}
-              />
+              <div ref={(el) => (fieldRefs.current.equipment = el)} className={cn(warnFields.includes("equipment") && "rounded-lg ring-1 ring-yellow-400 p-2")}>
+                <EquipmentAccordion
+                  equipment={formData.equipment}
+                  onChange={(eq) => updateField("equipment", eq)}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -1111,8 +1169,10 @@ Zwróć WYŁĄCZNIE JSON:
                     type="number"
                     placeholder="np. 45000"
                     value={formData.price}
-                    onChange={(e) => updateField("price", e.target.value)}
-                    className={cn(errors.price && "border-destructive ring-1 ring-destructive")}
+                    inputMode="numeric"
+                    onKeyDown={blockNonDigit}
+                    onChange={(e) => updateNum("price", e.target.value)}
+                    className={cn(errors.price && "border-destructive ring-1 ring-destructive", warnCls("price"))}
                   />
                 </div>
 
@@ -1235,19 +1295,16 @@ Zwróć WYŁĄCZNIE JSON:
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Tytuł ogłoszenia</Label>
+                <Label>Tytuł ogłoszenia *</Label>
                 <Input
                   placeholder="np. BMW 320d M-Pakiet 2019"
                   value={formData.title}
                   onChange={(e) => updateField("title", e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Pozostaw puste, aby wygenerować automatycznie z marki, modelu i roku
-                </p>
               </div>
 
-              <div>
-                <Label>Opis</Label>
+              <div ref={(el) => (fieldRefs.current.description = el)}>
+                <Label>Opis *</Label>
                 <Textarea
                   placeholder="Opisz swój pojazd - stan techniczny, historia serwisowa, dodatkowe wyposażenie..."
                   value={formData.description}
@@ -1260,11 +1317,14 @@ Zwróć WYŁĄCZNIE JSON:
                 variant="outline"
                 className="gap-2"
                 onClick={handleGenerateAiDescription}
-                disabled={generatingDescription || !formData.brand || !formData.model}
+                disabled={generatingDescription}
               >
                 {generatingDescription ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 {generatingDescription ? "Generowanie..." : "Wygeneruj / Popraw opis z Rido AI"}
               </Button>
+              <p className="text-xs text-muted-foreground">
+                Wygenerujemy na podstawie Twojego opisu, albo Twojego opisu + danych auta (im więcej danych, tym pełniejszy opis).
+              </p>
 
               {/* Dwie wersje do wyboru */}
               {descVersions && (
@@ -1375,11 +1435,23 @@ function RidoAdvisor({ formData, onGenerate, generating, userId, onWarn, onGoToW
     setLoading(true);
     try {
       const eq = Object.keys(formData.equipment || {}).filter(k => formData.equipment[k]);
-      const prompt = `Oceń to ogłoszenie sprzedaży auta i zwróć WYŁĄCZNIE JSON (bez markdown):
-{"atrakcyjnosc": <liczba 0-100>, "ocenaOpisu": "<1-2 zdania>", "zalecenia": ["<punkt>", "<punkt>", "<punkt>"]}
-Dane: marka=${formData.brand}, model=${formData.model}, rok=${formData.year}, przebieg=${formData.odometer}, paliwo=${formData.fuelType}, skrzynia=${formData.transmission}, moc=${formData.power}, nadwozie=${formData.bodyType}, kolor=${formData.color}, cena=${formData.price}, zdjęć=${formData.photos.length}, wyposażenie=${eq.join(", ") || "brak"}.
-Opis: """${formData.description || "(brak opisu)"}"""
-Zalecenia mają być konkretne: co dodać, by zwiększyć zainteresowanie i zasięg.`;
+      // #12: ocena KOMPLETNOŚCI ogłoszenia (co wypełnione vs brakuje), NIE krytyka opisu.
+      const filled = [
+        formData.brand && "marka", formData.model && "model", formData.year && "rok",
+        formData.odometer && "przebieg", formData.fuelType && "paliwo", formData.transmission && "skrzynia",
+        formData.power && "moc", formData.bodyType && "nadwozie", formData.color && "kolor",
+        formData.price && "cena", eq.length > 0 && "wyposażenie", formData.photos.length > 0 && `${formData.photos.length} zdjęć`,
+        formData.description && "opis",
+      ].filter(Boolean);
+      const missing = [
+        !formData.odometer && "przebieg", !formData.fuelType && "paliwo", !formData.power && "moc",
+        !formData.bodyType && "nadwozie", !formData.color && "kolor", !formData.price && "cena",
+        eq.length === 0 && "wyposażenie", formData.photos.length < 5 && "więcej zdjęć (min. 5)",
+      ].filter(Boolean);
+      const prompt = `Oceń KOMPLETNOŚĆ ogłoszenia sprzedaży auta. NIE krytykuj treści opisu, NIE pisz że brakuje danych które są wypełnione. Oceniaj wyłącznie czy klient uzupełnił pola.
+WYPEŁNIONE: ${filled.join(", ") || "—"}.
+BRAKUJE: ${missing.join(", ") || "nic — komplet"}.
+Zwróć WYŁĄCZNIE JSON: {"atrakcyjnosc": <0-100 wg kompletności i liczby zdjęć>, "ocenaOpisu": "<1 zdanie pozytywne nt. kompletności>", "zalecenia": ["<co dodać by zwiększyć zasięg — konkretnie z listy BRAKUJE>"]}`;
       const { data, error } = await supabase.functions.invoke("ai-service", {
         body: { type: "chat", payload: { messages: [
           { role: "system", content: "Jesteś ekspertem sprzedaży aut (Rido AI). Odpowiadasz zwięźle, wyłącznie poprawnym JSON." },
@@ -1393,8 +1465,13 @@ Zalecenia mają być konkretne: co dodać, by zwiększyć zainteresowanie i zasi
         ocenaOpisu: json.ocenaOpisu || "",
         zalecenia: Array.isArray(json.zalecenia) ? json.zalecenia : [],
       });
-      // Pola do poprawy (puste rekomendowane) → podświetl na żółto.
-      onWarn(missing.map(m => m.key as string));
+      // #14: podświetl WSZYSTKIE braki na żółto (rekomendowane + cena + wyposażenie).
+      const warnKeys = [
+        ...missing.map(m => m.key as string),
+        !formData.price && "price",
+        Object.keys(formData.equipment || {}).filter(k => formData.equipment[k]).length === 0 && "equipment",
+      ].filter(Boolean) as string[];
+      onWarn(warnKeys);
     } catch (e) {
       console.error("Rido advisor error:", e);
       toast.error("Nie udało się odczytać oceny Rido");
@@ -1466,7 +1543,9 @@ Zalecenia mają być konkretne: co dodać, by zwiększyć zainteresowanie i zasi
                   <ArrowLeft className="h-4 w-4 rotate-90" /> Przejdź do zaleceń (żółte pola)
                 </Button>
               )}
-              <Button size="sm" variant="ghost" onClick={handleAssess} disabled={loading}>Oceń ponownie</Button>
+              <Button size="sm" variant="ghost" className="gap-2" onClick={handleAssess} disabled={loading}>
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />} Oceń ponownie
+              </Button>
             </div>
           </div>
         )}

@@ -95,7 +95,7 @@ export function VehiclePhotoUpload({
   const [aiProgress, setAiProgress] = useState(0);
   const [customPrompt, setCustomPrompt] = useState("");
   const [useCustomPrompt, setUseCustomPrompt] = useState(false);
-  const [bgStyle, setBgStyle] = useState<string>("studio");
+  const [bgStyle, setBgStyle] = useState<string>("studio_dark");
   const [removePlates, setRemovePlates] = useState(false);
 
   // Standalone: ukryj tablice (tło bez zmian), 5 kr/zdjęcie.
@@ -127,6 +127,7 @@ export function VehiclePhotoUpload({
         onAiPhotosChange([...aiPhotos, ...gen]);
         onHasAiPhotosChange(true);
         setPreviewPairs(pairs);
+        setAiLabels(prev => { const n = { ...prev }; gen.forEach(u => (n[u] = "bez tablicy")); return n; });
         toast.success(`Ukryto tablice na ${gen.length} zdj.${skipped ? ` (pominięto ${skipped} bez tablicy — bez opłaty)` : ""}`);
       } else {
         toast.info(skipped ? "Nie wykryto tablic — nie pobrano kredytów" : "Nie udało się przetworzyć zdjęć");
@@ -134,6 +135,7 @@ export function VehiclePhotoUpload({
     } finally { setAiProcessing(false); setAiProgress(0); }
   };
   const [previewPairs, setPreviewPairs] = useState<{ original: string; ai: string }[]>([]);
+  const [aiLabels, setAiLabels] = useState<Record<string, string>>({}); // url -> "AI tło" / "bez tablicy"
   const [selectedForAi, setSelectedForAi] = useState<number[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
@@ -346,7 +348,6 @@ export function VehiclePhotoUpload({
 
       const generated: string[] = [];
       const pairs: { original: string; ai: string }[] = [];
-      let sharedBg: string | undefined; // #7: jedno spójne tło dla całej partii
 
       for (let i = 0; i < photosToProcess.length; i++) {
         const photoUrl = photosToProcess[i];
@@ -357,12 +358,10 @@ export function VehiclePhotoUpload({
             listingId: "draft",
             photoIndex: i,
             userId,
-            featureKey: (useCustomPrompt && customPrompt) ? "vehicle_photo_custom" : "vehicle_photo_enhance",
-            backgroundStyle: bgStyle,
-            backgroundPrompt: useCustomPrompt ? customPrompt : undefined,
+            featureKey: "vehicle_photo_enhance",
+            backgroundStyle: bgStyle, // szablon (spójny dla całej partii)
             removePlates,
             changeBackground: true,
-            backgroundImageUrl: sharedBg, // reużyj tła z 1. zdjęcia
           },
         });
 
@@ -371,7 +370,6 @@ export function VehiclePhotoUpload({
           toast.error(`Błąd zdjęcia ${i + 1}: ${(error as any)?.message || data?.error || data?.message || "spróbuj ponownie"}`);
           continue;
         }
-        if (data.backgroundUsedUrl && !sharedBg) sharedBg = data.backgroundUsedUrl;
         generated.push(data.editedUrl);
         pairs.push({ original: photoUrl, ai: data.editedUrl });
         setAiProgress(Math.round(((i + 1) / photosToProcess.length) * 100));
@@ -386,6 +384,8 @@ export function VehiclePhotoUpload({
         onAiPhotosChange([...aiPhotos, ...generated]);
         onHasAiPhotosChange(true);
         setPreviewPairs(pairs);
+        const label = removePlates ? "AI tło + bez tablic" : "AI tło";
+        setAiLabels(prev => { const n = { ...prev }; generated.forEach(u => (n[u] = label)); return n; });
         toast.success(`Wygenerowano ${generated.length} zdjęć — dodano do galerii. Możesz generować ponownie.`);
       } else {
         toast.error("Nie udało się wygenerować zdjęć");
@@ -519,9 +519,9 @@ export function VehiclePhotoUpload({
                       
                       {/* AI badge */}
                       {aiPhotos.includes(photo) && (
-                        <div className="absolute top-1 right-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2 py-0.5 rounded flex items-center gap-1">
+                        <div className="absolute top-1 right-8 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] px-2 py-0.5 rounded flex items-center gap-1">
                           <Sparkles className="h-3 w-3" />
-                          AI
+                          {aiLabels[photo] || "AI"}
                         </div>
                       )}
 
@@ -739,20 +739,19 @@ export function VehiclePhotoUpload({
             {/* Wybór tła */}
             <div className="space-y-2">
               <p className="text-sm font-medium">Wybierz tło:</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  { key: "studio", label: "Studio" },
-                  { key: "salon", label: "Salon / wystawa" },
-                  { key: "elegancki", label: "Elegancki" },
-                  { key: "sportowy", label: "Sportowy" },
+                  { key: "studio_white", label: "Studio białe" },
+                  { key: "studio_dark", label: "Studio ciemne" },
+                  { key: "salon_light", label: "Salon jasny" },
                 ].map(s => (
                   <button
                     key={s.key}
                     type="button"
-                    onClick={() => { setBgStyle(s.key); setUseCustomPrompt(false); }}
+                    onClick={() => setBgStyle(s.key)}
                     className={cn(
                       "text-sm rounded-lg border px-3 py-2 transition-colors",
-                      !useCustomPrompt && bgStyle === s.key ? "border-primary bg-primary/10 text-primary font-medium" : "hover:bg-muted"
+                      bgStyle === s.key ? "border-primary bg-primary/10 text-primary font-medium" : "hover:bg-muted"
                     )}
                   >
                     {s.label}
@@ -764,28 +763,10 @@ export function VehiclePhotoUpload({
               </p>
             </div>
 
-            {/* Custom prompt option */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Switch
-                  checked={useCustomPrompt}
-                  onCheckedChange={setUseCustomPrompt}
-                />
-                <Label>Własny opis tła (zaawansowane)</Label>
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch checked={removePlates} onCheckedChange={setRemovePlates} />
-                <Label>Usuń też tablice rejestracyjne przy generowaniu tła</Label>
-              </div>
-              
-              {useCustomPrompt && (
-                <Textarea
-                  placeholder="Opisz jak ma wyglądać zdjęcie, np. 'tło plaża o zachodzie słońca' lub 'studio z niebieskim światłem'"
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  rows={3}
-                />
-              )}
+            {/* Opcja: ukryj tablice przy zmianie tła */}
+            <div className="flex items-center gap-3">
+              <Switch checked={removePlates} onCheckedChange={setRemovePlates} />
+              <Label>Usuń też tablice rejestracyjne przy generowaniu tła</Label>
             </div>
 
             {/* Progress */}
