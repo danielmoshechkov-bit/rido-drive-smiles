@@ -50,7 +50,10 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const portalUrl = "https://getrido.pl";
-    const actionUrl = isRegistered ? `${portalUrl}/logowanie` : `${portalUrl}/rejestracja`;
+    // Link prowadzi na STRONĘ GŁÓWNĄ z flagą ?invite=1 — tam ramka „Zostałeś
+    // zaproszony". Trasy /logowanie i /rejestracja NIE istnieją (były 404);
+    // logowanie/rejestracja jest pod /auth, a ramka kieruje tam w razie potrzeby.
+    const actionUrl = `${portalUrl}/?invite=1`;
     const actionLabel = isRegistered ? "Zaloguj się i dołącz" : "Zarejestruj się i dołącz";
     const actionDescription = isRegistered
       ? "Zaloguj się na swoje konto, aby dołączyć do projektu i rozpocząć współpracę."
