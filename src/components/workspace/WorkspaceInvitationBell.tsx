@@ -30,19 +30,23 @@ export function WorkspaceInvitationBell() {
       .eq("email", emailLc).eq("status", "invited").is("user_id", null);
     if (claimErr) console.error("invite claim:", claimErr);
 
+    // RPC zwraca zaproszenia Z NAZWĄ projektu (omija RLS active-only → koniec
+    // „Nieznany projekt"). Fallback: bezpośredni odczyt member-rows (bez nazwy).
+    const { data: rpcRows, error: rpcErr } = await (supabase as any).rpc("get_my_invited_projects");
+    if (!rpcErr && rpcRows) {
+      setInvites((rpcRows as any[]).map((r) => ({
+        id: r.member_id, project_id: r.project_id,
+        project_name: r.project_name || "Projekt", created_at: r.created_at,
+      })));
+      return;
+    }
     const { data: pend, error: pendErr } = await supabase
       .from("workspace_project_members")
       .select("id, project_id, created_at")
       .eq("email", emailLc).eq("status", "invited");
     if (pendErr) { console.error("load invites:", pendErr); setInvites([]); return; }
-    if (!pend || pend.length === 0) { setInvites([]); return; }
-
-    const ids = pend.map((p: any) => p.project_id);
-    const { data: projs } = await supabase.from("workspace_projects").select("id, name").in("id", ids);
-    const map = new Map((projs || []).map((p: any) => [p.id, p.name]));
-    setInvites(pend.map((p: any) => ({
-      id: p.id, project_id: p.project_id,
-      project_name: map.get(p.project_id) || "Projekt", created_at: p.created_at,
+    setInvites((pend || []).map((p: any) => ({
+      id: p.id, project_id: p.project_id, project_name: "Projekt", created_at: p.created_at,
     })));
   }, []);
 

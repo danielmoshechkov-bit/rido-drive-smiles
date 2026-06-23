@@ -97,6 +97,7 @@ import PaymentCancel from "./pages/PaymentCancel";
 import BuyCredits from "./pages/BuyCredits";
 import WorkshopEmployeePortal from "./pages/WorkshopEmployeePortal";
 import { WorkshopInvitationHandler } from "./components/workshop/WorkshopInvitationHandler";
+import { InviteWelcomeBanner } from "./components/workspace/InviteWelcomeBanner";
 const queryClient = new QueryClient();
 
 /**
@@ -225,6 +226,8 @@ const App = () => (
               </Routes>
               {/* Global invitation handler — processes ?invitation=<id> after email confirm */}
               <WorkshopInvitationHandler />
+              {/* Ramka „Zostałeś zaproszony do projektu" — strona główna ?invite=1 / oczekujące zaproszenia */}
+              <InviteWelcomeBanner />
               {/* Global referral tracking + welcome banner */}
               <ReferralCapture />
               {/* Global RidoAI Button */}

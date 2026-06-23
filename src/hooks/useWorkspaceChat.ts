@@ -440,6 +440,27 @@ export function useWorkspaceChat(projectId: string, userId: string | null) {
     }
   }, [activeChannel?.id]);
 
+  // REALTIME: nowe/zmienione/usunięte wiadomości pojawiają się natychmiast,
+  // bez odświeżania strony. Subskrypcja per (project_id, kanał) — przy każdej
+  // zmianie przeładowujemy kanał (spójne reactions/thread_count). Wymaga
+  // workspace_messages w publikacji supabase_realtime (patrz migracja F).
+  useEffect(() => {
+    if (!projectId || !activeChannel) return;
+    const channelName = activeChannel.name;
+    const sub = supabase
+      .channel(`ws_msgs_${projectId}_${channelName}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "workspace_messages", filter: `project_id=eq.${projectId}` },
+        (payload: any) => {
+          const row = (payload.new || payload.old) as any;
+          if (row?.channel_name === channelName) loadMessages(channelName);
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(sub); };
+  }, [projectId, activeChannel?.id, activeChannel?.name, loadMessages]);
+
   return {
     channels, activeChannel, setActiveChannel,
     messages, setMessages, loadMessages,
