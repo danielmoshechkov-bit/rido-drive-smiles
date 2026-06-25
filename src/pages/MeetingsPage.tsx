@@ -34,10 +34,33 @@ function pickRecorderMime(): string {
   return RECORDER_MIME_CANDIDATES.find((t) => MediaRecorder.isTypeSupported(t)) || '';
 }
 function extForMime(mime: string): string {
-  if (mime.includes('webm')) return 'webm';
-  if (mime.includes('ogg')) return 'ogg';
-  if (mime.includes('mp4')) return 'm4a';
+  const m = (mime || '').toLowerCase();
+  if (m.includes('webm')) return 'webm';
+  if (m.includes('ogg')) return 'ogg';
+  if (m.includes('wav')) return 'wav';
+  if (m.includes('m4a') || m.includes('mp4') || m.includes('aac') || m.includes('quicktime')) return 'm4a';
+  if (m.includes('mpeg') || m.includes('mp3')) return 'mp3';
   return 'webm';
+}
+
+// Upload audio: iOS Dyktafon (Voice Memos) zapisuje .m4a, a MIME bywa
+// audio/x-m4a, audio/mp4 albo PUSTY — dlatego akceptujemy też po rozszerzeniu.
+const UPLOAD_AUDIO_EXTS = ['m4a', 'mp3', 'wav', 'mp4', 'webm', 'ogg', 'aac', 'flac', 'aiff', 'aif', 'caf', 'm4b', '3gp'];
+const UPLOAD_MAX_BYTES = 500 * 1024 * 1024; // 500 MB (kilkugodzinne nagrania M4A)
+
+function fileExt(name: string): string {
+  const i = name.lastIndexOf('.');
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : '';
+}
+function fmtMB(bytes: number): string {
+  const mb = bytes / (1024 * 1024);
+  return mb >= 10 ? mb.toFixed(0) : mb.toFixed(1);
+}
+function isAcceptableAudio(file: File): boolean {
+  const t = (file.type || '').toLowerCase();
+  if (t.startsWith('audio/')) return true;
+  if (t === 'video/mp4' || t === 'video/quicktime') return true; // audio z iOS w kontenerze mp4/mov
+  return UPLOAD_AUDIO_EXTS.includes(fileExt(file.name)); // pusty MIME → ratujemy się rozszerzeniem
 }
 // Walidacja PRZED uploadem — odsiewa puste/uszkodzone nagrania (np. webm bez
 // nagłówka EBML 1A45DFA3), żeby nie wysyłać do transkrypcji bajtów, które
@@ -114,6 +137,7 @@ export default function MeetingsPage() {
   const [isQuerying, setIsQuerying] = useState(false);
   const [activeView, setActiveView] = useState<'list' | 'live' | 'detail'>('list');
   const [transcriptMode, setTranscriptMode] = useState<'speakers' | 'plain'>('speakers');
+  const [pickedInfo, setPickedInfo] = useState<string | null>(null);
   const [micLevel, setMicLevel] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -197,7 +221,10 @@ export default function MeetingsPage() {
     setActiveIds((prev) => new Set(prev).add(meeting.id));
     try {
       // 2) upload audio do prywatnego bucketu (RLS: pierwszy folder = uid usera)
-      const path = `${user.id}/${meeting.id}.${extForMime(ct)}`;
+      // Dla uploadu zachowaj oryginalne rozszerzenie (m4a/mp3/wav…); dla nagrania użyj MIME.
+      const nameExt = (blob as File).name ? fileExt((blob as File).name) : '';
+      const ext = UPLOAD_AUDIO_EXTS.includes(nameExt) ? nameExt : extForMime(ct);
+      const path = `${user.id}/${meeting.id}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from('meeting-audio')
         .upload(path, blob, { contentType: ct, upsert: true });
@@ -211,7 +238,7 @@ export default function MeetingsPage() {
 
       // 3) transkrypcja (URL nagrania) z backstopem czasowym — rozmowa NIE może
       //    wisieć w nieskończoność. Po przekroczeniu limitu → status 'failed'.
-      const TIMEOUT_MS = 180000;
+      const TIMEOUT_MS = 300000; // 5 min — zapas dla długich (kilkugodzinnych) nagrań
       let tr: any = null, trErr: any = null;
       try {
         const res: any = await Promise.race([
@@ -388,13 +415,40 @@ export default function MeetingsPage() {
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const resetInput = () => { if (fileInputRef.current) fileInputRef.current.value = ''; };
+
+    // Walidacja typu — czytelny komunikat zamiast cichego nic.
+    if (!isAcceptableAudio(file)) {
+      setPickedInfo(null);
+      toast.error('To nie wygląda na plik audio. Wybierz nagranie (.m4a, .mp3, .wav, .webm, .ogg…).');
+      resetInput();
+      return;
+    }
+    // Walidacja rozmiaru.
+    if (file.size > UPLOAD_MAX_BYTES) {
+      setPickedInfo(null);
+      toast.error(`Plik za duży (${fmtMB(file.size)} MB). Maksimum 500 MB.`);
+      resetInput();
+      return;
+    }
+    if (file.size < 2000) {
+      setPickedInfo(null);
+      toast.error('Plik jest pusty lub uszkodzony.');
+      resetInput();
+      return;
+    }
+
+    // Pokaż co wybrano (nazwa + rozmiar) — user widzi, że plik się załadował.
+    setPickedInfo(`${file.name} (${fmtMB(file.size)} MB)`);
+    // MIME bywa pusty na iOS — uzupełnij z rozszerzenia.
+    const mime = file.type || `audio/${fileExt(file.name) || 'm4a'}`;
 
     setIsProcessing(true);
     try {
-      await processAudio(file, 'upload', null, file.type || 'audio/webm');
+      await processAudio(file, 'upload', null, mime);
     } finally {
       setIsProcessing(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      resetInput();
     }
   }, [processAudio]);
 
@@ -569,15 +623,25 @@ export default function MeetingsPage() {
                     <p className="text-xs text-muted-foreground">MP3, WAV, M4A, MP4, WEBM</p>
                   </div>
                 </div>
+                {/* iOS: jawne typy + rozszerzenia (samo audio/* bywa za mało, by pokazać .m4a z Dyktafonu).
+                    BEZ atrybutu capture — capture wymusiłby nagrywanie zamiast wyboru pliku. */}
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="audio/*,video/*"
+                  accept="audio/*,.m4a,.mp3,.wav,.mp4,.webm,.ogg,audio/x-m4a,audio/mp4"
                   className="hidden"
                   onChange={handleFileUpload}
                 />
               </Card>
             </div>
+
+            {/* Potwierdzenie wybranego pliku (nazwa + rozmiar) */}
+            {pickedInfo && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <FileAudio className="h-3.5 w-3.5 flex-shrink-0" />
+                Wybrano: <span className="font-medium text-foreground break-all">{pickedInfo}</span>
+              </p>
+            )}
 
             {/* Processing indicator */}
             {isProcessing && (
