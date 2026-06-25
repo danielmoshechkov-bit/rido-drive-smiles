@@ -8,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Users, Building, User, Loader2, Save } from 'lucide-react';
+import { Users, Building, User, Loader2, Save, Search } from 'lucide-react';
+import { shortenCompanyName } from '@/utils/companyName';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
@@ -32,6 +33,13 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [saving, setSaving] = useState(false);
+  // BUG 6: allow switching the client type while editing (e.g. a walk-in private
+  // person who later wants a company invoice). Same model as the "Add client" form —
+  // for a company the person columns (first/last name, phone, email) hold the contact
+  // person, so converting a person → company keeps their data as the contact.
+  const [clientType, setClientType] = useState<'individual' | 'company'>(client?.client_type === 'company' ? 'company' : 'individual');
+  const [nipLoading, setNipLoading] = useState(false);
+  const [shortNameSuggestion, setShortNameSuggestion] = useState<string | null>(null);
 
   // Parse street back into parts
   const parseStreet = (street: string | null) => {
@@ -64,6 +72,7 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
 
   useEffect(() => {
     if (client) {
+      setClientType(client.client_type === 'company' ? 'company' : 'individual');
       const sp = parseStreet(client.street);
       setForm({
         company_name: client.company_name || '',
@@ -85,7 +94,45 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
   }, [client]);
 
   const set = (key: string, val: any) => setForm(p => ({ ...p, [key]: val }));
-  const isCompany = client?.client_type === 'company';
+  const isCompany = clientType === 'company';
+
+  // Same NIP → company-data lookup as the "Add client" form (lookup-nip edge function).
+  const handleNipLookup = async () => {
+    const cleanNip = form.nip.replace(/[\s-]/g, '');
+    if (cleanNip.length < 10) {
+      toast.error(t('workshop.clients.invalidNip'));
+      return;
+    }
+    setNipLoading(true);
+    try {
+      const { data, error: fnErr } = await (supabase as any).functions.invoke('lookup-nip', {
+        body: { nip: cleanNip },
+      });
+      if (fnErr) throw fnErr;
+      if (!data?.valid) {
+        toast.error(data?.error || t('workshop.clients.companyNotFound'));
+        return;
+      }
+      const c = data.data;
+      setForm(prev => ({
+        ...prev,
+        company_name: c.name || prev.company_name,
+        nip: c.nip || prev.nip,
+        street: c.street || prev.street,
+        house_number: c.buildingNumber || prev.house_number,
+        apartment_number: c.apartmentNumber || prev.apartment_number,
+        city: c.city || prev.city,
+        postal_code: c.postalCode || prev.postal_code,
+      }));
+      const shortened = shortenCompanyName(c.name || '');
+      setShortNameSuggestion(shortened && shortened !== (c.name || '') ? shortened : null);
+      toast.success(t('workshop.clients.companyDataFetched'));
+    } catch {
+      toast.error(t('workshop.clients.companyRegistryError'));
+    } finally {
+      setNipLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -94,6 +141,7 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
       const { error } = await (supabase as any)
         .from('workshop_clients')
         .update({
+          client_type: clientType,
           company_name: isCompany ? form.company_name : null,
           nip: form.nip || null,
           first_name: capitalizeFirst(form.first_name) || null,
@@ -131,16 +179,55 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/* Type toggle — switch between private person and company while editing */}
+          <div className="flex gap-2 justify-center">
+            <Button variant={clientType === 'individual' ? 'default' : 'outline'} size="sm" onClick={() => setClientType('individual')} className="gap-2">
+              <User className="h-4 w-4" /> {t('workshop.clients.individual')}
+            </Button>
+            <Button variant={clientType === 'company' ? 'default' : 'outline'} size="sm" onClick={() => setClientType('company')} className="gap-2">
+              <Building className="h-4 w-4" /> {t('workshop.clients.company')}
+            </Button>
+          </div>
+
           {isCompany ? (
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.companyNameRequired')}</Label>
-                  <Input value={form.company_name} onChange={e => set('company_name', e.target.value)} />
+                  <Input value={form.company_name} onChange={e => { set('company_name', e.target.value); setShortNameSuggestion(null); }} placeholder={t('workshop.clients.companyName')} />
+                  {shortNameSuggestion && form.company_name !== shortNameSuggestion && (
+                    <button
+                      type="button"
+                      onClick={() => { set('company_name', shortNameSuggestion); setShortNameSuggestion(null); }}
+                      className="text-xs text-primary hover:underline text-left"
+                      title="Wstaw skróconą nazwę"
+                    >
+                      Skrót: <span className="font-medium">{shortNameSuggestion}</span> — kliknij, aby użyć
+                    </button>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.nipLabel')}</Label>
-                  <Input value={form.nip} onChange={e => set('nip', e.target.value)} />
+                  <div className="relative">
+                    <Input
+                      value={form.nip}
+                      onChange={e => set('nip', e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleNipLookup(); } }}
+                      placeholder={t('workshop.clients.companyNipPlaceholder')}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleNipLookup}
+                      disabled={nipLoading}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                      title={t('workshop.clients.fetchCompanyData')}
+                    >
+                      {nipLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
               </div>
               <div className="border-t pt-4">

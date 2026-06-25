@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useCreateWorkshopClient } from '@/hooks/useWorkshop';
 import { useNipLookup } from '@/hooks/useNipLookup';
+import { shortenCompanyName } from '@/utils/companyName';
 import { toast } from 'sonner';
 import { Users, Building, User, Loader2, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +30,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
   const create = useCreateWorkshopClient();
   const { lookup: lookupNip, loading: nipLoading } = useNipLookup();
   const [clientType, setClientType] = useState<'individual' | 'company'>('individual');
+  const [shortNameSuggestion, setShortNameSuggestion] = useState<string | null>(null);
   const [form, setForm] = useState({
     company_name: '', nip: '', first_name: '', last_name: '',
     phone: '', email: '', postal_code: '', city: '', street: '', house_number: '', apartment_number: '',
@@ -64,6 +66,8 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
         city: c.city || prev.city,
         postal_code: c.postalCode || prev.postal_code,
       }));
+      const shortened = shortenCompanyName(c.name || '');
+      setShortNameSuggestion(shortened && shortened !== (c.name || '') ? shortened : null);
       toast.success(t('workshop.clients.companyDataFetched'));
     } catch {
       toast.error(t('workshop.clients.companyRegistryError'));
@@ -163,7 +167,17 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.companyNameRequired')}</Label>
-                  <Input value={form.company_name} onChange={e => set('company_name', e.target.value)} placeholder={t('workshop.clients.companyName')} />
+                  <Input value={form.company_name} onChange={e => { set('company_name', e.target.value); setShortNameSuggestion(null); }} placeholder={t('workshop.clients.companyName')} />
+                  {shortNameSuggestion && form.company_name !== shortNameSuggestion && (
+                    <button
+                      type="button"
+                      onClick={() => { set('company_name', shortNameSuggestion); setShortNameSuggestion(null); }}
+                      className="text-xs text-primary hover:underline text-left"
+                      title="Wstaw skróconą nazwę"
+                    >
+                      Skrót: <span className="font-medium">{shortNameSuggestion}</span> — kliknij, aby użyć
+                    </button>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.nipLabel')}</Label>
