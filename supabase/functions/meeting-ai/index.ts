@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.56.0";
+import { getSecret } from "../_shared/aiSecrets.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -78,7 +79,7 @@ serve(async (req) => {
 
     // Handle JSON requests (analyze transcript text, or query meetings)
     const body = await req.json();
-    const { action, meeting_id, transcript, title, query } = body;
+    const { action, meeting_id, transcript, title, query, provider } = body;
 
     if (action === "analyze_transcript") {
       // Analyze provided transcript text
@@ -93,7 +94,14 @@ serve(async (req) => {
         currentMeetingId = meeting.id;
       }
 
-      const analysisResult = await analyzeTranscript(transcript, title || "Spotkanie", LOVABLE_API_KEY!);
+      // Silnik streszczenia: Claude (preferowany) -> fallback Gemini, by demo nie padło.
+      let analysisResult: any = null;
+      if (provider === "claude") {
+        analysisResult = await analyzeTranscriptClaude(supabase, transcript, title || "Spotkanie");
+      }
+      if (!analysisResult) {
+        analysisResult = await analyzeTranscript(transcript, title || "Spotkanie", LOVABLE_API_KEY!);
+      }
       await saveAnalysis(supabase, currentMeetingId, { ...analysisResult, transcript });
 
       return new Response(JSON.stringify({ 
@@ -212,6 +220,52 @@ async function analyzeTranscript(transcript: string, title: string, apiKey: stri
     catch { return { summary: data?.choices?.[0]?.message?.content || "" }; }
   }
   return { summary: data?.choices?.[0]?.message?.content || "" };
+}
+
+// Streszczenie transkryptu silnikiem Claude (Sonnet). Klucz z sekretu
+// (ANTHROPIC_API_KEY) — service role, nigdy do frontu. Zwraca null gdy brak
+// klucza lub błąd → caller robi wtedy fallback na Gemini.
+async function analyzeTranscriptClaude(supabase: any, transcript: string, title: string) {
+  const apiKey = await getSecret(supabase, "ANTHROPIC_API_KEY");
+  if (!apiKey) return null;
+
+  const schemaHint = `Zwróć WYŁĄCZNIE poprawny JSON (bez markdown, bez komentarzy) o dokładnie takich polach:
+{"summary": string (2-3 zdania, wynik rozmowy), "key_points": string[], "tasks": [{"task": string, "assignee": string, "deadline": string, "priority": "low"|"medium"|"high"|"critical", "source_quote": string}], "decisions": [{"decision": string, "rationale": string, "impact": string}], "questions_unresolved": string[], "sentiment": "pozytywny"|"neutralny"|"negatywny", "participants": string[]}`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        temperature: 0.2,
+        system: getMeetingAnalysisPrompt(title) + "\n\n" + schemaHint,
+        messages: [{
+          role: "user",
+          content: `Transkrypcja spotkania "${title}":\n\n${transcript}\n\nWyciągnij: najważniejsze punkty, ustalenia, zadania do zrobienia (kto za co odpowiada i na kiedy), decyzje, pytania otwarte oraz wynik rozmowy. Odpowiedz wymaganym JSON-em.`,
+        }],
+      }),
+    });
+
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      console.warn("[Meeting AI] Claude status", res.status, t.slice(0, 200));
+      return null;
+    }
+
+    const raw = (await res.json())?.content?.[0]?.text || "";
+    const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
+    if (s < 0 || e < 0) return null;
+    return JSON.parse(raw.slice(s, e + 1));
+  } catch (err) {
+    console.warn("[Meeting AI] Claude error", err);
+    return null;
+  }
 }
 
 function getMeetingAnalysisPrompt(title: string) {

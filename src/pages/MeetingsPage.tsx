@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -9,14 +9,59 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { 
-  Mic, MicOff, Upload, FileAudio, Clock, CheckCircle2, 
+  Mic, MicOff, Upload, FileAudio, Clock, CheckCircle2,
   AlertCircle, ArrowLeft, Loader2, Play, Square, Sparkles,
-  ListTodo, MessageSquare, ChevronRight, Trash2, Search
+  ListTodo, MessageSquare, ChevronRight, Trash2, Search, Copy,
+  Pencil, X, Check, XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 
 const RIDO_AVATAR = '/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png';
+
+// Feature flag po emailu (NIE po roli) — dostęp tylko dla admina.
+const ALLOWED_EMAIL = 'daniel.moshechkov@gmail.com';
+
+// Kontener nagrania: pierwszy wspierany przez przeglądarkę I przez Deepgram.
+const RECORDER_MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
+  'audio/mp4',
+];
+function pickRecorderMime(): string {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
+  return RECORDER_MIME_CANDIDATES.find((t) => MediaRecorder.isTypeSupported(t)) || '';
+}
+function extForMime(mime: string): string {
+  if (mime.includes('webm')) return 'webm';
+  if (mime.includes('ogg')) return 'ogg';
+  if (mime.includes('mp4')) return 'm4a';
+  return 'webm';
+}
+// Walidacja PRZED uploadem — odsiewa puste/uszkodzone nagrania (np. webm bez
+// nagłówka EBML 1A45DFA3), żeby nie wysyłać do transkrypcji bajtów, które
+// Deepgram i tak odrzuci jako "corrupt or unsupported data".
+async function isLikelyValidAudio(blob: Blob, mime: string): Promise<boolean> {
+  if (blob.size < 2000) return false; // praktycznie cisza / pusty kontener
+  if (mime.includes('webm')) {
+    const head = new Uint8Array(await blob.slice(0, 4).arrayBuffer());
+    return head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3;
+  }
+  return true; // mp4/ogg — poleganie na rozmiarze + walidacji Deepgramu
+}
+
+// Transkrypt z etykietami "Mówca N:" → jeden ciągły tekst całej rozmowy.
+function toPlainText(transcript: string | null | undefined): string {
+  if (!transcript) return '';
+  return transcript
+    .split('\n')
+    .map((l) => l.replace(/^Mówca\s+\d+:\s*/, '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 interface Meeting {
   id: string;
@@ -31,6 +76,8 @@ interface Meeting {
   sentiment: string | null;
   questions_unresolved: string[];
   created_at: string;
+  // Reużyte (bez zmian schematu) na powód błędu: { error: 'no_speech' | 'recording' }
+  next_meeting_suggestion: any | null;
 }
 
 interface MeetingTask {
@@ -52,6 +99,8 @@ interface MeetingDecision {
 
 export default function MeetingsPage() {
   const navigate = useNavigate();
+  const [access, setAccess] = useState<'checking' | 'granted' | 'denied'>('checking');
+  const [isSummarizing, setIsSummarizing] = useState(false);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [tasks, setTasks] = useState<MeetingTask[]>([]);
@@ -60,20 +109,37 @@ export default function MeetingsPage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [meetingTitle, setMeetingTitle] = useState('');
-  const [liveTranscript, setLiveTranscript] = useState('');
   const [memoryQuery, setMemoryQuery] = useState('');
   const [memoryAnswer, setMemoryAnswer] = useState('');
   const [isQuerying, setIsQuerying] = useState(false);
   const [activeView, setActiveView] = useState<'list' | 'live' | 'detail'>('list');
+  const [transcriptMode, setTranscriptMode] = useState<'speakers' | 'plain'>('speakers');
+  const [micLevel, setMicLevel] = useState(0);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Rozmowy, których transkrypcja TRWA w tej chwili (w tej sesji) — tylko one
+  // pokazują "Przetwarzanie". Zacięte rekordy z przeszłości nie są tu obecne.
+  const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number>(0);
-  const recognitionRef = useRef<any>(null);
+  const chosenMimeRef = useRef<string>('audio/webm');
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const rafRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Gating po emailu zalogowanego usera — reszta nie widzi wejścia.
   useEffect(() => {
-    loadMeetings();
+    supabase.auth.getUser().then(({ data }) => {
+      const email = data.user?.email?.toLowerCase();
+      setAccess(email === ALLOWED_EMAIL ? 'granted' : 'denied');
+    });
   }, []);
+
+  useEffect(() => {
+    if (access === 'granted') loadMeetings();
+  }, [access]);
 
   const loadMeetings = async () => {
     const { data } = await supabase
@@ -94,45 +160,189 @@ export default function MeetingsPage() {
     setActiveView('detail');
   };
 
+  // Kopiowanie do schowka
+  const copyText = useCallback(async (text: string | null | undefined, label: string) => {
+    if (!text) { toast.error('Nic do skopiowania'); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} skopiowano`);
+    } catch {
+      toast.error('Nie udało się skopiować');
+    }
+  }, []);
+
+  // Wspólny pipeline: zapis rekordu -> upload do prywatnego bucketu -> transkrypcja.
+  // Silnik transkrypcji jest niewidoczny dla UI (komunikaty brandowane jako Asystent GetRido).
+  const processAudio = useCallback(async (
+    blob: Blob,
+    sourceType: 'live' | 'upload',
+    durationSeconds: number | null,
+    mimeType: string,
+  ) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { toast.error('Sesja wygasła — zaloguj się ponownie'); return; }
+
+    const title = meetingTitle.trim() || `Rozmowa ${new Date().toLocaleDateString('pl-PL')}`;
+    const ct = mimeType || blob.type || 'audio/webm';
+
+    // 1) rekord spotkania (status processing do czasu streszczenia)
+    const { data: meeting, error: insErr } = await supabase
+      .from('meetings')
+      .insert({ user_id: user.id, title, status: 'processing', source_type: sourceType, duration_seconds: durationSeconds })
+      .select('*')
+      .single();
+    if (insErr || !meeting) { toast.error('Nie udało się zapisać rozmowy'); return; }
+
+    // Oznacz jako "trwa teraz" — tylko takie pokazują "Przetwarzanie".
+    setActiveIds((prev) => new Set(prev).add(meeting.id));
+    try {
+      // 2) upload audio do prywatnego bucketu (RLS: pierwszy folder = uid usera)
+      const path = `${user.id}/${meeting.id}.${extForMime(ct)}`;
+      const { error: upErr } = await supabase.storage
+        .from('meeting-audio')
+        .upload(path, blob, { contentType: ct, upsert: true });
+      if (upErr) {
+        await markFailed(meeting.id, 'recording');
+        toast.error('Nie udało się wgrać nagrania');
+        await loadMeetings();
+        return;
+      }
+      await supabase.from('meetings').update({ audio_url: path }).eq('id', meeting.id);
+
+      // 3) transkrypcja (URL nagrania) z backstopem czasowym — rozmowa NIE może
+      //    wisieć w nieskończoność. Po przekroczeniu limitu → status 'failed'.
+      const TIMEOUT_MS = 180000;
+      let tr: any = null, trErr: any = null;
+      try {
+        const res: any = await Promise.race([
+          supabase.functions.invoke('deepgram-transcribe', { body: { meeting_id: meeting.id, audio_path: path } }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), TIMEOUT_MS)),
+        ]);
+        tr = res?.data; trErr = res?.error;
+      } catch {
+        await markFailed(meeting.id, 'recording');
+        toast.error('Transkrypcja trwała zbyt długo — oznaczono jako błąd.');
+        await loadMeetings();
+        return;
+      }
+      // Transport-level błąd — oznacz jako błąd nagrania.
+      if (trErr) {
+        await markFailed(meeting.id, 'recording');
+        toast.error('Nie udało się utworzyć transkrypcji');
+        await loadMeetings();
+        return;
+      }
+      // Funkcja zwróciła błąd (status już ustawiła) — pokaż właściwy komunikat.
+      if (tr?.error) {
+        toast.error(tr.reason === 'no_speech'
+          ? 'Nie wykryto mowy w nagraniu — mów wyraźniej i bliżej mikrofonu.'
+          : 'Nie udało się utworzyć transkrypcji');
+        await loadMeetings();
+        return;
+      }
+
+      toast.success('Transkrypcja gotowa — kliknij „Streść"');
+      setMeetingTitle('');
+      await loadMeetings();
+      const { data: full } = await supabase.from('meetings').select('*').eq('id', meeting.id).single();
+      if (full) await loadMeetingDetails(full as any);
+    } finally {
+      setActiveIds((prev) => { const n = new Set(prev); n.delete(meeting.id); return n; });
+    }
+  }, [meetingTitle]);
+
+  // Oznacza rozmowę jako błąd (z powodem) — wspólne dla wszystkich ścieżek błędu.
+  const markFailed = async (id: string, reason: 'recording' | 'no_speech') => {
+    await supabase.from('meetings')
+      .update({ status: 'failed', next_meeting_suggestion: { error: reason } })
+      .eq('id', id);
+  };
+
+  // Streszczenie transkryptu (silnik Claude pod spodem, niewidoczny dla UI).
+  const summarizeMeeting = useCallback(async (meeting: Meeting) => {
+    if (!meeting.transcript) { toast.error('Brak transkryptu do streszczenia'); return; }
+    setIsSummarizing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('meeting-ai', {
+        body: {
+          action: 'analyze_transcript',
+          meeting_id: meeting.id,
+          transcript: meeting.transcript,
+          title: meeting.title,
+          provider: 'claude',
+        },
+      });
+      if (error || data?.error) throw new Error(data?.error || 'Błąd');
+      toast.success('Streszczenie gotowe');
+      await loadMeetings();
+      const { data: full } = await supabase.from('meetings').select('*').eq('id', meeting.id).single();
+      if (full) await loadMeetingDetails(full as any);
+    } catch {
+      toast.error('Nie udało się streścić rozmowy');
+    } finally {
+      setIsSummarizing(false);
+    }
+  }, []);
+
+  // Miernik poziomu mikrofonu — czyta TEN SAM strumień, który nagrywamy,
+  // więc na żywo potwierdza, że dźwięk realnie trafia do nagrania (nie tylko podgląd).
+  const startLevelMeter = (stream: MediaStream) => {
+    try {
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      const ctx: AudioContext = new Ctx();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+        setMicLevel(Math.min(1, Math.sqrt(sum / buf.length) * 3));
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch { /* miernik jest opcjonalny */ }
+  };
+  const stopLevelMeter = () => {
+    cancelAnimationFrame(rafRef.current);
+    audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+    setMicLevel(0);
+  };
+
   // === LIVE RECORDING ===
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      // Upewnij się, że jest żywa ścieżka audio (inaczej nagramy ciszę).
+      const track = stream.getAudioTracks()[0];
+      if (!track || track.readyState !== 'live') {
+        stream.getTracks().forEach((t) => t.stop());
+        toast.error('Mikrofon nie przesyła dźwięku — sprawdź uprawnienia/urządzenie');
+        return;
+      }
+
+      const mime = pickRecorderMime();
+      chosenMimeRef.current = mime || 'audio/webm';
+      const mediaRecorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
-      setLiveTranscript('');
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
-      mediaRecorder.start(1000);
+      mediaRecorder.start(); // bez timeslice — jeden spójny plik z nagłówkiem
       setIsRecording(true);
       setActiveView('live');
       setRecordingTime(0);
-
-      timerRef.current = window.setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-
-      // Browser Speech Recognition for live transcript
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'pl-PL';
-        recognition.onresult = (event: any) => {
-          let transcript = '';
-          for (let i = 0; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript + ' ';
-          }
-          setLiveTranscript(transcript.trim());
-        };
-        recognition.start();
-        recognitionRef.current = recognition;
-      }
+      timerRef.current = window.setInterval(() => setRecordingTime((prev) => prev + 1), 1000);
+      startLevelMeter(stream);
 
       toast.success('Nagrywanie rozpoczęte');
     } catch (err) {
@@ -144,64 +354,35 @@ export default function MeetingsPage() {
     if (!mediaRecorderRef.current) return;
 
     clearInterval(timerRef.current);
-    recognitionRef.current?.stop();
-
+    const duration = recordingTime;
+    const mime = chosenMimeRef.current;
     return new Promise<void>((resolve) => {
       mediaRecorderRef.current!.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        stopLevelMeter();
+        const blob = new Blob(chunksRef.current, { type: mime || 'audio/webm' });
         setIsRecording(false);
-        setIsProcessing(true);
 
-        try {
-          // If we have a browser transcript, use it for analysis
-          if (liveTranscript.length > 50) {
-            const { data, error } = await supabase.functions.invoke('meeting-ai', {
-              body: {
-                action: 'analyze_transcript',
-                transcript: liveTranscript,
-                title: meetingTitle || `Spotkanie ${new Date().toLocaleDateString('pl-PL')}`,
-              },
-            });
-            if (error) throw error;
-            toast.success('Spotkanie przeanalizowane!');
-            if (data?.meeting_id) {
-              await loadMeetings();
-              const { data: m } = await supabase.from('meetings').select('*').eq('id', data.meeting_id).single();
-              if (m) loadMeetingDetails(m as any);
-            }
-          } else {
-            // Upload audio file for processing
-            const formData = new FormData();
-            formData.append('audio', blob, 'recording.webm');
-            formData.append('title', meetingTitle || `Spotkanie ${new Date().toLocaleDateString('pl-PL')}`);
-
-            const { data: { session } } = await supabase.auth.getSession();
-            const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meeting-ai`, {
-              method: 'POST',
-              headers: { Authorization: `Bearer ${session?.access_token}` },
-              body: formData,
-            });
-            const data = await resp.json();
-            if (!resp.ok) throw new Error(data.error);
-            toast.success('Spotkanie przeanalizowane!');
-            if (data?.meeting_id) {
-              await loadMeetings();
-              const { data: m } = await supabase.from('meetings').select('*').eq('id', data.meeting_id).single();
-              if (m) loadMeetingDetails(m as any);
-            }
-          }
-        } catch (err: any) {
-          toast.error(err.message || 'Błąd analizy spotkania');
+        // Walidacja PRZED uploadem — nie wysyłamy pustych/uszkodzonych nagrań.
+        const ok = await isLikelyValidAudio(blob, mime);
+        if (!ok) {
+          toast.error('Nagranie nie powiodło się (puste lub uszkodzone). Sprawdź mikrofon i spróbuj ponownie.');
           setActiveView('list');
+          resolve();
+          return;
+        }
+
+        setIsProcessing(true);
+        try {
+          await processAudio(blob, 'live', duration || null, mime);
         } finally {
           setIsProcessing(false);
         }
         resolve();
       };
       mediaRecorderRef.current!.stop();
-      mediaRecorderRef.current!.stream.getTracks().forEach(t => t.stop());
+      mediaRecorderRef.current!.stream.getTracks().forEach((t) => t.stop());
     });
-  }, [liveTranscript, meetingTitle]);
+  }, [recordingTime, processAudio]);
 
   // === FILE UPLOAD ===
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,32 +391,68 @@ export default function MeetingsPage() {
 
     setIsProcessing(true);
     try {
-      const formData = new FormData();
-      formData.append('audio', file);
-      formData.append('title', meetingTitle || file.name.replace(/\.[^.]+$/, ''));
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meeting-ai`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-        body: formData,
-      });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error);
-      
-      toast.success('Nagranie przeanalizowane!');
-      await loadMeetings();
-      if (data?.meeting_id) {
-        const { data: m } = await supabase.from('meetings').select('*').eq('id', data.meeting_id).single();
-        if (m) loadMeetingDetails(m as any);
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Błąd analizy pliku');
+      await processAudio(file, 'upload', null, file.type || 'audio/webm');
     } finally {
       setIsProcessing(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
-  }, [meetingTitle]);
+  }, [processAudio]);
+
+  // === C: USUWANIE / ZMIANA NAZWY / ZAZNACZANIE ===
+  // Usuwa rekord (kaskadowo tasks/decisions) + plik audio z bucketu. Bez SQL.
+  const deleteMeetings = useCallback(async (items: Meeting[], silent = false) => {
+    if (!items.length) return;
+    const paths = items.map((m) => m.audio_url).filter(Boolean) as string[];
+    if (paths.length) {
+      await supabase.storage.from('meeting-audio').remove(paths);
+    }
+    const { error } = await supabase.from('meetings').delete().in('id', items.map((m) => m.id));
+    if (error) { toast.error('Nie udało się usunąć'); return; }
+    if (!silent) toast.success(items.length > 1 ? `Usunięto ${items.length} rozmów` : 'Rozmowa usunięta');
+    setSelectedIds(new Set());
+    if (selectedMeeting && items.some((m) => m.id === selectedMeeting.id)) {
+      setSelectedMeeting(null);
+      setActiveView('list');
+    }
+    await loadMeetings();
+  }, [selectedMeeting]);
+
+  const renameMeeting = useCallback(async (id: string, title: string) => {
+    const clean = title.trim();
+    if (!clean) { setEditingId(null); return; }
+    const { error } = await supabase.from('meetings').update({ title: clean }).eq('id', id);
+    if (error) { toast.error('Nie udało się zmienić nazwy'); return; }
+    setEditingId(null);
+    setMeetings((prev) => prev.map((m) => (m.id === id ? { ...m, title: clean } : m)));
+    if (selectedMeeting?.id === id) setSelectedMeeting({ ...selectedMeeting, title: clean });
+  }, [selectedMeeting]);
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // Etykieta + wygląd statusu na liście.
+  // 'open' = czy wiersz da się otworzyć (kliknięciem).
+  const statusInfo = (m: Meeting): { label: string; tone: 'ok' | 'ready' | 'busy' | 'error'; muted: boolean; open: boolean } => {
+    if (m.status === 'completed') return { label: 'Gotowe', tone: 'ok', muted: false, open: true };
+    if (m.status === 'failed') {
+      const reason = m.next_meeting_suggestion?.error;
+      return { label: reason === 'no_speech' ? 'Błąd — nie wykryto mowy' : 'Błąd nagrania', tone: 'error', muted: true, open: false };
+    }
+    if (m.status === 'processing') {
+      // "Przetwarzanie" TYLKO gdy transkrypcja realnie trwa w tej chwili.
+      if (activeIds.has(m.id)) return { label: 'Przetwarzanie', tone: 'busy', muted: true, open: false };
+      // Przetranskrybowane, czeka na streszczenie — otwieralne (można kliknąć „Streść").
+      if (m.transcript && m.transcript.trim()) return { label: 'Do streszczenia', tone: 'ready', muted: false, open: true };
+      // Zacięte z przeszłości (brak transkryptu, nic nie trwa) — przerwane, do usunięcia.
+      return { label: 'Przerwane', tone: 'error', muted: true, open: false };
+    }
+    return { label: m.status, tone: 'busy', muted: true, open: false };
+  };
 
   // === MEMORY QUERY ===
   const handleMemoryQuery = useCallback(async () => {
@@ -266,6 +483,18 @@ export default function MeetingsPage() {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, is_completed: !completed } : t));
   };
 
+  // Gating po emailu — reszta userów nie widzi wejścia.
+  if (access === 'checking') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (access === 'denied') {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -274,12 +503,12 @@ export default function MeetingsPage() {
           <Button variant="ghost" size="icon" onClick={() => activeView === 'list' ? navigate(-1) : setActiveView('list')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <img src={RIDO_AVATAR} alt="RidoAI" className="w-8 h-8 rounded-full" />
+          <img src={RIDO_AVATAR} alt="Asystent GetRido" className="w-8 h-8 rounded-full" />
           <div>
             <h1 className="font-bold text-sm flex items-center gap-1.5">
-              Rido Meeting AI <Sparkles className="h-3.5 w-3.5 text-primary" />
+              Asystent GetRido <Sparkles className="h-3.5 w-3.5 text-primary" />
             </h1>
-            <p className="text-[11px] text-muted-foreground">Asystent spotkań</p>
+            <p className="text-[11px] text-muted-foreground">Nagrywanie i streszczenia rozmów</p>
           </div>
         </div>
       </div>
@@ -288,6 +517,28 @@ export default function MeetingsPage() {
         {/* === LIST VIEW === */}
         {activeView === 'list' && (
           <div className="space-y-6">
+            {/* Powitanie RidoAI (tekstowe) */}
+            <Card className="p-4 flex items-start gap-3 border-primary/20 bg-primary/5">
+              <img src={RIDO_AVATAR} alt="Asystent GetRido" className="w-9 h-9 rounded-full flex-shrink-0" />
+              <p className="text-sm leading-relaxed">
+                Cześć Danielu. Słucham — wpisz, z kim rozmawiasz, kliknij <b>nagrywanie</b>,
+                a po rozmowie wyciągnę w punktach, czego klient potrzebuje.
+              </p>
+            </Card>
+
+            {/* Pole „Z kim / temat" — zapis do meetings.title */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Z kim rozmawiasz / temat
+              </label>
+              <Input
+                placeholder='np. „Firma X — moduły obsługi firmowej"'
+                value={meetingTitle}
+                onChange={e => setMeetingTitle(e.target.value)}
+                className="max-w-md"
+              />
+            </div>
+
             {/* Action buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card 
@@ -299,8 +550,8 @@ export default function MeetingsPage() {
                     <Mic className="h-6 w-6 text-red-500" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">Uruchom Live</h3>
-                    <p className="text-xs text-muted-foreground">Słuchaj i analizuj spotkanie na żywo</p>
+                    <h3 className="font-semibold">Nagrywaj rozmowę</h3>
+                    <p className="text-xs text-muted-foreground">Mów — po zakończeniu zrobię transkrypt i streszczenie</p>
                   </div>
                 </div>
               </Card>
@@ -327,14 +578,6 @@ export default function MeetingsPage() {
                 />
               </Card>
             </div>
-
-            {/* Title input */}
-            <Input
-              placeholder="Tytuł spotkania (opcjonalnie)"
-              value={meetingTitle}
-              onChange={e => setMeetingTitle(e.target.value)}
-              className="max-w-md"
-            />
 
             {/* Processing indicator */}
             {isProcessing && (
@@ -376,43 +619,129 @@ export default function MeetingsPage() {
 
             {/* Meetings History */}
             <div>
-              <h3 className="font-semibold mb-3">Moje spotkania</h3>
+              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                <h3 className="font-semibold">Moje rozmowy</h3>
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Zaznaczono {selectedIds.size}</span>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="gap-1.5"
+                      onClick={() => {
+                        if (window.confirm(`Usunąć ${selectedIds.size} zaznaczonych rozmów?`)) {
+                          deleteMeetings(meetings.filter((m) => selectedIds.has(m.id)));
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Usuń zaznaczone
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Wyczyść</Button>
+                  </div>
+                )}
+              </div>
               {meetings.length === 0 ? (
                 <Card className="p-8 text-center text-muted-foreground">
                   <FileAudio className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">Brak spotkań. Nagraj lub wrzuć plik audio.</p>
+                  <p className="text-sm">Brak rozmów. Nagraj lub wrzuć plik audio.</p>
                 </Card>
               ) : (
                 <div className="space-y-2">
-                  {meetings.map(m => (
-                    <Card 
-                      key={m.id}
-                      className="p-4 cursor-pointer hover:shadow-md transition group"
-                      onClick={() => loadMeetingDetails(m)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                          m.status === 'completed' ? 'bg-green-500/10' : 
-                          m.status === 'processing' ? 'bg-amber-500/10' : 
-                          m.status === 'recording' ? 'bg-red-500/10' : 'bg-muted'
-                        )}>
-                          {m.status === 'completed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> :
-                           m.status === 'processing' ? <Loader2 className="h-5 w-5 text-amber-500 animate-spin" /> :
-                           m.status === 'recording' ? <Mic className="h-5 w-5 text-red-500" /> :
-                           <FileAudio className="h-5 w-5 text-muted-foreground" />}
+                  {meetings.map((m) => {
+                    const st = statusInfo(m);
+                    const isEditing = editingId === m.id;
+                    return (
+                      <Card
+                        key={m.id}
+                        className={cn(
+                          'p-4 transition group',
+                          st.muted && 'opacity-70',
+                          st.tone === 'error' && 'border-red-500/30',
+                          st.open && 'cursor-pointer hover:shadow-md',
+                        )}
+                        onClick={() => { if (st.open && !isEditing) loadMeetingDetails(m); }}
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Zaznaczanie hurtem */}
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 flex-shrink-0 accent-primary cursor-pointer"
+                            checked={selectedIds.has(m.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => toggleSelected(m.id)}
+                          />
+                          {/* Ikona statusu */}
+                          <div className={cn(
+                            'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
+                            st.tone === 'ok' ? 'bg-green-500/10' :
+                            st.tone === 'ready' ? 'bg-primary/10' :
+                            st.tone === 'busy' ? 'bg-amber-500/10' : 'bg-red-500/10',
+                          )}>
+                            {st.tone === 'ok' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> :
+                             st.tone === 'ready' ? <Sparkles className="h-5 w-5 text-primary" /> :
+                             st.tone === 'busy' ? <Loader2 className="h-5 w-5 text-amber-500 animate-spin" /> :
+                             <XCircle className="h-5 w-5 text-red-500" />}
+                          </div>
+                          {/* Tytuł (z edycją inline) + data + status */}
+                          <div className="flex-1 min-w-0">
+                            {isEditing ? (
+                              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <Input
+                                  autoFocus
+                                  value={editTitle}
+                                  onChange={(e) => setEditTitle(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') renameMeeting(m.id, editTitle);
+                                    if (e.key === 'Escape') setEditingId(null);
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => renameMeeting(m.id, editTitle)}>
+                                  <Check className="h-4 w-4 text-green-600" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingId(null)}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-medium text-sm truncate">{m.title}</p>
+                                <button
+                                  className="flex-shrink-0"
+                                  onClick={(e) => { e.stopPropagation(); setEditingId(m.id); setEditTitle(m.title); }}
+                                  title="Zmień nazwę"
+                                >
+                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-foreground" />
+                                </button>
+                              </div>
+                            )}
+                            <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                              <span>{new Date(m.created_at).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                              <span className={cn(
+                                'px-1.5 py-0.5 rounded-full',
+                                st.tone === 'ok' ? 'bg-green-500/10 text-green-600' :
+                                st.tone === 'ready' ? 'bg-primary/10 text-primary' :
+                                st.tone === 'busy' ? 'bg-amber-500/10 text-amber-600' :
+                                'bg-red-500/10 text-red-600',
+                              )}>{st.label}</span>
+                            </p>
+                          </div>
+                          {/* Usuń pojedynczo — ZAWSZE widoczny (też na mobile i przy zaciętych) */}
+                          <button
+                            className="flex-shrink-0 p-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm('Usunąć tę rozmowę?')) deleteMeetings([m]);
+                            }}
+                            title="Usuń"
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground/60 hover:text-red-500" />
+                          </button>
+                          {st.open && <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition flex-shrink-0" />}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{m.title}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {new Date(m.created_at).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            {m.participants?.length ? ` • ${m.participants.length} uczestników` : ''}
-                          </p>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition" />
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -435,13 +764,21 @@ export default function MeetingsPage() {
                 </Button>
               </div>
               
-              <div className="bg-background rounded-lg p-4 min-h-[200px] max-h-[400px] overflow-y-auto">
-                <p className="text-xs font-semibold text-muted-foreground mb-2">📝 TRANSKRYPCJA NA ŻYWO:</p>
-                {liveTranscript ? (
-                  <p className="text-sm leading-relaxed">{liveTranscript}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">Mów... transkrypcja pojawi się tutaj</p>
-                )}
+              <div className="bg-background rounded-lg p-5 min-h-[160px] flex flex-col items-center justify-center gap-4">
+                <Mic className={cn('h-10 w-10', micLevel > 0.06 ? 'text-red-500' : 'text-muted-foreground')} />
+                {/* Pasek poziomu — potwierdza, że mikrofon realnie nagrywa */}
+                <div className="w-full max-w-xs h-2.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={cn('h-full rounded-full transition-[width] duration-75',
+                      micLevel > 0.06 ? 'bg-red-500' : 'bg-muted-foreground/40')}
+                    style={{ width: `${Math.round(micLevel * 100)}%` }}
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground text-center">
+                  {micLevel > 0.06
+                    ? 'Słyszę Cię — mów spokojnie. Transkrypt pojawi się po zakończeniu.'
+                    : 'Czekam na dźwięk… mów do mikrofonu.'}
+                </p>
               </div>
             </Card>
           </div>
@@ -450,21 +787,29 @@ export default function MeetingsPage() {
         {/* === DETAIL VIEW === */}
         {activeView === 'detail' && selectedMeeting && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <h2 className="text-lg font-bold">{selectedMeeting.title}</h2>
-              {selectedMeeting.sentiment && (
-                <span className={cn(
-                  "text-xs px-2 py-1 rounded-full",
-                  selectedMeeting.sentiment === 'pozytywny' ? 'bg-green-500/10 text-green-600' :
-                  selectedMeeting.sentiment === 'negatywny' ? 'bg-red-500/10 text-red-600' :
-                  'bg-muted text-muted-foreground'
-                )}>
-                  {selectedMeeting.sentiment}
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {selectedMeeting.sentiment && (
+                  <span className={cn(
+                    "text-xs px-2 py-1 rounded-full",
+                    selectedMeeting.sentiment === 'pozytywny' ? 'bg-green-500/10 text-green-600' :
+                    selectedMeeting.sentiment === 'negatywny' ? 'bg-red-500/10 text-red-600' :
+                    'bg-muted text-muted-foreground'
+                  )}>
+                    {selectedMeeting.sentiment}
+                  </span>
+                )}
+                {selectedMeeting.transcript && (
+                  <Button size="sm" onClick={() => summarizeMeeting(selectedMeeting)} disabled={isSummarizing} className="gap-2">
+                    {isSummarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {selectedMeeting.summary ? 'Streść ponownie' : 'Streść'}
+                  </Button>
+                )}
+              </div>
             </div>
 
-            <Tabs defaultValue="summary" className="space-y-4">
+            <Tabs key={selectedMeeting.id} defaultValue={selectedMeeting.summary ? 'summary' : 'transcript'} className="space-y-4">
               <TabsList className="grid grid-cols-4 w-full">
                 <TabsTrigger value="summary">📋 Podsumowanie</TabsTrigger>
                 <TabsTrigger value="tasks">🎯 Zadania ({tasks.length})</TabsTrigger>
@@ -474,6 +819,29 @@ export default function MeetingsPage() {
 
               <TabsContent value="summary">
                 <Card className="p-5">
+                  {!selectedMeeting.summary && !selectedMeeting.key_points?.length ? (
+                    <div className="text-center text-sm text-muted-foreground py-6">
+                      <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      Brak streszczenia. Kliknij <b>„Streść"</b> u góry, aby wyciągnąć punkty, ustalenia i zadania.
+                    </div>
+                  ) : (
+                  <div className="flex items-center justify-end mb-3">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => copyText(
+                        [
+                          selectedMeeting.summary || '',
+                          selectedMeeting.key_points?.length ? '\nKluczowe punkty:\n' + selectedMeeting.key_points.map(p => `• ${p}`).join('\n') : '',
+                        ].filter(Boolean).join('\n'),
+                        'Streszczenie',
+                      )}
+                    >
+                      <Copy className="h-3.5 w-3.5" /> Kopiuj
+                    </Button>
+                  </div>
+                  )}
                   {selectedMeeting.summary && (
                     <div className="prose prose-sm dark:prose-invert max-w-none mb-4">
                       <ReactMarkdown>{selectedMeeting.summary}</ReactMarkdown>
@@ -565,9 +933,37 @@ export default function MeetingsPage() {
               <TabsContent value="transcript">
                 <Card className="p-5">
                   {selectedMeeting.transcript ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm">
-                      {selectedMeeting.transcript}
-                    </div>
+                    <>
+                      <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                        {/* Przełącznik widoku transkryptu */}
+                        <div className="inline-flex rounded-lg border p-0.5 text-xs">
+                          <button
+                            className={cn('px-2.5 py-1 rounded-md transition',
+                              transcriptMode === 'speakers' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}
+                            onClick={() => setTranscriptMode('speakers')}
+                          >Z mówcami</button>
+                          <button
+                            className={cn('px-2.5 py-1 rounded-md transition',
+                              transcriptMode === 'plain' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}
+                            onClick={() => setTranscriptMode('plain')}
+                          >Pełny tekst</button>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => copyText(
+                            transcriptMode === 'plain' ? toPlainText(selectedMeeting.transcript) : selectedMeeting.transcript,
+                            transcriptMode === 'plain' ? 'Pełny tekst' : 'Transkrypt',
+                          )}
+                        >
+                          <Copy className="h-3.5 w-3.5" /> Kopiuj
+                        </Button>
+                      </div>
+                      <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+                        {transcriptMode === 'plain' ? toPlainText(selectedMeeting.transcript) : selectedMeeting.transcript}
+                      </div>
+                    </>
                   ) : (
                     <p className="text-sm text-muted-foreground text-center">Brak transkrypcji</p>
                   )}

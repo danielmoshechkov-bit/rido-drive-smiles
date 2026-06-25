@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Building2, Lock, Wrench } from "lucide-react";
+import { Plus, Building2, Lock, Wrench, Mic } from "lucide-react";
 import { useIsWorkshopEmployee } from "@/hooks/useIsWorkshopEmployee";
 
 // Module images
@@ -75,10 +75,13 @@ export function AccountSwitcherPanel({
 
   // Dostęp do modułu Workflow = członek ≥1 projektu LUB oczekujące zaproszenie.
   const [hasWorkflow, setHasWorkflow] = useState(false);
+  // Wejście do "Asystent GetRido" — feature flag po emailu (ten sam co gating /meetings).
+  const [isMeetingsAdmin, setIsMeetingsAdmin] = useState(false);
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) return;
+      setIsMeetingsAdmin(user.email.toLowerCase() === 'daniel.moshechkov@gmail.com');
       const { data } = await (supabase as any)
         .from("workspace_project_members")
         .select("id")
@@ -308,6 +311,22 @@ export function AccountSwitcherPanel({
                 <p className="text-xs text-muted-foreground mt-1">{t('accountSwitcher.clientPortalDesc')}</p>
               </div>
             </div>
+
+            {/* Asystent GetRido — tylko dla admina (feature flag po emailu) */}
+            {isMeetingsAdmin && (
+              <div
+                className="border-2 border-border rounded-xl overflow-hidden cursor-pointer hover:shadow-lg hover:border-primary/50 transition-all"
+                onClick={() => navigate('/meetings')}
+              >
+                <div className="aspect-[16/9] relative overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                  <Mic className="h-8 w-8 text-primary" />
+                </div>
+                <div className="p-3 text-center bg-background">
+                  <p className="font-medium text-sm">Asystent GetRido</p>
+                  <p className="text-xs text-muted-foreground mt-1">Nagrywanie i streszczenia rozmów</p>
+                </div>
+              </div>
+            )}
 
             {enabledAccounts.map((account) => {
               const isActive = account.type === currentAccountType;
