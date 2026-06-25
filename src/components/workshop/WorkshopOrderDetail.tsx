@@ -316,11 +316,11 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                 <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.protocolDownloading'))}>
                   <Download className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.download')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.signedDocument'))}>
-                  <CheckCircle className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.signedDocument')}
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={markReceptionSigned}>
-                  <XCircle className="h-4 w-4 mr-2" /> {order.client_acceptance_confirmed ? t('workshop.orderDetail.markAsUnsigned') : t('workshop.orderDetail.markAsSigned')}
+                  {order.client_acceptance_confirmed
+                    ? <XCircle className="h-4 w-4 mr-2" />
+                    : <CheckCircle className="h-4 w-4 mr-2" />}
+                  {order.client_acceptance_confirmed ? t('workshop.orderDetail.markAsUnsigned') : t('workshop.orderDetail.markAsSigned')}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive" onClick={() => toast.info(t('workshop.orderDetail.protocolDisabled'))}>
                   <Ban className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.disable')}
@@ -359,9 +359,6 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                 <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.estimateDownloading'))}>
                   <Download className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.download')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.signedDocument'))}>
-                  <CheckCircle className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.signedDocument')}
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
                   const newVal = !order.quote_accepted;
                   updateOrder.mutateAsync({ id: order.id, quote_accepted: newVal, ...(newVal ? { status_name: 'Akceptacja klienta' } : {}) });
@@ -369,7 +366,10 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                     ? t('workshop.orderDetail.quoteAccepted', { status: translateWorkshopStatus('Akceptacja klienta', t) })
                     : t('workshop.orderDetail.markedUnsigned'));
                 }}>
-                  <XCircle className="h-4 w-4 mr-2" /> {order.quote_accepted ? t('workshop.orderDetail.markAsUnsigned') : t('workshop.orderDetail.markAsSigned')}
+                  {order.quote_accepted
+                    ? <XCircle className="h-4 w-4 mr-2" />
+                    : <CheckCircle className="h-4 w-4 mr-2" />}
+                  {order.quote_accepted ? t('workshop.orderDetail.markAsUnsigned') : t('workshop.orderDetail.markAsSigned')}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive" onClick={() => toast.info(t('workshop.orderDetail.estimateDisabled'))}>
                   <Ban className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.disable')}

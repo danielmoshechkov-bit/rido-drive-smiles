@@ -40,10 +40,10 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
             )}
           </div>
 
-          <div className="grid grid-cols-[auto,minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
+          <div className="grid grid-cols-[auto,minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
             {vehicle.plate && (
               <>
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1 text-muted-foreground">
                   <Hash className="h-2.5 w-2.5" /> {t('workshop.orders.plate')}
                 </span>
                 <button
@@ -52,13 +52,13 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
                   onClick={() => copy(vehicle.plate, t('workshop.orders.copiedPlate'))}
                 >
                   <span className="truncate">{vehicle.plate}</span>
-                  <Copy className="h-2.5 w-2.5 shrink-0 opacity-60" />
+                  <Copy className="h-3 w-3 shrink-0 opacity-60" />
                 </button>
               </>
             )}
             {vehicle.vin && (
               <>
-                <span className="text-[11px] text-muted-foreground">{t('workshop.orders.vin')}</span>
+                <span className="text-muted-foreground">{t('workshop.orders.vin')}</span>
                 <button
                   type="button"
                   className="flex w-full items-start justify-between gap-2 rounded-md px-2 py-1 text-left font-medium transition-colors hover:bg-accent/50 hover:text-primary"
@@ -71,7 +71,7 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
             )}
             {vehicle.year && (
               <>
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1 text-muted-foreground">
                   <Calendar className="h-2.5 w-2.5" /> {t('workshop.orders.yearOfProd')}
                 </span>
                 <span className="px-2 py-1 font-medium">{vehicle.year}</span>
@@ -79,7 +79,7 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
             )}
             {(vehicle.engine_capacity_cm3 || vehicle.engine_capacity) && (
               <>
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1 text-muted-foreground">
                   <Gauge className="h-2.5 w-2.5" /> {t('workshop.orders.capacity')}
                 </span>
                 <span className="px-2 py-1 font-medium">{vehicle.engine_capacity_cm3 || vehicle.engine_capacity}</span>
@@ -87,7 +87,7 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
             )}
             {vehicle.fuel_type && (
               <>
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1 text-muted-foreground">
                   <Fuel className="h-2.5 w-2.5" /> {t('workshop.vehicles.engine')}
                 </span>
                 <span className="px-2 py-1 font-medium">{vehicle.fuel_type}</span>
@@ -95,7 +95,7 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
             )}
             {(vehicle.engine_power_kw || vehicle.engine_power) && (
               <>
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1 text-muted-foreground">
                   <Gauge className="h-2.5 w-2.5" /> {t('workshop.orders.power')}
                 </span>
                 <span className="px-2 py-1 font-medium">{vehicle.engine_power_kw || vehicle.engine_power} kW</span>

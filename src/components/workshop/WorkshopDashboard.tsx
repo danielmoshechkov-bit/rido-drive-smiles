@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/card';
 import { useWorkshopOrders, useWorkshopProviderId } from '@/hooks/useWorkshop';
@@ -76,8 +76,14 @@ function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; o
             }`}
           >
             <img src={m.img} alt={t(m.labelKey)} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-            <span className="absolute bottom-1 left-1 right-1 text-[11px] font-bold text-white leading-tight text-center drop-shadow-lg">
+            {/* Readable label overlay (tile size unchanged): strong dark gradient
+                anchored to the bottom of the tile + a heavy text-shadow, so the white
+                caption stays legible over any photo. */}
+            <div className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/95 via-black/65 to-transparent pointer-events-none" />
+            <span
+              className="absolute bottom-1.5 left-1 right-1 text-xs font-semibold text-white leading-tight text-center"
+              style={{ textShadow: '0 1px 4px rgba(0,0,0,1), 0 0 3px rgba(0,0,0,0.9)' }}
+            >
               {t(m.labelKey)}
             </span>
           </button>
@@ -107,17 +113,21 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
-  const currentSelectedOrder = selectedOrder
-    ? workshopOrders.find((order: any) => order.id === selectedOrder.id)
-      ? {
-          ...selectedOrder,
-          ...workshopOrders.find((order: any) => order.id === selectedOrder.id),
-          items: workshopOrders.find((order: any) => order.id === selectedOrder.id)?.items || selectedOrder.items || [],
-          client: workshopOrders.find((order: any) => order.id === selectedOrder.id)?.client || selectedOrder.client,
-          vehicle: workshopOrders.find((order: any) => order.id === selectedOrder.id)?.vehicle || selectedOrder.vehicle,
-        }
-      : selectedOrder
-    : null;
+  // Memoized: recompute only when the selection or the fetched orders change, so the
+  // detail card receives a stable `order`/`items` identity instead of a brand-new
+  // object on every render (which re-rendered the whole card on each keystroke).
+  const currentSelectedOrder = useMemo(() => {
+    if (!selectedOrder) return null;
+    const live = workshopOrders.find((order: any) => order.id === selectedOrder.id);
+    if (!live) return selectedOrder;
+    return {
+      ...selectedOrder,
+      ...live,
+      items: live.items || selectedOrder.items || [],
+      client: live.client || selectedOrder.client,
+      vehicle: live.vehicle || selectedOrder.vehicle,
+    };
+  }, [selectedOrder, workshopOrders]);
 
   if (!providerId && isLoading) {
     return (

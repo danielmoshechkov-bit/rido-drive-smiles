@@ -105,7 +105,7 @@ export function WorkshopStatusPicker({
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <button className="cursor-pointer inline-flex items-center gap-1">
-            <Badge className={`${style.badge} ${size === 'xs' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs'} whitespace-nowrap transition-opacity`}>
+            <Badge className={`${style.badge} ${size === 'xs' ? 'text-[11px] px-1.5 py-0.5' : 'text-[13px] px-2 py-0.5'} font-semibold whitespace-nowrap transition-opacity`}>
               {translateWorkshopStatus(currentStatus, t)}
             </Badge>
             {hasUnreadNotes && (

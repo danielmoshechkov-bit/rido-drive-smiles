@@ -21,13 +21,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTranslation } from 'react-i18next';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
+import { VAT_RATE, safeNumber, getDiscountPercent, getLineTotal } from '@/utils/workshopOrderTotals';
 
 interface Props {
   order: any;
   providerId: string;
 }
-
-const VAT_RATE = 1.23;
 
 type DiscountType = 'percent' | 'amount';
 
@@ -63,24 +62,6 @@ interface GoodsRow {
 type DropIndicator = {
   index: number;
   position: 'before' | 'after';
-};
-
-const safeNumber = (value: unknown) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const getDiscountPercent = (item: any) => safeNumber(item.discount_percent);
-
-const getLineTotal = (item: any, gross: boolean) => {
-  const stored = gross ? safeNumber(item.total_gross) : safeNumber(item.total_net);
-  if (stored > 0) return stored;
-
-  const quantity = safeNumber(item.quantity) || 1;
-  const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
-  const raw = unitPrice * quantity;
-  const discountPercent = getDiscountPercent(item);
-  return raw - (raw * discountPercent / 100);
 };
 
 const getLineCost = (item: any, gross: boolean) => {
@@ -219,8 +200,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     },
   });
 
-  const sortedTaskItems = sortItemsBySortOrder((order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other')));
-  const sortedGoodsItems = sortItemsBySortOrder((order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other'));
+  // Memoized so the sort only re-runs when the items actually change, not on every
+  // keystroke/render (the parent now hands down a stable `order` identity).
+  const sortedTaskItems = useMemo(
+    () => sortItemsBySortOrder((order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'))),
+    [order.items]
+  );
+  const sortedGoodsItems = useMemo(
+    () => sortItemsBySortOrder((order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other')),
+    [order.items]
+  );
   const tasks = taskPreview ?? sortedTaskItems;
   const goods = goodsPreview ?? sortedGoodsItems;
 
@@ -503,6 +492,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     const discountPercent = rawTotal > 0 ? ((rawTotal - totalAfterDiscount) / rawTotal) * 100 : 0;
 
     await createItem.mutateAsync({
+      // Stable client id from the draft row → idempotent commit. A re-commit of the
+      // same draft (auto-save race / tab remount restoring the draft) reuses this id
+      // and is ignored by the upsert instead of producing a duplicate line.
+      id: row.draftKey || crypto.randomUUID(),
       order_id: order.id,
       item_type: 'service',
       name: row.name,
@@ -599,6 +592,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     const discountPercent = rawTotal > 0 ? ((rawTotal - totalAfterDiscount) / rawTotal) * 100 : 0;
 
     await createItem.mutateAsync({
+      // Stable client id from the draft row → idempotent commit (see submitTask).
+      id: row.draftKey || crypto.randomUUID(),
       order_id: order.id,
       item_type: 'part',
       name: row.name,
@@ -754,7 +749,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
       const parsed = JSON.parse(rawDraft);
 
-      // Build sets of saved item names to detect duplicates
+      // Primary dedup: a committed item now carries an id equal to the draft row's
+      // draftKey, so a restored draft whose item already exists is matched exactly
+      // (independent of name edits / translations).
+      const savedItemIds = new Set(
+        ((order.items || []) as any[])
+          .map((i) => String(i.id || ''))
+          .filter(Boolean)
+      );
+      // Secondary dedup (legacy items without a draftKey-based id): match by name.
       const savedTaskNames = new Set(
         ((order.items || []) as any[])
           .filter((i) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'))
@@ -770,12 +773,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
       const filteredTasks = Array.isArray(parsed?.tasks)
         ? parsed.tasks.filter((row: TaskRow) => {
+            if (row.draftKey && savedItemIds.has(String(row.draftKey))) return false;
             const key = String(row.name || '').trim().toLowerCase();
             return key && !savedTaskNames.has(key);
           })
         : [];
       const filteredGoods = Array.isArray(parsed?.goods)
         ? parsed.goods.filter((row: GoodsRow) => {
+            if (row.draftKey && savedItemIds.has(String(row.draftKey))) return false;
             const key = String(row.name || '').trim().toLowerCase();
             return key && !savedGoodsNames.has(key);
           })
@@ -819,15 +824,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
 
-    console.log('[WorkshopTasks] Syncing order totals:', { currentGross, savedGrandGrossTotal, currentNet, savedGrandNetTotal });
-    // Direct DB update + cache invalidation
-    (supabase as any)
-      .from('workshop_orders')
-      .update({ total_gross: savedGrandGrossTotal, total_net: savedGrandNetTotal })
-      .eq('id', order.id)
-      .then(() => {
-        updateOrder.mutate({ id: order.id, total_gross: savedGrandGrossTotal, total_net: savedGrandNetTotal });
-      });
+    // Single write path: updateOrder already updates workshop_orders and invalidates
+    // the cache on success. The previous direct supabase.update() + updateOrder.mutate()
+    // wrote the same row twice and triggered an extra refetch on every item change.
+    updateOrder.mutate({ id: order.id, total_gross: savedGrandGrossTotal, total_net: savedGrandNetTotal });
   }, [order.id, order.total_gross, order.total_net, savedGrandGrossTotal, savedGrandNetTotal]);
 
   const saveTaskDraftRows = async (focusNewRow = false) => {

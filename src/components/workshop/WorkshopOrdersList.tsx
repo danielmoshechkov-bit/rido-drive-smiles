@@ -24,6 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { ExistingInvoiceModal } from './ExistingInvoiceModal';
 import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
+import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import {
   Plus, Search, Car, Trash2,
   Wrench, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
@@ -53,6 +54,13 @@ const statusColors: Record<string, string> = {
   'Gotowy do odbioru': 'bg-gray-500 text-white',
   'Zakończone': 'bg-gray-800 text-white',
 };
+
+// A: derive the displayed amount straight from the order's line items instead of the
+// denormalized `total_gross` column. The column is only refreshed by an effect inside
+// the open order card, so reading it here showed a stale value until the card was
+// re-opened. Items come fresh with every refetch, so this is always current.
+const orderGrossAmount = (o: any) =>
+  Array.isArray(o?.items) ? computeOrderTotals(o.items).total_gross : (o?.total_gross || 0);
 
 export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const { t } = useTranslation();
@@ -121,7 +129,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     setSelectedIds(new Set());
   }, [orderView]);
 
-  const totalSum = filteredOrders.reduce((s: number, o: any) => s + (o.total_gross || 0), 0);
+  const totalSum = filteredOrders.reduce((s: number, o: any) => s + orderGrossAmount(o), 0);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -511,7 +519,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                       )}
                     </div>
                     <span className="font-medium text-foreground text-sm ml-2 shrink-0">
-                      {(order.total_gross || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
+                      {orderGrossAmount(order).toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
@@ -559,8 +567,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                   <TableHead className="text-right">{t('workshop.orders.colTotal')}</TableHead>
                    <TableHead>{t('workshop.orders.colVehicle')}</TableHead>
                    <TableHead>{t('workshop.orders.colClient')}</TableHead>
-                   <TableHead>{t('workshop.orders.colDeadline')}</TableHead>
                    <TableHead>{t('workshop.orders.colReceived')}</TableHead>
+                   <TableHead>{t('workshop.orders.colDeadline')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -590,8 +598,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         onChanged={(name) => handleStatusChanged(order.id, name)}
                       />
                     </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">
-                      {(order.total_gross || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
+                    <TableCell className="text-right text-[15px] font-semibold tabular-nums text-foreground">
+                      {orderGrossAmount(order).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
                     </TableCell>
 
                     <TableCell onClick={e => e.stopPropagation()}>
@@ -601,57 +609,77 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                             className="flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors"
                             onClick={() => order.vehicle && setEditVehicle(order.vehicle)}
                           >
-                            {order.vehicle && <Car className="h-3.5 w-3.5 text-muted-foreground" />}
-                            <span className="text-sm truncate max-w-[180px]">{getVehicleName(order)}</span>
+                            {order.vehicle && <Car className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                            {order.vehicle ? (
+                              <div className="flex flex-col min-w-0 leading-tight">
+                                {/* Plate first — always fully visible, never truncated. */}
+                                {order.vehicle.plate ? (
+                                  <>
+                                    <span className="text-[15px] font-semibold tracking-wide whitespace-nowrap tabular-nums">{order.vehicle.plate}</span>
+                                    {(order.vehicle.brand || order.vehicle.model) && (
+                                      <span className="text-[13px] font-medium text-foreground/70 truncate max-w-[180px]">
+                                        {`${order.vehicle.brand || ''} ${order.vehicle.model || ''}`.trim()}
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-sm truncate max-w-[180px]">
+                                    {`${order.vehicle.brand || ''} ${order.vehicle.model || ''}`.trim() || '—'}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">—</span>
+                            )}
                           </div>
                         </HoverCardTrigger>
                         {order.vehicle && (
-                          <HoverCardContent className="w-72 p-3" side="bottom" align="start">
+                          <HoverCardContent className="w-96 max-w-[calc(100vw-2rem)] p-4" side="bottom" align="start">
                             <div className="flex items-center justify-between mb-2">
-                              <p className="font-semibold text-sm">{order.vehicle.brand} {order.vehicle.model}</p>
+                              <p className="font-semibold text-base">{order.vehicle.brand} {order.vehicle.model}</p>
                               <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setEditVehicle(order.vehicle)}>
                                 <ExternalLink className="h-3 w-3" />
                               </Button>
                             </div>
-                            <div className="grid grid-cols-2 gap-y-1.5 text-xs">
+                            <div className="grid grid-cols-[auto,minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
                               {order.vehicle.plate && (
                                 <>
                                   <span className="text-muted-foreground">{t('workshop.orders.plate')}</span>
-                                  <button className="text-left font-medium hover:text-primary flex items-center gap-1" onClick={() => { navigator.clipboard.writeText(order.vehicle.plate); toast.success(t('workshop.orders.copiedPlate')); }}>
-                                    {order.vehicle.plate} <Copy className="h-2.5 w-2.5 opacity-50" />
+                                  <button className="text-left font-semibold text-foreground hover:text-primary flex items-center gap-1.5" onClick={() => { navigator.clipboard.writeText(order.vehicle.plate); toast.success(t('workshop.orders.copiedPlate')); }}>
+                                    {order.vehicle.plate} <Copy className="h-3 w-3 opacity-50 shrink-0" />
                                   </button>
                                 </>
                               )}
                               {order.vehicle.vin && (
                                 <>
                                   <span className="text-muted-foreground">{t('workshop.orders.vin')}</span>
-                                  <button className="text-left text-[11px] font-medium hover:text-primary flex items-center gap-1 truncate max-w-full" onClick={() => { navigator.clipboard.writeText(order.vehicle.vin); toast.success(t('workshop.orders.copiedVin')); }}>
-                                    {order.vehicle.vin} <Copy className="h-2.5 w-2.5 opacity-50 shrink-0" />
+                                  <button className="text-left font-semibold text-foreground hover:text-primary flex items-center justify-between gap-2 min-w-0" onClick={() => { navigator.clipboard.writeText(order.vehicle.vin); toast.success(t('workshop.orders.copiedVin')); }}>
+                                    <span className="break-all">{order.vehicle.vin}</span> <Copy className="h-3 w-3 opacity-50 shrink-0" />
                                   </button>
                                 </>
                               )}
                               {order.vehicle.year && (
                                 <>
                                   <span className="text-muted-foreground">{t('workshop.orders.yearOfProd')}</span>
-                                  <span className="font-medium">{order.vehicle.year}</span>
+                                  <span className="font-semibold text-foreground">{order.vehicle.year}</span>
                                 </>
                               )}
                               {order.vehicle.engine_capacity && (
                                 <>
                                   <span className="text-muted-foreground">{t('workshop.orders.capacity')}</span>
-                                  <span className="font-medium">{order.vehicle.engine_capacity} cc</span>
+                                  <span className="font-semibold text-foreground">{order.vehicle.engine_capacity} cc</span>
                                 </>
                               )}
                               {order.vehicle.engine_power && (
                                 <>
                                   <span className="text-muted-foreground">{t('workshop.orders.power')}</span>
-                                  <span className="font-medium">{order.vehicle.engine_power} kW</span>
+                                  <span className="font-semibold text-foreground">{order.vehicle.engine_power} kW</span>
                                 </>
                               )}
                               {order.vehicle.fuel_type && (
                                 <>
                                   <span className="text-muted-foreground">{t('workshop.orders.fuel')}</span>
-                                  <span className="font-medium">{order.vehicle.fuel_type}</span>
+                                  <span className="font-semibold text-foreground">{order.vehicle.fuel_type}</span>
                                 </>
                               )}
                             </div>
@@ -672,7 +700,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                       <HoverCard openDelay={400} closeDelay={200}>
                         <HoverCardTrigger asChild>
                           <span
-                            className="text-sm cursor-pointer hover:text-primary transition-colors"
+                            className="text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors"
                             onClick={() => order.client && setEditClient(order.client)}
                           >
                             {getClientName(order)}
@@ -757,6 +785,9 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                         </button>
                       )}
                      </TableCell>
+                     <TableCell className="text-sm tabular-nums whitespace-nowrap text-foreground">
+                       {format(new Date(order.created_at), 'yyyy-MM-dd')}
+                     </TableCell>
                      <TableCell>
                        {order.scheduled_date ? (
                          <Badge variant="outline" className={`text-xs whitespace-nowrap ${
@@ -770,9 +801,6 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                        ) : (
                          <span className="text-xs text-muted-foreground">—</span>
                        )}
-                     </TableCell>
-                     <TableCell>
-                       {format(new Date(order.created_at), 'yyyy-MM-dd')}
                     </TableCell>
                   </TableRow>
                   );

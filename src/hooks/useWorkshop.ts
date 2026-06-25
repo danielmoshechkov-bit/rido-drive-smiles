@@ -2,6 +2,26 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { pretranslateContent, type ContentItem } from '@/lib/contentTranslation';
+import { computeOrderTotals } from '@/utils/workshopOrderTotals';
+
+// B: keep workshop_orders.total_gross/total_net authoritative at write time, so
+// every consumer (orders list, estimate preview, SMS) sees the correct amount even
+// when the order card was never opened to run its client-side totals effect.
+// Best-effort: on a read/write hiccup we silently bail and the card-side effect
+// stays as a backstop — we never block the item mutation on this.
+async function recomputeOrderTotals(orderId?: string | null) {
+  if (!orderId) return;
+  const { data: items, error } = await (supabase as any)
+    .from('workshop_order_items')
+    .select('total_gross, total_net, quantity, unit_price_gross, unit_price_net, discount_percent')
+    .eq('order_id', orderId);
+  if (error) return;
+  const { total_gross, total_net } = computeOrderTotals(items || []);
+  await (supabase as any)
+    .from('workshop_orders')
+    .update({ total_gross, total_net })
+    .eq('id', orderId);
+}
 
 // Translate-on-write: pola tekstowe zlecenia, które warto pre-tłumaczyć na języki
 // bazowe od razu przy zapisie (admin/klient widzą je potem natychmiast z cache).
@@ -297,9 +317,14 @@ export function useCreateWorkshopOrderItem() {
     mutationFn: async (item: any) => {
       const { data, error } = await (supabase as any)
         .from('workshop_order_items')
-        .insert(item)
+        // Idempotent insert: the caller supplies a stable client-generated `id`
+        // (the draft row's draftKey). If the same draft gets committed twice — an
+        // auto-save race, or a tab remount restoring the localStorage draft — the
+        // duplicate hits ON CONFLICT DO NOTHING instead of creating a second
+        // identical line. On a duplicate, `data` comes back null (nothing inserted).
+        .upsert(item, { onConflict: 'id', ignoreDuplicates: true })
         .select()
-        .single();
+        .maybeSingle();
       if (error) throw error;
       // Mark estimate as changed if it was already sent to client
       if (item.order_id) {
@@ -308,13 +333,39 @@ export function useCreateWorkshopOrderItem() {
           .eq('id', item.order_id)
           .eq('estimate_sent_to_client', true);
       }
+      await recomputeOrderTotals(item.order_id);
       return data;
     },
+    // Optimistic insert: drop the new line into every cached orders query right away,
+    // so the list total recomputes instantly (like the live counter on the order card)
+    // instead of waiting for the DB write + refetch. The caller supplies a stable `id`
+    // (draftKey), so the refetch reconciles onto the same row without duplicating.
+    onMutate: async (item: any) => {
+      await qc.cancelQueries({ queryKey: ['workshop-orders'] });
+      const snapshots: { key: any; data: any }[] = [];
+      qc.getQueriesData({ queryKey: ['workshop-orders'] }).forEach(([key, data]: any) => {
+        snapshots.push({ key, data });
+        if (!Array.isArray(data)) return;
+        const next = data.map((order: any) => {
+          if (order?.id !== item.order_id) return order;
+          const items = Array.isArray(order.items) ? order.items : [];
+          if (items.some((i: any) => i.id === item.id)) return order; // already there — no double
+          return { ...order, items: [...items, item] };
+        });
+        qc.setQueryData(key, next);
+      });
+      return { snapshots };
+    },
+    onError: (e: any, _vars, ctx: any) => {
+      if (ctx?.snapshots) ctx.snapshots.forEach(({ key, data }: any) => qc.setQueryData(key, data));
+      toast.error(e.message);
+    },
     onSuccess: (data: any) => {
-      qc.invalidateQueries({ queryKey: ['workshop-orders'] });
       pretranslateItem(data);
     },
-    onError: (e: any) => toast.error(e.message),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['workshop-orders'] });
+    },
   });
 }
 
@@ -336,6 +387,7 @@ export function useUpdateWorkshopOrderItem() {
           .eq('id', data.order_id)
           .eq('estimate_sent_to_client', true);
       }
+      await recomputeOrderTotals(data?.order_id);
       return data;
     },
     // Optimistic update: patch the item inside every cached orders query so the new
@@ -375,15 +427,41 @@ export function useDeleteWorkshopOrderItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      // Grab the order_id before deleting so we can recompute the order total after.
+      const { data: existing } = await (supabase as any)
+        .from('workshop_order_items')
+        .select('order_id')
+        .eq('id', id)
+        .maybeSingle();
       const { error } = await (supabase as any)
         .from('workshop_order_items')
         .delete()
         .eq('id', id);
       if (error) throw error;
+      await recomputeOrderTotals(existing?.order_id);
     },
-    onSuccess: () => {
+    // Optimistic remove: drop the line from every cached orders query right away so the
+    // list total falls instantly; onError restores the snapshot, onSettled reconciles.
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['workshop-orders'] });
+      const snapshots: { key: any; data: any }[] = [];
+      qc.getQueriesData({ queryKey: ['workshop-orders'] }).forEach(([key, data]: any) => {
+        snapshots.push({ key, data });
+        if (!Array.isArray(data)) return;
+        const next = data.map((order: any) => {
+          if (!order?.items?.some((i: any) => i.id === id)) return order;
+          return { ...order, items: order.items.filter((i: any) => i.id !== id) };
+        });
+        qc.setQueryData(key, next);
+      });
+      return { snapshots };
+    },
+    onError: (e: any, _vars, ctx: any) => {
+      if (ctx?.snapshots) ctx.snapshots.forEach(({ key, data }: any) => qc.setQueryData(key, data));
+      toast.error(e.message);
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['workshop-orders'] });
     },
-    onError: (e: any) => toast.error(e.message),
   });
 }
