@@ -310,3 +310,9 @@ verify_jwt = false
 
 [functions.workshop-approve-findings]
 verify_jwt = false
+
+[functions.rental-dispatcher]
+verify_jwt = false
+
+[functions.rental-availability]
+verify_jwt = false
