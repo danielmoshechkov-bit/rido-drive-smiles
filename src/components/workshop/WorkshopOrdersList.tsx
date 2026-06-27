@@ -25,6 +25,7 @@ import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { ExistingInvoiceModal } from './ExistingInvoiceModal';
 import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
+import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
 import {
   Plus, Search, Car, Trash2,
   Wrench, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
@@ -69,6 +70,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [search, setSearch] = useState('');
   const [orderView, setOrderView] = useState<'active' | 'completed'>('active');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  // Pack 1: date range for the "Zakończone" view + payment modal on completion.
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [paymentOrder, setPaymentOrder] = useState<any | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
   const [editClient, setEditClient] = useState<any>(null);
@@ -122,8 +127,20 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     if (statusFilter !== 'all') {
       filtered = filtered.filter((o: any) => o.status_name === statusFilter);
     }
+    // Date range (mainly for the completed view): filter by completion date if set,
+    // else creation date.
+    if (dateFrom || dateTo) {
+      const from = dateFrom ? new Date(dateFrom) : null;
+      const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
+      filtered = filtered.filter((o: any) => {
+        const basis = o.completed_at || o.created_at;
+        if (!basis) return false;
+        const d = new Date(basis);
+        return (!from || d >= from) && (!to || d <= to);
+      });
+    }
     return filtered;
-  }, [orders, orderView, statusFilter]);
+  }, [orders, orderView, statusFilter, dateFrom, dateTo]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -150,6 +167,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     );
     const order = orders.find((o: any) => o.id === orderId);
     if (!order) return;
+    // Pack 1: closing an order opens the payment form (cash/card/BLIK/transfer, split).
+    if (newStatus === 'Zakończone') {
+      setPaymentOrder({ ...order, status_name: newStatus });
+    }
     const lower = (newStatus || '').toLowerCase();
     if (lower.includes('gotow') || lower.includes('odbioru')) {
       setSmsDialogType('ready');
@@ -464,6 +485,17 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             ))}
           </SelectContent>
         </Select>
+
+        {orderView === 'completed' && (
+          <div className="flex items-center gap-1">
+            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 w-[150px]" title="Data od" />
+            <span className="text-muted-foreground">—</span>
+            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 w-[150px]" title="Data do" />
+            {(dateFrom || dateTo) && (
+              <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => { setDateFrom(''); setDateTo(''); }}>×</Button>
+            )}
+          </div>
+        )}
 
         <div className="relative w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -871,6 +903,18 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           onOpenChange={(v) => { if (!v) setSmsDialogOrder(null); }}
           order={smsDialogOrder}
           type={smsDialogType}
+        />
+      )}
+
+      {/* Pack 1: payment form on order completion */}
+      {paymentOrder && (
+        <WorkshopPaymentDialog
+          open={!!paymentOrder}
+          onOpenChange={(v) => { if (!v) setPaymentOrder(null); }}
+          providerId={providerId}
+          orderId={paymentOrder.id}
+          amount={orderGrossAmount(paymentOrder)}
+          title={`Płatność — ${paymentOrder.order_number || ''}`}
         />
       )}
 

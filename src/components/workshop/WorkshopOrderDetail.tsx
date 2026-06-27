@@ -24,6 +24,8 @@ import { WorkshopOrderEmployeeFindingsTab } from './tabs/WorkshopOrderEmployeeFi
 import { OrderHistoryTimeline } from './OrderHistoryTimeline';
 import { OrderCallPanel } from './OrderCallPanel';
 import { WorkshopStatusPicker } from './WorkshopStatusPicker';
+import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
+import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
@@ -88,6 +90,10 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
     order.has_unread_notes = true;
     queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
 
+    // Pack 1: closing the order opens the payment form.
+    if (name === 'Zakończone') {
+      setPaymentOpen(true);
+    }
     const lower = (name || '').toLowerCase();
     if (lower.includes('gotow') || lower.includes('odbioru')) {
       setSmsType('ready');
@@ -97,6 +103,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
       setSmsOpen(true);
     }
   };
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [pickClientOpen, setPickClientOpen] = useState(false);
   const [editVehicleOpen, setEditVehicleOpen] = useState(false);
@@ -615,6 +622,16 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         open={mechanicCardOpen}
         onOpenChange={setMechanicCardOpen}
         order={order}
+      />
+
+      {/* Pack 1: payment form on order completion */}
+      <WorkshopPaymentDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        providerId={providerId}
+        orderId={order.id}
+        amount={computeOrderTotals(order.items).total_gross || order.total_gross || 0}
+        title={`Płatność — ${order.order_number || ''}`}
       />
     </div>
   );
