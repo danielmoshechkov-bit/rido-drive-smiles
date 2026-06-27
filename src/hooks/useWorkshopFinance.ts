@@ -49,6 +49,26 @@ export function useWorkshopPaymentsRange(providerId?: string, from?: string, to?
   });
 }
 
+// Wszystkie operacje kasowe providera (do skumulowanego salda + feedu). MVP: pełny
+// zaciąg, sumowanie po stronie klienta.
+export function useWorkshopCashData(providerId?: string) {
+  return useQuery({
+    queryKey: ['workshop-cash-data', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const [p, e, po] = await Promise.all([
+        (supabase as any).from('workshop_payments').select('*').eq('provider_id', providerId),
+        (supabase as any).from('workshop_expenses').select('*').eq('provider_id', providerId),
+        (supabase as any).from('workshop_employee_payouts').select('*').eq('provider_id', providerId),
+      ]);
+      if (p.error) throw p.error;
+      if (e.error) throw e.error;
+      if (po.error) throw po.error;
+      return { payments: p.data || [], expenses: e.data || [], payouts: po.data || [] };
+    },
+  });
+}
+
 export function useCreateWorkshopPayments() {
   const qc = useQueryClient();
   return useMutation({

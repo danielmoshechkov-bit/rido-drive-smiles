@@ -16,7 +16,7 @@ import {
 } from '@/hooks/useWorkshopFinance';
 import { WorkshopRecurringCosts } from './WorkshopRecurringCosts';
 
-interface Props { providerId: string; }
+interface Props { providerId: string; initialTab?: 'wydatki' | 'cykliczne'; }
 
 const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Date().toISOString().slice(0, 10);
@@ -27,7 +27,7 @@ const SUBCATEGORIES: Record<ExpenseCategory, string[]> = {
   wyplata: ['Pensja', 'Zaliczka', 'Premia'],
 };
 
-export function WorkshopExpenses({ providerId }: Props) {
+export function WorkshopExpenses({ providerId, initialTab = 'wydatki' }: Props) {
   const [category, setCategory] = useState<ExpenseCategory>('zakup');
   const [subcategory, setSubcategory] = useState('Części');
   const [amount, setAmount] = useState('');
@@ -38,7 +38,7 @@ export function WorkshopExpenses({ providerId }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [tab, setTab] = useState<'wydatki' | 'cykliczne'>('wydatki');
+  const [tab, setTab] = useState<'wydatki' | 'cykliczne'>(initialTab);
   const [filterCat, setFilterCat] = useState<ExpenseCategory | 'all'>('all');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
