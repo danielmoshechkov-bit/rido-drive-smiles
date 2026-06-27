@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useWorkshopOrders, useWorkshopClients, useWorkshopVehicles, useWorkshopStatuses } from '@/hooks/useWorkshop';
+import { safeNumber } from '@/utils/workshopOrderTotals';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   ArrowLeft, ClipboardList, Receipt, Users, UserCheck, Wallet, Car, Package,
@@ -51,6 +52,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [statusFilter, setStatusFilter] = useState('all');
   const [priceMode, setPriceMode] = useState<'netto' | 'brutto'>('brutto');
+  const [dateBasis, setDateBasis] = useState<'created' | 'completed'>('created');
+  const [generated, setGenerated] = useState(false);
 
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId);
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
@@ -64,18 +67,28 @@ export function WorkshopReports({ providerId, onBack }: Props) {
     }
   };
 
-  // Filter orders by date range for reports
+  // Revenue/cost honour the NETTO/BRUTTO toggle and use the REAL columns:
+  //   revenue = order total (net or gross),
+  //   cost    = parts unit_cost × qty + labor_cost  (the old code summed `i.cost`,
+  //             a field that does not exist → always 0).
+  const orderRevenue = (o: any) => safeNumber(priceMode === 'brutto' ? o.total_gross : o.total_net);
+  const orderCost = (o: any) => (o.items || []).reduce((s: number, i: any) => {
+    const qty = safeNumber(i.quantity) || 1;
+    const unitCost = priceMode === 'brutto' ? safeNumber(i.unit_cost_gross) : safeNumber(i.unit_cost_net);
+    return s + unitCost * qty + safeNumber(i.labor_cost);
+  }, 0);
+
+  // "Pobieraj po": filter by created_at or completed_at depending on the selector.
   const reportOrders = orders.filter((o: any) => {
-    const d = new Date(o.created_at);
+    const basis = dateBasis === 'completed' ? o.completed_at : o.created_at;
+    if (!basis) return false;
+    const d = new Date(basis);
     return d >= new Date(dateFrom) && d <= new Date(dateTo + 'T23:59:59') &&
       (statusFilter === 'all' || o.status_name === statusFilter);
   });
 
-  const totalGross = reportOrders.reduce((s: number, o: any) => s + (o.total_gross || 0), 0);
-  const totalCost = reportOrders.reduce((s: number, o: any) => {
-    const items = o.items || [];
-    return s + items.reduce((is: number, i: any) => is + ((i.cost || 0) * (i.quantity || 1)), 0);
-  }, 0);
+  const totalRevenue = reportOrders.reduce((s: number, o: any) => s + orderRevenue(o), 0);
+  const totalCost = reportOrders.reduce((s: number, o: any) => s + orderCost(o), 0);
 
   if (activeReport === 'zestawienie-szczegolowe') {
     return (
@@ -108,7 +121,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label>{t('workshop.reports.fetchBy')}</Label>
-                <Select defaultValue="created">
+                <Select value={dateBasis} onValueChange={(v) => setDateBasis(v as 'created' | 'completed')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="created">{t('workshop.reports.dateCreated')}</SelectItem>
@@ -147,7 +160,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               </div>
             </div>
 
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={() => setGenerated(true)}>
               <Eye className="h-4 w-4" /> {t('workshop.reports.showReport')}
             </Button>
           </CardContent>
@@ -159,6 +172,14 @@ export function WorkshopReports({ providerId, onBack }: Props) {
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !generated ? (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                Ustaw filtry i kliknij „Pokaż raport".
+              </div>
+            ) : reportOrders.length === 0 ? (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                Brak zleceń w wybranym zakresie.
               </div>
             ) : (
               <Table>
@@ -176,13 +197,14 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                 </TableHeader>
                 <TableBody>
                   {reportOrders.map((o: any) => {
-                    const cost = (o.items || []).reduce((s: number, i: any) => s + ((i.cost || 0) * (i.quantity || 1)), 0);
-                    const revenue = o.total_gross || 0;
+                    const cost = orderCost(o);
+                    const revenue = orderRevenue(o);
                     const profit = revenue - cost;
+                    const basisDate = dateBasis === 'completed' ? o.completed_at : o.created_at;
                     return (
                       <TableRow key={o.id}>
                         <TableCell className="font-medium">{o.order_number}</TableCell>
-                        <TableCell className="text-sm">{format(new Date(o.created_at), 'yyyy-MM-dd')}</TableCell>
+                        <TableCell className="text-sm">{basisDate ? format(new Date(basisDate), 'yyyy-MM-dd') : '—'}</TableCell>
                         <TableCell className="text-sm">
                           {o.client ? (o.client.client_type === 'company' ? o.client.company_name : `${o.client.first_name || ''} ${o.client.last_name || ''}`.trim()) : ''}
                         </TableCell>
@@ -201,10 +223,10 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                   {reportOrders.length > 0 && (
                     <TableRow className="font-semibold bg-muted/50">
                       <TableCell colSpan={5}>{t('workshop.reports.sum')}</TableCell>
-                      <TableCell className="text-right">{totalGross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-right">{totalRevenue.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
                       <TableCell className="text-right">{totalCost.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell className={`text-right ${totalGross - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                        {(totalGross - totalCost).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
+                      <TableCell className={`text-right ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                        {(totalRevenue - totalCost).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
                   )}
