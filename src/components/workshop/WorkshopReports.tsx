@@ -84,8 +84,14 @@ export function WorkshopReports({ providerId, onBack }: Props) {
     return m;
   }, [payments]);
 
+  // "Zakończenia": dla zleceń zakończonych bez completed_at (sprzed wdrożenia znacznika)
+  // używamy updated_at/created_at jako daty zakończenia — inaczej znikały z raportu.
+  const basisDateOf = (o: any) => dateBasis === 'completed'
+    ? (o.completed_at || o.updated_at || o.created_at)
+    : o.created_at;
+
   const reportOrders = useMemo(() => (orders as any[]).filter((o) => {
-    const basis = dateBasis === 'completed' ? o.completed_at : o.created_at;
+    const basis = basisDateOf(o);
     if (!basis) return false;
     const d = dpart(basis);
     if (d < dateFrom || d > dateTo) return false;
@@ -229,7 +235,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                 <TableBody>
                   {reportOrders.map((o) => {
                     const revenue = orderRevenue(o), cost = orderCost(o), profit = revenue - cost;
-                    const basisDate = dateBasis === 'completed' ? o.completed_at : o.created_at;
+                    const basisDate = basisDateOf(o);
                     return (
                       <TableRow key={o.id}>
                         <TableCell className="font-medium">{o.order_number}</TableCell>
