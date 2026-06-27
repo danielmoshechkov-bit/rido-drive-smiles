@@ -217,7 +217,7 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
         <Button variant="outline" onClick={() => setCashOut(true)} className="gap-2"><ArrowUpCircle className="h-4 w-4" /> Dodaj wypłatę</Button>
         <Button variant="outline" onClick={() => onGoTo?.('zakup', 'wydatki')} className="gap-2"><ShoppingCart className="h-4 w-4" /> Dodaj zakup</Button>
         <Button variant="outline" onClick={() => onGoTo?.('zakup', 'cykliczne')} className="gap-2"><Receipt className="h-4 w-4" /> Dodaj opłatę</Button>
-        <div className="flex-1" />
+        <div className="hidden md:block flex-1" />
         <Button variant="outline" onClick={() => setArchiveOpen((v) => !v)} className="gap-2"><History className="h-4 w-4" /> Archiwum ({(closures as any[]).length})</Button>
         <Button variant="secondary" onClick={() => setCloseOpen(true)} className="gap-2"><Lock className="h-4 w-4" /> Zamknij miesiąc</Button>
       </div>
@@ -246,7 +246,7 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
           <h3 className="font-semibold">Przepływ okresu</h3>
           <WorkshopRangeCalendar from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} align="end" />
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="rounded-md border p-3"><div className="flex items-center gap-1 text-green-600 text-sm"><TrendingUp className="h-4 w-4" />Wpływy</div><p className="text-xl font-bold tabular-nums">{fmt(periodIn)}</p></div>
           <div className="rounded-md border p-3"><div className="flex items-center gap-1 text-destructive text-sm"><TrendingDown className="h-4 w-4" />Wydatki</div><p className="text-xl font-bold tabular-nums">{fmt(periodOut)}</p></div>
           <div className="rounded-md border p-3"><div className="flex items-center gap-1 text-sm"><Wallet className="h-4 w-4" />Wynik</div><p className={`text-xl font-bold tabular-nums ${periodResult >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(periodResult)}</p></div>
