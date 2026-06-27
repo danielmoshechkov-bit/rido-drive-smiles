@@ -6122,6 +6122,39 @@ export type Database = {
         }
         Relationships: []
       }
+      companies: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          nip: string | null
+          owner_user_id: string
+          status: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          nip?: string | null
+          owner_user_id: string
+          status?: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          nip?: string | null
+          owner_user_id?: string
+          status?: string
+          type?: string
+        }
+        Relationships: []
+      }
       company_ai_settings: {
         Row: {
           allow_provider_switch: boolean | null
@@ -6172,6 +6205,41 @@ export type Database = {
           },
         ]
       }
+      company_members: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_owner: boolean
+          status: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_owner?: boolean
+          status?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_owner?: boolean
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           address: string | null
@@ -6180,6 +6248,7 @@ export type Database = {
           bank_name: string | null
           building_number: string | null
           city: string | null
+          company_id: string | null
           company_name: string | null
           country: string | null
           created_at: string | null
@@ -6219,6 +6288,7 @@ export type Database = {
           bank_name?: string | null
           building_number?: string | null
           city?: string | null
+          company_id?: string | null
           company_name?: string | null
           country?: string | null
           created_at?: string | null
@@ -6258,6 +6328,7 @@ export type Database = {
           bank_name?: string | null
           building_number?: string | null
           city?: string | null
+          company_id?: string | null
           company_name?: string | null
           country?: string | null
           created_at?: string | null
@@ -6290,7 +6361,15 @@ export type Database = {
           user_id?: string | null
           zip_city?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contract_signature_logs: {
         Row: {
@@ -9178,6 +9257,7 @@ export type Database = {
           cash_pickup_day: string | null
           cash_pickup_location: string | null
           city: string | null
+          company_id: string | null
           contact_name: string | null
           contact_phone_for_drivers: string | null
           created_at: string | null
@@ -9225,6 +9305,7 @@ export type Database = {
           cash_pickup_day?: string | null
           cash_pickup_location?: string | null
           city?: string | null
+          company_id?: string | null
           contact_name?: string | null
           contact_phone_for_drivers?: string | null
           created_at?: string | null
@@ -9272,6 +9353,7 @@ export type Database = {
           cash_pickup_day?: string | null
           cash_pickup_location?: string | null
           city?: string | null
+          company_id?: string | null
           contact_name?: string | null
           contact_phone_for_drivers?: string | null
           created_at?: string | null
@@ -9305,7 +9387,15 @@ export type Database = {
           uber_vat_rate?: number | null
           vat_rate?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fleets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       followup_queue: {
         Row: {
@@ -14883,6 +14973,7 @@ export type Database = {
           company_apartment_number: string | null
           company_building_number: string | null
           company_city: string
+          company_id: string | null
           company_name: string
           company_nip: string
           company_postal_code: string | null
@@ -14911,6 +15002,7 @@ export type Database = {
           company_apartment_number?: string | null
           company_building_number?: string | null
           company_city: string
+          company_id?: string | null
           company_name: string
           company_nip: string
           company_postal_code?: string | null
@@ -14939,6 +15031,7 @@ export type Database = {
           company_apartment_number?: string | null
           company_building_number?: string | null
           company_city?: string
+          company_id?: string | null
           company_name?: string
           company_nip?: string
           company_postal_code?: string | null
@@ -14962,6 +15055,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "real_estate_agents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "real_estate_agents_parent_agent_id_fkey"
             columns: ["parent_agent_id"]
@@ -17239,6 +17339,7 @@ export type Database = {
           company_address: string | null
           company_city: string | null
           company_email: string | null
+          company_id: string | null
           company_name: string
           company_nip: string | null
           company_phone: string | null
@@ -17282,6 +17383,7 @@ export type Database = {
           company_address?: string | null
           company_city?: string | null
           company_email?: string | null
+          company_id?: string | null
           company_name: string
           company_nip?: string | null
           company_phone?: string | null
@@ -17325,6 +17427,7 @@ export type Database = {
           company_address?: string | null
           company_city?: string | null
           company_email?: string | null
+          company_id?: string | null
           company_name?: string
           company_nip?: string | null
           company_phone?: string | null
@@ -17366,6 +17469,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_providers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -25211,6 +25321,10 @@ export type Database = {
           remaining_debt: number
         }[]
       }
+      can_access_workspace_task_project: {
+        Args: { p_task_id: string }
+        Returns: boolean
+      }
       can_change_settlement_plan: {
         Args: { _driver_id: string; _user_id: string }
         Returns: Json
@@ -25258,6 +25372,18 @@ export type Database = {
         }[]
       }
       get_driver_city_id: { Args: never; Returns: string }
+      get_my_agent_ids: { Args: never; Returns: string[] }
+      get_my_driver_ids: { Args: never; Returns: string[] }
+      get_my_fleet_ids: { Args: never; Returns: string[] }
+      get_my_invited_projects: {
+        Args: never
+        Returns: {
+          created_at: string
+          member_id: string
+          project_id: string
+          project_name: string
+        }[]
+      }
       get_next_auto_invoice_number: {
         Args: { p_fleet_id: string; p_month: number; p_year: number }
         Returns: string
@@ -25287,6 +25413,10 @@ export type Database = {
         Args: { p_token: string }
         Returns: Json
       }
+      get_workshop_order_by_client_code: {
+        Args: { p_code: string }
+        Returns: Json
+      }
       get_workspace_member_project_ids: { Args: never; Returns: string[] }
       get_workspace_owned_project_ids: { Args: never; Returns: string[] }
       has_ai_pro_access: {
@@ -25312,6 +25442,8 @@ export type Database = {
         Args: { p_entity_id: string }
         Returns: boolean
       }
+      is_company_member: { Args: { p_company_id: string }; Returns: boolean }
+      is_company_owner: { Args: { p_company_id: string }; Returns: boolean }
       is_driver_user: { Args: never; Returns: boolean }
       is_entity_owner: { Args: { p_entity_id: string }; Returns: boolean }
       is_plan_available: { Args: { _plan_id: string }; Returns: boolean }
@@ -25323,6 +25455,10 @@ export type Database = {
       }
       is_workspace_project_owner: {
         Args: { p_project_id: string }
+        Returns: boolean
+      }
+      is_workspace_task_assignee: {
+        Args: { p_task_id: string }
         Returns: boolean
       }
       link_auth_user_to_driver: {
@@ -25380,6 +25516,10 @@ export type Database = {
       reschedule_workshop_booking_by_token: {
         Args: { p_date: string; p_time: string; p_token: string }
         Returns: undefined
+      }
+      sign_workshop_document_by_client_code: {
+        Args: { p_code: string; p_doc_type: string; p_user_agent?: string }
+        Returns: Json
       }
       telegram_bot_token_is_set: { Args: never; Returns: boolean }
       user_can_access_driver: {
