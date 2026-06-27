@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, History, Pencil, Ban, Trash2 } from 'lucide-react';
+import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, Pencil, Ban, Trash2 } from 'lucide-react';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopCashEntryDialog } from './WorkshopCashEntryDialog';
 import { WorkshopExpenseDialog } from './WorkshopExpenseDialog';
@@ -13,7 +13,6 @@ import { computeOrderTotals, safeNumber } from '@/utils/workshopOrderTotals';
 
 interface Props {
   providerId: string;
-  onGoTo?: (view: 'sprzedaz' | 'zakup', sub?: 'wydatki' | 'cykliczne') => void;
 }
 
 const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -23,7 +22,7 @@ const dpart = (s?: string) => (s ? String(s).slice(0, 10) : '');
 const inRange = (date: string, from: string, to: string) => date >= from && date <= to;
 const sum = (arr: any[], pred?: (x: any) => boolean) => arr.filter(pred || (() => true)).reduce((s, x) => s + Number(x.amount || 0), 0);
 
-export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
+export function WorkshopCashPanel({ providerId }: Props) {
   const { data } = useWorkshopCashData(providerId);
   const { data: settings } = useWorkshopFinanceSettings(providerId);
   const cashEnabled = !!settings?.cash_enabled;
@@ -48,7 +47,6 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   const [cashIn, setCashIn] = useState(false);
   const [expenseCat, setExpenseCat] = useState<ExpenseCategory | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState(false);
   const [closeMonth, setCloseMonth] = useState(() => new Date().toISOString().slice(0, 7)); // 'YYYY-MM'
   const [showAllOps, setShowAllOps] = useState(false);
   const [voidOp, setVoidOp] = useState<CashOp | null>(null);
@@ -149,6 +147,32 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
     cash_end: round2(cashGotowka),
   };
 
+  // ── Rozliczenie miesięcy NA ŻYWO (niezależne od zamknięcia) ──
+  const monthSummary = (ym: string) => {
+    const from = `${ym}-01`;
+    const [y, m] = ym.split('-').map(Number);
+    const ed = new Date(y, m, 0);
+    const end = `${ed.getFullYear()}-${String(ed.getMonth() + 1).padStart(2, '0')}-${String(ed.getDate()).padStart(2, '0')}`;
+    const inM = (d?: string) => { const x = dpart(d); return !!x && x >= from && x <= end; };
+    const ords = (orders as any[]).filter((o) => o.status_name === 'Zakończone' && inM(o.completed_at || o.created_at));
+    const rev = ords.reduce((s, o) => s + orderRevenue(o), 0);
+    const cost = ords.reduce((s, o) => s + orderCost(o), 0);
+    const exp = (data?.expenses || []).filter((e: any) => !e.voided && inM(e.expense_date)).reduce((s: number, e: any) => s + Number(e.amount || 0), 0);
+    const inflow = (data?.payments || []).filter((p: any) => !p.voided && inM(p.paid_at)).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+    const pay = (data?.payouts || []).filter((p: any) => !p.voided && (p.type === 'zaliczka' || p.type === 'wyplata') && inM(p.paid_at)).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+    const closed = (closures as any[]).find((c) => dpart(c.period_from) === from);
+    return { ym, count: ords.length, rev: round2(rev), cost: round2(cost), profit: round2(rev - cost), margin: rev > 0 ? round2((rev - cost) / rev * 100) : 0, expenses: round2(exp), result: round2(inflow - exp - pay), closed };
+  };
+  const monthList = useMemo(() => {
+    const set = new Set<string>();
+    (data?.payments || []).forEach((p: any) => p.paid_at && set.add(dpart(p.paid_at).slice(0, 7)));
+    (data?.expenses || []).forEach((e: any) => e.expense_date && set.add(dpart(e.expense_date).slice(0, 7)));
+    (data?.payouts || []).forEach((p: any) => p.paid_at && set.add(dpart(p.paid_at).slice(0, 7)));
+    (orders as any[]).forEach((o) => { const d = o.completed_at || o.created_at; if (d) set.add(dpart(d).slice(0, 7)); });
+    set.add(today().slice(0, 7));
+    return Array.from(set).filter(Boolean).sort().reverse().slice(0, 12);
+  }, [data, orders]);
+
   const confirmClose = async () => {
     if (alreadyClosed) { return; }
     await createClosure.mutateAsync({ provider_id: providerId, ...closureSummary });
@@ -236,30 +260,8 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
         <Button variant="outline" onClick={() => setExpenseCat('zakup')} className="gap-2"><ShoppingCart className="h-4 w-4" /> Dodaj zakup</Button>
         <Button variant="outline" onClick={() => setExpenseCat('oplata')} className="gap-2"><Receipt className="h-4 w-4" /> Dodaj opłatę</Button>
         <div className="hidden md:block flex-1" />
-        <Button variant="outline" onClick={() => setArchiveOpen((v) => !v)} className="gap-2"><History className="h-4 w-4" /> Archiwum ({(closures as any[]).length})</Button>
         <Button variant="secondary" onClick={() => setCloseOpen(true)} className="gap-2"><Lock className="h-4 w-4" /> Zamknij miesiąc</Button>
       </div>
-
-      {archiveOpen && (
-        <Card><CardContent className="py-4">
-          <h3 className="font-semibold mb-2">Archiwum zamkniętych miesięcy</h3>
-          {(closures as any[]).length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2 text-center">Brak zamknięć.</p>
-          ) : (
-            <div className="space-y-1.5">
-              {(closures as any[]).map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-2 text-sm border-b pb-1.5 last:border-0">
-                  <span>{c.period_from} — {c.period_to} <span className="text-muted-foreground">· {c.orders_count} zleceń</span></span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="tabular-nums">Wynik: <span className={`font-semibold ${Number(c.result) >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(Number(c.result))}</span> · gotówka {fmt(Number(c.cash_end))}</span>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="Usuń zamknięcie" onClick={() => { if (confirm('Usunąć ten wpis archiwum?')) deleteClosure.mutate(c.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent></Card>
-      )}
 
       {/* Period flow */}
       <Card><CardContent className="py-4 space-y-3">
@@ -336,6 +338,53 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
           )}
         </CardContent></Card>
       </div>
+
+      {/* Rozliczenie miesięcy — na żywo, niezależne od zamknięcia (zatwierdzone + otwarte) */}
+      <Card><CardContent className="py-4">
+        <h3 className="font-semibold mb-2">Rozliczenie miesięcy</h3>
+        <div className="overflow-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-muted-foreground text-left border-b">
+                <th className="py-1 pr-2">Miesiąc</th>
+                <th className="py-1 px-2 text-right">Zleceń</th>
+                <th className="py-1 px-2 text-right">Przychód</th>
+                <th className="py-1 px-2 text-right">Koszt</th>
+                <th className="py-1 px-2 text-right">Zysk</th>
+                <th className="py-1 px-2 text-right">Marża</th>
+                <th className="py-1 px-2 text-right">Wydatki</th>
+                <th className="py-1 px-2 text-right">Wynik</th>
+                <th className="py-1 pl-2">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthList.map((ym) => {
+                const s = monthSummary(ym);
+                return (
+                  <tr key={ym} className="border-b last:border-0">
+                    <td className="py-1.5 pr-2 font-medium tabular-nums">{ym}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{s.count}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{fmt(s.rev)}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{fmt(s.cost)}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{fmt(s.profit)}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{s.margin.toFixed(0)}%</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{fmt(s.expenses)}</td>
+                    <td className={`py-1.5 px-2 text-right tabular-nums font-semibold ${s.result >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(s.result)}</td>
+                    <td className="py-1.5 pl-2">
+                      <div className="flex items-center gap-1">
+                        {s.closed
+                          ? <span className="inline-flex items-center gap-1 text-xs text-green-700"><Lock className="h-3 w-3" />zatwierdzony</span>
+                          : <span className="text-xs text-muted-foreground">otwarty — poglądowo</span>}
+                        {s.closed && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" title="Usuń zatwierdzenie" onClick={() => { if (confirm('Usunąć zatwierdzenie tego miesiąca?')) deleteClosure.mutate(s.closed.id); }}><Trash2 className="h-3 w-3" /></Button>}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent></Card>
 
       <WorkshopCashEntryDialog open={cashIn} onOpenChange={setCashIn} providerId={providerId} kind="in" />
       <WorkshopExpenseDialog open={!!expenseCat} onOpenChange={(o) => { if (!o) setExpenseCat(null); }} providerId={providerId} defaultCategory={expenseCat || 'zakup'} />
