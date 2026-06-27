@@ -6,7 +6,7 @@ import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopCashEntryDialog } from './WorkshopCashEntryDialog';
 import { WorkshopMonthCloseDialog, type ClosureSummary } from './WorkshopMonthCloseDialog';
 import { WorkshopVoidDialog, WorkshopOpEditDialog, type CashOp } from './WorkshopOpDialogs';
-import { useWorkshopCashData, useWorkshopFinanceSettings, useSaveFinanceSettings, useCashClosures, useCreateCashClosure, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod } from '@/hooks/useWorkshopFinance';
+import { useWorkshopCashData, useWorkshopFinanceSettings, useSaveFinanceSettings, useCashClosures, useCreateCashClosure, useWorkshopRecurringCosts, recurringReminderLevel, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod } from '@/hooks/useWorkshopFinance';
 import { useWorkshopOrders } from '@/hooks/useWorkshop';
 import { computeOrderTotals, safeNumber } from '@/utils/workshopOrderTotals';
 
@@ -38,6 +38,7 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   const expenses = rawExpenses.filter((e: any) => !e.voided);
   const payouts = rawPayouts.filter((p: any) => !p.voided);
   const { data: orders = [] } = useWorkshopOrders(providerId);
+  const { data: recurringCosts = [] } = useWorkshopRecurringCosts(providerId);
 
   const [from, setFrom] = useState(startOfWeek());
   const [to, setTo] = useState(today());
@@ -63,6 +64,14 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   const t0 = today();
   const dayIn = sum(payments, (p) => dpart(p.paid_at) === t0);
   const dayOut = sum(expenses, (e) => dpart(e.expense_date) === t0) + sum(payouts, (p) => (p.type === 'zaliczka' || p.type === 'wyplata') && dpart(p.paid_at) === t0);
+  const dayInByMethod = (m: PaymentMethod) => sum(payments, (p) => p.method === m && dpart(p.paid_at) === t0);
+
+  // ── Pulpit dnia ──
+  const ordersInProgress = (orders as any[]).filter((o) => o.status_name !== 'Zakończone' && o.status_name !== 'Gotowy do odbioru' && o.status_name !== 'Nowe zlecenie').length;
+  const ordersReady = (orders as any[]).filter((o) => o.status_name === 'Gotowy do odbioru').length;
+  const upcomingFees = (recurringCosts as any[])
+    .filter((c) => c.active && recurringReminderLevel(c.next_due_date) !== 'none')
+    .sort((a, b) => (a.next_due_date < b.next_due_date ? -1 : 1));
 
   // ── Okres ──
   const periodIn = sum(payments, (p) => inRange(dpart(p.paid_at), from, to));
@@ -149,6 +158,38 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Pulpit dnia */}
+      <Card><CardContent className="py-4">
+        <h3 className="font-semibold mb-3">Pulpit dnia</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-muted-foreground">Dziś weszło</p>
+            <p className="text-xl font-bold tabular-nums text-green-600">+{fmt(dayIn)} zł</p>
+            <div className="text-[11px] text-muted-foreground mt-1 space-y-0.5">
+              {PAYMENT_METHODS.filter((m) => dayInByMethod(m.value) > 0).map((m) => (
+                <div key={m.value} className="flex justify-between"><span>{m.label}</span><span className="tabular-nums">{fmt(dayInByMethod(m.value))}</span></div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Zlecenia w toku</p><p className="text-2xl font-bold">{ordersInProgress}</p></div>
+          <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Czeka na odbiór</p><p className="text-2xl font-bold">{ordersReady}</p></div>
+          <div className="rounded-md border p-3">
+            <p className="text-xs text-muted-foreground">Opłaty w tym tygodniu</p>
+            {upcomingFees.length === 0 ? (
+              <p className="text-sm text-muted-foreground mt-1">Brak</p>
+            ) : (
+              <div className="space-y-0.5 mt-1">
+                {upcomingFees.slice(0, 3).map((c) => {
+                  const lvl = recurringReminderLevel(c.next_due_date);
+                  const color = lvl === 'red' ? 'text-destructive' : lvl === 'yellow' ? 'text-yellow-600' : 'text-green-600';
+                  return <div key={c.id} className="flex justify-between text-xs"><span className={color}>● {c.name}</span><span className="tabular-nums text-muted-foreground">{c.next_due_date}</span></div>;
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent></Card>
+
       {/* Cumulative cash state — always visible */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <Card><CardContent className="py-4 flex items-center gap-3">
