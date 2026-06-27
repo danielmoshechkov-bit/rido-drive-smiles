@@ -65,3 +65,74 @@ export function useCreateWorkshopPayments() {
     onError: (e: any) => toast.error(e.message),
   });
 }
+
+// ---- Wydatki (workshop_expenses) — Pack 2 ----
+export type ExpenseCategory = 'zakup' | 'oplata' | 'wyplata';
+
+export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
+  { value: 'zakup', label: 'Zakupy' },
+  { value: 'oplata', label: 'Opłaty' },
+  { value: 'wyplata', label: 'Wypłaty' },
+];
+
+export function useWorkshopExpenses(providerId?: string, filters?: { category?: ExpenseCategory | 'all'; from?: string; to?: string }) {
+  return useQuery({
+    queryKey: ['workshop-expenses', providerId, filters],
+    enabled: !!providerId,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from('workshop_expenses')
+        .select('*, employee:workshop_employees(id, name)')
+        .eq('provider_id', providerId)
+        .order('expense_date', { ascending: false });
+      if (filters?.category && filters.category !== 'all') q = q.eq('category', filters.category);
+      if (filters?.from) q = q.gte('expense_date', filters.from);
+      if (filters?.to) q = q.lte('expense_date', filters.to);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
+export function useCreateWorkshopExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (expense: any) => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_expenses')
+        .insert(expense)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workshop-expenses'] });
+      toast.success('Wydatek zapisany');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+export function useDeleteWorkshopExpense() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from('workshop_expenses').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['workshop-expenses'] }),
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+// Załącznik dokumentu (faktura/paragon) → bucket 'documents'.
+export async function uploadExpenseDocument(providerId: string, file: File): Promise<string | null> {
+  const ext = file.name.split('.').pop() || 'bin';
+  const path = `workshop-expenses/${providerId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await (supabase as any).storage.from('documents').upload(path, file, { upsert: false });
+  if (error) { toast.error('Błąd uploadu dokumentu: ' + error.message); return null; }
+  const { data } = (supabase as any).storage.from('documents').getPublicUrl(path);
+  return data?.publicUrl || null;
+}

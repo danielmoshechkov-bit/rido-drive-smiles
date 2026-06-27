@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
+import { WorkshopExpenses } from './WorkshopExpenses';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
@@ -21,6 +22,7 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewInvoice, setShowNewInvoice] = useState(false);
+  const [view, setView] = useState<'sprzedaz' | 'zakup'>('sprzedaz');
 
   const loadInvoices = async () => {
     setIsLoading(true);
@@ -58,12 +60,34 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   const totalGross = filtered.reduce((s, d) => s + (d.gross_total || 0), 0);
   const totalToPay = totalGross - totalPaid;
 
+  const viewToggle = (
+    <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-0.5">
+      <Button variant={view === 'sprzedaz' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setView('sprzedaz')}>Sprzedaż</Button>
+      <Button variant={view === 'zakup' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setView('zakup')}>Zakup</Button>
+    </div>
+  );
+
+  if (view === 'zakup') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
+          <span className="text-muted-foreground">/</span>
+          <h2 className="text-xl font-bold">{t('workshop.sales.title')}</h2>
+          {viewToggle}
+        </div>
+        <WorkshopExpenses providerId={_providerId} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
         <span className="text-muted-foreground">/</span>
         <h2 className="text-xl font-bold">{t('workshop.sales.title')}</h2>
+        {viewToggle}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
