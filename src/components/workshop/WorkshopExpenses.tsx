@@ -36,6 +36,7 @@ export function WorkshopExpenses({ providerId, initialTab = 'wydatki' }: Props) 
   const [expenseDate, setExpenseDate] = useState(today());
   const [employeeId, setEmployeeId] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [who, setWho] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [tab, setTab] = useState<'wydatki' | 'cykliczne'>(initialTab);
@@ -60,7 +61,7 @@ export function WorkshopExpenses({ providerId, initialTab = 'wydatki' }: Props) 
 
   const setCat = (c: ExpenseCategory) => { setCategory(c); setSubcategory(SUBCATEGORIES[c][0]); if (c !== 'wyplata') setEmployeeId(''); };
 
-  const total = expenses.reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
+  const total = expenses.filter((e: any) => !e.voided).reduce((s: number, e: any) => s + (Number(e.amount) || 0), 0);
 
   const handleSave = async () => {
     const amt = Number(amount);
@@ -79,8 +80,9 @@ export function WorkshopExpenses({ providerId, initialTab = 'wydatki' }: Props) 
         document_url: documentUrl,
         expense_date: expenseDate,
         employee_id: category === 'wyplata' && employeeId ? employeeId : null,
+        created_by_name: who.trim() || null,
       });
-      setAmount(''); setDescription(''); setFile(null); setEmployeeId('');
+      setAmount(''); setDescription(''); setFile(null); setEmployeeId(''); setWho('');
     } finally {
       setSaving(false);
     }
@@ -164,6 +166,10 @@ export function WorkshopExpenses({ providerId, initialTab = 'wydatki' }: Props) 
               <Label className="flex items-center gap-1"><Paperclip className="h-3.5 w-3.5" /> Dokument (faktura/paragon)</Label>
               <Input type="file" accept="image/*,application/pdf" onChange={e => setFile(e.target.files?.[0] || null)} />
             </div>
+            <div className="space-y-1.5 col-span-2">
+              <Label>Zarejestrował (opcj.)</Label>
+              <Input value={who} onChange={e => setWho(e.target.value)} placeholder="imię i nazwisko" />
+            </div>
           </div>
           <Button onClick={handleSave} disabled={saving} className="gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Zapisz wydatek
@@ -202,7 +208,7 @@ export function WorkshopExpenses({ providerId, initialTab = 'wydatki' }: Props) 
             </TableHeader>
             <TableBody>
               {expenses.map((e: any) => (
-                <TableRow key={e.id}>
+                <TableRow key={e.id} className={e.voided ? 'opacity-60 line-through' : ''}>
                   <TableCell className="text-sm tabular-nums">{e.expense_date}</TableCell>
                   <TableCell className="text-sm">
                     {EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category}

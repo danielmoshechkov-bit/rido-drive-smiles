@@ -49,6 +49,47 @@ export function useWorkshopPaymentsRange(providerId?: string, from?: string, to?
   });
 }
 
+// ---- Storno / edycja operacji kasowych (Pack 1 + 4) ----
+export type CashOpType = 'payment' | 'expense' | 'payout';
+const OP_TABLE: Record<CashOpType, string> = {
+  payment: 'workshop_payments',
+  expense: 'workshop_expenses',
+  payout: 'workshop_employee_payouts',
+};
+
+const invalidateCash = (qc: ReturnType<typeof useQueryClient>) => {
+  ['workshop-cash-data', 'workshop-payments', 'workshop-expenses', 'workshop-payouts'].forEach((k) =>
+    qc.invalidateQueries({ queryKey: [k] }));
+};
+
+export function useVoidCashOperation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ type, id, voidedBy, reason }: { type: CashOpType; id: string; voidedBy: string; reason: string }) => {
+      const { error } = await (supabase as any).from(OP_TABLE[type])
+        .update({ voided: true, voided_by: voidedBy, void_reason: reason, voided_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidateCash(qc); toast.success('Operacja anulowana (storno)'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+export function useUpdateCashOperation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ type, id, patch, editedBy }: { type: CashOpType; id: string; patch: any; editedBy?: string }) => {
+      const { error } = await (supabase as any).from(OP_TABLE[type])
+        .update({ ...patch, edited_by_name: editedBy || null, edited_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidateCash(qc); toast.success('Operacja zaktualizowana'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
 // ---- Zamknięcia miesiąca (workshop_cash_closures) — Pack 2 ----
 export function useCashClosures(providerId?: string) {
   return useQuery({
@@ -103,11 +144,12 @@ export function useWorkshopCashData(providerId?: string) {
 export function useCreateWorkshopPayments() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ providerId, orderId, invoiceId, splits }: {
+    mutationFn: async ({ providerId, orderId, invoiceId, splits, createdByName }: {
       providerId: string;
       orderId?: string;
       invoiceId?: string;
       splits: PaymentSplit[];
+      createdByName?: string;
     }) => {
       const rows = splits
         .filter((s) => s.amount > 0)
@@ -117,6 +159,7 @@ export function useCreateWorkshopPayments() {
           invoice_id: invoiceId ?? null,
           method: s.method,
           amount: s.amount,
+          created_by_name: createdByName || null,
         }));
       if (rows.length === 0) return [];
       const { data, error } = await (supabase as any)

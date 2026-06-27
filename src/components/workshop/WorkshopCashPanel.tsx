@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, History } from 'lucide-react';
+import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, History, Pencil, Ban } from 'lucide-react';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopCashEntryDialog } from './WorkshopCashEntryDialog';
 import { WorkshopMonthCloseDialog, type ClosureSummary } from './WorkshopMonthCloseDialog';
+import { WorkshopVoidDialog, WorkshopOpEditDialog, type CashOp } from './WorkshopOpDialogs';
 import { useWorkshopCashData, useWorkshopFinanceSettings, useSaveFinanceSettings, useCashClosures, useCreateCashClosure, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod } from '@/hooks/useWorkshopFinance';
 import { useWorkshopOrders } from '@/hooks/useWorkshop';
 import { computeOrderTotals, safeNumber } from '@/utils/workshopOrderTotals';
@@ -28,9 +29,14 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   const start = settings?.cash_started_at ? dpart(settings.cash_started_at) : '';
   // Kasa liczy TYLKO operacje od momentu włączenia (cash_started_at).
   const afterStart = (d?: string) => !start || dpart(d) >= start;
-  const payments = (data?.payments || []).filter((p: any) => afterStart(p.paid_at));
-  const expenses = (data?.expenses || []).filter((e: any) => afterStart(e.expense_date));
-  const payouts = (data?.payouts || []).filter((p: any) => afterStart(p.paid_at));
+  // raw* = wszystkie od startu (z anulowanymi, do feedu); bez "raw" = do obliczeń
+  // (storno wykluczone z sald/przepływu/podsumowań).
+  const rawPayments = (data?.payments || []).filter((p: any) => afterStart(p.paid_at));
+  const rawExpenses = (data?.expenses || []).filter((e: any) => afterStart(e.expense_date));
+  const rawPayouts = (data?.payouts || []).filter((p: any) => afterStart(p.paid_at));
+  const payments = rawPayments.filter((p: any) => !p.voided);
+  const expenses = rawExpenses.filter((e: any) => !e.voided);
+  const payouts = rawPayouts.filter((p: any) => !p.voided);
   const { data: orders = [] } = useWorkshopOrders(providerId);
 
   const [from, setFrom] = useState(startOfWeek());
@@ -39,6 +45,9 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   const [cashOut, setCashOut] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [showAllOps, setShowAllOps] = useState(false);
+  const [voidOp, setVoidOp] = useState<CashOp | null>(null);
+  const [editOp, setEditOp] = useState<CashOp | null>(null);
   const saveSettings = useSaveFinanceSettings();
   const createClosure = useCreateCashClosure();
   const { data: closures = [] } = useCashClosures(providerId);
@@ -80,15 +89,15 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   }, [orders, payments]);
   const receivablesTotal = receivables.reduce((s, r) => s + r.due, 0);
 
-  // ── Ostatnie operacje ──
-  const recent = useMemo(() => {
+  // ── Operacje (z anulowanymi — feed z akcjami Edytuj/Anuluj) ──
+  const operations = useMemo(() => {
     const ops = [
-      ...payments.map((p: any) => ({ date: dpart(p.paid_at), label: 'Wpłata' + (p.order_id ? ' (zlecenie)' : ''), amount: Number(p.amount || 0), sign: 1, method: p.method })),
-      ...expenses.map((e: any) => ({ date: dpart(e.expense_date), label: (EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category) + (e.subcategory ? ` · ${e.subcategory}` : ''), amount: Number(e.amount || 0), sign: -1, method: e.method })),
-      ...payouts.map((p: any) => ({ date: dpart(p.paid_at), label: `Pracownik · ${p.type}`, amount: Number(p.amount || 0), sign: p.type === 'premia' ? 0 : -1, method: null })),
+      ...rawPayments.map((p: any) => ({ rec: p, type: 'payment' as const, date: dpart(p.paid_at), label: 'Wpłata' + (p.order_id ? ' (zlecenie)' : ''), amount: Number(p.amount || 0), sign: 1, method: p.method, who: p.created_by_name })),
+      ...rawExpenses.map((e: any) => ({ rec: e, type: 'expense' as const, date: dpart(e.expense_date), label: (EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category) + (e.subcategory ? ` · ${e.subcategory}` : ''), amount: Number(e.amount || 0), sign: -1, method: e.method, who: e.created_by_name })),
+      ...rawPayouts.map((p: any) => ({ rec: p, type: 'payout' as const, date: dpart(p.paid_at), label: `Pracownik · ${p.type}`, amount: Number(p.amount || 0), sign: p.type === 'premia' ? 0 : -1, method: null, who: p.created_by_name })),
     ];
-    return ops.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 8);
-  }, [payments, expenses, payouts]);
+    return ops.sort((a, b) => (a.date < b.date ? 1 : -1));
+  }, [rawPayments, rawExpenses, rawPayouts]);
 
   // ── Podsumowanie do zamknięcia miesiąca (cały aktywny okres kasy) ──
   const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -233,17 +242,32 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
         </CardContent></Card>
 
         <Card><CardContent className="py-4">
-          <h3 className="font-semibold mb-2">Ostatnie operacje</h3>
-          {recent.length === 0 ? (
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold">Operacje</h3>
+            {operations.length > 8 && <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowAllOps((v) => !v)}>{showAllOps ? 'Pokaż mniej' : `Pokaż wszystkie (${operations.length})`}</Button>}
+          </div>
+          {operations.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Brak operacji.</p>
           ) : (
             <div className="space-y-1.5">
-              {recent.map((op, i) => (
-                <div key={i} className="flex items-center justify-between text-sm border-b pb-1.5 last:border-0">
-                  <div><span className="text-muted-foreground tabular-nums mr-2">{op.date}</span>{op.label}</div>
-                  <span className={`tabular-nums font-medium ${op.sign > 0 ? 'text-green-600' : op.sign < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {op.sign > 0 ? '+' : op.sign < 0 ? '−' : ''}{fmt(op.amount)}
-                  </span>
+              {(showAllOps ? operations : operations.slice(0, 8)).map((op, i) => (
+                <div key={i} className={`flex items-center justify-between gap-2 text-sm border-b pb-1.5 last:border-0 ${op.rec.voided ? 'opacity-60' : ''}`}>
+                  <div className={`min-w-0 ${op.rec.voided ? 'line-through' : ''}`}>
+                    <span className="text-muted-foreground tabular-nums mr-2">{op.date}</span>{op.label}
+                    {op.who && <span className="text-xs text-muted-foreground"> · {op.who}</span>}
+                    {op.rec.voided && <span className="text-xs text-destructive no-underline"> — Anulowano: {op.rec.void_reason} ({op.rec.voided_by})</span>}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className={`tabular-nums font-medium ${op.rec.voided ? 'line-through' : op.sign > 0 ? 'text-green-600' : op.sign < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {op.sign > 0 ? '+' : op.sign < 0 ? '−' : ''}{fmt(op.amount)}
+                    </span>
+                    {!op.rec.voided && (
+                      <>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Edytuj" onClick={() => setEditOp({ type: op.type, id: op.rec.id, label: op.label, amount: op.amount, method: op.method, description: op.rec.description ?? op.rec.note })}><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="Anuluj (storno)" onClick={() => setVoidOp({ type: op.type, id: op.rec.id, label: op.label, amount: op.amount })}><Ban className="h-3.5 w-3.5" /></Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -254,6 +278,8 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
       <WorkshopCashEntryDialog open={cashIn} onOpenChange={setCashIn} providerId={providerId} kind="in" />
       <WorkshopCashEntryDialog open={cashOut} onOpenChange={setCashOut} providerId={providerId} kind="out" />
       <WorkshopMonthCloseDialog open={closeOpen} onOpenChange={setCloseOpen} summary={closureSummary} onConfirm={confirmClose} busy={createClosure.isPending || saveSettings.isPending} />
+      <WorkshopVoidDialog open={!!voidOp} onOpenChange={(o) => { if (!o) setVoidOp(null); }} op={voidOp} />
+      <WorkshopOpEditDialog open={!!editOp} onOpenChange={(o) => { if (!o) setEditOp(null); }} op={editOp} />
     </div>
   );
 }

@@ -100,7 +100,7 @@ export function WorkshopEmployeesReport({ providerId }: { providerId: string }) 
     return (employees as any[]).map((e) => {
       const eo = periodOrders.filter((o) => o.mechanic_id === e.id);
       const value = eo.reduce((s, o) => s + orderGross(o), 0);
-      const paid = (payouts as any[]).filter((p) => p.employee_id === e.id).reduce((s, p) => s + safeNumber(p.amount), 0);
+      const paid = (payouts as any[]).filter((p) => p.employee_id === e.id && !p.voided).reduce((s, p) => s + safeNumber(p.amount), 0);
       return { e, count: eo.length, value, paid };
     });
   }, [employees, orders, payouts, from, to]);

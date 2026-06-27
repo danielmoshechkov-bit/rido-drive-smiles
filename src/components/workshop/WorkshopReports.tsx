@@ -84,7 +84,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
 
   const paidByOrder = useMemo(() => {
     const m: Record<string, number> = {};
-    (payments as any[]).forEach((p) => { if (p.order_id) m[p.order_id] = (m[p.order_id] || 0) + Number(p.amount || 0); });
+    (payments as any[]).forEach((p) => { if (p.order_id && !p.voided) m[p.order_id] = (m[p.order_id] || 0) + Number(p.amount || 0); });
     return m;
   }, [payments]);
 
@@ -110,7 +110,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const totalPaid = reportOrders.reduce((s, o) => s + (paidByOrder[o.id] || 0), 0);
   // Jak płacili — sumy form (płatności przypisane do zleceń z raportu).
   const reportOrderIds = new Set(reportOrders.map((o) => o.id));
-  const paidByMethod = (m: PaymentMethod) => (payments as any[]).filter((p) => p.method === m && p.order_id && reportOrderIds.has(p.order_id)).reduce((s, p) => s + Number(p.amount || 0), 0);
+  const paidByMethod = (m: PaymentMethod) => (payments as any[]).filter((p) => p.method === m && !p.voided && p.order_id && reportOrderIds.has(p.order_id)).reduce((s, p) => s + Number(p.amount || 0), 0);
 
   const getReportList = (): any[] => {
     switch (activeCategory) {

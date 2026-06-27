@@ -75,7 +75,7 @@ export function WorkshopPayroll({ providerId }: Props) {
   const [payoutAmount, setPayoutAmount] = useState('');
   const [payoutNote, setPayoutNote] = useState('');
 
-  const payoutsForEmp = (id: string) => payouts.filter((p: any) => p.employee_id === id);
+  const payoutsForEmp = (id: string) => payouts.filter((p: any) => p.employee_id === id && !p.voided);
   const sumType = (id: string, types: PayoutType[]) => payoutsForEmp(id).filter((p: any) => types.includes(p.type)).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
 
   const settle = (e: any) => {

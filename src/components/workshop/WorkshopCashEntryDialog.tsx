@@ -28,19 +28,21 @@ export function WorkshopCashEntryDialog({ open, onOpenChange, providerId, kind }
   const [method, setMethod] = useState<PaymentMethod>('gotowka');
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
+  const [who, setWho] = useState('');
 
-  useEffect(() => { if (open) { setAmount(''); setDesc(''); setMethod('gotowka'); } }, [open]);
+  useEffect(() => { if (open) { setAmount(''); setDesc(''); setMethod('gotowka'); setWho(''); } }, [open]);
 
   const save = async () => {
     const amt = Number(amount);
     if (!amt || amt <= 0) { toast.error('Podaj kwotę'); return; }
     if (kind === 'in') {
-      await createPayment.mutateAsync({ providerId, splits: [{ method, amount: amt }] });
+      await createPayment.mutateAsync({ providerId, splits: [{ method, amount: amt }], createdByName: who.trim() || undefined });
       toast.success('Wpłata zapisana');
     } else {
       await createExpense.mutateAsync({
         provider_id: providerId, category: 'wyplata', subcategory: 'Wypłata z kasy',
         description: desc || null, amount: amt, method, expense_date: today(), employee_id: null,
+        created_by_name: who.trim() || null,
       });
     }
     qc.invalidateQueries({ queryKey: ['workshop-cash-data'] });
@@ -73,6 +75,10 @@ export function WorkshopCashEntryDialog({ open, onOpenChange, providerId, kind }
           <div className="space-y-1.5">
             <Label>Opis (opcj.)</Label>
             <Input value={desc} onChange={e => setDesc(e.target.value)} placeholder={kind === 'in' ? 'np. wpłata własna' : 'np. wypłata właściciela'} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Zarejestrował (opcj.)</Label>
+            <Input value={who} onChange={e => setWho(e.target.value)} placeholder="imię i nazwisko" />
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
