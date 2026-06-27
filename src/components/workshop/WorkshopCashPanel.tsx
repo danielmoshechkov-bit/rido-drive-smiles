@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle } from 'lucide-react';
+import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, History } from 'lucide-react';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopCashEntryDialog } from './WorkshopCashEntryDialog';
-import { useWorkshopCashData, useWorkshopFinanceSettings, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod } from '@/hooks/useWorkshopFinance';
+import { WorkshopMonthCloseDialog, type ClosureSummary } from './WorkshopMonthCloseDialog';
+import { useWorkshopCashData, useWorkshopFinanceSettings, useSaveFinanceSettings, useCashClosures, useCreateCashClosure, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod } from '@/hooks/useWorkshopFinance';
 import { useWorkshopOrders } from '@/hooks/useWorkshop';
-import { computeOrderTotals } from '@/utils/workshopOrderTotals';
+import { computeOrderTotals, safeNumber } from '@/utils/workshopOrderTotals';
 
 interface Props {
   providerId: string;
@@ -36,6 +37,11 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   const [to, setTo] = useState(today());
   const [cashIn, setCashIn] = useState(false);
   const [cashOut, setCashOut] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const saveSettings = useSaveFinanceSettings();
+  const createClosure = useCreateCashClosure();
+  const { data: closures = [] } = useCashClosures(providerId);
 
   // ── Skumulowane saldo (CAŁA historia, niezależnie od okresu) ──
   const payByMethod = (m: PaymentMethod) => sum(payments, (p) => p.method === m);
@@ -84,6 +90,44 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
     return ops.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 8);
   }, [payments, expenses, payouts]);
 
+  // ── Podsumowanie do zamknięcia miesiąca (cały aktywny okres kasy) ──
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const orderRevenue = (o: any) => computeOrderTotals(o.items).total_gross || o.total_gross || 0;
+  const orderCost = (o: any) => (o.items || []).reduce((s: number, i: any) => s + safeNumber(i.unit_cost_gross) * (safeNumber(i.quantity) || 1) + safeNumber(i.labor_cost), 0);
+  const closedOrders = (orders as any[]).filter((o) => o.status_name === 'Zakończone' && afterStart(o.completed_at || o.created_at));
+  const cRevenue = closedOrders.reduce((s, o) => s + orderRevenue(o), 0);
+  const cCost = closedOrders.reduce((s, o) => s + orderCost(o), 0);
+  const cProfit = round2(cRevenue - cCost);
+  const cExpensesAll = sum(expenses);
+  const cInflowAll = sum(payments);
+  const cPayoutsAll = sum(payouts, (p) => p.type === 'zaliczka' || p.type === 'wyplata');
+  const closureSummary: ClosureSummary = {
+    period_from: start || today(),
+    period_to: today(),
+    orders_count: closedOrders.length,
+    revenue: round2(cRevenue),
+    cost: round2(cCost),
+    profit: cProfit,
+    avg_margin: cRevenue > 0 ? round2((cProfit / cRevenue) * 100) : 0,
+    expenses: round2(cExpensesAll),
+    result: round2(cInflowAll - cExpensesAll - cPayoutsAll),
+    cash_end: round2(cashGotowka),
+  };
+
+  const confirmClose = async () => {
+    await createClosure.mutateAsync({ provider_id: providerId, ...closureSummary });
+    // Reset kasy: przesunięcie startu (bez kasowania danych).
+    await saveSettings.mutateAsync({
+      provider_id: providerId,
+      work_days: settings?.work_days ?? [1, 2, 3, 4, 5],
+      work_start: settings?.work_start ?? '08:00',
+      work_end: settings?.work_end ?? '16:00',
+      cash_enabled: true,
+      cash_started_at: new Date().toISOString(),
+    });
+    setCloseOpen(false);
+  };
+
   if (!cashEnabled) {
     return (
       <Card><CardContent className="py-12 text-center space-y-2">
@@ -123,7 +167,28 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
         <Button variant="outline" onClick={() => setCashOut(true)} className="gap-2"><ArrowUpCircle className="h-4 w-4" /> Dodaj wypłatę</Button>
         <Button variant="outline" onClick={() => onGoTo?.('zakup', 'wydatki')} className="gap-2"><ShoppingCart className="h-4 w-4" /> Dodaj zakup</Button>
         <Button variant="outline" onClick={() => onGoTo?.('zakup', 'cykliczne')} className="gap-2"><Receipt className="h-4 w-4" /> Dodaj opłatę</Button>
+        <div className="flex-1" />
+        <Button variant="outline" onClick={() => setArchiveOpen((v) => !v)} className="gap-2"><History className="h-4 w-4" /> Archiwum ({(closures as any[]).length})</Button>
+        <Button variant="secondary" onClick={() => setCloseOpen(true)} className="gap-2"><Lock className="h-4 w-4" /> Zamknij miesiąc</Button>
       </div>
+
+      {archiveOpen && (
+        <Card><CardContent className="py-4">
+          <h3 className="font-semibold mb-2">Archiwum zamkniętych miesięcy</h3>
+          {(closures as any[]).length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2 text-center">Brak zamknięć.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {(closures as any[]).map((c) => (
+                <div key={c.id} className="flex items-center justify-between text-sm border-b pb-1.5 last:border-0">
+                  <span>{c.period_from} — {c.period_to} <span className="text-muted-foreground">· {c.orders_count} zleceń</span></span>
+                  <span className="tabular-nums">Wynik: <span className={`font-semibold ${Number(c.result) >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(Number(c.result))}</span> · gotówka {fmt(Number(c.cash_end))}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent></Card>
+      )}
 
       {/* Period flow */}
       <Card><CardContent className="py-4 space-y-3">
@@ -188,6 +253,7 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
 
       <WorkshopCashEntryDialog open={cashIn} onOpenChange={setCashIn} providerId={providerId} kind="in" />
       <WorkshopCashEntryDialog open={cashOut} onOpenChange={setCashOut} providerId={providerId} kind="out" />
+      <WorkshopMonthCloseDialog open={closeOpen} onOpenChange={setCloseOpen} summary={closureSummary} onConfirm={confirmClose} busy={createClosure.isPending || saveSettings.isPending} />
     </div>
   );
 }

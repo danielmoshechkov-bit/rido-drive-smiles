@@ -49,6 +49,37 @@ export function useWorkshopPaymentsRange(providerId?: string, from?: string, to?
   });
 }
 
+// ---- Zamknięcia miesiąca (workshop_cash_closures) — Pack 2 ----
+export function useCashClosures(providerId?: string) {
+  return useQuery({
+    queryKey: ['workshop-cash-closures', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_cash_closures').select('*').eq('provider_id', providerId).order('closed_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
+export function useCreateCashClosure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (row: any) => {
+      const { data, error } = await (supabase as any).from('workshop_cash_closures').insert(row).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['workshop-cash-closures'] });
+      qc.invalidateQueries({ queryKey: ['workshop-finance-settings'] });
+      qc.invalidateQueries({ queryKey: ['workshop-cash-data'] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
 // Wszystkie operacje kasowe providera (do skumulowanego salda + feedu). MVP: pełny
 // zaciąg, sumowanie po stronie klienta.
 export function useWorkshopCashData(providerId?: string) {
