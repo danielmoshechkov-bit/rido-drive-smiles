@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, History, Pencil, Ban, Trash2 } from 'lucide-react';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopCashEntryDialog } from './WorkshopCashEntryDialog';
+import { WorkshopExpenseDialog } from './WorkshopExpenseDialog';
 import { WorkshopMonthCloseDialog, type ClosureSummary } from './WorkshopMonthCloseDialog';
 import { WorkshopVoidDialog, WorkshopOpEditDialog, type CashOp } from './WorkshopOpDialogs';
-import { useWorkshopCashData, useWorkshopFinanceSettings, useSaveFinanceSettings, useCashClosures, useCreateCashClosure, useDeleteCashClosure, useWorkshopRecurringCosts, recurringReminderLevel, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod } from '@/hooks/useWorkshopFinance';
+import { useWorkshopCashData, useWorkshopFinanceSettings, useSaveFinanceSettings, useCashClosures, useCreateCashClosure, useDeleteCashClosure, useWorkshopRecurringCosts, recurringReminderLevel, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod, type ExpenseCategory } from '@/hooks/useWorkshopFinance';
 import { useWorkshopOrders } from '@/hooks/useWorkshop';
 import { computeOrderTotals, safeNumber } from '@/utils/workshopOrderTotals';
 
@@ -45,7 +46,7 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   const [from, setFrom] = useState(startOfWeek());
   const [to, setTo] = useState(today());
   const [cashIn, setCashIn] = useState(false);
-  const [cashOut, setCashOut] = useState(false);
+  const [expenseCat, setExpenseCat] = useState<ExpenseCategory | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [closeMonth, setCloseMonth] = useState(() => new Date().toISOString().slice(0, 7)); // 'YYYY-MM'
@@ -230,10 +231,10 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setCashIn(true)} className="gap-2"><ArrowDownCircle className="h-4 w-4" /> Dodaj wpłatę</Button>
-        <Button variant="outline" onClick={() => setCashOut(true)} className="gap-2"><ArrowUpCircle className="h-4 w-4" /> Dodaj wypłatę</Button>
-        <Button variant="outline" onClick={() => onGoTo?.('zakup', 'wydatki')} className="gap-2"><ShoppingCart className="h-4 w-4" /> Dodaj zakup</Button>
-        <Button variant="outline" onClick={() => onGoTo?.('zakup', 'cykliczne')} className="gap-2"><Receipt className="h-4 w-4" /> Dodaj opłatę</Button>
+        <Button onClick={() => setCashIn(true)} className="gap-2 bg-green-600 hover:bg-green-700 text-white"><ArrowDownCircle className="h-4 w-4" /> Dodaj wpłatę</Button>
+        <Button variant="destructive" onClick={() => setExpenseCat('wyplata')} className="gap-2"><ArrowUpCircle className="h-4 w-4" /> Dodaj wypłatę</Button>
+        <Button variant="outline" onClick={() => setExpenseCat('zakup')} className="gap-2"><ShoppingCart className="h-4 w-4" /> Dodaj zakup</Button>
+        <Button variant="outline" onClick={() => setExpenseCat('oplata')} className="gap-2"><Receipt className="h-4 w-4" /> Dodaj opłatę</Button>
         <div className="hidden md:block flex-1" />
         <Button variant="outline" onClick={() => setArchiveOpen((v) => !v)} className="gap-2"><History className="h-4 w-4" /> Archiwum ({(closures as any[]).length})</Button>
         <Button variant="secondary" onClick={() => setCloseOpen(true)} className="gap-2"><Lock className="h-4 w-4" /> Zamknij miesiąc</Button>
@@ -337,7 +338,7 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
       </div>
 
       <WorkshopCashEntryDialog open={cashIn} onOpenChange={setCashIn} providerId={providerId} kind="in" />
-      <WorkshopCashEntryDialog open={cashOut} onOpenChange={setCashOut} providerId={providerId} kind="out" />
+      <WorkshopExpenseDialog open={!!expenseCat} onOpenChange={(o) => { if (!o) setExpenseCat(null); }} providerId={providerId} defaultCategory={expenseCat || 'zakup'} />
       <WorkshopMonthCloseDialog open={closeOpen} onOpenChange={setCloseOpen} summary={closureSummary} onConfirm={confirmClose} busy={createClosure.isPending || saveSettings.isPending} month={closeMonth} onMonthChange={setCloseMonth} alreadyClosed={alreadyClosed} />
       <WorkshopVoidDialog open={!!voidOp} onOpenChange={(o) => { if (!o) setVoidOp(null); }} op={voidOp} />
       <WorkshopOpEditDialog open={!!editOp} onOpenChange={(o) => { if (!o) setEditOp(null); }} op={editOp} />
