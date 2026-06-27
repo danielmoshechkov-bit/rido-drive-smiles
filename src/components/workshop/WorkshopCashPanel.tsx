@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle } from 'lucide-react';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopCashEntryDialog } from './WorkshopCashEntryDialog';
-import { useWorkshopCashData, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod } from '@/hooks/useWorkshopFinance';
+import { useWorkshopCashData, useWorkshopFinanceSettings, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod } from '@/hooks/useWorkshopFinance';
 import { useWorkshopOrders } from '@/hooks/useWorkshop';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 
@@ -22,9 +22,14 @@ const sum = (arr: any[], pred?: (x: any) => boolean) => arr.filter(pred || (() =
 
 export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   const { data } = useWorkshopCashData(providerId);
-  const payments = data?.payments || [];
-  const expenses = data?.expenses || [];
-  const payouts = data?.payouts || [];
+  const { data: settings } = useWorkshopFinanceSettings(providerId);
+  const cashEnabled = !!settings?.cash_enabled;
+  const start = settings?.cash_started_at ? dpart(settings.cash_started_at) : '';
+  // Kasa liczy TYLKO operacje od momentu włączenia (cash_started_at).
+  const afterStart = (d?: string) => !start || dpart(d) >= start;
+  const payments = (data?.payments || []).filter((p: any) => afterStart(p.paid_at));
+  const expenses = (data?.expenses || []).filter((e: any) => afterStart(e.expense_date));
+  const payouts = (data?.payouts || []).filter((p: any) => afterStart(p.paid_at));
   const { data: orders = [] } = useWorkshopOrders(providerId);
 
   const [from, setFrom] = useState(startOfWeek());
@@ -58,7 +63,7 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
     const paidByOrder: Record<string, number> = {};
     payments.forEach((p: any) => { if (p.order_id) paidByOrder[p.order_id] = (paidByOrder[p.order_id] || 0) + Number(p.amount || 0); });
     return (orders as any[])
-      .filter((o) => o.status_name === 'Zakończone')
+      .filter((o) => o.status_name === 'Zakończone' && afterStart(o.completed_at || o.created_at))
       .map((o) => {
         const gross = computeOrderTotals(o.items).total_gross || o.total_gross || 0;
         const paid = paidByOrder[o.id] || 0;
@@ -78,6 +83,16 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
     ];
     return ops.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 8);
   }, [payments, expenses, payouts]);
+
+  if (!cashEnabled) {
+    return (
+      <Card><CardContent className="py-12 text-center space-y-2">
+        <Wallet className="h-10 w-10 mx-auto text-muted-foreground" />
+        <p className="font-semibold">Moduł Kasa nieaktywny</p>
+        <p className="text-sm text-muted-foreground">Włącz go w Ustawieniach warsztatu (przełącznik „Moduł Kasa").<br />Kasa zacznie liczyć dopiero od momentu włączenia — bez mieszania danych historycznych.</p>
+      </CardContent></Card>
+    );
+  }
 
   return (
     <div className="space-y-4">

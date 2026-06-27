@@ -26,6 +26,7 @@ import { ExistingInvoiceModal } from './ExistingInvoiceModal';
 import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
+import { useWorkshopFinanceSettings } from '@/hooks/useWorkshopFinance';
 import {
   Plus, Search, Car, Trash2,
   Wrench, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
@@ -74,6 +75,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [paymentOrder, setPaymentOrder] = useState<any | null>(null);
+  const { data: financeSettings } = useWorkshopFinanceSettings(providerId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
   const [editClient, setEditClient] = useState<any>(null);
@@ -168,7 +170,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     const order = orders.find((o: any) => o.id === orderId);
     if (!order) return;
     // Pack 1: closing an order opens the payment form (cash/card/BLIK/transfer, split).
-    if (newStatus === 'Zakończone') {
+    if (newStatus === 'Zakończone' && financeSettings?.cash_enabled) {
       setPaymentOrder({ ...order, status_name: newStatus });
     }
     const lower = (newStatus || '').toLowerCase();

@@ -259,7 +259,7 @@ export interface FinanceSettings {
   work_end: string;
 }
 
-const DEFAULT_SETTINGS = { work_days: [1, 2, 3, 4, 5], work_start: '08:00', work_end: '16:00' };
+const DEFAULT_SETTINGS = { work_days: [1, 2, 3, 4, 5], work_start: '08:00', work_end: '16:00', cash_enabled: false, cash_started_at: null as string | null };
 
 export function useWorkshopFinanceSettings(providerId?: string) {
   return useQuery({

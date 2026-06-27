@@ -25,6 +25,7 @@ import { OrderHistoryTimeline } from './OrderHistoryTimeline';
 import { OrderCallPanel } from './OrderCallPanel';
 import { WorkshopStatusPicker } from './WorkshopStatusPicker';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
+import { useWorkshopFinanceSettings } from '@/hooks/useWorkshopFinance';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -72,6 +73,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
+  const { data: financeSettings } = useWorkshopFinanceSettings(providerId);
   const updateOrder = useUpdateWorkshopOrder();
   const [activeTab, setActiveTab] = useState('tasks');
   const [smsOpen, setSmsOpen] = useState(false);
@@ -91,7 +93,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
     queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
 
     // Pack 1: closing the order opens the payment form.
-    if (name === 'Zakończone') {
+    if (name === 'Zakończone' && financeSettings?.cash_enabled) {
       setPaymentOpen(true);
     }
     const lower = (name || '').toLowerCase();
