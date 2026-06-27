@@ -87,9 +87,9 @@ export function WorkshopExpenses({ providerId }: Props) {
   };
 
   const tabToggle = (
-    <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-0.5 w-fit">
-      <Button variant={tab === 'wydatki' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setTab('wydatki')}>Wydatki</Button>
-      <Button variant={tab === 'cykliczne' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setTab('cykliczne')}>Opłaty stałe</Button>
+    <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
+      <Button variant={tab === 'wydatki' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setTab('wydatki')}>Wydatki jednorazowe</Button>
+      <Button variant={tab === 'cykliczne' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setTab('cykliczne')}>Opłaty stałe</Button>
     </div>
   );
 

@@ -61,9 +61,9 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   const totalToPay = totalGross - totalPaid;
 
   const viewToggle = (
-    <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-0.5">
-      <Button variant={view === 'sprzedaz' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setView('sprzedaz')}>Sprzedaż</Button>
-      <Button variant={view === 'zakup' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setView('zakup')}>Zakup</Button>
+    <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1">
+      <Button variant={view === 'sprzedaz' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('sprzedaz')}>Sprzedaż</Button>
+      <Button variant={view === 'zakup' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('zakup')}>Zakupy / Opłaty</Button>
     </div>
   );
 
