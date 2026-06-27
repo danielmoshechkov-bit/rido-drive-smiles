@@ -115,7 +115,12 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   // ── Podsumowanie do zamknięcia: pełny MIESIĄC KALENDARZOWY (closeMonth = 'YYYY-MM') ──
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const monthFrom = `${closeMonth}-01`;
-  const monthEnd = (() => { const [y, m] = closeMonth.split('-').map(Number); return new Date(y, m, 0).toISOString().slice(0, 10); })();
+  // Ostatni dzień miesiąca LOKALNIE (bez toISOString → bez cofania o dzień przez UTC).
+  const monthEnd = (() => {
+    const [y, m] = closeMonth.split('-').map(Number);
+    const d = new Date(y, m, 0); // dzień 0 następnego miesiąca = ostatni dzień bieżącego
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
   const inMonth = (d?: string) => { const x = dpart(d); return !!x && x >= monthFrom && x <= monthEnd; };
   const orderRevenue = (o: any) => computeOrderTotals(o.items).total_gross || o.total_gross || 0;
   const orderCost = (o: any) => (o.items || []).reduce((s: number, i: any) => s + safeNumber(i.unit_cost_gross) * (safeNumber(i.quantity) || 1) + safeNumber(i.labor_cost), 0);
