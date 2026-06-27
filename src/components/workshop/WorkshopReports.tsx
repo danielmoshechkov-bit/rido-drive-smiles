@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { useWorkshopOrders, useWorkshopStatuses } from '@/hooks/useWorkshop';
 import { useWorkshopPaymentsRange, PAYMENT_METHODS, type PaymentMethod } from '@/hooks/useWorkshopFinance';
 import { safeNumber, getLineTotal } from '@/utils/workshopOrderTotals';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
+import { WorkshopClientsReport, WorkshopEmployeesReport, WorkshopSalesReport } from './WorkshopExtraReports';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -31,6 +32,9 @@ const reportCategories = [
 const orderReports = [
   { key: 'zestawienie-szczegolowe', labelKey: 'workshop.reports.orderReports.detailed.label', descKey: 'workshop.reports.orderReports.detailed.desc' },
 ];
+const salesReports = [{ key: 'raport-sprzedazy', label: 'Sprzedaż', desc: 'Obrót, liczba faktur, średnia wartość, rozbicie po miesiącach.' }];
+const clientReports = [{ key: 'raport-klienci', label: 'Klienci', desc: 'Nowi, powracający, top klienci wg przychodu.' }];
+const employeeReports = [{ key: 'raport-pracownicy', label: 'Pracownicy', desc: 'Liczba i wartość zleceń na pracownika, wypłaty.' }];
 
 const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const startOfMonth = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
@@ -108,7 +112,33 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const reportOrderIds = new Set(reportOrders.map((o) => o.id));
   const paidByMethod = (m: PaymentMethod) => (payments as any[]).filter((p) => p.method === m && p.order_id && reportOrderIds.has(p.order_id)).reduce((s, p) => s + Number(p.amount || 0), 0);
 
-  const getReportList = (): any[] => (activeCategory === 'zlecenia' ? orderReports : []);
+  const getReportList = (): any[] => {
+    switch (activeCategory) {
+      case 'zlecenia': return orderReports;
+      case 'sprzedaz': return salesReports;
+      case 'klienci': return clientReports;
+      case 'pracownicy': return employeeReports;
+      default: return [];
+    }
+  };
+
+  // Wrapper z breadcrumbem dla raportów Klienci/Pracownicy/Sprzedaż.
+  const reportWrap = (title: string, node: ReactNode) => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm">
+        <button onClick={onBack} className="text-primary hover:underline">🏠</button>
+        <span className="text-muted-foreground">/</span>
+        <button onClick={() => { setActiveReport(null); setActiveCategory(null); }} className="text-primary hover:underline">{t('workshop.reports.title')}</button>
+        <span className="text-muted-foreground">/</span>
+        <span className="font-semibold">{title}</span>
+      </div>
+      {node}
+    </div>
+  );
+
+  if (activeReport === 'raport-klienci') return reportWrap('Klienci', <WorkshopClientsReport providerId={providerId} />);
+  if (activeReport === 'raport-pracownicy') return reportWrap('Pracownicy', <WorkshopEmployeesReport providerId={providerId} />);
+  if (activeReport === 'raport-sprzedazy') return reportWrap('Sprzedaż', <WorkshopSalesReport providerId={providerId} />);
 
   if (activeReport === 'zestawienie-szczegolowe') {
     return (
