@@ -33,6 +33,22 @@ export function useWorkshopPaymentsForOrder(orderId?: string) {
   });
 }
 
+export function useWorkshopPaymentsRange(providerId?: string, from?: string, to?: string) {
+  return useQuery({
+    queryKey: ['workshop-payments', 'range', providerId, from, to],
+    enabled: !!providerId,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from('workshop_payments').select('*').eq('provider_id', providerId);
+      if (from) q = q.gte('paid_at', from);
+      if (to) q = q.lte('paid_at', to + 'T23:59:59');
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
 export function useCreateWorkshopPayments() {
   const qc = useQueryClient();
   return useMutation({

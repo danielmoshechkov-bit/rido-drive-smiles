@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useWorkshopOrders, useWorkshopClients, useWorkshopVehicles, useWorkshopStatuses } from '@/hooks/useWorkshop';
 import { safeNumber } from '@/utils/workshopOrderTotals';
+import { WorkshopCashFlowReport } from './WorkshopCashFlowReport';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   ArrowLeft, ClipboardList, Receipt, Users, UserCheck, Wallet, Car, Package,
@@ -44,6 +45,10 @@ const clientReports = [
   { key: 'zestawienie-zlecen', labelKey: 'workshop.reports.clientReports.orders.label', descKey: 'workshop.reports.clientReports.orders.desc' },
 ];
 
+const cashReports = [
+  { key: 'bilans-przeplyw', label: 'Bilans / Przepływ', desc: 'Wpływy − wydatki, wynik okresu i stan kasy (tydzień/miesiąc).' },
+];
+
 export function WorkshopReports({ providerId, onBack }: Props) {
   const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -58,11 +63,12 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId);
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
 
-  const getReportList = () => {
+  const getReportList = (): any[] => {
     switch (activeCategory) {
       case 'zlecenia': return orderReports;
       case 'sprzedaz': return salesReports;
       case 'klienci': return clientReports;
+      case 'kasa': return cashReports;
       default: return [];
     }
   };
@@ -89,6 +95,21 @@ export function WorkshopReports({ providerId, onBack }: Props) {
 
   const totalRevenue = reportOrders.reduce((s: number, o: any) => s + orderRevenue(o), 0);
   const totalCost = reportOrders.reduce((s: number, o: any) => s + orderCost(o), 0);
+
+  if (activeReport === 'bilans-przeplyw') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-sm">
+          <button onClick={onBack} className="text-primary hover:underline">🏠</button>
+          <span className="text-muted-foreground">/</span>
+          <button onClick={() => { setActiveReport(null); setActiveCategory(null); }} className="text-primary hover:underline">{t('workshop.reports.title')}</button>
+          <span className="text-muted-foreground">/</span>
+          <span className="font-semibold">Bilans / Przepływ</span>
+        </div>
+        <WorkshopCashFlowReport providerId={providerId} />
+      </div>
+    );
+  }
 
   if (activeReport === 'zestawienie-szczegolowe') {
     return (
@@ -261,8 +282,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               onClick={() => setActiveReport(r.key)}
             >
               <CardContent className="py-6 text-center space-y-2">
-                <h3 className="font-semibold">{t(r.labelKey)}</h3>
-                <p className="text-sm text-muted-foreground">{t(r.descKey)}</p>
+                <h3 className="font-semibold">{r.labelKey ? t(r.labelKey) : r.label}</h3>
+                <p className="text-sm text-muted-foreground">{r.descKey ? t(r.descKey) : r.desc}</p>
               </CardContent>
             </Card>
           ))}
