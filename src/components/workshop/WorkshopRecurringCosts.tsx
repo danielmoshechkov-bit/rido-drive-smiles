@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
+import { Plus, Trash2, CheckCircle, AlertTriangle, Clock, Pencil, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { WorkshopDatePicker } from './WorkshopRangeCalendar';
 import {
   PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod, type ExpenseCategory, type RecurringFrequency,
   useWorkshopRecurringCosts, useCreateRecurringCost, useUpdateRecurringCost, useDeleteRecurringCost,
@@ -33,16 +34,30 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
   const [nextDue, setNextDue] = useState(today());
   const [endDate, setEndDate] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('przelew');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const handleCreate = async () => {
+  const resetForm = () => {
+    setEditingId(null); setName(''); setCategory('oplata'); setAmount('');
+    setFrequency('monthly'); setNextDue(today()); setEndDate(''); setMethod('przelew');
+  };
+
+  const startEdit = (c: any) => {
+    setEditingId(c.id); setName(c.name); setCategory(c.category); setAmount(String(c.amount ?? ''));
+    setFrequency(c.frequency); setNextDue(c.next_due_date); setEndDate(c.end_date || ''); setMethod(c.default_method || 'przelew');
+  };
+
+  const handleSave = async () => {
     const amt = Number(amount);
     if (!name.trim()) { toast.error('Podaj nazwę'); return; }
     if (!amt || amt <= 0) { toast.error('Podaj kwotę'); return; }
-    await createCost.mutateAsync({
-      provider_id: providerId, name: name.trim(), category, amount: amt,
-      frequency, next_due_date: nextDue, end_date: endDate || null, default_method: method, active: true,
-    });
-    setName(''); setAmount('');
+    const payload = { name: name.trim(), category, amount: amt, frequency, next_due_date: nextDue, end_date: endDate || null, default_method: method };
+    if (editingId) {
+      await updateCost.mutateAsync({ id: editingId, ...payload });
+      toast.success('Zmiany zapisane');
+    } else {
+      await createCost.mutateAsync({ provider_id: providerId, ...payload, active: true });
+    }
+    resetForm();
   };
 
   // "Zatwierdź" = utwórz realny wydatek z szablonu i przesuń termin na następny okres.
@@ -62,6 +77,7 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
     const lvl = recurringReminderLevel(cost.next_due_date);
     if (lvl === 'red') return <Badge className="bg-red-500 text-white gap-1"><AlertTriangle className="h-3 w-3" />pilne</Badge>;
     if (lvl === 'yellow') return <Badge className="bg-yellow-500 text-black gap-1"><Clock className="h-3 w-3" />wkrótce</Badge>;
+    if (lvl === 'green') return <Badge className="bg-green-500 text-white gap-1"><Clock className="h-3 w-3" />zbliża się</Badge>;
     return null;
   };
 
@@ -69,7 +85,7 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
     <div className="space-y-4">
       <Card>
         <CardContent className="py-4 space-y-4">
-          <h3 className="font-semibold">Dodaj opłatę stałą (cykliczną)</h3>
+          <h3 className="font-semibold">{editingId ? 'Edytuj opłatę stałą' : 'Dodaj opłatę stałą (cykliczną)'}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="space-y-1.5 col-span-2 md:col-span-1">
               <Label>Nazwa</Label>
@@ -98,11 +114,11 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>Najbliższy termin</Label>
-              <Input type="date" value={nextDue} onChange={e => setNextDue(e.target.value)} />
+              <WorkshopDatePicker value={nextDue} onChange={setNextDue} />
             </div>
             <div className="space-y-1.5">
               <Label>Do kiedy (opcj.)</Label>
-              <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              <WorkshopDatePicker value={endDate} onChange={setEndDate} placeholder="— bezterminowo —" />
             </div>
             <div className="space-y-1.5">
               <Label>Forma płatności</Label>
@@ -112,7 +128,12 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
               </Select>
             </div>
           </div>
-          <Button onClick={handleCreate} disabled={createCost.isPending} className="gap-2"><Plus className="h-4 w-4" /> Dodaj opłatę</Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleSave} disabled={createCost.isPending || updateCost.isPending} className="gap-2">
+              {editingId ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {editingId ? 'Zapisz zmiany' : 'Dodaj opłatę'}
+            </Button>
+            {editingId && <Button variant="ghost" onClick={resetForm} className="gap-1"><X className="h-4 w-4" /> Anuluj edycję</Button>}
+          </div>
         </CardContent>
       </Card>
 
@@ -141,6 +162,9 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="outline" size="sm" className="gap-1" onClick={() => approve(c)} disabled={createExpense.isPending}>
                         <CheckCircle className="h-3.5 w-3.5" /> Zatwierdź
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(c)} title="Edytuj">
+                        <Pencil className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if (confirm('Usunąć opłatę cykliczną?')) deleteCost.mutate(c.id); }}>
                         <Trash2 className="h-4 w-4" />

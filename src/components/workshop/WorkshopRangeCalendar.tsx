@@ -18,6 +18,25 @@ interface Props {
 const f = (d: Date) => format(d, 'yyyy-MM-dd');
 const parse = (s?: string) => (s ? parseISO(s) : undefined);
 
+// Kompaktowy single-date picker (ten sam kalendarz, wąskie pole — kończy się przy ikonie).
+export function WorkshopDatePicker({ value, onChange, placeholder = 'Wybierz datę', className }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className={`h-9 w-full justify-start gap-2 font-normal ${className || ''}`}>
+          <CalendarIcon className="h-4 w-4 shrink-0" /> {value ? format(parse(value)!, 'dd.MM.yyyy', { locale: pl }) : placeholder}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar mode="single" selected={parse(value)} onSelect={(d) => { if (d) { onChange(f(d)); setOpen(false); } }} weekStartsOn={1} locale={pl} initialFocus />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // Wspólny kalendarz warsztatu (jeden styl wszędzie). Zakres: klik = początek,
 // drugi klik = koniec — bez dwóch osobnych pól. Plus szybkie Tydzień/Miesiąc.
 export function WorkshopRangeCalendar({ from, to, onChange, className, align = 'start' }: Props) {

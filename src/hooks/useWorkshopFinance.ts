@@ -176,14 +176,15 @@ export async function uploadExpenseDocument(providerId: string, file: File): Pro
 // ---- Opłaty cykliczne (workshop_recurring_costs) — Pack 3 ----
 export type RecurringFrequency = 'weekly' | 'monthly';
 
-// Reminder color like the OC/przegląd pattern: red ≤3 days (or overdue), yellow ≤7.
-export function recurringReminderLevel(nextDueDate?: string | null): 'red' | 'yellow' | 'none' {
+// Reminder color: ZIELONY ≤7 dni (najwcześniej), ŻÓŁTY ≤3, CZERWONY ≤0 / po terminie.
+export function recurringReminderLevel(nextDueDate?: string | null): 'red' | 'yellow' | 'green' | 'none' {
   if (!nextDueDate) return 'none';
   const due = new Date(nextDueDate + 'T00:00:00');
   const now = new Date();
   const days = Math.ceil((due.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
-  if (days <= 3) return 'red';
-  if (days <= 7) return 'yellow';
+  if (days <= 0) return 'red';     // dziś / po terminie
+  if (days <= 3) return 'yellow';
+  if (days <= 7) return 'green';
   return 'none';
 }
 
