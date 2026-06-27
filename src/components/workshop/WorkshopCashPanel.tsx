@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, History, Pencil, Ban } from 'lucide-react';
+import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, History, Pencil, Ban, Trash2 } from 'lucide-react';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopCashEntryDialog } from './WorkshopCashEntryDialog';
 import { WorkshopMonthCloseDialog, type ClosureSummary } from './WorkshopMonthCloseDialog';
 import { WorkshopVoidDialog, WorkshopOpEditDialog, type CashOp } from './WorkshopOpDialogs';
-import { useWorkshopCashData, useWorkshopFinanceSettings, useSaveFinanceSettings, useCashClosures, useCreateCashClosure, useWorkshopRecurringCosts, recurringReminderLevel, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod } from '@/hooks/useWorkshopFinance';
+import { useWorkshopCashData, useWorkshopFinanceSettings, useSaveFinanceSettings, useCashClosures, useCreateCashClosure, useDeleteCashClosure, useWorkshopRecurringCosts, recurringReminderLevel, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod } from '@/hooks/useWorkshopFinance';
 import { useWorkshopOrders } from '@/hooks/useWorkshop';
 import { computeOrderTotals, safeNumber } from '@/utils/workshopOrderTotals';
 
@@ -26,14 +26,16 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   const { data } = useWorkshopCashData(providerId);
   const { data: settings } = useWorkshopFinanceSettings(providerId);
   const cashEnabled = !!settings?.cash_enabled;
-  const start = settings?.cash_started_at ? dpart(settings.cash_started_at) : '';
-  // Kasa liczy TYLKO operacje od momentu włączenia (cash_started_at).
-  const afterStart = (d?: string) => !start || dpart(d) >= start;
+  // Cutoff po momencie włączenia/resetu — porównanie po created_at (TIMESTAMP), nie po
+  // dacie. Dzięki temu reset (cash_started_at = now()) zeruje kasę NATYCHMIAST (operacje
+  // sprzed kliknięcia, także z dziś, wypadają od razu).
+  const startMs = settings?.cash_started_at ? new Date(settings.cash_started_at).getTime() : 0;
+  const afterStart = (createdAt?: string) => !startMs || (createdAt ? new Date(createdAt).getTime() > startMs : false);
   // raw* = wszystkie od startu (z anulowanymi, do feedu); bez "raw" = do obliczeń
   // (storno wykluczone z sald/przepływu/podsumowań).
-  const rawPayments = (data?.payments || []).filter((p: any) => afterStart(p.paid_at));
-  const rawExpenses = (data?.expenses || []).filter((e: any) => afterStart(e.expense_date));
-  const rawPayouts = (data?.payouts || []).filter((p: any) => afterStart(p.paid_at));
+  const rawPayments = (data?.payments || []).filter((p: any) => afterStart(p.created_at));
+  const rawExpenses = (data?.expenses || []).filter((e: any) => afterStart(e.created_at));
+  const rawPayouts = (data?.payouts || []).filter((p: any) => afterStart(p.created_at));
   const payments = rawPayments.filter((p: any) => !p.voided);
   const expenses = rawExpenses.filter((e: any) => !e.voided);
   const payouts = rawPayouts.filter((p: any) => !p.voided);
@@ -46,11 +48,13 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
   const [cashOut, setCashOut] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [closeMonth, setCloseMonth] = useState(() => new Date().toISOString().slice(0, 7)); // 'YYYY-MM'
   const [showAllOps, setShowAllOps] = useState(false);
   const [voidOp, setVoidOp] = useState<CashOp | null>(null);
   const [editOp, setEditOp] = useState<CashOp | null>(null);
   const saveSettings = useSaveFinanceSettings();
   const createClosure = useCreateCashClosure();
+  const deleteClosure = useDeleteCashClosure();
   const { data: closures = [] } = useCashClosures(providerId);
 
   // ── Skumulowane saldo (CAŁA historia, niezależnie od okresu) ──
@@ -87,7 +91,7 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
     const paidByOrder: Record<string, number> = {};
     payments.forEach((p: any) => { if (p.order_id) paidByOrder[p.order_id] = (paidByOrder[p.order_id] || 0) + Number(p.amount || 0); });
     return (orders as any[])
-      .filter((o) => o.status_name === 'Zakończone' && afterStart(o.completed_at || o.created_at))
+      .filter((o) => o.status_name === 'Zakończone' && afterStart(o.created_at))
       .map((o) => {
         const gross = computeOrderTotals(o.items).total_gross || o.total_gross || 0;
         const paid = paidByOrder[o.id] || 0;
@@ -103,36 +107,44 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
     const ops = [
       ...rawPayments.map((p: any) => ({ rec: p, type: 'payment' as const, date: dpart(p.paid_at), label: 'Wpłata' + (p.order_id ? ' (zlecenie)' : ''), amount: Number(p.amount || 0), sign: 1, method: p.method, who: p.created_by_name })),
       ...rawExpenses.map((e: any) => ({ rec: e, type: 'expense' as const, date: dpart(e.expense_date), label: (EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category) + (e.subcategory ? ` · ${e.subcategory}` : ''), amount: Number(e.amount || 0), sign: -1, method: e.method, who: e.created_by_name })),
-      ...rawPayouts.map((p: any) => ({ rec: p, type: 'payout' as const, date: dpart(p.paid_at), label: `Pracownik · ${p.type}`, amount: Number(p.amount || 0), sign: p.type === 'premia' ? 0 : -1, method: null, who: p.created_by_name })),
+      ...rawPayouts.map((p: any) => ({ rec: p, type: 'payout' as const, date: dpart(p.paid_at), label: `${p.type === 'premia' ? 'Premia' : p.type === 'zaliczka' ? 'Zaliczka' : 'Wypłata'}${p.employee?.name ? ' — ' + p.employee.name : ''}`, amount: Number(p.amount || 0), sign: p.type === 'premia' ? 0 : -1, method: null, who: p.created_by_name })),
     ];
     return ops.sort((a, b) => (a.date < b.date ? 1 : -1));
   }, [rawPayments, rawExpenses, rawPayouts]);
 
-  // ── Podsumowanie do zamknięcia miesiąca (cały aktywny okres kasy) ──
+  // ── Podsumowanie do zamknięcia: pełny MIESIĄC KALENDARZOWY (closeMonth = 'YYYY-MM') ──
   const round2 = (n: number) => Math.round(n * 100) / 100;
+  const monthFrom = `${closeMonth}-01`;
+  const monthEnd = (() => { const [y, m] = closeMonth.split('-').map(Number); return new Date(y, m, 0).toISOString().slice(0, 10); })();
+  const inMonth = (d?: string) => { const x = dpart(d); return !!x && x >= monthFrom && x <= monthEnd; };
   const orderRevenue = (o: any) => computeOrderTotals(o.items).total_gross || o.total_gross || 0;
   const orderCost = (o: any) => (o.items || []).reduce((s: number, i: any) => s + safeNumber(i.unit_cost_gross) * (safeNumber(i.quantity) || 1) + safeNumber(i.labor_cost), 0);
-  const closedOrders = (orders as any[]).filter((o) => o.status_name === 'Zakończone' && afterStart(o.completed_at || o.created_at));
-  const cRevenue = closedOrders.reduce((s, o) => s + orderRevenue(o), 0);
-  const cCost = closedOrders.reduce((s, o) => s + orderCost(o), 0);
+  const monthOrders = (orders as any[]).filter((o) => o.status_name === 'Zakończone' && inMonth(o.completed_at || o.created_at));
+  const monthPayments = (data?.payments || []).filter((p: any) => !p.voided && inMonth(p.paid_at));
+  const monthExpenses = (data?.expenses || []).filter((e: any) => !e.voided && inMonth(e.expense_date));
+  const monthPayouts = (data?.payouts || []).filter((p: any) => !p.voided && inMonth(p.paid_at));
+  const cRevenue = monthOrders.reduce((s, o) => s + orderRevenue(o), 0);
+  const cCost = monthOrders.reduce((s, o) => s + orderCost(o), 0);
   const cProfit = round2(cRevenue - cCost);
-  const cExpensesAll = sum(expenses);
-  const cInflowAll = sum(payments);
-  const cPayoutsAll = sum(payouts, (p) => p.type === 'zaliczka' || p.type === 'wyplata');
+  const cInflow = monthPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const cExpenses = monthExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+  const cPay = monthPayouts.filter((p) => p.type === 'zaliczka' || p.type === 'wyplata').reduce((s, p) => s + Number(p.amount || 0), 0);
+  const alreadyClosed = (closures as any[]).some((c) => dpart(c.period_from) === monthFrom);
   const closureSummary: ClosureSummary = {
-    period_from: start || today(),
-    period_to: today(),
-    orders_count: closedOrders.length,
+    period_from: monthFrom,
+    period_to: monthEnd,
+    orders_count: monthOrders.length,
     revenue: round2(cRevenue),
     cost: round2(cCost),
     profit: cProfit,
     avg_margin: cRevenue > 0 ? round2((cProfit / cRevenue) * 100) : 0,
-    expenses: round2(cExpensesAll),
-    result: round2(cInflowAll - cExpensesAll - cPayoutsAll),
+    expenses: round2(cExpenses),
+    result: round2(cInflow - cExpenses - cPay),
     cash_end: round2(cashGotowka),
   };
 
   const confirmClose = async () => {
+    if (alreadyClosed) { return; }
     await createClosure.mutateAsync({ provider_id: providerId, ...closureSummary });
     // Reset kasy: przesunięcie startu (bez kasowania danych).
     await saveSettings.mutateAsync({
@@ -230,9 +242,12 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
           ) : (
             <div className="space-y-1.5">
               {(closures as any[]).map((c) => (
-                <div key={c.id} className="flex items-center justify-between text-sm border-b pb-1.5 last:border-0">
+                <div key={c.id} className="flex items-center justify-between gap-2 text-sm border-b pb-1.5 last:border-0">
                   <span>{c.period_from} — {c.period_to} <span className="text-muted-foreground">· {c.orders_count} zleceń</span></span>
-                  <span className="tabular-nums">Wynik: <span className={`font-semibold ${Number(c.result) >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(Number(c.result))}</span> · gotówka {fmt(Number(c.cash_end))}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="tabular-nums">Wynik: <span className={`font-semibold ${Number(c.result) >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(Number(c.result))}</span> · gotówka {fmt(Number(c.cash_end))}</span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="Usuń zamknięcie" onClick={() => { if (confirm('Usunąć ten wpis archiwum?')) deleteClosure.mutate(c.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -318,7 +333,7 @@ export function WorkshopCashPanel({ providerId, onGoTo }: Props) {
 
       <WorkshopCashEntryDialog open={cashIn} onOpenChange={setCashIn} providerId={providerId} kind="in" />
       <WorkshopCashEntryDialog open={cashOut} onOpenChange={setCashOut} providerId={providerId} kind="out" />
-      <WorkshopMonthCloseDialog open={closeOpen} onOpenChange={setCloseOpen} summary={closureSummary} onConfirm={confirmClose} busy={createClosure.isPending || saveSettings.isPending} />
+      <WorkshopMonthCloseDialog open={closeOpen} onOpenChange={setCloseOpen} summary={closureSummary} onConfirm={confirmClose} busy={createClosure.isPending || saveSettings.isPending} month={closeMonth} onMonthChange={setCloseMonth} alreadyClosed={alreadyClosed} />
       <WorkshopVoidDialog open={!!voidOp} onOpenChange={(o) => { if (!o) setVoidOp(null); }} op={voidOp} />
       <WorkshopOpEditDialog open={!!editOp} onOpenChange={(o) => { if (!o) setEditOp(null); }} op={editOp} />
     </div>

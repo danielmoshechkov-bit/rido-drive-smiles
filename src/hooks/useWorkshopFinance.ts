@@ -104,6 +104,18 @@ export function useCashClosures(providerId?: string) {
   });
 }
 
+export function useDeleteCashClosure() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from('workshop_cash_closures').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['workshop-cash-closures'] }); toast.success('Zamknięcie usunięte'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
 export function useCreateCashClosure() {
   const qc = useQueryClient();
   return useMutation({
@@ -131,7 +143,7 @@ export function useWorkshopCashData(providerId?: string) {
       const [p, e, po] = await Promise.all([
         (supabase as any).from('workshop_payments').select('*').eq('provider_id', providerId),
         (supabase as any).from('workshop_expenses').select('*').eq('provider_id', providerId),
-        (supabase as any).from('workshop_employee_payouts').select('*').eq('provider_id', providerId),
+        (supabase as any).from('workshop_employee_payouts').select('*, employee:workshop_employees(name)').eq('provider_id', providerId),
       ]);
       if (p.error) throw p.error;
       if (e.error) throw e.error;
