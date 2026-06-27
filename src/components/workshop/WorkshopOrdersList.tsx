@@ -27,6 +27,7 @@ import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
 import { useWorkshopFinanceSettings } from '@/hooks/useWorkshopFinance';
+import { returnStock } from '@/utils/workshopStock';
 import {
   Plus, Search, Car, Trash2,
   Wrench, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
@@ -423,6 +424,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             toast.success(t('workshop.orders.deletedCount', { count }));
             try {
               await Promise.all(ids.map(async (id) => {
+                // Magazyn: usunięcie zlecenia zwraca części na stan (chyba że zakończone).
+                const ord = orders.find((o: any) => o.id === id);
+                if (ord?.status_name !== 'Zakończone') {
+                  const linked = (ord?.items || []).filter((it: any) => it.inventory_product_id);
+                  for (const it of linked) await returnStock(it.id);
+                }
                 await Promise.all([
                   (supabase as any).from('workshop_order_items').delete().eq('order_id', id),
                   (supabase as any).from('workshop_order_signatures').delete().eq('order_id', id),
