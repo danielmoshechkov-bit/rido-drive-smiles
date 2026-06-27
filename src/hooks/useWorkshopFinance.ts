@@ -210,3 +210,131 @@ export function useDeleteRecurringCost() {
     onError: (e: any) => toast.error(e.message),
   });
 }
+
+// ---- Grafik warsztatu (workshop_finance_settings) — Pack 4 ----
+export type PayUnit = 'hour' | 'day' | 'week' | 'month';
+export type PayoutType = 'zaliczka' | 'wyplata' | 'premia';
+
+export interface FinanceSettings {
+  provider_id: string;
+  work_days: number[];   // ISO 1=pon … 7=niedz
+  work_start: string;    // 'HH:MM'
+  work_end: string;
+}
+
+const DEFAULT_SETTINGS = { work_days: [1, 2, 3, 4, 5], work_start: '08:00', work_end: '16:00' };
+
+export function useWorkshopFinanceSettings(providerId?: string) {
+  return useQuery({
+    queryKey: ['workshop-finance-settings', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_finance_settings').select('*').eq('provider_id', providerId).maybeSingle();
+      if (error) throw error;
+      return data || { provider_id: providerId, ...DEFAULT_SETTINGS };
+    },
+  });
+}
+
+export function useSaveFinanceSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (settings: any) => {
+      const { error } = await (supabase as any)
+        .from('workshop_finance_settings')
+        .upsert({ ...settings, updated_at: new Date().toISOString() }, { onConflict: 'provider_id' });
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['workshop-finance-settings'] }); toast.success('Grafik zapisany'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+// Liczba dni roboczych (wg grafiku) w przedziale [from, to].
+function workingDaysInRange(from: string, to: string, workDays: number[]): number {
+  const start = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  if (end < start) return 0;
+  let count = 0;
+  const d = new Date(start);
+  while (d <= end) {
+    const iso = d.getDay() === 0 ? 7 : d.getDay(); // JS 0=niedz → ISO 7
+    if (workDays.includes(iso)) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
+// Należność bazowa za okres ze stawki + jednostki, znormalizowana przez grafik.
+export function computeBaseDue(
+  payRate: number | null | undefined,
+  payUnit: PayUnit | null | undefined,
+  settings: { work_days: number[]; work_start: string; work_end: string },
+  from: string,
+  to: string,
+): number {
+  const rate = Number(payRate) || 0;
+  if (!rate || !payUnit) return 0;
+  const workDays = settings.work_days?.length ? settings.work_days : DEFAULT_SETTINGS.work_days;
+  const days = workingDaysInRange(from, to, workDays);
+  const perWeek = workDays.length || 5;
+  const perMonth = perWeek * 4.33;
+  const [sh, sm] = (settings.work_start || '08:00').split(':').map(Number);
+  const [eh, em] = (settings.work_end || '16:00').split(':').map(Number);
+  const hoursPerDay = Math.max(0, (eh + em / 60) - (sh + sm / 60));
+  switch (payUnit) {
+    case 'hour':  return Math.round(rate * days * hoursPerDay * 100) / 100;
+    case 'day':   return Math.round(rate * days * 100) / 100;
+    case 'week':  return Math.round(rate * (days / perWeek) * 100) / 100;
+    case 'month': return Math.round(rate * (days / perMonth) * 100) / 100;
+    default:      return 0;
+  }
+}
+
+// ---- Wypłaty / zaliczki / premie (workshop_employee_payouts) — Pack 4 ----
+export function useWorkshopPayouts(providerId?: string, filters?: { employeeId?: string; from?: string; to?: string }) {
+  return useQuery({
+    queryKey: ['workshop-payouts', providerId, filters],
+    enabled: !!providerId,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from('workshop_employee_payouts')
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('paid_at', { ascending: false });
+      if (filters?.employeeId) q = q.eq('employee_id', filters.employeeId);
+      if (filters?.from) q = q.gte('paid_at', filters.from);
+      if (filters?.to) q = q.lte('paid_at', filters.to + 'T23:59:59');
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
+export function useCreatePayout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (row: any) => {
+      const { data, error } = await (supabase as any).from('workshop_employee_payouts').insert(row).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['workshop-payouts'] }); toast.success('Pozycja zapisana'); },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+export function useUpdateEmployeePay() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, pay_rate, pay_unit }: { id: string; pay_rate: number; pay_unit: PayUnit }) => {
+      const { error } = await (supabase as any)
+        .from('workshop_employees').update({ pay_rate, pay_unit }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['workshop-payroll-employees'] }),
+    onError: (e: any) => toast.error(e.message),
+  });
+}
