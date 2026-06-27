@@ -25,6 +25,16 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [view, setView] = useState<'kasa' | 'sprzedaz' | 'zakup'>('kasa');
   const [expenseSub, setExpenseSub] = useState<'wydatki' | 'cykliczne'>('wydatki');
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)); // 'YYYY-MM'
+  const shiftMonth = (delta: number) => setMonth((m) => {
+    const [y, mo] = m.split('-').map(Number);
+    const d = new Date(y, mo - 1 + delta, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const monthLabel = (() => {
+    const [y, mo] = month.split('-').map(Number);
+    return new Date(y, mo - 1, 1).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+  })();
 
   const loadInvoices = async () => {
     setIsLoading(true);
@@ -50,13 +60,16 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   useEffect(() => { loadInvoices(); }, []);
 
   const filtered = useMemo(() => {
-    if (!search) return invoices;
-    const q = search.toLowerCase();
-    return invoices.filter((d: any) =>
-      (d.invoice_number || '').toLowerCase().includes(q) ||
-      (d.buyer_name || '').toLowerCase().includes(q)
-    );
-  }, [invoices, search]);
+    let list = invoices.filter((d: any) => String(d.issue_date || '').slice(0, 7) === month);
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((d: any) =>
+        (d.invoice_number || '').toLowerCase().includes(q) ||
+        (d.buyer_name || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [invoices, search, month]);
 
   const totalPaid = filtered.reduce((s, d) => s + (d.paid_amount || (d.is_paid ? d.gross_total : 0) || 0), 0);
   const totalGross = filtered.reduce((s, d) => s + (d.gross_total || 0), 0);
@@ -108,6 +121,14 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
         <Button variant="destructive" size="sm" className="gap-1" disabled>
           <Trash2 className="h-4 w-4" /> {t('workshop.sales.deleteSelected')}
         </Button>
+
+        {/* Month switcher — default current month */}
+        <div className="flex items-center gap-1 rounded-md border bg-muted/30 px-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftMonth(-1)} title="Poprzedni miesiąc">‹</Button>
+          <span className="text-sm font-medium capitalize min-w-[140px] text-center">{monthLabel}</span>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftMonth(1)} title="Następny miesiąc">›</Button>
+        </div>
+
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
