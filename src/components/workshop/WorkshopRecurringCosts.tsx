@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +28,23 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
   const updateCost = useUpdateRecurringCost();
   const deleteCost = useDeleteRecurringCost();
   const createExpense = useCreateWorkshopExpense();
+
+  // Rentowność: koszty stałe przeliczone na miesiąc (tygodniowe ×4,33) vs wpływy
+  // bieżącego miesiąca (płatności, bez anulowanych).
+  const monthlyFixed = (costs as any[]).filter((c) => c.active)
+    .reduce((s, c) => s + Number(c.amount || 0) * (c.frequency === 'weekly' ? 4.33 : 1), 0);
+  const monthPrefix = new Date().toISOString().slice(0, 7);
+  const { data: inflowMonth = 0 } = useQuery({
+    queryKey: ['recurring-rentownosc-inflow', providerId, monthPrefix],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data } = await (supabase as any).from('workshop_payments')
+        .select('amount, paid_at, voided').eq('provider_id', providerId)
+        .gte('paid_at', `${monthPrefix}-01`);
+      return (data || []).filter((p: any) => !p.voided).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+    },
+  });
+  const rentownosc = Math.round((inflowMonth - monthlyFixed) * 100) / 100;
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('oplata');
@@ -83,6 +102,13 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Rentowność: koszty stałe / miesiąc vs wpływy bieżącego miesiąca */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Koszty stałe / miesiąc</p><p className="text-xl font-bold tabular-nums text-destructive">{fmt(monthlyFixed)} zł</p></CardContent></Card>
+        <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Wpływy w tym miesiącu</p><p className="text-xl font-bold tabular-nums text-green-600">{fmt(inflowMonth)} zł</p></CardContent></Card>
+        <Card className={rentownosc >= 0 ? 'border-green-500/40' : 'border-destructive/40'}><CardContent className="py-3"><p className="text-xs text-muted-foreground">Rentowność (wpływy − koszty stałe)</p><p className={`text-xl font-bold tabular-nums ${rentownosc >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(rentownosc)} zł</p></CardContent></Card>
+      </div>
+
       <Card>
         <CardContent className="py-4 space-y-4">
           <h3 className="font-semibold">{editingId ? 'Edytuj opłatę stałą' : 'Dodaj opłatę stałą (cykliczną)'}</h3>

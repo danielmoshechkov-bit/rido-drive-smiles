@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
-import { WorkshopExpenses } from './WorkshopExpenses';
+import { WorkshopRecurringCosts } from './WorkshopRecurringCosts';
 import { WorkshopCashPanel } from './WorkshopCashPanel';
 import { useTranslation } from 'react-i18next';
 
@@ -24,7 +24,6 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [view, setView] = useState<'kasa' | 'sprzedaz' | 'zakup'>('kasa');
-  const [expenseSub, setExpenseSub] = useState<'wydatki' | 'cykliczne'>('wydatki');
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)); // 'YYYY-MM'
   const shiftMonth = (delta: number) => setMonth((m) => {
     const [y, mo] = m.split('-').map(Number);
@@ -79,7 +78,7 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
     <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1">
       <Button variant={view === 'kasa' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('kasa')}>Kasa</Button>
       <Button variant={view === 'sprzedaz' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('sprzedaz')}>Sprzedaż</Button>
-      <Button variant={view === 'zakup' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('zakup')}>Zakupy / Opłaty</Button>
+      <Button variant={view === 'zakup' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('zakup')}>Opłaty stałe</Button>
     </div>
   );
 
@@ -96,7 +95,7 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
     return (
       <div className="space-y-4">
         {header}
-        <WorkshopCashPanel providerId={_providerId} onGoTo={(v, sub) => { setView(v); if (sub) setExpenseSub(sub); }} />
+        <WorkshopCashPanel providerId={_providerId} />
       </div>
     );
   }
@@ -105,7 +104,7 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
     return (
       <div className="space-y-4">
         {header}
-        <WorkshopExpenses providerId={_providerId} initialTab={expenseSub} />
+        <WorkshopRecurringCosts providerId={_providerId} />
       </div>
     );
   }
