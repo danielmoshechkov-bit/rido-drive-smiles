@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Plus, Trash2, CheckCircle, AlertTriangle, Clock, Pencil, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { WorkshopDatePicker } from './WorkshopRangeCalendar';
+import { WorkshopBreakdownDialog, type BreakdownRow } from './WorkshopBreakdownDialog';
 import {
   PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod, type ExpenseCategory, type RecurringFrequency,
   useWorkshopRecurringCosts, useCreateRecurringCost, useUpdateRecurringCost, useDeleteRecurringCost,
@@ -34,17 +35,26 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
   const monthlyFixed = (costs as any[]).filter((c) => c.active)
     .reduce((s, c) => s + Number(c.amount || 0) * (c.frequency === 'weekly' ? 4.33 : 1), 0);
   const monthPrefix = new Date().toISOString().slice(0, 7);
-  const { data: inflowMonth = 0 } = useQuery({
+  const methodLabel = (m: string) => PAYMENT_METHODS.find((x) => x.value === m)?.label || m || '—';
+  const { data: inflowRows = [] } = useQuery<BreakdownRow[]>({
     queryKey: ['recurring-rentownosc-inflow', providerId, monthPrefix],
     enabled: !!providerId,
     queryFn: async () => {
       const { data } = await (supabase as any).from('workshop_payments')
-        .select('amount, paid_at, voided').eq('provider_id', providerId)
+        .select('amount, paid_at, method, order_id, voided').eq('provider_id', providerId)
         .gte('paid_at', `${monthPrefix}-01`);
-      return (data || []).filter((p: any) => !p.voided).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
+      return (data || [])
+        .filter((p: any) => !p.voided && String(p.paid_at).slice(0, 7) === monthPrefix)
+        .map((p: any) => ({ date: String(p.paid_at).slice(0, 10), label: methodLabel(p.method) + (p.order_id ? ' · zlecenie' : ''), amount: Number(p.amount || 0) }))
+        .sort((a: BreakdownRow, b: BreakdownRow) => (a.date! < b.date! ? 1 : -1));
     },
   });
+  const inflowMonth = inflowRows.reduce((s, r) => s + r.amount, 0);
   const rentownosc = Math.round((inflowMonth - monthlyFixed) * 100) / 100;
+  // Rozbicie kosztów stałych przeliczonych na miesiąc
+  const fixedRows: BreakdownRow[] = (costs as any[]).filter((c) => c.active)
+    .map((c) => ({ label: `${c.name} (${c.frequency === 'weekly' ? 'tyg. ×4,33' : 'mies.'})`, amount: Number(c.amount || 0) * (c.frequency === 'weekly' ? 4.33 : 1) }));
+  const [breakdown, setBreakdown] = useState<{ title: string; rows: BreakdownRow[] } | null>(null);
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('oplata');
@@ -104,10 +114,11 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
     <div className="space-y-4">
       {/* Rentowność: koszty stałe / miesiąc vs wpływy bieżącego miesiąca */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Koszty stałe / miesiąc</p><p className="text-xl font-bold tabular-nums text-destructive">{fmt(monthlyFixed)} zł</p></CardContent></Card>
-        <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Wpływy w tym miesiącu</p><p className="text-xl font-bold tabular-nums text-green-600">{fmt(inflowMonth)} zł</p></CardContent></Card>
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setBreakdown({ title: 'Koszty stałe / miesiąc', rows: fixedRows })}><CardContent className="py-3"><p className="text-xs text-muted-foreground">Koszty stałe / miesiąc</p><p className="text-xl font-bold tabular-nums text-destructive">{fmt(monthlyFixed)} zł</p></CardContent></Card>
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setBreakdown({ title: 'Wpływy w tym miesiącu', rows: inflowRows })}><CardContent className="py-3"><p className="text-xs text-muted-foreground">Wpływy w tym miesiącu</p><p className="text-xl font-bold tabular-nums text-green-600">{fmt(inflowMonth)} zł</p></CardContent></Card>
         <Card className={rentownosc >= 0 ? 'border-green-500/40' : 'border-destructive/40'}><CardContent className="py-3"><p className="text-xs text-muted-foreground">Rentowność (wpływy − koszty stałe)</p><p className={`text-xl font-bold tabular-nums ${rentownosc >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(rentownosc)} zł</p></CardContent></Card>
       </div>
+      <WorkshopBreakdownDialog open={!!breakdown} onOpenChange={(o) => { if (!o) setBreakdown(null); }} title={breakdown?.title || ''} rows={breakdown?.rows || []} />
 
       <Card>
         <CardContent className="py-4 space-y-4">

@@ -5,6 +5,7 @@ import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopCashEntryDialog } from './WorkshopCashEntryDialog';
 import { WorkshopExpenseDialog } from './WorkshopExpenseDialog';
+import { WorkshopBreakdownDialog, type BreakdownRow } from './WorkshopBreakdownDialog';
 import { WorkshopMonthCloseDialog, type ClosureSummary } from './WorkshopMonthCloseDialog';
 import { WorkshopVoidDialog, WorkshopOpEditDialog, type CashOp } from './WorkshopOpDialogs';
 import { useWorkshopCashData, useWorkshopFinanceSettings, useSaveFinanceSettings, useCashClosures, useCreateCashClosure, useDeleteCashClosure, useWorkshopRecurringCosts, recurringReminderLevel, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod, type ExpenseCategory } from '@/hooks/useWorkshopFinance';
@@ -48,6 +49,7 @@ export function WorkshopCashPanel({ providerId }: Props) {
   const [expenseCat, setExpenseCat] = useState<ExpenseCategory | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeMonth, setCloseMonth] = useState(() => new Date().toISOString().slice(0, 7)); // 'YYYY-MM'
+  const [breakdown, setBreakdown] = useState<{ title: string; rows: BreakdownRow[] } | null>(null);
   const [showAllOps, setShowAllOps] = useState(false);
   const [voidOp, setVoidOp] = useState<CashOp | null>(null);
   const [editOp, setEditOp] = useState<CashOp | null>(null);
@@ -84,6 +86,16 @@ export function WorkshopCashPanel({ providerId }: Props) {
   const periodResult = Math.round((periodIn - periodOut) * 100) / 100;
   const periodByMethod = (m: PaymentMethod) => sum(payments, (p) => p.method === m && inRange(dpart(p.paid_at), from, to));
   const periodExpByCat = (c: string) => sum(expenses, (e) => e.category === c && inRange(dpart(e.expense_date), from, to));
+  // Drill-down: pozycje składające się na wpływy/wydatki okresu (realna kasa).
+  const methodLabel = (m: string) => PAYMENT_METHODS.find((x) => x.value === m)?.label || m || '—';
+  const inflowRows = (): BreakdownRow[] => payments
+    .filter((p: any) => inRange(dpart(p.paid_at), from, to))
+    .map((p: any) => ({ date: dpart(p.paid_at), label: methodLabel(p.method) + (p.order_id ? ' · zlecenie' : ''), amount: Number(p.amount || 0) }))
+    .sort((a, b) => (a.date! < b.date! ? 1 : -1));
+  const outflowRows = (): BreakdownRow[] => [
+    ...expenses.filter((e: any) => inRange(dpart(e.expense_date), from, to)).map((e: any) => ({ date: dpart(e.expense_date), label: (EXPENSE_CATEGORIES.find((c) => c.value === e.category)?.label || e.category) + (e.subcategory ? ` · ${e.subcategory}` : ''), amount: Number(e.amount || 0) })),
+    ...payouts.filter((p: any) => (p.type === 'zaliczka' || p.type === 'wyplata') && inRange(dpart(p.paid_at), from, to)).map((p: any) => ({ date: dpart(p.paid_at), label: `${p.type === 'zaliczka' ? 'Zaliczka' : 'Wypłata'}${p.employee?.name ? ' — ' + p.employee.name : ''}`, amount: Number(p.amount || 0) })),
+  ].sort((a, b) => (a.date! < b.date! ? 1 : -1));
 
   // ── Należności do pobrania (zlecenia zakończone, Σpłatności < kwota) ──
   const receivables = useMemo(() => {
@@ -270,8 +282,8 @@ export function WorkshopCashPanel({ providerId }: Props) {
           <WorkshopRangeCalendar from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} align="end" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-md border p-3"><div className="flex items-center gap-1 text-green-600 text-sm"><TrendingUp className="h-4 w-4" />Wpływy</div><p className="text-xl font-bold tabular-nums">{fmt(periodIn)}</p></div>
-          <div className="rounded-md border p-3"><div className="flex items-center gap-1 text-destructive text-sm"><TrendingDown className="h-4 w-4" />Wydatki</div><p className="text-xl font-bold tabular-nums">{fmt(periodOut)}</p></div>
+          <button type="button" onClick={() => setBreakdown({ title: 'Wpływy w okresie', rows: inflowRows() })} className="rounded-md border p-3 text-left cursor-pointer hover:bg-accent/50 transition-colors"><div className="flex items-center gap-1 text-green-600 text-sm"><TrendingUp className="h-4 w-4" />Wpływy</div><p className="text-xl font-bold tabular-nums">{fmt(periodIn)}</p></button>
+          <button type="button" onClick={() => setBreakdown({ title: 'Wydatki w okresie', rows: outflowRows() })} className="rounded-md border p-3 text-left cursor-pointer hover:bg-accent/50 transition-colors"><div className="flex items-center gap-1 text-destructive text-sm"><TrendingDown className="h-4 w-4" />Wydatki</div><p className="text-xl font-bold tabular-nums">{fmt(periodOut)}</p></button>
           <div className="rounded-md border p-3"><div className="flex items-center gap-1 text-sm"><Wallet className="h-4 w-4" />Wynik</div><p className={`text-xl font-bold tabular-nums ${periodResult >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(periodResult)}</p></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
@@ -386,6 +398,7 @@ export function WorkshopCashPanel({ providerId }: Props) {
         </div>
       </CardContent></Card>
 
+      <WorkshopBreakdownDialog open={!!breakdown} onOpenChange={(o) => { if (!o) setBreakdown(null); }} title={breakdown?.title || ''} rows={breakdown?.rows || []} />
       <WorkshopCashEntryDialog open={cashIn} onOpenChange={setCashIn} providerId={providerId} kind="in" />
       <WorkshopExpenseDialog open={!!expenseCat} onOpenChange={(o) => { if (!o) setExpenseCat(null); }} providerId={providerId} defaultCategory={expenseCat || 'zakup'} />
       <WorkshopMonthCloseDialog open={closeOpen} onOpenChange={setCloseOpen} summary={closureSummary} onConfirm={confirmClose} busy={createClosure.isPending || saveSettings.isPending} month={closeMonth} onMonthChange={setCloseMonth} alreadyClosed={alreadyClosed} />
