@@ -14,6 +14,7 @@ import {
   EXPENSE_CATEGORIES, PAYMENT_METHODS, type ExpenseCategory, type PaymentMethod,
   useWorkshopExpenses, useCreateWorkshopExpense, useDeleteWorkshopExpense, uploadExpenseDocument,
 } from '@/hooks/useWorkshopFinance';
+import { WorkshopRecurringCosts } from './WorkshopRecurringCosts';
 
 interface Props { providerId: string; }
 
@@ -37,6 +38,7 @@ export function WorkshopExpenses({ providerId }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [tab, setTab] = useState<'wydatki' | 'cykliczne'>('wydatki');
   const [filterCat, setFilterCat] = useState<ExpenseCategory | 'all'>('all');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
@@ -84,8 +86,25 @@ export function WorkshopExpenses({ providerId }: Props) {
     }
   };
 
+  const tabToggle = (
+    <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-0.5 w-fit">
+      <Button variant={tab === 'wydatki' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setTab('wydatki')}>Wydatki</Button>
+      <Button variant={tab === 'cykliczne' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setTab('cykliczne')}>Opłaty stałe</Button>
+    </div>
+  );
+
+  if (tab === 'cykliczne') {
+    return (
+      <div className="space-y-4">
+        {tabToggle}
+        <WorkshopRecurringCosts providerId={providerId} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {tabToggle}
       {/* Form */}
       <Card>
         <CardContent className="py-4 space-y-4">
