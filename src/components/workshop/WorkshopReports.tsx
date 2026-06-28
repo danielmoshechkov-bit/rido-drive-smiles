@@ -10,10 +10,11 @@ import { useWorkshopPaymentsRange, PAYMENT_METHODS, type PaymentMethod } from '@
 import { safeNumber, getLineTotal } from '@/utils/workshopOrderTotals';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopClientsReport, WorkshopEmployeesReport, WorkshopSalesReport } from './WorkshopExtraReports';
+import { WorkshopCompanyReport } from './WorkshopCompanyReport';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2, Info, ChevronDown } from 'lucide-react';
+import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2, Info, ChevronDown, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { printHtmlDocument } from '@/utils/invoiceHtmlGenerator';
@@ -31,6 +32,7 @@ const reportCategories = [
   { key: 'sprzedaz', labelKey: 'workshop.reports.cat.sales', icon: Receipt },
   { key: 'klienci', labelKey: 'workshop.reports.cat.clients', icon: Users },
   { key: 'pracownicy', labelKey: 'workshop.reports.cat.employees', icon: UserCheck },
+  { key: 'firma', labelKey: 'Działalność firmy', icon: Building2 },
 ];
 
 const orderReports = [
@@ -39,6 +41,7 @@ const orderReports = [
 const salesReports = [{ key: 'raport-sprzedazy', label: 'Sprzedaż', desc: 'Obrót, liczba faktur, średnia wartość, rozbicie po miesiącach.' }];
 const clientReports = [{ key: 'raport-klienci', label: 'Klienci', desc: 'Nowi, powracający, top klienci wg przychodu.' }];
 const employeeReports = [{ key: 'raport-pracownicy', label: 'Pracownicy', desc: 'Liczba i wartość zleceń na pracownika, wypłaty.' }];
+const companyReports = [{ key: 'raport-firma', label: 'Podsumowanie firmy', desc: 'Pełny obraz finansów: przychody i wszystkie koszty (pracownicze, czynsz, opłaty stałe, zakupy) → realny wynik firmy.' }];
 
 const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const startOfMonth = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
@@ -178,6 +181,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
       case 'sprzedaz': return salesReports;
       case 'klienci': return clientReports;
       case 'pracownicy': return employeeReports;
+      case 'firma': return companyReports;
       default: return [];
     }
   };
@@ -199,6 +203,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   if (activeReport === 'raport-klienci') return reportWrap('Klienci', <WorkshopClientsReport providerId={providerId} />);
   if (activeReport === 'raport-pracownicy') return reportWrap('Pracownicy', <WorkshopEmployeesReport providerId={providerId} />);
   if (activeReport === 'raport-sprzedazy') return reportWrap('Sprzedaż', <WorkshopSalesReport providerId={providerId} />);
+  if (activeReport === 'raport-firma') return reportWrap('Podsumowanie firmy', <WorkshopCompanyReport providerId={providerId} />);
 
   if (activeReport === 'zestawienie-szczegolowe') {
     return (
