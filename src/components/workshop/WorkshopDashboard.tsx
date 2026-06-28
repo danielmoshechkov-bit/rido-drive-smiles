@@ -57,13 +57,7 @@ interface WorkshopDashboardProps {
 function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; onNavigate: (key: string | null) => void }) {
   const { t } = useTranslation();
   return (
-    <div className="hidden md:block w-[200px] flex-shrink-0 space-y-2 pr-3 border-r border-border">
-      <button
-        onClick={() => onNavigate(null)}
-        className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
-      >
-        🏠 {t('workshop.dashboard.home')}
-      </button>
+    <div className="hidden md:block w-[200px] flex-shrink-0 pr-3 border-r border-border">
       <div className="grid grid-cols-2 gap-1.5">
         {modules.filter(m => m.ready).map(m => (
           <button

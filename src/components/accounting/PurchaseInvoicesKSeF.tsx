@@ -141,9 +141,19 @@ export const PurchaseInvoicesKSeF = forwardRef<PurchaseInvoicesKSeFHandle, Purch
       : list.filter((i: any) => Math.abs(Number(i.vat_breakdown?.[vatRateFilter]?.netto || 0)) > 0.001)),
     [list, vatRateFilter],
   );
-  // Grupowanie korekt: oryginał (po ksef_number) + jego korekty (corrected_ksef_number). Paginacja po GRUPACH.
+  // Grupowanie korekt: oryginał (po ksef_number LUB numerze) + korekty.
+  // UWAGA: corrected_ksef_number bywa flagą "1"/"2" z <DaneFaKorygowanej><NrKSeF> (1=była w KSeF),
+  // NIE numerem — wtedy wiążemy po corrected_invoice_number (NrFaKorygowanej) → document_number oryginału.
   const groups = useMemo(
-    () => groupByCorrections(filteredList, (i: any) => [i.ksef_number], (i: any) => i.corrected_ksef_number),
+    () => groupByCorrections(
+      filteredList,
+      (i: any) => [i.ksef_number, i.document_number],
+      (i: any) => {
+        const ck = i.corrected_ksef_number;
+        const realKsef = ck && ck !== '1' && ck !== '2' ? ck : null;
+        return realKsef || i.corrected_invoice_number || null;
+      },
+    ),
     [filteredList],
   );
   const pagedGroups = groups.slice((page - 1) * pageSize, page * pageSize);
@@ -451,7 +461,8 @@ export const PurchaseInvoicesKSeF = forwardRef<PurchaseInvoicesKSeFHandle, Purch
           </div>
         ) : filteredList.length > 0 ? (
           <div className="space-y-2">
-          <div className="overflow-x-auto rounded-md border">
+          {/* Desktop: tabela */}
+          <div className="hidden overflow-x-auto rounded-md border md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -536,6 +547,65 @@ export const PurchaseInvoicesKSeF = forwardRef<PurchaseInvoicesKSeFHandle, Purch
               </TableBody>
             </Table>
           </div>
+
+          {/* Mobile: karty zamiast tabeli (czytelne ramki, brak ściskania kolumn) */}
+          <div className="space-y-2 md:hidden">
+            {pagedGroups.map((g) => {
+              const renderCard = (invoice: any, isCorrection: boolean) => {
+                const status = STATUS_BADGES[invoice.status || 'new'] || STATUS_BADGES.new;
+                const checked = selectedIds.has(invoice.id);
+                return (
+                  <div
+                    key={invoice.id}
+                    onClick={() => setPreviewInvoice(invoice)}
+                    className={`rounded-lg border p-3 ${isCorrection ? 'ml-4 border-l-2 border-l-muted-foreground/30 bg-muted/20' : ''} ${checked ? 'ring-1 ring-primary' : ''}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-start gap-2">
+                        <span onClick={(e) => e.stopPropagation()} className="pt-0.5">
+                          <Checkbox checked={checked} onCheckedChange={() => toggleOne(invoice.id)} aria-label="Zaznacz fakturę" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">
+                            {isCorrection && <span className="mr-1 text-muted-foreground" title="Korekta do faktury powyżej">↳</span>}
+                            {invoice.supplier_name || '—'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{invoice.purchase_date || '—'} · NIP {invoice.supplier_nip || '—'}</p>
+                        </div>
+                      </div>
+                      <Badge variant={status.variant} className="shrink-0">{status.label}</Badge>
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                      <div><span className="block text-xs text-muted-foreground">Netto</span>{fmt(invoice.total_net)}</div>
+                      <div><span className="block text-xs text-muted-foreground">VAT</span>{fmt(invoice.total_vat)}</div>
+                      <div><span className="block text-xs text-muted-foreground">Brutto</span><span className="font-medium">{fmt(invoice.total_gross)}</span></div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      {invoice.ai_category
+                        ? <Badge variant="secondary" className="text-xs">{CATEGORY_LABELS[invoice.ai_category] || invoice.ai_category}</Badge>
+                        : <span className="text-xs text-muted-foreground">—</span>}
+                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                        {invoice.status !== 'booked' && (
+                          <Button size="sm" variant="ghost" onClick={() => updateStatus(invoice.id, 'booked')} title="Zaksięguj"><CheckCircle className="h-4 w-4 text-green-600" /></Button>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={() => setInventoryModal(invoice)} title="Do magazynu"><Package className="h-4 w-4 text-blue-600" /></Button>
+                        {invoice.status !== 'rejected' && (
+                          <Button size="sm" variant="ghost" onClick={() => updateStatus(invoice.id, 'rejected')} title="Odrzuć"><XCircle className="h-4 w-4 text-red-500" /></Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              };
+              return (
+                <Fragment key={g.original.id}>
+                  {renderCard(g.original, false)}
+                  {g.corrections.map((c: any) => renderCard(c, true))}
+                </Fragment>
+              );
+            })}
+          </div>
+
           <ListPagination total={groups.length} page={page} pageSize={pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
           </div>
         ) : (

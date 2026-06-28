@@ -103,28 +103,31 @@ export function ServiceProviderAccountingView() {
 
   return (
     <div className="space-y-4">
-      {/* Desktop: siatka dużych kafli-zdjęć jako nawigacja (wzór Warsztat & Auto) */}
-      <div className="hidden md:block">
-        <TileGridNav
-          activeTab={subTab}
-          onTabChange={(tab) => { setSubTab(tab); if (tab === 'ksef') markKsefRead(); }}
-          tabs={accountingSubTabs.map(tab => ({
-            value: tab.value,
-            label: tab.labelKey ? t(tab.labelKey) : tab.label,
-            icon: tab.icon,
-            visible: tab.visible,
-            badge: tab.value === 'ksef' ? ksefUnread : undefined,
-          }))}
-        />
-      </div>
-      {/* Mobile: poziomy pasek bez zmian */}
-      <div className="md:hidden">
-        <UniversalSubTabBar
-          activeTab={subTab}
-          onTabChange={(tab) => { setSubTab(tab); if (tab === 'ksef') markKsefRead(); }}
-          tabs={accountingSubTabs.map(tab => tab.value === 'ksef' && ksefUnread > 0 ? { ...tab, label: `KSeF (${ksefUnread})` } : { ...tab, label: tab.labelKey ? t(tab.labelKey) : tab.label })}
-        />
-      </div>
+      <div className="md:flex md:gap-4">
+        {/* Lewa kolumna: małe kafle-miniaturki (desktop), rozmiar jak Warsztat (w-[200px]); treść obok po prawej */}
+        <div className="hidden w-[200px] shrink-0 border-r border-border pr-3 md:block">
+          <TileGridNav
+            activeTab={subTab}
+            onTabChange={(tab) => { setSubTab(tab); if (tab === 'ksef') markKsefRead(); }}
+            tabs={accountingSubTabs.map(tab => ({
+              value: tab.value,
+              label: tab.labelKey ? t(tab.labelKey) : tab.label,
+              icon: tab.icon,
+              visible: tab.visible,
+              badge: tab.value === 'ksef' ? ksefUnread : undefined,
+            }))}
+          />
+        </div>
+        {/* Prawa kolumna: treść aktywnej zakładki, OBOK kafli (Przegląd domyślnie) */}
+        <div className="min-w-0 flex-1 space-y-4">
+          {/* Mobile: poziomy pasek bez zmian */}
+          <div className="md:hidden">
+            <UniversalSubTabBar
+              activeTab={subTab}
+              onTabChange={(tab) => { setSubTab(tab); if (tab === 'ksef') markKsefRead(); }}
+              tabs={accountingSubTabs.map(tab => tab.value === 'ksef' && ksefUnread > 0 ? { ...tab, label: `KSeF (${ksefUnread})` } : { ...tab, label: tab.labelKey ? t(tab.labelKey) : tab.label })}
+            />
+          </div>
 
       {/* Przegląd */}
       {subTab === 'przeglad' && (
@@ -269,6 +272,8 @@ export function ServiceProviderAccountingView() {
           </CardContent>
         </Card>
       )}
+        </div>{/* /prawa kolumna (treść) */}
+      </div>{/* /md:flex (kafle + treść) */}
 
       {/* Modals */}
       <Dialog open={showNewInvoice} onOpenChange={(open) => { setShowNewInvoice(open); if (!open) loadData(); }}>

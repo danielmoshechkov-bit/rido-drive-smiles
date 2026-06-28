@@ -1,5 +1,4 @@
 import type { LucideIcon } from 'lucide-react';
-import { Card } from '@/components/ui/card';
 
 export interface TileNavItem {
   value: string;
@@ -17,7 +16,7 @@ interface TileGridNavProps {
   className?: string;
 }
 
-// Placeholdery: gradienty (cyklicznie) — fioletowo-pochodne + akcenty. Podmień na zdjęcia przez `img`.
+// Placeholdery: gradienty (cyklicznie). Podmień na zdjęcia przez `img`.
 const GRADIENTS = [
   'from-violet-500 to-purple-700',
   'from-sky-500 to-blue-700',
@@ -31,38 +30,38 @@ const GRADIENTS = [
   'from-slate-500 to-slate-700',
 ];
 
-// Siatka dużych kafli-zdjęć jako nawigacja (wzór Warsztat & Auto). Przenośny.
+// Małe kafle-miniaturki 2-w-rzędzie (wzór bocznych kafli Warsztat & Auto). Przenośny.
 export function TileGridNav({ tabs, activeTab, onTabChange, className }: TileGridNavProps) {
   const visible = tabs.filter((t) => t.visible !== false);
   return (
-    <div className={`grid grid-cols-2 gap-4 md:grid-cols-4 ${className || ''}`}>
+    <div className={`grid grid-cols-2 gap-1.5 ${className || ''}`}>
       {visible.map((tab, i) => {
         const Icon = tab.icon;
         const active = tab.value === activeTab;
         return (
-          <Card
+          <button
             key={tab.value}
             onClick={() => onTabChange(tab.value)}
-            className={`relative cursor-pointer overflow-hidden transition-all hover:scale-[1.03] hover:shadow-lg ${active ? 'ring-2 ring-primary shadow-md' : ''}`}
+            className={`relative h-20 overflow-hidden rounded-lg transition-all ${active ? 'ring-2 ring-primary shadow-md' : 'hover:ring-2 hover:ring-primary/50 hover:shadow-sm'}`}
           >
-            <div className="relative h-28">
-              {tab.img ? (
-                <img src={tab.img} alt={tab.label} className="h-full w-full object-cover" />
-              ) : (
-                <div className={`h-full w-full bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]}`} />
-              )}
-              {/* ikona w tle (tylko placeholder) */}
-              {!tab.img && <Icon className="absolute right-2 top-2 h-8 w-8 text-white/30" />}
-              {/* przyciemnienie + napis na dole (jak Warsztat) */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-3">
-                <span className="text-sm font-semibold text-white drop-shadow-lg">{tab.label}</span>
-              </div>
-              {tab.badge ? (
-                <span className="absolute left-2 top-2 rounded-full bg-white/90 px-1.5 text-xs font-semibold text-primary">{tab.badge}</span>
-              ) : null}
-            </div>
-          </Card>
+            {tab.img ? (
+              <img src={tab.img} alt={tab.label} className="h-full w-full object-cover" />
+            ) : (
+              <div className={`h-full w-full bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]}`} />
+            )}
+            {!tab.img && <Icon className="absolute right-1.5 top-1.5 h-5 w-5 text-white/30" />}
+            {/* ciemny gradient u dołu + napis (jak Warsztat) */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/95 via-black/65 to-transparent" />
+            <span
+              className="absolute inset-x-1 bottom-1.5 text-center text-xs font-semibold leading-tight text-white"
+              style={{ textShadow: '0 1px 4px rgba(0,0,0,1)' }}
+            >
+              {tab.label}
+            </span>
+            {tab.badge ? (
+              <span className="absolute left-1 top-1 rounded-full bg-white/90 px-1.5 text-[10px] font-semibold text-primary">{tab.badge}</span>
+            ) : null}
+          </button>
         );
       })}
     </div>

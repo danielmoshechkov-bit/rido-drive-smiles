@@ -22,31 +22,37 @@ const numOrNull = (s: string): number | null => {
 
 interface Item { idx: number; name: string; unit: string; qty: number; net: number | null; rate: string; vat: number | null; gross: number | null; }
 
-// Obsługuje OBA warianty FA: „od netto" (P_11) i „od brutto" (P_11A + P_11Vat).
-// Priorytet netto: P_11 → (P_11A − P_11Vat) → (ilość × cena netto P_9A) → null („—").
+// Obsługuje warianty FA pozycji: „od netto" (P_11), „od brutto+VAT" (P_11A + P_11Vat)
+// oraz „tylko brutto" (P_11A + stawka, bez P_11/P_11Vat — wtedy netto liczymy wstecz ze stawki).
 function parseItems(xml: string): Item[] {
   const blocks = xml.match(/<(?:\w+:)?FaWiersz[\s\S]*?<\/(?:\w+:)?FaWiersz>/g) || [];
   return blocks.map((b, idx) => {
     const rate = tag(b, 'P_12');
-    const vatRate = /^\d+$/.test(rate) ? Number(rate) : 0;
+    const vatRate = /^\d+$/.test(rate) ? Number(rate) : 0; // zw/np/0% → 0
     const qty = num(tag(b, 'P_8B'));
-    const unitNet = numOrNull(tag(b, 'P_9A'));   // cena jedn. netto
-    const p11 = numOrNull(tag(b, 'P_11'));        // wartość netto pozycji
-    const p11a = numOrNull(tag(b, 'P_11A'));      // wartość brutto pozycji
-    const p11vat = numOrNull(tag(b, 'P_11Vat'));  // VAT pozycji
+    const unitNet = numOrNull(tag(b, 'P_9A'));    // cena jedn. netto
+    const unitGross = numOrNull(tag(b, 'P_9B'));  // cena jedn. brutto
+    const p11 = numOrNull(tag(b, 'P_11'));         // wartość netto pozycji
+    const p11a = numOrNull(tag(b, 'P_11A'));       // wartość brutto pozycji
+    const p11vat = numOrNull(tag(b, 'P_11Vat'));   // VAT pozycji
 
+    // brutto: P_11A albo ilość × cena brutto
+    let gross: number | null = p11a ?? (qty && unitGross != null ? r2(qty * unitGross) : null);
+
+    // netto: P_11 → (P_11A − P_11Vat) → (brutto / (1+stawka)) → (ilość × cena netto)
     let net: number | null = null;
     if (p11 != null) net = p11;
     else if (p11a != null && p11vat != null) net = r2(p11a - p11vat);
+    else if (gross != null) net = r2(gross / (1 + vatRate / 100));
     else if (qty && unitNet != null) net = r2(qty * unitNet);
 
+    // VAT: P_11Vat → (brutto − netto) → (netto × stawka)
     let vat: number | null = null;
     if (p11vat != null) vat = p11vat;
+    else if (gross != null && net != null) vat = r2(gross - net);
     else if (net != null) vat = r2(net * vatRate / 100);
 
-    let gross: number | null = null;
-    if (p11a != null) gross = p11a;
-    else if (net != null) gross = r2(net + (vat || 0));
+    if (gross == null && net != null) gross = r2(net + (vat ?? 0));
 
     return { idx, name: tag(b, 'P_7') || '—', unit: tag(b, 'P_8A'), qty, net, rate: rate || '—', vat, gross };
   });
