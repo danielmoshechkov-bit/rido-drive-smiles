@@ -17,6 +17,7 @@ import { InvoiceNotificationBell } from '@/components/invoices/InvoiceNotificati
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
 import { InvoicesModule } from '@/components/invoices/InvoicesModule';
 import { MonthlyTaxOverview } from '@/components/accounting/MonthlyTaxOverview';
+import { TileGridNav } from '@/components/TileGridNav';
 
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import {
@@ -102,14 +103,28 @@ export function ServiceProviderAccountingView() {
 
   return (
     <div className="space-y-4">
-      <UniversalSubTabBar
-        activeTab={subTab}
-        onTabChange={(tab) => {
-          setSubTab(tab);
-          if (tab === 'ksef') markKsefRead();
-        }}
-        tabs={accountingSubTabs.map(tab => tab.value === 'ksef' && ksefUnread > 0 ? { ...tab, label: `KSeF (${ksefUnread})` } : { ...tab, label: tab.labelKey ? t(tab.labelKey) : tab.label })}
-      />
+      {/* Desktop: siatka dużych kafli-zdjęć jako nawigacja (wzór Warsztat & Auto) */}
+      <div className="hidden md:block">
+        <TileGridNav
+          activeTab={subTab}
+          onTabChange={(tab) => { setSubTab(tab); if (tab === 'ksef') markKsefRead(); }}
+          tabs={accountingSubTabs.map(tab => ({
+            value: tab.value,
+            label: tab.labelKey ? t(tab.labelKey) : tab.label,
+            icon: tab.icon,
+            visible: tab.visible,
+            badge: tab.value === 'ksef' ? ksefUnread : undefined,
+          }))}
+        />
+      </div>
+      {/* Mobile: poziomy pasek bez zmian */}
+      <div className="md:hidden">
+        <UniversalSubTabBar
+          activeTab={subTab}
+          onTabChange={(tab) => { setSubTab(tab); if (tab === 'ksef') markKsefRead(); }}
+          tabs={accountingSubTabs.map(tab => tab.value === 'ksef' && ksefUnread > 0 ? { ...tab, label: `KSeF (${ksefUnread})` } : { ...tab, label: tab.labelKey ? t(tab.labelKey) : tab.label })}
+        />
+      </div>
 
       {/* Przegląd */}
       {subTab === 'przeglad' && (
