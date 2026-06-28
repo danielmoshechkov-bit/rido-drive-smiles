@@ -5,7 +5,6 @@
 
 export interface OrdersReportSummary {
   revenue: number;
-  parts: number;
   cost: number;
   profit: number;
   paid: number;
@@ -17,7 +16,6 @@ export interface OrdersReportRow {
   client: string;
   status: string;
   revenue: number;
-  parts: number;
   cost: number;
   profit: number;
   paid: number;
@@ -51,8 +49,7 @@ export function buildOrdersReportHtml(data: OrdersReportPrintData): string {
 
   const summaryCards = [
     { label: 'Przychód', value: summary.revenue, cls: '' },
-    { label: 'Części', value: summary.parts, cls: '' },
-    { label: 'Koszt (zakupy)', value: summary.cost, cls: '' },
+    { label: 'Koszt', value: summary.cost, cls: '' },
     { label: 'Zysk', value: summary.profit, cls: summary.profit >= 0 ? 'pos' : 'neg' },
     { label: 'Zapłacono', value: summary.paid, cls: '' },
   ];
@@ -78,7 +75,6 @@ export function buildOrdersReportHtml(data: OrdersReportPrintData): string {
              <th class="l">Klient</th>
              <th class="l">Status</th>
              <th class="r">Przychód</th>
-             <th class="r">Części</th>
              <th class="r">Koszt</th>
              <th class="r">Zysk</th>
              <th class="r">Zapłacono</th>
@@ -92,7 +88,6 @@ export function buildOrdersReportHtml(data: OrdersReportPrintData): string {
                <td class="l">${esc(o.client)}</td>
                <td class="l">${esc(o.status)}</td>
                <td class="r">${money(o.revenue)}</td>
-               <td class="r">${money(o.parts)}</td>
                <td class="r">${money(o.cost)}</td>
                <td class="r ${o.profit >= 0 ? 'pos' : 'neg'}">${money(o.profit)}</td>
                <td class="r">${money(o.paid)}</td>
@@ -100,7 +95,6 @@ export function buildOrdersReportHtml(data: OrdersReportPrintData): string {
            <tr class="sum">
              <td class="l" colspan="4">Suma</td>
              <td class="r">${money(summary.revenue)}</td>
-             <td class="r">${money(summary.parts)}</td>
              <td class="r">${money(summary.cost)}</td>
              <td class="r ${summary.profit >= 0 ? 'pos' : 'neg'}">${money(summary.profit)}</td>
              <td class="r">${money(summary.paid)}</td>
