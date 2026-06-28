@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-06-28 — Poprawki Raportów warsztatu (branch `fix/warsztat-raporty` → main PR #5, merge `ec7d396e`)
+
+### Status
+- ✅ **Zmergowane do `main`** przez PR #5 (merge `ec7d396e`). Bez konfliktów (origin/main nie ruszył od bazy `7f8476c0`). **Deploy prod: do wykonania ręcznie** (patrz „Następne kroki").
+- Bez migracji, `types.ts` nietknięty, `tsc` czysty na każdym kroku.
+
+### Co zrobione (moduł Warsztat → Raporty)
+- **Rozliczenie zleceń — uproszczenie:** kolumny **Przychód → Koszt → Zysk → Zapłacono** (usunięto mylącą „Części"); ujednolicone nazwy + tooltipy (i). Etykieta „Koszt" = koszt zlecenia (zakup części + robocizna, jak „Wydasz łącznie" na karcie). Usunięto przełącznik **„Licz po"** — raport liczy po **dacie utworzenia** (`created_at`) na stałe.
+- **Zapłacono/Dług wg `cash_enabled`** (`useWorkshopFinanceSettings`): Kasa **OFF** → zlecenie „Zakończone" = zapłacone 100% (`Zapłacono=Przychód`), kolumna/kafelek **Dług** i „Jak płacili" ukryte. Kasa **ON** → `Zapłacono` = realne `workshop_payments` (!voided), **Dług** = Przychód − Zapłacono. (Naprawa „maj = 0" przy wyłączonej Kasie.)
+- **Filtr statusu — anty-rozjazd:** badge'y budowane z realnych `status_name` zleceń scalonych z `workshop_order_statuses` (denormalizowany `status_name` bywał ≠ nazwy statusu, np. „Zaakceptowano" vs „Akceptacja klienta"; `status_id` często null). Filtruje `reportOrders` po `status_name`; kafelki/Suma z przefiltrowanych.
+- **Druk / PDF:** przycisk „Drukuj / PDF" pojawia się po „Pokaż raport"; czysty widok **A4 w nowym oknie** (`printHtmlDocument`, jak faktury) — nagłówek (warsztat/okres/data) + podsumowanie + opcjonalnie lista zleceń (dropdown **Podsumowanie / + lista**). Utile: `workshopReportPrintHtml.ts`, `workshopCompanyReportHtml.ts`.
+- **Nowy raport „Działalność firmy"** (`WorkshopCompanyReport`): realny wynik **kasowy** (wpływy − koszty) vs **memoriałowy** (przychód zleceń wg wybranych statusów − koszty), pokazane oba. Koszty wyszczególnione: pracownicze (= `workshop_employee_payouts`: wypłaty+zaliczki+premie), czynsz, opłaty stałe, zakupy, wypłaty z kasy/właściciela (`workshop_expenses` wg kategorii), prowizje portalu = placeholder 0. **Anty-dublowanie:** robocizna liczona TYLKO z payouts, NIGDY `labor_cost` (labor_cost zostaje w Raporcie zleceń / marży). Czynsz rozpoznawany po nazwie (czynsz/najem/wynajem) z łagodną degradacją (brak dopasowania → kwota w „Opłaty stałe", suma zawsze poprawna).
+- **Nowa zakładka „Statystyki"** (`WorkshopStatsReport`, recharts — już w repo): liczba zleceń, nowi vs powracający klienci, śr. wartość zlecenia, śr. marża (ważona = zysk/przychód), wykres słupkowy (przychód+liczba zleceń/mies.) + kołowy (nowi vs powracający). Struktura gotowa do rozbudowy.
+
+### Decyzje / uwagi
+- **Service worker** (`VitePWA`, `registerType:'autoUpdate'`, scope `/`) **cache'uje bundle per origin (host:port)** → przy testach lokalnych potrafi serwować stary kod mimo świeżego serwera i Cmd+Shift+R. Objaw „nie widzę zmian" = stary SW z innego worktree na tym samym porcie. Testować na **świeżym porcie / incognito**, albo Unregister SW w DevTools. Na prodzie autoUpdate sam podmieni po wejściu.
+- Pliki: `src/components/workshop/WorkshopReports.tsx` (rdzeń), `WorkshopCompanyReport.tsx`, `WorkshopStatsReport.tsx`; utile druku w `src/utils/workshop*Html.ts`.
+
+### Następne kroki
+1. **Deploy prod** — ręcznie: GitHub Action „Deploy to LH.pl" (`workflow_dispatch`, input `confirm_deploy=tak`). FTP bywa flaky (timeout) — ponawiać.
+
+---
+
 ## 2026-06-28 — Moduł finansowy Kasy (branch `feature/warsztat-finanse` → main PR #3)
 
 ### Status na koniec sesji
