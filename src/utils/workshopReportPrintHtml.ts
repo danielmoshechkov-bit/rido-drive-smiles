@@ -29,7 +29,6 @@ export interface OrdersReportPrintData {
   periodTo: string;     // 'dd.MM.yyyy'
   generatedAt: string;  // 'dd.MM.yyyy HH:mm'
   priceMode: 'netto' | 'brutto';
-  dateBasis: 'created' | 'completed';
   cashEnabled: boolean;   // gdy false: kolumna/kafelek "Dług" ukryte, "Jak płacili" ukryte
   summary: OrdersReportSummary;
   payByMethod: { label: string; amount: number }[];
@@ -47,7 +46,6 @@ const money = (n: number) =>
 
 export function buildOrdersReportHtml(data: OrdersReportPrintData): string {
   const { summary, payByMethod, orders, includeList } = data;
-  const basisLabel = data.dateBasis === 'completed' ? 'Zakończenia' : 'Utworzenia';
   const priceLabel = data.priceMode === 'brutto' ? 'Brutto' : 'Netto';
 
   const summaryCards = [
@@ -149,8 +147,7 @@ export function buildOrdersReportHtml(data: OrdersReportPrintData): string {
     <h1>${esc(data.workshopName)}</h1>
     <p class="title">Rozliczenie zleceń</p>
     <div class="meta">
-      <span><b>Okres:</b> ${esc(data.periodFrom)} – ${esc(data.periodTo)}</span>
-      <span><b>Licz po:</b> ${esc(basisLabel)}</span>
+      <span><b>Okres (wg daty utworzenia):</b> ${esc(data.periodFrom)} – ${esc(data.periodTo)}</span>
       <span><b>Ceny:</b> ${esc(priceLabel)}</span>
       <span><b>Wygenerowano:</b> ${esc(data.generatedAt)}</span>
     </div>

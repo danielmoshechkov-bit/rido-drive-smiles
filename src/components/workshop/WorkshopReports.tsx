@@ -82,7 +82,6 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
   const [selectedStations, setSelectedStations] = useState<Set<string>>(new Set());
   const [priceMode, setPriceMode] = useState<'netto' | 'brutto'>('brutto');
-  const [dateBasis, setDateBasis] = useState<'created' | 'completed'>('created');
   const [generated, setGenerated] = useState(false);
 
   const gross = priceMode === 'brutto';
@@ -136,11 +135,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const orderPaid = (o: any) => cashEnabled ? (paidByOrder[o.id] || 0) : (isCompleted(o) ? orderRevenue(o) : 0);
   const orderDebt = (o: any) => cashEnabled ? Math.max(0, orderRevenue(o) - orderPaid(o)) : 0;
 
-  // "Zakończenia": dla zleceń zakończonych bez completed_at (sprzed wdrożenia znacznika)
-  // używamy updated_at/created_at jako daty zakończenia — inaczej znikały z raportu.
-  const basisDateOf = (o: any) => dateBasis === 'completed'
-    ? (o.completed_at || o.updated_at || o.created_at)
-    : o.created_at;
+  // Raport liczy zlecenia po dacie UTWORZENIA (created_at) — jedyna baza, bez przełącznika.
+  const orderDate = (o: any) => o.created_at;
 
   // Statusy do filtra = realne status_name ze zleceń (źródło prawdy), scalone z
   // tabelą statusów dla kolejności/etykiet. Eliminuje rozjazd, gdy zlecenie ma
@@ -155,14 +151,14 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   }, [orders, statuses]);
 
   const reportOrders = useMemo(() => (orders as any[]).filter((o) => {
-    const basis = basisDateOf(o);
+    const basis = orderDate(o);
     if (!basis) return false;
     const d = dpart(basis);
     if (d < dateFrom || d > dateTo) return false;
     if (selectedStatuses.size > 0 && !selectedStatuses.has(o.status_name)) return false;
     if (selectedStations.size > 0 && !selectedStations.has(o.station_id)) return false;
     return true;
-  }), [orders, dateBasis, dateFrom, dateTo, selectedStatuses, selectedStations]);
+  }), [orders, dateFrom, dateTo, selectedStatuses, selectedStations]);
 
   const totalRevenue = reportOrders.reduce((s, o) => s + orderRevenue(o), 0);
   const totalCost = reportOrders.reduce((s, o) => s + orderCost(o), 0);
@@ -185,13 +181,12 @@ export function WorkshopReports({ providerId, onBack }: Props) {
       periodTo: format(new Date(dateTo + 'T00:00:00'), 'dd.MM.yyyy'),
       generatedAt: format(new Date(), 'dd.MM.yyyy HH:mm'),
       priceMode,
-      dateBasis,
       cashEnabled,
       summary: { revenue: totalRevenue, cost: totalCost, profit: totalRevenue - totalCost, paid: totalPaid, debt: totalDebt },
       payByMethod: cashEnabled ? PAYMENT_METHODS.map((m) => ({ label: m.label, amount: paidByMethod(m.value) })).filter((p) => p.amount > 0) : [],
       orders: reportOrders.map((o) => {
         const revenue = orderRevenue(o), cost = orderCost(o);
-        return { number: o.order_number, date: ddmmyyyy(basisDateOf(o)), client: clientNameOf(o), status: o.status_name, revenue, cost, profit: revenue - cost, paid: orderPaid(o), debt: orderDebt(o) };
+        return { number: o.order_number, date: ddmmyyyy(o.created_at), client: clientNameOf(o), status: o.status_name, revenue, cost, profit: revenue - cost, paid: orderPaid(o), debt: orderDebt(o) };
       }),
       includeList,
     }));
@@ -247,13 +242,6 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               <div className="space-y-1.5">
                 <Label>Okres</Label>
                 <WorkshopRangeCalendar from={dateFrom} to={dateTo} onChange={(f, tt) => { setDateFrom(f); setDateTo(tt); }} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Licz po</Label>
-                <div className="flex border rounded-md overflow-hidden h-9">
-                  <Button variant={dateBasis === 'created' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setDateBasis('created')}>Utworzenia</Button>
-                  <Button variant={dateBasis === 'completed' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setDateBasis('completed')}>Zakończenia</Button>
-                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Ceny</Label>
@@ -367,7 +355,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                 <TableBody>
                   {reportOrders.map((o) => {
                     const revenue = orderRevenue(o), cost = orderCost(o), profit = revenue - cost;
-                    const basisDate = basisDateOf(o);
+                    const basisDate = o.created_at;
                     return (
                       <TableRow key={o.id}>
                         <TableCell className="font-medium">{o.order_number}</TableCell>
