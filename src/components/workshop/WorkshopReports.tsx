@@ -6,14 +6,20 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkshopOrders, useWorkshopStatuses } from '@/hooks/useWorkshop';
-import { useWorkshopPaymentsRange, PAYMENT_METHODS, type PaymentMethod } from '@/hooks/useWorkshopFinance';
-import { safeNumber, getLineTotal } from '@/utils/workshopOrderTotals';
+import { useWorkshopPaymentsRange, useWorkshopFinanceSettings, PAYMENT_METHODS, type PaymentMethod } from '@/hooks/useWorkshopFinance';
+import { safeNumber } from '@/utils/workshopOrderTotals';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopClientsReport, WorkshopEmployeesReport, WorkshopSalesReport } from './WorkshopExtraReports';
+import { WorkshopCompanyReport } from './WorkshopCompanyReport';
+import { WorkshopStatsReport } from './WorkshopStatsReport';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2, Info, ChevronDown, Building2, BarChart3 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import { printHtmlDocument } from '@/utils/invoiceHtmlGenerator';
+import { buildOrdersReportHtml } from '@/utils/workshopReportPrintHtml';
 
 interface Props {
   providerId: string;
@@ -27,6 +33,8 @@ const reportCategories = [
   { key: 'sprzedaz', labelKey: 'workshop.reports.cat.sales', icon: Receipt },
   { key: 'klienci', labelKey: 'workshop.reports.cat.clients', icon: Users },
   { key: 'pracownicy', labelKey: 'workshop.reports.cat.employees', icon: UserCheck },
+  { key: 'firma', labelKey: 'Działalność firmy', icon: Building2 },
+  { key: 'statystyki', labelKey: 'Statystyki', icon: BarChart3 },
 ];
 
 const orderReports = [
@@ -35,11 +43,35 @@ const orderReports = [
 const salesReports = [{ key: 'raport-sprzedazy', label: 'Sprzedaż', desc: 'Obrót, liczba faktur, średnia wartość, rozbicie po miesiącach.' }];
 const clientReports = [{ key: 'raport-klienci', label: 'Klienci', desc: 'Nowi, powracający, top klienci wg przychodu.' }];
 const employeeReports = [{ key: 'raport-pracownicy', label: 'Pracownicy', desc: 'Liczba i wartość zleceń na pracownika, wypłaty.' }];
+const companyReports = [{ key: 'raport-firma', label: 'Podsumowanie firmy', desc: 'Pełny obraz finansów: przychody i wszystkie koszty (pracownicze, czynsz, opłaty stałe, zakupy) → realny wynik firmy.' }];
+const statsReports = [{ key: 'raport-statystyki', label: 'Statystyki', desc: 'Liczba zleceń, nowi vs powracający klienci, średnia wartość i marża, wykresy w czasie.' }];
 
 const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const startOfMonth = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
 const todayStr = () => format(new Date(), 'yyyy-MM-dd');
 const dpart = (s?: string) => (s ? String(s).slice(0, 10) : '');
+
+// Jedno źródło objaśnień kolumn (tooltipy) — żeby kafelek i tabela mówiły to samo.
+const COL_HINTS = {
+  revenue: 'Łączna cena sprzedaży dla klienta: części + robocizna + inne pozycje.',
+  cost: 'Koszt zlecenia: zakup części + robocizna (jak „Wydasz łącznie" na karcie zlecenia). Podstawa zysku (Zysk = Przychód − Koszt).',
+  profit: 'Przychód − Koszt.',
+  paid: 'Ile klient zapłacił za te zlecenia.',
+  debt: 'Ile zostało do zapłaty: Przychód − Zapłacono (gdy klient zapłacił mniej niż rachunek).',
+} as const;
+
+// Etykieta z ikonką (i) i tooltipem. Działa w nagłówku tabeli (inline, respektuje text-right) i w kafelku.
+const InfoLabel = ({ label, hint, className }: { label: string; hint: string; className?: string }) => (
+  <span className={`inline-flex items-center gap-1 ${className || ''}`}>
+    {label}
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+      </TooltipTrigger>
+      <TooltipContent className="max-w-[230px] text-xs leading-snug">{hint}</TooltipContent>
+    </Tooltip>
+  </span>
+);
 
 export function WorkshopReports({ providerId, onBack }: Props) {
   const { t } = useTranslation();
@@ -50,13 +82,14 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
   const [selectedStations, setSelectedStations] = useState<Set<string>>(new Set());
   const [priceMode, setPriceMode] = useState<'netto' | 'brutto'>('brutto');
-  const [dateBasis, setDateBasis] = useState<'created' | 'completed'>('created');
   const [generated, setGenerated] = useState(false);
 
   const gross = priceMode === 'brutto';
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId);
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: payments = [] } = useWorkshopPaymentsRange(providerId, dateFrom, dateTo);
+  const { data: financeSettings } = useWorkshopFinanceSettings(providerId);
+  const cashEnabled = !!financeSettings?.cash_enabled;
   const { data: stations = [] } = useQuery({
     queryKey: ['workshop-stations-report', providerId],
     enabled: !!providerId,
@@ -66,6 +99,16 @@ export function WorkshopReports({ providerId, onBack }: Props) {
       return data || [];
     },
   });
+  const { data: provider } = useQuery({
+    queryKey: ['workshop-provider-name', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from('service_providers').select('company_name, short_name').eq('id', providerId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const workshopName = (provider?.short_name || provider?.company_name || 'Warsztat') as string;
 
   const toggleSet = (set: Set<string>, key: string, setter: (s: Set<string>) => void) => {
     const next = new Set(set);
@@ -79,38 +122,75 @@ export function WorkshopReports({ providerId, onBack }: Props) {
     const unitCost = gross ? safeNumber(i.unit_cost_gross) : safeNumber(i.unit_cost_net);
     return s + unitCost * qty + safeNumber(i.labor_cost);
   }, 0);
-  const isPart = (i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other';
-  const orderParts = (o: any) => (o.items || []).filter(isPart).reduce((s: number, i: any) => s + getLineTotal(i, gross), 0);
-
   const paidByOrder = useMemo(() => {
     const m: Record<string, number> = {};
     (payments as any[]).forEach((p) => { if (p.order_id && !p.voided) m[p.order_id] = (m[p.order_id] || 0) + Number(p.amount || 0); });
     return m;
   }, [payments]);
 
-  // "Zakończenia": dla zleceń zakończonych bez completed_at (sprzed wdrożenia znacznika)
-  // używamy updated_at/created_at jako daty zakończenia — inaczej znikały z raportu.
-  const basisDateOf = (o: any) => dateBasis === 'completed'
-    ? (o.completed_at || o.updated_at || o.created_at)
-    : o.created_at;
+  // Zapłacono/Dług zależne od tego, czy Kasa jest aktywna (cash_enabled):
+  // - Kasa WYŁĄCZONA: "Zakończone" = zapłacone 100% (brak długu).
+  // - Kasa WŁĄCZONA: realne wpłaty; dług = Przychód − wpłaty (gdy zapłacono mniej).
+  const isCompleted = (o: any) => o.status_name === 'Zakończone';
+  const orderPaid = (o: any) => cashEnabled ? (paidByOrder[o.id] || 0) : (isCompleted(o) ? orderRevenue(o) : 0);
+  const orderDebt = (o: any) => cashEnabled ? Math.max(0, orderRevenue(o) - orderPaid(o)) : 0;
+
+  // Raport liczy zlecenia po dacie UTWORZENIA (created_at) — jedyna baza, bez przełącznika.
+  const orderDate = (o: any) => o.created_at;
+
+  // Statusy do filtra = realne status_name ze zleceń (źródło prawdy), scalone z
+  // tabelą statusów dla kolejności/etykiet. Eliminuje rozjazd, gdy zlecenie ma
+  // status_name nieobecny w workshop_order_statuses (np. zmiana/usunięcie nazwy)
+  // — wtedy badge i tak istnieje i DOKŁADNIE pasuje do wartości w zleceniu.
+  const availableStatuses = useMemo(() => {
+    const inOrders = new Set((orders as any[]).map((o) => o.status_name).filter(Boolean));
+    const ordered: { id: string; name: string }[] = [];
+    (statuses as any[]).forEach((s) => { if (inOrders.has(s.name)) { ordered.push({ id: s.id, name: s.name }); inOrders.delete(s.name); } });
+    Array.from(inOrders).sort().forEach((name) => ordered.push({ id: `order:${name}`, name: name as string }));
+    return ordered;
+  }, [orders, statuses]);
 
   const reportOrders = useMemo(() => (orders as any[]).filter((o) => {
-    const basis = basisDateOf(o);
+    const basis = orderDate(o);
     if (!basis) return false;
     const d = dpart(basis);
     if (d < dateFrom || d > dateTo) return false;
     if (selectedStatuses.size > 0 && !selectedStatuses.has(o.status_name)) return false;
     if (selectedStations.size > 0 && !selectedStations.has(o.station_id)) return false;
     return true;
-  }), [orders, dateBasis, dateFrom, dateTo, selectedStatuses, selectedStations]);
+  }), [orders, dateFrom, dateTo, selectedStatuses, selectedStations]);
 
   const totalRevenue = reportOrders.reduce((s, o) => s + orderRevenue(o), 0);
   const totalCost = reportOrders.reduce((s, o) => s + orderCost(o), 0);
-  const totalParts = reportOrders.reduce((s, o) => s + orderParts(o), 0);
-  const totalPaid = reportOrders.reduce((s, o) => s + (paidByOrder[o.id] || 0), 0);
+  const totalPaid = reportOrders.reduce((s, o) => s + orderPaid(o), 0);
+  const totalDebt = reportOrders.reduce((s, o) => s + orderDebt(o), 0);
   // Jak płacili — sumy form (płatności przypisane do zleceń z raportu).
   const reportOrderIds = new Set(reportOrders.map((o) => o.id));
   const paidByMethod = (m: PaymentMethod) => (payments as any[]).filter((p) => p.method === m && !p.voided && p.order_id && reportOrderIds.has(p.order_id)).reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  const clientNameOf = (o: any) => o.client
+    ? (o.client.client_type === 'company' ? o.client.company_name : `${o.client.first_name || ''} ${o.client.last_name || ''}`.trim())
+    : '';
+  const ddmmyyyy = (s?: string) => { const d = dpart(s); return d ? format(new Date(d + 'T00:00:00'), 'dd.MM.yyyy') : '—'; };
+
+  // Druk/PDF: czysty HTML w nowym oknie (jak faktury). includeList = z listą zleceń czy samo podsumowanie.
+  const handlePrint = (includeList: boolean) => {
+    printHtmlDocument(buildOrdersReportHtml({
+      workshopName,
+      periodFrom: format(new Date(dateFrom + 'T00:00:00'), 'dd.MM.yyyy'),
+      periodTo: format(new Date(dateTo + 'T00:00:00'), 'dd.MM.yyyy'),
+      generatedAt: format(new Date(), 'dd.MM.yyyy HH:mm'),
+      priceMode,
+      cashEnabled,
+      summary: { revenue: totalRevenue, cost: totalCost, profit: totalRevenue - totalCost, paid: totalPaid, debt: totalDebt },
+      payByMethod: cashEnabled ? PAYMENT_METHODS.map((m) => ({ label: m.label, amount: paidByMethod(m.value) })).filter((p) => p.amount > 0) : [],
+      orders: reportOrders.map((o) => {
+        const revenue = orderRevenue(o), cost = orderCost(o);
+        return { number: o.order_number, date: ddmmyyyy(o.created_at), client: clientNameOf(o), status: o.status_name, revenue, cost, profit: revenue - cost, paid: orderPaid(o), debt: orderDebt(o) };
+      }),
+      includeList,
+    }));
+  };
 
   const getReportList = (): any[] => {
     switch (activeCategory) {
@@ -118,6 +198,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
       case 'sprzedaz': return salesReports;
       case 'klienci': return clientReports;
       case 'pracownicy': return employeeReports;
+      case 'firma': return companyReports;
+      case 'statystyki': return statsReports;
       default: return [];
     }
   };
@@ -139,6 +221,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   if (activeReport === 'raport-klienci') return reportWrap('Klienci', <WorkshopClientsReport providerId={providerId} />);
   if (activeReport === 'raport-pracownicy') return reportWrap('Pracownicy', <WorkshopEmployeesReport providerId={providerId} />);
   if (activeReport === 'raport-sprzedazy') return reportWrap('Sprzedaż', <WorkshopSalesReport providerId={providerId} />);
+  if (activeReport === 'raport-firma') return reportWrap('Podsumowanie firmy', <WorkshopCompanyReport providerId={providerId} />);
+  if (activeReport === 'raport-statystyki') return reportWrap('Statystyki', <WorkshopStatsReport providerId={providerId} />);
 
   if (activeReport === 'zestawienie-szczegolowe') {
     return (
@@ -149,10 +233,6 @@ export function WorkshopReports({ providerId, onBack }: Props) {
           <button onClick={() => { setActiveReport(null); setActiveCategory(null); }} className="text-primary hover:underline">{t('workshop.reports.title')}</button>
           <span className="text-muted-foreground">/</span>
           <span className="font-semibold">Rozliczenie zleceń</span>
-          <div className="flex-1" />
-          <Button variant="outline" size="sm" className="gap-1" onClick={() => window.print()}>
-            <Printer className="h-4 w-4" /> {t('workshop.reports.print')}
-          </Button>
         </div>
 
         {/* Filters */}
@@ -162,13 +242,6 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               <div className="space-y-1.5">
                 <Label>Okres</Label>
                 <WorkshopRangeCalendar from={dateFrom} to={dateTo} onChange={(f, tt) => { setDateFrom(f); setDateTo(tt); }} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Licz po</Label>
-                <div className="flex border rounded-md overflow-hidden h-9">
-                  <Button variant={dateBasis === 'created' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setDateBasis('created')}>Utworzenia</Button>
-                  <Button variant={dateBasis === 'completed' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setDateBasis('completed')}>Zakończenia</Button>
-                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Ceny</Label>
@@ -183,7 +256,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
             <div className="space-y-1.5">
               <Label>Status zleceń <span className="text-muted-foreground font-normal">(puste = wszystkie)</span></Label>
               <div className="flex flex-wrap gap-1.5">
-                {(statuses as any[]).map((s) => {
+                {availableStatuses.map((s) => {
                   const on = selectedStatuses.has(s.name);
                   return (
                     <Badge key={s.id} onClick={() => toggleSet(selectedStatuses, s.name, setSelectedStatuses)}
@@ -215,23 +288,40 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               </div>
             )}
 
-            <Button className="gap-2" onClick={() => setGenerated(true)}>
-              <Eye className="h-4 w-4" /> {t('workshop.reports.showReport')}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button className="gap-2" onClick={() => setGenerated(true)}>
+                <Eye className="h-4 w-4" /> {t('workshop.reports.showReport')}
+              </Button>
+              {generated && !isLoading && reportOrders.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-1">
+                      <Printer className="h-4 w-4" /> Drukuj / PDF <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => handlePrint(false)}>Podsumowanie</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handlePrint(true)}>Podsumowanie + lista zleceń</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </CardContent>
         </Card>
 
         {generated && !isLoading && reportOrders.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Przychód</p><p className="text-lg font-bold tabular-nums">{fmt(totalRevenue)}</p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Koszt</p><p className="text-lg font-bold tabular-nums">{fmt(totalCost)}</p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Zysk</p><p className={`text-lg font-bold tabular-nums ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(totalRevenue - totalCost)}</p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Łącznie na części</p><p className="text-lg font-bold tabular-nums">{fmt(totalParts)}</p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Zapłacono</p><p className="text-lg font-bold tabular-nums">{fmt(totalPaid)}</p></CardContent></Card>
+          <div className={`grid grid-cols-2 gap-3 ${cashEnabled ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Przychód" hint={COL_HINTS.revenue} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalRevenue)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Koszt" hint={COL_HINTS.cost} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalCost)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Zysk" hint={COL_HINTS.profit} /></p><p className={`text-lg font-bold tabular-nums ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(totalRevenue - totalCost)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Zapłacono" hint={COL_HINTS.paid} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalPaid)}</p></CardContent></Card>
+            {cashEnabled && (
+              <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Dług" hint={COL_HINTS.debt} /></p><p className={`text-lg font-bold tabular-nums ${totalDebt > 0 ? 'text-destructive' : ''}`}>{fmt(totalDebt)}</p></CardContent></Card>
+            )}
           </div>
         )}
 
-        {generated && !isLoading && reportOrders.length > 0 && (
+        {generated && !isLoading && reportOrders.length > 0 && cashEnabled && (
           <Card><CardContent className="py-3 flex flex-wrap gap-4 text-sm">
             <span className="text-muted-foreground">Jak płacili:</span>
             {PAYMENT_METHODS.map((m) => <span key={m.value}>{m.label}: <span className="font-semibold tabular-nums">{fmt(paidByMethod(m.value))}</span></span>)}
@@ -255,38 +345,38 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                     <TableHead>Data</TableHead>
                     <TableHead>Klient</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Części</TableHead>
-                    <TableHead className="text-right">Przychód</TableHead>
-                    <TableHead className="text-right">Koszt</TableHead>
-                    <TableHead className="text-right">Zysk</TableHead>
-                    <TableHead className="text-right">Zapłacono</TableHead>
+                    <TableHead className="text-right"><InfoLabel label="Przychód" hint={COL_HINTS.revenue} /></TableHead>
+                    <TableHead className="text-right"><InfoLabel label="Koszt" hint={COL_HINTS.cost} /></TableHead>
+                    <TableHead className="text-right"><InfoLabel label="Zysk" hint={COL_HINTS.profit} /></TableHead>
+                    <TableHead className="text-right"><InfoLabel label="Zapłacono" hint={COL_HINTS.paid} /></TableHead>
+                    {cashEnabled && <TableHead className="text-right"><InfoLabel label="Dług" hint={COL_HINTS.debt} /></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {reportOrders.map((o) => {
                     const revenue = orderRevenue(o), cost = orderCost(o), profit = revenue - cost;
-                    const basisDate = basisDateOf(o);
+                    const basisDate = o.created_at;
                     return (
                       <TableRow key={o.id}>
                         <TableCell className="font-medium">{o.order_number}</TableCell>
                         <TableCell className="text-sm tabular-nums">{basisDate ? dpart(basisDate) : '—'}</TableCell>
-                        <TableCell className="text-sm">{o.client ? (o.client.client_type === 'company' ? o.client.company_name : `${o.client.first_name || ''} ${o.client.last_name || ''}`.trim()) : ''}</TableCell>
+                        <TableCell className="text-sm">{clientNameOf(o)}</TableCell>
                         <TableCell className="text-sm">{o.status_name}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">{fmt(orderParts(o))}</TableCell>
                         <TableCell className="text-right font-medium tabular-nums">{fmt(revenue)}</TableCell>
                         <TableCell className="text-right text-sm tabular-nums">{fmt(cost)}</TableCell>
                         <TableCell className={`text-right font-medium tabular-nums ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(profit)}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">{fmt(paidByOrder[o.id] || 0)}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{fmt(orderPaid(o))}</TableCell>
+                        {cashEnabled && <TableCell className={`text-right text-sm tabular-nums ${orderDebt(o) > 0 ? 'text-destructive' : ''}`}>{fmt(orderDebt(o))}</TableCell>}
                       </TableRow>
                     );
                   })}
                   <TableRow className="font-semibold bg-muted/50">
                     <TableCell colSpan={4}>{t('workshop.reports.sum')}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(totalParts)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(totalRevenue)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(totalCost)}</TableCell>
                     <TableCell className={`text-right tabular-nums ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(totalRevenue - totalCost)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(totalPaid)}</TableCell>
+                    {cashEnabled && <TableCell className={`text-right tabular-nums ${totalDebt > 0 ? 'text-destructive' : ''}`}>{fmt(totalDebt)}</TableCell>}
                   </TableRow>
                 </TableBody>
               </Table>
