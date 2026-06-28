@@ -9,7 +9,7 @@
 
 ### Status na koniec sesji
 - ✅ **Zmergowane do `main`** przez PR #3 (merge commit `ceba1438`). Brak konfliktów (main zmieniał tylko `types.ts`, feature 35 innych plików — rozłączne).
-- ❌ **Deploy prod NIEUDANY** — GitHub Action „Deploy to LH.pl" (`workflow_dispatch`) odpalony 2× z `main`; **build OK, padał tylko krok „Upload to LH.pl" → `Error: Timeout (control socket)`** (problem po stronie FTP/LH.pl, nie kodu — ten sam workflow deployował OK 2026‑06‑25). **Produkcja NIE zaktualizowana, upload mógł przejść częściowo. DO PONOWIENIA** gdy FTP wróci: `gh workflow run deploy.yml --ref main -f confirm_deploy=tak`.
+- ✅ **Deploy prod WYKONANY** (ręcznie, 2026‑06‑28) — na serwerze LH.pl jest. (Uwaga: automatyczne `gh workflow run` padało wcześniej 2× na „Upload to LH.pl" → `Error: Timeout (control socket)` — flaky FTP; ostatecznie deploy przeszedł ręcznie. Jeśli `gh` znów timeoutuje, ponowić lub wgrać ręcznie.)
 - ✅ **Migracje WYN1‑10 + WYN‑CLEANUP zaaplikowane ręcznie** na prod bazie (Daniel, SQL Editor). `types.ts` zregenerowany przez Lovable.
 - Dev lokalny: worktree `/Users/moshechkov/rido-warsztat-finanse` (branch `feature/warsztat-finanse`), Vite na `localhost:8082`.
 
@@ -67,6 +67,6 @@
 - **Deploy = ręczny** GitHub Action „Deploy to LH.pl" (`workflow_dispatch`, input `confirm_deploy=tak`). Merge nie deployuje. FTP bywa flaky (timeout) — ponawiać.
 
 ### Następne kroki (dla kolejnej sesji)
-1. **Ponowić deploy prod** (FTP timeout) — `gh workflow run deploy.yml --ref main -f confirm_deploy=tak`, sprawdzić `gh run list --workflow=deploy.yml`.
+1. ~~Ponowić deploy prod~~ — ✅ zrobione ręcznie 2026‑06‑28, na serwerze.
 2. Drugie okno (`main`) zsynchronizować: `git pull --ff-only origin main`.
 3. Ewentualnie: integracja GUS REGON/CEIDG dla pełnej nazwy JDG po NIP (biała lista VAT nie zwraca nazwy handlowej — wymaga klucza API); kolumna `short_name` jeśli trzeba trzymać pełną+skróconą; magazyn dla klient‑facing `/warsztat/klient/:code`.
