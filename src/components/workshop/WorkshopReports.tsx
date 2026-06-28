@@ -11,7 +11,8 @@ import { safeNumber, getLineTotal } from '@/utils/workshopOrderTotals';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopClientsReport, WorkshopEmployeesReport, WorkshopSalesReport } from './WorkshopExtraReports';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 
@@ -40,6 +41,28 @@ const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDig
 const startOfMonth = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
 const todayStr = () => format(new Date(), 'yyyy-MM-dd');
 const dpart = (s?: string) => (s ? String(s).slice(0, 10) : '');
+
+// Jedno źródło objaśnień kolumn (tooltipy) — żeby kafelek i tabela mówiły to samo.
+const COL_HINTS = {
+  revenue: 'Łączna cena sprzedaży dla klienta: części + robocizna + inne pozycje.',
+  parts: 'Cena sprzedaży części klientowi (zawiera się w Przychodzie).',
+  cost: 'Zakupy do zleceń: części (cena zakupu) + robocizna. Podstawa zysku (Zysk = Przychód − Koszt).',
+  profit: 'Przychód − Koszt.',
+  paid: 'Suma zarejestrowanych płatności klienta za te zlecenia.',
+} as const;
+
+// Etykieta z ikonką (i) i tooltipem. Działa w nagłówku tabeli (inline, respektuje text-right) i w kafelku.
+const InfoLabel = ({ label, hint, className }: { label: string; hint: string; className?: string }) => (
+  <span className={`inline-flex items-center gap-1 ${className || ''}`}>
+    {label}
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+      </TooltipTrigger>
+      <TooltipContent className="max-w-[230px] text-xs leading-snug">{hint}</TooltipContent>
+    </Tooltip>
+  </span>
+);
 
 export function WorkshopReports({ providerId, onBack }: Props) {
   const { t } = useTranslation();
@@ -223,11 +246,11 @@ export function WorkshopReports({ providerId, onBack }: Props) {
 
         {generated && !isLoading && reportOrders.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Przychód</p><p className="text-lg font-bold tabular-nums">{fmt(totalRevenue)}</p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Koszt</p><p className="text-lg font-bold tabular-nums">{fmt(totalCost)}</p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Zysk</p><p className={`text-lg font-bold tabular-nums ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(totalRevenue - totalCost)}</p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Łącznie na części</p><p className="text-lg font-bold tabular-nums">{fmt(totalParts)}</p></CardContent></Card>
-            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Zapłacono</p><p className="text-lg font-bold tabular-nums">{fmt(totalPaid)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Przychód" hint={COL_HINTS.revenue} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalRevenue)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Części" hint={COL_HINTS.parts} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalParts)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Koszt (zakupy)" hint={COL_HINTS.cost} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalCost)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Zysk" hint={COL_HINTS.profit} /></p><p className={`text-lg font-bold tabular-nums ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(totalRevenue - totalCost)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Zapłacono" hint={COL_HINTS.paid} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalPaid)}</p></CardContent></Card>
           </div>
         )}
 
@@ -255,11 +278,11 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                     <TableHead>Data</TableHead>
                     <TableHead>Klient</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Części</TableHead>
-                    <TableHead className="text-right">Przychód</TableHead>
-                    <TableHead className="text-right">Koszt</TableHead>
-                    <TableHead className="text-right">Zysk</TableHead>
-                    <TableHead className="text-right">Zapłacono</TableHead>
+                    <TableHead className="text-right"><InfoLabel label="Przychód" hint={COL_HINTS.revenue} /></TableHead>
+                    <TableHead className="text-right"><InfoLabel label="Części" hint={COL_HINTS.parts} /></TableHead>
+                    <TableHead className="text-right"><InfoLabel label="Koszt" hint={COL_HINTS.cost} /></TableHead>
+                    <TableHead className="text-right"><InfoLabel label="Zysk" hint={COL_HINTS.profit} /></TableHead>
+                    <TableHead className="text-right"><InfoLabel label="Zapłacono" hint={COL_HINTS.paid} /></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -272,8 +295,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                         <TableCell className="text-sm tabular-nums">{basisDate ? dpart(basisDate) : '—'}</TableCell>
                         <TableCell className="text-sm">{o.client ? (o.client.client_type === 'company' ? o.client.company_name : `${o.client.first_name || ''} ${o.client.last_name || ''}`.trim()) : ''}</TableCell>
                         <TableCell className="text-sm">{o.status_name}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">{fmt(orderParts(o))}</TableCell>
                         <TableCell className="text-right font-medium tabular-nums">{fmt(revenue)}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{fmt(orderParts(o))}</TableCell>
                         <TableCell className="text-right text-sm tabular-nums">{fmt(cost)}</TableCell>
                         <TableCell className={`text-right font-medium tabular-nums ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(profit)}</TableCell>
                         <TableCell className="text-right text-sm tabular-nums">{fmt(paidByOrder[o.id] || 0)}</TableCell>
@@ -282,8 +305,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                   })}
                   <TableRow className="font-semibold bg-muted/50">
                     <TableCell colSpan={4}>{t('workshop.reports.sum')}</TableCell>
-                    <TableCell className="text-right tabular-nums">{fmt(totalParts)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(totalRevenue)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(totalParts)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(totalCost)}</TableCell>
                     <TableCell className={`text-right tabular-nums ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(totalRevenue - totalCost)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(totalPaid)}</TableCell>
