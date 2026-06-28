@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,8 @@ import { PendingInvoicesReview } from '@/components/invoices/PendingInvoicesRevi
 import { InvoiceEmailSetup } from '@/components/invoices/InvoiceEmailSetup';
 import { InvoiceNotificationBell } from '@/components/invoices/InvoiceNotificationBell';
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
+import { InvoicesModule } from '@/components/invoices/InvoicesModule';
+import { MonthlyTaxOverview } from '@/components/accounting/MonthlyTaxOverview';
 
 import { useKsefUnreadCount } from '@/hooks/useKsefUnreadCount';
 import {
@@ -44,6 +47,7 @@ const accountingSubTabs = [
 
 export function ServiceProviderAccountingView() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [subTab, setSubTab] = useState('przeglad');
   const { count: ksefUnread, markAllRead: markKsefRead } = useKsefUnreadCount();
   const [user, setUser] = useState<any>(null);
@@ -81,6 +85,8 @@ export function ServiceProviderAccountingView() {
       .order('created_at', { ascending: false })
       .limit(50);
     if (inv) setInvoices(inv);
+    // Odśwież też wspólny InvoicesModule (Sprzedażowe czyta user_invoices przez React Query)
+    queryClient.invalidateQueries({ queryKey: ['invoices-module-sales'] });
   };
 
   const hasCompanySetup = userEntities.some((e: any) => e.is_active !== false);
@@ -123,53 +129,15 @@ export function ServiceProviderAccountingView() {
             </Card>
           )}
 
-          {/* Pending invoices alert */}
-          <PendingInvoicesReview />
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t('cp.accounting.invoicesMonth')}</p>
-                    <p className="text-3xl font-bold">{invoices.length}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {invoices.filter(i => i.is_paid === true).length} {t('cp.accounting.paidCount')}
-                    </p>
-                  </div>
-                  <FileText className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t('cp.accounting.grossRevenue')}</p>
-                    <p className="text-3xl font-bold">
-                      {invoices.reduce((sum, i) => sum + Number(i.gross_total || 0), 0).toLocaleString('pl-PL')} zł
-                    </p>
-                    <p className="text-sm text-muted-foreground">{t('cp.accounting.invoiceSum')}</p>
-                  </div>
-                  <FileText className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t('cp.accounting.toPay')}</p>
-                    <p className="text-3xl font-bold text-destructive">
-                      {invoices.filter(i => i.is_paid !== true).length}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{t('cp.accounting.unpaidInvoices')}</p>
-                  </div>
-                  <FileText className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Pulpit podatkowy miesiąca — selektor na górze + kafle SPRZEDAŻ/ZAKUPY + VAT + disclaimer */}
+          <MonthlyTaxOverview
+            userId={user?.id}
+            entityId={userEntities[0]?.id}
+            month={invoiceMonth}
+            year={invoiceYear}
+            onMonthChange={setInvoiceMonth}
+            onYearChange={setInvoiceYear}
+          />
 
           <div>
             <h3 className="text-lg font-semibold mb-4">{t('cp.accounting.quickActions')}</h3>
@@ -204,17 +172,7 @@ export function ServiceProviderAccountingView() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <CardTitle>{t('cp.accounting.recentInvoices')}</CardTitle>
-                  <CardDescription>{t('cp.accounting.recentInvoicesDesc')}</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select value={invoiceMonth} onChange={e => setInvoiceMonth(parseInt(e.target.value))} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
-                    {[...Array(12)].map((_, i) => (
-                      <option key={i + 1} value={i + 1}>{new Date(2000, i, 1).toLocaleString('pl-PL', { month: 'long' })}</option>
-                    ))}
-                  </select>
-                  <select value={invoiceYear} onChange={e => setInvoiceYear(parseInt(e.target.value))} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
-                    {[2024, 2025, 2026].map(year => (<option key={year} value={year}>{year}</option>))}
-                  </select>
+                  <CardDescription>{t('cp.accounting.recentInvoicesDesc')} — {new Date(2000, invoiceMonth - 1, 1).toLocaleString('pl-PL', { month: 'long' })} {invoiceYear}</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -247,41 +205,26 @@ export function ServiceProviderAccountingView() {
               })()}
             </CardContent>
           </Card>
+
+          {/* Do sprawdzenia — mały kafel na końcu (zamiast wielkiego pustego środka) */}
+          <PendingInvoicesReview compact onOpen={() => setSubTab('oczekujace')} />
         </div>
       )}
 
       {/* Faktury */}
       {subTab === 'faktury' && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>{t('cp.accounting.invoices')}</CardTitle>
-                <CardDescription>{t('cp.accounting.allInvoices')}</CardDescription>
-              </div>
-              <Button onClick={handleNewInvoice}>
-                <Plus className="h-4 w-4 mr-2" />{t('cp.accounting.issueInvoice')}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {invoices.length > 0 ? (
-              <div className="space-y-3 pb-20">
-                {invoices.map(invoice => (
-                  <InvoiceExpandableRow key={invoice.id} invoice={invoice} onUpdate={() => user && loadData()} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>{t('cp.accounting.noInvoices')}</p>
-                <Button className="mt-4" onClick={handleNewInvoice}>
-                  <Plus className="h-4 w-4 mr-2" />{t('cp.accounting.issueInvoice')}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        // Wspólny moduł: Sprzedażowe (user_invoices, wiersze przez InvoiceExpandableRow) + Zakupowe (KSeF).
+        // Tytuł „Faktury" + okres w jednej linii, przycisk „Wystaw fakturę" po prawej (nagłówek modułu).
+        <InvoicesModule
+          source="user_invoices"
+          entityId={userEntities[0]?.id}
+          onAddPurchase={() => setShowCostInvoice(true)}
+          headerRight={(
+            <Button onClick={handleNewInvoice}>
+              <Plus className="h-4 w-4 mr-2" />{t('cp.accounting.issueInvoice')}
+            </Button>
+          )}
+        />
       )}
 
       {/* Zakupy */}

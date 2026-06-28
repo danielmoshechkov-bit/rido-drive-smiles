@@ -41,7 +41,7 @@ interface PendingInvoice {
   user_invoice_items: any[];
 }
 
-export function PendingInvoicesReview() {
+export function PendingInvoicesReview({ compact = false, onOpen }: { compact?: boolean; onOpen?: () => void } = {}) {
   const [invoices, setInvoices] = useState<PendingInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<PendingInvoice | null>(null);
@@ -123,6 +123,28 @@ export function PendingInvoicesReview() {
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
+    );
+  }
+
+  // Tryb kompaktowy — mały kafel (np. na końcu Przeglądu) zamiast wielkiego pustego środka
+  if (compact) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-between gap-3 p-4">
+          <div className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Do sprawdzenia</p>
+              <p className="text-xs text-muted-foreground">
+                {invoices.length === 0 ? 'Wszystkie faktury przejrzane' : `${invoices.length} ${invoices.length === 1 ? 'faktura czeka' : 'faktur czeka'} na sprawdzenie`}
+              </p>
+            </div>
+          </div>
+          {invoices.length === 0
+            ? <Badge variant="outline">0</Badge>
+            : <Button size="sm" variant="outline" onClick={onOpen}>Sprawdź ({invoices.length})</Button>}
+        </CardContent>
+      </Card>
     );
   }
 

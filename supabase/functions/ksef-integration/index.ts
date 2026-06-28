@@ -87,6 +87,26 @@ function getCorrectionRefs(xml: string): { correctedKsefNumber: string | null; c
   return { correctedKsefNumber, correctedInvoiceNumber };
 }
 
+// Rozbicie VAT per stawka z PODSUMOWANIA faktury FA (pola autorytatywne, nie liczone z pozycji):
+//   23% = P_13_1(netto)/P_14_1(VAT) · 8% = P_13_2/P_14_2 · 5% = P_13_3/P_14_3
+//   0%  = reszta netto (P_13_4..P_13_7: stawka 0% / zw / np / oo), VAT = 0 — bucket zbiorczy.
+// Suma netto bucketów = total_net; suma VAT bucketów = P_14_1+P_14_2+P_14_3 (stawki standardowe).
+function computeVatBreakdown(xml: string): Record<string, { netto: number; vat: number }> {
+  const sum = (t: string) => getAllTagValues(xml, t).reduce((s, v) => s + v, 0);
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const net23 = sum('P_13_1'), vat23 = sum('P_14_1');
+  const net8 = sum('P_13_2'), vat8 = sum('P_14_2');
+  const net5 = sum('P_13_3'), vat5 = sum('P_14_3');
+  const totalNet = ['P_13_1', 'P_13_2', 'P_13_3', 'P_13_4', 'P_13_5', 'P_13_6', 'P_13_7'].reduce((s, t) => s + sum(t), 0);
+  const net0 = r2(totalNet - net23 - net8 - net5);
+  return {
+    '23': { netto: r2(net23), vat: r2(vat23) },
+    '8': { netto: r2(net8), vat: r2(vat8) },
+    '5': { netto: r2(net5), vat: r2(vat5) },
+    '0': { netto: net0, vat: 0 },
+  };
+}
+
 // ========== X.509 SPKI EXTRACTION ==========
 
 function extractSpkiFromX509(der: Uint8Array): Uint8Array {
@@ -1382,15 +1402,37 @@ serve(async (req) => {
       catch (e: any) { console.error('[KSeF][EXPORT] unzip FAIL:', e?.message); return jsonRes({ success: false, error: 'Unzip nieudany: ' + e?.message }, 500); }
       const xmlNames = Object.keys(files).filter(n => /\.xml$/i.test(n));
 
-      // 8) Parser + upsert (onConflict ksef_number)
-      let savedCount = 0;
+      // Tryb: 'append' (Aktualizuj — dociąga TYLKO nowe, istniejących NIE rusza)
+      // vs pełny (Pobierz — upsert jak dotąd, nadpisuje danymi z KSeF).
+      const appendMode = body.mode === 'append';
+
+      // APPEND: ustal które ksef_number już są w bazie — po nich pomijamy (zero nadpisań
+      // statusu / kategorii AI / soft-delete / ręcznych zmian księgowej).
+      const allRefNums = xmlNames.map(n => n.split('/').pop()!.replace(/\.xml$/i, '').trim()).filter(Boolean);
+      const existingSet = new Set<string>();
+      if (appendMode && allRefNums.length > 0) {
+        for (let i = 0; i < allRefNums.length; i += 200) {
+          const chunk = allRefNums.slice(i, i + 200);
+          const { data: ex } = await supabase.from('purchase_invoices').select('ksef_number').in('ksef_number', chunk);
+          (ex || []).forEach((r: any) => existingSet.add(r.ksef_number));
+        }
+        console.log('[KSeF][EXPORT][append] w paczce:', allRefNums.length, '| już w bazie:', existingSet.size);
+      }
+
+      // 8) Parser + zapis
+      let savedCount = 0;        // nowe wstawione
+      let skippedExisting = 0;   // pominięte istniejące (append)
       for (const name of xmlNames) {
         let refNum = '';
         try {
-          const xml = new TextDecoder().decode(files[name]);
           // ksef_number = nazwa pliku bez ścieżki/rozszerzenia (KSeF nazywa pliki numerem KSeF)
           refNum = name.split('/').pop()!.replace(/\.xml$/i, '').trim();
           if (!refNum) continue;
+
+          // APPEND: istniejącej faktury NIE ruszamy — pomijamy przed parsowaniem/AI
+          if (appendMode && existingSet.has(refNum)) { skippedExisting++; continue; }
+
+          const xml = new TextDecoder().decode(files[name]);
 
           const totalNet = ['P_13_1', 'P_13_2', 'P_13_3', 'P_13_4', 'P_13_5', 'P_13_6', 'P_13_7']
             .flatMap(t => getAllTagValues(xml, t)).reduce((s, v) => s + v, 0);
@@ -1426,18 +1468,75 @@ serve(async (req) => {
             document_type: documentType,
             corrected_ksef_number: corr.correctedKsefNumber,
             corrected_invoice_number: corr.correctedInvoiceNumber,
+            vat_breakdown: computeVatBreakdown(xml),
           };
 
-          const { error } = await supabase.from('purchase_invoices').upsert(invoiceData, { onConflict: 'ksef_number' });
+          // APPEND: insert-only (ON CONFLICT DO NOTHING) — podwójne zabezpieczenie, NIE nadpisuje.
+          // PEŁNY: upsert jak dotąd.
+          const { error } = appendMode
+            ? await supabase.from('purchase_invoices').upsert(invoiceData, { onConflict: 'ksef_number', ignoreDuplicates: true })
+            : await supabase.from('purchase_invoices').upsert(invoiceData, { onConflict: 'ksef_number' });
           if (error) { console.error('[KSeF][EXPORT] upsert error', refNum, error.code, error.message); continue; }
           savedCount++;
         } catch (e: any) {
           console.error('[KSeF][EXPORT] file error', name, '(' + refNum + ')', e?.message);
         }
       }
-      console.log('[KSeF][EXPORT] zapisano', savedCount, '/', xmlNames.length, 'faktur, env:', environment);
+      console.log('[KSeF][EXPORT]', appendMode ? 'append' : 'full', '— nowe:', savedCount, '| pominięte istniejące:', skippedExisting, '| xml:', xmlNames.length, '| env:', environment);
 
-      return jsonRes({ success: true, count: savedCount, invoiceCount: pkg?.invoiceCount ?? null, parts: parts.length, isTruncated: pkg?.isTruncated ?? false, environment });
+      return jsonRes({
+        success: true,
+        mode: appendMode ? 'append' : 'full',
+        count: savedCount,
+        added: savedCount,
+        skipped: skippedExisting,
+        invoiceCount: pkg?.invoiceCount ?? null,
+        parts: parts.length,
+        isTruncated: pkg?.isTruncated ?? false,
+        environment,
+      });
+    }
+
+    // ========== backfill_vat_breakdown (jednorazowe uzupełnienie istniejących faktur) ==========
+    // Uzupełnia WYŁĄCZNIE vat_breakdown z xml_content. NIE rusza żadnego innego pola
+    // (status, kategoria, deleted_at, kwoty). Idempotentne (drugie uruchomienie = ten sam vat_breakdown).
+    if (action === 'backfill_vat_breakdown') {
+      const limit = Math.min(Math.max(Number(body.limit) || 3, 1), 1000);
+      const onlyMissing = body.only_missing !== false; // domyślnie tylko te bez vat_breakdown
+
+      let q = supabase
+        .from('purchase_invoices')
+        .select('id, ksef_number, total_net, total_vat, vat_breakdown, xml_content')
+        .not('xml_content', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (body.entity_id) q = q.eq('entity_id', body.entity_id);
+      if (onlyMissing) q = q.is('vat_breakdown', null);
+
+      const { data: rows, error } = await q;
+      if (error) return jsonRes({ success: false, error: error.message }, 500);
+
+      const results: any[] = [];
+      for (const r of (rows || [])) {
+        const vb = computeVatBreakdown(r.xml_content || '');
+        // UWAGA: update tylko pola vat_breakdown — reszta wiersza nietknięta
+        const { error: uErr } = await supabase
+          .from('purchase_invoices')
+          .update({ vat_breakdown: vb })
+          .eq('id', r.id);
+        const sumNet = (vb['23'].netto + vb['8'].netto + vb['5'].netto + vb['0'].netto);
+        const sumVat = (vb['23'].vat + vb['8'].vat + vb['5'].vat);
+        results.push({
+          ksef_number: r.ksef_number,
+          db_total_net: r.total_net,
+          db_total_vat: r.total_vat,
+          vat_breakdown: vb,
+          check_sum_netto: Math.round(sumNet * 100) / 100,   // powinno = db_total_net
+          check_sum_vat: Math.round(sumVat * 100) / 100,     // powinno = db_total_vat
+          updateError: uErr?.message || null,
+        });
+      }
+      return jsonRes({ success: true, processed: results.length, results });
     }
 
     // ========== send ==========

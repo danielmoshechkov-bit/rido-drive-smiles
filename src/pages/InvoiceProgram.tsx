@@ -52,6 +52,7 @@ import { ContractorsList } from '@/components/invoices/ContractorsList';
 import { MonthlySummaryDialog, MonthlySummaryData } from '@/components/invoices/MonthlySummaryDialog';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { PurchaseInvoicesModule } from '@/components/invoices/PurchaseInvoicesModule';
+import { InvoicesModule } from '@/components/invoices/InvoicesModule';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 
@@ -730,7 +731,7 @@ export default function InvoiceProgram() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <TabsList className="bg-muted/50 p-1 rounded-xl">
               <TabsTrigger value="sales" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                Sprzedaż
+                Faktury
               </TabsTrigger>
               <TabsTrigger value="costs" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 Koszty
@@ -755,109 +756,10 @@ export default function InvoiceProgram() {
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {monthOptions.map(m => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Wszystkie</SelectItem>
-                <SelectItem value="draft">Szkice</SelectItem>
-                <SelectItem value="issued">Wystawione</SelectItem>
-                <SelectItem value="paid">Opłacone</SelectItem>
-                <SelectItem value="pending">Oczekujące</SelectItem>
-                <SelectItem value="overdue">Przeterminowane</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Szukaj faktury lub kontrahenta..." 
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            <Button variant="outline" className="gap-2">
-              <Download className="h-4 w-4" />
-              Eksport
-            </Button>
-          </div>
-
-          {/* Sales Tab */}
+          {/* Sales Tab → wspólny InvoicesModule (pod-zakładki Sprzedażowe + Zakupowe).
+              Filtry okresu/statusu/szukaj i lista żyją teraz wewnątrz modułu. */}
           <TabsContent value="sales">
-            <Card>
-              <CardHeader>
-                <CardTitle>Faktury sprzedażowe</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingInvoices ? (
-                  <div className="text-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                  </div>
-                ) : invoices.filter(i => i.type !== 'cost').length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>Brak faktur w wybranym okresie</p>
-                    <Button className="mt-4" onClick={handleNewInvoiceClick}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Wystaw pierwszą fakturę
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {invoices
-                      .filter(i => i.type !== 'cost')
-                      .filter(i => !searchQuery || 
-                        i.invoice_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        (i.buyer_snapshot as any)?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-                      )
-                      .map((invoice) => (
-                        <div
-                          key={invoice.id}
-                          className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="p-2 rounded-lg bg-primary/10">
-                              <FileText className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="font-semibold">{invoice.invoice_number}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {(invoice.buyer_snapshot as any)?.name || 'Brak odbiorcy'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
-                              <p className="font-semibold">{(invoice.gross_amount || 0).toLocaleString('pl-PL')} PLN</p>
-                              <p className="text-sm text-muted-foreground">{invoice.issue_date}</p>
-                            </div>
-                            <div className="flex gap-2">
-                              {getTypeBadge(invoice.type)}
-                              {getStatusBadge(invoice.status)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <InvoicesModule entityId={selectedEntity} />
           </TabsContent>
 
           {/* Costs Tab */}
