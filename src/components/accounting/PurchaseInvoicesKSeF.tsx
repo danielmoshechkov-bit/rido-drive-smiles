@@ -108,7 +108,9 @@ export function PurchaseInvoicesKSeF() {
       }
 
       const requestBody: Record<string, unknown> = {
-        action: 'fetch_received',
+        // Pull faktur zakupowych przez asynchroniczny eksport paczki KSeF
+        // (omija limit 64/h na GET /invoices/ksef — patrz ksef-integration: export_start).
+        action: 'export_start',
         environment,
         date_from: dateFrom,
         date_to: dateTo,
@@ -125,7 +127,9 @@ export function PurchaseInvoicesKSeF() {
       if (error) throw new Error(error.message || 'Błąd Edge Function');
       if (!data?.success) throw new Error(data?.error || 'Błąd pobierania faktur');
 
-      if ((data.count || 0) > 0) {
+      if (data.phase === 'pending') {
+        toast.message('Eksport KSeF zlecony — paczka jeszcze nieprzygotowana. Spróbuj ponownie za chwilę.');
+      } else if ((data.count || 0) > 0) {
         toast.success('Pobrano ' + (data.count || 0) + ' faktur z KSeF' + (data.demo ? ' (DEMO)' : ''));
       } else {
         toast.success('Brak nowych faktur w KSeF dla wybranego zakresu.');

@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Unzip paczki eksportu KSeF — lekka biblioteka, działa na Uint8Array w Deno
+import { unzipSync } from "https://esm.sh/fflate@0.8.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,14 +49,42 @@ function bytesToB64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
+// Tolerancja na prefiks namespace KSeF (np. <tns:P_13>, <etd:Faktura>) — (?:\w+:)?
 function getTag(xml: string, tag: string): string {
-  return xml.match(new RegExp(`<${tag}[^>]*>([^<]+)</${tag}>`))?.[1]?.trim() || '';
+  return xml.match(new RegExp(`<(?:\\w+:)?${tag}[^>]*>([^<]+)</(?:\\w+:)?${tag}>`))?.[1]?.trim() || '';
 }
 
 function getAllTagValues(xml: string, tag: string): number[] {
-  return Array.from(xml.matchAll(new RegExp(`<${tag}[^>]*>([^<]+)</${tag}>`, 'g')))
+  return Array.from(xml.matchAll(new RegExp(`<(?:\\w+:)?${tag}[^>]*>([^<]+)</(?:\\w+:)?${tag}>`, 'g')))
     .map(m => Number((m[1] || '').replace(',', '.')))
     .filter(v => Number.isFinite(v));
+}
+
+// ===== Helpery do eksportu paczki KSeF (faza B) =====
+async function sha256Hashes(bytes: Uint8Array): Promise<{ b64: string; hex: string }> {
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  const hex = Array.from(h).map(b => b.toString(16).padStart(2, '0')).join('');
+  return { b64: bytesToB64(h), hex };
+}
+function hashMatches(expected: string | null | undefined, h: { b64: string; hex: string }): boolean {
+  if (!expected) return true; // brak oczekiwanego hasha -> nie blokujemy
+  const e = String(expected).trim().toLowerCase();
+  return e === h.b64.toLowerCase() || e === h.hex.toLowerCase();
+}
+function concatBytes(chunks: Uint8Array[]): Uint8Array {
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.length; }
+  return out;
+}
+// Dla korekt (KOR): numer KSeF + numer faktury pierwotnej z <DaneFaKorygowanej>
+function getCorrectionRefs(xml: string): { correctedKsefNumber: string | null; correctedInvoiceNumber: string | null } {
+  const block = xml.match(/<(?:\w+:)?DaneFaKorygowanej[\s\S]*?<\/(?:\w+:)?DaneFaKorygowanej>/)?.[0] || '';
+  const scope = block || xml;
+  const correctedInvoiceNumber = getTag(scope, 'NrFaKorygowanej') || null;
+  const correctedKsefNumber = getTag(scope, 'NrKSeF') || getTag(scope, 'NrKsef') || null;
+  return { correctedKsefNumber, correctedInvoiceNumber };
 }
 
 // ========== X.509 SPKI EXTRACTION ==========
@@ -1189,7 +1219,7 @@ serve(async (req) => {
 
       const results: any[] = [];
       for (const meta of invoiceList) {
-        const refNum = meta?.ksefReferenceNumber || meta?.referenceNumber;
+        const refNum = meta?.ksefNumber || meta?.ksefReferenceNumber || meta?.referenceNumber;
         if (!refNum) continue;
 
         try {
@@ -1204,8 +1234,8 @@ serve(async (req) => {
           const totalVat = ['P_14_1', 'P_14_2', 'P_14_3', 'P_14_4', 'P_14_5']
             .flatMap(t => getAllTagValues(xml, t)).reduce((s, v) => s + v, 0);
           const totalGross = Number(getTag(xml, 'P_15').replace(',', '.')) || totalNet + totalVat;
-          const supplierName = xml.match(/<Podmiot1[\s\S]*?<Nazwa>([^<]+)<\/Nazwa>/)?.[1]?.trim() || meta?.subjectName || '';
-          const supplierNip = xml.match(/<Podmiot1[\s\S]*?<NIP>([^<]+)<\/NIP>/)?.[1]?.trim() || '';
+          const supplierName = xml.match(/<(?:\w+:)?Podmiot1[\s\S]*?<(?:\w+:)?Nazwa>([^<]+)<\/(?:\w+:)?Nazwa>/)?.[1]?.trim() || meta?.subjectName || '';
+          const supplierNip = xml.match(/<(?:\w+:)?Podmiot1[\s\S]*?<(?:\w+:)?NIP>([^<]+)<\/(?:\w+:)?NIP>/)?.[1]?.trim() || '';
 
           const aiCategory = await categorize(supplierName);
 
@@ -1235,6 +1265,179 @@ serve(async (req) => {
       }
 
       return jsonRes({ success: true, count: results.length, invoices: results, environment });
+    }
+
+    // ========== export_start (async export — pełny pull faktur zakupowych) ==========
+    // POST /invoices/exports -> polling statusu -> pobranie parts[] -> weryfikacja hash ->
+    // deszyfr AES-256-CBC -> unzip -> parser -> upsert(onConflict ksef_number).
+    // Klucz AES/IV żyją wyłącznie w pamięci tego wywołania — NIE trafiają do bazy.
+    // Omija limit 64/h na GET /invoices/ksef (jedno zlecenie eksportu zamiast N pobrań).
+    if (action === 'export_start') {
+      const creds = await resolveCredentials(req, supabase, body);
+      const { nip, token, environment } = creds;
+
+      if (!nip) return jsonRes({ success: false, error: 'Brak NIP firmy — skonfiguruj w zakładce KSeF' }, 400);
+      if (!token) return jsonRes({ success: false, error: 'Brak tokenu KSeF — skonfiguruj integrację w zakładce KSeF' }, 400);
+
+      const dateFrom = body.date_from || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+      const dateTo = body.date_to || new Date().toISOString().split('T')[0];
+
+      const base = getBaseUrl(environment);
+
+      const { accessToken, docCryptoKey } = await getKsefAccessToken(base, nip, token);
+
+      // 1) Klucz AES-256 (32B) + IV (16B) — TYLKO w pamięci tego wywołania, NIE do bazy
+      const aesKey = crypto.getRandomValues(new Uint8Array(32));
+      const iv = crypto.getRandomValues(new Uint8Array(16));
+
+      // 2) Owinięcie klucza RSA-OAEP/SHA-256 (ten sam docCryptoKey co token)
+      const encKeyBuf = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, docCryptoKey, aesKey);
+      const encryptedSymmetricKey = bytesToB64(new Uint8Array(encKeyBuf));
+      const initializationVector = bytesToB64(iv);
+
+      // 3) POST /invoices/exports — filtr subject2 + zakres dat
+      const exportBody = {
+        encryption: { encryptedSymmetricKey, initializationVector },
+        filters: {
+          subjectType: 'subject2',
+          dateRange: { from: dateFrom, to: dateTo, dateType: 'permanentStorage' },
+        },
+      };
+      const expRes = await fetch(`${base}/invoices/exports`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(exportBody),
+      });
+      if (!expRes.ok) {
+        const expRaw = await expRes.text().catch(() => '');
+        return jsonRes({ success: false, error: `[export-start] HTTP ${expRes.status}: ${expRaw.slice(0, 300)}` }, 500);
+      }
+      const expData = await expRes.json();
+      const ref = expData?.referenceNumber || expData?.operationReferenceNumber || expData?.data?.referenceNumber;
+      if (!ref) return jsonRes({ success: false, error: 'Brak referenceNumber w odpowiedzi eksportu' }, 500);
+
+      // 4) Polling statusu (do ~90s — w limicie czasu edge function)
+      let pkg: any = null;
+      for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        const stRes = await fetch(`${base}/invoices/exports/${ref}`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        if (!stRes.ok) continue;
+        const statusData = await stRes.json();
+        pkg = statusData?.package || statusData?.invoicePackage || statusData?.data?.package || statusData?.result?.package;
+        const st = statusData?.status?.code ?? statusData?.status ?? statusData?.state;
+        if (pkg || /(ready|completed|finished|success|done|\b200\b)/i.test(String(st))) break;
+      }
+      if (!pkg) {
+        return jsonRes({ success: true, phase: 'pending', ref, note: 'Paczka jeszcze nieprzygotowana — spróbuj ponownie za chwilę' });
+      }
+
+      // 5) Pobranie wszystkich części (parts[]). iv:none => części używają WSPÓLNEGO IV z export_start.
+      const parts = pkg?.parts;
+      if (!Array.isArray(parts) || parts.length === 0) {
+        return jsonRes({ success: false, error: 'pkg.parts puste' }, 500);
+      }
+      if (pkg?.isTruncated) {
+        console.warn('[KSeF][EXPORT] isTruncated=true — KSeF zwrócił niepełną paczkę, część faktur poza tą odpowiedzią');
+      }
+      const ordered = [...parts].sort((a: any, b: any) => (a?.ordinalNumber ?? 0) - (b?.ordinalNumber ?? 0));
+      const encChunks: Uint8Array[] = [];
+      for (const part of ordered) {
+        const purl = part?.url;
+        if (!purl) { console.error('[KSeF][EXPORT] part bez url:', JSON.stringify(part).slice(0, 200)); return jsonRes({ success: false, error: 'part bez url' }, 500); }
+        const pr = await fetch(purl, { method: 'GET', headers: purl.startsWith(base) ? { 'Authorization': `Bearer ${accessToken}` } : {} });
+        const chunk = new Uint8Array(await pr.arrayBuffer());
+        // Weryfikacja integralności zaszyfrowanego bloba
+        if (part?.encryptedPartSize != null && Number(part.encryptedPartSize) !== chunk.length) {
+          console.warn('[KSeF][EXPORT] encryptedPartSize mismatch:', part.encryptedPartSize, 'vs', chunk.length);
+        }
+        if (!hashMatches(part?.encryptedPartHash, await sha256Hashes(chunk))) {
+          console.warn('[KSeF][EXPORT] encryptedPartHash mismatch dla part #' + part?.ordinalNumber);
+        }
+        encChunks.push(chunk);
+      }
+      const encAll = concatBytes(encChunks);
+
+      // 6) Deszyfr AES-256-CBC naszym kluczem + IV (PKCS#7 zdejmuje WebCrypto)
+      const cryptoKey = await crypto.subtle.importKey('raw', aesKey, { name: 'AES-CBC' }, false, ['decrypt']);
+      let zipBytes: Uint8Array;
+      try {
+        const dec = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, cryptoKey, encAll);
+        zipBytes = new Uint8Array(dec);
+      } catch (e: any) {
+        console.error('[KSeF][EXPORT] decrypt FAIL:', e?.message);
+        return jsonRes({ success: false, error: 'Deszyfr nieudany: ' + e?.message }, 500);
+      }
+      // Weryfikacja odszyfrowanej zawartości (partHash/partSize = po deszyfrze)
+      const sumPartSize = ordered.reduce((s: number, p: any) => s + (Number(p?.partSize) || 0), 0);
+      if (sumPartSize && sumPartSize !== zipBytes.length) console.warn('[KSeF][EXPORT] suma partSize mismatch:', sumPartSize, 'vs', zipBytes.length);
+      if (ordered.length === 1 && ordered[0]?.partHash && !hashMatches(ordered[0].partHash, await sha256Hashes(zipBytes))) {
+        console.warn('[KSeF][EXPORT] partHash (po deszyfrze) mismatch');
+      }
+
+      // 7) Unzip
+      let files: Record<string, Uint8Array>;
+      try { files = unzipSync(zipBytes); }
+      catch (e: any) { console.error('[KSeF][EXPORT] unzip FAIL:', e?.message); return jsonRes({ success: false, error: 'Unzip nieudany: ' + e?.message }, 500); }
+      const xmlNames = Object.keys(files).filter(n => /\.xml$/i.test(n));
+
+      // 8) Parser + upsert (onConflict ksef_number)
+      let savedCount = 0;
+      for (const name of xmlNames) {
+        let refNum = '';
+        try {
+          const xml = new TextDecoder().decode(files[name]);
+          // ksef_number = nazwa pliku bez ścieżki/rozszerzenia (KSeF nazywa pliki numerem KSeF)
+          refNum = name.split('/').pop()!.replace(/\.xml$/i, '').trim();
+          if (!refNum) continue;
+
+          const totalNet = ['P_13_1', 'P_13_2', 'P_13_3', 'P_13_4', 'P_13_5', 'P_13_6', 'P_13_7']
+            .flatMap(t => getAllTagValues(xml, t)).reduce((s, v) => s + v, 0);
+          const totalVat = ['P_14_1', 'P_14_2', 'P_14_3', 'P_14_4', 'P_14_5']
+            .flatMap(t => getAllTagValues(xml, t)).reduce((s, v) => s + v, 0);
+          const totalGross = Number(getTag(xml, 'P_15').replace(',', '.')) || totalNet + totalVat;
+          const supplierName = xml.match(/<(?:\w+:)?Podmiot1[\s\S]*?<(?:\w+:)?Nazwa>([^<]+)<\/(?:\w+:)?Nazwa>/)?.[1]?.trim() || '';
+          const supplierNip = xml.match(/<(?:\w+:)?Podmiot1[\s\S]*?<(?:\w+:)?NIP>([^<]+)<\/(?:\w+:)?NIP>/)?.[1]?.trim() || '';
+
+          // Typ dokumentu + powiązanie korekty
+          const documentType = getTag(xml, 'RodzajFaktury') || null;
+          const corr = (documentType && /KOR/i.test(documentType))
+            ? getCorrectionRefs(xml)
+            : { correctedKsefNumber: null, correctedInvoiceNumber: null };
+
+          const aiCategory = await categorize(supplierName);
+
+          const invoiceData = {
+            ksef_number: refNum,
+            document_number: getTag(xml, 'P_2') || refNum,
+            purchase_date: getTag(xml, 'P_1') || dateFrom,
+            supplier_nip: supplierNip,
+            supplier_name: supplierName,
+            total_net: totalNet || 0,
+            total_vat: totalVat || 0,
+            total_gross: totalGross || 0,
+            xml_content: xml,
+            status: 'new',
+            user_id: creds.userId,
+            entity_id: creds.entityId,
+            ai_category: aiCategory,
+            environment,
+            document_type: documentType,
+            corrected_ksef_number: corr.correctedKsefNumber,
+            corrected_invoice_number: corr.correctedInvoiceNumber,
+          };
+
+          const { error } = await supabase.from('purchase_invoices').upsert(invoiceData, { onConflict: 'ksef_number' });
+          if (error) { console.error('[KSeF][EXPORT] upsert error', refNum, error.code, error.message); continue; }
+          savedCount++;
+        } catch (e: any) {
+          console.error('[KSeF][EXPORT] file error', name, '(' + refNum + ')', e?.message);
+        }
+      }
+      console.log('[KSeF][EXPORT] zapisano', savedCount, '/', xmlNames.length, 'faktur, env:', environment);
+
+      return jsonRes({ success: true, count: savedCount, invoiceCount: pkg?.invoiceCount ?? null, parts: parts.length, isTruncated: pkg?.isTruncated ?? false, environment });
     }
 
     // ========== send ==========
