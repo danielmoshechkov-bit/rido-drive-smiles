@@ -142,6 +142,18 @@ export function WorkshopReports({ providerId, onBack }: Props) {
     ? (o.completed_at || o.updated_at || o.created_at)
     : o.created_at;
 
+  // Statusy do filtra = realne status_name ze zleceń (źródło prawdy), scalone z
+  // tabelą statusów dla kolejności/etykiet. Eliminuje rozjazd, gdy zlecenie ma
+  // status_name nieobecny w workshop_order_statuses (np. zmiana/usunięcie nazwy)
+  // — wtedy badge i tak istnieje i DOKŁADNIE pasuje do wartości w zleceniu.
+  const availableStatuses = useMemo(() => {
+    const inOrders = new Set((orders as any[]).map((o) => o.status_name).filter(Boolean));
+    const ordered: { id: string; name: string }[] = [];
+    (statuses as any[]).forEach((s) => { if (inOrders.has(s.name)) { ordered.push({ id: s.id, name: s.name }); inOrders.delete(s.name); } });
+    Array.from(inOrders).sort().forEach((name) => ordered.push({ id: `order:${name}`, name: name as string }));
+    return ordered;
+  }, [orders, statuses]);
+
   const reportOrders = useMemo(() => (orders as any[]).filter((o) => {
     const basis = basisDateOf(o);
     if (!basis) return false;
@@ -256,7 +268,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
             <div className="space-y-1.5">
               <Label>Status zleceń <span className="text-muted-foreground font-normal">(puste = wszystkie)</span></Label>
               <div className="flex flex-wrap gap-1.5">
-                {(statuses as any[]).map((s) => {
+                {availableStatuses.map((s) => {
                   const on = selectedStatuses.has(s.name);
                   return (
                     <Badge key={s.id} onClick={() => toggleSet(selectedStatuses, s.name, setSelectedStatuses)}
