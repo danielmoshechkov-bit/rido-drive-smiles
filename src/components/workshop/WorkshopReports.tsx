@@ -12,9 +12,12 @@ import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopClientsReport, WorkshopEmployeesReport, WorkshopSalesReport } from './WorkshopExtraReports';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2, Info } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2, Info, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import { printHtmlDocument } from '@/utils/invoiceHtmlGenerator';
+import { buildOrdersReportHtml } from '@/utils/workshopReportPrintHtml';
 
 interface Props {
   providerId: string;
@@ -89,6 +92,16 @@ export function WorkshopReports({ providerId, onBack }: Props) {
       return data || [];
     },
   });
+  const { data: provider } = useQuery({
+    queryKey: ['workshop-provider-name', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from('service_providers').select('company_name, short_name').eq('id', providerId).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const workshopName = (provider?.short_name || provider?.company_name || 'Warsztat') as string;
 
   const toggleSet = (set: Set<string>, key: string, setter: (s: Set<string>) => void) => {
     const next = new Set(set);
@@ -135,6 +148,30 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const reportOrderIds = new Set(reportOrders.map((o) => o.id));
   const paidByMethod = (m: PaymentMethod) => (payments as any[]).filter((p) => p.method === m && !p.voided && p.order_id && reportOrderIds.has(p.order_id)).reduce((s, p) => s + Number(p.amount || 0), 0);
 
+  const clientNameOf = (o: any) => o.client
+    ? (o.client.client_type === 'company' ? o.client.company_name : `${o.client.first_name || ''} ${o.client.last_name || ''}`.trim())
+    : '';
+  const ddmmyyyy = (s?: string) => { const d = dpart(s); return d ? format(new Date(d + 'T00:00:00'), 'dd.MM.yyyy') : '—'; };
+
+  // Druk/PDF: czysty HTML w nowym oknie (jak faktury). includeList = z listą zleceń czy samo podsumowanie.
+  const handlePrint = (includeList: boolean) => {
+    printHtmlDocument(buildOrdersReportHtml({
+      workshopName,
+      periodFrom: format(new Date(dateFrom + 'T00:00:00'), 'dd.MM.yyyy'),
+      periodTo: format(new Date(dateTo + 'T00:00:00'), 'dd.MM.yyyy'),
+      generatedAt: format(new Date(), 'dd.MM.yyyy HH:mm'),
+      priceMode,
+      dateBasis,
+      summary: { revenue: totalRevenue, parts: totalParts, cost: totalCost, profit: totalRevenue - totalCost, paid: totalPaid },
+      payByMethod: PAYMENT_METHODS.map((m) => ({ label: m.label, amount: paidByMethod(m.value) })).filter((p) => p.amount > 0),
+      orders: reportOrders.map((o) => {
+        const revenue = orderRevenue(o), cost = orderCost(o);
+        return { number: o.order_number, date: ddmmyyyy(basisDateOf(o)), client: clientNameOf(o), status: o.status_name, revenue, parts: orderParts(o), cost, profit: revenue - cost, paid: paidByOrder[o.id] || 0 };
+      }),
+      includeList,
+    }));
+  };
+
   const getReportList = (): any[] => {
     switch (activeCategory) {
       case 'zlecenia': return orderReports;
@@ -172,10 +209,6 @@ export function WorkshopReports({ providerId, onBack }: Props) {
           <button onClick={() => { setActiveReport(null); setActiveCategory(null); }} className="text-primary hover:underline">{t('workshop.reports.title')}</button>
           <span className="text-muted-foreground">/</span>
           <span className="font-semibold">Rozliczenie zleceń</span>
-          <div className="flex-1" />
-          <Button variant="outline" size="sm" className="gap-1" onClick={() => window.print()}>
-            <Printer className="h-4 w-4" /> {t('workshop.reports.print')}
-          </Button>
         </div>
 
         {/* Filters */}
@@ -238,9 +271,24 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               </div>
             )}
 
-            <Button className="gap-2" onClick={() => setGenerated(true)}>
-              <Eye className="h-4 w-4" /> {t('workshop.reports.showReport')}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button className="gap-2" onClick={() => setGenerated(true)}>
+                <Eye className="h-4 w-4" /> {t('workshop.reports.showReport')}
+              </Button>
+              {generated && !isLoading && reportOrders.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-1">
+                      <Printer className="h-4 w-4" /> Drukuj / PDF <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => handlePrint(false)}>Podsumowanie</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handlePrint(true)}>Podsumowanie + lista zleceń</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -293,7 +341,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                       <TableRow key={o.id}>
                         <TableCell className="font-medium">{o.order_number}</TableCell>
                         <TableCell className="text-sm tabular-nums">{basisDate ? dpart(basisDate) : '—'}</TableCell>
-                        <TableCell className="text-sm">{o.client ? (o.client.client_type === 'company' ? o.client.company_name : `${o.client.first_name || ''} ${o.client.last_name || ''}`.trim()) : ''}</TableCell>
+                        <TableCell className="text-sm">{clientNameOf(o)}</TableCell>
                         <TableCell className="text-sm">{o.status_name}</TableCell>
                         <TableCell className="text-right font-medium tabular-nums">{fmt(revenue)}</TableCell>
                         <TableCell className="text-right text-sm tabular-nums">{fmt(orderParts(o))}</TableCell>
