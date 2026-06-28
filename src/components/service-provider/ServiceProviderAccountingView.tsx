@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   FileText, Plus, FileSpreadsheet, BarChart3, Clock, Package,
-  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail, Shield, AlertTriangle, Download
+  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail, Shield, AlertTriangle, Download, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -52,6 +52,7 @@ export function ServiceProviderAccountingView() {
   const [subTab, setSubTab] = useState('przeglad');
   const { count: ksefUnread, markAllRead: markKsefRead } = useKsefUnreadCount();
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true); // ładowanie firm/danych — by nie migać „Skonfiguruj firmę"
   const [userEntities, setUserEntities] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [showNewInvoice, setShowNewInvoice] = useState(false);
@@ -68,26 +69,31 @@ export function ServiceProviderAccountingView() {
   }, []);
 
   const loadData = async () => {
-    const { data: { user: u } } = await supabase.auth.getUser();
-    if (!u) return;
-    setUser(u);
+    setLoading(true);
+    try {
+      const { data: { user: u } } = await supabase.auth.getUser();
+      if (!u) return;
+      setUser(u);
 
-    const { data: entities } = await supabase
-      .from('entities')
-      .select('id, name, type, nip, regon, address_street, address_city, address_postal_code, email, phone, bank_name, bank_account, logo_url, vat_payer, is_active')
-      .eq('owner_user_id', u.id)
-      .order('created_at', { ascending: false });
-    if (entities) setUserEntities(entities);
+      const { data: entities } = await supabase
+        .from('entities')
+        .select('id, name, type, nip, regon, address_street, address_city, address_postal_code, email, phone, bank_name, bank_account, logo_url, vat_payer, is_active')
+        .eq('owner_user_id', u.id)
+        .order('created_at', { ascending: false });
+      if (entities) setUserEntities(entities);
 
-    const { data: inv } = await supabase
-      .from('user_invoices')
-      .select('*')
-      .eq('user_id', u.id)
-      .order('created_at', { ascending: false })
-      .limit(50);
-    if (inv) setInvoices(inv);
-    // Odśwież też wspólny InvoicesModule (Sprzedażowe czyta user_invoices przez React Query)
-    queryClient.invalidateQueries({ queryKey: ['invoices-module-sales'] });
+      const { data: inv } = await supabase
+        .from('user_invoices')
+        .select('*')
+        .eq('user_id', u.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (inv) setInvoices(inv);
+      // Odśwież też wspólny InvoicesModule (Sprzedażowe czyta user_invoices przez React Query)
+      queryClient.invalidateQueries({ queryKey: ['invoices-module-sales'] });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const hasCompanySetup = userEntities.some((e: any) => e.is_active !== false);
@@ -132,6 +138,13 @@ export function ServiceProviderAccountingView() {
       {/* Przegląd */}
       {subTab === 'przeglad' && (
         <div className="space-y-6">
+          {/* Podczas ładowania firm/danych — TYLKO spinner (koniec migania „Skonfiguruj firmę" i kafli z zerami) */}
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
           {!hasCompanySetup && (
             <Card className="border-dashed border-2 border-primary/30">
               <CardContent className="py-8 text-center">
@@ -226,6 +239,8 @@ export function ServiceProviderAccountingView() {
 
           {/* Do sprawdzenia — mały kafel na końcu (zamiast wielkiego pustego środka) */}
           <PendingInvoicesReview compact onOpen={() => setSubTab('oczekujace')} />
+            </>
+          )}
         </div>
       )}
 
