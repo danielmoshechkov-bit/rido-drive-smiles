@@ -14,6 +14,7 @@ import { WorkshopWarehouse } from './WorkshopWarehouse';
 import { WorkshopTireStorage } from './WorkshopTireStorage';
 import { WorkshopRepairData } from './WorkshopRepairData';
 import { WorkshopSettingsStandalone } from './WorkshopSettingsStandalone';
+import { useDisableNumberInputScroll } from '@/hooks/useDisableNumberInputScroll';
 import { WorkshopEmployeesPage } from './WorkshopEmployeesPage';
 import { WorkshopStationsManager } from './WorkshopStationsManager';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -107,6 +108,7 @@ function MobileBackButton({ onBack, label }: { onBack: () => void; label?: strin
 
 export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashboardProps = {}) {
   const { t } = useTranslation();
+  useDisableNumberInputScroll(); // scroll nad polem ceny/kwoty nie zmienia wartości (cały moduł)
   const { data: hookProviderId, isLoading, error } = useWorkshopProviderId();
   const providerId = propProviderId || hookProviderId;
   const { data: workshopOrders = [] } = useWorkshopOrders(providerId);
