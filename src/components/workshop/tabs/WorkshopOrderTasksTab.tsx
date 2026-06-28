@@ -14,6 +14,7 @@ import { RidoPartsSearchModal } from '../parts/RidoPartsSearchModal';
 import { RidoPartsConfigModal } from '../parts/RidoPartsConfigModal';
 import { getConfiguredPartsIntegrations } from '../parts/partsIntegrationUtils';
 import { ServiceAutocomplete } from '../pricing/ServiceAutocomplete';
+import { InventoryProductAutocomplete } from '../InventoryProductAutocomplete';
 import { RidoPriceModal } from '../pricing/RidoPriceModal';
 import { WorkshopVehicleEditDialog } from '../WorkshopVehicleEditDialog';
 import { useSaveServicePrice, useSaveAnonymousPrice } from '@/hooks/useServicePriceHistory';
@@ -57,6 +58,7 @@ interface GoodsRow {
   discount: number;
   discountType: DiscountType;
   task_name: string;
+  inventory_product_id?: string | null;
 }
 
 type DropIndicator = {
@@ -234,7 +236,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ ...emptyTask }]);
   const [taskSearch, setTaskSearch] = useState('');
 
-  const createEmptyGoods = (): GoodsRow => ({ draftKey: crypto.randomUUID(), name: '', quantity: 1, unit: 'szt', price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent', task_name: '' });
+  const createEmptyGoods = (): GoodsRow => ({ draftKey: crypto.randomUUID(), name: '', quantity: 1, unit: 'szt', price_net: 0, price_gross: 0, cost_net: 0, cost_gross: 0, discount: 0, discountType: 'percent', task_name: '', inventory_product_id: null });
   const emptyGoods: GoodsRow = createEmptyGoods();
   const [goodsRows, setGoodsRows] = useState<GoodsRow[]>([{ ...emptyGoods }]);
   const [goodsSearch, setGoodsSearch] = useState('');
@@ -599,6 +601,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       name: row.name,
       unit: row.unit,
       quantity: row.quantity,
+      inventory_product_id: row.inventory_product_id || null,
       sort_order: sortOrder ?? getNextSortOrder(goods),
       unit_price_gross: row.price_gross,
       unit_price_net: row.price_net,
@@ -1562,11 +1565,19 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         {goods.length + idx + 1}
                       </td>
                       <td className="p-1.5">
-                        <Input
-                          placeholder={t('workshop.orderTasks.enterPartNamePlaceholder')}
+                        <InventoryProductAutocomplete
                           value={row.name}
-                          onChange={e => updateGoodsRow(idx, { name: e.target.value })}
+                          placeholder={t('workshop.orderTasks.enterPartNamePlaceholder')}
                           className={`h-9 w-full text-sm min-w-0 ${nameMissing ? 'border-destructive ring-1 ring-destructive' : ''}`}
+                          onChange={(name) => updateGoodsRow(idx, { name, inventory_product_id: null })}
+                          onSelectProduct={(p) => updateGoodsRow(idx, {
+                            name: p.name_sales,
+                            inventory_product_id: p.id,
+                            price_net: Number(p.default_sale_price_net) || 0,
+                            price_gross: Number(p.default_sale_price_gross) || 0,
+                            cost_net: Number(p.default_purchase_price_net) || 0,
+                            cost_gross: Number(p.default_purchase_price_gross) || 0,
+                          })}
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();

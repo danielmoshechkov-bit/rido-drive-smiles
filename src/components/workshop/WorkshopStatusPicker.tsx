@@ -57,6 +57,8 @@ export function WorkshopStatusPicker({
       const payload: any = { status_name: name };
       if (withNote) payload.has_unread_notes = true;
       if (st) payload.station_id = st.id;
+      // Znacznik zakończenia — żeby raporty "Licz po: Zakończenia" działały.
+      if (name === 'Zakończone') payload.completed_at = new Date().toISOString();
       // Fire the main DB update and surface the change immediately so the
       // caller can update its UI / open the ready-SMS dialog without waiting
       // on event logging + station handover (which run in the background).
