@@ -8,6 +8,7 @@ export interface OrdersReportSummary {
   cost: number;
   profit: number;
   paid: number;
+  debt: number;
 }
 
 export interface OrdersReportRow {
@@ -19,6 +20,7 @@ export interface OrdersReportRow {
   cost: number;
   profit: number;
   paid: number;
+  debt: number;
 }
 
 export interface OrdersReportPrintData {
@@ -28,6 +30,7 @@ export interface OrdersReportPrintData {
   generatedAt: string;  // 'dd.MM.yyyy HH:mm'
   priceMode: 'netto' | 'brutto';
   dateBasis: 'created' | 'completed';
+  cashEnabled: boolean;   // gdy false: kolumna/kafelek "Dług" ukryte, "Jak płacili" ukryte
   summary: OrdersReportSummary;
   payByMethod: { label: string; amount: number }[];
   orders: OrdersReportRow[];
@@ -52,6 +55,7 @@ export function buildOrdersReportHtml(data: OrdersReportPrintData): string {
     { label: 'Koszt', value: summary.cost, cls: '' },
     { label: 'Zysk', value: summary.profit, cls: summary.profit >= 0 ? 'pos' : 'neg' },
     { label: 'Zapłacono', value: summary.paid, cls: '' },
+    ...(data.cashEnabled ? [{ label: 'Dług', value: summary.debt, cls: summary.debt > 0 ? 'neg' : '' }] : []),
   ];
 
   const summaryHtml = summaryCards
@@ -78,6 +82,7 @@ export function buildOrdersReportHtml(data: OrdersReportPrintData): string {
              <th class="r">Koszt</th>
              <th class="r">Zysk</th>
              <th class="r">Zapłacono</th>
+             ${data.cashEnabled ? '<th class="r">Dług</th>' : ''}
            </tr>
          </thead>
          <tbody>
@@ -91,6 +96,7 @@ export function buildOrdersReportHtml(data: OrdersReportPrintData): string {
                <td class="r">${money(o.cost)}</td>
                <td class="r ${o.profit >= 0 ? 'pos' : 'neg'}">${money(o.profit)}</td>
                <td class="r">${money(o.paid)}</td>
+               ${data.cashEnabled ? `<td class="r ${o.debt > 0 ? 'neg' : ''}">${money(o.debt)}</td>` : ''}
              </tr>`).join('')}
            <tr class="sum">
              <td class="l" colspan="4">Suma</td>
@@ -98,6 +104,7 @@ export function buildOrdersReportHtml(data: OrdersReportPrintData): string {
              <td class="r">${money(summary.cost)}</td>
              <td class="r ${summary.profit >= 0 ? 'pos' : 'neg'}">${money(summary.profit)}</td>
              <td class="r">${money(summary.paid)}</td>
+             ${data.cashEnabled ? `<td class="r ${summary.debt > 0 ? 'neg' : ''}">${money(summary.debt)}</td>` : ''}
            </tr>
          </tbody>
        </table>`

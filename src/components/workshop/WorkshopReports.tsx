@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useWorkshopOrders, useWorkshopStatuses } from '@/hooks/useWorkshop';
-import { useWorkshopPaymentsRange, PAYMENT_METHODS, type PaymentMethod } from '@/hooks/useWorkshopFinance';
+import { useWorkshopPaymentsRange, useWorkshopFinanceSettings, PAYMENT_METHODS, type PaymentMethod } from '@/hooks/useWorkshopFinance';
 import { safeNumber } from '@/utils/workshopOrderTotals';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopClientsReport, WorkshopEmployeesReport, WorkshopSalesReport } from './WorkshopExtraReports';
@@ -86,6 +86,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId);
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: payments = [] } = useWorkshopPaymentsRange(providerId, dateFrom, dateTo);
+  const { data: financeSettings } = useWorkshopFinanceSettings(providerId);
+  const cashEnabled = !!financeSettings?.cash_enabled;
   const { data: stations = [] } = useQuery({
     queryKey: ['workshop-stations-report', providerId],
     enabled: !!providerId,
@@ -124,6 +126,13 @@ export function WorkshopReports({ providerId, onBack }: Props) {
     return m;
   }, [payments]);
 
+  // Zapłacono/Dług zależne od tego, czy Kasa jest aktywna (cash_enabled):
+  // - Kasa WYŁĄCZONA: "Zakończone" = zapłacone 100% (brak długu).
+  // - Kasa WŁĄCZONA: realne wpłaty; dług = Przychód − wpłaty (gdy zapłacono mniej).
+  const isCompleted = (o: any) => o.status_name === 'Zakończone';
+  const orderPaid = (o: any) => cashEnabled ? (paidByOrder[o.id] || 0) : (isCompleted(o) ? orderRevenue(o) : 0);
+  const orderDebt = (o: any) => cashEnabled ? Math.max(0, orderRevenue(o) - orderPaid(o)) : 0;
+
   // "Zakończenia": dla zleceń zakończonych bez completed_at (sprzed wdrożenia znacznika)
   // używamy updated_at/created_at jako daty zakończenia — inaczej znikały z raportu.
   const basisDateOf = (o: any) => dateBasis === 'completed'
@@ -142,7 +151,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
 
   const totalRevenue = reportOrders.reduce((s, o) => s + orderRevenue(o), 0);
   const totalCost = reportOrders.reduce((s, o) => s + orderCost(o), 0);
-  const totalPaid = reportOrders.reduce((s, o) => s + (paidByOrder[o.id] || 0), 0);
+  const totalPaid = reportOrders.reduce((s, o) => s + orderPaid(o), 0);
+  const totalDebt = reportOrders.reduce((s, o) => s + orderDebt(o), 0);
   // Jak płacili — sumy form (płatności przypisane do zleceń z raportu).
   const reportOrderIds = new Set(reportOrders.map((o) => o.id));
   const paidByMethod = (m: PaymentMethod) => (payments as any[]).filter((p) => p.method === m && !p.voided && p.order_id && reportOrderIds.has(p.order_id)).reduce((s, p) => s + Number(p.amount || 0), 0);
@@ -161,11 +171,12 @@ export function WorkshopReports({ providerId, onBack }: Props) {
       generatedAt: format(new Date(), 'dd.MM.yyyy HH:mm'),
       priceMode,
       dateBasis,
-      summary: { revenue: totalRevenue, cost: totalCost, profit: totalRevenue - totalCost, paid: totalPaid },
-      payByMethod: PAYMENT_METHODS.map((m) => ({ label: m.label, amount: paidByMethod(m.value) })).filter((p) => p.amount > 0),
+      cashEnabled,
+      summary: { revenue: totalRevenue, cost: totalCost, profit: totalRevenue - totalCost, paid: totalPaid, debt: totalDebt },
+      payByMethod: cashEnabled ? PAYMENT_METHODS.map((m) => ({ label: m.label, amount: paidByMethod(m.value) })).filter((p) => p.amount > 0) : [],
       orders: reportOrders.map((o) => {
         const revenue = orderRevenue(o), cost = orderCost(o);
-        return { number: o.order_number, date: ddmmyyyy(basisDateOf(o)), client: clientNameOf(o), status: o.status_name, revenue, cost, profit: revenue - cost, paid: paidByOrder[o.id] || 0 };
+        return { number: o.order_number, date: ddmmyyyy(basisDateOf(o)), client: clientNameOf(o), status: o.status_name, revenue, cost, profit: revenue - cost, paid: orderPaid(o), debt: orderDebt(o) };
       }),
       includeList,
     }));
@@ -294,15 +305,18 @@ export function WorkshopReports({ providerId, onBack }: Props) {
         </Card>
 
         {generated && !isLoading && reportOrders.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className={`grid grid-cols-2 gap-3 ${cashEnabled ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
             <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Przychód" hint={COL_HINTS.revenue} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalRevenue)}</p></CardContent></Card>
             <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Koszt" hint={COL_HINTS.cost} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalCost)}</p></CardContent></Card>
             <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Zysk" hint={COL_HINTS.profit} /></p><p className={`text-lg font-bold tabular-nums ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(totalRevenue - totalCost)}</p></CardContent></Card>
             <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Zapłacono" hint={COL_HINTS.paid} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalPaid)}</p></CardContent></Card>
+            {cashEnabled && (
+              <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Dług" hint={COL_HINTS.debt} /></p><p className={`text-lg font-bold tabular-nums ${totalDebt > 0 ? 'text-destructive' : ''}`}>{fmt(totalDebt)}</p></CardContent></Card>
+            )}
           </div>
         )}
 
-        {generated && !isLoading && reportOrders.length > 0 && (
+        {generated && !isLoading && reportOrders.length > 0 && cashEnabled && (
           <Card><CardContent className="py-3 flex flex-wrap gap-4 text-sm">
             <span className="text-muted-foreground">Jak płacili:</span>
             {PAYMENT_METHODS.map((m) => <span key={m.value}>{m.label}: <span className="font-semibold tabular-nums">{fmt(paidByMethod(m.value))}</span></span>)}
@@ -330,6 +344,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                     <TableHead className="text-right"><InfoLabel label="Koszt" hint={COL_HINTS.cost} /></TableHead>
                     <TableHead className="text-right"><InfoLabel label="Zysk" hint={COL_HINTS.profit} /></TableHead>
                     <TableHead className="text-right"><InfoLabel label="Zapłacono" hint={COL_HINTS.paid} /></TableHead>
+                    {cashEnabled && <TableHead className="text-right"><InfoLabel label="Dług" hint={COL_HINTS.debt} /></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -345,7 +360,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                         <TableCell className="text-right font-medium tabular-nums">{fmt(revenue)}</TableCell>
                         <TableCell className="text-right text-sm tabular-nums">{fmt(cost)}</TableCell>
                         <TableCell className={`text-right font-medium tabular-nums ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(profit)}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">{fmt(paidByOrder[o.id] || 0)}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{fmt(orderPaid(o))}</TableCell>
+                        {cashEnabled && <TableCell className={`text-right text-sm tabular-nums ${orderDebt(o) > 0 ? 'text-destructive' : ''}`}>{fmt(orderDebt(o))}</TableCell>}
                       </TableRow>
                     );
                   })}
@@ -355,6 +371,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                     <TableCell className="text-right tabular-nums">{fmt(totalCost)}</TableCell>
                     <TableCell className={`text-right tabular-nums ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(totalRevenue - totalCost)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmt(totalPaid)}</TableCell>
+                    {cashEnabled && <TableCell className={`text-right tabular-nums ${totalDebt > 0 ? 'text-destructive' : ''}`}>{fmt(totalDebt)}</TableCell>}
                   </TableRow>
                 </TableBody>
               </Table>
