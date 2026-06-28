@@ -45,9 +45,13 @@ import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { RentalPaymentReminders } from "@/components/fleet/RentalPaymentReminders";
 import { FleetPaymentNotifications } from "@/components/fleet/FleetPaymentNotifications";
 import { PaymentSubTabs } from "@/components/fleet/PaymentSubTabs";
-import { CreditCard, Calculator } from "lucide-react";
+import { CreditCard, Calculator, KeyRound } from "lucide-react";
 import { MobileTabMenu } from "@/components/MobileTabMenu";
 import { ServiceProviderAccountingView } from "@/components/service-provider/ServiceProviderAccountingView";
+import { RentalDashboard } from "@/components/rental/RentalDashboard";
+import { useFleetRentalAccess } from "@/hooks/useFleetRentalAccess";
+import { useFleetNavPrefs } from "@/hooks/useFleetNavPrefs";
+import { FleetModulePicker } from "@/components/fleet-modules/FleetModulePicker";
 
 interface UnifiedDashboardProps {
   userType: 'admin' | 'fleet';
@@ -63,6 +67,10 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('');
   const [selectedCity, setSelectedCity] = useState<City | null>(null);
+  // Moduł Flota & Wynajem (nowy silnik) — gate per firma. Fail-safe: domyślnie ukryty.
+  const rentalAccess = useFleetRentalAccess(userType === 'fleet' ? fleetId : null);
+  // Preferencje paska floty ("Wybierz moduł"). Brak preferencji → hidden=[] → pasek jak dziś.
+  const fleetNav = useFleetNavPrefs();
   const [sanitizing, setSanitizing] = useState(false);
   const [cleaningAccounts, setCleaningAccounts] = useState(false);
   const [creatingAccounts, setCreatingAccounts] = useState(false);
@@ -119,6 +127,14 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
       else if (canViewTab('reports')) setActiveTab('reports');
     }
   }, [canViewTab, permissionsLoading, activeTab]);
+
+  // Scalenie: dla floty z modułem Wynajem domyślnie pokaż „Flota & Wynajem"
+  // (stara zakładka „Flota" jest dla niej ukryta). 18 firm: canUse=false → bez zmian.
+  useEffect(() => {
+    if (rentalAccess.canUse && (activeTab === '' || activeTab === 'fleet')) {
+      setActiveTab('wynajem');
+    }
+  }, [rentalAccess.canUse, activeTab]);
 
   // Auto-select Warszawa or first city when cities load (admin only)
   useEffect(() => {
@@ -372,7 +388,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                   {t('admin.driversList')}
                 </TabsTrigger>
               )}
-              {canViewTab('fleet') && (
+              {canViewTab('fleet') && !rentalAccess.canUse && (
                 <TabsTrigger value="fleet">
                   <Car className="h-4 w-4 mr-2" />
                   Flota
@@ -426,13 +442,13 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                   Fleet Live
                 </TabsTrigger>
               )}
-              {userType === 'fleet' && fleetId && (
+              {userType === 'fleet' && fleetId && !fleetNav.hidden.includes('accounting') && (
                 <TabsTrigger value="accounting">
                   <Calculator className="h-4 w-4 mr-2" />
                   Księgowość
                 </TabsTrigger>
               )}
-              {userType === 'fleet' && fleetId && (
+              {userType === 'fleet' && fleetId && !fleetNav.hidden.includes('rental-payments') && (
                 <TabsTrigger value="rental-payments">
                   <CreditCard className="h-4 w-4 mr-2" />
                   Płatności
@@ -444,10 +460,22 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
                   {t('admin.settings')}
                 </TabsTrigger>
               )}
-              {userType === 'fleet' && fleetId && (
+              {userType === 'fleet' && fleetId && !fleetNav.hidden.includes('fleet-settings') && (
                 <TabsTrigger value="fleet-settings">
                   <Settings className="h-4 w-4 mr-2" />
                   Ustawienia
+                </TabsTrigger>
+              )}
+              {userType === 'fleet' && fleetId && rentalAccess.canUse && !fleetNav.hidden.includes('wynajem') && (
+                <TabsTrigger value="wynajem">
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  Flota &amp; Wynajem
+                </TabsTrigger>
+              )}
+              {userType === 'fleet' && fleetId && (
+                <TabsTrigger value="fleet-modules">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Wybierz moduł
                 </TabsTrigger>
               )}
               {userType === 'fleet' && (
@@ -480,6 +508,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
             myDriverId={myDriverId}
             t={t}
             fleetId={fleetId}
+            showRental={rentalAccess.canUse}
           />
 
           {canViewTab('weekly-report') && (
@@ -565,7 +594,7 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
             </TabsContent>
           )}
 
-          {canViewTab('fleet') && (
+          {canViewTab('fleet') && !rentalAccess.canUse && (
             <TabsContent value="fleet" className="space-y-6">
               {userType === 'admin' && !selectedCity ? (
                 <Card>
@@ -712,6 +741,18 @@ export function UnifiedDashboard({ userType, fleetId, fleetName, userName, userE
           {userType === 'fleet' && fleetId && (
             <TabsContent value="rental-payments" className="space-y-6">
               <PaymentSubTabs fleetId={fleetId} />
+            </TabsContent>
+          )}
+
+          {userType === 'fleet' && fleetId && rentalAccess.canUse && rentalAccess.companyId && (
+            <TabsContent value="wynajem" className="space-y-6">
+              <RentalDashboard companyId={rentalAccess.companyId} />
+            </TabsContent>
+          )}
+
+          {userType === 'fleet' && fleetId && (
+            <TabsContent value="fleet-modules" className="space-y-6">
+              <FleetModulePicker />
             </TabsContent>
           )}
 

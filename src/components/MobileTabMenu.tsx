@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, DollarSign, Car, Users, Info, Repeat, CreditCard, Settings, MapPin, FileText, Calculator } from "lucide-react";
+import { ChevronDown, DollarSign, Car, Users, Info, Repeat, CreditCard, Settings, MapPin, FileText, Calculator, KeyRound } from "lucide-react";
 
 interface MobileTabMenuProps {
   activeTab: string;
@@ -12,6 +12,7 @@ interface MobileTabMenuProps {
   myDriverId: string | null;
   t: (key: string) => string;
   fleetId?: string | null;
+  showRental?: boolean;
 }
 
 export function MobileTabMenu({ 
@@ -22,7 +23,8 @@ export function MobileTabMenu({
   roles, 
   myDriverId,
   t,
-  fleetId
+  fleetId,
+  showRental
 }: MobileTabMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -52,6 +54,7 @@ export function MobileTabMenu({
       case 'fleet-live': return 'Fleet Live';
       case 'rental-payments': return 'Płatności';
       case 'accounting': return 'Księgowość';
+      case 'wynajem': return 'Flota & Wynajem';
       default: return 'Menu';
     }
   };
@@ -129,14 +132,25 @@ export function MobileTabMenu({
                 </Button>
               )}
               {userType === 'fleet' && fleetId && activeTab !== 'rental-payments' && (
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   className="w-full justify-start text-xs"
                   onClick={() => handleTabChange('rental-payments')}
                 >
                   <CreditCard className="h-3 w-3 mr-2" />
                   Płatności
+                </Button>
+              )}
+              {userType === 'fleet' && fleetId && showRental && activeTab !== 'wynajem' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start text-xs"
+                  onClick={() => handleTabChange('wynajem')}
+                >
+                  <KeyRound className="h-3 w-3 mr-2" />
+                  Flota & Wynajem
                 </Button>
               )}
               {canViewTab('settings') && activeTab !== 'settings' && (
