@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { pretranslateContent, type ContentItem } from '@/lib/contentTranslation';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
+import { consumeStock, returnStock, adjustStock } from '@/utils/workshopStock';
 
 // B: keep workshop_orders.total_gross/total_net authoritative at write time, so
 // every consumer (orders list, estimate preview, SMS) sees the correct amount even
@@ -334,6 +335,12 @@ export function useCreateWorkshopOrderItem() {
           .eq('estimate_sent_to_client', true);
       }
       await recomputeOrderTotals(item.order_id);
+      // Magazyn: zejście FIFO tylko dla realnie wstawionej pozycji powiązanej z produktem
+      // (data == null przy idempotentnym duplikacie → brak podwójnego zejścia).
+      if (data?.inventory_product_id && Number(data.quantity) > 0) {
+        const { shortfall } = await consumeStock(data.inventory_product_id, Number(data.quantity), data.id);
+        if (shortfall > 0) toast.warning(`Magazyn: brakło ${shortfall} szt — zeszło tyle, ile było na stanie.`);
+      }
       return data;
     },
     // Optimistic insert: drop the new line into every cached orders query right away,
@@ -373,6 +380,12 @@ export function useUpdateWorkshopOrderItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: any) => {
+      // Magazyn: przy zmianie ilości pobierz starą wartość, by zrobić deltę (dobiór/zwrot).
+      let prev: any = null;
+      if (updates.quantity !== undefined) {
+        const { data: p } = await (supabase as any).from('workshop_order_items').select('quantity, inventory_product_id').eq('id', id).maybeSingle();
+        prev = p;
+      }
       const { data, error } = await (supabase as any)
         .from('workshop_order_items')
         .update(updates)
@@ -386,6 +399,10 @@ export function useUpdateWorkshopOrderItem() {
           .update({ estimate_changed_after_send: true })
           .eq('id', data.order_id)
           .eq('estimate_sent_to_client', true);
+      }
+      if (prev?.inventory_product_id && updates.quantity !== undefined) {
+        const { shortfall } = await adjustStock(prev.inventory_product_id, id, Number(prev.quantity), Number(updates.quantity));
+        if (shortfall > 0) toast.warning(`Magazyn: brakło ${shortfall} szt — zeszło tyle, ile było.`);
       }
       await recomputeOrderTotals(data?.order_id);
       return data;
@@ -427,12 +444,18 @@ export function useDeleteWorkshopOrderItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      // Grab the order_id before deleting so we can recompute the order total after.
+      // Grab order_id + inventory link before deleting (recompute totals + zwrot magazynu).
       const { data: existing } = await (supabase as any)
         .from('workshop_order_items')
-        .select('order_id')
+        .select('order_id, inventory_product_id')
         .eq('id', id)
         .maybeSingle();
+      // Magazyn: zwrot części na stan, ale TYLKO gdy zlecenie nie jest zakończone
+      // (po „Zakończone" zejście jest ostateczne — część zużyta).
+      if (existing?.inventory_product_id && existing?.order_id) {
+        const { data: ord } = await (supabase as any).from('workshop_orders').select('status_name').eq('id', existing.order_id).maybeSingle();
+        if (ord?.status_name !== 'Zakończone') await returnStock(id);
+      }
       const { error } = await (supabase as any)
         .from('workshop_order_items')
         .delete()

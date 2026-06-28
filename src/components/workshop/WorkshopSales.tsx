@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
+import { WorkshopRecurringCosts } from './WorkshopRecurringCosts';
+import { WorkshopCashPanel } from './WorkshopCashPanel';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
@@ -21,6 +23,17 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewInvoice, setShowNewInvoice] = useState(false);
+  const [view, setView] = useState<'kasa' | 'sprzedaz' | 'zakup'>('kasa');
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)); // 'YYYY-MM'
+  const shiftMonth = (delta: number) => setMonth((m) => {
+    const [y, mo] = m.split('-').map(Number);
+    const d = new Date(y, mo - 1 + delta, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const monthLabel = (() => {
+    const [y, mo] = month.split('-').map(Number);
+    return new Date(y, mo - 1, 1).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+  })();
 
   const loadInvoices = async () => {
     setIsLoading(true);
@@ -46,25 +59,59 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   useEffect(() => { loadInvoices(); }, []);
 
   const filtered = useMemo(() => {
-    if (!search) return invoices;
-    const q = search.toLowerCase();
-    return invoices.filter((d: any) =>
-      (d.invoice_number || '').toLowerCase().includes(q) ||
-      (d.buyer_name || '').toLowerCase().includes(q)
-    );
-  }, [invoices, search]);
+    let list = invoices.filter((d: any) => String(d.issue_date || '').slice(0, 7) === month);
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((d: any) =>
+        (d.invoice_number || '').toLowerCase().includes(q) ||
+        (d.buyer_name || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [invoices, search, month]);
 
   const totalPaid = filtered.reduce((s, d) => s + (d.paid_amount || (d.is_paid ? d.gross_total : 0) || 0), 0);
   const totalGross = filtered.reduce((s, d) => s + (d.gross_total || 0), 0);
   const totalToPay = totalGross - totalPaid;
 
+  const viewToggle = (
+    <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1">
+      <Button variant={view === 'kasa' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('kasa')}>Kasa</Button>
+      <Button variant={view === 'sprzedaz' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('sprzedaz')}>Sprzedaż</Button>
+      <Button variant={view === 'zakup' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('zakup')}>Opłaty stałe</Button>
+    </div>
+  );
+
+  const header = (
+    <div className="flex items-center gap-3 flex-wrap">
+      <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
+      <span className="text-muted-foreground">/</span>
+      <h2 className="text-xl font-bold">Kasa</h2>
+      {viewToggle}
+    </div>
+  );
+
+  if (view === 'kasa') {
+    return (
+      <div className="space-y-4">
+        {header}
+        <WorkshopCashPanel providerId={_providerId} />
+      </div>
+    );
+  }
+
+  if (view === 'zakup') {
+    return (
+      <div className="space-y-4">
+        {header}
+        <WorkshopRecurringCosts providerId={_providerId} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-primary hover:underline text-sm">🏠</button>
-        <span className="text-muted-foreground">/</span>
-        <h2 className="text-xl font-bold">{t('workshop.sales.title')}</h2>
-      </div>
+      {header}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button className="gap-2" onClick={() => setShowNewInvoice(true)}>
@@ -73,6 +120,14 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
         <Button variant="destructive" size="sm" className="gap-1" disabled>
           <Trash2 className="h-4 w-4" /> {t('workshop.sales.deleteSelected')}
         </Button>
+
+        {/* Month switcher — default current month */}
+        <div className="flex items-center gap-1 rounded-md border bg-muted/30 px-1">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftMonth(-1)} title="Poprzedni miesiąc">‹</Button>
+          <span className="text-sm font-medium capitalize min-w-[140px] text-center">{monthLabel}</span>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftMonth(1)} title="Następny miesiąc">›</Button>
+        </div>
+
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

@@ -40,6 +40,8 @@ import SettlementSheetView from "./pages/SettlementSheetView";
 import SystemAlerts from "./pages/SystemAlerts";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
+import RentalModule from "./pages/RentalModule";
+import RentalContractPortal from "./pages/RentalContractPortal";
 import CennikPage from "./pages/CennikPage";
 import JakZaczacPage from "./pages/JakZaczacPage";
 import KontaktPage from "./pages/KontaktPage";
@@ -221,6 +223,8 @@ const App = () => (
                 <Route path="/buy-credits" element={<BuyCredits />} />
                 <Route path="/pracownik-warsztat" element={<WorkshopEmployeePortal />} />
                 <Route path="/pracownik-warsztat/zlecenia/:id" element={<WorkshopEmployeePortal />} />
+                <Route path="/wynajem" element={<RentalModule />} />
+                <Route path="/wynajem/umowa/:token" element={<RentalContractPortal />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

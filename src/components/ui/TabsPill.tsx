@@ -31,8 +31,13 @@ export function TabsPill(props: React.ComponentProps<typeof Tabs>) {
 
   const flatChildren = flattenChildren(props.children);
 
+  // min-w-0 na korzeniu: gdy TabsPill jest flex-itemem (np. flex-1), bez tego
+  // nie kurczy się poniżej szerokości treści i wewnętrzny overflow-x-auto nigdy
+  // się nie aktywuje (pasek nie przewija się w bok). Dokładamy do przekazanej klasy.
+  const { className: rootClassName, ...restProps } = props;
+
   return (
-    <Tabs {...props}>
+    <Tabs className={`min-w-0 max-w-full ${rootClassName ?? ''}`} {...restProps}>
       {/* JEDEN kontener przewijania (zewnętrzny). Wewnętrzny TabsList NIE może mieć
           własnego overflow — zagnieżdżone overflow-x-auto blokowało scroll (zwł. mobile).
           touch-pan-x + WebkitOverflowScrolling = płynny swipe na iOS. */}
