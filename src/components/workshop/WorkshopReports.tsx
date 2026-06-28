@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useWorkshopOrders, useWorkshopClients, useWorkshopVehicles, useWorkshopStatuses } from '@/hooks/useWorkshop';
+import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import { useWorkshopOrders, useWorkshopStatuses } from '@/hooks/useWorkshop';
+import { useWorkshopPaymentsRange, PAYMENT_METHODS, type PaymentMethod } from '@/hooks/useWorkshopFinance';
+import { safeNumber, getLineTotal } from '@/utils/workshopOrderTotals';
+import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
+import { WorkshopClientsReport, WorkshopEmployeesReport, WorkshopSalesReport } from './WorkshopExtraReports';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  ArrowLeft, ClipboardList, Receipt, Users, UserCheck, Wallet, Car, Package,
-  BarChart3, Printer, Eye, Loader2
-} from 'lucide-react';
+import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 
@@ -18,64 +20,125 @@ interface Props {
   onBack: () => void;
 }
 
+// Tylko kategorie z realnymi raportami (Bilans/Przepływ przeniesiony do Kasy;
+// puste kategorie pojazdy/magazyn/kasa usunięte).
 const reportCategories = [
   { key: 'zlecenia', labelKey: 'workshop.reports.cat.orders', icon: ClipboardList },
   { key: 'sprzedaz', labelKey: 'workshop.reports.cat.sales', icon: Receipt },
   { key: 'klienci', labelKey: 'workshop.reports.cat.clients', icon: Users },
   { key: 'pracownicy', labelKey: 'workshop.reports.cat.employees', icon: UserCheck },
-  { key: 'kasa', labelKey: 'workshop.reports.cat.cash', icon: Wallet },
-  { key: 'pojazdy', labelKey: 'workshop.reports.cat.vehicles', icon: Car },
-  { key: 'magazyn', labelKey: 'workshop.reports.cat.warehouse', icon: Package },
 ];
 
 const orderReports = [
   { key: 'zestawienie-szczegolowe', labelKey: 'workshop.reports.orderReports.detailed.label', descKey: 'workshop.reports.orderReports.detailed.desc' },
-  { key: 'czas-pracy', labelKey: 'workshop.reports.orderReports.workTime.label', descKey: 'workshop.reports.orderReports.workTime.desc' },
 ];
+const salesReports = [{ key: 'raport-sprzedazy', label: 'Sprzedaż', desc: 'Obrót, liczba faktur, średnia wartość, rozbicie po miesiącach.' }];
+const clientReports = [{ key: 'raport-klienci', label: 'Klienci', desc: 'Nowi, powracający, top klienci wg przychodu.' }];
+const employeeReports = [{ key: 'raport-pracownicy', label: 'Pracownicy', desc: 'Liczba i wartość zleceń na pracownika, wypłaty.' }];
 
-const salesReports = [
-  { key: 'zestawienie-sprzedazy', labelKey: 'workshop.reports.salesReports.detailed.label', descKey: 'workshop.reports.salesReports.detailed.desc' },
-  { key: 'wz-sprzedaz', labelKey: 'workshop.reports.salesReports.wz.label', descKey: 'workshop.reports.salesReports.wz.desc' },
-  { key: 'zestawienie-dokumentow', labelKey: 'workshop.reports.salesReports.documents.label', descKey: 'workshop.reports.salesReports.documents.desc' },
-];
-
-const clientReports = [
-  { key: 'zestawienie-zlecen', labelKey: 'workshop.reports.clientReports.orders.label', descKey: 'workshop.reports.clientReports.orders.desc' },
-];
+const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const startOfMonth = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
+const todayStr = () => format(new Date(), 'yyyy-MM-dd');
+const dpart = (s?: string) => (s ? String(s).slice(0, 10) : '');
 
 export function WorkshopReports({ providerId, onBack }: Props) {
   const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [activeReport, setActiveReport] = useState<string | null>(null);
-  const [dateFrom, setDateFrom] = useState(format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'));
-  const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFrom, setDateFrom] = useState(startOfMonth());
+  const [dateTo, setDateTo] = useState(todayStr());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set());
+  const [selectedStations, setSelectedStations] = useState<Set<string>>(new Set());
   const [priceMode, setPriceMode] = useState<'netto' | 'brutto'>('brutto');
+  const [dateBasis, setDateBasis] = useState<'created' | 'completed'>('created');
+  const [generated, setGenerated] = useState(false);
 
+  const gross = priceMode === 'brutto';
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId);
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
+  const { data: payments = [] } = useWorkshopPaymentsRange(providerId, dateFrom, dateTo);
+  const { data: stations = [] } = useQuery({
+    queryKey: ['workshop-stations-report', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from('workshop_stations').select('id, name').eq('provider_id', providerId).order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
-  const getReportList = () => {
+  const toggleSet = (set: Set<string>, key: string, setter: (s: Set<string>) => void) => {
+    const next = new Set(set);
+    next.has(key) ? next.delete(key) : next.add(key);
+    setter(next);
+  };
+
+  const orderRevenue = (o: any) => safeNumber(gross ? o.total_gross : o.total_net);
+  const orderCost = (o: any) => (o.items || []).reduce((s: number, i: any) => {
+    const qty = safeNumber(i.quantity) || 1;
+    const unitCost = gross ? safeNumber(i.unit_cost_gross) : safeNumber(i.unit_cost_net);
+    return s + unitCost * qty + safeNumber(i.labor_cost);
+  }, 0);
+  const isPart = (i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other';
+  const orderParts = (o: any) => (o.items || []).filter(isPart).reduce((s: number, i: any) => s + getLineTotal(i, gross), 0);
+
+  const paidByOrder = useMemo(() => {
+    const m: Record<string, number> = {};
+    (payments as any[]).forEach((p) => { if (p.order_id && !p.voided) m[p.order_id] = (m[p.order_id] || 0) + Number(p.amount || 0); });
+    return m;
+  }, [payments]);
+
+  // "Zakończenia": dla zleceń zakończonych bez completed_at (sprzed wdrożenia znacznika)
+  // używamy updated_at/created_at jako daty zakończenia — inaczej znikały z raportu.
+  const basisDateOf = (o: any) => dateBasis === 'completed'
+    ? (o.completed_at || o.updated_at || o.created_at)
+    : o.created_at;
+
+  const reportOrders = useMemo(() => (orders as any[]).filter((o) => {
+    const basis = basisDateOf(o);
+    if (!basis) return false;
+    const d = dpart(basis);
+    if (d < dateFrom || d > dateTo) return false;
+    if (selectedStatuses.size > 0 && !selectedStatuses.has(o.status_name)) return false;
+    if (selectedStations.size > 0 && !selectedStations.has(o.station_id)) return false;
+    return true;
+  }), [orders, dateBasis, dateFrom, dateTo, selectedStatuses, selectedStations]);
+
+  const totalRevenue = reportOrders.reduce((s, o) => s + orderRevenue(o), 0);
+  const totalCost = reportOrders.reduce((s, o) => s + orderCost(o), 0);
+  const totalParts = reportOrders.reduce((s, o) => s + orderParts(o), 0);
+  const totalPaid = reportOrders.reduce((s, o) => s + (paidByOrder[o.id] || 0), 0);
+  // Jak płacili — sumy form (płatności przypisane do zleceń z raportu).
+  const reportOrderIds = new Set(reportOrders.map((o) => o.id));
+  const paidByMethod = (m: PaymentMethod) => (payments as any[]).filter((p) => p.method === m && !p.voided && p.order_id && reportOrderIds.has(p.order_id)).reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  const getReportList = (): any[] => {
     switch (activeCategory) {
       case 'zlecenia': return orderReports;
       case 'sprzedaz': return salesReports;
       case 'klienci': return clientReports;
+      case 'pracownicy': return employeeReports;
       default: return [];
     }
   };
 
-  // Filter orders by date range for reports
-  const reportOrders = orders.filter((o: any) => {
-    const d = new Date(o.created_at);
-    return d >= new Date(dateFrom) && d <= new Date(dateTo + 'T23:59:59') &&
-      (statusFilter === 'all' || o.status_name === statusFilter);
-  });
+  // Wrapper z breadcrumbem dla raportów Klienci/Pracownicy/Sprzedaż.
+  const reportWrap = (title: string, node: ReactNode) => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm">
+        <button onClick={onBack} className="text-primary hover:underline">🏠</button>
+        <span className="text-muted-foreground">/</span>
+        <button onClick={() => { setActiveReport(null); setActiveCategory(null); }} className="text-primary hover:underline">{t('workshop.reports.title')}</button>
+        <span className="text-muted-foreground">/</span>
+        <span className="font-semibold">{title}</span>
+      </div>
+      {node}
+    </div>
+  );
 
-  const totalGross = reportOrders.reduce((s: number, o: any) => s + (o.total_gross || 0), 0);
-  const totalCost = reportOrders.reduce((s: number, o: any) => {
-    const items = o.items || [];
-    return s + items.reduce((is: number, i: any) => is + ((i.cost || 0) * (i.quantity || 1)), 0);
-  }, 0);
+  if (activeReport === 'raport-klienci') return reportWrap('Klienci', <WorkshopClientsReport providerId={providerId} />);
+  if (activeReport === 'raport-pracownicy') return reportWrap('Pracownicy', <WorkshopEmployeesReport providerId={providerId} />);
+  if (activeReport === 'raport-sprzedazy') return reportWrap('Sprzedaż', <WorkshopSalesReport providerId={providerId} />);
 
   if (activeReport === 'zestawienie-szczegolowe') {
     return (
@@ -85,129 +148,146 @@ export function WorkshopReports({ providerId, onBack }: Props) {
           <span className="text-muted-foreground">/</span>
           <button onClick={() => { setActiveReport(null); setActiveCategory(null); }} className="text-primary hover:underline">{t('workshop.reports.title')}</button>
           <span className="text-muted-foreground">/</span>
-          <button onClick={() => setActiveReport(null)} className="text-primary hover:underline">{t('workshop.reports.cat.orders')}</button>
-          <span className="text-muted-foreground">/</span>
-          <span className="font-semibold">{t('workshop.reports.orderReports.detailed.label')}</span>
+          <span className="font-semibold">Rozliczenie zleceń</span>
           <div className="flex-1" />
-          <Button variant="outline" size="sm" className="gap-1">
+          <Button variant="outline" size="sm" className="gap-1" onClick={() => window.print()}>
             <Printer className="h-4 w-4" /> {t('workshop.reports.print')}
           </Button>
         </div>
 
         {/* Filters */}
         <Card>
-          <CardContent className="py-4">
-            <div className="grid grid-cols-4 gap-4 mb-4">
+          <CardContent className="py-4 space-y-4">
+            <div className="flex flex-wrap items-end gap-4">
               <div className="space-y-1.5">
-                <Label>{t('workshop.reports.selectDateRange')}</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-                  <span>—</span>
-                  <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                <Label>Okres</Label>
+                <WorkshopRangeCalendar from={dateFrom} to={dateTo} onChange={(f, tt) => { setDateFrom(f); setDateTo(tt); }} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Licz po</Label>
+                <div className="flex border rounded-md overflow-hidden h-9">
+                  <Button variant={dateBasis === 'created' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setDateBasis('created')}>Utworzenia</Button>
+                  <Button variant={dateBasis === 'completed' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setDateBasis('completed')}>Zakończenia</Button>
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>{t('workshop.reports.fetchBy')}</Label>
-                <Select defaultValue="created">
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="created">{t('workshop.reports.dateCreated')}</SelectItem>
-                    <SelectItem value="completed">{t('workshop.reports.dateCompleted')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t('workshop.reports.orderStatus')}</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger><SelectValue placeholder={t('workshop.reports.allOrSelect')} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('workshop.reports.all')}</SelectItem>
-                    {statuses.map((s: any) => (
-                      <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t('workshop.reports.showPrices')}</Label>
-                <div className="flex border rounded-md overflow-hidden">
-                  <Button
-                    variant={priceMode === 'netto' ? 'default' : 'ghost'}
-                    size="sm"
-                    className="rounded-none flex-1"
-                    onClick={() => setPriceMode('netto')}
-                  >{t('workshop.reports.net')}</Button>
-                  <Button
-                    variant={priceMode === 'brutto' ? 'default' : 'ghost'}
-                    size="sm"
-                    className="rounded-none flex-1"
-                    onClick={() => setPriceMode('brutto')}
-                  >{t('workshop.reports.gross')}</Button>
+                <Label>Ceny</Label>
+                <div className="flex border rounded-md overflow-hidden h-9">
+                  <Button variant={priceMode === 'netto' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setPriceMode('netto')}>Netto</Button>
+                  <Button variant={priceMode === 'brutto' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setPriceMode('brutto')}>Brutto</Button>
                 </div>
               </div>
             </div>
 
-            <Button className="gap-2">
+            {/* Status multi */}
+            <div className="space-y-1.5">
+              <Label>Status zleceń <span className="text-muted-foreground font-normal">(puste = wszystkie)</span></Label>
+              <div className="flex flex-wrap gap-1.5">
+                {(statuses as any[]).map((s) => {
+                  const on = selectedStatuses.has(s.name);
+                  return (
+                    <Badge key={s.id} onClick={() => toggleSet(selectedStatuses, s.name, setSelectedStatuses)}
+                      className={`cursor-pointer ${on ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-muted/70'}`}>
+                      {s.name}
+                    </Badge>
+                  );
+                })}
+                {selectedStatuses.size > 0 && <Badge variant="outline" className="cursor-pointer" onClick={() => setSelectedStatuses(new Set())}>× wyczyść</Badge>}
+              </div>
+            </div>
+
+            {/* Stations multi */}
+            {(stations as any[]).length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Stanowiska <span className="text-muted-foreground font-normal">(puste = wszystkie)</span></Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {(stations as any[]).map((s) => {
+                    const on = selectedStations.has(s.id);
+                    return (
+                      <Badge key={s.id} onClick={() => toggleSet(selectedStations, s.id, setSelectedStations)}
+                        className={`cursor-pointer ${on ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-muted/70'}`}>
+                        {s.name}
+                      </Badge>
+                    );
+                  })}
+                  {selectedStations.size > 0 && <Badge variant="outline" className="cursor-pointer" onClick={() => setSelectedStations(new Set())}>× wyczyść</Badge>}
+                </div>
+              </div>
+            )}
+
+            <Button className="gap-2" onClick={() => setGenerated(true)}>
               <Eye className="h-4 w-4" /> {t('workshop.reports.showReport')}
             </Button>
           </CardContent>
         </Card>
 
-        {/* Report results */}
+        {generated && !isLoading && reportOrders.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Przychód</p><p className="text-lg font-bold tabular-nums">{fmt(totalRevenue)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Koszt</p><p className="text-lg font-bold tabular-nums">{fmt(totalCost)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Zysk</p><p className={`text-lg font-bold tabular-nums ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(totalRevenue - totalCost)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Łącznie na części</p><p className="text-lg font-bold tabular-nums">{fmt(totalParts)}</p></CardContent></Card>
+            <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Zapłacono</p><p className="text-lg font-bold tabular-nums">{fmt(totalPaid)}</p></CardContent></Card>
+          </div>
+        )}
+
+        {generated && !isLoading && reportOrders.length > 0 && (
+          <Card><CardContent className="py-3 flex flex-wrap gap-4 text-sm">
+            <span className="text-muted-foreground">Jak płacili:</span>
+            {PAYMENT_METHODS.map((m) => <span key={m.value}>{m.label}: <span className="font-semibold tabular-nums">{fmt(paidByMethod(m.value))}</span></span>)}
+          </CardContent></Card>
+        )}
+
+        {/* Results */}
         <Card>
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
+              <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : !generated ? (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">Ustaw filtry i kliknij „Pokaż raport".</div>
+            ) : reportOrders.length === 0 ? (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">Brak zleceń w wybranym zakresie.</div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('workshop.reports.col.orderNumber')}</TableHead>
-                    <TableHead>{t('workshop.reports.col.date')}</TableHead>
-                    <TableHead>{t('workshop.reports.col.client')}</TableHead>
-                    <TableHead>{t('workshop.reports.col.vehicle')}</TableHead>
-                    <TableHead>{t('workshop.reports.col.status')}</TableHead>
-                    <TableHead className="text-right">{t('workshop.reports.col.revenue')}</TableHead>
-                    <TableHead className="text-right">{t('workshop.reports.col.cost')}</TableHead>
-                    <TableHead className="text-right">{t('workshop.reports.col.profit')}</TableHead>
+                    <TableHead>Nr</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Klient</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Części</TableHead>
+                    <TableHead className="text-right">Przychód</TableHead>
+                    <TableHead className="text-right">Koszt</TableHead>
+                    <TableHead className="text-right">Zysk</TableHead>
+                    <TableHead className="text-right">Zapłacono</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {reportOrders.map((o: any) => {
-                    const cost = (o.items || []).reduce((s: number, i: any) => s + ((i.cost || 0) * (i.quantity || 1)), 0);
-                    const revenue = o.total_gross || 0;
-                    const profit = revenue - cost;
+                  {reportOrders.map((o) => {
+                    const revenue = orderRevenue(o), cost = orderCost(o), profit = revenue - cost;
+                    const basisDate = basisDateOf(o);
                     return (
                       <TableRow key={o.id}>
                         <TableCell className="font-medium">{o.order_number}</TableCell>
-                        <TableCell className="text-sm">{format(new Date(o.created_at), 'yyyy-MM-dd')}</TableCell>
-                        <TableCell className="text-sm">
-                          {o.client ? (o.client.client_type === 'company' ? o.client.company_name : `${o.client.first_name || ''} ${o.client.last_name || ''}`.trim()) : ''}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {o.vehicle ? `${o.vehicle.brand} ${o.vehicle.model}` : ''}
-                        </TableCell>
+                        <TableCell className="text-sm tabular-nums">{basisDate ? dpart(basisDate) : '—'}</TableCell>
+                        <TableCell className="text-sm">{o.client ? (o.client.client_type === 'company' ? o.client.company_name : `${o.client.first_name || ''} ${o.client.last_name || ''}`.trim()) : ''}</TableCell>
                         <TableCell className="text-sm">{o.status_name}</TableCell>
-                        <TableCell className="text-right font-medium">{revenue.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="text-right text-sm">{cost.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
-                        <TableCell className={`text-right font-medium ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                          {profit.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
-                        </TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{fmt(orderParts(o))}</TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">{fmt(revenue)}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{fmt(cost)}</TableCell>
+                        <TableCell className={`text-right font-medium tabular-nums ${profit >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(profit)}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{fmt(paidByOrder[o.id] || 0)}</TableCell>
                       </TableRow>
                     );
                   })}
-                  {reportOrders.length > 0 && (
-                    <TableRow className="font-semibold bg-muted/50">
-                      <TableCell colSpan={5}>{t('workshop.reports.sum')}</TableCell>
-                      <TableCell className="text-right">{totalGross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-right">{totalCost.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell className={`text-right ${totalGross - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                        {(totalGross - totalCost).toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
-                      </TableCell>
-                    </TableRow>
-                  )}
+                  <TableRow className="font-semibold bg-muted/50">
+                    <TableCell colSpan={4}>{t('workshop.reports.sum')}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(totalParts)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(totalRevenue)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(totalCost)}</TableCell>
+                    <TableCell className={`text-right tabular-nums ${totalRevenue - totalCost >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(totalRevenue - totalCost)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmt(totalPaid)}</TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             )}
@@ -233,21 +313,15 @@ export function WorkshopReports({ providerId, onBack }: Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {reports.map(r => (
-            <Card
-              key={r.key}
-              className="cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
-              onClick={() => setActiveReport(r.key)}
-            >
+            <Card key={r.key} className="cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all" onClick={() => { setGenerated(false); setActiveReport(r.key); }}>
               <CardContent className="py-6 text-center space-y-2">
-                <h3 className="font-semibold">{t(r.labelKey)}</h3>
-                <p className="text-sm text-muted-foreground">{t(r.descKey)}</p>
+                <h3 className="font-semibold">{r.labelKey ? t(r.labelKey) : r.label}</h3>
+                <p className="text-sm text-muted-foreground">{r.descKey ? t(r.descKey) : r.desc}</p>
               </CardContent>
             </Card>
           ))}
           {reports.length === 0 && (
-            <div className="col-span-3 text-center py-12 text-muted-foreground">
-              {t('workshop.reports.categoryComingSoon')}
-            </div>
+            <div className="col-span-3 text-center py-12 text-muted-foreground">{t('workshop.reports.categoryComingSoon')}</div>
           )}
         </div>
       </div>
@@ -265,11 +339,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {reportCategories.map(cat => (
-          <Card
-            key={cat.key}
-            className="cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all"
-            onClick={() => setActiveCategory(cat.key)}
-          >
+          <Card key={cat.key} className="cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all" onClick={() => setActiveCategory(cat.key)}>
             <CardContent className="flex flex-col items-center justify-center py-8 gap-3">
               <cat.icon className="h-10 w-10 text-primary" strokeWidth={1.5} />
               <span className="font-medium text-sm">{t(cat.labelKey)}</span>

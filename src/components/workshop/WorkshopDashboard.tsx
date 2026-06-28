@@ -14,6 +14,7 @@ import { WorkshopWarehouse } from './WorkshopWarehouse';
 import { WorkshopTireStorage } from './WorkshopTireStorage';
 import { WorkshopRepairData } from './WorkshopRepairData';
 import { WorkshopSettingsStandalone } from './WorkshopSettingsStandalone';
+import { useDisableNumberInputScroll } from '@/hooks/useDisableNumberInputScroll';
 import { WorkshopEmployeesPage } from './WorkshopEmployeesPage';
 import { WorkshopStationsManager } from './WorkshopStationsManager';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -38,7 +39,7 @@ import tileStanowiska from '@/assets/workshop/tile-stanowiska.jpg';
 const modules = [
   { key: 'zlecenia', labelKey: 'workshop.dashboard.tiles.zlecenia', img: tileZlecenia, ready: true },
   { key: 'terminarz', labelKey: 'workshop.dashboard.tiles.terminarz', img: tileTerminarz, ready: true },
-  { key: 'sprzedaz', labelKey: 'workshop.dashboard.tiles.sprzedaz', img: tileSprzedaz, ready: true },
+  { key: 'sprzedaz', labelKey: 'workshop.dashboard.tiles.sprzedaz', label: 'Kasa', img: tileSprzedaz, ready: true },
   { key: 'klienci', labelKey: 'workshop.dashboard.tiles.klienci', img: tileKlienci, ready: true },
   { key: 'pojazdy', labelKey: 'workshop.dashboard.tiles.pojazdy', img: tilePojazdy, ready: true },
   { key: 'raporty', labelKey: 'workshop.dashboard.tiles.raporty', img: tileRaporty, ready: true },
@@ -84,7 +85,7 @@ function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; o
               className="absolute bottom-1.5 left-1 right-1 text-xs font-semibold text-white leading-tight text-center"
               style={{ textShadow: '0 1px 4px rgba(0,0,0,1), 0 0 3px rgba(0,0,0,0.9)' }}
             >
-              {t(m.labelKey)}
+              {(m as any).label ?? t(m.labelKey)}
             </span>
           </button>
         ))}
@@ -107,6 +108,7 @@ function MobileBackButton({ onBack, label }: { onBack: () => void; label?: strin
 
 export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashboardProps = {}) {
   const { t } = useTranslation();
+  useDisableNumberInputScroll(); // scroll nad polem ceny/kwoty nie zmienia wartości (cały moduł)
   const { data: hookProviderId, isLoading, error } = useWorkshopProviderId();
   const providerId = propProviderId || hookProviderId;
   const { data: workshopOrders = [] } = useWorkshopOrders(providerId);
@@ -304,7 +306,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
                 <img src={m.img} alt={t(m.labelKey)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <span className="font-semibold text-white text-sm drop-shadow-lg">{t(m.labelKey)}</span>
+                  <span className="font-semibold text-white text-sm drop-shadow-lg">{(m as any).label ?? t(m.labelKey)}</span>
                   {!m.ready && <span className="block text-xs text-white/70 mt-0.5">{t('workshop.dashboard.comingSoon')}</span>}
                 </div>
               </div>

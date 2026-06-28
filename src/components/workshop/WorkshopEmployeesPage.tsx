@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { WorkshopPayroll } from './WorkshopPayroll';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -42,6 +43,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   const { t } = useTranslation();
   const rolesKey = `workshop_roles_${providerId || 'na'}`;
   const rateKey = `workshop_rate_types_${providerId || 'na'}`;
+  const [payrollView, setPayrollView] = useState<'lista' | 'rozliczenia'>('lista');
   const defaultRoles = DEFAULT_ROLES.map(r => ({ value: r.value, label: t(r.labelKey) }));
 
   const [loading, setLoading] = useState(true);
@@ -360,8 +362,25 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
     return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
+  const payrollToggle = (
+    <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-0.5 w-fit">
+      <Button variant={payrollView === 'lista' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setPayrollView('lista')}>Pracownicy</Button>
+      <Button variant={payrollView === 'rozliczenia' ? 'default' : 'ghost'} size="sm" className="h-8" onClick={() => setPayrollView('rozliczenia')}>Rozliczenia / Wypłaty</Button>
+    </div>
+  );
+
+  if (payrollView === 'rozliczenia' && providerId) {
+    return (
+      <div className="space-y-4">
+        {payrollToggle}
+        <WorkshopPayroll providerId={providerId} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {payrollToggle}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
