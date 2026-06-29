@@ -116,10 +116,26 @@ export function WorkshopCashPanel({ providerId }: Props) {
 
   // ── Operacje (z anulowanymi — feed z akcjami Edytuj/Anuluj) ──
   const operations = useMemo(() => {
+    // typeWord = Wpłata/Wypłata/Premia… ; detail = kategoria · opis ; who = kto (mały druk)
+    // label zostaje (używane w dialogach Edytuj/Anuluj).
+    const expLabel = (e: any) => (EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category) + (e.subcategory ? ` · ${e.subcategory}` : '');
     const ops = [
-      ...rawPayments.map((p: any) => ({ rec: p, type: 'payment' as const, date: dpart(p.paid_at), label: 'Wpłata' + (p.order_id ? ' (zlecenie)' : ''), amount: Number(p.amount || 0), sign: 1, method: p.method, who: p.created_by_name })),
-      ...rawExpenses.map((e: any) => ({ rec: e, type: 'expense' as const, date: dpart(e.expense_date), label: (EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category) + (e.subcategory ? ` · ${e.subcategory}` : ''), amount: Number(e.amount || 0), sign: -1, method: e.method, who: e.created_by_name })),
-      ...rawPayouts.map((p: any) => ({ rec: p, type: 'payout' as const, date: dpart(p.paid_at), label: `${p.type === 'premia' ? 'Premia' : p.type === 'zaliczka' ? 'Zaliczka' : 'Wypłata'}${p.employee?.name ? ' — ' + p.employee.name : ''}`, amount: Number(p.amount || 0), sign: p.type === 'premia' ? 0 : -1, method: null, who: p.created_by_name })),
+      ...rawPayments.map((p: any) => ({
+        rec: p, type: 'payment' as const, date: dpart(p.paid_at), flow: 'in' as const,
+        typeWord: 'Wpłata', detail: [p.order_id ? 'zlecenie' : '', p.description || ''].filter(Boolean).join(' · '),
+        label: 'Wpłata' + (p.order_id ? ' (zlecenie)' : ''), amount: Number(p.amount || 0), sign: 1, method: p.method, who: p.created_by_name,
+      })),
+      ...rawExpenses.map((e: any) => ({
+        rec: e, type: 'expense' as const, date: dpart(e.expense_date), flow: 'out' as const,
+        typeWord: 'Wypłata', detail: expLabel(e),
+        label: expLabel(e), amount: Number(e.amount || 0), sign: -1, method: e.method, who: e.created_by_name,
+      })),
+      ...rawPayouts.map((p: any) => ({
+        rec: p, type: 'payout' as const, date: dpart(p.paid_at), flow: (p.type === 'premia' ? 'neutral' : 'out') as 'out' | 'neutral',
+        typeWord: p.type === 'premia' ? 'Premia' : p.type === 'zaliczka' ? 'Zaliczka' : 'Wypłata', detail: p.employee?.name || '',
+        label: `${p.type === 'premia' ? 'Premia' : p.type === 'zaliczka' ? 'Zaliczka' : 'Wypłata'}${p.employee?.name ? ' — ' + p.employee.name : ''}`,
+        amount: Number(p.amount || 0), sign: p.type === 'premia' ? 0 : -1, method: null, who: p.created_by_name,
+      })),
     ];
     return ops.sort((a, b) => (a.date < b.date ? 1 : -1));
   }, [rawPayments, rawExpenses, rawPayouts]);
@@ -330,7 +346,9 @@ export function WorkshopCashPanel({ providerId }: Props) {
               {(showAllOps ? operations : operations.slice(0, 8)).map((op, i) => (
                 <div key={i} className={`flex items-center justify-between gap-2 text-sm border-b pb-1.5 last:border-0 ${op.rec.voided ? 'opacity-60' : ''}`}>
                   <div className={`min-w-0 ${op.rec.voided ? 'line-through' : ''}`}>
-                    <span className="text-muted-foreground tabular-nums mr-2">{op.date}</span>{op.label}
+                    <span className="text-muted-foreground tabular-nums mr-2">{op.date}</span>
+                    <span className={`font-semibold ${op.flow === 'in' ? 'text-green-700' : op.flow === 'out' ? 'text-destructive' : 'text-foreground'}`}>{op.typeWord}</span>
+                    {op.detail && <span> · {op.detail}</span>}
                     {op.who && <span className="text-xs text-muted-foreground"> · {op.who}</span>}
                     {op.rec.voided && <span className="text-xs text-destructive no-underline"> — Anulowano: {op.rec.void_reason} ({op.rec.voided_by})</span>}
                   </div>
