@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   PAYMENT_METHODS, type PaymentMethod,
+  EXPENSE_CATEGORIES, type ExpenseCategory,
   useCreateWorkshopPayments, useCreateWorkshopExpense,
 } from '@/hooks/useWorkshopFinance';
 
@@ -26,11 +27,12 @@ export function WorkshopCashEntryDialog({ open, onOpenChange, providerId, kind }
   const createPayment = useCreateWorkshopPayments();
   const createExpense = useCreateWorkshopExpense();
   const [method, setMethod] = useState<PaymentMethod>('gotowka');
+  const [category, setCategory] = useState<ExpenseCategory>('zakup'); // dot. wypłaty (kind='out')
   const [amount, setAmount] = useState('');
   const [desc, setDesc] = useState('');
   const [who, setWho] = useState('');
 
-  useEffect(() => { if (open) { setAmount(''); setDesc(''); setMethod('gotowka'); setWho(''); } }, [open]);
+  useEffect(() => { if (open) { setAmount(''); setDesc(''); setMethod('gotowka'); setWho(''); setCategory('zakup'); } }, [open]);
 
   const save = async () => {
     const amt = Number(amount);
@@ -40,10 +42,11 @@ export function WorkshopCashEntryDialog({ open, onOpenChange, providerId, kind }
       toast.success('Wpłata zapisana');
     } else {
       await createExpense.mutateAsync({
-        provider_id: providerId, category: 'wyplata', subcategory: 'Wypłata z kasy',
+        provider_id: providerId, category, subcategory: desc || null,
         description: desc || null, amount: amt, method, expense_date: today(), employee_id: null,
         created_by_name: who.trim() || null,
       });
+      toast.success('Wypłata zapisana');
     }
     qc.invalidateQueries({ queryKey: ['workshop-cash-data'] });
     onOpenChange(false);
@@ -61,6 +64,15 @@ export function WorkshopCashEntryDialog({ open, onOpenChange, providerId, kind }
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
+          {kind === 'out' && (
+            <div className="space-y-1.5">
+              <Label>Kategoria</Label>
+              <Select value={category} onValueChange={(v) => setCategory(v as ExpenseCategory)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{EXPENSE_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label>Forma</Label>
             <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
