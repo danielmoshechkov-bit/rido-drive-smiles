@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, Fragment, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useDisableNumberInputScroll } from '@/hooks/useDisableNumberInputScroll';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -56,6 +57,7 @@ interface InvoicesModuleProps {
 }
 
 export function InvoicesModule({ entityId: propEntityId, source = 'invoices', headerRight, onAddPurchase }: InvoicesModuleProps = {}) {
+  useDisableNumberInputScroll(); // scroll nad polem kwoty nie zmienia wartości (też w dialogach edytora)
   const queryClient = useQueryClient();
   const now = new Date();
 
@@ -124,7 +126,8 @@ export function InvoicesModule({ entityId: propEntityId, source = 'invoices', he
           .is('deleted_at', null)
           .gte('issue_date', period.from)
           .lte('issue_date', period.to)
-          .order('issue_date', { ascending: false });
+          .order('issue_date', { ascending: false })
+          .order('invoice_number', { ascending: false }); // drugi klucz — porządek przy tej samej dacie
         if (error) throw error;
         return (data || []) as any[];
       }
@@ -135,7 +138,8 @@ export function InvoicesModule({ entityId: propEntityId, source = 'invoices', he
         .is('deleted_at', null)
         .gte('issue_date', period.from)
         .lte('issue_date', period.to)
-        .order('issue_date', { ascending: false });
+        .order('issue_date', { ascending: false })
+        .order('invoice_number', { ascending: false }); // drugi klucz — porządek przy tej samej dacie
       if (statusFilter !== 'all') q = q.eq('status', statusFilter);
       const { data, error } = await q;
       if (error) throw error;
