@@ -413,7 +413,14 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
 
       const { generateInvoiceHtml } = await import('@/utils/invoiceHtmlGenerator');
       let fullHtml = generateInvoiceHtml(data);
-      fullHtml = fullHtml.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, '');
+      // KSeF QR — wczytaj jako data URL (jak logo), żeby html2canvas go zrenderował.
+      // Wcześniej QR był WYCINANY → mail nie miał kodu QR (różnica względem „Pobierz").
+      const qrMatch = fullHtml.match(/src="([^"]*api\.qrserver\.com[^"]*)"/i);
+      if (qrMatch) {
+        const qrDataUrl = await urlToDataURL(qrMatch[1].replace(/&amp;/g, '&'));
+        if (qrDataUrl) fullHtml = fullHtml.replace(qrMatch[1], qrDataUrl);
+        else fullHtml = fullHtml.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, ''); // fallback gdy nie da się wczytać → uniknij taint
+      }
 
       // A4 @ 96dpi
       const PX_W = 794;
@@ -478,16 +485,41 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       } as any);
       console.log('[PDF] canvas:', canvas.width, 'x', canvas.height);
 
+      // Przytnij dolny biały margines — html2canvas łapie całą wysokość iframe (z pustką
+      // na dole) → bez tego powstawała pusta 2. strona. Trim daje 1:1 z „Pobierz".
+      let renderCanvas: HTMLCanvasElement = canvas;
+      try {
+        const cctx = canvas.getContext('2d');
+        if (cctx) {
+          const cw = canvas.width, ch = canvas.height;
+          const px = cctx.getImageData(0, 0, cw, ch).data;
+          let lastRow = ch - 1;
+          scan: for (let y = ch - 1; y >= 0; y--) {
+            for (let x = 0; x < cw; x += 4) {
+              const i = (y * cw + x) * 4;
+              if (px[i + 3] > 10 && (px[i] < 245 || px[i + 1] < 245 || px[i + 2] < 245)) { lastRow = y; break scan; }
+            }
+          }
+          const newH = Math.min(ch, lastRow + 24); // +24px oddechu
+          if (newH < ch - 2) {
+            const c2 = document.createElement('canvas');
+            c2.width = cw; c2.height = newH;
+            c2.getContext('2d')!.drawImage(canvas, 0, 0, cw, newH, 0, 0, cw, newH);
+            renderCanvas = c2;
+          }
+        }
+      } catch { /* taint/inny błąd — użyj pełnego canvas */ }
+
       const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
       const pageW = pdf.internal.pageSize.getWidth();   // 210
       const pageH = pdf.internal.pageSize.getHeight();  // 297
       // Marginesy dopasowane do podglądu przeglądarki (~10mm)
       const MARGIN = 10;
       const imgW = pageW - MARGIN * 2;
-      const imgH = (canvas.height * imgW) / canvas.width;
+      const imgH = (renderCanvas.height * imgW) / renderCanvas.width;
       const usableH = pageH - MARGIN * 2;
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgData = renderCanvas.toDataURL('image/jpeg', 0.95);
 
       if (imgH <= usableH) {
         pdf.addImage(imgData, 'JPEG', MARGIN, MARGIN, imgW, imgH, undefined, 'FAST');
