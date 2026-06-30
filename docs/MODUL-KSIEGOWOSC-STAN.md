@@ -86,3 +86,11 @@ Migracje wykonywane ręcznie w dashboard Supabase (SQL editor); pliki w `supabas
 ## Kierunek docelowy
 
 Własne **biuro rachunkowe jako osobna spółka**; GetRido = narzędzie księgowej. Człowiek zatwierdza, **AI robi czarną robotę**. Cel: zastąpić Raks / Symfonię.
+
+## Poprawki — log
+
+### 2026-06-30 — faktury: PDF mail = pobranie, scroll, sortowanie (branch `fix/faktury-poprawki`)
+- **PDF wysyłany mailem ≠ pobrany — naprawione.** Oba używają `generateInvoiceHtml`, ale różnie renderowały do PDF: pobranie = `window.print()` (wektor), mail = `html2canvas→jsPDF` (raster). Mail miał 2 wady: (a) **wycinał kod KSeF QR** (`replace api.qrserver.com → ''`) — teraz QR wczytywany jako **data URL** (jak logo) i renderowany (fallback do wycięcia tylko gdy nie da się wczytać → uniknięcie taint canvas); (b) **pusta 2. strona** — dodano **przycięcie dolnego białego pasa** (skan pikseli canvas). Plik: `src/components/invoices/InvoiceExpandableRow.tsx` (`generatePdfBase64`). **Uwaga:** pełna parita wektor↔wektor wymagałaby serwerowego renderera (np. `invoice-pdf` zwraca dziś tylko HTML, nie PDF) — to osobny temat.
+- **Scroll nad polem kwoty zmieniał wartość** — podpięto globalny hook `useDisableNumberInputScroll()` w `InvoicesModule` i `InvoiceProgram` (łapie też pola w dialogach edytora). Ten sam fix co w module warsztatu/zleceń.
+- **Lista faktur bez porządku** — dodano drugi klucz sortowania `invoice_number` malejąco (przy tej samej `issue_date` był losowy porządek). Pliki: `InvoicesModule`, `InvoiceProgram`.
+- **Do rozważenia (dług):** ujednolicić generowanie PDF do JEDNEGO źródła (serwerowy renderer HTML→PDF) dla pobierania, maila i podglądu — dziś są 2 szablony (`src/utils/invoiceHtmlGenerator.ts` vs własny w edge `invoice-pdf`) i 3 ścieżki renderu.
