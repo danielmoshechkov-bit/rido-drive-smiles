@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { type InvoiceData } from '@/utils/invoiceHtmlGenerator';
+import { renderInvoicePdf } from '@/utils/renderInvoicePdf';
 import { formatIBAN } from '@/utils/formatters';
 import { 
   ChevronDown, 
@@ -421,6 +422,11 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         if (qrDataUrl) fullHtml = fullHtml.replace(qrMatch[1], qrDataUrl);
         else fullHtml = fullHtml.replace(/<img[^>]+api\.qrserver\.com[^>]*>/gi, ''); // fallback gdy nie da się wczytać → uniknij taint
       }
+
+      // 1:1 z portalem — serwerowy render (wektor, tryb druku). Gdy renderer niedostępny,
+      // schodzimy niżej do html2canvas (raster) jako fallback.
+      const serverPdf = await renderInvoicePdf(fullHtml);
+      if (serverPdf) return serverPdf;
 
       // A4 @ 96dpi
       const PX_W = 794;

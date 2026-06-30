@@ -12,6 +12,7 @@ import {
   Save
 } from 'lucide-react';
 import { InvoiceData, generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
+import { renderInvoicePdf } from '@/utils/renderInvoicePdf';
 import { AuthModal } from '@/components/auth/AuthModal';
 
 interface InvoicePreviewModalProps {
@@ -71,16 +72,27 @@ export function InvoicePreviewModal({
     }
   }, [open, invoiceData]);
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     const html = generateInvoiceHtml(invoiceData);
+    // Najpierw serwerowy render (ten sam co mail) → „Pobierz" i „Wyślij" identyczne.
+    const base64 = await renderInvoicePdf(html);
+    if (base64) {
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(invoiceData as any).invoice_number || 'Faktura'}.pdf`.replace(/\//g, '-');
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return;
+    }
+    // Fallback: druk przeglądarki (jak dotychczas) — gdy renderer niedostępny.
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(html);
       printWindow.document.close();
       printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 250);
+      setTimeout(() => { printWindow.print(); }, 250);
     }
   };
 
