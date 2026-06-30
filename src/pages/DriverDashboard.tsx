@@ -13,7 +13,7 @@ import { OwnCarsWrapper } from "@/components/driver/OwnCarsWrapper";
 import { supabase } from "@/integrations/supabase/client";
 import { UniversalSubTabBar } from "@/components/UniversalSubTabBar";
 import { DriverFuelView } from "@/components/DriverFuelView";
-import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck, Building2, Link, UserPlus, ChevronDown, AlertCircle } from "lucide-react";
+import { Plus, Calendar, FileText, DollarSign, Car, File, Info, Menu, MoreVertical, Download, ShoppingCart, Repeat, User, Truck, Building2, Link, UserPlus, ChevronDown, AlertCircle, Loader2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { DriverSettlements } from "@/components/DriverSettlements";
@@ -1175,6 +1175,8 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
   const { alerts, loading, markAsResolved } = useSystemAlerts();
   const driverAlerts = alerts.filter(a => a.driver_id === driverId && a.status === 'pending');
   const [driverInfo, setDriverInfo] = useState<any>(null);
+  const [newIban, setNewIban] = useState('');
+  const [ibanBusy, setIbanBusy] = useState(false);
   const [loadingInfo, setLoadingInfo] = useState(true);
   const { t } = useTranslation();
   
@@ -1322,20 +1324,25 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
     }
   };
 
-  const handleIbanChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const iban = e.target.value;
-    
+  // Zmiana nr konta przez kierowcę = potwierdzenie mailem (anti-fraud).
+  // Numer zmienia się dopiero po kliknięciu linku z maila; stary obowiązuje do tego czasu.
+  const handleIbanRequest = async () => {
+    const clean = newIban.replace(/\s/g, '');
+    if (clean.replace(/^PL/i, '').replace(/\D/g, '').length < 22) {
+      toast.error('Podaj poprawny numer konta (IBAN)');
+      return;
+    }
+    setIbanBusy(true);
     try {
-      const { error } = await supabase
-        .from('drivers')
-        .update({ iban })
-        .eq('id', driverId);
-      
-      if (error) throw error;
-      setDriverInfo({ ...driverInfo, iban });
-    } catch (error) {
-      console.error('Error updating IBAN:', error);
-      toast.error('Błąd aktualizacji numeru konta');
+      const { data, error } = await supabase.functions.invoke('driver-bank-change-request', { body: { new_iban: clean } });
+      if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
+      toast.success(`Link potwierdzający wysłany na e-mail${(data as any)?.email ? ` (${(data as any).email})` : ''}. Numer zmieni się po kliknięciu linku.`);
+      setNewIban('');
+    } catch (e: any) {
+      console.error('Error requesting IBAN change:', e);
+      toast.error(e.message || 'Nie udało się wysłać linku');
+    } finally {
+      setIbanBusy(false);
     }
   };
 
@@ -1382,13 +1389,21 @@ function PaymentMethodSettings({ driverId, userId }: { driverId: string; userId:
             
             {driverInfo?.payment_method === 'transfer' && (
               <div className="space-y-2">
-                <Label htmlFor="iban" className="text-sm">{t('driver.iban')}</Label>
-                <Input 
-                  id="iban"
-                  value={driverInfo?.iban || ''} 
-                  onChange={handleIbanChange}
+                <Label className="text-sm">{t('driver.iban')}</Label>
+                <Input value={driverInfo?.iban || '— brak —'} readOnly disabled className="bg-muted/40" />
+                <Label htmlFor="new-iban" className="text-sm">Nowy numer konta</Label>
+                <Input
+                  id="new-iban"
+                  value={newIban}
+                  onChange={(e) => setNewIban(e.target.value)}
                   placeholder="PL XX XXXX XXXX XXXX XXXX XXXX XXXX"
                 />
+                <Button onClick={handleIbanRequest} disabled={ibanBusy || !newIban.trim()} className="w-full gap-2">
+                  {ibanBusy && <Loader2 className="h-4 w-4 animate-spin" />}Zmień nr konta
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Ze względów bezpieczeństwa zmiana wymaga potwierdzenia — wyślemy link na Twój e-mail (ważny 24 h). Numer zmieni się dopiero po kliknięciu linku.
+                </p>
               </div>
             )}
             
