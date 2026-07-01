@@ -313,9 +313,9 @@ export function DriverInfoPopover({
 
       toast.success('Zapisano zmiany');
       onComplete?.();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving:', err);
-      toast.error('Błąd zapisu');
+      toast.error('Błąd zapisu: ' + (err?.message || err?.details || err?.hint || err?.code || 'nieznany'));
     } finally {
       setSaving(false);
     }
