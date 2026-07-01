@@ -675,8 +675,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .header { display: table; width: 100%; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid ${themeColor}; }
     .logo-area { display: table-cell; vertical-align: middle; width: 55%; }
     .logo-area img { max-width: 220px; max-height: 70px; width: auto; height: auto; }
-    .seller-brand { display: inline-block; border: 2px solid ${themeColor}; border-radius: 8px; padding: 8px 14px; }
-    .seller-brand-name { font-size: 15px; font-weight: 700; color: ${themeColor}; line-height: 1.2; letter-spacing: 0.5px; }
+    .seller-brand { display: inline-block; border: 2px solid ${themeColor}; border-radius: 10px; padding: 16px 22px; text-align: center; min-width: 150px; }
+    .seller-brand-name { font-size: 20px; font-weight: 700; color: ${themeColor}; line-height: 1.2; letter-spacing: 0.5px; text-align: center; }
     .seller-brand-addr { font-size: 8px; color: #333; margin-top: 2px; line-height: 1.3; }
     .invoice-title { display: table-cell; vertical-align: middle; text-align: right; }
     .invoice-title h1 { font-size: ${titleFontSize}; color: #222; margin-bottom: 1px; }
@@ -754,9 +754,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
      .ksef-box > * { display: table-cell; vertical-align: middle; }
      .ksef-box img { margin-right: 12px; }
      /* Stopka strony: maskotka + www.GetRido.pl (lewa) + Strona X z Y (prawa), w jednym rzędzie na dole. */
-     .pgfooter { position: fixed; bottom: 6mm; left: 8mm; }
-     .pgfooter .foottext { color: #000; font-size: 10px; }
-     .pgfooter img { height: 26px; vertical-align: baseline; margin-right: 5px; margin-bottom: -5px; }
+     /* Stopka rysowana skryptem Dompdf (page_text) — NIE position:fixed (unikamy renderu
+        na górze/duplikatów). Widoczna wyłącznie na dole każdej strony. */
      .ksef-box-title { font-weight: 700; margin-bottom: 4px; color: #15803d; }
      .ksef-box-line { margin-top: 2px; }
   </style>
@@ -1112,11 +1111,14 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </div>
   </div>
   ${!invoice.hide_footer ? `
-  <div class="pgfooter"><img src="${GETRIDO_MASCOT_DATAURI}" alt=""><span class="foottext">www.GetRido.pl</span></div>
   <script type="text/php">
     if (isset($pdf)) {
-      $f = $fontMetrics->getFont("DejaVu Sans");
-      $pdf->page_text($pdf->get_width() - 92, $pdf->get_height() - 20, "Strona {PAGE_NUM} z {PAGE_COUNT}", $f, 10, array(0,0,0));
+      $ff = $fontMetrics->getFont("DejaVu Sans");
+      $pw = $pdf->get_width(); $ph = $pdf->get_height();
+      $fy = $ph - 26;
+      try { $pdf->image("${GETRIDO_MASCOT_DATAURI}", 22, $ph - 42, 22, 22); } catch (\\Throwable $ie) {}
+      $pdf->page_text(50, $fy, "www.GetRido.pl", $ff, 10, array(0,0,0));
+      $pdf->page_text($pw - 92, $fy, "Strona {PAGE_NUM} z {PAGE_COUNT}", $ff, 10, array(0,0,0));
     }
   </script>` : ''}
 </body>
