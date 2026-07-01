@@ -64,6 +64,7 @@ export interface InvoiceData {
   issued_by?: string;
   // PDF options
   compact_pdf?: boolean;
+  hide_footer?: boolean; // stopka www.GetRido.pl + numeracja stron — ustawienie do wyłączenia
   // KSeF
   ksef_status?: string;
   ksef_reference?: string;
@@ -311,7 +312,7 @@ const formatAddress = (entity: InvoiceSeller | InvoiceBuyer): string => {
     parts.push(`${entity.address_postal_code || ''} ${entity.address_city || ''}`.trim());
   }
   
-  return parts.join('<br>');
+  return parts.join(', ');
 };
 
 // Helper to generate correction-specific tables (BYŁO / JEST / RÓŻNICA) — matching GetRido branded style
@@ -659,8 +660,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       .totals-row.grand { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; }
       .vat-header { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; }
     }
-    body { 
-      font-family: Arial, sans-serif; 
+    body {
+      font-family: "DejaVu Sans", Arial, sans-serif;
       font-size: ${baseFontSize}; 
       line-height: 1.3; 
       color: #333; 
@@ -668,45 +669,48 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       background: white;
     }
     .invoice { max-width: 800px; margin: 0 auto; background: white; }
-    .top-meta { display: flex; justify-content: flex-end; font-size: 8px; color: #666; margin-bottom: 4px; }
-    .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid ${themeColor}; }
-    .logo-area { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
-    .logo-area img { max-width: 220px; max-height: 70px; width: auto; height: auto; object-fit: contain; flex-shrink: 0; }
-    .seller-brand { display: flex; flex-direction: column; min-width: 0; }
+    /* Layout oparty na display:table (zamiast flex) — renderuje się poprawnie w Dompdf i w Chrome. */
+    .top-meta { text-align: right; font-size: 8px; color: #444; margin-bottom: 4px; }
+    .header { display: table; width: 100%; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid ${themeColor}; }
+    .logo-area { display: table-cell; vertical-align: middle; width: 55%; }
+    .logo-area img { max-width: 220px; max-height: 70px; width: auto; height: auto; }
+    .seller-brand { display: block; }
     .seller-brand-name { font-size: 13px; font-weight: 700; color: #111; line-height: 1.2; }
-    .seller-brand-addr { font-size: 8px; color: #555; margin-top: 2px; line-height: 1.3; }
-    .invoice-title { text-align: right; flex-shrink: 0; }
-    .invoice-title h1 { font-size: ${titleFontSize}; color: #333; margin-bottom: 1px; }
+    .seller-brand-addr { font-size: 8px; color: #333; margin-top: 2px; line-height: 1.3; }
+    .invoice-title { display: table-cell; vertical-align: middle; text-align: right; }
+    .invoice-title h1 { font-size: ${titleFontSize}; color: #222; margin-bottom: 1px; }
     .invoice-title h1 .invoice-number { color: ${themeColor}; }
-    .invoice-dates { font-size: 8px; color: #555; text-align: right; margin-top: 4px; }
+    .invoice-dates { font-size: 8px; color: #333; text-align: right; margin-top: 4px; }
     .invoice-dates-row { margin-bottom: 2px; }
-    .invoice-dates-label { color: #888; }
-    .parties { display: flex; gap: 16px; margin-bottom: 8px; }
-    .party { flex: 1; }
-    .party-label { font-size: 8px; color: #666; text-transform: uppercase; margin-bottom: 2px; font-weight: 600; }
-    .party-name { font-size: 10px; font-weight: bold; margin-bottom: 1px; }
-    .party-details { font-size: 8px; color: #555; line-height: 1.3; }
+    .invoice-dates-label { color: #555; }
+    .parties { display: table; width: 100%; margin-bottom: 8px; }
+    .party { display: table-cell; width: 50%; vertical-align: top; padding-right: 14px; }
+    .party-label { font-size: 8px; color: #7c3aed; text-transform: uppercase; margin-bottom: 2px; font-weight: 700; }
+    .party-name { font-size: 10px; font-weight: bold; margin-bottom: 1px; color: #111; }
+    .party-details { font-size: 8px; color: #333; line-height: 1.4; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
     th { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 4px 3px; text-align: left; font-size: 8px; font-weight: 600; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    th:first-child { border-radius: 3px 0 0 0; }
-    th:last-child { border-radius: 0 3px 0 0; }
+    th:first-child { border-radius: 6px 0 0 0; }
+    th:last-child { border-radius: 0 6px 0 0; }
     .vat-summary { margin-bottom: 8px; font-size: 8px; }
     .vat-header { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    .totals { display: flex; justify-content: flex-end; margin-bottom: 6px; }
-    .totals-table { width: 180px; }
-    .totals-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #eee; font-size: 9px; }
+    .totals { display: block; margin-bottom: 6px; }
+    .totals-table { width: 240px; margin-left: auto; border: 1px solid #e3e0f0; border-radius: 8px; padding: 8px 10px; background: #faf9ff; }
+    .totals-row { display: table; width: 100%; padding: 2px 0; font-size: 9px; }
+    .totals-row > span:first-child { display: table-cell; text-align: left; color: #444; }
+    .totals-row > span:last-child { display: table-cell; text-align: right; }
     .totals-row.grand { border-bottom: none; background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 5px 6px; border-radius: 3px; font-size: 11px; margin-top: 2px; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    .amount-words { display: flex; gap: 4px; margin-bottom: 6px; padding: 5px 8px; background: #f0f9ff; border-left: 2px solid ${themeColor}; border-radius: 2px; font-size: 8px; }
+    .amount-words { display: block; margin-bottom: 6px; padding: 5px 8px; background: #f0f9ff; border-left: 2px solid ${themeColor}; border-radius: 6px; font-size: 8px; }
     .amount-words-label { color: #666; font-weight: 600; white-space: nowrap; }
     .amount-words-value { font-style: italic; }
     .payment { margin-bottom: 6px; font-size: 8px; }
-    .payment-row { display: flex; gap: 12px; margin-bottom: 2px; }
+    .payment-row { display: block; margin-bottom: 2px; }
     .payment-label { color: #666; min-width: 80px; }
     .payment-value { font-weight: 500; }
     .notes { margin-bottom: 8px; padding: 6px; background: #fef3c7; border-radius: 4px; font-size: 8px; }
     .notes-label { font-size: 7px; color: #92400e; text-transform: uppercase; margin-bottom: 2px; font-weight: 600; }
-    .footer { display: flex; justify-content: space-between; margin-top: 16px; padding: 8px 60px 0 60px; }
-    .signature { width: 200px; text-align: center; }
+    .footer { display: table; width: 100%; margin-top: 40px; }
+    .signature { display: table-cell; width: 50%; text-align: center; padding: 0 30px; }
     .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 4px; font-size: 7px; color: #666; }
      /* Znak wodny — przezroczysty, powtarzany NA CAŁEJ stronie, na wierzchu treści,
         żeby było widać że to KOPIA ROBOCZA na każdej pozycji. */
@@ -742,11 +746,16 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
        padding: 12px;
        border: 1px solid #e5e7eb;
        border-radius: 8px;
-       display: flex;
-       align-items: center;
-       gap: 12px;
+       display: table;
+       width: 100%;
        background: #f8fafc;
      }
+     .ksef-box > * { display: table-cell; vertical-align: middle; }
+     .ksef-box img { margin-right: 12px; }
+     /* Stopka strony: maskotka + www.GetRido.pl (lewa) + Strona X z Y (prawa), w jednym rzędzie na dole. */
+     .pgfooter { position: fixed; bottom: 6mm; left: 8mm; }
+     .pgfooter .foottext { color: #000; font-size: 10px; }
+     .pgfooter img { height: 26px; vertical-align: baseline; margin-right: 5px; margin-bottom: -5px; }
      .ksef-box-title { font-weight: 700; margin-bottom: 4px; color: #15803d; }
      .ksef-box-line { margin-top: 2px; }
   </style>
@@ -1003,9 +1012,14 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           <span style="font-weight: bold;">${formatCurrency(Math.round(netTotal * (rrRate / 100) * 100) / 100, currency)}</span>
         </div>`}
         ` : ''}
+        ${(invoice.paid_amount && invoice.paid_amount > 0 && !isAdvance && !isReceipt && !isNota) ? `
+        <div class="totals-row">
+          <span>Zapłacono:</span>
+          <span style="font-weight: bold; color: #16a34a;">${formatCurrency(invoice.paid_amount, currency)}</span>
+        </div>` : ''}
         <div class="totals-row grand" style="background-color: ${themeColor} !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
           <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : isVatRR ? 'DO WYPŁATY ROLNIKOWI:' : isMargin ? 'KWOTA BRUTTO:' : (isReceipt || isNota) ? 'RAZEM:' : 'DO ZAPŁATY:'}</span>
-          <span style="font-weight: bold; font-size: 13px; color: #ffffff !important;">${formatCurrency(isVatRR ? Math.round((netTotal + netTotal * (rrRate / 100)) * 100) / 100 : (isReceipt || isNota) ? netTotal : grossTotal, currency)}</span>
+          <span style="font-weight: bold; font-size: 13px; color: #ffffff !important;">${formatCurrency(isVatRR ? Math.round((netTotal + netTotal * (rrRate / 100)) * 100) / 100 : (isReceipt || isNota) ? netTotal : isMargin ? grossTotal : isAdvance ? grossTotal : (grossTotal - (invoice.paid_amount || 0)), currency)}</span>
         </div>
         ${isFinal && invoice.advance_data?.advance_amount ? `
         <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
@@ -1020,16 +1034,6 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="totals-row" style="background: #f0fdf4; padding: 4px 6px; border-radius: 3px;">
           <span style="font-weight: bold;">Pozostało do zapłaty:</span>
           <span style="font-weight: bold; color: ${themeColor};">${formatCurrency(grossTotal - (invoice.advance_data.advance_amount || 0), currency)}</span>
-        </div>
-        ` : ''}
-        ${(invoice.paid_amount && invoice.paid_amount > 0) ? `
-        <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
-          <span>Zapłacono:</span>
-          <span style="font-weight: bold; color: #16a34a;">${formatCurrency(invoice.paid_amount, currency)}</span>
-        </div>
-        <div class="totals-row" style="background: #fef3c7; padding: 4px 6px; border-radius: 3px;">
-          <span style="font-weight: bold;">Pozostało:</span>
-          <span style="font-weight: bold; color: #dc2626;">${formatCurrency(grossTotal - invoice.paid_amount, currency)}</span>
         </div>
         ` : ''}
       </div>
@@ -1106,6 +1110,14 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       `}
     </div>
   </div>
+  ${!invoice.hide_footer ? `
+  <div class="pgfooter"><img src="https://getrido.pl/lovable-uploads/getrido-mascot-footer.png" alt=""><span class="foottext">www.GetRido.pl</span></div>
+  <script type="text/php">
+    if (isset($pdf)) {
+      $f = $fontMetrics->getFont("DejaVu Sans");
+      $pdf->page_text($pdf->get_width() - 92, $pdf->get_height() - 20, "Strona {PAGE_NUM} z {PAGE_COUNT}", $f, 10, array(0,0,0));
+    }
+  </script>` : ''}
 </body>
 </html>
   `;
