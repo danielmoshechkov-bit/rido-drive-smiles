@@ -1,13 +1,17 @@
-import { supabase } from '@/integrations/supabase/client';
-
-// Render faktury (HTML) -> base64 PDF przez serwerowy renderer (real Chrome / tryb druku),
-// żeby PDF z maila i z „Pobierz" wyglądały IDENTYCZNIE jak portal. Zwraca null, gdy
-// renderer niedostępny — wtedy wołający robi fallback (html2canvas / window.print).
+// Render faktury/dokumentu (HTML) -> base64 PDF przez WŁASNY serwerowy endpoint
+// (public/invoice-pdf.php, Dompdf na LH.pl). Ten sam plik dla "Pobierz" i "Wyślij mailem".
+// Zwraca null gdy endpoint niedostępny (np. dev / błąd) -> wołający robi fallback
+// (druk przeglądarki / html2canvas). Bez zewnętrznych usług, bez opłat.
 export async function renderInvoicePdf(html: string): Promise<string | null> {
   try {
-    const { data, error } = await supabase.functions.invoke('render-invoice-pdf', { body: { html } });
-    if (error || !(data as any)?.pdf_base64) return null;
-    return (data as any).pdf_base64 as string;
+    const res = await fetch('/invoice-pdf.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null);
+    return (data && typeof data.pdf_base64 === 'string') ? data.pdf_base64 : null;
   } catch {
     return null;
   }

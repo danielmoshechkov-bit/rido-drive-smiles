@@ -1,0 +1,7 @@
+{
+  "name": "getrido/invoice-pdf",
+  "description": "Serwerowy render HTML->PDF (Dompdf) dla dokumentów GetRido. Self-hosted na LH.pl, bez exec.",
+  "require": {
+    "dompdf/dompdf": "^3.1"
+  }
+}

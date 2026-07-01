@@ -316,6 +316,3 @@ verify_jwt = false
 
 [functions.rental-availability]
 verify_jwt = false
-
-[functions.render-invoice-pdf]
-verify_jwt = false
