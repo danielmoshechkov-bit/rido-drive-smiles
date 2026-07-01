@@ -826,15 +826,18 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
      .content-layer { position: relative; z-index: 1; background: transparent; }
      .ksef-box {
        margin-top: 20px;
-       padding: 12px;
+       padding: 10px 12px;
        border: 1px solid #e5e7eb;
        border-radius: 8px;
-       display: table;
        width: 100%;
        background: #f8fafc;
      }
-     .ksef-box > * { display: table-cell; vertical-align: middle; }
-     .ksef-box img { margin-right: 12px; }
+     /* QR tuż obok tekstu (mały odstęp jak we wzorze). Dompdf źle liczy display:table
+        z auto-szerokością, więc: kolumna QR width:1px + white-space:nowrap (kurczy się
+        do QR), kolumna tekstu width:100% (bierze resztę). BEZ table-layout:fixed. */
+     .ksef-box-inner { width: 100%; border-collapse: collapse; }
+     .ksef-box-qr { vertical-align: middle; padding-right: 12px; white-space: nowrap; width: 1px; }
+     .ksef-box-text { vertical-align: middle; width: 100%; }
      /* Stopka strony: maskotka + www.GetRido.pl (lewa) + Strona X z Y (prawa), w jednym rzędzie na dole. */
      /* Stopka rysowana skryptem Dompdf (page_text) — NIE position:fixed (unikamy renderu
         na górze/duplikatów). Widoczna wyłącznie na dole każdej strony. */
@@ -1111,13 +1114,19 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
 
     ${hasAcceptedKsef ? `
     <div class="ksef-box">
-      <img class="ksef-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(verificationUrl)}" alt="Kod QR KSeF" style="width: 80px; height: 80px;" />
-      <div style="font-size: 11px; color: #6b7280;">
-        <div class="ksef-box-title">Faktura w KSeF</div>
-        <div class="ksef-box-line"><strong>Numer KSeF:</strong> ${invoice.ksef_reference}</div>
-        ${invoice.ksef_acceptance_date ? `<div class="ksef-box-line"><strong>Data przyjęcia:</strong> ${formatDate(invoice.ksef_acceptance_date)}</div>` : ''}
-        <div class="ksef-box-line"><strong>Weryfikacja:</strong> <a href="${verificationUrl}" style="color: ${themeColor};">efaktura.mf.gov.pl</a></div>
-      </div>
+      <table class="ksef-box-inner">
+        <tr>
+          <td class="ksef-box-qr">
+            <img class="ksef-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(verificationUrl)}" alt="Kod QR KSeF" style="width: 80px; height: 80px;" />
+          </td>
+          <td class="ksef-box-text" style="font-size: 11px; color: #6b7280;">
+            <div class="ksef-box-title">Faktura w KSeF</div>
+            <div class="ksef-box-line"><strong>Numer KSeF:</strong> ${invoice.ksef_reference}</div>
+            ${invoice.ksef_acceptance_date ? `<div class="ksef-box-line"><strong>Data przyjęcia:</strong> ${formatDate(invoice.ksef_acceptance_date)}</div>` : ''}
+            <div class="ksef-box-line"><strong>Weryfikacja:</strong> <a href="${verificationUrl}" style="color: ${themeColor};">efaktura.mf.gov.pl</a></div>
+          </td>
+        </tr>
+      </table>
     </div>
     ` : ''}
 
@@ -1144,10 +1153,13 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     if (isset($pdf)) {
       $ff = $fontMetrics->getFont("DejaVu Sans");
       $pw = $pdf->get_width(); $ph = $pdf->get_height();
-      $fy = $ph - 26;
-      try { $pdf->image("${GETRIDO_MASCOT_DATAURI}", 22, $ph - 42, 22, 22); } catch (\\Throwable $ie) {}
+      // Stopka na poziomie wzoru (tekst ~24pt od dołu). Maskotka wyśrodkowana pionowo
+      // na linii napisu: środek maskotki = środek linii "www.GetRido.pl".
+      $fy = $ph - 38;
+      $mh = 22;
+      try { $pdf->image("${GETRIDO_MASCOT_DATAURI}", 22, $fy - 3, $mh, $mh); } catch (\\Throwable $ie) {}
       $pdf->page_text(50, $fy, "www.GetRido.pl", $ff, 10, array(0,0,0));
-      $pdf->page_text($pw - 92, $fy, "Strona {PAGE_NUM} z {PAGE_COUNT}", $ff, 10, array(0,0,0));
+      $pdf->page_text($pw - 96, $fy, "Strona {PAGE_NUM} z {PAGE_COUNT}", $ff, 10, array(0,0,0));
     }
   </script>` : ''}
 </body>
