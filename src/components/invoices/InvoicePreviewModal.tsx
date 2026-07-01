@@ -13,6 +13,26 @@ import {
 } from 'lucide-react';
 import { InvoiceData, generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { renderInvoicePdf } from '@/utils/renderInvoicePdf';
+
+// Zamień URL logo sprzedawcy na data-URI, żeby render PDF nie zależał od plików na serwerze.
+async function withEmbeddedLogo(inv: InvoiceData): Promise<InvoiceData> {
+  const url = inv?.seller?.logo_url;
+  if (!url || !/^https?:\/\//.test(url)) return inv;
+  try {
+    const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+    if (!res.ok) return inv;
+    const blob = await res.blob();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result as string);
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
+    return { ...inv, seller: { ...inv.seller, logo_url: dataUrl } };
+  } catch {
+    return inv;
+  }
+}
 import { AuthModal } from '@/components/auth/AuthModal';
 
 interface InvoicePreviewModalProps {
@@ -73,7 +93,10 @@ export function InvoicePreviewModal({
   }, [open, invoiceData]);
 
   const handleDownloadPdf = async () => {
-    const html = generateInvoiceHtml(invoiceData);
+    // Osadź logo sprzedawcy jako data-URI — render niezależny od plików na serwerze
+    // (tak samo jak maskotka). Gdy brak/niedostępne → generator pokaże ostylowany box.
+    const data = await withEmbeddedLogo(invoiceData);
+    const html = generateInvoiceHtml(data);
     // Najpierw serwerowy render (ten sam co mail) → „Pobierz" i „Wyślij" identyczne.
     const base64 = await renderInvoicePdf(html);
     if (base64) {
