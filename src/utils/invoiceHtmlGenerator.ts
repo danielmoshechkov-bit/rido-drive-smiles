@@ -553,15 +553,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   // Standard items HTML (VAT columns)
   const itemsHtml = displayItems.map((item, index) => `
     <tr>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${index + 1}</td>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; font-size: ${cellFontSize};">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}</td>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${item.unit}</td>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${item.quantity}</td>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.unit_net_price, currency)}</td>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.net_amount, currency)}</td>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; font-size: ${cellFontSize};">${item.vat_rate}%</td>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-size: ${cellFontSize};">${formatCurrency(item.vat_amount, currency)}</td>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: right; font-weight: bold; font-size: ${cellFontSize};">${formatCurrency(item.gross_amount, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${index + 1}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: left; vertical-align: middle; font-size: ${cellFontSize};">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${item.unit}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${item.quantity}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${formatCurrency(item.unit_net_price, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${formatCurrency(item.net_amount, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${item.vat_rate}%</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${formatCurrency(item.vat_amount, currency)}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-weight: bold; font-size: ${cellFontSize};">${formatCurrency(item.gross_amount, currency)}</td>
     </tr>
   `).join('');
 
@@ -779,7 +779,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .vat-header { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .totals { display: block; margin-bottom: 6px; }
     .totals-table { width: 240px; margin-left: auto; border: 1px solid #e3e0f0; border-radius: 8px; padding: 8px 10px; background: #faf9ff; }
-    .totals-row { display: table; width: 100%; padding: 3px 0; font-size: 11px; }
+    .totals-row { display: table; width: 100%; padding: 3px 0; font-size: 11px; border-bottom: 1px solid #d8d5e8; }
     .totals-row > span:first-child { display: table-cell; text-align: left; color: #444; }
     .totals-row > span:last-child { display: table-cell; text-align: right; }
     .totals-row.grand { border-bottom: none; background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 7px 8px; border-radius: 4px; font-size: 14px; margin-top: 3px; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
