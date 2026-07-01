@@ -643,6 +643,85 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const titleFontSize = compact_pdf ? '12px' : '14px';
   const pageMargin = compact_pdf ? '6mm' : '8mm';
 
+  // Standardowa faktura (VAT/zaliczka/rozliczenie/uproszczona/proforma) ma i "Podsumowanie faktury"
+  // (lewa) i box "DO ZAPŁATY" (prawa) — układamy je OBOK SIEBIE w dwóch kolumnach (wzór FV-005).
+  // Rachunek/nota/korekta/marża/VAT RR mają własny układ → zostają jak były (stos pionowy).
+  const useTwoColSummary = !isVatRR && !isReceipt && !isNota && !isCorrection && !isMargin;
+
+  // "Podsumowanie faktury" — tabela stawek VAT (lewa kolumna). Wypełnia całą szerokość swojej kolumny.
+  const standardVatSummaryHtml = `
+    <div class="vat-summary" style="margin-top: 0; font-size: 8px;">
+      <div style="font-size: 9px; font-weight: 600; margin-bottom: 4px; color: #666;">Podsumowanie faktury</div>
+      <table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8px;">
+        <thead>
+          <tr class="vat-header" style="background-color: ${themeColor} !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Stawka</th>
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Netto</th>
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">VAT</th>
+            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Brutto</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.entries(vatSummary).map(([rate, amounts]) => `
+            <tr style="background-color: ${themeColorLight};">
+              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333; font-weight: 600;">${rate}%</td>
+              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333;">${formatCurrency(amounts.net, currency)}</td>
+              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333;">${formatCurrency(amounts.vat, currency)}</td>
+              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333; font-weight: 600;">${formatCurrency(amounts.gross, currency)}</td>
+            </tr>
+          `).join('')}
+          <tr style="border-top: 2px solid ${themeColor}; background-color: ${themeColorBorder};">
+            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: ${themeColor};">Razem:</td>
+            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(netTotal, currency)}</td>
+            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(vatTotal, currency)}</td>
+            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: ${themeColor};">${formatCurrency(grossTotal, currency)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+
+  // Wiersze boxu "DO ZAPŁATY" (prawa kolumna). DO ZAPŁATY = kwota POZOSTAŁA (brutto − zapłacono).
+  const totalsRowsHtml = `
+        ${(isReceipt || isNota) ? '' : !isMargin ? `
+        <div class="totals-row">
+          <span>Razem netto:</span>
+          <span style="font-weight: bold;">${formatCurrency(netTotal, currency)}</span>
+        </div>
+        ${!isVatRR ? `
+        <div class="totals-row">
+          <span>VAT:</span>
+          <span style="font-weight: bold;">${formatCurrency(vatTotal, currency)}</span>
+        </div>` : `
+        <div class="totals-row">
+          <span>Zryczałtowany zwrot VAT (${rrRate}%):</span>
+          <span style="font-weight: bold;">${formatCurrency(Math.round(netTotal * (rrRate / 100) * 100) / 100, currency)}</span>
+        </div>`}
+        ` : ''}
+        ${(invoice.paid_amount && invoice.paid_amount > 0 && !isAdvance && !isReceipt && !isNota) ? `
+        <div class="totals-row">
+          <span>Zapłacono:</span>
+          <span style="font-weight: bold; color: #16a34a;">${formatCurrency(invoice.paid_amount, currency)}</span>
+        </div>` : ''}
+        <div class="totals-row grand" style="background-color: ${themeColor} !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
+          <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : isVatRR ? 'DO WYPŁATY ROLNIKOWI:' : isMargin ? 'KWOTA BRUTTO:' : (isReceipt || isNota) ? 'RAZEM:' : 'DO ZAPŁATY:'}</span>
+          <span style="font-weight: bold; font-size: 13px; color: #ffffff !important;">${formatCurrency(isVatRR ? Math.round((netTotal + netTotal * (rrRate / 100)) * 100) / 100 : (isReceipt || isNota) ? netTotal : isMargin ? grossTotal : isAdvance ? grossTotal : (grossTotal - (invoice.paid_amount || 0)), currency)}</span>
+        </div>
+        ${isFinal && invoice.advance_data?.advance_amount ? `
+        <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
+          <span>Wpłacona zaliczka${invoice.advance_data.advance_invoice_number ? ` (FZ: ${invoice.advance_data.advance_invoice_number})` : ''}:</span>
+          <span style="font-weight: bold; color: #16a34a;">-${formatCurrency(invoice.advance_data.advance_amount, currency)}</span>
+        </div>
+        ${invoice.advance_data.advance_vat ? `
+        <div class="totals-row">
+          <span>w tym VAT z zaliczki:</span>
+          <span style="font-weight: bold; color: #16a34a;">-${formatCurrency(invoice.advance_data.advance_vat, currency)}</span>
+        </div>` : ''}
+        <div class="totals-row" style="background: #f0fdf4; padding: 4px 6px; border-radius: 3px;">
+          <span style="font-weight: bold;">Pozostało do zapłaty:</span>
+          <span style="font-weight: bold; color: ${themeColor};">${formatCurrency(grossTotal - (invoice.advance_data.advance_amount || 0), currency)}</span>
+        </div>
+        ` : ''}`;
+
   return `
 <!DOCTYPE html>
 <html lang="pl">
@@ -701,15 +780,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .totals-row > span:first-child { display: table-cell; text-align: left; color: #444; }
     .totals-row > span:last-child { display: table-cell; text-align: right; }
     .totals-row.grand { border-bottom: none; background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 5px 6px; border-radius: 3px; font-size: 11px; margin-top: 2px; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    .amount-words { display: block; margin-bottom: 6px; padding: 5px 8px; background: #f0f9ff; border-left: 2px solid ${themeColor}; border-radius: 6px; font-size: 8px; }
+    .amount-words { display: block; margin-bottom: 6px; padding: 2px 0; font-size: 8px; }
     .amount-words-label { color: #666; font-weight: 600; white-space: nowrap; }
     .amount-words-value { font-style: italic; }
     .payment { margin-bottom: 6px; font-size: 8px; }
     .payment-row { display: block; margin-bottom: 2px; }
     .payment-label { color: #666; min-width: 80px; }
     .payment-value { font-weight: 500; }
-    .notes { margin-bottom: 8px; padding: 6px; background: #fef3c7; border-radius: 4px; font-size: 8px; }
-    .notes-label { font-size: 7px; color: #92400e; text-transform: uppercase; margin-bottom: 2px; font-weight: 600; }
+    .notes { margin-bottom: 8px; padding: 6px 10px; background: #f8f5ff; border: 1px solid #ede9fe; border-radius: 6px; font-size: 8px; }
+    .notes-label { font-size: 7px; color: ${themeColor}; text-transform: uppercase; margin-bottom: 2px; font-weight: 700; letter-spacing: 0.04em; }
     .footer { display: table; width: 100%; margin-top: 40px; }
     .signature { display: table-cell; width: 50%; text-align: center; padding: 0 30px; }
     .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 4px; font-size: 7px; color: #666; }
@@ -798,8 +877,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         </div>
         ` : ''}
         <div class="invoice-dates">
-          ${isAdvance ? `<div class="invoice-dates-row"><span class="invoice-dates-label">Data zaliczki:</span> ${formatDate(invoice.sale_date)}</div>` : `<div class="invoice-dates-row"><span class="invoice-dates-label">Data sprzedaży:</span> ${formatDate(invoice.sale_date)}</div>`}
-          <div class="invoice-dates-row"><span class="invoice-dates-label">Termin płatności:</span> ${formatDate(invoice.due_date)}</div>
+          ${isAdvance ? `<div class="invoice-dates-row"><span class="invoice-dates-label">Data zaliczki:</span> <strong>${formatDate(invoice.sale_date)}</strong></div>` : `<div class="invoice-dates-row"><span class="invoice-dates-label">Data sprzedaży:</span> <strong>${formatDate(invoice.sale_date)}</strong></div>`}
+          <div class="invoice-dates-row"><span class="invoice-dates-label">Termin płatności:</span> <strong>${formatDate(invoice.due_date)}</strong></div>
         </div>
       </div>
     </div>
@@ -902,15 +981,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     <table>
       <thead>
         <tr>
-          <th style="width: 22px; background-color: ${themeColor} !important; color: #ffffff !important;">Lp.</th>
-          <th style="background-color: ${themeColor} !important; color: #ffffff !important;">${isAdvance ? 'Opis zaliczki' : 'Nazwa towaru / usługi'}</th>
-          <th style="width: 32px; background-color: ${themeColor} !important; color: #ffffff !important;">Jm.</th>
-          <th style="width: 35px; background-color: ${themeColor} !important; color: #ffffff !important;">Ilość</th>
-          <th style="width: 60px; background-color: ${themeColor} !important; color: #ffffff !important;">Cena netto</th>
-          <th style="width: 65px; background-color: ${themeColor} !important; color: #ffffff !important;">Wart. netto</th>
-          <th style="width: 35px; background-color: ${themeColor} !important; color: #ffffff !important;">VAT</th>
-          <th style="width: 55px; background-color: ${themeColor} !important; color: #ffffff !important;">Kwota VAT</th>
-          <th style="width: 70px; background-color: ${themeColor} !important; color: #ffffff !important;">Wart. brutto</th>
+          <th style="width: 22px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Lp.</th>
+          <th style="text-align: left; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">${isAdvance ? 'Opis zaliczki' : 'Nazwa towaru / usługi'}</th>
+          <th style="width: 32px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Jm.</th>
+          <th style="width: 35px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Ilość</th>
+          <th style="width: 55px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Cena<br>netto</th>
+          <th style="width: 58px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Wart.<br>netto</th>
+          <th style="width: 35px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">VAT</th>
+          <th style="width: 52px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Kwota<br>VAT</th>
+          <th style="width: 62px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Wart.<br>brutto</th>
         </tr>
       </thead>
       <tbody>
@@ -949,37 +1028,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <div style="font-weight: 600; margin-bottom: 4px; color: ${themeColor};">Oświadczenie rolnika ryczałtowego</div>
       <div style="color: #555;">${invoice.vat_rr_data?.declaration_text || 'Oświadczam, że jestem rolnikiem ryczałtowym zwolnionym od podatku od towarów i usług na podstawie art. 43 ust. 1 pkt 3 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług.'}</div>
     </div>`;
-    })() : (isReceipt || isNota) ? '' : !isCorrection && !isMargin ? `
-    <div class="vat-summary" style="margin-top: 8px; font-size: 8px;">
-      <div style="font-size: 9px; font-weight: 600; margin-bottom: 4px; color: #666;">Podsumowanie faktury</div>
-      <table style="width: 60%; max-width: 350px; border-collapse: collapse; table-layout: fixed; font-size: 8px;">
-        <thead>
-          <tr class="vat-header" style="background-color: ${themeColor} !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Stawka</th>
-            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Netto</th>
-            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">VAT</th>
-            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Brutto</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${Object.entries(vatSummary).map(([rate, amounts]) => `
-            <tr style="background-color: ${themeColorLight};">
-              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333; font-weight: 600;">${rate}%</td>
-              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333;">${formatCurrency(amounts.net, currency)}</td>
-              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333;">${formatCurrency(amounts.vat, currency)}</td>
-              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333; font-weight: 600;">${formatCurrency(amounts.gross, currency)}</td>
-            </tr>
-          `).join('')}
-          <tr style="border-top: 2px solid ${themeColor}; background-color: ${themeColorBorder};">
-            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: ${themeColor};">Razem:</td>
-            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(netTotal, currency)}</td>
-            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(vatTotal, currency)}</td>
-            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: ${themeColor};">${formatCurrency(grossTotal, currency)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    ` : ''}
+    })() : ''}
 
     ${isMargin && invoice.margin_purchase_price ? `
     <div style="display: flex; gap: 16px; margin-top: 8px; margin-bottom: 8px;">
@@ -995,49 +1044,24 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </div>
     ` : ''}
 
-    <div class="totals">
-      <div class="totals-table">
-        ${(isReceipt || isNota) ? '' : !isMargin ? `
-        <div class="totals-row">
-          <span>Razem netto:</span>
-          <span style="font-weight: bold;">${formatCurrency(netTotal, currency)}</span>
+    ${useTwoColSummary ? `
+    <div style="display: table; width: 100%; margin-top: 8px; margin-bottom: 6px;">
+      <div style="display: table-cell; width: 54%; vertical-align: top; padding-right: 14px;">
+        ${standardVatSummaryHtml}
+      </div>
+      <div style="display: table-cell; width: 46%; vertical-align: top;">
+        <div class="totals-table" style="width: 100%; margin-left: 0;">
+          ${totalsRowsHtml}
         </div>
-        ${!isVatRR ? `
-        <div class="totals-row">
-          <span>VAT:</span>
-          <span style="font-weight: bold;">${formatCurrency(vatTotal, currency)}</span>
-        </div>` : `
-        <div class="totals-row">
-          <span>Zryczałtowany zwrot VAT (${rrRate}%):</span>
-          <span style="font-weight: bold;">${formatCurrency(Math.round(netTotal * (rrRate / 100) * 100) / 100, currency)}</span>
-        </div>`}
-        ` : ''}
-        ${(invoice.paid_amount && invoice.paid_amount > 0 && !isAdvance && !isReceipt && !isNota) ? `
-        <div class="totals-row">
-          <span>Zapłacono:</span>
-          <span style="font-weight: bold; color: #16a34a;">${formatCurrency(invoice.paid_amount, currency)}</span>
-        </div>` : ''}
-        <div class="totals-row grand" style="background-color: ${themeColor} !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-          <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : isVatRR ? 'DO WYPŁATY ROLNIKOWI:' : isMargin ? 'KWOTA BRUTTO:' : (isReceipt || isNota) ? 'RAZEM:' : 'DO ZAPŁATY:'}</span>
-          <span style="font-weight: bold; font-size: 13px; color: #ffffff !important;">${formatCurrency(isVatRR ? Math.round((netTotal + netTotal * (rrRate / 100)) * 100) / 100 : (isReceipt || isNota) ? netTotal : isMargin ? grossTotal : isAdvance ? grossTotal : (grossTotal - (invoice.paid_amount || 0)), currency)}</span>
-        </div>
-        ${isFinal && invoice.advance_data?.advance_amount ? `
-        <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
-          <span>Wpłacona zaliczka${invoice.advance_data.advance_invoice_number ? ` (FZ: ${invoice.advance_data.advance_invoice_number})` : ''}:</span>
-          <span style="font-weight: bold; color: #16a34a;">-${formatCurrency(invoice.advance_data.advance_amount, currency)}</span>
-        </div>
-        ${invoice.advance_data.advance_vat ? `
-        <div class="totals-row">
-          <span>w tym VAT z zaliczki:</span>
-          <span style="font-weight: bold; color: #16a34a;">-${formatCurrency(invoice.advance_data.advance_vat, currency)}</span>
-        </div>` : ''}
-        <div class="totals-row" style="background: #f0fdf4; padding: 4px 6px; border-radius: 3px;">
-          <span style="font-weight: bold;">Pozostało do zapłaty:</span>
-          <span style="font-weight: bold; color: ${themeColor};">${formatCurrency(grossTotal - (invoice.advance_data.advance_amount || 0), currency)}</span>
-        </div>
-        ` : ''}
       </div>
     </div>
+    ` : `
+    <div class="totals">
+      <div class="totals-table">
+        ${totalsRowsHtml}
+      </div>
+    </div>
+    `}
 
     <div class="amount-words">
       <span class="amount-words-label">Słownie:</span>
