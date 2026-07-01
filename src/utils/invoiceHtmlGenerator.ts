@@ -1,4 +1,5 @@
 // Local invoice HTML generator for browser-based PDF printing
+import { GETRIDO_MASCOT_DATAURI } from './getRidoMascot';
 
 export interface InvoiceItem {
   name: string;
@@ -674,8 +675,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .header { display: table; width: 100%; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid ${themeColor}; }
     .logo-area { display: table-cell; vertical-align: middle; width: 55%; }
     .logo-area img { max-width: 220px; max-height: 70px; width: auto; height: auto; }
-    .seller-brand { display: block; }
-    .seller-brand-name { font-size: 13px; font-weight: 700; color: #111; line-height: 1.2; }
+    .seller-brand { display: inline-block; border: 2px solid ${themeColor}; border-radius: 8px; padding: 8px 14px; }
+    .seller-brand-name { font-size: 15px; font-weight: 700; color: ${themeColor}; line-height: 1.2; letter-spacing: 0.5px; }
     .seller-brand-addr { font-size: 8px; color: #333; margin-top: 2px; line-height: 1.3; }
     .invoice-title { display: table-cell; vertical-align: middle; text-align: right; }
     .invoice-title h1 { font-size: ${titleFontSize}; color: #222; margin-bottom: 1px; }
@@ -1111,7 +1112,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </div>
   </div>
   ${!invoice.hide_footer ? `
-  <div class="pgfooter"><img src="https://getrido.pl/lovable-uploads/getrido-mascot-footer.png" alt=""><span class="foottext">www.GetRido.pl</span></div>
+  <div class="pgfooter"><img src="${GETRIDO_MASCOT_DATAURI}" alt=""><span class="foottext">www.GetRido.pl</span></div>
   <script type="text/php">
     if (isset($pdf)) {
       $f = $fontMetrics->getFont("DejaVu Sans");
