@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
-import { isValidNip } from '@/hooks/useGusLookup';
+import { useGusLookup, isValidNip } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { toast } from 'sonner';
 import { compressLogoImage } from '@/utils/imageCompression';
 import { 
@@ -201,6 +202,23 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
     }
   };
 
+  const { lookup: gusLookup, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setFormData(prev => ({
+        ...prev,
+        name: gus.nazwa || '',
+        nip: gus.nip,
+        regon: gus.regon || '',
+        address_street: gus.ulica,
+        address_building: gus.nr_domu,
+        address_apartment: gus.nr_lokalu,
+        address_city: gus.miasto || '',
+        address_postal_code: gus.kod_pocztowy || ''
+      }));
+      setGusLoaded(true);
+    },
+  });
+
   const searchGUS = async () => {
     if (!nip || nip.length !== 10) {
       toast.error('NIP musi mieć 10 cyfr');
@@ -212,38 +230,13 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
     }
 
     setIsSearching(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('gus-lookup', {
-        body: { nip }
-      });
-
-      if (error) throw error;
-
-      if (data?.success && data?.data) {
-        const gus = data.data;
-
-        setFormData(prev => ({
-          ...prev,
-          name: gus.nazwa || '',
-          nip: gus.nip || nip,
-          regon: gus.regon || '',
-          address_street: gus.ulica,
-          address_building: gus.nr_domu,
-          address_apartment: gus.nr_lokalu,
-          address_city: gus.miasto || '',
-          address_postal_code: gus.kod_pocztowy || ''
-        }));
-        setGusLoaded(true);
-        toast.success('Dane pobrane z GUS');
-      } else {
-        toast.error(data?.error || 'Nie znaleziono firmy');
-      }
-    } catch (err) {
-      console.error('GUS error:', err);
-      toast.error('Błąd pobierania danych z GUS');
-    } finally {
-      setIsSearching(false);
+    const gus = await gusLookup(nip);
+    if (gus) {
+      toast.success('Dane pobrane z GUS');
+    } else {
+      toast.error('Nie znaleziono firmy');
     }
+    setIsSearching(false);
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -484,6 +477,7 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
                     )}
                   </Button>
                 </div>
+                <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-2" />
                 {gusLoaded && (
                   <p className="text-xs text-primary mt-2 flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" />

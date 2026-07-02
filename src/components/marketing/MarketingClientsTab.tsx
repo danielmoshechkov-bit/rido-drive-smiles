@@ -14,6 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { toast } from 'sonner';
 import { Plus, Users, Building2, Mail, Loader2, Search, Phone, MapPin, Globe, ChevronDown, Instagram, BarChart3, Target, FileText, Eye, X, Send } from 'lucide-react';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 
 interface Client {
   id: string;
@@ -57,7 +58,17 @@ export function MarketingClientsTab() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setForm(f => ({
+        ...f,
+        company_name: gus.nazwa,
+        nip: gus.nip,
+        city: gus.miasto || f.city,
+        address: gus.adres || f.address,
+      }));
+    },
+  });
 
   const fetchClientFromGus = async () => {
     const gus = await gusLookup(form.nip);
@@ -65,13 +76,6 @@ export function MarketingClientsTab() {
       toast.error('Nie znaleziono firmy w GUS');
       return;
     }
-    setForm(f => ({
-      ...f,
-      company_name: gus.nazwa,
-      nip: gus.nip,
-      city: gus.miasto || f.city,
-      address: gus.adres || f.address,
-    }));
     toast.success('Dane firmy pobrane z GUS');
   };
   const [saving, setSaving] = useState(false);
@@ -490,7 +494,7 @@ export function MarketingClientsTab() {
               </div>
               <div><Label>Adres</Label><Input value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>NIP</Label><div className="flex gap-1"><Input value={form.nip} onChange={e => setForm(f => ({ ...f, nip: e.target.value }))} /><Button type="button" variant="outline" size="icon" className="shrink-0" onClick={fetchClientFromGus} disabled={gusLoading || form.nip.replace(/\D/g, '').length < 10} title="Pobierz dane firmy z GUS">{gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</Button></div></div>
+                <div><Label>NIP</Label><div className="flex gap-1"><Input value={form.nip} onChange={e => setForm(f => ({ ...f, nip: e.target.value }))} /><Button type="button" variant="outline" size="icon" className="shrink-0" onClick={fetchClientFromGus} disabled={gusLoading || form.nip.replace(/\D/g, '').length < 10} title="Pobierz dane firmy z GUS">{gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</Button></div><ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" /></div>
                 <div><Label>Strona WWW</Label><Input value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} /></div>
               </div>
               <div><Label>Budżet miesięczny (zł)</Label><Input type="number" value={form.monthly_budget} onChange={e => setForm(f => ({ ...f, monthly_budget: Number(e.target.value) }))} /></div>

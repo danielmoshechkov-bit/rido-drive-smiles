@@ -53,6 +53,7 @@ import {
   Search, Loader2
 } from 'lucide-react';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -143,7 +144,19 @@ export default function ServiceProviderDashboard() {
   const [providerStatus, setProviderStatus] = useState<string | null>(null);
   const [activationDialog, setActivationDialog] = useState(false);
   const [activationForm, setActivationForm] = useState<ActivationFormState>(EMPTY_ACTIVATION_FORM);
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setActivationForm(p => ({
+        ...p,
+        company_name: gus.nazwa,
+        company_nip: gus.nip,
+        company_address: gus.adres || p.company_address,
+        company_city: gus.miasto || p.company_city,
+        company_postal_code: gus.kod_pocztowy || p.company_postal_code,
+        short_name: p.short_name || gus.nazwa_skrocona || '',
+      }));
+    },
+  });
 
   const fetchActivationFromGus = async () => {
     const gus = await gusLookup(activationForm.company_nip);
@@ -151,15 +164,6 @@ export default function ServiceProviderDashboard() {
       toast.error('Nie znaleziono firmy w GUS');
       return;
     }
-    setActivationForm(p => ({
-      ...p,
-      company_name: gus.nazwa,
-      company_nip: gus.nip,
-      company_address: gus.adres || p.company_address,
-      company_city: gus.miasto || p.company_city,
-      company_postal_code: gus.kod_pocztowy || p.company_postal_code,
-      short_name: p.short_name || gus.nazwa_skrocona || '',
-    }));
     toast.success('Dane firmy pobrane z GUS');
   };
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
@@ -1182,6 +1186,7 @@ export default function ServiceProviderDashboard() {
                         {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
+                    <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                   </div>
                   <div className="space-y-2">
                     <Label>{t('sp.activation.companyLogo')}</Label>

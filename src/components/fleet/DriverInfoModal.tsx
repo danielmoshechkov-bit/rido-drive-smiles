@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Save, Plus, Minus, Pencil, History, Search } from 'lucide-react';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { format } from 'date-fns';
 import { AddVehicleModal } from '@/components/AddVehicleModal';
 import { pl } from 'date-fns/locale';
@@ -62,7 +63,17 @@ export function DriverInfoPopover({
   const [b2bApartmentNo, setB2bApartmentNo] = useState('');
   const [b2bPostalCode, setB2bPostalCode] = useState('');
   const [b2bCity, setB2bCity] = useState('');
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setB2bCompanyName(gus.nazwa);
+      setB2bNip(gus.nip);
+      setB2bStreet(gus.ulica);
+      setB2bBuildingNo(gus.nr_domu);
+      setB2bApartmentNo(gus.nr_lokalu);
+      setB2bPostalCode(gus.kod_pocztowy);
+      setB2bCity(gus.miasto);
+    },
+  });
 
   const fetchB2bFromGus = async () => {
     const gus = await gusLookup(b2bNip);
@@ -70,13 +81,6 @@ export function DriverInfoPopover({
       toast.error('Nie znaleziono firmy w GUS');
       return;
     }
-    setB2bCompanyName(gus.nazwa);
-    setB2bNip(gus.nip);
-    setB2bStreet(gus.ulica);
-    setB2bBuildingNo(gus.nr_domu);
-    setB2bApartmentNo(gus.nr_lokalu);
-    setB2bPostalCode(gus.kod_pocztowy);
-    setB2bCity(gus.miasto);
     toast.success('Dane firmy pobrane z GUS');
   };
 
@@ -591,6 +595,9 @@ export function DriverInfoPopover({
                     >
                       {gusLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
                     </Button>
+                  </div>
+                  <div className="col-span-2">
+                    <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
                   </div>
                   <div className="col-span-2">
                     <Input value={b2bStreet} onChange={e => setB2bStreet(e.target.value)} placeholder="Ulica" className="h-7 text-xs" />

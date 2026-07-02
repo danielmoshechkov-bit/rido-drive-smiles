@@ -35,7 +35,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { isValidNip } from "@/hooks/useGusLookup";
+import { useGusLookup, isValidNip, type GusCompanyData } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Json } from "@/integrations/supabase/types";
@@ -126,6 +127,31 @@ export function ContractorWizard({
   const [bankAccountVerified, setBankAccountVerified] = useState(false);
   const [verifyingBankAccount, setVerifyingBankAccount] = useState(false);
 
+  const applyGusData = (gus: GusCompanyData) => {
+    // gusData (weryfikacja + jsonb gus_data w DB) trzyma PEŁNĄ nazwę rejestrową;
+    // skrócona (wg checkboxa) trafia tylko do edytowalnego pola nazwy.
+    setGusData({
+      name: gus.nazwa_pelna ?? gus.nazwa,
+      nip: gus.nip,
+      regon: gus.regon,
+      krs: gus.krs,
+      address: gus.adres,
+      city: gus.miasto,
+      postalCode: gus.kod_pocztowy,
+      voivodeship: gus.wojewodztwo,
+      status: gus.status,
+      legalForm: gus.forma_prawna,
+    });
+    setName(gus.nazwa);
+    setAddress(gus.adres);
+    setCity(gus.miasto);
+    setPostalCode(gus.kod_pocztowy);
+  };
+
+  const { lookup: gusLookup, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: applyGusData,
+  });
+
   useEffect(() => {
     if (open) {
       setStep('nip');
@@ -171,41 +197,11 @@ export function ContractorWizard({
     setIsLoading(true);
     setGusError(null);
 
-    try {
-      const { data: result, error } = await supabase.functions.invoke('gus-lookup', {
-        body: { nip: clean },
-      });
-
-      if (error) throw error;
-
-      if (result?.success && result?.data) {
-        const gus = result.data;
-        const mapped: GUSData = {
-          name: gus.nazwa,
-          nip: gus.nip,
-          regon: gus.regon,
-          krs: gus.krs,
-          address: gus.adres,
-          city: gus.miasto,
-          postalCode: gus.kod_pocztowy,
-          voivodeship: gus.wojewodztwo,
-          status: gus.status,
-          legalForm: gus.forma_prawna,
-        };
-        setGusData(mapped);
-        setName(mapped.name);
-        setAddress(mapped.address);
-        setCity(mapped.city);
-        setPostalCode(mapped.postalCode);
-      } else {
-        setGusError(result?.error || 'Nie znaleziono danych w GUS');
-      }
-    } catch (error) {
-      console.error('GUS fetch error:', error);
-      setGusError('Błąd połączenia z API GUS');
-    } finally {
-      setIsLoading(false);
+    const gus = await gusLookup(clean);
+    if (!gus) {
+      setGusError('Nie znaleziono danych w GUS');
     }
+    setIsLoading(false);
   };
 
   const fetchWhitelistData = async () => {
@@ -561,6 +557,7 @@ export function ContractorWizard({
             onChange={(e) => setName(e.target.value)}
             placeholder="Nazwa firmy"
           />
+          <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
         </div>
 
         <div className="grid grid-cols-2 gap-4">

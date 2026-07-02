@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import {
   useAICallCompanyWhitelist,
   useAICallUserWhitelist,
@@ -77,7 +78,12 @@ export function AICallAdminPanel() {
   const [newCompanyName, setNewCompanyName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newNotes, setNewNotes] = useState("");
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setNewNip(gus.nip);
+      setNewCompanyName(gus.nazwa);
+    },
+  });
 
   const fetchCompanyFromGus = async () => {
     const gus = await gusLookup(newNip);
@@ -85,8 +91,6 @@ export function AICallAdminPanel() {
       toast.error("Nie znaleziono firmy w GUS");
       return;
     }
-    setNewNip(gus.nip);
-    setNewCompanyName(gus.nazwa);
     toast.success("Dane firmy pobrane z GUS");
   };
 
@@ -268,6 +272,7 @@ export function AICallAdminPanel() {
                             {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                           </Button>
                         </div>
+                        <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                       </div>
                       <div className="space-y-2">
                         <Label>Nazwa firmy (opcjonalnie)</Label>

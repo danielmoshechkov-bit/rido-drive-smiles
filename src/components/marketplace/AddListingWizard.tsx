@@ -17,6 +17,7 @@ import {
   AlertCircle, Search, Loader2
 } from "lucide-react";
 import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
@@ -59,7 +60,17 @@ export function AddListingWizard({
   });
 
   const needsCompanyData = accountMode === 'business' && !profile?.company_nip;
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setCompanyData(prev => ({
+        ...prev,
+        company_name: gus.nazwa,
+        company_nip: gus.nip,
+        company_address: gus.adres || prev.company_address,
+        company_city: gus.miasto || prev.company_city,
+      }));
+    },
+  });
 
   const fetchCompanyFromGus = async () => {
     const gus = await gusLookup(companyData.company_nip);
@@ -67,13 +78,6 @@ export function AddListingWizard({
       toast.error("Nie znaleziono firmy w GUS");
       return;
     }
-    setCompanyData(prev => ({
-      ...prev,
-      company_name: gus.nazwa,
-      company_nip: gus.nip,
-      company_address: gus.adres || prev.company_address,
-      company_city: gus.miasto || prev.company_city,
-    }));
     toast.success("Dane firmy pobrane z GUS");
   };
   const startStep = needsCompanyData ? 1 : 2;
@@ -201,6 +205,7 @@ export function AddListingWizard({
                     {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   </Button>
                 </div>
+                <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
               </div>
             </div>
             

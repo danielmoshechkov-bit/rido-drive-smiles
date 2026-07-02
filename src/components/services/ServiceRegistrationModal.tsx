@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Building2, User, Upload, Camera, CheckCircle, Shield, ArrowLeft, Loader2, Search } from "lucide-react";
 import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { cn } from "@/lib/utils";
 
 interface ServiceRegistrationModalProps {
@@ -34,7 +35,20 @@ export function ServiceRegistrationModal({ open, onOpenChange, user }: ServiceRe
     serviceType: '', description: ''
   });
 
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setBizForm(prev => ({
+        ...prev,
+        companyName: gus.nazwa,
+        nip: gus.nip,
+        regon: gus.regon || prev.regon,
+        krs: gus.krs || prev.krs,
+        address: gus.adres || prev.address,
+        city: gus.miasto || prev.city,
+        postalCode: gus.kod_pocztowy || prev.postalCode,
+      }));
+    },
+  });
 
   const fetchBizFromGus = async () => {
     const gus = await gusLookup(bizForm.nip);
@@ -42,16 +56,6 @@ export function ServiceRegistrationModal({ open, onOpenChange, user }: ServiceRe
       toast.error('Nie znaleziono firmy w GUS');
       return;
     }
-    setBizForm(prev => ({
-      ...prev,
-      companyName: gus.nazwa,
-      nip: gus.nip,
-      regon: gus.regon || prev.regon,
-      krs: gus.krs || prev.krs,
-      address: gus.adres || prev.address,
-      city: gus.miasto || prev.city,
-      postalCode: gus.kod_pocztowy || prev.postalCode,
-    }));
     toast.success('Dane firmy pobrane z GUS');
   };
 
@@ -308,6 +312,7 @@ export function ServiceRegistrationModal({ open, onOpenChange, user }: ServiceRe
                       {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
                   </div>
+                  <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>REGON</Label>

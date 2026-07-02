@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -113,6 +115,16 @@ export const WorkshopSettingsPage = () => {
     }
   };
 
+  const { lookup: gusLookup, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (company) => {
+      setFirmName(company.nazwa);
+      if (!shortName) setShortName(company.nazwa_skrocona || company.nazwa.split(' ').slice(0, 2).join(' '));
+      if (company.adres) setAddress(company.adres);
+      if (company.miasto) setCity(company.miasto);
+      if (company.kod_pocztowy) setPostalCode(company.kod_pocztowy);
+    },
+  });
+
   const handleNipSearch = async () => {
     const cleanNip = nip.replace(/[\s-]/g, '');
     if (!cleanNip || cleanNip.length !== 10) {
@@ -120,28 +132,13 @@ export const WorkshopSettingsPage = () => {
       return;
     }
     setNipSearching(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('gus-lookup', {
-        body: { nip: cleanNip },
-      });
-      if (error) throw error;
-      // gus-lookup zwraca { success, data: {...} }
-      const company = data?.data;
-      if (data?.success && company?.nazwa) {
-        setFirmName(company.nazwa);
-        if (!shortName) setShortName(company.nazwa_skrocona || company.nazwa.split(' ').slice(0, 2).join(' '));
-        if (company.adres) setAddress(company.adres);
-        if (company.miasto) setCity(company.miasto);
-        if (company.kod_pocztowy) setPostalCode(company.kod_pocztowy);
-        toast.success(t('workshop.settings.company.companyDataFetched'));
-      } else {
-        toast.info(data?.error || t('workshop.settings.company.companyNotFound'));
-      }
-    } catch (e: any) {
-      toast.error(t('workshop.settings.company.searchError', { error: e.message || t('workshop.settings.company.unknownError') }));
-    } finally {
-      setNipSearching(false);
+    const company = await gusLookup(cleanNip);
+    if (company) {
+      toast.success(t('workshop.settings.company.companyDataFetched'));
+    } else {
+      toast.info(t('workshop.settings.company.companyNotFound'));
     }
+    setNipSearching(false);
   };
 
   const handleSave = async () => {
@@ -305,6 +302,7 @@ export const WorkshopSettingsPage = () => {
                       {nipSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
                   </div>
+                  <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.shortName')}</Label>

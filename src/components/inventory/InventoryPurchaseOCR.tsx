@@ -17,6 +17,7 @@ import {
   History, Package, Download, Edit, Save, Search, AlertCircle, ChevronsUpDown,
 } from 'lucide-react';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { PurchaseInvoicesKSeF } from '@/components/accounting/PurchaseInvoicesKSeF';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -112,7 +113,11 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   const [fileMimeType, setFileMimeType] = useState<string>('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
   const [invoiceHeader, setInvoiceHeader] = useState<InvoiceHeader | null>(null);
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setInvoiceHeader(prev => prev ? { ...prev, supplier_name: gus.nazwa, supplier_nip: gus.nip } : prev);
+    },
+  });
 
   const fetchSupplierFromGus = async () => {
     const gus = await gusLookup(invoiceHeader?.supplier_nip || '');
@@ -120,7 +125,6 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
       toast.error('Nie znaleziono firmy w GUS');
       return;
     }
-    setInvoiceHeader(prev => prev ? { ...prev, supplier_name: gus.nazwa, supplier_nip: gus.nip } : prev);
     toast.success('Dane dostawcy pobrane z GUS');
   };
   const [ocrItems, setOcrItems] = useState<OCRItem[]>([]);
@@ -931,6 +935,7 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
                                   {gusLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
                                 </Button>
                               </div>
+                              <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
                             </div>
                           </div>
                         </div>

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, ArrowLeft, Building2, User, Mail, Phone, MapPin, FileText, ShieldCheck, Search } from "lucide-react";
 import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { Step3Account } from "@/components/fleet/Step3Account";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
@@ -55,7 +56,21 @@ export default function FleetRegister() {
     acceptRodo: false,
   });
 
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (company) => {
+      setFormData(prev => ({
+        ...prev,
+        company_name: company.nazwa || prev.company_name,
+        company_short_name: prev.company_short_name || company.nazwa_skrocona || "",
+        nip: company.nip,
+        address_street: company.ulica || prev.address_street,
+        address_number: company.nr_domu || prev.address_number,
+        address_apartment: company.nr_lokalu || prev.address_apartment,
+        address_city: company.miasto || prev.address_city,
+        address_postal_code: company.kod_pocztowy || prev.address_postal_code,
+      }));
+    },
+  });
 
   const fetchCompanyFromGus = async () => {
     const company = await gusLookup(formData.nip);
@@ -63,17 +78,6 @@ export default function FleetRegister() {
       toast.error(t("fleetRegister.gusNotFound", "Nie znaleziono firmy w GUS"));
       return;
     }
-    setFormData(prev => ({
-      ...prev,
-      company_name: company.nazwa || prev.company_name,
-      company_short_name: prev.company_short_name || company.nazwa_skrocona || "",
-      nip: company.nip,
-      address_street: company.ulica || prev.address_street,
-      address_number: company.nr_domu || prev.address_number,
-      address_apartment: company.nr_lokalu || prev.address_apartment,
-      address_city: company.miasto || prev.address_city,
-      address_postal_code: company.kod_pocztowy || prev.address_postal_code,
-    }));
     toast.success(t("fleetRegister.gusFetched", "Dane firmy pobrane z GUS"));
   };
 
@@ -395,6 +399,7 @@ export default function FleetRegister() {
                         {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
+                    <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                     {fieldErrors.nip && (
                       <p className="text-sm text-destructive">{fieldErrors.nip}</p>
                     )}

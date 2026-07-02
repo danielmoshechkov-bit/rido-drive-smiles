@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { User, Plus, X, Search, Loader2 } from "lucide-react";
 import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 
 interface VehicleOwner {
   id: string;
@@ -38,7 +39,12 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
   const [newEmail, setNewEmail] = useState("");
   const [newBankAccount, setNewBankAccount] = useState("");
   const [saving, setSaving] = useState(false);
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setNewCompany(gus.nazwa);
+      setNewNip(gus.nip);
+    },
+  });
 
   const fetchCompanyFromGus = async () => {
     const gus = await gusLookup(newNip);
@@ -46,8 +52,6 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
       toast.error("Nie znaleziono firmy w GUS");
       return;
     }
-    setNewCompany(gus.nazwa);
-    setNewNip(gus.nip);
     toast.success("Dane firmy pobrane z GUS");
   };
 
@@ -258,6 +262,7 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
                     {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                   </Button>
                 </div>
+                <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
               </div>
               <div>
                 <Label className="text-xs">Telefon</Label>

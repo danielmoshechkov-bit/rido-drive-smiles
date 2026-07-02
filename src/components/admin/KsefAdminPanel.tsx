@@ -18,6 +18,7 @@ import {
   Clock, Building2, Loader2, Users, Save, FileText, Mail, Plus, X, Eye, EyeOff, Search
 } from 'lucide-react';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 
 // ═══════════════════════════════════════════════════════════════
 // Sekcja 1: Ustawienia globalne CAR4RIDE (user_id = null)
@@ -101,7 +102,20 @@ function Car4RideSettings() {
   };
 
   const update = (key: string, value: any) => setForm(f => ({ ...f, [key]: value }));
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setForm(f => ({
+        ...f,
+        company_name: gus.nazwa,
+        nip: gus.nip,
+        regon: gus.regon || f.regon,
+        street: gus.ulica || f.street,
+        building_number: gus.nr_domu || f.building_number,
+        postal_code: gus.kod_pocztowy || f.postal_code,
+        city: gus.miasto || f.city,
+      }));
+    },
+  });
 
   const fetchCompanyFromGus = async () => {
     const gus = await gusLookup(form.nip);
@@ -109,16 +123,6 @@ function Car4RideSettings() {
       toast.error('Nie znaleziono firmy w GUS');
       return;
     }
-    setForm(f => ({
-      ...f,
-      company_name: gus.nazwa,
-      nip: gus.nip,
-      regon: gus.regon || f.regon,
-      street: gus.ulica || f.street,
-      building_number: gus.nr_domu || f.building_number,
-      postal_code: gus.kod_pocztowy || f.postal_code,
-      city: gus.miasto || f.city,
-    }));
     toast.success('Dane firmy pobrane z GUS');
   };
 
@@ -161,7 +165,7 @@ function Car4RideSettings() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div><Label>Nazwa firmy</Label><Input value={form.company_name} onChange={e => update('company_name', e.target.value)} /></div>
-          <div><Label>NIP</Label><div className="flex gap-1"><Input value={form.nip} onChange={e => update('nip', e.target.value)} /><Button type="button" variant="outline" size="icon" className="shrink-0" onClick={fetchCompanyFromGus} disabled={gusLoading || form.nip.replace(/\D/g, '').length < 10} title="Pobierz dane firmy z GUS">{gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</Button></div></div>
+          <div><Label>NIP</Label><div className="flex gap-1"><Input value={form.nip} onChange={e => update('nip', e.target.value)} /><Button type="button" variant="outline" size="icon" className="shrink-0" onClick={fetchCompanyFromGus} disabled={gusLoading || form.nip.replace(/\D/g, '').length < 10} title="Pobierz dane firmy z GUS">{gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</Button></div><ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" /></div>
           <div><Label>REGON</Label><Input value={form.regon} onChange={e => update('regon', e.target.value)} /></div>
           <div><Label>Ulica</Label><Input value={form.street} onChange={e => update('street', e.target.value)} /></div>
           <div><Label>Nr budynku</Label><Input value={form.building_number} onChange={e => update('building_number', e.target.value)} /></div>

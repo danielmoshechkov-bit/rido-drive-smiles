@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { isValidNip } from '@/hooks/useGusLookup';
+import { useGusLookup, isValidNip } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -82,6 +83,16 @@ export function RecipientEditor({ open, onOpenChange, entityId, recipientId, onS
     }
   };
 
+  const { lookup: gusLookup, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setName(gus.nazwa);
+      setRegon(gus.regon || '');
+      setAddressStreet(gus.adres || '');
+      setAddressCity(gus.miasto || '');
+      setAddressPostalCode(gus.kod_pocztowy || '');
+    },
+  });
+
   const searchByNip = async () => {
     const cleanNip = nip.replace(/[^0-9]/g, '');
     if (cleanNip.length !== 10) {
@@ -94,29 +105,13 @@ export function RecipientEditor({ open, onOpenChange, entityId, recipientId, onS
     }
 
     setSearchingNip(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('gus-lookup', {
-        body: { nip: cleanNip },
-      });
-      if (error) throw error;
-
-      if (data?.success && data?.data) {
-        const gus = data.data;
-        setName(gus.nazwa);
-        setRegon(gus.regon || '');
-        setAddressStreet(gus.adres || '');
-        setAddressCity(gus.miasto || '');
-        setAddressPostalCode(gus.kod_pocztowy || '');
-        toast.success('Dane pobrane z GUS');
-      } else {
-        toast.error(data?.error || 'Nie znaleziono firmy w GUS');
-      }
-    } catch (error) {
-      console.error('Error searching NIP:', error);
-      toast.error('Błąd pobierania danych z GUS');
-    } finally {
-      setSearchingNip(false);
+    const gus = await gusLookup(cleanNip);
+    if (gus) {
+      toast.success('Dane pobrane z GUS');
+    } else {
+      toast.error('Nie znaleziono firmy w GUS');
     }
+    setSearchingNip(false);
   };
 
   const handleSave = async () => {
@@ -198,13 +193,13 @@ export function RecipientEditor({ open, onOpenChange, entityId, recipientId, onS
             <div className="space-y-2">
               <Label>NIP</Label>
               <div className="flex gap-2">
-                <Input 
+                <Input
                   value={nip}
                   onChange={(e) => setNip(e.target.value)}
                   placeholder="0000000000"
                 />
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="icon"
                   onClick={searchByNip}
                   disabled={searchingNip}
@@ -213,6 +208,7 @@ export function RecipientEditor({ open, onOpenChange, entityId, recipientId, onS
                   {searchingNip ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 </Button>
               </div>
+              <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
             </div>
             <div className="space-y-2">
               <Label>REGON</Label>

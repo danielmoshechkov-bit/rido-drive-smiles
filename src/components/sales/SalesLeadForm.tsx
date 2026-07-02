@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { useCreateSalesLead, useSalesCategories } from "@/hooks/useSalesLeads";
 import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { toast } from "sonner";
 import { Loader2, Building, Phone, Mail, MapPin, Globe, FileText, Search } from "lucide-react";
 
@@ -54,10 +55,9 @@ interface SalesLeadFormProps {
 export function SalesLeadForm({ open, onOpenChange, defaultCategory }: SalesLeadFormProps) {
   const { data: categories } = useSalesCategories();
   const createLead = useCreateSalesLead();
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
-  
+
   const defaultCategoryId = categories?.find(c => c.slug === defaultCategory)?.id || "";
-  
+
   const form = useForm<LeadFormData>({
     resolver: zodResolver(leadSchema),
     defaultValues: {
@@ -70,6 +70,15 @@ export function SalesLeadForm({ open, onOpenChange, defaultCategory }: SalesLead
       website: "",
       nip: "",
       notes: "",
+    },
+  });
+
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      form.setValue("company_name", gus.nazwa, { shouldValidate: true });
+      form.setValue("nip", gus.nip);
+      if (gus.miasto) form.setValue("city", gus.miasto);
+      if (gus.adres) form.setValue("address", gus.adres);
     },
   });
 
@@ -225,10 +234,6 @@ export function SalesLeadForm({ open, onOpenChange, defaultCategory }: SalesLead
                               toast.error("Nie znaleziono firmy w GUS");
                               return;
                             }
-                            form.setValue("company_name", gus.nazwa, { shouldValidate: true });
-                            form.setValue("nip", gus.nip);
-                            if (gus.miasto) form.setValue("city", gus.miasto);
-                            if (gus.adres) form.setValue("address", gus.adres);
                             toast.success("Dane firmy pobrane z GUS");
                           }}
                           disabled={gusLoading || (field.value || "").replace(/\D/g, "").length < 10}
@@ -238,6 +243,7 @@ export function SalesLeadForm({ open, onOpenChange, defaultCategory }: SalesLead
                         </Button>
                       </div>
                     </FormControl>
+                    <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                     <FormMessage />
                   </FormItem>
                 )}

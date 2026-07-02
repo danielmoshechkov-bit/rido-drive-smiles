@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
-import { isValidNip } from '@/hooks/useGusLookup';
+import { useGusLookup, isValidNip } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { toast } from 'sonner';
 import { 
   Search, 
@@ -49,8 +50,17 @@ export function ContractorSelector({ entityId, value, onChange, onAddNew }: Cont
   
   // GUS lookup state
   const [nipInput, setNipInput] = useState('');
-  const [isSearchingGus, setIsSearchingGus] = useState(false);
   const [gusResult, setGusResult] = useState<Contractor | null>(null);
+  const { lookup: gusLookup, loading: isSearchingGus, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => setGusResult({
+      id: '', // Will be generated on save
+      name: gus.nazwa,
+      nip: gus.nip,
+      address_street: gus.adres,
+      address_city: gus.miasto,
+      address_postal_code: gus.kod_pocztowy
+    }),
+  });
   
   // Manual entry state
   const [manualData, setManualData] = useState<Partial<Contractor>>({});
@@ -88,35 +98,12 @@ export function ContractorSelector({ entityId, value, onChange, onAddNew }: Cont
       return;
     }
 
-    setIsSearchingGus(true);
     setGusResult(null);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('gus-lookup', {
-        body: { nip: cleanNip }
-      });
-
-      if (error) throw error;
-
-      if (data?.success && data?.data) {
-        const gus = data.data;
-        setGusResult({
-          id: '', // Will be generated on save
-          name: gus.nazwa,
-          nip: gus.nip,
-          address_street: gus.adres,
-          address_city: gus.miasto,
-          address_postal_code: gus.kod_pocztowy
-        });
-        toast.success('Dane pobrane z GUS');
-      } else {
-        toast.error(data?.error || 'Nie znaleziono firmy w GUS');
-      }
-    } catch (err) {
-      console.error('GUS error:', err);
-      toast.error('Błąd pobierania danych z GUS');
-    } finally {
-      setIsSearchingGus(false);
+    const gus = await gusLookup(cleanNip);
+    if (gus) {
+      toast.success('Dane pobrane z GUS');
+    } else {
+      toast.error('Nie znaleziono firmy w GUS');
     }
   };
 
@@ -309,7 +296,9 @@ export function ContractorSelector({ entityId, value, onChange, onAddNew }: Cont
                 className="text-center text-lg"
               />
 
-              <Button 
+              <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mx-auto" />
+
+              <Button
                 onClick={searchGUS} 
                 disabled={isSearchingGus || nipInput.length !== 10}
                 className="w-full"

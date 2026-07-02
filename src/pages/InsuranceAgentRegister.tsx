@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ArrowLeft, Shield, Building, Phone, Mail, FileText, MapPin, Search, Loader2 } from "lucide-react";
 import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
 
@@ -68,7 +69,16 @@ export default function InsuranceAgentRegister() {
     checkExistingSession();
   }, [navigate]);
 
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setFormData(prev => ({
+        ...prev,
+        companyName: gus.nazwa,
+        nip: gus.nip,
+        address: [gus.adres, [gus.kod_pocztowy, gus.miasto].filter(Boolean).join(" ")].filter(Boolean).join(", ") || prev.address,
+      }));
+    },
+  });
 
   const fetchCompanyFromGus = async () => {
     const gus = await gusLookup(formData.nip);
@@ -76,12 +86,6 @@ export default function InsuranceAgentRegister() {
       toast.error("Nie znaleziono firmy w GUS");
       return;
     }
-    setFormData(prev => ({
-      ...prev,
-      companyName: gus.nazwa,
-      nip: gus.nip,
-      address: [gus.adres, [gus.kod_pocztowy, gus.miasto].filter(Boolean).join(" ")].filter(Boolean).join(", ") || prev.address,
-    }));
     toast.success("Dane firmy pobrane z GUS");
   };
 
@@ -308,6 +312,7 @@ export default function InsuranceAgentRegister() {
                           {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                         </Button>
                       </div>
+                      <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                     </div>
                     <div>
                       <Label htmlFor="licenseNumber">{t('insAgentRegister.licenseNumber')}</Label>

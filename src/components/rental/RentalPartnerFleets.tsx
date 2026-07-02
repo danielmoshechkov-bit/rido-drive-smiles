@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { Network, Plus, Loader2, Search } from 'lucide-react';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 
 /** „Floty partnerskie" — partnerzy B2B. Na rental_partner_fleets. */
 export function RentalPartnerFleets({ companyId }: { companyId: string }) {
@@ -52,11 +53,12 @@ export function RentalPartnerFleets({ companyId }: { companyId: string }) {
 function AddPartner({ sb, companyId, onClose, onSaved }: any) {
   const [f, setF] = useState({ partner_name: '', nip: '', city: '', address: '', phone: '', email: '', invoice_frequency: '', is_b2b: false });
   const set = (k: string, v: any) => setF(s => ({ ...s, [k]: v }));
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => setF(s => ({ ...s, partner_name: gus.nazwa, nip: gus.nip, city: gus.miasto || s.city, address: gus.adres || s.address })),
+  });
   const fromGus = async () => {
     const gus = await gusLookup(f.nip);
     if (!gus) return toast.error('Nie znaleziono firmy w GUS');
-    setF(s => ({ ...s, partner_name: gus.nazwa, nip: gus.nip, city: gus.miasto || s.city, address: gus.adres || s.address }));
     toast.success('Dane firmy pobrane z GUS');
   };
   const save = async () => {
@@ -71,7 +73,7 @@ function AddPartner({ sb, companyId, onClose, onSaved }: any) {
         <DialogHeader><DialogTitle>Nowa flota partnerska</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1 col-span-2"><Label>Nazwa</Label><Input value={f.partner_name} onChange={e => set('partner_name', e.target.value)} /></div>
-          <div className="space-y-1"><Label>NIP</Label><div className="flex gap-1"><Input value={f.nip} onChange={e => set('nip', e.target.value)} /><Button type="button" variant="outline" size="icon" className="shrink-0" onClick={fromGus} disabled={gusLoading || f.nip.replace(/\D/g, '').length < 10} title="Pobierz dane firmy z GUS">{gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</Button></div></div>
+          <div className="space-y-1"><Label>NIP</Label><div className="flex gap-1"><Input value={f.nip} onChange={e => set('nip', e.target.value)} /><Button type="button" variant="outline" size="icon" className="shrink-0" onClick={fromGus} disabled={gusLoading || f.nip.replace(/\D/g, '').length < 10} title="Pobierz dane firmy z GUS">{gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</Button></div><ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} /></div>
           <div className="space-y-1"><Label>Miasto</Label><Input value={f.city} onChange={e => set('city', e.target.value)} /></div>
           <div className="space-y-1"><Label>Adres</Label><Input value={f.address} onChange={e => set('address', e.target.value)} /></div>
           <div className="space-y-1"><Label>Telefon</Label><Input value={f.phone} onChange={e => set('phone', e.target.value)} /></div>

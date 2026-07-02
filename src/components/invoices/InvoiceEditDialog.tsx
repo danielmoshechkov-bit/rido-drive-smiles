@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Loader2, Save, Trash2, Plus, Search } from 'lucide-react';
 import { DatePickerButton } from './DatePickerButton';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 
 interface InvoiceItem {
   id?: string;
@@ -41,7 +42,15 @@ export function InvoiceEditDialog({ invoiceId, open, onOpenChange, onSaved }: In
   const [buyerName, setBuyerName] = useState('');
   const [buyerNip, setBuyerNip] = useState('');
   const [buyerAddress, setBuyerAddress] = useState('');
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (company) => {
+      setBuyerName(company.nazwa);
+      setBuyerNip(company.nip);
+      setBuyerAddress(
+        [company.adres, [company.kod_pocztowy, company.miasto].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+      );
+    },
+  });
 
   const fetchBuyerFromGus = async () => {
     const company = await gusLookup(buyerNip);
@@ -49,11 +58,6 @@ export function InvoiceEditDialog({ invoiceId, open, onOpenChange, onSaved }: In
       toast.error('Nie znaleziono firmy w GUS');
       return;
     }
-    setBuyerName(company.nazwa);
-    setBuyerNip(company.nip);
-    setBuyerAddress(
-      [company.adres, [company.kod_pocztowy, company.miasto].filter(Boolean).join(' ')].filter(Boolean).join(', ')
-    );
     toast.success('Dane pobrane z GUS');
   };
   const [dueDate, setDueDate] = useState('');
@@ -284,6 +288,7 @@ export function InvoiceEditDialog({ invoiceId, open, onOpenChange, onSaved }: In
                       {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
                   </div>
+                  <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                 </div>
               </div>
               <div className="space-y-2">

@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { shortenLegalForm } from '@/utils/legalFormShortener';
 
 /** Znormalizowane dane firmy z GUS REGON (Edge Function gus-lookup). */
 export interface GusCompanyData {
@@ -24,6 +25,21 @@ export interface GusCompanyData {
   /** Adres "Ulica Nr/Lokal" sklejony z pól GUS. */
   adres: string;
   zrodlo: 'gus';
+  /**
+   * Pełna nazwa rejestrowa z GUS — zawsze oryginał, niezależnie od checkboxa
+   * „Skróć formę prawną". Pole `nazwa` może mieć skróconą formę prawną.
+   */
+  nazwa_pelna?: string;
+}
+
+interface UseGusLookupOptions {
+  /**
+   * Wywoływany po udanym lookupie ORAZ przy każdym przełączeniu `setShorten`
+   * — zawsze z nazwą w aktualnie wybranym wariancie (skrócona/pełna).
+   * Tu formularz mapuje dane na swoje pola; dzięki temu przełączenie
+   * checkboxa PO lookupie podmienia nazwę w polu.
+   */
+  onCompany?: (data: GusCompanyData) => void;
 }
 
 export function cleanNip(nip: string): string {
@@ -40,14 +56,34 @@ export function isValidNip(nip: string): boolean {
   return checksum !== 10 && checksum === digits[9];
 }
 
-export function useGusLookup() {
+/** Kopia danych z nazwą w wybranym wariancie; oryginał zawsze w `nazwa_pelna`. */
+function withNameVariant(data: GusCompanyData, shorten: boolean): GusCompanyData {
+  const original = data.nazwa_pelna ?? data.nazwa;
+  return {
+    ...data,
+    nazwa: shorten ? shortenLegalForm(original) : original,
+    nazwa_pelna: original,
+  };
+}
+
+export function useGusLookup(options?: UseGusLookupOptions) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // `company` trzyma zawsze ORYGINALNE dane z GUS (pełna nazwa).
   const [company, setCompany] = useState<GusCompanyData | null>(null);
+  // Domyślnie skracamy formę prawną (sp. z o.o. itd.) w nazwie wstawianej do formularza.
+  const [shorten, setShortenState] = useState(true);
+
+  const onCompanyRef = useRef(options?.onCompany);
+  onCompanyRef.current = options?.onCompany;
+  const shortenRef = useRef(shorten);
+  shortenRef.current = shorten;
+  const companyRef = useRef<GusCompanyData | null>(null);
 
   const lookup = useCallback(async (nip: string): Promise<GusCompanyData | null> => {
     const clean = cleanNip(nip);
     setCompany(null);
+    companyRef.current = null;
 
     if (!/^\d{10}$/.test(clean)) {
       setError('NIP musi mieć 10 cyfr');
@@ -71,7 +107,10 @@ export function useGusLookup() {
       }
       const result = data.data as GusCompanyData;
       setCompany(result);
-      return result;
+      companyRef.current = result;
+      const variant = withNameVariant(result, shortenRef.current);
+      onCompanyRef.current?.(variant);
+      return variant;
     } catch (err) {
       console.error('gus-lookup error:', err);
       setError('Błąd połączenia z rejestrem GUS');
@@ -81,10 +120,19 @@ export function useGusLookup() {
     }
   }, []);
 
+  /** Przełączenie checkboxa PO lookupie re-emituje onCompany z podmienioną nazwą. */
+  const setShorten = useCallback((checked: boolean) => {
+    setShortenState(checked);
+    if (companyRef.current) {
+      onCompanyRef.current?.(withNameVariant(companyRef.current, checked));
+    }
+  }, []);
+
   const reset = useCallback(() => {
     setCompany(null);
+    companyRef.current = null;
     setError(null);
   }, []);
 
-  return { lookup, loading, error, company, reset };
+  return { lookup, loading, error, company, reset, shorten, setShorten };
 }

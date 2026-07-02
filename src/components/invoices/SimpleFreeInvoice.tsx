@@ -50,6 +50,7 @@ import { DiscountSection, DiscountConfig, calculateDiscount } from './DiscountSe
 import { AuthModal } from '@/components/auth/AuthModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { CorrectionInvoiceSection, CorrectionData } from './CorrectionInvoiceSection';
 import { normalizeInvoiceType } from '@/utils/invoiceTypeMapping';
 import { ksefTypeToUi } from './InvoiceTypeSelector';
@@ -292,45 +293,50 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // User's saved company
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
 
-  // NIP lookup for buyer (GUS REGON)
-  const { lookup: nipLookup, loading: nipLoading, company: nipCompany, reset: nipReset } = useGusLookup();
-
-  // NIP lookup for seller (GUS REGON)
-  const { lookup: sellerNipLookup, loading: sellerNipLoading, company: sellerNipCompany } = useGusLookup();
-
-  // Auto-fill buyer when NIP lookup succeeds
-  useEffect(() => {
-    if (nipCompany) {
+  // NIP lookup for buyer (GUS REGON) — fill przez onCompany, żeby checkbox
+  // „Skróć formę prawną" podmieniał nazwę także po lookupie
+  const { lookup: nipLookup, loading: nipLoading, reset: nipReset, shorten: buyerShorten, setShorten: setBuyerShorten } = useGusLookup({
+    onCompany: (c) => {
       setBuyer(prev => ({
         ...prev,
-        name: nipCompany.nazwa || prev.name,
-        nip: nipCompany.nip || prev.nip,
-        address_street: nipCompany.ulica || prev.address_street,
-        address_building_number: nipCompany.nr_domu || prev.address_building_number,
-        address_apartment_number: nipCompany.nr_lokalu || prev.address_apartment_number,
-        address_city: nipCompany.miasto || prev.address_city,
-        address_postal_code: nipCompany.kod_pocztowy || prev.address_postal_code,
+        name: c.nazwa || prev.name,
+        nip: c.nip || prev.nip,
+        address_street: c.ulica || prev.address_street,
+        address_building_number: c.nr_domu || prev.address_building_number,
+        address_apartment_number: c.nr_lokalu || prev.address_apartment_number,
+        address_city: c.miasto || prev.address_city,
+        address_postal_code: c.kod_pocztowy || prev.address_postal_code,
       }));
-      toast.success(`Znaleziono: ${nipCompany.nazwa}`);
-    }
-  }, [nipCompany]);
+    },
+  });
 
-  // Auto-fill seller when NIP lookup succeeds
-  useEffect(() => {
-    if (sellerNipCompany) {
+  // NIP lookup for seller (GUS REGON)
+  const { lookup: sellerNipLookup, loading: sellerNipLoading, shorten: sellerShorten, setShorten: setSellerShorten } = useGusLookup({
+    onCompany: (c) => {
       setSeller(prev => ({
         ...prev,
-        name: sellerNipCompany.nazwa || prev.name,
-        nip: sellerNipCompany.nip || prev.nip,
-        address_street: sellerNipCompany.ulica || prev.address_street,
-        address_building_number: sellerNipCompany.nr_domu || prev.address_building_number,
-        address_apartment_number: sellerNipCompany.nr_lokalu || prev.address_apartment_number,
-        address_city: sellerNipCompany.miasto || prev.address_city,
-        address_postal_code: sellerNipCompany.kod_pocztowy || prev.address_postal_code,
+        name: c.nazwa || prev.name,
+        nip: c.nip || prev.nip,
+        address_street: c.ulica || prev.address_street,
+        address_building_number: c.nr_domu || prev.address_building_number,
+        address_apartment_number: c.nr_lokalu || prev.address_apartment_number,
+        address_city: c.miasto || prev.address_city,
+        address_postal_code: c.kod_pocztowy || prev.address_postal_code,
       }));
-      toast.success(`Znaleziono: ${sellerNipCompany.nazwa}`);
-    }
-  }, [sellerNipCompany]);
+    },
+  });
+
+  const runBuyerLookup = (clean: string) => {
+    nipLookup(clean).then(c => {
+      if (c) toast.success(`Znaleziono: ${c.nazwa}`);
+    });
+  };
+
+  const runSellerLookup = (clean: string) => {
+    sellerNipLookup(clean).then(c => {
+      if (c) toast.success(`Znaleziono: ${c.nazwa}`);
+    });
+  };
 
   // Prefill items and buyer from workshop order
   useEffect(() => {
@@ -1514,34 +1520,37 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                   onChange={(e) => setSeller(prev => ({ ...prev, name: e.target.value }))}
                 />
               </div>
-              <div className="relative">
-                <FloatingInput
-                  label="NIP"
-                  required
-                  value={seller.nip}
-                  onChange={(e) => setSeller(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
-                  maxLength={10}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-12 w-10"
-                  onClick={() => {
-                    const clean = (seller.nip || '').replace(/\D/g, '');
-                    if (clean.length === 10) sellerNipLookup(clean);
-                    else toast.error('Wpisz 10-cyfrowy NIP');
-                  }}
-                  disabled={sellerNipLoading}
-                  title="Pobierz dane firmy z GUS"
-                >
-                  {sellerNipLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  ) : (
-                    <Search className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
+              <div>
+                <div className="relative">
+                  <FloatingInput
+                    label="NIP"
+                    required
+                    value={seller.nip}
+                    onChange={(e) => setSeller(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
+                    maxLength={10}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-12 w-10"
+                    onClick={() => {
+                      const clean = (seller.nip || '').replace(/\D/g, '');
+                      if (clean.length === 10) runSellerLookup(clean);
+                      else toast.error('Wpisz 10-cyfrowy NIP');
+                    }}
+                    disabled={sellerNipLoading}
+                    title="Pobierz dane firmy z GUS"
+                  >
+                    {sellerNipLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    ) : (
+                      <Search className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+                <ShortenLegalFormCheckbox checked={sellerShorten} onCheckedChange={setSellerShorten} className="mt-1" />
               </div>
               <div>
                 <FloatingInput
@@ -1604,41 +1613,44 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                 onChange={(e) => setBuyer(prev => ({ ...prev, name: e.target.value }))}
               />
             </div>
-            <div className="relative">
-              <FloatingInput
-                label="NIP (opcjonalnie)"
-                value={buyer.nip || ''}
-                onChange={(e) => {
-                  const clean = e.target.value.replace(/\D/g, '');
-                  setBuyer(prev => ({ ...prev, nip: clean }));
-                  if (clean.length === 10) {
-                    nipLookup(clean);
-                  } else {
-                    nipReset();
-                  }
-                }}
-                maxLength={10}
-                className="pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-12 w-10"
-                onClick={() => {
-                  const clean = (buyer.nip || '').replace(/\D/g, '');
-                  if (clean.length === 10) nipLookup(clean);
-                  else toast.error('Wpisz 10-cyfrowy NIP');
-                }}
-                disabled={nipLoading}
-                title="Wyszukaj firmę po NIP"
-              >
-                {nipLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                ) : (
-                  <Search className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
+            <div>
+              <div className="relative">
+                <FloatingInput
+                  label="NIP (opcjonalnie)"
+                  value={buyer.nip || ''}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/\D/g, '');
+                    setBuyer(prev => ({ ...prev, nip: clean }));
+                    if (clean.length === 10) {
+                      runBuyerLookup(clean);
+                    } else {
+                      nipReset();
+                    }
+                  }}
+                  maxLength={10}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-12 w-10"
+                  onClick={() => {
+                    const clean = (buyer.nip || '').replace(/\D/g, '');
+                    if (clean.length === 10) runBuyerLookup(clean);
+                    else toast.error('Wpisz 10-cyfrowy NIP');
+                  }}
+                  disabled={nipLoading}
+                  title="Wyszukaj firmę po NIP"
+                >
+                  {nipLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  ) : (
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              <ShortenLegalFormCheckbox checked={buyerShorten} onCheckedChange={setBuyerShorten} className="mt-1" />
             </div>
             <Popover>
               <PopoverTrigger asChild>

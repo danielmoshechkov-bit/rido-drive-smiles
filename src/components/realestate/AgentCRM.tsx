@@ -20,6 +20,7 @@ import {
   GripVertical, X, FileText, Send, Loader2
 } from "lucide-react";
 import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 
 interface AgentCRMProps {
   agentId: string;
@@ -146,7 +147,11 @@ export function AgentCRM({ agentId }: AgentCRMProps) {
     client_type: "kupujacy",
     notes: "",
   });
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setNewContact(p => ({ ...p, company: gus.nazwa, nip: gus.nip }));
+    },
+  });
 
   const fetchContactCompanyFromGus = async () => {
     const gus = await gusLookup(newContact.nip);
@@ -154,7 +159,6 @@ export function AgentCRM({ agentId }: AgentCRMProps) {
       toast.error("Nie znaleziono firmy w GUS");
       return;
     }
-    setNewContact(p => ({ ...p, company: gus.nazwa, nip: gus.nip }));
     toast.success("Dane firmy pobrane z GUS");
   };
 
@@ -690,6 +694,7 @@ export function AgentCRM({ agentId }: AgentCRMProps) {
                         {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
+                    <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
                   </div>
                 </div>
                 <div>

@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Save, Search, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { isValidNip } from '@/hooks/useGusLookup';
+import { useGusLookup, isValidNip } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 
 interface Contractor {
   id: string;
@@ -81,6 +82,16 @@ export function ContractorEditDialog({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const { lookup: gusLookup, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gusData) => setFormData((prev) => ({
+      ...prev,
+      name: gusData.nazwa || prev.name,
+      address_street: gusData.adres || prev.address_street,
+      address_city: gusData.miasto || prev.address_city,
+      address_postal_code: gusData.kod_pocztowy || prev.address_postal_code,
+    })),
+  });
+
   const searchGus = async () => {
     const cleanNip = formData.nip.replace(/[\s-]/g, '');
     if (!/^\d{10}$/.test(cleanNip)) {
@@ -93,32 +104,13 @@ export function ContractorEditDialog({
     }
 
     setSearchingGus(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('gus-lookup', {
-        body: { nip: cleanNip },
-      });
-
-      if (error) throw error;
-
-      if (data?.success && data?.data) {
-        const gusData = data.data;
-        setFormData((prev) => ({
-          ...prev,
-          name: gusData.nazwa || prev.name,
-          address_street: gusData.adres || prev.address_street,
-          address_city: gusData.miasto || prev.address_city,
-          address_postal_code: gusData.kod_pocztowy || prev.address_postal_code,
-        }));
-        toast.success('Pobrano dane z GUS');
-      } else {
-        toast.error(data?.error || 'Nie znaleziono w rejestrze GUS');
-      }
-    } catch (err) {
-      console.error('GUS search error:', err);
-      toast.error('Błąd wyszukiwania w GUS');
-    } finally {
-      setSearchingGus(false);
+    const gus = await gusLookup(cleanNip);
+    if (gus) {
+      toast.success('Pobrano dane z GUS');
+    } else {
+      toast.error('Nie znaleziono w rejestrze GUS');
     }
+    setSearchingGus(false);
   };
 
   const handleSave = async () => {
@@ -231,6 +223,7 @@ export function ContractorEditDialog({
             <p className="text-xs text-muted-foreground">
               Kliknij lupę, aby pobrać dane z rejestru GUS
             </p>
+            <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
           </div>
 
           {/* Address */}

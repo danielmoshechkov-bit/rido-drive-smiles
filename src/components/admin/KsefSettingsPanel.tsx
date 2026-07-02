@@ -16,6 +16,7 @@ import {
   AlertTriangle, Clock, ExternalLink, Save, Loader2, Search
 } from 'lucide-react';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 
 interface CompanySettings {
   id?: string;
@@ -192,7 +193,21 @@ export function KsefSettingsPanel() {
   };
 
   const update = (key: keyof CompanySettings, value: any) => setForm(f => ({ ...f, [key]: value }));
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setForm(f => ({
+        ...f,
+        company_name: gus.nazwa,
+        nip: gus.nip,
+        regon: gus.regon || f.regon,
+        street: gus.ulica || f.street,
+        building_number: gus.nr_domu || f.building_number,
+        apartment_number: gus.nr_lokalu || f.apartment_number,
+        postal_code: gus.kod_pocztowy || f.postal_code,
+        city: gus.miasto || f.city,
+      }));
+    },
+  });
 
   const fetchCompanyFromGus = async () => {
     const gus = await gusLookup(form.nip);
@@ -200,17 +215,6 @@ export function KsefSettingsPanel() {
       toast.error('Nie znaleziono firmy w GUS');
       return;
     }
-    setForm(f => ({
-      ...f,
-      company_name: gus.nazwa,
-      nip: gus.nip,
-      regon: gus.regon || f.regon,
-      street: gus.ulica || f.street,
-      building_number: gus.nr_domu || f.building_number,
-      apartment_number: gus.nr_lokalu || f.apartment_number,
-      postal_code: gus.kod_pocztowy || f.postal_code,
-      city: gus.miasto || f.city,
-    }));
     toast.success('Dane firmy pobrane z GUS');
   };
 
@@ -267,6 +271,7 @@ export function KsefSettingsPanel() {
                   {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 </Button>
               </div>
+              <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
             </div>
             <div>
               <Label>REGON</Label>

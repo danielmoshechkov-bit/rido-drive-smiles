@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Building2, Loader2, Save, Check, AlertCircle, CheckCircle2, ExternalLink, FileText, Shield, Banknote, CreditCard, Search } from "lucide-react";
 import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -178,7 +179,20 @@ export function DriverB2BProfile({ driverId }: DriverB2BProfileProps) {
     return sum % 11 === parseInt(nip[9]);
   };
 
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setProfileData(prev => ({
+        ...prev,
+        company_name: gus.nazwa,
+        nip: gus.nip,
+        regon: gus.regon || prev.regon,
+        address_street: gus.adres || prev.address_street,
+        address_postal_code: gus.kod_pocztowy || prev.address_postal_code,
+        address_city: gus.miasto || prev.address_city,
+      }));
+      setDirty(true);
+    },
+  });
 
   const handleFetchFromGus = async () => {
     const gus = await gusLookup(profileData.nip);
@@ -186,16 +200,6 @@ export function DriverB2BProfile({ driverId }: DriverB2BProfileProps) {
       toast.error("Nie znaleziono firmy w GUS");
       return;
     }
-    setProfileData(prev => ({
-      ...prev,
-      company_name: gus.nazwa,
-      nip: gus.nip,
-      regon: gus.regon || prev.regon,
-      address_street: gus.adres || prev.address_street,
-      address_postal_code: gus.kod_pocztowy || prev.address_postal_code,
-      address_city: gus.miasto || prev.address_city,
-    }));
-    setDirty(true);
     toast.success("Dane firmy pobrane z GUS");
   };
 
@@ -426,6 +430,7 @@ export function DriverB2BProfile({ driverId }: DriverB2BProfileProps) {
                 {verifyingNip ? <Loader2 className="h-3 w-3 animate-spin" /> : "Sprawdź"}
               </Button>
             </div>
+            <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
           </div>
 
           <div className="space-y-1.5">

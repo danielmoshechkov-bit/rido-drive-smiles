@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { useCreateWorkshopClient } from '@/hooks/useWorkshop';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { shortenCompanyName } from '@/utils/companyName';
 import { toast } from 'sonner';
 import { Users, Building, User, Loader2, Search } from 'lucide-react';
@@ -28,7 +29,22 @@ function formatPostalCode(value: string) {
 export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCreated }: Props) {
   const { t } = useTranslation();
   const create = useCreateWorkshopClient();
-  const { lookup: lookupNip, loading: nipLoading } = useGusLookup();
+  const { lookup: lookupNip, loading: nipLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (c) => {
+      setForm(prev => ({
+        ...prev,
+        company_name: c.nazwa || prev.company_name,
+        nip: c.nip || prev.nip,
+        street: c.ulica || prev.street,
+        house_number: c.nr_domu || prev.house_number,
+        apartment_number: c.nr_lokalu || prev.apartment_number,
+        city: c.miasto || prev.city,
+        postal_code: c.kod_pocztowy || prev.postal_code,
+      }));
+      const shortened = shortenCompanyName(c.nazwa || '');
+      setShortNameSuggestion(shortened && shortened !== (c.nazwa || '') ? shortened : null);
+    },
+  });
   const [clientType, setClientType] = useState<'individual' | 'company'>('individual');
   const [shortNameSuggestion, setShortNameSuggestion] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -52,18 +68,6 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
         toast.error(t('workshop.clients.companyNotFound'));
         return;
       }
-      setForm(prev => ({
-        ...prev,
-        company_name: c.nazwa || prev.company_name,
-        nip: c.nip || prev.nip,
-        street: c.ulica || prev.street,
-        house_number: c.nr_domu || prev.house_number,
-        apartment_number: c.nr_lokalu || prev.apartment_number,
-        city: c.miasto || prev.city,
-        postal_code: c.kod_pocztowy || prev.postal_code,
-      }));
-      const shortened = shortenCompanyName(c.nazwa || '');
-      setShortNameSuggestion(shortened && shortened !== (c.nazwa || '') ? shortened : null);
       toast.success(t('workshop.clients.companyDataFetched'));
     } catch {
       toast.error(t('workshop.clients.companyRegistryError'));
@@ -197,6 +201,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                       {nipLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
                   </div>
+                  <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                 </div>
               </div>
               {addressFields}

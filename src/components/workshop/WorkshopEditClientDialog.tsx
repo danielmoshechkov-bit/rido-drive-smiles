@@ -10,6 +10,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Users, Building, User, Loader2, Save, Search } from 'lucide-react';
 import { shortenCompanyName } from '@/utils/companyName';
+import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
@@ -97,23 +99,8 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
   const isCompany = clientType === 'company';
 
   // Same NIP → company-data lookup as the "Add client" form (gus-lookup edge function).
-  const handleNipLookup = async () => {
-    const cleanNip = form.nip.replace(/[\s-]/g, '');
-    if (cleanNip.length < 10) {
-      toast.error(t('workshop.clients.invalidNip'));
-      return;
-    }
-    setNipLoading(true);
-    try {
-      const { data, error: fnErr } = await supabase.functions.invoke('gus-lookup', {
-        body: { nip: cleanNip },
-      });
-      if (fnErr) throw fnErr;
-      if (!data?.success || !data?.data) {
-        toast.error(data?.error || t('workshop.clients.companyNotFound'));
-        return;
-      }
-      const c = data.data;
+  const { lookup: gusLookup, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (c) => {
       setForm(prev => ({
         ...prev,
         company_name: c.nazwa || prev.company_name,
@@ -126,6 +113,22 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
       }));
       const shortened = shortenCompanyName(c.nazwa || '');
       setShortNameSuggestion(shortened && shortened !== (c.nazwa || '') ? shortened : null);
+    },
+  });
+
+  const handleNipLookup = async () => {
+    const cleanNip = form.nip.replace(/[\s-]/g, '');
+    if (cleanNip.length < 10) {
+      toast.error(t('workshop.clients.invalidNip'));
+      return;
+    }
+    setNipLoading(true);
+    try {
+      const c = await gusLookup(cleanNip);
+      if (!c) {
+        toast.error(t('workshop.clients.companyNotFound'));
+        return;
+      }
       toast.success(t('workshop.clients.companyDataFetched'));
     } catch {
       toast.error(t('workshop.clients.companyRegistryError'));
@@ -228,6 +231,7 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
                       {nipLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
                   </div>
+                  <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
                 </div>
               </div>
               <div className="border-t pt-4">

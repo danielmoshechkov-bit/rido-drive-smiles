@@ -22,6 +22,7 @@ import {
   Search
 } from "lucide-react";
 import { useGusLookup, GusCompanyData } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { AccountSettingsTab } from "./AccountSettingsTab";
 import { formatPostalCode } from "@/utils/formatters";
 
@@ -153,8 +154,6 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
     return addr;
   };
 
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
-
   const legalFormFromGus = (gus: GusCompanyData): string => {
     if (gus.typ_podmiotu === 'fizyczna') return 'jdg';
     const forma = (gus.forma_prawna || '').toUpperCase();
@@ -165,24 +164,29 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
     return 'other';
   };
 
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setCompanyData(p => ({
+        ...p,
+        name: gus.nazwa || p.name,
+        nip: gus.nip,
+        krs: gus.krs || p.krs,
+        legal_form: legalFormFromGus(gus),
+        street: gus.ulica || p.street,
+        building_number: gus.nr_domu || p.building_number,
+        apartment_number: gus.nr_lokalu || p.apartment_number,
+        postal_code: gus.kod_pocztowy || p.postal_code,
+        city: gus.miasto || p.city,
+      }));
+    },
+  });
+
   const fetchCompanyFromGus = async () => {
     const gus = await gusLookup(companyData.nip);
     if (!gus) {
       toast.error('Nie znaleziono firmy w GUS');
       return;
     }
-    setCompanyData(p => ({
-      ...p,
-      name: gus.nazwa || p.name,
-      nip: gus.nip,
-      krs: gus.krs || p.krs,
-      legal_form: legalFormFromGus(gus),
-      street: gus.ulica || p.street,
-      building_number: gus.nr_domu || p.building_number,
-      apartment_number: gus.nr_lokalu || p.apartment_number,
-      postal_code: gus.kod_pocztowy || p.postal_code,
-      city: gus.miasto || p.city,
-    }));
     toast.success('Dane firmy pobrane z GUS');
   };
 
@@ -416,6 +420,7 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
                       {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
                   </div>
+                  <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                 </div>
                 <div className="space-y-2">
                   <Label>Forma prawna</Label>

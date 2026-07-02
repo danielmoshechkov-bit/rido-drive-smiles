@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 
 export interface ExtractionData {
   invoice_number: string | null;
@@ -82,7 +83,19 @@ export function AIExtractionPanel({
 }: AIExtractionPanelProps) {
   const [editMode, setEditMode] = useState(false);
   const [editedData, setEditedData] = useState<ExtractionData>(extraction);
-  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setEditedData(prev => ({
+        ...prev,
+        supplier: {
+          ...prev.supplier,
+          name: gus.nazwa,
+          nip: gus.nip,
+          address: [gus.adres, [gus.kod_pocztowy, gus.miasto].filter(Boolean).join(' ')].filter(Boolean).join(', '),
+        },
+      }));
+    },
+  });
 
   const fetchSupplierFromGus = async () => {
     const gus = await gusLookup(editedData.supplier?.nip || '');
@@ -90,15 +103,6 @@ export function AIExtractionPanel({
       toast.error('Nie znaleziono firmy w GUS');
       return;
     }
-    setEditedData(prev => ({
-      ...prev,
-      supplier: {
-        ...prev.supplier,
-        name: gus.nazwa,
-        nip: gus.nip,
-        address: [gus.adres, [gus.kod_pocztowy, gus.miasto].filter(Boolean).join(' ')].filter(Boolean).join(', '),
-      },
-    }));
     toast.success('Dane dostawcy pobrane z GUS');
   };
 
@@ -263,6 +267,7 @@ export function AIExtractionPanel({
                     onChange={(e) => handleFieldChange('supplier.address', e.target.value)}
                     className="h-8 text-sm"
                   />
+                  <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1 col-span-2" />
                 </div>
               </>
             ) : (
