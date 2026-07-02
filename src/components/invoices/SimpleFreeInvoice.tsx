@@ -797,7 +797,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
     };
   };
 
-  const handleSave = async (asDraft?: boolean) => {
+  const handleSave = async (asDraft?: boolean, skipOnSaved?: boolean) => {
     try {
       // Use getSession() to get the user ID from the current auth token
       // This ensures the user_id matches auth.uid() in RLS policies
@@ -1077,7 +1077,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         }
       }
 
-      onSaved?.();
+      // Przy wystawianiu pomijamy onSaved, żeby rodzic nie zamknął dialogu
+      // formularza (i tym samym modalu podglądu) — zamknięcie/odświeżenie robimy
+      // dopiero gdy user zamknie podgląd. Dla szkicu/edycji: onSaved jak dotąd.
+      if (!skipOnSaved) onSaved?.();
       return resultInvoiceId; // Return saved invoice ID
     } catch (err) {
       console.error('Error saving invoice:', err);
@@ -1138,7 +1141,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
 
     setIsIssuing(true);
     try {
-      const savedId = await handleSave();
+      const savedId = await handleSave(false, true); // skipOnSaved — modal podglądu ma zostać
       setInvoiceIssued(true);
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
@@ -1163,7 +1166,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             } else {
               toast.success(data.message || 'Faktura wysłana do KSeF');
             }
-            onSaved?.();
+            // Bez onSaved tutaj — modal podglądu ma zostać; odświeżenie po zamknięciu podglądu.
           }
         } catch (ksefErr: any) {
           toast.error('Błąd KSeF: ' + ksefErr.message);
@@ -2225,7 +2228,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       {/* Preview Modal - shows after invoice is issued */}
       <InvoicePreviewModal
         open={showPreview}
-        onOpenChange={setShowPreview}
+        onOpenChange={(o) => {
+          setShowPreview(o);
+          // Po zamknięciu podglądu WYSTAWIONEJ faktury: dopiero teraz zamknij
+          // formularz i odśwież listę (wcześniej pominięte, by modal został).
+          if (!o && invoiceIssued) onSaved?.();
+        }}
         invoiceData={getInvoiceData()}
         isLoggedIn={isLoggedIn}
         onSave={undefined} // No save needed - already saved
