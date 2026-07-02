@@ -31,19 +31,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  Phone, 
-  Building, 
-  Users, 
-  Settings, 
-  Plus, 
-  Trash2, 
+import {
+  Phone,
+  Building,
+  Users,
+  Settings,
+  Plus,
+  Trash2,
   Loader2,
   Power,
   Key,
   Globe,
-  AlertCircle
+  AlertCircle,
+  Search
 } from "lucide-react";
+import { toast } from "sonner";
+import { useGusLookup } from "@/hooks/useGusLookup";
 import {
   useAICallCompanyWhitelist,
   useAICallUserWhitelist,
@@ -74,6 +77,18 @@ export function AICallAdminPanel() {
   const [newCompanyName, setNewCompanyName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newNotes, setNewNotes] = useState("");
+  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+
+  const fetchCompanyFromGus = async () => {
+    const gus = await gusLookup(newNip);
+    if (!gus) {
+      toast.error("Nie znaleziono firmy w GUS");
+      return;
+    }
+    setNewNip(gus.nip);
+    setNewCompanyName(gus.nazwa);
+    toast.success("Dane firmy pobrane z GUS");
+  };
 
   // Queries
   const { data: companies = [], isLoading: companiesLoading } = useAICallCompanyWhitelist();
@@ -235,11 +250,24 @@ export function AICallAdminPanel() {
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
                         <Label>NIP *</Label>
-                        <Input
-                          placeholder="np. 5223252793"
-                          value={newNip}
-                          onChange={(e) => setNewNip(e.target.value)}
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="np. 5223252793"
+                            value={newNip}
+                            onChange={(e) => setNewNip(e.target.value)}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="shrink-0"
+                            onClick={fetchCompanyFromGus}
+                            disabled={gusLoading || newNip.replace(/\D/g, "").length < 10}
+                            title="Pobierz dane firmy z GUS"
+                          >
+                            {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                          </Button>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <Label>Nazwa firmy (opcjonalnie)</Label>

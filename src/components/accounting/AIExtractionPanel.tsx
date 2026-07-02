@@ -15,16 +15,19 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   Edit2, 
-  Save, 
+  Save,
   X,
   Building2,
   Receipt,
   Calendar,
   Banknote,
   Percent,
-  FileText
+  FileText,
+  Search,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useGusLookup } from '@/hooks/useGusLookup';
 
 export interface ExtractionData {
   invoice_number: string | null;
@@ -79,6 +82,25 @@ export function AIExtractionPanel({
 }: AIExtractionPanelProps) {
   const [editMode, setEditMode] = useState(false);
   const [editedData, setEditedData] = useState<ExtractionData>(extraction);
+  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+
+  const fetchSupplierFromGus = async () => {
+    const gus = await gusLookup(editedData.supplier?.nip || '');
+    if (!gus) {
+      toast.error('Nie znaleziono firmy w GUS');
+      return;
+    }
+    setEditedData(prev => ({
+      ...prev,
+      supplier: {
+        ...prev.supplier,
+        name: gus.nazwa,
+        nip: gus.nip,
+        address: [gus.adres, [gus.kod_pocztowy, gus.miasto].filter(Boolean).join(' ')].filter(Boolean).join(', '),
+      },
+    }));
+    toast.success('Dane dostawcy pobrane z GUS');
+  };
 
   const confidencePercent = Math.round((extraction.confidence || 0) * 100);
   const isHighConfidence = confidencePercent >= 80;
@@ -216,12 +238,25 @@ export function AIExtractionPanel({
                   className="h-8 text-sm"
                 />
                 <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    placeholder="NIP"
-                    value={editedData.supplier?.nip || ''}
-                    onChange={(e) => handleFieldChange('supplier.nip', e.target.value)}
-                    className="h-8 text-sm"
-                  />
+                  <div className="flex gap-1">
+                    <Input
+                      placeholder="NIP"
+                      value={editedData.supplier?.nip || ''}
+                      onChange={(e) => handleFieldChange('supplier.nip', e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={fetchSupplierFromGus}
+                      disabled={gusLoading || (editedData.supplier?.nip || '').replace(/\D/g, '').length < 10}
+                      title="Pobierz dane firmy z GUS"
+                    >
+                      {gusLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                    </Button>
+                  </div>
                   <Input
                     placeholder="Adres"
                     value={editedData.supplier?.address || ''}
