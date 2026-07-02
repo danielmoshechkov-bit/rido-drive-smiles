@@ -770,18 +770,21 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .seller-brand-name { font-size: 26px; font-weight: 700; color: ${themeColor}; line-height: 1.2; letter-spacing: 0.5px; text-align: center; }
     .seller-brand-addr { font-size: 9px; color: #333; margin-top: 2px; line-height: 1.3; }
     .invoice-title { display: table-cell; vertical-align: top; text-align: right; }
-    .invoice-title h1 { font-size: ${titleFontSize}; color: #222; margin-bottom: 2px; }
-    .invoice-title h1 .invoice-number { color: ${themeColor}; }
-    .invoice-dates { font-size: 11px; color: #333; text-align: right; margin-top: 3px; line-height: 1.25; }
-    .invoice-dates-row { margin-bottom: 1px; }
+    /* Zwarta lista w prawym górnym rogu — osobne divy z małymi marginesami i
+       line-height 1.0 (Dompdf pewniej respektuje margin niż line-height na <br>). */
+    .inv-title-main { font-size: ${titleFontSize}; font-weight: 700; color: #222; line-height: 16px; margin: 0; }
+    .inv-title-num { font-size: 16px; font-weight: 700; color: ${themeColor}; line-height: 13px; margin-top: -5px; }
+    .invoice-dates { font-size: 11px; color: #333; text-align: right; margin-top: -3px; line-height: 11px; }
+    .invoice-dates-row { margin-bottom: -2px; }
     .invoice-dates-label { color: #555; }
     .parties { display: table; width: 100%; margin-bottom: 4px; }
-    .party { display: table-cell; vertical-align: top; padding-right: 10px; }
-    .party.buyer { padding-right: 0; padding-left: 6px; }
+    .party { display: table-cell; vertical-align: top; padding-right: 16px; }
+    .party.buyer { padding-right: 0; padding-left: 16px; }
     .party-label { font-size: 10px; color: #7c3aed; text-transform: uppercase; margin-bottom: 2px; font-weight: 700; }
     .party-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; color: #111; }
-    .party-details { font-size: 9px; color: #6b7280; line-height: 1.45; }
-    .party-contact { font-size: 11px; color: #4b5563; }
+    .party-details { font-size: 11px; color: #333; line-height: 1.4; }
+    .party-details .lbl { color: #555; }
+    .party-contact { font-size: 11px; color: #333; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
     th { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 4px 4px; text-align: center; vertical-align: middle; font-size: 11px; font-weight: 600; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     th:first-child { border-radius: 6px 0 0 0; }
@@ -803,7 +806,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .payment-value { font-weight: 500; }
     .notes { margin-bottom: 4px; padding: 4px 11px; background: #f8f5ff; border: 1px solid #ede9fe; border-radius: 6px; font-size: 10px; }
     .notes-label { font-size: 9px; color: ${themeColor}; text-transform: uppercase; margin-bottom: 1px; font-weight: 700; letter-spacing: 0.04em; }
-    .footer { display: table; width: 100%; margin-top: 12px; }
+    .footer { display: table; width: 100%; margin-top: 36px; }
     .signature { display: table-cell; width: 50%; text-align: center; padding: 0 30px; }
     .signature-line { border-top: 1px solid #333; margin-top: 8px; padding-top: 3px; font-size: 9px; color: #666; }
      /* Znak wodny — przezroczysty, powtarzany NA CAŁEJ stronie, na wierzchu treści,
@@ -865,7 +868,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   })()}
   <div class="invoice content-layer">
     <div class="top-meta">
-      ${formatDate(invoice.issue_date)}
+      ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
     </div>
 
     <div class="header">
@@ -875,7 +878,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           : `<div class="seller-brand"><div class="seller-brand-name">${seller.short_name || seller.name || ''}</div></div>`}
       </div>
       <div class="invoice-title">
-        <h1 style="color: #333;">${invoiceTitle}<br><span style="color: ${themeColor};">${invoice.invoice_number}</span></h1>
+        <div class="inv-title-main">${invoiceTitle}</div>
+        <div class="inv-title-num">${invoice.invoice_number}</div>
         ${isCorrection && invoice.correction_data ? `
         <div style="font-size: 9px; color: #555; margin-top: 4px;">
           <div>do faktury nr: <strong>${invoice.correction_data.original_invoice_number}</strong></div>
@@ -912,7 +916,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </div>` : ''}
 
     <div class="parties">
-      <div class="party" style="width: 44%;">
+      <div class="party" style="width: 50%;">
         <div class="party-label">${isVatRR ? 'Nabywca (kupujący)' : 'Sprzedawca'}</div>
         <div class="party-name">${seller.name || ''}</div>
         <div class="party-details">
@@ -922,7 +926,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           ${seller.website ? `<br><span class="party-contact">${seller.website}</span>` : ''}
         </div>
       </div>
-      <div class="party buyer" style="width: 56%;">
+      <div class="party buyer" style="width: 50%;">
         <div class="party-label">${isVatRR ? 'Dostawca (rolnik ryczałtowy)' : 'Nabywca'}</div>
         ${isSimplified && buyer.nip && !buyer.name ? `
         <div class="party-name">NIP nabywcy: ${buyer.nip}</div>
@@ -1129,7 +1133,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           <td class="ksef-box-qr">
             <img class="ksef-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(verificationUrl)}" alt="Kod QR KSeF" style="width: 70px; height: 70px;" />
           </td>
-          <td class="ksef-box-text" style="font-size: 11px; color: #6b7280;">
+          <td class="ksef-box-text" style="font-size: 11px; color: #333;">
             <div class="ksef-box-title">Faktura w KSeF</div>
             <div class="ksef-box-line"><strong>Numer KSeF:</strong> ${invoice.ksef_reference}</div>
             ${invoice.ksef_acceptance_date ? `<div class="ksef-box-line"><strong>Data przyjęcia:</strong> ${formatDate(invoice.ksef_acceptance_date)}</div>` : ''}
