@@ -127,10 +127,22 @@ export const formatDate = (dateStr: string): string => {
   return new Date(dateStr).toLocaleDateString('pl-PL');
 };
 
-// Numer konta / IBAN w grupach po 4 znaki: "PL1234..." -> "PL12 3456 7890 ..."
+// Numer konta / IBAN w polskim formacie.
+// - IBAN z kodem kraju (np. "PL61..."): grupy po 4 od początku -> "PL61 1090 1014 ..."
+// - polski NRB (same cyfry, 26): 2 cyfry kontrolne + grupy po 4 -> "19 2030 0074 5996 ..."
 export const formatIban = (value?: string): string => {
   if (!value) return '';
-  const compact = value.replace(/\s+/g, '');
+  const compact = value.replace(/\s+/g, '').toUpperCase();
+  if (/^[A-Z]{2}\d/.test(compact)) {
+    // IBAN (kod kraju + cyfry) — grupy po 4 od początku
+    return compact.replace(/(.{4})/g, '$1 ').trim();
+  }
+  if (/^\d+$/.test(compact)) {
+    // NRB — pierwsze 2 cyfry, potem grupy po 4
+    const head = compact.slice(0, 2);
+    const rest = compact.slice(2).replace(/(.{4})/g, '$1 ').trim();
+    return rest ? `${head} ${rest}` : head;
+  }
   return compact.replace(/(.{4})/g, '$1 ').trim();
 };
 

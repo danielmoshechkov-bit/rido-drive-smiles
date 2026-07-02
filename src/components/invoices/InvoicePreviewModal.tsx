@@ -62,6 +62,11 @@ export function InvoicePreviewModal({
   const [pendingAction, setPendingAction] = useState<'save' | 'send' | null>(null);
   const [iframeHeight, setIframeHeight] = useState(1120);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Podgląd = ten sam PDF co pobranie/mail (render przez endpoint Dompdf).
+  // Gdy endpoint niedostępny (np. dev bez PHP) → fallback na podgląd HTML.
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [previewPdfBase64, setPreviewPdfBase64] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const syncIframeHeight = () => {
     const iframe = iframeRef.current;
@@ -92,13 +97,52 @@ export function InvoicePreviewModal({
     }
   }, [open, invoiceData]);
 
+  // Po otwarciu: wyrenderuj PDF przez endpoint (ten sam plik co „PDF"/„Email").
+  // Podgląd pokazuje realny PDF, więc jest 1:1 z pobranym/wysłanym. base64 zostaje
+  // zapamiętany — przycisk „PDF" pobiera go bez ponownego renderu (i bez fallbacku).
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setPreviewLoading(true);
+    setPreviewPdfUrl(null);
+    setPreviewPdfBase64(null);
+    (async () => {
+      try {
+        const data = await withEmbeddedLogo(invoiceData);
+        const html = generateInvoiceHtml(data);
+        const base64 = await renderInvoicePdf(html);
+        if (cancelled) return;
+        if (base64) {
+          const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+          objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+          setPreviewPdfBase64(base64);
+          setPreviewPdfUrl(objectUrl);
+        }
+      } catch {
+        /* endpoint niedostępny → zostaje podgląd HTML */
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [open, invoiceData]);
+
   const handleDownloadPdf = async () => {
-    // Osadź logo sprzedawcy jako data-URI — render niezależny od plików na serwerze
-    // (tak samo jak maskotka). Gdy brak/niedostępne → generator pokaże ostylowany box.
-    const data = await withEmbeddedLogo(invoiceData);
-    const html = generateInvoiceHtml(data);
-    // Najpierw serwerowy render (ten sam co mail) → „Pobierz" i „Wyślij" identyczne.
-    const base64 = await renderInvoicePdf(html);
+    // Jeśli podgląd już wyrenderował PDF — pobierz dokładnie ten sam plik.
+    let base64 = previewPdfBase64;
+    let html = '';
+    if (!base64) {
+      // Osadź logo sprzedawcy jako data-URI — render niezależny od plików na serwerze
+      // (tak samo jak maskotka). Gdy brak/niedostępne → generator pokaże ostylowany box.
+      const data = await withEmbeddedLogo(invoiceData);
+      html = generateInvoiceHtml(data);
+      // Serwerowy render (ten sam co mail) → „Pobierz" i „Wyślij" identyczne.
+      base64 = await renderInvoicePdf(html);
+    }
     if (base64) {
       const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
@@ -252,22 +296,35 @@ export function InvoicePreviewModal({
             </div>
           )}
 
-          {/* Invoice Preview - single scrollbar only */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/50 p-2 md:p-4">
-            <div 
-              className="mx-auto bg-white shadow-xl rounded-lg w-full"
-            >
+          {/* Podgląd = realny PDF z endpointu Dompdf (1:1 z „PDF"/„Email").
+              Fallback (endpoint niedostępny, np. dev bez PHP): podgląd HTML. */}
+          <div className="flex-1 overflow-hidden bg-muted/50 p-2 md:p-4">
+            {previewLoading ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" /> Generowanie podglądu…
+              </div>
+            ) : previewPdfUrl ? (
               <iframe
-                ref={iframeRef}
-                className="w-full border-0 block"
-                style={{ height: `${iframeHeight}px`, overflow: 'hidden' }}
-                title="Podgląd faktury"
-                sandbox="allow-same-origin"
-                scrolling="no"
-                onLoad={syncIframeHeight}
-                srcDoc={open ? generateInvoiceHtml(invoiceData) : ''}
+                src={previewPdfUrl}
+                className="w-full h-full border-0 rounded-lg bg-white"
+                title="Podgląd faktury (PDF)"
               />
-            </div>
+            ) : (
+              <div className="h-full overflow-y-auto overflow-x-hidden">
+                <div className="mx-auto bg-white shadow-xl rounded-lg w-full">
+                  <iframe
+                    ref={iframeRef}
+                    className="w-full border-0 block"
+                    style={{ height: `${iframeHeight}px`, overflow: 'hidden' }}
+                    title="Podgląd faktury"
+                    sandbox="allow-same-origin"
+                    scrolling="no"
+                    onLoad={syncIframeHeight}
+                    srcDoc={open ? generateInvoiceHtml(invoiceData) : ''}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
