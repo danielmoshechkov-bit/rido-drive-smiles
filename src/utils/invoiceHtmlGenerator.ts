@@ -664,26 +664,26 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px;">
         <thead>
           <tr class="vat-header" style="background-color: ${themeColor} !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-            <th style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Stawka</th>
-            <th style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Netto</th>
-            <th style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">VAT</th>
-            <th style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Brutto</th>
+            <th style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Stawka</th>
+            <th style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Netto</th>
+            <th style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">VAT</th>
+            <th style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Brutto</th>
           </tr>
         </thead>
         <tbody>
           ${Object.entries(vatSummary).map(([rate, amounts]) => `
             <tr style="background-color: ${themeColorLight};">
-              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333; font-weight: 600;">${rate}%</td>
-              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${formatCurrency(amounts.net, currency)}</td>
-              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${formatCurrency(amounts.vat, currency)}</td>
-              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333; font-weight: 600;">${formatCurrency(amounts.gross, currency)}</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; color: #333; font-weight: 600;">${rate}%</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; color: #333;">${formatCurrency(amounts.net, currency)}</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; color: #333;">${formatCurrency(amounts.vat, currency)}</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; color: #333; font-weight: 600;">${formatCurrency(amounts.gross, currency)}</td>
             </tr>
           `).join('')}
           <tr style="border-top: 2px solid ${themeColor}; background-color: ${themeColorBorder};">
-            <td style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 700; color: ${themeColor};">Razem:</td>
-            <td style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(netTotal, currency)}</td>
-            <td style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(vatTotal, currency)}</td>
-            <td style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 700; color: ${themeColor};">${formatCurrency(grossTotal, currency)}</td>
+            <td style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; font-weight: 700; color: ${themeColor};">Razem:</td>
+            <td style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; font-weight: 700; color: #333;">${formatCurrency(netTotal, currency)}</td>
+            <td style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; font-weight: 700; color: #333;">${formatCurrency(vatTotal, currency)}</td>
+            <td style="width: 25%; padding: 2px 6px; text-align: center; vertical-align: middle; font-weight: 700; color: ${themeColor};">${formatCurrency(grossTotal, currency)}</td>
           </tr>
         </tbody>
       </table>
@@ -774,8 +774,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
        line-height 1.0 (Dompdf pewniej respektuje margin niż line-height na <br>). */
     .inv-title-main { font-size: ${titleFontSize}; font-weight: 700; color: #222; line-height: 16px; margin: 0; }
     .inv-title-num { font-size: 16px; font-weight: 700; color: ${themeColor}; line-height: 13px; margin-top: 2px; }
-    .invoice-dates { font-size: 11px; color: #333; text-align: right; margin-top: -3px; line-height: 11px; }
-    .invoice-dates-row { margin-bottom: -2px; }
+    .invoice-dates { font-size: 11px; color: #333; text-align: right; margin-top: 4px; line-height: 11px; }
+    .invoice-dates-row { margin-bottom: -3px; }
     .invoice-dates-label { color: #555; }
     .parties { display: table; width: 100%; margin-bottom: 4px; }
     .party { display: table-cell; vertical-align: top; padding-right: 16px; }
@@ -1006,7 +1006,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <thead>
         <tr>
           <th style="width: 22px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Lp.</th>
-          <th style="text-align: left; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">${isAdvance ? 'Opis zaliczki' : 'Nazwa towaru / usługi'}</th>
+          <th style="text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">${isAdvance ? 'Opis zaliczki' : 'Nazwa towaru / usługi'}</th>
           <th style="width: 32px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Jm.</th>
           <th style="width: 35px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Ilość</th>
           <th style="width: 55px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Cena<br>netto</th>
