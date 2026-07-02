@@ -49,8 +49,10 @@ import {
   LayoutDashboard, Wrench, Calendar, ClipboardList, Settings, Phone,
   Users, Clock, Star, Globe, Bot, Hammer, Plus, Trash2, Edit, Save, Image,
   Upload, X, ImageIcon, Briefcase, MoreHorizontal, Calculator, ChevronDown,
-  Megaphone, Target, ShieldCheck, AlertCircle, CheckCircle2, MessageSquare
+  Megaphone, Target, ShieldCheck, AlertCircle, CheckCircle2, MessageSquare,
+  Search, Loader2
 } from 'lucide-react';
+import { useGusLookup } from '@/hooks/useGusLookup';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
@@ -141,6 +143,25 @@ export default function ServiceProviderDashboard() {
   const [providerStatus, setProviderStatus] = useState<string | null>(null);
   const [activationDialog, setActivationDialog] = useState(false);
   const [activationForm, setActivationForm] = useState<ActivationFormState>(EMPTY_ACTIVATION_FORM);
+  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+
+  const fetchActivationFromGus = async () => {
+    const gus = await gusLookup(activationForm.company_nip);
+    if (!gus) {
+      toast.error('Nie znaleziono firmy w GUS');
+      return;
+    }
+    setActivationForm(p => ({
+      ...p,
+      company_name: gus.nazwa,
+      company_nip: gus.nip,
+      company_address: gus.adres || p.company_address,
+      company_city: gus.miasto || p.company_city,
+      company_postal_code: gus.kod_pocztowy || p.company_postal_code,
+      short_name: p.short_name || gus.nazwa_skrocona || '',
+    }));
+    toast.success('Dane firmy pobrane z GUS');
+  };
   const [serviceCategories, setServiceCategories] = useState<any[]>([]);
   const [activationSaving, setActivationSaving] = useState(false);
   const [generatingDescription, setGeneratingDescription] = useState(false);
@@ -1147,7 +1168,20 @@ export default function ServiceProviderDashboard() {
                   </div>
                   <div className="space-y-2">
                     <Label>{t('sp.activation.nip')}</Label>
-                    <Input value={activationForm.company_nip} onChange={e => setActivationForm(p => ({ ...p, company_nip: e.target.value }))} placeholder="1234567890" />
+                    <div className="flex gap-2">
+                      <Input value={activationForm.company_nip} onChange={e => setActivationForm(p => ({ ...p, company_nip: e.target.value }))} placeholder="1234567890" />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={fetchActivationFromGus}
+                        disabled={gusLoading || activationForm.company_nip.replace(/\D/g, '').length < 10}
+                        title="Pobierz dane firmy z GUS"
+                      >
+                        {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>{t('sp.activation.companyLogo')}</Label>

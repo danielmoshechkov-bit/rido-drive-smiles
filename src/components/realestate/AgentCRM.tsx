@@ -14,11 +14,12 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  Plus, Home, Users, Search, Calendar, BarChart3, 
+  Plus, Home, Users, Search, Calendar, BarChart3,
   Sparkles, Trash2, Edit, Phone, Mail, MapPin,
   Building2, Eye, TrendingUp, Target, ArrowRight,
-  GripVertical, X, FileText, Send
+  GripVertical, X, FileText, Send, Loader2
 } from "lucide-react";
+import { useGusLookup } from "@/hooks/useGusLookup";
 
 interface AgentCRMProps {
   agentId: string;
@@ -145,6 +146,17 @@ export function AgentCRM({ agentId }: AgentCRMProps) {
     client_type: "kupujacy",
     notes: "",
   });
+  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+
+  const fetchContactCompanyFromGus = async () => {
+    const gus = await gusLookup(newContact.nip);
+    if (!gus) {
+      toast.error("Nie znaleziono firmy w GUS");
+      return;
+    }
+    setNewContact(p => ({ ...p, company: gus.nazwa, nip: gus.nip }));
+    toast.success("Dane firmy pobrane z GUS");
+  };
 
   useEffect(() => {
     fetchData();
@@ -664,7 +676,20 @@ export function AgentCRM({ agentId }: AgentCRMProps) {
                   </div>
                   <div>
                     <Label>NIP</Label>
-                    <Input value={newContact.nip} onChange={e => setNewContact(p => ({ ...p, nip: e.target.value }))} />
+                    <div className="flex gap-1">
+                      <Input value={newContact.nip} onChange={e => setNewContact(p => ({ ...p, nip: e.target.value }))} />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={fetchContactCompanyFromGus}
+                        disabled={gusLoading || newContact.nip.replace(/\D/g, "").length < 10}
+                        title="Pobierz dane firmy z GUS"
+                      >
+                        {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <div>

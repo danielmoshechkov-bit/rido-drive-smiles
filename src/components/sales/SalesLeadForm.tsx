@@ -27,7 +27,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCreateSalesLead, useSalesCategories } from "@/hooks/useSalesLeads";
-import { Loader2, Building, Phone, Mail, MapPin, Globe, FileText } from "lucide-react";
+import { useGusLookup } from "@/hooks/useGusLookup";
+import { toast } from "sonner";
+import { Loader2, Building, Phone, Mail, MapPin, Globe, FileText, Search } from "lucide-react";
 
 const leadSchema = z.object({
   category_id: z.string().min(1, "Wybierz kategorię"),
@@ -52,6 +54,7 @@ interface SalesLeadFormProps {
 export function SalesLeadForm({ open, onOpenChange, defaultCategory }: SalesLeadFormProps) {
   const { data: categories } = useSalesCategories();
   const createLead = useCreateSalesLead();
+  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
   
   const defaultCategoryId = categories?.find(c => c.slug === defaultCategory)?.id || "";
   
@@ -206,9 +209,33 @@ export function SalesLeadForm({ open, onOpenChange, defaultCategory }: SalesLead
                   <FormItem>
                     <FormLabel>NIP</FormLabel>
                     <FormControl>
-                      <div className="relative">
-                        <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input {...field} className="pl-9" placeholder="1234567890" />
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input {...field} className="pl-9" placeholder="1234567890" />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={async () => {
+                            const gus = await gusLookup(field.value || "");
+                            if (!gus) {
+                              toast.error("Nie znaleziono firmy w GUS");
+                              return;
+                            }
+                            form.setValue("company_name", gus.nazwa, { shouldValidate: true });
+                            form.setValue("nip", gus.nip);
+                            if (gus.miasto) form.setValue("city", gus.miasto);
+                            if (gus.adres) form.setValue("address", gus.adres);
+                            toast.success("Dane firmy pobrane z GUS");
+                          }}
+                          disabled={gusLoading || (field.value || "").replace(/\D/g, "").length < 10}
+                          title="Pobierz dane firmy z GUS"
+                        >
+                          {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        </Button>
                       </div>
                     </FormControl>
                     <FormMessage />

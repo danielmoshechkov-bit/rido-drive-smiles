@@ -8,7 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Building2, User, Upload, Camera, CheckCircle, Shield, ArrowLeft, Loader2 } from "lucide-react";
+import { Building2, User, Upload, Camera, CheckCircle, Shield, ArrowLeft, Loader2, Search } from "lucide-react";
+import { useGusLookup } from "@/hooks/useGusLookup";
 import { cn } from "@/lib/utils";
 
 interface ServiceRegistrationModalProps {
@@ -32,6 +33,27 @@ export function ServiceRegistrationModal({ open, onOpenChange, user }: ServiceRe
     ownerFirstName: '', ownerLastName: '', ownerPhone: '', ownerEmail: '',
     serviceType: '', description: ''
   });
+
+  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+
+  const fetchBizFromGus = async () => {
+    const gus = await gusLookup(bizForm.nip);
+    if (!gus) {
+      toast.error('Nie znaleziono firmy w GUS');
+      return;
+    }
+    setBizForm(prev => ({
+      ...prev,
+      companyName: gus.nazwa,
+      nip: gus.nip,
+      regon: gus.regon || prev.regon,
+      krs: gus.krs || prev.krs,
+      address: gus.adres || prev.address,
+      city: gus.miasto || prev.city,
+      postalCode: gus.kod_pocztowy || prev.postalCode,
+    }));
+    toast.success('Dane firmy pobrane z GUS');
+  };
 
   // Private form
   const [privForm, setPrivForm] = useState({
@@ -272,7 +294,20 @@ export function ServiceRegistrationModal({ open, onOpenChange, user }: ServiceRe
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>NIP *</Label>
-                  <Input value={bizForm.nip} onChange={e => setBizForm({...bizForm, nip: e.target.value})} placeholder="1234567890" required />
+                  <div className="flex gap-1">
+                    <Input value={bizForm.nip} onChange={e => setBizForm({...bizForm, nip: e.target.value})} placeholder="1234567890" required />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                      onClick={fetchBizFromGus}
+                      disabled={gusLoading || bizForm.nip.replace(/\D/g, '').length < 10}
+                      title="Pobierz dane firmy z GUS"
+                    >
+                      {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>REGON</Label>

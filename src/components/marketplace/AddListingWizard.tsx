@@ -12,10 +12,11 @@ import {
   DialogTitle 
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { 
+import {
   Car, Building2, Wrench, ArrowRight, ArrowLeft, X,
-  AlertCircle
+  AlertCircle, Search, Loader2
 } from "lucide-react";
+import { useGusLookup } from "@/hooks/useGusLookup";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureToggles } from "@/hooks/useFeatureToggles";
 
@@ -58,6 +59,23 @@ export function AddListingWizard({
   });
 
   const needsCompanyData = accountMode === 'business' && !profile?.company_nip;
+  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+
+  const fetchCompanyFromGus = async () => {
+    const gus = await gusLookup(companyData.company_nip);
+    if (!gus) {
+      toast.error("Nie znaleziono firmy w GUS");
+      return;
+    }
+    setCompanyData(prev => ({
+      ...prev,
+      company_name: gus.nazwa,
+      company_nip: gus.nip,
+      company_address: gus.adres || prev.company_address,
+      company_city: gus.miasto || prev.company_city,
+    }));
+    toast.success("Dane firmy pobrane z GUS");
+  };
   const startStep = needsCompanyData ? 1 : 2;
 
   const handleSaveCompanyData = async () => {
@@ -165,11 +183,24 @@ export function AddListingWizard({
               </div>
               <div className="space-y-2">
                 <Label>NIP *</Label>
-                <Input
-                  value={companyData.company_nip}
-                  onChange={(e) => setCompanyData({ ...companyData, company_nip: e.target.value })}
-                  placeholder="1234567890"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    value={companyData.company_nip}
+                    onChange={(e) => setCompanyData({ ...companyData, company_nip: e.target.value })}
+                    placeholder="1234567890"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={fetchCompanyFromGus}
+                    disabled={gusLoading || companyData.company_nip.replace(/\D/g, "").length < 10}
+                    title="Pobierz dane firmy z GUS"
+                  >
+                    {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
             </div>
             
