@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
+import { isValidNip } from '@/hooks/useGusLookup';
 import { toast } from 'sonner';
 import { 
   Search, 
@@ -82,12 +83,16 @@ export function ContractorSelector({ entityId, value, onChange, onAddNew }: Cont
       toast.error('NIP musi mieć 10 cyfr');
       return;
     }
+    if (!isValidNip(cleanNip)) {
+      toast.error('NIP ma nieprawidłową sumę kontrolną');
+      return;
+    }
 
     setIsSearchingGus(true);
     setGusResult(null);
-    
+
     try {
-      const { data, error } = await supabase.functions.invoke('registry-gus', {
+      const { data, error } = await supabase.functions.invoke('gus-lookup', {
         body: { nip: cleanNip }
       });
 
@@ -97,11 +102,11 @@ export function ContractorSelector({ entityId, value, onChange, onAddNew }: Cont
         const gus = data.data;
         setGusResult({
           id: '', // Will be generated on save
-          name: gus.name,
+          name: gus.nazwa,
           nip: gus.nip,
-          address_street: gus.address,
-          address_city: gus.city,
-          address_postal_code: gus.postalCode
+          address_street: gus.adres,
+          address_city: gus.miasto,
+          address_postal_code: gus.kod_pocztowy
         });
         toast.success('Dane pobrane z GUS');
       } else {

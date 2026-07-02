@@ -35,6 +35,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { isValidNip } from "@/hooks/useGusLookup";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { Json } from "@/integrations/supabase/types";
@@ -69,11 +70,13 @@ interface GUSData {
   name: string;
   nip: string;
   regon: string;
+  krs?: string | null;
   address: string;
   city: string;
   postalCode: string;
   voivodeship: string;
   status: string;
+  legalForm?: string | null;
 }
 
 interface WhitelistData {
@@ -160,33 +163,42 @@ export function ContractorWizard({
       toast.error('Nieprawidłowy format NIP (wymagane 10 cyfr)');
       return;
     }
+    if (!isValidNip(clean)) {
+      toast.error('NIP ma nieprawidłową sumę kontrolną');
+      return;
+    }
 
     setIsLoading(true);
     setGusError(null);
 
     try {
-      const response = await fetch(
-        'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/registry-gus',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk',
-          },
-          body: JSON.stringify({ nip: clean }),
-        }
-      );
+      const { data: result, error } = await supabase.functions.invoke('gus-lookup', {
+        body: { nip: clean },
+      });
 
-      const result = await response.json();
+      if (error) throw error;
 
-      if (result.success && result.data) {
-        setGusData(result.data);
-        setName(result.data.name);
-        setAddress(result.data.address);
-        setCity(result.data.city);
-        setPostalCode(result.data.postalCode);
+      if (result?.success && result?.data) {
+        const gus = result.data;
+        const mapped: GUSData = {
+          name: gus.nazwa,
+          nip: gus.nip,
+          regon: gus.regon,
+          krs: gus.krs,
+          address: gus.adres,
+          city: gus.miasto,
+          postalCode: gus.kod_pocztowy,
+          voivodeship: gus.wojewodztwo,
+          status: gus.status,
+          legalForm: gus.forma_prawna,
+        };
+        setGusData(mapped);
+        setName(mapped.name);
+        setAddress(mapped.address);
+        setCity(mapped.city);
+        setPostalCode(mapped.postalCode);
       } else {
-        setGusError(result.error || 'Nie znaleziono danych w GUS');
+        setGusError(result?.error || 'Nie znaleziono danych w GUS');
       }
     } catch (error) {
       console.error('GUS fetch error:', error);
@@ -425,7 +437,11 @@ export function ContractorWizard({
               </p>
               <p className="text-muted-foreground pl-6">
                 REGON: {gusData.regon}
+                {gusData.krs ? ` · KRS: ${gusData.krs}` : ''}
               </p>
+              {gusData.legalForm && (
+                <p className="text-muted-foreground pl-6">{gusData.legalForm}</p>
+              )}
             </div>
           ) : (
             <p className="text-muted-foreground text-sm">Ładowanie...</p>
