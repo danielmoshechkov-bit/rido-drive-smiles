@@ -32,12 +32,21 @@
 - **`src/components/shared/NipLookupField.tsx`** — współdzielone pole NIP z lupką
   (maska, spinner, toast błędów, karta podglądu, `onCompanyFound`, opcje
   `autoLookup`/`compact`). Do używania w nowych formularzach.
-  Ma checkbox **„Skróć formę prawną (sp. z o.o.)"** (domyślnie ZAZNACZONY):
-  do formularza trafia nazwa ze skróconą formą prawną
-  („DR NATURA SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ" → „DR NATURA sp. z o.o.");
-  przełączenie checkboxa PO lookupie ponownie emituje `onCompanyFound`
-  z podmienioną nazwą (oryginał trzymany w stanie hooka). Dotyczy TYLKO nazwy
-  wstawianej do formularza — dane z GUS pozostają niezmienione.
+- **Skracanie form prawnych — WZORZEC OBOWIĄZUJĄCY WE WSZYSTKICH FORMULARZACH.**
+  `useGusLookup` przyjmuje opcję `{ onCompany: (data) => ...fill pól formularza... }`
+  i zwraca `shorten` (domyślnie `true`) + `setShorten`. `lookup()` po sukcesie woła
+  `onCompany` z nazwą już ewentualnie skróconą („DR NATURA SPÓŁKA Z OGRANICZONĄ
+  ODPOWIEDZIALNOŚCIĄ" → „DR NATURA sp. z o.o."); `setShorten` re-emituje `onCompany`
+  z podmienioną nazwą (skrócona ↔ pełna). Oryginalna pełna nazwa zawsze w polu
+  `nazwa_pelna` i w stanie `company` hooka — dane z GUS nie są modyfikowane poza
+  nazwą wstawianą do formularza. Checkbox UI: `@/components/shared/ShortenLegalFormCheckbox`
+  (`checked={shorten} onCheckedChange={setShorten}`), renderowany pod polem NIP.
+  KAŻDY formularz z lupką (ok. 30 — faktury, księgowość, warsztat, flota, wynajem,
+  kierowca B2B, usługi, ubezpieczenia, giełda, marketing, sprzedaż, CRM nieruchomości,
+  KSeF, admin, OCR) używa tego wzorca — przy dodawaniu nowego formularza NIE pisać
+  własnej logiki, tylko `useGusLookup({ onCompany }) + ShortenLegalFormCheckbox`.
+  Uwaga: `ContractorWizard` zapisuje w `gus_data` (jsonb) pełną nazwę rejestrową,
+  a wariant (skrócony/pełny) idzie tylko do edytowalnego pola nazwy kontrahenta.
 - **`src/utils/legalFormShortener.ts`** — util skracania form prawnych
   (`shortenLegalForm`, `hasShortenableLegalForm`); case-insensitive, na końcu
   i w środku nazwy, dopasowanie od najdłuższego wzorca (sp. z o.o. sp.k. przed
