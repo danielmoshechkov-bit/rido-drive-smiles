@@ -1,3 +1,8 @@
+/**
+ * @deprecated Stary lookup NIP przez białą listę MF (edge lookup-nip) — zwraca ucinane nazwy
+ * i adres parsowany regexami. Używaj useGusLookup (@/hooks/useGusLookup) + gus-lookup (GUS BIR1.1).
+ * Do usunięcia po migracji wszystkich formularzy.
+ */
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 

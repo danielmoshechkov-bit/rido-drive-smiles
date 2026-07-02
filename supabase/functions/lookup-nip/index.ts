@@ -1,3 +1,6 @@
+// @deprecated Lookup po białej liście MF (wl-api.mf.gov.pl) — zwraca SKRÓCONE nazwy firm
+// i adres parsowany regexami. Zastąpione przez funkcję gus-lookup (GUS BIR1.1, pełny raport).
+// Zostaje tymczasowo dla niezmigrowanych formularzy; do usunięcia po pełnym rollout'cie.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const corsHeaders = {

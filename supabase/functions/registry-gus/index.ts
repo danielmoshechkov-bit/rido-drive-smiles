@@ -1,3 +1,7 @@
+// @deprecated Błędny endpoint BIR (UslugaBIRzworcznikow.svc nie istnieje) — realnie zawsze
+// spada na fallback do białej listy MF (skrócone nazwy, adres z regexów). Zastąpione przez
+// funkcję gus-lookup (poprawny UslugaBIRzewnPubl.svc, klucz z secreta GUS_BIR_API_KEY —
+// NIE z tabeli external_integrations). Do usunięcia po pełnym rollout'cie.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
