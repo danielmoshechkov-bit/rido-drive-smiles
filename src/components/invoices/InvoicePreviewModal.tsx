@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { InvoiceData, generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { renderInvoicePdf } from '@/utils/renderInvoicePdf';
+import { PdfCanvasPreview } from './PdfCanvasPreview';
 
 // Zamień URL logo sprzedawcy na data-URI, żeby render PDF nie zależał od plików na serwerze.
 async function withEmbeddedLogo(inv: InvoiceData): Promise<InvoiceData> {
@@ -62,9 +63,8 @@ export function InvoicePreviewModal({
   const [pendingAction, setPendingAction] = useState<'save' | 'send' | null>(null);
   const [iframeHeight, setIframeHeight] = useState(1120);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  // Podgląd = ten sam PDF co pobranie/mail (render przez endpoint Dompdf).
-  // Gdy endpoint niedostępny (np. dev bez PHP) → fallback na podgląd HTML.
-  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  // Podgląd = ten sam PDF co pobranie/mail (render przez endpoint Dompdf, pokazany
+  // przez pdf.js na canvas). Gdy endpoint niedostępny (np. dev bez PHP) → podgląd HTML.
   const [previewPdfBase64, setPreviewPdfBase64] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
@@ -103,9 +103,7 @@ export function InvoicePreviewModal({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    let objectUrl: string | null = null;
     setPreviewLoading(true);
-    setPreviewPdfUrl(null);
     setPreviewPdfBase64(null);
     (async () => {
       try {
@@ -113,22 +111,14 @@ export function InvoicePreviewModal({
         const html = generateInvoiceHtml(data);
         const base64 = await renderInvoicePdf(html);
         if (cancelled) return;
-        if (base64) {
-          const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-          objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-          setPreviewPdfBase64(base64);
-          setPreviewPdfUrl(objectUrl);
-        }
+        if (base64) setPreviewPdfBase64(base64);
       } catch {
         /* endpoint niedostępny → zostaje podgląd HTML */
       } finally {
         if (!cancelled) setPreviewLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
+    return () => { cancelled = true; };
   }, [open, invoiceData]);
 
   const handleDownloadPdf = async () => {
@@ -303,12 +293,8 @@ export function InvoicePreviewModal({
               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                 <Loader2 className="h-5 w-5 animate-spin mr-2" /> Generowanie podglądu…
               </div>
-            ) : previewPdfUrl ? (
-              <iframe
-                src={previewPdfUrl}
-                className="w-full h-full border-0 rounded-lg bg-white"
-                title="Podgląd faktury (PDF)"
-              />
+            ) : previewPdfBase64 ? (
+              <PdfCanvasPreview base64={previewPdfBase64} />
             ) : (
               <div className="h-full overflow-y-auto overflow-x-hidden">
                 <div className="mx-auto bg-white shadow-xl rounded-lg w-full">
