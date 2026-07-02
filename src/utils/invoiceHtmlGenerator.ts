@@ -29,6 +29,7 @@ export interface InvoiceSeller {
   swift_code?: string;
   email?: string;
   phone?: string;
+  website?: string;
   logo_url?: string;
 }
 
@@ -66,6 +67,7 @@ export interface InvoiceData {
   // PDF options
   compact_pdf?: boolean;
   hide_footer?: boolean; // stopka www.GetRido.pl + numeracja stron — ustawienie do wyłączenia
+  hide_signatures?: boolean; // sekcja podpisów — domyślnie widoczna; true = ukryj
   // KSeF
   ksef_status?: string;
   ksef_reference?: string;
@@ -123,6 +125,13 @@ export const formatCurrency = (amount: number, currency: string = 'PLN'): string
 
 export const formatDate = (dateStr: string): string => {
   return new Date(dateStr).toLocaleDateString('pl-PL');
+};
+
+// Numer konta / IBAN w grupach po 4 znaki: "PL1234..." -> "PL12 3456 7890 ..."
+export const formatIban = (value?: string): string => {
+  if (!value) return '';
+  const compact = value.replace(/\s+/g, '');
+  return compact.replace(/(.{4})/g, '$1 ').trim();
 };
 
 export const isOfficialKsefReference = (value?: string): boolean => {
@@ -756,21 +765,21 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .top-meta { text-align: right; font-size: 9px; color: #444; margin-bottom: 4px; }
     .header { display: table; width: 100%; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid ${themeColor}; }
     .logo-area { display: table-cell; vertical-align: middle; width: 55%; }
-    .logo-area img { max-width: 220px; max-height: 70px; width: auto; height: auto; }
-    .seller-brand { display: inline-block; border: 2px solid ${themeColor}; border-radius: 10px; padding: 16px 22px; text-align: center; min-width: 150px; }
-    .seller-brand-name { font-size: 22px; font-weight: 700; color: ${themeColor}; line-height: 1.2; letter-spacing: 0.5px; text-align: center; }
+    .logo-area img { max-width: 264px; max-height: 84px; width: auto; height: auto; }
+    .seller-brand { display: inline-block; border: 2px solid ${themeColor}; border-radius: 10px; padding: 20px 30px; text-align: center; min-width: 172px; }
+    .seller-brand-name { font-size: 26px; font-weight: 700; color: ${themeColor}; line-height: 1.2; letter-spacing: 0.5px; text-align: center; }
     .seller-brand-addr { font-size: 9px; color: #333; margin-top: 2px; line-height: 1.3; }
     .invoice-title { display: table-cell; vertical-align: middle; text-align: right; }
-    .invoice-title h1 { font-size: ${titleFontSize}; color: #222; margin-bottom: 1px; }
+    .invoice-title h1 { font-size: ${titleFontSize}; color: #222; margin-bottom: 6px; }
     .invoice-title h1 .invoice-number { color: ${themeColor}; }
-    .invoice-dates { font-size: 10px; color: #333; text-align: right; margin-top: 4px; }
-    .invoice-dates-row { margin-bottom: 2px; }
+    .invoice-dates { font-size: 10px; color: #333; text-align: right; margin-top: 8px; line-height: 1.6; }
+    .invoice-dates-row { margin-bottom: 4px; }
     .invoice-dates-label { color: #555; }
     .parties { display: table; width: 100%; margin-bottom: 8px; }
     .party { display: table-cell; width: 50%; vertical-align: top; padding-right: 14px; }
     .party-label { font-size: 10px; color: #7c3aed; text-transform: uppercase; margin-bottom: 2px; font-weight: 700; }
-    .party-name { font-size: 12px; font-weight: bold; margin-bottom: 1px; color: #111; }
-    .party-details { font-size: 10px; color: #333; line-height: 1.4; }
+    .party-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; color: #111; }
+    .party-details { font-size: 9px; color: #6b7280; line-height: 1.5; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
     th { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 5px 4px; text-align: left; font-size: 11px; font-weight: 600; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     th:first-child { border-radius: 6px 0 0 0; }
@@ -885,6 +894,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="invoice-dates">
           ${isAdvance ? `<div class="invoice-dates-row"><span class="invoice-dates-label">Data zaliczki:</span> <strong>${formatDate(invoice.sale_date)}</strong></div>` : `<div class="invoice-dates-row"><span class="invoice-dates-label">Data sprzedaży:</span> <strong>${formatDate(invoice.sale_date)}</strong></div>`}
           <div class="invoice-dates-row"><span class="invoice-dates-label">Termin płatności:</span> <strong>${formatDate(invoice.due_date)}</strong></div>
+          <div class="invoice-dates-row"><span class="invoice-dates-label">Sposób płatności:</span> <strong>${paymentMethodLabels[invoice.payment_method] || invoice.payment_method}</strong></div>
         </div>
       </div>
     </div>
@@ -906,6 +916,9 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="party-details">
           ${seller.nip ? `NIP: ${seller.nip}<br>` : ''}
           ${formatAddress(seller)}
+          ${seller.phone ? `<br>Tel: ${seller.phone}` : ''}
+          ${seller.email ? `<br>E-mail: ${seller.email}` : ''}
+          ${seller.website ? `<br>${seller.website}` : ''}
         </div>
       </div>
       <div class="party">
@@ -1076,19 +1089,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <span class="amount-words-value">${numberToWords(grossTotal)}</span>
     </div>
 
+    ${(seller.bank_account && invoice.payment_method === 'transfer') ? `
     <div class="payment">
-      <div class="payment-row">
-        <span class="payment-label">Sposób płatności:</span>
-        <span class="payment-value">${paymentMethodLabels[invoice.payment_method] || invoice.payment_method}</span>
-      </div>
-      ${seller.bank_account && invoice.payment_method === 'transfer' ? `
       <div class="payment-row">
         <span class="payment-label">Bank:</span>
         <span class="payment-value">${seller.bank_name || ''}</span>
       </div>
       <div class="payment-row">
-        <span class="payment-label">IBAN:</span>
-        <span class="payment-value">${seller.bank_account}</span>
+        <span class="payment-label">Nr konta:</span>
+        <span class="payment-value">${formatIban(seller.bank_account)}</span>
       </div>
       ${seller.swift_code ? `
       <div class="payment-row">
@@ -1096,8 +1105,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <span class="payment-value">${seller.swift_code}</span>
       </div>
       ` : ''}
-      ` : ''}
     </div>
+    ` : ''}
 
     ${invoice.notes ? `
     <div class="notes">
@@ -1130,6 +1139,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </div>
     ` : ''}
 
+    ${!invoice.hide_signatures ? `
     <div class="footer">
       ${isServiceConfirmation ? `
       <div class="signature">
@@ -1147,6 +1157,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </div>
       `}
     </div>
+    ` : ''}
   </div>
   ${!invoice.hide_footer ? `
   <script type="text/php">
