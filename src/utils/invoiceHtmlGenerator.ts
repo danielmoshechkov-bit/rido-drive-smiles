@@ -556,7 +556,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     footerNote = 'Faktura rozliczająca zaliczkę wystawiona zgodnie z art. 106f ust. 3 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług.';
   }
   
-  const cellPadding = compact_pdf ? '3px 5px' : '5px 7px';
+  const cellPadding = compact_pdf ? '2px 5px' : '2px 6px';
   const cellFontSize = compact_pdf ? '9px' : '10px';
   
   // Standard items HTML (VAT columns)
@@ -660,30 +660,30 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   // "Podsumowanie faktury" — tabela stawek VAT (lewa kolumna). Wypełnia całą szerokość swojej kolumny.
   const standardVatSummaryHtml = `
     <div class="vat-summary" style="margin-top: 0; font-size: 10px;">
-      <div style="font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #666;">Podsumowanie faktury</div>
+      <div style="font-size: 11px; font-weight: 600; margin-bottom: 2px; color: #666;">Podsumowanie faktury</div>
       <table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px;">
         <thead>
           <tr class="vat-header" style="background-color: ${themeColor} !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Stawka</th>
-            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Netto</th>
-            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">VAT</th>
-            <th style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Brutto</th>
+            <th style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Stawka</th>
+            <th style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Netto</th>
+            <th style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">VAT</th>
+            <th style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 600; color: #ffffff !important; background-color: ${themeColor} !important;">Brutto</th>
           </tr>
         </thead>
         <tbody>
           ${Object.entries(vatSummary).map(([rate, amounts]) => `
             <tr style="background-color: ${themeColorLight};">
-              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333; font-weight: 600;">${rate}%</td>
-              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333;">${formatCurrency(amounts.net, currency)}</td>
-              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333;">${formatCurrency(amounts.vat, currency)}</td>
-              <td style="width: 25%; padding: 3px 6px; text-align: right; color: #333; font-weight: 600;">${formatCurrency(amounts.gross, currency)}</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333; font-weight: 600;">${rate}%</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${formatCurrency(amounts.net, currency)}</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333;">${formatCurrency(amounts.vat, currency)}</td>
+              <td style="width: 25%; padding: 2px 6px; text-align: right; color: #333; font-weight: 600;">${formatCurrency(amounts.gross, currency)}</td>
             </tr>
           `).join('')}
           <tr style="border-top: 2px solid ${themeColor}; background-color: ${themeColorBorder};">
-            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: ${themeColor};">Razem:</td>
-            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(netTotal, currency)}</td>
-            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(vatTotal, currency)}</td>
-            <td style="width: 25%; padding: 4px 6px; text-align: right; font-weight: 700; color: ${themeColor};">${formatCurrency(grossTotal, currency)}</td>
+            <td style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 700; color: ${themeColor};">Razem:</td>
+            <td style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(netTotal, currency)}</td>
+            <td style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 700; color: #333;">${formatCurrency(vatTotal, currency)}</td>
+            <td style="width: 25%; padding: 2px 6px; text-align: right; font-weight: 700; color: ${themeColor};">${formatCurrency(grossTotal, currency)}</td>
           </tr>
         </tbody>
       </table>
@@ -757,53 +757,55 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       /* Margines strony jak we wzorze (~8mm / 22.7pt). Dompdf ignoruje @page margin,
          więc margines realizujemy paddingiem body. Stopka (page_text) rysuje się w
          absolutnych współrzędnych strony i jest niezależna od tego paddingu. */
-      padding: 24pt 22pt 34pt 22pt;
+      padding: 22pt 22pt 28pt 22pt;
       background: white;
     }
     .invoice { width: 100%; max-width: 100%; margin: 0 auto; background: white; }
     /* Layout oparty na display:table (zamiast flex) — renderuje się poprawnie w Dompdf i w Chrome. */
     .top-meta { text-align: right; font-size: 9px; color: #444; margin-bottom: 4px; }
-    .header { display: table; width: 100%; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid ${themeColor}; }
+    .header { display: table; width: 100%; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid ${themeColor}; }
     .logo-area { display: table-cell; vertical-align: middle; width: 55%; }
     .logo-area img { max-width: 264px; max-height: 84px; width: auto; height: auto; }
     .seller-brand { display: inline-block; border: 2px solid ${themeColor}; border-radius: 10px; padding: 20px 30px; text-align: center; min-width: 172px; }
     .seller-brand-name { font-size: 26px; font-weight: 700; color: ${themeColor}; line-height: 1.2; letter-spacing: 0.5px; text-align: center; }
     .seller-brand-addr { font-size: 9px; color: #333; margin-top: 2px; line-height: 1.3; }
     .invoice-title { display: table-cell; vertical-align: middle; text-align: right; }
-    .invoice-title h1 { font-size: ${titleFontSize}; color: #222; margin-bottom: 6px; }
+    .invoice-title h1 { font-size: ${titleFontSize}; color: #222; margin-bottom: 2px; }
     .invoice-title h1 .invoice-number { color: ${themeColor}; }
-    .invoice-dates { font-size: 10px; color: #333; text-align: right; margin-top: 8px; line-height: 1.6; }
-    .invoice-dates-row { margin-bottom: 4px; }
+    .invoice-dates { font-size: 11px; color: #333; text-align: right; margin-top: 3px; line-height: 1.25; }
+    .invoice-dates-row { margin-bottom: 1px; }
     .invoice-dates-label { color: #555; }
-    .parties { display: table; width: 100%; margin-bottom: 8px; }
-    .party { display: table-cell; width: 50%; vertical-align: top; padding-right: 14px; }
+    .parties { display: table; width: 100%; margin-bottom: 4px; }
+    .party { display: table-cell; vertical-align: top; padding-right: 10px; }
+    .party.buyer { padding-right: 0; padding-left: 6px; }
     .party-label { font-size: 10px; color: #7c3aed; text-transform: uppercase; margin-bottom: 2px; font-weight: 700; }
     .party-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; color: #111; }
-    .party-details { font-size: 9px; color: #6b7280; line-height: 1.5; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-    th { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 5px 4px; text-align: left; font-size: 11px; font-weight: 600; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .party-details { font-size: 9px; color: #6b7280; line-height: 1.45; }
+    .party-contact { font-size: 11px; color: #4b5563; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+    th { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 4px 4px; text-align: center; vertical-align: middle; font-size: 11px; font-weight: 600; white-space: nowrap; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     th:first-child { border-radius: 6px 0 0 0; }
     th:last-child { border-radius: 0 6px 0 0; }
-    .vat-summary { margin-bottom: 8px; font-size: 10px; }
+    .vat-summary { margin-bottom: 5px; font-size: 10px; }
     .vat-header { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    .totals { display: block; margin-bottom: 6px; }
-    .totals-table { width: 240px; margin-left: auto; border: 1px solid #e3e0f0; border-radius: 8px; padding: 8px 10px; background: #faf9ff; }
-    .totals-row { display: table; width: 100%; padding: 3px 0; font-size: 11px; border-bottom: 1px solid #d8d5e8; }
+    .totals { display: block; margin-bottom: 5px; }
+    .totals-table { width: 240px; margin-left: auto; border: 1px solid #e3e0f0; border-radius: 6px; padding: 4px 8px; background: #faf9ff; }
+    .totals-row { display: table; width: 100%; padding: 1px 0; font-size: 10px; border-bottom: 1px solid #d8d5e8; }
     .totals-row > span:first-child { display: table-cell; text-align: left; color: #444; }
     .totals-row > span:last-child { display: table-cell; text-align: right; }
-    .totals-row.grand { border-bottom: none; background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 7px 8px; border-radius: 4px; font-size: 14px; margin-top: 3px; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    .amount-words { display: block; margin-bottom: 6px; padding: 2px 0; font-size: 10px; }
+    .totals-row.grand { border-bottom: none; background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-top: 2px; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .amount-words { display: block; margin-top: 4px; margin-bottom: 5px; padding: 1px 0; font-size: 10px; }
     .amount-words-label { color: #666; font-weight: 600; white-space: nowrap; }
     .amount-words-value { font-style: italic; }
-    .payment { margin-bottom: 6px; font-size: 10px; }
-    .payment-row { display: block; margin-bottom: 2px; }
+    .payment { margin-bottom: 5px; font-size: 10px; }
+    .payment-row { display: block; margin-bottom: 0; }
     .payment-label { color: #666; min-width: 80px; }
     .payment-value { font-weight: 500; }
-    .notes { margin-bottom: 8px; padding: 7px 11px; background: #f8f5ff; border: 1px solid #ede9fe; border-radius: 6px; font-size: 10px; }
-    .notes-label { font-size: 9px; color: ${themeColor}; text-transform: uppercase; margin-bottom: 2px; font-weight: 700; letter-spacing: 0.04em; }
-    .footer { display: table; width: 100%; margin-top: 40px; }
+    .notes { margin-bottom: 4px; padding: 4px 11px; background: #f8f5ff; border: 1px solid #ede9fe; border-radius: 6px; font-size: 10px; }
+    .notes-label { font-size: 9px; color: ${themeColor}; text-transform: uppercase; margin-bottom: 1px; font-weight: 700; letter-spacing: 0.04em; }
+    .footer { display: table; width: 100%; margin-top: 12px; }
     .signature { display: table-cell; width: 50%; text-align: center; padding: 0 30px; }
-    .signature-line { border-top: 1px solid #333; margin-top: 30px; padding-top: 4px; font-size: 9px; color: #666; }
+    .signature-line { border-top: 1px solid #333; margin-top: 8px; padding-top: 3px; font-size: 9px; color: #666; }
      /* Znak wodny — przezroczysty, powtarzany NA CAŁEJ stronie, na wierzchu treści,
         żeby było widać że to KOPIA ROBOCZA na każdej pozycji. */
      .draft-watermark {
@@ -834,8 +836,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
      }
      .content-layer { position: relative; z-index: 1; background: transparent; }
      .ksef-box {
-       margin-top: 20px;
-       padding: 10px 12px;
+       margin-top: 6px;
+       padding: 4px 12px;
        border: 1px solid #e5e7eb;
        border-radius: 8px;
        width: 100%;
@@ -910,18 +912,17 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     </div>` : ''}
 
     <div class="parties">
-      <div class="party">
+      <div class="party" style="width: 44%;">
         <div class="party-label">${isVatRR ? 'Nabywca (kupujący)' : 'Sprzedawca'}</div>
         <div class="party-name">${seller.name || ''}</div>
         <div class="party-details">
           ${seller.nip ? `NIP: ${seller.nip}<br>` : ''}
           ${formatAddress(seller)}
-          ${seller.phone ? `<br>Tel: ${seller.phone}` : ''}
-          ${seller.email ? `<br>E-mail: ${seller.email}` : ''}
-          ${seller.website ? `<br>${seller.website}` : ''}
+          ${(seller.phone || seller.email) ? `<br><span class="party-contact">${seller.phone ? `Tel: ${seller.phone}` : ''}${(seller.phone && seller.email) ? '&nbsp;&nbsp;&nbsp;' : ''}${seller.email ? `E-mail: ${seller.email}` : ''}</span>` : ''}
+          ${seller.website ? `<br><span class="party-contact">${seller.website}</span>` : ''}
         </div>
       </div>
-      <div class="party">
+      <div class="party buyer" style="width: 56%;">
         <div class="party-label">${isVatRR ? 'Dostawca (rolnik ryczałtowy)' : 'Nabywca'}</div>
         ${isSimplified && buyer.nip && !buyer.name ? `
         <div class="party-name">NIP nabywcy: ${buyer.nip}</div>
@@ -1000,15 +1001,15 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     <table>
       <thead>
         <tr>
-          <th style="width: 22px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Lp.</th>
-          <th style="text-align: left; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">${isAdvance ? 'Opis zaliczki' : 'Nazwa towaru / usługi'}</th>
-          <th style="width: 32px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Jm.</th>
-          <th style="width: 35px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Ilość</th>
-          <th style="width: 55px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Cena<br>netto</th>
-          <th style="width: 58px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Wart.<br>netto</th>
-          <th style="width: 35px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">VAT</th>
-          <th style="width: 52px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Kwota<br>VAT</th>
-          <th style="width: 62px; text-align: center; vertical-align: bottom; background-color: ${themeColor} !important; color: #ffffff !important;">Wart.<br>brutto</th>
+          <th style="width: 22px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Lp.</th>
+          <th style="text-align: left; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">${isAdvance ? 'Opis zaliczki' : 'Nazwa towaru / usługi'}</th>
+          <th style="width: 32px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Jm.</th>
+          <th style="width: 35px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Ilość</th>
+          <th style="width: 55px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Cena<br>netto</th>
+          <th style="width: 58px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Wart.<br>netto</th>
+          <th style="width: 35px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">VAT</th>
+          <th style="width: 52px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Kwota<br>VAT</th>
+          <th style="width: 62px; text-align: center; vertical-align: middle; background-color: ${themeColor} !important; color: #ffffff !important;">Wart.<br>brutto</th>
         </tr>
       </thead>
       <tbody>
@@ -1126,7 +1127,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <table class="ksef-box-inner">
         <tr>
           <td class="ksef-box-qr">
-            <img class="ksef-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(verificationUrl)}" alt="Kod QR KSeF" style="width: 80px; height: 80px;" />
+            <img class="ksef-qr" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(verificationUrl)}" alt="Kod QR KSeF" style="width: 70px; height: 70px;" />
           </td>
           <td class="ksef-box-text" style="font-size: 11px; color: #6b7280;">
             <div class="ksef-box-title">Faktura w KSeF</div>
