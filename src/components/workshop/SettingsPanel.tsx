@@ -165,19 +165,19 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     }
     setNipSearching(true);
     try {
-      const { data, error } = await supabase.functions.invoke('registry-gus', {
+      const { data, error } = await supabase.functions.invoke('gus-lookup', {
         body: { nip: cleanNip },
       });
       if (error) throw error;
-      // registry-gus zwraca { success, data: {...} }
-      const company = data?.data || data;
-      if (company?.name) {
+      // gus-lookup zwraca { success, data: {...} }
+      const company = data?.data;
+      if (data?.success && company?.nazwa) {
         setSettingsForm((p: any) => ({
           ...p,
-          company_name: company.name,
-          address: company.address || company.street || p.address,
-          city: company.city || p.city,
-          postal_code: company.postalCode || company.zipCode || p.postal_code,
+          company_name: company.nazwa,
+          address: company.adres || p.address,
+          city: company.miasto || p.city,
+          postal_code: company.kod_pocztowy || p.postal_code,
         }));
         toast.success(t('workshop.settingsPanel.companyDataFetched'));
       } else {

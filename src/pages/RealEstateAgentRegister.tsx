@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Building2, User, Users, FileCheck, Mail, AlertCircle, AlertTriangle } from "lucide-react";
-import { NipLookupField } from "@/components/NipLookupField";
-import { CompanyData } from "@/hooks/useNipLookup";
+import { NipLookupField } from "@/components/shared/NipLookupField";
+import { GusCompanyData } from "@/hooks/useGusLookup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -328,15 +328,15 @@ export default function RealEstateAgentRegister() {
             {/* NIP Lookup - auto-fills all company fields */}
             <NipLookupField
               label={t('reAgentRegister.nipLookupLabel')}
-              onCompanyFound={(data: CompanyData) => {
+              onCompanyFound={(data: GusCompanyData) => {
                 updateField("companyNip", data.nip);
-                updateField("companyName", data.name);
+                updateField("companyName", data.nazwa);
                 updateField("companyRegon", data.regon);
-                updateField("companyStreet", data.street);
-                updateField("companyBuildingNumber", data.buildingNumber);
-                updateField("companyApartmentNumber", data.apartmentNumber);
-                updateField("companyCity", data.city);
-                updateField("companyPostalCode", data.postalCode);
+                updateField("companyStreet", data.ulica);
+                updateField("companyBuildingNumber", data.nr_domu);
+                updateField("companyApartmentNumber", data.nr_lokalu);
+                updateField("companyCity", data.miasto);
+                updateField("companyPostalCode", data.kod_pocztowy);
               }}
             />
 

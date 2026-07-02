@@ -121,18 +121,18 @@ export const WorkshopSettingsPage = () => {
     }
     setNipSearching(true);
     try {
-      const { data, error } = await supabase.functions.invoke('registry-gus', {
+      const { data, error } = await supabase.functions.invoke('gus-lookup', {
         body: { nip: cleanNip },
       });
       if (error) throw error;
-      // registry-gus zwraca { success, data: {...} }
-      const company = data?.data || data;
-      if (company?.name) {
-        setFirmName(company.name);
-        if (!shortName) setShortName(company.name.split(' ').slice(0, 2).join(' '));
-        if (company.address || company.street) setAddress(company.address || company.street);
-        if (company.city) setCity(company.city);
-        if (company.postalCode || company.zipCode) setPostalCode(company.postalCode || company.zipCode);
+      // gus-lookup zwraca { success, data: {...} }
+      const company = data?.data;
+      if (data?.success && company?.nazwa) {
+        setFirmName(company.nazwa);
+        if (!shortName) setShortName(company.nazwa_skrocona || company.nazwa.split(' ').slice(0, 2).join(' '));
+        if (company.adres) setAddress(company.adres);
+        if (company.miasto) setCity(company.miasto);
+        if (company.kod_pocztowy) setPostalCode(company.kod_pocztowy);
         toast.success(t('workshop.settings.company.companyDataFetched'));
       } else {
         toast.info(data?.error || t('workshop.settings.company.companyNotFound'));

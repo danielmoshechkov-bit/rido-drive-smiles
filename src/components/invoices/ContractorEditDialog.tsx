@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Save, Search, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { isValidNip } from '@/hooks/useGusLookup';
 
 interface Contractor {
   id: string;
@@ -86,10 +87,14 @@ export function ContractorEditDialog({
       toast.error('Nieprawidłowy NIP (wymagane 10 cyfr)');
       return;
     }
+    if (!isValidNip(cleanNip)) {
+      toast.error('NIP ma nieprawidłową sumę kontrolną');
+      return;
+    }
 
     setSearchingGus(true);
     try {
-      const { data, error } = await supabase.functions.invoke('registry-gus', {
+      const { data, error } = await supabase.functions.invoke('gus-lookup', {
         body: { nip: cleanNip },
       });
 
@@ -99,14 +104,10 @@ export function ContractorEditDialog({
         const gusData = data.data;
         setFormData((prev) => ({
           ...prev,
-          name: gusData.name || prev.name,
-          address_street: gusData.street
-            ? `${gusData.street} ${gusData.propertyNumber || ''}${
-                gusData.apartmentNumber ? '/' + gusData.apartmentNumber : ''
-              }`.trim()
-            : prev.address_street,
-          address_city: gusData.city || prev.address_city,
-          address_postal_code: gusData.postalCode || prev.address_postal_code,
+          name: gusData.nazwa || prev.name,
+          address_street: gusData.adres || prev.address_street,
+          address_city: gusData.miasto || prev.address_city,
+          address_postal_code: gusData.kod_pocztowy || prev.address_postal_code,
         }));
         toast.success('Pobrano dane z GUS');
       } else {

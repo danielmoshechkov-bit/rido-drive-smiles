@@ -49,7 +49,7 @@ import { UnitSelector } from './UnitSelector';
 import { DiscountSection, DiscountConfig, calculateDiscount } from './DiscountSection';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { supabase } from '@/integrations/supabase/client';
-import { useNipLookup, CompanyData } from '@/hooks/useNipLookup';
+import { useGusLookup } from '@/hooks/useGusLookup';
 import { CorrectionInvoiceSection, CorrectionData } from './CorrectionInvoiceSection';
 import { normalizeInvoiceType } from '@/utils/invoiceTypeMapping';
 import { ksefTypeToUi } from './InvoiceTypeSelector';
@@ -292,25 +292,45 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // User's saved company
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
 
-  // NIP lookup for buyer
-  const { lookup: nipLookup, loading: nipLoading, company: nipCompany, reset: nipReset } = useNipLookup();
+  // NIP lookup for buyer (GUS REGON)
+  const { lookup: nipLookup, loading: nipLoading, company: nipCompany, reset: nipReset } = useGusLookup();
+
+  // NIP lookup for seller (GUS REGON)
+  const { lookup: sellerNipLookup, loading: sellerNipLoading, company: sellerNipCompany } = useGusLookup();
 
   // Auto-fill buyer when NIP lookup succeeds
   useEffect(() => {
     if (nipCompany) {
       setBuyer(prev => ({
         ...prev,
-        name: nipCompany.name || prev.name,
+        name: nipCompany.nazwa || prev.name,
         nip: nipCompany.nip || prev.nip,
-        address_street: nipCompany.street || prev.address_street,
-        address_building_number: nipCompany.buildingNumber || prev.address_building_number,
-        address_apartment_number: nipCompany.apartmentNumber || prev.address_apartment_number,
-        address_city: nipCompany.city || prev.address_city,
-        address_postal_code: nipCompany.postalCode || prev.address_postal_code,
+        address_street: nipCompany.ulica || prev.address_street,
+        address_building_number: nipCompany.nr_domu || prev.address_building_number,
+        address_apartment_number: nipCompany.nr_lokalu || prev.address_apartment_number,
+        address_city: nipCompany.miasto || prev.address_city,
+        address_postal_code: nipCompany.kod_pocztowy || prev.address_postal_code,
       }));
-      toast.success(`Znaleziono: ${nipCompany.name}`);
+      toast.success(`Znaleziono: ${nipCompany.nazwa}`);
     }
   }, [nipCompany]);
+
+  // Auto-fill seller when NIP lookup succeeds
+  useEffect(() => {
+    if (sellerNipCompany) {
+      setSeller(prev => ({
+        ...prev,
+        name: sellerNipCompany.nazwa || prev.name,
+        nip: sellerNipCompany.nip || prev.nip,
+        address_street: sellerNipCompany.ulica || prev.address_street,
+        address_building_number: sellerNipCompany.nr_domu || prev.address_building_number,
+        address_apartment_number: sellerNipCompany.nr_lokalu || prev.address_apartment_number,
+        address_city: sellerNipCompany.miasto || prev.address_city,
+        address_postal_code: sellerNipCompany.kod_pocztowy || prev.address_postal_code,
+      }));
+      toast.success(`Znaleziono: ${sellerNipCompany.nazwa}`);
+    }
+  }, [sellerNipCompany]);
 
   // Prefill items and buyer from workshop order
   useEffect(() => {
@@ -1494,14 +1514,34 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                   onChange={(e) => setSeller(prev => ({ ...prev, name: e.target.value }))}
                 />
               </div>
-              <div>
+              <div className="relative">
                 <FloatingInput
                   label="NIP"
                   required
                   value={seller.nip}
                   onChange={(e) => setSeller(prev => ({ ...prev, nip: e.target.value.replace(/\D/g, '') }))}
                   maxLength={10}
+                  className="pr-10"
                 />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-12 w-10"
+                  onClick={() => {
+                    const clean = (seller.nip || '').replace(/\D/g, '');
+                    if (clean.length === 10) sellerNipLookup(clean);
+                    else toast.error('Wpisz 10-cyfrowy NIP');
+                  }}
+                  disabled={sellerNipLoading}
+                  title="Pobierz dane firmy z GUS"
+                >
+                  {sellerNipLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  ) : (
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
               </div>
               <div>
                 <FloatingInput

@@ -121,7 +121,7 @@ export function AccountingModuleSettings() {
       
       if (service === 'gus') {
         // Test with a known valid NIP
-        result = await supabase.functions.invoke('registry-gus', {
+        result = await supabase.functions.invoke('gus-lookup', {
           body: { nip: '5252344078' } // Sample NIP for testing
         });
       } else if (service === 'whitelist') {

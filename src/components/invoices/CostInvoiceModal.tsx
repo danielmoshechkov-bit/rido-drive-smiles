@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { isValidNip } from '@/hooks/useGusLookup';
 import { Loader2, Search, Upload, FileText, Check, X, Plus, AlertTriangle, Package } from 'lucide-react';
 import { DatePickerButton } from './DatePickerButton';
 import { CostCategorySelector } from './CostCategorySelector';
@@ -228,18 +229,25 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
       toast.error('NIP musi mieć 10 cyfr');
       return;
     }
+    if (!isValidNip(supplierNip)) {
+      toast.error('NIP ma nieprawidłową sumę kontrolną');
+      return;
+    }
 
     setSearchingNip(true);
     try {
-      const { data, error } = await supabase.functions.invoke('registry-gus', {
+      const { data, error } = await supabase.functions.invoke('gus-lookup', {
         body: { nip: supplierNip }
       });
 
       if (error) throw error;
 
       if (data?.success && data?.data) {
-        setSupplierName(data.data.name);
-        setSupplierAddress(data.data.address || '');
+        const gus = data.data;
+        setSupplierName(gus.nazwa);
+        setSupplierAddress(
+          [gus.adres, [gus.kod_pocztowy, gus.miasto].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+        );
         toast.success('Dane pobrane z GUS');
       } else {
         toast.error(data?.error || 'Nie znaleziono firmy');

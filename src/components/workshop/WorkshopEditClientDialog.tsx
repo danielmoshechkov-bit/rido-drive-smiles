@@ -96,7 +96,7 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
   const set = (key: string, val: any) => setForm(p => ({ ...p, [key]: val }));
   const isCompany = clientType === 'company';
 
-  // Same NIP → company-data lookup as the "Add client" form (lookup-nip edge function).
+  // Same NIP → company-data lookup as the "Add client" form (gus-lookup edge function).
   const handleNipLookup = async () => {
     const cleanNip = form.nip.replace(/[\s-]/g, '');
     if (cleanNip.length < 10) {
@@ -105,27 +105,27 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
     }
     setNipLoading(true);
     try {
-      const { data, error: fnErr } = await (supabase as any).functions.invoke('lookup-nip', {
+      const { data, error: fnErr } = await supabase.functions.invoke('gus-lookup', {
         body: { nip: cleanNip },
       });
       if (fnErr) throw fnErr;
-      if (!data?.valid) {
+      if (!data?.success || !data?.data) {
         toast.error(data?.error || t('workshop.clients.companyNotFound'));
         return;
       }
       const c = data.data;
       setForm(prev => ({
         ...prev,
-        company_name: c.name || prev.company_name,
+        company_name: c.nazwa || prev.company_name,
         nip: c.nip || prev.nip,
-        street: c.street || prev.street,
-        house_number: c.buildingNumber || prev.house_number,
-        apartment_number: c.apartmentNumber || prev.apartment_number,
-        city: c.city || prev.city,
-        postal_code: c.postalCode || prev.postal_code,
+        street: c.ulica || prev.street,
+        house_number: c.nr_domu || prev.house_number,
+        apartment_number: c.nr_lokalu || prev.apartment_number,
+        city: c.miasto || prev.city,
+        postal_code: c.kod_pocztowy || prev.postal_code,
       }));
-      const shortened = shortenCompanyName(c.name || '');
-      setShortNameSuggestion(shortened && shortened !== (c.name || '') ? shortened : null);
+      const shortened = shortenCompanyName(c.nazwa || '');
+      setShortNameSuggestion(shortened && shortened !== (c.nazwa || '') ? shortened : null);
       toast.success(t('workshop.clients.companyDataFetched'));
     } catch {
       toast.error(t('workshop.clients.companyRegistryError'));
