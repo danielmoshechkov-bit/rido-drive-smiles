@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { FileKey, Loader2, CheckCircle2, AlertTriangle, Calculator } from 'lucide-react';
+import { FileKey, Loader2, CheckCircle2, AlertTriangle, Calculator, Search } from 'lucide-react';
+import { useGusLookup } from '@/hooks/useGusLookup';
 import { noScroll } from '@/components/rental/rentalLib';
 
 /** „Wynajmij pojazd" — dostępność (anti-double-booking) + auto-wycena + najemca → booking. */
@@ -26,6 +27,13 @@ export function RentalWizard({ companyId, open, onOpenChange, onCreated }: {
     renter_id: '', renter_type: 'private', full_name: '', company_name: '', nip: '', pesel: '', phone: '', email: '',
   });
   const set = (k: string, v: string) => setF(s => ({ ...s, [k]: v }));
+  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+  const fromGus = async () => {
+    const gus = await gusLookup(f.nip);
+    if (!gus) return toast.error('Nie znaleziono firmy w GUS');
+    setF(s => ({ ...s, company_name: gus.nazwa, nip: gus.nip }));
+    toast.success('Dane firmy pobrane z GUS');
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -129,7 +137,7 @@ export function RentalWizard({ companyId, open, onOpenChange, onCreated }: {
                 <div className="space-y-1"><Label className="text-xs">Firma</Label><Input value={f.company_name} onChange={e => set('company_name', e.target.value)} /></div>
                 <div className="space-y-1"><Label className="text-xs">Telefon *</Label><Input value={f.phone} onChange={e => set('phone', e.target.value)} /></div>
                 <div className="space-y-1"><Label className="text-xs">E-mail</Label><Input value={f.email} onChange={e => set('email', e.target.value)} /></div>
-                <div className="space-y-1"><Label className="text-xs">NIP</Label><Input value={f.nip} onChange={e => set('nip', e.target.value)} /></div>
+                <div className="space-y-1"><Label className="text-xs">NIP</Label><div className="flex gap-1"><Input value={f.nip} onChange={e => set('nip', e.target.value)} /><Button type="button" variant="outline" size="icon" className="shrink-0" onClick={fromGus} disabled={gusLoading || f.nip.replace(/\D/g, '').length < 10} title="Pobierz dane firmy z GUS">{gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}</Button></div></div>
                 <div className="space-y-1"><Label className="text-xs">PESEL</Label><Input value={f.pesel} onChange={e => set('pesel', e.target.value)} /></div>
               </div>
             )}

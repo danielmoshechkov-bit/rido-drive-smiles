@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { User, Plus, X } from "lucide-react";
+import { User, Plus, X, Search, Loader2 } from "lucide-react";
+import { useGusLookup } from "@/hooks/useGusLookup";
 
 interface VehicleOwner {
   id: string;
@@ -37,6 +38,18 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
   const [newEmail, setNewEmail] = useState("");
   const [newBankAccount, setNewBankAccount] = useState("");
   const [saving, setSaving] = useState(false);
+  const { lookup: gusLookup, loading: gusLoading } = useGusLookup();
+
+  const fetchCompanyFromGus = async () => {
+    const gus = await gusLookup(newNip);
+    if (!gus) {
+      toast.error("Nie znaleziono firmy w GUS");
+      return;
+    }
+    setNewCompany(gus.nazwa);
+    setNewNip(gus.nip);
+    toast.success("Dane firmy pobrane z GUS");
+  };
 
   useEffect(() => {
     loadOwners();
@@ -231,7 +244,20 @@ export function VehicleOwnerSelector({ vehicleId, fleetId, currentOwnerId, onOwn
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">NIP</Label>
-                <Input value={newNip} onChange={(e) => setNewNip(e.target.value)} placeholder="1234567890" />
+                <div className="flex gap-1">
+                  <Input value={newNip} onChange={(e) => setNewNip(e.target.value)} placeholder="1234567890" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={fetchCompanyFromGus}
+                    disabled={gusLoading || newNip.replace(/\D/g, "").length < 10}
+                    title="Pobierz dane firmy z GUS"
+                  >
+                    {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
               <div>
                 <Label className="text-xs">Telefon</Label>
