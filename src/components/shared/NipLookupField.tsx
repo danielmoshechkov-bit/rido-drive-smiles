@@ -3,9 +3,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Search, CheckCircle, XCircle, Building2, MapPin, FileText } from 'lucide-react';
 import { useGusLookup, isValidNip, cleanNip, GusCompanyData } from '@/hooks/useGusLookup';
+import { shortenLegalForm } from '@/utils/legalFormShortener';
 
 interface NipLookupFieldProps {
   /** Wywoływany po pobraniu danych z GUS — tu formularz mapuje pola. */
@@ -32,8 +34,16 @@ export function NipLookupField({
   disabled = false,
 }: NipLookupFieldProps) {
   const [nip, setNip] = useState(initialNip || '');
+  const [shortenForm, setShortenForm] = useState(true);
   const { lookup, loading, error, company, reset } = useGusLookup();
   const lastLookedUp = useRef<string>('');
+
+  // Do formularza trafia kopia z ewentualnie skróconą nazwą — oryginalne dane
+  // z GUS (stan `company` w hooku) zostają nietknięte.
+  const withNameVariant = (data: GusCompanyData, shorten: boolean): GusCompanyData => ({
+    ...data,
+    nazwa: shorten ? shortenLegalForm(data.nazwa) : data.nazwa,
+  });
 
   const runLookup = async (value: string) => {
     const clean = cleanNip(value);
@@ -44,7 +54,15 @@ export function NipLookupField({
     lastLookedUp.current = clean;
     const result = await lookup(clean);
     if (result) {
-      onCompanyFound?.(result);
+      onCompanyFound?.(withNameVariant(result, shortenForm));
+    }
+  };
+
+  const handleShortenToggle = (checked: boolean) => {
+    setShortenForm(checked);
+    // Przełączenie PO lookupie podmienia nazwę w polu formularza.
+    if (company) {
+      onCompanyFound?.(withNameVariant(company, checked));
     }
   };
 
@@ -113,6 +131,15 @@ export function NipLookupField({
           </Button>
         </div>
 
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer w-fit">
+          <Checkbox
+            checked={shortenForm}
+            onCheckedChange={(checked) => handleShortenToggle(checked === true)}
+            disabled={disabled}
+          />
+          Skróć formę prawną (sp. z o.o.)
+        </label>
+
         {error && (
           <p className="text-xs text-destructive flex items-center gap-1">
             <XCircle className="h-3 w-3" /> {error}
@@ -123,7 +150,9 @@ export function NipLookupField({
       {company && !compact && (
         <div className="rounded-lg border bg-muted/30 p-3 space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex items-start justify-between gap-2">
-            <p className="font-semibold text-sm leading-tight">{company.nazwa}</p>
+            <p className="font-semibold text-sm leading-tight">
+              {shortenForm ? shortenLegalForm(company.nazwa) : company.nazwa}
+            </p>
             <Badge
               variant={company.status === 'aktywny' ? 'default' : 'destructive'}
               className="text-[10px] shrink-0"

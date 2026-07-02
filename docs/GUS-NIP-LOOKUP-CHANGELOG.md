@@ -32,6 +32,21 @@
 - **`src/components/shared/NipLookupField.tsx`** — współdzielone pole NIP z lupką
   (maska, spinner, toast błędów, karta podglądu, `onCompanyFound`, opcje
   `autoLookup`/`compact`). Do używania w nowych formularzach.
+  Ma checkbox **„Skróć formę prawną (sp. z o.o.)"** (domyślnie ZAZNACZONY):
+  do formularza trafia nazwa ze skróconą formą prawną
+  („DR NATURA SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ" → „DR NATURA sp. z o.o.");
+  przełączenie checkboxa PO lookupie ponownie emituje `onCompanyFound`
+  z podmienioną nazwą (oryginał trzymany w stanie hooka). Dotyczy TYLKO nazwy
+  wstawianej do formularza — dane z GUS pozostają niezmienione.
+- **`src/utils/legalFormShortener.ts`** — util skracania form prawnych
+  (`shortenLegalForm`, `hasShortenableLegalForm`); case-insensitive, na końcu
+  i w środku nazwy, dopasowanie od najdłuższego wzorca (sp. z o.o. sp.k. przed
+  sp. z o.o., P.S.A. przed S.A., S.K.A. przed sp.k.). Obsługiwane: sp. z o.o. sp.k.,
+  sp. z o.o., P.S.A., S.K.A., S.A., sp.k., sp.j., sp.p., s.c.
+  Granice słów przez `(?<!\p{L})…(?!\p{L})` (klasyczne `\b` nie działa na polskich znakach).
+- **`src/utils/legalFormShortener.test.ts`** — testy utila (15 przypadków, w tym
+  sp. z o.o. sp.k. i P.S.A.); repo nie ma test runnera, plik odpala się samodzielnie:
+  `node src/utils/legalFormShortener.test.ts` (Node ≥22.6).
 - **`supabase/config.toml`** — dodany wpis `[functions.gus-lookup]` z `verify_jwt = false`.
 
 ## Deprecated (zostawione martwe, NIE używać; usunięcie po potwierdzeniu produkcyjnym)
