@@ -1143,40 +1143,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
 
-      // Auto-download/print PDF after issuing — otwiera od razu PDF do zapisu/druku
-      try {
-        // Ensure logo is loaded before generating PDF (fallback chain)
-        let finalLogo = companyLogo;
-        if (!finalLogo) {
-          const { data: { session: s2 } } = await supabase.auth.getSession();
-          if (s2?.user) {
-            const { data: cs } = await (supabase as any).from('company_settings').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
-            finalLogo = cs?.logo_url || '';
-            if (!finalLogo) {
-              const { data: sp } = await supabase.from('service_providers').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
-              finalLogo = sp?.logo_url || '';
-            }
-            if (!finalLogo) {
-              const { data: ws } = await (supabase as any).from('workshop_settings').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
-              finalLogo = ws?.logo_url || '';
-            }
-            if (finalLogo) setCompanyLogo(finalLogo);
-          }
-        }
-        const invoiceDataForPdf = { ...getInvoiceData(), seller: { ...getInvoiceData().seller, logo_url: finalLogo || undefined } };
-        const html = generateInvoiceHtml(invoiceDataForPdf);
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(html);
-          printWindow.document.close();
-          // Daj przeglądarce moment na renderowanie zanim otworzymy dialog drukowania (zapisz jako PDF)
-          setTimeout(() => {
-            try { printWindow.focus(); printWindow.print(); } catch {}
-          }, 400);
-        }
-      } catch (pdfErr) {
-        console.error('Auto-PDF error:', pdfErr);
-      }
+      // Podgląd po wystawieniu pokazuje modal (InvoicePreviewModal) z realnym PDF
+      // (pdf.js) i przyciskami „PDF"/„Email". Bez auto-druku (window.open+print),
+      // który otwierał brzydkie okno about:blank z dialogiem drukowania.
 
       // Auto-send to KSeF if enabled (skip for proforma, drafts, non-VAT documents)
       const isKsefEligible = ['invoice', 'correction', 'advance', 'final'].includes(invoiceType);
