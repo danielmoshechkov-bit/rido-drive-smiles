@@ -773,7 +773,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     /* Zwarta lista w prawym górnym rogu — osobne divy z małymi marginesami i
        line-height 1.0 (Dompdf pewniej respektuje margin niż line-height na <br>). */
     .inv-title-main { font-size: ${titleFontSize}; font-weight: 700; color: #222; line-height: 16px; margin: 0; }
-    .inv-title-num { font-size: 16px; font-weight: 700; color: ${themeColor}; line-height: 13px; margin-top: -5px; }
+    .inv-title-num { font-size: 16px; font-weight: 700; color: ${themeColor}; line-height: 13px; margin-top: 2px; }
     .invoice-dates { font-size: 11px; color: #333; text-align: right; margin-top: -3px; line-height: 11px; }
     .invoice-dates-row { margin-bottom: -2px; }
     .invoice-dates-label { color: #555; }
@@ -781,8 +781,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .party { display: table-cell; vertical-align: top; padding-right: 16px; }
     .party.buyer { padding-right: 0; padding-left: 16px; }
     .party-label { font-size: 10px; color: #7c3aed; text-transform: uppercase; margin-bottom: 2px; font-weight: 700; }
-    .party-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; color: #111; }
-    .party-details { font-size: 11px; color: #333; line-height: 1.4; }
+    .party-name { font-size: 14px; font-weight: 700; line-height: 13px; margin-bottom: 0; color: #111; }
+    .party-details { font-size: 11px; color: #333; line-height: 11px; }
     .party-details .lbl { color: #555; }
     .party-contact { font-size: 11px; color: #333; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
