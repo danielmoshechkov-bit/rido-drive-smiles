@@ -762,14 +762,14 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     }
     .invoice { width: 100%; max-width: 100%; margin: 0 auto; background: white; }
     /* Layout oparty na display:table (zamiast flex) — renderuje się poprawnie w Dompdf i w Chrome. */
-    .top-meta { text-align: right; font-size: 9px; color: #444; margin-bottom: 4px; }
+    .top-meta { text-align: right; font-size: 12px; color: #333; margin-bottom: 1px; }
     .header { display: table; width: 100%; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid ${themeColor}; }
     .logo-area { display: table-cell; vertical-align: middle; width: 55%; }
     .logo-area img { max-width: 264px; max-height: 84px; width: auto; height: auto; }
     .seller-brand { display: inline-block; border: 2px solid ${themeColor}; border-radius: 10px; padding: 20px 30px; text-align: center; min-width: 172px; }
     .seller-brand-name { font-size: 26px; font-weight: 700; color: ${themeColor}; line-height: 1.2; letter-spacing: 0.5px; text-align: center; }
     .seller-brand-addr { font-size: 9px; color: #333; margin-top: 2px; line-height: 1.3; }
-    .invoice-title { display: table-cell; vertical-align: middle; text-align: right; }
+    .invoice-title { display: table-cell; vertical-align: top; text-align: right; }
     .invoice-title h1 { font-size: ${titleFontSize}; color: #222; margin-bottom: 2px; }
     .invoice-title h1 .invoice-number { color: ${themeColor}; }
     .invoice-dates { font-size: 11px; color: #333; text-align: right; margin-top: 3px; line-height: 1.25; }
@@ -791,8 +791,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .totals { display: block; margin-bottom: 5px; }
     .totals-table { width: 240px; margin-left: auto; border: 1px solid #e3e0f0; border-radius: 6px; padding: 4px 8px; background: #faf9ff; }
     .totals-row { display: table; width: 100%; padding: 1px 0; font-size: 10px; border-bottom: 1px solid #d8d5e8; }
-    .totals-row > span:first-child { display: table-cell; text-align: left; color: #444; }
-    .totals-row > span:last-child { display: table-cell; text-align: right; }
+    .totals-row > span:first-child { display: table-cell; text-align: left; color: #444; vertical-align: middle; }
+    .totals-row > span:last-child { display: table-cell; text-align: right; vertical-align: middle; }
     .totals-row.grand { border-bottom: none; background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-top: 2px; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .amount-words { display: block; margin-top: 4px; margin-bottom: 5px; padding: 1px 0; font-size: 10px; }
     .amount-words-label { color: #666; font-weight: 600; white-space: nowrap; }
@@ -865,7 +865,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   })()}
   <div class="invoice content-layer">
     <div class="top-meta">
-      ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
+      ${formatDate(invoice.issue_date)}
     </div>
 
     <div class="header">
