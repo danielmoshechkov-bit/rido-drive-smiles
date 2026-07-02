@@ -806,7 +806,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .payment-value { font-weight: 500; }
     .notes { margin-bottom: 4px; padding: 4px 11px; background: #f8f5ff; border: 1px solid #ede9fe; border-radius: 6px; font-size: 10px; }
     .notes-label { font-size: 9px; color: ${themeColor}; text-transform: uppercase; margin-bottom: 1px; font-weight: 700; letter-spacing: 0.04em; }
-    .footer { display: table; width: 100%; margin-top: 36px; }
+    .footer { display: table; width: 100%; margin-top: 96px; }
     .signature { display: table-cell; width: 50%; text-align: center; padding: 0 30px; }
     .signature-line { border-top: 1px solid #333; margin-top: 8px; padding-top: 3px; font-size: 9px; color: #666; }
      /* Znak wodny — przezroczysty, powtarzany NA CAŁEJ stronie, na wierzchu treści,
