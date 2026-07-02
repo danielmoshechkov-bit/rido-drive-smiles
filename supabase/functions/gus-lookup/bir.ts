@@ -268,12 +268,14 @@ function pickMainPkd(pkdXml: string | null, prefix: string): GusPkd | null {
   const rows = pkdXml.match(/<dane>[\s\S]*?<\/dane>/g) || [];
   let first: GusPkd | null = null;
   for (const row of rows) {
-    const kod = tag(row, `${prefix}_pkdKod`);
-    const nazwa = tag(row, `${prefix}_pkdNazwa`);
+    // Konwencje nazw różnią się między raportami: praw_pkdKod vs fiz_pkd_Kod.
+    const kod = tag(row, `${prefix}_pkdKod`) || tag(row, `${prefix}_pkd_Kod`);
+    const nazwa = tag(row, `${prefix}_pkdNazwa`) || tag(row, `${prefix}_pkd_Nazwa`);
     if (!kod) continue;
     const pkd = { kod, nazwa };
     if (!first) first = pkd;
-    if (tag(row, `${prefix}_pkdPrzewazajace`) === '1') return pkd;
+    const przewazajace = tag(row, `${prefix}_pkdPrzewazajace`) || tag(row, `${prefix}_pkd_Przewazajace`);
+    if (przewazajace === '1') return pkd;
   }
   return first;
 }
