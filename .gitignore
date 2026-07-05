@@ -28,3 +28,4 @@ supabase/.temp/
 
 # Local rollback/backup artifacts (not for repo)
 _local-rollbacks/
+public/invoice-pdf-lib/vendor/

@@ -17,6 +17,16 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+      # PHP + Composer: budujemy Dompdf (vendor/) do public/invoice-pdf-lib/,
+      # żeby vite skopiował go do dist/ i FTP wgrał na serwer. vendor/ jest w
+      # .gitignore, więc CI musi go zbudować (endpoint /invoice-pdf.php go wymaga).
+      - name: Setup PHP (Dompdf)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, dom, gd
+      - name: Install Dompdf via Composer (no-dev)
+        run: composer install --no-dev --optimize-autoloader --working-dir=public/invoice-pdf-lib
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -26,6 +36,11 @@ jobs:
         run: npm install --no-fund --no-audit
       - name: Build project
         run: npm run build
+      - name: Verify Dompdf endpoint present in dist
+        run: |
+          test -f dist/invoice-pdf.php || { echo "BRAK dist/invoice-pdf.php"; exit 1; }
+          test -f dist/invoice-pdf-lib/vendor/autoload.php || { echo "BRAK vendor/autoload.php w dist"; exit 1; }
+          echo "OK: invoice-pdf.php + vendor/ obecne w dist"
       - name: Copy .htaccess to dist (if exists)
         run: |
           if [ -f "public/.htaccess" ]; then
@@ -48,7 +63,12 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          # LH.pl wymaga FTPS (FTP over TLS, jawny, port 21). security: loose
+          # akceptuje certyfikat współdzielonego hostingu. (Usunięto nieobsługiwane
+          # 'passive' — tryb pasywny jest domyślny dla FTPS w tej akcji.)
+          protocol: ftps
+          security: loose
+          port: 21
           local-dir: ./dist/
           server-dir: /
-          passive: true
           dangerous-clean-slate: false

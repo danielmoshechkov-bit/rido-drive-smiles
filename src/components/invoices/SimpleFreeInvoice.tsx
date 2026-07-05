@@ -278,6 +278,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   
   // Preview modal
   const [showPreview, setShowPreview] = useState(false);
+  // Indeksy pozycji bez ceny (netto ANI brutto) — czerwone podświetlenie przy próbie wystawienia.
+  const [itemPriceErrors, setItemPriceErrors] = useState<Set<number>>(new Set());
   
   // Auth modal for preview
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -656,6 +658,15 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   };
 
   const updateItem = (index: number, field: keyof ExtendedInvoiceItem, value: any) => {
+    // Wpisanie ceny (netto lub brutto) czyści czerwone podświetlenie tej pozycji.
+    if ((field === 'unit_net_price' || field === 'unit_gross_price') && (value || 0) > 0) {
+      setItemPriceErrors(prev => {
+        if (!prev.has(index)) return prev;
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
+    }
     setItems(prev => {
       const updated = [...prev];
       let item = { ...updated[index], [field]: value };
@@ -823,7 +834,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
     };
   };
 
-  const handleSave = async (asDraft?: boolean) => {
+  const handleSave = async (asDraft?: boolean, skipOnSaved?: boolean) => {
     try {
       // Use getSession() to get the user ID from the current auth token
       // This ensures the user_id matches auth.uid() in RLS policies
@@ -1103,7 +1114,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         }
       }
 
-      onSaved?.();
+      // Przy wystawianiu pomijamy onSaved, żeby rodzic nie zamknął dialogu
+      // formularza (i tym samym modalu podglądu) — zamknięcie/odświeżenie robimy
+      // dopiero gdy user zamknie podgląd. Dla szkicu/edycji: onSaved jak dotąd.
+      if (!skipOnSaved) onSaved?.();
       return resultInvoiceId; // Return saved invoice ID
     } catch (err) {
       console.error('Error saving invoice:', err);
@@ -1162,47 +1176,31 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       return;
     }
 
+    // Każda wypełniona pozycja (z nazwą) musi mieć cenę — netto ALBO brutto.
+    // Bez kwoty nie wystawiamy; podświetlamy czerwono pola ceny tych pozycji.
+    const priceErrs = new Set<number>();
+    items.forEach((item, i) => {
+      const named = !!(item.name && item.name.trim());
+      const hasPrice = (item.unit_net_price || 0) > 0 || (item.unit_gross_price || 0) > 0;
+      if (named && !hasPrice) priceErrs.add(i);
+    });
+    if (priceErrs.size > 0) {
+      setItemPriceErrors(priceErrs);
+      toast.error('Podaj cenę netto lub brutto');
+      return;
+    }
+    setItemPriceErrors(new Set());
+
     setIsIssuing(true);
     try {
-      const savedId = await handleSave();
+      const savedId = await handleSave(false, true); // skipOnSaved — modal podglądu ma zostać
       setInvoiceIssued(true);
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
 
-      // Auto-download/print PDF after issuing — otwiera od razu PDF do zapisu/druku
-      try {
-        // Ensure logo is loaded before generating PDF (fallback chain)
-        let finalLogo = companyLogo;
-        if (!finalLogo) {
-          const { data: { session: s2 } } = await supabase.auth.getSession();
-          if (s2?.user) {
-            const { data: cs } = await (supabase as any).from('company_settings').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
-            finalLogo = cs?.logo_url || '';
-            if (!finalLogo) {
-              const { data: sp } = await supabase.from('service_providers').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
-              finalLogo = sp?.logo_url || '';
-            }
-            if (!finalLogo) {
-              const { data: ws } = await (supabase as any).from('workshop_settings').select('logo_url').eq('user_id', s2.user.id).maybeSingle();
-              finalLogo = ws?.logo_url || '';
-            }
-            if (finalLogo) setCompanyLogo(finalLogo);
-          }
-        }
-        const invoiceDataForPdf = { ...getInvoiceData(), seller: { ...getInvoiceData().seller, logo_url: finalLogo || undefined } };
-        const html = generateInvoiceHtml(invoiceDataForPdf);
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(html);
-          printWindow.document.close();
-          // Daj przeglądarce moment na renderowanie zanim otworzymy dialog drukowania (zapisz jako PDF)
-          setTimeout(() => {
-            try { printWindow.focus(); printWindow.print(); } catch {}
-          }, 400);
-        }
-      } catch (pdfErr) {
-        console.error('Auto-PDF error:', pdfErr);
-      }
+      // Podgląd po wystawieniu pokazuje modal (InvoicePreviewModal) z realnym PDF
+      // (pdf.js) i przyciskami „PDF"/„Email". Bez auto-druku (window.open+print),
+      // który otwierał brzydkie okno about:blank z dialogiem drukowania.
 
       // Auto-send to KSeF if enabled (skip for proforma, drafts, non-VAT documents)
       const isKsefEligible = ['invoice', 'correction', 'advance', 'final'].includes(invoiceType);
@@ -1220,7 +1218,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             } else {
               toast.success(data.message || 'Faktura wysłana do KSeF');
             }
-            onSaved?.();
+            // Bez onSaved tutaj — modal podglądu ma zostać; odświeżenie po zamknięciu podglądu.
           }
         } catch (ksefErr: any) {
           toast.error('Błąd KSeF: ' + ksefErr.message);
@@ -1871,6 +1869,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                   type="number"
                   min={0}
                   step={0.01}
+                  error={itemPriceErrors.has(index)}
                   value={item.unit_net_price || ''}
                   onChange={(e) => updateItem(index, 'unit_net_price', parseFloat(e.target.value) || 0)}
                 />
@@ -1880,6 +1879,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                     type="number"
                     min={0}
                     step={0.01}
+                    error={itemPriceErrors.has(index)}
                     value={item.unit_gross_price || ''}
                     onChange={(e) => updateItem(index, 'unit_gross_price', parseFloat(e.target.value) || 0)}
                   />
@@ -2308,7 +2308,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       {/* Preview Modal - shows after invoice is issued */}
       <InvoicePreviewModal
         open={showPreview}
-        onOpenChange={setShowPreview}
+        onOpenChange={(o) => {
+          setShowPreview(o);
+          // Po zamknięciu podglądu WYSTAWIONEJ faktury: dopiero teraz zamknij
+          // formularz i odśwież listę (wcześniej pominięte, by modal został).
+          if (!o && invoiceIssued) onSaved?.();
+        }}
         invoiceData={getInvoiceData()}
         isLoggedIn={isLoggedIn}
         onSave={undefined} // No save needed - already saved

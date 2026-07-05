@@ -55,6 +55,7 @@ import { PurchaseInvoicesModule } from '@/components/invoices/PurchaseInvoicesMo
 import { InvoicesModule } from '@/components/invoices/InvoicesModule';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { useDisableNumberInputScroll } from '@/hooks/useDisableNumberInputScroll';
 
 interface Invoice {
   id: string;
@@ -74,6 +75,7 @@ interface Entity {
 }
 
 export default function InvoiceProgram() {
+  useDisableNumberInputScroll(); // scroll nad polem kwoty nie zmienia wartości (też w dialogach edytora)
   const navigate = useNavigate();
   // Removed role restrictions - any authenticated user can access
   const [user, setUser] = useState<any>(null);
@@ -245,7 +247,8 @@ export default function InvoiceProgram() {
       .eq('entity_id', selectedEntity)
       .gte('issue_date', startDate)
       .lte('issue_date', endDate)
-      .order('issue_date', { ascending: false });
+      .order('issue_date', { ascending: false })
+      .order('invoice_number', { ascending: false }); // drugi klucz — porządek przy tej samej dacie
 
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter);
