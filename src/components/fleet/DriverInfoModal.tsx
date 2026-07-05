@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Save, Plus, Minus, Pencil, History } from 'lucide-react';
+import { Loader2, Save, Plus, Minus, Pencil, History, Search } from 'lucide-react';
+import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { format } from 'date-fns';
 import { AddVehicleModal } from '@/components/AddVehicleModal';
 import { pl } from 'date-fns/locale';
@@ -61,7 +63,27 @@ export function DriverInfoPopover({
   const [b2bApartmentNo, setB2bApartmentNo] = useState('');
   const [b2bPostalCode, setB2bPostalCode] = useState('');
   const [b2bCity, setB2bCity] = useState('');
-  
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setB2bCompanyName(gus.nazwa);
+      setB2bNip(gus.nip);
+      setB2bStreet(gus.ulica);
+      setB2bBuildingNo(gus.nr_domu);
+      setB2bApartmentNo(gus.nr_lokalu);
+      setB2bPostalCode(gus.kod_pocztowy);
+      setB2bCity(gus.miasto);
+    },
+  });
+
+  const fetchB2bFromGus = async () => {
+    const gus = await gusLookup(b2bNip);
+    if (!gus) {
+      toast.error('Nie znaleziono firmy w GUS');
+      return;
+    }
+    toast.success('Dane firmy pobrane z GUS');
+  };
+
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('none');
   const [assignedAt, setAssignedAt] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [selectedFleetId, setSelectedFleetId] = useState<string>('none');
@@ -560,8 +582,22 @@ export function DriverInfoPopover({
                   <div className="col-span-2">
                     <Input value={b2bCompanyName} onChange={e => setB2bCompanyName(e.target.value)} placeholder="Nazwa firmy" className="h-7 text-xs" />
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-2 flex gap-1">
                     <Input value={b2bNip} onChange={e => setB2bNip(e.target.value)} placeholder="NIP" className="h-7 text-xs" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={fetchB2bFromGus}
+                      disabled={gusLoading || b2bNip.replace(/\D/g, '').length < 10}
+                      title="Pobierz dane firmy z GUS"
+                    >
+                      {gusLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                  <div className="col-span-2">
+                    <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
                   </div>
                   <div className="col-span-2">
                     <Input value={b2bStreet} onChange={e => setB2bStreet(e.target.value)} placeholder="Ulica" className="h-7 text-xs" />

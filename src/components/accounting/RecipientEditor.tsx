@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useGusLookup, isValidNip } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -81,29 +83,35 @@ export function RecipientEditor({ open, onOpenChange, entityId, recipientId, onS
     }
   };
 
+  const { lookup: gusLookup, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setName(gus.nazwa);
+      setRegon(gus.regon || '');
+      setAddressStreet(gus.adres || '');
+      setAddressCity(gus.miasto || '');
+      setAddressPostalCode(gus.kod_pocztowy || '');
+    },
+  });
+
   const searchByNip = async () => {
-    if (!nip || nip.length < 10) {
+    const cleanNip = nip.replace(/[^0-9]/g, '');
+    if (cleanNip.length !== 10) {
       toast.error('Podaj poprawny NIP (10 cyfr)');
+      return;
+    }
+    if (!isValidNip(cleanNip)) {
+      toast.error('NIP ma nieprawidłową sumę kontrolną');
       return;
     }
 
     setSearchingNip(true);
-    try {
-      // Try to fetch from REGON API (simplified - in production use real API)
-      // For now, we'll just format the NIP
-      const cleanNip = nip.replace(/[^0-9]/g, '');
-      if (cleanNip.length !== 10) {
-        toast.error('NIP musi mieć 10 cyfr');
-        return;
-      }
-      
-      toast.info('Wyszukiwanie w GUS... (wymaga integracji API)');
-      // In production, call edge function to query REGON/GUS API
-    } catch (error) {
-      console.error('Error searching NIP:', error);
-    } finally {
-      setSearchingNip(false);
+    const gus = await gusLookup(cleanNip);
+    if (gus) {
+      toast.success('Dane pobrane z GUS');
+    } else {
+      toast.error('Nie znaleziono firmy w GUS');
     }
+    setSearchingNip(false);
   };
 
   const handleSave = async () => {
@@ -185,13 +193,13 @@ export function RecipientEditor({ open, onOpenChange, entityId, recipientId, onS
             <div className="space-y-2">
               <Label>NIP</Label>
               <div className="flex gap-2">
-                <Input 
+                <Input
                   value={nip}
                   onChange={(e) => setNip(e.target.value)}
                   placeholder="0000000000"
                 />
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="icon"
                   onClick={searchByNip}
                   disabled={searchingNip}
@@ -200,6 +208,7 @@ export function RecipientEditor({ open, onOpenChange, entityId, recipientId, onS
                   {searchingNip ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 </Button>
               </div>
+              <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
             </div>
             <div className="space-y-2">
               <Label>REGON</Label>

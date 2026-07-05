@@ -13,8 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from 'sonner';
 import {
   Building2, FileText, Shield, RefreshCw, CheckCircle2, XCircle,
-  AlertTriangle, Clock, ExternalLink, Save, Loader2
+  AlertTriangle, Clock, ExternalLink, Save, Loader2, Search
 } from 'lucide-react';
+import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 
 interface CompanySettings {
   id?: string;
@@ -191,6 +193,30 @@ export function KsefSettingsPanel() {
   };
 
   const update = (key: keyof CompanySettings, value: any) => setForm(f => ({ ...f, [key]: value }));
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setForm(f => ({
+        ...f,
+        company_name: gus.nazwa,
+        nip: gus.nip,
+        regon: gus.regon || f.regon,
+        street: gus.ulica || f.street,
+        building_number: gus.nr_domu || f.building_number,
+        apartment_number: gus.nr_lokalu || f.apartment_number,
+        postal_code: gus.kod_pocztowy || f.postal_code,
+        city: gus.miasto || f.city,
+      }));
+    },
+  });
+
+  const fetchCompanyFromGus = async () => {
+    const gus = await gusLookup(form.nip);
+    if (!gus) {
+      toast.error('Nie znaleziono firmy w GUS');
+      return;
+    }
+    toast.success('Dane firmy pobrane z GUS');
+  };
 
   const statusBadge = (status: string) => {
     switch (status) {
@@ -231,7 +257,21 @@ export function KsefSettingsPanel() {
             </div>
             <div>
               <Label>NIP *</Label>
-              <Input value={form.nip} onChange={e => update('nip', e.target.value)} placeholder="0000000000" />
+              <div className="flex gap-2">
+                <Input value={form.nip} onChange={e => update('nip', e.target.value)} placeholder="0000000000" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={fetchCompanyFromGus}
+                  disabled={gusLoading || form.nip.replace(/\D/g, '').length < 10}
+                  title="Pobierz dane firmy z GUS"
+                >
+                  {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                </Button>
+              </div>
+              <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
             </div>
             <div>
               <Label>REGON</Label>

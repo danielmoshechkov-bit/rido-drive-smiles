@@ -31,10 +31,15 @@ interface ServiceInfo {
 }
 
 const SERVICE_INFO: Record<string, ServiceInfo> = {
+  /**
+   * @deprecated Konfiguracja klucza GUS w tabeli external_integrations dotyczy starej funkcji
+   * registry-gus. Nowy lookup (gus-lookup) czyta klucz WYŁĄCZNIE z secreta GUS_BIR_API_KEY
+   * w Supabase — ten wpis zostaje tylko do czasu usunięcia registry-gus.
+   */
   gus_regon: {
-    label: 'GUS REGON',
+    label: 'GUS REGON (stara integracja)',
     icon: Building2,
-    description: 'Pobieranie danych firm z rejestru REGON (nazwa, adres, NIP, REGON)',
+    description: 'PRZESTARZAŁE — klucz GUS jest teraz w secrecie GUS_BIR_API_KEY (funkcja gus-lookup). Ten wpis dotyczy starej funkcji registry-gus.',
     docsUrl: 'https://api.stat.gov.pl/Home/RegonApi'
   },
   mf_whitelist: {

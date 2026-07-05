@@ -146,6 +146,9 @@ verify_jwt = false
 [functions.registry-gus]
 verify_jwt = false
 
+[functions.gus-lookup]
+verify_jwt = false
+
 [functions.registry-whitelist]
 verify_jwt = false
 

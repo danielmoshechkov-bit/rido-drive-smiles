@@ -26,6 +26,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { NotificationsSettings } from '@/components/notifications/NotificationsSettings';
 
 interface SettingsPanelProps {
@@ -157,6 +159,18 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     },
   });
 
+  const { lookup: gusLookup, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (company) => {
+      setSettingsForm((p: any) => ({
+        ...p,
+        company_name: company.nazwa,
+        address: company.adres || p.address,
+        city: company.miasto || p.city,
+        postal_code: company.kod_pocztowy || p.postal_code,
+      }));
+    },
+  });
+
   const handleNipSearch = async () => {
     const cleanNip = (settingsForm.nip || '').replace(/[\s-]/g, '');
     if (!cleanNip || cleanNip.length !== 10) {
@@ -164,30 +178,13 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
       return;
     }
     setNipSearching(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('registry-gus', {
-        body: { nip: cleanNip },
-      });
-      if (error) throw error;
-      // registry-gus zwraca { success, data: {...} }
-      const company = data?.data || data;
-      if (company?.name) {
-        setSettingsForm((p: any) => ({
-          ...p,
-          company_name: company.name,
-          address: company.address || company.street || p.address,
-          city: company.city || p.city,
-          postal_code: company.postalCode || company.zipCode || p.postal_code,
-        }));
-        toast.success(t('workshop.settingsPanel.companyDataFetched'));
-      } else {
-        toast.info(data?.error || t('workshop.settingsPanel.companyNotFound'));
-      }
-    } catch (e: any) {
-      toast.error(t('workshop.settingsPanel.searchError', { error: e.message || t('workshop.settingsPanel.unknownError') }));
-    } finally {
-      setNipSearching(false);
+    const company = await gusLookup(cleanNip);
+    if (company) {
+      toast.success(t('workshop.settingsPanel.companyDataFetched'));
+    } else {
+      toast.info(t('workshop.settingsPanel.companyNotFound'));
     }
+    setNipSearching(false);
   };
 
   const handleLogoDrop = useCallback((e: React.DragEvent) => {
@@ -426,6 +423,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                         {nipSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
+                    <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">

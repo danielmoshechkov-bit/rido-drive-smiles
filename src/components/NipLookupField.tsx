@@ -1,3 +1,8 @@
+/**
+ * @deprecated Stara wersja oparta o useNipLookup (biała lista MF, ucinane nazwy).
+ * Używaj @/components/shared/NipLookupField (GUS BIR1.1 przez gus-lookup).
+ * Do usunięcia po migracji wszystkich formularzy.
+ */
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

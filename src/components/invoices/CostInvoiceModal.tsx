@@ -9,6 +9,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useGusLookup, isValidNip } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { Loader2, Search, Upload, FileText, Check, X, Plus, AlertTriangle, Package } from 'lucide-react';
 import { DatePickerButton } from './DatePickerButton';
 import { CostCategorySelector } from './CostCategorySelector';
@@ -223,33 +225,33 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
     addToInventory: false
   });
 
+  const { lookup: gusLookup, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setSupplierName(gus.nazwa);
+      setSupplierAddress(
+        [gus.adres, [gus.kod_pocztowy, gus.miasto].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+      );
+    },
+  });
+
   const searchGUS = async () => {
     if (!supplierNip || supplierNip.length !== 10) {
       toast.error('NIP musi mieć 10 cyfr');
       return;
     }
+    if (!isValidNip(supplierNip)) {
+      toast.error('NIP ma nieprawidłową sumę kontrolną');
+      return;
+    }
 
     setSearchingNip(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('registry-gus', {
-        body: { nip: supplierNip }
-      });
-
-      if (error) throw error;
-
-      if (data?.success && data?.data) {
-        setSupplierName(data.data.name);
-        setSupplierAddress(data.data.address || '');
-        toast.success('Dane pobrane z GUS');
-      } else {
-        toast.error(data?.error || 'Nie znaleziono firmy');
-      }
-    } catch (err) {
-      console.error('GUS error:', err);
-      toast.error('Błąd pobierania danych');
-    } finally {
-      setSearchingNip(false);
+    const gus = await gusLookup(supplierNip);
+    if (gus) {
+      toast.success('Dane pobrane z GUS');
+    } else {
+      toast.error('Nie znaleziono firmy');
     }
+    setSearchingNip(false);
   };
 
   const updateItem = (index: number, field: keyof ExtractedItem, value: any) => {
@@ -493,6 +495,7 @@ export function CostInvoiceModal({ open, onOpenChange, entityId, onCreated }: Co
                     </Button>
                   </div>
                 </div>
+                <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
 
                 <div>
                   <Label>Nazwa firmy</Label>

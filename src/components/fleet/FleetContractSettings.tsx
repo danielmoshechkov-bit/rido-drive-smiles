@@ -8,18 +8,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { 
-  PenTool, 
-  Save, 
-  Trash2, 
-  Loader2, 
+import {
+  PenTool,
+  Save,
+  Trash2,
+  Loader2,
   CheckCircle,
   AlertCircle,
   Stamp,
   Upload,
   Building2,
-  UserCog
+  UserCog,
+  Search
 } from "lucide-react";
+import { useGusLookup, GusCompanyData } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { AccountSettingsTab } from "./AccountSettingsTab";
 import { formatPostalCode } from "@/utils/formatters";
 
@@ -149,6 +152,42 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
       }
     }
     return addr;
+  };
+
+  const legalFormFromGus = (gus: GusCompanyData): string => {
+    if (gus.typ_podmiotu === 'fizyczna') return 'jdg';
+    const forma = (gus.forma_prawna || '').toUpperCase();
+    if (forma.includes('AKCYJN')) return 'sa';
+    if (forma.includes('OGRANICZON')) return 'sp_zoo';
+    if (forma.includes('JAWN')) return 'sp_jawna';
+    if (forma.includes('KOMANDYTOW')) return 'sp_komandytowa';
+    return 'other';
+  };
+
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setCompanyData(p => ({
+        ...p,
+        name: gus.nazwa || p.name,
+        nip: gus.nip,
+        krs: gus.krs || p.krs,
+        legal_form: legalFormFromGus(gus),
+        street: gus.ulica || p.street,
+        building_number: gus.nr_domu || p.building_number,
+        apartment_number: gus.nr_lokalu || p.apartment_number,
+        postal_code: gus.kod_pocztowy || p.postal_code,
+        city: gus.miasto || p.city,
+      }));
+    },
+  });
+
+  const fetchCompanyFromGus = async () => {
+    const gus = await gusLookup(companyData.nip);
+    if (!gus) {
+      toast.error('Nie znaleziono firmy w GUS');
+      return;
+    }
+    toast.success('Dane firmy pobrane z GUS');
   };
 
   const handlePostalCodeChange = (value: string) => {
@@ -368,7 +407,20 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
                 </div>
                 <div className="space-y-2">
                   <Label>NIP *</Label>
-                  <Input value={companyData.nip} onChange={e => setCompanyData(p => ({...p, nip: e.target.value}))} placeholder="np. 5223252793" />
+                  <div className="flex gap-2">
+                    <Input value={companyData.nip} onChange={e => setCompanyData(p => ({...p, nip: e.target.value}))} placeholder="np. 5223252793" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={fetchCompanyFromGus}
+                      disabled={gusLoading || companyData.nip.replace(/\D/g, '').length < 10}
+                      title="Pobierz dane firmy z GUS"
+                    >
+                      {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                 </div>
                 <div className="space-y-2">
                   <Label>Forma prawna</Label>

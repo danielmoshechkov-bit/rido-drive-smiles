@@ -16,6 +16,8 @@ import {
   Upload, FileText, Loader2, CheckCircle, Plus, Scan, Eye, Trash2,
   History, Package, Download, Edit, Save, Search, AlertCircle, ChevronsUpDown,
 } from 'lucide-react';
+import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { PurchaseInvoicesKSeF } from '@/components/accounting/PurchaseInvoicesKSeF';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -111,6 +113,20 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   const [fileMimeType, setFileMimeType] = useState<string>('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
   const [invoiceHeader, setInvoiceHeader] = useState<InvoiceHeader | null>(null);
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setInvoiceHeader(prev => prev ? { ...prev, supplier_name: gus.nazwa, supplier_nip: gus.nip } : prev);
+    },
+  });
+
+  const fetchSupplierFromGus = async () => {
+    const gus = await gusLookup(invoiceHeader?.supplier_nip || '');
+    if (!gus) {
+      toast.error('Nie znaleziono firmy w GUS');
+      return;
+    }
+    toast.success('Dane dostawcy pobrane z GUS');
+  };
   const [ocrItems, setOcrItems] = useState<OCRItem[]>([]);
   const [ocrDone, setOcrDone] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -901,11 +917,25 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
                             </div>
                             <div>
                               <Label className="text-xs">NIP</Label>
-                              <Input 
-                                value={invoiceHeader.supplier_nip || ''} 
-                                onChange={e => setInvoiceHeader(prev => prev ? {...prev, supplier_nip: e.target.value} : prev)}
-                                className="h-8 text-sm font-mono"
-                              />
+                              <div className="flex gap-1">
+                                <Input
+                                  value={invoiceHeader.supplier_nip || ''}
+                                  onChange={e => setInvoiceHeader(prev => prev ? {...prev, supplier_nip: e.target.value} : prev)}
+                                  className="h-8 text-sm font-mono"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 shrink-0"
+                                  onClick={fetchSupplierFromGus}
+                                  disabled={gusLoading || (invoiceHeader.supplier_nip || '').replace(/\D/g, '').length < 10}
+                                  title="Pobierz dane firmy z GUS"
+                                >
+                                  {gusLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                                </Button>
+                              </div>
+                              <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
                             </div>
                           </div>
                         </div>

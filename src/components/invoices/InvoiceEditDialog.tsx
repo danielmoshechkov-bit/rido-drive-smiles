@@ -7,8 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Save, Trash2, Plus } from 'lucide-react';
+import { Loader2, Save, Trash2, Plus, Search } from 'lucide-react';
 import { DatePickerButton } from './DatePickerButton';
+import { useGusLookup } from '@/hooks/useGusLookup';
+import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 
 interface InvoiceItem {
   id?: string;
@@ -40,6 +42,24 @@ export function InvoiceEditDialog({ invoiceId, open, onOpenChange, onSaved }: In
   const [buyerName, setBuyerName] = useState('');
   const [buyerNip, setBuyerNip] = useState('');
   const [buyerAddress, setBuyerAddress] = useState('');
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (company) => {
+      setBuyerName(company.nazwa);
+      setBuyerNip(company.nip);
+      setBuyerAddress(
+        [company.adres, [company.kod_pocztowy, company.miasto].filter(Boolean).join(' ')].filter(Boolean).join(', ')
+      );
+    },
+  });
+
+  const fetchBuyerFromGus = async () => {
+    const company = await gusLookup(buyerNip);
+    if (!company) {
+      toast.error('Nie znaleziono firmy w GUS');
+      return;
+    }
+    toast.success('Dane pobrane z GUS');
+  };
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<InvoiceItem[]>([]);
@@ -252,10 +272,23 @@ export function InvoiceEditDialog({ invoiceId, open, onOpenChange, onSaved }: In
                 </div>
                 <div className="space-y-2">
                   <Label>NIP</Label>
-                  <Input
-                    value={buyerNip}
-                    onChange={(e) => setBuyerNip(e.target.value)}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={buyerNip}
+                      onChange={(e) => setBuyerNip(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={fetchBuyerFromGus}
+                      disabled={gusLoading || buyerNip.replace(/\D/g, '').length < 10}
+                      title="Pobierz dane firmy z GUS"
+                    >
+                      {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                 </div>
               </div>
               <div className="space-y-2">

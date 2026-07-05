@@ -6,7 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { Building2, Loader2, Save, Check, AlertCircle, CheckCircle2, ExternalLink, FileText, Shield, Banknote, CreditCard } from "lucide-react";
+import { Building2, Loader2, Save, Check, AlertCircle, CheckCircle2, ExternalLink, FileText, Shield, Banknote, CreditCard, Search } from "lucide-react";
+import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -175,6 +177,30 @@ export function DriverB2BProfile({ driverId }: DriverB2BProfileProps) {
       sum += parseInt(nip[i]) * weights[i];
     }
     return sum % 11 === parseInt(nip[9]);
+  };
+
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setProfileData(prev => ({
+        ...prev,
+        company_name: gus.nazwa,
+        nip: gus.nip,
+        regon: gus.regon || prev.regon,
+        address_street: gus.adres || prev.address_street,
+        address_postal_code: gus.kod_pocztowy || prev.address_postal_code,
+        address_city: gus.miasto || prev.address_city,
+      }));
+      setDirty(true);
+    },
+  });
+
+  const handleFetchFromGus = async () => {
+    const gus = await gusLookup(profileData.nip);
+    if (!gus) {
+      toast.error("Nie znaleziono firmy w GUS");
+      return;
+    }
+    toast.success("Dane firmy pobrane z GUS");
   };
 
   const handleVerifyNip = async () => {
@@ -386,12 +412,25 @@ export function DriverB2BProfile({ driverId }: DriverB2BProfileProps) {
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs"
+                onClick={handleFetchFromGus}
+                disabled={gusLoading || profileData.nip.replace(/\D/g, "").length < 10}
+                title="Pobierz dane firmy z GUS"
+              >
+                {gusLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Search className="h-3 w-3 mr-1" />GUS</>}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
                 onClick={handleVerifyNip}
                 disabled={verifyingNip || !profileData.nip}
+                title="Zweryfikuj status VAT w VIES"
               >
                 {verifyingNip ? <Loader2 className="h-3 w-3 animate-spin" /> : "Sprawdź"}
               </Button>
             </div>
+            <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} className="mt-1" />
           </div>
 
           <div className="space-y-1.5">

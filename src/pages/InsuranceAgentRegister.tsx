@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { ArrowLeft, Shield, Building, Phone, Mail, FileText, MapPin } from "lucide-react";
+import { ArrowLeft, Shield, Building, Phone, Mail, FileText, MapPin, Search, Loader2 } from "lucide-react";
+import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
 
@@ -66,6 +68,26 @@ export default function InsuranceAgentRegister() {
 
     checkExistingSession();
   }, [navigate]);
+
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (gus) => {
+      setFormData(prev => ({
+        ...prev,
+        companyName: gus.nazwa,
+        nip: gus.nip,
+        address: [gus.adres, [gus.kod_pocztowy, gus.miasto].filter(Boolean).join(" ")].filter(Boolean).join(", ") || prev.address,
+      }));
+    },
+  });
+
+  const fetchCompanyFromGus = async () => {
+    const gus = await gusLookup(formData.nip);
+    if (!gus) {
+      toast.error("Nie znaleziono firmy w GUS");
+      return;
+    }
+    toast.success("Dane firmy pobrane z GUS");
+  };
 
   const updateField = (field: keyof FormData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -271,12 +293,26 @@ export default function InsuranceAgentRegister() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="nip">{t('fleetRegister.nip')}</Label>
-                      <Input
-                        id="nip"
-                        value={formData.nip}
-                        onChange={(e) => updateField("nip", e.target.value)}
-                        placeholder="1234567890"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          id="nip"
+                          value={formData.nip}
+                          onChange={(e) => updateField("nip", e.target.value)}
+                          placeholder="1234567890"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={fetchCompanyFromGus}
+                          disabled={gusLoading || formData.nip.replace(/\D/g, "").length < 10}
+                          title="Pobierz dane firmy z GUS"
+                        >
+                          {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
                     </div>
                     <div>
                       <Label htmlFor="licenseNumber">{t('insAgentRegister.licenseNumber')}</Label>

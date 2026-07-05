@@ -7,7 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, Building2, User, Mail, Phone, MapPin, FileText, ShieldCheck } from "lucide-react";
+import { Loader2, ArrowLeft, Building2, User, Mail, Phone, MapPin, FileText, ShieldCheck, Search } from "lucide-react";
+import { useGusLookup } from "@/hooks/useGusLookup";
+import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { Step3Account } from "@/components/fleet/Step3Account";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
@@ -53,6 +55,31 @@ export default function FleetRegister() {
     acceptTerms: false,
     acceptRodo: false,
   });
+
+  const { lookup: gusLookup, loading: gusLoading, shorten: gusShorten, setShorten: setGusShorten } = useGusLookup({
+    onCompany: (company) => {
+      setFormData(prev => ({
+        ...prev,
+        company_name: company.nazwa || prev.company_name,
+        company_short_name: prev.company_short_name || company.nazwa_skrocona || "",
+        nip: company.nip,
+        address_street: company.ulica || prev.address_street,
+        address_number: company.nr_domu || prev.address_number,
+        address_apartment: company.nr_lokalu || prev.address_apartment,
+        address_city: company.miasto || prev.address_city,
+        address_postal_code: company.kod_pocztowy || prev.address_postal_code,
+      }));
+    },
+  });
+
+  const fetchCompanyFromGus = async () => {
+    const company = await gusLookup(formData.nip);
+    if (!company) {
+      toast.error(t("fleetRegister.gusNotFound", "Nie znaleziono firmy w GUS"));
+      return;
+    }
+    toast.success(t("fleetRegister.gusFetched", "Dane firmy pobrane z GUS"));
+  };
 
   const formatPostalCode = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 5);
@@ -341,7 +368,42 @@ export default function FleetRegister() {
                 <>
                   {renderField("company_name", t("fleetRegister.companyName"), <Building2 className="h-4 w-4" />, "text", "Taxi Partner Sp. z o.o.")}
                   {renderField("company_short_name", t("fleetRegister.companyShortName"), <FileText className="h-4 w-4" />, "text", "TaxiPartner", false)}
-                  {renderField("nip", t("fleetRegister.nip"), <FileText className="h-4 w-4" />, "text", "1234567890")}
+                  <div className="space-y-2">
+                    <Label htmlFor="nip">{t("fleetRegister.nip")} *</Label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
+                          <FileText className="h-4 w-4" />
+                        </div>
+                        <Input
+                          id="nip"
+                          type="text"
+                          value={formData.nip}
+                          onChange={(e) => {
+                            setFormData({ ...formData, nip: e.target.value });
+                            if (fieldErrors.nip) setFieldErrors({ ...fieldErrors, nip: undefined });
+                          }}
+                          placeholder="1234567890"
+                          className={`pl-10 ${fieldErrors.nip ? 'border-destructive ring-1 ring-destructive' : ''}`}
+                          required
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={fetchCompanyFromGus}
+                        disabled={gusLoading || formData.nip.replace(/\D/g, "").length < 10}
+                        title={t("fleetRegister.gusLookup", "Pobierz dane firmy z GUS")}
+                      >
+                        {gusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <ShortenLegalFormCheckbox checked={gusShorten} onCheckedChange={setGusShorten} />
+                    {fieldErrors.nip && (
+                      <p className="text-sm text-destructive">{fieldErrors.nip}</p>
+                    )}
+                  </div>
 
                   {renderField("address_street", t("fleetRegister.street"), <MapPin className="h-4 w-4" />, "text", t("fleetRegister.streetExample"))}
 
