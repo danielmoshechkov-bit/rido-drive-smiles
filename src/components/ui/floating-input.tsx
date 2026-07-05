@@ -4,10 +4,11 @@ import { cn } from "@/lib/utils";
 interface FloatingInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
   required?: boolean;
+  error?: boolean; // czerwona ramka gdy pole niepoprawne (np. brak ceny)
 }
 
 const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
-  ({ className, label, required, value, type, ...props }, ref) => {
+  ({ className, label, required, error, value, type, ...props }, ref) => {
     const [isFocused, setIsFocused] = React.useState(false);
     const hasValue = value !== undefined && value !== '';
     const isActive = isFocused || hasValue;
@@ -19,7 +20,9 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
           type={type}
           value={value}
           className={cn(
-            "peer flex h-12 w-full rounded-md border border-input bg-background px-3 pt-5 pb-1 text-sm ring-offset-background placeholder:text-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            // Ramka wyraźnie widoczna na białym tle (slate-400), czerwona przy błędzie.
+            "peer flex h-12 w-full rounded-md border bg-background px-3 pt-5 pb-1 text-sm ring-offset-background placeholder:text-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            error ? "border-2 border-destructive" : "border-slate-400",
             type === "number" && "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
             className
           )}
