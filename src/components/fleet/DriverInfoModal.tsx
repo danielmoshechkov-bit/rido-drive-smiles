@@ -242,19 +242,22 @@ export function DriverInfoPopover({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await supabase
+      const { error: driverErr } = await supabase
         .from('drivers')
         .update({
           first_name: firstName,
           last_name: lastName,
           phone,
           iban,
+          bank_account: iban, // jedno źródło prawdy — trzymamy oba pola w sync (eksport przelewów używa obu)
           notes,
           payment_method: paymentMethod === 'b2b' ? 'b2b' : paymentMethod,
           b2b_enabled: paymentMethod === 'b2b' || b2bEnabled,
           fleet_id: selectedFleetId === 'none' ? null : selectedFleetId,
         } as any)
         .eq('id', driverId);
+      // Bez tego RLS-owy brak uprawnień (0 wierszy/odmowa) był cichy → fałszywe „Zapisano".
+      if (driverErr) throw driverErr;
 
       const appUser = driverData?.driver_app_users;
       if (appUser?.user_id && email !== appUser.email) {
@@ -332,9 +335,9 @@ export function DriverInfoPopover({
 
       toast.success('Zapisano zmiany');
       onComplete?.();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving:', err);
-      toast.error('Błąd zapisu');
+      toast.error('Błąd zapisu: ' + (err?.message || err?.details || err?.hint || err?.code || 'nieznany'));
     } finally {
       setSaving(false);
     }

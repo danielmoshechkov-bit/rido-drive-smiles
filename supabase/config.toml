@@ -319,3 +319,9 @@ verify_jwt = false
 
 [functions.rental-availability]
 verify_jwt = false
+
+[functions.driver-bank-change-request]
+verify_jwt = false
+
+[functions.driver-bank-change-confirm]
+verify_jwt = false

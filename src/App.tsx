@@ -85,6 +85,7 @@ import DriverInfoLanding from "./pages/DriverInfoLanding";
 import SalesPortal from "./pages/SalesPortal";
 import RentalClientPortal from "./pages/RentalClientPortal";
 import WorkshopClientCard from "./pages/WorkshopClientCard";
+import DriverBankChangeConfirm from "./pages/DriverBankChangeConfirm";
 import BookingConfirm from "./pages/BookingConfirm";
 import WorkshopSmsCenter from "./pages/WorkshopSmsCenter";
 import RidoAIChat from "./pages/RidoAIChat";
@@ -213,6 +214,7 @@ const App = () => (
                 <Route path="/cookies" element={<Navigate to="/prawne?tab=cookies" replace />} />
                 <Route path="/umowa/:rentalId" element={<RentalClientPortal />} />
                 <Route path="/warsztat/klient/:code" element={<WorkshopClientCard />} />
+                <Route path="/kierowca/potwierdz-konto/:token" element={<DriverBankChangeConfirm />} />
                 <Route path="/r/:token" element={<BookingConfirm />} />
                 <Route path="/warsztat/sms" element={<WorkshopSmsCenter />} />
                 {/* Aliases for marketplace add listing */}
