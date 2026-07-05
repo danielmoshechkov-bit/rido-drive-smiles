@@ -277,6 +277,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   
   // Preview modal
   const [showPreview, setShowPreview] = useState(false);
+  // Indeksy pozycji bez ceny (netto ANI brutto) — czerwone podświetlenie przy próbie wystawienia.
+  const [itemPriceErrors, setItemPriceErrors] = useState<Set<number>>(new Set());
   
   // Auth modal for preview
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -630,6 +632,15 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   };
 
   const updateItem = (index: number, field: keyof ExtendedInvoiceItem, value: any) => {
+    // Wpisanie ceny (netto lub brutto) czyści czerwone podświetlenie tej pozycji.
+    if ((field === 'unit_net_price' || field === 'unit_gross_price') && (value || 0) > 0) {
+      setItemPriceErrors(prev => {
+        if (!prev.has(index)) return prev;
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
+    }
     setItems(prev => {
       const updated = [...prev];
       let item = { ...updated[index], [field]: value };
@@ -1138,6 +1149,21 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       toast.error('Dodaj co najmniej jedną pozycję na fakturze');
       return;
     }
+
+    // Każda wypełniona pozycja (z nazwą) musi mieć cenę — netto ALBO brutto.
+    // Bez kwoty nie wystawiamy; podświetlamy czerwono pola ceny tych pozycji.
+    const priceErrs = new Set<number>();
+    items.forEach((item, i) => {
+      const named = !!(item.name && item.name.trim());
+      const hasPrice = (item.unit_net_price || 0) > 0 || (item.unit_gross_price || 0) > 0;
+      if (named && !hasPrice) priceErrs.add(i);
+    });
+    if (priceErrs.size > 0) {
+      setItemPriceErrors(priceErrs);
+      toast.error('Podaj cenę netto lub brutto');
+      return;
+    }
+    setItemPriceErrors(new Set());
 
     setIsIssuing(true);
     try {
@@ -1791,6 +1817,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                   type="number"
                   min={0}
                   step={0.01}
+                  error={itemPriceErrors.has(index)}
                   value={item.unit_net_price || ''}
                   onChange={(e) => updateItem(index, 'unit_net_price', parseFloat(e.target.value) || 0)}
                 />
@@ -1800,6 +1827,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                     type="number"
                     min={0}
                     step={0.01}
+                    error={itemPriceErrors.has(index)}
                     value={item.unit_gross_price || ''}
                     onChange={(e) => updateItem(index, 'unit_gross_price', parseFloat(e.target.value) || 0)}
                   />
