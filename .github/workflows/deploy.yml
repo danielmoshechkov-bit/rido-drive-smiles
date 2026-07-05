@@ -63,7 +63,12 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          # LH.pl wymaga FTPS (FTP over TLS, jawny, port 21). security: loose
+          # akceptuje certyfikat współdzielonego hostingu. (Usunięto nieobsługiwane
+          # 'passive' — tryb pasywny jest domyślny dla FTPS w tej akcji.)
+          protocol: ftps
+          security: loose
+          port: 21
           local-dir: ./dist/
           server-dir: /
-          passive: true
           dangerous-clean-slate: false
