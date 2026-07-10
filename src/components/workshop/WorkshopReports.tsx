@@ -135,8 +135,10 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const orderPaid = (o: any) => cashEnabled ? (paidByOrder[o.id] || 0) : (isCompleted(o) ? orderRevenue(o) : 0);
   const orderDebt = (o: any) => cashEnabled ? Math.max(0, orderRevenue(o) - orderPaid(o)) : 0;
 
-  // Raport liczy zlecenia po dacie UTWORZENIA (created_at) — jedyna baza, bez przełącznika.
-  const orderDate = (o: any) => o.created_at;
+  // Raport liczy zlecenia po dacie ZAKOŃCZENIA (completed_at), z fallbackiem na
+  // datę utworzenia — DOKŁADNIE ta sama baza co lista Zlecenia > "Zakończone",
+  // żeby raport i lista pokazywały te same zlecenia dla tego samego zakresu+statusu.
+  const orderDate = (o: any) => o.completed_at || o.created_at;
 
   // Statusy do filtra = realne status_name ze zleceń (źródło prawdy), scalone z
   // tabelą statusów dla kolejności/etykiet. Eliminuje rozjazd, gdy zlecenie ma
@@ -186,7 +188,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
       payByMethod: cashEnabled ? PAYMENT_METHODS.map((m) => ({ label: m.label, amount: paidByMethod(m.value) })).filter((p) => p.amount > 0) : [],
       orders: reportOrders.map((o) => {
         const revenue = orderRevenue(o), cost = orderCost(o);
-        return { number: o.order_number, date: ddmmyyyy(o.created_at), client: clientNameOf(o), status: o.status_name, revenue, cost, profit: revenue - cost, paid: orderPaid(o), debt: orderDebt(o) };
+        return { number: o.order_number, date: ddmmyyyy(orderDate(o)), client: clientNameOf(o), status: o.status_name, revenue, cost, profit: revenue - cost, paid: orderPaid(o), debt: orderDebt(o) };
       }),
       includeList,
     }));
@@ -355,7 +357,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                 <TableBody>
                   {reportOrders.map((o) => {
                     const revenue = orderRevenue(o), cost = orderCost(o), profit = revenue - cost;
-                    const basisDate = o.created_at;
+                    // Kolumna "Data" = ta sama baza co filtr zakresu (zakończenie, fallback utworzenie)
+                    const basisDate = orderDate(o);
                     return (
                       <TableRow key={o.id}>
                         <TableCell className="font-medium">{o.order_number}</TableCell>
