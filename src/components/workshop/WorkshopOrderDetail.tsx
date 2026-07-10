@@ -90,7 +90,8 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
     // prop fallback (gdy detal nie pochodzi z cache listy)
     order.status_name = name;
     order.has_unread_notes = true;
-    queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+    // PERF A2: bez pełnej invalidacji — picker zrobił UPDATE, patch powyżej
+    // synchronizuje widok, resztę dosyła realtime-merge listy.
 
     // Pack 1: closing the order opens the payment form.
     if (name === 'Zakończone' && financeSettings?.cash_enabled) {

@@ -105,7 +105,20 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'workshop_orders', filter: `provider_id=eq.${providerId}` },
-        () => {
+        (payload: any) => {
+          // PERF A2: UPDATE niesie pełny nowy wiersz — wmerguj go do cache
+          // zamiast refetchować całą listę (echo własnej zmiany statusu
+          // kosztowało pełny refetch). Joiny (client/vehicle/items) zostają
+          // z poprzedniego stanu wiersza.
+          if (payload?.eventType === 'UPDATE' && payload?.new?.id) {
+            queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+              Array.isArray(old)
+                ? old.map((o: any) => (o.id === payload.new.id ? { ...o, ...payload.new } : o))
+                : old
+            );
+            return;
+          }
+          // INSERT/DELETE potrzebują joinów — pełne odświeżenie.
           queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
         },
       )
@@ -182,8 +195,9 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       setSmsDialogType('quote');
       setSmsDialogOrder({ ...order, status_name: newStatus });
     }
-    // Refresh in background to get any server-side derived fields
-    queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+    // PERF A2: bez pełnej invalidacji — optimistic patch powyżej wystarcza,
+    // a pola pochodne z serwera (completed_at, station_id po handoverze)
+    // dosyła realtime-merge z subskrypcji workshop_orders.
   };
 
   const changeStatus = async (orderId: string, newStatus: string) => {

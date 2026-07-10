@@ -160,7 +160,18 @@ export function useUpdateWorkshopOrder() {
       if (error) throw error;
     },
     onSuccess: (_data, variables: any) => {
-      qc.invalidateQueries({ queryKey: ['workshop-orders'] });
+      // PERF A2: zamiast pełnej invalidacji (refetch całej listy z joinami)
+      // wmerguj zapisane pola punktowo do wiersza w cache. Pola pochodne
+      // z serwera (np. station_id po handoverze) dosyła realtime, a każdy
+      // remount listy i tak refetchuje (domyślny staleTime 0).
+      const { id, ...updates } = variables || {};
+      if (id) {
+        qc.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+          Array.isArray(old)
+            ? old.map((o: any) => (o.id === id ? { ...o, ...updates } : o))
+            : old
+        );
+      }
       // translate-on-write: jeśli aktualizacja zawierała pola tekstowe, pre-tłumacz
       if (variables?.id) pretranslateOrderFields(variables.id, variables);
     },
