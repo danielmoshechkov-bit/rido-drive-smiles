@@ -24,43 +24,53 @@ export function EmployeeNotificationsBell() {
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [uid, setUid] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const load = async () => {
+  const load = async (userId: string) => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
     const { data } = await (supabase.from('workshop_employee_notifications') as any)
-      .select('*').eq('employee_user_id', user.id)
+      .select('*').eq('employee_user_id', userId)
       .order('created_at', { ascending: false }).limit(30);
     setItems(data || []);
     setLoading(false);
   };
 
   useEffect(() => {
-    load();
-    const ch = supabase.channel('emp-notif-' + Math.random())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'workshop_employee_notifications' }, () => load())
-      .subscribe();
-    const t = setInterval(load, 30000);
-    return () => { supabase.removeChannel(ch); clearInterval(t); };
+    supabase.auth.getUser().then(({ data: { user } }) => setUid(user?.id ?? null));
   }, []);
+
+  // PERF B4: był jednocześnie polling co 30 s ORAZ realtime bez filtra (każdy
+  // INSERT powiadomienia w całej bazie = refetch), a kanał nazywany
+  // Math.random() mnożył subskrypcje przy remountach. Zostaje sam realtime,
+  // filtrowany po użytkowniku, ze stabilną nazwą kanału.
+  useEffect(() => {
+    if (!uid) return;
+    load(uid);
+    const ch = supabase.channel(`emp-notif-${uid}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'workshop_employee_notifications', filter: `employee_user_id=eq.${uid}` },
+        () => load(uid),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [uid]);
 
   const unread = items.filter(i => !i.is_read).length;
 
   const markAllRead = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!uid) return;
     await (supabase.from('workshop_employee_notifications') as any)
-      .update({ is_read: true }).eq('employee_user_id', user.id).eq('is_read', false);
-    await load();
+      .update({ is_read: true }).eq('employee_user_id', uid).eq('is_read', false);
+    await load(uid);
   };
 
   const click = async (n: Notification) => {
     await (supabase.from('workshop_employee_notifications') as any).update({ is_read: true }).eq('id', n.id);
     setOpen(false);
     if (n.link) navigate(n.link);
-    await load();
+    if (uid) await load(uid);
   };
 
   return (

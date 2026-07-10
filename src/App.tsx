@@ -101,7 +101,18 @@ import BuyCredits from "./pages/BuyCredits";
 import WorkshopEmployeePortal from "./pages/WorkshopEmployeePortal";
 import { WorkshopInvitationHandler } from "./components/workshop/WorkshopInvitationHandler";
 import { InviteWelcomeBanner } from "./components/workspace/InviteWelcomeBanner";
-const queryClient = new QueryClient();
+// PERF B2: bez tej konfiguracji TanStack Query v5 używa staleTime: 0 +
+// refetchOnWindowFocus: true — każdy alt-tab i każdy remount refetchował
+// WSZYSTKIE aktywne zapytania (listy warsztatu z joinami itd.).
+// Zmiany między klientami dosyła realtime; po 45 s dane i tak się odświeżą.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 45 * 1000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 /**
  * UISettingsLoader component - loads UI settings and applies them

@@ -52,7 +52,7 @@ function pretranslateItem(item: any) {
   if (items.length) void pretranslateContent(items);
 }
 
-const sortWorkshopOrderItems = (items: any[] | null | undefined) => {
+export const sortWorkshopOrderItems = (items: any[] | null | undefined) => {
   if (!Array.isArray(items)) return [];
 
   return [...items].sort((a, b) => {
@@ -162,8 +162,8 @@ export function useUpdateWorkshopOrder() {
     onSuccess: (_data, variables: any) => {
       // PERF A2: zamiast pełnej invalidacji (refetch całej listy z joinami)
       // wmerguj zapisane pola punktowo do wiersza w cache. Pola pochodne
-      // z serwera (np. station_id po handoverze) dosyła realtime, a każdy
-      // remount listy i tak refetchuje (domyślny staleTime 0).
+      // z serwera (np. station_id po handoverze) dosyła realtime-merge listy,
+      // a po upływie staleTime (B2) remount i tak refetchuje.
       const { id, ...updates } = variables || {};
       if (id) {
         qc.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
@@ -202,6 +202,25 @@ export function useWorkshopStatuses(providerId: string | undefined) {
         return d2 || [];
       }
       return data;
+    },
+  });
+}
+
+// ---- Stations (współdzielone przez wiersze listy — PERF B3) ----
+// Jeden fetch per provider zamiast osobnego zapytania w każdym WorkshopStatusPicker.
+export function useWorkshopStations(providerId: string | undefined) {
+  return useQuery({
+    queryKey: ['workshop-stations', providerId],
+    enabled: !!providerId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await (supabase.from('workshop_stations') as any)
+        .select('id, name, color, is_active')
+        .eq('provider_id', providerId)
+        .eq('is_active', true)
+        .order('sort_order');
+      if (error) throw error;
+      return data || [];
     },
   });
 }

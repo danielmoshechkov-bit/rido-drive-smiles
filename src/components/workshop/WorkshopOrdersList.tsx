@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
-  useWorkshopOrders, useWorkshopStatuses, useUpdateWorkshopOrder,
+  useWorkshopOrders, useWorkshopStatuses, useUpdateWorkshopOrder, sortWorkshopOrderItems,
 } from '@/hooks/useWorkshop';
 import { WorkshopNewOrderDialog } from './WorkshopNewOrderDialog';
 import { WorkshopPortalBookings } from './WorkshopPortalBookings';
@@ -125,8 +125,47 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'workshop_order_items' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+        (payload: any) => {
+          // PERF B1: items nie mają provider_id, więc filtr serwerowy jest
+          // niemożliwy — zamiast refetchować listę przy KAŻDEJ zmianie pozycji
+          // w całej bazie (dodanie 5 pozycji = 5 refetchy), merguj zdarzenie
+          // punktowo do cache. Pozycje cudzych warsztatów nie znajdą swojego
+          // zlecenia w cache i są tanim no-opem.
+          const item = payload?.new?.id ? payload.new : null;
+          if (payload?.eventType === 'INSERT' && item?.order_id) {
+            queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+              Array.isArray(old)
+                ? old.map((o: any) => {
+                    if (o.id !== item.order_id) return o;
+                    const items = Array.isArray(o.items) ? o.items : [];
+                    if (items.some((it: any) => it.id === item.id)) return o;
+                    return { ...o, items: sortWorkshopOrderItems([...items, item]) };
+                  })
+                : old
+            );
+          } else if (payload?.eventType === 'UPDATE' && item?.order_id) {
+            queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+              Array.isArray(old)
+                ? old.map((o: any) =>
+                    o.id === item.order_id && Array.isArray(o.items)
+                      ? { ...o, items: sortWorkshopOrderItems(o.items.map((it: any) => (it.id === item.id ? { ...it, ...item } : it))) }
+                      : o
+                  )
+                : old
+            );
+          } else if (payload?.eventType === 'DELETE' && payload?.old?.id) {
+            // DELETE niesie tylko PK — usuń pozycję z tego zlecenia, które ją ma.
+            const deletedId = payload.old.id;
+            queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+              Array.isArray(old)
+                ? old.map((o: any) =>
+                    Array.isArray(o.items) && o.items.some((it: any) => it.id === deletedId)
+                      ? { ...o, items: o.items.filter((it: any) => it.id !== deletedId) }
+                      : o
+                  )
+                : old
+            );
+          }
         },
       )
       .subscribe();

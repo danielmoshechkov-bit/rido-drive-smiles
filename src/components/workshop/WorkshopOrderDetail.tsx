@@ -568,7 +568,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
           <WorkshopOrderTasksTab order={order} providerId={providerId} />
         </TabsContent>
         <TabsContent value="findings">
-          <OrderHistoryTimeline orderId={order.id} providerId={providerId} />
+          <OrderHistoryTimeline orderId={order.id} providerId={providerId} hasUnreadNotes={!!order.has_unread_notes} />
         </TabsContent>
         <TabsContent value="summary">
           <WorkshopOrderSummaryTab order={order} />
