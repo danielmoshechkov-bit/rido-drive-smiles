@@ -1892,7 +1892,8 @@
     "tasksDone": "Тапсырмалар орындалды",
     "readyForPickup": "Алуға дайын",
     "repaired": "Жөнделді",
-    "completed": "Аяқталды"
+    "completed": "Аяқталды",
+    "phoneScheduled": "Телефон арқылы жазылған"
   },
   "workshop": {
     "events": {
@@ -1926,7 +1927,14 @@
       "noteAdded": "Жазба қосылды",
       "saveError": "Сақтау қатесі",
       "defaultUser": "Пайдаланушы",
-      "system": "Жүйе"
+      "system": "Жүйе",
+      "acceptedOnline": "клиент онлайн растады",
+      "acceptedManual": "әкімші қолмен өзгертті",
+      "role_admin": "Әкімші",
+      "role_employee": "Қызметкер",
+      "role_client": "Клиент (онлайн)",
+      "role_system": "Жүйе",
+      "clientLabel": "Клиент"
     },
     "orders": {
       "new": "Жаңа",
@@ -2390,7 +2398,13 @@
           "estimateSent": "Клиентке смета SMS арқылы жіберілді",
           "estimateAccepted": "Клиенттің сметаны қабылдауы",
           "readySmsSent": "Қабылдауға дайын екені туралы SMS жіберілді"
-        }
+        },
+        "colorsTitle": "Статус түстері",
+        "colorsRecommended": "Ұсынылған",
+        "colorsCustom": "Қолмен",
+        "colorsRecommendedDesc": "Портал палитрасы — барлық статустар үшін бейдж пен нүктенің бірыңғай түстері.",
+        "colorsCustomDesc": "Әр статусқа өз түсі — түсті өзгерту үшін нүктені басыңыз.",
+        "mergedStatusBlocked": "«Akceptacja klienta» «Zaakceptowano» статусымен біріктірілді — «Zaakceptowano» қолданыңыз."
       },
       "orderTypes": {
         "title": "Тапсырыс түрлері",
@@ -3420,7 +3434,22 @@
       "phone": "Телефон",
       "partsListPrint": "Жөндеуге қажетті бөлшектер тізімі (механик толтырады)",
       "signatureLine": "Механик (қолы): ____________________",
-      "completionDateLine": "Аяқталу күні: ____________________"
+      "completionDateLine": "Аяқталу күні: ____________________",
+      "visibleFieldsTitle": "Қызметкерге көрінетін деректер",
+      "visibleFieldsHint": "Белгісі алынған өрістер картада және баспада жасырылады (тапсырыс деректері сақталады). Таңдау келесі тапсырыстар үшін есте сақталады.",
+      "field_client": "Клиент (аты)",
+      "field_phone": "Телефон",
+      "field_vin": "VIN",
+      "field_plate": "Мем. нөмір",
+      "field_year": "Жылы",
+      "field_vehicle": "Көлік (маркасы/моделі)",
+      "field_mileage": "Жүрісі",
+      "field_fuel": "Отын",
+      "field_tasks": "Жұмыс көлемі",
+      "field_parts": "Қосалқы бөлшектер тізімі",
+      "field_notes": "Жазбалар / диагностика",
+      "printLangLabel": "Басып шығару тілі",
+      "printPreparing": "Баспа дайындалуда…"
     },
     "existingInvoice": {
       "title": "Шот-фактура бұрыннан бар",

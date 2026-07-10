@@ -1892,7 +1892,8 @@
     "tasksDone": "Zadania wykonane",
     "readyForPickup": "Gotowe do odbioru",
     "repaired": "Naprawione",
-    "completed": "Zakończone"
+    "completed": "Zakończone",
+    "phoneScheduled": "Umówiony telefonicznie"
   },
   "workshop": {
     "events": {
@@ -1926,7 +1927,14 @@
       "noteAdded": "Uwaga dodana",
       "saveError": "Błąd zapisu",
       "defaultUser": "Użytkownik",
-      "system": "System"
+      "system": "System",
+      "acceptedOnline": "online przez klienta",
+      "acceptedManual": "ręcznie przez admina",
+      "role_admin": "Admin",
+      "role_employee": "Pracownik",
+      "role_client": "Klient (online)",
+      "role_system": "System",
+      "clientLabel": "Klient"
     },
     "orders": {
       "new": "Nowe",
@@ -2416,7 +2424,13 @@
           "estimateSent": "Wysłanie kosztorysu SMS do klienta",
           "estimateAccepted": "Akceptacja kosztorysu przez klienta",
           "readySmsSent": "Wysłanie SMS o gotowości do odbioru"
-        }
+        },
+        "colorsTitle": "Kolory statusów",
+        "colorsRecommended": "Zalecane",
+        "colorsCustom": "Ręczne",
+        "colorsRecommendedDesc": "Paleta portalu — spójne kolory badge i kropki dla wszystkich statusów.",
+        "colorsCustomDesc": "Własne kolory per status — kliknij kropkę, aby zmienić kolor.",
+        "mergedStatusBlocked": "„Akceptacja klienta” została scalona z „Zaakceptowano” — użyj statusu „Zaakceptowano”."
       },
       "orderTypes": {
         "title": "Rodzaje zleceń",
@@ -3462,7 +3476,22 @@
       "phone": "Telefon",
       "partsListPrint": "Lista części potrzebnych do naprawy (do uzupełnienia przez mechanika)",
       "signatureLine": "Mechanik (podpis): ____________________",
-      "completionDateLine": "Data zakończenia: ____________________"
+      "completionDateLine": "Data zakończenia: ____________________",
+      "visibleFieldsTitle": "Dane widoczne dla pracownika",
+      "visibleFieldsHint": "Odznaczone pola są ukrywane na karcie i wydruku (dane w zleceniu zostają). Zestaw zapamiętywany dla kolejnych zleceń.",
+      "field_client": "Klient (nazwa)",
+      "field_phone": "Telefon",
+      "field_vin": "VIN",
+      "field_plate": "Nr rej.",
+      "field_year": "Rok",
+      "field_vehicle": "Pojazd (marka/model)",
+      "field_mileage": "Przebieg",
+      "field_fuel": "Paliwo",
+      "field_tasks": "Zakres prac",
+      "field_parts": "Lista części",
+      "field_notes": "Notatki / diagnoza",
+      "printLangLabel": "Język wydruku",
+      "printPreparing": "Przygotowuję wydruk…"
     },
     "existingInvoice": {
       "title": "Faktura już istnieje",

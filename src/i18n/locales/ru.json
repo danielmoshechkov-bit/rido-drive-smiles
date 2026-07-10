@@ -1892,7 +1892,8 @@
     "tasksDone": "Задачи выполнены",
     "readyForPickup": "Готово к выдаче",
     "repaired": "Отремонтировано",
-    "completed": "Завершено"
+    "completed": "Завершено",
+    "phoneScheduled": "Записан по телефону"
   },
   "workshop": {
     "events": {
@@ -1926,7 +1927,14 @@
       "noteAdded": "Заметка добавлена",
       "saveError": "Ошибка сохранения",
       "defaultUser": "Пользователь",
-      "system": "Система"
+      "system": "Система",
+      "acceptedOnline": "онлайн клиентом",
+      "acceptedManual": "вручную администратором",
+      "role_admin": "Админ",
+      "role_employee": "Сотрудник",
+      "role_client": "Клиент (онлайн)",
+      "role_system": "Система",
+      "clientLabel": "Клиент"
     },
     "orders": {
       "new": "Новые",
@@ -2416,7 +2424,13 @@
           "estimateSent": "Отправка сметы клиенту по SMS",
           "estimateAccepted": "Принятие сметы клиентом",
           "readySmsSent": "Отправка SMS о готовности к выдаче"
-        }
+        },
+        "colorsTitle": "Цвета статусов",
+        "colorsRecommended": "Рекомендуемые",
+        "colorsCustom": "Вручную",
+        "colorsRecommendedDesc": "Палитра портала — единые цвета бейджа и точки для всех статусов.",
+        "colorsCustomDesc": "Свои цвета для каждого статуса — нажмите на точку, чтобы изменить цвет.",
+        "mergedStatusBlocked": "«Akceptacja klienta» объединён с «Zaakceptowano» — используйте статус «Zaakceptowano»."
       },
       "orderTypes": {
         "title": "Типы заказов",
@@ -3462,7 +3476,22 @@
       "phone": "Телефон",
       "partsListPrint": "Список запчастей для ремонта (заполняется механиком)",
       "signatureLine": "Механик (подпись): ____________________",
-      "completionDateLine": "Дата завершения: ____________________"
+      "completionDateLine": "Дата завершения: ____________________",
+      "visibleFieldsTitle": "Данные, видимые сотруднику",
+      "visibleFieldsHint": "Снятые поля скрываются на карте и распечатке (данные заказа сохраняются). Выбор запоминается для следующих заказов.",
+      "field_client": "Клиент (имя)",
+      "field_phone": "Телефон",
+      "field_vin": "VIN",
+      "field_plate": "Гос. номер",
+      "field_year": "Год",
+      "field_vehicle": "Автомобиль (марка/модель)",
+      "field_mileage": "Пробег",
+      "field_fuel": "Топливо",
+      "field_tasks": "Объём работ",
+      "field_parts": "Список запчастей",
+      "field_notes": "Заметки / диагностика",
+      "printLangLabel": "Язык печати",
+      "printPreparing": "Готовлю распечатку…"
     },
     "existingInvoice": {
       "title": "Счёт уже существует",

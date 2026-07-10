@@ -1799,7 +1799,8 @@
     "tasksDone": "Aufgaben erledigt",
     "readyForPickup": "Abholbereit",
     "repaired": "Repariert",
-    "completed": "Abgeschlossen"
+    "completed": "Abgeschlossen",
+    "phoneScheduled": "Telefonisch vereinbart"
   },
   "workshop": {
     "events": {
@@ -1833,7 +1834,14 @@
       "noteAdded": "Notiz hinzugefügt",
       "saveError": "Speicherfehler",
       "defaultUser": "Benutzer",
-      "system": "System"
+      "system": "System",
+      "acceptedOnline": "online durch den Kunden",
+      "acceptedManual": "manuell durch den Admin",
+      "role_admin": "Admin",
+      "role_employee": "Mitarbeiter",
+      "role_client": "Kunde (online)",
+      "role_system": "System",
+      "clientLabel": "Kunde"
     },
     "orders": {
       "new": "Neu",
@@ -2297,7 +2305,13 @@
           "estimateSent": "Kostenvoranschlag per SMS an Kunden gesendet",
           "estimateAccepted": "Kostenvoranschlag vom Kunden akzeptiert",
           "readySmsSent": "SMS über Abholbereitschaft gesendet"
-        }
+        },
+        "colorsTitle": "Statusfarben",
+        "colorsRecommended": "Empfohlen",
+        "colorsCustom": "Manuell",
+        "colorsRecommendedDesc": "Portal-Palette — einheitliche Badge- und Punktfarben für alle Status.",
+        "colorsCustomDesc": "Eigene Farben pro Status — klicken Sie auf den Punkt, um die Farbe zu ändern.",
+        "mergedStatusBlocked": "„Akceptacja klienta“ wurde mit „Zaakceptowano“ zusammengeführt — verwenden Sie den Status „Zaakceptowano“."
       },
       "orderTypes": {
         "title": "Auftragsarten",
@@ -3327,7 +3341,22 @@
       "phone": "Telefon",
       "partsListPrint": "Liste der für die Reparatur benötigten Teile (vom Mechaniker auszufüllen)",
       "signatureLine": "Mechaniker (Unterschrift): ____________________",
-      "completionDateLine": "Abschlussdatum: ____________________"
+      "completionDateLine": "Abschlussdatum: ____________________",
+      "visibleFieldsTitle": "Für den Mitarbeiter sichtbare Daten",
+      "visibleFieldsHint": "Abgewählte Felder werden auf der Karte und dem Ausdruck ausgeblendet (Auftragsdaten bleiben erhalten). Die Auswahl wird für weitere Aufträge gespeichert.",
+      "field_client": "Kunde (Name)",
+      "field_phone": "Telefon",
+      "field_vin": "VIN",
+      "field_plate": "Kennzeichen",
+      "field_year": "Baujahr",
+      "field_vehicle": "Fahrzeug (Marke/Modell)",
+      "field_mileage": "Kilometerstand",
+      "field_fuel": "Kraftstoff",
+      "field_tasks": "Arbeitsumfang",
+      "field_parts": "Teileliste",
+      "field_notes": "Notizen / Diagnose",
+      "printLangLabel": "Drucksprache",
+      "printPreparing": "Ausdruck wird vorbereitet…"
     },
     "existingInvoice": {
       "title": "Rechnung existiert bereits",

@@ -37,26 +37,15 @@ import { format, isFuture, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { WorkshopStatusPicker } from './WorkshopStatusPicker';
+import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { getStatusStyle, translateWorkshopStatus } from '@/utils/workshopStatusStyle';
+import { useWorkshopStatusStyles } from '@/hooks/useWorkshopStatusStyles';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
   providerId: string;
   onSelectOrder?: (order: any) => void;
 }
-
-const statusColors: Record<string, string> = {
-  'Nowe zlecenie': 'bg-red-500 text-white',
-  'Przyjęcie do serwisu': 'bg-orange-500 text-white',
-  'Wycena gotowa': 'bg-yellow-500 text-black',
-  'Wycena wysłana': 'bg-orange-400 text-black',
-  'Zaakceptowano': 'bg-green-500 text-white',
-  'Akceptacja klienta': 'bg-green-500 text-white',
-  'W trakcie naprawy': 'bg-amber-400 text-black',
-  'Zadania wykonane': 'bg-green-500 text-white',
-  'Gotowy do odbioru': 'bg-gray-500 text-white',
-  'Zakończone': 'bg-gray-800 text-white',
-};
 
 // A: derive the displayed amount straight from the order's line items instead of the
 // denormalized `total_gross` column. The column is only refreshed by an effect inside
@@ -77,6 +66,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [dateTo, setDateTo] = useState<string>('');
   const [paymentOrder, setPaymentOrder] = useState<any | null>(null);
   const { data: financeSettings } = useWorkshopFinanceSettings(providerId);
+  const { getStyle } = useWorkshopStatusStyles(providerId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusDropdownId, setStatusDropdownId] = useState<string | null>(null);
   const [editClient, setEditClient] = useState<any>(null);
@@ -191,15 +181,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       filtered = filtered.filter((o: any) => o.status_name === statusFilter);
     }
     // Date range (mainly for the completed view): filter by completion date if set,
-    // else creation date.
+    // else creation date. Porównanie po części daty YYYY-MM-DD (jak w raporcie
+    // "Rozliczenie zleceń") — bez off-by-one na granicach przy strefach czasowych.
     if (dateFrom || dateTo) {
-      const from = dateFrom ? new Date(dateFrom) : null;
-      const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
       filtered = filtered.filter((o: any) => {
         const basis = o.completed_at || o.created_at;
         if (!basis) return false;
-        const d = new Date(basis);
-        return (!from || d >= from) && (!to || d <= to);
+        const d = String(basis).slice(0, 10);
+        return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
       });
     }
     return filtered;
@@ -548,7 +537,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             {statuses.filter((s: any) => orderView === 'completed' ? s.name === 'Zakończone' : s.name !== 'Zakończone').map((s: any) => (
               <SelectItem key={s.id} value={s.name}>
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                  {/* Kropka z tego samego źródła co badge (paleta / tryb Ręczne) */}
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getStyle(s.name).dotColor }} />
                   {translateWorkshopStatus(s.name, t)}
                 </div>
               </SelectItem>
@@ -558,9 +548,9 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
         {orderView === 'completed' && (
           <div className="flex items-center gap-1">
-            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 w-[150px]" title="Data od" />
-            <span className="text-muted-foreground">—</span>
-            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 w-[150px]" title="Data do" />
+            {/* Portalowy range-picker (klik początek → klik koniec, ten sam dzień OK) —
+                ten sam komponent co w Raportach, zamiast dwóch natywnych pól date. */}
+            <WorkshopRangeCalendar from={dateFrom} to={dateTo} onChange={(f, tto) => { setDateFrom(f); setDateTo(tto); }} align="end" />
             {(dateFrom || dateTo) && (
               <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => { setDateFrom(''); setDateTo(''); }}>×</Button>
             )}

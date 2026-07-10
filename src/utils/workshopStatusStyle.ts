@@ -1,45 +1,68 @@
 // Centralized colour mapping for workshop order statuses.
-// Distinct tones so admin/employees recognise the phase at a glance.
+// Paleta "Zalecane" (2026-07): badge i kropka w dropdownie mają WSPÓLNE źródło
+// (tone -> klasy + TONE_HEX). Kolory per provider (tryb "Ręczne") nakłada
+// hook useWorkshopStatusStyles na bazie workshop_order_statuses.color.
 export type StatusTone =
-  | 'blue'      // Nowe zlecenie
-  | 'gray'      // Przyjęcie / Przydzielone / Diagnoza
-  | 'red'       // Do wyceny — rzuca się w oczy, wymaga reakcji admina
+  | 'gray'      // Nowe zlecenie
+  | 'brown'     // Umówiony telefonicznie (voice-agent)
+  | 'blue'      // Przyjęcie do serwisu / Diagnoza / W naprawie / Przydzielone
+  | 'red'       // Do wyceny / Poprawka — rzuca się w oczy, wymaga reakcji admina
   | 'yellow'    // Oczekuje na akceptację klienta
-  | 'purple'    // Wycena wysłana / gotowa
+  | 'purple'    // Wycena gotowa
+  | 'gold'      // Wycena wysłana — złoty (amber-500): rzuca się w oczy, nasycony bardziej
+                //   niż żółty hover wiersza (yellow-100/70), więc badge nie znika pod myszką
   | 'amber'     // Dodatek do naprawy
-  | 'green'     // Zaakceptowano / Zgoda / W trakcie
-  | 'emerald'   // Gotowy do odbioru / Zadania wykonane
-  | 'violet'    // Naprawione (brand GetRido)
+  | 'green'     // Zaakceptowano / Zgoda / Zadania wykonane / Naprawione
+  | 'emerald'   // (nieużywany w palecie Zalecane — zostaje dla trybu Ręczne/legacy)
+  | 'violet'    // Gotowy do odbioru
   | 'slate';    // Zakończone
 
 const TONE_MAP: Record<string, StatusTone> = {
   'Nowe zlecenie': 'gray',
+  'Umówiony telefonicznie': 'brown',
 
   'Przyjęcie do serwisu': 'blue',
   'Przydzielone': 'blue',
   'Diagnoza': 'blue',
+  'Diagnoza w toku': 'blue',
+  'W trakcie naprawy': 'blue',
 
   'Do wyceny': 'red',
   'Poprawka': 'red',
   'Oczekuje na akceptację': 'yellow',
 
   'Wycena gotowa': 'purple',
-  'Wycena wysłana': 'purple',
-
+  'Wycena wysłana': 'gold',
 
   'Dodatek do naprawy': 'amber',
 
   'Akceptacja klienta': 'green',
   'Zaakceptowano': 'green',
   'Zgoda na naprawę': 'green',
-  'W trakcie naprawy': 'green',
 
-  'Zadania wykonane': 'emerald',
-  'Gotowy do odbioru': 'emerald',
+  'Zadania wykonane': 'green',
+  'Naprawione': 'green',
 
-  'Naprawione': 'emerald',
+  'Gotowy do odbioru': 'violet',
 
   'Zakończone': 'slate',
+};
+
+// Hex odpowiadający tonom — JEDYNE źródło koloru kropki w dropdownie w trybie
+// "Zalecane" (kropka = badge). W trybie "Ręczne" hex przychodzi z DB.
+export const TONE_HEX: Record<StatusTone, string> = {
+  gray: '#9ca3af',
+  brown: '#92400e',
+  blue: '#3b82f6',
+  red: '#ef4444',
+  yellow: '#facc15',
+  purple: '#a855f7',
+  gold: '#f59e0b',
+  amber: '#f97316',
+  green: '#22c55e',
+  emerald: '#059669',
+  violet: '#7c3aed',
+  slate: '#334155',
 };
 
 export function getStatusTone(name?: string | null): StatusTone {
@@ -50,6 +73,14 @@ export function getStatusTone(name?: string | null): StatusTone {
 export function getStatusStyle(name?: string | null) {
   const tone = getStatusTone(name);
   switch (tone) {
+    case 'brown':
+      return { tone, badge: 'bg-amber-800 text-white hover:bg-amber-900',
+        row: 'bg-amber-50/50 hover:bg-amber-100/50', border: 'border-l-4 border-l-amber-800', dot: 'bg-amber-800' };
+    case 'gold':
+      // Czarny tekst na amber-500 (wysoki kontrast); amber-500 jest wyraźnie ciemniejszy
+      // i bardziej nasycony niż hover wiersza (yellow-100/amber-100) — badge nie zlewa się.
+      return { tone, badge: 'bg-amber-500 text-black hover:bg-amber-600',
+        row: 'bg-amber-50/70 hover:bg-amber-100/70', border: 'border-l-4 border-l-amber-500', dot: 'bg-amber-500' };
     case 'blue':
       return { tone, badge: 'bg-blue-500 text-white hover:bg-blue-600',
         row: 'bg-blue-50/70 hover:bg-blue-100/70', border: 'border-l-4 border-l-blue-500', dot: 'bg-blue-500' };
@@ -95,6 +126,7 @@ export function getStatusStyle(name?: string | null) {
 // ---------------------------------------------------------------------------
 const STATUS_KEY_MAP: Record<string, string> = {
   'Nowe zlecenie': 'newOrder',
+  'Umówiony telefonicznie': 'phoneScheduled',
   'Przyjęcie do serwisu': 'received',
   'Przyjęte do serwisu': 'received',
   'Przydzielone': 'assigned',
@@ -108,6 +140,8 @@ const STATUS_KEY_MAP: Record<string, string> = {
   'Zaakceptowano': 'accepted',
   'Zaakceptowane': 'accepted',
   'Zgoda na naprawę': 'repairApproved',
+  // Alias TYLKO do odczytu (historyczne zlecenia sprzed scalenia 2026-07).
+  // Nowe zapisy zawsze idą na 'Zaakceptowano' — nie dodawać z powrotem do seedów/pickera.
   'Akceptacja klienta': 'clientAcceptance',
   'W trakcie naprawy': 'inRepair',
   'W naprawie': 'inRepair',

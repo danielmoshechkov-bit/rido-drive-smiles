@@ -1892,7 +1892,8 @@
     "tasksDone": "Завдання виконані",
     "readyForPickup": "Готово до видачі",
     "repaired": "Відремонтовано",
-    "completed": "Завершено"
+    "completed": "Завершено",
+    "phoneScheduled": "Записаний по телефону"
   },
   "workshop": {
     "events": {
@@ -1926,7 +1927,14 @@
       "noteAdded": "Нотатку додано",
       "saveError": "Помилка збереження",
       "defaultUser": "Користувач",
-      "system": "Система"
+      "system": "Система",
+      "acceptedOnline": "онлайн клієнтом",
+      "acceptedManual": "вручну адміністратором",
+      "role_admin": "Адмін",
+      "role_employee": "Працівник",
+      "role_client": "Клієнт (онлайн)",
+      "role_system": "Система",
+      "clientLabel": "Клієнт"
     },
     "orders": {
       "new": "Нові",
@@ -2416,7 +2424,13 @@
           "estimateSent": "Надсилання кошторису клієнту через SMS",
           "estimateAccepted": "Прийняття кошторису клієнтом",
           "readySmsSent": "Надсилання SMS про готовність до видачі"
-        }
+        },
+        "colorsTitle": "Кольори статусів",
+        "colorsRecommended": "Рекомендовані",
+        "colorsCustom": "Вручну",
+        "colorsRecommendedDesc": "Палітра порталу — узгоджені кольори бейджа та крапки для всіх статусів.",
+        "colorsCustomDesc": "Власні кольори для кожного статусу — натисніть на крапку, щоб змінити колір.",
+        "mergedStatusBlocked": "«Akceptacja klienta» об’єднано із «Zaakceptowano» — використовуйте статус «Zaakceptowano»."
       },
       "orderTypes": {
         "title": "Типи замовлень",
@@ -3462,7 +3476,22 @@
       "phone": "Телефон",
       "partsListPrint": "Список запчастин для ремонту (заповнює механік)",
       "signatureLine": "Механік (підпис): ____________________",
-      "completionDateLine": "Дата завершення: ____________________"
+      "completionDateLine": "Дата завершення: ____________________",
+      "visibleFieldsTitle": "Дані, видимі працівникові",
+      "visibleFieldsHint": "Зняті поля приховуються на картці та роздруківці (дані замовлення зберігаються). Вибір запам’ятовується для наступних замовлень.",
+      "field_client": "Клієнт (ім’я)",
+      "field_phone": "Телефон",
+      "field_vin": "VIN",
+      "field_plate": "Держ. номер",
+      "field_year": "Рік",
+      "field_vehicle": "Автомобіль (марка/модель)",
+      "field_mileage": "Пробіг",
+      "field_fuel": "Паливо",
+      "field_tasks": "Обсяг робіт",
+      "field_parts": "Список запчастин",
+      "field_notes": "Нотатки / діагностика",
+      "printLangLabel": "Мова друку",
+      "printPreparing": "Готую роздруківку…"
     },
     "existingInvoice": {
       "title": "Рахунок уже існує",

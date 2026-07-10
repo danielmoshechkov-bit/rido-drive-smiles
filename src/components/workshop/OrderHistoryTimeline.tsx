@@ -150,6 +150,13 @@ export function OrderHistoryTimeline({ orderId, providerId, hasUnreadNotes }: Pr
                     {(ev.event_type === 'status_change' || (ev.from_status && ev.to_status)) && (
                       <span className="text-muted-foreground">
                         {ev.from_status ? translateWorkshopStatus(ev.from_status, t) : '—'} <ArrowRight className="h-3 w-3 inline" /> <b>{translateWorkshopStatus(ev.to_status, t)}</b>
+                        {/* Źródło akceptacji: online przez klienta vs ręcznie przez admina */}
+                        {ev.to_status === 'Zaakceptowano' && ev.actor_role === 'client' && (
+                          <> — {t('workshop.timeline.acceptedOnline')}</>
+                        )}
+                        {ev.to_status === 'Zaakceptowano' && ev.actor_role === 'admin' && (
+                          <> — {t('workshop.timeline.acceptedManual')}</>
+                        )}
                       </span>
                     )}
                     {/* KIEDY */}
@@ -179,8 +186,10 @@ export function OrderHistoryTimeline({ orderId, providerId, hasUnreadNotes }: Pr
                   })()}
                   {/* KTO */}
                   <div className="mt-1 text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Badge variant="outline" className="text-[10px] py-0">{ev.actor_role || 'system'}</Badge>
-                    {ev.actor_name || t('workshop.timeline.system')}
+                    <Badge variant="outline" className="text-[10px] py-0">
+                      {t(`workshop.timeline.role_${ev.actor_role || 'system'}`, { defaultValue: ev.actor_role || 'system' })}
+                    </Badge>
+                    {ev.actor_name || (ev.actor_role === 'client' ? t('workshop.timeline.clientLabel') : t('workshop.timeline.system'))}
                   </div>
                 </div>
               </li>

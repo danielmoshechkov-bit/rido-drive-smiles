@@ -49,26 +49,6 @@ interface Props {
   onBack: () => void;
 }
 
-const statusColors: Record<string, string> = {
-  'Nowe zlecenie': 'bg-red-500 text-white',
-  'Przyjęcie do serwisu': 'bg-orange-500 text-white',
-  'Przydzielone': 'bg-gray-400 text-white',
-  'Diagnoza': 'bg-gray-500 text-white',
-  'Do wyceny': 'bg-yellow-500 text-black',
-  'Oczekuje na akceptację': 'bg-yellow-500 text-black',
-  'Wycena gotowa': 'bg-yellow-500 text-black',
-  'Wycena wysłana': 'bg-orange-400 text-black',
-  'Zaakceptowano': 'bg-green-500 text-white',
-  'Akceptacja klienta': 'bg-green-500 text-white',
-  'Zgoda na naprawę': 'bg-green-500 text-white',
-  'W trakcie naprawy': 'bg-amber-400 text-black',
-  'Dodatek do naprawy': 'bg-yellow-500 text-black',
-  'Naprawione': 'bg-red-600 text-white',
-  'Zadania wykonane': 'bg-green-500 text-white',
-  'Gotowy do odbioru': 'bg-gray-500 text-white',
-  'Zakończone': 'bg-gray-800 text-white',
-};
-
 export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -371,9 +351,11 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
                   const newVal = !order.quote_accepted;
-                  updateOrder.mutateAsync({ id: order.id, quote_accepted: newVal, ...(newVal ? { status_name: 'Akceptacja klienta' } : {}) });
+                  // Kanoniczny status akceptacji to 'Zaakceptowano' (trigger DB i tak
+                  // normalizuje do tej wartości przy quote_accepted=true).
+                  updateOrder.mutateAsync({ id: order.id, quote_accepted: newVal, ...(newVal ? { status_name: 'Zaakceptowano' } : {}) });
                   toast.success(newVal
-                    ? t('workshop.orderDetail.quoteAccepted', { status: translateWorkshopStatus('Akceptacja klienta', t) })
+                    ? t('workshop.orderDetail.quoteAccepted', { status: translateWorkshopStatus('Zaakceptowano', t) })
                     : t('workshop.orderDetail.markedUnsigned'));
                 }}>
                   {order.quote_accepted

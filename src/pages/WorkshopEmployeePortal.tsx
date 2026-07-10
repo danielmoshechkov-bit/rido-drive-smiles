@@ -17,7 +17,7 @@ import { EmployeeWorkListDialog } from '@/components/workshop/EmployeeWorkListDi
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
-import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
+import { translateWorkshopStatus, getStatusStyle, getStatusTone } from '@/utils/workshopStatusStyle';
 
 type Tab = 'home' | 'mine' | 'pool' | 'history';
 
@@ -463,22 +463,13 @@ export default function WorkshopEmployeePortal() {
 
 
                   {(() => {
-                    const map: Record<string, string> = {
-                      'Do wyceny': 'bg-yellow-500 text-black hover:bg-yellow-600',
-                      'Oczekuje na akceptację': 'bg-yellow-500 text-black hover:bg-yellow-600',
-                      'Wycena gotowa': 'bg-yellow-500 text-black hover:bg-yellow-600',
-                      'Wycena wysłana': 'bg-yellow-500 text-black hover:bg-yellow-600',
-                      'Zaakceptowano': 'bg-green-600 text-white hover:bg-green-700',
-                      'Akceptacja klienta': 'bg-green-600 text-white hover:bg-green-700',
-                      'Zgoda na naprawę': 'bg-green-600 text-white hover:bg-green-700',
-                      'W trakcie naprawy': 'bg-amber-400 text-black hover:bg-amber-500',
-                      'Dodatek do naprawy': 'bg-yellow-500 text-black hover:bg-yellow-600',
-                      'Naprawione': 'bg-violet-600 text-white hover:bg-violet-700',
-                      'Gotowy do odbioru': 'bg-emerald-600 text-white hover:bg-emerald-700',
-                      'Zakończone': 'bg-gray-700 text-white hover:bg-gray-800',
-                    };
-                    const cls = map[st] || (station ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-400 text-white hover:bg-gray-500');
-                    const label = st && map[st] ? translateWorkshopStatus(st, t) : (station ? station.name : translateWorkshopStatus('Przydzielone', t));
+                    // Badge statusu ze wspólnej palety "Zalecane" (m.in. Naprawione = zielony,
+                    // jak Zaakceptowano) — koniec osobnej mapy kolorów na portalu pracownika.
+                    const known = getStatusTone(st) !== 'gray' || st === 'Nowe zlecenie';
+                    const cls = known
+                      ? getStatusStyle(st).badge
+                      : (station ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-400 text-white hover:bg-gray-500');
+                    const label = st && known ? translateWorkshopStatus(st, t) : (station ? station.name : translateWorkshopStatus('Przydzielone', t));
                     return <Badge className={`${cls} text-xs`}>{label}</Badge>;
                   })()}
                   {/* Action buttons */}

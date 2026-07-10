@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, MessageSquarePlus, AlertCircle } from 'lucide-react';
 import { useWorkshopStatuses, useWorkshopStations } from '@/hooks/useWorkshop';
-import { getStatusStyle, translateWorkshopStatus } from '@/utils/workshopStatusStyle';
+import { useWorkshopStatusStyles } from '@/hooks/useWorkshopStatusStyles';
+import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
@@ -31,6 +32,8 @@ export function WorkshopStatusPicker({
   // useEffect robił 50 identycznych zapytań przy 50 zleceniach. Współdzielony
   // hook react-query = 1 zapytanie na provider.
   const { data: stations = [] } = useWorkshopStations(providerId);
+  // Kolory: badge + kropka z jednego źródła (paleta Zalecane / hexy per provider).
+  const { getStyle } = useWorkshopStatusStyles(providerId);
   const [open, setOpen] = useState(false);
   const [noteDialog, setNoteDialog] = useState<{ name: string } | null>(null);
   const [note, setNote] = useState('');
@@ -93,14 +96,14 @@ export function WorkshopStatusPicker({
     }
   };
 
-  const style = getStatusStyle(currentStatus);
+  const style = getStyle(currentStatus);
 
   return (
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <button className="cursor-pointer inline-flex items-center gap-1">
-            <Badge className={`${style.badge} ${size === 'xs' ? 'text-[11px] px-1.5 py-0.5' : 'text-[13px] px-2 py-0.5'} font-semibold whitespace-nowrap transition-opacity`}>
+            <Badge className={`${style.badgeClass} ${size === 'xs' ? 'text-[11px] px-1.5 py-0.5' : 'text-[13px] px-2 py-0.5'} font-semibold whitespace-nowrap transition-opacity`} style={style.badgeStyle}>
               {translateWorkshopStatus(currentStatus, t)}
             </Badge>
             {hasUnreadNotes && (
@@ -117,7 +120,8 @@ export function WorkshopStatusPicker({
                 className={`group flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-accent cursor-pointer ${active ? 'bg-accent font-medium' : ''}`}
                 onClick={() => apply(it.name)}
               >
-                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: it.color }} />
+                {/* Kropka: dla statusów to samo źródło koloru co badge; stanowiska mają własny kolor. */}
+                <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: it.kind === 'station' ? it.color : getStyle(it.name).dotColor }} />
                 <span className="flex-1 text-sm">{translateWorkshopStatus(it.name, t)}</span>
                 {it.kind === 'station' && (
                   <Badge variant="outline" className="text-[9px] uppercase">{t('workshop.statusPicker.stationBadge')}</Badge>

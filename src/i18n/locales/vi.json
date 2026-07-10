@@ -1799,7 +1799,8 @@
     "tasksDone": "Hoàn thành công việc",
     "readyForPickup": "Sẵn sàng nhận xe",
     "repaired": "Đã sửa xong",
-    "completed": "Đã hoàn tất"
+    "completed": "Đã hoàn tất",
+    "phoneScheduled": "Đã hẹn qua điện thoại"
   },
   "workshop": {
     "events": {
@@ -1833,7 +1834,14 @@
       "noteAdded": "Đã thêm ghi chú",
       "saveError": "Lỗi khi lưu",
       "defaultUser": "Người dùng",
-      "system": "Hệ thống"
+      "system": "Hệ thống",
+      "acceptedOnline": "trực tuyến bởi khách hàng",
+      "acceptedManual": "thủ công bởi quản trị viên",
+      "role_admin": "Quản trị",
+      "role_employee": "Nhân viên",
+      "role_client": "Khách hàng (trực tuyến)",
+      "role_system": "Hệ thống",
+      "clientLabel": "Khách hàng"
     },
     "orders": {
       "new": "Mới",
@@ -2284,7 +2292,13 @@
           "estimateSent": "Gửi báo giá qua SMS cho khách hàng",
           "estimateAccepted": "Khách hàng chấp nhận báo giá",
           "readySmsSent": "Gửi SMS thông báo sẵn sàng nhận xe"
-        }
+        },
+        "colorsTitle": "Màu trạng thái",
+        "colorsRecommended": "Đề xuất",
+        "colorsCustom": "Tùy chỉnh",
+        "colorsRecommendedDesc": "Bảng màu của cổng — màu huy hiệu và chấm nhất quán cho mọi trạng thái.",
+        "colorsCustomDesc": "Màu riêng cho từng trạng thái — nhấp vào chấm để đổi màu.",
+        "mergedStatusBlocked": "\"Akceptacja klienta\" đã được gộp vào \"Zaakceptowano\" — hãy dùng trạng thái \"Zaakceptowano\"."
       },
       "orderTypes": {
         "title": "Loại đơn hàng",
@@ -3306,7 +3320,22 @@
       "phone": "Điện thoại",
       "partsListPrint": "Danh sách phụ tùng cần cho sửa chữa (thợ máy điền)",
       "signatureLine": "Thợ máy (chữ ký): ____________________",
-      "completionDateLine": "Ngày hoàn thành: ____________________"
+      "completionDateLine": "Ngày hoàn thành: ____________________",
+      "visibleFieldsTitle": "Dữ liệu hiển thị cho nhân viên",
+      "visibleFieldsHint": "Các trường bỏ chọn sẽ bị ẩn trên thẻ và bản in (dữ liệu đơn hàng được giữ nguyên). Lựa chọn được ghi nhớ cho các đơn sau.",
+      "field_client": "Khách hàng (tên)",
+      "field_phone": "Điện thoại",
+      "field_vin": "VIN",
+      "field_plate": "Biển số",
+      "field_year": "Năm",
+      "field_vehicle": "Xe (hãng/mẫu)",
+      "field_mileage": "Số km",
+      "field_fuel": "Nhiên liệu",
+      "field_tasks": "Phạm vi công việc",
+      "field_parts": "Danh sách phụ tùng",
+      "field_notes": "Ghi chú / chẩn đoán",
+      "printLangLabel": "Ngôn ngữ in",
+      "printPreparing": "Đang chuẩn bị bản in…"
     },
     "existingInvoice": {
       "title": "Hóa đơn đã tồn tại",

@@ -1892,7 +1892,8 @@
     "tasksDone": "Tasks completed",
     "readyForPickup": "Ready for pickup",
     "repaired": "Repaired",
-    "completed": "Completed"
+    "completed": "Completed",
+    "phoneScheduled": "Scheduled by phone"
   },
   "workshop": {
     "events": {
@@ -1926,7 +1927,14 @@
       "noteAdded": "Note added",
       "saveError": "Save error",
       "defaultUser": "User",
-      "system": "System"
+      "system": "System",
+      "acceptedOnline": "online by the client",
+      "acceptedManual": "manually by admin",
+      "role_admin": "Admin",
+      "role_employee": "Employee",
+      "role_client": "Client (online)",
+      "role_system": "System",
+      "clientLabel": "Client"
     },
     "orders": {
       "new": "New",
@@ -2390,7 +2398,13 @@
           "estimateSent": "Estimate SMS sent to client",
           "estimateAccepted": "Estimate accepted by client",
           "readySmsSent": "Ready-for-pickup SMS sent"
-        }
+        },
+        "colorsTitle": "Status colors",
+        "colorsRecommended": "Recommended",
+        "colorsCustom": "Custom",
+        "colorsRecommendedDesc": "Portal palette — consistent badge and dot colors for all statuses.",
+        "colorsCustomDesc": "Custom colors per status — click the dot to change the color.",
+        "mergedStatusBlocked": "\"Akceptacja klienta\" was merged into \"Zaakceptowano\" — use the \"Zaakceptowano\" status."
       },
       "orderTypes": {
         "title": "Order types",
@@ -3420,7 +3434,22 @@
       "phone": "Phone",
       "partsListPrint": "List of parts needed for repair (to be filled in by the mechanic)",
       "signatureLine": "Mechanic (signature): ____________________",
-      "completionDateLine": "Completion date: ____________________"
+      "completionDateLine": "Completion date: ____________________",
+      "visibleFieldsTitle": "Data visible to the employee",
+      "visibleFieldsHint": "Unchecked fields are hidden on the card and printout (order data stays intact). The selection is remembered for future orders.",
+      "field_client": "Client (name)",
+      "field_phone": "Phone",
+      "field_vin": "VIN",
+      "field_plate": "Plate no.",
+      "field_year": "Year",
+      "field_vehicle": "Vehicle (make/model)",
+      "field_mileage": "Mileage",
+      "field_fuel": "Fuel",
+      "field_tasks": "Work scope",
+      "field_parts": "Parts list",
+      "field_notes": "Notes / diagnosis",
+      "printLangLabel": "Print language",
+      "printPreparing": "Preparing printout…"
     },
     "existingInvoice": {
       "title": "Invoice already exists",
