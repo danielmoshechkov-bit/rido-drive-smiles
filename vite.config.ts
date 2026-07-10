@@ -18,6 +18,10 @@ export default defineConfig(({ mode }) => ({
           vendor: ['react', 'react-dom', 'react-router-dom'],
           ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-tabs'],
           supabase: ['@supabase/supabase-js'],
+          // PERF C1: recharts ma 5 konsumentów w różnych lazy-chunkach
+          // (raporty warsztatu, rozliczenia kierowcy, faktury, AI, marketing)
+          // — jeden współdzielony chunk zamiast kopii/dublowania zależności.
+          charts: ['recharts'],
         }
       }
     }

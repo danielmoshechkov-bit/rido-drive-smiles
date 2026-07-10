@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,15 +21,23 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
-import { WebsiteBuilderWizard } from '@/components/website-builder/WebsiteBuilderWizard';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
-import { WorkshopScheduler } from '@/components/workshop/WorkshopScheduler';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
 import { ServiceProviderAccountingView } from '@/components/service-provider/ServiceProviderAccountingView';
 import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_ORDER } from '@/components/service-provider/navConfig';
 import { CalendarView } from '@/components/calendar/CalendarView';
-import { AgentTypeSelector } from '@/components/ai-agents/AgentTypeSelector';
-import { AISalesAgentsDashboard } from '@/components/ai-sales/AISalesAgentsDashboard';
+// PERF C1: ciężkie taby ładowane leniwie — nie wchodzą do chunku panelu.
+// (AgentTypeSelector / KnowledgeBaseEditor / ConversationAnalytics /
+// GlobalLearningPanel były importowane, ale nieużywane — usunięte.)
+const WebsiteBuilderWizard = lazy(() =>
+  import('@/components/website-builder/WebsiteBuilderWizard').then(m => ({ default: m.WebsiteBuilderWizard }))
+);
+const WorkshopScheduler = lazy(() =>
+  import('@/components/workshop/WorkshopScheduler').then(m => ({ default: m.WorkshopScheduler }))
+);
+const AISalesAgentsDashboard = lazy(() =>
+  import('@/components/ai-sales/AISalesAgentsDashboard').then(m => ({ default: m.AISalesAgentsDashboard }))
+);
 import { LeadsTab } from '@/components/leads/LeadsTab';
 import { AdsTab } from '@/components/ads/AdsTab';
 // AdOrderModal usunięty — zastąpiony przez AdvertiseServiceButton (Wizard Meta/Google)
@@ -40,9 +48,6 @@ import { CommissionInvoicesPanel } from '@/components/services/CommissionInvoice
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
 import { usePendingBookingsCount } from '@/hooks/usePendingBookingsCount';
 import { CalendarBookingsSubTabs } from '@/components/services/CalendarBookingsSubTabs';
-import { KnowledgeBaseEditor } from '@/components/ai-agents/KnowledgeBaseEditor';
-import { ConversationAnalytics } from '@/components/ai-agents/ConversationAnalytics';
-import { GlobalLearningPanel } from '@/components/ai-agents/GlobalLearningPanel';
 import { CalendarAIAssistant } from '@/components/calendar/CalendarAIAssistant';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -283,25 +288,31 @@ export default function ServiceProviderDashboard() {
     if (!user) { navigate('/auth'); return; }
     setUser(user);
 
-    const { data: config } = await supabase
-      .from('ai_agent_configs')
-      .select('*, ai_call_business_profiles(*)')
-      .eq('user_id', user.id)
-      .single();
+    // PERF C3: te 4 zapytania są od siebie niezależne (potrzebują tylko
+    // user.id) — wcześniej leciały sekwencyjnie i blokowały pierwszy render.
+    const [{ data: config }, { data: provider }, { data: cats }, { data: wsSettings }] = await Promise.all([
+      supabase
+        .from('ai_agent_configs')
+        .select('*, ai_call_business_profiles(*)')
+        .eq('user_id', user.id)
+        .single(),
+      (supabase as any)
+        .from('service_providers')
+        .select('id, rating_avg, rating_count, company_name, short_name, description, company_phone, company_address, company_city, company_postal_code, company_nip, company_website, owner_first_name, owner_last_name, owner_email, status, category_id, cover_image_url, logo_url')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('service_categories')
+        .select('id, name, slug')
+        .eq('is_active', true)
+        .order('sort_order'),
+      (supabase as any)
+        .from('workshop_settings')
+        .select('short_name, bank_account, logo_url, website')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+    ]);
     if (config) setConfigData(config);
-
-    const { data: provider } = await (supabase as any)
-      .from('service_providers')
-      .select('id, rating_avg, rating_count, company_name, short_name, description, company_phone, company_address, company_city, company_postal_code, company_nip, company_website, owner_first_name, owner_last_name, owner_email, status, category_id, cover_image_url, logo_url')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    // Load service categories for activation form
-    const { data: cats } = await supabase
-      .from('service_categories')
-      .select('id, name, slug')
-      .eq('is_active', true)
-      .order('sort_order');
     if (cats) setServiceCategories(cats);
 
     if (provider) {
@@ -324,11 +335,24 @@ export default function ServiceProviderDashboard() {
 
       setActivationForm(loadActivationDraft(user.id, providerActivationForm));
 
-      const { data: navPreferences } = await (supabase as any)
-        .from('service_provider_nav_preferences')
-        .select('primary_tabs')
-        .eq('provider_id', provider.id)
-        .maybeSingle();
+      // PERF C3: preferencje nawigacji + oba county zależą tylko od provider.id
+      // — równolegle zamiast trzech kolejnych round-tripów.
+      const [{ data: navPreferences }, { count: totalCount }, { count: pendingCount }] = await Promise.all([
+        (supabase as any)
+          .from('service_provider_nav_preferences')
+          .select('primary_tabs')
+          .eq('provider_id', provider.id)
+          .maybeSingle(),
+        supabase
+          .from('booking_appointments')
+          .select('*', { count: 'exact', head: true })
+          .eq('provider_id', provider.id),
+        supabase
+          .from('booking_appointments')
+          .select('*', { count: 'exact', head: true })
+          .eq('provider_id', provider.id)
+          .eq('status', 'pending'),
+      ]);
 
       const allowedTabs = SERVICE_PROVIDER_TAB_ORDER.filter(tab => tab !== 'settings' && (features.website_builder_enabled || tab !== 'website'));
       const savedPrimaryTabs = Array.isArray(navPreferences?.primary_tabs)
@@ -337,28 +361,12 @@ export default function ServiceProviderDashboard() {
 
       setPrimaryTabs(savedPrimaryTabs.length ? savedPrimaryTabs : DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS.filter(tab => allowedTabs.includes(tab)));
 
-      const { count: totalCount } = await supabase
-        .from('booking_appointments')
-        .select('*', { count: 'exact', head: true })
-        .eq('provider_id', provider.id);
-      const { count: pendingCount } = await supabase
-        .from('booking_appointments')
-        .select('*', { count: 'exact', head: true })
-        .eq('provider_id', provider.id)
-        .eq('status', 'pending');
       setStats({
         totalBookings: totalCount || 0,
         pendingBookings: pendingCount || 0,
         completedThisMonth: 0,
         averageRating: provider.rating_avg || 0
       });
-
-      // Fetch workshop settings for short_name, bank_account, logo
-      const { data: wsSettings } = await (supabase as any)
-        .from('workshop_settings')
-        .select('short_name, bank_account, logo_url, website')
-        .eq('user_id', user.id)
-        .maybeSingle();
 
       setSettingsForm(prev => ({
         ...prev,
@@ -1265,7 +1273,9 @@ export default function ServiceProviderDashboard() {
             {calendarSubTab === 'calendar' && (
               <div className="mt-4">
                 {providerId ? (
-                  <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
+                  <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+                    <WorkshopScheduler providerId={providerId} onBack={() => setActiveTab('dashboard')} title="" />
+                  </Suspense>
                 ) : (
                   <CalendarView />
                 )}
@@ -1294,13 +1304,17 @@ export default function ServiceProviderDashboard() {
 
           {/* AI Agent Tab */}
           <TabsContent value="ai-agent" className="mt-6">
-            <AISalesAgentsDashboard providerId={providerId} />
+            <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+              <AISalesAgentsDashboard providerId={providerId} />
+            </Suspense>
           </TabsContent>
 
           {/* Website Builder Tab */}
           {features.website_builder_enabled && (
             <TabsContent value="website" className="mt-6">
-              <WebsiteBuilderWizard />
+              <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
+                <WebsiteBuilderWizard />
+              </Suspense>
             </TabsContent>
           )}
 

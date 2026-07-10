@@ -92,8 +92,16 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [assignClientOrderId, setAssignClientOrderId] = useState<string | null>(null);
 
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
+  // PERF C2: paginacja archiwum zakończonych — "Załaduj więcej" podbija limit.
+  const [completedLimit, setCompletedLimit] = useState(100);
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
     search: search || undefined,
+    // PERF C2: filtr widoku + zakres dat serwerowo — wejście na "Aktywne" nie
+    // ściąga już całego archiwum zakończonych zleceń.
+    view: orderView,
+    dateFrom: orderView === 'completed' ? (dateFrom || undefined) : undefined,
+    dateTo: orderView === 'completed' ? (dateTo || undefined) : undefined,
+    limit: orderView === 'completed' ? completedLimit : undefined,
   });
   const updateOrder = useUpdateWorkshopOrder();
 
@@ -917,6 +925,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 )}
               </TableBody>
             </Table>
+          )}
+          {/* PERF C2: archiwum zakończonych jest stronicowane po 100 */}
+          {orderView === 'completed' && !isLoading && orders.length >= completedLimit && (
+            <div className="flex justify-center py-3">
+              <Button variant="outline" size="sm" onClick={() => setCompletedLimit(l => l + 100)}>
+                {t('workshop.orders.loadMore', { defaultValue: 'Załaduj kolejne 100' })}
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

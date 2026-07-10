@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,11 @@ import { safeNumber } from '@/utils/workshopOrderTotals';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopClientsReport, WorkshopEmployeesReport, WorkshopSalesReport } from './WorkshopExtraReports';
 import { WorkshopCompanyReport } from './WorkshopCompanyReport';
-import { WorkshopStatsReport } from './WorkshopStatsReport';
+// PERF C1: WorkshopStatsReport to jedyny konsument recharts w warsztacie —
+// lazy trzyma bibliotekę wykresów poza chunkiem modułu raportów.
+const WorkshopStatsReport = lazy(() =>
+  import('./WorkshopStatsReport').then(m => ({ default: m.WorkshopStatsReport }))
+);
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -85,7 +89,8 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   const [generated, setGenerated] = useState(false);
 
   const gross = priceMode === 'brutto';
-  const { data: orders = [], isLoading } = useWorkshopOrders(providerId);
+  // PERF C2: raporty liczą po zakończonych — potrzebują pełnego widoku 'all'
+  const { data: orders = [], isLoading } = useWorkshopOrders(providerId, { view: 'all' });
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: payments = [] } = useWorkshopPaymentsRange(providerId, dateFrom, dateTo);
   const { data: financeSettings } = useWorkshopFinanceSettings(providerId);
@@ -222,7 +227,11 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   if (activeReport === 'raport-pracownicy') return reportWrap('Pracownicy', <WorkshopEmployeesReport providerId={providerId} />);
   if (activeReport === 'raport-sprzedazy') return reportWrap('Sprzedaż', <WorkshopSalesReport providerId={providerId} />);
   if (activeReport === 'raport-firma') return reportWrap('Podsumowanie firmy', <WorkshopCompanyReport providerId={providerId} />);
-  if (activeReport === 'raport-statystyki') return reportWrap('Statystyki', <WorkshopStatsReport providerId={providerId} />);
+  if (activeReport === 'raport-statystyki') return reportWrap('Statystyki', (
+    <Suspense fallback={<div className="py-10 text-center text-muted-foreground">Ładowanie wykresów…</div>}>
+      <WorkshopStatsReport providerId={providerId} />
+    </Suspense>
+  ));
 
   if (activeReport === 'zestawienie-szczegolowe') {
     return (

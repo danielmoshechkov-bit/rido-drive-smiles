@@ -118,7 +118,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
     return Array.from({ length: len }, (_, i) => from + i);
   }, [workingHoursRows]);
 
-  const { data: orders = [] } = useWorkshopOrders(providerId);
+  // PERF C2: kalendarz pokazuje też zakończone (historia tygodnia) — 'all'
+  const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
 
   // Fetch client bookings to show on calendar
   const { data: clientBookings = [] } = useQuery({

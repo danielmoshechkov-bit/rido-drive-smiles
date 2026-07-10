@@ -1,10 +1,5 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
-import AddVehicleListing from "./pages/AddVehicleListing";
-import GeneralMarketplace from "./pages/GeneralMarketplace";
-import GeneralListingDetail from "./pages/GeneralListingDetail";
-import MarketplaceCart from "./pages/MarketplaceCart";
-import MarketplaceWishlist from "./pages/MarketplaceWishlist";
-import MarketplaceCompare from "./pages/MarketplaceCompare";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -18,89 +13,107 @@ import { ReferralCapture } from "@/components/ReferralCapture";
 import { OnboardingWidget } from "@/components/onboarding";
 import { useUISettings } from "@/hooks/useUISettings";
 import { useDynamicTranslations } from "@/hooks/useDynamicTranslations";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import ResetPassword from "./pages/ResetPassword";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminRealEstate from "./pages/AdminRealEstate";
-import AdminMarketplace from "./pages/AdminMarketplace";
-import AdminMaps from "./pages/AdminMaps";
-import AdminPortal from "./pages/AdminPortal";
-import AdminServices from "./pages/AdminServices";
-import AdminAIBrain from "./pages/AdminAIBrain";
-import FleetVehicleDetails from "./pages/FleetVehicleDetails";
-import DriverRegister from "./pages/DriverRegister";
-import RegisterSuccess from "./pages/RegisterSuccess";
-import EmailConfirmed from "./pages/EmailConfirmed";
-import ActivationConfirm from "./pages/ActivationConfirm";
-import DriverDashboard from "./pages/DriverDashboard";
-import FleetDashboard from "./pages/FleetDashboard";
-import SettlementSheet from "./pages/SettlementSheet";
-import SettlementSheetView from "./pages/SettlementSheetView";
-import SystemAlerts from "./pages/SystemAlerts";
-import Install from "./pages/Install";
-import NotFound from "./pages/NotFound";
-import RentalModule from "./pages/RentalModule";
-import RentalContractPortal from "./pages/RentalContractPortal";
-import CennikPage from "./pages/CennikPage";
-import JakZaczacPage from "./pages/JakZaczacPage";
-import KontaktPage from "./pages/KontaktPage";
-import VehicleMarketplace from "./pages/VehicleMarketplace";
-import VehicleDetailPage from "./pages/VehicleDetailPage";
-import VehicleCompare from "./pages/VehicleCompare";
-import MarketplaceRegister from "./pages/MarketplaceRegister";
-import MarketplaceAuth from "./pages/MarketplaceAuth";
-import MarketplaceDashboard from "./pages/MarketplaceDashboard";
-import EasyHub from "./pages/EasyHub";
-import WorkshopLanding from "./pages/WorkshopLanding";
-import EasyAuth from "./pages/EasyAuth";
-import RealEstateMarketplace from "./pages/RealEstateMarketplace";
-import OfertaPage from "./pages/OfertaPage";
-import PropertyCompare from "./pages/PropertyCompare";
-import RealEstateAgentRegister from "./pages/RealEstateAgentRegister";
-import RealEstateAgentDashboard from "./pages/RealEstateAgentDashboard";
-import GeneralListingAdd from "./pages/GeneralListingAdd";
-import GeneralListingEdit from "./pages/GeneralListingEdit";
-import MarketplaceSellerProfile from "./pages/MarketplaceSellerProfile";
-import FleetLanding from "./pages/FleetLanding";
-import FleetRegister from "./pages/FleetRegister";
-import FleetRegisterSuccess from "./pages/FleetRegisterSuccess";
-import PropertyDetailPage from "./pages/PropertyDetailPage";
-import LegalPage from "./pages/LegalPage";
-import GetRidoMaps from "./pages/GetRidoMaps";
-import ServicesMarketplace from "./pages/ServicesMarketplace";
-import AdminRidoMarket from "./pages/AdminRidoMarket";
-import ServiceProviderDetail from "./pages/ServiceProviderDetail";
-import ServiceProviderDashboard from "./pages/ServiceProviderDashboard";
-import WorkflowModule from "./pages/WorkflowModule";
-import UniversalSearchResults from "./pages/UniversalSearchResults";
-import AccountingDashboard from "./pages/AccountingDashboard";
-import InsuranceAgentRegister from "./pages/InsuranceAgentRegister";
-import InsuranceAgentDashboard from "./pages/InsuranceAgentDashboard";
-import InvoiceProgram from "./pages/InvoiceProgram";
-import ClientPortal from "./pages/ClientPortal";
-import AIProPage from "./pages/AIProPage";
-import InvoicingLanding from "./pages/InvoicingLanding";
-import DriverInfoLanding from "./pages/DriverInfoLanding";
-import SalesPortal from "./pages/SalesPortal";
-import RentalClientPortal from "./pages/RentalClientPortal";
-import WorkshopClientCard from "./pages/WorkshopClientCard";
-import DriverBankChangeConfirm from "./pages/DriverBankChangeConfirm";
-import BookingConfirm from "./pages/BookingConfirm";
-import WorkshopSmsCenter from "./pages/WorkshopSmsCenter";
-import RidoAIChat from "./pages/RidoAIChat";
-import MeetingsPage from "./pages/MeetingsPage";
-import RidoMailPage from "./pages/RidoMailPage";
-import AdminAIAgentsPage from "./pages/AdminAIAgentsPage";
-import AdminMarketing from "./pages/AdminMarketing";
-import ConfirmViewingPage from "./pages/ConfirmViewingPage";
-import MyViewingsPage from "./pages/MyViewingsPage";
-import PaymentSuccess from "./pages/PaymentSuccess";
-import PaymentCancel from "./pages/PaymentCancel";
-import BuyCredits from "./pages/BuyCredits";
-import WorkshopEmployeePortal from "./pages/WorkshopEmployeePortal";
 import { WorkshopInvitationHandler } from "./components/workshop/WorkshopInvitationHandler";
 import { InviteWelcomeBanner } from "./components/workspace/InviteWelcomeBanner";
+
+// PERF C1: strony przez React.lazy — wcześniej 100+ statycznych importów
+// pakowało WSZYSTKIE portale (giełda, nieruchomości, admin, AI, warsztat…)
+// do jednego chunku 7,98 MB ściąganego przy każdym wejściu. Teraz każda
+// strona to osobny chunk ładowany przy pierwszej nawigacji. Eager zostają
+// tylko EasyHub (landing "/") i NotFound.
+// Usunięte martwe importy: Index, MarketplaceDashboard, EasyAuth,
+// SettlementSheetView (nieużywane w żadnym route).
+import EasyHub from "./pages/EasyHub";
+import NotFound from "./pages/NotFound";
+
+const AddVehicleListing = lazy(() => import("./pages/AddVehicleListing"));
+const GeneralMarketplace = lazy(() => import("./pages/GeneralMarketplace"));
+const GeneralListingDetail = lazy(() => import("./pages/GeneralListingDetail"));
+const MarketplaceCart = lazy(() => import("./pages/MarketplaceCart"));
+const MarketplaceWishlist = lazy(() => import("./pages/MarketplaceWishlist"));
+const MarketplaceCompare = lazy(() => import("./pages/MarketplaceCompare"));
+const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminRealEstate = lazy(() => import("./pages/AdminRealEstate"));
+const AdminMarketplace = lazy(() => import("./pages/AdminMarketplace"));
+const AdminMaps = lazy(() => import("./pages/AdminMaps"));
+const AdminPortal = lazy(() => import("./pages/AdminPortal"));
+const AdminServices = lazy(() => import("./pages/AdminServices"));
+const AdminAIBrain = lazy(() => import("./pages/AdminAIBrain"));
+const FleetVehicleDetails = lazy(() => import("./pages/FleetVehicleDetails"));
+const DriverRegister = lazy(() => import("./pages/DriverRegister"));
+const RegisterSuccess = lazy(() => import("./pages/RegisterSuccess"));
+const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
+const ActivationConfirm = lazy(() => import("./pages/ActivationConfirm"));
+const DriverDashboard = lazy(() => import("./pages/DriverDashboard"));
+const FleetDashboard = lazy(() => import("./pages/FleetDashboard"));
+const SettlementSheet = lazy(() => import("./pages/SettlementSheet"));
+const SystemAlerts = lazy(() => import("./pages/SystemAlerts"));
+const Install = lazy(() => import("./pages/Install"));
+const RentalModule = lazy(() => import("./pages/RentalModule"));
+const RentalContractPortal = lazy(() => import("./pages/RentalContractPortal"));
+const CennikPage = lazy(() => import("./pages/CennikPage"));
+const JakZaczacPage = lazy(() => import("./pages/JakZaczacPage"));
+const KontaktPage = lazy(() => import("./pages/KontaktPage"));
+const VehicleMarketplace = lazy(() => import("./pages/VehicleMarketplace"));
+const VehicleDetailPage = lazy(() => import("./pages/VehicleDetailPage"));
+const VehicleCompare = lazy(() => import("./pages/VehicleCompare"));
+const MarketplaceRegister = lazy(() => import("./pages/MarketplaceRegister"));
+const MarketplaceAuth = lazy(() => import("./pages/MarketplaceAuth"));
+const WorkshopLanding = lazy(() => import("./pages/WorkshopLanding"));
+const RealEstateMarketplace = lazy(() => import("./pages/RealEstateMarketplace"));
+const OfertaPage = lazy(() => import("./pages/OfertaPage"));
+const PropertyCompare = lazy(() => import("./pages/PropertyCompare"));
+const RealEstateAgentRegister = lazy(() => import("./pages/RealEstateAgentRegister"));
+const RealEstateAgentDashboard = lazy(() => import("./pages/RealEstateAgentDashboard"));
+const GeneralListingAdd = lazy(() => import("./pages/GeneralListingAdd"));
+const GeneralListingEdit = lazy(() => import("./pages/GeneralListingEdit"));
+const MarketplaceSellerProfile = lazy(() => import("./pages/MarketplaceSellerProfile"));
+const FleetLanding = lazy(() => import("./pages/FleetLanding"));
+const FleetRegister = lazy(() => import("./pages/FleetRegister"));
+const FleetRegisterSuccess = lazy(() => import("./pages/FleetRegisterSuccess"));
+const PropertyDetailPage = lazy(() => import("./pages/PropertyDetailPage"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const GetRidoMaps = lazy(() => import("./pages/GetRidoMaps"));
+const ServicesMarketplace = lazy(() => import("./pages/ServicesMarketplace"));
+const AdminRidoMarket = lazy(() => import("./pages/AdminRidoMarket"));
+const ServiceProviderDetail = lazy(() => import("./pages/ServiceProviderDetail"));
+const ServiceProviderDashboard = lazy(() => import("./pages/ServiceProviderDashboard"));
+const WorkflowModule = lazy(() => import("./pages/WorkflowModule"));
+const UniversalSearchResults = lazy(() => import("./pages/UniversalSearchResults"));
+const AccountingDashboard = lazy(() => import("./pages/AccountingDashboard"));
+const InsuranceAgentRegister = lazy(() => import("./pages/InsuranceAgentRegister"));
+const InsuranceAgentDashboard = lazy(() => import("./pages/InsuranceAgentDashboard"));
+const InvoiceProgram = lazy(() => import("./pages/InvoiceProgram"));
+const ClientPortal = lazy(() => import("./pages/ClientPortal"));
+const AIProPage = lazy(() => import("./pages/AIProPage"));
+const InvoicingLanding = lazy(() => import("./pages/InvoicingLanding"));
+const DriverInfoLanding = lazy(() => import("./pages/DriverInfoLanding"));
+const SalesPortal = lazy(() => import("./pages/SalesPortal"));
+const RentalClientPortal = lazy(() => import("./pages/RentalClientPortal"));
+const WorkshopClientCard = lazy(() => import("./pages/WorkshopClientCard"));
+const DriverBankChangeConfirm = lazy(() => import("./pages/DriverBankChangeConfirm"));
+const BookingConfirm = lazy(() => import("./pages/BookingConfirm"));
+const WorkshopSmsCenter = lazy(() => import("./pages/WorkshopSmsCenter"));
+const RidoAIChat = lazy(() => import("./pages/RidoAIChat"));
+const MeetingsPage = lazy(() => import("./pages/MeetingsPage"));
+const RidoMailPage = lazy(() => import("./pages/RidoMailPage"));
+const AdminAIAgentsPage = lazy(() => import("./pages/AdminAIAgentsPage"));
+const AdminMarketing = lazy(() => import("./pages/AdminMarketing"));
+const ConfirmViewingPage = lazy(() => import("./pages/ConfirmViewingPage"));
+const MyViewingsPage = lazy(() => import("./pages/MyViewingsPage"));
+const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
+const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
+const BuyCredits = lazy(() => import("./pages/BuyCredits"));
+const WorkshopEmployeePortal = lazy(() => import("./pages/WorkshopEmployeePortal"));
+
+// Fallback ładowania chunku strony
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+  </div>
+);
 // PERF B2: bez tej konfiguracji TanStack Query v5 używa staleTime: 0 +
 // refetchOnWindowFocus: true — każdy alt-tab i każdy remount refetchował
 // WSZYSTKIE aktywne zapytania (listy warsztatu z joinami itd.).
@@ -138,6 +151,7 @@ const App = () => (
           <BrowserRouter>
             <QuotaGuardProvider>
             <CompareProvider>
+              <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<EasyHub />} />
                 <Route path="/auth" element={<Auth />} />
@@ -241,6 +255,7 @@ const App = () => (
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
               {/* Global invitation handler — processes ?invitation=<id> after email confirm */}
               <WorkshopInvitationHandler />
               {/* Ramka „Zostałeś zaproszony do projektu" — strona główna ?invite=1 / oczekujące zaproszenia */}

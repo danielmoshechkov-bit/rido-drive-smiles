@@ -94,20 +94,85 @@ export function useWorkshopProviderId() {
 }
 
 // ---- Orders ----
+// PERF C2: lista NIE ściąga ciężkich pól tekstowych (internal_notes,
+// mechanic_notes, post_completion_notes, damage_description, mechanic_parts) —
+// te dociąga useWorkshopOrder przy otwarciu karty zlecenia. Jeśli dodajesz
+// kolumnę używaną na liście/terminarzu, dopisz ją tutaj.
+const ORDER_LIST_COLUMNS = [
+  'id', 'provider_id', 'order_number', 'status_id', 'status_name', 'station_id',
+  'client_id', 'vehicle_id', 'created_at', 'updated_at', 'completed_at',
+  'acceptance_date', 'scheduled_date', 'scheduled_start', 'scheduled_end',
+  'scheduled_station', 'scheduled_station_id', 'workstation_id',
+  'start_date', 'pickup_date', 'description', 'mileage', 'fuel_level', 'worker',
+  'total_net', 'total_gross', 'price_mode', 'has_unread_notes',
+  'client_acceptance_confirmed', 'client_code', 'booking_id',
+  'quote_accepted', 'quote_done_at', 'quote_done_by_user_id',
+  'estimate_sent_to_client', 'estimate_changed_after_send',
+  'repaired_at', 'repair_started_at', 'repaired_by_user_id', 'mechanic_id',
+  'sms_confirmed', 'sms_sent_count', 'last_sms_sent_at', 'ready_notification_sent',
+  'sms_reminder_24h', 'sms_reminder_2h',
+  'reception_protocol', 'return_parts_to_client', 'registration_document',
+  'test_drive_consent', 'top_up_fluids', 'top_up_lights',
+].join(', ');
+
+const ORDER_JOINS = 'client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)';
+
+export type WorkshopOrdersView = 'active' | 'completed' | 'all';
+
 export function useWorkshopOrders(providerId: string | undefined, filters?: {
   status?: string;
   search?: string;
   completedOnly?: boolean;
+  /** 'active' (domyślnie) = bez zakończonych; 'completed' = tylko zakończone; 'all' = terminarz/raporty */
+  view?: WorkshopOrdersView;
+  /** zakres dat dla widoku 'completed' (yyyy-mm-dd), filtrowany serwerowo */
+  dateFrom?: string;
+  dateTo?: string;
+  /** limit wierszy dla widoku 'completed' (paginacja "Załaduj więcej") */
+  limit?: number;
 }) {
+  // PERF C2: znormalizowany klucz — useWorkshopOrders(id) i
+  // useWorkshopOrders(id, { view: 'active' }) współdzielą cache.
+  const view: WorkshopOrdersView = filters?.view ?? 'active';
+  const keyFilters = {
+    view,
+    status: filters?.status ?? null,
+    search: filters?.search ?? null,
+    completedOnly: filters?.completedOnly ?? false,
+    dateFrom: view === 'completed' ? (filters?.dateFrom ?? null) : null,
+    dateTo: view === 'completed' ? (filters?.dateTo ?? null) : null,
+    limit: view === 'completed' ? (filters?.limit ?? 100) : null,
+  };
   return useQuery({
-    queryKey: ['workshop-orders', providerId, filters],
+    queryKey: ['workshop-orders', providerId, keyFilters],
     enabled: !!providerId,
     queryFn: async () => {
       let query = (supabase as any)
         .from('workshop_orders')
-        .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
+        .select(`${ORDER_LIST_COLUMNS}, ${ORDER_JOINS}`)
         .eq('provider_id', providerId)
         .order('created_at', { ascending: false });
+
+      // PERF C2: filtr widoku serwerowo — archiwum zakończonych nie schodzi
+      // przy każdym wejściu na listę aktywnych.
+      if (view === 'active') {
+        query = query.neq('status_name', 'Zakończone').limit(500);
+      } else if (view === 'completed') {
+        query = query.eq('status_name', 'Zakończone');
+        if (keyFilters.dateFrom || keyFilters.dateTo) {
+          // Podstawą daty jest completed_at, z fallbackiem na created_at dla
+          // starych rekordów bez znacznika zakończenia.
+          const from = keyFilters.dateFrom || '1970-01-01';
+          const to = (keyFilters.dateTo || '2999-12-31') + 'T23:59:59';
+          query = query.or(
+            `and(completed_at.gte.${from},completed_at.lte.${to}),and(completed_at.is.null,created_at.gte.${from},created_at.lte.${to})`
+          );
+        }
+        query = query.limit(keyFilters.limit as number);
+      } else {
+        // 'all' — terminarz/raporty; bezpiecznik zamiast całego archiwum bez granic
+        query = query.limit(1000);
+      }
 
       if (filters?.status) {
         query = query.eq('status_name', filters.status);
@@ -124,6 +189,26 @@ export function useWorkshopOrders(providerId: string | undefined, filters?: {
         ...order,
         items: sortWorkshopOrderItems(order.items),
       }));
+    },
+  });
+}
+
+// PERF C2: pełny wiersz zlecenia (wszystkie kolumny) dociągany przy otwarciu
+// karty. Zwraca TABLICĘ jednoelementową pod kluczem 'workshop-orders', dzięki
+// czemu istniejące realtime-merge i punktowe patche cache (setQueriesData po
+// prefiksie ['workshop-orders']) aktualizują też ten wpis bez dodatkowego kodu.
+export function useWorkshopOrder(orderId: string | undefined) {
+  return useQuery({
+    queryKey: ['workshop-orders', 'single', orderId],
+    enabled: !!orderId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_orders')
+        .select(`*, ${ORDER_JOINS}`)
+        .eq('id', orderId)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? [{ ...data, items: sortWorkshopOrderItems(data.items) }] : [];
     },
   });
 }
