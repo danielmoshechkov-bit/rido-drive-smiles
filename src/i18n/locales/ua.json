@@ -1892,7 +1892,8 @@
     "tasksDone": "Завдання виконані",
     "readyForPickup": "Готово до видачі",
     "repaired": "Відремонтовано",
-    "completed": "Завершено"
+    "completed": "Завершено",
+    "phoneScheduled": "Записаний по телефону"
   },
   "workshop": {
     "events": {
@@ -1926,7 +1927,14 @@
       "noteAdded": "Нотатку додано",
       "saveError": "Помилка збереження",
       "defaultUser": "Користувач",
-      "system": "Система"
+      "system": "Система",
+      "acceptedOnline": "онлайн клієнтом",
+      "acceptedManual": "вручну адміністратором",
+      "role_admin": "Адмін",
+      "role_employee": "Працівник",
+      "role_client": "Клієнт (онлайн)",
+      "role_system": "Система",
+      "clientLabel": "Клієнт"
     },
     "orders": {
       "new": "Нові",

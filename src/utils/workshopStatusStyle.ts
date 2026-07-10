@@ -95,6 +95,7 @@ export function getStatusStyle(name?: string | null) {
 // ---------------------------------------------------------------------------
 const STATUS_KEY_MAP: Record<string, string> = {
   'Nowe zlecenie': 'newOrder',
+  'Umówiony telefonicznie': 'phoneScheduled',
   'Przyjęcie do serwisu': 'received',
   'Przyjęte do serwisu': 'received',
   'Przydzielone': 'assigned',
@@ -108,6 +109,8 @@ const STATUS_KEY_MAP: Record<string, string> = {
   'Zaakceptowano': 'accepted',
   'Zaakceptowane': 'accepted',
   'Zgoda na naprawę': 'repairApproved',
+  // Alias TYLKO do odczytu (historyczne zlecenia sprzed scalenia 2026-07).
+  // Nowe zapisy zawsze idą na 'Zaakceptowano' — nie dodawać z powrotem do seedów/pickera.
   'Akceptacja klienta': 'clientAcceptance',
   'W trakcie naprawy': 'inRepair',
   'W naprawie': 'inRepair',

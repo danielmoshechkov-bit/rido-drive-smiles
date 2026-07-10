@@ -1892,7 +1892,8 @@
     "tasksDone": "Тапсырмалар орындалды",
     "readyForPickup": "Алуға дайын",
     "repaired": "Жөнделді",
-    "completed": "Аяқталды"
+    "completed": "Аяқталды",
+    "phoneScheduled": "Телефон арқылы жазылған"
   },
   "workshop": {
     "events": {
@@ -1926,7 +1927,14 @@
       "noteAdded": "Жазба қосылды",
       "saveError": "Сақтау қатесі",
       "defaultUser": "Пайдаланушы",
-      "system": "Жүйе"
+      "system": "Жүйе",
+      "acceptedOnline": "клиент онлайн растады",
+      "acceptedManual": "әкімші қолмен өзгертті",
+      "role_admin": "Әкімші",
+      "role_employee": "Қызметкер",
+      "role_client": "Клиент (онлайн)",
+      "role_system": "Жүйе",
+      "clientLabel": "Клиент"
     },
     "orders": {
       "new": "Жаңа",

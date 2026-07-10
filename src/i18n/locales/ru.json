@@ -1892,7 +1892,8 @@
     "tasksDone": "Задачи выполнены",
     "readyForPickup": "Готово к выдаче",
     "repaired": "Отремонтировано",
-    "completed": "Завершено"
+    "completed": "Завершено",
+    "phoneScheduled": "Записан по телефону"
   },
   "workshop": {
     "events": {
@@ -1926,7 +1927,14 @@
       "noteAdded": "Заметка добавлена",
       "saveError": "Ошибка сохранения",
       "defaultUser": "Пользователь",
-      "system": "Система"
+      "system": "Система",
+      "acceptedOnline": "онлайн клиентом",
+      "acceptedManual": "вручную администратором",
+      "role_admin": "Админ",
+      "role_employee": "Сотрудник",
+      "role_client": "Клиент (онлайн)",
+      "role_system": "Система",
+      "clientLabel": "Клиент"
     },
     "orders": {
       "new": "Новые",

@@ -1799,7 +1799,8 @@
     "tasksDone": "Aufgaben erledigt",
     "readyForPickup": "Abholbereit",
     "repaired": "Repariert",
-    "completed": "Abgeschlossen"
+    "completed": "Abgeschlossen",
+    "phoneScheduled": "Telefonisch vereinbart"
   },
   "workshop": {
     "events": {
@@ -1833,7 +1834,14 @@
       "noteAdded": "Notiz hinzugefügt",
       "saveError": "Speicherfehler",
       "defaultUser": "Benutzer",
-      "system": "System"
+      "system": "System",
+      "acceptedOnline": "online durch den Kunden",
+      "acceptedManual": "manuell durch den Admin",
+      "role_admin": "Admin",
+      "role_employee": "Mitarbeiter",
+      "role_client": "Kunde (online)",
+      "role_system": "System",
+      "clientLabel": "Kunde"
     },
     "orders": {
       "new": "Neu",

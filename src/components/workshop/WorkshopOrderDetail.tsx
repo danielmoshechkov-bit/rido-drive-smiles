@@ -370,9 +370,11 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
                   const newVal = !order.quote_accepted;
-                  updateOrder.mutateAsync({ id: order.id, quote_accepted: newVal, ...(newVal ? { status_name: 'Akceptacja klienta' } : {}) });
+                  // Kanoniczny status akceptacji to 'Zaakceptowano' (trigger DB i tak
+                  // normalizuje do tej wartości przy quote_accepted=true).
+                  updateOrder.mutateAsync({ id: order.id, quote_accepted: newVal, ...(newVal ? { status_name: 'Zaakceptowano' } : {}) });
                   toast.success(newVal
-                    ? t('workshop.orderDetail.quoteAccepted', { status: translateWorkshopStatus('Akceptacja klienta', t) })
+                    ? t('workshop.orderDetail.quoteAccepted', { status: translateWorkshopStatus('Zaakceptowano', t) })
                     : t('workshop.orderDetail.markedUnsigned'));
                 }}>
                   {order.quote_accepted
