@@ -308,10 +308,18 @@ export function WorkshopMechanicCardDialog({ open, onOpenChange, order }: Props)
           <p className="text-xs text-muted-foreground">{t('workshop.mechanicCard.visibleFieldsHint')}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
             {MECHANIC_CARD_FIELDS.map(field => (
-              <label key={field} className="flex items-center gap-2 text-sm cursor-pointer">
-                <Checkbox checked={vf[field]} onCheckedChange={v => setVisibleField(field, v === true)} />
-                {t(`workshop.mechanicCard.field_${field}`)}
-              </label>
+              <div key={field} className="flex items-center gap-2">
+                {/* id + htmlFor: Radix Checkbox to <button>, samo owinięcie <label> nie
+                    przekazuje kliknięcia w tekst — musi być jawne powiązanie. */}
+                <Checkbox
+                  id={`mc-field-${field}`}
+                  checked={vf[field]}
+                  onCheckedChange={v => setVisibleField(field, v === true)}
+                />
+                <Label htmlFor={`mc-field-${field}`} className="text-sm font-normal cursor-pointer">
+                  {t(`workshop.mechanicCard.field_${field}`)}
+                </Label>
+              </div>
             ))}
           </div>
         </div>

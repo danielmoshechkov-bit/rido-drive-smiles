@@ -1,9 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 // Preferencje "Karty mechanika" per warsztat/użytkownik (workshop_settings.mechanic_card_prefs,
 // kolumna jsonb z migracji M1 20260710120000). Działa między urządzeniami (DB, nie localStorage).
-// Fallback przy braku wpisu / przed migracją: wszystkie pola widoczne, język wydruku = język UI.
+//
+// UI-first: kliknięcie checkboxa / zmiana języka aktualizuje stan LOKALNY natychmiast,
+// a zapis do DB leci w tle (optymistycznie). Błąd zapisu (np. brak kolumny przed M1)
+// NIE cofa wyboru w UI — najwyżej preferencja nie przeżyje odświeżenia strony.
 
 export type MechanicCardVisibleFields = {
   client: boolean;
@@ -28,10 +32,12 @@ export const DEFAULT_VISIBLE_FIELDS: MechanicCardVisibleFields = {
   vehicle: true, mileage: true, fuel: true, tasks: true, parts: true, notes: true,
 };
 
+type Prefs = { visible_fields: MechanicCardVisibleFields; print_lang: string | null };
 type PrefsRow = { id: string; mechanic_card_prefs: any } | null;
 
 export function useMechanicCardPrefs() {
-  const qc = useQueryClient();
+  // Lokalna kopia po pierwszej interakcji użytkownika — od tego momentu źródło prawdy dla UI.
+  const [local, setLocal] = useState<Prefs | null>(null);
 
   const query = useQuery({
     queryKey: ['mechanic-card-prefs'],
@@ -52,45 +58,55 @@ export function useMechanicCardPrefs() {
     },
   });
 
-  const raw = (query.data?.mechanic_card_prefs || {}) as {
+  const saved = (query.data?.mechanic_card_prefs || {}) as {
     visible_fields?: Partial<MechanicCardVisibleFields>;
     print_lang?: string;
   };
-  const visibleFields: MechanicCardVisibleFields = { ...DEFAULT_VISIBLE_FIELDS, ...(raw.visible_fields || {}) };
-  const printLang: string | null = raw.print_lang || null;
+  const visibleFields: MechanicCardVisibleFields =
+    local?.visible_fields ?? { ...DEFAULT_VISIBLE_FIELDS, ...(saved.visible_fields || {}) };
+  const printLang: string | null = local ? local.print_lang : (saved.print_lang || null);
 
-  const saveMut = useMutation({
-    mutationFn: async (patch: { visible_fields?: MechanicCardVisibleFields; print_lang?: string }) => {
+  // Zapis w tle (fire-and-forget). Select-then-update/insert jak w SettingsPanel —
+  // workshop_settings nie ma gwarantowanego unique na user_id, więc bez upsert.
+  const persist = async (prefs: Prefs) => {
+    try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      const merged = {
-        visible_fields: patch.visible_fields ?? visibleFields,
-        print_lang: patch.print_lang ?? printLang ?? undefined,
-      };
-      const existing = query.data;
-      if (existing?.id) {
+      if (!user) return;
+      const payload = { visible_fields: prefs.visible_fields, print_lang: prefs.print_lang || undefined };
+      const { data: row } = await (supabase as any)
+        .from('workshop_settings')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (row?.id) {
         const { error } = await (supabase as any)
           .from('workshop_settings')
-          .update({ mechanic_card_prefs: merged })
-          .eq('id', existing.id);
+          .update({ mechanic_card_prefs: payload })
+          .eq('id', row.id);
         if (error) throw error;
       } else {
         const { error } = await (supabase as any)
           .from('workshop_settings')
-          .insert({ user_id: user.id, mechanic_card_prefs: merged });
+          .insert({ user_id: user.id, mechanic_card_prefs: payload });
         if (error) throw error;
       }
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['mechanic-card-prefs'] }),
-    onError: (e: any) => console.warn('[mechanic-card-prefs] save failed', e?.message),
-  });
+    } catch (e: any) {
+      console.warn('[mechanic-card-prefs] save failed (UI zachowuje wybór)', e?.message);
+    }
+  };
+
+  const apply = (next: Prefs) => {
+    setLocal(next);        // UI natychmiast
+    void persist(next);    // DB w tle
+  };
 
   return {
     visibleFields,
     printLang,
     loading: query.isLoading,
     setVisibleField: (field: keyof MechanicCardVisibleFields, value: boolean) =>
-      saveMut.mutate({ visible_fields: { ...visibleFields, [field]: value } }),
-    setPrintLang: (lang: string) => saveMut.mutate({ print_lang: lang }),
+      apply({ visible_fields: { ...visibleFields, [field]: value }, print_lang: printLang }),
+    setPrintLang: (lang: string) =>
+      apply({ visible_fields: visibleFields, print_lang: lang }),
   };
 }

@@ -9,7 +9,8 @@ export type StatusTone =
   | 'red'       // Do wyceny / Poprawka — rzuca się w oczy, wymaga reakcji admina
   | 'yellow'    // Oczekuje na akceptację klienta
   | 'purple'    // Wycena gotowa
-  | 'amberdark' // Wycena wysłana — ciemny bursztyn, odcina się od żółtego hovera wiersza
+  | 'gold'      // Wycena wysłana — złoty (amber-500): rzuca się w oczy, nasycony bardziej
+                //   niż żółty hover wiersza (yellow-100/70), więc badge nie znika pod myszką
   | 'amber'     // Dodatek do naprawy
   | 'green'     // Zaakceptowano / Zgoda / Zadania wykonane / Naprawione
   | 'emerald'   // (nieużywany w palecie Zalecane — zostaje dla trybu Ręczne/legacy)
@@ -31,7 +32,7 @@ const TONE_MAP: Record<string, StatusTone> = {
   'Oczekuje na akceptację': 'yellow',
 
   'Wycena gotowa': 'purple',
-  'Wycena wysłana': 'amberdark',
+  'Wycena wysłana': 'gold',
 
   'Dodatek do naprawy': 'amber',
 
@@ -56,7 +57,7 @@ export const TONE_HEX: Record<StatusTone, string> = {
   red: '#ef4444',
   yellow: '#facc15',
   purple: '#a855f7',
-  amberdark: '#d97706',
+  gold: '#f59e0b',
   amber: '#f97316',
   green: '#22c55e',
   emerald: '#059669',
@@ -75,9 +76,11 @@ export function getStatusStyle(name?: string | null) {
     case 'brown':
       return { tone, badge: 'bg-amber-800 text-white hover:bg-amber-900',
         row: 'bg-amber-50/50 hover:bg-amber-100/50', border: 'border-l-4 border-l-amber-800', dot: 'bg-amber-800' };
-    case 'amberdark':
-      return { tone, badge: 'bg-amber-600 text-white hover:bg-amber-700',
-        row: 'bg-amber-50/70 hover:bg-amber-100/70', border: 'border-l-4 border-l-amber-600', dot: 'bg-amber-600' };
+    case 'gold':
+      // Czarny tekst na amber-500 (wysoki kontrast); amber-500 jest wyraźnie ciemniejszy
+      // i bardziej nasycony niż hover wiersza (yellow-100/amber-100) — badge nie zlewa się.
+      return { tone, badge: 'bg-amber-500 text-black hover:bg-amber-600',
+        row: 'bg-amber-50/70 hover:bg-amber-100/70', border: 'border-l-4 border-l-amber-500', dot: 'bg-amber-500' };
     case 'blue':
       return { tone, badge: 'bg-blue-500 text-white hover:bg-blue-600',
         row: 'bg-blue-50/70 hover:bg-blue-100/70', border: 'border-l-4 border-l-blue-500', dot: 'bg-blue-500' };
