@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +13,8 @@ import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 interface Props {
   orderId: string;
   providerId: string;
+  /** PERF B5: czyścimy has_unread_notes tylko gdy faktycznie jest ustawione */
+  hasUnreadNotes?: boolean;
 }
 
 type EventRow = {
@@ -41,8 +44,9 @@ const ICONS: Record<string, JSX.Element> = {
 
 const NOTE_PREVIEW_LEN = 140;
 
-export function OrderHistoryTimeline({ orderId, providerId }: Props) {
+export function OrderHistoryTimeline({ orderId, providerId, hasUnreadNotes }: Props) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState('');
@@ -59,8 +63,18 @@ export function OrderHistoryTimeline({ orderId, providerId }: Props) {
     setLoading(false);
 
     // mark order notes as read
-    await (supabase.from('workshop_orders') as any)
-      .update({ has_unread_notes: false }).eq('id', orderId);
+    // PERF B5: wcześniej UPDATE leciał przy KAŻDYM otwarciu zakładki (zbędny
+    // zapis + echo realtime). Teraz tylko gdy jest co czyścić, a cache listy
+    // patchujemy punktowo zamiast polegać na echu.
+    if (hasUnreadNotes) {
+      await (supabase.from('workshop_orders') as any)
+        .update({ has_unread_notes: false }).eq('id', orderId);
+      queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+        Array.isArray(old)
+          ? old.map((o: any) => (o.id === orderId ? { ...o, has_unread_notes: false } : o))
+          : old
+      );
+    }
   };
 
   useEffect(() => { if (orderId) load(); /* eslint-disable-next-line */ }, [orderId]);

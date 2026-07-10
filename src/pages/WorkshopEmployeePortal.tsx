@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsWorkshopEmployee } from '@/hooks/useIsWorkshopEmployee';
@@ -50,6 +50,8 @@ export default function WorkshopEmployeePortal() {
   const providerIds = useMemo(() => records.map(r => r.provider_id), [records]);
   const primaryProvider = records[0];
 
+  // PERF B1: 5 zapytań było odpalanych sekwencyjnie (await po await) przy
+  // każdym wejściu ORAZ przy każdym zdarzeniu realtime — teraz równolegle.
   const loadAll = async () => {
     setDataLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -58,57 +60,65 @@ export default function WorkshopEmployeePortal() {
     setUserName(user.user_metadata?.full_name || user.email || t('workshop.employeePortal.employee'));
 
     // Pool toggle — read workshop_settings for the provider's owner
-    if (primaryProvider) {
+    const poolTogglePromise = (async () => {
+      if (!primaryProvider) return false;
       const { data: prov } = await (supabase.from('service_providers') as any)
         .select('user_id').eq('id', primaryProvider.provider_id).maybeSingle();
-      if (prov?.user_id) {
-        const { data: ws } = await (supabase.from('workshop_settings') as any)
-          .select('employees_can_claim_orders').eq('user_id', prov.user_id).maybeSingle();
-        setPoolEnabled(!!ws?.employees_can_claim_orders);
-      }
-    }
+      if (!prov?.user_id) return false;
+      const { data: ws } = await (supabase.from('workshop_settings') as any)
+        .select('employees_can_claim_orders').eq('user_id', prov.user_id).maybeSingle();
+      return !!ws?.employees_can_claim_orders;
+    })();
 
     // My assignments — include station_id on order + vehicle for richer list display
-    const { data: mineData } = await (supabase.from('workshop_order_assignments') as any)
+    const minePromise = (supabase.from('workshop_order_assignments') as any)
       .select('id, order_id, provider_id, status, assigned_at, workshop_orders(id, order_number, status_name, vehicle_id, client_id, scheduled_date, scheduled_start, acceptance_date, mileage, description, station_id, has_unread_notes, vehicle:workshop_vehicles(brand, model, plate))')
       .eq('employee_user_id', user.id)
       .order('assigned_at', { ascending: false });
-    setMine(mineData || []);
-
 
     // Stations this employee belongs to (across all their providers)
-    const { data: stMaps } = await (supabase.from('workshop_station_employees') as any)
+    const stationsPromise = (supabase.from('workshop_station_employees') as any)
       .select('station_id, workshop_stations(id, name, color, is_active)')
       .eq('employee_user_id', user.id);
-    setMyStations(((stMaps || []) as any[])
-      .map(m => m.workshop_stations)
-      .filter((s: any) => s && s.is_active)
-      .map((s: any) => ({ id: s.id, name: s.name, color: s.color })));
 
     // Pool — all ACTIVE provider orders (not completed/cancelled), so employee can pick any to inspect
-    if (providerIds.length) {
-      const { data: pooledOrders } = await (supabase.from('workshop_orders') as any)
-        .select('id, order_number, status_name, scheduled_date, scheduled_start, description, provider_id, vehicle:workshop_vehicles(brand, model, plate)')
-
-        .in('provider_id', providerIds)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      const assignedToMe = new Set((mineData || []).map((a: any) => a.order_id));
-      setPool(((pooledOrders || []) as any[]).filter(o => {
-        const s = (o.status_name || '').toLowerCase();
-        if (s.includes('zakończ') || s.includes('anulow')) return false;
-        return !assignedToMe.has(o.id);
-      }));
-    }
+    const pooledPromise = providerIds.length
+      ? (supabase.from('workshop_orders') as any)
+          .select('id, order_number, status_name, scheduled_date, scheduled_start, description, provider_id, vehicle:workshop_vehicles(brand, model, plate)')
+          .in('provider_id', providerIds)
+          .order('created_at', { ascending: false })
+          .limit(100)
+      : Promise.resolve({ data: [] });
 
     // History — orders the employee was assigned to AND that are finished.
     // We show the full order (items list + station + vehicle) grouped by station.
-    const { data: histAssigns } = await (supabase.from('workshop_order_assignments') as any)
+    const histPromise = (supabase.from('workshop_order_assignments') as any)
       .select('id, order_id, provider_id, assigned_at, workshop_orders(id, order_number, status_name, station_id, description, has_unread_notes, completed_at, vehicle:workshop_vehicles(brand, model, plate), items:workshop_order_items(id, name, quantity, unit, unit_price_gross, kind))')
       .eq('employee_user_id', user.id)
       .order('assigned_at', { ascending: false })
       .limit(80);
-    const finished = ((histAssigns || []) as any[]).filter(a => {
+
+    const [poolEnabledVal, mineRes, stationsRes, pooledRes, histRes] = await Promise.all([
+      poolTogglePromise, minePromise, stationsPromise, pooledPromise, histPromise,
+    ]);
+    const mineData = mineRes?.data || [];
+    setPoolEnabled(poolEnabledVal);
+    setMine(mineData);
+    mineAssignmentIdsRef.current = new Set(mineData.map((a: any) => a.id));
+
+    setMyStations(((stationsRes?.data || []) as any[])
+      .map(m => m.workshop_stations)
+      .filter((s: any) => s && s.is_active)
+      .map((s: any) => ({ id: s.id, name: s.name, color: s.color })));
+
+    const assignedToMe = new Set(mineData.map((a: any) => a.order_id));
+    setPool(((pooledRes?.data || []) as any[]).filter(o => {
+      const s = (o.status_name || '').toLowerCase();
+      if (s.includes('zakończ') || s.includes('anulow')) return false;
+      return !assignedToMe.has(o.id);
+    }));
+
+    const finished = ((histRes?.data || []) as any[]).filter(a => {
       const s = (a.workshop_orders?.status_name || '').toLowerCase();
       return s.includes('zakończ') || s.includes('naprawione') || s.includes('gotow') || s.includes('odbioru');
     });
@@ -117,23 +127,60 @@ export default function WorkshopEmployeePortal() {
     setDataLoading(false);
   };
 
+  // PERF B1: ref na najświeższy loadAll (callbacki realtime nie łapią stale
+  // closure) + debounce, żeby seria zdarzeń nie odpalała loadAll × N.
+  const loadAllRef = useRef(loadAll);
+  loadAllRef.current = loadAll;
+  const mineAssignmentIdsRef = useRef<Set<string>>(new Set());
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleReload = () => {
+    if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+    reloadTimerRef.current = setTimeout(() => {
+      reloadTimerRef.current = null;
+      loadAllRef.current();
+    }, 400);
+  };
+
   useEffect(() => { if (!loading && isWorkshopEmployee) loadAll(); /* eslint-disable-next-line */ }, [loading, isWorkshopEmployee, records.length]);
 
-  // Realtime — when admin assigns / changes status, refresh immediately.
-  // We listen to INSERT/DELETE on assignments (without server-side filter, so
-  // we don't depend on the row matching us — we just refetch and let RLS decide)
-  // and to UPDATEs on workshop_orders (status changes).
+  // Realtime — when admin assigns / changes status, refresh (debounced).
+  // PERF B1: było bez żadnych filtrów — KAŻDA zmiana zlecenia w całej bazie
+  // (też u innych warsztatów) odpalała pełny loadAll. Teraz: INSERT assignments
+  // filtrowany po employee_user_id, UPDATE orders po provider_id naszych
+  // warsztatów. DELETE nie da się filtrować serwerowo (payload niesie tylko
+  // PK), więc filtrujemy klientowo po id naszych przypisań.
+  const providerIdsKey = providerIds.join(',');
   useEffect(() => {
     if (!userId) return;
-    const ch = supabase
+    let ch = supabase
       .channel(`emp-portal-${userId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'workshop_order_assignments' }, () => loadAll())
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'workshop_order_assignments' }, () => loadAll())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workshop_orders' }, () => loadAll())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'workshop_order_assignments', filter: `employee_user_id=eq.${userId}` },
+        () => scheduleReload(),
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'workshop_order_assignments' },
+        (payload: any) => {
+          if (payload?.old?.id && !mineAssignmentIdsRef.current.has(payload.old.id)) return;
+          scheduleReload();
+        },
+      );
+    if (providerIdsKey) {
+      ch = ch.on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'workshop_orders', filter: `provider_id=in.(${providerIdsKey})` },
+        () => scheduleReload(),
+      );
+    }
+    ch.subscribe();
+    return () => {
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+      supabase.removeChannel(ch);
+    };
     // eslint-disable-next-line
-  }, [userId]);
+  }, [userId, providerIdsKey]);
 
   // Deep-link: open ?order=<id> after first load
   useEffect(() => {

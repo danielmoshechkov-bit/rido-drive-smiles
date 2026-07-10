@@ -1,24 +1,38 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/card';
-import { useWorkshopOrders, useWorkshopProviderId } from '@/hooks/useWorkshop';
-import { WorkshopOrdersList } from './WorkshopOrdersList';
-import { WorkshopOrderDetail } from './WorkshopOrderDetail';
-import { WorkshopClientsList } from './WorkshopClientsList';
-import { WorkshopVehiclesList } from './WorkshopVehiclesList';
-import { WorkshopVehicleDetail } from './WorkshopVehicleDetail';
-import { WorkshopScheduler } from './WorkshopScheduler';
-import { WorkshopSales } from './WorkshopSales';
-import { WorkshopReports } from './WorkshopReports';
-import { WorkshopWarehouse } from './WorkshopWarehouse';
-import { WorkshopTireStorage } from './WorkshopTireStorage';
-import { WorkshopRepairData } from './WorkshopRepairData';
-import { WorkshopSettingsStandalone } from './WorkshopSettingsStandalone';
+import { useWorkshopOrders, useWorkshopOrder, useWorkshopProviderId } from '@/hooks/useWorkshop';
 import { useDisableNumberInputScroll } from '@/hooks/useDisableNumberInputScroll';
-import { WorkshopEmployeesPage } from './WorkshopEmployeesPage';
-import { WorkshopStationsManager } from './WorkshopStationsManager';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+// PERF C1: wszystkie podmoduły warsztatu były importowane statycznie — 14
+// komponentów (w tym 1890-liniowy Scheduler i Reports→recharts) lądowało w
+// initial bundle, mimo że renderuje się tylko aktywny. React.lazy = osobny
+// chunk per moduł, ładowany przy pierwszym wejściu w kafelek.
+const lazyNamed = <T extends Record<string, any>, K extends keyof T>(loader: () => Promise<T>, name: K) =>
+  lazy(() => loader().then(m => ({ default: m[name] })));
+
+const WorkshopOrdersList = lazyNamed(() => import('./WorkshopOrdersList'), 'WorkshopOrdersList');
+const WorkshopOrderDetail = lazyNamed(() => import('./WorkshopOrderDetail'), 'WorkshopOrderDetail');
+const WorkshopClientsList = lazyNamed(() => import('./WorkshopClientsList'), 'WorkshopClientsList');
+const WorkshopVehiclesList = lazyNamed(() => import('./WorkshopVehiclesList'), 'WorkshopVehiclesList');
+const WorkshopVehicleDetail = lazyNamed(() => import('./WorkshopVehicleDetail'), 'WorkshopVehicleDetail');
+const WorkshopScheduler = lazyNamed(() => import('./WorkshopScheduler'), 'WorkshopScheduler');
+const WorkshopSales = lazyNamed(() => import('./WorkshopSales'), 'WorkshopSales');
+const WorkshopReports = lazyNamed(() => import('./WorkshopReports'), 'WorkshopReports');
+const WorkshopWarehouse = lazyNamed(() => import('./WorkshopWarehouse'), 'WorkshopWarehouse');
+const WorkshopTireStorage = lazyNamed(() => import('./WorkshopTireStorage'), 'WorkshopTireStorage');
+const WorkshopRepairData = lazyNamed(() => import('./WorkshopRepairData'), 'WorkshopRepairData');
+const WorkshopSettingsStandalone = lazyNamed(() => import('./WorkshopSettingsStandalone'), 'WorkshopSettingsStandalone');
+const WorkshopEmployeesPage = lazyNamed(() => import('./WorkshopEmployeesPage'), 'WorkshopEmployeesPage');
+const WorkshopStationsManager = lazyNamed(() => import('./WorkshopStationsManager'), 'WorkshopStationsManager');
+
+const ModuleFallback = () => (
+  <div className="flex items-center justify-center py-20">
+    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+  </div>
+);
 
 import tileZlecenia from '@/assets/workshop/tile-zlecenia.jpg';
 import tileZadania from '@/assets/workshop/tile-zadania.jpg';
@@ -109,12 +123,18 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
+  // PERF C2: lista jest przycięta (bez ciężkich pól tekstowych), więc karta
+  // zlecenia dociąga PEŁNY wiersz. Karta montuje się dopiero gdy pełne dane
+  // są w cache — inaczej formularze (BasicTab inicjalizuje stan z order.*)
+  // wystartowałyby z pustymi notatkami i zapis by je wyczyścił.
+  const { data: singleOrderArr, isFetched: singleOrderFetched } = useWorkshopOrder(selectedOrder?.id);
+  const fullOrder = singleOrderArr?.[0] ?? null;
   // Memoized: recompute only when the selection or the fetched orders change, so the
   // detail card receives a stable `order`/`items` identity instead of a brand-new
   // object on every render (which re-rendered the whole card on each keystroke).
   const currentSelectedOrder = useMemo(() => {
     if (!selectedOrder) return null;
-    const live = workshopOrders.find((order: any) => order.id === selectedOrder.id);
+    const live = fullOrder || workshopOrders.find((order: any) => order.id === selectedOrder.id);
     if (!live) return selectedOrder;
     return {
       ...selectedOrder,
@@ -123,7 +143,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
       client: live.client || selectedOrder.client,
       vehicle: live.vehicle || selectedOrder.vehicle,
     };
-  }, [selectedOrder, workshopOrders]);
+  }, [selectedOrder, fullOrder, workshopOrders]);
 
   if (!providerId && isLoading) {
     return (
@@ -211,11 +231,17 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         <WorkshopSidebar activeModule="zlecenia" onNavigate={(key) => { setSelectedOrder(null); setActiveModule(key); }} />
         <div className="flex-1 md:pl-3 min-w-0">
           <MobileBackButton onBack={() => setSelectedOrder(null)} label={t('workshop.dashboard.tiles.zlecenia')} />
-          <WorkshopOrderDetail
-            order={currentSelectedOrder}
-            providerId={providerId}
-            onBack={() => setSelectedOrder(null)}
-          />
+          {fullOrder || singleOrderFetched ? (
+            <Suspense fallback={<ModuleFallback />}>
+              <WorkshopOrderDetail
+                order={currentSelectedOrder}
+                providerId={providerId}
+                onBack={() => setSelectedOrder(null)}
+              />
+            </Suspense>
+          ) : (
+            <ModuleFallback />
+          )}
         </div>
       </div>
     );
@@ -227,15 +253,17 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         <WorkshopSidebar activeModule="pojazdy" onNavigate={(key) => { setSelectedVehicle(null); goTo(key); }} />
         <div className="flex-1 md:pl-3 min-w-0">
           <MobileBackButton onBack={() => setSelectedVehicle(null)} label={t('workshop.dashboard.tiles.pojazdy')} />
-          <WorkshopVehicleDetail
-            vehicle={selectedVehicle}
-            providerId={providerId}
-            onBack={() => setSelectedVehicle(null)}
-            onOpenOrder={(order) => {
-              setSelectedVehicle(null);
-              setSelectedOrder(order);
-            }}
-          />
+          <Suspense fallback={<ModuleFallback />}>
+            <WorkshopVehicleDetail
+              vehicle={selectedVehicle}
+              providerId={providerId}
+              onBack={() => setSelectedVehicle(null)}
+              onOpenOrder={(order) => {
+                setSelectedVehicle(null);
+                setSelectedOrder(order);
+              }}
+            />
+          </Suspense>
         </div>
       </div>
     );
@@ -317,7 +345,9 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
       <WorkshopSidebar activeModule={activeModule} onNavigate={goTo} />
       <div className={isSchedulerModule ? 'flex-1 md:pl-3 min-w-0 flex h-full min-h-0 flex-col overflow-hidden' : 'flex-1 md:pl-3 min-w-0 flex flex-col'}>
         <MobileBackButton onBack={() => goTo(null)} />
-        {renderModuleContent()}
+        <Suspense fallback={<ModuleFallback />}>
+          {renderModuleContent()}
+        </Suspense>
       </div>
     </div>
   );

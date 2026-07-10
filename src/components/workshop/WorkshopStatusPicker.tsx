@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, MessageSquarePlus, AlertCircle } from 'lucide-react';
-import { useWorkshopStatuses } from '@/hooks/useWorkshop';
+import { useWorkshopStatuses, useWorkshopStations } from '@/hooks/useWorkshop';
 import { getStatusStyle, translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -27,21 +27,14 @@ export function WorkshopStatusPicker({
 }: Props) {
   const { t } = useTranslation();
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
-  const [stations, setStations] = useState<any[]>([]);
+  // PERF B3: picker renderuje się w każdym wierszu listy — surowy fetch w
+  // useEffect robił 50 identycznych zapytań przy 50 zleceniach. Współdzielony
+  // hook react-query = 1 zapytanie na provider.
+  const { data: stations = [] } = useWorkshopStations(providerId);
   const [open, setOpen] = useState(false);
   const [noteDialog, setNoteDialog] = useState<{ name: string } | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (!providerId) return;
-    (supabase.from('workshop_stations') as any)
-      .select('id, name, color, is_active')
-      .eq('provider_id', providerId)
-      .eq('is_active', true)
-      .order('sort_order')
-      .then(({ data }: any) => setStations(data || []));
-  }, [providerId]);
 
   const items: Item[] = [
     ...statuses.map((s: any) => ({ id: s.id, name: s.name, color: s.color, kind: 'status' as const })),
