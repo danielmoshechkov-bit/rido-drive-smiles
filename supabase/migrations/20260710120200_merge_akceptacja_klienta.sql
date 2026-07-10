@@ -11,14 +11,18 @@ WHERE ak.provider_id = zs.provider_id
   AND zs.name = 'Zaakceptowano';
 
 -- 2) Dołóż 'Zaakceptowano' providerom, którzy mieli tylko 'Akceptacja klienta'
+--    (DISTINCT ON: gdyby provider miał zduplikowany wiersz 'Akceptacja klienta',
+--    wstawiamy 'Zaakceptowano' tylko raz)
 INSERT INTO workshop_order_statuses (provider_id, name, color, sort_order, is_default, sends_sms)
-SELECT ak.provider_id, 'Zaakceptowano', '#22c55e', ak.sort_order, false, ak.sends_sms
+SELECT DISTINCT ON (ak.provider_id)
+  ak.provider_id, 'Zaakceptowano', '#22c55e', ak.sort_order, false, ak.sends_sms
 FROM workshop_order_statuses ak
 WHERE ak.name = 'Akceptacja klienta'
   AND NOT EXISTS (
     SELECT 1 FROM workshop_order_statuses z
     WHERE z.provider_id = ak.provider_id AND z.name = 'Zaakceptowano'
-  );
+  )
+ORDER BY ak.provider_id, ak.sends_sms DESC;
 
 -- 3) Usuń 'Akceptacja klienta' z katalogu (znika z dropdownu pickera)
 DELETE FROM workshop_order_statuses WHERE name = 'Akceptacja klienta';
