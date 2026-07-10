@@ -2305,7 +2305,13 @@
           "estimateSent": "Kostenvoranschlag per SMS an Kunden gesendet",
           "estimateAccepted": "Kostenvoranschlag vom Kunden akzeptiert",
           "readySmsSent": "SMS über Abholbereitschaft gesendet"
-        }
+        },
+        "colorsTitle": "Statusfarben",
+        "colorsRecommended": "Empfohlen",
+        "colorsCustom": "Manuell",
+        "colorsRecommendedDesc": "Portal-Palette — einheitliche Badge- und Punktfarben für alle Status.",
+        "colorsCustomDesc": "Eigene Farben pro Status — klicken Sie auf den Punkt, um die Farbe zu ändern.",
+        "mergedStatusBlocked": "„Akceptacja klienta“ wurde mit „Zaakceptowano“ zusammengeführt — verwenden Sie den Status „Zaakceptowano“."
       },
       "orderTypes": {
         "title": "Auftragsarten",

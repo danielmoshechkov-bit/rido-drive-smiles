@@ -2424,7 +2424,13 @@
           "estimateSent": "Wysłanie kosztorysu SMS do klienta",
           "estimateAccepted": "Akceptacja kosztorysu przez klienta",
           "readySmsSent": "Wysłanie SMS o gotowości do odbioru"
-        }
+        },
+        "colorsTitle": "Kolory statusów",
+        "colorsRecommended": "Zalecane",
+        "colorsCustom": "Ręczne",
+        "colorsRecommendedDesc": "Paleta portalu — spójne kolory badge i kropki dla wszystkich statusów.",
+        "colorsCustomDesc": "Własne kolory per status — kliknij kropkę, aby zmienić kolor.",
+        "mergedStatusBlocked": "„Akceptacja klienta” została scalona z „Zaakceptowano” — użyj statusu „Zaakceptowano”."
       },
       "orderTypes": {
         "title": "Rodzaje zleceń",

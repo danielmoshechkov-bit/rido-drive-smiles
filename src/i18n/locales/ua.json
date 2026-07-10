@@ -2424,7 +2424,13 @@
           "estimateSent": "Надсилання кошторису клієнту через SMS",
           "estimateAccepted": "Прийняття кошторису клієнтом",
           "readySmsSent": "Надсилання SMS про готовність до видачі"
-        }
+        },
+        "colorsTitle": "Кольори статусів",
+        "colorsRecommended": "Рекомендовані",
+        "colorsCustom": "Вручну",
+        "colorsRecommendedDesc": "Палітра порталу — узгоджені кольори бейджа та крапки для всіх статусів.",
+        "colorsCustomDesc": "Власні кольори для кожного статусу — натисніть на крапку, щоб змінити колір.",
+        "mergedStatusBlocked": "«Akceptacja klienta» об’єднано із «Zaakceptowano» — використовуйте статус «Zaakceptowano»."
       },
       "orderTypes": {
         "title": "Типи замовлень",

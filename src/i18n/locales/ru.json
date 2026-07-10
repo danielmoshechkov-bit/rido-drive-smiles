@@ -2424,7 +2424,13 @@
           "estimateSent": "Отправка сметы клиенту по SMS",
           "estimateAccepted": "Принятие сметы клиентом",
           "readySmsSent": "Отправка SMS о готовности к выдаче"
-        }
+        },
+        "colorsTitle": "Цвета статусов",
+        "colorsRecommended": "Рекомендуемые",
+        "colorsCustom": "Вручную",
+        "colorsRecommendedDesc": "Палитра портала — единые цвета бейджа и точки для всех статусов.",
+        "colorsCustomDesc": "Свои цвета для каждого статуса — нажмите на точку, чтобы изменить цвет.",
+        "mergedStatusBlocked": "«Akceptacja klienta» объединён с «Zaakceptowano» — используйте статус «Zaakceptowano»."
       },
       "orderTypes": {
         "title": "Типы заказов",

@@ -2292,7 +2292,13 @@
           "estimateSent": "Gửi báo giá qua SMS cho khách hàng",
           "estimateAccepted": "Khách hàng chấp nhận báo giá",
           "readySmsSent": "Gửi SMS thông báo sẵn sàng nhận xe"
-        }
+        },
+        "colorsTitle": "Màu trạng thái",
+        "colorsRecommended": "Đề xuất",
+        "colorsCustom": "Tùy chỉnh",
+        "colorsRecommendedDesc": "Bảng màu của cổng — màu huy hiệu và chấm nhất quán cho mọi trạng thái.",
+        "colorsCustomDesc": "Màu riêng cho từng trạng thái — nhấp vào chấm để đổi màu.",
+        "mergedStatusBlocked": "\"Akceptacja klienta\" đã được gộp vào \"Zaakceptowano\" — hãy dùng trạng thái \"Zaakceptowano\"."
       },
       "orderTypes": {
         "title": "Loại đơn hàng",

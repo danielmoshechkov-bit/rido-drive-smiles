@@ -45,19 +45,6 @@ interface Props {
   onSelectOrder?: (order: any) => void;
 }
 
-const statusColors: Record<string, string> = {
-  'Nowe zlecenie': 'bg-red-500 text-white',
-  'Przyjęcie do serwisu': 'bg-orange-500 text-white',
-  'Wycena gotowa': 'bg-yellow-500 text-black',
-  'Wycena wysłana': 'bg-orange-400 text-black',
-  'Zaakceptowano': 'bg-green-500 text-white',
-  'Akceptacja klienta': 'bg-green-500 text-white',
-  'W trakcie naprawy': 'bg-amber-400 text-black',
-  'Zadania wykonane': 'bg-green-500 text-white',
-  'Gotowy do odbioru': 'bg-gray-500 text-white',
-  'Zakończone': 'bg-gray-800 text-white',
-};
-
 // A: derive the displayed amount straight from the order's line items instead of the
 // denormalized `total_gross` column. The column is only refreshed by an effect inside
 // the open order card, so reading it here showed a stale value until the card was

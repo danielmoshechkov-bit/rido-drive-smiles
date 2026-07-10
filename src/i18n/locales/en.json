@@ -2398,7 +2398,13 @@
           "estimateSent": "Estimate SMS sent to client",
           "estimateAccepted": "Estimate accepted by client",
           "readySmsSent": "Ready-for-pickup SMS sent"
-        }
+        },
+        "colorsTitle": "Status colors",
+        "colorsRecommended": "Recommended",
+        "colorsCustom": "Custom",
+        "colorsRecommendedDesc": "Portal palette — consistent badge and dot colors for all statuses.",
+        "colorsCustomDesc": "Custom colors per status — click the dot to change the color.",
+        "mergedStatusBlocked": "\"Akceptacja klienta\" was merged into \"Zaakceptowano\" — use the \"Zaakceptowano\" status."
       },
       "orderTypes": {
         "title": "Order types",

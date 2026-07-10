@@ -215,10 +215,10 @@ export function useWorkshopStatusSettings(providerId: string | undefined) {
 export function useUpdateWorkshopStatusSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ providerId, status_mode }: { providerId: string; status_mode: string }) => {
+    mutationFn: async ({ providerId, ...fields }: { providerId: string; status_mode?: string; color_mode?: string }) => {
       const { error } = await (supabase as any)
         .from('workshop_status_settings')
-        .upsert({ provider_id: providerId, status_mode }, { onConflict: 'provider_id' });
+        .upsert({ provider_id: providerId, ...fields }, { onConflict: 'provider_id' });
       if (error) throw error;
     },
     onSuccess: () => {

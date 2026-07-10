@@ -2398,7 +2398,13 @@
           "estimateSent": "Клиентке смета SMS арқылы жіберілді",
           "estimateAccepted": "Клиенттің сметаны қабылдауы",
           "readySmsSent": "Қабылдауға дайын екені туралы SMS жіберілді"
-        }
+        },
+        "colorsTitle": "Статус түстері",
+        "colorsRecommended": "Ұсынылған",
+        "colorsCustom": "Қолмен",
+        "colorsRecommendedDesc": "Портал палитрасы — барлық статустар үшін бейдж пен нүктенің бірыңғай түстері.",
+        "colorsCustomDesc": "Әр статусқа өз түсі — түсті өзгерту үшін нүктені басыңыз.",
+        "mergedStatusBlocked": "«Akceptacja klienta» «Zaakceptowano» статусымен біріктірілді — «Zaakceptowano» қолданыңыз."
       },
       "orderTypes": {
         "title": "Тапсырыс түрлері",
