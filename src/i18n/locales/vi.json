@@ -3320,7 +3320,22 @@
       "phone": "Điện thoại",
       "partsListPrint": "Danh sách phụ tùng cần cho sửa chữa (thợ máy điền)",
       "signatureLine": "Thợ máy (chữ ký): ____________________",
-      "completionDateLine": "Ngày hoàn thành: ____________________"
+      "completionDateLine": "Ngày hoàn thành: ____________________",
+      "visibleFieldsTitle": "Dữ liệu hiển thị cho nhân viên",
+      "visibleFieldsHint": "Các trường bỏ chọn sẽ bị ẩn trên thẻ và bản in (dữ liệu đơn hàng được giữ nguyên). Lựa chọn được ghi nhớ cho các đơn sau.",
+      "field_client": "Khách hàng (tên)",
+      "field_phone": "Điện thoại",
+      "field_vin": "VIN",
+      "field_plate": "Biển số",
+      "field_year": "Năm",
+      "field_vehicle": "Xe (hãng/mẫu)",
+      "field_mileage": "Số km",
+      "field_fuel": "Nhiên liệu",
+      "field_tasks": "Phạm vi công việc",
+      "field_parts": "Danh sách phụ tùng",
+      "field_notes": "Ghi chú / chẩn đoán",
+      "printLangLabel": "Ngôn ngữ in",
+      "printPreparing": "Đang chuẩn bị bản in…"
     },
     "existingInvoice": {
       "title": "Hóa đơn đã tồn tại",

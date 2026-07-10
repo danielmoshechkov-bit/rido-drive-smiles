@@ -3476,7 +3476,22 @@
       "phone": "Telefon",
       "partsListPrint": "Lista części potrzebnych do naprawy (do uzupełnienia przez mechanika)",
       "signatureLine": "Mechanik (podpis): ____________________",
-      "completionDateLine": "Data zakończenia: ____________________"
+      "completionDateLine": "Data zakończenia: ____________________",
+      "visibleFieldsTitle": "Dane widoczne dla pracownika",
+      "visibleFieldsHint": "Odznaczone pola są ukrywane na karcie i wydruku (dane w zleceniu zostają). Zestaw zapamiętywany dla kolejnych zleceń.",
+      "field_client": "Klient (nazwa)",
+      "field_phone": "Telefon",
+      "field_vin": "VIN",
+      "field_plate": "Nr rej.",
+      "field_year": "Rok",
+      "field_vehicle": "Pojazd (marka/model)",
+      "field_mileage": "Przebieg",
+      "field_fuel": "Paliwo",
+      "field_tasks": "Zakres prac",
+      "field_parts": "Lista części",
+      "field_notes": "Notatki / diagnoza",
+      "printLangLabel": "Język wydruku",
+      "printPreparing": "Przygotowuję wydruk…"
     },
     "existingInvoice": {
       "title": "Faktura już istnieje",

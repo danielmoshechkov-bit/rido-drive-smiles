@@ -3341,7 +3341,22 @@
       "phone": "Telefon",
       "partsListPrint": "Liste der für die Reparatur benötigten Teile (vom Mechaniker auszufüllen)",
       "signatureLine": "Mechaniker (Unterschrift): ____________________",
-      "completionDateLine": "Abschlussdatum: ____________________"
+      "completionDateLine": "Abschlussdatum: ____________________",
+      "visibleFieldsTitle": "Für den Mitarbeiter sichtbare Daten",
+      "visibleFieldsHint": "Abgewählte Felder werden auf der Karte und dem Ausdruck ausgeblendet (Auftragsdaten bleiben erhalten). Die Auswahl wird für weitere Aufträge gespeichert.",
+      "field_client": "Kunde (Name)",
+      "field_phone": "Telefon",
+      "field_vin": "VIN",
+      "field_plate": "Kennzeichen",
+      "field_year": "Baujahr",
+      "field_vehicle": "Fahrzeug (Marke/Modell)",
+      "field_mileage": "Kilometerstand",
+      "field_fuel": "Kraftstoff",
+      "field_tasks": "Arbeitsumfang",
+      "field_parts": "Teileliste",
+      "field_notes": "Notizen / Diagnose",
+      "printLangLabel": "Drucksprache",
+      "printPreparing": "Ausdruck wird vorbereitet…"
     },
     "existingInvoice": {
       "title": "Rechnung existiert bereits",

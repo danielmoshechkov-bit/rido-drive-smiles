@@ -3434,7 +3434,22 @@
       "phone": "Phone",
       "partsListPrint": "List of parts needed for repair (to be filled in by the mechanic)",
       "signatureLine": "Mechanic (signature): ____________________",
-      "completionDateLine": "Completion date: ____________________"
+      "completionDateLine": "Completion date: ____________________",
+      "visibleFieldsTitle": "Data visible to the employee",
+      "visibleFieldsHint": "Unchecked fields are hidden on the card and printout (order data stays intact). The selection is remembered for future orders.",
+      "field_client": "Client (name)",
+      "field_phone": "Phone",
+      "field_vin": "VIN",
+      "field_plate": "Plate no.",
+      "field_year": "Year",
+      "field_vehicle": "Vehicle (make/model)",
+      "field_mileage": "Mileage",
+      "field_fuel": "Fuel",
+      "field_tasks": "Work scope",
+      "field_parts": "Parts list",
+      "field_notes": "Notes / diagnosis",
+      "printLangLabel": "Print language",
+      "printPreparing": "Preparing printout…"
     },
     "existingInvoice": {
       "title": "Invoice already exists",
