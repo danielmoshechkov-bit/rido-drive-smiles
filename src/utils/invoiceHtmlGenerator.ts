@@ -778,9 +778,6 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .header { display: table; width: 100%; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid ${themeColor}; }
     .logo-area { display: table-cell; vertical-align: middle; width: 55%; }
     .logo-area img { max-width: 264px; max-height: 84px; width: auto; height: auto; }
-    .seller-brand { display: inline-block; border: 2px solid ${themeColor}; border-radius: 10px; padding: 20px 30px; text-align: center; min-width: 172px; }
-    .seller-brand-name { font-size: 26px; font-weight: 700; color: ${themeColor}; line-height: 1.2; letter-spacing: 0.5px; text-align: center; }
-    .seller-brand-addr { font-size: 9px; color: #333; margin-top: 2px; line-height: 1.3; }
     .invoice-title { display: table-cell; vertical-align: top; text-align: right; }
     /* Zwarta lista w prawym górnym rogu — osobne divy z małymi marginesami i
        line-height 1.0 (Dompdf pewniej respektuje margin niż line-height na <br>). */
@@ -885,9 +882,9 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
 
     <div class="header">
       <div class="logo-area">
-        ${seller.logo_url 
-          ? `<img src="${seller.logo_url}" alt="Logo firmy" />` 
-          : `<div class="seller-brand"><div class="seller-brand-name">${seller.short_name || seller.name || ''}</div></div>`}
+        ${seller.logo_url
+          ? `<img src="${seller.logo_url}" alt="Logo firmy" />`
+          : ''}
       </div>
       <div class="invoice-title">
         <div class="inv-title-main">${invoiceTitle}</div>
