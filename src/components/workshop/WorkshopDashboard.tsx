@@ -123,11 +123,11 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
-  // PERF C2: lista jest przycięta (bez ciężkich pól tekstowych), więc karta
-  // zlecenia dociąga PEŁNY wiersz. Karta montuje się dopiero gdy pełne dane
-  // są w cache — inaczej formularze (BasicTab inicjalizuje stan z order.*)
-  // wystartowałyby z pustymi notatkami i zapis by je wyczyścił.
-  const { data: singleOrderArr, isFetched: singleOrderFetched } = useWorkshopOrder(selectedOrder?.id);
+  // PERF C2/pkt 2: lista jest przycięta (bez ciężkich pól tekstowych), więc
+  // karta dociąga PEŁNY wiersz w tle. Karta renderuje się od razu z danych
+  // listy; na pełny wiersz czeka tylko zakładka "Dane podstawowe"
+  // (fullOrderLoaded) — jej formularz kopiuje pola do stanu przy mount.
+  const { data: singleOrderArr } = useWorkshopOrder(selectedOrder?.id);
   const fullOrder = singleOrderArr?.[0] ?? null;
   // Memoized: recompute only when the selection or the fetched orders change, so the
   // detail card receives a stable `order`/`items` identity instead of a brand-new
@@ -231,17 +231,18 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         <WorkshopSidebar activeModule="zlecenia" onNavigate={(key) => { setSelectedOrder(null); setActiveModule(key); }} />
         <div className="flex-1 md:pl-3 min-w-0">
           <MobileBackButton onBack={() => setSelectedOrder(null)} label={t('workshop.dashboard.tiles.zlecenia')} />
-          {fullOrder || singleOrderFetched ? (
-            <Suspense fallback={<ModuleFallback />}>
-              <WorkshopOrderDetail
-                order={currentSelectedOrder}
-                providerId={providerId}
-                onBack={() => setSelectedOrder(null)}
-              />
-            </Suspense>
-          ) : (
-            <ModuleFallback />
-          )}
+          {/* PERF pkt 2: karta renderuje się OD RAZU z danych listy (wiersz bez
+              ciężkich pól tekstowych); pełny wiersz dociąga się w tle i tylko
+              zakładka "Dane podstawowe" (kopiuje pola do stanu formularza)
+              czeka na niego — patrz fullOrderLoaded w WorkshopOrderDetail. */}
+          <Suspense fallback={<ModuleFallback />}>
+            <WorkshopOrderDetail
+              order={currentSelectedOrder}
+              providerId={providerId}
+              fullOrderLoaded={!!fullOrder}
+              onBack={() => setSelectedOrder(null)}
+            />
+          </Suspense>
         </div>
       </div>
     );

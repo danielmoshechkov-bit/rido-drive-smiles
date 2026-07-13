@@ -201,6 +201,10 @@ export function useWorkshopOrder(orderId: string | undefined) {
   return useQuery({
     queryKey: ['workshop-orders', 'single', orderId],
     enabled: !!orderId,
+    // PERF pkt 2: domyślne retry TanStack (3× z backoffem 1s/2s/4s) potrafiło
+    // trzymać kartę na spinnerze ~10 s przy jednym padniętym requeście.
+    retry: 1,
+    retryDelay: 500,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('workshop_orders')
@@ -386,21 +390,19 @@ export function useWorkshopVehicles(providerId: string | undefined) {
   return useQuery({
     queryKey: ['workshop-vehicles', providerId],
     enabled: !!providerId,
-    refetchOnMount: 'always',
-    staleTime: 0,
-    gcTime: 30000,
+    // PERF pkt 0: było refetchOnMount:'always' + staleTime:0 + gcTime:30s —
+    // hook ma 3 konsumentów (WorkshopNewOrderDialog jest zamontowany NA STAŁE
+    // w liście zleceń, więc jego zapytania żyją mimo zamkniętego dialogu),
+    // każdy mount/nawigacja odpalała pełny fetch wszystkich pojazdów z joinem.
+    // Świeżość po zapisie zapewniają invalidacje ['workshop-vehicles'].
+    staleTime: 60 * 1000,
     queryFn: async () => {
-      console.log('[useWorkshopVehicles] Fetching vehicles for provider:', providerId);
       const { data, error } = await (supabase as any)
         .from('workshop_vehicles')
         .select('*, owner:workshop_clients!workshop_vehicles_owner_client_id_fkey(id, first_name, last_name, company_name)')
         .eq('provider_id', providerId)
         .order('created_at', { ascending: false });
-      if (error) {
-        console.error('[useWorkshopVehicles] Error:', error);
-        throw error;
-      }
-      console.log('[useWorkshopVehicles] Got', data?.length, 'vehicles');
+      if (error) throw error;
       return data || [];
     },
   });

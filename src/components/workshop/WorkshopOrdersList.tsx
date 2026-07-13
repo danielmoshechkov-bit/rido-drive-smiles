@@ -1135,8 +1135,10 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
       if (error) throw error;
       toast.success(t('workshop.orders.vehicleSaved'));
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ['workshopOrders'] }),
-        qc.invalidateQueries({ queryKey: ['workshopVehicles'] }),
+        // FIX: klucze były camelCase (['workshopOrders']) — nie istnieją; realne
+        // to kebab-case, więc po edycji pojazdu lista/karta się nie odświeżały.
+        qc.invalidateQueries({ queryKey: ['workshop-orders'] }),
+        qc.invalidateQueries({ queryKey: ['workshop-vehicles'] }),
       ]);
       onClose();
     } catch (e: any) {

@@ -30,7 +30,7 @@ import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
-  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench, UserPlus, Search
+  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench, UserPlus, Search, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -47,9 +47,14 @@ interface Props {
   order: any;
   providerId: string;
   onBack: () => void;
+  /** PERF pkt 2: czy dociągnięto pełny wiersz (ciężkie pola tekstowe). Bramkuje
+   *  TYLKO zakładkę "Dane podstawowe" — jej formularz kopiuje pola do stanu przy
+   *  mount, więc start bez pełnych danych skończyłby się wyczyszczeniem notatek
+   *  przy zapisie. Reszta karty działa na danych z listy od razu. */
+  fullOrderLoaded?: boolean;
 }
 
-export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
+export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded = true }: Props) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
@@ -279,6 +284,11 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
             size="sm"
             className="gap-1"
             onClick={() => setMechanicCardOpen(true)}
+            /* PERF pkt 2: karta mechanika kopiuje mechanic_parts/mechanic_notes
+               z order do stanu przy otwarciu, a wiersz z listy tych pól NIE ma
+               (przycięte kolumny) — otwarcie+zapis przed pełnym wierszem
+               czyściłoby notatki. Bramka jak BasicTab (fullOrderLoaded). */
+            disabled={!fullOrderLoaded}
             title={t('workshop.orderDetail.mechanicCardTitle')}
           >
             <Wrench className="h-4 w-4" /> {t('workshop.orderDetail.mechanicCard')}
@@ -544,7 +554,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         </TabsList>
 
         <TabsContent value="basic">
-          <WorkshopOrderBasicTab order={order} providerId={providerId} />
+          {fullOrderLoaded ? (
+            <WorkshopOrderBasicTab order={order} providerId={providerId} />
+          ) : (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
         </TabsContent>
         <TabsContent value="tasks">
           <WorkshopOrderTasksTab order={order} providerId={providerId} />
@@ -604,7 +620,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack }: Props) {
         order={order}
       />
       <WorkshopMechanicCardDialog
-        open={mechanicCardOpen}
+        /* pas i szelki do disabled wyżej: dialog nie zainicjalizuje stanu
+           z przyciętego wiersza, nawet gdyby open ustawiło się inną ścieżką */
+        open={mechanicCardOpen && fullOrderLoaded}
         onOpenChange={setMechanicCardOpen}
         order={order}
       />
