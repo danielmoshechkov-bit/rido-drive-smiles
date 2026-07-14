@@ -71,7 +71,7 @@ const DOCUMENT_TYPES = [
   { value: 'receipt', label: 'Rachunek', prefix: 'R' },
   { value: 'vat_margin', label: 'Faktura VAT marża', prefix: 'FVM' },
   { value: 'vat_rr', label: 'Faktura VAT RR (rolnik)', prefix: 'RR' },
-  { value: 'correction', label: 'Faktura korygująca', prefix: 'FK' },
+  { value: 'correction', label: 'Faktura korygująca', prefix: 'KOR' },
   { value: 'advance', label: 'Faktura zaliczkowa', prefix: 'FZ' },
   { value: 'final', label: 'Faktura końcowa', prefix: 'FK' },
   { value: 'kp', label: 'KP - Kasa Przyjmie', prefix: 'KP' },
@@ -847,6 +847,48 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         advance_amount: advanceAmount,
         advance_vat: advanceVat || undefined,
       } : undefined,
+      // FAZA 6: dane korekty także w podglądzie z formularza — bez nich generator
+      // renderował korektę jako zwykłą "Fakturę VAT" bez sekcji PRZED/PO/RÓŻNICA.
+      correction_data: (invoiceType === 'correction' && correctionData) ? (() => {
+        const beforeItems = correctionData.items.map((ci) => {
+          const rate = parseFloat(ci.vat_rate_before) || 0;
+          const net = Math.round(ci.quantity_before * ci.unit_net_price_before * 100) / 100;
+          const vat = Math.round(net * (rate / 100) * 100) / 100;
+          return {
+            name: ci.name,
+            quantity: ci.quantity_before,
+            unit: ci.unit,
+            unit_net_price: ci.unit_net_price_before,
+            vat_rate: ci.vat_rate_before,
+            net_amount: net,
+            vat_amount: vat,
+            gross_amount: Math.round((net + vat) * 100) / 100,
+          };
+        });
+        const afterItems = items.map(({ unit_gross_price, lastEditedField, ...item }) => item);
+        const sum = (list: { net_amount: number; vat_amount: number; gross_amount: number }[]) => ({
+          net: Math.round(list.reduce((s, i) => s + i.net_amount, 0) * 100) / 100,
+          vat: Math.round(list.reduce((s, i) => s + i.vat_amount, 0) * 100) / 100,
+          gross: Math.round(list.reduce((s, i) => s + i.gross_amount, 0) * 100) / 100,
+        });
+        const beforeTotals = sum(beforeItems);
+        const afterTotals = sum(afterItems);
+        return {
+          original_invoice_number: correctionData.originalInvoiceNumber,
+          original_invoice_date: correctionData.originalIssueDate,
+          correction_reason: correctionData.correctionReasonText || correctionData.correctionReason,
+          payment_method_before: correctionData.originalPaymentMethod,
+          before_items: beforeItems,
+          after_items: afterItems,
+          before_totals: beforeTotals,
+          after_totals: afterTotals,
+          diff_totals: {
+            net: Math.round((afterTotals.net - beforeTotals.net) * 100) / 100,
+            vat: Math.round((afterTotals.vat - beforeTotals.vat) * 100) / 100,
+            gross: Math.round((afterTotals.gross - beforeTotals.gross) * 100) / 100,
+          },
+        };
+      })() : undefined,
     };
   };
 
@@ -1137,6 +1179,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         const newInvoiceId = savedInvoice?.id || null;
         if (newInvoiceId) setLastSavedInvoiceId(newInvoiceId);
         resultInvoiceId = newInvoiceId;
+        // FAZA 6: numer nadany przy wystawieniu (np. KOR/2026/003 dla korekt) ma być
+        // widoczny w podglądzie po wystawieniu — nie roboczy z formularza (KOR/rrrr/mm/nnn).
+        if (finalInvoiceNumber && finalInvoiceNumber !== invoiceNumber) {
+          setInvoiceNumber(finalInvoiceNumber);
+        }
 
         // Save invoice items
         if (savedInvoice) {

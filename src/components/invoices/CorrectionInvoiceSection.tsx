@@ -27,6 +27,7 @@ interface OriginalInvoice {
   buyer_address?: string;
   sale_date?: string;
   ksef_reference?: string;
+  payment_method?: string;
 }
 
 export interface CorrectionItem {
@@ -52,6 +53,8 @@ export interface CorrectionData {
   originalIssueDate: string;
   originalSaleDate: string;
   originalKsefReference?: string;
+  /** Forma płatności faktury pierwotnej — na PDF korekty „było X → jest Y". */
+  originalPaymentMethod?: string;
   correctionReason: string;
   correctionReasonText?: string;
   items: CorrectionItem[];
@@ -128,7 +131,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
 
     const { data } = await supabase
       .from('user_invoices')
-      .select('id, invoice_number, buyer_name, issue_date, sale_date, gross_total, buyer_nip, buyer_address, ksef_reference, ksef_status')
+      .select('id, invoice_number, buyer_name, issue_date, sale_date, gross_total, buyer_nip, buyer_address, ksef_reference, ksef_status, payment_method')
       .eq('user_id', session.user.id)
       .not('invoice_type', 'in', '("KOR","KOR_ZAL","KOR_ROZ")')
       .order('created_at', { ascending: false })
@@ -153,6 +156,7 @@ export function CorrectionInvoiceSection({ onOriginalSelected, onCorrectionDataC
       originalIssueDate: invoice.issue_date,
       originalSaleDate: invoice.sale_date || invoice.issue_date,
       originalKsefReference: invoice.ksef_reference,
+      originalPaymentMethod: invoice.payment_method,
       correctionReason: reason,
       correctionReasonText: reason === 'other' ? reasonText : undefined,
       items,
