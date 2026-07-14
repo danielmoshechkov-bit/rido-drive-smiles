@@ -77,6 +77,9 @@ export interface InvoiceData {
     original_invoice_number: string;
     original_invoice_date: string;
     correction_reason: string;
+    /** Forma płatności z faktury pierwotnej — gdy różni się od bieżącej,
+        PDF pokazuje "Forma płatności: było X → jest Y". */
+    payment_method_before?: string;
     before_items: InvoiceItem[];
     after_items: InvoiceItem[];
     before_totals: { net: number; vat: number; gross: number };
@@ -411,17 +414,40 @@ const generateCorrectionTablesHtml = (
       </table>
     </div>`;
 
-  // RÓŻNICA
+  // RÓŻNICA — parowanie pozycji PO z PRZED po NAZWIE (pierwsze wolne dopasowanie),
+  // z fallbackiem na tę samą pozycję listy (zmiana nazwy = korekta w miejscu).
+  // Surowy indeks zawodzi, gdy listy przyjdą w różnej kolejności — odejmowałby
+  // od siebie różne towary. Pozycje usunięte w korekcie wchodzą jako ujemne wiersze.
+  const beforePool = cd.before_items.map(item => ({ item, used: false }));
+  const takeBefore = (after: InvoiceItem, idx: number) => {
+    const match = beforePool.find(e => !e.used && e.item.name === after.name)
+      || (beforePool[idx] && !beforePool[idx].used ? beforePool[idx] : undefined);
+    if (!match) return null;
+    match.used = true;
+    return match.item;
+  };
   const diffItems = cd.after_items.map((after, i) => {
-    const before = cd.before_items[i] || { name: after.name, quantity: 0, unit_net_price: 0, net_amount: 0, vat_amount: 0, gross_amount: 0 };
+    const before = takeBefore(after, i) || { name: after.name, quantity: 0, unit_net_price: 0, net_amount: 0, vat_amount: 0, gross_amount: 0 };
     return {
       name: after.name,
+      vat_rate: after.vat_rate,
       qty: after.quantity - before.quantity,
       price: after.unit_net_price - before.unit_net_price,
       net: after.net_amount - before.net_amount,
       vat: after.vat_amount - before.vat_amount,
       gross: after.gross_amount - before.gross_amount,
     };
+  });
+  beforePool.filter(e => !e.used).forEach(({ item }) => {
+    diffItems.push({
+      name: item.name,
+      vat_rate: item.vat_rate,
+      qty: -item.quantity,
+      price: -item.unit_net_price,
+      net: -item.net_amount,
+      vat: -item.vat_amount,
+      gross: -item.gross_amount,
+    });
   });
 
   const roznicaHtml = `
@@ -446,7 +472,7 @@ const generateCorrectionTablesHtml = (
             <td style="text-align: right; padding: 6px 8px;">${d.qty}</td>
             <td style="text-align: right; padding: 6px 8px;">${fmtDiff(d.price)}</td>
             <td style="text-align: right; padding: 6px 8px;">${fmtDiff(d.net)}</td>
-            <td style="text-align: right; padding: 6px 8px;">${cd.after_items[0]?.vat_rate || '23'}%</td>
+            <td style="text-align: right; padding: 6px 8px;">${d.vat_rate || '23'}%</td>
             <td style="text-align: right; padding: 6px 8px;">${fmtDiff(d.vat)}</td>
             <td style="text-align: right; padding: 6px 8px; color: ${d.gross < 0 ? '#A32D2D' : '#16a34a'}; font-weight: 500;">${fmtDiff(d.gross)}</td>
           </tr>`).join('')}
@@ -894,6 +920,9 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           <div>do faktury nr: <strong>${invoice.correction_data.original_invoice_number}</strong></div>
           <div>z dnia: ${formatDate(invoice.correction_data.original_invoice_date)}</div>
           <div>Powód korekty: ${invoice.correction_data.correction_reason}</div>
+          ${invoice.correction_data.payment_method_before && invoice.correction_data.payment_method_before !== invoice.payment_method ? `
+          <div>Forma płatności: było <strong>${paymentMethodLabels[invoice.correction_data.payment_method_before] || invoice.correction_data.payment_method_before}</strong> → jest <strong>${paymentMethodLabels[invoice.payment_method] || invoice.payment_method}</strong></div>
+          ` : ''}
         </div>
         ` : ''}
         ${isAdvance ? `

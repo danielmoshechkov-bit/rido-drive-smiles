@@ -210,7 +210,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     const { data: items } = await supabase
       .from('user_invoice_items')
       .select('*')
-      .eq('invoice_id', invoice.id);
+      .eq('invoice_id', invoice.id)
+      .order('sort_order');
 
     let companyData: any = null;
     if (invoice.company_id) {
@@ -254,7 +255,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
       
       const { data: originalInvoice } = await supabase
         .from('user_invoices')
-        .select('invoice_number, issue_date, net_total, vat_total, gross_total')
+        .select('invoice_number, issue_date, net_total, vat_total, gross_total, payment_method')
         .eq('id', freshInvoice.corrected_invoice_id)
         .maybeSingle();
 
@@ -305,6 +306,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         original_invoice_number: freshInvoice.corrected_invoice_number || originalInvoice?.invoice_number || '',
         original_invoice_date: freshInvoice.corrected_invoice_date || originalInvoice?.issue_date || '',
         correction_reason: reason,
+        payment_method_before: originalInvoice?.payment_method || undefined,
         before_items: beforeItems,
         after_items: afterItems,
         before_totals: beforeTotals,
