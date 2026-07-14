@@ -21,10 +21,16 @@
 2. `WorkshopReports`: płatności pobierane BEZ zakresu dat (`useWorkshopPaymentsRange(providerId)`) — „Zapłacono/Dług" per zlecenie z wszystkich wpłat; przychód/koszt/zysk dalej po `completed_at`.
 3. `WorkshopCashPanel` — „Rozliczenie miesięcy": nowe kolumny **Zapłacono/Dług** (zlecenia zakończone w miesiącu; dług = Σ max(0, przychód−wpłaty) per zlecenie, czerwony gdy >0). Wpływy/wynik miesiąca bez zmian (po `paid_at`).
 
+### Symulacja E2E (14.07, konto warsztat@test.pl, prod baza — dane TEST utworzone i USUNIĘTE po weryfikacji)
+- 3 scenariusze: pełna zapłata w miesiącu zakończenia / zapłata w innym miesiącu / płatność podzielona częściowa. **Wszystkie raporty zgodne co do grosza**: przychód+koszt+zysk po `completed_at`, wpływy po `paid_at`, dług znika po spłacie także w starym miesiącu, „Jak płacili" per zlecenia raportu.
+- **Naprawiona regresja z `8886360a` (PERF C2, 10.07)**: `WorkshopCashPanel` i `WorkshopCompanyReport` wołały `useWorkshopOrders` bez `view` → default 'active' serwerowo wykluczał „Zakończone" → Rozliczenie miesięcy i memoriał firmy = 0 zleceń, a **zamknięcia miesiąca od 10.07 archiwizowały zera** (czerwcowe zatwierdzenie tego konta do ewentualnego ponownego zamknięcia). Fix: jawne `view: 'all'`.
+
 ### Uwagi
 - Cutoff kasy (`created_at > cash_started_at`) nietknięty — backdatowana wpłata ma świeży `created_at`, nie wypada po resecie.
 - Edycja operacji kasowej (`WorkshopOpDialogs`) nadal NIE edytuje daty zapłaty — ewentualny follow-up.
 - Archiwum zamknięć (`workshop_cash_closures`) bez kolumn paid/debt (wymagałoby migracji) — Zapłacono/Dług tylko w widoku na żywo.
+- Luka UX (świadoma, do decyzji): dialog wymaga sumy form = kwocie zlecenia, więc CZĘŚCIOWA wpłata przy zamknięciu nie ma ścieżki w UI (dług tylko przez „Anuluj" = zero wpłat); „Anuluj" nie zapisuje też wstecznej daty zakończenia (zostaje now() z pickera).
+- Trigger DB na DELETE `workshop_orders` parsuje numer zlecenia jako liczbę — kasowanie zlecenia z niestandardowym numerem pada („invalid input syntax for type integer").
 
 ---
 
