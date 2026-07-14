@@ -165,14 +165,13 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     }
     setIsDeleting(true);
     try {
-      await supabase
-        .from('user_invoice_items')
-        .delete()
-        .eq('invoice_id', invoice.id);
-
-      const { error } = await supabase
-        .from('user_invoices')
-        .delete()
+      // FAZA 4: soft-delete (deleted_at) zamiast twardego DELETE — rekord zostaje
+      // w bazie (audyt/cofnięcie), lista filtruje deleted_at IS NULL, a numer
+      // usuniętej faktury może być użyty ponownie.
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await (supabase
+        .from('user_invoices') as any)
+        .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id || null })
         .eq('id', invoice.id);
 
       if (error) throw error;

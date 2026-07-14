@@ -82,14 +82,12 @@ export function InvoiceListWithActions({ invoices, onUpdate, showMarginInfo }: I
     setBulkDeleting(true);
     try {
       const ids = Array.from(selectedIds);
-      // Delete items first
-      for (const id of ids) {
-        await supabase.from('user_invoice_items').delete().eq('invoice_id', id);
-      }
-      // Delete invoices
-      const { error } = await supabase
-        .from('user_invoices')
-        .delete()
+      // FAZA 4: soft-delete zamiast twardego DELETE — rekordy (i pozycje) zostają
+      // w bazie dla audytu; listy filtrują deleted_at IS NULL.
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await (supabase
+        .from('user_invoices') as any)
+        .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id || null })
         .in('id', ids);
 
       if (error) throw error;

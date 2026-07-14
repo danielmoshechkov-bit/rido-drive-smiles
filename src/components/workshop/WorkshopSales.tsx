@@ -45,6 +45,7 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
       .select('*')
       .eq('user_id', user.id)
       .neq('invoice_type', 'cost')
+      .is('deleted_at', null)
       .order('issue_date', { ascending: false });
 
     if (error) {

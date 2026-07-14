@@ -954,6 +954,22 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           toast.error('Nie można edytować faktury wysłanej do KSeF. Wystaw korektę.');
           return;
         }
+        // FAZA 4: przy edycji numer nie może kolidować z inną aktywną fakturą
+        if (invoiceData.invoice_number) {
+          const { data: dupEdit } = await (supabase
+            .from('user_invoices')
+            .select('id') as any)
+            .eq('user_id', user.id)
+            .eq('invoice_number', invoiceData.invoice_number)
+            .is('deleted_at', null)
+            .neq('id', editInvoiceId)
+            .limit(1)
+            .maybeSingle();
+          if (dupEdit) {
+            toast.error(`Aktywna faktura o numerze ${invoiceData.invoice_number} już istnieje. Zmień numer.`);
+            return;
+          }
+        }
         // UPDATE existing invoice
         const { error } = await supabase
           .from('user_invoices')
@@ -1027,11 +1043,13 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         if (isCorrection && !asDraft) {
           const now = new Date();
           const year = format(now, 'yyyy');
-          const { data: lastCorr } = await supabase
+          // FAZA 4: numeracja korekt pomija soft-deleted (usunięta korekta zwalnia numer)
+          const { data: lastCorr } = await (supabase
             .from('user_invoices')
-            .select('invoice_number')
+            .select('invoice_number') as any)
             .eq('user_id', user.id)
             .eq('is_correction', true)
+            .is('deleted_at', null)
             .like('invoice_number', `KOR/${year}/%`)
             .order('invoice_number', { ascending: false })
             .limit(1)
@@ -1046,9 +1064,26 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           finalInvoiceNumber = `KOR/${year}/${String(nextNum).padStart(3, '0')}`;
         }
 
-        const correctionReasonLabel = isCorrection 
+        const correctionReasonLabel = isCorrection
           ? (correctionData!.correctionReasonText || correctionData!.correctionReason)
           : undefined;
+
+        // FAZA 4: blokada duplikatów — nie pozwól zapisać drugiej AKTYWNEJ faktury
+        // z tym samym numerem (trigger DB też to wymusza; tu czytelny komunikat).
+        if (finalInvoiceNumber) {
+          const { data: dup } = await (supabase
+            .from('user_invoices')
+            .select('id') as any)
+            .eq('user_id', user.id)
+            .eq('invoice_number', finalInvoiceNumber)
+            .is('deleted_at', null)
+            .limit(1)
+            .maybeSingle();
+          if (dup) {
+            toast.error(`Aktywna faktura o numerze ${finalInvoiceNumber} już istnieje. Zmień numer.`);
+            return;
+          }
+        }
 
         const insertData: any = {
             user_id: user.id,

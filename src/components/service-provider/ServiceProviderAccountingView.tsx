@@ -82,10 +82,11 @@ export function ServiceProviderAccountingView() {
         .order('created_at', { ascending: false });
       if (entities) setUserEntities(entities);
 
-      const { data: inv } = await supabase
+      const { data: inv } = await (supabase
         .from('user_invoices')
-        .select('*')
+        .select('*') as any)
         .eq('user_id', u.id)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(50);
       if (inv) setInvoices(inv);
