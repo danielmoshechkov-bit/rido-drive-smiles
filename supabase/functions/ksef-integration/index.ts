@@ -881,22 +881,60 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], orig
   const sumGross = (list: any[]) => list.reduce((sum, item) => sum + (Number(item.gross_amount) || 0), 0);
   const grossTotal = round2(sumGross(items) - sumGross(beforeItems));
 
-  let vatBreakdownXML = '';
+  // Rubryki podsumowania VAT wg XSD FA(3):
+  //   P_13_1/P_14_1 = 23/22% · P_13_2/P_14_2 = 8/7% · P_13_3/P_14_3 = 5% ·
+  //   P_13_4/P_14_4 = ryczałt taxi (4/3%) · P_13_6_1 = 0% krajowe (bez pola VAT) ·
+  //   P_13_6_2 = 0% WDT · P_13_6_3 = 0% eksport · P_13_7 = zw · P_13_8 = np ·
+  //   P_13_9 = np art. 100 ust. 1 pkt 4 · P_13_10 = oo.
+  // Kolejność emisji MUSI odpowiadać sekwencji XSD — stąd stała lista rubryk,
+  // nie iteracja po kluczach obiektu.
+  const rateToBucket = (rate: string): string => {
+    switch (String(rate).trim()) {
+      case '23': case '22': return '1';
+      case '8': case '7': return '2';
+      case '5': return '3';
+      case '4': case '3': return '4';
+      case '0': case '0 KR': return '6_1';
+      case '0 WDT': return '6_2';
+      case '0 EX': return '6_3';
+      case 'zw': return '7';
+      case 'np': case 'np I': return '8';
+      case 'np II': return '9';
+      case 'oo': return '10';
+      default:
+        console.warn(`[KSeF] Nieznana stawka VAT "${rate}" — traktuję jak 23% (P_13_1)`);
+        return '1';
+    }
+  };
+  // Rubryki z polem VAT (P_14_x) — dla 0%/zw/np/oo schemat nie przewiduje kwoty podatku.
+  const BUCKETS_WITH_VAT = new Set(['1', '2', '3', '4']);
+  const BUCKET_ORDER = ['1', '2', '3', '4', '6_1', '6_2', '6_3', '7', '8', '9', '10'];
+
+  const byBucket: Record<string, { net: number; vat: number }> = {};
   for (const [rate, amounts] of Object.entries(vatByRate)) {
-    if (rate === 'zw') {
-      vatBreakdownXML += `\n        <P_13_6>${amounts.net.toFixed(2)}</P_13_6>`;
-    } else if (rate === 'np') {
-      vatBreakdownXML += `\n        <P_13_7>${amounts.net.toFixed(2)}</P_13_7>`;
-    } else {
-      const numericRate = parseInt(rate) || 23;
-      const fieldSuffix = numericRate === 23 ? '1' : numericRate === 8 ? '3' : numericRate === 5 ? '5' : numericRate === 0 ? '6' : '1';
-      vatBreakdownXML += `\n        <P_13_${fieldSuffix}>${amounts.net.toFixed(2)}</P_13_${fieldSuffix}>`;
-      vatBreakdownXML += `\n        <P_14_${fieldSuffix}>${amounts.vat.toFixed(2)}</P_14_${fieldSuffix}>`;
+    const b = rateToBucket(rate);
+    if (!byBucket[b]) byBucket[b] = { net: 0, vat: 0 };
+    byBucket[b].net = round2(byBucket[b].net + amounts.net);
+    byBucket[b].vat = round2(byBucket[b].vat + amounts.vat);
+  }
+  let vatBreakdownXML = '';
+  for (const b of BUCKET_ORDER) {
+    const amounts = byBucket[b];
+    if (!amounts) continue;
+    vatBreakdownXML += `\n        <P_13_${b}>${amounts.net.toFixed(2)}</P_13_${b}>`;
+    if (BUCKETS_WITH_VAT.has(b)) {
+      vatBreakdownXML += `\n        <P_14_${b}>${amounts.vat.toFixed(2)}</P_14_${b}>`;
     }
   }
 
-  const vatCodeOf = (item: any) =>
-    item.vat_rate === 'zw' ? 'zw' : item.vat_rate === 'np' ? 'np' : String(item.vat_rate || '23');
+  // P_12 (stawka w wierszu) — dozwolone wartości wg XSD:
+  // 23, 22, 8, 7, 5, 4, 3, "0 KR", "0 WDT", "0 EX", zw, oo, "np I", "np II".
+  const vatCodeOf = (item: any) => {
+    const rate = String(item.vat_rate || '23').trim();
+    if (rate === '0') return '0 KR';
+    if (rate === 'np') return 'np I';
+    return rate;
+  };
 
   let itemsXML: string;
   if (isCorrection) {
@@ -935,7 +973,45 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], orig
     ? `<RachunekBankowy><NrRB>${sellerSource.bankAccount.replace(/\s/g, '')}</NrRB></RachunekBankowy>`
     : '';
 
-  const formaPlatnosci = invoice.payment_method === 'cash' ? '1' : '2';
+  // Słownik FormaPlatnosci FA(3): 1=Gotówka, 2=Karta, 3=Bon, 4=Czek, 5=Kredyt,
+  // 6=Przelew, 7=Mobilna. W systemie payment_method to 'transfer'/'cash'/'card'
+  // (+ 'other' w księgowości); mapa defensywnie łapie też polskie/alternatywne nazwy.
+  const PAYMENT_METHOD_TO_KSEF: Record<string, string> = {
+    cash: '1', gotowka: '1', 'gotówka': '1',
+    card: '2', karta: '2',
+    bon: '3', voucher: '3',
+    czek: '4', cheque: '4', check: '4',
+    kredyt: '5', credit: '5', loan: '5',
+    transfer: '6', przelew: '6', bank_transfer: '6', wire: '6',
+    blik: '7', mobile: '7', mobilna: '7', pay_by_link: '7', paybylink: '7',
+  };
+  // Nieznana/„inna" forma -> znacznik PlatnoscInna=1 (dozwolona alternatywa w XSD),
+  // zamiast fałszywego kodu. Brak wartości -> domyślnie przelew (6), jak dotąd w UI.
+  const formaPlatnosci = PAYMENT_METHOD_TO_KSEF[String(invoice.payment_method || 'transfer').toLowerCase().trim()] || null;
+  if (!formaPlatnosci) {
+    console.warn(`[KSeF] Nieznana forma płatności "${invoice.payment_method}" — emituję PlatnoscInna=1`);
+  }
+  const formaPlatnosciXml = formaPlatnosci
+    ? `<FormaPlatnosci>${formaPlatnosci}</FormaPlatnosci>`
+    : `<PlatnoscInna>1</PlatnoscInna>
+      <OpisPlatnosci>${escapeXml(String(invoice.payment_method || 'inna'))}</OpisPlatnosci>`;
+
+  // Adnotacje/Zwolnienie: przy sprzedaży zw wymagane P_19=1 + podstawa prawna
+  // (P_19A przepis ustawy / P_19B dyrektywa / P_19C inna). Sztywne P_19N=1 przy
+  // pozycjach zw było niespójne z treścią faktury. Podstawę bierzemy z danych
+  // faktury/firmy (vat_exemption_basis); brak = P_19C generycznie + warning.
+  const hasZwItems = [...items, ...beforeItems].some((i: any) => String(i.vat_rate || '').trim() === 'zw');
+  const zwBasis = invoice.vat_exemption_basis || entity?.vat_exemption_basis || entity?.exemption_legal_basis || '';
+  const zwWarnings: string[] = [];
+  let zwolnienieXml = '<P_19N>1</P_19N>';
+  if (hasZwItems) {
+    if (zwBasis) {
+      zwolnienieXml = `<P_19>1</P_19><P_19A>${escapeXml(zwBasis)}</P_19A>`;
+    } else {
+      zwolnienieXml = `<P_19>1</P_19><P_19C>${escapeXml('Sprzedaż zwolniona od podatku od towarów i usług')}</P_19C>`;
+      zwWarnings.push('Pozycje zw bez skonfigurowanej podstawy zwolnienia — uzupełnij podstawę prawną (vat_exemption_basis, pole P_19A), obecnie emitowany generyczny opis w P_19C.');
+    }
+  }
   const sellerAdresL2 = [sellerSource.addressPostalCode, sellerSource.addressCity].filter(Boolean).join(' ') || null;
   const buyerAdresL2 = [buyerSource.addressPostalCode, buyerSource.addressCity].filter(Boolean).join(' ') || null;
   const sellerAddressXml = buildAddressXml('Adres', { country: 'PL', line1: sellerSource.addressStreet, line2: sellerAdresL2 });
@@ -1055,7 +1131,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], orig
       <P_17>2</P_17>
       <P_18>2</P_18>
       <P_18A>2</P_18A>
-      <Zwolnienie><P_19N>1</P_19N></Zwolnienie>
+      <Zwolnienie>${zwolnienieXml}</Zwolnienie>
       <NoweSrodkiTransportu><P_22N>1</P_22N></NoweSrodkiTransportu>
       <P_23>2</P_23>
       <PMarzy>${invoice.is_margin ? (() => {
@@ -1069,7 +1145,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], orig
     <RodzajFaktury>${invoiceType}</RodzajFaktury>${correctionBlockXml}${itemsContent}${fakZalXml}
     <Platnosc>
       <TerminPlatnosci><Termin>${invoice.due_date || issueDate}</Termin></TerminPlatnosci>
-      <FormaPlatnosci>${formaPlatnosci}</FormaPlatnosci>
+      ${formaPlatnosciXml}
       ${bankEl}
     </Platnosc>
   </Fa>
@@ -1082,7 +1158,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], orig
     ...validatePodmiot2Xsd(normalizedPodmiot2, buyerSource),
   ];
   const semanticViolations = validateSemanticRules(sellerSource, buyerSource);
-  const warnings = buildWarnings(sellerSource, buyerSource);
+  const warnings = [...buildWarnings(sellerSource, buyerSource), ...zwWarnings];
 
   return {
     xml,
