@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-07-14 — Daty zakończenia i zapłaty w oknie płatności (branch `feat/warsztat-daty-platnosci`)
+
+### Status
+- ✅ Kod gotowy (3 commity, `tsc` czysty po każdym), **bez pushu/PR** — czeka na testy Daniela.
+- **ZERO migracji** — oba pola już były w bazie: `workshop_orders.completed_at` (ustawiane w `WorkshopStatusPicker`) i `workshop_payments.paid_at` (WYN1, default `now()`).
+
+### Model dwóch osi czasu (decyzja Daniela — nie zmieniać)
+- **`completed_at`** (data zakończenia) → miesiąc PRZYCHODU/KOSZTU/ZYSKU zlecenia w raportach (koszt = części+robocizna jedzie ze zleceniem, nigdy z zapłatą).
+- **`paid_at`** (data zapłaty) → miesiąc WPŁYWU w kasie/przepływie (realna gotówka).
+- **Dług = realny stan**: liczony ze WSZYSTKICH wpłat zlecenia niezależnie od daty — po spłacie znika także w starym miesiącu.
+
+### Co zrobione
+1. `WorkshopPaymentDialog`: dwa edytowalne pola (`WorkshopDatePicker`, default dziś) — „Data zakończenia zlecenia" (u góry; UPDATE `completed_at` via `useUpdateWorkshopOrder`) i „Data zapłaty" (obok „Dodaj formę"; `paid_at` w insercie — `useCreateWorkshopPayments` dostał param `paidAt`). Timestamp: dziś → `now()` (kolejność w feedzie), wstecz → `T12:00:00Z` (bez off-by-one przy `slice(0,10)`). Kolejność zapisu: najpierw `completed_at` (idempotentne), potem wpłaty — retry po błędzie nie dubluje płatności.
+2. `WorkshopReports`: płatności pobierane BEZ zakresu dat (`useWorkshopPaymentsRange(providerId)`) — „Zapłacono/Dług" per zlecenie z wszystkich wpłat; przychód/koszt/zysk dalej po `completed_at`.
+3. `WorkshopCashPanel` — „Rozliczenie miesięcy": nowe kolumny **Zapłacono/Dług** (zlecenia zakończone w miesiącu; dług = Σ max(0, przychód−wpłaty) per zlecenie, czerwony gdy >0). Wpływy/wynik miesiąca bez zmian (po `paid_at`).
+
+### Uwagi
+- Cutoff kasy (`created_at > cash_started_at`) nietknięty — backdatowana wpłata ma świeży `created_at`, nie wypada po resecie.
+- Edycja operacji kasowej (`WorkshopOpDialogs`) nadal NIE edytuje daty zapłaty — ewentualny follow-up.
+- Archiwum zamknięć (`workshop_cash_closures`) bez kolumn paid/debt (wymagałoby migracji) — Zapłacono/Dług tylko w widoku na żywo.
+
+---
+
 ## 2026-06-28 — Poprawki Raportów warsztatu (branch `fix/warsztat-raporty` → main PR #5, merge `ec7d396e`)
 
 ### Status
