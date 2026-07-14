@@ -3038,6 +3038,8 @@
       "fillServiceName": "Geben Sie den Leistungsnamen ein — Sie haben einen Preis eingegeben, aber das Feld „Leistung\" ist leer.",
       "fillPartName": "Geben Sie den Teilenamen ein — Sie haben einen Preis eingegeben, aber das Feld „Name\" ist leer.",
       "partAdded": "Teil hinzugefügt",
+      "itemsAdded_one": "{{count}} Position hinzugefügt",
+      "itemsAdded_other": "{{count}} Positionen hinzugefügt",
       "missingVehicleData": "Fahrzeugdaten fehlen (VIN/Marke). Vervollständigen Sie die Fahrzeugdaten vor der Teilesuche.",
       "goToIntegrations": "Gehen Sie im Seitenmenü zu Einstellungen → Integrationen",
       "servicesLabel": "Leistungen",

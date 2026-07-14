@@ -3131,6 +3131,8 @@
       "fillServiceName": "Enter the service name — you entered a price, but the \"Service\" field is empty.",
       "fillPartName": "Enter the part name — you entered a price, but the \"Name\" field is empty.",
       "partAdded": "Part added",
+      "itemsAdded_one": "Added {{count}} item",
+      "itemsAdded_other": "Added {{count}} items",
       "missingVehicleData": "Missing vehicle data (VIN/make). Complete the vehicle data before searching for parts.",
       "goToIntegrations": "Go to Settings → Integrations in the side menu",
       "servicesLabel": "Services",

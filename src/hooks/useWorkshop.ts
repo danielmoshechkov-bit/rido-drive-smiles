@@ -493,6 +493,40 @@ export function useCreateWorkshopOrderItem() {
   });
 }
 
+// PERF P4: batchowy zapis pozycji dla kolejki w WorkshopOrderTasksTab — jedna
+// paczka wierszy w JEDNYM upsert + JEDEN recompute totals, zamiast mutacji per
+// wiersz (N× upsert + N× recompute + N× invalidacja listy = przeskakująca
+// tabela przy szybkim dodawaniu). Cache'em zarządza wołający: optimistic insert
+// przy enqueue, rollback przy błędzie, invalidacja raz po opróżnieniu kolejki.
+// Idempotencja jak w useCreateWorkshopOrderItem: stabilne id (draftKey) +
+// ignoreDuplicates — duplikat nie wstawia wiersza i nie schodzi z magazynu.
+export async function createWorkshopOrderItemsBatch(items: any[]): Promise<any[]> {
+  if (items.length === 0) return [];
+  const orderId = items[0]?.order_id;
+  const { data, error } = await (supabase as any)
+    .from('workshop_order_items')
+    .upsert(items, { onConflict: 'id', ignoreDuplicates: true })
+    .select();
+  if (error) throw error;
+  const inserted = data || [];
+  if (orderId) {
+    await (supabase as any).from('workshop_orders')
+      .update({ estimate_changed_after_send: true })
+      .eq('id', orderId)
+      .eq('estimate_sent_to_client', true);
+    await recomputeOrderTotals(orderId);
+  }
+  // Magazyn: zejście FIFO tylko dla realnie wstawionych pozycji z produktem
+  for (const row of inserted) {
+    if (row?.inventory_product_id && Number(row.quantity) > 0) {
+      const { shortfall } = await consumeStock(row.inventory_product_id, Number(row.quantity), row.id);
+      if (shortfall > 0) toast.warning(`Magazyn: brakło ${shortfall} szt — zeszło tyle, ile było na stanie.`);
+    }
+  }
+  inserted.forEach((row: any) => pretranslateItem(row));
+  return inserted;
+}
+
 export function useUpdateWorkshopOrderItem() {
   const qc = useQueryClient();
   return useMutation({
