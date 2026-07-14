@@ -77,6 +77,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
   const [invoiceBuyer, setInvoiceBuyer] = useState<any>(null);
   const [invoiceVehicleNotes, setInvoiceVehicleNotes] = useState('');
+  const [invoiceOrderNotes, setInvoiceOrderNotes] = useState('');
   const [existingInvoice, setExistingInvoice] = useState<any>(null);
   const [existingInvoiceOrder, setExistingInvoiceOrder] = useState<any>(null);
   const [assignClientOrderId, setAssignClientOrderId] = useState<string | null>(null);
@@ -290,16 +291,16 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         buyer.email = order.client.email || '';
       }
 
-      // Dane pojazdu NIE trafiają do uwag automatycznie — SimpleFreeInvoice pokaże
-      // checkbox „Dodaj dane pojazdu" (stan pamiętany między fakturami).
+      // Dane pojazdu i nr zlecenia NIE trafiają do uwag automatycznie — SimpleFreeInvoice
+      // pokaże dwa niezależne checkboxy (stany pamiętane między fakturami).
       const vehicleDesc = order.vehicle
         ? `Marka: ${order.vehicle.brand || ''}, Model: ${order.vehicle.model || ''}, Nr rej: ${order.vehicle.plate || ''}, VIN: ${order.vehicle.vin || ''}`
         : '';
-      const vehicleNotes = [vehicleDesc, order.order_number ? `Do zlecenia: ${order.order_number}` : ''].filter(Boolean).join('\n');
 
       setInvoiceItems(prefillItems);
       setInvoiceBuyer(buyer);
-      setInvoiceVehicleNotes(vehicleNotes);
+      setInvoiceVehicleNotes(vehicleDesc);
+      setInvoiceOrderNotes(order.order_number ? `Do zlecenia: ${order.order_number}` : '');
       setInvoiceOrder(order);
     } catch (e: any) {
       toast.error(t('workshop.orders.loadItemsError'));
@@ -1019,6 +1020,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
               prefillItems={invoiceItems}
               prefillBuyer={invoiceBuyer}
               prefillVehicleNotes={invoiceVehicleNotes}
+              prefillOrderNotes={invoiceOrderNotes}
               prefillOrderNumber={invoiceOrder?.order_number}
               prefillWorkshopOrderId={invoiceOrder?.id}
             />

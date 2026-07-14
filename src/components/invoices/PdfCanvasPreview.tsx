@@ -55,17 +55,9 @@ export function PdfCanvasPreview({ base64 }: PdfCanvasPreviewProps) {
           pageCard.style.borderRadius = '8px';
           pageCard.style.boxShadow = '0 2px 12px rgba(0,0,0,0.18)';
           pageCard.style.overflow = 'hidden';
+          pageCard.style.marginBottom = n < pdf.numPages ? '20px' : '0';
           pageCard.appendChild(canvas);
           container.appendChild(pageCard);
-          if (pdf.numPages > 1) {
-            const pageLabel = document.createElement('div');
-            pageLabel.textContent = `Strona ${n} z ${pdf.numPages}`;
-            pageLabel.style.textAlign = 'center';
-            pageLabel.style.fontSize = '11px';
-            pageLabel.style.color = 'hsl(var(--muted-foreground))';
-            pageLabel.style.margin = '8px 0 20px';
-            container.appendChild(pageLabel);
-          }
           await page.render({ canvasContext: ctx, viewport }).promise;
         }
         if (!cancelled) setLoading(false);
