@@ -299,6 +299,42 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // (art. 106e ust. 1 pkt 19) i w KSeF (P_19A). Pamiętana per firma.
   const [vatExemptionBasis, setVatExemptionBasis] = useState('');
   const [vatExemptionCustom, setVatExemptionCustom] = useState(false);
+  // FAZA 2: gdy pojawia się pierwsza pozycja „zw", przewiń panel podstawy zwolnienia
+  // w pole widzenia — użytkownik musi go zobaczyć (art. 106e wymaga przepisu).
+  const zwBasisCardRef = useRef<HTMLDivElement | null>(null);
+  const hasZwItems = items.some(i => String(i.vat_rate).trim() === 'zw');
+  useEffect(() => {
+    if (hasZwItems) {
+      setTimeout(() => zwBasisCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasZwItems]);
+
+  // FAZA 4: walidacja numeru NA ŻYWO — czerwone pole + blokada „Wystaw fakturę",
+  // gdy aktywna faktura z tym numerem już istnieje (dodatkowo do checku przy zapisie
+  // i triggera w bazie).
+  const [numberDuplicate, setNumberDuplicate] = useState(false);
+  useEffect(() => {
+    const n = (invoiceNumber || '').trim();
+    if (!n) { setNumberDuplicate(false); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        let q = (supabase.from('user_invoices').select('id') as any)
+          .eq('user_id', user.id)
+          .eq('invoice_number', n)
+          .is('deleted_at', null)
+          .limit(1);
+        if (editInvoiceId) q = q.neq('id', editInvoiceId);
+        const { data } = await q.maybeSingle();
+        if (!cancelled) setNumberDuplicate(!!data);
+      } catch { /* offline itp. — zapis i tak zweryfikuje */ }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [invoiceNumber, editInvoiceId]);
+
   // FAZA 3: MPP / split payment — faktury > 15 000 zł brutto (załącznik nr 15)
   // wymagają adnotacji "mechanizm podzielonej płatności" (KSeF: P_18A=1).
   const [splitPayment, setSplitPayment] = useState(false);
@@ -1307,6 +1343,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
     setIsIssuing(true);
     try {
       const savedId = await handleSave(false, true); // skipOnSaved — modal podglądu ma zostać
+      // FIX: handleSave może przerwać zapis (duplikat numeru, freeze KSeF, walidacja)
+      // — wtedy zwraca undefined i NIE wolno ogłaszać sukcesu ani otwierać podglądu.
+      // Wcześniej leciało "Faktura została wystawiona!" mimo braku zapisu.
+      if (!savedId) return;
       setInvoiceIssued(true);
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
@@ -1877,7 +1917,13 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                   required
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
+                  className={numberDuplicate ? 'border-red-500 focus-visible:ring-red-500' : undefined}
                 />
+                {numberDuplicate && (
+                  <p className="text-xs text-red-600 mt-1 font-medium">
+                    Faktura o numerze {invoiceNumber} już istnieje — zmień numer.
+                  </p>
+                )}
               </div>
               <div className="relative">
                 <div className="flex h-12 w-full rounded-md border border-input bg-background items-center px-3">
@@ -2132,7 +2178,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
 
       {/* FAZA 2: podstawa zwolnienia z VAT — widoczna tylko gdy jest pozycja „zw" */}
       {items.some(i => String(i.vat_rate).trim() === 'zw') && (
-        <Card>
+        <Card ref={zwBasisCardRef} className="border-violet-400 border-2">
           <CardContent className="pt-6 space-y-2">
             <Label className="font-medium">Podstawa zwolnienia z VAT (pozycje „zw")</Label>
             <p className="text-xs text-muted-foreground">
@@ -2471,10 +2517,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           
           {/* Issue Invoice - main action */}
           <Button 
-            onClick={handleIssueInvoice} 
-            size="lg" 
+            onClick={handleIssueInvoice}
+            size="lg"
             className="flex-1 gap-2"
-            disabled={isIssuing}
+            disabled={isIssuing || numberDuplicate}
+            title={numberDuplicate ? 'Numer faktury już istnieje — zmień numer' : undefined}
           >
             {isIssuing ? (
               <>
