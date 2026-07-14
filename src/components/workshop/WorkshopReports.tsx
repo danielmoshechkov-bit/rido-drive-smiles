@@ -92,7 +92,11 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   // PERF C2: raporty liczą po zakończonych — potrzebują pełnego widoku 'all'
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, { view: 'all' });
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
-  const { data: payments = [] } = useWorkshopPaymentsRange(providerId, dateFrom, dateTo);
+  // WSZYSTKIE płatności providera (bez zakresu dat): "Zapłacono/Dług" pokazuje
+  // realny stan zlecenia — wpłata z lipca spłaca dług zlecenia zakończonego
+  // w czerwcu (czerwcowy raport przestaje pokazywać dług). Oś kasowa (wpływy
+  // wg paid_at) zostaje w Kasie/raporcie firmy — tu liczymy per zlecenie.
+  const { data: payments = [] } = useWorkshopPaymentsRange(providerId);
   const { data: financeSettings } = useWorkshopFinanceSettings(providerId);
   const cashEnabled = !!financeSettings?.cash_enabled;
   const { data: stations = [] } = useQuery({
