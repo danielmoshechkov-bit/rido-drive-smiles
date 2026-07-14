@@ -360,6 +360,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         email: companyData?.email || '',
         phone: companyData?.phone || '',
         logo_url: companyData?.logo_url || '',
+        vat_exemption_basis: companyData?.vat_exemption_basis || undefined,
       },
       buyer: {
         name: invoice.buyer_name || '',

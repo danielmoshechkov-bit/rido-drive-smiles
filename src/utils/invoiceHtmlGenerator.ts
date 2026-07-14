@@ -31,6 +31,9 @@ export interface InvoiceSeller {
   phone?: string;
   website?: string;
   logo_url?: string;
+  /** Podstawa prawna zwolnienia z VAT — pokazywana na fakturze przy pozycjach „zw"
+      (wymóg art. 106e ust. 1 pkt 19 ustawy o VAT). */
+  vat_exemption_basis?: string;
 }
 
 export interface InvoiceBuyer {
@@ -1131,6 +1134,13 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <span class="amount-words-label">Słownie:</span>
       <span class="amount-words-value">${numberToWords(grossTotal)}</span>
     </div>
+
+    ${items.some(i => String(i.vat_rate).trim() === 'zw') ? `
+    <div style="margin-bottom: 5px; padding: 4px 11px; background: #f8f5ff; border: 1px solid #ede9fe; border-radius: 6px; font-size: 10px;">
+      <span style="color: #7c3aed; font-weight: 700;">Podstawa zwolnienia z VAT:</span>
+      ${seller.vat_exemption_basis || 'zwolnienie od podatku od towarów i usług'}
+    </div>
+    ` : ''}
 
     ${(seller.bank_account && invoice.payment_method === 'transfer') ? `
     <div class="payment">

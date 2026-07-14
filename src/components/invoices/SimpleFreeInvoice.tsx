@@ -53,6 +53,7 @@ import { useGusLookup } from '@/hooks/useGusLookup';
 import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { CorrectionInvoiceSection, CorrectionData } from './CorrectionInvoiceSection';
 import { normalizeInvoiceType } from '@/utils/invoiceTypeMapping';
+import { VAT_EXEMPTION_BASES, VAT_EXEMPTION_CUSTOM } from '@/utils/vatExemptionBases';
 import { ksefTypeToUi } from './InvoiceTypeSelector';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
@@ -294,6 +295,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   
   // User's saved company
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
+  // FAZA 2: podstawa prawna zwolnienia z VAT — wymagana na fakturze zw
+  // (art. 106e ust. 1 pkt 19) i w KSeF (P_19A). Pamiętana per firma.
+  const [vatExemptionBasis, setVatExemptionBasis] = useState('');
+  const [vatExemptionCustom, setVatExemptionCustom] = useState(false);
 
   // NIP lookup for buyer (GUS REGON) — fill przez onCompany, żeby checkbox
   // „Skróć formę prawną" podmieniał nazwę także po lookupie
@@ -418,6 +423,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         bank_name: company.bank_name || '',
         bank_account: company.bank_account || ''
       });
+      if ((company as any).vat_exemption_basis) setVatExemptionBasis((company as any).vat_exemption_basis);
       setSellerExpanded(false);
       if (!issuePlace) setIssuePlace(company.address_city || '');
       if ((company as any).logo_url) setCompanyLogo((company as any).logo_url);
@@ -801,6 +807,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         ...seller,
         address_street: sellerAddress,
         logo_url: companyLogo || undefined,
+        vat_exemption_basis: vatExemptionBasis || undefined,
       },
       buyer: {
         ...buyer,
@@ -871,8 +878,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               address_city: seller.address_city,
               address_postal_code: seller.address_postal_code,
               bank_name: seller.bank_name,
-              bank_account: seller.bank_account
-            })
+              bank_account: seller.bank_account,
+              vat_exemption_basis: vatExemptionBasis || null
+            } as any)
             .eq('id', companyIdToUse);
         } else {
           // Create new company in user_invoice_companies
@@ -889,8 +897,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               address_postal_code: seller.address_postal_code,
               bank_name: seller.bank_name,
               bank_account: seller.bank_account,
-              is_default: true
-            })
+              is_default: true,
+              vat_exemption_basis: vatExemptionBasis || null
+            } as any)
             .select()
             .single();
           
@@ -2027,6 +2036,43 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           </div>
         </CardContent>
       </Card>
+
+      {/* FAZA 2: podstawa zwolnienia z VAT — widoczna tylko gdy jest pozycja „zw" */}
+      {items.some(i => String(i.vat_rate).trim() === 'zw') && (
+        <Card>
+          <CardContent className="pt-6 space-y-2">
+            <Label className="font-medium">Podstawa zwolnienia z VAT (pozycje „zw")</Label>
+            <p className="text-xs text-muted-foreground">
+              Przy sprzedaży zwolnionej przepis musi znaleźć się na fakturze (art. 106e ust. 1 pkt 19)
+              i idzie do KSeF (pole P_19A). Wybór zapisuje się w danych firmy.
+            </p>
+            <Select
+              value={vatExemptionCustom ? VAT_EXEMPTION_CUSTOM : (vatExemptionBasis || '')}
+              onValueChange={(v) => {
+                if (v === VAT_EXEMPTION_CUSTOM) { setVatExemptionCustom(true); setVatExemptionBasis(''); }
+                else { setVatExemptionCustom(false); setVatExemptionBasis(v); }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Wybierz podstawę prawną zwolnienia" />
+              </SelectTrigger>
+              <SelectContent>
+                {VAT_EXEMPTION_BASES.map(b => (
+                  <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                ))}
+                <SelectItem value={VAT_EXEMPTION_CUSTOM}>Inna — wpisz ręcznie</SelectItem>
+              </SelectContent>
+            </Select>
+            {vatExemptionCustom && (
+              <Input
+                value={vatExemptionBasis}
+                onChange={(e) => setVatExemptionBasis(e.target.value)}
+                placeholder="np. art. 43 ust. 1 pkt 33 ustawy o VAT"
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs: Uwagi, Płatności, Dodatkowe */}
       <Card>
