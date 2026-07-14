@@ -64,17 +64,76 @@ serve(async (req) => {
       .limit(1)
       .single();
 
-    let resolvedProviderId = provider_id ?? null;
+    // ── Authorization (SECFIX ETAP 3) ──────────────────────────────────
+    // Wcześniej provider_id/phone szło z gołego body bez auth: (1) bez provider_id
+    // pomijało pre-check salda = darmowe SMS na koszt platformy; (2) cudzy
+    // provider_id = drenaż salda ofiary. Teraz: albo wołanie WEWNĘTRZNE
+    // (service-role, cron/inne edge — body zaufane), albo ZALOGOWANY user,
+    // którego provider WYPROWADZAMY z JWT (body provider_id musi do niego
+    // należeć — właściciel LUB aktywny pracownik). Bez auth → 401.
+    const authHeader = req.headers.get("Authorization") || "";
+    const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const isInternal = serviceKey.length > 0 && bearer === serviceKey;
 
-    if (!resolvedProviderId && order_id) {
-      const { data: orderData } = await supabaseAdmin
-        .from("workshop_orders")
-        .select("provider_id")
-        .eq("id", order_id)
-        .maybeSingle();
+    const resolveOrderProvider = async (): Promise<string | null> => {
+      if (!order_id) return null;
+      const { data } = await supabaseAdmin.from("workshop_orders")
+        .select("provider_id").eq("id", order_id).maybeSingle();
+      return data?.provider_id ?? null;
+    };
 
-      resolvedProviderId = orderData?.provider_id ?? null;
+    let resolvedProviderId: string | null = null;
+
+    if (isInternal) {
+      resolvedProviderId = provider_id ?? (await resolveOrderProvider());
+    } else {
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: "UNAUTHORIZED", message: "Brak autoryzacji." }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+      const userClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", anonKey ?? "", {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) {
+        return new Response(JSON.stringify({ error: "UNAUTHORIZED", message: "Sesja nieważna." }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const [{ data: owned }, { data: emp }] = await Promise.all([
+        supabaseAdmin.from("service_providers").select("id").eq("user_id", user.id),
+        supabaseAdmin.from("workshop_employees").select("provider_id")
+          .eq("user_id", user.id).eq("is_active", true).eq("status", "active"),
+      ]);
+      const authorized = new Set<string>([
+        ...((owned || []) as any[]).map((o) => o.id),
+        ...((emp || []) as any[]).map((e) => e.provider_id),
+      ]);
+      if (authorized.size === 0) {
+        return new Response(JSON.stringify({ error: "FORBIDDEN", message: "Konto nie jest powiązane z warsztatem." }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      let target = provider_id ?? (await resolveOrderProvider());
+      if (target) {
+        if (!authorized.has(target)) {
+          return new Response(JSON.stringify({ error: "FORBIDDEN", message: "Brak uprawnień do tego warsztatu." }), {
+            status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else if (authorized.size === 1) {
+        target = [...authorized][0];
+      } else {
+        return new Response(JSON.stringify({ error: "AMBIGUOUS_PROVIDER", message: "Wskaż provider_id." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      resolvedProviderId = target;
     }
+    // ── koniec Authorization ───────────────────────────────────────────
 
     const appKey = smsSettings?.api_key || Deno.env.get("SMSAPI_TOKEN");
     if (!appKey) {
@@ -83,28 +142,6 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
-
-    // Resolve providerId via auth header if still missing
-    if (!resolvedProviderId) {
-      const authHeader = req.headers.get("Authorization");
-      if (authHeader) {
-        const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-        const userClient = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          anonKey ?? "",
-          { global: { headers: { Authorization: authHeader } } }
-        );
-        const { data: { user } } = await userClient.auth.getUser();
-        if (user) {
-          const { data: sp } = await supabaseAdmin
-            .from("service_providers")
-            .select("id")
-            .eq("user_id", user.id)
-            .maybeSingle();
-          resolvedProviderId = sp?.id ?? null;
-        }
-      }
     }
 
     // Pre-check SMS balance
@@ -239,39 +276,13 @@ serve(async (req) => {
       );
     }
 
-    // Deduct SMS credit
-      try {
+    // Deduct SMS credit. resolvedProviderId jest już ustalony i zweryfikowany
+    // w bloku Authorization (dawny fallback po auth-headerze usunięty jako martwy).
+    try {
       if (resolvedProviderId) {
         const { error: decrError } = await supabaseAdmin.rpc("deduct_sms_credit", { p_provider_id: resolvedProviderId });
         if (decrError) console.warn("[Workshop SMS] Could not deduct SMS credit:", decrError.message);
         else console.log(`[Workshop SMS] Deducted 1 SMS credit from provider ${resolvedProviderId}`);
-      } else {
-        // Try to find provider via auth header
-        const authHeader = req.headers.get("Authorization");
-        if (authHeader) {
-          const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-          const { createClient: cc } = await import("https://esm.sh/@supabase/supabase-js@2");
-          const userClient = cc(
-            Deno.env.get("SUPABASE_URL") ?? "",
-            anonKey ?? "",
-            { global: { headers: { Authorization: authHeader } } }
-          );
-          const { data: { user } } = await userClient.auth.getUser();
-          if (user) {
-            const { data: sp } = await supabaseAdmin
-              .from("service_providers")
-              .select("id, sms_balance")
-              .eq("user_id", user.id)
-              .maybeSingle();
-            if (sp && (sp.sms_balance || 0) > 0) {
-              const { error: decrErr } = await supabaseAdmin.rpc("deduct_sms_credit", { p_provider_id: sp.id });
-              if (decrErr) console.warn("[Workshop SMS] Could not deduct user SMS credit:", decrErr.message);
-              else console.log(`[Workshop SMS] Deducted 1 SMS credit from provider ${sp.id}, remaining: ${(sp.sms_balance || 0) - 1}`);
-            } else {
-              console.warn("[Workshop SMS] User has no SMS balance or no provider record");
-            }
-          }
-        }
       }
     } catch (e) {
       console.warn("[Workshop SMS] Credit deduction failed:", e);

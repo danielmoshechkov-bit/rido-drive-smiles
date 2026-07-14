@@ -55,7 +55,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { order_id, event, employee_user_id, station_id, status_name } = await req.json();
+    const { order_id, event, employee_user_id, station_id, status_name, client_code } = await req.json();
     if (!order_id || !event) {
       return new Response(JSON.stringify({ error: "Missing order_id or event" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -68,13 +68,58 @@ serve(async (req) => {
     );
 
     const { data: order } = await admin.from("workshop_orders")
-      .select("id, order_number, provider_id, status_name, vehicle:workshop_vehicles(brand, model, license_plate)")
+      .select("id, order_number, provider_id, status_name, client_code, vehicle:workshop_vehicles(brand, model, license_plate)")
       .eq("id", order_id).maybeSingle();
     if (!order) {
       return new Response(JSON.stringify({ error: "Order not found" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // ── Authorization (SECFIX ETAP 3) ──────────────────────────────────
+    // Wcześniej: dowolny order_id z gołego body → spam SMS/powiadomień do
+    // pracowników na koszt warsztatu (order_id wyciekały z dziury RLS #1).
+    // Teraz: albo wołanie WEWNĘTRZNE (service-role), albo ZALOGOWANY właściciel/
+    // aktywny pracownik providera zlecenia, albo ANONIMOWY klient z poprawnym
+    // client_code TEGO zlecenia (tylko event 'quote_accepted' z karty klienta).
+    const authHeader = req.headers.get("Authorization") || "";
+    const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const isInternal = serviceKey.length > 0 && bearer === serviceKey;
+
+    if (!isInternal) {
+      let authorized = false;
+      if (authHeader) {
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+        const userClient = createClient(Deno.env.get("SUPABASE_URL") ?? "", anonKey ?? "", {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          const { data: owner } = await admin.from("service_providers")
+            .select("id").eq("id", order.provider_id).eq("user_id", user.id).maybeSingle();
+          if (owner) authorized = true;
+          else {
+            const { data: worker } = await admin.from("workshop_employees")
+              .select("id").eq("provider_id", order.provider_id).eq("user_id", user.id)
+              .eq("is_active", true).eq("status", "active").maybeSingle();
+            if (worker) authorized = true;
+          }
+        }
+      }
+      // Ścieżka anonimowego klienta: poprawny sekret (client_code) tego zlecenia
+      // + wyłącznie event wyzwalany z karty klienta.
+      if (!authorized && event === "quote_accepted" && typeof client_code === "string") {
+        const code = client_code.trim();
+        if (code.length >= 4 && order.client_code && code === order.client_code) authorized = true;
+      }
+      if (!authorized) {
+        return new Response(JSON.stringify({ error: "FORBIDDEN" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+    // ── koniec Authorization ───────────────────────────────────────────
     const v: any = (order as any).vehicle;
     const vehicleStr = v ? [v.brand, v.model, v.license_plate].filter(Boolean).join(' ') : '';
     const appOrigin = Deno.env.get("APP_ORIGIN") || "https://getrido.pl";

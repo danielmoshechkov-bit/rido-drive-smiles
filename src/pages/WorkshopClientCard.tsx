@@ -206,10 +206,11 @@ export default function WorkshopClientCard() {
       setSigning(false);
 
       // Tło: powiadom mechanika o akceptacji kosztorysu (flagi zlecenia utrwalił
-      // już RPC atomowo — bez osobnego anon updatu).
+      // już RPC atomowo — bez osobnego anon updatu). SECFIX3: przekaż client_code
+      // — funkcja autoryzuje anonimowego klienta po sekrecie kodu tego zlecenia.
       if (docType === 'cost_estimate') {
         supabase.functions.invoke('workshop-notify-employee', {
-          body: { order_id: order.id, event: 'quote_accepted' },
+          body: { order_id: order.id, event: 'quote_accepted', client_code: code },
         }).catch(() => {});
       }
     } catch (e: any) {
