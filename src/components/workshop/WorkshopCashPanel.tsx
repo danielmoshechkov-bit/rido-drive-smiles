@@ -40,7 +40,9 @@ export function WorkshopCashPanel({ providerId }: Props) {
   const payments = rawPayments.filter((p: any) => !p.voided);
   const expenses = rawExpenses.filter((e: any) => !e.voided);
   const payouts = rawPayouts.filter((p: any) => !p.voided);
-  const { data: orders = [] } = useWorkshopOrders(providerId);
+  // view 'all' — domyślny widok 'active' (PERF C2) wyklucza „Zakończone" serwerowo,
+  // a rozliczenie miesięcy i zamknięcie miesiąca liczą właśnie z zakończonych.
+  const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
   const { data: recurringCosts = [] } = useWorkshopRecurringCosts(providerId);
 
   const [from, setFrom] = useState(startOfWeek());

@@ -35,7 +35,9 @@ export function WorkshopCompanyReport({ providerId }: { providerId: string }) {
   const [to, setTo] = useState(todayStr());
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(new Set(['Zakończone']));
 
-  const { data: orders = [] } = useWorkshopOrders(providerId);
+  // view 'all' — domyślny widok 'active' (PERF C2) wyklucza „Zakończone" serwerowo,
+  // a memoriał liczy domyślnie właśnie zakończone zlecenia.
+  const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: cash } = useWorkshopCashData(providerId);
   const { data: recurringCosts = [] } = useWorkshopRecurringCosts(providerId);
