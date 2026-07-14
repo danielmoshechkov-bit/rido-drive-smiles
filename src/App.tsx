@@ -118,11 +118,30 @@ const PageLoader = () => (
 // refetchOnWindowFocus: true — każdy alt-tab i każdy remount refetchował
 // WSZYSTKIE aktywne zapytania (listy warsztatu z joinami itd.).
 // Zmiany między klientami dosyła realtime; po 45 s dane i tak się odświeżą.
+
+// PERF P3: klienckie błędy (4xx / RLS / kształt odpowiedzi) są deterministyczne —
+// retry ich nie naprawi, tylko trzyma spinner. Supabase-js nie zawsze daje
+// status HTTP, więc rozpoznajemy też po kodach: 42501 = permission denied (RLS),
+// PGRST* = błędy protokołu PostgREST (np. PGRST116 zła liczność, PGRST301 JWT).
+// Przejściowe (5xx, timeout 57014, przerwana transakcja 25P02, sieć) — retry TAK.
+const isNonRetryableError = (error: any) => {
+  const status = typeof error?.status === 'number' ? error.status : undefined;
+  if (status !== undefined) return status >= 400 && status < 500;
+  const code = String(error?.code ?? '');
+  return code === '42501' || code.startsWith('PGRST');
+};
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 45 * 1000,
       refetchOnWindowFocus: false,
+      // PERF P3: domyślne 3 retry z backoffem 1s/2s/4s potrafiły (z łańcuchem
+      // auth -> providerId -> lista) trzymać panel na spinnerze kilkanaście
+      // sekund przy burście 500 z Supabase. Teraz: max 2 próby, 0,5 s / 1 s,
+      // i zero ponawiania błędów klienckich.
+      retry: (failureCount, error) => failureCount < 2 && !isNonRetryableError(error),
+      retryDelay: (attemptIndex) => Math.min(500 * 2 ** attemptIndex, 2000),
     },
   },
 });

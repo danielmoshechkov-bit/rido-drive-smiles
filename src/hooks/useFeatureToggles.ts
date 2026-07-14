@@ -29,13 +29,23 @@ export function useFeatureToggles() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadFeatures = async () => {
+    let cancelled = false;
+
+    // PERF P3: pojedynczy przejściowy 500 (burst z Supabase) zostawiał feature'y
+    // na domyślnych `false` aż do przeładowania strony — moduły "znikały".
+    // Do 2 ponowień z krótką przerwą; realtime niżej i tak dosyła zmiany.
+    const loadFeatures = async (attempt = 0) => {
       const { data, error } = await supabase
         .from("feature_toggles")
         .select("feature_key, is_enabled");
+      if (cancelled) return;
 
       if (error) {
         console.error("Error loading feature toggles:", error);
+        if (attempt < 2) {
+          setTimeout(() => { if (!cancelled) loadFeatures(attempt + 1); }, 700 * (attempt + 1));
+          return;
+        }
         setLoading(false);
         return;
       }
@@ -76,6 +86,7 @@ export function useFeatureToggles() {
       .subscribe();
 
     return () => {
+      cancelled = true;
       supabase.removeChannel(channel);
     };
   }, []);
