@@ -268,15 +268,19 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         .eq('order_id', order.id)
         .order('sort_order');
 
-      const prefillItems = (orderItems || []).map((item: any) => ({
-        name: item.name || '',
-        quantity: item.quantity || 1,
-        unit: item.unit || 'usł.',
-        unit_net_price: item.unit_price_net || 0,
-        unit_gross_price: item.unit_price_gross || 0,
-        vat_rate: '23',
-        discount_percent: item.discount_percent || 0,
-      }));
+      // FAZA 5: puste wiersze z zestawienia (bez nazwy i bez ceny) nie wchodzą
+      // na fakturę — inaczej lądowały jako "1 | 0,00 zł" bez nazwy na PDF/KSeF.
+      const prefillItems = (orderItems || [])
+        .filter((item: any) => (item.name || '').trim() || item.unit_price_net || item.unit_price_gross)
+        .map((item: any) => ({
+          name: item.name || '',
+          quantity: item.quantity || 1,
+          unit: item.unit || 'usł.',
+          unit_net_price: item.unit_price_net || 0,
+          unit_gross_price: item.unit_price_gross || 0,
+          vat_rate: '23',
+          discount_percent: item.discount_percent || 0,
+        }));
 
       const buyer: any = {};
       if (order.client) {

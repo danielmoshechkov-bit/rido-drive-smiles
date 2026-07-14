@@ -811,7 +811,18 @@ function buildWarnings(sellerSource: any, buyerSource: any) {
   return Array.from(new Set(warnings));
 }
 
-function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], originalItems: any[] | null = null) {
+// FAZA 5: pozycja bez nazwy I bez kwot = śmieć z importu — nie idzie do KSeF.
+// Pozycja z nazwą a kwotą 0 (gratis) albo z kwotą bez nazwy — zostaje.
+function isEmptyInvoiceItem(item: any): boolean {
+  return !(item?.name || '').trim()
+    && !(Number(item?.net_amount) || 0)
+    && !(Number(item?.gross_amount) || 0)
+    && !(Number(item?.unit_net_price) || 0);
+}
+
+function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], rawOriginalItems: any[] | null = null) {
+  const items = (rawItems || []).filter((i) => !isEmptyInvoiceItem(i));
+  const originalItems = rawOriginalItems === null ? null : (rawOriginalItems || []).filter((i) => !isEmptyInvoiceItem(i));
   const issueDate = invoice.issue_date || new Date().toISOString().split('T')[0];
   const saleDate = invoice.sale_date || issueDate;
   const buyerSource = resolveBuyerSource(invoice);

@@ -516,8 +516,18 @@ const generateCorrectionTablesHtml = (
   return byloHtml + jestHtml + roznicaHtml + summaryHtml;
 };
 
+// FAZA 5: pozycja "całkowicie pusta" (bez nazwy I bez kwot) nie trafia na PDF
+// ani do KSeF — to śmieć z importu/zestawienia. Pozycja z nazwą a kwotą 0 (gratis)
+// albo z kwotą a bez nazwy — ZOSTAJE.
+export const isEmptyInvoiceItem = (item: Pick<InvoiceItem, 'name' | 'net_amount' | 'gross_amount' | 'unit_net_price'>): boolean =>
+  !(item.name || '').trim()
+  && !(Number(item.net_amount) || 0)
+  && !(Number(item.gross_amount) || 0)
+  && !(Number(item.unit_net_price) || 0);
+
 export const generateInvoiceHtml = (invoice: InvoiceData): string => {
-  const { seller, buyer, items, currency = 'PLN', compact_pdf = false } = invoice;
+  const { seller, buyer, currency = 'PLN', compact_pdf = false } = invoice;
+  const items = (invoice.items || []).filter(i => !isEmptyInvoiceItem(i));
   const hasAcceptedKsef = isOfficialKsefReference(invoice.ksef_reference);
   const verificationUrl = hasAcceptedKsef
     ? `https://efaktura.mf.gov.pl/web/verify?id=${encodeURIComponent(invoice.ksef_reference!)}`
@@ -986,7 +996,11 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </div>
     </div>
 
-    ${isCorrection && invoice.correction_data ? generateCorrectionTablesHtml(invoice.correction_data, currency, cellPadding, cellFontSize) : (isReceipt || isNota) ? `
+    ${isCorrection && invoice.correction_data ? generateCorrectionTablesHtml({
+      ...invoice.correction_data,
+      before_items: invoice.correction_data.before_items.filter(i => !isEmptyInvoiceItem(i)),
+      after_items: invoice.correction_data.after_items.filter(i => !isEmptyInvoiceItem(i)),
+    }, currency, cellPadding, cellFontSize) : (isReceipt || isNota) ? `
     <table>
       <thead>
         <tr>
