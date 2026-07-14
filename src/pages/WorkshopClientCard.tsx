@@ -474,23 +474,8 @@ export default function WorkshopClientCard() {
                   </div>
                 </div>
 
-                {/* Photos */}
-                {order.reception_photos && Array.isArray(JSON.parse(order.reception_photos || '[]')) && JSON.parse(order.reception_photos || '[]').length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-primary mb-2">{t('workshop.clientCard.receptionPhotos')}:</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {JSON.parse(order.reception_photos).map((photo: any, idx: number) => (
-                        <div key={idx} className="rounded-xl overflow-hidden border aspect-[4/3]">
-                          <img
-                            src={photo.url || photo}
-                            alt={photo.label || t('workshop.clientCard.photoAlt', { index: idx + 1 })}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* SECFIX2: zdjęcia przyjęcia to dowód WYŁĄCZNIE dla warsztatu
+                    (na wypadek sporu) — klient ich NIE ogląda. Brak sekcji zdjęć. */}
 
                 {/* Service scope */}
                 {tasks.length > 0 && (
