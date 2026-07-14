@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useCreateWorkshopOrderItem, useUpdateWorkshopOrderItem, useDeleteWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
+import { createWorkshopOrderItemsBatch, useUpdateWorkshopOrderItem, useDeleteWorkshopOrderItem, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
 import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle, GripVertical, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
@@ -66,6 +66,15 @@ type DropIndicator = {
   position: 'before' | 'after';
 };
 
+// PERF P4: wpis kolejki commitów pozycji (patrz enqueueEntries w komponencie).
+type CommitEntry = {
+  payload: any;
+  /** przywraca draft do poprawki po błędzie zapisu paczki */
+  restore: () => void;
+  /** efekty uboczne wykonywane dopiero PO udanym zapisie (np. historia cen) */
+  onCommitted?: () => void;
+};
+
 const getLineCost = (item: any, gross: boolean) => {
   const quantity = safeNumber(item.quantity) || 1;
   const unitCost = gross ? safeNumber(item.unit_cost_gross) : safeNumber(item.unit_cost_net);
@@ -102,7 +111,6 @@ const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number) => {
 
 export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const { t } = useTranslation();
-  const createItem = useCreateWorkshopOrderItem();
   const updateItem = useUpdateWorkshopOrderItem();
   const deleteItem = useDeleteWorkshopOrderItem();
   const updateOrder = useUpdateWorkshopOrder();
@@ -302,6 +310,106 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     return Math.max(max, currentOrder);
   }, -1) + 1;
 
+  // ======================================================================
+  // PERF P4: kolejka commitów pozycji.
+  // Każdy Enter/auto-save DOKŁADA wiersze do wspólnej kolejki zamiast odpalać
+  // własną równoległą pętlę zapisu (wyścig: kolizje sort_order z nieświeżego
+  // cache + refetch całej listy per pozycja = przeskakująca tabela).
+  //  - optimistic insert do cache dzieje się synchronicznie przy enqueue
+  //    (pozycja widoczna od razu, mimo że paczka leci później),
+  //  - paczka zbierana w oknie ~400 ms od PIERWSZEJ pozycji leci JEDNYM
+  //    upsertem (createWorkshopOrderItemsBatch: 1 request + 1 recompute),
+  //  - kolejne paczki serializuje łańcuch promise (zero równoległości),
+  //  - invalidacja listy raz, po opróżnieniu kolejki (realtime B1 i tak
+  //    merguje INSERT-y; refetch tylko domyka spójność),
+  //  - toast zbiorczy "Dodano N pozycji" per paczka,
+  //  - błąd paczki: wiersze znikają z cache, drafty wracają do poprawki.
+  const pendingEntriesRef = useRef<CommitEntry[]>([]);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flushChainRef = useRef<Promise<void>>(Promise.resolve());
+  const drainResolversRef = useRef<Array<() => void>>([]);
+  // Liczniki sort_order: alokacja synchroniczna przy Enter — cache bywa
+  // nieświeży między szybkimi Enterami, więc licznik ref wygrywa z bazą
+  // (max), a przy zewnętrznych zmianach (inny user, drag&drop) baza dogania.
+  const taskSortRef = useRef<number | null>(null);
+  const goodsSortRef = useRef<number | null>(null);
+
+  const allocSortOrder = (kind: 'task' | 'goods') => {
+    const ref = kind === 'task' ? taskSortRef : goodsSortRef;
+    const base = getNextSortOrder(kind === 'task' ? tasks : goods);
+    const val = Math.max(ref.current ?? base, base);
+    ref.current = val + 1;
+    return val;
+  };
+
+  const patchCachesWithItems = (items: any[]) => {
+    queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((o: any) => {
+        if (o?.id !== order.id) return o;
+        const existing = Array.isArray(o.items) ? o.items : [];
+        const fresh = items.filter((it) => !existing.some((e: any) => e.id === it.id));
+        return fresh.length ? { ...o, items: [...existing, ...fresh] } : o;
+      });
+    });
+  };
+
+  const removeItemsFromCaches = (items: any[]) => {
+    const ids = new Set(items.map((it) => it.id));
+    queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) => {
+      if (!Array.isArray(old)) return old;
+      return old.map((o: any) =>
+        o?.id === order.id && Array.isArray(o.items)
+          ? { ...o, items: o.items.filter((it: any) => !ids.has(it.id)) }
+          : o
+      );
+    });
+  };
+
+  const flushPendingEntries = async () => {
+    const batch = pendingEntriesRef.current;
+    pendingEntriesRef.current = [];
+    const resolvers = drainResolversRef.current;
+    drainResolversRef.current = [];
+    if (batch.length > 0) {
+      try {
+        await createWorkshopOrderItemsBatch(batch.map((e) => e.payload));
+        batch.forEach((e) => e.onCommitted?.());
+        toast.success(t('workshop.orderTasks.itemsAdded', { count: batch.length }));
+      } catch (e: any) {
+        removeItemsFromCaches(batch.map((entry) => entry.payload));
+        batch.forEach((entry) => entry.restore());
+        toast.error(e?.message || t('common.saveError'));
+      }
+    }
+    resolvers.forEach((resolve) => resolve());
+    if (pendingEntriesRef.current.length === 0 && !flushTimerRef.current) {
+      queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+    }
+  };
+
+  /** Zwrócona obietnica rozwiązuje się, gdy paczka z tymi wierszami jest
+   *  zapisana w bazie (albo przywrócona do draftów po błędzie). */
+  const enqueueEntries = (entries: CommitEntry[]) => {
+    if (entries.length === 0) return Promise.resolve();
+    // Jak w dawnym onMutate: utnij refetche w locie, żeby odpowiedź sprzed
+    // Entera nie nadpisała na chwilę cache bez świeżo dodanych wierszy.
+    void queryClient.cancelQueries({ queryKey: ['workshop-orders'] });
+    patchCachesWithItems(entries.map((e) => e.payload));
+    pendingEntriesRef.current.push(...entries);
+    return new Promise<void>((resolve) => {
+      drainResolversRef.current.push(resolve);
+      // Okno liczone od PIERWSZEJ pozycji paczki (bez resetu przy kolejnych) —
+      // szybkie Entery sklejają się, a zapis nie odwleka się w nieskończoność.
+      if (!flushTimerRef.current) {
+        flushTimerRef.current = setTimeout(() => {
+          flushTimerRef.current = null;
+          flushChainRef.current = flushChainRef.current.then(flushPendingEntries);
+        }, 400);
+      }
+    });
+  };
+
   const clearTaskDragState = () => {
     setDraggingTaskId(null);
     setTaskDropIndicator(null);
@@ -460,23 +568,17 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
     if (filled.length > 0) {
-      // FIX duplikatów: draft znika SYNCHRONICZNIE w momencie commitu — optimistic
-      // insert (onMutate) natychmiast pokazuje pozycję wśród zapisanych, więc gdyby
-      // draft żył do końca mutateAsync (kilka round-tripów), użytkownik widziałby
-      // przez cały ten czas dwa wiersze o tej samej treści (i tym samym kluczu React,
-      // bo zapisana pozycja dostaje id = draftKey).
+      // PERF P4: draft znika SYNCHRONICZNIE (optimistic insert w enqueueEntries
+      // od razu pokazuje pozycję wśród zapisanych — bez kolizji klucza React,
+      // bo zapisany wiersz dostaje id = draftKey, a draft prefiks "draft-").
+      // Zapis idzie przez wspólną kolejkę: zero równoległych pętli i wyścigu
+      // o sort_order przy szybkim dodawaniu.
+      showQuoteWarningIfNeeded();
+      const entries = filled.map(buildTaskEntry);
       const nextRow = createEmptyTask();
       setTaskRows([nextRow]);
       requestAnimationFrame(() => focusTaskDraftRow(nextRow.draftKey));
-      // Commity w tle, sekwencyjnie; błąd nie przerywa flow (submitTask sam
-      // przywraca padnięty draft do poprawki).
-      void (async () => {
-        let nextSortOrder = getNextSortOrder(tasks);
-        for (const row of filled) {
-          await submitTask(row, nextSortOrder);
-          nextSortOrder += 1;
-        }
-      })();
+      void enqueueEntries(entries);
       return;
     }
     const nextRow = createEmptyTask();
@@ -492,20 +594,18 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setTaskRows(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // FIX duplikatów: submitTask nie czyści już draftu po zakończeniu mutacji —
-  // wołający usuwa go SYNCHRONICZNIE przed commitem. Błąd mutacji przywraca
-  // draft do stanu (użytkownik poprawia/ponawia), nie przerywając reszty flow.
-  const submitTask = async (row: TaskRow, sortOrder?: number) => {
-    if (!row.name) return;
-    showQuoteWarningIfNeeded();
+  // PERF P4: buduje wpis kolejki dla draftu usługi. Sam zapis wykonuje kolejka
+  // (enqueueEntries): restore przywraca padnięty draft do poprawki, onCommitted
+  // dopisuje historię cen dopiero PO udanym zapisie paczki. Toast sukcesu jest
+  // zbiorczy per paczka (flushPendingEntries), nie per wiersz.
+  const buildTaskEntry = (row: TaskRow): CommitEntry => {
     const rawTotal = isTaskGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
     const totalAfterDiscount = row.discountType === 'percent'
       ? rawTotal - (rawTotal * row.discount / 100)
       : rawTotal - row.discount;
     const discountPercent = rawTotal > 0 ? ((rawTotal - totalAfterDiscount) / rawTotal) * 100 : 0;
-
-    try {
-      await createItem.mutateAsync({
+    return {
+      payload: {
         // Stable client id from the draft row → idempotent commit. A re-commit of the
         // same draft (auto-save race / tab remount restoring the draft) reuses this id
         // and is ignored by the upsert instead of producing a duplicate line.
@@ -516,7 +616,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         mechanic: row.mechanic || null,
         unit: 'oper',
         quantity: row.quantity,
-        sort_order: sortOrder ?? getNextSortOrder(tasks),
+        sort_order: allocSortOrder('task'),
         unit_price_gross: row.price_gross,
         unit_price_net: row.price_net,
         unit_cost_net: row.cost_net,
@@ -524,31 +624,26 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         discount_percent: discountPercent,
         total_gross: isTaskGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
         total_net: isTaskGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
-      } as any);
-    } catch {
-      // toast błędu pokazuje onError mutacji; przywróć draft do poprawki
-      setTaskRows(prev => [...prev.filter(r => r.draftKey !== row.draftKey), row]);
-      return;
-    }
-
-    // Save to price history
-    saveServicePrice.mutate({ name: row.name, priceNet: row.price_net, priceGross: row.price_gross });
-
-    // Save anonymous data if enabled
-    if (ridoPriceSettings?.share_anonymous_data !== false) {
-      saveAnonymousPrice.mutate({
-        name: row.name,
-        priceNet: row.price_net,
-        priceGross: row.price_gross,
-        brand: order.vehicle?.brand,
-        model: order.vehicle?.model,
-        engineCapacity: order.vehicle?.engine_capacity,
-        city: order.client?.city,
-        industry: ridoPriceSettings?.industry || 'warsztat',
-      });
-    }
-
-    toast.success(t('sp.services.added'));
+      },
+      restore: () => setTaskRows(prev => [...prev.filter(r => r.draftKey !== row.draftKey), row]),
+      onCommitted: () => {
+        // Save to price history
+        saveServicePrice.mutate({ name: row.name, priceNet: row.price_net, priceGross: row.price_gross });
+        // Save anonymous data if enabled
+        if (ridoPriceSettings?.share_anonymous_data !== false) {
+          saveAnonymousPrice.mutate({
+            name: row.name,
+            priceNet: row.price_net,
+            priceGross: row.price_gross,
+            brand: order.vehicle?.brand,
+            model: order.vehicle?.model,
+            engineCapacity: order.vehicle?.engine_capacity,
+            city: order.client?.city,
+            industry: ridoPriceSettings?.industry || 'warsztat',
+          });
+        }
+      },
+    };
   };
 
   // Goods row handlers
@@ -576,17 +671,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
     if (filled.length > 0) {
-      // FIX duplikatów: jak w addTaskRow — draft znika synchronicznie, commit w tle.
+      // PERF P4: jak w addTaskRow — draft znika synchronicznie, zapis przez
+      // wspólną kolejkę (optimistic insert od razu, paczka jednym upsertem).
+      showQuoteWarningIfNeeded();
+      const entries = filled.map(buildGoodsEntry);
       const nextRow = createEmptyGoods();
       setGoodsRows([nextRow]);
       requestAnimationFrame(() => focusGoodsDraftRow(nextRow.draftKey));
-      void (async () => {
-        let nextSortOrder = getNextSortOrder(goods);
-        for (const row of filled) {
-          await submitGoods(row, nextSortOrder);
-          nextSortOrder += 1;
-        }
-      })();
+      void enqueueEntries(entries);
       return;
     }
     const nextRow = createEmptyGoods();
@@ -602,19 +694,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setGoodsRows(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // FIX duplikatów: jak submitTask — bez czyszczenia po mutacji, błąd przywraca draft.
-  const submitGoods = async (row: GoodsRow, sortOrder?: number) => {
-    if (!row.name) return;
-    showQuoteWarningIfNeeded();
+  // PERF P4: jak buildTaskEntry — wpis kolejki dla draftu części.
+  const buildGoodsEntry = (row: GoodsRow): CommitEntry => {
     const rawTotal = isGoodsGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
     const totalAfterDiscount = row.discountType === 'percent'
       ? rawTotal - (rawTotal * row.discount / 100)
       : rawTotal - row.discount;
     const discountPercent = rawTotal > 0 ? ((rawTotal - totalAfterDiscount) / rawTotal) * 100 : 0;
-
-    try {
-      await createItem.mutateAsync({
-        // Stable client id from the draft row → idempotent commit (see submitTask).
+    return {
+      payload: {
+        // Stable client id from the draft row → idempotent commit (see buildTaskEntry).
         id: row.draftKey || crypto.randomUUID(),
         order_id: order.id,
         item_type: 'part',
@@ -622,7 +711,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         unit: row.unit,
         quantity: row.quantity,
         inventory_product_id: row.inventory_product_id || null,
-        sort_order: sortOrder ?? getNextSortOrder(goods),
+        sort_order: allocSortOrder('goods'),
         unit_price_gross: row.price_gross,
         unit_price_net: row.price_net,
         unit_cost_net: row.cost_net,
@@ -630,13 +719,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         discount_percent: discountPercent,
         total_gross: isGoodsGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
         total_net: isGoodsGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
-      });
-    } catch {
-      setGoodsRows(prev => [...prev.filter(r => r.draftKey !== row.draftKey), row]);
-      return;
-    }
-
-    toast.success(t('workshop.orderTasks.partAdded'));
+      },
+      restore: () => setGoodsRows(prev => [...prev.filter(r => r.draftKey !== row.draftKey), row]),
+    };
   };
 
   // Inline edit saved items
@@ -873,13 +958,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
 
-    // FIX duplikatów: reset draftów synchronicznie PRZED commitem (jak w addTaskRow).
+    // PERF P4: reset draftów synchronicznie, zapis przez wspólną kolejkę.
+    // await = wiersze SĄ w bazie (albo wróciły do draftów po błędzie) — na tym
+    // polegają wołający, np. "zapisz wszystko" przed podglądem kosztorysu.
+    showQuoteWarningIfNeeded();
+    const entries = rowsToSave.map(buildTaskEntry);
     setTaskRows([createEmptyTask()]);
-    let nextSortOrder = getNextSortOrder(tasks);
-    for (const row of rowsToSave) {
-      await submitTask(row, nextSortOrder);
-      nextSortOrder += 1;
-    }
+    await enqueueEntries(entries);
 
     if (focusNewRow) {
       // Focus the first service input in the new row after React re-render
@@ -906,13 +991,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
 
-    // FIX duplikatów: reset draftów synchronicznie PRZED commitem.
+    // PERF P4: reset draftów synchronicznie, zapis przez wspólną kolejkę (jw.).
+    showQuoteWarningIfNeeded();
+    const entries = rowsToSave.map(buildGoodsEntry);
     setGoodsRows([createEmptyGoods()]);
-    let nextSortOrder = getNextSortOrder(goods);
-    for (const row of rowsToSave) {
-      await submitGoods(row, nextSortOrder);
-      nextSortOrder += 1;
-    }
+    await enqueueEntries(entries);
 
     if (focusNewRow) {
       requestAnimationFrame(() => {

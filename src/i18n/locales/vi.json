@@ -3020,6 +3020,7 @@
       "fillServiceName": "Nhập tên dịch vụ — bạn đã nhập giá nhưng ô \"Dịch vụ\" còn trống.",
       "fillPartName": "Nhập tên phụ tùng — bạn đã nhập giá nhưng ô \"Tên\" còn trống.",
       "partAdded": "Đã thêm phụ tùng",
+      "itemsAdded_other": "Đã thêm {{count}} mục",
       "missingVehicleData": "Thiếu dữ liệu xe (VIN/hãng). Hãy hoàn thiện dữ liệu xe trước khi tìm phụ tùng.",
       "goToIntegrations": "Vào Cài đặt → Tích hợp trong menu bên",
       "servicesLabel": "Dịch vụ",
