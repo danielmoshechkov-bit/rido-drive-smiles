@@ -460,15 +460,23 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
     if (filled.length > 0) {
-      let nextSortOrder = getNextSortOrder(tasks);
-      for (const row of filled) {
-        const sourceIndex = taskRows.findIndex(c => c === row);
-        await submitTask(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
-        nextSortOrder += 1;
-      }
+      // FIX duplikatów: draft znika SYNCHRONICZNIE w momencie commitu — optimistic
+      // insert (onMutate) natychmiast pokazuje pozycję wśród zapisanych, więc gdyby
+      // draft żył do końca mutateAsync (kilka round-tripów), użytkownik widziałby
+      // przez cały ten czas dwa wiersze o tej samej treści (i tym samym kluczu React,
+      // bo zapisana pozycja dostaje id = draftKey).
       const nextRow = createEmptyTask();
       setTaskRows([nextRow]);
       requestAnimationFrame(() => focusTaskDraftRow(nextRow.draftKey));
+      // Commity w tle, sekwencyjnie; błąd nie przerywa flow (submitTask sam
+      // przywraca padnięty draft do poprawki).
+      void (async () => {
+        let nextSortOrder = getNextSortOrder(tasks);
+        for (const row of filled) {
+          await submitTask(row, nextSortOrder);
+          nextSortOrder += 1;
+        }
+      })();
       return;
     }
     const nextRow = createEmptyTask();
@@ -484,7 +492,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setTaskRows(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const submitTask = async (row: TaskRow, idx: number, sortOrder?: number) => {
+  // FIX duplikatów: submitTask nie czyści już draftu po zakończeniu mutacji —
+  // wołający usuwa go SYNCHRONICZNIE przed commitem. Błąd mutacji przywraca
+  // draft do stanu (użytkownik poprawia/ponawia), nie przerywając reszty flow.
+  const submitTask = async (row: TaskRow, sortOrder?: number) => {
     if (!row.name) return;
     showQuoteWarningIfNeeded();
     const rawTotal = isTaskGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
@@ -493,26 +504,32 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       : rawTotal - row.discount;
     const discountPercent = rawTotal > 0 ? ((rawTotal - totalAfterDiscount) / rawTotal) * 100 : 0;
 
-    await createItem.mutateAsync({
-      // Stable client id from the draft row → idempotent commit. A re-commit of the
-      // same draft (auto-save race / tab remount restoring the draft) reuses this id
-      // and is ignored by the upsert instead of producing a duplicate line.
-      id: row.draftKey || crypto.randomUUID(),
-      order_id: order.id,
-      item_type: 'service',
-      name: row.name,
-      mechanic: row.mechanic || null,
-      unit: 'oper',
-      quantity: row.quantity,
-      sort_order: sortOrder ?? getNextSortOrder(tasks),
-      unit_price_gross: row.price_gross,
-      unit_price_net: row.price_net,
-      unit_cost_net: row.cost_net,
-      unit_cost_gross: row.cost_gross,
-      discount_percent: discountPercent,
-      total_gross: isTaskGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
-      total_net: isTaskGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
-    } as any);
+    try {
+      await createItem.mutateAsync({
+        // Stable client id from the draft row → idempotent commit. A re-commit of the
+        // same draft (auto-save race / tab remount restoring the draft) reuses this id
+        // and is ignored by the upsert instead of producing a duplicate line.
+        id: row.draftKey || crypto.randomUUID(),
+        order_id: order.id,
+        item_type: 'service',
+        name: row.name,
+        mechanic: row.mechanic || null,
+        unit: 'oper',
+        quantity: row.quantity,
+        sort_order: sortOrder ?? getNextSortOrder(tasks),
+        unit_price_gross: row.price_gross,
+        unit_price_net: row.price_net,
+        unit_cost_net: row.cost_net,
+        unit_cost_gross: row.cost_gross,
+        discount_percent: discountPercent,
+        total_gross: isTaskGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
+        total_net: isTaskGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
+      } as any);
+    } catch {
+      // toast błędu pokazuje onError mutacji; przywróć draft do poprawki
+      setTaskRows(prev => [...prev.filter(r => r.draftKey !== row.draftKey), row]);
+      return;
+    }
 
     // Save to price history
     saveServicePrice.mutate({ name: row.name, priceNet: row.price_net, priceGross: row.price_gross });
@@ -531,7 +548,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       });
     }
 
-    setTaskRows(prev => prev.map((r, i) => i === idx ? createEmptyTask() : r));
     toast.success(t('sp.services.added'));
   };
 
@@ -560,15 +576,17 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
     if (filled.length > 0) {
-      let nextSortOrder = getNextSortOrder(goods);
-      for (const row of filled) {
-        const sourceIndex = goodsRows.findIndex(c => c === row);
-        await submitGoods(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
-        nextSortOrder += 1;
-      }
+      // FIX duplikatów: jak w addTaskRow — draft znika synchronicznie, commit w tle.
       const nextRow = createEmptyGoods();
       setGoodsRows([nextRow]);
       requestAnimationFrame(() => focusGoodsDraftRow(nextRow.draftKey));
+      void (async () => {
+        let nextSortOrder = getNextSortOrder(goods);
+        for (const row of filled) {
+          await submitGoods(row, nextSortOrder);
+          nextSortOrder += 1;
+        }
+      })();
       return;
     }
     const nextRow = createEmptyGoods();
@@ -584,7 +602,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     setGoodsRows(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const submitGoods = async (row: GoodsRow, idx: number, sortOrder?: number) => {
+  // FIX duplikatów: jak submitTask — bez czyszczenia po mutacji, błąd przywraca draft.
+  const submitGoods = async (row: GoodsRow, sortOrder?: number) => {
     if (!row.name) return;
     showQuoteWarningIfNeeded();
     const rawTotal = isGoodsGross ? row.quantity * row.price_gross : row.quantity * row.price_net;
@@ -593,26 +612,30 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       : rawTotal - row.discount;
     const discountPercent = rawTotal > 0 ? ((rawTotal - totalAfterDiscount) / rawTotal) * 100 : 0;
 
-    await createItem.mutateAsync({
-      // Stable client id from the draft row → idempotent commit (see submitTask).
-      id: row.draftKey || crypto.randomUUID(),
-      order_id: order.id,
-      item_type: 'part',
-      name: row.name,
-      unit: row.unit,
-      quantity: row.quantity,
-      inventory_product_id: row.inventory_product_id || null,
-      sort_order: sortOrder ?? getNextSortOrder(goods),
-      unit_price_gross: row.price_gross,
-      unit_price_net: row.price_net,
-      unit_cost_net: row.cost_net,
-      unit_cost_gross: row.cost_gross,
-      discount_percent: discountPercent,
-      total_gross: isGoodsGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
-      total_net: isGoodsGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
-    });
+    try {
+      await createItem.mutateAsync({
+        // Stable client id from the draft row → idempotent commit (see submitTask).
+        id: row.draftKey || crypto.randomUUID(),
+        order_id: order.id,
+        item_type: 'part',
+        name: row.name,
+        unit: row.unit,
+        quantity: row.quantity,
+        inventory_product_id: row.inventory_product_id || null,
+        sort_order: sortOrder ?? getNextSortOrder(goods),
+        unit_price_gross: row.price_gross,
+        unit_price_net: row.price_net,
+        unit_cost_net: row.cost_net,
+        unit_cost_gross: row.cost_gross,
+        discount_percent: discountPercent,
+        total_gross: isGoodsGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
+        total_net: isGoodsGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
+      });
+    } catch {
+      setGoodsRows(prev => [...prev.filter(r => r.draftKey !== row.draftKey), row]);
+      return;
+    }
 
-    setGoodsRows(prev => prev.map((r, i) => i === idx ? createEmptyGoods() : r));
     toast.success(t('workshop.orderTasks.partAdded'));
   };
 
@@ -850,14 +873,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
 
+    // FIX duplikatów: reset draftów synchronicznie PRZED commitem (jak w addTaskRow).
+    setTaskRows([createEmptyTask()]);
     let nextSortOrder = getNextSortOrder(tasks);
     for (const row of rowsToSave) {
-      const sourceIndex = taskRows.findIndex(candidate => candidate === row);
-      await submitTask(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
+      await submitTask(row, nextSortOrder);
       nextSortOrder += 1;
     }
 
-    setTaskRows([createEmptyTask()]);
     if (focusNewRow) {
       // Focus the first service input in the new row after React re-render
       requestAnimationFrame(() => {
@@ -883,14 +906,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return;
     }
 
+    // FIX duplikatów: reset draftów synchronicznie PRZED commitem.
+    setGoodsRows([createEmptyGoods()]);
     let nextSortOrder = getNextSortOrder(goods);
     for (const row of rowsToSave) {
-      const sourceIndex = goodsRows.findIndex(candidate => candidate === row);
-      await submitGoods(row, sourceIndex >= 0 ? sourceIndex : 0, nextSortOrder);
+      await submitGoods(row, nextSortOrder);
       nextSortOrder += 1;
     }
 
-    setGoodsRows([createEmptyGoods()]);
     if (focusNewRow) {
       requestAnimationFrame(() => {
         const inputs = goodsCardRef.current?.querySelectorAll<HTMLInputElement>('tr.bg-amber-500\\/5 input[type="text"], tr.bg-amber-500\\/5 input:not([type])');
@@ -1241,8 +1264,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     ? rowTotal - (rowTotal * row.discount / 100)
                     : rowTotal - row.discount;
                   const nameMissing = !row.name.trim() && getDraftPrice(row, isTaskGross) > 0;
+                  // FIX duplikatów: prefiks "draft-" — zapisana pozycja dostaje id === draftKey,
+                  // więc goły draftKey kolidowałby z key={task.id} zapisanego wiersza obok.
                   return (
-                    <tr key={row.draftKey ?? `new-task-${idx}`} className={nameMissing ? 'bg-destructive/10' : 'bg-primary/5'} data-task-draft-key={row.draftKey}>
+                    <tr key={`draft-${row.draftKey ?? `new-task-${idx}`}`} className={nameMissing ? 'bg-destructive/10' : 'bg-primary/5'} data-task-draft-key={row.draftKey}>
                       <td className="p-2 text-center text-muted-foreground">
                         {tasks.length + idx + 1}
                       </td>
@@ -1560,7 +1585,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     : rowTotal - row.discount;
                   const nameMissing = !row.name.trim() && getDraftPrice(row, isGoodsGross) > 0;
                   return (
-                    <tr key={row.draftKey ?? `new-goods-${idx}`} className={nameMissing ? 'bg-destructive/10' : 'bg-amber-500/5'} data-goods-draft-key={row.draftKey}>
+                    <tr key={`draft-${row.draftKey ?? `new-goods-${idx}`}`} className={nameMissing ? 'bg-destructive/10' : 'bg-amber-500/5'} data-goods-draft-key={row.draftKey}>
                       <td className="p-2 text-center text-muted-foreground">
                         {goods.length + idx + 1}
                       </td>

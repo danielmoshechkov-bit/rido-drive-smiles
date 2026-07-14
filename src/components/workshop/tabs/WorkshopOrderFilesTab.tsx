@@ -48,6 +48,16 @@ export function WorkshopOrderFilesTab({ order }: Props) {
     return data?.publicUrl || '';
   };
 
+  // PERF: miniatura do gridu (transformacja obrazu po stronie Supabase) zamiast
+  // pełnego oryginału. Gdy transformacje są niedostępne (plan/konfiguracja),
+  // <img onError> przełącza się z powrotem na oryginał — patrz użycie niżej.
+  const getThumbUrl = (filePath: string) => {
+    const { data } = supabase.storage.from('workshop-order-photos').getPublicUrl(filePath, {
+      transform: { width: 480, quality: 60 },
+    });
+    return data?.publicUrl || getPublicUrl(filePath);
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (!selectedFiles?.length || !order?.id) return;
@@ -134,7 +144,22 @@ export function WorkshopOrderFilesTab({ order }: Props) {
                     </div>
                   )}
                   <div className="aspect-[4/3]">
-                    <img src={url} alt={file.file_name} className="w-full h-full object-cover" />
+                    {/* PERF: miniatura + lazy zamiast pełnych oryginałów ładowanych
+                        naraz dla całego gridu; onError = fallback na oryginał */}
+                    <img
+                      src={getThumbUrl(file.file_url)}
+                      alt={file.file_name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        if (img.dataset.fallback !== '1') {
+                          img.dataset.fallback = '1';
+                          img.src = url;
+                        }
+                      }}
+                    />
                   </div>
                   <div className="p-1.5 text-center">
                     <p className="text-[10px] font-medium truncate">{file.file_name}</p>

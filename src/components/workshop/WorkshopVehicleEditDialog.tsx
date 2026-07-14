@@ -128,8 +128,10 @@ export function WorkshopVehicleEditDialog({ vehicle, open, onOpenChange }: Props
       if (error) throw error;
       toast.success(t('workshop.orders.vehicleSaved'));
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ['workshopOrders'] }),
-        qc.invalidateQueries({ queryKey: ['workshopVehicles'] }),
+        // FIX: klucze były camelCase (['workshopOrders']) — nie istnieją; realne
+        // to kebab-case. Przy staleTime 60s złe klucze = brak odświeżenia po edycji.
+        qc.invalidateQueries({ queryKey: ['workshop-orders'] }),
+        qc.invalidateQueries({ queryKey: ['workshop-vehicles'] }),
       ]);
       onOpenChange(false);
     } catch (e: any) {
