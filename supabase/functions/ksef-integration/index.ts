@@ -811,7 +811,7 @@ function buildWarnings(sellerSource: any, buyerSource: any) {
   return Array.from(new Set(warnings));
 }
 
-function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
+function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], originalItems: any[] | null = null) {
   const issueDate = invoice.issue_date || new Date().toISOString().split('T')[0];
   const saleDate = invoice.sale_date || issueDate;
   const buyerSource = resolveBuyerSource(invoice);
@@ -848,15 +848,38 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   
   console.log(`[KSeF] invoice_type mapping: raw="${rawType}" -> normalized="${normalizedType}" -> ksef="${invoiceType}"`);
 
-  const vatByRate: Record<string, { net: number; vat: number }> = {};
-  items.forEach((item) => {
-    const rate = String(item.vat_rate || '23');
-    if (!vatByRate[rate]) vatByRate[rate] = { net: 0, vat: 0 };
-    vatByRate[rate].net += Number(item.net_amount) || 0;
-    vatByRate[rate].vat += Number(item.vat_amount) || 0;
-  });
+  // KOREKTA RÓŻNICOWA: wg FA(3) pola kwotowe faktury KOR (P_13_x/P_14_x/P_15 i wiersze)
+  // zawierają KWOTĘ RÓŻNICY (stan po korekcie minus stan przed korektą), nie pełne nowe
+  // wartości — pełna kwota zostałaby przez KSeF doliczona do pierwotnej drugi raz.
+  // items = stan PO korekcie (tak zapisuje UI), originalItems = pozycje faktury pierwotnej.
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const beforeItems: any[] = isCorrection ? (originalItems || []) : [];
+  if (isCorrection && beforeItems.length === 0) {
+    console.warn('[KSeF] Korekta bez pozycji faktury pierwotnej — kwoty wyjdą jako pełne wartości (różnica od zera). Przekaż originalItems.');
+  }
 
-  const grossTotal = items.reduce((sum, item) => sum + (Number(item.gross_amount) || 0), 0);
+  const sumByRate = (list: any[]) => {
+    const acc: Record<string, { net: number; vat: number }> = {};
+    list.forEach((item) => {
+      const rate = String(item.vat_rate || '23');
+      if (!acc[rate]) acc[rate] = { net: 0, vat: 0 };
+      acc[rate].net += Number(item.net_amount) || 0;
+      acc[rate].vat += Number(item.vat_amount) || 0;
+    });
+    return acc;
+  };
+  const afterByRate = sumByRate(items);
+  const beforeByRate = sumByRate(beforeItems);
+  const vatByRate: Record<string, { net: number; vat: number }> = {};
+  for (const rate of new Set([...Object.keys(afterByRate), ...Object.keys(beforeByRate)])) {
+    vatByRate[rate] = {
+      net: round2((afterByRate[rate]?.net || 0) - (beforeByRate[rate]?.net || 0)),
+      vat: round2((afterByRate[rate]?.vat || 0) - (beforeByRate[rate]?.vat || 0)),
+    };
+  }
+
+  const sumGross = (list: any[]) => list.reduce((sum, item) => sum + (Number(item.gross_amount) || 0), 0);
+  const grossTotal = round2(sumGross(items) - sumGross(beforeItems));
 
   let vatBreakdownXML = '';
   for (const [rate, amounts] of Object.entries(vatByRate)) {
@@ -872,9 +895,31 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
     }
   }
 
-  const itemsXML = items.map((item, idx) => {
-    const vatCode = item.vat_rate === 'zw' ? 'zw' : item.vat_rate === 'np' ? 'np' : String(item.vat_rate || '23');
-    return `
+  const vatCodeOf = (item: any) =>
+    item.vat_rate === 'zw' ? 'zw' : item.vat_rate === 'np' ? 'np' : String(item.vat_rate || '23');
+
+  let itemsXML: string;
+  if (isCorrection) {
+    // Wiersze korekty różnicowej: parowanie po kolejności (sort_order), wartości = po minus przed.
+    // Przy korekcie niekwotowej (np. sama forma płatności) wychodzą wiersze z 0.00.
+    const rowCount = Math.max(items.length, beforeItems.length);
+    itemsXML = Array.from({ length: rowCount }, (_, idx) => {
+      const a = items[idx];
+      const b = beforeItems[idx];
+      const src = a || b;
+      return `
+      <FaWiersz>
+        <NrWierszaFa>${idx + 1}</NrWierszaFa>
+        <P_7>${escapeXml(src.name || 'Usługa')}</P_7>
+        <P_8A>${escapeXml(src.unit || 'szt')}</P_8A>
+        <P_8B>${(Number(a?.quantity || 0) - Number(b?.quantity || 0)).toFixed(4)}</P_8B>
+        <P_9A>${round2(Number(a?.unit_net_price || 0) - Number(b?.unit_net_price || 0)).toFixed(2)}</P_9A>
+        <P_11>${round2(Number(a?.net_amount || 0) - Number(b?.net_amount || 0)).toFixed(2)}</P_11>
+        <P_12>${vatCodeOf(src)}</P_12>
+      </FaWiersz>`;
+    }).join('');
+  } else {
+    itemsXML = items.map((item, idx) => `
       <FaWiersz>
         <NrWierszaFa>${idx + 1}</NrWierszaFa>
         <P_7>${escapeXml(item.name || 'Usługa')}</P_7>
@@ -882,9 +927,9 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
         <P_8B>${Number(item.quantity || 1).toFixed(4)}</P_8B>
         <P_9A>${Number(item.unit_net_price || 0).toFixed(2)}</P_9A>
         <P_11>${Number(item.net_amount || 0).toFixed(2)}</P_11>
-        <P_12>${vatCode}</P_12>
-      </FaWiersz>`;
-  }).join('');
+        <P_12>${vatCodeOf(item)}</P_12>
+      </FaWiersz>`).join('');
+  }
 
   const bankEl = sellerSource.bankAccount
     ? `<RachunekBankowy><NrRB>${sellerSource.bankAccount.replace(/\s/g, '')}</NrRB></RachunekBankowy>`
@@ -935,10 +980,16 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
       console.error('[KSeF] Correction invoice missing original invoice number');
     }
     
-    // DaneFaKorygowanej + TypKorekty required by XSD FA(3) for KOR invoices
+    // Kolejność wg sekwencji XSD FA(3): RodzajFaktury -> PrzyczynaKorekty -> TypKorekty
+    // -> DaneFaKorygowanej (TypKorekty PO DaneFaKorygowanej = odrzucenie, błąd 430).
     // P_3C and P_3D do NOT exist in FA(3) schema — removed
     const hasKsefRef = !!invoice.corrected_ksef_reference;
-    correctionBlockXml = `
+    const przyczyna = invoice.correction_reason
+      ? `
+    <PrzyczynaKorekty>${escapeXml(invoice.correction_reason)}</PrzyczynaKorekty>`
+      : '';
+    correctionBlockXml = `${przyczyna}
+    <TypKorekty>2</TypKorekty>
     <DaneFaKorygowanej>
       <DataWystFaKorygowanej>${origDate}</DataWystFaKorygowanej>
       <NrFaKorygowanej>${escapeXml(origNumber)}</NrFaKorygowanej>
@@ -946,8 +997,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
         ? `<NrKSeF>1</NrKSeF>
       <NrKSeFFaKorygowanej>${escapeXml(invoice.corrected_ksef_reference)}</NrKSeFFaKorygowanej>`
         : '<NrKSeFN>1</NrKSeFN>'}
-    </DaneFaKorygowanej>
-    <TypKorekty>2</TypKorekty>`;
+    </DaneFaKorygowanej>`;
   }
 
   // Build ZaliczkaCzesciowa for ZAL and KOR_ZAL
@@ -1052,6 +1102,17 @@ function generateInvoiceXML(invoice: any, entity: any, items: any[]): string {
   return buildKsefInvoiceArtifacts(invoice, entity, items).xml;
 }
 
+// Pozycje faktury pierwotnej (stan PRZED korektą) — wymagane do wyliczenia kwot
+// różnicowych na fakturze KOR. null = faktura nie jest korektą.
+async function fetchOriginalItems(supabase: any, invoice: any): Promise<any[] | null> {
+  if (!invoice?.corrected_invoice_id) return null;
+  const { data } = await supabase
+    .from('user_invoice_items').select('*')
+    .eq('invoice_id', invoice.corrected_invoice_id)
+    .order('sort_order');
+  return data || [];
+}
+
 // ========== INVOICE STATUS CODES ==========
 const INVOICE_STATUS_MESSAGES: Record<number, string> = {
   100: 'Faktura przyjęta do przetwarzania',
@@ -1147,7 +1208,8 @@ serve(async (req) => {
       }
       const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
       const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
-      const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
+      const originalItems = await fetchOriginalItems(supabase, invoice);
+      const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || [], originalItems);
       return jsonRes({ success: true, xml: artifacts.xml, warnings: artifacts.warnings, xsdViolations: artifacts.xsdViolations });
     }
 
@@ -1167,7 +1229,8 @@ serve(async (req) => {
 
       // Use shared resolveSellerEntityForInvoice + buildKsefInvoiceArtifacts
       const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
-      const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
+      const originalItems = await fetchOriginalItems(supabase, invoice);
+      const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || [], originalItems);
 
       console.log('[KSeF][DEBUG] XML generated, size:', artifacts.xml.length);
       console.log('[KSeF][DEBUG] Full XML:\n', artifacts.xml);
@@ -1585,7 +1648,8 @@ serve(async (req) => {
 
       // Use shared seller resolution + XML builder with full XSD validation
       const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
-      const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
+      const originalItems = await fetchOriginalItems(supabase, invoice);
+      const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || [], originalItems);
       const { xml } = artifacts;
       console.log('[KSeF][send] XML:', xml);
 
@@ -2154,8 +2218,9 @@ serve(async (req) => {
       let xml = '';
       try {
         const sellerEntity = await resolveSellerEntityForInvoice(req, supabase, invoice);
+        const originalItems = await fetchOriginalItems(supabase, invoice);
         const { data: items } = await supabase.from('user_invoice_items').select('*').eq('invoice_id', body.invoice_id).order('sort_order');
-        const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || []);
+        const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || [], originalItems);
         xml = artifacts.xml;
       } catch (e: any) {
         warnings.push(`XML generation error: ${e.message}`);
