@@ -8,7 +8,8 @@
 ## 2026-07-14 — Daty zakończenia i zapłaty w oknie płatności (branch `feat/warsztat-daty-platnosci`)
 
 ### Status
-- ✅ Kod gotowy (3 commity, `tsc` czysty po każdym), **bez pushu/PR** — czeka na testy Daniela.
+- ✅ **Zmergowane do `main`** przez PR #7 (merge `de3b1ea1`, 14.07), bez konfliktów (main ruszył tylko KSeF + perf E — pliki rozłączne). Deploy prod: patrz niżej.
+- ⏳ **Po deployu**: naprawić zamknięcie czerwca w archiwum Kasy (zapisane z zerami w okresie buga 10–14.07) — usunąć zerowy wpis i zamknąć ponownie. Za zgodą Daniela.
 - **ZERO migracji** — oba pola już były w bazie: `workshop_orders.completed_at` (ustawiane w `WorkshopStatusPicker`) i `workshop_payments.paid_at` (WYN1, default `now()`).
 
 ### Model dwóch osi czasu (decyzja Daniela — nie zmieniać)
