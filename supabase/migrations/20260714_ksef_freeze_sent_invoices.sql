@@ -39,6 +39,7 @@ BEGIN
       OR NEW.company_id IS DISTINCT FROM OLD.company_id
       OR NEW.user_id IS DISTINCT FROM OLD.user_id
       OR NEW.ksef_reference IS DISTINCT FROM OLD.ksef_reference
+      OR NEW.split_payment IS DISTINCT FROM OLD.split_payment
     THEN
       RAISE EXCEPTION 'Faktura % została wysłana do KSeF i jest niezmienialna. Wystaw korektę.', OLD.invoice_number
         USING ERRCODE = 'P0001';

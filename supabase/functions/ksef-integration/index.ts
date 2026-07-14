@@ -1130,7 +1130,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], orig
       <P_16>2</P_16>
       <P_17>2</P_17>
       <P_18>2</P_18>
-      <P_18A>2</P_18A>
+      <P_18A>${invoice.split_payment === true ? '1' : '2'}</P_18A>
       <Zwolnienie>${zwolnienieXml}</Zwolnienie>
       <NoweSrodkiTransportu><P_22N>1</P_22N></NoweSrodkiTransportu>
       <P_23>2</P_23>

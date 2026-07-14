@@ -368,6 +368,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         address_street: invoice.buyer_address || '',
       },
       ksef_reference: latestKsefRef || undefined,
+      split_payment: (invoice as any).split_payment === true,
       correction_data: correctionDataForPdf,
     };
   };

@@ -64,6 +64,8 @@ export interface InvoiceData {
   // Payment tracking
   paid_amount?: number;
   is_fully_paid?: boolean;
+  /** MPP: adnotacja "mechanizm podzielonej płatności" (faktury > 15 000 zł, załącznik nr 15). */
+  split_payment?: boolean;
   // Signature options
   signature_type?: 'none' | 'receiver' | 'issuer' | 'both_none' | 'valid_without_signature';
   issued_by?: string;
@@ -1139,6 +1141,12 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     <div style="margin-bottom: 5px; padding: 4px 11px; background: #f8f5ff; border: 1px solid #ede9fe; border-radius: 6px; font-size: 10px;">
       <span style="color: #7c3aed; font-weight: 700;">Podstawa zwolnienia z VAT:</span>
       ${seller.vat_exemption_basis || 'zwolnienie od podatku od towarów i usług'}
+    </div>
+    ` : ''}
+
+    ${invoice.split_payment ? `
+    <div style="margin-bottom: 5px; padding: 4px 11px; background: #FAEEDA; border: 1px solid #FAC775; border-radius: 6px; font-size: 11px; font-weight: 700; color: #854F0B;">
+      Mechanizm podzielonej płatności
     </div>
     ` : ''}
 

@@ -299,6 +299,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // (art. 106e ust. 1 pkt 19) i w KSeF (P_19A). Pamiętana per firma.
   const [vatExemptionBasis, setVatExemptionBasis] = useState('');
   const [vatExemptionCustom, setVatExemptionCustom] = useState(false);
+  // FAZA 3: MPP / split payment — faktury > 15 000 zł brutto (załącznik nr 15)
+  // wymagają adnotacji "mechanizm podzielonej płatności" (KSeF: P_18A=1).
+  const [splitPayment, setSplitPayment] = useState(false);
+  const [mppWarningOff, setMppWarningOff] = useState<boolean>(() => {
+    try { return localStorage.getItem('invoice_mpp_warning_off') === '1'; } catch { return false; }
+  });
 
   // NIP lookup for buyer (GUS REGON) — fill przez onCompany, żeby checkbox
   // „Skróć formę prawną" podmieniał nazwę także po lookupie
@@ -545,6 +551,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         setIssuePlace(invoice.issue_place || '');
         setPaymentMethod((invoice.payment_method || 'transfer') as 'transfer' | 'cash' | 'card');
         setNotes(invoice.notes || '');
+        setSplitPayment((invoice as any).split_payment === true);
         setCurrency((invoice.currency || 'PLN') as Currency);
         setPaidAmount(invoice.paid_amount || 0);
         setIsFullyPaid(invoice.is_paid || false);
@@ -816,6 +823,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       // Payment info
       paid_amount: paidAmount,
       is_fully_paid: isFullyPaid,
+      // MPP
+      split_payment: splitPayment,
       // Signature
       signature_type: signatureType as any,
       issued_by: issuedBy,
@@ -967,8 +976,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             gross_total: grossTotal,
             paid_amount: paidAmount,
             is_paid: isFullyPaid,
-            notes: notes
-          })
+            notes: notes,
+            split_payment: splitPayment
+          } as any)
           .eq('id', editInvoiceId);
 
         if (error) throw error;
@@ -1061,6 +1071,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             paid_amount: paidAmount,
             is_paid: isFullyPaid,
             notes: notes,
+            split_payment: splitPayment,
             ksef_status: asDraft ? 'draft' : undefined,
             ...(prefillWorkshopOrderId ? { workshop_order_id: prefillWorkshopOrderId } : {}),
         };
@@ -2070,6 +2081,38 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                 placeholder="np. art. 43 ust. 1 pkt 33 ustawy o VAT"
               />
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* FAZA 3: ostrzeżenie MPP dla faktur > 15 000 zł brutto */}
+      {finalAmount > 15000 && !mppWarningOff && (
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="pt-6 space-y-2">
+            <Label className="font-medium">Faktura powyżej 15 000 zł — mechanizm podzielonej płatności (MPP)</Label>
+            <p className="text-xs text-muted-foreground">
+              Jeśli faktura obejmuje towary lub usługi z załącznika nr 15 ustawy o VAT (m.in. części
+              samochodowe, roboty budowlane, elektronika, stal, paliwa), a kwota należności ogółem
+              przekracza 15 000 zł — adnotacja „mechanizm podzielonej płatności" jest OBOWIĄZKOWA
+              (art. 106e ust. 1 pkt 18a). Za jej brak grozi sankcja 30% kwoty VAT.
+            </p>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="split-payment"
+                checked={splitPayment}
+                onCheckedChange={(v) => setSplitPayment(v === true)}
+              />
+              <Label htmlFor="split-payment" className="text-sm font-normal cursor-pointer">
+                Wystaw fakturę z mechanizmem podzielonej płatności (MPP)
+              </Label>
+            </div>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline"
+              onClick={() => { setMppWarningOff(true); try { localStorage.setItem('invoice_mpp_warning_off', '1'); } catch { /* noop */ } }}
+            >
+              Nie pokazuj tego ostrzeżenia (możesz je włączyć ponownie czyszcząc dane strony)
+            </button>
           </CardContent>
         </Card>
       )}
