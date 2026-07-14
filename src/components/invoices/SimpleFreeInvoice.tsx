@@ -154,11 +154,16 @@ interface SimpleFreeInvoiceProps {
   prefillItems?: PrefillItem[];
   prefillBuyer?: PrefillBuyer;
   prefillNotes?: string;
+  /** Dane pojazdu (marka/model/nr rej/VIN + nr zlecenia) — wstawiane do uwag tylko gdy
+      user zaznaczy checkbox „Dodaj dane pojazdu"; jego stan pamiętamy w localStorage. */
+  prefillVehicleNotes?: string;
   prefillOrderNumber?: string;
   prefillWorkshopOrderId?: string;
 }
 
-export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillOrderNumber, prefillWorkshopOrderId }: SimpleFreeInvoiceProps = {}) {
+const VEHICLE_NOTES_PREF_KEY = 'invoice_include_vehicle_notes';
+
+export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillVehicleNotes, prefillOrderNumber, prefillWorkshopOrderId }: SimpleFreeInvoiceProps = {}) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const defaultDueDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
   
@@ -181,6 +186,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   const [issuePlace, setIssuePlace] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'cash' | 'card'>('transfer');
   const [notes, setNotes] = useState('');
+  // Checkbox „Dodaj dane pojazdu" — domyślnie ostatni wybór usera (localStorage), pierwszy raz: odznaczony.
+  const [includeVehicleNotes, setIncludeVehicleNotes] = useState<boolean>(() => {
+    if (!prefillVehicleNotes) return false;
+    try { return localStorage.getItem(VEHICLE_NOTES_PREF_KEY) === '1'; } catch { return false; }
+  });
   
   // Payment tab fields
   const [paidAmount, setPaidAmount] = useState<number>(0);
@@ -366,8 +376,24 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         email: prefillBuyer.email || prev.email,
       }));
     }
-    if (prefillNotes) setNotes(prefillNotes);
+    const initialNotes = [includeVehicleNotes ? prefillVehicleNotes : '', prefillNotes]
+      .filter(Boolean).join('\n');
+    if (initialNotes) setNotes(initialNotes);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Wstaw/usuń blok danych pojazdu w uwagach; ręczne dopiski usera zostają nietknięte.
+  const handleVehicleNotesToggle = (checked: boolean) => {
+    setIncludeVehicleNotes(checked);
+    try { localStorage.setItem(VEHICLE_NOTES_PREF_KEY, checked ? '1' : '0'); } catch { /* np. tryb prywatny */ }
+    if (!prefillVehicleNotes) return;
+    setNotes(prev => {
+      if (checked) {
+        if (prev.includes(prefillVehicleNotes)) return prev;
+        return prefillVehicleNotes + (prev ? '\n' + prev : '');
+      }
+      return prev.replace(prefillVehicleNotes, '').replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '');
+    });
+  };
 
   // Check auth state and load saved company data
   // Helper function to load user company data from multiple sources
@@ -2026,7 +2052,19 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="notes" className="mt-4">
+            <TabsContent value="notes" className="mt-4 space-y-2">
+              {prefillVehicleNotes && (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="include-vehicle-notes"
+                    checked={includeVehicleNotes}
+                    onCheckedChange={(v) => handleVehicleNotesToggle(v === true)}
+                  />
+                  <Label htmlFor="include-vehicle-notes" className="text-sm font-normal cursor-pointer">
+                    Dodaj dane pojazdu (marka, model, nr rej., VIN, nr zlecenia)
+                  </Label>
+                </div>
+              )}
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

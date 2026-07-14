@@ -45,11 +45,27 @@ export function PdfCanvasPreview({ base64 }: PdfCanvasPreviewProps) {
           canvas.style.width = '100%';
           canvas.style.height = 'auto';
           canvas.style.display = 'block';
-          canvas.style.marginBottom = pdf.numPages > 1 ? '12px' : '0';
           canvas.style.background = 'white';
           const ctx = canvas.getContext('2d');
           if (!ctx) continue;
-          container.appendChild(canvas);
+          // Każda strona jako osobna „kartka" (jak w czytniku PDF) — biała karta
+          // z cieniem i odstępem, żeby wielostronicowy dokument nie zlewał się w jeden ciąg.
+          const pageCard = document.createElement('div');
+          pageCard.style.background = 'white';
+          pageCard.style.borderRadius = '8px';
+          pageCard.style.boxShadow = '0 2px 12px rgba(0,0,0,0.18)';
+          pageCard.style.overflow = 'hidden';
+          pageCard.appendChild(canvas);
+          container.appendChild(pageCard);
+          if (pdf.numPages > 1) {
+            const pageLabel = document.createElement('div');
+            pageLabel.textContent = `Strona ${n} z ${pdf.numPages}`;
+            pageLabel.style.textAlign = 'center';
+            pageLabel.style.fontSize = '11px';
+            pageLabel.style.color = 'hsl(var(--muted-foreground))';
+            pageLabel.style.margin = '8px 0 20px';
+            container.appendChild(pageLabel);
+          }
           await page.render({ canvasContext: ctx, viewport }).promise;
         }
         if (!cancelled) setLoading(false);
@@ -74,9 +90,10 @@ export function PdfCanvasPreview({ base64 }: PdfCanvasPreviewProps) {
           Nie udało się wyświetlić podglądu. Użyj przycisku „PDF", aby pobrać.
         </div>
       )}
+      {/* Kontener przezroczysty — białą kartę z cieniem dostaje każda strona z osobna. */}
       <div
         ref={containerRef}
-        className="mx-auto bg-white shadow-xl rounded-lg w-full max-w-[900px]"
+        className="mx-auto w-full max-w-[900px]"
         style={{ display: loading || error ? 'none' : 'block' }}
       />
     </div>
