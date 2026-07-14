@@ -96,11 +96,15 @@ export function WorkshopPaymentDialog({ open, onOpenChange, providerId, orderId,
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Data zakończenia = do którego dnia/miesiąca wpada zlecenie (przychód/koszt/zysk) w raportach. */}
+          {/* Data zakończenia = do którego dnia/miesiąca wpada zlecenie (przychód/koszt/zysk) w raportach.
+              Etykieta i pole obok siebie (gap, bez justify-between); flex-wrap zawija pole
+              pod etykietę na wąskim ekranie. Picker ma w-full — szerokość trzyma wrapper. */}
           {orderId && (
-            <div className="flex items-center justify-between gap-2">
-              <Label className="text-sm text-muted-foreground shrink-0">Data zakończenia zlecenia</Label>
-              <WorkshopDatePicker value={completedDate} onChange={setCompletedDate} className="h-8 w-auto" />
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Label className="text-sm text-muted-foreground">Data zakończenia zlecenia</Label>
+              <div className="w-36">
+                <WorkshopDatePicker value={completedDate} onChange={setCompletedDate} className="h-8" />
+              </div>
             </div>
           )}
 
@@ -143,14 +147,18 @@ export function WorkshopPaymentDialog({ open, onOpenChange, providerId, orderId,
             ))}
           </div>
 
-          <div className="flex items-center justify-between gap-2">
-            <Button variant="outline" size="sm" className="gap-1" onClick={addRow}>
-              <Plus className="h-4 w-4" /> Dodaj formę (płatność podzielona)
+          {/* Dwie równe kolumny (grid): przycisk podziału płatności + data zapłaty.
+              Na wąskim ekranie kolumny stają się wierszami (grid-cols-1). min-w-0
+              nie pozwala zawartości wypchnąć kolumny poza okno. */}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button variant="outline" size="sm" className="h-auto min-w-0 flex-col gap-0 py-1" onClick={addRow}>
+              <span className="flex items-center gap-1"><Plus className="h-4 w-4" /> Dodaj formę</span>
+              <span className="text-[11px] font-normal text-muted-foreground">(płatność podzielona)</span>
             </Button>
             {/* Data zapłaty = kiedy kasa realnie weszła (wpływ w przepływie/raportach). */}
-            <div className="flex items-center gap-2 shrink-0">
-              <Label className="text-xs text-muted-foreground">Data zapłaty</Label>
-              <WorkshopDatePicker value={paidDate} onChange={setPaidDate} className="h-8 w-auto" />
+            <div className="flex min-w-0 flex-col justify-center gap-0.5">
+              <Label className="text-[11px] text-muted-foreground">Data zapłaty</Label>
+              <WorkshopDatePicker value={paidDate} onChange={setPaidDate} className="h-8" />
             </div>
           </div>
 
