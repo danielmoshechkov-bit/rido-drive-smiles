@@ -8,6 +8,8 @@ import { Plus, Trash2, Loader2, Wallet, AlertTriangle } from 'lucide-react';
 import {
   useCreateWorkshopPayments, PAYMENT_METHODS, type PaymentMethod, type PaymentSplit,
 } from '@/hooks/useWorkshopFinance';
+import { useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
+import { WorkshopDatePicker } from './WorkshopRangeCalendar';
 
 interface Props {
   open: boolean;
@@ -22,14 +24,31 @@ interface Props {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const fmt = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Lokalna data 'yyyy-MM-dd' (nie toISOString — po północy UTC cofa dzień).
+const todayLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+// Dzisiejsza data → pełny now() (naturalna kolejność w feedzie operacji kasy);
+// data wsteczna → południe UTC, żeby slice(0,10) w raportach nie przeskoczył dnia.
+const dateToTimestamp = (d: string) => (d === todayLocal() ? new Date().toISOString() : `${d}T12:00:00Z`);
 
 export function WorkshopPaymentDialog({ open, onOpenChange, providerId, orderId, invoiceId, amount, title, onPaid }: Props) {
   const createPayments = useCreateWorkshopPayments();
+  const updateOrder = useUpdateWorkshopOrder();
   const [splits, setSplits] = useState<PaymentSplit[]>([{ method: 'gotowka', amount: round2(amount) }]);
+  // Dwie osie czasu: data zakończenia steruje przychodem/kosztem/zyskiem zlecenia
+  // w raportach (completed_at), data zapłaty — wpływem w kasie (paid_at).
+  const [completedDate, setCompletedDate] = useState(todayLocal());
+  const [paidDate, setPaidDate] = useState(todayLocal());
 
   // Reset to a single full-amount row each time the dialog opens for a new amount.
   useEffect(() => {
-    if (open) setSplits([{ method: 'gotowka', amount: round2(amount) }]);
+    if (open) {
+      setSplits([{ method: 'gotowka', amount: round2(amount) }]);
+      setCompletedDate(todayLocal());
+      setPaidDate(todayLocal());
+    }
   }, [open, amount]);
 
   const sum = round2(splits.reduce((s, r) => s + (Number(r.amount) || 0), 0));
@@ -50,7 +69,19 @@ export function WorkshopPaymentDialog({ open, onOpenChange, providerId, orderId,
 
   const handleSave = async () => {
     if (!matches) return;
-    await createPayments.mutateAsync({ providerId, orderId, invoiceId, splits });
+    try {
+      // Najpierw data zakończenia (idempotentna), potem płatności — gdyby insert
+      // padł i user kliknął ponownie, nie zdubluje wpłat.
+      if (orderId) {
+        await updateOrder.mutateAsync({ id: orderId, completed_at: dateToTimestamp(completedDate) });
+      }
+      await createPayments.mutateAsync({
+        providerId, orderId, invoiceId, splits,
+        paidAt: dateToTimestamp(paidDate),
+      });
+    } catch {
+      return; // toast pokazał onError mutacji; dialog zostaje otwarty
+    }
     onOpenChange(false);
     onPaid?.();
   };
@@ -65,6 +96,18 @@ export function WorkshopPaymentDialog({ open, onOpenChange, providerId, orderId,
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Data zakończenia = do którego dnia/miesiąca wpada zlecenie (przychód/koszt/zysk) w raportach.
+              Etykieta i pole obok siebie (gap, bez justify-between); flex-wrap zawija pole
+              pod etykietę na wąskim ekranie. Picker ma w-full — szerokość trzyma wrapper. */}
+          {orderId && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Label className="text-sm text-muted-foreground">Data zakończenia zlecenia</Label>
+              <div className="w-36">
+                <WorkshopDatePicker value={completedDate} onChange={setCompletedDate} className="h-8" />
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm">
             <span className="text-muted-foreground">Do zapłaty</span>
             <span className="text-base font-semibold tabular-nums">{fmt(amount)} zł</span>
@@ -104,9 +147,20 @@ export function WorkshopPaymentDialog({ open, onOpenChange, providerId, orderId,
             ))}
           </div>
 
-          <Button variant="outline" size="sm" className="gap-1" onClick={addRow}>
-            <Plus className="h-4 w-4" /> Dodaj formę (płatność podzielona)
-          </Button>
+          {/* Dwie równe kolumny (grid): przycisk podziału płatności + data zapłaty.
+              Na wąskim ekranie kolumny stają się wierszami (grid-cols-1). min-w-0
+              nie pozwala zawartości wypchnąć kolumny poza okno. */}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Button variant="outline" size="sm" className="h-auto min-w-0 flex-col gap-0 py-1" onClick={addRow}>
+              <span className="flex items-center gap-1"><Plus className="h-4 w-4" /> Dodaj formę</span>
+              <span className="text-[11px] font-normal text-muted-foreground">(płatność podzielona)</span>
+            </Button>
+            {/* Data zapłaty = kiedy kasa realnie weszła (wpływ w przepływie/raportach). */}
+            <div className="flex min-w-0 flex-col justify-center gap-0.5">
+              <Label className="text-[11px] text-muted-foreground">Data zapłaty</Label>
+              <WorkshopDatePicker value={paidDate} onChange={setPaidDate} className="h-8" />
+            </div>
+          </div>
 
           {/* Sum / remaining */}
           <div className={`flex items-center justify-between rounded-md px-3 py-2 text-sm ${matches ? 'bg-green-500/10 text-green-700' : 'bg-amber-500/10 text-amber-700'}`}>
@@ -123,8 +177,8 @@ export function WorkshopPaymentDialog({ open, onOpenChange, providerId, orderId,
 
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-            <Button onClick={handleSave} disabled={!matches || createPayments.isPending} className="gap-2">
-              {createPayments.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button onClick={handleSave} disabled={!matches || createPayments.isPending || updateOrder.isPending} className="gap-2">
+              {(createPayments.isPending || updateOrder.isPending) && <Loader2 className="h-4 w-4 animate-spin" />}
               Zapisz płatność
             </Button>
           </div>

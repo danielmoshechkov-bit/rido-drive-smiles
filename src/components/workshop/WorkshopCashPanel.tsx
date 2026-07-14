@@ -40,7 +40,9 @@ export function WorkshopCashPanel({ providerId }: Props) {
   const payments = rawPayments.filter((p: any) => !p.voided);
   const expenses = rawExpenses.filter((e: any) => !e.voided);
   const payouts = rawPayouts.filter((p: any) => !p.voided);
-  const { data: orders = [] } = useWorkshopOrders(providerId);
+  // view 'all' — domyślny widok 'active' (PERF C2) wyklucza „Zakończone" serwerowo,
+  // a rozliczenie miesięcy i zamknięcie miesiąca liczą właśnie z zakończonych.
+  const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
   const { data: recurringCosts = [] } = useWorkshopRecurringCosts(providerId);
 
   const [from, setFrom] = useState(startOfWeek());
@@ -160,6 +162,18 @@ export function WorkshopCashPanel({ providerId }: Props) {
   };
 
   // ── Rozliczenie miesięcy NA ŻYWO (niezależne od zamknięcia) ──
+  // Suma WSZYSTKICH wpłat per zlecenie (niezależnie od paid_at) — do kolumn
+  // Zapłacono/Dług: dług miesiąca = nieopłacona część zleceń ZAKOŃCZONYCH w tym
+  // miesiącu i znika po spłacie, nawet gdy wpłata weszła w kolejnym miesiącu.
+  // Wpływy/wynik miesiąca dalej po paid_at (oś kasowa) — bez zmian.
+  const paidByOrderAll = useMemo(() => {
+    const m: Record<string, number> = {};
+    (data?.payments || []).forEach((p: any) => {
+      if (p.order_id && !p.voided) m[p.order_id] = (m[p.order_id] || 0) + Number(p.amount || 0);
+    });
+    return m;
+  }, [data?.payments]);
+
   const monthSummary = (ym: string) => {
     const from = `${ym}-01`;
     const [y, m] = ym.split('-').map(Number);
@@ -173,7 +187,9 @@ export function WorkshopCashPanel({ providerId }: Props) {
     const inflow = (data?.payments || []).filter((p: any) => !p.voided && inM(p.paid_at)).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
     const pay = (data?.payouts || []).filter((p: any) => !p.voided && (p.type === 'zaliczka' || p.type === 'wyplata') && inM(p.paid_at)).reduce((s: number, p: any) => s + Number(p.amount || 0), 0);
     const closed = (closures as any[]).find((c) => dpart(c.period_from) === from);
-    return { ym, count: ords.length, rev: round2(rev), cost: round2(cost), profit: round2(rev - cost), margin: rev > 0 ? round2((rev - cost) / rev * 100) : 0, expenses: round2(exp), result: round2(inflow - exp - pay), closed };
+    const paid = ords.reduce((s, o) => s + (paidByOrderAll[o.id] || 0), 0);
+    const debt = ords.reduce((s, o) => s + Math.max(0, orderRevenue(o) - (paidByOrderAll[o.id] || 0)), 0);
+    return { ym, count: ords.length, rev: round2(rev), cost: round2(cost), profit: round2(rev - cost), margin: rev > 0 ? round2((rev - cost) / rev * 100) : 0, paid: round2(paid), debt: round2(debt), expenses: round2(exp), result: round2(inflow - exp - pay), closed };
   };
   const monthList = useMemo(() => {
     const set = new Set<string>();
@@ -361,6 +377,8 @@ export function WorkshopCashPanel({ providerId }: Props) {
                 <th className="py-1 pr-2">Miesiąc</th>
                 <th className="py-1 px-2 text-right">Zleceń</th>
                 <th className="py-1 px-2 text-right">Przychód</th>
+                <th className="py-1 px-2 text-right">Zapłacono</th>
+                <th className="py-1 px-2 text-right">Dług</th>
                 <th className="py-1 px-2 text-right">Koszt</th>
                 <th className="py-1 px-2 text-right">Zysk</th>
                 <th className="py-1 px-2 text-right">Marża</th>
@@ -377,6 +395,8 @@ export function WorkshopCashPanel({ providerId }: Props) {
                     <td className="py-1.5 pr-2 font-medium tabular-nums">{ym}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums">{s.count}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums">{fmt(s.rev)}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums">{fmt(s.paid)}</td>
+                    <td className={`py-1.5 px-2 text-right tabular-nums ${s.debt > 0 ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>{fmt(s.debt)}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums">{fmt(s.cost)}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums">{fmt(s.profit)}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums">{s.margin.toFixed(0)}%</td>
