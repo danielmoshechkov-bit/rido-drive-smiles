@@ -76,17 +76,12 @@ export function useWorkshopProviderId() {
       // status 401 -> globalny retry tego nie ponawia (brak sesji jest
       // deterministyczny; ponawianie tylko opóźniało ekran logowania)
       if (!user) throw Object.assign(new Error('Not authenticated'), { status: 401 });
-      console.log('[useWorkshopProviderId] User ID:', user.id);
       const { data, error } = await supabase
         .from('service_providers')
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (error) {
-        console.error('[useWorkshopProviderId] Error:', error);
-        throw error;
-      }
-      console.log('[useWorkshopProviderId] Provider ID:', data?.id);
+      if (error) throw error;
       if (!data) return null;
       return data.id as string;
     },

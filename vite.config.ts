@@ -10,6 +10,10 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  // SECFIX4: w buildzie produkcyjnym wycinamy WSZYSTKIE console.* i debugger —
+  // sweep całej klasy wycieków do konsoli przeglądarki (ID, e-maile, wyniki
+  // SMS itp.). Dev (build:dev / npm run dev) zachowuje logi do debugowania.
+  esbuild: mode === 'production' ? { drop: ['console', 'debugger'] } : {},
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
