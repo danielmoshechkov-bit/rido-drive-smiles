@@ -156,12 +156,14 @@ export function useWorkshopCashData(providerId?: string) {
 export function useCreateWorkshopPayments() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ providerId, orderId, invoiceId, splits, createdByName }: {
+    mutationFn: async ({ providerId, orderId, invoiceId, splits, createdByName, paidAt }: {
       providerId: string;
       orderId?: string;
       invoiceId?: string;
       splits: PaymentSplit[];
       createdByName?: string;
+      /** ISO timestamp faktycznej zapłaty; bez niego baza wstawia now() */
+      paidAt?: string;
     }) => {
       const rows = splits
         .filter((s) => s.amount > 0)
@@ -172,6 +174,7 @@ export function useCreateWorkshopPayments() {
           method: s.method,
           amount: s.amount,
           created_by_name: createdByName || null,
+          ...(paidAt ? { paid_at: paidAt } : {}),
         }));
       if (rows.length === 0) return [];
       const { data, error } = await (supabase as any)
