@@ -980,7 +980,9 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], r
       </FaWiersz>`).join('');
   }
 
-  const bankEl = sellerSource.bankAccount
+  // FAZA 7: przy gotówce numer konta jest bez sensu — nie emituj RachunekBankowy.
+  const isCashPayment = String(invoice.payment_method || '').toLowerCase().trim() === 'cash';
+  const bankEl = (sellerSource.bankAccount && !isCashPayment)
     ? `<RachunekBankowy><NrRB>${sellerSource.bankAccount.replace(/\s/g, '')}</NrRB></RachunekBankowy>`
     : '';
 

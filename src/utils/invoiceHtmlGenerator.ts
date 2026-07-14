@@ -324,9 +324,14 @@ export const calculateItemTotals = (
 };
 
 // Helper to format address
+// FAZA 7: adresy sklejane z pustych pól potrafią mieć podwójne przecinki / puste
+// człony ("02-657 Warszawa,  ,  ") — czyścimy przed wydrukiem.
+export const cleanAddress = (address: string): string =>
+  address.split(',').map(p => p.trim()).filter(Boolean).join(', ');
+
 const formatAddress = (entity: InvoiceSeller | InvoiceBuyer): string => {
   const parts: string[] = [];
-  
+
   if (entity.address_street) {
     let streetLine = entity.address_street;
     if (entity.address_building_number) {
@@ -341,8 +346,8 @@ const formatAddress = (entity: InvoiceSeller | InvoiceBuyer): string => {
   if (entity.address_postal_code || entity.address_city) {
     parts.push(`${entity.address_postal_code || ''} ${entity.address_city || ''}`.trim());
   }
-  
-  return parts.join(', ');
+
+  return cleanAddress(parts.join(', '));
 };
 
 // Helper to generate correction-specific tables (BYŁO / JEST / RÓŻNICA) — matching GetRido branded style
