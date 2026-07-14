@@ -293,8 +293,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
       // Dane pojazdu i nr zlecenia NIE trafiają do uwag automatycznie — SimpleFreeInvoice
       // pokaże dwa niezależne checkboxy (stany pamiętane między fakturami).
+      // Tylko wypełnione pola — bez pustych etykiet typu "Marka: ,".
       const vehicleDesc = order.vehicle
-        ? `Marka: ${order.vehicle.brand || ''}, Model: ${order.vehicle.model || ''}, Nr rej: ${order.vehicle.plate || ''}, VIN: ${order.vehicle.vin || ''}`
+        ? [
+            order.vehicle.brand ? `Marka: ${order.vehicle.brand}` : '',
+            order.vehicle.model ? `Model: ${order.vehicle.model}` : '',
+            order.vehicle.plate ? `Nr rej: ${order.vehicle.plate}` : '',
+            order.vehicle.vin ? `VIN: ${order.vehicle.vin}` : '',
+          ].filter(Boolean).join(', ')
         : '';
 
       setInvoiceItems(prefillItems);
