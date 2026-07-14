@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { type InvoiceData } from '@/utils/invoiceHtmlGenerator';
 import { renderInvoicePdf } from '@/utils/renderInvoicePdf';
+import { freezeInvoicePdf, downloadFrozenPdf, isFrozenPdfUrl } from '@/utils/invoicePdfFreeze';
 import { formatIBAN } from '@/utils/formatters';
 import { 
   ChevronDown, 
@@ -24,6 +25,7 @@ import {
   TrendingUp,
   Send,
   Mail,
+  FileCheck,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -68,6 +70,7 @@ interface UserInvoice {
   created_at: string;
   ksef_status?: string;
   ksef_reference?: string;
+  pdf_url?: string | null;
 }
 
 interface InvoiceExpandableRowProps {
@@ -102,6 +105,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   // Preview modal state
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewInvoiceData, setPreviewInvoiceData] = useState<InvoiceData | null>(null);
+  // FREEZE: base64 zamrożonego PDF (faktura wysłana do KSeF) — podgląd pokazuje ten plik
+  const [previewFrozenPdf, setPreviewFrozenPdf] = useState<string | null>(null);
   
   // Inline email send state
   const [showInlineEmail, setShowInlineEmail] = useState(false);
@@ -369,6 +374,12 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   const handleOpenPreview = async () => {
     setIsGeneratingPdf(true);
     try {
+      // FREEZE: dla wysłanej faktury ze snapshotem podgląd pokazuje zamrożony plik
+      let frozen: string | null = null;
+      if (isKsefSent && isFrozenPdfUrl(invoice.pdf_url)) {
+        frozen = await downloadFrozenPdf(invoice.pdf_url);
+      }
+      setPreviewFrozenPdf(frozen);
       const data = await prepareInvoiceData();
       if (data) {
         setPreviewInvoiceData(data);
@@ -402,6 +413,12 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   const generatePdfBase64 = async (): Promise<string | null> => {
     let iframe: HTMLIFrameElement | null = null;
     try {
+      // FREEZE: faktura wysłana do KSeF ze snapshotem — serwuj zamrożony plik,
+      // NIE renderuj z żywej bazy (dokument musi być identyczny z tym w KSeF).
+      if (isKsefSent && isFrozenPdfUrl(invoice.pdf_url)) {
+        const frozen = await downloadFrozenPdf(invoice.pdf_url);
+        if (frozen) return frozen;
+      }
       const data = await prepareInvoiceData();
       if (!data) {
         console.error('[PDF] prepareInvoiceData returned null');
@@ -616,7 +633,34 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   };
 
   const handleEdit = () => {
+    if (isKsefSent) {
+      toast.error('Nie można edytować faktury wysłanej do KSeF. Wystaw korektę.');
+      return;
+    }
     setShowEditDialog(true);
+  };
+
+  const [isDownloadingUpo, setIsDownloadingUpo] = useState(false);
+  const handleDownloadUpo = async () => {
+    setIsDownloadingUpo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ksef-integration', {
+        body: { action: 'download_upo', invoice_id: invoice.id },
+      });
+      if (error) throw error;
+      if (!data?.success || !data?.upo_xml) throw new Error(data?.error || 'UPO niedostępne');
+      const blob = new Blob([data.upo_xml], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `UPO-${(invoice.invoice_number || 'faktura').replace(/\//g, '-')}.xml`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err: any) {
+      toast.error('Nie udało się pobrać UPO: ' + (err.message || ''));
+    } finally {
+      setIsDownloadingUpo(false);
+    }
   };
 
   const handleEditSaved = () => {
@@ -950,13 +994,43 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 </PopoverContent>
               </Popover>
               
-              <KsefSendButton invoiceId={invoice.id} size="sm" onStatusChange={handleKsefStatusChange} />
+              <KsefSendButton
+                invoiceId={invoice.id}
+                size="sm"
+                onStatusChange={handleKsefStatusChange}
+                onAfterSent={async () => {
+                  // FREEZE: zamroź PDF w chwili wysyłki — dokument = to co poszło do KSeF
+                  const data = await prepareInvoiceData();
+                  if (data) await freezeInvoicePdf(invoice.id, data);
+                  onUpdate();
+                }}
+              />
 
-              <Button size="sm" variant="outline" onClick={handleEdit}>
-                <Edit className="h-4 w-4 mr-1" />
-                Edytuj
-              </Button>
-              
+              {liveKsefStatus === 'accepted' && (
+                <Button size="sm" variant="outline" onClick={handleDownloadUpo} disabled={isDownloadingUpo}>
+                  {isDownloadingUpo ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileCheck className="h-4 w-4 mr-1" />}
+                  Pobierz UPO
+                </Button>
+              )}
+
+              {!isKsefSent ? (
+                <Button size="sm" variant="outline" onClick={handleEdit}>
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edytuj
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="opacity-40 cursor-not-allowed"
+                  disabled
+                  title="Nie można edytować faktury wysłanej do KSeF. Wystaw korektę."
+                >
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edytuj
+                </Button>
+              )}
+
               {canDelete ? (
                 <Button 
                   size="sm" 
@@ -1020,6 +1094,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
             if (!open) setPreviewInvoiceData(null);
           }}
           invoiceData={previewInvoiceData}
+          frozenPdfBase64={previewFrozenPdf || undefined}
           isLoggedIn={true}
           invoiceIssued={!!invoice.ksef_status && invoice.ksef_status !== 'draft'}
           onSend={handleSendInvoiceEmail}

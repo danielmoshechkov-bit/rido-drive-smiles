@@ -9,6 +9,9 @@ interface KsefSendButtonProps {
   invoiceId: string;
   size?: 'sm' | 'default';
   onStatusChange?: () => void;
+  /** FREEZE: wywoływane raz po udanej wysyłce (accepted/processing) — rodzic
+      zamraża snapshot PDF wysłanej faktury (freezeInvoicePdf). */
+  onAfterSent?: () => void | Promise<void>;
 }
 
 interface InvoiceKsefSnapshot {
@@ -18,7 +21,7 @@ interface InvoiceKsefSnapshot {
   ksef_session_ref: string | null;
 }
 
-export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefSendButtonProps) {
+export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange, onAfterSent }: KsefSendButtonProps) {
   const [ksefStatus, setKsefStatus] = useState<string | null>(null);
   const [ksefReference, setKsefReference] = useState<string | null>(null);
   const [sessionRef, setSessionRef] = useState<string | null>(null);
@@ -215,12 +218,14 @@ export function KsefSendButton({ invoiceId, size = 'sm', onStatusChange }: KsefS
       if (data.status === 'accepted' && data.ksef_reference) {
         syncSnapshot(data, true);
         toast.success('Faktura zaakceptowana przez KSeF' + (data.ksef_reference ? `: ${data.ksef_reference}` : ''));
+        try { await onAfterSent?.(); } catch (e) { console.error('[KsefSendButton] freeze PDF:', e); }
         return;
       }
 
       if (data.status === 'processing' || data.status === 'sent') {
         syncSnapshot(data, true);
         toast.success(data.message || 'Faktura wysłana do KSeF');
+        try { await onAfterSent?.(); } catch (e) { console.error('[KsefSendButton] freeze PDF:', e); }
         return;
       }
 

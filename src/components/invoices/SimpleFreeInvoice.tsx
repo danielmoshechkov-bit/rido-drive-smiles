@@ -925,6 +925,17 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       let resultInvoiceId: string | null = null;
       // Check if we're editing an existing invoice
       if (editInvoiceId) {
+        // FREEZE: faktura wysłana do KSeF jest niezmienialna (trigger DB też to
+        // wymusza) — czytelny komunikat zamiast błędu bazy.
+        const { data: freezeCheck } = await supabase
+          .from('user_invoices')
+          .select('ksef_reference, ksef_status')
+          .eq('id', editInvoiceId)
+          .maybeSingle();
+        if (freezeCheck?.ksef_reference || ['sent', 'processing', 'accepted'].includes(freezeCheck?.ksef_status || '')) {
+          toast.error('Nie można edytować faktury wysłanej do KSeF. Wystaw korektę.');
+          return;
+        }
         // UPDATE existing invoice
         const { error } = await supabase
           .from('user_invoices')
@@ -1218,6 +1229,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             } else {
               toast.success(data.message || 'Faktura wysłana do KSeF');
             }
+            // FREEZE: zamroź PDF wysłanej faktury (snapshot w storage) — dokument
+            // ma na zawsze wyglądać tak, jak w chwili wysyłki do KSeF.
+            try {
+              const { freezeInvoicePdf } = await import('@/utils/invoicePdfFreeze');
+              const frozenData = getInvoiceData();
+              if (frozenData) {
+                frozenData.ksef_reference = data.ksef_reference || undefined;
+                await freezeInvoicePdf(invoiceIdToSend, frozenData);
+              }
+            } catch (fe) { console.error('[SimpleFreeInvoice] freeze PDF:', fe); }
             // Bez onSaved tutaj — modal podglądu ma zostać; odświeżenie po zamknięciu podglądu.
           }
         } catch (ksefErr: any) {
