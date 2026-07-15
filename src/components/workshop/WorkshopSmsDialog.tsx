@@ -104,7 +104,11 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
       // do czasu wysłania (provider justsend i tak ma ~5 s opóźnienia dostarczenia).
       if (type === 'quote' || type === 'requote') {
         const lower = (order.status_name || '').toLowerCase();
-        const pre: any = { estimate_sent_to_client: true, estimate_changed_after_send: false };
+        // ETAP B: wysłanie (nowej) wyceny = czeka na akceptację TEJ wersji →
+        // reset quote_accepted, żeby klient zobaczył nową i podpisał ją na nowo
+        // (stary snapshot podpisu zostaje jako dowód). estimate_changed_after_send
+        // wraca na false, bo to jest właśnie świeżo wysłana, niezmieniona wersja.
+        const pre: any = { estimate_sent_to_client: true, estimate_changed_after_send: false, quote_accepted: false };
         if (!lower.includes('wysłana') && !lower.includes('zaakcept')) pre.status_name = 'Wycena wysłana';
         await (supabase as any).from('workshop_orders').update(pre).eq('id', order.id);
       }

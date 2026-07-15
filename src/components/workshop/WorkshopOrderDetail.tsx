@@ -22,6 +22,7 @@ import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import { WorkshopAssignEmployeeDropdown } from './WorkshopAssignEmployeeDropdown';
 import { WorkshopOrderEmployeeFindingsTab } from './tabs/WorkshopOrderEmployeeFindingsTab';
 import { OrderHistoryTimeline } from './OrderHistoryTimeline';
+import { WorkshopSignatureProofs } from './WorkshopSignatureProofs';
 import { OrderCallPanel } from './OrderCallPanel';
 import { WorkshopStatusPicker } from './WorkshopStatusPicker';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
@@ -566,6 +567,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
           <WorkshopOrderTasksTab order={order} providerId={providerId} />
         </TabsContent>
         <TabsContent value="findings">
+          <WorkshopSignatureProofs order={order} />
           <OrderHistoryTimeline orderId={order.id} providerId={providerId} hasUnreadNotes={!!order.has_unread_notes} />
         </TabsContent>
         <TabsContent value="summary">
