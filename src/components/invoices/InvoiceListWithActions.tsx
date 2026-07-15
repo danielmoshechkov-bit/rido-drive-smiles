@@ -81,7 +81,21 @@ export function InvoiceListWithActions({ invoices, onUpdate, showMarginInfo }: I
   const handleBulkDelete = async () => {
     setBulkDeleting(true);
     try {
-      const ids = Array.from(selectedIds);
+      let ids = Array.from(selectedIds);
+      // Faktury, których korekta jest w KSeF, są nieusuwalne (trigger DB też blokuje) —
+      // odfiltruj je zawczasu, żeby nie wywalić całej operacji.
+      const { data: ksefCorrs } = await (supabase
+        .from('user_invoices')
+        .select('corrected_invoice_id') as any)
+        .in('corrected_invoice_id', ids)
+        .is('deleted_at', null)
+        .not('ksef_reference', 'is', null);
+      const blocked = new Set((ksefCorrs || []).map((k: any) => k.corrected_invoice_id));
+      if (blocked.size > 0) {
+        toast.warning(`Pominięto ${blocked.size} — faktury z korektą w KSeF nie można usunąć`);
+        ids = ids.filter(id => !blocked.has(id));
+      }
+      if (ids.length === 0) { setShowBulkDeleteDialog(false); return; }
       // FAZA 4: soft-delete zamiast twardego DELETE — rekordy (i pozycje) zostają
       // w bazie dla audytu; listy filtrują deleted_at IS NULL.
       const { data: { user } } = await supabase.auth.getUser();

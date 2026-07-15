@@ -71,6 +71,8 @@ interface UserInvoice {
   ksef_status?: string;
   ksef_reference?: string;
   pdf_url?: string | null;
+  is_correction?: boolean;
+  corrected_invoice_id?: string | null;
 }
 
 interface InvoiceExpandableRowProps {
@@ -156,7 +158,47 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   };
 
   const isKsefSent = ['accepted', 'processing', 'sent'].includes(invoice.ksef_status || '');
-  const canDelete = !isKsefSent;
+
+  // Korekty tej faktury (odwrotne pytanie po corrected_invoice_id) — do blokady
+  // usuwania i dialogu "usuń obie / tylko fakturę". Pobierane przy rozwinięciu
+  // wiersza (przyciski i tak widać dopiero wtedy).
+  const [activeCorrections, setActiveCorrections] = useState<{ id: string; invoice_number: string; ksef_reference: string | null }[]>([]);
+  const [showCorrectionsDialog, setShowCorrectionsDialog] = useState(false);
+  useEffect(() => {
+    if (!isExpanded || invoice.is_correction) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase
+        .from('user_invoices')
+        .select('id, invoice_number, ksef_reference') as any)
+        .eq('corrected_invoice_id', invoice.id)
+        .is('deleted_at', null);
+      if (!cancelled) setActiveCorrections(data || []);
+    })();
+    return () => { cancelled = true; };
+  }, [isExpanded, invoice.id, invoice.is_correction]);
+
+  // Korekta, której pierwotna została usunięta — badge "pierwotna usunięta" na liście
+  const [originalDeleted, setOriginalDeleted] = useState(false);
+  useEffect(() => {
+    if (!invoice.corrected_invoice_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase
+        .from('user_invoices')
+        .select('deleted_at') as any)
+        .eq('id', invoice.corrected_invoice_id)
+        .maybeSingle();
+      if (!cancelled) setOriginalDeleted(!!data?.deleted_at);
+    })();
+    return () => { cancelled = true; };
+  }, [invoice.corrected_invoice_id]);
+
+  const hasKsefCorrection = activeCorrections.some(c => !!c.ksef_reference);
+  const canDelete = !isKsefSent && !hasKsefCorrection;
+  const deleteBlockedTitle = isKsefSent
+    ? 'Nie można usunąć faktury wysłanej do KSeF. Wystaw korektę.'
+    : 'Faktura ma korektę w KSeF — nie można usunąć.';
 
   const handleDelete = async () => {
     if (isKsefSent) {
@@ -635,6 +677,31 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     setShowReminderPopover(false);
   };
 
+  // Usuwanie faktury mającej korekty (żadna nie w KSeF — inaczej blokada):
+  // deleteCorrections=true -> soft-delete faktury i WSZYSTKICH aktywnych korekt;
+  // false -> tylko faktura, korekty zostają (dostają badge "pierwotna usunięta").
+  const handleDeleteWithCorrections = async (deleteCorrections: boolean) => {
+    setIsDeleting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const stamp = { deleted_at: new Date().toISOString(), deleted_by: user?.id || null };
+      const ids = deleteCorrections
+        ? [...activeCorrections.map(c => c.id), invoice.id]
+        : [invoice.id];
+      const { error } = await (supabase.from('user_invoices') as any).update(stamp).in('id', ids);
+      if (error) throw error;
+      toast.success(deleteCorrections
+        ? `Usunięto fakturę i ${activeCorrections.length === 1 ? 'korektę' : `${activeCorrections.length} korekty`}`
+        : 'Usunięto fakturę — korekta pozostaje na liście');
+      setShowCorrectionsDialog(false);
+      onUpdate();
+    } catch (err: any) {
+      toast.error('Błąd usuwania: ' + (err.message || ''));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleEdit = () => {
     if (isKsefSent) {
       toast.error('Nie można edytować faktury wysłanej do KSeF. Wystaw korektę.');
@@ -695,6 +762,11 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                   )}
                   {(invoice.invoice_type === 'correction' || invoice.invoice_type === 'KOR' || invoice.invoice_type === 'KOR_ZAL' || invoice.invoice_type === 'KOR_ROZ') && (
                     <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-200">Korekta</Badge>
+                  )}
+                  {originalDeleted && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-red-500/10 text-red-600 border-red-200" title="Faktura pierwotna tej korekty została usunięta z listy">
+                      pierwotna usunięta
+                    </Badge>
                   )}
                   {(invoice.invoice_type === 'ZAL' || invoice.invoice_type === 'advance') && (
                     <Badge className="text-[10px] px-1.5 py-0 bg-blue-500/10 text-blue-600 border-blue-200">Zaliczkowa</Badge>
@@ -1035,22 +1107,22 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
               )}
 
               {canDelete ? (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
+                <Button
+                  size="sm"
+                  variant="outline"
                   className="text-destructive hover:bg-destructive/10"
-                  onClick={() => setShowDeleteDialog(true)}
+                  onClick={() => activeCorrections.length > 0 ? setShowCorrectionsDialog(true) : setShowDeleteDialog(true)}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Usuń
                 </Button>
               ) : (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
+                <Button
+                  size="sm"
+                  variant="outline"
                   className="opacity-40 cursor-not-allowed"
                   disabled
-                  title="Nie można usunąć faktury wysłanej do KSeF. Wystaw korektę."
+                  title={deleteBlockedTitle}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Usuń
@@ -1060,6 +1132,42 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           </div>
         )}
       </div>
+
+      {/* Dialog usuwania faktury MAJĄCEJ korekty (żadna nie w KSeF) */}
+      <AlertDialog open={showCorrectionsDialog} onOpenChange={setShowCorrectionsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Do tej faktury wystawiono {activeCorrections.length === 1 ? 'korektę' : `${activeCorrections.length} korekty`}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                <p>Faktura {invoice.invoice_number} ma powiązane korekty:</p>
+                <ul className="list-disc pl-5 my-2 font-medium text-foreground">
+                  {activeCorrections.map(c => <li key={c.id}>{c.invoice_number}</li>)}
+                </ul>
+                <p>Korekta bez faktury pierwotnej nie ma sensu księgowego. Co zrobić?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel disabled={isDeleting}>Anuluj</AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={isDeleting}
+              onClick={() => handleDeleteWithCorrections(false)}
+            >
+              Usuń tylko fakturę (korekta zostaje)
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={() => handleDeleteWithCorrections(true)}
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Usuń {activeCorrections.length === 1 ? 'obie' : 'wszystkie'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

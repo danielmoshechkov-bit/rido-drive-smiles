@@ -4,8 +4,10 @@
 -- Blokada twarda w bazie: UI może się mylić, trigger nie.
 -- Dozwolone po wysyłce pozostają pola techniczne/operacyjne: ksef_* (statusy),
 -- pdf_url (snapshot zamrożonego PDF), płatności (is_paid/paid_amount/paid_at),
--- review_status, soft-delete (deleted_at/deleted_by — ukrycie z listy, rekord
--- zostaje) i updated_at.
+-- review_status i updated_at.
+-- PEŁNY FREEZE (decyzja 15.07): soft-delete (deleted_at) wysłanej faktury też
+-- ZABLOKOWANY — dokument w KSeF jest nietykalny bez wyjątków. Dodatkowo nie można
+-- soft-deletować faktury, której KTÓRAKOLWIEK korekta jest w KSeF.
 
 CREATE OR REPLACE FUNCTION public.prevent_ksef_frozen_invoice_update()
 RETURNS trigger
@@ -14,6 +16,23 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+  -- Soft-delete: zablokowany dla wysłanych ORAZ dla pierwotnych z korektą w KSeF
+  IF NEW.deleted_at IS DISTINCT FROM OLD.deleted_at AND NEW.deleted_at IS NOT NULL THEN
+    IF OLD.ksef_reference IS NOT NULL THEN
+      RAISE EXCEPTION 'Faktura % została wysłana do KSeF — nie można jej usunąć.', OLD.invoice_number
+        USING ERRCODE = 'P0001';
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM public.user_invoices k
+      WHERE k.corrected_invoice_id = OLD.id
+        AND k.deleted_at IS NULL
+        AND k.ksef_reference IS NOT NULL
+    ) THEN
+      RAISE EXCEPTION 'Faktura % ma korektę w KSeF — nie można jej usunąć.', OLD.invoice_number
+        USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
   IF OLD.ksef_reference IS NOT NULL THEN
     IF NEW.invoice_number IS DISTINCT FROM OLD.invoice_number
       OR NEW.invoice_type IS DISTINCT FROM OLD.invoice_type
