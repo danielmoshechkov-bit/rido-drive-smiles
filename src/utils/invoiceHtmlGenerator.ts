@@ -13,6 +13,9 @@ export interface InvoiceItem {
   gross_amount: number;
   discount_percent?: number;
   discount_amount?: number;
+  /** Podstawa zwolnienia z VAT tej pozycji (stawka zw) — pokazywana pod nazwą. */
+  vat_exemption_basis?: string;
+  vat_exemption_basis_type?: string;
 }
 
 export interface InvoiceSeller {
@@ -621,7 +624,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const itemsHtml = displayItems.map((item, index) => `
     <tr>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${index + 1}</td>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: left; vertical-align: middle; font-size: ${cellFontSize};">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: left; vertical-align: middle; font-size: ${cellFontSize};">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}${String(item.vat_rate).trim() === 'zw' && item.vat_exemption_basis ? `<div style="font-size: 8px; color: #666; margin-top: 1px;">Podstawa zwolnienia: ${item.vat_exemption_basis}</div>` : ''}</td>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${item.unit}</td>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${item.quantity}</td>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${formatCurrency(item.unit_net_price, currency)}</td>
@@ -1156,7 +1159,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <span class="amount-words-value">${numberToWords(grossTotal)}</span>
     </div>
 
-    ${items.some(i => String(i.vat_rate).trim() === 'zw') ? `
+    ${items.some(i => String(i.vat_rate).trim() === 'zw') && !items.some(i => String(i.vat_rate).trim() === 'zw' && i.vat_exemption_basis) ? `
     <div style="margin-bottom: 5px; padding: 4px 11px; background: #f8f5ff; border: 1px solid #ede9fe; border-radius: 6px; font-size: 10px;">
       <span style="color: #7c3aed; font-weight: 700;">Podstawa zwolnienia z VAT:</span>
       ${seller.vat_exemption_basis || 'zwolnienie od podatku od towarów i usług'}

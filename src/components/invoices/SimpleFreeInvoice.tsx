@@ -112,6 +112,9 @@ interface ExtendedInvoiceItem extends InvoiceItem {
   discount_percent?: number;
   discount_amount?: number;
   discount_type?: 'percent' | 'amount';
+  /** Podstawa zwolnienia z VAT per pozycja (stawka zw) — jak w iFirma. */
+  vat_exemption_basis?: string;
+  vat_exemption_basis_type?: 'ustawa' | 'dyrektywa' | 'inna';
 }
 
 // Extended seller with separate address fields
@@ -299,24 +302,64 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // (art. 106e ust. 1 pkt 19) i w KSeF (P_19A). Pamiętana per firma.
   const [vatExemptionBasis, setVatExemptionBasis] = useState('');
   const [vatExemptionCustom, setVatExemptionCustom] = useState(false);
-  // FAZA 2: gdy pojawia się pierwsza pozycja „zw", przewiń panel podstawy zwolnienia
-  // w pole widzenia — użytkownik musi go zobaczyć (art. 106e wymaga przepisu).
-  const zwBasisCardRef = useRef<HTMLDivElement | null>(null);
-  const hasZwItems = items.some(i => String(i.vat_rate).trim() === 'zw');
-  useEffect(() => {
-    if (hasZwItems) {
-      setTimeout(() => zwBasisCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
+  // Tryb numeracji (ustawienie firmy, kolumna user_invoice_companies.numbering_mode):
+  //  continuous — MAX+1 z atomowej sekwencji, luki po usuniętych przepadają (domyślny)
+  //  fill_gaps  — najniższy WOLNY numer wśród aktywnych (usunięty numer wraca)
+  //  manual     — propozycja MAX+1 aktywnych, pełna swoboda ręcznej zmiany
+  const [numberingMode, setNumberingMode] = useState<'continuous' | 'fill_gaps' | 'manual'>('continuous');
+
+  const proposeInvoiceNumber = async (userId: string, mode: string): Promise<string> => {
+    const now = new Date();
+    const year = parseInt(format(now, 'yyyy'));
+    const month = parseInt(format(now, 'MM'));
+    const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
+    if (mode === 'continuous') {
+      const { data: nextNum, error } = await (supabase as any)
+        .rpc('peek_next_invoice_number', { p_user_id: userId, p_year: year, p_month: month });
+      return `${prefix}${String(error || !nextNum ? 1 : nextNum).padStart(3, '0')}`;
     }
+    const { data } = await (supabase.from('user_invoices').select('invoice_number') as any)
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .like('invoice_number', `${prefix}%`);
+    const nums = (data || [])
+      .map((r: any) => parseInt(String(r.invoice_number).slice(prefix.length), 10))
+      .filter((n: number) => !isNaN(n));
+    let n = 1;
+    if (mode === 'fill_gaps') {
+      const taken = new Set(nums);
+      while (taken.has(n)) n++;
+    } else {
+      n = (nums.length ? Math.max(...nums) : 0) + 1;
+    }
+    return `${prefix}${String(n).padStart(3, '0')}`;
+  };
+
+  // Zmiana trybu numeracji: przelicz propozycję (o ile user nie zmienił numeru ręcznie)
+  useEffect(() => {
+    if (editInvoiceId) return;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      if (invoiceNumber === autoNumberRef.current || !invoiceNumber) {
+        const preview = await proposeInvoiceNumber(user.id, numberingMode);
+        setInvoiceNumber(preview);
+        autoNumberRef.current = preview;
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasZwItems]);
+  }, [numberingMode]);
 
   // FAZA 4: walidacja numeru NA ŻYWO — czerwone pole + blokada „Wystaw fakturę",
   // gdy aktywna faktura z tym numerem już istnieje (dodatkowo do checku przy zapisie
-  // i triggera w bazie).
+  // i triggera w bazie). Do tego OSTRZEŻENIE CHRONOLOGII (żółte, nie blokuje):
+  // numer niższy niż aktywna faktura z WCZEŚNIEJSZĄ datą = możliwe naruszenie
+  // chronologii numeracji (numer powinien rosnąć z datą).
   const [numberDuplicate, setNumberDuplicate] = useState(false);
+  const [chronologyWarning, setChronologyWarning] = useState(false);
   useEffect(() => {
     const n = (invoiceNumber || '').trim();
-    if (!n) { setNumberDuplicate(false); return; }
+    if (!n) { setNumberDuplicate(false); setChronologyWarning(false); return; }
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
@@ -330,10 +373,30 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         if (editInvoiceId) q = q.neq('id', editInvoiceId);
         const { data } = await q.maybeSingle();
         if (!cancelled) setNumberDuplicate(!!data);
+
+        // chronologia: porównujemy tylko numery z tej samej serii (prefiks do ostatniego "/")
+        const m = n.match(/^(.*\/)(\d+)$/);
+        if (m && issueDate) {
+          const prefix = m[1];
+          const myNum = parseInt(m[2], 10);
+          let cq = (supabase.from('user_invoices').select('id, invoice_number, issue_date') as any)
+            .eq('user_id', user.id)
+            .is('deleted_at', null)
+            .like('invoice_number', `${prefix}%`);
+          if (editInvoiceId) cq = cq.neq('id', editInvoiceId);
+          const { data: rows } = await cq;
+          const warn = (rows || []).some((r: any) => {
+            const rn = parseInt(String(r.invoice_number).slice(prefix.length), 10);
+            return !isNaN(rn) && rn > myNum && r.issue_date && r.issue_date < issueDate;
+          });
+          if (!cancelled) setChronologyWarning(warn);
+        } else if (!cancelled) {
+          setChronologyWarning(false);
+        }
       } catch { /* offline itp. — zapis i tak zweryfikuje */ }
     }, 400);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [invoiceNumber, editInvoiceId]);
+  }, [invoiceNumber, issueDate, editInvoiceId]);
 
   // FAZA 3: MPP / split payment — faktury > 15 000 zł brutto (załącznik nr 15)
   // wymagają adnotacji "mechanizm podzielonej płatności" (KSeF: P_18A=1).
@@ -466,6 +529,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         bank_account: company.bank_account || ''
       });
       if ((company as any).vat_exemption_basis) setVatExemptionBasis((company as any).vat_exemption_basis);
+      if (['continuous', 'fill_gaps', 'manual'].includes((company as any).numbering_mode)) {
+        setNumberingMode((company as any).numbering_mode);
+      }
       setSellerExpanded(false);
       if (!issuePlace) setIssuePlace(company.address_city || '');
       if ((company as any).logo_url) setCompanyLogo((company as any).logo_url);
@@ -630,6 +696,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               net_amount: item.net_amount || 0,
               vat_amount: item.vat_amount || 0,
               gross_amount: item.gross_amount || 0,
+              vat_exemption_basis: (item as any).vat_exemption_basis || undefined,
+              vat_exemption_basis_type: (item as any).vat_exemption_basis_type || undefined,
             };
           }));
         }
@@ -734,6 +802,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         } else {
           item.unit_gross_price = calculateGrossFromNet(item.unit_net_price, value);
         }
+        // Pozycja przełączona na zw bez podstawy — zasiej domyślną z danych firmy
+        if (String(value).trim() === 'zw' && !item.vat_exemption_basis && vatExemptionBasis) {
+          item.vat_exemption_basis = vatExemptionBasis;
+          item.vat_exemption_basis_type = item.vat_exemption_basis_type || 'ustawa';
+        }
       }
       
       // Calculate totals — pass lastEditedField + unit_gross_price so that
@@ -744,13 +817,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         unit_gross_price: item.unit_gross_price,
         lastEditedField: item.lastEditedField,
       });
-      updated[index] = { 
-        ...calculated, 
-        unit_gross_price: item.unit_gross_price, 
-        lastEditedField: item.lastEditedField, 
+      updated[index] = {
+        ...calculated,
+        unit_gross_price: item.unit_gross_price,
+        lastEditedField: item.lastEditedField,
         discount_percent: item.discount_percent,
         discount_amount: item.discount_amount,
-        discount_type: item.discount_type
+        discount_type: item.discount_type,
+        // pola per-pozycja spoza kalkulacji — nie mogą ginąć przy przeliczeniu
+        vat_exemption_basis: item.vat_exemption_basis,
+        vat_exemption_basis_type: item.vat_exemption_basis_type
       };
       return updated;
     });
@@ -966,7 +1042,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               address_postal_code: seller.address_postal_code,
               bank_name: seller.bank_name,
               bank_account: seller.bank_account,
-              vat_exemption_basis: vatExemptionBasis || null
+              vat_exemption_basis: (items.find(i => String(i.vat_rate).trim() === 'zw' && (i as any).vat_exemption_basis) as any)?.vat_exemption_basis || vatExemptionBasis || null
             } as any)
             .eq('id', companyIdToUse);
         } else {
@@ -985,7 +1061,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               bank_name: seller.bank_name,
               bank_account: seller.bank_account,
               is_default: true,
-              vat_exemption_basis: vatExemptionBasis || null
+              vat_exemption_basis: (items.find(i => String(i.vat_rate).trim() === 'zw' && (i as any).vat_exemption_basis) as any)?.vat_exemption_basis || vatExemptionBasis || null
             } as any)
             .select()
             .single();
@@ -1090,10 +1166,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           net_amount: item.net_amount,
           vat_amount: item.vat_amount,
           gross_amount: item.gross_amount,
-          sort_order: idx
-        }));
+          sort_order: idx,
+          vat_exemption_basis: (item as any).vat_exemption_basis || null,
+          vat_exemption_basis_type: (item as any).vat_exemption_basis_type || null
+        })) as any[];
 
-        await supabase.from('user_invoice_items').insert(itemsToInsert);
+        await supabase.from('user_invoice_items').insert(itemsToInsert as any);
         
         toast.success('Zmiany zostały zapisane!');
         resultInvoiceId = editInvoiceId;
@@ -1105,16 +1183,23 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         // Generate correction invoice number if needed
         let finalInvoiceNumber = asDraft ? null : invoiceData.invoice_number;
 
-        // Claim the atomic sequence number ONLY at the moment of actual issuance,
-        // and only if the user did not manually edit the preview number.
+        // Claim the number ONLY at the moment of actual issuance, and only if the
+        // user did not manually edit the preview number. Tryb numeracji:
+        //  continuous — atomowa sekwencja RPC (luki przepadają),
+        //  fill_gaps/manual — świeże przeliczenie z aktywnych faktur (najniższy wolny
+        //  / MAX+1); wyścigi łapie walidacja + trigger duplikatów w bazie.
         if (!asDraft && !isCorrection && invoiceData.invoice_number === autoNumberRef.current) {
-          const nowD = new Date();
-          const y = parseInt(format(nowD, 'yyyy'));
-          const m = parseInt(format(nowD, 'MM'));
-          const { data: claimedNum, error: claimErr } = await supabase
-            .rpc('get_next_invoice_number', { p_user_id: user.id, p_year: y, p_month: m });
-          if (!claimErr && claimedNum) {
-            finalInvoiceNumber = `FV/${y}/${String(m).padStart(2, '0')}/${String(claimedNum).padStart(3, '0')}`;
+          if (numberingMode === 'continuous') {
+            const nowD = new Date();
+            const y = parseInt(format(nowD, 'yyyy'));
+            const m = parseInt(format(nowD, 'MM'));
+            const { data: claimedNum, error: claimErr } = await supabase
+              .rpc('get_next_invoice_number', { p_user_id: user.id, p_year: y, p_month: m });
+            if (!claimErr && claimedNum) {
+              finalInvoiceNumber = `FV/${y}/${String(m).padStart(2, '0')}/${String(claimedNum).padStart(3, '0')}`;
+            }
+          } else {
+            finalInvoiceNumber = await proposeInvoiceNumber(user.id, numberingMode);
           }
         }
 
@@ -1233,10 +1318,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             net_amount: item.net_amount,
             vat_amount: item.vat_amount,
             gross_amount: item.gross_amount,
-            sort_order: idx
-          }));
+            sort_order: idx,
+            vat_exemption_basis: (item as any).vat_exemption_basis || null,
+            vat_exemption_basis_type: (item as any).vat_exemption_basis_type || null
+          })) as any[];
 
-          await supabase.from('user_invoice_items').insert(itemsToInsert);
+          await supabase.from('user_invoice_items').insert(itemsToInsert as any);
         }
 
         // Save contractor if new (only for new invoices)
@@ -1924,6 +2011,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                     Faktura o numerze {invoiceNumber} już istnieje — zmień numer.
                   </p>
                 )}
+                {!numberDuplicate && chronologyWarning && (
+                  <p className="text-xs text-amber-600 mt-1 font-medium">
+                    Uwaga: numer niższy niż faktura z wcześniejszą datą — może naruszyć chronologię numeracji.
+                  </p>
+                )}
               </div>
               <div className="relative">
                 <div className="flex h-12 w-full rounded-md border border-input bg-background items-center px-3">
@@ -2088,6 +2180,55 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               </div>
               )}
 
+              {/* Podstawa zwolnienia PRZY POZYCJI zw (jak iFirma): typ + przepis,
+                  każda pozycja zw niezależnie. Wymóg art. 106e ust. 1 pkt 19. */}
+              {String(item.vat_rate).trim() === 'zw' && (
+                <div className="rounded-md border-2 border-violet-400 bg-violet-50 dark:bg-violet-950/20 p-3 space-y-2">
+                  <Label className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                    Podstawa zwolnienia z VAT tej pozycji
+                  </Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
+                    <Select
+                      value={item.vat_exemption_basis_type || 'ustawa'}
+                      onValueChange={(v) => updateItem(index, 'vat_exemption_basis_type', v)}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ustawa">Ustawa</SelectItem>
+                        <SelectItem value="dyrektywa">Dyrektywa</SelectItem>
+                        <SelectItem value="inna">Inna</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {(item.vat_exemption_basis_type || 'ustawa') === 'ustawa' ? (
+                      <Select
+                        value={VAT_EXEMPTION_BASES.some(b => b.value === item.vat_exemption_basis) ? item.vat_exemption_basis : (item.vat_exemption_basis ? VAT_EXEMPTION_CUSTOM : '')}
+                        onValueChange={(v) => updateItem(index, 'vat_exemption_basis', v === VAT_EXEMPTION_CUSTOM ? '' : v)}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Wybierz przepis ustawy o VAT" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VAT_EXEMPTION_BASES.map(b => (
+                            <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        className="h-9"
+                        value={item.vat_exemption_basis || ''}
+                        onChange={(e) => updateItem(index, 'vat_exemption_basis', e.target.value)}
+                        placeholder={(item.vat_exemption_basis_type === 'dyrektywa')
+                          ? 'np. art. 132 ust. 1 lit. j dyrektywy 2006/112/WE'
+                          : 'wpisz podstawę prawną zwolnienia'}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Discount row (only if per_item discount enabled) */}
               {discountConfig.type === 'per_item' && (
                 <div className="grid grid-cols-2 gap-3">
@@ -2176,42 +2317,6 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         </CardContent>
       </Card>
 
-      {/* FAZA 2: podstawa zwolnienia z VAT — widoczna tylko gdy jest pozycja „zw" */}
-      {items.some(i => String(i.vat_rate).trim() === 'zw') && (
-        <Card ref={zwBasisCardRef} className="border-violet-400 border-2">
-          <CardContent className="pt-6 space-y-2">
-            <Label className="font-medium">Podstawa zwolnienia z VAT (pozycje „zw")</Label>
-            <p className="text-xs text-muted-foreground">
-              Przy sprzedaży zwolnionej przepis musi znaleźć się na fakturze (art. 106e ust. 1 pkt 19)
-              i idzie do KSeF (pole P_19A). Wybór zapisuje się w danych firmy.
-            </p>
-            <Select
-              value={vatExemptionCustom ? VAT_EXEMPTION_CUSTOM : (vatExemptionBasis || '')}
-              onValueChange={(v) => {
-                if (v === VAT_EXEMPTION_CUSTOM) { setVatExemptionCustom(true); setVatExemptionBasis(''); }
-                else { setVatExemptionCustom(false); setVatExemptionBasis(v); }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Wybierz podstawę prawną zwolnienia" />
-              </SelectTrigger>
-              <SelectContent>
-                {VAT_EXEMPTION_BASES.map(b => (
-                  <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
-                ))}
-                <SelectItem value={VAT_EXEMPTION_CUSTOM}>Inna — wpisz ręcznie</SelectItem>
-              </SelectContent>
-            </Select>
-            {vatExemptionCustom && (
-              <Input
-                value={vatExemptionBasis}
-                onChange={(e) => setVatExemptionBasis(e.target.value)}
-                placeholder="np. art. 43 ust. 1 pkt 33 ustawy o VAT"
-              />
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* FAZA 3: ostrzeżenie MPP dla faktur > 15 000 zł brutto */}
       {finalAmount > 15000 && !mppWarningOff && (
@@ -2366,6 +2471,36 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             </TabsContent>
             
             <TabsContent value="additional" className="mt-4 space-y-4">
+              {/* Tryb numeracji faktur (ustawienie firmy) */}
+              <div>
+                <Label className="mb-2 block">Numeracja faktur</Label>
+                <Select
+                  value={numberingMode}
+                  onValueChange={async (v) => {
+                    const mode = v as 'continuous' | 'fill_gaps' | 'manual';
+                    setNumberingMode(mode);
+                    if (savedCompanyId) {
+                      await (supabase.from('user_invoice_companies') as any)
+                        .update({ numbering_mode: mode })
+                        .eq('id', savedCompanyId);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="continuous">Ciągła bez cofania — zawsze kolejny numer, usunięte przepadają (zalecana)</SelectItem>
+                    <SelectItem value="fill_gaps">Odzyskiwanie luk — numer usuniętej faktury wraca jako wolny</SelectItem>
+                    <SelectItem value="manual">Ręczna z walidacją — propozycja kolejnego, pełna swoboda zmiany</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Duplikaty aktywnych numerów są blokowane w każdym trybie. Numer niższy niż
+                  wcześniejsze faktury wywoła ostrzeżenie o chronologii (nie blokuje).
+                </p>
+              </div>
+
               {/* Logo upload section */}
               <div>
                 <Label className="mb-2 block">Logo firmy (opcjonalnie)</Label>
@@ -2519,7 +2654,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           <Button 
             onClick={handleIssueInvoice}
             size="lg"
-            className="flex-1 gap-2"
+            className={`flex-1 gap-2 ${numberDuplicate ? 'bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed' : ''}`}
             disabled={isIssuing || numberDuplicate}
             title={numberDuplicate ? 'Numer faktury już istnieje — zmień numer' : undefined}
           >
@@ -2536,8 +2671,13 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             )}
           </Button>
         </div>
+        {numberDuplicate && (
+          <p className="text-center text-xs text-red-600 mt-2 font-medium">
+            Nie można wystawić: faktura o numerze {invoiceNumber} już istnieje — zmień numer.
+          </p>
+        )}
         <p className="text-center text-xs text-muted-foreground mt-2">
-          {invoiceType === 'proforma' 
+          {invoiceType === 'proforma'
             ? 'Pro forma nie jest wysyłana do KSeF. Możesz ją później przekonwertować na fakturę VAT.'
             : 'Faktura zostanie zapisana na Twoim koncie. Będziesz mógł ją pobrać jako PDF lub wysłać emailem.'
           }

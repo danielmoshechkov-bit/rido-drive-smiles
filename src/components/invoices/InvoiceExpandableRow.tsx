@@ -345,6 +345,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         net_amount: item.net_amount || 0,
         vat_amount: item.vat_amount || 0,
         gross_amount: item.gross_amount || 0,
+        vat_exemption_basis: item.vat_exemption_basis || undefined,
+        vat_exemption_basis_type: item.vat_exemption_basis_type || undefined,
       })),
       seller: {
         name: companyData?.name || '',
