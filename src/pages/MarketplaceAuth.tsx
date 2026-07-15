@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import LanguageSelector from "@/components/LanguageSelector";
 import { supabase } from "@/integrations/supabase/client";
-import { resendActivationEmail, isEmailNotConfirmedError } from "@/services/authService";
+import { resendActivationEmail, isEmailNotConfirmedError, getModuleRedirect } from "@/services/authService";
 import { toast } from "sonner";
 
 const MarketplaceAuth = () => {
@@ -83,6 +83,13 @@ const MarketplaceAuth = () => {
 
       if (!authData.user) {
         toast.error(t('auth.loginError'));
+        return;
+      }
+
+      // Konto zarejestrowane na moduł (user_metadata.module, np. warsztat) → panel modułu przed routingiem wg ról.
+      const moduleRedirect = getModuleRedirect(authData.user);
+      if (moduleRedirect) {
+        navigate(moduleRedirect);
         return;
       }
 

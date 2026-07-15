@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { signUpMarketplace, resendActivationEmail, getModuleRedirect } from "@/services/authService";
 import { getStoredReferralCode, clearReferralCode } from "@/lib/referralTracking";
 import { toast } from "sonner";
 import { Loader2, User, Mail, Lock, ShieldCheck, ArrowLeft, CheckCircle, Phone } from "lucide-react";
@@ -20,15 +21,18 @@ interface AuthModalProps {
   redirectAfterLogin?: string;
   /** Custom description to show in the header (e.g., "Zaloguj się, aby zobaczyć kontakt") */
   customDescription?: string;
+  /** Rejestracja z landingu modułu (np. { module: 'warsztat', plan: 'pro' }) — trafia do edge fn. */
+  signupContext?: { module: string; plan?: string };
 }
 
-export function AuthModal({ 
-  open, 
-  onOpenChange, 
+export function AuthModal({
+  open,
+  onOpenChange,
   initialMode = "login",
   onSuccess,
   redirectAfterLogin,
-  customDescription
+  customDescription,
+  signupContext
 }: AuthModalProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -117,9 +121,13 @@ export function AuthModal({
 
       toast.success(t("auth.loginSuccess"));
       onOpenChange(false);
-      
+
+      const moduleRedirect = getModuleRedirect(authData.user);
       if (onSuccess) {
         onSuccess();
+      } else if (moduleRedirect) {
+        // Konto zarejestrowane na moduł (np. warsztat) → od razu do panelu modułu
+        navigate(moduleRedirect);
       } else if (redirectAfterLogin) {
         navigate(redirectAfterLogin);
       } else {
@@ -183,47 +191,20 @@ export function AuthModal({
     setLoading(true);
 
     try {
-      const response = await supabase.functions.invoke("register-marketplace-user", {
-        body: {
-          first_name: registerData.first_name,
-          last_name: registerData.last_name,
-          phone: registerData.phone,
-          email: registerData.email,
-          password: registerData.password,
-          referral_code: getStoredReferralCode() || undefined,
-        },
+      const result = await signUpMarketplace({
+        first_name: registerData.first_name,
+        last_name: registerData.last_name,
+        phone: registerData.phone,
+        email: registerData.email,
+        password: registerData.password,
+        referral_code: getStoredReferralCode() || undefined,
+        module: signupContext?.module,
+        plan: signupContext?.plan,
       });
 
-      // Handle error response from edge function
-      if (response.error) {
-        // Try to parse the error message from the response
-        let errorMessage = t("auth.registerError");
-        let errorField = "general";
-        
-        // Check if there's data with error info
-        if (response.data?.error) {
-          errorMessage = response.data.error;
-          if (response.data.field) errorField = response.data.field;
-        } else {
-          // FunctionsHttpError — try to extract body from context
-          try {
-            const ctx: any = (response.error as any).context;
-            if (ctx?.body) {
-              const text = typeof ctx.body === 'string' ? ctx.body : await new Response(ctx.body).text();
-              const parsed = JSON.parse(text);
-              if (parsed?.error) {
-                errorMessage = parsed.error;
-                if (parsed.field) errorField = parsed.field;
-              }
-            } else if ((response.error as any).message) {
-              errorMessage = (response.error as any).message;
-            }
-          } catch (e) {
-            console.error("Could not parse error body:", e);
-          }
-        }
-        
-        // Set field-specific errors
+      if (!result.success) {
+        const errorMessage = result.error || t("auth.registerError");
+        const errorField = result.field || "general";
         if (errorField === "email" || errorMessage.toLowerCase().includes("email") || errorMessage.includes("zarejestrowany")) {
           setFieldErrors({ email: errorMessage });
         } else if (errorField === "password" || errorMessage.includes("hasło") || errorMessage.includes("password")) {
@@ -234,25 +215,29 @@ export function AuthModal({
         return;
       }
 
-      // Check for success response
-      if (response.data?.success) {
-        // Close modal and redirect to success page with download instructions
-        clearReferralCode();
-        onOpenChange(false);
-        navigate("/register-success");
-      } else if (response.data?.error) {
-        // Error returned in data
-        const errorMessage = response.data.error;
-        const errorField = response.data.field;
-        
-        if (errorField === "email" || errorMessage.includes("email") || errorMessage.includes("zarejestrowany")) {
-          setFieldErrors({ email: errorMessage });
-        } else if (errorField === "password" || errorMessage.includes("hasło") || errorMessage.includes("password")) {
-          setFieldErrors({ password: errorMessage });
-        } else {
-          setFieldErrors({ general: errorMessage });
-        }
+      // Konto powstało, ale mail aktywacyjny NIE wyszedł — nie udawaj sukcesu
+      if (result.emailFailed) {
+        toast.error("Konto utworzone, ale nie udało się wysłać maila aktywacyjnego.", {
+          duration: 15000,
+          description: "Kliknij, aby wysłać link ponownie.",
+          action: {
+            label: "Wyślij ponownie",
+            onClick: async () => {
+              const resend = await resendActivationEmail(registerData.email);
+              if (resend.success) {
+                toast.success(resend.message);
+              } else {
+                toast.error(resend.error);
+              }
+            },
+          },
+        });
       }
+
+      // Close modal and redirect to success page with download instructions
+      clearReferralCode();
+      onOpenChange(false);
+      navigate("/register-success");
     } catch (error: any) {
       console.error("Registration error:", error);
       setFieldErrors({ general: t("auth.connectionError") });

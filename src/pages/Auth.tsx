@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import LanguageSelector from "@/components/LanguageSelector";
 import { supabase } from "@/integrations/supabase/client";
+import { getModuleRedirect } from "@/services/authService";
 import { toast } from "sonner";
 
 const Auth = () => {
@@ -77,6 +78,13 @@ const Auth = () => {
       // If a redirect param is provided (e.g. invitation acceptance flow), honor it before role routing.
       if (redirectTo) {
         navigate(redirectTo);
+        return;
+      }
+
+      // Konto zarejestrowane na moduł (user_metadata.module, np. warsztat) → panel modułu przed routingiem wg ról.
+      const moduleRedirect = getModuleRedirect(authData.user);
+      if (moduleRedirect) {
+        navigate(moduleRedirect);
         return;
       }
 

@@ -208,6 +208,14 @@ export default function ServicesMarketplace() {
     checkUser();
   }, []);
 
+  // Fallback dla linków rejestracji modułowej: /uslugi?activate=warsztat → panel usługodawcy
+  // (panel sam odsyła na /auth, gdy brak sesji).
+  useEffect(() => {
+    if (searchParams.get('activate') === 'warsztat') {
+      navigate('/uslugi/panel', { replace: true });
+    }
+  }, [searchParams, navigate]);
+
   const checkUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);

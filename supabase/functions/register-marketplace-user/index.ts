@@ -12,7 +12,12 @@ interface RegisterMarketplaceUserRequest {
   email: string;
   password: string;
   referral_code?: string;
+  /** Rejestracja z landingu modułu (np. 'warsztat') — zapisywane w user_metadata */
+  module?: string;
+  plan?: string;
 }
+
+const KNOWN_MODULES = ["warsztat"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -29,8 +34,10 @@ Deno.serve(async (req) => {
 
     const body: RegisterMarketplaceUserRequest = await req.json();
     const { first_name, last_name, phone, email, password, referral_code } = body;
+    const module = body.module && KNOWN_MODULES.includes(body.module) ? body.module : undefined;
+    const plan = module ? (body.plan || undefined) : undefined;
 
-    console.log("📝 Starting marketplace user registration for:", email);
+    console.log("📝 Starting marketplace user registration for:", email, module ? `(module: ${module}, plan: ${plan || '-'})` : "");
 
     // Check feature toggle for email confirmation requirement
     const { data: toggleData } = await supabaseAdmin
@@ -47,7 +54,10 @@ Deno.serve(async (req) => {
       email,
       password,
       email_confirm: !requireEmailConfirmation,
-      user_metadata: { first_name, last_name, phone, account_type: 'marketplace' }
+      user_metadata: {
+        first_name, last_name, phone, account_type: 'marketplace',
+        ...(module ? { module, plan } : {})
+      }
     });
 
     if (authError) {
@@ -131,6 +141,46 @@ Deno.serve(async (req) => {
       console.log("✅ Marketplace role assigned");
     }
 
+    // 3a-bis. Moduł warsztatowy: wpis usługodawcy (status wstępny) + minimalny trial 14 dni.
+    // UWAGA: celowo TYLKO zapis daty końca trialu (expires_at) — egzekwowanie
+    // wygasania/blokad/płatności robimy osobno, później.
+    if (module === "warsztat") {
+      const { error: spError } = await supabaseAdmin
+        .from("service_providers")
+        .insert({
+          user_id: userId,
+          company_name: [first_name, last_name].filter(Boolean).join(" ").trim() || email,
+          owner_first_name: first_name || null,
+          owner_last_name: last_name || null,
+          owner_email: email,
+          company_email: email,
+          company_phone: phone || null,
+          status: "pending",
+        });
+      if (spError) {
+        console.error("⚠️ service_providers insert error:", spError.message);
+      } else {
+        console.log("✅ Workshop service_provider created (pending)");
+      }
+
+      const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: trialError } = await supabaseAdmin
+        .from("paid_service_subscriptions")
+        .insert({
+          user_id: userId,
+          status: "trial",
+          started_at: new Date().toISOString(),
+          expires_at: trialEndsAt,
+          amount_paid: 0,
+          metadata: { module, plan: plan || null, trial: true, source: "self_signup" },
+        });
+      if (trialError) {
+        console.error("⚠️ trial subscription insert error:", trialError.message);
+      } else {
+        console.log("✅ Workshop trial saved, expires_at:", trialEndsAt);
+      }
+    }
+
     // 3b. Generate referral code for the new user (so they can refer others)
     try {
       const { data: codeData, error: codeErr } = await supabaseAdmin.rpc("ensure_referral_code", { p_user_id: userId });
@@ -179,12 +229,13 @@ Deno.serve(async (req) => {
     let emailSent = !requireEmailConfirmation; // gdy potwierdzenie niewymagane, mail nie jest potrzebny
     if (requireEmailConfirmation) {
       const siteUrl = Deno.env.get('SITE_URL') || 'https://getrido.pl';
+      const activationPath = module ? `/aktywacja?module=${module}` : '/aktywacja';
       const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin
         .generateLink({
           type: 'signup',
           email,
           password,
-          options: { redirectTo: `${siteUrl}/aktywacja` }
+          options: { redirectTo: `${siteUrl}${activationPath}` }
         });
 
       if (linkError) {

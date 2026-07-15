@@ -298,6 +298,7 @@ export default function WorkshopLanding() {
         onOpenChange={setShowLoginModal}
         initialMode={loginMode}
         redirectAfterLogin={`/uslugi?activate=warsztat${selectedPlan ? `&plan=${selectedPlan}` : ""}`}
+        signupContext={{ module: "warsztat", plan: selectedPlan ?? undefined }}
       />
     </div>
   );

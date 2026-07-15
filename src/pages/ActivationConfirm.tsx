@@ -78,7 +78,17 @@ export default function ActivationConfirm() {
         // No token - just show success (might be coming from email link that already verified)
         setShowModal(true);
       }
-      
+
+      // Konto zarejestrowane na moduł (?module=warsztat lub user_metadata.module):
+      // po udanej weryfikacji verifyOtp mamy sesję → od razu do panelu modułu.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const module = searchParams.get('module')
+        || (sessionData.session?.user?.user_metadata as Record<string, unknown> | undefined)?.module;
+      if (module === 'warsztat' && sessionData.session) {
+        navigate('/uslugi/panel', { replace: true });
+        return;
+      }
+
       setLoading(false);
     };
 

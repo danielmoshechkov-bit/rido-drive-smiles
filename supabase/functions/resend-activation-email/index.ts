@@ -71,13 +71,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Wygeneruj świeży link aktywacyjny (signup dla istniejącego niepotwierdzonego usera)
+    // Wygeneruj świeży link aktywacyjny (signup dla istniejącego niepotwierdzonego usera).
+    // Konto zarejestrowane na moduł → wróć na /aktywacja?module=... (routing do panelu modułu).
     const siteUrl = Deno.env.get("SITE_URL") || "https://getrido.pl";
+    const userModule = (user.user_metadata as Record<string, string> | undefined)?.module;
+    const activationPath = userModule ? `/aktywacja?module=${userModule}` : "/aktywacja";
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "signup",
       email: normalizedEmail,
       password: crypto.randomUUID(), // ignorowane dla istniejącego usera, wymagane przez API
-      options: { redirectTo: `${siteUrl}/aktywacja` },
+      options: { redirectTo: `${siteUrl}${activationPath}` },
     });
 
     if (linkError || !linkData?.properties?.action_link) {

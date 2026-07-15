@@ -53,6 +53,9 @@ export type MarketplaceSignupPayload = {
   email: string;
   password: string;
   referral_code?: string;
+  /** Rejestracja z landingu modułu (np. 'warsztat') — edge fn zakłada wpis usługodawcy + trial. */
+  module?: string;
+  plan?: string;
 };
 
 /** Rejestracja KLIENTA GIEŁDY przez edge fn (konto + profil + rola + referral + mail). */
@@ -111,6 +114,19 @@ export async function resendActivationEmail(email: string, language = "pl"): Pro
     success: true,
     message: response.data?.message || "Jeśli konto istnieje i wymaga aktywacji, link został wysłany.",
   };
+}
+
+/**
+ * Redirect po zalogowaniu dla kont zarejestrowanych na moduł (user_metadata.module).
+ * Zwraca ścieżkę panelu modułu albo null (wtedy obowiązuje routing wg ról).
+ */
+export function getModuleRedirect(
+  user: { user_metadata?: Record<string, unknown> } | null | undefined
+): string | null {
+  if (user?.user_metadata?.module === "warsztat") {
+    return "/uslugi/panel";
+  }
+  return null;
 }
 
 /** Czy błąd logowania oznacza niepotwierdzony email (pokaż opcję ponownej wysyłki linku). */

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { signUpClient, resendActivationEmail, isEmailNotConfirmedError } from "@/services/authService";
+import { signUpClient, resendActivationEmail, isEmailNotConfirmedError, getModuleRedirect } from "@/services/authService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +62,7 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -83,8 +83,9 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
       if (onSuccess) {
         onSuccess();
       } else {
+        // Konto zarejestrowane na moduł (np. warsztat) → panel modułu zamiast domyślnego celu.
         // Force full page reload to ensure fresh session is used
-        window.location.href = redirectTo;
+        window.location.href = getModuleRedirect(authData.user) || redirectTo;
       }
     } catch (error: any) {
       console.error("Login error:", error);
