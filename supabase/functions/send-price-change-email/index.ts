@@ -58,7 +58,8 @@ serve(async (req: Request): Promise<Response> => {
       ? `${vehicle.brand} ${vehicle.model} (${vehicle.plate})`
       : "Twój pojazd";
 
-    const driverName = driver.first_name || "Kierowco";
+    const driverName = (driver.first_name || "").trim();
+    const greeting = driverName ? `Cześć ${driverName},` : "Cześć,";
 
     // Send email
     const emailResponse = await resend.emails.send({
@@ -73,7 +74,7 @@ serve(async (req: Request): Promise<Response> => {
           
           <h2 style="color: #333;">Stawka za wynajem została zmieniona</h2>
           
-          <p>Cześć ${driverName},</p>
+          <p>${greeting}</p>
           
           <p>Informujemy, że stawka za wynajem pojazdu <strong>${vehicleName}</strong> została zmieniona:</p>
           
@@ -89,7 +90,7 @@ serve(async (req: Request): Promise<Response> => {
           </div>
           
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-          <p style="color: #999; font-size: 12px; text-align: center;">© 2025 get RIDO. Wszelkie prawa zastrzeżone.</p>
+          <p style="color: #999; font-size: 12px; text-align: center;">© ${new Date().getFullYear()} get RIDO. Wszelkie prawa zastrzeżone.</p>
         </div>
       `,
     });

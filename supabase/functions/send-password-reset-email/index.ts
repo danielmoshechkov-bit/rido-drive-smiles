@@ -35,14 +35,22 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get driver info for first name
+    // Get first name: driver → marketplace profile → brak (powitanie bez imienia)
     const { data: driver } = await supabase
       .from("drivers")
       .select("first_name")
       .eq("email", email)
-      .single();
-    
-    const firstName = driver?.first_name || "Użytkownik";
+      .maybeSingle();
+
+    let firstName = (driver?.first_name || "").trim();
+    if (!firstName) {
+      const { data: mpProfile } = await supabase
+        .from("marketplace_user_profiles")
+        .select("first_name")
+        .eq("email", email)
+        .maybeSingle();
+      firstName = (mpProfile?.first_name || "").trim();
+    }
 
     // Generate password reset link
     const siteUrl = "https://getrido.pl";
@@ -104,9 +112,12 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Replace placeholders
+    // Brak imienia: pochłoń też spację przed {{first_name}}, żeby "Cześć {{first_name}}!" → "Cześć!"
     const htmlContent = template
-      .replace(/\{\{first_name\}\}/g, firstName)
-      .replace(/\{\{reset_link\}\}/g, resetLink || "");
+      .replace(/[ \t]*\{\{first_name\}\}/g, firstName ? ` ${firstName}` : "")
+      .replace(/\{\{reset_link\}\}/g, resetLink || "")
+      // Dynamiczny rok w stopce (szablon w DB ma zaszyty rok)
+      .replace(/(©|&copy;)\s*20\d{2}/g, `$1 ${new Date().getFullYear()}`);
 
     // Get SMTP settings
     const smtpHost = emailSettings.smtp_host || "server546721.nazwa.pl";

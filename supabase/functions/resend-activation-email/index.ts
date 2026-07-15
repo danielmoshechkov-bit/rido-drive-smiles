@@ -97,8 +97,8 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         email: normalizedEmail,
-        first_name: meta.first_name || "",
-        last_name: meta.last_name || "",
+        first_name: (meta.first_name || "").trim(),
+        last_name: (meta.last_name || "").trim(),
         activation_link: linkData.properties.action_link,
         language,
       }),

@@ -104,11 +104,15 @@ const handler = async (req: Request): Promise<Response> => {
     console.log(`Using ${language} template for email`);
 
     // Replace template variables
+    // Brak imienia: pochłoń też spację przed {{first_name}}, żeby "Cześć {{first_name}}!" → "Cześć!"
+    const cleanFirstName = (first_name || "").trim();
     let htmlContent = template
-      .replace(/\{\{first_name\}\}/g, first_name || "Kierowco")
-      .replace(/\{\{last_name\}\}/g, last_name || "")
+      .replace(/[ \t]*\{\{first_name\}\}/g, cleanFirstName ? ` ${cleanFirstName}` : "")
+      .replace(/\{\{last_name\}\}/g, (last_name || "").trim())
       .replace(/\{\{email\}\}/g, email)
-      .replace(/\{\{activation_link\}\}/g, activation_link);
+      .replace(/\{\{activation_link\}\}/g, activation_link)
+      // Dynamiczny rok w stopce (szablon w DB ma zaszyty rok)
+      .replace(/(©|&copy;)\s*20\d{2}/g, `$1 ${new Date().getFullYear()}`);
 
     const senderName = emailSettings.sender_name || "RIDO";
     const senderEmail = emailSettings.sender_email || emailSettings.smtp_user;
@@ -153,7 +157,7 @@ const handler = async (req: Request): Promise<Response> => {
       to: [email],
       replyTo: senderEmail,
       subject: finalSubject,
-      content: toCRLF(`Witaj ${first_name || ''},\n\nKliknij poniższy link aby aktywować konto:\n${activation_link}\n\nJeśli to nie Ty - zignoruj tę wiadomość.\n\n--\nGetRido`),
+      content: toCRLF(`Witaj${cleanFirstName ? ` ${cleanFirstName}` : ''},\n\nKliknij poniższy link aby aktywować konto:\n${activation_link}\n\nJeśli to nie Ty - zignoruj tę wiadomość.\n\n--\nGetRido`),
       html: minifiedHtml,
       headers: {
         'List-Unsubscribe': `<mailto:${senderEmail}?subject=Unsubscribe>`,
