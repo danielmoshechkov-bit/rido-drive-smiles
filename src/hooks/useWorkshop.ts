@@ -73,23 +73,22 @@ export function useWorkshopProviderId() {
     queryKey: ['workshop-provider-id'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      console.log('[useWorkshopProviderId] User ID:', user.id);
+      // status 401 -> globalny retry tego nie ponawia (brak sesji jest
+      // deterministyczny; ponawianie tylko opóźniało ekran logowania)
+      if (!user) throw Object.assign(new Error('Not authenticated'), { status: 401 });
       const { data, error } = await supabase
         .from('service_providers')
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (error) {
-        console.error('[useWorkshopProviderId] Error:', error);
-        throw error;
-      }
-      console.log('[useWorkshopProviderId] Provider ID:', data?.id);
+      if (error) throw error;
       if (!data) return null;
       return data.id as string;
     },
-    retry: 3,
-    retryDelay: 1000,
+    // PERF P3: było jawne retry:3/retryDelay:1000 — to pierwsze ogniwo łańcucha
+    // (auth -> providerId -> lista zleceń), więc najbardziej wydłużało spinner
+    // przy burście 500. Teraz dziedziczy globalny limit (2 próby, 0,5/1 s,
+    // bez ponawiania 4xx) z App.tsx.
   });
 }
 
@@ -115,6 +114,21 @@ const ORDER_LIST_COLUMNS = [
   'test_drive_consent', 'top_up_fluids', 'top_up_lights',
 ].join(', ');
 
+// PERF P3: joiny LISTY bez pól-tapet (description klienta/pojazdu = wolny tekst,
+// created/updated_at, provider_id) — wymienione kolumny są realnie czytane
+// z wiersza listy (karta zlecenia zanim dociągnie pełny wiersz, prefill faktury,
+// SMS-y, hover-cardy, terminarz, raporty). items celowo zostaje (*): tabela
+// pozycji używa niemal wszystkich kolumn, a wagę payloadu robi LICZBA wierszy,
+// nie ich szerokość. Jeśli nowy widok listy czyta nową kolumnę joina — dopisz ją.
+const ORDER_LIST_JOINS = [
+  'client:workshop_clients(id, client_type, first_name, last_name, company_name, phone, email, nip, street, city, postal_code, country, payment_method, payment_term, goods_discount_percent, product_discount_percent, service_discount_percent)',
+  'vehicle:workshop_vehicles(id, brand, model, plate, vin, year, fuel_type, color, engine_capacity_cm3, engine_power_kw, engine_number, first_registration_date, mileage_unit, owner_client_id)',
+  'items:workshop_order_items(*)',
+].join(', ');
+
+// Pełne joiny — używa ich TYLKO useWorkshopOrder (pojedynczy wiersz karty;
+// payload jednego zlecenia jest pomijalny, a BasicTab/kosztorysy potrzebują
+// kompletu pól klienta i pojazdu).
 const ORDER_JOINS = 'client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)';
 
 export type WorkshopOrdersView = 'active' | 'completed' | 'all';
@@ -149,7 +163,7 @@ export function useWorkshopOrders(providerId: string | undefined, filters?: {
     queryFn: async () => {
       let query = (supabase as any)
         .from('workshop_orders')
-        .select(`${ORDER_LIST_COLUMNS}, ${ORDER_JOINS}`)
+        .select(`${ORDER_LIST_COLUMNS}, ${ORDER_LIST_JOINS}`)
         .eq('provider_id', providerId)
         .order('created_at', { ascending: false });
 

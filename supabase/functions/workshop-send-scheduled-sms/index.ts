@@ -12,6 +12,19 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // SECFIX4 (opcjonalna twarda bramka): jeśli ustawiono sekret w env, wymagaj go
+  // w nagłówku x-cron-secret. Domyślnie WYŁĄCZONE (env nieustawiony) → nie psuje
+  // istniejącego crona (Bearer=anon). Główną ochroną jest atomowy claim niżej,
+  // przez który publiczne wywołanie i tak jest nieszkodliwe (bez podwójnej
+  // wysyłki, tylko wiadomości już należne — jak cron). Ustaw sekret + przełóż
+  // crona na nagłówek x-cron-secret, aby w pełni zablokować publiczne wywołania.
+  const cronSecret = Deno.env.get("SCHEDULED_SMS_SECRET");
+  if (cronSecret && req.headers.get("x-cron-secret") !== cronSecret) {
+    return new Response(JSON.stringify({ error: "FORBIDDEN" }), {
+      status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -20,16 +33,36 @@ serve(async (req) => {
 
     const now = new Date().toISOString();
 
-    // Pick due scheduled messages (limit batch)
-    const { data: due, error: fetchErr } = await supabaseAdmin
+    // Kandydaci: należne, zaplanowane (batch).
+    const { data: candidates, error: fetchErr } = await supabaseAdmin
       .from("workshop_sms_log")
-      .select("*")
+      .select("id")
       .eq("status", "scheduled")
       .lte("scheduled_at", now)
       .order("scheduled_at", { ascending: true })
       .limit(50);
 
     if (fetchErr) throw fetchErr;
+    if (!candidates || candidates.length === 0) {
+      return new Response(JSON.stringify({ processed: 0 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // SECFIX4: ATOMOWY CLAIM — jednym UPDATE z guardem status='scheduled'
+    // przejmujemy wiersze i wysyłamy TYLKO te zwrócone. Równoległe/publiczne
+    // wywołanie nie przejmie tych samych (nie są już 'scheduled') → koniec
+    // ryzyka podwójnej wysyłki. Body nie jest czytane → nie da się wstrzyknąć
+    // nowych wiadomości.
+    const ids = candidates.map((c: any) => c.id);
+    const { data: due, error: claimErr } = await supabaseAdmin
+      .from("workshop_sms_log")
+      .update({ status: "sending" })
+      .in("id", ids)
+      .eq("status", "scheduled")
+      .select("*");
+
+    if (claimErr) throw claimErr;
     if (!due || due.length === 0) {
       return new Response(JSON.stringify({ processed: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -40,12 +73,6 @@ serve(async (req) => {
     let failed = 0;
 
     for (const row of due) {
-      // Mark as sending to avoid double-processing
-      await supabaseAdmin
-        .from("workshop_sms_log")
-        .update({ status: "sending" })
-        .eq("id", row.id);
-
       try {
         const { data: result, error: invokeErr } = await supabaseAdmin.functions.invoke("workshop-send-sms", {
           body: {

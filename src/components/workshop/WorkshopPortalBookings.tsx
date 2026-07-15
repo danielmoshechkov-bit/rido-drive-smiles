@@ -310,7 +310,6 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
         },
       });
       if (smsErr) console.error('booking-notify error:', smsErr);
-      console.log('[booking-notify] result:', smsRes);
 
       toast.success(changed ? t('workshop.bookings.rescheduledSms') : t('workshop.bookings.confirmedSms'));
       setEditing(null);

@@ -151,7 +151,6 @@ const DriverDashboard = () => {
   // Auth state listener to prevent logout on refresh
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email);
       if (event === 'SIGNED_OUT') {
         setUser(null);
         setDriverData(null);

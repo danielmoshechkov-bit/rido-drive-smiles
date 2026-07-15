@@ -27,8 +27,24 @@ export function WorkshopOrderFilesTab({ order }: Props) {
   const [files, setFiles] = useState<OrderFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  // SECFIX2: bucket prywatny → zamiast publicznych URL-i trzymamy CZASOWE signed
+  // URL-e (pełny + miniatura) per plik, generowane po pobraniu listy.
+  const [signedUrls, setSignedUrls] = useState<Record<string, { full: string; thumb: string }>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // SECFIX2: signed URL zamiast getPublicUrl. Zalogowany właściciel ma politykę
+  // storage SELECT na obiektach swoich zleceń (SECFIX2a), więc może je mintować.
+  const loadSignedUrls = useCallback(async (list: OrderFile[]) => {
+    const entries = await Promise.all(list.map(async (f) => {
+      const [{ data: full }, { data: thumb }] = await Promise.all([
+        supabase.storage.from('workshop-order-photos').createSignedUrl(f.file_url, 3600),
+        supabase.storage.from('workshop-order-photos').createSignedUrl(f.file_url, 3600, { transform: { width: 480, quality: 60 } }),
+      ]);
+      return [f.id, { full: full?.signedUrl || '', thumb: thumb?.signedUrl || full?.signedUrl || '' }] as const;
+    }));
+    setSignedUrls(Object.fromEntries(entries));
+  }, []);
 
   const fetchFiles = useCallback(async () => {
     if (!order?.id) return;
@@ -37,26 +53,14 @@ export function WorkshopOrderFilesTab({ order }: Props) {
       .select('*')
       .eq('order_id', order.id)
       .order('created_at', { ascending: true });
-    if (!error) setFiles(data || []);
+    if (!error) {
+      setFiles(data || []);
+      void loadSignedUrls(data || []);
+    }
     setLoading(false);
-  }, [order?.id]);
+  }, [order?.id, loadSignedUrls]);
 
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
-
-  const getPublicUrl = (filePath: string) => {
-    const { data } = supabase.storage.from('workshop-order-photos').getPublicUrl(filePath);
-    return data?.publicUrl || '';
-  };
-
-  // PERF: miniatura do gridu (transformacja obrazu po stronie Supabase) zamiast
-  // pełnego oryginału. Gdy transformacje są niedostępne (plan/konfiguracja),
-  // <img onError> przełącza się z powrotem na oryginał — patrz użycie niżej.
-  const getThumbUrl = (filePath: string) => {
-    const { data } = supabase.storage.from('workshop-order-photos').getPublicUrl(filePath, {
-      transform: { width: 480, quality: 60 },
-    });
-    return data?.publicUrl || getPublicUrl(filePath);
-  };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -130,7 +134,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {intakePhotos.map(file => {
-              const url = getPublicUrl(file.file_url);
+              const url = signedUrls[file.id]?.full || '';
               const daysLeft = file.expires_at
                 ? Math.max(0, Math.ceil((new Date(file.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
                 : null;
@@ -147,14 +151,14 @@ export function WorkshopOrderFilesTab({ order }: Props) {
                     {/* PERF: miniatura + lazy zamiast pełnych oryginałów ładowanych
                         naraz dla całego gridu; onError = fallback na oryginał */}
                     <img
-                      src={getThumbUrl(file.file_url)}
+                      src={signedUrls[file.id]?.thumb || url}
                       alt={file.file_name}
                       className="w-full h-full object-cover"
                       loading="lazy"
                       decoding="async"
                       onError={(e) => {
                         const img = e.currentTarget;
-                        if (img.dataset.fallback !== '1') {
+                        if (img.dataset.fallback !== '1' && url) {
                           img.dataset.fallback = '1';
                           img.src = url;
                         }
@@ -232,7 +236,7 @@ export function WorkshopOrderFilesTab({ order }: Props) {
                   </div>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <a href={getPublicUrl(file.file_url)} target="_blank" rel="noopener noreferrer">
+                  <a href={signedUrls[file.id]?.full || '#'} target="_blank" rel="noopener noreferrer">
                     <Button size="icon" variant="ghost" className="h-7 w-7"><Download className="h-3.5 w-3.5" /></Button>
                   </a>
                   <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(file)}>

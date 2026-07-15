@@ -242,9 +242,6 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
           console.error('Photo upload error:', uploadErr);
           continue;
         }
-        supabase.storage
-          .from('workshop-order-photos')
-          .getPublicUrl(storagePath);
         const slotDef = PHOTO_SLOTS.find(s => s.key === key);
         const slotLabel = slotDef ? t(slotDef.labelKey) : key;
         await (supabase as any).from('workshop_order_files').insert({

@@ -105,39 +105,27 @@ export default function WorkshopClientCard() {
       return;
     }
     try {
-      // maybeSingle (nie single) — brak rekordu to NIE błąd, tylko "nie znaleziono".
+      // SECFIX1: jedyny dostęp anona = SECURITY DEFINER RPC walidujące PEŁNY
+      // client_code jako sekret (koniec z bezpośrednim czytaniem tabel po
+      // otwartych politykach anon — te zdjęte migracją SECFIX1). RPC zwraca
+      // w jednym jsonb: order + client/vehicle/items/signatures + provider +
+      // display_settings. Brak dopasowania kodu → data == null ("nie znaleziono").
       const { data, error } = await (supabase as any)
-        .from('workshop_orders')
-        .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*), items:workshop_order_items(*)')
-        .eq('client_code', code)
-        .maybeSingle();
+        .rpc('get_workshop_order_by_client_code', { p_code: code });
 
       if (error) throw error;
 
       if (data) {
         setLoadError(false);
-        setOrder(data);
-
-        // Provider + podpisy RÓWNOLEGLE (wcześniej sekwencyjnie → sumowana latencja).
-        const [{ data: prov }, { data: sigs }] = await Promise.all([
-          (supabase as any).from('service_providers').select('*').eq('id', data.provider_id).maybeSingle(),
-          (supabase as any).from('workshop_order_signatures').select('*').eq('order_id', data.id),
-        ]);
-        setProvider(prov);
-        setSignatures(sigs || []);
-
-        // Ustawienia wyświetlania kwot (per user_id właściciela). select('*') —
-        // bezpieczne, jeśli kolumny jeszcze nie wdrożone (?? true).
-        if (prov?.user_id) {
-          (supabase as any).from('workshop_settings').select('*').eq('user_id', prov.user_id).maybeSingle()
-            .then(({ data: ws }: any) => {
-              if (ws) setDisplaySettings({
-                show_net: ws.show_client_net ?? true,
-                show_vat: ws.show_client_vat ?? true,
-                show_gross: ws.show_client_gross ?? true,
-              });
-            });
-        }
+        const { provider: prov, display_settings: ds, signatures: sigs, ...orderData } = data as any;
+        setOrder(orderData);
+        setProvider(prov || null);
+        setSignatures(Array.isArray(sigs) ? sigs : []);
+        if (ds) setDisplaySettings({
+          show_net: ds.show_net ?? true,
+          show_vat: ds.show_vat ?? true,
+          show_gross: ds.show_gross ?? true,
+        });
 
         // Warmuj globalny cache tłumaczeń dla treści klienta (fire-and-forget) —
         // następne otwarcie (i inne języki bazowe, np. EN) trafią w cache od razu.
@@ -186,19 +174,16 @@ export default function WorkshopClientCard() {
     setSigning(true);
     const nowIso = new Date().toISOString();
     try {
-      // Jedyny krytyczny, awaitowany zapis — wiersz podpisu. Reszta (flagi zlecenia,
-      // powiadomienie, reconcile) leci w tle, więc UI nie wisi (wcześniej blokujący
-      // await loadOrder() = 3 sekwencyjne zapytania + re-render tłumaczenia ≈ 15 s).
-      const { error: sigErr } = await (supabase as any).from('workshop_order_signatures').insert({
-        order_id: order.id,
-        document_type: docType,
-        signed_at: nowIso,
-        ip_address: null,
-        user_agent: navigator.userAgent,
-        fingerprint: null,
-        signature_method: 'button',
-      });
+      // SECFIX1: podpis + zmiana statusu atomowo przez SECURITY DEFINER RPC,
+      // które waliduje PEŁNY client_code (koniec z anon insertem podpisu i anon
+      // updatem zlecenia — te zdjęte migracją). Bez poprawnego kodu → RPC zwraca
+      // null (nie da się podpisać cudzego order_id).
+      const { data: signRes, error: sigErr } = await (supabase as any).rpc(
+        'sign_workshop_document_by_client_code',
+        { p_code: code, p_doc_type: docType, p_user_agent: navigator.userAgent }
+      );
       if (sigErr) throw sigErr;
+      if (!signRes) throw new Error(t('workshop.clientCard.orderNotFound'));
 
       const updates: any = {};
       if (docType === 'reception_protocol') {
@@ -210,31 +195,24 @@ export default function WorkshopClientCard() {
         updates.status_name = 'Zaakceptowano';
       }
 
-      // OPTIMISTIC: lokalnie od razu pokaż podpisany dokument (podgląd otwiera się
-      // natychmiast, bez ponownego pobierania i bez czekania).
-      setSignatures(prev => [...prev, { id: `optim-${docType}`, order_id: order.id, document_type: docType, signed_at: nowIso, signature_method: 'button' }]);
-      setOrder((o: any) => ({ ...o, ...updates }));
+      // RPC zwraca zaktualizowane podpisy + zlecenie — użyj ich wprost zamiast
+      // optimistic zgadywania (i tak natychmiast, bez ponownego pobierania).
+      const freshSigs = Array.isArray(signRes?.signatures) ? signRes.signatures : null;
+      setSignatures(freshSigs ?? ((prev: any[]) => [...prev, { id: `optim-${docType}`, order_id: order.id, document_type: docType, signed_at: nowIso, signature_method: 'button' }]) as any);
+      setOrder((o: any) => ({ ...o, ...(signRes?.order ?? updates) }));
       toast.success(t('workshop.clientCard.documentSigned'));
       setSigningDoc(null);
       setAccepted(false);
       setSigning(false);
 
-      // Tło: utrwal flagi zlecenia + powiadom mechanika + zsynchronizuj stan
-      void (async () => {
-        try {
-          if (Object.keys(updates).length > 0) {
-            await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
-          }
-          if (docType === 'cost_estimate') {
-            supabase.functions.invoke('workshop-notify-employee', {
-              body: { order_id: order.id, event: 'quote_accepted' },
-            }).catch(() => {});
-          }
-          loadOrder(); // reconcile (nie blokuje UI)
-        } catch (bgErr) {
-          console.warn('[WorkshopClientCard] post-sign update failed', bgErr);
-        }
-      })();
+      // Tło: powiadom mechanika o akceptacji kosztorysu (flagi zlecenia utrwalił
+      // już RPC atomowo — bez osobnego anon updatu). SECFIX3: przekaż client_code
+      // — funkcja autoryzuje anonimowego klienta po sekrecie kodu tego zlecenia.
+      if (docType === 'cost_estimate') {
+        supabase.functions.invoke('workshop-notify-employee', {
+          body: { order_id: order.id, event: 'quote_accepted', client_code: code },
+        }).catch(() => {});
+      }
     } catch (e: any) {
       toast.error(e.message);
       setSigning(false);
@@ -497,23 +475,8 @@ export default function WorkshopClientCard() {
                   </div>
                 </div>
 
-                {/* Photos */}
-                {order.reception_photos && Array.isArray(JSON.parse(order.reception_photos || '[]')) && JSON.parse(order.reception_photos || '[]').length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-semibold text-primary mb-2">{t('workshop.clientCard.receptionPhotos')}:</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {JSON.parse(order.reception_photos).map((photo: any, idx: number) => (
-                        <div key={idx} className="rounded-xl overflow-hidden border aspect-[4/3]">
-                          <img
-                            src={photo.url || photo}
-                            alt={photo.label || t('workshop.clientCard.photoAlt', { index: idx + 1 })}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* SECFIX2: zdjęcia przyjęcia to dowód WYŁĄCZNIE dla warsztatu
+                    (na wypadek sporu) — klient ich NIE ogląda. Brak sekcji zdjęć. */}
 
                 {/* Service scope */}
                 {tasks.length > 0 && (
