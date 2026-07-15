@@ -357,9 +357,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // chronologii numeracji (numer powinien rosnąć z datą).
   const [numberDuplicate, setNumberDuplicate] = useState(false);
   const [chronologyWarning, setChronologyWarning] = useState(false);
+  // FAZA UX 3: pominięcie numerów — wpisany numer WYŻSZY niż (najwyższy aktywny+1)
+  // w tej serii = luka w numeracji. Żółte info, nie blokuje.
+  const [skipWarning, setSkipWarning] = useState<{ last: number; from: number; to: number } | null>(null);
   useEffect(() => {
     const n = (invoiceNumber || '').trim();
-    if (!n) { setNumberDuplicate(false); setChronologyWarning(false); return; }
+    if (!n) { setNumberDuplicate(false); setChronologyWarning(false); setSkipWarning(null); return; }
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
@@ -385,13 +388,22 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             .like('invoice_number', `${prefix}%`);
           if (editInvoiceId) cq = cq.neq('id', editInvoiceId);
           const { data: rows } = await cq;
+          const nums = (rows || [])
+            .map((r: any) => parseInt(String(r.invoice_number).slice(prefix.length), 10))
+            .filter((x: number) => !isNaN(x));
           const warn = (rows || []).some((r: any) => {
             const rn = parseInt(String(r.invoice_number).slice(prefix.length), 10);
             return !isNaN(rn) && rn > myNum && r.issue_date && r.issue_date < issueDate;
           });
           if (!cancelled) setChronologyWarning(warn);
+          // pominięcie: numer wyższy niż najwyższy aktywny + 1 => luka
+          const maxNum = nums.length ? Math.max(...nums) : 0;
+          if (!cancelled) {
+            setSkipWarning(myNum > maxNum + 1 ? { last: maxNum, from: maxNum + 1, to: myNum - 1 } : null);
+          }
         } else if (!cancelled) {
           setChronologyWarning(false);
+          setSkipWarning(null);
         }
       } catch { /* offline itp. — zapis i tak zweryfikuje */ }
     }, 400);
@@ -2014,6 +2026,14 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                 {!numberDuplicate && chronologyWarning && (
                   <p className="text-xs text-amber-600 mt-1 font-medium">
                     Uwaga: numer niższy niż faktura z wcześniejszą datą — może naruszyć chronologię numeracji.
+                  </p>
+                )}
+                {!numberDuplicate && skipWarning && (
+                  <p className="text-xs text-amber-600 mt-1 font-medium">
+                    Uwaga: {skipWarning.last > 0
+                      ? `ostatnia faktura w tej serii ma numer ${skipWarning.last}. Pominiesz ${skipWarning.from === skipWarning.to ? `numer ${skipWarning.from}` : `numery ${skipWarning.from}–${skipWarning.to}`}`
+                      : `w tej serii nie ma jeszcze faktur — pominiesz ${skipWarning.from === skipWarning.to ? `numer ${skipWarning.from}` : `numery ${skipWarning.from}–${skipWarning.to}`}`}
+                    {' '}— powstanie luka w numeracji (dozwolone, wymaga wyjaśnienia przy kontroli).
                   </p>
                 )}
               </div>
