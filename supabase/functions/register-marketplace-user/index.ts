@@ -176,6 +176,7 @@ Deno.serve(async (req) => {
     }
 
     // 4. Generate activation link and send email ONLY if email confirmation is required
+    let emailSent = !requireEmailConfirmation; // gdy potwierdzenie niewymagane, mail nie jest potrzebny
     if (requireEmailConfirmation) {
       const siteUrl = Deno.env.get('SITE_URL') || 'https://getrido.pl';
       const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin
@@ -209,7 +210,13 @@ Deno.serve(async (req) => {
           });
           
           if (emailResponse.ok) {
-            console.log("✅ Registration email sent");
+            const emailResult = await emailResponse.json().catch(() => ({ success: true }));
+            emailSent = emailResult.success !== false;
+            if (emailSent) {
+              console.log("✅ Registration email sent");
+            } else {
+              console.error("❌ Email send failed:", JSON.stringify(emailResult));
+            }
           } else {
             console.error("❌ Email send failed:", await emailResponse.text());
           }
@@ -221,15 +228,19 @@ Deno.serve(async (req) => {
       console.log("⏭️ Email confirmation not required, skipping activation email");
     }
 
-    console.log("🎉 Marketplace registration completed for:", email);
+    console.log("🎉 Marketplace registration completed for:", email, "email_sent:", emailSent);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: requireEmailConfirmation 
-          ? "Rejestracja zakończona! Sprawdź swoją skrzynkę email i kliknij link aktywacyjny."
-          : "Rejestracja zakończona! Możesz się teraz zalogować.",
-        user_id: userId
+      JSON.stringify({
+        success: true,
+        message: !requireEmailConfirmation
+          ? "Rejestracja zakończona! Możesz się teraz zalogować."
+          : emailSent
+            ? "Rejestracja zakończona! Sprawdź swoją skrzynkę email i kliknij link aktywacyjny."
+            : "Konto utworzone, ale nie udało się wysłać maila aktywacyjnego. Użyj opcji 'Wyślij link ponownie'.",
+        user_id: userId,
+        requires_activation: requireEmailConfirmation,
+        email_sent: emailSent
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

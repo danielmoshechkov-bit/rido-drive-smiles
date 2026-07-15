@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { signUpMarketplace, resendActivationEmail } from "@/services/authService";
 import { getStoredReferralCode, clearReferralCode } from "@/lib/referralTracking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,35 +100,52 @@ export default function MarketplaceRegister() {
     setLoading(true);
 
     try {
-      const response = await supabase.functions.invoke("register-marketplace-user", {
-        body: {
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          email: formData.email,
-          password: formData.password,
-          referral_code: getStoredReferralCode() || undefined,
-        },
+      const result = await signUpMarketplace({
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        password: formData.password,
+        referral_code: getStoredReferralCode() || undefined,
       });
 
       // Check for field-specific errors
-      if (response.data?.error) {
-        if (response.data.field) {
-          setFieldErrors({ [response.data.field]: response.data.error });
-        } else if (response.data.error.includes("email") || response.data.error.includes("zarejestrowany")) {
-          setFieldErrors({ email: response.data.error });
+      if (!result.success) {
+        const errorMsg = result.error || t("register.errorRetry");
+        if (result.field) {
+          setFieldErrors({ [result.field]: errorMsg });
+        } else if (errorMsg.includes("email") || errorMsg.includes("zarejestrowany")) {
+          setFieldErrors({ email: errorMsg });
         } else {
-          setFieldErrors({ general: response.data.error });
+          setFieldErrors({ general: errorMsg });
         }
         return;
       }
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      // Konto powstało, ale mail aktywacyjny NIE wyszedł — nie udawaj sukcesu
+      if (result.emailFailed) {
+        toast.error("Konto utworzone, ale nie udało się wysłać maila aktywacyjnego.", {
+          duration: 15000,
+          description: "Kliknij, aby wysłać link ponownie.",
+          action: {
+            label: "Wyślij ponownie",
+            onClick: async () => {
+              const resend = await resendActivationEmail(formData.email);
+              if (resend.success) {
+                toast.success(resend.message);
+              } else {
+                toast.error(resend.error);
+              }
+            },
+          },
+        });
+        clearReferralCode();
+        navigate("/gielda/logowanie");
+        return;
       }
 
       toast.success(t("register.successShort"), {
         duration: 8000,
-        description: response.data?.message || t("register.canLoginNow")
+        description: result.message || t("register.canLoginNow")
       });
       clearReferralCode();
       navigate("/gielda/logowanie");

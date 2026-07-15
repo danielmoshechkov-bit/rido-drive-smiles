@@ -84,13 +84,16 @@ serve(async (req) => {
       </div>
     `;
 
+    // qmail (LH.pl) odrzuca maile z gołym LF (451 smtplf) — całość musi mieć CRLF
+    const toCRLF = (s: string) => s.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+
     await client.send({
       from: `${senderName} <${senderEmail}>`,
       to: [ADMIN_EMAIL],
       replyTo: senderEmail,
       subject: `[GetRido][BŁĄD] ${area}: ${message}`.slice(0, 180),
-      content: `Błąd w obszarze ${area}: ${message}\n\n${details}\nURL: ${url}`,
-      html,
+      content: toCRLF(`Błąd w obszarze ${area}: ${message}\n\n${details}\nURL: ${url}`),
+      html: toCRLF(html),
       headers: { "X-Mailer": "GetRido ErrorReport" },
     });
     await client.close();

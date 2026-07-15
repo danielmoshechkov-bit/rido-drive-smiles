@@ -124,12 +124,16 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Minify HTML to avoid SMTP line length issues (RFC 2821 limit: 998 chars per line)
-    const minifiedHtml = htmlContent
-      .replace(/\r\n/g, '\n')
-      .replace(/\n\s+/g, ' ')
-      .replace(/>\s+</g, '><')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
+    // qmail (LH.pl) odrzuca maile z gołym LF (451 smtplf) — całość musi mieć CRLF
+    const toCRLF = (s: string) => s.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+    const minifiedHtml = toCRLF(
+      htmlContent
+        .replace(/\r\n/g, '\n')
+        .replace(/\n\s+/g, ' ')
+        .replace(/>\s+</g, '><')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+    );
 
     // Configure SMTP client
     const port = smtpPort;

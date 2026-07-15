@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { signUpFleet, resendActivationEmail } from "@/services/authService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -182,37 +183,34 @@ export default function FleetRegister() {
     setLoading(true);
     
     try {
-      const response = await supabase.functions.invoke("register-fleet", {
-        body: {
-          company_name: formData.company_name,
-          company_short_name: formData.company_short_name || formData.company_name.slice(0, 20),
-          nip: formData.nip.replace(/[\s-]/g, ""),
-          address: `${formData.address_street} ${formData.address_number}${formData.address_apartment ? '/' + formData.address_apartment : ''}`.trim(),
-          city: formData.address_city,
-          postal_code: formData.address_postal_code,
-          contact_name: formData.contact_name,
-          contact_email: formData.contact_email,
-          contact_phone: formData.contact_phone,
-          driver_contact_name: formData.driver_contact_name,
-          driver_contact_phone: formData.driver_contact_phone,
-          // For existing user - pass their user ID
-          existing_user_id: currentUser?.id,
-        },
+      const result = await signUpFleet({
+        company_name: formData.company_name,
+        company_short_name: formData.company_short_name || formData.company_name.slice(0, 20),
+        nip: formData.nip.replace(/[\s-]/g, ""),
+        address: `${formData.address_street} ${formData.address_number}${formData.address_apartment ? '/' + formData.address_apartment : ''}`.trim(),
+        city: formData.address_city,
+        postal_code: formData.address_postal_code,
+        contact_name: formData.contact_name,
+        contact_email: formData.contact_email,
+        contact_phone: formData.contact_phone,
+        driver_contact_name: formData.driver_contact_name,
+        driver_contact_phone: formData.driver_contact_phone,
+        // For existing user - pass their user ID
+        existing_user_id: currentUser?.id,
       });
-      
-      if (response.data?.error) {
-        if (response.data.field) {
-          setFieldErrors({ [response.data.field]: response.data.error });
-          if (['company_name', 'nip'].includes(response.data.field)) setStep(1);
-          else if (['contact_name', 'contact_email', 'contact_phone'].includes(response.data.field)) setStep(2);
+
+      if (!result.success) {
+        const errorMsg = result.error || t("register.errorRetry");
+        if (result.field) {
+          setFieldErrors({ [result.field]: errorMsg });
+          if (['company_name', 'nip'].includes(result.field)) setStep(1);
+          else if (['contact_name', 'contact_email', 'contact_phone'].includes(result.field)) setStep(2);
         } else {
-          toast.error(response.data.error);
+          toast.error(errorMsg);
         }
         return;
       }
-      
-      if (response.error) throw new Error(response.error.message);
-      
+
       toast.success(t("fleetRegister.fleetRegistered"));
       navigate("/fleet/dashboard");
     } catch (error: any) {
@@ -241,40 +239,53 @@ export default function FleetRegister() {
     setLoading(true);
 
     try {
-      const response = await supabase.functions.invoke("register-fleet", {
-        body: {
-          company_name: formData.company_name,
-          company_short_name: formData.company_short_name || formData.company_name.slice(0, 20),
-          nip: formData.nip.replace(/[\s-]/g, ""),
-          address: `${formData.address_street} ${formData.address_number}${formData.address_apartment ? '/' + formData.address_apartment : ''}`.trim(),
-          city: formData.address_city,
-          postal_code: formData.address_postal_code,
-          contact_name: formData.contact_name,
-          contact_email: formData.contact_email,
-          contact_phone: formData.contact_phone,
-          driver_contact_name: formData.driver_contact_name,
-          driver_contact_phone: formData.driver_contact_phone,
-          email: formData.email,
-          password: formData.password,
-        },
+      const result = await signUpFleet({
+        company_name: formData.company_name,
+        company_short_name: formData.company_short_name || formData.company_name.slice(0, 20),
+        nip: formData.nip.replace(/[\s-]/g, ""),
+        address: `${formData.address_street} ${formData.address_number}${formData.address_apartment ? '/' + formData.address_apartment : ''}`.trim(),
+        city: formData.address_city,
+        postal_code: formData.address_postal_code,
+        contact_name: formData.contact_name,
+        contact_email: formData.contact_email,
+        contact_phone: formData.contact_phone,
+        driver_contact_name: formData.driver_contact_name,
+        driver_contact_phone: formData.driver_contact_phone,
+        email: formData.email,
+        password: formData.password,
       });
 
-      if (response.data?.error) {
-        if (response.data.field) {
-          setFieldErrors({ [response.data.field]: response.data.error });
+      if (!result.success) {
+        const errorMsg = result.error || t("register.errorRetry");
+        if (result.field) {
+          setFieldErrors({ [result.field]: errorMsg });
           // Go back to relevant step
-          if (['company_name', 'nip'].includes(response.data.field)) setStep(1);
-          else if (['contact_name', 'contact_email', 'contact_phone'].includes(response.data.field)) setStep(2);
+          if (['company_name', 'nip'].includes(result.field)) setStep(1);
+          else if (['contact_name', 'contact_email', 'contact_phone'].includes(result.field)) setStep(2);
           else setStep(3);
         } else {
-          toast.error(response.data.error);
+          toast.error(errorMsg);
         }
         return;
       }
 
-      if (response.error) {
-        console.error("Fleet registration invoke error:", response.error);
-        throw new Error(typeof response.error === 'string' ? response.error : response.error.message || t("register.error"));
+      // Konto powstało, ale mail aktywacyjny NIE wyszedł — nie udawaj sukcesu
+      if (result.emailFailed) {
+        toast.error("Flota zarejestrowana, ale nie udało się wysłać maila aktywacyjnego.", {
+          duration: 15000,
+          description: "Kliknij, aby wysłać link ponownie.",
+          action: {
+            label: "Wyślij ponownie",
+            onClick: async () => {
+              const resend = await resendActivationEmail(formData.email);
+              if (resend.success) {
+                toast.success(resend.message);
+              } else {
+                toast.error(resend.error);
+              }
+            },
+          },
+        });
       }
 
       // Redirect to success page

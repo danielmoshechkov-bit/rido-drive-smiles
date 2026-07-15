@@ -81,12 +81,16 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    const minifiedHtml = htmlContent
-      .replace(/\r\n/g, '\n')
-      .replace(/\n\s+/g, ' ')
-      .replace(/>\s+</g, '><')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
+    // qmail (LH.pl) odrzuca maile z gołym LF (451 smtplf) — całość musi mieć CRLF
+    const toCRLF = (s: string) => s.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
+    const minifiedHtml = toCRLF(
+      htmlContent
+        .replace(/\r\n/g, '\n')
+        .replace(/\n\s+/g, ' ')
+        .replace(/>\s+</g, '><')
+        .replace(/\s{2,}/g, ' ')
+        .trim()
+    );
 
     await client.send({
       from: `${senderName} <${senderEmail}>`,

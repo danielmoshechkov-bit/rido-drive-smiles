@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import LanguageSelector from "@/components/LanguageSelector";
 import { supabase } from "@/integrations/supabase/client";
+import { resendActivationEmail, isEmailNotConfirmedError } from "@/services/authService";
 import { toast } from "sonner";
 
 const MarketplaceAuth = () => {
@@ -47,7 +48,23 @@ const MarketplaceAuth = () => {
 
       if (authError) {
         console.error('Auth error:', authError);
-        if (authError.message.includes("Invalid login credentials")) {
+        if (isEmailNotConfirmedError(authError.message)) {
+          toast.error("Konto nie zostało jeszcze aktywowane.", {
+            duration: 15000,
+            description: "Sprawdź skrzynkę email lub wyślij link aktywacyjny ponownie.",
+            action: {
+              label: "Wyślij ponownie",
+              onClick: async () => {
+                const resend = await resendActivationEmail(email, i18n.language);
+                if (resend.success) {
+                  toast.success(resend.message);
+                } else {
+                  toast.error(resend.error);
+                }
+              },
+            },
+          });
+        } else if (authError.message.includes("Invalid login credentials")) {
           toast.error(t('auth.invalidCredentials'));
         } else {
           toast.error(authError.message);

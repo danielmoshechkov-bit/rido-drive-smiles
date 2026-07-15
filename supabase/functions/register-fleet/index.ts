@@ -244,18 +244,20 @@ Deno.serve(async (req) => {
     console.log("🎉 Fleet registration completed for:", company_name);
 
     // 7. Send activation email for new users
+    let emailSent = !(!existing_user_id && email); // gdy mail nie jest potrzebny, traktuj jako OK
     if (!existing_user_id && email) {
       try {
         // Generate activation link
+        const siteUrl = Deno.env.get('SITE_URL') || 'https://getrido.pl';
         const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
           type: 'signup',
           email,
           options: {
-            redirectTo: 'https://rido-drive-smiles.lovable.app/fleet/aktywacja'
+            redirectTo: `${siteUrl}/fleet/aktywacja`
           }
         });
-        
-        const activationLink = linkData?.properties?.action_link || `https://rido-drive-smiles.lovable.app/fleet/aktywacja?email=${encodeURIComponent(email)}`;
+
+        const activationLink = linkData?.properties?.action_link || `${siteUrl}/fleet/aktywacja?email=${encodeURIComponent(email)}`;
         
         // Call email sending function
         const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-fleet-registration-email`, {
@@ -273,6 +275,7 @@ Deno.serve(async (req) => {
         });
         
         if (emailResponse.ok) {
+          emailSent = true;
           console.log("✅ Fleet activation email sent");
         } else {
           console.error("⚠️ Failed to send activation email:", await emailResponse.text());
@@ -283,11 +286,14 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: "Flota została zarejestrowana! Sprawdź email, aby aktywować konto.",
+      JSON.stringify({
+        success: true,
+        message: emailSent
+          ? "Flota została zarejestrowana! Sprawdź email, aby aktywować konto."
+          : "Flota została zarejestrowana, ale nie udało się wysłać maila aktywacyjnego. Użyj opcji 'Wyślij link ponownie' na stronie logowania.",
         fleet_id: fleetData.id,
-        requires_activation: !existing_user_id
+        requires_activation: !existing_user_id,
+        email_sent: emailSent
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -136,7 +136,9 @@ export default function InsuranceAgentRegister() {
           data: {
             company_name: formData.companyName,
             phone: formData.phone,
-          }
+            account_type: "insurance_agent",
+          },
+          emailRedirectTo: `${window.location.origin}/email-confirmed`,
         }
       });
 
@@ -159,21 +161,9 @@ export default function InsuranceAgentRegister() {
 
       if (agentError) throw agentError;
 
-      // 3. Add role - note: insurance_agent may not be in enum yet, so we use a workaround
-      // The role will be checked via insurance_agents table instead
-      try {
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .insert({
-            user_id: authData.user.id,
-            role: "admin" // Temporary - will be replaced when insurance_agent is added to enum
-          });
-        
-        // If role insert fails, we can still proceed - the agent profile exists
-        if (roleError) console.warn("Nie dodano roli:", roleError.message);
-      } catch (roleErr) {
-        console.warn("Role assignment skipped:", roleErr);
-      }
+      // 3. Rola: celowo BEZ wpisu w user_roles — uprawnienia agenta ubezpieczeniowego
+      // są sprawdzane przez tabelę insurance_agents. (Wcześniejszy kod nadawał tu
+      // rolę 'admin' jako obejście braku 'insurance_agent' w enumie — dziura bezpieczeństwa.)
 
       toast.success(t('insAgentRegister.accountCreated'));
       navigate("/register-success");

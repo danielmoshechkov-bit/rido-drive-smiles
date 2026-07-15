@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { signUpClient, resendActivationEmail, isEmailNotConfirmedError } from "@/services/authService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,26 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [showResend, setShowResend] = useState(false);
+
+  const handleResendActivation = async () => {
+    if (!email) {
+      toast.error("Podaj adres email");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const result = await resendActivationEmail(email);
+      if (result.success) {
+        toast.success(result.message);
+        setShowResend(false);
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setEmail("");
@@ -46,7 +67,14 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (isEmailNotConfirmedError(error.message)) {
+          setShowResend(true);
+          toast.error("Konto nie zostało jeszcze aktywowane. Sprawdź email lub wyślij link ponownie.");
+          return;
+        }
+        throw error;
+      }
 
       toast.success("Zalogowano pomyślnie!");
       onOpenChange(false);
@@ -85,14 +113,14 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+      const result = await signUpClient(email, password);
 
-      if (error) throw error;
+      if (!result.success) {
+        toast.error(result.error || "Błąd rejestracji");
+        return;
+      }
 
-      toast.success("Konto utworzone! Sprawdź email, aby potwierdzić rejestrację.");
+      toast.success(result.message || "Konto utworzone! Sprawdź email, aby potwierdzić rejestrację.");
       setMode('login');
       setPassword("");
       setConfirmPassword("");
@@ -228,6 +256,18 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
                 Zapomniałeś hasła?
               </button>
             </div>
+          )}
+
+          {mode === 'login' && showResend && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={isLoading}
+              onClick={handleResendActivation}
+            >
+              Wyślij link aktywacyjny ponownie
+            </Button>
           )}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
