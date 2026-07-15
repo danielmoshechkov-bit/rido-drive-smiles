@@ -1148,19 +1148,26 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel disabled={isDeleting}>Anuluj</AlertDialogCancel>
+          {/* Responsywnie: wąsko = przyciski jeden pod drugim (pełna szerokość),
+              szeroko = trzy obok siebie; krótkie etykiety + podtekst pod środkowym. */}
+          <AlertDialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:items-stretch">
+            <AlertDialogCancel disabled={isDeleting} className="mt-0 w-full sm:w-auto">
+              Anuluj
+            </AlertDialogCancel>
             <Button
               variant="outline"
               disabled={isDeleting}
               onClick={() => handleDeleteWithCorrections(false)}
+              className="w-full sm:w-auto h-auto py-1.5 flex flex-col items-center leading-tight"
             >
-              Usuń tylko fakturę (korekta zostaje)
+              <span>Usuń tylko fakturę</span>
+              <span className="text-[10px] font-normal text-muted-foreground">(korekty zostają na liście)</span>
             </Button>
             <Button
               variant="destructive"
               disabled={isDeleting}
               onClick={() => handleDeleteWithCorrections(true)}
+              className="w-full sm:w-auto"
             >
               {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
               Usuń {activeCorrections.length === 1 ? 'obie' : 'wszystkie'}
