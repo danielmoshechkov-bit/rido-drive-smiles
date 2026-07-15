@@ -32,7 +32,7 @@ BEGIN
    WHERE p_code IS NOT NULL AND length(btrim(p_code)) >= 4 AND client_code = p_code
    LIMIT 1;
   IF NOT FOUND THEN RETURN NULL; END IF;
-  IF p_doc_type NOT IN ('reception_protocol','cost_estimate') THEN
+  IF p_doc_type NOT IN ('reception_protocol','cost_estimate','release_protocol') THEN
     RAISE EXCEPTION 'invalid doc_type: %', p_doc_type;
   END IF;
 
@@ -70,12 +70,18 @@ BEGIN
   INSERT INTO workshop_order_signatures(order_id, document_type, signed_at, user_agent, signature_method, snapshot)
   VALUES (v_order.id, p_doc_type, now(), p_user_agent, 'button', v_snapshot);
 
+  -- Mapowanie statusów DOKŁADNIE jak oryginalny RPC (SECFIX1a) — bez zmian.
+  -- Podpisy klienta zapisują podpis+snapshot; sterowanie statusem tam, gdzie
+  -- warsztat robi to ręcznie, NIE jest przejmowane.
   IF p_doc_type = 'reception_protocol' THEN
     UPDATE workshop_orders SET client_acceptance_confirmed = true, status_name = 'Przyjęcie do serwisu'
      WHERE id = v_order.id;
   ELSIF p_doc_type = 'cost_estimate' THEN
     UPDATE workshop_orders SET quote_accepted = true, status_name = 'Zaakceptowano'
      WHERE id = v_order.id;
+  -- release_protocol: TYLKO podpis + snapshot (wstawione wyżej). To potwierdzenie
+  -- odbioru auta przez klienta, NIE zmiana etapu — statusem ('Zakończone'
+  -- odblokowuje zakładkę wydania, potem 'Wydano') steruje warsztat RĘCZNIE.
   END IF;
 
   RETURN jsonb_build_object(
