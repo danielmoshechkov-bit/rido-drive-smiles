@@ -28,9 +28,9 @@ export default function MarketplaceSellerProfile() {
   const loadProfile = async () => {
     setLoading(true);
 
-    // Seller profile
-    const { data: profile } = await supabase
-      .from("marketplace_user_profiles")
+    // Seller profile — SECFIX H1: cudzy profil przez widok publiczny (bez PII).
+    const { data: profile } = await (supabase as any)
+      .from("marketplace_public_profiles")
       .select("first_name, last_name, created_at")
       .eq("user_id", userId)
       .maybeSingle();

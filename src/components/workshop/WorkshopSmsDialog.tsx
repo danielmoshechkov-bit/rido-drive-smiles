@@ -104,9 +104,23 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
       // do czasu wysłania (provider justsend i tak ma ~5 s opóźnienia dostarczenia).
       if (type === 'quote' || type === 'requote') {
         const lower = (order.status_name || '').toLowerCase();
-        const pre: any = { estimate_sent_to_client: true, estimate_changed_after_send: false };
-        if (!lower.includes('wysłana') && !lower.includes('zaakcept')) pre.status_name = 'Wycena wysłana';
+        // ETAP B: wysłanie (nowej) wyceny = czeka na akceptację TEJ wersji →
+        // reset quote_accepted, żeby klient zobaczył nową i podpisał ją na nowo
+        // (stare podpisy/snapshoty ZOSTAJĄ jako dowód). estimate_changed_after_send
+        // wraca na false, bo to jest właśnie świeżo wysłana, niezmieniona wersja.
+        const pre: any = { estimate_sent_to_client: true, estimate_changed_after_send: false, quote_accepted: false };
+        // FIX P3: requote MUSI wrócić na "Wycena wysłana" nawet z "Zaakceptowano"
+        // (guard pomijał reset gdy status zawierał 'zaakcept'). Dla pierwszej
+        // wysyłki (quote) zachowaj guard, żeby nie nadpisać ręcznego statusu.
+        if (type === 'requote' || (!lower.includes('wysłana') && !lower.includes('zaakcept'))) {
+          pre.status_name = 'Wycena wysłana';
+        }
         await (supabase as any).from('workshop_orders').update(pre).eq('id', order.id);
+        // FIX: optimistic patch — status/flagi ("Wycena wysłana", quote_accepted=false)
+        // wchodzą NATYCHMIAST na karcie i liście (jak inne akcje warsztatu), bez
+        // czekania na realtime/refetch. setQueriesData obejmuje single i listę.
+        qc.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+          Array.isArray(old) ? old.map((o: any) => (o.id === order.id ? { ...o, ...pre } : o)) : old);
       }
 
       const result = await runWithQuota('sms', async () => {
@@ -146,8 +160,12 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
       if (type === 'quote' || type === 'requote') {
         updates.estimate_sent_to_client = true;
         updates.estimate_changed_after_send = false;
+        // FIX P2: requote utrzymuje reset akceptacji (żeby background-update nie
+        // przywrócił starego stanu); przycisk podpisu wraca po quote_accepted=false.
+        if (type === 'requote') updates.quote_accepted = false;
         const lower = (order.status_name || '').toLowerCase();
-        if (!lower.includes('wysłana') && !lower.includes('zaakcept')) {
+        // FIX P3: jak wyżej — requote wymusza "Wycena wysłana".
+        if (type === 'requote' || (!lower.includes('wysłana') && !lower.includes('zaakcept'))) {
           updates.status_name = 'Wycena wysłana';
         }
       }

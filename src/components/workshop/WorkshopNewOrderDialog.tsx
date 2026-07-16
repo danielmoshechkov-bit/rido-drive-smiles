@@ -330,14 +330,26 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   };
 
   const resetAndClose = () => { resetForm(); onOpenChange(false); };
+
+  // FIX: świeży start przy KAŻDYM otwarciu — przełączniki protokołu i reszta pól
+  // nie dziedziczą po poprzednim zleceniu (reset-na-zamknięciu nie łapał każdej
+  // ścieżki zamknięcia). To zawsze startuje od DEFAULT_CHECKLIST.
+  useEffect(() => {
+    if (open) resetForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
   const currentContact = sendMethod === 'sms' ? (clientPhone || manualPhone) : (clientEmail || manualEmail);
 
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => { if (!v) resetAndClose(); }}>
-        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+        {/* FIX P5: ekran sukcesu ma wąską treść (bloki max-w-sm) — w kontenerze
+            max-w-3xl rozjeżdżał się/robił pusto po bokach. Węższy dla sukcesu. */}
+        <DialogContent className={`${showSmsConfirm ? 'max-w-md' : 'max-w-3xl'} max-h-[92vh] overflow-y-auto`}>
           {showSmsConfirm ? (
-            <div className="space-y-6 py-4">
+            // FIX P5: twardo wyśrodkowany, wąski kontener treści sukcesu — niezależnie
+            // od szerokości DialogContent (wcześniej treść uciekała w lewo).
+            <div className="mx-auto w-full max-w-sm space-y-6 py-4 text-center">
               <div className="text-center space-y-3">
                 <div className="mx-auto w-16 h-16 rounded-full bg-accent flex items-center justify-center">
                   <ClipboardList className="h-8 w-8 text-primary" />
