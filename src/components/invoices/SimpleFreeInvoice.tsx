@@ -959,13 +959,20 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       items: items.map(({ unit_gross_price, lastEditedField, ...item }) => item),
       seller: {
         ...seller,
+        // address_street zawiera już nr budynku/lokalu (sklejone wyżej) — zerujemy
+        // osobne pola, inaczej formatAddress w generatorze doklejał numer 2. raz
+        // ("Borsucza 13 13").
         address_street: sellerAddress,
+        address_building_number: undefined,
+        address_apartment_number: undefined,
         logo_url: companyLogo || undefined,
         vat_exemption_basis: vatExemptionBasis || undefined,
       },
       buyer: {
         ...buyer,
         address_street: buyerAddress,
+        address_building_number: undefined,
+        address_apartment_number: undefined,
       },
       // Payment info
       paid_amount: paidAmount,
