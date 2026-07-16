@@ -1,0 +1,33 @@
+-- 20260716_SECFIX_H1b_marketplace_drop_broad.sql
+-- =====================================================================
+-- SECFIX H1 — CZĘŚĆ B (DESTRUKCYJNA — wykonać DOPIERO PO deployu frontu,
+-- który cross-user odczyty przełącza na widok marketplace_public_profiles)
+-- ---------------------------------------------------------------------
+-- Zdejmuje politykę pozwalającą KAŻDEMU zalogowanemu czytać PEŁNE wiersze
+-- (email/telefon/NIP/adres) wszystkich sprzedawców. Po tym:
+--  - własny profil: "Owner can view own profile" (user_id=auth.uid()) — zostaje,
+--  - profile firmowe pracownikom: polityki firmy — zostają,
+--  - admini: polityka admina — zostaje,
+--  - publiczny katalog sprzedawców: przez widok marketplace_public_profiles (H1a).
+--
+-- WYMAGANIE KOLEJNOŚCI: H1a wykonane + front (MarketplaceSellerProfile,
+-- ClientPortal) czyta z widoku i jest już na produkcji.
+-- Idempotentne.
+-- =====================================================================
+
+DROP POLICY IF EXISTS "Authenticated can view marketplace profiles" ON public.marketplace_user_profiles;
+
+-- =====================================================================
+-- WERYFIKACJA po 1b:
+--   -- brak szerokiej polityki (oczekiwane: 0):
+--   SELECT policyname FROM pg_policies WHERE schemaname='public'
+--     AND tablename='marketplace_user_profiles'
+--     AND policyname='Authenticated can view marketplace profiles';
+--   -- jako inny zalogowany user: SELECT phone,email FROM marketplace_user_profiles
+--   --   WHERE user_id <> auth.uid()  → 0 wierszy (PII cudzych niedostępne);
+--   -- SELECT first_name FROM marketplace_public_profiles → działa (katalog OK).
+-- =====================================================================
+-- ROLLBACK (przywraca wyciek): CREATE POLICY "Authenticated can view marketplace profiles"
+--   ON public.marketplace_user_profiles FOR SELECT TO authenticated
+--   USING (account_mode IN ('private_seller','business'));
+-- =====================================================================
