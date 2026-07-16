@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { goToClientPortal } from "@/lib/moduleNavigation";
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -191,7 +192,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         
         {/* Client Portal - always available for logged in users */}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate('/klient')}>
+        <DropdownMenuItem onClick={() => goToClientPortal(navigate)}>
           <UserCircle className="h-4 w-4 mr-2" />
           {t('myAccount.clientPortal')}
         </DropdownMenuItem>

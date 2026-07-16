@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { goToClientPortal } from "@/lib/moduleNavigation";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -144,7 +145,7 @@ export function MarketplaceHeader({ user, favoritesCount = 0 }: MarketplaceHeade
                 <Button variant="ghost" size="icon">
                   <Bell className="h-5 w-5" />
                 </Button>
-                <Button variant="outline" onClick={() => navigate("/klient")}>
+                <Button variant="outline" onClick={() => goToClientPortal(navigate)}>
                   <User className="h-4 w-4 mr-2" />
                   {t('marketplace.myAccount')}
                 </Button>

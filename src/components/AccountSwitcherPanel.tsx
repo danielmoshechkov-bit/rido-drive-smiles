@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from "react-router-dom";
+import { goToClientPortal } from "@/lib/moduleNavigation";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -301,7 +302,7 @@ export function AccountSwitcherPanel({
                   ? 'border-primary ring-2 ring-primary/20' 
                   : 'border-border cursor-pointer hover:shadow-lg hover:border-primary/50'
               }`}
-              onClick={() => currentAccountType !== 'client' && navigate('/klient?view=client')}
+              onClick={() => currentAccountType !== 'client' && goToClientPortal(navigate)}
             >
               <div className="aspect-[16/9] relative overflow-hidden">
                 <img 
