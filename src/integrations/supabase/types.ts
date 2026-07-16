@@ -4564,6 +4564,24 @@ export type Database = {
           },
         ]
       }
+      beta_testers: {
+        Row: {
+          created_at: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       booking_appointments: {
         Row: {
           booking_number: string | null
@@ -5198,6 +5216,136 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bookings: {
+        Row: {
+          booking_number: string
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          company_id: string
+          completed_at: string | null
+          confirmation_token: string
+          confirmed_at: string | null
+          created_at: string
+          deposit_amount: number | null
+          estimated_price: number | null
+          external_calendar_event_id: string | null
+          final_price: number | null
+          id: string
+          listing_id: string | null
+          operator_notes: string | null
+          period_end: string
+          period_start: string
+          rate_amount: number | null
+          rate_basis: string | null
+          renter_email: string | null
+          renter_id: string | null
+          renter_name: string
+          renter_nip: string | null
+          renter_notes: string | null
+          renter_pesel: string | null
+          renter_phone: string
+          renter_type: string | null
+          renter_user_id: string | null
+          source: string | null
+          started_at: string | null
+          status: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          booking_number: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          company_id: string
+          completed_at?: string | null
+          confirmation_token?: string
+          confirmed_at?: string | null
+          created_at?: string
+          deposit_amount?: number | null
+          estimated_price?: number | null
+          external_calendar_event_id?: string | null
+          final_price?: number | null
+          id?: string
+          listing_id?: string | null
+          operator_notes?: string | null
+          period_end: string
+          period_start: string
+          rate_amount?: number | null
+          rate_basis?: string | null
+          renter_email?: string | null
+          renter_id?: string | null
+          renter_name: string
+          renter_nip?: string | null
+          renter_notes?: string | null
+          renter_pesel?: string | null
+          renter_phone: string
+          renter_type?: string | null
+          renter_user_id?: string | null
+          source?: string | null
+          started_at?: string | null
+          status?: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          booking_number?: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          company_id?: string
+          completed_at?: string | null
+          confirmation_token?: string
+          confirmed_at?: string | null
+          created_at?: string
+          deposit_amount?: number | null
+          estimated_price?: number | null
+          external_calendar_event_id?: string | null
+          final_price?: number | null
+          id?: string
+          listing_id?: string | null
+          operator_notes?: string | null
+          period_end?: string
+          period_start?: string
+          rate_amount?: number | null
+          rate_basis?: string | null
+          renter_email?: string | null
+          renter_id?: string | null
+          renter_name?: string
+          renter_nip?: string | null
+          renter_notes?: string | null
+          renter_pesel?: string | null
+          renter_phone?: string
+          renter_type?: string | null
+          renter_user_id?: string | null
+          source?: string | null
+          started_at?: string | null
+          status?: string
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_renter_id_fkey"
+            columns: ["renter_id"]
+            isOneToOne: false
+            referencedRelation: "rental_renters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
             referencedColumns: ["id"]
           },
         ]
@@ -6132,6 +6280,7 @@ export type Database = {
           owner_user_id: string
           status: string
           type: string
+          uses_new_rental_engine: boolean
         }
         Insert: {
           created_at?: string
@@ -6142,6 +6291,7 @@ export type Database = {
           owner_user_id: string
           status?: string
           type?: string
+          uses_new_rental_engine?: boolean
         }
         Update: {
           created_at?: string
@@ -6152,6 +6302,7 @@ export type Database = {
           owner_user_id?: string
           status?: string
           type?: string
+          uses_new_rental_engine?: boolean
         }
         Relationships: []
       }
@@ -6240,6 +6391,44 @@ export type Database = {
           },
         ]
       }
+      company_modules: {
+        Row: {
+          company_id: string
+          created_at: string
+          enabled: boolean
+          module_key: string
+          settings: Json
+          trial_until: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          module_key: string
+          settings?: Json
+          trial_until?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          module_key?: string
+          settings?: Json
+          trial_until?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_modules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           address: string | null
@@ -6279,6 +6468,7 @@ export type Database = {
           street: string | null
           updated_at: string | null
           user_id: string | null
+          vat_exemption_basis: string | null
           zip_city: string | null
         }
         Insert: {
@@ -6319,6 +6509,7 @@ export type Database = {
           street?: string | null
           updated_at?: string | null
           user_id?: string | null
+          vat_exemption_basis?: string | null
           zip_city?: string | null
         }
         Update: {
@@ -6359,6 +6550,7 @@ export type Database = {
           street?: string | null
           updated_at?: string | null
           user_id?: string | null
+          vat_exemption_basis?: string | null
           zip_city?: string | null
         }
         Relationships: [
@@ -6901,6 +7093,59 @@ export type Database = {
           },
         ]
       }
+      domain_events: {
+        Row: {
+          attempts: number
+          company_id: string
+          created_at: string
+          event_key: string
+          id: string
+          last_error: string | null
+          locked_at: string | null
+          payload: Json
+          processed_at: string | null
+          source_id: string | null
+          source_type: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          company_id: string
+          created_at?: string
+          event_key: string
+          id?: string
+          last_error?: string | null
+          locked_at?: string | null
+          payload?: Json
+          processed_at?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          company_id?: string
+          created_at?: string
+          event_key?: string
+          id?: string
+          last_error?: string | null
+          locked_at?: string | null
+          payload?: Json
+          processed_at?: string | null
+          source_id?: string | null
+          source_type?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_accumulated_earnings: {
         Row: {
           created_at: string | null
@@ -7181,6 +7426,47 @@ export type Database = {
           vat_verified_at?: string | null
         }
         Relationships: []
+      }
+      driver_bank_change_requests: {
+        Row: {
+          confirmed_at: string | null
+          created_at: string
+          driver_id: string
+          email: string
+          expires_at: string
+          id: string
+          new_iban: string
+          token: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          created_at?: string
+          driver_id: string
+          email: string
+          expires_at: string
+          id?: string
+          new_iban: string
+          token: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          created_at?: string
+          driver_id?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          new_iban?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_bank_change_requests_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       driver_communications: {
         Row: {
@@ -8004,6 +8290,7 @@ export type Database = {
           license_is_unlimited: boolean | null
           license_issue_date: string | null
           license_number: string | null
+          notes: string | null
           payment_method: string | null
           payout_frequency: string
           pesel: string | null
@@ -8059,6 +8346,7 @@ export type Database = {
           license_is_unlimited?: boolean | null
           license_issue_date?: string | null
           license_number?: string | null
+          notes?: string | null
           payment_method?: string | null
           payout_frequency?: string
           pesel?: string | null
@@ -8114,6 +8402,7 @@ export type Database = {
           license_is_unlimited?: boolean | null
           license_issue_date?: string | null
           license_number?: string | null
+          notes?: string | null
           payment_method?: string | null
           payout_frequency?: string
           pesel?: string | null
@@ -8492,6 +8781,7 @@ export type Database = {
           short_name: string | null
           type: string
           updated_at: string | null
+          vat_exemption_basis: string | null
           vat_payer: boolean | null
         }
         Insert: {
@@ -8517,6 +8807,7 @@ export type Database = {
           short_name?: string | null
           type: string
           updated_at?: string | null
+          vat_exemption_basis?: string | null
           vat_payer?: boolean | null
         }
         Update: {
@@ -8542,9 +8833,45 @@ export type Database = {
           short_name?: string | null
           type?: string
           updated_at?: string | null
+          vat_exemption_basis?: string | null
           vat_payer?: boolean | null
         }
         Relationships: []
+      }
+      event_handler_runs: {
+        Row: {
+          created_at: string
+          event_id: string
+          handler_key: string
+          id: string
+          result: Json | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          handler_key: string
+          id?: string
+          result?: Json | null
+          status: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          handler_key?: string
+          id?: string
+          result?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_handler_runs_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "domain_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       external_integrations: {
         Row: {
@@ -9064,6 +9391,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fleet_nav_preferences: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          hidden_tabs: string[]
+          id: string
+          primary_tabs: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          hidden_tabs?: string[]
+          id?: string
+          primary_tabs?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          hidden_tabs?: string[]
+          id?: string
+          primary_tabs?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       fleet_payment_notifications: {
         Row: {
@@ -11010,6 +11367,8 @@ export type Database = {
           created_by: string | null
           created_by_user_id: string | null
           currency: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           driver_id: string | null
           due_date: string | null
           entity_id: string
@@ -11045,6 +11404,8 @@ export type Database = {
           created_by?: string | null
           created_by_user_id?: string | null
           currency?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           driver_id?: string | null
           due_date?: string | null
           entity_id: string
@@ -11080,6 +11441,8 @@ export type Database = {
           created_by?: string | null
           created_by_user_id?: string | null
           currency?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           driver_id?: string | null
           due_date?: string | null
           entity_id?: string
@@ -12668,6 +13031,13 @@ export type Database = {
             foreignKeyName: "marketplace_conversations_buyer_profile_id_fkey"
             columns: ["buyer_profile_id"]
             isOneToOne: false
+            referencedRelation: "marketplace_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_conversations_buyer_profile_id_fkey"
+            columns: ["buyer_profile_id"]
+            isOneToOne: false
             referencedRelation: "marketplace_user_profiles"
             referencedColumns: ["id"]
           },
@@ -12676,6 +13046,13 @@ export type Database = {
             columns: ["listing_id"]
             isOneToOne: false
             referencedRelation: "marketplace_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_conversations_seller_profile_id_fkey"
+            columns: ["seller_profile_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -12981,6 +13358,13 @@ export type Database = {
             foreignKeyName: "marketplace_messages_sender_profile_id_fkey"
             columns: ["sender_profile_id"]
             isOneToOne: false
+            referencedRelation: "marketplace_public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_messages_sender_profile_id_fkey"
+            columns: ["sender_profile_id"]
+            isOneToOne: false
             referencedRelation: "marketplace_user_profiles"
             referencedColumns: ["id"]
           },
@@ -13232,6 +13616,13 @@ export type Database = {
             columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketplace_user_profiles_parent_company_id_fkey"
+            columns: ["parent_company_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -14853,9 +15244,14 @@ export type Database = {
           ai_category: string | null
           ai_notes: string | null
           confidence: number | null
+          corrected_invoice_number: string | null
+          corrected_ksef_number: string | null
           created_at: string | null
           currency: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           document_number: string
+          document_type: string | null
           due_date: string | null
           entity_id: string | null
           environment: string | null
@@ -14889,9 +15285,14 @@ export type Database = {
           ai_category?: string | null
           ai_notes?: string | null
           confidence?: number | null
+          corrected_invoice_number?: string | null
+          corrected_ksef_number?: string | null
           created_at?: string | null
           currency?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           document_number: string
+          document_type?: string | null
           due_date?: string | null
           entity_id?: string | null
           environment?: string | null
@@ -14925,9 +15326,14 @@ export type Database = {
           ai_category?: string | null
           ai_notes?: string | null
           confidence?: number | null
+          corrected_invoice_number?: string | null
+          corrected_ksef_number?: string | null
           created_at?: string | null
           currency?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           document_number?: string
+          document_type?: string | null
           due_date?: string | null
           entity_id?: string | null
           environment?: string | null
@@ -15488,6 +15894,412 @@ export type Database = {
           },
         ]
       }
+      rental_blocks: {
+        Row: {
+          company_id: string
+          created_at: string
+          end_at: string
+          id: string
+          reason: string | null
+          start_at: string
+          subject_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          end_at: string
+          id?: string
+          reason?: string | null
+          start_at: string
+          subject_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          end_at?: string
+          id?: string
+          reason?: string | null
+          start_at?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_blocks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_blocks_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_booking_invoices: {
+        Row: {
+          booking_id: string
+          company_id: string
+          created_at: string
+          id: string
+          invoice_number: string | null
+          user_invoice_id: string | null
+        }
+        Insert: {
+          booking_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+          invoice_number?: string | null
+          user_invoice_id?: string | null
+        }
+        Update: {
+          booking_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          invoice_number?: string | null
+          user_invoice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_booking_invoices_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_booking_invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_contract_templates: {
+        Row: {
+          code: string | null
+          company_id: string
+          content: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          status: string
+          version: string | null
+        }
+        Insert: {
+          code?: string | null
+          company_id: string
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          status?: string
+          version?: string | null
+        }
+        Update: {
+          code?: string | null
+          company_id?: string
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          status?: string
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_contract_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_damages: {
+        Row: {
+          booking_id: string
+          company_id: string
+          cost_estimate: number | null
+          created_at: string
+          description: string | null
+          file_url: string | null
+          id: string
+          location_label: string | null
+          phase: string | null
+          severity: string | null
+        }
+        Insert: {
+          booking_id: string
+          company_id: string
+          cost_estimate?: number | null
+          created_at?: string
+          description?: string | null
+          file_url?: string | null
+          id?: string
+          location_label?: string | null
+          phase?: string | null
+          severity?: string | null
+        }
+        Update: {
+          booking_id?: string
+          company_id?: string
+          cost_estimate?: number | null
+          created_at?: string
+          description?: string | null
+          file_url?: string | null
+          id?: string
+          location_label?: string | null
+          phase?: string | null
+          severity?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_damages_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_damages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_document_instances: {
+        Row: {
+          booking_id: string | null
+          company_id: string
+          contract_number: string | null
+          created_at: string
+          created_by: string | null
+          filled_content: string | null
+          filled_data: Json
+          id: string
+          sent_at: string | null
+          sent_channel: string | null
+          signature_url: string | null
+          signed_at: string | null
+          signer_ip: string | null
+          status: string
+          subject_id: string | null
+          template_name: string | null
+        }
+        Insert: {
+          booking_id?: string | null
+          company_id: string
+          contract_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          filled_content?: string | null
+          filled_data?: Json
+          id?: string
+          sent_at?: string | null
+          sent_channel?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          signer_ip?: string | null
+          status?: string
+          subject_id?: string | null
+          template_name?: string | null
+        }
+        Update: {
+          booking_id?: string | null
+          company_id?: string
+          contract_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          filled_content?: string | null
+          filled_data?: Json
+          id?: string
+          sent_at?: string | null
+          sent_channel?: string | null
+          signature_url?: string | null
+          signed_at?: string | null
+          signer_ip?: string | null
+          status?: string
+          subject_id?: string | null
+          template_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_document_instances_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_document_instances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_document_instances_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_drivers: {
+        Row: {
+          company_id: string
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          phone: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_drivers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_listings: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_featured: boolean
+          kind: string
+          status: string
+          subject_id: string
+          transaction_type: string | null
+          vehicle_listing_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_featured?: boolean
+          kind?: string
+          status?: string
+          subject_id: string
+          transaction_type?: string | null
+          vehicle_listing_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_featured?: boolean
+          kind?: string
+          status?: string
+          subject_id?: string
+          transaction_type?: string | null
+          vehicle_listing_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_listings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_listings_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_partner_fleets: {
+        Row: {
+          address: string | null
+          city: string | null
+          company_id: string
+          created_at: string
+          email: string | null
+          id: string
+          invoice_frequency: string | null
+          is_active: boolean
+          is_b2b: boolean
+          nip: string | null
+          partner_name: string | null
+          phone: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          company_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          invoice_frequency?: string | null
+          is_active?: boolean
+          is_b2b?: boolean
+          nip?: string | null
+          partner_name?: string | null
+          phone?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          company_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          invoice_frequency?: string | null
+          is_active?: boolean
+          is_b2b?: boolean
+          nip?: string | null
+          partner_name?: string | null
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_partner_fleets_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rental_payment_reminders: {
         Row: {
           amount_due: number
@@ -15570,6 +16382,419 @@ export type Database = {
           },
         ]
       }
+      rental_payments: {
+        Row: {
+          amount: number
+          booking_id: string
+          company_id: string
+          created_at: string
+          gateway_session_id: string | null
+          id: string
+          kind: string
+          link_token: string | null
+          link_url: string | null
+          method: string
+          note: string | null
+          paid_at: string | null
+          status: string
+        }
+        Insert: {
+          amount?: number
+          booking_id: string
+          company_id: string
+          created_at?: string
+          gateway_session_id?: string | null
+          id?: string
+          kind?: string
+          link_token?: string | null
+          link_url?: string | null
+          method?: string
+          note?: string | null
+          paid_at?: string | null
+          status?: string
+        }
+        Update: {
+          amount?: number
+          booking_id?: string
+          company_id?: string
+          created_at?: string
+          gateway_session_id?: string | null
+          id?: string
+          kind?: string
+          link_token?: string | null
+          link_url?: string | null
+          method?: string
+          note?: string | null
+          paid_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_payments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_protocol_photos: {
+        Row: {
+          category: string | null
+          company_id: string
+          file_url: string
+          id: string
+          protocol_id: string
+          taken_at: string
+        }
+        Insert: {
+          category?: string | null
+          company_id: string
+          file_url: string
+          id?: string
+          protocol_id: string
+          taken_at?: string
+        }
+        Update: {
+          category?: string | null
+          company_id?: string
+          file_url?: string
+          id?: string
+          protocol_id?: string
+          taken_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_protocol_photos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_protocol_photos_protocol_id_fkey"
+            columns: ["protocol_id"]
+            isOneToOne: false
+            referencedRelation: "rental_protocols"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_protocols: {
+        Row: {
+          booking_id: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          fuel_level: string | null
+          id: string
+          mileage: number | null
+          notes: string | null
+          phase: string
+          signed_summary_at: string | null
+        }
+        Insert: {
+          booking_id: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          fuel_level?: string | null
+          id?: string
+          mileage?: number | null
+          notes?: string | null
+          phase: string
+          signed_summary_at?: string | null
+        }
+        Update: {
+          booking_id?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          fuel_level?: string | null
+          id?: string
+          mileage?: number | null
+          notes?: string | null
+          phase?: string
+          signed_summary_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_protocols_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_protocols_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_rate_cards: {
+        Row: {
+          company_id: string
+          created_at: string
+          currency: string
+          deposit: number | null
+          id: string
+          rate_day: number | null
+          rate_hour: number | null
+          rate_month: number | null
+          rate_week: number | null
+          subject_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          currency?: string
+          deposit?: number | null
+          id?: string
+          rate_day?: number | null
+          rate_hour?: number | null
+          rate_month?: number | null
+          rate_week?: number | null
+          subject_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          currency?: string
+          deposit?: number | null
+          id?: string
+          rate_day?: number | null
+          rate_hour?: number | null
+          rate_month?: number | null
+          rate_week?: number | null
+          subject_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_rate_cards_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_rate_cards_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_rate_tiers: {
+        Row: {
+          company_id: string
+          created_at: string
+          discount_percent: number
+          id: string
+          min_days: number
+          rate_card_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          discount_percent: number
+          id?: string
+          min_days: number
+          rate_card_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          min_days?: number
+          rate_card_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_rate_tiers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_rate_tiers_rate_card_id_fkey"
+            columns: ["rate_card_id"]
+            isOneToOne: false
+            referencedRelation: "rental_rate_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_reminder_settings: {
+        Row: {
+          company_id: string
+          created_at: string
+          days_before: number
+          email: boolean
+          enabled: boolean
+          event_type: string
+          id: string
+          sms: boolean
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          days_before?: number
+          email?: boolean
+          enabled?: boolean
+          event_type: string
+          id?: string
+          sms?: boolean
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          days_before?: number
+          email?: boolean
+          enabled?: boolean
+          event_type?: string
+          id?: string
+          sms?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_reminder_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_reminders: {
+        Row: {
+          booking_id: string | null
+          channel: string
+          company_id: string
+          created_at: string
+          days_before: number | null
+          id: string
+          payload: Json
+          scheduled_for: string | null
+          sent_at: string | null
+          status: string
+          subject_id: string | null
+          type: string
+        }
+        Insert: {
+          booking_id?: string | null
+          channel?: string
+          company_id: string
+          created_at?: string
+          days_before?: number | null
+          id?: string
+          payload?: Json
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string
+          subject_id?: string | null
+          type: string
+        }
+        Update: {
+          booking_id?: string | null
+          channel?: string
+          company_id?: string
+          created_at?: string
+          days_before?: number | null
+          id?: string
+          payload?: Json
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string
+          subject_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_reminders_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_reminders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_reminders_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_renters: {
+        Row: {
+          company_id: string
+          company_name: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          nip: string | null
+          pesel: string | null
+          phone: string | null
+          renter_type: string
+        }
+        Insert: {
+          company_id: string
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          nip?: string | null
+          pesel?: string | null
+          phone?: string | null
+          renter_type?: string
+        }
+        Update: {
+          company_id?: string
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          nip?: string | null
+          pesel?: string | null
+          phone?: string | null
+          renter_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_renters_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rental_reviews: {
         Row: {
           approved_at: string | null
@@ -15628,6 +16853,606 @@ export type Database = {
             columns: ["rental_id"]
             isOneToOne: false
             referencedRelation: "vehicle_rentals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_service_types: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_service_types_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_signature_logs: {
+        Row: {
+          action_type: string
+          actor_email: string | null
+          actor_type: string
+          booking_id: string | null
+          company_id: string
+          created_at: string
+          id: string
+          instance_id: string | null
+          ip_address: string | null
+          metadata: Json
+          user_agent: string | null
+        }
+        Insert: {
+          action_type: string
+          actor_email?: string | null
+          actor_type?: string
+          booking_id?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          ip_address?: string | null
+          metadata?: Json
+          user_agent?: string | null
+        }
+        Update: {
+          action_type?: string
+          actor_email?: string | null
+          actor_type?: string
+          booking_id?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          instance_id?: string | null
+          ip_address?: string | null
+          metadata?: Json
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_signature_logs_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_signature_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_signature_logs_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "rental_document_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_subjects: {
+        Row: {
+          attributes: Json
+          created_at: string
+          device_id: string | null
+          id: string
+          last_location: Json | null
+          last_mileage: number | null
+          last_seen_at: string | null
+          owner_company_id: string
+          status: string
+          subject_kind: string
+          telematics_provider: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          attributes?: Json
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          last_location?: Json | null
+          last_mileage?: number | null
+          last_seen_at?: string | null
+          owner_company_id: string
+          status?: string
+          subject_kind: string
+          telematics_provider?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          attributes?: Json
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          last_location?: Json | null
+          last_mileage?: number | null
+          last_seen_at?: string | null
+          owner_company_id?: string
+          status?: string
+          subject_kind?: string
+          telematics_provider?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_subjects_owner_company_id_fkey"
+            columns: ["owner_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_vehicle_assignments: {
+        Row: {
+          assigned_at: string | null
+          company_id: string
+          created_at: string
+          driver_id: string | null
+          id: string
+          status: string
+          subject_id: string
+          unassigned_at: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          company_id: string
+          created_at?: string
+          driver_id?: string | null
+          id?: string
+          status?: string
+          subject_id: string
+          unassigned_at?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          company_id?: string
+          created_at?: string
+          driver_id?: string | null
+          id?: string
+          status?: string
+          subject_id?: string
+          unassigned_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_vehicle_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_vehicle_assignments_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "rental_drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_vehicle_assignments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_vehicle_documents: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          doc_type: string
+          file_name: string | null
+          file_url: string
+          id: string
+          subject_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          doc_type: string
+          file_name?: string | null
+          file_url: string
+          id?: string
+          subject_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          doc_type?: string
+          file_name?: string | null
+          file_url?: string
+          id?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_vehicle_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_vehicle_documents_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_vehicle_inspections: {
+        Row: {
+          company_id: string
+          created_at: string
+          file_url: string | null
+          id: string
+          inspection_date: string | null
+          result: string | null
+          subject_id: string
+          valid_to: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          inspection_date?: string | null
+          result?: string | null
+          subject_id: string
+          valid_to?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          inspection_date?: string | null
+          result?: string | null
+          subject_id?: string
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_vehicle_inspections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_vehicle_inspections_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_vehicle_owners: {
+        Row: {
+          bank_account: string | null
+          company_id: string
+          company_name: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          nip: string | null
+          phone: string | null
+        }
+        Insert: {
+          bank_account?: string | null
+          company_id: string
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          nip?: string | null
+          phone?: string | null
+        }
+        Update: {
+          bank_account?: string | null
+          company_id?: string
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          nip?: string | null
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_vehicle_owners_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_vehicle_photos: {
+        Row: {
+          caption: string | null
+          company_id: string
+          created_at: string
+          file_url: string
+          id: string
+          sort_order: number
+          subject_id: string
+        }
+        Insert: {
+          caption?: string | null
+          company_id: string
+          created_at?: string
+          file_url: string
+          id?: string
+          sort_order?: number
+          subject_id: string
+        }
+        Update: {
+          caption?: string | null
+          company_id?: string
+          created_at?: string
+          file_url?: string
+          id?: string
+          sort_order?: number
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_vehicle_photos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_vehicle_photos_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_vehicle_policies: {
+        Row: {
+          company_id: string
+          created_at: string
+          file_url: string | null
+          id: string
+          policy_no: string | null
+          premium: number | null
+          provider: string | null
+          ptype: string
+          subject_id: string
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          policy_no?: string | null
+          premium?: number | null
+          provider?: string | null
+          ptype?: string
+          subject_id: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          policy_no?: string | null
+          premium?: number | null
+          provider?: string | null
+          ptype?: string
+          subject_id?: string
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_vehicle_policies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_vehicle_policies_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_vehicle_services: {
+        Row: {
+          company_id: string
+          cost: number | null
+          created_at: string
+          description: string | null
+          file_url: string | null
+          id: string
+          odometer: number | null
+          provider: string | null
+          service_date: string | null
+          service_type: string | null
+          subject_id: string
+        }
+        Insert: {
+          company_id: string
+          cost?: number | null
+          created_at?: string
+          description?: string | null
+          file_url?: string | null
+          id?: string
+          odometer?: number | null
+          provider?: string | null
+          service_date?: string | null
+          service_type?: string | null
+          subject_id: string
+        }
+        Update: {
+          company_id?: string
+          cost?: number | null
+          created_at?: string
+          description?: string | null
+          file_url?: string | null
+          id?: string
+          odometer?: number | null
+          provider?: string | null
+          service_date?: string | null
+          service_type?: string | null
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_vehicle_services_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_vehicle_services_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rental_vehicles: {
+        Row: {
+          brand: string | null
+          color: string | null
+          contract_termination_date: string | null
+          created_at: string
+          deposit: number | null
+          engine_capacity_cm3: number | null
+          fuel: string | null
+          is_listed: boolean
+          model: string | null
+          owner_id: string | null
+          owner_rental_fee: number | null
+          photos: Json
+          plate: string | null
+          power_hp: number | null
+          rate_daily: number | null
+          rate_monthly: number | null
+          rate_weekly: number | null
+          subject_id: string
+          updated_at: string
+          vehicle_id: string | null
+          vin: string | null
+          year: number | null
+        }
+        Insert: {
+          brand?: string | null
+          color?: string | null
+          contract_termination_date?: string | null
+          created_at?: string
+          deposit?: number | null
+          engine_capacity_cm3?: number | null
+          fuel?: string | null
+          is_listed?: boolean
+          model?: string | null
+          owner_id?: string | null
+          owner_rental_fee?: number | null
+          photos?: Json
+          plate?: string | null
+          power_hp?: number | null
+          rate_daily?: number | null
+          rate_monthly?: number | null
+          rate_weekly?: number | null
+          subject_id: string
+          updated_at?: string
+          vehicle_id?: string | null
+          vin?: string | null
+          year?: number | null
+        }
+        Update: {
+          brand?: string | null
+          color?: string | null
+          contract_termination_date?: string | null
+          created_at?: string
+          deposit?: number | null
+          engine_capacity_cm3?: number | null
+          fuel?: string | null
+          is_listed?: boolean
+          model?: string | null
+          owner_id?: string | null
+          owner_rental_fee?: number | null
+          photos?: Json
+          plate?: string | null
+          power_hp?: number | null
+          rate_daily?: number | null
+          rate_monthly?: number | null
+          rate_weekly?: number | null
+          subject_id?: string
+          updated_at?: string
+          vehicle_id?: string | null
+          vin?: string | null
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rental_vehicles_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "rental_vehicle_owners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_vehicles_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "rental_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rental_vehicles_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
             referencedColumns: ["id"]
           },
         ]
@@ -19390,12 +21215,17 @@ export type Database = {
           id: string
           is_default: boolean | null
           logo_url: string | null
+          mpp_warning_enabled: boolean
           name: string
           nip: string | null
+          numbering_mode: string
+          numbering_pattern: string
+          numbering_prefix: string
           phone: string | null
           swift_code: string | null
           updated_at: string | null
           user_id: string
+          vat_exemption_basis: string | null
         }
         Insert: {
           address_apartment_number?: string | null
@@ -19410,12 +21240,17 @@ export type Database = {
           id?: string
           is_default?: boolean | null
           logo_url?: string | null
+          mpp_warning_enabled?: boolean
           name: string
           nip?: string | null
+          numbering_mode?: string
+          numbering_pattern?: string
+          numbering_prefix?: string
           phone?: string | null
           swift_code?: string | null
           updated_at?: string | null
           user_id: string
+          vat_exemption_basis?: string | null
         }
         Update: {
           address_apartment_number?: string | null
@@ -19430,12 +21265,17 @@ export type Database = {
           id?: string
           is_default?: boolean | null
           logo_url?: string | null
+          mpp_warning_enabled?: boolean
           name?: string
           nip?: string | null
+          numbering_mode?: string
+          numbering_pattern?: string
+          numbering_prefix?: string
           phone?: string | null
           swift_code?: string | null
           updated_at?: string | null
           user_id?: string
+          vat_exemption_basis?: string | null
         }
         Relationships: []
       }
@@ -19452,6 +21292,8 @@ export type Database = {
           unit: string | null
           unit_net_price: number | null
           vat_amount: number | null
+          vat_exemption_basis: string | null
+          vat_exemption_basis_type: string | null
           vat_rate: string | null
         }
         Insert: {
@@ -19466,6 +21308,8 @@ export type Database = {
           unit?: string | null
           unit_net_price?: number | null
           vat_amount?: number | null
+          vat_exemption_basis?: string | null
+          vat_exemption_basis_type?: string | null
           vat_rate?: string | null
         }
         Update: {
@@ -19480,6 +21324,8 @@ export type Database = {
           unit?: string | null
           unit_net_price?: number | null
           vat_amount?: number | null
+          vat_exemption_basis?: string | null
+          vat_exemption_basis_type?: string | null
           vat_rate?: string | null
         }
         Relationships: [
@@ -19516,6 +21362,8 @@ export type Database = {
           correction_reason: string | null
           created_at: string | null
           currency: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           due_date: string | null
           gross_total: number | null
           id: string
@@ -19545,6 +21393,7 @@ export type Database = {
           sale_date: string | null
           sender_email: string | null
           source: string | null
+          split_payment: boolean
           updated_at: string | null
           user_id: string
           vat_total: number | null
@@ -19566,6 +21415,8 @@ export type Database = {
           correction_reason?: string | null
           created_at?: string | null
           currency?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           due_date?: string | null
           gross_total?: number | null
           id?: string
@@ -19595,6 +21446,7 @@ export type Database = {
           sale_date?: string | null
           sender_email?: string | null
           source?: string | null
+          split_payment?: boolean
           updated_at?: string | null
           user_id: string
           vat_total?: number | null
@@ -19616,6 +21468,8 @@ export type Database = {
           correction_reason?: string | null
           created_at?: string | null
           currency?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           due_date?: string | null
           gross_total?: number | null
           id?: string
@@ -19645,6 +21499,7 @@ export type Database = {
           sale_date?: string | null
           sender_email?: string | null
           source?: string | null
+          split_payment?: boolean
           updated_at?: string | null
           user_id?: string
           vat_total?: number | null
@@ -22139,6 +23994,65 @@ export type Database = {
         }
         Relationships: []
       }
+      workshop_cash_closures: {
+        Row: {
+          avg_margin: number
+          cash_end: number
+          closed_at: string
+          cost: number
+          created_at: string
+          expenses: number
+          id: string
+          orders_count: number
+          period_from: string | null
+          period_to: string | null
+          profit: number
+          provider_id: string
+          result: number
+          revenue: number
+        }
+        Insert: {
+          avg_margin?: number
+          cash_end?: number
+          closed_at?: string
+          cost?: number
+          created_at?: string
+          expenses?: number
+          id?: string
+          orders_count?: number
+          period_from?: string | null
+          period_to?: string | null
+          profit?: number
+          provider_id: string
+          result?: number
+          revenue?: number
+        }
+        Update: {
+          avg_margin?: number
+          cash_end?: number
+          closed_at?: string
+          cost?: number
+          created_at?: string
+          expenses?: number
+          id?: string
+          orders_count?: number
+          period_from?: string | null
+          period_to?: string | null
+          profit?: number
+          provider_id?: string
+          result?: number
+          revenue?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_cash_closures_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_client_bookings: {
         Row: {
           appointment_date: string
@@ -22517,6 +24431,84 @@ export type Database = {
           },
         ]
       }
+      workshop_employee_payouts: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by_name: string | null
+          edited_at: string | null
+          edited_by_name: string | null
+          employee_id: string
+          id: string
+          note: string | null
+          paid_at: string
+          period_end: string | null
+          period_start: string | null
+          provider_id: string
+          type: string
+          user_id: string | null
+          void_reason: string | null
+          voided: boolean
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by_name?: string | null
+          edited_at?: string | null
+          edited_by_name?: string | null
+          employee_id: string
+          id?: string
+          note?: string | null
+          paid_at?: string
+          period_end?: string | null
+          period_start?: string | null
+          provider_id: string
+          type: string
+          user_id?: string | null
+          void_reason?: string | null
+          voided?: boolean
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by_name?: string | null
+          edited_at?: string | null
+          edited_by_name?: string | null
+          employee_id?: string
+          id?: string
+          note?: string | null
+          paid_at?: string
+          period_end?: string | null
+          period_start?: string | null
+          provider_id?: string
+          type?: string
+          user_id?: string | null
+          void_reason?: string | null
+          voided?: boolean
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_employee_payouts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_employee_payouts_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_employees: {
         Row: {
           created_at: string | null
@@ -22528,6 +24520,8 @@ export type Database = {
           language_preference: string
           last_name: string | null
           name: string
+          pay_rate: number | null
+          pay_unit: string | null
           phone: string | null
           pin_code: string | null
           preferred_language: string
@@ -22549,6 +24543,8 @@ export type Database = {
           language_preference?: string
           last_name?: string | null
           name: string
+          pay_rate?: number | null
+          pay_unit?: string | null
           phone?: string | null
           pin_code?: string | null
           preferred_language?: string
@@ -22570,6 +24566,8 @@ export type Database = {
           language_preference?: string
           last_name?: string | null
           name?: string
+          pay_rate?: number | null
+          pay_unit?: string | null
           phone?: string | null
           pin_code?: string | null
           preferred_language?: string
@@ -22586,6 +24584,135 @@ export type Database = {
             foreignKeyName: "workshop_employees_provider_id_fkey"
             columns: ["provider_id"]
             isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by_name: string | null
+          description: string | null
+          document_url: string | null
+          edited_at: string | null
+          edited_by_name: string | null
+          employee_id: string | null
+          expense_date: string
+          id: string
+          method: string | null
+          provider_id: string
+          recurring_cost_id: string | null
+          subcategory: string | null
+          user_id: string | null
+          void_reason: string | null
+          voided: boolean
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          created_by_name?: string | null
+          description?: string | null
+          document_url?: string | null
+          edited_at?: string | null
+          edited_by_name?: string | null
+          employee_id?: string | null
+          expense_date?: string
+          id?: string
+          method?: string | null
+          provider_id: string
+          recurring_cost_id?: string | null
+          subcategory?: string | null
+          user_id?: string | null
+          void_reason?: string | null
+          voided?: boolean
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by_name?: string | null
+          description?: string | null
+          document_url?: string | null
+          edited_at?: string | null
+          edited_by_name?: string | null
+          employee_id?: string | null
+          expense_date?: string
+          id?: string
+          method?: string | null
+          provider_id?: string
+          recurring_cost_id?: string | null
+          subcategory?: string | null
+          user_id?: string | null
+          void_reason?: string | null
+          voided?: boolean
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_expenses_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_expenses_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_expenses_recurring_cost_id_fkey"
+            columns: ["recurring_cost_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_recurring_costs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_finance_settings: {
+        Row: {
+          cash_enabled: boolean
+          cash_started_at: string | null
+          provider_id: string
+          updated_at: string
+          work_days: number[]
+          work_end: string
+          work_start: string
+        }
+        Insert: {
+          cash_enabled?: boolean
+          cash_started_at?: string | null
+          provider_id: string
+          updated_at?: string
+          work_days?: number[]
+          work_end?: string
+          work_start?: string
+        }
+        Update: {
+          cash_enabled?: boolean
+          cash_started_at?: string | null
+          provider_id?: string
+          updated_at?: string
+          work_days?: number[]
+          work_end?: string
+          work_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_finance_settings_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: true
             referencedRelation: "service_providers"
             referencedColumns: ["id"]
           },
@@ -22820,6 +24947,7 @@ export type Database = {
           discount_percent: number | null
           employee_id: string | null
           id: string
+          inventory_product_id: string | null
           is_addon: boolean
           item_type: string | null
           labor_cost: number | null
@@ -22843,6 +24971,7 @@ export type Database = {
           discount_percent?: number | null
           employee_id?: string | null
           id?: string
+          inventory_product_id?: string | null
           is_addon?: boolean
           item_type?: string | null
           labor_cost?: number | null
@@ -22866,6 +24995,7 @@ export type Database = {
           discount_percent?: number | null
           employee_id?: string | null
           id?: string
+          inventory_product_id?: string | null
           is_addon?: boolean
           item_type?: string | null
           labor_cost?: number | null
@@ -22890,6 +25020,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "workshop_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_order_items_inventory_product_id_fkey"
+            columns: ["inventory_product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
             referencedColumns: ["id"]
           },
           {
@@ -22971,6 +25108,7 @@ export type Database = {
           signature_data: string | null
           signature_method: string | null
           signed_at: string | null
+          snapshot: Json | null
           user_agent: string | null
         }
         Insert: {
@@ -22983,6 +25121,7 @@ export type Database = {
           signature_data?: string | null
           signature_method?: string | null
           signed_at?: string | null
+          snapshot?: Json | null
           user_agent?: string | null
         }
         Update: {
@@ -22995,6 +25134,7 @@ export type Database = {
           signature_data?: string | null
           signature_method?: string | null
           signed_at?: string | null
+          snapshot?: Json | null
           user_agent?: string | null
         }
         Relationships: [
@@ -23500,6 +25640,131 @@ export type Database = {
           },
         ]
       }
+      workshop_payments: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by_name: string | null
+          edited_at: string | null
+          edited_by_name: string | null
+          id: string
+          invoice_id: string | null
+          method: string
+          order_id: string | null
+          paid_at: string
+          provider_id: string
+          user_id: string | null
+          void_reason: string | null
+          voided: boolean
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          amount: number
+          category?: string
+          created_at?: string
+          created_by_name?: string | null
+          edited_at?: string | null
+          edited_by_name?: string | null
+          id?: string
+          invoice_id?: string | null
+          method: string
+          order_id?: string | null
+          paid_at?: string
+          provider_id: string
+          user_id?: string | null
+          void_reason?: string | null
+          voided?: boolean
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by_name?: string | null
+          edited_at?: string | null
+          edited_by_name?: string | null
+          id?: string
+          invoice_id?: string | null
+          method?: string
+          order_id?: string | null
+          paid_at?: string
+          provider_id?: string
+          user_id?: string | null
+          void_reason?: string | null
+          voided?: boolean
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_payments_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_recurring_costs: {
+        Row: {
+          active: boolean
+          amount: number
+          category: string
+          created_at: string
+          default_method: string | null
+          end_date: string | null
+          frequency: string
+          id: string
+          name: string
+          next_due_date: string
+          provider_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount: number
+          category?: string
+          created_at?: string
+          default_method?: string | null
+          end_date?: string | null
+          frequency: string
+          id?: string
+          name: string
+          next_due_date: string
+          provider_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          category?: string
+          created_at?: string
+          default_method?: string | null
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          name?: string
+          next_due_date?: string
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_recurring_costs_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workshop_service_points: {
         Row: {
           address: string | null
@@ -23546,6 +25811,7 @@ export type Database = {
           hourly_rate: number | null
           id: string
           logo_url: string | null
+          mechanic_card_prefs: Json
           nip: string | null
           payment_days: number | null
           payment_method: string | null
@@ -23575,6 +25841,7 @@ export type Database = {
           hourly_rate?: number | null
           id?: string
           logo_url?: string | null
+          mechanic_card_prefs?: Json
           nip?: string | null
           payment_days?: number | null
           payment_method?: string | null
@@ -23604,6 +25871,7 @@ export type Database = {
           hourly_rate?: number | null
           id?: string
           logo_url?: string | null
+          mechanic_card_prefs?: Json
           nip?: string | null
           payment_days?: number | null
           payment_method?: string | null
@@ -23767,6 +26035,7 @@ export type Database = {
       }
       workshop_status_settings: {
         Row: {
+          color_mode: string
           created_at: string | null
           id: string
           provider_id: string
@@ -23774,6 +26043,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          color_mode?: string
           created_at?: string | null
           id?: string
           provider_id: string
@@ -23781,6 +26051,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          color_mode?: string
           created_at?: string | null
           id?: string
           provider_id?: string
@@ -25278,7 +27549,74 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      marketplace_public_profiles: {
+        Row: {
+          account_mode: string | null
+          avg_rating: number | null
+          city_id: string | null
+          company_city: string | null
+          company_name: string | null
+          company_website: string | null
+          created_at: string | null
+          default_category: string | null
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          listings_count: number | null
+          preferred_listing_type: string | null
+          public_email: string | null
+          public_phone: string | null
+          reviews_count: number | null
+          user_id: string | null
+        }
+        Insert: {
+          account_mode?: string | null
+          avg_rating?: number | null
+          city_id?: string | null
+          company_city?: string | null
+          company_name?: string | null
+          company_website?: string | null
+          created_at?: string | null
+          default_category?: string | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+          listings_count?: number | null
+          preferred_listing_type?: string | null
+          public_email?: string | null
+          public_phone?: string | null
+          reviews_count?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          account_mode?: string | null
+          avg_rating?: number | null
+          city_id?: string | null
+          company_city?: string | null
+          company_name?: string | null
+          company_website?: string | null
+          created_at?: string | null
+          default_category?: string | null
+          first_name?: string | null
+          id?: string | null
+          last_name?: string | null
+          listings_count?: number | null
+          preferred_listing_type?: string | null
+          public_email?: string | null
+          public_phone?: string | null
+          reviews_count?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_user_profiles_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_find_user_by_email: {
@@ -25329,11 +27667,42 @@ export type Database = {
         Args: { _driver_id: string; _user_id: string }
         Returns: Json
       }
+      can_use_module: {
+        Args: { p_company_id: string; p_module_key: string }
+        Returns: boolean
+      }
       cancel_workshop_booking_by_token: {
         Args: { p_reason: string; p_token: string }
         Returns: undefined
       }
+      claim_domain_events: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          company_id: string
+          created_at: string
+          event_key: string
+          id: string
+          last_error: string | null
+          locked_at: string | null
+          payload: Json
+          processed_at: string | null
+          source_id: string | null
+          source_type: string | null
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "domain_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cleanup_expired_workshop_photos: { Args: never; Returns: undefined }
+      company_module_enabled: {
+        Args: { p_company_id: string; p_module_key: string }
+        Returns: boolean
+      }
       complete_referral_on_first_purchase: {
         Args: {
           p_order_amount_pln: number
@@ -25512,6 +27881,49 @@ export type Database = {
       peek_next_invoice_number: {
         Args: { p_month: number; p_user_id: string; p_year: number }
         Returns: number
+      }
+      rental_calc_price: {
+        Args: { p_end: string; p_start: string; p_subject_id: string }
+        Returns: Json
+      }
+      rental_check_availability: {
+        Args: {
+          p_end: string
+          p_exclude?: string
+          p_start: string
+          p_subject_id: string
+        }
+        Returns: Json
+      }
+      rental_create_gielda_booking: {
+        Args: {
+          p_email?: string
+          p_end: string
+          p_listing_id: string
+          p_name: string
+          p_notes?: string
+          p_phone: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      rental_dashboard_summary: {
+        Args: { p_company_id: string }
+        Returns: Json
+      }
+      rental_get_contract: { Args: { p_token: string }; Returns: Json }
+      rental_listing_availability: {
+        Args: { p_end?: string; p_listing_id: string; p_start?: string }
+        Returns: Json
+      }
+      rental_sign_contract: {
+        Args: {
+          p_ip?: string
+          p_signature: string
+          p_token: string
+          p_ua?: string
+        }
+        Returns: Json
       }
       reschedule_workshop_booking_by_token: {
         Args: { p_date: string; p_time: string; p_token: string }
