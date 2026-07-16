@@ -252,7 +252,7 @@ export function ReferralsTab() {
           <CardContent>
             <div className="space-y-2">
               {txs.map(tx => (
-                <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border bg-card text-sm">
+                <div key={tx.id} className="flex items-center justify-between p-3 rounded-lg border bg-card text-sm">
                   <div className="min-w-0">
                     <p className="font-medium truncate">{tx.description || tx.type}</p>
                     <p className="text-xs text-muted-foreground">

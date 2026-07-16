@@ -101,6 +101,7 @@ interface Meeting {
   created_at: string;
   // Reużyte (bez zmian schematu) na powód błędu: { error: 'no_speech' | 'recording' }
   next_meeting_suggestion: any | null;
+  audio_url?: string | null;
 }
 
 interface MeetingTask {

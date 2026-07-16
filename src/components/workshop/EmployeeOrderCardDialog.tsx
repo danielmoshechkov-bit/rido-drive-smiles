@@ -650,7 +650,7 @@ export function EmployeeOrderCardDialog({
                       key: `${nextIdx}. `,
                       index: nextIdx,
                       complaint: '',
-                      text: '',
+                      labor: [],
                       parts: [],
                       time: '',
                       cost: '',

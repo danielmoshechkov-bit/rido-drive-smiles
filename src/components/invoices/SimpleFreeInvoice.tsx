@@ -119,7 +119,7 @@ interface ExtendedInvoiceItem extends InvoiceItem {
   discount_type?: 'percent' | 'amount';
   /** Podstawa zwolnienia z VAT per pozycja (stawka zw) — jak w iFirma. */
   vat_exemption_basis?: string;
-  vat_exemption_basis_type?: 'ustawa' | 'dyrektywa' | 'inna';
+  vat_exemption_basis_type?: 'ustawa' | 'dyrektywa' | 'inna' | string;
 }
 
 // Extended seller with separate address fields
