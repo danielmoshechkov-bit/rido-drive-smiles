@@ -39,6 +39,10 @@ interface SettingsPanelProps {
   initialSubTab?: string;
 }
 
+// Neutralna domyślna kategoria stanowisk — uniwersalna dla dowolnej branży usługodawcy
+// (warsztat/detailing/myjka), zamiast zaszytego "Warsztat".
+const DEFAULT_WS_CATEGORY = 'Ogólne';
+
 export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websiteBuilderEnabled = false, onPrimaryTabsSaved, initialSubTab }: SettingsPanelProps) {
   const { t } = useTranslation();
   const [settingsTab, setSettingsTab] = useState(initialSubTab || 'konto');
@@ -48,8 +52,8 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [empForm, setEmpForm] = useState({ name: '', phone: '', email: '', salary: '' });
   const [wsName, setWsName] = useState('');
-  const [wsCategory, setWsCategory] = useState('Warsztat');
-  const [activeWsCategory, setActiveWsCategory] = useState('Warsztat');
+  const [wsCategory, setWsCategory] = useState(DEFAULT_WS_CATEGORY);
+  const [activeWsCategory, setActiveWsCategory] = useState(DEFAULT_WS_CATEGORY);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [primaryTabs, setPrimaryTabs] = useState<ServiceProviderNavTabKey[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
   const queryClient = useQueryClient();
@@ -516,10 +520,10 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
         {/* Stara wbudowana tabela pracowników została usunięta — pełną listę renderuje <WorkshopEmployeesPage /> poniżej */}
 
         {settingsTab === 'stanowiska' && (() => {
-          const wsCategories: string[] = Array.from(new Set<string>(workstations.map((w: any) => (w.category as string) || 'Warsztat')));
-          if (wsCategories.length === 0) wsCategories.push('Warsztat');
+          const wsCategories: string[] = Array.from(new Set<string>(workstations.map((w: any) => (w.category as string) || DEFAULT_WS_CATEGORY)));
+          if (wsCategories.length === 0) wsCategories.push(DEFAULT_WS_CATEGORY);
           const currentCat: string = wsCategories.includes(activeWsCategory) ? activeWsCategory : wsCategories[0];
-          const filteredWs = workstations.filter((w: any) => (w.category || 'Warsztat') === currentCat);
+          const filteredWs = workstations.filter((w: any) => (w.category || DEFAULT_WS_CATEGORY) === currentCat);
           return (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -529,7 +533,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setShowAddCategory(true)} className="gap-2">
-                    <Plus className="h-4 w-4" /> {t('workshop.settingsPanel.workstations.category')}
+                    <Plus className="h-4 w-4" /> Dodaj kategorię
                   </Button>
                   <Button onClick={() => { setWsCategory(currentCat); setShowAddWorkstation(true); }} className="gap-2">
                     <Plus className="h-4 w-4" /> {t('workshop.settingsPanel.workstations.addWorkstation')}
@@ -567,7 +571,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                       <div className="flex items-center gap-3">
                         <Monitor className="h-5 w-5 text-primary" />
                         <span className="font-medium">{ws.name}</span>
-                        <Badge variant="secondary" className="text-xs">{ws.category || 'Warsztat'}</Badge>
+                        <Badge variant="secondary" className="text-xs">{ws.category || DEFAULT_WS_CATEGORY}</Badge>
                       </div>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeWorkstationMut.mutate(ws.id)}>
                         <Trash2 className="h-4 w-4" />
