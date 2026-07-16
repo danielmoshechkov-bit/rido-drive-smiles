@@ -44,6 +44,9 @@ interface InvoicePreviewModalProps {
   onSave?: () => Promise<void>;
   onSend?: (email: string) => Promise<void>;
   invoiceIssued?: boolean; // If true, invoice is already saved
+  /** FREEZE: gotowy base64 zamrożonego PDF (faktura wysłana do KSeF) —
+      podgląd i przycisk „PDF" używają tego pliku zamiast renderować na nowo. */
+  frozenPdfBase64?: string;
 }
 
 export function InvoicePreviewModal({
@@ -53,7 +56,8 @@ export function InvoicePreviewModal({
   isLoggedIn,
   onSave,
   onSend,
-  invoiceIssued = false
+  invoiceIssued = false,
+  frozenPdfBase64
 }: InvoicePreviewModalProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
@@ -102,6 +106,12 @@ export function InvoicePreviewModal({
   // zapamiętany — przycisk „PDF" pobiera go bez ponownego renderu (i bez fallbacku).
   useEffect(() => {
     if (!open) return;
+    // FREEZE: wysłana faktura ze snapshotem — pokaż zamrożony plik, bez renderu.
+    if (frozenPdfBase64) {
+      setPreviewPdfBase64(frozenPdfBase64);
+      setPreviewLoading(false);
+      return;
+    }
     let cancelled = false;
     setPreviewLoading(true);
     setPreviewPdfBase64(null);

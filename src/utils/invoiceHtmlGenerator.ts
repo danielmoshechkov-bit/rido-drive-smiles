@@ -13,6 +13,9 @@ export interface InvoiceItem {
   gross_amount: number;
   discount_percent?: number;
   discount_amount?: number;
+  /** Podstawa zwolnienia z VAT tej pozycji (stawka zw) — pokazywana pod nazwą. */
+  vat_exemption_basis?: string;
+  vat_exemption_basis_type?: string;
 }
 
 export interface InvoiceSeller {
@@ -31,6 +34,9 @@ export interface InvoiceSeller {
   phone?: string;
   website?: string;
   logo_url?: string;
+  /** Podstawa prawna zwolnienia z VAT — pokazywana na fakturze przy pozycjach „zw"
+      (wymóg art. 106e ust. 1 pkt 19 ustawy o VAT). */
+  vat_exemption_basis?: string;
 }
 
 export interface InvoiceBuyer {
@@ -61,6 +67,8 @@ export interface InvoiceData {
   // Payment tracking
   paid_amount?: number;
   is_fully_paid?: boolean;
+  /** MPP: adnotacja "mechanizm podzielonej płatności" (faktury > 15 000 zł, załącznik nr 15). */
+  split_payment?: boolean;
   // Signature options
   signature_type?: 'none' | 'receiver' | 'issuer' | 'both_none' | 'valid_without_signature';
   issued_by?: string;
@@ -319,9 +327,14 @@ export const calculateItemTotals = (
 };
 
 // Helper to format address
+// FAZA 7: adresy sklejane z pustych pól potrafią mieć podwójne przecinki / puste
+// człony ("02-657 Warszawa,  ,  ") — czyścimy przed wydrukiem.
+export const cleanAddress = (address: string): string =>
+  address.split(',').map(p => p.trim()).filter(Boolean).join(', ');
+
 const formatAddress = (entity: InvoiceSeller | InvoiceBuyer): string => {
   const parts: string[] = [];
-  
+
   if (entity.address_street) {
     let streetLine = entity.address_street;
     if (entity.address_building_number) {
@@ -336,8 +349,8 @@ const formatAddress = (entity: InvoiceSeller | InvoiceBuyer): string => {
   if (entity.address_postal_code || entity.address_city) {
     parts.push(`${entity.address_postal_code || ''} ${entity.address_city || ''}`.trim());
   }
-  
-  return parts.join(', ');
+
+  return cleanAddress(parts.join(', '));
 };
 
 // Helper to generate correction-specific tables (BYŁO / JEST / RÓŻNICA) — matching GetRido branded style
@@ -511,8 +524,18 @@ const generateCorrectionTablesHtml = (
   return byloHtml + jestHtml + roznicaHtml + summaryHtml;
 };
 
+// FAZA 5: pozycja "całkowicie pusta" (bez nazwy I bez kwot) nie trafia na PDF
+// ani do KSeF — to śmieć z importu/zestawienia. Pozycja z nazwą a kwotą 0 (gratis)
+// albo z kwotą a bez nazwy — ZOSTAJE.
+export const isEmptyInvoiceItem = (item: Pick<InvoiceItem, 'name' | 'net_amount' | 'gross_amount' | 'unit_net_price'>): boolean =>
+  !(item.name || '').trim()
+  && !(Number(item.net_amount) || 0)
+  && !(Number(item.gross_amount) || 0)
+  && !(Number(item.unit_net_price) || 0);
+
 export const generateInvoiceHtml = (invoice: InvoiceData): string => {
-  const { seller, buyer, items, currency = 'PLN', compact_pdf = false } = invoice;
+  const { seller, buyer, currency = 'PLN', compact_pdf = false } = invoice;
+  const items = (invoice.items || []).filter(i => !isEmptyInvoiceItem(i));
   const hasAcceptedKsef = isOfficialKsefReference(invoice.ksef_reference);
   const verificationUrl = hasAcceptedKsef
     ? `https://efaktura.mf.gov.pl/web/verify?id=${encodeURIComponent(invoice.ksef_reference!)}`
@@ -601,7 +624,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const itemsHtml = displayItems.map((item, index) => `
     <tr>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${index + 1}</td>
-      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: left; vertical-align: middle; font-size: ${cellFontSize};">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}</td>
+      <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: left; vertical-align: middle; font-size: ${cellFontSize};">${item.name}${item.pkwiu ? ` <small>(${item.pkwiu})</small>` : ''}${String(item.vat_rate).trim() === 'zw' && item.vat_exemption_basis ? `<div style="font-size: 8px; color: #666; margin-top: 1px;">Podstawa zwolnienia: ${item.vat_exemption_basis}</div>` : ''}</td>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${item.unit}</td>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${item.quantity}</td>
       <td style="border: 1px solid #ddd; padding: ${cellPadding}; text-align: center; vertical-align: middle; font-size: ${cellFontSize};">${formatCurrency(item.unit_net_price, currency)}</td>
@@ -981,7 +1004,11 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       </div>
     </div>
 
-    ${isCorrection && invoice.correction_data ? generateCorrectionTablesHtml(invoice.correction_data, currency, cellPadding, cellFontSize) : (isReceipt || isNota) ? `
+    ${isCorrection && invoice.correction_data ? generateCorrectionTablesHtml({
+      ...invoice.correction_data,
+      before_items: invoice.correction_data.before_items.filter(i => !isEmptyInvoiceItem(i)),
+      after_items: invoice.correction_data.after_items.filter(i => !isEmptyInvoiceItem(i)),
+    }, currency, cellPadding, cellFontSize) : (isReceipt || isNota) ? `
     <table>
       <thead>
         <tr>
@@ -1131,6 +1158,19 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       <span class="amount-words-label">Słownie:</span>
       <span class="amount-words-value">${numberToWords(grossTotal)}</span>
     </div>
+
+    ${items.some(i => String(i.vat_rate).trim() === 'zw') && !items.some(i => String(i.vat_rate).trim() === 'zw' && i.vat_exemption_basis) ? `
+    <div style="margin-bottom: 5px; padding: 4px 11px; background: #f8f5ff; border: 1px solid #ede9fe; border-radius: 6px; font-size: 10px;">
+      <span style="color: #7c3aed; font-weight: 700;">Podstawa zwolnienia z VAT:</span>
+      ${seller.vat_exemption_basis || 'zwolnienie od podatku od towarów i usług'}
+    </div>
+    ` : ''}
+
+    ${invoice.split_payment ? `
+    <div style="margin-bottom: 5px; padding: 4px 11px; background: #FAEEDA; border: 1px solid #FAC775; border-radius: 6px; font-size: 11px; font-weight: 700; color: #854F0B;">
+      Mechanizm podzielonej płatności
+    </div>
+    ` : ''}
 
     ${(seller.bank_account && invoice.payment_method === 'transfer') ? `
     <div class="payment">

@@ -36,6 +36,23 @@ const FloatingInput = React.forwardRef<HTMLInputElement, FloatingInputProps>(
             props.onBlur?.(e);
           }}
           {...props}
+          onKeyDown={(e) => {
+            // Pola kwot/ilości: tylko cyfry i separator dziesiętny. HTML number
+            // dopuszcza notację naukową ("e") i znaki +/- — użytkownik mógł
+            // wpisać "12e5" i zepsuć kwotę. Klawisze edycyjne działają normalnie.
+            if (type === "number" && ["e", "E", "+", "-"].includes(e.key)) {
+              e.preventDefault();
+              return;
+            }
+            props.onKeyDown?.(e);
+          }}
+          onWheel={(e) => {
+            // Scroll na sfokusowanym polu liczbowym ZMIENIAŁ wartość (natywny spin)
+            // — przypadkowe przewinięcie mogło zmienić kwotę/ilość na fakturze.
+            // Blur zdejmuje fokus, więc scroll przewija stronę zamiast kręcić liczbą.
+            if (type === "number") (e.currentTarget as HTMLInputElement).blur();
+            props.onWheel?.(e);
+          }}
         />
         <label
           className={cn(

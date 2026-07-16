@@ -13,6 +13,21 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
         )}
         ref={ref}
         {...props}
+        onKeyDown={(e) => {
+          // Notacja naukowa ("e"/"E") w polach liczbowych nigdy nie jest tu
+          // zamierzona — blokujemy globalnie (minus zostaje: bywa legalny).
+          if (type === "number" && (e.key === "e" || e.key === "E")) {
+            e.preventDefault()
+            return
+          }
+          props.onKeyDown?.(e)
+        }}
+        onWheel={(e) => {
+          // Pola liczbowe: scroll przy fokusie zmieniał wartość (natywny spin) —
+          // groźne przy kwotach. Blur → scroll przewija stronę, nie kręci liczbą.
+          if (type === "number") (e.currentTarget as HTMLInputElement).blur()
+          props.onWheel?.(e)
+        }}
       />
     )
   }

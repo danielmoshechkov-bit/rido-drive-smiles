@@ -32,6 +32,7 @@ import {
   CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail, Shield, AlertTriangle, Download, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { invalidateInvoiceQueries } from '@/utils/invalidateInvoiceQueries';
 
 const accountingSubTabs = [
   { value: 'przeglad', labelKey: 'cp.accounting.przeglad', label: 'Przegląd', icon: BarChart3, visible: true },
@@ -82,15 +83,16 @@ export function ServiceProviderAccountingView() {
         .order('created_at', { ascending: false });
       if (entities) setUserEntities(entities);
 
-      const { data: inv } = await supabase
+      const { data: inv } = await (supabase
         .from('user_invoices')
-        .select('*')
+        .select('*') as any)
         .eq('user_id', u.id)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(50);
       if (inv) setInvoices(inv);
       // Odśwież też wspólny InvoicesModule (Sprzedażowe czyta user_invoices przez React Query)
-      queryClient.invalidateQueries({ queryKey: ['invoices-module-sales'] });
+      invalidateInvoiceQueries(queryClient);
     } finally {
       setLoading(false);
     }

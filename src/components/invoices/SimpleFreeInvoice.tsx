@@ -28,7 +28,10 @@ import {
   ImagePlus,
   X,
   Loader2,
-  Search
+  Search,
+  AlertTriangle,
+  Info,
+  Landmark
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
@@ -53,7 +56,10 @@ import { useGusLookup } from '@/hooks/useGusLookup';
 import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { CorrectionInvoiceSection, CorrectionData } from './CorrectionInvoiceSection';
 import { normalizeInvoiceType } from '@/utils/invoiceTypeMapping';
+import { VAT_EXEMPTION_BASES, VAT_EXEMPTION_CUSTOM } from '@/utils/vatExemptionBases';
+import { DEFAULT_NUMBERING, NumberingConfig, NumberingPattern, NumberingMode, buildInvoiceNumber, seriesLike, extractSeq, nextSeq } from '@/utils/invoiceNumbering';
 import { ksefTypeToUi } from './InvoiceTypeSelector';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
 const UNITS = ['szt.', 'usł.', 'godz.', 'km', 'kg', 'm²', 'm³', 'kpl.'];
@@ -70,7 +76,7 @@ const DOCUMENT_TYPES = [
   { value: 'receipt', label: 'Rachunek', prefix: 'R' },
   { value: 'vat_margin', label: 'Faktura VAT marża', prefix: 'FVM' },
   { value: 'vat_rr', label: 'Faktura VAT RR (rolnik)', prefix: 'RR' },
-  { value: 'correction', label: 'Faktura korygująca', prefix: 'FK' },
+  { value: 'correction', label: 'Faktura korygująca', prefix: 'KOR' },
   { value: 'advance', label: 'Faktura zaliczkowa', prefix: 'FZ' },
   { value: 'final', label: 'Faktura końcowa', prefix: 'FK' },
   { value: 'kp', label: 'KP - Kasa Przyjmie', prefix: 'KP' },
@@ -111,6 +117,9 @@ interface ExtendedInvoiceItem extends InvoiceItem {
   discount_percent?: number;
   discount_amount?: number;
   discount_type?: 'percent' | 'amount';
+  /** Podstawa zwolnienia z VAT per pozycja (stawka zw) — jak w iFirma. */
+  vat_exemption_basis?: string;
+  vat_exemption_basis_type?: 'ustawa' | 'dyrektywa' | 'inna';
 }
 
 // Extended seller with separate address fields
@@ -174,7 +183,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   
   // Invoice details
   const [invoiceNumber, setInvoiceNumber] = useState(`FV/${format(new Date(), 'yyyy/MM')}/001`);
-  const autoNumberRef = useRef<string>('');
+  // Ref = ostatnia AUTO-propozycja. Init na wartość startową pola, żeby pierwszy
+  // przelicz (po załadowaniu ustawień firmy) nie był potraktowany jak ręczna zmiana.
+  const autoNumberRef = useRef<string>(`FV/${format(new Date(), 'yyyy/MM')}/001`);
   const [issueDate, setIssueDate] = useState(today);
   const [saleDate, setSaleDate] = useState(today);
   const [dueDate, setDueDate] = useState(defaultDueDate);
@@ -294,6 +305,144 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   
   // User's saved company
   const [savedCompanyId, setSavedCompanyId] = useState<string | null>(null);
+  // FAZA 2: podstawa prawna zwolnienia z VAT — wymagana na fakturze zw
+  // (art. 106e ust. 1 pkt 19) i w KSeF (P_19A). Pamiętana per firma.
+  const [vatExemptionBasis, setVatExemptionBasis] = useState('');
+  const [vatExemptionCustom, setVatExemptionCustom] = useState(false);
+  // Tryb numeracji (ustawienie firmy, kolumna user_invoice_companies.numbering_mode):
+  //  continuous — MAX+1 z atomowej sekwencji, luki po usuniętych przepadają (domyślny)
+  //  fill_gaps  — najniższy WOLNY numer wśród aktywnych (usunięty numer wraca)
+  //  manual     — propozycja MAX+1 aktywnych, pełna swoboda ręcznej zmiany
+  const [numberingMode, setNumberingMode] = useState<'continuous' | 'fill_gaps' | 'manual'>('continuous');
+
+  // Format numeracji (prefiks + wzór) — ustawienie firmy, ładowane razem z trybem.
+  const [numberingPrefix, setNumberingPrefix] = useState(DEFAULT_NUMBERING.prefix);
+  const [numberingPattern, setNumberingPattern] = useState<NumberingPattern>(DEFAULT_NUMBERING.pattern);
+  // Gotowość: propozycję numeru liczymy DOPIERO gdy znamy ustawienia firmy —
+  // wcześniej stary podgląd (martwy licznik RPC) ścigał się z przeliczeniem
+  // po załadowaniu trybu i spóźniona odpowiedź nadpisywała poprawny numer.
+  const [numberingReady, setNumberingReady] = useState(false);
+
+  const numberingCfg = (): NumberingConfig => ({
+    prefix: numberingPrefix,
+    pattern: numberingPattern,
+    mode: numberingMode,
+  });
+
+  // Propozycja numeru — ZAWSZE z AKTYWNYCH faktur (deleted_at IS NULL), we
+  // wszystkich trybach. continuous/manual = max+1, fill_gaps = najniższy wolny.
+  const proposeInvoiceNumber = async (userId: string, mode: string, cfg?: NumberingConfig): Promise<string> => {
+    const c = cfg || numberingCfg();
+    const now = new Date();
+    const { data } = await (supabase.from('user_invoices').select('invoice_number') as any)
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .like('invoice_number', seriesLike(c, now));
+    const seqs = (data || [])
+      .map((r: any) => extractSeq(c, now, r.invoice_number))
+      .filter((n: number | null): n is number => n !== null);
+    return buildInvoiceNumber(c, now, nextSeq(mode as NumberingMode, seqs));
+  };
+
+  // JEDNO miejsce liczenia propozycji: po załadowaniu ustawień firmy i przy każdej
+  // zmianie trybu/formatu; spóźnione odpowiedzi ignorowane (cancelled).
+  useEffect(() => {
+    if (editInvoiceId || !numberingReady) return;
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+      if (invoiceNumber === autoNumberRef.current || !invoiceNumber) {
+        const preview = await proposeInvoiceNumber(user.id, numberingMode);
+        if (cancelled) return;
+        setInvoiceNumber(preview);
+        autoNumberRef.current = preview;
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numberingReady, numberingMode, numberingPattern, numberingPrefix]);
+
+  // FAZA 4: walidacja numeru NA ŻYWO — czerwone pole + blokada „Wystaw fakturę",
+  // gdy aktywna faktura z tym numerem już istnieje (dodatkowo do checku przy zapisie
+  // i triggera w bazie). Do tego OSTRZEŻENIE CHRONOLOGII (żółte, nie blokuje):
+  // numer niższy niż aktywna faktura z WCZEŚNIEJSZĄ datą = możliwe naruszenie
+  // chronologii numeracji (numer powinien rosnąć z datą).
+  const [numberDuplicate, setNumberDuplicate] = useState(false);
+  const [freeNumberHint, setFreeNumberHint] = useState<string | null>(null);
+  const [chronologyWarning, setChronologyWarning] = useState(false);
+  // FAZA UX 3: pominięcie numerów — wpisany numer WYŻSZY niż (najwyższy aktywny+1)
+  // w tej serii = luka w numeracji. Żółte info, nie blokuje.
+  const [skipWarning, setSkipWarning] = useState<{ last: number; from: number; to: number } | null>(null);
+  useEffect(() => {
+    const n = (invoiceNumber || '').trim();
+    if (!n) { setNumberDuplicate(false); setChronologyWarning(false); setSkipWarning(null); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        let q = (supabase.from('user_invoices').select('id') as any)
+          .eq('user_id', user.id)
+          .eq('invoice_number', n)
+          .is('deleted_at', null)
+          .limit(1);
+        if (editInvoiceId) q = q.neq('id', editInvoiceId);
+        const { data } = await q.maybeSingle();
+        if (!cancelled) setNumberDuplicate(!!data);
+        // Przy duplikacie podpowiedz najbliższy wolny numer (ta sama logika co
+        // auto-propozycja: aktywne faktury + tryb numeracji firmy).
+        if (data && !cancelled) {
+          try {
+            const free = await proposeInvoiceNumber(user.id, numberingMode);
+            if (!cancelled) setFreeNumberHint(free);
+          } catch { if (!cancelled) setFreeNumberHint(null); }
+        } else if (!cancelled) {
+          setFreeNumberHint(null);
+        }
+
+        // chronologia + pominięcie: tylko numery z bieżącej serii (wg formatu firmy)
+        const cfg = numberingCfg();
+        const now = new Date();
+        const myNum = extractSeq(cfg, now, n);
+        if (myNum !== null && issueDate) {
+          let cq = (supabase.from('user_invoices').select('id, invoice_number, issue_date') as any)
+            .eq('user_id', user.id)
+            .is('deleted_at', null)
+            .like('invoice_number', seriesLike(cfg, now));
+          if (editInvoiceId) cq = cq.neq('id', editInvoiceId);
+          const { data: rows } = await cq;
+          const parsed = (rows || [])
+            .map((r: any) => ({ seq: extractSeq(cfg, now, r.invoice_number), issue_date: r.issue_date }))
+            .filter((r: any) => r.seq !== null);
+          const warn = parsed.some((r: any) => r.seq > myNum && r.issue_date && r.issue_date < issueDate);
+          if (!cancelled) setChronologyWarning(warn);
+          // pominięcie: TYLKO gdy numer wpisany ręcznie (różny od auto-propozycji) —
+          // system sam nie ostrzega o własnej propozycji
+          const maxNum = parsed.length ? Math.max(...parsed.map((r: any) => r.seq)) : 0;
+          const reczny = n !== autoNumberRef.current;
+          if (!cancelled) {
+            setSkipWarning(reczny && myNum > maxNum + 1 ? { last: maxNum, from: maxNum + 1, to: myNum - 1 } : null);
+          }
+        } else if (!cancelled) {
+          setChronologyWarning(false);
+          setSkipWarning(null);
+        }
+      } catch { /* offline itp. — zapis i tak zweryfikuje */ }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [invoiceNumber, issueDate, editInvoiceId]);
+
+  // FAZA 3: MPP / split payment — faktury > 15 000 zł brutto (załącznik nr 15)
+  // wymagają adnotacji "mechanizm podzielonej płatności" (KSeF: P_18A=1).
+  const [splitPayment, setSplitPayment] = useState(false);
+  const [showMppDialog, setShowMppDialog] = useState(false);
+  // Ustawienie firmy: pokazywać okno MPP dla faktur > 15 000 zł (domyślnie true).
+  const [mppWarningEnabled, setMppWarningEnabled] = useState(true);
+  // Override splitPayment na czas zapisu z okna MPP — stan setSplitPayment jest
+  // asynchroniczny, więc zapis czyta wartość z refa (getSplitPayment).
+  const splitOverrideRef = useRef<boolean | null>(null);
+  const getSplitPayment = () => splitOverrideRef.current !== null ? splitOverrideRef.current : splitPayment;
 
   // NIP lookup for buyer (GUS REGON) — fill przez onCompany, żeby checkbox
   // „Skróć formę prawną" podmieniał nazwę także po lookupie
@@ -418,6 +567,15 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         bank_name: company.bank_name || '',
         bank_account: company.bank_account || ''
       });
+      if ((company as any).vat_exemption_basis) setVatExemptionBasis((company as any).vat_exemption_basis);
+      if (['continuous', 'fill_gaps', 'manual'].includes((company as any).numbering_mode)) {
+        setNumberingMode((company as any).numbering_mode);
+      }
+      if ((company as any).numbering_prefix) setNumberingPrefix((company as any).numbering_prefix);
+      if (['RRRR/MM/NNN', 'RRRR/NNN', 'NNN/RRRR', 'NNN'].includes((company as any).numbering_pattern)) {
+        setNumberingPattern((company as any).numbering_pattern);
+      }
+      if (typeof (company as any).mpp_warning_enabled === 'boolean') setMppWarningEnabled((company as any).mpp_warning_enabled);
       setSellerExpanded(false);
       if (!issuePlace) setIssuePlace(company.address_city || '');
       if ((company as any).logo_url) setCompanyLogo((company as any).logo_url);
@@ -469,20 +627,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       if (session?.user) {
         await loadUserCompanyData(session.user.id);
         
-        // Preview next invoice number WITHOUT consuming the sequence.
-        // The atomic number is claimed only at actual issuance (see save flow).
+        // Propozycja numeru liczona jest w JEDNYM efekcie (patrz numberingReady) —
+        // dopiero po załadowaniu ustawień firmy, z aktywnych faktur, bez martwego
+        // licznika RPC i bez wyścigu dwóch asynchronicznych zapisów.
         if (!editInvoiceId) {
-          const now = new Date();
-          const year = parseInt(format(now, 'yyyy'));
-          const month = parseInt(format(now, 'MM'));
-          const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
-
-          const { data: nextNum, error: peekErr } = await (supabase as any)
-            .rpc('peek_next_invoice_number', { p_user_id: session.user.id, p_year: year, p_month: month });
-
-          const preview = `${prefix}${String(peekErr || !nextNum ? 1 : nextNum).padStart(3, '0')}`;
-          setInvoiceNumber(preview);
-          autoNumberRef.current = preview;
+          setNumberingReady(true);
         }
         
         // Check KSeF: token + master switch (send_invoices_enabled) + auto-send toggle
@@ -539,6 +688,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         setIssuePlace(invoice.issue_place || '');
         setPaymentMethod((invoice.payment_method || 'transfer') as 'transfer' | 'cash' | 'card');
         setNotes(invoice.notes || '');
+        setSplitPayment((invoice as any).split_payment === true);
         setCurrency((invoice.currency || 'PLN') as Currency);
         setPaidAmount(invoice.paid_amount || 0);
         setIsFullyPaid(invoice.is_paid || false);
@@ -581,6 +731,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               net_amount: item.net_amount || 0,
               vat_amount: item.vat_amount || 0,
               gross_amount: item.gross_amount || 0,
+              vat_exemption_basis: (item as any).vat_exemption_basis || undefined,
+              vat_exemption_basis_type: (item as any).vat_exemption_basis_type || undefined,
             };
           }));
         }
@@ -685,6 +837,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         } else {
           item.unit_gross_price = calculateGrossFromNet(item.unit_net_price, value);
         }
+        // Pozycja przełączona na zw bez podstawy — zasiej domyślną z danych firmy
+        if (String(value).trim() === 'zw' && !item.vat_exemption_basis && vatExemptionBasis) {
+          item.vat_exemption_basis = vatExemptionBasis;
+          item.vat_exemption_basis_type = item.vat_exemption_basis_type || 'ustawa';
+        }
       }
       
       // Calculate totals — pass lastEditedField + unit_gross_price so that
@@ -695,13 +852,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         unit_gross_price: item.unit_gross_price,
         lastEditedField: item.lastEditedField,
       });
-      updated[index] = { 
-        ...calculated, 
-        unit_gross_price: item.unit_gross_price, 
-        lastEditedField: item.lastEditedField, 
+      updated[index] = {
+        ...calculated,
+        unit_gross_price: item.unit_gross_price,
+        lastEditedField: item.lastEditedField,
         discount_percent: item.discount_percent,
         discount_amount: item.discount_amount,
-        discount_type: item.discount_type
+        discount_type: item.discount_type,
+        // pola per-pozycja spoza kalkulacji — nie mogą ginąć przy przeliczeniu
+        vat_exemption_basis: item.vat_exemption_basis,
+        vat_exemption_basis_type: item.vat_exemption_basis_type
       };
       return updated;
     });
@@ -799,16 +959,26 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       items: items.map(({ unit_gross_price, lastEditedField, ...item }) => item),
       seller: {
         ...seller,
+        // address_street zawiera już nr budynku/lokalu (sklejone wyżej) — zerujemy
+        // osobne pola, inaczej formatAddress w generatorze doklejał numer 2. raz
+        // ("Borsucza 13 13").
         address_street: sellerAddress,
+        address_building_number: undefined,
+        address_apartment_number: undefined,
         logo_url: companyLogo || undefined,
+        vat_exemption_basis: vatExemptionBasis || undefined,
       },
       buyer: {
         ...buyer,
         address_street: buyerAddress,
+        address_building_number: undefined,
+        address_apartment_number: undefined,
       },
       // Payment info
       paid_amount: paidAmount,
       is_fully_paid: isFullyPaid,
+      // MPP
+      split_payment: getSplitPayment(),
       // Signature
       signature_type: signatureType as any,
       issued_by: issuedBy,
@@ -831,6 +1001,48 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         advance_amount: advanceAmount,
         advance_vat: advanceVat || undefined,
       } : undefined,
+      // FAZA 6: dane korekty także w podglądzie z formularza — bez nich generator
+      // renderował korektę jako zwykłą "Fakturę VAT" bez sekcji PRZED/PO/RÓŻNICA.
+      correction_data: (invoiceType === 'correction' && correctionData) ? (() => {
+        const beforeItems = correctionData.items.map((ci) => {
+          const rate = parseFloat(ci.vat_rate_before) || 0;
+          const net = Math.round(ci.quantity_before * ci.unit_net_price_before * 100) / 100;
+          const vat = Math.round(net * (rate / 100) * 100) / 100;
+          return {
+            name: ci.name,
+            quantity: ci.quantity_before,
+            unit: ci.unit,
+            unit_net_price: ci.unit_net_price_before,
+            vat_rate: ci.vat_rate_before,
+            net_amount: net,
+            vat_amount: vat,
+            gross_amount: Math.round((net + vat) * 100) / 100,
+          };
+        });
+        const afterItems = items.map(({ unit_gross_price, lastEditedField, ...item }) => item);
+        const sum = (list: { net_amount: number; vat_amount: number; gross_amount: number }[]) => ({
+          net: Math.round(list.reduce((s, i) => s + i.net_amount, 0) * 100) / 100,
+          vat: Math.round(list.reduce((s, i) => s + i.vat_amount, 0) * 100) / 100,
+          gross: Math.round(list.reduce((s, i) => s + i.gross_amount, 0) * 100) / 100,
+        });
+        const beforeTotals = sum(beforeItems);
+        const afterTotals = sum(afterItems);
+        return {
+          original_invoice_number: correctionData.originalInvoiceNumber,
+          original_invoice_date: correctionData.originalIssueDate,
+          correction_reason: correctionData.correctionReasonText || correctionData.correctionReason,
+          payment_method_before: correctionData.originalPaymentMethod,
+          before_items: beforeItems,
+          after_items: afterItems,
+          before_totals: beforeTotals,
+          after_totals: afterTotals,
+          diff_totals: {
+            net: Math.round((afterTotals.net - beforeTotals.net) * 100) / 100,
+            vat: Math.round((afterTotals.vat - beforeTotals.vat) * 100) / 100,
+            gross: Math.round((afterTotals.gross - beforeTotals.gross) * 100) / 100,
+          },
+        };
+      })() : undefined,
     };
   };
 
@@ -871,8 +1083,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               address_city: seller.address_city,
               address_postal_code: seller.address_postal_code,
               bank_name: seller.bank_name,
-              bank_account: seller.bank_account
-            })
+              bank_account: seller.bank_account,
+              vat_exemption_basis: (items.find(i => String(i.vat_rate).trim() === 'zw' && (i as any).vat_exemption_basis) as any)?.vat_exemption_basis || vatExemptionBasis || null
+            } as any)
             .eq('id', companyIdToUse);
         } else {
           // Create new company in user_invoice_companies
@@ -889,8 +1102,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               address_postal_code: seller.address_postal_code,
               bank_name: seller.bank_name,
               bank_account: seller.bank_account,
-              is_default: true
-            })
+              is_default: true,
+              vat_exemption_basis: (items.find(i => String(i.vat_rate).trim() === 'zw' && (i as any).vat_exemption_basis) as any)?.vat_exemption_basis || vatExemptionBasis || null
+            } as any)
             .select()
             .single();
           
@@ -925,6 +1139,33 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       let resultInvoiceId: string | null = null;
       // Check if we're editing an existing invoice
       if (editInvoiceId) {
+        // FREEZE: faktura wysłana do KSeF jest niezmienialna (trigger DB też to
+        // wymusza) — czytelny komunikat zamiast błędu bazy.
+        const { data: freezeCheck } = await supabase
+          .from('user_invoices')
+          .select('ksef_reference, ksef_status')
+          .eq('id', editInvoiceId)
+          .maybeSingle();
+        if (freezeCheck?.ksef_reference || ['sent', 'processing', 'accepted'].includes(freezeCheck?.ksef_status || '')) {
+          toast.error('Nie można edytować faktury wysłanej do KSeF. Wystaw korektę.');
+          return;
+        }
+        // FAZA 4: przy edycji numer nie może kolidować z inną aktywną fakturą
+        if (invoiceData.invoice_number) {
+          const { data: dupEdit } = await (supabase
+            .from('user_invoices')
+            .select('id') as any)
+            .eq('user_id', user.id)
+            .eq('invoice_number', invoiceData.invoice_number)
+            .is('deleted_at', null)
+            .neq('id', editInvoiceId)
+            .limit(1)
+            .maybeSingle();
+          if (dupEdit) {
+            toast.error(`Aktywna faktura o numerze ${invoiceData.invoice_number} już istnieje. Zmień numer.`);
+            return;
+          }
+        }
         // UPDATE existing invoice
         const { error } = await supabase
           .from('user_invoices')
@@ -941,14 +1182,15 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             buyer_name: buyer.name,
             buyer_nip: buyer.nip,
             buyer_email: buyer.email || null,
-            buyer_address: `${buyerAddress}, ${buyer.address_postal_code} ${buyer.address_city}`,
+            buyer_address: [buyerAddress, `${buyer.address_postal_code || ''} ${buyer.address_city || ''}`.trim()].filter(Boolean).join(', '),
             net_total: netTotal,
             vat_total: vatTotal,
             gross_total: grossTotal,
             paid_amount: paidAmount,
             is_paid: isFullyPaid,
-            notes: notes
-          })
+            notes: notes,
+            split_payment: getSplitPayment()
+          } as any)
           .eq('id', editInvoiceId);
 
         if (error) throw error;
@@ -966,10 +1208,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           net_amount: item.net_amount,
           vat_amount: item.vat_amount,
           gross_amount: item.gross_amount,
-          sort_order: idx
-        }));
+          sort_order: idx,
+          vat_exemption_basis: (item as any).vat_exemption_basis || null,
+          vat_exemption_basis_type: (item as any).vat_exemption_basis_type || null
+        })) as any[];
 
-        await supabase.from('user_invoice_items').insert(itemsToInsert);
+        await supabase.from('user_invoice_items').insert(itemsToInsert as any);
         
         toast.success('Zmiany zostały zapisane!');
         resultInvoiceId = editInvoiceId;
@@ -981,27 +1225,24 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         // Generate correction invoice number if needed
         let finalInvoiceNumber = asDraft ? null : invoiceData.invoice_number;
 
-        // Claim the atomic sequence number ONLY at the moment of actual issuance,
-        // and only if the user did not manually edit the preview number.
+        // Numer nadawany w chwili wystawienia (o ile user nie zmienił propozycji
+        // ręcznie): świeże przeliczenie z AKTYWNYCH faktur wg trybu i formatu firmy.
+        // Martwy licznik RPC porzucony (zliczał usunięte); wyścigi łapie walidacja
+        // + trigger duplikatów w bazie.
         if (!asDraft && !isCorrection && invoiceData.invoice_number === autoNumberRef.current) {
-          const nowD = new Date();
-          const y = parseInt(format(nowD, 'yyyy'));
-          const m = parseInt(format(nowD, 'MM'));
-          const { data: claimedNum, error: claimErr } = await supabase
-            .rpc('get_next_invoice_number', { p_user_id: user.id, p_year: y, p_month: m });
-          if (!claimErr && claimedNum) {
-            finalInvoiceNumber = `FV/${y}/${String(m).padStart(2, '0')}/${String(claimedNum).padStart(3, '0')}`;
-          }
+          finalInvoiceNumber = await proposeInvoiceNumber(user.id, numberingMode);
         }
 
         if (isCorrection && !asDraft) {
           const now = new Date();
           const year = format(now, 'yyyy');
-          const { data: lastCorr } = await supabase
+          // FAZA 4: numeracja korekt pomija soft-deleted (usunięta korekta zwalnia numer)
+          const { data: lastCorr } = await (supabase
             .from('user_invoices')
-            .select('invoice_number')
+            .select('invoice_number') as any)
             .eq('user_id', user.id)
             .eq('is_correction', true)
+            .is('deleted_at', null)
             .like('invoice_number', `KOR/${year}/%`)
             .order('invoice_number', { ascending: false })
             .limit(1)
@@ -1016,9 +1257,26 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           finalInvoiceNumber = `KOR/${year}/${String(nextNum).padStart(3, '0')}`;
         }
 
-        const correctionReasonLabel = isCorrection 
+        const correctionReasonLabel = isCorrection
           ? (correctionData!.correctionReasonText || correctionData!.correctionReason)
           : undefined;
+
+        // FAZA 4: blokada duplikatów — nie pozwól zapisać drugiej AKTYWNEJ faktury
+        // z tym samym numerem (trigger DB też to wymusza; tu czytelny komunikat).
+        if (finalInvoiceNumber) {
+          const { data: dup } = await (supabase
+            .from('user_invoices')
+            .select('id') as any)
+            .eq('user_id', user.id)
+            .eq('invoice_number', finalInvoiceNumber)
+            .is('deleted_at', null)
+            .limit(1)
+            .maybeSingle();
+          if (dup) {
+            toast.error(`Aktywna faktura o numerze ${finalInvoiceNumber} już istnieje. Zmień numer.`);
+            return;
+          }
+        }
 
         const insertData: any = {
             user_id: user.id,
@@ -1034,13 +1292,14 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             buyer_name: buyer.name,
             buyer_nip: buyer.nip,
             buyer_email: buyer.email || null,
-            buyer_address: `${buyerAddress}, ${buyer.address_postal_code} ${buyer.address_city}`,
+            buyer_address: [buyerAddress, `${buyer.address_postal_code || ''} ${buyer.address_city || ''}`.trim()].filter(Boolean).join(', '),
             net_total: netTotal,
             vat_total: vatTotal,
             gross_total: grossTotal,
             paid_amount: paidAmount,
             is_paid: isFullyPaid,
             notes: notes,
+            split_payment: getSplitPayment(),
             ksef_status: asDraft ? 'draft' : undefined,
             ...(prefillWorkshopOrderId ? { workshop_order_id: prefillWorkshopOrderId } : {}),
         };
@@ -1071,6 +1330,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         const newInvoiceId = savedInvoice?.id || null;
         if (newInvoiceId) setLastSavedInvoiceId(newInvoiceId);
         resultInvoiceId = newInvoiceId;
+        // FAZA 6: numer nadany przy wystawieniu (np. KOR/2026/003 dla korekt) ma być
+        // widoczny w podglądzie po wystawieniu — nie roboczy z formularza (KOR/rrrr/mm/nnn).
+        if (finalInvoiceNumber && finalInvoiceNumber !== invoiceNumber) {
+          setInvoiceNumber(finalInvoiceNumber);
+        }
 
         // Save invoice items
         if (savedInvoice) {
@@ -1084,10 +1348,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             net_amount: item.net_amount,
             vat_amount: item.vat_amount,
             gross_amount: item.gross_amount,
-            sort_order: idx
-          }));
+            sort_order: idx,
+            vat_exemption_basis: (item as any).vat_exemption_basis || null,
+            vat_exemption_basis_type: (item as any).vat_exemption_basis_type || null
+          })) as any[];
 
-          await supabase.from('user_invoice_items').insert(itemsToInsert);
+          await supabase.from('user_invoice_items').insert(itemsToInsert as any);
         }
 
         // Save contractor if new (only for new invoices)
@@ -1191,9 +1457,25 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
     }
     setItemPriceErrors(new Set());
 
+    // Bramka MPP: faktura > 15 000 zł brutto — zapytaj o split payment PRZED zapisem
+    // (jak iFirma), o ile ostrzeżenie MPP włączone w ustawieniach firmy (domyślnie
+    // tak; wymóg prawny — sankcja 30% VAT za brak adnotacji MPP z załącznika nr 15).
+    if (finalAmount > 15000 && mppWarningEnabled) {
+      setShowMppDialog(true);
+      return;
+    }
+    await proceedIssue();
+  };
+
+  // Właściwy zapis + wysyłka — wołane wprost albo po decyzji w oknie MPP.
+  const proceedIssue = async () => {
     setIsIssuing(true);
     try {
       const savedId = await handleSave(false, true); // skipOnSaved — modal podglądu ma zostać
+      // FIX: handleSave może przerwać zapis (duplikat numeru, freeze KSeF, walidacja)
+      // — wtedy zwraca undefined i NIE wolno ogłaszać sukcesu ani otwierać podglądu.
+      // Wcześniej leciało "Faktura została wystawiona!" mimo braku zapisu.
+      if (!savedId) return;
       setInvoiceIssued(true);
       setShowPreview(true);
       toast.success('Faktura została wystawiona!');
@@ -1218,6 +1500,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             } else {
               toast.success(data.message || 'Faktura wysłana do KSeF');
             }
+            // FREEZE: zamroź PDF wysłanej faktury (snapshot w storage) — dokument
+            // ma na zawsze wyglądać tak, jak w chwili wysyłki do KSeF.
+            try {
+              const { freezeInvoicePdf } = await import('@/utils/invoicePdfFreeze');
+              const frozenData = getInvoiceData();
+              if (frozenData) {
+                frozenData.ksef_reference = data.ksef_reference || undefined;
+                await freezeInvoicePdf(invoiceIdToSend, frozenData);
+              }
+            } catch (fe) { console.error('[SimpleFreeInvoice] freeze PDF:', fe); }
             // Bez onSaved tutaj — modal podglądu ma zostać; odświeżenie po zamknięciu podglądu.
           }
         } catch (ksefErr: any) {
@@ -1229,9 +1521,17 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       // Error toast already shown in handleSave
     } finally {
       setIsIssuing(false);
+      splitOverrideRef.current = null;
     }
   };
-  
+
+  // Decyzja w oknie MPP: ustaw split (override + stan UI) i wystaw.
+  const decideMppAndIssue = async (useSplit: boolean) => {
+    splitOverrideRef.current = useSplit;
+    setSplitPayment(useSplit);
+    setShowMppDialog(false);
+    await proceedIssue();
+  };
 
   const paymentStatus = getPaymentStatus();
   const currencySymbol = getCurrencySymbol(currency);
@@ -1754,7 +2054,27 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                   required
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
+                  className={numberDuplicate ? 'border-red-500 focus-visible:ring-red-500' : undefined}
                 />
+                {numberDuplicate && (
+                  <p className="text-xs text-red-600 mt-1 font-medium">
+                    Faktura o numerze {invoiceNumber} już istnieje.
+                    {freeNumberHint ? <> Najbliższy wolny numer: {freeNumberHint}.</> : <> Zmień numer.</>}
+                  </p>
+                )}
+                {!numberDuplicate && chronologyWarning && (
+                  <p className="text-xs text-amber-600 mt-1 font-medium">
+                    Uwaga: numer niższy niż faktura z wcześniejszą datą — może naruszyć chronologię numeracji.
+                  </p>
+                )}
+                {!numberDuplicate && skipWarning && (
+                  <p className="text-xs text-amber-600 mt-1 font-medium">
+                    Uwaga: {skipWarning.last > 0
+                      ? `ostatnia faktura w tej serii ma numer ${skipWarning.last}. Pominiesz ${skipWarning.from === skipWarning.to ? `numer ${skipWarning.from}` : `numery ${skipWarning.from}–${skipWarning.to}`}`
+                      : `w tej serii nie ma jeszcze faktur — pominiesz ${skipWarning.from === skipWarning.to ? `numer ${skipWarning.from}` : `numery ${skipWarning.from}–${skipWarning.to}`}`}
+                    {' '}— powstanie luka w numeracji (dozwolone, wymaga wyjaśnienia przy kontroli).
+                  </p>
+                )}
               </div>
               <div className="relative">
                 <div className="flex h-12 w-full rounded-md border border-input bg-background items-center px-3">
@@ -1919,6 +2239,55 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               </div>
               )}
 
+              {/* Podstawa zwolnienia PRZY POZYCJI zw (jak iFirma): typ + przepis,
+                  każda pozycja zw niezależnie. Wymóg art. 106e ust. 1 pkt 19. */}
+              {String(item.vat_rate).trim() === 'zw' && (
+                <div className="rounded-md border-2 border-violet-400 bg-violet-50 dark:bg-violet-950/20 p-3 space-y-2">
+                  <Label className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                    Podstawa zwolnienia z VAT tej pozycji
+                  </Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-2">
+                    <Select
+                      value={item.vat_exemption_basis_type || 'ustawa'}
+                      onValueChange={(v) => updateItem(index, 'vat_exemption_basis_type', v)}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ustawa">Ustawa</SelectItem>
+                        <SelectItem value="dyrektywa">Dyrektywa</SelectItem>
+                        <SelectItem value="inna">Inna</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {(item.vat_exemption_basis_type || 'ustawa') === 'ustawa' ? (
+                      <Select
+                        value={VAT_EXEMPTION_BASES.some(b => b.value === item.vat_exemption_basis) ? item.vat_exemption_basis : (item.vat_exemption_basis ? VAT_EXEMPTION_CUSTOM : '')}
+                        onValueChange={(v) => updateItem(index, 'vat_exemption_basis', v === VAT_EXEMPTION_CUSTOM ? '' : v)}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Wybierz przepis ustawy o VAT" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VAT_EXEMPTION_BASES.map(b => (
+                            <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        className="h-9"
+                        value={item.vat_exemption_basis || ''}
+                        onChange={(e) => updateItem(index, 'vat_exemption_basis', e.target.value)}
+                        placeholder={(item.vat_exemption_basis_type === 'dyrektywa')
+                          ? 'np. art. 132 ust. 1 lit. j dyrektywy 2006/112/WE'
+                          : 'wpisz podstawę prawną zwolnienia'}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Discount row (only if per_item discount enabled) */}
               {discountConfig.type === 'per_item' && (
                 <div className="grid grid-cols-2 gap-3">
@@ -2006,6 +2375,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           </div>
         </CardContent>
       </Card>
+
+
+      {/* MPP: brak dublującej ramki przy pozycjach — decyzja o split payment
+          zapada w oknie potwierdzenia przy „Wystaw fakturę" (bramka > 15 000 zł). */}
 
       {/* Tabs: Uwagi, Płatności, Dodatkowe */}
       <Card>
@@ -2128,6 +2501,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             </TabsContent>
             
             <TabsContent value="additional" className="mt-4 space-y-4">
+
               {/* Logo upload section */}
               <div>
                 <Label className="mb-2 block">Logo firmy (opcjonalnie)</Label>
@@ -2279,10 +2653,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
           
           {/* Issue Invoice - main action */}
           <Button 
-            onClick={handleIssueInvoice} 
-            size="lg" 
-            className="flex-1 gap-2"
-            disabled={isIssuing}
+            onClick={handleIssueInvoice}
+            size="lg"
+            className={`flex-1 gap-2 ${numberDuplicate ? 'bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed' : ''}`}
+            disabled={isIssuing || numberDuplicate}
+            title={numberDuplicate ? 'Numer faktury już istnieje — zmień numer' : undefined}
           >
             {isIssuing ? (
               <>
@@ -2297,8 +2672,13 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             )}
           </Button>
         </div>
+        {numberDuplicate && (
+          <p className="text-center text-xs text-red-600 mt-2 font-medium">
+            Nie można wystawić: faktura o numerze {invoiceNumber} już istnieje — zmień numer.
+          </p>
+        )}
         <p className="text-center text-xs text-muted-foreground mt-2">
-          {invoiceType === 'proforma' 
+          {invoiceType === 'proforma'
             ? 'Pro forma nie jest wysyłana do KSeF. Możesz ją później przekonwertować na fakturę VAT.'
             : 'Faktura zostanie zapisana na Twoim koncie. Będziesz mógł ją pobrać jako PDF lub wysłać emailem.'
           }
@@ -2321,6 +2701,84 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         invoiceIssued={invoiceIssued}
       />
       
+      {/* Bramka MPP przed zapisem faktury > 15 000 zł brutto — układ wzorowany na iFirma */}
+      <AlertDialog open={showMppDialog} onOpenChange={setShowMppDialog}>
+        {/* grid-cols-1 = kolumna minmax(0,1fr): kolumna gridu NIE rośnie do
+            max-content najszerszego dziecka (stopka z 3 przyciskami wymuszała
+            szerokość ponad max-w-xl i rozpychała ramki poza okno). */}
+        <AlertDialogContent className="max-w-xl grid-cols-1">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-lg">
+              <CreditCard className="h-5 w-5 text-primary" />
+              Mechanizm podzielonej płatności
+            </AlertDialogTitle>
+            <AlertDialogDescription className="sr-only">
+              Informacja o obowiązku split payment dla faktur powyżej 15 000 zł.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {/* min-w-0: AlertDialogContent to CSS grid — bez tego element potomny
+              nie kurczy się poniżej treści i ramki wychodzą poza prawą krawędź. */}
+          <div className="space-y-3 text-sm min-w-0 break-words">
+            {/* Czerwona ramka: warunki obowiązku MPP */}
+            <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/20 p-3">
+              <div className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-400 mb-1.5">
+                <AlertTriangle className="h-4 w-4" /> Uwaga!
+              </div>
+              <p className="text-red-800 dark:text-red-300 mb-2">
+                Adnotacja „mechanizm podzielonej płatności" jest <strong>obowiązkowa</strong>, gdy
+                spełnione są łącznie wszystkie warunki:
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-red-800 dark:text-red-300">
+                <li>wartość faktury brutto przekracza <strong>15 000 zł</strong>,</li>
+                <li>nabywcą jest podatnik z polskim numerem NIP,</li>
+                <li>
+                  faktura dotyczy towarów lub usług z <strong>załącznika nr 15</strong> ustawy o VAT
+                  (usługi budowlane, wyroby stalowe, elektronika, paliwa, złom i metale, węgiel,
+                  części samochodowe i inne).
+                </li>
+              </ul>
+              <p className="text-xs text-red-700/90 dark:text-red-400/90 mt-2">
+                Podstawa: art. 106e ust. 1 pkt 18a ustawy o VAT. Za brak wymaganej adnotacji grozi
+                sankcja 30% kwoty VAT z pozycji objętych załącznikiem nr 15.
+              </p>
+            </div>
+
+            {/* Info o białej liście / koncie */}
+            <div className="flex items-start gap-2 text-muted-foreground min-w-0">
+              <Landmark className="h-4 w-4 mt-0.5 shrink-0" />
+              <p className="min-w-0">
+                Przy fakturze z MPP nabywca płaci na rachunek z <strong>białej listy podatników</strong>,
+                dzieląc kwotę na netto i VAT (rachunek VAT). Zadbaj, aby konto sprzedawcy było zgłoszone
+                do wykazu.
+              </p>
+            </div>
+
+            {/* Niebieska ramka: informacja o zachowaniu komunikatu */}
+            <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 text-blue-800 dark:text-blue-300 min-w-0">
+              <Info className="h-4 w-4 mt-0.5 shrink-0" />
+              <p className="text-xs min-w-0">
+                Ten komunikat pokazuje się dla każdej faktury powyżej 15 000 zł. Zachowanie można
+                zmienić w <strong>Ustawieniach faktur</strong>.
+              </p>
+            </div>
+          </div>
+
+          <AlertDialogFooter className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2 min-w-0">
+            <Button variant="ghost" disabled={isIssuing} onClick={() => setShowMppDialog(false)} className="w-full sm:w-auto">
+              Anuluj
+            </Button>
+            <Button variant="outline" disabled={isIssuing} onClick={() => decideMppAndIssue(false)} className="w-full sm:w-auto">
+              Wystaw fakturę (bez MPP)
+            </Button>
+            <Button disabled={isIssuing} onClick={() => decideMppAndIssue(true)} className="w-full sm:w-auto">
+              {isIssuing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Wystaw ze split payment (MPP)
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Auth Modal for non-logged users */}
       <AuthModal
         open={showAuthModal}

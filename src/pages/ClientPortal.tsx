@@ -420,10 +420,11 @@ export default function ClientPortal() {
 
   const fetchUserInvoices = async (userId: string) => {
     // Fetch from user_invoices table (user's personal invoices)
-    const { data: invoicesData, error } = await supabase
+    const { data: invoicesData, error } = await (supabase
       .from('user_invoices')
-      .select('*')
+      .select('*') as any)
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(50);
     

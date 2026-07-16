@@ -811,7 +811,18 @@ function buildWarnings(sellerSource: any, buyerSource: any) {
   return Array.from(new Set(warnings));
 }
 
-function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], originalItems: any[] | null = null) {
+// FAZA 5: pozycja bez nazwy I bez kwot = śmieć z importu — nie idzie do KSeF.
+// Pozycja z nazwą a kwotą 0 (gratis) albo z kwotą bez nazwy — zostaje.
+function isEmptyInvoiceItem(item: any): boolean {
+  return !(item?.name || '').trim()
+    && !(Number(item?.net_amount) || 0)
+    && !(Number(item?.gross_amount) || 0)
+    && !(Number(item?.unit_net_price) || 0);
+}
+
+function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], rawOriginalItems: any[] | null = null) {
+  const items = (rawItems || []).filter((i) => !isEmptyInvoiceItem(i));
+  const originalItems = rawOriginalItems === null ? null : (rawOriginalItems || []).filter((i) => !isEmptyInvoiceItem(i));
   const issueDate = invoice.issue_date || new Date().toISOString().split('T')[0];
   const saleDate = invoice.sale_date || issueDate;
   const buyerSource = resolveBuyerSource(invoice);
@@ -969,7 +980,9 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], orig
       </FaWiersz>`).join('');
   }
 
-  const bankEl = sellerSource.bankAccount
+  // FAZA 7: przy gotówce numer konta jest bez sensu — nie emituj RachunekBankowy.
+  const isCashPayment = String(invoice.payment_method || '').toLowerCase().trim() === 'cash';
+  const bankEl = (sellerSource.bankAccount && !isCashPayment)
     ? `<RachunekBankowy><NrRB>${sellerSource.bankAccount.replace(/\s/g, '')}</NrRB></RachunekBankowy>`
     : '';
 
@@ -1001,15 +1014,31 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], orig
   // pozycjach zw było niespójne z treścią faktury. Podstawę bierzemy z danych
   // faktury/firmy (vat_exemption_basis); brak = P_19C generycznie + warning.
   const hasZwItems = [...items, ...beforeItems].some((i: any) => String(i.vat_rate || '').trim() === 'zw');
-  const zwBasis = invoice.vat_exemption_basis || entity?.vat_exemption_basis || entity?.exemption_legal_basis || '';
   const zwWarnings: string[] = [];
   let zwolnienieXml = '<P_19N>1</P_19N>';
   if (hasZwItems) {
-    if (zwBasis) {
-      zwolnienieXml = `<P_19>1</P_19><P_19A>${escapeXml(zwBasis)}</P_19A>`;
+    // Podstawy PER POZYCJA (user_invoice_items.vat_exemption_basis[_type]).
+    // XSD FA(3) ma JEDNO pole podstawy na fakturę (choice P_19A|P_19B|P_19C w
+    // Adnotacje/Zwolnienie; FaWiersz nie ma odpowiednika) — więc: jedna unikalna
+    // podstawa -> pole wg typu (ustawa=P_19A, dyrektywa=P_19B, inna=P_19C);
+    // kilka różnych -> sklejone w P_19A (gdy wszystkie z ustawy) albo P_19C.
+    const itemBases = [...items, ...beforeItems]
+      .filter((i: any) => String(i.vat_rate || '').trim() === 'zw' && (i.vat_exemption_basis || '').trim())
+      .map((i: any) => ({ type: String(i.vat_exemption_basis_type || 'ustawa'), text: String(i.vat_exemption_basis).trim() }));
+    const uniq = [...new Map(itemBases.map((b) => [b.type + '|' + b.text, b])).values()];
+    const fallbackBasis = invoice.vat_exemption_basis || entity?.vat_exemption_basis || entity?.exemption_legal_basis || '';
+    if (uniq.length === 1) {
+      const tag = uniq[0].type === 'dyrektywa' ? 'P_19B' : uniq[0].type === 'inna' ? 'P_19C' : 'P_19A';
+      zwolnienieXml = `<P_19>1</P_19><${tag}>${escapeXml(uniq[0].text)}</${tag}>`;
+    } else if (uniq.length > 1) {
+      const allUstawa = uniq.every((b) => b.type === 'ustawa');
+      const tag = allUstawa ? 'P_19A' : 'P_19C';
+      zwolnienieXml = `<P_19>1</P_19><${tag}>${escapeXml(uniq.map((b) => b.text).join('; '))}</${tag}>`;
+    } else if (fallbackBasis) {
+      zwolnienieXml = `<P_19>1</P_19><P_19A>${escapeXml(fallbackBasis)}</P_19A>`;
     } else {
       zwolnienieXml = `<P_19>1</P_19><P_19C>${escapeXml('Sprzedaż zwolniona od podatku od towarów i usług')}</P_19C>`;
-      zwWarnings.push('Pozycje zw bez skonfigurowanej podstawy zwolnienia — uzupełnij podstawę prawną (vat_exemption_basis, pole P_19A), obecnie emitowany generyczny opis w P_19C.');
+      zwWarnings.push('Pozycje zw bez podstawy zwolnienia — uzupełnij podstawę przy pozycji (vat_exemption_basis), obecnie generyczny opis w P_19C.');
     }
   }
   const sellerAdresL2 = [sellerSource.addressPostalCode, sellerSource.addressCity].filter(Boolean).join(' ') || null;
@@ -1130,7 +1159,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[], orig
       <P_16>2</P_16>
       <P_17>2</P_17>
       <P_18>2</P_18>
-      <P_18A>2</P_18A>
+      <P_18A>${invoice.split_payment === true ? '1' : '2'}</P_18A>
       <Zwolnienie>${zwolnienieXml}</Zwolnienie>
       <NoweSrodkiTransportu><P_22N>1</P_22N></NoweSrodkiTransportu>
       <P_23>2</P_23>

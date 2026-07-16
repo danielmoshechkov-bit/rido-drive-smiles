@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateInvoiceQueries } from '@/utils/invalidateInvoiceQueries';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +55,7 @@ interface InvoiceListWithActionsProps {
 }
 
 export function InvoiceListWithActions({ invoices, onUpdate, showMarginInfo }: InvoiceListWithActionsProps) {
+  const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkDownloading, setBulkDownloading] = useState(false);
@@ -81,15 +84,27 @@ export function InvoiceListWithActions({ invoices, onUpdate, showMarginInfo }: I
   const handleBulkDelete = async () => {
     setBulkDeleting(true);
     try {
-      const ids = Array.from(selectedIds);
-      // Delete items first
-      for (const id of ids) {
-        await supabase.from('user_invoice_items').delete().eq('invoice_id', id);
-      }
-      // Delete invoices
-      const { error } = await supabase
+      let ids = Array.from(selectedIds);
+      // Faktury, których korekta jest w KSeF, są nieusuwalne (trigger DB też blokuje) —
+      // odfiltruj je zawczasu, żeby nie wywalić całej operacji.
+      const { data: ksefCorrs } = await (supabase
         .from('user_invoices')
-        .delete()
+        .select('corrected_invoice_id') as any)
+        .in('corrected_invoice_id', ids)
+        .is('deleted_at', null)
+        .not('ksef_reference', 'is', null);
+      const blocked = new Set((ksefCorrs || []).map((k: any) => k.corrected_invoice_id));
+      if (blocked.size > 0) {
+        toast.warning(`Pominięto ${blocked.size} — faktury z korektą w KSeF nie można usunąć`);
+        ids = ids.filter(id => !blocked.has(id));
+      }
+      if (ids.length === 0) { setShowBulkDeleteDialog(false); return; }
+      // FAZA 4: soft-delete zamiast twardego DELETE — rekordy (i pozycje) zostają
+      // w bazie dla audytu; listy filtrują deleted_at IS NULL.
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await (supabase
+        .from('user_invoices') as any)
+        .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id || null })
         .in('id', ids);
 
       if (error) throw error;
@@ -97,6 +112,7 @@ export function InvoiceListWithActions({ invoices, onUpdate, showMarginInfo }: I
       toast.success(`Usunięto ${ids.length} faktur`);
       setSelectedIds(new Set());
       setShowBulkDeleteDialog(false);
+      invalidateInvoiceQueries(queryClient);
       onUpdate();
     } catch (err: any) {
       toast.error('Błąd usuwania: ' + (err.message || ''));

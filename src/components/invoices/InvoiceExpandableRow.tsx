@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateInvoiceQueries } from '@/utils/invalidateInvoiceQueries';
 import { format, subDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -10,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { type InvoiceData } from '@/utils/invoiceHtmlGenerator';
 import { renderInvoicePdf } from '@/utils/renderInvoicePdf';
+import { freezeInvoicePdf, downloadFrozenPdf, isFrozenPdfUrl } from '@/utils/invoicePdfFreeze';
 import { formatIBAN } from '@/utils/formatters';
 import { 
   ChevronDown, 
@@ -24,6 +27,7 @@ import {
   TrendingUp,
   Send,
   Mail,
+  FileCheck,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -68,6 +72,9 @@ interface UserInvoice {
   created_at: string;
   ksef_status?: string;
   ksef_reference?: string;
+  pdf_url?: string | null;
+  is_correction?: boolean;
+  corrected_invoice_id?: string | null;
 }
 
 interface InvoiceExpandableRowProps {
@@ -77,6 +84,7 @@ interface InvoiceExpandableRowProps {
 }
 
 export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false }: InvoiceExpandableRowProps) {
+  const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -102,6 +110,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   // Preview modal state
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewInvoiceData, setPreviewInvoiceData] = useState<InvoiceData | null>(null);
+  // FREEZE: base64 zamrożonego PDF (faktura wysłana do KSeF) — podgląd pokazuje ten plik
+  const [previewFrozenPdf, setPreviewFrozenPdf] = useState<string | null>(null);
   
   // Inline email send state
   const [showInlineEmail, setShowInlineEmail] = useState(false);
@@ -151,7 +161,47 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   };
 
   const isKsefSent = ['accepted', 'processing', 'sent'].includes(invoice.ksef_status || '');
-  const canDelete = !isKsefSent;
+
+  // Korekty tej faktury (odwrotne pytanie po corrected_invoice_id) — do blokady
+  // usuwania i dialogu "usuń obie / tylko fakturę". Pobierane przy rozwinięciu
+  // wiersza (przyciski i tak widać dopiero wtedy).
+  const [activeCorrections, setActiveCorrections] = useState<{ id: string; invoice_number: string; ksef_reference: string | null }[]>([]);
+  const [showCorrectionsDialog, setShowCorrectionsDialog] = useState(false);
+  useEffect(() => {
+    if (!isExpanded || invoice.is_correction) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase
+        .from('user_invoices')
+        .select('id, invoice_number, ksef_reference') as any)
+        .eq('corrected_invoice_id', invoice.id)
+        .is('deleted_at', null);
+      if (!cancelled) setActiveCorrections(data || []);
+    })();
+    return () => { cancelled = true; };
+  }, [isExpanded, invoice.id, invoice.is_correction]);
+
+  // Korekta, której pierwotna została usunięta — badge "pierwotna usunięta" na liście
+  const [originalDeleted, setOriginalDeleted] = useState(false);
+  useEffect(() => {
+    if (!invoice.corrected_invoice_id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase
+        .from('user_invoices')
+        .select('deleted_at') as any)
+        .eq('id', invoice.corrected_invoice_id)
+        .maybeSingle();
+      if (!cancelled) setOriginalDeleted(!!data?.deleted_at);
+    })();
+    return () => { cancelled = true; };
+  }, [invoice.corrected_invoice_id]);
+
+  const hasKsefCorrection = activeCorrections.some(c => !!c.ksef_reference);
+  const canDelete = !isKsefSent && !hasKsefCorrection;
+  const deleteBlockedTitle = isKsefSent
+    ? 'Nie można usunąć faktury wysłanej do KSeF. Wystaw korektę.'
+    : 'Faktura ma korektę w KSeF — nie można usunąć.';
 
   const handleDelete = async () => {
     if (isKsefSent) {
@@ -160,20 +210,20 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     }
     setIsDeleting(true);
     try {
-      await supabase
-        .from('user_invoice_items')
-        .delete()
-        .eq('invoice_id', invoice.id);
-
-      const { error } = await supabase
-        .from('user_invoices')
-        .delete()
+      // FAZA 4: soft-delete (deleted_at) zamiast twardego DELETE — rekord zostaje
+      // w bazie (audyt/cofnięcie), lista filtruje deleted_at IS NULL, a numer
+      // usuniętej faktury może być użyty ponownie.
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await (supabase
+        .from('user_invoices') as any)
+        .update({ deleted_at: new Date().toISOString(), deleted_by: user?.id || null })
         .eq('id', invoice.id);
 
       if (error) throw error;
 
       toast.success('Faktura została usunięta');
       setShowDeleteDialog(false);
+      invalidateInvoiceQueries(queryClient);
       onUpdate();
     } catch (err: any) {
       console.error('Error deleting invoice:', err);
@@ -341,6 +391,8 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         net_amount: item.net_amount || 0,
         vat_amount: item.vat_amount || 0,
         gross_amount: item.gross_amount || 0,
+        vat_exemption_basis: item.vat_exemption_basis || undefined,
+        vat_exemption_basis_type: item.vat_exemption_basis_type || undefined,
       })),
       seller: {
         name: companyData?.name || '',
@@ -355,6 +407,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         email: companyData?.email || '',
         phone: companyData?.phone || '',
         logo_url: companyData?.logo_url || '',
+        vat_exemption_basis: companyData?.vat_exemption_basis || undefined,
       },
       buyer: {
         name: invoice.buyer_name || '',
@@ -362,6 +415,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         address_street: invoice.buyer_address || '',
       },
       ksef_reference: latestKsefRef || undefined,
+      split_payment: (invoice as any).split_payment === true,
       correction_data: correctionDataForPdf,
     };
   };
@@ -369,6 +423,12 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   const handleOpenPreview = async () => {
     setIsGeneratingPdf(true);
     try {
+      // FREEZE: dla wysłanej faktury ze snapshotem podgląd pokazuje zamrożony plik
+      let frozen: string | null = null;
+      if (isKsefSent && isFrozenPdfUrl(invoice.pdf_url)) {
+        frozen = await downloadFrozenPdf(invoice.pdf_url);
+      }
+      setPreviewFrozenPdf(frozen);
       const data = await prepareInvoiceData();
       if (data) {
         setPreviewInvoiceData(data);
@@ -402,6 +462,12 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
   const generatePdfBase64 = async (): Promise<string | null> => {
     let iframe: HTMLIFrameElement | null = null;
     try {
+      // FREEZE: faktura wysłana do KSeF ze snapshotem — serwuj zamrożony plik,
+      // NIE renderuj z żywej bazy (dokument musi być identyczny z tym w KSeF).
+      if (isKsefSent && isFrozenPdfUrl(invoice.pdf_url)) {
+        const frozen = await downloadFrozenPdf(invoice.pdf_url);
+        if (frozen) return frozen;
+      }
       const data = await prepareInvoiceData();
       if (!data) {
         console.error('[PDF] prepareInvoiceData returned null');
@@ -615,8 +681,61 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
     setShowReminderPopover(false);
   };
 
+  // Usuwanie faktury mającej korekty (żadna nie w KSeF — inaczej blokada):
+  // deleteCorrections=true -> soft-delete faktury i WSZYSTKICH aktywnych korekt;
+  // false -> tylko faktura, korekty zostają (dostają badge "pierwotna usunięta").
+  const handleDeleteWithCorrections = async (deleteCorrections: boolean) => {
+    setIsDeleting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const stamp = { deleted_at: new Date().toISOString(), deleted_by: user?.id || null };
+      const ids = deleteCorrections
+        ? [...activeCorrections.map(c => c.id), invoice.id]
+        : [invoice.id];
+      const { error } = await (supabase.from('user_invoices') as any).update(stamp).in('id', ids);
+      if (error) throw error;
+      toast.success(deleteCorrections
+        ? `Usunięto fakturę i ${activeCorrections.length === 1 ? 'korektę' : `${activeCorrections.length} korekty`}`
+        : 'Usunięto fakturę — korekta pozostaje na liście');
+      setShowCorrectionsDialog(false);
+      invalidateInvoiceQueries(queryClient);
+      onUpdate();
+    } catch (err: any) {
+      toast.error('Błąd usuwania: ' + (err.message || ''));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleEdit = () => {
+    if (isKsefSent) {
+      toast.error('Nie można edytować faktury wysłanej do KSeF. Wystaw korektę.');
+      return;
+    }
     setShowEditDialog(true);
+  };
+
+  const [isDownloadingUpo, setIsDownloadingUpo] = useState(false);
+  const handleDownloadUpo = async () => {
+    setIsDownloadingUpo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ksef-integration', {
+        body: { action: 'download_upo', invoice_id: invoice.id },
+      });
+      if (error) throw error;
+      if (!data?.success || !data?.upo_xml) throw new Error(data?.error || 'UPO niedostępne');
+      const blob = new Blob([data.upo_xml], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `UPO-${(invoice.invoice_number || 'faktura').replace(/\//g, '-')}.xml`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err: any) {
+      toast.error('Nie udało się pobrać UPO: ' + (err.message || ''));
+    } finally {
+      setIsDownloadingUpo(false);
+    }
   };
 
   const handleEditSaved = () => {
@@ -648,6 +767,11 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                   )}
                   {(invoice.invoice_type === 'correction' || invoice.invoice_type === 'KOR' || invoice.invoice_type === 'KOR_ZAL' || invoice.invoice_type === 'KOR_ROZ') && (
                     <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-200">Korekta</Badge>
+                  )}
+                  {originalDeleted && (
+                    <Badge className="text-[10px] px-1.5 py-0 bg-red-500/10 text-red-600 border-red-200" title="Faktura pierwotna tej korekty została usunięta z listy">
+                      pierwotna usunięta
+                    </Badge>
                   )}
                   {(invoice.invoice_type === 'ZAL' || invoice.invoice_type === 'advance') && (
                     <Badge className="text-[10px] px-1.5 py-0 bg-blue-500/10 text-blue-600 border-blue-200">Zaliczkowa</Badge>
@@ -950,30 +1074,60 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
                 </PopoverContent>
               </Popover>
               
-              <KsefSendButton invoiceId={invoice.id} size="sm" onStatusChange={handleKsefStatusChange} />
+              <KsefSendButton
+                invoiceId={invoice.id}
+                size="sm"
+                onStatusChange={handleKsefStatusChange}
+                onAfterSent={async () => {
+                  // FREEZE: zamroź PDF w chwili wysyłki — dokument = to co poszło do KSeF
+                  const data = await prepareInvoiceData();
+                  if (data) await freezeInvoicePdf(invoice.id, data);
+                  onUpdate();
+                }}
+              />
 
-              <Button size="sm" variant="outline" onClick={handleEdit}>
-                <Edit className="h-4 w-4 mr-1" />
-                Edytuj
-              </Button>
-              
+              {liveKsefStatus === 'accepted' && (
+                <Button size="sm" variant="outline" onClick={handleDownloadUpo} disabled={isDownloadingUpo}>
+                  {isDownloadingUpo ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileCheck className="h-4 w-4 mr-1" />}
+                  Pobierz UPO
+                </Button>
+              )}
+
+              {!isKsefSent ? (
+                <Button size="sm" variant="outline" onClick={handleEdit}>
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edytuj
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="opacity-40 cursor-not-allowed"
+                  disabled
+                  title="Nie można edytować faktury wysłanej do KSeF. Wystaw korektę."
+                >
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edytuj
+                </Button>
+              )}
+
               {canDelete ? (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
+                <Button
+                  size="sm"
+                  variant="outline"
                   className="text-destructive hover:bg-destructive/10"
-                  onClick={() => setShowDeleteDialog(true)}
+                  onClick={() => activeCorrections.length > 0 ? setShowCorrectionsDialog(true) : setShowDeleteDialog(true)}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Usuń
                 </Button>
               ) : (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
+                <Button
+                  size="sm"
+                  variant="outline"
                   className="opacity-40 cursor-not-allowed"
                   disabled
-                  title="Nie można usunąć faktury wysłanej do KSeF. Wystaw korektę."
+                  title={deleteBlockedTitle}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Usuń
@@ -983,6 +1137,49 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
           </div>
         )}
       </div>
+
+      {/* Dialog usuwania faktury MAJĄCEJ korekty (żadna nie w KSeF) */}
+      <AlertDialog open={showCorrectionsDialog} onOpenChange={setShowCorrectionsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Do tej faktury wystawiono {activeCorrections.length === 1 ? 'korektę' : `${activeCorrections.length} korekty`}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                <p>Faktura {invoice.invoice_number} ma powiązane korekty:</p>
+                <ul className="list-disc pl-5 my-2 font-medium text-foreground">
+                  {activeCorrections.map(c => <li key={c.id}>{c.invoice_number}</li>)}
+                </ul>
+                <p>Korekta bez faktury pierwotnej nie ma sensu księgowego. Co zrobić?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {/* Responsywnie: wąsko = przyciski jeden pod drugim (pełna szerokość),
+              szeroko = trzy obok siebie; krótkie etykiety + podtekst pod środkowym. */}
+          <AlertDialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:items-stretch">
+            <AlertDialogCancel disabled={isDeleting} className="mt-0 w-full sm:w-auto">
+              Anuluj
+            </AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={isDeleting}
+              onClick={() => handleDeleteWithCorrections(false)}
+              className="w-full sm:w-auto h-auto py-1.5 flex flex-col items-center leading-tight"
+            >
+              <span>Usuń tylko fakturę</span>
+              <span className="text-[10px] font-normal text-muted-foreground">(korekty zostają na liście)</span>
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={() => handleDeleteWithCorrections(true)}
+              className="w-full sm:w-auto"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Usuń {activeCorrections.length === 1 ? 'obie' : 'wszystkie'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -1020,6 +1217,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
             if (!open) setPreviewInvoiceData(null);
           }}
           invoiceData={previewInvoiceData}
+          frozenPdfBase64={previewFrozenPdf || undefined}
           isLoggedIn={true}
           invoiceIssued={!!invoice.ksef_status && invoice.ksef_status !== 'draft'}
           onSend={handleSendInvoiceEmail}
