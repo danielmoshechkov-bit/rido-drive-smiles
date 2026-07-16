@@ -56,6 +56,7 @@ import { normalizeInvoiceType } from '@/utils/invoiceTypeMapping';
 import { VAT_EXEMPTION_BASES, VAT_EXEMPTION_CUSTOM } from '@/utils/vatExemptionBases';
 import { DEFAULT_NUMBERING, NumberingConfig, NumberingPattern, NumberingMode, buildInvoiceNumber, seriesLike, extractSeq, nextSeq } from '@/utils/invoiceNumbering';
 import { ksefTypeToUi } from './InvoiceTypeSelector';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter } from '@/components/ui/alert-dialog';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
 const UNITS = ['szt.', 'usł.', 'godz.', 'km', 'kg', 'm²', 'm³', 'kpl.'];
@@ -365,6 +366,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // numer niższy niż aktywna faktura z WCZEŚNIEJSZĄ datą = możliwe naruszenie
   // chronologii numeracji (numer powinien rosnąć z datą).
   const [numberDuplicate, setNumberDuplicate] = useState(false);
+  const [freeNumberHint, setFreeNumberHint] = useState<string | null>(null);
   const [chronologyWarning, setChronologyWarning] = useState(false);
   // FAZA UX 3: pominięcie numerów — wpisany numer WYŻSZY niż (najwyższy aktywny+1)
   // w tej serii = luka w numeracji. Żółte info, nie blokuje.
@@ -385,6 +387,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         if (editInvoiceId) q = q.neq('id', editInvoiceId);
         const { data } = await q.maybeSingle();
         if (!cancelled) setNumberDuplicate(!!data);
+        // Przy duplikacie podpowiedz najbliższy wolny numer (ta sama logika co
+        // auto-propozycja: aktywne faktury + tryb numeracji firmy).
+        if (data && !cancelled) {
+          try {
+            const free = await proposeInvoiceNumber(user.id, numberingMode);
+            if (!cancelled) setFreeNumberHint(free);
+          } catch { if (!cancelled) setFreeNumberHint(null); }
+        } else if (!cancelled) {
+          setFreeNumberHint(null);
+        }
 
         // chronologia + pominięcie: tylko numery z bieżącej serii (wg formatu firmy)
         const cfg = numberingCfg();
@@ -421,6 +433,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // FAZA 3: MPP / split payment — faktury > 15 000 zł brutto (załącznik nr 15)
   // wymagają adnotacji "mechanizm podzielonej płatności" (KSeF: P_18A=1).
   const [splitPayment, setSplitPayment] = useState(false);
+  const [showMppDialog, setShowMppDialog] = useState(false);
+  // Override splitPayment na czas zapisu z okna MPP — stan setSplitPayment jest
+  // asynchroniczny, więc zapis czyta wartość z refa (getSplitPayment).
+  const splitOverrideRef = useRef<boolean | null>(null);
+  const getSplitPayment = () => splitOverrideRef.current !== null ? splitOverrideRef.current : splitPayment;
   const [mppWarningOff, setMppWarningOff] = useState<boolean>(() => {
     try { return localStorage.getItem('invoice_mpp_warning_off') === '1'; } catch { return false; }
   });
@@ -951,7 +968,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       paid_amount: paidAmount,
       is_fully_paid: isFullyPaid,
       // MPP
-      split_payment: splitPayment,
+      split_payment: getSplitPayment(),
       // Signature
       signature_type: signatureType as any,
       issued_by: issuedBy,
@@ -1162,7 +1179,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             paid_amount: paidAmount,
             is_paid: isFullyPaid,
             notes: notes,
-            split_payment: splitPayment
+            split_payment: getSplitPayment()
           } as any)
           .eq('id', editInvoiceId);
 
@@ -1272,7 +1289,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             paid_amount: paidAmount,
             is_paid: isFullyPaid,
             notes: notes,
-            split_payment: splitPayment,
+            split_payment: getSplitPayment(),
             ksef_status: asDraft ? 'draft' : undefined,
             ...(prefillWorkshopOrderId ? { workshop_order_id: prefillWorkshopOrderId } : {}),
         };
@@ -1430,6 +1447,17 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
     }
     setItemPriceErrors(new Set());
 
+    // Bramka MPP: faktura > 15 000 zł brutto — zapytaj o split payment PRZED zapisem
+    // (jak iFirma). Pomijamy gdy user wyłączył ostrzeżenie MPP (localStorage).
+    if (finalAmount > 15000 && !mppWarningOff) {
+      setShowMppDialog(true);
+      return;
+    }
+    await proceedIssue();
+  };
+
+  // Właściwy zapis + wysyłka — wołane wprost albo po decyzji w oknie MPP.
+  const proceedIssue = async () => {
     setIsIssuing(true);
     try {
       const savedId = await handleSave(false, true); // skipOnSaved — modal podglądu ma zostać
@@ -1482,9 +1510,17 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       // Error toast already shown in handleSave
     } finally {
       setIsIssuing(false);
+      splitOverrideRef.current = null;
     }
   };
-  
+
+  // Decyzja w oknie MPP: ustaw split (override + stan UI) i wystaw.
+  const decideMppAndIssue = async (useSplit: boolean) => {
+    splitOverrideRef.current = useSplit;
+    setSplitPayment(useSplit);
+    setShowMppDialog(false);
+    await proceedIssue();
+  };
 
   const paymentStatus = getPaymentStatus();
   const currencySymbol = getCurrencySymbol(currency);
@@ -2011,7 +2047,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
                 />
                 {numberDuplicate && (
                   <p className="text-xs text-red-600 mt-1 font-medium">
-                    Faktura o numerze {invoiceNumber} już istnieje — zmień numer.
+                    Faktura o numerze {invoiceNumber} już istnieje.
+                    {freeNumberHint ? <> Najbliższy wolny numer: {freeNumberHint}.</> : <> Zmień numer.</>}
                   </p>
                 )}
                 {!numberDuplicate && chronologyWarning && (
@@ -2682,6 +2719,33 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         invoiceIssued={invoiceIssued}
       />
       
+      {/* Bramka MPP przed zapisem faktury > 15 000 zł brutto */}
+      <AlertDialog open={showMppDialog} onOpenChange={setShowMppDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Faktura przekracza 15 000 zł</AlertDialogTitle>
+            <AlertDialogDescription>
+              Jeśli obejmuje towary lub usługi z załącznika nr 15 ustawy o VAT (m.in. części
+              samochodowe, roboty budowlane, elektronika, stal, paliwa), adnotacja „mechanizm
+              podzielonej płatności" jest obowiązkowa (art. 106e ust. 1 pkt 18a). Za jej brak
+              grozi sankcja 30% kwoty VAT.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="ghost" disabled={isIssuing} onClick={() => setShowMppDialog(false)} className="w-full sm:w-auto">
+              Anuluj
+            </Button>
+            <Button variant="outline" disabled={isIssuing} onClick={() => decideMppAndIssue(false)} className="w-full sm:w-auto">
+              Wystaw bez MPP
+            </Button>
+            <Button disabled={isIssuing} onClick={() => decideMppAndIssue(true)} className="w-full sm:w-auto">
+              {isIssuing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Wystaw ze split payment (MPP)
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Auth Modal for non-logged users */}
       <AuthModal
         open={showAuthModal}
