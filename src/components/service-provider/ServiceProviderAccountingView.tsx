@@ -132,6 +132,7 @@ export function ServiceProviderAccountingView() {
               value: tab.value,
               label: tab.labelKey ? t(tab.labelKey) : tab.label,
               icon: tab.icon,
+              img: tab.img,
               visible: tab.visible,
               badge: tab.value === 'ksef' ? ksefUnread : undefined,
             }))}
