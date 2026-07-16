@@ -102,6 +102,17 @@ const sortItemsBySortOrder = (items: any[]) => {
   });
 };
 
+// FIX: "odcisk" treści wyceny — tylko pola które definują ofertę cenową
+// (nazwa/typ/ilość/ceny/rabat), niezależnie od kolejności. Służy do porównania
+// bieżących pozycji z tym, co klient podpisał (snapshot) → estimate_changed_after_send
+// ma być true tylko gdy REALNA zawartość się różni; powrót do stanu = brak zmiany.
+const estimateFingerprint = (items: any[]) => (items || [])
+  .map((i: any) =>
+    `${String(i.name || '').trim().toLowerCase()}|${i.item_type || ''}|${safeNumber(i.quantity)}|` +
+    `${safeNumber(i.unit_price_net)}|${safeNumber(i.unit_price_gross)}|${safeNumber(i.discount_percent)}`)
+  .sort()
+  .join('||');
+
 const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number) => {
   const nextItems = [...items];
   const [movedItem] = nextItems.splice(fromIndex, 1);
@@ -209,6 +220,39 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       return data;
     },
   });
+
+  // FIX: snapshot OSTATNIEGO podpisanego kosztorysu — do porównania, czy bieżące
+  // pozycje różnią się od podpisanych. Odblokowuje poprawne czyszczenie flagi
+  // "zmiana po wysłaniu" gdy warsztat cofnie zmianę do stanu podpisanego.
+  const { data: signedEstimateSnapshot } = useQuery({
+    queryKey: ['workshop-signed-estimate-snapshot', order.id],
+    enabled: !!order.id && !!order.quote_accepted,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('workshop_order_signatures')
+        .select('snapshot')
+        .eq('order_id', order.id)
+        .eq('document_type', 'cost_estimate')
+        .not('snapshot', 'is', null)
+        .order('signed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data?.snapshot || null;
+    },
+  });
+
+  // FIX: estimate_changed_after_send = true TYLKO gdy realna treść różni się od
+  // podpisanej. Gdy warsztat cofnie pozycje do stanu z podpisu → wyczyść flagę
+  // (koniec fałszywego "wymaga ponownej wysyłki"). Ustawianie flagi na true robią
+  // mutacje pozycji przy realnej zmianie; tu odwrotny kierunek — czyszczenie.
+  useEffect(() => {
+    if (!order?.id || !order.quote_accepted || !order.estimate_changed_after_send) return;
+    const snapItems = signedEstimateSnapshot?.items;
+    if (!Array.isArray(snapItems)) return;
+    if (estimateFingerprint(order.items) === estimateFingerprint(snapItems)) {
+      updateOrder.mutate({ id: order.id, estimate_changed_after_send: false });
+    }
+  }, [order?.id, order.items, order.quote_accepted, order.estimate_changed_after_send, signedEstimateSnapshot]);
 
   // Memoized so the sort only re-runs when the items actually change, not on every
   // keystroke/render (the parent now hands down a stable `order` identity).
@@ -726,7 +770,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
   // Inline edit saved items
   const startEdit = (itemId: string, field: string, currentValue: string | number) => {
-    showQuoteWarningIfNeeded();
+    // FIX: NIE ostrzegaj przy samym kliknięciu w pole — ostrzeżenie tylko przy
+    // FAKTYCZNEJ zmianie (patrz saveEdit, który pomija zapis gdy wartość ta sama).
     setEditingItemId(itemId);
     setEditingField(field);
     if (field === 'price' || field === 'cost' || field === 'quantity') {
@@ -754,55 +799,70 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     const isService = item.item_type === 'service' || item.item_type === 'task';
     const gross = isService ? isTaskGross : isGoodsGross;
 
+    // FIX: każde pole zapisujemy TYLKO gdy realna wartość się zmieniła — samo
+    // wejście/wyjście z pola (bez zmiany) nie ma generować zapisu ani flagi
+    // "zmiana po wysłaniu wyceny".
     if (myField === 'name') {
       // Nie nadpisuj oryginału mechanika, jeśli admin nie zmienił przetłumaczonej nazwy
       if (myValue !== nameDisplay(item)) updates.name = myValue;
     } else if (myField === 'quantity') {
       const newQty = Math.max(1, parseInt(myValue) || 1);
-      updates.quantity = newQty;
-      const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
-      const rawTotal = newQty * unitPrice;
-      const disc = item.discount_percent || 0;
-      const afterDiscount = rawTotal - (rawTotal * disc / 100);
-      updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
-      updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
+      if (newQty !== (safeNumber(item.quantity) || 1)) {
+        updates.quantity = newQty;
+        const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
+        const rawTotal = newQty * unitPrice;
+        const disc = item.discount_percent || 0;
+        const afterDiscount = rawTotal - (rawTotal * disc / 100);
+        updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
+        updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
+      }
     } else if (myField === 'price') {
       const val = parseFloat(myValue.replace(',', '.')) || 0;
       const synced = syncPrice(val, gross ? 'gross' : 'net');
-      updates.unit_price_net = synced.net;
-      updates.unit_price_gross = synced.gross;
-      const rawTotal = (item.quantity || 1) * (gross ? synced.gross : synced.net);
-      const disc = item.discount_percent || 0;
-      const afterDiscount = rawTotal - (rawTotal * disc / 100);
-      updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
-      updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
+      if (synced.net !== safeNumber(item.unit_price_net) || synced.gross !== safeNumber(item.unit_price_gross)) {
+        updates.unit_price_net = synced.net;
+        updates.unit_price_gross = synced.gross;
+        const rawTotal = (item.quantity || 1) * (gross ? synced.gross : synced.net);
+        const disc = item.discount_percent || 0;
+        const afterDiscount = rawTotal - (rawTotal * disc / 100);
+        updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
+        updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
+      }
     } else if (myField === 'cost') {
       const val = parseFloat(myValue.replace(',', '.')) || 0;
       const synced = syncPrice(val, gross ? 'gross' : 'net');
-      updates.unit_cost_net = synced.net;
-      updates.unit_cost_gross = synced.gross;
+      if (synced.net !== safeNumber(item.unit_cost_net) || synced.gross !== safeNumber(item.unit_cost_gross)) {
+        updates.unit_cost_net = synced.net;
+        updates.unit_cost_gross = synced.gross;
+      }
     } else if (myField === 'mechanic') {
-      updates.mechanic = myValue || null;
+      if ((myValue || null) !== (item.mechanic || null)) updates.mechanic = myValue || null;
     } else if (myField === 'labor_hours') {
       const hours = parseFloat(myValue.replace(',', '.')) || 0;
-      updates.labor_hours = hours;
-      const emp = workshopEmployees.find((e: any) => e.id === item.employee_id);
-      const hourlyRate = emp?.salary ? emp.salary / 160 : (workshopSettings?.hourly_rate || 150);
-      updates.labor_cost = Math.round(hours * hourlyRate * 100) / 100;
+      if (hours !== safeNumber(item.labor_hours)) {
+        updates.labor_hours = hours;
+        const emp = workshopEmployees.find((e: any) => e.id === item.employee_id);
+        const hourlyRate = emp?.salary ? emp.salary / 160 : (workshopSettings?.hourly_rate || 150);
+        updates.labor_cost = Math.round(hours * hourlyRate * 100) / 100;
+      }
     } else if (myField === 'unit') {
-      updates.unit = (myValue || '').trim() || 'szt';
+      const newUnit = (myValue || '').trim() || 'szt';
+      if (newUnit !== (item.unit || 'szt')) updates.unit = newUnit;
     } else if (myField === 'discount') {
       const disc = Math.max(0, Math.min(100, parseFloat(myValue.replace(',', '.')) || 0));
-      updates.discount_percent = disc;
-      const qty = safeNumber(item.quantity) || 1;
-      const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
-      const rawTotal = qty * unitPrice;
-      const afterDiscount = rawTotal - (rawTotal * disc / 100);
-      updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
-      updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
+      if (disc !== safeNumber(item.discount_percent)) {
+        updates.discount_percent = disc;
+        const qty = safeNumber(item.quantity) || 1;
+        const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
+        const rawTotal = qty * unitPrice;
+        const afterDiscount = rawTotal - (rawTotal * disc / 100);
+        updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
+        updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
+      }
     }
 
     if (Object.keys(updates).length === 0) return; // nic się nie zmieniło — nie zapisuj
+    showQuoteWarningIfNeeded(); // ostrzeżenie TYLKO przy realnej zmianie podpisanej wyceny
     await updateItem.mutateAsync({ id: myId, ...updates });
   };
 

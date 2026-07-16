@@ -339,7 +339,9 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
             max-w-3xl rozjeżdżał się/robił pusto po bokach. Węższy dla sukcesu. */}
         <DialogContent className={`${showSmsConfirm ? 'max-w-md' : 'max-w-3xl'} max-h-[92vh] overflow-y-auto`}>
           {showSmsConfirm ? (
-            <div className="space-y-6 py-4">
+            // FIX P5: twardo wyśrodkowany, wąski kontener treści sukcesu — niezależnie
+            // od szerokości DialogContent (wcześniej treść uciekała w lewo).
+            <div className="mx-auto w-full max-w-sm space-y-6 py-4 text-center">
               <div className="text-center space-y-3">
                 <div className="mx-auto w-16 h-16 rounded-full bg-accent flex items-center justify-center">
                   <ClipboardList className="h-8 w-8 text-primary" />
