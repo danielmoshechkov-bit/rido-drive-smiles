@@ -10,6 +10,7 @@ import { getDateLocale } from '@/lib/dateLocale';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { DEFAULT_WS_CATEGORY } from '@/lib/workshopCategories';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
@@ -36,7 +37,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [search, setSearch] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string>('Warsztat');
+  const [activeCategory, setActiveCategory] = useState<string>('');
   const [showSlotDialog, setShowSlotDialog] = useState(false);
   const [detailItem, setDetailItem] = useState<any>(null);
 
@@ -57,7 +58,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
   const [showAddStation, setShowAddStation] = useState(false);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newStationName, setNewStationName] = useState('');
-  const [newStationCategory, setNewStationCategory] = useState('Warsztat');
+  const [newStationCategory, setNewStationCategory] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
   
   // Resize state
@@ -291,8 +292,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    workstations.forEach((ws: any) => cats.add(ws.category || 'Warsztat'));
-    if (cats.size === 0) cats.add('Warsztat');
+    // Świeże konto: brak zaszytego "Warsztat" — kategorie pojawiają się dopiero po "Dodaj kategorię".
+    workstations.forEach((ws: any) => cats.add(ws.category || DEFAULT_WS_CATEGORY));
     return Array.from(cats);
   }, [workstations]);
 
@@ -303,7 +304,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
   }, [activeCategory, categories]);
 
   const categoryStations = useMemo(() => {
-    const filtered = workstations.filter((ws: any) => (ws.category || 'Warsztat') === activeCategory);
+    const filtered = workstations.filter((ws: any) => (ws.category || DEFAULT_WS_CATEGORY) === activeCategory);
     return filtered.length > 0 ? filtered : [{ id: '__default', name: 'Stanowisko 1', category: activeCategory }];
   }, [workstations, activeCategory]);
 
@@ -661,10 +662,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
               </Button>
             ))}
             <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => setShowAddCategory(true)}>
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3 w-3" /> Dodaj kategorię
             </Button>
           </div>
-          <Button variant="outline" size="sm" className="gap-1 text-xs h-7" onClick={() => { setNewStationCategory(activeCategory); setShowAddStation(true); }}>
+          <Button variant="outline" size="sm" className="gap-1 text-xs h-7" disabled={categories.length === 0} title={categories.length === 0 ? 'Najpierw dodaj kategorię' : undefined} onClick={() => { setNewStationCategory(activeCategory); setShowAddStation(true); }}>
             <Plus className="h-3 w-3" /> {t('workshop.scheduler.station')}
           </Button>
         </div>
@@ -1580,7 +1581,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                 value={activeCategory}
                 onValueChange={(v) => {
                   onCategoryChange(v);
-                  const first = (allWorkstations || []).find((w: any) => (w.category || 'Warsztat') === v);
+                  const first = (allWorkstations || []).find((w: any) => (w.category || DEFAULT_WS_CATEGORY) === v);
                   if (first) { setEditStationId(first.id); onStationChange(first.id); }
                 }}
               >

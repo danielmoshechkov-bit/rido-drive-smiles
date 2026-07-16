@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import { useGusLookup } from '@/hooks/useGusLookup';
 import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { NotificationsSettings } from '@/components/notifications/NotificationsSettings';
+import { DEFAULT_WS_CATEGORY } from '@/lib/workshopCategories';
 
 interface SettingsPanelProps {
   providerId: string | null;
@@ -38,10 +39,6 @@ interface SettingsPanelProps {
   onPrimaryTabsSaved?: (tabs: string[]) => void;
   initialSubTab?: string;
 }
-
-// Neutralna domyślna kategoria stanowisk — uniwersalna dla dowolnej branży usługodawcy
-// (warsztat/detailing/myjka), zamiast zaszytego "Warsztat".
-const DEFAULT_WS_CATEGORY = 'Ogólne';
 
 export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websiteBuilderEnabled = false, onPrimaryTabsSaved, initialSubTab }: SettingsPanelProps) {
   const { t } = useTranslation();
