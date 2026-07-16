@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Save, Plus, Trash2, Users, Building2, Monitor, UserPlus, Sparkles, Search, Loader2, Upload, X } from 'lucide-react';
+import { Save, Plus, Trash2, Users, Building2, Monitor, UserPlus, Sparkles, Search, Loader2, Upload, X, CalendarClock } from 'lucide-react';
 import { WorkshopPartsIntegrationsSettings } from './parts/WorkshopPartsIntegrationsSettings';
 import { RidoPriceSettingsTab } from './pricing/RidoPriceSettingsTab';
 import { WorkshopSettingsPage } from './WorkshopSettingsPage';
@@ -668,6 +668,23 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
             ) : (
               <p className="text-center py-8 text-muted-foreground">{t('workshop.settingsPanel.noProvider')}</p>
             )}
+
+            {/* Zaślepka-zapowiedź: integracja z Kalendarzem Google (bez backendu, widoczna dla wszystkich) */}
+            <Card className="opacity-70">
+              <CardContent className="flex items-center gap-4 py-4">
+                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <CalendarClock className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Kalendarz Google</span>
+                    <Badge variant="secondary" className="text-xs">Wkrótce</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Dwukierunkowa synchronizacja terminarza z Kalendarzem Google — w przygotowaniu.</p>
+                </div>
+                <Button variant="outline" size="sm" disabled className="cursor-not-allowed">Połącz</Button>
+              </CardContent>
+            </Card>
           </div>
         )}
 
