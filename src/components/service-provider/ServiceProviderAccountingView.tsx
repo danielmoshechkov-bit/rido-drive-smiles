@@ -34,17 +34,28 @@ import {
 import { toast } from 'sonner';
 import { invalidateInvoiceQueries } from '@/utils/invalidateInvoiceQueries';
 
+import tilePrzeglad from '@/assets/accounting/tile-przeglad.jpg';
+import tileFaktury from '@/assets/accounting/tile-faktury.jpg';
+import tileZakupy from '@/assets/accounting/tile-zakupy.jpg';
+import tileSprawdzenia from '@/assets/accounting/tile-sprawdzenia.jpg';
+import tileDokumenty from '@/assets/accounting/tile-dokumenty.jpg';
+import tilePlatnosci from '@/assets/accounting/tile-platnosci.jpg';
+import tileMagazynAcc from '@/assets/accounting/tile-magazyn.jpg';
+import tileEmail from '@/assets/accounting/tile-email.jpg';
+import tileKsef from '@/assets/accounting/tile-ksef.jpg';
+import tileCykliczne from '@/assets/accounting/tile-cykliczne.jpg';
+
 const accountingSubTabs = [
-  { value: 'przeglad', labelKey: 'cp.accounting.przeglad', label: 'Przegląd', icon: BarChart3, visible: true },
-  { value: 'faktury', labelKey: 'cp.accounting.invoices', label: 'Faktury', icon: FileText, visible: true },
-  { value: 'zakupy', labelKey: 'cp.accounting.purchases', label: 'Zakupy', icon: ShoppingBag, visible: true },
-  { value: 'oczekujace', labelKey: 'cp.accounting.review', label: 'Do sprawdzenia', icon: Mail, visible: true },
-  { value: 'dokumenty', labelKey: 'cp.accounting.documents', label: 'Dokumenty', icon: FileSpreadsheet, visible: true },
-  { value: 'platnosci', labelKey: 'cp.accounting.payments', label: 'Płatności', icon: CreditCard, visible: true },
-  { value: 'magazyn', labelKey: 'cp.accounting.warehouse', label: 'Stan magazynowy', icon: Package, visible: true },
-  { value: 'email-faktury', labelKey: 'cp.accounting.emailInvoices', label: 'Email faktury', icon: Mail, visible: true },
-  { value: 'ksef', labelKey: '', label: 'KSeF', icon: Shield, visible: true },
-  { value: 'cykliczne', labelKey: 'cp.accounting.recurring', label: 'Cykliczne', icon: Clock, visible: true },
+  { value: 'przeglad', labelKey: 'cp.accounting.przeglad', label: 'Przegląd', icon: BarChart3, img: tilePrzeglad, visible: true },
+  { value: 'faktury', labelKey: 'cp.accounting.invoices', label: 'Faktury', icon: FileText, img: tileFaktury, visible: true },
+  { value: 'zakupy', labelKey: 'cp.accounting.purchases', label: 'Zakupy', icon: ShoppingBag, img: tileZakupy, visible: true },
+  { value: 'oczekujace', labelKey: 'cp.accounting.review', label: 'Do sprawdzenia', icon: Mail, img: tileSprawdzenia, visible: true },
+  { value: 'dokumenty', labelKey: 'cp.accounting.documents', label: 'Dokumenty', icon: FileSpreadsheet, img: tileDokumenty, visible: true },
+  { value: 'platnosci', labelKey: 'cp.accounting.payments', label: 'Płatności', icon: CreditCard, img: tilePlatnosci, visible: true },
+  { value: 'magazyn', labelKey: 'cp.accounting.warehouse', label: 'Stan magazynowy', icon: Package, img: tileMagazynAcc, visible: true },
+  { value: 'email-faktury', labelKey: 'cp.accounting.emailInvoices', label: 'Email faktury', icon: Mail, img: tileEmail, visible: true },
+  { value: 'ksef', labelKey: '', label: 'KSeF', icon: Shield, img: tileKsef, visible: true },
+  { value: 'cykliczne', labelKey: 'cp.accounting.recurring', label: 'Cykliczne', icon: Clock, img: tileCykliczne, visible: true },
 ];
 
 export function ServiceProviderAccountingView() {
@@ -121,6 +132,7 @@ export function ServiceProviderAccountingView() {
               value: tab.value,
               label: tab.labelKey ? t(tab.labelKey) : tab.label,
               icon: tab.icon,
+              img: tab.img,
               visible: tab.visible,
               badge: tab.value === 'ksef' ? ksefUnread : undefined,
             }))}
