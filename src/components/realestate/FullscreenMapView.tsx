@@ -312,9 +312,9 @@ export function FullscreenMapView({
     if (!Overlay) return;
     clusters.forEach((cluster) => {
       const [lng, lat] = cluster.geometry.coordinates;
-      if (cluster.properties.cluster) {
+      if ((cluster.properties as any).cluster) {
         overlaysRef.current.push(
-          new Overlay({ lat, lng }, createClusterMarker(cluster.properties.point_count), map, () => {
+          new Overlay({ lat, lng }, createClusterMarker((cluster.properties as any).point_count), map, () => {
             const expansionZoom = index.getClusterExpansionZoom(cluster.id as number);
             map.setZoom(Math.min(expansionZoom, 20));
             map.setCenter({ lat, lng });
