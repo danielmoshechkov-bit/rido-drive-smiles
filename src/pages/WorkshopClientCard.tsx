@@ -310,12 +310,16 @@ export default function WorkshopClientCard() {
 
   const estimateAvailable = isAdminPreview || (receptionSigned && order.estimate_sent_to_client && !order.estimate_changed_after_send);
 
+  // FIX P4: zakładka Protokół wydania odblokowuje się TYLKO gdy warsztat RĘCZNIE
+  // ustawi status końcowy (nie po podpisie/wysyłce wyceny). Nie patrzy na quote.
+  const releaseAvailable = isAdminPreview || ['Gotowy do odbioru', 'Zakończone', 'Wydano'].includes(order.status_name);
+
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; locked?: boolean }[] = [
     { key: 'reception', label: t('workshop.clientCard.receptionProtocol'), icon: <Wrench className="h-4 w-4" /> },
     // ETAP B: podpisany kosztorys ZAWSZE dostępny w read-only (koniec blokady —
     // wcześniej po przełączeniu na Protokół nie dało się wrócić na Kosztorys).
     { key: 'estimate', label: t('workshop.clientCard.estimate'), icon: <FileSignature className="h-4 w-4" />, locked: !(estimateAvailable || estimateSigned) },
-    { key: 'release', label: t('workshop.clientCard.releaseProtocol'), icon: <Shield className="h-4 w-4" />, locked: !isAdminPreview && !estimateSigned },
+    { key: 'release', label: t('workshop.clientCard.releaseProtocol'), icon: <Shield className="h-4 w-4" />, locked: !releaseAvailable },
   ];
 
   return (
@@ -755,7 +759,11 @@ export default function WorkshopClientCard() {
                     )}
                   </div>
 
-                  {!estimateSigned && !isFrozenView ? (
+                  {/* FIX P2: przycisk bramkowany na quote_accepted (bieżąca akceptacja,
+                      resetowana przy requote), NIE na lepkim estimateSigned (stary
+                      podpis zostaje na zawsze). Po requote quote_accepted=false →
+                      przycisk wraca; po podpisie RPC ustawia quote_accepted=true. */}
+                  {!order.quote_accepted && !isFrozenView ? (
                     <div className="flex justify-end pt-2">
                       <Button onClick={() => setSigningDoc('cost_estimate')} size="lg" className="gap-2 shadow-lg" disabled={isAdminPreview}>
                         <FileSignature className="h-5 w-5" /> {isAdminPreview ? t('workshop.clientCard.awaitingClientAcceptance') : t('workshop.clientCard.acceptEstimate')}
@@ -778,10 +786,10 @@ export default function WorkshopClientCard() {
             )}
 
             {!showTranslationLoader && activeTab === 'release' && (
-              !estimateSigned ? (
+              !releaseAvailable ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-muted-foreground font-medium">{t('workshop.clientCard.releaseAfterEstimate')}</p>
+                  <p className="text-muted-foreground font-medium">{t('workshop.clientCard.releaseWhenReady', { defaultValue: 'Protokół wydania będzie dostępny, gdy pojazd będzie gotowy do odbioru.' })}</p>
                 </div>
               ) : (
                 <div className="py-12 text-center text-muted-foreground">

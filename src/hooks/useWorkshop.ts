@@ -160,6 +160,11 @@ export function useWorkshopOrders(providerId: string | undefined, filters?: {
   return useQuery({
     queryKey: ['workshop-orders', providerId, keyFilters],
     enabled: !!providerId,
+    // FIX P1: panel odświeża listę po powrocie na kartę. Bez tego (globalne
+    // refetchOnWindowFocus:false z partii B) zmiana od klienta na innym urządzeniu/
+    // karcie — np. podpis kosztorysu → status "Zaakceptowano" — była widoczna
+    // dopiero po staleTime (45 s), gdy realtime backgroundowanej karty zaśnie.
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       let query = (supabase as any)
         .from('workshop_orders')

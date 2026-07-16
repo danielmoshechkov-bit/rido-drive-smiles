@@ -335,7 +335,9 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => { if (!v) resetAndClose(); }}>
-        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+        {/* FIX P5: ekran sukcesu ma wąską treść (bloki max-w-sm) — w kontenerze
+            max-w-3xl rozjeżdżał się/robił pusto po bokach. Węższy dla sukcesu. */}
+        <DialogContent className={`${showSmsConfirm ? 'max-w-md' : 'max-w-3xl'} max-h-[92vh] overflow-y-auto`}>
           {showSmsConfirm ? (
             <div className="space-y-6 py-4">
               <div className="text-center space-y-3">
