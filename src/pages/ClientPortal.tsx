@@ -134,7 +134,8 @@ export default function ClientPortal() {
   const [isAdminAccount, setIsAdminAccount] = useState(false);
   const [isSalesAdmin, setIsSalesAdmin] = useState(false);
   const [isSalesRep, setIsSalesRep] = useState(false);
-  
+  const [isServiceProvider, setIsServiceProvider] = useState(false);
+
   // User listings
   const [vehicleListings, setVehicleListings] = useState<VehicleListing[]>([]);
   const [propertyListings, setPropertyListings] = useState<PropertyListing[]>([]);
@@ -225,15 +226,20 @@ export default function ClientPortal() {
     setAccountFirstName(currentUser.user_metadata?.first_name || currentUser.user_metadata?.imie || '');
     setAccountLastName(currentUser.user_metadata?.last_name || currentUser.user_metadata?.nazwisko || '');
 
-    // Check if service_provider — redirect to their dedicated panel
+    // Usługodawca domyślnie ląduje w swoim panelu — ale musi móc świadomie wejść
+    // do Portalu Klienta z przełącznika modułów (?view=client). Bez tej intencji
+    // (bezpośrednie/domyślne wejście, świeża aktywacja warsztatu) nadal odsyłamy do /uslugi/panel.
+    const wantsClientView = searchParams.get('view') === 'client';
     const { data: spRole } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', currentUser.id)
       .eq('role', 'service_provider')
       .maybeSingle();
-    
-    if (spRole) {
+    // Zapamiętaj rolę, żeby przełącznik pokazał kafelek powrotu do panelu usługodawcy.
+    setIsServiceProvider(!!spRole);
+
+    if (spRole && !wantsClientView) {
       navigate('/uslugi/panel', { replace: true });
       return;
     }
@@ -1762,6 +1768,7 @@ export default function ClientPortal() {
               isAdminAccount={isAdminAccount}
               isSalesAdmin={isSalesAdmin}
               isSalesRep={isSalesRep}
+              isServiceProvider={isServiceProvider}
               isClientPortal={true}
               isMarketplaceEnabled={true}
               currentAccountType="client"

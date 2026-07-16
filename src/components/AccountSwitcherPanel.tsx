@@ -301,7 +301,7 @@ export function AccountSwitcherPanel({
                   ? 'border-primary ring-2 ring-primary/20' 
                   : 'border-border cursor-pointer hover:shadow-lg hover:border-primary/50'
               }`}
-              onClick={() => currentAccountType !== 'client' && navigate('/klient')}
+              onClick={() => currentAccountType !== 'client' && navigate('/klient?view=client')}
             >
               <div className="aspect-[16/9] relative overflow-hidden">
                 <img 
