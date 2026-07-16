@@ -2707,7 +2707,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className="space-y-3 text-sm">
+          {/* min-w-0: AlertDialogContent to CSS grid — bez tego element potomny
+              nie kurczy się poniżej treści i ramki wychodzą poza prawą krawędź. */}
+          <div className="space-y-3 text-sm min-w-0 break-words">
             {/* Czerwona ramka: warunki obowiązku MPP */}
             <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/20 p-3">
               <div className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-400 mb-1.5">
