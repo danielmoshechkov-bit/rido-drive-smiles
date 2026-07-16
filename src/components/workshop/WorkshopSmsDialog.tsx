@@ -116,6 +116,11 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
           pre.status_name = 'Wycena wysłana';
         }
         await (supabase as any).from('workshop_orders').update(pre).eq('id', order.id);
+        // FIX: optimistic patch — status/flagi ("Wycena wysłana", quote_accepted=false)
+        // wchodzą NATYCHMIAST na karcie i liście (jak inne akcje warsztatu), bez
+        // czekania na realtime/refetch. setQueriesData obejmuje single i listę.
+        qc.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+          Array.isArray(old) ? old.map((o: any) => (o.id === order.id ? { ...o, ...pre } : o)) : old);
       }
 
       const result = await runWithQuota('sms', async () => {
