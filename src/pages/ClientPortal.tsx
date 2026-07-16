@@ -229,7 +229,9 @@ export default function ClientPortal() {
     // Usługodawca domyślnie ląduje w swoim panelu — ale musi móc świadomie wejść
     // do Portalu Klienta z przełącznika modułów (?view=client). Bez tej intencji
     // (bezpośrednie/domyślne wejście, świeża aktywacja warsztatu) nadal odsyłamy do /uslugi/panel.
-    const wantsClientView = searchParams.get('view') === 'client';
+    // Czytamy wprost z URL (window.location), nie ze stanu react-routera — checkUser leci
+    // też z onAuthStateChange, gdzie domknięcie mogłoby mieć nieaktualne searchParams.
+    const wantsClientView = new URLSearchParams(window.location.search).get('view') === 'client';
     const { data: spRole } = await supabase
       .from('user_roles')
       .select('role')
@@ -239,6 +241,7 @@ export default function ClientPortal() {
     // Zapamiętaj rolę, żeby przełącznik pokazał kafelek powrotu do panelu usługodawcy.
     setIsServiceProvider(!!spRole);
 
+    console.log('ClientPortal - guard [v2]:', { wantsClientView, isProvider: !!spRole, search: window.location.search });
     if (spRole && !wantsClientView) {
       navigate('/uslugi/panel', { replace: true });
       return;

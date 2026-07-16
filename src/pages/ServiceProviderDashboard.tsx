@@ -295,7 +295,7 @@ export default function ServiceProviderDashboard() {
         .from('ai_agent_configs')
         .select('*, ai_call_business_profiles(*)')
         .eq('user_id', user.id)
-        .single(),
+        .maybeSingle(), // .single() → 406 gdy konto nie ma jeszcze configu AI (szum w konsoli)
       (supabase as any)
         .from('service_providers')
         .select('id, rating_avg, rating_count, company_name, short_name, description, company_phone, company_address, company_city, company_postal_code, company_nip, company_website, owner_first_name, owner_last_name, owner_email, status, category_id, cover_image_url, logo_url')
