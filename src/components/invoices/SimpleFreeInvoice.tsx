@@ -28,7 +28,10 @@ import {
   ImagePlus,
   X,
   Loader2,
-  Search
+  Search,
+  AlertTriangle,
+  Info,
+  Landmark
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
@@ -434,6 +437,8 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // wymagają adnotacji "mechanizm podzielonej płatności" (KSeF: P_18A=1).
   const [splitPayment, setSplitPayment] = useState(false);
   const [showMppDialog, setShowMppDialog] = useState(false);
+  // Ustawienie firmy: pokazywać okno MPP dla faktur > 15 000 zł (domyślnie true).
+  const [mppWarningEnabled, setMppWarningEnabled] = useState(true);
   // Override splitPayment na czas zapisu z okna MPP — stan setSplitPayment jest
   // asynchroniczny, więc zapis czyta wartość z refa (getSplitPayment).
   const splitOverrideRef = useRef<boolean | null>(null);
@@ -570,6 +575,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       if (['RRRR/MM/NNN', 'RRRR/NNN', 'NNN/RRRR', 'NNN'].includes((company as any).numbering_pattern)) {
         setNumberingPattern((company as any).numbering_pattern);
       }
+      if (typeof (company as any).mpp_warning_enabled === 'boolean') setMppWarningEnabled((company as any).mpp_warning_enabled);
       setSellerExpanded(false);
       if (!issuePlace) setIssuePlace(company.address_city || '');
       if ((company as any).logo_url) setCompanyLogo((company as any).logo_url);
@@ -1444,10 +1450,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
     }
     setItemPriceErrors(new Set());
 
-    // Bramka MPP: faktura > 15 000 zł brutto — zawsze zapytaj o split payment PRZED
-    // zapisem (jak iFirma). Zawsze widoczne przy tej kwocie (wymóg prawny, sankcja
-    // 30% VAT za brak adnotacji MPP dla towarów z załącznika nr 15).
-    if (finalAmount > 15000) {
+    // Bramka MPP: faktura > 15 000 zł brutto — zapytaj o split payment PRZED zapisem
+    // (jak iFirma), o ile ostrzeżenie MPP włączone w ustawieniach firmy (domyślnie
+    // tak; wymóg prawny — sankcja 30% VAT za brak adnotacji MPP z załącznika nr 15).
+    if (finalAmount > 15000 && mppWarningEnabled) {
       setShowMppDialog(true);
       return;
     }
@@ -2688,28 +2694,74 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         invoiceIssued={invoiceIssued}
       />
       
-      {/* Bramka MPP przed zapisem faktury > 15 000 zł brutto */}
+      {/* Bramka MPP przed zapisem faktury > 15 000 zł brutto — układ wzorowany na iFirma */}
       <AlertDialog open={showMppDialog} onOpenChange={setShowMppDialog}>
-        <AlertDialogContent className="max-w-md">
+        <AlertDialogContent className="max-w-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-base">Faktura przekracza 15 000 zł</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
-              Jeśli obejmuje towary lub usługi z załącznika nr 15 ustawy o VAT (m.in. części
-              samochodowe, roboty budowlane, elektronika, stal, paliwa), adnotacja „mechanizm
-              podzielonej płatności" jest obowiązkowa (art. 106e ust. 1 pkt 18a). Za jej brak
-              grozi sankcja 30% kwoty VAT.
+            <AlertDialogTitle className="flex items-center gap-2 text-lg">
+              <CreditCard className="h-5 w-5 text-primary" />
+              Mechanizm podzielonej płatności
+            </AlertDialogTitle>
+            <AlertDialogDescription className="sr-only">
+              Informacja o obowiązku split payment dla faktur powyżej 15 000 zł.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2">
-            <Button variant="ghost" size="sm" disabled={isIssuing} onClick={() => setShowMppDialog(false)} className="w-full sm:w-auto">
+
+          <div className="space-y-3 text-sm">
+            {/* Czerwona ramka: warunki obowiązku MPP */}
+            <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/20 p-3">
+              <div className="flex items-center gap-2 font-semibold text-red-700 dark:text-red-400 mb-1.5">
+                <AlertTriangle className="h-4 w-4" /> Uwaga!
+              </div>
+              <p className="text-red-800 dark:text-red-300 mb-2">
+                Adnotacja „mechanizm podzielonej płatności" jest <strong>obowiązkowa</strong>, gdy
+                spełnione są łącznie wszystkie warunki:
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-red-800 dark:text-red-300">
+                <li>wartość faktury brutto przekracza <strong>15 000 zł</strong>,</li>
+                <li>nabywcą jest podatnik z polskim numerem NIP,</li>
+                <li>
+                  faktura dotyczy towarów lub usług z <strong>załącznika nr 15</strong> ustawy o VAT
+                  (usługi budowlane, wyroby stalowe, elektronika, paliwa, złom i metale, węgiel,
+                  części samochodowe i inne).
+                </li>
+              </ul>
+              <p className="text-xs text-red-700/90 dark:text-red-400/90 mt-2">
+                Podstawa: art. 106e ust. 1 pkt 18a ustawy o VAT. Za brak wymaganej adnotacji grozi
+                sankcja 30% kwoty VAT z pozycji objętych załącznikiem nr 15.
+              </p>
+            </div>
+
+            {/* Info o białej liście / koncie */}
+            <div className="flex items-start gap-2 text-muted-foreground">
+              <Landmark className="h-4 w-4 mt-0.5 shrink-0" />
+              <p>
+                Przy fakturze z MPP nabywca płaci na rachunek z <strong>białej listy podatników</strong>,
+                dzieląc kwotę na netto i VAT (rachunek VAT). Zadbaj, aby konto sprzedawcy było zgłoszone
+                do wykazu.
+              </p>
+            </div>
+
+            {/* Niebieska ramka: informacja o zachowaniu komunikatu */}
+            <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 text-blue-800 dark:text-blue-300">
+              <Info className="h-4 w-4 mt-0.5 shrink-0" />
+              <p className="text-xs">
+                Ten komunikat pokazuje się dla każdej faktury powyżej 15 000 zł. Zachowanie można
+                zmienić w <strong>Ustawieniach faktur</strong>.
+              </p>
+            </div>
+          </div>
+
+          <AlertDialogFooter className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end sm:gap-2">
+            <Button variant="ghost" disabled={isIssuing} onClick={() => setShowMppDialog(false)} className="w-full sm:w-auto">
               Anuluj
             </Button>
-            <Button variant="outline" size="sm" disabled={isIssuing} onClick={() => decideMppAndIssue(false)} className="w-full sm:w-auto">
-              Wystaw bez MPP
+            <Button variant="outline" disabled={isIssuing} onClick={() => decideMppAndIssue(false)} className="w-full sm:w-auto">
+              Wystaw fakturę (bez MPP)
             </Button>
-            <Button size="sm" disabled={isIssuing} onClick={() => decideMppAndIssue(true)} className="w-full sm:w-auto">
-              {isIssuing && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
-              Ze split payment (MPP)
+            <Button disabled={isIssuing} onClick={() => decideMppAndIssue(true)} className="w-full sm:w-auto">
+              {isIssuing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Wystaw ze split payment (MPP)
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

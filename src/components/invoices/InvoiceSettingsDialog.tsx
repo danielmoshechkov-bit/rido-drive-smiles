@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Loader2, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,6 +38,7 @@ export function InvoiceSettingsDialog({ open, onOpenChange, onSaved }: InvoiceSe
   const [mode, setMode] = useState<NumberingMode>(DEFAULT_NUMBERING.mode);
   const [pattern, setPattern] = useState<NumberingPattern>(DEFAULT_NUMBERING.pattern);
   const [prefix, setPrefix] = useState(DEFAULT_NUMBERING.prefix);
+  const [mppWarning, setMppWarning] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -47,7 +49,7 @@ export function InvoiceSettingsDialog({ open, onOpenChange, onSaved }: InvoiceSe
       if (!user || cancelled) return;
       const { data: company } = await (supabase
         .from('user_invoice_companies')
-        .select('id, name, numbering_mode, numbering_pattern, numbering_prefix') as any)
+        .select('id, name, numbering_mode, numbering_pattern, numbering_prefix, mpp_warning_enabled') as any)
         .eq('user_id', user.id)
         .eq('is_default', true)
         .maybeSingle();
@@ -58,6 +60,7 @@ export function InvoiceSettingsDialog({ open, onOpenChange, onSaved }: InvoiceSe
         if (['continuous', 'fill_gaps', 'manual'].includes(company.numbering_mode)) setMode(company.numbering_mode);
         if (['RRRR/MM/NNN', 'RRRR/NNN', 'NNN/RRRR', 'NNN'].includes(company.numbering_pattern)) setPattern(company.numbering_pattern);
         if (company.numbering_prefix) setPrefix(company.numbering_prefix);
+        if (typeof company.mpp_warning_enabled === 'boolean') setMppWarning(company.mpp_warning_enabled);
       } else {
         setCompanyId(null);
       }
@@ -77,6 +80,7 @@ export function InvoiceSettingsDialog({ open, onOpenChange, onSaved }: InvoiceSe
           numbering_mode: mode,
           numbering_pattern: pattern,
           numbering_prefix: (prefix || 'FV').trim(),
+          mpp_warning_enabled: mppWarning,
         })
         .eq('id', companyId);
       if (error) throw error;
@@ -155,6 +159,18 @@ export function InvoiceSettingsDialog({ open, onOpenChange, onSaved }: InvoiceSe
               aktywnych numerów są blokowane w każdym trybie; numer niższy/wyższy niż kolejny
               wywoła żółte ostrzeżenie (chronologia / pominięcie), które nie blokuje zapisu.
             </p>
+
+            <div className="border-t pt-3 flex items-start justify-between gap-4">
+              <div>
+                <Label className="block">Ostrzeżenie MPP (split payment)</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Pokazuj okno o mechanizmie podzielonej płatności przy wystawianiu faktury
+                  powyżej 15 000 zł. Zalecane włączone — brak wymaganej adnotacji MPP grozi
+                  sankcją 30% VAT.
+                </p>
+              </div>
+              <Switch checked={mppWarning} onCheckedChange={setMppWarning} className="mt-1 shrink-0" />
+            </div>
 
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Anuluj</Button>
