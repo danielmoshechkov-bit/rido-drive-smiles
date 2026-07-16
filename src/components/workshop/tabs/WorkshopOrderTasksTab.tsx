@@ -250,19 +250,21 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   useEffect(() => {
     if (!order?.id) return;
     const s = order.status_name;
-    const FAMILY = ['Wycena wysłana', 'Zaakceptowano', 'Dodatek do naprawy', 'Przyjęcie do serwisu'];
+    const FAMILY = ['Wycena wysłana', 'Zaakceptowano', 'Dodatek do naprawy', 'Wycena do wysłania', 'Przyjęcie do serwisu'];
     if (!FAMILY.includes(s)) return; // nie ruszaj statusów spoza rodziny wyceny
     const hasItems = (order.items || []).length > 0;
     const unsent = !!order.estimate_changed_after_send;
     let target: string | null = null;
     if (order.quote_accepted) {
+      // zmiana/dodatek PO podpisie klienta, niewysłana → "Dodatek do naprawy"
       target = unsent ? 'Dodatek do naprawy' : 'Zaakceptowano';
     } else if (order.estimate_sent_to_client) {
-      // pkt 1: wysłana, jeszcze niepodpisana, ale zmieniona ponownie → bursztyn
+      // pkt 1: wysłana, jeszcze niepodpisana, ale zmieniona ponownie → "Dodatek do naprawy"
       target = unsent ? 'Dodatek do naprawy' : 'Wycena wysłana';
-    } else if (hasItems && s === 'Przyjęcie do serwisu') {
-      // pkt 2: wycena zrobiona po przyjęciu, jeszcze NIEWYSŁANA → bursztyn
-      target = 'Dodatek do naprawy';
+    } else if (hasItems && (s === 'Przyjęcie do serwisu' || s === 'Wycena do wysłania')) {
+      // pkt 2: PIERWSZA wycena zrobiona po przyjęciu, jeszcze NIEWYSŁANA →
+      // "Wycena do wysłania" (NIE "Dodatek do naprawy" — to nie dodatek).
+      target = 'Wycena do wysłania';
     }
     if (target && target !== s) updateOrder.mutate({ id: order.id, status_name: target });
   }, [order?.id, order.status_name, order.quote_accepted, order.estimate_sent_to_client, order.estimate_changed_after_send, order.items]);
