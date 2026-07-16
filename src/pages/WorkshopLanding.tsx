@@ -1,5 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { activateWorkshopTrial } from "@/services/authService";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,11 +37,60 @@ export default function WorkshopLanding() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginMode, setLoginMode] = useState<"login" | "register">("register");
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [isProvider, setIsProvider] = useState(false);
+  const [activating, setActivating] = useState(false);
 
-  const handleStartTrial = (plan: string) => {
+  // Landing musi rozpoznawać zalogowanego usera (wcześniej traktował każdego jak gościa)
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user) {
+      setIsProvider(false);
+      return;
+    }
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .eq("role", "service_provider")
+      .maybeSingle()
+      .then(({ data }) => setIsProvider(!!data));
+  }, [session]);
+
+  const handleStartTrial = async (plan: string) => {
     setSelectedPlan(plan);
-    setLoginMode("register");
-    setShowLoginModal(true);
+
+    // Gość → rejestracja/logowanie z kontekstem modułu (dotychczasowy flow)
+    if (!session) {
+      setLoginMode("register");
+      setShowLoginModal(true);
+      return;
+    }
+
+    // Zalogowany z modułem → prosto do panelu
+    if (isProvider) {
+      navigate("/uslugi/panel");
+      return;
+    }
+
+    // Zalogowany bez modułu → aktywacja trialu na istniejącym koncie, bez ponownej rejestracji
+    setActivating(true);
+    try {
+      const result = await activateWorkshopTrial(plan);
+      if (result.success) {
+        toast.success("Moduł warsztatowy aktywowany! Trwa 14-dniowy okres próbny.");
+        navigate("/uslugi/panel");
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setActivating(false);
+    }
   };
 
   const features = [
@@ -115,10 +168,29 @@ export default function WorkshopLanding() {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <UniversalHomeButton />
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => { setLoginMode("login"); setShowLoginModal(true); }}>
-              Zaloguj się
-            </Button>
-            <Button size="sm" onClick={() => handleStartTrial("pro")}>Zarejestruj się</Button>
+            {session ? (
+              isProvider ? (
+                <Button size="sm" onClick={() => navigate("/uslugi/panel")}>
+                  Przejdź do panelu
+                </Button>
+              ) : (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => navigate("/klient")}>
+                    Moje konto
+                  </Button>
+                  <Button size="sm" disabled={activating} onClick={() => handleStartTrial("pro")}>
+                    {activating ? "Aktywuję..." : "Aktywuj 14 dni za darmo"}
+                  </Button>
+                </>
+              )
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" onClick={() => { setLoginMode("login"); setShowLoginModal(true); }}>
+                  Zaloguj się
+                </Button>
+                <Button size="sm" onClick={() => handleStartTrial("pro")}>Zarejestruj się</Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -152,10 +224,11 @@ export default function WorkshopLanding() {
               <Button
                 size="lg"
                 className="w-full sm:w-auto gap-2 text-lg px-8 py-6 bg-gradient-to-r from-primary to-purple-600 hover:opacity-90"
+                disabled={activating}
                 onClick={() => handleStartTrial("pro")}
               >
                 <Wrench className="h-5 w-5" />
-                Wypróbuj 14 dni za darmo
+                {activating ? "Aktywuję moduł..." : session && isProvider ? "Przejdź do panelu" : "Wypróbuj 14 dni za darmo"}
                 <ArrowRight className="h-5 w-5" />
               </Button>
             </div>

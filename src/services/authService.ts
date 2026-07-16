@@ -116,6 +116,18 @@ export async function resendActivationEmail(email: string, language = "pl"): Pro
   };
 }
 
+/** Aktywacja modułu warsztatowego na istniejącym, zalogowanym koncie (rola + provider + trial). */
+export async function activateWorkshopTrial(plan?: string): Promise<SignupResult> {
+  const response = await supabase.functions.invoke("activate-workshop-trial", {
+    body: { plan },
+  });
+  if (response.error) {
+    const body = await extractErrorBody(response.error);
+    return { success: false, error: body?.error || "Nie udało się aktywować modułu. Spróbuj ponownie." };
+  }
+  return { success: true, message: response.data?.message };
+}
+
 /**
  * Redirect po zalogowaniu dla kont zarejestrowanych na moduł (user_metadata.module).
  * Zwraca ścieżkę panelu modułu albo null (wtedy obowiązuje routing wg ról).

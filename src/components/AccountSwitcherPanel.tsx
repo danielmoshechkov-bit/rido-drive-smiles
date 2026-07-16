@@ -189,6 +189,14 @@ export function AccountSwitcherPanel({
       available: true
     },
     {
+      id: 'workshop',
+      label: 'Warsztat / Detailing',
+      description: 'System do zarządzania warsztatem i detailingiem — 14 dni za darmo',
+      image: workshopEmployeeImg,
+      route: '/warsztat-info',
+      available: true
+    },
+    {
       id: 'marketplace',
       label: t('accountSwitcher.carMarket'),
       description: t('accountSwitcher.carMarketDesc'),
@@ -218,6 +226,7 @@ export function AccountSwitcherPanel({
   const availableRegistrationOptions = registrationOptions.filter(opt => {
     if (opt.id === 'driver' && isDriverAccount) return false;
     if (opt.id === 'fleet' && isFleetAccount) return false;
+    if (opt.id === 'workshop' && isServiceProvider) return false;
     return true;
   });
 

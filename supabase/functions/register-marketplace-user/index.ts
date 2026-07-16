@@ -141,10 +141,20 @@ Deno.serve(async (req) => {
       console.log("✅ Marketplace role assigned");
     }
 
-    // 3a-bis. Moduł warsztatowy: wpis usługodawcy (status wstępny) + minimalny trial 14 dni.
+    // 3a-bis. Moduł warsztatowy: rola + wpis usługodawcy (status wstępny) + minimalny trial 14 dni.
     // UWAGA: celowo TYLKO zapis daty końca trialu (expires_at) — egzekwowanie
     // wygasania/blokad/płatności robimy osobno, później.
     if (module === "warsztat") {
+      // Panel /uslugi/panel bramkuje po roli service_provider — bez niej "Brak uprawnień"
+      const { error: spRoleError } = await supabaseAdmin
+        .from("user_roles")
+        .upsert({ user_id: userId, role: "service_provider" }, { onConflict: "user_id,role" });
+      if (spRoleError) {
+        console.error("⚠️ service_provider role error:", spRoleError.message);
+      } else {
+        console.log("✅ service_provider role assigned");
+      }
+
       const { error: spError } = await supabaseAdmin
         .from("service_providers")
         .insert({

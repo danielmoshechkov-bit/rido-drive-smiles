@@ -82,6 +82,9 @@ verify_jwt = false
 [functions.resend-activation-email]
 verify_jwt = false
 
+[functions.activate-workshop-trial]
+verify_jwt = false
+
 [functions.send-driver-invoice]
 verify_jwt = false
 

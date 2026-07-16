@@ -153,6 +153,12 @@ export function ServiceRegistrationModal({ open, onOpenChange, user }: ServiceRe
         status: 'pending'
       });
 
+      // Rola service_provider (bramka /uslugi/panel) — bez niej user odbija się
+      // z "Brak uprawnień" mimo istniejącego wpisu providera. Nadawana server-side.
+      await supabase.functions.invoke('activate-workshop-trial', { body: {} }).catch((e) => {
+        console.error('activate-workshop-trial error (non-fatal):', e);
+      });
+
       setStep('success');
       toast.success('Zgłoszenie wysłane do weryfikacji!');
     } catch (error: any) {
@@ -217,6 +223,11 @@ export function ServiceRegistrationModal({ open, onOpenChange, user }: ServiceRe
         service_type: privForm.serviceType,
         description: `[OSOBA PRYWATNA] PESEL: ${privForm.pesel}, Dowód: ${privForm.idNumber}. ${privForm.description || ''}`,
         status: 'pending'
+      });
+
+      // Rola service_provider (bramka /uslugi/panel) — jak w handleBusinessSubmit.
+      await supabase.functions.invoke('activate-workshop-trial', { body: {} }).catch((e) => {
+        console.error('activate-workshop-trial error (non-fatal):', e);
       });
 
       setStep('success');
