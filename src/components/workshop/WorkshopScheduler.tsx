@@ -665,7 +665,11 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
               <Plus className="h-3 w-3" /> Dodaj kategorię
             </Button>
           </div>
-          <Button variant="outline" size="sm" className="gap-1 text-xs h-7" disabled={categories.length === 0} title={categories.length === 0 ? 'Najpierw dodaj kategorię' : undefined} onClick={() => { setNewStationCategory(activeCategory); setShowAddStation(true); }}>
+          <Button variant="outline" size="sm" className={`gap-1 text-xs h-7 ${categories.length === 0 ? 'opacity-60' : ''}`} title={categories.length === 0 ? 'Najpierw dodaj kategorię' : undefined} onClick={() => {
+            // Klikalny mimo braku kategorii — pokazujemy CZEMU nie działa (nie tylko szary przycisk).
+            if (categories.length === 0) { toast.info('Najpierw dodaj kategorię'); return; }
+            setNewStationCategory(activeCategory); setShowAddStation(true);
+          }}>
             <Plus className="h-3 w-3" /> {t('workshop.scheduler.station')}
           </Button>
         </div>

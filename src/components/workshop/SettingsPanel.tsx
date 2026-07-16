@@ -537,9 +537,12 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                     <Plus className="h-4 w-4" /> Dodaj kategorię
                   </Button>
                   <Button
-                    onClick={() => { setWsCategory(currentCat); setShowAddWorkstation(true); }}
-                    className="gap-2"
-                    disabled={!hasCategories}
+                    onClick={() => {
+                      // Klikalny mimo braku kategorii — pokazujemy CZEMU nie działa (nie tylko szary przycisk).
+                      if (!hasCategories) { toast.info('Najpierw dodaj kategorię'); return; }
+                      setWsCategory(currentCat); setShowAddWorkstation(true);
+                    }}
+                    className={`gap-2 ${hasCategories ? '' : 'opacity-60'}`}
                     title={hasCategories ? undefined : 'Najpierw dodaj kategorię'}
                   >
                     <Plus className="h-4 w-4" /> {t('workshop.settingsPanel.workstations.addWorkstation')}
