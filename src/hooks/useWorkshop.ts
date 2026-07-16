@@ -160,11 +160,10 @@ export function useWorkshopOrders(providerId: string | undefined, filters?: {
   return useQuery({
     queryKey: ['workshop-orders', providerId, keyFilters],
     enabled: !!providerId,
-    // FIX P1: panel odświeża listę po powrocie na kartę. Bez tego (globalne
-    // refetchOnWindowFocus:false z partii B) zmiana od klienta na innym urządzeniu/
-    // karcie — np. podpis kosztorysu → status "Zaakceptowano" — była widoczna
-    // dopiero po staleTime (45 s), gdy realtime backgroundowanej karty zaśnie.
-    refetchOnWindowFocus: true,
+    // FIX P1: NIE refetchOnWindowFocus na liście — to ciężkie zapytanie (500
+    // zleceń + joiny), refetch na każdy focus mulił. Świeżość zapewnia realtime
+    // (lista subskrybuje gdy zamontowana) + realtime karty detalu (patrz
+    // WorkshopOrderDetail) mergujący do wspólnego cache ['workshop-orders'].
     queryFn: async () => {
       let query = (supabase as any)
         .from('workshop_orders')
@@ -224,6 +223,12 @@ export function useWorkshopOrder(orderId: string | undefined) {
     // trzymać kartę na spinnerze ~10 s przy jednym padniętym requeście.
     retry: 1,
     retryDelay: 500,
+    // FIX P1: LEKKI refetch (jedno zlecenie) po powrocie na kartę — dogania
+    // zmianę, którą realtime backgroundowanej karty mógł zgubić (scenariusz
+    // dev: klient i panel w dwóch kartach jednej przeglądarki). W realnym
+    // przypadku (panel na wierzchu) status wchodzi realtimem, ten refetch
+    // to tylko bezpiecznik — tani, bo to pojedynczy wiersz.
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('workshop_orders')
