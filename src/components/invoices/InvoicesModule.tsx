@@ -15,7 +15,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Loader2, FileText, Trash2, Search, Download, RefreshCw, Plus } from 'lucide-react';
+import { Loader2, FileText, Trash2, Search, Download, RefreshCw, Plus, Settings2 } from 'lucide-react';
+import { InvoiceSettingsDialog } from './InvoiceSettingsDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PurchaseInvoicesKSeF, type PurchaseInvoicesKSeFHandle } from '@/components/accounting/PurchaseInvoicesKSeF';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
@@ -111,6 +112,7 @@ export function InvoicesModule({ entityId: propEntityId, source = 'invoices', he
   const [searchQuery, setSearchQuery] = useState('');
   const [salesSelected, setSalesSelected] = useState<Set<string>>(new Set());
   const [salesDeleting, setSalesDeleting] = useState(false);
+  const [showInvoiceSettings, setShowInvoiceSettings] = useState(false);
 
   const salesReady = usesUserInvoices ? !!userId : !!entityId;
 
@@ -303,8 +305,13 @@ export function InvoicesModule({ entityId: propEntityId, source = 'invoices', he
         </div>
 
         {/* Pasek akcji — to samo miejsce dla obu zakładek (pod przełącznikiem) */}
-        {activeTab === 'sprzedazowe' && headerRight && (
-          <div className="flex flex-wrap items-center gap-2">{headerRight}</div>
+        {activeTab === 'sprzedazowe' && (
+          <div className="flex flex-wrap items-center gap-2">
+            {headerRight}
+            <Button variant="outline" className="gap-2" onClick={() => setShowInvoiceSettings(true)}>
+              <Settings2 className="h-4 w-4" /> Ustawienia faktur
+            </Button>
+          </div>
         )}
         {activeTab === 'zakupowe' && (
           <div className="flex flex-wrap items-center gap-2">
@@ -480,6 +487,8 @@ export function InvoicesModule({ entityId: propEntityId, source = 'invoices', he
           />
         </TabsContent>
       </Tabs>
+
+      <InvoiceSettingsDialog open={showInvoiceSettings} onOpenChange={setShowInvoiceSettings} />
     </div>
   );
 }

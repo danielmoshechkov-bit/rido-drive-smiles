@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Search, Loader2, Trash2, Settings2 } from 'lucide-react';
+import { InvoiceSettingsDialog } from '@/components/invoices/InvoiceSettingsDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -25,6 +26,7 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [view, setView] = useState<'kasa' | 'sprzedaz' | 'zakup'>('kasa');
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)); // 'YYYY-MM'
+  const [showInvoiceSettings, setShowInvoiceSettings] = useState(false);
   const shiftMonth = (delta: number) => setMonth((m) => {
     const [y, mo] = m.split('-').map(Number);
     const d = new Date(y, mo - 1 + delta, 1);
@@ -129,6 +131,11 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftMonth(1)} title="Następny miesiąc">›</Button>
         </div>
 
+        {/* Ustawienia faktur — stała konfiguracja firmy (numeracja: tryb + format) */}
+        <Button variant="outline" size="sm" className="gap-1" onClick={() => setShowInvoiceSettings(true)}>
+          <Settings2 className="h-4 w-4" /> Ustawienia faktur
+        </Button>
+
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -195,6 +202,8 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
           </DialogContent>
         </Dialog>
       )}
+
+      <InvoiceSettingsDialog open={showInvoiceSettings} onOpenChange={setShowInvoiceSettings} />
     </div>
   );
 }

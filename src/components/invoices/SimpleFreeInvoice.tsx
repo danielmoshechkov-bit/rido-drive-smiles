@@ -54,6 +54,7 @@ import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCh
 import { CorrectionInvoiceSection, CorrectionData } from './CorrectionInvoiceSection';
 import { normalizeInvoiceType } from '@/utils/invoiceTypeMapping';
 import { VAT_EXEMPTION_BASES, VAT_EXEMPTION_CUSTOM } from '@/utils/vatExemptionBases';
+import { DEFAULT_NUMBERING, NumberingConfig, NumberingPattern, NumberingMode, buildInvoiceNumber, seriesLike, extractSeq, nextSeq } from '@/utils/invoiceNumbering';
 import { ksefTypeToUi } from './InvoiceTypeSelector';
 
 const VAT_RATES = ['23', '8', '5', '0', 'zw', 'np'];
@@ -178,7 +179,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   
   // Invoice details
   const [invoiceNumber, setInvoiceNumber] = useState(`FV/${format(new Date(), 'yyyy/MM')}/001`);
-  const autoNumberRef = useRef<string>('');
+  // Ref = ostatnia AUTO-propozycja. Init na wartość startową pola, żeby pierwszy
+  // przelicz (po załadowaniu ustawień firmy) nie był potraktowany jak ręczna zmiana.
+  const autoNumberRef = useRef<string>(`FV/${format(new Date(), 'yyyy/MM')}/001`);
   const [issueDate, setIssueDate] = useState(today);
   const [saleDate, setSaleDate] = useState(today);
   const [dueDate, setDueDate] = useState(defaultDueDate);
@@ -308,47 +311,53 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   //  manual     — propozycja MAX+1 aktywnych, pełna swoboda ręcznej zmiany
   const [numberingMode, setNumberingMode] = useState<'continuous' | 'fill_gaps' | 'manual'>('continuous');
 
-  const proposeInvoiceNumber = async (userId: string, mode: string): Promise<string> => {
+  // Format numeracji (prefiks + wzór) — ustawienie firmy, ładowane razem z trybem.
+  const [numberingPrefix, setNumberingPrefix] = useState(DEFAULT_NUMBERING.prefix);
+  const [numberingPattern, setNumberingPattern] = useState<NumberingPattern>(DEFAULT_NUMBERING.pattern);
+  // Gotowość: propozycję numeru liczymy DOPIERO gdy znamy ustawienia firmy —
+  // wcześniej stary podgląd (martwy licznik RPC) ścigał się z przeliczeniem
+  // po załadowaniu trybu i spóźniona odpowiedź nadpisywała poprawny numer.
+  const [numberingReady, setNumberingReady] = useState(false);
+
+  const numberingCfg = (): NumberingConfig => ({
+    prefix: numberingPrefix,
+    pattern: numberingPattern,
+    mode: numberingMode,
+  });
+
+  // Propozycja numeru — ZAWSZE z AKTYWNYCH faktur (deleted_at IS NULL), we
+  // wszystkich trybach. continuous/manual = max+1, fill_gaps = najniższy wolny.
+  const proposeInvoiceNumber = async (userId: string, mode: string, cfg?: NumberingConfig): Promise<string> => {
+    const c = cfg || numberingCfg();
     const now = new Date();
-    const year = parseInt(format(now, 'yyyy'));
-    const month = parseInt(format(now, 'MM'));
-    const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
-    if (mode === 'continuous') {
-      const { data: nextNum, error } = await (supabase as any)
-        .rpc('peek_next_invoice_number', { p_user_id: userId, p_year: year, p_month: month });
-      return `${prefix}${String(error || !nextNum ? 1 : nextNum).padStart(3, '0')}`;
-    }
     const { data } = await (supabase.from('user_invoices').select('invoice_number') as any)
       .eq('user_id', userId)
       .is('deleted_at', null)
-      .like('invoice_number', `${prefix}%`);
-    const nums = (data || [])
-      .map((r: any) => parseInt(String(r.invoice_number).slice(prefix.length), 10))
-      .filter((n: number) => !isNaN(n));
-    let n = 1;
-    if (mode === 'fill_gaps') {
-      const taken = new Set(nums);
-      while (taken.has(n)) n++;
-    } else {
-      n = (nums.length ? Math.max(...nums) : 0) + 1;
-    }
-    return `${prefix}${String(n).padStart(3, '0')}`;
+      .like('invoice_number', seriesLike(c, now));
+    const seqs = (data || [])
+      .map((r: any) => extractSeq(c, now, r.invoice_number))
+      .filter((n: number | null): n is number => n !== null);
+    return buildInvoiceNumber(c, now, nextSeq(mode as NumberingMode, seqs));
   };
 
-  // Zmiana trybu numeracji: przelicz propozycję (o ile user nie zmienił numeru ręcznie)
+  // JEDNO miejsce liczenia propozycji: po załadowaniu ustawień firmy i przy każdej
+  // zmianie trybu/formatu; spóźnione odpowiedzi ignorowane (cancelled).
   useEffect(() => {
-    if (editInvoiceId) return;
+    if (editInvoiceId || !numberingReady) return;
+    let cancelled = false;
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user || cancelled) return;
       if (invoiceNumber === autoNumberRef.current || !invoiceNumber) {
         const preview = await proposeInvoiceNumber(user.id, numberingMode);
+        if (cancelled) return;
         setInvoiceNumber(preview);
         autoNumberRef.current = preview;
       }
     })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [numberingMode]);
+  }, [numberingReady, numberingMode, numberingPattern, numberingPrefix]);
 
   // FAZA 4: walidacja numeru NA ŻYWO — czerwone pole + blokada „Wystaw fakturę",
   // gdy aktywna faktura z tym numerem już istnieje (dodatkowo do checku przy zapisie
@@ -377,29 +386,28 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         const { data } = await q.maybeSingle();
         if (!cancelled) setNumberDuplicate(!!data);
 
-        // chronologia: porównujemy tylko numery z tej samej serii (prefiks do ostatniego "/")
-        const m = n.match(/^(.*\/)(\d+)$/);
-        if (m && issueDate) {
-          const prefix = m[1];
-          const myNum = parseInt(m[2], 10);
+        // chronologia + pominięcie: tylko numery z bieżącej serii (wg formatu firmy)
+        const cfg = numberingCfg();
+        const now = new Date();
+        const myNum = extractSeq(cfg, now, n);
+        if (myNum !== null && issueDate) {
           let cq = (supabase.from('user_invoices').select('id, invoice_number, issue_date') as any)
             .eq('user_id', user.id)
             .is('deleted_at', null)
-            .like('invoice_number', `${prefix}%`);
+            .like('invoice_number', seriesLike(cfg, now));
           if (editInvoiceId) cq = cq.neq('id', editInvoiceId);
           const { data: rows } = await cq;
-          const nums = (rows || [])
-            .map((r: any) => parseInt(String(r.invoice_number).slice(prefix.length), 10))
-            .filter((x: number) => !isNaN(x));
-          const warn = (rows || []).some((r: any) => {
-            const rn = parseInt(String(r.invoice_number).slice(prefix.length), 10);
-            return !isNaN(rn) && rn > myNum && r.issue_date && r.issue_date < issueDate;
-          });
+          const parsed = (rows || [])
+            .map((r: any) => ({ seq: extractSeq(cfg, now, r.invoice_number), issue_date: r.issue_date }))
+            .filter((r: any) => r.seq !== null);
+          const warn = parsed.some((r: any) => r.seq > myNum && r.issue_date && r.issue_date < issueDate);
           if (!cancelled) setChronologyWarning(warn);
-          // pominięcie: numer wyższy niż najwyższy aktywny + 1 => luka
-          const maxNum = nums.length ? Math.max(...nums) : 0;
+          // pominięcie: TYLKO gdy numer wpisany ręcznie (różny od auto-propozycji) —
+          // system sam nie ostrzega o własnej propozycji
+          const maxNum = parsed.length ? Math.max(...parsed.map((r: any) => r.seq)) : 0;
+          const reczny = n !== autoNumberRef.current;
           if (!cancelled) {
-            setSkipWarning(myNum > maxNum + 1 ? { last: maxNum, from: maxNum + 1, to: myNum - 1 } : null);
+            setSkipWarning(reczny && myNum > maxNum + 1 ? { last: maxNum, from: maxNum + 1, to: myNum - 1 } : null);
           }
         } else if (!cancelled) {
           setChronologyWarning(false);
@@ -544,6 +552,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       if (['continuous', 'fill_gaps', 'manual'].includes((company as any).numbering_mode)) {
         setNumberingMode((company as any).numbering_mode);
       }
+      if ((company as any).numbering_prefix) setNumberingPrefix((company as any).numbering_prefix);
+      if (['RRRR/MM/NNN', 'RRRR/NNN', 'NNN/RRRR', 'NNN'].includes((company as any).numbering_pattern)) {
+        setNumberingPattern((company as any).numbering_pattern);
+      }
       setSellerExpanded(false);
       if (!issuePlace) setIssuePlace(company.address_city || '');
       if ((company as any).logo_url) setCompanyLogo((company as any).logo_url);
@@ -595,20 +607,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       if (session?.user) {
         await loadUserCompanyData(session.user.id);
         
-        // Preview next invoice number WITHOUT consuming the sequence.
-        // The atomic number is claimed only at actual issuance (see save flow).
+        // Propozycja numeru liczona jest w JEDNYM efekcie (patrz numberingReady) —
+        // dopiero po załadowaniu ustawień firmy, z aktywnych faktur, bez martwego
+        // licznika RPC i bez wyścigu dwóch asynchronicznych zapisów.
         if (!editInvoiceId) {
-          const now = new Date();
-          const year = parseInt(format(now, 'yyyy'));
-          const month = parseInt(format(now, 'MM'));
-          const prefix = `FV/${year}/${String(month).padStart(2, '0')}/`;
-
-          const { data: nextNum, error: peekErr } = await (supabase as any)
-            .rpc('peek_next_invoice_number', { p_user_id: session.user.id, p_year: year, p_month: month });
-
-          const preview = `${prefix}${String(peekErr || !nextNum ? 1 : nextNum).padStart(3, '0')}`;
-          setInvoiceNumber(preview);
-          autoNumberRef.current = preview;
+          setNumberingReady(true);
         }
         
         // Check KSeF: token + master switch (send_invoices_enabled) + auto-send toggle
@@ -1195,24 +1198,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         // Generate correction invoice number if needed
         let finalInvoiceNumber = asDraft ? null : invoiceData.invoice_number;
 
-        // Claim the number ONLY at the moment of actual issuance, and only if the
-        // user did not manually edit the preview number. Tryb numeracji:
-        //  continuous — atomowa sekwencja RPC (luki przepadają),
-        //  fill_gaps/manual — świeże przeliczenie z aktywnych faktur (najniższy wolny
-        //  / MAX+1); wyścigi łapie walidacja + trigger duplikatów w bazie.
+        // Numer nadawany w chwili wystawienia (o ile user nie zmienił propozycji
+        // ręcznie): świeże przeliczenie z AKTYWNYCH faktur wg trybu i formatu firmy.
+        // Martwy licznik RPC porzucony (zliczał usunięte); wyścigi łapie walidacja
+        // + trigger duplikatów w bazie.
         if (!asDraft && !isCorrection && invoiceData.invoice_number === autoNumberRef.current) {
-          if (numberingMode === 'continuous') {
-            const nowD = new Date();
-            const y = parseInt(format(nowD, 'yyyy'));
-            const m = parseInt(format(nowD, 'MM'));
-            const { data: claimedNum, error: claimErr } = await supabase
-              .rpc('get_next_invoice_number', { p_user_id: user.id, p_year: y, p_month: m });
-            if (!claimErr && claimedNum) {
-              finalInvoiceNumber = `FV/${y}/${String(m).padStart(2, '0')}/${String(claimedNum).padStart(3, '0')}`;
-            }
-          } else {
-            finalInvoiceNumber = await proposeInvoiceNumber(user.id, numberingMode);
-          }
+          finalInvoiceNumber = await proposeInvoiceNumber(user.id, numberingMode);
         }
 
         if (isCorrection && !asDraft) {
@@ -2491,35 +2482,6 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             </TabsContent>
             
             <TabsContent value="additional" className="mt-4 space-y-4">
-              {/* Tryb numeracji faktur (ustawienie firmy) */}
-              <div>
-                <Label className="mb-2 block">Numeracja faktur</Label>
-                <Select
-                  value={numberingMode}
-                  onValueChange={async (v) => {
-                    const mode = v as 'continuous' | 'fill_gaps' | 'manual';
-                    setNumberingMode(mode);
-                    if (savedCompanyId) {
-                      await (supabase.from('user_invoice_companies') as any)
-                        .update({ numbering_mode: mode })
-                        .eq('id', savedCompanyId);
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="continuous">Ciągła bez cofania — zawsze kolejny numer, usunięte przepadają (zalecana)</SelectItem>
-                    <SelectItem value="fill_gaps">Odzyskiwanie luk — numer usuniętej faktury wraca jako wolny</SelectItem>
-                    <SelectItem value="manual">Ręczna z walidacją — propozycja kolejnego, pełna swoboda zmiany</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Duplikaty aktywnych numerów są blokowane w każdym trybie. Numer niższy niż
-                  wcześniejsze faktury wywoła ostrzeżenie o chronologii (nie blokuje).
-                </p>
-              </div>
 
               {/* Logo upload section */}
               <div>
