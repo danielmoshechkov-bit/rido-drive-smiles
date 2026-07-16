@@ -7,6 +7,7 @@ import { createWorkshopOrderItemsBatch, useUpdateWorkshopOrderItem, useDeleteWor
 import { usePartsIntegrations } from '@/hooks/useWorkshopParts';
 import { Plus, Trash2, Package, Wrench, Search, EyeOff, Sparkles, AlertTriangle, GripVertical, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
+import { useIsBetaTester } from '@/hooks/useIsBetaTester';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -172,6 +173,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const [taskPriceMode, setTaskPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
   const [goodsPriceMode, setGoodsPriceMode] = useState<'net' | 'gross'>(order.price_mode || 'gross');
 
+  const { isBetaTester } = useIsBetaTester();
   const [ridoSearchOpen, setRidoSearchOpen] = useState(false);
   const [ridoConfigOpen, setRidoConfigOpen] = useState(false);
   const [ridoPriceOpen, setRidoPriceOpen] = useState(false);
@@ -1814,8 +1816,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="gap-1 h-7 text-xs border-primary text-primary hover:bg-primary/10"
+                        title={isBetaTester ? undefined : 'Wkrótce — nowa funkcja dla każdego konta'}
+                        className={`gap-1 h-7 text-xs border-primary text-primary hover:bg-primary/10 ${isBetaTester ? '' : 'opacity-60 cursor-not-allowed'}`}
                         onClick={async () => {
+                          // "Znajdź części z Rido" — zaślepka "wkrótce" dla kont bez flagi beta_testers.
+                          if (!isBetaTester) {
+                            toast.info('Wkrótce — nowa funkcja dla każdego konta');
+                            return;
+                          }
                           const hasEnabledIntegration = configuredPartsIntegrations.length > 0;
                           if (hasEnabledIntegration) {
                             // Autosave draft rows before opening search

@@ -1,6 +1,8 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
+import { useIsBetaTester } from '@/hooks/useIsBetaTester';
 import { useWorkshopOrders, useWorkshopOrder, useWorkshopProviderId } from '@/hooks/useWorkshop';
 import { useDisableNumberInputScroll } from '@/hooks/useDisableNumberInputScroll';
 import { Loader2, ArrowLeft } from 'lucide-react';
@@ -69,12 +71,17 @@ interface WorkshopDashboardProps {
   providerId?: string | null;
 }
 
-function WorkshopSidebar({ activeModule, onNavigate }: { activeModule: string; onNavigate: (key: string | null) => void }) {
+// Funkcje jeszcze nie ogłoszone dla klientów — widoczne jako "wkrótce", aktywne tylko
+// dla kont testowych (beta_testers). Gating przez useIsBetaTester.
+const COMING_SOON_MODULE_KEYS = ['dane-naprawcze'];
+const COMING_SOON_MSG = 'Już wkrótce — funkcja w przygotowaniu';
+
+function WorkshopSidebar({ activeModule, onNavigate, lockedKeys = [] }: { activeModule: string; onNavigate: (key: string | null) => void; lockedKeys?: string[] }) {
   const { t } = useTranslation();
   return (
     <div className="hidden md:block w-[200px] flex-shrink-0 pr-3 border-r border-border">
       <div className="grid grid-cols-2 gap-1.5">
-        {modules.filter(m => m.ready).map(m => (
+        {modules.filter(m => m.ready && !lockedKeys.includes(m.key)).map(m => (
           <button
             key={m.key}
             onClick={() => onNavigate(m.key)}
@@ -144,6 +151,14 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
       vehicle: live.vehicle || selectedOrder.vehicle,
     };
   }, [selectedOrder, fullOrder, workshopOrders]);
+
+  // Gating funkcji "wkrótce" — musi być przed jakimkolwiek warunkowym return (Rules of Hooks).
+  const { isBetaTester } = useIsBetaTester();
+  const lockedKeys = isBetaTester ? [] : COMING_SOON_MODULE_KEYS;
+  const goTo = (key: string | null) => {
+    if (key && lockedKeys.includes(key)) { toast.info(COMING_SOON_MSG); return; }
+    setActiveModule(key);
+  };
 
   if (!providerId && isLoading) {
     return (
@@ -228,7 +243,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   if (currentSelectedOrder) {
     return (
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
-        <WorkshopSidebar activeModule="zlecenia" onNavigate={(key) => { setSelectedOrder(null); setActiveModule(key); }} />
+        <WorkshopSidebar activeModule="zlecenia" lockedKeys={lockedKeys} onNavigate={(key) => { setSelectedOrder(null); goTo(key); }} />
         <div className="flex-1 md:pl-3 min-w-0">
           <MobileBackButton onBack={() => setSelectedOrder(null)} label={t('workshop.dashboard.tiles.zlecenia')} />
           {/* PERF pkt 2: karta renderuje się OD RAZU z danych listy (wiersz bez
@@ -251,7 +266,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   if (selectedVehicle) {
     return (
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
-        <WorkshopSidebar activeModule="pojazdy" onNavigate={(key) => { setSelectedVehicle(null); goTo(key); }} />
+        <WorkshopSidebar activeModule="pojazdy" lockedKeys={lockedKeys} onNavigate={(key) => { setSelectedVehicle(null); goTo(key); }} />
         <div className="flex-1 md:pl-3 min-w-0">
           <MobileBackButton onBack={() => setSelectedVehicle(null)} label={t('workshop.dashboard.tiles.pojazdy')} />
           <Suspense fallback={<ModuleFallback />}>
@@ -270,7 +285,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     );
   }
 
-  const goTo = (key: string | null) => setActiveModule(key);
   const isSchedulerModule = activeModule === 'terminarz';
 
   const renderModuleContent = () => {
@@ -317,24 +331,31 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {modules.map(m => (
+          {modules.map(m => {
+            const locked = lockedKeys.includes(m.key);
+            const usable = m.ready && !locked;
+            return (
             <Card
               key={m.key}
               className={`cursor-pointer transition-all hover:shadow-lg hover:scale-[1.03] overflow-hidden group ${
-                !m.ready ? 'opacity-60 grayscale' : ''
+                !usable ? 'opacity-60 grayscale' : ''
               }`}
-              onClick={() => m.ready && setActiveModule(m.key)}
+              onClick={() => {
+                if (locked) { toast.info(COMING_SOON_MSG); return; }
+                if (m.ready) setActiveModule(m.key);
+              }}
             >
               <div className="relative h-32 overflow-hidden">
                 <img src={m.img} alt={t(m.labelKey)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-3">
                   <span className="font-semibold text-white text-sm drop-shadow-lg">{(m as any).label ?? t(m.labelKey)}</span>
-                  {!m.ready && <span className="block text-xs text-white/70 mt-0.5">{t('workshop.dashboard.comingSoon')}</span>}
+                  {!usable && <span className="block text-xs text-white/70 mt-0.5">{locked ? 'Wkrótce' : t('workshop.dashboard.comingSoon')}</span>}
                 </div>
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -343,7 +364,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   // Module view with sidebar
   return (
     <div className={isSchedulerModule ? 'flex h-full min-h-0 gap-0 overflow-hidden' : 'flex gap-0 min-h-[calc(100dvh-120px)]'}>
-      <WorkshopSidebar activeModule={activeModule} onNavigate={goTo} />
+      <WorkshopSidebar activeModule={activeModule} lockedKeys={lockedKeys} onNavigate={goTo} />
       <div className={isSchedulerModule ? 'flex-1 md:pl-3 min-w-0 flex h-full min-h-0 flex-col overflow-hidden' : 'flex-1 md:pl-3 min-w-0 flex flex-col'}>
         <MobileBackButton onBack={() => goTo(null)} />
         <Suspense fallback={<ModuleFallback />}>

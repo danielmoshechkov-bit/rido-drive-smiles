@@ -30,10 +30,11 @@ import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
-  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench, UserPlus, Search, Loader2
+  Printer, Download, ClipboardList, Car, Users, CheckCircle, XCircle, Ban, AlertTriangle, Wrench, UserPlus, Search, Loader2, Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { useIsBetaTester } from '@/hooks/useIsBetaTester';
 import { useTranslation } from 'react-i18next';
 import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
 import {
@@ -56,7 +57,25 @@ interface Props {
 
 export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded = true }: Props) {
   const { t } = useTranslation();
+  const { isBetaTester } = useIsBetaTester();
   const queryClient = useQueryClient();
+
+  // "Pomoc RIDO AI o naprawę" — przycisk na pasku karty zlecenia (przed przydziałem
+  // pracownika). Dla nie-testerów zaślepka "wkrótce"; pełna funkcja per-pojazd odłożona.
+  const ridoAiHelp = (compact: boolean) => (
+    <Button
+      variant="ghost"
+      size={compact ? 'sm' : 'icon'}
+      className={compact ? `h-7 gap-1 px-2 shrink-0 text-xs ${isBetaTester ? 'text-primary' : 'opacity-60 cursor-not-allowed'}` : `gap-1 ${isBetaTester ? 'text-primary' : 'opacity-60 cursor-not-allowed'}`}
+      title={isBetaTester ? 'Zapytaj RIDO AI o naprawę' : 'Pomoc RIDO AI — wkrótce'}
+      onClick={() => {
+        if (!isBetaTester) { toast.info('Pomoc RIDO AI — już wkrótce'); return; }
+        toast.info('Zapytaj RIDO AI o naprawę — funkcja per-pojazd w przygotowaniu');
+      }}
+    >
+      <Sparkles className="h-4 w-4" />{compact ? null : <span className="sr-only">Pomoc RIDO AI</span>}
+    </Button>
+  );
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   const { data: financeSettings } = useWorkshopFinanceSettings(providerId);
   const updateOrder = useUpdateWorkshopOrder();
@@ -438,6 +457,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
               <Link2 className="h-4 w-4" />
             </Button>
             <RidoPartsCartButton providerId={providerId} />
+            {ridoAiHelp(false)}
             <WorkshopAssignEmployeeDropdown
               orderId={order.id}
               providerId={providerId}
@@ -505,6 +525,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={copyClientLink}>
             <Link2 className="h-3.5 w-3.5" />
           </Button>
+          {ridoAiHelp(true)}
           <div className="shrink-0"><WorkshopAssignEmployeeDropdown orderId={order.id} providerId={providerId} onAssignmentChanged={(assigned) => {
             if (assigned && ['Nowe zlecenie', 'Przyjęcie do serwisu', 'Do wyceny', ''].includes(order.status_name || '')) order.status_name = 'Przydzielone';
           }} /></div>
