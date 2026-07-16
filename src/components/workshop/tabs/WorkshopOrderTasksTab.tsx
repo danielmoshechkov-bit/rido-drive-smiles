@@ -581,12 +581,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
   // Client confirmation warning check
   const showQuoteWarningIfNeeded = () => {
-    if (order.quote_accepted && !quoteWarningShown) {
+    // FIX: ostrzegaj przy KAŻDEJ realnej zmianie podpisanej wyceny (nie „raz i
+    // koniec") — każda zmiana = przypomnienie, że trzeba wysłać ponownie.
+    if (order.quote_accepted) {
       toast.warning(t('workshop.orderTasks.quoteAcceptedWarning'), {
         duration: 6000,
         icon: <AlertTriangle className="h-5 w-5" />,
       });
-      setQuoteWarningShown(true);
     }
   };
 

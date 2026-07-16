@@ -330,6 +330,14 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   };
 
   const resetAndClose = () => { resetForm(); onOpenChange(false); };
+
+  // FIX: świeży start przy KAŻDYM otwarciu — przełączniki protokołu i reszta pól
+  // nie dziedziczą po poprzednim zleceniu (reset-na-zamknięciu nie łapał każdej
+  // ścieżki zamknięcia). To zawsze startuje od DEFAULT_CHECKLIST.
+  useEffect(() => {
+    if (open) resetForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
   const currentContact = sendMethod === 'sms' ? (clientPhone || manualPhone) : (clientEmail || manualEmail);
 
   return (
