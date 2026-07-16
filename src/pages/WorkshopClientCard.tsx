@@ -39,6 +39,8 @@ export default function WorkshopClientCard() {
   const { code } = useParams<{ code: string }>();
   const [searchParams] = useSearchParams();
   const isAdminPreview = searchParams.get('admin') === '1';
+  // ETAP B: ?sig=<id podpisu> → zamrożony dowód konkretnego podpisu (z panelu).
+  const sigParam = searchParams.get('sig');
   const [order, setOrder] = useState<any>(null);
   const [provider, setProvider] = useState<any>(null);
   const [signatures, setSignatures] = useState<any[]>([]);
@@ -49,7 +51,7 @@ export default function WorkshopClientCard() {
   const [signingDoc, setSigningDoc] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [signing, setSigning] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabKey>(isAdminPreview ? 'estimate' : 'reception');
+  const [activeTab, setActiveTab] = useState<TabKey>((isAdminPreview || searchParams.get('sig')) ? 'estimate' : 'reception');
   const [initialTabSet, setInitialTabSet] = useState(false);
 
   useEffect(() => { loadOrder(); }, [code]);
@@ -96,6 +98,16 @@ export default function WorkshopClientCard() {
   // Języki bazowe są pre-tłumaczone przy zapisie → cache hit, brak flasha.
   // Tylko dla języków spoza bazowych (DE/VI/KZ…) pokazujemy brandowany loader.
   const showTranslationLoader = tcLoading && tcFields.length > 0 && !BASE_LANGS.includes(tcTarget);
+
+  // ETAP B: hook MUSI być wywołany przed early-returnami (loading / !order),
+  // inaczej "Rendered more hooks than during the previous render". Zależy tylko
+  // od signatures (state), nie od order — bezpieczny do wyliczenia zawsze.
+  const estimateSignatures = useMemo(
+    () => (signatures || [])
+      .filter((s: any) => s.document_type === 'cost_estimate' && s.snapshot)
+      .sort((a: any, b: any) => new Date(a.signed_at || 0).getTime() - new Date(b.signed_at || 0).getTime()),
+    [signatures]
+  );
 
   const loadOrder = async (attempt = 0) => {
     // 'null'/'undefined' jako string → stare zlecenie bez client_code (link /klient/null)
@@ -250,8 +262,34 @@ export default function WorkshopClientCard() {
     ? order.client?.company_name
     : `${order.client?.first_name || ''} ${order.client?.last_name || ''}`.trim();
 
-  const tasks = (order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task');
-  const goods = (order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
+  // Podpis uznany TAKŻE gdy warsztat potwierdził go w systemie (admin) — flagi
+  // client_acceptance_confirmed / quote_accepted. Liczone TUTAJ (przed blokiem
+  // ETAP B), bo afterChangeSnap poniżej używa estimateSigned — inaczej TDZ.
+  const receptionSigned = hasSigned('reception_protocol') || !!order.client_acceptance_confirmed;
+  const estimateSigned = hasSigned('cost_estimate') || !!order.quote_accepted;
+
+  // ── ETAP B: źródło renderu kosztorysu — live / snapshot / zamrożony dowód ──
+  // (estimateSignatures wyliczane hookiem NA GÓRZE komponentu — przed early-return,
+  //  żeby nie łamać Rules of Hooks. Tu tylko czyste obliczenia.)
+  const estimateNumber = (sigId: string) => {
+    const idx = estimateSignatures.findIndex((s: any) => String(s.id) === String(sigId));
+    return idx >= 0 ? idx + 1 : null;
+  };
+  // Tryb "zamrożony dowód": ?sig=<id> — render TEGO podpisu ze snapshotu (panel).
+  const frozenSig = sigParam ? (signatures || []).find((s: any) => String(s.id) === sigParam && s.snapshot) : null;
+  // Tryb "podpisany po zmianie": bez ?sig, gdy podpisano i warsztat zmienił wycenę
+  // → pokaż najnowszy podpisany snapshot (co klient podpisał), nie live.
+  const latestEstimateSnapSig = estimateSignatures[estimateSignatures.length - 1];
+  const afterChangeSnap = (!sigParam && estimateSigned && order.estimate_changed_after_send)
+    ? latestEstimateSnapSig : null;
+  const proofSig: any = frozenSig || afterChangeSnap || null;
+  const displaySnapshot: any = proofSig?.snapshot || null;
+  const isFrozenView = !!frozenSig?.snapshot; // ?sig → pełny read-only dowód
+
+  // Pozycje do wyświetlenia: ze snapshotu (zamrożone) albo live.
+  const displayItems: any[] = displaySnapshot?.items ?? (order.items || []);
+  const tasks = displayItems.filter((i: any) => i.item_type === 'service' || i.item_type === 'task');
+  const goods = displayItems.filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
   const tasksTotal = tasks.reduce((s: number, t: any) => s + (t.total_gross || 0), 0);
   const tasksNetTotal = tasks.reduce((s: number, t: any) => s + (t.total_net || 0), 0);
   const goodsTotal = goods.reduce((s: number, g: any) => s + (g.total_gross || 0), 0);
@@ -266,21 +304,22 @@ export default function WorkshopClientCard() {
   const grandGross = tasksTotal + goodsTotal;
   const { show_net: showNet, show_vat: showVat, show_gross: showGross } = displaySettings;
 
-  // Podpis uznany TAKŻE gdy warsztat potwierdził go w systemie (admin) — flagi
-  // client_acceptance_confirmed / quote_accepted. Wcześniej klient czytał tylko
-  // wiersze workshop_order_signatures, więc podpis admina był niewidoczny i klient
-  // musiał podpisywać drugi raz.
-  const receptionSigned = hasSigned('reception_protocol') || !!order.client_acceptance_confirmed;
-  const estimateSigned = hasSigned('cost_estimate') || !!order.quote_accepted;
+  // receptionSigned / estimateSigned policzone wyżej (przed blokiem ETAP B).
   const statusLabel = translateWorkshopStatus(order.status_name, t);
   const statusColor = statusColors[order.status_name] || 'bg-muted';
 
   const estimateAvailable = isAdminPreview || (receptionSigned && order.estimate_sent_to_client && !order.estimate_changed_after_send);
 
+  // FIX P4: zakładka Protokół wydania odblokowuje się TYLKO gdy warsztat RĘCZNIE
+  // ustawi status końcowy (nie po podpisie/wysyłce wyceny). Nie patrzy na quote.
+  const releaseAvailable = isAdminPreview || ['Gotowy do odbioru', 'Zakończone', 'Wydano'].includes(order.status_name);
+
   const tabs: { key: TabKey; label: string; icon: React.ReactNode; locked?: boolean }[] = [
     { key: 'reception', label: t('workshop.clientCard.receptionProtocol'), icon: <Wrench className="h-4 w-4" /> },
-    { key: 'estimate', label: t('workshop.clientCard.estimate'), icon: <FileSignature className="h-4 w-4" />, locked: !estimateAvailable },
-    { key: 'release', label: t('workshop.clientCard.releaseProtocol'), icon: <Shield className="h-4 w-4" />, locked: !isAdminPreview && !estimateSigned },
+    // ETAP B: podpisany kosztorys ZAWSZE dostępny w read-only (koniec blokady —
+    // wcześniej po przełączeniu na Protokół nie dało się wrócić na Kosztorys).
+    { key: 'estimate', label: t('workshop.clientCard.estimate'), icon: <FileSignature className="h-4 w-4" />, locked: !(estimateAvailable || estimateSigned) },
+    { key: 'release', label: t('workshop.clientCard.releaseProtocol'), icon: <Shield className="h-4 w-4" />, locked: !releaseAvailable },
   ];
 
   return (
@@ -516,13 +555,16 @@ export default function WorkshopClientCard() {
             )}
 
             {!showTranslationLoader && activeTab === 'estimate' && (
-              (!isAdminPreview && !receptionSigned) ? (
+              // ETAP B: gdy mamy podpisany snapshot (dowód / wersja po zmianie),
+              // bramki "podpisz protokół najpierw" / "w przygotowaniu" pomijamy —
+              // pokazujemy zamrożony kosztorys.
+              (!isAdminPreview && !displaySnapshot && !receptionSigned) ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-muted-foreground font-medium">{t('workshop.clientCard.acceptReceptionFirst')}</p>
                   <p className="text-sm text-muted-foreground/60 mt-1">{t('workshop.clientCard.estimateAfterProtocol')}</p>
                 </div>
-              ) : (!isAdminPreview && !order.estimate_sent_to_client) ? (
+              ) : (!isAdminPreview && !displaySnapshot && !order.estimate_sent_to_client) ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-muted-foreground font-medium">{t('workshop.clientCard.estimateInPreparation')}</p>
@@ -530,6 +572,25 @@ export default function WorkshopClientCard() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {/* ETAP B: baner trybu snapshotu — zamrożony dowód (?sig) lub
+                      wersja podpisana przed zmianą wyceny. */}
+                  {displaySnapshot && (
+                    <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-900 space-y-0.5">
+                      <p className="font-semibold flex items-center gap-2">
+                        <FileSignature className="h-4 w-4" />
+                        {isFrozenView && proofSig && estimateNumber(proofSig.id)
+                          ? `${t('workshop.clientCard.estimate')} nr ${estimateNumber(proofSig.id)}`
+                          : t('workshop.clientCard.estimate')}
+                        {displaySnapshot.signed_at && ` — ${t('workshop.clientCard.signedOn', { defaultValue: 'podpisano' })} ${format(new Date(displaySnapshot.signed_at), 'dd.MM.yyyy HH:mm')}`}
+                      </p>
+                      {displaySnapshot.client_phone && (
+                        <p className="text-xs text-blue-700">tel.: {displaySnapshot.client_phone}</p>
+                      )}
+                      {!isFrozenView && order.estimate_changed_after_send && (
+                        <p className="text-xs text-blue-700">{t('workshop.clientCard.signedVersionNotice', { defaultValue: 'To wersja, którą podpisałeś. Warsztat przygotowuje zmienioną wycenę — zobaczysz ją, gdy zostanie wysłana.' })}</p>
+                      )}
+                    </div>
+                  )}
                   {isAdminPreview && (
                     <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs text-amber-800 flex items-center justify-between gap-3">
                       <span>👁️ {t('workshop.clientCard.managerPreview')}</span>
@@ -698,7 +759,11 @@ export default function WorkshopClientCard() {
                     )}
                   </div>
 
-                  {!estimateSigned ? (
+                  {/* FIX P2: przycisk bramkowany na quote_accepted (bieżąca akceptacja,
+                      resetowana przy requote), NIE na lepkim estimateSigned (stary
+                      podpis zostaje na zawsze). Po requote quote_accepted=false →
+                      przycisk wraca; po podpisie RPC ustawia quote_accepted=true. */}
+                  {!order.quote_accepted && !isFrozenView ? (
                     <div className="flex justify-end pt-2">
                       <Button onClick={() => setSigningDoc('cost_estimate')} size="lg" className="gap-2 shadow-lg" disabled={isAdminPreview}>
                         <FileSignature className="h-5 w-5" /> {isAdminPreview ? t('workshop.clientCard.awaitingClientAcceptance') : t('workshop.clientCard.acceptEstimate')}
@@ -721,10 +786,10 @@ export default function WorkshopClientCard() {
             )}
 
             {!showTranslationLoader && activeTab === 'release' && (
-              !estimateSigned ? (
+              !releaseAvailable ? (
                 <div className="py-12 text-center">
                   <Lock className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-muted-foreground font-medium">{t('workshop.clientCard.releaseAfterEstimate')}</p>
+                  <p className="text-muted-foreground font-medium">{t('workshop.clientCard.releaseWhenReady', { defaultValue: 'Protokół wydania będzie dostępny, gdy pojazd będzie gotowy do odbioru.' })}</p>
                 </div>
               ) : (
                 <div className="py-12 text-center text-muted-foreground">

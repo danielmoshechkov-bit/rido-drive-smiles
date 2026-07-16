@@ -28,7 +28,10 @@ export function MarketingTeamTab() {
   const sendInvite = async () => {
     if (!email.trim()) { toast.error('Podaj email'); return; }
     setSending(true);
-    await supabase.from('agency_invitations').insert({ email, role });
+    // SECFIX H2: zapisz invited_by = aktualny user → polityka RLS zawęża listę
+    // zaproszeń do właściciela (bez tego panel po dropie USING(true) oślepnie).
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('agency_invitations').insert({ email, role, invited_by: user?.id });
     toast.success(`Zaproszenie wysłane na ${email}`);
     setEmail('');
     setSending(false);

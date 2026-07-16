@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -22,6 +22,7 @@ import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
 import { WorkshopAssignEmployeeDropdown } from './WorkshopAssignEmployeeDropdown';
 import { WorkshopOrderEmployeeFindingsTab } from './tabs/WorkshopOrderEmployeeFindingsTab';
 import { OrderHistoryTimeline } from './OrderHistoryTimeline';
+import { WorkshopSignatureProofs } from './WorkshopSignatureProofs';
 import { OrderCallPanel } from './OrderCallPanel';
 import { WorkshopStatusPicker } from './WorkshopStatusPicker';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
@@ -84,6 +85,34 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
   const [activeTab, setActiveTab] = useState('tasks');
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsType, setSmsType] = useState<'reception' | 'quote' | 'requote' | 'ready'>('reception');
+
+  // FIX P1: realtime dla OTWARTEGO zlecenia. Lista (która ma własny realtime)
+  // jest odmontowana gdy patrzysz na kartę, więc bez tego zmiana zrobiona przez
+  // klienta na INNYM urządzeniu (podpis kosztorysu → RPC UPDATE status_name)
+  // nie docierała do panelu na wierzchu — dopiero po staleTime. Teraz: karta
+  // subskrybuje TEN order; UPDATE merguje się do wspólnego cache ['workshop-orders']
+  // (i single, i lista) → status wchodzi w 1-2 s BEZ akcji warsztatu.
+  const orderId = order?.id;
+  useEffect(() => {
+    if (!orderId) return;
+    const channel = (supabase as any)
+      .channel(`workshop-order-detail-rt-${orderId}`)
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'workshop_orders', filter: `id=eq.${orderId}` },
+        (payload: any) => {
+          if (!payload?.new?.id) return;
+          queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+            Array.isArray(old)
+              ? old.map((o: any) => (o.id === payload.new.id ? { ...o, ...payload.new } : o))
+              : old
+          );
+        })
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'workshop_order_items', filter: `order_id=eq.${orderId}` },
+        () => { queryClient.invalidateQueries({ queryKey: ['workshop-orders', 'single', orderId] }); })
+      .subscribe();
+    return () => { (supabase as any).removeChannel(channel); };
+  }, [orderId, queryClient]);
 
   // Wspólny handler zmiany statusu z pickera: optimistic patch cache (badge zmienia
   // się NATYCHMIAST w detalu i na liście) + invalidacja (koniec z ręcznym odświeżaniem).
@@ -589,6 +618,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
           <WorkshopOrderTasksTab order={order} providerId={providerId} />
         </TabsContent>
         <TabsContent value="findings">
+          <WorkshopSignatureProofs order={order} />
           <OrderHistoryTimeline orderId={order.id} providerId={providerId} hasUnreadNotes={!!order.has_unread_notes} />
         </TabsContent>
         <TabsContent value="summary">

@@ -293,8 +293,9 @@ export default function ClientPortal() {
   };
 
   const fetchMarketplaceProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('marketplace_user_profiles')
+    // SECFIX H1: cudzy profil (agent/sprzedawca) przez widok publiczny (bez PII).
+    const { data } = await (supabase as any)
+      .from('marketplace_public_profiles')
       .select('first_name, last_name')
       .eq('user_id', userId)
       .maybeSingle();
