@@ -241,18 +241,27 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     },
   });
 
-  // FIX: estimate_changed_after_send = true TYLKO gdy realna treść różni się od
-  // podpisanej. Gdy warsztat cofnie pozycje do stanu z podpisu → wyczyść flagę
-  // (koniec fałszywego "wymaga ponownej wysyłki"). Ustawianie flagi na true robią
-  // mutacje pozycji przy realnej zmianie; tu odwrotny kierunek — czyszczenie.
+  // FIX: gdy klient PODPISAŁ wycenę (quote_accepted), stan flagi i statusu ma
+  // odzwierciedlać, czy bieżąca treść różni się od PODPISANEJ (snapshot):
+  //  - różni się → estimate_changed_after_send=true + status "Dodatek do naprawy"
+  //    (bursztynowy, ten sam mechanizm co dodatek pracownika) = wycena nieaktualna,
+  //  - zgadza się (powrót do podpisanej) → flaga false + status "Zaakceptowano".
+  // Nowy podpis (requote → klient akceptuje) ustawia "Zaakceptowano" przez RPC.
   useEffect(() => {
-    if (!order?.id || !order.quote_accepted || !order.estimate_changed_after_send) return;
+    if (!order?.id || !order.quote_accepted) return;
     const snapItems = signedEstimateSnapshot?.items;
     if (!Array.isArray(snapItems)) return;
-    if (estimateFingerprint(order.items) === estimateFingerprint(snapItems)) {
-      updateOrder.mutate({ id: order.id, estimate_changed_after_send: false });
+    const differs = estimateFingerprint(order.items) !== estimateFingerprint(snapItems);
+    const patch: any = {};
+    if (differs) {
+      if (!order.estimate_changed_after_send) patch.estimate_changed_after_send = true;
+      if (order.status_name === 'Zaakceptowano') patch.status_name = 'Dodatek do naprawy';
+    } else {
+      if (order.estimate_changed_after_send) patch.estimate_changed_after_send = false;
+      if (order.status_name === 'Dodatek do naprawy') patch.status_name = 'Zaakceptowano';
     }
-  }, [order?.id, order.items, order.quote_accepted, order.estimate_changed_after_send, signedEstimateSnapshot]);
+    if (Object.keys(patch).length > 0) updateOrder.mutate({ id: order.id, ...patch });
+  }, [order?.id, order.items, order.quote_accepted, order.estimate_changed_after_send, order.status_name, signedEstimateSnapshot]);
 
   // Memoized so the sort only re-runs when the items actually change, not on every
   // keystroke/render (the parent now hands down a stable `order` identity).
