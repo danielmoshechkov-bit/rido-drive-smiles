@@ -61,19 +61,21 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
   const queryClient = useQueryClient();
 
   // "Pomoc RIDO AI o naprawę" — przycisk na pasku karty zlecenia (przed przydziałem
-  // pracownika). Dla nie-testerów zaślepka "wkrótce"; pełna funkcja per-pojazd odłożona.
+  // pracownika), stylizowany jak "Przydziel pracownika" (outline + ikona + tekst).
+  // Dla nie-testerów zaślepka "wkrótce"; pełna funkcja per-pojazd odłożona.
   const ridoAiHelp = (compact: boolean) => (
     <Button
-      variant="ghost"
-      size={compact ? 'sm' : 'icon'}
-      className={compact ? `h-7 gap-1 px-2 shrink-0 text-xs ${isBetaTester ? 'text-primary' : 'opacity-60 cursor-not-allowed'}` : `gap-1 ${isBetaTester ? 'text-primary' : 'opacity-60 cursor-not-allowed'}`}
+      variant="outline"
+      size="sm"
+      className={`gap-1.5 shrink-0 ${compact ? 'h-7 text-xs' : ''} ${isBetaTester ? 'border-primary text-primary hover:bg-primary/10' : 'opacity-60 cursor-not-allowed'}`}
       title={isBetaTester ? 'Zapytaj RIDO AI o naprawę' : 'Pomoc RIDO AI — wkrótce'}
       onClick={() => {
         if (!isBetaTester) { toast.info('Pomoc RIDO AI — już wkrótce'); return; }
         toast.info('Zapytaj RIDO AI o naprawę — funkcja per-pojazd w przygotowaniu');
       }}
     >
-      <Sparkles className="h-4 w-4" />{compact ? null : <span className="sr-only">Pomoc RIDO AI</span>}
+      <Sparkles className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+      Pomoc RIDO AI{!isBetaTester && <span className="text-[10px] opacity-70">(wkrótce)</span>}
     </Button>
   );
   const { data: statuses = [] } = useWorkshopStatuses(providerId);

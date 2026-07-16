@@ -1515,6 +1515,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
                           data-rido-estimate-trigger="true"
                           onClick={() => {
+                            // TODO (odłożone, NIE wdrażać teraz): limity użycia "Rido Wycena"
+                            // zależne od pakietu konta. Na razie BEZ limitu — aktywna dla wszystkich.
                             // NIE zapisujemy draftów — Rido Wycena działa na tasks (zapisanych) + taskRows (drafty) bez zmiany layoutu.
                             const vehicle = order.vehicle;
                             const missingVehicleData = !vehicle?.vin || !vehicle?.brand || !vehicle?.model || !vehicle?.year;

@@ -520,10 +520,14 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
         {/* Stara wbudowana tabela pracowników została usunięta — pełną listę renderuje <WorkshopEmployeesPage /> poniżej */}
 
         {settingsTab === 'stanowiska' && (() => {
+          // Świeże konto NIE ma domyślnej kategorii (żadnego "Warsztat"/"Ogólne") —
+          // kategorie pojawiają się dopiero po "Dodaj kategorię". Uniwersalne dla każdej branży.
           const wsCategories: string[] = Array.from(new Set<string>(workstations.map((w: any) => (w.category as string) || DEFAULT_WS_CATEGORY)));
-          if (wsCategories.length === 0) wsCategories.push(DEFAULT_WS_CATEGORY);
-          const currentCat: string = wsCategories.includes(activeWsCategory) ? activeWsCategory : wsCategories[0];
-          const filteredWs = workstations.filter((w: any) => (w.category || DEFAULT_WS_CATEGORY) === currentCat);
+          const hasCategories = wsCategories.length > 0;
+          const currentCat: string = wsCategories.includes(activeWsCategory) ? activeWsCategory : (wsCategories[0] || '');
+          const filteredWs = currentCat
+            ? workstations.filter((w: any) => (w.category || DEFAULT_WS_CATEGORY) === currentCat)
+            : workstations;
           return (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -535,34 +539,51 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                   <Button variant="outline" onClick={() => setShowAddCategory(true)} className="gap-2">
                     <Plus className="h-4 w-4" /> Dodaj kategorię
                   </Button>
-                  <Button onClick={() => { setWsCategory(currentCat); setShowAddWorkstation(true); }} className="gap-2">
+                  <Button
+                    onClick={() => { setWsCategory(currentCat); setShowAddWorkstation(true); }}
+                    className="gap-2"
+                    disabled={!hasCategories}
+                    title={hasCategories ? undefined : 'Najpierw dodaj kategorię'}
+                  >
                     <Plus className="h-4 w-4" /> {t('workshop.settingsPanel.workstations.addWorkstation')}
                   </Button>
                 </div>
               </div>
 
-              {/* Pill-tabs kategorii */}
-              <div className="flex gap-2 flex-wrap border-b pb-2">
-                {wsCategories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setActiveWsCategory(cat)}
-                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      currentCat === cat
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
+              {/* Pill-tabs kategorii — pojawiają się dopiero gdy istnieje ≥1 kategoria
+                  (świeże konto: brak zaszytego "Warsztat", tylko przycisk "Dodaj kategorię") */}
+              {hasCategories && (
+                <div className="flex gap-2 flex-wrap border-b pb-2">
+                  {wsCategories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setActiveWsCategory(cat)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        currentCat === cat
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {filteredWs.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Monitor className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                  <p>{t('workshop.settingsPanel.workstations.emptyInCategory', { category: currentCat })}</p>
-                  <p className="text-sm">{t('workshop.settingsPanel.workstations.emptyHint')}</p>
+                  {hasCategories ? (
+                    <>
+                      <p>{t('workshop.settingsPanel.workstations.emptyInCategory', { category: currentCat })}</p>
+                      <p className="text-sm">{t('workshop.settingsPanel.workstations.emptyHint')}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p>Brak kategorii i stanowisk</p>
+                      <p className="text-sm">Zacznij od „Dodaj kategorię" (np. Warsztat, Detailing, Myjka), a potem dodaj stanowiska.</p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">
