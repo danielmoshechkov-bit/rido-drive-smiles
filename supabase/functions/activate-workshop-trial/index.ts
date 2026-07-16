@@ -11,6 +11,11 @@ const corsHeaders = {
  *
  * Idempotentna: rola/provider/trial zakładane tylko, jeśli ich brak.
  * UWAGA: minimalny trial — tylko zapis expires_at (+14 dni), bez logiki wygasania.
+ *
+ * TODO (odłożone, do wdrożenia później): wymagać danych firmy (NIP, REGON, dane
+ * rejestrowe) ZANIM trial ruszy — żeby użytkownicy nie zakładali kont na marne /
+ * przypadkiem. Dziś trial startuje od razu; docelowo aktywacja powinna być bramkowana
+ * kompletem danych firmowych (walidacja NIP/REGON, np. przez GUS).
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
