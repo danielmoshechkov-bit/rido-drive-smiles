@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateInvoiceQueries } from '@/utils/invalidateInvoiceQueries';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +55,7 @@ interface InvoiceListWithActionsProps {
 }
 
 export function InvoiceListWithActions({ invoices, onUpdate, showMarginInfo }: InvoiceListWithActionsProps) {
+  const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkDownloading, setBulkDownloading] = useState(false);
@@ -109,6 +112,7 @@ export function InvoiceListWithActions({ invoices, onUpdate, showMarginInfo }: I
       toast.success(`Usunięto ${ids.length} faktur`);
       setSelectedIds(new Set());
       setShowBulkDeleteDialog(false);
+      invalidateInvoiceQueries(queryClient);
       onUpdate();
     } catch (err: any) {
       toast.error('Błąd usuwania: ' + (err.message || ''));

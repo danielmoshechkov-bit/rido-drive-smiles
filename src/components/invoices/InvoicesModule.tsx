@@ -22,6 +22,7 @@ import { PurchaseInvoicesKSeF, type PurchaseInvoicesKSeFHandle } from '@/compone
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
 import { ListPagination } from '@/components/ListPagination';
 import { groupByCorrections } from '@/utils/invoiceCorrections';
+import { invalidateInvoiceQueries } from '@/utils/invalidateInvoiceQueries';
 
 // ===== Helpery dat (lokalne — bez pułapki UTC) =====
 const MONTHS_PL = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
@@ -219,7 +220,7 @@ export function InvoicesModule({ entityId: propEntityId, source = 'invoices', he
       if (error) throw error;
       toast.success(`Usunięto ${ids.length} ${ids.length === 1 ? 'fakturę' : 'faktur'} z listy`);
       setSalesSelected(new Set());
-      queryClient.invalidateQueries({ queryKey: ['invoices-module-sales'] });
+      invalidateInvoiceQueries(queryClient);
     } catch (err: any) {
       toast.error('Błąd usuwania: ' + err.message);
     } finally {
@@ -227,7 +228,7 @@ export function InvoicesModule({ entityId: propEntityId, source = 'invoices', he
     }
   };
 
-  const refetchSales = () => queryClient.invalidateQueries({ queryKey: ['invoices-module-sales'] });
+  const refetchSales = () => invalidateInvoiceQueries(queryClient);
 
   // ===== Pasek akcji zaznaczenia (wspólny dla obu trybów renderowania) =====
   const selectionBar = salesSelected.size > 0 && (

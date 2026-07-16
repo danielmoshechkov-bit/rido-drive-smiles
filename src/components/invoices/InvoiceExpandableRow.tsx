@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateInvoiceQueries } from '@/utils/invalidateInvoiceQueries';
 import { format, subDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -82,6 +84,7 @@ interface InvoiceExpandableRowProps {
 }
 
 export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false }: InvoiceExpandableRowProps) {
+  const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -220,6 +223,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
 
       toast.success('Faktura została usunięta');
       setShowDeleteDialog(false);
+      invalidateInvoiceQueries(queryClient);
       onUpdate();
     } catch (err: any) {
       console.error('Error deleting invoice:', err);
@@ -694,6 +698,7 @@ export function InvoiceExpandableRow({ invoice, onUpdate, showMarginInfo = false
         ? `Usunięto fakturę i ${activeCorrections.length === 1 ? 'korektę' : `${activeCorrections.length} korekty`}`
         : 'Usunięto fakturę — korekta pozostaje na liście');
       setShowCorrectionsDialog(false);
+      invalidateInvoiceQueries(queryClient);
       onUpdate();
     } catch (err: any) {
       toast.error('Błąd usuwania: ' + (err.message || ''));
