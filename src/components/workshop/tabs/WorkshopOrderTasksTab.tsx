@@ -241,27 +241,44 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     },
   });
 
-  // FIX: gdy klient PODPISAŁ wycenę (quote_accepted), stan flagi i statusu ma
-  // odzwierciedlać, czy bieżąca treść różni się od PODPISANEJ (snapshot):
-  //  - różni się → estimate_changed_after_send=true + status "Dodatek do naprawy"
-  //    (bursztynowy, ten sam mechanizm co dodatek pracownika) = wycena nieaktualna,
-  //  - zgadza się (powrót do podpisanej) → flaga false + status "Zaakceptowano".
-  // Nowy podpis (requote → klient akceptuje) ustawia "Zaakceptowano" przez RPC.
+  // EFEKT A — status wyprowadzany z FLAG (nie z porównania ze snapshotem).
+  // Zasada: "Dodatek do naprawy" (bursztyn) = jest zmiana ZROBIONA ale NIEWYSŁANA
+  // do klienta. Nadpisujemy TYLKO statusy z rodziny wyceny (nie ręczne/inne).
+  // Kluczowe dla buga migania: świeży podpis ustawia quote_accepted=true +
+  // estimate_changed_after_send=false (RPC), więc target = "Zaakceptowano" i
+  // NIE ma tu żadnego porównania ze (nieświeżym) snapshotem → zero migania.
   useEffect(() => {
-    if (!order?.id || !order.quote_accepted) return;
+    if (!order?.id) return;
+    const s = order.status_name;
+    const FAMILY = ['Wycena wysłana', 'Zaakceptowano', 'Dodatek do naprawy', 'Przyjęcie do serwisu'];
+    if (!FAMILY.includes(s)) return; // nie ruszaj statusów spoza rodziny wyceny
+    const hasItems = (order.items || []).length > 0;
+    const unsent = !!order.estimate_changed_after_send;
+    let target: string | null = null;
+    if (order.quote_accepted) {
+      target = unsent ? 'Dodatek do naprawy' : 'Zaakceptowano';
+    } else if (order.estimate_sent_to_client) {
+      // pkt 1: wysłana, jeszcze niepodpisana, ale zmieniona ponownie → bursztyn
+      target = unsent ? 'Dodatek do naprawy' : 'Wycena wysłana';
+    } else if (hasItems && s === 'Przyjęcie do serwisu') {
+      // pkt 2: wycena zrobiona po przyjęciu, jeszcze NIEWYSŁANA → bursztyn
+      target = 'Dodatek do naprawy';
+    }
+    if (target && target !== s) updateOrder.mutate({ id: order.id, status_name: target });
+  }, [order?.id, order.status_name, order.quote_accepted, order.estimate_sent_to_client, order.estimate_changed_after_send, order.items]);
+
+  // EFEKT B — czyszczenie flagi "niewysłana zmiana" gdy pozycje WRÓCĄ do stanu
+  // z PODPISANEGO snapshotu (status wróci przez Efekt A). Uruchamia się TYLKO gdy
+  // flaga jest true (po realnej zmianie) — świeżego podpisu (flaga=false) NIE
+  // dotyka, więc nie korzysta z potencjalnie nieświeżego snapshotu = brak migania.
+  useEffect(() => {
+    if (!order?.id || !order.quote_accepted || !order.estimate_changed_after_send) return;
     const snapItems = signedEstimateSnapshot?.items;
     if (!Array.isArray(snapItems)) return;
-    const differs = estimateFingerprint(order.items) !== estimateFingerprint(snapItems);
-    const patch: any = {};
-    if (differs) {
-      if (!order.estimate_changed_after_send) patch.estimate_changed_after_send = true;
-      if (order.status_name === 'Zaakceptowano') patch.status_name = 'Dodatek do naprawy';
-    } else {
-      if (order.estimate_changed_after_send) patch.estimate_changed_after_send = false;
-      if (order.status_name === 'Dodatek do naprawy') patch.status_name = 'Zaakceptowano';
+    if (estimateFingerprint(order.items) === estimateFingerprint(snapItems)) {
+      updateOrder.mutate({ id: order.id, estimate_changed_after_send: false });
     }
-    if (Object.keys(patch).length > 0) updateOrder.mutate({ id: order.id, ...patch });
-  }, [order?.id, order.items, order.quote_accepted, order.estimate_changed_after_send, order.status_name, signedEstimateSnapshot]);
+  }, [order?.id, order.items, order.quote_accepted, order.estimate_changed_after_send, signedEstimateSnapshot]);
 
   // Memoized so the sort only re-runs when the items actually change, not on every
   // keystroke/render (the parent now hands down a stable `order` identity).
