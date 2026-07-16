@@ -224,7 +224,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   // FIX: snapshot OSTATNIEGO podpisanego kosztorysu — do porównania, czy bieżące
   // pozycje różnią się od podpisanych. Odblokowuje poprawne czyszczenie flagi
   // "zmiana po wysłaniu" gdy warsztat cofnie zmianę do stanu podpisanego.
-  const { data: signedEstimateSnapshot } = useQuery({
+  const { data: signedEstimateSnapshot, isFetching: snapFetching } = useQuery({
     queryKey: ['workshop-signed-estimate-snapshot', order.id],
     enabled: !!order.id && !!order.quote_accepted,
     queryFn: async () => {
@@ -247,8 +247,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   // Kluczowe dla buga migania: świeży podpis ustawia quote_accepted=true +
   // estimate_changed_after_send=false (RPC), więc target = "Zaakceptowano" i
   // NIE ma tu żadnego porównania ze (nieświeżym) snapshotem → zero migania.
+  // Guard anty-miganie: nie dotykaj statusu/flagi gdy dane są W RUCHU (mutacja
+  // pozycji lub zlecenia w locie, albo snapshot w trakcie fetchu). Przejściowe
+  // stany ładowania nie mają wywoływać zapisów — dopiero osadzony stan liczy się.
+  const dataInFlight = updateItem.isPending || deleteItem.isPending || updateOrder.isPending;
+
   useEffect(() => {
-    if (!order?.id) return;
+    if (!order?.id || dataInFlight) return;
     const s = order.status_name;
     const FAMILY = ['Wycena wysłana', 'Zaakceptowano', 'Dodatek do naprawy', 'Wycena do wysłania', 'Przyjęcie do serwisu'];
     if (!FAMILY.includes(s)) return; // nie ruszaj statusów spoza rodziny wyceny
@@ -267,20 +272,22 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       target = 'Wycena do wysłania';
     }
     if (target && target !== s) updateOrder.mutate({ id: order.id, status_name: target });
-  }, [order?.id, order.status_name, order.quote_accepted, order.estimate_sent_to_client, order.estimate_changed_after_send, order.items]);
+  }, [order?.id, order.status_name, order.quote_accepted, order.estimate_sent_to_client, order.estimate_changed_after_send, order.items, dataInFlight]);
 
   // EFEKT B — czyszczenie flagi "niewysłana zmiana" gdy pozycje WRÓCĄ do stanu
   // z PODPISANEGO snapshotu (status wróci przez Efekt A). Uruchamia się TYLKO gdy
   // flaga jest true (po realnej zmianie) — świeżego podpisu (flaga=false) NIE
-  // dotyka, więc nie korzysta z potencjalnie nieświeżego snapshotu = brak migania.
+  // dotyka. GUARD: liczymy różnicę dopiero gdy dane OSADZONE — snapshot w pełni
+  // załadowany (nie w trakcie fetchu), pozycje są, i żadna mutacja nie leci.
   useEffect(() => {
     if (!order?.id || !order.quote_accepted || !order.estimate_changed_after_send) return;
+    if (dataInFlight || snapFetching) return;
     const snapItems = signedEstimateSnapshot?.items;
-    if (!Array.isArray(snapItems)) return;
+    if (!Array.isArray(snapItems) || !Array.isArray(order.items)) return;
     if (estimateFingerprint(order.items) === estimateFingerprint(snapItems)) {
       updateOrder.mutate({ id: order.id, estimate_changed_after_send: false });
     }
-  }, [order?.id, order.items, order.quote_accepted, order.estimate_changed_after_send, signedEstimateSnapshot]);
+  }, [order?.id, order.items, order.quote_accepted, order.estimate_changed_after_send, signedEstimateSnapshot, dataInFlight, snapFetching]);
 
   // Memoized so the sort only re-runs when the items actually change, not on every
   // keystroke/render (the parent now hands down a stable `order` identity).

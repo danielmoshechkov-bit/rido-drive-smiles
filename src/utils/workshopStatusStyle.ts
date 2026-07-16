@@ -34,9 +34,10 @@ const TONE_MAP: Record<string, StatusTone> = {
   'Wycena gotowa': 'purple',
   'Wycena wysłana': 'gold',
 
-  // Bursztynowe = "niewysłane, wyślij". Rozróżnienie znaczeniowe:
-  'Wycena do wysłania': 'amber', // pierwsza wycena zrobiona, jeszcze niewysłana
-  'Dodatek do naprawy': 'amber', // zmiana/dodatek PO podpisie klienta, niewysłana
+  // CZERWONE = akcja po stronie warsztatu ("wyślij!") — rzuca się w oczy, żeby
+  // nie pomylić z "czekam na klienta". Rozróżnienie znaczeniowe w nazwie:
+  'Wycena do wysłania': 'red', // pierwsza wycena zrobiona, jeszcze niewysłana
+  'Dodatek do naprawy': 'red', // zmiana/dodatek PO podpisie klienta, niewysłana
 
   'Akceptacja klienta': 'green',
   'Zaakceptowano': 'green',
