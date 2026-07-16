@@ -2696,7 +2696,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       
       {/* Bramka MPP przed zapisem faktury > 15 000 zł brutto — układ wzorowany na iFirma */}
       <AlertDialog open={showMppDialog} onOpenChange={setShowMppDialog}>
-        <AlertDialogContent className="max-w-xl">
+        {/* grid-cols-1 = kolumna minmax(0,1fr): kolumna gridu NIE rośnie do
+            max-content najszerszego dziecka (stopka z 3 przyciskami wymuszała
+            szerokość ponad max-w-xl i rozpychała ramki poza okno). */}
+        <AlertDialogContent className="max-w-xl grid-cols-1">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-lg">
               <CreditCard className="h-5 w-5 text-primary" />
@@ -2735,9 +2738,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             </div>
 
             {/* Info o białej liście / koncie */}
-            <div className="flex items-start gap-2 text-muted-foreground">
+            <div className="flex items-start gap-2 text-muted-foreground min-w-0">
               <Landmark className="h-4 w-4 mt-0.5 shrink-0" />
-              <p>
+              <p className="min-w-0">
                 Przy fakturze z MPP nabywca płaci na rachunek z <strong>białej listy podatników</strong>,
                 dzieląc kwotę na netto i VAT (rachunek VAT). Zadbaj, aby konto sprzedawcy było zgłoszone
                 do wykazu.
@@ -2745,16 +2748,16 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             </div>
 
             {/* Niebieska ramka: informacja o zachowaniu komunikatu */}
-            <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 text-blue-800 dark:text-blue-300">
+            <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3 text-blue-800 dark:text-blue-300 min-w-0">
               <Info className="h-4 w-4 mt-0.5 shrink-0" />
-              <p className="text-xs">
+              <p className="text-xs min-w-0">
                 Ten komunikat pokazuje się dla każdej faktury powyżej 15 000 zł. Zachowanie można
                 zmienić w <strong>Ustawieniach faktur</strong>.
               </p>
             </div>
           </div>
 
-          <AlertDialogFooter className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end sm:gap-2">
+          <AlertDialogFooter className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2 min-w-0">
             <Button variant="ghost" disabled={isIssuing} onClick={() => setShowMppDialog(false)} className="w-full sm:w-auto">
               Anuluj
             </Button>
