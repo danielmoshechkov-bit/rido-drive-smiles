@@ -399,7 +399,7 @@ export function PropertyListingCard({
             {/* Content - Right side */}
             <div className="flex-1 p-4 flex flex-col">
               {/* Title - 2 linijki, większa czcionka */}
-              <h3 className="font-bold text-lg line-clamp-2 min-h-[3rem]">{translatedTitle}</h3>
+              <h3 className="font-extrabold text-lg text-primary line-clamp-2 min-h-[3rem] group-hover:text-primary/80 transition-colors">{translatedTitle}</h3>
 
               {/* Property specs row */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-2">
