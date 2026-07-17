@@ -25,6 +25,7 @@ import { SEOHead, seoConfigs } from "@/components/SEOHead";
 
 // Import hero image (same style as real estate)
 import heroImage from "@/assets/tile-cars.jpg";
+import mascotCars from "@/assets/mascot-cars.png";
 
 interface VehicleListing {
   id: string;
@@ -508,7 +509,7 @@ export default function VehicleMarketplace() {
             {/* Right: mascot */}
             <div className="hidden md:flex justify-center items-end">
               <img
-                src="/ludzik-getrido.png"
+                src={mascotCars}
                 alt="GetRido mascot"
                 className="h-56 lg:h-64 w-auto drop-shadow-2xl"
               />
