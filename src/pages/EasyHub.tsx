@@ -506,26 +506,27 @@ export default function EasyHub() {
         </div>
       </header>
 
-      {/* Hero - centered GetRido title matching reference width, search bar tucked under tagline */}
+      {/* Hero - centered GetRido title with mascot beside it */}
       <section className="relative overflow-hidden bg-white border-b border-border/40">
-        <div className="container mx-auto px-4 py-8 md:py-14 relative z-10">
-          <div className="max-w-5xl mx-auto flex items-center justify-center gap-6 md:gap-10">
+        <div className="container mx-auto px-4 py-8 md:py-12 relative z-10">
+          <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3 md:gap-0">
             <img
               src="/ludzik-getrido.png"
               alt="GetRido"
-              className="h-28 sm:h-36 md:h-48 lg:h-56 w-auto shrink-0 object-contain"
+              className="h-24 sm:h-32 md:h-44 lg:h-52 w-auto justify-self-center md:justify-self-end md:mr-4 lg:mr-6 object-contain"
             />
-            <div className="text-center">
-              <h1 className="font-black leading-[0.9] tracking-normal text-[clamp(2.75rem,9vw,6.5rem)]">
+            <div className="text-center justify-self-center min-w-0">
+              <h1 className="font-black leading-[0.88] tracking-[0.01em] text-[clamp(3.9rem,11vw,8.4rem)] md:text-[clamp(5.2rem,10vw,8.8rem)]">
                 <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
               </h1>
-              <p className="mt-3 md:mt-4 text-sm sm:text-base md:text-xl lg:text-2xl font-semibold text-[#1a1450] leading-snug">
+              <p className="mt-2 md:mt-3 text-sm sm:text-base md:text-lg lg:text-xl font-semibold text-[#1a1450] leading-snug whitespace-nowrap">
                 Wszystko czego potrzebujesz — <span className="text-primary">w jednym miejscu</span>
               </p>
               <p className="mt-1 text-[11px] sm:text-xs md:text-sm lg:text-base text-slate-600 font-medium">
                 Portal Ogłoszeń z <span className="text-primary font-bold">AI</span> • Nieruchomości • Motoryzacja • Usługi
               </p>
             </div>
+            <div className="hidden md:block" aria-hidden="true" />
           </div>
 
 
