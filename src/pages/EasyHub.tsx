@@ -506,37 +506,42 @@ export default function EasyHub() {
         </div>
       </header>
 
-      {/* Hero Section - og-image blended into page (no card wrapper) */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#f5efff] via-[#efe5ff] to-[#e6d7ff]">
-        <div className="container mx-auto px-4 pt-4 md:pt-6 pb-8 md:pb-12">
-          {/* Banner image — no border/shadow, blends into the light-purple background */}
-          <div className="max-w-5xl mx-auto -mb-4 md:-mb-8">
-            <img
-              src={heroAsset.url}
-              alt="GetRido — Portal Ogłoszeń z AI, Nieruchomości, Motoryzacja, Usługi"
-              className="w-full h-auto block mix-blend-multiply"
-              fetchPriority="high"
-            />
-          </div>
+      {/* Hero - clean white bg, mascot png + real text (no baked banner) */}
+      <section className="relative overflow-hidden bg-white border-b border-border/40">
+        {/* subtle decorative shapes */}
+        <div className="absolute top-8 left-8 grid grid-cols-5 gap-1.5 opacity-30 pointer-events-none">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/50" />
+          ))}
+        </div>
+        <div className="absolute bottom-8 right-16 w-28 h-40 rounded-3xl bg-primary/10 rotate-12 pointer-events-none hidden md:block" />
+        <div className="absolute top-16 right-8 w-20 h-32 rounded-3xl bg-primary/15 -rotate-6 pointer-events-none hidden md:block" />
 
-          {/* Tagline right under GetRido, single line, integrated */}
-          <div className="max-w-5xl mx-auto text-center relative z-10">
-            <p className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#1a1450] leading-tight">
-              Wszystko czego potrzebujesz — <span className="text-primary">w jednym miejscu</span>
-            </p>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {['Motoryzacja', 'Nieruchomości', 'Usługi', 'Marketplace'].map((c) => (
-                <span
-                  key={c}
-                  className="inline-flex items-center rounded-full bg-white px-4 py-1.5 text-sm md:text-base font-bold text-primary shadow-sm ring-1 ring-primary/20"
-                >
-                  {c}
-                </span>
-              ))}
+        <div className="container mx-auto px-4 py-8 md:py-14 relative z-10">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 max-w-5xl mx-auto">
+            {/* Mascot */}
+            <img
+              src="/mascot-getrido.png"
+              alt="GetRido"
+              className="h-40 w-40 sm:h-52 sm:w-52 md:h-72 md:w-72 shrink-0 object-contain drop-shadow-xl"
+            />
+
+            {/* Text block */}
+            <div className="text-center md:text-left flex-1">
+              <h1 className="font-extrabold leading-none tracking-tight mb-4 text-[clamp(3rem,10vw,7rem)]">
+                <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
+              </h1>
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-[#1a1450] leading-tight mb-4">
+                Wszystko czego potrzebujesz — <span className="text-primary">w jednym miejscu</span>
+              </p>
+              <p className="text-sm sm:text-base md:text-lg text-slate-600 font-medium">
+                Portal Ogłoszeń z <span className="text-primary font-bold">AI</span> • Nieruchomości • Motoryzacja • Usługi
+              </p>
             </div>
           </div>
         </div>
       </section>
+
 
 
 
