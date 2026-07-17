@@ -127,74 +127,58 @@ function buildNieruchomosciSubTiles(t: (key: string) => string): MarketplaceTile
 function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick: () => void }) {
   const { t } = useTranslation();
   
+  const Icon = tile.icon;
   return (
     <Card 
       className={cn(
         "group relative overflow-hidden cursor-pointer transition-all duration-300",
-        "hover:shadow-xl hover:scale-[1.03] hover:-translate-y-1",
-        "border-0 shadow-md",
+        "hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.03] hover:-translate-y-1",
+        "border border-white/10 shadow-lg rounded-2xl",
         !tile.available && "opacity-60 cursor-not-allowed hover:scale-100 hover:translate-y-0"
       )}
       onClick={() => tile.available && onClick()}
     >
       {/* Background image or gradient */}
       {tile.id === 'rido-ai' ? (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-110">
-          <div className="absolute inset-0 bg-black/10" />
-          <img 
-            src="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" 
-            alt="RidoAI" 
-            className="absolute top-2 right-2 w-14 h-14 md:w-16 md:h-16 rounded-full opacity-90 ring-2 ring-white/30 shadow-lg"
-          />
-        </div>
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-110" />
       ) : tile.image ? (
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
           style={{ backgroundImage: `url(${tile.image})` }}
         >
-          {/* Stronger gradient for better text readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0d0b2b] via-[#0d0b2b]/85 to-[#0d0b2b]/20" />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/40 via-transparent to-transparent" />
         </div>
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-primary/10 to-muted" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
       )}
-      
-        {/* Content - matching ServiceCategoryTile styling */}
-        <CardContent className="relative z-10 p-3 md:p-4 h-28 md:h-36 flex flex-col justify-end">
-          <h3 className={cn(
-            "font-bold text-sm md:text-base leading-tight drop-shadow-lg",
-            (tile.image || tile.id === 'rido-ai') ? "text-white [text-shadow:_0_1px_3px_rgb(0_0_0_/_60%),_0_2px_8px_rgb(0_0_0_/_40%)]" : "text-foreground"
-          )}>
+
+      <CardContent className="relative z-10 p-4 md:p-5 h-40 md:h-52 flex flex-col justify-between">
+        {/* Top row: icon square + optional badge */}
+        <div className="flex items-start justify-between">
+          <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-primary/90 backdrop-blur-sm shadow-lg flex items-center justify-center ring-1 ring-white/20">
+            <Icon className="h-5 w-5 md:h-6 md:w-6 text-white" strokeWidth={2.5} />
+          </div>
+          {!tile.available ? (
+            <Badge className="text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
+              {t('home.soon')}
+            </Badge>
+          ) : (
+            <div className="p-2 rounded-full bg-white/10 backdrop-blur-sm opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300">
+              <ArrowRight className="h-4 w-4 text-white" />
+            </div>
+          )}
+        </div>
+
+        {/* Bottom: title + description */}
+        <div>
+          <h3 className="font-extrabold text-lg md:text-2xl leading-tight text-white [text-shadow:_0_2px_8px_rgb(0_0_0_/_50%)]">
             {tile.title}
           </h3>
-          <p className={cn(
-            "text-[11px] md:text-xs mt-0.5 line-clamp-2 font-medium",
-            (tile.image || tile.id === 'rido-ai') ? "text-white/95 [text-shadow:_0_1px_2px_rgb(0_0_0_/_50%)]" : "text-muted-foreground"
-          )}>
+          <p className="text-xs md:text-sm mt-1 md:mt-1.5 line-clamp-2 font-medium text-white/85">
             {tile.description}
           </p>
-        
-        {!tile.available && (
-          <Badge 
-            variant="secondary" 
-            className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 bg-white/90"
-          >
-            {t('home.soon')}
-          </Badge>
-        )}
-        
-        {tile.available && (
-          <div className={cn(
-            "absolute top-2 right-2 p-1.5 rounded-full transition-all duration-300",
-            "opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0",
-            (tile.image || tile.id === 'rido-ai') ? "bg-white/20 backdrop-blur-sm" : "bg-primary/10"
-          )}>
-            <ArrowRight className={cn(
-              "h-3 w-3",
-              (tile.image || tile.id === 'rido-ai') ? "text-white" : "text-primary"
-            )} />
-          </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   );
