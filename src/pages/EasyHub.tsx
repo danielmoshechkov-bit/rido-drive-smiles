@@ -162,12 +162,13 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
         )}
       </div>
 
-      {/* White caption below - photo 4 style */}
-      <div className="p-5 md:p-6 bg-white flex-1 flex flex-col justify-center">
-        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-primary">
+      {/* White caption below - compact */}
+      <div className="px-4 py-3 md:px-5 md:py-3 bg-white flex-1 flex flex-col justify-center">
+        <h3 className="font-extrabold text-lg md:text-xl leading-tight text-primary">
           {tile.title}
         </h3>
-        <p className="text-sm md:text-base mt-2 text-foreground/70 font-medium leading-snug line-clamp-2">
+        <p className="text-xs md:text-sm mt-1 text-foreground/70 font-medium leading-snug line-clamp-1">
+
           {tile.description}
         </p>
       </div>
