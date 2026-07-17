@@ -290,7 +290,7 @@ export default function WorkshopLanding() {
                     {s.badge}
                   </Badge>
                   <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center mb-2">
-                    <s.icon className="h-4.5 w-4.5 text-white" />
+                    <s.icon className="h-5 w-5 text-white" />
                   </div>
                   <div className="text-sm md:text-base font-bold text-foreground leading-tight mb-1">
                     {s.value}
