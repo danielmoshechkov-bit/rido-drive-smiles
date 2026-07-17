@@ -402,16 +402,16 @@ export function PropertyListingCard({
               <h3 className="font-extrabold text-lg text-primary line-clamp-2 min-h-[3rem] group-hover:text-primary/80 transition-colors">{translatedTitle}</h3>
 
               {/* Property specs row */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px] text-slate-800 font-semibold mt-2">
                 {listing.propertyType && (
                   <span className="flex items-center gap-1">
-                    <Home className="h-3.5 w-3.5" />
+                    <Home className="h-4 w-4 text-primary" />
                     {PROPERTY_TYPE_LABELS[listing.propertyType] || listing.propertyType}
                   </span>
                 )}
             {displayArea && (
                   <span className="flex items-center gap-1">
-                    <Maximize className="h-3.5 w-3.5" />
+                    <Maximize className="h-4 w-4 text-primary" />
                     {displayArea} m²
                   </span>
                 )}
@@ -420,13 +420,13 @@ export function PropertyListingCard({
                 )}
                 {listing.floor !== undefined && listing.floorsTotal && (
                   <span className="flex items-center gap-1">
-                    <Layers className="h-3.5 w-3.5" />
+                    <Layers className="h-4 w-4 text-primary" />
                     {listing.floor}/{listing.floorsTotal} p.
                   </span>
                 )}
                 {listing.buildYear && (
                   <span className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
+                    <Calendar className="h-4 w-4 text-primary" />
                     {listing.buildYear}
                   </span>
                 )}
@@ -434,8 +434,8 @@ export function PropertyListingCard({
 
               {/* Location */}
               {listing.location && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                  <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                <div className="flex items-center gap-1 text-[15px] text-slate-800 font-semibold mt-1">
+                  <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
                   <span className="truncate">
                     {listing.district ? `${fixPolishCase(listing.district)}, ${fixPolishCase(listing.location)}` : fixPolishCase(listing.location)}
                   </span>
