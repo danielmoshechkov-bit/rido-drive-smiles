@@ -508,17 +508,17 @@ export default function EasyHub() {
       {/* Hero - big GetRido title, mascot tall next to it, search bar tucked under tagline */}
       <section className="relative overflow-hidden bg-white border-b border-border/40">
         <div className="container mx-auto px-4 py-6 md:py-10 relative z-10">
-          <div className="flex flex-row items-stretch justify-center gap-4 sm:gap-6 md:gap-10 max-w-6xl mx-auto">
-            {/* Mascot - transparent background */}
+          <div className="flex flex-row items-end justify-center gap-2 sm:gap-4 md:gap-6 max-w-5xl mx-auto">
+            {/* Mascot - transparent background, closer to text */}
             <img
               src="/ludzik-getrido.png"
               alt="GetRido"
-              className="w-32 sm:w-48 md:w-72 lg:w-96 shrink-0 object-contain object-bottom self-stretch drop-shadow-xl"
+              className="w-28 sm:w-44 md:w-64 lg:w-80 shrink-0 object-contain object-bottom drop-shadow-xl -mr-2 sm:-mr-4"
             />
 
-            {/* Text + search stack */}
-            <div className="flex-1 flex flex-col justify-center min-w-0">
-              <h1 className="font-extrabold leading-[0.9] tracking-tight text-[clamp(2.5rem,9vw,7rem)]">
+            {/* Text + search stack — centered */}
+            <div className="flex-1 flex flex-col items-center text-center min-w-0">
+              <h1 className="font-extrabold leading-[0.9] tracking-tight text-[clamp(2.5rem,10vw,7rem)]">
                 <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
               </h1>
               <p className="mt-2 md:mt-3 text-sm sm:text-base md:text-lg lg:text-xl font-semibold text-[#1a1450] leading-snug">
@@ -527,47 +527,47 @@ export default function EasyHub() {
               <p className="mt-1 md:mt-2 text-xs sm:text-sm md:text-base text-slate-600 font-medium">
                 Portal Ogłoszeń z <span className="text-primary font-bold">AI</span> • Nieruchomości • Motoryzacja • Usługi
               </p>
-
-              {/* Search bar directly under tagline */}
-              <div id="kategorie" className="relative mt-3 md:mt-5 w-full max-w-2xl">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder={hasServicesAccess ? t('home.searchPlaceholder') : t('home.searchPlaceholderDisabled')}
-                  value={searchQuery}
-                  onChange={(e) => hasServicesAccess && setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && hasServicesAccess && handleSearch()}
-                  disabled={!hasServicesAccess}
-                  className="pl-12 pr-24 h-11 md:h-14 text-sm md:text-base rounded-full border-2 border-primary/20 focus:border-primary shadow-lg disabled:opacity-60 disabled:cursor-not-allowed bg-white"
-                />
-                {hasServicesAccess ? (
-                  searchQuery.trim() ? (
-                    <Button
-                      onClick={handleSearch}
-                      disabled={isSearching}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-3 md:px-6 text-xs md:text-sm"
-                    >
-                      {isSearching ? "..." : t('home.searchBtn')}
-                    </Button>
-                  ) : (
-                    <SearchCategoryModal
-                      trigger={
-                        <Button className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-3 md:px-6 text-xs md:text-sm">
-                          {t('home.searchBtn')}
-                        </Button>
-                      }
-                    />
-                  )
-                ) : (
-                  <Button
-                    disabled
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-3 md:px-6 text-xs md:text-sm opacity-60"
-                  >
-                    {t('home.soon')}
-                  </Button>
-                )}
-              </div>
             </div>
+          </div>
+
+          {/* Search bar centered under the whole hero */}
+          <div id="kategorie" className="relative mt-4 md:mt-6 w-full max-w-2xl mx-auto">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder={hasServicesAccess ? t('home.searchPlaceholder') : t('home.searchPlaceholderDisabled')}
+              value={searchQuery}
+              onChange={(e) => hasServicesAccess && setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && hasServicesAccess && handleSearch()}
+              disabled={!hasServicesAccess}
+              className="pl-12 pr-24 h-11 md:h-14 text-sm md:text-base rounded-full border-2 border-primary/20 focus:border-primary shadow-lg disabled:opacity-60 disabled:cursor-not-allowed bg-white"
+            />
+            {hasServicesAccess ? (
+              searchQuery.trim() ? (
+                <Button
+                  onClick={handleSearch}
+                  disabled={isSearching}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-3 md:px-6 text-xs md:text-sm"
+                >
+                  {isSearching ? "..." : t('home.searchBtn')}
+                </Button>
+              ) : (
+                <SearchCategoryModal
+                  trigger={
+                    <Button className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-3 md:px-6 text-xs md:text-sm">
+                      {t('home.searchBtn')}
+                    </Button>
+                  }
+                />
+              )
+            ) : (
+              <Button
+                disabled
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-3 md:px-6 text-xs md:text-sm opacity-60"
+              >
+                {t('home.soon')}
+              </Button>
+            )}
           </div>
         </div>
       </section>
