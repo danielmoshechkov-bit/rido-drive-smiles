@@ -138,7 +138,7 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
       onClick={() => tile.available && onClick()}
     >
       {/* Image top */}
-      <div className="relative aspect-[16/9] overflow-hidden">
+      <div className="relative aspect-[4/3] overflow-hidden">
         {tile.id === 'rido-ai' ? (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
         ) : tile.image ? (
@@ -529,7 +529,7 @@ export default function EasyHub() {
               </p>
 
               {/* Search bar directly under tagline */}
-              <div id="kategorie" className="relative mt-3 md:mt-5 w-full">
+              <div id="kategorie" className="relative mt-3 md:mt-5 w-full max-w-2xl">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   type="text"
