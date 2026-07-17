@@ -137,7 +137,6 @@ export default function WorkshopLanding() {
 
   const soonFeatures = [
     { icon: Package, title: "Auto-zamówienia z hurtowni", description: "Zamawianie części Inter Cars, Hart, Auto Partner jednym klikiem." },
-    { icon: FileText, title: "Skrypty rozmów AI w bazie", description: "Każda rozmowa asystenta zapisana i transkrybowana — sprawdzisz co obiecał klient." },
     { icon: Megaphone, title: "AI asystent reklamowy", description: "Generuje kampanie Meta/Google Ads i optymalizuje budżet." },
   ];
 
