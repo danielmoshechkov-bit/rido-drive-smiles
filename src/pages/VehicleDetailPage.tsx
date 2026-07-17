@@ -333,8 +333,8 @@ export default function VehicleDetailPage() {
 
           <div className="space-y-6">
             <div className="lg:sticky lg:top-24">
-              <Card className="p-6 shadow-lg border-primary/20">
-                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+              <Card className="p-6 shadow-lg border-0 rounded-2xl bg-gradient-to-br from-primary/5 to-white ring-1 ring-primary/20">
+                <h3 className="font-extrabold text-lg mb-4 flex items-center gap-2 text-primary">
                   <Phone className="h-5 w-5 text-primary" />
                   Kontakt
                 </h3>
@@ -342,12 +342,12 @@ export default function VehicleDetailPage() {
                 {listing.contactPhone && (
                   <div className="mb-3">
                     {showContactPhone ? (
-                      <a href={`tel:${listing.contactPhone}`} className="flex items-center gap-2 text-primary hover:underline font-medium">
+                      <a href={`tel:${listing.contactPhone}`} className="flex items-center gap-2 text-primary hover:underline font-bold text-lg">
                         <Phone className="h-4 w-4" />
                         {listing.contactPhone}
                       </a>
                     ) : (
-                      <Button onClick={handleRevealContact} className="w-full" size="lg">
+                      <Button onClick={handleRevealContact} className="w-full font-bold" size="lg">
                         <Phone className="h-4 w-4 mr-2" />
                         Pokaż numer telefonu
                       </Button>
@@ -356,20 +356,20 @@ export default function VehicleDetailPage() {
                 )}
 
                 {listing.contactEmail && showContactPhone && (
-                  <a href={`mailto:${listing.contactEmail}`} className="flex items-center gap-2 text-primary hover:underline mb-4">
+                  <a href={`mailto:${listing.contactEmail}`} className="flex items-center gap-2 text-primary hover:underline mb-4 font-semibold">
                     <Mail className="h-4 w-4" />
                     {listing.contactEmail}
                   </a>
                 )}
 
-                <Button variant="outline" className="w-full mt-2" size="lg">
+                <Button variant="outline" className="w-full mt-2 font-bold border-primary/40 text-primary hover:bg-primary/10" size="lg">
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Napisz wiadomość
                 </Button>
 
                 {listing.listingNumber && (
-                  <p className="text-xs text-muted-foreground mt-4 text-center">
-                    Nr oferty: <span className="font-mono">{listing.listingNumber}</span>
+                  <p className="text-xs text-slate-600 font-semibold mt-4 text-center">
+                    Nr oferty: <span className="font-mono text-slate-800">{listing.listingNumber}</span>
                   </p>
                 )}
               </Card>
