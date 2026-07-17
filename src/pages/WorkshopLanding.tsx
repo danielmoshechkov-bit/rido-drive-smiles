@@ -26,9 +26,13 @@ import {
   TrendingUp,
   Droplets,
   Phone,
+  PhoneCall,
   Megaphone,
   Star,
   ChevronDown,
+  History,
+  FileText,
+  Store,
 } from "lucide-react";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
@@ -47,9 +51,9 @@ import tilePracownicy from "@/assets/workshop/tile-pracownicy.jpg";
 import tileKsef from "@/assets/accounting/tile-ksef.jpg";
 import tileFaktury from "@/assets/accounting/tile-faktury.jpg";
 
-const mascot = "/ludzik-getrido.png";
-const mascotMechanic = "/mascot-mechanic.png";
-const mascotDetailer = "/mascot-detailer.png";
+const mascot = "/mascot-getrido.png";
+const mascotMechanic = "/mascot-getrido.png";
+const mascotDetailer = "/mascot-getrido.png";
 
 type Feature = {
   icon: any;
@@ -116,24 +120,24 @@ export default function WorkshopLanding() {
   };
 
   const features: Feature[] = [
-    { icon: Calendar, title: "Terminarz online", description: "Inteligentny kalendarz ze stanowiskami i automatycznymi SMS-ami (24h i 2h przed wizytą).", img: tileTerminarz },
     { icon: Wrench, title: "Zlecenia i kosztorysy", description: "Pełna obsługa zlecenia – od przyjęcia auta, przez wycenę, po wydanie. Podpis cyfrowy klienta.", img: tileZlecenia },
     { icon: Brain, title: "Wyceny AI", description: "Inteligentne sugestie cen części i robocizny na bazie tysięcy historycznych zleceń.", ai: true, img: tileDaneNaprawcze },
+    { icon: PhoneCall, title: "Wirtualny asystent AI", description: "Odbiera telefon, prowadzi rozmowę, umawia klienta w Twoim terminarzu i zapisuje skrypt — działa 24/7, kiedy jesteś zajęty.", ai: true, img: tileKlienci },
+    { icon: Calendar, title: "Inteligentna rezerwacja", description: "Kalendarz ze stanowiskami, auto-SMS 24h i 2h przed wizytą, link ICS do kalendarza klienta.", img: tileTerminarz },
+    { icon: History, title: "Historia napraw i dokumentów", description: "Każde auto ma pełną historię: zlecenia, części, faktury zakupowe. Koniec ze sporami — zawsze udowodnisz co i kiedy było robione.", img: tilePojazdy },
+    { icon: Store, title: "Portal usług GetRido — nowi klienci", description: "Twój warsztat trafia do klientów szukających usług na portalu GetRido. Dostajesz leady, których wcześniej nie miałeś.", img: tileSprzedaz },
     { icon: Search, title: "Sprawdzanie aut po nr rej.", description: "VIN, model, pojemność, moc, rok — automatycznie z RegCheck jednym kliknięciem.", ai: true, img: tilePojazdy },
     { icon: Package, title: "Magazyn części z OCR", description: "Skanuj faktury zakupowe — AI rozpoznaje pozycje i aktualizuje magazyn.", ai: true, img: tileMagazyn },
-    { icon: MessageSquare, title: "SMS do klientów", description: "Powiadomienia o gotowości, przypomnienia, ankiety satysfakcji. Własny nadawca.", img: tileKlienci },
     { icon: Camera, title: "Zdjęcia przyjęcia auta", description: "Dokumentacja stanu pojazdu przy odbiorze – zabezpieczenie przed reklamacjami.", img: tileWorkshop },
     { icon: Receipt, title: "Faktury i KSeF", description: "Integracja z modułem księgowym – jednym kliknięciem wystawiasz fakturę FA(3).", img: tileFaktury },
     { icon: Droplets, title: "Detailing & PPF", description: "Dedykowane workflow dla studiów detailingu, ceramiki i folii ochronnych.", img: tileDetailing },
     { icon: TrendingUp, title: "Analiza rentowności", description: "Marże, czasy pracy mechaników, najlepsi klienci – pełne statystyki biznesu.", img: tileRaporty },
     { icon: Users, title: "Pracownicy i uprawnienia", description: "Rozliczaj mechaników z 15-minutową dokładnością. Role, dostęp, prowizje.", img: tilePracownicy },
-    { icon: Receipt, title: "Sprzedaż warsztatowa", description: "Paragony, faktury B2B/B2C, kasa fiskalna online. Cała sprzedaż w jednym miejscu.", img: tileSprzedaz },
   ];
 
   const soonFeatures = [
     { icon: Package, title: "Auto-zamówienia z hurtowni", description: "Zamawianie części Inter Cars, Hart, Auto Partner jednym klikiem." },
-    { icon: MessageSquare, title: "Transkrypcja rozmów AI", description: "Automatyczne podsumowania rozmów telefonicznych z klientami." },
-    { icon: Phone, title: "AI asystent telefoniczny", description: "AI odbiera połączenia, umawia wizyty i odpowiada na pytania." },
+    { icon: FileText, title: "Skrypty rozmów AI w bazie", description: "Każda rozmowa asystenta zapisana i transkrybowana — sprawdzisz co obiecał klient." },
     { icon: Megaphone, title: "AI asystent reklamowy", description: "Generuje kampanie Meta/Google Ads i optymalizuje budżet." },
   ];
 
@@ -144,11 +148,12 @@ export default function WorkshopLanding() {
     { icon: Users, text: "Bez limitu klientów" },
   ];
 
-  const stats = [
-    { value: "10h", label: "oszczędności tygodniowo" },
-    { value: "3 min", label: "od przyjęcia do wyceny" },
-    { value: "98%", label: "SMS-ów doręczonych" },
-    { value: "0 zł", label: "za pierwsze 14 dni" },
+  // "Efekt WOW" — to nas wyróżnia, nie suche procenty
+  const wowStats = [
+    { icon: PhoneCall, badge: "NOWOŚĆ", value: "Wirtualny asystent AI", label: "Odbiera telefon, umawia klienta, prowadzi rozmowę — 24/7." },
+    { icon: Store, badge: "TYLKO U NAS", value: "Portal klientów GetRido", label: "Dostarczamy Ci klientów z naszego portalu usług." },
+    { icon: History, badge: "KONIEC SPORÓW", value: "Historia napraw i faktur", label: "Zawsze sprawdzisz co, kiedy i z jakiej faktury poszło w auto." },
+    { icon: FileText, badge: "AI", value: "Skrypty rozmów zapisane", label: "Nagrania i transkrypcje rozmów zawsze pod ręką." },
   ];
 
   const testimonials = [
@@ -267,16 +272,33 @@ export default function WorkshopLanding() {
             </div>
           </div>
 
-          {/* Stats bar */}
-          <div className="max-w-5xl mx-auto mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
-            {stats.map((s, i) => (
-              <div key={i} className="text-center p-4 rounded-2xl bg-card/60 border backdrop-blur-sm">
-                <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                  {s.value}
+          {/* Efekt WOW — to nas wyróżnia */}
+          <div className="max-w-6xl mx-auto mt-12">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                Nowość · tego nie ma nikt inny
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {wowStats.map((s, i) => (
+                <div key={i} className="relative text-left p-4 rounded-2xl bg-card border-2 border-primary/20 hover:border-primary/50 backdrop-blur-sm shadow-md hover:shadow-lg transition-all">
+                  <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-primary to-purple-600 text-white border-0 text-[10px] px-2 py-0.5">
+                    {s.badge}
+                  </Badge>
+                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center mb-2">
+                    <s.icon className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="text-sm md:text-base font-bold text-foreground leading-tight mb-1">
+                    {s.value}
+                  </div>
+                  <div className="text-xs text-muted-foreground leading-snug">{s.label}</div>
                 </div>
-                <div className="text-xs md:text-sm text-muted-foreground mt-1">{s.label}</div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* benefits chips */}
@@ -307,30 +329,35 @@ export default function WorkshopLanding() {
             return (
               <div
                 key={idx}
-                className="group relative aspect-[4/3] rounded-2xl overflow-hidden border shadow-sm hover:shadow-xl transition-all hover:-translate-y-1"
+                className="group relative rounded-2xl overflow-hidden border bg-card shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 flex flex-col"
               >
-                <img
-                  src={feature.img}
-                  alt={feature.title}
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
+                <div className="relative aspect-[16/10] overflow-hidden">
+                  <img
+                    src={feature.img}
+                    alt={feature.title}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  {feature.ai && (
+                    <Badge className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-600 text-white border-0 shadow-md">
+                      <Sparkles className="h-3 w-3 mr-1" /> AI
+                    </Badge>
+                  )}
+                  {idx < 4 && (
+                    <Badge className="absolute top-3 left-3 bg-gradient-to-r from-primary to-purple-600 text-white border-0 shadow-md text-[10px] uppercase tracking-wider">
+                      {idx + 1}
+                    </Badge>
+                  )}
+                </div>
 
-                {feature.ai && (
-                  <Badge className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-600 text-white border-0">
-                    <Sparkles className="h-3 w-3 mr-1" /> AI
-                  </Badge>
-                )}
-
-                <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                <div className="p-5 bg-card">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-white/15 backdrop-blur-sm">
+                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                       <Icon className="h-4 w-4" />
                     </div>
-                    <h3 className="font-semibold text-lg">{feature.title}</h3>
+                    <h3 className="font-bold text-base md:text-lg text-foreground">{feature.title}</h3>
                   </div>
-                  <p className="text-sm text-white/85 leading-snug">{feature.description}</p>
+                  <p className="text-sm text-muted-foreground leading-snug">{feature.description}</p>
                 </div>
               </div>
             );
@@ -343,7 +370,7 @@ export default function WorkshopLanding() {
             <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-100">Wkrótce</Badge>
             <h3 className="text-lg font-semibold">Na horyzoncie</h3>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {soonFeatures.map((f, i) => (
               <Card key={i} className="border-dashed">
                 <CardContent className="p-4">
