@@ -512,18 +512,55 @@ export default function EasyHub() {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="container mx-auto px-4 pt-6 pb-3 md:pt-12 md:pb-6 text-center">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-1 md:mb-3" style={{ color: '#4A3AFF' }}>
-          GetRido
-        </h1>
-        <p className="text-xs sm:text-sm md:text-lg text-muted-foreground max-w-xl mx-auto">
-          {t('home.tagline')}
-        </p>
+      {/* Hero Section - dark gradient, bold */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#0d0b2b] via-[#1a1450] to-[#0d0b2b]">
+        {/* Decorative glow */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/30 rounded-full blur-3xl opacity-60 pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl opacity-50 pointer-events-none" />
+
+        <div className="container mx-auto px-4 py-12 md:py-20 relative z-10 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/20 border border-primary/40 text-white text-xs md:text-sm font-semibold mb-6">
+            <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
+            Powered by RidoAI
+          </div>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white leading-[1.05] mb-4 md:mb-6">
+            Wszystko czego potrzebujesz —<br className="hidden sm:block" />
+            <span className="bg-gradient-to-r from-primary via-purple-400 to-accent bg-clip-text text-transparent">
+              w jednym miejscu
+            </span>
+          </h1>
+          <p className="text-base md:text-xl text-white/70 max-w-2xl mx-auto mb-8">
+            Motoryzacja, nieruchomości, usługi i marketplace. Kupuj, sprzedawaj, znajduj fachowców i prowadź biznes z pomocą sztucznej inteligencji.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
+            <Button
+              size="lg"
+              onClick={() => setShowAddListing(true)}
+              className="h-12 md:h-14 px-8 text-base md:text-lg font-semibold rounded-full shadow-xl shadow-primary/40"
+            >
+              Dodaj ogłoszenie
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => document.getElementById('kategorie')?.scrollIntoView({ behavior: 'smooth' })}
+              className="h-12 md:h-14 px-8 text-base md:text-lg font-semibold rounded-full bg-white/5 text-white border-white/30 hover:bg-white/10 hover:text-white"
+            >
+              Przeglądaj kategorie
+            </Button>
+          </div>
+          {/* Trust indicators */}
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-white/60 text-xs md:text-sm">
+            <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-primary" /> Weryfikacja ogłoszeń</div>
+            <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-primary" /> Bez prowizji od transakcji</div>
+            <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-primary" /> Portal biznesowy w cenie</div>
+          </div>
+        </div>
       </section>
 
       {/* AI Search Bar - only enabled for owner emails */}
-      <section className="container mx-auto px-4 py-4 md:py-6">
+      <section id="kategorie" className="container mx-auto px-4 py-8 md:py-10">
         <div className="max-w-2xl mx-auto">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -565,11 +602,9 @@ export default function EasyHub() {
               </Button>
             )}
           </div>
-          <p className="text-center text-xs text-muted-foreground mt-2">
-            {t('home.poweredBy')} <span className="text-primary font-medium">Rido AI</span>
-          </p>
         </div>
       </section>
+
 
       {/* Category Navigation / Back Button */}
       {activeCategory !== 'main' && (
