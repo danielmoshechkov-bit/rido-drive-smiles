@@ -126,61 +126,44 @@ function buildNieruchomosciSubTiles(t: (key: string) => string): MarketplaceTile
 
 function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick: () => void }) {
   const { t } = useTranslation();
-  
-  const Icon = tile.icon;
+
   return (
-    <Card 
+    <div
       className={cn(
-        "group relative overflow-hidden cursor-pointer transition-all duration-300",
-        "hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.03] hover:-translate-y-1",
-        "border border-white/10 shadow-lg rounded-2xl",
-        !tile.available && "opacity-60 cursor-not-allowed hover:scale-100 hover:translate-y-0"
+        "group cursor-pointer transition-all duration-300",
+        !tile.available && "opacity-60 cursor-not-allowed"
       )}
       onClick={() => tile.available && onClick()}
     >
-      {/* Background image or gradient */}
-      {tile.id === 'rido-ai' ? (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-110" />
-      ) : tile.image ? (
-        <div 
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-          style={{ backgroundImage: `url(${tile.image})` }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0d0b2b] via-[#0d0b2b]/85 to-[#0d0b2b]/20" />
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/40 via-transparent to-transparent" />
-        </div>
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
-      )}
+      {/* Image rectangle on top */}
+      <div className="relative overflow-hidden rounded-2xl shadow-md border border-border/50 aspect-[16/9] bg-muted">
+        {tile.id === 'rido-ai' ? (
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
+        ) : tile.image ? (
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+            style={{ backgroundImage: `url(${tile.image})` }}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
+        )}
+        {!tile.available && (
+          <Badge className="absolute top-2 right-2 text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
+            {t('home.soon')}
+          </Badge>
+        )}
+      </div>
 
-      <CardContent className="relative z-10 p-4 md:p-5 h-40 md:h-52 flex flex-col justify-between">
-        {/* Top row: icon square + optional badge */}
-        <div className="flex items-start justify-between">
-          <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-primary/90 backdrop-blur-sm shadow-lg flex items-center justify-center ring-1 ring-white/20">
-            <Icon className="h-5 w-5 md:h-6 md:w-6 text-white" strokeWidth={2.5} />
-          </div>
-          {!tile.available ? (
-            <Badge className="text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
-              {t('home.soon')}
-            </Badge>
-          ) : (
-            <div className="p-2 rounded-full bg-white/10 backdrop-blur-sm opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300">
-              <ArrowRight className="h-4 w-4 text-white" />
-            </div>
-          )}
-        </div>
-
-        {/* Bottom: title + description */}
-        <div>
-          <h3 className="font-extrabold text-lg md:text-2xl leading-tight text-white [text-shadow:_0_2px_8px_rgb(0_0_0_/_50%)]">
-            {tile.title}
-          </h3>
-          <p className="text-xs md:text-sm mt-1 md:mt-1.5 line-clamp-2 font-medium text-white/85">
-            {tile.description}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Text below on page background — highly legible */}
+      <div className="px-1 pt-3 pb-1">
+        <h3 className="font-extrabold text-base md:text-xl leading-tight text-foreground group-hover:text-primary transition-colors">
+          {tile.title}
+        </h3>
+        <p className="text-xs md:text-sm mt-1 line-clamp-2 text-muted-foreground">
+          {tile.description}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -512,54 +495,29 @@ export default function EasyHub() {
         </div>
       </header>
 
-      {/* Hero Section - dark gradient, bold */}
+      {/* Hero Section - compact, mascot next to title */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#0d0b2b] via-[#1a1450] to-[#0d0b2b]">
-        {/* Decorative glow */}
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/30 rounded-full blur-3xl opacity-60 pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl opacity-50 pointer-events-none" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl opacity-40 pointer-events-none" />
 
-        <div className="container mx-auto px-4 py-12 md:py-20 relative z-10 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/20 border border-primary/40 text-white text-xs md:text-sm font-semibold mb-6">
-            <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
-            Powered by RidoAI
-          </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-white leading-[1.05] mb-4 md:mb-6">
-            Wszystko czego potrzebujesz —<br className="hidden sm:block" />
-            <span className="bg-gradient-to-r from-primary via-purple-400 to-accent bg-clip-text text-transparent">
-              w jednym miejscu
-            </span>
-          </h1>
-          <p className="text-base md:text-xl text-white/70 max-w-2xl mx-auto mb-8">
-            Motoryzacja, nieruchomości, usługi i marketplace. Kupuj, sprzedawaj, znajduj fachowców i prowadź biznes z pomocą sztucznej inteligencji.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
-            <AddListingModal
-              user={user}
-              trigger={
-                <Button
-                  size="lg"
-                  className="h-12 md:h-14 px-8 text-base md:text-lg font-semibold rounded-full shadow-xl shadow-primary/40"
-                >
-                  Dodaj ogłoszenie
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              }
+        <div className="container mx-auto px-4 py-8 md:py-10 relative z-10">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 max-w-4xl mx-auto text-center md:text-left">
+            <img
+              src="/lovable-uploads/rido-mascot-transparent.png"
+              alt="GetRido"
+              className="h-24 w-24 md:h-32 md:w-32 drop-shadow-2xl shrink-0"
             />
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={() => document.getElementById('kategorie')?.scrollIntoView({ behavior: 'smooth' })}
-              className="h-12 md:h-14 px-8 text-base md:text-lg font-semibold rounded-full bg-white/5 text-white border-white/30 hover:bg-white/10 hover:text-white"
-            >
-              Przeglądaj kategorie
-            </Button>
-          </div>
-
-          {/* Trust indicators */}
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-white/60 text-xs md:text-sm">
-            <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-primary" /> Weryfikacja ogłoszeń</div>
-            <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-primary" /> Bez prowizji od transakcji</div>
-            <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-primary" /> Portal biznesowy w cenie</div>
+            <div>
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-none mb-2">
+                Get<span className="bg-gradient-to-r from-primary via-purple-400 to-accent bg-clip-text text-transparent">Rido</span>
+              </h1>
+              <p className="text-lg md:text-2xl font-semibold text-white leading-tight mb-2">
+                Wszystko czego potrzebujesz — w jednym miejscu
+              </p>
+              <p className="text-sm md:text-base text-white font-medium">
+                Motoryzacja • Nieruchomości • Usługi • Marketplace
+              </p>
+            </div>
           </div>
         </div>
       </section>
