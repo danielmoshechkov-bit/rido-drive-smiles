@@ -402,16 +402,16 @@ export function PropertyListingCard({
               <h3 className="font-extrabold text-lg text-primary line-clamp-2 min-h-[3rem] group-hover:text-primary/80 transition-colors">{translatedTitle}</h3>
 
               {/* Property specs row */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px] text-slate-800 font-semibold mt-2">
                 {listing.propertyType && (
                   <span className="flex items-center gap-1">
-                    <Home className="h-3.5 w-3.5" />
+                    <Home className="h-4 w-4 text-primary" />
                     {PROPERTY_TYPE_LABELS[listing.propertyType] || listing.propertyType}
                   </span>
                 )}
             {displayArea && (
                   <span className="flex items-center gap-1">
-                    <Maximize className="h-3.5 w-3.5" />
+                    <Maximize className="h-4 w-4 text-primary" />
                     {displayArea} m²
                   </span>
                 )}
@@ -420,13 +420,13 @@ export function PropertyListingCard({
                 )}
                 {listing.floor !== undefined && listing.floorsTotal && (
                   <span className="flex items-center gap-1">
-                    <Layers className="h-3.5 w-3.5" />
+                    <Layers className="h-4 w-4 text-primary" />
                     {listing.floor}/{listing.floorsTotal} p.
                   </span>
                 )}
                 {listing.buildYear && (
                   <span className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
+                    <Calendar className="h-4 w-4 text-primary" />
                     {listing.buildYear}
                   </span>
                 )}
@@ -434,8 +434,8 @@ export function PropertyListingCard({
 
               {/* Location */}
               {listing.location && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                  <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                <div className="flex items-center gap-1 text-[15px] text-slate-800 font-semibold mt-1">
+                  <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
                   <span className="truncate">
                     {listing.district ? `${fixPolishCase(listing.district)}, ${fixPolishCase(listing.location)}` : fixPolishCase(listing.location)}
                   </span>
@@ -642,24 +642,24 @@ export function PropertyListingCard({
         <div className={cn("p-3 flex flex-col flex-1 gap-0", compact && "p-2.5")}>
           {/* Title */}
           <h3 className={cn(
-            "font-semibold leading-snug text-foreground",
-            compact ? "text-xs line-clamp-2 mb-0.5" : "text-sm line-clamp-2 mb-1"
+            "font-extrabold leading-snug text-primary",
+            compact ? "text-sm line-clamp-2 mb-0.5" : "text-base line-clamp-2 mb-1"
           )}>{translatedTitle}</h3>
 
           {/* Property Type & Area & Rooms */}
           <div className={cn(
-            "flex flex-wrap items-center gap-x-2 gap-y-0.5 text-muted-foreground mt-1 mb-2",
-            "text-xs"
+            "flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-800 font-semibold mt-1 mb-2",
+            compact ? "text-xs" : "text-[13px]"
           )}>
             {listing.propertyType && (
               <span className="flex items-center gap-1">
-                <Home className="h-3 w-3" />
+                <Home className="h-3.5 w-3.5 text-primary" />
                 {PROPERTY_TYPE_LABELS[listing.propertyType] || listing.propertyType}
               </span>
             )}
             {displayArea > 0 && (
               <span className="flex items-center gap-1">
-                <Maximize className="h-3 w-3" />
+                <Maximize className="h-3.5 w-3.5 text-primary" />
                 {displayArea} m²
               </span>
             )}
@@ -668,13 +668,13 @@ export function PropertyListingCard({
             )}
             {listing.buildYear && (
               <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
+                <Calendar className="h-3.5 w-3.5 text-primary" />
                 {listing.buildYear}
               </span>
             )}
             {!compact && listing.floor !== undefined && listing.floorsTotal && (
               <span className="flex items-center gap-1">
-                <Layers className="h-3 w-3" />
+                <Layers className="h-3.5 w-3.5 text-primary" />
                 {listing.floor}/{listing.floorsTotal} p.
               </span>
             )}
@@ -682,8 +682,8 @@ export function PropertyListingCard({
 
           {/* Location */}
           {listing.location && (
-            <div className="flex items-center gap-1 text-muted-foreground text-xs">
-              <MapPin className="h-3 w-3 flex-shrink-0" />
+            <div className="flex items-center gap-1 text-slate-800 font-semibold text-[13px]">
+              <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
               <span className="truncate">
                 {listing.district ? `${fixPolishCase(listing.district)}, ${fixPolishCase(listing.location)}` : fixPolishCase(listing.location)}
               </span>
@@ -718,18 +718,18 @@ export function PropertyListingCard({
             <div className="flex items-end justify-between gap-2">
               <div className="min-w-0">
                 <span className={cn(
-                    "font-bold text-primary leading-tight",
-                    compact ? "text-sm" : "text-base"
+                    "font-extrabold text-primary leading-tight",
+                    compact ? "text-base" : "text-lg"
                   )}>
                     {formatCurrency(listing.price)}
                   </span>
                 {!compact && (
-                  <span className="text-xs font-normal text-muted-foreground">
+                  <span className="text-xs font-semibold text-slate-700 ml-1">
                     {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
                   </span>
                 )}
                 {pricePerM2 && (
-                  <div className="text-xs text-muted-foreground leading-none mt-0.5">
+                  <div className="text-xs font-semibold text-slate-700 leading-none mt-0.5">
                     {formatCurrency(pricePerM2).replace('\u00A0zł', '')} zł/m²
                   </div>
                 )}

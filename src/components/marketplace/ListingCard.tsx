@@ -227,16 +227,16 @@ export function ListingCard({
               )}
             </div>
             <div className="flex-1 p-4 flex flex-col">
-              <h3 className="font-bold text-lg line-clamp-2 min-h-[3rem]">{translatedTitle}</h3>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-2">
-                {listing.year && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{listing.year}</span>}
-                {listing.fuelType && <span className="flex items-center gap-1"><Fuel className="h-3.5 w-3.5" />{FUEL_LABELS[listing.fuelType.toLowerCase()] || listing.fuelType}</span>}
-                {listing.mileage && <span className="flex items-center gap-1"><Gauge className="h-3.5 w-3.5" />{(listing.mileage / 1000).toFixed(0)} tys. km</span>}
-                {listing.power && <span className="flex items-center gap-1"><Zap className="h-3.5 w-3.5" />{listing.power} KM</span>}
+              <h3 className="font-extrabold text-lg line-clamp-2 min-h-[3rem] text-primary">{translatedTitle}</h3>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px] text-slate-800 font-semibold mt-2">
+                {listing.year && <span className="flex items-center gap-1"><Calendar className="h-4 w-4 text-primary" />{listing.year}</span>}
+                {listing.fuelType && <span className="flex items-center gap-1"><Fuel className="h-4 w-4 text-primary" />{FUEL_LABELS[listing.fuelType.toLowerCase()] || listing.fuelType}</span>}
+                {listing.mileage && <span className="flex items-center gap-1"><Gauge className="h-4 w-4 text-primary" />{(listing.mileage / 1000).toFixed(0)} tys. km</span>}
+                {listing.power && <span className="flex items-center gap-1"><Zap className="h-4 w-4 text-primary" />{listing.power} KM</span>}
               </div>
               {listing.location && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                  <MapPin className="h-3.5 w-3.5" />{listing.location}
+                <div className="flex items-center gap-1 text-[15px] text-slate-800 font-semibold mt-1">
+                  <MapPin className="h-4 w-4 text-primary" />{listing.location}
                 </div>
               )}
               <div className="flex items-center justify-between mt-auto pt-3 border-t">
@@ -321,19 +321,19 @@ export function ListingCard({
         </div>
 
         <div className={cn("p-4 flex flex-col", isCompact && "p-2")}>
-          <h3 className={cn("font-bold leading-tight", isCompact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3.5rem]")}>{translatedTitle}</h3>
-          <div className={cn("flex flex-wrap items-center text-muted-foreground", isCompact ? "text-xs mt-1" : "text-sm mb-1.5")}>
-            {listing.year && <span className="flex items-center gap-1"><Calendar className={cn(isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />{listing.year}</span>}
-            {listing.fuelType && <><span className="mx-1">•</span><span className="flex items-center gap-1"><Fuel className={cn(isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />{FUEL_LABELS[listing.fuelType.toLowerCase()] || listing.fuelType}</span></>}
-            {listing.power && !isCompact && <><span className="mx-1">•</span><span className="flex items-center gap-1"><Zap className="h-3.5 w-3.5" />{listing.power} KM</span></>}
+          <h3 className={cn("font-extrabold leading-tight text-primary", isCompact ? "text-sm line-clamp-1" : "text-lg line-clamp-2 min-h-[3.5rem]")}>{translatedTitle}</h3>
+          <div className={cn("flex flex-wrap items-center text-slate-800 font-semibold", isCompact ? "text-xs mt-1" : "text-[15px] mb-1.5")}>
+            {listing.year && <span className="flex items-center gap-1"><Calendar className={cn(isCompact ? "h-3 w-3" : "h-4 w-4 text-primary")} />{listing.year}</span>}
+            {listing.fuelType && <><span className="mx-1">•</span><span className="flex items-center gap-1"><Fuel className={cn(isCompact ? "h-3 w-3" : "h-4 w-4 text-primary")} />{FUEL_LABELS[listing.fuelType.toLowerCase()] || listing.fuelType}</span></>}
+            {listing.power && !isCompact && <><span className="mx-1">•</span><span className="flex items-center gap-1"><Zap className="h-4 w-4 text-primary" />{listing.power} KM</span></>}
           </div>
           {!isCompact && (
-            <div className="flex flex-wrap items-center text-sm text-muted-foreground mb-3">
-              {listing.mileage && <span className="flex items-center gap-1"><Gauge className="h-3.5 w-3.5" />{(listing.mileage / 1000).toFixed(0)} tys. km</span>}
-              {listing.location && <><span className="mx-1.5">•</span><span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{listing.location}</span></>}
+            <div className="flex flex-wrap items-center text-[15px] text-slate-800 font-semibold mb-3">
+              {listing.mileage && <span className="flex items-center gap-1"><Gauge className="h-4 w-4 text-primary" />{(listing.mileage / 1000).toFixed(0)} tys. km</span>}
+              {listing.location && <><span className="mx-1.5">•</span><span className="flex items-center gap-1"><MapPin className="h-4 w-4 text-primary" />{listing.location}</span></>}
             </div>
           )}
-          {isCompact && listing.location && <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1"><MapPin className="h-3 w-3" />{listing.location}</div>}
+          {isCompact && listing.location && <div className="flex items-center gap-1 text-xs text-slate-700 font-semibold mt-1"><MapPin className="h-3 w-3" />{listing.location}</div>}
           <div className="flex-grow min-h-2" />
           <div className={cn("flex items-center justify-between mt-auto pt-2", isCompact && "flex-col items-start gap-2")}>
             <div>
