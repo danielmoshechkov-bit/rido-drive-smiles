@@ -307,24 +307,22 @@ export default function VehicleDetailPage() {
               )}
             </div>
 
-            <Separator />
             <VehicleSpecsTable listing={listing} />
-            <Separator />
 
-            <div>
-              <h2 className="text-xl font-bold text-foreground mb-4">Opis</h2>
-              <div className="prose prose-sm max-w-none text-foreground leading-relaxed space-y-3">
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-slate-100">
+              <h2 className="text-xl font-extrabold text-primary mb-4">Opis</h2>
+              <div className="prose prose-sm max-w-none text-slate-800 leading-relaxed space-y-3">
                 {(translatedDesc || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block: string, i: number) => {
                   const trimmed = block.trim();
                   if (!trimmed) return null;
                   const isHeader = trimmed.endsWith(':') && trimmed.length < 60;
                   if (isHeader) {
-                    return <h3 key={i} className="text-base font-semibold text-foreground mt-4 mb-1">{trimmed}</h3>;
+                    return <h3 key={i} className="text-base font-bold text-primary mt-4 mb-1">{trimmed}</h3>;
                   }
                   return trimmed.split('\n').map((line: string, j: number) => {
                     const l = line.trim();
                     if (!l) return null;
-                    return <p key={`${i}-${j}`} className="mb-2 text-foreground">{l}</p>;
+                    return <p key={`${i}-${j}`} className="mb-2 text-slate-800 font-medium">{l}</p>;
                   });
                 })}
               </div>
