@@ -126,61 +126,44 @@ function buildNieruchomosciSubTiles(t: (key: string) => string): MarketplaceTile
 
 function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick: () => void }) {
   const { t } = useTranslation();
-  
-  const Icon = tile.icon;
+
   return (
-    <Card 
+    <div
       className={cn(
-        "group relative overflow-hidden cursor-pointer transition-all duration-300",
-        "hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.03] hover:-translate-y-1",
-        "border border-white/10 shadow-lg rounded-2xl",
-        !tile.available && "opacity-60 cursor-not-allowed hover:scale-100 hover:translate-y-0"
+        "group cursor-pointer transition-all duration-300",
+        !tile.available && "opacity-60 cursor-not-allowed"
       )}
       onClick={() => tile.available && onClick()}
     >
-      {/* Background image or gradient */}
-      {tile.id === 'rido-ai' ? (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-110" />
-      ) : tile.image ? (
-        <div 
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-          style={{ backgroundImage: `url(${tile.image})` }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0d0b2b] via-[#0d0b2b]/85 to-[#0d0b2b]/20" />
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/40 via-transparent to-transparent" />
-        </div>
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
-      )}
+      {/* Image rectangle on top */}
+      <div className="relative overflow-hidden rounded-2xl shadow-md border border-border/50 aspect-[16/9] bg-muted">
+        {tile.id === 'rido-ai' ? (
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
+        ) : tile.image ? (
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+            style={{ backgroundImage: `url(${tile.image})` }}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
+        )}
+        {!tile.available && (
+          <Badge className="absolute top-2 right-2 text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
+            {t('home.soon')}
+          </Badge>
+        )}
+      </div>
 
-      <CardContent className="relative z-10 p-4 md:p-5 h-40 md:h-52 flex flex-col justify-between">
-        {/* Top row: icon square + optional badge */}
-        <div className="flex items-start justify-between">
-          <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl bg-primary/90 backdrop-blur-sm shadow-lg flex items-center justify-center ring-1 ring-white/20">
-            <Icon className="h-5 w-5 md:h-6 md:w-6 text-white" strokeWidth={2.5} />
-          </div>
-          {!tile.available ? (
-            <Badge className="text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
-              {t('home.soon')}
-            </Badge>
-          ) : (
-            <div className="p-2 rounded-full bg-white/10 backdrop-blur-sm opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all duration-300">
-              <ArrowRight className="h-4 w-4 text-white" />
-            </div>
-          )}
-        </div>
-
-        {/* Bottom: title + description */}
-        <div>
-          <h3 className="font-extrabold text-lg md:text-2xl leading-tight text-white [text-shadow:_0_2px_8px_rgb(0_0_0_/_50%)]">
-            {tile.title}
-          </h3>
-          <p className="text-xs md:text-sm mt-1 md:mt-1.5 line-clamp-2 font-medium text-white/85">
-            {tile.description}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Text below on page background — highly legible */}
+      <div className="px-1 pt-3 pb-1">
+        <h3 className="font-extrabold text-base md:text-xl leading-tight text-foreground group-hover:text-primary transition-colors">
+          {tile.title}
+        </h3>
+        <p className="text-xs md:text-sm mt-1 line-clamp-2 text-muted-foreground">
+          {tile.description}
+        </p>
+      </div>
+    </div>
   );
 }
 
