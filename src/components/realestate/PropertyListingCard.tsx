@@ -718,18 +718,18 @@ export function PropertyListingCard({
             <div className="flex items-end justify-between gap-2">
               <div className="min-w-0">
                 <span className={cn(
-                    "font-bold text-primary leading-tight",
-                    compact ? "text-sm" : "text-base"
+                    "font-extrabold text-primary leading-tight",
+                    compact ? "text-base" : "text-lg"
                   )}>
                     {formatCurrency(listing.price)}
                   </span>
                 {!compact && (
-                  <span className="text-xs font-normal text-muted-foreground">
+                  <span className="text-xs font-semibold text-slate-700 ml-1">
                     {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
                   </span>
                 )}
                 {pricePerM2 && (
-                  <div className="text-xs text-muted-foreground leading-none mt-0.5">
+                  <div className="text-xs font-semibold text-slate-700 leading-none mt-0.5">
                     {formatCurrency(pricePerM2).replace('\u00A0zł', '')} zł/m²
                   </div>
                 )}
