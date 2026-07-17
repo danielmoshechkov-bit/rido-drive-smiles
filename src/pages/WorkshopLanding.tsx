@@ -684,10 +684,10 @@ export default function WorkshopLanding() {
             <img src={mascot} alt="" className="w-64" />
           </div>
           <CardContent className="relative p-8 md:p-14 text-center md:text-left max-w-2xl">
-            <h2 className="text-3xl md:text-4xl font-bold mb-3">
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">
               Zacznij oszczędzać czas już dziś
             </h2>
-            <p className="mb-6 opacity-90">
+            <p className="text-lg md:text-xl font-medium mb-6 opacity-95 leading-relaxed">
               14 dni za darmo, pełen dostęp do wszystkich funkcji. Bez karty, bez zobowiązań.
               Aktywacja zajmuje mniej niż minutę.
             </p>
