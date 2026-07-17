@@ -138,7 +138,7 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
       onClick={() => tile.available && onClick()}
     >
       {/* Image on top */}
-      <div className="relative aspect-[16/10] overflow-hidden">
+      <div className="relative aspect-[16/9] overflow-hidden">
         {tile.id === 'rido-ai' ? (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
         ) : tile.image ? (
