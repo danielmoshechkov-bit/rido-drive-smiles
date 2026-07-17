@@ -225,8 +225,8 @@ export default function WorkshopLanding() {
                 </span>
               </h1>
 
-              <p className="text-lg text-muted-foreground mb-6">
-                Zlecenia, terminy, SMS-y do klientów, magazyn z OCR, wyceny AI i sprawdzanie aut po numerze rejestracyjnym — wszystko w jednym systemie stworzonym w Polsce.
+              <p className="text-xl md:text-2xl font-medium text-slate-800 dark:text-slate-100 mb-6 leading-relaxed">
+                Za wszystkim stoi <strong className="font-bold text-primary">RidoAI</strong> — nasza sztuczna inteligencja, która pomaga Ci na każdym kroku. Zlecenia, terminy, SMS-y do klientów, magazyn z OCR, wyceny AI i sprawdzanie aut po numerze rejestracyjnym — wszystko w jednym systemie stworzonym w Polsce.
               </p>
 
               <div className="flex flex-wrap items-center gap-4 mb-6 justify-center md:justify-start">
@@ -295,10 +295,10 @@ export default function WorkshopLanding() {
                         {s.badge}
                       </span>
                     </div>
-                    <div className="text-lg font-extrabold text-white leading-tight mb-2">
+                    <div className="text-xl md:text-2xl font-extrabold text-white leading-tight mb-2">
                       {s.value}
                     </div>
-                    <div className="text-sm text-slate-300 leading-relaxed">{s.label}</div>
+                    <div className="text-base font-medium text-slate-200 leading-relaxed">{s.label}</div>
                   </div>
                 </div>
               ))}
@@ -306,10 +306,10 @@ export default function WorkshopLanding() {
           </div>
 
           {/* benefits chips */}
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground mt-8">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-base font-semibold text-slate-700 dark:text-slate-200 mt-8">
             {benefits.map((benefit, idx) => (
               <div key={idx} className="flex items-center gap-1.5">
-                <benefit.icon className="h-4 w-4 text-emerald-500" />
+                <benefit.icon className="h-5 w-5 text-emerald-500" />
                 {benefit.text}
               </div>
             ))}
@@ -321,8 +321,8 @@ export default function WorkshopLanding() {
       <section id="funkcje" className="container mx-auto px-4 py-16 md:py-24">
         <div className="text-center mb-12">
           <Badge variant="secondary" className="mb-3">Funkcje</Badge>
-          <h2 className="text-3xl md:text-4xl font-bold mb-3">Wszystko, czego potrzebuje warsztat</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Wszystko, czego potrzebuje warsztat</h2>
+          <p className="text-lg md:text-xl font-medium text-slate-700 dark:text-slate-200 max-w-2xl mx-auto leading-relaxed">
             Kompletny ERP dla warsztatu i studia detailingu z funkcjami AI, które oszczędzają godziny pracy każdego dnia.
           </p>
         </div>
@@ -352,11 +352,11 @@ export default function WorkshopLanding() {
                 <div className="p-5 bg-white dark:bg-card border-t">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <h3 className="font-bold text-base md:text-lg text-slate-900 dark:text-foreground">{feature.title}</h3>
+                    <h3 className="font-extrabold text-lg md:text-xl text-slate-900 dark:text-foreground">{feature.title}</h3>
                   </div>
-                  <p className="text-sm text-slate-700 dark:text-muted-foreground leading-relaxed">{feature.description}</p>
+                  <p className="text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">{feature.description}</p>
                 </div>
               </div>
             );
@@ -388,8 +388,8 @@ export default function WorkshopLanding() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <Badge variant="secondary" className="mb-3">Jak to działa</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-3">Cały warsztat w kilku kliknięciach</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Cały warsztat w kilku kliknięciach</h2>
+            <p className="text-lg md:text-xl font-medium text-slate-700 dark:text-slate-200 max-w-2xl mx-auto leading-relaxed">
               Od telefonu klienta, przez przyjęcie auta, po wystawienie faktury KSeF — wszystko w jednym miejscu.
             </p>
           </div>
@@ -409,8 +409,8 @@ export default function WorkshopLanding() {
                   </div>
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold mb-1">{m.title}</h3>
-                  <p className="text-sm text-muted-foreground">{m.text}</p>
+                  <h3 className="font-extrabold text-lg mb-1 text-slate-900 dark:text-foreground">{m.title}</h3>
+                  <p className="text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">{m.text}</p>
                 </div>
               </div>
             ))}
@@ -434,11 +434,11 @@ export default function WorkshopLanding() {
           </div>
           <div>
             <Badge className="mb-3 bg-purple-500/10 text-purple-700 border-purple-500/20">Detailing & PPF</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Dla studiów detailingu i myjni premium</h2>
-            <p className="text-muted-foreground mb-6">
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Dla studiów detailingu i myjni premium</h2>
+            <p className="text-lg font-medium text-slate-700 dark:text-slate-200 mb-6 leading-relaxed">
               Ten sam silnik co warsztat — z modułami, które przydają się przy długich zleceniach detailingowych. Cyfrowy protokół odbioru z podpisem klienta, zdjęcia stanu auta przy przyjęciu i wydaniu, terminarz zaprojektowany pod całodniowe usługi.
             </p>
-            <ul className="space-y-2 mb-4">
+            <ul className="space-y-3 mb-4">
               {[
                 "Cyfrowy podpis klienta na protokole odbioru",
                 "Zdjęcia przyjęcia i wydania auta — koniec z reklamacjami",
@@ -446,8 +446,8 @@ export default function WorkshopLanding() {
                 "SMS-y do klienta na każdym etapie usługi",
               ].map((t, i) => (
                 <li key={i} className="flex items-start gap-2">
-                  <Check className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
-                  <span className="text-sm">{t}</span>
+                  <Check className="h-6 w-6 text-emerald-500 shrink-0 mt-0.5" />
+                  <span className="text-base font-semibold text-slate-800 dark:text-slate-100">{t}</span>
                 </li>
               ))}
             </ul>
@@ -466,11 +466,11 @@ export default function WorkshopLanding() {
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="text-center mb-12">
             <Badge className="mb-3 bg-primary text-primary-foreground">Tylko u nas</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-3">
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">
               Wszystko w jednym systemie — <span className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">to nas wyróżnia</span>
             </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Konkurencja daje Ci kawałki: jedni terminarz, drudzy magazyn, trzeci fakturę. My łączymy wszystko — z AI, które faktycznie pracuje za Ciebie.
+            <p className="text-lg md:text-xl font-medium text-slate-700 dark:text-slate-200 max-w-2xl mx-auto leading-relaxed">
+              Konkurencja daje Ci kawałki: jedni terminarz, drudzy magazyn, trzeci fakturę. My łączymy wszystko — z <strong className="text-primary font-bold">RidoAI</strong>, które faktycznie pracuje za Ciebie.
             </p>
           </div>
 
@@ -486,11 +486,11 @@ export default function WorkshopLanding() {
             ].map((item, i) => (
               <Card key={i} className="border-primary/10 hover:border-primary/30 transition-colors">
                 <CardContent className="p-5">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center mb-3">
-                    <item.icon className="h-5 w-5 text-white" />
+                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center mb-3">
+                    <item.icon className="h-6 w-6 text-white" />
                   </div>
-                  <h3 className="font-semibold mb-1">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground">{item.text}</p>
+                  <h3 className="font-extrabold text-lg mb-1 text-slate-900 dark:text-foreground">{item.title}</h3>
+                  <p className="text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">{item.text}</p>
                 </CardContent>
               </Card>
             ))}
@@ -578,7 +578,7 @@ export default function WorkshopLanding() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <Badge variant="secondary" className="mb-3">Opinie</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">Co mówią właściciele warsztatów</h2>
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">Co mówią właściciele warsztatów</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {testimonials.map((t, i) => (
@@ -587,7 +587,7 @@ export default function WorkshopLanding() {
                   <div className="flex gap-1 text-amber-500 mb-3">
                     {[0, 1, 2, 3, 4].map((s) => <Star key={s} className="h-4 w-4 fill-current" />)}
                   </div>
-                  <p className="text-sm mb-4 italic">„{t.text}"</p>
+                  <p className="text-base font-medium text-slate-800 dark:text-slate-100 mb-4 italic leading-relaxed">„{t.text}"</p>
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
                       {t.name.charAt(0)}
@@ -608,8 +608,8 @@ export default function WorkshopLanding() {
       <section className="container mx-auto px-4 py-16 md:py-24">
         <div className="text-center mb-12">
           <Badge variant="secondary" className="mb-3">Cennik</Badge>
-          <h2 className="text-3xl md:text-4xl font-bold mb-3">Wybierz pakiet</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Wybierz pakiet</h2>
+          <p className="text-lg md:text-xl font-medium text-slate-700 dark:text-slate-200 max-w-2xl mx-auto leading-relaxed">
             Każdy pakiet zaczyna się od 14 dni za darmo. Bez karty kredytowej. Bez zobowiązań.
           </p>
         </div>
@@ -656,7 +656,7 @@ export default function WorkshopLanding() {
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="text-center mb-10">
             <Badge variant="secondary" className="mb-3">FAQ</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">Najczęściej zadawane pytania</h2>
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">Najczęściej zadawane pytania</h2>
           </div>
           <div className="space-y-2">
             {faq.map((item, i) => (
@@ -665,11 +665,11 @@ export default function WorkshopLanding() {
                   className="w-full text-left p-5 flex items-center justify-between gap-3"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                 >
-                  <span className="font-semibold">{item.q}</span>
+                  <span className="font-bold text-base md:text-lg text-slate-900 dark:text-foreground">{item.q}</span>
                   <ChevronDown className={`h-5 w-5 shrink-0 transition-transform ${openFaq === i ? "rotate-180" : ""}`} />
                 </button>
                 {openFaq === i && (
-                  <div className="px-5 pb-5 text-sm text-muted-foreground">{item.a}</div>
+                  <div className="px-5 pb-5 text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">{item.a}</div>
                 )}
               </Card>
             ))}
@@ -684,10 +684,10 @@ export default function WorkshopLanding() {
             <img src={mascot} alt="" className="w-64" />
           </div>
           <CardContent className="relative p-8 md:p-14 text-center md:text-left max-w-2xl">
-            <h2 className="text-3xl md:text-4xl font-bold mb-3">
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">
               Zacznij oszczędzać czas już dziś
             </h2>
-            <p className="mb-6 opacity-90">
+            <p className="text-lg md:text-xl font-medium mb-6 opacity-95 leading-relaxed">
               14 dni za darmo, pełen dostęp do wszystkich funkcji. Bez karty, bez zobowiązań.
               Aktywacja zajmuje mniej niż minutę.
             </p>
