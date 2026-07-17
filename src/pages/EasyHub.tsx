@@ -54,6 +54,8 @@ import { useTranslation } from 'react-i18next';
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
+import heroAsset from "@/assets/hero-getrido.jpg.asset.json";
+
 import tileFleet from "@/assets/tile-fleet.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
@@ -154,15 +156,16 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
         )}
       </div>
 
-      {/* Text inside the card — visually attached */}
-      <div className="p-4 md:p-5">
-        <h3 className="font-extrabold text-base md:text-xl leading-tight text-foreground group-hover:text-primary transition-colors">
+      {/* Text inside the card — visually attached, high contrast */}
+      <div className="p-5 md:p-6">
+        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-slate-900 group-hover:text-primary transition-colors">
           {tile.title}
         </h3>
-        <p className="text-xs md:text-sm mt-1 line-clamp-2 text-muted-foreground">
+        <p className="text-base md:text-lg mt-2 line-clamp-2 text-slate-700 font-medium leading-snug">
           {tile.description}
         </p>
       </div>
+
     </div>
   );
 }
@@ -496,44 +499,39 @@ export default function EasyHub() {
         </div>
       </header>
 
-      {/* Hero Section - light purple like og-image, mascot next to title */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#f3edff] via-[#ece3ff] to-[#e2d4ff]">
-        {/* Decorative dots + rounded shapes like og-image */}
-        <div className="absolute top-6 left-6 grid grid-cols-4 gap-1.5 opacity-40 pointer-events-none">
-          {Array.from({ length: 16 }).map((_, i) => (
-            <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
-          ))}
-        </div>
-        <div className="absolute bottom-6 left-10 grid grid-cols-4 gap-1.5 opacity-30 pointer-events-none">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
-          ))}
-        </div>
-        <div className="absolute top-10 right-20 w-24 h-40 rounded-3xl bg-primary/15 -rotate-12 pointer-events-none hidden md:block" />
-        <div className="absolute bottom-10 right-10 w-28 h-44 rounded-3xl bg-primary/20 rotate-12 pointer-events-none hidden md:block" />
-
-        <div className="container mx-auto px-4 py-10 md:py-14 relative z-10">
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 max-w-5xl mx-auto text-center md:text-left">
+      {/* Hero Section - full og-image banner + tagline underneath */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#f3edff] to-[#e2d4ff]">
+        <div className="container mx-auto px-4 pt-6 md:pt-10 pb-8 md:pb-12">
+          {/* The og-image banner — mascot + GetRido title baked in, perfectly composed */}
+          <div className="max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-2xl ring-1 ring-primary/10">
             <img
-              src="/mascot-getrido.png"
-              alt="GetRido"
-              className="h-40 w-40 md:h-56 md:w-56 drop-shadow-2xl shrink-0 object-contain"
+              src={heroAsset.url}
+              alt="GetRido — Portal Ogłoszeń z AI, Nieruchomości, Motoryzacja, Usługi"
+              className="w-full h-auto block"
+              fetchPriority="high"
             />
+          </div>
 
-            <div>
-              <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold leading-none mb-3 tracking-tight">
-                <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
-              </h1>
-              <p className="text-lg md:text-2xl font-bold text-[#1a1450] leading-tight mb-2">
-                Wszystko czego potrzebujesz — w jednym miejscu
-              </p>
-              <p className="text-sm md:text-base text-[#1a1450]/70 font-medium">
-                Motoryzacja • Nieruchomości • Usługi • Marketplace
-              </p>
+          {/* Tagline below banner — single line, high contrast */}
+          <div className="max-w-5xl mx-auto mt-6 md:mt-8 text-center">
+            <p className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#1a1450] leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
+              Wszystko czego potrzebujesz — w jednym miejscu
+            </p>
+            {/* Category chips — highlighted so they don't blend in */}
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {['Motoryzacja', 'Nieruchomości', 'Usługi', 'Marketplace'].map((c) => (
+                <span
+                  key={c}
+                  className="inline-flex items-center rounded-full bg-white/80 backdrop-blur px-4 py-1.5 text-sm md:text-base font-bold text-primary shadow-sm ring-1 ring-primary/20"
+                >
+                  {c}
+                </span>
+              ))}
             </div>
           </div>
         </div>
       </section>
+
 
 
       {/* AI Search Bar - only enabled for owner emails */}
