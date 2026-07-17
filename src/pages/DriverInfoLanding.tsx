@@ -30,8 +30,16 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import tileDriver from "@/assets/tile-driver.jpg";
 import tileFleet from "@/assets/tile-fleet.jpg";
+import tileCars from "@/assets/tile-cars.jpg";
+import tileInvoicing from "@/assets/tile-invoicing.jpg";
+import tileClientPortal from "@/assets/tile-client-portal.jpg";
+import tileFaktury from "@/assets/accounting/tile-faktury.jpg";
+import tilePlatnosci from "@/assets/accounting/tile-platnosci.jpg";
+import tileDokumenty from "@/assets/accounting/tile-dokumenty.jpg";
+import tileMagazyn from "@/assets/accounting/tile-magazyn.jpg";
+import tilePrzeglad from "@/assets/accounting/tile-przeglad.jpg";
 
-const mascot = "/mascot-getrido.png";
+const mascot = "/ludzik-getrido.png";
 
 type Feature = { icon: any; title: string; description: string; img: string; ai?: boolean };
 
@@ -45,14 +53,14 @@ export default function DriverInfoLanding() {
   const handleRegister = () => { setLoginMode("register"); setShowLoginModal(true); };
 
   const features: Feature[] = [
-    { icon: Calculator, title: "Dokładne rozliczenia tygodniowe", description: "Zarobki z Uber, Bolt i FreeNow — szczegółowo, co tydzień, z pełną przejrzystością.", img: tileDriver },
-    { icon: Clock, title: "Wiesz, ile dostaniesz", description: "Rozliczenia gotowe każdego tygodnia — wiesz ile zarobisz zanim przyjdzie przelew.", img: tileDriver },
-    { icon: FileText, title: "Automatyczne faktury B2B", description: "System sam generuje faktury VAT dla Twojego partnera flotowego. Zero ręcznej pracy.", ai: true, img: tileDriver },
-    { icon: CreditCard, title: "Dokumenty do przelewu", description: "Gotowe zestawienia do wypłaty — bez dodatkowej pracy Twojej i partnera.", img: tileDriver },
-    { icon: Fuel, title: "Historia kart paliwowych", description: "Pełny wgląd w tankowania, koszty paliwa i oszczędności. Każda transakcja jak na dłoni.", img: tileFleet },
-    { icon: Wrench, title: "Historia napraw pojazdu", description: "Kompletna dokumentacja napraw, przeglądów i wymiany części — zawsze pod ręką.", img: tileFleet },
-    { icon: Receipt, title: "Wszystkie dokumenty w jednym miejscu", description: "Faktury, umowy, rozliczenia — uporządkowane i dostępne 24/7 z telefonu.", img: tileDriver },
-    { icon: BarChart3, title: "Statystyki i analizy", description: "Trendy zarobków, porównanie platform, optymalizacja pracy oparta na danych.", ai: true, img: tileDriver },
+    { icon: Calculator, title: "Dokładne rozliczenia tygodniowe", description: "Zarobki z Uber, Bolt i FreeNow — szczegółowo, co tydzień, z pełną przejrzystością.", img: tileInvoicing },
+    { icon: Clock, title: "Wiesz, ile dostaniesz", description: "Rozliczenia gotowe każdego tygodnia — wiesz ile zarobisz zanim przyjdzie przelew.", img: tilePrzeglad },
+    { icon: FileText, title: "Automatyczne faktury B2B", description: "System sam generuje faktury VAT dla Twojego partnera flotowego. Zero ręcznej pracy.", ai: true, img: tileFaktury },
+    { icon: CreditCard, title: "Dokumenty do przelewu", description: "Gotowe zestawienia do wypłaty — bez dodatkowej pracy Twojej i partnera.", img: tileDokumenty },
+    { icon: Fuel, title: "Historia kart paliwowych", description: "Pełny wgląd w tankowania, koszty paliwa i oszczędności. Każda transakcja jak na dłoni.", img: tilePlatnosci },
+    { icon: Wrench, title: "Historia napraw pojazdu", description: "Kompletna dokumentacja napraw, przeglądów i wymiany części — zawsze pod ręką.", img: tileCars },
+    { icon: Receipt, title: "Wszystkie dokumenty w jednym miejscu", description: "Faktury, umowy, rozliczenia — uporządkowane i dostępne 24/7 z telefonu.", img: tileClientPortal },
+    { icon: BarChart3, title: "Statystyki i analizy", description: "Trendy zarobków, porównanie platform, optymalizacja pracy oparta na danych.", ai: true, img: tileMagazyn },
   ];
 
   const wowStats = [
@@ -146,11 +154,8 @@ export default function DriverInfoLanding() {
               </div>
             </div>
 
-            <div className="order-1 md:order-2 flex justify-center">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-purple-500/20 blur-3xl rounded-full" />
-                <img src={mascot} alt="GetRido Kierowca" className="relative w-72 md:w-[26rem] lg:w-[32rem] drop-shadow-2xl" />
-              </div>
+            <div className="order-1 md:order-2 flex justify-center md:justify-end">
+              <img src={mascot} alt="GetRido Kierowca" className="w-64 md:w-[22rem] lg:w-[28rem] drop-shadow-2xl object-contain" />
             </div>
           </div>
 

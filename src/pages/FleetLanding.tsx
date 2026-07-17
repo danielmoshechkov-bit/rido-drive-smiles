@@ -27,8 +27,18 @@ import {
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import tileFleet from "@/assets/tile-fleet.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
+import tileCars from "@/assets/tile-cars.jpg";
+import tileMaps from "@/assets/tile-maps.jpg";
+import tileClientPortal from "@/assets/tile-client-portal.jpg";
+import tileInvoicing from "@/assets/tile-invoicing.jpg";
+import tileFaktury from "@/assets/accounting/tile-faktury.jpg";
+import tilePlatnosci from "@/assets/accounting/tile-platnosci.jpg";
+import tilePrzeglad from "@/assets/accounting/tile-przeglad.jpg";
+import tileSprawdzenia from "@/assets/accounting/tile-sprawdzenia.jpg";
+import tileDokumenty from "@/assets/accounting/tile-dokumenty.jpg";
+import tileMagazyn from "@/assets/accounting/tile-magazyn.jpg";
 
-const mascot = "/mascot-getrido.png";
+const mascot = "/ludzik-getrido.png";
 
 type Feature = { icon: any; title: string; description: string; img: string; ai?: boolean };
 
@@ -42,18 +52,18 @@ export default function FleetLanding() {
   }, []);
 
   const features: Feature[] = [
-    { icon: Calculator, title: "Automatyczne rozliczenia", description: "Import CSV z Uber/Bolt/FreeNow, tygodniowe rozliczenia z każdym kierowcą, historia płatności.", img: tileFleet, ai: true },
+    { icon: Calculator, title: "Automatyczne rozliczenia", description: "Import CSV z Uber/Bolt/FreeNow, tygodniowe rozliczenia z każdym kierowcą, historia płatności.", img: tileInvoicing, ai: true },
     { icon: Users, title: "Kierowcy i umowy", description: "Baza kierowców z umowami najmu, historia wynajmu, generator dokumentów.", img: tileDriver },
-    { icon: Car, title: "Pojazdy i historia napraw", description: "Pełna dokumentacja serwisowa każdego auta — zawsze udowodnisz co i kiedy było robione.", img: tileFleet },
-    { icon: FileText, title: "Dokumenty w chmurze", description: "OC, przeglądy, dowody rejestracyjne, umowy — zawsze pod ręką, nigdy nie zgubisz.", img: tileFleet },
-    { icon: Bell, title: "Przypomnienia OC/przeglądów", description: "Nigdy nie zapomnisz o przeglądzie, ubezpieczeniu czy końcu umowy z kierowcą.", img: tileFleet },
-    { icon: Shield, title: "Oferty OC/AC od agentów", description: "Gdy zbliża się koniec OC, agenci z całej Polski konkurują o Twoje zlecenie. Średnio 15% oszczędności.", img: tileFleet },
-    { icon: Fuel, title: "Karty paliwowe", description: "Import transakcji, mapowanie do kierowców i pojazdów, kontrola nadużyć.", img: tileDriver },
-    { icon: Wallet, title: "Długi i wpłaty kierowców", description: "Automatyczne opening_debt, historia rozliczeń, transparentne salda tygodniowe.", img: tileFleet },
-    { icon: Receipt, title: "B2B faktury dla kierowców", description: "System sam generuje faktury VAT dla kierowców-B2B (JDG) — zero ręcznej pracy.", img: tileDriver, ai: true },
-    { icon: BarChart3, title: "Statystyki i rentowność", description: "Przychody, koszty, marża na każdym aucie — decyzje oparte na danych, nie na przeczuciu.", img: tileFleet },
+    { icon: Car, title: "Pojazdy i historia napraw", description: "Pełna dokumentacja serwisowa każdego auta — zawsze udowodnisz co i kiedy było robione.", img: tileCars },
+    { icon: FileText, title: "Dokumenty w chmurze", description: "OC, przeglądy, dowody rejestracyjne, umowy — zawsze pod ręką, nigdy nie zgubisz.", img: tileDokumenty },
+    { icon: Bell, title: "Przypomnienia OC/przeglądów", description: "Nigdy nie zapomnisz o przeglądzie, ubezpieczeniu czy końcu umowy z kierowcą.", img: tilePrzeglad },
+    { icon: Shield, title: "Oferty OC/AC od agentów", description: "Gdy zbliża się koniec OC, agenci z całej Polski konkurują o Twoje zlecenie. Średnio 15% oszczędności.", img: tileSprawdzenia },
+    { icon: Fuel, title: "Karty paliwowe", description: "Import transakcji, mapowanie do kierowców i pojazdów, kontrola nadużyć.", img: tilePlatnosci },
+    { icon: Wallet, title: "Długi i wpłaty kierowców", description: "Automatyczne opening_debt, historia rozliczeń, transparentne salda tygodniowe.", img: tileMagazyn },
+    { icon: Receipt, title: "B2B faktury dla kierowców", description: "System sam generuje faktury VAT dla kierowców-B2B (JDG) — zero ręcznej pracy.", img: tileFaktury, ai: true },
+    { icon: BarChart3, title: "Statystyki i rentowność", description: "Przychody, koszty, marża na każdym aucie — decyzje oparte na danych, nie na przeczuciu.", img: tileMaps },
     { icon: Clock, title: "Koniec z Excelem", description: "Wszystko w jednym miejscu — koniec z papierologią i 20 arkuszami kalkulacyjnymi.", img: tileFleet },
-    { icon: Building2, title: "Partnerzy i podflocy", description: "Zarządzanie partnerami flotowymi z izolacją danych i osobnymi rozliczeniami.", img: tileFleet },
+    { icon: Building2, title: "Partnerzy i podflocy", description: "Zarządzanie partnerami flotowymi z izolacją danych i osobnymi rozliczeniami.", img: tileClientPortal },
   ];
 
   const wowStats = [
@@ -144,11 +154,8 @@ export default function FleetLanding() {
               </div>
             </div>
 
-            <div className="order-1 md:order-2 flex justify-center">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-purple-500/20 blur-3xl rounded-full" />
-                <img src={mascot} alt="GetRido Fleet" className="relative w-72 md:w-[26rem] lg:w-[32rem] drop-shadow-2xl" />
-              </div>
+            <div className="order-1 md:order-2 flex justify-center md:justify-end">
+              <img src={mascot} alt="GetRido Fleet" className="w-64 md:w-[22rem] lg:w-[28rem] drop-shadow-2xl object-contain" />
             </div>
           </div>
 
