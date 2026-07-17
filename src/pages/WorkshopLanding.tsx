@@ -283,19 +283,24 @@ export default function WorkshopLanding() {
                 Nowość · tego nie ma nikt inny
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {wowStats.map((s, i) => (
-                <div key={i} className="relative text-left p-4 rounded-2xl bg-card border-2 border-primary/20 hover:border-primary/50 backdrop-blur-sm shadow-md hover:shadow-lg transition-all">
-                  <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-primary to-purple-600 text-white border-0 text-[10px] px-2 py-0.5">
-                    {s.badge}
-                  </Badge>
-                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center mb-2">
-                    <s.icon className="h-5 w-5 text-white" />
+                <div key={i} className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-purple-950 border border-primary/30 shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all">
+                  <div className="absolute -top-16 -right-16 h-40 w-40 rounded-full bg-primary/20 blur-3xl group-hover:bg-primary/30 transition-colors" />
+                  <div className="relative p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center shadow-lg shadow-primary/30">
+                        <s.icon className="h-6 w-6 text-white" />
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-primary-foreground bg-primary/90 px-2.5 py-1 rounded-full">
+                        {s.badge}
+                      </span>
+                    </div>
+                    <div className="text-lg font-extrabold text-white leading-tight mb-2">
+                      {s.value}
+                    </div>
+                    <div className="text-sm text-slate-300 leading-relaxed">{s.label}</div>
                   </div>
-                  <div className="text-sm md:text-base font-bold text-foreground leading-tight mb-1">
-                    {s.value}
-                  </div>
-                  <div className="text-xs text-muted-foreground leading-snug">{s.label}</div>
                 </div>
               ))}
             </div>
