@@ -506,91 +506,73 @@ export default function EasyHub() {
         </div>
       </header>
 
-      {/* Hero - clean white bg, mascot png + real text (no baked banner) */}
+      {/* Hero - big GetRido title, mascot tall next to it, search bar tucked under tagline */}
       <section className="relative overflow-hidden bg-white border-b border-border/40">
-        {/* subtle decorative shapes */}
-        <div className="absolute top-8 left-8 grid grid-cols-5 gap-1.5 opacity-30 pointer-events-none">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/50" />
-          ))}
-        </div>
-        <div className="absolute bottom-8 right-16 w-28 h-40 rounded-3xl bg-primary/10 rotate-12 pointer-events-none hidden md:block" />
-        <div className="absolute top-16 right-8 w-20 h-32 rounded-3xl bg-primary/15 -rotate-6 pointer-events-none hidden md:block" />
-
-        <div className="container mx-auto px-4 py-8 md:py-14 relative z-10">
-          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 max-w-5xl mx-auto">
-            {/* Mascot */}
+        <div className="container mx-auto px-4 py-6 md:py-10 relative z-10">
+          <div className="flex flex-row items-stretch justify-center gap-4 sm:gap-6 md:gap-10 max-w-6xl mx-auto">
+            {/* Mascot - matches text block height */}
             <img
               src="/mascot-getrido.png"
               alt="GetRido"
-              className="h-40 w-40 sm:h-52 sm:w-52 md:h-72 md:w-72 shrink-0 object-contain drop-shadow-xl"
+              className="w-28 sm:w-40 md:w-64 lg:w-80 shrink-0 object-contain object-bottom self-stretch drop-shadow-xl"
             />
 
-            {/* Text block */}
-            <div className="text-center md:text-left flex-1">
-              <h1 className="font-extrabold leading-none tracking-tight mb-4 text-[clamp(3rem,10vw,7rem)]">
+            {/* Text + search stack */}
+            <div className="flex-1 flex flex-col justify-center min-w-0">
+              <h1 className="font-extrabold leading-[0.9] tracking-tight text-[clamp(2.5rem,12vw,9rem)]">
                 <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
               </h1>
-              <p className="text-lg sm:text-xl md:text-2xl font-bold text-[#1a1450] leading-tight mb-4">
+              <p className="mt-2 md:mt-3 text-base sm:text-xl md:text-2xl lg:text-3xl font-bold text-[#1a1450] leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
                 Wszystko czego potrzebujesz — <span className="text-primary">w jednym miejscu</span>
               </p>
-              <p className="text-sm sm:text-base md:text-lg text-slate-600 font-medium">
+              <p className="mt-1 md:mt-2 text-xs sm:text-sm md:text-base text-slate-600 font-medium">
                 Portal Ogłoszeń z <span className="text-primary font-bold">AI</span> • Nieruchomości • Motoryzacja • Usługi
               </p>
+
+              {/* Search bar directly under tagline */}
+              <div id="kategorie" className="relative mt-3 md:mt-5 w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder={hasServicesAccess ? t('home.searchPlaceholder') : t('home.searchPlaceholderDisabled')}
+                  value={searchQuery}
+                  onChange={(e) => hasServicesAccess && setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && hasServicesAccess && handleSearch()}
+                  disabled={!hasServicesAccess}
+                  className="pl-12 pr-24 h-11 md:h-14 text-sm md:text-base rounded-full border-2 border-primary/20 focus:border-primary shadow-lg disabled:opacity-60 disabled:cursor-not-allowed bg-white"
+                />
+                {hasServicesAccess ? (
+                  searchQuery.trim() ? (
+                    <Button
+                      onClick={handleSearch}
+                      disabled={isSearching}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-3 md:px-6 text-xs md:text-sm"
+                    >
+                      {isSearching ? "..." : t('home.searchBtn')}
+                    </Button>
+                  ) : (
+                    <SearchCategoryModal
+                      trigger={
+                        <Button className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-3 md:px-6 text-xs md:text-sm">
+                          {t('home.searchBtn')}
+                        </Button>
+                      }
+                    />
+                  )
+                ) : (
+                  <Button
+                    disabled
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-3 md:px-6 text-xs md:text-sm opacity-60"
+                  >
+                    {t('home.soon')}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-
-
-
-
-      {/* AI Search Bar - only enabled for owner emails */}
-      <section id="kategorie" className="container mx-auto px-4 py-8 md:py-10">
-        <div className="max-w-2xl mx-auto">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder={hasServicesAccess ? t('home.searchPlaceholder') : t('home.searchPlaceholderDisabled')}
-              value={searchQuery}
-              onChange={(e) => hasServicesAccess && setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && hasServicesAccess && handleSearch()}
-              disabled={!hasServicesAccess}
-              className="pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
-            />
-            {hasServicesAccess ? (
-              searchQuery.trim() ? (
-                <Button
-                  onClick={handleSearch}
-                  disabled={isSearching}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
-                >
-                  {isSearching ? "..." : t('home.searchBtn')}
-                </Button>
-              ) : (
-                <SearchCategoryModal
-                  trigger={
-                    <Button
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
-                    >
-                      {t('home.searchBtn')}
-                    </Button>
-                  }
-                />
-              )
-            ) : (
-              <Button
-                disabled
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6 opacity-60"
-              >
-                {t('home.soon')}
-              </Button>
-            )}
-          </div>
-        </div>
-      </section>
 
 
       {/* Category Navigation / Back Button */}
