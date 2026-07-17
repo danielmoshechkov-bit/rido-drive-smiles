@@ -241,29 +241,29 @@ export default function VehicleDetailPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Rezerwacja online — renderuje się TYLKO dla ofert wynajmu z modułu (RPC mapped). Sprzedaż/zwykłe: nic. */}
             <RentalReserveWidget listingId={listing.id} transactionType={listing.transactionType} />
-            <div>
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-slate-100">
               <div className="flex items-start justify-between gap-4 mb-2">
-                <h1 className="text-2xl md:text-3xl font-bold">
+                <h1 className="text-2xl md:text-3xl font-extrabold text-primary leading-tight">
                   {translatedTitle}
                 </h1>
                 {listing.transactionType && (
-                  <Badge style={{ backgroundColor: listing.transactionColor }} className="text-white shrink-0">
+                  <Badge style={{ backgroundColor: listing.transactionColor }} className="text-white shrink-0 font-bold">
                     {listing.transactionType}
                   </Badge>
                 )}
               </div>
               
               <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-3xl md:text-4xl font-bold text-primary">
+                <span className="text-3xl md:text-4xl font-extrabold text-primary">
                   {listing.price?.toLocaleString('pl-PL')} zł
                 </span>
-                <span className="text-lg text-muted-foreground">
+                <span className="text-lg text-slate-700 font-semibold">
                   {PRICE_TYPE_LABELS[listing.priceType || 'sale']}
                 </span>
               </div>
 
               {listing.location && (
-                <div className="flex items-center gap-2 mt-4 text-muted-foreground">
+                <div className="flex items-center gap-2 mt-4 text-slate-800 font-semibold">
                   <MapPin className="h-5 w-5 text-primary" />
                   <span>{listing.location}</span>
                 </div>
@@ -272,19 +272,19 @@ export default function VehicleDetailPage() {
               {/* Verification badges */}
               <div className="flex gap-2 flex-wrap mt-4">
                 {listing.isVerified && (
-                  <Badge className="bg-green-500 hover:bg-green-600 text-white gap-1">
+                  <Badge className="bg-green-500 hover:bg-green-600 text-white gap-1 font-semibold">
                     <ShieldCheck className="h-3 w-3" />
                     Dane zweryfikowane
                   </Badge>
                 )}
                 {listing.insuranceValid && (
-                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
+                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1 font-semibold">
                     <FileCheck className="h-3 w-3" />
                     Ważna polisa
                   </Badge>
                 )}
                 {listing.inspectionValid && (
-                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
+                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1 font-semibold">
                     <FileCheck className="h-3 w-3" />
                     Przegląd OK
                   </Badge>
@@ -293,11 +293,11 @@ export default function VehicleDetailPage() {
 
               {/* VIN reveal */}
               {listing.vin && (
-                <div className="flex items-center gap-3 mt-4 p-3 bg-muted/50 rounded-lg">
-                  <Key className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">VIN:</span>
+                <div className="flex items-center gap-3 mt-4 p-3 bg-primary/5 rounded-xl border border-primary/20">
+                  <Key className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-semibold text-slate-700">VIN:</span>
                   {showVin ? (
-                    <span className="font-mono text-sm font-medium">{listing.vin}</span>
+                    <span className="font-mono text-sm font-bold text-slate-900">{listing.vin}</span>
                   ) : (
                     <Button variant="outline" size="sm" onClick={handleShowVin}>
                       Pokaż VIN
