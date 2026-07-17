@@ -219,7 +219,8 @@ export default function WorkshopLanding() {
               </Badge>
 
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-5 leading-tight">
-                Warsztat i detailing<br />
+                <span className="whitespace-nowrap">Warsztat i detailing</span>
+                <br />
                 <span className="bg-gradient-to-r from-primary via-purple-600 to-primary bg-clip-text text-transparent">
                   pod pełną kontrolą
                 </span>
@@ -265,7 +266,7 @@ export default function WorkshopLanding() {
                 <img
                   src={mascotMechanic}
                   alt="GetRido mechanik"
-                  className="relative w-56 md:w-80 lg:w-96 drop-shadow-2xl"
+                  className="relative w-72 md:w-[26rem] lg:w-[32rem] drop-shadow-2xl"
                 />
               </div>
             </div>
@@ -349,14 +350,14 @@ export default function WorkshopLanding() {
                   )}
                 </div>
 
-                <div className="p-5 bg-white dark:bg-card border-t">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-5 w-5" />
+                <div className="p-6 bg-white dark:bg-card border-t">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                      <Icon className="h-6 w-6" />
                     </div>
-                    <h3 className="font-extrabold text-lg md:text-xl text-slate-900 dark:text-foreground">{feature.title}</h3>
+                    <h3 className="font-extrabold text-xl md:text-2xl text-slate-900 dark:text-foreground leading-tight">{feature.title}</h3>
                   </div>
-                  <p className="text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">{feature.description}</p>
+                  <p className="text-lg md:text-xl font-semibold text-slate-800 dark:text-slate-100 leading-snug">{feature.description}</p>
                 </div>
               </div>
             );
