@@ -295,10 +295,10 @@ export default function WorkshopLanding() {
                         {s.badge}
                       </span>
                     </div>
-                    <div className="text-lg font-extrabold text-white leading-tight mb-2">
+                    <div className="text-xl md:text-2xl font-extrabold text-white leading-tight mb-2">
                       {s.value}
                     </div>
-                    <div className="text-sm text-slate-300 leading-relaxed">{s.label}</div>
+                    <div className="text-base font-medium text-slate-200 leading-relaxed">{s.label}</div>
                   </div>
                 </div>
               ))}
