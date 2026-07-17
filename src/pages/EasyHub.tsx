@@ -513,12 +513,12 @@ export default function EasyHub() {
             <img
               src="/ludzik-getrido.png"
               alt="GetRido"
-              className="w-28 sm:w-40 md:w-64 lg:w-80 shrink-0 object-contain object-bottom self-stretch drop-shadow-xl"
+              className="w-32 sm:w-48 md:w-72 lg:w-96 shrink-0 object-contain object-bottom self-stretch drop-shadow-xl"
             />
 
             {/* Text + search stack */}
             <div className="flex-1 flex flex-col justify-center min-w-0">
-              <h1 className="font-extrabold leading-[0.85] tracking-tight text-[clamp(3.5rem,15vw,11rem)]">
+              <h1 className="font-extrabold leading-[0.9] tracking-tight text-[clamp(2.5rem,9vw,7rem)]">
                 <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
               </h1>
               <p className="mt-2 md:mt-3 text-sm sm:text-base md:text-lg lg:text-xl font-semibold text-[#1a1450] leading-snug">
