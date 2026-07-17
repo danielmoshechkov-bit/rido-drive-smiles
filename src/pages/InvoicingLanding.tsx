@@ -152,11 +152,8 @@ export default function InvoicingLanding() {
               </div>
             </div>
 
-            <div className="order-1 md:order-2 flex justify-center">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-purple-500/20 blur-3xl rounded-full" />
-                <img src={mascot} alt="GetRido" className="relative w-72 md:w-[26rem] lg:w-[32rem] drop-shadow-2xl" />
-              </div>
+            <div className="order-1 md:order-2 flex justify-center md:justify-end">
+              <img src={mascot} alt="GetRido" className="w-64 md:w-[22rem] lg:w-[28rem] drop-shadow-2xl object-contain" />
             </div>
           </div>
 
