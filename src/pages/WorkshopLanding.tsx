@@ -352,11 +352,11 @@ export default function WorkshopLanding() {
                 <div className="p-5 bg-white dark:bg-card border-t">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-5 w-5" />
                     </div>
-                    <h3 className="font-bold text-base md:text-lg text-slate-900 dark:text-foreground">{feature.title}</h3>
+                    <h3 className="font-extrabold text-lg md:text-xl text-slate-900 dark:text-foreground">{feature.title}</h3>
                   </div>
-                  <p className="text-sm text-slate-700 dark:text-muted-foreground leading-relaxed">{feature.description}</p>
+                  <p className="text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">{feature.description}</p>
                 </div>
               </div>
             );
