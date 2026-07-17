@@ -500,7 +500,7 @@ export function PropertyListingCard({
       <Card 
         ref={cardRef}
         className={cn(
-          "relative overflow-visible group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer h-full flex flex-col",
+          "relative overflow-visible group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-0 shadow-md cursor-pointer h-full flex flex-col rounded-2xl",
           showContact && "z-20",
           isSelectedForCompare && "ring-2 ring-primary"
         )}
@@ -509,7 +509,7 @@ export function PropertyListingCard({
         {/* Photo Gallery - clicking opens lightbox */}
         <div 
           className={cn(
-            "relative bg-muted overflow-hidden",
+            "relative bg-muted overflow-hidden rounded-t-2xl",
             compact ? "aspect-[3/2]" : "aspect-[4/3]"
           )}
           onClick={handlePhotoClick}
