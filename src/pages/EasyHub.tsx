@@ -132,42 +132,49 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
   return (
     <div
       className={cn(
-        "group cursor-pointer transition-all duration-300 rounded-2xl overflow-hidden bg-card border border-border shadow-md hover:shadow-xl hover:-translate-y-1",
+        "group cursor-pointer transition-all duration-300 rounded-2xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 relative aspect-[4/3]",
         !tile.available && "opacity-60 cursor-not-allowed"
       )}
       onClick={() => tile.available && onClick()}
     >
-      {/* Image on top */}
-      <div className="relative overflow-hidden aspect-[16/9] bg-muted">
-        {tile.id === 'rido-ai' ? (
-          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
-        ) : tile.image ? (
-          <div
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-            style={{ backgroundImage: `url(${tile.image})` }}
-          />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
-        )}
-        {!tile.available && (
-          <Badge className="absolute top-2 right-2 text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
-            {t('home.soon')}
-          </Badge>
-        )}
+      {/* Background image full-bleed */}
+      {tile.id === 'rido-ai' ? (
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
+      ) : tile.image ? (
+        <div
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+          style={{ backgroundImage: `url(${tile.image})` }}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
+      )}
+
+      {/* Dark gradient bottom overlay for text legibility */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+
+      {/* Hover arrow */}
+      <div className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <ArrowRight className="h-4 w-4 text-[#1a1450]" />
       </div>
 
-      {/* Text inside the card — visually attached, high contrast */}
-      <div className="p-5 md:p-6">
-        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-slate-900 group-hover:text-primary transition-colors">
+      {!tile.available && (
+        <Badge className="absolute top-3 left-3 text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
+          {t('home.soon')}
+        </Badge>
+      )}
+
+      {/* Text overlay */}
+      <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
+        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-white drop-shadow-md">
           {tile.title}
         </h3>
-        <p className="text-base md:text-lg mt-2 line-clamp-2 text-slate-700 font-medium leading-snug">
+        <p className="text-sm md:text-base mt-1.5 line-clamp-2 text-white/90 font-medium leading-snug drop-shadow">
           {tile.description}
         </p>
       </div>
-
     </div>
   );
+
 }
 
 
