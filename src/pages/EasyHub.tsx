@@ -164,7 +164,7 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
 
       {/* White caption below */}
       <div className="px-4 py-4 md:px-5 md:py-4 bg-white flex-1 flex flex-col justify-center">
-        <h3 className="font-extrabold text-lg md:text-xl leading-tight text-slate-900">
+        <h3 className="font-extrabold text-lg md:text-xl leading-tight text-primary">
           {tile.title}
         </h3>
         <p className="text-sm md:text-base mt-1.5 text-slate-700 font-semibold leading-snug line-clamp-2">
