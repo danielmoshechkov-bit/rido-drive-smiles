@@ -104,18 +104,18 @@ export function VehicleSpecsTable({ listing }: VehicleSpecsTableProps) {
   if (specs.length === 0) return null;
 
   return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Specyfikacja</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div className="bg-white rounded-2xl shadow-md p-6 border border-slate-100">
+      <h2 className="text-xl font-extrabold text-primary mb-4">Specyfikacja</h2>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {specs.map((spec, idx) => (
           <div 
             key={idx} 
-            className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
+            className="flex items-start gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors"
           >
             <spec.icon className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-xs text-muted-foreground">{spec.label}</p>
-              <p className="font-medium text-sm">{spec.value}</p>
+            <div className="min-w-0">
+              <p className="text-xs text-slate-600 font-semibold uppercase tracking-wide">{spec.label}</p>
+              <p className="font-extrabold text-sm text-slate-900 truncate">{spec.value}</p>
             </div>
           </div>
         ))}
