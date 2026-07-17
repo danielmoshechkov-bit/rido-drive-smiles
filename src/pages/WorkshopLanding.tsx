@@ -409,8 +409,8 @@ export default function WorkshopLanding() {
                   </div>
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold mb-1">{m.title}</h3>
-                  <p className="text-sm text-muted-foreground">{m.text}</p>
+                  <h3 className="font-extrabold text-lg mb-1 text-slate-900 dark:text-foreground">{m.title}</h3>
+                  <p className="text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">{m.text}</p>
                 </div>
               </div>
             ))}
