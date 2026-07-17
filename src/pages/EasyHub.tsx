@@ -132,42 +132,49 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
   return (
     <div
       className={cn(
-        "group cursor-pointer transition-all duration-300 rounded-2xl overflow-hidden bg-card border border-border shadow-md hover:shadow-xl hover:-translate-y-1",
+        "group cursor-pointer transition-all duration-300 rounded-2xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 relative aspect-[4/3]",
         !tile.available && "opacity-60 cursor-not-allowed"
       )}
       onClick={() => tile.available && onClick()}
     >
-      {/* Image on top */}
-      <div className="relative overflow-hidden aspect-[16/9] bg-muted">
-        {tile.id === 'rido-ai' ? (
-          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
-        ) : tile.image ? (
-          <div
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-            style={{ backgroundImage: `url(${tile.image})` }}
-          />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
-        )}
-        {!tile.available && (
-          <Badge className="absolute top-2 right-2 text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
-            {t('home.soon')}
-          </Badge>
-        )}
+      {/* Background image full-bleed */}
+      {tile.id === 'rido-ai' ? (
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
+      ) : tile.image ? (
+        <div
+          className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+          style={{ backgroundImage: `url(${tile.image})` }}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
+      )}
+
+      {/* Dark gradient bottom overlay for text legibility */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+
+      {/* Hover arrow */}
+      <div className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <ArrowRight className="h-4 w-4 text-[#1a1450]" />
       </div>
 
-      {/* Text inside the card — visually attached, high contrast */}
-      <div className="p-5 md:p-6">
-        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-slate-900 group-hover:text-primary transition-colors">
+      {!tile.available && (
+        <Badge className="absolute top-3 left-3 text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
+          {t('home.soon')}
+        </Badge>
+      )}
+
+      {/* Text overlay */}
+      <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
+        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-white drop-shadow-md">
           {tile.title}
         </h3>
-        <p className="text-base md:text-lg mt-2 line-clamp-2 text-slate-700 font-medium leading-snug">
+        <p className="text-sm md:text-base mt-1.5 line-clamp-2 text-white/90 font-medium leading-snug drop-shadow">
           {tile.description}
         </p>
       </div>
-
     </div>
   );
+
 }
 
 
@@ -499,30 +506,29 @@ export default function EasyHub() {
         </div>
       </header>
 
-      {/* Hero Section - full og-image banner + tagline underneath */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#f3edff] to-[#e2d4ff]">
-        <div className="container mx-auto px-4 pt-6 md:pt-10 pb-8 md:pb-12">
-          {/* The og-image banner — mascot + GetRido title baked in, perfectly composed */}
-          <div className="max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-2xl ring-1 ring-primary/10">
+      {/* Hero Section - og-image blended into page (no card wrapper) */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#f5efff] via-[#efe5ff] to-[#e6d7ff]">
+        <div className="container mx-auto px-4 pt-4 md:pt-6 pb-8 md:pb-12">
+          {/* Banner image — no border/shadow, blends into the light-purple background */}
+          <div className="max-w-5xl mx-auto -mb-4 md:-mb-8">
             <img
               src={heroAsset.url}
               alt="GetRido — Portal Ogłoszeń z AI, Nieruchomości, Motoryzacja, Usługi"
-              className="w-full h-auto block"
+              className="w-full h-auto block mix-blend-multiply"
               fetchPriority="high"
             />
           </div>
 
-          {/* Tagline below banner — single line, high contrast */}
-          <div className="max-w-5xl mx-auto mt-6 md:mt-8 text-center">
-            <p className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#1a1450] leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
-              Wszystko czego potrzebujesz — w jednym miejscu
+          {/* Tagline right under GetRido, single line, integrated */}
+          <div className="max-w-5xl mx-auto text-center relative z-10">
+            <p className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#1a1450] leading-tight">
+              Wszystko czego potrzebujesz — <span className="text-primary">w jednym miejscu</span>
             </p>
-            {/* Category chips — highlighted so they don't blend in */}
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               {['Motoryzacja', 'Nieruchomości', 'Usługi', 'Marketplace'].map((c) => (
                 <span
                   key={c}
-                  className="inline-flex items-center rounded-full bg-white/80 backdrop-blur px-4 py-1.5 text-sm md:text-base font-bold text-primary shadow-sm ring-1 ring-primary/20"
+                  className="inline-flex items-center rounded-full bg-white px-4 py-1.5 text-sm md:text-base font-bold text-primary shadow-sm ring-1 ring-primary/20"
                 >
                   {c}
                 </span>
@@ -531,6 +537,7 @@ export default function EasyHub() {
           </div>
         </div>
       </section>
+
 
 
 
