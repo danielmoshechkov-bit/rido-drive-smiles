@@ -288,7 +288,7 @@ export function PropertyListingCard({
         <Card 
           ref={cardRef}
           className={cn(
-            "relative overflow-visible group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer",
+            "relative overflow-hidden group hover:shadow-xl transition-all duration-300 border-0 shadow-md cursor-pointer rounded-2xl",
             showContact && "z-20",
             isSelectedForCompare && "ring-2 ring-primary"
           )}
