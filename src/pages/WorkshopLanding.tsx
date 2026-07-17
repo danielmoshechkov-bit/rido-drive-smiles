@@ -26,9 +26,13 @@ import {
   TrendingUp,
   Droplets,
   Phone,
+  PhoneCall,
   Megaphone,
   Star,
   ChevronDown,
+  History,
+  FileText,
+  Store,
 } from "lucide-react";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
@@ -47,9 +51,9 @@ import tilePracownicy from "@/assets/workshop/tile-pracownicy.jpg";
 import tileKsef from "@/assets/accounting/tile-ksef.jpg";
 import tileFaktury from "@/assets/accounting/tile-faktury.jpg";
 
-const mascot = "/ludzik-getrido.png";
-const mascotMechanic = "/mascot-mechanic.png";
-const mascotDetailer = "/mascot-detailer.png";
+const mascot = "/mascot-getrido.png";
+const mascotMechanic = "/mascot-getrido.png";
+const mascotDetailer = "/mascot-getrido.png";
 
 type Feature = {
   icon: any;
@@ -116,24 +120,24 @@ export default function WorkshopLanding() {
   };
 
   const features: Feature[] = [
-    { icon: Calendar, title: "Terminarz online", description: "Inteligentny kalendarz ze stanowiskami i automatycznymi SMS-ami (24h i 2h przed wizytą).", img: tileTerminarz },
     { icon: Wrench, title: "Zlecenia i kosztorysy", description: "Pełna obsługa zlecenia – od przyjęcia auta, przez wycenę, po wydanie. Podpis cyfrowy klienta.", img: tileZlecenia },
     { icon: Brain, title: "Wyceny AI", description: "Inteligentne sugestie cen części i robocizny na bazie tysięcy historycznych zleceń.", ai: true, img: tileDaneNaprawcze },
+    { icon: PhoneCall, title: "Wirtualny asystent AI", description: "Odbiera telefon, prowadzi rozmowę, umawia klienta w Twoim terminarzu i zapisuje skrypt — działa 24/7, kiedy jesteś zajęty.", ai: true, img: tileKlienci },
+    { icon: Calendar, title: "Inteligentna rezerwacja", description: "Kalendarz ze stanowiskami, auto-SMS 24h i 2h przed wizytą, link ICS do kalendarza klienta.", img: tileTerminarz },
+    { icon: History, title: "Historia napraw i dokumentów", description: "Każde auto ma pełną historię: zlecenia, części, faktury zakupowe. Koniec ze sporami — zawsze udowodnisz co i kiedy było robione.", img: tilePojazdy },
+    { icon: Store, title: "Portal usług GetRido — nowi klienci", description: "Twój warsztat trafia do klientów szukających usług na portalu GetRido. Dostajesz leady, których wcześniej nie miałeś.", img: tileSprzedaz },
     { icon: Search, title: "Sprawdzanie aut po nr rej.", description: "VIN, model, pojemność, moc, rok — automatycznie z RegCheck jednym kliknięciem.", ai: true, img: tilePojazdy },
     { icon: Package, title: "Magazyn części z OCR", description: "Skanuj faktury zakupowe — AI rozpoznaje pozycje i aktualizuje magazyn.", ai: true, img: tileMagazyn },
-    { icon: MessageSquare, title: "SMS do klientów", description: "Powiadomienia o gotowości, przypomnienia, ankiety satysfakcji. Własny nadawca.", img: tileKlienci },
     { icon: Camera, title: "Zdjęcia przyjęcia auta", description: "Dokumentacja stanu pojazdu przy odbiorze – zabezpieczenie przed reklamacjami.", img: tileWorkshop },
     { icon: Receipt, title: "Faktury i KSeF", description: "Integracja z modułem księgowym – jednym kliknięciem wystawiasz fakturę FA(3).", img: tileFaktury },
     { icon: Droplets, title: "Detailing & PPF", description: "Dedykowane workflow dla studiów detailingu, ceramiki i folii ochronnych.", img: tileDetailing },
     { icon: TrendingUp, title: "Analiza rentowności", description: "Marże, czasy pracy mechaników, najlepsi klienci – pełne statystyki biznesu.", img: tileRaporty },
     { icon: Users, title: "Pracownicy i uprawnienia", description: "Rozliczaj mechaników z 15-minutową dokładnością. Role, dostęp, prowizje.", img: tilePracownicy },
-    { icon: Receipt, title: "Sprzedaż warsztatowa", description: "Paragony, faktury B2B/B2C, kasa fiskalna online. Cała sprzedaż w jednym miejscu.", img: tileSprzedaz },
   ];
 
   const soonFeatures = [
     { icon: Package, title: "Auto-zamówienia z hurtowni", description: "Zamawianie części Inter Cars, Hart, Auto Partner jednym klikiem." },
-    { icon: MessageSquare, title: "Transkrypcja rozmów AI", description: "Automatyczne podsumowania rozmów telefonicznych z klientami." },
-    { icon: Phone, title: "AI asystent telefoniczny", description: "AI odbiera połączenia, umawia wizyty i odpowiada na pytania." },
+    { icon: FileText, title: "Skrypty rozmów AI w bazie", description: "Każda rozmowa asystenta zapisana i transkrybowana — sprawdzisz co obiecał klient." },
     { icon: Megaphone, title: "AI asystent reklamowy", description: "Generuje kampanie Meta/Google Ads i optymalizuje budżet." },
   ];
 
@@ -144,11 +148,12 @@ export default function WorkshopLanding() {
     { icon: Users, text: "Bez limitu klientów" },
   ];
 
-  const stats = [
-    { value: "10h", label: "oszczędności tygodniowo" },
-    { value: "3 min", label: "od przyjęcia do wyceny" },
-    { value: "98%", label: "SMS-ów doręczonych" },
-    { value: "0 zł", label: "za pierwsze 14 dni" },
+  // "Efekt WOW" — to nas wyróżnia, nie suche procenty
+  const wowStats = [
+    { icon: PhoneCall, badge: "NOWOŚĆ", value: "Wirtualny asystent AI", label: "Odbiera telefon, umawia klienta, prowadzi rozmowę — 24/7." },
+    { icon: Store, badge: "TYLKO U NAS", value: "Portal klientów GetRido", label: "Dostarczamy Ci klientów z naszego portalu usług." },
+    { icon: History, badge: "KONIEC SPORÓW", value: "Historia napraw i faktur", label: "Zawsze sprawdzisz co, kiedy i z jakiej faktury poszło w auto." },
+    { icon: FileText, badge: "AI", value: "Skrypty rozmów zapisane", label: "Nagrania i transkrypcje rozmów zawsze pod ręką." },
   ];
 
   const testimonials = [
