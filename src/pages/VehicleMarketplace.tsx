@@ -460,52 +460,59 @@ export default function VehicleMarketplace() {
         </div>
       </header>
 
-      {/* Hero Section with Background */}
-      <section className="relative overflow-hidden">
-        {/* Background Image with Overlay */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroImage})` }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/80 to-background" />
-        </div>
+      {/* Hero Section — modern premium AI portal */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-primary/10 border-b border-primary/10">
+        {/* Decorative blobs */}
+        <div className="pointer-events-none absolute -top-24 -left-24 w-96 h-96 rounded-full bg-primary/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -right-16 w-[28rem] h-[28rem] rounded-full bg-primary/10 blur-3xl" />
 
-        <div className="relative container mx-auto px-4 py-8 md:py-12">
-          {/* AI Search Bar - only enabled for owner emails */}
-          <div className="max-w-3xl mx-auto mb-6">
-            <div className="relative">
-              <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-              <Input
-                type="text"
-                placeholder={hasAIAccess ? t('vehicles.aiPlaceholder', "Zapytaj AI: 'SUV diesel do 800 zł/tydz w Warszawie'") : t('vehicles.aiDisabled', "Wyszukiwarka AI - wkrótce dostępna")}
-                value={aiQuery}
-                onChange={(e) => hasAIAccess && setAiQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && hasAIAccess && handleAISearch()}
-                disabled={!hasAIAccess}
-                className="pl-12 pr-28 h-14 text-base md:text-lg rounded-full border-2 border-primary/30 focus:border-primary shadow-xl bg-background/95 backdrop-blur disabled:opacity-60 disabled:cursor-not-allowed"
-              />
-              <Button
-                onClick={handleAISearch}
-                disabled={isSearchingAI || !aiQuery.trim() || !hasAIAccess}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-10 px-6"
-              >
-                {isSearchingAI ? "..." : t('ui.searchAI', 'Szukaj AI')}
-              </Button>
+        <div className="relative container mx-auto px-4 py-10 md:py-14">
+          <div className="grid md:grid-cols-[1fr_auto] items-center gap-8 max-w-6xl mx-auto">
+            {/* Left: title + AI search */}
+            <div className="text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold mb-4">
+                <Sparkles className="h-3.5 w-3.5" />
+                Portal ogłoszeń motoryzacyjnych z AI
+              </div>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 text-slate-900">
+                {t('vehicles.findCar', 'Znajdź idealne auto dla siebie')}
+              </h1>
+              <p className="text-base md:text-lg text-slate-600 font-medium mb-6">
+                {t('vehicles.subtitle', 'Tysiące sprawdzonych ofert od flot i prywatnych właścicieli')}
+              </p>
+
+              <div className="relative max-w-2xl">
+                <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
+                <Input
+                  type="text"
+                  placeholder={hasAIAccess ? t('vehicles.aiPlaceholder', "Zapytaj AI: 'SUV diesel do 800 zł/tydz w Warszawie'") : t('vehicles.aiDisabled', "Wyszukiwarka AI - wkrótce dostępna")}
+                  value={aiQuery}
+                  onChange={(e) => hasAIAccess && setAiQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && hasAIAccess && handleAISearch()}
+                  disabled={!hasAIAccess}
+                  className="pl-12 pr-28 h-14 text-base md:text-lg rounded-full border-2 border-primary/30 focus:border-primary shadow-xl bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                />
+                <Button
+                  onClick={handleAISearch}
+                  disabled={isSearchingAI || !aiQuery.trim() || !hasAIAccess}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-10 px-6"
+                >
+                  {isSearchingAI ? "..." : t('ui.searchAI', 'Szukaj AI')}
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500 mt-2 md:text-left text-center">
+                {t('home.poweredBy', 'Powered by')} <span className="text-primary font-semibold">Rido AI</span> • {t('ui.poweredByAI', 'Szukaj naturalnym językiem')}
+              </p>
             </div>
-            <p className="text-center text-xs text-muted-foreground mt-2">
-              {t('home.poweredBy', 'Powered by')} <span className="text-primary font-medium">Rido AI</span> •
-              {t('ui.poweredByAI', 'Szukaj naturalnym językiem')}
-            </p>
-          </div>
 
-          {/* Title */}
-          <div className="text-center mb-6">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
-              {t('vehicles.findCar', 'Znajdź idealne auto dla siebie')}
-            </h1>
-            <p className="text-muted-foreground">
-              {t('vehicles.subtitle', 'Tysiące sprawdzonych ofert od flot i prywatnych właścicieli')}
-            </p>
+            {/* Right: mascot */}
+            <div className="hidden md:flex justify-center items-end">
+              <img
+                src="/ludzik-getrido.png"
+                alt="GetRido mascot"
+                className="h-56 lg:h-64 w-auto drop-shadow-2xl"
+              />
+            </div>
           </div>
         </div>
       </section>
