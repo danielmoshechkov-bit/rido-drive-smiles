@@ -533,14 +533,18 @@ export default function EasyHub() {
             Motoryzacja, nieruchomości, usługi i marketplace. Kupuj, sprzedawaj, znajduj fachowców i prowadź biznes z pomocą sztucznej inteligencji.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8">
-            <Button
-              size="lg"
-              onClick={() => setShowAddListing(true)}
-              className="h-12 md:h-14 px-8 text-base md:text-lg font-semibold rounded-full shadow-xl shadow-primary/40"
-            >
-              Dodaj ogłoszenie
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+            <AddListingModal
+              user={user}
+              trigger={
+                <Button
+                  size="lg"
+                  className="h-12 md:h-14 px-8 text-base md:text-lg font-semibold rounded-full shadow-xl shadow-primary/40"
+                >
+                  Dodaj ogłoszenie
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              }
+            />
             <Button
               size="lg"
               variant="outline"
@@ -550,6 +554,7 @@ export default function EasyHub() {
               Przeglądaj kategorie
             </Button>
           </div>
+
           {/* Trust indicators */}
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-white/60 text-xs md:text-sm">
             <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-primary" /> Weryfikacja ogłoszeń</div>
