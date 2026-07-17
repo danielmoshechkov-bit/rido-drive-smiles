@@ -54,6 +54,8 @@ import { useTranslation } from 'react-i18next';
 
 // Import tile images
 import tileCars from "@/assets/tile-cars.jpg";
+import heroAsset from "@/assets/hero-getrido.jpg.asset.json";
+
 import tileFleet from "@/assets/tile-fleet.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
 import tileRealEstate from "@/assets/tile-realestate.jpg";
