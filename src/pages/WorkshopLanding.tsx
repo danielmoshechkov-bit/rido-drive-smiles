@@ -306,10 +306,10 @@ export default function WorkshopLanding() {
           </div>
 
           {/* benefits chips */}
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground mt-8">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-base font-semibold text-slate-700 dark:text-slate-200 mt-8">
             {benefits.map((benefit, idx) => (
               <div key={idx} className="flex items-center gap-1.5">
-                <benefit.icon className="h-4 w-4 text-emerald-500" />
+                <benefit.icon className="h-5 w-5 text-emerald-500" />
                 {benefit.text}
               </div>
             ))}
