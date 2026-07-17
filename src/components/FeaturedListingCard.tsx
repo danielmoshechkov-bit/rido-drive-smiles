@@ -340,11 +340,11 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             <div className="flex-1" />
 
             {/* Bottom row: Price (left) + Quick view button (right) - ALWAYS at bottom */}
-            <div className="flex items-center justify-between pt-1.5 border-t border-border/50 mt-auto">
+            <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-auto">
               <span className={cn(
-                "text-sm font-bold",
-                listing.category === 'service' && (!listing.price_from || listing.price_from === 0) 
-                  ? "text-muted-foreground text-xs font-normal" 
+                "text-base font-extrabold",
+                listing.category === 'service' && (!listing.price_from || listing.price_from === 0)
+                  ? "text-slate-500 text-sm font-semibold"
                   : "text-primary"
               )}>
                 {formatPrice()}
