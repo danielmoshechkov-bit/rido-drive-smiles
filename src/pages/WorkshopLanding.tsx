@@ -321,8 +321,8 @@ export default function WorkshopLanding() {
       <section id="funkcje" className="container mx-auto px-4 py-16 md:py-24">
         <div className="text-center mb-12">
           <Badge variant="secondary" className="mb-3">Funkcje</Badge>
-          <h2 className="text-3xl md:text-4xl font-bold mb-3">Wszystko, czego potrzebuje warsztat</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Wszystko, czego potrzebuje warsztat</h2>
+          <p className="text-lg md:text-xl font-medium text-slate-700 dark:text-slate-200 max-w-2xl mx-auto leading-relaxed">
             Kompletny ERP dla warsztatu i studia detailingu z funkcjami AI, które oszczędzają godziny pracy każdego dnia.
           </p>
         </div>
