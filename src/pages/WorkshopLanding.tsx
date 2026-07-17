@@ -578,7 +578,7 @@ export default function WorkshopLanding() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
             <Badge variant="secondary" className="mb-3">Opinie</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">Co mówią właściciele warsztatów</h2>
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">Co mówią właściciele warsztatów</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {testimonials.map((t, i) => (
