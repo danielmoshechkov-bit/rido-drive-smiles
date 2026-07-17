@@ -676,7 +676,7 @@ export default function WorkshopLanding() {
               </Card>
             ))}
           </div>
-        </div>
+
 
           {/* Big CTA button directly under FAQ */}
           <div className="mt-12 text-center">
