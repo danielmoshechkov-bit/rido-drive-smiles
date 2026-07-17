@@ -486,11 +486,11 @@ export default function WorkshopLanding() {
             ].map((item, i) => (
               <Card key={i} className="border-primary/10 hover:border-primary/30 transition-colors">
                 <CardContent className="p-5">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center mb-3">
-                    <item.icon className="h-5 w-5 text-white" />
+                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center mb-3">
+                    <item.icon className="h-6 w-6 text-white" />
                   </div>
-                  <h3 className="font-semibold mb-1">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground">{item.text}</p>
+                  <h3 className="font-extrabold text-lg mb-1 text-slate-900 dark:text-foreground">{item.title}</h3>
+                  <p className="text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">{item.text}</p>
                 </CardContent>
               </Card>
             ))}
