@@ -466,11 +466,11 @@ export default function WorkshopLanding() {
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="text-center mb-12">
             <Badge className="mb-3 bg-primary text-primary-foreground">Tylko u nas</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-3">
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">
               Wszystko w jednym systemie — <span className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">to nas wyróżnia</span>
             </h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Konkurencja daje Ci kawałki: jedni terminarz, drudzy magazyn, trzeci fakturę. My łączymy wszystko — z AI, które faktycznie pracuje za Ciebie.
+            <p className="text-lg md:text-xl font-medium text-slate-700 dark:text-slate-200 max-w-2xl mx-auto leading-relaxed">
+              Konkurencja daje Ci kawałki: jedni terminarz, drudzy magazyn, trzeci fakturę. My łączymy wszystko — z <strong className="text-primary font-bold">RidoAI</strong>, które faktycznie pracuje za Ciebie.
             </p>
           </div>
 
