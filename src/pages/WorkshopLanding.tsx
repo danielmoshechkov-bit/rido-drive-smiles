@@ -272,16 +272,33 @@ export default function WorkshopLanding() {
             </div>
           </div>
 
-          {/* Stats bar */}
-          <div className="max-w-5xl mx-auto mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
-            {stats.map((s, i) => (
-              <div key={i} className="text-center p-4 rounded-2xl bg-card/60 border backdrop-blur-sm">
-                <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
-                  {s.value}
+          {/* Efekt WOW — to nas wyróżnia */}
+          <div className="max-w-6xl mx-auto mt-12">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                Nowość · tego nie ma nikt inny
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {wowStats.map((s, i) => (
+                <div key={i} className="relative text-left p-4 rounded-2xl bg-card border-2 border-primary/20 hover:border-primary/50 backdrop-blur-sm shadow-md hover:shadow-lg transition-all">
+                  <Badge className="absolute -top-2 -right-2 bg-gradient-to-r from-primary to-purple-600 text-white border-0 text-[10px] px-2 py-0.5">
+                    {s.badge}
+                  </Badge>
+                  <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center mb-2">
+                    <s.icon className="h-4.5 w-4.5 text-white" />
+                  </div>
+                  <div className="text-sm md:text-base font-bold text-foreground leading-tight mb-1">
+                    {s.value}
+                  </div>
+                  <div className="text-xs text-muted-foreground leading-snug">{s.label}</div>
                 </div>
-                <div className="text-xs md:text-sm text-muted-foreground mt-1">{s.label}</div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* benefits chips */}
