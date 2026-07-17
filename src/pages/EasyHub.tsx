@@ -132,7 +132,7 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
   return (
     <div
       className={cn(
-        "group cursor-pointer transition-all duration-300 rounded-2xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 relative aspect-[4/3]",
+        "group cursor-pointer transition-all duration-300 rounded-xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 relative aspect-[16/10]",
         !tile.available && "opacity-60 cursor-not-allowed"
       )}
       onClick={() => tile.available && onClick()}
