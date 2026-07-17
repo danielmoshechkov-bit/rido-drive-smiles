@@ -510,19 +510,19 @@ export default function EasyHub() {
       <section className="relative overflow-hidden bg-white border-b border-border/40">
         <div className="container mx-auto px-4 py-6 md:py-10 relative z-10">
           <div className="flex flex-row items-stretch justify-center gap-4 sm:gap-6 md:gap-10 max-w-6xl mx-auto">
-            {/* Mascot - matches text block height */}
+            {/* Mascot - transparent background */}
             <img
-              src="/mascot-getrido.png"
+              src="/ludzik-getrido.png"
               alt="GetRido"
               className="w-28 sm:w-40 md:w-64 lg:w-80 shrink-0 object-contain object-bottom self-stretch drop-shadow-xl"
             />
 
             {/* Text + search stack */}
             <div className="flex-1 flex flex-col justify-center min-w-0">
-              <h1 className="font-extrabold leading-[0.9] tracking-tight text-[clamp(2.5rem,12vw,9rem)]">
+              <h1 className="font-extrabold leading-[0.85] tracking-tight text-[clamp(3.5rem,15vw,11rem)]">
                 <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
               </h1>
-              <p className="mt-2 md:mt-3 text-base sm:text-xl md:text-2xl lg:text-3xl font-bold text-[#1a1450] leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
+              <p className="mt-2 md:mt-3 text-sm sm:text-base md:text-lg lg:text-xl font-semibold text-[#1a1450] leading-snug">
                 Wszystko czego potrzebujesz — <span className="text-primary">w jednym miejscu</span>
               </p>
               <p className="mt-1 md:mt-2 text-xs sm:text-sm md:text-base text-slate-600 font-medium">
