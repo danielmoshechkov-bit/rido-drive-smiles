@@ -348,21 +348,16 @@ export default function WorkshopLanding() {
                       <Sparkles className="h-3 w-3 mr-1" /> AI
                     </Badge>
                   )}
-                  {idx < 4 && (
-                    <Badge className="absolute top-3 left-3 bg-gradient-to-r from-primary to-purple-600 text-white border-0 shadow-md text-[10px] uppercase tracking-wider">
-                      {idx + 1}
-                    </Badge>
-                  )}
                 </div>
 
-                <div className="p-5 bg-card">
+                <div className="p-5 bg-white dark:bg-card border-t">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                       <Icon className="h-4 w-4" />
                     </div>
-                    <h3 className="font-bold text-base md:text-lg text-foreground">{feature.title}</h3>
+                    <h3 className="font-bold text-base md:text-lg text-slate-900 dark:text-foreground">{feature.title}</h3>
                   </div>
-                  <p className="text-sm text-muted-foreground leading-snug">{feature.description}</p>
+                  <p className="text-sm text-slate-700 dark:text-muted-foreground leading-relaxed">{feature.description}</p>
                 </div>
               </div>
             );
