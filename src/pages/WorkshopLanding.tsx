@@ -656,7 +656,7 @@ export default function WorkshopLanding() {
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="text-center mb-10">
             <Badge variant="secondary" className="mb-3">FAQ</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">Najczęściej zadawane pytania</h2>
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">Najczęściej zadawane pytania</h2>
           </div>
           <div className="space-y-2">
             {faq.map((item, i) => (
