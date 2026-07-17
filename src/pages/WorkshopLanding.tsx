@@ -677,34 +677,23 @@ export default function WorkshopLanding() {
             ))}
           </div>
         </div>
-      </section>
 
-      {/* Final CTA */}
-      <section className="container mx-auto px-4 py-16 md:py-24">
-        <Card className="relative overflow-hidden bg-gradient-to-br from-primary via-purple-600 to-primary border-0 text-primary-foreground">
-          <div className="absolute -right-8 -bottom-8 opacity-30 hidden md:block">
-            <img src={mascot} alt="" className="w-64" />
-          </div>
-          <CardContent className="relative p-8 md:p-14 text-center md:text-left max-w-2xl">
-            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">
-              Zacznij oszczędzać czas już dziś
-            </h2>
-            <p className="text-lg md:text-xl font-medium mb-6 opacity-95 leading-relaxed">
-              14 dni za darmo, pełen dostęp do wszystkich funkcji. Bez karty, bez zobowiązań.
-              Aktywacja zajmuje mniej niż minutę.
-            </p>
+          {/* Big CTA button directly under FAQ */}
+          <div className="mt-12 text-center">
             <Button
               size="lg"
-              variant="secondary"
               onClick={() => handleStartTrial("pro")}
-              className="gap-2"
+              className="gap-3 h-16 md:h-20 px-8 md:px-14 text-lg md:text-2xl font-extrabold rounded-2xl bg-gradient-to-r from-primary via-purple-600 to-primary text-primary-foreground shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all"
             >
-              <Wrench className="h-5 w-5" />
+              <Wrench className="h-6 w-6 md:h-7 md:w-7" />
               Rozpocznij darmowy okres próbny
-              <ArrowRight className="h-5 w-5" />
+              <ArrowRight className="h-6 w-6 md:h-7 md:w-7" />
             </Button>
-          </CardContent>
-        </Card>
+            <p className="mt-4 text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
+              14 dni za darmo · bez karty · aktywacja w minutę
+            </p>
+          </div>
+        </div>
       </section>
 
       <AuthModal
