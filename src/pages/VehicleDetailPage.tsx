@@ -241,29 +241,29 @@ export default function VehicleDetailPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Rezerwacja online — renderuje się TYLKO dla ofert wynajmu z modułu (RPC mapped). Sprzedaż/zwykłe: nic. */}
             <RentalReserveWidget listingId={listing.id} transactionType={listing.transactionType} />
-            <div>
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-slate-100">
               <div className="flex items-start justify-between gap-4 mb-2">
-                <h1 className="text-2xl md:text-3xl font-bold">
+                <h1 className="text-2xl md:text-3xl font-extrabold text-primary leading-tight">
                   {translatedTitle}
                 </h1>
                 {listing.transactionType && (
-                  <Badge style={{ backgroundColor: listing.transactionColor }} className="text-white shrink-0">
+                  <Badge style={{ backgroundColor: listing.transactionColor }} className="text-white shrink-0 font-bold">
                     {listing.transactionType}
                   </Badge>
                 )}
               </div>
               
               <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-3xl md:text-4xl font-bold text-primary">
+                <span className="text-3xl md:text-4xl font-extrabold text-primary">
                   {listing.price?.toLocaleString('pl-PL')} zł
                 </span>
-                <span className="text-lg text-muted-foreground">
+                <span className="text-lg text-slate-700 font-semibold">
                   {PRICE_TYPE_LABELS[listing.priceType || 'sale']}
                 </span>
               </div>
 
               {listing.location && (
-                <div className="flex items-center gap-2 mt-4 text-muted-foreground">
+                <div className="flex items-center gap-2 mt-4 text-slate-800 font-semibold">
                   <MapPin className="h-5 w-5 text-primary" />
                   <span>{listing.location}</span>
                 </div>
@@ -272,19 +272,19 @@ export default function VehicleDetailPage() {
               {/* Verification badges */}
               <div className="flex gap-2 flex-wrap mt-4">
                 {listing.isVerified && (
-                  <Badge className="bg-green-500 hover:bg-green-600 text-white gap-1">
+                  <Badge className="bg-green-500 hover:bg-green-600 text-white gap-1 font-semibold">
                     <ShieldCheck className="h-3 w-3" />
                     Dane zweryfikowane
                   </Badge>
                 )}
                 {listing.insuranceValid && (
-                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
+                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1 font-semibold">
                     <FileCheck className="h-3 w-3" />
                     Ważna polisa
                   </Badge>
                 )}
                 {listing.inspectionValid && (
-                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1">
+                  <Badge className="bg-blue-500 hover:bg-blue-600 text-white gap-1 font-semibold">
                     <FileCheck className="h-3 w-3" />
                     Przegląd OK
                   </Badge>
@@ -293,11 +293,11 @@ export default function VehicleDetailPage() {
 
               {/* VIN reveal */}
               {listing.vin && (
-                <div className="flex items-center gap-3 mt-4 p-3 bg-muted/50 rounded-lg">
-                  <Key className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">VIN:</span>
+                <div className="flex items-center gap-3 mt-4 p-3 bg-primary/5 rounded-xl border border-primary/20">
+                  <Key className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-semibold text-slate-700">VIN:</span>
                   {showVin ? (
-                    <span className="font-mono text-sm font-medium">{listing.vin}</span>
+                    <span className="font-mono text-sm font-bold text-slate-900">{listing.vin}</span>
                   ) : (
                     <Button variant="outline" size="sm" onClick={handleShowVin}>
                       Pokaż VIN
@@ -307,24 +307,22 @@ export default function VehicleDetailPage() {
               )}
             </div>
 
-            <Separator />
             <VehicleSpecsTable listing={listing} />
-            <Separator />
 
-            <div>
-              <h2 className="text-xl font-bold text-foreground mb-4">Opis</h2>
-              <div className="prose prose-sm max-w-none text-foreground leading-relaxed space-y-3">
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-slate-100">
+              <h2 className="text-xl font-extrabold text-primary mb-4">Opis</h2>
+              <div className="prose prose-sm max-w-none text-slate-800 leading-relaxed space-y-3">
                 {(translatedDesc || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block: string, i: number) => {
                   const trimmed = block.trim();
                   if (!trimmed) return null;
                   const isHeader = trimmed.endsWith(':') && trimmed.length < 60;
                   if (isHeader) {
-                    return <h3 key={i} className="text-base font-semibold text-foreground mt-4 mb-1">{trimmed}</h3>;
+                    return <h3 key={i} className="text-base font-bold text-primary mt-4 mb-1">{trimmed}</h3>;
                   }
                   return trimmed.split('\n').map((line: string, j: number) => {
                     const l = line.trim();
                     if (!l) return null;
-                    return <p key={`${i}-${j}`} className="mb-2 text-foreground">{l}</p>;
+                    return <p key={`${i}-${j}`} className="mb-2 text-slate-800 font-medium">{l}</p>;
                   });
                 })}
               </div>
@@ -335,8 +333,8 @@ export default function VehicleDetailPage() {
 
           <div className="space-y-6">
             <div className="lg:sticky lg:top-24">
-              <Card className="p-6 shadow-lg border-primary/20">
-                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+              <Card className="p-6 shadow-lg border-0 rounded-2xl bg-gradient-to-br from-primary/5 to-white ring-1 ring-primary/20">
+                <h3 className="font-extrabold text-lg mb-4 flex items-center gap-2 text-primary">
                   <Phone className="h-5 w-5 text-primary" />
                   Kontakt
                 </h3>
@@ -344,12 +342,12 @@ export default function VehicleDetailPage() {
                 {listing.contactPhone && (
                   <div className="mb-3">
                     {showContactPhone ? (
-                      <a href={`tel:${listing.contactPhone}`} className="flex items-center gap-2 text-primary hover:underline font-medium">
+                      <a href={`tel:${listing.contactPhone}`} className="flex items-center gap-2 text-primary hover:underline font-bold text-lg">
                         <Phone className="h-4 w-4" />
                         {listing.contactPhone}
                       </a>
                     ) : (
-                      <Button onClick={handleRevealContact} className="w-full" size="lg">
+                      <Button onClick={handleRevealContact} className="w-full font-bold" size="lg">
                         <Phone className="h-4 w-4 mr-2" />
                         Pokaż numer telefonu
                       </Button>
@@ -358,20 +356,20 @@ export default function VehicleDetailPage() {
                 )}
 
                 {listing.contactEmail && showContactPhone && (
-                  <a href={`mailto:${listing.contactEmail}`} className="flex items-center gap-2 text-primary hover:underline mb-4">
+                  <a href={`mailto:${listing.contactEmail}`} className="flex items-center gap-2 text-primary hover:underline mb-4 font-semibold">
                     <Mail className="h-4 w-4" />
                     {listing.contactEmail}
                   </a>
                 )}
 
-                <Button variant="outline" className="w-full mt-2" size="lg">
+                <Button variant="outline" className="w-full mt-2 font-bold border-primary/40 text-primary hover:bg-primary/10" size="lg">
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Napisz wiadomość
                 </Button>
 
                 {listing.listingNumber && (
-                  <p className="text-xs text-muted-foreground mt-4 text-center">
-                    Nr oferty: <span className="font-mono">{listing.listingNumber}</span>
+                  <p className="text-xs text-slate-600 font-semibold mt-4 text-center">
+                    Nr oferty: <span className="font-mono text-slate-800">{listing.listingNumber}</span>
                   </p>
                 )}
               </Card>
