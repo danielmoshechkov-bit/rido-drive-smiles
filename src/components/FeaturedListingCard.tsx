@@ -326,11 +326,11 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
 
             {/* Service-specific: Featured services list with prices */}
             {listing.category === 'service' && listing.featured_services && listing.featured_services.length > 0 && (
-              <div className="space-y-0 mt-1">
+              <div className="space-y-1 mt-1">
                 {listing.featured_services.slice(0, 2).map((service, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[10px]">
-                    <span className="text-muted-foreground truncate max-w-[65%]">{service.name}</span>
-                    <span className="font-medium text-primary">{service.price} zł</span>
+                  <div key={idx} className="flex items-center justify-between text-sm border-b border-border/40 pb-1 last:border-0">
+                    <span className="text-slate-800 font-semibold truncate max-w-[65%]">{service.name}</span>
+                    <span className="font-extrabold text-primary">{service.price} zł</span>
                   </div>
                 ))}
               </div>
