@@ -130,13 +130,13 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
   return (
     <div
       className={cn(
-        "group cursor-pointer transition-all duration-300",
+        "group cursor-pointer transition-all duration-300 rounded-2xl overflow-hidden bg-card border border-border shadow-md hover:shadow-xl hover:-translate-y-1",
         !tile.available && "opacity-60 cursor-not-allowed"
       )}
       onClick={() => tile.available && onClick()}
     >
-      {/* Image rectangle on top */}
-      <div className="relative overflow-hidden rounded-2xl shadow-md border border-border/50 aspect-[16/9] bg-muted">
+      {/* Image on top */}
+      <div className="relative overflow-hidden aspect-[16/9] bg-muted">
         {tile.id === 'rido-ai' ? (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
         ) : tile.image ? (
@@ -154,8 +154,8 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
         )}
       </div>
 
-      {/* Text below on page background — highly legible */}
-      <div className="px-1 pt-3 pb-1">
+      {/* Text inside the card — visually attached */}
+      <div className="p-4 md:p-5">
         <h3 className="font-extrabold text-base md:text-xl leading-tight text-foreground group-hover:text-primary transition-colors">
           {tile.title}
         </h3>
@@ -166,6 +166,7 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
     </div>
   );
 }
+
 
 // List of emails with full access to services
 const SERVICES_FULL_ACCESS_EMAILS = [
@@ -503,10 +504,11 @@ export default function EasyHub() {
         <div className="container mx-auto px-4 py-8 md:py-10 relative z-10">
           <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 max-w-4xl mx-auto text-center md:text-left">
             <img
-              src="/lovable-uploads/rido-mascot-transparent.png"
+              src="/mascot-getrido.png"
               alt="GetRido"
-              className="h-24 w-24 md:h-32 md:w-32 drop-shadow-2xl shrink-0"
+              className="h-32 w-32 md:h-44 md:w-44 drop-shadow-2xl shrink-0 object-contain"
             />
+
             <div>
               <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-none mb-2">
                 Get<span className="bg-gradient-to-r from-primary via-purple-400 to-accent bg-clip-text text-transparent">Rido</span>
