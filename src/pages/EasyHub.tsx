@@ -132,43 +132,42 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
   return (
     <div
       className={cn(
-        "group cursor-pointer transition-all duration-300 rounded-xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 relative aspect-[16/10]",
+        "group cursor-pointer transition-all duration-300 rounded-xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 relative bg-white border border-border/40 flex flex-col",
         !tile.available && "opacity-60 cursor-not-allowed"
       )}
       onClick={() => tile.available && onClick()}
     >
-      {/* Background image full-bleed */}
-      {tile.id === 'rido-ai' ? (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
-      ) : tile.image ? (
-        <div
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
-          style={{ backgroundImage: `url(${tile.image})` }}
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
-      )}
+      {/* Image top */}
+      <div className="relative aspect-[16/9] overflow-hidden">
+        {tile.id === 'rido-ai' ? (
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
+        ) : tile.image ? (
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+            style={{ backgroundImage: `url(${tile.image})` }}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
+        )}
 
-      {/* Dark gradient bottom overlay for text legibility */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+        {/* Hover arrow */}
+        <div className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <ArrowRight className="h-4 w-4 text-[#1a1450]" />
+        </div>
 
-      {/* Hover arrow */}
-      <div className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-        <ArrowRight className="h-4 w-4 text-[#1a1450]" />
+        {!tile.available && (
+          <Badge className="absolute top-3 left-3 text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
+            {t('home.soon')}
+          </Badge>
+        )}
       </div>
 
-      {!tile.available && (
-        <Badge className="absolute top-3 left-3 text-[10px] px-2 py-0.5 bg-white/95 text-[#0d0b2b] font-semibold border-0">
-          {t('home.soon')}
-        </Badge>
-      )}
-
-      {/* Text overlay */}
-      <div className="absolute bottom-0 left-0 right-0 p-5 md:p-6">
-        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-white drop-shadow-md">
+      {/* Text below image */}
+      <div className="p-4 md:p-5">
+        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-primary">
           {tile.title}
         </h3>
-        <p className="text-sm md:text-base mt-1.5 line-clamp-2 text-white/90 font-medium leading-snug drop-shadow">
+        <p className="text-sm md:text-base mt-1.5 line-clamp-2 text-slate-600 font-medium leading-snug">
           {tile.description}
         </p>
       </div>
@@ -514,12 +513,12 @@ export default function EasyHub() {
             <img
               src="/ludzik-getrido.png"
               alt="GetRido"
-              className="w-28 sm:w-40 md:w-64 lg:w-80 shrink-0 object-contain object-bottom self-stretch drop-shadow-xl"
+              className="w-32 sm:w-48 md:w-72 lg:w-96 shrink-0 object-contain object-bottom self-stretch drop-shadow-xl"
             />
 
             {/* Text + search stack */}
             <div className="flex-1 flex flex-col justify-center min-w-0">
-              <h1 className="font-extrabold leading-[0.85] tracking-tight text-[clamp(3.5rem,15vw,11rem)]">
+              <h1 className="font-extrabold leading-[0.9] tracking-tight text-[clamp(2.5rem,9vw,7rem)]">
                 <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
               </h1>
               <p className="mt-2 md:mt-3 text-sm sm:text-base md:text-lg lg:text-xl font-semibold text-[#1a1450] leading-snug">
