@@ -48,6 +48,8 @@ import tileKsef from "@/assets/accounting/tile-ksef.jpg";
 import tileFaktury from "@/assets/accounting/tile-faktury.jpg";
 
 const mascot = "/ludzik-getrido.png";
+const mascotMechanic = "/mascot-mechanic.png";
+const mascotDetailer = "/mascot-detailer.png";
 
 type Feature = {
   icon: any;
@@ -257,8 +259,8 @@ export default function WorkshopLanding() {
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-purple-500/20 blur-3xl rounded-full" />
                 <img
-                  src={mascot}
-                  alt="GetRido mascot"
+                  src={mascotMechanic}
+                  alt="GetRido mechanik"
                   className="relative w-56 md:w-80 lg:w-96 drop-shadow-2xl"
                 />
               </div>
@@ -393,24 +395,154 @@ export default function WorkshopLanding() {
       {/* Detailing / PPF spotlight */}
       <section className="container mx-auto px-4 py-16 md:py-24">
         <div className="grid md:grid-cols-2 gap-8 items-center max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 gap-3">
-            <img src={tileDetailing} alt="Detailing" className="rounded-2xl aspect-square object-cover shadow-lg" />
-            <img src={tilePpf} alt="PPF" className="rounded-2xl aspect-square object-cover shadow-lg mt-8" />
+          <div className="relative flex justify-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-primary/20 blur-3xl rounded-full" />
+            <img
+              src={mascotDetailer}
+              alt="GetRido detailing"
+              className="relative w-60 md:w-80 drop-shadow-2xl"
+              loading="lazy"
+              width={1024}
+              height={1024}
+            />
           </div>
           <div>
             <Badge className="mb-3 bg-purple-500/10 text-purple-700 border-purple-500/20">Detailing & PPF</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Zbudowane też z myślą o studiach detailingu</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Dla studiów detailingu i myjni premium</h2>
             <p className="text-muted-foreground mb-6">
-              Checklisty ceramiki, dokumentacja PPF, zdjęcia przed/po z watermarkiem, cyfrowy podpis klienta na protokole odbioru. Wszystko, co odróżnia profesjonalne studio od garażu.
+              Ten sam silnik co warsztat — z modułami, które przydają się przy długich zleceniach detailingowych. Cyfrowy protokół odbioru z podpisem klienta, zdjęcia stanu auta przy przyjęciu i wydaniu, terminarz zaprojektowany pod całodniowe usługi.
             </p>
-            <ul className="space-y-2">
-              {["Checklisty ceramiki i PPF krok po kroku", "Galerie przed/po z automatycznym watermarkiem", "Protokoły odbioru z podpisem cyfrowym", "Terminarz zoptymalizowany dla długich detali"].map((t, i) => (
+            <ul className="space-y-2 mb-4">
+              {[
+                "Cyfrowy podpis klienta na protokole odbioru",
+                "Zdjęcia przyjęcia i wydania auta — koniec z reklamacjami",
+                "Terminarz ze stanowiskami — pod długie detale",
+                "SMS-y do klienta na każdym etapie usługi",
+              ].map((t, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <Check className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
                   <span className="text-sm">{t}</span>
                 </li>
               ))}
             </ul>
+            <div className="flex items-start gap-2 text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <Sparkles className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                <strong className="text-amber-900">Wkrótce:</strong> dedykowane checklisty ceramiki i PPF krok po kroku oraz automatyczny watermark na galeriach przed/po.
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Tylko u nas — wszystko w jednym */}
+      <section className="bg-gradient-to-br from-primary/5 via-purple-500/5 to-background py-16 md:py-24">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <div className="text-center mb-12">
+            <Badge className="mb-3 bg-primary text-primary-foreground">Tylko u nas</Badge>
+            <h2 className="text-3xl md:text-4xl font-bold mb-3">
+              Wszystko w jednym systemie — <span className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">to nas wyróżnia</span>
+            </h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Konkurencja daje Ci kawałki: jedni terminarz, drudzy magazyn, trzeci fakturę. My łączymy wszystko — z AI, które faktycznie pracuje za Ciebie.
+            </p>
+          </div>
+
+          {/* USP grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-12">
+            {[
+              { icon: Phone, title: "Asystent AI 24/7", text: "Odbiera telefony, pisze do klientów na SMS i czacie, umawia wizyty w Twoim terminarzu. Pracuje w nocy, w weekend i święta." },
+              { icon: Brain, title: "Rido AI — wyceny i porady", text: "Podpowiada ceny części i robocizny na bazie tysięcy historycznych zleceń. Pytasz — dostajesz odpowiedź." },
+              { icon: Package, title: "OCR faktur → magazyn", text: "Skanujesz fakturę zakupową telefonem, części same lądują w magazynie z cenami i stanami." },
+              { icon: MessageSquare, title: "Auto-SMS + kalendarz ICS", text: "Automatyczne przypomnienia 24h i 2h przed wizytą. Klient dostaje link do dodania wizyty w swoim kalendarzu." },
+              { icon: Wrench, title: "Zintegrowane hurtownie części", text: "Szukasz części u dostawców z poziomu zlecenia. Kolejne integracje wdrażamy stopniowo." },
+              { icon: Zap, title: "Web app na każdym urządzeniu", text: "Działa na telefonie, tablecie i komputerze bez instalacji. Natywna aplikacja mobilna już wkrótce." },
+            ].map((item, i) => (
+              <Card key={i} className="border-primary/10 hover:border-primary/30 transition-colors">
+                <CardContent className="p-5">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center mb-3">
+                    <item.icon className="h-5 w-5 text-white" />
+                  </div>
+                  <h3 className="font-semibold mb-1">{item.title}</h3>
+                  <p className="text-sm text-muted-foreground">{item.text}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Comparison table */}
+          <div className="rounded-2xl border bg-card shadow-lg overflow-hidden">
+            <div className="p-5 md:p-6 border-b bg-muted/30">
+              <h3 className="font-bold text-lg md:text-xl">Porównanie z konkurencją</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Konkurencja A/B/C to popularne polskie systemy warsztatowe. Każdy z nich robi swój kawałek dobrze — ale żaden nie ma wszystkiego naraz.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/20">
+                    <th className="text-left p-3 md:p-4 font-semibold">Funkcja</th>
+                    <th className="p-3 md:p-4 font-semibold text-center min-w-[110px]">
+                      <div className="inline-flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full bg-primary" />
+                        GetRido
+                      </div>
+                    </th>
+                    <th className="p-3 md:p-4 font-semibold text-center min-w-[110px]">
+                      <div className="inline-flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full bg-red-500" />
+                        Konkurencja A
+                      </div>
+                    </th>
+                    <th className="p-3 md:p-4 font-semibold text-center min-w-[110px]">
+                      <div className="inline-flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full bg-emerald-500" />
+                        Konkurencja B
+                      </div>
+                    </th>
+                    <th className="p-3 md:p-4 font-semibold text-center min-w-[110px]">
+                      <div className="inline-flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full bg-blue-500" />
+                        Konkurencja C
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["Terminarz + SMS 24h/2h", true, true, true, true],
+                    ["Zlecenia + kosztorysy", true, true, true, true],
+                    ["Magazyn + OCR faktur zakupowych", true, false, "częściowo", false],
+                    ["Wyceny AI (Rido AI)", true, false, false, false],
+                    ["Asystent AI odbierający telefony", true, false, false, false],
+                    ["Sprawdzanie aut po nr rej. (RegCheck)", true, false, "częściowo", false],
+                    ["KSeF FA(3) wbudowane", true, false, false, "częściowo"],
+                    ["Księgowość + doradca podatkowy AI", true, false, false, false],
+                    ["Detailing / PPF workflow", true, false, false, false],
+                    ["Web app + PWA na telefonie", true, "częściowo", true, "częściowo"],
+                  ].map(([label, ...cells], i) => (
+                    <tr key={i} className="border-b last:border-0 hover:bg-muted/20">
+                      <td className="p-3 md:p-4 font-medium">{label as string}</td>
+                      {cells.map((cell, ci) => (
+                        <td key={ci} className="p-3 md:p-4 text-center">
+                          {cell === true ? (
+                            <Check className="h-5 w-5 text-emerald-500 inline" />
+                          ) : cell === "częściowo" ? (
+                            <span className="text-xs text-amber-600 font-medium">częściowo</span>
+                          ) : (
+                            <span className="text-muted-foreground/40">—</span>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 text-xs text-muted-foreground bg-muted/10 border-t">
+              Zestawienie na podstawie publicznie dostępnych informacji o polskich systemach do zarządzania warsztatem samochodowym (stan: 2026). Nazwy własne pominięto.
+            </div>
           </div>
         </div>
       </section>
