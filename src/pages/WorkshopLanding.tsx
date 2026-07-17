@@ -225,8 +225,8 @@ export default function WorkshopLanding() {
                 </span>
               </h1>
 
-              <p className="text-lg text-muted-foreground mb-6">
-                Zlecenia, terminy, SMS-y do klientów, magazyn z OCR, wyceny AI i sprawdzanie aut po numerze rejestracyjnym — wszystko w jednym systemie stworzonym w Polsce.
+              <p className="text-xl md:text-2xl font-medium text-slate-800 dark:text-slate-100 mb-6 leading-relaxed">
+                Za wszystkim stoi <strong className="font-bold text-primary">RidoAI</strong> — nasza sztuczna inteligencja, która pomaga Ci na każdym kroku. Zlecenia, terminy, SMS-y do klientów, magazyn z OCR, wyceny AI i sprawdzanie aut po numerze rejestracyjnym — wszystko w jednym systemie stworzonym w Polsce.
               </p>
 
               <div className="flex flex-wrap items-center gap-4 mb-6 justify-center md:justify-start">
