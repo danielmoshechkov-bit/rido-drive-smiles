@@ -509,7 +509,7 @@ export default function EasyHub() {
       <section className="relative overflow-hidden bg-white border-b border-border/40">
         <div className="container mx-auto px-4 py-8 md:py-14 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
-            <h1 className="font-black leading-[0.85] tracking-tight text-[clamp(4.5rem,18vw,13rem)]">
+            <h1 className="font-black leading-[0.85] tracking-tight text-[clamp(3rem,9vw,6.5rem)]">
               <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
             </h1>
             <p className="mt-2 md:mt-4 text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-[#1a1450] leading-snug">
