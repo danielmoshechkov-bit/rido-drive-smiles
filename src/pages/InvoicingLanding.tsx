@@ -38,7 +38,8 @@ import tileSprawdzenia from "@/assets/accounting/tile-sprawdzenia.jpg";
 import tileZakupy from "@/assets/accounting/tile-zakupy.jpg";
 import tileCykliczne from "@/assets/accounting/tile-cykliczne.jpg";
 
-const mascot = "/ludzik-getrido.png";
+import mascotAsset from "@/assets/mascot-accountant.png.asset.json";
+const mascot = mascotAsset.url;
 
 type Feature = {
   icon: any;

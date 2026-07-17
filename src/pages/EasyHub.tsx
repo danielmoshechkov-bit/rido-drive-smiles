@@ -132,13 +132,13 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
   return (
     <div
       className={cn(
-        "group cursor-pointer transition-all duration-300 rounded-xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 relative bg-white border border-border/40 flex flex-col",
+        "group cursor-pointer transition-all duration-300 rounded-xl overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 relative bg-white border border-border/40",
         !tile.available && "opacity-60 cursor-not-allowed"
       )}
       onClick={() => tile.available && onClick()}
     >
-      {/* Image top */}
-      <div className="relative aspect-[4/3] overflow-hidden">
+      {/* Wide landscape image with text overlay */}
+      <div className="relative aspect-[16/9] overflow-hidden">
         {tile.id === 'rido-ai' ? (
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent transition-transform duration-500 group-hover:scale-105" />
         ) : tile.image ? (
@@ -150,6 +150,9 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
           <div className="absolute inset-0 bg-gradient-to-br from-[#1a1450] via-[#0d0b2b] to-[#1a1450]" />
         )}
 
+        {/* Dark gradient for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
+
         {/* Hover arrow */}
         <div className="absolute top-3 right-3 h-9 w-9 rounded-full bg-white/90 backdrop-blur flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
           <ArrowRight className="h-4 w-4 text-[#1a1450]" />
@@ -160,16 +163,16 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
             {t('home.soon')}
           </Badge>
         )}
-      </div>
 
-      {/* Text below image */}
-      <div className="p-4 md:p-5">
-        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-primary">
-          {tile.title}
-        </h3>
-        <p className="text-sm md:text-base mt-1.5 line-clamp-2 text-slate-600 font-medium leading-snug">
-          {tile.description}
-        </p>
+        {/* Title + description overlay bottom-left */}
+        <div className="absolute inset-x-0 bottom-0 p-4 md:p-5">
+          <h3 className="font-extrabold text-lg md:text-2xl leading-tight text-white drop-shadow">
+            {tile.title}
+          </h3>
+          <p className="text-xs md:text-sm mt-1 line-clamp-2 text-white/90 font-medium leading-snug drop-shadow">
+            {tile.description}
+          </p>
+        </div>
       </div>
     </div>
   );
