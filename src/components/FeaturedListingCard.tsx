@@ -299,14 +299,14 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
             "p-3 flex flex-col",
             viewMode === 'list' ? "justify-center" : "h-[140px]"
           )}>
-            {/* Title - max 2 lines */}
-            <h3 className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors leading-tight">
+            {/* Title - bold purple, tile-style */}
+            <h3 className="font-extrabold text-base md:text-lg line-clamp-1 text-primary leading-tight">
               {title}
             </h3>
 
             {/* City - directly under title with minimal gap for services */}
             {listing.category === 'service' && listing.city && (
-              <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground mt-0.5">
+              <div className="flex items-center gap-1 text-xs text-slate-700 font-semibold mt-1">
                 <MapPin className="h-3 w-3" />
                 {listing.city}
               </div>
@@ -314,9 +314,9 @@ export function FeaturedListingCard({ listing, viewMode, onClick, showTransactio
 
             {/* Info items - for vehicles and properties only */}
             {listing.category !== 'service' && (
-              <div className="flex flex-wrap items-start gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground min-h-[36px] mt-1">
+              <div className="flex flex-wrap items-start gap-x-2.5 gap-y-1 text-xs text-slate-700 font-semibold min-h-[36px] mt-1.5">
                 {infoItems.slice(0, 5).map((item, idx) => (
-                  <span key={idx} className="flex items-center gap-0.5">
+                  <span key={idx} className="flex items-center gap-1">
                     {item.icon}
                     {item.text}
                   </span>
