@@ -587,7 +587,7 @@ export default function WorkshopLanding() {
                   <div className="flex gap-1 text-amber-500 mb-3">
                     {[0, 1, 2, 3, 4].map((s) => <Star key={s} className="h-4 w-4 fill-current" />)}
                   </div>
-                  <p className="text-sm mb-4 italic">„{t.text}"</p>
+                  <p className="text-base font-medium text-slate-800 dark:text-slate-100 mb-4 italic leading-relaxed">„{t.text}"</p>
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white font-semibold">
                       {t.name.charAt(0)}
