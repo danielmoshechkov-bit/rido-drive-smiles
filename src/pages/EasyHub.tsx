@@ -156,15 +156,16 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
         )}
       </div>
 
-      {/* Text inside the card — visually attached */}
-      <div className="p-4 md:p-5">
-        <h3 className="font-extrabold text-base md:text-xl leading-tight text-foreground group-hover:text-primary transition-colors">
+      {/* Text inside the card — visually attached, high contrast */}
+      <div className="p-5 md:p-6">
+        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-slate-900 group-hover:text-primary transition-colors">
           {tile.title}
         </h3>
-        <p className="text-xs md:text-sm mt-1 line-clamp-2 text-muted-foreground">
+        <p className="text-base md:text-lg mt-2 line-clamp-2 text-slate-700 font-medium leading-snug">
           {tile.description}
         </p>
       </div>
+
     </div>
   );
 }
