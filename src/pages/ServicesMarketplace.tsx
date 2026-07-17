@@ -24,6 +24,7 @@ import categoryZdrowie from '@/assets/category-zdrowie.jpg';
 import categoryEkspert from '@/assets/category-ekspert.jpg';
 import categoryDostawy from '@/assets/category-dostawy.jpg';
 import categoryFachowiec from '@/assets/category-fachowiec.jpg';
+import mascotServices from '@/assets/mascot-services.png';
 
 interface ServiceCategory {
   id: string;
@@ -398,40 +399,60 @@ export default function ServicesMarketplace() {
           </div>
         </header>
 
-        <section className="py-8 md:py-12">
-          <div className="container mx-auto px-4 text-center">
-             <h1 className="text-3xl md:text-5xl font-bold mb-2">
-              {t('services.find', 'Znajdź usługę')}
-            </h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
-              {t('services.chooseCategory', 'Wybierz kategorię usługi, której szukasz')}
-            </p>
+        {/* Hero Section — modern premium AI portal (matches Vehicles & Real Estate) */}
+        <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-primary/10 border-b border-primary/10">
+          <div className="pointer-events-none absolute -top-24 -left-24 w-96 h-96 rounded-full bg-primary/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-32 -right-16 w-[28rem] h-[28rem] rounded-full bg-primary/10 blur-3xl" />
 
-            <div className="max-w-2xl mx-auto mb-8">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder={t('ui.searchPlaceholder', 'Szukaj usługi, np. mechanik, fryzjer, prawnik...')}
-                  className="w-full pl-12 pr-24 h-12 md:h-14 text-base md:text-lg rounded-full border-2 border-primary/20 focus:border-primary shadow-lg bg-background focus:outline-none"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
-                      navigate(`/wyniki?query=${encodeURIComponent((e.target as HTMLInputElement).value)}`);
-                    }
-                  }}
+          <div className="relative container mx-auto px-4 py-10 md:py-14">
+            <div className="grid md:grid-cols-[1fr_auto] items-center gap-8 max-w-6xl mx-auto">
+              <div className="text-center md:text-left">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold mb-4">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Portal usług i fachowców z AI
+                </div>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 text-slate-900">
+                  {t('services.find', 'Znajdź fachowca dla siebie')}
+                </h1>
+                <p className="text-base md:text-lg text-slate-600 font-medium mb-6">
+                  {t('services.chooseCategory', 'Sprawdzeni specjaliści w każdej kategorii — od warsztatu po remont')}
+                </p>
+
+                <div className="relative max-w-2xl">
+                  <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
+                  <input
+                    type="text"
+                    placeholder={t('ui.searchPlaceholder', 'Zapytaj AI: „hydraulik w Warszawie na jutro"')}
+                    className="w-full pl-12 pr-28 h-14 text-base md:text-lg rounded-full border-2 border-primary/30 focus:border-primary shadow-xl bg-white focus:outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                        navigate(`/wyniki?query=${encodeURIComponent((e.target as HTMLInputElement).value)}`);
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={(e) => {
+                      const input = (e.target as HTMLElement).parentElement?.querySelector('input');
+                      if (input?.value.trim()) {
+                        navigate(`/wyniki?query=${encodeURIComponent(input.value)}`);
+                      }
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-10 px-6"
+                  >
+                    {t('ui.search', 'Szukaj')}
+                  </Button>
+                </div>
+                <p className="text-xs text-slate-500 mt-2 md:text-left text-center">
+                  Powered by <span className="text-primary font-semibold">Rido AI</span> • Szukaj naturalnym językiem
+                </p>
+              </div>
+
+              <div className="hidden md:flex justify-center items-end">
+                <img
+                  src={mascotServices}
+                  alt="GetRido mascot"
+                  className="h-56 lg:h-64 w-auto drop-shadow-2xl"
                 />
-                <Button
-                  onClick={(e) => {
-                    const input = (e.target as HTMLElement).parentElement?.querySelector('input');
-                    if (input?.value.trim()) {
-                      navigate(`/wyniki?query=${encodeURIComponent(input.value)}`);
-                    }
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full h-8 md:h-10 px-4 md:px-6"
-                >
-                   <Sparkles className="h-4 w-4 mr-1" />
-                   {t('ui.search', 'Szukaj')}
-                </Button>
               </div>
             </div>
           </div>
