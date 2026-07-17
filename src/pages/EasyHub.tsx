@@ -162,12 +162,13 @@ function MarketplaceTileCard({ tile, onClick }: { tile: MarketplaceTile; onClick
         )}
       </div>
 
-      {/* White caption below - photo 4 style */}
-      <div className="p-5 md:p-6 bg-white flex-1 flex flex-col justify-center">
-        <h3 className="font-extrabold text-xl md:text-2xl leading-tight text-primary">
+      {/* White caption below - compact */}
+      <div className="px-4 py-3 md:px-5 md:py-3 bg-white flex-1 flex flex-col justify-center">
+        <h3 className="font-extrabold text-lg md:text-xl leading-tight text-primary">
           {tile.title}
         </h3>
-        <p className="text-sm md:text-base mt-2 text-foreground/70 font-medium leading-snug line-clamp-2">
+        <p className="text-xs md:text-sm mt-1 text-foreground/70 font-medium leading-snug line-clamp-1">
+
           {tile.description}
         </p>
       </div>
@@ -508,17 +509,18 @@ export default function EasyHub() {
       {/* Hero - centered GetRido title matching reference width, search bar tucked under tagline */}
       <section className="relative overflow-hidden bg-white border-b border-border/40">
         <div className="container mx-auto px-4 py-8 md:py-14 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="font-black leading-[0.85] tracking-tight text-[clamp(3rem,9vw,6.5rem)]">
+          <div className="max-w-5xl mx-auto text-center">
+            <h1 className="font-black leading-[0.82] tracking-tighter text-[clamp(4.5rem,15vw,11rem)]">
               <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
             </h1>
-            <p className="mt-2 md:mt-4 text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold text-[#1a1450] leading-snug">
+            <p className="mt-3 md:mt-5 text-base sm:text-lg md:text-xl lg:text-2xl font-semibold text-[#1a1450] leading-snug">
               Wszystko czego potrzebujesz — <span className="text-primary">w jednym miejscu</span>
             </p>
-            <p className="mt-2 md:mt-3 text-sm sm:text-base md:text-lg text-slate-600 font-medium">
+            <p className="mt-2 text-xs sm:text-sm md:text-base text-slate-600 font-medium">
               Portal Ogłoszeń z <span className="text-primary font-bold">AI</span> • Nieruchomości • Motoryzacja • Usługi
             </p>
           </div>
+
 
           {/* Search bar centered under the whole hero */}
           <div id="kategorie" className="relative mt-4 md:mt-6 w-full max-w-2xl mx-auto">
