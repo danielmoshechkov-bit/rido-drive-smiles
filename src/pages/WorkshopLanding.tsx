@@ -434,11 +434,11 @@ export default function WorkshopLanding() {
           </div>
           <div>
             <Badge className="mb-3 bg-purple-500/10 text-purple-700 border-purple-500/20">Detailing & PPF</Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Dla studiów detailingu i myjni premium</h2>
-            <p className="text-muted-foreground mb-6">
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Dla studiów detailingu i myjni premium</h2>
+            <p className="text-lg font-medium text-slate-700 dark:text-slate-200 mb-6 leading-relaxed">
               Ten sam silnik co warsztat — z modułami, które przydają się przy długich zleceniach detailingowych. Cyfrowy protokół odbioru z podpisem klienta, zdjęcia stanu auta przy przyjęciu i wydaniu, terminarz zaprojektowany pod całodniowe usługi.
             </p>
-            <ul className="space-y-2 mb-4">
+            <ul className="space-y-3 mb-4">
               {[
                 "Cyfrowy podpis klienta na protokole odbioru",
                 "Zdjęcia przyjęcia i wydania auta — koniec z reklamacjami",
@@ -446,8 +446,8 @@ export default function WorkshopLanding() {
                 "SMS-y do klienta na każdym etapie usługi",
               ].map((t, i) => (
                 <li key={i} className="flex items-start gap-2">
-                  <Check className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
-                  <span className="text-sm">{t}</span>
+                  <Check className="h-6 w-6 text-emerald-500 shrink-0 mt-0.5" />
+                  <span className="text-base font-semibold text-slate-800 dark:text-slate-100">{t}</span>
                 </li>
               ))}
             </ul>
