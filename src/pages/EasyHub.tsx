@@ -506,30 +506,29 @@ export default function EasyHub() {
         </div>
       </header>
 
-      {/* Hero Section - full og-image banner + tagline underneath */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#f3edff] to-[#e2d4ff]">
-        <div className="container mx-auto px-4 pt-6 md:pt-10 pb-8 md:pb-12">
-          {/* The og-image banner — mascot + GetRido title baked in, perfectly composed */}
-          <div className="max-w-5xl mx-auto rounded-3xl overflow-hidden shadow-2xl ring-1 ring-primary/10">
+      {/* Hero Section - og-image blended into page (no card wrapper) */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#f5efff] via-[#efe5ff] to-[#e6d7ff]">
+        <div className="container mx-auto px-4 pt-4 md:pt-6 pb-8 md:pb-12">
+          {/* Banner image — no border/shadow, blends into the light-purple background */}
+          <div className="max-w-5xl mx-auto -mb-4 md:-mb-8">
             <img
               src={heroAsset.url}
               alt="GetRido — Portal Ogłoszeń z AI, Nieruchomości, Motoryzacja, Usługi"
-              className="w-full h-auto block"
+              className="w-full h-auto block mix-blend-multiply"
               fetchPriority="high"
             />
           </div>
 
-          {/* Tagline below banner — single line, high contrast */}
-          <div className="max-w-5xl mx-auto mt-6 md:mt-8 text-center">
-            <p className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#1a1450] leading-tight whitespace-nowrap overflow-hidden text-ellipsis">
-              Wszystko czego potrzebujesz — w jednym miejscu
+          {/* Tagline right under GetRido, single line, integrated */}
+          <div className="max-w-5xl mx-auto text-center relative z-10">
+            <p className="text-xl sm:text-2xl md:text-3xl font-extrabold text-[#1a1450] leading-tight">
+              Wszystko czego potrzebujesz — <span className="text-primary">w jednym miejscu</span>
             </p>
-            {/* Category chips — highlighted so they don't blend in */}
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               {['Motoryzacja', 'Nieruchomości', 'Usługi', 'Marketplace'].map((c) => (
                 <span
                   key={c}
-                  className="inline-flex items-center rounded-full bg-white/80 backdrop-blur px-4 py-1.5 text-sm md:text-base font-bold text-primary shadow-sm ring-1 ring-primary/20"
+                  className="inline-flex items-center rounded-full bg-white px-4 py-1.5 text-sm md:text-base font-bold text-primary shadow-sm ring-1 ring-primary/20"
                 >
                   {c}
                 </span>
@@ -538,6 +537,7 @@ export default function EasyHub() {
           </div>
         </div>
       </section>
+
 
 
 
