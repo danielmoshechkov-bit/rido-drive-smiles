@@ -52,8 +52,8 @@ import tileKsef from "@/assets/accounting/tile-ksef.jpg";
 import tileFaktury from "@/assets/accounting/tile-faktury.jpg";
 
 const mascot = "/mascot-getrido.png";
-const mascotMechanic = "/mascot-getrido.png";
-const mascotDetailer = "/mascot-getrido.png";
+const mascotMechanic = "/mascot-mechanic.png";
+const mascotDetailer = "/mascot-detailer.png";
 
 type Feature = {
   icon: any;
