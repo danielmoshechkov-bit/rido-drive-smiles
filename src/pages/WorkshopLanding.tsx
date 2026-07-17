@@ -329,30 +329,35 @@ export default function WorkshopLanding() {
             return (
               <div
                 key={idx}
-                className="group relative aspect-[4/3] rounded-2xl overflow-hidden border shadow-sm hover:shadow-xl transition-all hover:-translate-y-1"
+                className="group relative rounded-2xl overflow-hidden border bg-card shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 flex flex-col"
               >
-                <img
-                  src={feature.img}
-                  alt={feature.title}
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/10" />
+                <div className="relative aspect-[16/10] overflow-hidden">
+                  <img
+                    src={feature.img}
+                    alt={feature.title}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  {feature.ai && (
+                    <Badge className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-600 text-white border-0 shadow-md">
+                      <Sparkles className="h-3 w-3 mr-1" /> AI
+                    </Badge>
+                  )}
+                  {idx < 4 && (
+                    <Badge className="absolute top-3 left-3 bg-gradient-to-r from-primary to-purple-600 text-white border-0 shadow-md text-[10px] uppercase tracking-wider">
+                      {idx + 1}
+                    </Badge>
+                  )}
+                </div>
 
-                {feature.ai && (
-                  <Badge className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-600 text-white border-0">
-                    <Sparkles className="h-3 w-3 mr-1" /> AI
-                  </Badge>
-                )}
-
-                <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                <div className="p-5 bg-card">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-white/15 backdrop-blur-sm">
+                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
                       <Icon className="h-4 w-4" />
                     </div>
-                    <h3 className="font-semibold text-lg">{feature.title}</h3>
+                    <h3 className="font-bold text-base md:text-lg text-foreground">{feature.title}</h3>
                   </div>
-                  <p className="text-sm text-white/85 leading-snug">{feature.description}</p>
+                  <p className="text-sm text-muted-foreground leading-snug">{feature.description}</p>
                 </div>
               </div>
             );
@@ -365,7 +370,7 @@ export default function WorkshopLanding() {
             <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-100">Wkrótce</Badge>
             <h3 className="text-lg font-semibold">Na horyzoncie</h3>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {soonFeatures.map((f, i) => (
               <Card key={i} className="border-dashed">
                 <CardContent className="p-4">
