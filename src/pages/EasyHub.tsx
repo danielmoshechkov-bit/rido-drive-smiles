@@ -529,7 +529,7 @@ export default function EasyHub() {
               </p>
 
               {/* Search bar directly under tagline */}
-              <div id="kategorie" className="relative mt-3 md:mt-5 w-full">
+              <div id="kategorie" className="relative mt-3 md:mt-5 w-full max-w-2xl">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   type="text"
