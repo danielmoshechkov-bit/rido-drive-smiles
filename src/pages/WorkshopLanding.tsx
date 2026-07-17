@@ -328,7 +328,7 @@ export default function WorkshopLanding() {
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
           {features.map((feature, idx) => {
             const Icon = feature.icon;
             return (
@@ -344,21 +344,22 @@ export default function WorkshopLanding() {
                     loading="lazy"
                   />
                   {feature.ai && (
-                    <Badge className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-600 text-white border-0 shadow-md">
+                    <Badge className="absolute top-2 right-2 bg-purple-600 hover:bg-purple-600 text-white border-0 shadow-md text-[10px] px-2 py-0.5">
                       <Sparkles className="h-3 w-3 mr-1" /> AI
                     </Badge>
                   )}
                 </div>
 
-                <div className="p-6 bg-white dark:bg-card border-t">
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-6 w-6" />
+                <div className="p-4 bg-white dark:bg-card border-t">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
                     </div>
-                    <h3 className="font-extrabold text-xl md:text-2xl text-slate-900 dark:text-foreground leading-tight">{feature.title}</h3>
+                    <h3 className="font-extrabold text-base md:text-lg text-slate-900 dark:text-foreground leading-tight">{feature.title}</h3>
                   </div>
-                  <p className="text-lg md:text-xl font-semibold text-slate-800 dark:text-slate-100 leading-snug">{feature.description}</p>
+                  <p className="text-sm md:text-base font-medium text-slate-700 dark:text-slate-100 leading-snug">{feature.description}</p>
                 </div>
+
               </div>
             );
           })}
