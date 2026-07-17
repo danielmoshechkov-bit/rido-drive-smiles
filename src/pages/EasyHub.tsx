@@ -496,33 +496,45 @@ export default function EasyHub() {
         </div>
       </header>
 
-      {/* Hero Section - compact, mascot next to title */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#0d0b2b] via-[#1a1450] to-[#0d0b2b]">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/30 rounded-full blur-3xl opacity-60 pointer-events-none" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl opacity-40 pointer-events-none" />
+      {/* Hero Section - light purple like og-image, mascot next to title */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#f3edff] via-[#ece3ff] to-[#e2d4ff]">
+        {/* Decorative dots + rounded shapes like og-image */}
+        <div className="absolute top-6 left-6 grid grid-cols-4 gap-1.5 opacity-40 pointer-events-none">
+          {Array.from({ length: 16 }).map((_, i) => (
+            <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+          ))}
+        </div>
+        <div className="absolute bottom-6 left-10 grid grid-cols-4 gap-1.5 opacity-30 pointer-events-none">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+          ))}
+        </div>
+        <div className="absolute top-10 right-20 w-24 h-40 rounded-3xl bg-primary/15 -rotate-12 pointer-events-none hidden md:block" />
+        <div className="absolute bottom-10 right-10 w-28 h-44 rounded-3xl bg-primary/20 rotate-12 pointer-events-none hidden md:block" />
 
-        <div className="container mx-auto px-4 py-8 md:py-10 relative z-10">
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6 max-w-4xl mx-auto text-center md:text-left">
+        <div className="container mx-auto px-4 py-10 md:py-14 relative z-10">
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 max-w-5xl mx-auto text-center md:text-left">
             <img
               src="/mascot-getrido.png"
               alt="GetRido"
-              className="h-32 w-32 md:h-44 md:w-44 drop-shadow-2xl shrink-0 object-contain"
+              className="h-40 w-40 md:h-56 md:w-56 drop-shadow-2xl shrink-0 object-contain"
             />
 
             <div>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-none mb-2">
-                Get<span className="bg-gradient-to-r from-primary via-purple-400 to-accent bg-clip-text text-transparent">Rido</span>
+              <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold leading-none mb-3 tracking-tight">
+                <span className="text-[#1a1450]">Get</span><span className="text-primary">Rido</span>
               </h1>
-              <p className="text-lg md:text-2xl font-semibold text-white leading-tight mb-2">
+              <p className="text-lg md:text-2xl font-bold text-[#1a1450] leading-tight mb-2">
                 Wszystko czego potrzebujesz — w jednym miejscu
               </p>
-              <p className="text-sm md:text-base text-white font-medium">
+              <p className="text-sm md:text-base text-[#1a1450]/70 font-medium">
                 Motoryzacja • Nieruchomości • Usługi • Marketplace
               </p>
             </div>
           </div>
         </div>
       </section>
+
 
       {/* AI Search Bar - only enabled for owner emails */}
       <section id="kategorie" className="container mx-auto px-4 py-8 md:py-10">
