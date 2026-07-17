@@ -608,8 +608,8 @@ export default function WorkshopLanding() {
       <section className="container mx-auto px-4 py-16 md:py-24">
         <div className="text-center mb-12">
           <Badge variant="secondary" className="mb-3">Cennik</Badge>
-          <h2 className="text-3xl md:text-4xl font-bold mb-3">Wybierz pakiet</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Wybierz pakiet</h2>
+          <p className="text-lg md:text-xl font-medium text-slate-700 dark:text-slate-200 max-w-2xl mx-auto leading-relaxed">
             Każdy pakiet zaczyna się od 14 dni za darmo. Bez karty kredytowej. Bez zobowiązań.
           </p>
         </div>
