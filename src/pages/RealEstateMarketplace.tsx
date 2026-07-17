@@ -30,6 +30,7 @@ import { SEOHead, seoConfigs } from "@/components/SEOHead";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
+import mascotRealEstate from "@/assets/mascot-realestate.png";
 import tileCars from "@/assets/tile-cars.jpg";
 import tileDriver from "@/assets/tile-driver.jpg";
 import tileFleet from "@/assets/tile-fleet.jpg";
@@ -781,51 +782,59 @@ export default function RealEstateMarketplace() {
         </div>
       </header>
 
-      {/* Hero Section with Background */}
-      <section className="relative overflow-hidden">
-        {/* Background Image with Overlay */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroImage})` }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-b from-background/90 via-background/80 to-background" />
-        </div>
+      {/* Hero Section — modern premium AI portal */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-primary/10 border-b border-primary/10">
+        <div className="pointer-events-none absolute -top-24 -left-24 w-96 h-96 rounded-full bg-primary/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -right-16 w-[28rem] h-[28rem] rounded-full bg-primary/10 blur-3xl" />
 
-        <div className="relative container mx-auto px-4 py-8 md:py-10">
-          {/* AI Search Bar */}
-          <div className="max-w-3xl mx-auto mb-6">
-            <RealEstateAISearch 
-              onSearchResults={handleAISearchResults}
-              onLoading={setIsSearchingAI}
-            />
-            {/* Explanation is now shown inside RealEstateAISearch as Rido mascot bubble */}
+        <div className="relative container mx-auto px-4 py-10 md:py-14">
+          <div className="grid md:grid-cols-[1fr_auto] items-center gap-8 max-w-6xl mx-auto">
+            {/* Left: title + AI search */}
+            <div className="text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-semibold mb-4">
+                <Sparkles className="h-3.5 w-3.5" />
+                Portal ogłoszeń nieruchomości z AI
+              </div>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 text-slate-900">
+                {t('realestate.title', 'Znajdź wymarzoną nieruchomość')}
+              </h1>
+              <p className="text-base md:text-lg text-slate-600 font-medium mb-6">
+                {t('realestate.subtitle', 'Mieszkania, domy, działki i lokale od zweryfikowanych agencji')}
+              </p>
+
+              <div className="max-w-2xl">
+                <RealEstateAISearch
+                  onSearchResults={handleAISearchResults}
+                  onLoading={setIsSearchingAI}
+                />
+              </div>
+
+              <div className="mt-6">
+                <PropertyTypeSelector
+                  selectedType={selectedPropertyType}
+                  onTypeChange={setSelectedPropertyType}
+                  className="justify-center md:justify-start"
+                />
+                <TransactionTypeChips
+                  selectedType={selectedTransactionType}
+                  onTypeChange={setSelectedTransactionType}
+                  className="justify-center md:justify-start mt-3"
+                />
+              </div>
+            </div>
+
+            {/* Right: mascot */}
+            <div className="hidden md:flex justify-center items-end">
+              <img
+                src={mascotRealEstate}
+                alt="GetRido — doradca nieruchomości"
+                className="h-56 lg:h-64 w-auto drop-shadow-2xl"
+              />
+            </div>
           </div>
-
-          {/* Title */}
-          <div className="text-center mb-1">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1">
-              {t('realestate.title', 'Znajdź wymarzoną nieruchomość')}
-            </h1>
-            <p className="text-muted-foreground">
-              {t('realestate.subtitle', 'Mieszkania, domy, działki i lokale od zweryfikowanych agencji')}
-            </p>
-          </div>
-
-          {/* Property Type Selector - inside hero for tighter spacing */}
-          <PropertyTypeSelector
-            selectedType={selectedPropertyType}
-            onTypeChange={setSelectedPropertyType}
-            className="justify-center mt-5"
-          />
-
-          {/* Transaction Type Chips - directly under property types, subtle spacing */}
-          <TransactionTypeChips
-            selectedType={selectedTransactionType}
-            onTypeChange={setSelectedTransactionType}
-            className="justify-center mt-3"
-          />
         </div>
       </section>
+
 
       {/* Search Filters */}
       <section className="container mx-auto px-4 -mt-1 pb-4 relative z-10">
