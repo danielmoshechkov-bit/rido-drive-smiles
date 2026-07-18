@@ -27,8 +27,9 @@ import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
-import { AdvancedFiltersSheet } from "@/components/realestate/AdvancedFiltersSheet";
+import { AdvancedFiltersSheet, type RangeFilterValue } from "@/components/realestate/AdvancedFiltersSheet";
 import { listingMatchesAttributes, type PropertyTypeDb } from "@/lib/listing-attributes";
+import { deriveSellerType, SELLER_TYPE_LABEL_PL, type SellerType } from "@/lib/realestate-seller-type";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
