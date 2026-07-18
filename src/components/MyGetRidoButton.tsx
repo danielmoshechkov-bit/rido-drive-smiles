@@ -111,6 +111,7 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         isAccounting: !!accountingRole,
         isServiceProvider: !!serviceProviderRole,
       });
+      setRolesLoaded(true);
     };
     
     checkAccountTypes();
