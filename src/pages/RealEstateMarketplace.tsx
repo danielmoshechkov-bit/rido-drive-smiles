@@ -376,10 +376,15 @@ function mapDbToListing(db: DbListing) {
 export default function RealEstateMarketplace() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
-  const [selectedPropertyType, setSelectedPropertyType] = useState<string | null>(null);
-  const [selectedTransactionType, setSelectedTransactionType] = useState<string | null>(null);
+  // Iteracja 2: startowe wartości typu/transakcji czytamy z URL (landing routes)
+  const [selectedPropertyType, setSelectedPropertyType] = useState<string | null>(
+    () => searchParams.get("propertyType"),
+  );
+  const [selectedTransactionType, setSelectedTransactionType] = useState<string | null>(
+    () => searchParams.get("transactionType"),
+  );
   const [allListings, setAllListings] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -388,11 +393,18 @@ export default function RealEstateMarketplace() {
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
   const [showFullMap, setShowFullMap] = useState(() => searchParams.get("showMap") === "true");
   const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc' | 'area_desc'>('newest');
-  
+  // Iteracja 2: filtry zaawansowane (attributes JSONB) — trzymane w URL pod kluczem ?attrs=
+  const [advancedAttrs, setAdvancedAttrs] = useState<Record<string, boolean | string | string[]>>(() => {
+    const raw = searchParams.get("attrs");
+    if (!raw) return {};
+    try { return JSON.parse(decodeURIComponent(raw)); } catch { return {}; }
+  });
+
   const [initialQuery, setInitialQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(21);
   const aiSearchTriggered = useRef(false);
+
 
   // Compare context
   const { addProperty, removeProperty, isPropertySelected } = useCompare();
