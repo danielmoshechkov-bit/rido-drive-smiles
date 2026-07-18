@@ -360,9 +360,8 @@ export function ServiceProviderDetailPage() {
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Provider Info */}
-            <div>
+            <div className="bg-white rounded-2xl shadow-md p-6 md:p-8">
               <div className="flex items-center gap-4 mb-4 flex-wrap">
-                {/* Logo — prostokątne, zachowuje oryginalne proporcje (PNG/JPG/SVG) */}
                 {provider.logo_url ? (
                   <div className="h-16 md:h-20 max-w-[280px] bg-white border border-border rounded-lg shrink-0 flex items-center justify-center overflow-hidden px-3 py-2">
                     <img
@@ -373,39 +372,35 @@ export function ServiceProviderDetailPage() {
                   </div>
                 ) : (
                   <div className="h-16 md:h-20 px-5 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
-                    <span className="text-2xl md:text-3xl font-bold text-primary">
+                    <span className="text-2xl md:text-3xl font-extrabold text-primary">
                       {(provider.short_name || provider.company_name)?.charAt(0)}
                     </span>
                   </div>
                 )}
 
-                {/* Tylko nazwa skrócona obok loga */}
-                <h1 className="text-2xl md:text-3xl font-bold leading-tight">
+                <h1 className="text-2xl md:text-4xl font-extrabold text-primary leading-tight">
                   {provider.short_name?.trim() || provider.company_name}
                 </h1>
               </div>
 
-              {/* Adres pod blokiem logo+nazwa */}
               {(provider.company_address || provider.company_city) && (
-                <div className="flex items-start gap-2 mb-3 text-muted-foreground">
+                <div className="flex items-start gap-2 mb-3 text-slate-800 font-semibold">
                   <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <span>
                     {[provider.company_address, provider.company_city].filter(Boolean).join(', ')}
                   </span>
                 </div>
               )}
-              
-              {/* Price Range */}
+
               {priceRange && (
                 <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-muted-foreground">Ceny od</span>
-                  <span className="text-3xl md:text-4xl font-bold text-primary">
-                    {priceRange.min} - {priceRange.max} zł
+                  <span className="text-slate-700 font-semibold">Ceny od</span>
+                  <span className="text-3xl md:text-4xl font-extrabold text-primary">
+                    {priceRange.min} - {priceRange.max}&nbsp;zł
                   </span>
                 </div>
               )}
 
-              {/* Rating: gwiazdki zawsze widoczne (nowe konta = 5.0); liczba opinii pokazuje się od 10 */}
               {(() => {
                 const hasReviews = (provider.rating_count || 0) > 0;
                 const displayRating = hasReviews ? (provider.rating_avg || 0) : 5;
@@ -426,9 +421,9 @@ export function ServiceProviderDetailPage() {
                         />
                       ))}
                     </div>
-                    <span className="font-semibold">{displayRating.toFixed(1)}</span>
+                    <span className="font-extrabold text-slate-900">{displayRating.toFixed(1)}</span>
                     {showCount && (
-                      <span className="text-muted-foreground text-sm">({displayCount} opinii)</span>
+                      <span className="text-slate-700 font-semibold text-sm">({displayCount} opinii)</span>
                     )}
                   </div>
                 );
