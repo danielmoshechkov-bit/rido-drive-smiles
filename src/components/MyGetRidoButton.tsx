@@ -168,6 +168,17 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        {!rolesLoaded && (
+          <div className="px-2 py-3 space-y-2" aria-label="Ładowanie">
+            <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+            <div className="h-4 w-40 rounded bg-muted animate-pulse" />
+            <div className="h-4 w-28 rounded bg-muted animate-pulse" />
+          </div>
+        )}
+        {rolesLoaded && <>
+        {/* C2: cały poniższy blok pozycji menu renderowany dopiero po
+            załadowaniu ról — inaczej użytkownik przez chwilę widział
+            niekompletną listę. */}
         {accountTypes.isAdmin && (
           <DropdownMenuItem onClick={() => navigate('/admin/dashboard')}>
             <Building2 className="h-4 w-4 mr-2" />
