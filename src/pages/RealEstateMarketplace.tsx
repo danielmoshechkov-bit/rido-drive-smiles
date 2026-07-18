@@ -416,6 +416,20 @@ export default function RealEstateMarketplace() {
     if (!raw) return {};
     try { return JSON.parse(decodeURIComponent(raw)); } catch { return {}; }
   });
+  // Iteracja 2: zakresy (piętro/rok/czynsz/kaucja) — URL ?ranges=
+  const [advancedRanges, setAdvancedRanges] = useState<RangeFilterValue>(() => {
+    const raw = searchParams.get("ranges");
+    if (!raw) return {};
+    try { return JSON.parse(decodeURIComponent(raw)); } catch { return {}; }
+  });
+  // Iteracja 2: seller_type — segmented control (URL ?seller=)
+  const [sellerFilter, setSellerFilter] = useState<"all" | SellerType>(
+    () => {
+      const raw = searchParams.get("seller");
+      if (raw === "private" || raw === "agency" || raw === "developer") return raw;
+      return "all";
+    },
+  );
 
   const [initialQuery, setInitialQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
