@@ -975,6 +975,14 @@ export default function RealEstateMarketplace() {
                 <SelectItem value="area_desc">{t('ui.areaDesc', 'Powierzchnia: największe')}</SelectItem>
               </SelectContent>
             </Select>
+            {/* Iteracja 2 — filtry zaawansowane (attributes JSONB) */}
+            <AdvancedFiltersSheet
+              propertyType={(selectedPropertyType as PropertyTypeDb | null) ?? null}
+              value={advancedAttrs}
+              onChange={(next) => { setAdvancedAttrs(next); setCurrentPage(1); }}
+              matchCount={sortedListings.length}
+              triggerClassName="h-8 text-sm"
+            />
           </div>
           {/* Right side - count */}
           <p className="text-sm text-muted-foreground">
