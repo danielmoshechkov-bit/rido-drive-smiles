@@ -87,16 +87,16 @@ export function useUrlFilters<T extends Record<string, unknown>>(
     (patch: Partial<T>) => {
       const shouldPush = Object.keys(patch).some((k) => pushKeys.has(k));
       const next = new URLSearchParams(searchParams);
-      for (const key in patch) {
+      (Object.keys(patch) as Array<Extract<keyof T, string>>).forEach((key) => {
         const codec = schema[key];
-        if (!codec) continue;
-        const serialized = codec.serialize(patch[key] as T[keyof T]);
+        if (!codec) return;
+        const serialized = codec.serialize(patch[key] as T[typeof key]);
         if (serialized === null || serialized === undefined || serialized === '') {
           next.delete(key);
         } else {
           next.set(key, serialized);
         }
-      }
+      });
       setSearchParams(next, { replace: !shouldPush });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
