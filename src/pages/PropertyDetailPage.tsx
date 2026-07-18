@@ -537,26 +537,24 @@ export default function PropertyDetailPage() {
             <Separator />
 
             {/* Description */}
-            <div>
+            <div className="bg-white rounded-2xl shadow-md p-6 md:p-8">
               <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-xl font-bold text-foreground">Opis</h2>
+                <h2 className="text-xl font-extrabold text-primary">Opis</h2>
               </div>
               {listing.aiDescriptionHtml ? (
-                <div 
-                  className="prose prose-sm max-w-none text-foreground leading-relaxed [&>p]:mb-3 [&>p]:text-foreground [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-base [&>h3]:font-bold [&>h3]:text-foreground [&>ul]:my-2 [&>ul]:pl-5 [&>ul]:list-disc [&>ul>li]:text-foreground"
+                <div
+                  className="prose prose-sm max-w-none text-slate-800 font-medium leading-relaxed [&>p]:mb-3 [&>p]:text-slate-800 [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-base [&>h3]:font-extrabold [&>h3]:text-primary [&>ul]:my-2 [&>ul]:pl-5 [&>ul]:list-disc [&>ul>li]:text-slate-800"
                   dangerouslySetInnerHTML={{ __html: listing.aiDescriptionHtml }}
                 />
               ) : (
-                <div className="prose prose-sm max-w-none text-foreground leading-relaxed space-y-3">
+                <div className="prose prose-sm max-w-none text-slate-800 font-medium leading-relaxed space-y-3">
                   {(translatedDesc || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block, i) => {
                     const trimmed = block.trim();
                     if (!trimmed) return null;
-                    // Detect section headers (short lines ending with colon or all-caps-ish)
                     const isHeader = trimmed.endsWith(':') && trimmed.length < 60;
                     if (isHeader) {
-                      return <h3 key={i} className="text-base font-semibold text-foreground mt-4 mb-1">{trimmed}</h3>;
+                      return <h3 key={i} className="text-base font-extrabold text-primary mt-4 mb-1">{trimmed}</h3>;
                     }
-                    // Split remaining newlines into paragraphs
                     return trimmed.split('\n').map((line, j) => {
                       const l = line.trim();
                       if (!l) return null;
