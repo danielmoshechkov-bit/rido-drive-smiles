@@ -373,6 +373,9 @@ function mapDbToListing(db: DbListing) {
     propertyUniqueId: db.property_unique_id,
     lat: db.latitude ? Number(db.latitude) : undefined,
     lng: db.longitude ? Number(db.longitude) : undefined,
+    attributes: (db.attributes ?? {}) as Record<string, unknown>,
+    rentAmount: db.rent_amount ?? undefined,
+    depositAmount: db.deposit_amount ?? undefined,
   };
 }
 
