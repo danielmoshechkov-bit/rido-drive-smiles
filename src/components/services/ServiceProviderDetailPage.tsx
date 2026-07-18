@@ -360,9 +360,8 @@ export function ServiceProviderDetailPage() {
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Provider Info */}
-            <div>
+            <div className="bg-white rounded-2xl shadow-md p-6 md:p-8">
               <div className="flex items-center gap-4 mb-4 flex-wrap">
-                {/* Logo — prostokątne, zachowuje oryginalne proporcje (PNG/JPG/SVG) */}
                 {provider.logo_url ? (
                   <div className="h-16 md:h-20 max-w-[280px] bg-white border border-border rounded-lg shrink-0 flex items-center justify-center overflow-hidden px-3 py-2">
                     <img
@@ -373,39 +372,35 @@ export function ServiceProviderDetailPage() {
                   </div>
                 ) : (
                   <div className="h-16 md:h-20 px-5 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
-                    <span className="text-2xl md:text-3xl font-bold text-primary">
+                    <span className="text-2xl md:text-3xl font-extrabold text-primary">
                       {(provider.short_name || provider.company_name)?.charAt(0)}
                     </span>
                   </div>
                 )}
 
-                {/* Tylko nazwa skrócona obok loga */}
-                <h1 className="text-2xl md:text-3xl font-bold leading-tight">
+                <h1 className="text-2xl md:text-4xl font-extrabold text-primary leading-tight">
                   {provider.short_name?.trim() || provider.company_name}
                 </h1>
               </div>
 
-              {/* Adres pod blokiem logo+nazwa */}
               {(provider.company_address || provider.company_city) && (
-                <div className="flex items-start gap-2 mb-3 text-muted-foreground">
+                <div className="flex items-start gap-2 mb-3 text-slate-800 font-semibold">
                   <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <span>
                     {[provider.company_address, provider.company_city].filter(Boolean).join(', ')}
                   </span>
                 </div>
               )}
-              
-              {/* Price Range */}
+
               {priceRange && (
                 <div className="flex items-baseline gap-2 mb-4">
-                  <span className="text-muted-foreground">Ceny od</span>
-                  <span className="text-3xl md:text-4xl font-bold text-primary">
-                    {priceRange.min} - {priceRange.max} zł
+                  <span className="text-slate-700 font-semibold">Ceny od</span>
+                  <span className="text-3xl md:text-4xl font-extrabold text-primary">
+                    {priceRange.min} - {priceRange.max}&nbsp;zł
                   </span>
                 </div>
               )}
 
-              {/* Rating: gwiazdki zawsze widoczne (nowe konta = 5.0); liczba opinii pokazuje się od 10 */}
               {(() => {
                 const hasReviews = (provider.rating_count || 0) > 0;
                 const displayRating = hasReviews ? (provider.rating_avg || 0) : 5;
@@ -426,9 +421,9 @@ export function ServiceProviderDetailPage() {
                         />
                       ))}
                     </div>
-                    <span className="font-semibold">{displayRating.toFixed(1)}</span>
+                    <span className="font-extrabold text-slate-900">{displayRating.toFixed(1)}</span>
                     {showCount && (
-                      <span className="text-muted-foreground text-sm">({displayCount} opinii)</span>
+                      <span className="text-slate-700 font-semibold text-sm">({displayCount} opinii)</span>
                     )}
                   </div>
                 );
@@ -438,52 +433,50 @@ export function ServiceProviderDetailPage() {
             <Separator />
 
             {/* Description */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4">O firmie</h2>
-              <div className="prose prose-base max-w-none text-foreground/90 whitespace-pre-line leading-relaxed">
+            <div className="bg-white rounded-2xl shadow-md p-6 md:p-8">
+              <h2 className="text-xl font-extrabold text-primary mb-4">O firmie</h2>
+              <div className="prose prose-base max-w-none text-slate-800 font-medium whitespace-pre-line leading-relaxed">
                 {descLoading ? "…" : (providerDescription || "Brak opisu")}
               </div>
             </div>
 
-            <Separator />
-
             {/* Services List */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <div className="bg-white rounded-2xl shadow-md p-6 md:p-8">
+              <h2 className="text-xl font-extrabold text-primary mb-4 flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-primary" />
                 Oferta usług ({services.length})
               </h2>
-              
+
               {services.length === 0 ? (
-                <p className="text-center py-8 text-muted-foreground">
+                <p className="text-center py-8 text-slate-600 font-semibold">
                   Ten usługodawca nie ma jeszcze dodanych usług
                 </p>
               ) : (
                 <div className="space-y-3">
                   {services.map(service => (
-                    <Card key={service.id} className="hover:border-primary/50 transition-all">
+                    <Card key={service.id} className="hover:border-primary/50 hover:shadow-md transition-all rounded-xl border border-slate-200">
                       <CardContent className="p-4 flex items-center justify-between">
                         <div className="flex-1">
-                          <h4 className="font-medium">{service.name}</h4>
+                          <h4 className="font-extrabold text-slate-900 text-base">{service.name}</h4>
                           {service.description && (
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            <p className="text-sm text-slate-700 font-semibold mt-1 line-clamp-2">
                               {service.description}
                             </p>
                           )}
-                          <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-3 mt-2 text-sm text-slate-700 font-semibold">
                             <span className="flex items-center gap-1">
-                              <Clock className="h-3.5 w-3.5" />
+                              <Clock className="h-3.5 w-3.5 text-primary" />
                               {service.duration_minutes} min
                             </span>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-4 ml-4">
                           <div className="text-right">
-                            <span className="font-bold text-lg text-primary">
-                              od {service.price_from || service.price} zł
+                            <span className="font-extrabold text-lg text-primary">
+                              od {service.price_from || service.price}&nbsp;zł
                             </span>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">cena orientacyjna</p>
+                            <p className="text-[10px] text-slate-600 font-semibold mt-0.5">cena orientacyjna</p>
                           </div>
                           <div className="flex flex-col gap-1.5">
                             <Button size="sm" onClick={() => handleBookService(service)}>
@@ -561,8 +554,8 @@ export function ServiceProviderDetailPage() {
           {/* Right Column - Contact Sidebar */}
           <div className="space-y-6">
             <div className="lg:sticky lg:top-24">
-              <Card className="p-6 shadow-lg border-primary/20">
-                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+              <Card className="p-6 shadow-lg border-2 border-primary/20 rounded-2xl bg-gradient-to-br from-white to-primary/5">
+                <h3 className="font-extrabold text-lg mb-4 flex items-center gap-2 text-primary">
                   <Phone className="h-5 w-5 text-primary" />
                   Kontakt
                 </h3>

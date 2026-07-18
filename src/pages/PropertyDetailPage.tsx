@@ -408,39 +408,39 @@ export default function PropertyDetailPage() {
           {/* Left Column - Property Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Title & Price */}
-            <div>
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <h1 className="text-2xl md:text-3xl font-bold">
+            <div className="bg-white rounded-2xl shadow-md p-6 md:p-8">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <h1 className="text-2xl md:text-4xl font-extrabold text-primary leading-tight">
                   {translatedTitle}
                 </h1>
                 {listing.transactionType && (
-                  <Badge 
+                  <Badge
                     style={{ backgroundColor: listing.transactionColor || '#10b981' }}
-                    className="text-white shrink-0"
+                    className="text-white shrink-0 font-bold px-3 py-1"
                   >
                     {listing.transactionType}
                   </Badge>
                 )}
               </div>
-              
+
               <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-3xl md:text-4xl font-bold text-primary">
-                  {listing.price?.toLocaleString('pl-PL')} zł
+                <span className="text-3xl md:text-5xl font-extrabold text-primary">
+                  {listing.price?.toLocaleString('pl-PL')}&nbsp;zł
                 </span>
-                <span className="text-lg text-muted-foreground">
+                <span className="text-lg text-slate-700 font-semibold">
                   {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
                 </span>
               </div>
-              
+
               {pricePerM2 && (
-                <p className="text-muted-foreground">
-                  {pricePerM2.toLocaleString('pl-PL')} zł/m²
+                <p className="text-slate-700 font-semibold">
+                  {pricePerM2.toLocaleString('pl-PL')}&nbsp;zł/m²
                   {listing.areaM2 && <span className="ml-2">• {listing.areaM2} m²</span>}
                 </p>
               )}
 
               {/* Location */}
-              <div className="flex items-center gap-2 mt-4 text-muted-foreground">
+              <div className="flex items-center gap-2 mt-4 text-slate-800 font-semibold">
                 <MapPin className="h-5 w-5 text-primary" />
                 <span>
                   {listing.address && `${listing.address}, `}
@@ -537,26 +537,24 @@ export default function PropertyDetailPage() {
             <Separator />
 
             {/* Description */}
-            <div>
+            <div className="bg-white rounded-2xl shadow-md p-6 md:p-8">
               <div className="flex items-center gap-2 mb-4">
-                <h2 className="text-xl font-bold text-foreground">Opis</h2>
+                <h2 className="text-xl font-extrabold text-primary">Opis</h2>
               </div>
               {listing.aiDescriptionHtml ? (
-                <div 
-                  className="prose prose-sm max-w-none text-foreground leading-relaxed [&>p]:mb-3 [&>p]:text-foreground [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-base [&>h3]:font-bold [&>h3]:text-foreground [&>ul]:my-2 [&>ul]:pl-5 [&>ul]:list-disc [&>ul>li]:text-foreground"
+                <div
+                  className="prose prose-sm max-w-none text-slate-800 font-medium leading-relaxed [&>p]:mb-3 [&>p]:text-slate-800 [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-base [&>h3]:font-extrabold [&>h3]:text-primary [&>ul]:my-2 [&>ul]:pl-5 [&>ul]:list-disc [&>ul>li]:text-slate-800"
                   dangerouslySetInnerHTML={{ __html: listing.aiDescriptionHtml }}
                 />
               ) : (
-                <div className="prose prose-sm max-w-none text-foreground leading-relaxed space-y-3">
+                <div className="prose prose-sm max-w-none text-slate-800 font-medium leading-relaxed space-y-3">
                   {(translatedDesc || "Brak opisu").split(/\n{2,}|\n(?=[A-ZŻŹĆĄŚĘŁÓŃ])/g).map((block, i) => {
                     const trimmed = block.trim();
                     if (!trimmed) return null;
-                    // Detect section headers (short lines ending with colon or all-caps-ish)
                     const isHeader = trimmed.endsWith(':') && trimmed.length < 60;
                     if (isHeader) {
-                      return <h3 key={i} className="text-base font-semibold text-foreground mt-4 mb-1">{trimmed}</h3>;
+                      return <h3 key={i} className="text-base font-extrabold text-primary mt-4 mb-1">{trimmed}</h3>;
                     }
-                    // Split remaining newlines into paragraphs
                     return trimmed.split('\n').map((line, j) => {
                       const l = line.trim();
                       if (!l) return null;
@@ -587,8 +585,8 @@ export default function PropertyDetailPage() {
           <div className="space-y-6">
             {/* Contact Card - Sticky on desktop */}
             <div className="lg:sticky lg:top-24">
-              <Card className="p-6 shadow-lg border-primary/20">
-                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+              <Card className="p-6 shadow-lg border-2 border-primary/20 rounded-2xl bg-gradient-to-br from-white to-primary/5">
+                <h3 className="font-extrabold text-lg mb-4 flex items-center gap-2 text-primary">
                   <Phone className="h-5 w-5 text-primary" />
                   Kontakt
                 </h3>
