@@ -320,6 +320,9 @@ interface DbListing {
   listing_number?: string;
   property_unique_id?: string;
   real_estate_agents?: { company_name?: string } | null;
+  attributes?: Record<string, unknown> | null;
+  rent_amount?: number | null;
+  deposit_amount?: number | null;
 }
 
 // Fix Polish diacritics capitalization (OŻarÓw → Ożarów)
