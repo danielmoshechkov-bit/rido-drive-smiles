@@ -408,39 +408,39 @@ export default function PropertyDetailPage() {
           {/* Left Column - Property Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Title & Price */}
-            <div>
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <h1 className="text-2xl md:text-3xl font-bold">
+            <div className="bg-white rounded-2xl shadow-md p-6 md:p-8">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <h1 className="text-2xl md:text-4xl font-extrabold text-primary leading-tight">
                   {translatedTitle}
                 </h1>
                 {listing.transactionType && (
-                  <Badge 
+                  <Badge
                     style={{ backgroundColor: listing.transactionColor || '#10b981' }}
-                    className="text-white shrink-0"
+                    className="text-white shrink-0 font-bold px-3 py-1"
                   >
                     {listing.transactionType}
                   </Badge>
                 )}
               </div>
-              
+
               <div className="flex items-baseline gap-2 mb-2">
-                <span className="text-3xl md:text-4xl font-bold text-primary">
-                  {listing.price?.toLocaleString('pl-PL')} zł
+                <span className="text-3xl md:text-5xl font-extrabold text-primary">
+                  {listing.price?.toLocaleString('pl-PL')}&nbsp;zł
                 </span>
-                <span className="text-lg text-muted-foreground">
+                <span className="text-lg text-slate-700 font-semibold">
                   {PRICE_TYPE_LABELS[listing.priceType || 'sale'] || ''}
                 </span>
               </div>
-              
+
               {pricePerM2 && (
-                <p className="text-muted-foreground">
-                  {pricePerM2.toLocaleString('pl-PL')} zł/m²
+                <p className="text-slate-700 font-semibold">
+                  {pricePerM2.toLocaleString('pl-PL')}&nbsp;zł/m²
                   {listing.areaM2 && <span className="ml-2">• {listing.areaM2} m²</span>}
                 </p>
               )}
 
               {/* Location */}
-              <div className="flex items-center gap-2 mt-4 text-muted-foreground">
+              <div className="flex items-center gap-2 mt-4 text-slate-800 font-semibold">
                 <MapPin className="h-5 w-5 text-primary" />
                 <span>
                   {listing.address && `${listing.address}, `}
