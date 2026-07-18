@@ -18,18 +18,12 @@ import { Navigate, useParams } from "react-router-dom";
 import { parseLandingParams, PROPERTY_TYPE_DB_TO_SLUG } from "@/lib/realestate-landing-routes";
 import type { PropertyTypeDb } from "@/lib/listing-attributes";
 
-interface Params {
-  typ?: string;
-  transakcja?: string;
-  lokalizacja?: string;
-}
-
 // slug PL dla propertyType nadal używa formy w liczbie pojedynczej z bazy —
 // listing na /nieruchomosci trzyma stan wewnętrzny w formie DB, więc
 // przekazujemy DB-value w query paramach.
 
 export default function RealEstateLanding() {
-  const params = useParams<Params>();
+  const params = useParams();
   const parsed = parseLandingParams(params.typ, params.transakcja, params.lokalizacja);
 
   useEffect(() => {
