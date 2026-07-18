@@ -256,9 +256,13 @@ export function validateAttributes(input: Record<string, unknown>): Record<strin
 }
 
 /**
- * Sprawdza czy pojedyncze ogłoszenie (obiekt attributes) pasuje do wybranego
- * zestawu filtrów. Zwraca true gdy WSZYSTKIE wybrane cechy są spełnione.
- * Używane po stronie klienta jako uzupełnienie zapytania Supabase (attributes @> filter).
+ * Sprawdza czy pojedyncze ogłoszenie pasuje do wybranego zestawu filtrów.
+ *
+ * ZASADA (iter. 2 review): brak klucza w attributes = "nie wiem", NIE "nie ma".
+ * Oferta bez wypełnionego attributes PRZECHODZI filtry — sortujemy ją niżej
+ * przez `attributeMatchScore()`. Dzięki temu włączenie checkboxa nie zeruje
+ * listy 296 istniejących ofert z pustym {}.
+ * Wyjątek: enum-y z jawnie sprzeczną wartością filtrujemy twardo.
  */
 export function listingMatchesAttributes(
   listingAttrs: Record<string, unknown> | null | undefined,
@@ -267,6 +271,8 @@ export function listingMatchesAttributes(
   const attrs = listingAttrs ?? {};
   for (const [key, want] of Object.entries(selected)) {
     const have = (attrs as Record<string, unknown>)[key];
+    if (have === undefined || have === null) continue; // "nie wiem" — nie odrzucamy
+
     if (Array.isArray(want)) {
       if (!Array.isArray(have)) return false;
       const haveSet = new Set(have as string[]);
@@ -278,4 +284,21 @@ export function listingMatchesAttributes(
     }
   }
   return true;
+}
+
+/**
+ * Ile z wybranych cech oferta ma UDOKUMENTOWANE. Używane do sortowania —
+ * puste 296 ofert lądują na dole, ale nie znikają.
+ */
+export function attributeMatchScore(
+  listingAttrs: Record<string, unknown> | null | undefined,
+  selected: Record<string, unknown>,
+): number {
+  const attrs = listingAttrs ?? {};
+  let score = 0;
+  for (const key of Object.keys(selected)) {
+    const have = (attrs as Record<string, unknown>)[key];
+    if (have !== undefined && have !== null && have !== false) score += 1;
+  }
+  return score;
 }

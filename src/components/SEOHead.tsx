@@ -9,6 +9,8 @@ export interface SEOHeadProps {
   ogType?: 'website' | 'article' | 'product';
   schemaType?: 'WebSite' | 'ItemList' | 'Product' | 'RealEstateListing' | 'Vehicle' | 'Service' | 'LocalBusiness';
   schemaData?: Record<string, unknown>;
+  /** iter. 2: landingi z <10 ofertami dostają noindex,follow */
+  noindex?: boolean;
 }
 
 // Default SEO data
