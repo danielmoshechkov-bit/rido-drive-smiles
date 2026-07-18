@@ -23,6 +23,7 @@ import {
   Heart, Phone, Mail, User, Home, Building2, Layers, Maximize, GitCompare, Lock, Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatMoneyPLN, formatPricePerM2 } from "@/utils/formatters";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
