@@ -27,8 +27,9 @@ import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
-import { AdvancedFiltersSheet } from "@/components/realestate/AdvancedFiltersSheet";
+import { AdvancedFiltersSheet, type RangeFilterValue } from "@/components/realestate/AdvancedFiltersSheet";
 import { listingMatchesAttributes, type PropertyTypeDb } from "@/lib/listing-attributes";
+import { deriveSellerType, SELLER_TYPE_LABEL_PL, type SellerType } from "@/lib/realestate-seller-type";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
@@ -321,7 +322,8 @@ interface DbListing {
   contact_email?: string;
   listing_number?: string;
   property_unique_id?: string;
-  real_estate_agents?: { company_name?: string } | null;
+  agency_id?: string | null;
+  real_estate_agents?: { company_name?: string; company_id?: string | null } | null;
   attributes?: Record<string, unknown> | null;
   rent_amount?: number | null;
   deposit_amount?: number | null;
@@ -378,6 +380,13 @@ function mapDbToListing(db: DbListing) {
     attributes: (db.attributes ?? {}) as Record<string, unknown>,
     rentAmount: db.rent_amount ?? undefined,
     depositAmount: db.deposit_amount ?? undefined,
+    // iter. 2: sellerType wyliczony Z RELACJI, nigdy z pola na ofercie
+    sellerType: deriveSellerType({
+      agency_id: db.agency_id ?? null,
+      agent: db.real_estate_agents
+        ? { company_id: db.real_estate_agents.company_id ?? null }
+        : null,
+    }) as SellerType,
   };
 }
 
@@ -407,6 +416,20 @@ export default function RealEstateMarketplace() {
     if (!raw) return {};
     try { return JSON.parse(decodeURIComponent(raw)); } catch { return {}; }
   });
+  // Iteracja 2: zakresy (piętro/rok/czynsz/kaucja) — URL ?ranges=
+  const [advancedRanges, setAdvancedRanges] = useState<RangeFilterValue>(() => {
+    const raw = searchParams.get("ranges");
+    if (!raw) return {};
+    try { return JSON.parse(decodeURIComponent(raw)); } catch { return {}; }
+  });
+  // Iteracja 2: seller_type — segmented control (URL ?seller=)
+  const [sellerFilter, setSellerFilter] = useState<"all" | SellerType>(
+    () => {
+      const raw = searchParams.get("seller");
+      if (raw === "private" || raw === "agency" || raw === "developer") return raw;
+      return "all";
+    },
+  );
 
   const [initialQuery, setInitialQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -464,11 +487,33 @@ export default function RealEstateMarketplace() {
   // Do tego momentu nie ruszamy — działa i refaktor pod presją to zły
   // pomysł. Zostawiamy JAWNY znacznik.
   const filteredByAttrs = useMemo(() => {
-    if (Object.keys(advancedAttrs).length === 0) return listings;
-    // listingMatchesAttributes: brak cechy w attributes = "nie wiem" = PASS
-    // (zabezpieczenie przed zerowaniem listy 296 istniejących ofert z {})
-    return listings.filter((l) => listingMatchesAttributes(l.attributes, advancedAttrs));
-  }, [listings, advancedAttrs]);
+    let out = listings;
+    if (Object.keys(advancedAttrs).length > 0) {
+      // brak cechy w attributes = "nie wiem" = PASS
+      out = out.filter((l) => listingMatchesAttributes(l.attributes, advancedAttrs));
+    }
+    // Zakresy (piętro / rok budowy / czynsz / kaucja). Brak wartości = brak filtra.
+    const r = advancedRanges;
+    const hasRange = Object.values(r).some((v) => v !== undefined && v !== null);
+    if (hasRange) {
+      out = out.filter((l) => {
+        if (r.floor_min !== undefined && (l.floor ?? -Infinity) < r.floor_min) return false;
+        if (r.floor_max !== undefined && (l.floor ?? Infinity) > r.floor_max) return false;
+        if (r.build_year_min !== undefined && (l.buildYear ?? -Infinity) < r.build_year_min) return false;
+        if (r.build_year_max !== undefined && (l.buildYear ?? Infinity) > r.build_year_max) return false;
+        if (r.rent_min !== undefined && (l.rentAmount ?? -Infinity) < r.rent_min) return false;
+        if (r.rent_max !== undefined && (l.rentAmount ?? Infinity) > r.rent_max) return false;
+        if (r.deposit_min !== undefined && (l.depositAmount ?? -Infinity) < r.deposit_min) return false;
+        if (r.deposit_max !== undefined && (l.depositAmount ?? Infinity) > r.deposit_max) return false;
+        return true;
+      });
+    }
+    // Seller type (private/agency/developer) — wyliczony w mapDbToListing z relacji.
+    if (sellerFilter !== "all") {
+      out = out.filter((l) => l.sellerType === sellerFilter);
+    }
+    return out;
+  }, [listings, advancedAttrs, advancedRanges, sellerFilter]);
 
   // Sorted listings
   const sortedListings = useMemo(() => {
@@ -482,17 +527,22 @@ export default function RealEstateMarketplace() {
     return sorted;
   }, [filteredByAttrs, sortBy]);
 
-  // Iteracja 2: sync advancedAttrs → URL (?attrs=...), replace żeby nie zaśmiecać historii
+  // Iteracja 2: sync advancedAttrs / ranges / seller → URL, replace żeby nie zaśmiecać historii
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
-    if (Object.keys(advancedAttrs).length === 0) {
-      next.delete("attrs");
-    } else {
-      next.set("attrs", encodeURIComponent(JSON.stringify(advancedAttrs)));
-    }
+    if (Object.keys(advancedAttrs).length === 0) next.delete("attrs");
+    else next.set("attrs", encodeURIComponent(JSON.stringify(advancedAttrs)));
+
+    const hasR = Object.values(advancedRanges).some((v) => v !== undefined && v !== null);
+    if (!hasR) next.delete("ranges");
+    else next.set("ranges", encodeURIComponent(JSON.stringify(advancedRanges)));
+
+    if (sellerFilter === "all") next.delete("seller");
+    else next.set("seller", sellerFilter);
+
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [advancedAttrs]);
+  }, [advancedAttrs, advancedRanges, sellerFilter]);
 
 
   const featuredListings = useMemo(() => {
@@ -537,8 +587,8 @@ export default function RealEstateMarketplace() {
             has_balcony, has_elevator, has_parking, has_garden,
             attributes, rent_amount, deposit_amount,
             latitude, longitude, contact_person, contact_phone, contact_email,
-            listing_number, property_unique_id,
-            real_estate_agents!agent_id(company_name)
+            listing_number, property_unique_id, agency_id,
+            real_estate_agents!agent_id(company_name, company_id)
           `)
           .eq('status', 'active')
           .order('created_at', { ascending: false });
@@ -984,14 +1034,37 @@ export default function RealEstateMarketplace() {
                 <SelectItem value="area_desc">{t('ui.areaDesc', 'Powierzchnia: największe')}</SelectItem>
               </SelectContent>
             </Select>
-            {/* Iteracja 2 — filtry zaawansowane (attributes JSONB) */}
+            {/* Iteracja 2 — filtry zaawansowane (attributes JSONB + zakresy) */}
             <AdvancedFiltersSheet
               propertyType={(selectedPropertyType as PropertyTypeDb | null) ?? null}
+              transactionType={selectedTransactionType}
               value={advancedAttrs}
               onChange={(next) => { setAdvancedAttrs(next); setCurrentPage(1); }}
+              ranges={advancedRanges}
+              onRangesChange={(next) => { setAdvancedRanges(next); setCurrentPage(1); }}
               matchCount={sortedListings.length}
               triggerClassName="h-8 text-sm"
             />
+            {/* Iteracja 2 — segmented control: seller_type (relacja, nie pole formularza) */}
+            <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5 h-8">
+              {([
+                { k: "all", label: "Wszyscy" },
+                { k: "private", label: SELLER_TYPE_LABEL_PL.private },
+                { k: "agency", label: SELLER_TYPE_LABEL_PL.agency },
+              ] as const).map(({ k, label }) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => { setSellerFilter(k); setCurrentPage(1); }}
+                  className={cn(
+                    "px-2.5 h-7 rounded-md text-xs font-medium transition-colors",
+                    sellerFilter === k ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           {/* Right side - count */}
           <p className="text-sm text-muted-foreground">
