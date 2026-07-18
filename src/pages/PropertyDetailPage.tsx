@@ -435,7 +435,7 @@ export default function PropertyDetailPage() {
 
               {pricePerM2 && (
                 <p className="text-slate-700 font-semibold">
-                  {pricePerM2.toLocaleString('pl-PL')}&nbsp;zł/m²
+                  {formatPricePerM2(pricePerM2)}
                   {listing.areaM2 && <span className="ml-2">• {listing.areaM2} m²</span>}
                 </p>
               )}
