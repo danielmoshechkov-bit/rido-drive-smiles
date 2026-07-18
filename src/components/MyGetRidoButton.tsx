@@ -21,6 +21,10 @@ export function MyGetRidoButton({ user, variant = "outline", size = "sm", classN
   const { t } = useTranslation();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  // C2: flag zapobiegający renderowaniu niekompletnej listy pozycji menu
+  // (wcześniej użytkownik widział "Portal Klienta", a dopiero po chwili
+  // dokładały się "Panel Usługodawcy" / "Wystaw fakturę").
+  const [rolesLoaded, setRolesLoaded] = useState(false);
   const [accountTypes, setAccountTypes] = useState<{
     isDriver: boolean;
     isFleet: boolean;
