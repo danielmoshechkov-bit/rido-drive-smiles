@@ -1034,14 +1034,37 @@ export default function RealEstateMarketplace() {
                 <SelectItem value="area_desc">{t('ui.areaDesc', 'Powierzchnia: największe')}</SelectItem>
               </SelectContent>
             </Select>
-            {/* Iteracja 2 — filtry zaawansowane (attributes JSONB) */}
+            {/* Iteracja 2 — filtry zaawansowane (attributes JSONB + zakresy) */}
             <AdvancedFiltersSheet
               propertyType={(selectedPropertyType as PropertyTypeDb | null) ?? null}
+              transactionType={selectedTransactionType}
               value={advancedAttrs}
               onChange={(next) => { setAdvancedAttrs(next); setCurrentPage(1); }}
+              ranges={advancedRanges}
+              onRangesChange={(next) => { setAdvancedRanges(next); setCurrentPage(1); }}
               matchCount={sortedListings.length}
               triggerClassName="h-8 text-sm"
             />
+            {/* Iteracja 2 — segmented control: seller_type (relacja, nie pole formularza) */}
+            <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5 h-8">
+              {([
+                { k: "all", label: "Wszyscy" },
+                { k: "private", label: SELLER_TYPE_LABEL_PL.private },
+                { k: "agency", label: SELLER_TYPE_LABEL_PL.agency },
+              ] as const).map(({ k, label }) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => { setSellerFilter(k); setCurrentPage(1); }}
+                  className={cn(
+                    "px-2.5 h-7 rounded-md text-xs font-medium transition-colors",
+                    sellerFilter === k ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           {/* Right side - count */}
           <p className="text-sm text-muted-foreground">
