@@ -79,6 +79,7 @@ export function SEOHead({
   ogType = 'website',
   schemaType,
   schemaData,
+  noindex = false,
 }: SEOHeadProps) {
   useEffect(() => {
     // Update document title
@@ -105,6 +106,8 @@ export function SEOHead({
     if (keywords) {
       updateMeta('keywords', keywords);
     }
+    // robots — iter. 2: landingi z małą liczbą ofert nie mają być indeksowane
+    updateMeta('robots', noindex ? 'noindex,follow' : 'index,follow');
 
     // Open Graph tags
     if (title) {
@@ -168,7 +171,7 @@ export function SEOHead({
     return () => {
       // Keep meta tags but they'll be updated by next page
     };
-  }, [title, description, keywords, canonicalUrl, ogImage, ogType, schemaType, schemaData]);
+  }, [title, description, keywords, canonicalUrl, ogImage, ogType, schemaType, schemaData, noindex]);
 
   return null; // This component doesn't render anything
 }
