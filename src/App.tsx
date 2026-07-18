@@ -13,6 +13,7 @@ import { ReferralCapture } from "@/components/ReferralCapture";
 import { OnboardingWidget } from "@/components/onboarding";
 import { useUISettings } from "@/hooks/useUISettings";
 import { useDynamicTranslations } from "@/hooks/useDynamicTranslations";
+import { useDisableNumberInputScroll } from "@/hooks/useDisableNumberInputScroll";
 import { WorkshopInvitationHandler } from "./components/workshop/WorkshopInvitationHandler";
 import { InviteWelcomeBanner } from "./components/workspace/InviteWelcomeBanner";
 
@@ -153,6 +154,10 @@ function UISettingsLoader({ children }: { children: React.ReactNode }) {
   // This hook loads settings from DB and applies CSS variable
   useUISettings();
   useDynamicTranslations();
+  // C1: globalnie blokuje zmianę wartości <input type="number"> przez scroll
+  // myszki/touchpada (wcześniej wpięte tylko w kilku miejscach — teraz działa
+  // na całym portalu, w tym w formularzach nieruchomości/giełdy/warsztatu).
+  useDisableNumberInputScroll();
   return <>{children}</>;
 }
 
