@@ -64,6 +64,7 @@ const MarketplaceRegister = lazy(() => import("./pages/MarketplaceRegister"));
 const MarketplaceAuth = lazy(() => import("./pages/MarketplaceAuth"));
 const WorkshopLanding = lazy(() => import("./pages/WorkshopLanding"));
 const RealEstateMarketplace = lazy(() => import("./pages/RealEstateMarketplace"));
+const RealEstateLanding = lazy(() => import("./pages/RealEstateLanding"));
 const OfertaPage = lazy(() => import("./pages/OfertaPage"));
 const PropertyCompare = lazy(() => import("./pages/PropertyCompare"));
 const RealEstateAgentRegister = lazy(() => import("./pages/RealEstateAgentRegister"));
