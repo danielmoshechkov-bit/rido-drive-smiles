@@ -453,9 +453,15 @@ export default function RealEstateMarketplace() {
     setCurrentPage(1);
   }, [listings.length, selectedPropertyType, selectedTransactionType]);
 
+  // Iteracja 2: dodatkowe filtry po attributes (client-side, ponad istniejącym flow)
+  const filteredByAttrs = useMemo(() => {
+    if (Object.keys(advancedAttrs).length === 0) return listings;
+    return listings.filter((l) => listingMatchesAttributes(l.attributes, advancedAttrs));
+  }, [listings, advancedAttrs]);
+
   // Sorted listings
   const sortedListings = useMemo(() => {
-    const sorted = [...listings];
+    const sorted = [...filteredByAttrs];
     switch (sortBy) {
       case 'price_asc': sorted.sort((a, b) => (a.price || 0) - (b.price || 0)); break;
       case 'price_desc': sorted.sort((a, b) => (b.price || 0) - (a.price || 0)); break;
@@ -463,7 +469,20 @@ export default function RealEstateMarketplace() {
       case 'newest': default: break; // already sorted by created_at desc from DB
     }
     return sorted;
-  }, [listings, sortBy]);
+  }, [filteredByAttrs, sortBy]);
+
+  // Iteracja 2: sync advancedAttrs → URL (?attrs=...), replace żeby nie zaśmiecać historii
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (Object.keys(advancedAttrs).length === 0) {
+      next.delete("attrs");
+    } else {
+      next.set("attrs", encodeURIComponent(JSON.stringify(advancedAttrs)));
+    }
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advancedAttrs]);
+
 
   const featuredListings = useMemo(() => {
     const shuffled = [...sortedListings].sort(() => Math.random() - 0.5);
