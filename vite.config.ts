@@ -65,6 +65,10 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         maximumFileSizeToCacheInBytes: 30 * 1024 * 1024, // 30 MB limit
+        // Nawigacje do endpointów PHP i crm-import muszą iść na serwer —
+        // bez tego SW serwowałby index.html zamiast np. invoice-pdf.php
+        // (te same ścieżki, które .htaccess przepuszcza obok React Routera).
+        navigateFallbackDenylist: [/\.php(\?|$)/, /^\/crm-import\//, /^\/foto-proxy/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/wclrrytmrscqvsyxyvnn\.supabase\.co\/.*/i,

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Eraser, Check, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePwaUpdateBlocker } from "@/lib/pwaUpdateGuard";
 
 interface SignaturePadProps {
   onSign: (signatureDataUrl: string) => void;
@@ -15,6 +16,9 @@ export function SignaturePad({ onSign, onCancel, className, title = "Podpis" }: 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
+  // Otwarty pad podpisu = twarda blokada auto-aktualizacji PWA — reload
+  // w trakcie podpisywania traci podpis klienta.
+  usePwaUpdateBlocker(true, "signature-pad");
 
   useEffect(() => {
     const canvas = canvasRef.current;

@@ -9,6 +9,7 @@ import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { QuotaGuardProvider } from "@/components/quota/QuotaGuardProvider";
 import { GlobalRidoAIButton } from "@/components/ai/GlobalRidoAIButton";
 import { ReferralCapture } from "@/components/ReferralCapture";
+import { PwaUpdater } from "@/components/PwaUpdater";
 
 import { OnboardingWidget } from "@/components/onboarding";
 import { useUISettings } from "@/hooks/useUISettings";
@@ -173,6 +174,7 @@ const App = () => (
         <UISettingsLoader>
           <Toaster />
           <Sonner />
+          <PwaUpdater />
           <BrowserRouter>
             <QuotaGuardProvider>
             <CompareProvider>

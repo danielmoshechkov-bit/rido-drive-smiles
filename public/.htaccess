@@ -2,6 +2,14 @@
   RewriteEngine On
   RewriteBase /
 
+  # www -> bez www (301)
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+
+  # http -> https (301)
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
   # Przepusc PHP proxy bez React Routera
   RewriteRule ^foto-proxy\.php$ - [L]
   RewriteRule ^crm-import/(.*)$ - [L]
@@ -17,3 +25,28 @@
 
 # Fallback if mod_rewrite is not available
 ErrorDocument 404 /index.html
+
+# === CACHE ===
+# Kolejnosc ma znaczenie: przy "Header set" wygrywa OSTATNIA pasujaca regula,
+# dlatego blok no-cache stoi PO bloku ogolnym (inaczej sw.js dostalby cache
+# z reguly *.js). Blok <If> dla /assets/ Apache i tak scala na samym koncu.
+<IfModule mod_headers.c>
+  # 1) Statyki bez hasha w nazwie (og-*.jpg, favicon, lovable-uploads/,
+  #    robots.txt, obrazki z public/) - krotki cache z rewalidacja,
+  #    bo bywaja podmieniane pod ta sama nazwa (np. og-getrido.jpg).
+  <FilesMatch "\.(js|css|woff2|woff|ttf|svg|png|jpg|jpeg|webp|avif|ico|txt|mp4)$">
+    Header set Cache-Control "public, max-age=3600, must-revalidate"
+  </FilesMatch>
+
+  # 2) index.html, SW i manifest - nigdy nie cache'uj (MUSI byc po bloku 1)
+  <FilesMatch "^(index\.html|sw\.js|registerSW\.js|manifest\.json|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+
+  # 3) TYLKO /assets/ (pliki z hashem w nazwie z builda Vite) - rok immutable
+  <If "%{REQUEST_URI} =~ m#^/assets/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+</IfModule>
