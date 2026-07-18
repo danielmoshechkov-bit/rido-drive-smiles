@@ -15531,6 +15531,7 @@ export type Database = {
           area_plot: number | null
           area_total: number | null
           area_usable: number | null
+          attributes: Json
           build_year: number | null
           city: string
           comparison_count: number | null
@@ -15542,6 +15543,7 @@ export type Database = {
           crm_last_sync_at: string | null
           crm_raw_data: Json | null
           crm_source: string | null
+          deposit_amount: number | null
           description: string | null
           district: string | null
           external_id: string | null
@@ -15564,6 +15566,7 @@ export type Database = {
           property_type: string
           property_unique_id: string | null
           rating: number | null
+          rent_amount: number | null
           rooms: number | null
           rooms_data: Json | null
           seo_description: string | null
@@ -15597,6 +15600,7 @@ export type Database = {
           area_plot?: number | null
           area_total?: number | null
           area_usable?: number | null
+          attributes?: Json
           build_year?: number | null
           city: string
           comparison_count?: number | null
@@ -15608,6 +15612,7 @@ export type Database = {
           crm_last_sync_at?: string | null
           crm_raw_data?: Json | null
           crm_source?: string | null
+          deposit_amount?: number | null
           description?: string | null
           district?: string | null
           external_id?: string | null
@@ -15630,6 +15635,7 @@ export type Database = {
           property_type: string
           property_unique_id?: string | null
           rating?: number | null
+          rent_amount?: number | null
           rooms?: number | null
           rooms_data?: Json | null
           seo_description?: string | null
@@ -15663,6 +15669,7 @@ export type Database = {
           area_plot?: number | null
           area_total?: number | null
           area_usable?: number | null
+          attributes?: Json
           build_year?: number | null
           city?: string
           comparison_count?: number | null
@@ -15674,6 +15681,7 @@ export type Database = {
           crm_last_sync_at?: string | null
           crm_raw_data?: Json | null
           crm_source?: string | null
+          deposit_amount?: number | null
           description?: string | null
           district?: string | null
           external_id?: string | null
@@ -15696,6 +15704,7 @@ export type Database = {
           property_type?: string
           property_unique_id?: string | null
           rating?: number | null
+          rent_amount?: number | null
           rooms?: number | null
           rooms_data?: Json | null
           seo_description?: string | null

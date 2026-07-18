@@ -27,6 +27,8 @@ import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
+import { AdvancedFiltersSheet } from "@/components/realestate/AdvancedFiltersSheet";
+import { listingMatchesAttributes, type PropertyTypeDb } from "@/lib/listing-attributes";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
@@ -320,6 +322,9 @@ interface DbListing {
   listing_number?: string;
   property_unique_id?: string;
   real_estate_agents?: { company_name?: string } | null;
+  attributes?: Record<string, unknown> | null;
+  rent_amount?: number | null;
+  deposit_amount?: number | null;
 }
 
 // Fix Polish diacritics capitalization (OŻarÓw → Ożarów)
@@ -370,16 +375,24 @@ function mapDbToListing(db: DbListing) {
     propertyUniqueId: db.property_unique_id,
     lat: db.latitude ? Number(db.latitude) : undefined,
     lng: db.longitude ? Number(db.longitude) : undefined,
+    attributes: (db.attributes ?? {}) as Record<string, unknown>,
+    rentAmount: db.rent_amount ?? undefined,
+    depositAmount: db.deposit_amount ?? undefined,
   };
 }
 
 export default function RealEstateMarketplace() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
-  const [selectedPropertyType, setSelectedPropertyType] = useState<string | null>(null);
-  const [selectedTransactionType, setSelectedTransactionType] = useState<string | null>(null);
+  // Iteracja 2: startowe wartości typu/transakcji czytamy z URL (landing routes)
+  const [selectedPropertyType, setSelectedPropertyType] = useState<string | null>(
+    () => searchParams.get("propertyType"),
+  );
+  const [selectedTransactionType, setSelectedTransactionType] = useState<string | null>(
+    () => searchParams.get("transactionType"),
+  );
   const [allListings, setAllListings] = useState<any[]>([]);
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -388,11 +401,18 @@ export default function RealEstateMarketplace() {
   const [viewMode, setViewMode] = useState<'grid' | 'compact' | 'list'>('grid');
   const [showFullMap, setShowFullMap] = useState(() => searchParams.get("showMap") === "true");
   const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc' | 'area_desc'>('newest');
-  
+  // Iteracja 2: filtry zaawansowane (attributes JSONB) — trzymane w URL pod kluczem ?attrs=
+  const [advancedAttrs, setAdvancedAttrs] = useState<Record<string, boolean | string | string[]>>(() => {
+    const raw = searchParams.get("attrs");
+    if (!raw) return {};
+    try { return JSON.parse(decodeURIComponent(raw)); } catch { return {}; }
+  });
+
   const [initialQuery, setInitialQuery] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(21);
   const aiSearchTriggered = useRef(false);
+
 
   // Compare context
   const { addProperty, removeProperty, isPropertySelected } = useCompare();
@@ -435,9 +455,15 @@ export default function RealEstateMarketplace() {
     setCurrentPage(1);
   }, [listings.length, selectedPropertyType, selectedTransactionType]);
 
+  // Iteracja 2: dodatkowe filtry po attributes (client-side, ponad istniejącym flow)
+  const filteredByAttrs = useMemo(() => {
+    if (Object.keys(advancedAttrs).length === 0) return listings;
+    return listings.filter((l) => listingMatchesAttributes(l.attributes, advancedAttrs));
+  }, [listings, advancedAttrs]);
+
   // Sorted listings
   const sortedListings = useMemo(() => {
-    const sorted = [...listings];
+    const sorted = [...filteredByAttrs];
     switch (sortBy) {
       case 'price_asc': sorted.sort((a, b) => (a.price || 0) - (b.price || 0)); break;
       case 'price_desc': sorted.sort((a, b) => (b.price || 0) - (a.price || 0)); break;
@@ -445,7 +471,20 @@ export default function RealEstateMarketplace() {
       case 'newest': default: break; // already sorted by created_at desc from DB
     }
     return sorted;
-  }, [listings, sortBy]);
+  }, [filteredByAttrs, sortBy]);
+
+  // Iteracja 2: sync advancedAttrs → URL (?attrs=...), replace żeby nie zaśmiecać historii
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (Object.keys(advancedAttrs).length === 0) {
+      next.delete("attrs");
+    } else {
+      next.set("attrs", encodeURIComponent(JSON.stringify(advancedAttrs)));
+    }
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advancedAttrs]);
+
 
   const featuredListings = useMemo(() => {
     const shuffled = [...sortedListings].sort(() => Math.random() - 0.5);
@@ -487,6 +526,7 @@ export default function RealEstateMarketplace() {
             location, city, district, address, area, rooms, floor, total_floors, build_year,
             property_type, transaction_type,
             has_balcony, has_elevator, has_parking, has_garden,
+            attributes, rent_amount, deposit_amount,
             latitude, longitude, contact_person, contact_phone, contact_email,
             listing_number, property_unique_id,
             real_estate_agents!agent_id(company_name)
@@ -935,13 +975,21 @@ export default function RealEstateMarketplace() {
                 <SelectItem value="area_desc">{t('ui.areaDesc', 'Powierzchnia: największe')}</SelectItem>
               </SelectContent>
             </Select>
+            {/* Iteracja 2 — filtry zaawansowane (attributes JSONB) */}
+            <AdvancedFiltersSheet
+              propertyType={(selectedPropertyType as PropertyTypeDb | null) ?? null}
+              value={advancedAttrs}
+              onChange={(next) => { setAdvancedAttrs(next); setCurrentPage(1); }}
+              matchCount={sortedListings.length}
+              triggerClassName="h-8 text-sm"
+            />
           </div>
           {/* Right side - count */}
           <p className="text-sm text-muted-foreground">
             {loading ? (
               <span className="text-muted-foreground">{t('ui.loading', 'Ładowanie...')}</span>
             ) : (
-              <>{t('ui.found', 'Znaleziono:')} <span className="font-medium text-foreground">{listings.length}</span> {t('ui.listings', 'ogłoszeń')}</>
+              <>{t('ui.found', 'Znaleziono:')} <span className="font-medium text-foreground">{sortedListings.length}</span> {t('ui.listings', 'ogłoszeń')}</>
             )}
           </p>
         </div>
