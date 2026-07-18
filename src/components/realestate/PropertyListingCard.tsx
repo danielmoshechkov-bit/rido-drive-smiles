@@ -471,7 +471,7 @@ export function PropertyListingCard({
                 </div>
                 <div className="mt-2 flex items-end justify-between gap-3">
                   <div className="text-xs text-muted-foreground">
-                    {pricePerM2 ? `${formatCurrency(pricePerM2).replace(' zł', '')} zł/m²` : "—"}
+                    {pricePerM2 ? formatPricePerM2(pricePerM2) : "—"}
                   </div>
                   <Button size="sm" onClick={onView}>
                     Szczegóły
