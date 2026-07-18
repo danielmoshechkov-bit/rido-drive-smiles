@@ -202,6 +202,10 @@ const App = () => (
                 <Route path="/easy/login" element={<Navigate to="/easy" replace />} />
                 <Route path="/easy/register" element={<Navigate to="/easy" replace />} />
                 <Route path="/nieruchomosci" element={<RealEstateMarketplace />} />
+                {/* Iteracja 2 — landing routes SEO. Kolejność ważna: przed :id, żeby "kategoria" nie została zjedzona jako id. */}
+                <Route path="/nieruchomosci/kategoria/:typ" element={<RealEstateLanding />} />
+                <Route path="/nieruchomosci/kategoria/:typ/:transakcja" element={<RealEstateLanding />} />
+                <Route path="/nieruchomosci/kategoria/:typ/:transakcja/:lokalizacja" element={<RealEstateLanding />} />
                 <Route path="/nieruchomosci/ogloszenie/:id" element={<PropertyDetailPage />} />
                 <Route path="/nieruchomosci/porownaj" element={<PropertyCompare />} />
                 <Route path="/nieruchomosci/agent/rejestracja" element={<RealEstateAgentRegister />} />
