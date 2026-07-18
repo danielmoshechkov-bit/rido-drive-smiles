@@ -527,17 +527,22 @@ export default function RealEstateMarketplace() {
     return sorted;
   }, [filteredByAttrs, sortBy]);
 
-  // Iteracja 2: sync advancedAttrs → URL (?attrs=...), replace żeby nie zaśmiecać historii
+  // Iteracja 2: sync advancedAttrs / ranges / seller → URL, replace żeby nie zaśmiecać historii
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
-    if (Object.keys(advancedAttrs).length === 0) {
-      next.delete("attrs");
-    } else {
-      next.set("attrs", encodeURIComponent(JSON.stringify(advancedAttrs)));
-    }
+    if (Object.keys(advancedAttrs).length === 0) next.delete("attrs");
+    else next.set("attrs", encodeURIComponent(JSON.stringify(advancedAttrs)));
+
+    const hasR = Object.values(advancedRanges).some((v) => v !== undefined && v !== null);
+    if (!hasR) next.delete("ranges");
+    else next.set("ranges", encodeURIComponent(JSON.stringify(advancedRanges)));
+
+    if (sellerFilter === "all") next.delete("seller");
+    else next.set("seller", sellerFilter);
+
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [advancedAttrs]);
+  }, [advancedAttrs, advancedRanges, sellerFilter]);
 
 
   const featuredListings = useMemo(() => {
