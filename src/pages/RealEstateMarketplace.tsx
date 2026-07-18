@@ -380,6 +380,13 @@ function mapDbToListing(db: DbListing) {
     attributes: (db.attributes ?? {}) as Record<string, unknown>,
     rentAmount: db.rent_amount ?? undefined,
     depositAmount: db.deposit_amount ?? undefined,
+    // iter. 2: sellerType wyliczony Z RELACJI, nigdy z pola na ofercie
+    sellerType: deriveSellerType({
+      agency_id: db.agency_id ?? null,
+      agent: db.real_estate_agents
+        ? { company_id: db.real_estate_agents.company_id ?? null }
+        : null,
+    }) as SellerType,
   };
 }
 
