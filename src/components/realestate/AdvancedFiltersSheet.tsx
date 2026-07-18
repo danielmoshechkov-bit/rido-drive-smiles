@@ -71,19 +71,34 @@ function isSelected(value: AttributeFilterValue, def: AttributeDefinition, opt?:
 
 export function AdvancedFiltersSheet({
   propertyType,
+  transactionType,
   value,
   onChange,
+  ranges,
+  onRangesChange,
   matchCount,
   triggerClassName,
 }: AdvancedFiltersSheetProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<AttributeFilterValue>(value);
+  const [rangeDraft, setRangeDraft] = useState<RangeFilterValue>(ranges ?? {});
 
   // Kiedy otwieramy sheet — synchronizujemy draft z aktualnym URL-em
   const handleOpenChange = (next: boolean) => {
-    if (next) setDraft(value);
+    if (next) {
+      setDraft(value);
+      setRangeDraft(ranges ?? {});
+    }
     setOpen(next);
   };
+
+  const showRentFields = transactionType === "wynajem" || transactionType === "wynajem-krotkoterminowy";
+
+  const setRange = (key: keyof RangeFilterValue, raw: string) => {
+    const num = raw === "" ? undefined : Number(raw);
+    setRangeDraft((r) => ({ ...r, [key]: Number.isFinite(num as number) ? (num as number) : undefined }));
+  };
+
 
   const attrs = useMemo(() => attributesForType(propertyType), [propertyType]);
   const grouped = useMemo(() => {
@@ -128,12 +143,17 @@ export function AdvancedFiltersSheet({
     });
   };
 
-  const clearAll = () => setDraft({});
+  const clearAll = () => {
+    setDraft({});
+    setRangeDraft({});
+  };
 
   const apply = () => {
     onChange(draft);
+    onRangesChange?.(rangeDraft);
     setOpen(false);
   };
+
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
