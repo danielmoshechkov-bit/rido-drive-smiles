@@ -322,7 +322,8 @@ interface DbListing {
   contact_email?: string;
   listing_number?: string;
   property_unique_id?: string;
-  real_estate_agents?: { company_name?: string } | null;
+  agency_id?: string | null;
+  real_estate_agents?: { company_name?: string; company_id?: string | null } | null;
   attributes?: Record<string, unknown> | null;
   rent_amount?: number | null;
   deposit_amount?: number | null;
