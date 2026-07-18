@@ -20,6 +20,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SlidersHorizontal } from "lucide-react";
 import {
   ATTRIBUTE_GROUPS,
@@ -30,10 +32,30 @@ import {
 
 export type AttributeFilterValue = Record<string, boolean | string | string[]>;
 
+/**
+ * Zakresy liczbowe (iter. 2 review — "Zakresy: TAK, teraz").
+ * Wszystko opcjonalne. `rent_min/max` i `deposit_min/max` renderują się
+ * TYLKO gdy `transactionType === 'wynajem'` (albo wynajem-krotkoterminowy).
+ */
+export interface RangeFilterValue {
+  floor_min?: number;
+  floor_max?: number;
+  build_year_min?: number;
+  build_year_max?: number;
+  rent_min?: number;
+  rent_max?: number;
+  deposit_min?: number;
+  deposit_max?: number;
+}
+
 interface AdvancedFiltersSheetProps {
   propertyType: PropertyTypeDb | null;
+  /** iter. 2: pola najmu widoczne tylko dla transakcji wynajem/krótkoterminowy */
+  transactionType?: string | null;
   value: AttributeFilterValue;
   onChange: (next: AttributeFilterValue) => void;
+  ranges?: RangeFilterValue;
+  onRangesChange?: (next: RangeFilterValue) => void;
   /** liczba ofert pasujących do aktualnie ustawionych filtrów (client-side) */
   matchCount: number;
   triggerClassName?: string;
