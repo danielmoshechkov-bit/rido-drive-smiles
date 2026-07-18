@@ -172,7 +172,7 @@ export function PropertyListingCard({
     ? Math.round(listing.price / displayArea) 
     : null;
 
-  const formatCurrency = (amount: number) => `${amount.toLocaleString('pl-PL').replace(/\s/g, '\u00A0')} zł`;
+  const formatCurrency = (amount: number) => formatMoneyPLN(amount);
 
   useEffect(() => {
     if (!showContact) return;
