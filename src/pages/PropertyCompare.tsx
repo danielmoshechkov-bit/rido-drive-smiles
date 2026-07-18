@@ -4,6 +4,7 @@ import {
   ArrowLeft, Phone, Mail, GitCompare, Check, Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatMoneyPLN, formatPricePerM2 } from "@/utils/formatters";
 import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
 import { ComparePhotoCarousel } from "@/components/marketplace/ComparePhotoCarousel";
 
