@@ -554,8 +554,8 @@ export function ServiceProviderDetailPage() {
           {/* Right Column - Contact Sidebar */}
           <div className="space-y-6">
             <div className="lg:sticky lg:top-24">
-              <Card className="p-6 shadow-lg border-primary/20">
-                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+              <Card className="p-6 shadow-lg border-2 border-primary/20 rounded-2xl bg-gradient-to-br from-white to-primary/5">
+                <h3 className="font-extrabold text-lg mb-4 flex items-center gap-2 text-primary">
                   <Phone className="h-5 w-5 text-primary" />
                   Kontakt
                 </h3>
