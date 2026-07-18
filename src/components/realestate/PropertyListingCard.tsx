@@ -731,7 +731,7 @@ export function PropertyListingCard({
                 )}
                 {pricePerM2 && (
                   <div className="text-xs font-semibold text-slate-700 leading-none mt-0.5">
-                    {formatCurrency(pricePerM2).replace('\u00A0zł', '')} zł/m²
+                    {formatPricePerM2(pricePerM2)}
                   </div>
                 )}
               </div>
