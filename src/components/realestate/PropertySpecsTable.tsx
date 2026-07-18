@@ -253,21 +253,23 @@ export function PropertySpecsTable({ listing }: PropertySpecsTableProps) {
 
       {/* Info tab */}
       {activeTab === "info" && specs.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {specs.map((spec, index) => (
-            <div 
-              key={index}
-              className="flex items-center gap-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors min-h-[72px]"
-            >
-              <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                <spec.icon className="h-5 w-5 text-primary" />
+        <div className="bg-white rounded-2xl shadow-md p-4 md:p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {specs.map((spec, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 hover:bg-primary/10 transition-colors min-h-[72px]"
+              >
+                <div className="p-2 rounded-lg bg-white shrink-0 shadow-sm">
+                  <spec.icon className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-600 font-semibold leading-tight">{spec.label}</p>
+                  <p className="font-extrabold text-sm text-slate-900 leading-snug mt-0.5">{spec.value}</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground leading-tight">{spec.label}</p>
-                <p className="font-semibold text-sm leading-snug mt-0.5">{spec.value}</p>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
