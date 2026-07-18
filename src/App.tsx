@@ -13,6 +13,7 @@ import { ReferralCapture } from "@/components/ReferralCapture";
 import { OnboardingWidget } from "@/components/onboarding";
 import { useUISettings } from "@/hooks/useUISettings";
 import { useDynamicTranslations } from "@/hooks/useDynamicTranslations";
+import { useDisableNumberInputScroll } from "@/hooks/useDisableNumberInputScroll";
 import { WorkshopInvitationHandler } from "./components/workshop/WorkshopInvitationHandler";
 import { InviteWelcomeBanner } from "./components/workspace/InviteWelcomeBanner";
 
