@@ -292,3 +292,48 @@ export function AdvancedFiltersSheet({
     </Sheet>
   );
 }
+
+/** Wiersz zakresu od–do (iter. 2). Puste = brak ograniczenia. */
+function RangeRow({
+  label,
+  minVal,
+  maxVal,
+  onMin,
+  onMax,
+  placeholderMin,
+  placeholderMax,
+}: {
+  label: string;
+  minVal?: number;
+  maxVal?: number;
+  onMin: (v: string) => void;
+  onMax: (v: string) => void;
+  placeholderMin?: string;
+  placeholderMax?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-slate-700">{label}</Label>
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          inputMode="numeric"
+          value={minVal ?? ""}
+          onChange={(e) => onMin(e.target.value)}
+          placeholder={placeholderMin ? `od ${placeholderMin}` : "od"}
+          className="h-9"
+        />
+        <span className="text-slate-400">–</span>
+        <Input
+          type="number"
+          inputMode="numeric"
+          value={maxVal ?? ""}
+          onChange={(e) => onMax(e.target.value)}
+          placeholder={placeholderMax ? `do ${placeholderMax}` : "do"}
+          className="h-9"
+        />
+      </div>
+    </div>
+  );
+}
+
