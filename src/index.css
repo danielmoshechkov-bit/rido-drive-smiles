@@ -1017,3 +1017,15 @@ input[type=number]::-webkit-outer-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+/* C1: usuwa niebieską ramkę focus przy kliknięciu myszą (mouse click nie
+   wyzwala :focus-visible), zachowując widoczny focus przy nawigacji
+   klawiaturą — wymóg WCAG. Spójny ring w kolorze marki. */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: 2px;
+}
