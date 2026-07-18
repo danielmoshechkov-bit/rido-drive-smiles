@@ -4,6 +4,7 @@ import {
   ArrowLeft, Phone, Mail, GitCompare, Check, Plus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatMoneyPLN, formatPricePerM2 } from "@/utils/formatters";
 import { useCompare, PropertyCompareItem } from "@/contexts/CompareContext";
 import { ComparePhotoCarousel } from "@/components/marketplace/ComparePhotoCarousel";
 
@@ -49,7 +50,7 @@ export default function PropertyCompare() {
       label: "Cena", 
       format: (p: PropertyCompareItem) => p.price ? (
         <span>
-          {p.price.toLocaleString('pl-PL')} zł
+          {formatMoneyPLN(p.price)}
           <span className="text-muted-foreground text-xs">{PRICE_TYPE_LABELS[p.priceType || 'sale']}</span>
         </span>
       ) : "—" 
@@ -59,7 +60,7 @@ export default function PropertyCompare() {
     { 
       key: "pricePerM2", 
       label: "Cena za m²", 
-      format: (p: PropertyCompareItem) => p.areaM2 && p.price ? `${Math.round(p.price / p.areaM2).toLocaleString('pl-PL')} zł/m²` : "—" 
+      format: (p: PropertyCompareItem) => p.areaM2 && p.price ? formatPricePerM2(Math.round(p.price / p.areaM2)) : "—" 
     },
     { key: "rooms", label: "Pokoje", format: (p: PropertyCompareItem) => p.rooms || "—" },
     { key: "floor", label: "Piętro", format: (p: PropertyCompareItem) => p.floor !== undefined ? p.floor : "—" },

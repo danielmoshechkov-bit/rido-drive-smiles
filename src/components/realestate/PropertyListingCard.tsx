@@ -23,6 +23,7 @@ import {
   Heart, Phone, Mail, User, Home, Building2, Layers, Maximize, GitCompare, Lock, Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatMoneyPLN, formatPricePerM2 } from "@/utils/formatters";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { ImageLightbox } from "@/components/ui/ImageLightbox";
@@ -171,7 +172,7 @@ export function PropertyListingCard({
     ? Math.round(listing.price / displayArea) 
     : null;
 
-  const formatCurrency = (amount: number) => `${amount.toLocaleString('pl-PL').replace(/\s/g, '\u00A0')} zł`;
+  const formatCurrency = (amount: number) => formatMoneyPLN(amount);
 
   useEffect(() => {
     if (!showContact) return;
@@ -470,7 +471,7 @@ export function PropertyListingCard({
                 </div>
                 <div className="mt-2 flex items-end justify-between gap-3">
                   <div className="text-xs text-muted-foreground">
-                    {pricePerM2 ? `${formatCurrency(pricePerM2).replace(' zł', '')} zł/m²` : "—"}
+                    {pricePerM2 ? formatPricePerM2(pricePerM2) : "—"}
                   </div>
                   <Button size="sm" onClick={onView}>
                     Szczegóły
@@ -730,7 +731,7 @@ export function PropertyListingCard({
                 )}
                 {pricePerM2 && (
                   <div className="text-xs font-semibold text-slate-700 leading-none mt-0.5">
-                    {formatCurrency(pricePerM2).replace('\u00A0zł', '')} zł/m²
+                    {formatPricePerM2(pricePerM2)}
                   </div>
                 )}
               </div>

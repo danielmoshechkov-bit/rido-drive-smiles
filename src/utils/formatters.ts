@@ -146,3 +146,40 @@ export function isValidPolishIBAN(iban: string | null | undefined): boolean {
   
   return false;
 }
+
+/**
+ * Kanoniczne formattery kwot PLN.
+ *
+ * ZASADY (nie łamać):
+ *  - grosze ZAWSZE na 2 miejscach (min = max = 2)
+ *  - separator tysięcy z pl-PL (twarda spacja) — używamy NBSP (\u00A0)
+ *  - jednostka doklejana OSOBNO przez funkcję (np. `zł`, `zł/m²`),
+ *    nigdy przez ręczne wstawianie w szablon obok już-sformatowanej liczby
+ *  - żadnego `.replace(' zł', ...)` po stronie wywołującego —
+ *    do tego jest `formatMoneyNumber` (sama liczba, bez jednostki)
+ */
+
+const PLN_NUMBER_FORMATTER = new Intl.NumberFormat('pl-PL', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Sama liczba, dwie cyfry po przecinku, NBSP jako separator tysięcy. Bez jednostki. */
+export function formatMoneyNumber(amount: number | null | undefined): string {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return '0,00';
+  // Intl w Node/przeglądarce dla pl-PL używa NARROW NO-BREAK SPACE (U+202F) lub NBSP.
+  // Normalizujemy wszystkie białe znaki na NBSP dla spójności w projekcie.
+  return PLN_NUMBER_FORMATTER.format(n).replace(/\s/g, '\u00A0');
+}
+
+/** "34\u00A0514,10\u00A0zł" — do wyświetlania kwot w UI. */
+export function formatMoneyPLN(amount: number | null | undefined): string {
+  return `${formatMoneyNumber(amount)}\u00A0zł`;
+}
+
+/** "12\u00A0345,00\u00A0zł/m²" — cena za metr. */
+export function formatPricePerM2(pricePerM2: number | null | undefined): string {
+  return `${formatMoneyNumber(pricePerM2)}\u00A0zł/m²`;
+}
+

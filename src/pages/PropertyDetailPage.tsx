@@ -15,6 +15,7 @@ import {
   CheckCircle, AlertTriangle, Sparkles, LogIn
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatPricePerM2 } from "@/utils/formatters";
 import { PropertyPhotoGallery } from "@/components/realestate/PropertyPhotoGallery";
 import { PropertySpecsTable } from "@/components/realestate/PropertySpecsTable";
 import { PropertyLocationMap } from "@/components/realestate/PropertyLocationMap";
@@ -434,7 +435,7 @@ export default function PropertyDetailPage() {
 
               {pricePerM2 && (
                 <p className="text-slate-700 font-semibold">
-                  {pricePerM2.toLocaleString('pl-PL')}&nbsp;zł/m²
+                  {formatPricePerM2(pricePerM2)}
                   {listing.areaM2 && <span className="ml-2">• {listing.areaM2} m²</span>}
                 </p>
               )}
