@@ -173,8 +173,54 @@ export function AdvancedFiltersSheet({
           <SheetTitle>Filtry zaawansowane</SheetTitle>
         </SheetHeader>
 
-        <div className="mt-6">
+        <div className="mt-6 space-y-6">
+          {/* Zakresy — piętro, rok budowy, czynsz, kaucja (iter. 2) */}
+          <div className="space-y-4 pb-4 border-b border-border">
+            <div className="text-sm font-semibold text-slate-900">Zakresy</div>
+            <RangeRow
+              label="Piętro"
+              minVal={rangeDraft.floor_min}
+              maxVal={rangeDraft.floor_max}
+              onMin={(v) => setRange("floor_min", v)}
+              onMax={(v) => setRange("floor_max", v)}
+              placeholderMin="0"
+              placeholderMax="10"
+            />
+            <RangeRow
+              label="Rok budowy"
+              minVal={rangeDraft.build_year_min}
+              maxVal={rangeDraft.build_year_max}
+              onMin={(v) => setRange("build_year_min", v)}
+              onMax={(v) => setRange("build_year_max", v)}
+              placeholderMin="1900"
+              placeholderMax={String(new Date().getFullYear())}
+            />
+            {showRentFields && (
+              <>
+                <RangeRow
+                  label="Czynsz administracyjny (zł/mies.)"
+                  minVal={rangeDraft.rent_min}
+                  maxVal={rangeDraft.rent_max}
+                  onMin={(v) => setRange("rent_min", v)}
+                  onMax={(v) => setRange("rent_max", v)}
+                  placeholderMin="0"
+                  placeholderMax="2000"
+                />
+                <RangeRow
+                  label="Kaucja (zł)"
+                  minVal={rangeDraft.deposit_min}
+                  maxVal={rangeDraft.deposit_max}
+                  onMin={(v) => setRange("deposit_min", v)}
+                  onMax={(v) => setRange("deposit_max", v)}
+                  placeholderMin="0"
+                  placeholderMax="10000"
+                />
+              </>
+            )}
+          </div>
+
           <Accordion type="multiple" defaultValue={Object.keys(grouped)}>
+
             {Object.entries(grouped).map(([groupKey, defs]) => (
               <AccordionItem key={groupKey} value={groupKey}>
                 <AccordionTrigger className="text-sm font-semibold">
