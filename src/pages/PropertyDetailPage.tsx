@@ -15,6 +15,7 @@ import {
   CheckCircle, AlertTriangle, Sparkles, LogIn
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatPricePerM2 } from "@/utils/formatters";
 import { PropertyPhotoGallery } from "@/components/realestate/PropertyPhotoGallery";
 import { PropertySpecsTable } from "@/components/realestate/PropertySpecsTable";
 import { PropertyLocationMap } from "@/components/realestate/PropertyLocationMap";
