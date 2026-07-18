@@ -989,7 +989,7 @@ export default function RealEstateMarketplace() {
             {loading ? (
               <span className="text-muted-foreground">{t('ui.loading', 'Ładowanie...')}</span>
             ) : (
-              <>{t('ui.found', 'Znaleziono:')} <span className="font-medium text-foreground">{listings.length}</span> {t('ui.listings', 'ogłoszeń')}</>
+              <>{t('ui.found', 'Znaleziono:')} <span className="font-medium text-foreground">{sortedListings.length}</span> {t('ui.listings', 'ogłoszeń')}</>
             )}
           </p>
         </div>
