@@ -587,8 +587,8 @@ export default function RealEstateMarketplace() {
             has_balcony, has_elevator, has_parking, has_garden,
             attributes, rent_amount, deposit_amount,
             latitude, longitude, contact_person, contact_phone, contact_email,
-            listing_number, property_unique_id,
-            real_estate_agents!agent_id(company_name)
+            listing_number, property_unique_id, agency_id,
+            real_estate_agents!agent_id(company_name, company_id)
           `)
           .eq('status', 'active')
           .order('created_at', { ascending: false });
