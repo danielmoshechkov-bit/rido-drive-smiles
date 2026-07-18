@@ -487,11 +487,33 @@ export default function RealEstateMarketplace() {
   // Do tego momentu nie ruszamy — działa i refaktor pod presją to zły
   // pomysł. Zostawiamy JAWNY znacznik.
   const filteredByAttrs = useMemo(() => {
-    if (Object.keys(advancedAttrs).length === 0) return listings;
-    // listingMatchesAttributes: brak cechy w attributes = "nie wiem" = PASS
-    // (zabezpieczenie przed zerowaniem listy 296 istniejących ofert z {})
-    return listings.filter((l) => listingMatchesAttributes(l.attributes, advancedAttrs));
-  }, [listings, advancedAttrs]);
+    let out = listings;
+    if (Object.keys(advancedAttrs).length > 0) {
+      // brak cechy w attributes = "nie wiem" = PASS
+      out = out.filter((l) => listingMatchesAttributes(l.attributes, advancedAttrs));
+    }
+    // Zakresy (piętro / rok budowy / czynsz / kaucja). Brak wartości = brak filtra.
+    const r = advancedRanges;
+    const hasRange = Object.values(r).some((v) => v !== undefined && v !== null);
+    if (hasRange) {
+      out = out.filter((l) => {
+        if (r.floor_min !== undefined && (l.floor ?? -Infinity) < r.floor_min) return false;
+        if (r.floor_max !== undefined && (l.floor ?? Infinity) > r.floor_max) return false;
+        if (r.build_year_min !== undefined && (l.buildYear ?? -Infinity) < r.build_year_min) return false;
+        if (r.build_year_max !== undefined && (l.buildYear ?? Infinity) > r.build_year_max) return false;
+        if (r.rent_min !== undefined && (l.rentAmount ?? -Infinity) < r.rent_min) return false;
+        if (r.rent_max !== undefined && (l.rentAmount ?? Infinity) > r.rent_max) return false;
+        if (r.deposit_min !== undefined && (l.depositAmount ?? -Infinity) < r.deposit_min) return false;
+        if (r.deposit_max !== undefined && (l.depositAmount ?? Infinity) > r.deposit_max) return false;
+        return true;
+      });
+    }
+    // Seller type (private/agency/developer) — wyliczony w mapDbToListing z relacji.
+    if (sellerFilter !== "all") {
+      out = out.filter((l) => l.sellerType === sellerFilter);
+    }
+    return out;
+  }, [listings, advancedAttrs, advancedRanges, sellerFilter]);
 
   // Sorted listings
   const sortedListings = useMemo(() => {
