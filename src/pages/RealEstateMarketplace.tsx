@@ -456,8 +456,17 @@ export default function RealEstateMarketplace() {
   }, [listings.length, selectedPropertyType, selectedTransactionType]);
 
   // Iteracja 2: dodatkowe filtry po attributes (client-side, ponad istniejącym flow)
+  //
+  // TODO(perf, próg 1000 ofert): obecnie fetchujemy WSZYSTKIE aktywne ogłoszenia
+  // i filtrujemy in-memory (296 ofert → OK). Gdy `allListings.length > 1000`
+  // przejść na server-side: Supabase .filter('attributes', 'cs', ...) +
+  // paginacja LIMIT/OFFSET + osobne zapytanie COUNT dla licznika "Pokaż X".
+  // Do tego momentu nie ruszamy — działa i refaktor pod presją to zły
+  // pomysł. Zostawiamy JAWNY znacznik.
   const filteredByAttrs = useMemo(() => {
     if (Object.keys(advancedAttrs).length === 0) return listings;
+    // listingMatchesAttributes: brak cechy w attributes = "nie wiem" = PASS
+    // (zabezpieczenie przed zerowaniem listy 296 istniejących ofert z {})
     return listings.filter((l) => listingMatchesAttributes(l.attributes, advancedAttrs));
   }, [listings, advancedAttrs]);
 
