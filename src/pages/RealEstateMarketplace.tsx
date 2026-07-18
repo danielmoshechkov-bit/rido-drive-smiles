@@ -27,6 +27,8 @@ import { MyGetRidoButton } from "@/components/MyGetRidoButton";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { PortalCategoryGrid } from "@/components/portal/PortalCategoryGrid";
 import { SEOHead, seoConfigs } from "@/components/SEOHead";
+import { AdvancedFiltersSheet } from "@/components/realestate/AdvancedFiltersSheet";
+import { listingMatchesAttributes, type PropertyTypeDb } from "@/lib/listing-attributes";
 
 // Import images
 import heroImage from "@/assets/realestate-hero.jpg";
