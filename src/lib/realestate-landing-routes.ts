@@ -71,25 +71,39 @@ export const TRANSACTION_LABEL_PL: Record<TransactionTypeDb, string> = {
 
 // ---------- Realne kombinacje w bazie ----------
 // Ostatnia aktualizacja: 2026-07 (10 kombinacji, min. 1 oferta).
-// Kolejność wg liczności — używane przez sitemap generator.
+//
+// FLAGA `indexable` (iter. 2 review):
+//   Portal jest de facto komercyjny (lokal 212, hala 57). Landingi
+//   mieszkaniowe/działki z < 10 ofertami dostają `indexable: false` →
+//   strona działa, ale wysyłamy Google `robots: noindex,follow`.
+export const INDEXABLE_MIN_LISTINGS = 10;
+
 export const REAL_ESTATE_LANDING_COMBOS: ReadonlyArray<{
   type: PropertyTypeDb;
   transaction: TransactionTypeDb;
+  count: number;
+  indexable: boolean;
 }> = [
-  { type: "lokal", transaction: "wynajem" },
-  { type: "hala-magazyn", transaction: "wynajem" },
-  { type: "lokal-uzytkowy", transaction: "wynajem" },
-  { type: "dom", transaction: "sprzedaz" },
-  { type: "lokal", transaction: "sprzedaz" },
-  { type: "dom", transaction: "wynajem" },
-  { type: "mieszkanie", transaction: "sprzedaz" },
-  { type: "mieszkanie", transaction: "wynajem" },
-  { type: "dzialka", transaction: "sprzedaz" },
-  { type: "hala-magazyn", transaction: "sprzedaz" },
+  { type: "lokal", transaction: "wynajem", count: 212, indexable: true },
+  { type: "hala-magazyn", transaction: "wynajem", count: 57, indexable: true },
+  { type: "lokal-uzytkowy", transaction: "wynajem", count: 10, indexable: true },
+  { type: "dom", transaction: "sprzedaz", count: 4, indexable: false },
+  { type: "lokal", transaction: "sprzedaz", count: 4, indexable: false },
+  { type: "dom", transaction: "wynajem", count: 3, indexable: false },
+  { type: "mieszkanie", transaction: "sprzedaz", count: 2, indexable: false },
+  { type: "mieszkanie", transaction: "wynajem", count: 2, indexable: false },
+  { type: "dzialka", transaction: "sprzedaz", count: 1, indexable: false },
+  { type: "hala-magazyn", transaction: "sprzedaz", count: 1, indexable: false },
 ];
 
 export function isValidLandingCombo(type: PropertyTypeDb, transaction: TransactionTypeDb): boolean {
   return REAL_ESTATE_LANDING_COMBOS.some((c) => c.type === type && c.transaction === transaction);
+}
+
+export function isIndexableCombo(type: PropertyTypeDb, transaction: TransactionTypeDb): boolean {
+  return REAL_ESTATE_LANDING_COMBOS.some(
+    (c) => c.type === type && c.transaction === transaction && c.indexable,
+  );
 }
 
 // ---------- Parser URL → filtry ----------

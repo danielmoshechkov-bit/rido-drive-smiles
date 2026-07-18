@@ -20,6 +20,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { SlidersHorizontal } from "lucide-react";
 import {
   ATTRIBUTE_GROUPS,
@@ -30,10 +32,30 @@ import {
 
 export type AttributeFilterValue = Record<string, boolean | string | string[]>;
 
+/**
+ * Zakresy liczbowe (iter. 2 review — "Zakresy: TAK, teraz").
+ * Wszystko opcjonalne. `rent_min/max` i `deposit_min/max` renderują się
+ * TYLKO gdy `transactionType === 'wynajem'` (albo wynajem-krotkoterminowy).
+ */
+export interface RangeFilterValue {
+  floor_min?: number;
+  floor_max?: number;
+  build_year_min?: number;
+  build_year_max?: number;
+  rent_min?: number;
+  rent_max?: number;
+  deposit_min?: number;
+  deposit_max?: number;
+}
+
 interface AdvancedFiltersSheetProps {
   propertyType: PropertyTypeDb | null;
+  /** iter. 2: pola najmu widoczne tylko dla transakcji wynajem/krótkoterminowy */
+  transactionType?: string | null;
   value: AttributeFilterValue;
   onChange: (next: AttributeFilterValue) => void;
+  ranges?: RangeFilterValue;
+  onRangesChange?: (next: RangeFilterValue) => void;
   /** liczba ofert pasujących do aktualnie ustawionych filtrów (client-side) */
   matchCount: number;
   triggerClassName?: string;
@@ -49,19 +71,34 @@ function isSelected(value: AttributeFilterValue, def: AttributeDefinition, opt?:
 
 export function AdvancedFiltersSheet({
   propertyType,
+  transactionType,
   value,
   onChange,
+  ranges,
+  onRangesChange,
   matchCount,
   triggerClassName,
 }: AdvancedFiltersSheetProps) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<AttributeFilterValue>(value);
+  const [rangeDraft, setRangeDraft] = useState<RangeFilterValue>(ranges ?? {});
 
   // Kiedy otwieramy sheet — synchronizujemy draft z aktualnym URL-em
   const handleOpenChange = (next: boolean) => {
-    if (next) setDraft(value);
+    if (next) {
+      setDraft(value);
+      setRangeDraft(ranges ?? {});
+    }
     setOpen(next);
   };
+
+  const showRentFields = transactionType === "wynajem" || transactionType === "wynajem-krotkoterminowy";
+
+  const setRange = (key: keyof RangeFilterValue, raw: string) => {
+    const num = raw === "" ? undefined : Number(raw);
+    setRangeDraft((r) => ({ ...r, [key]: Number.isFinite(num as number) ? (num as number) : undefined }));
+  };
+
 
   const attrs = useMemo(() => attributesForType(propertyType), [propertyType]);
   const grouped = useMemo(() => {
@@ -106,12 +143,17 @@ export function AdvancedFiltersSheet({
     });
   };
 
-  const clearAll = () => setDraft({});
+  const clearAll = () => {
+    setDraft({});
+    setRangeDraft({});
+  };
 
   const apply = () => {
     onChange(draft);
+    onRangesChange?.(rangeDraft);
     setOpen(false);
   };
+
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -131,8 +173,54 @@ export function AdvancedFiltersSheet({
           <SheetTitle>Filtry zaawansowane</SheetTitle>
         </SheetHeader>
 
-        <div className="mt-6">
+        <div className="mt-6 space-y-6">
+          {/* Zakresy — piętro, rok budowy, czynsz, kaucja (iter. 2) */}
+          <div className="space-y-4 pb-4 border-b border-border">
+            <div className="text-sm font-semibold text-slate-900">Zakresy</div>
+            <RangeRow
+              label="Piętro"
+              minVal={rangeDraft.floor_min}
+              maxVal={rangeDraft.floor_max}
+              onMin={(v) => setRange("floor_min", v)}
+              onMax={(v) => setRange("floor_max", v)}
+              placeholderMin="0"
+              placeholderMax="10"
+            />
+            <RangeRow
+              label="Rok budowy"
+              minVal={rangeDraft.build_year_min}
+              maxVal={rangeDraft.build_year_max}
+              onMin={(v) => setRange("build_year_min", v)}
+              onMax={(v) => setRange("build_year_max", v)}
+              placeholderMin="1900"
+              placeholderMax={String(new Date().getFullYear())}
+            />
+            {showRentFields && (
+              <>
+                <RangeRow
+                  label="Czynsz administracyjny (zł/mies.)"
+                  minVal={rangeDraft.rent_min}
+                  maxVal={rangeDraft.rent_max}
+                  onMin={(v) => setRange("rent_min", v)}
+                  onMax={(v) => setRange("rent_max", v)}
+                  placeholderMin="0"
+                  placeholderMax="2000"
+                />
+                <RangeRow
+                  label="Kaucja (zł)"
+                  minVal={rangeDraft.deposit_min}
+                  maxVal={rangeDraft.deposit_max}
+                  onMin={(v) => setRange("deposit_min", v)}
+                  onMax={(v) => setRange("deposit_max", v)}
+                  placeholderMin="0"
+                  placeholderMax="10000"
+                />
+              </>
+            )}
+          </div>
+
           <Accordion type="multiple" defaultValue={Object.keys(grouped)}>
+
             {Object.entries(grouped).map(([groupKey, defs]) => (
               <AccordionItem key={groupKey} value={groupKey}>
                 <AccordionTrigger className="text-sm font-semibold">
@@ -204,3 +292,48 @@ export function AdvancedFiltersSheet({
     </Sheet>
   );
 }
+
+/** Wiersz zakresu od–do (iter. 2). Puste = brak ograniczenia. */
+function RangeRow({
+  label,
+  minVal,
+  maxVal,
+  onMin,
+  onMax,
+  placeholderMin,
+  placeholderMax,
+}: {
+  label: string;
+  minVal?: number;
+  maxVal?: number;
+  onMin: (v: string) => void;
+  onMax: (v: string) => void;
+  placeholderMin?: string;
+  placeholderMax?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-slate-700">{label}</Label>
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          inputMode="numeric"
+          value={minVal ?? ""}
+          onChange={(e) => onMin(e.target.value)}
+          placeholder={placeholderMin ? `od ${placeholderMin}` : "od"}
+          className="h-9"
+        />
+        <span className="text-slate-400">–</span>
+        <Input
+          type="number"
+          inputMode="numeric"
+          value={maxVal ?? ""}
+          onChange={(e) => onMax(e.target.value)}
+          placeholder={placeholderMax ? `do ${placeholderMax}` : "do"}
+          className="h-9"
+        />
+      </div>
+    </div>
+  );
+}
+

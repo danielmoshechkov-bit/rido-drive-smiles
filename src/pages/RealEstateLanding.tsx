@@ -1,26 +1,29 @@
 /**
- * Iteracja 2 — landing pages nieruchomości.
+ * Iteracja 2 — landing page nieruchomości.
  * Route: /nieruchomosci/kategoria/:typ/:transakcja?/:lokalizacja?
  *
- * Zadanie:
+ * Zadania:
  *  - waliduje slugi przez `parseLandingParams`
- *  - jeśli slug nie mapuje się na realną kombinację z bazy → 404-style redirect
- *    na główny listing (nie budujemy pustych landingów — kara SEO)
- *  - jeśli OK → przekierowuje na /nieruchomosci?propertyType=...&transactionType=...&city=...
- *    (rzeczywisty listing czyta te query params i renderuje wyniki)
+ *  - jeśli slug nie mapuje się na realną kombinację z bazy → redirect
+ *  - montuje `<SEOHead>` z title/description/canonical/JSON-LD dla landingu
+ *  - dla kombinacji z <10 ofertami (indexable=false) — noindex,follow
+ *  - przekazuje filtry przez query params do RealEstateMarketplace
  *
- * Nie kopiujemy tu logiki renderowania — cała jest w RealEstateMarketplace,
- * dzięki temu zero duplikacji i zero szans na rozjazd.
+ * NIE dodajemy react-helmet-async — używamy istniejącego SEOHead.
  */
 
 import { useEffect } from "react";
 import { Navigate, useParams } from "react-router-dom";
-import { parseLandingParams, PROPERTY_TYPE_DB_TO_SLUG } from "@/lib/realestate-landing-routes";
+import {
+  parseLandingParams,
+  PROPERTY_TYPE_DB_TO_SLUG,
+  PROPERTY_TYPE_LABEL_PL,
+  TRANSACTION_LABEL_PL,
+  isIndexableCombo,
+  buildLandingUrl,
+} from "@/lib/realestate-landing-routes";
 import type { PropertyTypeDb } from "@/lib/listing-attributes";
-
-// slug PL dla propertyType nadal używa formy w liczbie pojedynczej z bazy —
-// listing na /nieruchomosci trzyma stan wewnętrzny w formie DB, więc
-// przekazujemy DB-value w query paramach.
+import { SEOHead } from "@/components/SEOHead";
 
 export default function RealEstateLanding() {
   const params = useParams();
@@ -29,7 +32,7 @@ export default function RealEstateLanding() {
   useEffect(() => {
     if (!parsed) {
       // eslint-disable-next-line no-console
-      console.warn("[RealEstateLanding] Nieprawidłowa kombinacja slugów, redirect →", params);
+      console.warn("[RealEstateLanding] Nieprawidłowa kombinacja slugów →", params);
     }
   }, [parsed, params]);
 
@@ -37,14 +40,46 @@ export default function RealEstateLanding() {
     return <Navigate to="/nieruchomosci" replace />;
   }
 
+  const typeLabel = parsed.propertyType ? PROPERTY_TYPE_LABEL_PL[parsed.propertyType] : "Nieruchomości";
+  const trxLabel = parsed.transactionType ? TRANSACTION_LABEL_PL[parsed.transactionType].toLowerCase() : "";
+  const cityLabel = parsed.city ? ` w ${parsed.city.charAt(0).toUpperCase() + parsed.city.slice(1)}` : "";
+  const title = `${typeLabel} ${trxLabel}${cityLabel} | GetRido`.replace(/\s+/g, " ").trim();
+  const description = `Aktualne ogłoszenia: ${typeLabel.toLowerCase()} ${trxLabel}${cityLabel}. Filtry zaawansowane, mapa, kontakt bezpośredni. Portal GetRido.`;
+  const canonicalPath = buildLandingUrl({
+    propertyType: parsed.propertyType,
+    transactionType: parsed.transactionType,
+    city: parsed.city,
+  });
+  const canonicalUrl = `https://getrido.pl${canonicalPath}`;
+
+  const noindex =
+    !!parsed.propertyType && !!parsed.transactionType &&
+    !isIndexableCombo(parsed.propertyType, parsed.transactionType);
+
   const search = new URLSearchParams();
   if (parsed.propertyType) search.set("propertyType", parsed.propertyType);
   if (parsed.transactionType) search.set("transactionType", parsed.transactionType);
   if (parsed.city) search.set("city", parsed.city);
 
-  // Prefiks jest tylko po to, żeby RealEstateMarketplace mógł odczytać SEO
-  // metadane z URL, sam listing zostaje ten sam.
-  return <Navigate to={`/nieruchomosci?${search.toString()}`} replace />;
+  return (
+    <>
+      <SEOHead
+        title={title}
+        description={description}
+        canonicalUrl={canonicalUrl}
+        noindex={noindex}
+        schemaType="ItemList"
+        schemaData={{
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: title,
+          description,
+          url: canonicalUrl,
+        }}
+      />
+      <Navigate to={`/nieruchomosci?${search.toString()}`} replace />
+    </>
+  );
 }
 
 // Re-eksport pomocniczy — używany np. do sitemap'y.
