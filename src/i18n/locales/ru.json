@@ -218,10 +218,10 @@
     "formSentDesc": "Мы свяжемся с вами в течение 24 часов.",
     "placeholders": {
       "name": "Иван Иванов",
-      "phone": "+48 519 474 583",
+      "phone": "+48",
       "email": "ivan@example.com",
       "city": "Варшава",
-      "message": "Хочу стать водителем Get RIDO..."
+      "message": "Чем можем помочь? Опишите ваш вопрос..."
     }
   },
   "footer": {

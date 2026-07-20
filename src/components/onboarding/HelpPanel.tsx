@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { cn } from "@/lib/utils";
+import { LEGAL_ENTITY } from "@/config/legal";
 
 export function HelpPanel() {
   const { 
@@ -191,7 +192,7 @@ export function HelpPanel() {
         <div className="p-4 border-t bg-muted/30">
           <p className="text-xs text-center text-muted-foreground">
             Potrzebujesz więcej pomocy?{' '}
-            <a href="mailto:support@getrido.pl" className="text-primary hover:underline">
+            <a href={`mailto:${LEGAL_ENTITY.email}`} className="text-primary hover:underline">
               Napisz do nas
             </a>
           </p>

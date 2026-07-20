@@ -218,13 +218,14 @@
     "formSentDesc": "We'll contact you within 24 hours.",
     "placeholders": {
       "name": "John Smith",
-      "phone": "+48 519 474 583",
+      "phone": "+48",
       "email": "john@example.com",
       "city": "Warsaw",
-      "message": "I want to become a Get RIDO driver..."
+      "message": "How can we help? Describe your issue..."
     }
   },
   "footer": {
+    "dataDeletion": "Data Deletion",
     "copyright": "GetRido. All rights reserved.",
     "allListings": "← All listings",
     "privacy": "Privacy Policy",
@@ -4133,5 +4134,30 @@
     "selectToActivate": "Select the module you want to activate",
     "comingSoon": "Soon",
     "allAccountTypes": "You already have all available account types"
+  },
+  "dataDeletion": {
+      "title": "Data Deletion",
+      "subtitle": "Instructions for deleting your personal data — including data obtained from Facebook and Instagram (Meta)",
+      "lastUpdated": "Last updated",
+      "adminTitle": "1. Data controller",
+      "rodoContact": "Data protection contact",
+      "metaDataTitle": "2. What data we obtain via Facebook / Instagram",
+      "metaDataIntro": "In connection with publishing listings on GetRido profiles in Meta services, we may obtain the following data via Meta APIs:",
+      "metaData1": "your Meta user identifier",
+      "metaData2": "your profile name",
+      "metaData3": "your e-mail address (if shared)",
+      "metaData4": "identifiers of published posts",
+      "purposeText": "Purpose of processing: publishing the user's listings on GetRido profiles in Meta services and reporting publication statistics.",
+      "howTitle": "3. How to request data deletion",
+      "howIntro": "To request deletion of your data, follow these steps:",
+      "howStep1": "Send an e-mail to:",
+      "howStep2": "Use the subject line: “Data deletion” (Polish: „Usunięcie danych”).",
+      "howStep3": "In the message body, provide the e-mail address of your GetRido account or the name of the Facebook profile the request concerns.",
+      "deadline": "We will process your request without undue delay, no later than within 30 days of receiving it (Art. 12(3) GDPR).",
+      "scopeTitle": "4. What we delete and what we must retain",
+      "scopeDelete": "We delete all personal data associated with the account or profile indicated in the request, including data obtained from Meta services.",
+      "scopeKeep": "The exception is billing data and invoices, which we are required by tax law to retain for 5 years. After this period they are deleted.",
+      "altTitle": "5. Alternatively: revoke access in your Facebook settings",
+      "altText": "You can also disconnect the GetRido app from your Facebook account yourself: go to Settings → Apps and Websites, find GetRido and remove access. Disconnecting the app stops further data collection; to delete data already obtained, send a request as described in section 3."
   }
 }

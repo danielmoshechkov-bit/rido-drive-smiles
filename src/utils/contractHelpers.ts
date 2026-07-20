@@ -4,7 +4,7 @@
 
 /**
  * Parse KRS field to get proper registry label and value.
- * Stored as "KRS: 0001025395" or "CEIDG: 12345678901"
+ * Stored as "KRS: <numer>" or "CEIDG: <numer>"
  */
 export function parseRegistryField(krs: string | null | undefined): { label: string; value: string } {
   if (!krs) return { label: 'KRS', value: '—' };

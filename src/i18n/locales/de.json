@@ -634,10 +634,10 @@
     "formSentDesc": "Wir werden uns innerhalb von 24 Stunden mit Ihnen in Verbindung setzen.",
     "placeholders": {
       "name": "Jan Kowalski",
-      "phone": "+48 519 474 583",
+      "phone": "+48",
       "email": "jan@example.com",
       "city": "Warszawa",
-      "message": "Ich möchte Get RIDO-Fahrer werden..."
+      "message": "Wie können wir helfen? Beschreiben Sie Ihr Anliegen..."
     }
   },
   "register": {

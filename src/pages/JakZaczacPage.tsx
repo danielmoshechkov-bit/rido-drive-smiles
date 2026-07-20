@@ -56,7 +56,7 @@ const paths = [
   {
     icon: Home,
     title: "Sprzedaj / wynajmij nieruchomość",
-    desc: "Plany dla osób prywatnych i agencji. AI Wycena, Voice Tour 360°.",
+    desc: "Plany dla osób prywatnych i agencji nieruchomości.",
     to: "/nieruchomosci",
     cta: "Dodaj nieruchomość",
   },
@@ -180,7 +180,7 @@ const JakZaczacPage = () => {
             </h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {[
-                { t: "Tańsze niż konkurencja", d: "Auta 50% taniej niż Otomoto, agencje nieruchomości 87% taniej niż Otodom." },
+                { t: "Tańsze niż konkurencja", d: "Auta do 50% taniej niż na innych portalach, plany dla agencji nieruchomości do 87% tańsze niż u konkurencji." },
                 { t: "Płacisz tylko gdy zarobisz", d: "W usługach nie ma abonamentu — tylko 5% prowizji od zrealizowanego zlecenia." },
                 { t: "Jedno konto, wszystkie portale", d: "Auta, nieruchomości, usługi, marketplace, księgowość — w jednym miejscu." },
                 { t: "Wbudowane AI", d: "AI wycena, ocena zdjęć, opisy, raporty dzielnic, asystent telefoniczny." },
