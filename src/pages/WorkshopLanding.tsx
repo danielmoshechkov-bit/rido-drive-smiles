@@ -211,38 +211,77 @@ export default function WorkshopLanding() {
     { q: "Ile kosztuje SMS do klienta?", a: "SMS-y rozliczane są z Twojego pakietu SMS (kupujesz osobno). System pokazuje saldo i historię wysyłek." },
   ];
 
-  const plans = [
+  const warsztatPlans = [
     {
-      id: "start", name: "Start", price: "0", period: "/mies.",
-      description: "Na start — dla małych warsztatów i jednoosobowych studiów.",
-      features: ["20 zleceń / mc", "Klienci + pojazdy", "Terminarz + rezerwacje online", "Zdjęcia przy przyjęciu", "3 pytania AI / mc (próbka)", "Dostęp do giełdy GetRido"],
+      id: "darmowy", name: "Darmowy", priceLabel: "0 zł", period: "/mc",
+      features: ["Baza klientów + pojazdów, historia", "Terminarz + zlecenia 20/mc", "Zdjęcia przy przyjęciu", "Dostęp do giełdy GetRido"],
       cta: "Zacznij za darmo",
     },
     {
-      id: "warsztat", name: "Warsztat", price: "59", period: "netto/mies.",
-      description: "Pełny program dla warsztatu — wszystko, czego potrzebujesz do pracy.",
-      features: ["Zlecenia bez limitu + dynamiczne statusy", "Magazyn + przechowalnia + OCR faktur", "Sprzedaż + faktury + KSeF", "Kosztorysy z e-podpisem klienta", "Raporty + marża live", "Dekoder VIN / sprawdzanie po nr rej.", "5 wycen robocizny AI + 3× pomoc AI w naprawie / mc (gratis)", "Dostęp do giełdy GetRido"],
+      id: "standard", name: "Standard", popular: true, priceLabel: "89 zł", period: "netto/mc",
+      features: ["Zlecenia, wyceny, faktury — bez limitu", "Przechowalnia + fiskalizacja + KSeF", "Raporty + marża live, dane po VIN", "Dynamiczne statusy + e-podpis", "Dostęp do giełdy GetRido"],
       cta: "Wypróbuj 14 dni",
     },
     {
-      id: "pro", name: "Pro · AI", popular: true, price: "149", period: "netto/mies.",
-      description: "AI odbiera telefon, umawia wizyty i tworzy zlecenia. Cały warsztat + AI w jednym.",
-      features: ["Wszystko z pakietu Warsztat", "AI voicebot ODBIERA telefon 24/7 — 120 min w cenie", "Bot po godzinach + oddzwanianie do leadów", "Transkrypcje rozmów w karcie zlecenia", "Wyceny AI (Rido AI) bez limitu + dobór części", "Dane naprawcze (TecRMI) + czas pracy mechanika", "Proaktywny CRM + marketing SMS / e-mail", "Dostęp do giełdy GetRido"],
+      id: "pro", name: "Pro", priceLabel: "169 zł", period: "netto/mc",
+      features: ["Wszystko ze Standard", "Magazyn + OCR faktur", "Integracje z hurtowniami", "Panel pracowników + listy kontrolne", "Dane naprawcze (TecRMI) + czas pracy mechanika", "Dostęp do giełdy GetRido"],
       cta: "Wypróbuj 14 dni",
     },
     {
-      id: "ai", name: "Pro+ · GetRido AI", price: "289", period: "netto/mies.",
-      description: "Pełna automatyzacja z księgowością i większym AI. Dla dużych warsztatów i sieci.",
-      features: ["Wszystko z pakietu Pro · AI", "Więcej minut AI + obsługa wielu numerów", "Księgowość AI + doradca podatkowy AI", "30 faktur / mc auto-odczyt", "KSeF monitor + alerty", "Zaawansowana analityka + dedykowany opiekun", "Dostęp do giełdy GetRido"],
+      id: "sieci", name: "Sieci", priceLabel: "Wycena", period: "indywidualna", contact: true,
+      features: ["Wszystko z Pro", "Wiele lokalizacji, wspólna baza", "Analityka sieci + dedykowany opiekun", "Bez płacenia wielu osobnych abonamentów"],
+      cta: "Napisz do nas",
+    },
+  ];
+
+  const agentPlans = [
+    {
+      id: "agent", name: "Agent", popular: true, priceLabel: "139 zł", period: "netto/mc",
+      features: ["AI voicebot ODBIERA telefon 24/7 — 120 min w cenie", "Bot po godzinach + oddzwanianie do leadów", "Transkrypcje + umawianie wizyt", "Tworzy zlecenie (wpięty w program GetRido)"],
+      cta: "Wypróbuj 14 dni",
+    },
+    {
+      id: "agent-pro", name: "Agent Pro", priceLabel: "289 zł", period: "netto/mc",
+      features: ["Wszystko z Agent + więcej minut", "Obsługa wielu numerów", "Wyceny AI + dobór części, protokoły napraw", "Zaawansowana analityka + dedykowany opiekun"],
       cta: "Wypróbuj 14 dni",
     },
   ];
 
-  const addons = [
-    { name: "SMS", detail: "pakiety wg zużycia" },
-    { name: "Sprawdzanie VIN / nr rej.", detail: "pakiety wg zużycia" },
-    { name: "Minuty AI", detail: "Pro · AI ma 120 min w cenie; powyżej 0,69 zł/min lub tańszy pakiet minut" },
-  ];
+  const renderPlanCard = (plan: {
+    id: string; name: string; priceLabel: string; period: string;
+    features: string[]; cta: string; popular?: boolean; contact?: boolean;
+  }) => (
+    <Card
+      key={plan.id}
+      className={`relative flex flex-col ${plan.popular ? "border-primary border-2 shadow-xl lg:scale-[1.03]" : ""}`}
+    >
+      {plan.popular && (
+        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">Najpopularniejszy</Badge>
+      )}
+      <CardContent className="p-6 flex flex-col flex-1">
+        <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
+        <div className="mb-5 mt-3">
+          <span className="text-4xl font-bold">{plan.priceLabel}</span>
+          <span className="text-muted-foreground text-sm"> {plan.period}</span>
+        </div>
+        <Button
+          className={`w-full mb-5 ${plan.popular ? "bg-gradient-to-r from-primary to-purple-600" : ""}`}
+          variant={plan.popular ? "default" : "outline"}
+          onClick={() => (plan.contact ? navigate("/kontakt") : handleStartTrial(plan.id))}
+        >
+          {plan.cta}
+        </Button>
+        <ul className="space-y-2 flex-1">
+          {plan.features.map((f, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+              <span>{f}</span>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -689,66 +728,71 @@ export default function WorkshopLanding() {
 
       {/* Pricing */}
       <section className="container mx-auto px-4 py-16 md:py-24">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <Badge variant="secondary" className="mb-3">Cennik</Badge>
           <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Wybierz pakiet</h2>
-          <p className="text-lg md:text-xl font-medium text-slate-700 dark:text-slate-200 max-w-2xl mx-auto leading-relaxed">
-            Każdy pakiet zaczyna się od 14 dni za darmo. Bez karty kredytowej. Bez zobowiązań.
+        </div>
+
+        {/* Trial banner */}
+        <div className="max-w-3xl mx-auto mb-14">
+          <Card className="border-primary/30 bg-gradient-to-r from-primary/10 via-purple-500/10 to-primary/10">
+            <CardContent className="p-6 text-center">
+              <h3 className="text-xl md:text-2xl font-extrabold mb-2">14 dni — pełny dostęp do wszystkiego</h3>
+              <p className="text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
+                Na start dostajesz pełny program (Pro) + oba Agenty AI. Bez karty. Testujesz maksimum, a po trialu zostawiasz to, bez czego nie możesz się obejść.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Product 1 — GetRido Warsztat */}
+        <div className="text-center mb-8">
+          <h3 className="text-2xl md:text-3xl font-extrabold mb-2">GetRido Warsztat</h3>
+          <p className="text-base md:text-lg font-medium text-slate-700 dark:text-slate-200 max-w-2xl mx-auto leading-relaxed">
+            Dla warsztatów, które chcą tylko dobry program. Taniej i z większym zakresem niż popularne systemy.
           </p>
         </div>
-
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto">
-          {plans.map((plan) => (
-            <Card
-              key={plan.id}
-              className={`relative flex flex-col ${plan.popular ? "border-primary border-2 shadow-xl lg:scale-[1.03]" : ""}`}
-            >
-              {plan.popular && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">Najpopularniejszy</Badge>
-              )}
-              <CardContent className="p-6 flex flex-col flex-1">
-                <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
-                <p className="text-sm text-muted-foreground mb-4 min-h-[48px]">{plan.description}</p>
-                <div className="mb-5">
-                  <span className="text-4xl font-bold">{plan.price} zł</span>
-                  <span className="text-muted-foreground text-sm"> {plan.period}</span>
-                </div>
-                <Button
-                  className={`w-full mb-5 ${plan.popular ? "bg-gradient-to-r from-primary to-purple-600" : ""}`}
-                  variant={plan.popular ? "default" : "outline"}
-                  onClick={() => handleStartTrial(plan.id)}
-                >
-                  {plan.cta}
-                </Button>
-                <ul className="space-y-2 flex-1">
-                  {plan.features.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm">
-                      <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          ))}
+          {warsztatPlans.map((plan) => renderPlanCard(plan))}
         </div>
+        <p className="text-center text-sm text-muted-foreground mt-6 mb-16 max-w-2xl mx-auto">
+          Magazyn, integracje i panel pracowników — u nas w cenie Pro. SMS i sprawdzanie VIN — pakiety dokupowane.
+        </p>
 
-        {/* Add-on packages */}
-        <div className="max-w-6xl mx-auto mt-10">
-          <Card className="border-primary/10">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-bold mb-4 text-center">Pakiety dokupowane (jak doładowanie telefonu)</h3>
-              <div className="grid sm:grid-cols-3 gap-4">
-                {addons.map((addon, i) => (
-                  <div key={i} className="flex items-start gap-2 text-sm">
-                    <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                    <span>
-                      <span className="font-semibold">{addon.name}</span> — {addon.detail}
-                    </span>
-                  </div>
-                ))}
+        {/* Product 2 — GetRido Agent AI */}
+        <div className="text-center mb-8">
+          <h3 className="text-2xl md:text-3xl font-extrabold mb-2">GetRido Agent AI</h3>
+          <p className="text-base md:text-lg font-medium text-slate-700 dark:text-slate-200 max-w-2xl mx-auto leading-relaxed">
+            Odbiera telefon 24/7, umawia wizyty, tworzy zlecenia. Działa samodzielnie, a najlepiej wpięty w program GetRido.
+          </p>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
+          {agentPlans.map((plan) => renderPlanCard(plan))}
+        </div>
+        <p className="text-center text-sm text-muted-foreground mt-6 max-w-2xl mx-auto">
+          120 min AI w cenie; powyżej 0,69 zł/min lub pakiet minut.
+        </p>
+
+        {/* Bundle */}
+        <div className="max-w-3xl mx-auto mt-16">
+          <Card className="relative border-2 border-purple-500 bg-gradient-to-br from-primary/10 to-purple-500/10 shadow-xl">
+            <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-purple-600 text-white">Pakiet</Badge>
+            <CardContent className="p-6 md:p-8 text-center">
+              <h3 className="text-2xl font-extrabold mb-2">Pakiet Warsztat + Agent AI</h3>
+              <div className="mb-3">
+                <span className="text-muted-foreground text-lg line-through mr-2">308 zł</span>
+                <span className="text-4xl font-bold">289 zł</span>
+                <span className="text-muted-foreground text-sm"> /mc</span>
               </div>
-              <p className="text-sm text-muted-foreground text-center mt-4">Płacisz tylko za to, czego realnie używasz.</p>
+              <p className="text-base font-medium text-slate-700 dark:text-slate-200 mb-5 leading-relaxed">
+                Program Pro + Agent w jednym — agent wpięty w program tworzy zlecenia z rozmów sam.
+              </p>
+              <Button
+                className="bg-gradient-to-r from-primary to-purple-600 px-8"
+                onClick={() => handleStartTrial("bundle")}
+              >
+                Wypróbuj 14 dni
+              </Button>
             </CardContent>
           </Card>
         </div>
