@@ -841,7 +841,7 @@ const KsiegowoscContent = ({ onCta }: { onCta: () => void }) => {
         "Wszystko z Basic",
         "AI Asystent Księgowy",
         "Program magazynowy",
-        "Auto-odczyt faktur (zdjęcie → dane)",
+        "Auto-odczyt faktur (zdjęcie → dane) — 30 / mc",
         "Doradca podatkowy AI",
         "Wykrywanie błędów w fakturach",
         "KSeF pełny + wysyłka",
