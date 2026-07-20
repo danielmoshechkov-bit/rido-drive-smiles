@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +54,48 @@ import tileFaktury from "@/assets/accounting/tile-faktury.jpg";
 const mascot = "/mascot-getrido.png";
 const mascotMechanic = "/mascot-mechanic.png";
 const mascotDetailer = "/mascot-detailer.png";
+
+type CompareVal = boolean | "częściowo";
+
+type CompareRow = {
+  grupa: string;
+  funkcja: string;
+  getrido: CompareVal;
+  a: CompareVal;
+  b: CompareVal;
+  c: CompareVal;
+  tylkoMy?: boolean;
+};
+
+const COMPARISON_ROWS: CompareRow[] = [
+  // — Zarządzanie warsztatem —
+  { grupa: "Zarządzanie warsztatem", funkcja: "Terminarz + przypomnienia SMS 24h / 2h", getrido: true, a: "częściowo", b: true, c: true },
+  { grupa: "Zarządzanie warsztatem", funkcja: "Zlecenia + kosztorysy z e-podpisem klienta", getrido: true, a: "częściowo", b: true, c: true },
+  { grupa: "Zarządzanie warsztatem", funkcja: "Dynamiczne statusy zleceń (per warsztat, auto-SMS)", getrido: true, a: false, b: "częściowo", c: "częściowo" },
+  { grupa: "Zarządzanie warsztatem", funkcja: "Obieg zlecenia pracownik ↔ biuro (panel mechanika)", getrido: true, a: false, b: false, c: "częściowo" },
+  { grupa: "Zarządzanie warsztatem", funkcja: "Zdjęcia aut przy zleceniu (prywatny bucket)", getrido: true, a: false, b: "częściowo", c: "częściowo" },
+  { grupa: "Zarządzanie warsztatem", funkcja: "Magazyn + OCR faktur zakupowych", getrido: true, a: false, b: false, c: "częściowo" },
+  { grupa: "Zarządzanie warsztatem", funkcja: "Baza klientów / pojazdów + historia + transfer VIN", getrido: true, a: "częściowo", b: true, c: true },
+  { grupa: "Zarządzanie warsztatem", funkcja: "Sprawdzanie aut po nr rej. / dekoder VIN", getrido: true, a: true, b: "częściowo", c: true },
+  { grupa: "Zarządzanie warsztatem", funkcja: "Faktury + KSeF FA(3) wbudowane", getrido: true, a: false, b: "częściowo", c: "częściowo" },
+  { grupa: "Zarządzanie warsztatem", funkcja: "Księgowość + doradca podatkowy AI", getrido: true, a: false, b: false, c: false },
+  { grupa: "Zarządzanie warsztatem", funkcja: "Detailing / PPF workflow", getrido: true, a: false, b: false, c: false },
+  // — Sztuczna inteligencja —
+  { grupa: "Sztuczna inteligencja", funkcja: "Asystent AI odbierający telefony (voicebot 24/7)", getrido: true, a: true, b: "częściowo", c: false },
+  { grupa: "Sztuczna inteligencja", funkcja: "Bot po godzinach / gdy nie odbierasz", getrido: true, a: true, b: false, c: false },
+  { grupa: "Sztuczna inteligencja", funkcja: "Transkrypcje rozmów w karcie zlecenia", getrido: true, a: true, b: true, c: false },
+  { grupa: "Sztuczna inteligencja", funkcja: "Asystent mechanika (notatki głosowe z hali)", getrido: true, a: true, b: false, c: false },
+  { grupa: "Sztuczna inteligencja", funkcja: "Wyceny AI (Rido AI) + dobór części do naprawy", getrido: true, a: "częściowo", b: false, c: "częściowo" },
+  { grupa: "Sztuczna inteligencja", funkcja: "Wysyłka wyceny do akceptacji online", getrido: true, a: "częściowo", b: true, c: "częściowo" },
+  { grupa: "Sztuczna inteligencja", funkcja: "Proaktywny CRM + marketing SMS / e-mail", getrido: true, a: true, b: true, c: "częściowo" },
+  // — Platforma i giełda —
+  { grupa: "Platforma i giełda", funkcja: "Własna giełda / portal dostarczający klientów", getrido: true, a: false, b: false, c: false, tylkoMy: true },
+  { grupa: "Platforma i giełda", funkcja: "Marketplace ogłoszeń (auta, części, usługi)", getrido: true, a: false, b: false, c: false, tylkoMy: true },
+  { grupa: "Platforma i giełda", funkcja: "Rezerwacje online (strona / Google + OTP SMS)", getrido: true, a: true, b: true, c: "częściowo" },
+  { grupa: "Platforma i giełda", funkcja: "Płatności online (Przelewy24)", getrido: true, a: false, b: false, c: "częściowo" },
+  { grupa: "Platforma i giełda", funkcja: "Web app + PWA na telefonie", getrido: true, a: "częściowo", b: true, c: "częściowo" },
+  { grupa: "Platforma i giełda", funkcja: "Kanały: SMS / e-mail / Telegram / in-app", getrido: true, a: "częściowo", b: "częściowo", c: "częściowo" },
+];
 
 type Feature = {
   icon: any;
@@ -170,10 +212,36 @@ export default function WorkshopLanding() {
   ];
 
   const plans = [
-    { id: "start", name: "Start", price: "0", period: "/mies.", description: "Na start — dla małych warsztatów i jednoosobowych studiów.", features: ["20 zleceń/mc", "Klienci + pojazdy", "Terminarz", "Zdjęcia przy przyjęciu", "10 sprawdzeń VIN", "3 pytania AI/mc"], cta: "Zacznij za darmo" },
-    { id: "warsztat", name: "Warsztat", popular: true, price: "99", period: "netto/mies.", description: "Najczęściej wybierany. Dla rozwijających się warsztatów.", features: ["Zlecenia bez limitu", "Magazyn + przechowalnia", "Sprzedaż + faktury", "Raporty + marża live", "KSeF basic", "20 pytań AI/mc"], cta: "Wypróbuj 14 dni" },
-    { id: "pro", name: "Warsztat Pro", price: "175", period: "netto/mies.", description: "Dane naprawcze, czas pracy mechanika i zaawansowane raporty.", features: ["Dane naprawcze (TecRMI)", "Czas pracy mechanika", "50 pytań AI/mc", "KSeF pełny + wysyłka", "Zaawansowane raporty", "Priorytetowy support"], cta: "Wypróbuj 14 dni" },
-    { id: "ai", name: "GetRido AI", price: "249", period: "netto/mies.", description: "Pełna automatyzacja z księgowością i nieograniczonym AI.", features: ["Księgowość AI", "30 faktur/mc auto-odczyt", "Doradca podatkowy AI", "Nieograniczone AI", "KSeF monitor + alerty", "Dedykowany opiekun"], cta: "Wypróbuj 14 dni" },
+    {
+      id: "start", name: "Start", price: "0", period: "/mies.",
+      description: "Na start — dla małych warsztatów i jednoosobowych studiów.",
+      features: ["20 zleceń / mc", "Klienci + pojazdy", "Terminarz + rezerwacje online", "Zdjęcia przy przyjęciu", "3 pytania AI / mc (próbka)", "Dostęp do giełdy GetRido"],
+      cta: "Zacznij za darmo",
+    },
+    {
+      id: "warsztat", name: "Warsztat", price: "59", period: "netto/mies.",
+      description: "Pełny program dla warsztatu — wszystko, czego potrzebujesz do pracy.",
+      features: ["Zlecenia bez limitu + dynamiczne statusy", "Magazyn + przechowalnia + OCR faktur", "Sprzedaż + faktury + KSeF", "Kosztorysy z e-podpisem klienta", "Raporty + marża live", "Dekoder VIN / sprawdzanie po nr rej.", "5 wycen robocizny AI + 3× pomoc AI w naprawie / mc (gratis)", "Dostęp do giełdy GetRido"],
+      cta: "Wypróbuj 14 dni",
+    },
+    {
+      id: "pro", name: "Pro · AI", popular: true, price: "149", period: "netto/mies.",
+      description: "AI odbiera telefon, umawia wizyty i tworzy zlecenia. Cały warsztat + AI w jednym.",
+      features: ["Wszystko z pakietu Warsztat", "AI voicebot ODBIERA telefon 24/7 — 120 min w cenie", "Bot po godzinach + oddzwanianie do leadów", "Transkrypcje rozmów w karcie zlecenia", "Wyceny AI (Rido AI) bez limitu + dobór części", "Dane naprawcze (TecRMI) + czas pracy mechanika", "Proaktywny CRM + marketing SMS / e-mail", "Dostęp do giełdy GetRido"],
+      cta: "Wypróbuj 14 dni",
+    },
+    {
+      id: "ai", name: "Pro+ · GetRido AI", price: "289", period: "netto/mies.",
+      description: "Pełna automatyzacja z księgowością i większym AI. Dla dużych warsztatów i sieci.",
+      features: ["Wszystko z pakietu Pro · AI", "Więcej minut AI + obsługa wielu numerów", "Księgowość AI + doradca podatkowy AI", "30 faktur / mc auto-odczyt", "KSeF monitor + alerty", "Zaawansowana analityka + dedykowany opiekun", "Dostęp do giełdy GetRido"],
+      cta: "Wypróbuj 14 dni",
+    },
+  ];
+
+  const addons = [
+    { name: "SMS", detail: "pakiety wg zużycia" },
+    { name: "Sprawdzanie VIN / nr rej.", detail: "pakiety wg zużycia" },
+    { name: "Minuty AI", detail: "Pro · AI ma 120 min w cenie; powyżej 0,69 zł/min lub tańszy pakiet minut" },
   ];
 
   return (
@@ -538,39 +606,51 @@ export default function WorkshopLanding() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    ["Terminarz + SMS 24h/2h", true, true, true, true],
-                    ["Zlecenia + kosztorysy", true, true, true, true],
-                    ["Magazyn + OCR faktur zakupowych", true, false, "częściowo", false],
-                    ["Wyceny AI (Rido AI)", true, false, false, false],
-                    ["Asystent AI odbierający telefony", true, "częściowo", "częściowo", false],
-                    ["Sprawdzanie aut po nr rej.", true, false, "częściowo", false],
-                    ["Własny portal dostarczający klientów", true, false, false, false],
-                    ["KSeF FA(3) wbudowane", true, false, false, "częściowo"],
-                    ["Księgowość + doradca podatkowy AI", true, false, false, false],
-                    ["Detailing / PPF workflow", true, false, false, false],
-                    ["Web app + PWA na telefonie", true, "częściowo", true, "częściowo"],
-                  ].map(([label, ...cells], i) => (
-                    <tr key={i} className="border-b last:border-0 hover:bg-muted/20">
-                      <td className="p-3 md:p-4 font-medium">{label as string}</td>
-                      {cells.map((cell, ci) => (
-                        <td key={ci} className="p-3 md:p-4 text-center">
-                          {cell === true ? (
-                            <Check className="h-5 w-5 text-emerald-500 inline" />
-                          ) : cell === "częściowo" ? (
-                            <span className="text-xs text-amber-600 font-medium">częściowo</span>
-                          ) : (
-                            <span className="text-muted-foreground/40">—</span>
+                  {COMPARISON_ROWS.map((row, i) => (
+                    <Fragment key={i}>
+                      {(i === 0 || COMPARISON_ROWS[i - 1].grupa !== row.grupa) && (
+                        <tr className="border-b bg-muted/20">
+                          <td colSpan={5} className="p-3 md:p-4 font-semibold text-xs uppercase tracking-wide text-muted-foreground">
+                            {row.grupa}
+                          </td>
+                        </tr>
+                      )}
+                      <tr className="border-b hover:bg-muted/20">
+                        <td className="p-3 md:p-4 font-medium">
+                          {row.funkcja}
+                          {row.tylkoMy && (
+                            <Badge className="ml-2 bg-primary text-primary-foreground text-[10px] px-1.5 py-0 align-middle">
+                              tylko my
+                            </Badge>
                           )}
                         </td>
-                      ))}
-                    </tr>
+                        {[row.getrido, row.a, row.b, row.c].map((cell, ci) => (
+                          <td key={ci} className="p-3 md:p-4 text-center">
+                            {cell === true ? (
+                              <Check className="h-5 w-5 text-emerald-500 inline" />
+                            ) : cell === "częściowo" ? (
+                              <span className="text-xs text-amber-600 font-medium">częściowo</span>
+                            ) : (
+                              <span className="text-muted-foreground/40">—</span>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    </Fragment>
                   ))}
+                  <tr className="bg-muted/30 font-semibold">
+                    <td className="p-3 md:p-4">Liczba „TAK"</td>
+                    {(["getrido", "a", "b", "c"] as const).map((col) => (
+                      <td key={col} className="p-3 md:p-4 text-center">
+                        {COMPARISON_ROWS.filter((row) => row[col] === true).length}
+                      </td>
+                    ))}
+                  </tr>
                 </tbody>
               </table>
             </div>
             <div className="p-4 text-xs text-muted-foreground bg-muted/10 border-t">
-              Zestawienie na podstawie publicznie dostępnych informacji o polskich systemach do zarządzania warsztatem samochodowym (stan: 2026). Nazwy własne pominięto.
+              A = AI-asystent telefoniczny · B = program z AI · C = klasyczne programy. Nazwy własne pominięto.
             </div>
           </div>
         </div>
@@ -651,6 +731,26 @@ export default function WorkshopLanding() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* Add-on packages */}
+        <div className="max-w-6xl mx-auto mt-10">
+          <Card className="border-primary/10">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-bold mb-4 text-center">Pakiety dokupowane (jak doładowanie telefonu)</h3>
+              <div className="grid sm:grid-cols-3 gap-4">
+                {addons.map((addon, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm">
+                    <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                    <span>
+                      <span className="font-semibold">{addon.name}</span> — {addon.detail}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground text-center mt-4">Płacisz tylko za to, czego realnie używasz.</p>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
