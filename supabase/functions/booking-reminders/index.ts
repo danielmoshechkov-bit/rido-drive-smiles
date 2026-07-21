@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { buildPublicUrl } from '../_shared/publicUrl.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -151,9 +152,9 @@ function buildSmsText(
     ? `${Math.round(leadMinutes / 60)}h`
     : `${leadMinutes}min`
 
-  // Confirmation link
+  // Confirmation link — jedno źródło prawdy dla publicznego adresu (buildPublicUrl).
   const confirmUrl = confirmationToken
-    ? `https://rido-drive-smiles.lovable.app/r/${confirmationToken}`
+    ? buildPublicUrl(`/r/${confirmationToken}`)
     : ''
 
   // Build message in priority order, drop optional fragments if too long

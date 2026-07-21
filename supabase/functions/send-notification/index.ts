@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildPublicUrl } from "../_shared/publicUrl.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,7 +63,7 @@ serve(async (req) => {
          <p><strong>Budżet:</strong> ${order.budget} zł</p>
          <p><strong>Miasto:</strong> ${order.target_city || order.service_providers?.company_city || "—"}</p>`,
         "Przejdź do panelu",
-        "https://rido-drive-smiles.lovable.app/admin/marketing?tab=orders"
+        buildPublicUrl("/admin/marketing?tab=orders")
       );
     } else if (type === "ad_status_change") {
       const { data: order } = await supabase
@@ -92,7 +93,7 @@ serve(async (req) => {
         `<p>${msg.body}</p>
          <p><strong>Usługa:</strong> ${order.provider_services?.name || "—"}</p>`,
         "Przejdź do panelu",
-        "https://rido-drive-smiles.lovable.app/uslugi"
+        buildPublicUrl("/uslugi")
       );
     } else if (type === "new_lead") {
       const { data: lead } = await supabase
@@ -116,7 +117,7 @@ serve(async (req) => {
          <p><strong>Źródło:</strong> ${lead.source}</p>
          ${lead.lead_message ? `<p><strong>Wiadomość:</strong> ${lead.lead_message}</p>` : ""}`,
         "Zobacz leady",
-        "https://rido-drive-smiles.lovable.app/uslugi?tab=leads"
+        buildPublicUrl("/uslugi?tab=leads")
       );
     }
 

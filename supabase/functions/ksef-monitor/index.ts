@@ -17,7 +17,9 @@ Zwróć WYŁĄCZNIE czysty JSON:
 {"has_changes": boolean, "summary": "max 2 zdania po polsku", "alerts": [{"severity": "critical"|"warning"|"info", "title": "tytuł", "description": "opis", "action_required": "akcja lub null"}]}
 Jeśli brak zmian: {"has_changes": false, "summary": "Brak nowych informacji", "alerts": []}`;
 
-const APP_BASE_URL = "https://rido-drive-smiles.lovable.app";
+// Link wypisu wskazuje na endpoint edge (/functions/v1/ksef-unsubscribe) — bazą jest SUPABASE_URL,
+// nie publiczny adres aplikacji. Dawniej twardo wpisana domena deweloperska (błąd).
+const APP_BASE_URL = Deno.env.get("SUPABASE_URL") ?? "https://wclrrytmrscqvsyxyvnn.supabase.co";
 const encoder = new TextEncoder();
 
 function toBase64Url(bytes: Uint8Array) {

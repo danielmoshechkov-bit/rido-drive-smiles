@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { buildPublicUrl } from '@/lib/publicUrl';
 import { toast } from 'sonner';
 
 /**
@@ -48,5 +49,5 @@ export async function sendRentalEmail(to: string, subject: string, html: string)
 }
 
 export function contractLink(token: string): string {
-  return `${window.location.origin}/wynajem/umowa/${token}`;
+  return buildPublicUrl(`/wynajem/umowa/${token}`);
 }

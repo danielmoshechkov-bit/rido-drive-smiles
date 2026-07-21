@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { buildPublicUrl } from '@/lib/publicUrl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
@@ -208,7 +209,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           let phone = (b.phone || '').replace(/\D/g, '');
           if (phone.length === 9) phone = `+48${phone}`; else if (phone.startsWith('48')) phone = `+${phone}`;
           const [y, mo, d] = String(b.proposed_date).split('-');
-          const link = b.confirmation_token ? `${window.location.origin}/r/${b.confirmation_token}` : '';
+          const link = b.confirmation_token ? buildPublicUrl(`/r/${b.confirmation_token}`) : '';
           let msg = rmPl(`Twoja wizyta zostala zmieniona na ${d}.${mo}.${y} o godz. ${String(b.proposed_time).slice(0,5)}.`);
           if (link) msg += ` Szczegoly: ${link}`;
           if (phone) await supabase.functions.invoke('workshop-send-sms', {
@@ -1481,7 +1482,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             const finalCity = providerInfo?.company_city || wsCity;
             const addressText = compactSpaces(removePl([finalAddress, finalCity].filter(Boolean).join(', ')));
             const token = insertedBooking?.confirmation_token;
-            const manageUrl = token ? `${window.location.origin}/r/${token}` : '';
+            const manageUrl = token ? buildPublicUrl(`/r/${token}`) : '';
             // NIE wpisujemy opisu usługi — tylko zaproszenie + adres + link.
             let smsMessage = `Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.`;
             if (addressText) smsMessage += ` Adres: ${addressText}.`;

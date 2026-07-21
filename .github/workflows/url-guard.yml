@@ -1,0 +1,16 @@
+name: URL Guard
+
+# Blokuje domeny deweloperskie (lovable.app / preview--) w linkach wychodzących do klientów.
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-public-urls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node scripts/check-public-urls.mjs

@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { buildPublicUrl } from '@/lib/publicUrl';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -288,7 +289,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
           const { data: ord } = await supabase.from('workshop_orders').select('client_code').eq('id', createdOrderId).maybeSingle();
           clientCode = ord?.client_code || '';
         }
-        const clientLink = clientCode ? `${window.location.origin}/warsztat/klient/${clientCode}` : '';
+        const clientLink = clientCode ? buildPublicUrl(`/warsztat/klient/${clientCode}`) : '';
         const removePl = (s: string) => {
           const m: Record<string, string> = {'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z','Ą':'A','Ć':'C','Ę':'E','Ł':'L','Ń':'N','Ó':'O','Ś':'S','Ź':'Z','Ż':'Z'};
           return s.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, c => m[c] || c);
