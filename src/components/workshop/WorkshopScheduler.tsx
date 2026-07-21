@@ -209,9 +209,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           let phone = (b.phone || '').replace(/\D/g, '');
           if (phone.length === 9) phone = `+48${phone}`; else if (phone.startsWith('48')) phone = `+${phone}`;
           const [y, mo, d] = String(b.proposed_date).split('-');
-          const link = b.confirmation_token ? buildPublicUrl(`/r/${b.confirmation_token}`) : '';
-          let msg = rmPl(`Twoja wizyta zostala zmieniona na ${d}.${mo}.${y} o godz. ${String(b.proposed_time).slice(0,5)}.`);
-          if (link) msg += ` Szczegoly: ${link}`;
+          const rToken = b.public_token || b.confirmation_token;
+          const link = rToken ? buildPublicUrl(`/r/${rToken}`) : '';
+          let msg = rmPl(`Nowy termin wizyty: ${d}.${mo}.${y} ${String(b.proposed_time).slice(0,5)}.`);
+          if (link) msg += ` ${link}`;
           if (phone) await supabase.functions.invoke('workshop-send-sms', {
             body: { phone, message: msg, sms_type: 'reschedule_confirmed', provider_id: providerId },
           });
@@ -1422,7 +1423,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         reminder_times: clientForm.reminderOptions,
         confirmation_sms_sent: false,
         status: 'scheduled',
-      }).select('id, confirmation_token').single();
+      }).select('id, confirmation_token, public_token').single();
       if (error) throw error;
 
       // Sukces OD RAZU — nie czekamy na SMS. Wcześniej cały zapis czekał na
@@ -1481,15 +1482,15 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             const finalAddress = providerInfo?.company_address || wsAddress;
             const finalCity = providerInfo?.company_city || wsCity;
             const addressText = compactSpaces(removePl([finalAddress, finalCity].filter(Boolean).join(', ')));
-            const token = insertedBooking?.confirmation_token;
+            const token = insertedBooking?.public_token || insertedBooking?.confirmation_token;
             const manageUrl = token ? buildPublicUrl(`/r/${token}`) : '';
-            // NIE wpisujemy opisu usługi — tylko zaproszenie + adres + link.
-            let smsMessage = `Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.`;
-            if (addressText) smsMessage += ` Adres: ${addressText}.`;
-            if (manageUrl) smsMessage += ` Zarzadzaj rezerwacja: ${manageUrl}`;
+            // Skrócony szablon (krótki public_token) — 1 SMS; drop adresu jeśli > 160.
+            let smsMessage = `${workshopName}: potwierdzamy wizyte ${dateStr} ${timeStr}.`;
+            if (addressText) smsMessage += ` ${addressText}.`;
+            if (manageUrl) smsMessage += ` Zarzadzaj: ${manageUrl}`;
             smsMessage = compactSpaces(smsMessage);
-            if (smsMessage.length > 320 && addressText) {
-              smsMessage = compactSpaces(`Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.${manageUrl ? ` Zarzadzaj rezerwacja: ${manageUrl}` : ''}`);
+            if (smsMessage.length > 160 && addressText) {
+              smsMessage = compactSpaces(`${workshopName}: potwierdzamy wizyte ${dateStr} ${timeStr}.${manageUrl ? ` Zarzadzaj: ${manageUrl}` : ''}`);
             }
             const { error: smsError } = await supabase.functions.invoke('workshop-send-sms', {
               body: { phone: smsPhone, message: smsMessage, sms_type: 'booking_confirmation', provider_id: providerId },
