@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { buildPublicUrl } from '@/lib/publicUrl';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -227,7 +228,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
 
   const copyClientLink = () => {
     if (order.client_code) {
-      navigator.clipboard.writeText(`${window.location.origin}/warsztat/klient/${order.client_code}`);
+      navigator.clipboard.writeText(buildPublicUrl(`/warsztat/klient/${order.client_code}`));
       toast.success(t('workshop.orderDetail.orderLinkCopied'));
     }
   };

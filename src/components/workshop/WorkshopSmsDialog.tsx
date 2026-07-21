@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { buildPublicUrl } from '@/lib/publicUrl';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,7 +70,7 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
     : '';
 
   const clientPhone = order.client?.phone || '';
-  const clientLink = `${window.location.origin}/warsztat/klient/${order.client_code}`;
+  const clientLink = buildPublicUrl(`/warsztat/klient/${order.client_code}`);
   
   const [phone, setPhone] = useState(toLocalPhone(clientPhone));
   const [message, setMessage] = useState(smsTemplates[type](order, clientLink));

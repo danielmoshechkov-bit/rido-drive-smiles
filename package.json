@@ -8,6 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "lint:urls": "node scripts/check-public-urls.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
