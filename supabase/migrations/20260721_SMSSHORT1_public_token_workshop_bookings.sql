@@ -24,11 +24,13 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ---- 1) Generator krótkiego tokenu (57-znakowy alfabet, bez 0/O/1/l/I) ----
 -- Alfabet: 8 cyfr (23456789) + 24 wielkie (bez I,O) + 25 małych (bez l) = 57.
+-- search_path zawiera `extensions`, bo w Supabase pgcrypto (gen_random_bytes)
+-- jest w schemacie extensions, nie public.
 CREATE OR REPLACE FUNCTION public.gen_public_token(p_len int DEFAULT 10)
 RETURNS text
 LANGUAGE plpgsql
 VOLATILE
-SET search_path = public
+SET search_path = public, extensions
 AS $$
 DECLARE
   alphabet text := '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
