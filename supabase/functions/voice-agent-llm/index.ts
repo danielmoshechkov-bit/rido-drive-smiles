@@ -14,6 +14,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecret } from "../_shared/aiSecrets.ts";
+import { buildVoiceContext } from "../_shared/voiceAgentContext.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,7 +94,7 @@ serve(async (req) => {
   let cfg: any = null;
   if (providerId) {
     const { data } = await admin.from("voice_agent_configs")
-      .select("business_context, display_name, languages, calendar_access, orders_access, voice_id")
+      .select("business_context, display_name, languages, calendar_access, orders_access, voice_id, custom_prompt_override")
       .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
     cfg = data;
   }
@@ -107,21 +108,15 @@ serve(async (req) => {
   };
   const brainHeaders = { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" };
 
-  const oneShotSSE = (text: string) => {
-    const id = "chatcmpl-" + Math.random().toString(36).slice(2);
-    const created = Math.floor(Date.now() / 1000);
-    const chunk = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: { role: "assistant", content: text }, finish_reason: null }] };
-    const done = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] };
-    return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: ${JSON.stringify(done)}\n\ndata: [DONE]\n\n`, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
-  };
+  // Narzędzia SYSTEMOWE EL (end_call, transfer_to_number, language_detection) przychodzą w
+  // reqBody.tools (P11 Faza 0 — logujemy, żeby zobaczyć czy EL je w ogóle przekazuje do custom-LLM).
+  const elTools: any[] = Array.isArray(reqBody?.tools) ? reqBody.tools : [];
+  console.log(`[voice-agent-llm] provider=${providerId} persona=${personaKey} stream=${stream} el_tools=[${elTools.map((t: any) => t?.function?.name || t?.name).filter(Boolean).join(",") || "brak"}]`);
 
-  // STREAMING: EL wymaga strumienia tokenów, a pierwszy bajt MUSI wyjść od razu
-  // (timeout EL ~1s). Dlatego voice-agent-llm SAM jest właścicielem strumienia:
-  // wewnętrzny fetch funkcja->funkcja jest buforowany przez platformę, więc mózg
-  // wołamy tylko po kontekst (mode:"prepare", szybki JSON), a tokeny z Anthropic
-  // strumieniujemy i wykonujemy narzędzia tutaj.
   if (stream) {
+    const t0 = Date.now();
     const cleanKey = (k: string) => k.replace(/[^\x20-\x7E]/g, "");
+    const OUR_TOOLS = new Set(["check_availability", "create_booking", "create_order"]);
     const callTool = async (name: string, input: any) => {
       try {
         const tr = await fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
@@ -131,45 +126,63 @@ serve(async (req) => {
         return await tr.json();
       } catch (e) { return { ok: false, error: (e as Error).message }; }
     };
+    // Narzędzia EL (OpenAI -> Anthropic), TYLKO systemowe (nie nasze) — by model mógł je wywołać.
+    const elToolDefs = elTools
+      .map((t: any) => (t?.type === "function" ? t.function : t))
+      .filter((f: any) => f?.name && !OUR_TOOLS.has(f.name))
+      .map((f: any) => ({ name: f.name, description: f.description || f.name, input_schema: f.parameters || { type: "object", properties: {} } }));
+
     const encoder = new TextEncoder();
     const cid = "chatcmpl-" + Math.random().toString(36).slice(2);
     const createdTs = Math.floor(Date.now() / 1000);
+    const FILLERS = ["Chwileczkę.", "Dobrze.", "Rozumiem.", "Już notuję.", "Sekundę.", "Tak, oczywiście."];
     const rs = new ReadableStream({
       async start(controller) {
         const raw = (s: string) => controller.enqueue(encoder.encode(s));
         const chunk = (delta: any, finish: string | null = null) =>
           raw(`data: ${JSON.stringify({ id: cid, object: "chat.completion.chunk", created: createdTs, model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`);
-        // KEEPALIVE: podczas rund tool_use strumień milczy 2-3s -> EL uznaje go za zawieszony
-        // i wysyła RÓWNOLEGŁE retry (duplikaty tekstu + burza wywołań narzędzi). Komentarz SSE
-        // co 700ms trzyma połączenie; parser OpenAI ignoruje linie zaczynające się od ":".
-        let alive = true;
-        const pinger = setInterval(() => { if (alive) { try { raw(": ka\n\n"); } catch { /* noop */ } } }, 700);
-        const stopPing = () => { alive = false; clearInterval(pinger); };
-        // Potwierdzenie z OSTATNIEGO udanego narzędzia — gdy generacja tekstu padnie po rezerwacji,
-        // mówimy realny wynik (wizyta powstała), a NIE "problem techniczny".
+        // FILLER jako pierwszy token TREŚCI (EL liczy timeout do treści, nie do role) — kasowany gdy
+        // realny tekst zdąży wcześniej. To zabija burzę retry EL (P2/P4/P10) bez komentarzy SSE.
+        let gotText = false; let filler: number | undefined;
+        const armFiller = () => { filler = setTimeout(() => { if (!gotText) chunk({ content: FILLERS[Math.floor(Math.random() * FILLERS.length)] + " " }); }, 550) as unknown as number; };
+        const clearFiller = () => { if (filler !== undefined) { clearTimeout(filler); filler = undefined; } };
         let lastToolMsg = "";
-        const fail = () => { try { chunk({ content: lastToolMsg || "Przepraszam, chwilowy problem techniczny." }); chunk({}, "stop"); raw("data: [DONE]\n\n"); } catch { /* noop */ } };
+        // NIGDY nie zapętlaj "problem techniczny": jedna grzeczna kwestia + koniec tury (P9d).
+        const closeWith = (txt: string) => { try { clearFiller(); if (txt) chunk({ content: txt }); chunk({}, "stop"); raw("data: [DONE]\n\n"); } catch { /* noop */ } };
         try {
-          chunk({ role: "assistant" }); // NATYCHMIAST pierwszy bajt -> reset timeoutu EL
-          // Kontekst z mózgu (bez Anthropic) — szybki JSON.
-          let system = ""; let toolDefs: any[] = []; let aModel = "claude-sonnet-4-6";
-          try {
-            const pr = await fetch(`${supabaseUrl}/functions/v1/voice-agent-chat`, { method: "POST", headers: brainHeaders, body: JSON.stringify({ ...brainBody, mode: "prepare" }) });
-            const pd = await pr.json().catch(() => ({} as any));
-            if (pd?.system) { system = pd.system; toolDefs = Array.isArray(pd.tools) ? pd.tools : []; aModel = pd.model || aModel; }
-          } catch { /* fallthrough */ }
+          chunk({ role: "assistant" });
+          armFiller();
+          // KONTEKST INLINE (bez hopu funkcja->funkcja) => mniej płaconych sekund EL.
+          const ctx = await buildVoiceContext(admin, {
+            personaKey, businessContext: cfg?.business_context, displayName: cfg?.display_name,
+            languages: cfg?.languages, calendarAccess: !!cfg?.calendar_access, ordersAccess: !!cfg?.orders_access,
+            providerId, voiceGender: cfg?.voice_gender || "", customPromptOverride: cfg?.custom_prompt_override,
+          });
           const apiKey = cleanKey((await getSecret(admin, "ANTHROPIC_API_KEY")) || "");
-          if (!system || !apiKey) { fail(); stopPing(); controller.close(); return; }
-
+          console.log(`[timing] ctx=${Date.now() - t0}ms model=${ctx.model} tools=${ctx.tools.length}+${elToolDefs.length}el`);
+          if (!apiKey) { closeWith("Przepraszam, mam chwilowy problem — oddzwonimy do Pana."); controller.close(); return; }
+          const toolDefs = [...ctx.tools, ...elToolDefs];
           const aConvo: any[] = convo.map((m) => ({ role: m.role, content: m.content }));
-          let gotText = false;
-          for (let round = 0; round < 5; round++) {
-            const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-              method: "POST",
-              headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-              body: JSON.stringify({ model: aModel, max_tokens: 600, temperature: 0.7, system, messages: aConvo, stream: true, ...(toolDefs.length ? { tools: toolDefs } : {}) }),
+
+          const callAnthropic = async () => {
+            const payload = JSON.stringify({
+              model: ctx.model, max_tokens: 500, temperature: 0.6,
+              system: [{ type: "text", text: ctx.system, cache_control: { type: "ephemeral" } }], // prompt-caching = szybszy TTFT
+              messages: aConvo, stream: true, ...(toolDefs.length ? { tools: toolDefs } : {}),
             });
-            if (!aiRes.ok || !aiRes.body) { if (!gotText) chunk({ content: lastToolMsg || "Przepraszam, chwilowy problem techniczny." }); break; }
+            const hdr = { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-beta": "prompt-caching-2024-07-31", "Content-Type": "application/json" };
+            let res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: hdr, body: payload });
+            if (!res.ok && (res.status === 429 || res.status === 529)) { await new Promise((r) => setTimeout(r, 400)); res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: hdr, body: payload }); }
+            return res;
+          };
+
+          for (let round = 0; round < 4; round++) {
+            const aiRes = await callAnthropic();
+            if (!aiRes.ok || !aiRes.body) {
+              console.error(`[voice-agent-llm] anthropic ${aiRes.status} round=${round}`);
+              // Błąd techniczny: potwierdź udane narzędzie albo grzecznie zakończ — NIGDY nie zapętlaj.
+              closeWith(lastToolMsg || "Przepraszam, mam chwilowy problem — oddzwonimy do Pana."); controller.close(); return;
+            }
             const reader = aiRes.body.getReader();
             const dec = new TextDecoder();
             let buf = ""; let stopReason: string | null = null; let streamDone = false;
@@ -189,14 +202,26 @@ serve(async (req) => {
                 if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
                   toolBlocks[ev.index] = { id: ev.content_block.id, name: ev.content_block.name, partial: "" };
                 } else if (ev.type === "content_block_delta") {
-                  if (ev.delta?.type === "text_delta" && ev.delta.text) { gotText = true; chunk({ content: ev.delta.text }); }
+                  if (ev.delta?.type === "text_delta" && ev.delta.text) { if (!gotText) { clearFiller(); console.log(`[timing] firstToken=${Date.now() - t0}ms`); } gotText = true; chunk({ content: ev.delta.text }); }
                   else if (ev.delta?.type === "input_json_delta" && toolBlocks[ev.index]) { toolBlocks[ev.index].partial += ev.delta.partial_json || ""; }
                 } else if (ev.type === "message_delta" && ev.delta?.stop_reason) { stopReason = ev.delta.stop_reason; }
                 else if (ev.type === "message_stop") { streamDone = true; }
               }
             }
             const idxs = Object.keys(toolBlocks);
-            if (stopReason === "tool_use" && idxs.length && toolDefs.length) {
+            if (stopReason === "tool_use" && idxs.length) {
+              // Narzędzie SYSTEMOWE EL (end_call/transfer/...) — oddaj tool_call do EL i zakończ (EL przejmuje).
+              const elIdx = idxs.find((i) => !OUR_TOOLS.has(toolBlocks[Number(i)].name));
+              if (elIdx !== undefined) {
+                const tb = toolBlocks[Number(elIdx)];
+                let input: any = {}; try { input = JSON.parse(tb.partial || "{}"); } catch { /* keep {} */ }
+                clearFiller();
+                raw(`data: ${JSON.stringify({ id: cid, object: "chat.completion.chunk", created: createdTs, model, choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id: "call_" + Math.random().toString(36).slice(2), type: "function", function: { name: tb.name, arguments: JSON.stringify(input) } }] }, finish_reason: null }] })}\n\n`);
+                raw(`data: ${JSON.stringify({ id: cid, object: "chat.completion.chunk", created: createdTs, model, choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] })}\n\n`);
+                raw("data: [DONE]\n\n"); controller.close(); return;
+              }
+              // Nasze narzędzia — wykonaj i kontynuuj. Filler w luce wykonania (EL nie zawiesza).
+              chunk({ content: FILLERS[Math.floor(Math.random() * FILLERS.length)] + " " });
               const assistantBlocks: any[] = []; const results: any[] = [];
               for (const i of idxs) {
                 const tb = toolBlocks[Number(i)];
@@ -213,9 +238,12 @@ serve(async (req) => {
             }
             break;
           }
-          chunk({}, "stop"); raw("data: [DONE]\n\n");
-        } catch (_e) { fail(); }
-        stopPing(); controller.close();
+          clearFiller(); chunk({}, "stop"); raw("data: [DONE]\n\n");
+        } catch (_e) {
+          console.error("[voice-agent-llm] stream error:", (_e as Error)?.stack || String(_e));
+          closeWith(lastToolMsg || "Przepraszam, mam chwilowy problem — oddzwonimy do Pana.");
+        }
+        controller.close();
       },
     });
     return new Response(rs, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
