@@ -39,16 +39,29 @@ serve(async (req) => {
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
   const url = new URL(req.url);
-  // ElevenLabs ZAWSZE dokleja "/chat/completions" do skonfigurowanego URL serwera.
-  // Zależnie od klienta ląduje to jako:
-  //   (a) sufiks ścieżki:  .../voice-agent-llm/chat/completions?provider_id=...&persona_key=...
-  //   (b) przy naiwnej konkatenacji base+"/chat/completions" — doklejone do OSTATNIEGO
-  //       parametru query:  ...?provider_id=...&persona_key=workshop_secretary/chat/completions
-  // Wariant (a) obsługuje samo raw serve() (nie sprawdzamy ścieżki — łapiemy każdy sufiks).
-  // Wariant (b) czyścimy tutaj: usuwamy doklejony sufiks z wartości query.
+  // ElevenLabs woła Custom LLM przez RELATYWNE rozwiązanie URL:  new URL("chat/completions", serverURL).
+  // Zgodnie z RFC 3986 to (1) ZASTĘPUJE ostatni segment ścieżki i (2) ODRZUCA query string.
+  // => provider_id/persona_key NIE mogą siedzieć w query (przepadną) — muszą być w ŚCIEŻCE.
+  // Wymagany Server URL w EL (z KOŃCOWYM ukośnikiem!):
+  //   .../functions/v1/voice-agent-llm/<provider_id>/<persona_key>/
+  // EL wyśle wtedy POST na:
+  //   .../functions/v1/voice-agent-llm/<provider_id>/<persona_key>/chat/completions
+  // Kolejność źródeł: ŚCIEŻKA -> query (kompatybilność wsteczna/testy ręczne) -> nagłówek.
+  const segs = url.pathname.split("/").filter(Boolean);
+  const fnIdx = segs.indexOf("voice-agent-llm");
+  const pathParams = fnIdx >= 0
+    ? segs.slice(fnIdx + 1).filter((s) => s !== "chat" && s !== "completions")
+    : [];
   const stripElSuffix = (v: string) => v.replace(/\/chat\/completions\/?$/i, "").trim();
-  const providerId = stripElSuffix(url.searchParams.get("provider_id") || "");
-  const personaKey = stripElSuffix(url.searchParams.get("persona_key") || "") || "workshop_secretary";
+  const providerId =
+    pathParams[0] ||
+    stripElSuffix(url.searchParams.get("provider_id") || "") ||
+    (req.headers.get("x-provider-id") || "").trim();
+  const personaKey =
+    pathParams[1] ||
+    stripElSuffix(url.searchParams.get("persona_key") || "") ||
+    (req.headers.get("x-persona-key") || "").trim() ||
+    "workshop_secretary";
 
   // Bez skonfigurowanego VOICE_LLM_TOKEN endpoint jest ZABLOKOWANY (fail-closed) —
   // otwarty Custom-LLM to darmowy Claude dla każdego, kto zna provider_id.
