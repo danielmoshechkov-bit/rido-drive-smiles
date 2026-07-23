@@ -167,8 +167,95 @@ serve(async (req) => {
       } catch (e) { return { ok: false, error: (e as Error).message }; }
     };
 
-    let reply = "";
     const created: { order_id: string | null; order_number: string | null; booking_id: string | null } = { order_id: null, order_number: null, booking_id: null };
+
+    // ---- STREAMING (dla telefonii/ElevenLabs) ----------------------------------
+    // EL wymaga strumienia tokenów (inaczej timeout -> cisza). Emitujemy SSE w
+    // formacie OpenAI chat.completion.chunk; voice-agent-llm przepuszcza go 1:1 do EL.
+    // Narzędzia obsługiwane w pętli: tekst leci na żywo, tool_use wykonujemy i lecimy dalej.
+    if (body?.stream === true) {
+      const encoder = new TextEncoder();
+      const cid = "chatcmpl-" + Math.random().toString(36).slice(2);
+      const createdTs = Math.floor(Date.now() / 1000);
+      const rs = new ReadableStream({
+        async start(controller) {
+          const raw = (s: string) => controller.enqueue(encoder.encode(s));
+          const chunk = (delta: any, finish: string | null = null) =>
+            raw(`data: ${JSON.stringify({ id: cid, object: "chat.completion.chunk", created: createdTs, model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`);
+          try {
+            chunk({ role: "assistant" }); // szybki pierwszy bajt -> EL nie czeka
+            let gotAnyText = false;
+            for (let round = 0; round < 5; round++) {
+              const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+                body: JSON.stringify({ model, max_tokens: 600, temperature: 0.7, system, messages: convo, stream: true, ...(tools.length ? { tools } : {}) }),
+              });
+              if (!aiRes.ok || !aiRes.body) {
+                chunk({ content: gotAnyText ? "" : "Przepraszam, chwilowy problem techniczny." });
+                break;
+              }
+              const reader = aiRes.body.getReader();
+              const dec = new TextDecoder();
+              let buf = "";
+              let stopReason: string | null = null;
+              const toolBlocks: Record<number, { id: string; name: string; partial: string }> = {};
+              let streamDone = false;
+              while (!streamDone) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buf += dec.decode(value, { stream: true });
+                let nl: number;
+                while ((nl = buf.indexOf("\n\n")) >= 0) {
+                  const block = buf.slice(0, nl); buf = buf.slice(nl + 2);
+                  const dline = block.split("\n").find((l) => l.startsWith("data:"));
+                  if (!dline) continue;
+                  const payload = dline.slice(5).trim();
+                  if (!payload) continue;
+                  let ev: any; try { ev = JSON.parse(payload); } catch { continue; }
+                  if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
+                    toolBlocks[ev.index] = { id: ev.content_block.id, name: ev.content_block.name, partial: "" };
+                  } else if (ev.type === "content_block_delta") {
+                    if (ev.delta?.type === "text_delta" && ev.delta.text) { gotAnyText = true; chunk({ content: ev.delta.text }); }
+                    else if (ev.delta?.type === "input_json_delta" && toolBlocks[ev.index]) { toolBlocks[ev.index].partial += ev.delta.partial_json || ""; }
+                  } else if (ev.type === "message_delta" && ev.delta?.stop_reason) {
+                    stopReason = ev.delta.stop_reason;
+                  } else if (ev.type === "message_stop") {
+                    streamDone = true;
+                  }
+                }
+              }
+              const toolIdx = Object.keys(toolBlocks);
+              if (stopReason === "tool_use" && toolIdx.length && tools.length) {
+                const assistantBlocks: any[] = [];
+                const results: any[] = [];
+                for (const i of toolIdx) {
+                  const tb = toolBlocks[Number(i)];
+                  let input: any = {}; try { input = JSON.parse(tb.partial || "{}"); } catch { /* keep {} */ }
+                  assistantBlocks.push({ type: "tool_use", id: tb.id, name: tb.name, input });
+                  const out = await callTool(tb.name, input);
+                  if (tb.name === "create_order" && out?.order_id) { created.order_id = out.order_id; created.order_number = out.order_number || null; }
+                  if (tb.name === "create_booking" && out?.booking_id) { created.booking_id = out.booking_id; }
+                  results.push({ type: "tool_result", tool_use_id: tb.id, content: JSON.stringify(out) });
+                }
+                convo.push({ role: "assistant", content: assistantBlocks });
+                convo.push({ role: "user", content: results });
+                continue; // kolejna runda dośle tekst potwierdzenia
+              }
+              break; // tura tekstowa zakończona
+            }
+            chunk({}, "stop");
+            raw("data: [DONE]\n\n");
+          } catch (_e) {
+            try { chunk({ content: "Przepraszam, chwilowy problem techniczny." }); chunk({}, "stop"); raw("data: [DONE]\n\n"); } catch { /* noop */ }
+          }
+          controller.close();
+        },
+      });
+      return new Response(rs, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
+    }
+
+    let reply = "";
     for (let round = 0; round < 5; round++) {
       const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",

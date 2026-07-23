@@ -98,33 +98,51 @@ serve(async (req) => {
     cfg = data;
   }
 
-  // Wywołaj nasz mózg (service-role)
+  // Wspólne body do mózgu (service-role)
+  const brainBody: any = {
+    provider_id: providerId, persona_key: personaKey, test_mode: false,
+    messages: convo,
+    business_context: cfg?.business_context || {}, display_name: cfg?.display_name || "",
+    languages: cfg?.languages || ["pl"], calendar_access: !!cfg?.calendar_access, orders_access: !!cfg?.orders_access,
+  };
+  const brainHeaders = { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" };
+
+  const oneShotSSE = (text: string) => {
+    const id = "chatcmpl-" + Math.random().toString(36).slice(2);
+    const created = Math.floor(Date.now() / 1000);
+    const chunk = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: { role: "assistant", content: text }, finish_reason: null }] };
+    const done = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] };
+    return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: ${JSON.stringify(done)}\n\ndata: [DONE]\n\n`, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
+  };
+
+  // STREAMING: EL wymaga strumienia tokenów (inaczej timeout -> cisza).
+  // Przepuszczamy SSE z voice-agent-chat 1:1 (bez buforowania) => szybki pierwszy token.
+  if (stream) {
+    try {
+      const r = await fetch(`${supabaseUrl}/functions/v1/voice-agent-chat`, {
+        method: "POST", headers: brainHeaders, body: JSON.stringify({ ...brainBody, stream: true }),
+      });
+      if (r.ok && r.body && (r.headers.get("content-type") || "").includes("event-stream")) {
+        return new Response(r.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
+      }
+      // Mózg nie oddał strumienia -> awaryjnie pojedynczy chunk z pola reply.
+      const data = await r.json().catch(() => ({} as any));
+      return oneShotSSE(data?.reply || "Przepraszam, chwilowy problem techniczny.");
+    } catch (_) {
+      return oneShotSSE("Przepraszam, chwilowy problem techniczny.");
+    }
+  }
+
+  // NON-STREAM: buforowana odpowiedź JSON (np. test EL ze stream:false).
   let reply = "Przepraszam, chwilowy problem techniczny.";
   try {
-    const r = await fetch(`${supabaseUrl}/functions/v1/voice-agent-chat`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        provider_id: providerId, persona_key: personaKey, test_mode: false,
-        messages: convo,
-        business_context: cfg?.business_context || {}, display_name: cfg?.display_name || "",
-        languages: cfg?.languages || ["pl"], calendar_access: !!cfg?.calendar_access, orders_access: !!cfg?.orders_access,
-      }),
-    });
+    const r = await fetch(`${supabaseUrl}/functions/v1/voice-agent-chat`, { method: "POST", headers: brainHeaders, body: JSON.stringify(brainBody) });
     const data = await r.json();
     if (data?.reply) reply = data.reply;
   } catch (_) { /* zwróć fallback reply */ }
 
   const id = "chatcmpl-" + Math.random().toString(36).slice(2);
   const created = Math.floor(Date.now() / 1000);
-
-  if (stream) {
-    const chunk = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: { role: "assistant", content: reply }, finish_reason: null }] };
-    const done = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] };
-    const sse = `data: ${JSON.stringify(chunk)}\n\ndata: ${JSON.stringify(done)}\n\ndata: [DONE]\n\n`;
-    return new Response(sse, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
-  }
-
   const completion = { id, object: "chat.completion", created, model, choices: [{ index: 0, message: { role: "assistant", content: reply }, finish_reason: "stop" }], usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } };
   return new Response(JSON.stringify(completion), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
