@@ -128,13 +128,67 @@ serve(async (req) => {
       const notePrefix = isTest ? "[TEST AI] " : "[Z ROZMOWY AI] ";
       const { first, last } = splitName(name);
 
+      // SMS potwierdzenia — WSPÓLNE dla nowej rezerwacji I dedup. Idempotentne (guard
+      // confirmation_sms_sent) => bezpieczne wobec retry EL. Zapewnia workshop_client_bookings
+      // (link /r/:token + 24h reminder) BEZ duplikowania rezerwacji (service_bookings).
+      const confirmSms = async () => {
+        let { data: wcb } = await admin.from("workshop_client_bookings")
+          .select("id, public_token, confirmation_sms_sent")
+          .eq("provider_id", providerId).eq("phone", phone)
+          .eq("appointment_date", date).eq("appointment_time", time)
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (!wcb) {
+          const { data: nw } = await admin.from("workshop_client_bookings").insert({
+            provider_id: providerId, phone, first_name: first, last_name: last,
+            plate: veh.plate || null, brand: veh.brand || null, model: veh.model || null,
+            service_description: notePrefix + (body?.notes || body?.service_name || ""),
+            appointment_date: date, appointment_time: time, duration_minutes: duration,
+            status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
+          }).select("id, public_token, confirmation_sms_sent").maybeSingle(); // public_token nadaje trigger
+          wcb = nw || null;
+        }
+        // Link publiczny przez wspólny helper (getrido.pl, hard-guard na lovable/preview). Rzuca -> brak linku (brak SMS).
+        let manageLink: string | null = null;
+        try { if (wcb?.public_token) manageLink = buildPublicUrl(`/r/${wcb.public_token}`); }
+        catch (e) { console.error("[voice-agent-tools] publicUrl:", (e as Error).message); }
+        if (wcb?.confirmation_sms_sent) return { wcb, smsSent: false, manageLink, alreadySent: true }; // już wysłano -> nie spamuj
+        let smsSent = false;
+        try {
+          if (manageLink) {
+            const { data: prov } = await admin.from("service_providers").select("company_name, company_address, company_city").eq("id", providerId).maybeSingle();
+            const company = prov?.company_name || "serwis";
+            const addr = [prov?.company_address, prov?.company_city].filter(Boolean).join(", ");
+            let msg = `${company}: potwierdzenie wizyty ${date} ${time}.` + (addr ? ` ${addr}.` : "") + ` Zarzadzaj: ${manageLink}`;
+            if (msg.length > 160) msg = `${company}: potwierdzenie wizyty ${date} ${time}. Zarzadzaj: ${manageLink}`;
+            const r = await fetch(`${supabaseUrl}/functions/v1/workshop-send-sms`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
+              body: JSON.stringify({ provider_id: providerId, phone, message: msg, sms_type: "booking_confirmation_ai", appointment_id: wcb.id }),
+            });
+            const rj = await r.json().catch(() => ({}));
+            smsSent = !rj?.error;
+            if (smsSent) await admin.from("workshop_client_bookings").update({ confirmation_sms_sent: true }).eq("id", wcb.id);
+          }
+        } catch (_) { /* SMS best-effort — nie blokuje rezerwacji */ }
+        return { wcb, smsSent, manageLink, alreadySent: false };
+      };
+
       // dedup: ta sama rezerwacja (telefon+data+godzina) już istnieje?
       const { data: exBk } = await admin.from("service_bookings")
         .select("id").eq("provider_id", providerId).eq("customer_phone", phone)
         .eq("scheduled_date", date).eq("scheduled_time", time).neq("status", "cancelled").maybeSingle();
-      if (exBk) return json({ ok: true, booking_id: exBk.id, duplicate: true, message: "Rezerwacja na ten termin już istnieje." });
+      if (exBk) {
+        // NIE duplikujemy rezerwacji, ale klient prosił telefonicznie -> wyślij SMS (raz, guard).
+        const c = await confirmSms();
+        return json({
+          ok: true, booking_id: exBk.id, duplicate: true,
+          client_booking_id: c.wcb?.id || null, manage_token: c.wcb?.public_token || null,
+          manage_link: c.manageLink, sms_sent: c.smsSent,
+          message: `Rezerwacja na ten termin już istnieje.${c.smsSent ? " Wysłano SMS potwierdzenia." : c.alreadySent ? " SMS potwierdzenia był już wysłany." : ""}`,
+        });
+      }
 
-      // 1) service_bookings (source='portal') -> "Rezerwacje z portalu" + kalendarz
+      // service_bookings (source='portal') -> "Rezerwacje z portalu" + kalendarz
       const { data: sb, error: sbErr } = await admin.from("service_bookings").insert({
         provider_id: providerId,
         service_id: body?.service_id || null,
@@ -148,43 +202,13 @@ serve(async (req) => {
       }).select("id").single();
       if (sbErr) return json({ ok: false, error: "Rezerwacja: " + sbErr.message }, 400);
 
-      // 2) workshop_client_bookings -> link /r/:token + 24h reminder
-      const { data: wcb } = await admin.from("workshop_client_bookings").insert({
-        provider_id: providerId, phone, first_name: first, last_name: last,
-        plate: veh.plate || null, brand: veh.brand || null, model: veh.model || null,
-        service_description: notePrefix + (body?.notes || body?.service_name || ""),
-        appointment_date: date, appointment_time: time, duration_minutes: duration,
-        status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
-      }).select("id, confirmation_token, public_token").maybeSingle();
-
-      // 1.4 — SMS potwierdzenia OD RAZU (data, godzina, adres, link do zarządzania). Best-effort.
-      let smsSent = false;
-      let manageLink: string | null = null;
-      try {
-        if (wcb?.confirmation_token) {
-          manageLink = buildPublicUrl(`/r/${wcb.public_token ?? wcb.confirmation_token}`);
-          const { data: prov } = await admin.from("service_providers").select("company_name, address, city").eq("id", providerId).maybeSingle();
-          const company = prov?.company_name || "serwis";
-          const addr = [prov?.address, prov?.city].filter(Boolean).join(", ");
-          // Skrócony szablon — mieści się w 1 SMS; drop adresu jeśli i tak przekracza 160.
-          let msg = `${company}: potwierdzenie wizyty ${date} ${time}.` + (addr ? ` ${addr}.` : "") + ` Zarzadzaj: ${manageLink}`;
-          if (msg.length > 160) msg = `${company}: potwierdzenie wizyty ${date} ${time}. Zarzadzaj: ${manageLink}`;
-          const r = await fetch(`${supabaseUrl}/functions/v1/workshop-send-sms`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
-            body: JSON.stringify({ provider_id: providerId, phone, message: msg, sms_type: "booking_confirmation_ai", appointment_id: wcb.id }),
-          });
-          const rj = await r.json().catch(() => ({}));
-          smsSent = !rj?.error;
-        }
-      } catch (_) { /* SMS best-effort — nie blokuje rezerwacji */ }
-
+      const c = await confirmSms();
       return json({
         ok: true, booking_id: sb.id,
-        client_booking_id: wcb?.id || null,
-        manage_token: wcb?.confirmation_token || null,
-        manage_link: manageLink, sms_sent: smsSent,
-        message: `Rezerwacja utworzona na ${date} ${time}.${smsSent ? " Wysłano SMS potwierdzenia z linkiem." : ""}`,
+        client_booking_id: c.wcb?.id || null,
+        manage_token: c.wcb?.public_token || null,
+        manage_link: c.manageLink, sms_sent: c.smsSent,
+        message: `Rezerwacja utworzona na ${date} ${time}.${c.smsSent ? " Wysłano SMS potwierdzenia z linkiem." : ""}`,
       });
     }
 

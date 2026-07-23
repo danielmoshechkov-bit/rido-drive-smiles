@@ -139,7 +139,16 @@ serve(async (req) => {
         const raw = (s: string) => controller.enqueue(encoder.encode(s));
         const chunk = (delta: any, finish: string | null = null) =>
           raw(`data: ${JSON.stringify({ id: cid, object: "chat.completion.chunk", created: createdTs, model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`);
-        const fail = () => { try { chunk({ content: "Przepraszam, chwilowy problem techniczny." }); chunk({}, "stop"); raw("data: [DONE]\n\n"); } catch { /* noop */ } };
+        // KEEPALIVE: podczas rund tool_use strumień milczy 2-3s -> EL uznaje go za zawieszony
+        // i wysyła RÓWNOLEGŁE retry (duplikaty tekstu + burza wywołań narzędzi). Komentarz SSE
+        // co 700ms trzyma połączenie; parser OpenAI ignoruje linie zaczynające się od ":".
+        let alive = true;
+        const pinger = setInterval(() => { if (alive) { try { raw(": ka\n\n"); } catch { /* noop */ } } }, 700);
+        const stopPing = () => { alive = false; clearInterval(pinger); };
+        // Potwierdzenie z OSTATNIEGO udanego narzędzia — gdy generacja tekstu padnie po rezerwacji,
+        // mówimy realny wynik (wizyta powstała), a NIE "problem techniczny".
+        let lastToolMsg = "";
+        const fail = () => { try { chunk({ content: lastToolMsg || "Przepraszam, chwilowy problem techniczny." }); chunk({}, "stop"); raw("data: [DONE]\n\n"); } catch { /* noop */ } };
         try {
           chunk({ role: "assistant" }); // NATYCHMIAST pierwszy bajt -> reset timeoutu EL
           // Kontekst z mózgu (bez Anthropic) — szybki JSON.
@@ -150,7 +159,7 @@ serve(async (req) => {
             if (pd?.system) { system = pd.system; toolDefs = Array.isArray(pd.tools) ? pd.tools : []; aModel = pd.model || aModel; }
           } catch { /* fallthrough */ }
           const apiKey = cleanKey((await getSecret(admin, "ANTHROPIC_API_KEY")) || "");
-          if (!system || !apiKey) { fail(); controller.close(); return; }
+          if (!system || !apiKey) { fail(); stopPing(); controller.close(); return; }
 
           const aConvo: any[] = convo.map((m) => ({ role: m.role, content: m.content }));
           let gotText = false;
@@ -160,7 +169,7 @@ serve(async (req) => {
               headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
               body: JSON.stringify({ model: aModel, max_tokens: 600, temperature: 0.7, system, messages: aConvo, stream: true, ...(toolDefs.length ? { tools: toolDefs } : {}) }),
             });
-            if (!aiRes.ok || !aiRes.body) { if (!gotText) chunk({ content: "Przepraszam, chwilowy problem techniczny." }); break; }
+            if (!aiRes.ok || !aiRes.body) { if (!gotText) chunk({ content: lastToolMsg || "Przepraszam, chwilowy problem techniczny." }); break; }
             const reader = aiRes.body.getReader();
             const dec = new TextDecoder();
             let buf = ""; let stopReason: string | null = null; let streamDone = false;
@@ -194,6 +203,8 @@ serve(async (req) => {
                 let input: any = {}; try { input = JSON.parse(tb.partial || "{}"); } catch { /* keep {} */ }
                 assistantBlocks.push({ type: "tool_use", id: tb.id, name: tb.name, input });
                 const out = await callTool(tb.name, input);
+                if (out?.ok && typeof out?.message === "string" && out.message) lastToolMsg = out.message;
+                else if (out?.ok && tb.name === "create_booking" && input?.scheduled_date) lastToolMsg = `Zapisałem wizytę na ${input.scheduled_date}${input.scheduled_time ? " na godzinę " + input.scheduled_time : ""}. Wyślę SMS z potwierdzeniem.`;
                 results.push({ type: "tool_result", tool_use_id: tb.id, content: JSON.stringify(out) });
               }
               aConvo.push({ role: "assistant", content: assistantBlocks });
@@ -204,7 +215,7 @@ serve(async (req) => {
           }
           chunk({}, "stop"); raw("data: [DONE]\n\n");
         } catch (_e) { fail(); }
-        controller.close();
+        stopPing(); controller.close();
       },
     });
     return new Response(rs, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
