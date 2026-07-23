@@ -115,22 +115,99 @@ serve(async (req) => {
     return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: ${JSON.stringify(done)}\n\ndata: [DONE]\n\n`, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
   };
 
-  // STREAMING: EL wymaga strumienia tokenów (inaczej timeout -> cisza).
-  // Przepuszczamy SSE z voice-agent-chat 1:1 (bez buforowania) => szybki pierwszy token.
+  // STREAMING: EL wymaga strumienia tokenów, a pierwszy bajt MUSI wyjść od razu
+  // (timeout EL ~1s). Dlatego voice-agent-llm SAM jest właścicielem strumienia:
+  // wewnętrzny fetch funkcja->funkcja jest buforowany przez platformę, więc mózg
+  // wołamy tylko po kontekst (mode:"prepare", szybki JSON), a tokeny z Anthropic
+  // strumieniujemy i wykonujemy narzędzia tutaj.
   if (stream) {
-    try {
-      const r = await fetch(`${supabaseUrl}/functions/v1/voice-agent-chat`, {
-        method: "POST", headers: brainHeaders, body: JSON.stringify({ ...brainBody, stream: true }),
-      });
-      if (r.ok && r.body && (r.headers.get("content-type") || "").includes("event-stream")) {
-        return new Response(r.body, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
-      }
-      // Mózg nie oddał strumienia -> awaryjnie pojedynczy chunk z pola reply.
-      const data = await r.json().catch(() => ({} as any));
-      return oneShotSSE(data?.reply || "Przepraszam, chwilowy problem techniczny.");
-    } catch (_) {
-      return oneShotSSE("Przepraszam, chwilowy problem techniczny.");
-    }
+    const cleanKey = (k: string) => k.replace(/[^\x20-\x7E]/g, "");
+    const callTool = async (name: string, input: any) => {
+      try {
+        const tr = await fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
+          method: "POST", headers: brainHeaders,
+          body: JSON.stringify({ action: name, provider_id: providerId, persona_key: personaKey, is_test: false, ...input }),
+        });
+        return await tr.json();
+      } catch (e) { return { ok: false, error: (e as Error).message }; }
+    };
+    const encoder = new TextEncoder();
+    const cid = "chatcmpl-" + Math.random().toString(36).slice(2);
+    const createdTs = Math.floor(Date.now() / 1000);
+    const rs = new ReadableStream({
+      async start(controller) {
+        const raw = (s: string) => controller.enqueue(encoder.encode(s));
+        const chunk = (delta: any, finish: string | null = null) =>
+          raw(`data: ${JSON.stringify({ id: cid, object: "chat.completion.chunk", created: createdTs, model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`);
+        const fail = () => { try { chunk({ content: "Przepraszam, chwilowy problem techniczny." }); chunk({}, "stop"); raw("data: [DONE]\n\n"); } catch { /* noop */ } };
+        try {
+          chunk({ role: "assistant" }); // NATYCHMIAST pierwszy bajt -> reset timeoutu EL
+          // Kontekst z mózgu (bez Anthropic) — szybki JSON.
+          let system = ""; let toolDefs: any[] = []; let aModel = "claude-sonnet-4-6";
+          try {
+            const pr = await fetch(`${supabaseUrl}/functions/v1/voice-agent-chat`, { method: "POST", headers: brainHeaders, body: JSON.stringify({ ...brainBody, mode: "prepare" }) });
+            const pd = await pr.json().catch(() => ({} as any));
+            if (pd?.system) { system = pd.system; toolDefs = Array.isArray(pd.tools) ? pd.tools : []; aModel = pd.model || aModel; }
+          } catch { /* fallthrough */ }
+          const apiKey = cleanKey((await getSecret(admin, "ANTHROPIC_API_KEY")) || "");
+          if (!system || !apiKey) { fail(); controller.close(); return; }
+
+          const aConvo: any[] = convo.map((m) => ({ role: m.role, content: m.content }));
+          let gotText = false;
+          for (let round = 0; round < 5; round++) {
+            const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+              body: JSON.stringify({ model: aModel, max_tokens: 600, temperature: 0.7, system, messages: aConvo, stream: true, ...(toolDefs.length ? { tools: toolDefs } : {}) }),
+            });
+            if (!aiRes.ok || !aiRes.body) { if (!gotText) chunk({ content: "Przepraszam, chwilowy problem techniczny." }); break; }
+            const reader = aiRes.body.getReader();
+            const dec = new TextDecoder();
+            let buf = ""; let stopReason: string | null = null; let streamDone = false;
+            const toolBlocks: Record<number, { id: string; name: string; partial: string }> = {};
+            while (!streamDone) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              buf += dec.decode(value, { stream: true });
+              let nl: number;
+              while ((nl = buf.indexOf("\n\n")) >= 0) {
+                const blk = buf.slice(0, nl); buf = buf.slice(nl + 2);
+                const dl = blk.split("\n").find((l) => l.startsWith("data:"));
+                if (!dl) continue;
+                const pl = dl.slice(5).trim();
+                if (!pl) continue;
+                let ev: any; try { ev = JSON.parse(pl); } catch { continue; }
+                if (ev.type === "content_block_start" && ev.content_block?.type === "tool_use") {
+                  toolBlocks[ev.index] = { id: ev.content_block.id, name: ev.content_block.name, partial: "" };
+                } else if (ev.type === "content_block_delta") {
+                  if (ev.delta?.type === "text_delta" && ev.delta.text) { gotText = true; chunk({ content: ev.delta.text }); }
+                  else if (ev.delta?.type === "input_json_delta" && toolBlocks[ev.index]) { toolBlocks[ev.index].partial += ev.delta.partial_json || ""; }
+                } else if (ev.type === "message_delta" && ev.delta?.stop_reason) { stopReason = ev.delta.stop_reason; }
+                else if (ev.type === "message_stop") { streamDone = true; }
+              }
+            }
+            const idxs = Object.keys(toolBlocks);
+            if (stopReason === "tool_use" && idxs.length && toolDefs.length) {
+              const assistantBlocks: any[] = []; const results: any[] = [];
+              for (const i of idxs) {
+                const tb = toolBlocks[Number(i)];
+                let input: any = {}; try { input = JSON.parse(tb.partial || "{}"); } catch { /* keep {} */ }
+                assistantBlocks.push({ type: "tool_use", id: tb.id, name: tb.name, input });
+                const out = await callTool(tb.name, input);
+                results.push({ type: "tool_result", tool_use_id: tb.id, content: JSON.stringify(out) });
+              }
+              aConvo.push({ role: "assistant", content: assistantBlocks });
+              aConvo.push({ role: "user", content: results });
+              continue;
+            }
+            break;
+          }
+          chunk({}, "stop"); raw("data: [DONE]\n\n");
+        } catch (_e) { fail(); }
+        controller.close();
+      },
+    });
+    return new Response(rs, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
   }
 
   // NON-STREAM: buforowana odpowiedź JSON (np. test EL ze stream:false).

@@ -155,6 +155,13 @@ serve(async (req) => {
       });
     }
 
+    // PREPARE: zwróć zbudowany kontekst (system + tools + model) BEZ wołania Anthropic.
+    // Używane przez voice-agent-llm, który sam strumieniuje do ElevenLabs (własny stream,
+    // żeby uniknąć buforowania odpowiedzi funkcja->funkcja).
+    if (body?.mode === "prepare") {
+      return json({ success: true, system, tools, model });
+    }
+
     const callTool = async (name: string, input: any) => {
       if (dryRunTools) return { ok: true, simulated: true, order_id: "sim", order_number: "SIM", booking_id: "sim" };
       try {
