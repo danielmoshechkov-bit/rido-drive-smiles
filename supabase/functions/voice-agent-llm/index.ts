@@ -39,8 +39,16 @@ serve(async (req) => {
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
   const url = new URL(req.url);
-  const providerId = url.searchParams.get("provider_id") || "";
-  const personaKey = url.searchParams.get("persona_key") || "workshop_secretary";
+  // ElevenLabs ZAWSZE dokleja "/chat/completions" do skonfigurowanego URL serwera.
+  // Zależnie od klienta ląduje to jako:
+  //   (a) sufiks ścieżki:  .../voice-agent-llm/chat/completions?provider_id=...&persona_key=...
+  //   (b) przy naiwnej konkatenacji base+"/chat/completions" — doklejone do OSTATNIEGO
+  //       parametru query:  ...?provider_id=...&persona_key=workshop_secretary/chat/completions
+  // Wariant (a) obsługuje samo raw serve() (nie sprawdzamy ścieżki — łapiemy każdy sufiks).
+  // Wariant (b) czyścimy tutaj: usuwamy doklejony sufiks z wartości query.
+  const stripElSuffix = (v: string) => v.replace(/\/chat\/completions\/?$/i, "").trim();
+  const providerId = stripElSuffix(url.searchParams.get("provider_id") || "");
+  const personaKey = stripElSuffix(url.searchParams.get("persona_key") || "") || "workshop_secretary";
 
   // Bez skonfigurowanego VOICE_LLM_TOKEN endpoint jest ZABLOKOWANY (fail-closed) —
   // otwarty Custom-LLM to darmowy Claude dla każdego, kto zna provider_id.
@@ -49,7 +57,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "VOICE_LLM_TOKEN nie skonfigurowany — endpoint zablokowany" }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  const providedToken = url.searchParams.get("token") || bearer;
+  const providedToken = stripElSuffix(url.searchParams.get("token") || "") || bearer;
   if (!providedToken || !timingSafeEqual(providedToken, expectedToken)) {
     return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
