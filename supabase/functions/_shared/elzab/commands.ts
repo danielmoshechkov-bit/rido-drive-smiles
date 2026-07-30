@@ -7,6 +7,7 @@
  */
 
 import { concat, ESC, fixedAscii, fixedText, u32le, encodeQuantity } from './codec.ts';
+import type { Codepage } from './codepages.ts';
 import { VAT_LETTER_BYTE, type VatLetter } from './types.ts';
 
 /** Numery sekwencji (drugi bajt po ESC). */
@@ -70,6 +71,8 @@ export interface ItemBytesInput {
   vatLetter: VatLetter;
   /** Wariant nazwy: 28 (domyślny) lub 40 znaków. */
   nameLength?: 28 | 40;
+  /** Strona kodowa drukarki (per tenant) — domyślnie CP1250. */
+  codepage?: Codepage;
 }
 
 /**
@@ -87,7 +90,7 @@ export function saleItem(input: ItemBytesInput): Uint8Array {
 
   return concat(
     [ESC, seq, ITEM_SUBCODE],
-    fixedText(input.name, nameLength),
+    fixedText(input.name, nameLength, input.codepage ?? 'cp1250'),
     ITEM_NO_MESSAGE,
     qty.value,
     qty.decimals,

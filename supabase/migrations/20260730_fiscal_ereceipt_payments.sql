@@ -60,8 +60,9 @@ CREATE POLICY fiscal_ereceipts_insert ON public.fiscal_ereceipts FOR INSERT
 CREATE TABLE IF NOT EXISTS public.fiscal_payment_intents (
   id             uuid        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   provider_id    uuid        NOT NULL REFERENCES public.service_providers(id) ON DELETE CASCADE,
-  document_type  text        NOT NULL DEFAULT 'workshop_order'
-                             CHECK (document_type IN ('workshop_order', 'invoice', 'booking', 'manual')),
+  -- luźny typ dokumentu źródłowego, jak w fiscal_receipts (bez FK, bez listy branż)
+  document_type  text        NOT NULL DEFAULT 'external'
+                             CHECK (char_length(document_type) BETWEEN 1 AND 64),
   document_id    uuid,
   amount_grosze  bigint      NOT NULL CHECK (amount_grosze > 0),
   method         text        NOT NULL DEFAULT 'card' CHECK (method IN ('card', 'blik', 'cash', 'transfer')),

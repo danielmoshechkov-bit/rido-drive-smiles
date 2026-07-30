@@ -12,7 +12,8 @@
     "elzab:health": "node --no-warnings=ExperimentalWarning scripts/elzab/01-healthcheck.ts",
     "elzab:receipt": "node --no-warnings=ExperimentalWarning scripts/elzab/02-receipt.ts",
     "elzab:edge": "node --no-warnings=ExperimentalWarning scripts/elzab/03-edge-cases.ts",
-    "elzab:report": "node --no-warnings=ExperimentalWarning scripts/elzab/04-day-report.ts"
+    "elzab:report": "node --no-warnings=ExperimentalWarning scripts/elzab/04-day-report.ts",
+    "elzab:codepage": "node --no-warnings=ExperimentalWarning scripts/elzab/05-codepage-test.ts"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.14.1",

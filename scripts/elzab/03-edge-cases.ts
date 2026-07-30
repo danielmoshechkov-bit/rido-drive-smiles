@@ -10,7 +10,7 @@
  */
 
 import * as cmd from '../../supabase/functions/_shared/elzab/commands.ts';
-import { encodeCp1250 } from '../../supabase/functions/_shared/elzab/cp1250.ts';
+import { encodeCp1250 } from '../../supabase/functions/_shared/elzab/codepages.ts';
 import { hex, toGrosze, encodeQuantity } from '../../supabase/functions/_shared/elzab/codec.ts';
 import { ElzabClient } from '../../supabase/functions/_shared/elzab/client.ts';
 import { ElzabError, ElzabValidationError } from '../../supabase/functions/_shared/elzab/errors.ts';

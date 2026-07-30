@@ -106,6 +106,8 @@ export function prepareReceipt(request: ReceiptRequest): PreparedReceipt {
       unitPriceGrosze,
       totalGrosze: total,
       vatLetter: resolveVatLetter(item, request.vatMap),
+      codepage: request.codepage ?? 'cp1250',
+      nameLength: request.itemNameLength ?? 28,
     });
     totalGrosze += total;
   }

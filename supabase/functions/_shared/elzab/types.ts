@@ -1,5 +1,9 @@
 /** Typy domenowe modułu fiskalizacji (wspólne dla edge functions i frontendu). */
 
+import type { Codepage } from './codepages.ts';
+
+export type { Codepage };
+
 /** Litery stawek VAT tak, jak są zaprogramowane w drukarce. */
 export type VatLetter = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
 
@@ -58,6 +62,10 @@ export interface ReceiptPayment {
 
 export interface ReceiptRequest {
   items: ReceiptItem[];
+  /** Strona kodowa drukarki (per tenant) — domyślnie CP1250. */
+  codepage?: Codepage;
+  /** Wariant pola nazwy pozycji: 28 (domyślny) lub 40 znaków. */
+  itemNameLength?: 28 | 40;
   payments?: ReceiptPayment[];
   /** NIP nabywcy (paragon z NIP). Opcjonalny — sekwencja Esc 4BH. */
   buyerNip?: string;

@@ -1,11 +1,18 @@
 -- =====================================================================
 -- FISKALIZACJA — rdzeń modułu (FAZA 1)
--- Uniwersalny moduł paragonów fiskalnych: konfiguracja drukarki per tenant
--- + niemodyfikowalny log paragonów.
+-- Samodzielny, branżowo neutralny moduł paragonów fiskalnych:
+-- konfiguracja drukarki per tenant + niemodyfikowalny log paragonów.
 --
--- Tenant = public.service_providers (ten sam model co workshop_*).
--- Dokument fiskalizowany jest podpięty polimorficznie (document_type/document_id),
--- żeby moduł dało się użyć poza warsztatem (faktury, rezerwacje, gastro itd.).
+-- ZASADA: moduł NIE wie nic o warsztacie ani żadnej innej branży.
+--   * brak kluczy obcych do tabel branżowych (workshop_*, rental_*, itd.)
+--   * dokument źródłowy tylko luźno: document_type (tekst) + document_id (uuid, bez FK)
+--   * na wejściu moduł dostaje wyłącznie: pozycje, formy płatności,
+--     luźny identyfikator źródła i konfigurację drukarki tenanta
+--
+-- WARSTWA POWIĄZANIA (jedyne miejsce z zależnością od modelu tenanta GetRido)
+-- to dwie funkcje RLS poniżej: is_fiscal_provider_member / is_fiscal_provider_owner.
+-- Zmiana encji tenanta (albo przejście na tenant_type + tenant_id) = podmiana
+-- tych dwóch funkcji i kolumny provider_id; logika modułu zostaje nietknięta.
 --
 -- Migracja jest idempotentna (IF NOT EXISTS / DROP POLICY IF EXISTS).
 -- =====================================================================
@@ -21,7 +28,9 @@ BEGIN
 END;
 $$;
 
--- ── helper RLS: właściciel lub aktywny pracownik warsztatu ────────────
+-- ── WARSTWA POWIĄZANIA: helper RLS (właściciel lub aktywny pracownik) ─
+-- To jedyne miejsce w module, które zna model tenanta GetRido.
+-- Podmiana tych funkcji = podpięcie modułu pod inną encję/branżę.
 CREATE OR REPLACE FUNCTION public.is_fiscal_provider_member(p_provider_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -70,6 +79,10 @@ CREATE TABLE IF NOT EXISTS public.fiscal_printers (
   -- mapowanie stawek VAT na litery zaprogramowane w drukarce (konfigurowalne per tenant!)
   vat_map             jsonb       NOT NULL DEFAULT '{"23":"A","8":"B","5":"C","0":"D","zw":"E"}'::jsonb,
   item_name_length    smallint    NOT NULL DEFAULT 28 CHECK (item_name_length IN (28, 40)),
+  -- strona kodowa urządzenia — ustalana empirycznie (scripts/elzab/05-codepage-test.ts),
+  -- bo drukarka po cichu gubi znaki spoza swojej strony kodowej
+  codepage            text        NOT NULL DEFAULT 'cp1250'
+                                  CHECK (codepage IN ('cp1250', 'cp852', 'mazovia')),
   default_unit        text        NOT NULL DEFAULT 'szt',
   command_timeout_ms  integer     NOT NULL DEFAULT 10000 CHECK (command_timeout_ms BETWEEN 1000 AND 60000),
   is_active           boolean     NOT NULL DEFAULT true,
@@ -119,12 +132,13 @@ CREATE TABLE IF NOT EXISTS public.fiscal_receipts (
   id                     uuid        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   provider_id            uuid        NOT NULL REFERENCES public.service_providers(id) ON DELETE CASCADE,
   printer_id             uuid        REFERENCES public.fiscal_printers(id) ON DELETE SET NULL,
-  -- dokument źródłowy (polimorficznie — moduł ma być uniwersalny)
-  document_type          text        NOT NULL DEFAULT 'workshop_order'
-                                     CHECK (document_type IN ('workshop_order', 'invoice', 'booking', 'manual')),
+  -- dokument źródłowy: LUŹNE powiązanie, celowo bez FK i bez listy dozwolonych wartości —
+  -- każda branża wpisuje własny typ ('workshop_order', 'crane_job', 'pos_order', 'invoice'…)
+  document_type          text        NOT NULL DEFAULT 'external'
+                                     CHECK (char_length(document_type) BETWEEN 1 AND 64),
   document_id            uuid,
-  -- płatność, po której fiskalizujemy (Faza 1: gotówka, Faza 3: terminal)
-  payment_id             uuid        REFERENCES public.workshop_payments(id) ON DELETE SET NULL,
+  -- luźna referencja do płatności w module źródłowym (bez FK — moduł nie zna tabel branżowych)
+  payment_ref            uuid,
   status                 text        NOT NULL DEFAULT 'pending'
                                      CHECK (status IN ('pending', 'printing', 'printed', 'failed', 'cancelled')),
   -- snapshot danych z chwili fiskalizacji (dokument może się później zmienić)
@@ -174,6 +188,10 @@ CREATE POLICY fiscal_receipts_insert ON public.fiscal_receipts FOR INSERT
 COMMENT ON TABLE public.fiscal_printers IS
   'Konfiguracja drukarek fiskalnych per tenant (service_provider). host/port musi być osiągalny z chmury Supabase — LAN wymaga tunelu.';
 COMMENT ON TABLE public.fiscal_receipts IS
-  'Niemodyfikowalny log paragonów fiskalnych ze snapshotem pozycji i wynikiem z drukarki.';
+  'Niemodyfikowalny log paragonów fiskalnych ze snapshotem pozycji i wynikiem z drukarki. Branżowo neutralny — brak FK do tabel modułów źródłowych.';
+COMMENT ON COLUMN public.fiscal_receipts.document_type IS
+  'Luźny typ dokumentu źródłowego nadawany przez moduł wywołujący (np. workshop_order, crane_job, invoice). Bez FK — moduł fiskalny nie zna tabel branżowych.';
+COMMENT ON COLUMN public.fiscal_printers.codepage IS
+  'Strona kodowa drukarki: cp1250 | cp852 (Latin-2) | mazovia (CP790). Ustalana empirycznie na urządzeniu.';
 COMMENT ON COLUMN public.fiscal_printers.vat_map IS
   'Mapa stawka→litera drukarki, np. {"23":"A","8":"B","5":"C","0":"D","zw":"E"}. Ustawiana per tenant — różne drukarki mają różne przypisania.';

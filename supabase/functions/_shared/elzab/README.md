@@ -8,7 +8,7 @@ różni się tylko transport (`transport-deno.ts` vs `scripts/elzab/transport-no
 
 | plik | rola |
 |---|---|
-| `cp1250.ts` | koder/dekoder CP1250 (TextEncoder umie tylko UTF-8) |
+| `codepages.ts` | kodery stron kodowych: CP1250, CP852 (Latin-2), Mazovia (CP790) |
 | `codec.ts` | kwoty → grosze → 4 bajty LE, ilość + miejsca po przecinku, pola tekstowe stałej długości |
 | `commands.ts` | buildery sekwencji (czyste funkcje → `Uint8Array`) |
 | `receipt.ts` | walidacja i normalizacja paragonu **zanim** cokolwiek poleci do drukarki |
@@ -69,11 +69,57 @@ Czasy: połączenie ~500 ms, pełny paragon (2 pozycje) ~4 s.
 
 - kwoty **w groszach**, 4 bajty little-endian; nigdy `float` — `toGrosze()` liczy na stringach
 - nazwa towaru: min. **5 znaków znaczących** (błąd `B`), pole stałej długości 28 lub 40 znaków
-- polskie znaki: CP1250 (`ł` = `0xB3`, `ą` = `0xB9`, `ż` = `0xBF`) — drukarka musi mieć ustawione CP1250
+- polskie znaki: strona kodowa **per tenant** (`fiscal_printers.codepage`) — patrz niżej
 - pozycja o wartości 0 unieważnia paragon (błąd `R`) — odrzucamy ją lokalnie
 - stawki VAT: litera z mapy **per tenant** (`vat_map` w `fiscal_printers`), nigdy na sztywno
 - timeout paragonu w drukarce: 20 minut
 - raport dobowy: brak przez 48 h → drukarka blokuje sprzedaż
+
+## Strony kodowe — polskie znaki
+
+Koder nigdy nie gubi znaku: każdy znak daje co najmniej jeden bajt, a spoza tablicy idzie
+transliteracja ASCII, w ostateczności `?` (0x3F). Jeśli polskie litery **znikają na wydruku**,
+to znaczy, że drukarka ma inną stronę kodową i po cichu odrzuca nieznane bajty.
+
+Ustalenie strony kodowej jest **empiryczne**:
+
+```bash
+npm run elzab:codepage        # drukuje jeden paragon: ten sam alfabet w 3 stronach kodowych
+DRY_RUN=1 npm run elzab:codepage   # sam podgląd bajtów
+```
+
+Na papierze widać, która grupa pozycji ma poprawne `ą ć ę ł ń ó ś ź ż` — ta wartość
+trafia do `fiscal_printers.codepage`.
+
+| znak | CP1250 | CP852 (Latin-2) | Mazovia (CP790) |
+|---|---|---|---|
+| ą / Ą | `B9` / `A5` | `A5` / `A4` | `86` / `8F` |
+| ć / Ć | `E6` / `C6` | `86` / `8F` | `8D` / `95` |
+| ę / Ę | `EA` / `CA` | `A9` / `A8` | `91` / `90` |
+| ł / Ł | `B3` / `A3` | `88` / `9D` | `92` / `9C` |
+| ń / Ń | `F1` / `D1` | `E4` / `E3` | `A4` / `A5` |
+| ó / Ó | `F3` / `D3` | `A2` / `E0` | `A2` / `A3` |
+| ś / Ś | `9C` / `8C` | `98` / `97` | `9E` / `98` |
+| ź / Ź | `9F` / `8F` | `AB` / `8D` | `A6` / `A0` |
+| ż / Ż | `BF` / `AF` | `BE` / `BD` | `A7` / `A1` |
+
+## Kontrakt modułu (branżowo neutralny)
+
+Moduł fiskalny nie wie, skąd wzięły się pozycje. Na wejściu dostaje wyłącznie:
+
+```ts
+{
+  items:    [{ name, quantity, unit, unitPrice, vatRate }],
+  payments: [{ name, amount }],
+  vatMap:   { '23': 'A', ... },     // z konfiguracji drukarki tenanta
+  codepage: 'cp1250',               // j.w.
+  documentType?: 'workshop_order',  // luźny identyfikator źródła, bez znaczenia dla modułu
+  documentId?: '...uuid...'
+}
+```
+
+Żadnych zapytań do tabel branżowych, żadnych FK do `workshop_*`. Podłączenie nowej branży =
+wywołanie edge function z powyższym wejściem.
 
 ## Nieprzetestowane (oznaczone `TODO(hardware)`)
 
