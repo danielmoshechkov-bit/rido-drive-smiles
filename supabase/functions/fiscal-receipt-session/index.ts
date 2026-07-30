@@ -155,9 +155,24 @@ Deno.serve(async (req) => {
     }
 
     // Automatycznie: licznik paragonów drukarki wzrósł → paragon jednak wyszedł.
+    //
+    // UWAGA: Esc 66H zwraca numer paragonu w BIEŻĄCEJ DOBIE fiskalnej i zeruje się po
+    // raporcie dobowym (zaobserwowane: 29 → 1). Gdy licznik jest MNIEJSZY niż zapisany,
+    // doba została zamknięta i porównanie nic nie mówi — wtedy nie zgadujemy, tylko
+    // oddajemy decyzję człowiekowi. Błędne „nie wyszedł" otworzyłoby drogę do drugiego
+    // paragonu na tę samą sprzedaż.
     let printed: boolean | null = null;
     let how = 'manual';
-    if (typeof body.currentPrinterNumber === 'number' && receipt.printer_number_before !== null) {
+    const counterReset =
+      typeof body.currentPrinterNumber === 'number' &&
+      receipt.printer_number_before !== null &&
+      body.currentPrinterNumber < receipt.printer_number_before;
+
+    if (
+      typeof body.currentPrinterNumber === 'number' &&
+      receipt.printer_number_before !== null &&
+      !counterReset
+    ) {
       printed = body.currentPrinterNumber > receipt.printer_number_before;
       how = 'counter';
     } else if (body.decision === 'printed' || body.decision === 'failed') {
@@ -168,7 +183,10 @@ Deno.serve(async (req) => {
       return fail(
         400,
         'RESOLVE_UNDECIDED',
-        'Nie da się rozstrzygnąć automatycznie — brak licznika drukarki sprzed wydruku. Wskaż ręcznie, czy paragon wyszedł.',
+        counterReset
+          ? 'Licznik paragonów drukarki został wyzerowany raportem dobowym, więc nie da się rozstrzygnąć automatycznie. Sprawdź wydruk i wskaż, czy paragon wyszedł.'
+          : 'Nie da się rozstrzygnąć automatycznie — brak licznika drukarki sprzed wydruku. Wskaż ręcznie, czy paragon wyszedł.',
+        { counterReset },
       );
     }
 

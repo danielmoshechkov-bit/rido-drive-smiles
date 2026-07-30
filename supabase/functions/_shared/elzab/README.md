@@ -50,7 +50,7 @@ Testy: `npm run elzab:health`, `npm run elzab:receipt`, `npm run elzab:edge`
 | `Esc 81H` forma płatności | **cisza** | |
 | `Esc 50H` kontrola stanu | `ACK` + bajt statusu | `0x00` = OK — **jedyne potwierdzenie „cichych" sekwencji** |
 | `Esc 24H` zamknięcie + wydruk | `ACK` (lub `NAK` przy błędzie) | |
-| `Esc 66H` nr ostatniego paragonu | `ACK` + 2 B little-endian | `00 00` → 0, `01 00` → 1 |
+| `Esc 66H` nr ostatniego paragonu | `ACK` + 2 B little-endian | numer w BIEŻĄCEJ DOBIE — zeruje się po raporcie dobowym (zaobserwowane 29 → 1) |
 | `Esc 54H` / `Esc 55H` status 1/2 | `ACK` + 1 B | status 2 = `0x10` po odrzuconej operacji |
 | `Esc 23H` anulowanie | `ACK` (gdy paragon otwarty) / `NAK` | |
 

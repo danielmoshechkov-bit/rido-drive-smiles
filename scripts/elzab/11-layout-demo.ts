@@ -71,8 +71,8 @@ try {
         vatLetter: DEFAULT_VAT_MAP[item.vatRate] ?? 'A',
         nameLength: NAME_LENGTH,
         codepage: 'cp1250',
-        // Jednolity układ dwuliniowy — tak jak w produkcji.
-        forceNameLine: process.env.NATURAL_LAYOUT !== '1',
+        // Tak jak w produkcji: bez wymuszania (dopełnienie i tak jest obcinane przez firmware).
+        forceNameLine: process.env.FORCE_TWO_LINES === '1',
       }),
     );
   }
