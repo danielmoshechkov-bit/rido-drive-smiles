@@ -100,6 +100,32 @@ function getSearchTokens(query: string) {
     .filter((token) => token.length >= 3);
 }
 
+// Directional words → the forms actually used in IC catalog names ("przód"/"tył"/...).
+// Keys are the normalized tokens produced by normalizeSearchQuery (przednie→przedni, etc.).
+const DIRECTIONAL_VARIANTS: Record<string, string[]> = {
+  "przedni": ["przód", "przedn"],
+  "przód": ["przód", "przedn"],
+  "tylny": ["tył", "tyln"],
+  "tył": ["tył", "tyln"],
+  "lewy": ["lew"],
+  "lewa": ["lew"],
+  "prawy": ["praw"],
+  "prawa": ["praw"],
+  "dolny": ["doln"],
+  "dolna": ["doln"],
+  "górny": ["gór", "gorn"],
+  "gorny": ["gór", "gorn"],
+};
+
+// Crude Polish stemmer: strip the last 1–2 chars so plural/case variants still match by prefix
+// (klocki→kloc, tarcze→tarc, amortyzatory→amortyzato, świece→świe). Over-matches slightly, which
+// is safe because results are re-ranked and capped afterwards.
+function stemToken(token: string): string {
+  if (token.length > 5) return token.slice(0, -2);
+  if (token.length > 4) return token.slice(0, -1);
+  return token;
+}
+
 function scoreCatalogRow(row: Partial<CatalogResult>, query: string) {
   const normalizedQuery = normalizeSearchQuery(query);
   const tokens = getSearchTokens(query);
@@ -268,35 +294,55 @@ serve(async (req) => {
   }
 
   async function searchLocalCatalog(query: string): Promise<CatalogResult[]> {
-    const normalizedQuery = normalizeSearchQuery(query);
-    const searchQueries = uniqueStrings([query, normalizedQuery]);
-    const localResults: CatalogResult[] = [];
+    const SELECT_COLS = "ic_sku, ic_index, ic_tecdoc_id, name, manufacturer, oe_number, category_label";
 
-    for (const searchTerm of searchQueries) {
-      const { data, error: searchErr } = await supabase
+    // The catalog names are Polish descriptions ("Klocki hamulcowe kpl. przód, pasuje do: ...")
+    // built into a `simple`-config tsvector that does NOT stem Polish, so websearch_to_tsquery
+    // (which ANDs every lexeme) returns 0 for phrases like "klocki hamulcowe przednie"
+    // (catalog says "przód", not "przednie"; "Tarcza" not "tarcze"). We therefore match by
+    // token PREFIX with ilike and expand directional words to the vocabulary used in the catalog.
+    const tokens = getSearchTokens(query); // already normalized + sanitized, length >= 3
+
+    if (tokens.length > 0) {
+      let qb = supabase
         .from("ic_parts_catalog")
-        .select("ic_sku, ic_index, ic_tecdoc_id, name, manufacturer, oe_number, category_label")
-        .eq("provider_id", provider_id)
-        .textSearch("search_vector", searchTerm, { type: "websearch" })
-        .limit(30);
+        .select(SELECT_COLS)
+        .eq("provider_id", provider_id);
 
+      for (const token of tokens) {
+        const directional = DIRECTIONAL_VARIANTS[token];
+        if (directional) {
+          // e.g. "przedni" -> name must contain "przód" OR "przedn"
+          qb = qb.or(directional.map((v) => `name.ilike.%${v}%`).join(","));
+        } else {
+          // descriptive/code token: match the stemmed prefix in the name, or the full
+          // token in code/brand/OE columns (so selecting a part by its ic_index still works)
+          const stem = stemToken(token);
+          qb = qb.or([
+            `name.ilike.%${stem}%`,
+            `category_label.ilike.%${stem}%`,
+            `ic_index.ilike.%${token}%`,
+            `ic_sku.ilike.%${token}%`,
+            `manufacturer.ilike.%${token}%`,
+            `oe_number.ilike.%${token}%`,
+          ].join(","));
+        }
+      }
+
+      const { data, error: searchErr } = await qb.limit(120);
       if (searchErr) throw searchErr;
-      if (data?.length) localResults.push(...data);
+      if (data?.length) return rankCatalogRows(data as CatalogResult[], query);
     }
 
-    if (localResults.length > 0) {
-      return rankCatalogRows(localResults, query);
-    }
-
-    const tokens = getSearchTokens(query);
-    const primaryToken = tokens.find((token) => !["lewy", "prawy", "przedni", "tylny", "dolny", "gorny", "górny"].includes(token)) || tokens[0];
+    // Last-resort single-token fallback (short / unusual queries)
+    const primaryToken = tokens.find((token) => !DIRECTIONAL_VARIANTS[token]) || tokens[0];
     if (!primaryToken) return [];
-
+    const stem = stemToken(primaryToken);
     const { data: fallbackData, error: fallbackErr } = await supabase
       .from("ic_parts_catalog")
-      .select("ic_sku, ic_index, ic_tecdoc_id, name, manufacturer, oe_number, category_label")
+      .select(SELECT_COLS)
       .eq("provider_id", provider_id)
-      .or(`name.ilike.%${primaryToken}%,manufacturer.ilike.%${primaryToken}%,category_label.ilike.%${primaryToken}%,ic_index.ilike.%${primaryToken}%,oe_number.ilike.%${primaryToken}%`)
+      .or(`name.ilike.%${stem}%,manufacturer.ilike.%${primaryToken}%,category_label.ilike.%${stem}%,ic_index.ilike.%${primaryToken}%,oe_number.ilike.%${primaryToken}%`)
       .limit(80);
 
     if (fallbackErr) throw fallbackErr;
