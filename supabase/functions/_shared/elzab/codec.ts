@@ -7,7 +7,7 @@
  *  - teksty w CP1250, dopełniane spacjami do stałej długości
  */
 
-import { encodeText, type Codepage } from './codepages.ts';
+import { DEFAULT_CODEPAGE, encodeText, type Codepage } from './codepages.ts';
 
 export const ESC = 0x1b;
 export const ACK = 0x06;
@@ -60,7 +60,7 @@ export function toGrosze(amount: number | string): number {
 }
 
 /** Tekst przycięty/dopełniony spacjami do dokładnie `length` bajtów w danej stronie kodowej. */
-export function fixedText(text: string, length: number, codepage: Codepage = 'cp1250'): Uint8Array {
+export function fixedText(text: string, length: number, codepage: Codepage = DEFAULT_CODEPAGE): Uint8Array {
   const encoded = encodeText(text ?? '', codepage);
   const out = new Uint8Array(length).fill(0x20); // spacje
   out.set(encoded.subarray(0, length));

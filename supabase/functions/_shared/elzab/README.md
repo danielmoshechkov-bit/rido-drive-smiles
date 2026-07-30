@@ -81,7 +81,29 @@ Koder nigdy nie gubi znaku: każdy znak daje co najmniej jeden bajt, a spoza tab
 transliteracja ASCII, w ostateczności `?` (0x3F). Jeśli polskie litery **znikają na wydruku**,
 to znaczy, że drukarka ma inną stronę kodową i po cichu odrzuca nieznane bajty.
 
-Ustalenie strony kodowej jest **empiryczne**:
+### Wynik dla ELZAB Zeta Online: **CP852** (potwierdzone 30.07.2026)
+
+Mapa bajtów (`npm run elzab:bytemap`, paragon nr 6) pokazała, że urządzenie ma wgrane
+glify polskie **wyłącznie na pozycjach CP852**:
+
+| wiersz mapy | wydrukowane glify | bajty CP852 |
+|---|---|---|
+| `80=` | ć, ł, Ź, Ć | 86, 88, 8D, 8F |
+| `90=` | Ś, ś, Ł | 97, 98, 9D |
+| `A0=` | ó, Ą, ą, Ę, ę, ź | A2, A4, A5, A8, A9, AB |
+| `B0=` | Ż, ż | BD, BE |
+| `E0=` | Ó, Ń, ń | E0, E3, E4 |
+| `C0=`, `D0=`, `F0=` | prawie puste | drukarka nie ma tych glifów |
+
+Wiersze kontrolne `852m=ąćęłńóśźż` i `852W=ĄĆĘŁŃÓŚŹŻ` wyszły w komplecie; `1250m`, `L2m`,
+`MAZm` — puste albo pojedyncze litery. Dlatego `DEFAULT_CODEPAGE = 'cp852'`
+i taki sam default ma kolumna `fiscal_printers.codepage`.
+
+**Wniosek na przyszłość:** drukarka nie sygnalizuje błędu przy nieznanym bajcie — po prostu
+go nie drukuje. Znikające znaki na papierze zawsze znaczą „zła strona kodowa", nigdy „zły koder";
+koder ma test, który pilnuje, że liczba bajtów = liczba znaków.
+
+### Jak ustalić stronę kodową na nowym urządzeniu
 
 ```bash
 npm run elzab:codepage        # drukuje jeden paragon: ten sam alfabet w 3 stronach kodowych

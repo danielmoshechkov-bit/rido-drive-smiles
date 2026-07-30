@@ -7,7 +7,7 @@
  */
 
 import { concat, ESC, fixedAscii, fixedBytes, fixedText, u32le, encodeQuantity } from './codec.ts';
-import type { Codepage } from './codepages.ts';
+import { DEFAULT_CODEPAGE, type Codepage } from './codepages.ts';
 import { VAT_LETTER_BYTE, type VatLetter } from './types.ts';
 
 /** Numery sekwencji (drugi bajt po ESC). */
@@ -71,7 +71,7 @@ export interface ItemBytesInput {
   vatLetter: VatLetter;
   /** Wariant nazwy: 28 (domyślny) lub 40 znaków. */
   nameLength?: 28 | 40;
-  /** Strona kodowa drukarki (per tenant) — domyślnie CP1250. */
+  /** Strona kodowa drukarki (per tenant) — domyślnie CP852 (patrz DEFAULT_CODEPAGE). */
   codepage?: Codepage;
   /** Surowe bajty nazwy zamiast kodowania tekstu — TYLKO diagnostyka (mapa bajtów). */
   nameBytes?: Uint8Array;
@@ -94,7 +94,7 @@ export function saleItem(input: ItemBytesInput): Uint8Array {
     [ESC, seq, ITEM_SUBCODE],
     input.nameBytes
       ? fixedBytes(input.nameBytes, nameLength)
-      : fixedText(input.name, nameLength, input.codepage ?? 'cp1250'),
+      : fixedText(input.name, nameLength, input.codepage ?? DEFAULT_CODEPAGE),
     ITEM_NO_MESSAGE,
     qty.value,
     qty.decimals,

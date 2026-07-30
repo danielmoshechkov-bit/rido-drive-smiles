@@ -9,6 +9,13 @@
 
 export type Codepage = 'cp1250' | 'latin2' | 'cp852' | 'mazovia';
 
+/**
+ * Domyślna strona kodowa modułu.
+ * ELZAB Zeta Online (potwierdzone mapą bajtów, paragon nr 6 z 30.07.2026) drukuje
+ * polskie znaki w CP852 — bajty spoza jej tablicy glifów są po cichu pomijane.
+ */
+export const DEFAULT_CODEPAGE: Codepage = 'cp852';
+
 export const CODEPAGES: Codepage[] = ['cp1250', 'latin2', 'cp852', 'mazovia'];
 
 // Pełna mapa 0x80..0xFF windows-1250. '�' = pozycja niezdefiniowana.

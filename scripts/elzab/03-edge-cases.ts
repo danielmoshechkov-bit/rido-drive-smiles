@@ -10,7 +10,13 @@
  */
 
 import * as cmd from '../../supabase/functions/_shared/elzab/commands.ts';
-import { encodeCp1250 } from '../../supabase/functions/_shared/elzab/codepages.ts';
+import {
+  DEFAULT_CODEPAGE,
+  encodeCp1250,
+  encodeText,
+  POLISH_LOWER,
+  POLISH_UPPER,
+} from '../../supabase/functions/_shared/elzab/codepages.ts';
 import { hex, toGrosze, encodeQuantity } from '../../supabase/functions/_shared/elzab/codec.ts';
 import { ElzabClient } from '../../supabase/functions/_shared/elzab/client.ts';
 import { ElzabError, ElzabValidationError } from '../../supabase/functions/_shared/elzab/errors.ts';
@@ -97,6 +103,33 @@ check(
   hex(encoded).startsWith('50 B3 79 6E') && hex(encoded).includes('BF F3 B3'),
   hex(encoded),
 );
+// 6b. CP852 — strona kodowa potwierdzona na ELZAB Zeta (mapa bajtów, paragon nr 6)
+check(
+  'domyślną stroną kodową modułu jest CP852',
+  DEFAULT_CODEPAGE === 'cp852',
+  DEFAULT_CODEPAGE,
+);
+check(
+  'CP852: małe polskie litery mają bajty z wydruku',
+  hex(encodeText(POLISH_LOWER, 'cp852')) === 'A5 86 A9 88 E4 A2 98 AB BE',
+  hex(encodeText(POLISH_LOWER, 'cp852')),
+);
+check(
+  'CP852: wielkie polskie litery mają bajty z wydruku',
+  hex(encodeText(POLISH_UPPER, 'cp852')) === 'A4 8F A8 9D E3 E0 97 8D BD',
+  hex(encodeText(POLISH_UPPER, 'cp852')),
+);
+check(
+  'pozycja sprzedaży domyślnie koduje ł jako 0x88 (CP852)',
+  cmd.saleItem({ name: 'Płyn chłodniczy', quantity: 1, unitPriceGrosze: 100, totalGrosze: 100, vatLetter: 'A' })[4] === 0x88,
+);
+check(
+  'żaden znak nie znika: 34 znaki → 34 bajty w każdej stronie kodowej',
+  (['cp1250', 'latin2', 'cp852', 'mazovia'] as const).every(
+    (page) => encodeText(`Płyn chłodzący ${POLISH_UPPER} ${POLISH_LOWER}`, page).length === 34,
+  ),
+);
+
 check('znak spoza CP1250 (emoji) → zastępczy ASCII', hex(encodeCp1250('A🙂B')) === '41 3F 42', hex(encodeCp1250('A🙂B')));
 check('cyrylica → transliteracja/zastępczy', encodeCp1250('Привет').length === 6);
 

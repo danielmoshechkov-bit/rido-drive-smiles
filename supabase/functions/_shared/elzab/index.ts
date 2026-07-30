@@ -13,7 +13,15 @@ export { ElzabClient, parseClock, parseCounter } from './client.ts';
 export { prepareReceipt, type PreparedReceipt } from './receipt.ts';
 export * as commands from './commands.ts';
 export { hex, toGrosze } from './codec.ts';
-export { encodeText, decodeText, encodeCp1250, decodeCp1250, CODEPAGES, type Codepage } from './codepages.ts';
+export {
+  encodeText,
+  decodeText,
+  encodeCp1250,
+  decodeCp1250,
+  CODEPAGES,
+  DEFAULT_CODEPAGE,
+  type Codepage,
+} from './codepages.ts';
 export type { ElzabTransport, TransportFactory, TransportOptions } from './transport.ts';
 
 import { ElzabClient, type ElzabClientOptions } from './client.ts';

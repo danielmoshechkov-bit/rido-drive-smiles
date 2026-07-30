@@ -4,6 +4,7 @@
  */
 
 import { toGrosze } from './codec.ts';
+import { DEFAULT_CODEPAGE } from './codepages.ts';
 import { ElzabValidationError } from './errors.ts';
 import type { ItemBytesInput } from './commands.ts';
 import type { ReceiptItem, ReceiptPayment, ReceiptRequest, VatLetter, VatMap } from './types.ts';
@@ -106,7 +107,7 @@ export function prepareReceipt(request: ReceiptRequest): PreparedReceipt {
       unitPriceGrosze,
       totalGrosze: total,
       vatLetter: resolveVatLetter(item, request.vatMap),
-      codepage: request.codepage ?? 'cp1250',
+      codepage: request.codepage ?? DEFAULT_CODEPAGE,
       nameLength: request.itemNameLength ?? 28,
     });
     totalGrosze += total;

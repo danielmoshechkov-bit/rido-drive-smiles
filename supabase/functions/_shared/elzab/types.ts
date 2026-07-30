@@ -62,7 +62,7 @@ export interface ReceiptPayment {
 
 export interface ReceiptRequest {
   items: ReceiptItem[];
-  /** Strona kodowa drukarki (per tenant) — domyślnie CP1250. */
+  /** Strona kodowa drukarki (per tenant) — domyślnie CP852 (ELZAB Zeta). */
   codepage?: Codepage;
   /** Wariant pola nazwy pozycji: 28 (domyślny) lub 40 znaków. */
   itemNameLength?: 28 | 40;
