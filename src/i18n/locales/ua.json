@@ -2003,7 +2003,8 @@
       "deletedCount_one": "Видалено {{count}} замовлення",
       "deletedCount_few": "Видалено {{count}} замовлення",
       "deletedCount_many": "Видалено {{count}} замовлень",
-      "deletedCount_other": "Видалено {{count}} замовлень"
+      "deletedCount_other": "Видалено {{count}} замовлень",
+      "selectOrderFirst": "Спочатку виберіть замовлення, для якого хочете виставити документ"
     },
     "orderDetail": {
       "completedWarningTitle": "Увага: замовлення завершено.",
@@ -3809,7 +3810,8 @@
         "numbering": "Нумерація",
         "integrations": "Інтеграції",
         "notifications": "Сповіщення",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Фіскалізація"
       },
       "workstations": {
         "title": "Робочі місця",

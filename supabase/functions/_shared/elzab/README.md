@@ -148,6 +148,47 @@ wywołanie edge function z powyższym wejściem.
 - `Esc 4BH` NIP nabywcy — długość pola przyjęta jako 42 znaki z dopełnieniem spacjami
 - `Esc 82H` reszta — format kwoty przyjęty analogicznie do płatności
 
+## Podłączenie drukarki u nowego klienta
+
+**KROK 1 — zawsze zacznij od mapy bajtów.** Fabrycznie drukarki ELZAB bywają ustawione na
+CP852, inne na CP1250; menu urządzenia potrafi pokazywać co innego, niż faktycznie rysuje.
+
+```bash
+ELZAB_HOST=<ip klienta> npm run elzab:bytemap    # albo npm run elzab:polish
+```
+
+Z wydruku odczytujesz, która strona kodowa ma komplet `ą ć ę ł ń ó ś ź ż`, i wpisujesz ją
+w `fiscal_printers.codepage` dla tego tenanta (Ustawienia → Fiskalizacja). Bez tego kroku
+polskie znaki zniknią z paragonów, a drukarka nie zgłosi żadnego błędu.
+
+Dalej: KROK 2 — adres `host:port` w ustawieniach i „Testuj połączenie" (musi wyjść *online*),
+KROK 3 — mapa stawek VAT zgodna z literami zaprogramowanymi w urządzeniu, KROK 4 — wydruk
+próbny na zleceniu w trybie szkoleniowym, KROK 5 — dopiero po fiskalizacji urządzenia
+przez serwis przełącz tryb na *fiskalny*.
+
+## TODO
+
+- **Auto-raport dobowy.** Klient nie ma stałego komputera przy drukarce, a urządzenie blokuje
+  sprzedaż po 48 h bez raportu. Plan: przełącznik w ustawieniach drukarki + sprawdzenie przy
+  pierwszym logowaniu / pierwszym paragonie dnia (jeśli brak raportu za wczoraj i jest
+  połączenie → `fiscal-day-report` przed pierwszym paragonem) + alert w UI przy zbliżaniu się
+  do 48 h. Funkcja `fiscal-day-report` przyjmuje już `skipIfDoneToday` i wywołania wewnętrzne
+  kluczem service_role, więc cron/hook nie wymaga zmian w niej samej.
+- **E-paragon (Faza 2).** ElzabESC nie ma komend e-paragonu — idzie przez STX + HUB
+  (MojaKasa.Online albo integrator typu Paragony.pl). Gotowe: interfejs `EReceiptProvider`
+  (`_shared/fiscal-providers.ts`), tabela `fiscal_ereceipts`, pola odbiorcy i zgody.
+  Do zrobienia: implementacja dostawcy + wywołanie po udanym wydruku.
+- **Płatność kartą (Faza 3).** Interfejs `PaymentTerminal` + tabela `fiscal_payment_intents`
+  czekają na wybór dostawcy (PolCard / PeP / eService / SoftPOS). Fiskalizacja ma startować
+  dopiero po statusie `paid`, z `paymentRef` = id intencji.
+- **Dostęp z chmury do drukarki.** Edge function na produkcji nie dosięgnie LAN klienta
+  (potwierdzone: `CONNECTION` przy 192.168.0.114). Do rozstrzygnięcia przy wdrożeniu —
+  tunel, publiczny adres albo lekki agent w sieci klienta. Kod jest gotowy bez zmian:
+  wystarczy wpis `host:port` w `fiscal_printers`.
+- **Uogólnienie tenanta.** `is_fiscal_provider_member` sięga do `workshop_employees` — to
+  jedyne miejsce w module, które zna warsztat. Przy pierwszej nie-warsztatowej branży
+  (dźwigi, gastronomia) trzeba tę funkcję uogólnić; reszta modułu zostaje bez zmian.
+
 ## Uwaga wdrożeniowa
 
 Edge function działa w chmurze Supabase, więc `host:port` drukarki **musi być osiągalny z internetu**

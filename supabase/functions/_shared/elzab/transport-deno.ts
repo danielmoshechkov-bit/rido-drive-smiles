@@ -31,8 +31,14 @@ export async function createDenoTransport(opts: TransportOptions): Promise<Elzab
   }
 
   const queue: Uint8Array[] = [];
+  const waiters: Array<() => void> = [];
   let closed = false;
-  let notify: (() => void) | null = null;
+
+  // Kolejka oczekujących zamiast pojedynczego `notify` — czytelniejsza i bez pułapek
+  // zawężania typów w domknięciu pętli odczytu.
+  const wakeAll = () => {
+    while (waiters.length) waiters.shift()!();
+  };
 
   (async () => {
     const buf = new Uint8Array(4096);
@@ -41,13 +47,13 @@ export async function createDenoTransport(opts: TransportOptions): Promise<Elzab
         const n = await conn.read(buf);
         if (n === null) break;
         queue.push(buf.slice(0, n));
-        notify?.();
+        wakeAll();
       }
     } catch {
       // połączenie zamknięte/zerwane — sygnalizujemy przez `closed`
     } finally {
       closed = true;
-      notify?.();
+      wakeAll();
     }
   })();
 
@@ -64,14 +70,15 @@ export async function createDenoTransport(opts: TransportOptions): Promise<Elzab
       if (closed) return null;
       await new Promise<void>((resolve) => {
         const timer = setTimeout(() => {
-          notify = null;
+          const index = waiters.indexOf(wake);
+          if (index >= 0) waiters.splice(index, 1);
           resolve();
         }, timeoutMs);
-        notify = () => {
+        const wake = () => {
           clearTimeout(timer);
-          notify = null;
           resolve();
         };
+        waiters.push(wake);
       });
       if (queue.length) return queue.shift()!;
       return closed ? null : new Uint8Array();

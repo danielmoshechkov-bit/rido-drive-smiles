@@ -21,6 +21,7 @@ import { OrderTypesPage } from './settings/OrderTypesPage';
 import { TaskTemplatesPage } from './settings/TaskTemplatesPage';
 import { ChecklistItemsPage } from './settings/ChecklistItemsPage';
 import { CalendarSettingsPage } from './settings/CalendarSettingsPage';
+import { FiscalPrinterSettings } from '@/components/fiscal/FiscalPrinterSettings';
 import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SERVICE_PROVIDER_TAB_LABEL_KEYS, SERVICE_PROVIDER_TAB_ORDER, type ServiceProviderNavTabKey } from '@/components/service-provider/navConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -346,6 +347,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     { value: 'szablony', label: t('workshop.settingsPanel.tabs.taskTemplates'), visible: true },
     { value: 'listy-kontrolne', label: t('workshop.settingsPanel.tabs.checklists'), visible: true },
     { value: 'numeracja', label: t('workshop.settingsPanel.tabs.numbering'), visible: true },
+    { value: 'fiskalizacja', label: t('workshop.settingsPanel.tabs.fiscal'), visible: true },
     { value: 'integracje', label: t('workshop.settingsPanel.tabs.integrations'), visible: true },
     { value: 'powiadomienia', label: t('workshop.settingsPanel.tabs.notifications'), visible: true },
     { value: 'rido-price', label: t('workshop.settingsPanel.tabs.ridoPrice'), visible: true },
@@ -673,6 +675,8 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
         {settingsTab === 'statusy' && <OrderStatusesPage providerId={providerId || undefined} />}
 
         {settingsTab === 'rodzaje' && <OrderTypesPage />}
+
+        {settingsTab === 'fiskalizacja' && <FiscalPrinterSettings providerId={providerId || undefined} />}
 
         {settingsTab === 'szablony' && <TaskTemplatesPage />}
 

@@ -2003,7 +2003,8 @@
       "deletedCount_one": "Удалён {{count}} заказ",
       "deletedCount_few": "Удалено {{count}} заказа",
       "deletedCount_many": "Удалено {{count}} заказов",
-      "deletedCount_other": "Удалено {{count}} заказов"
+      "deletedCount_other": "Удалено {{count}} заказов",
+      "selectOrderFirst": "Сначала выберите заказ, для которого хотите выставить документ"
     },
     "orderDetail": {
       "completedWarningTitle": "Внимание: заказ завершён.",
@@ -3809,7 +3810,8 @@
         "numbering": "Нумерация",
         "integrations": "Интеграции",
         "notifications": "Уведомления",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Фискализация"
       },
       "workstations": {
         "title": "Рабочие места",

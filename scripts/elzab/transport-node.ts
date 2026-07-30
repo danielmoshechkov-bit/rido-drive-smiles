@@ -11,8 +11,12 @@ export function createNodeTransport(opts: TransportOptions): Promise<ElzabTransp
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
     const queue: Uint8Array[] = [];
+    const waiters: Array<() => void> = [];
     let closed = false;
-    let notify: (() => void) | null = null;
+
+    const wakeAll = () => {
+      while (waiters.length) waiters.shift()!();
+    };
 
     const connectTimer = setTimeout(() => {
       socket.destroy();
@@ -21,15 +25,15 @@ export function createNodeTransport(opts: TransportOptions): Promise<ElzabTransp
 
     socket.on('data', (chunk: Buffer) => {
       queue.push(new Uint8Array(chunk));
-      notify?.();
+      wakeAll();
     });
     socket.on('close', () => {
       closed = true;
-      notify?.();
+      wakeAll();
     });
     socket.on('error', (error) => {
       closed = true;
-      notify?.();
+      wakeAll();
       clearTimeout(connectTimer);
       reject(new ElzabConnectionError(opts.host, opts.port, error));
     });
@@ -49,14 +53,15 @@ export function createNodeTransport(opts: TransportOptions): Promise<ElzabTransp
           if (closed) return null;
           await new Promise<void>((res) => {
             const timer = setTimeout(() => {
-              notify = null;
+              const index = waiters.indexOf(wake);
+              if (index >= 0) waiters.splice(index, 1);
               res();
             }, timeoutMs);
-            notify = () => {
+            const wake = () => {
               clearTimeout(timer);
-              notify = null;
               res();
             };
+            waiters.push(wake);
           });
           if (queue.length) return queue.shift()!;
           return closed ? null : new Uint8Array();

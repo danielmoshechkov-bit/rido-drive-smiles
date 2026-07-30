@@ -1999,7 +1999,8 @@
       "confirmDelete_one": "{{count}} тапсырысты жоюға сенімдісіз бе?",
       "confirmDelete_other": "{{count}} тапсырысты жоюға сенімдісіз бе?",
       "deletedCount_one": "{{count}} тапсырыс жойылды",
-      "deletedCount_other": "{{count}} тапсырыс жойылды"
+      "deletedCount_other": "{{count}} тапсырыс жойылды",
+      "selectOrderFirst": "Алдымен құжат шығарғыңыз келетін тапсырысты таңдаңыз"
     },
     "orderDetail": {
       "completedWarningTitle": "Назар аударыңыз: тапсырыс аяқталды.",
@@ -3749,7 +3750,8 @@
         "numbering": "Нөмірлеу",
         "integrations": "Интеграциялар",
         "notifications": "Хабарламалар",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Фискалдандыру"
       },
       "workstations": {
         "title": "Жұмыс орындары",

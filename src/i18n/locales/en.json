@@ -1999,7 +1999,8 @@
       "confirmDelete_one": "Are you sure you want to delete {{count}} order?",
       "confirmDelete_other": "Are you sure you want to delete {{count}} orders?",
       "deletedCount_one": "Deleted {{count}} order",
-      "deletedCount_other": "Deleted {{count}} orders"
+      "deletedCount_other": "Deleted {{count}} orders",
+      "selectOrderFirst": "First select the order you want to issue it for"
     },
     "orderDetail": {
       "completedWarningTitle": "Note: order completed.",
@@ -3749,7 +3750,8 @@
         "numbering": "Numbering",
         "integrations": "Integrations",
         "notifications": "Notifications",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Fiscal printer"
       },
       "workstations": {
         "title": "Workstations",

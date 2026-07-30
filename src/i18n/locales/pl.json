@@ -2003,7 +2003,8 @@
       "deletedCount_one": "Usunięto {{count}} zlecenie",
       "deletedCount_few": "Usunięto {{count}} zlecenia",
       "deletedCount_many": "Usunięto {{count}} zleceń",
-      "deletedCount_other": "Usunięto {{count}} zleceń"
+      "deletedCount_other": "Usunięto {{count}} zleceń",
+      "selectOrderFirst": "Najpierw zaznacz zlecenie, do którego chcesz wystawić"
     },
     "orderDetail": {
       "completedWarningTitle": "Uwaga: zlecenie zakończone.",
@@ -3809,7 +3810,8 @@
         "numbering": "Numeracja",
         "integrations": "Integracje",
         "notifications": "Powiadomienia",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Fiskalizacja"
       },
       "workstations": {
         "title": "Stanowiska robocze",
