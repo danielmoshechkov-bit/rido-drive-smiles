@@ -25,6 +25,7 @@ import { connect, bold, dim, fail, header, ok, warn } from './common.ts';
 
 const LABELS: Record<Codepage, string> = {
   cp1250: 'CP1250',
+  latin2: 'LATIN2',
   cp852: 'CP852',
   mazovia: 'MAZOVIA',
 };
