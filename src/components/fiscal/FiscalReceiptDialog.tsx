@@ -12,9 +12,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2 } from 'lucide-react';
+import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2, Copy, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useFiscalPrinter, useFiscalizeReceipt, FiscalError } from '@/hooks/useFiscal';
+import {
+  useFiscalPrinter,
+  useFiscalizeReceipt,
+  useDocumentFiscalState,
+  useResolveStuckReceipt,
+  FiscalError,
+} from '@/hooks/useFiscal';
+import { printReceiptCopy } from '@/lib/fiscalCopy';
 import { computeReceiptTotalGrosze, formatPln, mapWorkshopItemsToReceipt, toGrosze, type MappedReceipt } from '@/lib/fiscal';
 import { toast } from 'sonner';
 
@@ -30,6 +37,12 @@ type PaymentMethod = 'cash' | 'card';
 export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: Props) {
   const { data: printer, isLoading: printerLoading } = useFiscalPrinter(providerId);
   const fiscalize = useFiscalizeReceipt(providerId);
+  const { data: fiscalState, isLoading: stateLoading } = useDocumentFiscalState(
+    providerId,
+    'workshop_order',
+    order?.id,
+  );
+  const resolveStuck = useResolveStuckReceipt(providerId);
 
   const [mapped, setMapped] = useState<MappedReceipt | null>(null);
   const [loadingItems, setLoadingItems] = useState(false);
@@ -60,8 +73,40 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
   }, [open, order?.id, printer?.default_unit]);
 
   const totalGrosze = useMemo(() => (mapped ? computeReceiptTotalGrosze(mapped.items) : 0), [mapped]);
+  const alreadyFiscalized = Boolean(fiscalState?.blocking);
   const canPrint =
-    Boolean(printer) && Boolean(mapped?.items.length) && !mapped?.blocking.length && !fiscalize.isPending;
+    Boolean(printer) &&
+    Boolean(mapped?.items.length) &&
+    !mapped?.blocking.length &&
+    !alreadyFiscalized &&
+    !fiscalize.isPending;
+
+  const handleCopy = () => {
+    if (!fiscalState?.blocking) return;
+    try {
+      printReceiptCopy(fiscalState.blocking, { documentLabel: order?.order_number ?? undefined });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleResolve = async (decision?: 'printed' | 'failed') => {
+    if (!fiscalState?.blocking) return;
+    try {
+      const result = await resolveStuck.mutateAsync({
+        receiptId: fiscalState.blocking.id,
+        printer,
+        decision,
+      });
+      toast.success(
+        result.status === 'printed'
+          ? 'Oznaczono jako wystawiony — paragon wyszedł z drukarki.'
+          : 'Oznaczono jako nieudany — można wystawić paragon ponownie.',
+      );
+    } catch (e) {
+      toast.error((e as FiscalError).message);
+    }
+  };
 
   const handlePrint = async () => {
     if (!mapped || !order) return;
@@ -110,6 +155,67 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
               Nie skonfigurowano drukarki fiskalnej. Przejdź do <b>Ustawienia → Fiskalizacja</b> i dodaj drukarkę.
             </AlertDescription>
           </Alert>
+        ) : stateLoading ? (
+          <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Sprawdzanie stanu fiskalizacji…
+          </div>
+        ) : fiscalState?.isPrinted && !result ? (
+          <div className="space-y-4 py-2">
+            <Alert>
+              <ShieldCheck className="h-4 w-4" />
+              <AlertDescription>
+                <div className="font-medium">
+                  Paragon fiskalny nr {fiscalState.blocking?.printer_receipt_number ?? '—'} wystawiony{' '}
+                  {new Date(fiscalState.blocking?.printed_at ?? fiscalState.blocking!.created_at).toLocaleString('pl-PL', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                  , {formatPln(fiscalState.blocking!.total_grosze)}
+                </div>
+                <div className="mt-1 text-sm">
+                  Do jednego zlecenia można wystawić tylko jeden paragon — drugi podwoiłby zarejestrowany
+                  obrót. Potrzebujesz wydruku dla klienta? Użyj kopii.
+                </div>
+              </AlertDescription>
+            </Alert>
+            <Button variant="outline" onClick={handleCopy} className="gap-2">
+              <Copy className="h-4 w-4" /> Drukuj kopię (dokument niefiskalny)
+            </Button>
+          </div>
+        ) : fiscalState?.isInProgress ? (
+          <Alert>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <AlertDescription>
+              Trwa fiskalizacja tego zlecenia (rozpoczęta{' '}
+              {new Date(fiscalState.blocking!.created_at).toLocaleTimeString('pl-PL')}). Poczekaj na zakończenie
+              wydruku.
+            </AlertDescription>
+          </Alert>
+        ) : fiscalState?.isStuck ? (
+          <div className="space-y-3 py-2">
+            <Alert variant="destructive">
+              <TriangleAlert className="h-4 w-4" />
+              <AlertDescription>
+                Poprzednia próba fiskalizacji nie zakończyła się jednoznacznie. Sprawdź, czy paragon wyszedł
+                z drukarki — dopiero potem można wystawić kolejny.
+              </AlertDescription>
+            </Alert>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => handleResolve()} disabled={resolveStuck.isPending} className="gap-2">
+                {resolveStuck.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                Sprawdź w drukarce automatycznie
+              </Button>
+              <Button variant="outline" onClick={() => handleResolve('printed')} disabled={resolveStuck.isPending}>
+                Paragon wyszedł
+              </Button>
+              <Button variant="outline" onClick={() => handleResolve('failed')} disabled={resolveStuck.isPending}>
+                Nie wyszedł — pozwól ponowić
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Automatyczne sprawdzenie porównuje licznik paragonów drukarki z wartością sprzed wydruku.
+            </p>
+          </div>
         ) : result ? (
           <div className="space-y-3 py-4">
             <div className="flex items-center gap-2 text-green-600">
@@ -132,6 +238,16 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
                 <TriangleAlert className="h-4 w-4" />
                 <AlertDescription>
                   Drukarka pracuje w <b>trybie szkoleniowym</b> — paragon będzie niefiskalny.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {fiscalState?.lastFailed && (
+              <Alert>
+                <TriangleAlert className="h-4 w-4" />
+                <AlertDescription>
+                  Poprzednia próba nie powiodła się ({fiscalState.lastFailed.error_message ?? 'brak szczegółów'}).
+                  Paragon nie został wydrukowany, więc można wystawić go teraz.
                 </AlertDescription>
               </Alert>
             )}
@@ -242,7 +358,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {result ? 'Zamknij' : 'Anuluj'}
           </Button>
-          {!result && (
+          {!result && !alreadyFiscalized && (
             <Button onClick={handlePrint} disabled={!canPrint} className="gap-2">
               {fiscalize.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
               {fiscalize.isPending ? 'Drukowanie…' : 'Drukuj paragon'}

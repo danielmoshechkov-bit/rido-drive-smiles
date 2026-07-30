@@ -340,3 +340,6 @@ verify_jwt = false
 
 [functions.fiscal-day-report]
 verify_jwt = false
+
+[functions.fiscal-receipt-session]
+verify_jwt = false

@@ -2004,7 +2004,8 @@
       "deletedCount_few": "Usunięto {{count}} zlecenia",
       "deletedCount_many": "Usunięto {{count}} zleceń",
       "deletedCount_other": "Usunięto {{count}} zleceń",
-      "selectOrderFirst": "Najpierw zaznacz zlecenie, do którego chcesz wystawić"
+      "selectOrderFirst": "Najpierw zaznacz zlecenie, do którego chcesz wystawić",
+      "alreadyFiscalized": "To zlecenie ma już wystawiony paragon fiskalny"
     },
     "orderDetail": {
       "completedWarningTitle": "Uwaga: zlecenie zakończone.",

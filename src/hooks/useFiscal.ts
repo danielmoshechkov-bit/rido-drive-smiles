@@ -9,6 +9,7 @@ import {
   bridgeDayReport,
   bridgePrint,
   bridgeTest,
+  type BridgePrinter,
   bridgeUnreachableMessage,
   getBridgeConfig,
   type BridgeConfig,
@@ -246,31 +247,43 @@ export function useFiscalizeReceipt(providerId?: string) {
         return invokeFiscal<FiscalizeResult>('fiscalize-receipt', { providerId, ...payload });
       }
 
-      // Ścieżka lokalna: drukuje mostek na tym komputerze, log zapisujemy stąd
-      // (RLS dopuszcza INSERT dla członków tenanta; UPDATE/DELETE jest zablokowane).
+      // Ścieżka lokalna: drukuje mostek na tym komputerze. Log prowadzi edge function
+      // (rezerwuj → drukuj → zatwierdź), żeby blokada podwójnej fiskalizacji i
+      // niemodyfikowalność logu działały tak samo jak w ścieżce chmurowej.
       const totalGrosze = computeReceiptTotalGrosze(input.items);
       const payments = input.payments?.length
         ? input.payments
         : [{ name: 'GOTOWKA', amount: totalGrosze / 100 }];
-      const { data: userData } = await supabase.auth.getUser();
+      const bridgePrinter: BridgePrinter = bridgePrinterOf(printer);
 
-      const logRow = {
-        provider_id: printer.provider_id,
-        printer_id: printer.id,
-        document_type: input.documentType || 'external',
-        document_id: input.documentId ?? null,
-        payment_ref: input.paymentRef ?? null,
+      // Licznik paragonów sprzed wydruku — pozwala rozstrzygnąć rezerwację,
+      // gdyby przeglądarka padła między wydrukiem a zatwierdzeniem.
+      let printerNumberBefore: number | undefined;
+      try {
+        const status = await bridgeTest(bridge, bridgePrinter);
+        printerNumberBefore = status.lastReceiptNumber ?? undefined;
+      } catch (error) {
+        throw toFiscalError(error, bridge);
+      }
+
+      const reservation = await invokeFiscal<{ ok: true; receiptId: string }>('fiscal-receipt-session', {
+        action: 'reserve',
+        providerId: printer.provider_id,
+        printerId: printer.id,
+        documentType: input.documentType || 'external',
+        documentId: input.documentId,
+        paymentRef: input.paymentRef,
         items: input.items,
         payments,
-        vat_map: printer.vat_map,
-        total_grosze: totalGrosze,
-        buyer_nip: input.buyerNip ?? null,
-        printer_mode: printer.mode,
-        created_by: userData?.user?.id ?? null,
-      };
+        vatMap: printer.vat_map,
+        buyerNip: input.buyerNip,
+        totalGrosze,
+        printerMode: printer.mode,
+        printerNumberBefore,
+      });
 
       try {
-        const result = await bridgePrint(bridge, bridgePrinterOf(printer), {
+        const result = await bridgePrint(bridge, bridgePrinter, {
           items: input.items,
           payments,
           buyerNip: input.buyerNip,
@@ -279,21 +292,17 @@ export function useFiscalizeReceipt(providerId?: string) {
           itemNameLength: printer.item_name_length,
         });
 
-        await (supabase as any).from('fiscal_receipts').insert({
-          ...logRow,
-          status: 'printed',
-          printer_receipt_number: result.receiptNumber,
-          printed_at: new Date().toISOString(),
-          trace: result.trace ?? null,
+        await invokeFiscal('fiscal-receipt-session', {
+          action: 'finalize',
+          receiptId: reservation.receiptId,
+          ok: true,
+          receiptNumber: result.receiptNumber,
+          trace: result.trace,
         });
-        await (supabase as any)
-          .from('fiscal_printers')
-          .update({ last_status: 'online', last_status_message: null, last_seen_at: new Date().toISOString() })
-          .eq('id', printer.id);
 
         return {
           ok: true,
-          receiptId: '',
+          receiptId: reservation.receiptId,
           receiptNumber: result.receiptNumber,
           totalGrosze: result.totalGrosze ?? totalGrosze,
           total: (result.totalGrosze ?? totalGrosze) / 100,
@@ -302,18 +311,116 @@ export function useFiscalizeReceipt(providerId?: string) {
         };
       } catch (error) {
         const fiscalError = toFiscalError(error, bridge);
-        await (supabase as any).from('fiscal_receipts').insert({
-          ...logRow,
-          status: 'failed',
-          error_code: fiscalError.code,
-          error_message: fiscalError.message,
-        });
+        // Zwolnienie rezerwacji: 'failed' nie wchodzi do indeksu, więc można ponowić.
+        await invokeFiscal('fiscal-receipt-session', {
+          action: 'finalize',
+          receiptId: reservation.receiptId,
+          ok: false,
+          errorCode: fiscalError.code,
+          errorMessage: fiscalError.message,
+        }).catch(() => {});
         throw fiscalError;
       }
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['fiscal-receipts', providerId] });
       queryClient.invalidateQueries({ queryKey: ['fiscal-printer', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-document-state'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-documents-printed', providerId] });
+    },
+  });
+}
+
+/**
+ * Stan fiskalizacji konkretnego dokumentu.
+ * Blokują wyłącznie 'printed' (paragon wyszedł) i 'printing' (trwa rezerwacja);
+ * 'failed'/'cancelled' oznaczają, że obrót nie został zarejestrowany — wolno ponowić.
+ */
+export interface DocumentFiscalState {
+  blocking: FiscalReceiptRow | null;
+  lastFailed: FiscalReceiptRow | null;
+  isPrinted: boolean;
+  isInProgress: boolean;
+  isStuck: boolean;
+}
+
+export const STALE_PRINTING_MINUTES = 5;
+
+export function useDocumentFiscalState(providerId?: string, documentType = 'workshop_order', documentId?: string) {
+  return useQuery({
+    queryKey: ['fiscal-document-state', providerId, documentType, documentId],
+    enabled: Boolean(providerId && documentId),
+    queryFn: async (): Promise<DocumentFiscalState> => {
+      const { data, error } = await (supabase as any)
+        .from('fiscal_receipts')
+        .select('*')
+        .eq('provider_id', providerId)
+        .eq('document_type', documentType)
+        .eq('document_id', documentId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const rows = (data as FiscalReceiptRow[]) ?? [];
+      const blocking = rows.find((r) => r.status === 'printed' || r.status === 'printing') ?? null;
+      const stuck =
+        blocking?.status === 'printing' &&
+        Date.now() - new Date(blocking.created_at).getTime() > STALE_PRINTING_MINUTES * 60_000;
+      return {
+        blocking,
+        lastFailed: rows.find((r) => r.status === 'failed' || r.status === 'cancelled') ?? null,
+        isPrinted: blocking?.status === 'printed',
+        isInProgress: blocking?.status === 'printing' && !stuck,
+        isStuck: Boolean(stuck),
+      };
+    },
+  });
+}
+
+/** Identyfikatory dokumentów, które mają już paragon — do wyszarzenia opcji na liście. */
+export function useFiscalizedDocumentIds(providerId?: string, documentType = 'workshop_order') {
+  return useQuery({
+    queryKey: ['fiscal-documents-printed', providerId, documentType],
+    enabled: Boolean(providerId),
+    staleTime: 30_000,
+    queryFn: async (): Promise<Set<string>> => {
+      const { data, error } = await (supabase as any)
+        .from('fiscal_receipts')
+        .select('document_id, status')
+        .eq('provider_id', providerId)
+        .eq('document_type', documentType)
+        .in('status', ['printing', 'printed']);
+      if (error) throw error;
+      return new Set(((data as Array<{ document_id: string | null }>) ?? []).map((r) => r.document_id).filter(Boolean) as string[]);
+    },
+  });
+}
+
+/** Rozstrzyga wpis, który utknął w stanie 'printing'. */
+export function useResolveStuckReceipt(providerId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { receiptId: string; printer?: FiscalPrinter | null; decision?: 'printed' | 'failed' }) => {
+      let currentPrinterNumber: number | undefined;
+      const bridge = getBridgeConfig(providerId);
+      // Najpierw próba automatyczna: licznik paragonów z drukarki.
+      if (bridge.enabled && input.printer) {
+        try {
+          const status = await bridgeTest(bridge, bridgePrinterOf(input.printer));
+          currentPrinterNumber = status.lastReceiptNumber ?? undefined;
+        } catch {
+          // brak połączenia — zostaje decyzja użytkownika
+        }
+      }
+      return invokeFiscal<{ ok: true; status: string; resolvedBy: string }>('fiscal-receipt-session', {
+        action: 'resolve',
+        receiptId: input.receiptId,
+        currentPrinterNumber,
+        decision: input.decision,
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['fiscal-document-state'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-receipts', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-documents-printed', providerId] });
     },
   });
 }

@@ -2004,7 +2004,8 @@
       "deletedCount_few": "Видалено {{count}} замовлення",
       "deletedCount_many": "Видалено {{count}} замовлень",
       "deletedCount_other": "Видалено {{count}} замовлень",
-      "selectOrderFirst": "Спочатку виберіть замовлення, для якого хочете виставити документ"
+      "selectOrderFirst": "Спочатку виберіть замовлення, для якого хочете виставити документ",
+      "alreadyFiscalized": "Для цього замовлення вже виставлено фіскальний чек"
     },
     "orderDetail": {
       "completedWarningTitle": "Увага: замовлення завершено.",

@@ -20,7 +20,10 @@
 
 import {
   adminClient,
+  alreadyFiscalizedResponse,
   fail,
+  findBlockingReceipt,
+  isDuplicateReceiptError,
   json,
   loadPrinter,
   preflight,
@@ -92,11 +95,20 @@ Deno.serve(async (req) => {
     return fail(400, error instanceof ElzabError ? error.code : 'VALIDATION', toUserMessage(error));
   }
 
-  // ── 2. Wpis w logu (snapshot pozycji z chwili fiskalizacji) ─────────
+  // ── 2. Blokada podwójnej fiskalizacji ───────────────────────────────
+  // Drugi paragon do tej samej sprzedaży podwoiłby zarejestrowany obrót.
+  // 'failed'/'cancelled' nie blokują — tam obrót nie został zarejestrowany.
+  const documentType = body.documentType || 'external';
+  if (body.documentId) {
+    const blocking = await findBlockingReceipt(admin, documentType, body.documentId);
+    if (blocking) return alreadyFiscalizedResponse(blocking);
+  }
+
+  // ── 3. Wpis w logu (snapshot pozycji z chwili fiskalizacji) ─────────
   const snapshot = {
     provider_id: provider.providerId,
     printer_id: printer.id,
-    document_type: body.documentType || 'external',
+    document_type: documentType,
     document_id: body.documentId ?? null,
     payment_ref: body.paymentRef ?? null,
     status: 'printing',
@@ -115,11 +127,16 @@ Deno.serve(async (req) => {
     .select('id')
     .single();
   if (insertError) {
+    // Wyścig dwóch równoległych żądań — indeks unikalny wygrał, co jest pożądane.
+    if (isDuplicateReceiptError(insertError) && body.documentId) {
+      const blocking = await findBlockingReceipt(admin, documentType, body.documentId);
+      if (blocking) return alreadyFiscalizedResponse(blocking);
+    }
     return fail(500, 'DB_ERROR', `Nie udało się zapisać paragonu w logu: ${insertError.message}`);
   }
   const receiptId = receiptRow.id as string;
 
-  // ── 3. Wydruk ──────────────────────────────────────────────────────
+  // ── 4. Wydruk ──────────────────────────────────────────────────────
   const client = await connectPrinter({
     host: printer.host,
     port: printer.port,
@@ -140,6 +157,13 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Licznik paragonów sprzed wydruku — pozwala później rozstrzygnąć, czy paragon
+    // wyszedł, gdyby połączenie padło między wydrukiem a zapisem wyniku.
+    const before = await client.getLastReceiptNumber();
+    if (before.value !== undefined) {
+      await admin.from('fiscal_receipts').update({ printer_number_before: before.value }).eq('id', receiptId);
+    }
+
     const result = await client.printReceipt(request);
 
     await admin

@@ -1907,7 +1907,8 @@
       "confirmDelete_other": "Möchten Sie {{count}} Aufträge wirklich löschen?",
       "deletedCount_one": "{{count}} Auftrag gelöscht",
       "deletedCount_other": "{{count}} Aufträge gelöscht",
-      "selectOrderFirst": "Wählen Sie zuerst den Auftrag aus, für den Sie ausstellen möchten"
+      "selectOrderFirst": "Wählen Sie zuerst den Auftrag aus, für den Sie ausstellen möchten",
+      "alreadyFiscalized": "Für diesen Auftrag wurde bereits ein Kassenbon ausgestellt"
     },
     "orderDetail": {
       "completedWarningTitle": "Hinweis: Auftrag abgeschlossen.",

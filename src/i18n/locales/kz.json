@@ -2000,7 +2000,8 @@
       "confirmDelete_other": "{{count}} тапсырысты жоюға сенімдісіз бе?",
       "deletedCount_one": "{{count}} тапсырыс жойылды",
       "deletedCount_other": "{{count}} тапсырыс жойылды",
-      "selectOrderFirst": "Алдымен құжат шығарғыңыз келетін тапсырысты таңдаңыз"
+      "selectOrderFirst": "Алдымен құжат шығарғыңыз келетін тапсырысты таңдаңыз",
+      "alreadyFiscalized": "Бұл тапсырыс бойынша фискалдық чек шығарылған"
     },
     "orderDetail": {
       "completedWarningTitle": "Назар аударыңыз: тапсырыс аяқталды.",

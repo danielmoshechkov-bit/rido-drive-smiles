@@ -1905,7 +1905,8 @@
       "vehicleSaved": "Đã lưu thông tin phương tiện",
       "confirmDelete_other": "Bạn có chắc muốn xóa {{count}} đơn hàng không?",
       "deletedCount_other": "Đã xóa {{count}} đơn hàng",
-      "selectOrderFirst": "Trước tiên hãy chọn đơn hàng bạn muốn xuất chứng từ"
+      "selectOrderFirst": "Trước tiên hãy chọn đơn hàng bạn muốn xuất chứng từ",
+      "alreadyFiscalized": "Đơn hàng này đã có hóa đơn tài chính"
     },
     "orderDetail": {
       "completedWarningTitle": "Lưu ý: đơn hàng đã hoàn tất.",

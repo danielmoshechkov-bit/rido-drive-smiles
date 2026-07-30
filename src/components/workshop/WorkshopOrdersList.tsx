@@ -24,6 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { ExistingInvoiceModal } from './ExistingInvoiceModal';
 import { FiscalReceiptDialog } from '@/components/fiscal/FiscalReceiptDialog';
+import { useFiscalizedDocumentIds } from '@/hooks/useFiscal';
 import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
@@ -79,6 +80,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [invoiceBuyer, setInvoiceBuyer] = useState<any>(null);
   const [invoiceNotes, setInvoiceNotes] = useState('');
   const [fiscalOrder, setFiscalOrder] = useState<any>(null);
+  // Zlecenia z wystawionym (albo trwającym) paragonem — pozycja w menu jest dla nich wyszarzona.
+  const { data: fiscalizedIds } = useFiscalizedDocumentIds(providerId, 'workshop_order');
+  const selectedFiscalized =
+    selectedIds.size === 1 && Array.from(selectedIds).some((id) => fiscalizedIds?.has(id));
   const [existingInvoice, setExistingInvoice] = useState<any>(null);
   const [existingInvoiceOrder, setExistingInvoiceOrder] = useState<any>(null);
   const [assignClientOrderId, setAssignClientOrderId] = useState<string | null>(null);
@@ -516,10 +521,18 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 {t('workshop.orders.selectOrderFirst')}
               </div>
             )}
-            <DropdownMenuItem disabled={selectedIds.size !== 1} onClick={() => {
-              const order = orders.find((o: any) => selectedIds.has(o.id));
-              if (order) setFiscalOrder(order);
-            }}>
+            {selectedIds.size === 1 && selectedFiscalized && (
+              <div className="px-2 py-1.5 text-xs text-muted-foreground max-w-[240px]">
+                {t('workshop.orders.alreadyFiscalized')}
+              </div>
+            )}
+            <DropdownMenuItem
+              disabled={selectedIds.size !== 1 || selectedFiscalized}
+              onClick={() => {
+                const order = orders.find((o: any) => selectedIds.has(o.id));
+                if (order) setFiscalOrder(order);
+              }}
+            >
               <Receipt className="h-4 w-4 mr-2" /> {t('workshop.orders.fiscalReceipt')}
             </DropdownMenuItem>
             <DropdownMenuItem disabled={selectedIds.size !== 1} onClick={() => {

@@ -176,6 +176,84 @@ export async function updatePrinterStatus(
   await admin.from('fiscal_printers').update(update).eq('id', printerId);
 }
 
+export interface ExistingReceipt {
+  id: string;
+  status: string;
+  printer_receipt_number: number | null;
+  total_grosze: number;
+  printed_at: string | null;
+  created_at: string;
+  printer_number_before: number | null;
+}
+
+/**
+ * Szuka paragonu, który blokuje ponowną fiskalizację dokumentu.
+ * Blokują wyłącznie statusy 'printed' (paragon wyszedł) i 'printing' (trwa rezerwacja).
+ * 'failed' i 'cancelled' oznaczają, że obrót NIE został zarejestrowany — wtedy wolno ponowić.
+ */
+export async function findBlockingReceipt(
+  admin: SupabaseClient,
+  documentType: string,
+  documentId: string,
+): Promise<ExistingReceipt | null> {
+  const { data } = await admin
+    .from('fiscal_receipts')
+    .select('id, status, printer_receipt_number, total_grosze, printed_at, created_at, printer_number_before')
+    .eq('document_type', documentType)
+    .eq('document_id', documentId)
+    .in('status', ['printing', 'printed'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as ExistingReceipt) ?? null;
+}
+
+/** Ile minut wisi rezerwacja — po tym czasie UI proponuje rozstrzygnięcie. */
+export const STALE_PRINTING_MINUTES = 5;
+
+export function isStalePrinting(receipt: ExistingReceipt): boolean {
+  if (receipt.status !== 'printing') return false;
+  return Date.now() - new Date(receipt.created_at).getTime() > STALE_PRINTING_MINUTES * 60_000;
+}
+
+/** Odmowa ponownej fiskalizacji — z danymi paragonu, który już istnieje. */
+export function alreadyFiscalizedResponse(receipt: ExistingReceipt): Response {
+  if (receipt.status === 'printing') {
+    const stale = isStalePrinting(receipt);
+    return json(
+      {
+        ok: false,
+        code: stale ? 'FISCALIZATION_STUCK' : 'FISCALIZATION_IN_PROGRESS',
+        message: stale
+          ? 'Poprzednia próba fiskalizacji nie zakończyła się jednoznacznie. Sprawdź, czy paragon wyszedł z drukarki, i rozstrzygnij ją przed kolejną próbą.'
+          : 'Trwa już fiskalizacja tego dokumentu. Poczekaj na zakończenie wydruku.',
+        receipt,
+      },
+      409,
+    );
+  }
+
+  const when = receipt.printed_at ?? receipt.created_at;
+  const date = new Date(when).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' });
+  return json(
+    {
+      ok: false,
+      code: 'ALREADY_FISCALIZED',
+      message:
+        `Do tego dokumentu wystawiono już paragon fiskalny nr ${receipt.printer_receipt_number ?? '—'} ` +
+        `dnia ${date} na kwotę ${(receipt.total_grosze / 100).toFixed(2)} zł — nie można wystawić drugiego. ` +
+        'Użyj opcji „Drukuj kopię".',
+      receipt,
+    },
+    409,
+  );
+}
+
+/** Czy błąd pochodzi z unikalnego indeksu blokującego podwójną fiskalizację. */
+export function isDuplicateReceiptError(error: { code?: string; message?: string } | null): boolean {
+  return error?.code === '23505' || Boolean(error?.message?.includes('idx_fiscal_receipts_one_per_document'));
+}
+
 /** Wspólna obsługa preflight CORS. */
 export function preflight(req: Request): Response | null {
   return req.method === 'OPTIONS' ? new Response('ok', { headers: corsHeaders }) : null;
