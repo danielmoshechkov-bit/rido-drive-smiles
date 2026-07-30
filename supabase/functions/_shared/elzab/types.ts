@@ -66,6 +66,11 @@ export interface ReceiptRequest {
   codepage?: Codepage;
   /** Wariant pola nazwy pozycji: 28 (domyślny) lub 40 znaków. */
   itemNameLength?: 28 | 40;
+  /**
+   * Jednolity układ: nazwa zawsze w osobnej linii, liczby pod nią (domyślnie włączone).
+   * Realizowane dopełnieniem twardą spacją — bez efektu poza CP1250/ISO 8859-2.
+   */
+  forceNameLine?: boolean;
   payments?: ReceiptPayment[];
   /** NIP nabywcy (paragon z NIP). Opcjonalny — sekwencja Esc 4BH. */
   buyerNip?: string;

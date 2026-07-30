@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2, Copy, ShieldCheck } from 'lucide-react';
+import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2, Copy, ShieldCheck, Undo2, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   useFiscalPrinter,
@@ -23,6 +23,8 @@ import {
 } from '@/hooks/useFiscal';
 import { printReceiptCopy } from '@/lib/fiscalCopy';
 import { computeReceiptTotalGrosze, formatPln, mapWorkshopItemsToReceipt, toGrosze, type MappedReceipt } from '@/lib/fiscal';
+import { DEFAULT_FISCAL_NAME_LENGTH, toFiscalName } from '@/lib/fiscalName';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 interface Props {
@@ -49,12 +51,17 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [result, setResult] = useState<{ receiptNumber: number | null; total: number } | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  // Ręczna „nazwa na paragon" per pozycja; pusta = automatyczne skracanie.
+  const [nameOverrides, setNameOverrides] = useState<Record<number, string>>({});
+  const [editingNames, setEditingNames] = useState(false);
 
   useEffect(() => {
     if (!open || !order) return;
     setResult(null);
     setError(null);
     setMethod('cash');
+    setNameOverrides({});
+    setEditingNames(false);
     setLoadingItems(true);
     (async () => {
       const { data, error: itemsError } = await (supabase as any)
@@ -71,6 +78,17 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
       setLoadingItems(false);
     })();
   }, [open, order?.id, printer?.default_unit]);
+
+  const nameLength = printer?.item_name_length ?? DEFAULT_FISCAL_NAME_LENGTH;
+
+  /** Nazwa, która faktycznie pójdzie na papier: ręczna albo automatycznie skrócona. */
+  const fiscalNameOf = (index: number, name: string) =>
+    (nameOverrides[index]?.trim() || toFiscalName(name, nameLength)).slice(0, nameLength);
+
+  const itemsForPrint = useMemo(
+    () => (mapped?.items ?? []).map((item, index) => ({ ...item, name: fiscalNameOf(index, item.name) })),
+    [mapped, nameOverrides, nameLength],
+  );
 
   const totalGrosze = useMemo(() => (mapped ? computeReceiptTotalGrosze(mapped.items) : 0), [mapped]);
   const alreadyFiscalized = Boolean(fiscalState?.blocking);
@@ -117,7 +135,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
         printer,
         documentType: 'workshop_order',
         documentId: order.id,
-        items: mapped.items,
+        items: itemsForPrint,
         payments: [{ name: method === 'cash' ? 'GOTOWKA' : 'KARTA', amount: totalGrosze / 100 }],
       });
       setResult({ receiptNumber: response.receiptNumber, total: response.total });
@@ -178,9 +196,23 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
                 </div>
               </AlertDescription>
             </Alert>
-            <Button variant="outline" onClick={handleCopy} className="gap-2">
-              <Copy className="h-4 w-4" /> Drukuj kopię (dokument niefiskalny)
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={handleCopy} className="gap-2">
+                <Copy className="h-4 w-4" /> Drukuj kopię
+              </Button>
+              <Button
+                variant="outline"
+                disabled
+                title="Ewidencja zwrotów — w przygotowaniu"
+                className="gap-2"
+              >
+                <Undo2 className="h-4 w-4" /> Zwrot/reklamacja (wkrótce)
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Kopia to dokument niefiskalny drukowany z GetRido — nie dotyka drukarki fiskalnej
+              i nie zwiększa obrotu.
+            </p>
           </div>
         ) : fiscalState?.isInProgress ? (
           <Alert>
@@ -276,6 +308,15 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
             ) : null}
 
             {mapped?.items.length ? (
+              <>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  Nazwy skracane do {nameLength} znaków (limit pola drukarki) — tak wyjdą na papierze.
+                </span>
+                <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => setEditingNames((v) => !v)}>
+                  <Pencil className="h-3 w-3" /> {editingNames ? 'Gotowe' : 'Zmień nazwy'}
+                </Button>
+              </div>
               <div className="rounded-md border max-h-64 overflow-auto">
                 <Table>
                   <TableHeader>
@@ -288,9 +329,30 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mapped.items.map((item, index) => (
+                    {mapped.items.map((item, index) => {
+                      const printedName = fiscalNameOf(index, item.name);
+                      const shortened = printedName !== item.name;
+                      return (
                       <TableRow key={index}>
-                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="font-medium">
+                          {editingNames ? (
+                            <Input
+                              value={nameOverrides[index] ?? printedName}
+                              maxLength={nameLength}
+                              onChange={(e) =>
+                                setNameOverrides((prev) => ({ ...prev, [index]: e.target.value }))
+                              }
+                              className="h-8 font-mono text-xs"
+                            />
+                          ) : (
+                            <>
+                              <div className="font-mono text-xs">{printedName}</div>
+                              {shortened && (
+                                <div className="text-[11px] text-muted-foreground line-through">{item.name}</div>
+                              )}
+                            </>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right whitespace-nowrap">
                           {item.quantity} {item.unit}
                         </TableCell>
@@ -300,10 +362,12 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
                           {formatPln(Math.round(toGrosze(item.unitPrice) * item.quantity))}
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
+              </>
             ) : (
               <Alert variant="destructive">
                 <TriangleAlert className="h-4 w-4" />

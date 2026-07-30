@@ -60,11 +60,29 @@ export function toGrosze(amount: number | string): number {
 }
 
 /** Tekst przycięty/dopełniony spacjami do dokładnie `length` bajtów w danej stronie kodowej. */
-export function fixedText(text: string, length: number, codepage: Codepage = DEFAULT_CODEPAGE): Uint8Array {
+export function fixedText(
+  text: string,
+  length: number,
+  codepage: Codepage = DEFAULT_CODEPAGE,
+  padByte = 0x20,
+): Uint8Array {
   const encoded = encodeText(text ?? '', codepage);
-  const out = new Uint8Array(length).fill(0x20); // spacje
+  const out = new Uint8Array(length).fill(padByte);
   out.set(encoded.subarray(0, length));
   return out;
+}
+
+/**
+ * Bezpieczne przycięcie nazwy do długości pola — na granicy słowa, nigdy w połowie wyrazu.
+ * Sieć bezpieczeństwa dla modułów, które nie skróciły nazwy po swojej stronie
+ * (UI robi to wcześniej, z podglądem i słownikiem skrótów).
+ */
+export function trimToWordBoundary(text: string, maxLength: number): string {
+  const normalized = String(text ?? '').replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLength) return normalized;
+  const cut = normalized.slice(0, maxLength);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd();
 }
 
 /**

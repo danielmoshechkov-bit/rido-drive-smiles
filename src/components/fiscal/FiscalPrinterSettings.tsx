@@ -57,6 +57,7 @@ const emptyPrinter: Partial<FiscalPrinter> = {
   codepage: 'cp1250',
   connection_mode: 'direct',
   vat_map: { '23': 'A', '8': 'B', '5': 'C', '0': 'D', zw: 'E' },
+  item_name_length: 40,
   is_active: true,
   is_default: true,
 };
@@ -238,6 +239,22 @@ export function FiscalPrinterSettings({ providerId }: Props) {
               </Select>
               <p className="text-[11px] text-muted-foreground">
                 Musi być taka sama jak ustawienie w menu drukarki — inaczej polskie znaki znikną z wydruku.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Długość nazwy pozycji</Label>
+              <Select
+                value={String(form.item_name_length ?? 40)}
+                onValueChange={(value) => set({ item_name_length: Number(value) })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="40">40 znaków (zalecane)</SelectItem>
+                  <SelectItem value="28">28 znaków</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Dłuższe nazwy są skracane automatycznie (skróty branżowe, cięcie na granicy słowa).
               </p>
             </div>
             <div className="space-y-2">

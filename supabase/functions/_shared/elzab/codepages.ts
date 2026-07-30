@@ -107,6 +107,24 @@ const TABLES: Record<Codepage, Map<string, number>> = {
   mazovia: new Map(Object.entries(MAZOVIA_POLISH)),
 };
 
+/**
+ * Bajt „twardej spacji" — drukuje się jako pusty znak, ale NIE jest obcinany jak 0x20.
+ * Dzięki temu dopełniona nazwa liczy się jako długa i firmware przenosi liczby do
+ * osobnej linii (jednolity układ dwuliniowy).
+ *
+ * Istnieje tylko tam, gdzie 0xA0 to rzeczywiście NBSP: CP1250 i ISO 8859-2.
+ * W CP852 ten bajt to „á", w Mazovii „Ź" — dopełnienie wydrukowałoby się jako śmieci,
+ * dlatego dla tych stron kodowych wymuszania układu NIE stosujemy.
+ */
+export const HARD_SPACE_BYTE: Partial<Record<Codepage, number>> = {
+  cp1250: 0xa0,
+  latin2: 0xa0,
+};
+
+export function hardSpaceByte(codepage: Codepage): number | undefined {
+  return HARD_SPACE_BYTE[codepage];
+}
+
 /** Polskie znaki — używane przez skrypt diagnostyczny i testy. */
 export const POLISH_LOWER = 'ąćęłńóśźż';
 export const POLISH_UPPER = 'ĄĆĘŁŃÓŚŹŻ';

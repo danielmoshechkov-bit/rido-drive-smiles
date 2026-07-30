@@ -6,8 +6,8 @@
  * Drukarka odpowiada ACK (0x06) = przyjęte lub NAK (0x15) = odrzucone.
  */
 
-import { concat, ESC, fixedAscii, fixedBytes, fixedText, u32le, encodeQuantity } from './codec.ts';
-import { DEFAULT_CODEPAGE, type Codepage } from './codepages.ts';
+import { concat, ESC, fixedAscii, fixedBytes, fixedText, trimToWordBoundary, u32le, encodeQuantity } from './codec.ts';
+import { DEFAULT_CODEPAGE, hardSpaceByte, type Codepage } from './codepages.ts';
 import { VAT_LETTER_BYTE, type VatLetter } from './types.ts';
 
 /** Numery sekwencji (drugi bajt po ESC). */
@@ -75,6 +75,12 @@ export interface ItemBytesInput {
   codepage?: Codepage;
   /** Surowe bajty nazwy zamiast kodowania tekstu — TYLKO diagnostyka (mapa bajtów). */
   nameBytes?: Uint8Array;
+  /**
+   * Jednolity układ dwuliniowy: nazwa w osobnej linii, liczby pod nią.
+   * Osiągane dopełnieniem twardą spacją — działa tylko w CP1250/ISO 8859-2
+   * (w pozostałych stronach kodowych bajt 0xA0 jest widocznym znakiem).
+   */
+  forceNameLine?: boolean;
 }
 
 /**
@@ -83,6 +89,7 @@ export interface ItemBytesInput {
  */
 export function saleItem(input: ItemBytesInput): Uint8Array {
   const nameLength = input.nameLength ?? 28;
+  const codepage = input.codepage ?? DEFAULT_CODEPAGE;
   const seq = nameLength === 40 ? SEQ.ITEM_40 : SEQ.ITEM_28;
   const vatByte = VAT_LETTER_BYTE[input.vatLetter];
   if (vatByte === undefined) {
@@ -94,7 +101,12 @@ export function saleItem(input: ItemBytesInput): Uint8Array {
     [ESC, seq, ITEM_SUBCODE],
     input.nameBytes
       ? fixedBytes(input.nameBytes, nameLength)
-      : fixedText(input.name, nameLength, input.codepage ?? DEFAULT_CODEPAGE),
+      : fixedText(
+          trimToWordBoundary(input.name, nameLength),
+          nameLength,
+          codepage,
+          input.forceNameLine === false ? 0x20 : (hardSpaceByte(codepage) ?? 0x20),
+        ),
     ITEM_NO_MESSAGE,
     qty.value,
     qty.decimals,
