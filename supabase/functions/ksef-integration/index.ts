@@ -858,8 +858,12 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
 
   const grossTotal = items.reduce((sum, item) => sum + (Number(item.gross_amount) || 0), 0);
 
+  // Procedura marży (art. 119/120): netto=brutto, NIE wykazuje się VAT ani stawki.
+  // XSD FA(3): sekwencja P_13_1/P_14_1 jest "z wyłączeniem procedury marży" → pomijamy CAŁE rozbicie P_13/P_14.
+  const isMargin = invoice.is_margin === true || ['margin', 'vat_margin'].includes(rawType);
+
   let vatBreakdownXML = '';
-  for (const [rate, amounts] of Object.entries(vatByRate)) {
+  for (const [rate, amounts] of Object.entries(isMargin ? {} : vatByRate)) {
     if (rate === 'zw') {
       vatBreakdownXML += `\n        <P_13_6>${amounts.net.toFixed(2)}</P_13_6>`;
     } else if (rate === 'np') {
@@ -873,6 +877,18 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
   }
 
   const itemsXML = items.map((item, idx) => {
+    // Marża: pozycja BEZ stawki (P_12) i BEZ ceny netto (P_9A). Wartość = należność brutto w P_11 (netto=brutto).
+    if (isMargin) {
+      const lineValue = Number(item.gross_amount) || Number(item.net_amount) || 0;
+      return `
+      <FaWiersz>
+        <NrWierszaFa>${idx + 1}</NrWierszaFa>
+        <P_7>${escapeXml(item.name || 'Usługa')}</P_7>
+        <P_8A>${escapeXml(item.unit || 'szt')}</P_8A>
+        <P_8B>${Number(item.quantity || 1).toFixed(4)}</P_8B>
+        <P_11>${lineValue.toFixed(2)}</P_11>
+      </FaWiersz>`;
+    }
     const vatCode = item.vat_rate === 'zw' ? 'zw' : item.vat_rate === 'np' ? 'np' : String(item.vat_rate || '23');
     return `
       <FaWiersz>
@@ -1008,12 +1024,14 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, items: any[]) {
       <Zwolnienie><P_19N>1</P_19N></Zwolnienie>
       <NoweSrodkiTransportu><P_22N>1</P_22N></NoweSrodkiTransportu>
       <P_23>2</P_23>
-      <PMarzy>${invoice.is_margin ? (() => {
+      <PMarzy>${isMargin ? (() => {
+        // XSD FA(3): sekwencja wymaga NAJPIERW <P_PMarzy>1</P_PMarzy>, potem konkretny znacznik procedury.
         const mpt = invoice.margin_procedure_type || 'used_goods';
-        if (mpt === 'tourism') return '<P_PMarzy_2>1</P_PMarzy_2>';
-        if (mpt === 'art') return '<P_PMarzy_3_2>1</P_PMarzy_3_2>';
-        if (mpt === 'antiques') return '<P_PMarzy_3_3>1</P_PMarzy_3_3>';
-        return '<P_PMarzy_3_1>1</P_PMarzy_3_1>';
+        const proc = mpt === 'tourism' ? '<P_PMarzy_2>1</P_PMarzy_2>'
+          : mpt === 'art' ? '<P_PMarzy_3_2>1</P_PMarzy_3_2>'
+          : mpt === 'antiques' ? '<P_PMarzy_3_3>1</P_PMarzy_3_3>'
+          : '<P_PMarzy_3_1>1</P_PMarzy_3_1>';
+        return `<P_PMarzy>1</P_PMarzy>${proc}`;
       })() : '<P_PMarzyN>1</P_PMarzyN>'}</PMarzy>
     </Adnotacje>
     <RodzajFaktury>${invoiceType}</RodzajFaktury>${correctionBlockXml}${itemsContent}${fakZalXml}
