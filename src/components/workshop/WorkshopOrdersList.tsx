@@ -1054,6 +1054,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         onOpenChange={(open) => { if (!open) setFiscalOrder(null); }}
         providerId={providerId}
         order={fiscalOrder}
+        onIssueInvoice={() => {
+          // Skrót z paragonu powyżej 450 zł: firma potrzebuje pełnej faktury.
+          const order = fiscalOrder;
+          setFiscalOrder(null);
+          if (order) openInvoiceForOrder(order, 'invoice');
+        }}
       />
 
       {/* Existing invoice — duplicate prevention modal */}

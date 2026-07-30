@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2, Copy, ShieldCheck, Undo2, Pencil, Save } from 'lucide-react';
+import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2, Copy, ShieldCheck, Undo2, Pencil, Save, Building2, User, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   useFiscalPrinter,
@@ -21,25 +21,32 @@ import {
   useResolveStuckReceipt,
   useCatalogFiscalNames,
   useRememberFiscalName,
+  useRememberClientNip,
   FiscalError,
 } from '@/hooks/useFiscal';
 import { printReceiptCopy } from '@/lib/fiscalCopy';
 import { FiscalReturnDialog } from './FiscalReturnDialog';
 import { computeReceiptTotalGrosze, formatPln, mapWorkshopItemsToReceipt, toGrosze, type MappedReceipt } from '@/lib/fiscal';
 import { DEFAULT_FISCAL_NAME_LENGTH, toFiscalName } from '@/lib/fiscalName';
+import { formatNip, isValidNip, isSimplifiedInvoice, normalizeNip, SIMPLIFIED_INVOICE_LIMIT_GROSZE } from '@/lib/nip';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   providerId: string;
-  order: { id: string; order_number?: string | null } | null;
+  /** Wiersz zlecenia z listy — razem z danymi klienta (client_type, nip, company_name). */
+  order: { id: string; order_number?: string | null; client?: any } | null;
+  /** Skrót „Wystaw fakturę zamiast paragonu" — powyżej 450 zł firma potrzebuje faktury. */
+  onIssueInvoice?: () => void;
 }
 
 type PaymentMethod = 'cash' | 'card';
 
-export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: Props) {
+export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onIssueInvoice }: Props) {
   const { data: printer, isLoading: printerLoading } = useFiscalPrinter(providerId);
   const fiscalize = useFiscalizeReceipt(providerId);
   const { data: fiscalState, isLoading: stateLoading } = useDocumentFiscalState(
@@ -58,6 +65,10 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
   const [nameOverrides, setNameOverrides] = useState<Record<number, string>>({});
   const [editingNames, setEditingNames] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
+  const [buyerType, setBuyerType] = useState<'individual' | 'company'>('individual');
+  const [nip, setNip] = useState('');
+  const [printNip, setPrintNip] = useState(true);
+  const rememberNip = useRememberClientNip();
 
   useEffect(() => {
     if (!open || !order) return;
@@ -67,6 +78,12 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
     setNameOverrides({});
     setEditingNames(false);
     setRawItems(null);
+    // Domyślny nabywca z kartoteki klienta; NIP podciągamy, jeśli jest zapisany.
+    const client = order?.client;
+    const isCompany = client?.client_type === 'company';
+    setBuyerType(isCompany ? 'company' : 'individual');
+    setNip(normalizeNip(client?.nip ?? ''));
+    setPrintNip(true);
     setLoadingItems(true);
     (async () => {
       const { data, error: itemsError } = await (supabase as any)
@@ -114,12 +131,22 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
   );
 
   const totalGrosze = useMemo(() => (mapped ? computeReceiptTotalGrosze(mapped.items) : 0), [mapped]);
+  const nipDigits = normalizeNip(nip);
+  const nipValid = isValidNip(nipDigits);
+  const nipTouched = nipDigits.length > 0;
+  const isCompanyBuyer = buyerType === 'company';
+  // Błędny NIP blokuje wydruk — paragonu fiskalnego z błędnym numerem nie da się poprawić.
+  const nipBlocks = isCompanyBuyer && printNip && nipTouched && !nipValid;
+  const nipMissing = isCompanyBuyer && printNip && !nipTouched;
+  const simplified = isSimplifiedInvoice(totalGrosze);
+
   const alreadyFiscalized = Boolean(fiscalState?.blocking);
   const canPrint =
     Boolean(printer) &&
     Boolean(mapped?.items.length) &&
     !mapped?.blocking.length &&
     !alreadyFiscalized &&
+    !nipBlocks &&
     !fiscalize.isPending;
 
   const handleCopy = () => {
@@ -160,6 +187,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
         documentId: order.id,
         items: itemsForPrint,
         payments: [{ name: method === 'cash' ? 'GOTOWKA' : 'KARTA', amount: totalGrosze / 100 }],
+        buyerNip: isCompanyBuyer && printNip && nipValid ? nipDigits : undefined,
       });
       setResult({ receiptNumber: response.receiptNumber, total: response.total });
       toast.success(
@@ -417,6 +445,120 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
                 <AlertDescription>Zlecenie nie ma pozycji, które można wydrukować na paragonie.</AlertDescription>
               </Alert>
             )}
+
+            <div className="rounded-lg border p-3 space-y-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-sm text-muted-foreground">Nabywca</span>
+                <div className="flex gap-1 rounded-md border p-0.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={buyerType === 'individual' ? 'default' : 'ghost'}
+                    className="h-7 gap-1"
+                    onClick={() => setBuyerType('individual')}
+                  >
+                    <User className="h-3.5 w-3.5" /> Osoba prywatna
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={buyerType === 'company' ? 'default' : 'ghost'}
+                    className="h-7 gap-1"
+                    onClick={() => setBuyerType('company')}
+                  >
+                    <Building2 className="h-3.5 w-3.5" /> Firma
+                  </Button>
+                </div>
+              </div>
+
+              {isCompanyBuyer && (
+                <div className="space-y-2">
+                  <div className="flex items-end gap-3 flex-wrap">
+                    <div className="space-y-1">
+                      <Label className="text-xs">NIP nabywcy</Label>
+                      <Input
+                        value={nip}
+                        onChange={(e) => setNip(e.target.value)}
+                        placeholder="10 cyfr"
+                        className={`h-8 w-44 font-mono ${nipBlocks ? 'border-destructive' : ''}`}
+                      />
+                    </div>
+                    <label className="flex items-center gap-2 text-sm pb-1.5 cursor-pointer">
+                      <Checkbox checked={printNip} onCheckedChange={(v) => setPrintNip(v === true)} />
+                      Drukuj NIP na paragonie
+                    </label>
+                    {nipValid && order?.client?.id && normalizeNip(order.client.nip ?? '') !== nipDigits && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 gap-1 text-xs pb-1"
+                        disabled={rememberNip.isPending}
+                        onClick={async () => {
+                          try {
+                            await rememberNip.mutateAsync({
+                              clientId: order.client.id,
+                              nip: nipDigits,
+                              setCompany: order.client.client_type !== 'company',
+                            });
+                            toast.success('Zapamiętano NIP przy kliencie.');
+                          } catch (e: any) {
+                            toast.error(e?.message || 'Nie udało się zapisać NIP-u.');
+                          }
+                        }}
+                      >
+                        <Save className="h-3 w-3" /> Zapamiętaj przy kliencie
+                      </Button>
+                    )}
+                  </div>
+
+                  {nipBlocks && (
+                    <p className="text-xs text-destructive">
+                      Nieprawidłowy NIP (suma kontrolna się nie zgadza). Paragonu z błędnym NIP-em nie da się
+                      poprawić — popraw numer albo odznacz drukowanie NIP-u.
+                    </p>
+                  )}
+                  {nipValid && <p className="text-xs text-muted-foreground">NIP poprawny: {formatNip(nipDigits)}</p>}
+                  {nipMissing && (
+                    <p className="text-xs text-muted-foreground">
+                      Brak NIP-u — paragon wyjdzie bez numeru nabywcy.
+                    </p>
+                  )}
+
+                  {simplified ? (
+                    <Alert>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Paragon z NIP do {(SIMPLIFIED_INVOICE_LIMIT_GROSZE / 100).toFixed(0)} zł jest fakturą
+                        uproszczoną — nie trzeba wystawiać osobnej faktury.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <Alert>
+                      <TriangleAlert className="h-4 w-4" />
+                      <AlertDescription className="text-xs flex items-center justify-between gap-3 flex-wrap">
+                        <span>
+                          Powyżej {(SIMPLIFIED_INVOICE_LIMIT_GROSZE / 100).toFixed(0)} zł paragon z NIP nie
+                          zastępuje faktury — firma będzie potrzebowała pełnej faktury.
+                        </span>
+                        {onIssueInvoice && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1 shrink-0"
+                            onClick={() => {
+                              onOpenChange(false);
+                              onIssueInvoice();
+                            }}
+                          >
+                            <FileText className="h-3.5 w-3.5" /> Wystaw fakturę zamiast paragonu
+                          </Button>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center justify-between">
               <div className="space-y-1">

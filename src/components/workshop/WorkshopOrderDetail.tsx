@@ -16,6 +16,7 @@ import { WorkshopAssignClientDialog } from './WorkshopAssignClientDialog';
 import { WorkshopVehicleHoverCard } from './WorkshopVehicleHoverCard';
 import { WorkshopVehicleEditDialog } from './WorkshopVehicleEditDialog';
 import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
+import { formatNip } from '@/lib/nip';
 import { WorkshopEstimatePreviewDialog } from './WorkshopEstimatePreviewDialog';
 import { WorkshopMechanicCardDialog } from './WorkshopMechanicCardDialog';
 import { RidoPartsCartButton } from './parts/RidoPartsCartButton';
@@ -268,6 +269,33 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
                   <Users className="h-3.5 w-3.5" /> {clientName}
                 </button>
               </WorkshopClientHoverCard>
+              {/* Typ nabywcy widoczny od razu — decyduje o paragonie z NIP vs fakturze.
+                  Firma bez NIP-u jest oznaczona ostrzegawczo i prowadzi wprost do edycji klienta. */}
+              {order.client.client_type === 'company' ? (
+                order.client.nip ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditClientOpen(true)}
+                    className="px-1.5 py-0.5 rounded border text-[11px] text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+                    title="Dane firmy — kliknij, aby edytować"
+                  >
+                    Firma · NIP {formatNip(order.client.nip)}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEditClientOpen(true)}
+                    className="px-1.5 py-0.5 rounded border border-amber-500/60 text-[11px] text-amber-600 hover:bg-amber-500/10 transition-colors"
+                    title="Firma bez NIP-u — uzupełnij, żeby wystawić paragon z NIP lub fakturę"
+                  >
+                    ⚠ Firma · brak NIP
+                  </button>
+                )
+              ) : (
+                <span className="px-1.5 py-0.5 rounded border text-[11px] text-muted-foreground">
+                  Os. prywatna
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => setPickClientOpen(true)}

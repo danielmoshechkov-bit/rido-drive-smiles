@@ -425,6 +425,26 @@ export function useResolveStuckReceipt(providerId?: string) {
   });
 }
 
+/** Zapamiętuje NIP przy kliencie — kolejne dokumenty podciągną go automatycznie. */
+export function useRememberClientNip() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { clientId: string; nip: string; setCompany?: boolean }) => {
+      const patch: Record<string, unknown> = { nip: input.nip };
+      if (input.setCompany) patch.client_type = 'company';
+      const { error } = await (supabase as any)
+        .from('workshop_clients')
+        .update(patch)
+        .eq('id', input.clientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['workshop-clients'] });
+    },
+  });
+}
+
 /** Trwałe nazwy fiskalne z katalogu produktów/usług: id → nazwa na paragon. */
 export function useCatalogFiscalNames(productIds: string[]) {
   const key = [...new Set(productIds.filter(Boolean))].sort();
