@@ -14,7 +14,8 @@
     "elzab:edge": "node --no-warnings=ExperimentalWarning scripts/elzab/03-edge-cases.ts",
     "elzab:report": "node --no-warnings=ExperimentalWarning scripts/elzab/04-day-report.ts",
     "elzab:codepage": "node --no-warnings=ExperimentalWarning scripts/elzab/05-codepage-test.ts",
-    "elzab:bytemap": "node --no-warnings=ExperimentalWarning scripts/elzab/06-byte-map.ts"
+    "elzab:bytemap": "node --no-warnings=ExperimentalWarning scripts/elzab/06-byte-map.ts",
+    "elzab:polish": "node --no-warnings=ExperimentalWarning scripts/elzab/07-polish-test.ts"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.14.1",
