@@ -9088,6 +9088,84 @@ export type Database = {
         }
         Relationships: []
       }
+      fiscal_corrections: {
+        Row: {
+          corrected_at: string
+          correction_number: string
+          created_at: string
+          created_by: string | null
+          document_url: string | null
+          id: string
+          items: Json
+          original_receipt_attached: boolean
+          provider_id: string
+          reason_note: string
+          receipt_id: string
+          receipt_number: number | null
+          report_date: string | null
+          sale_date: string | null
+          updated_at: string
+          vat_breakdown: Json
+          wrong_amount_grosze: number
+          wrong_vat_grosze: number
+        }
+        Insert: {
+          corrected_at?: string
+          correction_number: string
+          created_at?: string
+          created_by?: string | null
+          document_url?: string | null
+          id?: string
+          items?: Json
+          original_receipt_attached?: boolean
+          provider_id: string
+          reason_note: string
+          receipt_id: string
+          receipt_number?: number | null
+          report_date?: string | null
+          sale_date?: string | null
+          updated_at?: string
+          vat_breakdown?: Json
+          wrong_amount_grosze: number
+          wrong_vat_grosze?: number
+        }
+        Update: {
+          corrected_at?: string
+          correction_number?: string
+          created_at?: string
+          created_by?: string | null
+          document_url?: string | null
+          id?: string
+          items?: Json
+          original_receipt_attached?: boolean
+          provider_id?: string
+          reason_note?: string
+          receipt_id?: string
+          receipt_number?: number | null
+          report_date?: string | null
+          sale_date?: string | null
+          updated_at?: string
+          vat_breakdown?: Json
+          wrong_amount_grosze?: number
+          wrong_vat_grosze?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_corrections_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_corrections_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fiscal_ereceipts: {
         Row: {
           consent_at: string | null
@@ -9343,9 +9421,11 @@ export type Database = {
           printed_at: string | null
           printer_id: string | null
           printer_mode: string | null
+          printer_number_before: number | null
           printer_receipt_number: number | null
           provider_id: string
           status: string
+          superseded_by_correction_id: string | null
           total_grosze: number
           trace: Json | null
           updated_at: string
@@ -9366,9 +9446,11 @@ export type Database = {
           printed_at?: string | null
           printer_id?: string | null
           printer_mode?: string | null
+          printer_number_before?: number | null
           printer_receipt_number?: number | null
           provider_id: string
           status?: string
+          superseded_by_correction_id?: string | null
           total_grosze: number
           trace?: Json | null
           updated_at?: string
@@ -9389,9 +9471,11 @@ export type Database = {
           printed_at?: string | null
           printer_id?: string | null
           printer_mode?: string | null
+          printer_number_before?: number | null
           printer_receipt_number?: number | null
           provider_id?: string
           status?: string
+          superseded_by_correction_id?: string | null
           total_grosze?: number
           trace?: Json | null
           updated_at?: string
@@ -9410,6 +9494,109 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_receipts_superseded_by_correction_id_fkey"
+            columns: ["superseded_by_correction_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_corrections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fiscal_returns: {
+        Row: {
+          amount_grosze: number
+          buyer_signed_at: string | null
+          created_at: string
+          created_by: string | null
+          customer_document: string | null
+          customer_name: string | null
+          document_url: string | null
+          id: string
+          items: Json
+          provider_id: string
+          reason: string
+          reason_note: string | null
+          receipt_id: string
+          receipt_number: number | null
+          report_date: string | null
+          return_number: string
+          return_type: string | null
+          returned_at: string
+          sale_date: string | null
+          seller_name: string | null
+          seller_signed_at: string | null
+          signed_at: string | null
+          updated_at: string
+          vat_breakdown: Json
+        }
+        Insert: {
+          amount_grosze: number
+          buyer_signed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_document?: string | null
+          customer_name?: string | null
+          document_url?: string | null
+          id?: string
+          items: Json
+          provider_id: string
+          reason: string
+          reason_note?: string | null
+          receipt_id: string
+          receipt_number?: number | null
+          report_date?: string | null
+          return_number: string
+          return_type?: string | null
+          returned_at?: string
+          sale_date?: string | null
+          seller_name?: string | null
+          seller_signed_at?: string | null
+          signed_at?: string | null
+          updated_at?: string
+          vat_breakdown?: Json
+        }
+        Update: {
+          amount_grosze?: number
+          buyer_signed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_document?: string | null
+          customer_name?: string | null
+          document_url?: string | null
+          id?: string
+          items?: Json
+          provider_id?: string
+          reason?: string
+          reason_note?: string | null
+          receipt_id?: string
+          receipt_number?: number | null
+          report_date?: string | null
+          return_number?: string
+          return_type?: string | null
+          returned_at?: string
+          sale_date?: string | null
+          seller_name?: string | null
+          seller_signed_at?: string | null
+          signed_at?: string | null
+          updated_at?: string
+          vat_breakdown?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_returns_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_returns_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_receipts"
             referencedColumns: ["id"]
           },
         ]
@@ -11318,6 +11505,7 @@ export type Database = {
           default_sale_price_gross: number | null
           default_sale_price_net: number | null
           entity_id: string | null
+          fiscal_name: string | null
           id: string
           is_active: boolean | null
           name_sales: string
@@ -11339,6 +11527,7 @@ export type Database = {
           default_sale_price_gross?: number | null
           default_sale_price_net?: number | null
           entity_id?: string | null
+          fiscal_name?: string | null
           id?: string
           is_active?: boolean | null
           name_sales: string
@@ -11360,6 +11549,7 @@ export type Database = {
           default_sale_price_gross?: number | null
           default_sale_price_net?: number | null
           entity_id?: string | null
+          fiscal_name?: string | null
           id?: string
           is_active?: boolean | null
           name_sales?: string
@@ -15341,6 +15531,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           duration_minutes: number | null
+          fiscal_name: string | null
           id: string
           is_active: boolean | null
           name: string
@@ -15356,6 +15547,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           duration_minutes?: number | null
+          fiscal_name?: string | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -15371,6 +15563,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           duration_minutes?: number | null
+          fiscal_name?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
@@ -21757,6 +21950,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           due_date: string | null
+          fiscal_receipt_id: string | null
           gross_total: number | null
           id: string
           invoice_number: string
@@ -21810,6 +22004,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           due_date?: string | null
+          fiscal_receipt_id?: string | null
           gross_total?: number | null
           id?: string
           invoice_number: string
@@ -21863,6 +22058,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           due_date?: string | null
+          fiscal_receipt_id?: string | null
           gross_total?: number | null
           id?: string
           invoice_number?: string
@@ -21917,6 +22113,13 @@ export type Database = {
             columns: ["corrected_invoice_id"]
             isOneToOne: false
             referencedRelation: "user_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_invoices_fiscal_receipt_id_fkey"
+            columns: ["fiscal_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_receipts"
             referencedColumns: ["id"]
           },
         ]

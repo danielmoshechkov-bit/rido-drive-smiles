@@ -53,6 +53,7 @@ Testy: `npm run elzab:health`, `npm run elzab:receipt`, `npm run elzab:edge`
 | `Esc 66H` nr ostatniego paragonu | `ACK` + 2 B little-endian | numer w BIEŻĄCEJ DOBIE — zeruje się po raporcie dobowym (zaobserwowane 29 → 1) |
 | `Esc 54H` / `Esc 55H` status 1/2 | `ACK` + 1 B | status 2 = `0x10` po odrzuconej operacji |
 | `Esc 23H` anulowanie | `ACK` (gdy paragon otwarty) / `NAK` | |
+| `Esc 4BH` NIP nabywcy | **`00`** (bez ACK!) | pole 42 znaki dopełnione spacjami; `0x00` = przyjęte, potem `Esc 50H` = `ACK 00` |
 
 **Najważniejsze odkrycie:** pozycja sprzedaży, koniec pozycji i płatność **nie odsyłają ACK**.
 Naiwna implementacja „wyślij i czekaj na ACK" wisi do timeoutu. Potwierdzeniem jest `Esc 50H`.
@@ -178,7 +179,6 @@ wywołanie edge function z powyższym wejściem.
 
 ## Nieprzetestowane (oznaczone `TODO(hardware)`)
 
-- `Esc 4BH` NIP nabywcy — długość pola przyjęta jako 42 znaki z dopełnieniem spacjami
 - `Esc 82H` reszta — format kwoty przyjęty analogicznie do płatności
 
 ## Podłączenie drukarki u nowego klienta

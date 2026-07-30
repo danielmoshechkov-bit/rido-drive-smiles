@@ -147,6 +147,31 @@ export class ElzabClient {
     await this.verifyStatus(name);
   }
 
+  /**
+   * NIP nabywcy na paragonie (Esc 4BH).
+   *
+   * Uwaga: ta sekwencja NIE odpowiada ACK-iem — zwraca pojedynczy bajt odpowiedzi
+   * (0x00 = przyjęte). Zweryfikowane na ELZAB Zeta: pole 42 znaków dopełnione spacjami,
+   * odpowiedź `00`, status po niej 0x00.
+   */
+  async setBuyerNip(nip: string): Promise<void> {
+    const bytes = cmd.buyerNip(nip);
+    this.log(`→ NIP nabywcy: ${hex(bytes)}`);
+    await this.transport.write(bytes);
+
+    const response = await this.readBytes(1, this.opts.commandTimeoutMs, 'NIP nabywcy');
+    this.log(`← NIP nabywcy: ${hex(response)}`);
+    if (response[0] !== 0x00) {
+      throw new ElzabError(
+        'NAK',
+        `Drukarka odrzuciła NIP nabywcy „${nip}" (odpowiedź 0x${response[0].toString(16)}). Sprawdź poprawność numeru.`,
+        `buyer NIP rejected: 0x${response[0].toString(16)}`,
+        { nip },
+      );
+    }
+    await this.verifyStatus('NIP nabywcy');
+  }
+
   /** Kontrola stanu (Esc 50H) → ACK + bajt statusu. Status != 0 oznacza błąd paragonu. */
   async verifyStatus(afterCommand: string): Promise<number> {
     const { payload } = await this.send('kontrola stanu', cmd.checkStatus(), 1, { timeoutMs: 5000 });
@@ -249,7 +274,7 @@ export class ElzabClient {
       receiptOpen = true;
 
       if (prepared.buyerNip) {
-        await this.send('NIP nabywcy', cmd.buyerNip(prepared.buyerNip), 1, { allowNak: true });
+        await this.setBuyerNip(prepared.buyerNip);
       }
 
       for (const [index, item] of prepared.items.entries()) {
