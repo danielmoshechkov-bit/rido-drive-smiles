@@ -69,6 +69,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
     try {
       const response = await fiscalize.mutateAsync({
         printerId: printer?.id,
+        printer,
         documentType: 'workshop_order',
         documentId: order.id,
         items: mapped.items,

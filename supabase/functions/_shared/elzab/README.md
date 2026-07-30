@@ -166,6 +166,32 @@ KROK 3 — mapa stawek VAT zgodna z literami zaprogramowanymi w urządzeniu, KRO
 próbny na zleceniu w trybie szkoleniowym, KROK 5 — dopiero po fiskalizacji urządzenia
 przez serwis przełącz tryb na *fiskalny*.
 
+## Mostek lokalny (drukowanie z przeglądarki)
+
+Edge function w chmurze nie ma jak wejść do sieci lokalnej klienta, a przeglądarka nie
+otworzy surowego gniazda TCP. Mostek zamyka tę lukę: mały serwer na komputerze warsztatu,
+który przyjmuje HTTP z przeglądarki i gada z drukarką tą samą biblioteką co edge function.
+
+```bash
+npm run fiscal:bridge                       # nasłuchuje na http://127.0.0.1:9110
+FISCAL_BRIDGE_TOKEN=tajne npm run fiscal:bridge   # z tokenem
+```
+
+W aplikacji: **Ustawienia → Fiskalizacja → Mostek lokalny (ten komputer)** — przełącznik plus
+adres. Ustawienie siedzi w `localStorage` tej przeglądarki, bo mostek jest cechą KOMPUTERA,
+nie tenanta (dwa stanowiska w warsztacie = dwa niezależne mostki).
+
+Bezpieczeństwo: nasłuch tylko na 127.0.0.1, CORS ograniczony do adresów GetRido
+(dowolna strona w internecie nie wydrukuje — preflight ją odetnie), opcjonalny token.
+Chrome traktuje `http://127.0.0.1` jako bezpieczne pochodzenie, więc produkcyjne
+`https://getrido.pl` może wołać mostek bez ostrzeżeń o mieszanej treści.
+
+Przepływ: przeglądarka → mostek → drukarka; wynik (numer paragonu, trace) wraca do
+przeglądarki, która zapisuje wiersz w `fiscal_receipts` (RLS dopuszcza INSERT dla członków
+tenanta, UPDATE/DELETE pozostaje zablokowane). Gdy mostek jest wyłączony, ten sam przycisk
+idzie ścieżką chmurową przez `fiscalize-receipt` — kod obsługuje oba tryby bez przełączników
+w bazie.
+
 ## TODO
 
 - **Auto-raport dobowy.** Klient nie ma stałego komputera przy drukarce, a urządzenie blokuje
@@ -181,10 +207,11 @@ przez serwis przełącz tryb na *fiskalny*.
 - **Płatność kartą (Faza 3).** Interfejs `PaymentTerminal` + tabela `fiscal_payment_intents`
   czekają na wybór dostawcy (PolCard / PeP / eService / SoftPOS). Fiskalizacja ma startować
   dopiero po statusie `paid`, z `paymentRef` = id intencji.
-- **Dostęp z chmury do drukarki.** Edge function na produkcji nie dosięgnie LAN klienta
-  (potwierdzone: `CONNECTION` przy 192.168.0.114). Do rozstrzygnięcia przy wdrożeniu —
-  tunel, publiczny adres albo lekki agent w sieci klienta. Kod jest gotowy bez zmian:
-  wystarczy wpis `host:port` w `fiscal_printers`.
+- **Tunel jako druga droga.** Mostek działa u klientów bez publicznego adresu. Dla klientów
+  ze stałym IP alternatywą jest tunel/przekierowanie portu — wtedy wystarczy wpis `host:port`
+  w `fiscal_printers` i ścieżka chmurowa (`fiscalize-receipt`) zadziała bez żadnych zmian
+  w kodzie; mostek zostaje wyłączony. Przy wystawianiu drukarki na świat: włączyć szyfrowanie
+  ELZAB i ograniczyć źródła połączeń.
 - **Uogólnienie tenanta.** `is_fiscal_provider_member` sięga do `workshop_employees` — to
   jedyne miejsce w module, które zna warsztat. Przy pierwszej nie-warsztatowej branży
   (dźwigi, gastronomia) trzeba tę funkcję uogólnić; reszta modułu zostaje bez zmian.

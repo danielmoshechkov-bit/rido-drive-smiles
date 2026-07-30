@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plug, Printer, Save, FileBarChart, TriangleAlert, CheckCircle2 } from 'lucide-react';
+import { Loader2, Plug, Printer, Save, FileBarChart, TriangleAlert, CheckCircle2, Laptop } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useFiscalPrinter,
@@ -24,6 +24,14 @@ import {
   type FiscalPrinter,
 } from '@/hooks/useFiscal';
 import { CODEPAGE_LABELS } from '@/lib/fiscal';
+import {
+  DEFAULT_BRIDGE_URL,
+  bridgeHealth,
+  getBridgeConfig,
+  setBridgeConfig,
+  type BridgeConfig,
+} from '@/lib/fiscalBridge';
+import { Switch } from '@/components/ui/switch';
 import { FiscalReceiptsLog } from './FiscalReceiptsLog';
 
 interface Props {
@@ -67,10 +75,35 @@ export function FiscalPrinterSettings({ providerId }: Props) {
 
   const [form, setForm] = useState<Partial<FiscalPrinter>>(emptyPrinter);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string; code?: string } | null>(null);
+  const [bridge, setBridge] = useState<BridgeConfig>({ enabled: false, url: DEFAULT_BRIDGE_URL });
+  const [bridgeStatus, setBridgeStatus] = useState<{ ok: boolean; message: string } | null>(null);
 
   useEffect(() => {
     if (printer) setForm(printer);
   }, [printer]);
+
+  useEffect(() => {
+    setBridge(getBridgeConfig(providerId));
+  }, [providerId]);
+
+  const saveBridge = (patch: Partial<BridgeConfig>) => {
+    const next = { ...bridge, ...patch };
+    setBridge(next);
+    setBridgeConfig(next, providerId);
+  };
+
+  const handleBridgeCheck = async () => {
+    setBridgeStatus(null);
+    try {
+      const health = await bridgeHealth(bridge);
+      setBridgeStatus({ ok: true, message: `Mostek działa (wersja ${health.version ?? '?'}).` });
+    } catch {
+      setBridgeStatus({
+        ok: false,
+        message: `Mostek nie odpowiada pod ${bridge.url}. Uruchom go poleceniem „npm run fiscal:bridge" na tym komputerze.`,
+      });
+    }
+  };
 
   const set = (patch: Partial<FiscalPrinter>) => setForm((prev) => ({ ...prev, ...patch }));
 
@@ -90,7 +123,7 @@ export function FiscalPrinterSettings({ providerId }: Props) {
   const handleTest = async () => {
     setTestResult(null);
     try {
-      const result = await testPrinter.mutateAsync(printer?.id);
+      const result = await testPrinter.mutateAsync(printer ?? undefined);
       setTestResult({ ok: true, message: `${result.message} Zegar drukarki: ${result.clock}.` });
       toast.success('Drukarka odpowiada.');
     } catch (error) {
@@ -103,7 +136,7 @@ export function FiscalPrinterSettings({ providerId }: Props) {
   const handleDayReport = async () => {
     if (!confirm('Wykonać raport dobowy? Drukarka wydrukuje raport i zamknie dobę sprzedaży.')) return;
     try {
-      const result = await dayReport.mutateAsync(printer?.id);
+      const result = await dayReport.mutateAsync(printer ?? undefined);
       toast.success(result.message);
     } catch (error) {
       toast.error((error as FiscalError).message);
@@ -244,6 +277,53 @@ export function FiscalPrinterSettings({ providerId }: Props) {
             <p className="text-[11px] text-muted-foreground">
               Przypisanie liter jest ustalane przy fiskalizacji urządzenia — różne drukarki mogą mieć różne.
             </p>
+          </div>
+
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="font-medium flex items-center gap-2">
+                  <Laptop className="h-4 w-4" /> Mostek lokalny (ten komputer)
+                </div>
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  Drukarka stoi w sieci lokalnej, a serwer GetRido w chmurze — nie ma jak do niej wejść.
+                  Mostek uruchomiony na tym komputerze przyjmuje wydruk z przeglądarki i przekazuje go do
+                  drukarki. Ustawienie dotyczy tylko tej przeglądarki.
+                </p>
+              </div>
+              <Switch checked={bridge.enabled} onCheckedChange={(checked) => saveBridge({ enabled: checked })} />
+            </div>
+
+            {bridge.enabled && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Adres mostka</Label>
+                    <Input value={bridge.url} onChange={(e) => saveBridge({ url: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Token (opcjonalny)</Label>
+                    <Input
+                      value={bridge.token ?? ''}
+                      onChange={(e) => saveBridge({ token: e.target.value })}
+                      placeholder="pusty = mostek bez tokenu"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={handleBridgeCheck} className="gap-1">
+                    <Plug className="h-3.5 w-3.5" /> Sprawdź mostek
+                  </Button>
+                  <code className="text-[11px] text-muted-foreground">npm run fiscal:bridge</code>
+                </div>
+                {bridgeStatus && (
+                  <Alert variant={bridgeStatus.ok ? 'default' : 'destructive'}>
+                    {bridgeStatus.ok ? <CheckCircle2 className="h-4 w-4" /> : <TriangleAlert className="h-4 w-4" />}
+                    <AlertDescription>{bridgeStatus.message}</AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
           </div>
 
           {testResult && (
