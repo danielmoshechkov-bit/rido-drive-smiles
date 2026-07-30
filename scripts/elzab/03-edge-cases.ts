@@ -105,8 +105,8 @@ check(
 );
 // 6b. CP852 — strona kodowa potwierdzona na ELZAB Zeta (mapa bajtów, paragon nr 6)
 check(
-  'domyślną stroną kodową modułu jest CP852',
-  DEFAULT_CODEPAGE === 'cp852',
+  'domyślną stroną kodową modułu jest CP1250 (zgodnie z ustawieniem drukarki)',
+  DEFAULT_CODEPAGE === 'cp1250',
   DEFAULT_CODEPAGE,
 );
 check(
@@ -120,8 +120,8 @@ check(
   hex(encodeText(POLISH_UPPER, 'cp852')),
 );
 check(
-  'pozycja sprzedaży domyślnie koduje ł jako 0x88 (CP852)',
-  cmd.saleItem({ name: 'Płyn chłodniczy', quantity: 1, unitPriceGrosze: 100, totalGrosze: 100, vatLetter: 'A' })[4] === 0x88,
+  'pozycja sprzedaży domyślnie koduje ł jako 0xB3 (CP1250)',
+  cmd.saleItem({ name: 'Płyn chłodniczy', quantity: 1, unitPriceGrosze: 100, totalGrosze: 100, vatLetter: 'A' })[4] === 0xb3,
 );
 check(
   'żaden znak nie znika: 34 znaki → 34 bajty w każdej stronie kodowej',

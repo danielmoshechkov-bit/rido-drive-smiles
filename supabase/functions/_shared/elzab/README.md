@@ -38,7 +38,7 @@ try {
 ## Co potwierdzono na sprzęcie (ELZAB Zeta Online, tryb szkoleniowy, 30.07.2026)
 
 Testy: `npm run elzab:health`, `npm run elzab:receipt`, `npm run elzab:edge`
-(ENV: `ELZAB_HOST`, `ELZAB_PORT`, domyślnie `192.168.0.168:9100`).
+(ENV: `ELZAB_HOST`, `ELZAB_PORT`, domyślnie `192.168.0.114:9100`).
 
 | sekwencja | odpowiedź drukarki | uwagi |
 |---|---|---|

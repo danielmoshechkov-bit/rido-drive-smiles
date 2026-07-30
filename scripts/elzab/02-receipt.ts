@@ -18,16 +18,22 @@ import { connect, dim, fail, header, ok, warn } from './common.ts';
 const VAT_RATE = process.env.VAT_RATE ?? '23';
 const DRY_RUN = process.env.DRY_RUN === '1';
 
+const items: ReceiptRequest['items'] = [
+  // Typowa usługa warsztatowa
+  { name: 'Wymiana oleju silnikowego', quantity: 1, unit: 'usl', unitPrice: 150.0, vatRate: VAT_RATE },
+  // Ilość ułamkowa + nazwa z ą/ł/ż
+  { name: 'Płyn chłodzący G12 żółty', quantity: 2.5, unit: 'l', unitPrice: 39.99, vatRate: VAT_RATE },
+  // Komplet ę/ł/ż w jednej nazwie
+  { name: 'Sprzęgło wymiana łożyska', quantity: 1, unit: 'usl', unitPrice: 480.0, vatRate: VAT_RATE },
+];
+
+// Suma płatności liczona z pozycji — drukarka unieważnia paragon przy najmniejszej niezgodności.
+const total = items.reduce((sum, item) => sum + Math.round(item.unitPrice * 100) * item.quantity, 0) / 100;
+
 const receipt: ReceiptRequest = {
   vatMap: DEFAULT_VAT_MAP,
-  items: [
-    // Polskie znaki + typowa usługa warsztatowa
-    { name: 'Wymiana oleju silnikowego', quantity: 1, unit: 'usl', unitPrice: 150.0, vatRate: VAT_RATE },
-    // Ilość ułamkowa + nazwa z ą/ł/ż
-    { name: 'Płyn chłodzący G12 żółty', quantity: 2.5, unit: 'l', unitPrice: 39.99, vatRate: VAT_RATE },
-  ],
-  // 150.00 + 2.5 × 39.99 = 249.98
-  payments: [{ name: 'GOTOWKA', amount: 249.98 }],
+  items,
+  payments: [{ name: 'GOTOWKA', amount: total }],
 };
 
 header(`ELZAB — paragon testowy (tryb szkoleniowy, stawka ${VAT_RATE}%)`);

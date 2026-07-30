@@ -1,12 +1,12 @@
 /**
  * Wspólne utilsy skryptów testowych (Node).
- * Konfiguracja przez ENV: ELZAB_HOST, ELZAB_PORT (domyślnie 192.168.0.168:9100).
+ * Konfiguracja przez ENV: ELZAB_HOST, ELZAB_PORT (domyślnie 192.168.0.114:9100).
  */
 
 import { ElzabClient } from '../../supabase/functions/_shared/elzab/client.ts';
 import { createNodeTransport } from './transport-node.ts';
 
-export const HOST = process.env.ELZAB_HOST ?? '192.168.0.168';
+export const HOST = process.env.ELZAB_HOST ?? '192.168.0.114';
 export const PORT = Number(process.env.ELZAB_PORT ?? 9100);
 
 export async function connect(options: { verbose?: boolean } = {}): Promise<ElzabClient> {

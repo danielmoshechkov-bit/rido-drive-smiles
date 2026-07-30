@@ -11,10 +11,18 @@ export type Codepage = 'cp1250' | 'latin2' | 'cp852' | 'mazovia';
 
 /**
  * Domyślna strona kodowa modułu.
- * ELZAB Zeta Online (potwierdzone mapą bajtów, paragon nr 6 z 30.07.2026) drukuje
- * polskie znaki w CP852 — bajty spoza jej tablicy glifów są po cichu pomijane.
+ *
+ * UWAGA: decyduje USTAWIENIE W MENU DRUKARKI — kodowanie po naszej stronie musi być
+ * tym samym. Bajt spoza aktualnej tablicy glifów jest przez drukarkę po cichu pomijany
+ * (żadnego NAK, żadnego krzaka — znak po prostu znika).
+ *
+ * Potwierdzone na ELZAB Zeta Online (30.07.2026):
+ *   • urządzenie ustawione na Latin II  → drukuje CP852  (mapa bajtów, paragon nr 6)
+ *   • urządzenie przestawione na CP1250 → drukuje CP1250 (paragon nr 11, wiersze 1-2)
+ *
+ * Po każdej zmianie ustawienia w drukarce: `npm run elzab:polish` i porównanie z papierem.
  */
-export const DEFAULT_CODEPAGE: Codepage = 'cp852';
+export const DEFAULT_CODEPAGE: Codepage = 'cp1250';
 
 export const CODEPAGES: Codepage[] = ['cp1250', 'latin2', 'cp852', 'mazovia'];
 

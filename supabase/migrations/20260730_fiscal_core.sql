@@ -81,8 +81,9 @@ CREATE TABLE IF NOT EXISTS public.fiscal_printers (
   item_name_length    smallint    NOT NULL DEFAULT 28 CHECK (item_name_length IN (28, 40)),
   -- strona kodowa urządzenia — ustalana empirycznie (npm run elzab:bytemap),
   -- bo drukarka po cichu gubi bajty spoza swojej tablicy glifów.
-  -- ELZAB Zeta Online: potwierdzone CP852 (mapa bajtów z 30.07.2026)
-  codepage            text        NOT NULL DEFAULT 'cp852'
+  -- Musi odpowiadać ustawieniu w MENU drukarki — niezgodność = znikające polskie znaki
+  -- (urządzenie pomija nieznany bajt bez żadnego błędu).
+  codepage            text        NOT NULL DEFAULT 'cp1250'
                                   CHECK (codepage IN ('cp1250', 'latin2', 'cp852', 'mazovia')),
   default_unit        text        NOT NULL DEFAULT 'szt',
   command_timeout_ms  integer     NOT NULL DEFAULT 10000 CHECK (command_timeout_ms BETWEEN 1000 AND 60000),
