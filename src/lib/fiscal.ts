@@ -8,6 +8,10 @@
 
 export interface FiscalItemInput {
   name: string;
+  /** Nazwa z dokumentu źródłowego — pokazywana w podglądzie, gdy różni się od fiskalnej. */
+  originalName?: string;
+  /** Produkt z katalogu, jeśli pozycja z niego pochodzi (zapamiętywanie nazwy fiskalnej). */
+  productId?: string;
   quantity: number;
   unit?: string;
   /** Cena jednostkowa BRUTTO w złotych. */
@@ -76,7 +80,12 @@ function significantChars(text: string): number {
  */
 export function mapWorkshopItemsToReceipt(
   orderItems: any[],
-  options: { defaultVatRate?: string; defaultUnit?: string } = {},
+  options: {
+    defaultVatRate?: string;
+    defaultUnit?: string;
+    /** Trwałe nazwy fiskalne z katalogu: id produktu → nazwa na paragon. */
+    catalogFiscalNames?: Record<string, string>;
+  } = {},
 ): MappedReceipt {
   const defaultVat = options.defaultVatRate ?? '23';
   const defaultUnit = options.defaultUnit ?? 'szt';
@@ -120,9 +129,16 @@ export function mapWorkshopItemsToReceipt(
       continue;
     }
 
+    // Nazwa zapamiętana w katalogu wygrywa z nazwą wpisaną w zleceniu.
+    const catalogName = raw?.inventory_product_id
+      ? options.catalogFiscalNames?.[raw.inventory_product_id]?.trim()
+      : undefined;
+
     items.push({
-      name,
+      name: catalogName || name,
+      originalName: name,
       quantity,
+      productId: raw?.inventory_product_id ?? undefined,
       unit: String(raw?.unit || defaultUnit).slice(0, 4),
       unitPrice,
       vatRate,

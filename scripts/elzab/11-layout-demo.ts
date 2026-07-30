@@ -71,7 +71,8 @@ try {
         vatLetter: DEFAULT_VAT_MAP[item.vatRate] ?? 'A',
         nameLength: NAME_LENGTH,
         codepage: 'cp1250',
-        forceNameLine: true,
+        // Domyślnie NIE wymuszamy dwóch linii — naturalny układ drukarki jest czytelniejszy.
+        forceNameLine: process.env.FORCE_TWO_LINES === '1',
       }),
     );
   }

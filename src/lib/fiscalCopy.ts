@@ -8,7 +8,7 @@
  * i nigdy nie dotyka urządzenia fiskalnego.
  */
 
-import type { FiscalReceiptRow } from '@/hooks/useFiscal';
+import type { FiscalReceiptRow, FiscalReturnRow } from '@/hooks/useFiscal';
 import { formatPln } from './fiscal';
 
 export interface CopyHeader {
@@ -99,6 +99,105 @@ export function printReceiptCopy(receipt: FiscalReceiptRow, header: CopyHeader =
 </body></html>`;
 
   const printWindow = window.open('', '_blank', 'width=720,height=900');
+  if (!printWindow) {
+    throw new Error('Przeglądarka zablokowała okno wydruku. Zezwól na wyskakujące okna dla tej strony.');
+  }
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
+
+/**
+ * PROTOKÓŁ ZWROTU/REKLAMACJI — dokument niefiskalny do podpisu przez klienta.
+ * Wymagany przez rozporządzenie o kasach jako część ewidencji zwrotów.
+ */
+export function printReturnProtocol(
+  ret: FiscalReturnRow,
+  receipt: FiscalReceiptRow | null,
+  header: CopyHeader = {},
+): void {
+  const items = Array.isArray(ret.items) ? ret.items : [];
+  const rows = items
+    .map(
+      (item) => `<tr>
+        <td>${escapeHtml(item.name)}</td>
+        <td class="num">${item.quantity}</td>
+        <td class="num">${formatPln(Math.round(Number(item.unitPrice) * 100))}</td>
+        <td class="num">${escapeHtml(item.vatRate === 'zw' ? 'zw.' : `${item.vatRate}%`)}</td>
+        <td class="num">${formatPln(Math.round(Number(item.amount) * 100))}</td>
+      </tr>`,
+    )
+    .join('');
+
+  const vatRows = Object.entries(ret.vat_breakdown ?? {})
+    .map(([rate, grosze]) => `<tr><td>Stawka ${escapeHtml(rate === 'zw' ? 'zw.' : `${rate}%`)}</td><td class="num">${formatPln(Number(grosze))}</td></tr>`)
+    .join('');
+
+  const reasonLabels: Record<string, string> = {
+    zwrot_towaru: 'Zwrot towaru',
+    reklamacja: 'Reklamacja',
+    pomylka_kasjera: 'Pomyłka kasjera',
+  };
+
+  const html = `<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><title>Protokół zwrotu ${escapeHtml(ret.return_number)}</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; color: #111; font-size: 13px; }
+  .banner { border: 2px solid #111; padding: 8px 12px; text-align: center; font-weight: 700; letter-spacing: 1px; }
+  h1 { font-size: 17px; margin: 18px 0 6px; }
+  .muted { color: #555; font-size: 12px; line-height: 1.7; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border-bottom: 1px solid #ddd; padding: 6px 4px; text-align: left; }
+  .num { text-align: right; white-space: nowrap; }
+  tfoot td { border-top: 2px solid #111; border-bottom: none; font-weight: 700; font-size: 15px; }
+  .sign { margin-top: 46px; display: flex; justify-content: space-between; gap: 40px; }
+  .sign div { flex: 1; border-top: 1px solid #111; padding-top: 6px; text-align: center; font-size: 11px; color: #555; }
+  .footer { margin-top: 22px; font-size: 11px; color: #555; line-height: 1.6; }
+  @media print { body { margin: 10mm; } }
+</style></head>
+<body>
+  <div class="banner">PROTOKÓŁ ZWROTU / REKLAMACJI — DOKUMENT NIEFISKALNY</div>
+
+  <h1>${escapeHtml(header.companyName ?? '')}</h1>
+  <div class="muted">
+    ${header.address ? escapeHtml(header.address) + '<br>' : ''}
+    ${header.nip ? 'NIP: ' + escapeHtml(header.nip) : ''}
+  </div>
+
+  <h1>Zwrot nr ${escapeHtml(ret.return_number)}</h1>
+  <div class="muted">
+    Data zwrotu: ${escapeHtml(new Date(ret.returned_at).toLocaleDateString('pl-PL'))}<br>
+    Powód: ${escapeHtml(reasonLabels[ret.reason] ?? ret.reason)}${ret.reason_note ? ' — ' + escapeHtml(ret.reason_note) : ''}<br>
+    Paragon fiskalny nr: ${escapeHtml(receipt?.printer_receipt_number ?? '—')}
+    z dnia ${escapeHtml(new Date(receipt?.printed_at ?? receipt?.created_at ?? ret.created_at).toLocaleString('pl-PL'))}<br>
+    ${header.documentLabel ? 'Dokument źródłowy: ' + escapeHtml(header.documentLabel) + '<br>' : ''}
+    Klient: ${escapeHtml(ret.customer_name ?? '—')}${ret.customer_document ? ', dokument: ' + escapeHtml(ret.customer_document) : ''}
+  </div>
+
+  <table>
+    <thead><tr><th>Pozycja</th><th class="num">Ilość</th><th class="num">Cena</th><th class="num">VAT</th><th class="num">Wartość</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="4">KWOTA ZWROTU</td><td class="num">${formatPln(ret.amount_grosze)}</td></tr></tfoot>
+  </table>
+
+  ${vatRows ? `<table style="width:auto;margin-top:14px"><tbody>${vatRows}</tbody></table>` : ''}
+
+  <div class="sign">
+    <div>podpis klienta</div>
+    <div>podpis sprzedawcy</div>
+  </div>
+
+  <div class="footer">
+    Zwrot ujęty w ewidencji zwrotów i uznanych reklamacji prowadzonej zgodnie z rozporządzeniem
+    w sprawie kas rejestrujących. Oryginalny paragon fiskalny pozostaje bez zmian —
+    dokument nie jest dokumentem fiskalnym i nie był drukowany na kasie.<br>
+    Wygenerowano w GetRido: ${escapeHtml(new Date().toLocaleString('pl-PL'))}
+  </div>
+
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+  const printWindow = window.open('', '_blank', 'width=760,height=900');
   if (!printWindow) {
     throw new Error('Przeglądarka zablokowała okno wydruku. Zezwól na wyskakujące okna dla tej strony.');
   }

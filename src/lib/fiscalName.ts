@@ -144,7 +144,8 @@ function cutOnWordBoundary(text: string, maxLength: number): string {
   const cut = text.slice(0, maxLength);
   const lastSpace = cut.lastIndexOf(' ');
   // Pojedynczy wyraz dłuższy niż całe pole — jedyny przypadek twardego cięcia.
-  if (lastSpace <= 0) return cut.trimEnd();
+  // Ucięta końcówka MUSI być oznaczona kropką, żeby nie wyglądała na literówkę.
+  if (lastSpace <= 0) return cut.slice(0, maxLength - 1).trimEnd() + '.';
   return cut.slice(0, lastSpace).trimEnd();
 }
 

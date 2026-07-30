@@ -12,16 +12,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2, Copy, ShieldCheck, Undo2, Pencil } from 'lucide-react';
+import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2, Copy, ShieldCheck, Undo2, Pencil, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   useFiscalPrinter,
   useFiscalizeReceipt,
   useDocumentFiscalState,
   useResolveStuckReceipt,
+  useCatalogFiscalNames,
+  useRememberFiscalName,
   FiscalError,
 } from '@/hooks/useFiscal';
 import { printReceiptCopy } from '@/lib/fiscalCopy';
+import { FiscalReturnDialog } from './FiscalReturnDialog';
 import { computeReceiptTotalGrosze, formatPln, mapWorkshopItemsToReceipt, toGrosze, type MappedReceipt } from '@/lib/fiscal';
 import { DEFAULT_FISCAL_NAME_LENGTH, toFiscalName } from '@/lib/fiscalName';
 import { Input } from '@/components/ui/input';
@@ -46,7 +49,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
   );
   const resolveStuck = useResolveStuckReceipt(providerId);
 
-  const [mapped, setMapped] = useState<MappedReceipt | null>(null);
+  const [rawItems, setRawItems] = useState<any[] | null>(null);
   const [loadingItems, setLoadingItems] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [result, setResult] = useState<{ receiptNumber: number | null; total: number } | null>(null);
@@ -54,6 +57,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
   // Ręczna „nazwa na paragon" per pozycja; pusta = automatyczne skracanie.
   const [nameOverrides, setNameOverrides] = useState<Record<number, string>>({});
   const [editingNames, setEditingNames] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
 
   useEffect(() => {
     if (!open || !order) return;
@@ -62,6 +66,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
     setMethod('cash');
     setNameOverrides({});
     setEditingNames(false);
+    setRawItems(null);
     setLoadingItems(true);
     (async () => {
       const { data, error: itemsError } = await (supabase as any)
@@ -71,13 +76,31 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
         .order('sort_order');
       if (itemsError) {
         setError({ code: 'DB', message: `Nie udało się wczytać pozycji zlecenia: ${itemsError.message}` });
-        setMapped(null);
+        setRawItems(null);
       } else {
-        setMapped(mapWorkshopItemsToReceipt(data || [], { defaultUnit: printer?.default_unit }));
+        setRawItems(data || []);
       }
       setLoadingItems(false);
     })();
   }, [open, order?.id, printer?.default_unit]);
+
+  const productIds = useMemo(
+    () => (rawItems ?? []).map((item) => item?.inventory_product_id).filter(Boolean) as string[],
+    [rawItems],
+  );
+  const { data: catalogFiscalNames } = useCatalogFiscalNames(productIds);
+  const rememberName = useRememberFiscalName();
+
+  const mapped: MappedReceipt | null = useMemo(
+    () =>
+      rawItems
+        ? mapWorkshopItemsToReceipt(rawItems, {
+            defaultUnit: printer?.default_unit,
+            catalogFiscalNames,
+          })
+        : null,
+    [rawItems, printer?.default_unit, catalogFiscalNames],
+  );
 
   const nameLength = printer?.item_name_length ?? DEFAULT_FISCAL_NAME_LENGTH;
 
@@ -200,13 +223,8 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
               <Button variant="outline" onClick={handleCopy} className="gap-2">
                 <Copy className="h-4 w-4" /> Drukuj kopię
               </Button>
-              <Button
-                variant="outline"
-                disabled
-                title="Ewidencja zwrotów — w przygotowaniu"
-                className="gap-2"
-              >
-                <Undo2 className="h-4 w-4" /> Zwrot/reklamacja (wkrótce)
+              <Button variant="outline" onClick={() => setReturnOpen(true)} className="gap-2">
+                <Undo2 className="h-4 w-4" /> Zwrot/reklamacja
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -336,19 +354,44 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
                       <TableRow key={index}>
                         <TableCell className="font-medium">
                           {editingNames ? (
-                            <Input
-                              value={nameOverrides[index] ?? printedName}
-                              maxLength={nameLength}
-                              onChange={(e) =>
-                                setNameOverrides((prev) => ({ ...prev, [index]: e.target.value }))
-                              }
-                              className="h-8 font-mono text-xs"
-                            />
+                            <div className="space-y-1">
+                              <Input
+                                value={nameOverrides[index] ?? printedName}
+                                maxLength={nameLength}
+                                onChange={(e) =>
+                                  setNameOverrides((prev) => ({ ...prev, [index]: e.target.value }))
+                                }
+                                className="h-8 font-mono text-xs"
+                              />
+                              {item.productId && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-1 text-[11px] gap-1"
+                                  disabled={rememberName.isPending}
+                                  onClick={async () => {
+                                    try {
+                                      await rememberName.mutateAsync({
+                                        productId: item.productId!,
+                                        fiscalName: (nameOverrides[index] ?? printedName).slice(0, nameLength),
+                                      });
+                                      toast.success('Zapamiętano nazwę na paragon dla tej pozycji w katalogu.');
+                                    } catch (e: any) {
+                                      toast.error(e?.message || 'Nie udało się zapamiętać nazwy.');
+                                    }
+                                  }}
+                                >
+                                  <Save className="h-3 w-3" /> Zapamiętaj w katalogu
+                                </Button>
+                              )}
+                            </div>
                           ) : (
                             <>
                               <div className="font-mono text-xs">{printedName}</div>
-                              {shortened && (
-                                <div className="text-[11px] text-muted-foreground line-through">{item.name}</div>
+                              {(shortened || (item.originalName && item.originalName !== item.name)) && (
+                                <div className="text-[11px] text-muted-foreground line-through">
+                                  {item.originalName ?? item.name}
+                                </div>
                               )}
                             </>
                           )}
@@ -430,6 +473,14 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order }: P
           )}
         </DialogFooter>
       </DialogContent>
+
+      <FiscalReturnDialog
+        open={returnOpen}
+        onOpenChange={setReturnOpen}
+        providerId={providerId}
+        receipt={fiscalState?.blocking ?? null}
+        documentLabel={order?.order_number ?? undefined}
+      />
     </Dialog>
   );
 }

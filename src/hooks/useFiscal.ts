@@ -425,6 +425,153 @@ export function useResolveStuckReceipt(providerId?: string) {
   });
 }
 
+/** Trwałe nazwy fiskalne z katalogu produktów/usług: id → nazwa na paragon. */
+export function useCatalogFiscalNames(productIds: string[]) {
+  const key = [...new Set(productIds.filter(Boolean))].sort();
+  return useQuery({
+    queryKey: ['fiscal-catalog-names', key],
+    enabled: key.length > 0,
+    staleTime: 60_000,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await (supabase as any)
+        .from('inventory_products')
+        .select('id, fiscal_name')
+        .in('id', key)
+        .not('fiscal_name', 'is', null);
+      if (error) throw error;
+      return Object.fromEntries(
+        ((data as Array<{ id: string; fiscal_name: string }>) ?? []).map((row) => [row.id, row.fiscal_name]),
+      );
+    },
+  });
+}
+
+/** Zapamiętuje nazwę fiskalną przy produkcie w katalogu — kolejne paragony użyją jej same. */
+export function useRememberFiscalName() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { productId: string; fiscalName: string }) => {
+      const { error } = await (supabase as any)
+        .from('inventory_products')
+        .update({ fiscal_name: input.fiscalName })
+        .eq('id', input.productId);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fiscal-catalog-names'] }),
+  });
+}
+
+// ── Zwroty i reklamacje ─────────────────────────────────────────────
+// Paragonu nie da się cofnąć — zwrot jest ODRĘBNYM dokumentem w ewidencji,
+// prowadzonej poza kasą. Nic tutaj nie dotyka drukarki fiskalnej.
+
+export interface FiscalReturnRow {
+  id: string;
+  receipt_id: string;
+  return_number: string;
+  returned_at: string;
+  reason: 'zwrot_towaru' | 'reklamacja' | 'pomylka_kasjera';
+  reason_note: string | null;
+  items: Array<{ name: string; quantity: number; unitPrice: number; vatRate: string; amount: number }>;
+  amount_grosze: number;
+  vat_breakdown: Record<string, number>;
+  customer_name: string | null;
+  customer_document: string | null;
+  created_at: string;
+}
+
+export const RETURN_REASON_LABELS: Record<string, string> = {
+  zwrot_towaru: 'Zwrot towaru',
+  reklamacja: 'Reklamacja',
+  pomylka_kasjera: 'Pomyłka kasjera',
+};
+
+/** Zwroty wystawione do danego paragonu (albo wszystkie tenanta). */
+export function useFiscalReturns(providerId?: string, receiptId?: string) {
+  return useQuery({
+    queryKey: ['fiscal-returns', providerId, receiptId],
+    enabled: Boolean(providerId),
+    queryFn: async (): Promise<FiscalReturnRow[]> => {
+      let query = (supabase as any)
+        .from('fiscal_returns')
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('created_at', { ascending: false });
+      if (receiptId) query = query.eq('receipt_id', receiptId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data as FiscalReturnRow[]) ?? [];
+    },
+  });
+}
+
+export interface CreateReturnInput {
+  receiptId: string;
+  reason: FiscalReturnRow['reason'];
+  reasonNote?: string;
+  items: Array<{ name: string; quantity: number; unitPrice: number; vatRate: string; amount: number }>;
+  amountGrosze: number;
+  vatBreakdown: Record<string, number>;
+  customerName?: string;
+  customerDocument?: string;
+}
+
+/** Kolejny numer w serii ZW/RRRR/NNN dla tenanta. */
+async function nextReturnNumber(providerId: string): Promise<string> {
+  const year = new Date().getFullYear();
+  const { data } = await (supabase as any)
+    .from('fiscal_returns')
+    .select('return_number')
+    .eq('provider_id', providerId)
+    .like('return_number', `ZW/${year}/%`)
+    .order('return_number', { ascending: false })
+    .limit(1);
+  const last = (data as Array<{ return_number: string }>)?.[0]?.return_number;
+  const lastNumber = last ? Number(last.split('/').pop()) || 0 : 0;
+  return `ZW/${year}/${String(lastNumber + 1).padStart(3, '0')}`;
+}
+
+export function useCreateFiscalReturn(providerId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateReturnInput): Promise<FiscalReturnRow> => {
+      if (!providerId) throw new FiscalError('NO_PROVIDER', 'Brak firmy dla zwrotu.');
+
+      // Kolizja numeru jest wyłapana przez unikalny indeks — wtedy ponawiamy raz.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const returnNumber = await nextReturnNumber(providerId);
+        const { data: userData } = await supabase.auth.getUser();
+        const { data, error } = await (supabase as any)
+          .from('fiscal_returns')
+          .insert({
+            provider_id: providerId,
+            receipt_id: input.receiptId,
+            return_number: returnNumber,
+            reason: input.reason,
+            reason_note: input.reasonNote ?? null,
+            items: input.items,
+            amount_grosze: input.amountGrosze,
+            vat_breakdown: input.vatBreakdown,
+            customer_name: input.customerName ?? null,
+            customer_document: input.customerDocument ?? null,
+            created_by: userData?.user?.id ?? null,
+          })
+          .select('*')
+          .single();
+
+        if (!error) return data as FiscalReturnRow;
+        if (error.code === '23505' && attempt === 0) continue; // zajęty numer — bierzemy kolejny
+        // Komunikat z triggera kontroli sumy jest już po polsku.
+        throw new FiscalError(error.code ?? 'DB_ERROR', error.message);
+      }
+      throw new FiscalError('DB_ERROR', 'Nie udało się nadać numeru zwrotu.');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fiscal-returns', providerId] });
+    },
+  });
+}
+
 /** Log paragonów tenanta (opcjonalnie zawężony do jednego dokumentu). */
 export function useFiscalReceipts(providerId?: string, documentId?: string, limit = 50) {
   return useQuery({

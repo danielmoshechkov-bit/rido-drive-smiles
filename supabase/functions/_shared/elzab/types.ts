@@ -67,8 +67,9 @@ export interface ReceiptRequest {
   /** Wariant pola nazwy pozycji: 28 (domyślny) lub 40 znaków. */
   itemNameLength?: 28 | 40;
   /**
-   * Jednolity układ: nazwa zawsze w osobnej linii, liczby pod nią (domyślnie włączone).
-   * Realizowane dopełnieniem twardą spacją — bez efektu poza CP1250/ISO 8859-2.
+   * Wymuszenie łamania każdej pozycji na dwie linie (domyślnie WYŁĄCZONE).
+   * Domyślny układ jest naturalny: krótka nazwa zostaje w jednej linii z liczbami,
+   * długa łamie się sama. Flaga zostaje na wypadek drukarek o innym składzie linii.
    */
   forceNameLine?: boolean;
   payments?: ReceiptPayment[];

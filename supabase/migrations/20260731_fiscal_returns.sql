@@ -75,8 +75,9 @@ BEGIN
      AND id <> COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid);
 
   IF v_already + NEW.amount_grosze > v_receipt_total THEN
-    RAISE EXCEPTION 'Suma zwrotów (%.2f zl) przekracza kwote paragonu (%.2f zl).',
-      (v_already + NEW.amount_grosze) / 100.0, v_receipt_total / 100.0;
+    -- plpgsql nie zna specyfikatorów typu %.2f — kwoty zaokrąglamy w SQL.
+    RAISE EXCEPTION 'Suma zwrotow (% zl) przekracza kwote paragonu (% zl).',
+      round((v_already + NEW.amount_grosze) / 100.0, 2), round(v_receipt_total / 100.0, 2);
   END IF;
 
   RETURN NEW;

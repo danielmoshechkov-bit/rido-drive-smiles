@@ -82,7 +82,9 @@ export function trimToWordBoundary(text: string, maxLength: number): string {
   if (normalized.length <= maxLength) return normalized;
   const cut = normalized.slice(0, maxLength);
   const lastSpace = cut.lastIndexOf(' ');
-  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd();
+  // Ucięcie w środku wyrazu oznaczamy kropką — inaczej wygląda jak literówka.
+  if (lastSpace <= 0) return cut.slice(0, maxLength - 1).trimEnd() + '.';
+  return cut.slice(0, lastSpace).trimEnd();
 }
 
 /**

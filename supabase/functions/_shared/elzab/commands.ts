@@ -76,9 +76,11 @@ export interface ItemBytesInput {
   /** Surowe bajty nazwy zamiast kodowania tekstu — TYLKO diagnostyka (mapa bajtów). */
   nameBytes?: Uint8Array;
   /**
-   * Jednolity układ dwuliniowy: nazwa w osobnej linii, liczby pod nią.
-   * Osiągane dopełnieniem twardą spacją — działa tylko w CP1250/ISO 8859-2
-   * (w pozostałych stronach kodowych bajt 0xA0 jest widocznym znakiem).
+   * Wymuszenie układu dwuliniowego dla KAŻDEJ pozycji (dopełnienie twardą spacją).
+   * DOMYŚLNIE WYŁĄCZONE — naturalny układ drukarki jest czytelniejszy: krótkie nazwy
+   * zostają w jednej linii z liczbami, a łamią się tylko te, które się nie mieszczą
+   * w 42 kolumnach. Wymuszanie rozstrzeliwuje paragon bez potrzeby.
+   * Działa wyłącznie w CP1250/ISO 8859-2 (gdzie 0xA0 to twarda spacja).
    */
   forceNameLine?: boolean;
 }
@@ -105,7 +107,7 @@ export function saleItem(input: ItemBytesInput): Uint8Array {
           trimToWordBoundary(input.name, nameLength),
           nameLength,
           codepage,
-          input.forceNameLine === false ? 0x20 : (hardSpaceByte(codepage) ?? 0x20),
+          input.forceNameLine ? (hardSpaceByte(codepage) ?? 0x20) : 0x20,
         ),
     ITEM_NO_MESSAGE,
     qty.value,
