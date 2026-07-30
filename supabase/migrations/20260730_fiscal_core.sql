@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS public.fiscal_printers (
   -- strona kodowa urządzenia — ustalana empirycznie (scripts/elzab/05-codepage-test.ts),
   -- bo drukarka po cichu gubi znaki spoza swojej strony kodowej
   codepage            text        NOT NULL DEFAULT 'cp1250'
-                                  CHECK (codepage IN ('cp1250', 'cp852', 'mazovia')),
+                                  CHECK (codepage IN ('cp1250', 'latin2', 'cp852', 'mazovia')),
   default_unit        text        NOT NULL DEFAULT 'szt',
   command_timeout_ms  integer     NOT NULL DEFAULT 10000 CHECK (command_timeout_ms BETWEEN 1000 AND 60000),
   is_active           boolean     NOT NULL DEFAULT true,
@@ -192,6 +192,6 @@ COMMENT ON TABLE public.fiscal_receipts IS
 COMMENT ON COLUMN public.fiscal_receipts.document_type IS
   'Luźny typ dokumentu źródłowego nadawany przez moduł wywołujący (np. workshop_order, crane_job, invoice). Bez FK — moduł fiskalny nie zna tabel branżowych.';
 COMMENT ON COLUMN public.fiscal_printers.codepage IS
-  'Strona kodowa drukarki: cp1250 | cp852 (Latin-2) | mazovia (CP790). Ustalana empirycznie na urządzeniu.';
+  'Strona kodowa drukarki: cp1250 | latin2 (ISO 8859-2) | cp852 (Latin-2 DOS) | mazovia (CP790). Ustalana empirycznie na urządzeniu.';
 COMMENT ON COLUMN public.fiscal_printers.vat_map IS
   'Mapa stawka→litera drukarki, np. {"23":"A","8":"B","5":"C","0":"D","zw":"E"}. Ustawiana per tenant — różne drukarki mają różne przypisania.';

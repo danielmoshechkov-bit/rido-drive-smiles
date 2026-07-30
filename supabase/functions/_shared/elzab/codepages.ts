@@ -7,9 +7,9 @@
  * i zapisuje per tenant w `fiscal_printers.codepage`.
  */
 
-export type Codepage = 'cp1250' | 'cp852' | 'mazovia';
+export type Codepage = 'cp1250' | 'latin2' | 'cp852' | 'mazovia';
 
-export const CODEPAGES: Codepage[] = ['cp1250', 'cp852', 'mazovia'];
+export const CODEPAGES: Codepage[] = ['cp1250', 'latin2', 'cp852', 'mazovia'];
 
 // Pełna mapa 0x80..0xFF windows-1250. '�' = pozycja niezdefiniowana.
 const CP1250_HIGH =
@@ -38,6 +38,22 @@ function buildCp1250(): Map<string, number> {
   }
   return map;
 }
+
+/**
+ * ISO 8859-2 (Latin-2). Różni się od CP1250 tylko przy ą/Ą, ś/Ś, ź/Ź —
+ * dlatego wydruk „prawie dobry" (6 z 9 liter poprawnych) wskazuje właśnie na tę stronę.
+ */
+const LATIN2_POLISH: Record<string, number> = {
+  ą: 0xb1, Ą: 0xa1,
+  ć: 0xe6, Ć: 0xc6,
+  ę: 0xea, Ę: 0xca,
+  ł: 0xb3, Ł: 0xa3,
+  ń: 0xf1, Ń: 0xd1,
+  ó: 0xf3, Ó: 0xd3,
+  ś: 0xb6, Ś: 0xa6,
+  ź: 0xbc, Ź: 0xac,
+  ż: 0xbf, Ż: 0xaf,
+};
 
 /**
  * CP852 (Latin-2 DOS) — pełen komplet polskich znaków.
@@ -71,6 +87,7 @@ const MAZOVIA_POLISH: Record<string, number> = {
 
 const TABLES: Record<Codepage, Map<string, number>> = {
   cp1250: buildCp1250(),
+  latin2: new Map(Object.entries(LATIN2_POLISH)),
   cp852: new Map(Object.entries(CP852_POLISH)),
   mazovia: new Map(Object.entries(MAZOVIA_POLISH)),
 };

@@ -67,6 +67,16 @@ export function fixedText(text: string, length: number, codepage: Codepage = 'cp
   return out;
 }
 
+/**
+ * Pole stałej długości z SUROWYCH bajtów — wyłącznie do diagnostyki
+ * (mapa bajtów drukarki). Omija kodowanie tekstu.
+ */
+export function fixedBytes(bytes: Uint8Array, length: number): Uint8Array {
+  const out = new Uint8Array(length).fill(0x20);
+  out.set(bytes.subarray(0, length));
+  return out;
+}
+
 /** Tekst ASCII (bez polskich znaków) dopełniony spacjami — np. nazwa formy płatności. */
 export function fixedAscii(text: string, length: number): Uint8Array {
   const normalized = (text ?? '')
