@@ -47,6 +47,16 @@ export const FIELD = {
 
 const simple = (seq: number) => new Uint8Array([ESC, seq]);
 
+/** Jednostka dopełniona wskazanym bajtem do stałej szerokości pola. */
+function padUnit(unit: string, length: number, padByte: number): Uint8Array {
+  const ascii = fixedAscii(unit, length);
+  const out = new Uint8Array(length).fill(padByte);
+  let visible = 0;
+  while (visible < length && ascii[visible] !== 0x20) visible++;
+  out.set(ascii.subarray(0, visible));
+  return out;
+}
+
 export const identify = () => simple(SEQ.IDENTIFY);
 export const readClock = () => simple(SEQ.READ_CLOCK);
 export const openReceipt = () => simple(SEQ.OPEN_RECEIPT);
@@ -76,13 +86,17 @@ export interface ItemBytesInput {
   /** Surowe bajty nazwy zamiast kodowania tekstu — TYLKO diagnostyka (mapa bajtów). */
   nameBytes?: Uint8Array;
   /**
-   * Wymuszenie układu dwuliniowego dla KAŻDEJ pozycji (dopełnienie twardą spacją).
-   * DOMYŚLNIE WYŁĄCZONE — naturalny układ drukarki jest czytelniejszy: krótkie nazwy
-   * zostają w jednej linii z liczbami, a łamią się tylko te, które się nie mieszczą
-   * w 42 kolumnach. Wymuszanie rozstrzeliwuje paragon bez potrzeby.
-   * Działa wyłącznie w CP1250/ISO 8859-2 (gdzie 0xA0 to twarda spacja).
+   * Jednolity układ dwuliniowy dla KAŻDEJ pozycji: nazwa w swojej linii, liczby pod nią.
+   * DOMYŚLNIE WŁĄCZONE — wszystkie pozycje mają ten sam rytm, niezależnie od długości nazwy.
+   * Realizowane dopełnieniem twardą spacją, więc działa tylko w CP1250/ISO 8859-2;
+   * przy innych stronach kodowych układ wraca do naturalnego składu firmware'u.
    */
   forceNameLine?: boolean;
+  /**
+   * Stała szerokość pola jednostki (dopełnienie twardą spacją), żeby „szt" i „oper"
+   * nie przesuwały reszty linii z liczbami. Domyślnie razem z forceNameLine.
+   */
+  padUnitWidth?: boolean;
 }
 
 /**
@@ -92,6 +106,9 @@ export interface ItemBytesInput {
 export function saleItem(input: ItemBytesInput): Uint8Array {
   const nameLength = input.nameLength ?? 28;
   const codepage = input.codepage ?? DEFAULT_CODEPAGE;
+  const uniformLayout = input.forceNameLine !== false;
+  const unitPadByte =
+    (input.padUnitWidth ?? uniformLayout) ? (hardSpaceByte(codepage) ?? 0x20) : 0x20;
   const seq = nameLength === 40 ? SEQ.ITEM_40 : SEQ.ITEM_28;
   const vatByte = VAT_LETTER_BYTE[input.vatLetter];
   if (vatByte === undefined) {
@@ -107,12 +124,15 @@ export function saleItem(input: ItemBytesInput): Uint8Array {
           trimToWordBoundary(input.name, nameLength),
           nameLength,
           codepage,
-          input.forceNameLine ? (hardSpaceByte(codepage) ?? 0x20) : 0x20,
+          input.forceNameLine === false ? 0x20 : (hardSpaceByte(codepage) ?? 0x20),
         ),
     ITEM_NO_MESSAGE,
     qty.value,
     qty.decimals,
-    fixedAscii(input.unit ?? 'szt', FIELD.UNIT),
+    // Jednostka: pole stałej szerokości, żeby kolumny za nią nie tańczyły.
+    unitPadByte === 0x20
+      ? fixedAscii(input.unit ?? 'szt', FIELD.UNIT)
+      : padUnit(input.unit ?? 'szt', FIELD.UNIT, unitPadByte),
     u32le(input.unitPriceGrosze),
     [ESC, vatByte],
     u32le(input.totalGrosze),
