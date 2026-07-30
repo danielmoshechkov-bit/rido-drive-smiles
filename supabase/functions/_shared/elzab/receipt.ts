@@ -109,7 +109,7 @@ export function prepareReceipt(request: ReceiptRequest): PreparedReceipt {
       vatLetter: resolveVatLetter(item, request.vatMap),
       codepage: request.codepage ?? DEFAULT_CODEPAGE,
       nameLength: request.itemNameLength ?? 28,
-      forceNameLine: request.forceNameLine !== false,
+      forceNameLine: request.forceNameLine === true,
     });
     totalGrosze += total;
   }

@@ -125,6 +125,39 @@ trafia do `fiscal_printers.codepage`.
 | ź / Ź | `9F` / `8F` | `AB` / `8D` | `A6` / `A0` |
 | ż / Ż | `BF` / `AF` | `BE` / `BD` | `A7` / `A1` |
 
+## Układ pozycji na wydruku — granica firmware'u
+
+Linię pozycji składa firmware drukarki, nie host. Reguła jest deterministyczna i została
+zweryfikowana na paragonie nr 28:
+
+> pozycja łamie się na dwie linie wtedy i tylko wtedy, gdy `długość nazwy + długość linii
+> liczb > 42 kolumny`
+
+| nazwa | znaków | + liczby | razem | wynik |
+|---|---|---|---|---|
+| Czołowa szyba | 13 | 27 | 40 | jedna linia |
+| Płyn chłodniczy | 15 | 27 | 42 | jedna linia |
+| Łożysko prawe wymiana | 21 | 27 | 48 | dwie linie |
+| Błotnik przedni prawy malow. i wymiana | 38 | 27 | 65 | dwie linie |
+
+**Czego NIE da się zrobić z poziomu protokołu** (sprawdzone eksperymentalnie, nie założone):
+
+- **Wymusić dwóch linii dla krótkiej nazwy.** Paragon nr 29: ta sama nazwa dopełniona do
+  40 znaków bajtami `0x20`, `0xA0`, `0x81`, `0x90` i `0xAD` — wszystkie cztery pozycje
+  wyszły identycznie, w jednej linii. Firmware obcina wszystko po ostatnim widocznym znaku.
+- **Wyrównać kolumny liczb.** Cena, wartość i ilość to pola BINARNE (4 bajty little-endian
+  w groszach: `300,00 zł` = `30 75 00 00`). Nie ma ciągu znaków, który można dopełnić —
+  formatowaniem i pozycjonowaniem zajmuje się firmware.
+- **Wydrukować nazwę dłuższą niż 40 znaków.** `Esc 05H` to największe udokumentowane pole
+  nazwy. Dłuższe nazwy trzeba skrócić (patrz `src/lib/fiscalName.ts`).
+- **Wstawić własną linię tekstu.** `Esc 04H` nie jest linią opisu — drukarka po niej czeka
+  na dalsze bajty (to kolejny wariant pozycji sprzedaży). Sekwencja zawiesza urządzenie,
+  odblokowanie wymaga dosłania wypełniacza.
+
+Jedyny znany przełącznik dający jednolite łamanie to **tryb 21-kolumnowy w menu drukarki**
+(mechanizm MLT288 pracuje w 42 albo 21 kolumnach) — przy 21 kolumnach żadna pozycja nie
+zmieści nazwy razem z liczbami. Ustawia się go na urządzeniu, nie przez protokół.
+
 ## Kontrakt modułu (branżowo neutralny)
 
 Moduł fiskalny nie wie, skąd wzięły się pozycje. Na wejściu dostaje wyłącznie:

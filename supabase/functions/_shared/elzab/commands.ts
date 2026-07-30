@@ -86,10 +86,13 @@ export interface ItemBytesInput {
   /** Surowe bajty nazwy zamiast kodowania tekstu — TYLKO diagnostyka (mapa bajtów). */
   nameBytes?: Uint8Array;
   /**
-   * Jednolity układ dwuliniowy dla KAŻDEJ pozycji: nazwa w swojej linii, liczby pod nią.
-   * DOMYŚLNIE WŁĄCZONE — wszystkie pozycje mają ten sam rytm, niezależnie od długości nazwy.
-   * Realizowane dopełnieniem twardą spacją, więc działa tylko w CP1250/ISO 8859-2;
-   * przy innych stronach kodowych układ wraca do naturalnego składu firmware'u.
+   * Próba wymuszenia układu dwuliniowego dopełnieniem nazwy.
+   *
+   * BEZSKUTECZNE NA ELZAB ZETA — zweryfikowane paragonem nr 29: cztery różne bajty
+   * dopełniające (0x20, 0xA0, 0x81, 0x90, 0xAD) dały identyczny wynik, bo firmware
+   * obcina wszystko po ostatnim widocznym znaku nazwy. Flaga zostaje wyłącznie na
+   * wypadek firmware'u, który dopełnienia nie obcina. Domyślnie WYŁĄCZONA, żeby nie
+   * wysyłać bajtów bez efektu.
    */
   forceNameLine?: boolean;
   /**
@@ -106,7 +109,7 @@ export interface ItemBytesInput {
 export function saleItem(input: ItemBytesInput): Uint8Array {
   const nameLength = input.nameLength ?? 28;
   const codepage = input.codepage ?? DEFAULT_CODEPAGE;
-  const uniformLayout = input.forceNameLine !== false;
+  const uniformLayout = input.forceNameLine === true;
   const unitPadByte =
     (input.padUnitWidth ?? uniformLayout) ? (hardSpaceByte(codepage) ?? 0x20) : 0x20;
   const seq = nameLength === 40 ? SEQ.ITEM_40 : SEQ.ITEM_28;
@@ -124,7 +127,7 @@ export function saleItem(input: ItemBytesInput): Uint8Array {
           trimToWordBoundary(input.name, nameLength),
           nameLength,
           codepage,
-          input.forceNameLine === false ? 0x20 : (hardSpaceByte(codepage) ?? 0x20),
+          input.forceNameLine ? (hardSpaceByte(codepage) ?? 0x20) : 0x20,
         ),
     ITEM_NO_MESSAGE,
     qty.value,
