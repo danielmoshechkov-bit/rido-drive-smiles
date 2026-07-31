@@ -1,0 +1,583 @@
+/**
+ * „Kasa fiskalna" — centrum obiegu dokumentów fiskalnych tenanta.
+ *
+ * Pięć pod-zakładek odpowiada temu, jak prawo dzieli te dokumenty:
+ *   Paragony · Faktury · Zwroty (ewidencja B1) · Korekty pomyłek (ewidencja B2) · Raporty
+ *
+ * Zwroty i pomyłki są ODDZIELNE — rozporządzenie zabrania prowadzenia ich w jednej
+ * ewidencji, więc nie ma tu wspólnej listy „korekt".
+ */
+
+import { useMemo, useState } from 'react';
+import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Loader2,
+  Receipt,
+  FileText,
+  Undo2,
+  FileWarning,
+  BarChart3,
+  Copy,
+  Download,
+  TriangleAlert,
+  FileBarChart,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  useFiscalReceipts,
+  useFiscalReturns,
+  useFiscalCorrections,
+  useFiscalInvoices,
+  useFiscalPeriodSummary,
+  useFiscalPrinter,
+  useFiscalDayReport,
+  RETURN_REASON_LABELS,
+  FiscalError,
+  type FiscalReceiptRow,
+} from '@/hooks/useFiscal';
+import { formatPln, RECEIPT_STATUS_LABELS } from '@/lib/fiscal';
+import { printReceiptCopy } from '@/lib/fiscalCopy';
+import { FiscalReturnDialog } from './FiscalReturnDialog';
+import { FiscalCorrectionDialog } from './FiscalCorrectionDialog';
+
+interface Props {
+  providerId?: string;
+}
+
+const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  printed: 'default',
+  failed: 'destructive',
+  printing: 'secondary',
+  pending: 'outline',
+  cancelled: 'outline',
+};
+
+/** Pierwszy dzień bieżącego miesiąca / dziś — domyślny zakres raportów. */
+function defaultRange() {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: iso(first), to: iso(now) };
+}
+
+export function FiscalCashRegister({ providerId }: Props) {
+  const [tab, setTab] = useState('paragony');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [range, setRange] = useState(defaultRange);
+  const [returnReceipt, setReturnReceipt] = useState<FiscalReceiptRow | null>(null);
+  const [correctionReceipt, setCorrectionReceipt] = useState<FiscalReceiptRow | null>(null);
+
+  const { data: receipts = [], isLoading: receiptsLoading } = useFiscalReceipts(providerId, undefined, 200);
+  const { data: returns = [] } = useFiscalReturns(providerId);
+  const { data: corrections = [] } = useFiscalCorrections(providerId);
+  const { data: invoices = [] } = useFiscalInvoices(providerId);
+  const { data: printer } = useFiscalPrinter(providerId);
+  const { data: summary, isLoading: summaryLoading } = useFiscalPeriodSummary(providerId, range.from, range.to);
+  const dayReport = useFiscalDayReport(providerId);
+
+  const correctedIds = useMemo(() => new Set(corrections.map((c) => c.receipt_id)), [corrections]);
+  const returnedIds = useMemo(() => new Set(returns.map((r) => r.receipt_id)), [returns]);
+  const invoicedReceiptIds = useMemo(
+    () => new Set(invoices.map((i) => i.fiscal_receipt_id).filter(Boolean) as string[]),
+    [invoices],
+  );
+
+  const filteredReceipts = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return receipts.filter((receipt) => {
+      if (statusFilter !== 'all' && receipt.status !== statusFilter) return false;
+      if (!term) return true;
+      return (
+        String(receipt.printer_receipt_number ?? '').includes(term) ||
+        (receipt.document_type ?? '').toLowerCase().includes(term) ||
+        formatPln(receipt.total_grosze).toLowerCase().includes(term)
+      );
+    });
+  }, [receipts, search, statusFilter]);
+
+  const handleCopy = (receipt: FiscalReceiptRow) => {
+    try {
+      printReceiptCopy(receipt);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleDayReport = async () => {
+    if (!confirm('Wykonać raport dobowy? Drukarka wydrukuje raport i zamknie dobę sprzedaży.')) return;
+    try {
+      const result = await dayReport.mutateAsync(printer ?? undefined);
+      toast.success(result.message);
+    } catch (e) {
+      toast.error((e as FiscalError).message);
+    }
+  };
+
+  /** Eksport podsumowania okresu — podstawa ujęcia zbiorczego RO w JPK_V7. */
+  const exportRo = () => {
+    if (!summary) return;
+    const rows = [
+      ['Typ', 'RO'],
+      ['Okres od', summary.from],
+      ['Okres do', summary.to],
+      ['Liczba paragonów', String(summary.receiptsCount)],
+      ['Obrót brutto', (summary.grossGrosze / 100).toFixed(2)],
+      ['Zwroty i reklamacje', (summary.returnsGrosze / 100).toFixed(2)],
+      ['Korekty pomyłek', (summary.correctionsGrosze / 100).toFixed(2)],
+      ['Obrót po korektach', (summary.netGrosze / 100).toFixed(2)],
+      ...Object.entries(summary.vatByRate).map(([rate, grosze]) => [
+        `Sprzedaż brutto stawka ${rate === 'zw' ? 'zw.' : `${rate}%`}`,
+        (grosze / 100).toFixed(2),
+      ]),
+    ];
+    const csv = rows.map((row) => row.map((cell) => `"${cell}"`).join(';')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `RO_${summary.from}_${summary.to}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('Wyeksportowano podsumowanie RO.');
+  };
+
+  const tabs = [
+    { value: 'paragony', label: `Paragony (${receipts.length})`, visible: true },
+    { value: 'faktury', label: `Faktury (${invoices.length})`, visible: true },
+    { value: 'zwroty', label: `Zwroty (${returns.length})`, visible: true },
+    { value: 'korekty', label: `Korekty pomyłek (${corrections.length})`, visible: true },
+    { value: 'raporty', label: 'Raporty', visible: true },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <UniversalSubTabBar activeTab={tab} onTabChange={setTab} tabs={tabs} />
+
+      {tab === 'paragony' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Receipt className="h-4 w-4" /> Paragony fiskalne
+                </CardTitle>
+                <CardDescription>Wszystkie próby fiskalizacji — również nieudane, z powodem błędu.</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Szukaj: numer, kwota…"
+                  className="h-9 w-52"
+                />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Wszystkie statusy</SelectItem>
+                    <SelectItem value="printed">Wydrukowane</SelectItem>
+                    <SelectItem value="failed">Błędy</SelectItem>
+                    <SelectItem value="cancelled">Anulowane</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {receiptsLoading ? (
+              <div className="flex items-center gap-2 py-10 justify-center text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Wczytywanie…
+              </div>
+            ) : !filteredReceipts.length ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Brak paragonów w tym widoku.</div>
+            ) : (
+              <div className="rounded-md border overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Nr</TableHead>
+                      <TableHead>Kwota</TableHead>
+                      <TableHead>Płatność</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Dokumenty</TableHead>
+                      <TableHead className="text-right">Akcje</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredReceipts.map((receipt) => {
+                      const payments = Array.isArray(receipt.payments) ? receipt.payments : [];
+                      const isPrinted = receipt.status === 'printed';
+                      return (
+                        <TableRow key={receipt.id}>
+                          <TableCell className="whitespace-nowrap text-xs">
+                            {new Date(receipt.printed_at || receipt.created_at).toLocaleString('pl-PL', {
+                              dateStyle: 'short',
+                              timeStyle: 'short',
+                            })}
+                          </TableCell>
+                          <TableCell className="font-medium whitespace-nowrap">
+                            {receipt.printer_receipt_number ?? '—'}
+                            {receipt.printer_mode === 'training' && (
+                              <Badge variant="outline" className="ml-1 text-[10px]">szkol.</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">{formatPln(receipt.total_grosze)}</TableCell>
+                          <TableCell className="whitespace-nowrap text-xs">
+                            {payments.map((p) => p.name).join(', ') || '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={STATUS_VARIANT[receipt.status] ?? 'outline'}>
+                              {RECEIPT_STATUS_LABELS[receipt.status] ?? receipt.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="space-x-1 whitespace-nowrap">
+                            {invoicedReceiptIds.has(receipt.id) && (
+                              <Badge variant="secondary" className="text-[10px]">Faktura</Badge>
+                            )}
+                            {returnedIds.has(receipt.id) && (
+                              <Badge variant="secondary" className="text-[10px]">Zwrot</Badge>
+                            )}
+                            {correctedIds.has(receipt.id) && (
+                              <Badge variant="destructive" className="text-[10px]">Korekta</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right space-x-1 whitespace-nowrap">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1 text-xs"
+                              disabled={!isPrinted}
+                              onClick={() => handleCopy(receipt)}
+                            >
+                              <Copy className="h-3 w-3" /> Kopia
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1 text-xs"
+                              disabled={!isPrinted}
+                              onClick={() => setReturnReceipt(receipt)}
+                            >
+                              <Undo2 className="h-3 w-3" /> Zwrot
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1 text-xs"
+                              disabled={!isPrinted || correctedIds.has(receipt.id)}
+                              onClick={() => setCorrectionReceipt(receipt)}
+                            >
+                              <FileWarning className="h-3 w-3" /> Pomyłka
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'faktury' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4" /> Faktury ze zleceń
+            </CardTitle>
+            <CardDescription>
+              Faktury powiązane ze zleceniami; te wystawione do paragonu są oznaczone — ich sprzedaż jest już
+              ujęta w raporcie dobowym i nie wolno liczyć jej drugi raz.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!invoices.length ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Brak faktur.</div>
+            ) : (
+              <div className="rounded-md border overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Numer</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Nabywca</TableHead>
+                      <TableHead>KSeF</TableHead>
+                      <TableHead>Powiązanie</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invoices.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-medium">{invoice.invoice_number ?? '—'}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString('pl-PL') : '—'}
+                        </TableCell>
+                        <TableCell className="text-sm">{invoice.buyer_name ?? '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant={invoice.ksef_status === 'sent' ? 'default' : 'outline'} className="text-[10px]">
+                            {invoice.ksef_status ?? 'brak'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {invoice.fiscal_receipt_id ? (
+                            <Badge variant="secondary" className="text-[10px]">do paragonu</Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">ze zlecenia</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'zwroty' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Undo2 className="h-4 w-4" /> Ewidencja zwrotów i uznanych reklamacji
+            </CardTitle>
+            <CardDescription>
+              Prowadzona poza kasą, zgodnie z rozporządzeniem. Zwrot nie kasuje paragonu — pomniejsza obrót
+              w dacie pierwotnej sprzedaży.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!returns.length ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Brak wpisów w ewidencji zwrotów.</div>
+            ) : (
+              <div className="rounded-md border overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Numer</TableHead>
+                      <TableHead>Data zwrotu</TableHead>
+                      <TableHead>Paragon</TableHead>
+                      <TableHead>Kwota</TableHead>
+                      <TableHead>Powód</TableHead>
+                      <TableHead>Klient</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {returns.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell className="font-medium whitespace-nowrap">{row.return_number}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {new Date(row.returned_at).toLocaleDateString('pl-PL')}
+                        </TableCell>
+                        <TableCell className="text-xs">nr {(row as any).receipt_number ?? '—'}</TableCell>
+                        <TableCell className="whitespace-nowrap">{formatPln(row.amount_grosze)}</TableCell>
+                        <TableCell className="text-xs">{RETURN_REASON_LABELS[row.reason] ?? row.reason}</TableCell>
+                        <TableCell className="text-xs">{row.customer_name ?? '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'korekty' && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileWarning className="h-4 w-4" /> Ewidencja oczywistych pomyłek
+            </CardTitle>
+            <CardDescription>
+              Odrębna od ewidencji zwrotów — prawo zabrania łączenia obu. Po wpisie zlecenie jest odblokowane
+              do ponownej, prawidłowej fiskalizacji.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!corrections.length ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Brak wpisów w ewidencji pomyłek.</div>
+            ) : (
+              <div className="rounded-md border overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Numer</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Błędny paragon</TableHead>
+                      <TableHead>Błędna kwota</TableHead>
+                      <TableHead>Przyczyna</TableHead>
+                      <TableHead>Oryginał</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {corrections.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell className="font-medium whitespace-nowrap">{row.correction_number}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {new Date(row.corrected_at).toLocaleDateString('pl-PL')}
+                        </TableCell>
+                        <TableCell className="text-xs">nr {row.receipt_number ?? '—'}</TableCell>
+                        <TableCell className="whitespace-nowrap">{formatPln(row.wrong_amount_grosze)}</TableCell>
+                        <TableCell className="text-xs max-w-[280px]">{row.reason_note}</TableCell>
+                        <TableCell>
+                          {row.original_receipt_attached ? (
+                            <Badge variant="secondary" className="text-[10px]">dołączony</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px]">brak</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'raporty' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileBarChart className="h-4 w-4" /> Raporty drukarki
+              </CardTitle>
+              <CardDescription>
+                Sprzedaż księguje się z raportów, nie z pojedynczych paragonów. Drukarka blokuje sprzedaż
+                po 48 h bez raportu dobowego.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={handleDayReport} disabled={dayReport.isPending || !printer} className="gap-2">
+                  {dayReport.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileBarChart className="h-4 w-4" />}
+                  Raport dobowy
+                </Button>
+                {printer?.last_day_report_at && (
+                  <span className="text-xs text-muted-foreground">
+                    ostatni: {new Date(printer.last_day_report_at).toLocaleString('pl-PL')}
+                  </span>
+                )}
+              </div>
+              {!printer && (
+                <Alert>
+                  <TriangleAlert className="h-4 w-4" />
+                  <AlertDescription>
+                    Nie skonfigurowano drukarki — przejdź do Ustawienia → Fiskalizacja.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <BarChart3 className="h-4 w-4" /> Podsumowanie okresu
+                  </CardTitle>
+                  <CardDescription>
+                    Obrót brutto pomniejszony o obie ewidencje — podstawa ujęcia zbiorczego RO w JPK_V7.
+                  </CardDescription>
+                </div>
+                <div className="flex items-end gap-2">
+                  <Input
+                    type="date"
+                    value={range.from}
+                    onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
+                    className="h-9 w-40"
+                  />
+                  <Input
+                    type="date"
+                    value={range.to}
+                    onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
+                    className="h-9 w-40"
+                  />
+                  <Button variant="outline" onClick={exportRo} disabled={!summary} className="gap-2 h-9">
+                    <Download className="h-4 w-4" /> Eksport RO
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {summaryLoading || !summary ? (
+                <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Liczenie…
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="rounded-lg border p-3">
+                      <div className="text-xs text-muted-foreground">Obrót brutto</div>
+                      <div className="text-lg font-bold">{formatPln(summary.grossGrosze)}</div>
+                      <div className="text-[11px] text-muted-foreground">{summary.receiptsCount} paragonów</div>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <div className="text-xs text-muted-foreground">Zwroty</div>
+                      <div className="text-lg font-bold text-amber-600">−{formatPln(summary.returnsGrosze)}</div>
+                    </div>
+                    <div className="rounded-lg border p-3">
+                      <div className="text-xs text-muted-foreground">Korekty pomyłek</div>
+                      <div className="text-lg font-bold text-amber-600">−{formatPln(summary.correctionsGrosze)}</div>
+                    </div>
+                    <div className="rounded-lg border p-3 bg-muted/30">
+                      <div className="text-xs text-muted-foreground">Obrót po korektach</div>
+                      <div className="text-lg font-bold">{formatPln(summary.netGrosze)}</div>
+                    </div>
+                  </div>
+
+                  {Object.keys(summary.vatByRate).length > 0 && (
+                    <div className="rounded-md border overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Stawka VAT</TableHead>
+                            <TableHead className="text-right">Sprzedaż brutto</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {Object.entries(summary.vatByRate).map(([rate, grosze]) => (
+                            <TableRow key={rate}>
+                              <TableCell>{rate === 'zw' ? 'zw.' : `${rate}%`}</TableCell>
+                              <TableCell className="text-right">{formatPln(grosze)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <FiscalReturnDialog
+        open={!!returnReceipt}
+        onOpenChange={(open) => { if (!open) setReturnReceipt(null); }}
+        providerId={providerId ?? ''}
+        receipt={returnReceipt}
+      />
+      <FiscalCorrectionDialog
+        open={!!correctionReceipt}
+        onOpenChange={(open) => { if (!open) setCorrectionReceipt(null); }}
+        providerId={providerId ?? ''}
+        receipt={correctionReceipt}
+      />
+    </div>
+  );
+}

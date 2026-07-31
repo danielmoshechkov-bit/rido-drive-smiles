@@ -216,5 +216,84 @@ Deno.serve(async (req) => {
     return json({ ok: true, status: update.status, resolvedBy: how });
   }
 
+  // ── EWIDENCJA OCZYWISTEJ POMYŁKI ───────────────────────────────────
+  // Wpis musi powstać po stronie serwera, bo poza zapisem do ewidencji ustawia też
+  // superseded_by_correction_id na paragonie — a fiscal_receipts jest z klienta
+  // niemodyfikowalne (RLS: tylko SELECT/INSERT).
+  if (body.action === 'register-correction') {
+    if (!body.receiptId) return fail(400, 'BAD_REQUEST', 'Brak identyfikatora paragonu.');
+    const note = String(body.reasonNote ?? '').trim();
+    if (note.length < 5) {
+      return fail(400, 'BAD_REQUEST', 'Opisz przyczynę pomyłki — to wymóg rozporządzenia.');
+    }
+
+    const { data: receipt } = await admin
+      .from('fiscal_receipts')
+      .select('id, provider_id, status, total_grosze, items, vat_map, printer_receipt_number, printed_at, created_at, superseded_by_correction_id')
+      .eq('id', body.receiptId)
+      .maybeSingle();
+    if (!receipt) return fail(404, 'NOT_FOUND', 'Nie znaleziono paragonu.');
+    if (!caller.isService && !(await hasProviderAccess(admin, caller.userId!, receipt.provider_id))) {
+      return fail(403, 'FORBIDDEN', 'Brak dostępu do tego paragonu.');
+    }
+    if (receipt.status !== 'printed') {
+      return fail(
+        400,
+        'NOT_PRINTED',
+        'Ewidencja pomyłek dotyczy wyłącznie paragonów, które faktycznie wyszły z drukarki. Ten paragon nie został wydrukowany — wystarczy wystawić go ponownie.',
+      );
+    }
+    if (receipt.superseded_by_correction_id) {
+      return fail(409, 'ALREADY_CORRECTED', 'Ten paragon jest już ujęty w ewidencji pomyłek.');
+    }
+
+    // Numer w serii KOR/RRRR/NNN — nadawany po stronie serwera, żeby uniknąć wyścigu.
+    const year = new Date().getFullYear();
+    const { data: last } = await admin
+      .from('fiscal_corrections')
+      .select('correction_number')
+      .eq('provider_id', receipt.provider_id)
+      .like('correction_number', `KOR/${year}/%`)
+      .order('correction_number', { ascending: false })
+      .limit(1);
+    const lastNumber = Number(last?.[0]?.correction_number?.split('/').pop()) || 0;
+    const correctionNumber = `KOR/${year}/${String(lastNumber + 1).padStart(3, '0')}`;
+
+    const saleDate = (receipt.printed_at ?? receipt.created_at)?.slice(0, 10) ?? null;
+    const { data: correction, error: insertError } = await admin
+      .from('fiscal_corrections')
+      .insert({
+        provider_id: receipt.provider_id,
+        receipt_id: receipt.id,
+        correction_number: correctionNumber,
+        sale_date: saleDate,
+        receipt_number: receipt.printer_receipt_number,
+        wrong_amount_grosze: receipt.total_grosze,
+        wrong_vat_grosze: body.wrongVatGrosze ?? 0,
+        vat_breakdown: body.vatBreakdown ?? {},
+        items: receipt.items ?? [],
+        reason_note: note,
+        original_receipt_attached: Boolean(body.originalReceiptAttached),
+        report_date: saleDate,
+        created_by: caller.userId,
+      })
+      .select('*')
+      .single();
+    if (insertError) {
+      return fail(500, 'DB_ERROR', `Nie udało się zapisać korekty: ${insertError.message}`);
+    }
+
+    // Odblokowanie ponownej, prawidłowej fiskalizacji dokumentu.
+    const { error: linkError } = await admin
+      .from('fiscal_receipts')
+      .update({ superseded_by_correction_id: correction.id })
+      .eq('id', receipt.id);
+    if (linkError) {
+      return fail(500, 'DB_ERROR', `Zapisano korektę, ale nie udało się odblokować dokumentu: ${linkError.message}`);
+    }
+
+    return json({ ok: true, correction });
+  }
+
   return fail(400, 'BAD_ACTION', `Nieznana akcja: ${body.action}`);
 });

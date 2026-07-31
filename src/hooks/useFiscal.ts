@@ -592,6 +592,195 @@ export function useCreateFiscalReturn(providerId?: string) {
   });
 }
 
+// ── Ewidencja oczywistych pomyłek (odrębna od zwrotów) ──────────────
+
+export interface FiscalCorrectionRow {
+  id: string;
+  receipt_id: string;
+  correction_number: string;
+  corrected_at: string;
+  sale_date: string | null;
+  receipt_number: number | null;
+  wrong_amount_grosze: number;
+  wrong_vat_grosze: number;
+  vat_breakdown: Record<string, number>;
+  items: unknown[];
+  reason_note: string;
+  original_receipt_attached: boolean;
+  report_date: string | null;
+  created_at: string;
+}
+
+export function useFiscalCorrections(providerId?: string, receiptId?: string) {
+  return useQuery({
+    queryKey: ['fiscal-corrections', providerId, receiptId],
+    enabled: Boolean(providerId),
+    queryFn: async (): Promise<FiscalCorrectionRow[]> => {
+      let query = (supabase as any)
+        .from('fiscal_corrections')
+        .select('*')
+        .eq('provider_id', providerId)
+        .order('created_at', { ascending: false });
+      if (receiptId) query = query.eq('receipt_id', receiptId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data as FiscalCorrectionRow[]) ?? [];
+    },
+  });
+}
+
+/**
+ * Rejestracja pomyłki idzie przez edge function: poza wpisem do ewidencji ustawia
+ * superseded_by_correction_id, czyli odblokowuje ponowną, prawidłową fiskalizację —
+ * a tego z klienta zrobić się nie da (log paragonów jest niemodyfikowalny).
+ */
+export function useRegisterCorrection(providerId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      receiptId: string;
+      reasonNote: string;
+      wrongVatGrosze?: number;
+      vatBreakdown?: Record<string, number>;
+      originalReceiptAttached?: boolean;
+    }) =>
+      invokeFiscal<{ ok: true; correction: FiscalCorrectionRow }>('fiscal-receipt-session', {
+        action: 'register-correction',
+        ...input,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fiscal-corrections', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-receipts', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-document-state'] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-documents-printed', providerId] });
+    },
+  });
+}
+
+// ── Faktury powiązane z modułem fiskalnym ───────────────────────────
+
+export interface FiscalInvoiceRow {
+  id: string;
+  invoice_number: string | null;
+  issue_date: string | null;
+  buyer_name: string | null;
+  ksef_status: string | null;
+  is_correction: boolean | null;
+  workshop_order_id: string | null;
+  fiscal_receipt_id: string | null;
+}
+
+export function useFiscalInvoices(providerId?: string) {
+  return useQuery({
+    queryKey: ['fiscal-invoices', providerId],
+    enabled: Boolean(providerId),
+    queryFn: async (): Promise<FiscalInvoiceRow[]> => {
+      const { data, error } = await (supabase as any)
+        .from('user_invoices')
+        .select('id, invoice_number, issue_date, buyer_name, ksef_status, is_correction, workshop_order_id, fiscal_receipt_id')
+        .not('workshop_order_id', 'is', null)
+        .order('issue_date', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data as FiscalInvoiceRow[]) ?? [];
+    },
+  });
+}
+
+// ── Podsumowanie okresu (podstawa eksportu RO do JPK_V7) ────────────
+
+export interface FiscalPeriodSummary {
+  from: string;
+  to: string;
+  receiptsCount: number;
+  grossGrosze: number;
+  returnsGrosze: number;
+  correctionsGrosze: number;
+  netGrosze: number;
+  vatByRate: Record<string, number>;
+  days: Array<{ date: string; grossGrosze: number; receipts: number }>;
+}
+
+/**
+ * Sprzedaż z kasy księguje się z raportów, a nie z pojedynczych paragonów — dlatego
+ * podsumowanie liczy obrót brutto i pomniejsza go o obie ewidencje, przypisując
+ * korekty do daty PIERWOTNEJ sprzedaży.
+ */
+export function useFiscalPeriodSummary(providerId?: string, from?: string, to?: string) {
+  return useQuery({
+    queryKey: ['fiscal-period-summary', providerId, from, to],
+    enabled: Boolean(providerId && from && to),
+    queryFn: async (): Promise<FiscalPeriodSummary> => {
+      const fromIso = `${from}T00:00:00.000Z`;
+      const toIso = `${to}T23:59:59.999Z`;
+
+      const [receipts, returns, corrections] = await Promise.all([
+        (supabase as any)
+          .from('fiscal_receipts')
+          .select('total_grosze, printed_at, created_at, items, status')
+          .eq('provider_id', providerId)
+          .eq('status', 'printed')
+          .gte('created_at', fromIso)
+          .lte('created_at', toIso),
+        (supabase as any)
+          .from('fiscal_returns')
+          .select('amount_grosze, vat_breakdown, sale_date, returned_at')
+          .eq('provider_id', providerId)
+          .gte('returned_at', from)
+          .lte('returned_at', to),
+        (supabase as any)
+          .from('fiscal_corrections')
+          .select('wrong_amount_grosze, vat_breakdown, sale_date, corrected_at')
+          .eq('provider_id', providerId)
+          .gte('corrected_at', from)
+          .lte('corrected_at', to),
+      ]);
+
+      if (receipts.error) throw receipts.error;
+      if (returns.error) throw returns.error;
+      if (corrections.error) throw corrections.error;
+
+      const days = new Map<string, { grossGrosze: number; receipts: number }>();
+      const vatByRate: Record<string, number> = {};
+      let grossGrosze = 0;
+
+      for (const row of (receipts.data as any[]) ?? []) {
+        grossGrosze += row.total_grosze ?? 0;
+        const day = String(row.printed_at ?? row.created_at).slice(0, 10);
+        const entry = days.get(day) ?? { grossGrosze: 0, receipts: 0 };
+        entry.grossGrosze += row.total_grosze ?? 0;
+        entry.receipts += 1;
+        days.set(day, entry);
+        for (const item of Array.isArray(row.items) ? row.items : []) {
+          const rate = String((item as any)?.vatRate ?? '23');
+          const value = Math.round((Number((item as any)?.unitPrice) || 0) * 100 * (Number((item as any)?.quantity) || 0));
+          vatByRate[rate] = (vatByRate[rate] ?? 0) + value;
+        }
+      }
+
+      const returnsGrosze = ((returns.data as any[]) ?? []).reduce((sum, r) => sum + (r.amount_grosze ?? 0), 0);
+      const correctionsGrosze = ((corrections.data as any[]) ?? []).reduce(
+        (sum, c) => sum + (c.wrong_amount_grosze ?? 0),
+        0,
+      );
+
+      return {
+        from: from!,
+        to: to!,
+        receiptsCount: ((receipts.data as any[]) ?? []).length,
+        grossGrosze,
+        returnsGrosze,
+        correctionsGrosze,
+        netGrosze: grossGrosze - returnsGrosze - correctionsGrosze,
+        vatByRate,
+        days: [...days.entries()]
+          .map(([date, value]) => ({ date, ...value }))
+          .sort((a, b) => a.date.localeCompare(b.date)),
+      };
+    },
+  });
+}
+
 /** Log paragonów tenanta (opcjonalnie zawężony do jednego dokumentu). */
 export function useFiscalReceipts(providerId?: string, documentId?: string, limit = 50) {
   return useQuery({
