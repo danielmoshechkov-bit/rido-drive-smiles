@@ -205,6 +205,184 @@ export function printReturnProtocol(
   openPrintWindow(html);
 }
 
+const REGISTER_STYLE = `
+  body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 18px; color: #111; font-size: 11px; }
+  .banner { border: 2px solid #111; padding: 8px 12px; text-align: center; font-weight: 700; letter-spacing: 1px; }
+  h1 { font-size: 15px; margin: 14px 0 4px; }
+  .muted { color: #555; font-size: 11px; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { border: 1px solid #bbb; padding: 4px 5px; text-align: left; vertical-align: top; }
+  th { background: #f2f2f2; font-size: 10px; }
+  .num { text-align: right; white-space: nowrap; }
+  tfoot td { font-weight: 700; background: #f8f8f8; }
+  .sign { margin-top: 40px; display: flex; justify-content: flex-end; }
+  .sign div { width: 240px; border-top: 1px solid #111; padding-top: 6px; text-align: center; font-size: 10px; color: #555; }
+  .footer { margin-top: 16px; font-size: 10px; color: #555; line-height: 1.5; }
+  @media print { body { margin: 8mm; } @page { size: A4 landscape; } }
+`;
+
+function registerHeader(header: CopyHeader, title: string, subtitle: string): string {
+  return `<div class="banner">${escapeHtml(title)}</div>
+  <h1>${escapeHtml(header.companyName ?? '')}</h1>
+  <div class="muted">
+    ${header.address ? escapeHtml(header.address) + '<br>' : ''}
+    ${header.nip ? 'NIP: ' + escapeHtml(header.nip) + '<br>' : ''}
+    ${escapeHtml(subtitle)}
+  </div>`;
+}
+
+/**
+ * EWIDENCJA ZWROTÓW I UZNANYCH REKLAMACJI — wydruk zbiorczy dla księgowej/kontroli.
+ *
+ * Kolumny odpowiadają kolejnym punktom § 3 ust. 3 rozporządzenia, żeby dokument dało się
+ * czytać obok przepisu. Podstawą jest DATA SPRZEDAŻY, nie data zwrotu — zwrot pomniejsza
+ * obrót w okresie pierwotnej sprzedaży i to ta data decyduje, do którego JPK_V7 trafi.
+ */
+export function printReturnsRegister(
+  rows: FiscalReturnRow[],
+  header: CopyHeader = {},
+  period?: { from?: string; to?: string },
+): void {
+  const reasonLabels: Record<string, string> = {
+    zwrot_towaru: 'Zwrot towaru',
+    reklamacja: 'Reklamacja',
+    pomylka_kasjera: 'Pomyłka kasjera',
+  };
+
+  const total = rows.reduce((sum, row) => sum + row.amount_grosze, 0);
+  const vatTotal = rows.reduce(
+    (sum, row) => sum + Object.values(row.vat_breakdown ?? {}).reduce((s, v) => s + Number(v), 0),
+    0,
+  );
+
+  const body = rows
+    .map((row) => {
+      const names = (row.items ?? []).map((item) => item.name).join(', ');
+      const vat = Object.values(row.vat_breakdown ?? {}).reduce((s, v) => s + Number(v), 0);
+      return `<tr>
+        <td>${escapeHtml(row.return_number)}</td>
+        <td>${escapeHtml(new Date((row as any).sale_date ?? row.returned_at).toLocaleDateString('pl-PL'))}</td>
+        <td>${escapeHtml(new Date(row.returned_at).toLocaleDateString('pl-PL'))}</td>
+        <td>${escapeHtml(names || '—')}</td>
+        <td>${escapeHtml(reasonLabels[row.reason] ?? row.reason)}${row.reason_note ? ' — ' + escapeHtml(row.reason_note) : ''}</td>
+        <td>${escapeHtml((row as any).return_type === 'partial' ? 'część należności' : 'całość należności')}</td>
+        <td class="num">${formatPln(row.amount_grosze)}</td>
+        <td class="num">${formatPln(vat)}</td>
+        <td>nr ${escapeHtml((row as any).receipt_number ?? '—')}</td>
+        <td>${escapeHtml(row.customer_name ?? '—')}</td>
+      </tr>`;
+    })
+    .join('');
+
+  const html = `<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><title>Ewidencja zwrotów</title><style>${REGISTER_STYLE}</style></head>
+<body>
+  ${registerHeader(
+    header,
+    'EWIDENCJA ZWROTÓW TOWARÓW I UZNANYCH REKLAMACJI',
+    `Okres: ${period?.from ? new Date(period.from).toLocaleDateString('pl-PL') : 'od początku'} – ${
+      period?.to ? new Date(period.to).toLocaleDateString('pl-PL') : 'do dziś'
+    } · liczba wpisów: ${rows.length}`,
+  )}
+
+  <table>
+    <thead><tr>
+      <th>Nr wpisu</th><th>Data sprzedaży</th><th>Data zwrotu</th><th>Nazwa towaru / usługi</th>
+      <th>Przyczyna</th><th>Zakres</th><th class="num">Zwrócona kwota brutto</th><th class="num">w tym VAT</th>
+      <th>Dokument sprzedaży</th><th>Nabywca</th>
+    </tr></thead>
+    <tbody>${body || '<tr><td colspan="10">Brak wpisów w wybranym okresie.</td></tr>'}</tbody>
+    <tfoot><tr>
+      <td colspan="6">RAZEM</td>
+      <td class="num">${formatPln(total)}</td>
+      <td class="num">${formatPln(vatTotal)}</td>
+      <td colspan="2"></td>
+    </tr></tfoot>
+  </table>
+
+  <div class="sign"><div>podpis osoby sporządzającej</div></div>
+
+  <div class="footer">
+    Ewidencja prowadzona zgodnie z § 3 ust. 3 rozporządzenia w sprawie kas rejestrujących, odrębnie od
+    ewidencji oczywistych pomyłek. Do każdego wpisu dołączony jest protokół podpisany przez sprzedawcę
+    i nabywcę oraz dokument potwierdzający sprzedaż. Kwoty pomniejszają obrót w dacie sprzedaży.<br>
+    Wygenerowano w GetRido: ${escapeHtml(new Date().toLocaleString('pl-PL'))}
+  </div>
+
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+  openPrintWindow(html, 1000);
+}
+
+/**
+ * EWIDENCJA OCZYWISTYCH POMYŁEK — wydruk zbiorczy.
+ * Odrębny dokument od ewidencji zwrotów; prawo zabrania prowadzenia ich razem.
+ */
+export function printCorrectionsRegister(
+  rows: FiscalCorrectionRow[],
+  header: CopyHeader = {},
+  period?: { from?: string; to?: string },
+): void {
+  const total = rows.reduce((sum, row) => sum + row.wrong_amount_grosze, 0);
+  const vatTotal = rows.reduce((sum, row) => sum + row.wrong_vat_grosze, 0);
+
+  const body = rows
+    .map(
+      (row) => `<tr>
+        <td>${escapeHtml(row.correction_number)}</td>
+        <td>${escapeHtml(new Date(row.sale_date ?? row.corrected_at).toLocaleDateString('pl-PL'))}</td>
+        <td>${escapeHtml(new Date(row.corrected_at).toLocaleDateString('pl-PL'))}</td>
+        <td class="num">${formatPln(row.wrong_amount_grosze)}</td>
+        <td class="num">${formatPln(row.wrong_vat_grosze)}</td>
+        <td>${escapeHtml(row.reason_note)}</td>
+        <td>nr ${escapeHtml(row.receipt_number ?? '—')}</td>
+        <td>${row.original_receipt_attached ? 'dołączony' : 'BRAK'}</td>
+      </tr>`,
+    )
+    .join('');
+
+  const html = `<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><title>Ewidencja pomyłek</title><style>${REGISTER_STYLE}</style></head>
+<body>
+  ${registerHeader(
+    header,
+    'EWIDENCJA OCZYWISTYCH POMYŁEK',
+    `Okres: ${period?.from ? new Date(period.from).toLocaleDateString('pl-PL') : 'od początku'} – ${
+      period?.to ? new Date(period.to).toLocaleDateString('pl-PL') : 'do dziś'
+    } · liczba wpisów: ${rows.length}`,
+  )}
+
+  <table>
+    <thead><tr>
+      <th>Nr wpisu</th><th>Data sprzedaży</th><th>Data ujęcia</th>
+      <th class="num">Błędna sprzedaż brutto</th><th class="num">w tym VAT</th>
+      <th>Opis okoliczności i przyczyny pomyłki</th><th>Dokument sprzedaży</th><th>Oryginał paragonu</th>
+    </tr></thead>
+    <tbody>${body || '<tr><td colspan="8">Brak wpisów w wybranym okresie.</td></tr>'}</tbody>
+    <tfoot><tr>
+      <td colspan="3">RAZEM</td>
+      <td class="num">${formatPln(total)}</td>
+      <td class="num">${formatPln(vatTotal)}</td>
+      <td colspan="3"></td>
+    </tr></tfoot>
+  </table>
+
+  <div class="sign"><div>podpis osoby sporządzającej</div></div>
+
+  <div class="footer">
+    Ewidencja prowadzona zgodnie z § 3 ust. 4 rozporządzenia w sprawie kas rejestrujących, odrębnie od
+    ewidencji zwrotów i uznanych reklamacji. Do każdego wpisu dołączony jest oryginał paragonu fiskalnego,
+    a sprzedaż została zaewidencjonowana ponownie w prawidłowej wysokości.<br>
+    Wygenerowano w GetRido: ${escapeHtml(new Date().toLocaleString('pl-PL'))}
+  </div>
+
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+  openPrintWindow(html, 1000);
+}
+
 /**
  * DOWÓD WEWNĘTRZNY do ewidencji oczywistych pomyłek (odrębnej od ewidencji zwrotów).
  *

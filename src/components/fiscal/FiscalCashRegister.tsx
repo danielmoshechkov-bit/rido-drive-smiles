@@ -8,7 +8,7 @@
  * ewidencji, więc nie ma tu wspólnej listy „korekt".
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +39,7 @@ import {
   useFiscalPeriodSummary,
   useFiscalPrinter,
   useFiscalDayReport,
+  useReceiptDocumentLabels,
   RETURN_REASON_LABELS,
   FiscalError,
   type FiscalCorrectionRow,
@@ -46,7 +47,14 @@ import {
   type FiscalReturnRow,
 } from '@/hooks/useFiscal';
 import { formatPln, RECEIPT_STATUS_LABELS } from '@/lib/fiscal';
-import { printCorrectionProtocol, printReceiptCopy, printReturnProtocol } from '@/lib/fiscalCopy';
+import {
+  printCorrectionProtocol,
+  printCorrectionsRegister,
+  printReceiptCopy,
+  printReturnProtocol,
+  printReturnsRegister,
+} from '@/lib/fiscalCopy';
+import { Checkbox } from '@/components/ui/checkbox';
 import { FiscalReturnDialog } from './FiscalReturnDialog';
 import { FiscalCorrectionDialog } from './FiscalCorrectionDialog';
 import { FiscalReceiptDialog } from './FiscalReceiptDialog';
@@ -71,6 +79,18 @@ function defaultRange() {
   return { from: iso(first), to: iso(now) };
 }
 
+/** Miesiąc w formacie pola <input type="month">. */
+const monthKey = (date = new Date()) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+/** Miesiąc → zakres dat; pusty miesiąc = bez ograniczenia (widok „wszystkie"). */
+function monthRange(month: string): { from?: string; to?: string } {
+  if (!month) return {};
+  const [year, monthNumber] = month.split('-').map(Number);
+  const last = new Date(year, monthNumber, 0).getDate();
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, '0')}` };
+}
+
 export function FiscalCashRegister({ providerId }: Props) {
   const [tab, setTab] = useState('paragony');
   const [search, setSearch] = useState('');
@@ -80,7 +100,20 @@ export function FiscalCashRegister({ providerId }: Props) {
   const [correctionReceipt, setCorrectionReceipt] = useState<FiscalReceiptRow | null>(null);
   const [correctedOrder, setCorrectedOrder] = useState<{ id: string } | null>(null);
 
-  const { data: receipts = [], isLoading: receiptsLoading } = useFiscalReceipts(providerId, undefined, 200);
+  // Lista paragonów: bieżący miesiąc, strona po stronie. Warsztat sięga po paragon
+  // sprzed pół roku raz na kwartał, a codziennie szuka tego z dzisiaj.
+  const [month, setMonth] = useState(monthKey());
+  const [pageSize, setPageSize] = useState(20);
+  const [page, setPage] = useState(1);
+  const [selectedReturns, setSelectedReturns] = useState<Set<string>>(new Set());
+  const [selectedCorrections, setSelectedCorrections] = useState<Set<string>>(new Set());
+
+  const { data: receipts = [], isLoading: receiptsLoading } = useFiscalReceipts(
+    providerId,
+    undefined,
+    1000,
+    monthRange(month),
+  );
   const { data: returns = [] } = useFiscalReturns(providerId);
   const { data: corrections = [] } = useFiscalCorrections(providerId);
   const { data: invoices = [] } = useFiscalInvoices(providerId);
@@ -95,18 +128,54 @@ export function FiscalCashRegister({ providerId }: Props) {
     [invoices],
   );
 
+  const { data: docLabels } = useReceiptDocumentLabels(providerId, receipts);
+
+  /** Etykieta dokumentu źródłowego — numer zlecenia i klient albo „sprzedaż od ręki". */
+  const labelOf = (receipt: FiscalReceiptRow) => {
+    if (receipt.document_type === 'kasa_szybka') return { title: 'Sprzedaż od ręki', client: null as string | null };
+    const found = receipt.document_id ? docLabels?.get(receipt.document_id) : undefined;
+    return { title: found?.orderNumber ?? receipt.document_type ?? '—', client: found?.clientName ?? null };
+  };
+
   const filteredReceipts = useMemo(() => {
     const term = search.trim().toLowerCase();
     return receipts.filter((receipt) => {
       if (statusFilter !== 'all' && receipt.status !== statusFilter) return false;
       if (!term) return true;
-      return (
-        String(receipt.printer_receipt_number ?? '').includes(term) ||
-        (receipt.document_type ?? '').toLowerCase().includes(term) ||
-        formatPln(receipt.total_grosze).toLowerCase().includes(term)
-      );
+      const label = labelOf(receipt);
+      const itemNames = Array.isArray(receipt.items)
+        ? (receipt.items as any[]).map((item) => String(item?.name ?? '')).join(' ')
+        : '';
+      const paymentNames = Array.isArray(receipt.payments)
+        ? receipt.payments.map((payment) => payment.name).join(' ')
+        : '';
+      // Kwotę porównujemy w obu zapisach — kasjer wpisuje raz „123,00", raz „123.00".
+      const amount = formatPln(receipt.total_grosze).toLowerCase();
+      const amountDot = amount.replace(',', '.');
+      return [
+        String(receipt.printer_receipt_number ?? ''),
+        receipt.buyer_nip ?? '',
+        label.title,
+        label.client ?? '',
+        itemNames,
+        paymentNames,
+        amount,
+        amountDot,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(term);
     });
-  }, [receipts, search, statusFilter]);
+  }, [receipts, search, statusFilter, docLabels]);
+
+  // Filtr albo zmiana miesiąca cofa na pierwszą stronę — inaczej użytkownik ląduje
+  // na pustej stronie 4 i myśli, że nic nie znalazło.
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, month, pageSize]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredReceipts.length / pageSize));
+  const pageReceipts = filteredReceipts.slice((page - 1) * pageSize, page * pageSize);
 
   const handleCopy = (receipt: FiscalReceiptRow) => {
     try {
@@ -124,6 +193,37 @@ export function FiscalCashRegister({ providerId }: Props) {
   const handlePrintReturn = (row: FiscalReturnRow) => {
     try {
       printReturnProtocol(row, receiptOf(row.receipt_id));
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  /** Zaznaczone wpisy albo — gdy nic nie zaznaczono — cała lista. */
+  const pickRows = <T extends { id: string }>(rows: T[], selected: Set<string>) =>
+    selected.size ? rows.filter((row) => selected.has(row.id)) : rows;
+
+  const toggleIn = (setter: (updater: (prev: Set<string>) => Set<string>) => void, id: string) =>
+    setter((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const handlePrintReturnsRegister = () => {
+    const rows = pickRows(returns, selectedReturns);
+    if (!rows.length) return toast.error('Brak wpisów do wydruku.');
+    try {
+      printReturnsRegister(rows);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handlePrintCorrectionsRegister = () => {
+    const rows = pickRows(corrections, selectedCorrections);
+    if (!rows.length) return toast.error('Brak wpisów do wydruku.');
+    try {
+      printCorrectionsRegister(rows);
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -197,20 +297,43 @@ export function FiscalCashRegister({ providerId }: Props) {
                 </CardTitle>
                 <CardDescription>Wszystkie próby fiskalizacji — również nieudane, z powodem błędu.</CardDescription>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap items-center">
+                <Input
+                  type="month"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                  className="h-9 w-40"
+                />
+                {month ? (
+                  <Button variant="ghost" size="sm" className="h-9" onClick={() => setMonth('')}>
+                    Wszystkie
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="sm" className="h-9" onClick={() => setMonth(monthKey())}>
+                    Bieżący miesiąc
+                  </Button>
+                )}
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Szukaj: numer, kwota…"
-                  className="h-9 w-52"
+                  placeholder="Szukaj: numer, kwota, NIP, klient…"
+                  className="h-9 w-56"
                 />
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Wszystkie statusy</SelectItem>
                     <SelectItem value="printed">Wydrukowane</SelectItem>
                     <SelectItem value="failed">Błędy</SelectItem>
                     <SelectItem value="cancelled">Anulowane</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
+                  <SelectTrigger className="h-9 w-28"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="20">20 / stronę</SelectItem>
+                    <SelectItem value="50">50 / stronę</SelectItem>
+                    <SelectItem value="100">100 / stronę</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -232,13 +355,14 @@ export function FiscalCashRegister({ providerId }: Props) {
                       <TableHead>Nr</TableHead>
                       <TableHead>Kwota</TableHead>
                       <TableHead>Płatność</TableHead>
+                      <TableHead>Nabywca / dokument</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Dokumenty</TableHead>
                       <TableHead className="text-right">Akcje</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredReceipts.map((receipt) => {
+                    {pageReceipts.map((receipt) => {
                       const payments = Array.isArray(receipt.payments) ? receipt.payments : [];
                       const isPrinted = receipt.status === 'printed';
                       return (
@@ -258,6 +382,22 @@ export function FiscalCashRegister({ providerId }: Props) {
                           <TableCell className="whitespace-nowrap">{formatPln(receipt.total_grosze)}</TableCell>
                           <TableCell className="whitespace-nowrap text-xs">
                             {payments.map((p) => p.name).join(', ') || '—'}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {(() => {
+                              const label = labelOf(receipt);
+                              return (
+                                <>
+                                  <div>{label.client ?? label.title}</div>
+                                  {label.client && (
+                                    <div className="text-[10px] text-muted-foreground">{label.title}</div>
+                                  )}
+                                  {receipt.buyer_nip && (
+                                    <div className="text-[10px] text-muted-foreground">NIP {receipt.buyer_nip}</div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell>
                             <Badge variant={STATUS_VARIANT[receipt.status] ?? 'outline'}>
@@ -309,6 +449,39 @@ export function FiscalCashRegister({ providerId }: Props) {
                     })}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+
+            {filteredReceipts.length > 0 && (
+              <div className="flex items-center justify-between gap-3 pt-3 text-sm flex-wrap">
+                <div className="text-muted-foreground">
+                  {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredReceipts.length)} z{' '}
+                  {filteredReceipts.length}
+                  {month && ' w tym miesiącu'}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Poprzednia
+                  </Button>
+                  <span className="px-2 text-muted-foreground">
+                    strona {page} z {pageCount}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    disabled={page >= pageCount}
+                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                  >
+                    Następna
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -374,13 +547,23 @@ export function FiscalCashRegister({ providerId }: Props) {
       {tab === 'zwroty' && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Undo2 className="h-4 w-4" /> Ewidencja zwrotów i uznanych reklamacji
-            </CardTitle>
-            <CardDescription>
-              Prowadzona poza kasą, zgodnie z rozporządzeniem. Zwrot nie kasuje paragonu — pomniejsza obrót
-              w dacie pierwotnej sprzedaży.
-            </CardDescription>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Undo2 className="h-4 w-4" /> Ewidencja zwrotów i uznanych reklamacji
+                </CardTitle>
+                <CardDescription>
+                  Prowadzona poza kasą, zgodnie z rozporządzeniem. Zwrot nie kasuje paragonu — pomniejsza obrót
+                  w dacie pierwotnej sprzedaży.
+                </CardDescription>
+              </div>
+              {returns.length > 0 && (
+                <Button variant="outline" size="sm" className="gap-2" onClick={handlePrintReturnsRegister}>
+                  <Printer className="h-3.5 w-3.5" />
+                  {selectedReturns.size ? `Drukuj ewidencję (${selectedReturns.size})` : 'Drukuj całą ewidencję'}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {!returns.length ? (
@@ -390,6 +573,14 @@ export function FiscalCashRegister({ providerId }: Props) {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8">
+                        <Checkbox
+                          checked={selectedReturns.size === returns.length && returns.length > 0}
+                          onCheckedChange={(value) =>
+                            setSelectedReturns(value === true ? new Set(returns.map((r) => r.id)) : new Set())
+                          }
+                        />
+                      </TableHead>
                       <TableHead>Numer</TableHead>
                       <TableHead>Data zwrotu</TableHead>
                       <TableHead>Paragon</TableHead>
@@ -402,6 +593,12 @@ export function FiscalCashRegister({ providerId }: Props) {
                   <TableBody>
                     {returns.map((row) => (
                       <TableRow key={row.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedReturns.has(row.id)}
+                            onCheckedChange={() => toggleIn(setSelectedReturns, row.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium whitespace-nowrap">{row.return_number}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">
                           {new Date(row.returned_at).toLocaleDateString('pl-PL')}
@@ -433,13 +630,25 @@ export function FiscalCashRegister({ providerId }: Props) {
       {tab === 'korekty' && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileWarning className="h-4 w-4" /> Ewidencja oczywistych pomyłek
-            </CardTitle>
-            <CardDescription>
-              Odrębna od ewidencji zwrotów — prawo zabrania łączenia obu. Po wpisie zlecenie jest odblokowane
-              do ponownej, prawidłowej fiskalizacji.
-            </CardDescription>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileWarning className="h-4 w-4" /> Ewidencja oczywistych pomyłek
+                </CardTitle>
+                <CardDescription>
+                  Odrębna od ewidencji zwrotów — prawo zabrania łączenia obu. Po wpisie zlecenie jest odblokowane
+                  do ponownej, prawidłowej fiskalizacji.
+                </CardDescription>
+              </div>
+              {corrections.length > 0 && (
+                <Button variant="outline" size="sm" className="gap-2" onClick={handlePrintCorrectionsRegister}>
+                  <Printer className="h-3.5 w-3.5" />
+                  {selectedCorrections.size
+                    ? `Drukuj ewidencję (${selectedCorrections.size})`
+                    : 'Drukuj całą ewidencję'}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {!corrections.length ? (
@@ -449,6 +658,16 @@ export function FiscalCashRegister({ providerId }: Props) {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8">
+                        <Checkbox
+                          checked={selectedCorrections.size === corrections.length && corrections.length > 0}
+                          onCheckedChange={(value) =>
+                            setSelectedCorrections(
+                              value === true ? new Set(corrections.map((c) => c.id)) : new Set(),
+                            )
+                          }
+                        />
+                      </TableHead>
                       <TableHead>Numer</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Błędny paragon</TableHead>
@@ -461,6 +680,12 @@ export function FiscalCashRegister({ providerId }: Props) {
                   <TableBody>
                     {corrections.map((row) => (
                       <TableRow key={row.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedCorrections.has(row.id)}
+                            onCheckedChange={() => toggleIn(setSelectedCorrections, row.id)}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium whitespace-nowrap">{row.correction_number}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">
                           {new Date(row.corrected_at).toLocaleDateString('pl-PL')}

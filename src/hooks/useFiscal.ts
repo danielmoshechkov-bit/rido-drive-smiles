@@ -42,6 +42,7 @@ export interface FiscalPrinter {
 
 export interface FiscalReceiptRow {
   id: string;
+  buyer_nip?: string | null;
   document_type: string;
   document_id: string | null;
   status: string;
@@ -971,23 +972,72 @@ export function useFiscalPeriodSummary(providerId?: string, from?: string, to?: 
 }
 
 /** Log paragonów tenanta (opcjonalnie zawężony do jednego dokumentu). */
-export function useFiscalReceipts(providerId?: string, documentId?: string, limit = 50) {
+export function useFiscalReceipts(
+  providerId?: string,
+  documentId?: string,
+  limit = 50,
+  /** Zakres dat (yyyy-mm-dd) — lista paragonów domyślnie pokazuje bieżący miesiąc. */
+  period?: { from?: string; to?: string },
+) {
+  const from = period?.from ?? null;
+  const to = period?.to ?? null;
   return useQuery({
-    queryKey: ['fiscal-receipts', providerId, documentId, limit],
+    queryKey: ['fiscal-receipts', providerId, documentId, limit, from, to],
     enabled: Boolean(providerId),
     queryFn: async (): Promise<FiscalReceiptRow[]> => {
       let query = (supabase as any)
         .from('fiscal_receipts')
         .select(
-          'id, document_type, document_id, status, total_grosze, printer_receipt_number, printer_mode, payments, items, error_code, error_message, printed_at, created_at',
+          'id, document_type, document_id, status, total_grosze, printer_receipt_number, printer_mode, payments, items, buyer_nip, error_code, error_message, printed_at, created_at',
         )
         .eq('provider_id', providerId)
         .order('created_at', { ascending: false })
         .limit(limit);
       if (documentId) query = query.eq('document_id', documentId);
+      if (from) query = query.gte('created_at', `${from}T00:00:00`);
+      if (to) query = query.lte('created_at', `${to}T23:59:59`);
       const { data, error } = await query;
       if (error) throw error;
       return (data as FiscalReceiptRow[]) ?? [];
+    },
+  });
+}
+
+/**
+ * Numery zleceń i nazwy klientów dla paragonów wystawionych do zleceń.
+ *
+ * PO CO: na paragonie fiskalnym nie ma nazwiska nabywcy (paragon go nie zawiera), a kasjer
+ * szuka właśnie po nazwisku albo numerze zlecenia. Dociągamy to z dokumentu źródłowego —
+ * jednym zapytaniem dla widocznych paragonów, nie po jednym na wiersz.
+ */
+export function useReceiptDocumentLabels(providerId?: string, receipts: FiscalReceiptRow[] = []) {
+  const orderIds = Array.from(
+    new Set(
+      receipts
+        .filter((r) => r.document_type === 'workshop_order' && r.document_id)
+        .map((r) => r.document_id as string),
+    ),
+  ).sort();
+
+  return useQuery({
+    queryKey: ['fiscal-receipt-doc-labels', providerId, orderIds],
+    enabled: Boolean(providerId) && orderIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async (): Promise<Map<string, { orderNumber: string | null; clientName: string | null }>> => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_orders')
+        .select('id, order_number, client:workshop_clients(first_name, last_name, company_name)')
+        .in('id', orderIds);
+      if (error) throw error;
+      const map = new Map<string, { orderNumber: string | null; clientName: string | null }>();
+      for (const row of (data as any[]) ?? []) {
+        const client = row.client;
+        const name = client
+          ? client.company_name || [client.first_name, client.last_name].filter(Boolean).join(' ') || null
+          : null;
+        map.set(row.id, { orderNumber: row.order_number ?? null, clientName: name });
+      }
+      return map;
     },
   });
 }
