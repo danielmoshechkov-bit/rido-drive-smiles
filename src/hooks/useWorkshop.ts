@@ -133,6 +133,59 @@ const ORDER_JOINS = 'client:workshop_clients(*), vehicle:workshop_vehicles(*), i
 
 export type WorkshopOrdersView = 'active' | 'completed' | 'all';
 
+/** „WY 996EU", „wy996eu", „WY-996EU" to ten sam numer — porównujemy bez ozdobników. */
+const squash = (text: unknown) => String(text ?? '').toLowerCase().replace(/[\s-]/g, '');
+
+/**
+ * Zamienia frazę na identyfikatory pojazdów i klientów, po których można filtrować zlecenia.
+ *
+ * Dopasowujemy po stronie przeglądarki, a nie zapytaniem `ilike`, bo numery rejestracyjne
+ * i telefony bywają zapisane ze spacjami albo myślnikami — „WY 996EU" nie znalazłoby się
+ * po wpisaniu „wy996eu", a to najczęstszy sposób szukania w warsztacie.
+ */
+async function resolveSearchTargets(
+  providerId: string | undefined,
+  phrase: string,
+): Promise<{ vehicleIds: string[]; clientIds: string[] }> {
+  const needle = squash(phrase);
+  if (!providerId || !needle) return { vehicleIds: [], clientIds: [] };
+
+  const [vehicles, clients] = await Promise.all([
+    (supabase as any)
+      .from('workshop_vehicles')
+      .select('id, plate, vin, brand, model')
+      .eq('provider_id', providerId)
+      .limit(5000),
+    (supabase as any)
+      .from('workshop_clients')
+      .select('id, first_name, last_name, company_name, phone, email, nip')
+      .eq('provider_id', providerId)
+      .limit(5000),
+  ]);
+
+  const vehicleIds = ((vehicles.data as any[]) ?? [])
+    .filter((v) =>
+      [v.plate, v.vin, `${v.brand ?? ''} ${v.model ?? ''}`].some((field) => squash(field).includes(needle)),
+    )
+    .map((v) => v.id);
+
+  const clientIds = ((clients.data as any[]) ?? [])
+    .filter((c) =>
+      [
+        c.first_name,
+        c.last_name,
+        `${c.first_name ?? ''} ${c.last_name ?? ''}`,
+        c.company_name,
+        c.phone,
+        c.email,
+        c.nip,
+      ].some((field) => squash(field).includes(needle)),
+    )
+    .map((c) => c.id);
+
+  return { vehicleIds, clientIds };
+}
+
 export function useWorkshopOrders(providerId: string | undefined, filters?: {
   status?: string;
   search?: string;
@@ -198,8 +251,20 @@ export function useWorkshopOrders(providerId: string | undefined, filters?: {
       if (filters?.completedOnly) {
         query = query.eq('status_name', 'Zakończone');
       }
+      // Szukanie po tym, co użytkownik ma przed oczami na liście: numer zlecenia, opis,
+      // NUMER REJESTRACYJNY, VIN oraz dane klienta. Rejestracja i klient leżą w tabelach
+      // powiązanych, więc najpierw rozwiązujemy je na identyfikatory — filtr PostgREST na
+      // zagnieżdżonym zasobie przycina bowiem tylko sam join, a nie listę zleceń.
       if (filters?.search) {
-        query = query.or(`order_number.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+        const phrase = filters.search.trim();
+        const { vehicleIds, clientIds } = await resolveSearchTargets(providerId, phrase);
+        const conditions = [
+          `order_number.ilike.%${phrase}%`,
+          `description.ilike.%${phrase}%`,
+          vehicleIds.length ? `vehicle_id.in.(${vehicleIds.join(',')})` : null,
+          clientIds.length ? `client_id.in.(${clientIds.join(',')})` : null,
+        ].filter(Boolean);
+        query = query.or(conditions.join(','));
       }
       const { data, error } = await query;
       if (error) throw error;

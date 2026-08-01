@@ -94,8 +94,16 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   // PERF C2: paginacja archiwum zakończonych — "Załaduj więcej" podbija limit.
   const [completedLimit, setCompletedLimit] = useState(100);
+  // Szukanie odpytuje bazę (zlecenia + pojazdy + klienci), więc nie strzelamy
+  // przy każdym wciśniętym klawiszu — dopiero gdy użytkownik przestanie pisać.
+  const [searchDebounced, setSearchDebounced] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchDebounced(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
-    search: search || undefined,
+    search: searchDebounced || undefined,
     // PERF C2: filtr widoku + zakres dat serwerowo — wejście na "Aktywne" nie
     // ściąga już całego archiwum zakończonych zleceń.
     view: orderView,
@@ -622,7 +630,18 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">{t('workshop.orders.noOrders')}</div>
+          <div className="text-center py-8 text-muted-foreground space-y-2">
+            <div>{t('workshop.orders.noOrders')}</div>
+            {searchDebounced && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOrderView(orderView === 'active' ? 'completed' : 'active')}
+              >
+                Szukaj „{searchDebounced}" w {orderView === 'active' ? 'zakończonych' : 'aktywnych'}
+              </Button>
+            )}
+          </div>
         ) : (
           <>
             {filteredOrders.map((order: any) => {
@@ -981,6 +1000,19 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {t('workshop.orders.noOrders')}
+                      {/* Szukanie działa w obrębie wybranej zakładki — bez tej podpowiedzi
+                          „nie ma zlecenia" znaczy tylko „nie ma go w tej zakładce". */}
+                      {searchDebounced && (
+                        <div className="mt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOrderView(orderView === 'active' ? 'completed' : 'active')}
+                          >
+                            Szukaj „{searchDebounced}" w {orderView === 'active' ? 'zakończonych' : 'aktywnych'}
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 )}
