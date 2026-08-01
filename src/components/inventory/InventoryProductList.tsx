@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useInventoryProducts, InventoryProduct } from '@/hooks/useInventoryProducts';
+import { toFiscalName } from '@/lib/fiscalName';
 import { CategorySelector } from './CategorySelector';
 import { 
   Package, 
@@ -39,6 +40,7 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
   // Form state
   const [formData, setFormData] = useState({
     name_sales: '',
+    fiscal_name: '',
     sku: '',
     vat_rate: '23',
     unit: 'szt.',
@@ -61,6 +63,7 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
     setEditingProduct(null);
     setFormData({
       name_sales: '',
+      fiscal_name: '',
       sku: '',
       vat_rate: '23',
       unit: 'szt.',
@@ -79,6 +82,7 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
     setEditingProduct(product);
     setFormData({
       name_sales: product.name_sales,
+      fiscal_name: (product as any).fiscal_name || '',
       sku: product.sku || '',
       vat_rate: product.vat_rate,
       unit: product.unit,
@@ -110,6 +114,9 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
 
     const productData = {
       name_sales: formData.name_sales,
+      // Nazwa na paragon: drukarka ma 40 znaków i klient czyta ją na papierze.
+      // Pusta = system skróci nazwę handlową automatycznie.
+      fiscal_name: formData.fiscal_name.trim() || null,
       sku: formData.sku || null,
       vat_rate: formData.vat_rate,
       unit: formData.unit,
@@ -345,6 +352,20 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
                 onChange={(e) => setFormData({ ...formData, name_sales: e.target.value })}
                 placeholder="np. Zapałki kominkowe"
               />
+            </div>
+
+            <div>
+              <Label>Nazwa na paragon fiskalny</Label>
+              <Input
+                value={formData.fiscal_name}
+                maxLength={40}
+                onChange={(e) => setFormData({ ...formData, fiscal_name: e.target.value })}
+                placeholder={formData.name_sales ? toFiscalName(formData.name_sales) : 'np. Zapalki kominkowe'}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Drukarka mieści 40 znaków, a klient czyta tę nazwę na papierze i po niej rozpoznaje zakup.
+                Puste pole = system skróci nazwę handlową sam (podpowiedź w tle).
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

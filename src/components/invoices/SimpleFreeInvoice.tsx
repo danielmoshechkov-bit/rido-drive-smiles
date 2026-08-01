@@ -165,9 +165,15 @@ interface SimpleFreeInvoiceProps {
   prefillNotes?: string;
   prefillOrderNumber?: string;
   prefillWorkshopOrderId?: string;
+  /**
+   * Faktura wystawiana DO PARAGONU fiskalnego. Sprzedaż jest już w raporcie dobowym,
+   * więc powiązanie musi zostać zapisane — inaczej księgowa policzy obrót dwa razy.
+   */
+  prefillFiscalReceiptId?: string;
+  prefillFiscalReceiptNumber?: number | null;
 }
 
-export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillOrderNumber, prefillWorkshopOrderId }: SimpleFreeInvoiceProps = {}) {
+export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillOrderNumber, prefillWorkshopOrderId, prefillFiscalReceiptId, prefillFiscalReceiptNumber }: SimpleFreeInvoiceProps = {}) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const defaultDueDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
   
@@ -1302,6 +1308,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             split_payment: getSplitPayment(),
             ksef_status: asDraft ? 'draft' : undefined,
             ...(prefillWorkshopOrderId ? { workshop_order_id: prefillWorkshopOrderId } : {}),
+            ...(prefillFiscalReceiptId ? { fiscal_receipt_id: prefillFiscalReceiptId } : {}),
         };
         if (isCorrection) {
           insertData.is_correction = true;
@@ -1551,6 +1558,20 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             <p className="text-xs sm:text-sm text-muted-foreground">Bez rejestracji • Za darmo wygeneruj PDF w przeglądarce</p>
           </div>
         </div>
+
+      {/* Faktura do paragonu — sprzedaż jest już zaewidencjonowana na kasie */}
+      {prefillFiscalReceiptId && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div className="font-medium">
+            Faktura do paragonu fiskalnego{prefillFiscalReceiptNumber ? ` nr ${prefillFiscalReceiptNumber}` : ''}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Ta sprzedaż jest już ujęta w raporcie dobowym z kasy — w JPK_V7 wykazuje się ją raz, zapisem
+            zbiorczym RO, a fakturę oznacza się jako wystawioną do paragonu. Powiązanie zapisuje się
+            automatycznie. Do egzemplarza faktury pozostającego u sprzedawcy dołącz oryginał paragonu.
+          </p>
+        </div>
+      )}
 
       {/* Invoice Type Selection */}
       <Card>

@@ -2,8 +2,16 @@
  * Hooki modułu fiskalnego: konfiguracja drukarki, testy połączenia, wydruk paragonu, log.
  */
 
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  dayReportDue,
+  getAutoReportConfig,
+  hoursSinceReport,
+  type AutoReportConfig,
+} from '@/lib/fiscalAuto';
 import { computeReceiptTotalGrosze, type FiscalItemInput } from '@/lib/fiscal';
 import {
   bridgeDayReport,
@@ -38,6 +46,52 @@ export interface FiscalPrinter {
   last_seen_at: string | null;
   last_clock: string | null;
   last_day_report_at: string | null;
+  last_month_report_period?: string | null;
+  last_month_report_at?: string | null;
+}
+
+/**
+ * Raport fiskalny miesięczny — termin do 25. dnia miesiąca następnego.
+ *
+ * Sam raport wychodzi z drukarki (menu urządzenia), bo udokumentowana lista sekwencji
+ * ElzabESC go nie zawiera, a sekwencji na tej drukarce nie zgadujemy. System pilnuje terminu
+ * i trzyma ślad wykonania — to jest to, o co pyta kontrola i księgowa.
+ */
+export function useMonthReportStatus(printer?: FiscalPrinter | null, now = new Date()) {
+  const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const period = `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, '0')}`;
+  const deadline = new Date(now.getFullYear(), now.getMonth(), 25, 23, 59, 59);
+  const done = printer?.last_month_report_period === period;
+  return {
+    period,
+    deadline,
+    done,
+    /** Ile dni do terminu; ujemne = po terminie. */
+    daysLeft: Math.ceil((deadline.getTime() - now.getTime()) / 86_400_000),
+    overdue: !done && now > deadline,
+  };
+}
+
+export function useConfirmMonthReport(providerId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { printerId: string; period: string }) => {
+      const { error } = await (supabase as any)
+        .from('fiscal_printers')
+        .update({ last_month_report_period: input.period, last_month_report_at: new Date().toISOString() })
+        .eq('id', input.printerId);
+      // 42703 = brak kolumny: migracja raportu miesięcznego jeszcze nie wykonana.
+      if (error?.code === '42703') {
+        throw new FiscalError(
+          'MIGRATION_PENDING',
+          'Ślad raportu miesięcznego wymaga migracji 20260802_fiscal_month_report.sql — poproś o jej wykonanie.',
+        );
+      }
+      if (error) throw new FiscalError(error.code ?? 'DB_ERROR', error.message);
+      return { ok: true as const };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fiscal-printer', providerId] }),
+  });
 }
 
 export interface FiscalReceiptRow {
@@ -295,6 +349,50 @@ export function useFiscalDayReport(providerId?: string) {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['fiscal-printer', providerId] }),
   });
+}
+
+/**
+ * Pilnowanie raportu dobowego na tym stanowisku.
+ *
+ * Wykonuje raport sam, gdy jest włączony i minęła ustawiona godzina — i tylko RAZ na dobę,
+ * bo drugi raport dobowy tego samego dnia to pusty wydruk i niepotrzebny papier.
+ * Zwraca też informację o zaległości, żeby Kasa fiskalna mogła ostrzec, nawet gdy automat
+ * jest wyłączony.
+ */
+export function useAutoDayReport(providerId?: string, printer?: FiscalPrinter | null) {
+  const dayReport = useFiscalDayReport(providerId);
+  const [config, setConfig] = useState<AutoReportConfig>({ enabled: false, hour: 21 });
+  const firedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    setConfig(getAutoReportConfig(providerId));
+  }, [providerId]);
+
+  const due = dayReportDue(printer?.last_day_report_at, config.hour);
+
+  useEffect(() => {
+    if (!printer || !config.enabled) return;
+
+    const run = () => {
+      if (!dayReportDue(printer.last_day_report_at, config.hour)) return;
+      const today = new Date().toDateString();
+      if (firedFor.current === today) return; // jedna próba na dobę, nawet gdy się nie uda
+      firedFor.current = today;
+      dayReport
+        .mutateAsync(printer)
+        .then(() => toast.success('Raport dobowy wykonany automatycznie.'))
+        .catch((error: FiscalError) =>
+          toast.error(`Automatyczny raport dobowy nie przeszedł: ${error.message}`),
+        );
+    };
+
+    run();
+    const timer = setInterval(run, 10 * 60 * 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printer?.id, printer?.last_day_report_at, config.enabled, config.hour]);
+
+  return { due, config, hoursSince: hoursSinceReport(printer?.last_day_report_at) };
 }
 
 export interface FiscalizeInput {

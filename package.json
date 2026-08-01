@@ -16,7 +16,8 @@
     "elzab:codepage": "node --no-warnings=ExperimentalWarning scripts/elzab/05-codepage-test.ts",
     "elzab:bytemap": "node --no-warnings=ExperimentalWarning scripts/elzab/06-byte-map.ts",
     "elzab:polish": "node --no-warnings=ExperimentalWarning scripts/elzab/07-polish-test.ts",
-    "fiscal:bridge": "node --no-warnings=ExperimentalWarning scripts/elzab/bridge.ts"
+    "fiscal:bridge": "node --no-warnings=ExperimentalWarning scripts/elzab/bridge.ts",
+    "fiscal:service:install": "bash scripts/elzab/service/install-macos.sh"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.14.1",

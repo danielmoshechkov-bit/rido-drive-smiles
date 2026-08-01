@@ -29,6 +29,7 @@ import {
   TriangleAlert,
   FileBarChart,
   Printer,
+  CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -39,6 +40,9 @@ import {
   useFiscalPeriodSummary,
   useFiscalPrinter,
   useFiscalDayReport,
+  useAutoDayReport,
+  useMonthReportStatus,
+  useConfirmMonthReport,
   useReceiptDocumentLabels,
   RETURN_REASON_LABELS,
   FiscalError,
@@ -55,6 +59,8 @@ import {
   printReturnsRegister,
 } from '@/lib/fiscalCopy';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { FiscalReturnDialog } from './FiscalReturnDialog';
 import { FiscalCorrectionDialog } from './FiscalCorrectionDialog';
 import { FiscalReceiptDialog } from './FiscalReceiptDialog';
@@ -107,6 +113,7 @@ export function FiscalCashRegister({ providerId }: Props) {
   const [page, setPage] = useState(1);
   const [selectedReturns, setSelectedReturns] = useState<Set<string>>(new Set());
   const [selectedCorrections, setSelectedCorrections] = useState<Set<string>>(new Set());
+  const [invoiceForReceipt, setInvoiceForReceipt] = useState<FiscalReceiptRow | null>(null);
 
   const { data: receipts = [], isLoading: receiptsLoading } = useFiscalReceipts(
     providerId,
@@ -120,6 +127,9 @@ export function FiscalCashRegister({ providerId }: Props) {
   const { data: printer } = useFiscalPrinter(providerId);
   const { data: summary, isLoading: summaryLoading } = useFiscalPeriodSummary(providerId, range.from, range.to);
   const dayReport = useFiscalDayReport(providerId);
+  const autoReport = useAutoDayReport(providerId, printer);
+  const monthReport = useMonthReportStatus(printer);
+  const confirmMonthReport = useConfirmMonthReport(providerId);
 
   const correctedIds = useMemo(() => new Set(corrections.map((c) => c.receipt_id)), [corrections]);
   const returnedIds = useMemo(() => new Set(returns.map((r) => r.receipt_id)), [returns]);
@@ -177,6 +187,17 @@ export function FiscalCashRegister({ providerId }: Props) {
   const pageCount = Math.max(1, Math.ceil(filteredReceipts.length / pageSize));
   const pageReceipts = filteredReceipts.slice((page - 1) * pageSize, page * pageSize);
 
+  const handleConfirmMonthReport = async () => {
+    if (!printer) return;
+    if (!confirm(`Potwierdzić wykonanie raportu miesięcznego za ${monthReport.period}?`)) return;
+    try {
+      await confirmMonthReport.mutateAsync({ printerId: printer.id, period: monthReport.period });
+      toast.success(`Raport za ${monthReport.period} oznaczony jako wykonany.`);
+    } catch (e) {
+      toast.error((e as FiscalError).message);
+    }
+  };
+
   const handleCopy = (receipt: FiscalReceiptRow) => {
     try {
       printReceiptCopy(receipt);
@@ -184,6 +205,40 @@ export function FiscalCashRegister({ providerId }: Props) {
       toast.error((e as Error).message);
     }
   };
+
+  /**
+   * Faktura do paragonu.
+   *
+   * Art. 106b ust. 5 ustawy o VAT: fakturę dla firmy wolno wystawić tylko wtedy, gdy NIP nabywcy
+   * znalazł się już NA PARAGONIE. Dopisanie go później jest zakazane i grozi sankcją, więc paragon
+   * bez NIP-u przepuszczamy wyłącznie z ostrzeżeniem — dla osoby prywatnej to nadal legalne.
+   */
+  const handleIssueInvoice = (receipt: FiscalReceiptRow) => {
+    if (!receipt.buyer_nip) {
+      const proceed = confirm(
+        'Ten paragon nie zawiera NIP-u nabywcy.\n\n' +
+          'Fakturę do takiego paragonu można wystawić wyłącznie osobie prywatnej. ' +
+          'Dla firmy jest to zakazane (art. 106b ust. 5 ustawy o VAT) — NIP musiał znaleźć się na paragonie.\n\n' +
+          'Kontynuować jako faktura dla osoby prywatnej?',
+      );
+      if (!proceed) return;
+    }
+    setInvoiceForReceipt(receipt);
+  };
+
+  /** Pozycje paragonu → pozycje faktury (ceny na paragonie są brutto). */
+  const invoicePrefillItems = useMemo(() => {
+    const items = Array.isArray(invoiceForReceipt?.items) ? (invoiceForReceipt?.items as any[]) : [];
+    return items.map((item) => ({
+      name: String(item?.name ?? ''),
+      quantity: Number(item?.quantity) || 1,
+      unit: String(item?.unit ?? 'szt.'),
+      unit_net_price: 0,
+      unit_gross_price: Number(item?.unitPrice) || 0,
+      vat_rate: String(item?.vatRate ?? '23'),
+      discount_percent: 0,
+    }));
+  }, [invoiceForReceipt]);
 
   /** Paragon źródłowy dla wpisu ewidencji — nagłówek dokumentu musi go wskazać. */
   const receiptOf = (receiptId: string) => receipts.find((row) => row.id === receiptId) ?? null;
@@ -286,6 +341,25 @@ export function FiscalCashRegister({ providerId }: Props) {
   return (
     <div className="space-y-4">
       <UniversalSubTabBar activeTab={tab} onTabChange={setTab} tabs={tabs} />
+
+      {/* Zaległy raport dobowy widać wszędzie w Kasie fiskalnej — po 48 h drukarka
+          przestaje sprzedawać, a to zamknięty warsztat, nie drobna niedogodność. */}
+      {autoReport.due && printer && (
+        <Alert variant={(autoReport.hoursSince ?? 0) >= 40 ? 'destructive' : 'default'}>
+          <TriangleAlert className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between gap-4 flex-wrap">
+            <span>
+              Raport dobowy nie został jeszcze wykonany
+              {autoReport.hoursSince !== null && ` — od ostatniego minęło ${autoReport.hoursSince} h`}.
+              {(autoReport.hoursSince ?? 0) >= 40 && ' Po 48 h drukarka zablokuje sprzedaż.'}
+            </span>
+            <Button size="sm" onClick={handleDayReport} disabled={dayReport.isPending} className="gap-2">
+              {dayReport.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileBarChart className="h-4 w-4" />}
+              Wykonaj raport dobowy
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {tab === 'paragony' && (
         <Card>
@@ -424,6 +498,20 @@ export function FiscalCashRegister({ providerId }: Props) {
                               onClick={() => handleCopy(receipt)}
                             >
                               <Copy className="h-3 w-3" /> Kopia
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1 text-xs"
+                              disabled={!isPrinted || invoicedReceiptIds.has(receipt.id)}
+                              title={
+                                invoicedReceiptIds.has(receipt.id)
+                                  ? 'Do tego paragonu wystawiono już fakturę'
+                                  : 'Wystaw fakturę do paragonu'
+                              }
+                              onClick={() => handleIssueInvoice(receipt)}
+                            >
+                              <FileText className="h-3 w-3" /> Faktura
                             </Button>
                             <Button
                               variant="ghost"
@@ -757,6 +845,49 @@ export function FiscalCashRegister({ providerId }: Props) {
 
           <Card>
             <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileBarChart className="h-4 w-4" /> Raport miesięczny za {monthReport.period}
+              </CardTitle>
+              <CardDescription>
+                Termin ustawowy: do 25. dnia miesiąca następnego. Raport drukuje się z menu drukarki —
+                udokumentowana lista sekwencji ElzabESC go nie zawiera, a sekwencji na tej drukarce nie zgadujemy.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {monthReport.done ? (
+                <Alert>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <AlertDescription>
+                    Raport za {monthReport.period} oznaczony jako wykonany
+                    {printer?.last_month_report_at &&
+                      ` (${new Date(printer.last_month_report_at).toLocaleDateString('pl-PL')})`}
+                    .
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert variant={monthReport.overdue ? 'destructive' : 'default'}>
+                  <TriangleAlert className="h-4 w-4" />
+                  <AlertDescription>
+                    {monthReport.overdue
+                      ? `Termin na raport za ${monthReport.period} minął ${monthReport.deadline.toLocaleDateString('pl-PL')}.`
+                      : `Do wykonania — zostało ${monthReport.daysLeft} dni (termin ${monthReport.deadline.toLocaleDateString('pl-PL')}).`}
+                  </AlertDescription>
+                </Alert>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={!printer || monthReport.done || confirmMonthReport.isPending}
+                onClick={handleConfirmMonthReport}
+              >
+                <CheckCircle2 className="h-4 w-4" /> Oznacz jako wykonany
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div>
                   <CardTitle className="flex items-center gap-2 text-base">
@@ -838,6 +969,31 @@ export function FiscalCashRegister({ providerId }: Props) {
           </Card>
         </div>
       )}
+
+      {/* Faktura do paragonu — ten sam edytor faktur co ze zlecenia, z powiązaniem do paragonu. */}
+      <Dialog open={!!invoiceForReceipt} onOpenChange={(open) => { if (!open) setInvoiceForReceipt(null); }}>
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto p-0">
+          <DialogTitle className="sr-only">Faktura do paragonu</DialogTitle>
+          {invoiceForReceipt && (
+            <SimpleFreeInvoice
+              onClose={() => setInvoiceForReceipt(null)}
+              onSaved={() => {
+                setInvoiceForReceipt(null);
+                toast.success('Faktura wystawiona i powiązana z paragonem.');
+              }}
+              prefillItems={invoicePrefillItems}
+              prefillBuyer={invoiceForReceipt.buyer_nip ? { nip: invoiceForReceipt.buyer_nip } : undefined}
+              prefillNotes={
+                invoiceForReceipt.printer_receipt_number
+                  ? `Faktura do paragonu fiskalnego nr ${invoiceForReceipt.printer_receipt_number}`
+                  : 'Faktura do paragonu fiskalnego'
+              }
+              prefillFiscalReceiptId={invoiceForReceipt.id}
+              prefillFiscalReceiptNumber={invoiceForReceipt.printer_receipt_number}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <FiscalReturnDialog
         open={!!returnReceipt}

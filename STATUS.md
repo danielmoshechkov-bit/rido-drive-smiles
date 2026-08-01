@@ -137,12 +137,24 @@ tabele, osobne numeracje i osobne dowody wewnętrzne.
 
 | # | Zadanie | Stan |
 |---|---|---|
-| 6 | **Faktura do paragonu** — wystawienie faktury z paragonu (wraz z KSeF) i pilnowanie, żeby sprzedaż nie policzyła się dwa razy | zrobione tylko *pokazywanie* powiązania w zakładce Faktury; brak akcji „wystaw fakturę do paragonu" |
-| 7 | **Ustawienia drukarki** + „znajdź drukarkę w sieci" + samonaprawa adresu | **zrobione 01.08** — zostaje tylko rezerwacja IP na routerze (czynność po stronie klienta) |
-| 8 | **Automatyczne raporty dobowe/miesięczne** — backend ma już `skipIfDoneToday`; brak harmonogramu i przypomnienia przed 48 h blokady | do zrobienia |
-| 9–10 | **Raporty + eksport RO** — działa raport dobowy, podsumowanie okresu, eksport RO, wydruk obu ewidencji | zostaje **raport fiskalny miesięczny** (wymóg: do 25. dnia następnego miesiąca). Udokumentowana lista sekwencji ElzabESC zawiera tylko raport dobowy (Esc 25H) — potrzebna dokumentacja producenta, sekwencji nie zgadujemy |
-| 11 | **Skracanie nazw + pole nazwy fiskalnej w Magazynie** — biblioteka i kolumny w bazie są; brak pola w UI Magazynu i w usługach | do zrobienia |
-| 12 | **Mostek jako usługa systemowa** — dziś odpalany ręcznie `npm run fiscal:bridge`; potrzebny autostart (launchd/systemd/usługa Windows) + token | do zrobienia |
+| 6 | **Faktura do paragonu** | **zrobione** — akcja „Faktura" przy paragonie, prefill pozycji i NIP-u, powiązanie `fiscal_receipt_id`, ostrzeżenie o art. 106b ust. 5 przy paragonie bez NIP-u; KSeF idzie tą samą ścieżką co każda faktura |
+| 7 | **Ustawienia drukarki + znajdź w sieci + samonaprawa adresu** | **zrobione** — zostaje rezerwacja IP na routerze (po stronie klienta) |
+| 8 | **Automatyczny raport dobowy** | **zrobione** — harmonogram na stanowisku (godzina do wyboru), zaległy raport wykonuje się przy otwarciu panelu, ostrzeżenie w Kasie fiskalnej |
+| 9–10 | **Raporty + eksport RO + ewidencje** | **zrobione** poza jednym: raport fiskalny **miesięczny** drukuje się z menu drukarki, a system pilnuje terminu (do 25.) i trzyma ślad wykonania. Wykonanie z programu wymaga dokumentacji ELZAB-a — udokumentowana lista sekwencji zawiera tylko raport dobowy (Esc 25H), a sekwencji nie zgadujemy |
+| 11 | **Nazwa fiskalna w Magazynie i usługach** | **zrobione** — pole „Nazwa na paragon fiskalny" w kartotece produktu i w usłudze, z podpowiedzią automatycznego skrótu |
+| 12 | **Mostek jako usługa systemowa** | **zrobione** — skrypty dla macOS (launchd), Linuksa (systemd --user) i Windows (harmonogram zadań) + `scripts/elzab/service/README.md` |
+
+## 4a. Zanim wdrożysz na produkcję
+
+1. **Wykonaj migrację** `20260802_fiscal_month_report.sql` (ślad raportu miesięcznego).
+   Bez niej „Oznacz jako wykonany" zwróci komunikat o brakującej migracji — reszta działa.
+2. **Wyczyść dane testowe**: `scripts/sql/cleanup-fiscal-test-data.sql` (paragony szkoleniowe
+   i powstałe z nich wpłaty). Skrypt najpierw pokazuje liczby, kasuje dopiero po `COMMIT`.
+3. **Zainstaluj mostek jako usługę** na komputerze przy drukarce (`scripts/elzab/service/`).
+4. **Zarezerwuj IP drukarki** na routerze — samonaprawa adresu działa, ale rezerwacja usuwa problem u źródła.
+5. **Przełącz drukarkę w tryb fiskalny** dopiero po fiskalizacji urządzenia przez serwis
+   (Ustawienia → Fiskalizacja → Tryb pracy). Do tego czasu wszystko jest niefiskalne.
+6. **Włącz automatyczny raport dobowy** i ustaw godzinę po zamknięciu warsztatu.
 
 ### Dług i ryzyka
 - **IP drukarki z DHCP** — bez rezerwacji na routerze moduł traci łączność po restarcie sieci

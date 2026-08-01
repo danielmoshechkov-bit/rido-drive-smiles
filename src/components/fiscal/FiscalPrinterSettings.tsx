@@ -37,6 +37,7 @@ import {
   type FiscalPrinter,
 } from '@/hooks/useFiscal';
 import type { FoundPrinter } from '@/lib/fiscalBridge';
+import { getAutoReportConfig, setAutoReportConfig, type AutoReportConfig } from '@/lib/fiscalAuto';
 import {
   getTerminalConfig,
   setTerminalConfig,
@@ -102,6 +103,7 @@ export function FiscalPrinterSettings({ providerId }: Props) {
   const [bridgeStatus, setBridgeStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [found, setFound] = useState<FoundPrinter[] | null>(null);
   const [terminal, setTerminal] = useState<TerminalConfig>({ enabled: false, provider: 'manual' });
+  const [autoReport, setAutoReport] = useState<AutoReportConfig>({ enabled: false, hour: 21 });
 
   useEffect(() => {
     if (printer) setForm(printer);
@@ -110,7 +112,14 @@ export function FiscalPrinterSettings({ providerId }: Props) {
   useEffect(() => {
     setBridge(getBridgeConfig(providerId));
     setTerminal(getTerminalConfig(providerId));
+    setAutoReport(getAutoReportConfig(providerId));
   }, [providerId]);
+
+  const saveAutoReport = (patch: Partial<AutoReportConfig>) => {
+    const next = { ...autoReport, ...patch };
+    setAutoReport(next);
+    setAutoReportConfig(next, providerId);
+  };
 
   const saveTerminal = (patch: Partial<TerminalConfig>) => {
     const next = { ...terminal, ...patch };
@@ -479,6 +488,49 @@ export function FiscalPrinterSettings({ providerId }: Props) {
                     <AlertDescription>{bridgeStatus.message}</AlertDescription>
                   </Alert>
                 )}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="font-medium flex items-center gap-2">
+                  <FileBarChart className="h-4 w-4" /> Automatyczny raport dobowy
+                </div>
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  Raport wykona się sam po ustawionej godzinie, na tym komputerze. Zapomniany raport
+                  to zablokowana sprzedaż — drukarka blokuje ją po 48 h. Gdy komputer był wyłączony,
+                  zaległy raport wykona się przy pierwszym otwarciu panelu.
+                </p>
+              </div>
+              <Switch
+                checked={autoReport.enabled}
+                onCheckedChange={(checked) => saveAutoReport({ enabled: checked })}
+              />
+            </div>
+
+            {autoReport.enabled && (
+              <div className="flex items-end gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Godzina</Label>
+                  <Select
+                    value={String(autoReport.hour)}
+                    onValueChange={(value) => saveAutoReport({ hour: Number(value) })}
+                  >
+                    <SelectTrigger className="h-9 w-28"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, hour) => (
+                        <SelectItem key={hour} value={String(hour)}>
+                          {String(hour).padStart(2, '0')}:00
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-[11px] text-muted-foreground pb-2">
+                  Ustaw godzinę po zamknięciu warsztatu — raport zamyka dobę sprzedaży.
+                </p>
               </div>
             )}
           </div>

@@ -62,6 +62,7 @@ import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCh
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { toFiscalName } from '@/lib/fiscalName';
 import { toast } from 'sonner';
 
 interface ServiceItem {
@@ -141,7 +142,7 @@ export default function ServiceProviderDashboard() {
   const [serviceDialog, setServiceDialog] = useState(false);
   const [editingService, setEditingService] = useState<ServiceItem | null>(null);
   const [serviceForm, setServiceForm] = useState({
-    name: '', short_description: '', description: '', price_from: '', price_to: '', duration_minutes: '', category: 'ogolne', is_active: true
+    name: '', fiscal_name: '', short_description: '', description: '', price_from: '', price_to: '', duration_minutes: '', category: 'ogolne', is_active: true
   });
   const [servicePhotos, setServicePhotos] = useState<File[]>([]);
   const serviceFileRef = useRef<HTMLInputElement>(null);
@@ -476,6 +477,8 @@ export default function ServiceProviderDashboard() {
 
       const svcData = {
         name: serviceForm.name,
+        // Nazwa na paragon — pusta oznacza automatyczne skrócenie nazwy usługi.
+        fiscal_name: serviceForm.fiscal_name?.trim() || null,
         short_description: serviceForm.short_description,
         description: serviceForm.description,
         price_from: parseFloat(serviceForm.price_from) || 0,
@@ -502,7 +505,7 @@ export default function ServiceProviderDashboard() {
   const resetServiceForm = () => {
     setEditingService(null);
     setServicePhotos([]);
-    setServiceForm({ name: '', short_description: '', description: '', price_from: '', price_to: '', duration_minutes: '', category: 'ogolne', is_active: true });
+    setServiceForm({ name: '', fiscal_name: '', short_description: '', description: '', price_from: '', price_to: '', duration_minutes: '', category: 'ogolne', is_active: true });
   };
 
   const openEditService = (service: ServiceItem) => {
@@ -510,6 +513,7 @@ export default function ServiceProviderDashboard() {
     setServicePhotos([]);
     setServiceForm({
       name: service.name,
+      fiscal_name: (service as any).fiscal_name || '',
       short_description: service.short_description || '',
       description: service.description || '',
       price_from: service.price_from?.toString() || '',
@@ -976,6 +980,18 @@ export default function ServiceProviderDashboard() {
                   <div className="space-y-2">
                     <Label>{t('sp.services.serviceNameLabel')}</Label>
                     <Input value={serviceForm.name} onChange={e => setServiceForm(p => ({ ...p, name: e.target.value }))} placeholder={t('sp.services.serviceNamePlaceholder')} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nazwa na paragon fiskalny</Label>
+                    <Input
+                      value={serviceForm.fiscal_name}
+                      maxLength={40}
+                      onChange={e => setServiceForm(p => ({ ...p, fiscal_name: e.target.value }))}
+                      placeholder={serviceForm.name ? toFiscalName(serviceForm.name) : 'np. Wymiana oleju'}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Drukarka mieści 40 znaków. Puste pole = nazwa usługi zostanie skrócona automatycznie.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>{t('sp.services.shortDesc')}</Label>
