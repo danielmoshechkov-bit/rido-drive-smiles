@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Plus, Printer, Receipt, Trash2, TriangleAlert, CheckCircle2, Wallet, CreditCard, Smartphone } from 'lucide-react';
+import { Loader2, Printer, Receipt, Trash2, TriangleAlert, CheckCircle2, Wallet, CreditCard, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useFiscalPrinter, useFiscalizeReceipt, FiscalError } from '@/hooks/useFiscal';
@@ -41,21 +41,55 @@ const PAYMENT_LABELS: Record<PaymentMethod, { label: string; printer: string; ic
   blik: { label: 'BLIK', printer: 'BLIK', icon: Smartphone },
 };
 
-interface DraftItem extends FiscalItemInput {
+/**
+ * Wiersz tabeli — wszystkie pola jako tekst, żeby dało się je swobodnie edytować
+ * w miejscu (np. skasować cenę i wpisać od nowa) bez walki z parsowaniem liczb.
+ */
+interface Row {
   key: string;
+  name: string;
+  quantity: string;
+  unit: string;
+  unitPrice: string;
+  vatRate: string;
 }
 
-const emptyDraft = { name: '', quantity: '1', unitPrice: '', vatRate: '23', unit: 'szt' };
+let rowSeq = 0;
+const emptyRow = (vatRate = '23', unit = 'szt'): Row => ({
+  key: `row-${++rowSeq}`,
+  name: '',
+  quantity: '1',
+  unit,
+  unitPrice: '',
+  vatRate,
+});
+
+/** Wiersz liczy się do paragonu, gdy ma sensowną nazwę, ilość i cenę. */
+function rowToItem(row: Row): FiscalItemInput | null {
+  const name = row.name.replace(/\s+/g, ' ').trim();
+  const quantity = Number(String(row.quantity).replace(',', '.'));
+  const unitPrice = Number(String(row.unitPrice).replace(',', '.'));
+  if (name.replace(/\s/g, '').length < 5) return null;
+  if (!Number.isFinite(quantity) || quantity <= 0) return null;
+  if (!Number.isFinite(unitPrice) || unitPrice <= 0) return null;
+  return {
+    name,
+    quantity,
+    unit: (row.unit || 'szt').slice(0, 4),
+    unitPrice,
+    vatRate: row.vatRate,
+  };
+}
 
 export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Props) {
   const { data: printer } = useFiscalPrinter(providerId);
   const fiscalize = useFiscalizeReceipt(providerId);
 
-  const [items, setItems] = useState<DraftItem[]>([]);
-  const [draft, setDraft] = useState(emptyDraft);
+  const [rows, setRows] = useState<Row[]>([emptyRow()]);
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [buyer, setBuyer] = useState<BuyerState>({ buyerType: 'individual', nip: '', printNip: true });
   const [suggestions, setSuggestions] = useState<Array<{ name: string; price: number; unit: string; vat: string }>>([]);
+  const [suggestFor, setSuggestFor] = useState<string | null>(null);
   const [result, setResult] = useState<{ receiptNumber: number | null; total: number } | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -65,8 +99,7 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
 
   useEffect(() => {
     if (!open) return;
-    setItems([]);
-    setDraft(emptyDraft);
+    setRows([emptyRow()]);
     setMethod('cash');
     setBuyer({ buyerType: 'individual', nip: '', printNip: true });
     setResult(null);
@@ -75,8 +108,9 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
   }, [open]);
 
   // Podpowiedzi z magazynu — wygodne, ale całość musi działać też w pełni ręcznie.
+  const suggestTerm = rows.find((row) => row.key === suggestFor)?.name ?? '';
   useEffect(() => {
-    const term = draft.name.trim();
+    const term = suggestTerm.trim();
     if (term.length < 2) {
       setSuggestions([]);
       return;
@@ -103,44 +137,28 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [draft.name]);
+  }, [suggestTerm]);
 
+  /** Pozycje wynikają wprost z tabeli — nic nie trzeba „zatwierdzać". */
+  const items = useMemo(() => rows.map(rowToItem).filter(Boolean) as FiscalItemInput[], [rows]);
   const totalGrosze = useMemo(() => computeReceiptTotalGrosze(items), [items]);
 
-  const addItem = () => {
-    const name = draft.name.replace(/\s+/g, ' ').trim();
-    const quantity = Number(String(draft.quantity).replace(',', '.'));
-    const unitPrice = Number(String(draft.unitPrice).replace(',', '.'));
-
-    if (name.replace(/\s/g, '').length < 5) {
-      toast.error('Nazwa musi mieć min. 5 znaków — tego wymaga drukarka.');
-      return;
-    }
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      toast.error('Podaj ilość większą od zera.');
-      return;
-    }
-    if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
-      toast.error('Podaj cenę większą od zera — paragon nie może zawierać pozycji za 0 zł.');
-      return;
-    }
-
-    setItems((prev) => [
-      ...prev,
-      {
-        key: `${Date.now()}-${prev.length}`,
-        name: toFiscalName(name, nameLength),
-        originalName: name,
-        quantity,
-        unit: (draft.unit || 'szt').slice(0, 4),
-        unitPrice,
-        vatRate: draft.vatRate,
-      },
-    ]);
-    setDraft({ ...emptyDraft, vatRate: draft.vatRate, unit: draft.unit });
-    setSuggestions([]);
-    nameRef.current?.focus();
+  /** Pisanie w ostatnim wierszu dokleja pod spodem kolejny pusty — jak w wycenie zlecenia. */
+  const updateRow = (key: string, patch: Partial<Row>) => {
+    setRows((prev) => {
+      const next = prev.map((row) => (row.key === key ? { ...row, ...patch } : row));
+      const last = next[next.length - 1];
+      const lastTouched = last.name.trim() || last.unitPrice.trim();
+      if (lastTouched) next.push(emptyRow(last.vatRate, last.unit));
+      return next;
+    });
   };
+
+  const removeRow = (key: string) =>
+    setRows((prev) => {
+      const next = prev.filter((row) => row.key !== key);
+      return next.length ? next : [emptyRow()];
+    });
 
   const handlePrint = async () => {
     if (!items.length) return;
@@ -153,7 +171,7 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
         // Własny identyfikator sprzedaży — paragon nie jest powiązany ze zleceniem,
         // a blokada podwójnej fiskalizacji nadal działa (jeden paragon na tę sprzedaż).
         documentId: crypto.randomUUID(),
-        items: items.map(({ key, ...item }) => item),
+        items: items.map((item) => ({ ...item, name: toFiscalName(item.name, nameLength) })),
         payments: [{ name: PAYMENT_LABELS[method].printer, amount: totalGrosze / 100 }],
         buyerNip: buyerNipForPrint(buyer),
       });
@@ -197,8 +215,7 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
               variant="outline"
               onClick={() => {
                 setResult(null);
-                setItems([]);
-                setDraft(emptyDraft);
+                setRows([emptyRow()]);
                 setTimeout(() => nameRef.current?.focus(), 80);
               }}
             >
@@ -214,135 +231,128 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
           </Alert>
         ) : (
           <div className="space-y-4">
-            {/* Wpisywanie pozycji — Enter dodaje i wraca do nazwy */}
-            <div className="rounded-lg border p-3 space-y-2">
-              <div className="grid grid-cols-12 gap-2 items-end">
-                <div className="col-span-5 space-y-1 relative">
-                  <Label className="text-xs">Nazwa</Label>
-                  <Input
-                    ref={nameRef}
-                    value={draft.name}
-                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
-                    placeholder="np. Żarówka H7"
-                    className="h-9"
-                  />
-                  {suggestions.length > 0 && (
-                    <div className="absolute z-50 top-full left-0 right-0 mt-1 rounded-md border bg-popover shadow-md max-h-48 overflow-auto">
-                      {suggestions.map((suggestion, index) => (
-                        <button
-                          key={index}
-                          type="button"
-                          className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted flex items-center justify-between gap-2"
-                          onClick={() => {
-                            setDraft({
-                              ...draft,
-                              name: suggestion.name,
-                              unitPrice: suggestion.price ? String(suggestion.price) : draft.unitPrice,
-                              unit: suggestion.unit || draft.unit,
-                              vatRate: vatKeys.includes(suggestion.vat) ? suggestion.vat : draft.vatRate,
-                            });
-                            setSuggestions([]);
-                          }}
-                        >
-                          <span className="truncate">{suggestion.name}</span>
-                          {suggestion.price > 0 && (
-                            <span className="text-xs text-muted-foreground shrink-0">
-                              {suggestion.price.toFixed(2)} zł
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Ilość</Label>
-                  <Input
-                    value={draft.quantity}
-                    onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
-                    className="h-9 text-right"
-                  />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Cena brutto</Label>
-                  <Input
-                    value={draft.unitPrice}
-                    onChange={(e) => setDraft({ ...draft, unitPrice: e.target.value })}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addItem(); } }}
-                    placeholder="0,00"
-                    className="h-9 text-right"
-                  />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">VAT</Label>
-                  <Select value={draft.vatRate} onValueChange={(value) => setDraft({ ...draft, vatRate: value })}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {vatKeys.map((rate) => (
-                        <SelectItem key={rate} value={rate}>
-                          {rate === 'zw' ? 'zw.' : `${rate}%`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-1">
-                  <Button type="button" onClick={addItem} className="h-9 w-full px-0" title="Dodaj pozycję (Enter)">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Enter dodaje pozycję i wraca do nazwy. Nazwy dłuższe niż {nameLength} znaków są skracane.
-              </p>
-            </div>
-
-            {items.length > 0 && (
-              <div className="rounded-md border max-h-56 overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nazwa</TableHead>
-                      <TableHead className="text-right">Ilość</TableHead>
-                      <TableHead className="text-right">Cena</TableHead>
-                      <TableHead className="text-right">VAT</TableHead>
-                      <TableHead className="text-right">Wartość</TableHead>
-                      <TableHead className="w-8" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((item, index) => (
-                      <TableRow key={item.key}>
-                        <TableCell className="font-mono text-xs">
-                          {item.name}
-                          {item.originalName && item.originalName !== item.name && (
-                            <div className="text-[11px] text-muted-foreground line-through">{item.originalName}</div>
+            {/* Pozycje wpisywane wprost w tabelę — jak w wycenie zlecenia.
+                Pod ostatnim wypełnianym wierszem sam dokleja się kolejny pusty,
+                a paragon bierze wszystkie wypełnione wiersze: co widać, to się drukuje. */}
+            <div className="rounded-md border overflow-visible">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[42%]">Nazwa</TableHead>
+                    <TableHead className="w-[12%] text-right">Ilość</TableHead>
+                    <TableHead className="w-[12%]">Jedn.</TableHead>
+                    <TableHead className="w-[16%] text-right">Cena brutto</TableHead>
+                    <TableHead className="w-[12%]">VAT</TableHead>
+                    <TableHead className="w-[10%] text-right">Wartość</TableHead>
+                    <TableHead className="w-8" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row, index) => {
+                    const item = rowToItem(row);
+                    const isLast = index === rows.length - 1;
+                    const touched = row.name.trim() || row.unitPrice.trim();
+                    return (
+                      <TableRow key={row.key} className={item ? '' : 'opacity-90'}>
+                        <TableCell className="relative p-1">
+                          <Input
+                            ref={index === 0 ? nameRef : undefined}
+                            value={row.name}
+                            onChange={(e) => { updateRow(row.key, { name: e.target.value }); setSuggestFor(row.key); }}
+                            onBlur={() => setTimeout(() => setSuggestFor((current) => (current === row.key ? null : current)), 150)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const nextRow = rows[index + 1];
+                                if (nextRow) {
+                                  const input = document.querySelector<HTMLInputElement>(`[data-row="${nextRow.key}"]`);
+                                  input?.focus();
+                                }
+                              }
+                            }}
+                            data-row={row.key}
+                            placeholder={isLast ? 'np. Żarówka H7 55W' : ''}
+                            className="h-8 border-0 shadow-none focus-visible:ring-1"
+                          />
+                          {suggestFor === row.key && suggestions.length > 0 && (
+                            <div className="absolute z-50 top-full left-1 right-1 mt-0.5 rounded-md border bg-popover shadow-md max-h-44 overflow-auto">
+                              {suggestions.map((suggestion, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted flex items-center justify-between gap-2"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    updateRow(row.key, {
+                                      name: suggestion.name,
+                                      unitPrice: suggestion.price ? String(suggestion.price) : row.unitPrice,
+                                      unit: suggestion.unit || row.unit,
+                                      vatRate: vatKeys.includes(suggestion.vat) ? suggestion.vat : row.vatRate,
+                                    });
+                                    setSuggestFor(null);
+                                  }}
+                                >
+                                  <span className="truncate">{suggestion.name}</span>
+                                  {suggestion.price > 0 && (
+                                    <span className="text-xs text-muted-foreground shrink-0">{suggestion.price.toFixed(2)} zł</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
                           )}
                         </TableCell>
-                        <TableCell className="text-right whitespace-nowrap">{item.quantity} {item.unit}</TableCell>
-                        <TableCell className="text-right whitespace-nowrap">{formatPln(toGrosze(item.unitPrice))}</TableCell>
-                        <TableCell className="text-right">{item.vatRate === 'zw' ? 'zw.' : `${item.vatRate}%`}</TableCell>
-                        <TableCell className="text-right whitespace-nowrap">
-                          {formatPln(Math.round(toGrosze(item.unitPrice) * item.quantity))}
+                        <TableCell className="p-1">
+                          <Input
+                            value={row.quantity}
+                            onChange={(e) => updateRow(row.key, { quantity: e.target.value })}
+                            className="h-8 text-right border-0 shadow-none focus-visible:ring-1"
+                          />
                         </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0"
-                            onClick={() => setItems((prev) => prev.filter((_, i) => i !== index))}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                        <TableCell className="p-1">
+                          <Input
+                            value={row.unit}
+                            onChange={(e) => updateRow(row.key, { unit: e.target.value })}
+                            className="h-8 border-0 shadow-none focus-visible:ring-1"
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input
+                            value={row.unitPrice}
+                            onChange={(e) => updateRow(row.key, { unitPrice: e.target.value })}
+                            placeholder="0,00"
+                            className="h-8 text-right border-0 shadow-none focus-visible:ring-1"
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Select value={row.vatRate} onValueChange={(value) => updateRow(row.key, { vatRate: value })}>
+                            <SelectTrigger className="h-8 border-0 shadow-none focus:ring-1"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {vatKeys.map((rate) => (
+                                <SelectItem key={rate} value={rate}>{rate === 'zw' ? 'zw.' : `${rate}%`}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap text-sm">
+                          {item ? formatPln(Math.round(toGrosze(item.unitPrice) * item.quantity)) : '—'}
+                        </TableCell>
+                        <TableCell className="p-1">
+                          {touched && (
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => removeRow(row.key)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Wpisuj pozycje wierszami — kolejny pusty dokleja się sam. Enter przeskakuje niżej.
+              Nazwy dłuższe niż {nameLength} znaków są skracane na paragonie.
+            </p>
 
             <FiscalBuyerSection
               {...buyer}

@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Undo2, TriangleAlert, CheckCircle2, Printer } from 'lucide-react';
+import { Loader2, Undo2, TriangleAlert, CheckCircle2, Printer, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useCreateFiscalReturn,
@@ -125,6 +125,7 @@ export function FiscalReturnDialog({ open, onOpenChange, providerId, receipt, do
           amount: Math.round(line.unitPriceGrosze * line.quantity) / 100,
         })),
         amountGrosze,
+        returnType: amountGrosze >= receiptTotal ? 'full' : 'partial',
         vatBreakdown,
         customerName: customerName.trim() || undefined,
         customerDocument: customerDocument.trim() || undefined,
@@ -191,28 +192,61 @@ export function FiscalReturnDialog({ open, onOpenChange, providerId, receipt, do
               </Alert>
             )}
 
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-sm text-muted-foreground">
+                Zaznacz pozycje, które klient zwraca, i podaj ilość (można zwrócić część).
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setLines((prev) => prev.map((line) => ({ ...line, selected: true, quantity: line.maxQuantity })))}
+                >
+                  <CheckSquare className="h-3.5 w-3.5" /> Zaznacz wszystko (zwrot całości)
+                </Button>
+                {selectedLines.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setLines((prev) => prev.map((line) => ({ ...line, selected: false })))}
+                  >
+                    Wyczyść
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <div className="rounded-md border max-h-56 overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-10" />
+                    <TableHead className="w-20">Zwracam</TableHead>
                     <TableHead>Pozycja</TableHead>
-                    <TableHead className="text-right">Ilość</TableHead>
+                    <TableHead className="text-right">Ilość zwrotu</TableHead>
                     <TableHead className="text-right">Cena</TableHead>
-                    <TableHead className="text-right">Wartość</TableHead>
+                    <TableHead className="text-right">Wartość zwrotu</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {lines.map((line, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <Checkbox
-                          checked={line.selected}
-                          onCheckedChange={(checked) => updateLine(index, { selected: checked === true })}
-                        />
+                    <TableRow
+                      key={index}
+                      className={`cursor-pointer ${line.selected ? 'bg-muted/40' : ''}`}
+                      onClick={() => updateLine(index, { selected: !line.selected })}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <Checkbox
+                            checked={line.selected}
+                            onCheckedChange={(checked) => updateLine(index, { selected: checked === true })}
+                          />
+                          <span className="text-[11px] text-muted-foreground">{line.selected ? 'tak' : 'nie'}</span>
+                        </label>
                       </TableCell>
                       <TableCell className="font-medium">{line.name}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <Input
                           type="number"
                           min={0}
@@ -292,7 +326,10 @@ export function FiscalReturnDialog({ open, onOpenChange, providerId, receipt, do
 
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                Pozycje do zwrotu: {selectedLines.length}
+                {selectedLines.length === 0
+                  ? 'Zaznacz pozycje do zwrotu — bez tego nie da się zapisać.'
+                  : `Pozycje do zwrotu: ${selectedLines.length} z ${lines.length}` +
+                    (amountGrosze >= receiptTotal ? ' (zwrot całości)' : ' (zwrot częściowy)')}
               </span>
               <div className="text-right">
                 <div className="text-sm text-muted-foreground">Kwota zwrotu</div>

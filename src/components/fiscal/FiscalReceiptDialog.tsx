@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2, Copy, ShieldCheck, Undo2, Pencil, Save, Building2, User, FileText } from 'lucide-react';
+import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2, Copy, ShieldCheck, Undo2, Pencil, Save, Building2, User, FileText, FileWarning } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   useFiscalPrinter,
@@ -26,6 +26,7 @@ import {
 } from '@/hooks/useFiscal';
 import { printReceiptCopy } from '@/lib/fiscalCopy';
 import { FiscalReturnDialog } from './FiscalReturnDialog';
+import { FiscalCorrectionDialog } from './FiscalCorrectionDialog';
 import { computeReceiptTotalGrosze, formatPln, mapWorkshopItemsToReceipt, toGrosze, type MappedReceipt } from '@/lib/fiscal';
 import { DEFAULT_FISCAL_NAME_LENGTH, toFiscalName } from '@/lib/fiscalName';
 import { normalizeNip } from '@/lib/nip';
@@ -66,6 +67,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
   const [nameOverrides, setNameOverrides] = useState<Record<number, string>>({});
   const [editingNames, setEditingNames] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
   const [buyerType, setBuyerType] = useState<'individual' | 'company'>('individual');
   const [nip, setNip] = useState('');
   const [printNip, setPrintNip] = useState(true);
@@ -249,6 +251,9 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
               </Button>
               <Button variant="outline" onClick={() => setReturnOpen(true)} className="gap-2">
                 <Undo2 className="h-4 w-4" /> Zwrot/reklamacja
+              </Button>
+              <Button variant="outline" onClick={() => setCorrectionOpen(true)} className="gap-2">
+                <FileWarning className="h-4 w-4" /> Korekta pomyłki
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -511,6 +516,17 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
           )}
         </DialogFooter>
       </DialogContent>
+
+      <FiscalCorrectionDialog
+        open={correctionOpen}
+        onOpenChange={setCorrectionOpen}
+        providerId={providerId}
+        receipt={fiscalState?.blocking ?? null}
+        documentLabel={order?.order_number ?? undefined}
+        // Po korekcie dokument jest odblokowany — zamknięcie dialogu wystarczy,
+        // bo stan fiskalny zlecenia odświeża się i wraca zwykły widok wydruku.
+        onIssueCorrectedReceipt={() => setCorrectionOpen(false)}
+      />
 
       <FiscalReturnDialog
         open={returnOpen}

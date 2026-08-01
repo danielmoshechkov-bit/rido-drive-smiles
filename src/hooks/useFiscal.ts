@@ -612,6 +612,8 @@ export function useFiscalReturns(providerId?: string, receiptId?: string) {
 export interface CreateReturnInput {
   receiptId: string;
   reason: FiscalReturnRow['reason'];
+  /** Rozróżnienie wymagane § 3 ust. 3: zwrot całości (pkt 3) vs części należności (pkt 4). */
+  returnType?: 'full' | 'partial';
   reasonNote?: string;
   items: Array<{ name: string; quantity: number; unitPrice: number; vatRate: string; amount: number }>;
   amountGrosze: number;
@@ -652,6 +654,7 @@ export function useCreateFiscalReturn(providerId?: string) {
             receipt_id: input.receiptId,
             return_number: returnNumber,
             reason: input.reason,
+            return_type: input.returnType ?? null,
             reason_note: input.reasonNote ?? null,
             items: input.items,
             amount_grosze: input.amountGrosze,

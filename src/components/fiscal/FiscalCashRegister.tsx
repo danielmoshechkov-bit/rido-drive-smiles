@@ -46,6 +46,7 @@ import { formatPln, RECEIPT_STATUS_LABELS } from '@/lib/fiscal';
 import { printReceiptCopy } from '@/lib/fiscalCopy';
 import { FiscalReturnDialog } from './FiscalReturnDialog';
 import { FiscalCorrectionDialog } from './FiscalCorrectionDialog';
+import { FiscalReceiptDialog } from './FiscalReceiptDialog';
 
 interface Props {
   providerId?: string;
@@ -74,6 +75,7 @@ export function FiscalCashRegister({ providerId }: Props) {
   const [range, setRange] = useState(defaultRange);
   const [returnReceipt, setReturnReceipt] = useState<FiscalReceiptRow | null>(null);
   const [correctionReceipt, setCorrectionReceipt] = useState<FiscalReceiptRow | null>(null);
+  const [correctedOrder, setCorrectedOrder] = useState<{ id: string } | null>(null);
 
   const { data: receipts = [], isLoading: receiptsLoading } = useFiscalReceipts(providerId, undefined, 200);
   const { data: returns = [] } = useFiscalReturns(providerId);
@@ -577,6 +579,19 @@ export function FiscalCashRegister({ providerId }: Props) {
         onOpenChange={(open) => { if (!open) setCorrectionReceipt(null); }}
         providerId={providerId ?? ''}
         receipt={correctionReceipt}
+        onIssueCorrectedReceipt={
+          correctionReceipt?.document_type === 'workshop_order' && correctionReceipt.document_id
+            ? () => setCorrectedOrder({ id: correctionReceipt.document_id! })
+            : undefined
+        }
+      />
+
+      {/* Ponowna, prawidłowa fiskalizacja po korekcie pomyłki */}
+      <FiscalReceiptDialog
+        open={!!correctedOrder}
+        onOpenChange={(open) => { if (!open) setCorrectedOrder(null); }}
+        providerId={providerId ?? ''}
+        order={correctedOrder}
       />
     </div>
   );

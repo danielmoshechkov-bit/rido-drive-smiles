@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, TriangleAlert, CheckCircle2, FileWarning } from 'lucide-react';
+import { Loader2, TriangleAlert, CheckCircle2, FileWarning, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRegisterCorrection, FiscalError, type FiscalReceiptRow } from '@/hooks/useFiscal';
 import { formatPln } from '@/lib/fiscal';
@@ -28,9 +28,21 @@ interface Props {
   providerId: string;
   receipt: FiscalReceiptRow | null;
   documentLabel?: string;
+  /**
+   * Domknięcie procedury: po wpisie do ewidencji sprzedaż musi zostać zaewidencjonowana
+   * PONOWNIE w prawidłowej wysokości — bez tego korekta jest niepełna.
+   */
+  onIssueCorrectedReceipt?: () => void;
 }
 
-export function FiscalCorrectionDialog({ open, onOpenChange, providerId, receipt, documentLabel }: Props) {
+export function FiscalCorrectionDialog({
+  open,
+  onOpenChange,
+  providerId,
+  receipt,
+  documentLabel,
+  onIssueCorrectedReceipt,
+}: Props) {
   const registerCorrection = useRegisterCorrection(providerId);
   const [reasonNote, setReasonNote] = useState('');
   const [attached, setAttached] = useState(false);
@@ -83,9 +95,27 @@ export function FiscalCorrectionDialog({ open, onOpenChange, providerId, receipt
             <div className="text-sm text-muted-foreground space-y-1">
               <div>Błędny paragon zostaje w ewidencji — obrót jest już w pamięci fiskalnej i nie da się go cofnąć.</div>
               <div className="text-foreground font-medium">
-                Zlecenie jest teraz odblokowane: wystaw paragon ponownie, w prawidłowej wysokości.
+                Procedura wymaga teraz zaewidencjonowania sprzedaży ponownie, w prawidłowej wysokości.
               </div>
             </div>
+            {onIssueCorrectedReceipt ? (
+              <Button
+                onClick={() => {
+                  onOpenChange(false);
+                  onIssueCorrectedReceipt();
+                }}
+                className="gap-2"
+              >
+                <Receipt className="h-4 w-4" /> Wystaw poprawny paragon
+              </Button>
+            ) : (
+              <Alert>
+                <TriangleAlert className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  Wystaw teraz poprawny paragon do tej sprzedaży — dokument jest już odblokowany.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
