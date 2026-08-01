@@ -77,6 +77,14 @@ tabele, osobne numeracje i osobne dowody wewnętrzne.
 - **Drukuj paragon** ze zlecenia + znaczniki dokumentów na liście zleceń
 - **Zwrot / reklamacja** (B1) i **Korekta pomyłki** (B2) — po korekcie system pozwala wystawić nowy,
   prawidłowy paragon do tego samego zlecenia
+- **Dokumenty do podpisu** drukowane od razu po wpisie i ponownie z listy ewidencji:
+  - zwrot → *protokół zwrotu/reklamacji* z podpisami klienta i sprzedawcy
+  - pomyłka → *dowód wewnętrzny* z opisem okoliczności, polem na dołączenie oryginału paragonu
+    i podpisami kasjera oraz osoby upoważnionej (klient nie podpisuje — pomyłka jest po stronie sprzedawcy)
+- **Bramka terminala płatniczego** — przy karcie i BLIK-u paragon drukuje się dopiero po potwierdzeniu
+  płatności; odrzucona transakcja nie zostawia paragonu do korygowania, wystarczy zmienić formę płatności.
+  Sterownik `manual` (potwierdzenie kasjera) działa z każdym terminalem; sterowniki `auto`
+  (API agenta rozliczeniowego albo protokół ECR przez mostek) wpina się bez zmian w interfejsie
 - **Nabywca**: osoba prywatna / firma z NIP-em (walidacja sumy kontrolnej, próg faktury uproszczonej 450 zł)
 - **Powiązanie z kasą** (potwierdzane checkboxem, nie automatyczne):
   paragon → wpłata, zwrot → wypłata, pomyłka → **storno** błędnej wpłaty
@@ -91,7 +99,12 @@ tabele, osobne numeracje i osobne dowody wewnętrzne.
 - Skracanie nazw fiskalnych (`fiscalName.ts`) + pole `fiscal_name` w katalogu
 
 ### Faza 2/3
-Tylko interfejsy i TODO — `fiscal_ereceipts`, `fiscal_payment_intents` (e‑paragon, terminal płatniczy).
+- e‑paragon (`fiscal_ereceipts`) — tylko interfejs
+- terminal płatniczy — **przebieg gotowy** (bramka płatności przed wydrukiem, sterownik `manual`);
+  brakuje sterownika `auto` dla konkretnego agenta rozliczeniowego. W Polsce nie ma jednego
+  protokołu ECR, więc wybór sterownika zależy od tego, czyj terminal stoi w warsztacie:
+  API chmurowe (SumUp, Viva, PayTel) wołamy wprost, protokół lokalny (Ingenico/PAX u Polcard,
+  eService) poszedłby przez mostek, który i tak już siedzi w sieci warsztatu.
 
 ---
 

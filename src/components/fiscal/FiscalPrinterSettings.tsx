@@ -24,6 +24,7 @@ import {
   Laptop,
   Radar,
   Circle,
+  CreditCard,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -36,6 +37,13 @@ import {
   type FiscalPrinter,
 } from '@/hooks/useFiscal';
 import type { FoundPrinter } from '@/lib/fiscalBridge';
+import {
+  getTerminalConfig,
+  setTerminalConfig,
+  TERMINAL_PROVIDERS,
+  type TerminalConfig,
+  type TerminalProviderId,
+} from '@/lib/fiscalTerminal';
 import { CODEPAGE_LABELS } from '@/lib/fiscal';
 import {
   DEFAULT_BRIDGE_URL,
@@ -93,6 +101,7 @@ export function FiscalPrinterSettings({ providerId }: Props) {
   const [bridge, setBridge] = useState<BridgeConfig>({ enabled: false, url: DEFAULT_BRIDGE_URL });
   const [bridgeStatus, setBridgeStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [found, setFound] = useState<FoundPrinter[] | null>(null);
+  const [terminal, setTerminal] = useState<TerminalConfig>({ enabled: false, provider: 'manual' });
 
   useEffect(() => {
     if (printer) setForm(printer);
@@ -100,7 +109,14 @@ export function FiscalPrinterSettings({ providerId }: Props) {
 
   useEffect(() => {
     setBridge(getBridgeConfig(providerId));
+    setTerminal(getTerminalConfig(providerId));
   }, [providerId]);
+
+  const saveTerminal = (patch: Partial<TerminalConfig>) => {
+    const next = { ...terminal, ...patch };
+    setTerminal(next);
+    setTerminalConfig(next, providerId);
+  };
 
   const saveBridge = (patch: Partial<BridgeConfig>) => {
     const next = { ...bridge, ...patch };
@@ -463,6 +479,47 @@ export function FiscalPrinterSettings({ providerId }: Props) {
                     <AlertDescription>{bridgeStatus.message}</AlertDescription>
                   </Alert>
                 )}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="font-medium flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" /> Terminal płatniczy
+                </div>
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  Gdy włączone, paragon przy płatności <b>kartą lub BLIK-iem</b> drukuje się dopiero po
+                  potwierdzeniu płatności. Odrzucona transakcja nie zostawia paragonu do korygowania —
+                  wystarczy wybrać inną formę płatności.
+                </p>
+              </div>
+              <Switch checked={terminal.enabled} onCheckedChange={(checked) => saveTerminal({ enabled: checked })} />
+            </div>
+
+            {terminal.enabled && (
+              <div className="space-y-2">
+                <Label className="text-xs">Sposób obsługi terminala</Label>
+                <Select
+                  value={terminal.provider}
+                  onValueChange={(value) => saveTerminal({ provider: value as TerminalProviderId })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.values(TERMINAL_PROVIDERS).map((provider) => (
+                      <SelectItem key={provider.id} value={provider.id}>{provider.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {TERMINAL_PROVIDERS[terminal.provider].description}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Automatyczna wysyłka kwoty na terminal wymaga sterownika dla konkretnego agenta
+                  rozliczeniowego (np. Polcard, eService, PayTel, SumUp) — w Polsce nie ma jednego
+                  wspólnego protokołu. Przebieg w programie jest już na to gotowy.
+                </p>
               </div>
             )}
           </div>

@@ -8,7 +8,7 @@
  * i nigdy nie dotyka urządzenia fiskalnego.
  */
 
-import type { FiscalReceiptRow, FiscalReturnRow } from '@/hooks/useFiscal';
+import type { FiscalCorrectionRow, FiscalReceiptRow, FiscalReturnRow } from '@/hooks/useFiscal';
 import { formatPln } from './fiscal';
 
 export interface CopyHeader {
@@ -16,6 +16,16 @@ export interface CopyHeader {
   nip?: string | null;
   address?: string | null;
   documentLabel?: string | null;
+}
+
+/** Wspólne otwarcie okna wydruku — jedno miejsce na komunikat o blokadzie pop-upów. */
+function openPrintWindow(html: string, width = 760): void {
+  const printWindow = window.open('', '_blank', `width=${width},height=900`);
+  if (!printWindow) {
+    throw new Error('Przeglądarka zablokowała okno wydruku. Zezwól na wyskakujące okna dla tej strony.');
+  }
+  printWindow.document.write(html);
+  printWindow.document.close();
 }
 
 function escapeHtml(text: unknown): string {
@@ -98,12 +108,7 @@ export function printReceiptCopy(receipt: FiscalReceiptRow, header: CopyHeader =
   <script>window.onload = () => window.print();</script>
 </body></html>`;
 
-  const printWindow = window.open('', '_blank', 'width=720,height=900');
-  if (!printWindow) {
-    throw new Error('Przeglądarka zablokowała okno wydruku. Zezwól na wyskakujące okna dla tej strony.');
-  }
-  printWindow.document.write(html);
-  printWindow.document.close();
+  openPrintWindow(html, 720);
 }
 
 
@@ -197,10 +202,120 @@ export function printReturnProtocol(
   <script>window.onload = () => window.print();</script>
 </body></html>`;
 
-  const printWindow = window.open('', '_blank', 'width=760,height=900');
-  if (!printWindow) {
-    throw new Error('Przeglądarka zablokowała okno wydruku. Zezwól na wyskakujące okna dla tej strony.');
-  }
-  printWindow.document.write(html);
-  printWindow.document.close();
+  openPrintWindow(html);
+}
+
+/**
+ * DOWÓD WEWNĘTRZNY do ewidencji oczywistych pomyłek (odrębnej od ewidencji zwrotów).
+ *
+ * Rozporządzenie wymaga tu opisu okoliczności i przyczyny pomyłki oraz DOŁĄCZENIA
+ * ORYGINAŁU paragonu — nie podpisu klienta (ten jest wymogiem protokołu zwrotu).
+ * Dlatego dokument podpisują kasjer i osoba upoważniona, a nie nabywca: pomyłka jest
+ * zdarzeniem po stronie sprzedawcy i klient może już dawno wyjść ze sklepu.
+ */
+export function printCorrectionProtocol(
+  correction: FiscalCorrectionRow,
+  receipt: FiscalReceiptRow | null,
+  header: CopyHeader = {},
+): void {
+  const items = Array.isArray(correction.items) ? (correction.items as any[]) : [];
+  const rows = items
+    .map((item) => {
+      const quantity = Number(item?.quantity) || 0;
+      const unitPrice = Number(item?.unitPrice) || 0;
+      return `<tr>
+        <td>${escapeHtml(item?.name)}</td>
+        <td class="num">${quantity} ${escapeHtml(item?.unit ?? '')}</td>
+        <td class="num">${formatPln(Math.round(unitPrice * 100))}</td>
+        <td class="num">${escapeHtml(item?.vatRate === 'zw' ? 'zw.' : `${item?.vatRate}%`)}</td>
+        <td class="num">${formatPln(Math.round(unitPrice * 100 * quantity))}</td>
+      </tr>`;
+    })
+    .join('');
+
+  const vatRows = Object.entries(correction.vat_breakdown ?? {})
+    .map(
+      ([rate, grosze]) =>
+        `<tr><td>Stawka ${escapeHtml(rate === 'zw' ? 'zw.' : `${rate}%`)}</td><td class="num">${formatPln(Number(grosze))}</td></tr>`,
+    )
+    .join('');
+
+  const saleDate = correction.sale_date ?? receipt?.printed_at ?? receipt?.created_at ?? correction.created_at;
+
+  const html = `<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><title>Dowód wewnętrzny ${escapeHtml(correction.correction_number)}</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; color: #111; font-size: 13px; }
+  .banner { border: 2px solid #111; padding: 8px 12px; text-align: center; font-weight: 700; letter-spacing: 1px; }
+  h1 { font-size: 17px; margin: 18px 0 6px; }
+  .muted { color: #555; font-size: 12px; line-height: 1.7; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th, td { border-bottom: 1px solid #ddd; padding: 6px 4px; text-align: left; }
+  .num { text-align: right; white-space: nowrap; }
+  tfoot td { border-top: 2px solid #111; border-bottom: none; font-weight: 700; font-size: 15px; }
+  .box { margin-top: 16px; border: 1px solid #111; padding: 10px 12px; }
+  .box b { display: block; margin-bottom: 4px; font-size: 12px; }
+  .attach { margin-top: 16px; border: 1px dashed #111; padding: 10px 12px; font-size: 12px; }
+  .sign { margin-top: 46px; display: flex; justify-content: space-between; gap: 40px; }
+  .sign div { flex: 1; border-top: 1px solid #111; padding-top: 6px; text-align: center; font-size: 11px; color: #555; }
+  .footer { margin-top: 22px; font-size: 11px; color: #555; line-height: 1.6; }
+  @media print { body { margin: 10mm; } }
+</style></head>
+<body>
+  <div class="banner">DOWÓD WEWNĘTRZNY — EWIDENCJA OCZYWISTYCH POMYŁEK</div>
+
+  <h1>${escapeHtml(header.companyName ?? '')}</h1>
+  <div class="muted">
+    ${header.address ? escapeHtml(header.address) + '<br>' : ''}
+    ${header.nip ? 'NIP: ' + escapeHtml(header.nip) : ''}
+  </div>
+
+  <h1>Korekta pomyłki nr ${escapeHtml(correction.correction_number)}</h1>
+  <div class="muted">
+    Data ujęcia w ewidencji: ${escapeHtml(new Date(correction.corrected_at).toLocaleDateString('pl-PL'))}<br>
+    Paragon fiskalny nr: ${escapeHtml(correction.receipt_number ?? receipt?.printer_receipt_number ?? '—')}
+    z dnia ${escapeHtml(new Date(saleDate).toLocaleString('pl-PL'))}<br>
+    ${header.documentLabel ? 'Dokument źródłowy: ' + escapeHtml(header.documentLabel) + '<br>' : ''}
+    ${receipt?.printer_mode === 'training' ? 'Paragon wydrukowany w trybie szkoleniowym (niefiskalny).<br>' : ''}
+  </div>
+
+  ${rows ? `<table>
+    <thead><tr><th>Błędnie zaewidencjonowana pozycja</th><th class="num">Ilość</th><th class="num">Cena</th><th class="num">VAT</th><th class="num">Wartość</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="4">WARTOŚĆ SPRZEDAŻY BRUTTO BŁĘDNIE ZAEWIDENCJONOWANEJ</td><td class="num">${formatPln(correction.wrong_amount_grosze)}</td></tr></tfoot>
+  </table>` : `<div class="box"><b>Wartość sprzedaży brutto błędnie zaewidencjonowanej</b>${formatPln(correction.wrong_amount_grosze)}</div>`}
+
+  <table style="width:auto;margin-top:14px"><tbody>
+    ${vatRows}
+    <tr><td><b>Podatek należny</b></td><td class="num"><b>${formatPln(correction.wrong_vat_grosze)}</b></td></tr>
+  </tbody></table>
+
+  <div class="box">
+    <b>Opis okoliczności i przyczyny popełnienia pomyłki</b>
+    ${escapeHtml(correction.reason_note) || '—'}
+  </div>
+
+  <div class="attach">
+    ${correction.original_receipt_attached
+      ? '☑ Oryginał paragonu fiskalnego dołączony do niniejszego dowodu wewnętrznego.'
+      : '☐ Dołączyć oryginał paragonu fiskalnego do niniejszego dowodu wewnętrznego.'}
+  </div>
+
+  <div class="sign">
+    <div>podpis kasjera</div>
+    <div>podpis osoby upoważnionej</div>
+  </div>
+
+  <div class="footer">
+    Dokument sporządzony do ewidencji oczywistych pomyłek, prowadzonej odrębnie od ewidencji zwrotów
+    i uznanych reklamacji, zgodnie z rozporządzeniem w sprawie kas rejestrujących.
+    Paragon fiskalny pozostaje bez zmian — dokument nie jest dokumentem fiskalnym i nie był drukowany na kasie.
+    Po ujęciu pomyłki sprzedaż należy zaewidencjonować ponownie w prawidłowej wysokości.<br>
+    Wygenerowano w GetRido: ${escapeHtml(new Date().toLocaleString('pl-PL'))}
+  </div>
+
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+  openPrintWindow(html);
 }

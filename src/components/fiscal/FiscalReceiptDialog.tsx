@@ -2,8 +2,8 @@
  * Dialog „Drukuj paragon" — wywoływany z dokumentu (na start: zlecenie warsztatowe).
  *
  * Kolejność zgodna z założeniem modułu: najpierw płatność, potem fiskalizacja.
- * Płatność kartą jest przygotowana wizualnie, ale wyłączona do czasu integracji
- * terminala (Faza 3) — nie chcemy fiskalizować transakcji, której nikt nie potwierdził.
+ * Karta i BLIK przechodzą przez bramkę terminala (`FiscalTerminalStep`) — paragon
+ * drukuje się dopiero po potwierdzeniu płatności, bo wydruku nie da się cofnąć.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, CheckCircle2, Copy, ShieldCheck, Undo2, Pencil, Save, Building2, User, FileText, FileWarning } from 'lucide-react';
+import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, Smartphone, CheckCircle2, Copy, ShieldCheck, Undo2, Pencil, Save, Building2, User, FileText, FileWarning } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   useFiscalPrinter,
@@ -32,6 +32,14 @@ import { computeReceiptTotalGrosze, formatPln, mapWorkshopItemsToReceipt, toGros
 import { DEFAULT_FISCAL_NAME_LENGTH, toFiscalName } from '@/lib/fiscalName';
 import { normalizeNip } from '@/lib/nip';
 import { FiscalBuyerSection, buyerBlocksPrint, buyerNipForPrint } from './FiscalBuyerSection';
+import { FiscalTerminalStep, type TerminalStepState } from './FiscalTerminalStep';
+import {
+  getTerminalConfig,
+  needsTerminal,
+  TERMINAL_PROVIDERS,
+  type TerminalConfig,
+  type TerminalMethod,
+} from '@/lib/fiscalTerminal';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -47,7 +55,13 @@ interface Props {
   onIssueInvoice?: () => void;
 }
 
-type PaymentMethod = 'cash' | 'card';
+type PaymentMethod = 'cash' | 'card' | 'blik';
+
+const PAYMENT_LABELS: Record<PaymentMethod, { label: string; printer: string; icon: typeof Wallet }> = {
+  cash: { label: 'Gotówka', printer: 'GOTOWKA', icon: Wallet },
+  card: { label: 'Karta', printer: 'KARTA', icon: CreditCard },
+  blik: { label: 'BLIK', printer: 'BLIK', icon: Smartphone },
+};
 
 export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onIssueInvoice }: Props) {
   const { data: printer, isLoading: printerLoading } = useFiscalPrinter(providerId);
@@ -64,6 +78,9 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [result, setResult] = useState<{ receiptNumber: number | null; total: number } | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [terminal, setTerminal] = useState<TerminalConfig>({ enabled: false, provider: 'manual' });
+  const [terminalState, setTerminalState] = useState<TerminalStepState>('idle');
+  const [terminalMessage, setTerminalMessage] = useState<string | null>(null);
   // Ręczna „nazwa na paragon" per pozycja; pusta = automatyczne skracanie.
   const [nameOverrides, setNameOverrides] = useState<Record<number, string>>({});
   const [editingNames, setEditingNames] = useState(false);
@@ -82,6 +99,9 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
     setResult(null);
     setError(null);
     setMethod('cash');
+    setTerminal(getTerminalConfig(providerId));
+    setTerminalState('idle');
+    setTerminalMessage(null);
     setNameOverrides({});
     setEditingNames(false);
     setRawItems(null);
@@ -179,6 +199,35 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
     }
   };
 
+  /** Karta/BLIK: najpierw potwierdzenie płatności, dopiero potem nieodwracalny wydruk. */
+  const handleConfirm = async () => {
+    if (!mapped || !order) return;
+    if (needsTerminal(terminal, method) && terminalState !== 'approved') {
+      setError(null);
+      setTerminalMessage(null);
+      setTerminalState('waiting');
+      const provider = TERMINAL_PROVIDERS[terminal.provider];
+      if (provider.mode === 'auto' && provider.request) {
+        const outcome = await provider
+          .request(terminal, {
+            amountGrosze: totalGrosze,
+            method: method as TerminalMethod,
+            reference: order.order_number ?? undefined,
+          })
+          .catch((e) => ({ status: 'declined' as const, message: (e as Error).message }));
+        if (outcome.status !== 'approved') {
+          setTerminalMessage(outcome.message ?? null);
+          setTerminalState('declined');
+          return;
+        }
+        setTerminalState('approved');
+      } else {
+        return; // sterownik ręczny — czekamy na potwierdzenie kasjera
+      }
+    }
+    await handlePrint();
+  };
+
   const handlePrint = async () => {
     if (!mapped || !order) return;
     setError(null);
@@ -189,7 +238,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
         documentType: 'workshop_order',
         documentId: order.id,
         items: itemsForPrint,
-        payments: [{ name: method === 'cash' ? 'GOTOWKA' : 'KARTA', amount: totalGrosze / 100 }],
+        payments: [{ name: PAYMENT_LABELS[method].printer, amount: totalGrosze / 100 }],
         buyerNip: buyerNipForPrint(buyerState),
       });
       setResult({ receiptNumber: response.receiptNumber, total: response.total });
@@ -202,7 +251,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
             receiptId: response.receiptId,
             orderId: order.id,
             amountGrosze: totalGrosze,
-            method: method === 'cash' ? 'cash' : 'card',
+            method,
           });
           if (cash.created) {
             toast.success(`Wpłata ${formatPln(cash.amountGrosze)} zapisana w kasie.`);
@@ -491,25 +540,25 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
               <div className="space-y-1">
                 <div className="text-sm text-muted-foreground">Forma płatności</div>
                 <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={method === 'cash' ? 'default' : 'outline'}
-                    onClick={() => setMethod('cash')}
-                    className="gap-1"
-                  >
-                    <Wallet className="h-4 w-4" /> Gotówka
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled
-                    title="Płatność kartą przez terminal — w przygotowaniu"
-                    className="gap-1"
-                  >
-                    <CreditCard className="h-4 w-4" /> Karta (wkrótce)
-                  </Button>
+                  {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((key) => {
+                    const { label, icon: Icon } = PAYMENT_LABELS[key];
+                    return (
+                      <Button
+                        key={key}
+                        type="button"
+                        size="sm"
+                        variant={method === key ? 'default' : 'outline'}
+                        onClick={() => {
+                          setMethod(key);
+                          setTerminalState('idle');
+                          setTerminalMessage(null);
+                        }}
+                        className="gap-1"
+                      >
+                        <Icon className="h-4 w-4" /> {label}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="text-right">
@@ -538,11 +587,30 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
                   </span>
                 ) : (
                   <span className="block text-[11px] text-muted-foreground">
-                    Do kasy trafi {formatPln(totalGrosze)} ({method === 'cash' ? 'gotówka' : 'karta'}).
+                    Do kasy trafi {formatPln(totalGrosze)} ({PAYMENT_LABELS[method].label.toLowerCase()}).
                   </span>
                 )}
               </span>
             </label>
+
+            {terminalState !== 'idle' && needsTerminal(terminal, method) && (
+              <FiscalTerminalStep
+                config={terminal}
+                method={method as TerminalMethod}
+                amountGrosze={totalGrosze}
+                state={terminalState}
+                message={terminalMessage}
+                onApproved={() => {
+                  setTerminalState('approved');
+                  handlePrint();
+                }}
+                onDeclined={() => setTerminalState('declined')}
+                onBack={() => {
+                  setTerminalState('idle');
+                  setTerminalMessage(null);
+                }}
+              />
+            )}
 
             {error && (
               <Alert variant="destructive">
@@ -560,10 +628,14 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {result ? 'Zamknij' : 'Anuluj'}
           </Button>
-          {!result && !alreadyFiscalized && (
-            <Button onClick={handlePrint} disabled={!canPrint} className="gap-2">
+          {!result && !alreadyFiscalized && terminalState === 'idle' && (
+            <Button onClick={handleConfirm} disabled={!canPrint} className="gap-2">
               {fiscalize.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-              {fiscalize.isPending ? 'Drukowanie…' : 'Drukuj paragon'}
+              {fiscalize.isPending
+                ? 'Drukowanie…'
+                : needsTerminal(terminal, method)
+                  ? 'Przyjmij płatność'
+                  : 'Drukuj paragon'}
             </Button>
           )}
         </DialogFooter>

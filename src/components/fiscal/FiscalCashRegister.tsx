@@ -28,6 +28,7 @@ import {
   Download,
   TriangleAlert,
   FileBarChart,
+  Printer,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -40,10 +41,12 @@ import {
   useFiscalDayReport,
   RETURN_REASON_LABELS,
   FiscalError,
+  type FiscalCorrectionRow,
   type FiscalReceiptRow,
+  type FiscalReturnRow,
 } from '@/hooks/useFiscal';
 import { formatPln, RECEIPT_STATUS_LABELS } from '@/lib/fiscal';
-import { printReceiptCopy } from '@/lib/fiscalCopy';
+import { printCorrectionProtocol, printReceiptCopy, printReturnProtocol } from '@/lib/fiscalCopy';
 import { FiscalReturnDialog } from './FiscalReturnDialog';
 import { FiscalCorrectionDialog } from './FiscalCorrectionDialog';
 import { FiscalReceiptDialog } from './FiscalReceiptDialog';
@@ -108,6 +111,27 @@ export function FiscalCashRegister({ providerId }: Props) {
   const handleCopy = (receipt: FiscalReceiptRow) => {
     try {
       printReceiptCopy(receipt);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  /** Paragon źródłowy dla wpisu ewidencji — nagłówek dokumentu musi go wskazać. */
+  const receiptOf = (receiptId: string) => receipts.find((row) => row.id === receiptId) ?? null;
+
+  // Dokumenty do podpisu można wydrukować ponownie w każdej chwili — kartka ginie,
+  // a bez niej wpis w ewidencji jest niekompletny podczas kontroli.
+  const handlePrintReturn = (row: FiscalReturnRow) => {
+    try {
+      printReturnProtocol(row, receiptOf(row.receipt_id));
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handlePrintCorrection = (row: FiscalCorrectionRow) => {
+    try {
+      printCorrectionProtocol(row, receiptOf(row.receipt_id));
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -372,6 +396,7 @@ export function FiscalCashRegister({ providerId }: Props) {
                       <TableHead>Kwota</TableHead>
                       <TableHead>Powód</TableHead>
                       <TableHead>Klient</TableHead>
+                      <TableHead className="text-right">Dokument</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -385,6 +410,16 @@ export function FiscalCashRegister({ providerId }: Props) {
                         <TableCell className="whitespace-nowrap">{formatPln(row.amount_grosze)}</TableCell>
                         <TableCell className="text-xs">{RETURN_REASON_LABELS[row.reason] ?? row.reason}</TableCell>
                         <TableCell className="text-xs">{row.customer_name ?? '—'}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 h-7 text-xs"
+                            onClick={() => handlePrintReturn(row)}
+                          >
+                            <Printer className="h-3 w-3" /> Protokół
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -420,6 +455,7 @@ export function FiscalCashRegister({ providerId }: Props) {
                       <TableHead>Błędna kwota</TableHead>
                       <TableHead>Przyczyna</TableHead>
                       <TableHead>Oryginał</TableHead>
+                      <TableHead className="text-right">Dokument</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -438,6 +474,16 @@ export function FiscalCashRegister({ providerId }: Props) {
                           ) : (
                             <Badge variant="outline" className="text-[10px]">brak</Badge>
                           )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1 h-7 text-xs"
+                            onClick={() => handlePrintCorrection(row)}
+                          >
+                            <Printer className="h-3 w-3" /> Dowód wewn.
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

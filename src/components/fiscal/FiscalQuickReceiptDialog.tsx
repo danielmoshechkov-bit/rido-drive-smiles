@@ -25,8 +25,16 @@ import { useRegisterReceiptPayment } from '@/hooks/useFiscalCash';
 import { computeReceiptTotalGrosze, formatPln, type FiscalItemInput } from '@/lib/fiscal';
 import { DEFAULT_FISCAL_NAME_LENGTH, toFiscalName } from '@/lib/fiscalName';
 import { grossToNet, parseAmount, totalDiscountFactor, type DiscountType } from '@/lib/fiscalPricing';
+import {
+  getTerminalConfig,
+  needsTerminal,
+  TERMINAL_PROVIDERS,
+  type TerminalConfig,
+  type TerminalMethod,
+} from '@/lib/fiscalTerminal';
 import { FiscalBuyerSection, buyerBlocksPrint, buyerNipForPrint, type BuyerState } from './FiscalBuyerSection';
 import { FiscalQuickReceiptRows, emptyQuickRow, quickRowToItem, type QuickRow } from './FiscalQuickReceiptRows';
+import { FiscalTerminalStep, type TerminalStepState } from './FiscalTerminalStep';
 
 interface Props {
   open: boolean;
@@ -59,7 +67,14 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
   const [suggestions, setSuggestions] = useState<Array<{ name: string; price: number; unit: string; vat: string }>>([]);
   const [result, setResult] = useState<{ receiptNumber: number | null; total: number } | null>(null);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [terminal, setTerminal] = useState<TerminalConfig>({ enabled: false, provider: 'manual' });
+  const [terminalState, setTerminalState] = useState<TerminalStepState>('idle');
+  const [terminalMessage, setTerminalMessage] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setTerminal(getTerminalConfig(providerId));
+  }, [providerId, open]);
 
   const nameLength = printer?.item_name_length ?? DEFAULT_FISCAL_NAME_LENGTH;
   const vatKeys = Object.keys(
@@ -77,6 +92,8 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
     setDiscountValue('');
     setResult(null);
     setError(null);
+    setTerminalState('idle');
+    setTerminalMessage(null);
     setTimeout(() => nameRef.current?.focus(), 80);
   };
 
@@ -161,6 +178,34 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
   const totalGrosze = useMemo(() => computeReceiptTotalGrosze(items), [items]);
   const discountGrosze = Math.max(0, baseTotalGrosze - totalGrosze);
   const canPrint = Boolean(printer) && items.length > 0 && !buyerBlocksPrint(buyer) && !fiscalize.isPending;
+
+  /**
+   * Karta i BLIK idą najpierw przez terminal: paragon fiskalny jest nieodwracalny,
+   * więc nie wolno go wydrukować do płatności, która może się nie udać.
+   */
+  const handleConfirm = async () => {
+    if (!items.length) return;
+    if (needsTerminal(terminal, method) && terminalState !== 'approved') {
+      setError(null);
+      setTerminalMessage(null);
+      setTerminalState('waiting');
+      const provider = TERMINAL_PROVIDERS[terminal.provider];
+      if (provider.mode === 'auto' && provider.request) {
+        const outcome = await provider
+          .request(terminal, { amountGrosze: totalGrosze, method: method as TerminalMethod })
+          .catch((e) => ({ status: 'declined' as const, message: (e as Error).message }));
+        if (outcome.status !== 'approved') {
+          setTerminalMessage(outcome.message ?? null);
+          setTerminalState('declined');
+          return;
+        }
+        setTerminalState('approved');
+      } else {
+        return; // sterownik ręczny — czekamy na potwierdzenie kasjera
+      }
+    }
+    await handlePrint();
+  };
 
   const handlePrint = async () => {
     if (!items.length) return;
@@ -353,7 +398,11 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
                         type="button"
                         size="sm"
                         variant={method === key ? 'default' : 'outline'}
-                        onClick={() => setMethod(key)}
+                        onClick={() => {
+                          setMethod(key);
+                          setTerminalState('idle');
+                          setTerminalMessage(null);
+                        }}
                         className="gap-1"
                       >
                         <Icon className="h-4 w-4" /> {label}
@@ -392,6 +441,25 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
               </Alert>
             )}
 
+            {terminalState !== 'idle' && needsTerminal(terminal, method) && (
+              <FiscalTerminalStep
+                config={terminal}
+                method={method as TerminalMethod}
+                amountGrosze={totalGrosze}
+                state={terminalState}
+                message={terminalMessage}
+                onApproved={() => {
+                  setTerminalState('approved');
+                  handlePrint();
+                }}
+                onDeclined={() => setTerminalState('declined')}
+                onBack={() => {
+                  setTerminalState('idle');
+                  setTerminalMessage(null);
+                }}
+              />
+            )}
+
             {error && (
               <Alert variant="destructive">
                 <TriangleAlert className="h-4 w-4" />
@@ -405,10 +473,14 @@ export function FiscalQuickReceiptDialog({ open, onOpenChange, providerId }: Pro
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {result ? 'Zamknij' : 'Anuluj'}
           </Button>
-          {!result && (
-            <Button onClick={handlePrint} disabled={!canPrint} className="gap-2">
+          {!result && terminalState === 'idle' && (
+            <Button onClick={handleConfirm} disabled={!canPrint} className="gap-2">
               {fiscalize.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
-              {fiscalize.isPending ? 'Drukowanie…' : 'Drukuj paragon'}
+              {fiscalize.isPending
+                ? 'Drukowanie…'
+                : needsTerminal(terminal, method)
+                  ? 'Przyjmij płatność'
+                  : 'Drukuj paragon'}
             </Button>
           )}
         </DialogFooter>

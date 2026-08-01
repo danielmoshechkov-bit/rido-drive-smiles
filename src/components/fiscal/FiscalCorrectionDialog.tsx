@@ -17,10 +17,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, TriangleAlert, CheckCircle2, FileWarning, Receipt } from 'lucide-react';
+import { Loader2, TriangleAlert, CheckCircle2, FileWarning, Receipt, Printer } from 'lucide-react';
 import { toast } from 'sonner';
-import { useRegisterCorrection, FiscalError, type FiscalReceiptRow } from '@/hooks/useFiscal';
+import {
+  useRegisterCorrection,
+  FiscalError,
+  type FiscalCorrectionRow,
+  type FiscalReceiptRow,
+} from '@/hooks/useFiscal';
 import { formatPln } from '@/lib/fiscal';
+import { printCorrectionProtocol } from '@/lib/fiscalCopy';
 import { useVoidReceiptPayment } from '@/hooks/useFiscalCash';
 
 interface Props {
@@ -48,7 +54,7 @@ export function FiscalCorrectionDialog({
   const voidPayment = useVoidReceiptPayment(providerId);
   const [reasonNote, setReasonNote] = useState('');
   const [attached, setAttached] = useState(false);
-  const [saved, setSaved] = useState<{ correction_number: string } | null>(null);
+  const [saved, setSaved] = useState<FiscalCorrectionRow | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -89,6 +95,14 @@ export function FiscalCorrectionDialog({
     }
   };
 
+  const handlePrint = (row: FiscalCorrectionRow) => {
+    try {
+      printCorrectionProtocol(row, receipt, { documentLabel });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
@@ -114,17 +128,32 @@ export function FiscalCorrectionDialog({
                 Procedura wymaga teraz zaewidencjonowania sprzedaży ponownie, w prawidłowej wysokości.
               </div>
             </div>
-            {onIssueCorrectedReceipt ? (
-              <Button
-                onClick={() => {
-                  onOpenChange(false);
-                  onIssueCorrectedReceipt();
-                }}
-                className="gap-2"
-              >
-                <Receipt className="h-4 w-4" /> Wystaw poprawny paragon
+            <Alert>
+              <Printer className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                Wydrukuj dowód wewnętrzny, podpisz i <b>dołącz do niego oryginał paragonu</b> —
+                bez tego wpis w ewidencji jest niekompletny.
+              </AlertDescription>
+            </Alert>
+
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => handlePrint(saved)} className="gap-2">
+                <Printer className="h-4 w-4" /> Drukuj dowód wewnętrzny
               </Button>
-            ) : (
+              {onIssueCorrectedReceipt && (
+                <Button
+                  onClick={() => {
+                    onOpenChange(false);
+                    onIssueCorrectedReceipt();
+                  }}
+                  className="gap-2"
+                >
+                  <Receipt className="h-4 w-4" /> Wystaw poprawny paragon
+                </Button>
+              )}
+            </div>
+
+            {!onIssueCorrectedReceipt && (
               <Alert>
                 <TriangleAlert className="h-4 w-4" />
                 <AlertDescription className="text-sm">
