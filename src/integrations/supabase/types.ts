@@ -25199,6 +25199,7 @@ export type Database = {
           edited_by_name: string | null
           employee_id: string | null
           expense_date: string
+          fiscal_return_id: string | null
           id: string
           method: string | null
           provider_id: string
@@ -25221,6 +25222,7 @@ export type Database = {
           edited_by_name?: string | null
           employee_id?: string | null
           expense_date?: string
+          fiscal_return_id?: string | null
           id?: string
           method?: string | null
           provider_id: string
@@ -25243,6 +25245,7 @@ export type Database = {
           edited_by_name?: string | null
           employee_id?: string | null
           expense_date?: string
+          fiscal_return_id?: string | null
           id?: string
           method?: string | null
           provider_id?: string
@@ -25260,6 +25263,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "workshop_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_expenses_fiscal_return_id_fkey"
+            columns: ["fiscal_return_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_returns"
             referencedColumns: ["id"]
           },
           {
@@ -26246,6 +26256,7 @@ export type Database = {
           created_by_name: string | null
           edited_at: string | null
           edited_by_name: string | null
+          fiscal_receipt_id: string | null
           id: string
           invoice_id: string | null
           method: string
@@ -26265,6 +26276,7 @@ export type Database = {
           created_by_name?: string | null
           edited_at?: string | null
           edited_by_name?: string | null
+          fiscal_receipt_id?: string | null
           id?: string
           invoice_id?: string | null
           method: string
@@ -26284,6 +26296,7 @@ export type Database = {
           created_by_name?: string | null
           edited_at?: string | null
           edited_by_name?: string | null
+          fiscal_receipt_id?: string | null
           id?: string
           invoice_id?: string | null
           method?: string
@@ -26297,6 +26310,13 @@ export type Database = {
           voided_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "workshop_payments_fiscal_receipt_id_fkey"
+            columns: ["fiscal_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_receipts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workshop_payments_order_id_fkey"
             columns: ["order_id"]

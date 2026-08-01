@@ -21,6 +21,7 @@ import { Loader2, TriangleAlert, CheckCircle2, FileWarning, Receipt } from 'luci
 import { toast } from 'sonner';
 import { useRegisterCorrection, FiscalError, type FiscalReceiptRow } from '@/hooks/useFiscal';
 import { formatPln } from '@/lib/fiscal';
+import { useVoidReceiptPayment } from '@/hooks/useFiscalCash';
 
 interface Props {
   open: boolean;
@@ -44,6 +45,7 @@ export function FiscalCorrectionDialog({
   onIssueCorrectedReceipt,
 }: Props) {
   const registerCorrection = useRegisterCorrection(providerId);
+  const voidPayment = useVoidReceiptPayment(providerId);
   const [reasonNote, setReasonNote] = useState('');
   const [attached, setAttached] = useState(false);
   const [saved, setSaved] = useState<{ correction_number: string } | null>(null);
@@ -68,6 +70,20 @@ export function FiscalCorrectionDialog({
       });
       setSaved(result.correction);
       toast.success(`Pomyłka zapisana w ewidencji (${result.correction.correction_number}).`);
+
+      // Storno wpłaty, nie wypłata: przy błędnym nabiciu te pieniądze nigdy nie wpłynęły
+      // w tej wysokości, więc wydatek zafałszowałby kasę.
+      try {
+        const voided = await voidPayment.mutateAsync({
+          receiptId: receipt.id,
+          correctionNumber: result.correction.correction_number,
+        });
+        if (voided.voided > 0) {
+          toast.success('Wpłata z błędnego paragonu wystornowana w kasie.');
+        }
+      } catch (cashError: any) {
+        toast.error(`Korekta zapisana, ale storno wpłaty nie przeszło: ${cashError?.message ?? ''}`);
+      }
     } catch (e) {
       setError((e as FiscalError).message);
     }

@@ -25,6 +25,7 @@ import {
   FiscalError,
 } from '@/hooks/useFiscal';
 import { printReceiptCopy } from '@/lib/fiscalCopy';
+import { useOrderPaidGrosze, useRegisterReceiptPayment } from '@/hooks/useFiscalCash';
 import { FiscalReturnDialog } from './FiscalReturnDialog';
 import { FiscalCorrectionDialog } from './FiscalCorrectionDialog';
 import { computeReceiptTotalGrosze, formatPln, mapWorkshopItemsToReceipt, toGrosze, type MappedReceipt } from '@/lib/fiscal';
@@ -68,6 +69,9 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
   const [editingNames, setEditingNames] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
   const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [registerCash, setRegisterCash] = useState(true);
+  const { data: paidGrosze = 0 } = useOrderPaidGrosze(providerId, order?.id);
+  const registerPayment = useRegisterReceiptPayment(providerId);
   const [buyerType, setBuyerType] = useState<'individual' | 'company'>('individual');
   const [nip, setNip] = useState('');
   const [printNip, setPrintNip] = useState(true);
@@ -87,6 +91,7 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
     setBuyerType(isCompany ? 'company' : 'individual');
     setNip(normalizeNip(client?.nip ?? ''));
     setPrintNip(true);
+    setRegisterCash(true);
     setLoadingItems(true);
     (async () => {
       const { data, error: itemsError } = await (supabase as any)
@@ -188,6 +193,27 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
         buyerNip: buyerNipForPrint(buyerState),
       });
       setResult({ receiptNumber: response.receiptNumber, total: response.total });
+
+      // Zlecenie mogło być opłacone wcześniej — hook dopłaca tylko różnicę
+      // albo nie tworzy nic, żeby nie zdublować przychodu.
+      if (registerCash && response.receiptId) {
+        try {
+          const cash = await registerPayment.mutateAsync({
+            receiptId: response.receiptId,
+            orderId: order.id,
+            amountGrosze: totalGrosze,
+            method: method === 'cash' ? 'cash' : 'card',
+          });
+          if (cash.created) {
+            toast.success(`Wpłata ${formatPln(cash.amountGrosze)} zapisana w kasie.`);
+          } else if (cash.reason === 'already_paid') {
+            toast.info('Zlecenie było już opłacone — kasa bez zmian.');
+          }
+        } catch (cashError: any) {
+          toast.error(`Paragon wydrukowany, ale wpłata do kasy nie zapisała się: ${cashError?.message ?? ''}`);
+        }
+      }
+
       toast.success(
         response.receiptNumber
           ? `Paragon wydrukowany (nr ${response.receiptNumber})`
@@ -491,6 +517,32 @@ export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onI
                 <div className="text-2xl font-bold">{formatPln(totalGrosze)}</div>
               </div>
             </div>
+
+            {/* Paragon a przepływ gotówki — decyzja widoczna, nigdy po cichu. */}
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={registerCash && paidGrosze < totalGrosze}
+                disabled={paidGrosze >= totalGrosze}
+                onCheckedChange={(v) => setRegisterCash(v === true)}
+                className="mt-0.5"
+              />
+              <span>
+                Zarejestruj wpłatę w kasie
+                {paidGrosze >= totalGrosze ? (
+                  <span className="block text-[11px] text-muted-foreground">
+                    Zlecenie ma już wpłatę {formatPln(paidGrosze)} — paragon jej nie zdubluje.
+                  </span>
+                ) : paidGrosze > 0 ? (
+                  <span className="block text-[11px] text-muted-foreground">
+                    Wpłacono już {formatPln(paidGrosze)} — do kasy trafi różnica {formatPln(totalGrosze - paidGrosze)}.
+                  </span>
+                ) : (
+                  <span className="block text-[11px] text-muted-foreground">
+                    Do kasy trafi {formatPln(totalGrosze)} ({method === 'cash' ? 'gotówka' : 'karta'}).
+                  </span>
+                )}
+              </span>
+            </label>
 
             {error && (
               <Alert variant="destructive">

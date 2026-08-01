@@ -29,6 +29,7 @@ import {
 } from '@/hooks/useFiscal';
 import { formatPln, toGrosze } from '@/lib/fiscal';
 import { printReturnProtocol } from '@/lib/fiscalCopy';
+import { useRegisterReturnExpense, CASH_METHOD_LABELS, type CashMethod } from '@/hooks/useFiscalCash';
 
 interface Props {
   open: boolean;
@@ -72,6 +73,8 @@ export function FiscalReturnDialog({ open, onOpenChange, providerId, receipt, do
   const [customerName, setCustomerName] = useState('');
   const [customerDocument, setCustomerDocument] = useState('');
   const [saved, setSaved] = useState<FiscalReturnRow | null>(null);
+  const [payFromCash, setPayFromCash] = useState(true);
+  const registerExpense = useRegisterReturnExpense(providerId);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -83,7 +86,16 @@ export function FiscalReturnDialog({ open, onOpenChange, providerId, receipt, do
     setCustomerDocument('');
     setSaved(null);
     setError(null);
+    setPayFromCash(true);
   }, [open, receipt?.id]);
+
+  /** Zwrot oddajemy tą samą formą, którą klient zapłacił. */
+  const refundMethod: CashMethod = (() => {
+    const first = Array.isArray(receipt?.payments) ? receipt!.payments[0]?.name?.toUpperCase() : undefined;
+    if (first === 'KARTA') return 'karta';
+    if (first === 'BLIK') return 'blik';
+    return 'gotowka';
+  })();
 
   const selectedLines = lines.filter((line) => line.selected && line.quantity > 0);
   const amountGrosze = useMemo(
@@ -132,6 +144,22 @@ export function FiscalReturnDialog({ open, onOpenChange, providerId, receipt, do
       });
       setSaved(row);
       toast.success(`Zwrot ${row.return_number} zapisany w ewidencji.`);
+
+      // Zwrot to realne oddanie pieniędzy — wypłata z kasy tą samą formą.
+      if (payFromCash) {
+        try {
+          await registerExpense.mutateAsync({
+            returnId: row.id,
+            returnNumber: row.return_number,
+            receiptNumber: receipt.printer_receipt_number,
+            amountGrosze,
+            method: refundMethod,
+          });
+          toast.success(`Wypłata ${formatPln(amountGrosze)} zapisana w kasie (${CASH_METHOD_LABELS[refundMethod]}).`);
+        } catch (cashError: any) {
+          toast.error(`Zwrot zapisany, ale wypłata z kasy nie przeszła: ${cashError?.message ?? ''}`);
+        }
+      }
     } catch (e) {
       setError((e as FiscalError).message);
     }
@@ -316,6 +344,16 @@ export function FiscalReturnDialog({ open, onOpenChange, providerId, receipt, do
                 </AlertDescription>
               </Alert>
             )}
+
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <Checkbox checked={payFromCash} onCheckedChange={(v) => setPayFromCash(v === true)} className="mt-0.5" />
+              <span>
+                Wypłać z kasy ({CASH_METHOD_LABELS[refundMethod]})
+                <span className="block text-[11px] text-muted-foreground">
+                  Pieniądze wracają do klienta, więc kasa zostanie pomniejszona o kwotę zwrotu.
+                </span>
+              </span>
+            </label>
 
             {error && (
               <Alert variant="destructive">
