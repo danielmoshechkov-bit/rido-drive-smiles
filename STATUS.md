@@ -77,6 +77,9 @@ tabele, osobne numeracje i osobne dowody wewnętrzne.
 - **Drukuj paragon** ze zlecenia + znaczniki dokumentów na liście zleceń
 - **Zwrot / reklamacja** (B1) i **Korekta pomyłki** (B2) — po korekcie system pozwala wystawić nowy,
   prawidłowy paragon do tego samego zlecenia
+- **Lista paragonów**: domyślnie bieżący miesiąc (wybór miesiąca + „Wszystkie"), strony po 20/50/100,
+  szukanie po numerze, kwocie, NIP-ie, nazwie klienta, numerze zlecenia, nazwach pozycji i formie płatności
+- **Wydruk całych ewidencji** (zwroty i pomyłki osobno, całość albo zaznaczone wpisy) — dla księgowej i kontroli
 - **Dokumenty do podpisu** drukowane od razu po wpisie i ponownie z listy ewidencji:
   - zwrot → *protokół zwrotu/reklamacji* z podpisami klienta i sprzedawcy
   - pomyłka → *dowód wewnętrzny* z opisem okoliczności, polem na dołączenie oryginału paragonu
@@ -137,7 +140,7 @@ tabele, osobne numeracje i osobne dowody wewnętrzne.
 | 6 | **Faktura do paragonu** — wystawienie faktury z paragonu (wraz z KSeF) i pilnowanie, żeby sprzedaż nie policzyła się dwa razy | zrobione tylko *pokazywanie* powiązania w zakładce Faktury; brak akcji „wystaw fakturę do paragonu" |
 | 7 | **Ustawienia drukarki** + „znajdź drukarkę w sieci" + samonaprawa adresu | **zrobione 01.08** — zostaje tylko rezerwacja IP na routerze (czynność po stronie klienta) |
 | 8 | **Automatyczne raporty dobowe/miesięczne** — backend ma już `skipIfDoneToday`; brak harmonogramu i przypomnienia przed 48 h blokady | do zrobienia |
-| 9–10 | **Raporty + eksport RO** — podstawa działa (raport dobowy, podsumowanie okresu, eksport RO) | do dokończenia: raport miesięczny, zestawienie obu ewidencji na wydruku |
+| 9–10 | **Raporty + eksport RO** — działa raport dobowy, podsumowanie okresu, eksport RO, wydruk obu ewidencji | zostaje **raport fiskalny miesięczny** (wymóg: do 25. dnia następnego miesiąca). Udokumentowana lista sekwencji ElzabESC zawiera tylko raport dobowy (Esc 25H) — potrzebna dokumentacja producenta, sekwencji nie zgadujemy |
 | 11 | **Skracanie nazw + pole nazwy fiskalnej w Magazynie** — biblioteka i kolumny w bazie są; brak pola w UI Magazynu i w usługach | do zrobienia |
 | 12 | **Mostek jako usługa systemowa** — dziś odpalany ręcznie `npm run fiscal:bridge`; potrzebny autostart (launchd/systemd/usługa Windows) + token | do zrobienia |
 
