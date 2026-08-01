@@ -13,16 +13,29 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plug, Printer, Save, FileBarChart, TriangleAlert, CheckCircle2, Laptop } from 'lucide-react';
+import {
+  Loader2,
+  Plug,
+  Printer,
+  Save,
+  FileBarChart,
+  TriangleAlert,
+  CheckCircle2,
+  Laptop,
+  Radar,
+  Circle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useFiscalPrinter,
   useSaveFiscalPrinter,
   useTestFiscalPrinter,
   useFiscalDayReport,
+  useScanForPrinters,
   FiscalError,
   type FiscalPrinter,
 } from '@/hooks/useFiscal';
+import type { FoundPrinter } from '@/lib/fiscalBridge';
 import { CODEPAGE_LABELS } from '@/lib/fiscal';
 import {
   DEFAULT_BRIDGE_URL,
@@ -73,11 +86,13 @@ export function FiscalPrinterSettings({ providerId }: Props) {
   const savePrinter = useSaveFiscalPrinter(providerId);
   const testPrinter = useTestFiscalPrinter(providerId);
   const dayReport = useFiscalDayReport(providerId);
+  const scanPrinters = useScanForPrinters(providerId);
 
   const [form, setForm] = useState<Partial<FiscalPrinter>>(emptyPrinter);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string; code?: string } | null>(null);
   const [bridge, setBridge] = useState<BridgeConfig>({ enabled: false, url: DEFAULT_BRIDGE_URL });
   const [bridgeStatus, setBridgeStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [found, setFound] = useState<FoundPrinter[] | null>(null);
 
   useEffect(() => {
     if (printer) setForm(printer);
@@ -132,6 +147,29 @@ export function FiscalPrinterSettings({ providerId }: Props) {
       setTestResult({ ok: false, message: fiscalError.message, code: fiscalError.code });
       toast.error('Brak połączenia z drukarką.');
     }
+  };
+
+  const handleScan = async () => {
+    setFound(null);
+    try {
+      const result = await scanPrinters.mutateAsync({ knownHost: form.host || undefined, port: form.port ?? 9100 });
+      setFound(result.devices);
+      if (!result.devices.length) {
+        toast.error('Nie znaleziono drukarki fiskalnej w sieci tego komputera.');
+      } else if (result.devices.length === 1) {
+        toast.success(`Znaleziono drukarkę pod adresem ${result.devices[0].host}.`);
+      } else {
+        toast.success(`Znaleziono ${result.devices.length} drukarki — wybierz właściwą.`);
+      }
+    } catch (error) {
+      toast.error((error as FiscalError).message);
+    }
+  };
+
+  /** Podstawienie znalezionego adresu — zapis zostawiamy użytkownikowi (przycisk Zapisz). */
+  const applyFound = (device: FoundPrinter) => {
+    set({ host: device.host, port: device.port });
+    toast.success(`Ustawiono adres ${device.host}. Kliknij „Zapisz", żeby zapamiętać.`);
   };
 
   const handleDayReport = async () => {
@@ -205,6 +243,92 @@ export function FiscalPrinterSettings({ providerId }: Props) {
               </AlertDescription>
             </Alert>
           )}
+
+          {!printer && (
+            <Alert>
+              <Printer className="h-4 w-4" />
+              <AlertDescription className="space-y-1">
+                <div className="font-medium">Pierwsze uruchomienie — trzy kroki</div>
+                <ol className="list-decimal pl-5 text-xs space-y-0.5">
+                  <li>włącz <b>mostek lokalny</b> niżej i uruchom go na komputerze przy drukarce</li>
+                  <li>kliknij <b>Szukaj</b> — adres drukarki podstawi się sam</li>
+                  <li>przepisz litery stawek VAT z drukarki i kliknij <b>Zapisz</b></li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="rounded-lg border p-4 space-y-3 bg-muted/30">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="space-y-1">
+                <div className="font-medium flex items-center gap-2">
+                  <Radar className="h-4 w-4" /> Znajdź drukarkę w sieci
+                </div>
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  Mostek przeszukuje sieć tego komputera i sprawdza, które urządzenie naprawdę odpowiada
+                  protokołem drukarki fiskalnej. Nie musisz znać adresu IP.
+                  {' '}Gdy drukarka przestanie odpowiadać w trakcie pracy (typowo po zmianie adresu z DHCP),
+                  system szuka jej sam i — jeśli w sieci jest dokładnie jedna — poprawia adres bez pytania.
+                </p>
+              </div>
+              <Button onClick={handleScan} disabled={scanPrinters.isPending} className="gap-2">
+                {scanPrinters.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radar className="h-4 w-4" />}
+                {scanPrinters.isPending ? 'Szukam…' : 'Szukaj'}
+              </Button>
+            </div>
+
+            {found && found.length > 0 && (
+              <div className="space-y-2">
+                {found.map((device) => (
+                  <div
+                    key={device.host}
+                    className="flex items-center justify-between gap-3 rounded-md border bg-background p-2.5"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">
+                        {device.host}:{device.port}
+                        {device.host === form.host && (
+                          <Badge variant="secondary" className="ml-2 text-[10px]">obecnie ustawiona</Badge>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        zegar drukarki: {device.clock}
+                        {device.lastReceiptNumber !== null && ` · ostatni paragon nr ${device.lastReceiptNumber}`}
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => applyFound(device)} disabled={device.host === form.host}>
+                      Użyj tej
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {found && found.length === 0 && (
+              <Alert variant="destructive">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertDescription className="space-y-1">
+                  <div>Nie znaleziono drukarki. Sprawdź po kolei:</div>
+                  <ul className="list-disc pl-5 text-xs space-y-0.5">
+                    <li>drukarka jest włączona i wpięta do tej samej sieci co ten komputer (kabel lub Wi-Fi)</li>
+                    <li>w menu drukarki włączony jest interfejs sieciowy i port <b>9100</b></li>
+                    <li>komputer nie jest w sieci gościnnej — te sieci izolują urządzenia od siebie</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="rounded-md border bg-background p-3">
+              <div className="text-xs font-medium mb-1.5">Co musi być ustawione w samej drukarce</div>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li className="flex gap-2"><Circle className="h-2 w-2 mt-1.5 shrink-0 fill-current" /> interfejs sieciowy (Ethernet/Wi-Fi) włączony, adres IP z DHCP lub stały</li>
+                <li className="flex gap-2"><Circle className="h-2 w-2 mt-1.5 shrink-0 fill-current" /> port <b>9100</b> (surowy TCP) — fabryczny dla ELZAB Zeta</li>
+                <li className="flex gap-2"><Circle className="h-2 w-2 mt-1.5 shrink-0 fill-current" /> strona kodowa <b>CP1250 (Windows)</b> — musi zgadzać się z ustawieniem niżej, inaczej znikną polskie znaki</li>
+                <li className="flex gap-2"><Circle className="h-2 w-2 mt-1.5 shrink-0 fill-current" /> stawki VAT zaprogramowane przez serwis — litery przepisz do tabeli niżej</li>
+                <li className="flex gap-2"><Circle className="h-2 w-2 mt-1.5 shrink-0 fill-current" /> zalecane: rezerwacja adresu IP na routerze (wtedy adres nie zmieni się nigdy)</li>
+              </ul>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">

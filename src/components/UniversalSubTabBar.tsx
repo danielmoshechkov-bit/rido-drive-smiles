@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -17,21 +17,40 @@ interface UniversalSubTabBarProps {
 
 export const UniversalSubTabBar = ({ activeTab, onTabChange, tabs }: UniversalSubTabBarProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const visibleTabs = tabs.filter(tab => tab.visible !== false);
   const activeTabData = visibleTabs.find(t => t.value === activeTab);
+
+  // Przy wielu zakładkach aktywna potrafi wypaść poza widoczny kawałek paska —
+  // przewijamy ją do środka, żeby zawsze było widać gdzie się jest.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    const active = scroller?.querySelector<HTMLElement>('[data-active="true"]');
+    if (!scroller || !active) return;
+    const left = active.offsetLeft - (scroller.clientWidth - active.offsetWidth) / 2;
+    scroller.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+  }, [activeTab, visibleTabs.length]);
 
   if (visibleTabs.length === 0) return null;
 
   return (
     <>
-      {/* Desktop: pill-style row matching main nav */}
-      <div className="hidden md:flex justify-center gap-1.5 mb-4 overflow-x-auto scrollbar-hide">
+      {/*
+        Desktop: pasek pigułek jak w nawigacji głównej.
+        Wyśrodkowanie robi wewnętrzny `w-max mx-auto`, a NIE `justify-center` na
+        kontenerze przewijanym — przy przepełnieniu flexbox obcina wtedy początek listy
+        i pierwszych zakładek nie da się doscrollować (stąd znikające napisy).
+      */}
+      <div ref={scrollerRef} className="hidden md:block mb-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-1.5 w-max mx-auto px-1">
         {visibleTabs.map((tab) => (
           <button
             key={tab.value}
+            data-active={activeTab === tab.value}
             onClick={() => onTabChange(tab.value)}
             className={`
               px-5 py-2 rounded-full text-[15px] font-semibold transition-all duration-200
+              whitespace-nowrap shrink-0
               ${activeTab === tab.value
                 ? 'text-white shadow-sm'
                 : 'text-foreground hover:text-foreground'
@@ -57,6 +76,7 @@ export const UniversalSubTabBar = ({ activeTab, onTabChange, tabs }: UniversalSu
             {tab.label}
           </button>
         ))}
+        </div>
       </div>
 
       {/* Mobile: collapsible dropdown */}

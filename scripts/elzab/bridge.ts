@@ -17,6 +17,8 @@
  */
 
 import http from 'node:http';
+import net from 'node:net';
+import os from 'node:os';
 import { ElzabClient } from '../../supabase/functions/_shared/elzab/client.ts';
 import { toUserMessage, ElzabError } from '../../supabase/functions/_shared/elzab/errors.ts';
 import type { ReceiptRequest } from '../../supabase/functions/_shared/elzab/types.ts';
@@ -85,6 +87,104 @@ async function withPrinter<T>(printer: PrinterConfig, action: (client: ElzabClie
   }
 }
 
+/**
+ * Adresy sieci lokalnych tego komputera (prefiksy /24).
+ * Skanujemy wyłącznie maskę 255.255.255.0 — 254 adresy to sekundy, a większa sieć
+ * to godziny i zachowanie nie do odróżnienia od skanera portów.
+ */
+function localSubnets(): string[] {
+  const prefixes: string[] = [];
+  for (const addresses of Object.values(os.networkInterfaces())) {
+    for (const address of addresses ?? []) {
+      if (address.family !== 'IPv4' || address.internal) continue;
+      if (address.netmask !== '255.255.255.0') continue;
+      const prefix = address.address.split('.').slice(0, 3).join('.');
+      if (!prefixes.includes(prefix)) prefixes.push(prefix);
+    }
+  }
+  return prefixes;
+}
+
+/** Czy pod adresem jest otwarty port — tanie sito przed rozmową protokołem. */
+function isPortOpen(host: string, port: number, timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const done = (result: boolean) => {
+      socket.destroy();
+      resolve(result);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => done(true));
+    socket.once('timeout', () => done(false));
+    socket.once('error', () => done(false));
+    socket.connect(port, host);
+  });
+}
+
+export interface FoundPrinter {
+  host: string;
+  port: number;
+  clock: string;
+  lastReceiptNumber: number | null;
+}
+
+/**
+ * Szuka drukarki fiskalnej w sieci lokalnej.
+ *
+ * Otwarty port 9100 ma też każda zwykła drukarka sieciowa, więc kandydata potwierdzamy
+ * odczytem zegara ElzabESC — to komenda tylko do odczytu, nie rusza stanu fiskalnego.
+ * Znany adres sprawdzamy pierwszy: po zwykłej zmianie IP z DHCP zwykle i tak wygrywa,
+ * a wtedy nie skanujemy w ogóle.
+ */
+async function scanForPrinters(options: {
+  port: number;
+  knownHost?: string;
+  probeTimeoutMs: number;
+}): Promise<{ devices: FoundPrinter[]; subnets: string[]; scanned: number }> {
+  const { port, knownHost, probeTimeoutMs } = options;
+
+  const identify = async (host: string): Promise<FoundPrinter | null> => {
+    try {
+      const result = await withPrinter({ host, port, commandTimeoutMs: 3000 }, async (client) => {
+        const clock = await client.getClock();
+        const counter = await client.getLastReceiptNumber().catch(() => ({ value: undefined }));
+        return { clock: clock.iso, lastReceiptNumber: counter.value ?? null };
+      });
+      return { host, port, ...result };
+    } catch {
+      return null; // port otwarty, ale to nie jest drukarka fiskalna
+    }
+  };
+
+  if (knownHost && (await isPortOpen(knownHost, port, probeTimeoutMs))) {
+    const found = await identify(knownHost);
+    if (found) return { devices: [found], subnets: [], scanned: 1 };
+  }
+
+  const subnets = localSubnets();
+  const candidates: string[] = [];
+  let scanned = 0;
+
+  for (const prefix of subnets) {
+    const hosts = Array.from({ length: 254 }, (_, i) => `${prefix}.${i + 1}`).filter((h) => h !== knownHost);
+    for (let i = 0; i < hosts.length; i += 64) {
+      const batch = hosts.slice(i, i + 64);
+      const open = await Promise.all(batch.map((host) => isPortOpen(host, port, probeTimeoutMs)));
+      scanned += batch.length;
+      batch.forEach((host, index) => open[index] && candidates.push(host));
+    }
+  }
+
+  log(`skan sieci: ${scanned} adresów, ${candidates.length} z otwartym portem ${port}`);
+
+  const devices: FoundPrinter[] = [];
+  for (const host of candidates) {
+    const found = await identify(host);
+    if (found) devices.push(found);
+  }
+  return { devices, subnets, scanned };
+}
+
 const server = http.createServer(async (req, res) => {
   const origin = req.headers.origin as string | undefined;
 
@@ -120,6 +220,27 @@ const server = http.createServer(async (req, res) => {
   }
 
   const printer: PrinterConfig = body?.printer ?? {};
+
+  // Skan jako jedyny nie wymaga znanego adresu — po to właśnie jest.
+  if (url === '/scan') {
+    try {
+      const port = Number(body?.port ?? printer.port ?? 9100);
+      const result = await scanForPrinters({
+        port,
+        knownHost: printer.host || body?.knownHost || undefined,
+        // 1500 ms zmierzone na realnej sieci: przy 400 ms drukarka gubiła się w tłumie
+        // 63 równoległych prób do martwych adresów (ARP nie nadąża) i skan wracał pusty.
+        probeTimeoutMs: Number(body?.probeTimeoutMs ?? 1500),
+      });
+      log(`skan zakończony: znaleziono ${result.devices.length} drukarek`);
+      send(res, 200, { ok: true, ...result }, origin);
+    } catch (error) {
+      log(`BŁĄD skanu: ${(error as Error).message}`);
+      send(res, 500, { ok: false, code: 'SCAN_FAILED', message: 'Nie udało się przeskanować sieci.' }, origin);
+    }
+    return;
+  }
+
   if (!printer.host) {
     send(res, 400, { ok: false, code: 'NO_PRINTER', message: 'Brak adresu drukarki w żądaniu.' }, origin);
     return;

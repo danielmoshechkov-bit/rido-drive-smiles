@@ -8,9 +8,11 @@ import { computeReceiptTotalGrosze, type FiscalItemInput } from '@/lib/fiscal';
 import {
   bridgeDayReport,
   bridgePrint,
+  bridgeScan,
   bridgeTest,
   type BridgePrinter,
   bridgeUnreachableMessage,
+  type FoundPrinter,
   getBridgeConfig,
   type BridgeConfig,
 } from '@/lib/fiscalBridge';
@@ -112,6 +114,50 @@ function toFiscalError(error: unknown, bridge: BridgeConfig): FiscalError {
   return new FiscalError('BRIDGE_UNREACHABLE', bridgeUnreachableMessage(bridge.url));
 }
 
+/** Błędy, po których warto poszukać drukarki pod nowym adresem (klasyczny objaw zmiany IP z DHCP). */
+function isUnreachablePrinter(error: unknown): boolean {
+  const code = (error as any)?.code;
+  return code === 'CONNECTION' || code === 'TIMEOUT';
+}
+
+export interface PrinterRecovery {
+  host: string;
+  previousHost: string;
+  saved: boolean;
+}
+
+/**
+ * Drukarka przestała odpowiadać — szukamy jej w sieci pod nowym adresem.
+ *
+ * PO CO: adres z DHCP potrafi się zmienić po każdym przeniesieniu urządzenia albo restarcie
+ * routera, a dla użytkownika wygląda to jak awaria fiskalizacji. Skoro mostek potrafi znaleźć
+ * drukarkę sam, niech naprawi to bez pytania — ale tylko wtedy, gdy w sieci jest DOKŁADNIE jedna.
+ * Przy dwóch drukarkach zgadywanie byłoby drukowaniem paragonów na cudzym urządzeniu.
+ */
+async function recoverPrinterHost(
+  bridge: BridgeConfig,
+  printer: FiscalPrinter,
+): Promise<PrinterRecovery | null> {
+  let found: FoundPrinter[];
+  try {
+    const result = await bridgeScan(bridge, { knownHost: printer.host, port: printer.port });
+    found = result.devices;
+  } catch {
+    return null; // mostek nie umie skanować (starsza wersja) albo nie odpowiada
+  }
+
+  const candidate = found.length === 1 ? found[0] : null;
+  if (!candidate || candidate.host === printer.host) return null;
+
+  // Zapis wymaga roli właściciela (RLS) — pracownikowi wydrukujemy mimo to, tylko bez zapamiętania.
+  const { error } = await (supabase as any)
+    .from('fiscal_printers')
+    .update({ host: candidate.host, last_status: 'online', last_status_message: `Adres odzyskany automatycznie (${printer.host} → ${candidate.host})` })
+    .eq('id', printer.id);
+
+  return { host: candidate.host, previousHost: printer.host, saved: !error };
+}
+
 /** Konfiguracja drukarki tenanta (domyślna, aktywna). */
 export function useFiscalPrinter(providerId?: string) {
   return useQuery({
@@ -155,6 +201,9 @@ export interface PrinterTestResult {
   clockDriftMinutes: number;
   lastReceiptNumber: number | null;
   printerMode: 'training' | 'fiscal';
+  via?: 'bridge' | 'cloud';
+  /** Wypełnione, gdy drukarkę odnaleziono pod nowym adresem po zmianie IP. */
+  recovered?: PrinterRecovery;
 }
 
 export function useTestFiscalPrinter(providerId?: string) {
@@ -164,26 +213,62 @@ export function useTestFiscalPrinter(providerId?: string) {
       const bridge = getBridgeConfig(providerId);
       // Mostek na tym komputerze ma pierwszeństwo — drukarka i tak siedzi w tej samej sieci.
       if (bridge.enabled && typeof printer === 'object' && printer) {
-        try {
-          const result = await bridgeTest(bridge, bridgePrinterOf(printer));
+        const attempt = async (host: string, recovered?: PrinterRecovery) => {
+          const result = await bridgeTest(bridge, { ...bridgePrinterOf(printer), host });
           return {
             ok: true,
             status: 'online',
-            message: result.message,
+            message: recovered
+              ? `${result.message} Adres zmienił się z ${recovered.previousHost} na ${recovered.host}${recovered.saved ? ' — zapisano w ustawieniach.' : ' (brak uprawnień do zapisu — poproś właściciela).'}`
+              : result.message,
             clock: result.clock,
             clockDriftMinutes: 0,
             lastReceiptNumber: result.lastReceiptNumber,
             printerMode: printer.mode,
             via: 'bridge',
+            recovered,
           } as PrinterTestResult;
+        };
+
+        try {
+          return await attempt(printer.host);
         } catch (error) {
-          throw toFiscalError(error, bridge);
+          if (!isUnreachablePrinter(error)) throw toFiscalError(error, bridge);
+          const recovered = await recoverPrinterHost(bridge, printer);
+          if (!recovered) throw toFiscalError(error, bridge);
+          queryClient.invalidateQueries({ queryKey: ['fiscal-printer', providerId] });
+          return await attempt(recovered.host, recovered).catch((retryError) => {
+            throw toFiscalError(retryError, bridge);
+          });
         }
       }
       const printerId = typeof printer === 'string' ? printer : printer?.id;
       return invokeFiscal<PrinterTestResult>('fiscal-printer-test', { providerId, printerId });
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['fiscal-printer', providerId] }),
+  });
+}
+
+/**
+ * Ręczne szukanie drukarki w sieci — pierwsze uruchomienie u nowego klienta
+ * i ratunek, gdy automat nie zdecydował (bo w sieci jest więcej niż jedna drukarka).
+ */
+export function useScanForPrinters(providerId?: string) {
+  return useMutation({
+    mutationFn: async (input: { knownHost?: string; port?: number } = {}) => {
+      const bridge = getBridgeConfig(providerId);
+      if (!bridge.enabled) {
+        throw new FiscalError(
+          'BRIDGE_DISABLED',
+          'Włącz mostek lokalny — to on ma dostęp do sieci, w której stoi drukarka.',
+        );
+      }
+      try {
+        return await bridgeScan(bridge, input);
+      } catch (error) {
+        throw toFiscalError(error, bridge);
+      }
+    },
   });
 }
 
@@ -258,12 +343,24 @@ export function useFiscalizeReceipt(providerId?: string) {
 
       // Licznik paragonów sprzed wydruku — pozwala rozstrzygnąć rezerwację,
       // gdyby przeglądarka padła między wydrukiem a zatwierdzeniem.
+      // Ten sam krok wykrywa zmianę adresu drukarki: dzieje się PRZED rezerwacją,
+      // więc odzyskanie IP nie zostawia po sobie wiszącego paragonu w logu.
       let printerNumberBefore: number | undefined;
       try {
         const status = await bridgeTest(bridge, bridgePrinter);
         printerNumberBefore = status.lastReceiptNumber ?? undefined;
       } catch (error) {
-        throw toFiscalError(error, bridge);
+        if (!isUnreachablePrinter(error)) throw toFiscalError(error, bridge);
+        const recovered = await recoverPrinterHost(bridge, printer);
+        if (!recovered) throw toFiscalError(error, bridge);
+        bridgePrinter.host = recovered.host;
+        queryClient.invalidateQueries({ queryKey: ['fiscal-printer', providerId] });
+        try {
+          const status = await bridgeTest(bridge, bridgePrinter);
+          printerNumberBefore = status.lastReceiptNumber ?? undefined;
+        } catch (retryError) {
+          throw toFiscalError(retryError, bridge);
+        }
       }
 
       const reservation = await invokeFiscal<{ ok: true; receiptId: string }>('fiscal-receipt-session', {
@@ -327,6 +424,9 @@ export function useFiscalizeReceipt(providerId?: string) {
       queryClient.invalidateQueries({ queryKey: ['fiscal-printer', providerId] });
       queryClient.invalidateQueries({ queryKey: ['fiscal-document-state'] });
       queryClient.invalidateQueries({ queryKey: ['fiscal-documents-printed', providerId] });
+      // Bez tego znacznik „Paragon nr X" na liście zleceń pojawiał się dopiero po odświeżeniu
+      // strony — a to właśnie po nim kasjer poznaje, że dokument jest już wystawiony.
+      queryClient.invalidateQueries({ queryKey: ['fiscal-order-badges', providerId] });
     },
   });
 }
@@ -675,6 +775,7 @@ export function useCreateFiscalReturn(providerId?: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fiscal-returns', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-order-badges', providerId] });
     },
   });
 }
@@ -740,6 +841,7 @@ export function useRegisterCorrection(providerId?: string) {
       queryClient.invalidateQueries({ queryKey: ['fiscal-receipts', providerId] });
       queryClient.invalidateQueries({ queryKey: ['fiscal-document-state'] });
       queryClient.invalidateQueries({ queryKey: ['fiscal-documents-printed', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['fiscal-order-badges', providerId] });
     },
   });
 }

@@ -80,7 +80,13 @@ tabele, osobne numeracje i osobne dowody wewnętrzne.
 - **Nabywca**: osoba prywatna / firma z NIP-em (walidacja sumy kontrolnej, próg faktury uproszczonej 450 zł)
 - **Powiązanie z kasą** (potwierdzane checkboxem, nie automatyczne):
   paragon → wpłata, zwrot → wypłata, pomyłka → **storno** błędnej wpłaty
-- **Ustawienia drukarki**: Warsztat & Auto → Ustawienia → Fiskalizacja
+- **Ustawienia drukarki**: Warsztat & Auto → Ustawienia → Fiskalizacja, w tym:
+  - **„Znajdź drukarkę w sieci"** — mostek skanuje sieć lokalną (port 9100) i potwierdza kandydata
+    odczytem zegara ElzabESC, więc zwykła drukarka sieciowa nie zostanie wzięta za fiskalną
+  - **samonaprawa adresu** — gdy drukarka nie odpowiada (`CONNECTION`/`TIMEOUT`), system szuka jej sam
+    i poprawia IP, o ile w sieci jest dokładnie jedna drukarka; przy dwóch pyta, bo zgadywanie
+    oznaczałoby drukowanie na cudzym urządzeniu
+  - checklista „co musi być ustawione w samej drukarce" i instrukcja pierwszego uruchomienia
 - **Raporty**: raport dobowy z panelu, podsumowanie okresu i eksport **RO** do JPK_V7
 - Skracanie nazw fiskalnych (`fiscalName.ts`) + pole `fiscal_name` w katalogu
 
@@ -101,6 +107,13 @@ Tylko interfejsy i TODO — `fiscal_ereceipts`, `fiscal_payment_intents` (e‑pa
 - podwójne ujęcie obrotu: druga wpłata do tego samego paragonu → `23505` (indeks unikalny), po storno
   ponowna wpłata przechodzi
 - posprzątane realne duplikaty (zlecenie `82952a85`: paragony 16/17/19/20 → zostaje 16, reszta `DUPLICATE_LEGACY`)
+- **jeden paragon na zlecenie (01.08):** zlecenie z paragonem ma pozycję „Paragon fiskalny" wyszarzoną
+  z wyjaśnieniem „To zlecenie ma już wystawiony paragon fiskalny"; w bazie pilnuje tego indeks unikalny
+- **paragon ze zlecenia (01.08):** ZL-07/2026-037 → paragon nr 10 (300,00 zł, gotówka, wpłata do kasy),
+  ZL-07/2026-042 → paragon nr 11 (13 224,00 zł, 14 pozycji, bez wpłaty — odznaczony checkbox)
+- **skan sieci (01.08):** pełny skan /24 = 7,7 s (254 adresy), ścieżka ze znanym adresem = 0,8 s
+- **samonaprawa adresu (01.08):** ustawiono błędne 192.168.0.199 → test połączenia sam znalazł
+  192.168.0.114, zapisał w ustawieniach i połączył się; komunikat opisał zmianę wprost
 
 ---
 
@@ -109,7 +122,7 @@ Tylko interfejsy i TODO — `fiscal_ereceipts`, `fiscal_payment_intents` (e‑pa
 | # | Zadanie | Stan |
 |---|---|---|
 | 6 | **Faktura do paragonu** — wystawienie faktury z paragonu (wraz z KSeF) i pilnowanie, żeby sprzedaż nie policzyła się dwa razy | zrobione tylko *pokazywanie* powiązania w zakładce Faktury; brak akcji „wystaw fakturę do paragonu" |
-| 7 | **Ustawienia drukarki** — panel jest; brakuje **„znajdź drukarkę w sieci"** (skan LAN po porcie 9100) i rezerwacji IP | do zrobienia |
+| 7 | **Ustawienia drukarki** + „znajdź drukarkę w sieci" + samonaprawa adresu | **zrobione 01.08** — zostaje tylko rezerwacja IP na routerze (czynność po stronie klienta) |
 | 8 | **Automatyczne raporty dobowe/miesięczne** — backend ma już `skipIfDoneToday`; brak harmonogramu i przypomnienia przed 48 h blokady | do zrobienia |
 | 9–10 | **Raporty + eksport RO** — podstawa działa (raport dobowy, podsumowanie okresu, eksport RO) | do dokończenia: raport miesięczny, zestawienie obu ewidencji na wydruku |
 | 11 | **Skracanie nazw + pole nazwy fiskalnej w Magazynie** — biblioteka i kolumny w bazie są; brak pola w UI Magazynu i w usługach | do zrobienia |

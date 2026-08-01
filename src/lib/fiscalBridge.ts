@@ -93,6 +93,31 @@ export async function bridgeTest(
   return parse(response);
 }
 
+export interface FoundPrinter {
+  host: string;
+  port: number;
+  clock: string;
+  lastReceiptNumber: number | null;
+}
+
+/**
+ * Szukanie drukarki w sieci lokalnej przez mostek.
+ *
+ * `knownHost` sprawdzany jest pierwszy, więc gdy adres się nie zmienił, skan kończy się
+ * natychmiast i nie obciąża sieci.
+ */
+export async function bridgeScan(
+  config: BridgeConfig,
+  options: { knownHost?: string; port?: number } = {},
+): Promise<{ devices: FoundPrinter[]; subnets: string[]; scanned: number }> {
+  const response = await fetch(`${config.url.replace(/\/$/, '')}/scan`, {
+    method: 'POST',
+    headers: headers(config),
+    body: JSON.stringify({ knownHost: options.knownHost, port: options.port ?? 9100 }),
+  });
+  return parse(response);
+}
+
 export async function bridgeDayReport(config: BridgeConfig, printer: BridgePrinter): Promise<{ message: string }> {
   const response = await fetch(`${config.url.replace(/\/$/, '')}/day-report`, {
     method: 'POST',
