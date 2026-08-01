@@ -24,7 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { ExistingInvoiceModal } from './ExistingInvoiceModal';
 import { FiscalReceiptDialog } from '@/components/fiscal/FiscalReceiptDialog';
-import { useFiscalizedDocumentIds } from '@/hooks/useFiscal';
+import { useFiscalizedDocumentIds, useOrderDocumentBadges } from '@/hooks/useFiscal';
 import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
@@ -82,6 +82,9 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [fiscalOrder, setFiscalOrder] = useState<any>(null);
   // Zlecenia z wystawionym (albo trwającym) paragonem — pozycja w menu jest dla nich wyszarzona.
   const { data: fiscalizedIds } = useFiscalizedDocumentIds(providerId, 'workshop_order');
+  // Znaczniki wystawionych dokumentów — trwałe, bo liczone z dokumentów, nie ze stanu zlecenia.
+  const { data: documentBadges } = useOrderDocumentBadges(providerId, 'workshop_order');
+  const [documentFilter, setDocumentFilter] = useState<'all' | 'with_receipt' | 'without_receipt' | 'with_invoice'>('all');
   const selectedFiscalized =
     selectedIds.size === 1 && Array.from(selectedIds).some((id) => fiscalizedIds?.has(id));
   const [existingInvoice, setExistingInvoice] = useState<any>(null);
@@ -198,8 +201,16 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
       });
     }
+    if (documentFilter !== 'all') {
+      filtered = filtered.filter((o: any) => {
+        const badges = documentBadges?.get(o.id);
+        if (documentFilter === 'with_receipt') return Boolean(badges?.hasReceipt);
+        if (documentFilter === 'without_receipt') return !badges?.hasReceipt;
+        return Boolean(badges?.hasInvoice);
+      });
+    }
     return filtered;
-  }, [orders, orderView, statusFilter, dateFrom, dateTo]);
+  }, [orders, orderView, statusFilter, dateFrom, dateTo, documentFilter, documentBadges]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -552,6 +563,18 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
 
         <div className="flex-1" />
 
+        <Select value={documentFilter} onValueChange={(v) => setDocumentFilter(v as typeof documentFilter)}>
+          <SelectTrigger className="h-8 w-[190px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('workshop.orders.docsAll')}</SelectItem>
+            <SelectItem value="with_receipt">{t('workshop.orders.docsWithReceipt')}</SelectItem>
+            <SelectItem value="without_receipt">{t('workshop.orders.docsWithoutReceipt')}</SelectItem>
+            <SelectItem value="with_invoice">{t('workshop.orders.docsWithInvoice')}</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-8 w-[180px]">
             <SelectValue placeholder={t('workshop.orders.allStatuses')} />
@@ -685,6 +708,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                    <TableHead>{t('workshop.orders.colClient')}</TableHead>
                    <TableHead>{t('workshop.orders.colReceived')}</TableHead>
                    <TableHead>{t('workshop.orders.colDeadline')}</TableHead>
+                   <TableHead>{t('workshop.orders.colDocuments')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -917,6 +941,38 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                        ) : (
                          <span className="text-xs text-muted-foreground">—</span>
                        )}
+                    </TableCell>
+                    {/* Dokumenty fiskalne — klik prowadzi do panelu paragonu z akcjami */}
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      {(() => {
+                        const badges = documentBadges?.get(order.id);
+                        if (!badges) return <span className="text-xs text-muted-foreground">—</span>;
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            {badges.hasReceipt && (
+                              <button type="button" onClick={() => setFiscalOrder(order)} title="Pokaż paragon i akcje">
+                                <Badge variant="secondary" className="text-[10px] cursor-pointer hover:bg-secondary/80">
+                                  <Receipt className="h-2.5 w-2.5 mr-0.5" />
+                                  Paragon{badges.receiptNumber ? ` ${badges.receiptNumber}` : ''}
+                                </Badge>
+                              </button>
+                            )}
+                            {badges.hasInvoice && (
+                              <Badge variant="outline" className="text-[10px]">
+                                <FileText className="h-2.5 w-2.5 mr-0.5" /> Faktura
+                              </Badge>
+                            )}
+                            {badges.hasReturn && (
+                              <Badge variant="outline" className="text-[10px] border-amber-500/60 text-amber-600">
+                                Zwrot
+                              </Badge>
+                            )}
+                            {badges.hasCorrection && (
+                              <Badge variant="destructive" className="text-[10px]">Korekta</Badge>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                   </TableRow>
                   );

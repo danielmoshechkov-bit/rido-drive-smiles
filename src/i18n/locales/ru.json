@@ -2005,7 +2005,12 @@
       "deletedCount_many": "Удалено {{count}} заказов",
       "deletedCount_other": "Удалено {{count}} заказов",
       "selectOrderFirst": "Сначала выберите заказ, для которого хотите выставить документ",
-      "alreadyFiscalized": "Для этого заказа уже выставлен фискальный чек"
+      "alreadyFiscalized": "Для этого заказа уже выставлен фискальный чек",
+      "colDocuments": "Документы",
+      "docsAll": "Все документы",
+      "docsWithReceipt": "С чеком",
+      "docsWithoutReceipt": "Без чека",
+      "docsWithInvoice": "Со счётом"
     },
     "orderDetail": {
       "completedWarningTitle": "Внимание: заказ завершён.",

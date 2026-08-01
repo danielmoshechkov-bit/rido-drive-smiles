@@ -375,6 +375,90 @@ export function useDocumentFiscalState(providerId?: string, documentType = 'work
   });
 }
 
+/**
+ * Znaczniki dokumentów fiskalnych dla listy zleceń: co zostało wystawione do każdego
+ * zlecenia. Liczone z czterech źródeł jednym zestawem zapytań, bo zwroty i korekty
+ * wskazują na paragon, a nie wprost na zlecenie.
+ *
+ * Znaczniki są trwałe: wynikają z dokumentów, nie ze stanu zlecenia, więc zostają
+ * również po jego zakończeniu.
+ */
+export interface DocumentBadges {
+  receiptNumber: number | null;
+  receiptId: string | null;
+  hasReceipt: boolean;
+  hasInvoice: boolean;
+  hasReturn: boolean;
+  hasCorrection: boolean;
+}
+
+export function useOrderDocumentBadges(providerId?: string, documentType = 'workshop_order') {
+  return useQuery({
+    queryKey: ['fiscal-order-badges', providerId, documentType],
+    enabled: Boolean(providerId),
+    staleTime: 30_000,
+    queryFn: async (): Promise<Map<string, DocumentBadges>> => {
+      const [receipts, invoices, returns, corrections] = await Promise.all([
+        (supabase as any)
+          .from('fiscal_receipts')
+          .select('id, document_id, status, printer_receipt_number')
+          .eq('provider_id', providerId)
+          .eq('document_type', documentType)
+          .in('status', ['printing', 'printed']),
+        (supabase as any).from('user_invoices').select('workshop_order_id').not('workshop_order_id', 'is', null),
+        (supabase as any).from('fiscal_returns').select('receipt_id').eq('provider_id', providerId),
+        (supabase as any).from('fiscal_corrections').select('receipt_id').eq('provider_id', providerId),
+      ]);
+      if (receipts.error) throw receipts.error;
+
+      const badges = new Map<string, DocumentBadges>();
+      const receiptToDocument = new Map<string, string>();
+
+      for (const row of ((receipts.data as any[]) ?? [])) {
+        if (!row.document_id) continue;
+        receiptToDocument.set(row.id, row.document_id);
+        badges.set(row.document_id, {
+          receiptId: row.id,
+          receiptNumber: row.printer_receipt_number ?? null,
+          hasReceipt: true,
+          hasInvoice: false,
+          hasReturn: false,
+          hasCorrection: false,
+        });
+      }
+
+      const ensure = (documentId: string): DocumentBadges => {
+        const existing = badges.get(documentId);
+        if (existing) return existing;
+        const fresh: DocumentBadges = {
+          receiptId: null,
+          receiptNumber: null,
+          hasReceipt: false,
+          hasInvoice: false,
+          hasReturn: false,
+          hasCorrection: false,
+        };
+        badges.set(documentId, fresh);
+        return fresh;
+      };
+
+      for (const row of ((invoices.data as any[]) ?? [])) {
+        if (row.workshop_order_id) ensure(row.workshop_order_id).hasInvoice = true;
+      }
+      for (const row of ((returns.data as any[]) ?? [])) {
+        const documentId = receiptToDocument.get(row.receipt_id);
+        if (documentId) ensure(documentId).hasReturn = true;
+      }
+      for (const row of ((corrections.data as any[]) ?? [])) {
+        const documentId = receiptToDocument.get(row.receipt_id);
+        if (documentId) ensure(documentId).hasCorrection = true;
+      }
+
+      return badges;
+    },
+  });
+}
+
 /** Identyfikatory dokumentów, które mają już paragon — do wyszarzenia opcji na liście. */
 export function useFiscalizedDocumentIds(providerId?: string, documentType = 'workshop_order') {
   return useQuery({

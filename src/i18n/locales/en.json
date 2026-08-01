@@ -2001,7 +2001,12 @@
       "deletedCount_one": "Deleted {{count}} order",
       "deletedCount_other": "Deleted {{count}} orders",
       "selectOrderFirst": "First select the order you want to issue it for",
-      "alreadyFiscalized": "This order already has a fiscal receipt"
+      "alreadyFiscalized": "This order already has a fiscal receipt",
+      "colDocuments": "Documents",
+      "docsAll": "All documents",
+      "docsWithReceipt": "With receipt",
+      "docsWithoutReceipt": "Without receipt",
+      "docsWithInvoice": "With invoice"
     },
     "orderDetail": {
       "completedWarningTitle": "Note: order completed.",

@@ -2001,7 +2001,12 @@
       "deletedCount_one": "{{count}} тапсырыс жойылды",
       "deletedCount_other": "{{count}} тапсырыс жойылды",
       "selectOrderFirst": "Алдымен құжат шығарғыңыз келетін тапсырысты таңдаңыз",
-      "alreadyFiscalized": "Бұл тапсырыс бойынша фискалдық чек шығарылған"
+      "alreadyFiscalized": "Бұл тапсырыс бойынша фискалдық чек шығарылған",
+      "colDocuments": "Құжаттар",
+      "docsAll": "Барлық құжаттар",
+      "docsWithReceipt": "Чегі бар",
+      "docsWithoutReceipt": "Чегі жоқ",
+      "docsWithInvoice": "Шот-фактурасы бар"
     },
     "orderDetail": {
       "completedWarningTitle": "Назар аударыңыз: тапсырыс аяқталды.",
