@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, Pencil, Ban, Trash2 } from 'lucide-react';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopCashEntryDialog } from './WorkshopCashEntryDialog';
+import { FiscalQuickReceiptDialog } from '@/components/fiscal/FiscalQuickReceiptDialog';
 import { WorkshopExpenseDialog } from './WorkshopExpenseDialog';
 import { WorkshopBreakdownDialog, type BreakdownRow } from './WorkshopBreakdownDialog';
 import { WorkshopMonthCloseDialog, type ClosureSummary } from './WorkshopMonthCloseDialog';
@@ -48,6 +49,7 @@ export function WorkshopCashPanel({ providerId }: Props) {
   const [from, setFrom] = useState(startOfWeek());
   const [to, setTo] = useState(today());
   const [cashIn, setCashIn] = useState(false);
+  const [quickReceipt, setQuickReceipt] = useState(false);
   const [expenseCat, setExpenseCat] = useState<ExpenseCategory | null>(null);
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeMonth, setCloseMonth] = useState(() => new Date().toISOString().slice(0, 7)); // 'YYYY-MM'
@@ -283,6 +285,7 @@ export function WorkshopCashPanel({ providerId }: Props) {
 
       {/* Quick actions */}
       <div className="flex flex-wrap gap-2">
+        <Button onClick={() => setQuickReceipt(true)} className="gap-2"><Receipt className="h-4 w-4" /> Wystaw paragon</Button>
         <Button onClick={() => setCashIn(true)} className="gap-2 bg-green-600 hover:bg-green-700 text-white"><ArrowDownCircle className="h-4 w-4" /> Dodaj wpłatę</Button>
         <Button variant="destructive" onClick={() => setExpenseCat('wyplata')} className="gap-2"><ArrowUpCircle className="h-4 w-4" /> Dodaj wypłatę</Button>
         <Button variant="outline" onClick={() => setExpenseCat('zakup')} className="gap-2"><ShoppingCart className="h-4 w-4" /> Dodaj zakup</Button>
@@ -420,6 +423,7 @@ export function WorkshopCashPanel({ providerId }: Props) {
 
       <WorkshopBreakdownDialog open={!!breakdown} onOpenChange={(o) => { if (!o) setBreakdown(null); }} title={breakdown?.title || ''} rows={breakdown?.rows || []} />
       <WorkshopCashEntryDialog open={cashIn} onOpenChange={setCashIn} providerId={providerId} kind="in" />
+      <FiscalQuickReceiptDialog open={quickReceipt} onOpenChange={setQuickReceipt} providerId={providerId} />
       <WorkshopExpenseDialog open={!!expenseCat} onOpenChange={(o) => { if (!o) setExpenseCat(null); }} providerId={providerId} defaultCategory={expenseCat || 'zakup'} />
       <WorkshopMonthCloseDialog open={closeOpen} onOpenChange={setCloseOpen} summary={closureSummary} onConfirm={confirmClose} busy={createClosure.isPending || saveSettings.isPending} month={closeMonth} onMonthChange={setCloseMonth} alreadyClosed={alreadyClosed} />
       <WorkshopVoidDialog open={!!voidOp} onOpenChange={(o) => { if (!o) setVoidOp(null); }} op={voidOp} />
