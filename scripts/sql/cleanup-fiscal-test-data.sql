@@ -22,7 +22,7 @@ BEGIN;
 CREATE TEMP TABLE _target AS
 SELECT id AS provider_id
 FROM public.service_providers
-WHERE id = '00000000-0000-0000-0000-000000000000';   -- ← PODMIEŃ NA ID FIRMY
+WHERE id = '664ed87b-a20f-457b-a9fa-97ca13dcae7c';   -- Warsztat Testowy
 
 -- Paragony do usunięcia: tylko szkoleniowe, tylko tej firmy.
 CREATE TEMP TABLE _receipts AS
