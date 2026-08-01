@@ -629,8 +629,24 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   };
 
   // Task row handlers
+  /**
+   * Wpisanie czegokolwiek w ostatni wiersz dokleja pod spodem kolejny pusty —
+   * jak na paragonie. Nie trzeba klikać „Dodaj usługę" ani wciskać Entera, żeby
+   * mieć gdzie pisać dalej; pusty wiersz nigdzie nie trafia, bo do bazy idą tylko
+   * wiersze z nazwą i ceną.
+   */
+  const appendEmptyIfLastFilled = <T extends { draftKey?: string }>(
+    rows: T[],
+    idx: number,
+    hasValue: (row: T) => boolean,
+    create: () => T,
+  ): T[] => (idx === rows.length - 1 && hasValue(rows[idx]) ? [...rows, create()] : rows);
+
   const updateTaskRow = (idx: number, updates: Partial<TaskRow>) => {
-    setTaskRows(prev => prev.map((r, i) => i === idx ? { ...r, ...updates } : r));
+    setTaskRows(prev => {
+      const next = prev.map((r, i) => i === idx ? { ...r, ...updates } : r);
+      return appendEmptyIfLastFilled(next, idx, hasTaskDraftValue, createEmptyTask);
+    });
   };
 
   const updateTaskRowPrice = (idx: number, val: number) => {
@@ -730,7 +746,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
   // Goods row handlers
   const updateGoodsRow = (idx: number, updates: Partial<GoodsRow>) => {
-    setGoodsRows(prev => prev.map((r, i) => i === idx ? { ...r, ...updates } : r));
+    setGoodsRows(prev => {
+      const next = prev.map((r, i) => i === idx ? { ...r, ...updates } : r);
+      return appendEmptyIfLastFilled(next, idx, hasGoodsDraftValue, createEmptyGoods);
+    });
   };
 
   const updateGoodsRowPrice = (idx: number, val: number) => {
@@ -1102,6 +1121,76 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       });
     }
   };
+
+  /**
+   * Zapis wskazanych wierszy roboczych — bez ruszania tych, których użytkownik
+   * właśnie wypełnia. Stary `save*DraftRows` czyścił CAŁĄ listę do jednego pustego
+   * wiersza, więc nie nadawał się do zapisu w tle: kasowałby wiersz spod kursora.
+   */
+  const commitTaskRows = async (keys: string[]) => {
+    const rows = taskRows.filter(r => r.draftKey && keys.includes(r.draftKey) && isTaskDraftFilled(r));
+    if (!rows.length) return;
+    showQuoteWarningIfNeeded();
+    const entries = rows.map(buildTaskEntry);
+    setTaskRows(prev => {
+      const rest = prev.filter(r => !(r.draftKey && keys.includes(r.draftKey)));
+      return rest.length ? rest : [createEmptyTask()];
+    });
+    await enqueueEntries(entries);
+  };
+
+  const commitGoodsRows = async (keys: string[]) => {
+    const rows = goodsRows.filter(r => r.draftKey && keys.includes(r.draftKey) && isGoodsDraftFilled(r));
+    if (!rows.length) return;
+    showQuoteWarningIfNeeded();
+    const entries = rows.map(buildGoodsEntry);
+    setGoodsRows(prev => {
+      const rest = prev.filter(r => !(r.draftKey && keys.includes(r.draftKey)));
+      return rest.length ? rest : [createEmptyGoods()];
+    });
+    await enqueueEntries(entries);
+  };
+
+  /**
+   * Automatyczny zapis kompletnych wierszy (nazwa + cena) po chwili bezruchu.
+   *
+   * PO CO: pozycja wpisana i zostawiona bez Entera znikała przy przeładowaniu listy —
+   * wyglądało to jak gubienie danych. Teraz wiersz zapisuje się sam, a Enter
+   * i „Dodaj pozycję" zostają wyłącznie jako skrót.
+   *
+   * Wiersz Z KURSOREM jest pomijany: przeniesienie go do listy zapisanych w trakcie
+   * pisania wyrywałoby pole spod palców. Zapisze się, gdy tylko klikniesz gdzie indziej.
+   */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const active = document.activeElement;
+      const focusedTaskKey = active instanceof Element
+        ? active.closest('tr[data-task-draft-key]')?.getAttribute('data-task-draft-key')
+        : null;
+      const focusedGoodsKey = active instanceof Element
+        ? active.closest('tr[data-goods-draft-key]')?.getAttribute('data-goods-draft-key')
+        : null;
+
+      const taskKeys = taskRows
+        .filter(r => isTaskDraftFilled(r) && r.draftKey && r.draftKey !== focusedTaskKey)
+        .map(r => r.draftKey as string);
+      const goodsKeys = goodsRows
+        .filter(r => isGoodsDraftFilled(r) && r.draftKey && r.draftKey !== focusedGoodsKey)
+        .map(r => r.draftKey as string);
+
+      if (taskKeys.length && !autoSavingTaskDraftsRef.current) {
+        autoSavingTaskDraftsRef.current = true;
+        void commitTaskRows(taskKeys).finally(() => { autoSavingTaskDraftsRef.current = false; });
+      }
+      if (goodsKeys.length && !autoSavingGoodsDraftsRef.current) {
+        autoSavingGoodsDraftsRef.current = true;
+        void commitGoodsRows(goodsKeys).finally(() => { autoSavingGoodsDraftsRef.current = false; });
+      }
+    }, 1200);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskRows, goodsRows]);
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
