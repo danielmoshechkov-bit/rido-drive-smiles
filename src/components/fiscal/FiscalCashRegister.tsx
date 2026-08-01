@@ -372,11 +372,13 @@ export function FiscalCashRegister({ providerId }: Props) {
                 <CardDescription>Wszystkie próby fiskalizacji — również nieudane, z powodem błędu.</CardDescription>
               </div>
               <div className="flex gap-2 flex-wrap items-center">
+                {/* Szerzej niż domyślnie: polska nazwa miesiąca plus rok plus systemowa
+                    ikona kalendarza nie mieściły się w ramce i ikona nachodziła na tekst. */}
                 <Input
                   type="month"
                   value={month}
                   onChange={(e) => setMonth(e.target.value)}
-                  className="h-9 w-40"
+                  className="h-9 w-52 pr-2"
                 />
                 {month ? (
                   <Button variant="ghost" size="sm" className="h-9" onClick={() => setMonth('')}>
@@ -400,14 +402,6 @@ export function FiscalCashRegister({ providerId }: Props) {
                     <SelectItem value="printed">Wydrukowane</SelectItem>
                     <SelectItem value="failed">Błędy</SelectItem>
                     <SelectItem value="cancelled">Anulowane</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
-                  <SelectTrigger className="h-9 w-28"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="20">20 / stronę</SelectItem>
-                    <SelectItem value="50">50 / stronę</SelectItem>
-                    <SelectItem value="100">100 / stronę</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -542,10 +536,23 @@ export function FiscalCashRegister({ providerId }: Props) {
 
             {filteredReceipts.length > 0 && (
               <div className="flex items-center justify-between gap-3 pt-3 text-sm flex-wrap">
-                <div className="text-muted-foreground">
-                  {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredReceipts.length)} z{' '}
-                  {filteredReceipts.length}
-                  {month && ' w tym miesiącu'}
+                {/* Ile na stronę stoi przy liczniku, bo obie liczby czyta się razem:
+                    „pokaż 20, widzisz 1–20 z 137". Na górze pasek filtrów tylko puchł. */}
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span>Pokaż</span>
+                  <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
+                    <SelectTrigger className="h-8 w-20"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="20">20</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span>
+                    na stronę · {(page - 1) * pageSize + 1}–
+                    {Math.min(page * pageSize, filteredReceipts.length)} z {filteredReceipts.length}
+                    {month && ' w tym miesiącu'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button
