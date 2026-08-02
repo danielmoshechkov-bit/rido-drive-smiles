@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { groupCategories } from '@/lib/service-category-groups';
+import { groupCategories, groupIdForSlug, SERVICE_CATEGORY_GROUPS, OTHER_GROUP } from '@/lib/service-category-groups';
 
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -145,6 +145,57 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
     () => new Set(categories.map(c => c.service_category_id).filter(Boolean) as string[]),
     [categories],
   );
+
+  // ---- Dwustopniowy wybór kategorii usługi: grupa główna -> podkategoria ----
+  const slugByCatalogId = useMemo(
+    () => Object.fromEntries(portalCategories.map(p => [p.id, p.slug])),
+    [portalCategories],
+  );
+  const groupOfProviderCat = (catId: string | null | undefined): string => {
+    const c = categories.find(x => x.id === catId);
+    if (!c) return '';
+    const slug = c.service_category_id ? slugByCatalogId[c.service_category_id] : undefined;
+    return slug ? groupIdForSlug(slug) : OTHER_GROUP.id;
+  };
+  const myGroups = useMemo(() => {
+    const ids = new Set(categories.map(c => groupOfProviderCat(c.id)).filter(Boolean));
+    const all = [...SERVICE_CATEGORY_GROUPS, OTHER_GROUP];
+    return all.filter(g => ids.has(g.id));
+  }, [categories, slugByCatalogId]);
+  const [pickGroup, setPickGroup] = useState<Record<string, string>>({});
+
+  const renderCategoryPicker = (key: string, value: string | null, onChange: (v: string | null) => void) => {
+    const group = pickGroup[key] ?? groupOfProviderCat(value);
+    const subs = categories.filter(c => groupOfProviderCat(c.id) === group);
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Select
+          value={group || 'none'}
+          onValueChange={g => {
+            setPickGroup(p => ({ ...p, [key]: g === 'none' ? '' : g }));
+            onChange(null);
+          }}
+        >
+          <SelectTrigger><SelectValue placeholder="Grupa główna" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Bez kategorii</SelectItem>
+            {myGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select
+          value={value || 'none'}
+          disabled={!group}
+          onValueChange={v => onChange(v === 'none' ? null : v)}
+        >
+          <SelectTrigger><SelectValue placeholder={group ? 'Podkategoria' : 'Najpierw grupa'} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Bez podkategorii</SelectItem>
+            {subs.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
 
   // Zgłoszenie nowej kategorii do akceptacji przez portal
   const [reqDialog, setReqDialog] = useState(false);
@@ -930,14 +981,8 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
               <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="np. Wymiana oleju" />
             </div>
             <div className="space-y-2">
-              <Label>Kategoria</Label>
-              <Select value={form.category_id || 'none'} onValueChange={v => setForm(p => ({ ...p, category_id: v === 'none' ? '' : v }))}>
-                <SelectTrigger><SelectValue placeholder="Bez kategorii" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Bez kategorii</SelectItem>
-                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>Kategoria (grupa → podkategoria)</Label>
+              {renderCategoryPicker('form', form.category_id || null, v => setForm(p => ({ ...p, category_id: v || '' })))}
             </div>
             <div className="space-y-2">
               <Label>Krótki opis</Label>
@@ -1120,16 +1165,9 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
                             value={item.price_to ?? ''}
                             onChange={e => setAiItems(p => p.map((x, i) => i === idx ? { ...x, price_to: e.target.value ? Number(e.target.value) : null } : x))}
                           />
-                          <Select
-                            value={item.category_id || 'none'}
-                            onValueChange={v => setAiItems(p => p.map((x, i) => i === idx ? { ...x, category_id: v === 'none' ? null : v } : x))}
-                          >
-                            <SelectTrigger><SelectValue placeholder="Kategoria" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Bez kategorii</SelectItem>
-                              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
+                          <div className="sm:col-span-2">
+                            {renderCategoryPicker(`ai-${idx}`, item.category_id || null, v => setAiItems(p => p.map((x, i) => i === idx ? { ...x, category_id: v } : x)))}
+                          </div>
                         </div>
                       </div>
                     </div>
