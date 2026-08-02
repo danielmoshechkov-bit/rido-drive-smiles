@@ -483,8 +483,21 @@ export function ServiceProviderDetailPage() {
                   Ten usługodawca nie ma jeszcze dodanych usług
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {services.map(service => (
+                <div className="space-y-8">
+                  {serviceGroups.map(group => (
+                    <div key={group.key} className="space-y-3">
+                      {serviceGroups.length > 1 && (
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-extrabold text-slate-900">{group.name}</h3>
+                          <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5">
+                            {group.items.length}
+                          </span>
+                          {group.highlighted && (
+                            <Badge className="text-[10px]">Szukana kategoria</Badge>
+                          )}
+                        </div>
+                      )}
+                      {group.items.map(service => (
                     <Card key={service.id} className="hover:border-primary/50 hover:shadow-md transition-all rounded-xl border border-slate-200">
                       <CardContent className="p-4 flex items-center justify-between">
                         <div className="flex-1">
@@ -524,9 +537,12 @@ export function ServiceProviderDetailPage() {
                         </div>
                       </CardContent>
                     </Card>
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}
+
             </div>
 
             {/* Reviews — sekcja w ogóle ukryta gdy 0 opinii */}
