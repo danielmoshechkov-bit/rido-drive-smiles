@@ -597,12 +597,21 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
                 ))
               )}
 
-              <button
-                onClick={openNew}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 py-3 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
-              >
-                <Plus className="h-4 w-4" /> Dodaj usługę
-              </button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  onClick={openNew}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 py-3 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
+                >
+                  <Plus className="h-4 w-4" /> Dodaj usługę
+                </button>
+                <button
+                  onClick={() => { setAiText(''); setAiItems([]); setAiDialog(true); }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+                >
+                  <Sparkles className="h-4 w-4" /> Dodaj z GetRido AI
+                </button>
+              </div>
+
             </CardContent>
           </Card>
         </>
