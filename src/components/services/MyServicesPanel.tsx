@@ -1048,7 +1048,108 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog — dodawanie cennika przez GetRido AI */}
+      <Dialog open={aiDialog} onOpenChange={setAiDialog}>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" /> Dodaj cennik z GetRido AI
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Opisz swoją firmę i usługi razem z cenami — jednym tekstem, tak jak mówisz klientowi.
+              AI zamieni to na gotowe pozycje cennika, a Ty je tylko zatwierdzisz.
+            </p>
+            <Textarea
+              rows={6}
+              value={aiText}
+              onChange={e => setAiText(e.target.value)}
+              placeholder={'np. Robimy mycie auta od 60 zł (ok. 40 min), pranie tapicerki 300-600 zł, korekta lakieru 1500 zł, powłoka ceramiczna od 2500 zł. Wymiana oleju 150 zł.'}
+              className="resize-none"
+            />
+            <Button onClick={runAi} disabled={aiLoading} className="gap-2">
+              {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {aiLoading ? 'Analizuję…' : 'Wygeneruj pozycje'}
+            </Button>
+
+            {aiItems.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">
+                  Znalezione pozycje ({aiItems.filter(i => i.include).length}/{aiItems.length})
+                </p>
+                {aiItems.map((item, idx) => (
+                  <div key={idx} className={`rounded-xl border p-3 space-y-2 ${item.include ? 'border-primary/40 bg-primary/5' : 'opacity-60'}`}>
+                    <div className="flex items-start gap-2">
+                      <Switch
+                        checked={item.include}
+                        onCheckedChange={v => setAiItems(p => p.map((x, i) => i === idx ? { ...x, include: v } : x))}
+                      />
+                      <div className="flex-1 space-y-2">
+                        <Input
+                          value={item.name}
+                          onChange={e => setAiItems(p => p.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                          className="font-semibold"
+                        />
+                        <Input
+                          value={item.short_description}
+                          placeholder="Krótki opis"
+                          onChange={e => setAiItems(p => p.map((x, i) => i === idx ? { ...x, short_description: e.target.value } : x))}
+                        />
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          <Select
+                            value={item.price_mode}
+                            onValueChange={(v: PriceMode) => setAiItems(p => p.map((x, i) => i === idx ? { ...x, price_mode: v } : x))}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {(Object.keys(PRICE_MODE_LABELS) as PriceMode[]).map(m => (
+                                <SelectItem key={m} value={m}>{PRICE_MODE_LABELS[m]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number" placeholder="Cena od"
+                            value={item.price_from ?? ''}
+                            onChange={e => setAiItems(p => p.map((x, i) => i === idx ? { ...x, price_from: e.target.value ? Number(e.target.value) : null } : x))}
+                          />
+                          <Input
+                            type="number" placeholder="Cena do"
+                            value={item.price_to ?? ''}
+                            onChange={e => setAiItems(p => p.map((x, i) => i === idx ? { ...x, price_to: e.target.value ? Number(e.target.value) : null } : x))}
+                          />
+                          <Select
+                            value={item.category_id || 'none'}
+                            onValueChange={v => setAiItems(p => p.map((x, i) => i === idx ? { ...x, category_id: v === 'none' ? null : v } : x))}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Kategoria" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Bez kategorii</SelectItem>
+                              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAiDialog(false)}>Anuluj</Button>
+            <Button onClick={saveAiItems} disabled={aiSaving || aiItems.filter(i => i.include).length === 0}>
+              <Save className="h-4 w-4 mr-2" />
+              {aiSaving ? 'Zapisywanie…' : 'Dodaj do cennika'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
 
