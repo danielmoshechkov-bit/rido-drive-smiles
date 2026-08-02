@@ -36,7 +36,7 @@ export async function htmlToPdfBlob(html: string): Promise<Blob | null> {
     if (!doc?.body) return null;
 
     const canvas = await html2canvas(doc.body, {
-      scale: 2,
+      scale: 2,                 // ~190 dpi — czytelnie, a plik zostaje w setkach kB
       useCORS: true,
       backgroundColor: '#ffffff',
       windowWidth: A4_WIDTH_PX,
@@ -44,9 +44,22 @@ export async function htmlToPdfBlob(html: string): Promise<Blob | null> {
     });
 
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    const pageHeightPx = Math.floor((canvas.width * A4_HEIGHT_MM) / A4_WIDTH_MM);
-    const pages = Math.max(1, Math.ceil(canvas.height / pageHeightPx));
+    const naturalHeightMm = (canvas.height * A4_WIDTH_MM) / canvas.width;
 
+    // Dokument minimalnie wyzszy od kartki lamalby sie w polowie tabeli, a druga
+    // strona bylaby prawie pusta. Do poltorej kartki mieszczymy calosc na jednej,
+    // pomniejszajac proporcjonalnie — tak jak robi to drukarka z opcja "dopasuj".
+    if (naturalHeightMm <= A4_HEIGHT_MM * 1.5) {
+      const scale = Math.min(1, A4_HEIGHT_MM / naturalHeightMm);
+      const drawWidth = A4_WIDTH_MM * scale;
+      const drawHeight = naturalHeightMm * scale;
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (A4_WIDTH_MM - drawWidth) / 2, 0, drawWidth, drawHeight);
+      return pdf.output('blob');
+    }
+
+    // Naprawde dlugi dokument — tniemy na kolejne kartki.
+    const pageHeightPx = Math.floor((canvas.width * A4_HEIGHT_MM) / A4_WIDTH_MM);
+    const pages = Math.ceil(canvas.height / pageHeightPx);
     for (let page = 0; page < pages; page++) {
       const sliceHeight = Math.min(pageHeightPx, canvas.height - page * pageHeightPx);
       const slice = document.createElement('canvas');
@@ -60,7 +73,7 @@ export async function htmlToPdfBlob(html: string): Promise<Blob | null> {
 
       const sliceHeightMm = (sliceHeight * A4_WIDTH_MM) / canvas.width;
       if (page > 0) pdf.addPage();
-      pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, A4_WIDTH_MM, sliceHeightMm);
+      pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, A4_WIDTH_MM, sliceHeightMm);
     }
 
     return pdf.output('blob');
