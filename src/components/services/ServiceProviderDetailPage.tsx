@@ -600,7 +600,9 @@ export function ServiceProviderDetailPage() {
                     </div>
                   ))}
                 </div>
+                </>
               )}
+
 
             </div>
 
