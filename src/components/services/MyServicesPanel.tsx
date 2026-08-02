@@ -113,34 +113,90 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
     },
   });
 
+  // Katalog kategorii portalu (jedno źródło prawdy — z niego wybiera usługodawca)
+  const { data: portalCategories = [] } = useQuery({
+    queryKey: ['portal-service-catalog'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('service_categories')
+        .select('id, name, slug, description, sort_order')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+      if (error) throw error;
+      return (data || []) as { id: string; name: string; slug: string; description: string | null }[];
+    },
+  });
+
   const [catDialog, setCatDialog] = useState(false);
   const [editingCat, setEditingCat] = useState<ProviderCategory | null>(null);
   const [catName, setCatName] = useState('');
+  const [pickedCatalogId, setPickedCatalogId] = useState<string>('');
+
+  const usedCatalogIds = useMemo(
+    () => new Set(categories.map(c => c.service_category_id).filter(Boolean) as string[]),
+    [categories],
+  );
+
+  // Zgłoszenie nowej kategorii do akceptacji przez portal
+  const [reqDialog, setReqDialog] = useState(false);
+  const [reqForm, setReqForm] = useState({ name: '', description: '', services: '', email: '' });
+
+  const submitRequest = useMutation({
+    mutationFn: async () => {
+      if (!reqForm.name.trim()) throw new Error('Podaj nazwę kategorii');
+      if (!reqForm.description.trim()) throw new Error('Opisz krótko czym jest ta kategoria');
+      const { data, error } = await supabase.functions.invoke('submit-category-request', {
+        body: {
+          provider_id: providerId,
+          category_name: reqForm.name.trim(),
+          category_description: reqForm.description.trim(),
+          example_services: reqForm.services.trim(),
+          contact_email: reqForm.email.trim() || null,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+    },
+    onSuccess: () => {
+      setReqDialog(false);
+      setReqForm({ name: '', description: '', services: '', email: '' });
+      toast.success('Zgłoszenie wysłane — kategoria pojawi się po akceptacji portalu');
+    },
+    onError: (e: any) => toast.error(e.message || 'Nie udało się wysłać zgłoszenia'),
+  });
 
   const saveCat = useMutation({
     mutationFn: async () => {
-      const name = catName.trim();
-      if (!name) throw new Error('Podaj nazwę kategorii');
       if (editingCat) {
+        const name = catName.trim();
+        if (!name) throw new Error('Podaj nazwę kategorii');
         const { error } = await (supabase as any)
           .from('provider_service_categories')
           .update({ name, updated_at: new Date().toISOString() })
           .eq('id', editingCat.id);
         if (error) throw error;
       } else {
+        const picked = portalCategories.find(c => c.id === pickedCatalogId);
+        if (!picked) throw new Error('Wybierz kategorię z listy');
         const { error } = await (supabase as any)
           .from('provider_service_categories')
-          .insert({ provider_id: providerId, name, sort_order: categories.length });
+          .insert({
+            provider_id: providerId,
+            name: picked.name,
+            service_category_id: picked.id,
+            sort_order: categories.length,
+          });
         if (error) throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-service-categories', providerId] });
-      setCatDialog(false); setEditingCat(null); setCatName('');
+      setCatDialog(false); setEditingCat(null); setCatName(''); setPickedCatalogId('');
       toast.success('Zapisano kategorię');
     },
     onError: (e: any) => toast.error(e.message),
   });
+
 
   const deleteCat = useMutation({
     mutationFn: async (id: string) => {
