@@ -179,3 +179,36 @@ export function useVoidReceiptPayment(providerId?: string) {
     },
   });
 }
+
+/**
+ * Ile zapłacono do każdego zlecenia — do kolumny „Płatność" na liście zleceń.
+ *
+ * PO CO: status zlecenia mówi, czy auto jest gotowe, ale nie mówi, czy klient zapłacił.
+ * Bez tego trzeba było wchodzić w każde zlecenie po kolei albo szukać w Operacjach kasy.
+ * Jedno zapytanie dla całej listy zamiast jednego na wiersz.
+ */
+export function useOrdersPaidMap(providerId?: string) {
+  return useQuery({
+    queryKey: ['workshop-orders-paid-map', providerId],
+    enabled: Boolean(providerId),
+    staleTime: 30_000,
+    queryFn: async (): Promise<Record<string, { paid: number; methods: string[]; lastDate: string | null }>> => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_payments')
+        .select('order_id, amount, method, voided, paid_at')
+        .eq('provider_id', providerId)
+        .not('order_id', 'is', null);
+      if (error) throw error;
+
+      const map: Record<string, { paid: number; methods: string[]; lastDate: string | null }> = {};
+      for (const row of ((data as any[]) ?? []).filter((r) => r.voided !== true)) {
+        const entry = (map[row.order_id] ||= { paid: 0, methods: [], lastDate: null });
+        entry.paid += Number(row.amount) || 0;
+        if (row.method && !entry.methods.includes(row.method)) entry.methods.push(row.method);
+        const date = row.paid_at ? String(row.paid_at).slice(0, 10) : null;
+        if (date && (!entry.lastDate || date > entry.lastDate)) entry.lastDate = date;
+      }
+      return map;
+    },
+  });
+}

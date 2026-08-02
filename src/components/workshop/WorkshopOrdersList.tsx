@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { WorkshopPager, pageSlice } from './WorkshopPager';
+import { useOrdersPaidMap } from '@/hooks/useFiscalCash';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +69,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [paymentOrder, setPaymentOrder] = useState<any | null>(null);
+  // Ile zapłacono do każdego zlecenia — kolumna „Płatność" w widoku zakończonych.
+  const { data: paidMap = {} } = useOrdersPaidMap(providerId);
   const { data: financeSettings } = useWorkshopFinanceSettings(providerId);
   const { getStyle } = useWorkshopStatusStyles(providerId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -744,6 +747,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                    <TableHead>{t('workshop.orders.colClient')}</TableHead>
                    <TableHead>{t('workshop.orders.colReceived')}</TableHead>
                    <TableHead>{t('workshop.orders.colDeadline')}</TableHead>
+                   {orderView === 'completed' && <TableHead>Płatność</TableHead>}
                    <TableHead>{t('workshop.orders.colDocuments')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -978,6 +982,45 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                          <span className="text-xs text-muted-foreground">—</span>
                        )}
                     </TableCell>
+                    {/* Płatność — status zlecenia mówi o aucie, nie o pieniądzach.
+                        Klik otwiera to samo okno co przy zakończeniu, więc pomyłkę w formie
+                        albo dacie da się poprawić bez szukania w Operacjach kasy. */}
+                    {orderView === 'completed' && (
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        {(() => {
+                          const gross = orderGrossAmount(order);
+                          const entry = paidMap[order.id];
+                          const paid = entry?.paid ?? 0;
+                          const settled = gross > 0 && paid >= gross - 0.01;
+                          const partial = paid > 0.01 && !settled;
+                          const label = settled ? 'Opłacone' : partial ? 'Częściowo' : 'Nieopłacone';
+                          const methods = (entry?.methods ?? [])
+                            .map((m) => ({ gotowka: 'gotówka', karta: 'karta', blik: 'BLIK', przelew: 'przelew' } as any)[m] || m)
+                            .join(' + ');
+                          return (
+                            <button
+                              type="button"
+                              className="text-left"
+                              title="Kliknij, żeby poprawić kwotę, formę lub datę płatności"
+                              onClick={() => setPaymentOrder(order)}
+                            >
+                              <Badge
+                                variant={settled ? 'default' : partial ? 'secondary' : 'outline'}
+                                className={`text-[10px] cursor-pointer ${!settled && !partial ? 'border-destructive text-destructive' : ''}`}
+                              >
+                                {label}
+                              </Badge>
+                              <span className="block text-[10px] text-muted-foreground">
+                                {partial
+                                  ? `${paid.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} z ${gross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}`
+                                  : methods || (settled ? '' : 'brak wpłat')}
+                                {entry?.lastDate ? ` · ${entry.lastDate}` : ''}
+                              </span>
+                            </button>
+                          );
+                        })()}
+                      </TableCell>
+                    )}
                     {/* Dokumenty fiskalne — klik prowadzi do panelu paragonu z akcjami */}
                     <TableCell onClick={e => e.stopPropagation()}>
                       {(() => {
@@ -1015,7 +1058,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 })}
                 {filteredOrders.length === 0 && !isLoading && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={orderView === 'completed' ? 9 : 8} className="text-center py-8 text-muted-foreground">
                       {t('workshop.orders.noOrders')}
                       {/* Szukanie działa w obrębie wybranej zakładki — bez tej podpowiedzi
                           „nie ma zlecenia" znaczy tylko „nie ma go w tej zakładce". */}
@@ -1039,7 +1082,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                      <TableCell className="text-right">
                        {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
                      </TableCell>
-                     <TableCell colSpan={4}></TableCell>
+                     <TableCell colSpan={orderView === 'completed' ? 5 : 4}></TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -1119,6 +1162,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           orderId={paymentOrder.id}
           amount={orderGrossAmount(paymentOrder)}
           title={`Płatność — ${paymentOrder.order_number || ''}`}
+          onPaid={() => {
+            queryClient.invalidateQueries({ queryKey: ['workshop-orders-paid-map'] });
+            queryClient.invalidateQueries({ queryKey: ['workshop-cash-data'] });
+          }}
         />
       )}
 
