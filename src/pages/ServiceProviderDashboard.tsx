@@ -1305,7 +1305,7 @@ export default function ServiceProviderDashboard() {
           {/* AI Agent Tab */}
           <TabsContent value="ai-agent" className="mt-6">
             <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
-              <AISalesAgentsDashboard providerId={providerId} />
+              <AISalesAgentsDashboard providerId={providerId} onGoToServices={() => setActiveTab('services')} />
             </Suspense>
           </TabsContent>
 

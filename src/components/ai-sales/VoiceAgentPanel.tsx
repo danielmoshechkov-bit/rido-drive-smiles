@@ -11,14 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CompanyInterviewChat } from "./CompanyInterviewChat";
 import { VoiceAgentTestChat } from "./VoiceAgentTestChat";
 import { NativeVoiceBrowser } from "./NativeVoiceBrowser";
+import { ProviderOfferSummary } from "./ProviderOfferSummary";
 import { toast } from "sonner";
-import { Loader2, Save, Play, Phone, Volume2, Bot, Sparkles, Wand2, Building2, Search, Pause, Star, Globe, ChevronDown, CalendarCheck, ClipboardList, ShieldCheck, PhoneCall, Copy } from "lucide-react";
-
-const FUNCTIONS_BASE = "https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1";
+import { Loader2, Save, Play, Phone, Volume2, Sparkles, Wand2, Pause, Star, Globe, CalendarCheck, ClipboardList, ShieldCheck, PhoneCall, MessageSquareQuote } from "lucide-react";
 
 interface Persona {
   persona_key: string; name: string; description: string | null; direction: string;
@@ -41,6 +38,8 @@ interface VoiceConfig {
   sample_text: string; languages: string[]; inbound_mode: string; inbound_rings: number;
   calling_hours: { from?: string; to?: string }; business_context: BusinessContext;
   calendar_access: boolean; orders_access: boolean; learning_mode: string;
+  /** Zgodność rozmowy — trzymane w business_context (bez migracji schematu). */
+  disclose_recording: boolean; ai_disclosure: string;
 }
 
 const LANGS = [
@@ -70,10 +69,11 @@ function defaultsFor(persona: Persona | undefined): VoiceConfig {
     sample_text: DEFAULT_SAMPLE, languages: persona?.supported_langs?.length ? persona.supported_langs : ["pl"],
     inbound_mode: "off", inbound_rings: 4, calling_hours: {}, business_context: emptyBC(),
     calendar_access: false, orders_access: false, learning_mode: "per_call",
+    disclose_recording: true, ai_disclosure: "on_request",
   };
 }
 
-export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
+export function VoiceAgentPanel({ providerId, onGoToServices }: { providerId: string | null; onGoToServices?: () => void }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -88,7 +88,6 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const [fSearch, setFSearch] = useState("");
   const [onlyMulti, setOnlyMulti] = useState(true);
   const [previewLang, setPreviewLang] = useState("pl");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const [testOpen, setTestOpen] = useState(false);
   const [training, setTraining] = useState(false);
@@ -146,7 +145,9 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
         .eq("enabled", true).order("priority", { ascending: false });
       const list = (data as Persona[]) || [];
       setPersonas(list);
-      if (list.length) setSelectedPersona((c) => c || list[0].persona_key);
+      // Rola nie jest wybierana przez usługodawcę — warsztat zawsze odbiera telefony.
+      const preferred = list.find((p) => p.persona_key === "workshop_secretary") || list[0];
+      if (preferred) setSelectedPersona((c) => c || preferred.persona_key);
       else setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,18 +195,12 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           calling_hours: data.calling_hours ?? {}, business_context: { ...emptyBC(), ...(data.business_context ?? {}) },
           calendar_access: !!data.calendar_access, orders_access: !!data.orders_access,
           learning_mode: data.learning_mode || "per_call",
+          disclose_recording: data.business_context?.disclose_recording !== false,
+          ai_disclosure: data.business_context?.ai_disclosure || "on_request",
         };
       } else {
         loaded = defaultsFor(persona);
-        const { data: sp } = await (supabase as any)
-          .from("service_providers").select("company_name, description, address, city").eq("id", providerId).maybeSingle();
-        if (sp) {
-          loaded.business_context.company_name = sp.company_name || "";
-          loaded.business_context.description = sp.description || "";
-          loaded.business_context.location = [sp.address, sp.city].filter(Boolean).join(", ");
-        }
       }
-      setAdvancedOpen(loaded.voice_mode === "per_language");
       setCfg(loaded);
       setLoading(false);
     })();
@@ -300,7 +295,8 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
         voice_similarity: cfg.voice_similarity, voice_style: cfg.voice_style,
         sample_text: cfg.sample_text || null, languages: cfg.languages,
         inbound_mode: cfg.inbound_mode, inbound_rings: cfg.inbound_rings,
-        calling_hours: cfg.calling_hours, business_context: cfg.business_context,
+        calling_hours: cfg.calling_hours,
+        business_context: { ...cfg.business_context, disclose_recording: cfg.disclose_recording, ai_disclosure: cfg.ai_disclosure },
         calendar_access: cfg.calendar_access, orders_access: cfg.orders_access,
         learning_mode: cfg.learning_mode,
         updated_at: new Date().toISOString(),
@@ -351,34 +347,12 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
         <div className="text-sm">
           <p className="font-medium">Asystent głosowy AI — konfiguracja</p>
           <p className="text-muted-foreground mt-1">
-            Domyślnie jeden wielojęzyczny głos obsługuje całą rozmowę — agent automatycznie odpowiada w języku
-            klienta (PL/EN/UA/RU). Przełącznik języka poniżej pozwala sprawdzić, jak głos brzmi w każdym z nich.
+            Firmę, godziny pracy, usługi i ceny agent zna z zakładki <strong>Moje usługi</strong> — tutaj ustawiasz tylko
+            jak brzmi i jak się zachowuje. Jeden wielojęzyczny głos obsługuje całą rozmowę, a agent sam odpowiada w
+            języku klienta (PL/EN/UA/RU).
           </p>
         </div>
       </div>
-
-      {/* ROLA */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5" /> Rola agenta</CardTitle>
-          <CardDescription>W jakiej roli ma działać agent.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Select value={selectedPersona} onValueChange={setSelectedPersona}>
-            <SelectTrigger><SelectValue placeholder="Wybierz rolę" /></SelectTrigger>
-            <SelectContent>
-              {personas.map((p) => (
-                <SelectItem key={p.persona_key} value={p.persona_key}>
-                  {p.name} {p.direction === "inbound" ? "(odbiera)" : p.direction === "outbound" ? "(dzwoni)" : "(odbiera + dzwoni)"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {personas.find((p) => p.persona_key === selectedPersona)?.description && (
-            <p className="text-xs text-muted-foreground mt-2">{personas.find((p) => p.persona_key === selectedPersona)?.description}</p>
-          )}
-        </CardContent>
-      </Card>
 
       {loading || !cfg ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
@@ -392,8 +366,9 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                 <Switch checked={cfg.is_active} onCheckedChange={(v) => update({ is_active: v })} />
               </div>
               <div className="space-y-2">
-                <Label>Nazwa agenta (jak się przedstawia)</Label>
-                <Input placeholder="np. Asystentka Kasia" value={cfg.display_name} onChange={(e) => update({ display_name: e.target.value })} />
+                <Label>Imię agenta (jak się przedstawia)</Label>
+                <Input placeholder="np. Kasia" value={cfg.display_name} onChange={(e) => update({ display_name: e.target.value })} />
+                <p className="text-xs text-muted-foreground">Nazwę firmy agent bierze z Twojej karty usług — nie wpisuj jej tutaj.</p>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3">
                 <div className="flex items-center gap-2 text-sm">
@@ -413,7 +388,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
             providerId={providerId}
             personaKey={cfg.persona_key}
             displayName={cfg.display_name}
-            businessContext={cfg.business_context as unknown as Record<string, string>}
+            businessContext={{ ...cfg.business_context, disclose_recording: cfg.disclose_recording, ai_disclosure: cfg.ai_disclosure } as unknown as Record<string, string>}
             languages={cfg.languages}
             calendarAccess={cfg.calendar_access}
             ordersAccess={cfg.orders_access}
@@ -437,7 +412,57 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
             }}
           />
 
-          {/* A) GŁOS */}
+          {/* A) PRZEDSTAWIENIE SIĘ + ZASADY */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><MessageSquareQuote className="h-5 w-5" /> Przedstawienie się</CardTitle>
+              <CardDescription>Pierwsze zdanie rozmowy. Resztę (firma, godziny, usługi, ceny) agent bierze z Twojej karty usług.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Jak agent ma się przedstawiać</Label>
+                <Textarea rows={2} value={cfg.business_context.agent_intro} onChange={(e) => updateBC({ agent_intro: e.target.value })} placeholder="np. Dzień dobry, tu Kasia z Auto-Serwis Kowalski, rozmowa jest nagrywana — w czym mogę pomóc?" />
+                <p className="text-xs text-muted-foreground">Zostaw puste, a agent przywita się sam: „Dzień dobry, [nazwa firmy], w czym mogę pomóc?".</p>
+              </div>
+
+              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-amber-900 dark:text-amber-200">Informuj o nagrywaniu rozmowy</Label>
+                    <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+                      Wymagane przy nagrywaniu rozmów (RODO). Agent powie to w pierwszym zdaniu, krótko i naturalnie.
+                    </p>
+                  </div>
+                  <Switch checked={cfg.disclose_recording} onCheckedChange={(v) => update({ disclose_recording: v })} />
+                </div>
+                <div className="space-y-1.5 pt-1 border-t border-amber-200 dark:border-amber-800">
+                  <Label className="text-amber-900 dark:text-amber-200">Jak agent nazywa sam siebie</Label>
+                  <Select value={cfg.ai_disclosure} onValueChange={(v) => update({ ai_disclosure: v })}>
+                    <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="on_request">Imieniem — że jest AI mówi dopiero zapytany (najbardziej naturalne)</SelectItem>
+                      <SelectItem value="virtual">„Wirtualny asystent" — od razu w powitaniu</SelectItem>
+                      <SelectItem value="ai">„Asystent AI" — pełna transparentność</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-amber-800 dark:text-amber-300">
+                    Przy każdej opcji agent nie kłamie: zapytany wprost „czy to człowiek?" przyzna, że jest asystentem AI.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Zasady i wyjątki dla agenta (opcjonalnie)</Label>
+                <Textarea rows={3} value={cfg.business_context.extra_info} onChange={(e) => updateBC({ extra_info: e.target.value })} placeholder={"np. Nie umawiamy na niedziele.\nRabat maks. 10%.\nPrzy holowaniu zawsze pytaj o markę i model."} />
+                <p className="text-xs text-muted-foreground">Tu wpisuj tylko to, czego nie ma w usługach — cennik i godziny agent zna z karty usług.</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* DANE I CENNIK — źródło: „Moje usługi" */}
+          <ProviderOfferSummary providerId={providerId} onGoToServices={onGoToServices} />
+
+          {/* B) GŁOS */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Volume2 className="h-5 w-5" /> Głos agenta</CardTitle>
@@ -511,7 +536,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
             </CardContent>
           </Card>
 
-          {/* B) BRZMIENIE */}
+          {/* C) BRZMIENIE */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -547,55 +572,6 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                 {previewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                 Odsłuchaj z moim tekstem ({previewLang.toUpperCase()})
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* C) WYWIAD O FIRMIE */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> O Twojej firmie</CardTitle>
-              <CardDescription>Najprościej: opisz firmę lub wklej link strony AI poniżej — wyciągnie dane i dopyta o braki. Możesz też wypełnić ręcznie. Pola są zawsze edytowalne.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <CompanyInterviewChat
-                currentContext={cfg.business_context as unknown as Record<string, string>}
-                onApply={(f) => {
-                  const merged = { ...cfg.business_context, ...(f as Partial<BusinessContext>) };
-                  updateBC(f as Partial<BusinessContext>);
-                  // trwała pamięć: zapisz wiedzę od razu (bez czekania na "Zapisz ustawienia")
-                  if (providerId) {
-                    (supabase as any).from("voice_agent_configs").upsert(
-                      { provider_id: providerId, persona_key: cfg.persona_key, business_context: merged, updated_at: new Date().toISOString() },
-                      { onConflict: "provider_id,persona_key" },
-                    ).then(({ error }: any) => { if (error) console.warn("autosave business_context:", error.message); });
-                  }
-                }}
-              />
-              <div className="relative py-1">
-                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                <span className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">lub uzupełnij / popraw ręcznie</span></span>
-              </div>
-              <div className="space-y-2"><Label>Nazwa firmy</Label>
-                <Input value={cfg.business_context.company_name} onChange={(e) => updateBC({ company_name: e.target.value })} placeholder="np. Auto-Serwis Kowalski" /></div>
-              <div className="space-y-2"><Label>Czym się zajmujecie? (opis działalności)</Label>
-                <Textarea rows={2} value={cfg.business_context.description} onChange={(e) => updateBC({ description: e.target.value })} placeholder="np. Warsztat samochodowy — mechanika, diagnostyka…" /></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Godziny pracy</Label>
-                  <Input value={cfg.business_context.hours} onChange={(e) => updateBC({ hours: e.target.value })} placeholder="np. pon–pt 8–18, sob 9–14" /></div>
-                <div className="space-y-2"><Label>Lokalizacja / adres</Label>
-                  <Input value={cfg.business_context.location} onChange={(e) => updateBC({ location: e.target.value })} placeholder="np. ul. Główna 5, Warszawa" /></div>
-              </div>
-              <div className="space-y-2"><Label>Oferowane usługi (po jednej w linii)</Label>
-                <Textarea rows={3} value={cfg.business_context.services} onChange={(e) => updateBC({ services: e.target.value })} placeholder={"Wymiana oleju\nGeometria kół\nDiagnostyka komputerowa"} /></div>
-              <div className="space-y-2"><Label>Jak agent ma się przedstawiać i w jakim celu dzwoni/odbiera</Label>
-                <Textarea rows={2} value={cfg.business_context.agent_intro} onChange={(e) => updateBC({ agent_intro: e.target.value })} placeholder="np. Dzień dobry, tu Kasia z Auto-Serwis Kowalski — pomogę umówić wizytę." /></div>
-              <div className="space-y-2"><Label>Cel rozmowy</Label>
-                <Input value={cfg.business_context.purpose} onChange={(e) => updateBC({ purpose: e.target.value })} placeholder="np. umawianie klientów na serwis" /></div>
-              <div className="space-y-2"><Label>Pomoc drogowa / laweta / dojazd</Label>
-                <Input value={cfg.business_context.roadside} onChange={(e) => updateBC({ roadside: e.target.value })} placeholder="np. Tak — laweta na terenie miasta, 150 zł / Nie oferujemy" />
-                <p className="text-xs text-muted-foreground">Agent zaproponuje to tylko jeśli tu wpiszesz, że oferujecie.</p></div>
-              <div className="space-y-2"><Label>Dodatkowe informacje dla AI (ceny, promocje, zasady)</Label>
-                <Textarea rows={3} value={cfg.business_context.extra_info} onChange={(e) => updateBC({ extra_info: e.target.value })} placeholder="np. Wymiana oleju od 150 zł. Nie umawiamy na niedziele." /></div>
             </CardContent>
           </Card>
 
@@ -708,7 +684,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                   <span>–</span>
                   <Input type="time" value={cfg.calling_hours.to ?? ""} onChange={(e) => update({ calling_hours: { ...cfg.calling_hours, to: e.target.value } })} />
                 </div>
-                <p className="text-xs text-muted-foreground">Puste = bez ograniczeń godzinowych.</p>
+                <p className="text-xs text-muted-foreground">Puste = agent odbiera całą dobę. Godziny pracy firmy (te, które agent podaje klientom) ustawiasz w „Moje usługi".</p>
               </div>
               <div className="space-y-2">
                 <Label>Języki rozmowy</Label>
@@ -723,36 +699,6 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                     </label>
                   ))}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* TELEFONIA — URL-e do ElevenLabs (Custom LLM + post-call webhook) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><PhoneCall className="h-5 w-5" /> Telefonia na żywo (ElevenLabs)</CardTitle>
-              <CardDescription>Wklej te adresy w ustawieniach agenta ElevenLabs. Numer Twilio importujesz w ElevenLabs.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {[
-                { label: "Custom LLM URL (Agent → Custom LLM)", url: `${FUNCTIONS_BASE}/voice-agent-llm?provider_id=${providerId}&persona_key=${cfg.persona_key}` },
-                { label: "Post-call webhook URL (Agent → Post-call webhook)", url: `${FUNCTIONS_BASE}/voice-call-postprocess?provider_id=${providerId}&persona_key=${cfg.persona_key}` },
-              ].map((row) => (
-                <div key={row.label} className="space-y-1">
-                  <Label className="text-xs">{row.label}</Label>
-                  <div className="flex gap-2">
-                    <Input readOnly value={row.url} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-                    <Button size="sm" variant="outline" className="shrink-0 gap-1" onClick={() => { navigator.clipboard.writeText(row.url); toast.success("Skopiowano"); }}>
-                      <Copy className="h-4 w-4" /> Kopiuj
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
-                <p className="font-medium">Przed pierwszym telefonem:</p>
-                <p>• Wygeneruj ŚWIEŻY klucz ElevenLabs i wpisz w panelu admina (stary jest spalony).</p>
-                <p>• W agencie ElevenLabs: ZRM (Zero Retention Mode) ON + „Improve the models for everyone" OFF.</p>
-                <p>• Numer Twilio: zaimportuj w ElevenLabs i dodaj swój telefon do Verified Caller IDs (trial).</p>
               </div>
             </CardContent>
           </Card>

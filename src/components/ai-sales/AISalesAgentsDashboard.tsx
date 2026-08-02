@@ -7,7 +7,13 @@ import { MyAgentPanel } from './MyAgentPanel';
 import { AISalesAgentWizard } from './AISalesAgentWizard';
 import { VoiceAgentPanel } from './VoiceAgentPanel';
 
-export function AISalesAgentsDashboard({ providerId = null }: { providerId?: string | null }) {
+export function AISalesAgentsDashboard({
+  providerId = null,
+  onGoToServices,
+}: {
+  providerId?: string | null;
+  onGoToServices?: () => void;
+}) {
   const [activeTab, setActiveTab] = useState('overview');
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editAgentId, setEditAgentId] = useState<string | null>(null);
@@ -41,8 +47,8 @@ export function AISalesAgentsDashboard({ providerId = null }: { providerId?: str
       )}
       {activeTab === 'leads' && <AISalesLeadsList />}
       {activeTab === 'conversations' && <AISalesConversationsList />}
-      {activeTab === 'my-agent' && <MyAgentPanel />}
-      {activeTab === 'voice' && <VoiceAgentPanel providerId={providerId} />}
+      {activeTab === 'my-agent' && <MyAgentPanel providerId={providerId} onGoToServices={onGoToServices} />}
+      {activeTab === 'voice' && <VoiceAgentPanel providerId={providerId} onGoToServices={onGoToServices} />}
     </div>
   );
 }
