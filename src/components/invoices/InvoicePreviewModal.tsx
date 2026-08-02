@@ -9,7 +9,8 @@ import {
   ArrowLeft,
   Mail,
   Loader2,
-  Save
+  Save,
+  Printer
 } from 'lucide-react';
 import { InvoiceData, generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { renderInvoicePdf } from '@/utils/renderInvoicePdf';
@@ -47,6 +48,13 @@ interface InvoicePreviewModalProps {
   /** FREEZE: gotowy base64 zamrożonego PDF (faktura wysłana do KSeF) —
       podgląd i przycisk „PDF" używają tego pliku zamiast renderować na nowo. */
   frozenPdfBase64?: string;
+  /**
+   * 'document' = dokument do wydania klientowi na miejscu (np. potwierdzenie wykonania
+   * usługi): zostają tylko „Pobierz PDF" i „Drukuj", bez zapisu i wysyłki mailem.
+   */
+  mode?: 'invoice' | 'document';
+  /** Nagłówek okna zamiast „Podgląd" (np. „Potwierdzenie wykonania usługi"). */
+  titleLabel?: string;
 }
 
 export function InvoicePreviewModal({
@@ -57,8 +65,11 @@ export function InvoicePreviewModal({
   onSave,
   onSend,
   invoiceIssued = false,
-  frozenPdfBase64
+  frozenPdfBase64,
+  mode = 'invoice',
+  titleLabel
 }: InvoicePreviewModalProps) {
+  const isDocumentMode = mode === 'document';
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [email, setEmail] = useState('');
@@ -148,7 +159,7 @@ export function InvoicePreviewModal({
       const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${(invoiceData as any).invoice_number || 'Faktura'}.pdf`.replace(/\//g, '-');
+      a.download = `${(invoiceData as any).invoice_number || (isDocumentMode ? 'Dokument' : 'Faktura')}.pdf`.replace(/\//g, '-');
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       return;
@@ -161,6 +172,32 @@ export function InvoicePreviewModal({
       printWindow.focus();
       setTimeout(() => { printWindow.print(); }, 250);
     }
+  };
+
+  // Drukowanie prosto z podglądu: dokument ląduje w ukrytej ramce i od razu idzie
+  // do okna wydruku — bez otwierania osobnej karty z surowym HTML-em.
+  const handlePrint = async () => {
+    const data = await withEmbeddedLogo(invoiceData);
+    const html = generateInvoiceHtml(data);
+    const frame = document.createElement('iframe');
+    frame.style.position = 'fixed';
+    frame.style.right = '0';
+    frame.style.bottom = '0';
+    frame.style.width = '0';
+    frame.style.height = '0';
+    frame.style.border = '0';
+    frame.srcdoc = html;
+    frame.onload = () => {
+      const win = frame.contentWindow;
+      if (!win) return;
+      win.focus();
+      // Odrobina czasu na logo i czcionki, inaczej drukarka dostaje pusty nagłówek.
+      setTimeout(() => {
+        win.print();
+        setTimeout(() => frame.remove(), 1000);
+      }, 350);
+    };
+    document.body.appendChild(frame);
   };
 
   const handleSaveClick = async () => {
@@ -221,7 +258,7 @@ export function InvoicePreviewModal({
         <DialogContent className="max-w-5xl w-full h-[95vh] md:h-[95vh] flex flex-col p-0 overflow-hidden">
           <DialogHeader className="px-4 md:px-6 pt-4 pb-3 border-b shrink-0">
             <DialogTitle className="text-base md:text-lg">
-              {invoiceIssued ? '✅ Faktura wystawiona' : 'Podgląd'}: {invoiceData.invoice_number}
+              {titleLabel || (invoiceIssued ? '✅ Faktura wystawiona' : 'Podgląd')}: {invoiceData.invoice_number}
             </DialogTitle>
           </DialogHeader>
 
@@ -229,10 +266,10 @@ export function InvoicePreviewModal({
           <div className="flex items-center gap-1.5 px-3 md:px-6 py-2 border-b bg-muted/30 shrink-0">
             <Button variant="outline" size="sm" className="text-xs px-2 md:px-3 h-8" onClick={() => onOpenChange(false)}>
               <ArrowLeft className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">{invoiceIssued ? 'Zamknij' : 'Wróć'}</span>
+              <span className="hidden sm:inline">{isDocumentMode || invoiceIssued ? 'Zamknij' : 'Wróć'}</span>
             </Button>
             {/* Only show Save button if invoice is not already issued */}
-            {!invoiceIssued && onSave && (
+            {!isDocumentMode && !invoiceIssued && onSave && (
               <Button 
                 variant="outline" 
                 size="sm"
@@ -252,18 +289,25 @@ export function InvoicePreviewModal({
             )}
             <Button variant="default" size="sm" className="text-xs px-2 md:px-3 h-8" onClick={handleDownloadPdf}>
               <Download className="h-3 w-3 mr-1" />
-              PDF
+              {isDocumentMode ? 'Pobierz PDF' : 'PDF'}
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="text-xs px-2 md:px-3 h-8"
-              onClick={handleSendClick}
-              disabled={isSending}
-            >
-              <Send className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Email</span>
-            </Button>
+            {isDocumentMode ? (
+              <Button variant="outline" size="sm" className="text-xs px-2 md:px-3 h-8" onClick={handlePrint}>
+                <Printer className="h-3 w-3 mr-1" />
+                Drukuj
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="text-xs px-2 md:px-3 h-8"
+                onClick={handleSendClick}
+                disabled={isSending}
+              >
+                <Send className="h-3 w-3 mr-1" />
+                <span className="hidden sm:inline">Email</span>
+              </Button>
+            )}
           </div>
 
           {/* Email dialog */}

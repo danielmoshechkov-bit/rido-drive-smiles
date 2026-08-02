@@ -27,7 +27,7 @@ import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { ExistingInvoiceModal } from './ExistingInvoiceModal';
 import { FiscalReceiptDialog } from '@/components/fiscal/FiscalReceiptDialog';
 import { useFiscalizedDocumentIds, useOrderDocumentBadges } from '@/hooks/useFiscal';
-import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
+import { InvoicePreviewModal } from '@/components/invoices/InvoicePreviewModal';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
 import { useWorkshopFinanceSettings } from '@/hooks/useWorkshopFinance';
@@ -82,6 +82,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [invoiceOrder, setInvoiceOrder] = useState<any>(null);
   const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
   const [invoiceBuyer, setInvoiceBuyer] = useState<any>(null);
+  // Potwierdzenie wykonania usługi pokazujemy w tym samym podglądzie co fakturę
+  // (z przyciskami „Pobierz PDF" i „Drukuj"), zamiast wyrzucać surowy HTML do
+  // nowej karty i od razu otwierać okno drukowania.
+  const [confirmationData, setConfirmationData] = useState<any>(null);
   const [invoiceVehicleNotes, setInvoiceVehicleNotes] = useState('');
   const [invoiceOrderNotes, setInvoiceOrderNotes] = useState('');
   const [fiscalOrder, setFiscalOrder] = useState<any>(null);
@@ -456,17 +460,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         buyer,
       };
 
-      const html = generateInvoiceHtml(invoiceData);
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        toast.error(t('workshop.orders.popupBlocked'));
-        return;
-      }
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => printWindow.print(), 400);
-      toast.success(t('workshop.orders.confirmationGenerated'));
+      setConfirmationData(invoiceData);
     } catch (e: any) {
       console.error('[generateServiceConfirmation]', e);
       toast.error(t('workshop.orders.confirmationError', { error: e?.message || e?.toString() || t('workshop.orders.unknownError') }));
@@ -1215,6 +1209,18 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             />
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Potwierdzenie wykonania usługi — ten sam podgląd co przy fakturze */}
+      {confirmationData && (
+        <InvoicePreviewModal
+          open={!!confirmationData}
+          onOpenChange={(v) => { if (!v) setConfirmationData(null); }}
+          invoiceData={confirmationData}
+          isLoggedIn
+          mode="document"
+          titleLabel="Potwierdzenie wykonania usługi"
+        />
       )}
 
       {/* Paragon fiskalny — wydruk na drukarce tenanta (moduł fiskalny) */}
