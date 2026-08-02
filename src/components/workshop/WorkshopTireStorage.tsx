@@ -19,7 +19,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
-  Plus, Search, Trash2, Archive, X, Check, ChevronsUpDown
+  Plus, Search, Trash2, Archive, X, Check, ChevronsUpDown, Printer
 } from 'lucide-react';
 
 interface Props {
@@ -28,15 +28,15 @@ interface Props {
 }
 
 // Hooks for tire storage data
-function useTireStorageRecords(providerId: string) {
+function useTireStorageRecords(providerId: string, view: 'stored' | 'issued' = 'stored') {
   return useQuery({
-    queryKey: ['tire-storage', providerId],
+    queryKey: ['tire-storage', providerId, view],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('workshop_tire_storage')
         .select('*, workshop_clients(*), workshop_vehicles(*)')
         .eq('provider_id', providerId)
-        .eq('is_active', true)
+        .eq('is_active', view === 'stored')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
@@ -61,11 +61,101 @@ function useServicePoints(providerId: string) {
   });
 }
 
+/**
+ * Pokwitowanie przyjęcia/wydania opon.
+ *
+ * PO CO: klient zostawia cztery koła warte kilka tysięcy i nie dostawał na to żadnego
+ * papieru. Pokwitowanie jest jedynym dowodem, co zostawił, w jakim stanie i do kiedy —
+ * a przy sporze („zostawiłem cztery, oddajecie trzy") rozstrzyga sprawę.
+ */
+function printStorageReceipt(record: any, kind: 'przyjęcia' | 'wydania') {
+  const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const client = record.client_name
+    || [record.workshop_clients?.first_name, record.workshop_clients?.last_name].filter(Boolean).join(' ')
+    || '—';
+  const vehicle = record.workshop_vehicles
+    ? [record.workshop_vehicles.brand, record.workshop_vehicles.model, record.workshop_vehicles.plate].filter(Boolean).join(' ')
+    : '—';
+  const seasons: Record<string, string> = { letnie: 'letnie', zimowe: 'zimowe', calorocze: 'całoroczne' };
+  const row = (label: string, value: unknown) =>
+    `<tr><td class="k">${esc(label)}</td><td>${esc(value) || '—'}</td></tr>`;
+
+  const html = `<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><title>Pokwitowanie ${esc(kind)} opon</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; color: #111; font-size: 13px; }
+  .banner { border: 2px solid #111; padding: 8px 12px; text-align: center; font-weight: 700; letter-spacing: 1px; }
+  h1 { font-size: 16px; margin: 18px 0 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  td { border-bottom: 1px solid #ddd; padding: 6px 4px; vertical-align: top; }
+  td.k { width: 34%; color: #555; }
+  .sign { margin-top: 46px; display: flex; justify-content: space-between; gap: 40px; }
+  .sign div { flex: 1; border-top: 1px solid #111; padding-top: 6px; text-align: center; font-size: 11px; color: #555; }
+  .footer { margin-top: 20px; font-size: 11px; color: #555; line-height: 1.6; }
+  @media print { body { margin: 10mm; } }
+</style></head>
+<body>
+  <div class="banner">POKWITOWANIE ${esc(kind.toUpperCase())} OPON DO PRZECHOWANIA</div>
+  <h1>Nr miejsca: ${esc(record.storage_number || '—')}</h1>
+  <table>
+    ${row('Klient', client)}
+    ${row('Telefon', record.client_phone)}
+    ${row('Pojazd', vehicle)}
+    ${row('Opony', [record.tire_brand, record.tire_model].filter(Boolean).join(' '))}
+    ${row('Rozmiar', record.tire_size)}
+    ${row('Sezon', seasons[record.season] ?? record.season)}
+    ${row('Liczba sztuk', record.quantity ?? 4)}
+    ${row('Głębokość bieżnika', record.tread_depth_mm ? `${record.tread_depth_mm} mm` : '')}
+    ${row('DOT', record.dot_code)}
+    ${row('Stan', record.condition)}
+    ${row('Data przyjęcia', record.stored_at ? new Date(record.stored_at).toLocaleDateString('pl-PL') : '')}
+    ${row('Termin odbioru', record.pickup_deadline ? new Date(record.pickup_deadline).toLocaleDateString('pl-PL') : '')}
+    ${kind === 'wydania' ? row('Data wydania', record.pickup_at ? new Date(record.pickup_at).toLocaleDateString('pl-PL') : new Date().toLocaleDateString('pl-PL')) : ''}
+    ${row('Koszt przechowania', record.storage_cost ? `${Number(record.storage_cost).toFixed(2)} zł` : '')}
+    ${row('Lokalizacja', record.location_name)}
+    ${row('Uwagi', record.notes)}
+  </table>
+  <div class="sign">
+    <div>podpis klienta</div>
+    <div>podpis przyjmującego</div>
+  </div>
+  <div class="footer">
+    Dokument potwierdza ${kind === 'przyjęcia' ? 'przyjęcie opon do przechowania' : 'wydanie opon właścicielowi'}.
+    Wygenerowano w GetRido: ${esc(new Date().toLocaleString('pl-PL'))}
+  </div>
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+  const win = window.open('', '_blank', 'width=760,height=900');
+  if (!win) { toast.error('Przeglądarka zablokowała okno wydruku.'); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
 export function WorkshopTireStorage({ providerId, onBack }: Props) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
-  const { data: records = [], isLoading } = useTireStorageRecords(providerId);
+  /**
+   * „W magazynie" i „Wydane" to dwa różne pytania: pierwsze zadaje magazynier szukający
+   * miejsca, drugie — klient, który twierdzi, że opon nie odebrał. Dotąd lista pokazywała
+   * wyłącznie aktywne, więc wydanie kompletu znaczyło skasowanie wpisu razem z historią.
+   */
+  const [view, setView] = useState<'stored' | 'issued'>('stored');
+  const { data: records = [], isLoading } = useTireStorageRecords(providerId, view);
+  const queryClientRef = useQueryClient();
+
+  const issueSet = async (record: any) => {
+    const label = [record.tire_brand, record.tire_size].filter(Boolean).join(' ') || 'komplet';
+    if (!confirm(`Wydać ${label} klientowi? Wpis trafi do historii wydanych.`)) return;
+    const { error } = await (supabase as any)
+      .from('workshop_tire_storage')
+      .update({ is_active: false, pickup_at: new Date().toISOString() })
+      .eq('id', record.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Komplet wydany klientowi.');
+    queryClientRef.invalidateQueries({ queryKey: ['tire-storage'] });
+  };
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -98,6 +188,18 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
         <Button onClick={() => setShowAdd(true)} className="gap-2">
           <Plus className="h-4 w-4" /> {t('workshop.tireStorage.store')}
         </Button>
+        <div className="flex rounded-md border overflow-hidden">
+          {([['stored', 'W magazynie'], ['issued', 'Wydane']] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setView(value)}
+              className={`px-3 py-1.5 text-sm transition-colors ${view === value ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -120,12 +222,13 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                 <TableHead>{t('workshop.tireStorage.col.location')}</TableHead>
                 <TableHead>{t('workshop.tireStorage.col.receivedDate')}</TableHead>
                 <TableHead>{t('workshop.tireStorage.col.cost')}</TableHead>
+                <TableHead className="text-right">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
                     <Archive className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     {isLoading ? t('common.loading') : t('workshop.tireStorage.noData')}
                   </TableCell>
@@ -142,6 +245,21 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                   <TableCell className="text-xs">{r.location_name || '—'}</TableCell>
                   <TableCell className="text-xs">{r.stored_at ? new Date(r.stored_at).toLocaleDateString('pl-PL') : '—'}</TableCell>
                   <TableCell className="font-medium">{(r.storage_cost || 0).toFixed(2)} zł</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => printStorageReceipt(r, view === 'stored' ? 'przyjęcia' : 'wydania')}
+                    >
+                      <Printer className="h-3.5 w-3.5" /> Pokwitowanie
+                    </Button>
+                    {view === 'stored' && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => issueSet(r)}>
+                        <Check className="h-3.5 w-3.5" /> Wydaj
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
