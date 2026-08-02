@@ -25,9 +25,17 @@ interface Service {
   description: string | null;
   price: number;
   price_from: number | null;
+  price_to?: number | null;
   price_type: string;
   duration_minutes: number;
+  category?: string | null;
   photos?: string[];
+}
+
+interface ProviderCategoryPublic {
+  id: string;
+  name: string;
+  photo_url: string | null;
 }
 
 interface Review {
@@ -69,6 +77,8 @@ export function ServiceProviderDetailPage() {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [categories, setCategories] = useState<ProviderCategoryPublic[]>([]);
+  const [activeCat, setActiveCat] = useState('');   // '' = wszystko
   const [isFavorited, setIsFavorited] = useState(false);
   
   // Auth state
@@ -168,6 +178,14 @@ export function ServiceProviderDetailPage() {
       
       if (allServices.length > 0) setServices(allServices);
 
+      // Kategorie usługodawcy (Warsztat / Myjnia / …) — do przełączników oferty i galerii
+      const { data: cats } = await (supabase as any)
+        .from('provider_service_categories')
+        .select('id, name, photo_url')
+        .eq('provider_id', providerId)
+        .order('sort_order', { ascending: true });
+      setCategories((cats || []) as ProviderCategoryPublic[]);
+
       // Load reviews
       const { data: reviewsData } = await supabase
         .from('service_reviews')
@@ -190,31 +208,35 @@ export function ServiceProviderDetailPage() {
     setBookingModalOpen(true);
   };
 
-  // Galeria: zdjęcia firmy + zdjęcia z usług (deduplikowane)
-  const getPhotos = () => {
-    const photos: string[] = [];
-    if (Array.isArray(provider?.gallery_photos)) {
-      for (const ph of provider.gallery_photos) {
-        if (ph && !photos.includes(ph)) photos.push(ph);
-      }
-    }
-    for (const s of services as any[]) {
-      if (Array.isArray(s.photos)) {
-        for (const ph of s.photos) {
-          if (ph && !photos.includes(ph)) photos.push(ph);
-        }
-      }
-    }
-    return photos;
+  // Oferta i galeria idą za tym samym przełącznikiem kategorii ('' = wszystko).
+  const visibleServices = activeCat
+    ? services.filter((s) => (s.category || 'Inne') === activeCat)
+    : services;
+
+  // Zdjęcia: firmowe + zdjęcie kategorii + zdjęcia usług z tej kategorii (bez powtórek)
+  const collectPhotos = (): string[] => {
+    const out: string[] = [];
+    const push = (ph?: string | null) => { if (ph && !out.includes(ph)) out.push(ph); };
+    if (!activeCat && Array.isArray(provider?.gallery_photos)) provider.gallery_photos.forEach(push);
+    if (activeCat) categories.find((c) => c.name === activeCat)?.photo_url && push(categories.find((c) => c.name === activeCat)!.photo_url);
+    for (const s of visibleServices as any[]) if (Array.isArray(s.photos)) s.photos.forEach(push);
+    return out;
   };
 
-  const photos = getPhotos();
+  const photos = collectPhotos();
+
+  // Zakładka kategorii pojawia się tylko wtedy, gdy naprawdę ma czym się pochwalić —
+  // pusta kategoria nie zaśmieca karty klientowi.
+  const categoryTabs = categories
+    .filter((c) => services.some((s) => (s.category || 'Inne') === c.name))
+    .map((c) => ({ value: c.name, label: c.name }));
 
   // Calculate price range
-  const priceRange = services.length > 0 
+  // Górna granica to realna cena maksymalna usługi, a nie jej cena „od".
+  const priceRange = services.length > 0
     ? {
-        min: Math.min(...services.map(s => s.price_from || s.price)),
-        max: Math.max(...services.map(s => s.price))
+        min: Math.min(...services.map(s => Number(s.price_from ?? s.price) || 0)),
+        max: Math.max(...services.map(s => Number(s.price_to) || Number(s.price_from ?? s.price) || 0)),
       }
     : null;
 
@@ -311,45 +333,66 @@ export function ServiceProviderDetailPage() {
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Photo Gallery — Audi-style: 1 large + dynamic thumbs grid (renderuje tylko realne zdjęcia) */}
+        {/* Przełącznik oferty: Wszystkie · kategorie usługodawcy */}
+        {categoryTabs.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto pb-2 mb-3">
+            {[{ value: '', label: 'Wszystkie' }, ...categoryTabs].map((tab) => (
+              <button
+                key={tab.value || 'all'}
+                onClick={() => { setActiveCat(tab.value); setLightboxIdx(null); }}
+                className={cn(
+                  "shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors border",
+                  activeCat === tab.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-primary/40"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Galeria — zdjęcie główne + pas miniatur. Bez zdjęć nie pokazujemy pustych ramek. */}
         {photos.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-6">
+          <div className="mb-6 space-y-2">
             <div
-              className="relative bg-muted rounded-xl overflow-hidden md:col-span-2 aspect-[4/3] md:aspect-auto cursor-pointer group"
+              className="relative bg-muted rounded-2xl overflow-hidden aspect-[16/9] md:aspect-[21/9] cursor-pointer group"
               onClick={() => setLightboxIdx(0)}
             >
-              <img src={photos[0]} alt={provider.company_name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+              <img
+                src={photos[0]}
+                alt={provider.company_name}
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
+              />
               {provider.category && (
                 <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground">
                   {provider.category.name}
                 </Badge>
               )}
+              {photos.length > 1 && (
+                <span className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                  {photos.length} zdjęć
+                </span>
+              )}
             </div>
+
             {photos.length > 1 && (
-              <div className="grid grid-cols-2 grid-rows-2 gap-2">
-                {photos.slice(1, 5).map((url, i) => {
-                  const idx = i + 1;
-                  const isLastVisible = idx === 4 && photos.length > 5;
-                  return (
-                    <div
-                      key={url + idx}
-                      className="relative bg-muted rounded-xl overflow-hidden aspect-[4/3] cursor-pointer group"
-                      onClick={() => setLightboxIdx(idx)}
-                    >
-                      <img src={url} alt={`${provider.company_name} ${idx + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                      {isLastVisible && (
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-xl">
-                          +{photos.length - 5}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {photos.slice(1).map((url, i) => (
+                  <button
+                    key={url + i}
+                    onClick={() => setLightboxIdx(i + 1)}
+                    className="relative shrink-0 h-20 w-28 md:h-24 md:w-36 rounded-xl overflow-hidden bg-muted group"
+                  >
+                    <img src={url} alt="" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                  </button>
+                ))}
               </div>
             )}
           </div>
         ) : (
-          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl aspect-[16/9] md:aspect-[21/9] mb-6 flex items-center justify-center">
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl aspect-[16/9] md:aspect-[21/9] mb-6 flex items-center justify-center">
             <span className="text-7xl font-bold text-primary/40">
               {(provider.short_name || provider.company_name)?.charAt(0)}
             </span>
@@ -447,19 +490,37 @@ export function ServiceProviderDetailPage() {
             <div className="bg-white rounded-2xl shadow-md p-6 md:p-8">
               <h2 className="text-xl font-extrabold text-primary mb-4 flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-primary" />
-                Oferta usług ({services.length})
+                {activeCat || 'Oferta usług'} ({visibleServices.length})
               </h2>
 
-              {services.length === 0 ? (
+              {visibleServices.length === 0 ? (
                 <p className="text-center py-8 text-slate-600 font-semibold">
-                  Ten usługodawca nie ma jeszcze dodanych usług
+                  {activeCat ? 'Brak usług w tej kategorii' : 'Ten usługodawca nie ma jeszcze dodanych usług'}
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {services.map(service => (
-                    <Card key={service.id} className="hover:border-primary/50 hover:shadow-md transition-all rounded-xl border border-slate-200">
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div className="flex-1">
+                  {visibleServices.map(service => {
+                    const thumb = service.photos?.[0];
+                    const from = Number(service.price_from ?? service.price) || 0;
+                    const to = Number(service.price_to) || 0;
+                    const priceLabel = from && to && to > from
+                      ? `od ${from} do ${to} zł`
+                      : from ? `od ${from} zł` : 'wycena indywidualna';
+                    return (
+                    <Card key={service.id} className="hover:border-primary/50 hover:shadow-md transition-all rounded-xl border border-slate-200 overflow-hidden">
+                      <CardContent className="p-4 flex items-center gap-4">
+                        {/* Miniatura tylko gdy usługa naprawdę ma zdjęcie — reszta zostaje czysto tekstowa */}
+                        {thumb && (
+                          <button
+                            onClick={() => { const idx = photos.indexOf(thumb); if (idx >= 0) setLightboxIdx(idx); }}
+                            className="shrink-0 h-16 w-16 md:h-20 md:w-20 rounded-lg overflow-hidden bg-muted"
+                            aria-label={`Zdjęcia: ${service.name}`}
+                          >
+                            <img src={thumb} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                          </button>
+                        )}
+
+                        <div className="flex-1 min-w-0">
                           <h4 className="font-extrabold text-slate-900 text-base">{service.name}</h4>
                           {service.description && (
                             <p className="text-sm text-slate-700 font-semibold mt-1 line-clamp-2">
@@ -471,13 +532,16 @@ export function ServiceProviderDetailPage() {
                               <Clock className="h-3.5 w-3.5 text-primary" />
                               {service.duration_minutes} min
                             </span>
+                            {!activeCat && service.category && (
+                              <Badge variant="secondary" className="font-semibold">{service.category}</Badge>
+                            )}
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-4 ml-4">
+                        <div className="flex items-center gap-4 ml-2">
                           <div className="text-right">
-                            <span className="font-extrabold text-lg text-primary">
-                              od {service.price_from || service.price}&nbsp;zł
+                            <span className="font-extrabold text-lg text-primary whitespace-nowrap">
+                              {priceLabel}
                             </span>
                             <p className="text-[10px] text-slate-600 font-semibold mt-0.5">cena orientacyjna</p>
                           </div>
@@ -496,7 +560,8 @@ export function ServiceProviderDetailPage() {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
