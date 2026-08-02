@@ -269,6 +269,27 @@ export default function ServicesMarketplace() {
 
   const selectedCategory = categories.find(c => c.slug === selectedCategorySlug);
 
+  // Czy dana kategoria ma choć jednego usługodawcę (ta sama logika co filtr kategorii)
+  const providerInCategory = (provider: any, slug: string, catId?: string) => {
+    const slugWords = slug.replace(/-/g, ' ');
+    return provider.category?.slug === slug
+      || (!!catId && provider.provider_service_categories?.some(
+        (pc: any) => pc.is_active !== false && pc.service_category_id === catId))
+      || provider.provider_services?.some((ps: any) => (ps.is_active !== false) && (
+        ps.category?.toLowerCase().includes(slug) ||
+        ps.category?.toLowerCase().includes(slugWords) ||
+        ps.name?.toLowerCase().includes(slugWords)))
+      || provider.company_name?.toLowerCase().includes(slugWords)
+      || provider.description?.toLowerCase().includes(slugWords);
+  };
+
+  // Puste kategorie ukrywamy przed klientami — usługodawcy nadal je widzą w swoim panelu,
+  // a kategoria pojawi się na portalu, gdy ktoś doda w niej swoją usługę.
+  const visibleCategories = categories.filter(cat =>
+    cat.slug === selectedCategorySlug ||
+    providers.some(p => providerInCategory(p, cat.slug, cat.id))
+  );
+
   const filteredProviders = providers.filter(provider => {
     // Category filter - show provider if they have matching category OR have services in that category
     if (selectedCategorySlug) {
@@ -593,8 +614,8 @@ export default function ServicesMarketplace() {
               {t('ui.all', 'Wszystkie')}
             </Badge>
             {(activeGroup
-              ? categories.filter(c => activeGroup.slugs.includes(c.slug))
-              : categories
+              ? visibleCategories.filter(c => activeGroup.slugs.includes(c.slug))
+              : visibleCategories
             ).map(cat => {
               const IconComponent = categoryIcons[cat.icon];
               return (
