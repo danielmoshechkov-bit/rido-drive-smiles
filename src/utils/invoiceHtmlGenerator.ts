@@ -821,9 +821,13 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
        przegladarki przed wydrukiem. Bez tego tresc rozciagala sie na cala
        szerokosc ekranu i uklad rozjezdzal sie wzgledem tego, co wychodzi
        z drukarki. Wydruk (@page A4) nie zmienia sie. */
+    /* UWAGA: Dompdf renderuje w trybie "screen", wiec te reguly dzialaja takze
+       w serwerowym PDF. Dlatego max-width (padding wchodzi w szerokosc dzieki
+       box-sizing), a nie width — inaczej kartka robila sie szersza niz A4
+       i prawa kolumna tabeli wychodzila poza strone. */
     @media screen {
       html { background: #eceaf3; }
-      body { width: 210mm; max-width: 100%; margin: 0 auto; box-shadow: 0 1px 12px rgba(0,0,0,0.12); }
+      body { max-width: 210mm; margin: 0 auto; box-shadow: 0 1px 12px rgba(0,0,0,0.12); }
     }
     body {
       font-family: "DejaVu Sans", Arial, sans-serif;

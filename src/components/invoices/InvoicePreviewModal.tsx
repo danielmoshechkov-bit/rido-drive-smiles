@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { InvoiceData, generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { renderInvoicePdf } from '@/utils/renderInvoicePdf';
-import { htmlToPdfBlob } from '@/utils/htmlToPdfBlob';
 import { PdfCanvasPreview } from './PdfCanvasPreview';
 
 // Zamień URL logo sprzedawcy na data-URI, żeby render PDF nie zależał od plików na serwerze.
@@ -37,6 +36,7 @@ async function withEmbeddedLogo(inv: InvoiceData): Promise<InvoiceData> {
   }
 }
 import { AuthModal } from '@/components/auth/AuthModal';
+import { toast } from 'sonner';
 
 interface InvoicePreviewModalProps {
   open: boolean;
@@ -198,12 +198,11 @@ export function InvoicePreviewModal({
         saveBlob(new Blob([bytes], { type: 'application/pdf' }));
         return;
       }
-      // Serwerowy renderer niedostępny — składamy PDF w przeglądarce. „Pobierz"
-      // ma dać plik, a nie okno wydruku.
-      if (!html) html = generateInvoiceHtml(await withEmbeddedLogo(invoiceData));
-      const blob = await htmlToPdfBlob(html);
-      if (blob) { saveBlob(blob); return; }
-      // Ostateczność: druk przeglądarki (użytkownik może zapisać jako PDF).
+      // Serwerowy generator niedostępny (np. lokalny dev bez PHP). Nie składamy
+      // wtedy PDF-a z obrazka — wychodził dokument INNY niż podgląd. Zamiast tego
+      // ten sam dokument idzie do okna wydruku, gdzie „Zapisz jako PDF" daje plik
+      // wyrenderowany przez samą przeglądarkę, czyli 1:1 z podglądem.
+      toast.info('Generator PDF niedostępny — wybierz „Zapisz jako PDF" w oknie wydruku');
       await handlePrint();
     } finally {
       setIsDownloading(false);
