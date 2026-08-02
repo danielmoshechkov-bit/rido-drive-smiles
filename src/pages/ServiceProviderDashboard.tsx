@@ -48,6 +48,8 @@ import { CommissionInvoicesPanel } from '@/components/services/CommissionInvoice
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
 import { usePendingBookingsCount } from '@/hooks/usePendingBookingsCount';
 import { CalendarBookingsSubTabs } from '@/components/services/CalendarBookingsSubTabs';
+import { MyServicesPanel } from '@/components/services/MyServicesPanel';
+
 import { CalendarAIAssistant } from '@/components/calendar/CalendarAIAssistant';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
