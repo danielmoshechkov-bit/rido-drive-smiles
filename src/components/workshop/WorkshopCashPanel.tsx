@@ -82,6 +82,58 @@ export function WorkshopCashPanel({ providerId }: Props) {
     .filter((c) => c.active && recurringReminderLevel(c.next_due_date) !== 'none')
     .sort((a, b) => (a.next_due_date < b.next_due_date ? -1 : 1));
 
+  /**
+   * RAPORT KASOWY OKRESU — stan początkowy + wpływy − wydatki = stan końcowy.
+   *
+   * PO CO: dotąd panel pokazywał saldo „od zawsze" obok wpływów z wybranego okresu,
+   * czyli dwie różne osie czasu bez kotwicy. Nie dało się sprawdzić, czy liczby się
+   * domykają, więc nie dało się im ufać. Tożsamość kasowa jest tym, czego szuka każdy
+   * księgowy i każdy właściciel: widać, ile było na starcie, co weszło, co wyszło
+   * i ile zostało — i że jedno wynika z drugiego.
+   *
+   * Kanały rozdzielone, bo to fizycznie dwa różne miejsca: szuflada z gotówką
+   * i rachunek (karta, BLIK, przelew).
+   */
+  const CHANNEL_METHODS = { gotowka: ['gotowka'], konto: ['karta', 'blik', 'przelew'] } as const;
+
+  const flowBefore = (methods: readonly string[]) =>
+    sum(payments, (p) => methods.includes(p.method) && dpart(p.paid_at) < from) -
+    sum(expenses, (e) => methods.includes(e.method) && dpart(e.expense_date) < from);
+
+  const flowIn = (methods: readonly string[]) =>
+    sum(payments, (p) => methods.includes(p.method) && inRange(dpart(p.paid_at), from, to));
+
+  const flowOut = (methods: readonly string[]) =>
+    sum(expenses, (e) => methods.includes(e.method) && inRange(dpart(e.expense_date), from, to));
+
+  // Wypłaty pracownikom nie mają zapisanej formy — historycznie zdejmowane z gotówki.
+  // Zostawiamy to założenie, ale mówimy o nim wprost w raporcie, zamiast po cichu
+  // zaniżać gotówkę i zawyżać konto.
+  const payoutsBefore = sum(payouts, (p) => (p.type === 'zaliczka' || p.type === 'wyplata') && dpart(p.paid_at) < from);
+  const payoutsInPeriod = sum(payouts, (p) => (p.type === 'zaliczka' || p.type === 'wyplata') && inRange(dpart(p.paid_at), from, to));
+
+  const cashReport = (() => {
+    const gotowkaStart = flowBefore(CHANNEL_METHODS.gotowka) - payoutsBefore;
+    const kontoStart = flowBefore(CHANNEL_METHODS.konto);
+    const gotowkaIn = flowIn(CHANNEL_METHODS.gotowka);
+    const kontoIn = flowIn(CHANNEL_METHODS.konto);
+    const gotowkaOut = flowOut(CHANNEL_METHODS.gotowka) + payoutsInPeriod;
+    const kontoOut = flowOut(CHANNEL_METHODS.konto);
+    return {
+      gotowka: { start: gotowkaStart, in: gotowkaIn, out: gotowkaOut, end: gotowkaStart + gotowkaIn - gotowkaOut },
+      konto: { start: kontoStart, in: kontoIn, out: kontoOut, end: kontoStart + kontoIn - kontoOut },
+      razem: {
+        start: gotowkaStart + kontoStart,
+        in: gotowkaIn + kontoIn,
+        out: gotowkaOut + kontoOut,
+        end: gotowkaStart + kontoStart + gotowkaIn + kontoIn - gotowkaOut - kontoOut,
+      },
+      /** Obrót: ile pieniędzy w ogóle przeszło przez kasę w tym okresie. */
+      turnover: gotowkaIn + kontoIn + gotowkaOut + kontoOut,
+      payoutsInPeriod,
+    };
+  })();
+
   // ── Okres ──
   const periodIn = sum(payments, (p) => inRange(dpart(p.paid_at), from, to));
   const periodExp = sum(expenses, (e) => inRange(dpart(e.expense_date), from, to));
@@ -94,7 +146,11 @@ export function WorkshopCashPanel({ providerId }: Props) {
   const methodLabel = (m: string) => PAYMENT_METHODS.find((x) => x.value === m)?.label || m || '—';
   const inflowRows = (): BreakdownRow[] => payments
     .filter((p: any) => inRange(dpart(p.paid_at), from, to))
-    .map((p: any) => ({ date: dpart(p.paid_at), label: methodLabel(p.method) + (p.order_id ? ' · zlecenie' : ''), amount: Number(p.amount || 0) }))
+    .map((p: any) => ({
+      date: dpart(p.paid_at),
+      label: `${methodLabel(p.method)} · ${p.fiscal_receipt_id ? 'paragon' : p.order_id ? (orderNumberById[p.order_id] ?? 'zlecenie') : 'wpłata ręczna'}`,
+      amount: Number(p.amount || 0),
+    }))
     .sort((a, b) => (a.date! < b.date! ? 1 : -1));
   const outflowRows = (): BreakdownRow[] => [
     ...expenses.filter((e: any) => inRange(dpart(e.expense_date), from, to)).map((e: any) => ({ date: dpart(e.expense_date), label: (EXPENSE_CATEGORIES.find((c) => c.value === e.category)?.label || e.category) + (e.subcategory ? ` · ${e.subcategory}` : ''), amount: Number(e.amount || 0) })),
@@ -117,15 +173,29 @@ export function WorkshopCashPanel({ providerId }: Props) {
   }, [orders, payments]);
   const receivablesTotal = receivables.reduce((s, r) => s + r.due, 0);
 
+  // Numer zlecenia dla wpłaty — bez niego wiersz „Wpłata (zlecenie)" nie mówi nic
+  // i nie da się sprawdzić, czego dotyczy ani porównać z kartą zlecenia.
+  const orderNumberById = useMemo(() => {
+    const map: Record<string, string> = {};
+    (orders as any[]).forEach((o) => { if (o.order_number) map[o.id] = o.order_number; });
+    return map;
+  }, [orders]);
+
+  const paymentLabel = (p: any) => {
+    if (p.fiscal_receipt_id) return 'Paragon fiskalny';
+    if (p.order_id) return `Wpłata · ${orderNumberById[p.order_id] ?? 'zlecenie'}`;
+    return 'Wpłata';
+  };
+
   // ── Operacje (z anulowanymi — feed z akcjami Edytuj/Anuluj) ──
   const operations = useMemo(() => {
     const ops = [
-      ...rawPayments.map((p: any) => ({ rec: p, type: 'payment' as const, date: dpart(p.paid_at), label: 'Wpłata' + (p.order_id ? ' (zlecenie)' : ''), amount: Number(p.amount || 0), sign: 1, method: p.method, who: p.created_by_name })),
+      ...rawPayments.map((p: any) => ({ rec: p, type: 'payment' as const, date: dpart(p.paid_at), label: paymentLabel(p), amount: Number(p.amount || 0), sign: 1, method: p.method, who: p.created_by_name })),
       ...rawExpenses.map((e: any) => ({ rec: e, type: 'expense' as const, date: dpart(e.expense_date), label: (EXPENSE_CATEGORIES.find(c => c.value === e.category)?.label || e.category) + (e.subcategory ? ` · ${e.subcategory}` : ''), amount: Number(e.amount || 0), sign: -1, method: e.method, who: e.created_by_name })),
       ...rawPayouts.map((p: any) => ({ rec: p, type: 'payout' as const, date: dpart(p.paid_at), label: `${p.type === 'premia' ? 'Premia' : p.type === 'zaliczka' ? 'Zaliczka' : 'Wypłata'}${p.employee?.name ? ' — ' + p.employee.name : ''}`, amount: Number(p.amount || 0), sign: p.type === 'premia' ? 0 : -1, method: null, who: p.created_by_name })),
     ];
     return ops.sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [rawPayments, rawExpenses, rawPayouts]);
+  }, [rawPayments, rawExpenses, rawPayouts, orderNumberById]);
 
   // ── Podsumowanie do zamknięcia: pełny MIESIĄC KALENDARZOWY (closeMonth = 'YYYY-MM') ──
   const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -268,9 +338,19 @@ export function WorkshopCashPanel({ providerId }: Props) {
           <Banknote className="h-7 w-7 text-green-600" />
           <div><p className="text-xs text-muted-foreground">Gotówka w kasie</p><p className="text-xl font-bold tabular-nums">{fmt(cashGotowka)} zł</p></div>
         </CardContent></Card>
+        {/* „Na koncie" bez rozbicia nic nie mówiło — te trzy formy trafiają na rachunek
+            w różnym czasie i przez różnych operatorów, więc widać je osobno. */}
         <Card><CardContent className="py-4 flex items-center gap-3">
           <CreditCard className="h-7 w-7 text-primary" />
-          <div><p className="text-xs text-muted-foreground">Na koncie</p><p className="text-xl font-bold tabular-nums">{fmt(cashKonto)} zł</p></div>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">Na koncie</p>
+            <p className="text-xl font-bold tabular-nums">{fmt(cashKonto)} zł</p>
+            <p className="text-[11px] text-muted-foreground truncate">
+              karta {fmt(payByMethod('karta') - expByMethod('karta'))} ·
+              BLIK {fmt(payByMethod('blik') - expByMethod('blik'))} ·
+              przelew {fmt(payByMethod('przelew') - expByMethod('przelew'))}
+            </p>
+          </div>
         </CardContent></Card>
         <Card><CardContent className="py-4">
           <p className="text-xs text-muted-foreground">Dziś</p>
@@ -297,14 +377,101 @@ export function WorkshopCashPanel({ providerId }: Props) {
       {/* Period flow */}
       <Card><CardContent className="py-4 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <h3 className="font-semibold">Przepływ okresu</h3>
+          <div>
+            <h3 className="font-semibold">Raport kasowy okresu</h3>
+            <p className="text-xs text-muted-foreground">
+              Stan na początek + wpływy − wydatki = stan na koniec. Osobno szuflada z gotówką i rachunek.
+            </p>
+          </div>
           <WorkshopRangeCalendar from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} align="end" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <button type="button" onClick={() => setBreakdown({ title: 'Wpływy w okresie', rows: inflowRows() })} className="rounded-md border p-3 text-left cursor-pointer hover:bg-accent/50 transition-colors"><div className="flex items-center gap-1 text-green-600 text-sm"><TrendingUp className="h-4 w-4" />Wpływy</div><p className="text-xl font-bold tabular-nums">{fmt(periodIn)}</p></button>
-          <button type="button" onClick={() => setBreakdown({ title: 'Wydatki w okresie', rows: outflowRows() })} className="rounded-md border p-3 text-left cursor-pointer hover:bg-accent/50 transition-colors"><div className="flex items-center gap-1 text-destructive text-sm"><TrendingDown className="h-4 w-4" />Wydatki</div><p className="text-xl font-bold tabular-nums">{fmt(periodOut)}</p></button>
-          <div className="rounded-md border p-3"><div className="flex items-center gap-1 text-sm"><Wallet className="h-4 w-4" />Wynik</div><p className={`text-xl font-bold tabular-nums ${periodResult >= 0 ? 'text-green-600' : 'text-destructive'}`}>{fmt(periodResult)}</p></div>
+
+        {/* Tożsamość kasowa — to po niej widać, że liczby się domykają. */}
+        <div className="rounded-md border overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
+                <th className="py-2 px-3 text-left font-medium">Pozycja</th>
+                <th className="py-2 px-3 text-right font-medium">Gotówka</th>
+                <th className="py-2 px-3 text-right font-medium">Konto (karta / BLIK / przelew)</th>
+                <th className="py-2 px-3 text-right font-medium">Razem</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <td className="py-2 px-3 text-muted-foreground">Stan na początek okresu</td>
+                <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.gotowka.start)}</td>
+                <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.konto.start)}</td>
+                <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.razem.start)}</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2 px-3">
+                  <button
+                    type="button"
+                    className="text-green-600 hover:underline flex items-center gap-1"
+                    onClick={() => setBreakdown({ title: 'Wpływy w okresie', rows: inflowRows() })}
+                  >
+                    <TrendingUp className="h-4 w-4" /> Wpływy (+)
+                  </button>
+                </td>
+                <td className="py-2 px-3 text-right tabular-nums text-green-600">{fmt(cashReport.gotowka.in)}</td>
+                <td className="py-2 px-3 text-right tabular-nums text-green-600">{fmt(cashReport.konto.in)}</td>
+                <td className="py-2 px-3 text-right tabular-nums text-green-600">{fmt(cashReport.razem.in)}</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-2 px-3">
+                  <button
+                    type="button"
+                    className="text-destructive hover:underline flex items-center gap-1"
+                    onClick={() => setBreakdown({ title: 'Wydatki w okresie', rows: outflowRows() })}
+                  >
+                    <TrendingDown className="h-4 w-4" /> Wydatki (−)
+                  </button>
+                </td>
+                <td className="py-2 px-3 text-right tabular-nums text-destructive">{fmt(cashReport.gotowka.out)}</td>
+                <td className="py-2 px-3 text-right tabular-nums text-destructive">{fmt(cashReport.konto.out)}</td>
+                <td className="py-2 px-3 text-right tabular-nums text-destructive">{fmt(cashReport.razem.out)}</td>
+              </tr>
+              <tr className="bg-muted/30 font-semibold">
+                <td className="py-2 px-3">Stan na koniec okresu</td>
+                <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.gotowka.end)}</td>
+                <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.konto.end)}</td>
+                <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.razem.end)}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-md border p-3">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Wallet className="h-4 w-4" /> Zmiana stanu środków
+            </div>
+            <p className={`text-xl font-bold tabular-nums ${periodResult >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+              {periodResult >= 0 ? '+' : ''}{fmt(periodResult)}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              O tyle urosły środki w okresie. To nie jest zysk — zysk liczy się z zakończonych zleceń,
+              nie z tego, kto zdążył zapłacić.
+            </p>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Banknote className="h-4 w-4" /> Przez kasę przeszło
+            </div>
+            <p className="text-xl font-bold tabular-nums">{fmt(cashReport.turnover)}</p>
+            <p className="text-[11px] text-muted-foreground">
+              Wpływy i wydatki razem — pełny obrót gotówką i rachunkiem w wybranym okresie.
+            </p>
+          </div>
+        </div>
+
+        {cashReport.payoutsInPeriod > 0 && (
+          <p className="text-[11px] text-muted-foreground">
+            Wypłaty dla pracowników ({fmt(cashReport.payoutsInPeriod)} zł) liczone są jako wypłacone z gotówki —
+            przy wypłacie nie zapisujemy formy płatności.
+          </p>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted-foreground">Wpływy wg formy</p>

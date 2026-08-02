@@ -161,6 +161,24 @@ export function WorkshopReports({ providerId, onBack }: Props) {
     return ordered;
   }, [orders, statuses]);
 
+  /**
+   * Ile zleceń z wybranego okresu wpada w dany status / stanowisko.
+   *
+   * PO CO: filtr stanowisk wygladal na zepsuty — klikniecie odsiewalo prawie wszystko,
+   * bo wiekszosc zlecen nie ma przypisanego stanowiska. Licznik przy etykiecie mowi
+   * wprost, czego sie spodziewac, i odroznia "brak danych" od "awaria".
+   */
+  const ordersInPeriod = useMemo(() => (orders as any[]).filter((o) => {
+    const basis = orderDate(o);
+    if (!basis) return false;
+    const d = dpart(basis);
+    return d >= dateFrom && d <= dateTo;
+  }), [orders, dateFrom, dateTo]);
+
+  const countByStatus = (name: string) => ordersInPeriod.filter((o) => o.status_name === name).length;
+  const countByStation = (id: string) => ordersInPeriod.filter((o) => o.station_id === id).length;
+  const withoutStation = ordersInPeriod.filter((o) => !o.station_id).length;
+
   const reportOrders = useMemo(() => (orders as any[]).filter((o) => {
     const basis = orderDate(o);
     if (!basis) return false;
@@ -276,7 +294,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                   return (
                     <Badge key={s.id} onClick={() => toggleSet(selectedStatuses, s.name, setSelectedStatuses)}
                       className={`cursor-pointer ${on ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-muted/70'}`}>
-                      {s.name}
+                      {s.name} <span className="ml-1 opacity-70">{countByStatus(s.name)}</span>
                     </Badge>
                   );
                 })}
@@ -294,12 +312,18 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                     return (
                       <Badge key={s.id} onClick={() => toggleSet(selectedStations, s.id, setSelectedStations)}
                         className={`cursor-pointer ${on ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-muted/70'}`}>
-                        {s.name}
+                        {s.name} <span className="ml-1 opacity-70">{countByStation(s.id)}</span>
                       </Badge>
                     );
                   })}
                   {selectedStations.size > 0 && <Badge variant="outline" className="cursor-pointer" onClick={() => setSelectedStations(new Set())}>× wyczyść</Badge>}
                 </div>
+                {withoutStation > 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {withoutStation} z {ordersInPeriod.length} zleceń w tym okresie nie ma przypisanego stanowiska —
+                    filtr ich nie pokaże.
+                  </p>
+                )}
               </div>
             )}
 
@@ -325,6 +349,16 @@ export function WorkshopReports({ providerId, onBack }: Props) {
         </Card>
 
         {generated && !isLoading && reportOrders.length > 0 && (
+          <>
+          {/* Zdanie, ktore odpowiada na pierwsze pytanie kazdego czytajacego raport:
+              czego dokladnie dotycza te liczby. Bez tego "Przychod" z raportu i przychod
+              z Kasy roznily sie i nie bylo wiadomo, ktory jest prawdziwy. */}
+          <p className="text-xs text-muted-foreground">
+            {reportOrders.length} {reportOrders.length === 1 ? 'zlecenie' : 'zleceń'} z okresu{' '}
+            {new Date(dateFrom).toLocaleDateString('pl-PL')} – {new Date(dateTo).toLocaleDateString('pl-PL')}
+            {selectedStatuses.size > 0 ? `, statusy: ${Array.from(selectedStatuses).join(', ')}` : ', wszystkie statusy'}
+            {selectedStations.size > 0 ? ', wybrane stanowiska' : ''}. Kwoty {gross ? 'brutto' : 'netto'}.
+          </p>
           <div className={`grid grid-cols-2 gap-3 ${cashEnabled ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
             <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Przychód" hint={COL_HINTS.revenue} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalRevenue)}</p></CardContent></Card>
             <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Koszt" hint={COL_HINTS.cost} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalCost)}</p></CardContent></Card>
@@ -334,6 +368,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Dług" hint={COL_HINTS.debt} /></p><p className={`text-lg font-bold tabular-nums ${totalDebt > 0 ? 'text-destructive' : ''}`}>{fmt(totalDebt)}</p></CardContent></Card>
             )}
           </div>
+          </>
         )}
 
         {generated && !isLoading && reportOrders.length > 0 && cashEnabled && (
