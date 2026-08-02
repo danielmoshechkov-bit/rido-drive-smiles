@@ -10,6 +10,7 @@ import { useWorkshopPaymentsRange, useWorkshopFinanceSettings, PAYMENT_METHODS, 
 import { safeNumber } from '@/utils/workshopOrderTotals';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopClientsReport, WorkshopEmployeesReport, WorkshopSalesReport } from './WorkshopExtraReports';
+import { WorkshopMonthlyClosuresReport } from './WorkshopMonthlyClosuresReport';
 import { WorkshopCompanyReport } from './WorkshopCompanyReport';
 // PERF C1: WorkshopStatsReport to jedyny konsument recharts w warsztacie —
 // lazy trzyma bibliotekę wykresów poza chunkiem modułu raportów.
@@ -19,7 +20,7 @@ const WorkshopStatsReport = lazy(() =>
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2, Info, ChevronDown, Building2, BarChart3 } from 'lucide-react';
+import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2, Info, ChevronDown, Building2, BarChart3, Lock } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { printHtmlDocument } from '@/utils/invoiceHtmlGenerator';
@@ -39,6 +40,7 @@ const reportCategories = [
   { key: 'pracownicy', labelKey: 'workshop.reports.cat.employees', icon: UserCheck },
   { key: 'firma', labelKey: 'Działalność firmy', icon: Building2 },
   { key: 'statystyki', labelKey: 'Statystyki', icon: BarChart3 },
+  { key: 'miesiace', labelKey: 'Miesiące i zamknięcia', icon: Lock },
 ];
 
 const orderReports = [
@@ -49,6 +51,8 @@ const clientReports = [{ key: 'raport-klienci', label: 'Klienci', desc: 'Nowi, p
 const employeeReports = [{ key: 'raport-pracownicy', label: 'Pracownicy', desc: 'Liczba i wartość zleceń na pracownika, wypłaty.' }];
 const companyReports = [{ key: 'raport-firma', label: 'Podsumowanie firmy', desc: 'Pełny obraz finansów: przychody i wszystkie koszty (pracownicze, czynsz, opłaty stałe, zakupy) → realny wynik firmy.' }];
 const statsReports = [{ key: 'raport-statystyki', label: 'Statystyki', desc: 'Liczba zleceń, nowi vs powracający klienci, średnia wartość i marża, wykresy w czasie.' }];
+// Raporty z zamknięcia miesiąca — właściciel szuka ich w Raportach, nie w Kasie.
+const monthReports = [{ key: 'raport-miesiace', label: 'Miesiące i zamknięcia', desc: 'Podsumowanie zamkniętych miesięcy i raport zapisany w chwili zamknięcia kasy.' }];
 
 const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const startOfMonth = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
@@ -229,6 +233,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
       case 'pracownicy': return employeeReports;
       case 'firma': return companyReports;
       case 'statystyki': return statsReports;
+      case 'miesiace': return monthReports;
       default: return [];
     }
   };
@@ -251,6 +256,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   if (activeReport === 'raport-pracownicy') return reportWrap('Pracownicy', <WorkshopEmployeesReport providerId={providerId} />);
   if (activeReport === 'raport-sprzedazy') return reportWrap('Sprzedaż', <WorkshopSalesReport providerId={providerId} />);
   if (activeReport === 'raport-firma') return reportWrap('Podsumowanie firmy', <WorkshopCompanyReport providerId={providerId} />);
+  if (activeReport === 'raport-miesiace') return reportWrap('Miesiące i zamknięcia', <WorkshopMonthlyClosuresReport providerId={providerId} />);
   if (activeReport === 'raport-statystyki') return reportWrap('Statystyki', (
     <Suspense fallback={<div className="py-10 text-center text-muted-foreground">Ładowanie wykresów…</div>}>
       <WorkshopStatsReport providerId={providerId} />

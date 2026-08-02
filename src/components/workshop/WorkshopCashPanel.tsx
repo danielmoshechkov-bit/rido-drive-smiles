@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, Pencil, Ban, Trash2 } from 'lucide-react';
+import { ChevronDown, Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, Pencil, Ban, Trash2 } from 'lucide-react';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
+import { WorkshopCollapsibleCard } from './WorkshopCollapsibleCard';
 import { WorkshopCashEntryDialog } from './WorkshopCashEntryDialog';
 import { FiscalQuickReceiptDialog } from '@/components/fiscal/FiscalQuickReceiptDialog';
 import { WorkshopExpenseDialog } from './WorkshopExpenseDialog';
@@ -58,6 +59,7 @@ export function WorkshopCashPanel({ providerId }: Props) {
   const [voidOp, setVoidOp] = useState<CashOp | null>(null);
   const [editOp, setEditOp] = useState<CashOp | null>(null);
   const [selectedClosure, setSelectedClosure] = useState<string | null>(null);
+  const [kontoOpen, setKontoOpen] = useState(false);
   const saveSettings = useSaveFinanceSettings();
   const createClosure = useCreateCashClosure();
   const deleteClosure = useDeleteCashClosure();
@@ -391,20 +393,36 @@ export function WorkshopCashPanel({ providerId }: Props) {
           <Banknote className="h-7 w-7 text-green-600" />
           <div><p className="text-xs text-muted-foreground">Gotówka w kasie</p><p className="text-xl font-bold tabular-nums">{fmt(cashGotowka)} zł</p></div>
         </CardContent></Card>
-        {/* „Na koncie" bez rozbicia nic nie mówiło — te trzy formy trafiają na rachunek
-            w różnym czasie i przez różnych operatorów, więc widać je osobno. */}
-        <Card><CardContent className="py-4 flex items-center gap-3">
-          <CreditCard className="h-7 w-7 text-primary" />
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Na koncie</p>
-            <p className="text-xl font-bold tabular-nums">{fmt(cashKonto)} zł</p>
-            <p className="text-[11px] text-muted-foreground truncate">
-              karta {fmt(payByMethod('karta') - expByMethod('karta'))} ·
-              BLIK {fmt(payByMethod('blik') - expByMethod('blik'))} ·
-              przelew {fmt(payByMethod('przelew') - expByMethod('przelew'))}
-            </p>
-          </div>
-        </CardContent></Card>
+        {/* Rozbicie w jednej linii nie mieściło się i urywało w połowie słowa („przelew 0…").
+            Kafelek pokazuje sumę, a szczegóły rozwijają się na żądanie — pod ręką, ale
+            bez zaśmiecania widoku. */}
+        <Card>
+          <CardContent className="py-4">
+            <button
+              type="button"
+              className="flex items-center gap-3 w-full text-left"
+              onClick={() => setKontoOpen((v) => !v)}
+              title="Kliknij, żeby zobaczyć rozbicie na formy"
+            >
+              <CreditCard className="h-7 w-7 text-primary shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">Na koncie</p>
+                <p className="text-xl font-bold tabular-nums">{fmt(cashKonto)} zł</p>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${kontoOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {kontoOpen && (
+              <div className="mt-2 pt-2 border-t space-y-1 text-sm">
+                {(['karta', 'blik', 'przelew'] as const).map((m) => (
+                  <div key={m} className="flex justify-between">
+                    <span className="text-muted-foreground">{m === 'blik' ? 'BLIK' : m === 'karta' ? 'Karta' : 'Przelew'}</span>
+                    <span className="tabular-nums">{fmt(payByMethod(m) - expByMethod(m))} zł</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
         <Card><CardContent className="py-4">
           <p className="text-xs text-muted-foreground">Dziś</p>
           <p className="text-sm"><span className="text-green-600 tabular-nums">+{fmt(dayIn)}</span> / <span className="text-destructive tabular-nums">−{fmt(dayOut)}</span></p>
@@ -583,8 +601,12 @@ export function WorkshopCashPanel({ providerId }: Props) {
 
       {/* Receivables + recent ops */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card><CardContent className="py-4">
-          <h3 className="font-semibold mb-2">Należności do pobrania</h3>
+        <WorkshopCollapsibleCard
+          title="Należności do pobrania"
+          description={receivables.length ? `${receivables.length} zleceń · ${fmt(receivablesTotal)} zł` : 'Brak zaległości'}
+          storageKey="kasa-naleznosci"
+          defaultOpen
+        >
           {receivables.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Brak — wszystkie zakończone zlecenia opłacone.</p>
           ) : (
@@ -597,13 +619,19 @@ export function WorkshopCashPanel({ providerId }: Props) {
               ))}
             </div>
           )}
-        </CardContent></Card>
+        </WorkshopCollapsibleCard>
 
-        <Card><CardContent className="py-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">Operacje</h3>
-            {operations.length > 8 && <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowAllOps((v) => !v)}>{showAllOps ? 'Pokaż mniej' : `Pokaż wszystkie (${operations.length})`}</Button>}
-          </div>
+        <WorkshopCollapsibleCard
+          title="Operacje"
+          description={operations.length ? `${operations.length} wpisów` : 'Brak operacji'}
+          storageKey="kasa-operacje"
+          defaultOpen
+          headerRight={operations.length > 8 ? (
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowAllOps((v) => !v)}>
+              {showAllOps ? 'Pokaż mniej' : `Pokaż wszystkie (${operations.length})`}
+            </Button>
+          ) : undefined}
+        >
           {operations.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Brak operacji.</p>
           ) : (
@@ -630,12 +658,15 @@ export function WorkshopCashPanel({ providerId }: Props) {
               ))}
             </div>
           )}
-        </CardContent></Card>
+        </WorkshopCollapsibleCard>
       </div>
 
       {/* Rozliczenie miesięcy — na żywo, niezależne od zamknięcia (zatwierdzone + otwarte) */}
-      <Card><CardContent className="py-4">
-        <h3 className="font-semibold mb-2">Rozliczenie miesięcy</h3>
+      <WorkshopCollapsibleCard
+        title="Rozliczenie miesięcy"
+        description="Przychód, zapłacono, dług i wynik miesiąc po miesiącu"
+        storageKey="kasa-rozliczenie"
+      >
         <div className="overflow-auto">
           <table className="w-full text-sm">
             <thead>
@@ -682,34 +713,29 @@ export function WorkshopCashPanel({ providerId }: Props) {
             </tbody>
           </table>
         </div>
-      </CardContent></Card>
+      </WorkshopCollapsibleCard>
 
       {/* Archiwum raportów — po zamknięciu miesiąca raport musi mieć swoje miejsce.
           Dotąd zamknięcie zapisywało się do bazy i znikało z oczu: nie dało się wrócić
           do zeszłego miesiąca i sprawdzić, jak wyglądała kasa. */}
-      <Card><CardContent className="py-4 space-y-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h3 className="font-semibold">Raporty zamkniętych miesięcy</h3>
-            <p className="text-xs text-muted-foreground">
-              Podsumowanie zapisane w chwili zamknięcia — takie, jakie było wtedy, niezależnie od
-              późniejszych zmian.
-            </p>
-          </div>
-          {closures.length > 0 && (
-            <select
-              className="h-9 rounded-md border bg-background px-2 text-sm"
-              value={selectedClosure ?? ''}
-              onChange={(e) => setSelectedClosure(e.target.value || null)}
-            >
-              <option value="">Wybierz miesiąc…</option>
-              {(closures as any[]).map((c) => (
-                <option key={c.id} value={c.id}>{dpart(c.period_from).slice(0, 7)}</option>
-              ))}
-            </select>
-          )}
-        </div>
-
+      <WorkshopCollapsibleCard
+        title="Raporty zamkniętych miesięcy"
+        description="Podsumowanie zapisane w chwili zamknięcia — niezależne od późniejszych zmian"
+        storageKey="kasa-archiwum"
+        headerRight={closures.length > 0 ? (
+          <select
+            className="h-9 rounded-md border bg-background px-2 text-sm"
+            value={selectedClosure ?? ''}
+            onChange={(e) => setSelectedClosure(e.target.value || null)}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <option value="">Wybierz miesiąc…</option>
+            {(closures as any[]).map((c) => (
+              <option key={c.id} value={c.id}>{dpart(c.period_from).slice(0, 7)}</option>
+            ))}
+          </select>
+        ) : undefined}
+      >
         {closures.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4">
             Brak zamkniętych miesięcy. Po kliknięciu „Zamknij miesiąc" raport pojawi się tutaj.
@@ -744,7 +770,7 @@ export function WorkshopCashPanel({ providerId }: Props) {
             </div>
           );
         })()}
-      </CardContent></Card>
+      </WorkshopCollapsibleCard>
 
       <WorkshopBreakdownDialog open={!!breakdown} onOpenChange={(o) => { if (!o) setBreakdown(null); }} title={breakdown?.title || ''} rows={breakdown?.rows || []} />
       <WorkshopCashEntryDialog open={cashIn} onOpenChange={setCashIn} providerId={providerId} kind="in" />
