@@ -146,6 +146,57 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
     [categories],
   );
 
+  // ---- Dwustopniowy wybór kategorii usługi: grupa główna -> podkategoria ----
+  const slugByCatalogId = useMemo(
+    () => Object.fromEntries(portalCategories.map(p => [p.id, p.slug])),
+    [portalCategories],
+  );
+  const groupOfProviderCat = (catId: string | null | undefined): string => {
+    const c = categories.find(x => x.id === catId);
+    if (!c) return '';
+    const slug = c.service_category_id ? slugByCatalogId[c.service_category_id] : undefined;
+    return slug ? groupIdForSlug(slug) : OTHER_GROUP.id;
+  };
+  const myGroups = useMemo(() => {
+    const ids = new Set(categories.map(c => groupOfProviderCat(c.id)).filter(Boolean));
+    const all = [...SERVICE_CATEGORY_GROUPS, OTHER_GROUP];
+    return all.filter(g => ids.has(g.id));
+  }, [categories, slugByCatalogId]);
+  const [pickGroup, setPickGroup] = useState<Record<string, string>>({});
+
+  const renderCategoryPicker = (key: string, value: string | null, onChange: (v: string | null) => void) => {
+    const group = pickGroup[key] ?? groupOfProviderCat(value);
+    const subs = categories.filter(c => groupOfProviderCat(c.id) === group);
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <Select
+          value={group || 'none'}
+          onValueChange={g => {
+            setPickGroup(p => ({ ...p, [key]: g === 'none' ? '' : g }));
+            onChange(null);
+          }}
+        >
+          <SelectTrigger><SelectValue placeholder="Grupa główna" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Bez kategorii</SelectItem>
+            {myGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select
+          value={value || 'none'}
+          disabled={!group}
+          onValueChange={v => onChange(v === 'none' ? null : v)}
+        >
+          <SelectTrigger><SelectValue placeholder={group ? 'Podkategoria' : 'Najpierw grupa'} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Bez podkategorii</SelectItem>
+            {subs.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
+
   // Zgłoszenie nowej kategorii do akceptacji przez portal
   const [reqDialog, setReqDialog] = useState(false);
   const [reqForm, setReqForm] = useState({ name: '', description: '', services: '', email: '' });
