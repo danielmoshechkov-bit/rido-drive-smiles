@@ -337,3 +337,6 @@ verify_jwt = false
 
 [functions.submit-category-request]
 verify_jwt = false
+
+[functions.ai-extract-services]
+verify_jwt = false
