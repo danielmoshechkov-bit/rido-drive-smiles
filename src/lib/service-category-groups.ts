@@ -17,12 +17,36 @@ export const SERVICE_CATEGORY_GROUPS: ServiceCategoryGroup[] = [
       'elektryka-auto', 'blacharstwo', 'auto-szyby', 'serwis-lpg', 'przeglady', 'holowanie', 'ppf',
     ],
   },
-  { id: 'dom', name: 'Dom — remonty i wnętrza', slugs: ['sprzatanie', 'remonty', 'budowlanka', 'projektanci'] },
-  { id: 'beauty', name: 'Beauty', slugs: [] },
-  { id: 'zdrowie', name: 'Zdrowie', slugs: [] },
-  { id: 'ekspert', name: 'Ekspert — usługi profesjonalne', slugs: [] },
-  { id: 'dostawy', name: 'Dostawy i transport', slugs: ['przeprowadzki'] },
-  { id: 'fachowiec', name: 'Fachowiec', slugs: ['hydraulik', 'elektryk', 'zlota-raczka', 'ogrodnik'] },
+  {
+    id: 'dom',
+    name: 'Dom — remonty i wnętrza',
+    slugs: ['sprzatanie', 'remonty', 'budowlanka', 'projektanci'],
+  },
+  {
+    id: 'beauty',
+    name: 'Beauty',
+    slugs: ['fryzjer', 'kosmetyczka', 'paznokcie', 'rzesy-brwi', 'spa-masaz', 'barber'],
+  },
+  {
+    id: 'zdrowie',
+    name: 'Zdrowie',
+    slugs: ['lekarz', 'dentysta', 'fizjoterapeuta', 'psycholog', 'dietetyk'],
+  },
+  {
+    id: 'ekspert',
+    name: 'Ekspert — usługi profesjonalne',
+    slugs: ['prawnik', 'ksiegowy', 'doradca-finansowy', 'notariusz', 'tlumacz'],
+  },
+  {
+    id: 'dostawy',
+    name: 'Dostawy i transport',
+    slugs: ['kurier', 'transport', 'przeprowadzki', 'przewoz-osob'],
+  },
+  {
+    id: 'fachowiec',
+    name: 'Fachowiec',
+    slugs: ['hydraulik', 'elektryk', 'stolarz', 'malarz', 'glazurnik', 'dekarz', 'klimatyzacja-dom', 'zlota-raczka', 'ogrodnik'],
+  },
 ];
 
 export const OTHER_GROUP: ServiceCategoryGroup = { id: 'inne', name: 'Pozostałe', slugs: [] };
