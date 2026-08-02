@@ -11,11 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { VoiceAgentTestChat } from "./VoiceAgentTestChat";
 import { NativeVoiceBrowser } from "./NativeVoiceBrowser";
-import { ProviderOfferSummary } from "./ProviderOfferSummary";
 import { toast } from "sonner";
-import { Loader2, Save, Play, Phone, Volume2, Sparkles, Wand2, Pause, Star, Globe, CalendarCheck, ClipboardList, ShieldCheck, PhoneCall, MessageSquareQuote } from "lucide-react";
+import { Loader2, Save, Play, Volume2, Sparkles, Wand2, Pause, Star, Globe, ChevronDown } from "lucide-react";
 
 interface Persona {
   persona_key: string; name: string; description: string | null; direction: string;
@@ -88,6 +88,7 @@ export function VoiceAgentPanel({ providerId, onGoToServices }: { providerId: st
   const [fSearch, setFSearch] = useState("");
   const [onlyMulti, setOnlyMulti] = useState(true);
   const [previewLang, setPreviewLang] = useState("pl");
+  const [soundOpen, setSoundOpen] = useState(false);
 
   const [testOpen, setTestOpen] = useState(false);
   const [training, setTraining] = useState(false);
@@ -283,28 +284,24 @@ export function VoiceAgentPanel({ providerId, onGoToServices }: { providerId: st
     } finally { setPreviewing(false); }
   };
 
+  // Zapisujemy WYŁĄCZNIE ustawienia głosu — resztą konfiguracji agenta zarządza kreator.
   const save = async () => {
     if (!providerId || !cfg) return;
     setSaving(true);
     const { error } = await (supabase as any).from("voice_agent_configs").upsert(
       {
-        provider_id: providerId, persona_key: cfg.persona_key, is_active: cfg.is_active,
-        display_name: cfg.display_name || null, voice_id: cfg.voice_id || null,
-        voice_mode: cfg.voice_mode, voice_per_language: cfg.voice_per_language,
+        provider_id: providerId, persona_key: cfg.persona_key,
+        voice_id: cfg.voice_id || null, voice_mode: cfg.voice_mode,
+        voice_per_language: cfg.voice_per_language,
         voice_speed: cfg.voice_speed, voice_stability: cfg.voice_stability,
         voice_similarity: cfg.voice_similarity, voice_style: cfg.voice_style,
         sample_text: cfg.sample_text || null, languages: cfg.languages,
-        inbound_mode: cfg.inbound_mode, inbound_rings: cfg.inbound_rings,
-        calling_hours: cfg.calling_hours,
-        business_context: { ...cfg.business_context, disclose_recording: cfg.disclose_recording, ai_disclosure: cfg.ai_disclosure },
-        calendar_access: cfg.calendar_access, orders_access: cfg.orders_access,
-        learning_mode: cfg.learning_mode,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "provider_id,persona_key" },
     );
     if (error) toast.error("Błąd zapisu: " + error.message);
-    else toast.success("Zapisano ustawienia agenta głosowego");
+    else toast.success("Zapisano głos agenta");
     setSaving(false);
   };
 
@@ -345,11 +342,10 @@ export function VoiceAgentPanel({ providerId, onGoToServices }: { providerId: st
       <div className="rounded-xl border bg-muted/40 p-4 flex items-start gap-3">
         <Sparkles className="h-5 w-5 text-primary mt-0.5" />
         <div className="text-sm">
-          <p className="font-medium">Asystent głosowy AI — konfiguracja</p>
+          <p className="font-medium">Głos agenta</p>
           <p className="text-muted-foreground mt-1">
-            Firmę, godziny pracy, usługi i ceny agent zna z zakładki <strong>Moje usługi</strong> — tutaj ustawiasz tylko
-            jak brzmi i jak się zachowuje. Jeden wielojęzyczny głos obsługuje całą rozmowę, a agent sam odpowiada w
-            języku klienta (PL/EN/UA/RU).
+            Wybierz głos i posłuchaj, jak brzmi. Jeden wielojęzyczny głos obsługuje całą rozmowę — agent sam
+            przechodzi na język klienta. Co agent mówi i robi, ustawiasz w zakładce <strong>Agent</strong>.
           </p>
         </div>
       </div>
@@ -358,46 +354,6 @@ export function VoiceAgentPanel({ providerId, onGoToServices }: { providerId: st
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
       ) : (
         <>
-          {/* AKTYWACJA + NAZWA */}
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div><Label>Agent aktywny</Label><p className="text-xs text-muted-foreground">Włącz, gdy konfiguracja jest gotowa.</p></div>
-                <Switch checked={cfg.is_active} onCheckedChange={(v) => update({ is_active: v })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Imię agenta (jak się przedstawia)</Label>
-                <Input placeholder="np. Kasia" value={cfg.display_name} onChange={(e) => update({ display_name: e.target.value })} />
-                <p className="text-xs text-muted-foreground">Nazwę firmy agent bierze z Twojej karty usług — nie wpisuj jej tutaj.</p>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <PhoneCall className="h-4 w-4 text-primary" />
-                  <span>Sprawdź jak agent rozmawia — napisz jak klient, zobacz/usłysz odpowiedzi.</span>
-                </div>
-                <Button variant="default" size="sm" className="gap-1.5 shrink-0" onClick={() => setTestOpen(true)}>
-                  <PhoneCall className="h-4 w-4" /> Przetestuj agenta
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <VoiceAgentTestChat
-            open={testOpen}
-            onOpenChange={setTestOpen}
-            providerId={providerId}
-            personaKey={cfg.persona_key}
-            displayName={cfg.display_name}
-            businessContext={{ ...cfg.business_context, disclose_recording: cfg.disclose_recording, ai_disclosure: cfg.ai_disclosure } as unknown as Record<string, string>}
-            languages={cfg.languages}
-            calendarAccess={cfg.calendar_access}
-            ordersAccess={cfg.orders_access}
-            voiceId={cfg.voice_mode === "per_language" ? (cfg.voice_per_language["pl"] || cfg.voice_id) : cfg.voice_id}
-            voiceGender={byId(cfg.voice_mode === "per_language" ? (cfg.voice_per_language["pl"] || cfg.voice_id) : cfg.voice_id)?.gender || ""}
-            learningMode={cfg.learning_mode}
-            voiceSettings={{ speed: cfg.voice_speed, stability: cfg.voice_stability, similarity: cfg.voice_similarity, style: cfg.voice_style }}
-          />
-
           <NativeVoiceBrowser
             open={pickerOpen}
             onOpenChange={setPickerOpen}
@@ -411,56 +367,6 @@ export function VoiceAgentPanel({ providerId, onGoToServices }: { providerId: st
               reloadVoices();
             }}
           />
-
-          {/* A) PRZEDSTAWIENIE SIĘ + ZASADY */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MessageSquareQuote className="h-5 w-5" /> Przedstawienie się</CardTitle>
-              <CardDescription>Pierwsze zdanie rozmowy. Resztę (firma, godziny, usługi, ceny) agent bierze z Twojej karty usług.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Jak agent ma się przedstawiać</Label>
-                <Textarea rows={2} value={cfg.business_context.agent_intro} onChange={(e) => updateBC({ agent_intro: e.target.value })} placeholder="np. Dzień dobry, tu Kasia z Auto-Serwis Kowalski, rozmowa jest nagrywana — w czym mogę pomóc?" />
-                <p className="text-xs text-muted-foreground">Zostaw puste, a agent przywita się sam: „Dzień dobry, [nazwa firmy], w czym mogę pomóc?".</p>
-              </div>
-
-              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-3 space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <Label className="text-amber-900 dark:text-amber-200">Informuj o nagrywaniu rozmowy</Label>
-                    <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
-                      Wymagane przy nagrywaniu rozmów (RODO). Agent powie to w pierwszym zdaniu, krótko i naturalnie.
-                    </p>
-                  </div>
-                  <Switch checked={cfg.disclose_recording} onCheckedChange={(v) => update({ disclose_recording: v })} />
-                </div>
-                <div className="space-y-1.5 pt-1 border-t border-amber-200 dark:border-amber-800">
-                  <Label className="text-amber-900 dark:text-amber-200">Jak agent nazywa sam siebie</Label>
-                  <Select value={cfg.ai_disclosure} onValueChange={(v) => update({ ai_disclosure: v })}>
-                    <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="on_request">Imieniem — że jest AI mówi dopiero zapytany (najbardziej naturalne)</SelectItem>
-                      <SelectItem value="virtual">„Wirtualny asystent" — od razu w powitaniu</SelectItem>
-                      <SelectItem value="ai">„Asystent AI" — pełna transparentność</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-amber-800 dark:text-amber-300">
-                    Przy każdej opcji agent nie kłamie: zapytany wprost „czy to człowiek?" przyzna, że jest asystentem AI.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Zasady i wyjątki dla agenta (opcjonalnie)</Label>
-                <Textarea rows={3} value={cfg.business_context.extra_info} onChange={(e) => updateBC({ extra_info: e.target.value })} placeholder={"np. Nie umawiamy na niedziele.\nRabat maks. 10%.\nPrzy holowaniu zawsze pytaj o markę i model."} />
-                <p className="text-xs text-muted-foreground">Tu wpisuj tylko to, czego nie ma w usługach — cennik i godziny agent zna z karty usług.</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* DANE I CENNIK — źródło: „Moje usługi" */}
-          <ProviderOfferSummary providerId={providerId} onGoToServices={onGoToServices} />
 
           {/* B) GŁOS */}
           <Card>
@@ -536,20 +442,27 @@ export function VoiceAgentPanel({ providerId, onGoToServices }: { providerId: st
             </CardContent>
           </Card>
 
-          {/* C) BRZMIENIE */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2"><Wand2 className="h-5 w-5" /> Brzmienie głosu</CardTitle>
-                  <CardDescription>Domyślnie dobrane na naturalne brzmienie. Możesz regulować lub przywrócić optymalne.</CardDescription>
-                </div>
+          {/* C) BRZMIENIE — zaawansowane, domyślnie ustawione optymalnie */}
+          <Collapsible open={soundOpen} onOpenChange={setSoundOpen}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base"><Wand2 className="h-5 w-5" /> Dostrój brzmienie</CardTitle>
+                      <CardDescription>Ustawione optymalnie — zaglądaj tylko, jeśli chcesz coś zmienić.</CardDescription>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${soundOpen ? "rotate-180" : ""}`} />
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+            <CardContent className="space-y-5">
+              <div className="flex justify-end">
                 <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => update(OPTIMAL)}>
-                  <Sparkles className="h-4 w-4" /> Optymalne ustawienia
+                  <Sparkles className="h-4 w-4" /> Przywróć optymalne
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
               {[
                 { key: "voice_stability" as const, label: "Stabilność", hint: "niżej = bardziej żywo", min: 0, max: 1, step: 0.05 },
                 { key: "voice_similarity" as const, label: "Podobieństwo", hint: "wierność barwie", min: 0, max: 1, step: 0.05 },
@@ -573,132 +486,27 @@ export function VoiceAgentPanel({ providerId, onGoToServices }: { providerId: st
                 Odsłuchaj z moim tekstem ({previewLang.toUpperCase()})
               </Button>
             </CardContent>
-          </Card>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
 
-          {/* TRENING — symulacje self-play */}
+          {/* JĘZYKI */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> Trening agenta — AI sam testuje</CardTitle>
-              <CardDescription>
-                AI gra OBIE role: wciela się w klienta (samo wymyśla różne, też podchwytliwe scenariusze) i rozmawia z Twoim agentem. Po każdej rozmowie wyłapuje błędy i dopisuje reguły. Ty tylko uruchamiasz serię — resztę robi AI.
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2"><Globe className="h-5 w-5" /> Języki rozmowy</CardTitle>
+              <CardDescription>W jakich językach agent może rozmawiać. Sam wykrywa język klienta i przechodzi na niego.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm">Wyuczone reguły dla tej roli: <strong>{knowledgeCount ?? "…"}</strong></span>
-                <div className="ml-auto flex gap-2">
-                  <Button size="sm" variant="outline" disabled={training} onClick={() => runTraining(10)}>{training ? <Loader2 className="h-4 w-4 animate-spin" /> : null} 10 symulacji</Button>
-                  <Button size="sm" disabled={training} onClick={() => runTraining(25)} className="gap-1.5"><Sparkles className="h-4 w-4" /> 25 symulacji</Button>
-                </div>
-              </div>
-              {training && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground"><span>Postęp: {trainDone}/{trainTotal}</span><span>+{trainLessons} reguł</span></div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${trainTotal ? (trainDone / trainTotal) * 100 : 0}%` }} /></div>
-                </div>
-              )}
-              {trainLog.length > 0 && (
-                <div className="rounded-lg border bg-muted/30 p-2 max-h-[160px] overflow-y-auto text-xs space-y-0.5">
-                  {trainLog.map((l, i) => <div key={i} className="truncate">{l}</div>)}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">Symulacje NIE tworzą realnych rezerwacji/zleceń (tryb suchy). Każda seria zużywa AI (koszt) — przy 100 rozmowach rób kilka serii.</p>
-            </CardContent>
-          </Card>
-
-          {/* UPRAWNIENIA / INTEGRACJE */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" /> Uprawnienia agenta</CardTitle>
-              <CardDescription>Co agent może robić w systemie podczas rozmowy. Domyślnie wyłączone — włącz, gdy chcesz.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex gap-3">
-                  <CalendarCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <Label>Dostęp do kalendarza firmowego</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">Agent sprawdza wolne terminy, umawia, przekłada i odwołuje wizyty w Twoim kalendarzu.</p>
-                  </div>
-                </div>
-                <Switch checked={cfg.calendar_access} onCheckedChange={(v) => update({ calendar_access: v })} />
-              </div>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex gap-3">
-                  <ClipboardList className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <Label>Tworzenie zleceń</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">Agent zakłada nowe zlecenie z danymi z rozmowy (klient, pojazd, usterka) — trafia do systemu zleceń do przydzielenia.</p>
-                  </div>
-                </div>
-                <Switch checked={cfg.orders_access} onCheckedChange={(v) => update({ orders_access: v })} />
-              </div>
-              <div className="flex items-start justify-between gap-4 pt-2 border-t">
-                <div className="flex gap-3">
-                  <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <Label>Uczenie z rozmów</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">Po rozmowie system analizuje przebieg, wyciąga wnioski i błędy, i poprawia kolejne rozmowy.</p>
-                  </div>
-                </div>
-                <Select value={cfg.learning_mode} onValueChange={(v) => update({ learning_mode: v })}>
-                  <SelectTrigger className="w-[170px] h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="per_call">Po każdej rozmowie</SelectItem>
-                    <SelectItem value="batched">Wsadowo (przy skali)</SelectItem>
-                    <SelectItem value="off">Wyłączone</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* D) ODBIERANIE */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> Odbieranie i działanie</CardTitle>
-              <CardDescription>Kiedy i jak agent ma odbierać oraz w jakich językach rozmawia.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="space-y-2 max-w-sm">
-                <Label>Tryb odbioru</Label>
-                <Select value={cfg.inbound_mode} onValueChange={(v) => update({ inbound_mode: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="off">Wyłączone</SelectItem>
-                    <SelectItem value="immediate">Od razu</SelectItem>
-                    <SelectItem value="after_rings">Po kilku sygnałach</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {cfg.inbound_mode === "after_rings" && (
-                <div className="space-y-2 max-w-sm">
-                  <div className="flex justify-between"><Label>Liczba sygnałów przed odebraniem</Label><span className="text-sm text-muted-foreground tabular-nums">{cfg.inbound_rings}</span></div>
-                  <Slider min={1} max={10} step={1} value={[cfg.inbound_rings]} onValueChange={([v]) => update({ inbound_rings: v })} />
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label>Godziny aktywności agenta (kiedy odbiera)</Label>
-                <div className="flex items-center gap-2 max-w-sm">
-                  <Input type="time" value={cfg.calling_hours.from ?? ""} onChange={(e) => update({ calling_hours: { ...cfg.calling_hours, from: e.target.value } })} />
-                  <span>–</span>
-                  <Input type="time" value={cfg.calling_hours.to ?? ""} onChange={(e) => update({ calling_hours: { ...cfg.calling_hours, to: e.target.value } })} />
-                </div>
-                <p className="text-xs text-muted-foreground">Puste = agent odbiera całą dobę. Godziny pracy firmy (te, które agent podaje klientom) ustawiasz w „Moje usługi".</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Języki rozmowy</Label>
-                <div className="flex flex-wrap gap-4">
-                  {LANGS.map((l) => (
-                    <label key={l.code} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={cfg.languages.includes(l.code)}
-                        onCheckedChange={(v) => update({ languages: v ? [...cfg.languages, l.code] : cfg.languages.filter((c) => c !== l.code) })}
-                      />
-                      <span className="text-sm">{l.label}</span>
-                    </label>
-                  ))}
-                </div>
+            <CardContent>
+              <div className="flex flex-wrap gap-4">
+                {LANGS.map((l) => (
+                  <label key={l.code} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      checked={cfg.languages.includes(l.code)}
+                      onCheckedChange={(v) => update({ languages: v ? [...cfg.languages, l.code] : cfg.languages.filter((c) => c !== l.code) })}
+                    />
+                    <span className="text-sm">{l.label}</span>
+                  </label>
+                ))}
               </div>
             </CardContent>
           </Card>

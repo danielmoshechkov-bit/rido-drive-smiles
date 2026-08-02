@@ -383,11 +383,14 @@ export function ServiceProviderDetailPage() {
                 </h1>
               </div>
 
+              {/* Dokładny adres tylko dla zalogowanych — niezalogowany widzi samo miasto. */}
               {(provider.company_address || provider.company_city) && (
                 <div className="flex items-start gap-2 mb-3 text-slate-800 font-semibold">
                   <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <span>
-                    {[provider.company_address, provider.company_city].filter(Boolean).join(', ')}
+                    {showContactPhone || user
+                      ? [provider.company_address, provider.company_city].filter(Boolean).join(', ')
+                      : provider.company_city || 'Adres po zalogowaniu'}
                   </span>
                 </div>
               )}

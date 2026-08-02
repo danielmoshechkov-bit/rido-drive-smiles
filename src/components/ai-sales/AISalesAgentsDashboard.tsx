@@ -3,7 +3,7 @@ import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { AISalesOverview } from './AISalesOverview';
 import { AISalesLeadsList } from './AISalesLeadsList';
 import { AISalesConversationsList } from './AISalesConversationsList';
-import { MyAgentPanel } from './MyAgentPanel';
+import { AgentWizardPanel } from './AgentWizardPanel';
 import { AISalesAgentWizard } from './AISalesAgentWizard';
 import { VoiceAgentPanel } from './VoiceAgentPanel';
 
@@ -22,8 +22,8 @@ export function AISalesAgentsDashboard({
     { value: 'overview', label: 'Dashboard', visible: true },
     { value: 'leads', label: 'Leady', visible: true },
     { value: 'conversations', label: 'Konwersacje', visible: true },
-    { value: 'my-agent', label: 'Mój Agent', visible: true },
-    { value: 'voice', label: 'Asystent głosowy', visible: true },
+    { value: 'my-agent', label: 'Agent', visible: true },
+    { value: 'voice', label: 'Głos', visible: true },
   ];
 
   if (wizardOpen) {
@@ -47,7 +47,7 @@ export function AISalesAgentsDashboard({
       )}
       {activeTab === 'leads' && <AISalesLeadsList />}
       {activeTab === 'conversations' && <AISalesConversationsList />}
-      {activeTab === 'my-agent' && <MyAgentPanel providerId={providerId} onGoToServices={onGoToServices} />}
+      {activeTab === 'my-agent' && <AgentWizardPanel providerId={providerId} onGoToServices={onGoToServices} onGoToVoice={() => setActiveTab('voice')} />}
       {activeTab === 'voice' && <VoiceAgentPanel providerId={providerId} onGoToServices={onGoToServices} />}
     </div>
   );
