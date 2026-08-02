@@ -763,7 +763,7 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
             <Button variant="outline" onClick={() => setCatDialog(false)}>Anuluj</Button>
             <Button
               onClick={() => saveCat.mutate()}
-              disabled={saveCat.isPending || (!editingCat && !pickedCatalogId)}
+              disabled={saveCat.isPending || (!editingCat && pickedSubs.length === 0)}
             >
               Zapisz
             </Button>
