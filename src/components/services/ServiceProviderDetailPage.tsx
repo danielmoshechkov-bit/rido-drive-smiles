@@ -104,6 +104,13 @@ export function ServiceProviderDetailPage() {
     return groups.sort((a, b) => Number(b.highlighted) - Number(a.highlighted));
   }, [providerCats, services, browsedCatalogId]);
 
+  const [activeGroup, setActiveGroup] = useState<string>('all');
+  const visibleGroups = useMemo(
+    () => (activeGroup === 'all' ? serviceGroups : serviceGroups.filter(g => g.key === activeGroup)),
+    [serviceGroups, activeGroup]
+  );
+
+
   
   
 
