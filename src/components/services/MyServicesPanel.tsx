@@ -695,34 +695,55 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Wybierz kategorię z katalogu portalu — w niej Twoja firma pokaże się klientom.
+                Najpierw wybierz kategorię główną, potem zaznacz podkategorie — w nich Twoja firma pokaże się klientom.
               </p>
-              <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
-                {portalCategories.map(c => {
-                  const used = usedCatalogIds.has(c.id);
-                  const active = pickedCatalogId === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      disabled={used}
-                      onClick={() => setPickedCatalogId(c.id)}
-                      className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
-                        used
-                          ? 'opacity-45 cursor-not-allowed bg-muted'
-                          : active
-                            ? 'border-primary bg-primary/5'
-                            : 'hover:border-primary/40'
-                      }`}
-                    >
-                      <span className="font-semibold text-sm text-foreground">{c.name}</span>
-                      {used && <span className="ml-2 text-[11px] text-muted-foreground">już dodana</span>}
-                      {c.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">{c.description}</p>
-                      )}
-                    </button>
-                  );
-                })}
+
+              <div className="flex flex-wrap gap-2">
+                {catalogGroups.map(({ group }) => (
+                  <button
+                    key={group.id}
+                    onClick={() => { setPickedGroup(group.id); setPickedSubs([]); }}
+                    className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                      pickedGroup === group.id
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'hover:border-primary/40 text-foreground'
+                    }`}
+                  >
+                    {group.name}
+                  </button>
+                ))}
               </div>
+
+              {pickedGroup && (
+                <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                  {(catalogGroups.find(g => g.group.id === pickedGroup)?.items || []).map(c => {
+                    const used = usedCatalogIds.has(c.id);
+                    const active = pickedSubs.includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        disabled={used}
+                        onClick={() => setPickedSubs(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])}
+                        className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
+                          used
+                            ? 'opacity-45 cursor-not-allowed bg-muted'
+                            : active
+                              ? 'border-primary bg-primary/5'
+                              : 'hover:border-primary/40'
+                        }`}
+                      >
+                        <span className="font-semibold text-sm text-foreground">{c.name}</span>
+                        {used && <span className="ml-2 text-[11px] text-muted-foreground">już dodana</span>}
+                        {active && !used && <span className="ml-2 text-[11px] font-semibold text-primary">wybrana</span>}
+                        {c.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">{c.description}</p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               <button
                 onClick={() => { setCatDialog(false); setReqDialog(true); }}
                 className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5"
@@ -731,6 +752,7 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
               </button>
             </div>
           )}
+
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setCatDialog(false)}>Anuluj</Button>
