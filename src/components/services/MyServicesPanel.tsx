@@ -132,7 +132,11 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
   const [catDialog, setCatDialog] = useState(false);
   const [editingCat, setEditingCat] = useState<ProviderCategory | null>(null);
   const [catName, setCatName] = useState('');
-  const [pickedCatalogId, setPickedCatalogId] = useState<string>('');
+  const [pickedGroup, setPickedGroup] = useState<string>('');
+  const [pickedSubs, setPickedSubs] = useState<string[]>([]);
+
+  const catalogGroups = useMemo(() => groupCategories(portalCategories), [portalCategories]);
+
 
   const usedCatalogIds = useMemo(
     () => new Set(categories.map(c => c.service_category_id).filter(Boolean) as string[]),
