@@ -851,6 +851,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
        line-height 1.0 (Dompdf pewniej respektuje margin niż line-height na <br>). */
     .inv-title-main { font-size: ${titleFontSize}; font-weight: 700; color: #222; line-height: 1.15; margin: 0; }
     .inv-title-num { font-size: 16px; font-weight: 700; color: ${themeColor}; line-height: 1.2; margin-top: 3px; }
+    /* Numer dopisany do ostatniej linii tytulu — dziedziczy stopien pisma tytulu. */
+    .inv-title-num-inline { color: ${themeColor}; }
     .invoice-dates { font-size: 11px; color: #333; text-align: right; margin-top: 6px; line-height: 1.4; }
     .invoice-dates-row { margin-bottom: 0; }
     .invoice-dates-label { color: #555; }
@@ -961,8 +963,16 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           : ''}
       </div>
       <div class="invoice-title">
-        <div class="inv-title-main">${invoiceTitle}</div>
-        <div class="inv-title-num">${invoice.invoice_number}</div>
+        ${isServiceConfirmation ? (() => {
+          // „POTWIERDZENIE WYKONANIA / USŁUGI: PWU-…" — tytul i tak lamie sie na dwie
+          // linie, wiec numer dostawiamy do drugiej zamiast zostawiac go samego.
+          const words = invoiceTitle.trim().split(/\s+/);
+          const tail = words.pop() || invoiceTitle;
+          const head = words.join(' ');
+          return `${head ? `<div class="inv-title-main">${head}</div>` : ''}
+        <div class="inv-title-main">${tail}: <span class="inv-title-num-inline">${invoice.invoice_number}</span></div>`;
+        })() : `<div class="inv-title-main">${invoiceTitle}</div>
+        <div class="inv-title-num">${invoice.invoice_number}</div>`}
         ${isCorrection && invoice.correction_data ? `
         <div style="font-size: 9px; color: #555; margin-top: 4px;">
           <div>do faktury nr: <strong>${invoice.correction_data.original_invoice_number}</strong></div>
