@@ -334,3 +334,6 @@ verify_jwt = false
 
 [functions.contact-form]
 verify_jwt = false
+
+[functions.submit-category-request]
+verify_jwt = false

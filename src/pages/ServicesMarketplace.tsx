@@ -67,7 +67,7 @@ const CATEGORY_GROUPS = [
       'services.groups.auto.sub.fleet',
       'services.groups.auto.sub.ppf',
     ],
-    slugs: ['warsztat', 'detailing', 'ppf'],
+    slugs: ['warsztat', 'mechanika', 'detailing', 'myjnia', 'wulkanizacja', 'klimatyzacja', 'elektryka-auto', 'blacharstwo', 'auto-szyby', 'serwis-lpg', 'przeglady', 'holowanie', 'ppf'],
   },
   {
     id: 'dom',
@@ -242,7 +242,8 @@ export default function ServicesMarketplace() {
           *,
           category:service_categories(*),
           services(id, name, price, price_type),
-          provider_services(id, name, price_from, price_to, is_active, category)
+          provider_services(id, name, price_from, price_to, is_active, category, category_id),
+          provider_service_categories(id, name, service_category_id, is_active)
         `)
         .eq('status', 'active')
         .order('rating_avg', { ascending: false, nullsFirst: false });
@@ -273,7 +274,10 @@ export default function ServicesMarketplace() {
     if (selectedCategorySlug) {
       const slug = selectedCategorySlug.toLowerCase();
       const slugWords = slug.replace(/-/g, ' ');
-      const categoryMatch = provider.category?.slug === selectedCategorySlug;
+      const selectedCatId = categories.find(c => c.slug === selectedCategorySlug)?.id;
+      const categoryMatch = provider.category?.slug === selectedCategorySlug
+        || (!!selectedCatId && (provider as any).provider_service_categories?.some(
+          (pc: any) => pc.is_active !== false && pc.service_category_id === selectedCatId));
       // Sprawdź provider_services (raw) – is_active + dopasowanie po category lub nazwie usługi
       const hasServicesInCategory = (provider as any).provider_services?.some(
         (ps: any) => (ps.is_active !== false) && (
@@ -296,7 +300,10 @@ export default function ServicesMarketplace() {
     if (selectedGroup && !selectedCategorySlug) {
       const group = selectedGroup;
       if (group.slugs.length > 0) {
-        const hasGroupSlug = group.slugs.includes(provider.category?.slug || '');
+        const groupCatIds = categories.filter(c => group.slugs.includes(c.slug)).map(c => c.id);
+        const hasGroupSlug = group.slugs.includes(provider.category?.slug || '')
+          || (provider as any).provider_service_categories?.some(
+            (pc: any) => pc.is_active !== false && groupCatIds.includes(pc.service_category_id));
         const nameOrDescMatch = group.slugs.some(s => {
           const sw = s.replace(/-/g, ' ');
           return provider.company_name?.toLowerCase().includes(sw) ||

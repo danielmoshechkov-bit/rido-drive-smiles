@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,6 +28,13 @@ interface Service {
   price_type: string;
   duration_minutes: number;
   photos?: string[];
+  category_id?: string | null;
+}
+
+interface ProviderCatalogCategory {
+  id: string;
+  name: string;
+  service_category_id: string | null;
 }
 
 interface Review {
@@ -61,7 +68,16 @@ interface ServiceProvider {
 export function ServiceProviderDetailPage() {
   const navigate = useNavigate();
   const { providerId } = useParams();
-  
+  const [searchParams] = useSearchParams();
+  const browsedCategorySlug = searchParams.get('kategoria');
+  const [providerCats, setProviderCats] = useState<ProviderCatalogCategory[]>([]);
+  const [browsedCatalogId, setBrowsedCatalogId] = useState<string | null>(null);
+
+  // Auth state
+  const [user, setUser] = useState<any>(null);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showContactPhone, setShowContactPhone] = useState(false);
+
   const [provider, setProvider] = useState<ServiceProvider | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -70,11 +86,26 @@ export function ServiceProviderDetailPage() {
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
+
+  // Oferta pogrupowana po kategoriach usługodawcy — kategoria, z której przyszedł klient, na górze
+  const serviceGroups = useMemo(() => {
+    const groups = providerCats.map(c => ({
+      key: c.id,
+      name: c.name,
+      highlighted: !!browsedCatalogId && c.service_category_id === browsedCatalogId,
+      items: services.filter(s => s.category_id === c.id),
+    })).filter(g => g.items.length > 0);
+
+    const knownIds = new Set(providerCats.map(c => c.id));
+    const rest = services.filter(s => !s.category_id || !knownIds.has(s.category_id));
+    if (rest.length > 0) {
+      groups.push({ key: 'other', name: 'Pozostałe usługi', highlighted: false, items: rest });
+    }
+    return groups.sort((a, b) => Number(b.highlighted) - Number(a.highlighted));
+  }, [providerCats, services, browsedCatalogId]);
+
   
-  // Auth state
-  const [user, setUser] = useState<any>(null);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [showContactPhone, setShowContactPhone] = useState(false);
+  
 
   // CORE: tłumaczenie opisu usługodawcy (lazy + globalny cache)
   const { text: providerDescription, loading: descLoading } =
@@ -148,6 +179,7 @@ export function ServiceProviderDetailPage() {
           price_type: s.price_type || 'fixed',
           duration_minutes: s.duration_minutes || 60,
           category: s.category,
+          category_id: s.category_id || null,
           photos: s.photos || [],
           is_active: true,
           _isProviderCategory: s.category === providerCategory || s.category === 'ogolne',
@@ -167,6 +199,25 @@ export function ServiceProviderDetailPage() {
       });
       
       if (allServices.length > 0) setServices(allServices);
+
+      // Kategorie usługodawcy (grupowanie oferty) + kategoria, z której klient przyszedł
+      const { data: pcats } = await (supabase as any)
+        .from('provider_service_categories')
+        .select('id, name, service_category_id, is_active, sort_order')
+        .eq('provider_id', providerId)
+        .order('sort_order', { ascending: true });
+      setProviderCats(((pcats || []) as any[]).filter(c => c.is_active !== false));
+
+      if (browsedCategorySlug) {
+        const { data: cat } = await supabase
+          .from('service_categories')
+          .select('id')
+          .eq('slug', browsedCategorySlug)
+          .maybeSingle();
+        setBrowsedCatalogId(cat?.id || null);
+      } else {
+        setBrowsedCatalogId(null);
+      }
 
       // Load reviews
       const { data: reviewsData } = await supabase
@@ -452,8 +503,21 @@ export function ServiceProviderDetailPage() {
                   Ten usługodawca nie ma jeszcze dodanych usług
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {services.map(service => (
+                <div className="space-y-8">
+                  {serviceGroups.map(group => (
+                    <div key={group.key} className="space-y-3">
+                      {serviceGroups.length > 1 && (
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-extrabold text-slate-900">{group.name}</h3>
+                          <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5">
+                            {group.items.length}
+                          </span>
+                          {group.highlighted && (
+                            <Badge className="text-[10px]">Szukana kategoria</Badge>
+                          )}
+                        </div>
+                      )}
+                      {group.items.map(service => (
                     <Card key={service.id} className="hover:border-primary/50 hover:shadow-md transition-all rounded-xl border border-slate-200">
                       <CardContent className="p-4 flex items-center justify-between">
                         <div className="flex-1">
@@ -493,9 +557,12 @@ export function ServiceProviderDetailPage() {
                         </div>
                       </CardContent>
                     </Card>
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}
+
             </div>
 
             {/* Reviews — sekcja w ogóle ukryta gdy 0 opinii */}
