@@ -72,6 +72,24 @@ export function ServiceProviderDetailPage() {
   const browsedCategorySlug = searchParams.get('kategoria');
   const [providerCats, setProviderCats] = useState<ProviderCatalogCategory[]>([]);
   const [browsedCatalogId, setBrowsedCatalogId] = useState<string | null>(null);
+
+  // Oferta pogrupowana po kategoriach usługodawcy — kategoria, z której przyszedł klient, na górze
+  const serviceGroups = useMemo(() => {
+    const groups = providerCats.map(c => ({
+      key: c.id,
+      name: c.name,
+      highlighted: !!browsedCatalogId && c.service_category_id === browsedCatalogId,
+      items: services.filter(s => s.category_id === c.id),
+    })).filter(g => g.items.length > 0);
+
+    const knownIds = new Set(providerCats.map(c => c.id));
+    const rest = services.filter(s => !s.category_id || !knownIds.has(s.category_id));
+    if (rest.length > 0) {
+      groups.push({ key: 'other', name: 'Pozostałe usługi', highlighted: false, items: rest });
+    }
+    return groups.sort((a, b) => Number(b.highlighted) - Number(a.highlighted));
+  }, [providerCats, services, browsedCatalogId]);
+
   
   const [provider, setProvider] = useState<ServiceProvider | null>(null);
   const [services, setServices] = useState<Service[]>([]);
