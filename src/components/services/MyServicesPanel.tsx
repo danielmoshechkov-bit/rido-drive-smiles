@@ -1165,16 +1165,9 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
                             value={item.price_to ?? ''}
                             onChange={e => setAiItems(p => p.map((x, i) => i === idx ? { ...x, price_to: e.target.value ? Number(e.target.value) : null } : x))}
                           />
-                          <Select
-                            value={item.category_id || 'none'}
-                            onValueChange={v => setAiItems(p => p.map((x, i) => i === idx ? { ...x, category_id: v === 'none' ? null : v } : x))}
-                          >
-                            <SelectTrigger><SelectValue placeholder="Kategoria" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Bez kategorii</SelectItem>
-                              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
+                          <div className="sm:col-span-2">
+                            {renderCategoryPicker(`ai-${idx}`, item.category_id || null, v => setAiItems(p => p.map((x, i) => i === idx ? { ...x, category_id: v } : x)))}
+                          </div>
                         </div>
                       </div>
                     </div>
