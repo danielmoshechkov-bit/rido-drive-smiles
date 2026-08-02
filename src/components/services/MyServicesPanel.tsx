@@ -18,8 +18,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Plus, Pencil, Trash2, MoreVertical, Upload, X, Clock, Phone, Wrench,
-  Copy, EyeOff, Eye, Save, Image as ImageIcon, Star, GripVertical,
+  Copy, EyeOff, Eye, Save, Image as ImageIcon, Star, GripVertical, Sparkles, Loader2,
 } from 'lucide-react';
+
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
 import {
   DAY_ORDER, DAY_LABELS, DEFAULT_WORKING_HOURS, normalizeWorkingHours, getOpenStatus,
@@ -255,6 +256,82 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
   const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // ---------- Dodawanie usług przez GetRido AI ----------
+  interface AiItem {
+    name: string;
+    short_description: string;
+    price_mode: PriceMode;
+    price_from: number | null;
+    price_to: number | null;
+    duration_minutes: number | null;
+    category_id: string | null;
+    include: boolean;
+  }
+  const [aiDialog, setAiDialog] = useState(false);
+  const [aiText, setAiText] = useState('');
+  const [aiItems, setAiItems] = useState<AiItem[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSaving, setAiSaving] = useState(false);
+
+  const runAi = async () => {
+    if (aiText.trim().length < 5) { toast.error('Opisz swoje usługi'); return; }
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-extract-services', {
+        body: { text: aiText, categories: categories.map(c => ({ id: c.id, name: c.name })) },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const items = ((data as any)?.services || []) as Omit<AiItem, 'include'>[];
+      if (!items.length) { toast.error('AI nie znalazło pozycji — dopisz więcej szczegółów'); return; }
+      setAiItems(items.map(i => ({ ...i, include: true })));
+    } catch (e: any) {
+      toast.error(e?.message || 'Nie udało się przetworzyć opisu');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const saveAiItems = async () => {
+    const picked = aiItems.filter(i => i.include);
+    if (!picked.length) { toast.error('Zaznacz przynajmniej jedną pozycję'); return; }
+    setAiSaving(true);
+    try {
+      const rows = picked.map((i, idx) => {
+        const from = i.price_from ?? 0;
+        const to = i.price_to ?? 0;
+        let priceFrom = 0, priceTo = 0;
+        if (i.price_mode === 'fixed') { priceFrom = from; priceTo = from; }
+        else if (i.price_mode === 'from') { priceFrom = from; priceTo = 0; }
+        else if (i.price_mode === 'range') { priceFrom = from; priceTo = Math.max(to, from); }
+        return {
+          provider_id: providerId,
+          name: i.name,
+          short_description: i.short_description || null,
+          description: null,
+          price_from: priceFrom,
+          price_to: priceTo,
+          duration_minutes: i.duration_minutes,
+          category_id: i.category_id,
+          category: 'ogolne',
+          is_active: true,
+          photos: [],
+          sort_order: services.length + idx,
+        };
+      });
+      const { error } = await (supabase as any).from('provider_services').insert(rows);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['provider-services', providerId] });
+      setAiDialog(false); setAiItems([]); setAiText('');
+      toast.success(`Dodano ${rows.length} pozycji cennika`);
+    } catch (e: any) {
+      toast.error('Błąd zapisu: ' + (e?.message || ''));
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
 
   const openNew = () => {
     setEditing(null);
@@ -597,12 +674,21 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
                 ))
               )}
 
-              <button
-                onClick={openNew}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 py-3 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
-              >
-                <Plus className="h-4 w-4" /> Dodaj usługę
-              </button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  onClick={openNew}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 py-3 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
+                >
+                  <Plus className="h-4 w-4" /> Dodaj usługę
+                </button>
+                <button
+                  onClick={() => { setAiText(''); setAiItems([]); setAiDialog(true); }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+                >
+                  <Sparkles className="h-4 w-4" /> Dodaj z GetRido AI
+                </button>
+              </div>
+
             </CardContent>
           </Card>
         </>
@@ -962,7 +1048,108 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog — dodawanie cennika przez GetRido AI */}
+      <Dialog open={aiDialog} onOpenChange={setAiDialog}>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" /> Dodaj cennik z GetRido AI
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Opisz swoją firmę i usługi razem z cenami — jednym tekstem, tak jak mówisz klientowi.
+              AI zamieni to na gotowe pozycje cennika, a Ty je tylko zatwierdzisz.
+            </p>
+            <Textarea
+              rows={6}
+              value={aiText}
+              onChange={e => setAiText(e.target.value)}
+              placeholder={'np. Robimy mycie auta od 60 zł (ok. 40 min), pranie tapicerki 300-600 zł, korekta lakieru 1500 zł, powłoka ceramiczna od 2500 zł. Wymiana oleju 150 zł.'}
+              className="resize-none"
+            />
+            <Button onClick={runAi} disabled={aiLoading} className="gap-2">
+              {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {aiLoading ? 'Analizuję…' : 'Wygeneruj pozycje'}
+            </Button>
+
+            {aiItems.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">
+                  Znalezione pozycje ({aiItems.filter(i => i.include).length}/{aiItems.length})
+                </p>
+                {aiItems.map((item, idx) => (
+                  <div key={idx} className={`rounded-xl border p-3 space-y-2 ${item.include ? 'border-primary/40 bg-primary/5' : 'opacity-60'}`}>
+                    <div className="flex items-start gap-2">
+                      <Switch
+                        checked={item.include}
+                        onCheckedChange={v => setAiItems(p => p.map((x, i) => i === idx ? { ...x, include: v } : x))}
+                      />
+                      <div className="flex-1 space-y-2">
+                        <Input
+                          value={item.name}
+                          onChange={e => setAiItems(p => p.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                          className="font-semibold"
+                        />
+                        <Input
+                          value={item.short_description}
+                          placeholder="Krótki opis"
+                          onChange={e => setAiItems(p => p.map((x, i) => i === idx ? { ...x, short_description: e.target.value } : x))}
+                        />
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          <Select
+                            value={item.price_mode}
+                            onValueChange={(v: PriceMode) => setAiItems(p => p.map((x, i) => i === idx ? { ...x, price_mode: v } : x))}
+                          >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {(Object.keys(PRICE_MODE_LABELS) as PriceMode[]).map(m => (
+                                <SelectItem key={m} value={m}>{PRICE_MODE_LABELS[m]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number" placeholder="Cena od"
+                            value={item.price_from ?? ''}
+                            onChange={e => setAiItems(p => p.map((x, i) => i === idx ? { ...x, price_from: e.target.value ? Number(e.target.value) : null } : x))}
+                          />
+                          <Input
+                            type="number" placeholder="Cena do"
+                            value={item.price_to ?? ''}
+                            onChange={e => setAiItems(p => p.map((x, i) => i === idx ? { ...x, price_to: e.target.value ? Number(e.target.value) : null } : x))}
+                          />
+                          <Select
+                            value={item.category_id || 'none'}
+                            onValueChange={v => setAiItems(p => p.map((x, i) => i === idx ? { ...x, category_id: v === 'none' ? null : v } : x))}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Kategoria" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Bez kategorii</SelectItem>
+                              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAiDialog(false)}>Anuluj</Button>
+            <Button onClick={saveAiItems} disabled={aiSaving || aiItems.filter(i => i.include).length === 0}>
+              <Save className="h-4 w-4 mr-2" />
+              {aiSaving ? 'Zapisywanie…' : 'Dodaj do cennika'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
 

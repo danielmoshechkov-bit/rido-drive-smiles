@@ -95,7 +95,7 @@ const CATEGORY_GROUPS = [
       'services.groups.beauty.sub.lashes',
       'services.groups.beauty.sub.spa',
     ],
-    slugs: [],
+    slugs: ['fryzjer', 'kosmetyczka', 'paznokcie', 'rzesy-brwi', 'spa-masaz', 'barber'],
   },
   {
     id: 'zdrowie',
@@ -109,7 +109,7 @@ const CATEGORY_GROUPS = [
       'services.groups.zdrowie.sub.psychologists',
       'services.groups.zdrowie.sub.dietitians',
     ],
-    slugs: [],
+    slugs: ['lekarz', 'dentysta', 'fizjoterapeuta', 'psycholog', 'dietetyk'],
   },
   {
     id: 'ekspert',
@@ -123,7 +123,7 @@ const CATEGORY_GROUPS = [
       'services.groups.ekspert.sub.notaries',
       'services.groups.ekspert.sub.translators',
     ],
-    slugs: [],
+    slugs: ['prawnik', 'ksiegowy', 'doradca-finansowy', 'notariusz', 'tlumacz'],
   },
   {
     id: 'dostawy',
@@ -136,7 +136,7 @@ const CATEGORY_GROUPS = [
       'services.groups.dostawy.sub.moving',
       'services.groups.dostawy.sub.passengerTransport',
     ],
-    slugs: ['przeprowadzki'],
+    slugs: ['kurier', 'transport', 'przeprowadzki', 'przewoz-osob'],
   },
   {
     id: 'fachowiec',
@@ -150,7 +150,7 @@ const CATEGORY_GROUPS = [
       'services.groups.fachowiec.sub.painters',
       'services.groups.fachowiec.sub.handyman',
     ],
-    slugs: ['hydraulik', 'elektryk', 'zlota-raczka', 'ogrodnik'],
+    slugs: ['hydraulik', 'elektryk', 'stolarz', 'malarz', 'glazurnik', 'dekarz', 'klimatyzacja-dom', 'zlota-raczka', 'ogrodnik'],
   },
 ];
 
