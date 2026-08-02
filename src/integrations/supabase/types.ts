@@ -6563,6 +6563,45 @@ export type Database = {
           },
         ]
       }
+      contact_messages: {
+        Row: {
+          city: string | null
+          created_at: string
+          email: string
+          id: string
+          ip: string | null
+          message: string
+          name: string
+          phone: string | null
+          status: string
+          user_agent: string | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          ip?: string | null
+          message: string
+          name: string
+          phone?: string | null
+          status?: string
+          user_agent?: string | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          ip?: string | null
+          message?: string
+          name?: string
+          phone?: string | null
+          status?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       contract_signature_logs: {
         Row: {
           action_type: string
@@ -9049,6 +9088,519 @@ export type Database = {
         }
         Relationships: []
       }
+      fiscal_corrections: {
+        Row: {
+          corrected_at: string
+          correction_number: string
+          created_at: string
+          created_by: string | null
+          document_url: string | null
+          id: string
+          items: Json
+          original_receipt_attached: boolean
+          provider_id: string
+          reason_note: string
+          receipt_id: string
+          receipt_number: number | null
+          report_date: string | null
+          sale_date: string | null
+          updated_at: string
+          vat_breakdown: Json
+          wrong_amount_grosze: number
+          wrong_vat_grosze: number
+        }
+        Insert: {
+          corrected_at?: string
+          correction_number: string
+          created_at?: string
+          created_by?: string | null
+          document_url?: string | null
+          id?: string
+          items?: Json
+          original_receipt_attached?: boolean
+          provider_id: string
+          reason_note: string
+          receipt_id: string
+          receipt_number?: number | null
+          report_date?: string | null
+          sale_date?: string | null
+          updated_at?: string
+          vat_breakdown?: Json
+          wrong_amount_grosze: number
+          wrong_vat_grosze?: number
+        }
+        Update: {
+          corrected_at?: string
+          correction_number?: string
+          created_at?: string
+          created_by?: string | null
+          document_url?: string | null
+          id?: string
+          items?: Json
+          original_receipt_attached?: boolean
+          provider_id?: string
+          reason_note?: string
+          receipt_id?: string
+          receipt_number?: number | null
+          report_date?: string | null
+          sale_date?: string | null
+          updated_at?: string
+          vat_breakdown?: Json
+          wrong_amount_grosze?: number
+          wrong_vat_grosze?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_corrections_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_corrections_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fiscal_ereceipts: {
+        Row: {
+          consent_at: string | null
+          consent_given: boolean
+          created_at: string
+          error_message: string | null
+          external_id: string | null
+          external_url: string | null
+          id: string
+          payload: Json | null
+          provider: string
+          provider_id: string
+          receipt_id: string | null
+          recipient_email: string | null
+          recipient_phone: string | null
+          response: Json | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          consent_at?: string | null
+          consent_given?: boolean
+          created_at?: string
+          error_message?: string | null
+          external_id?: string | null
+          external_url?: string | null
+          id?: string
+          payload?: Json | null
+          provider?: string
+          provider_id: string
+          receipt_id?: string | null
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          response?: Json | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          consent_at?: string | null
+          consent_given?: boolean
+          created_at?: string
+          error_message?: string | null
+          external_id?: string | null
+          external_url?: string | null
+          id?: string
+          payload?: Json | null
+          provider?: string
+          provider_id?: string
+          receipt_id?: string | null
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          response?: Json | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_ereceipts_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_ereceipts_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fiscal_payment_intents: {
+        Row: {
+          amount_grosze: number
+          authorization_code: string | null
+          created_at: string
+          created_by: string | null
+          document_id: string | null
+          document_type: string
+          error_message: string | null
+          external_id: string | null
+          id: string
+          method: string
+          paid_at: string | null
+          provider_id: string
+          receipt_id: string | null
+          response: Json | null
+          status: string
+          terminal_id: string | null
+          terminal_provider: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_grosze: number
+          authorization_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          document_type?: string
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          method?: string
+          paid_at?: string | null
+          provider_id: string
+          receipt_id?: string | null
+          response?: Json | null
+          status?: string
+          terminal_id?: string | null
+          terminal_provider?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_grosze?: number
+          authorization_code?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          document_type?: string
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          method?: string
+          paid_at?: string | null
+          provider_id?: string
+          receipt_id?: string | null
+          response?: Json | null
+          status?: string
+          terminal_id?: string | null
+          terminal_provider?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_payment_intents_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_payment_intents_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fiscal_printers: {
+        Row: {
+          codepage: string
+          command_timeout_ms: number
+          connection_mode: string
+          created_at: string
+          default_unit: string
+          host: string
+          id: string
+          is_active: boolean
+          is_default: boolean
+          item_name_length: number
+          last_clock: string | null
+          last_day_report_at: string | null
+          last_seen_at: string | null
+          last_status: string | null
+          last_status_message: string | null
+          mode: string
+          model: string | null
+          name: string
+          port: number
+          protocol: string
+          provider_id: string
+          updated_at: string
+          vat_map: Json
+        }
+        Insert: {
+          codepage?: string
+          command_timeout_ms?: number
+          connection_mode?: string
+          created_at?: string
+          default_unit?: string
+          host: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          item_name_length?: number
+          last_clock?: string | null
+          last_day_report_at?: string | null
+          last_seen_at?: string | null
+          last_status?: string | null
+          last_status_message?: string | null
+          mode?: string
+          model?: string | null
+          name?: string
+          port?: number
+          protocol?: string
+          provider_id: string
+          updated_at?: string
+          vat_map?: Json
+        }
+        Update: {
+          codepage?: string
+          command_timeout_ms?: number
+          connection_mode?: string
+          created_at?: string
+          default_unit?: string
+          host?: string
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          item_name_length?: number
+          last_clock?: string | null
+          last_day_report_at?: string | null
+          last_seen_at?: string | null
+          last_status?: string | null
+          last_status_message?: string | null
+          mode?: string
+          model?: string | null
+          name?: string
+          port?: number
+          protocol?: string
+          provider_id?: string
+          updated_at?: string
+          vat_map?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_printers_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fiscal_receipts: {
+        Row: {
+          buyer_nip: string | null
+          created_at: string
+          created_by: string | null
+          document_id: string | null
+          document_type: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          items: Json
+          payment_ref: string | null
+          payments: Json
+          printed_at: string | null
+          printer_id: string | null
+          printer_mode: string | null
+          printer_number_before: number | null
+          printer_receipt_number: number | null
+          provider_id: string
+          status: string
+          superseded_by_correction_id: string | null
+          total_grosze: number
+          trace: Json | null
+          updated_at: string
+          vat_map: Json
+        }
+        Insert: {
+          buyer_nip?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          document_type?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          items: Json
+          payment_ref?: string | null
+          payments?: Json
+          printed_at?: string | null
+          printer_id?: string | null
+          printer_mode?: string | null
+          printer_number_before?: number | null
+          printer_receipt_number?: number | null
+          provider_id: string
+          status?: string
+          superseded_by_correction_id?: string | null
+          total_grosze: number
+          trace?: Json | null
+          updated_at?: string
+          vat_map: Json
+        }
+        Update: {
+          buyer_nip?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          document_type?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          items?: Json
+          payment_ref?: string | null
+          payments?: Json
+          printed_at?: string | null
+          printer_id?: string | null
+          printer_mode?: string | null
+          printer_number_before?: number | null
+          printer_receipt_number?: number | null
+          provider_id?: string
+          status?: string
+          superseded_by_correction_id?: string | null
+          total_grosze?: number
+          trace?: Json | null
+          updated_at?: string
+          vat_map?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_receipts_printer_id_fkey"
+            columns: ["printer_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_printers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_receipts_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_receipts_superseded_by_correction_id_fkey"
+            columns: ["superseded_by_correction_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_corrections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fiscal_returns: {
+        Row: {
+          amount_grosze: number
+          buyer_signed_at: string | null
+          created_at: string
+          created_by: string | null
+          customer_document: string | null
+          customer_name: string | null
+          document_url: string | null
+          id: string
+          items: Json
+          provider_id: string
+          reason: string
+          reason_note: string | null
+          receipt_id: string
+          receipt_number: number | null
+          report_date: string | null
+          return_number: string
+          return_type: string | null
+          returned_at: string
+          sale_date: string | null
+          seller_name: string | null
+          seller_signed_at: string | null
+          signed_at: string | null
+          updated_at: string
+          vat_breakdown: Json
+        }
+        Insert: {
+          amount_grosze: number
+          buyer_signed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_document?: string | null
+          customer_name?: string | null
+          document_url?: string | null
+          id?: string
+          items: Json
+          provider_id: string
+          reason: string
+          reason_note?: string | null
+          receipt_id: string
+          receipt_number?: number | null
+          report_date?: string | null
+          return_number: string
+          return_type?: string | null
+          returned_at?: string
+          sale_date?: string | null
+          seller_name?: string | null
+          seller_signed_at?: string | null
+          signed_at?: string | null
+          updated_at?: string
+          vat_breakdown?: Json
+        }
+        Update: {
+          amount_grosze?: number
+          buyer_signed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_document?: string | null
+          customer_name?: string | null
+          document_url?: string | null
+          id?: string
+          items?: Json
+          provider_id?: string
+          reason?: string
+          reason_note?: string | null
+          receipt_id?: string
+          receipt_number?: number | null
+          report_date?: string | null
+          return_number?: string
+          return_type?: string | null
+          returned_at?: string
+          sale_date?: string | null
+          seller_name?: string | null
+          seller_signed_at?: string | null
+          signed_at?: string | null
+          updated_at?: string
+          vat_breakdown?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_returns_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fiscal_returns_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fleet_city_payment_settings: {
         Row: {
           cash_address_number: string | null
@@ -10953,6 +11505,7 @@ export type Database = {
           default_sale_price_gross: number | null
           default_sale_price_net: number | null
           entity_id: string | null
+          fiscal_name: string | null
           id: string
           is_active: boolean | null
           name_sales: string
@@ -10974,6 +11527,7 @@ export type Database = {
           default_sale_price_gross?: number | null
           default_sale_price_net?: number | null
           entity_id?: string | null
+          fiscal_name?: string | null
           id?: string
           is_active?: boolean | null
           name_sales: string
@@ -10995,6 +11549,7 @@ export type Database = {
           default_sale_price_gross?: number | null
           default_sale_price_net?: number | null
           entity_id?: string | null
+          fiscal_name?: string | null
           id?: string
           is_active?: boolean | null
           name_sales?: string
@@ -14976,6 +15531,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           duration_minutes: number | null
+          fiscal_name: string | null
           id: string
           is_active: boolean | null
           name: string
@@ -14991,6 +15547,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           duration_minutes?: number | null
+          fiscal_name?: string | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -15006,6 +15563,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           duration_minutes?: number | null
+          fiscal_name?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
@@ -15025,6 +15583,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      public_token_rate_limit: {
+        Row: {
+          attempts: number
+          bucket_key: string
+          window_start: string
+        }
+        Insert: {
+          attempts?: number
+          bucket_key: string
+          window_start?: string
+        }
+        Update: {
+          attempts?: number
+          bucket_key?: string
+          window_start?: string
+        }
+        Relationships: []
       }
       purchase_document_items: {
         Row: {
@@ -21374,6 +21950,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           due_date: string | null
+          fiscal_receipt_id: string | null
           gross_total: number | null
           id: string
           invoice_number: string
@@ -21427,6 +22004,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           due_date?: string | null
+          fiscal_receipt_id?: string | null
           gross_total?: number | null
           id?: string
           invoice_number: string
@@ -21480,6 +22058,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           due_date?: string | null
+          fiscal_receipt_id?: string | null
           gross_total?: number | null
           id?: string
           invoice_number?: string
@@ -21534,6 +22113,13 @@ export type Database = {
             columns: ["corrected_invoice_id"]
             isOneToOne: false
             referencedRelation: "user_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_invoices_fiscal_receipt_id_fkey"
+            columns: ["fiscal_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_receipts"
             referencedColumns: ["id"]
           },
         ]
@@ -24084,6 +24670,7 @@ export type Database = {
           proposed_date: string | null
           proposed_time: string | null
           provider_id: string
+          public_token: string | null
           reminder_24h_sent: boolean
           reminder_2h_sent: boolean
           reminder_enabled: boolean
@@ -24115,6 +24702,7 @@ export type Database = {
           proposed_date?: string | null
           proposed_time?: string | null
           provider_id: string
+          public_token?: string | null
           reminder_24h_sent?: boolean
           reminder_2h_sent?: boolean
           reminder_enabled?: boolean
@@ -24146,6 +24734,7 @@ export type Database = {
           proposed_date?: string | null
           proposed_time?: string | null
           provider_id?: string
+          public_token?: string | null
           reminder_24h_sent?: boolean
           reminder_2h_sent?: boolean
           reminder_enabled?: boolean
@@ -24610,6 +25199,7 @@ export type Database = {
           edited_by_name: string | null
           employee_id: string | null
           expense_date: string
+          fiscal_return_id: string | null
           id: string
           method: string | null
           provider_id: string
@@ -24632,6 +25222,7 @@ export type Database = {
           edited_by_name?: string | null
           employee_id?: string | null
           expense_date?: string
+          fiscal_return_id?: string | null
           id?: string
           method?: string | null
           provider_id: string
@@ -24654,6 +25245,7 @@ export type Database = {
           edited_by_name?: string | null
           employee_id?: string | null
           expense_date?: string
+          fiscal_return_id?: string | null
           id?: string
           method?: string | null
           provider_id?: string
@@ -24671,6 +25263,13 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "workshop_employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_expenses_fiscal_return_id_fkey"
+            columns: ["fiscal_return_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_returns"
             referencedColumns: ["id"]
           },
           {
@@ -25657,6 +26256,7 @@ export type Database = {
           created_by_name: string | null
           edited_at: string | null
           edited_by_name: string | null
+          fiscal_receipt_id: string | null
           id: string
           invoice_id: string | null
           method: string
@@ -25676,6 +26276,7 @@ export type Database = {
           created_by_name?: string | null
           edited_at?: string | null
           edited_by_name?: string | null
+          fiscal_receipt_id?: string | null
           id?: string
           invoice_id?: string | null
           method: string
@@ -25695,6 +26296,7 @@ export type Database = {
           created_by_name?: string | null
           edited_at?: string | null
           edited_by_name?: string | null
+          fiscal_receipt_id?: string | null
           id?: string
           invoice_id?: string | null
           method?: string
@@ -25708,6 +26310,13 @@ export type Database = {
           voided_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "workshop_payments_fiscal_receipt_id_fkey"
+            columns: ["fiscal_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_receipts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workshop_payments_order_id_fkey"
             columns: ["order_id"]
@@ -27628,6 +28237,11 @@ export type Database = {
       }
     }
     Functions: {
+      _client_ip: { Args: never; Returns: string }
+      _rl_touch: {
+        Args: { p_key: string; p_max: number; p_window: string }
+        Returns: undefined
+      }
       admin_find_user_by_email: {
         Args: { p_email: string }
         Returns: {
@@ -27740,6 +28354,7 @@ export type Database = {
       }
       driver_owns_record: { Args: { _driver_id: string }; Returns: boolean }
       ensure_referral_code: { Args: { p_user_id: string }; Returns: string }
+      gen_public_token: { Args: { p_len?: number }; Returns: string }
       generate_random_listing_number: { Args: never; Returns: string }
       generate_telegram_token: { Args: never; Returns: Json }
       get_active_commission: {
@@ -27824,6 +28439,14 @@ export type Database = {
       is_company_owner: { Args: { p_company_id: string }; Returns: boolean }
       is_driver_user: { Args: never; Returns: boolean }
       is_entity_owner: { Args: { p_entity_id: string }; Returns: boolean }
+      is_fiscal_provider_member: {
+        Args: { p_provider_id: string }
+        Returns: boolean
+      }
+      is_fiscal_provider_owner: {
+        Args: { p_provider_id: string }
+        Returns: boolean
+      }
       is_plan_available: { Args: { _plan_id: string }; Returns: boolean }
       is_sales_admin: { Args: { p_user_id: string }; Returns: boolean }
       is_sales_user: { Args: { p_user_id: string }; Returns: boolean }
