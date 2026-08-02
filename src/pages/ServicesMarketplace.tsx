@@ -614,8 +614,8 @@ export default function ServicesMarketplace() {
               {t('ui.all', 'Wszystkie')}
             </Badge>
             {(activeGroup
-              ? categories.filter(c => activeGroup.slugs.includes(c.slug))
-              : categories
+              ? visibleCategories.filter(c => activeGroup.slugs.includes(c.slug))
+              : visibleCategories
             ).map(cat => {
               const IconComponent = categoryIcons[cat.icon];
               return (
