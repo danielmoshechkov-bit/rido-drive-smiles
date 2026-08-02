@@ -981,14 +981,8 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
               <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="np. Wymiana oleju" />
             </div>
             <div className="space-y-2">
-              <Label>Kategoria</Label>
-              <Select value={form.category_id || 'none'} onValueChange={v => setForm(p => ({ ...p, category_id: v === 'none' ? '' : v }))}>
-                <SelectTrigger><SelectValue placeholder="Bez kategorii" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Bez kategorii</SelectItem>
-                  {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>Kategoria (grupa → podkategoria)</Label>
+              {renderCategoryPicker('form', form.category_id || null, v => setForm(p => ({ ...p, category_id: v || '' })))}
             </div>
             <div className="space-y-2">
               <Label>Krótki opis</Label>
