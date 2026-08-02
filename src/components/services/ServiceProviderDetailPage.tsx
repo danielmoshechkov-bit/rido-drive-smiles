@@ -78,6 +78,15 @@ export function ServiceProviderDetailPage() {
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showContactPhone, setShowContactPhone] = useState(false);
 
+  const [provider, setProvider] = useState<ServiceProvider | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [isFavorited, setIsFavorited] = useState(false);
+
   // Oferta pogrupowana po kategoriach usługodawcy — kategoria, z której przyszedł klient, na górze
   const serviceGroups = useMemo(() => {
     const groups = providerCats.map(c => ({
@@ -96,14 +105,6 @@ export function ServiceProviderDetailPage() {
   }, [providerCats, services, browsedCatalogId]);
 
   
-  const [provider, setProvider] = useState<ServiceProvider | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [bookingModalOpen, setBookingModalOpen] = useState(false);
-  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-  const [isFavorited, setIsFavorited] = useState(false);
   
 
   // CORE: tłumaczenie opisu usługodawcy (lazy + globalny cache)
