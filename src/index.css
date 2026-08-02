@@ -1020,11 +1020,40 @@ input[type=number] {
 
 /* C1: usuwa niebieską ramkę focus przy kliknięciu myszą (mouse click nie
    wyzwala :focus-visible), zachowując widoczny focus przy nawigacji
-   klawiaturą — wymóg WCAG. Spójny ring w kolorze marki. */
-*:focus:not(:focus-visible) {
+   klawiaturą — wymóg WCAG. Spójny ring w kolorze marki.
+
+   Obrys dostają WYŁĄCZNIE elementy, które coś robią. Reguła `*:focus-visible`
+   obejmowała też zwykłe kontenery, a Chrome nadaje focus sekcjom z przewijaniem
+   (nawigacja klawiaturą po regionach) — wtedy Enter naciśnięty na pustym miejscu
+   obrysowywał fioletową ramką pół ekranu i wyglądało to jak awaria interfejsu. */
+*:focus {
   outline: none;
 }
-*:focus-visible {
+:is(
+  a[href],
+  button,
+  input,
+  select,
+  textarea,
+  summary,
+  [contenteditable="true"],
+  [tabindex="0"],
+  [role="button"],
+  [role="link"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="switch"],
+  [role="checkbox"],
+  [role="radio"],
+  [role="combobox"],
+  [role="slider"],
+  [role="spinbutton"],
+  [role="searchbox"],
+  [role="textbox"]
+):focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
   border-radius: 2px;

@@ -1152,7 +1152,40 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   };
 
   /**
-   * Automatyczny zapis kompletnych wierszy (nazwa + cena) po chwili bezruchu.
+   * Wyjście z wiersza = zapis od razu.
+   *
+   * Bez tego kompletna pozycja czekała na upływ sekundy bezruchu, więc przy szybkim
+   * wpisywaniu kilku pozycji pod rząd wszystkie wisiały niezapisane. Teraz wystarczy
+   * przejść do następnego wiersza — poprzedni jest już w bazie.
+   *
+   * `relatedTarget` to element, który przejmuje focus. Gdy nadal jest w tym samym
+   * wierszu (przeskok z nazwy na cenę), nic nie robimy — użytkownik wciąż go wypełnia.
+   */
+  const commitRowOnLeave = (
+    event: React.FocusEvent<HTMLTableRowElement>,
+    kind: 'task' | 'goods',
+    draftKey?: string,
+  ) => {
+    if (!draftKey) return;
+    const next = event.relatedTarget as Node | null;
+    if (next && event.currentTarget.contains(next)) return;
+
+    if (kind === 'task') {
+      const row = taskRows.find((r) => r.draftKey === draftKey);
+      if (!row || !isTaskDraftFilled(row) || autoSavingTaskDraftsRef.current) return;
+      autoSavingTaskDraftsRef.current = true;
+      void commitTaskRows([draftKey]).finally(() => { autoSavingTaskDraftsRef.current = false; });
+    } else {
+      const row = goodsRows.find((r) => r.draftKey === draftKey);
+      if (!row || !isGoodsDraftFilled(row) || autoSavingGoodsDraftsRef.current) return;
+      autoSavingGoodsDraftsRef.current = true;
+      void commitGoodsRows([draftKey]).finally(() => { autoSavingGoodsDraftsRef.current = false; });
+    }
+  };
+
+  /**
+   * Zapas na wypadek, gdyby użytkownik nie wyszedł z pola: kompletne wiersze zapisują się
+   * po chwili bezruchu.
    *
    * PO CO: pozycja wpisana i zostawiona bez Entera znikała przy przeładowaniu listy —
    * wyglądało to jak gubienie danych. Teraz wiersz zapisuje się sam, a Enter
@@ -1537,7 +1570,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   // FIX duplikatów: prefiks "draft-" — zapisana pozycja dostaje id === draftKey,
                   // więc goły draftKey kolidowałby z key={task.id} zapisanego wiersza obok.
                   return (
-                    <tr key={`draft-${row.draftKey ?? `new-task-${idx}`}`} className={nameMissing ? 'bg-destructive/10' : 'bg-primary/5'} data-task-draft-key={row.draftKey}>
+                    <tr key={`draft-${row.draftKey ?? `new-task-${idx}`}`} className={nameMissing ? 'bg-destructive/10' : 'bg-primary/5'} data-task-draft-key={row.draftKey} onBlur={(e) => commitRowOnLeave(e, 'task', row.draftKey)}>
                       <td className="p-2 text-center text-muted-foreground">
                         {tasks.length + idx + 1}
                       </td>
@@ -1857,7 +1890,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     : rowTotal - row.discount;
                   const nameMissing = !row.name.trim() && getDraftPrice(row, isGoodsGross) > 0;
                   return (
-                    <tr key={`draft-${row.draftKey ?? `new-goods-${idx}`}`} className={nameMissing ? 'bg-destructive/10' : 'bg-amber-500/5'} data-goods-draft-key={row.draftKey}>
+                    <tr key={`draft-${row.draftKey ?? `new-goods-${idx}`}`} className={nameMissing ? 'bg-destructive/10' : 'bg-amber-500/5'} data-goods-draft-key={row.draftKey} onBlur={(e) => commitRowOnLeave(e, 'goods', row.draftKey)}>
                       <td className="p-2 text-center text-muted-foreground">
                         {goods.length + idx + 1}
                       </td>
