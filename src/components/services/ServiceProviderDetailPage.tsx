@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,6 +73,11 @@ export function ServiceProviderDetailPage() {
   const [providerCats, setProviderCats] = useState<ProviderCatalogCategory[]>([]);
   const [browsedCatalogId, setBrowsedCatalogId] = useState<string | null>(null);
 
+  // Auth state
+  const [user, setUser] = useState<any>(null);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showContactPhone, setShowContactPhone] = useState(false);
+
   // Oferta pogrupowana po kategoriach usługodawcy — kategoria, z której przyszedł klient, na górze
   const serviceGroups = useMemo(() => {
     const groups = providerCats.map(c => ({
@@ -100,10 +105,6 @@ export function ServiceProviderDetailPage() {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
   
-  // Auth state
-  const [user, setUser] = useState<any>(null);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [showContactPhone, setShowContactPhone] = useState(false);
 
   // CORE: tłumaczenie opisu usługodawcy (lazy + globalny cache)
   const { text: providerDescription, loading: descLoading } =
