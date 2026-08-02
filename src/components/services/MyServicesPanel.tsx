@@ -520,7 +520,7 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
               <CatPill active={activeCat === 'none'} onClick={() => setActiveCat('none')} label="Bez kategorii" count={countFor('none')} />
             )}
             <button
-              onClick={() => { setEditingCat(null); setCatName(''); setPickedCatalogId(''); setCatDialog(true); }}
+              onClick={() => { setEditingCat(null); setCatName(''); setPickedGroup(''); setPickedSubs([]); setCatDialog(true); }}
               className="shrink-0 h-9 w-9 rounded-full border border-dashed border-primary/50 text-primary flex items-center justify-center hover:bg-primary/5"
               aria-label="Dodaj kategorię"
             >
