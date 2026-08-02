@@ -292,7 +292,13 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
       case 'zlecenia':
         return <WorkshopOrdersList providerId={providerId} onSelectOrder={setSelectedOrder} />;
       case 'klienci':
-        return <WorkshopClientsList providerId={providerId} onBack={() => goTo(null)} />;
+        return (
+          <WorkshopClientsList
+            providerId={providerId}
+            onBack={() => goTo(null)}
+            onOpenVehicle={(vehicle) => setSelectedVehicle(vehicle)}
+          />
+        );
       case 'pojazdy':
         return <WorkshopVehiclesList providerId={providerId} onBack={() => goTo(null)} onSelectVehicle={setSelectedVehicle} />;
       case 'terminarz':

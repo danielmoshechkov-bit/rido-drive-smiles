@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { WorkshopPager, pageSlice } from './WorkshopPager';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useWorkshopClients } from '@/hooks/useWorkshop';
+import { useWorkshopClients, useWorkshopVehicles } from '@/hooks/useWorkshop';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { Plus, Search, Loader2, Building, User, Phone, Mail } from 'lucide-react';
@@ -13,14 +14,34 @@ import { useTranslation } from 'react-i18next';
 interface Props {
   providerId: string;
   onBack: () => void;
+  /** Wejście w kartę pojazdu (historia napraw) prosto z kartoteki klienta. */
+  onOpenVehicle?: (vehicle: any) => void;
 }
 
-export function WorkshopClientsList({ providerId, onBack }: Props) {
+export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props) {
   const { t } = useTranslation();
   const { data: clients = [], isLoading } = useWorkshopClients(providerId);
+  /**
+   * Auta klienta prosto na liście.
+   *
+   * PO CO: bez tego kartoteka klientów to same nazwiska — nie widać, czyje to auto,
+   * i do historii napraw dało się wejść wyłącznie od strony Pojazdów. Recepcja pracuje
+   * odwrotnie: najpierw człowiek przy ladzie, potem jego samochód.
+   */
+  const { data: vehicles = [] } = useWorkshopVehicles(providerId);
+  const vehiclesByClient = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    (vehicles as any[]).forEach((v) => {
+      if (v.owner_client_id) (map[v.owner_client_id] ||= []).push(v);
+    });
+    return map;
+  }, [vehicles]);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editClient, setEditClient] = useState<any>(null);
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const filtered = useMemo(() => {
     if (!search) return clients;
@@ -35,6 +56,10 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
         (c.nip || '').includes(q);
     });
   }, [clients, search]);
+
+  const paged = pageSlice(filtered, page, pageSize);
+  // Zmiana wyszukiwania cofa na pierwszą stronę — inaczej wynik ląduje poza widokiem.
+  useEffect(() => { setPage(1); }, [search, pageSize]);
 
   const getClientName = (c: any) => {
     if (c.client_type === 'company') return c.company_name || t('workshop.clients.noData');
@@ -75,11 +100,12 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
                   <TableHead>{t('workshop.clients.colClientData')}</TableHead>
                   <TableHead>{t('workshop.clients.colEmail')}</TableHead>
                   <TableHead>{t('workshop.clients.colPhone')}</TableHead>
+                  <TableHead>Pojazdy</TableHead>
                   <TableHead>{t('workshop.clients.colPriceGroup')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((c: any) => (
+                {paged.map((c: any) => (
                   <TableRow key={c.id} className="hover:bg-accent/50 cursor-pointer" onClick={() => setEditClient(c)}>
                     <TableCell>
                       <Badge variant={c.marketing_consent ? 'default' : 'secondary'} className="text-xs">
@@ -113,12 +139,36 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
                         </div>
                       )}
                     </TableCell>
+                    <TableCell className="text-sm">
+                      {(vehiclesByClient[c.id] || []).length === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {(vehiclesByClient[c.id] || []).slice(0, 3).map((v: any) => (
+                            <button
+                              key={v.id}
+                              type="button"
+                              className="rounded border px-1.5 py-0.5 text-xs hover:bg-accent"
+                              title={`${v.brand ?? ''} ${v.model ?? ''} — historia napraw`}
+                              onClick={(e) => { e.stopPropagation(); onOpenVehicle?.(v); }}
+                            >
+                              {v.plate || `${v.brand ?? ''} ${v.model ?? ''}`.trim() || 'pojazd'}
+                            </button>
+                          ))}
+                          {(vehiclesByClient[c.id] || []).length > 3 && (
+                            <span className="text-xs text-muted-foreground self-center">
+                              +{(vehiclesByClient[c.id] || []).length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{t('workshop.clients.priceGroupDefault')}</TableCell>
                   </TableRow>
                 ))}
                 {filtered.length === 0 && !isLoading && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       {t('workshop.clients.noClients')}
                     </TableCell>
                   </TableRow>
@@ -130,6 +180,13 @@ export function WorkshopClientsList({ providerId, onBack }: Props) {
       </Card>
 
       <div className="text-sm text-muted-foreground">
+        <WorkshopPager
+          page={page}
+          pageSize={pageSize}
+          total={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
         {t('workshop.clients.resultsRange', { shown: filtered.length, total: clients.length })}
       </div>
 

@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { WorkshopPager, pageSlice } from './WorkshopPager';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,9 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   const filtered = useMemo(() => {
     if (!search) return vehicles;
     const q = search.toLowerCase();
@@ -35,6 +39,10 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
       (v.vin || '').toLowerCase().includes(q)
     );
   }, [vehicles, search]);
+
+  const paged = pageSlice(filtered, page, pageSize);
+  // Zmiana wyszukiwania cofa na pierwszą stronę — inaczej wynik ląduje poza widokiem.
+  useEffect(() => { setPage(1); }, [search, pageSize]);
 
   const getOwnerName = (v: any) => {
     if (!v.owner) return '';
@@ -125,7 +133,7 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((v: any) => (
+                {paged.map((v: any) => (
                   <TableRow
                     key={v.id}
                     className={`cursor-pointer transition-colors hover:bg-[hsl(45,100%,85%)] ${selected.has(v.id) ? 'bg-[hsl(45,100%,90%)]' : ''}`}
@@ -175,6 +183,13 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
       </Card>
 
       <div className="text-sm text-muted-foreground">
+        <WorkshopPager
+          page={page}
+          pageSize={pageSize}
+          total={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
         {t('workshop.clients.resultsRange', { shown: filtered.length, total: vehicles.length })}
       </div>
 

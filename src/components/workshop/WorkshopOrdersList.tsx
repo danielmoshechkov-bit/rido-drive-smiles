@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { WorkshopPager, pageSlice } from './WorkshopPager';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -97,6 +98,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   // Szukanie odpytuje bazę (zlecenia + pojazdy + klienci), więc nie strzelamy
   // przy każdym wciśniętym klawiszu — dopiero gdy użytkownik przestanie pisać.
   const [searchDebounced, setSearchDebounced] = useState('');
+  // Stronicowanie zamiast przewijania bez końca — przy 100+ zleceniach to jedyny
+  // sposób, żeby wrócić do miejsca, w którym się było.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   useEffect(() => {
     const timer = setTimeout(() => setSearchDebounced(search.trim()), 300);
     return () => clearTimeout(timer);
@@ -225,6 +230,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   }, [orderView]);
 
   const totalSum = filteredOrders.reduce((s: number, o: any) => s + orderGrossAmount(o), 0);
+  const pagedOrders = pageSlice(filteredOrders, page, pageSize);
+
+  // Zmiana filtra cofa na pierwszą stronę — inaczej wynik ląduje poza widokiem.
+  useEffect(() => { setPage(1); }, [searchDebounced, statusFilter, orderView, documentFilter, dateFrom, dateTo, pageSize]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -644,7 +653,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           </div>
         ) : (
           <>
-            {filteredOrders.map((order: any) => {
+            {pagedOrders.map((order: any) => {
               const ss = getStatusStyle(order.status_name);
               return (
               <Card key={order.id} className={`cursor-pointer hover:shadow-md transition-shadow ${ss.row} ${ss.border}`} onClick={() => onSelectOrder?.(order)}>
@@ -704,6 +713,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 {t('workshop.orders.sum')}: {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
               </div>
             )}
+            <WorkshopPager
+              page={page}
+              pageSize={pageSize}
+              total={filteredOrders.length}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              className="px-2"
+            />
           </>
         )}
       </div>
@@ -731,7 +748,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order: any) => {
+                {pagedOrders.map((order: any) => {
                   const ss = getStatusStyle(order.status_name);
                   return (
                   <TableRow key={order.id} className={`group cursor-pointer transition-colors ${ss.row}`} onClick={() => onSelectOrder?.(order)}>
@@ -1028,6 +1045,13 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
               </TableBody>
             </Table>
           )}
+          <WorkshopPager
+            page={page}
+            pageSize={pageSize}
+            total={filteredOrders.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
           {/* PERF C2: archiwum zakończonych jest stronicowane po 100 */}
           {orderView === 'completed' && !isLoading && orders.length >= completedLimit && (
             <div className="flex justify-center py-3">
