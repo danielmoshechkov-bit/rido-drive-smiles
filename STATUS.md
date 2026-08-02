@@ -146,8 +146,7 @@ tabele, osobne numeracje i osobne dowody wewnętrzne.
 
 ## 4a. Zanim wdrożysz na produkcję
 
-1. **Wykonaj migrację** `20260802_fiscal_month_report.sql` (ślad raportu miesięcznego).
-   Bez niej „Oznacz jako wykonany" zwróci komunikat o brakującej migracji — reszta działa.
+1. ~~Wykonaj migrację `20260802_fiscal_month_report.sql`~~ — wykonana 2.08 wraz z dwiema pozostałymi.
 2. **Wyczyść dane testowe**: `scripts/sql/cleanup-fiscal-test-data.sql` (paragony szkoleniowe
    i powstałe z nich wpłaty). Skrypt najpierw pokazuje liczby, kasuje dopiero po `COMMIT`.
 3. **Zainstaluj mostek jako usługę** na komputerze przy drukarce (`scripts/elzab/service/`).
@@ -202,16 +201,19 @@ naprawione tutaj, bo blokowały pracę z kasą.
 
 | # | Krok | Stan |
 |---|---|---|
-| 1 | Migracja `20260802_fiscal_month_report.sql` | ❌ niewykonana |
-| 2 | Migracja `20260802_cash_auto_close.sql` | ❌ niewykonana |
-| 3 | Migracja `20260802_tire_reminder_channel.sql` | ❌ niewykonana |
+| 1 | Migracja `20260802_fiscal_month_report.sql` | ✅ wykonana 2.08 |
+| 2 | Migracja `20260802_cash_auto_close.sql` | ✅ wykonana 2.08 |
+| 3 | Migracja `20260802_tire_reminder_channel.sql` | ✅ wykonana 2.08 |
 | 4 | Skrypt `merge-duplicate-vehicles.sql` (38 numerów z duplikatami) | ❌ nieuruchomiony |
 | 5 | Sprzątnięcie danych testowych fiskalizacji | ✅ wykonane (log pusty) |
-| 6 | Wciągnięcie `main` do gałęzi i sprawdzenie konfliktów | ❌ do zrobienia |
+| 6 | Scalenie do `main` | ✅ PR #11, deploy na getrido.pl |
 | 7 | `npm run build` i `tsc --noEmit` | ✅ czyste |
 
-Bez kroków 1–3 trzy funkcje zgłoszą brak migracji zamiast działać (ślad raportu miesięcznego,
-automat zamknięcia, kanał przypomnień). Reszta modułu działa niezależnie od nich.
+Migracje wykonane przez `supabase db query --linked -f <plik>`. To jedyna działająca droga:
+`supabase db push` odmawia, bo historia migracji w bazie (Lovable nadaje własne, 14-cyfrowe
+wersje) nie zgadza się z nazwami plików w repo — naprawa historii ruszyłaby setki starych
+wpisów, więc jej nie robimy. Po DDL trzeba jeszcze `notify pgrst, 'reload schema'`, inaczej
+API zwraca `PGRST204` mimo istniejącej kolumny.
 
 ---
 
