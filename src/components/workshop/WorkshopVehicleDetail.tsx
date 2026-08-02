@@ -204,7 +204,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 <div className="space-y-2">
                   <Label>{t('workshop.vehicles.vinNumber')}</Label>
                   <div className="flex gap-2">
-                    <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} className="font-mono flex-1" />
+                    <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} className="tracking-wide flex-1" />
                     <Button size="icon" variant="outline" onClick={handleLookupVin} disabled={lookupLoading} title={t('workshop.vehicles.lookupByVin')}>
                       {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
@@ -248,7 +248,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 <div className="space-y-2">
                   <Label>{t('workshop.orders.plateNumber')}</Label>
                   <div className="flex gap-2">
-                    <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} className="font-mono flex-1" />
+                    <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} className="tracking-wide flex-1" />
                     <Button size="icon" variant="outline" onClick={handleLookupPlate} disabled={lookupLoading} title={t('workshop.vehicles.lookupByPlate')}>
                       {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>

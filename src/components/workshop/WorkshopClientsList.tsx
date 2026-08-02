@@ -43,19 +43,37 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
+  /** „WY 996EU", „wy-996eu" i „wy996eu" to jeden numer — porównujemy bez ozdobników. */
+  const squash = (text: unknown) => String(text ?? '').toLowerCase().replace(/[\s-]/g, '');
+
+  /**
+   * Klienta szuka się także po AUCIE.
+   *
+   * PO CO: przy ladzie pada „przyjechał BMW, WY996EU", a nie nazwisko. Szukanie wyłącznie
+   * po imieniu i telefonie zmuszało do zgadywania, kto to — mimo że auto jest przypisane.
+   */
   const filtered = useMemo(() => {
     if (!search) return clients;
     const q = search.toLowerCase();
+    const sq = squash(search);
     return clients.filter((c: any) => {
       const name = c.client_type === 'company'
         ? (c.company_name || '')
         : `${c.first_name || ''} ${c.last_name || ''}`;
-      return name.toLowerCase().includes(q) ||
-        (c.phone || '').includes(q) ||
+      if (
+        name.toLowerCase().includes(q) ||
+        squash(c.phone).includes(sq) ||
         (c.email || '').toLowerCase().includes(q) ||
-        (c.nip || '').includes(q);
+        (c.nip || '').includes(q)
+      ) return true;
+
+      return (vehiclesByClient[c.id] || []).some((v: any) =>
+        squash(v.plate).includes(sq) ||
+        squash(v.vin).includes(sq) ||
+        `${v.brand ?? ''} ${v.model ?? ''}`.toLowerCase().includes(q),
+      );
     });
-  }, [clients, search]);
+  }, [clients, search, vehiclesByClient]);
 
   const paged = pageSlice(filtered, page, pageSize);
   // Zmiana wyszukiwania cofa na pierwszą stronę — inaczej wynik ląduje poza widokiem.
@@ -95,23 +113,20 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
           ) : (
             <Table>
               <TableHeader>
+                {/* Kolejność wg tego, czego szuka recepcja: kto → jak się z nim skontaktować →
+                    czym przyjechał. Zgoda marketingowa to pole raz na rok, więc wąsko i na końcu. */}
                 <TableRow>
-                  <TableHead>{t('workshop.clients.colMarketingConsent')}</TableHead>
-                  <TableHead>{t('workshop.clients.colClientData')}</TableHead>
-                  <TableHead>{t('workshop.clients.colEmail')}</TableHead>
-                  <TableHead>{t('workshop.clients.colPhone')}</TableHead>
-                  <TableHead>Pojazdy</TableHead>
-                  <TableHead>{t('workshop.clients.colPriceGroup')}</TableHead>
+                  <TableHead className="w-[22%]">{t('workshop.clients.colClientData')}</TableHead>
+                  <TableHead className="w-[14%]">{t('workshop.clients.colPhone')}</TableHead>
+                  <TableHead className="w-[18%]">{t('workshop.clients.colEmail')}</TableHead>
+                  <TableHead className="w-[30%]">Pojazdy</TableHead>
+                  <TableHead className="w-[10%]">{t('workshop.clients.colPriceGroup')}</TableHead>
+                  <TableHead className="w-[6%] text-center whitespace-nowrap">Zgoda</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paged.map((c: any) => (
                   <TableRow key={c.id} className="hover:bg-accent/50 cursor-pointer" onClick={() => setEditClient(c)}>
-                    <TableCell>
-                      <Badge variant={c.marketing_consent ? 'default' : 'secondary'} className="text-xs">
-                        {c.marketing_consent ? t('ui.yes') : t('ui.no')}
-                      </Badge>
-                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {c.client_type === 'company' ? (
@@ -124,18 +139,18 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
                       </div>
                     </TableCell>
                     <TableCell>
-                      {c.email && (
-                        <div className="flex items-center gap-1.5 text-sm">
-                          <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                          {c.email}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
                       {c.phone && (
                         <div className="flex items-center gap-1.5 text-sm">
                           <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                           {c.phone}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {c.email && (
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                          {c.email}
                         </div>
                       )}
                     </TableCell>
@@ -148,11 +163,16 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
                             <button
                               key={v.id}
                               type="button"
-                              className="rounded border px-1.5 py-0.5 text-xs hover:bg-accent"
-                              title={`${v.brand ?? ''} ${v.model ?? ''} — historia napraw`}
+                              className="rounded border px-2 py-1 text-left hover:bg-accent"
+                              title="Historia napraw tego auta"
                               onClick={(e) => { e.stopPropagation(); onOpenVehicle?.(v); }}
                             >
-                              {v.plate || `${v.brand ?? ''} ${v.model ?? ''}`.trim() || 'pojazd'}
+                              <span className="block text-[13px] font-semibold tracking-wide">
+                                {v.plate || '(brak numeru)'}
+                              </span>
+                              <span className="block text-[11px] text-muted-foreground">
+                                {`${v.brand ?? ''} ${v.model ?? ''}`.trim() || '—'}
+                              </span>
                             </button>
                           ))}
                           {(vehiclesByClient[c.id] || []).length > 3 && (
@@ -164,6 +184,11 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{t('workshop.clients.priceGroupDefault')}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={c.marketing_consent ? 'default' : 'secondary'} className="text-[10px]">
+                        {c.marketing_consent ? t('ui.yes') : t('ui.no')}
+                      </Badge>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {filtered.length === 0 && !isLoading && (
@@ -179,16 +204,13 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
         </CardContent>
       </Card>
 
-      <div className="text-sm text-muted-foreground">
-        <WorkshopPager
-          page={page}
-          pageSize={pageSize}
-          total={filtered.length}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
-        {t('workshop.clients.resultsRange', { shown: filtered.length, total: clients.length })}
-      </div>
+      <WorkshopPager
+        page={page}
+        pageSize={pageSize}
+        total={filtered.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       <WorkshopAddClientDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
       <WorkshopEditClientDialog open={!!editClient} onOpenChange={(v) => { if (!v) setEditClient(null); }} client={editClient} />

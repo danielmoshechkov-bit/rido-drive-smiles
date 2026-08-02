@@ -182,16 +182,13 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
         </CardContent>
       </Card>
 
-      <div className="text-sm text-muted-foreground">
-        <WorkshopPager
-          page={page}
-          pageSize={pageSize}
-          total={filtered.length}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
-        {t('workshop.clients.resultsRange', { shown: filtered.length, total: vehicles.length })}
-      </div>
+      <WorkshopPager
+        page={page}
+        pageSize={pageSize}
+        total={filtered.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       <WorkshopAddVehicleDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
     </div>
