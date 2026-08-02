@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { groupCategories } from '@/lib/service-category-groups';
+
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -132,7 +134,11 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
   const [catDialog, setCatDialog] = useState(false);
   const [editingCat, setEditingCat] = useState<ProviderCategory | null>(null);
   const [catName, setCatName] = useState('');
-  const [pickedCatalogId, setPickedCatalogId] = useState<string>('');
+  const [pickedGroup, setPickedGroup] = useState<string>('');
+  const [pickedSubs, setPickedSubs] = useState<string[]>([]);
+
+  const catalogGroups = useMemo(() => groupCategories(portalCategories), [portalCategories]);
+
 
   const usedCatalogIds = useMemo(
     () => new Set(categories.map(c => c.service_category_id).filter(Boolean) as string[]),
@@ -178,22 +184,23 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           .eq('id', editingCat.id);
         if (error) throw error;
       } else {
-        const picked = portalCategories.find(c => c.id === pickedCatalogId);
-        if (!picked) throw new Error('Wybierz kategorię z listy');
+        const picked = portalCategories.filter(c => pickedSubs.includes(c.id) && !usedCatalogIds.has(c.id));
+        if (!picked.length) throw new Error('Wybierz przynajmniej jedną podkategorię');
         const { error } = await (supabase as any)
           .from('provider_service_categories')
-          .insert({
+          .insert(picked.map((p, i) => ({
             provider_id: providerId,
-            name: picked.name,
-            service_category_id: picked.id,
-            sort_order: categories.length,
-          });
+            name: p.name,
+            service_category_id: p.id,
+            sort_order: categories.length + i,
+          })));
         if (error) throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-service-categories', providerId] });
-      setCatDialog(false); setEditingCat(null); setCatName(''); setPickedCatalogId('');
+      setCatDialog(false); setEditingCat(null); setCatName(''); setPickedGroup(''); setPickedSubs([]);
+
       toast.success('Zapisano kategorię');
     },
     onError: (e: any) => toast.error(e.message),
@@ -515,7 +522,7 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
               <CatPill active={activeCat === 'none'} onClick={() => setActiveCat('none')} label="Bez kategorii" count={countFor('none')} />
             )}
             <button
-              onClick={() => { setEditingCat(null); setCatName(''); setPickedCatalogId(''); setCatDialog(true); }}
+              onClick={() => { setEditingCat(null); setCatName(''); setPickedGroup(''); setPickedSubs([]); setCatDialog(true); }}
               className="shrink-0 h-9 w-9 rounded-full border border-dashed border-primary/50 text-primary flex items-center justify-center hover:bg-primary/5"
               aria-label="Dodaj kategorię"
             >
@@ -695,34 +702,55 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Wybierz kategorię z katalogu portalu — w niej Twoja firma pokaże się klientom.
+                Najpierw wybierz kategorię główną, potem zaznacz podkategorie — w nich Twoja firma pokaże się klientom.
               </p>
-              <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
-                {portalCategories.map(c => {
-                  const used = usedCatalogIds.has(c.id);
-                  const active = pickedCatalogId === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      disabled={used}
-                      onClick={() => setPickedCatalogId(c.id)}
-                      className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
-                        used
-                          ? 'opacity-45 cursor-not-allowed bg-muted'
-                          : active
-                            ? 'border-primary bg-primary/5'
-                            : 'hover:border-primary/40'
-                      }`}
-                    >
-                      <span className="font-semibold text-sm text-foreground">{c.name}</span>
-                      {used && <span className="ml-2 text-[11px] text-muted-foreground">już dodana</span>}
-                      {c.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">{c.description}</p>
-                      )}
-                    </button>
-                  );
-                })}
+
+              <div className="flex flex-wrap gap-2">
+                {catalogGroups.map(({ group }) => (
+                  <button
+                    key={group.id}
+                    onClick={() => { setPickedGroup(group.id); setPickedSubs([]); }}
+                    className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                      pickedGroup === group.id
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'hover:border-primary/40 text-foreground'
+                    }`}
+                  >
+                    {group.name}
+                  </button>
+                ))}
               </div>
+
+              {pickedGroup && (
+                <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                  {(catalogGroups.find(g => g.group.id === pickedGroup)?.items || []).map(c => {
+                    const used = usedCatalogIds.has(c.id);
+                    const active = pickedSubs.includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        disabled={used}
+                        onClick={() => setPickedSubs(p => p.includes(c.id) ? p.filter(x => x !== c.id) : [...p, c.id])}
+                        className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
+                          used
+                            ? 'opacity-45 cursor-not-allowed bg-muted'
+                            : active
+                              ? 'border-primary bg-primary/5'
+                              : 'hover:border-primary/40'
+                        }`}
+                      >
+                        <span className="font-semibold text-sm text-foreground">{c.name}</span>
+                        {used && <span className="ml-2 text-[11px] text-muted-foreground">już dodana</span>}
+                        {active && !used && <span className="ml-2 text-[11px] font-semibold text-primary">wybrana</span>}
+                        {c.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">{c.description}</p>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               <button
                 onClick={() => { setCatDialog(false); setReqDialog(true); }}
                 className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5"
@@ -732,11 +760,12 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
             </div>
           )}
 
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setCatDialog(false)}>Anuluj</Button>
             <Button
               onClick={() => saveCat.mutate()}
-              disabled={saveCat.isPending || (!editingCat && !pickedCatalogId)}
+              disabled={saveCat.isPending || (!editingCat && pickedSubs.length === 0)}
             >
               Zapisz
             </Button>
