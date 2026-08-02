@@ -515,12 +515,13 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
               <CatPill active={activeCat === 'none'} onClick={() => setActiveCat('none')} label="Bez kategorii" count={countFor('none')} />
             )}
             <button
-              onClick={() => { setEditingCat(null); setCatName(''); setCatDialog(true); }}
+              onClick={() => { setEditingCat(null); setCatName(''); setPickedCatalogId(''); setCatDialog(true); }}
               className="shrink-0 h-9 w-9 rounded-full border border-dashed border-primary/50 text-primary flex items-center justify-center hover:bg-primary/5"
               aria-label="Dodaj kategorię"
             >
               <Plus className="h-4 w-4" />
             </button>
+
           </div>
 
           {/* Lista usług */}
