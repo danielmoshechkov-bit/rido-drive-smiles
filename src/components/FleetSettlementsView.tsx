@@ -1819,16 +1819,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           const cardsByName: Record<string, string> = {};
           crossFleetCards.forEach((d: any) => {
             if (d.fuel_card_number) {
-              cardsByName[`${d.first_name} ${d.last_name}`.toLowerCase()] = d.fuel_card_number.replace(/^0+/, '');
+              cardsByName[`${[d.first_name, d.last_name].filter(Boolean).join(' ')}`.toLowerCase()] = d.fuel_card_number.replace(/^0+/, '');
             }
           });
           
           driversWithoutCards.forEach(d => {
             const driver = d as any;
-            const key = `${driver.first_name} ${driver.last_name}`.toLowerCase();
+            const key = `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`.toLowerCase();
             if (cardsByName[key] && !driverFuelCards[driver.id]) {
               driverFuelCards[driver.id] = cardsByName[key];
-              console.log(`⛽ Cross-fleet fuel card found for ${driver.first_name} ${driver.last_name}: ${cardsByName[key]}`);
+              console.log(`⛽ Cross-fleet fuel card found for ${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}: ${cardsByName[key]}`);
             }
           });
         }
@@ -2065,7 +2065,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // 🔎 DIAGNOSTYKA: pokaż co czyta UI dla każdego kierowcy w wybranym tygodniu
         console.log('[DWD mapping]', {
           driverId: driver.id,
-          driverName: `${driver.first_name} ${driver.last_name}`,
+          driverName: `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`,
           periodFrom: rowPeriodFrom,
           periodTo: rowPeriodTo,
           dwdQueryRange: { from: dwdPeriodFrom, to: dwdPeriodTo },
@@ -2090,7 +2090,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           const zeroBaseManualPayout = round2(-manualWeekAdjustment);
           return {
             driver_id: driver.id,
-            driver_name: `${driver.first_name} ${driver.last_name}`,
+            driver_name: `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`,
             uber_base: 0, uber_cash: 0, uber_commission: 0,
             bolt_base: 0, bolt_cash: 0, bolt_commission: 0,
             freenow_base: 0, freenow_cash: 0, freenow_commission: 0,
@@ -2172,7 +2172,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           const negFinalPayout = platform_net - negVatAmount - manualWeekAdjustment; // np. -6.77 - (-0.54) = -6.23
           return {
             driver_id: driver.id,
-            driver_name: `${driver.first_name} ${driver.last_name}`,
+            driver_name: `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`,
             uber_base,
             uber_cash: 0,
             uber_commission,
@@ -2366,7 +2366,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         return {
           driver_id: driver.id,
-          driver_name: `${driver.first_name} ${driver.last_name}`,
+          driver_name: `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`,
           payment_method: (driver as any).payment_method || null,
           uber_base,
           uber_cash,

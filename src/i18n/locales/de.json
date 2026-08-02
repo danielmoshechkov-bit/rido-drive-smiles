@@ -1906,7 +1906,14 @@
       "confirmDelete_one": "Möchten Sie {{count}} Auftrag wirklich löschen?",
       "confirmDelete_other": "Möchten Sie {{count}} Aufträge wirklich löschen?",
       "deletedCount_one": "{{count}} Auftrag gelöscht",
-      "deletedCount_other": "{{count}} Aufträge gelöscht"
+      "deletedCount_other": "{{count}} Aufträge gelöscht",
+      "selectOrderFirst": "Wählen Sie zuerst den Auftrag aus, für den Sie ausstellen möchten",
+      "alreadyFiscalized": "Für diesen Auftrag wurde bereits ein Kassenbon ausgestellt",
+      "colDocuments": "Dokumente",
+      "docsAll": "Alle Dokumente",
+      "docsWithReceipt": "Mit Kassenbon",
+      "docsWithoutReceipt": "Ohne Kassenbon",
+      "docsWithInvoice": "Mit Rechnung"
     },
     "orderDetail": {
       "completedWarningTitle": "Hinweis: Auftrag abgeschlossen.",
@@ -3656,7 +3663,8 @@
         "numbering": "Nummerierung",
         "integrations": "Integrationen",
         "notifications": "Benachrichtigungen",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Fiskalisierung"
       },
       "workstations": {
         "title": "Arbeitsplätze",

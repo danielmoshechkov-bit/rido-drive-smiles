@@ -96,7 +96,7 @@ export function FuelCardAssignModal({
   };
 
   const filteredDrivers = drivers.filter((driver) => {
-    const fullName = `${driver.first_name} ${driver.last_name}`.toLowerCase();
+    const fullName = `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`.toLowerCase();
     return fullName.includes(searchQuery.toLowerCase());
   });
 

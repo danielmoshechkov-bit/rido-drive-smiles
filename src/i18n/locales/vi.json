@@ -1904,7 +1904,14 @@
       "remainingCredits": "Tín dụng tìm kiếm còn lại: {{count}}",
       "vehicleSaved": "Đã lưu thông tin phương tiện",
       "confirmDelete_other": "Bạn có chắc muốn xóa {{count}} đơn hàng không?",
-      "deletedCount_other": "Đã xóa {{count}} đơn hàng"
+      "deletedCount_other": "Đã xóa {{count}} đơn hàng",
+      "selectOrderFirst": "Trước tiên hãy chọn đơn hàng bạn muốn xuất chứng từ",
+      "alreadyFiscalized": "Đơn hàng này đã có hóa đơn tài chính",
+      "colDocuments": "Chứng từ",
+      "docsAll": "Tất cả chứng từ",
+      "docsWithReceipt": "Có hóa đơn bán lẻ",
+      "docsWithoutReceipt": "Không có hóa đơn bán lẻ",
+      "docsWithInvoice": "Có hóa đơn"
     },
     "orderDetail": {
       "completedWarningTitle": "Lưu ý: đơn hàng đã hoàn tất.",
@@ -3626,7 +3633,8 @@
         "numbering": "Đánh số",
         "integrations": "Tích hợp",
         "notifications": "Thông báo",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Máy in tài chính"
       },
       "workstations": {
         "title": "Vị trí làm việc",

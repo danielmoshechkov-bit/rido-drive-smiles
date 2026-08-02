@@ -74,7 +74,7 @@ export const UploadContractModal = ({ open, onOpenChange, fleetId, onUploaded }:
           filled_data: {
             file_url: urlData.publicUrl,
             file_name: file.name,
-            driver_name: driver ? `${driver.first_name} ${driver.last_name}` : '',
+            driver_name: driver ? `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}` : '',
             vehicle_plate: vehicle?.plate || '',
           },
           attachments: [{ url: urlData.publicUrl, name: file.name }],

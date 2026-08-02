@@ -21,6 +21,8 @@ import { OrderTypesPage } from './settings/OrderTypesPage';
 import { TaskTemplatesPage } from './settings/TaskTemplatesPage';
 import { ChecklistItemsPage } from './settings/ChecklistItemsPage';
 import { CalendarSettingsPage } from './settings/CalendarSettingsPage';
+import { FiscalPrinterSettings } from '@/components/fiscal/FiscalPrinterSettings';
+import { WorkshopCashSettings } from './WorkshopCashSettings';
 import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_LABELS, SERVICE_PROVIDER_TAB_LABEL_KEYS, SERVICE_PROVIDER_TAB_ORDER, type ServiceProviderNavTabKey } from '@/components/service-provider/navConfig';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -335,11 +337,15 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
     toast.success(t('workshop.settingsPanel.barLayoutSaved'));
   };
 
+  // Kolejność wg tego, jak uruchamia się warsztat: najpierw firma i ludzie, potem
+  // stanowiska, potem pieniądze (kasa i kasa fiskalna), a na końcu reszta ustawień.
   const settingsSubTabs = [
     { value: 'konto', label: t('workshop.settingsPanel.tabs.account'), visible: true },
     { value: 'warsztat', label: t('workshop.settingsPanel.tabs.workshop'), visible: true },
     { value: 'pracownicy', label: t('workshop.settingsPanel.tabs.employees'), visible: true },
     { value: 'stanowiska', label: t('workshop.settingsPanel.tabs.workstations'), visible: true },
+    { value: 'kasa', label: 'Kasa', visible: true },
+    { value: 'fiskalizacja', label: 'Kasa fiskalna', visible: true },
     { value: 'kalendarz', label: t('workshop.settingsPanel.tabs.calendar'), visible: true },
     { value: 'statusy', label: t('workshop.settingsPanel.tabs.orderStatuses'), visible: true },
     { value: 'rodzaje', label: t('workshop.settingsPanel.tabs.orderTypes'), visible: true },
@@ -673,6 +679,10 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
         {settingsTab === 'statusy' && <OrderStatusesPage providerId={providerId || undefined} />}
 
         {settingsTab === 'rodzaje' && <OrderTypesPage />}
+
+        {settingsTab === 'kasa' && providerId && <WorkshopCashSettings providerId={providerId} />}
+
+        {settingsTab === 'fiskalizacja' && <FiscalPrinterSettings providerId={providerId || undefined} />}
 
         {settingsTab === 'szablony' && <TaskTemplatesPage />}
 

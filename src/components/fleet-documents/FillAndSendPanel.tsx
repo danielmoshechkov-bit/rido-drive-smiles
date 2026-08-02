@@ -85,7 +85,7 @@ export const FillAndSendPanel = ({ open, onOpenChange, template, fleetId, onSent
     if (driver) {
       const updates: Record<string, string> = {};
       const fullAddr = [driver.address_street, driver.address_postal_code, driver.address_city].filter(Boolean).join(', ');
-      if (fields.includes('IMIE_NAZWISKO_KIEROWCY')) updates['IMIE_NAZWISKO_KIEROWCY'] = `${driver.first_name} ${driver.last_name}`;
+      if (fields.includes('IMIE_NAZWISKO_KIEROWCY')) updates['IMIE_NAZWISKO_KIEROWCY'] = `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`;
       if (fields.includes('PESEL')) updates['PESEL'] = driver.pesel || '';
       if (fields.includes('ADRES')) updates['ADRES'] = fullAddr;
       if (fields.includes('ADRES_ZAMELDOWANIA')) updates['ADRES_ZAMELDOWANIA'] = fullAddr;

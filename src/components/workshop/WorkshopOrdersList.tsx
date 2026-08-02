@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { WorkshopPager, pageSlice } from './WorkshopPager';
+import { useOrdersPaidMap } from '@/hooks/useFiscalCash';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +25,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { ExistingInvoiceModal } from './ExistingInvoiceModal';
+import { FiscalReceiptDialog } from '@/components/fiscal/FiscalReceiptDialog';
+import { useFiscalizedDocumentIds, useOrderDocumentBadges } from '@/hooks/useFiscal';
 import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
@@ -65,6 +69,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
   const [paymentOrder, setPaymentOrder] = useState<any | null>(null);
+  // Ile zapłacono do każdego zlecenia — kolumna „Płatność" w widoku zakończonych.
+  const { data: paidMap = {} } = useOrdersPaidMap(providerId);
   const { data: financeSettings } = useWorkshopFinanceSettings(providerId);
   const { getStyle } = useWorkshopStatusStyles(providerId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -77,6 +83,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
   const [invoiceBuyer, setInvoiceBuyer] = useState<any>(null);
   const [invoiceNotes, setInvoiceNotes] = useState('');
+  const [fiscalOrder, setFiscalOrder] = useState<any>(null);
+  // Zlecenia z wystawionym (albo trwającym) paragonem — pozycja w menu jest dla nich wyszarzona.
+  const { data: fiscalizedIds } = useFiscalizedDocumentIds(providerId, 'workshop_order');
+  // Znaczniki wystawionych dokumentów — trwałe, bo liczone z dokumentów, nie ze stanu zlecenia.
+  const { data: documentBadges } = useOrderDocumentBadges(providerId, 'workshop_order');
+  const [documentFilter, setDocumentFilter] = useState<'all' | 'with_receipt' | 'without_receipt' | 'with_invoice'>('all');
+  const selectedFiscalized =
+    selectedIds.size === 1 && Array.from(selectedIds).some((id) => fiscalizedIds?.has(id));
   const [existingInvoice, setExistingInvoice] = useState<any>(null);
   const [existingInvoiceOrder, setExistingInvoiceOrder] = useState<any>(null);
   const [assignClientOrderId, setAssignClientOrderId] = useState<string | null>(null);
@@ -84,8 +98,20 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
   // PERF C2: paginacja archiwum zakończonych — "Załaduj więcej" podbija limit.
   const [completedLimit, setCompletedLimit] = useState(100);
+  // Szukanie odpytuje bazę (zlecenia + pojazdy + klienci), więc nie strzelamy
+  // przy każdym wciśniętym klawiszu — dopiero gdy użytkownik przestanie pisać.
+  const [searchDebounced, setSearchDebounced] = useState('');
+  // Stronicowanie zamiast przewijania bez końca — przy 100+ zleceniach to jedyny
+  // sposób, żeby wrócić do miejsca, w którym się było.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchDebounced(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
-    search: search || undefined,
+    search: searchDebounced || undefined,
     // PERF C2: filtr widoku + zakres dat serwerowo — wejście na "Aktywne" nie
     // ściąga już całego archiwum zakończonych zleceń.
     view: orderView,
@@ -191,14 +217,26 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
       });
     }
+    if (documentFilter !== 'all') {
+      filtered = filtered.filter((o: any) => {
+        const badges = documentBadges?.get(o.id);
+        if (documentFilter === 'with_receipt') return Boolean(badges?.hasReceipt);
+        if (documentFilter === 'without_receipt') return !badges?.hasReceipt;
+        return Boolean(badges?.hasInvoice);
+      });
+    }
     return filtered;
-  }, [orders, orderView, statusFilter, dateFrom, dateTo]);
+  }, [orders, orderView, statusFilter, dateFrom, dateTo, documentFilter, documentBadges]);
 
   useEffect(() => {
     setSelectedIds(new Set());
   }, [orderView]);
 
   const totalSum = filteredOrders.reduce((s: number, o: any) => s + orderGrossAmount(o), 0);
+  const pagedOrders = pageSlice(filteredOrders, page, pageSize);
+
+  // Zmiana filtra cofa na pierwszą stronę — inaczej wynik ląduje poza widokiem.
+  useEffect(() => { setPage(1); }, [searchDebounced, statusFilter, orderView, documentFilter, dateFrom, dateTo, pageSize]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -500,37 +538,62 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           </Button>
         )}
 
-        {selectedIds.size === 1 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1">
-                <FileText className="h-4 w-4" /> {t('workshop.orders.issue')} <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => {
+        {/* Menu „Wystaw" jest zawsze klikalne — użytkownik ma widzieć, że funkcja istnieje,
+            zanim zaznaczy zlecenie. Bez zaznaczenia pozycje są wyszarzone z podpowiedzią. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-1">
+              <FileText className="h-4 w-4" /> {t('workshop.orders.issue')} <ChevronDown className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {selectedIds.size !== 1 && (
+              <div className="px-2 py-1.5 text-xs text-muted-foreground max-w-[240px]">
+                {t('workshop.orders.selectOrderFirst')}
+              </div>
+            )}
+            {selectedIds.size === 1 && selectedFiscalized && (
+              <div className="px-2 py-1.5 text-xs text-muted-foreground max-w-[240px]">
+                {t('workshop.orders.alreadyFiscalized')}
+              </div>
+            )}
+            <DropdownMenuItem
+              disabled={selectedIds.size !== 1 || selectedFiscalized}
+              onClick={() => {
                 const order = orders.find((o: any) => selectedIds.has(o.id));
-                if (order) openInvoiceForOrder(order, 'invoice');
-              }}>
-                <FileText className="h-4 w-4 mr-2" /> {t('workshop.orders.invoice')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                const order = orders.find((o: any) => selectedIds.has(o.id));
-                if (order) openInvoiceForOrder(order, 'receipt');
-              }}>
-                <Receipt className="h-4 w-4 mr-2" /> {t('workshop.orders.fiscalReceipt')}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                const order = orders.find((o: any) => selectedIds.has(o.id));
-                if (order) generateServiceConfirmation(order);
-              }}>
-                <ClipboardCheck className="h-4 w-4 mr-2" /> {t('workshop.orders.serviceConfirmation')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                if (order) setFiscalOrder(order);
+              }}
+            >
+              <Receipt className="h-4 w-4 mr-2" /> {t('workshop.orders.fiscalReceipt')}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={selectedIds.size !== 1} onClick={() => {
+              const order = orders.find((o: any) => selectedIds.has(o.id));
+              if (order) openInvoiceForOrder(order, 'invoice');
+            }}>
+              <FileText className="h-4 w-4 mr-2" /> {t('workshop.orders.invoice')}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={selectedIds.size !== 1} onClick={() => {
+              const order = orders.find((o: any) => selectedIds.has(o.id));
+              if (order) generateServiceConfirmation(order);
+            }}>
+              <ClipboardCheck className="h-4 w-4 mr-2" /> {t('workshop.orders.serviceConfirmation')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className="flex-1" />
+
+        <Select value={documentFilter} onValueChange={(v) => setDocumentFilter(v as typeof documentFilter)}>
+          <SelectTrigger className="h-8 w-[190px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t('workshop.orders.docsAll')}</SelectItem>
+            <SelectItem value="with_receipt">{t('workshop.orders.docsWithReceipt')}</SelectItem>
+            <SelectItem value="without_receipt">{t('workshop.orders.docsWithoutReceipt')}</SelectItem>
+            <SelectItem value="with_invoice">{t('workshop.orders.docsWithInvoice')}</SelectItem>
+          </SelectContent>
+        </Select>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-8 w-[180px]">
@@ -579,10 +642,21 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">{t('workshop.orders.noOrders')}</div>
+          <div className="text-center py-8 text-muted-foreground space-y-2">
+            <div>{t('workshop.orders.noOrders')}</div>
+            {searchDebounced && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOrderView(orderView === 'active' ? 'completed' : 'active')}
+              >
+                Szukaj „{searchDebounced}" w {orderView === 'active' ? 'zakończonych' : 'aktywnych'}
+              </Button>
+            )}
+          </div>
         ) : (
           <>
-            {filteredOrders.map((order: any) => {
+            {pagedOrders.map((order: any) => {
               const ss = getStatusStyle(order.status_name);
               return (
               <Card key={order.id} className={`cursor-pointer hover:shadow-md transition-shadow ${ss.row} ${ss.border}`} onClick={() => onSelectOrder?.(order)}>
@@ -642,6 +716,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 {t('workshop.orders.sum')}: {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} zł
               </div>
             )}
+            <WorkshopPager
+              page={page}
+              pageSize={pageSize}
+              total={filteredOrders.length}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              className="px-2"
+            />
           </>
         )}
       </div>
@@ -665,10 +747,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                    <TableHead>{t('workshop.orders.colClient')}</TableHead>
                    <TableHead>{t('workshop.orders.colReceived')}</TableHead>
                    <TableHead>{t('workshop.orders.colDeadline')}</TableHead>
+                   {orderView === 'completed' && <TableHead>Płatność</TableHead>}
+                   <TableHead>{t('workshop.orders.colDocuments')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order: any) => {
+                {pagedOrders.map((order: any) => {
                   const ss = getStatusStyle(order.status_name);
                   return (
                   <TableRow key={order.id} className={`group cursor-pointer transition-colors ${ss.row}`} onClick={() => onSelectOrder?.(order)}>
@@ -898,13 +982,97 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                          <span className="text-xs text-muted-foreground">—</span>
                        )}
                     </TableCell>
+                    {/* Płatność — status zlecenia mówi o aucie, nie o pieniądzach.
+                        Klik otwiera to samo okno co przy zakończeniu, więc pomyłkę w formie
+                        albo dacie da się poprawić bez szukania w Operacjach kasy. */}
+                    {orderView === 'completed' && (
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        {(() => {
+                          const gross = orderGrossAmount(order);
+                          const entry = paidMap[order.id];
+                          const paid = entry?.paid ?? 0;
+                          const settled = gross > 0 && paid >= gross - 0.01;
+                          const partial = paid > 0.01 && !settled;
+                          const label = settled ? 'Opłacone' : partial ? 'Częściowo' : 'Nieopłacone';
+                          const methods = (entry?.methods ?? [])
+                            .map((m) => ({ gotowka: 'gotówka', karta: 'karta', blik: 'BLIK', przelew: 'przelew' } as any)[m] || m)
+                            .join(' + ');
+                          return (
+                            <button
+                              type="button"
+                              className="text-left"
+                              title="Kliknij, żeby poprawić kwotę, formę lub datę płatności"
+                              onClick={() => setPaymentOrder(order)}
+                            >
+                              <Badge
+                                variant={settled ? 'default' : partial ? 'secondary' : 'outline'}
+                                className={`text-[10px] cursor-pointer ${!settled && !partial ? 'border-destructive text-destructive' : ''}`}
+                              >
+                                {label}
+                              </Badge>
+                              <span className="block text-[10px] text-muted-foreground">
+                                {partial
+                                  ? `${paid.toLocaleString('pl-PL', { minimumFractionDigits: 2 })} z ${gross.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}`
+                                  : methods || (settled ? '' : 'brak wpłat')}
+                                {entry?.lastDate ? ` · ${entry.lastDate}` : ''}
+                              </span>
+                            </button>
+                          );
+                        })()}
+                      </TableCell>
+                    )}
+                    {/* Dokumenty fiskalne — klik prowadzi do panelu paragonu z akcjami */}
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      {(() => {
+                        const badges = documentBadges?.get(order.id);
+                        if (!badges) return <span className="text-xs text-muted-foreground">—</span>;
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            {badges.hasReceipt && (
+                              <button type="button" onClick={() => setFiscalOrder(order)} title="Pokaż paragon i akcje">
+                                <Badge variant="secondary" className="text-[10px] cursor-pointer hover:bg-secondary/80">
+                                  <Receipt className="h-2.5 w-2.5 mr-0.5" />
+                                  Paragon{badges.receiptNumber ? ` ${badges.receiptNumber}` : ''}
+                                </Badge>
+                              </button>
+                            )}
+                            {badges.hasInvoice && (
+                              <Badge variant="outline" className="text-[10px]">
+                                <FileText className="h-2.5 w-2.5 mr-0.5" /> Faktura
+                              </Badge>
+                            )}
+                            {badges.hasReturn && (
+                              <Badge variant="outline" className="text-[10px] border-amber-500/60 text-amber-600">
+                                Zwrot
+                              </Badge>
+                            )}
+                            {badges.hasCorrection && (
+                              <Badge variant="destructive" className="text-[10px]">Korekta</Badge>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                   </TableRow>
                   );
                 })}
                 {filteredOrders.length === 0 && !isLoading && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={orderView === 'completed' ? 9 : 8} className="text-center py-8 text-muted-foreground">
                       {t('workshop.orders.noOrders')}
+                      {/* Szukanie działa w obrębie wybranej zakładki — bez tej podpowiedzi
+                          „nie ma zlecenia" znaczy tylko „nie ma go w tej zakładce". */}
+                      {searchDebounced && (
+                        <div className="mt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOrderView(orderView === 'active' ? 'completed' : 'active')}
+                          >
+                            Szukaj „{searchDebounced}" w {orderView === 'active' ? 'zakończonych' : 'aktywnych'}
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 )}
@@ -914,12 +1082,19 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                      <TableCell className="text-right">
                        {totalSum.toLocaleString('pl-PL', { minimumFractionDigits: 2 })}
                      </TableCell>
-                     <TableCell colSpan={4}></TableCell>
+                     <TableCell colSpan={orderView === 'completed' ? 5 : 4}></TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           )}
+          <WorkshopPager
+            page={page}
+            pageSize={pageSize}
+            total={filteredOrders.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
           {/* PERF C2: archiwum zakończonych jest stronicowane po 100 */}
           {orderView === 'completed' && !isLoading && orders.length >= completedLimit && (
             <div className="flex justify-center py-3">
@@ -987,6 +1162,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           orderId={paymentOrder.id}
           amount={orderGrossAmount(paymentOrder)}
           title={`Płatność — ${paymentOrder.order_number || ''}`}
+          onPaid={() => {
+            queryClient.invalidateQueries({ queryKey: ['workshop-orders-paid-map'] });
+            queryClient.invalidateQueries({ queryKey: ['workshop-cash-data'] });
+          }}
         />
       )}
 
@@ -1027,6 +1206,20 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Paragon fiskalny — wydruk na drukarce tenanta (moduł fiskalny) */}
+      <FiscalReceiptDialog
+        open={!!fiscalOrder}
+        onOpenChange={(open) => { if (!open) setFiscalOrder(null); }}
+        providerId={providerId}
+        order={fiscalOrder}
+        onIssueInvoice={() => {
+          // Skrót z paragonu powyżej 450 zł: firma potrzebuje pełnej faktury.
+          const order = fiscalOrder;
+          setFiscalOrder(null);
+          if (order) openInvoiceForOrder(order, 'invoice');
+        }}
+      />
 
       {/* Existing invoice — duplicate prevention modal */}
       {existingInvoice && (
@@ -1094,7 +1287,13 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
     if (data.make) set('brand', data.make);
     if (data.model) set('model', data.model.replace(/\s+\d+\.\d+(\s+\S+)*$/, '').trim());
     if (data.registration_year) set('year', String(data.registration_year));
-    if (data.vin) set('vin', String(data.vin).toUpperCase());
+    // Rejestr zwraca VIN CZĘŚCIOWO ZAMASKOWANY („W0L**********8071"). Taki zapis jest
+    // gorszy niż jego brak: nie da się po nim szukać ani sprawdzić auta, a wygląda jak
+    // prawdziwy numer. Bierzemy tylko pełny VIN, resztę zostawiamy do wpisania z dowodu.
+    const lookedUpVin = String(data.vin ?? '').toUpperCase().trim();
+    if (lookedUpVin && !lookedUpVin.includes('*') && lookedUpVin.length >= 11) {
+      set('vin', lookedUpVin);
+    }
     if (data.color) set('color', data.color);
 
     const normalizedFuel = normalizeFuelType(data.fuel_type);

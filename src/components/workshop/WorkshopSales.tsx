@@ -11,6 +11,7 @@ import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { InvoiceExpandableRow } from '@/components/invoices/InvoiceExpandableRow';
 import { WorkshopRecurringCosts } from './WorkshopRecurringCosts';
 import { WorkshopCashPanel } from './WorkshopCashPanel';
+import { FiscalCashRegister } from '@/components/fiscal/FiscalCashRegister';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
@@ -24,7 +25,7 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showNewInvoice, setShowNewInvoice] = useState(false);
-  const [view, setView] = useState<'kasa' | 'sprzedaz' | 'zakup'>('kasa');
+  const [view, setView] = useState<'kasa' | 'sprzedaz' | 'zakup' | 'fiskalna'>('kasa');
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)); // 'YYYY-MM'
   const [showInvoiceSettings, setShowInvoiceSettings] = useState(false);
   const shiftMonth = (delta: number) => setMonth((m) => {
@@ -82,6 +83,7 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
       <Button variant={view === 'kasa' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('kasa')}>Kasa</Button>
       <Button variant={view === 'sprzedaz' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('sprzedaz')}>Sprzedaż</Button>
       <Button variant={view === 'zakup' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('zakup')}>Opłaty stałe</Button>
+      <Button variant={view === 'fiskalna' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('fiskalna')}>Kasa fiskalna</Button>
     </div>
   );
 
@@ -93,6 +95,15 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
       {viewToggle}
     </div>
   );
+
+  if (view === 'fiskalna') {
+    return (
+      <div className="space-y-4">
+        {header}
+        <FiscalCashRegister providerId={_providerId} />
+      </div>
+    );
+  }
 
   if (view === 'kasa') {
     return (

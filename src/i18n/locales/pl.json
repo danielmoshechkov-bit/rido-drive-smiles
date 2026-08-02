@@ -2004,7 +2004,14 @@
       "deletedCount_one": "Usunięto {{count}} zlecenie",
       "deletedCount_few": "Usunięto {{count}} zlecenia",
       "deletedCount_many": "Usunięto {{count}} zleceń",
-      "deletedCount_other": "Usunięto {{count}} zleceń"
+      "deletedCount_other": "Usunięto {{count}} zleceń",
+      "selectOrderFirst": "Najpierw zaznacz zlecenie, do którego chcesz wystawić",
+      "alreadyFiscalized": "To zlecenie ma już wystawiony paragon fiskalny",
+      "colDocuments": "Dokumenty",
+      "docsAll": "Wszystkie dokumenty",
+      "docsWithReceipt": "Z paragonem",
+      "docsWithoutReceipt": "Bez paragonu",
+      "docsWithInvoice": "Z fakturą"
     },
     "orderDetail": {
       "completedWarningTitle": "Uwaga: zlecenie zakończone.",
@@ -3810,7 +3817,8 @@
         "numbering": "Numeracja",
         "integrations": "Integracje",
         "notifications": "Powiadomienia",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Fiskalizacja"
       },
       "workstations": {
         "title": "Stanowiska robocze",

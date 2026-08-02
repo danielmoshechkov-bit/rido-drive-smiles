@@ -332,6 +332,18 @@ verify_jwt = false
 [functions.driver-bank-change-confirm]
 verify_jwt = false
 
+[functions.fiscalize-receipt]
+verify_jwt = false
+
+[functions.fiscal-printer-test]
+verify_jwt = false
+
+[functions.fiscal-day-report]
+verify_jwt = false
+
+[functions.fiscal-receipt-session]
+verify_jwt = false
+
 [functions.contact-form]
 verify_jwt = false
 

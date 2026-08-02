@@ -96,7 +96,7 @@ export function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
   };
 
   const filteredDrivers = drivers.filter(driver => 
-    `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     driver.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -170,7 +170,7 @@ export function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
                       className="p-2 hover:bg-muted cursor-pointer text-sm"
                       onClick={() => {
                         setSelectedDriverId(driver.id);
-                        setSearchQuery(`${driver.first_name} ${driver.last_name}`);
+                        setSearchQuery(`${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`);
                         setShowDropdown(false);
                       }}
                     >

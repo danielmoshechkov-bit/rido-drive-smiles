@@ -33,7 +33,10 @@ const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Hybryda', 'Elektryczny', 'Benzyn
 export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder }: Props) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('dane');
-  const { data: allOrders = [] } = useWorkshopOrders(providerId);
+  // view 'all' — domyślny widok 'active' wyklucza ZAKOŃCZONE zlecenia serwerowo,
+  // przez co historia napraw auta pokazywała wszystko oprócz napraw faktycznie
+  // wykonanych. To po nie sięga się otwierając kartę pojazdu.
+  const { data: allOrders = [] } = useWorkshopOrders(providerId, { view: 'all' });
   const { data: clients = [] } = useWorkshopClients(providerId);
   const qc = useQueryClient();
 
@@ -57,7 +60,9 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
       brand: data.make || current.brand,
       model: data.model || current.model,
       color: data.color || current.color,
-      vin: data.vin || current.vin,
+      // Zamaskowany VIN z rejestru („W0L**********8071") nie nadaje się do zapisu —
+      // nie da się po nim szukać ani zweryfikować auta, a udaje prawdziwy numer.
+      vin: (data.vin && !String(data.vin).includes('*')) ? data.vin : current.vin,
       plate: data.registration_number || current.plate,
       year: data.registration_year ? String(data.registration_year) : current.year,
       first_registration_date: data.first_registration_date || current.first_registration_date,
@@ -201,7 +206,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 <div className="space-y-2">
                   <Label>{t('workshop.vehicles.vinNumber')}</Label>
                   <div className="flex gap-2">
-                    <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} className="font-mono flex-1" />
+                    <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} className="tracking-wide flex-1" />
                     <Button size="icon" variant="outline" onClick={handleLookupVin} disabled={lookupLoading} title={t('workshop.vehicles.lookupByVin')}>
                       {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
@@ -245,7 +250,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 <div className="space-y-2">
                   <Label>{t('workshop.orders.plateNumber')}</Label>
                   <div className="flex gap-2">
-                    <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} className="font-mono flex-1" />
+                    <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} className="tracking-wide flex-1" />
                     <Button size="icon" variant="outline" onClick={handleLookupPlate} disabled={lookupLoading} title={t('workshop.vehicles.lookupByPlate')}>
                       {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>

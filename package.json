@@ -9,7 +9,16 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "lint:urls": "node scripts/check-public-urls.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "elzab:health": "node --no-warnings=ExperimentalWarning scripts/elzab/01-healthcheck.ts",
+    "elzab:receipt": "node --no-warnings=ExperimentalWarning scripts/elzab/02-receipt.ts",
+    "elzab:edge": "node --no-warnings=ExperimentalWarning scripts/elzab/03-edge-cases.ts",
+    "elzab:report": "node --no-warnings=ExperimentalWarning scripts/elzab/04-day-report.ts",
+    "elzab:codepage": "node --no-warnings=ExperimentalWarning scripts/elzab/05-codepage-test.ts",
+    "elzab:bytemap": "node --no-warnings=ExperimentalWarning scripts/elzab/06-byte-map.ts",
+    "elzab:polish": "node --no-warnings=ExperimentalWarning scripts/elzab/07-polish-test.ts",
+    "fiscal:bridge": "node --no-warnings=ExperimentalWarning scripts/elzab/bridge.ts",
+    "fiscal:service:install": "bash scripts/elzab/service/install-macos.sh"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.14.1",

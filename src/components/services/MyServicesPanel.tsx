@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { toFiscalName } from '@/lib/fiscalName';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -85,6 +86,7 @@ function renderPrice(s: ServiceItem): string {
 
 const EMPTY_FORM = {
   name: '',
+  fiscal_name: '',
   short_description: '',
   description: '',
   price_mode: 'from' as PriceMode,
@@ -463,6 +465,9 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
 
       const payload: any = {
         name: form.name.trim(),
+        // Nazwa na paragon: drukarka mieści 40 znaków, a klient czyta ją na papierze.
+        // Pusta = system skróci nazwę usługi automatycznie.
+        fiscal_name: form.fiscal_name?.trim() || null,
         short_description: form.short_description,
         description: form.description,
         price_from: priceFrom,
@@ -1011,6 +1016,18 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
             <div className="space-y-2">
               <Label>Nazwa usługi</Label>
               <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="np. Wymiana oleju" />
+            </div>
+            <div className="space-y-2">
+              <Label>Nazwa na paragon fiskalny</Label>
+              <Input
+                value={form.fiscal_name}
+                maxLength={40}
+                onChange={e => setForm(p => ({ ...p, fiscal_name: e.target.value }))}
+                placeholder={form.name ? toFiscalName(form.name) : 'np. Wymiana oleju'}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Drukarka mieści 40 znaków. Puste pole = nazwa usługi zostanie skrócona automatycznie.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Kategoria (grupa → podkategoria)</Label>

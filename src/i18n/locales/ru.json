@@ -2003,7 +2003,14 @@
       "deletedCount_one": "Удалён {{count}} заказ",
       "deletedCount_few": "Удалено {{count}} заказа",
       "deletedCount_many": "Удалено {{count}} заказов",
-      "deletedCount_other": "Удалено {{count}} заказов"
+      "deletedCount_other": "Удалено {{count}} заказов",
+      "selectOrderFirst": "Сначала выберите заказ, для которого хотите выставить документ",
+      "alreadyFiscalized": "Для этого заказа уже выставлен фискальный чек",
+      "colDocuments": "Документы",
+      "docsAll": "Все документы",
+      "docsWithReceipt": "С чеком",
+      "docsWithoutReceipt": "Без чека",
+      "docsWithInvoice": "Со счётом"
     },
     "orderDetail": {
       "completedWarningTitle": "Внимание: заказ завершён.",
@@ -3809,7 +3816,8 @@
         "numbering": "Нумерация",
         "integrations": "Интеграции",
         "notifications": "Уведомления",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Фискализация"
       },
       "workstations": {
         "title": "Рабочие места",

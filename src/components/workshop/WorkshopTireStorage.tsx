@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { WorkshopPager, pageSlice } from './WorkshopPager';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useWorkshopClients, useWorkshopVehicles } from '@/hooks/useWorkshop';
+import { useProviderPrintHeader } from '@/hooks/useFiscal';
 import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +20,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
-  Plus, Search, Trash2, Archive, X, Check, ChevronsUpDown
+  Plus, Search, Trash2, Archive, X, Check, ChevronsUpDown, Printer
 } from 'lucide-react';
 
 interface Props {
@@ -27,15 +29,15 @@ interface Props {
 }
 
 // Hooks for tire storage data
-function useTireStorageRecords(providerId: string) {
+function useTireStorageRecords(providerId: string, view: 'stored' | 'issued' = 'stored') {
   return useQuery({
-    queryKey: ['tire-storage', providerId],
+    queryKey: ['tire-storage', providerId, view],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('workshop_tire_storage')
         .select('*, workshop_clients(*), workshop_vehicles(*)')
         .eq('provider_id', providerId)
-        .eq('is_active', true)
+        .eq('is_active', view === 'stored')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
@@ -60,11 +62,116 @@ function useServicePoints(providerId: string) {
   });
 }
 
+/**
+ * Pokwitowanie przyjęcia/wydania opon.
+ *
+ * PO CO: klient zostawia cztery koła warte kilka tysięcy i nie dostawał na to żadnego
+ * papieru. Pokwitowanie jest jedynym dowodem, co zostawił, w jakim stanie i do kiedy —
+ * a przy sporze („zostawiłem cztery, oddajecie trzy") rozstrzyga sprawę.
+ */
+function printStorageReceipt(
+  record: any,
+  kind: 'przyjęcia' | 'wydania',
+  header: { companyName?: string | null; nip?: string | null; address?: string | null; logoUrl?: string | null } = {},
+) {
+  const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const client = record.client_name
+    || [record.workshop_clients?.first_name, record.workshop_clients?.last_name].filter(Boolean).join(' ')
+    || '—';
+  const vehicle = record.workshop_vehicles
+    ? [record.workshop_vehicles.brand, record.workshop_vehicles.model, record.workshop_vehicles.plate].filter(Boolean).join(' ')
+    : '—';
+  const seasons: Record<string, string> = { letnie: 'letnie', zimowe: 'zimowe', calorocze: 'całoroczne' };
+  const row = (label: string, value: unknown) =>
+    `<tr><td class="k">${esc(label)}</td><td>${esc(value) || '—'}</td></tr>`;
+
+  const html = `<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><title>Pokwitowanie ${esc(kind)} opon</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; color: #111; font-size: 13px; }
+  .banner { border: 2px solid #111; padding: 8px 12px; text-align: center; font-weight: 700; letter-spacing: 1px; }
+  h1 { font-size: 16px; margin: 18px 0 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  td { border-bottom: 1px solid #ddd; padding: 6px 4px; vertical-align: top; }
+  td.k { width: 34%; color: #555; }
+  .sign { margin-top: 46px; display: flex; justify-content: space-between; gap: 40px; }
+  .sign div { flex: 1; border-top: 1px solid #111; padding-top: 6px; text-align: center; font-size: 11px; color: #555; }
+  .footer { margin-top: 20px; font-size: 11px; color: #555; line-height: 1.6; }
+  @media print { body { margin: 10mm; } }
+</style></head>
+<body>
+  ${header.logoUrl ? `<div style="text-align:center;margin-bottom:10px"><img src="${esc(header.logoUrl)}" alt="" style="max-height:70px;max-width:60%;object-fit:contain" /></div>` : ''}
+  <div class="banner">POKWITOWANIE ${esc(kind.toUpperCase())} OPON DO PRZECHOWANIA</div>
+  ${header.companyName ? `<h1>${esc(header.companyName)}</h1>` : ''}
+  <div class="muted" style="color:#555;font-size:12px">
+    ${header.address ? esc(header.address) + '<br>' : ''}
+    ${header.nip ? 'NIP: ' + esc(header.nip) : ''}
+  </div>
+  <h1>Nr miejsca: ${esc(record.storage_number || '—')}</h1>
+  <table>
+    ${row('Klient', client)}
+    ${row('Telefon', record.client_phone)}
+    ${row('Pojazd', vehicle)}
+    ${row('Opony', [record.tire_brand, record.tire_model].filter(Boolean).join(' '))}
+    ${row('Rozmiar', record.tire_size)}
+    ${row('Sezon', seasons[record.season] ?? record.season)}
+    ${row('Liczba sztuk', record.quantity ?? 4)}
+    ${row('Głębokość bieżnika', record.tread_depth_mm ? `${record.tread_depth_mm} mm` : '')}
+    ${row('DOT', record.dot_code)}
+    ${row('Stan', record.condition)}
+    ${row('Data przyjęcia', record.stored_at ? new Date(record.stored_at).toLocaleDateString('pl-PL') : '')}
+    ${row('Termin odbioru', record.pickup_deadline ? new Date(record.pickup_deadline).toLocaleDateString('pl-PL') : '')}
+    ${kind === 'wydania' ? row('Data wydania', record.pickup_at ? new Date(record.pickup_at).toLocaleDateString('pl-PL') : new Date().toLocaleDateString('pl-PL')) : ''}
+    ${row('Koszt przechowania', record.storage_cost ? `${Number(record.storage_cost).toFixed(2)} zł` : '')}
+    ${row('Lokalizacja', record.location_name)}
+    ${row('Uwagi', record.notes)}
+  </table>
+  <div class="sign">
+    <div>podpis klienta</div>
+    <div>podpis przyjmującego</div>
+  </div>
+  <div class="footer">
+    Dokument potwierdza ${kind === 'przyjęcia' ? 'przyjęcie opon do przechowania' : 'wydanie opon właścicielowi'}.
+    Wygenerowano w GetRido: ${esc(new Date().toLocaleString('pl-PL'))}
+  </div>
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+  const win = window.open('', '_blank', 'width=760,height=900');
+  if (!win) { toast.error('Przeglądarka zablokowała okno wydruku.'); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
 export function WorkshopTireStorage({ providerId, onBack }: Props) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
-  const { data: records = [], isLoading } = useTireStorageRecords(providerId);
+  /**
+   * „W magazynie" i „Wydane" to dwa różne pytania: pierwsze zadaje magazynier szukający
+   * miejsca, drugie — klient, który twierdzi, że opon nie odebrał. Dotąd lista pokazywała
+   * wyłącznie aktywne, więc wydanie kompletu znaczyło skasowanie wpisu razem z historią.
+   */
+  const [view, setView] = useState<'stored' | 'issued'>('stored');
+  const { data: records = [], isLoading } = useTireStorageRecords(providerId, view);
+  // Pokwitowanie trafia do rąk klienta — z logo i danymi warsztatu.
+  const { data: printHeader } = useProviderPrintHeader(providerId);
+  const queryClientRef = useQueryClient();
+
+  const issueSet = async (record: any) => {
+    const label = [record.tire_brand, record.tire_size].filter(Boolean).join(' ') || 'komplet';
+    if (!confirm(`Wydać ${label} klientowi? Wpis trafi do historii wydanych.`)) return;
+    const { error } = await (supabase as any)
+      .from('workshop_tire_storage')
+      .update({ is_active: false, pickup_at: new Date().toISOString() })
+      .eq('id', record.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Komplet wydany klientowi.');
+    queryClientRef.invalidateQueries({ queryKey: ['tire-storage'] });
+  };
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const filtered = useMemo(() => {
     if (!search) return records;
@@ -79,6 +186,9 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
     );
   }, [records, search]);
 
+  const paged = pageSlice(filtered, page, pageSize);
+  useEffect(() => { setPage(1); }, [pageSize]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -91,6 +201,18 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
         <Button onClick={() => setShowAdd(true)} className="gap-2">
           <Plus className="h-4 w-4" /> {t('workshop.tireStorage.store')}
         </Button>
+        <div className="flex rounded-md border overflow-hidden">
+          {([['stored', 'W magazynie'], ['issued', 'Wydane']] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setView(value)}
+              className={`px-3 py-1.5 text-sm transition-colors ${view === value ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -113,17 +235,18 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                 <TableHead>{t('workshop.tireStorage.col.location')}</TableHead>
                 <TableHead>{t('workshop.tireStorage.col.receivedDate')}</TableHead>
                 <TableHead>{t('workshop.tireStorage.col.cost')}</TableHead>
+                <TableHead className="text-right">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
                     <Archive className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     {isLoading ? t('common.loading') : t('workshop.tireStorage.noData')}
                   </TableCell>
                 </TableRow>
-              ) : filtered.map((r: any) => (
+              ) : paged.map((r: any) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono text-xs">{r.storage_number || '—'}</TableCell>
                   <TableCell>{r.client_name || `${r.workshop_clients?.first_name || ''} ${r.workshop_clients?.last_name || ''}`.trim() || '—'}</TableCell>
@@ -135,6 +258,21 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                   <TableCell className="text-xs">{r.location_name || '—'}</TableCell>
                   <TableCell className="text-xs">{r.stored_at ? new Date(r.stored_at).toLocaleDateString('pl-PL') : '—'}</TableCell>
                   <TableCell className="font-medium">{(r.storage_cost || 0).toFixed(2)} zł</TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => printStorageReceipt(r, view === 'stored' ? 'przyjęcia' : 'wydania', printHeader ?? {})}
+                    >
+                      <Printer className="h-3.5 w-3.5" /> Pokwitowanie
+                    </Button>
+                    {view === 'stored' && (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => issueSet(r)}>
+                        <Check className="h-3.5 w-3.5" /> Wydaj
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -142,9 +280,13 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
         </CardContent>
       </Card>
 
-      <div className="text-sm text-muted-foreground">
-        {t('workshop.tireStorage.pagination', { from: 0, to: filtered.length, total: records.length })}
-      </div>
+      <WorkshopPager
+        page={page}
+        pageSize={pageSize}
+        total={filtered.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       <TireStorageDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
     </div>
@@ -261,6 +403,8 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
   const [storageCost, setStorageCost] = useState('150');
   const [pickupDeadline, setPickupDeadline] = useState('');
   const [reminderMonths, setReminderMonths] = useState('6');
+  // O sposobie kontaktu decyduje klient — 'none' to pełnoprawny wybór, nie brak danych.
+  const [reminderChannel, setReminderChannel] = useState<'sms' | 'email' | 'none'>('sms');
   const [locationName, setLocationName] = useState('');
   const [locationDesc, setLocationDesc] = useState('');
   const [season, setSeason] = useState('letnie');
@@ -360,6 +504,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
           storage_cost: parseFloat(storageCost) || 150,
           location_name: locationName || locationDesc,
           reminder_months: parseInt(reminderMonths) || 6,
+          reminder_channel: reminderChannel,
           employee_name: employeeName,
           notes,
           is_active: true,
@@ -433,7 +578,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               onCreateNew={handleCreateClientInline}
               onAddNew={() => setShowAddClient(true)}
               placeholder={t('workshop.tireStorage.enterFullNamePlaceholder')}
-              renderItem={(c: any) => c.company_name || `${c.first_name} ${c.last_name}`}
+              renderItem={(c: any) => c.company_name || `${[c.first_name, c.last_name].filter(Boolean).join(' ')}`}
               getLabel={(c: any) => c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()}
             />
             {!clientId && clientName && (
@@ -499,11 +644,23 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
 
           {/* Reminder */}
           <div className="space-y-2">
-            <Label>{t('workshop.tireStorage.smsReminderIn')}</Label>
-            <div className="flex items-center gap-2">
+            <Label>Przypomnienie o odbiorze za</Label>
+            <div className="flex items-center gap-2 flex-wrap">
               <Input type="number" min="1" max="12" value={reminderMonths} onChange={e => setReminderMonths(e.target.value)} className="w-20 h-9" />
               <span className="text-sm text-muted-foreground">{t('workshop.tireStorage.months')}</span>
+              <Select value={reminderChannel} onValueChange={(v) => setReminderChannel(v as any)}>
+                <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sms">SMS-em</SelectItem>
+                  <SelectItem value="email">E-mailem</SelectItem>
+                  <SelectItem value="none">Bez przypomnienia</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Kanał wybiera klient. Wysyłka wymaga jeszcze zadania po stronie serwera —
+              na razie termin jest zapisywany i widoczny w pokwitowaniu.
+            </p>
           </div>
 
           {/* Service point */}

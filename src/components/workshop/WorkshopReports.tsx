@@ -10,6 +10,7 @@ import { useWorkshopPaymentsRange, useWorkshopFinanceSettings, PAYMENT_METHODS, 
 import { safeNumber } from '@/utils/workshopOrderTotals';
 import { WorkshopRangeCalendar } from './WorkshopRangeCalendar';
 import { WorkshopClientsReport, WorkshopEmployeesReport, WorkshopSalesReport } from './WorkshopExtraReports';
+import { WorkshopMonthlyClosuresReport } from './WorkshopMonthlyClosuresReport';
 import { WorkshopCompanyReport } from './WorkshopCompanyReport';
 // PERF C1: WorkshopStatsReport to jedyny konsument recharts w warsztacie —
 // lazy trzyma bibliotekę wykresów poza chunkiem modułu raportów.
@@ -19,7 +20,7 @@ const WorkshopStatsReport = lazy(() =>
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2, Info, ChevronDown, Building2, BarChart3 } from 'lucide-react';
+import { ClipboardList, Receipt, Users, UserCheck, Printer, Eye, Loader2, Info, ChevronDown, Building2, BarChart3, Lock } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { printHtmlDocument } from '@/utils/invoiceHtmlGenerator';
@@ -39,6 +40,7 @@ const reportCategories = [
   { key: 'pracownicy', labelKey: 'workshop.reports.cat.employees', icon: UserCheck },
   { key: 'firma', labelKey: 'Działalność firmy', icon: Building2 },
   { key: 'statystyki', labelKey: 'Statystyki', icon: BarChart3 },
+  { key: 'miesiace', labelKey: 'Miesiące i zamknięcia', icon: Lock },
 ];
 
 const orderReports = [
@@ -49,6 +51,8 @@ const clientReports = [{ key: 'raport-klienci', label: 'Klienci', desc: 'Nowi, p
 const employeeReports = [{ key: 'raport-pracownicy', label: 'Pracownicy', desc: 'Liczba i wartość zleceń na pracownika, wypłaty.' }];
 const companyReports = [{ key: 'raport-firma', label: 'Podsumowanie firmy', desc: 'Pełny obraz finansów: przychody i wszystkie koszty (pracownicze, czynsz, opłaty stałe, zakupy) → realny wynik firmy.' }];
 const statsReports = [{ key: 'raport-statystyki', label: 'Statystyki', desc: 'Liczba zleceń, nowi vs powracający klienci, średnia wartość i marża, wykresy w czasie.' }];
+// Raporty z zamknięcia miesiąca — właściciel szuka ich w Raportach, nie w Kasie.
+const monthReports = [{ key: 'raport-miesiace', label: 'Miesiące i zamknięcia', desc: 'Podsumowanie zamkniętych miesięcy i raport zapisany w chwili zamknięcia kasy.' }];
 
 const fmt = (n: number) => (n || 0).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const startOfMonth = () => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd');
@@ -161,6 +165,24 @@ export function WorkshopReports({ providerId, onBack }: Props) {
     return ordered;
   }, [orders, statuses]);
 
+  /**
+   * Ile zleceń z wybranego okresu wpada w dany status / stanowisko.
+   *
+   * PO CO: filtr stanowisk wygladal na zepsuty — klikniecie odsiewalo prawie wszystko,
+   * bo wiekszosc zlecen nie ma przypisanego stanowiska. Licznik przy etykiecie mowi
+   * wprost, czego sie spodziewac, i odroznia "brak danych" od "awaria".
+   */
+  const ordersInPeriod = useMemo(() => (orders as any[]).filter((o) => {
+    const basis = orderDate(o);
+    if (!basis) return false;
+    const d = dpart(basis);
+    return d >= dateFrom && d <= dateTo;
+  }), [orders, dateFrom, dateTo]);
+
+  const countByStatus = (name: string) => ordersInPeriod.filter((o) => o.status_name === name).length;
+  const countByStation = (id: string) => ordersInPeriod.filter((o) => o.station_id === id).length;
+  const withoutStation = ordersInPeriod.filter((o) => !o.station_id).length;
+
   const reportOrders = useMemo(() => (orders as any[]).filter((o) => {
     const basis = orderDate(o);
     if (!basis) return false;
@@ -211,6 +233,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
       case 'pracownicy': return employeeReports;
       case 'firma': return companyReports;
       case 'statystyki': return statsReports;
+      case 'miesiace': return monthReports;
       default: return [];
     }
   };
@@ -233,6 +256,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
   if (activeReport === 'raport-pracownicy') return reportWrap('Pracownicy', <WorkshopEmployeesReport providerId={providerId} />);
   if (activeReport === 'raport-sprzedazy') return reportWrap('Sprzedaż', <WorkshopSalesReport providerId={providerId} />);
   if (activeReport === 'raport-firma') return reportWrap('Podsumowanie firmy', <WorkshopCompanyReport providerId={providerId} />);
+  if (activeReport === 'raport-miesiace') return reportWrap('Miesiące i zamknięcia', <WorkshopMonthlyClosuresReport providerId={providerId} />);
   if (activeReport === 'raport-statystyki') return reportWrap('Statystyki', (
     <Suspense fallback={<div className="py-10 text-center text-muted-foreground">Ładowanie wykresów…</div>}>
       <WorkshopStatsReport providerId={providerId} />
@@ -276,7 +300,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                   return (
                     <Badge key={s.id} onClick={() => toggleSet(selectedStatuses, s.name, setSelectedStatuses)}
                       className={`cursor-pointer ${on ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-muted/70'}`}>
-                      {s.name}
+                      {s.name} <span className="ml-1 opacity-70">{countByStatus(s.name)}</span>
                     </Badge>
                   );
                 })}
@@ -294,12 +318,18 @@ export function WorkshopReports({ providerId, onBack }: Props) {
                     return (
                       <Badge key={s.id} onClick={() => toggleSet(selectedStations, s.id, setSelectedStations)}
                         className={`cursor-pointer ${on ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-muted/70'}`}>
-                        {s.name}
+                        {s.name} <span className="ml-1 opacity-70">{countByStation(s.id)}</span>
                       </Badge>
                     );
                   })}
                   {selectedStations.size > 0 && <Badge variant="outline" className="cursor-pointer" onClick={() => setSelectedStations(new Set())}>× wyczyść</Badge>}
                 </div>
+                {withoutStation > 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {withoutStation} z {ordersInPeriod.length} zleceń w tym okresie nie ma przypisanego stanowiska —
+                    filtr ich nie pokaże.
+                  </p>
+                )}
               </div>
             )}
 
@@ -325,6 +355,16 @@ export function WorkshopReports({ providerId, onBack }: Props) {
         </Card>
 
         {generated && !isLoading && reportOrders.length > 0 && (
+          <>
+          {/* Zdanie, ktore odpowiada na pierwsze pytanie kazdego czytajacego raport:
+              czego dokladnie dotycza te liczby. Bez tego "Przychod" z raportu i przychod
+              z Kasy roznily sie i nie bylo wiadomo, ktory jest prawdziwy. */}
+          <p className="text-xs text-muted-foreground">
+            {reportOrders.length} {reportOrders.length === 1 ? 'zlecenie' : 'zleceń'} z okresu{' '}
+            {new Date(dateFrom).toLocaleDateString('pl-PL')} – {new Date(dateTo).toLocaleDateString('pl-PL')}
+            {selectedStatuses.size > 0 ? `, statusy: ${Array.from(selectedStatuses).join(', ')}` : ', wszystkie statusy'}
+            {selectedStations.size > 0 ? ', wybrane stanowiska' : ''}. Kwoty {gross ? 'brutto' : 'netto'}.
+          </p>
           <div className={`grid grid-cols-2 gap-3 ${cashEnabled ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
             <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Przychód" hint={COL_HINTS.revenue} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalRevenue)}</p></CardContent></Card>
             <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Koszt" hint={COL_HINTS.cost} /></p><p className="text-lg font-bold tabular-nums">{fmt(totalCost)}</p></CardContent></Card>
@@ -334,6 +374,7 @@ export function WorkshopReports({ providerId, onBack }: Props) {
               <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground"><InfoLabel label="Dług" hint={COL_HINTS.debt} /></p><p className={`text-lg font-bold tabular-nums ${totalDebt > 0 ? 'text-destructive' : ''}`}>{fmt(totalDebt)}</p></CardContent></Card>
             )}
           </div>
+          </>
         )}
 
         {generated && !isLoading && reportOrders.length > 0 && cashEnabled && (

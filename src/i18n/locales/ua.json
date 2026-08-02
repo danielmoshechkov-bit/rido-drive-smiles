@@ -2003,7 +2003,14 @@
       "deletedCount_one": "Видалено {{count}} замовлення",
       "deletedCount_few": "Видалено {{count}} замовлення",
       "deletedCount_many": "Видалено {{count}} замовлень",
-      "deletedCount_other": "Видалено {{count}} замовлень"
+      "deletedCount_other": "Видалено {{count}} замовлень",
+      "selectOrderFirst": "Спочатку виберіть замовлення, для якого хочете виставити документ",
+      "alreadyFiscalized": "Для цього замовлення вже виставлено фіскальний чек",
+      "colDocuments": "Документи",
+      "docsAll": "Усі документи",
+      "docsWithReceipt": "З чеком",
+      "docsWithoutReceipt": "Без чека",
+      "docsWithInvoice": "З рахунком"
     },
     "orderDetail": {
       "completedWarningTitle": "Увага: замовлення завершено.",
@@ -3809,7 +3816,8 @@
         "numbering": "Нумерація",
         "integrations": "Інтеграції",
         "notifications": "Сповіщення",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Фіскалізація"
       },
       "workstations": {
         "title": "Робочі місця",

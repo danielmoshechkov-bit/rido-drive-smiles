@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsPanel } from './SettingsPanel';
-import { WorkshopCashSettings } from './WorkshopCashSettings';
 
 /**
  * Standalone host dla działającego SettingsPanel (kafelek "Ustawienia" w dashboardzie).
@@ -37,7 +36,6 @@ export function WorkshopSettingsStandalone({ providerId, onBack }: { providerId:
   return (
     <div className="space-y-3">
       <Button variant="ghost" size="sm" className="gap-1.5" onClick={onBack}><ArrowLeft className="h-4 w-4" /> Pulpit</Button>
-      {providerId && <WorkshopCashSettings providerId={providerId} />}
       <SettingsPanel providerId={providerId} settingsForm={settingsForm} setSettingsForm={setSettingsForm} />
     </div>
   );
