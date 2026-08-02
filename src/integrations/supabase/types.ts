@@ -15525,9 +15525,54 @@ export type Database = {
           },
         ]
       }
+      provider_service_categories: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          provider_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          provider_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          provider_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_service_categories_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       provider_services: {
         Row: {
           category: string | null
+          category_id: string | null
           created_at: string | null
           description: string | null
           duration_minutes: number | null
@@ -15540,10 +15585,12 @@ export type Database = {
           price_to: number | null
           provider_id: string
           short_description: string | null
+          sort_order: number
           updated_at: string | null
         }
         Insert: {
           category?: string | null
+          category_id?: string | null
           created_at?: string | null
           description?: string | null
           duration_minutes?: number | null
@@ -15556,10 +15603,12 @@ export type Database = {
           price_to?: number | null
           provider_id: string
           short_description?: string | null
+          sort_order?: number
           updated_at?: string | null
         }
         Update: {
           category?: string | null
+          category_id?: string | null
           created_at?: string | null
           description?: string | null
           duration_minutes?: number | null
@@ -15572,9 +15621,17 @@ export type Database = {
           price_to?: number | null
           provider_id?: string
           short_description?: string | null
+          sort_order?: number
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "provider_services_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "provider_service_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "provider_services_provider_id_fkey"
             columns: ["provider_id"]
@@ -19784,6 +19841,7 @@ export type Database = {
           updated_at: string | null
           user_id: string | null
           verified_at: string | null
+          working_hours: Json
         }
         Insert: {
           auto_confirm?: boolean | null
@@ -19828,6 +19886,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           verified_at?: string | null
+          working_hours?: Json
         }
         Update: {
           auto_confirm?: boolean | null
@@ -19872,6 +19931,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           verified_at?: string | null
+          working_hours?: Json
         }
         Relationships: [
           {
