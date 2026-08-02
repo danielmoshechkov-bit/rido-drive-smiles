@@ -256,7 +256,7 @@ export function AICallAdminPanel() {
                         <Label>NIP *</Label>
                         <div className="flex gap-2">
                           <Input
-                            placeholder="np. 5223252793"
+                            placeholder="np. 0000000000"
                             value={newNip}
                             onChange={(e) => setNewNip(e.target.value)}
                           />
@@ -277,7 +277,7 @@ export function AICallAdminPanel() {
                       <div className="space-y-2">
                         <Label>Nazwa firmy (opcjonalnie)</Label>
                         <Input
-                          placeholder="np. Car4Ride Sp. z o.o."
+                          placeholder="np. Twoja Firma Sp. z o.o."
                           value={newCompanyName}
                           onChange={(e) => setNewCompanyName(e.target.value)}
                         />
@@ -696,7 +696,7 @@ export function AICallAdminPanel() {
           <div className="py-4">
             <Textarea
               placeholder={bulkType === "nip" 
-                ? "5223252793\n1234567890\n9876543210" 
+                ? "0000000000\n1234567890\n9876543210"
                 : "jan@firma.pl\nanna@firma.pl\npiotr@firma.pl"
               }
               value={bulkInput}

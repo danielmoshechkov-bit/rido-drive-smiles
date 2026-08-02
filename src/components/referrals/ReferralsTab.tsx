@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { buildPublicUrl } from '@/lib/publicUrl';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,7 +73,7 @@ export function ReferralsTab() {
     });
   }, [load]);
 
-  const shareLink = code ? `${window.location.origin}/?ref=${code}` : '';
+  const shareLink = code ? buildPublicUrl(`/?ref=${code}`) : '';
   const shareText = t('cp.referrals.shareText');
 
   const copy = async (text: string, label?: string) => {

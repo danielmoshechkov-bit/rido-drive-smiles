@@ -58,6 +58,7 @@ const RentalContractPortal = lazy(() => import("./pages/RentalContractPortal"));
 const CennikPage = lazy(() => import("./pages/CennikPage"));
 const JakZaczacPage = lazy(() => import("./pages/JakZaczacPage"));
 const KontaktPage = lazy(() => import("./pages/KontaktPage"));
+const DataDeletionPage = lazy(() => import("./pages/DataDeletionPage"));
 const VehicleMarketplace = lazy(() => import("./pages/VehicleMarketplace"));
 const VehicleDetailPage = lazy(() => import("./pages/VehicleDetailPage"));
 const VehicleCompare = lazy(() => import("./pages/VehicleCompare"));
@@ -264,6 +265,7 @@ const App = () => (
                 <Route path="/cennik" element={<CennikPage />} />
                 <Route path="/jak-zaczac" element={<JakZaczacPage />} />
                 <Route path="/kontakt" element={<KontaktPage />} />
+                <Route path="/usuwanie-danych" element={<DataDeletionPage />} />
                 <Route path="/polityka-prywatnosci" element={<Navigate to="/prawne?tab=polityka" replace />} />
                 <Route path="/regulamin" element={<Navigate to="/prawne?tab=regulamin" replace />} />
                 <Route path="/rodo" element={<Navigate to="/prawne?tab=rodo" replace />} />

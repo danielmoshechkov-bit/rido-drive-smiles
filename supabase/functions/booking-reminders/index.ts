@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { buildPublicUrl } from '../_shared/publicUrl.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -102,7 +103,7 @@ serve(async (req) => {
         address,
         b.service_description,
         leadMin,
-        b.confirmation_token,
+        b.public_token ?? b.confirmation_token,
       )
 
       const { error: smsErr } = await sb.functions.invoke('workshop-send-sms', {
@@ -151,25 +152,26 @@ function buildSmsText(
     ? `${Math.round(leadMinutes / 60)}h`
     : `${leadMinutes}min`
 
-  // Confirmation link
+  // Confirmation link — jedno źródło prawdy dla publicznego adresu (buildPublicUrl).
   const confirmUrl = confirmationToken
-    ? `https://rido-drive-smiles.lovable.app/r/${confirmationToken}`
+    ? buildPublicUrl(`/r/${confirmationToken}`)
     : ''
 
-  // Build message in priority order, drop optional fragments if too long
+  // Build message in priority order, drop optional fragments if too long.
+  // Skrócone szablony (krótki public_token → link ~31 zn. → mieści się w 1 SMS).
   let msg = leadMinutes <= 4 * 60
     ? `${name}: wizyta za ${leadLabel}, ${d} ${t}.`
-    : `${name}: przypominamy o wizycie ${d} o ${t}.`
-  if (service) msg += ` Usluga: ${service}.`
-  if (addr) msg += ` Adres: ${addr}.`
-  if (confirmUrl) msg += ` Potwierdz: ${confirmUrl}`
+    : `${name}: wizyta ${d} o ${t}.`
+  if (service) msg += ` ${service}.`
+  if (addr) msg += ` ${addr}.`
+  if (confirmUrl) msg += ` Zarzadzaj: ${confirmUrl}`
 
   // SMS limit ~160 chars; drop address first, then service if needed
   if (msg.length > 160 && addr) {
-    msg = msg.replace(` Adres: ${addr}.`, '')
+    msg = msg.replace(` ${addr}.`, '')
   }
   if (msg.length > 160 && service) {
-    msg = msg.replace(` Usluga: ${service}.`, '')
+    msg = msg.replace(` ${service}.`, '')
   }
 
   return msg.slice(0, 160)

@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { TabsPill } from "@/components/ui/TabsPill";
 import { TabsTrigger } from "@/components/ui/tabs";
 import Footer from "@/components/Footer";
+import { LEGAL_ENTITY, getFullAddress } from "@/config/legal";
 
 type TabKey = "polityka" | "rodo" | "regulamin" | "cookies";
 
@@ -125,16 +126,22 @@ const SubSection = ({ title, children }: { title?: string; children: React.React
 
 const AdminInfo = () => (
   <div className="bg-muted/50 rounded-lg p-4 my-4 text-sm">
-    <p className="font-semibold text-foreground">CAR4RIDE SP. Z O.O.</p>
-    <p>ul. Borsucza 13</p>
-    <p>02-213 Warszawa</p>
-    <p>NIP: 5223252793</p>
-    <p>REGON: 524746171</p>
-    <p>KRS: 0001025395</p>
+    <p className="font-semibold text-foreground">{LEGAL_ENTITY.name}</p>
+    <p>ul. {LEGAL_ENTITY.street}</p>
+    <p>{LEGAL_ENTITY.postalCode} {LEGAL_ENTITY.city}</p>
+    <p>NIP: {LEGAL_ENTITY.nip}</p>
+    <p>REGON: {LEGAL_ENTITY.regon}</p>
+    <p>KRS: {LEGAL_ENTITY.krs}</p>
     <p className="mt-2">
-      Kontakt: <a href="mailto:rodo@getrido.pl" className="text-primary hover:underline">rodo@getrido.pl</a>
+      Kontakt: <a href={`mailto:${LEGAL_ENTITY.emailRodo}`} className="text-primary hover:underline">{LEGAL_ENTITY.emailRodo}</a>
     </p>
   </div>
+);
+
+const LastUpdated = () => (
+  <p className="text-center text-sm text-muted-foreground mb-8">
+    Ostatnia aktualizacja: {LEGAL_ENTITY.lastUpdated}
+  </p>
 );
 
 const PolitykaContent = () => (
@@ -143,6 +150,7 @@ const PolitykaContent = () => (
       <span className="text-4xl">🔐</span>
       <h1 className="text-2xl md:text-3xl font-bold text-foreground mt-2">POLITYKA PRYWATNOŚCI</h1>
       <p className="text-muted-foreground mt-1">Platforma GetRido</p>
+      <LastUpdated />
     </div>
 
     <SectionTitle>1. Informacje ogólne</SectionTitle>
@@ -223,6 +231,15 @@ const PolitykaContent = () => (
     <SectionTitle>8. Odbiorcy danych</SectionTitle>
     <SubSection>
       <p>Dane osobowe mogą być przekazywane podmiotom współpracującym z Administratorem, w szczególności dostawcom usług IT, hostingowych, płatniczych, księgowych i prawnych, wyłącznie w zakresie niezbędnym do realizacji usług.</p>
+      {/* DO WERYFIKACJI PRAWNEJ — doprecyzowanie kategorii odbiorców */}
+      <p className="mt-2">Odbiorcami danych mogą być w szczególności:</p>
+      <ul className="list-disc list-inside mt-2 space-y-1">
+        <li>dostawcy usług hostingowych i infrastruktury IT (przechowywanie danych platformy),</li>
+        <li>dostawca usług wysyłki wiadomości SMS (komunikaty transakcyjne, np. status naprawy),</li>
+        <li>dostawcy usług sztucznej inteligencji (przetwarzanie treści na potrzeby funkcji AI platformy),</li>
+        <li>Meta Platforms (Facebook, Instagram) — w przypadku publikacji ogłoszenia użytkownika na profilach GetRido w tych serwisach,</li>
+        <li>dostawcy usług płatniczych, księgowych i prawnych.</li>
+      </ul>
     </SubSection>
 
     <SectionTitle>9. Bezpieczeństwo danych</SectionTitle>
@@ -245,9 +262,56 @@ const PolitykaContent = () => (
       </ul>
     </SubSection>
 
-    <SectionTitle>11. Zmiany Polityki Prywatności</SectionTitle>
+    {/* DO WERYFIKACJI PRAWNEJ — rozdzielenie ról administrator / podmiot przetwarzający
+        (GetRido jako procesor danych klientów końcowych warsztatów) */}
+    <SectionTitle>11. Role GetRido: administrator i podmiot przetwarzający</SectionTitle>
+    <SubSection>
+      <p>W zależności od kategorii danych GetRido występuje w jednej z dwóch ról:</p>
+      <ul className="list-disc list-inside mt-2 space-y-1">
+        <li><strong>Administrator danych</strong> — wobec danych użytkowników platformy będących klientami GetRido (np. dane konta warsztatu, usługodawcy, ogłoszeniodawcy, dane rozliczeniowe za usługi GetRido). Cele: świadczenie usług platformy (art. 6 ust. 1 lit. b RODO), obowiązki prawne, w tym podatkowe (art. 6 ust. 1 lit. c RODO), prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO) oraz zgoda (art. 6 ust. 1 lit. a RODO). Okres retencji: przez czas trwania umowy, a po jej zakończeniu przez okres wymagany przepisami prawa (dane rozliczeniowe i faktury — 5 lat podatkowych).</li>
+        <li><strong>Podmiot przetwarzający (procesor)</strong> — wobec danych klientów końcowych warsztatów i usługodawców, wprowadzanych przez nich do systemu (np. dane klienta warsztatu, jego pojazdu i zlecenia). Administratorem tych danych jest warsztat/usługodawca; GetRido przetwarza je wyłącznie na jego udokumentowane polecenie, w celu świadczenia usługi systemu (w tym wysyłki komunikatów SMS/e-mail w imieniu warsztatu), na podstawie umowy powierzenia przetwarzania (DPA). Okres retencji wyznacza administrator (warsztat); po zakończeniu umowy dane są zwracane lub usuwane zgodnie z DPA.</li>
+      </ul>
+      <p className="mt-2">Żądania osób, których dane dotyczą, kierowane do GetRido w zakresie danych przetwarzanych w roli procesora, przekazywane są właściwemu administratorowi (warsztatowi/usługodawcy).</p>
+    </SubSection>
+
+    {/* DO WERYFIKACJI PRAWNEJ — dane pozyskiwane z Meta API (Facebook/Instagram) */}
+    <SectionTitle>12. Dane pozyskiwane z serwisów Facebook i Instagram (Meta)</SectionTitle>
+    <SubSection>
+      <p>Jeżeli użytkownik połączy swoje konto z serwisami Meta lub korzysta z funkcji publikacji ogłoszeń na profilach GetRido w serwisach Meta, Administrator może pozyskiwać za pośrednictwem interfejsów API Meta następujące dane:</p>
+      <ul className="list-disc list-inside mt-2 space-y-1">
+        <li>identyfikator użytkownika w serwisie Meta,</li>
+        <li>nazwę profilu,</li>
+        <li>adres e-mail (jeżeli został udostępniony),</li>
+        <li>identyfikatory opublikowanych postów.</li>
+      </ul>
+      <p className="mt-2">Cel przetwarzania: publikacja ogłoszeń użytkownika na profilach GetRido w serwisach Meta oraz raportowanie statystyk publikacji. Podstawa prawna: art. 6 ust. 1 lit. b RODO (realizacja usługi) oraz art. 6 ust. 1 lit. f RODO (statystyki).</p>
+      <p className="mt-2">Instrukcja usunięcia danych pozyskanych z serwisów Meta znajduje się na stronie{" "}
+        <Link to="/usuwanie-danych" className="text-primary hover:underline">getrido.pl/usuwanie-danych</Link>.</p>
+    </SubSection>
+
+    {/* DO WERYFIKACJI PRAWNEJ — analityka na danych zanonimizowanych (rozwój usługi).
+        TODO: mechanizm anonimizacji przed zapisem do zbioru uczącego JESZCZE NIE ISTNIEJE
+        w kodzie — do zaimplementowania osobno, zanim jakiekolwiek dane zleceń trafią
+        do zbioru analitycznego/uczącego. */}
+    <SectionTitle>13. Wykorzystanie danych do rozwoju usługi</SectionTitle>
+    <SubSection>
+      <p>Administrator analizuje dane dotyczące zleceń realizowanych w systemie (rodzaj usługi, czas robocizny, ceny części, marka i model pojazdu) w celu ulepszania platformy, w tym budowy modeli szacowania kosztów i czasu napraw.</p>
+      <p className="mt-2"><strong>Analiza prowadzona jest wyłącznie na danych zanonimizowanych.</strong> Przed włączeniem do zbioru analitycznego dane są pozbawiane wszelkich danych osobowych klienta końcowego, numeru rejestracyjnego pojazdu, numeru VIN oraz danych kontaktowych. Zbiór obejmuje wyłącznie pary „usługa → cena/czas robocizny" wraz z parametrami technicznymi pojazdu (marka, model, rocznik, silnik).</p>
+      <p className="mt-2">Anonimizacja jest warunkiem tego przetwarzania — dane, których nie można skutecznie zanonimizować, nie są włączane do zbioru analitycznego. Dane zanonimizowane nie stanowią danych osobowych w rozumieniu RODO.</p>
+    </SubSection>
+
+    {/* DO WERYFIKACJI PRAWNEJ — transfer poza EOG (SCC) */}
+    <SectionTitle>14. Przekazywanie danych poza Europejski Obszar Gospodarczy</SectionTitle>
+    <SubSection>
+      <p>W związku z korzystaniem z usług niektórych dostawców (w szczególności Meta Platforms oraz dostawców usług sztucznej inteligencji) dane mogą być przekazywane do państw spoza Europejskiego Obszaru Gospodarczego, w tym do USA.</p>
+      <p className="mt-2">Przekazanie odbywa się wyłącznie z zastosowaniem mechanizmów legalizujących transfer przewidzianych w RODO, w szczególności standardowych klauzul umownych (SCC) zatwierdzonych przez Komisję Europejską lub decyzji stwierdzających odpowiedni stopień ochrony (np. EU-U.S. Data Privacy Framework). Informacje o zabezpieczeniach można uzyskać pod adresem {LEGAL_ENTITY.emailRodo}.</p>
+    </SubSection>
+
+    <SectionTitle>15. Zmiany Polityki Prywatności</SectionTitle>
     <SubSection>
       <p>Administrator zastrzega sobie prawo do wprowadzania zmian w niniejszej Polityce Prywatności. Aktualna wersja dokumentu jest zawsze dostępna na platformie GetRido.</p>
+      <p className="mt-2">Kontakt w sprawach ochrony danych osobowych:{" "}
+        <a href={`mailto:${LEGAL_ENTITY.emailRodo}`} className="text-primary hover:underline">{LEGAL_ENTITY.emailRodo}</a>.</p>
     </SubSection>
   </div>
 );
@@ -258,6 +322,7 @@ const RodoContent = () => (
       <span className="text-4xl">🛡️</span>
       <h1 className="text-2xl md:text-3xl font-bold text-foreground mt-2">RODO</h1>
       <p className="text-muted-foreground mt-1">Informacje o przetwarzaniu danych osobowych</p>
+      <LastUpdated />
     </div>
 
     <SectionTitle>1. Administrator danych osobowych</SectionTitle>
@@ -465,11 +530,12 @@ const RegulaminContent = () => (
     <div className="text-center mb-8">
       <span className="text-4xl">📜</span>
       <h1 className="text-2xl md:text-3xl font-bold text-foreground mt-2">REGULAMIN PLATFORMY GETRIDO</h1>
+      <LastUpdated />
     </div>
 
     <SectionTitle>§1. Informacje ogólne</SectionTitle>
     <SubSection>
-      <p>Niniejszy Regulamin określa zasady korzystania z platformy internetowej GetRido, prowadzonej przez CAR4RIDE SP. Z O.O. z siedzibą przy ul. Borsucza 13, 02-213 Warszawa, NIP: 5223252793, REGON: 524746171, KRS: 0001025395.</p>
+      <p>Niniejszy Regulamin określa zasady korzystania z platformy internetowej GetRido, prowadzonej przez {LEGAL_ENTITY.name} z siedzibą przy ul. {getFullAddress()}, NIP: {LEGAL_ENTITY.nip}, REGON: {LEGAL_ENTITY.regon}, KRS: {LEGAL_ENTITY.krs}, wpisaną do rejestru przedsiębiorców Krajowego Rejestru Sądowego prowadzonego przez {LEGAL_ENTITY.court}, kapitał zakładowy: {LEGAL_ENTITY.shareCapital}.</p>
       <p className="mt-2">Platforma GetRido umożliwia w szczególności:</p>
       <ul className="list-disc list-inside mt-2 space-y-1">
         <li>publikowanie ogłoszeń pojazdów i nieruchomości,</li>
@@ -487,7 +553,7 @@ const RegulaminContent = () => (
     <SectionTitle>§2. Definicje</SectionTitle>
     <SubSection>
       <ul className="space-y-2">
-        <li><strong>Administrator</strong> – CAR4RIDE SP. Z O.O.</li>
+        <li><strong>Administrator</strong> – {LEGAL_ENTITY.name}</li>
         <li><strong>Platforma</strong> – system internetowy GetRido.</li>
         <li><strong>Użytkownik</strong> – osoba fizyczna lub prawna korzystająca z Platformy.</li>
         <li><strong>Klient</strong> – użytkownik korzystający z ofert sprzedaży, wynajmu lub usług.</li>
@@ -560,7 +626,30 @@ const RegulaminContent = () => (
       </ol>
     </SubSection>
 
-    <SectionTitle>§9. Odpowiedzialność</SectionTitle>
+    {/* DO WERYFIKACJI PRAWNEJ — projekt zapisów o usłudze SaaS dla warsztatów
+        (role RODO, komunikacja w imieniu warsztatu, odesłanie do DPA) */}
+    <SectionTitle>§9. Usługi dla firm — system dla warsztatów i usługodawców</SectionTitle>
+    <SubSection>
+      <ol className="list-decimal list-inside space-y-1">
+        <li>Administrator świadczy na rzecz warsztatów, serwisów i innych usługodawców („Firma") usługę udostępnienia systemu informatycznego do zarządzania działalnością, obejmującego w szczególności: kalendarz wizyt, obsługę zleceń, bazę klientów i pojazdów, kosztorysy, komunikację z klientami końcowymi oraz wystawianie dokumentów.</li>
+        <li>Rejestrując konto firmowe, Firma akceptuje, że Administrator przetwarza dane wprowadzone przez Firmę do systemu w celu i w zakresie niezbędnym do świadczenia usługi.</li>
+        <li>W ramach usługi Platforma wysyła w imieniu i na zlecenie Firmy komunikaty do jej klientów końcowych, w szczególności wiadomości SMS i e-mail zawierające: kosztorys, potwierdzenie przyjęcia pojazdu, status naprawy oraz link do podpisu protokołu.</li>
+        <li>W zakresie danych osobowych klientów końcowych Firmy administratorem danych jest Firma, a Administrator (Getrido Sp. z o.o.) działa jako podmiot przetwarzający w rozumieniu art. 28 RODO. Szczegółowe zasady powierzenia przetwarzania określa umowa powierzenia przetwarzania danych osobowych (DPA), stanowiąca załącznik do Regulaminu i zawierana z chwilą akceptacji Regulaminu przez Firmę.</li>
+        <li>Firma oświadcza, że dysponuje podstawą prawną do przekazania Administratorowi danych osobowych swoich klientów w celu opisanym powyżej.</li>
+      </ol>
+    </SubSection>
+
+    {/* DO WERYFIKACJI PRAWNEJ — licencja na publikację ogłoszeń w kanałach social (Meta) */}
+    <SectionTitle>§10. Publikacja ogłoszeń w kanałach społecznościowych</SectionTitle>
+    <SubSection>
+      <ol className="list-decimal list-inside space-y-1">
+        <li>Administrator może publikować ogłoszenia użytkowników na oficjalnych profilach GetRido w serwisach społecznościowych, w tym w serwisach Facebook i Instagram (Meta Platforms).</li>
+        <li>Publikując ogłoszenie na Platformie, użytkownik udziela Administratorowi niewyłącznej, nieodpłatnej licencji na publikację treści i zdjęć ogłoszenia na profilach GetRido w serwisach Meta, w celu promocji ogłoszenia, na czas jego emisji.</li>
+        <li>Użytkownik może w każdej chwili zażądać zaprzestania publikacji ogłoszenia w kanałach społecznościowych, kontaktując się pod adresem {LEGAL_ENTITY.email}.</li>
+      </ol>
+    </SubSection>
+
+    <SectionTitle>§11. Odpowiedzialność</SectionTitle>
     <SubSection>
       <ol className="list-decimal list-inside space-y-1">
         <li>Administrator nie odpowiada za działania użytkowników ani za treść publikowanych ogłoszeń.</li>
@@ -569,7 +658,7 @@ const RegulaminContent = () => (
       </ol>
     </SubSection>
 
-    <SectionTitle>§10. Dane osobowe</SectionTitle>
+    <SectionTitle>§12. Dane osobowe</SectionTitle>
     <SubSection>
       <ol className="list-decimal list-inside space-y-1">
         <li>Dane osobowe przetwarzane są zgodnie z Polityką Prywatności Platformy.</li>
@@ -577,7 +666,7 @@ const RegulaminContent = () => (
       </ol>
     </SubSection>
 
-    <SectionTitle>§11. Zawieszenie i usunięcie konta</SectionTitle>
+    <SectionTitle>§13. Zawieszenie i usunięcie konta</SectionTitle>
     <SubSection>
       <ol className="list-decimal list-inside space-y-1">
         <li>Administrator może zawiesić lub usunąć konto użytkownika w przypadku naruszenia Regulaminu.</li>
@@ -585,7 +674,7 @@ const RegulaminContent = () => (
       </ol>
     </SubSection>
 
-    <SectionTitle>§12. Zmiany Regulaminu</SectionTitle>
+    <SectionTitle>§14. Zmiany Regulaminu</SectionTitle>
     <SubSection>
       <ol className="list-decimal list-inside space-y-1">
         <li>Administrator zastrzega sobie prawo do zmiany Regulaminu.</li>
@@ -593,7 +682,7 @@ const RegulaminContent = () => (
       </ol>
     </SubSection>
 
-    <SectionTitle>§13. Postanowienia końcowe</SectionTitle>
+    <SectionTitle>§15. Postanowienia końcowe</SectionTitle>
     <SubSection>
       <ol className="list-decimal list-inside space-y-1">
         <li>Regulamin podlega prawu polskiemu.</li>
@@ -610,11 +699,12 @@ const CookiesContent = () => (
       <span className="text-4xl">🍪</span>
       <h1 className="text-2xl md:text-3xl font-bold text-foreground mt-2">POLITYKA COOKIES</h1>
       <p className="text-muted-foreground mt-1">Platforma GetRido</p>
+      <LastUpdated />
     </div>
 
     <SectionTitle>1. Informacje ogólne</SectionTitle>
     <SubSection>
-      <p>Niniejsza Polityka Cookies określa zasady wykorzystywania plików cookies oraz podobnych technologii na platformie internetowej GetRido, prowadzonej przez CAR4RIDE SP. Z O.O. z siedzibą przy ul. Borsucza 13, 02-213 Warszawa, NIP: 5223252793, REGON: 524746171, KRS: 0001025395.</p>
+      <p>Niniejsza Polityka Cookies określa zasady wykorzystywania plików cookies oraz podobnych technologii na platformie internetowej GetRido, prowadzonej przez {LEGAL_ENTITY.name} z siedzibą przy ul. {getFullAddress()}, NIP: {LEGAL_ENTITY.nip}, REGON: {LEGAL_ENTITY.regon}, KRS: {LEGAL_ENTITY.krs}.</p>
     </SubSection>
 
     <SectionTitle>2. Czym są pliki cookies</SectionTitle>
@@ -705,7 +795,7 @@ const CookiesContent = () => (
     <SubSection>
       <p>W sprawach związanych z plikami cookies oraz ochroną danych osobowych użytkownik może skontaktować się z Administratorem pod adresem e-mail:</p>
       <p className="mt-2">
-        <a href="mailto:rodo@getrido.pl" className="text-primary font-semibold hover:underline">rodo@getrido.pl</a>
+        <a href={`mailto:${LEGAL_ENTITY.emailRodo}`} className="text-primary font-semibold hover:underline">{LEGAL_ENTITY.emailRodo}</a>
       </p>
     </SubSection>
   </div>

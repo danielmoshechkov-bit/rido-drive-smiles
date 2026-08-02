@@ -13,6 +13,7 @@
 // ============================================================================
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildPublicUrl } from "../_shared/publicUrl.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -154,19 +155,20 @@ serve(async (req) => {
         service_description: notePrefix + (body?.notes || body?.service_name || ""),
         appointment_date: date, appointment_time: time, duration_minutes: duration,
         status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
-      }).select("id, confirmation_token").maybeSingle();
+      }).select("id, confirmation_token, public_token").maybeSingle();
 
       // 1.4 — SMS potwierdzenia OD RAZU (data, godzina, adres, link do zarządzania). Best-effort.
       let smsSent = false;
       let manageLink: string | null = null;
       try {
         if (wcb?.confirmation_token) {
-          const appBase = Deno.env.get("APP_PUBLIC_URL") || "https://preview--rido-drive-smiles.lovable.app";
-          manageLink = `${appBase}/r/${wcb.confirmation_token}`;
+          manageLink = buildPublicUrl(`/r/${wcb.public_token ?? wcb.confirmation_token}`);
           const { data: prov } = await admin.from("service_providers").select("company_name, address, city").eq("id", providerId).maybeSingle();
           const company = prov?.company_name || "serwis";
           const addr = [prov?.address, prov?.city].filter(Boolean).join(", ");
-          const msg = `Potwierdzenie wizyty: ${company}, ${date} godz. ${time}.` + (addr ? ` Adres: ${addr}.` : "") + ` Zarzadzaj rezerwacja (anuluj/przesun): ${manageLink}`;
+          // Skrócony szablon — mieści się w 1 SMS; drop adresu jeśli i tak przekracza 160.
+          let msg = `${company}: potwierdzenie wizyty ${date} ${time}.` + (addr ? ` ${addr}.` : "") + ` Zarzadzaj: ${manageLink}`;
+          if (msg.length > 160) msg = `${company}: potwierdzenie wizyty ${date} ${time}. Zarzadzaj: ${manageLink}`;
           const r = await fetch(`${supabaseUrl}/functions/v1/workshop-send-sms`, {
             method: "POST",
             headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },

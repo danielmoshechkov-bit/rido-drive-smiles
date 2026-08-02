@@ -634,10 +634,10 @@
     "formSentDesc": "Chúng tôi sẽ liên hệ lại với bạn trong vòng 24 giờ.",
     "placeholders": {
       "name": "Jan Kowalski",
-      "phone": "+48 519 474 583",
+      "phone": "+48",
       "email": "jan@example.com",
       "city": "Warszawa",
-      "message": "Tôi muốn trở thành tài xế Get RIDO..."
+      "message": "Chúng tôi có thể giúp gì? Hãy mô tả vấn đề của bạn..."
     }
   },
   "register": {
