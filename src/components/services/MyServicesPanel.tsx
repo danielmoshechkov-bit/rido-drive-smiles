@@ -182,22 +182,23 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           .eq('id', editingCat.id);
         if (error) throw error;
       } else {
-        const picked = portalCategories.find(c => c.id === pickedCatalogId);
-        if (!picked) throw new Error('Wybierz kategorię z listy');
+        const picked = portalCategories.filter(c => pickedSubs.includes(c.id) && !usedCatalogIds.has(c.id));
+        if (!picked.length) throw new Error('Wybierz przynajmniej jedną podkategorię');
         const { error } = await (supabase as any)
           .from('provider_service_categories')
-          .insert({
+          .insert(picked.map((p, i) => ({
             provider_id: providerId,
-            name: picked.name,
-            service_category_id: picked.id,
-            sort_order: categories.length,
-          });
+            name: p.name,
+            service_category_id: p.id,
+            sort_order: categories.length + i,
+          })));
         if (error) throw error;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['provider-service-categories', providerId] });
-      setCatDialog(false); setEditingCat(null); setCatName(''); setPickedCatalogId('');
+      setCatDialog(false); setEditingCat(null); setCatName(''); setPickedGroup(''); setPickedSubs([]);
+
       toast.success('Zapisano kategorię');
     },
     onError: (e: any) => toast.error(e.message),
