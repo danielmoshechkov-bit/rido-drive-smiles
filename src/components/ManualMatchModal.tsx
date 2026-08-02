@@ -56,7 +56,7 @@ export const ManualMatchModal = ({ open, onOpenChange, alertId, alertMetadata, o
   const filteredDrivers = drivers.filter(driver => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
-    const fullName = `${driver.first_name} ${driver.last_name}`.toLowerCase();
+    const fullName = `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`.toLowerCase();
     const email = driver.email?.toLowerCase() || '';
     const phone = driver.phone?.toLowerCase() || '';
     const platformIds = driver.driver_platform_ids?.map((p: any) => p.platform_id.toLowerCase()) || [];
@@ -102,7 +102,7 @@ export const ManualMatchModal = ({ open, onOpenChange, alertId, alertMetadata, o
 
       // 2. Save manual match for learning
       const matchKey = csvRow.uber_id ? 'uber_id' : csvRow.bolt_id ? 'bolt_id' : csvRow.freenow_id ? 'freenow_id' : csvRow.email ? 'email' : 'name';
-      const matchValue = csvRow[matchKey] || `${csvRow.first_name} ${csvRow.last_name}`;
+      const matchValue = csvRow[matchKey] || `${[csvRow.first_name, csvRow.last_name].filter(Boolean).join(' ')}`;
 
       await supabase
         .from('manual_driver_matches')

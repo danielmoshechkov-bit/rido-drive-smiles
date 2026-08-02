@@ -96,7 +96,7 @@ export function DriverSettlementsView() {
         
         return {
           driverId: s.driver_id,
-          driverName: `${driver.first_name} ${driver.last_name}`,
+          driverName: `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`,
           fleetName: driver.fleet_id ? 'Flota' : 'Bez floty',
           periodFrom: s.period_from,
           periodTo: s.period_to,

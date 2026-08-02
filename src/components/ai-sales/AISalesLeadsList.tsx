@@ -35,7 +35,7 @@ export function AISalesLeadsList() {
 
   const filtered = leads.filter((l: any) => {
     const matchSearch = !search || 
-      `${l.first_name} ${l.last_name} ${l.phone} ${l.email}`.toLowerCase().includes(search.toLowerCase());
+      `${[l.first_name, l.last_name].filter(Boolean).join(' ')} ${l.phone} ${l.email}`.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || l.status === statusFilter;
     return matchSearch && matchStatus;
   });

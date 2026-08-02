@@ -444,7 +444,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               onCreateNew={handleCreateClientInline}
               onAddNew={() => setShowAddClient(true)}
               placeholder={t('workshop.tireStorage.enterFullNamePlaceholder')}
-              renderItem={(c: any) => c.company_name || `${c.first_name} ${c.last_name}`}
+              renderItem={(c: any) => c.company_name || `${[c.first_name, c.last_name].filter(Boolean).join(' ')}`}
               getLabel={(c: any) => c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()}
             />
             {!clientId && clientName && (

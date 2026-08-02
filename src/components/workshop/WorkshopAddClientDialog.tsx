@@ -84,7 +84,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
   };
 
   const handleSubmit = async () => {
-    const displayName = clientType === 'company' ? form.company_name : `${form.first_name} ${form.last_name}`;
+    const displayName = clientType === 'company' ? form.company_name : `${[form.first_name, form.last_name].filter(Boolean).join(' ')}`;
     if (!displayName.trim()) return;
 
     const fullStreet = [form.street, form.house_number, form.apartment_number ? `m. ${form.apartment_number}` : ''].filter(Boolean).join(' ');

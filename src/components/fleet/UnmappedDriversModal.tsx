@@ -278,7 +278,7 @@ export function UnmappedDriversModal({
             await resolveUnmappedRecord(unmappedDriver.id, existingPlatformId.driver_id);
             await fetchExistingDrivers();
             handleMapping(unmappedDriver.id, existingPlatformId.driver_id);
-            toast.success(`Kierowca ${existingDriver.first_name} ${existingDriver.last_name} już jest w Twojej flocie - przypisano.`);
+            toast.success(`Kierowca ${[existingDriver.first_name, existingDriver.last_name].filter(Boolean).join(' ')} już jest w Twojej flocie - przypisano.`);
             return;
           }
           
@@ -316,7 +316,7 @@ export function UnmappedDriversModal({
           handleMapping(unmappedDriver.id, existingPlatformId.driver_id);
           
           toast.success(
-            `Przeniesiono kierowcę ${existingDriver.first_name} ${existingDriver.last_name} do Twojej floty!`,
+            `Przeniesiono kierowcę ${[existingDriver.first_name, existingDriver.last_name].filter(Boolean).join(' ')} do Twojej floty!`,
             { description: `Platformy: ${platformsInfo}. Dane kontaktowe i karty paliwowe zachowane.` }
           );
           return;
@@ -577,7 +577,7 @@ export function UnmappedDriversModal({
     const query = searchQueries[searchKey]?.toLowerCase() || "";
     if (!query) return existingDrivers;
     return existingDrivers.filter(d => {
-      const fullName = `${d.first_name} ${d.last_name}`.toLowerCase();
+      const fullName = `${[d.first_name, d.last_name].filter(Boolean).join(' ')}`.toLowerCase();
       const phone = d.phone?.toLowerCase() || "";
       return fullName.includes(query) || phone.includes(query);
     });
@@ -617,7 +617,7 @@ export function UnmappedDriversModal({
             >
               <span className="truncate">
                 {selectedDriver 
-                  ? `${selectedDriver.first_name} ${selectedDriver.last_name}` 
+                  ? `${[selectedDriver.first_name, selectedDriver.last_name].filter(Boolean).join(' ')}` 
                   : "Wybierz kierowcę"
                 }
               </span>

@@ -80,7 +80,7 @@ export function FleetFuelView({ fleetId, periodFrom: externalPeriodFrom, periodT
       const cardToDriverMap = new Map<string, string>();
       drivers?.forEach(d => {
         const cardNum = d.fuel_card_number;
-        const driverName = `${d.first_name} ${d.last_name}`;
+        const driverName = `${[d.first_name, d.last_name].filter(Boolean).join(' ')}`;
         cardToDriverMap.set(cardNum, driverName);
         cardToDriverMap.set('0' + cardNum, driverName);
         cardToDriverMap.set('00' + cardNum, driverName);

@@ -202,7 +202,7 @@ export function VehicleRentalWizard({
   );
 
   const filteredDrivers = drivers.filter(d => 
-    `${d.first_name} ${d.last_name}`.toLowerCase().includes(driverSearch.toLowerCase()) ||
+    `${[d.first_name, d.last_name].filter(Boolean).join(' ')}`.toLowerCase().includes(driverSearch.toLowerCase()) ||
     d.email?.toLowerCase().includes(driverSearch.toLowerCase()) ||
     d.phone?.includes(driverSearch)
   );
