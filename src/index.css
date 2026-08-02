@@ -1037,7 +1037,6 @@ input[type=number] {
   textarea,
   summary,
   [contenteditable="true"],
-  [tabindex="0"],
   [role="button"],
   [role="link"],
   [role="tab"],
