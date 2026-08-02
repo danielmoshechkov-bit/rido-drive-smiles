@@ -892,6 +892,11 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], r
   const sumGross = (list: any[]) => list.reduce((sum, item) => sum + (Number(item.gross_amount) || 0), 0);
   const grossTotal = round2(sumGross(items) - sumGross(beforeItems));
 
+  // Procedura marży (art. 119/120): podstawą jest marża, nie obrót, więc na fakturze
+  // NIE wykazuje się ani stawki, ani kwoty VAT. XSD FA(3) opisuje sekwencję P_13_1/P_14_1
+  // jako „z wyłączeniem procedury marży" — przy marży pomijamy CAŁE rozbicie P_13/P_14.
+  const isMargin = invoice.is_margin === true || ['margin', 'vat_margin'].includes(rawType);
+
   // Rubryki podsumowania VAT wg XSD FA(3):
   //   P_13_1/P_14_1 = 23/22% · P_13_2/P_14_2 = 8/7% · P_13_3/P_14_3 = 5% ·
   //   P_13_4/P_14_4 = ryczałt taxi (4/3%) · P_13_6_1 = 0% krajowe (bez pola VAT) ·
@@ -922,7 +927,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], r
   const BUCKET_ORDER = ['1', '2', '3', '4', '6_1', '6_2', '6_3', '7', '8', '9', '10'];
 
   const byBucket: Record<string, { net: number; vat: number }> = {};
-  for (const [rate, amounts] of Object.entries(vatByRate)) {
+  for (const [rate, amounts] of Object.entries(isMargin ? {} : vatByRate)) {
     const b = rateToBucket(rate);
     if (!byBucket[b]) byBucket[b] = { net: 0, vat: 0 };
     byBucket[b].net = round2(byBucket[b].net + amounts.net);
@@ -965,6 +970,20 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], r
         <P_9A>${round2(Number(a?.unit_net_price || 0) - Number(b?.unit_net_price || 0)).toFixed(2)}</P_9A>
         <P_11>${round2(Number(a?.net_amount || 0) - Number(b?.net_amount || 0)).toFixed(2)}</P_11>
         <P_12>${vatCodeOf(src)}</P_12>
+      </FaWiersz>`;
+    }).join('');
+  } else if (isMargin) {
+    // Marża: wiersz BEZ stawki (P_12) i BEZ ceny jednostkowej netto (P_9A).
+    // Wartość pozycji to należność brutto — przy marży netto = brutto.
+    itemsXML = items.map((item, idx) => {
+      const lineValue = Number(item.gross_amount) || Number(item.net_amount) || 0;
+      return `
+      <FaWiersz>
+        <NrWierszaFa>${idx + 1}</NrWierszaFa>
+        <P_7>${escapeXml(item.name || 'Usługa')}</P_7>
+        <P_8A>${escapeXml(item.unit || 'szt')}</P_8A>
+        <P_8B>${Number(item.quantity || 1).toFixed(4)}</P_8B>
+        <P_11>${lineValue.toFixed(2)}</P_11>
       </FaWiersz>`;
     }).join('');
   } else {
@@ -1163,12 +1182,14 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], r
       <Zwolnienie>${zwolnienieXml}</Zwolnienie>
       <NoweSrodkiTransportu><P_22N>1</P_22N></NoweSrodkiTransportu>
       <P_23>2</P_23>
-      <PMarzy>${invoice.is_margin ? (() => {
+      <PMarzy>${isMargin ? (() => {
+        // XSD FA(3): sekwencja wymaga NAJPIERW <P_PMarzy>1</P_PMarzy>, potem konkretny znacznik procedury.
         const mpt = invoice.margin_procedure_type || 'used_goods';
-        if (mpt === 'tourism') return '<P_PMarzy_2>1</P_PMarzy_2>';
-        if (mpt === 'art') return '<P_PMarzy_3_2>1</P_PMarzy_3_2>';
-        if (mpt === 'antiques') return '<P_PMarzy_3_3>1</P_PMarzy_3_3>';
-        return '<P_PMarzy_3_1>1</P_PMarzy_3_1>';
+        const proc = mpt === 'tourism' ? '<P_PMarzy_2>1</P_PMarzy_2>'
+          : mpt === 'art' ? '<P_PMarzy_3_2>1</P_PMarzy_3_2>'
+          : mpt === 'antiques' ? '<P_PMarzy_3_3>1</P_PMarzy_3_3>'
+          : '<P_PMarzy_3_1>1</P_PMarzy_3_1>';
+        return `<P_PMarzy>1</P_PMarzy>${proc}`;
       })() : '<P_PMarzyN>1</P_PMarzyN>'}</PMarzy>
     </Adnotacje>
     <RodzajFaktury>${invoiceType}</RodzajFaktury>${correctionBlockXml}${itemsContent}${fakZalXml}
