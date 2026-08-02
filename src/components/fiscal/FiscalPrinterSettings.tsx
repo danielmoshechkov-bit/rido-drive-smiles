@@ -343,6 +343,22 @@ export function FiscalPrinterSettings({ providerId }: Props) {
               </Alert>
             )}
 
+            {/* Pytanie wraca przy każdym wdrożeniu: „czy logo da się drukować z systemu?".
+                Odpowiedź jest sprzętowa, więc lepiej mieć ją pod ręką niż tłumaczyć telefonicznie. */}
+            <div className="rounded-md border bg-background p-3">
+              <div className="text-xs font-medium mb-1.5">Logo na paragonie fiskalnym</div>
+              <p className="text-xs text-muted-foreground">
+                Nagłówek paragonu — razem z grafiką — jest zapisany w pamięci drukarki i to ona go
+                drukuje. Program go nie wysyła i nie może zmienić. Logo wgrywa się do urządzenia
+                jednorazowo, narzędziem serwisowym producenta (ELZAB pozwala je potem podmieniać raz
+                na dobę fiskalną) — poproś o to serwis, który fiskalizował drukarkę.
+                <br /><br />
+                Logo z ustawień firmy drukuje się natomiast na dokumentach wystawianych przez system:
+                kopii paragonu, protokole zwrotu, dowodzie wewnętrznym, wydrukach ewidencji
+                i pokwitowaniu przechowalni.
+              </p>
+            </div>
+
             <div className="rounded-md border bg-background p-3">
               <div className="text-xs font-medium mb-1.5">Co musi być ustawione w samej drukarce</div>
               <ul className="text-xs text-muted-foreground space-y-1">
