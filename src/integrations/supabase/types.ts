@@ -5906,6 +5906,56 @@ export type Database = {
           },
         ]
       }
+      category_requests: {
+        Row: {
+          admin_note: string | null
+          category_description: string | null
+          contact_email: string | null
+          created_at: string
+          example_services: string | null
+          id: string
+          provider_id: string | null
+          requested_category_name: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          category_description?: string | null
+          contact_email?: string | null
+          created_at?: string
+          example_services?: string | null
+          id?: string
+          provider_id?: string | null
+          requested_category_name: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          category_description?: string | null
+          contact_email?: string | null
+          created_at?: string
+          example_services?: string | null
+          id?: string
+          provider_id?: string | null
+          requested_category_name?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_requests_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_items: {
         Row: {
           created_at: string | null
@@ -15534,6 +15584,7 @@ export type Database = {
           is_active: boolean
           name: string
           provider_id: string
+          service_category_id: string | null
           sort_order: number
           updated_at: string
         }
@@ -15545,6 +15596,7 @@ export type Database = {
           is_active?: boolean
           name: string
           provider_id: string
+          service_category_id?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -15556,6 +15608,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           provider_id?: string
+          service_category_id?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -15565,6 +15618,13 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "provider_service_categories_service_category_id_fkey"
+            columns: ["service_category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
             referencedColumns: ["id"]
           },
         ]
