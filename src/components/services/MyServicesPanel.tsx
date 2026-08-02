@@ -157,16 +157,41 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
     const slug = c.service_category_id ? slugByCatalogId[c.service_category_id] : undefined;
     return slug ? groupIdForSlug(slug) : OTHER_GROUP.id;
   };
-  const myGroups = useMemo(() => {
-    const ids = new Set(categories.map(c => groupOfProviderCat(c.id)).filter(Boolean));
-    const all = [...SERVICE_CATEGORY_GROUPS, OTHER_GROUP];
-    return all.filter(g => ids.has(g.id));
-  }, [categories, slugByCatalogId]);
+  const allGroups = useMemo(() => [...SERVICE_CATEGORY_GROUPS, OTHER_GROUP], []);
   const [pickGroup, setPickGroup] = useState<Record<string, string>>({});
+
+  // Dodaje kategorię portalu do usługodawcy „w locie” i zwraca jej id
+  const ensureProviderCat = async (catalogId: string): Promise<string | null> => {
+    const existing = categories.find(c => c.service_category_id === catalogId);
+    if (existing) return existing.id;
+    const p = portalCategories.find(c => c.id === catalogId);
+    if (!p) return null;
+    const { data, error } = await (supabase as any)
+      .from('provider_service_categories')
+      .insert({ provider_id: providerId, name: p.name, service_category_id: p.id, sort_order: categories.length })
+      .select('id')
+      .single();
+    if (error) { toast.error(error.message); return null; }
+    queryClient.invalidateQueries({ queryKey: ['provider-service-categories', providerId] });
+    return data?.id ?? null;
+  };
 
   const renderCategoryPicker = (key: string, value: string | null, onChange: (v: string | null) => void) => {
     const group = pickGroup[key] ?? groupOfProviderCat(value);
-    const subs = categories.filter(c => groupOfProviderCat(c.id) === group);
+    // wszystkie podkategorie portalu z danej grupy + własne kategorie usługodawcy
+    const groupDef = allGroups.find(g => g.id === group);
+    const portalSubs = group
+      ? portalCategories.filter(c =>
+          group === OTHER_GROUP.id ? groupIdForSlug(c.slug) === OTHER_GROUP.id : groupDef?.slugs.includes(c.slug))
+      : [];
+    const ownSubs = categories.filter(c => groupOfProviderCat(c.id) === group && !c.service_category_id);
+    const options = [
+      ...portalSubs.map(p => {
+        const mine = categories.find(c => c.service_category_id === p.id);
+        return { value: mine ? mine.id : `cat:${p.id}`, label: p.name };
+      }),
+      ...ownSubs.map(c => ({ value: c.id, label: c.name })),
+    ];
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <Select
@@ -179,23 +204,30 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           <SelectTrigger><SelectValue placeholder="Grupa główna" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="none">Bez kategorii</SelectItem>
-            {myGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+            {allGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select
           value={value || 'none'}
           disabled={!group}
-          onValueChange={v => onChange(v === 'none' ? null : v)}
+          onValueChange={async v => {
+            if (v === 'none') return onChange(null);
+            if (v.startsWith('cat:')) {
+              const id = await ensureProviderCat(v.slice(4));
+              onChange(id);
+            } else onChange(v);
+          }}
         >
           <SelectTrigger><SelectValue placeholder={group ? 'Podkategoria' : 'Najpierw grupa'} /></SelectTrigger>
           <SelectContent>
             <SelectItem value="none">Bez podkategorii</SelectItem>
-            {subs.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            {options.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
     );
   };
+
 
   // Zgłoszenie nowej kategorii do akceptacji przez portal
   const [reqDialog, setReqDialog] = useState(false);
