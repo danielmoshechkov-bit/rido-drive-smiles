@@ -82,7 +82,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   const [invoiceOrder, setInvoiceOrder] = useState<any>(null);
   const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
   const [invoiceBuyer, setInvoiceBuyer] = useState<any>(null);
-  const [invoiceNotes, setInvoiceNotes] = useState('');
+  // Uwagi na fakturze rozbite na dwa niezależne pola (dane pojazdu / numer zlecenia) —
+  // każde ma własny przełącznik, bo warsztat nie zawsze chce oba naraz.
+  const [invoiceVehicleNotes, setInvoiceVehicleNotes] = useState('');
+  const [invoiceOrderNotes, setInvoiceOrderNotes] = useState('');
   const [fiscalOrder, setFiscalOrder] = useState<any>(null);
   // Zlecenia z wystawionym (albo trwającym) paragonem — pozycja w menu jest dla nich wyszarzona.
   const { data: fiscalizedIds } = useFiscalizedDocumentIds(providerId, 'workshop_order');
@@ -332,14 +335,22 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         buyer.email = order.client.email || '';
       }
 
+      // Dane pojazdu i nr zlecenia NIE trafiają do uwag automatycznie — SimpleFreeInvoice
+      // pokaże dwa niezależne checkboxy (stany pamiętane między fakturami).
+      // Tylko wypełnione pola — bez pustych etykiet typu "Marka: ,".
       const vehicleDesc = order.vehicle
-        ? `Marka: ${order.vehicle.brand || ''}, Model: ${order.vehicle.model || ''}, Nr rej: ${order.vehicle.plate || ''}, VIN: ${order.vehicle.vin || ''}`
+        ? [
+            order.vehicle.brand ? `Marka: ${order.vehicle.brand}` : '',
+            order.vehicle.model ? `Model: ${order.vehicle.model}` : '',
+            order.vehicle.plate ? `Nr rej: ${order.vehicle.plate}` : '',
+            order.vehicle.vin ? `VIN: ${order.vehicle.vin}` : '',
+          ].filter(Boolean).join(', ')
         : '';
-      const notes = [vehicleDesc, order.order_number ? `Do zlecenia: ${order.order_number}` : ''].filter(Boolean).join('\n');
 
       setInvoiceItems(prefillItems);
       setInvoiceBuyer(buyer);
-      setInvoiceNotes(notes);
+      setInvoiceVehicleNotes(vehicleDesc);
+      setInvoiceOrderNotes(order.order_number ? `Do zlecenia: ${order.order_number}` : '');
       setInvoiceOrder(order);
     } catch (e: any) {
       toast.error(t('workshop.orders.loadItemsError'));
@@ -1199,7 +1210,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
               }}
               prefillItems={invoiceItems}
               prefillBuyer={invoiceBuyer}
-              prefillNotes={invoiceNotes}
+              prefillVehicleNotes={invoiceVehicleNotes}
+              prefillOrderNotes={invoiceOrderNotes}
               prefillOrderNumber={invoiceOrder?.order_number}
               prefillWorkshopOrderId={invoiceOrder?.id}
             />
