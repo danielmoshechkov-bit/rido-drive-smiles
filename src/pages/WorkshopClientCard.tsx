@@ -18,6 +18,7 @@ import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopT
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { TranslationLoader } from '@/components/workshop/TranslationLoader';
 import { BASE_LANGS, pretranslateContent, type ContentItem } from '@/lib/contentTranslation';
+import { sortWorkshopOrderItems } from '@/hooks/useWorkshop';
 
 const statusColors: Record<string, string> = {
   'Nowe zlecenie': 'bg-red-500 text-white',
@@ -41,6 +42,9 @@ export default function WorkshopClientCard() {
   const isAdminPreview = searchParams.get('admin') === '1';
   // ETAP B: ?sig=<id podpisu> → zamrożony dowód konkretnego podpisu (z panelu).
   const sigParam = searchParams.get('sig');
+  // ?print=1 — otwarte z panelu przyciskiem „Drukuj"/„Pobierz": po wczytaniu kosztorysu
+  // od razu wywołujemy okno druku (tam też kryje się „Zapisz jako PDF").
+  const wantsPrint = searchParams.get('print') === '1';
   const [order, setOrder] = useState<any>(null);
   const [provider, setProvider] = useState<any>(null);
   const [signatures, setSignatures] = useState<any[]>([]);
@@ -51,7 +55,11 @@ export default function WorkshopClientCard() {
   const [signingDoc, setSigningDoc] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [signing, setSigning] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabKey>((isAdminPreview || searchParams.get('sig')) ? 'estimate' : 'reception');
+  // ?tab= pozwala panelowi otworzyc od razu wlasciwy dokument (kosztorys albo protokol).
+  const tabParam = searchParams.get('tab') as TabKey | null;
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    tabParam || ((isAdminPreview || searchParams.get('sig')) ? 'estimate' : 'reception'),
+  );
   const [initialTabSet, setInitialTabSet] = useState(false);
 
   useEffect(() => { loadOrder(); }, [code]);
@@ -231,6 +239,13 @@ export default function WorkshopClientCard() {
     }
   };
 
+  // Druk dopiero po wczytaniu danych — inaczej na papier poszłaby pusta strona.
+  useEffect(() => {
+    if (!wantsPrint || loading || !order) return;
+    const timer = setTimeout(() => window.print(), 600);
+    return () => clearTimeout(timer);
+  }, [wantsPrint, loading, order]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -287,7 +302,10 @@ export default function WorkshopClientCard() {
   const isFrozenView = !!frozenSig?.snapshot; // ?sig → pełny read-only dowód
 
   // Pozycje do wyświetlenia: ze snapshotu (zamrożone) albo live.
-  const displayItems: any[] = displaySnapshot?.items ?? (order.items || []);
+  // Kolejność MUSI być ta sama, co w wycenie u warsztatu: klient dzwoni z pytaniem
+  // o „trzecią pozycję", a przy innym porządku obie strony patrzą na co innego.
+  // Dane z edge function przychodzą bez ORDER BY, więc sortujemy tak samo jak panel.
+  const displayItems: any[] = sortWorkshopOrderItems(displaySnapshot?.items ?? (order.items || []));
   const tasks = displayItems.filter((i: any) => i.item_type === 'service' || i.item_type === 'task');
   const goods = displayItems.filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
   const tasksTotal = tasks.reduce((s: number, t: any) => s + (t.total_gross || 0), 0);

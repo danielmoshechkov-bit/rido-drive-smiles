@@ -33,7 +33,10 @@ const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Hybryda', 'Elektryczny', 'Benzyn
 export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder }: Props) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('dane');
-  const { data: allOrders = [] } = useWorkshopOrders(providerId);
+  // view 'all' — domyślny widok 'active' wyklucza ZAKOŃCZONE zlecenia serwerowo,
+  // przez co historia napraw auta pokazywała wszystko oprócz napraw faktycznie
+  // wykonanych. To po nie sięga się otwierając kartę pojazdu.
+  const { data: allOrders = [] } = useWorkshopOrders(providerId, { view: 'all' });
   const { data: clients = [] } = useWorkshopClients(providerId);
   const qc = useQueryClient();
 

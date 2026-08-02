@@ -221,10 +221,42 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
   };
 
 
+  /** Pozycje bez ceny — kosztorys z nimi pokazuje klientowi „0,00 zł" jako cenę usługi. */
+  const unpricedItems = (order.items || []).filter(
+    (i: any) => String(i?.name || '').trim() && !Number(i?.unit_price_gross) && !Number(i?.unit_price_net),
+  );
+
   const openSms = (type: 'reception' | 'quote' | 'requote' | 'ready') => {
+    // Kosztorys z pozycjami po 0,00 zł czyta się jak „to za darmo" i wraca reklamacją.
+    // Ostrzegamy PRZED wysyłką, bo po wysłaniu SMS-a nie da się go cofnąć.
+    if ((type === 'quote' || type === 'requote') && unpricedItems.length > 0) {
+      const names = unpricedItems.slice(0, 5).map((i: any) => `• ${i.name}`).join('\n');
+      const more = unpricedItems.length > 5 ? `\n…i ${unpricedItems.length - 5} więcej` : '';
+      const proceed = window.confirm(
+        `Uwaga: ${unpricedItems.length} ${unpricedItems.length === 1 ? 'pozycja nie ma' : 'pozycje nie mają'} ceny.\n\n` +
+          `${names}${more}\n\n` +
+          'Klient zobaczy je w kosztorysie jako 0,00 zł. Wysłać mimo to?',
+      );
+      if (!proceed) return;
+    }
     setSmsType(type);
     setSmsOpen(true);
   };
+
+  /**
+   * Podgląd / druk / pobranie kosztorysu = ta sama strona, którą dostaje klient.
+   * Wcześniej „Drukuj" i „Pobierz" tylko wyświetlały komunikat i nic nie robiły.
+   */
+  const openClientDoc = (doc: 'estimate' | 'reception', mode: 'preview' | 'print') => {
+    if (!order.client_code) {
+      toast.error('To zlecenie nie ma jeszcze linku dla klienta.');
+      return;
+    }
+    const url = `/warsztat/klient/${order.client_code}?admin=1&tab=${doc}${mode === 'print' ? '&print=1' : ''}`;
+    window.open(url, '_blank');
+  };
+
+  const openClientEstimate = (mode: 'preview' | 'print') => openClientDoc('estimate', mode);
 
   const copyClientLink = () => {
     if (order.client_code) {
@@ -385,13 +417,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52">
-                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.protocolPreviewToast'))}>
+                <DropdownMenuItem onClick={() => openClientDoc('reception', 'preview')}>
                   <Eye className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.preview')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.protocolPrinting'))}>
+                <DropdownMenuItem onClick={() => openClientDoc('reception', 'print')}>
                   <Printer className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.print')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.protocolDownloading'))}>
+                <DropdownMenuItem onClick={() => openClientDoc('reception', 'print')}>
                   <Download className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.download')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={markReceptionSigned}>
@@ -428,13 +460,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
                 <DropdownMenuItem onClick={() => openSms('quote')}>
                   <Send className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.sendEstimateSms')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setEstimatePreviewOpen(true)}>
+                <DropdownMenuItem onClick={() => openClientEstimate('preview')}>
                   <Eye className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.preview')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.estimatePrinting'))}>
+                <DropdownMenuItem onClick={() => openClientEstimate('print')}>
                   <Printer className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.print')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => toast.info(t('workshop.orderDetail.estimateDownloading'))}>
+                <DropdownMenuItem onClick={() => openClientEstimate('print')}>
                   <Download className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.download')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {

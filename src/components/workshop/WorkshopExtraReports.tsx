@@ -30,7 +30,8 @@ function PeriodBar({ from, to, onChange }: { from: string; to: string; onChange:
 export function WorkshopClientsReport({ providerId }: { providerId: string }) {
   const [from, setFrom] = useState(startOfMonth());
   const [to, setTo] = useState(todayStr());
-  const { data: orders = [] } = useWorkshopOrders(providerId);
+  // Raport musi widzieć także zlecenia zakończone (widok 'active' je wycina).
+  const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
 
   const data = useMemo(() => {
     const inPeriod = (o: any) => dpart(o.created_at) >= from && dpart(o.created_at) <= to;
@@ -82,7 +83,8 @@ export function WorkshopClientsReport({ providerId }: { providerId: string }) {
 export function WorkshopEmployeesReport({ providerId }: { providerId: string }) {
   const [from, setFrom] = useState(startOfMonth());
   const [to, setTo] = useState(todayStr());
-  const { data: orders = [] } = useWorkshopOrders(providerId);
+  // Raport musi widzieć także zlecenia zakończone (widok 'active' je wycina).
+  const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
   const { data: payouts = [] } = useWorkshopPayouts(providerId, { from, to });
   const { data: employees = [] } = useQuery({
     queryKey: ['workshop-emp-report', providerId],
