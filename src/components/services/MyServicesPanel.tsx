@@ -32,7 +32,9 @@ interface ProviderCategory {
   icon: string | null;
   sort_order: number;
   is_active: boolean;
+  service_category_id?: string | null;
 }
+
 
 interface ServiceItem {
   id: string;
