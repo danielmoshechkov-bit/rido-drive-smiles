@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { useInventoryProducts, InventoryProduct } from '@/hooks/useInventoryProducts';
 import { toFiscalName } from '@/lib/fiscalName';
+import { WorkshopPager, pageSlice } from '@/components/workshop/WorkshopPager';
 import { CategorySelector } from './CategorySelector';
 import { 
   Package, 
@@ -53,11 +54,17 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
     notes: '',
   });
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   const filteredProducts = products.filter(p => 
     p.name_sales.toLowerCase().includes(search.toLowerCase()) ||
     p.sku?.toLowerCase().includes(search.toLowerCase()) ||
     p.barcode?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const pagedProducts = pageSlice(filteredProducts, page, pageSize);
+  useEffect(() => { setPage(1); }, [search, pageSize]);
 
   const handleOpenNew = () => {
     setEditingProduct(null);
@@ -255,7 +262,7 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredProducts.map((product) => {
+              {pagedProducts.map((product) => {
                 const margin = getMargin(product);
                 return (
                   <div 
@@ -332,6 +339,14 @@ export function InventoryProductList({ entityId, showBarcode = false }: Props) {
               })}
             </div>
           )}
+
+          <WorkshopPager
+            page={page}
+            pageSize={pageSize}
+            total={filteredProducts.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </CardContent>
       </Card>
 

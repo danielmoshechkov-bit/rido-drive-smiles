@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { WorkshopPager, pageSlice } from './WorkshopPager';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,6 +67,9 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const { data: records = [], isLoading } = useTireStorageRecords(providerId);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   const filtered = useMemo(() => {
     if (!search) return records;
     const q = search.toLowerCase();
@@ -78,6 +82,9 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
       (r.workshop_vehicles?.plate || '').toLowerCase().includes(q)
     );
   }, [records, search]);
+
+  const paged = pageSlice(filtered, page, pageSize);
+  useEffect(() => { setPage(1); }, [pageSize]);
 
   return (
     <div className="space-y-4">
@@ -123,7 +130,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                     {isLoading ? t('common.loading') : t('workshop.tireStorage.noData')}
                   </TableCell>
                 </TableRow>
-              ) : filtered.map((r: any) => (
+              ) : paged.map((r: any) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono text-xs">{r.storage_number || '—'}</TableCell>
                   <TableCell>{r.client_name || `${r.workshop_clients?.first_name || ''} ${r.workshop_clients?.last_name || ''}`.trim() || '—'}</TableCell>
@@ -142,9 +149,13 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
         </CardContent>
       </Card>
 
-      <div className="text-sm text-muted-foreground">
-        {t('workshop.tireStorage.pagination', { from: 0, to: filtered.length, total: records.length })}
-      </div>
+      <WorkshopPager
+        page={page}
+        pageSize={pageSize}
+        total={filtered.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       <TireStorageDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
     </div>
