@@ -372,8 +372,20 @@ export function useSaveFinanceSettings() {
         .upsert({ ...settings, updated_at: new Date().toISOString() }, { onConflict: 'provider_id' });
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['workshop-finance-settings'] }); toast.success('Grafik zapisany'); },
-    onError: (e: any) => toast.error(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['workshop-finance-settings'] }); toast.success('Zapisano'); },
+    onError: (e: any) => {
+      // PGRST204 = PostgREST nie widzi kolumny w swoim schema cache, 42703 = kolumny nie ma
+      // w bazie. Dla użytkownika to jedno i to samo: funkcja czeka na aktualizację bazy.
+      // Surowy komunikat („Could not find the 'auto_close_month' column…") nic mu nie mówi.
+      const raw = String(e?.message ?? '');
+      const column = raw.match(/'([a-z0-9_]+)' column/i)?.[1];
+      const missingColumn = e?.code === 'PGRST204' || e?.code === '42703' || /schema cache/i.test(raw);
+      toast.error(
+        missingColumn
+          ? `Ta opcja czeka na aktualizację bazy${column ? ` (brakuje kolumny „${column}")` : ''}. Reszta ustawień działa normalnie.`
+          : raw || 'Nie udało się zapisać ustawień.',
+      );
+    },
   });
 }
 

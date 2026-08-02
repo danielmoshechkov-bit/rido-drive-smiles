@@ -2,7 +2,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Wallet, Lock } from 'lucide-react';
-import { toast } from 'sonner';
 import { useWorkshopFinanceSettings, useSaveFinanceSettings } from '@/hooks/useWorkshopFinance';
 
 // PO CO: kasa liczy dopiero od momentu włączenia — żeby dane historyczne (stare
@@ -22,17 +21,9 @@ export function WorkshopCashSettings({ providerId }: { providerId: string }) {
     cash_started_at: settings?.cash_started_at ?? null,
   });
 
+  // Komunikat o brakującej kolumnie obsługuje sam hook zapisu — tu nie dublujemy toasta.
   const toggleAutoClose = (on: boolean) => {
-    save.mutate({ ...base(), auto_close_month: on } as any, {
-      onError: (e: any) => {
-        // 42703 = brak kolumny: migracja auto-zamykania jeszcze nie wykonana.
-        toast.error(
-          e?.code === '42703'
-            ? 'Automatyczne zamykanie wymaga migracji 20260802_cash_auto_close.sql.'
-            : e?.message || 'Nie udało się zapisać ustawienia.',
-        );
-      },
-    });
+    save.mutate({ ...base(), auto_close_month: on } as any);
   };
 
   const toggle = (on: boolean) => {
