@@ -257,6 +257,82 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // ---------- Dodawanie usług przez GetRido AI ----------
+  interface AiItem {
+    name: string;
+    short_description: string;
+    price_mode: PriceMode;
+    price_from: number | null;
+    price_to: number | null;
+    duration_minutes: number | null;
+    category_id: string | null;
+    include: boolean;
+  }
+  const [aiDialog, setAiDialog] = useState(false);
+  const [aiText, setAiText] = useState('');
+  const [aiItems, setAiItems] = useState<AiItem[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSaving, setAiSaving] = useState(false);
+
+  const runAi = async () => {
+    if (aiText.trim().length < 5) { toast.error('Opisz swoje usługi'); return; }
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-extract-services', {
+        body: { text: aiText, categories: categories.map(c => ({ id: c.id, name: c.name })) },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const items = ((data as any)?.services || []) as Omit<AiItem, 'include'>[];
+      if (!items.length) { toast.error('AI nie znalazło pozycji — dopisz więcej szczegółów'); return; }
+      setAiItems(items.map(i => ({ ...i, include: true })));
+    } catch (e: any) {
+      toast.error(e?.message || 'Nie udało się przetworzyć opisu');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const saveAiItems = async () => {
+    const picked = aiItems.filter(i => i.include);
+    if (!picked.length) { toast.error('Zaznacz przynajmniej jedną pozycję'); return; }
+    setAiSaving(true);
+    try {
+      const rows = picked.map((i, idx) => {
+        const from = i.price_from ?? 0;
+        const to = i.price_to ?? 0;
+        let priceFrom = 0, priceTo = 0;
+        if (i.price_mode === 'fixed') { priceFrom = from; priceTo = from; }
+        else if (i.price_mode === 'from') { priceFrom = from; priceTo = 0; }
+        else if (i.price_mode === 'range') { priceFrom = from; priceTo = Math.max(to, from); }
+        return {
+          provider_id: providerId,
+          name: i.name,
+          short_description: i.short_description || null,
+          description: null,
+          price_from: priceFrom,
+          price_to: priceTo,
+          duration_minutes: i.duration_minutes,
+          category_id: i.category_id,
+          category: 'ogolne',
+          is_active: true,
+          photos: [],
+          sort_order: services.length + idx,
+        };
+      });
+      const { error } = await (supabase as any).from('provider_services').insert(rows);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['provider-services', providerId] });
+      setAiDialog(false); setAiItems([]); setAiText('');
+      toast.success(`Dodano ${rows.length} pozycji cennika`);
+    } catch (e: any) {
+      toast.error('Błąd zapisu: ' + (e?.message || ''));
+    } finally {
+      setAiSaving(false);
+    }
+  };
+
+
   const openNew = () => {
     setEditing(null);
     setNewPhotos([]);
