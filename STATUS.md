@@ -165,6 +165,56 @@ tabele, osobne numeracje i osobne dowody wewnętrzne.
 
 ---
 
+## 4b. Prace poza modułem fiskalnym (ta sama gałąź)
+
+Branch urósł poza fiskalizację — w trakcie testów wyszły błędy w całym portalu i zostały
+naprawione tutaj, bo blokowały pracę z kasą.
+
+**Naprawione błędy**
+- historia napraw pojazdu **pomijała zlecenia zakończone** (widok „aktywne" wycina je serwerowo);
+  ten sam błąd był w statystykach i raportach dodatkowych
+- kolejność pozycji w kosztorysie u klienta **różniła się** od kolejności w wycenie warsztatu
+- „Podgląd / Drukuj / Pobierz" kosztorysu i protokołu **były atrapami** (pokazywały komunikat)
+- wyszukiwarka zleceń nie znajdowała po numerze rejestracyjnym ani danych klienta
+- kartoteka klientów nie znajdowała klienta po jego aucie
+- pozycja wyceny bez ceny **nie zapisywała się** i znikała po odświeżeniu
+- Enter w wycenie tworzył dodatkowy wiersz i przeskakiwał przez jeden
+- „null" zamiast nazwiska w 38 miejscach portalu
+- fioletowa ramka focusu wokół całych paneli (TabsContent z shadcn)
+- kopia paragonu drukowała się **bez nazwy firmy i NIP-u**
+- rejestr zwracał **zamaskowany VIN** („W0L**…8071") i trafiał do bazy
+- duplikaty pojazdów: wyszukiwarka porównywała numer dosłownie, więc „wy996eu" nie znajdowało
+  „WY 996EU" i użytkownik zakładał nowy rekord
+
+**Dodane**
+- kolumna „Płatność" przy zakończonych zleceniach (opłacone/częściowo/nieopłacone + edycja)
+- stronicowanie: zlecenia, pojazdy, klienci, magazyn, przechowalnia
+- raport kasowy z tożsamością (stan początkowy + wpływy − wydatki = stan końcowy), osobno
+  gotówka i konto z rozbiciem na kartę, BLIK i przelew
+- archiwum raportów miesięcznych + przypomnienie i automat zamknięcia miesiąca
+- przechowalnia opon: wydanie kompletu, historia wydanych, pokwitowanie do podpisu
+- logo firmy na dokumentach wystawianych przez system
+- podział klientów na prywatnych i firmy
+
+---
+
+## 4c. Checklista przed scaleniem do `main`
+
+| # | Krok | Stan |
+|---|---|---|
+| 1 | Migracja `20260802_fiscal_month_report.sql` | ❌ niewykonana |
+| 2 | Migracja `20260802_cash_auto_close.sql` | ❌ niewykonana |
+| 3 | Migracja `20260802_tire_reminder_channel.sql` | ❌ niewykonana |
+| 4 | Skrypt `merge-duplicate-vehicles.sql` (38 numerów z duplikatami) | ❌ nieuruchomiony |
+| 5 | Sprzątnięcie danych testowych fiskalizacji | ✅ wykonane (log pusty) |
+| 6 | Wciągnięcie `main` do gałęzi i sprawdzenie konfliktów | ❌ do zrobienia |
+| 7 | `npm run build` i `tsc --noEmit` | ✅ czyste |
+
+Bez kroków 1–3 trzy funkcje zgłoszą brak migracji zamiast działać (ślad raportu miesięcznego,
+automat zamknięcia, kanał przypomnień). Reszta modułu działa niezależnie od nich.
+
+---
+
 ## 5. Zasady pracy w tym module
 
 - push **wyłącznie** na `feature/fiskalizacja-elzab`, nigdy na `main`, i tylko po akceptacji
