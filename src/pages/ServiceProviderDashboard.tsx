@@ -61,6 +61,10 @@ import { useGusLookup } from '@/hooks/useGusLookup';
 import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
+import { ProviderCategoryBar } from '@/components/services/ProviderCategoryBar';
+import { ProviderHoursContactCard } from '@/components/services/ProviderHoursContactCard';
+import { ServicesFromSpeech } from '@/components/services/ServicesFromSpeech';
+import { useProviderCategories } from '@/hooks/useProviderCategories';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { toast } from 'sonner';
 
@@ -123,6 +127,7 @@ export default function ServiceProviderDashboard() {
   const [selectedAgentType, setSelectedAgentType] = useState<string | null>(null);
   const [aiAgentSubTab, setAiAgentSubTab] = useState<'overview' | 'knowledge' | 'analytics' | 'learning'>('overview');
   const [providerId, setProviderId] = useState<string | null>(null);
+  const [activeServiceCategory, setActiveServiceCategory] = useState('');
   const [calendarSubTab, setCalendarSubTab] = useState<'calendar' | 'bookings'>('calendar');
   const [moreOpen, setMoreOpen] = useState(false);
   const [primaryTabs, setPrimaryTabs] = useState<string[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
@@ -391,6 +396,7 @@ export default function ServiceProviderDashboard() {
   };
 
   // ---- DB-backed services ----
+  const { categories: providerCategories } = useProviderCategories(providerId);
   const { data: services = [] } = useQuery({
     queryKey: ['provider-services', providerId],
     enabled: !!providerId,
@@ -404,6 +410,11 @@ export default function ServiceProviderDashboard() {
       return (data || []) as ServiceItem[];
     },
   });
+
+  // Lista filtrowana paskiem kategorii ('' = wszystkie)
+  const visibleServices = activeServiceCategory
+    ? services.filter((s: ServiceItem) => (s.category || 'Inne') === activeServiceCategory)
+    : services;
 
   const createServiceMut = useMutation({
     mutationFn: async (svc: any) => {
@@ -474,6 +485,14 @@ export default function ServiceProviderDashboard() {
         photoUrls.push(urlData.publicUrl);
       }
 
+      // Nowa nazwa kategorii wpisana ręcznie — zakładamy ją, żeby pojawiła się na pasku
+      const categoryName = serviceForm.category.trim();
+      if (categoryName && !providerCategories.some(c => c.name === categoryName)) {
+        await (supabase as any).from('provider_service_categories')
+          .insert({ provider_id: providerId, name: categoryName, sort_order: providerCategories.length });
+        queryClient.invalidateQueries({ queryKey: ['provider-service-categories', providerId] });
+      }
+
       const svcData = {
         name: serviceForm.name,
         short_description: serviceForm.short_description,
@@ -481,7 +500,7 @@ export default function ServiceProviderDashboard() {
         price_from: parseFloat(serviceForm.price_from) || 0,
         price_to: parseFloat(serviceForm.price_to) || 0,
         duration_minutes: serviceForm.duration_minutes ? parseInt(serviceForm.duration_minutes) : null,
-        category: serviceForm.category,
+        category: categoryName || 'Inne',
         is_active: serviceForm.is_active,
         photos: photoUrls,
       };
@@ -502,7 +521,11 @@ export default function ServiceProviderDashboard() {
   const resetServiceForm = () => {
     setEditingService(null);
     setServicePhotos([]);
-    setServiceForm({ name: '', short_description: '', description: '', price_from: '', price_to: '', duration_minutes: '', category: 'ogolne', is_active: true });
+    setServiceForm({
+      name: '', short_description: '', description: '', price_from: '', price_to: '', duration_minutes: '',
+      category: activeServiceCategory || providerCategories[0]?.name || '',
+      is_active: true,
+    });
   };
 
   const openEditService = (service: ServiceItem) => {
@@ -906,7 +929,22 @@ export default function ServiceProviderDashboard() {
                 <span>{t('sp.visibility.profileActive')}</span>
               </div>
             )}
-            <div className="flex items-center justify-start">
+            <ServicesFromSpeech
+              providerId={providerId}
+              existingServiceNames={services.map((s: ServiceItem) => s.name)}
+            />
+
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <ProviderCategoryBar
+                providerId={providerId}
+                active={activeServiceCategory}
+                onChange={setActiveServiceCategory}
+                counts={services.reduce((acc: Record<string, number>, s: ServiceItem) => {
+                  const key = s.category || 'Inne';
+                  acc[key] = (acc[key] || 0) + 1;
+                  return acc;
+                }, {})}
+              />
               <Button onClick={() => { resetServiceForm(); setServiceDialog(true); }} className="gap-2">
                 <Plus className="h-4 w-4" /> {t('sp.services.addService')}
               </Button>
@@ -914,11 +952,19 @@ export default function ServiceProviderDashboard() {
 
             <Card>
               <CardContent className="pt-6">
-                {services.length === 0 ? (
+                {visibleServices.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Wrench className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                    <p className="font-medium">{t('sp.services.noServices')}</p>
-                    <p className="text-sm">{t('sp.services.noServicesHint')}</p>
+                    <p className="font-medium">
+                      {activeServiceCategory
+                        ? `Brak usług w kategorii „${activeServiceCategory}"`
+                        : t('sp.services.noServices')}
+                    </p>
+                    <p className="text-sm">
+                      {activeServiceCategory
+                        ? 'Dodaj tu pierwszą pozycję albo przełącz się na inną kategorię.'
+                        : t('sp.services.noServicesHint')}
+                    </p>
                   </div>
                 ) : (
                   <Table>
@@ -934,7 +980,7 @@ export default function ServiceProviderDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {services.map((service: ServiceItem) => (
+                      {visibleServices.map((service: ServiceItem) => (
                         <TableRow key={service.id}>
                           <TableCell className="font-medium">{service.name}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{t(`sp.services.categories.${service.category}`, service.category)}</TableCell>
@@ -965,6 +1011,8 @@ export default function ServiceProviderDashboard() {
                 )}
               </CardContent>
             </Card>
+
+            <ProviderHoursContactCard providerId={providerId} />
 
             {/* Service Add/Edit Dialog */}
             <Dialog open={serviceDialog} onOpenChange={setServiceDialog}>
@@ -1009,19 +1057,18 @@ export default function ServiceProviderDashboard() {
                   </div>
                   <div className="space-y-2">
                     <Label>{t('sp.services.category')}</Label>
-                    <Select value={serviceForm.category} onValueChange={v => setServiceForm(p => ({ ...p, category: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ogolne">{t('sp.services.categories.ogolne')}</SelectItem>
-                        <SelectItem value="mechanika">{t('sp.services.categories.mechanika')}</SelectItem>
-                        <SelectItem value="detailing">{t('sp.services.categories.detailing')}</SelectItem>
-                        <SelectItem value="lakiernictwo">{t('sp.services.categories.lakiernictwo')}</SelectItem>
-                        <SelectItem value="elektryka">{t('sp.services.categories.elektryka')}</SelectItem>
-                        <SelectItem value="opony">{t('sp.services.categories.opony')}</SelectItem>
-                        <SelectItem value="diagnostyka">{t('sp.services.categories.diagnostyka')}</SelectItem>
-                        <SelectItem value="inne">{t('sp.services.categories.inne')}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      list="sp-service-categories"
+                      value={serviceForm.category}
+                      onChange={e => setServiceForm(p => ({ ...p, category: e.target.value }))}
+                      placeholder="np. Warsztat"
+                    />
+                    <datalist id="sp-service-categories">
+                      {providerCategories.map(c => <option key={c.id} value={c.name} />)}
+                    </datalist>
+                    <p className="text-xs text-muted-foreground">
+                      Wybierz swoją kategorię albo wpisz nową — pojawi się na pasku kategorii.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>{t('sp.services.photos')}</Label>
