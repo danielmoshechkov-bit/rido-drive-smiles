@@ -96,7 +96,8 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
         if (num) updated.engine_capacity_cm3 = num;
       }
       if (data.engine_power_kw) updated.engine_power_kw = String(data.engine_power_kw);
-      if (data.vin && !prev.vin) updated.vin = data.vin;
+      // Bez zamaskowanych VIN-ów z rejestru — patrz komentarz w karcie pojazdu.
+      if (data.vin && !String(data.vin).includes('*') && !prev.vin) updated.vin = data.vin;
       if (data.registration_number && !prev.plate) updated.plate = data.registration_number;
       // Description left empty — not auto-filled from API
       return updated;

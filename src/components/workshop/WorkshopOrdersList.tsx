@@ -1240,7 +1240,13 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
     if (data.make) set('brand', data.make);
     if (data.model) set('model', data.model.replace(/\s+\d+\.\d+(\s+\S+)*$/, '').trim());
     if (data.registration_year) set('year', String(data.registration_year));
-    if (data.vin) set('vin', String(data.vin).toUpperCase());
+    // Rejestr zwraca VIN CZĘŚCIOWO ZAMASKOWANY („W0L**********8071"). Taki zapis jest
+    // gorszy niż jego brak: nie da się po nim szukać ani sprawdzić auta, a wygląda jak
+    // prawdziwy numer. Bierzemy tylko pełny VIN, resztę zostawiamy do wpisania z dowodu.
+    const lookedUpVin = String(data.vin ?? '').toUpperCase().trim();
+    if (lookedUpVin && !lookedUpVin.includes('*') && lookedUpVin.length >= 11) {
+      set('vin', lookedUpVin);
+    }
     if (data.color) set('color', data.color);
 
     const normalizedFuel = normalizeFuelType(data.fuel_type);

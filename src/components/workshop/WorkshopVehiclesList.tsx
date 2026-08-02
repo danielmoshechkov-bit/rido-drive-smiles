@@ -122,14 +122,14 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
                       onCheckedChange={toggleAll}
                     />
                   </TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.colBrandModel')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.plateNumber')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.vin')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.owner')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.yearOfProd')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.capacity')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.engine')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.enginePower')}</TableHead>
+                  <TableHead>{t('workshop.vehicles.colBrandModel')}</TableHead>
+                  <TableHead>{t('workshop.orders.plateNumber')}</TableHead>
+                  <TableHead>{t('workshop.orders.vin')}</TableHead>
+                  <TableHead>{t('workshop.vehicles.owner')}</TableHead>
+                  <TableHead>{t('workshop.orders.yearOfProd')}</TableHead>
+                  <TableHead>{t('workshop.orders.capacity')}</TableHead>
+                  <TableHead>{t('workshop.vehicles.engine')}</TableHead>
+                  <TableHead>{t('workshop.vehicles.enginePower')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -148,23 +148,23 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Car className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-semibold text-[13px] tracking-wide">{v.brand} {v.model}</span>
+                        <span className="font-semibold">{v.brand} {v.model}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-[13px] font-semibold tracking-wide">{v.plate || ''}</TableCell>
-                    <TableCell className="text-[12px] text-muted-foreground tracking-wide">{v.vin || ''}</TableCell>
+                    <TableCell className="font-semibold">{v.plate || ''}</TableCell>
+                    <TableCell className="text-muted-foreground">{v.vin || ''}</TableCell>
                     <TableCell>
                       {getOwnerName(v) && (
-                        <div className="flex items-center gap-1.5 text-[13px] font-medium">
+                        <div className="flex items-center gap-1.5 font-medium">
                           <User className="h-3.5 w-3.5 text-muted-foreground" />
                           {getOwnerName(v)}
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="text-[13px] font-semibold">{v.year || ''}</TableCell>
-                    <TableCell className="text-[13px]">{v.engine_capacity_cm3 || ''}</TableCell>
-                    <TableCell className="text-[13px]">{v.fuel_type || ''}</TableCell>
-                    <TableCell className="text-[13px]">
+                    <TableCell className="text-sm font-semibold">{v.year || ''}</TableCell>
+                    <TableCell className="text-sm">{v.engine_capacity_cm3 || ''}</TableCell>
+                    <TableCell className="text-sm">{v.fuel_type || ''}</TableCell>
+                    <TableCell className="text-sm">
                       {v.engine_power_kw ? `${v.engine_power_kw} kW` : ''}
                     </TableCell>
                   </TableRow>

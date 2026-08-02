@@ -37,6 +37,9 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
     return map;
   }, [vehicles]);
   const [search, setSearch] = useState('');
+  // Firmy i osoby prywatne obsługuje się inaczej (faktura vs paragon, rabaty, terminy),
+  // więc kartoteka pozwala je rozdzielić jednym kliknięciem.
+  const [typeFilter, setTypeFilter] = useState<'all' | 'individual' | 'company'>('all');
   const [showAdd, setShowAdd] = useState(false);
   const [editClient, setEditClient] = useState<any>(null);
 
@@ -52,11 +55,24 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
    * PO CO: przy ladzie pada „przyjechał BMW, WY996EU", a nie nazwisko. Szukanie wyłącznie
    * po imieniu i telefonie zmuszało do zgadywania, kto to — mimo że auto jest przypisane.
    */
+  const byType = useMemo(() => {
+    if (typeFilter === 'all') return clients;
+    return clients.filter((c: any) =>
+      typeFilter === 'company' ? c.client_type === 'company' : c.client_type !== 'company',
+    );
+  }, [clients, typeFilter]);
+
+  const counts = useMemo(() => ({
+    all: clients.length,
+    company: clients.filter((c: any) => c.client_type === 'company').length,
+    individual: clients.filter((c: any) => c.client_type !== 'company').length,
+  }), [clients]);
+
   const filtered = useMemo(() => {
-    if (!search) return clients;
+    if (!search) return byType;
     const q = search.toLowerCase();
     const sq = squash(search);
-    return clients.filter((c: any) => {
+    return byType.filter((c: any) => {
       const name = c.client_type === 'company'
         ? (c.company_name || '')
         : `${c.first_name || ''} ${c.last_name || ''}`;
@@ -73,11 +89,11 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
         `${v.brand ?? ''} ${v.model ?? ''}`.toLowerCase().includes(q),
       );
     });
-  }, [clients, search, vehiclesByClient]);
+  }, [byType, search, vehiclesByClient]);
 
   const paged = pageSlice(filtered, page, pageSize);
   // Zmiana wyszukiwania cofa na pierwszą stronę — inaczej wynik ląduje poza widokiem.
-  useEffect(() => { setPage(1); }, [search, pageSize]);
+  useEffect(() => { setPage(1); }, [search, pageSize, typeFilter]);
 
   const getClientName = (c: any) => {
     if (c.client_type === 'company') return c.company_name || t('workshop.clients.noData');
@@ -97,10 +113,28 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
         <Button onClick={() => setShowAdd(true)} className="gap-2">
           <Plus className="h-4 w-4" /> {t('workshop.clients.create')}
         </Button>
+        <div className="flex rounded-md border overflow-hidden">
+          {([
+            ['all', `Wszyscy (${counts.all})`],
+            ['individual', `Prywatni (${counts.individual})`],
+            ['company', `Firmy (${counts.company})`],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTypeFilter(value)}
+              className={`px-3 py-1.5 text-sm transition-colors ${
+                typeFilter === value ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('common.search')} className="pl-9 w-[250px]" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj: nazwisko, telefon, nr rej, VIN…" className="pl-9 w-[280px]" />
         </div>
       </div>
 
@@ -167,10 +201,10 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
                               title="Historia napraw tego auta"
                               onClick={(e) => { e.stopPropagation(); onOpenVehicle?.(v); }}
                             >
-                              <span className="block text-[13px] font-semibold tracking-wide">
+                              <span className="block font-semibold">
                                 {v.plate || '(brak numeru)'}
                               </span>
-                              <span className="block text-[11px] text-muted-foreground">
+                              <span className="block text-xs text-muted-foreground">
                                 {`${v.brand ?? ''} ${v.model ?? ''}`.trim() || '—'}
                               </span>
                             </button>

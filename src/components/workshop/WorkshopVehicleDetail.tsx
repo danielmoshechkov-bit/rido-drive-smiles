@@ -60,7 +60,9 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
       brand: data.make || current.brand,
       model: data.model || current.model,
       color: data.color || current.color,
-      vin: data.vin || current.vin,
+      // Zamaskowany VIN z rejestru („W0L**********8071") nie nadaje się do zapisu —
+      // nie da się po nim szukać ani zweryfikować auta, a udaje prawdziwy numer.
+      vin: (data.vin && !String(data.vin).includes('*')) ? data.vin : current.vin,
       plate: data.registration_number || current.plate,
       year: data.registration_year ? String(data.registration_year) : current.year,
       first_registration_date: data.first_registration_date || current.first_registration_date,
