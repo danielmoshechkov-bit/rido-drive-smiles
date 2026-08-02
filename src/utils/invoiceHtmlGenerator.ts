@@ -808,12 +808,22 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
     @page { margin: 0; size: A4; }
     @media print {
-      html, body { height: 100%; margin: 0 !important; padding: 0 !important; }
+      /* Margines kartki robi padding body (@page margin: 0) — zerowanie go tutaj
+         przyklejalo tresc do samej krawedzi papieru. */
+      html, body { height: 100%; margin: 0 !important; }
       .invoice { max-width: 100%; page-break-inside: avoid; }
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       th { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; }
       .totals-row.grand { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; }
       .vat-header { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; }
+    }
+    /* Dokument ZAWSZE ma szerokosc kartki A4 — takze gdy otworzysz go w oknie
+       przegladarki przed wydrukiem. Bez tego tresc rozciagala sie na cala
+       szerokosc ekranu i uklad rozjezdzal sie wzgledem tego, co wychodzi
+       z drukarki. Wydruk (@page A4) nie zmienia sie. */
+    @media screen {
+      html { background: #eceaf3; }
+      body { width: 210mm; max-width: 100%; margin: 0 auto; box-shadow: 0 1px 12px rgba(0,0,0,0.12); }
     }
     body {
       font-family: "DejaVu Sans", Arial, sans-serif;
@@ -858,12 +868,14 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     /* Padding na wierszach, nie na ramce — inaczej wiersz display:table liczy
        szerokosc od ramki i kwota wychodzila poza pasek DO ZAPLATY. */
     .totals-table { width: 250px; margin-left: auto; border: 1px solid #e3e0f0; border-radius: 6px; padding: 4px 0; background: #faf9ff; overflow: hidden; }
-    .totals-row { display: table; width: 100%; padding: 1px 10px; font-size: 10px; border-bottom: 1px solid #d8d5e8; }
-    .totals-row > span:first-child { display: table-cell; text-align: left; color: #444; vertical-align: middle; }
-    .totals-row > span:last-child { display: table-cell; text-align: right; vertical-align: middle; }
+    /* Padding TYLKO na komorkach. Na samym wierszu (display:table, width:100%)
+       przegladarka dolicza go do szerokosci, wiec kwota wychodzila poza pasek. */
+    .totals-row { display: table; width: 100%; padding: 1px 0; font-size: 10px; border-bottom: 1px solid #d8d5e8; }
+    .totals-row > span:first-child { display: table-cell; text-align: left; color: #444; vertical-align: middle; padding-left: 10px; }
+    .totals-row > span:last-child { display: table-cell; text-align: right; vertical-align: middle; padding-right: 10px; }
     /* Pasek DO ZAPŁATY na całą szerokość ramki (ujemne marginesy zjadają padding
        rodzica) — inaczej kwota wychodziła poza fioletowe tło i ucinało "zł". */
-    .totals-row.grand { border-bottom: none; background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 5px 10px; border-radius: 0 0 5px 5px; font-size: 12px; margin: 3px 0 -4px 0; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .totals-row.grand { border-bottom: none; background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 5px 0; border-radius: 0 0 5px 5px; font-size: 12px; margin: 3px 0 -4px 0; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .amount-words { display: block; margin-top: 4px; margin-bottom: 5px; padding: 1px 0; font-size: 10px; }
     .amount-words-label { color: #666; font-weight: 600; white-space: nowrap; }
     .amount-words-value { font-style: italic; }
