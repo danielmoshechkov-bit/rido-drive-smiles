@@ -679,22 +679,128 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
         </Card>
       )}
 
-      {/* Dialog kategorii */}
+      {/* Dialog kategorii — wybór z katalogu portalu */}
       <Dialog open={catDialog} onOpenChange={setCatDialog}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingCat ? 'Zmień nazwę kategorii' : 'Nowa kategoria'}</DialogTitle>
+            <DialogTitle>{editingCat ? 'Zmień nazwę kategorii' : 'Dodaj kategorię'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label>Nazwa</Label>
-            <Input value={catName} onChange={e => setCatName(e.target.value)} placeholder="np. Warsztat, Myjnia, Detailing" autoFocus />
-          </div>
+
+          {editingCat ? (
+            <div className="space-y-2">
+              <Label>Nazwa wyświetlana</Label>
+              <Input value={catName} onChange={e => setCatName(e.target.value)} autoFocus />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Wybierz kategorię z katalogu portalu — w niej Twoja firma pokaże się klientom.
+              </p>
+              <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
+                {portalCategories.map(c => {
+                  const used = usedCatalogIds.has(c.id);
+                  const active = pickedCatalogId === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      disabled={used}
+                      onClick={() => setPickedCatalogId(c.id)}
+                      className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
+                        used
+                          ? 'opacity-45 cursor-not-allowed bg-muted'
+                          : active
+                            ? 'border-primary bg-primary/5'
+                            : 'hover:border-primary/40'
+                      }`}
+                    >
+                      <span className="font-semibold text-sm text-foreground">{c.name}</span>
+                      {used && <span className="ml-2 text-[11px] text-muted-foreground">już dodana</span>}
+                      {c.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-1">{c.description}</p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => { setCatDialog(false); setReqDialog(true); }}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5"
+              >
+                <Plus className="h-4 w-4" /> Nie ma mojej kategorii — zgłoś nową
+              </button>
+            </div>
+          )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setCatDialog(false)}>Anuluj</Button>
-            <Button onClick={() => saveCat.mutate()} disabled={saveCat.isPending}>Zapisz</Button>
+            <Button
+              onClick={() => saveCat.mutate()}
+              disabled={saveCat.isPending || (!editingCat && !pickedCatalogId)}
+            >
+              Zapisz
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog zgłoszenia nowej kategorii */}
+      <Dialog open={reqDialog} onOpenChange={setReqDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Zgłoś nową kategorię</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Zgłoszenie trafia do zespołu GetRido. Po akceptacji kategoria pojawi się w katalogu portalu.
+            </p>
+            <div className="space-y-2">
+              <Label>Nazwa kategorii</Label>
+              <Input
+                value={reqForm.name}
+                onChange={e => setReqForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="np. Wulkanizacja, Klimatyzacja, Auto szyby"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Opis kategorii</Label>
+              <Textarea
+                rows={3}
+                className="resize-none"
+                value={reqForm.description}
+                onChange={e => setReqForm(p => ({ ...p, description: e.target.value }))}
+                placeholder="Czym zajmuje się ta kategoria?"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Przykładowe usługi <span className="text-xs text-muted-foreground font-normal">(opcjonalnie)</span></Label>
+              <Textarea
+                rows={2}
+                className="resize-none"
+                value={reqForm.services}
+                onChange={e => setReqForm(p => ({ ...p, services: e.target.value }))}
+                placeholder="np. wymiana opon, wyważanie, przechowywanie kół"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>E-mail kontaktowy <span className="text-xs text-muted-foreground font-normal">(opcjonalnie)</span></Label>
+              <Input
+                type="email"
+                value={reqForm.email}
+                onChange={e => setReqForm(p => ({ ...p, email: e.target.value }))}
+                placeholder="kontakt@firma.pl"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReqDialog(false)}>Anuluj</Button>
+            <Button onClick={() => submitRequest.mutate()} disabled={submitRequest.isPending}>
+              {submitRequest.isPending ? 'Wysyłanie…' : 'Wyślij zgłoszenie'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Dialog usługi */}
       <Dialog open={dialog} onOpenChange={setDialog}>
