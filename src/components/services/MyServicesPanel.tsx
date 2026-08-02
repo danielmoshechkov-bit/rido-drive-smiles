@@ -18,8 +18,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Plus, Pencil, Trash2, MoreVertical, Upload, X, Clock, Phone, Wrench,
-  Copy, EyeOff, Eye, Save, Image as ImageIcon, Star, GripVertical,
+  Copy, EyeOff, Eye, Save, Image as ImageIcon, Star, GripVertical, Sparkles, Loader2,
 } from 'lucide-react';
+
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
 import {
   DAY_ORDER, DAY_LABELS, DEFAULT_WORKING_HOURS, normalizeWorkingHours, getOpenStatus,
