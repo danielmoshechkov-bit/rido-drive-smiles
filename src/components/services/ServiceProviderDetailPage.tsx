@@ -510,12 +510,43 @@ export function ServiceProviderDetailPage() {
                   Ten usługodawca nie ma jeszcze dodanych usług
                 </p>
               ) : (
-                <div className="space-y-8">
-                  {serviceGroups.map(group => (
-                    <div key={group.key} className="space-y-3">
+                <>
+                  {serviceGroups.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-5 -mx-1 px-1">
+                      <button
+                        onClick={() => setActiveGroup('all')}
+                        className={cn(
+                          "shrink-0 rounded-full px-4 py-2 text-sm font-bold border transition-colors",
+                          activeGroup === 'all'
+                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                            : "bg-white text-slate-700 border-slate-200 hover:border-primary/50 hover:text-primary"
+                        )}
+                      >
+                        Wszystkie <span className="opacity-70">({services.length})</span>
+                      </button>
+                      {serviceGroups.map(g => (
+                        <button
+                          key={g.key}
+                          onClick={() => setActiveGroup(g.key)}
+                          className={cn(
+                            "shrink-0 rounded-full px-4 py-2 text-sm font-bold border transition-colors",
+                            activeGroup === g.key
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-white text-slate-700 border-slate-200 hover:border-primary/50 hover:text-primary"
+                          )}
+                        >
+                          {g.name} <span className="opacity-70">({g.items.length})</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                <div className="space-y-6">
+                  {visibleGroups.map(group => (
+                    <div key={group.key} className="rounded-2xl border border-primary/15 bg-primary/[0.03] p-4 md:p-5 space-y-3">
                       {serviceGroups.length > 1 && (
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-base font-extrabold text-slate-900">{group.name}</h3>
+                        <div className="flex items-center gap-2 border-b border-primary/15 pb-2">
+                          <span className="h-5 w-1.5 rounded-full bg-primary" />
+                          <h3 className="text-base md:text-lg font-extrabold text-primary uppercase tracking-wide">{group.name}</h3>
                           <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5">
                             {group.items.length}
                           </span>
@@ -525,6 +556,7 @@ export function ServiceProviderDetailPage() {
                         </div>
                       )}
                       {group.items.map(service => (
+
                     <Card key={service.id} className="hover:border-primary/50 hover:shadow-md transition-all rounded-xl border border-slate-200">
                       <CardContent className="p-4 flex items-center justify-between">
                         <div className="flex-1">
