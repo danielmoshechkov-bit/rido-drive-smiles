@@ -16,6 +16,22 @@ export interface CopyHeader {
   nip?: string | null;
   address?: string | null;
   documentLabel?: string | null;
+  /** Logo firmy — to samo, które warsztat wgrał w ustawieniach. */
+  logoUrl?: string | null;
+}
+
+/**
+ * Logo nad nagłówkiem dokumentu.
+ *
+ * Klient rozpoznaje warsztat po znaku, nie po numerze NIP — a te dokumenty (kopia paragonu,
+ * protokół zwrotu, pokwitowanie) trafiają wprost do jego rąk. Wysokość ograniczona, żeby
+ * logo nie zjadło połowy kartki.
+ */
+function logoBlock(header: CopyHeader): string {
+  if (!header.logoUrl) return '';
+  return `<div style="text-align:center;margin-bottom:10px">
+    <img src="${escapeHtml(header.logoUrl)}" alt="" style="max-height:70px;max-width:60%;object-fit:contain" />
+  </div>`;
 }
 
 /** Wspólne otwarcie okna wydruku — jedno miejsce na komunikat o blokadzie pop-upów. */
@@ -74,6 +90,7 @@ export function printReceiptCopy(receipt: FiscalReceiptRow, header: CopyHeader =
   @media print { body { margin: 8mm; } }
 </style></head>
 <body>
+  ${logoBlock(header)}
   <div class="banner">KOPIA — DOKUMENT NIEFISKALNY</div>
 
   <h1>${escapeHtml(header.companyName ?? '')}</h1>
@@ -161,6 +178,7 @@ export function printReturnProtocol(
   @media print { body { margin: 10mm; } }
 </style></head>
 <body>
+  ${logoBlock(header)}
   <div class="banner">PROTOKÓŁ ZWROTU / REKLAMACJI — DOKUMENT NIEFISKALNY</div>
 
   <h1>${escapeHtml(header.companyName ?? '')}</h1>
@@ -222,7 +240,7 @@ const REGISTER_STYLE = `
 `;
 
 function registerHeader(header: CopyHeader, title: string, subtitle: string): string {
-  return `<div class="banner">${escapeHtml(title)}</div>
+  return `${logoBlock(header)}<div class="banner">${escapeHtml(title)}</div>
   <h1>${escapeHtml(header.companyName ?? '')}</h1>
   <div class="muted">
     ${header.address ? escapeHtml(header.address) + '<br>' : ''}
@@ -440,6 +458,7 @@ export function printCorrectionProtocol(
   @media print { body { margin: 10mm; } }
 </style></head>
 <body>
+  ${logoBlock(header)}
   <div class="banner">DOWÓD WEWNĘTRZNY — EWIDENCJA OCZYWISTYCH POMYŁEK</div>
 
   <h1>${escapeHtml(header.companyName ?? '')}</h1>

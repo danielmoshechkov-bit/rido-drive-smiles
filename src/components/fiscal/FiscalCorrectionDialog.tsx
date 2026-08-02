@@ -21,6 +21,7 @@ import { Loader2, TriangleAlert, CheckCircle2, FileWarning, Receipt, Printer } f
 import { toast } from 'sonner';
 import {
   useRegisterCorrection,
+  useProviderPrintHeader,
   FiscalError,
   type FiscalCorrectionRow,
   type FiscalReceiptRow,
@@ -51,6 +52,7 @@ export function FiscalCorrectionDialog({
   onIssueCorrectedReceipt,
 }: Props) {
   const registerCorrection = useRegisterCorrection(providerId);
+  const { data: printHeader } = useProviderPrintHeader(providerId);
   const voidPayment = useVoidReceiptPayment(providerId);
   const [reasonNote, setReasonNote] = useState('');
   const [attached, setAttached] = useState(false);
@@ -97,7 +99,7 @@ export function FiscalCorrectionDialog({
 
   const handlePrint = (row: FiscalCorrectionRow) => {
     try {
-      printCorrectionProtocol(row, receipt, { documentLabel });
+      printCorrectionProtocol(row, receipt, { ...(printHeader ?? {}), documentLabel });
     } catch (e) {
       toast.error((e as Error).message);
     }

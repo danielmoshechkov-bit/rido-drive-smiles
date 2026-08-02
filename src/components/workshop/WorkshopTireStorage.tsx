@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useWorkshopClients, useWorkshopVehicles } from '@/hooks/useWorkshop';
+import { useProviderPrintHeader } from '@/hooks/useFiscal';
 import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -68,7 +69,11 @@ function useServicePoints(providerId: string) {
  * papieru. Pokwitowanie jest jedynym dowodem, co zostawił, w jakim stanie i do kiedy —
  * a przy sporze („zostawiłem cztery, oddajecie trzy") rozstrzyga sprawę.
  */
-function printStorageReceipt(record: any, kind: 'przyjęcia' | 'wydania') {
+function printStorageReceipt(
+  record: any,
+  kind: 'przyjęcia' | 'wydania',
+  header: { companyName?: string | null; nip?: string | null; address?: string | null; logoUrl?: string | null } = {},
+) {
   const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const client = record.client_name
     || [record.workshop_clients?.first_name, record.workshop_clients?.last_name].filter(Boolean).join(' ')
@@ -95,7 +100,13 @@ function printStorageReceipt(record: any, kind: 'przyjęcia' | 'wydania') {
   @media print { body { margin: 10mm; } }
 </style></head>
 <body>
+  ${header.logoUrl ? `<div style="text-align:center;margin-bottom:10px"><img src="${esc(header.logoUrl)}" alt="" style="max-height:70px;max-width:60%;object-fit:contain" /></div>` : ''}
   <div class="banner">POKWITOWANIE ${esc(kind.toUpperCase())} OPON DO PRZECHOWANIA</div>
+  ${header.companyName ? `<h1>${esc(header.companyName)}</h1>` : ''}
+  <div class="muted" style="color:#555;font-size:12px">
+    ${header.address ? esc(header.address) + '<br>' : ''}
+    ${header.nip ? 'NIP: ' + esc(header.nip) : ''}
+  </div>
   <h1>Nr miejsca: ${esc(record.storage_number || '—')}</h1>
   <table>
     ${row('Klient', client)}
@@ -143,6 +154,8 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
    */
   const [view, setView] = useState<'stored' | 'issued'>('stored');
   const { data: records = [], isLoading } = useTireStorageRecords(providerId, view);
+  // Pokwitowanie trafia do rąk klienta — z logo i danymi warsztatu.
+  const { data: printHeader } = useProviderPrintHeader(providerId);
   const queryClientRef = useQueryClient();
 
   const issueSet = async (record: any) => {
@@ -250,7 +263,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs gap-1"
-                      onClick={() => printStorageReceipt(r, view === 'stored' ? 'przyjęcia' : 'wydania')}
+                      onClick={() => printStorageReceipt(r, view === 'stored' ? 'przyjęcia' : 'wydania', printHeader ?? {})}
                     >
                       <Printer className="h-3.5 w-3.5" /> Pokwitowanie
                     </Button>

@@ -26,6 +26,7 @@ import {
   FiscalError,
   type FiscalReceiptRow,
   type FiscalReturnRow,
+  useProviderPrintHeader,
 } from '@/hooks/useFiscal';
 import { formatPln, toGrosze } from '@/lib/fiscal';
 import { printReturnProtocol } from '@/lib/fiscalCopy';
@@ -65,6 +66,7 @@ function linesFromReceipt(receipt: FiscalReceiptRow | null): ReturnLine[] {
 
 export function FiscalReturnDialog({ open, onOpenChange, providerId, receipt, documentLabel }: Props) {
   const createReturn = useCreateFiscalReturn(providerId);
+  const { data: printHeader } = useProviderPrintHeader(providerId);
   const { data: existingReturns = [] } = useFiscalReturns(providerId, receipt?.id);
 
   const [lines, setLines] = useState<ReturnLine[]>([]);
@@ -167,7 +169,7 @@ export function FiscalReturnDialog({ open, onOpenChange, providerId, receipt, do
 
   const handlePrintProtocol = (row: FiscalReturnRow) => {
     try {
-      printReturnProtocol(row, receipt, { documentLabel });
+      printReturnProtocol(row, receipt, { ...(printHeader ?? {}), documentLabel });
     } catch (e) {
       toast.error((e as Error).message);
     }

@@ -44,6 +44,7 @@ import {
   useMonthReportStatus,
   useConfirmMonthReport,
   useReceiptDocumentLabels,
+  useProviderPrintHeader,
   RETURN_REASON_LABELS,
   FiscalError,
   type FiscalCorrectionRow,
@@ -139,6 +140,8 @@ export function FiscalCashRegister({ providerId }: Props) {
   );
 
   const { data: docLabels } = useReceiptDocumentLabels(providerId, receipts);
+  // Nagłówek z logo i danymi firmy — te dokumenty trafiają do rąk klienta.
+  const { data: printHeader } = useProviderPrintHeader(providerId);
 
   /** Etykieta dokumentu źródłowego — numer zlecenia i klient albo „sprzedaż od ręki". */
   const labelOf = (receipt: FiscalReceiptRow) => {
@@ -200,7 +203,7 @@ export function FiscalCashRegister({ providerId }: Props) {
 
   const handleCopy = (receipt: FiscalReceiptRow) => {
     try {
-      printReceiptCopy(receipt);
+      printReceiptCopy(receipt, printHeader ?? {});
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -247,7 +250,7 @@ export function FiscalCashRegister({ providerId }: Props) {
   // a bez niej wpis w ewidencji jest niekompletny podczas kontroli.
   const handlePrintReturn = (row: FiscalReturnRow) => {
     try {
-      printReturnProtocol(row, receiptOf(row.receipt_id));
+      printReturnProtocol(row, receiptOf(row.receipt_id), printHeader ?? {});
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -268,7 +271,7 @@ export function FiscalCashRegister({ providerId }: Props) {
     const rows = pickRows(returns, selectedReturns);
     if (!rows.length) return toast.error('Brak wpisów do wydruku.');
     try {
-      printReturnsRegister(rows);
+      printReturnsRegister(rows, printHeader ?? {});
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -278,7 +281,7 @@ export function FiscalCashRegister({ providerId }: Props) {
     const rows = pickRows(corrections, selectedCorrections);
     if (!rows.length) return toast.error('Brak wpisów do wydruku.');
     try {
-      printCorrectionsRegister(rows);
+      printCorrectionsRegister(rows, printHeader ?? {});
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -286,7 +289,7 @@ export function FiscalCashRegister({ providerId }: Props) {
 
   const handlePrintCorrection = (row: FiscalCorrectionRow) => {
     try {
-      printCorrectionProtocol(row, receiptOf(row.receipt_id));
+      printCorrectionProtocol(row, receiptOf(row.receipt_id), printHeader ?? {});
     } catch (e) {
       toast.error((e as Error).message);
     }

@@ -1139,3 +1139,48 @@ export function useReceiptDocumentLabels(providerId?: string, receipts: FiscalRe
     },
   });
 }
+
+export interface PrintHeader {
+  companyName: string | null;
+  nip: string | null;
+  address: string | null;
+  logoUrl: string | null;
+}
+
+/**
+ * Nagłówek firmy na dokumenty, które drukujemy sami (kopia paragonu, protokoły, ewidencje).
+ *
+ * PO CO: kopia paragonu wychodziła BEZ nazwy firmy i NIP-u — dokument bez nadawcy nie nadaje
+ * się do niczego. Logo dokładamy, bo firma i tak wgrała je do systemu, a klient rozpoznaje
+ * warsztat po znaku, nie po numerze NIP.
+ *
+ * Uwaga: to NIE dotyczy paragonu fiskalnego. Tam nagłówek jest zaprogramowany w pamięci
+ * drukarki przy fiskalizacji i drukarka drukuje go sama.
+ */
+export function useProviderPrintHeader(providerId?: string) {
+  return useQuery({
+    queryKey: ['provider-print-header', providerId],
+    enabled: Boolean(providerId),
+    staleTime: 5 * 60_000,
+    queryFn: async (): Promise<PrintHeader> => {
+      const { data, error } = await (supabase as any)
+        .from('service_providers')
+        .select('company_name, company_nip, company_address, company_city, company_postal_code, logo_url')
+        .eq('id', providerId)
+        .maybeSingle();
+      if (error) throw error;
+      const address = [
+        data?.company_address,
+        [data?.company_postal_code, data?.company_city].filter(Boolean).join(' '),
+      ]
+        .filter(Boolean)
+        .join(', ');
+      return {
+        companyName: data?.company_name ?? null,
+        nip: data?.company_nip ?? null,
+        address: address || null,
+        logoUrl: data?.logo_url ?? null,
+      };
+    },
+  });
+}
