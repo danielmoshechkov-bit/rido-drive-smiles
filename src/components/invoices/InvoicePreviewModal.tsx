@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { InvoiceData, generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
 import { renderInvoicePdf } from '@/utils/renderInvoicePdf';
+import { htmlToPdfBlob } from '@/utils/htmlToPdfBlob';
 import { PdfCanvasPreview } from './PdfCanvasPreview';
 
 // Zamień URL logo sprzedawcy na data-URI, żeby render PDF nie zależał od plików na serwerze.
@@ -75,6 +76,7 @@ export function InvoicePreviewModal({
   const [email, setEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [pendingAction, setPendingAction] = useState<'save' | 'send' | null>(null);
   const [iframeHeight, setIframeHeight] = useState(1120);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -142,38 +144,6 @@ export function InvoicePreviewModal({
     return () => { cancelled = true; };
   }, [open, invoiceData]);
 
-  const handleDownloadPdf = async () => {
-    // Jeśli podgląd już wyrenderował PDF — pobierz dokładnie ten sam plik.
-    let base64 = previewPdfBase64;
-    let html = '';
-    if (!base64) {
-      // Osadź logo sprzedawcy jako data-URI — render niezależny od plików na serwerze
-      // (tak samo jak maskotka). Gdy brak/niedostępne → generator pokaże ostylowany box.
-      const data = await withEmbeddedLogo(invoiceData);
-      html = generateInvoiceHtml(data);
-      // Serwerowy render (ten sam co mail) → „Pobierz" i „Wyślij" identyczne.
-      base64 = await renderInvoicePdf(html);
-    }
-    if (base64) {
-      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${(invoiceData as any).invoice_number || (isDocumentMode ? 'Dokument' : 'Faktura')}.pdf`.replace(/\//g, '-');
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      return;
-    }
-    // Fallback: druk przeglądarki (jak dotychczas) — gdy renderer niedostępny.
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => { printWindow.print(); }, 250);
-    }
-  };
-
   // Drukowanie prosto z podglądu: dokument ląduje w ukrytej ramce i od razu idzie
   // do okna wydruku — bez otwierania osobnej karty z surowym HTML-em.
   const handlePrint = async () => {
@@ -198,6 +168,46 @@ export function InvoicePreviewModal({
       }, 350);
     };
     document.body.appendChild(frame);
+  };
+
+  const saveBlob = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(invoiceData as any).invoice_number || (isDocumentMode ? 'Dokument' : 'Faktura')}.pdf`.replace(/\//g, '-');
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsDownloading(true);
+    try {
+      // Jeśli podgląd już wyrenderował PDF — pobierz dokładnie ten sam plik.
+      let base64 = previewPdfBase64;
+      let html = '';
+      if (!base64) {
+        // Osadź logo sprzedawcy jako data-URI — render niezależny od plików na serwerze
+        // (tak samo jak maskotka). Gdy brak/niedostępne → generator pokaże ostylowany box.
+        const data = await withEmbeddedLogo(invoiceData);
+        html = generateInvoiceHtml(data);
+        // Serwerowy render (ten sam co mail) → „Pobierz" i „Wyślij" identyczne.
+        base64 = await renderInvoicePdf(html);
+      }
+      if (base64) {
+        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        saveBlob(new Blob([bytes], { type: 'application/pdf' }));
+        return;
+      }
+      // Serwerowy renderer niedostępny — składamy PDF w przeglądarce. „Pobierz"
+      // ma dać plik, a nie okno wydruku.
+      if (!html) html = generateInvoiceHtml(await withEmbeddedLogo(invoiceData));
+      const blob = await htmlToPdfBlob(html);
+      if (blob) { saveBlob(blob); return; }
+      // Ostateczność: druk przeglądarki (użytkownik może zapisać jako PDF).
+      await handlePrint();
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleSaveClick = async () => {
@@ -287,8 +297,8 @@ export function InvoicePreviewModal({
                 )}
               </Button>
             )}
-            <Button variant="default" size="sm" className="text-xs px-2 md:px-3 h-8" onClick={handleDownloadPdf}>
-              <Download className="h-3 w-3 mr-1" />
+            <Button variant="default" size="sm" className="text-xs px-2 md:px-3 h-8" onClick={handleDownloadPdf} disabled={isDownloading}>
+              {isDownloading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
               {isDocumentMode ? 'Pobierz PDF' : 'PDF'}
             </Button>
             {isDocumentMode ? (
