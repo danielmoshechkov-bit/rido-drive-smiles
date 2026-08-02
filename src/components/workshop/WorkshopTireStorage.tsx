@@ -390,6 +390,8 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
   const [storageCost, setStorageCost] = useState('150');
   const [pickupDeadline, setPickupDeadline] = useState('');
   const [reminderMonths, setReminderMonths] = useState('6');
+  // O sposobie kontaktu decyduje klient — 'none' to pełnoprawny wybór, nie brak danych.
+  const [reminderChannel, setReminderChannel] = useState<'sms' | 'email' | 'none'>('sms');
   const [locationName, setLocationName] = useState('');
   const [locationDesc, setLocationDesc] = useState('');
   const [season, setSeason] = useState('letnie');
@@ -489,6 +491,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
           storage_cost: parseFloat(storageCost) || 150,
           location_name: locationName || locationDesc,
           reminder_months: parseInt(reminderMonths) || 6,
+          reminder_channel: reminderChannel,
           employee_name: employeeName,
           notes,
           is_active: true,
@@ -628,11 +631,23 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
 
           {/* Reminder */}
           <div className="space-y-2">
-            <Label>{t('workshop.tireStorage.smsReminderIn')}</Label>
-            <div className="flex items-center gap-2">
+            <Label>Przypomnienie o odbiorze za</Label>
+            <div className="flex items-center gap-2 flex-wrap">
               <Input type="number" min="1" max="12" value={reminderMonths} onChange={e => setReminderMonths(e.target.value)} className="w-20 h-9" />
               <span className="text-sm text-muted-foreground">{t('workshop.tireStorage.months')}</span>
+              <Select value={reminderChannel} onValueChange={(v) => setReminderChannel(v as any)}>
+                <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sms">SMS-em</SelectItem>
+                  <SelectItem value="email">E-mailem</SelectItem>
+                  <SelectItem value="none">Bez przypomnienia</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Kanał wybiera klient. Wysyłka wymaga jeszcze zadania po stronie serwera —
+              na razie termin jest zapisywany i widoczny w pokwitowaniu.
+            </p>
           </div>
 
           {/* Service point */}

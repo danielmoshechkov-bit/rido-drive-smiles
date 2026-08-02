@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, Pencil, Ban, Trash2 } from 'lucide-react';
@@ -57,6 +57,7 @@ export function WorkshopCashPanel({ providerId }: Props) {
   const [showAllOps, setShowAllOps] = useState(false);
   const [voidOp, setVoidOp] = useState<CashOp | null>(null);
   const [editOp, setEditOp] = useState<CashOp | null>(null);
+  const [selectedClosure, setSelectedClosure] = useState<string | null>(null);
   const saveSettings = useSaveFinanceSettings();
   const createClosure = useCreateCashClosure();
   const deleteClosure = useDeleteCashClosure();
@@ -111,6 +112,15 @@ export function WorkshopCashPanel({ providerId }: Props) {
   // zaniżać gotówkę i zawyżać konto.
   const payoutsBefore = sum(payouts, (p) => (p.type === 'zaliczka' || p.type === 'wyplata') && dpart(p.paid_at) < from);
   const payoutsInPeriod = sum(payouts, (p) => (p.type === 'zaliczka' || p.type === 'wyplata') && inRange(dpart(p.paid_at), from, to));
+
+  /** Rozbicie kanału „konto" na formy — jedna kwota nie mówi, czym klient zapłacił. */
+  const kontoSplit = (kind: 'start' | 'in' | 'out') =>
+    (['karta', 'blik', 'przelew'] as const).map((m) => ({
+      method: m,
+      label: m === 'karta' ? 'karta' : m === 'blik' ? 'BLIK' : 'przelew',
+      value:
+        kind === 'start' ? flowBefore([m]) : kind === 'in' ? flowIn([m]) : flowOut([m]),
+    }));
 
   const cashReport = (() => {
     const gotowkaStart = flowBefore(CHANNEL_METHODS.gotowka) - payoutsBefore;
@@ -220,6 +230,49 @@ export function WorkshopCashPanel({ providerId }: Props) {
   const cExpenses = monthExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
   const cPay = monthPayouts.filter((p) => p.type === 'zaliczka' || p.type === 'wyplata').reduce((s, p) => s + Number(p.amount || 0), 0);
   const alreadyClosed = (closures as any[]).some((c) => dpart(c.period_from) === monthFrom);
+
+  /**
+   * Poprzedni miesiąc bez zamknięcia — przypomnienie i (opcjonalnie) automat.
+   *
+   * PO CO: zamknięcie to czynność, o której najłatwiej zapomnieć, a bez niego kolejny
+   * miesiąc liczy sie dalej „na tym samym stosie" i raporty przestają się zgadzać.
+   * Dlatego pytamy o to przy KAŻDYM wejściu w nowym miesiącu, dopóki nie zostanie zamknięty.
+   */
+  const previousMonth = (() => {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  })();
+  const previousClosed = (closures as any[]).some((c) => dpart(c.period_from) === `${previousMonth}-01`);
+  const hasPreviousData = (data?.payments || []).some((p: any) => dpart(p.paid_at).startsWith(previousMonth))
+    || (data?.expenses || []).some((e: any) => dpart(e.expense_date).startsWith(previousMonth));
+  const needsPreviousClose = !previousClosed && hasPreviousData;
+
+  // Automat: zamyka poprzedni miesiąc raz, przy pierwszym wejściu do Kasy po jego końcu.
+  const autoCloseRef = useRef(false);
+  useEffect(() => {
+    if (!settings?.auto_close_month || !needsPreviousClose || autoCloseRef.current) return;
+    autoCloseRef.current = true;
+    const summary = monthSummary(previousMonth);
+    const [y, m] = previousMonth.split('-').map(Number);
+    const last = new Date(y, m, 0);
+    createClosure.mutate({
+      provider_id: providerId,
+      period_from: `${previousMonth}-01`,
+      period_to: `${previousMonth}-${String(last.getDate()).padStart(2, '0')}`,
+      orders_count: summary.count,
+      revenue: summary.rev,
+      cost: summary.cost,
+      profit: summary.profit,
+      avg_margin: summary.margin,
+      expenses: summary.expenses,
+      result: summary.result,
+      cash_end: cashGotowka,
+    } as any, {
+      onSuccess: () => toast.success(`Miesiąc ${previousMonth} zamknięty automatycznie — raport w archiwum.`),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.auto_close_month, needsPreviousClose, previousMonth]);
   const closureSummary: ClosureSummary = {
     period_from: monthFrom,
     period_to: monthEnd,
@@ -374,6 +427,27 @@ export function WorkshopCashPanel({ providerId }: Props) {
         <Button variant="secondary" onClick={() => setCloseOpen(true)} className="gap-2"><Lock className="h-4 w-4" /> Zamknij miesiąc</Button>
       </div>
 
+      {needsPreviousClose && (
+        <Card className="border-amber-400/60 bg-amber-500/5">
+          <CardContent className="py-3 flex items-center justify-between gap-4 flex-wrap">
+            <div className="text-sm">
+              <p className="font-semibold">Nowy miesiąc — poprzedni ({previousMonth}) nie został zamknięty</p>
+              <p className="text-muted-foreground text-xs">
+                Bez zamknięcia stary miesiąc liczy się dalej razem z nowym i raporty przestają się zgadzać.
+                {settings?.auto_close_month ? ' Automat jest włączony — zamknięcie wykona się samo.' : ''}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => { setCloseMonth(previousMonth); setCloseOpen(true); }}
+              className="gap-2"
+            >
+              <Lock className="h-4 w-4" /> Zamknij {previousMonth}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Period flow */}
       <Card><CardContent className="py-4 space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -401,7 +475,12 @@ export function WorkshopCashPanel({ providerId }: Props) {
               <tr className="border-b">
                 <td className="py-2 px-3 text-muted-foreground">Stan na początek okresu</td>
                 <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.gotowka.start)}</td>
-                <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.konto.start)}</td>
+                <td className="py-2 px-3 text-right tabular-nums">
+                  {fmt(cashReport.konto.start)}
+                  <span className="block text-[11px] text-muted-foreground font-normal">
+                    {kontoSplit('start').map((x) => `${x.label} ${fmt(x.value)}`).join(' · ')}
+                  </span>
+                </td>
                 <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.razem.start)}</td>
               </tr>
               <tr className="border-b">
@@ -415,7 +494,12 @@ export function WorkshopCashPanel({ providerId }: Props) {
                   </button>
                 </td>
                 <td className="py-2 px-3 text-right tabular-nums text-green-600">{fmt(cashReport.gotowka.in)}</td>
-                <td className="py-2 px-3 text-right tabular-nums text-green-600">{fmt(cashReport.konto.in)}</td>
+                <td className="py-2 px-3 text-right tabular-nums text-green-600">
+                  {fmt(cashReport.konto.in)}
+                  <span className="block text-[11px] text-muted-foreground font-normal">
+                    {kontoSplit('in').map((x) => `${x.label} ${fmt(x.value)}`).join(' · ')}
+                  </span>
+                </td>
                 <td className="py-2 px-3 text-right tabular-nums text-green-600">{fmt(cashReport.razem.in)}</td>
               </tr>
               <tr className="border-b">
@@ -429,13 +513,25 @@ export function WorkshopCashPanel({ providerId }: Props) {
                   </button>
                 </td>
                 <td className="py-2 px-3 text-right tabular-nums text-destructive">{fmt(cashReport.gotowka.out)}</td>
-                <td className="py-2 px-3 text-right tabular-nums text-destructive">{fmt(cashReport.konto.out)}</td>
+                <td className="py-2 px-3 text-right tabular-nums text-destructive">
+                  {fmt(cashReport.konto.out)}
+                  <span className="block text-[11px] text-muted-foreground font-normal">
+                    {kontoSplit('out').map((x) => `${x.label} ${fmt(x.value)}`).join(' · ')}
+                  </span>
+                </td>
                 <td className="py-2 px-3 text-right tabular-nums text-destructive">{fmt(cashReport.razem.out)}</td>
               </tr>
               <tr className="bg-muted/30 font-semibold">
                 <td className="py-2 px-3">Stan na koniec okresu</td>
                 <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.gotowka.end)}</td>
-                <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.konto.end)}</td>
+                <td className="py-2 px-3 text-right tabular-nums">
+                  {fmt(cashReport.konto.end)}
+                  <span className="block text-[11px] text-muted-foreground font-normal">
+                    {(['karta', 'blik', 'przelew'] as const)
+                      .map((m) => `${m === 'blik' ? 'BLIK' : m} ${fmt(flowBefore([m]) + flowIn([m]) - flowOut([m]))}`)
+                      .join(' · ')}
+                  </span>
+                </td>
                 <td className="py-2 px-3 text-right tabular-nums">{fmt(cashReport.razem.end)}</td>
               </tr>
             </tbody>
@@ -586,6 +682,68 @@ export function WorkshopCashPanel({ providerId }: Props) {
             </tbody>
           </table>
         </div>
+      </CardContent></Card>
+
+      {/* Archiwum raportów — po zamknięciu miesiąca raport musi mieć swoje miejsce.
+          Dotąd zamknięcie zapisywało się do bazy i znikało z oczu: nie dało się wrócić
+          do zeszłego miesiąca i sprawdzić, jak wyglądała kasa. */}
+      <Card><CardContent className="py-4 space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="font-semibold">Raporty zamkniętych miesięcy</h3>
+            <p className="text-xs text-muted-foreground">
+              Podsumowanie zapisane w chwili zamknięcia — takie, jakie było wtedy, niezależnie od
+              późniejszych zmian.
+            </p>
+          </div>
+          {closures.length > 0 && (
+            <select
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+              value={selectedClosure ?? ''}
+              onChange={(e) => setSelectedClosure(e.target.value || null)}
+            >
+              <option value="">Wybierz miesiąc…</option>
+              {(closures as any[]).map((c) => (
+                <option key={c.id} value={c.id}>{dpart(c.period_from).slice(0, 7)}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {closures.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            Brak zamkniętych miesięcy. Po kliknięciu „Zamknij miesiąc" raport pojawi się tutaj.
+          </p>
+        ) : (() => {
+          const c = (closures as any[]).find((x) => x.id === selectedClosure) ?? (closures as any[])[0];
+          if (!c) return null;
+          const rows: Array<[string, string]> = [
+            ['Okres', `${dpart(c.period_from)} – ${dpart(c.period_to)}`],
+            ['Zamknięty', new Date(c.closed_at).toLocaleString('pl-PL')],
+            ['Zleceń', String(c.orders_count ?? 0)],
+            ['Przychód', `${fmt(Number(c.revenue))} zł`],
+            ['Koszt', `${fmt(Number(c.cost))} zł`],
+            ['Zysk', `${fmt(Number(c.profit))} zł`],
+            ['Średnia marża', `${Number(c.avg_margin ?? 0).toFixed(0)}%`],
+            ['Wydatki', `${fmt(Number(c.expenses))} zł`],
+            ['Wynik (wpływy − wydatki)', `${fmt(Number(c.result))} zł`],
+            ['Gotówka na koniec', `${fmt(Number(c.cash_end))} zł`],
+          ];
+          return (
+            <div className="rounded-md border overflow-hidden">
+              <table className="w-full text-sm">
+                <tbody>
+                  {rows.map(([label, value]) => (
+                    <tr key={label} className="border-b last:border-0">
+                      <td className="py-2 px-3 text-muted-foreground">{label}</td>
+                      <td className="py-2 px-3 text-right tabular-nums font-medium">{value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
       </CardContent></Card>
 
       <WorkshopBreakdownDialog open={!!breakdown} onOpenChange={(o) => { if (!o) setBreakdown(null); }} title={breakdown?.title || ''} rows={breakdown?.rows || []} />
