@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,6 +28,13 @@ interface Service {
   price_type: string;
   duration_minutes: number;
   photos?: string[];
+  category_id?: string | null;
+}
+
+interface ProviderCatalogCategory {
+  id: string;
+  name: string;
+  service_category_id: string | null;
 }
 
 interface Review {
@@ -61,6 +68,10 @@ interface ServiceProvider {
 export function ServiceProviderDetailPage() {
   const navigate = useNavigate();
   const { providerId } = useParams();
+  const [searchParams] = useSearchParams();
+  const browsedCategorySlug = searchParams.get('kategoria');
+  const [providerCats, setProviderCats] = useState<ProviderCatalogCategory[]>([]);
+  const [browsedCatalogId, setBrowsedCatalogId] = useState<string | null>(null);
   
   const [provider, setProvider] = useState<ServiceProvider | null>(null);
   const [services, setServices] = useState<Service[]>([]);
@@ -148,6 +159,7 @@ export function ServiceProviderDetailPage() {
           price_type: s.price_type || 'fixed',
           duration_minutes: s.duration_minutes || 60,
           category: s.category,
+          category_id: s.category_id || null,
           photos: s.photos || [],
           is_active: true,
           _isProviderCategory: s.category === providerCategory || s.category === 'ogolne',
@@ -167,6 +179,25 @@ export function ServiceProviderDetailPage() {
       });
       
       if (allServices.length > 0) setServices(allServices);
+
+      // Kategorie usługodawcy (grupowanie oferty) + kategoria, z której klient przyszedł
+      const { data: pcats } = await (supabase as any)
+        .from('provider_service_categories')
+        .select('id, name, service_category_id, is_active, sort_order')
+        .eq('provider_id', providerId)
+        .order('sort_order', { ascending: true });
+      setProviderCats(((pcats || []) as any[]).filter(c => c.is_active !== false));
+
+      if (browsedCategorySlug) {
+        const { data: cat } = await supabase
+          .from('service_categories')
+          .select('id')
+          .eq('slug', browsedCategorySlug)
+          .maybeSingle();
+        setBrowsedCatalogId(cat?.id || null);
+      } else {
+        setBrowsedCatalogId(null);
+      }
 
       // Load reviews
       const { data: reviewsData } = await supabase
