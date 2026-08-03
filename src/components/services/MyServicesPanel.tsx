@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { geocodeAddress, buildFullAddress } from '@/lib/geocode';
+import { geocodeWithCityFallback } from '@/lib/geocode';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { groupCategories, groupIdForSlug, SERVICE_CATEGORY_GROUPS, OTHER_GROUP } from '@/lib/service-category-groups';
