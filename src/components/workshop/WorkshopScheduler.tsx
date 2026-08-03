@@ -1535,32 +1535,32 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setSelectedOrderId(''); setActiveTab('client'); } onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle>{t('workshop.scheduler.newAppointment')}</DialogTitle>
+          <DialogTitle className="text-xl font-extrabold tracking-tight">{t('workshop.scheduler.newAppointment')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {/* Tabs */}
-          <div className="flex gap-1 border rounded-lg p-0.5 bg-muted/30">
-            <Button variant={activeTab === 'client' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('client')} className="flex-1 text-xs">
+          <div className="grid grid-cols-3 gap-1 rounded-xl p-1 bg-muted/50">
+            <Button variant={activeTab === 'client' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('client')} className="w-full text-xs font-semibold rounded-lg">
               {t('workshop.scheduler.bookClient')}
             </Button>
-            <Button variant={activeTab === 'event' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('event')} className="flex-1 text-xs">
+            <Button variant={activeTab === 'event' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('event')} className="w-full text-xs font-semibold rounded-lg">
               {t('workshop.scheduler.newEvent')}
             </Button>
-            <Button variant={activeTab === 'order' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('order')} className="flex-1 text-xs">
+            <Button variant={activeTab === 'order' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('order')} className="w-full text-xs font-semibold rounded-lg">
               {t('workshop.scheduler.newOrder')}
             </Button>
           </div>
 
           {/* Editable date/time/category/station info */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
-            <div>
-              <Label className="font-medium text-xs">{t('workshop.scheduler.date')}</Label>
-              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-9 text-sm w-full" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm rounded-xl border bg-muted/20 p-3">
+            <div className="min-w-0">
+              <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.date')}</Label>
+              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-9 text-sm w-full bg-background" />
             </div>
-            <div>
-              <Label className="font-medium text-xs">{t('workshop.scheduler.time')}</Label>
+            <div className="min-w-0">
+              <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.time')}</Label>
               <div className="flex items-center gap-1.5 mt-1">
                 <Input
                   inputMode="numeric"
@@ -1568,21 +1568,21 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   onFocus={e => e.target.select()}
                   onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditHourStr(v); }}
                   onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
-                  className="h-9 text-sm w-16 text-center" placeholder="HH"
+                  className="h-9 text-sm flex-1 min-w-0 text-center bg-background" placeholder="HH"
                 />
-                <span className="text-sm font-bold">:</span>
+                <span className="text-sm font-bold shrink-0">:</span>
                 <Input
                   inputMode="numeric"
                   value={editMinStr}
                   onFocus={e => e.target.select()}
                   onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditMinStr(v); }}
                   onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
-                  className="h-9 text-sm w-16 text-center" placeholder="MM"
+                  className="h-9 text-sm flex-1 min-w-0 text-center bg-background" placeholder="MM"
                 />
               </div>
             </div>
-            <div>
-              <Label className="font-medium text-xs">{t('workshop.scheduler.category')}</Label>
+            <div className="min-w-0">
+              <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.category')}</Label>
               <Select
                 value={activeCategory}
                 onValueChange={(v) => {
@@ -1591,7 +1591,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   if (first) { setEditStationId(first.id); onStationChange(first.id); }
                 }}
               >
-                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1 h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c: string) => (
                     <SelectItem key={c} value={c}>{tc(c)}</SelectItem>
@@ -1599,10 +1599,10 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="font-medium text-xs">{t('workshop.scheduler.stationLabel')}</Label>
+            <div className="min-w-0">
+              <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.stationLabel')}</Label>
               <Select value={editStationId} onValueChange={(v) => { setEditStationId(v); onStationChange(v); }}>
-                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1 h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {stations.map((st: any) => (
                     <SelectItem key={st.id} value={st.id}>{tc(st.name)}</SelectItem>
@@ -1611,6 +1611,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
               </Select>
             </div>
           </div>
+
 
           {activeTab === 'client' ? (
             <div className="space-y-3">
