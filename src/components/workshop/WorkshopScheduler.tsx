@@ -1651,7 +1651,10 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   <div className="grid grid-cols-2 divide-x divide-border">
                     <div>
                       <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 text-center">godz.</div>
-                      <div className="max-h-56 overflow-y-auto p-1 space-y-0.5">
+                      <div
+                        className="max-h-56 overflow-y-auto overscroll-contain p-1 space-y-0.5"
+                        onWheel={(e) => { e.currentTarget.scrollTop += e.deltaY; }}
+                      >
                         {Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')).map(h => {
                           const active = h === (editHourStr || '00').padStart(2, '0');
                           return (
@@ -1666,7 +1669,10 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                     </div>
                     <div>
                       <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 text-center">min.</div>
-                      <div className="max-h-56 overflow-y-auto p-1 space-y-0.5">
+                      <div
+                        className="max-h-56 overflow-y-auto overscroll-contain p-1 space-y-0.5"
+                        onWheel={(e) => { e.currentTarget.scrollTop += e.deltaY; }}
+                      >
                         {Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0')).map(m => {
                           const active = m === (editMinStr || '00').padStart(2, '0');
                           return (
