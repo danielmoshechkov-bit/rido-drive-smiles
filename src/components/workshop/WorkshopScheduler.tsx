@@ -646,32 +646,31 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         </div>
       )}
 
-      {/* Unplanned orders */}
+      <div className="flex gap-3 items-start min-h-0">
+      {/* Unplanned orders — boczny panel */}
       <Card
-        className={`border-2 shadow-sm transition-all flex-shrink-0 ${dragOverUnplanned && dragSource === 'scheduled' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20' : 'border-border'}`}
+        className={`hidden lg:flex flex-col w-[270px] flex-shrink-0 border shadow-sm transition-all h-[calc(100vh-200px)] ${dragOverUnplanned && dragSource === 'scheduled' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20' : 'border-border'}`}
         onDragOver={(e) => { if (dragSource === 'scheduled') { e.preventDefault(); setDragOverUnplanned(true); } }}
         onDragLeave={() => setDragOverUnplanned(false)}
         onDrop={handleDropToUnplanned}
       >
-        <CardContent className="py-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-base">{t('workshop.scheduler.tasksToSchedule')}</h3>
-              <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1.5 ml-2 h-7 text-xs">
-                <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
-              </Button>
-              {dragSource === 'scheduled' && (
-                <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse">
-                  <Undo2 className="h-3 w-3" /> {t('workshop.scheduler.dropToUnschedule')}
-                </span>
-              )}
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-[200px] h-8" />
-            </div>
+        <CardContent className="py-3 px-3 flex flex-col min-h-0 flex-1">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="font-semibold text-sm">{t('workshop.scheduler.tasksToSchedule')}</h3>
+            <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1 h-7 text-xs">
+              <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
+            </Button>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          {dragSource === 'scheduled' && (
+            <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse mb-2">
+              <Undo2 className="h-3 w-3" /> {t('workshop.scheduler.dropToUnschedule')}
+            </span>
+          )}
+          <div className="relative mb-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-full h-8" />
+          </div>
+          <div className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
             {unplannedOrders.length === 0 ? (
               <div className="text-sm text-muted-foreground py-3 text-center w-full">{t('workshop.scheduler.noTasksToSchedule')}</div>
             ) : (
@@ -682,6 +681,30 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           </div>
         </CardContent>
       </Card>
+
+      {/* Mobilny pasek zadań */}
+      <Card className="lg:hidden border shadow-sm w-full">
+        <CardContent className="py-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-sm">{t('workshop.scheduler.tasksToSchedule')}</h3>
+            <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1 h-7 text-xs">
+              <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
+            </Button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {unplannedOrders.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-3 text-center w-full">{t('workshop.scheduler.noTasksToSchedule')}</div>
+            ) : (
+              unplannedOrders.map((o: any) => (
+                <OrderCard key={`m-${o.id}`} tc={tc} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} isFocused={o.id === focusOrderId} employees={employees} updateOrder={updateOrder} />
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex-1 min-w-0">
+
 
       {/* Category tabs + controls */}
       <div className="flex items-center justify-between flex-wrap gap-2 my-2 flex-shrink-0">
