@@ -16,26 +16,22 @@ import {
   Save, Loader2, AlertTriangle, Info, Mail, X, Plus, ChevronDown, ChevronRight
 } from 'lucide-react';
 
-type KsefEnvironment = 'integration' | 'demo' | 'production';
+// Do wyboru zostają DWA środowiska, bo tylko takie mają sens w codziennej pracy:
+// jedno do testów i jedno prawdziwe. Wcześniej były trzy, a trzecie („Demo") wskazywało
+// na ksef-demo.mf.gov.pl, gdzie API v2 w ogóle nie istnieje (404) — wybór, który nie mógł
+// zadziałać, a wyglądał na zalecany. Backend nadal rozumie wartość 'demo' (api-demo.ksef.mf.gov.pl),
+// więc istniejące konfiguracje nie przestają działać; po prostu nie da się jej już wybrać ręcznie.
+type KsefEnvironment = 'integration' | 'production';
 
 const ENV_CONFIG: Record<KsefEnvironment, { label: string; url: string; apiBase: string; desc: string; badgeClass: string; badgeLabel: string; loginUrl: string }> = {
   integration: {
-    label: 'Integracyjne (testy programistyczne)',
+    label: 'Testowe — przedprodukcyjne (do testów)',
     url: 'api-test.ksef.mf.gov.pl',
     apiBase: 'https://api-test.ksef.mf.gov.pl/api/v2',
-    desc: 'Dane zanonimizowane. Do testów technicznych.',
-    badgeClass: 'bg-muted text-muted-foreground',
-    badgeLabel: 'INTEGRACYJNE',
-    loginUrl: 'https://api-test.ksef.mf.gov.pl',
-  },
-  demo: {
-    label: 'Demo — przedprodukcyjne (zalecane do testów)',
-    url: 'ksef-demo.mf.gov.pl',
-    apiBase: 'https://ksef-demo.mf.gov.pl/api/v2',
-    desc: 'Prawdziwy token i NIP, faktury bez skutków prawnych.',
+    desc: 'Faktury BEZ skutków prawnych. Tu sprawdzasz, zanim wyślesz naprawdę.',
     badgeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-    badgeLabel: 'DEMO',
-    loginUrl: 'https://ksef-demo.mf.gov.pl',
+    badgeLabel: 'TESTOWE',
+    loginUrl: 'https://api-test.ksef.mf.gov.pl',
   },
   production: {
     label: 'Produkcyjne',
@@ -48,10 +44,18 @@ const ENV_CONFIG: Record<KsefEnvironment, { label: string; url: string; apiBase:
   },
 };
 
+// W bazie mogą siedzieć starsze wartości ('demo', 'test'), których nie ma już w wyborze.
+// Bez tego ENV_CONFIG[zapisana_wartość] byłoby undefined i ekran ustawień by się wysypał.
+// Wszystko, co nie jest produkcją, traktujemy jako środowisko testowe — nigdy odwrotnie,
+// bo pomyłka w tę stronę oznacza wysłanie faktury naprawdę.
+function toKnownEnv(value: unknown): KsefEnvironment {
+  return value === 'production' ? 'production' : 'integration';
+}
+
 export function KsefUserSettings() {
   const queryClient = useQueryClient();
   const [ksefToken, setKsefToken] = useState('');
-  const [ksefEnvironment, setKsefEnvironment] = useState<KsefEnvironment>('demo');
+  const [ksefEnvironment, setKsefEnvironment] = useState<KsefEnvironment>('integration');
   const [ksefStatus, setKsefStatus] = useState('not_configured');
   const [ksefLastTestAt, setKsefLastTestAt] = useState<string | null>(null);
   const [ksefLastTestResult, setKsefLastTestResult] = useState<string | null>(null);
@@ -94,7 +98,7 @@ export function KsefUserSettings() {
       if (data) {
         setSettingsId(data.id);
         setKsefToken(data.ksef_token || '');
-        setKsefEnvironment((data.ksef_environment as KsefEnvironment) || 'demo');
+        setKsefEnvironment(toKnownEnv(data.ksef_environment));
         setKsefStatus(data.ksef_status || 'not_configured');
         setKsefLastTestAt(data.ksef_last_test_at || null);
         setKsefLastTestResult(data.ksef_last_test_result || null);
@@ -332,7 +336,7 @@ export function KsefUserSettings() {
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Etap 1 — Wybierz środowisko</h4>
                 <p className="text-sm text-muted-foreground">
-                  <strong>Demo</strong> (zalecane na start): <a href="https://ap-demo.ksef.mf.gov.pl" target="_blank" rel="noopener noreferrer" className="text-primary underline">ap-demo.ksef.mf.gov.pl</a> — faktury bez skutków prawnych.<br/>
+                  <strong>Testowe</strong> (zacznij tutaj): <a href="https://ap-test.ksef.mf.gov.pl" target="_blank" rel="noopener noreferrer" className="text-primary underline">ap-test.ksef.mf.gov.pl</a> — faktury bez skutków prawnych.<br/>
                   <strong>Produkcja</strong>: <a href="https://ap.ksef.mf.gov.pl/web/" target="_blank" rel="noopener noreferrer" className="text-primary underline">ap.ksef.mf.gov.pl/web/</a> — faktury trafiają do urzędu.
                 </p>
               </div>
