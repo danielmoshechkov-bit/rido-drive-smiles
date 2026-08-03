@@ -1852,13 +1852,20 @@ serve(async (req) => {
       console.log('[KSeF][send] buyerSource:', JSON.stringify(artifacts.buyerSource));
       console.log('[KSeF][send] sellerSource:', JSON.stringify(artifacts.sellerSource));
 
-      // Create transmission record
-      const { data: transmission } = await supabase.from('ksef_transmissions').insert({
+      // Ślad transmisji. Wcześniej błąd tego insertu przechodził niezauważony
+      // (brak odczytu `error`), przez co faktury szły do KSeF, a historia wysyłek
+      // i UPO nie zapisywały się w ogóle — patrz migracja 20260803_ksef_transmissions_fix.sql.
+      // Wysyłki NIE blokujemy, gdy zapis padnie: faktura w urzędzie jest ważniejsza niż
+      // nasz dziennik. Ale zostawiamy głośny ślad w logach, żeby dało się to wyłapać.
+      const { data: transmission, error: transmissionErr } = await supabase.from('ksef_transmissions').insert({
         invoice_id: body.invoice_id,
         direction: 'outgoing',
         status: 'pending',
         xml_content: xml,
       }).select().single();
+      if (transmissionErr) {
+        console.error('[KSeF][send] NIE ZAPISANO transmisji — UPO nie będzie dostępne:', transmissionErr.message);
+      }
 
       try {
         const creds = await resolveCredentials(req, supabase, body);
