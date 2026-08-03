@@ -3612,7 +3612,7 @@
       "model": "Модель",
       "modelPlaceholder": "напр. Corolla",
       "serviceDesc": "Описание услуги",
-      "serviceDescPlaceholder": "напр. Замена масла и фильтров",
+      "serviceDescPlaceholder": "напр. шиномонтаж, мойка, ремонт…",
       "serviceDuration": "Время на услугу",
       "dur30min": "30 мин",
       "dur1h": "1 ч",

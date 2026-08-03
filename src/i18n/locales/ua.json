@@ -3612,7 +3612,7 @@
       "model": "Модель",
       "modelPlaceholder": "напр. Corolla",
       "serviceDesc": "Опис послуги",
-      "serviceDescPlaceholder": "напр. Заміна оливи та фільтрів",
+      "serviceDescPlaceholder": "напр. шиномонтаж, мийка, ремонт…",
       "serviceDuration": "Час на послугу",
       "dur30min": "30 хв",
       "dur1h": "1 год",
