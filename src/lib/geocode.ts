@@ -21,6 +21,19 @@ export function buildFullAddress(parts: {
     .trim();
 }
 
+/** Geokoduje pełny adres, a gdy adres nie istnieje w OSM — spada do centrum miasta. */
+export async function geocodeWithCityFallback(parts: {
+  address?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
+}): Promise<GeocodeResult | null> {
+  const full = buildFullAddress(parts);
+  const exact = await geocodeAddress(full);
+  if (exact) return exact;
+  if (parts.city) return geocodeAddress(`${parts.city}, Polska`);
+  return null;
+}
+
 export async function geocodeAddress(query: string): Promise<GeocodeResult | null> {
   const q = query.trim();
   if (q.length < 5) return null;

@@ -597,12 +597,11 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
     mutationFn: async () => {
       // Auto-geokodowanie: firma od razu pojawia się na Mapie GetRido
       let geo: { latitude?: number; longitude?: number } = {};
-      const full = buildFullAddress({
+      const point = await geocodeWithCityFallback({
         address: contact.company_address,
         postalCode: contact.company_postal_code,
         city: contact.company_city,
       });
-      const point = await geocodeAddress(full);
       if (point) geo = { latitude: point.lat, longitude: point.lng };
 
       const { error } = await (supabase as any)
