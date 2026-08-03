@@ -1644,35 +1644,38 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                     {`${(editHourStr || '00').padStart(2, '0')}:${(editMinStr || '00').padStart(2, '0')}`}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[220px] p-2 z-[100]" align="start">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Input
-                      inputMode="numeric" value={editHourStr}
-                      onFocus={e => e.target.select()}
-                      onChange={e => setEditHourStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                      onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
-                      className="h-8 text-sm text-center" placeholder="HH"
-                    />
-                    <span className="text-sm font-bold">:</span>
-                    <Input
-                      inputMode="numeric" value={editMinStr}
-                      onFocus={e => e.target.select()}
-                      onChange={e => setEditMinStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                      onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
-                      className="h-8 text-sm text-center" placeholder="MM"
-                    />
-                  </div>
-                  <div className="max-h-52 overflow-y-auto grid grid-cols-3 gap-1">
-                    {TIME_SLOTS.map(s => {
-                      const active = s === `${(editHourStr || '00').padStart(2, '0')}:${(editMinStr || '00').padStart(2, '0')}`;
-                      return (
-                        <button
-                          key={s} type="button"
-                          onClick={() => { const [h, m] = s.split(':'); setEditHourStr(h); setEditMinStr(m); }}
-                          className={`text-xs rounded-lg py-1 transition-colors ${active ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-primary/10'}`}
-                        >{s}</button>
-                      );
-                    })}
+                <PopoverContent className="w-[200px] p-0 z-[100] rounded-2xl overflow-hidden" align="start">
+                  <div className="grid grid-cols-2 divide-x divide-border">
+                    <div>
+                      <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 text-center">godz.</div>
+                      <div className="max-h-56 overflow-y-auto p-1 space-y-0.5">
+                        {Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')).map(h => {
+                          const active = h === (editHourStr || '00').padStart(2, '0');
+                          return (
+                            <button
+                              key={h} type="button"
+                              onClick={() => setEditHourStr(h)}
+                              className={`w-full text-sm rounded-lg py-1 tabular-nums transition-colors ${active ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-primary/10'}`}
+                            >{h}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 text-center">min.</div>
+                      <div className="max-h-56 overflow-y-auto p-1 space-y-0.5">
+                        {Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0')).map(m => {
+                          const active = m === (editMinStr || '00').padStart(2, '0');
+                          return (
+                            <button
+                              key={m} type="button"
+                              onClick={() => setEditMinStr(m)}
+                              className={`w-full text-sm rounded-lg py-1 tabular-nums transition-colors ${active ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-primary/10'}`}
+                            >{m}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </PopoverContent>
               </Popover>
