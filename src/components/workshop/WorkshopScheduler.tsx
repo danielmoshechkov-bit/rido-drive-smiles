@@ -731,8 +731,9 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         </div>
       ) : (
         /* Day/Week grid */
-        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-xl border-2 border-foreground/20 shadow-lg flex flex-col">
-          <div className="flex-1 min-h-0 overflow-auto">
+        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-2xl border border-border bg-card shadow-sm flex flex-col">
+          <div ref={gridScrollRef} className="flex-1 min-h-0 overflow-auto">
+
             <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '60px' }} />
