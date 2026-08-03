@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye, Clock, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { getDateLocale } from '@/lib/dateLocale';
 import { Input } from '@/components/ui/input';
@@ -28,6 +29,12 @@ interface Props {
 }
 
 const ROW_HEIGHT = 56; // px — stała wysokość każdego wiersza godziny
+
+// Sloty czasowe co 5 minut (00:00 – 23:55)
+const TIME_SLOTS: string[] = Array.from({ length: (24 * 60) / 5 }, (_, i) => {
+  const m = i * 5;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+});
 
 export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrderId }: Props) {
   const { t, i18n } = useTranslation();
@@ -88,14 +95,14 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
     },
   });
 
-  // Working hours from provider settings (service_working_hours) — używane do wyliczenia zakresu godzin w kalendarzu (±2h)
+  // Working hours from provider settings (service_working_hours)
   const { data: workingHoursRows = [] } = useQuery({
     queryKey: ['service-working-hours', providerId],
     enabled: !!providerId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('service_working_hours')
-        .select('start_time, end_time, is_working')
+        .select('day_of_week, start_time, end_time, is_working')
         .eq('provider_id', providerId)
         .is('employee_id', null);
       if (error) throw error;
@@ -103,22 +110,44 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
     },
   });
 
-  // Wyliczenie zakresu godzin: min start - 2h, max end + 2h (clamp 0–24); domyślnie 8–18
-  const HOURS = useMemo(() => {
-    const working = (workingHoursRows as any[]).filter(r => r.is_working !== false);
-    let minStart = 9;
-    let maxEnd = 17;
-    if (working.length > 0) {
-      const starts = working.map(r => parseInt(String(r.start_time).split(':')[0], 10)).filter(n => !isNaN(n));
-      const ends = working.map(r => parseInt(String(r.end_time).split(':')[0], 10)).filter(n => !isNaN(n));
-      if (starts.length) minStart = Math.min(...starts);
-      if (ends.length) maxEnd = Math.max(...ends);
+  // Pełna doba — godziny pracy podświetlone, reszta przyciemniona
+  const HOURS = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
+
+  // Mapa: dzień tygodnia (0=niedz) -> [startHour, endHour)
+  const workRangeByDow = useMemo(() => {
+    const map: Record<number, { from: number; to: number } | null> = {};
+    const rows = workingHoursRows as any[];
+    for (let d = 0; d < 7; d++) {
+      const row = rows.find(r => Number(r.day_of_week) === d);
+      if (rows.length === 0) { map[d] = d === 0 ? null : { from: 8, to: 18 }; continue; }
+      if (!row || row.is_working === false) { map[d] = null; continue; }
+      const from = parseInt(String(row.start_time).split(':')[0], 10);
+      const to = parseInt(String(row.end_time).split(':')[0], 10);
+      map[d] = { from: isNaN(from) ? 8 : from, to: isNaN(to) ? 18 : to };
     }
-    const from = Math.max(0, minStart - 2);
-    const to = Math.min(24, maxEnd + 2);
-    const len = Math.max(1, to - from);
-    return Array.from({ length: len }, (_, i) => from + i);
+    return map;
   }, [workingHoursRows]);
+
+  const isWorkHour = useCallback((day: Date, hour: number) => {
+    const r = workRangeByDow[getDay(day)];
+    if (!r) return false;
+    return hour >= r.from && hour < r.to;
+  }, [workRangeByDow]);
+
+  const firstWorkHour = useMemo(() => {
+    const vals = Object.values(workRangeByDow).filter(Boolean) as { from: number }[];
+    return vals.length ? Math.min(...vals.map(v => v.from)) : 8;
+  }, [workRangeByDow]);
+
+  // Auto-scroll do pierwszej godziny pracy
+  const gridScrollRef = useRef<HTMLDivElement | null>(null);
+  const didAutoScroll = useRef(false);
+  useEffect(() => {
+    if (didAutoScroll.current || !gridScrollRef.current) return;
+    didAutoScroll.current = true;
+    gridScrollRef.current.scrollTop = Math.max(0, (firstWorkHour - 1) * ROW_HEIGHT);
+  }, [firstWorkHour]);
+
 
   // PERF C2: kalendarz pokazuje też zakończone (historia tygodnia) — 'all'
   const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
@@ -719,8 +748,9 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         </div>
       ) : (
         /* Day/Week grid */
-        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-xl border-2 border-foreground/20 shadow-lg flex flex-col">
-          <div className="flex-1 min-h-0 overflow-auto">
+        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-2xl border border-border bg-card shadow-sm flex flex-col">
+          <div ref={gridScrollRef} className="flex-1 min-h-0 overflow-auto">
+
             <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '60px' }} />
@@ -732,16 +762,17 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
               </colgroup>
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className="bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] border-b-2 border-r-2 border-foreground/20 p-2 text-left text-foreground font-bold" rowSpan={2}>
+                  <th className="bg-card border-b border-r border-border p-2 text-left text-muted-foreground font-semibold text-[10px] uppercase tracking-wide" rowSpan={2}>
                     {t('workshop.scheduler.hour')}
                   </th>
                   {categoryStations.map((st: any, stIdx: number) => (
-                    <th key={st.id} colSpan={weekDays.length} className={`bg-[hsl(220,80%,50%)] text-white border-b border-foreground/20 p-1.5 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-[3px] border-r-foreground/40' : 'border-r-2 border-r-foreground/20'}`}>
-                      <div className="flex items-center justify-center gap-1">
-                        <Wrench className="h-3 w-3" />
-                        <span className="font-semibold text-xs truncate">{st.id === '__default' ? t('workshop.scheduler.defaultStation') : tc(st.name)}</span>
+                    <th key={st.id} colSpan={weekDays.length} className={`bg-card border-b border-border p-0 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-2 border-r-border' : ''}`}>
+                      <div className="h-1 bg-primary/80 rounded-b-full mx-2" />
+                      <div className="flex items-center justify-center gap-1.5 py-1.5">
+                        <Wrench className="h-3 w-3 text-primary" />
+                        <span className="font-bold text-xs truncate text-foreground">{st.id === '__default' ? t('workshop.scheduler.defaultStation') : tc(st.name)}</span>
                         {st.id !== '__default' && (
-                          <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-50 hover:opacity-100 ml-0.5">
+                          <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-40 hover:opacity-100 ml-0.5">
                             <X className="h-3 w-3" />
                           </button>
                         )}
@@ -755,9 +786,9 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                       const today = isToday(day);
                       const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                       return (
-                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-foreground/20 p-1 text-center ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${today ? 'bg-[hsl(220,80%,50%)] text-white' : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'}`}>
-                          <div className="font-bold text-[10px]">{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
-                          <div className={`text-xs font-black ${today ? 'text-white' : ''}`}>{format(day, 'dd.MM')}</div>
+                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b border-r border-border/60 p-1 text-center ${isLastDayOfStation ? 'border-r-2 border-r-border' : ''} ${today ? 'bg-primary/10 text-primary' : 'bg-card text-muted-foreground'}`}>
+                          <div className="font-semibold text-[10px] uppercase">{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
+                          <div className={`text-xs font-bold ${today ? 'text-primary' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
                         </th>
                       );
                     })
@@ -765,13 +796,14 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                 </tr>
               </thead>
               <tbody>
-                {HOURS.map((hour, hourIdx) => {
-                  const isEvenRow = hourIdx % 2 === 0;
+                {HOURS.map((hour) => {
+                  const anyWork = weekDays.some(d => isWorkHour(d, hour));
                   return (
                     <tr key={hour} style={{ height: `${ROW_HEIGHT}px` }}>
-                      <td className={`border-b border-r-2 border-foreground/20 p-1.5 text-right font-mono font-bold text-xs sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`} style={{ height: `${ROW_HEIGHT}px` }}>
-                        {`${hour}:00`}
+                      <td className={`border-b border-r border-border/60 p-1.5 text-right font-mono text-[11px] sticky left-0 z-10 bg-card ${anyWork ? 'text-foreground font-bold' : 'text-muted-foreground/50 font-medium'}`} style={{ height: `${ROW_HEIGHT}px` }}>
+                        {`${String(hour).padStart(2, '0')}:00`}
                       </td>
+
                       {categoryStations.map((st: any, stIdx: number) =>
                         weekDays.map((day, dayIdx) => {
                           const key = cellKey(st.id, day, hour);
@@ -811,15 +843,17 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                           }
 
                           const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
+                          const work = isWorkHour(day, hour);
                           return (
                             <td
                               key={key}
                               rowSpan={scheduledOrder ? displaySpan : 1}
-                              className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${
-                                today
-                                  ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
-                                  : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
-                              } ${isDragOver && draggedOrder ? '!bg-[hsl(220,70%,85%)] dark:!bg-[hsl(220,50%,25%)] ring-2 ring-[hsl(220,70%,50%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
+                              className={`border-b border-r border-border/50 p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-border' : ''} ${
+                                work
+                                  ? (today ? 'bg-primary/[0.06]' : 'bg-background')
+                                  : (today ? 'bg-muted/60' : 'bg-muted/40')
+                              } ${isDragOver && draggedOrder ? '!bg-primary/20 ring-2 ring-primary ring-inset' : scheduledOrder ? '' : 'hover:bg-primary/10'}`}
+
                               style={{ height: `${(scheduledOrder ? displaySpan : 1) * ROW_HEIGHT}px` }}
                               onClick={() => scheduledOrder ? setDetailItem(scheduledOrder) : handleCellClick(day, hour, st.id)}
                               onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
@@ -1557,30 +1591,67 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm rounded-xl border bg-muted/20 p-3">
             <div className="min-w-0">
               <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.date')}</Label>
-              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-9 text-sm w-full bg-background" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="mt-1 h-9 w-full justify-start text-sm font-normal bg-background rounded-xl">
+                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                    {editDate ? format(new Date(editDate), 'dd.MM.yyyy') : '—'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                  <CalendarPicker
+                    mode="single"
+                    selected={editDate ? new Date(editDate) : undefined}
+                    onSelect={(d: Date | undefined) => { if (d) setEditDate(format(d, 'yyyy-MM-dd')); }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="min-w-0">
               <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.time')}</Label>
-              <div className="flex items-center gap-1.5 mt-1">
-                <Input
-                  inputMode="numeric"
-                  value={editHourStr}
-                  onFocus={e => e.target.select()}
-                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditHourStr(v); }}
-                  onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
-                  className="h-9 text-sm flex-1 min-w-0 text-center bg-background" placeholder="HH"
-                />
-                <span className="text-sm font-bold shrink-0">:</span>
-                <Input
-                  inputMode="numeric"
-                  value={editMinStr}
-                  onFocus={e => e.target.select()}
-                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditMinStr(v); }}
-                  onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
-                  className="h-9 text-sm flex-1 min-w-0 text-center bg-background" placeholder="MM"
-                />
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="mt-1 h-9 w-full justify-start text-sm font-normal bg-background rounded-xl">
+                    <Clock className="mr-2 h-4 w-4 text-primary" />
+                    {`${(editHourStr || '00').padStart(2, '0')}:${(editMinStr || '00').padStart(2, '0')}`}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[220px] p-2 z-[100]" align="start">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Input
+                      inputMode="numeric" value={editHourStr}
+                      onFocus={e => e.target.select()}
+                      onChange={e => setEditHourStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                      onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
+                      className="h-8 text-sm text-center" placeholder="HH"
+                    />
+                    <span className="text-sm font-bold">:</span>
+                    <Input
+                      inputMode="numeric" value={editMinStr}
+                      onFocus={e => e.target.select()}
+                      onChange={e => setEditMinStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                      onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
+                      className="h-8 text-sm text-center" placeholder="MM"
+                    />
+                  </div>
+                  <div className="max-h-52 overflow-y-auto grid grid-cols-3 gap-1">
+                    {TIME_SLOTS.map(s => {
+                      const active = s === `${(editHourStr || '00').padStart(2, '0')}:${(editMinStr || '00').padStart(2, '0')}`;
+                      return (
+                        <button
+                          key={s} type="button"
+                          onClick={() => { const [h, m] = s.split(':'); setEditHourStr(h); setEditMinStr(m); }}
+                          className={`text-xs rounded-lg py-1 transition-colors ${active ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-primary/10'}`}
+                        >{s}</button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
+
             <div className="min-w-0">
               <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.category')}</Label>
               <Select
