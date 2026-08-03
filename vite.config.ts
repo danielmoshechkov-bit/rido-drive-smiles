@@ -9,6 +9,17 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      // Generator PDF to czysty PHP (Dompdf) z katalogu public/, więc lokalny dev
+      // serwer go nie uruchamia i „Pobierz PDF" nie miało czym wyrenderować pliku.
+      // W dev kierujemy to żądanie na produkcyjny endpoint — bezstanowy przelicznik
+      // HTML → PDF, ten sam, którego używa aplikacja po wdrożeniu. Dzięki temu
+      // pobrany plik jest lokalnie identyczny z tym, co widać w podglądzie.
+      '/invoice-pdf.php': {
+        target: 'https://getrido.pl',
+        changeOrigin: true,
+      },
+    },
   },
   // SECFIX4: w buildzie produkcyjnym wycinamy WSZYSTKIE console.* i debugger —
   // sweep całej klasy wycieków do konsoli przeglądarki (ID, e-maile, wyniki

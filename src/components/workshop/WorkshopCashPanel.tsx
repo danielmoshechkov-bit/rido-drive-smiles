@@ -10,6 +10,7 @@ import { WorkshopExpenseDialog } from './WorkshopExpenseDialog';
 import { WorkshopBreakdownDialog, type BreakdownRow } from './WorkshopBreakdownDialog';
 import { WorkshopMonthCloseDialog, type ClosureSummary } from './WorkshopMonthCloseDialog';
 import { WorkshopVoidDialog, WorkshopOpEditDialog, type CashOp } from './WorkshopOpDialogs';
+import { toast } from 'sonner';
 import { useWorkshopCashData, useWorkshopFinanceSettings, useSaveFinanceSettings, useCashClosures, useCreateCashClosure, useDeleteCashClosure, useWorkshopRecurringCosts, recurringReminderLevel, PAYMENT_METHODS, EXPENSE_CATEGORIES, type PaymentMethod, type ExpenseCategory } from '@/hooks/useWorkshopFinance';
 import { useWorkshopOrders } from '@/hooks/useWorkshop';
 import { computeOrderTotals, safeNumber } from '@/utils/workshopOrderTotals';

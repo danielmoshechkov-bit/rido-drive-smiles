@@ -710,7 +710,12 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const safeFileName = `${invoice.invoice_number.replace(/\//g, '_')}_${invoice.buyer.name.replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '_').substring(0, 30)}`;
   
   const baseFontSize = compact_pdf ? '9px' : '11px';
-  const titleFontSize = compact_pdf ? '16px' : '20px';
+  // Długie tytuły (np. POTWIERDZENIE WYKONANIA USŁUGI) łamią się na dwie linie —
+  // w mniejszym stopniu, żeby nie wchodziły na numer dokumentu i daty obok.
+  const isLongTitle = invoiceTitle.length > 18;
+  const titleFontSize = compact_pdf
+    ? (isLongTitle ? '14px' : '16px')
+    : (isLongTitle ? '17px' : '20px');
   const pageMargin = compact_pdf ? '6mm' : '8mm';
 
   // Standardowa faktura (VAT/zaliczka/rozliczenie/uproszczona/proforma) ma i "Podsumowanie faktury"
@@ -721,7 +726,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   // "Podsumowanie faktury" — tabela stawek VAT (lewa kolumna). Wypełnia całą szerokość swojej kolumny.
   const standardVatSummaryHtml = `
     <div class="vat-summary" style="margin-top: 0; font-size: 10px;">
-      <div style="font-size: 11px; font-weight: 600; margin-bottom: 2px; color: #666;">Podsumowanie faktury</div>
+      <div style="font-size: 11px; font-weight: 600; margin-bottom: 2px; color: #666;">${isServiceConfirmation ? 'Podsumowanie' : 'Podsumowanie faktury'}</div>
       <table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px;">
         <thead>
           <tr class="vat-header" style="background-color: ${themeColor} !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
@@ -803,12 +808,26 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
     @page { margin: 0; size: A4; }
     @media print {
-      html, body { height: 100%; margin: 0 !important; padding: 0 !important; }
+      /* Margines kartki robi padding body (@page margin: 0) — zerowanie go tutaj
+         przyklejalo tresc do samej krawedzi papieru. */
+      html, body { height: 100%; margin: 0 !important; }
       .invoice { max-width: 100%; page-break-inside: avoid; }
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       th { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; }
       .totals-row.grand { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; }
       .vat-header { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; }
+    }
+    /* Dokument ZAWSZE ma szerokosc kartki A4 — takze gdy otworzysz go w oknie
+       przegladarki przed wydrukiem. Bez tego tresc rozciagala sie na cala
+       szerokosc ekranu i uklad rozjezdzal sie wzgledem tego, co wychodzi
+       z drukarki. Wydruk (@page A4) nie zmienia sie. */
+    /* UWAGA: Dompdf renderuje w trybie "screen", wiec te reguly dzialaja takze
+       w serwerowym PDF. Dlatego max-width (padding wchodzi w szerokosc dzieki
+       box-sizing), a nie width — inaczej kartka robila sie szersza niz A4
+       i prawa kolumna tabeli wychodzila poza strone. */
+    @media screen {
+      html { background: #eceaf3; }
+      body { max-width: 210mm; margin: 0 auto; box-shadow: 0 1px 12px rgba(0,0,0,0.12); }
     }
     body {
       font-family: "DejaVu Sans", Arial, sans-serif;
@@ -823,8 +842,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     }
     .invoice { width: 100%; max-width: 100%; margin: 0 auto; background: white; }
     /* Layout oparty na display:table (zamiast flex) — renderuje się poprawnie w Dompdf i w Chrome. */
-    .top-meta { text-align: right; font-size: 12px; color: #333; margin-bottom: 1px; }
-    .header { display: table; width: 100%; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 2px solid ${themeColor}; }
+    .top-meta { text-align: right; font-size: 12px; color: #333; margin-bottom: 3px; }
+    .header { display: table; width: 100%; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid ${themeColor}; }
     /* Data (top-meta) siedzi w prawej kolumnie nagłówka, więc tabela nagłówka zaczyna się
        na górze kartki — vertical-align:middle centruje logo w CAŁEJ przestrzeni nad linią. */
     .logo-area { display: table-cell; vertical-align: middle; width: 55%; }
@@ -832,10 +851,12 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .invoice-title { display: table-cell; vertical-align: top; text-align: right; }
     /* Zwarta lista w prawym górnym rogu — osobne divy z małymi marginesami i
        line-height 1.0 (Dompdf pewniej respektuje margin niż line-height na <br>). */
-    .inv-title-main { font-size: ${titleFontSize}; font-weight: 700; color: #222; line-height: 16px; margin: 0; }
-    .inv-title-num { font-size: 16px; font-weight: 700; color: ${themeColor}; line-height: 13px; margin-top: 2px; }
-    .invoice-dates { font-size: 11px; color: #333; text-align: right; margin-top: 4px; line-height: 11px; }
-    .invoice-dates-row { margin-bottom: -3px; }
+    .inv-title-main { font-size: ${titleFontSize}; font-weight: 700; color: #222; line-height: 1.15; margin: 0; }
+    .inv-title-num { font-size: 16px; font-weight: 700; color: ${themeColor}; line-height: 1.2; margin-top: 3px; }
+    /* Numer dopisany do ostatniej linii tytulu — dziedziczy stopien pisma tytulu. */
+    .inv-title-num-inline { color: ${themeColor}; }
+    .invoice-dates { font-size: 11px; color: #333; text-align: right; margin-top: 6px; line-height: 1.4; }
+    .invoice-dates-row { margin-bottom: 0; }
     .invoice-dates-label { color: #555; }
     .parties { display: table; width: 100%; margin-bottom: 4px; }
     .party { display: table-cell; vertical-align: top; padding-right: 16px; }
@@ -852,11 +873,17 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     .vat-summary { margin-bottom: 5px; font-size: 10px; }
     .vat-header { background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .totals { display: block; margin-bottom: 5px; }
-    .totals-table { width: 240px; margin-left: auto; border: 1px solid #e3e0f0; border-radius: 6px; padding: 4px 8px; background: #faf9ff; }
+    /* Padding na wierszach, nie na ramce — inaczej wiersz display:table liczy
+       szerokosc od ramki i kwota wychodzila poza pasek DO ZAPLATY. */
+    .totals-table { width: 250px; margin-left: auto; border: 1px solid #e3e0f0; border-radius: 6px; padding: 4px 0; background: #faf9ff; overflow: hidden; }
+    /* Padding TYLKO na komorkach. Na samym wierszu (display:table, width:100%)
+       przegladarka dolicza go do szerokosci, wiec kwota wychodzila poza pasek. */
     .totals-row { display: table; width: 100%; padding: 1px 0; font-size: 10px; border-bottom: 1px solid #d8d5e8; }
-    .totals-row > span:first-child { display: table-cell; text-align: left; color: #444; vertical-align: middle; }
-    .totals-row > span:last-child { display: table-cell; text-align: right; vertical-align: middle; }
-    .totals-row.grand { border-bottom: none; background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-top: 2px; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .totals-row > span:first-child { display: table-cell; text-align: left; color: #444; vertical-align: middle; padding-left: 10px; }
+    .totals-row > span:last-child { display: table-cell; text-align: right; vertical-align: middle; padding-right: 10px; }
+    /* Pasek DO ZAPŁATY na całą szerokość ramki (ujemne marginesy zjadają padding
+       rodzica) — inaczej kwota wychodziła poza fioletowe tło i ucinało "zł". */
+    .totals-row.grand { border-bottom: none; background: ${themeColor} !important; background-color: ${themeColor} !important; color: white !important; padding: 5px 0; border-radius: 0 0 5px 5px; font-size: 12px; margin: 3px 0 -4px 0; font-weight: bold; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .amount-words { display: block; margin-top: 4px; margin-bottom: 5px; padding: 1px 0; font-size: 10px; }
     .amount-words-label { color: #666; font-weight: 600; white-space: nowrap; }
     .amount-words-value { font-style: italic; }
@@ -937,8 +964,16 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="top-meta">
           ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
         </div>
-        <div class="inv-title-main">${invoiceTitle}</div>
-        <div class="inv-title-num">${invoice.invoice_number}</div>
+        ${isServiceConfirmation ? (() => {
+          // „POTWIERDZENIE WYKONANIA / USŁUGI: PWU-…" — tytuł i tak łamie się na dwie
+          // linie, więc numer dostawiamy do drugiej zamiast zostawiać go samego.
+          const words = invoiceTitle.trim().split(/\s+/);
+          const tail = words.pop() || invoiceTitle;
+          const head = words.join(' ');
+          return `${head ? `<div class="inv-title-main">${head}</div>` : ''}
+        <div class="inv-title-main">${tail}: <span class="inv-title-num-inline">${invoice.invoice_number}</span></div>`;
+        })() : `<div class="inv-title-main">${invoiceTitle}</div>
+        <div class="inv-title-num">${invoice.invoice_number}</div>`}
         ${isCorrection && invoice.correction_data ? `
         <div style="font-size: 9px; color: #555; margin-top: 4px;">
           <div>do faktury nr: <strong>${invoice.correction_data.original_invoice_number}</strong></div>
