@@ -29,22 +29,44 @@ const OUTCOME_LABEL: Record<string, string> = {
 export function OrderCallPanel({ orderId, compact = false }: { orderId: string; compact?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [call, setCall] = useState<CallData | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const { data: calls } = await (supabase as any)
+    let cancelled = false;
+    setCall(null);
+    setError(null);
+    setShowTranscript(false);
+    const load = async (showLoader = false) => {
+      if (showLoader) setLoading(true);
+      const { data: calls, error: callsError } = await (supabase as any)
         .from("voice_calls")
         .select("id, summary, outcome, created_at, contact_name")
         .eq("linked_entity_type", "workshop_order").eq("linked_entity_id", orderId)
         .order("created_at", { ascending: false }).limit(1);
+      if (cancelled) return;
+      if (callsError) {
+        setError("Nie udało się pobrać rozmowy telefonicznej.");
+        setLoading(false);
+        return;
+      }
       const c = calls?.[0];
-      if (!c) { setCall(null); setLoading(false); return; }
-      const [{ data: tr }, { data: oc }] = await Promise.all([
+      if (!c) {
+        setCall(null);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+      const [{ data: tr, error: transcriptError }, { data: oc, error: outcomeError }] = await Promise.all([
         (supabase as any).from("voice_transcripts").select("full_text, turns, summary").eq("call_id", c.id).maybeSingle(),
         (supabase as any).from("voice_call_outcomes").select("outcome, objections, next_step, customer_data, losing_signals").eq("call_id", c.id).maybeSingle(),
       ]);
+      if (cancelled) return;
+      if (transcriptError || outcomeError) {
+        setError("Rozmowa jest powiązana, ale nie udało się pobrać jej pełnego zapisu.");
+      } else {
+        setError(null);
+      }
       setCall({
         id: c.id, summary: c.summary || tr?.summary || null, outcome: c.outcome,
         created_at: c.created_at, contact_name: c.contact_name,
@@ -52,10 +74,23 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
         outcomeRow: oc || null,
       });
       setLoading(false);
-    })();
+    };
+    void load(true);
+    // Końcowy webhook może dotrzeć po utworzeniu zlecenia. Krótkie, ograniczone
+    // ponowienia sprawiają, że otwarta zakładka sama pokaże zapis po powiązaniu.
+    const retryDelays = [3_000, 10_000, 30_000, 60_000, 120_000];
+    const timers = retryDelays.map((delay) => window.setTimeout(() => void load(), delay));
+    return () => {
+      cancelled = true;
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
   }, [orderId]);
 
   if (loading) return compact ? null : <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
+  if (error && !call) {
+    if (compact) return null;
+    return <div className="text-center py-10 text-destructive text-sm">{error}</div>;
+  }
   if (!call) {
     if (compact) return null;
     return (
@@ -72,6 +107,7 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
 
   return (
     <div className="space-y-4">
+      {error && <div className="rounded-md border border-destructive/40 p-2 text-sm text-destructive">{error}</div>}
       <div className="flex items-center gap-2 flex-wrap text-sm">
         <Badge className="gap-1 bg-primary"><Phone className="h-3 w-3" /> Rozmowa AI</Badge>
         {call.outcome && <Badge variant="outline">{OUTCOME_LABEL[call.outcome] || call.outcome}</Badge>}

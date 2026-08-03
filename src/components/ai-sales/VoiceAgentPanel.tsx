@@ -41,6 +41,8 @@ interface VoiceConfig {
   sample_text: string; languages: string[]; inbound_mode: string; inbound_rings: number;
   calling_hours: { from?: string; to?: string }; business_context: BusinessContext;
   calendar_access: boolean; orders_access: boolean; learning_mode: string;
+  elevenlabs_agent_id: string;
+  turn_timeout_seconds: number; silence_end_call_timeout_seconds: number; soft_timeout_seconds: number;
 }
 
 const LANGS = [
@@ -70,12 +72,15 @@ function defaultsFor(persona: Persona | undefined): VoiceConfig {
     sample_text: DEFAULT_SAMPLE, languages: persona?.supported_langs?.length ? persona.supported_langs : ["pl"],
     inbound_mode: "off", inbound_rings: 4, calling_hours: {}, business_context: emptyBC(),
     calendar_access: false, orders_access: false, learning_mode: "per_call",
+    elevenlabs_agent_id: "", turn_timeout_seconds: 7,
+    silence_end_call_timeout_seconds: 60, soft_timeout_seconds: 3,
   };
 }
 
 export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncingElevenLabs, setSyncingElevenLabs] = useState(false);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [selectedPersona, setSelectedPersona] = useState<string>("");
   const [cfg, setCfg] = useState<VoiceConfig | null>(null);
@@ -194,6 +199,10 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           calling_hours: data.calling_hours ?? {}, business_context: { ...emptyBC(), ...(data.business_context ?? {}) },
           calendar_access: !!data.calendar_access, orders_access: !!data.orders_access,
           learning_mode: data.learning_mode || "per_call",
+          elevenlabs_agent_id: data.elevenlabs_agent_id || "",
+          turn_timeout_seconds: data.turn_timeout_seconds ?? 7,
+          silence_end_call_timeout_seconds: data.silence_end_call_timeout_seconds ?? 60,
+          soft_timeout_seconds: data.soft_timeout_seconds != null ? Number(data.soft_timeout_seconds) : 3,
         };
       } else {
         loaded = defaultsFor(persona);
@@ -288,8 +297,8 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
     } finally { setPreviewing(false); }
   };
 
-  const save = async () => {
-    if (!providerId || !cfg) return;
+  const save = async (): Promise<boolean> => {
+    if (!providerId || !cfg) return false;
     setSaving(true);
     const { error } = await (supabase as any).from("voice_agent_configs").upsert(
       {
@@ -303,6 +312,10 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
         calling_hours: cfg.calling_hours, business_context: cfg.business_context,
         calendar_access: cfg.calendar_access, orders_access: cfg.orders_access,
         learning_mode: cfg.learning_mode,
+        elevenlabs_agent_id: cfg.elevenlabs_agent_id || null,
+        turn_timeout_seconds: cfg.turn_timeout_seconds,
+        silence_end_call_timeout_seconds: cfg.silence_end_call_timeout_seconds,
+        soft_timeout_seconds: cfg.soft_timeout_seconds,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "provider_id,persona_key" },
@@ -310,6 +323,22 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
     if (error) toast.error("Błąd zapisu: " + error.message);
     else toast.success("Zapisano ustawienia agenta głosowego");
     setSaving(false);
+    return !error;
+  };
+
+  const syncElevenLabs = async () => {
+    if (!providerId || !cfg) return;
+    setSyncingElevenLabs(true);
+    try {
+      if (!(await save())) return;
+      const { data, error } = await supabase.functions.invoke("voice-agent-sync", {
+        body: { provider_id: providerId, persona_key: cfg.persona_key },
+      });
+      if (error || !data?.ok) toast.error(data?.error || error?.message || "Synchronizacja nie powiodła się");
+      else toast.success("Ustawienia czasu reakcji i ciszy zastosowano w ElevenLabs");
+    } finally {
+      setSyncingElevenLabs(false);
+    }
   };
 
   if (!providerId) return <div className="py-12 text-center text-muted-foreground">Ładowanie konta usługodawcy…</div>;
@@ -734,6 +763,24 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
               <CardDescription>Wklej te adresy w ustawieniach agenta ElevenLabs. Numer Twilio importujesz w ElevenLabs.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="space-y-1 max-w-xl">
+                <Label className="text-xs">ElevenLabs Agent ID</Label>
+                <Input value={cfg.elevenlabs_agent_id} onChange={(e) => update({ elevenlabs_agent_id: e.target.value.trim() })} placeholder="agent_…" className="font-mono text-xs" />
+              </div>
+              <div className="grid gap-4 md:grid-cols-3 rounded-lg border p-3">
+                <div className="space-y-2">
+                  <div className="flex justify-between"><Label className="text-xs">Reakcja po ciszy</Label><span className="text-xs tabular-nums">{cfg.turn_timeout_seconds} s</span></div>
+                  <Slider min={1} max={15} step={1} value={[cfg.turn_timeout_seconds]} onValueChange={([v]) => update({ turn_timeout_seconds: v })} />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between"><Label className="text-xs">Zakończenie braku odpowiedzi</Label><span className="text-xs tabular-nums">{cfg.silence_end_call_timeout_seconds} s</span></div>
+                  <Slider min={30} max={180} step={15} value={[cfg.silence_end_call_timeout_seconds]} onValueChange={([v]) => update({ silence_end_call_timeout_seconds: v })} />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between"><Label className="text-xs">Komunikat oczekiwania</Label><span className="text-xs tabular-nums">{cfg.soft_timeout_seconds.toFixed(1)} s</span></div>
+                  <Slider min={1} max={8} step={0.5} value={[cfg.soft_timeout_seconds]} onValueChange={([v]) => update({ soft_timeout_seconds: v })} />
+                </div>
+              </div>
               {[
                 { label: "Custom LLM URL (Agent → Custom LLM)", url: `${FUNCTIONS_BASE}/voice-agent-llm?provider_id=${providerId}&persona_key=${cfg.persona_key}` },
                 { label: "Post-call webhook URL (Agent → Post-call webhook)", url: `${FUNCTIONS_BASE}/voice-call-postprocess?provider_id=${providerId}&persona_key=${cfg.persona_key}` },
@@ -748,6 +795,15 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                   </div>
                 </div>
               ))}
+              <div className="rounded-lg border p-3 text-xs space-y-1">
+                <p className="font-medium">Identyfikator rozmowy dla idempotentnej finalizacji</p>
+                <p className="text-muted-foreground">W system prompt agenta ElevenLabs dodaj dokładnie:</p>
+                <code className="block rounded bg-muted px-2 py-1 select-all">GETRIDO_CONVERSATION_ID={"{{system__conversation_id}}"}</code>
+              </div>
+              <Button type="button" variant="outline" onClick={syncElevenLabs} disabled={syncingElevenLabs || !cfg.elevenlabs_agent_id} className="gap-2">
+                {syncingElevenLabs ? <Loader2 className="h-4 w-4 animate-spin" /> : <PhoneCall className="h-4 w-4" />}
+                Zastosuj ustawienia czasu w ElevenLabs
+              </Button>
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
                 <p className="font-medium">Przed pierwszym telefonem:</p>
                 <p>• Wygeneruj ŚWIEŻY klucz ElevenLabs i wpisz w panelu admina (stary jest spalony).</p>

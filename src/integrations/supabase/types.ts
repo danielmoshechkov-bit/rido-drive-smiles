@@ -2595,6 +2595,7 @@ export type Database = {
       ai_function_mapping: {
         Row: {
           allow_fallback: boolean | null
+          backup_model_override: string | null
           backup_provider_key: string | null
           category: string
           created_at: string | null
@@ -2604,6 +2605,9 @@ export type Database = {
           function_name: string
           id: string
           is_enabled: boolean | null
+          max_output_tokens: number
+          max_tool_rounds: number
+          model_timeout_ms: number
           model_override: string | null
           provider_key: string | null
           sort_order: number | null
@@ -2611,6 +2615,7 @@ export type Database = {
         }
         Insert: {
           allow_fallback?: boolean | null
+          backup_model_override?: string | null
           backup_provider_key?: string | null
           category?: string
           created_at?: string | null
@@ -2620,6 +2625,9 @@ export type Database = {
           function_name: string
           id?: string
           is_enabled?: boolean | null
+          max_output_tokens?: number
+          max_tool_rounds?: number
+          model_timeout_ms?: number
           model_override?: string | null
           provider_key?: string | null
           sort_order?: number | null
@@ -2627,6 +2635,7 @@ export type Database = {
         }
         Update: {
           allow_fallback?: boolean | null
+          backup_model_override?: string | null
           backup_provider_key?: string | null
           category?: string
           created_at?: string | null
@@ -2636,6 +2645,9 @@ export type Database = {
           function_name?: string
           id?: string
           is_enabled?: boolean | null
+          max_output_tokens?: number
+          max_tool_rounds?: number
+          model_timeout_ms?: number
           model_override?: string | null
           provider_key?: string | null
           sort_order?: number | null
@@ -18215,6 +18227,7 @@ export type Database = {
           verification_code: string | null
           verification_sent_at: string | null
           verified_at: string | null
+          voice_conversation_id: string | null
         }
         Insert: {
           booking_number: string
@@ -18264,6 +18277,7 @@ export type Database = {
           verification_code?: string | null
           verification_sent_at?: string | null
           verified_at?: string | null
+          voice_conversation_id?: string | null
         }
         Update: {
           booking_number?: string
@@ -18313,6 +18327,7 @@ export type Database = {
           verification_code?: string | null
           verification_sent_at?: string | null
           verified_at?: string | null
+          voice_conversation_id?: string | null
         }
         Relationships: [
           {
@@ -22875,7 +22890,10 @@ export type Database = {
           privacy_confirmed_at: string | null
           provider_id: string
           sample_text: string | null
+          silence_end_call_timeout_seconds: number
+          soft_timeout_seconds: number
           timezone: string
+          turn_timeout_seconds: number
           twilio_number: string | null
           twilio_subaccount_sid: string | null
           updated_at: string
@@ -22911,7 +22929,10 @@ export type Database = {
           privacy_confirmed_at?: string | null
           provider_id: string
           sample_text?: string | null
+          silence_end_call_timeout_seconds?: number
+          soft_timeout_seconds?: number
           timezone?: string
+          turn_timeout_seconds?: number
           twilio_number?: string | null
           twilio_subaccount_sid?: string | null
           updated_at?: string
@@ -22947,7 +22968,10 @@ export type Database = {
           privacy_confirmed_at?: string | null
           provider_id?: string
           sample_text?: string | null
+          silence_end_call_timeout_seconds?: number
+          soft_timeout_seconds?: number
           timezone?: string
+          turn_timeout_seconds?: number
           twilio_number?: string | null
           twilio_subaccount_sid?: string | null
           updated_at?: string
@@ -23181,7 +23205,7 @@ export type Database = {
           {
             foreignKeyName: "voice_call_outcomes_call_id_fkey"
             columns: ["call_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "voice_calls"
             referencedColumns: ["id"]
           },
@@ -23429,6 +23453,44 @@ export type Database = {
           },
         ]
       }
+      voice_deduplication_archive: {
+        Row: {
+          archived_at: string
+          canonical_id: string
+          entity_type: string
+          id: string
+          provider_id: string
+          row_data: Json
+          source_id: string
+        }
+        Insert: {
+          archived_at?: string
+          canonical_id: string
+          entity_type: string
+          id?: string
+          provider_id: string
+          row_data: Json
+          source_id: string
+        }
+        Update: {
+          archived_at?: string
+          canonical_id?: string
+          entity_type?: string
+          id?: string
+          provider_id?: string
+          row_data?: Json
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_deduplication_archive_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       voice_phone_numbers: {
         Row: {
           assigned_persona_key: string | null
@@ -23547,7 +23609,7 @@ export type Database = {
           {
             foreignKeyName: "voice_transcripts_call_id_fkey"
             columns: ["call_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "voice_calls"
             referencedColumns: ["id"]
           },
@@ -25298,6 +25360,7 @@ export type Database = {
           total_net: number | null
           updated_at: string | null
           vehicle_id: string | null
+          voice_conversation_id: string | null
           worker: string | null
           workstation_id: string | null
         }
@@ -25357,6 +25420,7 @@ export type Database = {
           total_net?: number | null
           updated_at?: string | null
           vehicle_id?: string | null
+          voice_conversation_id?: string | null
           worker?: string | null
           workstation_id?: string | null
         }
@@ -25416,6 +25480,7 @@ export type Database = {
           total_net?: number | null
           updated_at?: string | null
           vehicle_id?: string | null
+          voice_conversation_id?: string | null
           worker?: string | null
           workstation_id?: string | null
         }

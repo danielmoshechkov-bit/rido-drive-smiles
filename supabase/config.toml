@@ -185,6 +185,9 @@ verify_jwt = false
 [functions.admin-ai-secrets]
 verify_jwt = false
 
+[functions.admin-voice-ai-routing]
+verify_jwt = false
+
 [functions.voice-preview]
 verify_jwt = false
 
@@ -216,6 +219,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.voice-agent-simulate]
+verify_jwt = false
+
+[functions.voice-agent-sync]
 verify_jwt = false
 
 [functions.ticket-ai-chat]

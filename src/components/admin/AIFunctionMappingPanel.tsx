@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Loader2, Save, Route, ExternalLink, Zap } from "lucide-react";
+import { VoiceConversationModelSettings } from "./VoiceConversationModelSettings";
 
 interface FunctionMapping {
   id: string;
@@ -311,6 +312,10 @@ export function AIFunctionMappingPanel() {
 
           return (
             <div key={mapping.id} className="flex flex-col gap-2 p-3 border rounded-lg hover:bg-muted/30 transition-colors bg-card">
+              {mapping.function_key === "voice_agent" ? (
+                <VoiceConversationModelSettings compact />
+              ) : (
+              <>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium text-sm">{mapping.function_name}</span>
                 <Badge variant={mapping.is_enabled ? "default" : "secondary"} className="text-[10px]">
@@ -392,6 +397,8 @@ export function AIFunctionMappingPanel() {
                   </Button>
                 </div>
               </div>
+              </>
+              )}
             </div>
           );
         })}

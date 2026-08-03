@@ -10,10 +10,12 @@ import {
   Bot, Phone, Mic, ShieldCheck, ShieldAlert, CheckCircle2, XCircle,
   Loader2, Save, Plug, KeyRound,
 } from "lucide-react";
+import { VoiceConversationModelSettings } from "./VoiceConversationModelSettings";
 
 interface SecretStatus {
   key: string;
   is_set: boolean;
+  is_readable: boolean;
   source: "panel" | "env" | null;
   is_encrypted: boolean;
   updated_at: string | null;
@@ -142,6 +144,25 @@ export function AIVoiceAgentSettings() {
         </div>
       </div>
 
+      <VoiceConversationModelSettings />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Status ścieżki głosowej</CardTitle>
+          <CardDescription>Rozdzielenie ustawień globalnych od konfiguracji konkretnej firmy.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm md:grid-cols-2">
+          <div className="rounded-lg border p-3">
+            <p className="font-medium">Backend rozmowy</p>
+            <p className="text-muted-foreground">SSE bez buforowania, pomiar `first_text`, kontrolowany timeout i fallback są egzekwowane globalnie przez routing powyżej.</p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <p className="font-medium">ElevenLabs i webhook</p>
+            <p className="text-muted-foreground">Agent ID, komunikat po krótkiej ciszy, zakończenie po długiej ciszy, status webhooka i synchronizacja należą do konfiguracji konkretnej firmy/agenta. Nie są globalnym modelem LLM.</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {SECTIONS.map((section) => {
         const Icon = section.icon;
         return (
@@ -155,7 +176,7 @@ export function AIVoiceAgentSettings() {
             <CardContent className="space-y-5">
               {section.keys.map((k) => {
                 const st = statuses[k.key];
-                const isSet = st?.is_set;
+                const isSet = st?.is_set && st?.is_readable;
                 const tr = testResults[k.key];
                 return (
                   <div key={k.key} className="space-y-2">

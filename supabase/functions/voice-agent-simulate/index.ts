@@ -63,6 +63,12 @@ serve(async (req) => {
       if (!providerId) {
         const { data: sp } = await admin.from("service_providers").select("id").eq("user_id", user.id).maybeSingle();
         providerId = sp?.id || "";
+      } else {
+        const [{ data: provider }, { data: adminRole }] = await Promise.all([
+          admin.from("service_providers").select("id").eq("id", providerId).eq("user_id", user.id).maybeSingle(),
+          admin.from("user_roles").select("id").eq("user_id", user.id).eq("role", "admin").maybeSingle(),
+        ]);
+        if (!provider && !adminRole) return json({ ok: false, error: "Brak dostępu do firmy" }, 403);
       }
     }
     if (!providerId) return json({ ok: false, error: "Brak provider_id" }, 400);

@@ -7,8 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:urls": "node scripts/check-public-urls.mjs",
+    "test:voice": "node --test supabase/functions/_shared/voiceConversation_test.ts supabase/functions/_shared/anthropicSse_test.ts supabase/functions/_shared/voiceModelAdapters_test.ts supabase/functions/_shared/voiceMigrationSql_test.ts supabase/functions/_shared/voiceAiRouting_test.ts supabase/functions/_shared/voiceProductionCanary_test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

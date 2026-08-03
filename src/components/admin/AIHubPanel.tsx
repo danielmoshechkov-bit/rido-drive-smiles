@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2, Save, Key, Eye, EyeOff, Zap, Route, Shield, Activity, ToggleLeft, Settings2, Brain, ListTodo } from "lucide-react";
+import { Loader2, Save, Key, Zap, Route, Shield, Activity, ToggleLeft, Settings2, Brain, ListTodo } from "lucide-react";
 import { UniversalSubTabBar } from "../UniversalSubTabBar";
 
 interface Provider {
@@ -20,11 +20,19 @@ interface Provider {
   provider_key: string;
   display_name: string;
   is_enabled: boolean;
-  api_key_encrypted: string | null;
   default_model: string | null;
   timeout_seconds: number;
   daily_limit: number | null;
   admin_note: string | null;
+}
+
+interface SecretStatus {
+  key: string;
+  is_set: boolean;
+  is_readable: boolean;
+  source: "panel" | "env" | null;
+  is_encrypted: boolean;
+  updated_at: string | null;
 }
 
 interface RoutingRule {
@@ -96,7 +104,17 @@ const CLAUDE_PROVIDER_KEYS = ["claude_haiku", "claude_sonnet", "claude_opus"];
 const GEMINI_PROVIDER_KEYS = ["gemini", "google_gemini", "gemini_flash", "gemini_pro", "imagen3"];
 
 // Ukryj duplikaty w UI — pokaż tylko jednego reprezentanta z rodziny
-const HIDDEN_PROVIDER_KEYS = ["claude_sonnet", "claude_opus", "gemini_flash", "imagen3"];
+const HIDDEN_PROVIDER_KEYS = ["gemini_flash", "imagen3"];
+
+const secretKeyForProvider = (providerKey: string): string | null => {
+  if (CLAUDE_PROVIDER_KEYS.includes(providerKey)) return "ANTHROPIC_API_KEY";
+  if (GEMINI_PROVIDER_KEYS.includes(providerKey)) return "GEMINI_API_KEY";
+  if (providerKey === "openai") return "OPENAI_API_KEY";
+  if (providerKey === "kimi") return "KIMI_API_KEY";
+  if (providerKey === "lovable") return "LOVABLE_API_KEY";
+  if (providerKey === "elevenlabs") return "ELEVENLABS_API_KEY";
+  return null;
+};
 
 export function AIHubPanel() {
   const [activeTab, setActiveTab] = useState("providers");
@@ -105,9 +123,9 @@ export function AIHubPanel() {
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [limits, setLimits] = useState<LimitConfig[]>([]);
   const [logs, setLogs] = useState<RequestLog[]>([]);
+  const [secretStatuses, setSecretStatuses] = useState<Record<string, SecretStatus>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
 
@@ -129,26 +147,29 @@ export function AIHubPanel() {
     return null;
   };
 
-  const getSharedFamilyKeys = (providerKey: string) => {
-    if (CLAUDE_PROVIDER_KEYS.includes(providerKey)) return CLAUDE_PROVIDER_KEYS;
-    if (GEMINI_PROVIDER_KEYS.includes(providerKey)) return GEMINI_PROVIDER_KEYS;
-    return null;
-  };
-
   const loadAll = async () => {
     setLoading(true);
-    const [p, r, f, l, lg] = await Promise.all([
-      supabase.from("ai_providers").select("*").order("provider_key"),
+    const [p, r, f, l, lg, secretResult] = await Promise.all([
+      supabase.from("ai_providers")
+        .select("id,provider_key,display_name,is_enabled,default_model,timeout_seconds,daily_limit,admin_note,created_at,updated_at")
+        .order("provider_key"),
       supabase.from("ai_routing_rules").select("*").order("task_type"),
       supabase.from("ai_feature_flags").select("*").order("flag_key"),
       supabase.from("ai_limits_config").select("*").order("scope"),
       supabase.from("ai_requests_log").select("*").order("created_at", { ascending: false }).limit(100),
+      supabase.functions.invoke("admin-ai-secrets", { body: { action: "status" } }),
     ]);
     if (p.data) setProviders(p.data);
     if (r.data) setRouting(r.data);
     if (f.data) setFlags(f.data);
     if (l.data) setLimits(l.data);
     if (lg.data) setLogs(lg.data as any[]);
+    if (secretResult.data?.success) {
+      setSecretStatuses(Object.fromEntries(
+        (secretResult.data.statuses as SecretStatus[]).map((status) => [status.key, status]),
+      ));
+    }
+    setKeyInputs({});
     setLoading(false);
   };
 
@@ -163,31 +184,18 @@ export function AIHubPanel() {
       admin_note: prov.admin_note,
     };
     const keyVal = keyInputs[prov.provider_key];
-    const familyKeys = getSharedFamilyKeys(prov.provider_key);
+    const secretKey = secretKeyForProvider(prov.provider_key);
 
     const { error } = await supabase.from("ai_providers").update(update).eq("id", prov.id);
 
-    if (!error && keyVal && !keyVal.includes("•")) {
-      if (familyKeys) {
-        const { error: sharedKeyError } = await supabase
-          .from("ai_providers")
-          .update({ api_key_encrypted: keyVal })
-          .in("provider_key", familyKeys);
-        if (sharedKeyError) {
-          toast.error("Błąd zapisu wspólnego klucza API");
-          setSaving(false);
-          return;
-        }
-      } else {
-        const { error: keyError } = await supabase
-          .from("ai_providers")
-          .update({ api_key_encrypted: keyVal })
-          .eq("id", prov.id);
-        if (keyError) {
-          toast.error("Błąd zapisu klucza API");
-          setSaving(false);
-          return;
-        }
+    if (!error && keyVal && secretKey) {
+      const { data: secretData, error: secretError } = await supabase.functions.invoke("admin-ai-secrets", {
+        body: { action: "set", key: secretKey, value: keyVal },
+      });
+      if (secretError || !secretData?.success) {
+        toast.error("Błąd bezpiecznego zapisu klucza API");
+        setSaving(false);
+        return;
       }
     }
 
@@ -286,27 +294,27 @@ export function AIHubPanel() {
                    </div>
                  )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {prov.provider_key !== "lovable" && !usesSharedKey && (
+                  {secretKeyForProvider(prov.provider_key) && !usesSharedKey && (
                     <div className="space-y-1">
                       <Label className="text-xs flex items-center gap-1"><Key className="h-3 w-3" /> Klucz API</Label>
-                      <div className="flex gap-1">
-                        <Input
-                          type={showKeys[prov.provider_key] ? "text" : "password"}
-                          value={keyInputs[prov.provider_key] ?? (prov.api_key_encrypted ? "••••••••••••" : "")}
-                          onChange={e => setKeyInputs(p => ({ ...p, [prov.provider_key]: e.target.value }))}
-                          placeholder="sk-..."
-                          className="text-sm"
-                        />
-                        <Button size="icon" variant="ghost" onClick={() => {
-                          setShowKeys(p => ({ ...p, [prov.provider_key]: !p[prov.provider_key] }));
-                          if (!showKeys[prov.provider_key]) setTimeout(() => setShowKeys(p => ({ ...p, [prov.provider_key]: false })), 10000);
-                        }}>
-                          {showKeys[prov.provider_key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                      </div>
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        value={keyInputs[prov.provider_key] || ""}
+                        onChange={e => setKeyInputs(p => ({ ...p, [prov.provider_key]: e.target.value }))}
+                        placeholder={secretStatuses[secretKeyForProvider(prov.provider_key)!]?.is_set ? "Ustawiony — wpisz nowy, aby nadpisać" : "Brak — wpisz nowy klucz"}
+                        className="text-sm"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {secretStatuses[secretKeyForProvider(prov.provider_key)!]?.is_set
+                          ? secretStatuses[secretKeyForProvider(prov.provider_key)!]?.is_readable
+                            ? `Skonfigurowany (${secretStatuses[secretKeyForProvider(prov.provider_key)!]?.source || "serwer"})`
+                            : "Zapisany, ale serwer nie może go odszyfrować — skonfiguruj klucz szyfrowania lub wpisz nową wartość"
+                          : "Nie skonfigurowany"}. Wartość nigdy nie jest pobierana do przeglądarki.
+                      </p>
                     </div>
                   )}
-                  {prov.provider_key !== "lovable" && usesSharedKey && (
+                  {usesSharedKey && (
                     <div className="space-y-1 md:col-span-2">
                       <Label className="text-xs flex items-center gap-1"><Key className="h-3 w-3" /> Klucz API</Label>
                       <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">

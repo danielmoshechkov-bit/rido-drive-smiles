@@ -11,7 +11,7 @@
 // ============================================================================
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getSecret, setSecret, secretStatus, encryptionAvailable } from "../_shared/aiSecrets.ts";
+import { getSecret, setSecret, secretStatus, encryptionAvailable, rotateStoredSecrets } from "../_shared/aiSecrets.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +27,11 @@ const json = (body: unknown, status = 200) =>
 // Allowlista kluczy zarządzalnych z panelu (rozszerzalna — "jeden panel na wszystko").
 // test: jak realnie zweryfikować klucz u dostawcy.
 const ALLOWED: Record<string, { group: string; test: "elevenlabs" | "twilio" | "twilio_number" | "deepgram" | null }> = {
+  ANTHROPIC_API_KEY: { group: "llm", test: null },
+  OPENAI_API_KEY: { group: "llm", test: null },
+  GEMINI_API_KEY: { group: "llm", test: null },
+  KIMI_API_KEY: { group: "llm", test: null },
+  LOVABLE_API_KEY: { group: "llm", test: null },
   ELEVENLABS_API_KEY: { group: "voice", test: "elevenlabs" },
   TWILIO_ACCOUNT_SID: { group: "voice", test: "twilio" },
   TWILIO_AUTH_TOKEN: { group: "voice", test: "twilio" },
@@ -126,7 +131,12 @@ serve(async (req) => {
     if (action === "status") {
       const keys = Object.keys(ALLOWED);
       const statuses = await Promise.all(keys.map((k) => secretStatus(admin, k)));
-      return json({ success: true, encryption: encryptionAvailable(), statuses });
+      return json({
+        success: true,
+        encryption: encryptionAvailable(),
+        rotation_available: !!Deno.env.get("AI_SECRETS_ENC_KEY_PREVIOUS"),
+        statuses,
+      });
     }
 
     if (action === "set") {
@@ -145,6 +155,15 @@ serve(async (req) => {
       if (!def.test) return json({ success: false, error: "Brak testu dla tego klucza" }, 400);
       const result = await testConnection(admin, def.test);
       return json({ success: true, ...result });
+    }
+
+    if (action === "rotate") {
+      if (!encryptionAvailable()) return json({ success: false, error: "Najpierw ustaw AI_SECRETS_ENC_KEY" }, 400);
+      if (body?.confirm !== "ROTATE_AI_SECRETS") {
+        return json({ success: false, error: "Brak jawnego potwierdzenia rotacji" }, 400);
+      }
+      const rotated = await rotateStoredSecrets(admin);
+      return json({ success: true, rotated });
     }
 
     return json({ success: false, error: "Nieznana akcja" }, 400);

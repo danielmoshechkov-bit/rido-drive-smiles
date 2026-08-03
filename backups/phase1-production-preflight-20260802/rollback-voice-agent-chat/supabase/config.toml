@@ -1,0 +1,4 @@
+project_id = "phase1-production-rollback-chat"
+
+[functions.voice-agent-chat]
+verify_jwt = false
