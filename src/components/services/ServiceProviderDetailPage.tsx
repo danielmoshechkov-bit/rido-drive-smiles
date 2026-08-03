@@ -807,6 +807,18 @@ export function ServiceProviderDetailPage() {
                   Zarezerwuj wizytę
                 </Button>
               </Card>
+
+              <div className="mt-6 space-y-6">
+                <ProviderSidebarInfo
+                  providerId={provider.id}
+                  workingHours={(provider as any).working_hours}
+                  latitude={(provider as any).latitude ?? null}
+                  longitude={(provider as any).longitude ?? null}
+                  address={provider.company_address}
+                  city={provider.company_city}
+                  companyName={provider.company_name}
+                />
+              </div>
             </div>
           </div>
         </div>
