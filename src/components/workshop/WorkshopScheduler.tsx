@@ -132,6 +132,16 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
     return vals.length ? Math.min(...vals.map(v => v.from)) : 8;
   }, [workRangeByDow]);
 
+  // Auto-scroll do pierwszej godziny pracy
+  const gridScrollRef = useRef<HTMLDivElement | null>(null);
+  const didAutoScroll = useRef(false);
+  useEffect(() => {
+    if (didAutoScroll.current || !gridScrollRef.current) return;
+    didAutoScroll.current = true;
+    gridScrollRef.current.scrollTop = Math.max(0, (firstWorkHour - 1) * ROW_HEIGHT);
+  }, [firstWorkHour]);
+
+
   // PERF C2: kalendarz pokazuje też zakończone (historia tygodnia) — 'all'
   const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
 
