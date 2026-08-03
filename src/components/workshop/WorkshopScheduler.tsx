@@ -30,6 +30,12 @@ interface Props {
 
 const ROW_HEIGHT = 56; // px — stała wysokość każdego wiersza godziny
 
+// Sloty czasowe co 5 minut (00:00 – 23:55)
+const TIME_SLOTS: string[] = Array.from({ length: (24 * 60) / 5 }, (_, i) => {
+  const m = i * 5;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+});
+
 export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrderId }: Props) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
