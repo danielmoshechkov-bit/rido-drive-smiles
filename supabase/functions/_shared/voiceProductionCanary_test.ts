@@ -131,6 +131,41 @@ test("truncated output is never treated as a finished turn", () => {
   assert.doesNotMatch(chat, /legacyReply[\s\S]{0,200}max_tokens/);
 });
 
+test("model refusals are classified and only a retryable class may fall back", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Trzy klasy odmowy rozróżnione wprost.
+  assert.match(chat, /status === 400 \? "bad_request"/);
+  assert.match(chat, /status === 429 \? "quota"/);
+  assert.match(chat, /status === 529 \? "overloaded"/);
+  // Status trafia do logu, żeby dało się odróżnić limit od błędu żądania.
+  assert.match(chat, /event: "model_failed",[\s\S]{0,120}status: modelResponse\.status/);
+
+  // Fallback tylko tam, gdzie drugi model realnie może odpowiedzieć. 400 i 429
+  // dostają ten sam klucz i to samo żądanie, więc druga próba jest bezcelowa.
+  const map = chat.slice(chat.indexOf("MODEL_FAILURE_FALLBACK"), chat.indexOf("const logTiming"));
+  assert.match(map, /bad_request: false/);
+  assert.match(map, /quota: false/);
+  assert.match(map, /overloaded: true/);
+  assert.match(chat, /if \(!MODEL_FAILURE_FALLBACK\[failure\]\) upstreamError\.allowFallback = false/);
+});
+
+test("failure sentence never misreports whether anything was saved", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+  const builder = chat.slice(chat.indexOf("const buildFailureSentence"), chat.indexOf("const logTiming"));
+
+  // Gdy rezerwacja/zlecenie powstało — nie wolno powiedzieć, że nic nie zapisano.
+  assert.match(builder, /if \(mutationCreated\)/);
+  assert.match(builder, /zapis jest już w systemie/);
+  assert.doesNotMatch(builder.slice(0, builder.indexOf("if (failure")), /Nic nie zostało/);
+  // Gdy nic nie powstało — komunikat mówi to wprost, nie udaje sukcesu.
+  assert.match(builder, /Nic nie zostało jeszcze zapisane/);
+  // Limit konta ma własny, spokojniejszy komunikat.
+  assert.match(builder, /failure === "quota"/);
+  // Rozmówca nie dostaje szczegółów technicznych.
+  assert.doesNotMatch(builder, /429|529|Anthropic|API/);
+});
+
 test("Phase 1 is unbuffered and propagates client cancellation without fallback or tools", () => {
   const llm = readFileSync(new URL("../voice-agent-llm/index.ts", import.meta.url), "utf8");
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
