@@ -848,11 +848,11 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                             <td
                               key={key}
                               rowSpan={scheduledOrder ? displaySpan : 1}
-                              className={`border-b border-r border-border/50 p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-border' : ''} ${
+                              className={`border-b border-r border-border p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${
                                 work
-                                  ? (today ? 'bg-primary/[0.06]' : 'bg-background')
-                                  : (today ? 'bg-muted/60' : 'bg-muted/40')
-                              } ${isDragOver && draggedOrder ? '!bg-primary/20 ring-2 ring-primary ring-inset' : scheduledOrder ? '' : 'hover:bg-primary/10'}`}
+                                  ? (today ? 'bg-primary/[0.10]' : 'bg-card')
+                                  : (today ? 'bg-muted' : 'bg-muted/80')
+                              } ${isDragOver && draggedOrder ? '!bg-primary/25 ring-2 ring-primary ring-inset' : scheduledOrder ? '' : 'hover:bg-primary/15'}`}
 
                               style={{ height: `${(scheduledOrder ? displaySpan : 1) * ROW_HEIGHT}px` }}
                               onClick={() => scheduledOrder ? setDetailItem(scheduledOrder) : handleCellClick(day, hour, st.id)}
