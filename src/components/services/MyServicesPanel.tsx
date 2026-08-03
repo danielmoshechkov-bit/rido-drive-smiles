@@ -20,8 +20,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Plus, Pencil, Trash2, MoreVertical, Upload, X, Clock, Phone, Wrench,
-  Copy, EyeOff, Eye, Save, Image as ImageIcon, Star, GripVertical, Sparkles, Loader2,
+  Copy, EyeOff, Eye, Save, Image as ImageIcon, Star, GripVertical, Sparkles, Loader2, Users,
 } from 'lucide-react';
+import { ProviderStaffPanel } from './ProviderStaffPanel';
 
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
 import {
@@ -98,7 +99,7 @@ const EMPTY_FORM = {
   is_active: true,
 };
 
-type SubTab = 'services' | 'hours' | 'contact';
+type SubTab = 'services' | 'hours' | 'staff' | 'contact';
 
 export function MyServicesPanel({ providerId }: { providerId: string }) {
   const queryClient = useQueryClient();
@@ -643,6 +644,7 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
   const subTabs: { key: SubTab; label: string; icon: any }[] = [
     { key: 'services', label: 'Usługi', icon: Wrench },
     { key: 'hours', label: 'Godziny pracy', icon: Clock },
+    { key: 'staff', label: 'Zespół', icon: Users },
     { key: 'contact', label: 'Dane kontaktowe', icon: Phone },
   ];
 
@@ -837,6 +839,8 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           </CardContent>
         </Card>
       )}
+
+      {subTab === 'staff' && <ProviderStaffPanel providerId={providerId} />}
 
       {subTab === 'contact' && (
         <Card className="rounded-2xl">
