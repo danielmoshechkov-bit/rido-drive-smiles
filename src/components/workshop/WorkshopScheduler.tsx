@@ -646,32 +646,31 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         </div>
       )}
 
-      {/* Unplanned orders */}
+      <div className="flex flex-wrap lg:flex-nowrap gap-3 items-start min-h-0">
+      {/* Unplanned orders — boczny panel */}
       <Card
-        className={`border-2 shadow-sm transition-all flex-shrink-0 ${dragOverUnplanned && dragSource === 'scheduled' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20' : 'border-border'}`}
+        className={`hidden lg:flex flex-col w-[270px] flex-shrink-0 border shadow-sm transition-all h-[calc(100vh-200px)] ${dragOverUnplanned && dragSource === 'scheduled' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20' : 'border-border'}`}
         onDragOver={(e) => { if (dragSource === 'scheduled') { e.preventDefault(); setDragOverUnplanned(true); } }}
         onDragLeave={() => setDragOverUnplanned(false)}
         onDrop={handleDropToUnplanned}
       >
-        <CardContent className="py-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-base">{t('workshop.scheduler.tasksToSchedule')}</h3>
-              <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1.5 ml-2 h-7 text-xs">
-                <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
-              </Button>
-              {dragSource === 'scheduled' && (
-                <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse">
-                  <Undo2 className="h-3 w-3" /> {t('workshop.scheduler.dropToUnschedule')}
-                </span>
-              )}
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-[200px] h-8" />
-            </div>
+        <CardContent className="py-3 px-3 flex flex-col min-h-0 flex-1">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="font-semibold text-sm">{t('workshop.scheduler.tasksToSchedule')}</h3>
+            <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1 h-7 text-xs">
+              <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
+            </Button>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          {dragSource === 'scheduled' && (
+            <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse mb-2">
+              <Undo2 className="h-3 w-3" /> {t('workshop.scheduler.dropToUnschedule')}
+            </span>
+          )}
+          <div className="relative mb-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-full h-8" />
+          </div>
+          <div className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
             {unplannedOrders.length === 0 ? (
               <div className="text-sm text-muted-foreground py-3 text-center w-full">{t('workshop.scheduler.noTasksToSchedule')}</div>
             ) : (
@@ -682,6 +681,30 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           </div>
         </CardContent>
       </Card>
+
+      {/* Mobilny pasek zadań */}
+      <Card className="lg:hidden border shadow-sm w-full">
+        <CardContent className="py-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-sm">{t('workshop.scheduler.tasksToSchedule')}</h3>
+            <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1 h-7 text-xs">
+              <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
+            </Button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {unplannedOrders.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-3 text-center w-full">{t('workshop.scheduler.noTasksToSchedule')}</div>
+            ) : (
+              unplannedOrders.map((o: any) => (
+                <OrderCard key={`m-${o.id}`} tc={tc} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} isFocused={o.id === focusOrderId} employees={employees} updateOrder={updateOrder} />
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex-1 min-w-0">
+
 
       {/* Category tabs + controls */}
       <div className="flex items-center justify-between flex-wrap gap-2 my-2 flex-shrink-0">
@@ -748,8 +771,8 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         </div>
       ) : (
         /* Day/Week grid */
-        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-2xl border border-border bg-card shadow-sm flex flex-col">
-          <div ref={gridScrollRef} className="flex-1 min-h-0 overflow-auto">
+        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-card shadow-sm flex flex-col">
+          <div ref={gridScrollRef} className="flex-1 min-h-0 overflow-auto rounded-2xl [&_table]:rounded-2xl">
 
             <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
@@ -785,21 +808,24 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                       const today = isToday(day);
                       const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                       return (
-                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-border p-1.5 text-center ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${today ? 'bg-primary/15 border-b-primary' : 'bg-muted/60'}`}>
-                          <div className={`font-bold text-[10px] uppercase tracking-wider ${today ? 'text-primary' : 'text-muted-foreground'}`}>{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
-                          <div className={`text-sm font-extrabold tabular-nums ${today ? 'text-primary' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
+                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b border-r border-slate-400 dark:border-slate-600 p-1 text-center bg-[hsl(220,14%,97%)] dark:bg-[hsl(220,14%,16%)] ${isLastDayOfStation ? 'border-r-2 border-r-primary-foreground/60' : ''}`}>
+                          <div className={`mx-1 rounded-xl py-1 ${today ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}>
+                            <div className={`font-semibold text-[10px] uppercase tracking-wider ${today ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
+                            <div className={`text-sm font-bold tabular-nums ${today ? 'text-primary-foreground' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
+                          </div>
                         </th>
                       );
                     })
                   )}
                 </tr>
+
               </thead>
               <tbody>
                 {HOURS.map((hour) => {
                   const anyWork = weekDays.some(d => isWorkHour(d, hour));
                   return (
                     <tr key={hour} style={{ height: `${ROW_HEIGHT}px` }}>
-                      <td className={`border-b border-r-2 border-border p-1.5 text-right text-xs sticky left-0 z-10 tabular-nums ${anyWork ? 'bg-card text-foreground font-extrabold' : 'bg-muted/70 text-muted-foreground font-semibold'}`} style={{ height: `${ROW_HEIGHT}px` }}>
+                      <td className={`border-b border-r-2 border-slate-400 dark:border-slate-600 p-1.5 text-right text-xs sticky left-0 z-10 tabular-nums ${anyWork ? 'bg-white dark:bg-card text-foreground font-extrabold' : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)] text-muted-foreground font-semibold'}`} style={{ height: `${ROW_HEIGHT}px` }}>
                         {`${String(hour).padStart(2, '0')}:00`}
                       </td>
 
@@ -848,10 +874,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                             <td
                               key={key}
                               rowSpan={scheduledOrder ? displaySpan : 1}
-                              className={`border-b border-r border-border p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${
+                              className={`border-b border-r border-slate-400 dark:border-slate-600 p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-slate-500 dark:border-r-slate-400' : ''} ${
                                 work
-                                  ? (today ? 'bg-primary/[0.10]' : 'bg-card')
-                                  : (today ? 'bg-muted' : 'bg-muted/80')
+                                  ? (today ? 'bg-primary/[0.06]' : 'bg-white dark:bg-card')
+                                  : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)]'
                               } ${isDragOver && draggedOrder ? '!bg-primary/25 ring-2 ring-primary ring-inset' : scheduledOrder ? '' : 'hover:bg-primary/15'}`}
 
                               style={{ height: `${(scheduledOrder ? displaySpan : 1) * ROW_HEIGHT}px` }}
@@ -888,6 +914,9 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           </div>
         </div>
       )}
+      </div>
+      </div>
+
 
       {/* Add Station Dialog */}
       <Dialog open={showAddStation} onOpenChange={setShowAddStation}>
@@ -1618,35 +1647,44 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                     {`${(editHourStr || '00').padStart(2, '0')}:${(editMinStr || '00').padStart(2, '0')}`}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[220px] p-2 z-[100]" align="start">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Input
-                      inputMode="numeric" value={editHourStr}
-                      onFocus={e => e.target.select()}
-                      onChange={e => setEditHourStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                      onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
-                      className="h-8 text-sm text-center" placeholder="HH"
-                    />
-                    <span className="text-sm font-bold">:</span>
-                    <Input
-                      inputMode="numeric" value={editMinStr}
-                      onFocus={e => e.target.select()}
-                      onChange={e => setEditMinStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
-                      onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
-                      className="h-8 text-sm text-center" placeholder="MM"
-                    />
-                  </div>
-                  <div className="max-h-52 overflow-y-auto grid grid-cols-3 gap-1">
-                    {TIME_SLOTS.map(s => {
-                      const active = s === `${(editHourStr || '00').padStart(2, '0')}:${(editMinStr || '00').padStart(2, '0')}`;
-                      return (
-                        <button
-                          key={s} type="button"
-                          onClick={() => { const [h, m] = s.split(':'); setEditHourStr(h); setEditMinStr(m); }}
-                          className={`text-xs rounded-lg py-1 transition-colors ${active ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-primary/10'}`}
-                        >{s}</button>
-                      );
-                    })}
+                <PopoverContent className="w-[200px] p-0 z-[100] rounded-2xl overflow-hidden" align="start">
+                  <div className="grid grid-cols-2 divide-x divide-border">
+                    <div>
+                      <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 text-center">godz.</div>
+                      <div
+                        className="max-h-56 overflow-y-auto overscroll-contain p-1 space-y-0.5"
+                        onWheel={(e) => { e.currentTarget.scrollTop += e.deltaY; }}
+                      >
+                        {Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')).map(h => {
+                          const active = h === (editHourStr || '00').padStart(2, '0');
+                          return (
+                            <button
+                              key={h} type="button"
+                              onClick={() => setEditHourStr(h)}
+                              className={`w-full text-sm rounded-lg py-1 tabular-nums transition-colors ${active ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-primary/10'}`}
+                            >{h}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 text-center">min.</div>
+                      <div
+                        className="max-h-56 overflow-y-auto overscroll-contain p-1 space-y-0.5"
+                        onWheel={(e) => { e.currentTarget.scrollTop += e.deltaY; }}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0')).map(m => {
+                          const active = m === (editMinStr || '00').padStart(2, '0');
+                          return (
+                            <button
+                              key={m} type="button"
+                              onClick={() => setEditMinStr(m)}
+                              className={`w-full text-sm rounded-lg py-1 tabular-nums transition-colors ${active ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-primary/10'}`}
+                            >{m}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </PopoverContent>
               </Popover>

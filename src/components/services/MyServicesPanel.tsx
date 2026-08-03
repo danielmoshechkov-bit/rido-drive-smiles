@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { geocodeWithCityFallback } from '@/lib/geocode';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { groupCategories, groupIdForSlug, SERVICE_CATEGORY_GROUPS, OTHER_GROUP } from '@/lib/service-category-groups';
@@ -19,8 +20,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Plus, Pencil, Trash2, MoreVertical, Upload, X, Clock, Phone, Wrench,
-  Copy, EyeOff, Eye, Save, Image as ImageIcon, Star, GripVertical, Sparkles, Loader2,
+  Copy, EyeOff, Eye, Save, Image as ImageIcon, Star, GripVertical, Sparkles, Loader2, Users,
 } from 'lucide-react';
+import { ProviderStaffPanel } from './ProviderStaffPanel';
 
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
 import {
@@ -97,7 +99,7 @@ const EMPTY_FORM = {
   is_active: true,
 };
 
-type SubTab = 'services' | 'hours' | 'contact';
+type SubTab = 'services' | 'hours' | 'staff' | 'contact';
 
 export function MyServicesPanel({ providerId }: { providerId: string }) {
   const queryClient = useQueryClient();
@@ -594,8 +596,17 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
 
   const saveContact = useMutation({
     mutationFn: async () => {
+      // Auto-geokodowanie: firma od razu pojawia się na Mapie GetRido
+      let geo: { latitude?: number; longitude?: number } = {};
+      const point = await geocodeWithCityFallback({
+        address: contact.company_address,
+        postalCode: contact.company_postal_code,
+        city: contact.company_city,
+      });
+      if (point) geo = { latitude: point.lat, longitude: point.lng };
+
       const { error } = await (supabase as any)
-        .from('service_providers').update(contact).eq('id', providerId);
+        .from('service_providers').update({ ...contact, ...geo }).eq('id', providerId);
       if (error) throw error;
       if (provider?.user_id) {
         await (supabase as any).from('workshop_settings').update({
@@ -607,10 +618,15 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           website: contact.company_website,
         }).eq('user_id', provider.user_id);
       }
+      return !!point;
     },
-    onSuccess: () => {
+    onSuccess: (located) => {
       queryClient.invalidateQueries({ queryKey: ['provider-profile-contact', providerId] });
-      toast.success('Dane kontaktowe zapisane i zsynchronizowane z Ustawieniami firmy');
+      toast.success(
+        located
+          ? 'Dane zapisane — firma widoczna na Mapie GetRido'
+          : 'Dane kontaktowe zapisane (nie udało się ustalić lokalizacji z adresu)'
+      );
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -628,6 +644,7 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
   const subTabs: { key: SubTab; label: string; icon: any }[] = [
     { key: 'services', label: 'Usługi', icon: Wrench },
     { key: 'hours', label: 'Godziny pracy', icon: Clock },
+    { key: 'staff', label: 'Zespół', icon: Users },
     { key: 'contact', label: 'Dane kontaktowe', icon: Phone },
   ];
 
@@ -822,6 +839,8 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           </CardContent>
         </Card>
       )}
+
+      {subTab === 'staff' && <ProviderStaffPanel providerId={providerId} />}
 
       {subTab === 'contact' && (
         <Card className="rounded-2xl">

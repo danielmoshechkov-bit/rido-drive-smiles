@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import SEOHead from '@/components/SEOHead';
+import { buildLocalBusinessJsonLd } from '@/lib/seo-schema';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +14,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ServiceBookingModal } from './ServiceBookingModal';
+import { ProviderSidebarInfo } from './ProviderSidebarInfo';
 import { getServiceCoverImage } from './serviceCategoryImages';
 import { cn } from '@/lib/utils';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
@@ -314,6 +317,32 @@ export function ServiceProviderDetailPage() {
     return name.charAt(0) + '***@***.' + domain?.split('.').pop();
   };
 
+  // ── Automatyczne SEO: title/opis/canonical + JSON-LD LocalBusiness ──
+  const seoJsonLd = useMemo(
+    () =>
+      provider
+        ? buildLocalBusinessJsonLd({
+            id: provider.id,
+            name: provider.company_name,
+            description: provider.description,
+            address: provider.company_address,
+            city: provider.company_city,
+            postalCode: (provider as any).company_postal_code ?? null,
+            phone: provider.company_phone,
+            email: provider.company_email,
+            website: provider.company_website,
+            image: provider.cover_image_url || provider.logo_url,
+            lat: (provider as any).latitude ?? null,
+            lng: (provider as any).longitude ?? null,
+            ratingAvg: provider.rating_avg,
+            ratingCount: provider.rating_count,
+            workingHours: (provider as any).working_hours ?? null,
+            services: services.map((s) => ({ name: s.name, priceFrom: s.price_from ?? s.price })),
+          })
+        : null,
+    [provider, services]
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -336,6 +365,20 @@ export function ServiceProviderDetailPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+      <SEOHead
+        title={`${provider.company_name}${provider.company_city ? ` — ${provider.company_city}` : ''} | GetRido`}
+        description={
+          (provider.description || '').slice(0, 155) ||
+          `${provider.company_name} — sprawdzony usługodawca${provider.company_city ? ` w mieście ${provider.company_city}` : ''}. Cennik, opinie i rezerwacja terminu online w GetRido.`
+        }
+        keywords={[provider.company_name, provider.company_city, provider.category?.name, 'usługi', 'GetRido']
+          .filter(Boolean)
+          .join(', ')}
+        canonicalUrl={`https://getrido.pl/uslugi/uslugodawca/${provider.id}`}
+        ogImage={provider.cover_image_url || provider.logo_url || undefined}
+        schemaType="LocalBusiness"
+        schemaData={seoJsonLd || undefined}
+      />
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -765,6 +808,18 @@ export function ServiceProviderDetailPage() {
                   Zarezerwuj wizytę
                 </Button>
               </Card>
+
+              <div className="mt-6 space-y-6">
+                <ProviderSidebarInfo
+                  providerId={provider.id}
+                  workingHours={(provider as any).working_hours}
+                  latitude={(provider as any).latitude ?? null}
+                  longitude={(provider as any).longitude ?? null}
+                  address={provider.company_address}
+                  city={provider.company_city}
+                  companyName={provider.company_name}
+                />
+              </div>
             </div>
           </div>
         </div>
