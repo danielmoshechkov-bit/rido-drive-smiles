@@ -3475,7 +3475,7 @@
       "model": "Modell",
       "modelPlaceholder": "z. B. Corolla",
       "serviceDesc": "Servicebeschreibung",
-      "serviceDescPlaceholder": "z. B. Öl- und Filterwechsel",
+      "serviceDescPlaceholder": "z. B. Reifenwechsel, Wäsche, Reparatur…",
       "serviceDuration": "Servicedauer",
       "dur30min": "30 Min",
       "dur1h": "1 Std.",
