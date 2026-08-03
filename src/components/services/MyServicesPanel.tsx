@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { geocodeAddress, buildFullAddress } from '@/lib/geocode';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { groupCategories, groupIdForSlug, SERVICE_CATEGORY_GROUPS, OTHER_GROUP } from '@/lib/service-category-groups';
@@ -594,8 +595,18 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
 
   const saveContact = useMutation({
     mutationFn: async () => {
+      // Auto-geokodowanie: firma od razu pojawia się na Mapie GetRido
+      let geo: { latitude?: number; longitude?: number } = {};
+      const full = buildFullAddress({
+        address: contact.company_address,
+        postalCode: contact.company_postal_code,
+        city: contact.company_city,
+      });
+      const point = await geocodeAddress(full);
+      if (point) geo = { latitude: point.lat, longitude: point.lng };
+
       const { error } = await (supabase as any)
-        .from('service_providers').update(contact).eq('id', providerId);
+        .from('service_providers').update({ ...contact, ...geo }).eq('id', providerId);
       if (error) throw error;
       if (provider?.user_id) {
         await (supabase as any).from('workshop_settings').update({
@@ -607,10 +618,15 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
           website: contact.company_website,
         }).eq('user_id', provider.user_id);
       }
+      return !!point;
     },
-    onSuccess: () => {
+    onSuccess: (located) => {
       queryClient.invalidateQueries({ queryKey: ['provider-profile-contact', providerId] });
-      toast.success('Dane kontaktowe zapisane i zsynchronizowane z Ustawieniami firmy');
+      toast.success(
+        located
+          ? 'Dane zapisane — firma widoczna na Mapie GetRido'
+          : 'Dane kontaktowe zapisane (nie udało się ustalić lokalizacji z adresu)'
+      );
     },
     onError: (e: any) => toast.error(e.message),
   });

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSeo, buildLocalBusinessJsonLd } from '@/hooks/useSeo';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -313,6 +314,38 @@ export function ServiceProviderDetailPage() {
     const [name, domain] = email.split('@');
     return name.charAt(0) + '***@***.' + domain?.split('.').pop();
   };
+
+  // ── Automatyczne SEO: title/opis/canonical + JSON-LD LocalBusiness ──
+  useSeo(
+    provider
+      ? {
+          title: `${provider.company_name}${provider.company_city ? ` — ${provider.company_city}` : ''} | GetRido`,
+          description:
+            (provider.description || '').slice(0, 155) ||
+            `${provider.company_name} — sprawdzony usługodawca${provider.company_city ? ` w mieście ${provider.company_city}` : ''}. Zobacz cennik, opinie i umów termin online w GetRido.`,
+          canonicalPath: `/uslugi/uslugodawca/${provider.id}`,
+          image: provider.cover_image_url || provider.logo_url || undefined,
+          type: 'business.business',
+          jsonLd: buildLocalBusinessJsonLd({
+            id: provider.id,
+            name: provider.company_name,
+            description: provider.description,
+            address: provider.company_address,
+            city: provider.company_city,
+            phone: provider.company_phone,
+            email: provider.company_email,
+            website: provider.company_website,
+            image: provider.cover_image_url || provider.logo_url,
+            lat: (provider as any).latitude ?? null,
+            lng: (provider as any).longitude ?? null,
+            ratingAvg: provider.rating_avg,
+            ratingCount: provider.rating_count,
+            workingHours: (provider as any).working_hours ?? null,
+            services: services.map((s) => ({ name: s.name, priceFrom: s.price_from ?? s.price })),
+          }),
+        }
+      : null
+  );
 
   if (loading) {
     return (
