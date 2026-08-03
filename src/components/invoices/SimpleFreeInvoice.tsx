@@ -156,12 +156,6 @@ interface PrefillBuyer {
   phone?: string;
 }
 
-const VEHICLE_NOTES_PREF_KEY = 'invoice_include_vehicle_notes';
-const ORDER_NOTES_PREF_KEY = 'invoice_include_order_notes';
-const readNotesPref = (key: string) => {
-  try { return localStorage.getItem(key) === '1'; } catch { return false; }
-};
-
 interface SimpleFreeInvoiceProps {
   onClose?: () => void;
   onSaved?: () => void;
@@ -169,10 +163,10 @@ interface SimpleFreeInvoiceProps {
   prefillItems?: PrefillItem[];
   prefillBuyer?: PrefillBuyer;
   prefillNotes?: string;
-  /** Dane pojazdu (marka/model/nr rej/VIN) — trafiają do uwag tylko po zaznaczeniu
-      checkboxa „Dodaj dane pojazdu"; wybór pamiętany między fakturami. */
+  /** Dane pojazdu (marka/model/nr rej/VIN) — wstawiane do uwag tylko gdy user zaznaczy
+      checkbox „Dodaj dane pojazdu"; stan pamiętany w localStorage. */
   prefillVehicleNotes?: string;
-  /** Nr zlecenia („Do zlecenia: X") — osobny checkbox i osobna pamięć wyboru. */
+  /** Nr zlecenia („Do zlecenia: X") — osobny checkbox „Dodaj nr zlecenia", osobna pamięć. */
   prefillOrderNotes?: string;
   prefillOrderNumber?: string;
   prefillWorkshopOrderId?: string;
@@ -183,6 +177,9 @@ interface SimpleFreeInvoiceProps {
   prefillFiscalReceiptId?: string;
   prefillFiscalReceiptNumber?: number | null;
 }
+
+const VEHICLE_NOTES_PREF_KEY = 'invoice_include_vehicle_notes';
+const ORDER_NOTES_PREF_KEY = 'invoice_include_order_notes';
 
 export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillVehicleNotes, prefillOrderNotes, prefillOrderNumber, prefillWorkshopOrderId, prefillFiscalReceiptId, prefillFiscalReceiptNumber }: SimpleFreeInvoiceProps = {}) {
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -209,8 +206,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   const [issuePlace, setIssuePlace] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'cash' | 'card'>('transfer');
   const [notes, setNotes] = useState('');
-  // Dwa niezależne checkboxy nad uwagami. Każdy pamięta ostatni wybór użytkownika,
-  // więc raz zaznaczone „Dodaj nr zlecenia" działa też na kolejnych fakturach.
+  // Checkboxy „Dodaj dane pojazdu" / „Dodaj nr zlecenia" — niezależne, każdy pamięta
+  // ostatni wybór usera w localStorage; pierwszy raz: odznaczone.
+  const readNotesPref = (key: string) => {
+    try { return localStorage.getItem(key) === '1'; } catch { return false; }
+  };
   const [includeVehicleNotes, setIncludeVehicleNotes] = useState<boolean>(
     () => !!prefillVehicleNotes && readNotesPref(VEHICLE_NOTES_PREF_KEY)
   );
@@ -548,11 +548,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
     if (initialNotes) setNotes(initialNotes);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Wstawia/usuwa dany blok w uwagach, nie ruszając tego, co user dopisał ręcznie.
+  // Wstaw/usuń dany blok (dane pojazdu / nr zlecenia) w uwagach; ręczne dopiski usera
+  // zostają nietknięte. Każdy checkbox działa niezależnie i pamięta swój stan.
   const toggleNotesBlock = (block: string | undefined, prefKey: string, setChecked: (v: boolean) => void) =>
     (checked: boolean) => {
       setChecked(checked);
-      try { localStorage.setItem(prefKey, checked ? '1' : '0'); } catch { /* tryb prywatny */ }
+      try { localStorage.setItem(prefKey, checked ? '1' : '0'); } catch { /* np. tryb prywatny */ }
       if (!block) return;
       setNotes(prev => {
         if (checked) {

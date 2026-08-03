@@ -844,8 +844,10 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     /* Layout oparty na display:table (zamiast flex) — renderuje się poprawnie w Dompdf i w Chrome. */
     .top-meta { text-align: right; font-size: 12px; color: #333; margin-bottom: 3px; }
     .header { display: table; width: 100%; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid ${themeColor}; }
+    /* Data (top-meta) siedzi w prawej kolumnie nagłówka, więc tabela nagłówka zaczyna się
+       na górze kartki — vertical-align:middle centruje logo w CAŁEJ przestrzeni nad linią. */
     .logo-area { display: table-cell; vertical-align: middle; width: 55%; }
-    .logo-area img { max-width: 264px; max-height: 84px; width: auto; height: auto; }
+    .logo-area img { max-width: 264px; max-height: 84px; width: auto; height: auto; vertical-align: middle; }
     .invoice-title { display: table-cell; vertical-align: top; text-align: right; }
     /* Zwarta lista w prawym górnym rogu — osobne divy z małymi marginesami i
        line-height 1.0 (Dompdf pewniej respektuje margin niż line-height na <br>). */
@@ -952,10 +954,6 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     return `<div class="draft-watermark"><div class="draft-watermark-inner">${repeated}</div></div>`;
   })()}
   <div class="invoice content-layer">
-    <div class="top-meta">
-      ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
-    </div>
-
     <div class="header">
       <div class="logo-area">
         ${seller.logo_url
@@ -963,9 +961,12 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           : ''}
       </div>
       <div class="invoice-title">
+        <div class="top-meta">
+          ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
+        </div>
         ${isServiceConfirmation ? (() => {
-          // „POTWIERDZENIE WYKONANIA / USŁUGI: PWU-…" — tytul i tak lamie sie na dwie
-          // linie, wiec numer dostawiamy do drugiej zamiast zostawiac go samego.
+          // „POTWIERDZENIE WYKONANIA / USŁUGI: PWU-…" — tytuł i tak łamie się na dwie
+          // linie, więc numer dostawiamy do drugiej zamiast zostawiać go samego.
           const words = invoiceTitle.trim().split(/\s+/);
           const tail = words.pop() || invoiceTitle;
           const head = words.join(' ');

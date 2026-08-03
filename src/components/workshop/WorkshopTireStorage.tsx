@@ -28,6 +28,36 @@ interface Props {
   onBack: () => void;
 }
 
+// Stan przypomnienia o odbiorze — ta sama arytmetyka co w widoku
+// `workshop_tire_reminders_due`, z którego korzysta wysyłka: termin wpisany ręcznie
+// ma pierwszeństwo, inaczej liczymy od przyjęcia + zadeklarowane miesiące.
+// Warsztat musi widzieć, czy klient dostał wiadomość — automat działający
+// niewidocznie jest nie do odróżnienia od automatu, który nie działa.
+function reminderState(r: any): { label: string; className: string } {
+  if ((r.reminder_channel ?? 'sms') === 'none') {
+    return { label: 'bez przypomnień', className: 'text-muted-foreground' };
+  }
+  if (r.reminder_sent_at) {
+    const kanal = r.reminder_channel === 'email' ? 'mail' : 'SMS';
+    return {
+      label: `✓ ${kanal} ${new Date(r.reminder_sent_at).toLocaleDateString('pl-PL')}`,
+      className: 'text-emerald-600',
+    };
+  }
+  const due = r.pickup_deadline
+    ? new Date(r.pickup_deadline)
+    : r.stored_at
+      ? new Date(new Date(r.stored_at).setMonth(new Date(r.stored_at).getMonth() + (r.reminder_months ?? 6)))
+      : null;
+  if (!due) return { label: '—', className: 'text-muted-foreground' };
+
+  const dni = Math.ceil((due.getTime() - Date.now()) / 86_400_000);
+  const data = due.toLocaleDateString('pl-PL');
+  if (dni < 0) return { label: `termin minął ${data}`, className: 'text-destructive' };
+  if (dni <= 7) return { label: `za ${dni} dni (${data})`, className: 'text-amber-600' };
+  return { label: data, className: 'text-muted-foreground' };
+}
+
 // Hooks for tire storage data
 function useTireStorageRecords(providerId: string, view: 'stored' | 'issued' = 'stored') {
   return useQuery({
@@ -234,6 +264,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                 <TableHead>{t('workshop.tireStorage.col.vehicle')}</TableHead>
                 <TableHead>{t('workshop.tireStorage.col.location')}</TableHead>
                 <TableHead>{t('workshop.tireStorage.col.receivedDate')}</TableHead>
+                <TableHead>Przypomnienie</TableHead>
                 <TableHead>{t('workshop.tireStorage.col.cost')}</TableHead>
                 <TableHead className="text-right">Akcje</TableHead>
               </TableRow>
@@ -241,7 +272,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-12 text-muted-foreground">
                     <Archive className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     {isLoading ? t('common.loading') : t('workshop.tireStorage.noData')}
                   </TableCell>
@@ -257,6 +288,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                   <TableCell className="text-xs">{r.workshop_vehicles ? `${r.workshop_vehicles.brand} ${r.workshop_vehicles.model} ${r.workshop_vehicles.plate}` : '—'}</TableCell>
                   <TableCell className="text-xs">{r.location_name || '—'}</TableCell>
                   <TableCell className="text-xs">{r.stored_at ? new Date(r.stored_at).toLocaleDateString('pl-PL') : '—'}</TableCell>
+                  <TableCell className={`text-xs ${reminderState(r).className}`}>{reminderState(r).label}</TableCell>
                   <TableCell className="font-medium">{(r.storage_cost || 0).toFixed(2)} zł</TableCell>
                   <TableCell className="text-right whitespace-nowrap">
                     <Button

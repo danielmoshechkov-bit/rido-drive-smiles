@@ -86,6 +86,8 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   // (z przyciskami „Pobierz PDF" i „Drukuj"), zamiast wyrzucać surowy HTML do
   // nowej karty i od razu otwierać okno drukowania.
   const [confirmationData, setConfirmationData] = useState<any>(null);
+  // Uwagi na fakturze rozbite na dwa niezależne pola (dane pojazdu / numer zlecenia) —
+  // każde ma własny przełącznik, bo warsztat nie zawsze chce oba naraz.
   const [invoiceVehicleNotes, setInvoiceVehicleNotes] = useState('');
   const [invoiceOrderNotes, setInvoiceOrderNotes] = useState('');
   const [fiscalOrder, setFiscalOrder] = useState<any>(null);
@@ -337,9 +339,9 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         buyer.email = order.client.email || '';
       }
 
-      // Dane pojazdu i nr zlecenia nie lądują w uwagach z automatu — o każdym z nich
-      // decyduje osobny checkbox w oknie faktury. Wypisujemy tylko wypełnione pola,
-      // żeby nie zostawały puste etykiety w stylu „Marka: , Model: ,".
+      // Dane pojazdu i nr zlecenia NIE trafiają do uwag automatycznie — SimpleFreeInvoice
+      // pokaże dwa niezależne checkboxy (stany pamiętane między fakturami).
+      // Tylko wypełnione pola — bez pustych etykiet typu "Marka: ,".
       const vehicleDesc = order.vehicle
         ? [
             order.vehicle.brand ? `Marka: ${order.vehicle.brand}` : '',

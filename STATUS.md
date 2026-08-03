@@ -146,8 +146,7 @@ tabele, osobne numeracje i osobne dowody wewnętrzne.
 
 ## 4a. Zanim wdrożysz na produkcję
 
-1. **Wykonaj migrację** `20260802_fiscal_month_report.sql` (ślad raportu miesięcznego).
-   Bez niej „Oznacz jako wykonany" zwróci komunikat o brakującej migracji — reszta działa.
+1. ~~Wykonaj migrację `20260802_fiscal_month_report.sql`~~ — wykonana 2.08 wraz z dwiema pozostałymi.
 2. **Wyczyść dane testowe**: `scripts/sql/cleanup-fiscal-test-data.sql` (paragony szkoleniowe
    i powstałe z nich wpłaty). Skrypt najpierw pokazuje liczby, kasuje dopiero po `COMMIT`.
 3. **Zainstaluj mostek jako usługę** na komputerze przy drukarce (`scripts/elzab/service/`).
@@ -202,16 +201,50 @@ naprawione tutaj, bo blokowały pracę z kasą.
 
 | # | Krok | Stan |
 |---|---|---|
-| 1 | Migracja `20260802_fiscal_month_report.sql` | ❌ niewykonana |
-| 2 | Migracja `20260802_cash_auto_close.sql` | ❌ niewykonana |
-| 3 | Migracja `20260802_tire_reminder_channel.sql` | ❌ niewykonana |
-| 4 | Skrypt `merge-duplicate-vehicles.sql` (38 numerów z duplikatami) | ❌ nieuruchomiony |
+| 1 | Migracja `20260802_fiscal_month_report.sql` | ✅ wykonana 2.08 |
+| 2 | Migracja `20260802_cash_auto_close.sql` | ✅ wykonana 2.08 |
+| 3 | Migracja `20260802_tire_reminder_channel.sql` | ✅ wykonana 2.08 |
+| 4 | Skrypt `merge-duplicate-vehicles.sql` | ✅ 2.08 — scalono 35 grup, 37 rekordów, 1 zlecenie przepięte |
 | 5 | Sprzątnięcie danych testowych fiskalizacji | ✅ wykonane (log pusty) |
-| 6 | Wciągnięcie `main` do gałęzi i sprawdzenie konfliktów | ❌ do zrobienia |
+| 6 | Scalenie do `main` | ✅ PR #11 i PR #12, deploy na getrido.pl |
 | 7 | `npm run build` i `tsc --noEmit` | ✅ czyste |
 
-Bez kroków 1–3 trzy funkcje zgłoszą brak migracji zamiast działać (ślad raportu miesięcznego,
-automat zamknięcia, kanał przypomnień). Reszta modułu działa niezależnie od nich.
+Duplikaty: 3 numery (KWA57168, WU3111L, WY5257K) zostały **świadomie pominięte** — mają
+dwóch różnych właścicieli, a to zwykle zmiana właściciela auta, nie duplikat. Scala je
+człowiek, po sprawdzeniu VIN-u.
+
+Migracje wykonane przez `supabase db query --linked -f <plik>`. To jedyna działająca droga:
+`supabase db push` odmawia, bo historia migracji w bazie (Lovable nadaje własne, 14-cyfrowe
+wersje) nie zgadza się z nazwami plików w repo — naprawa historii ruszyłaby setki starych
+wpisów, więc jej nie robimy. Po DDL trzeba jeszcze `notify pgrst, 'reload schema'`, inaczej
+API zwraca `PGRST204` mimo istniejącej kolumny.
+
+---
+
+## 4d. Etap domykający (2.08) — co zostało uruchomione
+
+| Rzecz | Stan |
+|---|---|
+| Przypomnienia o odbiorze opon | ✅ działają: widok + funkcja `workshop-tire-reminders` + cron 8:00 UTC |
+| Faktury: logo, podgląd stronicowany, dwa przełączniki uwag | ✅ wdrożone (gałąź `fix/faktura-logo-podglad`) |
+| KSeF: procedura marży w XML FA(3) | ✅ wdrożone (gałąź `fix/ksef-pobieranie`) |
+| Duplikaty pojazdów | ✅ scalone |
+
+**Przypomnienia o oponach — jak to działa.** Funkcja nie wysyła SMS-a sama: wkłada go do
+istniejącej kolejki `workshop_sms_log`, którą co minutę opróżnia `workshop-send-scheduled-sms`.
+Dzięki temu dziedziczy ustawienia bramki SMS warsztatu, obsługę błędów i ochronę przed
+podwójną wysyłką. Mail idzie bezpośrednio Resendem.
+
+Okno wysyłki: **od 7 dni przed terminem do 30 dni po**. Górna granica jest celowa — bez niej
+pierwsze uruchomienie rozesłałoby przypomnienia o kompletach sprzed kilku sezonów. Zaległości
+starsze niż miesiąc to temat na telefon, nie na automat.
+
+Tryb `dryRun` (`{"dryRun": true}` w ciele wywołania) pokazuje, komu poszłoby przypomnienie,
+bez wysyłania czegokolwiek — używać przed każdą zmianą reguł.
+
+**Konflikt KSeF rozwiązany na korzyść `main`:** gałąź `fix/ksef-pobieranie` była starsza i
+miała prymitywne mapowanie stawek; `main` ma pełne rubryki P_13/P_14 i korekty różnicowe.
+Przeszczepiona została wyłącznie logika marży, reszta została z `main`.
 
 ---
 

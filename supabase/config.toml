@@ -239,6 +239,9 @@ verify_jwt = false
 [functions.workshop-send-scheduled-sms]
 verify_jwt = false
 
+[functions.workshop-tire-reminders]
+verify_jwt = false
+
 [functions.admin-users]
 verify_jwt = false
 
