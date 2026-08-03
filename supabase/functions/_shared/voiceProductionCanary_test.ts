@@ -221,6 +221,39 @@ test("conversation id probe collects evidence without leaking the value", () => 
   assert.doesNotMatch(llm, /conversation_id\s*:\s*conversation/);
 });
 
+test("technical failure notifies the workshop and never guesses the caller gender", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Powiadomienie warsztatu idzie na numer firmowy, po wysłaniu tekstu, ale przed
+  // zamknięciem strumienia — inaczej żądanie mogłoby zakończyć się przed SMS-em.
+  assert.match(chat, /const notifyWorkshopCallback = async/);
+  assert.match(chat, /select\("company_phone"\)/);
+  assert.match(chat, /sms_type: "ai_callback_request"/);
+  // Wysyłka jest wyłączona do czasu conversation_id — bez niego jedna rozmowa
+  // mogłaby wysłać kilka SMS-ów, bo każda tura to osobne żądanie.
+  assert.match(chat, /const CALLBACK_SMS_ENABLED = false;/);
+  assert.match(chat, /if \(CALLBACK_SMS_ENABLED\) await notifyWorkshopCallback/);
+  const catchBlock = chat.slice(chat.indexOf('event: "stream_failed"'), chat.indexOf("cancel() {"));
+  assert.ok(
+    catchBlock.indexOf("data: [DONE]") < catchBlock.indexOf("await notifyWorkshopCallback"),
+    "SMS nie może opóźniać mowy — musi iść po wysłaniu tekstu",
+  );
+  assert.ok(
+    catchBlock.indexOf("await notifyWorkshopCallback") < catchBlock.indexOf("controller.close()"),
+    "SMS musi wyjść przed zamknięciem strumienia",
+  );
+  // Numery nigdy nie trafiają do logu.
+  assert.doesNotMatch(chat, /callback_sms[\s\S]{0,120}(target|company_phone|callerNumber)\s*[,}]/);
+
+  // Anulowanie przez rozmówcę domyka strumień zamiast zostawiać go wiszącym.
+  assert.match(chat, /if \(canaryAbortSignal\.aborted\) \{[\s\S]{0,140}controller\.close\(\)/);
+
+  // Płeć: bez zgadywania po głosie, formy bezosobowe do czasu poznania imienia.
+  assert.match(chat, /NIGDY nie zgaduj płci rozmówcy po głosie/);
+  assert.match(chat, /bez słowa "Pan" i bez słowa "Pani"/);
+  assert.match(chat, /Imienia używaj oszczędnie, nazwiska nie powtarzaj/);
+});
+
 test("conversation window keeps the whole call, not just the last few turns", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
