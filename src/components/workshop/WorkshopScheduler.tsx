@@ -808,14 +808,17 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                       const today = isToday(day);
                       const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                       return (
-                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-slate-300 dark:border-slate-700 p-1.5 text-center ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${today ? 'bg-primary/15 border-b-primary' : 'bg-[hsl(220,14%,96%)] dark:bg-[hsl(220,14%,16%)]'}`}>
-                          <div className={`font-bold text-[10px] uppercase tracking-wider ${today ? 'text-primary' : 'text-muted-foreground'}`}>{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
-                          <div className={`text-sm font-extrabold tabular-nums ${today ? 'text-primary' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
+                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b border-r border-slate-200 dark:border-slate-700 p-1 text-center bg-[hsl(220,14%,97%)] dark:bg-[hsl(220,14%,16%)] ${isLastDayOfStation ? 'border-r-2 border-r-primary/30' : ''}`}>
+                          <div className={`mx-1 rounded-xl py-1 ${today ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}>
+                            <div className={`font-semibold text-[10px] uppercase tracking-wider ${today ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
+                            <div className={`text-sm font-bold tabular-nums ${today ? 'text-primary-foreground' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
+                          </div>
                         </th>
                       );
                     })
                   )}
                 </tr>
+
               </thead>
               <tbody>
                 {HOURS.map((hour) => {
