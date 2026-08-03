@@ -755,16 +755,17 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
               </colgroup>
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className="bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] border-b-2 border-r-2 border-foreground/20 p-2 text-left text-foreground font-bold" rowSpan={2}>
+                  <th className="bg-card border-b border-r border-border p-2 text-left text-muted-foreground font-semibold text-[10px] uppercase tracking-wide" rowSpan={2}>
                     {t('workshop.scheduler.hour')}
                   </th>
                   {categoryStations.map((st: any, stIdx: number) => (
-                    <th key={st.id} colSpan={weekDays.length} className={`bg-[hsl(220,80%,50%)] text-white border-b border-foreground/20 p-1.5 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-[3px] border-r-foreground/40' : 'border-r-2 border-r-foreground/20'}`}>
-                      <div className="flex items-center justify-center gap-1">
-                        <Wrench className="h-3 w-3" />
-                        <span className="font-semibold text-xs truncate">{st.id === '__default' ? t('workshop.scheduler.defaultStation') : tc(st.name)}</span>
+                    <th key={st.id} colSpan={weekDays.length} className={`bg-card border-b border-border p-0 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-2 border-r-border' : ''}`}>
+                      <div className="h-1 bg-primary/80 rounded-b-full mx-2" />
+                      <div className="flex items-center justify-center gap-1.5 py-1.5">
+                        <Wrench className="h-3 w-3 text-primary" />
+                        <span className="font-bold text-xs truncate text-foreground">{st.id === '__default' ? t('workshop.scheduler.defaultStation') : tc(st.name)}</span>
                         {st.id !== '__default' && (
-                          <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-50 hover:opacity-100 ml-0.5">
+                          <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-40 hover:opacity-100 ml-0.5">
                             <X className="h-3 w-3" />
                           </button>
                         )}
@@ -778,9 +779,9 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                       const today = isToday(day);
                       const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                       return (
-                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-foreground/20 p-1 text-center ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${today ? 'bg-[hsl(220,80%,50%)] text-white' : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'}`}>
-                          <div className="font-bold text-[10px]">{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
-                          <div className={`text-xs font-black ${today ? 'text-white' : ''}`}>{format(day, 'dd.MM')}</div>
+                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b border-r border-border/60 p-1 text-center ${isLastDayOfStation ? 'border-r-2 border-r-border' : ''} ${today ? 'bg-primary/10 text-primary' : 'bg-card text-muted-foreground'}`}>
+                          <div className="font-semibold text-[10px] uppercase">{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
+                          <div className={`text-xs font-bold ${today ? 'text-primary' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
                         </th>
                       );
                     })
@@ -788,13 +789,14 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                 </tr>
               </thead>
               <tbody>
-                {HOURS.map((hour, hourIdx) => {
-                  const isEvenRow = hourIdx % 2 === 0;
+                {HOURS.map((hour) => {
+                  const anyWork = weekDays.some(d => isWorkHour(d, hour));
                   return (
                     <tr key={hour} style={{ height: `${ROW_HEIGHT}px` }}>
-                      <td className={`border-b border-r-2 border-foreground/20 p-1.5 text-right font-mono font-bold text-xs sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`} style={{ height: `${ROW_HEIGHT}px` }}>
-                        {`${hour}:00`}
+                      <td className={`border-b border-r border-border/60 p-1.5 text-right font-mono text-[11px] sticky left-0 z-10 bg-card ${anyWork ? 'text-foreground font-bold' : 'text-muted-foreground/50 font-medium'}`} style={{ height: `${ROW_HEIGHT}px` }}>
+                        {`${String(hour).padStart(2, '0')}:00`}
                       </td>
+
                       {categoryStations.map((st: any, stIdx: number) =>
                         weekDays.map((day, dayIdx) => {
                           const key = cellKey(st.id, day, hour);
