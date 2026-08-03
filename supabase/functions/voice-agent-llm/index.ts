@@ -123,8 +123,22 @@ serve(async (req) => {
     ["body.metadata", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.conversation_id],
     ["body.elevenlabs_conversation_id", (reqBody as Record<string, unknown>)?.elevenlabs_conversation_id],
   ];
+  // Numer dzwoniącego jest potrzebny do SMS-a z prośbą o oddzwonienie, gdy rozmowa
+  // przerwie się błędem. Dziś nie wiemy, czy i gdzie ElevenLabs go przekazuje —
+  // sonda sprawdza to tak samo jak identyfikator rozmowy i tak samo NIE loguje wartości.
+  const callerNumberCandidates: Array<[string, unknown]> = [
+    ["header.x-caller-number", req.headers.get("x-caller-number")],
+    ["header.from", req.headers.get("from")],
+    ["body.caller_id", (reqBody as Record<string, unknown>)?.caller_id],
+    ["body.from_number", (reqBody as Record<string, unknown>)?.from_number],
+    ["body.metadata.caller_id", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.caller_id],
+    ["body.metadata.from", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.from],
+  ];
   console.info("[voice-agent-llm]", JSON.stringify({
     event: "conversation_id_probe",
+    caller: callerNumberCandidates
+      .filter(([, value]) => typeof value === "string" && value.length > 0)
+      .map(([source, value]) => ({ source, length: String(value).length })),
     found: conversationIdCandidates
       .filter(([, value]) => typeof value === "string" && value.length > 0)
       .map(([source, value]) => ({ source, length: String(value).length })),
