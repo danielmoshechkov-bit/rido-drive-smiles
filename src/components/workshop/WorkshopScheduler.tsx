@@ -88,14 +88,14 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
     },
   });
 
-  // Working hours from provider settings (service_working_hours) — używane do wyliczenia zakresu godzin w kalendarzu (±2h)
+  // Working hours from provider settings (service_working_hours)
   const { data: workingHoursRows = [] } = useQuery({
     queryKey: ['service-working-hours', providerId],
     enabled: !!providerId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('service_working_hours')
-        .select('start_time, end_time, is_working')
+        .select('day_of_week, start_time, end_time, is_working')
         .eq('provider_id', providerId)
         .is('employee_id', null);
       if (error) throw error;
@@ -103,22 +103,34 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
     },
   });
 
-  // Wyliczenie zakresu godzin: min start - 2h, max end + 2h (clamp 0–24); domyślnie 8–18
-  const HOURS = useMemo(() => {
-    const working = (workingHoursRows as any[]).filter(r => r.is_working !== false);
-    let minStart = 9;
-    let maxEnd = 17;
-    if (working.length > 0) {
-      const starts = working.map(r => parseInt(String(r.start_time).split(':')[0], 10)).filter(n => !isNaN(n));
-      const ends = working.map(r => parseInt(String(r.end_time).split(':')[0], 10)).filter(n => !isNaN(n));
-      if (starts.length) minStart = Math.min(...starts);
-      if (ends.length) maxEnd = Math.max(...ends);
+  // Pełna doba — godziny pracy podświetlone, reszta przyciemniona
+  const HOURS = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
+
+  // Mapa: dzień tygodnia (0=niedz) -> [startHour, endHour)
+  const workRangeByDow = useMemo(() => {
+    const map: Record<number, { from: number; to: number } | null> = {};
+    const rows = workingHoursRows as any[];
+    for (let d = 0; d < 7; d++) {
+      const row = rows.find(r => Number(r.day_of_week) === d);
+      if (rows.length === 0) { map[d] = d === 0 ? null : { from: 8, to: 18 }; continue; }
+      if (!row || row.is_working === false) { map[d] = null; continue; }
+      const from = parseInt(String(row.start_time).split(':')[0], 10);
+      const to = parseInt(String(row.end_time).split(':')[0], 10);
+      map[d] = { from: isNaN(from) ? 8 : from, to: isNaN(to) ? 18 : to };
     }
-    const from = Math.max(0, minStart - 2);
-    const to = Math.min(24, maxEnd + 2);
-    const len = Math.max(1, to - from);
-    return Array.from({ length: len }, (_, i) => from + i);
+    return map;
   }, [workingHoursRows]);
+
+  const isWorkHour = useCallback((day: Date, hour: number) => {
+    const r = workRangeByDow[getDay(day)];
+    if (!r) return false;
+    return hour >= r.from && hour < r.to;
+  }, [workRangeByDow]);
+
+  const firstWorkHour = useMemo(() => {
+    const vals = Object.values(workRangeByDow).filter(Boolean) as { from: number }[];
+    return vals.length ? Math.min(...vals.map(v => v.from)) : 8;
+  }, [workRangeByDow]);
 
   // PERF C2: kalendarz pokazuje też zakończone (historia tygodnia) — 'all'
   const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
