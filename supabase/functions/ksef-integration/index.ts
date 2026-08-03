@@ -1794,6 +1794,34 @@ serve(async (req) => {
       const { data: invoice, error: invErr } = await supabase
         .from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
+
+      // Do KSeF trafiają WYŁĄCZNIE faktury. Interfejs już tego pilnował, ale bramka
+      // musi stać tutaj: wysyłkę uruchamia też automat i ponowne próby, a do KSeF
+      // wysyłamy nieodwracalnie — dokumentu nie da się wycofać, można go tylko skorygować.
+      // Sprawdzone na środowisku testowym: bez tej blokady proforma szła do KSeF
+      // jako zwykła faktura VAT i była przyjmowana.
+      const NIE_DO_KSEF: Record<string, string> = {
+        proforma: 'Proforma nie jest fakturą — nie dokumentuje sprzedaży i nie rodzi obowiązku podatkowego.',
+        receipt:  'Rachunek nie jest fakturą VAT.',
+        kp:       'KP to dokument kasowy, nie faktura.',
+        kw:       'KW to dokument kasowy, nie faktura.',
+        wz:       'WZ to dokument magazynowy, nie faktura.',
+        pz:       'PZ to dokument magazynowy, nie faktura.',
+        nota:     'Nota księgowa nie jest fakturą VAT.',
+        // VAT RR to faktura, ale KSeF przyjmuje ją na ODRĘBNYM wzorze (FA_RR), którego
+        // jeszcze nie generujemy. Wysłanie jej na wzorze FA(3) byłoby wysłaniem złego
+        // dokumentu — lepiej zatrzymać i powiedzieć wprost.
+        vat_rr:   'Faktura VAT RR wymaga odrębnego wzoru KSeF (FA_RR), którego system jeszcze nie obsługuje.',
+      };
+      const powod = NIE_DO_KSEF[String(invoice.invoice_type || '').toLowerCase()];
+      if (powod) {
+        return jsonRes({
+          success: false,
+          error: `Tego dokumentu nie wysyła się do KSeF. ${powod}`,
+          invoice_type: invoice.invoice_type,
+        }, 400);
+      }
+
       if (invoice.corrected_invoice_id) {
         const { data: orig } = await supabase.from('user_invoices').select('invoice_number, issue_date, ksef_reference').eq('id', invoice.corrected_invoice_id).maybeSingle();
         if (orig) {
