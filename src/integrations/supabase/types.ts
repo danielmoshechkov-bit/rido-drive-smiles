@@ -9383,6 +9383,8 @@ export type Database = {
           item_name_length: number
           last_clock: string | null
           last_day_report_at: string | null
+          last_month_report_at: string | null
+          last_month_report_period: string | null
           last_seen_at: string | null
           last_status: string | null
           last_status_message: string | null
@@ -9408,6 +9410,8 @@ export type Database = {
           item_name_length?: number
           last_clock?: string | null
           last_day_report_at?: string | null
+          last_month_report_at?: string | null
+          last_month_report_period?: string | null
           last_seen_at?: string | null
           last_status?: string | null
           last_status_message?: string | null
@@ -9433,6 +9437,8 @@ export type Database = {
           item_name_length?: number
           last_clock?: string | null
           last_day_report_at?: string | null
+          last_month_report_at?: string | null
+          last_month_report_period?: string | null
           last_seen_at?: string | null
           last_status?: string | null
           last_status_message?: string | null
@@ -25410,6 +25416,7 @@ export type Database = {
       }
       workshop_finance_settings: {
         Row: {
+          auto_close_month: boolean
           cash_enabled: boolean
           cash_started_at: string | null
           provider_id: string
@@ -25419,6 +25426,7 @@ export type Database = {
           work_start: string
         }
         Insert: {
+          auto_close_month?: boolean
           cash_enabled?: boolean
           cash_started_at?: string | null
           provider_id: string
@@ -25428,6 +25436,7 @@ export type Database = {
           work_start?: string
         }
         Update: {
+          auto_close_month?: boolean
           cash_enabled?: boolean
           cash_started_at?: string | null
           provider_id?: string
@@ -26817,8 +26826,10 @@ export type Database = {
           production_year: number | null
           provider_id: string
           quantity: number | null
+          reminder_channel: string
           reminder_months: number | null
           reminder_sent: boolean | null
+          reminder_sent_at: string | null
           rim_manufacturer: string | null
           rim_type: string | null
           season: string | null
@@ -26850,8 +26861,10 @@ export type Database = {
           production_year?: number | null
           provider_id: string
           quantity?: number | null
+          reminder_channel?: string
           reminder_months?: number | null
           reminder_sent?: boolean | null
+          reminder_sent_at?: string | null
           rim_manufacturer?: string | null
           rim_type?: string | null
           season?: string | null
@@ -26883,8 +26896,10 @@ export type Database = {
           production_year?: number | null
           provider_id?: string
           quantity?: number | null
+          reminder_channel?: string
           reminder_months?: number | null
           reminder_sent?: boolean | null
+          reminder_sent_at?: string | null
           rim_manufacturer?: string | null
           rim_type?: string | null
           season?: string | null
@@ -26951,6 +26966,13 @@ export type Database = {
           storage_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workshop_tire_storage_tasks_storage_id_fkey"
+            columns: ["storage_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_tire_reminders_due"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workshop_tire_storage_tasks_storage_id_fkey"
             columns: ["storage_id"]
@@ -28351,6 +28373,39 @@ export type Database = {
             columns: ["city_id"]
             isOneToOne: false
             referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_tire_reminders_due: {
+        Row: {
+          channel: string | null
+          client_id: string | null
+          client_name: string | null
+          due_date: string | null
+          email: string | null
+          id: string | null
+          phone: string | null
+          provider_id: string | null
+          provider_name: string | null
+          provider_phone: string | null
+          quantity: number | null
+          season: string | null
+          storage_number: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_tire_storage_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workshop_tire_storage_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "service_providers"
             referencedColumns: ["id"]
           },
         ]
