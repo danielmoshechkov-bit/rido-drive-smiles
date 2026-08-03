@@ -762,18 +762,17 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
               </colgroup>
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className="bg-card border-b border-r border-border p-2 text-left text-muted-foreground font-semibold text-[10px] uppercase tracking-wide" rowSpan={2}>
+                  <th className="bg-primary text-primary-foreground border-b border-r border-primary/40 p-2 text-left font-bold text-[10px] uppercase tracking-widest" rowSpan={2}>
                     {t('workshop.scheduler.hour')}
                   </th>
                   {categoryStations.map((st: any, stIdx: number) => (
-                    <th key={st.id} colSpan={weekDays.length} className={`bg-card border-b border-border p-0 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-2 border-r-border' : ''}`}>
-                      <div className="h-1 bg-primary/80 rounded-b-full mx-2" />
-                      <div className="flex items-center justify-center gap-1.5 py-1.5">
-                        <Wrench className="h-3 w-3 text-primary" />
-                        <span className="font-bold text-xs truncate text-foreground">{st.id === '__default' ? t('workshop.scheduler.defaultStation') : tc(st.name)}</span>
+                    <th key={st.id} colSpan={weekDays.length} className={`bg-primary text-primary-foreground border-b border-primary/40 p-0 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-2 border-r-primary-foreground/40' : ''}`}>
+                      <div className="flex items-center justify-center gap-1.5 py-2">
+                        <Wrench className="h-3.5 w-3.5" />
+                        <span className="font-extrabold text-sm truncate tracking-tight">{st.id === '__default' ? t('workshop.scheduler.defaultStation') : tc(st.name)}</span>
                         {st.id !== '__default' && (
-                          <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-40 hover:opacity-100 ml-0.5">
-                            <X className="h-3 w-3" />
+                          <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-60 hover:opacity-100 ml-0.5">
+                            <X className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>
@@ -786,9 +785,9 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                       const today = isToday(day);
                       const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                       return (
-                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b border-r border-border/60 p-1 text-center ${isLastDayOfStation ? 'border-r-2 border-r-border' : ''} ${today ? 'bg-primary/10 text-primary' : 'bg-card text-muted-foreground'}`}>
-                          <div className="font-semibold text-[10px] uppercase">{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
-                          <div className={`text-xs font-bold ${today ? 'text-primary' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
+                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-border p-1.5 text-center ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${today ? 'bg-primary/15 border-b-primary' : 'bg-muted/60'}`}>
+                          <div className={`font-bold text-[10px] uppercase tracking-wider ${today ? 'text-primary' : 'text-muted-foreground'}`}>{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
+                          <div className={`text-sm font-extrabold tabular-nums ${today ? 'text-primary' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
                         </th>
                       );
                     })
@@ -800,9 +799,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                   const anyWork = weekDays.some(d => isWorkHour(d, hour));
                   return (
                     <tr key={hour} style={{ height: `${ROW_HEIGHT}px` }}>
-                      <td className={`border-b border-r border-border/60 p-1.5 text-right font-mono text-[11px] sticky left-0 z-10 bg-card ${anyWork ? 'text-foreground font-bold' : 'text-muted-foreground/50 font-medium'}`} style={{ height: `${ROW_HEIGHT}px` }}>
+                      <td className={`border-b border-r-2 border-border p-1.5 text-right text-xs sticky left-0 z-10 tabular-nums ${anyWork ? 'bg-card text-foreground font-extrabold' : 'bg-muted/70 text-muted-foreground font-semibold'}`} style={{ height: `${ROW_HEIGHT}px` }}>
                         {`${String(hour).padStart(2, '0')}:00`}
                       </td>
+
 
                       {categoryStations.map((st: any, stIdx: number) =>
                         weekDays.map((day, dayIdx) => {
@@ -848,11 +848,11 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                             <td
                               key={key}
                               rowSpan={scheduledOrder ? displaySpan : 1}
-                              className={`border-b border-r border-border/50 p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-border' : ''} ${
+                              className={`border-b border-r border-border p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${
                                 work
-                                  ? (today ? 'bg-primary/[0.06]' : 'bg-background')
-                                  : (today ? 'bg-muted/60' : 'bg-muted/40')
-                              } ${isDragOver && draggedOrder ? '!bg-primary/20 ring-2 ring-primary ring-inset' : scheduledOrder ? '' : 'hover:bg-primary/10'}`}
+                                  ? (today ? 'bg-primary/[0.10]' : 'bg-card')
+                                  : (today ? 'bg-muted' : 'bg-muted/80')
+                              } ${isDragOver && draggedOrder ? '!bg-primary/25 ring-2 ring-primary ring-inset' : scheduledOrder ? '' : 'hover:bg-primary/15'}`}
 
                               style={{ height: `${(scheduledOrder ? displaySpan : 1) * ROW_HEIGHT}px` }}
                               onClick={() => scheduledOrder ? setDetailItem(scheduledOrder) : handleCellClick(day, hour, st.id)}
