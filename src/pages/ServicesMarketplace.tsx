@@ -425,7 +425,7 @@ export default function ServicesMarketplace() {
                 variant="outline"
                 size="sm"
                 className="gap-2 rounded-full border-primary/30 text-primary hover:bg-primary/10"
-                onClick={() => navigate('/mapa')}
+                onClick={() => navigate('/mapy')}
               >
                 <MapPin className="h-4 w-4" />
                 <span className="hidden sm:inline">Mapa GetRido</span>
