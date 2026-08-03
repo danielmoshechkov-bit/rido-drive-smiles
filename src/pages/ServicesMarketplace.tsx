@@ -421,6 +421,15 @@ export default function ServicesMarketplace() {
               <span className="font-semibold text-foreground">{t('services.title', 'Usługi')}</span>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 rounded-full border-primary/30 text-primary hover:bg-primary/10"
+                onClick={() => navigate('/mapa')}
+              >
+                <MapPin className="h-4 w-4" />
+                <span className="hidden sm:inline">Mapa GetRido</span>
+              </Button>
                <LanguageSwitcher />
               <MyGetRidoButton user={user} />
             </div>
