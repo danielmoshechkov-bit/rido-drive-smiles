@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, MapPin, Search, Sparkles, Star, Loader2, Navigation } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSeo } from '@/hooks/useSeo';
+import SEOHead from '@/components/SEOHead';
 import { RIDO_LIGHT_STYLE_URL } from '@/components/maps/ridoMapTheme';
 
 interface MapProvider {
@@ -41,19 +41,6 @@ export default function GetRidoMap() {
   const [categorySlug, setCategorySlug] = useState<string>(searchParams.get('kategoria') || 'all');
   const [viewState, setViewState] = useState(POLAND_VIEW);
 
-  useSeo({
-    title: 'Mapa GetRido — usługodawcy, warsztaty i firmy w Twojej okolicy',
-    description:
-      'Znajdź na mapie GetRido warsztaty, myjnie, detailing, wulkanizację i innych sprawdzonych usługodawców. Wyszukiwanie z AI po ofercie każdej firmy.',
-    canonicalPath: '/mapa',
-    jsonLd: {
-      '@context': 'https://schema.org',
-      '@type': 'WebPage',
-      name: 'Mapa GetRido',
-      description: 'Mapa usługodawców GetRido w Polsce.',
-      url: 'https://getrido.pl/mapa',
-    },
-  });
 
   useEffect(() => {
     (async () => {
@@ -130,6 +117,13 @@ export default function GetRidoMap() {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEOHead
+        title="Mapa GetRido — warsztaty i usługodawcy na mapie"
+        description="Znajdź na Mapie GetRido warsztaty, myjnie, detailing, wulkanizację i innych sprawdzonych usługodawców. Wyszukiwarka AI przeszukuje ofertę każdej firmy."
+        keywords="mapa usług, warsztat w pobliżu, myjnia, detailing, wulkanizacja, usługi na mapie, GetRido"
+        canonicalUrl="https://getrido.pl/mapa"
+        schemaType="WebSite"
+      />
       {/* Header */}
       <div className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3">
