@@ -315,13 +315,20 @@ async function resolveCredentials(req: Request, supabase: any, body: any) {
   if (userId && (!nip || !token)) {
     const { data: cs } = await supabase
       .from('company_settings')
-      .select('nip, ksef_token, ksef_environment')
+      .select('nip, ksef_token, ksef_token_test, ksef_token_production, ksef_environment')
       .eq('user_id', userId)
       .maybeSingle();
     if (cs) {
       nip = nip || cs.nip || null;
-      token = token || cs.ksef_token || null;
+      // Ustal środowisko PRZED wyborem tokenu — token z produkcji nie działa na testowym
+      // i odwrotnie, więc musimy sięgnąć po ten, który pasuje do miejsca wysyłki.
       if (!body.environment && cs.ksef_environment) environment = normalizeEnv(cs.ksef_environment);
+      const tokenSrodowiska = environment === 'production'
+        ? (cs as any).ksef_token_production
+        : (cs as any).ksef_token_test;
+      // `ksef_token` to stare wspólne pole — używamy go tylko wtedy, gdy nowe jest puste
+      // (konfiguracja sprzed rozdzielenia tokenów).
+      token = token || tokenSrodowiska || cs.ksef_token || null;
     }
   }
 

@@ -52,13 +52,34 @@ function toKnownEnv(value: unknown): KsefEnvironment {
   return value === 'production' ? 'production' : 'integration';
 }
 
+// Token KSeF działa TYLKO na tym środowisku, na którym powstał, więc każde środowisko
+// ma własny komplet: token, status i wynik ostatniego testu. Wcześniej było jedno pole
+// na oba — przełączenie „testowe ↔ produkcja" nadpisywało poprzedni token i trzeba go
+// było wklejać od nowa przy każdej zmianie.
+type StanSrodowiska = { token: string; status: string; lastTestAt: string | null; lastTestResult: string | null };
+const PUSTE_SRODOWISKO: StanSrodowiska = { token: '', status: 'not_configured', lastTestAt: null, lastTestResult: null };
+
 export function KsefUserSettings() {
   const queryClient = useQueryClient();
-  const [ksefToken, setKsefToken] = useState('');
   const [ksefEnvironment, setKsefEnvironment] = useState<KsefEnvironment>('integration');
-  const [ksefStatus, setKsefStatus] = useState('not_configured');
-  const [ksefLastTestAt, setKsefLastTestAt] = useState<string | null>(null);
-  const [ksefLastTestResult, setKsefLastTestResult] = useState<string | null>(null);
+  const [envState, setEnvState] = useState<Record<KsefEnvironment, StanSrodowiska>>({
+    integration: { ...PUSTE_SRODOWISKO },
+    production: { ...PUSTE_SRODOWISKO },
+  });
+
+  // Widok i logika niżej operują na „aktywnym" środowisku — dzięki temu przełącznik
+  // podmienia tylko to, co widać, a dane drugiego środowiska czekają nietknięte.
+  const patchEnv = (zmiana: Partial<StanSrodowiska>) =>
+    setEnvState(s => ({ ...s, [ksefEnvironment]: { ...s[ksefEnvironment], ...zmiana } }));
+
+  const ksefToken = envState[ksefEnvironment].token;
+  const setKsefToken = (v: string) => patchEnv({ token: v });
+  const ksefStatus = envState[ksefEnvironment].status;
+  const setKsefStatus = (v: string) => patchEnv({ status: v });
+  const ksefLastTestAt = envState[ksefEnvironment].lastTestAt;
+  const setKsefLastTestAt = (v: string | null) => patchEnv({ lastTestAt: v });
+  const ksefLastTestResult = envState[ksefEnvironment].lastTestResult;
+  const setKsefLastTestResult = (v: string | null) => patchEnv({ lastTestResult: v });
   const [testing, setTesting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState('');
@@ -97,11 +118,27 @@ export function KsefUserSettings() {
       if (error) throw error;
       if (data) {
         setSettingsId(data.id);
-        setKsefToken(data.ksef_token || '');
-        setKsefEnvironment(toKnownEnv(data.ksef_environment));
-        setKsefStatus(data.ksef_status || 'not_configured');
-        setKsefLastTestAt(data.ksef_last_test_at || null);
-        setKsefLastTestResult(data.ksef_last_test_result || null);
+        const zapisane = toKnownEnv(data.ksef_environment);
+        setKsefEnvironment(zapisane);
+
+        // Stare pole `ksef_token` przypisujemy TYLKO do środowiska, które było wtedy wybrane —
+        // token z produkcji nie może wylądować w polu testowym i odwrotnie.
+        const d = data as any;
+        const zapas = (env: KsefEnvironment) => (zapisane === env ? (d.ksef_token || '') : '');
+        setEnvState({
+          integration: {
+            token: d.ksef_token_test || zapas('integration'),
+            status: d.ksef_status_test || (zapisane === 'integration' ? d.ksef_status : null) || 'not_configured',
+            lastTestAt: zapisane === 'integration' ? (d.ksef_last_test_at || null) : null,
+            lastTestResult: zapisane === 'integration' ? (d.ksef_last_test_result || null) : null,
+          },
+          production: {
+            token: d.ksef_token_production || zapas('production'),
+            status: d.ksef_status_production || (zapisane === 'production' ? d.ksef_status : null) || 'not_configured',
+            lastTestAt: zapisane === 'production' ? (d.ksef_last_test_at || null) : null,
+            lastTestResult: zapisane === 'production' ? (d.ksef_last_test_result || null) : null,
+          },
+        });
         setAutoSendEnabled(((data as any).ksef_auto_send_enabled as boolean) || false);
         setSendInvoicesEnabled(((data as any).ksef_send_invoices_enabled as boolean) || false);
       }
@@ -121,8 +158,15 @@ export function KsefUserSettings() {
   const saveMutation = useMutation({
     mutationFn: async (overrides?: { status?: string; testAt?: string; testResult?: string }) => {
       if (!userId) throw new Error('Nie zalogowany');
+      // Token i status lądują w szufladce wybranego środowiska. `ksef_token`/`ksef_status`
+      // zapisujemy dodatkowo dla zgodności — czyta je jeszcze starszy kod, który nie zna
+      // pól per środowisko.
+      const kolumnaTokenu = ksefEnvironment === 'production' ? 'ksef_token_production' : 'ksef_token_test';
+      const kolumnaStatusu = ksefEnvironment === 'production' ? 'ksef_status_production' : 'ksef_status_test';
       const payload = {
         user_id: userId,
+        [kolumnaTokenu]: ksefToken,
+        [kolumnaStatusu]: overrides?.status ?? ksefStatus,
         ksef_token: ksefToken,
         ksef_environment: ksefEnvironment,
         ksef_status: overrides?.status ?? ksefStatus,
@@ -441,14 +485,23 @@ export function KsefUserSettings() {
             )}
 
             <div>
-              <Label className="text-xs">Token autoryzacyjny KSeF</Label>
+              <Label className="text-xs">
+                Token dla środowiska: <span className="font-semibold">{ENV_CONFIG[ksefEnvironment].badgeLabel}</span>
+              </Label>
               <Input
                 type="password"
                 value={ksefToken}
                 onChange={e => setKsefToken(e.target.value)}
-                placeholder="Wklej token z KSeF..."
+                placeholder={`Wklej token wygenerowany na ${ENV_CONFIG[ksefEnvironment].url}`}
                 className="text-sm"
               />
+              {/* Każde środowisko trzyma własny token, więc przełącznik niczego nie kasuje.
+                  Ale użytkownik musi wiedzieć, że drugiego trzeba wkleić osobno. */}
+              <p className="text-xs text-muted-foreground mt-1">
+                {envState[ksefEnvironment === 'production' ? 'integration' : 'production'].token
+                  ? `Token drugiego środowiska (${ENV_CONFIG[ksefEnvironment === 'production' ? 'integration' : 'production'].badgeLabel}) jest zapisany — przełącznik go nie skasuje.`
+                  : `Drugie środowisko (${ENV_CONFIG[ksefEnvironment === 'production' ? 'integration' : 'production'].badgeLabel}) nie ma jeszcze tokenu. Token działa tylko tam, gdzie powstał.`}
+              </p>
             </div>
 
             {ksefLastTestAt && (
