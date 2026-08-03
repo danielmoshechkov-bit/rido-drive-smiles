@@ -80,6 +80,7 @@ const FleetRegisterSuccess = lazy(() => import("./pages/FleetRegisterSuccess"));
 const PropertyDetailPage = lazy(() => import("./pages/PropertyDetailPage"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
 const GetRidoMaps = lazy(() => import("./pages/GetRidoMaps"));
+const GetRidoMap = lazy(() => import("./pages/GetRidoMap"));
 const ServicesMarketplace = lazy(() => import("./pages/ServicesMarketplace"));
 const AdminRidoMarket = lazy(() => import("./pages/AdminRidoMarket"));
 const ServiceProviderDetail = lazy(() => import("./pages/ServiceProviderDetail"));
@@ -214,6 +215,7 @@ const App = () => (
                 <Route path="/nieruchomosci/agent/rejestracja" element={<RealEstateAgentRegister />} />
                 <Route path="/nieruchomosci/agent/panel" element={<RealEstateAgentDashboard />} />
                 <Route path="/uslugi" element={<ServicesMarketplace />} />
+                <Route path="/mapa" element={<GetRidoMap />} />
                 <Route path="/uslugi/panel" element={<ServiceProviderDashboard />} />
                 <Route path="/workflow" element={<WorkflowModule />} />
                 <Route path="/uslugi/uslugodawca/:providerId" element={<ServiceProviderDetail />} />
