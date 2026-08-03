@@ -364,6 +364,20 @@ export function ServiceProviderDetailPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+      <SEOHead
+        title={`${provider.company_name}${provider.company_city ? ` — ${provider.company_city}` : ''} | GetRido`}
+        description={
+          (provider.description || '').slice(0, 155) ||
+          `${provider.company_name} — sprawdzony usługodawca${provider.company_city ? ` w mieście ${provider.company_city}` : ''}. Cennik, opinie i rezerwacja terminu online w GetRido.`
+        }
+        keywords={[provider.company_name, provider.company_city, provider.category?.name, 'usługi', 'GetRido']
+          .filter(Boolean)
+          .join(', ')}
+        canonicalUrl={`https://getrido.pl/uslugi/uslugodawca/${provider.id}`}
+        ogImage={provider.cover_image_url || provider.logo_url || undefined}
+        schemaType="LocalBusiness"
+        schemaData={seoJsonLd || undefined}
+      />
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
