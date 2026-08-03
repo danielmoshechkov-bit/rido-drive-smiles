@@ -215,7 +215,7 @@ const App = () => (
                 <Route path="/nieruchomosci/agent/rejestracja" element={<RealEstateAgentRegister />} />
                 <Route path="/nieruchomosci/agent/panel" element={<RealEstateAgentDashboard />} />
                 <Route path="/uslugi" element={<ServicesMarketplace />} />
-                <Route path="/mapa" element={<GetRidoMap />} />
+                <Route path="/mapa" element={<Navigate to="/mapy" replace />} />
                 <Route path="/uslugi/panel" element={<ServiceProviderDashboard />} />
                 <Route path="/workflow" element={<WorkflowModule />} />
                 <Route path="/uslugi/uslugodawca/:providerId" element={<ServiceProviderDetail />} />

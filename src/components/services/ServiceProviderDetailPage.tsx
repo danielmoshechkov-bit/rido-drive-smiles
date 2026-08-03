@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ServiceBookingModal } from './ServiceBookingModal';
+import { ProviderSidebarInfo } from './ProviderSidebarInfo';
 import { getServiceCoverImage } from './serviceCategoryImages';
 import { cn } from '@/lib/utils';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
@@ -807,6 +808,18 @@ export function ServiceProviderDetailPage() {
                   Zarezerwuj wizytę
                 </Button>
               </Card>
+
+              <div className="mt-6 space-y-6">
+                <ProviderSidebarInfo
+                  providerId={provider.id}
+                  workingHours={(provider as any).working_hours}
+                  latitude={(provider as any).latitude ?? null}
+                  longitude={(provider as any).longitude ?? null}
+                  address={provider.company_address}
+                  city={provider.company_city}
+                  companyName={provider.company_name}
+                />
+              </div>
             </div>
           </div>
         </div>
