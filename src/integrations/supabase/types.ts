@@ -12451,13 +12451,6 @@ export type Database = {
             referencedRelation: "entities"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "ksef_transmissions_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
         ]
       }
       lead_import_logs: {
