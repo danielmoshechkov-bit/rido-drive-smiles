@@ -73,6 +73,49 @@ serve(async (req) => {
     const calendarAccess = !!cfg?.calendar_access;
     const ordersAccess = !!cfg?.orders_access;
 
+    // ===================== TOŻSAMOŚĆ ROZMOWY (dodatek) =====================
+    // conversation_id przychodzi wyłącznie z uwierzytelnionego wywołania service-role
+    // (voice-agent-chat w gałęzi canary). Daje dwie rzeczy naraz:
+    //   1) klucz idempotencji — retry tej samej tury nie utworzy drugiej rezerwacji,
+    //   2) powiązanie rozmowy ze zleceniem, którego szuka panel warsztatu
+    //      (OrderCallPanel czyta voice_calls po linked_entity_type/linked_entity_id).
+    //
+    // Cały blok jest DODATKIEM: gdy conversation_id nie przyjdzie, wszystko poniżej
+    // zachowuje się dokładnie tak jak dotąd i żadna istniejąca ścieżka się nie zmienia.
+    //
+    // OGRANICZENIE: brak unikalnego indeksu na voice_calls(provider_id,
+    // elevenlabs_conversation_id), więc find-or-create jest podatny na wyścig przy
+    // równoczesnych żądaniach. W rozmowie telefonicznej tury idą sekwencyjnie, więc
+    // w praktyce to wystarcza; twardą gwarancję dałby unikalny indeks (migracja).
+    const conversationId = isServiceCall ? String(body?.conversation_id || "") : "";
+    let conversationCall: { id: string; linked_entity_type: string | null; linked_entity_id: string | null } | null = null;
+    if (conversationId && providerId) {
+      const { data: existingCall } = await admin.from("voice_calls")
+        .select("id, linked_entity_type, linked_entity_id")
+        .eq("provider_id", providerId).eq("elevenlabs_conversation_id", conversationId).maybeSingle();
+      if (existingCall) {
+        conversationCall = existingCall as typeof conversationCall;
+      } else {
+        const { data: createdCall } = await admin.from("voice_calls").insert({
+          provider_id: providerId, persona_key: personaKey, direction: "inbound",
+          elevenlabs_conversation_id: conversationId, status: "in_progress",
+          started_at: new Date().toISOString(),
+        }).select("id, linked_entity_type, linked_entity_id").maybeSingle();
+        conversationCall = (createdCall as typeof conversationCall) || null;
+      }
+    }
+    // Zapamiętanie powiązania rozmowy z utworzonym rekordem. Zlecenie ma pierwszeństwo
+    // nad rezerwacją, bo to jego szuka zakładka "Rozmowa telefoniczna".
+    const linkConversation = async (entityType: "service_booking" | "workshop_order", entityId: string) => {
+      if (!conversationCall) return;
+      if (conversationCall.linked_entity_type === "workshop_order" && entityType !== "workshop_order") return;
+      const { error } = await admin.from("voice_calls")
+        .update({ linked_entity_type: entityType, linked_entity_id: entityId })
+        .eq("id", conversationCall.id).eq("provider_id", providerId);
+      if (error) console.warn("[voice-agent-tools] link_failed", { code: error.code });
+      else conversationCall = { ...conversationCall, linked_entity_type: entityType, linked_entity_id: entityId };
+    };
+
     // ========================= CHECK AVAILABILITY =========================
     if (action === "check_availability") {
       const date = String(body?.date || "");
@@ -117,6 +160,14 @@ serve(async (req) => {
     // ========================= CREATE BOOKING =========================
     if (action === "create_booking") {
       if (!calendarAccess) return json({ ok: false, error: "Agent nie ma dostępu do kalendarza (włącz w panelu)." }, 403);
+      // IDEMPOTENCJA: ta rozmowa ma już rezerwację albo zlecenie — nie tworzymy drugiej
+      // i nie wysyłamy drugiego SMS-a. Ponowienie tury zwraca istniejący identyfikator.
+      if (conversationCall?.linked_entity_id) {
+        return json({
+          ok: true, booking_id: conversationCall.linked_entity_id, duplicate: true,
+          message: "Rezerwacja w tej rozmowie już istnieje.",
+        });
+      }
       const name = String(body?.customer_name || "").trim();
       const phone = String(body?.customer_phone || "").trim();
       const date = String(body?.scheduled_date || "");
@@ -179,6 +230,10 @@ serve(async (req) => {
         }
       } catch (_) { /* SMS best-effort — nie blokuje rezerwacji */ }
 
+      // Powiązanie rozmowy z rezerwacją. Po utworzeniu zlecenia zostanie nadpisane
+      // na workshop_order, bo tego szuka zakładka "Rozmowa telefoniczna".
+      await linkConversation("service_booking", sb.id);
+
       return json({
         ok: true, booking_id: sb.id,
         client_booking_id: wcb?.id || null,
@@ -191,6 +246,13 @@ serve(async (req) => {
     // ========================= CREATE ORDER =========================
     if (action === "create_order") {
       if (!ordersAccess) return json({ ok: false, error: "Agent nie ma dostępu do zleceń (włącz w panelu)." }, 403);
+      // IDEMPOTENCJA: ta rozmowa ma już zlecenie — zwracamy istniejące zamiast tworzyć drugie.
+      if (conversationCall?.linked_entity_type === "workshop_order" && conversationCall.linked_entity_id) {
+        return json({
+          ok: true, order_id: conversationCall.linked_entity_id, duplicate: true,
+          message: "Zlecenie w tej rozmowie już istnieje.",
+        });
+      }
       const name = String(body?.customer_name || "").trim();
       const phone = String(body?.customer_phone || "").trim();
       // opis jako czyste linie-punkty (karta pracownika sama numeruje 1. 2. 3.)
@@ -261,6 +323,10 @@ serve(async (req) => {
       if (date && time) { insert.scheduled_date = date; insert.scheduled_start = `${date}T${time}:00`; insert.scheduled_end = addMinutes(date, time, duration); }
       const { data: order, error: oErr } = await admin.from("workshop_orders").insert(insert).select("id, order_number").single();
       if (oErr) return json({ ok: false, error: "Zlecenie: " + oErr.message }, 400);
+
+      // Powiązanie rozmowy ze zleceniem — dokładnie to czyta zakładka
+      // "Rozmowa telefoniczna" (voice_calls po linked_entity_type/linked_entity_id).
+      await linkConversation("workshop_order", order.id);
 
       return json({ ok: true, order_id: order.id, order_number: order.order_number, client_id: clientId, vehicle_id: vehicleId });
     }

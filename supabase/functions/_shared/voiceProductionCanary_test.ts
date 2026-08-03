@@ -85,8 +85,11 @@ test("Phase 1 runtime is migration-free and limited to LLM plus chat", () => {
   for (const newColumn of ["model_timeout_ms", "max_tool_rounds", "max_output_tokens", "backup_model_override", "voice_conversation_id"]) {
     assert.doesNotMatch(runtime, new RegExp(`select\\([^)]*${newColumn}`));
   }
-  assert.doesNotMatch(llm, /conversation_id\s*:/);
-  assert.doesNotMatch(chat, /conversation_id\s*:/);
+  // conversation_id JEST już przekazywany, ale wyłącznie w gałęzi canary — legacy
+  // zachowuje poprzedni kontrakt. Kontrakt zmieniony świadomie: bez identyfikatora
+  // rozmowy nie ma idempotencji ani powiązania rozmowy ze zleceniem.
+  assert.match(llm, /canary\.enabled && conversationId \? \{ conversation_id: conversationId \}/);
+  assert.doesNotMatch(chat.slice(chat.indexOf("if (!canary.enabled) {"), chat.indexOf("reply: legacyReply")), /conversation_id/);
   assert.match(chat, /admin\s*\.from\("voice_agent_personas"\)/);
   assert.match(chat, /admin\.from\("voice_agent_knowledge"\)/);
   assert.match(llm, /admin\.from\("voice_agent_configs"\)/);
@@ -217,8 +220,8 @@ test("conversation id probe collects evidence without leaking the value", () => 
   // Nagłówki wrażliwe nie trafiają do logu.
   assert.match(probe, /\^authorization\$\|\^cookie\$\|apikey/);
 
-  // Sonda niczego jeszcze nie przekazuje dalej — legacy kontrakt nietknięty.
-  assert.doesNotMatch(llm, /conversation_id\s*:\s*conversation/);
+  // Sonda zbiera dowód, ale identyfikator idzie dalej WYŁĄCZNIE w gałęzi canary.
+  assert.match(llm, /canary\.enabled && conversationId \? \{ conversation_id: conversationId \}/);
 });
 
 test("technical failure notifies the workshop and never guesses the caller gender", () => {
@@ -252,6 +255,60 @@ test("technical failure notifies the workshop and never guesses the caller gende
   assert.match(chat, /NIGDY nie zgaduj płci rozmówcy po głosie/);
   assert.match(chat, /bez słowa "Pan" i bez słowa "Pani"/);
   assert.match(chat, /Imienia używaj oszczędnie, nazwiska nie powtarzaj/);
+});
+
+test("conversation model comes from configuration, legacy still forced to Sonnet", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Canary bierze model z ai_agents_config; legacy nadal odrzuca Haiku.
+  assert.match(chat, /const configuredModel = agent\?\.model && agent\.model\.startsWith\("claude"\) \? agent\.model : null/);
+  assert.match(chat, /canary\.enabled[\s\S]{0,40}\? \(configuredModel \|\| CONVO_DEFAULT\)/);
+  assert.match(chat, /configuredModel && !configuredModel\.includes\("haiku"\) \? configuredModel : CONVO_DEFAULT/);
+  // Domyślka pozostaje obecnym modelem produkcyjnym.
+  assert.match(chat, /const CONVO_DEFAULT = "claude-sonnet-4-6"/);
+  // Haiku jest osiągalne jako model rozmowy, nie tylko jako fallback.
+  assert.match(chat, /claude-haiku-4-5-20251001/);
+});
+
+test("conversation_id flows from llm through chat to the tools", () => {
+  const llm = readFileSync(new URL("../voice-agent-llm/index.ts", import.meta.url), "utf8");
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+  const tools = readFileSync(new URL("../voice-agent-tools/index.ts", import.meta.url), "utf8");
+
+  // llm: wybiera pierwsze źródło, które cokolwiek przysłało, i loguje które.
+  assert.match(llm, /const conversationId = \(conversationIdCandidates/);
+  assert.match(llm, /used_source: conversationIdSource/);
+
+  // chat: przyjmuje tylko z wywołania service-role i dokłada do wywołań narzędzi.
+  assert.match(chat, /const conversationId = isServiceCall \? String\(body\?\.conversation_id \|\| ""\) : ""/);
+  assert.match(chat, /\.\.\.\(conversationId \? \{ conversation_id: conversationId \} : \{\}\)/);
+
+  // tools: find-or-create wiersza voice_calls po identyfikatorze rozmowy.
+  assert.match(tools, /eq\("elevenlabs_conversation_id", conversationId\)/);
+  assert.match(tools, /elevenlabs_conversation_id: conversationId, status: "in_progress"/);
+});
+
+test("one conversation cannot create two bookings, orders or SMS", () => {
+  const tools = readFileSync(new URL("../voice-agent-tools/index.ts", import.meta.url), "utf8");
+
+  const bookingBlock = tools.slice(tools.indexOf('if (action === "create_booking")'), tools.indexOf('if (action === "create_order")'));
+  const orderBlock = tools.slice(tools.indexOf('if (action === "create_order")'));
+
+  // Strażnik idempotencji stoi PRZED jakimkolwiek zapisem i przed SMS-em.
+  assert.match(bookingBlock, /conversationCall\?\.linked_entity_id[\s\S]{0,200}duplicate: true/);
+  assert.ok(
+    bookingBlock.indexOf("conversationCall?.linked_entity_id") < bookingBlock.indexOf("workshop-send-sms"),
+    "strażnik idempotencji musi poprzedzać wysyłkę SMS",
+  );
+  assert.match(orderBlock, /conversationCall\?\.linked_entity_type === "workshop_order"[\s\S]{0,220}duplicate: true/);
+
+  // Powiązanie zapisywane po utworzeniu — to je czyta panel warsztatu.
+  assert.match(tools, /linkConversation\("service_booking", sb\.id\)/);
+  assert.match(tools, /linkConversation\("workshop_order", order\.id\)/);
+  assert.match(tools, /linked_entity_type: entityType, linked_entity_id: entityId/);
+
+  // Bez conversation_id wszystko działa jak dotąd — blok jest dodatkiem.
+  assert.match(tools, /const conversationId = isServiceCall \? String\(body\?\.conversation_id \|\| ""\) : ""/);
 });
 
 test("conversation window keeps the whole call, not just the last few turns", () => {

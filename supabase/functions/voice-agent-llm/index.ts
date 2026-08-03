@@ -134,8 +134,18 @@ serve(async (req) => {
     ["body.metadata.caller_id", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.caller_id],
     ["body.metadata.from", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.from],
   ];
+  // Identyfikator rozmowy bierzemy z pierwszego źródła, które faktycznie coś przysłało.
+  // To nie jest zgadywanie kontraktu — sprawdzamy wszystkie prawdopodobne miejsca naraz,
+  // więc działa niezależnie od tego, którego użyje ElevenLabs. Log poniżej mówi, które
+  // źródło zadziałało, żeby dało się to później zawęzić.
+  const conversationId = (conversationIdCandidates
+    .find(([, value]) => typeof value === "string" && (value as string).length > 0)?.[1] as string | undefined) || null;
+  const conversationIdSource = conversationIdCandidates
+    .find(([, value]) => typeof value === "string" && (value as string).length > 0)?.[0] || null;
+
   console.info("[voice-agent-llm]", JSON.stringify({
     event: "conversation_id_probe",
+    used_source: conversationIdSource,
     caller: callerNumberCandidates
       .filter(([, value]) => typeof value === "string" && value.length > 0)
       .map(([source, value]) => ({ source, length: String(value).length })),
@@ -173,6 +183,9 @@ serve(async (req) => {
         // Wewnętrzne, uwierzytelnione service-role przekazanie wyłącznie do
         // ponownej walidacji pary canary w voice-agent-chat.
         ...(canary.enabled ? { elevenlabs_agent_id: cfg?.elevenlabs_agent_id } : {}),
+        // Identyfikator rozmowy tylko w gałęzi canary — kontrakt legacy zostaje
+        // bajtowo taki sam jak przed Phase 1.
+        ...(canary.enabled && conversationId ? { conversation_id: conversationId } : {}),
         messages: convo,
         business_context: cfg?.business_context || {}, display_name: cfg?.display_name || "",
         languages: cfg?.languages || ["pl"], calendar_access: !!cfg?.calendar_access, orders_access: !!cfg?.orders_access,
