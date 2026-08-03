@@ -3,13 +3,21 @@
 // Ten sam silnik, którego użyjemy w Etapie 1 jako custom-LLM dla rozmowy głosowej.
 //
 // Buduje pełny system prompt: persona (z ai_agents_config przez provider_agent_id)
-// + kontekst firmy (business_context) + język + tryb testowy. Mózg = nasz Claude.
-// Klucz ANTHROPIC z secure store (getSecret + cleanKey). Dostęp: zalogowany user.
+// + kontekst firmy (business_context) + język + tryb testowy.
+// Klucz Anthropic jest pobierany wyłącznie z secure store. Dostęp: zalogowany user.
 // ============================================================================
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getSecret } from "../_shared/aiSecrets.ts";
-import { resolveAgent } from "../_shared/translationProvider.ts";
+import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
+import { resolvePhase1Agent } from "../_shared/voicePhase1AgentConfig.ts";
+import { executePhase1Fallback, type Phase1VoiceRouting } from "../_shared/voicePhase1Runtime.ts";
+import {
+  buildPhase1AnthropicRequest,
+  consumePhase1AnthropicSse,
+  type Phase1ConversationMessage,
+  type Phase1ToolDefinition,
+} from "../_shared/voicePhase1ModelAdapter.ts";
+import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,10 +27,40 @@ const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: 
 const cleanKey = (k: string) => k.replace(/[^\x20-\x7E]/g, "");
 
 const LANG_NAMES: Record<string, string> = { pl: "polskim", en: "angielskim", ua: "ukraińskim", ru: "rosyjskim" };
+type InputMessage = { role?: unknown; content?: unknown };
+type KnowledgeEntry = { category?: string; situation?: string; recommended_response?: string };
+type LegacyContentBlock = {
+  type?: string;
+  id?: string;
+  name?: string;
+  input?: Record<string, unknown>;
+  text?: string;
+};
+type ToolOutput = {
+  ok?: boolean;
+  error?: string;
+  do_not_retry?: boolean;
+  cancelled?: boolean;
+  duplicate?: boolean;
+  simulated?: boolean;
+  order_id?: string;
+  order_number?: string;
+  booking_id?: string;
+  [key: string]: unknown;
+};
+const logTiming = (stage: string, startedAt: number, extra: Record<string, unknown> = {}) => {
+  console.info("[voice-agent-chat]", JSON.stringify({
+    event: "stage_timing", stage,
+    duration_ms: Math.round(performance.now() - startedAt),
+    ...extra,
+  }));
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  let requestWasCanary = false;
   try {
+    const totalStarted = performance.now();
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
@@ -30,21 +68,23 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization");
     const isServiceCall = authHeader === `Bearer ${serviceRoleKey}`; // proxy telefonii woła service-role
+    let authenticatedUserId: string | null = null;
     if (!isServiceCall) {
       if (!authHeader) return json({ success: false, error: "Brak autoryzacji" }, 401);
       const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
       const { data: { user }, error: authError } = await userClient.auth.getUser();
       if (authError || !user) return json({ success: false, error: "Brak autoryzacji" }, 401);
+      authenticatedUserId = user.id;
     }
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
-    let apiKey = await getSecret(admin, "ANTHROPIC_API_KEY");
+    let apiKey = await getPhase1Secret(admin, "ANTHROPIC_API_KEY");
     if (!apiKey) return json({ success: false, error: "Brak klucza Anthropic (ANTHROPIC_API_KEY)" }, 400);
     apiKey = cleanKey(apiKey);
 
     const body = await req.json().catch(() => ({}));
     const personaKey = String(body?.persona_key || "");
-    const messages = Array.isArray(body?.messages) ? body.messages : [];
+    const messages: InputMessage[] = Array.isArray(body?.messages) ? body.messages : [];
     const bc = body?.business_context || {};
     const displayName = String(body?.display_name || "").trim();
     const langs: string[] = Array.isArray(body?.languages) && body.languages.length ? body.languages : ["pl"];
@@ -54,6 +94,24 @@ serve(async (req) => {
     const testMode = body?.test_mode !== false; // domyślnie test (chat); telefonia ustawi false
     const voiceGender = String(body?.voice_gender || "").toLowerCase();
     const dryRunTools = !!body?.dry_run_tools; // symulacja treningowa — narzędzia nie piszą do bazy
+    if (!isServiceCall && providerId && authenticatedUserId) {
+      const [{ data: provider }, { data: adminRole }] = await Promise.all([
+        admin.from("service_providers").select("id").eq("id", providerId).eq("user_id", authenticatedUserId).maybeSingle(),
+        admin.from("user_roles").select("id").eq("user_id", authenticatedUserId).eq("role", "admin").maybeSingle(),
+      ]);
+      if (!provider && !adminRole) return json({ success: false, error: "Brak dostępu do firmy" }, 403);
+    }
+
+    // Agent ID jest przekazywany tylko przez uwierzytelnione wewnętrzne proxy,
+    // które wcześniej odczytało go z istniejącego voice_agent_configs.
+    const canaryAgentId = isServiceCall && body?.production_canary === true
+      ? String(body?.elevenlabs_agent_id || "")
+      : "";
+    const canary = resolveVoiceProductionCanary(providerId, canaryAgentId);
+    requestWasCanary = canary.enabled;
+    const responseStream = canary.enabled && body?.response_stream === true;
+    const responseAbort = new AbortController();
+    const canaryAbortSignal = AbortSignal.any([req.signal, responseAbort.signal]);
 
     // KONTEKST CZASU (Europa/Warszawa) — agent musi znać dziś/teraz, by liczyć "jutro"
     const now = new Date();
@@ -65,10 +123,30 @@ serve(async (req) => {
     const { data: persona } = await admin
       .from("voice_agent_personas").select("provider_agent_id, name, direction").eq("persona_key", personaKey).maybeSingle();
     const agentId = persona?.provider_agent_id || "voice_workshop_secretary";
-    const agent = await resolveAgent(admin, agentId, "claude-sonnet-4-6");
+    const agent = await resolvePhase1Agent(admin, agentId, "claude-sonnet-4-6");
     // Rozmowa = jakość naturalności > koszt. Haiku brzmi sztucznie -> Sonnet.
     const CONVO_DEFAULT = "claude-sonnet-4-6";
     const model = (agent?.model && agent.model.startsWith("claude") && !agent.model.includes("haiku")) ? agent.model : CONVO_DEFAULT;
+    const legacyRouting: Phase1VoiceRouting = {
+      primary: {
+        providerKey: "claude_sonnet", providerName: "Anthropic (legacy)", model,
+        timeoutMs: 30_000, adapterKey: "anthropic_messages", secretKey: "ANTHROPIC_API_KEY",
+        endpoint: "https://api.anthropic.com/v1/messages",
+      },
+      fallback: null, allowFallback: false, maxToolRounds: 5, maxOutputTokens: 600,
+    };
+    const phase1CanaryRouting: Phase1VoiceRouting = {
+      primary: { ...legacyRouting.primary, providerName: "Anthropic (Phase 1 primary)", timeoutMs: 8_000 },
+      fallback: {
+        providerKey: "claude_haiku", providerName: "Anthropic (Phase 1 fallback)",
+        model: "claude-haiku-4-5-20251001", timeoutMs: 8_000,
+        adapterKey: "anthropic_messages", secretKey: "ANTHROPIC_API_KEY",
+        endpoint: "https://api.anthropic.com/v1/messages",
+      },
+      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 400,
+    };
+    const voiceRouting = canary.enabled ? phase1CanaryRouting : legacyRouting;
+    logTiming("prepare", totalStarted, { production_canary: canary.enabled });
     const base = body?.custom_prompt_override?.trim() || agent?.systemPrompt ||
       "Jesteś profesjonalnym asystentem głosowym. Rozmawiaj naturalnie, prowadź wywiad i pomóż klientowi.";
 
@@ -101,7 +179,7 @@ serve(async (req) => {
     const { data: knowledge } = await kq.order("evidence_count", { ascending: false }).limit(10);
     if (knowledge?.length) {
       system += `\n\n=== WIEDZA Z POPRZEDNICH ROZMÓW (stosuj; nie powtarzaj wcześniejszych błędów) ===\n` +
-        knowledge.map((k: any) => `- [${k.category}] ${k.situation}: ${k.recommended_response}`).join("\n");
+        (knowledge as KnowledgeEntry[]).map((entry) => `- [${entry.category}] ${entry.situation}: ${entry.recommended_response}`).join("\n");
     }
 
     // Rodzaj gramatyczny dopasowany do płci głosu
@@ -117,14 +195,16 @@ serve(async (req) => {
     const firmName = bc.company_name ? String(bc.company_name) : "warsztat";
     system += `\n\n=== KONTEKST CZASU ===\nDziś jest ${humanDate} (${todayISO}), godzina ${nowTime} (Europa/Warszawa). Sam wyliczaj daty względne ("jutro", "pojutrze", "w piątek") i przekazuj je do narzędzi w formacie RRRR-MM-DD. NIGDY nie pytaj klienta o dzisiejszą datę.\n\n=== JĘZYK I POWITANIE ===\n- ZAWSZE witaj po POLSKU, BARDZO krótko: "Dzień dobry, ${firmName}, w czym mogę pomóc?". NIE wymieniaj usług w powitaniu, nie zadawaj kilku pytań naraz.\n- Jeśli rozmówca odezwie się w innym języku (rosyjski, ukraiński, angielski) — natychmiast PRZEŁĄCZ się na ten język i prowadź w nim całą rozmowę.\n\n=== STYL (jak człowiek przez telefon) ===\n- KRÓTKO: 1-2 zdania na turę, jedno pytanie na raz. Bez monologów i wyliczanek.\n- FORMA GRZECZNOŚCIOWA: ZAWSZE per "Pan/Pani", uprzejmie i profesjonalnie. NIGDY per "ty" i NIGDY potocznie. PRZYKŁADY: zamiast "jak się nazywasz?" → "Jak się Pan nazywa?"; zamiast "dobra" → "Dobrze" / "Oczywiście"; zamiast "pasuje ci jutro?" → "Czy pasuje Panu jutro o dziewiątej?". Dopóki nie znasz płci rozmówcy — używaj uprzejmej formy bezosobowej ("Czy ten termin będzie odpowiedni?"); gdy już wiesz (imię, wypowiedzi) — konsekwentnie Pan albo Pani. Dotyczy też PODSUMOWANIA: NIGDY samym imieniem ("Daniel, podsumowuję") — albo "Panie Danielu, podsumowuję...", albo bezosobowo "Podsumowuję: ...". Jedna forma od pierwszego do ostatniego zdania rozmowy.\n- Ton ciepły, naturalny, konkretny — jak miły recepcjonista, który mówi wprost.\n\n=== PYTANIA KLIENTA W TRAKCIE UMAWIANIA ===\n- Jeśli klient zada pytanie — NAJPIERW odpowiedz na pytanie, dopiero potem wróć do rezerwacji.\n- NIGDY nie powtarzaj tej samej propozycji terminu dwa razy pod rząd. Jeśli klient nie odpowiedział wprost na propozycję — ma wątpliwość: zaadresuj ją lub zaproponuj inny termin.\n- Jeśli nie znasz odpowiedzi (np. czas naprawy przed diagnozą, dokładna cena) — powiedz to WPROST ("to będzie wiadomo po diagnozie na miejscu"), nie ignoruj pytania i nie zmyślaj.\n- Gdy termin jest już potwierdzony — NIE pytaj ponownie o zgodę ("Czy mogę sfinalizować rezerwację?") i nie powtarzaj potwierdzeń już ustalonych faktów. Po odpowiedzi na pytania klienta domknij naturalnie: "W takim razie do zobaczenia jutro o dziewiątej" albo "Czy mogę jeszcze w czymś pomóc?".\n\n=== WYMOWA — KLUCZOWE (tekst CZYTANY NA GŁOS po polsku) ===\nLiczby, godziny, daty, ceny zapisuj SŁOWAMI po polsku, NIGDY cyframi/symbolami: "dziewiąta rano", "wpół do dziesiątej" (nie "9:00"); "w czwartek", "piętnastego maja" (nie "15.05"); "sto pięćdziesiąt złotych" (nie "150 zł"). Pełne, dokończone zdania.\n\n=== WYWIAD I NARZĘDZIA ===\nKOLEJNOŚĆ ROZMOWY (trzymaj się jej): (1) NAJPIERW dopytaj o problem/potrzebę — opis usterki, co sprawdzić; (2) POTEM ustal preferowany termin i zaproponuj wolny; (3) DOPIERO gdy termin zaakceptowany — poproś o dane: imię i nazwisko, numer telefonu, numer rejestracyjny (jeśli nie zna — marka, model, rok). NIE proś o dane osobowe w środku opisu usterki. Gdy masz komplet:\n- użyj narzędzia check_availability, by sprawdzić wolny termin (jeśli masz uprawnienia),\n- użyj create_booking, by umówić wizytę,\n- następnie create_order, by utworzyć zlecenie z usterką i danymi pojazdu.\nW create_order pole "complaint" przekaż jako LISTĘ PUNKTÓW — każda usterka/zadanie w nowej linii zaczynając od myślnika, np.:\n- stuki w zawieszeniu z przodu\n- sprawdzić zawieszenie i łożyska\nUtwórz zlecenie i rezerwację TYLKO RAZ w całej rozmowie (nie powtarzaj wywołań). Krótko informuj co robisz (np. "już sprawdzam wolne terminy"). Po umówieniu potwierdź termin i dane słownie. Nigdy nie zmyślaj dostępności — zawsze użyj narzędzia. NIGDY nie mów, ile jest wolnych terminów, ani że "mamy dużo wolnych miejsc" (to sugeruje klientowi pusty kalendarz) — po sprawdzeniu od razu zaproponuj konkretną godzinę, a ogólnie mów co najwyżej "Tak, znajdziemy termin".`;
 
-    const convo: any[] = messages
-      .filter((m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-      .map((m: any) => ({ role: m.role, content: m.content }));
+    const convo: Phase1ConversationMessage[] = messages
+      .filter((message): message is { role: "user" | "assistant"; content: string } =>
+        (message.role === "user" || message.role === "assistant") && typeof message.content === "string")
+      .slice(canary.enabled ? -12 : 0)
+      .map((message) => ({ role: message.role, content: message.content }));
     while (convo.length && convo[0].role !== "user") convo.shift();
     if (convo.length === 0) convo.push({ role: "user", content: "[Rozpocznij rozmowę — przywitaj się zgodnie ze swoją rolą]" });
 
     // Narzędzia (tylko gdy są uprawnienia i znamy providera)
-    const tools: any[] = [];
+    const tools: Phase1ToolDefinition[] = [];
     if (providerId && calendarAccess) {
       tools.push({
         name: "check_availability",
@@ -155,50 +235,258 @@ serve(async (req) => {
       });
     }
 
-    const callTool = async (name: string, input: any) => {
+    if (!canary.enabled) {
+      const legacyConvo: Array<{ role: string; content: unknown }> = convo.map((message) => ({ ...message }));
+      const callLegacyTool = async (name: string, input: Record<string, unknown>): Promise<ToolOutput> => {
+        if (dryRunTools) return { ok: true, simulated: true, order_id: "sim", order_number: "SIM", booking_id: "sim" };
+        try {
+          const response = await fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
+            body: JSON.stringify({ action: name, provider_id: providerId, persona_key: personaKey, is_test: testMode, ...input }),
+          });
+          return await response.json() as ToolOutput;
+        } catch (error) {
+          return { ok: false, error: (error as Error).message };
+        }
+      };
+
+      let legacyReply = "";
+      const legacyCreated: { order_id: string | null; order_number: string | null; booking_id: string | null } = {
+        order_id: null, order_number: null, booking_id: null,
+      };
+      for (let round = 0; round < 5; round++) {
+        const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+          body: JSON.stringify({ model, max_tokens: 600, temperature: 0.7, system, messages: legacyConvo, ...(tools.length ? { tools } : {}) }),
+        });
+        if (!aiResponse.ok) {
+          const responseText = await aiResponse.text().catch(() => "");
+          return json({ success: false, error: `Anthropic błąd ${aiResponse.status}: ${responseText.slice(0, 200)}` }, 400);
+        }
+        const aiData = await aiResponse.json() as { content?: LegacyContentBlock[]; stop_reason?: string };
+        const blocks = aiData.content || [];
+        const toolUses = blocks.filter((block) => block.type === "tool_use");
+        if (aiData.stop_reason === "tool_use" && toolUses.length && tools.length) {
+          legacyConvo.push({ role: "assistant", content: blocks });
+          const results = [];
+          for (const toolUse of toolUses) {
+            const output = await callLegacyTool(toolUse.name || "", toolUse.input || {});
+            if (toolUse.name === "create_order" && output.order_id) {
+              legacyCreated.order_id = output.order_id;
+              legacyCreated.order_number = output.order_number || null;
+            }
+            if (toolUse.name === "create_booking" && output.booking_id) legacyCreated.booking_id = output.booking_id;
+            results.push({ type: "tool_result", tool_use_id: toolUse.id, content: JSON.stringify(output) });
+          }
+          legacyConvo.push({ role: "user", content: results });
+          continue;
+        }
+        legacyReply = blocks.filter((block) => block.type === "text").map((block) => block.text || "").join("\n").trim();
+        break;
+      }
+      return json({ success: true, reply: legacyReply, model, created: legacyCreated });
+    }
+
+    const completedToolActions = new Map<string, ToolOutput>();
+    const failedToolActions = new Map<string, number>();
+    const toolResultCache = new Map<string, ToolOutput>();
+    const callTool = async (name: string, input: Record<string, unknown>): Promise<ToolOutput> => {
+      if (canaryAbortSignal.aborted) {
+        return { ok: false, error: "Połączenie zostało przerwane.", do_not_retry: true, cancelled: true };
+      }
+      const cacheKey = `${name}:${JSON.stringify(input || {})}`;
+      if (toolResultCache.has(cacheKey)) return { ...toolResultCache.get(cacheKey), duplicate: true };
+      const idempotentCreate = name === "create_booking" || name === "create_order";
+      if (idempotentCreate && completedToolActions.has(name)) return { ...completedToolActions.get(name), duplicate: true };
+      if ((failedToolActions.get(name) || 0) >= 1) {
+        return { ok: false, error: "Operacja nie powiodła się. Nie ponawiaj jej w tej turze.", do_not_retry: true };
+      }
       if (dryRunTools) return { ok: true, simulated: true, order_id: "sim", order_number: "SIM", booking_id: "sim" };
       try {
-        const r = await fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
+        const toolStarted = performance.now();
+        const response = await fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
           method: "POST",
           headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
           body: JSON.stringify({ action: name, provider_id: providerId, persona_key: personaKey, is_test: testMode, ...input }),
+          signal: AbortSignal.any([canaryAbortSignal, AbortSignal.timeout(12_000)]),
         });
-        return await r.json();
-      } catch (e) { return { ok: false, error: (e as Error).message }; }
+        const output = await response.json().catch(() => ({ ok: false, error: "Niepoprawna odpowiedź narzędzia" })) as ToolOutput;
+        logTiming("tool", toolStarted, { tool: name, ok: !!output.ok });
+        if (output.ok) toolResultCache.set(cacheKey, output);
+        if (idempotentCreate && output.ok) completedToolActions.set(name, output);
+        if (!output.ok) {
+          failedToolActions.set(name, (failedToolActions.get(name) || 0) + 1);
+          return { ...output, do_not_retry: true };
+        }
+        return output;
+      } catch (error) {
+        failedToolActions.set(name, (failedToolActions.get(name) || 0) + 1);
+        return {
+          ok: false,
+          error: (error as Error).name === "TimeoutError" ? "Narzędzie przekroczyło limit czasu" : "Narzędzie chwilowo niedostępne",
+          do_not_retry: true,
+        };
+      }
     };
 
-    let reply = "";
-    const created: { order_id: string | null; order_number: string | null; booking_id: string | null } = { order_id: null, order_number: null, booking_id: null };
-    for (let round = 0; round < 5; round++) {
-      const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: 600, temperature: 0.7, system, messages: convo, ...(tools.length ? { tools } : {}) }),
-      });
-      if (!aiRes.ok) {
-        const t = await aiRes.text().catch(() => "");
-        return json({ success: false, error: `Anthropic błąd ${aiRes.status}: ${t.slice(0, 200)}` }, 400);
-      }
-      const aiData = await aiRes.json();
-      const blocks = aiData?.content || [];
-      const toolUses = blocks.filter((b: any) => b.type === "tool_use");
-      if (aiData?.stop_reason === "tool_use" && toolUses.length && tools.length) {
-        convo.push({ role: "assistant", content: blocks });
-        const results = [];
-        for (const tu of toolUses) {
-          const out = await callTool(tu.name, tu.input || {});
-          if (tu.name === "create_order" && out?.order_id) { created.order_id = out.order_id; created.order_number = out.order_number || null; }
-          if (tu.name === "create_booking" && out?.booking_id) { created.booking_id = out.booking_id; }
-          results.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out) });
+    const execute = async (onText: (delta: string) => void) => {
+      let reply = "";
+      let emittedText = false;
+      let firstTextLogged = false;
+      const emit = (delta: string) => {
+        if (!delta) return;
+        if (!firstTextLogged) {
+          firstTextLogged = true;
+          logTiming("first_text", totalStarted);
         }
-        convo.push({ role: "user", content: results });
-        continue;
+        reply += delta;
+        emittedText = true;
+        onText(delta);
+      };
+      const created: { order_id: string | null; order_number: string | null; booking_id: string | null } = {
+        order_id: null, order_number: null, booking_id: null,
+      };
+      let toolRounds = 0;
+      for (let round = 0; round <= voiceRouting.maxToolRounds; round++) {
+        if (round > 0 && emittedText && !/\s$/.test(reply)) emit(" ");
+        const modelStarted = performance.now();
+        const attempted = await executePhase1Fallback(voiceRouting, async (candidate) => {
+          if (canaryAbortSignal.aborted) {
+            const aborted = new DOMException("client disconnected", "AbortError") as DOMException & { allowFallback?: boolean };
+            aborted.allowFallback = false;
+            throw aborted;
+          }
+          let candidateEmittedText = false;
+          const request = buildPhase1AnthropicRequest(candidate, apiKey, system, convo, tools, voiceRouting.maxOutputTokens);
+          const modelTimeoutSignal = request.init.signal as AbortSignal;
+          let modelResponse: Response;
+          try {
+            modelResponse = await fetch(request.url, {
+              ...request.init,
+              signal: AbortSignal.any([canaryAbortSignal, modelTimeoutSignal]),
+            });
+          } catch (requestError) {
+            if (canaryAbortSignal.aborted) {
+              (requestError as Error & { allowFallback?: boolean }).allowFallback = false;
+            }
+            throw requestError;
+          }
+          if (!modelResponse.ok) {
+            console.warn("[voice-agent-chat] model_failed", modelResponse.status);
+            throw new Error("MODEL_UPSTREAM_ERROR");
+          }
+          try {
+            return await consumePhase1AnthropicSse(modelResponse, (delta) => {
+              candidateEmittedText = true;
+              emit(delta);
+            });
+          } catch (streamError) {
+            if (candidateEmittedText) {
+              (streamError as Error & { allowFallback?: boolean }).allowFallback = false;
+            }
+            throw streamError;
+          }
+        });
+        const streamed = attempted.value;
+        logTiming("model_round", modelStarted, {
+          round: round + 1,
+          provider: attempted.candidate.providerKey,
+          model: attempted.candidate.model,
+          fallback_used: attempted.attempts > 1,
+        });
+        if ((streamed.stopReason === "tool_use" || streamed.stopReason === "tool_calls") && streamed.toolCalls.length && tools.length) {
+          if (toolRounds >= voiceRouting.maxToolRounds) {
+            emit("Nie udało się dokończyć operacji w bezpiecznym limicie. Obsługa zweryfikuje zapis.");
+            break;
+          }
+          toolRounds++;
+          if (!emittedText) emit("Już sprawdzam. ");
+          convo.push({ role: "assistant_tools", content: streamed.text, calls: streamed.toolCalls });
+          const results = [];
+          let stopAfterToolError = false;
+          for (const toolUse of streamed.toolCalls) {
+            if (canaryAbortSignal.aborted) break;
+            const toolInput = { ...(toolUse.input || {}) };
+            if (toolUse.name === "create_order" && !toolInput.booking_id && created.booking_id) toolInput.booking_id = created.booking_id;
+            const output = await callTool(toolUse.name, toolInput);
+            if (output.do_not_retry) stopAfterToolError = true;
+            if (toolUse.name === "create_order" && output.order_id) {
+              created.order_id = output.order_id;
+              created.order_number = output.order_number || null;
+            }
+            if (toolUse.name === "create_booking" && output.booking_id) created.booking_id = output.booking_id;
+            results.push({ toolCallId: toolUse.id, content: JSON.stringify(output) });
+            if (stopAfterToolError) break;
+          }
+          convo.push({ role: "tool_results", results });
+          if (stopAfterToolError) {
+            emit("Nie udało się bezpiecznie dokończyć operacji. Proszę nie ponawiać danych — obsługa zweryfikuje zapis.");
+            break;
+          }
+          continue;
+        }
+        break;
       }
-      reply = blocks.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
-      break;
+      if (!reply.trim()) emit("Przepraszam, nie udało mi się dokończyć tej operacji. Proszę spróbować ponownie za chwilę.");
+      logTiming("total", totalStarted, { tool_actions: completedToolActions.size, streamed: responseStream });
+      return { reply: reply.trim(), created };
+    };
+
+    if (responseStream) {
+      const encoder = new TextEncoder();
+      const id = "chatcmpl-" + crypto.randomUUID();
+      const createdAt = Math.floor(Date.now() / 1000);
+      const stream = new ReadableStream({
+        start(controller) {
+          const send = (payload: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+          send({ id, object: "chat.completion.chunk", created: createdAt, model, choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }] });
+          execute((delta) => send({
+            id, object: "chat.completion.chunk", created: createdAt, model,
+            choices: [{ index: 0, delta: { content: delta }, finish_reason: null }],
+          })).then(() => {
+            if (canaryAbortSignal.aborted) return;
+            send({ id, object: "chat.completion.chunk", created: createdAt, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] });
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          }).catch((error) => {
+            if (canaryAbortSignal.aborted) return;
+            console.error("[voice-agent-chat] stream_failed", error?.name || "error");
+            send({
+              id, object: "chat.completion.chunk", created: createdAt, model,
+              choices: [{ index: 0, delta: { content: "Przepraszam, wystąpił chwilowy problem techniczny." }, finish_reason: null }],
+            });
+            send({ id, object: "chat.completion.chunk", created: createdAt, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] });
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            controller.close();
+          });
+        },
+        cancel() {
+          responseAbort.abort("downstream cancelled");
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache, no-transform",
+          "X-Accel-Buffering": "no",
+          Connection: "keep-alive",
+        },
+      });
     }
-    return json({ success: true, reply, model, created });
+
+    const result = await execute(() => {});
+    return json({ success: true, reply: result.reply, model, created: result.created });
   } catch (e) {
-    return json({ success: false, error: (e as Error).message }, 500);
+    console.error("[voice-agent-chat] request_failed", (e as Error)?.name || "error");
+    const error = e as Error;
+    return json({
+      success: false,
+      error: requestWasCanary
+        ? (error.name === "TimeoutError" ? "Model przekroczył limit czasu" : "Nie udało się przygotować odpowiedzi")
+        : error.message,
+    }, 500);
   }
 });
