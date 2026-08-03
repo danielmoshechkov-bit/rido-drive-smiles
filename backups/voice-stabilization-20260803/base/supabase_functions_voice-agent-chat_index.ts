@@ -69,23 +69,17 @@ const MODEL_FAILURE_FALLBACK: Record<ModelFailure, boolean> = {
   other: false,
 };
 
-// Komunikat awaryjny czytany na głos. Nie zdradzamy szczegółów technicznych i nie
-// twierdzimy, że rezerwacja powstała.
-//
-// UWAGA na zakres wiedzy: `mutationCreated` dotyczy WYŁĄCZNIE bieżącego żądania
-// HTTP, a każda tura rozmowy to osobne wywołanie tej funkcji. Rezerwacja utworzona
-// w poprzedniej turze jest tu niewidoczna. Dlatego wariant "nic nie zapisano" NIE
-// MOŻE tu wystąpić — w prawdziwej rozmowie skłamał: booking i zlecenie powstały
-// w turze wcześniejszej, a agent powiedział, że nic nie zostało zapisane.
-// Wiedzę o całej rozmowie da dopiero conversation_id (osobny etap).
+// Komunikat awaryjny czytany na głos. Dwie zasady: nie zdradzamy szczegółów
+// technicznych rozmówcy i NIGDY nie sugerujemy, że rezerwacja powstała, ani że
+// nic nie powstało, jeśli faktycznie coś zapisaliśmy.
 const buildFailureSentence = (failure: ModelFailure | null, mutationCreated: boolean): string => {
   if (mutationCreated) {
-    return "Przepraszam, straciłam wątek na końcu. Zapis jest w systemie, obsługa potwierdzi szczegóły.";
+    return "Przepraszam, straciłam wątek na końcu, ale zapis jest już w systemie. Obsługa potwierdzi szczegóły.";
   }
   if (failure === "quota") {
-    return "Przepraszam, mam w tej chwili chwilowe ograniczenie techniczne. Proszę zadzwonić za kilka minut, obsługa potwierdzi szczegóły.";
+    return "Przepraszam, mam w tej chwili chwilowe ograniczenie techniczne. Nic nie zostało jeszcze zapisane — proszę zadzwonić za kilka minut.";
   }
-  return "Przepraszam, wystąpił chwilowy problem techniczny. Obsługa oddzwoni i potwierdzi szczegóły.";
+  return "Przepraszam, wystąpił chwilowy problem techniczny. Nic nie zostało jeszcze zapisane — proszę spróbować ponownie.";
 };
 
 const logTiming = (stage: string, startedAt: number, extra: Record<string, unknown> = {}) => {
@@ -163,16 +157,6 @@ serve(async (req) => {
     const humanDate = new Intl.DateTimeFormat("pl-PL", { timeZone: "Europe/Warsaw", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now);
     const nowTime = new Intl.DateTimeFormat("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" }).format(now);
 
-    // Wiedza nie zależy od persony ani od agenta — startujemy zapytanie tutaj, żeby
-    // biegło równolegle z odczytem persony i konfiguracji. Każda sekwencyjna podróż
-    // do bazy przed pierwszym tokenem to bezpośrednie opóźnienie w słuchawce.
-    let knowledgeQuery = admin.from("voice_agent_knowledge").select("category, situation, recommended_response")
-      .eq("persona_key", personaKey).eq("is_active", true);
-    knowledgeQuery = providerId
-      ? knowledgeQuery.or(`provider_id.eq.${providerId},provider_id.is.null`)
-      : knowledgeQuery.is("provider_id", null);
-    const knowledgePromise = knowledgeQuery.order("evidence_count", { ascending: false }).limit(10);
-
     // Persona -> provider_agent_id -> prompt+model z ai_agents_config
     const { data: persona } = await admin
       .from("voice_agent_personas").select("provider_agent_id, name, direction").eq("persona_key", personaKey).maybeSingle();
@@ -228,9 +212,11 @@ serve(async (req) => {
     if (ordersAccess) caps.push("możesz utworzyć zlecenie z danymi z rozmowy");
     if (caps.length) system += `\nUprawnienia: ${caps.join("; ")}.`;
 
-    // WIEDZA Z POPRZEDNICH ROZMÓW (warstwa uczenia) — zapytanie wystartowało wyżej,
-    // równolegle z odczytem persony; tutaj tylko odbieramy wynik.
-    const { data: knowledge } = await knowledgePromise;
+    // WIEDZA Z POPRZEDNICH ROZMÓW (warstwa uczenia) — globalna persony + tego providera
+    let kq = admin.from("voice_agent_knowledge").select("category, situation, recommended_response")
+      .eq("persona_key", personaKey).eq("is_active", true);
+    kq = providerId ? kq.or(`provider_id.eq.${providerId},provider_id.is.null`) : kq.is("provider_id", null);
+    const { data: knowledge } = await kq.order("evidence_count", { ascending: false }).limit(10);
     if (knowledge?.length) {
       system += `\n\n=== WIEDZA Z POPRZEDNICH ROZMÓW (stosuj; nie powtarzaj wcześniejszych błędów) ===\n` +
         (knowledge as KnowledgeEntry[]).map((entry) => `- [${entry.category}] ${entry.situation}: ${entry.recommended_response}`).join("\n");
@@ -256,16 +242,12 @@ serve(async (req) => {
     const greetingRule = testMode
       ? `- ZAWSZE witaj po POLSKU, BARDZO krótko: "Dzień dobry, ${firmName}, w czym mogę pomóc?". NIE wymieniaj usług w powitaniu, nie zadawaj kilku pytań naraz.`
       : `- Rozmówca usłyszał już powitanie z systemu telefonicznego. NIE witaj się drugi raz i NIE przedstawiaj firmy ponownie — od razu odpowiedz na to, co powiedział.`;
-    system += `\n\n=== KONTEKST CZASU ===\nDziś jest ${humanDate} (${todayISO}), godzina ${nowTime} (Europa/Warszawa). Sam wyliczaj daty względne ("jutro", "pojutrze", "w piątek") i przekazuj je do narzędzi w formacie RRRR-MM-DD. NIGDY nie pytaj klienta o dzisiejszą datę.\n\n=== JĘZYK I POWITANIE ===\n${greetingRule}\n- Jeśli rozmówca odezwie się w innym języku (rosyjski, ukraiński, angielski) — natychmiast PRZEŁĄCZ się na ten język i prowadź w nim całą rozmowę.\n\n=== PAMIĘĆ ROZMOWY (najważniejsze) ===\n- ZANIM zadasz pytanie, przeczytaj CAŁĄ dotychczasową rozmowę. Jeśli odpowiedź już w niej padła — choćby innymi słowami — NIE PYTAJ o nią drugi raz.\n- Dotyczy zwłaszcza: opisu usterki, od kiedy trwa, czy się pogarsza, historii serwisowej, terminu, imienia i nazwiska, telefonu, marki, modelu i rejestracji.\n- Jeśli klient poprawia dane (np. inaczej wymawia nazwisko) — zaktualizuj wartość i idź dalej. Nie zaczynaj wywiadu od nowa.\n- Nigdy nie mów "przepraszam za powtórzenie" ani "już Pan o tym mówił" — po prostu nie powtarzaj.\n- Potwierdzony termin jest ustalony. Nie pytaj o niego ponownie.\n\n=== HAŁAS I NIEWYRAŹNA MOWA ===\n- Jeśli ostatnia wypowiedź jest niezrozumiała, urwana albo sprzeczna z tym, co już wiesz — NIE ZGADUJ i NIE ZACZYNAJ ROZMOWY OD NOWA.\n- Wszystko, co klient potwierdził wcześniej, POZOSTAJE aktualne. Błędna transkrypcja niczego nie kasuje.\n- Poproś o powtórzenie WYŁĄCZNIE tej jednej brakującej informacji, krótko i konkretnie: "Nie dosłyszałam godziny — czy chodzi o dziewiątą rano?".\n- Nie pytaj ponownie o pozostałe dane i nie proś o powtórzenie całej wypowiedzi.\n\n=== STYL (jak człowiek przez telefon) ===\n- KRÓTKO: 1-2 zdania na turę, jedno pytanie na raz. Bez monologów i wyliczanek.\n- FORMA GRZECZNOŚCIOWA: ZAWSZE per "Pan/Pani", uprzejmie i profesjonalnie. NIGDY per "ty" i NIGDY potocznie. PRZYKŁADY: zamiast "jak się nazywasz?" → "Jak się Pan nazywa?"; zamiast "dobra" → "Dobrze" / "Oczywiście"; zamiast "pasuje ci jutro?" → "Czy pasuje Panu jutro o dziewiątej?". Dopóki nie znasz płci rozmówcy — używaj uprzejmej formy bezosobowej ("Czy ten termin będzie odpowiedni?"); gdy już wiesz (imię, wypowiedzi) — konsekwentnie Pan albo Pani. Dotyczy też PODSUMOWANIA: NIGDY samym imieniem ("Daniel, podsumowuję") — albo "Panie Danielu, podsumowuję...", albo bezosobowo "Podsumowuję: ...". Jedna forma od pierwszego do ostatniego zdania rozmowy.\n- Ton ciepły, naturalny, konkretny — jak miły recepcjonista, który mówi wprost.\n\n=== PYTANIA KLIENTA W TRAKCIE UMAWIANIA ===\n- Jeśli klient zada pytanie — NAJPIERW odpowiedz na pytanie, dopiero potem wróć do rezerwacji.\n- NIGDY nie powtarzaj tej samej propozycji terminu dwa razy pod rząd. Jeśli klient nie odpowiedział wprost na propozycję — ma wątpliwość: zaadresuj ją lub zaproponuj inny termin.\n- Jeśli nie znasz odpowiedzi (np. czas naprawy przed diagnozą, dokładna cena) — powiedz to WPROST ("to będzie wiadomo po diagnozie na miejscu"), nie ignoruj pytania i nie zmyślaj.\n- Gdy termin jest już potwierdzony — NIE pytaj ponownie o zgodę ("Czy mogę sfinalizować rezerwację?") i nie powtarzaj potwierdzeń już ustalonych faktów. Po odpowiedzi na pytania klienta domknij naturalnie: "W takim razie do zobaczenia jutro o dziewiątej" albo "Czy mogę jeszcze w czymś pomóc?".\n\n=== WYMOWA — KLUCZOWE (tekst CZYTANY NA GŁOS po polsku) ===\nLiczby, godziny, daty, ceny zapisuj SŁOWAMI po polsku, NIGDY cyframi/symbolami: "dziewiąta rano", "wpół do dziesiątej" (nie "9:00"); "w czwartek", "piętnastego maja" (nie "15.05"); "sto pięćdziesiąt złotych" (nie "150 zł"). Pełne, dokończone zdania.\n\n=== WYWIAD I NARZĘDZIA ===\nKOLEJNOŚĆ ROZMOWY (trzymaj się jej): (1) NAJPIERW dopytaj o problem/potrzebę — opis usterki, co sprawdzić; (2) POTEM ustal preferowany termin i zaproponuj wolny; (3) DOPIERO gdy termin zaakceptowany — poproś o dane: imię i nazwisko, numer telefonu, numer rejestracyjny (jeśli nie zna — marka, model, rok). NIE proś o dane osobowe w środku opisu usterki. Gdy masz komplet:\n- użyj narzędzia check_availability, by sprawdzić wolny termin (jeśli masz uprawnienia),\n- użyj create_booking, by umówić wizytę,\n- następnie create_order, by utworzyć zlecenie z usterką i danymi pojazdu.\nW create_order pole "complaint" przekaż jako LISTĘ PUNKTÓW — każda usterka/zadanie w nowej linii zaczynając od myślnika, np.:\n- stuki w zawieszeniu z przodu\n- sprawdzić zawieszenie i łożyska\nUtwórz zlecenie i rezerwację TYLKO RAZ w całej rozmowie (nie powtarzaj wywołań). Krótko informuj co robisz (np. "już sprawdzam wolne terminy"). Po umówieniu potwierdź termin i dane słownie. Nigdy nie zmyślaj dostępności — zawsze użyj narzędzia. NIGDY nie mów, ile jest wolnych terminów, ani że "mamy dużo wolnych miejsc" (to sugeruje klientowi pusty kalendarz) — po sprawdzeniu od razu zaproponuj konkretną godzinę, a ogólnie mów co najwyżej "Tak, znajdziemy termin".`;
+    system += `\n\n=== KONTEKST CZASU ===\nDziś jest ${humanDate} (${todayISO}), godzina ${nowTime} (Europa/Warszawa). Sam wyliczaj daty względne ("jutro", "pojutrze", "w piątek") i przekazuj je do narzędzi w formacie RRRR-MM-DD. NIGDY nie pytaj klienta o dzisiejszą datę.\n\n=== JĘZYK I POWITANIE ===\n${greetingRule}\n- Jeśli rozmówca odezwie się w innym języku (rosyjski, ukraiński, angielski) — natychmiast PRZEŁĄCZ się na ten język i prowadź w nim całą rozmowę.\n\n=== STYL (jak człowiek przez telefon) ===\n- KRÓTKO: 1-2 zdania na turę, jedno pytanie na raz. Bez monologów i wyliczanek.\n- FORMA GRZECZNOŚCIOWA: ZAWSZE per "Pan/Pani", uprzejmie i profesjonalnie. NIGDY per "ty" i NIGDY potocznie. PRZYKŁADY: zamiast "jak się nazywasz?" → "Jak się Pan nazywa?"; zamiast "dobra" → "Dobrze" / "Oczywiście"; zamiast "pasuje ci jutro?" → "Czy pasuje Panu jutro o dziewiątej?". Dopóki nie znasz płci rozmówcy — używaj uprzejmej formy bezosobowej ("Czy ten termin będzie odpowiedni?"); gdy już wiesz (imię, wypowiedzi) — konsekwentnie Pan albo Pani. Dotyczy też PODSUMOWANIA: NIGDY samym imieniem ("Daniel, podsumowuję") — albo "Panie Danielu, podsumowuję...", albo bezosobowo "Podsumowuję: ...". Jedna forma od pierwszego do ostatniego zdania rozmowy.\n- Ton ciepły, naturalny, konkretny — jak miły recepcjonista, który mówi wprost.\n\n=== PYTANIA KLIENTA W TRAKCIE UMAWIANIA ===\n- Jeśli klient zada pytanie — NAJPIERW odpowiedz na pytanie, dopiero potem wróć do rezerwacji.\n- NIGDY nie powtarzaj tej samej propozycji terminu dwa razy pod rząd. Jeśli klient nie odpowiedział wprost na propozycję — ma wątpliwość: zaadresuj ją lub zaproponuj inny termin.\n- Jeśli nie znasz odpowiedzi (np. czas naprawy przed diagnozą, dokładna cena) — powiedz to WPROST ("to będzie wiadomo po diagnozie na miejscu"), nie ignoruj pytania i nie zmyślaj.\n- Gdy termin jest już potwierdzony — NIE pytaj ponownie o zgodę ("Czy mogę sfinalizować rezerwację?") i nie powtarzaj potwierdzeń już ustalonych faktów. Po odpowiedzi na pytania klienta domknij naturalnie: "W takim razie do zobaczenia jutro o dziewiątej" albo "Czy mogę jeszcze w czymś pomóc?".\n\n=== WYMOWA — KLUCZOWE (tekst CZYTANY NA GŁOS po polsku) ===\nLiczby, godziny, daty, ceny zapisuj SŁOWAMI po polsku, NIGDY cyframi/symbolami: "dziewiąta rano", "wpół do dziesiątej" (nie "9:00"); "w czwartek", "piętnastego maja" (nie "15.05"); "sto pięćdziesiąt złotych" (nie "150 zł"). Pełne, dokończone zdania.\n\n=== WYWIAD I NARZĘDZIA ===\nKOLEJNOŚĆ ROZMOWY (trzymaj się jej): (1) NAJPIERW dopytaj o problem/potrzebę — opis usterki, co sprawdzić; (2) POTEM ustal preferowany termin i zaproponuj wolny; (3) DOPIERO gdy termin zaakceptowany — poproś o dane: imię i nazwisko, numer telefonu, numer rejestracyjny (jeśli nie zna — marka, model, rok). NIE proś o dane osobowe w środku opisu usterki. Gdy masz komplet:\n- użyj narzędzia check_availability, by sprawdzić wolny termin (jeśli masz uprawnienia),\n- użyj create_booking, by umówić wizytę,\n- następnie create_order, by utworzyć zlecenie z usterką i danymi pojazdu.\nW create_order pole "complaint" przekaż jako LISTĘ PUNKTÓW — każda usterka/zadanie w nowej linii zaczynając od myślnika, np.:\n- stuki w zawieszeniu z przodu\n- sprawdzić zawieszenie i łożyska\nUtwórz zlecenie i rezerwację TYLKO RAZ w całej rozmowie (nie powtarzaj wywołań). Krótko informuj co robisz (np. "już sprawdzam wolne terminy"). Po umówieniu potwierdź termin i dane słownie. Nigdy nie zmyślaj dostępności — zawsze użyj narzędzia. NIGDY nie mów, ile jest wolnych terminów, ani że "mamy dużo wolnych miejsc" (to sugeruje klientowi pusty kalendarz) — po sprawdzeniu od razu zaproponuj konkretną godzinę, a ogólnie mów co najwyżej "Tak, znajdziemy termin".`;
 
     const convo: Phase1ConversationMessage[] = messages
       .filter((message): message is { role: "user" | "assistant"; content: string } =>
         (message.role === "user" || message.role === "assistant") && typeof message.content === "string")
-      // Okno 12 wiadomości gubiło początek rozmowy: po ~10 turach opis usterki
-      // wypadał z kontekstu i agent pytał o niego drugi raz. Rozmowa telefoniczna
-      // rzadko przekracza 40 wiadomości, a wejście i tak jest krótkie, bo to
-      // pojedyncze zdania mówione.
-      .slice(canary.enabled ? -40 : 0)
+      .slice(canary.enabled ? -12 : 0)
       .map((message) => ({ role: message.role, content: message.content }));
     while (convo.length && convo[0].role !== "user") convo.shift();
     if (convo.length === 0) convo.push({ role: "user", content: "[Rozpocznij rozmowę — przywitaj się zgodnie ze swoją rolą]" });
