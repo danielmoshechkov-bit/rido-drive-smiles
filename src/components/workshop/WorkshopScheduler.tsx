@@ -646,7 +646,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         </div>
       )}
 
-      <div className="flex gap-3 items-start min-h-0">
+      <div className="flex flex-wrap lg:flex-nowrap gap-3 items-start min-h-0">
       {/* Unplanned orders — boczny panel */}
       <Card
         className={`hidden lg:flex flex-col w-[270px] flex-shrink-0 border shadow-sm transition-all h-[calc(100vh-200px)] ${dragOverUnplanned && dragSource === 'scheduled' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20' : 'border-border'}`}
@@ -771,7 +771,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         </div>
       ) : (
         /* Day/Week grid */
-        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-2xl border border-border bg-card shadow-sm flex flex-col">
+        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-card shadow-sm flex flex-col">
           <div ref={gridScrollRef} className="flex-1 min-h-0 overflow-auto">
 
             <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
@@ -808,7 +808,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                       const today = isToday(day);
                       const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                       return (
-                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-border p-1.5 text-center ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${today ? 'bg-primary/15 border-b-primary' : 'bg-muted/60'}`}>
+                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-slate-300 dark:border-slate-700 p-1.5 text-center ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${today ? 'bg-primary/15 border-b-primary' : 'bg-[hsl(220,14%,96%)] dark:bg-[hsl(220,14%,16%)]'}`}>
                           <div className={`font-bold text-[10px] uppercase tracking-wider ${today ? 'text-primary' : 'text-muted-foreground'}`}>{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
                           <div className={`text-sm font-extrabold tabular-nums ${today ? 'text-primary' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
                         </th>
@@ -822,7 +822,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                   const anyWork = weekDays.some(d => isWorkHour(d, hour));
                   return (
                     <tr key={hour} style={{ height: `${ROW_HEIGHT}px` }}>
-                      <td className={`border-b border-r-2 border-border p-1.5 text-right text-xs sticky left-0 z-10 tabular-nums ${anyWork ? 'bg-card text-foreground font-extrabold' : 'bg-muted/70 text-muted-foreground font-semibold'}`} style={{ height: `${ROW_HEIGHT}px` }}>
+                      <td className={`border-b border-r-2 border-slate-300 dark:border-slate-700 p-1.5 text-right text-xs sticky left-0 z-10 tabular-nums ${anyWork ? 'bg-white dark:bg-card text-foreground font-extrabold' : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)] text-muted-foreground font-semibold'}`} style={{ height: `${ROW_HEIGHT}px` }}>
                         {`${String(hour).padStart(2, '0')}:00`}
                       </td>
 
@@ -871,10 +871,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                             <td
                               key={key}
                               rowSpan={scheduledOrder ? displaySpan : 1}
-                              className={`border-b border-r border-border p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${
+                              className={`border-b border-r border-slate-300 dark:border-slate-700 p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${
                                 work
-                                  ? (today ? 'bg-primary/[0.10]' : 'bg-card')
-                                  : (today ? 'bg-muted' : 'bg-muted/80')
+                                  ? (today ? 'bg-primary/[0.06]' : 'bg-white dark:bg-card')
+                                  : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)]'
                               } ${isDragOver && draggedOrder ? '!bg-primary/25 ring-2 ring-primary ring-inset' : scheduledOrder ? '' : 'hover:bg-primary/15'}`}
 
                               style={{ height: `${(scheduledOrder ? displaySpan : 1) * ROW_HEIGHT}px` }}
