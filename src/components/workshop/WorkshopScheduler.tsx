@@ -1584,30 +1584,67 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm rounded-xl border bg-muted/20 p-3">
             <div className="min-w-0">
               <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.date')}</Label>
-              <Input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-9 text-sm w-full bg-background" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="mt-1 h-9 w-full justify-start text-sm font-normal bg-background rounded-xl">
+                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                    {editDate ? format(new Date(editDate), 'dd.MM.yyyy') : '—'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                  <CalendarPicker
+                    mode="single"
+                    selected={editDate ? new Date(editDate) : undefined}
+                    onSelect={(d: Date | undefined) => { if (d) setEditDate(format(d, 'yyyy-MM-dd')); }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="min-w-0">
               <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.time')}</Label>
-              <div className="flex items-center gap-1.5 mt-1">
-                <Input
-                  inputMode="numeric"
-                  value={editHourStr}
-                  onFocus={e => e.target.select()}
-                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditHourStr(v); }}
-                  onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
-                  className="h-9 text-sm flex-1 min-w-0 text-center bg-background" placeholder="HH"
-                />
-                <span className="text-sm font-bold shrink-0">:</span>
-                <Input
-                  inputMode="numeric"
-                  value={editMinStr}
-                  onFocus={e => e.target.select()}
-                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditMinStr(v); }}
-                  onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
-                  className="h-9 text-sm flex-1 min-w-0 text-center bg-background" placeholder="MM"
-                />
-              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="mt-1 h-9 w-full justify-start text-sm font-normal bg-background rounded-xl">
+                    <Clock className="mr-2 h-4 w-4 text-primary" />
+                    {`${(editHourStr || '00').padStart(2, '0')}:${(editMinStr || '00').padStart(2, '0')}`}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[220px] p-2 z-[100]" align="start">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Input
+                      inputMode="numeric" value={editHourStr}
+                      onFocus={e => e.target.select()}
+                      onChange={e => setEditHourStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                      onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
+                      className="h-8 text-sm text-center" placeholder="HH"
+                    />
+                    <span className="text-sm font-bold">:</span>
+                    <Input
+                      inputMode="numeric" value={editMinStr}
+                      onFocus={e => e.target.select()}
+                      onChange={e => setEditMinStr(e.target.value.replace(/\D/g, '').slice(0, 2))}
+                      onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
+                      className="h-8 text-sm text-center" placeholder="MM"
+                    />
+                  </div>
+                  <div className="max-h-52 overflow-y-auto grid grid-cols-3 gap-1">
+                    {TIME_SLOTS.map(s => {
+                      const active = s === `${(editHourStr || '00').padStart(2, '0')}:${(editMinStr || '00').padStart(2, '0')}`;
+                      return (
+                        <button
+                          key={s} type="button"
+                          onClick={() => { const [h, m] = s.split(':'); setEditHourStr(h); setEditMinStr(m); }}
+                          className={`text-xs rounded-lg py-1 transition-colors ${active ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-primary/10'}`}
+                        >{s}</button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
+
             <div className="min-w-0">
               <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.category')}</Label>
               <Select
