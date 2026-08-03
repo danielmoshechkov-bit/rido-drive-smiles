@@ -109,6 +109,97 @@ test("Phase 1 preserves legacy execution and enables streaming only behind the p
   assert.match(llm, /\.\.\.\(canary\.enabled \? \{ elevenlabs_agent_id:/);
 });
 
+test("truncated output is never treated as a finished turn", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Canary ma ten sam budżet tokenów co legacy — 400 ucinało wypowiedź w połowie zdania.
+  assert.match(chat, /maxToolRounds: 3, maxOutputTokens: 600/);
+  // Ucięcie jest obsłużone i zalogowane...
+  assert.match(chat, /streamed\.stopReason === "max_tokens"/);
+  assert.match(chat, /event: "output_truncated"/);
+  assert.match(chat, /truncated = true/);
+  // ...oraz rozstrzygnięte PRZED gałęzią narzędzi, żeby nie wykonać wywołania
+  // z niekompletnymi argumentami.
+  assert.ok(
+    chat.indexOf('streamed.stopReason === "max_tokens"') <
+      chat.indexOf('streamed.stopReason === "tool_use"'),
+    "obsługa max_tokens musi poprzedzać gałąź tool_use",
+  );
+  // Tura oddaje głos rozmówcy zamiast urwać się ciszą.
+  assert.match(chat, /Czy mam mówić dalej\?|Czy mogę powtórzyć krócej\?/);
+  // Legacy pozostaje nietknięte.
+  assert.doesNotMatch(chat, /legacyReply[\s\S]{0,200}max_tokens/);
+});
+
+test("model refusals are classified and only a retryable class may fall back", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Trzy klasy odmowy rozróżnione wprost.
+  assert.match(chat, /status === 400 \? "bad_request"/);
+  assert.match(chat, /status === 429 \? "quota"/);
+  assert.match(chat, /status === 529 \? "overloaded"/);
+  // Status trafia do logu, żeby dało się odróżnić limit od błędu żądania.
+  assert.match(chat, /event: "model_failed",[\s\S]{0,120}status: modelResponse\.status/);
+
+  // Fallback tylko tam, gdzie drugi model realnie może odpowiedzieć. 400 i 429
+  // dostają ten sam klucz i to samo żądanie, więc druga próba jest bezcelowa.
+  const map = chat.slice(chat.indexOf("MODEL_FAILURE_FALLBACK"), chat.indexOf("const logTiming"));
+  assert.match(map, /bad_request: false/);
+  assert.match(map, /quota: false/);
+  assert.match(map, /overloaded: true/);
+  assert.match(chat, /if \(!MODEL_FAILURE_FALLBACK\[failure\]\) upstreamError\.allowFallback = false/);
+});
+
+test("model failure classification is reachable and precedes the throw", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Stary, bezwarunkowy rzut nie może wrócić — czynił klasyfikację martwym kodem.
+  assert.doesNotMatch(chat, /MODEL_UPSTREAM_ERROR/);
+
+  const start = chat.indexOf("if (!modelResponse.ok) {");
+  assert.ok(start > 0, "blok !modelResponse.ok musi istnieć");
+  const throwAt = chat.indexOf("throw upstreamError;", start);
+  assert.ok(throwAt > start, "blok musi kończyć się rzutem sklasyfikowanego błędu");
+  const beforeThrow = chat.slice(start, throwAt);
+
+  // Nic nie może rzucić wcześniej — inaczej klasyfikacja byłaby nieosiągalna.
+  assert.equal(
+    (beforeThrow.match(/\bthrow\b/g) || []).length,
+    0,
+    "przed klasyfikacją nie może wystąpić żaden throw",
+  );
+
+  // Wymagana kolejność kroków wewnątrz bloku.
+  const steps = [
+    "classifyModelFailure(modelResponse.status)", // 1-2. odczyt statusu i klasyfikacja
+    'event: "model_failed"',                      // 3. log
+    "status: modelResponse.status",               // 3. log zawiera status
+    "MODEL_FAILURE_FALLBACK[failure]",            // 4. decyzja o fallbacku
+  ];
+  let previous = -1;
+  for (const step of steps) {
+    const at = beforeThrow.indexOf(step);
+    assert.ok(at > previous, `krok "${step}" musi wystąpić przed rzutem i po poprzednim kroku`);
+    previous = at;
+  }
+});
+
+test("failure sentence never misreports whether anything was saved", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+  const builder = chat.slice(chat.indexOf("const buildFailureSentence"), chat.indexOf("const logTiming"));
+
+  // Gdy rezerwacja/zlecenie powstało — nie wolno powiedzieć, że nic nie zapisano.
+  assert.match(builder, /if \(mutationCreated\)/);
+  assert.match(builder, /zapis jest już w systemie/);
+  assert.doesNotMatch(builder.slice(0, builder.indexOf("if (failure")), /Nic nie zostało/);
+  // Gdy nic nie powstało — komunikat mówi to wprost, nie udaje sukcesu.
+  assert.match(builder, /Nic nie zostało jeszcze zapisane/);
+  // Limit konta ma własny, spokojniejszy komunikat.
+  assert.match(builder, /failure === "quota"/);
+  // Rozmówca nie dostaje szczegółów technicznych.
+  assert.doesNotMatch(builder, /429|529|Anthropic|API/);
+});
+
 test("Phase 1 is unbuffered and propagates client cancellation without fallback or tools", () => {
   const llm = readFileSync(new URL("../voice-agent-llm/index.ts", import.meta.url), "utf8");
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");

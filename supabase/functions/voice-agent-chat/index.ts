@@ -48,6 +48,40 @@ type ToolOutput = {
   booking_id?: string;
   [key: string]: unknown;
 };
+// Klasyfikacja odmowy modelu. Rozróżnienie ma konsekwencję operacyjną, nie tylko
+// diagnostyczną: przy 400 (błędne żądanie) i 429 (limit konta) fallback na drugi
+// model NIC NIE DA — oba kandydaty używają tego samego ANTHROPIC_API_KEY, tej samej
+// organizacji i dostają identyczne żądanie. Druga próba tylko wydłużyłaby ciszę
+// w słuchawce. Fallback ma sens wyłącznie przy 529 (przeciążenie konkretnego
+// modelu) oraz przy timeoucie.
+type ModelFailure = "bad_request" | "quota" | "overloaded" | "upstream" | "other";
+const classifyModelFailure = (status: number): ModelFailure =>
+  status === 400 ? "bad_request"
+    : status === 429 ? "quota"
+    : status === 529 ? "overloaded"
+    : status >= 500 ? "upstream"
+    : "other";
+const MODEL_FAILURE_FALLBACK: Record<ModelFailure, boolean> = {
+  bad_request: false,
+  quota: false,
+  overloaded: true,
+  upstream: true,
+  other: false,
+};
+
+// Komunikat awaryjny czytany na głos. Dwie zasady: nie zdradzamy szczegółów
+// technicznych rozmówcy i NIGDY nie sugerujemy, że rezerwacja powstała, ani że
+// nic nie powstało, jeśli faktycznie coś zapisaliśmy.
+const buildFailureSentence = (failure: ModelFailure | null, mutationCreated: boolean): string => {
+  if (mutationCreated) {
+    return "Przepraszam, straciłam wątek na końcu, ale zapis jest już w systemie. Obsługa potwierdzi szczegóły.";
+  }
+  if (failure === "quota") {
+    return "Przepraszam, mam w tej chwili chwilowe ograniczenie techniczne. Nic nie zostało jeszcze zapisane — proszę zadzwonić za kilka minut.";
+  }
+  return "Przepraszam, wystąpił chwilowy problem techniczny. Nic nie zostało jeszcze zapisane — proszę spróbować ponownie.";
+};
+
 const logTiming = (stage: string, startedAt: number, extra: Record<string, unknown> = {}) => {
   console.info("[voice-agent-chat]", JSON.stringify({
     event: "stage_timing", stage,
@@ -59,6 +93,10 @@ const logTiming = (stage: string, startedAt: number, extra: Record<string, unkno
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   let requestWasCanary = false;
+  // Do zbudowania uczciwego komunikatu awaryjnego: nigdy nie twierdzimy, że nic
+  // nie zapisano, jeśli rezerwacja lub zlecenie faktycznie powstały.
+  let lastModelFailure: ModelFailure | null = null;
+  let anyMutationCreated = false;
   try {
     const totalStarted = performance.now();
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -143,7 +181,9 @@ serve(async (req) => {
         adapterKey: "anthropic_messages", secretKey: "ANTHROPIC_API_KEY",
         endpoint: "https://api.anthropic.com/v1/messages",
       },
-      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 400,
+      // 600 tokenów jak w legacy. Przy 400 pojedyncza tura z zapowiedzią, wynikiem
+      // narzędzia i propozycją terminu urywała się w połowie zdania.
+      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 600,
     };
     const voiceRouting = canary.enabled ? phase1CanaryRouting : legacyRouting;
     logTiming("prepare", totalStarted, { production_canary: canary.enabled });
@@ -193,7 +233,16 @@ serve(async (req) => {
     // Usługi — bez sztywnej odmowy (np. laweta zależy od danych firmy)
     system += `\n\n=== USŁUGI ===\nOpieraj się na danych firmy. NIE odmawiaj usług na sztywno (np. lawety / pomocy drogowej / dojazdu) — jeśli firma to oferuje (jest w danych), zaproponuj. Jeśli czegoś nie ma w danych, nie zmyślaj, ale też nie zaprzeczaj kategorycznie — powiedz, że dopytasz lub sprawdzisz u obsługi.`;
     const firmName = bc.company_name ? String(bc.company_name) : "warsztat";
-    system += `\n\n=== KONTEKST CZASU ===\nDziś jest ${humanDate} (${todayISO}), godzina ${nowTime} (Europa/Warszawa). Sam wyliczaj daty względne ("jutro", "pojutrze", "w piątek") i przekazuj je do narzędzi w formacie RRRR-MM-DD. NIGDY nie pytaj klienta o dzisiejszą datę.\n\n=== JĘZYK I POWITANIE ===\n- ZAWSZE witaj po POLSKU, BARDZO krótko: "Dzień dobry, ${firmName}, w czym mogę pomóc?". NIE wymieniaj usług w powitaniu, nie zadawaj kilku pytań naraz.\n- Jeśli rozmówca odezwie się w innym języku (rosyjski, ukraiński, angielski) — natychmiast PRZEŁĄCZ się na ten język i prowadź w nim całą rozmowę.\n\n=== STYL (jak człowiek przez telefon) ===\n- KRÓTKO: 1-2 zdania na turę, jedno pytanie na raz. Bez monologów i wyliczanek.\n- FORMA GRZECZNOŚCIOWA: ZAWSZE per "Pan/Pani", uprzejmie i profesjonalnie. NIGDY per "ty" i NIGDY potocznie. PRZYKŁADY: zamiast "jak się nazywasz?" → "Jak się Pan nazywa?"; zamiast "dobra" → "Dobrze" / "Oczywiście"; zamiast "pasuje ci jutro?" → "Czy pasuje Panu jutro o dziewiątej?". Dopóki nie znasz płci rozmówcy — używaj uprzejmej formy bezosobowej ("Czy ten termin będzie odpowiedni?"); gdy już wiesz (imię, wypowiedzi) — konsekwentnie Pan albo Pani. Dotyczy też PODSUMOWANIA: NIGDY samym imieniem ("Daniel, podsumowuję") — albo "Panie Danielu, podsumowuję...", albo bezosobowo "Podsumowuję: ...". Jedna forma od pierwszego do ostatniego zdania rozmowy.\n- Ton ciepły, naturalny, konkretny — jak miły recepcjonista, który mówi wprost.\n\n=== PYTANIA KLIENTA W TRAKCIE UMAWIANIA ===\n- Jeśli klient zada pytanie — NAJPIERW odpowiedz na pytanie, dopiero potem wróć do rezerwacji.\n- NIGDY nie powtarzaj tej samej propozycji terminu dwa razy pod rząd. Jeśli klient nie odpowiedział wprost na propozycję — ma wątpliwość: zaadresuj ją lub zaproponuj inny termin.\n- Jeśli nie znasz odpowiedzi (np. czas naprawy przed diagnozą, dokładna cena) — powiedz to WPROST ("to będzie wiadomo po diagnozie na miejscu"), nie ignoruj pytania i nie zmyślaj.\n- Gdy termin jest już potwierdzony — NIE pytaj ponownie o zgodę ("Czy mogę sfinalizować rezerwację?") i nie powtarzaj potwierdzeń już ustalonych faktów. Po odpowiedzi na pytania klienta domknij naturalnie: "W takim razie do zobaczenia jutro o dziewiątej" albo "Czy mogę jeszcze w czymś pomóc?".\n\n=== WYMOWA — KLUCZOWE (tekst CZYTANY NA GŁOS po polsku) ===\nLiczby, godziny, daty, ceny zapisuj SŁOWAMI po polsku, NIGDY cyframi/symbolami: "dziewiąta rano", "wpół do dziesiątej" (nie "9:00"); "w czwartek", "piętnastego maja" (nie "15.05"); "sto pięćdziesiąt złotych" (nie "150 zł"). Pełne, dokończone zdania.\n\n=== WYWIAD I NARZĘDZIA ===\nKOLEJNOŚĆ ROZMOWY (trzymaj się jej): (1) NAJPIERW dopytaj o problem/potrzebę — opis usterki, co sprawdzić; (2) POTEM ustal preferowany termin i zaproponuj wolny; (3) DOPIERO gdy termin zaakceptowany — poproś o dane: imię i nazwisko, numer telefonu, numer rejestracyjny (jeśli nie zna — marka, model, rok). NIE proś o dane osobowe w środku opisu usterki. Gdy masz komplet:\n- użyj narzędzia check_availability, by sprawdzić wolny termin (jeśli masz uprawnienia),\n- użyj create_booking, by umówić wizytę,\n- następnie create_order, by utworzyć zlecenie z usterką i danymi pojazdu.\nW create_order pole "complaint" przekaż jako LISTĘ PUNKTÓW — każda usterka/zadanie w nowej linii zaczynając od myślnika, np.:\n- stuki w zawieszeniu z przodu\n- sprawdzić zawieszenie i łożyska\nUtwórz zlecenie i rezerwację TYLKO RAZ w całej rozmowie (nie powtarzaj wywołań). Krótko informuj co robisz (np. "już sprawdzam wolne terminy"). Po umówieniu potwierdź termin i dane słownie. Nigdy nie zmyślaj dostępności — zawsze użyj narzędzia. NIGDY nie mów, ile jest wolnych terminów, ani że "mamy dużo wolnych miejsc" (to sugeruje klientowi pusty kalendarz) — po sprawdzeniu od razu zaproponuj konkretną godzinę, a ogólnie mów co najwyżej "Tak, znajdziemy termin".`;
+    // W telefonii rozmówca słyszy powitanie z systemu (pierwsza wiadomość agenta
+    // ElevenLabs), ale nie trafia ono do kontekstu modelu — poniższa pętla
+    // budująca `convo` usuwa wiodące wiadomości asystenta, bo Anthropic wymaga,
+    // by rozmowa zaczynała się od użytkownika. Model nie wie więc, że powitanie
+    // już padło, i wita się drugi raz. W panelu testowym powitania z systemu nie
+    // ma, więc tam agent wita się normalnie.
+    const greetingRule = testMode
+      ? `- ZAWSZE witaj po POLSKU, BARDZO krótko: "Dzień dobry, ${firmName}, w czym mogę pomóc?". NIE wymieniaj usług w powitaniu, nie zadawaj kilku pytań naraz.`
+      : `- Rozmówca usłyszał już powitanie z systemu telefonicznego. NIE witaj się drugi raz i NIE przedstawiaj firmy ponownie — od razu odpowiedz na to, co powiedział.`;
+    system += `\n\n=== KONTEKST CZASU ===\nDziś jest ${humanDate} (${todayISO}), godzina ${nowTime} (Europa/Warszawa). Sam wyliczaj daty względne ("jutro", "pojutrze", "w piątek") i przekazuj je do narzędzi w formacie RRRR-MM-DD. NIGDY nie pytaj klienta o dzisiejszą datę.\n\n=== JĘZYK I POWITANIE ===\n${greetingRule}\n- Jeśli rozmówca odezwie się w innym języku (rosyjski, ukraiński, angielski) — natychmiast PRZEŁĄCZ się na ten język i prowadź w nim całą rozmowę.\n\n=== STYL (jak człowiek przez telefon) ===\n- KRÓTKO: 1-2 zdania na turę, jedno pytanie na raz. Bez monologów i wyliczanek.\n- FORMA GRZECZNOŚCIOWA: ZAWSZE per "Pan/Pani", uprzejmie i profesjonalnie. NIGDY per "ty" i NIGDY potocznie. PRZYKŁADY: zamiast "jak się nazywasz?" → "Jak się Pan nazywa?"; zamiast "dobra" → "Dobrze" / "Oczywiście"; zamiast "pasuje ci jutro?" → "Czy pasuje Panu jutro o dziewiątej?". Dopóki nie znasz płci rozmówcy — używaj uprzejmej formy bezosobowej ("Czy ten termin będzie odpowiedni?"); gdy już wiesz (imię, wypowiedzi) — konsekwentnie Pan albo Pani. Dotyczy też PODSUMOWANIA: NIGDY samym imieniem ("Daniel, podsumowuję") — albo "Panie Danielu, podsumowuję...", albo bezosobowo "Podsumowuję: ...". Jedna forma od pierwszego do ostatniego zdania rozmowy.\n- Ton ciepły, naturalny, konkretny — jak miły recepcjonista, który mówi wprost.\n\n=== PYTANIA KLIENTA W TRAKCIE UMAWIANIA ===\n- Jeśli klient zada pytanie — NAJPIERW odpowiedz na pytanie, dopiero potem wróć do rezerwacji.\n- NIGDY nie powtarzaj tej samej propozycji terminu dwa razy pod rząd. Jeśli klient nie odpowiedział wprost na propozycję — ma wątpliwość: zaadresuj ją lub zaproponuj inny termin.\n- Jeśli nie znasz odpowiedzi (np. czas naprawy przed diagnozą, dokładna cena) — powiedz to WPROST ("to będzie wiadomo po diagnozie na miejscu"), nie ignoruj pytania i nie zmyślaj.\n- Gdy termin jest już potwierdzony — NIE pytaj ponownie o zgodę ("Czy mogę sfinalizować rezerwację?") i nie powtarzaj potwierdzeń już ustalonych faktów. Po odpowiedzi na pytania klienta domknij naturalnie: "W takim razie do zobaczenia jutro o dziewiątej" albo "Czy mogę jeszcze w czymś pomóc?".\n\n=== WYMOWA — KLUCZOWE (tekst CZYTANY NA GŁOS po polsku) ===\nLiczby, godziny, daty, ceny zapisuj SŁOWAMI po polsku, NIGDY cyframi/symbolami: "dziewiąta rano", "wpół do dziesiątej" (nie "9:00"); "w czwartek", "piętnastego maja" (nie "15.05"); "sto pięćdziesiąt złotych" (nie "150 zł"). Pełne, dokończone zdania.\n\n=== WYWIAD I NARZĘDZIA ===\nKOLEJNOŚĆ ROZMOWY (trzymaj się jej): (1) NAJPIERW dopytaj o problem/potrzebę — opis usterki, co sprawdzić; (2) POTEM ustal preferowany termin i zaproponuj wolny; (3) DOPIERO gdy termin zaakceptowany — poproś o dane: imię i nazwisko, numer telefonu, numer rejestracyjny (jeśli nie zna — marka, model, rok). NIE proś o dane osobowe w środku opisu usterki. Gdy masz komplet:\n- użyj narzędzia check_availability, by sprawdzić wolny termin (jeśli masz uprawnienia),\n- użyj create_booking, by umówić wizytę,\n- następnie create_order, by utworzyć zlecenie z usterką i danymi pojazdu.\nW create_order pole "complaint" przekaż jako LISTĘ PUNKTÓW — każda usterka/zadanie w nowej linii zaczynając od myślnika, np.:\n- stuki w zawieszeniu z przodu\n- sprawdzić zawieszenie i łożyska\nUtwórz zlecenie i rezerwację TYLKO RAZ w całej rozmowie (nie powtarzaj wywołań). Krótko informuj co robisz (np. "już sprawdzam wolne terminy"). Po umówieniu potwierdź termin i dane słownie. Nigdy nie zmyślaj dostępności — zawsze użyj narzędzia. NIGDY nie mów, ile jest wolnych terminów, ani że "mamy dużo wolnych miejsc" (to sugeruje klientowi pusty kalendarz) — po sprawdzeniu od razu zaproponuj konkretną godzinę, a ogólnie mów co najwyżej "Tak, znajdziemy termin".`;
 
     const convo: Phase1ConversationMessage[] = messages
       .filter((message): message is { role: "user" | "assistant"; content: string } =>
@@ -349,6 +398,7 @@ serve(async (req) => {
         order_id: null, order_number: null, booking_id: null,
       };
       let toolRounds = 0;
+      let truncated = false;
       for (let round = 0; round <= voiceRouting.maxToolRounds; round++) {
         if (round > 0 && emittedText && !/\s$/.test(reply)) emit(" ");
         const modelStarted = performance.now();
@@ -374,8 +424,19 @@ serve(async (req) => {
             throw requestError;
           }
           if (!modelResponse.ok) {
-            console.warn("[voice-agent-chat] model_failed", modelResponse.status);
-            throw new Error("MODEL_UPSTREAM_ERROR");
+            const failure = classifyModelFailure(modelResponse.status);
+            console.warn("[voice-agent-chat]", JSON.stringify({
+              event: "model_failed",
+              status: modelResponse.status,
+              failure,
+              provider: candidate.providerKey,
+            }));
+            const upstreamError = new Error(`MODEL_${failure.toUpperCase()}`) as Error & { allowFallback?: boolean };
+            // Jedna kontrolowana próba: druga próba tylko tam, gdzie inny model
+            // realnie może odpowiedzieć. Bez nieskończonych ponowień.
+            if (!MODEL_FAILURE_FALLBACK[failure]) upstreamError.allowFallback = false;
+            lastModelFailure = failure;
+            throw upstreamError;
           }
           try {
             return await consumePhase1AnthropicSse(modelResponse, (delta) => {
@@ -396,6 +457,23 @@ serve(async (req) => {
           model: attempted.candidate.model,
           fallback_used: attempted.attempts > 1,
         });
+        // Ucięcie na limicie tokenów nie jest poprawnym zakończeniem tury. Nie
+        // wykonujemy narzędzi z niepełnej odpowiedzi, bo wywołanie mogło zostać
+        // przerwane w środku i miałoby niekompletne argumenty. Zamiast urwać się
+        // w połowie zdania oddajemy turę rozmówcy, żeby rozmowa nie zgasła na ciszy.
+        if (streamed.stopReason === "max_tokens") {
+          console.warn("[voice-agent-chat]", JSON.stringify({
+            event: "output_truncated",
+            round: round + 1,
+            had_tool_calls: streamed.toolCalls.length > 0,
+          }));
+          truncated = true;
+          if (emittedText && !/\s$/.test(reply)) emit(" ");
+          emit(emittedText
+            ? "Przepraszam, muszę się streścić. Czy mam mówić dalej?"
+            : "Przepraszam, nie zdążyłem dokończyć. Czy mogę powtórzyć krócej?");
+          break;
+        }
         if ((streamed.stopReason === "tool_use" || streamed.stopReason === "tool_calls") && streamed.toolCalls.length && tools.length) {
           if (toolRounds >= voiceRouting.maxToolRounds) {
             emit("Nie udało się dokończyć operacji w bezpiecznym limicie. Obsługa zweryfikuje zapis.");
@@ -417,6 +495,7 @@ serve(async (req) => {
               created.order_number = output.order_number || null;
             }
             if (toolUse.name === "create_booking" && output.booking_id) created.booking_id = output.booking_id;
+            if (created.order_id || created.booking_id) anyMutationCreated = true;
             results.push({ toolCallId: toolUse.id, content: JSON.stringify(output) });
             if (stopAfterToolError) break;
           }
@@ -430,8 +509,8 @@ serve(async (req) => {
         break;
       }
       if (!reply.trim()) emit("Przepraszam, nie udało mi się dokończyć tej operacji. Proszę spróbować ponownie za chwilę.");
-      logTiming("total", totalStarted, { tool_actions: completedToolActions.size, streamed: responseStream });
-      return { reply: reply.trim(), created };
+      logTiming("total", totalStarted, { tool_actions: completedToolActions.size, streamed: responseStream, truncated });
+      return { reply: reply.trim(), created, truncated };
     };
 
     if (responseStream) {
@@ -452,10 +531,15 @@ serve(async (req) => {
             controller.close();
           }).catch((error) => {
             if (canaryAbortSignal.aborted) return;
-            console.error("[voice-agent-chat] stream_failed", error?.name || "error");
+            console.error("[voice-agent-chat]", JSON.stringify({
+              event: "stream_failed",
+              error: (error as Error)?.name || "error",
+              failure: lastModelFailure,
+              mutation_created: anyMutationCreated,
+            }));
             send({
               id, object: "chat.completion.chunk", created: createdAt, model,
-              choices: [{ index: 0, delta: { content: "Przepraszam, wystąpił chwilowy problem techniczny." }, finish_reason: null }],
+              choices: [{ index: 0, delta: { content: buildFailureSentence(lastModelFailure, anyMutationCreated) }, finish_reason: null }],
             });
             send({ id, object: "chat.completion.chunk", created: createdAt, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] });
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -478,7 +562,7 @@ serve(async (req) => {
     }
 
     const result = await execute(() => {});
-    return json({ success: true, reply: result.reply, model, created: result.created });
+    return json({ success: true, reply: result.reply, model, created: result.created, truncated: result.truncated });
   } catch (e) {
     console.error("[voice-agent-chat] request_failed", (e as Error)?.name || "error");
     const error = e as Error;
