@@ -450,6 +450,44 @@ function addViolation(list: Array<{ kind: string; path: string; message: string 
   list.push({ kind, path, message });
 }
 
+// Wzorzec NIP-u wprost z XSD FA(3): dokładnie 10 cyfr, pierwsza niezerowa, a druga i trzecia
+// nie mogą być zerami jednocześnie. Faktura z NIP-em spoza tego wzorca NIE PRZEJDZIE walidacji
+// po stronie KSeF — lepiej powiedzieć to przed wysyłką niż zbierać odrzucenie.
+const NIP_XSD_PATTERN = /^[1-9]((\d[1-9])|([1-9]\d))\d{7}$/;
+
+// Suma kontrolna NIP (wagi 6,5,7,2,3,4,5,6,7, modulo 11). Wynik 10 oznacza NIP nieprawidłowy.
+// To reguła spoza XSD — schemat sprawdza tylko kształt, ale KSeF weryfikuje NIP w rejestrze,
+// więc literówka w cyfrze i tak skończy się odrzuceniem.
+function hasValidNipChecksum(nip: string): boolean {
+  if (!/^\d{10}$/.test(nip)) return false;
+  const wagi = [6, 5, 7, 2, 3, 4, 5, 6, 7];
+  const suma = wagi.reduce((acc, waga, i) => acc + waga * Number(nip[i]), 0);
+  const kontrolna = suma % 11;
+  return kontrolna !== 10 && kontrolna === Number(nip[9]);
+}
+
+// Sprawdza NIP jednej ze stron faktury i dopisuje naruszenia. Pusty NIP zgłaszają
+// osobne kontrole (minOccurs), więc tutaj go pomijamy — inaczej ten sam brak
+// pojawiłby się na liście dwa razy.
+function validateNip(
+  nip: string | null | undefined,
+  path: string,
+  strona: string,
+  violations: Array<{ kind: string; path: string; message: string }>,
+) {
+  const wartosc = String(nip ?? '').trim();
+  if (!wartosc) return;
+  if (!NIP_XSD_PATTERN.test(wartosc)) {
+    addViolation(violations, 'pattern', path,
+      `NIP ${strona} „${wartosc}" nie pasuje do wzorca XSD (10 cyfr) — KSeF odrzuci taką fakturę.`);
+    return;
+  }
+  if (!hasValidNipChecksum(wartosc)) {
+    addViolation(violations, 'checksum', path,
+      `NIP ${strona} „${wartosc}" ma błędną sumę kontrolną — najczęściej literówka w cyfrze.`);
+  }
+}
+
 function ensureTagOrder(fragment: string, tags: string[], basePath: string, violations: Array<{ kind: string; path: string; message: string }>) {
   let lastIndex = -1;
   let lastTag = '';
@@ -676,6 +714,7 @@ function validatePodmiot1Xsd(podmiot1: string, sellerSource: any) {
   ensureTagOrder(podmiot1, ['DaneIdentyfikacyjne', 'Adres', 'AdresKoresp', 'DaneKontaktowe', 'StatusInfoPodatnika'], basePath, violations);
 
   if (!sellerSource.nip) addViolation(violations, 'minOccurs', `${basePath}/DaneIdentyfikacyjne/NIP`, 'TPodmiot1/NIP jest obowiązkowy i nie może być pusty.');
+  validateNip(sellerSource.nip, `${basePath}/DaneIdentyfikacyjne/NIP`, 'sprzedawcy', violations);
   if (!sellerSource.name) addViolation(violations, 'minOccurs', `${basePath}/DaneIdentyfikacyjne/Nazwa`, 'TPodmiot1/Nazwa jest obowiązkowa i nie może być pusta.');
   if (!sellerSource.addressStreet) addViolation(violations, 'minOccurs', `${basePath}/Adres/AdresL1`, 'TAdres/AdresL1 dla Podmiot1 jest obowiązkowy, bo Adres ma minOccurs=1.');
 
@@ -728,6 +767,9 @@ function validatePodmiot2Xsd(podmiot2: string, buyerSource: any) {
   }
 
   if (hasEmptyTag(podmiot2, 'NIP')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/NIP`, 'Nie wolno generować pustego tagu <NIP>.');
+  // NIP nabywcy sprawdzamy tylko, gdy w ogóle wybrano ten wariant identyfikatora —
+  // faktura dla osoby prywatnej idzie z <BrakID> i wtedy nie ma czego walidować.
+  if (nipCount > 0) validateNip(buyerSource.nip, `${basePath}/DaneIdentyfikacyjne/NIP`, 'nabywcy', violations);
   if (hasEmptyTag(podmiot2, 'BrakID')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/BrakID`, 'Nie wolno generować pustego tagu <BrakID>.');
   if (hasEmptyTag(podmiot2, 'Nazwa')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/Nazwa`, 'Nie wolno generować pustego tagu <Nazwa>.');
   if (hasEmptyTag(podmiot2, 'AdresL1')) addViolation(violations, 'empty', `${basePath}/Adres/AdresL1`, 'Nie wolno generować pustego tagu <AdresL1>.');
@@ -1780,7 +1822,10 @@ serve(async (req) => {
       console.log('[KSeF][send] XML:', xml);
 
       // Pre-send XSD validation — block if critical violations found
-      const criticalViolations = artifacts.xsdViolations.filter(v => ['minOccurs', 'choice', 'missing'].includes(v.kind));
+      // 'pattern' blokuje na równi z brakiem elementu: NIP spoza wzorca XSD to gwarantowane
+      // odrzucenie po stronie KSeF, więc lepiej zatrzymać wysyłkę tutaj i pokazać powód.
+      // 'checksum' celowo NIE blokuje — to reguła spoza schematu, zgłaszana jako ostrzeżenie.
+      const criticalViolations = artifacts.xsdViolations.filter(v => ['minOccurs', 'choice', 'missing', 'pattern'].includes(v.kind));
       if (criticalViolations.length > 0) {
         console.error('[KSeF][send] BLOCKED: XSD violations detected before send:', JSON.stringify(criticalViolations));
         return jsonRes({
