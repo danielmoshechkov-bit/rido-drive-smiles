@@ -143,7 +143,9 @@ serve(async (req) => {
         adapterKey: "anthropic_messages", secretKey: "ANTHROPIC_API_KEY",
         endpoint: "https://api.anthropic.com/v1/messages",
       },
-      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 400,
+      // 600 tokenów jak w legacy. Przy 400 pojedyncza tura z zapowiedzią, wynikiem
+      // narzędzia i propozycją terminu urywała się w połowie zdania.
+      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 600,
     };
     const voiceRouting = canary.enabled ? phase1CanaryRouting : legacyRouting;
     logTiming("prepare", totalStarted, { production_canary: canary.enabled });
@@ -349,6 +351,7 @@ serve(async (req) => {
         order_id: null, order_number: null, booking_id: null,
       };
       let toolRounds = 0;
+      let truncated = false;
       for (let round = 0; round <= voiceRouting.maxToolRounds; round++) {
         if (round > 0 && emittedText && !/\s$/.test(reply)) emit(" ");
         const modelStarted = performance.now();
@@ -396,6 +399,23 @@ serve(async (req) => {
           model: attempted.candidate.model,
           fallback_used: attempted.attempts > 1,
         });
+        // Ucięcie na limicie tokenów nie jest poprawnym zakończeniem tury. Nie
+        // wykonujemy narzędzi z niepełnej odpowiedzi, bo wywołanie mogło zostać
+        // przerwane w środku i miałoby niekompletne argumenty. Zamiast urwać się
+        // w połowie zdania oddajemy turę rozmówcy, żeby rozmowa nie zgasła na ciszy.
+        if (streamed.stopReason === "max_tokens") {
+          console.warn("[voice-agent-chat]", JSON.stringify({
+            event: "output_truncated",
+            round: round + 1,
+            had_tool_calls: streamed.toolCalls.length > 0,
+          }));
+          truncated = true;
+          if (emittedText && !/\s$/.test(reply)) emit(" ");
+          emit(emittedText
+            ? "Przepraszam, muszę się streścić. Czy mam mówić dalej?"
+            : "Przepraszam, nie zdążyłem dokończyć. Czy mogę powtórzyć krócej?");
+          break;
+        }
         if ((streamed.stopReason === "tool_use" || streamed.stopReason === "tool_calls") && streamed.toolCalls.length && tools.length) {
           if (toolRounds >= voiceRouting.maxToolRounds) {
             emit("Nie udało się dokończyć operacji w bezpiecznym limicie. Obsługa zweryfikuje zapis.");
@@ -430,8 +450,8 @@ serve(async (req) => {
         break;
       }
       if (!reply.trim()) emit("Przepraszam, nie udało mi się dokończyć tej operacji. Proszę spróbować ponownie za chwilę.");
-      logTiming("total", totalStarted, { tool_actions: completedToolActions.size, streamed: responseStream });
-      return { reply: reply.trim(), created };
+      logTiming("total", totalStarted, { tool_actions: completedToolActions.size, streamed: responseStream, truncated });
+      return { reply: reply.trim(), created, truncated };
     };
 
     if (responseStream) {
@@ -478,7 +498,7 @@ serve(async (req) => {
     }
 
     const result = await execute(() => {});
-    return json({ success: true, reply: result.reply, model, created: result.created });
+    return json({ success: true, reply: result.reply, model, created: result.created, truncated: result.truncated });
   } catch (e) {
     console.error("[voice-agent-chat] request_failed", (e as Error)?.name || "error");
     const error = e as Error;

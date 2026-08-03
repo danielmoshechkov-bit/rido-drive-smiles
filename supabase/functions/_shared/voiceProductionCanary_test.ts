@@ -109,6 +109,28 @@ test("Phase 1 preserves legacy execution and enables streaming only behind the p
   assert.match(llm, /\.\.\.\(canary\.enabled \? \{ elevenlabs_agent_id:/);
 });
 
+test("truncated output is never treated as a finished turn", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Canary ma ten sam budżet tokenów co legacy — 400 ucinało wypowiedź w połowie zdania.
+  assert.match(chat, /maxToolRounds: 3, maxOutputTokens: 600/);
+  // Ucięcie jest obsłużone i zalogowane...
+  assert.match(chat, /streamed\.stopReason === "max_tokens"/);
+  assert.match(chat, /event: "output_truncated"/);
+  assert.match(chat, /truncated = true/);
+  // ...oraz rozstrzygnięte PRZED gałęzią narzędzi, żeby nie wykonać wywołania
+  // z niekompletnymi argumentami.
+  assert.ok(
+    chat.indexOf('streamed.stopReason === "max_tokens"') <
+      chat.indexOf('streamed.stopReason === "tool_use"'),
+    "obsługa max_tokens musi poprzedzać gałąź tool_use",
+  );
+  // Tura oddaje głos rozmówcy zamiast urwać się ciszą.
+  assert.match(chat, /Czy mam mówić dalej\?|Czy mogę powtórzyć krócej\?/);
+  // Legacy pozostaje nietknięte.
+  assert.doesNotMatch(chat, /legacyReply[\s\S]{0,200}max_tokens/);
+});
+
 test("Phase 1 is unbuffered and propagates client cancellation without fallback or tools", () => {
   const llm = readFileSync(new URL("../voice-agent-llm/index.ts", import.meta.url), "utf8");
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
