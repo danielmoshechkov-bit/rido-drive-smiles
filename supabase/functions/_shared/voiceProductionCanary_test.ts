@@ -150,6 +150,40 @@ test("model refusals are classified and only a retryable class may fall back", (
   assert.match(chat, /if \(!MODEL_FAILURE_FALLBACK\[failure\]\) upstreamError\.allowFallback = false/);
 });
 
+test("model failure classification is reachable and precedes the throw", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Stary, bezwarunkowy rzut nie może wrócić — czynił klasyfikację martwym kodem.
+  assert.doesNotMatch(chat, /MODEL_UPSTREAM_ERROR/);
+
+  const start = chat.indexOf("if (!modelResponse.ok) {");
+  assert.ok(start > 0, "blok !modelResponse.ok musi istnieć");
+  const throwAt = chat.indexOf("throw upstreamError;", start);
+  assert.ok(throwAt > start, "blok musi kończyć się rzutem sklasyfikowanego błędu");
+  const beforeThrow = chat.slice(start, throwAt);
+
+  // Nic nie może rzucić wcześniej — inaczej klasyfikacja byłaby nieosiągalna.
+  assert.equal(
+    (beforeThrow.match(/\bthrow\b/g) || []).length,
+    0,
+    "przed klasyfikacją nie może wystąpić żaden throw",
+  );
+
+  // Wymagana kolejność kroków wewnątrz bloku.
+  const steps = [
+    "classifyModelFailure(modelResponse.status)", // 1-2. odczyt statusu i klasyfikacja
+    'event: "model_failed"',                      // 3. log
+    "status: modelResponse.status",               // 3. log zawiera status
+    "MODEL_FAILURE_FALLBACK[failure]",            // 4. decyzja o fallbacku
+  ];
+  let previous = -1;
+  for (const step of steps) {
+    const at = beforeThrow.indexOf(step);
+    assert.ok(at > previous, `krok "${step}" musi wystąpić przed rzutem i po poprzednim kroku`);
+    previous = at;
+  }
+});
+
 test("failure sentence never misreports whether anything was saved", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
   const builder = chat.slice(chat.indexOf("const buildFailureSentence"), chat.indexOf("const logTiming"));
