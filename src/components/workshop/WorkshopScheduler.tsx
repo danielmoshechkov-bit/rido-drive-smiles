@@ -911,6 +911,9 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           </div>
         </div>
       )}
+      </div>
+      </div>
+
 
       {/* Add Station Dialog */}
       <Dialog open={showAddStation} onOpenChange={setShowAddStation}>
