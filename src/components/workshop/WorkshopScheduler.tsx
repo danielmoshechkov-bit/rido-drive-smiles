@@ -808,7 +808,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                       const today = isToday(day);
                       const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                       return (
-                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b border-r border-slate-200 dark:border-slate-700 p-1 text-center bg-[hsl(220,14%,97%)] dark:bg-[hsl(220,14%,16%)] ${isLastDayOfStation ? 'border-r-2 border-r-primary/30' : ''}`}>
+                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b border-r border-slate-400 dark:border-slate-600 p-1 text-center bg-[hsl(220,14%,97%)] dark:bg-[hsl(220,14%,16%)] ${isLastDayOfStation ? 'border-r-2 border-r-primary-foreground/60' : ''}`}>
                           <div className={`mx-1 rounded-xl py-1 ${today ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}>
                             <div className={`font-semibold text-[10px] uppercase tracking-wider ${today ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
                             <div className={`text-sm font-bold tabular-nums ${today ? 'text-primary-foreground' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
@@ -825,7 +825,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                   const anyWork = weekDays.some(d => isWorkHour(d, hour));
                   return (
                     <tr key={hour} style={{ height: `${ROW_HEIGHT}px` }}>
-                      <td className={`border-b border-r-2 border-slate-200 dark:border-slate-700 p-1.5 text-right text-xs sticky left-0 z-10 tabular-nums ${anyWork ? 'bg-white dark:bg-card text-foreground font-extrabold' : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)] text-muted-foreground font-semibold'}`} style={{ height: `${ROW_HEIGHT}px` }}>
+                      <td className={`border-b border-r-2 border-slate-400 dark:border-slate-600 p-1.5 text-right text-xs sticky left-0 z-10 tabular-nums ${anyWork ? 'bg-white dark:bg-card text-foreground font-extrabold' : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)] text-muted-foreground font-semibold'}`} style={{ height: `${ROW_HEIGHT}px` }}>
                         {`${String(hour).padStart(2, '0')}:00`}
                       </td>
 
@@ -874,7 +874,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                             <td
                               key={key}
                               rowSpan={scheduledOrder ? displaySpan : 1}
-                              className={`border-b border-r border-slate-200 dark:border-slate-700 p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${
+                              className={`border-b border-r border-slate-400 dark:border-slate-600 p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-slate-500 dark:border-r-slate-400' : ''} ${
                                 work
                                   ? (today ? 'bg-primary/[0.06]' : 'bg-white dark:bg-card')
                                   : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)]'
