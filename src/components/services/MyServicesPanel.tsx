@@ -430,6 +430,7 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
     setNewPhotos([]);
     setForm({
       name: s.name || '',
+      fiscal_name: (s as any).fiscal_name || '',
       short_description: s.short_description || '',
       description: s.description || '',
       price_mode: derivePriceMode(s),
