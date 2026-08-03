@@ -825,7 +825,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                   const anyWork = weekDays.some(d => isWorkHour(d, hour));
                   return (
                     <tr key={hour} style={{ height: `${ROW_HEIGHT}px` }}>
-                      <td className={`border-b border-r-2 border-slate-300 dark:border-slate-700 p-1.5 text-right text-xs sticky left-0 z-10 tabular-nums ${anyWork ? 'bg-white dark:bg-card text-foreground font-extrabold' : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)] text-muted-foreground font-semibold'}`} style={{ height: `${ROW_HEIGHT}px` }}>
+                      <td className={`border-b border-r-2 border-slate-200 dark:border-slate-700 p-1.5 text-right text-xs sticky left-0 z-10 tabular-nums ${anyWork ? 'bg-white dark:bg-card text-foreground font-extrabold' : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)] text-muted-foreground font-semibold'}`} style={{ height: `${ROW_HEIGHT}px` }}>
                         {`${String(hour).padStart(2, '0')}:00`}
                       </td>
 
@@ -874,7 +874,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                             <td
                               key={key}
                               rowSpan={scheduledOrder ? displaySpan : 1}
-                              className={`border-b border-r border-slate-300 dark:border-slate-700 p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${
+                              className={`border-b border-r border-slate-200 dark:border-slate-700 p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-primary/40' : ''} ${
                                 work
                                   ? (today ? 'bg-primary/[0.06]' : 'bg-white dark:bg-card')
                                   : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)]'
