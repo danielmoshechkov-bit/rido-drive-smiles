@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "lint:urls": "node scripts/check-public-urls.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:voice": "node --test supabase/functions/_shared/anthropicSse_test.ts supabase/functions/_shared/voiceProductionCanary_test.ts",
     "preview": "vite preview",
     "elzab:health": "node --no-warnings=ExperimentalWarning scripts/elzab/01-healthcheck.ts",
     "elzab:receipt": "node --no-warnings=ExperimentalWarning scripts/elzab/02-receipt.ts",
