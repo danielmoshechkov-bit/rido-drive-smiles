@@ -188,73 +188,16 @@ test("failure sentence never misreports whether anything was saved", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
   const builder = chat.slice(chat.indexOf("const buildFailureSentence"), chat.indexOf("const logTiming"));
 
-  // Gdy w tym żądaniu powstała rezerwacja — komunikat to odzwierciedla.
+  // Gdy rezerwacja/zlecenie powstało — nie wolno powiedzieć, że nic nie zapisano.
   assert.match(builder, /if \(mutationCreated\)/);
-  assert.match(builder, /Zapis jest w systemie/);
-  // Nigdzie nie wolno twierdzić, że nic nie zapisano: mutationCreated dotyczy tylko
-  // bieżącego żądania, a rezerwacja mogła powstać w poprzedniej turze rozmowy.
-  // W prawdziwym telefonie ten wariant skłamał — booking istniał w bazie.
-  assert.doesNotMatch(builder, /Nic nie zostało/i);
-  assert.doesNotMatch(builder, /nie zapisano|niczego nie/i);
-  // Komunikat nie sugeruje też, że rezerwacja się udała, gdy nic o niej nie wiemy.
-  assert.doesNotMatch(builder, /rezerwacja została|wizyta jest potwierdzona/i);
+  assert.match(builder, /zapis jest już w systemie/);
+  assert.doesNotMatch(builder.slice(0, builder.indexOf("if (failure")), /Nic nie zostało/);
+  // Gdy nic nie powstało — komunikat mówi to wprost, nie udaje sukcesu.
+  assert.match(builder, /Nic nie zostało jeszcze zapisane/);
   // Limit konta ma własny, spokojniejszy komunikat.
   assert.match(builder, /failure === "quota"/);
   // Rozmówca nie dostaje szczegółów technicznych.
   assert.doesNotMatch(builder, /429|529|Anthropic|API/);
-});
-
-test("conversation id probe collects evidence without leaking the value", () => {
-  const llm = readFileSync(new URL("../voice-agent-llm/index.ts", import.meta.url), "utf8");
-
-  const probe = llm.slice(llm.indexOf("conversationIdCandidates"), llm.indexOf("// Wyciągnij rozmowę"));
-  assert.ok(probe.length > 0, "sonda musi istnieć przed budową rozmowy");
-  assert.match(probe, /event: "conversation_id_probe"/);
-
-  // Sonda raportuje wyłącznie nazwę źródła i długość — nigdy samą wartość.
-  assert.match(probe, /source, length: String\(value\)\.length/);
-  assert.doesNotMatch(probe, /value \}\)\)/);
-  // Nagłówki wrażliwe nie trafiają do logu.
-  assert.match(probe, /\^authorization\$\|\^cookie\$\|apikey/);
-
-  // Sonda niczego jeszcze nie przekazuje dalej — legacy kontrakt nietknięty.
-  assert.doesNotMatch(llm, /conversation_id\s*:\s*conversation/);
-});
-
-test("conversation window keeps the whole call, not just the last few turns", () => {
-  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
-
-  // Okno 12 wiadomości gubiło opis usterki po ~10 turach i agent pytał o niego
-  // drugi raz. Potwierdzone transkryptem: powtórka padła dokładnie wtedy, gdy
-  // pierwsza wiadomość klienta wypadła z okna.
-  assert.doesNotMatch(chat, /slice\(canary\.enabled \? -12 : 0\)/);
-  const slice = chat.match(/slice\(canary\.enabled \? -(\d+) : 0\)/);
-  assert.ok(slice, "okno kontekstu musi być jawnie ograniczone");
-  assert.ok(Number(slice[1]) >= 40, `okno kontekstu ${slice[1]} jest za małe na rozmowę telefoniczną`);
-
-  // Reguła pamięci musi być w prompcie, nie tylko w oknie kontekstu.
-  assert.match(chat, /=== PAMIĘĆ ROZMOWY \(najważniejsze\) ===/);
-  assert.match(chat, /NIE PYTAJ o nią drugi raz/);
-  assert.match(chat, /Nigdy nie mów "przepraszam za powtórzenie"/);
-
-  // Hałas i błędny ASR nie mogą kasować kontekstu ani wywoływać wywiadu od nowa.
-  assert.match(chat, /=== HAŁAS I NIEWYRAŹNA MOWA ===/);
-  assert.match(chat, /NIE ZGADUJ i NIE ZACZYNAJ ROZMOWY OD NOWA/);
-  assert.match(chat, /POZOSTAJE aktualne/);
-  assert.match(chat, /WYŁĄCZNIE tej jednej brakującej informacji/);
-});
-
-test("knowledge lookup does not add a sequential hop before the first token", () => {
-  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
-
-  // Zapytanie o wiedzę startuje przed odczytem persony i jest odbierane później,
-  // więc nie dokłada kolejnej podróży do bazy przed pierwszym tokenem.
-  const promiseAt = chat.indexOf("const knowledgePromise");
-  const personaAt = chat.indexOf('from("voice_agent_personas")');
-  const awaitAt = chat.indexOf("await knowledgePromise");
-  assert.ok(promiseAt > 0 && personaAt > 0 && awaitAt > 0, "wszystkie trzy punkty muszą istnieć");
-  assert.ok(promiseAt < personaAt, "zapytanie o wiedzę musi wystartować przed odczytem persony");
-  assert.ok(awaitAt > personaAt, "wynik wiedzy odbieramy dopiero po personie");
 });
 
 test("Phase 1 is unbuffered and propagates client cancellation without fallback or tools", () => {

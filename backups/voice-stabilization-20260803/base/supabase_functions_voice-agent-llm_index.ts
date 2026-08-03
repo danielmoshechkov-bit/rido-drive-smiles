@@ -107,31 +107,6 @@ serve(async (req) => {
   const inMessages: LlmInputMessage[] = Array.isArray(reqBody?.messages) ? reqBody.messages : [];
   const canary = resolveVoiceProductionCanary(providerId, cfg?.elevenlabs_agent_id);
 
-  // SONDA DIAGNOSTYCZNA — ustalenie, w którym polu ElevenLabs przekazuje identyfikator
-  // rozmowy. Nie zgadujemy kontraktu: sprawdzamy wszystkie prawdopodobne miejsca
-  // i logujemy WYŁĄCZNIE nazwę źródła oraz długość wartości. Sama wartość nigdy nie
-  // trafia do logu, bo identyfikator rozmowy jest daną wrażliwą.
-  // Ten blok niczego nie przekazuje dalej — służy tylko zdobyciu dowodu przed
-  // podłączeniem conversation_id przez cały łańcuch.
-  const conversationIdCandidates: Array<[string, unknown]> = [
-    ["header.elevenlabs-conversation-id", req.headers.get("elevenlabs-conversation-id")],
-    ["header.x-conversation-id", req.headers.get("x-conversation-id")],
-    ["header.xi-conversation-id", req.headers.get("xi-conversation-id")],
-    ["body.conversation_id", (reqBody as Record<string, unknown>)?.conversation_id],
-    ["body.conversationId", (reqBody as Record<string, unknown>)?.conversationId],
-    ["body.user", (reqBody as Record<string, unknown>)?.user],
-    ["body.metadata", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.conversation_id],
-    ["body.elevenlabs_conversation_id", (reqBody as Record<string, unknown>)?.elevenlabs_conversation_id],
-  ];
-  console.info("[voice-agent-llm]", JSON.stringify({
-    event: "conversation_id_probe",
-    found: conversationIdCandidates
-      .filter(([, value]) => typeof value === "string" && value.length > 0)
-      .map(([source, value]) => ({ source, length: String(value).length })),
-    body_keys: Object.keys((reqBody as Record<string, unknown>) || {}),
-    header_keys: [...req.headers.keys()].filter((k) => !/^authorization$|^cookie$|apikey/i.test(k)),
-  }));
-
   // Wyciągnij rozmowę (user/assistant); system od ElevenLabs ignorujemy — mózg buduje własny.
   const convo = inMessages
     .filter((m) => m?.role === "user" || m?.role === "assistant")
