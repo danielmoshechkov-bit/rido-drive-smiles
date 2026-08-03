@@ -29,3 +29,6 @@ supabase/.temp/
 # Local rollback/backup artifacts (not for repo)
 _local-rollbacks/
 public/invoice-pdf-lib/vendor/
+
+# Przykładowe XML-e faktur + schemat FA(3) do ręcznej weryfikacji — nie do repo
+ksef-przyklady/
