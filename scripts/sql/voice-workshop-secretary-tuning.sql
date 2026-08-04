@@ -43,22 +43,41 @@ WHERE persona_key = 'workshop_secretary'
   );
 
 -- ============================================================================
--- SEKCJA 2 — OPCJONALNE, POZA listą z tego zlecenia. Reguły dokładające pytania
--- PO potwierdzeniu rezerwacji oraz proszące o dane przed ustaleniem terminu.
--- Odkomentuj świadomie, jeśli chcesz je również wyłączyć.
+-- SEKCJA 2 — reguły odtworzone DOSŁOWNIE w rozmowie z 04.08 i wskazane przez
+-- właściciela jako do usunięcia. Każda z nich pojawiła się w transkrypcie:
+--   "Prosimy przyjechać dziesięć minut wcześniej, aby uzupełnić dokumenty."
+--   "Wyślę Ci SMS z potwierdzeniem"  (dodatkowo forma "Ci" — nieoficjalna)
+--   "Czy masz jakieś pytania?"       (dodatkowo forma "masz")
 -- ============================================================================
--- UPDATE public.voice_agent_knowledge
--- SET is_active = false
--- WHERE persona_key = 'workshop_secretary'
---   AND is_active = true
---   AND id IN (
---     '39c21e98-ed6c-47cd-b5c5-48ebed42aae3',  -- "potrzebuję kilka informacji: nazwisko, telefon, marka, model"
---     '192927ae-654e-478c-a36c-5c9b10f20b0e',  -- "Zanim przejdziemy do szczegółów - imię i numer telefonu?"
---     'd636e2aa-c525-4e89-8ce1-ce11ab73030f',  -- "Czy masz pytania dotyczące kosztów lub czasu naprawy?"
---     '3cc481c3-f88e-4007-bf60-58bfea7b28de',  -- "Prosimy przyjechać 10 minut wcześniej... Czy ma Pan pytania?"
---     '0c9fc1d6-0e95-4034-be39-f2db5b42ff9c',  -- "Zawsze potwierdzić orientacyjny koszt lub zakres cen"
---     'c94ed983-f586-4cc3-aee9-e621902d341d'   -- "Wyślę Ci SMS z potwierdzeniem - sprawdzisz go?"
---   );
+UPDATE public.voice_agent_knowledge
+SET is_active = false
+WHERE persona_key = 'workshop_secretary'
+  AND is_active = true
+  AND id IN (
+    '39c21e98-ed6c-47cd-b5c5-48ebed42aae3',  -- "potrzebuję kilka informacji: nazwisko, telefon, marka, model"
+    '192927ae-654e-478c-a36c-5c9b10f20b0e',  -- "Zanim przejdziemy do szczegółów - imię i numer telefonu?"
+    'd636e2aa-c525-4e89-8ce1-ce11ab73030f',  -- "Czy masz pytania dotyczące kosztów lub czasu naprawy?"
+    '3cc481c3-f88e-4007-bf60-58bfea7b28de',  -- "Prosimy przyjechać 10 minut wcześniej... Czy ma Pan pytania?"
+    '0c9fc1d6-0e95-4034-be39-f2db5b42ff9c',  -- "Zawsze potwierdzić orientacyjny koszt lub zakres cen"
+    'c94ed983-f586-4cc3-aee9-e621902d341d'   -- "Wyślę Ci SMS z potwierdzeniem - sprawdzisz go?"
+  );
+
+-- ============================================================================
+-- SEKCJA 2b — powtarzanie danych wstecz. W transkrypcie z 04.08 obie zadziałały
+-- i obie kosztowały czas oraz frustrację:
+--   "Czyli pięćset dziewiętnaście, cztery siedem, cztery, pięćset osiemdziesiąt trzy - dobrze?"
+--   "Potwierdzam: WY dziewięć dziewięć sześć EU" -> pięć rund poprawek numeru.
+-- Potwierdzanie numeru rejestracyjnego przenosimy do promptu, gdzie ma twardy
+-- limit jednego powtórzenia; reguła z bazy nie zna takiego limitu.
+-- ============================================================================
+UPDATE public.voice_agent_knowledge
+SET is_active = false
+WHERE persona_key = 'workshop_secretary'
+  AND is_active = true
+  AND id IN (
+    '9bd075d4-0ecf-4969-bfdb-4d761bad71ae',  -- "Powtórz numer głośno: Czyli pięćset dziewiętnaście..."
+    '1b7921da-3f82-479c-90a9-c59a338b3532'   -- "Powtórz dokładnie: WY dziewięć dziewięć sześć EU - zgadza się?"
+  );
 
 -- ============================================================================
 -- SEKCJA 3 — krótszy prompt bazowy persony.

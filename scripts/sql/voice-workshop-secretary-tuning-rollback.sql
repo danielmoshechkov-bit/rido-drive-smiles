@@ -19,19 +19,20 @@ WHERE persona_key = 'workshop_secretary'
     'c66eb806-51d3-4841-a63f-08dfa28b2eb5'   -- marka -> model -> rok -> rejestracja
   );
 
--- SEKCJA 2 — odwrócenie reguł opcjonalnych. Odkomentuj TYLKO jeśli w skrypcie
--- właściwym odkomentowano odpowiadającą im sekcję.
--- UPDATE public.voice_agent_knowledge
--- SET is_active = true
--- WHERE persona_key = 'workshop_secretary'
---   AND id IN (
---     '39c21e98-ed6c-47cd-b5c5-48ebed42aae3',
---     '192927ae-654e-478c-a36c-5c9b10f20b0e',
---     'd636e2aa-c525-4e89-8ce1-ce11ab73030f',
---     '3cc481c3-f88e-4007-bf60-58bfea7b28de',
---     '0c9fc1d6-0e95-4034-be39-f2db5b42ff9c',
---     'c94ed983-f586-4cc3-aee9-e621902d341d'
---   );
+-- SEKCJA 2 i 2b — odwrócenie reguł zamykających rozmowę oraz powtarzania danych.
+UPDATE public.voice_agent_knowledge
+SET is_active = true
+WHERE persona_key = 'workshop_secretary'
+  AND id IN (
+    '39c21e98-ed6c-47cd-b5c5-48ebed42aae3',
+    '192927ae-654e-478c-a36c-5c9b10f20b0e',
+    'd636e2aa-c525-4e89-8ce1-ce11ab73030f',
+    '3cc481c3-f88e-4007-bf60-58bfea7b28de',
+    '0c9fc1d6-0e95-4034-be39-f2db5b42ff9c',
+    'c94ed983-f586-4cc3-aee9-e621902d341d',
+    '9bd075d4-0ecf-4969-bfdb-4d761bad71ae',
+    '1b7921da-3f82-479c-90a9-c59a338b3532'
+  );
 
 -- SEKCJA 3 — poprzednia treść promptu bazowego, bajtowo jak przed zmianą.
 UPDATE public.ai_agents_config
