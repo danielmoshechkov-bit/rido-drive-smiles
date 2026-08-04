@@ -320,6 +320,23 @@ test("registration number is asked once and never confirmed back", () => {
   assert.match(chat, /imię i nazwisko → telefon → marka i model → numer rejestracyjny\. To CAŁA lista/);
 });
 
+test("agent never narrates its own system actions", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Cytat z prawdziwej rozmowy: "Już sprawdzam. Teraz tworzę rezerwację: Do widzenia!"
+  assert.match(chat, /ZAKAZ RELACJONOWANIA WŁASNYCH DZIAŁAŃ/);
+  assert.match(chat, /Klient słyszy WYNIK, nigdy PROCES/);
+  // Lista zakazanych zwrotów zamiast ogólnego zakazu — ogólne zakazy model łamał.
+  for (const phrase of ["sprawdzam", "tworzę rezerwację", "zapisuję", "umawiam Pana", "chwileczkę"]) {
+    assert.ok(chat.includes(`"${phrase}"`), `lista zakazanych zwrotów musi zawierać "${phrase}"`);
+  }
+  assert.match(chat, /Cisza w trakcie jest lepsza niż relacja z pracy systemu/);
+
+  // Powitanie w rejestrze oficjalnym.
+  assert.match(chat, /POWITANIE TEŻ JEST OFICJALNE/);
+  assert.match(chat, /ZAKAZANE: "Cześć", "Hej", "Siema"/);
+});
+
 test("goodbye and end_call happen in the same turn", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
