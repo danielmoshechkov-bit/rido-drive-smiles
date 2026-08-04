@@ -81,8 +81,29 @@ Deno.serve(async (req) => {
       console.error('admin-bootstrap: nie można potwierdzić roli', callerErr);
       return json({ error: 'Nie można potwierdzić uprawnień' }, 503);
     }
+    // Furtka odtworzeniowa: jeżeli w systemie NIE MA ANI JEDNEGO admina, funkcja
+    // znów jest bootstrapem i wolno ją wywołać bez roli admina. Sekret operacyjny
+    // obowiązuje w obu trybach, więc pusta tabela sama z siebie nikomu nie otwiera
+    // drogi. Warunek jest samoznoszący się: pierwszy udany bootstrap tworzy admina
+    // i od tej chwili furtka jest zamknięta.
+    let bootstrapMode = false;
     if (callerRow?.user_role !== 'admin') {
-      return json({ error: 'Forbidden' }, 403);
+      const { count, error: countErr } = await supabase
+        .from('drivers')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_role', 'admin');
+
+      if (countErr) {
+        console.error('admin-bootstrap: nie można policzyć adminów', countErr);
+        return json({ error: 'Nie można potwierdzić uprawnień' }, 503);
+      }
+      if ((count ?? 0) > 0) {
+        return json({ error: 'Forbidden' }, 403);
+      }
+      // Dwa równoległe wywołania mogłyby tu utworzyć dwóch adminów. Świadomie na
+      // to pozwalamy: to ręczna ścieżka odtworzeniowa, a sekret i tak obowiązuje.
+      bootstrapMode = true;
+      console.warn('admin-bootstrap: tryb odtworzeniowy — w systemie nie ma żadnego admina');
     }
 
     const body: Payload = await req.json();
@@ -99,7 +120,12 @@ Deno.serve(async (req) => {
       return json({ error: 'Unauthorized' }, 401);
     }
 
-    console.log('admin-bootstrap: nadanie roli admin przez', caller.id);
+    console.log(
+      bootstrapMode
+        ? 'admin-bootstrap: pierwszy admin zakładany w trybie odtworzeniowym przez'
+        : 'admin-bootstrap: nadanie roli admin przez',
+      caller.id,
+    );
 
     // Create or fetch auth user
     const { data: created, error: createErr } = await supabase.auth.admin.createUser({
