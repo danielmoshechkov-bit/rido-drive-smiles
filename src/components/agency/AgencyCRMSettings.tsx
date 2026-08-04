@@ -135,7 +135,10 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
       ['Maks. liczba zdjęć', '20'],
       ['Tryb Pasywny', '✓ zaznacz'],
       ['Login FTP', 'serwer408603_crm_import'],
-      ['Hasło FTP', '#TK*?SD2*907OUJf'],
+      // Hasło NIE może tu wrócić: ten komponent jedzie do przeglądarki, a plik
+      // leży w publicznym repozytorium — wpisane tutaj jest jawne dla wszystkich.
+      // Docelowo poda je edge function po autoryzacji agencji.
+      ['Hasło FTP', ''],
     ];
   };
 
@@ -381,11 +384,19 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
                         {getAsariFtpData().map(([label, val]) => (
                           <TableRow key={label}>
                             <TableCell className="text-sm font-medium">{label}</TableCell>
-                            <TableCell className="font-mono text-xs sm:text-sm break-all">{val}</TableCell>
+                            <TableCell className="font-mono text-xs sm:text-sm break-all">
+                              {val || (
+                                <span className="font-sans italic text-muted-foreground">
+                                  dane przekazywane indywidualnie
+                                </span>
+                              )}
+                            </TableCell>
                             <TableCell className="w-[92px] text-right">
-                              <Button type="button" variant="outline" size="sm" onClick={() => handleCopyValue(val)}>
-                                Kopiuj
-                              </Button>
+                              {val && (
+                                <Button type="button" variant="outline" size="sm" onClick={() => handleCopyValue(val)}>
+                                  Kopiuj
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
