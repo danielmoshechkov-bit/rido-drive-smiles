@@ -19,6 +19,11 @@ import {
 import { useGusLookup } from '@/hooks/useGusLookup';
 import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { PurchaseInvoicesKSeF } from '@/components/accounting/PurchaseInvoicesKSeF';
+import {
+  getTrustedDocumentPreviewKind,
+  getTrustedPrivateDocumentUrl,
+  getTrustedSupabaseObjectPath,
+} from '@/security/trustedContentUrl';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -141,23 +146,22 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   // Generuj signed URL dla podglądu (bucket 'documents' jest prywatny)
   useEffect(() => {
     if (!previewInvoice?.pdf_url) { setPreviewSignedUrl(null); return; }
-    const url = previewInvoice.pdf_url;
-    // Wyciągnij ścieżkę z public URL: .../object/public/documents/<path> lub .../object/sign/documents/<path>
-    const match = url.match(/\/storage\/v1\/object\/(?:public|sign)\/documents\/([^?]+)/);
-    if (!match) {
-      // Nie znamy bucketa — użyj URL jak jest
-      setPreviewSignedUrl(url);
-      return;
-    }
-    const path = decodeURIComponent(match[1]);
+    setPreviewSignedUrl(null);
+    const path = getTrustedSupabaseObjectPath(previewInvoice.pdf_url, 'documents');
+    if (!path) return;
+
+    let active = true;
     supabase.storage.from('documents').createSignedUrl(path, 3600).then(({ data, error }) => {
-      if (error || !data?.signedUrl) {
+      if (!active) return;
+      const trustedUrl = getTrustedPrivateDocumentUrl(data?.signedUrl, ['documents']);
+      if (error || !trustedUrl) {
         console.warn('Signed URL error:', error);
-        setPreviewSignedUrl(url);
+        setPreviewSignedUrl(null);
       } else {
-        setPreviewSignedUrl(data.signedUrl);
+        setPreviewSignedUrl(trustedUrl);
       }
     });
+    return () => { active = false; };
   }, [previewInvoice?.id, previewInvoice?.pdf_url]);
 
   // Invoice mode: 'magazyn' = add to inventory, 'kosztowa' = cost invoice only
@@ -729,6 +733,14 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
   });
 
   /* ── Render ──────────────────────────────────────────────────────── */
+
+  const trustedPreviewSignedUrl = getTrustedPrivateDocumentUrl(
+    previewSignedUrl,
+    ['documents'],
+  );
+  const trustedPreviewKind = trustedPreviewSignedUrl
+    ? getTrustedDocumentPreviewKind(trustedPreviewSignedUrl)
+    : 'unsupported';
 
   return (
     <div className="space-y-6">
@@ -1529,17 +1541,23 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
           {previewInvoice && (
             <div className="space-y-4">
               {/* Document preview */}
-              {previewSignedUrl ? (
-                /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(previewSignedUrl) ? (
+              {trustedPreviewSignedUrl ? (
+                trustedPreviewKind === 'image' ? (
                   <div className="border rounded-lg overflow-hidden bg-muted/30 flex items-center justify-center">
-                    <img src={previewSignedUrl} alt="Podgląd" className="max-h-[600px] w-auto" />
+                    <img src={trustedPreviewSignedUrl} alt="Podgląd" className="max-h-[600px] w-auto" referrerPolicy="no-referrer" />
+                  </div>
+                ) : trustedPreviewKind === 'pdf' ? (
+                  <div className="border rounded-lg overflow-hidden bg-muted/30">
+                    <iframe
+                      src={trustedPreviewSignedUrl}
+                      className="w-full h-[600px]"
+                      title="Podgląd dokumentu"
+                      sandbox=""
+                      referrerPolicy="no-referrer"
+                    />
                   </div>
                 ) : (
-                  <div className="border rounded-lg overflow-hidden bg-muted/30">
-                    <object data={previewSignedUrl} type="application/pdf" className="w-full h-[600px]">
-                      <iframe src={`https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(previewSignedUrl)}`} className="w-full h-[600px]" title="Podgląd dokumentu" />
-                    </object>
-                  </div>
+                  <div className="border rounded-lg p-8 bg-muted/30 text-center text-sm text-muted-foreground">Nieobsługiwany format podglądu.</div>
                 )
               ) : previewInvoice.pdf_url ? (
                 <div className="border rounded-lg p-8 bg-muted/30 text-center text-sm text-muted-foreground">Ładuję podgląd...</div>
@@ -1597,8 +1615,8 @@ export function InventoryPurchaseOCR({ entityId, showKsefOption }: Props) {
 
               {/* Actions */}
               <div className="flex gap-2 pt-2 border-t">
-                {previewSignedUrl && (
-                  <a href={previewSignedUrl} download target="_blank" rel="noopener noreferrer">
+                {trustedPreviewSignedUrl && (
+                  <a href={trustedPreviewSignedUrl} download target="_blank" rel="noopener noreferrer">
                     <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-2" />Pobierz</Button>
                   </a>
                 )}

@@ -12,6 +12,7 @@ import { useGusLookup } from "@/hooks/useGusLookup";
 import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCheckbox";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
+import { validatePassword } from "@/security/passwordPolicy";
 
 interface FormData {
   email: string;
@@ -105,7 +106,7 @@ export default function InsuranceAgentRegister() {
     }
 
     if (!formData.password) newErrors.password = t('insAgentRegister.passwordRequired');
-    else if (formData.password.length < 6) {
+    else if (!validatePassword(formData.password).valid) {
       newErrors.password = t('register.passwordMinLength');
     }
 

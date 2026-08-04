@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Send, Loader2, Calendar, FileText, FileSpreadsheet, Code, Mail } from 'lucide-react';
+import { openSanitizedPrintWindow } from '@/security/htmlSanitizer';
 
 interface MonthlyExportEmailProps {
   entityId: string;
@@ -151,9 +152,7 @@ export function MonthlyExportEmail({ entityId }: MonthlyExportEmailProps) {
         toast.success('Eksport CSV zakończony');
       } else if (format === 'pdf') {
         // Generate printable HTML for PDF
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(`
+        const reportHtml = `
             <html>
               <head><title>Raport ${monthName} ${selectedYear}</title>
               <style>
@@ -190,10 +189,8 @@ export function MonthlyExportEmail({ entityId }: MonthlyExportEmailProps) {
                 <p style="margin-top:30px;color:#999;font-size:11px;">Wygenerowano przez RIDO • ${new Date().toLocaleString('pl-PL')}</p>
               </body>
             </html>
-          `);
-          printWindow.document.close();
-          printWindow.print();
-        }
+          `;
+        openSanitizedPrintWindow(`Raport ${monthName} ${selectedYear}`, reportHtml);
         toast.success('Raport PDF wygenerowany');
       } else if (format === 'jpk') {
         toast.info('Eksport JPK_VAT — funkcja w przygotowaniu');

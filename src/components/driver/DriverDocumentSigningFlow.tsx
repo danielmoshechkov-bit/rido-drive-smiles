@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SignaturePad } from "@/components/fleet/SignaturePad";
 import { parseRegistryField, getSalutation, getZwanymA } from "@/utils/contractHelpers";
+import { sanitizeDocumentHtml } from "@/security/htmlSanitizer";
 import {
   FileText, AlertCircle, CheckCircle, ChevronRight, ChevronLeft, 
   Loader2, PenTool, Eye, Car, User, CreditCard
@@ -688,7 +689,7 @@ export function DriverDocumentSigningFlow({ driverId, onComplete }: DriverDocume
               </h3>
               <div 
                 className="border rounded-lg p-4 max-h-[50vh] overflow-y-auto bg-white dark:bg-muted/30 text-sm"
-                dangerouslySetInnerHTML={{ __html: getContractPreviewHtml() }} 
+                dangerouslySetInnerHTML={{ __html: sanitizeDocumentHtml(getContractPreviewHtml()) }}
               />
               <p className="text-xs text-muted-foreground text-center">
                 Sprawdź poprawność danych przed podpisaniem. Możesz wrócić do poprzednich kroków, aby je zmienić.

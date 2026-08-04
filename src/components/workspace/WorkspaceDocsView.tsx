@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import { openSanitizedPrintWindow } from "@/security/htmlSanitizer";
 
 interface Props {
   project: WorkspaceProject;
@@ -123,16 +124,6 @@ export function WorkspaceDocsView({ project, workspace }: Props) {
 
   const handleExportPDF = () => {
     if (!activeDoc) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.document.write(`
-      <html><head><title>${activeDoc.title}</title>
-      <style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px;line-height:1.6}
-      h1{font-size:24px}h2{font-size:20px}h3{font-size:16px}
-      table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px;text-align:left}
-      code{background:#f4f4f4;padding:2px 6px;border-radius:3px}pre{background:#f4f4f4;padding:16px;border-radius:8px;overflow-x:auto}
-      </style></head><body>
-    `);
     // Simple markdown to HTML
     const html = activeDoc.content
       .replace(/^### (.+)$/gm, '<h3>$1</h3>')
@@ -144,9 +135,7 @@ export function WorkspaceDocsView({ project, workspace }: Props) {
       .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
       .replace(/\n\n/g, '</p><p>')
       .replace(/\n/g, '<br>');
-    printWindow.document.write(`<p>${html}</p></body></html>`);
-    printWindow.document.close();
-    printWindow.print();
+    openSanitizedPrintWindow(activeDoc.title, `<p>${html}</p>`);
   };
 
   const handleAddComment = async () => {

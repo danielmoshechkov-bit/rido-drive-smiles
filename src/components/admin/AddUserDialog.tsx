@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { validatePassword } from '@/security/passwordPolicy';
 
 interface AddUserDialogProps {
   onUserCreated?: () => void;
@@ -20,6 +21,11 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      toast.error(passwordValidation.errors[0]);
+      return;
+    }
 
     setLoading(true);
     try {
@@ -81,9 +87,9 @@ export function AddUserDialog({ onUserCreated }: AddUserDialogProps) {
               type="text"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min. 6 znaków"
+              placeholder="Min. 12 znaków"
               required
-              minLength={6}
+              minLength={12}
             />
           </div>
           <DialogFooter>

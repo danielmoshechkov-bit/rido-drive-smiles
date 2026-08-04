@@ -13,6 +13,11 @@ import { toast } from "sonner";
 import { format, isPast, addDays } from "date-fns";
 import { pl } from "date-fns/locale";
 import { parseRegistryField, getSalutation, getZwanymA } from "@/utils/contractHelpers";
+import { openSanitizedPrintWindow, sanitizeDocumentHtml } from "@/security/htmlSanitizer";
+import {
+  getTrustedDocumentPreviewKind,
+  getTrustedPrivateDocumentUrl,
+} from "@/security/trustedContentUrl";
 import { 
   FileText, Download, Calendar, CheckCircle, Clock, AlertTriangle, Eye, Trash2,
   Plus, Loader2, PenTool
@@ -112,9 +117,6 @@ export function DriverDocumentsPanel({ driverId }: DriverDocumentsPanelProps) {
     if (expiryDate <= addDays(new Date(), 30)) return <Badge className="gap-1 text-xs bg-orange-500/10 text-orange-700 border-orange-500/20"><AlertTriangle className="h-3 w-3" />Wygasa wkrótce</Badge>;
     return <Badge className="gap-1 text-xs bg-green-500/10 text-green-700 border-green-500/20"><CheckCircle className="h-3 w-3" />Aktualny</Badge>;
   };
-
-  const isPreviewable = (url: string | null) => { if (!url) return false; const ext = url.split('.').pop()?.toLowerCase(); return ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext || ''); };
-  const isPdf = (url: string | null) => url?.toLowerCase().endsWith('.pdf') || false;
 
   const loadSignedContracts = async () => {
     setLoadingContracts(true);
@@ -246,13 +248,19 @@ export function DriverDocumentsPanel({ driverId }: DriverDocumentsPanelProps) {
   };
 
   const handlePrintContract = (contract: any) => {
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(`<html><head><title>Umowa ${contract.contract_number || ''}</title></head><body>${generateContractHtml(contract)}</body></html>`);
-      w.document.close();
-      w.print();
-    }
+    openSanitizedPrintWindow(
+      `Umowa ${contract.contract_number || ''}`,
+      generateContractHtml(contract),
+    );
   };
+
+  const trustedPreviewUrl = getTrustedPrivateDocumentUrl(
+    previewDoc?.file_url,
+    ["driver-documents"],
+  );
+  const previewKind = trustedPreviewUrl
+    ? getTrustedDocumentPreviewKind(trustedPreviewUrl)
+    : "unsupported";
 
   return (
     <div className="space-y-6">
@@ -314,7 +322,12 @@ export function DriverDocumentsPanel({ driverId }: DriverDocumentsPanelProps) {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {docs.map((doc) => (
+              {docs.map((doc) => {
+                const trustedDocumentUrl = getTrustedPrivateDocumentUrl(
+                  doc.file_url,
+                  ["driver-documents"],
+                );
+                return (
                 <Card key={doc.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setPreviewDoc(doc)}>
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
@@ -328,16 +341,19 @@ export function DriverDocumentsPanel({ driverId }: DriverDocumentsPanelProps) {
                     </div>
                     <div className="flex gap-2 mt-4">
                       <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setPreviewDoc(doc); }} className="flex-1"><Eye className="h-3 w-3 mr-1" />Podgląd</Button>
-                      <Button variant="outline" size="sm" asChild onClick={(e) => e.stopPropagation()}>
-                        <a href={doc.file_url || "#"} target="_blank" rel="noreferrer" download><Download className="h-3 w-3" /></a>
-                      </Button>
+                      {trustedDocumentUrl && (
+                        <Button variant="outline" size="sm" asChild onClick={(e) => e.stopPropagation()}>
+                          <a href={trustedDocumentUrl} target="_blank" rel="noopener noreferrer" download><Download className="h-3 w-3" /></a>
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -358,11 +374,17 @@ export function DriverDocumentsPanel({ driverId }: DriverDocumentsPanelProps) {
                   )}
                 </div>
                 <div className="border rounded-lg overflow-hidden bg-muted/30">
-                  {previewDoc?.file_url && isPreviewable(previewDoc.file_url) ? (
-                    isPdf(previewDoc.file_url) ? (
-                      <iframe src={previewDoc.file_url} className="w-full h-[60vh]" title="Document preview" />
+                  {trustedPreviewUrl && previewKind !== "unsupported" ? (
+                    previewKind === "pdf" ? (
+                      <iframe
+                        src={trustedPreviewUrl}
+                        className="w-full h-[60vh]"
+                        title="Document preview"
+                        sandbox=""
+                        referrerPolicy="no-referrer"
+                      />
                     ) : (
-                      <div className="flex items-center justify-center p-4"><img src={previewDoc.file_url} alt="Document preview" className="max-w-full max-h-[60vh] object-contain" /></div>
+                      <div className="flex items-center justify-center p-4"><img src={trustedPreviewUrl} alt="Document preview" className="max-w-full max-h-[60vh] object-contain" referrerPolicy="no-referrer" /></div>
                     )
                   ) : (
                     <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
@@ -373,7 +395,7 @@ export function DriverDocumentsPanel({ driverId }: DriverDocumentsPanelProps) {
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setPreviewDoc(null)}>Zamknij</Button>
-                  {previewDoc?.file_url && <Button asChild><a href={previewDoc.file_url} target="_blank" rel="noreferrer" download><Download className="h-4 w-4 mr-2" />Pobierz</a></Button>}
+                  {trustedPreviewUrl && <Button asChild><a href={trustedPreviewUrl} target="_blank" rel="noopener noreferrer" download><Download className="h-4 w-4 mr-2" />Pobierz</a></Button>}
                 </div>
               </div>
             </DialogContent>
@@ -437,7 +459,7 @@ export function DriverDocumentsPanel({ driverId }: DriverDocumentsPanelProps) {
             </DialogTitle>
           </DialogHeader>
           {previewContract && (
-            <div className="border rounded-lg p-4 bg-white dark:bg-muted/30 text-sm" dangerouslySetInnerHTML={{ __html: generateContractHtml(previewContract) }} />
+            <div className="border rounded-lg p-4 bg-white dark:bg-muted/30 text-sm" dangerouslySetInnerHTML={{ __html: sanitizeDocumentHtml(generateContractHtml(previewContract)) }} />
           )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setPreviewContract(null)}>Zamknij</Button>

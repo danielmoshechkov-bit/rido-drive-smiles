@@ -30,6 +30,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
+import {
+  getTrustedDocumentPreviewKind,
+  getTrustedPrivateDocumentUrl,
+} from "@/security/trustedContentUrl";
 
 interface Document {
   id: string;
@@ -206,6 +210,10 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
 
   const renderDocumentPreview = (doc: Document) => {
     const extraction = getExtractionData(doc);
+    const trustedDocumentUrl = getTrustedPrivateDocumentUrl(doc.file_url, ["documents"]);
+    const previewKind = trustedDocumentUrl
+      ? getTrustedDocumentPreviewKind(trustedDocumentUrl)
+      : "unsupported";
     
     return (
       <Card className="h-full">
@@ -225,18 +233,25 @@ export function ExpenseReviewPanel({ entityId }: ExpenseReviewPanelProps) {
         <CardContent className="space-y-4">
           {/* Document preview */}
           <div className="aspect-[4/3] bg-muted rounded-lg overflow-hidden">
-            {doc.file_type?.startsWith('image/') ? (
+            {trustedDocumentUrl && previewKind === "image" ? (
               <img 
-                src={doc.file_url} 
+                src={trustedDocumentUrl}
                 alt={doc.file_name}
                 className="w-full h-full object-contain"
+                referrerPolicy="no-referrer"
               />
-            ) : (
+            ) : trustedDocumentUrl && previewKind === "pdf" ? (
               <iframe
-                src={doc.file_url}
+                src={trustedDocumentUrl}
                 className="w-full h-full"
                 title={doc.file_name}
+                sandbox=""
+                referrerPolicy="no-referrer"
               />
+            ) : (
+              <div className="h-full flex items-center justify-center p-4 text-sm text-muted-foreground text-center">
+                Podgląd dokumentu jest niedostępny do czasu utworzenia bezpiecznego signed URL.
+              </div>
             )}
           </div>
 

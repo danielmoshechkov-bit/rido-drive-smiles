@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Trash2, Download, Loader2, CheckSquare, XSquare } from 'lucide-react';
 import { InvoiceExpandableRow } from './InvoiceExpandableRow';
-import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
+import { generateInvoiceHtml, printHtmlDocument } from '@/utils/invoiceHtmlGenerator';
 import { formatIBAN } from '@/utils/formatters';
 import {
   AlertDialog,
@@ -190,14 +190,7 @@ export function InvoiceListWithActions({ invoices, onUpdate, showMarginInfo }: I
         };
 
         const html = generateInvoiceHtml(invoiceData);
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(html);
-          printWindow.document.close();
-          printWindow.focus();
-          await new Promise(r => setTimeout(r, 500));
-          printWindow.print();
-        }
+        printHtmlDocument(html);
       }
       toast.success(`Wygenerowano PDF dla ${ids.length} faktur`);
     } catch (err: any) {

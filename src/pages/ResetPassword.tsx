@@ -9,6 +9,7 @@ import LanguageSelector from "@/components/LanguageSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff, Lock, AlertCircle, Check, X } from "lucide-react";
+import { PASSWORD_MIN_LENGTH } from "@/security/passwordPolicy";
 
 const ResetPassword = () => {
   const { t } = useTranslation();
@@ -25,7 +26,7 @@ const ResetPassword = () => {
 
   // Password requirements validation
   const passwordRequirements = {
-    minLength: password.length >= 8,
+    minLength: password.length >= PASSWORD_MIN_LENGTH,
     hasUppercase: /[A-Z]/.test(password),
     hasLowercase: /[a-z]/.test(password),
     hasNumber: /\d/.test(password),

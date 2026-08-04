@@ -19,6 +19,7 @@ import { CreateTemplateModal } from '@/components/fleet-documents/CreateTemplate
 import { TemplatePreviewModal } from '@/components/fleet-documents/TemplatePreviewModal';
 import { FillAndSendPanel } from '@/components/fleet-documents/FillAndSendPanel';
 import { UploadContractModal } from '@/components/fleet-documents/UploadContractModal';
+import { openSanitizedPrintWindow, sanitizeDocumentHtml } from '@/security/htmlSanitizer';
 
 interface DocumentsManagementProps {
   cityId: string;
@@ -664,16 +665,16 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
             </DialogTitle>
           </DialogHeader>
           {previewContract && (
-            <div className="border rounded-lg p-4 bg-white dark:bg-muted/30 text-sm" dangerouslySetInnerHTML={{ __html: generateContractHtml(previewContract) }} />
+            <div className="border rounded-lg p-4 bg-white dark:bg-muted/30 text-sm" dangerouslySetInnerHTML={{ __html: sanitizeDocumentHtml(generateContractHtml(previewContract)) }} />
           )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setPreviewContract(null)}>Zamknij</Button>
             <Button onClick={() => {
-              const w = window.open('', '_blank');
-              if (w && previewContract) {
-                w.document.write(`<html><head><title>${previewContract.template_name || 'Dokument'}</title></head><body>${generateContractHtml(previewContract)}</body></html>`);
-                w.document.close();
-                w.print();
+              if (previewContract) {
+                openSanitizedPrintWindow(
+                  previewContract.template_name || 'Dokument',
+                  generateContractHtml(previewContract),
+                );
               }
             }} className="gap-1"><Download className="h-4 w-4" /> Drukuj / Pobierz PDF</Button>
           </div>

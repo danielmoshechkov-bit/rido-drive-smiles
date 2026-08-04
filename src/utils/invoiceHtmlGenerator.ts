@@ -1,5 +1,6 @@
 // Local invoice HTML generator for browser-based PDF printing
 import { GETRIDO_MASCOT_DATAURI } from './getRidoMascot';
+import { writeSanitizedDocumentToWindow } from '@/security/htmlSanitizer';
 
 export interface InvoiceItem {
   name: string;
@@ -163,12 +164,11 @@ export const isOfficialKsefReference = (value?: string): boolean => {
   return /^\d{10}-\d{8}-[A-Z0-9-]+$/i.test(trimmed) && !trimmed.includes('-SO-');
 };
 
-export const printHtmlDocument = (html: string): void => {
+export const printHtmlDocument = (html: string): boolean => {
   const printWindow = window.open('', '_blank');
-  if (!printWindow) return;
+  if (!printWindow) return false;
 
-  printWindow.document.write(html);
-  printWindow.document.close();
+  if (!writeSanitizedDocumentToWindow(printWindow, 'Dokument GetRido', html)) return false;
   printWindow.focus();
 
   const startedAt = Date.now();
@@ -190,6 +190,7 @@ export const printHtmlDocument = (html: string): void => {
   };
 
   setTimeout(waitForAssetsAndPrint, 150);
+  return true;
 };
 
 export const numberToWords = (num: number): string => {

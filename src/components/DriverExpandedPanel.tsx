@@ -17,6 +17,7 @@ import { Key, UserCircle, Settings, FileText, Car } from "lucide-react";
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
 import { DriverPartnerFleets } from "./fleet/DriverPartnerFleets";
+import { validatePassword } from "@/security/passwordPolicy";
 
 interface DriverExpandedPanelProps {
   driver: Driver;
@@ -149,8 +150,9 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
       return;
     }
 
-    if (!tempPassword || tempPassword.length < 8) {
-      toast.error('Hasło musi mieć minimum 8 znaków');
+    const passwordValidation = validatePassword(tempPassword);
+    if (!passwordValidation.valid) {
+      toast.error(passwordValidation.errors[0]);
       return;
     }
 
@@ -211,7 +213,7 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
               <div className="flex gap-2">
                 <Input
                   type="password"
-                  placeholder="Wpisz hasło (min. 8 znaków)"
+                  placeholder="Wpisz silne hasło (min. 12 znaków)"
                   value={tempPassword}
                   onChange={(e) => setTempPassword(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
@@ -220,7 +222,7 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
                 />
                 <Button
                   onClick={handleCreateAuthAccount}
-                  disabled={creatingAccount || !driver.email || tempPassword.length < 8}
+                  disabled={creatingAccount || !driver.email || !validatePassword(tempPassword).valid}
                   className="gap-2 whitespace-nowrap"
                 >
                   <Key className="h-4 w-4" />
@@ -232,9 +234,9 @@ export function DriverExpandedPanel({ driver, onUpdate, mode = 'admin' }: Driver
                   Dodaj email kierowcy aby utworzyć konto
                 </p>
               )}
-              {tempPassword && tempPassword.length < 8 && (
+              {tempPassword && !validatePassword(tempPassword).valid && (
                 <p className="text-xs text-destructive">
-                  Hasło musi mieć minimum 8 znaków
+                  Hasło musi mieć minimum 12 znaków oraz małą i dużą literę, cyfrę i znak specjalny
                 </p>
               )}
             </div>

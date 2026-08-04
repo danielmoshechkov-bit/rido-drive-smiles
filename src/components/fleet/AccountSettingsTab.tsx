@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Save, User, Mail, Phone, Lock, Check, X, Eye, EyeOff } from "lucide-react";
+import { getPasswordRequirements, validatePassword } from "@/security/passwordPolicy";
 
 export function AccountSettingsTab() {
   const [loading, setLoading] = useState(true);
@@ -77,12 +78,9 @@ export function AccountSettingsTab() {
   };
 
   // Password validation
-  const hasMinLength = newPassword.length >= 8;
-  const hasUpperCase = /[A-Z]/.test(newPassword);
-  const hasNumber = /[0-9]/.test(newPassword);
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+  const passwordRequirements = getPasswordRequirements(newPassword);
   const passwordsMatch = newPassword === confirmPassword && newPassword.length > 0;
-  const isPasswordValid = hasMinLength && hasUpperCase && hasNumber && hasSpecialChar && passwordsMatch;
+  const isPasswordValid = validatePassword(newPassword).valid && passwordsMatch;
 
   const handleChangePassword = async () => {
     if (!isPasswordValid) return;
@@ -239,10 +237,9 @@ export function AccountSettingsTab() {
 
                 {newPassword.length > 0 && (
                   <div className="grid grid-cols-2 gap-1 mt-2">
-                    <PasswordCheck valid={hasMinLength} label="Min. 8 znaków" />
-                    <PasswordCheck valid={hasUpperCase} label="Duża litera" />
-                    <PasswordCheck valid={hasNumber} label="Cyfra" />
-                    <PasswordCheck valid={hasSpecialChar} label="Znak specjalny" />
+                    {passwordRequirements.map((requirement) => (
+                      <PasswordCheck key={requirement.label} valid={requirement.met} label={requirement.label} />
+                    ))}
                   </div>
                 )}
               </div>

@@ -167,10 +167,21 @@ const DriverDashboard = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Check for test user in localStorage first
-      const testUser = localStorage.getItem('testUser');
+      // Historyczny testUser może działać wyłącznie w buildzie developerskim.
+      // Produkcja nigdy nie może traktować danych z localStorage jako tożsamości.
+      if (!import.meta.env.DEV) localStorage.removeItem('testUser');
+      const testUser = import.meta.env.DEV ? localStorage.getItem('testUser') : null;
+      let testUserData: { email?: string } | null = null;
       if (testUser) {
-        const testUserData = JSON.parse(testUser);
+        try {
+          testUserData = JSON.parse(testUser);
+        } catch {
+          localStorage.removeItem('testUser');
+        }
+      }
+      if (testUserData && !testUserData.email) localStorage.removeItem('testUser');
+
+      if (testUserData?.email) {
         setUser({ email: testUserData.email, id: 'test-user' });
         
         // Znajdź kierowcę po emailu testowym

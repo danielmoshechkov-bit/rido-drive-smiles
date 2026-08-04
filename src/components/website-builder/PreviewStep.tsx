@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { sanitizeIsolatedPreviewHtml } from '@/security/htmlSanitizer';
 
 interface PreviewStepProps {
   projectId: string | null;
@@ -27,6 +28,10 @@ export function PreviewStep({ projectId, generatedHtml, onGenerate }: PreviewSte
   const [correctionsUsed, setCorrectionsUsed] = useState(0);
   const [correctionsLimit, setCorrectionsLimit] = useState(10);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const safeGeneratedHtml = useMemo(
+    () => sanitizeIsolatedPreviewHtml(generatedHtml),
+    [generatedHtml],
+  );
 
   const handleGenerate = async () => {
     if (!projectId) {
@@ -188,7 +193,9 @@ export function PreviewStep({ projectId, generatedHtml, onGenerate }: PreviewSte
             }`}
           >
             <iframe
-              srcDoc={generatedHtml}
+              srcDoc={safeGeneratedHtml}
+              sandbox=""
+              referrerPolicy="no-referrer"
               className="w-full h-[600px] border-0"
               title="Website Preview"
               onClick={handleElementClick}

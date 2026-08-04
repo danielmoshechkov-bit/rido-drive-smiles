@@ -80,23 +80,10 @@ export default defineConfig(({ mode }) => ({
         // bez tego SW serwowałby index.html zamiast np. invoice-pdf.php
         // (te same ścieżki, które .htaccess przepuszcza obok React Routera).
         navigateFallbackDenylist: [/\.php(\?|$)/, /^\/crm-import\//, /^\/foto-proxy/],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/wclrrytmrscqvsyxyvnn\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-cache',
-              // Czekaj na sieć max 4 s, potem sięgnij po cache. Było 8 s — mnożyło
-              // się z retry TanStack (8 s × próby ≈ 10-30 s spinnera na karcie
-              // zlecenia przy zrywającej sieci).
-              networkTimeoutSeconds: 4,
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
-              }
-            }
-          }
-        ]
+        // SECURITY: odpowiedzi Supabase zawierają dane zależne od JWT i tenanta.
+        // Nie wolno umieszczać ich we wspólnym Cache Storage. Prywatny offline
+        // pozostaje fail-closed; precache obejmuje wyłącznie statyczne assety.
+        runtimeCaching: []
       }
     })
   ].filter(Boolean),

@@ -66,6 +66,7 @@ import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { toFiscalName } from '@/lib/fiscalName';
 import { toast } from 'sonner';
+import { sanitizeRichTextHtml } from '@/security/htmlSanitizer';
 
 interface ServiceItem {
   id: string;
@@ -968,7 +969,7 @@ export default function ServiceProviderDashboard() {
                       onChange={e => setActivationForm(p => ({ ...p, description: e.target.value }))}
                       placeholder={t('sp.activation.descPlaceholder')}
                     />
-                    <p className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('sp.activation.descHint') }} />
+                    <p className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(t('sp.activation.descHint')) }} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">

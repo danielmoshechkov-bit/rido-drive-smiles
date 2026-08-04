@@ -31,6 +31,18 @@ interface ResultsMapModalProps {
   onViewListing?: (id: string) => void;
 }
 
+const SAFE_MAP_IMAGE_URL = /^(?:(?:https?):|\/(?!\/)|\.\.?\/)/i;
+
+function safeMapImageUrl(value?: string): string | null {
+  if (!value) return null;
+  const compact = value.trim().replace(/[\u0000-\u0020\u007f-\u009f]/g, "");
+  return SAFE_MAP_IMAGE_URL.test(compact) ? compact : null;
+}
+
+function safeMarkerColor(value?: string): string {
+  return value && /^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(value) ? value : "#6b7280";
+}
+
 export function ResultsMapModal({ 
   open, 
   onOpenChange, 
@@ -168,31 +180,14 @@ export function ResultsMapModal({
       transform: translate(-50%, -100%);
       cursor: pointer;
     `;
-    div.innerHTML = `
-      <div style="
-        background: white;
-        color: #1a1a1a;
-        padding: 4px 10px;
-        border-radius: 8px;
-        font-size: 12px;
-        font-weight: 700;
-        white-space: nowrap;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-        border: 2px solid ${bgColor};
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      ">
-        ${formatPriceFull(listing.price)}
-      </div>
-      <div style="
-        width: 0; height: 0;
-        border-left: 6px solid transparent;
-        border-right: 6px solid transparent;
-        border-top: 6px solid ${bgColor};
-        margin-top: -1px;
-      "></div>
-    `;
+    const label = document.createElement("div");
+    label.style.cssText = `background:white;color:#1a1a1a;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;gap:4px;`;
+    label.style.border = `2px solid ${bgColor}`;
+    label.textContent = formatPriceFull(listing.price);
+    const arrow = document.createElement("div");
+    arrow.style.cssText = "width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;margin-top:-1px;";
+    arrow.style.borderTop = `6px solid ${bgColor}`;
+    div.append(label, arrow);
     return div;
   }, []);
 
@@ -209,24 +204,13 @@ export function ResultsMapModal({
       transform: translate(-50%, -50%);
       cursor: pointer;
     `;
-    div.innerHTML = `
-      <div style="
-        width: ${size}px;
-        height: ${size}px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #7c3aed, #6d28d9);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: ${fontSize}px;
-        font-weight: 700;
-        box-shadow: 0 3px 12px rgba(124,58,237,0.4), 0 0 0 4px rgba(124,58,237,0.15);
-        border: 2px solid rgba(255,255,255,0.8);
-      ">
-        ${count}
-      </div>
-    `;
+    const badge = document.createElement("div");
+    badge.style.cssText = "border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 3px 12px rgba(124,58,237,0.4),0 0 0 4px rgba(124,58,237,0.15);border:2px solid rgba(255,255,255,0.8);";
+    badge.style.width = `${size}px`;
+    badge.style.height = `${size}px`;
+    badge.style.fontSize = `${fontSize}px`;
+    badge.textContent = String(count);
+    div.appendChild(badge);
     return div;
   }, []);
 
@@ -235,46 +219,50 @@ export function ResultsMapModal({
     infoWindow: google.maps.InfoWindow, 
     listing: PropertyListing
   ) => {
-    const content = `
-      <div style="max-width: 280px; font-family: system-ui, -apple-system, sans-serif;">
-        ${listing.photos?.[0] ? `
-          <img 
-            src="${listing.photos[0]}" 
-            alt="${listing.title}"
-            style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px 8px 0 0;"
-          />
-        ` : ''}
-        <div style="padding: 12px;">
-          <h3 style="margin: 0 0 6px; font-size: 14px; font-weight: 600; line-height: 1.3;">
-            ${listing.title}
-          </h3>
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span style="
-              background: ${listing.transactionColor || '#6b7280'};
-              color: white;
-              padding: 2px 8px;
-              border-radius: 12px;
-              font-size: 11px;
-              font-weight: 500;
-            ">${listing.transactionType}</span>
-            <span style="color: #6b7280; font-size: 12px;">
-              ${listing.location}${listing.district ? `, ${listing.district}` : ''}
-            </span>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-size: 18px; font-weight: 700; color: #7c3aed;">
-                ${listing.price.toLocaleString('pl-PL')} zł
-                ${listing.priceType === 'rent_monthly' ? '<span style="font-size: 12px; font-weight: 400; color: #6b7280;">/mies.</span>' : ''}
-              </div>
-              <div style="font-size: 12px; color: #6b7280;">
-                ${listing.areaM2} m² ${listing.rooms ? `• ${listing.rooms} pok.` : ''}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
+    const content = document.createElement("div");
+    content.style.cssText = "max-width:280px;font-family:system-ui,-apple-system,sans-serif;";
+
+    const photoUrl = safeMapImageUrl(listing.photos?.[0]);
+    if (photoUrl) {
+      const image = document.createElement("img");
+      image.src = photoUrl;
+      image.alt = listing.title || "Zdjęcie nieruchomości";
+      image.loading = "lazy";
+      image.referrerPolicy = "no-referrer";
+      image.style.cssText = "width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;";
+      content.appendChild(image);
+    }
+
+    const details = document.createElement("div");
+    details.style.padding = "12px";
+    const title = document.createElement("h3");
+    title.style.cssText = "margin:0 0 6px;font-size:14px;font-weight:600;line-height:1.3;";
+    title.textContent = listing.title;
+    const meta = document.createElement("div");
+    meta.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:8px;";
+    const transaction = document.createElement("span");
+    transaction.style.cssText = "color:white;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:500;";
+    transaction.style.backgroundColor = safeMarkerColor(listing.transactionColor);
+    transaction.textContent = listing.transactionType || "Oferta";
+    const location = document.createElement("span");
+    location.style.cssText = "color:#6b7280;font-size:12px;";
+    location.textContent = `${listing.location}${listing.district ? `, ${listing.district}` : ""}`;
+    meta.append(transaction, location);
+
+    const price = document.createElement("div");
+    price.style.cssText = "font-size:18px;font-weight:700;color:#7c3aed;";
+    price.textContent = `${listing.price.toLocaleString("pl-PL")} zł`;
+    if (listing.priceType === "rent_monthly") {
+      const suffix = document.createElement("span");
+      suffix.style.cssText = "font-size:12px;font-weight:400;color:#6b7280;";
+      suffix.textContent = "/mies.";
+      price.appendChild(suffix);
+    }
+    const parameters = document.createElement("div");
+    parameters.style.cssText = "font-size:12px;color:#6b7280;";
+    parameters.textContent = `${listing.areaM2} m²${listing.rooms ? ` • ${listing.rooms} pok.` : ""}`;
+    details.append(title, meta, price, parameters);
+    content.appendChild(details);
 
     infoWindow.setContent(content);
     infoWindow.setPosition({ lat: listing.lat!, lng: listing.lng! });

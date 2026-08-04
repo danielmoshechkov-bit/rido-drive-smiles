@@ -1,6 +1,7 @@
 // Rental Contract Generator - Universal Template
 import { format } from "date-fns";
 import { pl } from "date-fns/locale";
+import { escapeHtmlText, openSanitizedPrintWindow } from "@/security/htmlSanitizer";
 
 export interface ContractData {
   // Basic info
@@ -52,9 +53,40 @@ export function generateContractNumber(year: number, sequence: number): string {
   return `${sequence}/${year}`;
 }
 
+const SAFE_CONTRACT_IMAGE_URL = /^(?:(?:https?):|blob:|\/(?!\/)|\.\.?\/|data:image\/(?:png|jpe?g|gif|webp);base64,)/i;
+
+function safeContractImageUrl(value?: string): string | null {
+  if (!value) return null;
+  const compact = value.trim().replace(/[\u0000-\u0020\u007f-\u009f]/g, "");
+  return SAFE_CONTRACT_IMAGE_URL.test(compact) ? escapeHtmlText(compact) : null;
+}
+
 export function generateRentalContractHtml(data: ContractData): string {
   const contractDate = data.contractDate || data.createdAt;
-  const formattedDate = format(new Date(contractDate), "d MMMM yyyy", { locale: pl });
+  const formattedDate = escapeHtmlText(format(new Date(contractDate), "d MMMM yyyy", { locale: pl }));
+  const contractNumber = escapeHtmlText(data.contractNumber);
+  const fleetName = escapeHtmlText(data.fleetName);
+  const fleetAddress = escapeHtmlText(data.fleetAddress);
+  const fleetNip = escapeHtmlText(data.fleetNip);
+  const fleetKrsCeidg = escapeHtmlText(data.fleetKrsCeidg);
+  const fleetRepresentedBy = escapeHtmlText(data.fleetRepresentedBy);
+  const driverFirstName = escapeHtmlText(data.driverFirstName);
+  const driverLastName = escapeHtmlText(data.driverLastName);
+  const driverPesel = escapeHtmlText(data.driverPesel);
+  const driverAddress = escapeHtmlText(data.driverAddress);
+  const vehicleBrand = escapeHtmlText(data.vehicleBrand);
+  const vehicleModel = escapeHtmlText(data.vehicleModel);
+  const vehicleVin = escapeHtmlText(data.vehicleVin || "—");
+  const vehiclePlate = escapeHtmlText(data.vehiclePlate);
+  const driverSignatureUrl = safeContractImageUrl(data.driverSignatureUrl);
+  const fleetSignatureUrl = safeContractImageUrl(data.fleetSignatureUrl);
+  const fleetStampUrl = safeContractImageUrl(data.fleetStampUrl);
+  const driverSignedAt = data.driverSignedAt
+    ? escapeHtmlText(format(new Date(data.driverSignedAt), "d.MM.yyyy HH:mm"))
+    : null;
+  const fleetSignedAt = data.fleetSignedAt
+    ? escapeHtmlText(format(new Date(data.fleetSignedAt), "d.MM.yyyy HH:mm"))
+    : null;
 
   return `
 <!DOCTYPE html>
@@ -62,7 +94,7 @@ export function generateRentalContractHtml(data: ContractData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Umowa najmu pojazdu - ${data.contractNumber}</title>
+  <title>Umowa najmu pojazdu - ${contractNumber}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     @page { margin: 20mm; size: A4; }
@@ -161,7 +193,7 @@ export function generateRentalContractHtml(data: ContractData): string {
     <!-- Title -->
     <div class="title-block">
       <h1>Umowa Najmu Pojazdu</h1>
-      <div class="subtitle">Nr: ${data.contractNumber}</div>
+      <div class="subtitle">Nr: ${contractNumber}</div>
     </div>
 
     <p class="paragraph-no-indent" style="margin-bottom: 25px;">
@@ -171,12 +203,12 @@ export function generateRentalContractHtml(data: ContractData): string {
     <!-- Parties -->
     <div class="parties-block">
       <div class="party-block">
-        <p><strong>${data.fleetName}</strong></p>
+        <p><strong>${fleetName}</strong></p>
         <div class="party-details">
-          ${data.fleetAddress ? `<p>z siedzibą: ${data.fleetAddress}</p>` : ''}
-          ${data.fleetNip ? `<p>NIP: ${data.fleetNip}</p>` : ''}
-          ${data.fleetKrsCeidg ? `<p>KRS / CEIDG: ${data.fleetKrsCeidg}</p>` : ''}
-          ${data.fleetRepresentedBy ? `<p>reprezentowaną przez: ${data.fleetRepresentedBy}</p>` : ''}
+          ${data.fleetAddress ? `<p>z siedzibą: ${fleetAddress}</p>` : ''}
+          ${data.fleetNip ? `<p>NIP: ${fleetNip}</p>` : ''}
+          ${data.fleetKrsCeidg ? `<p>KRS / CEIDG: ${fleetKrsCeidg}</p>` : ''}
+          ${data.fleetRepresentedBy ? `<p>reprezentowaną przez: ${fleetRepresentedBy}</p>` : ''}
         </div>
         <p>zwaną dalej <strong>„Najemcą"</strong></p>
       </div>
@@ -184,10 +216,10 @@ export function generateRentalContractHtml(data: ContractData): string {
       <p style="text-align: center; margin: 15px 0;">a</p>
 
       <div class="party-block">
-        <p><strong>${data.driverFirstName} ${data.driverLastName}</strong></p>
+        <p><strong>${driverFirstName} ${driverLastName}</strong></p>
         <div class="party-details">
-          ${data.driverPesel ? `<p>PESEL: ${data.driverPesel}</p>` : ''}
-          ${data.driverAddress ? `<p>adres zamieszkania: ${data.driverAddress}</p>` : ''}
+          ${data.driverPesel ? `<p>PESEL: ${driverPesel}</p>` : ''}
+          ${data.driverAddress ? `<p>adres zamieszkania: ${driverAddress}</p>` : ''}
         </div>
         <p>zwanym/ą dalej <strong>„Wynajmującym"</strong></p>
       </div>
@@ -198,10 +230,10 @@ export function generateRentalContractHtml(data: ContractData): string {
       <div class="section-title">§1 Przedmiot umowy</div>
       <p class="paragraph-no-indent">Wynajmujący oddaje Najemcy do używania pojazd:</p>
       <div class="vehicle-info">
-        <p>Marka: <strong>${data.vehicleBrand}</strong></p>
-        <p>Model: <strong>${data.vehicleModel}</strong></p>
-        <p>Numer VIN: <strong>${data.vehicleVin || '—'}</strong></p>
-        <p>Numer rejestracyjny: <strong>${data.vehiclePlate}</strong></p>
+        <p>Marka: <strong>${vehicleBrand}</strong></p>
+        <p>Model: <strong>${vehicleModel}</strong></p>
+        <p>Numer VIN: <strong>${vehicleVin}</strong></p>
+        <p>Numer rejestracyjny: <strong>${vehiclePlate}</strong></p>
       </div>
       <p class="paragraph-no-indent" style="margin-top: 15px;">Wynajmujący oświadcza, że:</p>
       <ol type="a" style="margin-left: 25px;">
@@ -281,31 +313,31 @@ export function generateRentalContractHtml(data: ContractData): string {
     <!-- Signatures -->
     <div class="signatures">
       <div class="signature">
-        ${data.driverSignatureUrl 
-          ? `<img src="${data.driverSignatureUrl}" class="signature-img" alt="Podpis Wynajmującego" />`
+        ${driverSignatureUrl
+          ? `<img src="${driverSignatureUrl}" class="signature-img" alt="Podpis Wynajmującego" />`
           : '<div style="height: 60px;"></div>'
         }
         <div class="signature-line">
           Wynajmujący<br>
-          ${data.driverFirstName} ${data.driverLastName}
+          ${driverFirstName} ${driverLastName}
         </div>
-        ${data.driverSignedAt 
-          ? `<div class="signature-date">Podpisano: ${format(new Date(data.driverSignedAt), "d.MM.yyyy HH:mm")}</div>`
+        ${driverSignedAt
+          ? `<div class="signature-date">Podpisano: ${driverSignedAt}</div>`
           : ''
         }
       </div>
       <div class="signature">
-        ${data.fleetSignatureUrl 
-          ? `<img src="${data.fleetSignatureUrl}" class="signature-img" alt="Podpis Najemcy" />`
+        ${fleetSignatureUrl
+          ? `<img src="${fleetSignatureUrl}" class="signature-img" alt="Podpis Najemcy" />`
           : '<div style="height: 60px;"></div>'
         }
-        ${data.fleetStampUrl ? `<img src="${data.fleetStampUrl}" style="max-width: 80px; max-height: 80px; margin-bottom: 5px;" alt="Pieczątka" />` : ''}
+        ${fleetStampUrl ? `<img src="${fleetStampUrl}" style="max-width: 80px; max-height: 80px; margin-bottom: 5px;" alt="Pieczątka" />` : ''}
         <div class="signature-line">
           Najemca<br>
-          ${data.fleetName}
+          ${fleetName}
         </div>
-        ${data.fleetSignedAt 
-          ? `<div class="signature-date">Podpisano: ${format(new Date(data.fleetSignedAt), "d.MM.yyyy HH:mm")}</div>`
+        ${fleetSignedAt
+          ? `<div class="signature-date">Podpisano: ${fleetSignedAt}</div>`
           : ''
         }
       </div>
@@ -317,14 +349,8 @@ export function generateRentalContractHtml(data: ContractData): string {
 }
 
 export function printRentalContract(data: ContractData): void {
-  const html = generateRentalContractHtml(data);
-  const printWindow = window.open('', '_blank');
-  if (printWindow) {
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 300);
-  }
+  openSanitizedPrintWindow(
+    `Umowa najmu pojazdu - ${data.contractNumber}`,
+    generateRentalContractHtml(data),
+  );
 }

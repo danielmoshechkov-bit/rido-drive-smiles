@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import LanguageSelector from "@/components/LanguageSelector";
 import { supabase } from "@/integrations/supabase/client";
 import { getModuleRedirect } from "@/services/authService";
+import { setAuthPersistencePreference } from "@/security/authStorage";
 import { toast } from "sonner";
 
 const Auth = () => {
@@ -37,7 +38,8 @@ const Auth = () => {
     try {
       // ALWAYS sign out first to clear any stale session before new login
       await supabase.auth.signOut();
-      
+      setAuthPersistencePreference(rememberMe);
+
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -50,15 +52,6 @@ const Auth = () => {
         return;
       }
       
-      // Store rememberMe preference in localStorage
-      if (rememberMe) {
-        localStorage.setItem('rido_remember_me', 'true');
-      } else {
-        localStorage.removeItem('rido_remember_me');
-        // For non-remembered sessions, we'll check on page load
-        sessionStorage.setItem('rido_session_active', 'true');
-      }
-
       if (!authData.user) {
         toast.error(t('auth.loginError') || 'Błąd logowania!');
         return;

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { validatePassword } from "@/security/passwordPolicy";
 
 /**
  * Wspólny serwis rejestracji i aktywacji kont.
@@ -27,6 +28,11 @@ const activationRedirect = () => `${window.location.origin}/email-confirmed`;
 
 /** Rejestracja KLIENTA (LoginModal): mail potwierdzający wysyła Supabase Auth. */
 export async function signUpClient(email: string, password: string): Promise<SignupResult> {
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.valid) {
+    return { success: false, error: passwordValidation.errors[0], field: "password" };
+  }
+
   const { error } = await supabase.auth.signUp({
     email,
     password,
@@ -160,10 +166,10 @@ async function extractErrorBody(error: unknown): Promise<{ error?: string; messa
 
 function mapAuthError(message: string): string {
   if (/already registered|already exists/i.test(message)) {
-    return "Ten email jest już zarejestrowany. Użyj logowania lub resetu hasła.";
+    return "Nie udało się utworzyć konta. Sprawdź dane albo użyj logowania lub odzyskiwania hasła.";
   }
   if (/password/i.test(message)) {
-    return "Hasło nie spełnia wymagań bezpieczeństwa (minimum 6 znaków).";
+    return "Hasło nie spełnia wymagań bezpieczeństwa (minimum 12 znaków, mała i duża litera, cyfra oraz znak specjalny).";
   }
   if (/invalid.*email/i.test(message)) {
     return "Niepoprawny format adresu email.";

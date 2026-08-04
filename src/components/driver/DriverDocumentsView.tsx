@@ -7,6 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { FileText, Download, Calendar, CheckCircle, Clock, AlertTriangle, Loader2, Eye } from "lucide-react";
 import { format, isPast, addDays } from "date-fns";
 import { pl } from "date-fns/locale";
+import {
+  getTrustedDocumentPreviewKind,
+  getTrustedPrivateDocumentUrl,
+} from "@/security/trustedContentUrl";
 
 interface DriverDocument {
   id: string;
@@ -100,16 +104,13 @@ export function DriverDocumentsView({ driverId }: DriverDocumentsViewProps) {
     );
   };
 
-  const isPreviewable = (url: string | null) => {
-    if (!url) return false;
-    const ext = url.split('.').pop()?.toLowerCase();
-    return ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext || '');
-  };
-
-  const isPdf = (url: string | null) => {
-    if (!url) return false;
-    return url.toLowerCase().endsWith('.pdf');
-  };
+  const trustedPreviewUrl = getTrustedPrivateDocumentUrl(
+    previewDoc?.file_url,
+    ["driver-documents"],
+  );
+  const previewKind = trustedPreviewUrl
+    ? getTrustedDocumentPreviewKind(trustedPreviewUrl)
+    : "unsupported";
 
   if (loading) {
     return (
@@ -131,7 +132,12 @@ export function DriverDocumentsView({ driverId }: DriverDocumentsViewProps) {
   return (
     <>
       <div className="space-y-3">
-        {documents.map((doc) => (
+        {documents.map((doc) => {
+          const trustedDocumentUrl = getTrustedPrivateDocumentUrl(
+            doc.file_url,
+            ["driver-documents"],
+          );
+          return (
           <Card key={doc.id} className="overflow-hidden">
             <CardContent className="p-3">
               <div className="flex items-center justify-between gap-3">
@@ -163,14 +169,14 @@ export function DriverDocumentsView({ driverId }: DriverDocumentsViewProps) {
                     <Eye className="h-3 w-3" />
                     <span className="hidden sm:inline">Podgląd</span>
                   </Button>
-                  {doc.file_url && (
+                  {trustedDocumentUrl && (
                     <Button 
                       variant="outline" 
                       size="sm"
                       asChild
                       className="gap-1"
                     >
-                      <a href={doc.file_url} target="_blank" rel="noreferrer" download>
+                      <a href={trustedDocumentUrl} target="_blank" rel="noopener noreferrer" download>
                         <Download className="h-3 w-3" />
                         <span className="hidden sm:inline">Pobierz</span>
                       </a>
@@ -180,7 +186,8 @@ export function DriverDocumentsView({ driverId }: DriverDocumentsViewProps) {
               </div>
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       {/* Preview Modal */}
@@ -211,19 +218,22 @@ export function DriverDocumentsView({ driverId }: DriverDocumentsViewProps) {
 
             {/* Preview Content */}
             <div className="border rounded-lg overflow-hidden bg-muted/30">
-              {previewDoc?.file_url && isPreviewable(previewDoc.file_url) ? (
-                isPdf(previewDoc.file_url) ? (
+              {trustedPreviewUrl && previewKind !== "unsupported" ? (
+                previewKind === "pdf" ? (
                   <iframe
-                    src={previewDoc.file_url}
+                    src={trustedPreviewUrl}
                     className="w-full h-[60vh]"
                     title="Document preview"
+                    sandbox=""
+                    referrerPolicy="no-referrer"
                   />
                 ) : (
                   <div className="flex items-center justify-center p-4">
                     <img
-                      src={previewDoc.file_url}
+                      src={trustedPreviewUrl}
                       alt="Document preview"
                       className="max-w-full max-h-[60vh] object-contain"
+                      referrerPolicy="no-referrer"
                     />
                   </div>
                 )
@@ -241,9 +251,9 @@ export function DriverDocumentsView({ driverId }: DriverDocumentsViewProps) {
               <Button variant="outline" onClick={() => setPreviewDoc(null)}>
                 Zamknij
               </Button>
-              {previewDoc?.file_url && (
+              {trustedPreviewUrl && (
                 <Button asChild>
-                  <a href={previewDoc.file_url} target="_blank" rel="noreferrer" download>
+                  <a href={trustedPreviewUrl} target="_blank" rel="noopener noreferrer" download>
                     <Download className="h-4 w-4 mr-2" />
                     Pobierz
                   </a>

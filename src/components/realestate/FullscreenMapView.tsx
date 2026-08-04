@@ -267,7 +267,14 @@ export function FullscreenMapView({
     const borderColor = isRentL ? "#3b82f6" : "#10b981";
     const div = document.createElement("div");
     div.style.cssText = "display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);cursor:pointer;";
-    div.innerHTML = `<div style="background:white;color:#1a1a1a;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2);border:2px solid ${borderColor};">${formatPriceFull(listing.price)}</div><div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:5px solid ${borderColor};margin-top:-1px;"></div>`;
+    const label = document.createElement("div");
+    label.style.cssText = "background:white;color:#1a1a1a;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2);";
+    label.style.border = `2px solid ${borderColor}`;
+    label.textContent = formatPriceFull(listing.price);
+    const arrow = document.createElement("div");
+    arrow.style.cssText = "width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;margin-top:-1px;";
+    arrow.style.borderTop = `5px solid ${borderColor}`;
+    div.append(label, arrow);
     return div;
   }, []);
 
@@ -276,7 +283,13 @@ export function FullscreenMapView({
     const fs = count > 100 ? 14 : count > 30 ? 13 : 12;
     const div = document.createElement("div");
     div.style.cssText = "display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);cursor:pointer;";
-    div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;display:flex;align-items:center;justify-content:center;font-size:${fs}px;font-weight:700;box-shadow:0 3px 12px rgba(124,58,237,0.4),0 0 0 3px rgba(124,58,237,0.15);border:2px solid rgba(255,255,255,0.8);">${count}</div>`;
+    const badge = document.createElement("div");
+    badge.style.cssText = "border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 3px 12px rgba(124,58,237,0.4),0 0 0 3px rgba(124,58,237,0.15);border:2px solid rgba(255,255,255,0.8);";
+    badge.style.width = `${size}px`;
+    badge.style.height = `${size}px`;
+    badge.style.fontSize = `${fs}px`;
+    badge.textContent = String(count);
+    div.appendChild(badge);
     return div;
   }, []);
 

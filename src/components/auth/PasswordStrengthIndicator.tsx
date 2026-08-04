@@ -1,25 +1,15 @@
 import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getPasswordRequirements } from "@/security/passwordPolicy";
+
+export { validatePassword } from "@/security/passwordPolicy";
 
 interface PasswordStrengthIndicatorProps {
   password: string;
 }
 
 export function PasswordStrengthIndicator({ password }: PasswordStrengthIndicatorProps) {
-  const requirements = [
-    {
-      label: "Minimum 6 znaków",
-      met: password.length >= 6,
-    },
-    {
-      label: "Jedna duża litera",
-      met: /[A-Z]/.test(password),
-    },
-    {
-      label: "Jeden znak specjalny (!@#$%^&*)",
-      met: /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/~`]/.test(password),
-    },
-  ];
+  const requirements = getPasswordRequirements(password);
 
   const allMet = requirements.every(r => r.met);
 
@@ -49,23 +39,4 @@ export function PasswordStrengthIndicator({ password }: PasswordStrengthIndicato
       )}
     </div>
   );
-}
-
-export function validatePassword(password: string): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-  
-  if (password.length < 6) {
-    errors.push("Hasło musi mieć minimum 6 znaków");
-  }
-  if (!/[A-Z]/.test(password)) {
-    errors.push("Hasło musi zawierać przynajmniej jedną dużą literę");
-  }
-  if (!/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/~`]/.test(password)) {
-    errors.push("Hasło musi zawierać przynajmniej jeden znak specjalny");
-  }
-  
-  return {
-    valid: errors.length === 0,
-    errors
-  };
 }

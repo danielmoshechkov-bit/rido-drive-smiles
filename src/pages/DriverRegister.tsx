@@ -11,6 +11,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Check, X, Banknote, CreditCard, Globe, Building2, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
+import { validatePassword } from "@/security/passwordPolicy";
 import { PORTAL_LANGS, setLang } from "@/i18n";
 
 export default function DriverRegister() {
@@ -49,13 +50,7 @@ export default function DriverRegister() {
   const [iban, setIban] = useState("");
 
   // Password validation (only for new users)
-  const passwordRequirements = {
-    minLength: password.length >= 6,
-    hasUppercase: /[A-Z]/.test(password),
-    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(password)
-  };
-
-  const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
+  const isPasswordValid = validatePassword(password).valid;
   const passwordsMatch = password === confirmPassword && confirmPassword.length > 0;
 
   // Check auth status on mount

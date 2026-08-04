@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { generateRentalContractHtml, ContractData } from "@/utils/rentalContractGenerator";
+import { sanitizeDocumentHtml } from "@/security/htmlSanitizer";
 
 interface RentalContractViewerProps {
   rentalId: string;
@@ -221,9 +222,11 @@ export function RentalContractViewer({ rentalId, accessToken, onSigned }: Rental
                   wordBreak: 'break-word'
                 }}
                 dangerouslySetInnerHTML={{ 
-                  __html: generateRentalContractHtml(contractData)
-                    .replace(/<html.*?<body>/gs, '')
-                    .replace(/<\/body>.*?<\/html>/gs, '')
+                  __html: sanitizeDocumentHtml(
+                    generateRentalContractHtml(contractData)
+                      .replace(/<html.*?<body>/gs, '')
+                      .replace(/<\/body>.*?<\/html>/gs, '')
+                  )
                 }} 
               />
             </div>

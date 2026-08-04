@@ -13,6 +13,7 @@ import { getStoredReferralCode, clearReferralCode } from "@/lib/referralTracking
 import { toast } from "sonner";
 import { Loader2, User, Mail, Lock, ShieldCheck, ArrowLeft, CheckCircle, Phone } from "lucide-react";
 import { PasswordStrengthIndicator, validatePassword } from "./PasswordStrengthIndicator";
+import { setAuthPersistencePreference } from "@/security/authStorage";
 interface AuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -83,7 +84,8 @@ export function AuthModal({
     try {
       // Force sign out first to prevent stale sessions
       await supabase.auth.signOut();
-      
+      setAuthPersistencePreference(rememberMe);
+
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: loginPassword,
@@ -107,13 +109,6 @@ export function AuthModal({
         return;
       }
       
-      if (rememberMe) {
-        localStorage.setItem('rido_remember_me', 'true');
-      } else {
-        localStorage.removeItem('rido_remember_me');
-        sessionStorage.setItem('rido_session_active', 'true');
-      }
-
       if (!authData.user) {
         toast.error(t("auth.loginError"));
         return;
