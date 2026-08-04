@@ -109,4 +109,40 @@ GRANT EXECUTE ON FUNCTION public.credit_welcome_bonus(uuid, numeric)   TO servic
 GRANT EXECUTE ON FUNCTION public.deduct_sms_credit(uuid)               TO service_role;
 GRANT EXECUTE ON FUNCTION public.deduct_vehicle_lookup_credit(uuid)    TO service_role;
 
+-- ============================================================================
+-- service_providers.sms_balance — saldo SMS-ów.
+--
+-- Tej kolumny nie da się domknąć tak jak pozostałych sald: siedzi w tabeli
+-- z 43 kolumnami, którą usługodawca legalnie edytuje (nazwa, adres, godziny,
+-- zdjęcia) polityką "Users can update own provider". Odebranie UPDATE zabiłoby
+-- edycję profilu, a granty kolumnowe wymagałyby wypisania 42 pozostałych kolumn
+-- i pilnowania każdej nowej.
+--
+-- Zamiast tego trigger pilnuje jednej kolumny: profil edytuje się bez zmian,
+-- service_role (edge functions) przechodzi, a klient dostaje twardy błąd przy
+-- próbie ruszenia salda. Docelowo saldo wyjdzie do osobnej tabeli — przy
+-- uruchamianiu billingu, bo dotyka 27 miejsc w kodzie.
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.guard_sms_balance()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.sms_balance IS DISTINCT FROM OLD.sms_balance
+     AND current_user = 'authenticated' THEN
+    RAISE EXCEPTION 'sms_balance nie może być zmieniane z klienta — użyj payment-core';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.guard_sms_balance() FROM anon, authenticated, PUBLIC;
+
+DROP TRIGGER IF EXISTS trg_guard_sms_balance ON public.service_providers;
+CREATE TRIGGER trg_guard_sms_balance
+  BEFORE UPDATE ON public.service_providers
+  FOR EACH ROW EXECUTE FUNCTION public.guard_sms_balance();
+
 COMMIT;
