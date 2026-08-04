@@ -34,12 +34,24 @@ export default function BuyCredits() {
 
   useEffect(() => {
     supabase
-      .from("credit_packages")
+      .from("billing_public_products" as any)
       .select("*")
-      .eq("is_active", true)
-      .order("price")
-      .then(({ data }) => {
-        setPackages(data || []);
+      .order("amount_minor")
+      .then(({ data, error }) => {
+        if (error) {
+          toast.error("Nie można bezpiecznie pobrać katalogu cen");
+          setPackages([]);
+          setLoading(false);
+          return;
+        }
+        const canonicalPackages = ((data as any[]) || []).map((row) => ({
+          ...row,
+          id: row.price_id,
+          credit_type: row.benefit_type,
+          credits_amount: Number(row.benefit_amount),
+          price: Number(row.amount_minor) / 100,
+        }));
+        setPackages(canonicalPackages);
         setLoading(false);
       });
   }, []);
@@ -60,36 +72,17 @@ export default function BuyCredits() {
   };
 
   const handleBuy = async (pkg: any) => {
-    const productTypeMap: Record<string, string> = {
-      sms: "sms_credits",
-      ai_photo: "ai_photo_package",
-      listing_featured: "listing_featured",
-    };
-    const basePrice = Number(pkg.price);
-    const finalPrice = promoApplied
-      ? Math.round(basePrice * (1 - promoApplied.discount / 100) * 100) / 100
-      : basePrice;
+    if (promoApplied) {
+      toast.error("Zakup z kodem promocyjnym wymaga serwerowej walidacji. Usuń kod, aby kontynuować bez rabatu.");
+      return;
+    }
+    if (typeof pkg?.price_id !== "string" || !pkg.price_id) {
+      toast.error("Pakiet nie ma kanonicznego identyfikatora. Zakup został zablokowany.");
+      return;
+    }
 
     await initiatePayment({
-      productType: productTypeMap[pkg.credit_type] || "sms_credits",
-      amount: finalPrice,
-      description: `Zakup: ${pkg.name}${promoApplied ? ` (kod ${promo.toUpperCase()} -${promoApplied.discount}%)` : ""}`,
-      metadata: { credits_amount: pkg.credits_amount, package_id: pkg.id, promo_code_id: promoApplied?.id, promo_discount: promoApplied?.discount },
-      onSuccess: async () => {
-        if (promoApplied) {
-          await supabase.from("promo_code_redemptions" as any).insert({
-            promo_code_id: promoApplied.id,
-            user_id: (await supabase.auth.getUser()).data.user?.id,
-            discount_amount: basePrice - finalPrice,
-          } as any);
-          // increment used_count below
-          // increment used_count
-          const { data: pc } = await supabase.from("promo_codes" as any).select("used_count").eq("id", promoApplied.id).single();
-          if (pc) await supabase.from("promo_codes" as any).update({ used_count: ((pc as any).used_count || 0) + 1 } as any).eq("id", promoApplied.id);
-        }
-        toast.success(`Dodano ${pkg.credits_amount} kredytów!`);
-        navigate("/payment/success?payment_id=simulated");
-      },
+      priceId: pkg.price_id,
     });
   };
 

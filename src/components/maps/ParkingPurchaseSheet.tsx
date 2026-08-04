@@ -26,6 +26,7 @@ import {
   formatTimeRemaining
 } from './parkingService';
 import { RIDO_THEME_COLORS } from './ridoMapTheme';
+import { toast } from 'sonner';
 
 interface ParkingPurchaseSheetProps {
   open: boolean;
@@ -118,6 +119,8 @@ const ParkingPurchaseSheet = ({ open, onClose, zone, onPurchaseComplete }: Parki
       setPurchasedSession(session);
       setStep('success');
       onPurchaseComplete(session);
+    } else {
+      toast.error('Zakup parkingu jest wstrzymany do czasu uruchomienia bezpiecznej płatności serwerowej.');
     }
     
     setLoading(false);

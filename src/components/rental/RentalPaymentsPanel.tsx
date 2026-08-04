@@ -24,7 +24,7 @@ export function RentalPaymentsPanel({ companyId }: { companyId: string }) {
     const { data: bk } = await sb.from('bookings').select('id, booking_number, renter_name, subject_id, rate_amount, estimated_price, deposit_amount, status').eq('company_id', companyId).order('created_at', { ascending: false });
     const ids = (bk || []).map((b: any) => b.id);
     let payByBooking: Record<string, any[]> = {};
-    if (ids.length) { const { data: pays } = await sb.from('rental_payments').select('*').in('booking_id', ids); (pays || []).forEach((p: any) => { (payByBooking[p.booking_id] = payByBooking[p.booking_id] || []).push(p); }); }
+    if (ids.length) { const { data: pays } = await sb.from('rental_payments').select('id,company_id,booking_id,kind,amount,method,status,paid_at,note,created_at').in('booking_id', ids); (pays || []).forEach((p: any) => { (payByBooking[p.booking_id] = payByBooking[p.booking_id] || []).push(p); }); }
     setRows((bk || []).map((b: any) => {
       const pays = payByBooking[b.id] || [];
       const due = Number(b.rate_amount || b.estimated_price || 0);
@@ -72,24 +72,14 @@ export function ManageDialog({ sb, companyId, booking, onClose, onChanged }: any
   const [depAmount, setDepAmount] = useState(String(booking.deposit_amount || ''));
 
   const addPayment = async (status: string, useLink = false) => {
-    setBusy(true);
-    try {
-      const row: any = { company_id: companyId, booking_id: booking.id, kind: 'oplata', amount: Number(String(amount).replace(',', '.')) || 0, method: useLink ? 'bramka' : method, status };
-      if (status === 'oplacone') row.paid_at = new Date().toISOString();
-      if (useLink) { row.link_token = (crypto as any).randomUUID(); row.link_url = `https://secure.przelewy24.pl/PLACEHOLDER/${row.link_token}`; }
-      const { error } = await sb.from('rental_payments').insert(row);
-      if (error) throw error;
-      toast.success(useLink ? 'Link wygenerowany (placeholder — auto‑potwierdzenie po wdrożeniu webhooka)' : 'Płatność zapisana'); onChanged();
-    } catch (e: any) { toast.error(e.message || 'Błąd'); } finally { setBusy(false); }
+    void status;
+    void useLink;
+    toast.error('Zapis płatności wymaga autoryzowanej funkcji serwerowej i audytu.');
   };
 
   const setKaucja = async (status: string) => {
-    setBusy(true);
-    try {
-      if (booking.kaucja) await sb.from('rental_payments').update({ status, amount: Number(String(depAmount).replace(',', '.')) || booking.kaucja.amount }).eq('id', booking.kaucja.id);
-      else await sb.from('rental_payments').insert({ company_id: companyId, booking_id: booking.id, kind: 'kaucja', amount: Number(String(depAmount).replace(',', '.')) || 0, method: 'reczna', status });
-      toast.success('Kaucja: ' + status); onChanged();
-    } catch (e: any) { toast.error(e.message || 'Błąd'); } finally { setBusy(false); }
+    void status;
+    toast.error('Zmiana kaucji wymaga autoryzowanej funkcji serwerowej i audytu.');
   };
 
   return (
@@ -123,7 +113,7 @@ export function ManageDialog({ sb, companyId, booking, onClose, onChanged }: any
                     <span className="text-muted-foreground">{p.method}</span>
                     <span className={`rounded-full text-xs px-2 py-0.5 ${p.status === 'oplacone' ? 'bg-green-100 text-green-800' : 'bg-muted'}`}>{p.status}</span>
                     <span className="text-xs text-muted-foreground flex-1">{p.paid_at ? fmt(p.paid_at) : ''}</span>
-                    {p.method === 'bramka' && p.status === 'oczekuje' && <Button size="sm" variant="ghost" disabled={busy} onClick={async () => { await sb.from('rental_payments').update({ status: 'oplacone', paid_at: new Date().toISOString() }).eq('id', p.id); toast.success('Potwierdzono ręcznie'); onChanged(); }}>Potwierdź</Button>}
+                    {p.method === 'bramka' && p.status === 'oczekuje' && <Button size="sm" variant="ghost" disabled={busy} onClick={() => toast.error('Płatność bramkową może potwierdzić wyłącznie zweryfikowany webhook operatora.')}>Potwierdź</Button>}
                     {p.link_url && <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { navigator.clipboard.writeText(p.link_url); toast.success('Link skopiowany'); }}><Copy className="h-3 w-3" /></Button>}
                   </li>
                 ))}

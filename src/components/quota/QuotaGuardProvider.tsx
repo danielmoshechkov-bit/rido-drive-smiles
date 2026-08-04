@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, MessageSquare, Car, Loader2 } from 'lucide-react';
 import { SmsPurchaseModal } from '@/components/SmsPurchaseModal';
 import { VehicleLookupCreditsModal } from '@/components/vehicle/VehicleLookupCreditsModal';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 type QuotaKind = 'sms' | 'vehicle_lookup';
@@ -119,42 +118,17 @@ export function QuotaGuardProvider({ children }: { children: ReactNode }) {
     }
   }, [pending]);
 
-  // Vehicle lookup purchase: deliver credits via direct DB update (no gateway here)
-  const handleVehiclePurchase = useCallback(async (credits: number, priceNet: number) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { toast.error('Musisz być zalogowany'); return; }
-    const { data: existing } = await supabase
-      .from('vehicle_lookup_credits')
-      .select('remaining_credits, total_credits_purchased')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    const remaining = (existing?.remaining_credits || 0) + credits;
-    const total = (existing?.total_credits_purchased || 0) + credits;
-    const { error } = await supabase
-      .from('vehicle_lookup_credits')
-      .upsert({ user_id: user.id, remaining_credits: remaining, total_credits_purchased: total }, { onConflict: 'user_id' });
-    if (error) { toast.error('Błąd doładowania'); return; }
-    toast.success(`Dodano ${credits} kredytów (${priceNet.toFixed(2)} zł netto)`);
-    await handlePurchased('vehicle_lookup');
-  }, [handlePurchased]);
+  const handleVehiclePurchase = useCallback(async (_credits: number, _priceNet: number) => {
+    toast.error(
+      'Zakup kredytów pojazdowych jest wstrzymany do czasu skonfigurowania kanonicznego pakietu po stronie serwera.',
+    );
+  }, []);
 
-  const handleSmsPurchase = useCallback(async (count: number, _priceNet: number) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { toast.error('Musisz być zalogowany'); return; }
-    const { data: sp } = await supabase
-      .from('service_providers')
-      .select('id, sms_balance')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (!sp) { toast.error('Brak konta usługodawcy'); return; }
-    const { error } = await supabase
-      .from('service_providers')
-      .update({ sms_balance: (sp.sms_balance || 0) + count })
-      .eq('id', sp.id);
-    if (error) { toast.error('Błąd doładowania SMS'); return; }
-    toast.success(`Dodano ${count} SMS`);
-    await handlePurchased('sms');
-  }, [handlePurchased]);
+  const handleSmsPurchase = useCallback(async (_count: number, _priceNet: number) => {
+    toast.error(
+      'Zakup pakietu SMS jest wstrzymany do czasu skonfigurowania kanonicznego pakietu po stronie serwera.',
+    );
+  }, []);
 
   return (
     <Ctx.Provider value={{ runWithQuota, openTopUp }}>

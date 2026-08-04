@@ -199,92 +199,22 @@ export async function purchaseParkingSession(
   vehiclePlate: string,
   durationMinutes: number
 ): Promise<ParkingSession | null> {
-  const startAt = new Date();
-  const endAt = new Date(startAt.getTime() + durationMinutes * 60 * 1000);
-  
-  // Calculate amount (MVP: simple calculation)
-  const { data: zone } = await supabase
-    .from('parking_zones')
-    .select('rules')
-    .eq('id', zoneId)
-    .single();
-  
-  const rules = (zone?.rules || {}) as ParkingRules;
-  const ratePerHour = rules.ratePerHour || 5; // Default 5 PLN/h
-  const amount = (durationMinutes / 60) * ratePerHour;
-  
-  const { data, error } = await supabase
-    .from('parking_sessions')
-    .insert({
-      user_id: userId,
-      vehicle_plate: vehiclePlate.toUpperCase(),
-      zone_id: zoneId,
-      start_at: startAt.toISOString(),
-      end_at: endAt.toISOString(),
-      status: 'active',
-      payment_status: 'simulated', // MVP: no real payment
-      amount: Math.round(amount * 100) / 100,
-      currency: 'PLN',
-      provider: 'simulated',
-    })
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('[ParkingService] Error creating session:', error);
-    return null;
-  }
-  
-  return {
-    ...data,
-    status: data.status as ParkingSession['status'],
-    payment_status: data.payment_status as ParkingSession['payment_status'],
-  };
+  void userId;
+  void zoneId;
+  void vehiclePlate;
+  void durationMinutes;
+  console.warn('[ParkingService] Zakup parkingu wymaga zweryfikowanej płatności serwerowej.');
+  return null;
 }
 
 export async function extendParkingSession(
   sessionId: string,
   additionalMinutes: number
 ): Promise<ParkingSession | null> {
-  // Get current session
-  const { data: session, error: fetchError } = await supabase
-    .from('parking_sessions')
-    .select('*, zone:parking_zones(*)')
-    .eq('id', sessionId)
-    .single();
-  
-  if (fetchError || !session) {
-    return null;
-  }
-  
-  const currentEndAt = new Date(session.end_at);
-  const newEndAt = new Date(currentEndAt.getTime() + additionalMinutes * 60 * 1000);
-  
-  // Calculate additional amount
-  const rules = (session.zone?.rules || {}) as ParkingRules;
-  const ratePerHour = rules.ratePerHour || 5;
-  const additionalAmount = (additionalMinutes / 60) * ratePerHour;
-  
-  const { data, error } = await supabase
-    .from('parking_sessions')
-    .update({
-      end_at: newEndAt.toISOString(),
-      amount: session.amount + Math.round(additionalAmount * 100) / 100,
-    })
-    .eq('id', sessionId)
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('[ParkingService] Error extending session:', error);
-    return null;
-  }
-  
-  return {
-    ...data,
-    status: data.status as ParkingSession['status'],
-    payment_status: data.payment_status as ParkingSession['payment_status'],
-  };
+  void sessionId;
+  void additionalMinutes;
+  console.warn('[ParkingService] Przedłużenie parkingu wymaga zweryfikowanej płatności serwerowej.');
+  return null;
 }
 
 export async function endParkingSession(sessionId: string): Promise<boolean> {

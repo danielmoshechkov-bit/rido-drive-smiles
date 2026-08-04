@@ -109,10 +109,7 @@ function DetailDialog({ sb, companyId, booking, onClose, onChanged }: any) {
     toast.success('Status zaktualizowany'); onChanged();
   };
   const markPaid = async () => {
-    const amount = Number(booking.due || 0);
-    const { error } = await sb.from('rental_payments').insert({ company_id: companyId, booking_id: booking.id, kind: 'oplata', amount, method: 'reczna', status: 'oplacone', paid_at: new Date().toISOString(), note: 'Oznaczone ręcznie ze zlecenia' });
-    if (error) return toast.error(error.message);
-    toast.success('Oznaczono jako opłacone'); onChanged();
+    toast.error('Oznaczenie płatności wymaga autoryzowanej funkcji serwerowej i audytu.');
   };
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
