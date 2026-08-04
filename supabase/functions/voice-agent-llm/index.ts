@@ -105,6 +105,11 @@ serve(async (req) => {
   const stream = reqBody?.stream !== false;
   const model = reqBody?.model || "rido-claude";
   const inMessages: LlmInputMessage[] = Array.isArray(reqBody?.messages) ? reqBody.messages : [];
+  // Narzędzia systemowe ElevenLabs (end_call, language_detection) przychodzą w polu
+  // tools w formacie OpenAI. Dotąd je ignorowaliśmy, więc model nie miał czym zakończyć
+  // rozmowy i klient musiał rozłączać się sam. Przekazujemy je dalej bez modyfikacji —
+  // konwersją na format Anthropic zajmuje się voice-agent-chat.
+  const clientTools: unknown[] = Array.isArray(reqBody?.tools) ? reqBody.tools : [];
   const canary = resolveVoiceProductionCanary(providerId, cfg?.elevenlabs_agent_id);
 
   // SONDA DIAGNOSTYCZNA — ustalenie, w którym polu ElevenLabs przekazuje identyfikator
@@ -186,6 +191,7 @@ serve(async (req) => {
         // Identyfikator rozmowy tylko w gałęzi canary — kontrakt legacy zostaje
         // bajtowo taki sam jak przed Phase 1.
         ...(canary.enabled && conversationId ? { conversation_id: conversationId } : {}),
+        ...(canary.enabled && clientTools.length ? { client_tools: clientTools } : {}),
         messages: convo,
         business_context: cfg?.business_context || {}, display_name: cfg?.display_name || "",
         languages: cfg?.languages || ["pl"], calendar_access: !!cfg?.calendar_access, orders_access: !!cfg?.orders_access,

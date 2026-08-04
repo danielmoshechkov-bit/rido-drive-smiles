@@ -199,6 +199,23 @@ serve(async (req) => {
       }).select("id").single();
       if (sbErr) return json({ ok: false, error: "Rezerwacja: " + sbErr.message }, 400);
 
+      // GRAFIK: rezerwacja pojawia sie na siatce warsztatu WYLACZNIE gdy ma station_id.
+      // WorkshopScheduler mapuje workshop_client_bookings.station_id -> scheduled_station_id
+      // i pokazuje pozycje tylko wtedy, gdy to pole jest ustawione. Bez niego rezerwacja
+      // istnieje w bazie, ale grafik jest pusty - dokladnie to zglosil warsztat.
+      // Przypisujemy PIERWSZE wolne stanowisko o tej godzinie. Klientowi tego nie mowimy.
+      let freeStationId: string | null = null;
+      try {
+        const { data: stations } = await admin.from("workshop_workstations")
+          .select("id").eq("provider_id", providerId).eq("is_active", true).order("sort_order", { ascending: true });
+        const { data: takenRows } = await admin.from("workshop_client_bookings")
+          .select("station_id").eq("provider_id", providerId)
+          .eq("appointment_date", date).eq("appointment_time", time).neq("status", "cancelled");
+        const taken = new Set((takenRows || []).map((r: any) => r.station_id).filter(Boolean));
+        freeStationId = ((stations || []).find((st: any) => !taken.has(st.id))?.id) || null;
+        if (!freeStationId) console.warn("[voice-agent-tools] no_free_station", { date, time });
+      } catch (_) { /* brak stanowisk nie moze blokowac rezerwacji */ }
+
       // 2) workshop_client_bookings -> link /r/:token + 24h reminder
       const { data: wcb } = await admin.from("workshop_client_bookings").insert({
         provider_id: providerId, phone, first_name: first, last_name: last,
@@ -206,6 +223,7 @@ serve(async (req) => {
         service_description: notePrefix + (body?.notes || body?.service_name || ""),
         appointment_date: date, appointment_time: time, duration_minutes: duration,
         status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
+        ...(freeStationId ? { station_id: freeStationId } : {}),
       }).select("id, confirmation_token, public_token").maybeSingle();
 
       // 1.4 — SMS potwierdzenia OD RAZU (data, godzina, adres, link do zarządzania). Best-effort.
@@ -230,12 +248,47 @@ serve(async (req) => {
         }
       } catch (_) { /* SMS best-effort — nie blokuje rezerwacji */ }
 
+      // ZLECENIE DETERMINISTYCZNIE, nie na łasce modelu.
+      // Model kilkukrotnie wywoływał samo create_order albo samo create_booking, przez co
+      // raz nie było zlecenia, raz nie było SMS-a. Teraz zlecenie powstaje ZAWSZE po udanej
+      // rezerwacji, po stronie kodu. Wołamy własną akcję create_order, żeby nie duplikować
+      // logiki klienta, pojazdu, numeracji i statusu "Umówiony telefonicznie".
+      //
+      // complaint = SŁOWA KLIENTA, zwięźle. Nie parafraza, nie diagnoza, nie kategoria —
+      // mechanik ma zobaczyć, z czym przyszedł klient.
+      let createdOrderId: string | null = null;
+      let orderFailed = false;
+      if (ordersAccess) {
+        try {
+          const complaint = String(body?.notes || body?.service_name || "Zgłoszenie telefoniczne").trim();
+          const orderRes = await fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "create_order", provider_id: providerId, persona_key: personaKey, is_test: isTest,
+              ...(conversationId ? { conversation_id: conversationId } : {}),
+              customer_name: name, customer_phone: phone, complaint,
+              scheduled_date: date, scheduled_time: time, duration_minutes: duration,
+              vehicle: body?.vehicle || {}, booking_id: sb.id,
+            }),
+            signal: AbortSignal.timeout(10_000),
+          });
+          const orderOut = await orderRes.json().catch(() => ({}));
+          if (orderOut?.ok && orderOut?.order_id) createdOrderId = String(orderOut.order_id);
+          else { orderFailed = true; console.error("[voice-agent-tools] order_after_booking_failed", { status: orderRes.status }); }
+        } catch (error) {
+          orderFailed = true;
+          console.error("[voice-agent-tools] order_after_booking_error", { name: (error as Error)?.name });
+        }
+      }
+
       // Powiązanie rozmowy z rezerwacją. Po utworzeniu zlecenia zostanie nadpisane
       // na workshop_order, bo tego szuka zakładka "Rozmowa telefoniczna".
       await linkConversation("service_booking", sb.id);
 
       return json({
         ok: true, booking_id: sb.id,
+        order_id: createdOrderId, order_failed: orderFailed,
         client_booking_id: wcb?.id || null,
         manage_token: wcb?.confirmation_token || null,
         manage_link: manageLink, sms_sent: smsSent,

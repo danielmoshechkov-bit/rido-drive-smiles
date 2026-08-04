@@ -142,7 +142,7 @@ serve(async (req) => {
     const r = await fetch(`${supabaseUrl}/functions/v1/voice-call-analyze`, {
       method: "POST",
       headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ provider_id: providerId, persona_key: personaKey, messages, is_test: false }),
+      body: JSON.stringify({ provider_id: providerId, persona_key: personaKey, messages, is_test: false, conversation_id: conversationId }),
     });
     const out = await r.json().catch(() => ({}));
 
