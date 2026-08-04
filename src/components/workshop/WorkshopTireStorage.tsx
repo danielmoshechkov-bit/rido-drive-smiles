@@ -16,6 +16,7 @@ import { useProviderPrintHeader } from '@/hooks/useFiscal';
 import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { printHtmlInIframe } from '@/utils/printHtmlInIframe';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -104,7 +105,14 @@ function printStorageReceipt(
   kind: 'przyjęcia' | 'wydania',
   header: { companyName?: string | null; nip?: string | null; address?: string | null; logoUrl?: string | null } = {},
 ) {
-  const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Cudzysłowy też, bo część tych wartości (logoUrl) trafia do atrybutu src="…" —
+  // bez tego jeden znak " wystarczy, żeby z atrybutu wyjść.
+  const esc = (v: unknown) => String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
   const client = record.client_name
     || [record.workshop_clients?.first_name, record.workshop_clients?.last_name].filter(Boolean).join(' ')
     || '—';
@@ -164,13 +172,11 @@ function printStorageReceipt(
     Dokument potwierdza ${kind === 'przyjęcia' ? 'przyjęcie opon do przechowania' : 'wydanie opon właścicielowi'}.
     Wygenerowano w GetRido: ${esc(new Date().toLocaleString('pl-PL'))}
   </div>
-  <script>window.onload = () => window.print();</script>
 </body></html>`;
 
-  const win = window.open('', '_blank', 'width=760,height=900');
-  if (!win) { toast.error('Przeglądarka zablokowała okno wydruku.'); return; }
-  win.document.write(html);
-  win.document.close();
+  // Sandboxowana ramka zamiast document.write w nowym oknie: dokument jest
+  // wyświetlany, ale nie wykonywany, i nie blokuje go filtr pop-upów.
+  printHtmlInIframe(html);
 }
 
 export function WorkshopTireStorage({ providerId, onBack }: Props) {

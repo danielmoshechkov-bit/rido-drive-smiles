@@ -10,6 +10,7 @@
 
 import type { FiscalCorrectionRow, FiscalReceiptRow, FiscalReturnRow } from '@/hooks/useFiscal';
 import { formatPln } from './fiscal';
+import { printHtmlInIframe } from '@/utils/printHtmlInIframe';
 
 export interface CopyHeader {
   companyName?: string | null;
@@ -34,21 +35,24 @@ function logoBlock(header: CopyHeader): string {
   </div>`;
 }
 
-/** Wspólne otwarcie okna wydruku — jedno miejsce na komunikat o blokadzie pop-upów. */
-function openPrintWindow(html: string, width = 760): void {
-  const printWindow = window.open('', '_blank', `width=${width},height=900`);
-  if (!printWindow) {
-    throw new Error('Przeglądarka zablokowała okno wydruku. Zezwól na wyskakujące okna dla tej strony.');
-  }
-  printWindow.document.write(html);
-  printWindow.document.close();
+/**
+ * Wspólne otwarcie wydruku. Dokument idzie do sandboxowanej ramki zamiast do
+ * `document.write` w nowym oknie — nie wykonuje skryptów i nie zależy od tego,
+ * czy przeglądarka przepuści pop-up (dlatego zniknął też komunikat o blokadzie).
+ */
+function openPrintWindow(html: string): void {
+  printHtmlInIframe(html);
 }
 
 function escapeHtml(text: unknown): string {
   return String(text ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    // Cudzysłowy są obowiązkowe: te wartości trafiają także do atrybutów
+    // (np. logoUrl do src="…"), a bez tego wystarczy jeden " żeby z atrybutu wyjść.
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function itemRows(receipt: FiscalReceiptRow): string {
@@ -122,10 +126,9 @@ export function printReceiptCopy(receipt: FiscalReceiptRow, header: CopyHeader =
     Wygenerowano w GetRido: ${escapeHtml(new Date().toLocaleString('pl-PL'))}
   </div>
 
-  <script>window.onload = () => window.print();</script>
 </body></html>`;
 
-  openPrintWindow(html, 720);
+  openPrintWindow(html);
 }
 
 
@@ -217,7 +220,6 @@ export function printReturnProtocol(
     Wygenerowano w GetRido: ${escapeHtml(new Date().toLocaleString('pl-PL'))}
   </div>
 
-  <script>window.onload = () => window.print();</script>
 </body></html>`;
 
   openPrintWindow(html);
@@ -327,10 +329,9 @@ export function printReturnsRegister(
     Wygenerowano w GetRido: ${escapeHtml(new Date().toLocaleString('pl-PL'))}
   </div>
 
-  <script>window.onload = () => window.print();</script>
 </body></html>`;
 
-  openPrintWindow(html, 1000);
+  openPrintWindow(html);
 }
 
 /**
@@ -395,10 +396,9 @@ export function printCorrectionsRegister(
     Wygenerowano w GetRido: ${escapeHtml(new Date().toLocaleString('pl-PL'))}
   </div>
 
-  <script>window.onload = () => window.print();</script>
 </body></html>`;
 
-  openPrintWindow(html, 1000);
+  openPrintWindow(html);
 }
 
 /**
@@ -511,7 +511,6 @@ export function printCorrectionProtocol(
     Wygenerowano w GetRido: ${escapeHtml(new Date().toLocaleString('pl-PL'))}
   </div>
 
-  <script>window.onload = () => window.print();</script>
 </body></html>`;
 
   openPrintWindow(html);
