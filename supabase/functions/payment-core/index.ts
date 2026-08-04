@@ -6,6 +6,48 @@ const CORS = {
   "Content-Type": "application/json",
 };
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...CORS, "Cache-Control": "no-store" } });
+
+/** Porównanie sekretów po skrócie — stała długość, brak wycieku przez czas odpowiedzi. */
+async function secretsMatch(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const va = new Uint8Array(ha), vb = new Uint8Array(hb);
+  let diff = 0;
+  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i];
+  return diff === 0;
+}
+
+type Caller =
+  | { kind: "internal" }
+  | { kind: "user"; userId: string };
+
+/**
+ * Ta funkcja pracuje na service_role, więc omija RLS — tożsamość MUSI być
+ * ustalona tutaj, a nie przyjęta z body. Wcześniej nie było jej wcale:
+ * `admin_grant` przyznawał kredyty komukolwiek na podstawie samego JSON-a.
+ *
+ * Wywołanie wewnętrzne (payment-core-webhook po weryfikacji podpisu) rozpoznajemy
+ * po kluczu service_role w nagłówku Authorization.
+ */
+async function resolveCaller(req: Request, supabaseUrl: string, serviceKey: string): Promise<Caller | null> {
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return null;
+
+  if (await secretsMatch(token, serviceKey)) return { kind: "internal" };
+
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data } = await userClient.auth.getUser(token);
+  return data?.user ? { kind: "user", userId: data.user.id } : null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -17,20 +59,56 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    if (action === "init") {
-      return await handleInit(supabase, body);
-    } else if (action === "confirm_webhook") {
+    const caller = await resolveCaller(req, supabaseUrl, serviceKey);
+    if (!caller) return json({ error: "Unauthorized" }, 401);
+
+    if (action === "init" || action === "credits_check") {
+      // Operacje zdejmują środki. Właściciel portfela to zalogowany wywołujący,
+      // nigdy `user_id` z body — inaczej można wydać cudze saldo.
+      if (caller.kind === "user") body.user_id = caller.userId;
+      if (!body.user_id) return json({ error: "Brak user_id" }, 400);
+
+      return action === "init"
+        ? await handleInit(supabase, body)
+        : await handleCreditsCheck(supabase, body);
+    }
+
+    if (action === "confirm_webhook") {
+      // Wyłącznie wywołanie wewnętrzne z payment-core-webhook, i to dopiero po
+      // weryfikacji podpisu operatora. Z zewnątrz oznaczenie płatności jako
+      // opłaconej jest nieosiągalne.
+      if (caller.kind !== "internal") {
+        console.warn("payment-core: próba confirm_webhook spoza kanału wewnętrznego");
+        return json({ error: "Forbidden" }, 403);
+      }
       return await handleWebhook(supabase, body);
-    } else if (action === "credits_check") {
-      return await handleCreditsCheck(supabase, body);
-    } else if (action === "admin_grant") {
+    }
+
+    if (action === "admin_grant") {
+      if (caller.kind === "user") {
+        // Rola z bazy, nie z tokenu ani z body.
+        const { data: row, error } = await supabase
+          .from("drivers")
+          .select("user_role")
+          .eq("id", caller.userId)
+          .maybeSingle();
+        if (error) {
+          console.error("payment-core: nie można potwierdzić roli", error);
+          return json({ error: "Nie można potwierdzić uprawnień" }, 503);
+        }
+        if (row?.user_role !== "admin") {
+          console.warn("payment-core: admin_grant odrzucony dla", caller.userId);
+          return json({ error: "Forbidden" }, 403);
+        }
+        console.log("payment-core: admin_grant przez", caller.userId);
+      }
       return await handleAdminGrant(supabase, body);
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400, headers: CORS });
+    return json({ error: "Unknown action" }, 400);
   } catch (e: any) {
     console.error("payment-core error:", e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: CORS });
+    return json({ error: e.message }, 500);
   }
 });
 
@@ -225,9 +303,9 @@ async function handleWebhook(supabase: any, body: any) {
     return new Response(JSON.stringify({ error: "Payment not found" }), { status: 404, headers: CORS });
   }
 
-  // TODO: Verify CRC signature with SHA384 for production
-  // const crc = Deno.env.get("P24_CRC_KEY");
-  // Verify: SHA384(sessionId|merchantId|amount|currency|crc)
+  // Podpis operatora (SHA-384 z kluczem CRC) jest sprawdzany w payment-core-webhook,
+  // zanim żądanie tu trafi. Ta ścieżka jest osiągalna wyłącznie kanałem wewnętrznym
+  // — dispatcher wyżej odrzuca `confirm_webhook` od każdego innego wywołującego.
 
   // Mark as paid
   await supabase
