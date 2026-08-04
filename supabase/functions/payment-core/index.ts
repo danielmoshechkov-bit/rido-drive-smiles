@@ -105,12 +105,151 @@ Deno.serve(async (req) => {
       return await handleAdminGrant(supabase, body);
     }
 
+    if (action === "welcome_credits_claim") {
+      if (caller.kind !== "user") return json({ error: "Wymagane zalogowanie" }, 401);
+      return await handleWelcomeCreditsClaim(supabase, caller.userId);
+    }
+
+    if (action === "admin_wallet_topup") {
+      if (caller.kind === "user" && !(await isAdmin(supabase, caller.userId))) {
+        console.warn("payment-core: admin_wallet_topup odrzucony dla", caller.userId);
+        return json({ error: "Forbidden" }, 403);
+      }
+      return await handleAdminWalletTopup(supabase, body, caller.kind === "user" ? caller.userId : null);
+    }
+
     return json({ error: "Unknown action" }, 400);
   } catch (e: any) {
     console.error("payment-core error:", e);
     return json({ error: e.message }, 500);
   }
 });
+
+/** Rola z bazy. Błąd odczytu = brak uprawnień (fail-closed). */
+async function isAdmin(supabase: any, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("drivers")
+    .select("user_role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("payment-core: nie można potwierdzić roli", error);
+    return false;
+  }
+  return data?.user_role === "admin";
+}
+
+const WELCOME_CREDITS = 50;
+
+/**
+ * Bonus powitalny. Kwota jest stała po stronie serwera, a jednorazowości pilnuje
+ * klucz główny tabeli credit_welcome_claims — nie obecność salda, którą
+ * użytkownik mógł wcześniej skasować i odebrać bonus ponownie.
+ */
+async function handleWelcomeCreditsClaim(supabase: any, userId: string) {
+  const { data: claimed, error: claimErr } = await supabase
+    .from("credit_welcome_claims")
+    .upsert({ user_id: userId, amount: WELCOME_CREDITS }, { onConflict: "user_id", ignoreDuplicates: true })
+    .select("user_id");
+
+  if (claimErr) {
+    console.error("payment-core: błąd księgi bonusów", claimErr);
+    return json({ error: "Nie można przyznać bonusu" }, 503);
+  }
+
+  const granted = Array.isArray(claimed) && claimed.length > 0;
+
+  const { data: existing } = await supabase
+    .from("user_credits")
+    .select("id, credits_balance")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!granted) {
+    // Bonus już był — zwracamy wyłącznie aktualny stan.
+    return json({ granted: false, balance: existing?.credits_balance ?? 0 });
+  }
+
+  const balance = (existing?.credits_balance ?? 0) + WELCOME_CREDITS;
+
+  const { error: writeErr } = existing
+    ? await supabase.from("user_credits")
+        .update({ credits_balance: balance, updated_at: new Date().toISOString() })
+        .eq("id", existing.id)
+    : await supabase.from("user_credits")
+        .insert({ user_id: userId, credits_balance: balance });
+
+  if (writeErr) {
+    console.error("payment-core: nie zapisano bonusu", writeErr);
+    return json({ error: "Nie można przyznać bonusu" }, 503);
+  }
+
+  console.log("payment-core: bonus powitalny dla", userId);
+  return json({ granted: true, balance });
+}
+
+const MAX_ADMIN_TOPUP = 100_000;
+
+/**
+ * Ręczne doładowanie portfela przez administratora — zastępuje zapis wykonywany
+ * dotąd wprost z panelu w przeglądarce.
+ *
+ * Wpis do księgi wiąże się z portfelem przez wallet_transactions.wallet_id, czyli
+ * user_wallets.id. Panel wstawiał tam user_id, więc insert odbijał się od klucza
+ * obcego JUŻ PO zmianie salda: saldo rosło, wpisu w księdze nie było, a admin
+ * widział błąd.
+ */
+async function handleAdminWalletTopup(supabase: any, body: any, actorId: string | null) {
+  const targetUserId = body?.target_user_id;
+  const amount = Number(body?.amount);
+  const reason = typeof body?.reason === "string" ? body.reason.slice(0, 200) : null;
+
+  if (!targetUserId || typeof targetUserId !== "string") {
+    return json({ error: "Brak identyfikatora użytkownika" }, 400);
+  }
+  if (!Number.isInteger(amount) || amount <= 0 || amount > MAX_ADMIN_TOPUP) {
+    return json({ error: `Kwota musi być całkowita z zakresu 1–${MAX_ADMIN_TOPUP}` }, 400);
+  }
+
+  const { data: wallet, error: walletErr } = await supabase
+    .from("user_wallets")
+    .upsert({ user_id: targetUserId }, { onConflict: "user_id" })
+    .select("id, balance")
+    .single();
+
+  if (walletErr || !wallet) {
+    console.error("payment-core: brak portfela dla", targetUserId, walletErr);
+    return json({ error: "Nie można odczytać portfela" }, 503);
+  }
+
+  const balance = (wallet.balance ?? 0) + amount;
+
+  const { error: updErr } = await supabase
+    .from("user_wallets")
+    .update({ balance, updated_at: new Date().toISOString() })
+    .eq("id", wallet.id);
+
+  if (updErr) {
+    console.error("payment-core: nie zapisano salda", updErr);
+    return json({ error: "Nie można zapisać salda" }, 503);
+  }
+
+  const { error: txErr } = await supabase.from("wallet_transactions").insert({
+    wallet_id: wallet.id,
+    type: "topup",
+    amount,
+    description: reason || "Doładowanie przez administratora",
+  });
+
+  if (txErr) {
+    // Saldo już zmienione — księga jest tu jedynym śladem, więc głośno logujemy.
+    console.error("payment-core: saldo zmienione, wpis do księgi NIEUDANY", wallet.id, txErr);
+    return json({ error: "Saldo doładowane, ale nie zapisano wpisu w historii", balance }, 500);
+  }
+
+  console.log("payment-core: doładowanie", amount, "dla", targetUserId, "przez", actorId ?? "kanał wewnętrzny");
+  return json({ balance });
+}
 
 async function handleInit(supabase: any, body: any) {
   const {

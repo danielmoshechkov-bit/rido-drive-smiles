@@ -117,51 +117,34 @@ export function MapWalletPanel() {
       const amount = parseInt(topupAmount);
       if (isNaN(amount) || amount <= 0) throw new Error('Invalid amount');
 
-      // First ensure wallet exists - use raw query approach
-      const { data: existing } = await supabase
-        .from('user_wallets')
-        .select('*')
-        .eq('user_id', selectedUser.user_id)
-        .single();
-
-      const currentBalance = (existing as any)?.balance || (existing as any)?.balance_points || 0;
-
-      if (existing) {
-        const { error: updateErr } = await supabase
-          .from('user_wallets')
-          .update({ balance: currentBalance + amount } as any)
-          .eq('user_id', selectedUser.user_id);
-        if (updateErr) throw updateErr;
-      } else {
-        const { error: insertErr } = await supabase
-          .from('user_wallets')
-          .insert([{ user_id: selectedUser.user_id, balance: amount }] as any);
-        if (insertErr) throw insertErr;
-      }
-
-      // Record transaction
-      const { error: txErr } = await supabase
-        .from('wallet_transactions')
-        .insert([{
-          wallet_id: selectedUser.user_id,
-          type: 'topup',
-          amount: amount,
-          description: topupReason,
-        }] as any);
-      if (txErr) throw txErr;
+      // Doładowanie robi payment-core: sprawdza rolę admina po stronie serwera,
+      // zmienia saldo i zapisuje wpis w księdze w jednym przebiegu. Panel nie
+      // dotyka już user_wallets ani wallet_transactions bezpośrednio.
+      const { data, error } = await supabase.functions.invoke('payment-core', {
+        body: {
+          action: 'admin_wallet_topup',
+          target_user_id: selectedUser.user_id,
+          amount,
+          reason: topupReason,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data?.balance as number | undefined;
     },
-    onSuccess: () => {
+    onSuccess: (newBalance) => {
       queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });
       toast.success('Punkty doładowane');
       setIsTopupOpen(false);
-      setTopupAmount('');
-      // Refresh user data
+      // Saldo bierzemy z odpowiedzi serwera, a nie doliczamy lokalnie — panel
+      // pokazuje wtedy stan faktyczny, także gdy serwer skorygował kwotę.
       if (selectedUser) {
         setSelectedUser({
           ...selectedUser,
-          balance_points: selectedUser.balance_points + parseInt(topupAmount),
+          balance_points: newBalance ?? selectedUser.balance_points + parseInt(topupAmount),
         });
       }
+      setTopupAmount('');
     },
     onError: (e) => toast.error('Błąd: ' + (e as Error).message),
   });
