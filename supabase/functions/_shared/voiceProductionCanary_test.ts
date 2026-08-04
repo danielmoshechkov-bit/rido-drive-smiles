@@ -252,9 +252,150 @@ test("technical failure notifies the workshop and never guesses the caller gende
   assert.match(chat, /if \(canaryAbortSignal\.aborted\) \{[\s\S]{0,140}controller\.close\(\)/);
 
   // Płeć: bez zgadywania po głosie, formy bezosobowe do czasu poznania imienia.
-  assert.match(chat, /NIGDY nie zgaduj płci rozmówcy po głosie/);
-  assert.match(chat, /bez słowa "Pan" i bez słowa "Pani"/);
-  assert.match(chat, /Imienia używaj oszczędnie, nazwiska nie powtarzaj/);
+  assert.match(chat, /NIGDY nie zgaduj płci po głosie/);
+  assert.match(chat, /bez "Pan", bez "Pani" i bez "Ty"/);
+  assert.match(chat, /Imienia używaj oszczędnie/);
+});
+
+test("official form is enforced for the whole call", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // W transkrypcie z 04.08 agent mówił "dla Ciebie", "pasuje Ci", "Wyślę Ci SMS",
+  // a potem "Panie Danielu" — dwie formy w jednej rozmowie.
+  assert.match(chat, /FORMA OFICJALNA — BEZWZGLĘDNIE/);
+  assert.match(chat, /NIGDY nie mów "Ty", "Ci", "Tobie", "masz"/);
+  assert.match(chat, /Cała rozmowa, od pierwszego do ostatniego zdania, jest oficjalna/);
+
+  // Po imieniu: Panie/Pani + IMIĘ, nigdy nazwiskiem; przy niejednoznacznym imieniu bezosobowo.
+  assert.match(chat, /PANIE\/PANI \+ IMIĘ, nigdy nazwiskiem/);
+  assert.match(chat, /nietypowe, obce lub niejednoznaczne — ZOSTAŃ przy formach bezosobowych/);
+});
+
+test("phone is stored silently and the year is never asked", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Telefonu nie czytamy wstecz słowami.
+  assert.match(chat, /NIE powtarzaj numeru słowami/);
+  assert.match(chat, /Dziękuję, numer zapisany/);
+  // Rok produkcji nie jest potrzebny do rezerwacji.
+  assert.match(chat, /Nie pytaj o rok produkcji/);
+  // Normalizacja liter zostaje na wypadek, gdy klient poda rejestrację sam.
+  assert.match(chat, /"igrek" = Y/);
+  assert.match(chat, /"iks" = X/);
+  // Ale pętla potwierdzania znika — o rejestrację już nie pytamy.
+  assert.doesNotMatch(chat, /Powtórz numer do potwierdzenia MAKSYMALNIE RAZ/);
+});
+
+test("digits are read one by one and slots are never invented", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Trzeci raz ten sam błąd: "cztery pięćset osiemdziesiąt trzy".
+  assert.match(chat, /REGUŁA ŁAMANA JUŻ TRZY RAZY/);
+  assert.match(chat, /każdą cyfrę czytasz OSOBNO/);
+  assert.match(chat, /BŁĄD: "pięćset dziewiętnaście/);
+  assert.match(chat, /BŁĄD: "cztery pięćset osiemdziesiąt trzy"/);
+  // Lista dozwolonych słów zamiast samego zakazu — model łamał sam zakaz.
+  assert.match(chat, /Wolno Ci wypowiedzieć TYLKO te słowa/);
+  assert.match(chat, /Zabronione w numerach/);
+
+  // Bez zapowiedzi "sprawdzam", od razu konkretne godziny z narzędzia.
+  assert.match(chat, /NIE zapowiadaj "sprawdzam wolne terminy"/);
+  assert.match(chat, /wyłącznie godziny, które narzędzie faktycznie zwróciło/);
+
+  // Zdanie o przyjeździe wcześniej znika z rozmowy.
+  assert.match(chat, /nigdy nie mów o przyjeździe wcześniej/);
+  // Fraza nie może wrócić do stałych reguł w kodzie — źródłem była baza wiedzy.
+  assert.doesNotMatch(chat, /Prosimy przyjechać|10 minut wcześniej|dziesięć minut wcześniej/);
+});
+
+test("registration number is never asked for", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Rozmowa z 04.08: sześć nieudanych prób odczytania rejestracji, cztery minuty.
+  assert.match(chat, /NUMERU REJESTRACYJNEGO NIE PYTAJ W OGÓLE/);
+  assert.match(chat, /Warsztat uzupełni go przy przyjęciu auta/);
+  // Lista zbieranych danych kończy się na marce i modelu.
+  assert.match(chat, /imię i nazwisko → telefon → marka i model\. To CAŁA lista/);
+  // Gdy klient poda sam — zapis bez potwierdzania głosowego.
+  assert.match(chat, /NIE potwierdzaj jej głosowo i NIE powtarzaj/);
+});
+
+test("post-call webhook resolves the tenant by agent_id and never fails silently", () => {
+  const pp = readFileSync(new URL("../voice-call-postprocess/index.ts", import.meta.url), "utf8");
+
+  // Tenant rozpoznawany po agent_id z payloadu; parametry URL to tylko fallback.
+  assert.match(pp, /eq\("elevenlabs_agent_id", agentId\)/);
+  assert.match(pp, /const urlProviderId = url\.searchParams\.get\("provider_id"\)/);
+  const lookupAt = pp.indexOf('eq("elevenlabs_agent_id", agentId)');
+  const fallbackAt = pp.indexOf("providerId = urlProviderId");
+  assert.ok(lookupAt < fallbackAt, "agent_id musi być sprawdzany przed parametrem z URL");
+
+  // Brak tenanta = 400, nie ciche 200. To był powód, dla którego transkrypty ginęły.
+  assert.match(pp, /event: "tenant_unresolved"/);
+  assert.match(pp, /conversation_id: conversationId,\s*\n\s*\}, 400\)/);
+
+  // Błąd analizy jest propagowany, nie połykany.
+  assert.match(pp, /event: "analyze_failed"/);
+  assert.doesNotMatch(pp, /ok: true, analyzed: out\?\.ok/);
+
+  // Każde niepowodzenie zostawia ślad z conversation_id.
+  for (const evt of ["tenant_unresolved", "analyze_failed", "transcript_too_short", "request_failed"]) {
+    assert.match(pp, new RegExp(`event: "${evt}"`));
+  }
+});
+
+test("learned rules never activate themselves", () => {
+  const analyze = readFileSync(new URL("../voice-call-analyze/index.ts", import.meta.url), "utf8");
+
+  // Agent nadal wyciąga wnioski i je zapisuje, ale żaden nie trafia do promptu
+  // bez decyzji człowieka. Sześć auto-reguł z 04.08 przeczyło regułom, które
+  // właściciel dopiero co kazał wprowadzić.
+  assert.match(analyze, /source: "distilled", evidence_count: 1, is_active: false/);
+  assert.doesNotMatch(analyze, /evidence_count: 1, is_active: true/);
+
+  // Wzmacnianie istniejącej reguły nie może jej reaktywować.
+  const updateBlock = analyze.slice(analyze.indexOf("if (ex)"), analyze.indexOf("} else {"));
+  assert.doesNotMatch(updateBlock, /is_active/);
+});
+
+test("night calls, surname and politeness", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // Rozmowa 05.08 o 00:40: "może być jutro" -> agent policzył 6.08 zamiast 5.08.
+  assert.match(chat, /ROZMOWY NOCNE/);
+  assert.match(chat, /między północą a piątą rano/);
+  assert.match(chat, /Czyli dzisiaj, w środę piątego, czy jutro w czwartek szóstego\?/);
+  assert.match(chat, /ZAWSZE podawaj dzień tygodnia I datę, nigdy samo "jutro"/);
+
+  // Nazwisko zapisujemy tak, jak usłyszane — warsztat poprawi przy przyjęciu.
+  assert.match(chat, /NAZWISKA NIE POTWIERDZAJ, NIE LITERUJ i NIE POWTARZAJ/);
+  assert.match(chat, /Żadnego "czy dobrze zapisałem", żadnego literowania/);
+
+  // Grzeczności: bez preambuł przy zbieraniu danych.
+  assert.match(chat, /BEZ PREAMBUŁ/);
+  assert.match(chat, /DOBRZE: "Jaka marka i model\?"/);
+  assert.match(chat, /NAJWYŻEJ RAZ NA KILKA TUR/);
+});
+
+test("address form: no surname, no plural", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  assert.match(chat, /NAZWISKA NIE UŻYWAJ NIGDY/);
+  assert.match(chat, /"Panie Danielu" — TAK\. "Panie Moszeczkow" — NIE/);
+  // Bug z transkryptu: "Chętnie Wam pomogę" do jednej osoby.
+  assert.match(chat, /LICZBA MNOGA JEST BŁĘDEM/);
+  assert.match(chat, /NIGDY "Wam", "Wasze", "Chętnie Wam pomogę"/);
+});
+
+test("booking must precede order and SMS is not promised before success", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // W rozmowie z 04.08 21:05 powstały DWA zlecenia i ZERO rezerwacji — więc SMS
+  // nie mógł wyjść, bo wysyłka żyje wyłącznie w create_booking.
+  assert.match(chat, /create_booking MUSI zostać wywołane PRZED create_order/);
+  assert.match(chat, /samo zlecenie NIE wysyła SMS-a/);
+  assert.match(chat, /NIGDY nie wywołuj create_order dwa razy w jednej turze/);
+  assert.match(chat, /NIE obiecuj SMS-a, dopóki create_booking nie zwróci sukcesu/);
 });
 
 test("conversation model comes from configuration, legacy still forced to Sonnet", () => {

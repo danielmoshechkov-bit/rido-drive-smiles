@@ -32,3 +32,5 @@ public/invoice-pdf-lib/vendor/
 
 # Przykładowe XML-e faktur + schemat FA(3) do ręcznej weryfikacji — nie do repo
 ksef-przyklady/
+.env*
+!.env.example
