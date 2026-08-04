@@ -200,9 +200,13 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
     setSaving(true);
     setSettingUpFtp(true);
     try {
-      // 1. Call setup endpoint to create FTP directories on the server
+      // 1. Katalogi FTP zakłada edge function — sekret setup-agency.php nie może
+      //    trafić do przeglądarki, więc front prosi tylko o wykonanie operacji.
       try {
-        await fetch(`https://getrido.pl/crm-import/setup-agency.php?secret=getrido_crm_cron_2026&agency_id=${agencyId}`);
+        const { error: setupError } = await supabase.functions.invoke('agency-crm-setup', {
+          body: { agency_id: agencyId },
+        });
+        if (setupError) throw setupError;
       } catch (e) {
         console.warn('FTP setup call failed (may already exist):', e);
       }

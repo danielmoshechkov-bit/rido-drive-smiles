@@ -361,3 +361,8 @@ verify_jwt = false
 
 [functions.sitemap]
 verify_jwt = false
+
+# Trzyma sekret do setup-agency.php, więc wymaga zalogowanego wywołującego;
+# funkcja dodatkowo sprawdza, czy jest właścicielem wskazanej agencji.
+[functions.agency-crm-setup]
+verify_jwt = true
