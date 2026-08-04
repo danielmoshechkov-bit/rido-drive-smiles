@@ -1,194 +1,180 @@
-// ============================================================================
-// voice-agent-llm — CUSTOM LLM dla ElevenLabs Conversational AI.
-// ElevenLabs wysyła żądanie w formacie OpenAI (/v1/chat/completions, SSE).
-// My w środku wołamy NASZ mózg (voice-agent-chat) z personą + danymi firmy +
-// wiedzą + narzędziami (rezerwacja/zlecenie). Inteligencja i dane zostają u nas.
-//
-// URL (per tenant, w ustawieniach agenta ElevenLabs jako "Custom LLM"):
-//   .../functions/v1/voice-agent-llm?provider_id=<UUID>&persona_key=workshop_secretary
-//
-// Auth: token VOICE_LLM_TOKEN (ai_secret_store / Supabase Secrets), fail-closed.
-//   W ElevenLabs token podaje się w polu "API key" konfiguracji Custom LLM
-//   (trafia jako Authorization: Bearer) albo jako ?token= w URL.
-// ============================================================================
+// Custom LLM bridge for ElevenLabs. Live traffic is accepted only with a
+// short-lived capability bound to one provider/config/persona/call. The old
+// deterministic provider token is intentionally unsupported.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
-import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
-import { resolveVoiceLlmRoute } from "../_shared/voicePhase1Route.ts";
+import {
+  SecurityError,
+  corsHeaders,
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  readJsonBody,
+  writeAuditEvent,
+} from "../_shared/security.ts";
+import {
+  consumeAiRateLimit,
+  issueAiCapabilityToken,
+  requireAiLiveRuntimeEnabled,
+  verifyAiCapabilityToken,
+} from "../_shared/aiSecurity.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-};
-const sseHeaders = {
-  ...corsHeaders,
-  "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache, no-transform",
-  "X-Accel-Buffering": "no",
-  Connection: "keep-alive",
-};
-const legacySseHeaders = {
-  ...corsHeaders,
-  "Content-Type": "text/event-stream",
-  "Cache-Control": "no-cache",
-};
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PERSONA_PATTERN = /^[a-z0-9_-]{1,64}$/i;
+const CALL_ID_PATTERN = /^[A-Za-z0-9._:-]{1,200}$/;
 
-const tenc = new TextEncoder();
-type VoiceAgentConfig = {
-  business_context?: Record<string, unknown>;
-  display_name?: string;
-  languages?: string[];
-  calendar_access?: boolean;
-  orders_access?: boolean;
-  voice_id?: string;
-  elevenlabs_agent_id?: string;
-};
-type LlmInputMessage = { role?: unknown; content?: unknown };
-type LlmContentPart = { text?: unknown };
-function timingSafeEqual(a: string, b: string): boolean {
-  const ab = tenc.encode(a), bb = tenc.encode(b);
-  if (ab.length !== bb.length) return false;
-  let diff = 0;
-  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i];
-  return diff === 0;
+function normalizeMessages(value: unknown): Array<{ role: "user" | "assistant"; content: string }> {
+  if (!Array.isArray(value)) return [];
+  const messages = value.slice(-60).flatMap((item: any) => {
+    if (item?.role !== "user" && item?.role !== "assistant") return [];
+    const content = typeof item.content === "string"
+      ? item.content
+      : Array.isArray(item.content)
+      ? item.content.map((part: any) => typeof part?.text === "string" ? part.text : "").join(" ")
+      : "";
+    const clean = content.trim().slice(0, 4000);
+    return clean ? [{ role: item.role as "user" | "assistant", content: clean }] : [];
+  });
+  if (messages.reduce((sum, message) => sum + message.content.length, 0) > 100_000) {
+    throw new SecurityError(413, "conversation_too_large", "Rozmowa jest zbyt duża");
+  }
+  return messages;
 }
-const logTiming = (stage: string, startedAt: number, extra: Record<string, unknown> = {}) => {
-  console.info("[voice-agent-llm]", JSON.stringify({
-    event: "stage_timing", stage,
-    duration_ms: Math.round(performance.now() - startedAt),
-    ...extra,
-  }));
-};
+
+function readCapabilityBearer(req: Request): string {
+  const bearer = (req.headers.get("Authorization") || "").match(/^Bearer\s+([^\s]+)$/i)?.[1] || "";
+  if (!bearer) throw new SecurityError(401, "ai_capability_required", "Wymagane jest capability rozmowy AI");
+  return bearer;
+}
+
+function readCallId(req: Request, body: any): string {
+  const candidates = [
+    req.headers.get("x-rido-call-id"),
+    body?.conversation_id,
+    body?.metadata?.conversation_id,
+  ];
+  const value = candidates.find((candidate) => typeof candidate === "string" && CALL_ID_PATTERN.test(candidate));
+  if (!value) throw new SecurityError(401, "call_capability_required", "Brak bezpiecznego kontekstu rozmowy");
+  return value;
+}
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method === "GET") return new Response(JSON.stringify({ ok: true, service: "voice-agent-llm" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+  if (req.method !== "POST") return jsonResponse(req, 405, { error: "method_not_allowed" });
 
-  const totalStarted = performance.now();
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const admin = createClient(supabaseUrl, serviceRoleKey);
-
-  const url = new URL(req.url);
-  const { providerId, personaKey } = resolveVoiceLlmRoute(url);
-
-  // Bez skonfigurowanego VOICE_LLM_TOKEN endpoint jest ZABLOKOWANY (fail-closed) —
-  // otwarty Custom-LLM to darmowy Claude dla każdego, kto zna provider_id.
-  const authStarted = performance.now();
-  const expectedToken = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
-  if (!expectedToken) {
-    return new Response(JSON.stringify({ error: "VOICE_LLM_TOKEN nie skonfigurowany — endpoint zablokowany" }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-  const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  const providedToken = url.searchParams.get("token") || bearer;
-  if (!providedToken || !timingSafeEqual(providedToken, expectedToken)) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
-  logTiming("auth", authStarted);
-
-  const configStarted = performance.now();
-  let cfg: VoiceAgentConfig | null = null;
-  if (providerId) {
-    const { data, error } = await admin.from("voice_agent_configs")
-      .select("business_context, display_name, languages, calendar_access, orders_access, voice_id, elevenlabs_agent_id")
-      .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
-    if (error) {
-      console.warn("[voice-agent-llm] config_lookup_failed", { code: error.code });
-    }
-    cfg = data;
-  }
-  logTiming("config", configStarted);
-
-  const reqBody = await req.json().catch(() => ({}));
-  const stream = reqBody?.stream !== false;
-  const model = reqBody?.model || "rido-claude";
-  const inMessages: LlmInputMessage[] = Array.isArray(reqBody?.messages) ? reqBody.messages : [];
-  const canary = resolveVoiceProductionCanary(providerId, cfg?.elevenlabs_agent_id);
-
-  // SONDA DIAGNOSTYCZNA — ustalenie, w którym polu ElevenLabs przekazuje identyfikator
-  // rozmowy. Nie zgadujemy kontraktu: sprawdzamy wszystkie prawdopodobne miejsca
-  // i logujemy WYŁĄCZNIE nazwę źródła oraz długość wartości. Sama wartość nigdy nie
-  // trafia do logu, bo identyfikator rozmowy jest daną wrażliwą.
-  // Ten blok niczego nie przekazuje dalej — służy tylko zdobyciu dowodu przed
-  // podłączeniem conversation_id przez cały łańcuch.
-  const conversationIdCandidates: Array<[string, unknown]> = [
-    ["header.elevenlabs-conversation-id", req.headers.get("elevenlabs-conversation-id")],
-    ["header.x-conversation-id", req.headers.get("x-conversation-id")],
-    ["header.xi-conversation-id", req.headers.get("xi-conversation-id")],
-    ["body.conversation_id", (reqBody as Record<string, unknown>)?.conversation_id],
-    ["body.conversationId", (reqBody as Record<string, unknown>)?.conversationId],
-    ["body.user", (reqBody as Record<string, unknown>)?.user],
-    ["body.metadata", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.conversation_id],
-    ["body.elevenlabs_conversation_id", (reqBody as Record<string, unknown>)?.elevenlabs_conversation_id],
-  ];
-  // Numer dzwoniącego jest potrzebny do SMS-a z prośbą o oddzwonienie, gdy rozmowa
-  // przerwie się błędem. Dziś nie wiemy, czy i gdzie ElevenLabs go przekazuje —
-  // sonda sprawdza to tak samo jak identyfikator rozmowy i tak samo NIE loguje wartości.
-  const callerNumberCandidates: Array<[string, unknown]> = [
-    ["header.x-caller-number", req.headers.get("x-caller-number")],
-    ["header.from", req.headers.get("from")],
-    ["body.caller_id", (reqBody as Record<string, unknown>)?.caller_id],
-    ["body.from_number", (reqBody as Record<string, unknown>)?.from_number],
-    ["body.metadata.caller_id", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.caller_id],
-    ["body.metadata.from", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.from],
-  ];
-  // Identyfikator rozmowy bierzemy z pierwszego źródła, które faktycznie coś przysłało.
-  // To nie jest zgadywanie kontraktu — sprawdzamy wszystkie prawdopodobne miejsca naraz,
-  // więc działa niezależnie od tego, którego użyje ElevenLabs. Log poniżej mówi, które
-  // źródło zadziałało, żeby dało się to później zawęzić.
-  const conversationId = (conversationIdCandidates
-    .find(([, value]) => typeof value === "string" && (value as string).length > 0)?.[1] as string | undefined) || null;
-  const conversationIdSource = conversationIdCandidates
-    .find(([, value]) => typeof value === "string" && (value as string).length > 0)?.[0] || null;
-
-  console.info("[voice-agent-llm]", JSON.stringify({
-    event: "conversation_id_probe",
-    used_source: conversationIdSource,
-    caller: callerNumberCandidates
-      .filter(([, value]) => typeof value === "string" && value.length > 0)
-      .map(([source, value]) => ({ source, length: String(value).length })),
-    found: conversationIdCandidates
-      .filter(([, value]) => typeof value === "string" && value.length > 0)
-      .map(([source, value]) => ({ source, length: String(value).length })),
-    body_keys: Object.keys((reqBody as Record<string, unknown>) || {}),
-    header_keys: [...req.headers.keys()].filter((k) => !/^authorization$|^cookie$|apikey/i.test(k)),
-  }));
-
-  // Wyciągnij rozmowę (user/assistant); system od ElevenLabs ignorujemy — mózg buduje własny.
-  const convo = inMessages
-    .filter((m) => m?.role === "user" || m?.role === "assistant")
-    .map((m) => ({
-      role: m.role,
-      content: typeof m.content === "string"
-        ? m.content
-        : Array.isArray(m.content)
-        ? (m.content as LlmContentPart[]).map((part) => typeof part.text === "string" ? part.text : "").join(" ")
-        : "",
-    }))
-    .filter((m) => m.content);
-
-  // Wywołaj nasz mózg (service-role)
-  let reply = "Przepraszam, chwilowy problem techniczny.";
   try {
-    const chatStarted = performance.now();
-    const r = await fetch(`${supabaseUrl}/functions/v1/voice-agent-chat`, {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+    if (!supabaseUrl || !anonKey) {
+      throw new SecurityError(503, "security_not_configured", "Usługa nie jest bezpiecznie skonfigurowana");
+    }
+
+    const url = new URL(req.url);
+    if (url.searchParams.has("token")) {
+      throw new SecurityError(400, "token_in_url_forbidden", "Token nie może znajdować się w adresie URL");
+    }
+    const providerId = url.searchParams.get("provider_id") || "";
+    const personaKey = (url.searchParams.get("persona_key") || "workshop_secretary").slice(0, 64);
+    if (!UUID_PATTERN.test(providerId) || !PERSONA_PATTERN.test(personaKey)) {
+      throw new SecurityError(401, "invalid_ai_capability", "Nieprawidłowe uwierzytelnienie capability AI");
+    }
+
+    const requestBody = await readJsonBody(req, 1_000_000);
+    const callId = readCallId(req, requestBody);
+    const admin = createServiceClient();
+    requireAiLiveRuntimeEnabled(Deno.env.get("AI_VOICE_LIVE_EXECUTION_ENABLED"));
+    const [{ data: provider, error: providerError }, { data: config, error: configError }] = await Promise.all([
+      admin.from("service_providers").select("id, company_id").eq("id", providerId).maybeSingle(),
+      admin.from("voice_agent_configs")
+        .select("id, provider_id, is_active, privacy_confirmed, kill_switch_enabled, dry_run_tools, max_concurrent_calls, daily_tool_call_limit, conversation_cost_limit_microusd, daily_cost_limit_microusd")
+        .eq("provider_id", providerId)
+        .eq("persona_key", personaKey)
+        .maybeSingle(),
+    ]);
+    if (providerError || configError || !provider || !config) {
+      throw new SecurityError(401, "invalid_ai_capability", "Nieprawidłowe uwierzytelnienie capability AI");
+    }
+
+    const signingSecret = Deno.env.get("AI_CAPABILITY_SIGNING_SECRET") || "";
+    const capability = await verifyAiCapabilityToken(readCapabilityBearer(req), signingSecret, {
+      binding: {
+        providerId,
+        configId: config.id,
+        callId,
+        personaKey,
+        scope: "voice.llm",
+      },
+    });
+
+    const [{ data: feature, error: featureError }, { data: runtime, error: runtimeError }] = await Promise.all([
+      admin.from("ai_feature_flags").select("is_enabled").eq("flag_key", "ai_agents_enabled").maybeSingle(),
+      admin.from("ai_global_runtime_control").select("kill_switch_enabled").eq("control_key", "global").maybeSingle(),
+    ]);
+    if (featureError || runtimeError
+      || feature?.is_enabled !== true
+      || runtime?.kill_switch_enabled !== false
+      || config.kill_switch_enabled !== false
+      || config.dry_run_tools !== false
+      || config.is_active !== true
+      || config.privacy_confirmed !== true
+      || Number(config.max_concurrent_calls) <= 0
+      || Number(config.daily_tool_call_limit) <= 0
+      || Number(config.conversation_cost_limit_microusd) <= 0
+      || Number(config.daily_cost_limit_microusd) <= 0) {
+      throw new SecurityError(503, "voice_agent_disabled", "Agent głosowy jest wyłączony");
+    }
+
+    await consumeAiRateLimit(admin, {
+      scope: "ai.voice.llm.config",
+      subjectId: config.id,
+      limit: 120,
+      windowSeconds: 60,
+    });
+    await consumeAiRateLimit(admin, {
+      scope: "ai.voice.llm.provider.daily",
+      subjectId: providerId,
+      limit: 2_000,
+      windowSeconds: 86_400,
+    });
+
+    const messages = normalizeMessages(requestBody?.messages);
+    const stream = requestBody?.stream !== false;
+    const correlationId = crypto.randomUUID();
+    await writeAuditEvent(admin, {
+      actorId: null,
+      tenantId: provider.company_id,
+      action: "ai.voice.llm_turn",
+      resourceType: "voice_agent_config",
+      resourceId: config.id,
+      result: "attempted",
+      correlationId,
+      metadata: { persona_key: personaKey, call_id: callId, message_count: messages.length },
+    });
+
+    const chatCapability = await issueAiCapabilityToken(signingSecret, {
+      providerId,
+      configId: config.id,
+      callId: capability.call_id,
+      personaKey,
+      scope: "voice.chat",
+      ttlSeconds: 90,
+    });
+    const response = await fetch(`${supabaseUrl}/functions/v1/voice-agent-chat`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${anonKey}`,
+        apikey: anonKey,
+        "Content-Type": "application/json",
+        "x-correlation-id": correlationId,
+        "x-rido-ai-capability": chatCapability,
+      },
       body: JSON.stringify({
-        provider_id: providerId, persona_key: personaKey, test_mode: false,
-        response_stream: canary.enabled && stream,
-        production_canary: canary.enabled,
-        // Wewnętrzne, uwierzytelnione service-role przekazanie wyłącznie do
-        // ponownej walidacji pary canary w voice-agent-chat.
-        ...(canary.enabled ? { elevenlabs_agent_id: cfg?.elevenlabs_agent_id } : {}),
-        // Identyfikator rozmowy tylko w gałęzi canary — kontrakt legacy zostaje
-        // bajtowo taki sam jak przed Phase 1.
-        ...(canary.enabled && conversationId ? { conversation_id: conversationId } : {}),
-        messages: convo,
-        business_context: cfg?.business_context || {}, display_name: cfg?.display_name || "",
-        languages: cfg?.languages || ["pl"], calendar_access: !!cfg?.calendar_access, orders_access: !!cfg?.orders_access,
+        provider_id: providerId,
+        config_id: config.id,
+        call_id: callId,
+        persona_key: personaKey,
+        messages,
       }),
       // Timeout proxy dotyczy wyłącznie Phase 1. Legacy nie otrzymuje nowego
       // limitu i zachowuje poprzedni kontrakt wykonania.
@@ -196,36 +182,44 @@ serve(async (req) => {
         signal: AbortSignal.any([req.signal, AbortSignal.timeout(stream ? 45_000 : 18_000)]),
       } : {}),
     });
-    if (stream && r.ok && r.body && (r.headers.get("content-type") || "").includes("text/event-stream")) {
-      logTiming("chat_headers", chatStarted, { ok: true, production_canary: true });
-      const measured = r.body.pipeThrough(new TransformStream({
-        transform(chunk, controller) { controller.enqueue(chunk); },
-        flush() { logTiming("total", totalStarted, { stream: true, production_canary: true }); },
-      }));
-      return new Response(measured, {
-        headers: sseHeaders,
+    const responseData = await response.json().catch(() => ({}));
+    const reply = response.ok && typeof responseData?.reply === "string"
+      ? responseData.reply.slice(0, 12_000)
+      : "Przepraszam, wystąpił chwilowy problem techniczny. Proszę skontaktować się z pracownikiem.";
+
+    await writeAuditEvent(admin, {
+      actorId: null,
+      tenantId: provider.company_id,
+      action: "ai.voice.llm_turn",
+      resourceType: "voice_agent_config",
+      resourceId: config.id,
+      result: response.ok ? "succeeded" : "failed",
+      correlationId,
+      metadata: { persona_key: personaKey, call_id: callId, fallback_used: !response.ok },
+    });
+
+    const id = `chatcmpl-${crypto.randomUUID()}`;
+    const created = Math.floor(Date.now() / 1000);
+    const model = "rido-voice";
+    if (stream) {
+      const chunk = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: { role: "assistant", content: reply }, finish_reason: null }] };
+      const done = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] };
+      const sse = `data: ${JSON.stringify(chunk)}\n\ndata: ${JSON.stringify(done)}\n\ndata: [DONE]\n\n`;
+      return new Response(sse, {
+        status: 200,
+        headers: { ...corsHeaders(req), "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
       });
     }
-    const data = await r.json().catch(() => ({}));
-    if (r.ok && data?.reply) reply = data.reply;
-    else console.warn("[voice-agent-llm] chat_failed", r.status);
-    logTiming("chat", chatStarted, { ok: r.ok });
+
+    return jsonResponse(req, 200, {
+      id,
+      object: "chat.completion",
+      created,
+      model,
+      choices: [{ index: 0, message: { role: "assistant", content: reply }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+    });
   } catch (error) {
-    console.warn("[voice-agent-llm] chat_failed", (error as Error)?.name || "error");
+    return errorResponse(req, error);
   }
-
-  const id = "chatcmpl-" + Math.random().toString(36).slice(2);
-  const created = Math.floor(Date.now() / 1000);
-
-  if (stream) {
-    const chunk = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: { role: "assistant", content: reply }, finish_reason: null }] };
-    const done = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] };
-    const sse = `data: ${JSON.stringify(chunk)}\n\ndata: ${JSON.stringify(done)}\n\ndata: [DONE]\n\n`;
-    logTiming("total", totalStarted, { stream: true, production_canary: canary.enabled });
-    return new Response(sse, { headers: canary.enabled ? sseHeaders : legacySseHeaders });
-  }
-
-  const completion = { id, object: "chat.completion", created, model, choices: [{ index: 0, message: { role: "assistant", content: reply }, finish_reason: "stop" }], usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } };
-  logTiming("total", totalStarted, { stream: false, production_canary: canary.enabled });
-  return new Response(JSON.stringify(completion), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
