@@ -36,6 +36,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getSettlementExecutionDate } from '@/lib/utils';
+import { sanitizeDocumentHtml } from '@/security/htmlSanitizer';
+import { exportElementToPdf } from '@/utils/exportElementToPdf';
 
 interface BankTransferExportDialogProps {
   open: boolean;
@@ -513,18 +515,16 @@ export function BankTransferExportDialog({
 
     // Generate PDF and download directly
     const container = document.createElement('div');
-    container.innerHTML = htmlContent;
+    container.innerHTML = sanitizeDocumentHtml(htmlContent);
     document.body.appendChild(container);
-    
-    const { default: html2pdf } = await import('html2pdf.js');
-    await html2pdf().set({
-      margin: 10,
-      filename: `KW_Gotowka_${settlementDateLabel.replace(/\./g, '-')}.pdf`,
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }).from(container.querySelector('body') || container).save();
-    
-    document.body.removeChild(container);
+    try {
+      await exportElementToPdf(
+        container.querySelector('body') || container,
+        `KW_Gotowka_${settlementDateLabel.replace(/\./g, '-')}.pdf`,
+      );
+    } finally {
+      container.remove();
+    }
 
     // Persist cash payment methods
     for (const row of selectedCash) {

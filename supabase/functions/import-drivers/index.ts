@@ -1,9 +1,140 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
+import {
+  createServiceClient,
+  consumeRateLimit,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requireAdmin,
+  readJsonBody,
+  SecurityError,
+  writeAuditEvent,
+} from '../_shared/security.ts';
+import { isUuid } from '../_shared/securityPrimitives.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const MAX_CSV_BASE64_LENGTH = 7_000_000;
+const MAX_CSV_ROWS = 10_000;
+const IMPORT_LEASE_SECONDS = 1_800;
+
+interface ImportExecutionContext {
+  executionId: string;
+  actorId: string;
+  tenantScopeId: string;
+  idempotencyKeyHash: string;
+  payloadFingerprint: string;
+  correlationId: string;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function readIdempotencyKey(req: Request): string | null {
+  const value = req.headers.get('x-idempotency-key')?.trim() ?? '';
+  if (!value) return null;
+  if (!/^[A-Za-z0-9._:-]{16,128}$/.test(value)) {
+    throw new SecurityError(400, 'invalid_idempotency_key', 'Nieprawidłowy klucz idempotencji');
+  }
+  return value;
+}
+
+async function claimImportExecution(
+  supabase: any,
+  req: Request,
+  actorId: string,
+  tenantScopeId: string,
+  correlationId: string,
+  csvContent: string,
+): Promise<{ context?: ImportExecutionContext; replaySummary?: Record<string, unknown> }> {
+  const payloadFingerprint = await sha256Hex(JSON.stringify([
+    'drivers_csv_v1',
+    tenantScopeId,
+    csvContent,
+  ]));
+  const suppliedKey = readIdempotencyKey(req);
+  const idempotencyKeyHash = await sha256Hex(
+    suppliedKey ? `client_v1:${suppliedKey}` : `payload_v1:${payloadFingerprint}`,
+  );
+  const { data, error } = await supabase.rpc('phase_f_claim_import_execution', {
+    p_operation: 'drivers_csv',
+    p_actor_id: actorId,
+    p_tenant_scope_id: tenantScopeId,
+    p_idempotency_key_hash: idempotencyKeyHash,
+    p_payload_fingerprint: payloadFingerprint,
+    p_lease_seconds: IMPORT_LEASE_SECONDS,
+    p_correlation_id: correlationId,
+  });
+  if (error) {
+    console.error('driver_import_claim_failed', safeImportErrorCode(error));
+    throw new SecurityError(503, 'import_idempotency_unavailable', 'Nie można bezpiecznie rozpocząć importu');
+  }
+
+  const decision = typeof data?.decision === 'string' ? data.decision : '';
+  if (decision === 'succeeded' && data?.result_summary && typeof data.result_summary === 'object') {
+    return { replaySummary: data.result_summary as Record<string, unknown> };
+  }
+  if (decision === 'in_progress') {
+    throw new SecurityError(409, 'import_in_progress', 'Ten import jest już przetwarzany');
+  }
+  if (decision === 'payload_mismatch') {
+    throw new SecurityError(409, 'idempotency_payload_mismatch', 'Klucz idempotencji został użyty dla innych danych');
+  }
+  if (decision === 'actor_mismatch') {
+    throw new SecurityError(403, 'idempotency_actor_mismatch', 'Import należy do innego administratora');
+  }
+  if (decision === 'retry_exhausted') {
+    throw new SecurityError(409, 'import_retry_exhausted', 'Import wymaga ręcznego sprawdzenia przed ponowieniem');
+  }
+  if (decision !== 'claimed' || !isUuid(data?.execution_id)) {
+    throw new SecurityError(503, 'import_idempotency_unavailable', 'Nie można bezpiecznie rozpocząć importu');
+  }
+
+  return {
+    context: {
+      executionId: data.execution_id,
+      actorId,
+      tenantScopeId,
+      idempotencyKeyHash,
+      payloadFingerprint,
+      correlationId,
+    },
+  };
+}
+
+async function finalizeImportExecution(
+  supabase: any,
+  context: ImportExecutionContext,
+  succeeded: boolean,
+  resultSummary: Record<string, unknown> | null,
+  errorCode: string | null,
+): Promise<void> {
+  const { data, error } = await supabase.rpc('phase_f_finalize_import_execution', {
+    p_execution_id: context.executionId,
+    p_operation: 'drivers_csv',
+    p_actor_id: context.actorId,
+    p_tenant_scope_id: context.tenantScopeId,
+    p_idempotency_key_hash: context.idempotencyKeyHash,
+    p_payload_fingerprint: context.payloadFingerprint,
+    p_correlation_id: context.correlationId,
+    p_succeeded: succeeded,
+    p_result_summary: resultSummary,
+    p_error_code: errorCode,
+  });
+  if (error || data !== true) {
+    console.error('driver_import_finalize_failed', safeImportErrorCode(error));
+    throw new SecurityError(503, 'import_finalize_failed', 'Nie można bezpiecznie zakończyć importu');
+  }
+}
+
+function safeImportErrorCode(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' && /^[a-z0-9_]{1,32}$/i.test(code)) {
+      return code;
+    }
+  }
+  return 'unknown_error';
+}
 
 interface DriverImportRow {
   email: string;
@@ -17,35 +148,93 @@ interface DriverImportRow {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
+  let supabaseForFinalize: any = null;
+  let executionContext: ImportExecutionContext | null = null;
   try {
-    console.log('🚀 Import drivers edge function started');
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const body = await req.json();
-    const { csv_content, city_id, mode = 'upsert' } = body;
-
-    if (!csv_content || !city_id) {
-      throw new Error('Missing required fields: csv_content, city_id');
+    if (req.method !== 'POST') {
+      throw new SecurityError(405, 'method_not_allowed', 'Dozwolona jest wyłącznie metoda POST');
     }
 
+    const supabase = createServiceClient();
+    supabaseForFinalize = supabase;
+    const identity = await requireAdmin(req, supabase);
+    await consumeRateLimit(supabase, {
+      scope: 'admin.driver_import.user.hourly',
+      subjectId: identity.userId,
+      limit: 5,
+      windowSeconds: 3_600,
+    });
+    await consumeRateLimit(supabase, {
+      scope: 'admin.driver_import.user.daily',
+      subjectId: identity.userId,
+      limit: 20,
+      windowSeconds: 86_400,
+    });
+
+    const body = await readJsonBody(req, 7_100_000);
+    const csv_content = typeof body?.csv_content === 'string' ? body.csv_content : '';
+    const city_id = body?.city_id;
+
+    if (!csv_content || !isUuid(city_id)) {
+      throw new SecurityError(400, 'invalid_import_payload', 'Nieprawidłowe dane importu kierowców');
+    }
+    if (csv_content.length > MAX_CSV_BASE64_LENGTH) {
+      throw new SecurityError(413, 'csv_too_large', 'Plik CSV przekracza bezpieczny limit rozmiaru');
+    }
+
+    const claim = await claimImportExecution(
+      supabase,
+      req,
+      identity.userId,
+      city_id,
+      identity.correlationId,
+      csv_content,
+    );
+    if (claim.replaySummary) {
+      return jsonResponse(req, 200, {
+        success: true,
+        stats: claim.replaySummary,
+        errors: [],
+        idempotent_replay: true,
+      });
+    }
+    if (!claim.context) {
+      throw new SecurityError(503, 'import_idempotency_unavailable', 'Nie można bezpiecznie rozpocząć importu');
+    }
+    executionContext = claim.context;
+
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      action: 'drivers.csv_import',
+      resourceType: 'city',
+      resourceId: city_id,
+      result: 'attempted',
+      correlationId: identity.correlationId,
+      metadata: { csv_base64_length: csv_content.length },
+    });
+
     // Decode base64 CSV
-    const uint8Array = Uint8Array.from(atob(csv_content), c => c.charCodeAt(0));
+    let decoded: string;
+    try {
+      decoded = atob(csv_content);
+    } catch {
+      throw new SecurityError(400, 'invalid_csv_encoding', 'Nieprawidłowe kodowanie pliku CSV');
+    }
+    const uint8Array = Uint8Array.from(decoded, c => c.charCodeAt(0));
     const csvText = new TextDecoder('utf-8').decode(uint8Array);
     const rows = parseCSV(csvText);
 
     if (rows.length < 2) {
-      throw new Error('CSV jest pusty lub ma tylko nagłówki');
+      throw new SecurityError(400, 'csv_empty', 'CSV jest pusty lub ma tylko nagłówki');
+    }
+    if (rows.length > MAX_CSV_ROWS) {
+      throw new SecurityError(413, 'csv_too_many_rows', 'Plik CSV przekracza bezpieczny limit liczby wierszy');
     }
 
     const headers = rows[0].map(h => h.toLowerCase().trim());
-    console.log('📊 Headers:', headers);
 
     // Find column indexes - based on system.csv format
     const emailIdx = headers.findIndex(h => h.includes('adres mailowy') || h.includes('email'));
@@ -55,8 +244,6 @@ Deno.serve(async (req) => {
     const uberIdIdx = headers.findIndex(h => h === 'id uber' || h.includes('uber id'));
     const freenowIdIdx = headers.findIndex(h => h === 'id freenow' || h.includes('freenow id'));
     const boltIdIdx = headers.findIndex(h => h === 'id bolt' || h.includes('bolt id'));
-
-    console.log('📊 Column indexes:', { emailIdx, phoneIdx, fullNameIdx, getRidoIdIdx, uberIdIdx, freenowIdIdx, boltIdIdx });
 
     let importedCount = 0;
     let updatedCount = 0;
@@ -81,13 +268,13 @@ Deno.serve(async (req) => {
         const boltId = boltIdIdx >= 0 ? row[boltIdIdx]?.trim() : '';
 
         if (!firstName && !lastName && !email && !phone) {
-          console.log(`⚠️ Row ${i}: Empty row, skipping`);
+          console.info('driver_import_empty_row_skipped', i);
           continue;
         }
 
         // Generate getrido_id if not provided
         if (!getRidoId) {
-          getRidoId = generateGetRidoId();
+          getRidoId = await generateGetRidoId(executionContext.payloadFingerprint, i);
         }
 
         // Check if driver exists by email, phone, or getrido_id
@@ -140,15 +327,14 @@ Deno.serve(async (req) => {
             .eq('id', existingDriver.id);
 
           if (updateError) {
-            console.error(`❌ Row ${i}: Update error:`, updateError);
-            errors.push(`Row ${i}: ${updateError.message}`);
+            console.error('driver_import_row_update_failed', i, safeImportErrorCode(updateError));
+            errors.push(`Row ${i}: aktualizacja nie powiodła się`);
             errorCount++;
             continue;
           }
 
           driverId = existingDriver.id;
           updatedCount++;
-          console.log(`✅ Row ${i}: Updated driver ${firstName} ${lastName}`);
         } else {
           // Create new driver
           const { data: newDriver, error: insertError } = await supabase
@@ -165,15 +351,14 @@ Deno.serve(async (req) => {
             .single();
 
           if (insertError) {
-            console.error(`❌ Row ${i}: Insert error:`, insertError);
-            errors.push(`Row ${i}: ${insertError.message}`);
+            console.error('driver_import_row_insert_failed', i, safeImportErrorCode(insertError));
+            errors.push(`Row ${i}: utworzenie rekordu nie powiodło się`);
             errorCount++;
             continue;
           }
 
           driverId = newDriver.id;
           importedCount++;
-          console.log(`✅ Row ${i}: Created driver ${firstName} ${lastName} with getrido_id=${getRidoId}`);
         }
 
         // Upsert platform IDs
@@ -190,55 +375,78 @@ Deno.serve(async (req) => {
         }
 
         if (platformIds.length > 0) {
-          // Delete existing platform IDs for this driver first, then insert new ones
-          await supabase
-            .from('driver_platform_ids')
-            .delete()
-            .eq('driver_id', driverId);
-
+          // Upsert before pruning stale entries so a transient write failure does
+          // not erase all identifiers. The unique (driver_id, platform) constraint
+          // makes retries of the same row converge safely.
           const { error: platformError } = await supabase
             .from('driver_platform_ids')
-            .insert(platformIds);
+            .upsert(platformIds, { onConflict: 'driver_id,platform' });
 
           if (platformError) {
-            console.warn(`⚠️ Row ${i}: Platform IDs error:`, platformError);
+            console.warn('driver_import_platform_upsert_failed', i, safeImportErrorCode(platformError));
           } else {
-            console.log(`✅ Row ${i}: Added ${platformIds.length} platform IDs`);
+            const importedPlatforms = platformIds.map(item => item.platform);
+            const { error: pruneError } = await supabase
+              .from('driver_platform_ids')
+              .delete()
+              .eq('driver_id', driverId)
+              .not('platform', 'in', `(${importedPlatforms.join(',')})`);
+            if (pruneError) {
+              console.warn('driver_import_platform_prune_failed', i, safeImportErrorCode(pruneError));
+            }
           }
         }
 
       } catch (rowError) {
-        console.error(`❌ Row ${i}: Error:`, rowError);
-        errors.push(`Row ${i}: ${rowError instanceof Error ? rowError.message : 'Unknown error'}`);
+        console.error('driver_import_row_failed', i, safeImportErrorCode(rowError));
+        errors.push(`Row ${i}: przetwarzanie nie powiodło się`);
         errorCount++;
       }
     }
 
-    console.log('✅ Import completed:', { importedCount, updatedCount, errorCount });
+    console.info('driver_import_completed', importedCount, updatedCount, errorCount);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        stats: {
-          imported: importedCount,
-          updated: updatedCount,
-          errors: errorCount,
-          total: importedCount + updatedCount + errorCount
-        },
-        errors: errors.slice(0, 10) // Return first 10 errors
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const stats = {
+      imported: importedCount,
+      updated: updatedCount,
+      errors: errorCount,
+      total: importedCount + updatedCount + errorCount,
+    };
+    await finalizeImportExecution(supabase, executionContext, true, stats, null);
+    executionContext = null;
+
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      action: 'drivers.csv_import',
+      resourceType: 'city',
+      resourceId: city_id,
+      result: 'succeeded',
+      correlationId: identity.correlationId,
+      metadata: stats,
+    });
+
+    return jsonResponse(req, 200, {
+      success: true,
+      stats,
+      errors: errors.slice(0, 10),
+    });
 
   } catch (error) {
-    console.error('💥 ERROR:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    let responseError = error;
+    if (executionContext && supabaseForFinalize) {
+      try {
+        await finalizeImportExecution(
+          supabaseForFinalize,
+          executionContext,
+          false,
+          null,
+          safeImportErrorCode(error),
+        );
+      } catch {
+        responseError = new SecurityError(503, 'import_finalize_failed', 'Nie można bezpiecznie zakończyć importu');
+      }
+    }
+    return errorResponse(req, responseError);
   }
 });
 
@@ -256,8 +464,6 @@ function parseCSV(csvText: string): string[][] {
   const semicolonCount = (firstLine.match(/;/g) || []).length;
   const commaCount = (firstLine.match(/,/g) || []).length;
   const separator = semicolonCount >= commaCount ? ';' : ',';
-  
-  console.log(`📝 CSV separator: '${separator}'`);
   
   return lines.map(line => parseCSVLine(line, separator));
 }
@@ -305,11 +511,7 @@ function cleanPhone(phone: string): string {
   return cleaned;
 }
 
-function generateGetRidoId(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+async function generateGetRidoId(payloadFingerprint: string, rowIndex: number): Promise<string> {
+  const digest = await sha256Hex(JSON.stringify(['driver_import_v1', payloadFingerprint, rowIndex]));
+  return `IMP${digest.slice(0, 13).toUpperCase()}`;
 }

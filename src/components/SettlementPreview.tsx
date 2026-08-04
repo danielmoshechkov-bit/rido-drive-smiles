@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+import { downloadFlatXlsx } from '@/utils/exportFlatXlsx';
 
 interface SettlementPreviewProps {
   periodId: string;
@@ -198,6 +198,10 @@ export const SettlementPreview = ({ periodId, periodFrom, periodTo }: Settlement
   };
 
   const exportToExcel = () => {
+    if (filteredSettlements.length > 10_000) {
+      toast.error('Eksport jest zbyt duży. Zawęź zakres rozliczeń.');
+      return;
+    }
     const data = filteredSettlements.map(s => ({
       'Kierowca': s.driver_name,
       'Email': s.email,
@@ -226,10 +230,9 @@ export const SettlementPreview = ({ periodId, periodFrom, periodTo }: Settlement
       'WYPŁATA': s.payout
     }));
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Rozliczenia');
-    XLSX.writeFile(wb, `rozliczenie_${periodFrom}_${periodTo}.xlsx`);
+    downloadFlatXlsx(data, `rozliczenie_${periodFrom}_${periodTo}.xlsx`, {
+      sheetName: 'Rozliczenia',
+    });
     toast.success('Wyeksportowano do Excel');
   };
 

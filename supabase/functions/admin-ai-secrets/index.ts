@@ -10,19 +10,23 @@
 // verify_jwt=false w config.toml — autoryzację robimy ręcznie (has_role admin).
 // ============================================================================
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecret, setSecret, secretStatus, encryptionAvailable } from "../_shared/aiSecrets.ts";
+import { consumeAiRateLimit } from "../_shared/aiSecurity.ts";
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  readJsonBody,
+  requireAdmin,
+  SecurityError,
+  writeAuditEvent,
+} from "../_shared/security.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+const ADMIN_SECRET_MAX_BODY_BYTES = 32_768;
+const ADMIN_SECRET_TEST_HOURLY_LIMIT = 10;
+const ADMIN_SECRET_TEST_DAILY_LIMIT = 30;
+const ADMIN_SECRET_PROVIDER_TIMEOUT_MS = 15_000;
 
 // Allowlista kluczy zarządzalnych z panelu (rozszerzalna — "jeden panel na wszystko").
 // test: jak realnie zweryfikować klucz u dostawcy.
@@ -39,7 +43,10 @@ async function testConnection(sb: any, kind: string): Promise<{ ok: boolean; mes
     if (kind === "elevenlabs") {
       const key = await getSecret(sb, "ELEVENLABS_API_KEY");
       if (!key) return { ok: false, message: "Brak klucza ElevenLabs" };
-      const res = await fetch("https://api.elevenlabs.io/v1/user", { headers: { "xi-api-key": key } });
+      const res = await fetch("https://api.elevenlabs.io/v1/user", {
+        headers: { "xi-api-key": key },
+        signal: AbortSignal.timeout(ADMIN_SECRET_PROVIDER_TIMEOUT_MS),
+      });
       if (res.ok) return { ok: true, message: "✓ ElevenLabs: połączenie działa" };
       if (res.status === 401) return { ok: false, message: "✗ ElevenLabs: klucz nieprawidłowy (401)" };
       return { ok: false, message: `✗ ElevenLabs: błąd ${res.status}` };
@@ -51,6 +58,7 @@ async function testConnection(sb: any, kind: string): Promise<{ ok: boolean; mes
       if (!sid || !token) return { ok: false, message: "Brak Twilio SID lub Auth Token" };
       const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}.json`, {
         headers: { Authorization: "Basic " + btoa(`${sid}:${token}`) },
+        signal: AbortSignal.timeout(ADMIN_SECRET_PROVIDER_TIMEOUT_MS),
       });
       if (res.ok) return { ok: true, message: "✓ Twilio: SID + token działają" };
       if (res.status === 401) return { ok: false, message: "✗ Twilio: SID lub token nieprawidłowy (401)" };
@@ -64,7 +72,10 @@ async function testConnection(sb: any, kind: string): Promise<{ ok: boolean; mes
       if (!sid || !token) return { ok: false, message: "Najpierw ustaw Twilio SID + Auth Token" };
       if (!number) return { ok: false, message: "Brak numeru Twilio" };
       const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(number)}`;
-      const res = await fetch(url, { headers: { Authorization: "Basic " + btoa(`${sid}:${token}`) } });
+      const res = await fetch(url, {
+        headers: { Authorization: "Basic " + btoa(`${sid}:${token}`) },
+        signal: AbortSignal.timeout(ADMIN_SECRET_PROVIDER_TIMEOUT_MS),
+      });
       if (res.status === 401) return { ok: false, message: "✗ Twilio: SID lub token nieprawidłowy (401)" };
       if (!res.ok) return { ok: false, message: `✗ Twilio: błąd ${res.status}` };
       const data = await res.json().catch(() => ({}));
@@ -77,7 +88,10 @@ async function testConnection(sb: any, kind: string): Promise<{ ok: boolean; mes
     if (kind === "deepgram") {
       const key = await getSecret(sb, "DEEPGRAM_API_KEY");
       if (!key) return { ok: false, message: "Brak klucza Deepgram" };
-      const res = await fetch("https://api.deepgram.com/v1/projects", { headers: { Authorization: `Token ${key}` } });
+      const res = await fetch("https://api.deepgram.com/v1/projects", {
+        headers: { Authorization: `Token ${key}` },
+        signal: AbortSignal.timeout(ADMIN_SECRET_PROVIDER_TIMEOUT_MS),
+      });
       if (res.ok) return { ok: true, message: "✓ Deepgram: połączenie działa" };
       if (res.status === 401) return { ok: false, message: "✗ Deepgram: klucz nieprawidłowy (401)" };
       return { ok: false, message: `✗ Deepgram: błąd ${res.status}` };
@@ -85,70 +99,110 @@ async function testConnection(sb: any, kind: string): Promise<{ ok: boolean; mes
 
     return { ok: false, message: "Nieznany typ testu" };
   } catch (e) {
-    return { ok: false, message: `✗ Błąd połączenia: ${(e as Error).message}` };
+    console.error("admin_ai_secret_provider_test_failed", e instanceof Error ? e.name : "unknown_error");
+    return { ok: false, message: "✗ Nie udało się zweryfikować połączenia" };
   }
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
-    if (!supabaseUrl || !serviceRoleKey || !anonKey) throw new Error("Brak konfiguracji Supabase w Edge Function");
+    if (req.method !== "POST") {
+      throw new SecurityError(405, "method_not_allowed", "Dozwolona jest wyłącznie metoda POST");
+    }
 
-    // --- Weryfikacja: zalogowany ADMIN (JWT) ---
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ success: false, error: "Brak autoryzacji" }, 401);
-
-    const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) return json({ success: false, error: "Brak autoryzacji" }, 401);
-
-    const admin = createClient(supabaseUrl, serviceRoleKey);
-    const { data: adminRole, error: roleError } = await admin
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .limit(1)
-      .maybeSingle();
-    if (roleError) throw roleError;
-    if (!adminRole) return json({ success: false, error: "Brak uprawnień administratora" }, 403);
+    const admin = createServiceClient();
+    const identity = await requireAdmin(req, admin);
 
     // --- Akcje ---
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonBody(req, ADMIN_SECRET_MAX_BODY_BYTES);
     const action = body?.action || "status";
 
     if (action === "status") {
       const keys = Object.keys(ALLOWED);
       const statuses = await Promise.all(keys.map((k) => secretStatus(admin, k)));
-      return json({ success: true, encryption: encryptionAvailable(), statuses });
+      await writeAuditEvent(admin, {
+        actorId: identity.userId,
+        action: "ai_secret.status",
+        resourceType: "ai_secret",
+        result: "succeeded",
+        correlationId: identity.correlationId,
+      });
+      return jsonResponse(req, 200, { success: true, encryption: encryptionAvailable(), statuses });
     }
 
     if (action === "set") {
       const key = String(body?.key || "");
       const value = String(body?.value ?? "");
-      if (!ALLOWED[key]) return json({ success: false, error: "Niedozwolony klucz" }, 400);
-      if (!value.trim()) return json({ success: false, error: "Pusta wartość klucza" }, 400);
-      await setSecret(admin, key, value.trim(), ALLOWED[key].group, user.id);
-      return json({ success: true, encrypted: encryptionAvailable() });
+      if (!ALLOWED[key]) throw new SecurityError(400, "secret_not_allowed", "Niedozwolony klucz");
+      if (!value.trim() || value.length > 16_384) {
+        throw new SecurityError(400, "invalid_secret", "Nieprawidłowa wartość sekretu");
+      }
+      if (!encryptionAvailable()) {
+        throw new SecurityError(503, "secret_encryption_unavailable", "Zapis sekretów wymaga skonfigurowanego szyfrowania");
+      }
+      await writeAuditEvent(admin, {
+        actorId: identity.userId,
+        action: "ai_secret.set",
+        resourceType: "ai_secret",
+        resourceId: key,
+        result: "attempted",
+        correlationId: identity.correlationId,
+      });
+      await setSecret(admin, key, value.trim(), ALLOWED[key].group, identity.userId);
+      await writeAuditEvent(admin, {
+        actorId: identity.userId,
+        action: "ai_secret.set",
+        resourceType: "ai_secret",
+        resourceId: key,
+        result: "succeeded",
+        correlationId: identity.correlationId,
+      });
+      return jsonResponse(req, 200, { success: true, encrypted: true });
     }
 
     if (action === "test") {
       const key = String(body?.key || "");
       const def = ALLOWED[key];
-      if (!def) return json({ success: false, error: "Niedozwolony klucz" }, 400);
-      if (!def.test) return json({ success: false, error: "Brak testu dla tego klucza" }, 400);
+      if (!def) throw new SecurityError(400, "secret_not_allowed", "Niedozwolony klucz");
+      if (!def.test) throw new SecurityError(400, "secret_test_unavailable", "Brak testu dla tego klucza");
+      await consumeAiRateLimit(admin, {
+        scope: "ai.admin_secret.test.user.hourly",
+        subjectId: identity.userId,
+        limit: ADMIN_SECRET_TEST_HOURLY_LIMIT,
+        windowSeconds: 3_600,
+      });
+      await consumeAiRateLimit(admin, {
+        scope: "ai.admin_secret.test.user.daily",
+        subjectId: identity.userId,
+        limit: ADMIN_SECRET_TEST_DAILY_LIMIT,
+        windowSeconds: 86_400,
+      });
+      await writeAuditEvent(admin, {
+        actorId: identity.userId,
+        action: "ai_secret.test",
+        resourceType: "ai_secret",
+        resourceId: key,
+        result: "attempted",
+        correlationId: identity.correlationId,
+      });
       const result = await testConnection(admin, def.test);
-      return json({ success: true, ...result });
+      await writeAuditEvent(admin, {
+        actorId: identity.userId,
+        action: "ai_secret.test",
+        resourceType: "ai_secret",
+        resourceId: key,
+        result: result.ok ? "succeeded" : "failed",
+        correlationId: identity.correlationId,
+        metadata: { provider_connection_ok: result.ok },
+      });
+      return jsonResponse(req, 200, { success: true, ...result });
     }
 
-    return json({ success: false, error: "Nieznana akcja" }, 400);
+    throw new SecurityError(400, "unknown_action", "Nieznana akcja");
   } catch (e) {
-    return json({ success: false, error: (e as Error).message }, 500);
+    return errorResponse(req, e);
   }
 });

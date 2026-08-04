@@ -2,17 +2,19 @@
   RewriteEngine On
   RewriteBase /
 
-  # www -> bez www (301)
-  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
-  RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+  # Obcy/www Host -> literalny host kanoniczny (bez odbijania Host w Location)
+  RewriteCond %{HTTP_HOST} !^getrido\.pl$ [NC]
+  RewriteRule ^(.*)$ https://getrido.pl/$1 [R=301,L]
 
   # http -> https (301)
   RewriteCond %{HTTPS} off
-  RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+  RewriteRule ^(.*)$ https://getrido.pl/$1 [R=301,L]
+
+  # Import CRM nie jest publicznym drzewem plikow. Zdjecia udostepnia proxy.
+  RewriteRule ^crm-import(?:/|$) - [F,L,NC]
 
   # Przepusc PHP proxy bez React Routera
   RewriteRule ^foto-proxy\.php$ - [L]
-  RewriteRule ^crm-import/(.*)$ - [L]
 
   # Don't rewrite files or directories that exist
   RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -31,6 +33,25 @@ ErrorDocument 404 /index.html
 # dlatego blok no-cache stoi PO bloku ogolnym (inaczej sw.js dostalby cache
 # z reguly *.js). Blok <If> dla /assets/ Apache i tak scala na samym koncu.
 <IfModule mod_headers.c>
+  # === SECURITY HEADERS ===
+  # Naglowki egzekwowane sa dla odpowiedzi sukcesu i bledow. CSP pozostaje
+  # Report-Only do czasu zebrania naruszen ze wszystkich modulow portalu.
+  Header always unset X-Powered-By
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(self), geolocation=(self), microphone=(self), payment=(self), usb=()"
+  Header always set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+  Header always set X-Permitted-Cross-Domain-Policies "none"
+  Header always set X-Download-Options "noopen"
+  Header always set Origin-Agent-Cluster "?1"
+  Header always set Content-Security-Policy-Report-Only "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self' https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss:; media-src 'self' data: blob: https:; frame-src 'self' https://www.youtube.com https://docs.google.com; worker-src 'self' blob:; manifest-src 'self'; upgrade-insecure-requests"
+
+  <If "%{HTTPS} == 'on'">
+    # Bez includeSubDomains do czasu inwentaryzacji TLS wszystkich subdomen.
+    Header always set Strict-Transport-Security "max-age=86400"
+  </If>
+
   # 1) Statyki bez hasha w nazwie (og-*.jpg, favicon, lovable-uploads/,
   #    robots.txt, obrazki z public/) - krotki cache z rewalidacja,
   #    bo bywaja podmieniane pod ta sama nazwa (np. og-getrido.jpg).
