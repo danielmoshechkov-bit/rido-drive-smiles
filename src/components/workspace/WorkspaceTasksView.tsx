@@ -48,8 +48,9 @@ interface ChecklistItem {
 
 interface TaskHistoryEntry {
   id: string;
-  user_name: string;
-  field_name: string;
+  user_name: string | null;
+  field_name: string | null;
+  action_type?: string;
   old_value: string | null;
   new_value: string | null;
   created_at: string;
@@ -116,7 +117,6 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (task) {
-      await logHistory(taskId, 'status', STATUS_CONFIG[task.status]?.label, STATUS_CONFIG[newStatus]?.label);
       // Notify task creator when completed
       if (newStatus === 'done' && task.created_by && task.created_by !== workspace.userId) {
         notifyTaskCompleted(project.id, task.title, taskId, task.created_by, workspace.userEmail || undefined);
@@ -174,18 +174,6 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
       .order("created_at", { ascending: false })
       .limit(30);
     setHistory((data || []) as TaskHistoryEntry[]);
-  };
-
-  const logHistory = async (taskId: string, field: string, oldVal: string | null | undefined, newVal: string | null | undefined) => {
-    if (!workspace.userId) return;
-    await (supabase as any).from("workspace_task_history").insert({
-      task_id: taskId,
-      user_id: workspace.userId,
-      user_name: workspace.userEmail,
-      field_name: field,
-      old_value: oldVal || null,
-      new_value: newVal || null,
-    });
   };
 
   const addChecklistItem = async () => {
@@ -478,7 +466,6 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
                     <div>
                       <Label className="text-xs text-muted-foreground">Priorytet</Label>
                       <Select value={detailTask.priority} onValueChange={async v => {
-                        await logHistory(detailTask.id, 'priority', PRIORITY_CONFIG[detailTask.priority]?.label, PRIORITY_CONFIG[v]?.label);
                         await workspace.updateTask(detailTask.id, { priority: v });
                         setDetailTask(prev => prev ? { ...prev, priority: v } : null);
                         setTasks(prev => prev.map(t => t.id === detailTask.id ? { ...t, priority: v } : t));
@@ -514,7 +501,6 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
                            const current = (detailTask.assigned_name || "").split(",").filter(Boolean).map(n => n.trim());
                            if (!current.includes(v)) {
                              const newVal = [...current, v].join(", ");
-                             await logHistory(detailTask.id, 'assigned_name', detailTask.assigned_name, newVal);
                              await workspace.updateTask(detailTask.id, { assigned_name: newVal });
                              setDetailTask(prev => prev ? { ...prev, assigned_name: newVal } : null);
                              setTasks(prev => prev.map(t => t.id === detailTask.id ? { ...t, assigned_name: newVal } : t));
@@ -765,7 +751,7 @@ export function WorkspaceTasksView({ project, workspace }: Props) {
                       <div>
                         <span className="font-medium">{h.user_name || 'System'}</span>
                         <span className="text-muted-foreground"> zmienił(a) </span>
-                        <span className="font-medium">{h.field_name}</span>
+                        <span className="font-medium">{h.field_name || h.action_type || "zmiana"}</span>
                         {h.old_value && <span className="text-muted-foreground"> z "{h.old_value}"</span>}
                         {h.new_value && <span className="text-muted-foreground"> na "{h.new_value}"</span>}
                         <p className="text-[10px] text-muted-foreground mt-0.5">

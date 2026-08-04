@@ -1,10 +1,17 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
 import { Resend } from 'https://esm.sh/resend@4.0.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requestCorrelationId,
+  requireAdmin,
+  requireInternalSecret,
+  SecurityError,
+  writeAuditEvent,
+  type RequestIdentity,
+} from '../_shared/security.ts';
+import { isUuid } from '../_shared/securityPrimitives.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
 
@@ -535,72 +542,149 @@ async function checkDriverExpiryDates(supabaseClient: any) {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+
+  let identity: RequestIdentity | null = null;
+  let auditClient: ReturnType<typeof createServiceClient> | null = null;
+  let auditAction = 'unknown';
+  const correlationId = requestCorrelationId(req);
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    );
+    const supabaseClient = createServiceClient();
+    auditClient = supabaseClient;
 
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/').filter(Boolean);
     const action = pathParts[pathParts.length - 1];
+    auditAction = action;
+
+    const isCron = req.method === 'POST' && action === 'cron';
+    if (isCron) {
+      requireInternalSecret(req, { envName: 'REMINDERS_CRON_INTERNAL_SECRET' });
+    } else {
+      identity = await requireAdmin(req, supabaseClient);
+    }
 
     switch (req.method) {
       case 'GET': {
         if (action === 'check') {
           // Manual trigger of expiry check
+          if (Deno.env.get('REMINDERS_DELIVERY_ENABLED') !== 'true') {
+            throw new SecurityError(503, 'reminder_delivery_disabled', 'Wysyłka przypomnień jest wyłączona do czasu konfiguracji idempotencji');
+          }
           console.log('Manual check triggered');
+          await writeAuditEvent(supabaseClient, {
+            actorId: identity?.userId,
+            action: 'reminders.expiry_check',
+            resourceType: 'reminder_queue',
+            result: 'attempted',
+            correlationId: identity?.correlationId ?? correlationId,
+          });
           const results = await checkDriverExpiryDates(supabaseClient);
-          
-          return new Response(JSON.stringify({
+
+          await writeAuditEvent(supabaseClient, {
+            actorId: identity?.userId,
+            action: 'reminders.expiry_check',
+            resourceType: 'reminder_queue',
+            result: 'succeeded',
+            correlationId: identity?.correlationId ?? correlationId,
+            metadata: { processed: results.length },
+          });
+          return jsonResponse(req, 200, {
             message: 'Driver expiry check completed',
             processed: results.length,
-            results
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            results,
           });
         } else {
           // Get reminders
           const status = url.searchParams.get('status') || 'open';
-          
+          if (!['open', 'pending', 'sent', 'done', 'cancelled'].includes(status)) {
+            throw new SecurityError(400, 'invalid_status', 'Nieprawidłowy status przypomnienia');
+          }
+
           const { data, error } = await supabaseClient
             .from('reminders')
             .select('*')
             .eq('status', status)
-            .order('due_date');
+            .order('due_date')
+            .limit(500);
 
           if (error) throw error;
 
-          return new Response(JSON.stringify(data), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          return jsonResponse(req, 200, data);
         }
       }
 
       case 'POST': {
         if (action === 'cron') {
           // This is called by a cron job
+          if (Deno.env.get('REMINDERS_DELIVERY_ENABLED') !== 'true') {
+            throw new SecurityError(503, 'reminder_delivery_disabled', 'Wysyłka przypomnień jest wyłączona do czasu konfiguracji idempotencji');
+          }
           console.log('Running scheduled driver reminder check...');
-          
+          await writeAuditEvent(supabaseClient, {
+            action: 'reminders.cron',
+            resourceType: 'reminder_queue',
+            result: 'attempted',
+            correlationId,
+          });
           const results = await checkDriverExpiryDates(supabaseClient);
-          
-          return new Response(JSON.stringify({
+
+          await writeAuditEvent(supabaseClient, {
+            action: 'reminders.cron',
+            resourceType: 'reminder_queue',
+            result: 'succeeded',
+            correlationId,
+            metadata: { processed: results.length },
+          });
+          return jsonResponse(req, 200, {
             message: 'Cron job completed - driver emails sent',
             processed: results.length,
             timestamp: new Date().toISOString(),
-            results
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            results,
           });
         } else {
           // Create manual reminder
-          const reminder = await req.json();
-          
+          const input = await req.json();
+          if (!input || typeof input !== 'object' || Array.isArray(input)) {
+            throw new SecurityError(400, 'invalid_body', 'Nieprawidłowe dane przypomnienia');
+          }
+          const entityId = (input as Record<string, unknown>).entity_id;
+          const dueDate = (input as Record<string, unknown>).due_date;
+          const title = (input as Record<string, unknown>).title;
+          const parsedDueDate = typeof dueDate === 'string' ? new Date(`${dueDate}T00:00:00Z`) : null;
+          if (
+            !isUuid(entityId) ||
+            typeof dueDate !== 'string' ||
+            !/^\d{4}-\d{2}-\d{2}$/.test(dueDate) ||
+            !parsedDueDate ||
+            Number.isNaN(parsedDueDate.getTime()) ||
+            parsedDueDate.toISOString().slice(0, 10) !== dueDate
+          ) {
+            throw new SecurityError(400, 'invalid_reminder', 'Nieprawidłowy zasób lub termin przypomnienia');
+          }
+          if (typeof title !== 'string' || !title.trim() || title.length > 200) {
+            throw new SecurityError(400, 'invalid_title', 'Nieprawidłowy tytuł przypomnienia');
+          }
+          const reminder = {
+            entity_type: typeof (input as any).entity_type === 'string' ? (input as any).entity_type.slice(0, 64) : 'Manual',
+            entity_id: entityId,
+            due_date: dueDate,
+            title: title.trim(),
+            notes: typeof (input as any).notes === 'string' ? (input as any).notes.slice(0, 2000) : null,
+            channel: typeof (input as any).channel === 'string' ? (input as any).channel.slice(0, 64) : 'manual',
+            status: 'open',
+          };
+
+          await writeAuditEvent(supabaseClient, {
+            actorId: identity?.userId,
+            action: 'reminders.create',
+            resourceType: reminder.entity_type,
+            resourceId: entityId,
+            result: 'attempted',
+            correlationId: identity?.correlationId ?? correlationId,
+          });
           const { data, error } = await supabaseClient
             .from('reminders')
             .insert([reminder])
@@ -609,24 +693,36 @@ Deno.serve(async (req) => {
 
           if (error) throw error;
 
-          return new Response(JSON.stringify(data), {
-            status: 201,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          await writeAuditEvent(supabaseClient, {
+            actorId: identity?.userId,
+            action: 'reminders.create',
+            resourceType: reminder.entity_type,
+            resourceId: entityId,
+            result: 'succeeded',
+            correlationId: identity?.correlationId ?? correlationId,
           });
+          return jsonResponse(req, 201, data);
         }
       }
 
       default:
-        return new Response(
-          JSON.stringify({ error: 'Method not allowed' }),
-          { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        throw new SecurityError(405, 'method_not_allowed', 'Metoda niedozwolona');
     }
   } catch (error) {
-    console.error('Error in reminders function:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    if (auditClient) {
+      try {
+        await writeAuditEvent(auditClient, {
+          actorId: identity?.userId,
+          action: `reminders.${auditAction}`,
+          resourceType: 'reminder_queue',
+          result: error instanceof SecurityError && (error.status === 401 || error.status === 403) ? 'denied' : 'failed',
+          correlationId: identity?.correlationId ?? correlationId,
+          metadata: { error_code: error instanceof SecurityError ? error.code : 'internal_error' },
+        });
+      } catch {
+        // Awaria zapisu audytu jest rejestrowana przez writeAuditEvent.
+      }
+    }
+    return errorResponse(req, error);
   }
 });

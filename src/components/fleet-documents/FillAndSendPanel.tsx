@@ -11,6 +11,11 @@ import { Send, Download, X, Users, Car, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import {
+  openSanitizedPrintWindow,
+  sanitizeDocumentHtml,
+  sanitizeTemplatePreviewHtml,
+} from '@/security/htmlSanitizer';
 
 interface FillAndSendPanelProps {
   open: boolean;
@@ -118,11 +123,13 @@ export const FillAndSendPanel = ({ open, onOpenChange, template, fleetId, onSent
     return content;
   }, [template?.content, fieldValues]);
 
+  const safeFilledContent = useMemo(
+    () => sanitizeDocumentHtml(filledContent),
+    [filledContent],
+  );
+
   const highlightedPreview = useMemo(() => {
-    return filledContent.replace(
-      /\{\{([A-Z0-9_]+)\}\}/g,
-      '<span style="background-color: #6C5CE730; color: #6C5CE7; padding: 2px 6px; border-radius: 4px; font-weight: 600;">{{$1}}</span>'
-    );
+    return sanitizeTemplatePreviewHtml(filledContent);
   }, [filledContent]);
 
   const missingFields = fields.filter(f => !fieldValues[f]?.trim());
@@ -147,7 +154,7 @@ export const FillAndSendPanel = ({ open, onOpenChange, template, fleetId, onSent
           driver_id: selectedDriverId,
           vehicle_id: selectedVehicleId || null,
           filled_data: fieldValues,
-          filled_content: filledContent,
+          filled_content: safeFilledContent,
           status: 'sent',
           sent_at: new Date().toISOString(),
           rental_price: rentalPrice ? parseFloat(rentalPrice) : null,
@@ -178,12 +185,7 @@ export const FillAndSendPanel = ({ open, onOpenChange, template, fleetId, onSent
   };
 
   const handleDownloadPdf = () => {
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(`<html><head><title>${template?.name || 'Dokument'}</title><style>body{font-family:'Times New Roman',serif;max-width:700px;margin:40px auto;padding:20px;line-height:1.8;white-space:pre-wrap;}</style></head><body>${filledContent}</body></html>`);
-      w.document.close();
-      w.print();
-    }
+    openSanitizedPrintWindow(template?.name || 'Dokument', `<pre>${safeFilledContent}</pre>`);
   };
 
   const resetState = () => {

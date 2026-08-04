@@ -112,43 +112,7 @@ export function MapWalletPanel() {
   // Topup mutation
   const topupMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedUser?.user_id) throw new Error('No user selected');
-      
-      const amount = parseInt(topupAmount);
-      if (isNaN(amount) || amount <= 0) throw new Error('Invalid amount');
-
-      // First ensure wallet exists - use raw query approach
-      const { data: existing } = await supabase
-        .from('user_wallets')
-        .select('*')
-        .eq('user_id', selectedUser.user_id)
-        .single();
-
-      const currentBalance = (existing as any)?.balance || (existing as any)?.balance_points || 0;
-
-      if (existing) {
-        const { error: updateErr } = await supabase
-          .from('user_wallets')
-          .update({ balance: currentBalance + amount } as any)
-          .eq('user_id', selectedUser.user_id);
-        if (updateErr) throw updateErr;
-      } else {
-        const { error: insertErr } = await supabase
-          .from('user_wallets')
-          .insert([{ user_id: selectedUser.user_id, balance: amount }] as any);
-        if (insertErr) throw insertErr;
-      }
-
-      // Record transaction
-      const { error: txErr } = await supabase
-        .from('wallet_transactions')
-        .insert([{
-          wallet_id: selectedUser.user_id,
-          type: 'topup',
-          amount: amount,
-          description: topupReason,
-        }] as any);
-      if (txErr) throw txErr;
+      throw new Error('Doładowanie wymaga reautoryzacji administratora, serwerowego ledgeru i audytu.');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] });

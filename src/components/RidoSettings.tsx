@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { CsvColumnMapping, FeeFormulas, defaultColumnMapping, defaultFeeFormulas } from "@/lib/csvMapping";
+import { getTrustedGoogleSheetsEmbedUrl } from "@/security/trustedContentUrl";
 
 interface RidoEnvSettings {
   active: "test" | "prod";
@@ -214,17 +215,7 @@ export default function RidoSettings() {
   };
 
   const saveSettings = async () => {
-    const { error } = await supabase
-      .from("rido_settings")
-      .update({ value: settings as any })
-      .eq("key", "rido_settings_env");
-
-    if (error) {
-      toast.error("Błąd zapisu ustawień");
-      console.error(error);
-    } else {
-      toast.success("✅ Ustawienia zapisane");
-    }
+    toast.error("Sekrety integracji przeniesiono do konfiguracji serwerowej. Ten zapis jest zablokowany do czasu wdrożenia bezpiecznego endpointu.");
   };
 
   const saveVisibilitySettings = async () => {
@@ -654,33 +645,8 @@ export default function RidoSettings() {
   };
 
   const sendToGoogleSheets = async (payload: any) => {
-    try {
-      const gsPayload = {
-        secret: currentEnv.secret,
-        ...payload,
-      };
-
-      if (currentEnv.use_base64) {
-        if (payload.uber_csv) gsPayload.uber_csv = textToBase64(payload.uber_csv);
-        if (payload.bolt_csv) gsPayload.bolt_csv = textToBase64(payload.bolt_csv);
-        if (payload.freenow_csv) gsPayload.freenow_csv = textToBase64(payload.freenow_csv);
-        if (payload.main_csv) gsPayload.main_csv = textToBase64(payload.main_csv);
-      }
-
-      const response = await fetch(currentEnv.script_url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(gsPayload),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast.success("✅ Dane wysłane również do Google Sheets");
-      }
-    } catch (error) {
-      console.error('Error sending to Google Sheets:', error);
-    }
+    void payload;
+    toast.warning("Eksport Google Sheets jest zablokowany do czasu wdrożenia uwierzytelnionego serwerowego proxy.");
   };
 
   const createNewSettlement = async () => {
@@ -689,53 +655,10 @@ export default function RidoSettings() {
       return;
     }
 
-    setIsCreating(true);
-
-    try {
-      const payload = {
-        secret: currentEnv.secret,
-        period_from: format(periodFrom, "yyyy-MM-dd"),
-        period_to: format(periodTo, "yyyy-MM-dd"),
-      };
-
-      const response = await fetch(currentEnv.script_url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        const { data, error } = await supabase
-          .from("rido_settlements")
-          .insert({
-            period_from: format(periodFrom, "yyyy-MM-dd"),
-            period_to: format(periodTo, "yyyy-MM-dd"),
-            status: "nowe",
-            sheet_url: currentEnv.sheet_url,
-          })
-          .select()
-          .single();
-
-        if (error) {
-          toast.error("Błąd zapisu rozliczenia");
-          console.error(error);
-        } else {
-          toast.success("✅ Rozliczenie utworzone");
-          loadSettlements();
-          setSelectedSheet(data.sheet_url);
-        }
-      } else {
-        toast.error("Błąd tworzenia rozliczenia: " + (result.message || ""));
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Błąd połączenia z Google Sheets");
-    } finally {
-      setIsCreating(false);
-    }
+    toast.error("Tworzenie rozliczenia przez skrypt Google jest zablokowane do czasu wdrożenia bezpiecznego serwerowego proxy.");
   };
+
+  const trustedSelectedSheet = getTrustedGoogleSheetsEmbedUrl(selectedSheet);
 
   return (
     <div className="space-y-6 p-6">
@@ -782,9 +705,9 @@ export default function RidoSettings() {
               <Input
                 id="secret"
                 type="password"
-                value={currentEnv.secret}
-                onChange={(e) => updateCurrentEnv("secret", e.target.value)}
-                placeholder="RIDO2025SUPER"
+                value=""
+                disabled
+                placeholder="Skonfigurowano wyłącznie po stronie serwera"
               />
             </div>
 
@@ -968,7 +891,7 @@ export default function RidoSettings() {
       </Card>
 
       {/* Iframe z arkuszem */}
-      {selectedSheet && (
+      {trustedSelectedSheet && (
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -978,10 +901,12 @@ export default function RidoSettings() {
           </CardHeader>
           <CardContent>
             <iframe
-              src={`${selectedSheet}${selectedSheet.includes("?") ? "&" : "?"}rm=minimal`}
+              src={trustedSelectedSheet}
               className="w-full border rounded-lg"
               style={{ height: "90vh" }}
               title="Google Sheets"
+              sandbox=""
+              referrerPolicy="no-referrer"
             />
           </CardContent>
         </Card>
@@ -1318,8 +1243,8 @@ export default function RidoSettings() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setSelectedSheet(settlement.sheet_url)}
-                    disabled={!settlement.sheet_url}
+                    onClick={() => setSelectedSheet(getTrustedGoogleSheetsEmbedUrl(settlement.sheet_url))}
+                    disabled={!getTrustedGoogleSheetsEmbedUrl(settlement.sheet_url)}
                   >
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Otwórz

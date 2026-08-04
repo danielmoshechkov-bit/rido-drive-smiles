@@ -1,6 +1,7 @@
 // Cron-triggered: dispatches due scheduled SMS from workshop_sms_log
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,8 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "workshop-send-scheduled-sms");
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

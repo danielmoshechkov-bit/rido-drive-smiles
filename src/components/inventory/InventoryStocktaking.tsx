@@ -14,6 +14,7 @@ import {
   Package,
   FileSpreadsheet
 } from 'lucide-react';
+import { openSanitizedPrintWindow } from '@/security/htmlSanitizer';
 
 interface StocktakingItem {
   id: string;
@@ -337,12 +338,7 @@ export function InventoryStocktaking({ entityId }: Props) {
       </html>
     `;
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.print();
-    }
+    openSanitizedPrintWindow('Inwentaryzacja', html);
   };
 
   if (loading && !activeStocktaking) {

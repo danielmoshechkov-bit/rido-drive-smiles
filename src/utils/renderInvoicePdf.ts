@@ -1,18 +1,12 @@
-// Render faktury/dokumentu (HTML) -> base64 PDF przez WŁASNY serwerowy endpoint
-// (public/invoice-pdf.php, Dompdf na LH.pl). Ten sam plik dla "Pobierz" i "Wyślij mailem".
-// Zwraca null gdy endpoint niedostępny (np. dev / błąd) -> wołający robi fallback
-// (druk przeglądarki / html2canvas). Bez zewnętrznych usług, bez opłat.
-export async function renderInvoicePdf(html: string): Promise<string | null> {
-  try {
-    const res = await fetch('/invoice-pdf.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json().catch(() => null);
-    return (data && typeof data.pdf_base64 === 'string') ? data.pdf_base64 : null;
-  } catch {
-    return null;
-  }
+// Kompatybilny, bezpieczny fallback. Publiczny endpoint PHP nie potrafi
+// wiarygodnie zweryfikować JWT, tenanta ani uprawnienia do dokumentu, dlatego
+// nie wysyłamy do niego HTML. Wywołujący otrzymuje null i korzysta z istniejącej
+// ścieżki lokalnego podglądu/drukowania.
+//
+// Przywrócenie renderowania wymaga uwierzytelnionej funkcji serwerowej, która
+// przyjmuje wyłącznie document_id, sama pobiera dane w tenant scope i generuje
+// PDF z kontrolowanego szablonu. Nie wolno przywracać POST { html }.
+export async function renderInvoicePdf(legacyHtml: string): Promise<string | null> {
+  void legacyHtml;
+  return null;
 }

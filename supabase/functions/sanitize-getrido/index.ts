@@ -1,10 +1,14 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requireAdmin,
+  SecurityError,
+  writeAuditEvent,
+} from '../_shared/security.ts';
+import { isUuid } from '../_shared/securityPrimitives.ts';
 
 // Check if value looks like a UUID
 function isUUID(value: string): boolean {
@@ -23,22 +27,32 @@ function looksLikeEmail(value: string): boolean {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const { city_id } = await req.json();
-
-    if (!city_id) {
-      throw new Error('city_id is required');
+    if (req.method !== 'POST') {
+      throw new SecurityError(405, 'method_not_allowed', 'Dozwolona jest wyłącznie metoda POST');
     }
 
-    console.log(`🧹 Sanitize GetRido ID started for city: ${city_id}`);
+    const supabase = createServiceClient();
+    const identity = await requireAdmin(req, supabase);
+
+    const body = await req.json().catch(() => null);
+    const city_id = body?.city_id;
+
+    if (!isUuid(city_id)) {
+      throw new SecurityError(400, 'invalid_city', 'Nieprawidłowy identyfikator miasta');
+    }
+
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      action: 'drivers.sanitize_getrido_id',
+      resourceType: 'city',
+      resourceId: city_id,
+      result: 'attempted',
+      correlationId: identity.correlationId,
+    });
 
     // Fetch all drivers with their platform IDs
     const { data: drivers, error: fetchError } = await supabase
@@ -46,9 +60,6 @@ serve(async (req) => {
       .select(`
         id,
         getrido_id,
-        email,
-        first_name,
-        last_name,
         driver_platform_ids (
           platform,
           platform_id
@@ -61,14 +72,22 @@ serve(async (req) => {
     }
 
     if (!drivers || drivers.length === 0) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'No drivers found for this city',
-          sanitized_count: 0,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      await writeAuditEvent(supabase, {
+        actorId: identity.userId,
+        action: 'drivers.sanitize_getrido_id',
+        resourceType: 'city',
+        resourceId: city_id,
+        result: 'succeeded',
+        correlationId: identity.correlationId,
+        metadata: { total_checked: 0, sanitized_count: 0 },
+      });
+      return jsonResponse(req, 200, {
+        success: true,
+        message: 'No drivers found for this city',
+        sanitized_count: 0,
+        total_checked: 0,
+        sanitized_drivers: [],
+      });
     }
 
     console.log(`Found ${drivers.length} drivers to check`);
@@ -113,9 +132,7 @@ serve(async (req) => {
       }
 
       if (shouldNullify) {
-        console.log(
-          `🔧 Nullifying getrido_id for driver ${driver.id} (${driver.first_name} ${driver.last_name}): "${getrido}" - ${reason}`
-        );
+        console.log('sanitize_getrido_id_match', { driver_id: driver.id, reason });
 
         const { error: updateError } = await supabase
           .from('drivers')
@@ -126,37 +143,30 @@ serve(async (req) => {
           console.error(`❌ Failed to update driver ${driver.id}:`, updateError);
         } else {
           sanitizedCount++;
-          sanitizedDrivers.push({
-            driver_id: driver.id,
-            name: `${driver.first_name} ${driver.last_name}`,
-            old_getrido_id: getrido,
-            reason,
-          });
+          sanitizedDrivers.push({ driver_id: driver.id, reason });
         }
       }
     }
 
     console.log(`✅ Sanitize completed: ${sanitizedCount} drivers updated`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        sanitized_count: sanitizedCount,
-        total_checked: drivers.length,
-        sanitized_drivers: sanitizedDrivers,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      action: 'drivers.sanitize_getrido_id',
+      resourceType: 'city',
+      resourceId: city_id,
+      result: 'succeeded',
+      correlationId: identity.correlationId,
+      metadata: { total_checked: drivers.length, sanitized_count: sanitizedCount },
+    });
+
+    return jsonResponse(req, 200, {
+      success: true,
+      sanitized_count: sanitizedCount,
+      total_checked: drivers.length,
+      sanitized_drivers: sanitizedDrivers,
+    });
   } catch (error) {
-    console.error('❌ Sanitize error:', error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return errorResponse(req, error);
   }
 });

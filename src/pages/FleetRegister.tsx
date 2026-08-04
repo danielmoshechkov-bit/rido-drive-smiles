@@ -14,6 +14,7 @@ import { ShortenLegalFormCheckbox } from "@/components/shared/ShortenLegalFormCh
 import { Step3Account } from "@/components/fleet/Step3Account";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
+import { validatePassword } from "@/security/passwordPolicy";
 
 interface FieldErrors {
   [key: string]: string | undefined;
@@ -154,7 +155,7 @@ export default function FleetRegister() {
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         errors.email = t("register.emailInvalid");
       }
-      if (formData.password.length < 6) errors.password = t("register.passwordMinLength");
+      if (!validatePassword(formData.password).valid) errors.password = t("register.passwordMinLength");
       if (formData.password !== formData.confirmPassword) errors.confirmPassword = t("register.passwordsMismatch");
     }
     

@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from './ui/use-toast';
 import { Mail, Send, Save, Eye, Server } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { sanitizeDocumentHtml } from '@/security/htmlSanitizer';
 
 interface EmailSettingsData {
   id: string;
@@ -323,7 +324,7 @@ export function EmailSettings() {
               <p className="text-sm text-muted-foreground mb-2">Podgląd z przykładowymi danymi:</p>
               <div 
                 className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: getPreviewHtml() }}
+                dangerouslySetInnerHTML={{ __html: sanitizeDocumentHtml(getPreviewHtml()) }}
               />
             </div>
           )}

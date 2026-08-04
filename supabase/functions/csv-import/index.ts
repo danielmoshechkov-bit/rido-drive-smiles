@@ -1,10 +1,143 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  createServiceClient,
+  consumeRateLimit,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requireAdmin,
+  readJsonBody,
+  SecurityError,
+  writeAuditEvent,
+} from '../_shared/security.ts';
+import { isUuid } from '../_shared/securityPrimitives.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const MAX_CSV_BYTES = 5_000_000;
+const MAX_CSV_ROWS = 10_000;
+const IMPORT_LEASE_SECONDS = 1_800;
+
+interface ImportExecutionContext {
+  executionId: string;
+  actorId: string;
+  tenantScopeId: string;
+  idempotencyKeyHash: string;
+  payloadFingerprint: string;
+  correlationId: string;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function readIdempotencyKey(req: Request): string | null {
+  const value = req.headers.get('x-idempotency-key')?.trim() ?? '';
+  if (!value) return null;
+  if (!/^[A-Za-z0-9._:-]{16,128}$/.test(value)) {
+    throw new SecurityError(400, 'invalid_idempotency_key', 'Nieprawidłowy klucz idempotencji');
+  }
+  return value;
+}
+
+async function claimImportExecution(
+  supabase: any,
+  req: Request,
+  actorId: string,
+  tenantScopeId: string,
+  correlationId: string,
+  payload: { csvText: string; periodFrom: string; periodTo: string },
+): Promise<{ context?: ImportExecutionContext; replaySummary?: Record<string, unknown> }> {
+  const payloadFingerprint = await sha256Hex(JSON.stringify([
+    'settlements_csv_v1',
+    tenantScopeId,
+    payload.periodFrom,
+    payload.periodTo,
+    payload.csvText,
+  ]));
+  const suppliedKey = readIdempotencyKey(req);
+  const idempotencyKeyHash = await sha256Hex(
+    suppliedKey ? `client_v1:${suppliedKey}` : `payload_v1:${payloadFingerprint}`,
+  );
+  const { data, error } = await supabase.rpc('phase_f_claim_import_execution', {
+    p_operation: 'settlements_csv',
+    p_actor_id: actorId,
+    p_tenant_scope_id: tenantScopeId,
+    p_idempotency_key_hash: idempotencyKeyHash,
+    p_payload_fingerprint: payloadFingerprint,
+    p_lease_seconds: IMPORT_LEASE_SECONDS,
+    p_correlation_id: correlationId,
+  });
+  if (error) {
+    console.error('csv_import_claim_failed', safeImportErrorCode(error));
+    throw new SecurityError(503, 'import_idempotency_unavailable', 'Nie można bezpiecznie rozpocząć importu');
+  }
+
+  const decision = typeof data?.decision === 'string' ? data.decision : '';
+  if (decision === 'succeeded' && data?.result_summary && typeof data.result_summary === 'object') {
+    return { replaySummary: data.result_summary as Record<string, unknown> };
+  }
+  if (decision === 'in_progress') {
+    throw new SecurityError(409, 'import_in_progress', 'Ten import jest już przetwarzany');
+  }
+  if (decision === 'payload_mismatch') {
+    throw new SecurityError(409, 'idempotency_payload_mismatch', 'Klucz idempotencji został użyty dla innych danych');
+  }
+  if (decision === 'actor_mismatch') {
+    throw new SecurityError(403, 'idempotency_actor_mismatch', 'Import należy do innego administratora');
+  }
+  if (decision === 'retry_exhausted') {
+    throw new SecurityError(409, 'import_retry_exhausted', 'Import wymaga ręcznego sprawdzenia przed ponowieniem');
+  }
+  if (decision !== 'claimed' || !isUuid(data?.execution_id)) {
+    throw new SecurityError(503, 'import_idempotency_unavailable', 'Nie można bezpiecznie rozpocząć importu');
+  }
+
+  return {
+    context: {
+      executionId: data.execution_id,
+      actorId,
+      tenantScopeId,
+      idempotencyKeyHash,
+      payloadFingerprint,
+      correlationId,
+    },
+  };
+}
+
+async function finalizeImportExecution(
+  supabase: any,
+  context: ImportExecutionContext,
+  succeeded: boolean,
+  resultSummary: Record<string, unknown> | null,
+  errorCode: string | null,
+): Promise<void> {
+  const { data, error } = await supabase.rpc('phase_f_finalize_import_execution', {
+    p_execution_id: context.executionId,
+    p_operation: 'settlements_csv',
+    p_actor_id: context.actorId,
+    p_tenant_scope_id: context.tenantScopeId,
+    p_idempotency_key_hash: context.idempotencyKeyHash,
+    p_payload_fingerprint: context.payloadFingerprint,
+    p_correlation_id: context.correlationId,
+    p_succeeded: succeeded,
+    p_result_summary: resultSummary,
+    p_error_code: errorCode,
+  });
+  if (error || data !== true) {
+    console.error('csv_import_finalize_failed', safeImportErrorCode(error));
+    throw new SecurityError(503, 'import_finalize_failed', 'Nie można bezpiecznie zakończyć importu');
+  }
+}
+
+function safeImportErrorCode(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' && /^[a-z0-9_]{1,32}$/i.test(code)) {
+      return code;
+    }
+  }
+  return 'unknown_error';
+}
 
 // Column mapping interface
 interface CsvColumnMapping {
@@ -119,7 +252,7 @@ async function isFirstImport(supabase: any): Promise<boolean> {
     .select('*', { count: 'exact', head: true });
   
   if (error) {
-    console.error('Error checking for existing drivers:', error);
+    console.error('csv_import_first_import_check_failed', safeImportErrorCode(error));
     return false;
   }
   
@@ -150,7 +283,7 @@ async function createAlert(
     });
   
   if (error) {
-    console.error('Error creating alert:', error);
+    console.error('csv_import_alert_write_failed', safeImportErrorCode(error));
   }
 }
 
@@ -217,28 +350,24 @@ async function updateDriverData(
     // Validate before updating
     if (isValidGetRidoId(getrido_id, row.uber_id, row.bolt_id, row.freenow_id)) {
       updateData.getrido_id = getrido_id;
-      console.log(`📝 Updating getrido_id: ${existingDriver.getrido_id} -> ${getrido_id}`);
     } else {
-      console.log(`⚠️ Skipping invalid getrido_id: "${getrido_id}" (UUID/email/numeric/platform ID)`);
+      console.info('csv_import_invalid_getrido_id_skipped');
     }
   }
   
   // Update phone if present in CSV and different
   if (row.phone && existingDriver.phone !== row.phone) {
     updateData.phone = row.phone;
-    console.log(`📝 Updating phone: ${existingDriver.phone} -> ${row.phone}`);
   }
   
   // Update fuel card if present in CSV and different
   if (fuel_card && existingDriver.fuel_card_number !== fuel_card) {
     updateData.fuel_card_number = fuel_card;
-    console.log(`📝 Updating fuel_card: ${existingDriver.fuel_card_number} -> ${fuel_card}`);
   }
   
   // Update email if present in CSV and different
   if (email && existingDriver.email !== email) {
     updateData.email = email;
-    console.log(`📝 Updating email: ${existingDriver.email} -> ${email}`);
   }
   
   // Execute update if there are changes
@@ -249,9 +378,7 @@ async function updateDriverData(
       .eq('id', existingDriver.id);
     
     if (error) {
-      console.error('⚠️ Error updating driver:', error);
-    } else {
-      console.log(`✅ Updated driver ${existingDriver.id}:`, updateData);
+      console.error('csv_import_driver_update_failed', safeImportErrorCode(error));
     }
   }
 }
@@ -293,9 +420,7 @@ async function upsertPlatformIds(
     const results = await Promise.all(operations);
     const errors = results.filter((r: any) => r.error).map((r: any) => r.error);
     if (errors.length) {
-      console.error('⚠️ Platform IDs upsert errors:', errors);
-    } else {
-      console.log(`✅ Upserted platform IDs for driver ${driverId}`);
+      console.error('csv_import_platform_id_upsert_failed', errors.length);
     }
   }
 }
@@ -305,7 +430,7 @@ async function ensureDriverUserMapping(
   supabase: any,
   driverId: string,
   cityId: string,
-  email?: string | null,
+  _email?: string | null,
   authUserId?: string | null
 ) {
   try {
@@ -315,35 +440,24 @@ async function ensureDriverUserMapping(
       .eq('driver_id', driverId)
       .maybeSingle();
     if (existingMap?.user_id) {
-      console.log(`🔗 Mapping already exists for driver ${driverId} -> user ${existingMap.user_id}`);
       return;
     }
 
-    let userId = authUserId || null;
-
-    if (!userId && email) {
-      const { data: list } = await supabase.auth.admin.listUsers();
-      const found = list?.users?.find((u: any) => u.email?.toLowerCase() === String(email).toLowerCase());
-      if (found) {
-        userId = found.id;
-      }
-    }
-
-    if (!userId) {
-      console.log(`⚠️ No auth user found to map for driver ${driverId}`);
+    // Import danych nie może łączyć kont wyłącznie na podstawie emaila z CSV.
+    // Mapowanie jest dozwolone tylko dla identyfikatora pochodzącego z osobnego,
+    // uwierzytelnionego procesu tworzenia lub zapraszania konta.
+    if (!authUserId) {
       return;
     }
 
     const { error } = await supabase
       .from('driver_app_users')
-      .upsert({ user_id: userId, driver_id: driverId, city_id: cityId }, { onConflict: 'user_id' });
+      .upsert({ user_id: authUserId, driver_id: driverId, city_id: cityId }, { onConflict: 'user_id' });
     if (error) {
-      console.error('❌ Failed to upsert driver_app_users mapping:', error);
-    } else {
-      console.log(`✅ Upserted driver_app_users mapping user ${userId} -> driver ${driverId}`);
+      console.error('csv_import_driver_mapping_failed', safeImportErrorCode(error));
     }
   } catch (e) {
-    console.error('💥 ensureDriverUserMapping error', e);
+    console.error('csv_import_driver_mapping_exception', safeImportErrorCode(e));
   }
 }
 
@@ -373,8 +487,8 @@ async function findOrCreateDriver(
       'warning',
       'validation',
       'Nieprawidłowy adres email',
-      `Email "${email}" dla kierowcy ${full_name} jest nieprawidłowy`,
-      { row },
+      'Wiersz importu zawiera nieprawidłowy adres email',
+      { code: 'invalid_email' },
       undefined,
       importJobId
     );
@@ -388,8 +502,8 @@ async function findOrCreateDriver(
       'error',
       'validation',
       'Brak danych identyfikacyjnych',
-      `Kierowca ${full_name} nie ma ani emaila ani ID platform (Uber/FreeNow) ani GetRido ID`,
-      { row },
+      'Wiersz importu nie zawiera wymaganego identyfikatora kierowcy',
+      { code: 'missing_driver_identifier' },
       undefined,
       importJobId
     );
@@ -405,7 +519,7 @@ async function findOrCreateDriver(
       .maybeSingle();
     
     if (existingDriver) {
-      console.log('✅ Matched driver by GetRido ID:', existingDriver.id, getrido_id);
+      console.info('csv_import_driver_matched', 'getrido_id');
       await updateDriverData(supabase, existingDriver, row, getrido_id, email, fuel_card);
       await upsertPlatformIds(supabase, existingDriver.id, uber_id, bolt_id, freenow_id);
       await ensureDriverUserMapping(supabase, existingDriver.id, cityId, email, null);
@@ -418,7 +532,7 @@ async function findOrCreateDriver(
     if (match.match_key === 'uber_id' && uber_id && match.match_value === uber_id) {
       const { data: driver } = await supabase.from('drivers').select('*').eq('id', match.driver_id).single();
       if (driver) {
-        console.log('Matched driver by manual uber_id match:', driver.id);
+        console.info('csv_import_driver_matched', 'manual_uber_id');
         await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         await upsertPlatformIds(supabase, driver.id, uber_id, bolt_id, freenow_id);
         await ensureDriverUserMapping(supabase, driver.id, cityId, email, null);
@@ -428,7 +542,7 @@ async function findOrCreateDriver(
     if (match.match_key === 'bolt_id' && bolt_id && match.match_value === bolt_id) {
       const { data: driver } = await supabase.from('drivers').select('*').eq('id', match.driver_id).single();
       if (driver) {
-        console.log('Matched driver by manual bolt_id match:', driver.id);
+        console.info('csv_import_driver_matched', 'manual_bolt_id');
         await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         await upsertPlatformIds(supabase, driver.id, uber_id, bolt_id, freenow_id);
         await ensureDriverUserMapping(supabase, driver.id, cityId, email, null);
@@ -438,7 +552,7 @@ async function findOrCreateDriver(
     if (match.match_key === 'freenow_id' && freenow_id && match.match_value === freenow_id) {
       const { data: driver } = await supabase.from('drivers').select('*').eq('id', match.driver_id).single();
       if (driver) {
-        console.log('Matched driver by manual freenow_id match:', driver.id);
+        console.info('csv_import_driver_matched', 'manual_freenow_id');
         await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         await upsertPlatformIds(supabase, driver.id, uber_id, bolt_id, freenow_id);
         await ensureDriverUserMapping(supabase, driver.id, cityId, email, null);
@@ -448,7 +562,7 @@ async function findOrCreateDriver(
     if (match.match_key === 'email' && email && match.match_value.toLowerCase() === email) {
       const { data: driver } = await supabase.from('drivers').select('*').eq('id', match.driver_id).single();
       if (driver) {
-        console.log('Matched driver by manual email match:', driver.id);
+        console.info('csv_import_driver_matched', 'manual_email');
         await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
         await upsertPlatformIds(supabase, driver.id, uber_id, bolt_id, freenow_id);
         await ensureDriverUserMapping(supabase, driver.id, cityId, email, null);
@@ -467,7 +581,7 @@ async function findOrCreateDriver(
       .maybeSingle();
     
     if (platformData && platformData.drivers) {
-      console.log('Found driver by Uber ID:', platformData.drivers.id);
+      console.info('csv_import_driver_matched', 'uber_id');
       await updateDriverData(supabase, platformData.drivers, row, getrido_id, email, fuel_card);
       await upsertPlatformIds(supabase, platformData.drivers.id, uber_id, bolt_id, freenow_id);
       await ensureDriverUserMapping(supabase, platformData.drivers.id, cityId, email, null);
@@ -485,7 +599,7 @@ async function findOrCreateDriver(
       .maybeSingle();
     
     if (platformData && platformData.drivers) {
-      console.log('Found driver by Bolt ID:', platformData.drivers.id);
+      console.info('csv_import_driver_matched', 'bolt_id');
       await updateDriverData(supabase, platformData.drivers, row, getrido_id, email, fuel_card);
       await upsertPlatformIds(supabase, platformData.drivers.id, uber_id, bolt_id, freenow_id);
       await ensureDriverUserMapping(supabase, platformData.drivers.id, cityId, email, null);
@@ -503,7 +617,7 @@ async function findOrCreateDriver(
       .maybeSingle();
     
     if (platformData && platformData.drivers) {
-      console.log('Found driver by FreeNow ID:', platformData.drivers.id);
+      console.info('csv_import_driver_matched', 'freenow_id');
       await updateDriverData(supabase, platformData.drivers, row, getrido_id, email, fuel_card);
       await upsertPlatformIds(supabase, platformData.drivers.id, uber_id, bolt_id, freenow_id);
       await ensureDriverUserMapping(supabase, platformData.drivers.id, cityId, email, null);
@@ -520,7 +634,7 @@ async function findOrCreateDriver(
       .limit(1);
     
     if (data && data.length > 0) {
-      console.log('Found driver by email:', data[0].id);
+      console.info('csv_import_driver_matched', 'email');
       await updateDriverData(supabase, data[0], row, getrido_id, email, fuel_card);
       await upsertPlatformIds(supabase, data[0].id, uber_id, bolt_id, freenow_id);
       await ensureDriverUserMapping(supabase, data[0].id, cityId, email, null);
@@ -540,7 +654,7 @@ async function findOrCreateDriver(
       for (const driver of allDrivers) {
         const driverName = `${driver.first_name} ${driver.last_name}`;
         if (normalizeName(driverName) === normalizedName) {
-          console.log('Found driver by normalized name:', driver.id);
+          console.info('csv_import_driver_matched', 'normalized_name');
           await updateDriverData(supabase, driver, row, getrido_id, email, fuel_card);
           await upsertPlatformIds(supabase, driver.id, uber_id, bolt_id, freenow_id);
           await ensureDriverUserMapping(supabase, driver.id, cityId, email, null);
@@ -551,84 +665,13 @@ async function findOrCreateDriver(
   }
   
   // 8. No match found - create new driver
-  console.log('No existing driver found, creating new one');
+  console.info('csv_import_driver_create_started');
   
-  // Determine login
-  const login = email || `driver_${getrido_id || uber_id || bolt_id || freenow_id}@rido.local`;
-  
-  // Create auth account
-  let authUserId = null;
-  try {
-    console.log(`🔐 Creating auth account for: ${login}`);
-    
-    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-      email: login,
-      password: 'Test12345!',
-      email_confirm: true,
-      user_metadata: { first_name, last_name }
-    });
-    
-    if (authError) {
-      // Check if user already exists
-      if (authError.message?.includes('already registered') || authError.message?.includes('already been registered')) {
-        console.log(`⚠️ User ${login} already exists, trying to find existing user`);
-        
-        // Try to find existing user by email
-        const { data: existingUsers } = await supabase.auth.admin.listUsers();
-        const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === login.toLowerCase());
-        
-        if (existingUser) {
-          console.log(`✅ Found existing user: ${existingUser.id}`);
-          authUserId = existingUser.id;
-        } else {
-          console.error('❌ User exists but could not find it');
-          await createAlert(
-            supabase,
-            'warning',
-            'system',
-            'Nie znaleziono istniejącego użytkownika',
-            `Email ${login} jest już zarejestrowany, ale nie można znaleźć użytkownika`,
-            { error: authError, login },
-            undefined,
-            importJobId
-          );
-        }
-      } else {
-        console.error('❌ Auth error:', authError);
-        await createAlert(
-          supabase,
-          'warning',
-          'system',
-          'Nie utworzono konta auth',
-          `Kierowca ${full_name} będzie dodany, ale nie utworzono konta logowania: ${authError.message}`,
-          { error: authError, login },
-          undefined,
-          importJobId
-        );
-      }
-    } else {
-      authUserId = authUser.user.id;
-      console.log(`✅ Created auth user: ${authUserId}`);
-    }
-  } catch (authErr) {
-    console.error('💥 Exception creating auth account:', authErr);
-    await createAlert(
-      supabase,
-      'error',
-      'system',
-      'Wyjątek podczas tworzenia konta',
-      `Nie udało się utworzyć konta dla ${full_name}: ${authErr instanceof Error ? authErr.message : String(authErr)}`,
-      { error: String(authErr), login },
-      undefined,
-      importJobId
-    );
-  }
-  
-  // Create driver record
+  // Import tworzy wyłącznie rekord domenowy kierowcy. Konto logowania musi
+  // powstać później przez osobny, audytowany proces jednorazowego zaproszenia.
   const { data: newDriver, error: insertError } = await supabase
     .from('drivers')
     .insert({
-      id: authUserId,
       first_name,
       last_name,
       email: email || null,
@@ -641,23 +684,21 @@ async function findOrCreateDriver(
     .single();
   
   if (insertError) {
-    console.error('Error creating driver:', insertError);
+    const errorCode = safeImportErrorCode(insertError);
+    console.error('csv_import_driver_create_failed', errorCode);
     await createAlert(
       supabase,
       'error',
       'import',
       'Błąd tworzenia kierowcy',
-      `Nie udało się utworzyć kierowcy ${full_name}: ${insertError.message}`,
-      { row, error: insertError },
+      'Nie udało się utworzyć rekordu kierowcy podczas importu',
+      { code: errorCode },
       undefined,
       importJobId
     );
     throw insertError;
   }
   
-  // Ensure driver_app_users mapping for new driver
-  await ensureDriverUserMapping(supabase, newDriver.id, cityId, email, authUserId);
-
   // Add platform IDs to separate table
   if (uber_id) {
     await supabase.from('driver_platform_ids').insert({
@@ -681,13 +722,13 @@ async function findOrCreateDriver(
     'new_driver',
     'import',
     'Nowy kierowca utworzony',
-    `${full_name} (${email || login}) - GetRido ID: ${getrido_id || 'brak'}`,
-    { firstImport, login, uber_id, freenow_id, getrido_id },
+    'Utworzono rekord kierowcy; konto oczekuje na bezpieczne zaproszenie',
+    { first_import: firstImport, account_state: 'pending_invite' },
     newDriver.id,
     importJobId
   );
   
-  console.log('Created new driver:', newDriver.id);
+  console.info('csv_import_driver_created');
   return { driver: newDriver, isNew: true, matchMethod: 'created' };
 }
 
@@ -782,7 +823,7 @@ async function parseCSV(csvText: string, supabase: any): Promise<CSVRow[]> {
       : null;
     
     if (getrido_id_candidate && !getrido_id_val) {
-      console.log(`⚠️ Row ${i}: Rejected invalid getrido_id "${getrido_id_candidate}"`);
+      console.info('csv_import_invalid_getrido_id_skipped', i);
     }
 
     const row: CSVRow = {
@@ -936,78 +977,124 @@ async function mapRowToAmounts(row: CSVRow, supabase: any): Promise<Record<strin
     fuel_vat_refund: fuelVatRefund,
   };
 
-  console.log(`💰 Calculated amounts for row:
-    Uber: D=${uberPayoutD}, F=${uberCashF}, Base=${uberBase}, Tax=${uberTax8}, Net=${uberNet}
-    Bolt: D=${boltProjectedD}, S=${boltPayoutS}, Tax=${boltTax8}, Net=${boltNet}
-    FreeNow: S=${freenowBaseS}, T=${freenowCommissionT}, F=${freenowCashF}, Tax=${freenowTax8}, Net=${freenowNet}
-  `);
-
   return amounts;
 }
 
-// Generate row ID for idempotency
-function generateRowId(driverId: string, periodFrom: string, periodTo: string, rowIndex: number): string {
+// Legacy key is used only to migrate matching pre-hardening rows in place.
+function generateLegacyRowId(driverId: string, periodFrom: string, periodTo: string, rowIndex: number): string {
   const data = `${driverId}-${periodFrom}-${periodTo}-${rowIndex}`;
   return btoa(data).replace(/[^a-zA-Z0-9]/g, '').substring(0, 50);
 }
 
+// The historical base64 key was truncated before period/row data for UUID driver IDs.
+// A complete SHA-256 key prevents cross-period collisions and remains deterministic.
+async function generateRowId(
+  driverId: string,
+  periodFrom: string,
+  periodTo: string,
+  rowIndex: number,
+): Promise<{ current: string; legacy: string }> {
+  const canonical = JSON.stringify([driverId, periodFrom, periodTo, rowIndex]);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  const hex = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  return {
+    current: `csv_v2_${hex}`,
+    legacy: generateLegacyRowId(driverId, periodFrom, periodTo, rowIndex),
+  };
+}
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
+  let supabaseForFinalize: any = null;
+  let executionContext: ImportExecutionContext | null = null;
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
+    if (req.method !== 'POST') {
+      throw new SecurityError(405, 'method_not_allowed', 'Dozwolona jest wyłącznie metoda POST');
+    }
+
+    const supabase = createServiceClient();
+    supabaseForFinalize = supabase;
+    const identity = await requireAdmin(req, supabase);
+    await consumeRateLimit(supabase, {
+      scope: 'admin.csv_import.user.hourly',
+      subjectId: identity.userId,
+      limit: 5,
+      windowSeconds: 3_600,
+    });
+    await consumeRateLimit(supabase, {
+      scope: 'admin.csv_import.user.daily',
+      subjectId: identity.userId,
+      limit: 20,
+      windowSeconds: 86_400,
+    });
+    const body = await readJsonBody(req, 5_100_000);
+    const csv_text = typeof body?.csv_text === 'string' ? body.csv_text : '';
+    const period_from = typeof body?.period_from === 'string' ? body.period_from : '';
+    const period_to = typeof body?.period_to === 'string' ? body.period_to : '';
+    const city_id = body?.city_id;
+    const force_first_import = body?.force_first_import === true;
+
+    if (!csv_text || !period_from || !period_to || !isUuid(city_id)) {
+      throw new SecurityError(400, 'invalid_import_payload', 'Nieprawidłowe dane importu CSV');
+    }
+    if (new TextEncoder().encode(csv_text).byteLength > MAX_CSV_BYTES) {
+      throw new SecurityError(413, 'csv_too_large', 'Plik CSV przekracza bezpieczny limit rozmiaru');
+    }
+    const fromDate = Date.parse(`${period_from}T00:00:00Z`);
+    const toDate = Date.parse(`${period_to}T00:00:00Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(period_from) || !/^\d{4}-\d{2}-\d{2}$/.test(period_to) ||
+      !Number.isFinite(fromDate) || !Number.isFinite(toDate) || fromDate > toDate) {
+      throw new SecurityError(400, 'invalid_import_period', 'Nieprawidłowy zakres dat importu');
+    }
+
+    if (force_first_import) {
+      await writeAuditEvent(supabase, {
+        actorId: identity.userId,
+        action: 'settlements.csv_import',
+        resourceType: 'city',
+        resourceId: city_id,
+        result: 'denied',
+        correlationId: identity.correlationId,
+        metadata: { reason: 'force_first_import_disabled' },
+      });
+      throw new SecurityError(409, 'force_first_import_disabled', 'Wymuszone czyszczenie bazy podczas importu jest wyłączone');
+    }
+
+    const claim = await claimImportExecution(
+      supabase,
+      req,
+      identity.userId,
+      city_id,
+      identity.correlationId,
+      { csvText: csv_text, periodFrom: period_from, periodTo: period_to },
+    );
+    if (claim.replaySummary) {
+      return jsonResponse(req, 200, {
+        success: true,
+        stats: claim.replaySummary,
+        idempotent_replay: true,
+      });
+    }
+    if (!claim.context) {
+      throw new SecurityError(503, 'import_idempotency_unavailable', 'Nie można bezpiecznie rozpocząć importu');
+    }
+    executionContext = claim.context;
+
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      action: 'settlements.csv_import',
+      resourceType: 'city',
+      resourceId: city_id,
+      result: 'attempted',
+      correlationId: identity.correlationId,
+      metadata: { period_from, period_to, csv_bytes: new TextEncoder().encode(csv_text).byteLength },
     });
 
-    const { csv_text, period_from, period_to, city_id, force_first_import } = await req.json();
-    
-    console.log('🚀 CSV Import started:', { 
-      period_from, 
-      period_to, 
-      city_id, 
-      force_first_import,
-      csv_length: csv_text?.length 
-    });
-    
-    if (!csv_text || !period_from || !period_to || !city_id) {
-      throw new Error('Missing required fields: csv_text, period_from, period_to, city_id');
-    }
-    
-    // Use force_first_import parameter or auto-detect
-    const firstImport = force_first_import === true || await isFirstImport(supabase);
-    
-    if (firstImport) {
-      console.log('⚠️ FIRST IMPORT - Deleting all drivers from database');
-      
-      // Delete all drivers (cascade will delete related data)
-      const { error: deleteError } = await supabase
-        .from('drivers')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      
-      if (deleteError) {
-        console.error('❌ Error deleting existing drivers:', deleteError);
-        throw new Error('Failed to reset database for first import');
-      }
-      
-      console.log('✅ All drivers deleted successfully');
-      
-      await createAlert(
-        supabase,
-        'info',
-        'system',
-        'Pierwszy import - baza zresetowana',
-        `Baza kierowców została wyczyszczona. ${force_first_import ? 'Użytkownik wymusił reset.' : 'Wykryto pustą bazę.'}`,
-        { period_from, period_to, forced: force_first_import }
-      );
-    }
+    // Flaga firstImport steruje wyłącznie dopasowaniem rekordów. Import nigdy
+    // nie usuwa istniejących kierowców ani kont.
+    const firstImport = await isFirstImport(supabase);
 
     // Fetch manual matches
     const { data: manualMatches } = await supabase
@@ -1019,19 +1106,21 @@ serve(async (req) => {
     // Create import job
     const { data: importJob, error: jobError } = await supabase
       .from('import_jobs')
-      .insert({
+      .upsert({
+        id: executionContext.executionId,
+        created_by: identity.userId,
         week_start: period_from,
         week_end: period_to,
         platform: 'csv',
         filename: 'settlements.csv',
         status: 'processing',
         city_id: city_id
-      })
+      }, { onConflict: 'id' })
       .select()
       .single();
     
     if (jobError) {
-      console.error('Error creating import job:', jobError);
+      console.error('csv_import_job_create_failed', safeImportErrorCode(jobError));
       throw jobError;
     }
     
@@ -1039,7 +1128,10 @@ serve(async (req) => {
     
     // Parse CSV
     const rows = await parseCSV(csv_text, supabase);
-    console.log(`Parsed ${rows.length} rows from CSV`);
+    if (rows.length > MAX_CSV_ROWS) {
+      throw new SecurityError(413, 'csv_too_many_rows', 'Plik CSV przekracza bezpieczny limit liczby wierszy');
+    }
+    console.info('csv_import_rows_parsed', rows.length);
     
     let added = 0;
     let updated = 0;
@@ -1076,36 +1168,48 @@ serve(async (req) => {
         // Map amounts using dynamic column mapping
         const amounts = await mapRowToAmounts(row, supabase);
         
-        // Generate row ID for idempotency
-        const rawRowId = generateRowId(driver.id, period_from, period_to, i);
-        
-        // Check if settlement already exists
-        const { data: existing } = await supabase
+        // Generate a collision-resistant row ID and look for the legacy key only
+        // within the same driver/period before migrating it in place.
+        const rowIds = await generateRowId(driver.id, period_from, period_to, i);
+        const { data: existingRows, error: existingLookupError } = await supabase
           .from('settlements')
-          .select('id')
-          .eq('raw_row_id', rawRowId)
-          .maybeSingle();
+          .select('id, raw_row_id')
+          .eq('driver_id', driver.id)
+          .eq('period_from', period_from)
+          .eq('period_to', period_to)
+          .in('raw_row_id', [rowIds.current, rowIds.legacy])
+          .limit(2);
+
+        if (existingLookupError) {
+          throw existingLookupError;
+        }
+
+        const existingCurrent = existingRows?.find((record: any) => record.raw_row_id === rowIds.current);
+        const existingLegacy = existingRows?.find((record: any) => record.raw_row_id === rowIds.legacy);
         
         // Store raw with col_X fields for backward compatibility
         const rawData = { ...row };
-        
-        if (existing) {
-          // Update existing
-          await supabase
+
+        if (existingLegacy && !existingCurrent) {
+          const { error: updateError } = await supabase
             .from('settlements')
             .update({
               amounts,
               raw: rawData,
+              raw_row_id: rowIds.current,
               updated_at: new Date().toISOString()
             })
-            .eq('id', existing.id);
-          
+            .eq('id', existingLegacy.id);
+
+          if (updateError) {
+            throw updateError;
+          }
           updated++;
         } else {
-          // Insert new
-          await supabase
+          // The unique raw_row_id index is the final concurrency boundary.
+          const { error: upsertError } = await supabase
             .from('settlements')
-            .insert({
+            .upsert({
               city_id,
               driver_id: driver.id,
               period_from,
@@ -1113,15 +1217,21 @@ serve(async (req) => {
               platform: 'main',
               source: 'csv_import',
               amounts,
-              raw: row,
-              raw_row_id: rawRowId
-            });
-          
-          added++;
+              raw: rawData,
+              raw_row_id: rowIds.current,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'raw_row_id' });
+
+          if (upsertError) {
+            throw upsertError;
+          }
+          if (existingCurrent) updated++;
+          else added++;
         }
         
       } catch (err) {
-        console.error(`Error processing row ${i}:`, err);
+        const errorCode = safeImportErrorCode(err);
+        console.error('csv_import_row_failed', i, errorCode);
         errors++;
         
         await createAlert(
@@ -1129,8 +1239,8 @@ serve(async (req) => {
           'error',
           'import',
           `Błąd przetwarzania wiersza ${i + 2}`,
-          `Nie udało się przetworzyć wiersza: ${err instanceof Error ? err.message : 'Nieznany błąd'}`,
-          { row, rowIndex: i + 2, error: String(err) },
+          'Nie udało się przetworzyć wiersza importu',
+          { row_index: i + 2, code: errorCode },
           undefined,
           importJobId
         );
@@ -1138,16 +1248,20 @@ serve(async (req) => {
     }
     
     // Update import job status
-    await supabase
+    const { error: importJobUpdateError } = await supabase
       .from('import_jobs')
       .update({ status: 'completed' })
       .eq('id', importJobId);
+    if (importJobUpdateError) {
+      throw importJobUpdateError;
+    }
     
     // Create import history record
-    await supabase
+    const { error: importHistoryError } = await supabase
       .from('import_history')
-      .insert({
+      .upsert({
         import_job_id: importJobId,
+        security_execution_id: executionContext.executionId,
         period_from,
         period_to,
         total_rows: rows.length,
@@ -1157,34 +1271,51 @@ serve(async (req) => {
         matched_drivers_count: matchedDriversCount,
         is_first_import: firstImport,
         filename: 'settlements.csv'
-      });
+      }, { onConflict: 'security_execution_id' });
+    if (importHistoryError) {
+      throw importHistoryError;
+    }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        stats: {
-          total: rows.length,
-          added,
-          updated,
-          errors,
-          newDrivers: newDriversCount,
-          matchedDrivers: matchedDriversCount,
-          isFirstImport: firstImport
-        }
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-    
+    const stats = {
+      total: rows.length,
+      added,
+      updated,
+      errors,
+      newDrivers: newDriversCount,
+      matchedDrivers: matchedDriversCount,
+      isFirstImport: firstImport,
+    };
+
+    await finalizeImportExecution(supabase, executionContext, true, stats, null);
+    executionContext = null;
+
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      action: 'settlements.csv_import',
+      resourceType: 'import_job',
+      resourceId: importJobId,
+      result: 'succeeded',
+      correlationId: identity.correlationId,
+      metadata: stats,
+    });
+
+    return jsonResponse(req, 200, { success: true, stats });
+
   } catch (error) {
-    console.error('CSV import error:', error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    let responseError = error;
+    if (executionContext && supabaseForFinalize) {
+      try {
+        await finalizeImportExecution(
+          supabaseForFinalize,
+          executionContext,
+          false,
+          null,
+          safeImportErrorCode(error),
+        );
+      } catch {
+        responseError = new SecurityError(503, 'import_finalize_failed', 'Nie można bezpiecznie zakończyć importu');
       }
-    );
+    }
+    return errorResponse(req, responseError);
   }
 });

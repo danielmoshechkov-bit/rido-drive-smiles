@@ -23,7 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
 import { ExistingInvoiceModal } from './ExistingInvoiceModal';
-import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
+import { generateInvoiceHtml, printHtmlDocument } from '@/utils/invoiceHtmlGenerator';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
 import { useWorkshopFinanceSettings } from '@/hooks/useWorkshopFinance';
@@ -410,15 +410,10 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       };
 
       const html = generateInvoiceHtml(invoiceData);
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
+      if (!printHtmlDocument(html)) {
         toast.error(t('workshop.orders.popupBlocked'));
         return;
       }
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => printWindow.print(), 400);
       toast.success(t('workshop.orders.confirmationGenerated'));
     } catch (e: any) {
       console.error('[generateServiceConfirmation]', e);

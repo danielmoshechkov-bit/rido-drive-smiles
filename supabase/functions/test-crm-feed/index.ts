@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,6 +7,8 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "test-crm-feed");
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   const json = (d: unknown, s = 200) =>

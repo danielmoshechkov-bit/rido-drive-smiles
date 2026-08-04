@@ -1,6 +1,7 @@
 // Diagnostyczna funkcja: wysyła test e-mail i zwraca PEŁNĄ odpowiedź SMTP serwera
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6.9.14";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,8 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "email-probe");
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

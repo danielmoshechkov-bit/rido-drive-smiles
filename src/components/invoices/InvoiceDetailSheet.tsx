@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
+import { generateInvoiceHtml, printHtmlDocument } from '@/utils/invoiceHtmlGenerator';
 import { 
   CheckCircle, 
   Download, 
@@ -241,15 +241,7 @@ export function InvoiceDetailSheet({ invoice, open, onOpenChange, onUpdate }: In
 
       // Generate HTML and open print window
       const html = generateInvoiceHtml(invoiceData);
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 300);
-      }
+      printHtmlDocument(html);
 
       toast.success('PDF gotowy do druku');
     } catch (err: any) {

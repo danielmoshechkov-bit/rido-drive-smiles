@@ -9,6 +9,7 @@ import { ManageDialog } from '@/components/rental/RentalPaymentsPanel';
 import { RentalProtocol } from '@/components/rental/RentalProtocol';
 import { generateBookingContract } from '@/components/rental/rentalContractMap';
 import { sendRentalSms, sendRentalEmail, contractLink } from '@/components/rental/rentalMessaging';
+import { sanitizeDocumentHtml } from '@/security/htmlSanitizer';
 
 const STATUS_LABEL: Record<string, string> = { new: 'Nowa', pending_confirmation: 'Do potwierdzenia', confirmed: 'Rezerwacja', in_progress: 'W trakcie', completed: 'Zakończony', cancelled: 'Anulowany', no_show: 'Nie stawił się' };
 const fmt = (iso?: string) => { try { return iso ? new Date(iso).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' }) : ''; } catch { return iso || ''; } };
@@ -160,7 +161,7 @@ export function RentalBookingWorkspace({ companyId, booking, onClose, onChanged 
 
         {/* Podgląd umowy */}
         <Dialog open={!!preview} onOpenChange={(v) => !v && setPreview(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Podgląd umowy</DialogTitle></DialogHeader><div dangerouslySetInnerHTML={{ __html: preview || '' }} /></DialogContent>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Podgląd umowy</DialogTitle></DialogHeader><div dangerouslySetInnerHTML={{ __html: sanitizeDocumentHtml(preview) }} /></DialogContent>
         </Dialog>
       </DialogContent>
 

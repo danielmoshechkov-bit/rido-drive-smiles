@@ -1,19 +1,13 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Eye, FileText } from 'lucide-react';
+import { sanitizeTemplatePreviewHtml } from '@/security/htmlSanitizer';
 
 interface TemplatePreviewModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   template: { name: string; content: string; version: string } | null;
   onFillAndSend?: () => void;
-}
-
-function highlightPlaceholders(content: string): string {
-  return content.replace(
-    /\{\{([A-Z0-9_]+)\}\}/g,
-    '<span style="background-color: #6C5CE730; color: #6C5CE7; padding: 2px 6px; border-radius: 4px; font-weight: 600;">{{$1}}</span>'
-  );
 }
 
 export const TemplatePreviewModal = ({ open, onOpenChange, template, onFillAndSend }: TemplatePreviewModalProps) => {
@@ -30,7 +24,7 @@ export const TemplatePreviewModal = ({ open, onOpenChange, template, onFillAndSe
         </DialogHeader>
         <div
           className="border rounded-lg p-6 bg-white dark:bg-muted/30 whitespace-pre-wrap text-sm leading-relaxed font-serif"
-          dangerouslySetInnerHTML={{ __html: highlightPlaceholders(template.content) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeTemplatePreviewHtml(template.content) }}
         />
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Zamknij</Button>

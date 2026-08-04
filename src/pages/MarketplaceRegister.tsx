@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Loader2, ArrowLeft, User, Mail, Lock, ShieldCheck } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
+import { validatePassword } from "@/security/passwordPolicy";
 
 interface FieldErrors {
   email?: string;
@@ -61,7 +62,7 @@ export default function MarketplaceRegister() {
       errors.email = t("register.emailInvalid");
     }
 
-    if (formData.password.length < 6) {
+    if (!validatePassword(formData.password).valid) {
       errors.password = t("register.passwordMinLength");
     }
 
@@ -285,7 +286,7 @@ export default function MarketplaceRegister() {
                     placeholder={t("register.passwordMinPlaceholder")}
                     className={`pl-10 ${fieldErrors.password ? 'border-destructive ring-1 ring-destructive' : ''}`}
                     required
-                    minLength={6}
+                    minLength={12}
                   />
                 </div>
                 {fieldErrors.password && (

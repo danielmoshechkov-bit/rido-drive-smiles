@@ -1,6 +1,7 @@
 // Cron-driven: dodaje hot/warm leady (ai_priority='hot' lub ai_score>=70) do call_queue jeśli nie są jeszcze w kolejce
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,8 @@ const cors = {
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "auto-queue-hot-leads");
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   const supabase = createClient(

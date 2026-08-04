@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { PORTAL_LANGS } from '@/i18n';
 import { translateContentBatch } from '@/lib/contentTranslation';
 import { useMechanicCardPrefs, MECHANIC_CARD_FIELDS } from '@/hooks/useMechanicCardPrefs';
+import { writeSanitizedDocumentToWindow } from '@/security/htmlSanitizer';
 
 interface Props {
   open: boolean;
@@ -109,7 +110,11 @@ export function WorkshopMechanicCardDialog({ open, onOpenChange, order }: Props)
     const lang = effectivePrintLang;
     // Etykiety/nagłówki karty w wybranym języku wydruku (niezależnie od języka UI).
     const pt = i18n.getFixedT(lang);
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;color:#555;padding:24px;">${pt('workshop.mechanicCard.printPreparing')}</body></html>`);
+    writeSanitizedDocumentToWindow(
+      win,
+      pt('workshop.mechanicCard.printHeading'),
+      `<p>${escapeHtml(pt('workshop.mechanicCard.printPreparing'))}</p>`,
+    );
 
     const cleanTasks = tasks.filter(x => x.trim());
     const cleanParts = parts.filter(p => p.name.trim());
@@ -192,11 +197,15 @@ export function WorkshopMechanicCardDialog({ open, onOpenChange, order }: Props)
         <div>${pt('workshop.mechanicCard.signatureLine')}</div>
         <div>${pt('workshop.mechanicCard.completionDateLine')}</div>
       </div>
-      <script>window.onload = () => { window.print(); }<\/script>
       </body></html>`;
-    win.document.open();
-    win.document.write(html);
-    win.document.close();
+    if (writeSanitizedDocumentToWindow(
+      win,
+      pt('workshop.mechanicCard.printTitle', { number: order.order_number || '' }),
+      html,
+    )) {
+      win.focus();
+      win.print();
+    }
     setPrinting(false);
   };
 

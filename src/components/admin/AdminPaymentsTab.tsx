@@ -528,8 +528,16 @@ function CreditPackagesManager() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from('credit_packages' as any).select('*').order('credit_type').order('price').then(({ data }) => {
-      setPackages((data as any[]) || []);
+    supabase.from('billing_public_products' as any).select('*').order('benefit_type').order('amount_minor').then(({ data }) => {
+      const canonicalPackages = ((data as any[]) || []).map((row) => ({
+        ...row,
+        id: row.price_id,
+        credit_type: row.benefit_type,
+        credits_amount: Number(row.benefit_amount),
+        price: Number(row.amount_minor) / 100,
+        is_active: true,
+      }));
+      setPackages(canonicalPackages);
       setLoading(false);
     });
   }, []);

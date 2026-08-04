@@ -45,6 +45,13 @@ const DEFAULT_CENTER = { lat: 52.2297, lng: 21.0122 }; // Warsaw - fallback only
 const DEFAULT_RADIUS = 1000; // 1000m - default for local search
 const MIN_RADIUS = 100;
 const MAX_RADIUS = 50000;
+const SAFE_MAP_IMAGE_URL = /^(?:(?:https?):|\/(?!\/)|\.\.?\/)/i;
+
+function safeMapImageUrl(value?: string): string | null {
+  if (!value) return null;
+  const compact = value.trim().replace(/[\u0000-\u0020\u007f-\u009f]/g, "");
+  return SAFE_MAP_IMAGE_URL.test(compact) ? compact : null;
+}
 
 // Douglas-Peucker algorithm for polygon simplification
 function simplifyPolygon(points: Array<{ lat: number; lng: number }>, tolerance: number): Array<{ lat: number; lng: number }> {
@@ -224,7 +231,14 @@ export function LocationMapModal({
     const bgColor = isRentListing ? "#3b82f6" : "#10b981";
     const div = document.createElement("div");
     div.style.cssText = `display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);cursor:pointer;`;
-    div.innerHTML = `<div style="background:white;color:#1a1a1a;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);border:2px solid ${bgColor};">${formatPriceFull(listing.price)}</div><div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid ${bgColor};margin-top:-1px;"></div>`;
+    const label = document.createElement("div");
+    label.style.cssText = "background:white;color:#1a1a1a;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.25);";
+    label.style.border = `2px solid ${bgColor}`;
+    label.textContent = formatPriceFull(listing.price);
+    const arrow = document.createElement("div");
+    arrow.style.cssText = "width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;margin-top:-1px;";
+    arrow.style.borderTop = `6px solid ${bgColor}`;
+    div.append(label, arrow);
     return div;
   }, []);
 
@@ -233,7 +247,13 @@ export function LocationMapModal({
     const fontSize = count > 100 ? 15 : count > 30 ? 14 : 13;
     const div = document.createElement("div");
     div.style.cssText = `display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);cursor:pointer;`;
-    div.innerHTML = `<div style="width:${size}px;height:${size}px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;font-weight:700;box-shadow:0 3px 12px rgba(124,58,237,0.4),0 0 0 4px rgba(124,58,237,0.15);border:2px solid rgba(255,255,255,0.8);">${count}</div>`;
+    const badge = document.createElement("div");
+    badge.style.cssText = "border-radius:50%;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 3px 12px rgba(124,58,237,0.4),0 0 0 4px rgba(124,58,237,0.15);border:2px solid rgba(255,255,255,0.8);";
+    badge.style.width = `${size}px`;
+    badge.style.height = `${size}px`;
+    badge.style.fontSize = `${fontSize}px`;
+    badge.textContent = String(count);
+    div.appendChild(badge);
     return div;
   }, []);
 
@@ -255,7 +275,32 @@ export function LocationMapModal({
   }, [google]);
 
   const showListingInfo = useCallback((map: google.maps.Map, iw: google.maps.InfoWindow, listing: PropertyListingForMap) => {
-    iw.setContent(`<div style="max-width:280px;font-family:system-ui,sans-serif;">${listing.photos?.[0] ? `<img src="${listing.photos[0]}" style="width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;" />` : ''}<div style="padding:12px;"><h3 style="margin:0 0 6px;font-size:14px;font-weight:600;">${listing.title}</h3><div style="font-size:18px;font-weight:700;color:#7c3aed;">${formatPriceFull(listing.price)}</div><div style="font-size:12px;color:#6b7280;">${listing.areaM2} m² ${listing.rooms ? `• ${listing.rooms} pok.` : ''} • ${listing.location}</div></div></div>`);
+    const content = document.createElement("div");
+    content.style.cssText = "max-width:280px;font-family:system-ui,sans-serif;";
+    const photoUrl = safeMapImageUrl(listing.photos?.[0]);
+    if (photoUrl) {
+      const image = document.createElement("img");
+      image.src = photoUrl;
+      image.alt = listing.title || "Zdjęcie nieruchomości";
+      image.loading = "lazy";
+      image.referrerPolicy = "no-referrer";
+      image.style.cssText = "width:100%;height:120px;object-fit:cover;border-radius:8px 8px 0 0;";
+      content.appendChild(image);
+    }
+    const details = document.createElement("div");
+    details.style.padding = "12px";
+    const title = document.createElement("h3");
+    title.style.cssText = "margin:0 0 6px;font-size:14px;font-weight:600;";
+    title.textContent = listing.title;
+    const price = document.createElement("div");
+    price.style.cssText = "font-size:18px;font-weight:700;color:#7c3aed;";
+    price.textContent = formatPriceFull(listing.price);
+    const meta = document.createElement("div");
+    meta.style.cssText = "font-size:12px;color:#6b7280;";
+    meta.textContent = `${listing.areaM2} m²${listing.rooms ? ` • ${listing.rooms} pok.` : ""} • ${listing.location}`;
+    details.append(title, price, meta);
+    content.appendChild(details);
+    iw.setContent(content);
     iw.setPosition({ lat: listing.lat!, lng: listing.lng! });
     iw.open(map);
   }, []);

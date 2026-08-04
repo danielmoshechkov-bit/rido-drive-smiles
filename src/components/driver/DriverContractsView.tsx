@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { generateRentalContractHtml, ContractData } from "@/utils/rentalContractGenerator";
+import { sanitizeDocumentHtml } from "@/security/htmlSanitizer";
 
 interface DriverContract {
   id: string;
@@ -245,9 +246,11 @@ export function DriverContractsView({ driverId }: DriverContractsViewProps) {
               <div 
                 className="border rounded-lg p-6 bg-white max-h-[60vh] overflow-y-auto"
                 dangerouslySetInnerHTML={{ 
-                  __html: contractHtml
-                    .replace(/<html.*?<body>/gs, '')
-                    .replace(/<\/body>.*?<\/html>/gs, '')
+                  __html: sanitizeDocumentHtml(
+                    contractHtml
+                      .replace(/<html.*?<body>/gs, '')
+                      .replace(/<\/body>.*?<\/html>/gs, '')
+                  )
                 }} 
               />
 

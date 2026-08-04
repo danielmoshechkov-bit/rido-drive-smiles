@@ -235,8 +235,16 @@ export function useWorkspace() {
   }, []);
 
   const removeMember = useCallback(async (memberId: string) => {
-    await supabase.from("workspace_project_members").delete().eq("id", memberId);
+    const { error } = await (supabase as any).rpc("phase_c_remove_workspace_member", {
+      p_member_id: memberId,
+    });
+    if (error) {
+      console.error("removeMember:", error);
+      toast.error("Brak uprawnień do usunięcia członka");
+      return false;
+    }
     toast.success("Usunięto z projektu");
+    return true;
   }, []);
 
   // Messages

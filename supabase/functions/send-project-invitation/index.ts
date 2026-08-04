@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 // Zaproszenia do projektów wychodzą TYM SAMYM kanałem co maile systemowe
 // (potwierdzenie rejestracji itd.): firmowy SMTP z tabeli email_settings
@@ -19,6 +20,8 @@ interface InvitationRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  return phaseABlockedResponse(req, "send-project-invitation");
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 /**
  * AI Call Webhook for Meta/Facebook Lead Ads
@@ -26,6 +27,8 @@ interface MetaLeadPayload {
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "ai-call-webhook-meta");
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,9 +11,10 @@ import {
   Loader2,
   Save
 } from 'lucide-react';
-import { InvoiceData, generateInvoiceHtml } from '@/utils/invoiceHtmlGenerator';
+import { InvoiceData, generateInvoiceHtml, printHtmlDocument } from '@/utils/invoiceHtmlGenerator';
 import { renderInvoicePdf } from '@/utils/renderInvoicePdf';
 import { PdfCanvasPreview } from './PdfCanvasPreview';
+import { sanitizeIsolatedPreviewHtml } from '@/security/htmlSanitizer';
 
 // Zamień URL logo sprzedawcy na data-URI, żeby render PDF nie zależał od plików na serwerze.
 async function withEmbeddedLogo(inv: InvoiceData): Promise<InvoiceData> {
@@ -71,6 +72,10 @@ export function InvoicePreviewModal({
   // przez pdf.js na canvas). Gdy endpoint niedostępny (np. dev bez PHP) → podgląd HTML.
   const [previewPdfBase64, setPreviewPdfBase64] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const safePreviewHtml = useMemo(
+    () => sanitizeIsolatedPreviewHtml(open ? generateInvoiceHtml(invoiceData) : ''),
+    [open, invoiceData],
+  );
 
   const syncIframeHeight = () => {
     const iframe = iframeRef.current;
@@ -154,13 +159,7 @@ export function InvoicePreviewModal({
       return;
     }
     // Fallback: druk przeglądarki (jak dotychczas) — gdy renderer niedostępny.
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => { printWindow.print(); }, 250);
-    }
+    printHtmlDocument(html);
   };
 
   const handleSaveClick = async () => {
@@ -313,10 +312,11 @@ export function InvoicePreviewModal({
                     className="w-full border-0 block"
                     style={{ height: `${iframeHeight}px`, overflow: 'hidden' }}
                     title="Podgląd faktury"
-                    sandbox="allow-same-origin"
+                    sandbox=""
+                    referrerPolicy="no-referrer"
                     scrolling="no"
                     onLoad={syncIframeHeight}
-                    srcDoc={open ? generateInvoiceHtml(invoiceData) : ''}
+                    srcDoc={safePreviewHtml}
                   />
                 </div>
               </div>

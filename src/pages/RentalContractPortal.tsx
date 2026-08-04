@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { SignaturePad } from '@/components/fleet/SignaturePad';
 import { toast } from 'sonner';
+import { sanitizeDocumentHtml } from '@/security/htmlSanitizer';
 
 /**
  * Publiczny portal podpisu umowy najmu (bez logowania) — token = bookings.confirmation_token.
@@ -54,7 +55,7 @@ export default function RentalContractPortal() {
         <Card className="p-4 max-h-[55vh] overflow-y-auto" onScroll={(e) => {
           const el = e.currentTarget; if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) setScrolledEnd(true);
         }}>
-          <div dangerouslySetInnerHTML={{ __html: data.instance.filled_content || '' }} />
+          <div dangerouslySetInnerHTML={{ __html: sanitizeDocumentHtml(data.instance.filled_content) }} />
         </Card>
         {!scrolledEnd && <p className="text-xs text-muted-foreground text-center">Przewiń umowę do końca, aby kontynuować.</p>}
         {scrolledEnd && (

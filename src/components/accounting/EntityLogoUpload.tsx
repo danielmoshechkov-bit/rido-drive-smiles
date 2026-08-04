@@ -36,12 +36,15 @@ export function EntityLogoUpload({
 
     setUploading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Wymagane jest uwierzytelnienie');
+
       // Compress image automatically - no size limit for user
       const compressedBlob = await compressLogoImage(file);
       
       // Generate unique filename
       const fileName = `${entityId}-${Date.now()}.jpg`;
-      const filePath = `logos/${fileName}`;
+      const filePath = `user/${user.id}/${fileName}`;
       const compressedFile = new File([compressedBlob], fileName, { type: 'image/jpeg' });
 
       // Upload to storage
@@ -89,10 +92,15 @@ export function EntityLogoUpload({
 
     setDeleting(true);
     try {
-      // Extract file path from URL
-      const urlParts = currentLogoUrl.split('/');
-      const fileName = urlParts[urlParts.length - 1];
-      const filePath = `logos/${fileName}`;
+      // Nowe obiekty zachowują bezpieczny prefiks user/<uid>/. Dla starego
+      // URL pozostawiamy kompatybilny fallback; polityka storage może odmówić
+      // usunięcia legacy obiektu i wtedy usuwamy wyłącznie referencję z encji.
+      const marker = '/entity-logos/';
+      const encodedPath = currentLogoUrl.includes(marker)
+        ? currentLogoUrl.split(marker)[1]?.split('?')[0]
+        : null;
+      const fileName = currentLogoUrl.split('/').pop()?.split('?')[0];
+      const filePath = encodedPath ? decodeURIComponent(encodedPath) : `logos/${fileName}`;
 
       // Delete from storage
       await supabase.storage

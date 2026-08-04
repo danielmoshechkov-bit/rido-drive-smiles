@@ -8,17 +8,28 @@
 //                        + workshop_orders(booking_id => ZLP-, status "Umówiony telefonicznie")
 //
 // Gate uprawnień: calendar_access / orders_access z voice_agent_configs.
-// Auth: zalogowany użytkownik = właściciel providera (test); później service-role
-// dla telefonii. Wstawki przez service_role (bypass RLS).
+// Auth: zweryfikowany użytkownik albo krótkotrwałe, związane z rozmową capability.
+// Narzędzia zapisujące są fail-closed do czasu uruchomienia transakcyjnej bramy.
 // ============================================================================
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+import {
+  SecurityError,
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  readJsonBody,
+  requireUser,
+  requestCorrelationId,
+  resolveProviderForUser,
+  writeAuditEvent,
+} from "../_shared/security.ts";
+import {
+  consumeAiRateLimit,
+  requireAiLiveRuntimeEnabled,
+  verifyAiCapabilityToken,
+  type VerifiedAiCapabilityClaims,
+} from "../_shared/aiSecurity.ts";
 
 const norm9 = (p: string) => (p || "").replace(/\D/g, "").slice(-9);
 const normPlate = (p: string) => (p || "").toUpperCase().replace(/\s/g, "");
@@ -32,57 +43,149 @@ const addMinutes = (date: string, time: string, mins: number) => {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+  if (req.method !== "POST") return jsonResponse(req, 405, { error: "method_not_allowed" });
+  const json = (body: unknown, status = 200) => jsonResponse(req, status, body);
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
-    const admin = createClient(supabaseUrl, serviceRoleKey);
+    const admin = createServiceClient();
 
-    const authHeader = req.headers.get("Authorization");
-    const body = await req.json().catch(() => ({}));
+    const body = await readJsonBody(req, 256_000);
     const action = String(body?.action || "");
-    let providerId = String(body?.provider_id || "");
-    const personaKey = String(body?.persona_key || "workshop_secretary");
-
-    // --- Autoryzacja: user-owner (test) albo service-role (telefonia w 1.5) ---
-    const isServiceCall = authHeader === `Bearer ${serviceRoleKey}`;
-    if (!isServiceCall) {
-      if (!authHeader) return json({ ok: false, error: "Brak autoryzacji" }, 401);
-      const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-      const { data: { user }, error: aerr } = await userClient.auth.getUser();
-      if (aerr || !user) return json({ ok: false, error: "Brak autoryzacji" }, 401);
-      // resolwuj/weryfikuj providera użytkownika
-      if (!providerId) {
-        const { data: sp } = await admin.from("service_providers").select("id").eq("user_id", user.id).maybeSingle();
-        providerId = sp?.id || "";
-      } else {
-        const { data: sp } = await admin.from("service_providers").select("id").eq("id", providerId).eq("user_id", user.id).maybeSingle();
-        const { data: isAdmin } = await admin.from("user_roles").select("id").eq("user_id", user.id).eq("role", "admin").maybeSingle();
-        if (!sp && !isAdmin) return json({ ok: false, error: "Brak dostępu do tego providera" }, 403);
-      }
+    const personaKey = String(body?.persona_key || "workshop_secretary").slice(0, 64);
+    if (!/^[a-z0-9_-]+$/i.test(personaKey)) {
+      throw new SecurityError(400, "invalid_persona", "Nieprawidłowa persona");
     }
-    if (!providerId) return json({ ok: false, error: "Brak provider_id" }, 400);
+    if (!new Set(["check_availability", "create_booking", "create_order"]).has(action)) {
+      throw new SecurityError(400, "unknown_action", "Nieznana akcja narzędzia");
+    }
+
+    const capabilityToken = req.headers.get("x-rido-ai-capability");
+    if (req.headers.has("x-rido-internal-secret")) {
+      throw new SecurityError(401, "legacy_internal_auth_disabled", "Wspólny sekret integracji głosowej jest wyłączony");
+    }
+    let identity: Awaited<ReturnType<typeof requireUser>> | null = null;
+    let capability: VerifiedAiCapabilityClaims | null = null;
+    const requestedProviderId = typeof body?.provider_id === "string" ? body.provider_id : "";
+    const requestedConfigId = typeof body?.config_id === "string" ? body.config_id : "";
+    const requestedCallId = typeof body?.call_id === "string" ? body.call_id : "";
+    if (capabilityToken) {
+      capability = await verifyAiCapabilityToken(
+        capabilityToken,
+        Deno.env.get("AI_CAPABILITY_SIGNING_SECRET") || "",
+        {
+          binding: {
+            providerId: requestedProviderId,
+            configId: requestedConfigId,
+            callId: requestedCallId,
+            personaKey,
+            scope: action === "check_availability" ? "voice.tool.read" : "voice.tool.write",
+          },
+        },
+      );
+    } else {
+      identity = await requireUser(req, admin);
+    }
+    const correlationId = identity?.correlationId ?? requestCorrelationId(req);
+
+    let providerId: string;
+    let tenantId: string | null = null;
+    if (identity) {
+      const provider = await resolveProviderForUser(admin, identity, requestedProviderId || undefined);
+      providerId = provider.id;
+      tenantId = provider.company_id;
+    } else if (capability) {
+      const { data: provider, error: providerError } = await admin.from("service_providers")
+        .select("id, company_id")
+        .eq("id", requestedProviderId)
+        .maybeSingle();
+      if (providerError || !provider) throw new SecurityError(403, "provider_access_denied", "Brak dostępu do usługodawcy");
+      providerId = provider.id;
+      tenantId = provider.company_id;
+    } else {
+      throw new SecurityError(401, "unauthorized", "Wymagane jest uwierzytelnienie");
+    }
 
     // --- Konfig agenta (uprawnienia) ---
-    const { data: cfg } = await admin
+    const { data: cfg, error: configError } = await admin
       .from("voice_agent_configs")
-      .select("calendar_access, orders_access")
+      .select("id, calendar_access, orders_access, is_active, privacy_confirmed, kill_switch_enabled, dry_run_tools, max_tool_calls_per_conversation, daily_tool_call_limit")
       .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
+    if (configError || !cfg) throw new SecurityError(404, "agent_config_not_found", "Brak konfiguracji agenta");
+    if (capability && cfg.id !== capability.config_id) {
+      throw new SecurityError(403, "ai_capability_binding_denied", "Capability AI nie pasuje do konfiguracji");
+    }
     const calendarAccess = !!cfg?.calendar_access;
     const ordersAccess = !!cfg?.orders_access;
 
+    if (capability) {
+      requireAiLiveRuntimeEnabled(Deno.env.get("AI_VOICE_LIVE_EXECUTION_ENABLED"));
+      const [featureResult, runtimeResult] = await Promise.all([
+        admin.from("ai_feature_flags").select("is_enabled").eq("flag_key", "ai_agents_enabled").maybeSingle(),
+        admin.from("ai_global_runtime_control").select("kill_switch_enabled").eq("control_key", "global").maybeSingle(),
+      ]);
+      if (featureResult.error || runtimeResult.error
+        || featureResult.data?.is_enabled !== true
+        || runtimeResult.data?.kill_switch_enabled !== false
+        || cfg.kill_switch_enabled !== false
+        || cfg.dry_run_tools !== false
+        || cfg.is_active !== true
+        || cfg.privacy_confirmed !== true
+        || Number(cfg.max_tool_calls_per_conversation) <= 0
+        || Number(cfg.daily_tool_call_limit) <= 0) {
+        throw new SecurityError(503, "voice_agent_disabled", "Agent głosowy jest wyłączony");
+      }
+    }
+
+    await consumeAiRateLimit(admin, {
+      scope: identity ? "ai.voice.tool.user" : "ai.voice.tool.live",
+      subjectId: identity?.userId ?? cfg.id,
+      limit: identity ? 60 : 120,
+      windowSeconds: 60,
+    });
+    await consumeAiRateLimit(admin, {
+      scope: "ai.voice.tool.provider.daily",
+      subjectId: providerId,
+      limit: 2_000,
+      windowSeconds: 86_400,
+    });
+
+    if (action === "create_booking" || action === "create_order") {
+      await writeAuditEvent(admin, {
+        actorId: identity?.userId ?? null,
+        tenantId,
+        action: `ai.voice_tool.${action}`,
+        resourceType: "voice_agent_config",
+        resourceId: providerId,
+        result: "denied",
+        correlationId,
+        metadata: { reason: "transactional_gateway_required", persona_key: personaKey },
+      });
+      return jsonResponse(req, 503, {
+        ok: false,
+        error: "voice_write_tools_disabled",
+        message: "Narzędzia zapisujące są zablokowane do czasu uruchomienia transakcyjnej bramy",
+      });
+    }
+
     // ========================= CHECK AVAILABILITY =========================
     if (action === "check_availability") {
+      if (!calendarAccess) throw new SecurityError(403, "calendar_access_denied", "Agent nie ma dostępu do kalendarza");
       const date = String(body?.date || "");
-      const duration = Number(body?.duration_minutes) || 60;
-      if (!date) return json({ ok: false, error: "Brak daty" }, 400);
+      const duration = Number(body?.duration_minutes ?? 60);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00`).getTime())) {
+        throw new SecurityError(400, "invalid_date", "Nieprawidłowa data");
+      }
+      if (!Number.isInteger(duration) || duration < 15 || duration > 480) {
+        throw new SecurityError(400, "invalid_duration", "Nieprawidłowy czas usługi");
+      }
 
       // godziny pracy (service_working_hours -> fallback 9-17)
       const dow = new Date(`${date}T00:00:00`).getDay(); // 0=nd
       let fromH = 9, toH = 17;
-      const { data: wh } = await admin.from("service_working_hours")
+      const { data: wh, error: workingHoursError } = await admin.from("service_working_hours")
         .select("*").eq("provider_id", providerId).eq("day_of_week", dow).maybeSingle();
+      if (workingHoursError) throw new SecurityError(503, "calendar_unavailable", "Nie można pobrać godzin pracy");
       if (wh) {
         if (wh.is_open === false || wh.is_closed === true) return json({ ok: true, slots: [], note: "Nieczynne tego dnia" });
         const s = wh.start_time || wh.open_time, e = wh.end_time || wh.close_time;
@@ -90,13 +193,15 @@ serve(async (req) => {
         if (e) toH = parseInt(String(e).slice(0, 2));
       }
       // pojemność = liczba aktywnych stanowisk (min 1)
-      const { count: stations } = await admin.from("workshop_workstations")
+      const { count: stations, error: stationsError } = await admin.from("workshop_workstations")
         .select("id", { count: "exact", head: true }).eq("provider_id", providerId).eq("is_active", true);
+      if (stationsError) throw new SecurityError(503, "calendar_unavailable", "Nie można pobrać stanowisk");
       const capacity = Math.max(1, stations || 0);
       // zajętość z service_bookings tego dnia
-      const { data: booked } = await admin.from("service_bookings")
+      const { data: booked, error: bookedError } = await admin.from("service_bookings")
         .select("scheduled_time, duration_minutes").eq("provider_id", providerId)
         .eq("scheduled_date", date).not("status", "in", "(cancelled,rejected)");
+      if (bookedError) throw new SecurityError(503, "calendar_unavailable", "Nie można pobrać dostępności");
       const load: Record<string, number> = {};
       for (const b of booked || []) {
         const start = parseInt(String(b.scheduled_time).slice(0, 2)) * 60 + parseInt(String(b.scheduled_time).slice(3, 5));
@@ -104,12 +209,27 @@ serve(async (req) => {
         for (let m = start; m < start + dur; m += 30) { const k = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; load[k] = (load[k] || 0) + 1; }
       }
       const slots: string[] = [];
-      for (let h = fromH; h < toH; h++) {
-        for (const mm of ["00", "30"]) {
-          const t = `${String(h).padStart(2, "0")}:${mm}`;
-          if ((load[t] || 0) < capacity) slots.push(t);
+      for (let start = fromH * 60; start + duration <= toH * 60; start += 30) {
+        let available = true;
+        for (let minute = start; minute < start + duration; minute += 30) {
+          const key = `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+          if ((load[key] || 0) >= capacity) {
+            available = false;
+            break;
+          }
         }
+        if (available) slots.push(`${String(Math.floor(start / 60)).padStart(2, "0")}:${String(start % 60).padStart(2, "0")}`);
       }
+      await writeAuditEvent(admin, {
+        actorId: identity?.userId ?? null,
+        tenantId,
+        action: "ai.voice_tool.check_availability",
+        resourceType: "voice_agent_config",
+        resourceId: cfg.id,
+        result: "succeeded",
+        correlationId,
+        metadata: { persona_key: personaKey, date, slot_count: slots.length },
+      });
       return json({ ok: true, date, slots, capacity });
     }
 
@@ -156,26 +276,15 @@ serve(async (req) => {
         status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
       }).select("id, confirmation_token").maybeSingle();
 
-      // 1.4 — SMS potwierdzenia OD RAZU (data, godzina, adres, link do zarządzania). Best-effort.
+      // Wysyłka SMS z tej ścieżki pozostaje celowo wyłączona. Przywrócenie
+      // wymaga osobnego capability `voice.sms.write`, atomowego claimu narzędzia
+      // i serwerowego powiązania odbiorcy; wspólny sekret nie jest akceptowany.
       let smsSent = false;
       let manageLink: string | null = null;
-      try {
-        if (wcb?.confirmation_token) {
-          const appBase = Deno.env.get("APP_PUBLIC_URL") || "https://preview--rido-drive-smiles.lovable.app";
-          manageLink = `${appBase}/r/${wcb.confirmation_token}`;
-          const { data: prov } = await admin.from("service_providers").select("company_name, address, city").eq("id", providerId).maybeSingle();
-          const company = prov?.company_name || "serwis";
-          const addr = [prov?.address, prov?.city].filter(Boolean).join(", ");
-          const msg = `Potwierdzenie wizyty: ${company}, ${date} godz. ${time}.` + (addr ? ` Adres: ${addr}.` : "") + ` Zarzadzaj rezerwacja (anuluj/przesun): ${manageLink}`;
-          const r = await fetch(`${supabaseUrl}/functions/v1/workshop-send-sms`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
-            body: JSON.stringify({ provider_id: providerId, phone, message: msg, sms_type: "booking_confirmation_ai", appointment_id: wcb.id }),
-          });
-          const rj = await r.json().catch(() => ({}));
-          smsSent = !rj?.error;
-        }
-      } catch (_) { /* SMS best-effort — nie blokuje rezerwacji */ }
+      if (wcb?.confirmation_token) {
+        const appBase = Deno.env.get("APP_PUBLIC_URL") || "https://preview--rido-drive-smiles.lovable.app";
+        manageLink = `${appBase}/r/${wcb.confirmation_token}`;
+      }
 
       return json({
         ok: true, booking_id: sb.id,
@@ -265,6 +374,6 @@ serve(async (req) => {
 
     return json({ ok: false, error: "Nieznana akcja" }, 400);
   } catch (e) {
-    return json({ ok: false, error: (e as Error).message }, 500);
+    return errorResponse(req, e);
   }
 });

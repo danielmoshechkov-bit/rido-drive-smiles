@@ -49,14 +49,8 @@ export function useVehicleLookup(userId?: string) {
       if (data) {
         setCredits(data);
       } else {
-        // Create initial record with 0 credits
-        const { data: newData } = await supabase
-          .from('vehicle_lookup_credits')
-          .insert({ user_id: userId, remaining_credits: 0, total_credits_purchased: 0 })
-          .select('remaining_credits, total_credits_purchased')
-          .single();
-        if (newData) setCredits(newData);
-        else setCredits({ remaining_credits: 0, total_credits_purchased: 0 });
+        // Rekord i ewentualny bonus może utworzyć wyłącznie zaufany backend.
+        setCredits({ remaining_credits: 0, total_credits_purchased: 0 });
       }
     } catch (err) {
       console.error(err);
@@ -155,44 +149,16 @@ export function useVehicleLookup(userId?: string) {
     }
   }, [userId, fetchCredits, runWithQuota]);
 
-  const purchaseCredits = useCallback(async (amount: number, priceNet: number) => {
-    if (!userId) return false;
-    try {
-      // For now, simulate purchase (payment gateway integration later)
-      const currentCredits = credits?.remaining_credits || 0;
-      const totalPurchased = credits?.total_credits_purchased || 0;
-
-      const { error } = await supabase
-        .from('vehicle_lookup_credits')
-        .update({
-          remaining_credits: currentCredits + amount,
-          total_credits_purchased: totalPurchased + amount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId);
-
-      if (error) {
-        toast.error('Błąd zakupu kredytów');
-        return false;
-      }
-
-      await supabase.from('vehicle_lookup_credit_transactions').insert({
-        user_id: userId,
-        type: 'purchase',
-        credits: amount,
-        price_net: priceNet,
-        source: 'payment',
-        note: `Zakup ${amount} kredytów za ${priceNet.toFixed(2)} zł netto`,
-      });
-
-      await fetchCredits();
-      toast.success(`Dodano ${amount} kredytów!`);
-      return true;
-    } catch {
-      toast.error('Błąd zakupu');
+  const purchaseCredits = useCallback(async (_amount: number, _priceNet: number) => {
+    if (!userId) {
+      toast.error('Musisz być zalogowany');
       return false;
     }
-  }, [userId, credits, fetchCredits]);
+    toast.error(
+      'Zakup kredytów pojazdowych jest wstrzymany do czasu skonfigurowania serwerowego pakietu płatności.',
+    );
+    return false;
+  }, [userId]);
 
   return {
     credits,

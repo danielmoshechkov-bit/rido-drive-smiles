@@ -1,11 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { computeExcelDebtValues, deriveRawPayoutFromSnapshot, round2 } from "../_shared/driverDebtExcel.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requestCorrelationId,
+  requireInternalSecret,
+  requireUser,
+  SecurityError,
+  writeAuditEvent,
+  type RequestIdentity,
+} from "../_shared/security.ts";
+import { isUuid } from "../_shared/securityPrimitives.ts";
 
 interface DebtUpdateRequest {
   driver_id: string;
@@ -19,21 +26,122 @@ interface DebtUpdateRequest {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+
+  let auditClient: ReturnType<typeof createServiceClient> | null = null;
+  let auditIdentity: RequestIdentity | null = null;
+  let auditResourceId: string | null = null;
+  let auditTenantId: string | null = null;
+  const correlationId = requestCorrelationId(req);
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Missing Supabase environment variables");
+    if (req.method !== "POST") {
+      throw new SecurityError(405, "method_not_allowed", "Dozwolona jest wyłącznie metoda POST");
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createServiceClient();
+    auditClient = supabase;
+    let identity: RequestIdentity | null = null;
+    const hasInternalCredential = req.headers.has("x-internal-secret");
+    if (hasInternalCredential) {
+      requireInternalSecret(req, { envName: "DEBT_UPDATE_INTERNAL_SECRET" });
+    } else {
+      identity = await requireUser(req, supabase);
+      auditIdentity = identity;
+    }
 
-    const { driver_id, settlement_id, period_from, period_to, calculated_payout, calculated_payout_without_rental, rental_fee, force_recalculate_chain }: DebtUpdateRequest = await req.json();
+    const input: DebtUpdateRequest = await req.json();
+    if (!isUuid(input?.settlement_id)) {
+      throw new SecurityError(400, "invalid_settlement", "Nieprawidłowy identyfikator rozliczenia");
+    }
+    if (input.driver_id && !isUuid(input.driver_id)) {
+      throw new SecurityError(400, "invalid_driver", "Nieprawidłowy identyfikator kierowcy");
+    }
+
+    const { data: canonicalSettlement, error: settlementError } = await supabase
+      .from("settlements")
+      .select("id, driver_id, period_from, period_to")
+      .eq("id", input.settlement_id)
+      .maybeSingle();
+    if (settlementError) throw new SecurityError(503, "authorization_unavailable", "Nie można potwierdzić rozliczenia");
+    if (!canonicalSettlement) throw new SecurityError(404, "settlement_not_found", "Rozliczenie nie istnieje");
+
+    const { data: canonicalDriver, error: driverError } = await supabase
+      .from("drivers")
+      .select("id, fleet_id")
+      .eq("id", canonicalSettlement.driver_id)
+      .maybeSingle();
+    if (driverError) throw new SecurityError(503, "authorization_unavailable", "Nie można potwierdzić floty");
+    if (!canonicalDriver) throw new SecurityError(404, "driver_not_found", "Kierowca nie istnieje");
+
+    if (
+      (input.driver_id && input.driver_id !== canonicalSettlement.driver_id) ||
+      (input.period_from && input.period_from !== canonicalSettlement.period_from) ||
+      (input.period_to && input.period_to !== canonicalSettlement.period_to)
+    ) {
+      throw new SecurityError(403, "resource_mismatch", "Dane żądania nie należą do wskazanego rozliczenia");
+    }
+
+    const fleetId = canonicalDriver.fleet_id as string | null;
+    if (identity) {
+      const canManageFleet = identity.isAdmin || (!!fleetId && identity.fleetRoles.some(({ role, fleetId: roleFleetId }) => (
+        roleFleetId === fleetId && (role === "fleet_settlement" || role === "fleet_rental")
+      )));
+      if (!canManageFleet) {
+        throw new SecurityError(403, "cross_tenant_denied", "Brak uprawnień do rozliczeń tej floty");
+      }
+    }
+
+    const calculatedPayout = Number(input.calculated_payout);
+    if (!Number.isFinite(calculatedPayout) || Math.abs(calculatedPayout) > 1_000_000) {
+      throw new SecurityError(400, "invalid_payout", "Nieprawidłowa wartość rozliczenia");
+    }
+
+    const driver_id = canonicalSettlement.driver_id as string;
+    const settlement_id = canonicalSettlement.id as string;
+    const period_from = canonicalSettlement.period_from as string;
+    const period_to = canonicalSettlement.period_to as string;
+    const calculated_payout = round2(calculatedPayout);
+    const force_recalculate_chain = input.force_recalculate_chain === true;
+    auditResourceId = settlement_id;
+    auditTenantId = identity?.companyIds.length === 1 ? identity.companyIds[0] : null;
+
+    await writeAuditEvent(supabase, {
+      actorId: identity?.userId,
+      tenantId: auditTenantId,
+      action: "settlements.debt_recalculate",
+      resourceType: "settlement",
+      resourceId: settlement_id,
+      result: "attempted",
+      correlationId: identity?.correlationId ?? correlationId,
+      metadata: { fleet_id: fleetId, force_chain: force_recalculate_chain, caller: identity ? "user" : "internal" },
+    });
+
+    if (identity) {
+      // Kwota nadal pochodzi z kalkulatora frontendu. Do czasu przeniesienia
+      // pełnej formuły na serwer bezpośrednie przeliczenie użytkownika mogłoby
+      // dowolnie zmienić saldo i cały łańcuch kolejnych okresów.
+      throw new SecurityError(
+        409,
+        "server_payout_calculation_required",
+        "Przeliczenie salda wymaga serwerowego kalkulatora rozliczenia",
+      );
+    }
+
+    const successResponse = async (body: Record<string, unknown>) => {
+      await writeAuditEvent(supabase, {
+        actorId: identity?.userId,
+        tenantId: auditTenantId,
+        action: "settlements.debt_recalculate",
+        resourceType: "settlement",
+        resourceId: settlement_id,
+        result: "succeeded",
+        correlationId: identity?.correlationId ?? correlationId,
+        metadata: { fleet_id: fleetId, force_chain: force_recalculate_chain },
+      });
+      return jsonResponse(req, 200, body);
+    };
 
     console.log(`Processing debt for driver ${driver_id}, payout: ${calculated_payout}`);
 
@@ -47,17 +155,15 @@ serve(async (req) => {
     if (driverAppUser?.user_id) {
       const { data: ownerRole } = await supabase
         .from("user_roles")
-        .select("role")
+        .select("role, fleet_id")
         .eq("user_id", driverAppUser.user_id)
+        .eq("fleet_id", fleetId)
         .in("role", ["fleet_settlement", "fleet_rental"])
         .maybeSingle();
       
       if (ownerRole) {
         console.log(`⏭️ Driver ${driver_id} is a fleet owner (${ownerRole.role}), skipping debt calculation`);
-        return new Response(
-          JSON.stringify({ success: true, skipped: true, reason: "fleet_owner" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        return await successResponse({ success: true, skipped: true, reason: "fleet_owner" });
       }
     }
 
@@ -323,17 +429,14 @@ serve(async (req) => {
 
       const snapshot = await recalculateDebtChainFromPeriod();
 
-      return new Response(
-        JSON.stringify({
+      return await successResponse({
           success: true,
           recalculated: true,
           debt_before: snapshot?.debtBefore ?? 0,
           debt_payment: snapshot?.debtPayment ?? 0,
           debt_after: snapshot?.remainingDebt ?? 0,
           actual_payout: snapshot?.actualPayout ?? 0,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+        });
     }
 
     // DEDUPLICATION: Check by settlement_id AND by period to prevent duplicates
@@ -419,17 +522,14 @@ serve(async (req) => {
           .eq("id", settlement_id);
       }
 
-      return new Response(
-        JSON.stringify({
+      return await successResponse({
           success: true,
           skipped: true,
           debt_before: resolvedDebtBefore,
           debt_payment: resolvedDebtPayment,
           debt_after: resolvedDebtAfter,
-          actual_payout: resolvedActualPayout
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+          actual_payout: resolvedActualPayout,
+        });
     }
 
     // CRITICAL: nowe rozliczenie startuje WYŁĄCZNIE z debt_after poprzedniego settlementu.
@@ -511,22 +611,31 @@ serve(async (req) => {
 
     console.log(`Debt update completed successfully`);
 
-    return new Response(
-      JSON.stringify({
+    return await successResponse({
         success: true,
         debt_before: currentDebt,
         debt_payment: computed.debtPayment,
         debt_after: computed.remainingDebt,
-        actual_payout: computed.actualPayout
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+        actual_payout: computed.actualPayout,
+      });
 
   } catch (error) {
-    console.error("Error in update-driver-debt:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    if (auditClient) {
+      try {
+        await writeAuditEvent(auditClient, {
+          actorId: auditIdentity?.userId,
+          tenantId: auditTenantId,
+          action: "settlements.debt_recalculate",
+          resourceType: "settlement",
+          resourceId: auditResourceId,
+          result: error instanceof SecurityError && error.status === 403 ? "denied" : "failed",
+          correlationId: auditIdentity?.correlationId ?? correlationId,
+          metadata: { error_code: error instanceof SecurityError ? error.code : "internal_error" },
+        });
+      } catch {
+        // Pierwotny błąd pozostaje odpowiedzią; zapis audytu loguje własną awarię.
+      }
+    }
+    return errorResponse(req, error);
   }
 });

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.56.0";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +17,8 @@ interface ConfirmationRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  return phaseABlockedResponse(req, "send-rental-confirmation");
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

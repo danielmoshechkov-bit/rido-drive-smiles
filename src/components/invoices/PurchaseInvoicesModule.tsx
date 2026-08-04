@@ -14,6 +14,11 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InventoryProductMapper } from './InventoryProductMapper';
+import {
+  getTrustedPrivateDocumentUrl,
+  getTrustedRelativeStorageObjectPath,
+  getTrustedSupabaseObjectPath,
+} from '@/security/trustedContentUrl';
 
 interface PurchaseInvoice {
   id: string;
@@ -296,17 +301,31 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
     handleFiles(files);
   };
 
-  // Resolve PDF URL: obsługuje (a) pełny URL z http(s), (b) ścieżkę w bucket purchase-invoices,
-  // (c) starą ścieżkę z prefixem 'purchase-invoices/' w bucket 'documents'
+  const createTrustedSignedPdfUrl = async (
+    bucket: 'purchase-invoices' | 'documents',
+    objectPath: string,
+  ): Promise<string | null> => {
+    const { data } = await supabase.storage.from(bucket).createSignedUrl(objectPath, 600);
+    return getTrustedPrivateDocumentUrl(data?.signedUrl, [bucket]);
+  };
+
+  // Pełne URL akceptujemy wyłącznie z dokładnego originu Supabase, a następnie
+  // zawsze wymieniamy na świeży signed URL. Historyczna względna ścieżka jest
+  // walidowana osobno; nie ma fallbacku do dowolnego http(s).
   const resolvePdfUrl = async (pdfUrl: string | null | undefined): Promise<string | null> => {
     if (!pdfUrl) return null;
-    if (/^https?:\/\//i.test(pdfUrl)) return pdfUrl; // pełny URL (publiczny lub stary)
-    // spróbuj najpierw nowy bucket
-    const { data: a } = await supabase.storage.from('purchase-invoices').createSignedUrl(pdfUrl, 600);
-    if (a?.signedUrl) return a.signedUrl;
-    // fallback do starego bucketa documents
-    const { data: b } = await supabase.storage.from('documents').createSignedUrl(pdfUrl, 600);
-    return b?.signedUrl || null;
+
+    const purchasePath = getTrustedSupabaseObjectPath(pdfUrl, 'purchase-invoices');
+    if (purchasePath) return createTrustedSignedPdfUrl('purchase-invoices', purchasePath);
+
+    const legacyDocumentsPath = getTrustedSupabaseObjectPath(pdfUrl, 'documents');
+    if (legacyDocumentsPath) return createTrustedSignedPdfUrl('documents', legacyDocumentsPath);
+
+    const relativePath = getTrustedRelativeStorageObjectPath(pdfUrl);
+    if (!relativePath) return null;
+
+    return (await createTrustedSignedPdfUrl('purchase-invoices', relativePath))
+      ?? createTrustedSignedPdfUrl('documents', relativePath);
   };
 
   const openInvoice = async (inv: PurchaseInvoice) => {
@@ -393,8 +412,13 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
   const downloadPdf = async (inv: PurchaseInvoice) => {
     const url = await resolvePdfUrl(inv.pdf_url);
     if (!url) return toast.error('Brak pliku PDF');
-    window.open(url, '_blank');
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
+
+  const trustedPdfPreviewUrl = getTrustedPrivateDocumentUrl(
+    pdfPreviewUrl,
+    ['purchase-invoices', 'documents'],
+  );
 
   if (!userId) return <div className="text-center py-8 text-muted-foreground">Zaloguj się aby korzystać z faktur zakupowych</div>;
 
@@ -540,11 +564,13 @@ export function PurchaseInvoicesModule({ entityId, userId }: Props) {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 overflow-y-auto">
                 {/* LEWO: Podgląd PDF */}
                 <div className="bg-muted rounded-lg overflow-hidden min-h-[400px] lg:min-h-[600px] flex items-center justify-center">
-                  {pdfPreviewUrl ? (
+                  {trustedPdfPreviewUrl ? (
                     <iframe
-                      src={pdfPreviewUrl}
+                      src={trustedPdfPreviewUrl}
                       title="Podgląd faktury"
                       className="w-full h-full min-h-[600px] border-0"
+                      sandbox=""
+                      referrerPolicy="no-referrer"
                     />
                   ) : (
                     <div className="text-center text-muted-foreground p-8">

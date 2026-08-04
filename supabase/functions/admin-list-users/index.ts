@@ -1,101 +1,79 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  createServiceClient,
+  consumeRateLimit,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requireAdmin,
+  writeAuditEvent,
+} from "../_shared/security.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const MAX_USERS = 500;
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+  if (req.method !== "GET" && req.method !== "POST") {
+    return jsonResponse(req, 405, { error: "method_not_allowed" });
   }
 
   try {
-    // Get auth header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Brak autoryzacji' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Create client with user's token to verify they're admin
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
+    const adminClient = createServiceClient();
+    const identity = await requireAdmin(req, adminClient);
+    await consumeRateLimit(adminClient, {
+      scope: "admin.user_directory.user.hourly",
+      subjectId: identity.userId,
+      limit: 30,
+      windowSeconds: 3_600,
+    });
+    await consumeRateLimit(adminClient, {
+      scope: "admin.user_directory.user.daily",
+      subjectId: identity.userId,
+      limit: 200,
+      windowSeconds: 86_400,
     });
 
-    // Get current user
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      console.error('User auth error:', userError);
-      return new Response(
-        JSON.stringify({ error: 'Nieprawidłowy token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const url = new URL(req.url);
+    const requestedLimit = Number(url.searchParams.get("limit") ?? MAX_USERS);
+    const perPage = Number.isInteger(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), MAX_USERS)
+      : MAX_USERS;
 
-    // Check if user is admin using has_role function
-    const { data: isAdmin, error: roleError } = await userClient.rpc('has_role', {
-      _user_id: user.id,
-      _role: 'admin'
+    const { data: authData, error: listError } = await adminClient.auth.admin.listUsers({
+      page: 1,
+      perPage,
     });
+    if (listError) throw listError;
 
-    if (roleError || !isAdmin) {
-      console.error('Role check error:', roleError);
-      return new Response(
-        JSON.stringify({ error: 'Brak uprawnień administratora' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const userIds = authData.users.map((user) => user.id);
+    const { data: roles, error: rolesError } = userIds.length
+      ? await adminClient
+        .from("user_roles")
+        .select("user_id, role, fleet_id")
+        .in("user_id", userIds)
+      : { data: [], error: null };
+    if (rolesError) throw rolesError;
 
-    // Create admin client with service role key
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
-
-    // List all users
-    const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
-    if (listError) {
-      console.error('List users error:', listError);
-      throw listError;
-    }
-
-    // Get all user roles
-    const { data: roles, error: rolesError } = await adminClient
-      .from('user_roles')
-      .select('*');
-
-    if (rolesError) {
-      console.error('Roles fetch error:', rolesError);
-      throw rolesError;
-    }
-
-    // Combine users with roles
-    const usersWithRoles = users.map(u => ({
-      id: u.id,
-      email: u.email || '',
-      created_at: u.created_at,
-      roles: roles?.filter(r => r.user_id === u.id) || []
+    const users = authData.users.map((user) => ({
+      id: user.id,
+      email: user.email ?? "",
+      created_at: user.created_at,
+      email_confirmed_at: user.email_confirmed_at ?? null,
+      last_sign_in_at: user.last_sign_in_at ?? null,
+      roles: (roles ?? []).filter((role) => role.user_id === user.id),
     }));
 
-    console.log(`Listed ${users.length} users for admin ${user.email}`);
+    await writeAuditEvent(adminClient, {
+      actorId: identity.userId,
+      action: "admin.users_listed",
+      resourceType: "auth_user",
+      result: "succeeded",
+      correlationId: identity.correlationId,
+      metadata: { returned_count: users.length, limit: perPage },
+    });
 
-    return new Response(
-      JSON.stringify({ success: true, users: usersWithRoles }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return jsonResponse(req, 200, { success: true, users, truncated: users.length === perPage });
   } catch (error) {
-    console.error('Error listing users:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Błąd serwera' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(req, error);
   }
 });

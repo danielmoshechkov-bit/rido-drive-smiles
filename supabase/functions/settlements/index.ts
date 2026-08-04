@@ -1,10 +1,16 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
 import { normalizePolishName, levenshtein, fuzzyMatchDriver } from './fuzzyMatch.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requestCorrelationId,
+  requireUser,
+  SecurityError,
+  writeAuditEvent,
+  type RequestIdentity,
+} from '../_shared/security.ts';
+import { isUuid } from '../_shared/securityPrimitives.ts';
 
 interface SettlementRequest {
   period_from: string;
@@ -89,26 +95,47 @@ function calculateProportionalRentForSettlement(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+
+  let auditIdentity: RequestIdentity | null = null;
+  let auditClient: ReturnType<typeof createServiceClient> | null = null;
+  let auditResourceId: string | null = null;
+  let auditTenantId: string | null = null;
+  const correlationId = requestCorrelationId(req);
 
   try {
+    if (req.method !== 'POST') {
+      throw new SecurityError(405, 'method_not_allowed', 'Dozwolona jest wyłącznie metoda POST');
+    }
+
     const startTime = Date.now();
     console.log('🚀 Settlements edge function started');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createServiceClient();
+    auditClient = supabase;
+    const identity = await requireUser(req, supabase);
+    auditIdentity = identity;
+    const debtUpdateSecret = Deno.env.get('DEBT_UPDATE_INTERNAL_SECRET');
+    if (!debtUpdateSecret || debtUpdateSecret.length < 32) {
+      throw new SecurityError(503, 'security_not_configured', 'Wewnętrzna aktualizacja salda nie jest skonfigurowana');
+    }
 
     let body: SettlementRequest;
     try {
       const contentType = req.headers.get('content-type');
       console.log('📨 Content-Type:', contentType);
       console.log('📨 Request method:', req.method);
+      if (!contentType?.toLowerCase().includes('application/json')) {
+        throw new SecurityError(415, 'unsupported_media_type', 'Wymagany jest format application/json');
+      }
       
       const rawBody = await req.text();
       console.log('📨 Raw body length:', rawBody.length);
+      if (rawBody.length > 7 * 1024 * 1024) {
+        throw new SecurityError(413, 'payload_too_large', 'Dane wejściowe przekraczają dozwolony rozmiar');
+      }
       
       if (!rawBody || rawBody.length === 0) {
         throw new Error('Empty request body');
@@ -126,17 +153,88 @@ Deno.serve(async (req) => {
         has_bolt_csv: !!(body as any).bolt_csv,
         has_freenow_csv: !!(body as any).freenow_csv
       });
-    } catch (parseError) {
-      console.error('❌ Błąd parsowania JSON:', parseError);
-      throw new Error(`Failed to parse request: ${parseError.message}`);
+    } catch (error) {
+      if (error instanceof SecurityError) throw error;
+      throw new SecurityError(400, 'invalid_json', 'Nieprawidłowe dane wejściowe');
     }
 
     const { period_from, period_to, city_id, main_csv, uber_csv, bolt_csv, freenow_csv } = body;
-    const fleet_id = (body as any).fleet_id;
+    const fleet_id = body.fleet_id;
+
+    for (const csv of [main_csv, uber_csv, bolt_csv, freenow_csv]) {
+      if (csv !== undefined && typeof csv !== 'string') {
+        throw new SecurityError(400, 'invalid_csv_payload', 'Nieprawidłowy format pliku CSV');
+      }
+    }
 
     if (!period_from || !period_to || (!city_id && !fleet_id)) {
-      throw new Error('Missing required fields: period_from, period_to, and either city_id or fleet_id');
+      throw new SecurityError(400, 'missing_fields', 'Wymagany jest okres oraz kontekst floty albo miasta');
     }
+    if (fleet_id && !isUuid(fleet_id)) {
+      throw new SecurityError(400, 'invalid_fleet', 'Nieprawidłowy identyfikator floty');
+    }
+    if (city_id && !isUuid(city_id)) {
+      throw new SecurityError(400, 'invalid_city', 'Nieprawidłowy identyfikator miasta');
+    }
+
+    const periodFromDate = new Date(`${period_from}T00:00:00Z`);
+    const periodToDate = new Date(`${period_to}T00:00:00Z`);
+    const validDate = /^\d{4}-\d{2}-\d{2}$/;
+    if (
+      !validDate.test(period_from) ||
+      !validDate.test(period_to) ||
+      Number.isNaN(periodFromDate.getTime()) ||
+      Number.isNaN(periodToDate.getTime()) ||
+      periodFromDate.toISOString().slice(0, 10) !== period_from ||
+      periodToDate.toISOString().slice(0, 10) !== period_to ||
+      periodToDate < periodFromDate ||
+      periodToDate.getTime() - periodFromDate.getTime() > 31 * 24 * 60 * 60 * 1000
+    ) {
+      throw new SecurityError(400, 'invalid_period', 'Nieprawidłowy zakres dat rozliczenia');
+    }
+
+    if (fleet_id) {
+      const canManageFleet = identity.isAdmin || identity.fleetRoles.some(({ role, fleetId }) => (
+        fleetId === fleet_id && (role === 'fleet_settlement' || role === 'fleet_rental')
+      ));
+      if (!canManageFleet) {
+        throw new SecurityError(403, 'cross_tenant_denied', 'Brak uprawnień do rozliczeń tej floty');
+      }
+
+      const { data: fleet, error: fleetError } = await supabase
+        .from('fleets')
+        .select('id, company_id')
+        .eq('id', fleet_id)
+        .maybeSingle();
+      if (fleetError) throw new SecurityError(503, 'authorization_unavailable', 'Nie można potwierdzić floty');
+      if (!fleet) throw new SecurityError(404, 'fleet_not_found', 'Flota nie istnieje');
+      if (fleet.company_id && !identity.isAdmin && identity.companyIds.length > 0 && !identity.companyIds.includes(fleet.company_id)) {
+        throw new SecurityError(403, 'cross_tenant_denied', 'Flota nie należy do firmy użytkownika');
+      }
+
+      auditResourceId = fleet_id;
+      auditTenantId = isUuid(fleet.company_id) ? fleet.company_id : null;
+    } else if (!identity.isAdmin) {
+      // Import po samym mieście nie daje jednoznacznej granicy tenanta.
+      throw new SecurityError(403, 'fleet_context_required', 'Import wymaga jednoznacznego kontekstu floty');
+    }
+
+    const encodedPayloadSize = [main_csv, uber_csv, bolt_csv, freenow_csv]
+      .reduce((total, value) => total + (typeof value === 'string' ? value.length : 0), 0);
+    if (encodedPayloadSize > 6 * 1024 * 1024) {
+      throw new SecurityError(413, 'payload_too_large', 'Pliki CSV przekraczają dozwolony rozmiar');
+    }
+
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      tenantId: auditTenantId,
+      action: 'settlements.import',
+      resourceType: 'fleet',
+      resourceId: auditResourceId,
+      result: 'attempted',
+      correlationId: identity.correlationId,
+      metadata: { period_from, period_to, import_mode: main_csv ? 'rido_template' : 'platform_csvs' },
+    });
 
     let effectiveCityId = city_id;
     if (fleet_id && !city_id) {
@@ -151,13 +249,7 @@ Deno.serve(async (req) => {
         effectiveCityId = fleetDriver.city_id;
         console.log('📍 Using city_id from fleet:', effectiveCityId);
       } else {
-        const { data: defaultCity } = await supabase
-          .from('cities')
-          .select('id')
-          .limit(1)
-          .single();
-        effectiveCityId = defaultCity?.id;
-        console.log('📍 Using default city_id:', effectiveCityId);
+        throw new SecurityError(409, 'fleet_city_unavailable', 'Nie można bezpiecznie ustalić miasta floty');
       }
     }
 
@@ -527,7 +619,9 @@ Deno.serve(async (req) => {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${supabaseServiceKey}`
+                    'Authorization': req.headers.get('Authorization') ?? '',
+                    'x-internal-secret': debtUpdateSecret,
+                    'x-correlation-id': identity.correlationId,
                   },
                   body: JSON.stringify({
                     driver_id: driverId,
@@ -575,8 +669,18 @@ Deno.serve(async (req) => {
       duration_ms: duration
     });
 
-    return new Response(
-      JSON.stringify({
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      tenantId: auditTenantId,
+      action: 'settlements.import',
+      resourceType: 'fleet',
+      resourceId: auditResourceId,
+      result: 'succeeded',
+      correlationId: identity.correlationId,
+      metadata: { processed: settlementsToInsert.length, new_drivers: newDriversCount },
+    });
+
+    return jsonResponse(req, 200, {
         success: true,
         settlement_period_id: settlementPeriod.id,
         stats: {
@@ -585,18 +689,25 @@ Deno.serve(async (req) => {
           matched_drivers: matchedDriversCount,
           unmapped_drivers: unmappedDriversList
         },
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+      });
   } catch (error) {
-    console.error('💥 ERROR:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    if (auditClient) {
+      try {
+        await writeAuditEvent(auditClient, {
+          actorId: auditIdentity?.userId,
+          tenantId: auditTenantId,
+          action: 'settlements.import',
+          resourceType: 'fleet',
+          resourceId: auditResourceId,
+          result: error instanceof SecurityError && error.status === 403 ? 'denied' : 'failed',
+          correlationId: auditIdentity?.correlationId ?? correlationId,
+          metadata: { error_code: error instanceof SecurityError ? error.code : 'internal_error' },
+        });
+      } catch {
+        // errorResponse zachowuje pierwotny kod; awaria audytu jest już logowana centralnie.
+      }
+    }
+    return errorResponse(req, error);
   }
 });
 

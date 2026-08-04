@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { setAuthPersistencePreference } from "@/security/authStorage";
+import { validatePassword } from "@/security/passwordPolicy";
 
 interface LoginModalProps {
   open: boolean;
@@ -62,6 +64,7 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
 
     setIsLoading(true);
     try {
+      setAuthPersistencePreference(rememberMe);
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -107,8 +110,9 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
       return;
     }
 
-    if (password.length < 6) {
-      toast.error("Hasło musi mieć minimum 6 znaków");
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      toast.error(passwordValidation.errors[0]);
       return;
     }
 

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +22,8 @@ const json = (body: unknown, status = 200) =>
 const sanitizeSenderName = (value: string) => value.replace(/[^a-zA-Z0-9.\-]/g, "").slice(0, 11);
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "admin-sms-settings");
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

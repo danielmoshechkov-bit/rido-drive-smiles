@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { FileSignature, Plus, Eye, Send, FileText, Loader2, Link as LinkIcon, MessageSquare, Mail } from 'lucide-react';
 import { RENTAL_CONTRACT_CONTENT, generateRentalContractHtml } from '@/components/rental/rentalLib';
 import { sendRentalSms, sendRentalEmail, contractLink } from '@/components/rental/rentalMessaging';
+import { escapeHtmlText, sanitizeDocumentHtml } from '@/security/htmlSanitizer';
 
 const fmt = (iso?: string) => { try { return iso ? new Date(iso).toLocaleString('pl-PL') : ''; } catch { return iso || ''; } };
 
@@ -85,7 +86,7 @@ export function RentalDocuments({ companyId }: { companyId: string }) {
                   <div className="font-medium">{t.name}</div>
                   <div className="text-xs text-muted-foreground">{t.code || 'custom'}{t.builtin ? ' · wbudowany' : ''}</div>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => setPreview(`<pre style="white-space:pre-wrap;font-family:inherit">${t.content || ''}</pre>`)}><Eye className="h-4 w-4" /></Button>
+                <Button size="sm" variant="ghost" onClick={() => setPreview(`<pre>${escapeHtmlText(t.content)}</pre>`)}><Eye className="h-4 w-4" /></Button>
                 <Button size="sm" onClick={() => setFillFor(t)} className="gap-1"><Send className="h-4 w-4" />Uzupełnij i wyślij</Button>
               </CardContent></Card>
             ))}
@@ -105,7 +106,7 @@ export function RentalDocuments({ companyId }: { companyId: string }) {
       <Dialog open={!!preview} onOpenChange={(v) => !v && setPreview(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Podgląd</DialogTitle></DialogHeader>
-          <div dangerouslySetInnerHTML={{ __html: preview || '' }} />
+          <div dangerouslySetInnerHTML={{ __html: sanitizeDocumentHtml(preview) }} />
         </DialogContent>
       </Dialog>
 
@@ -193,7 +194,7 @@ function FillAndSend({ sb, companyId, company, template, onClose, onSent, onPrev
       rate: bk.rate_amount != null ? `${bk.rate_amount} zł / ${bk.rate_basis || ''}` : '',
       deposit: bk.deposit_amount != null ? String(bk.deposit_amount) : '',
     };
-    return { bk, filled, html: generateRentalContractHtml(filled) };
+    return { bk, filled, html: sanitizeDocumentHtml(generateRentalContractHtml(filled)) };
   };
 
   const preview = async () => { const r = await build(); if (r) onPreview(r.html); };

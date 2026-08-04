@@ -63,6 +63,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { UniversalSubTabBar } from '@/components/UniversalSubTabBar';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { toast } from 'sonner';
+import { sanitizeRichTextHtml } from '@/security/htmlSanitizer';
 
 interface ServiceItem {
   id: string;
@@ -1039,7 +1040,7 @@ export default function ServiceProviderDashboard() {
                     {/* Istniejące zdjęcia — usuwanie / przesuwanie / ustawianie głównego */}
                     {editingService?.photos && editingService.photos.length > 0 && (
                       <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('sp.services.firstPhotoMain') }} />
+                        <p className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(t('sp.services.firstPhotoMain')) }} />
                         <div className="flex gap-2 flex-wrap">
                           {editingService.photos.map((url, i) => (
                             <div key={url + i} className="relative group h-20 w-20">
@@ -1152,7 +1153,7 @@ export default function ServiceProviderDashboard() {
                       onChange={e => setActivationForm(p => ({ ...p, description: e.target.value }))}
                       placeholder={t('sp.activation.descPlaceholder')}
                     />
-                    <p className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('sp.activation.descHint') }} />
+                    <p className="text-xs text-muted-foreground" dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(t('sp.activation.descHint')) }} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">

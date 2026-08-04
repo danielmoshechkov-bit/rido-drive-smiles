@@ -202,12 +202,21 @@ export function WorkspaceMembersView({ project, workspace }: Props) {
         first_name: editFirst.trim() || null,
         last_name: editLast.trim() || null,
         phone: editPhone.trim() || null,
-        role: editRole,
-        hierarchy_role: editRole,
         display_name: display,
       })
       .eq("id", editMember.id);
     if (error) { console.error("edit member:", error); toast.error("Błąd zapisu: " + error.message); return; }
+    if (editRole !== editMember.role) {
+      const { error: roleError } = await (supabase as any).rpc(
+        "phase_c_update_workspace_member_role",
+        { p_member_id: editMember.id, p_role: editRole },
+      );
+      if (roleError) {
+        console.error("edit member role:", roleError);
+        toast.error("Dane zapisano, ale rola wymaga wyższych uprawnień");
+        return;
+      }
+    }
     toast.success("Zaktualizowano dane");
     setEditMember(null);
     reload();
@@ -250,10 +259,15 @@ export function WorkspaceMembersView({ project, workspace }: Props) {
   };
 
   const handleRoleChange = async (memberId: string, newRole: string) => {
-    await (supabase as any)
-      .from("workspace_project_members")
-      .update({ role: newRole, hierarchy_role: newRole })
-      .eq("id", memberId);
+    const { error } = await (supabase as any).rpc(
+      "phase_c_update_workspace_member_role",
+      { p_member_id: memberId, p_role: newRole },
+    );
+    if (error) {
+      console.error("role change:", error);
+      toast.error("Brak uprawnień do zmiany tej roli");
+      return;
+    }
     toast.success("Rola zmieniona");
     reload();
   };

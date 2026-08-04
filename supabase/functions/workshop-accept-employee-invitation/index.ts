@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -13,6 +14,8 @@ const json = (d: unknown, s = 200) =>
  * - If not: marks accepted anyway; user will be linked on next login (by email).
  */
 serve(async (req) => {
+  return phaseABlockedResponse(req, "workshop-accept-employee-invitation");
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {

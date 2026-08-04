@@ -65,14 +65,8 @@ export function WorkspaceInvitations({ onAccepted }: Props) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setProcessing(null); return; }
 
-    const { error } = await supabase
-      .from("workspace_project_members")
-      .update({ 
-        status: "active", 
-        user_id: user.id,
-        display_name: user.email 
-      })
-      .eq("id", inv.id);
+    const { error } = await (supabase as any)
+      .rpc("phase_c_accept_workspace_invitation", { p_member_id: inv.id });
 
     if (error) {
       toast.error("Błąd akceptacji zaproszenia");

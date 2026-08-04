@@ -2,6 +2,7 @@
 // Zlicza wszystkie zakończone zlecenia z portalu z poprzedniego miesiąca per usługodawca
 // i tworzy fakturę prowizyjną od marży/robocizny.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,6 +10,8 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "commission-monthly-billing");
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Building2, Lock, Wrench, Mic } from "lucide-react";
 import { useIsWorkshopEmployee } from "@/hooks/useIsWorkshopEmployee";
+import { announceSecurityContextChange } from "@/security/sessionIsolation";
 
 // Module images
 import clientPortalImg from "@/assets/modules/client-portal.jpg";
@@ -233,7 +234,14 @@ export function AccountSwitcherPanel({
 
   const handleAccountClick = (account: AccountOption) => {
     if (account.type === currentAccountType) return;
+    announceSecurityContextChange(`account:${account.type}`);
     navigate(account.route);
+  };
+
+  const handleClientPortalClick = () => {
+    if (currentAccountType === 'client') return;
+    announceSecurityContextChange('account:client');
+    goToClientPortal(navigate);
   };
 
   const handleRegistrationClick = (option: RegistrationOption) => {
@@ -302,7 +310,7 @@ export function AccountSwitcherPanel({
                   ? 'border-primary ring-2 ring-primary/20' 
                   : 'border-border cursor-pointer hover:shadow-lg hover:border-primary/50'
               }`}
-              onClick={() => currentAccountType !== 'client' && goToClientPortal(navigate)}
+              onClick={handleClientPortalClick}
             >
               <div className="aspect-[16/9] relative overflow-hidden">
                 <img 

@@ -1,53 +1,77 @@
 <?php
-// public/invoice-pdf.php — HTML -> PDF przez Dompdf (self-hosted na LH.pl, czysty PHP, BEZ exec).
-// JEDEN generator dla wszystkich dokumentów (faktura/umowa/protokół/wycena/zlecenie).
-// Klient POST-uje { html } (z generateInvoiceHtml) i dostaje { pdf_base64 } -> ten sam plik
-// używany przez "Pobierz" i "Wyślij mailem".
-//
-// Wymaga biblioteki Dompdf w invoice-pdf-lib/vendor/ (composer install — patrz README).
-// Sekret/klucz nie jest potrzebny. Dane faktur NIE wychodzą na zewnątrz.
+declare(strict_types=1);
+
+// SECURITY: ten historyczny endpoint przyjmował dowolny HTML z przeglądarki i
+// renderował go bez uwierzytelnienia. Plik publiczny nie ma zaufanej warstwy,
+// która zweryfikuje JWT, tenant i uprawnienie do dokumentu, dlatego pozostaje
+// zamknięty fail-closed. Nie włączaj go ponownie przez samą zmianę kodu statusu.
 
 error_reporting(0);
+ini_set('display_errors', '0');
+
+const MAX_REQUEST_BODY_BYTES = 4096;
+
+// Te wartości są obowiązkowe również po przeniesieniu generatora do
+// uwierzytelnionej usługi. Generator nie może wykonywać PHP ani pobierać zasobów
+// wskazanych przez dokument lub użytkownika.
+const DOMPDF_SECURITY_OPTIONS = [
+  'isPhpEnabled' => false,
+  'isRemoteEnabled' => false,
+];
+
+/** @param array<string, string> $payload */
+function respondJson(int $status, array $payload): void
+{
+  http_response_code($status);
+  echo json_encode($payload, JSON_UNESCAPED_SLASHES);
+  exit;
+}
+
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Headers: content-type');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Cache-Control: no-store, max-age=0');
+header('Pragma: no-cache');
+header('X-Content-Type-Options: nosniff');
+header('Cross-Origin-Resource-Policy: same-origin');
+header("Content-Security-Policy: default-src 'none'; frame-ancestors 'none'");
+header('Allow: POST');
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') { http_response_code(204); exit; }
-
-$autoload = __DIR__ . '/invoice-pdf-lib/vendor/autoload.php';
-if (!file_exists($autoload)) {
-  http_response_code(500);
-  echo json_encode(['error' => 'Dompdf niezainstalowany (brak vendor). Uruchom composer install w invoice-pdf-lib/.']);
-  exit;
-}
-require $autoload;
-
-use Dompdf\Dompdf;
-use Dompdf\Options;
-
-$body = json_decode(file_get_contents('php://input'), true);
-$html = is_array($body) ? ($body['html'] ?? '') : '';
-if (!is_string($html) || $html === '') {
-  http_response_code(400);
-  echo json_encode(['error' => 'Brak HTML']);
-  exit;
+$requestMethod = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? ''));
+if ($requestMethod !== 'POST') {
+  respondJson(405, ['error' => 'method_not_allowed']);
 }
 
-try {
-  $o = new Options();
-  $o->set('isRemoteEnabled', true);        // pobiera logo/QR z URL (getrido.pl)
-  $o->set('isHtml5ParserEnabled', true);
-  $o->set('defaultFont', 'DejaVu Sans');   // polskie znaki (ż/ł/ś/ą...)
-  $o->set('isPhpEnabled', true);           // page_text: "Strona X z Y"
-
-  $dompdf = new Dompdf($o);
-  $dompdf->loadHtml($html, 'UTF-8');
-  $dompdf->setPaper('A4', 'portrait');
-  $dompdf->render();
-
-  echo json_encode(['pdf_base64' => base64_encode($dompdf->output())]);
-} catch (\Throwable $e) {
-  http_response_code(500);
-  echo json_encode(['error' => 'Render PDF nieudany']);
+$contentTypeHeader = strtolower(trim((string) ($_SERVER['CONTENT_TYPE'] ?? '')));
+$contentType = trim(explode(';', $contentTypeHeader, 2)[0]);
+if ($contentType !== 'application/json') {
+  respondJson(415, ['error' => 'unsupported_media_type']);
 }
+
+$contentLengthHeader = trim((string) ($_SERVER['CONTENT_LENGTH'] ?? ''));
+if ($contentLengthHeader !== '') {
+  if (!ctype_digit($contentLengthHeader)) {
+    respondJson(400, ['error' => 'invalid_content_length']);
+  }
+
+  if ((int) $contentLengthHeader > MAX_REQUEST_BODY_BYTES) {
+    respondJson(413, ['error' => 'payload_too_large']);
+  }
+}
+
+$input = fopen('php://input', 'rb');
+if ($input === false) {
+  respondJson(400, ['error' => 'invalid_request']);
+}
+
+$rawBody = stream_get_contents($input, MAX_REQUEST_BODY_BYTES + 1);
+fclose($input);
+if ($rawBody === false) {
+  respondJson(400, ['error' => 'invalid_request']);
+}
+if (strlen($rawBody) > MAX_REQUEST_BODY_BYTES) {
+  respondJson(413, ['error' => 'payload_too_large']);
+}
+
+// Celowo nie dekodujemy ani nie renderujemy body. Bezpieczna wersja musi
+// przyjmować wyłącznie document_id, zweryfikować JWT i tenant po stronie serwera,
+// pobrać dane dokumentu z bazy oraz wyrenderować zaufany szablon.
+respondJson(410, ['error' => 'endpoint_disabled']);

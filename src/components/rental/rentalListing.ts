@@ -43,15 +43,8 @@ export async function unpublishRentalListing(subjectId: string) {
 
 /** Wyróżnienie — lokalnie stub (płatność P24 + webhook = DEPLOY). */
 export async function featureRentalListing(companyId: string, vehicleListingId: string, tier: any) {
-  const sb = supabase as any;
-  const { data: { user } } = await supabase.auth.getUser();
-  await sb.from('vehicle_listings').update({ is_featured: true }).eq('id', vehicleListingId);
-  await sb.from('rental_listings').update({ is_featured: true }).eq('vehicle_listing_id', vehicleListingId);
-  try {
-    await sb.from('listing_promotions').insert({
-      listing_id: vehicleListingId, listing_type: 'vehicle_listings', placement: tier?.placement || 'homepage',
-      price_paid: tier?.price_pln || 0, payment_status: 'paid', is_active: true, user_id: user?.id,
-      starts_at: new Date().toISOString(), expires_at: new Date(Date.now() + (tier?.duration_days || 7) * 86400000).toISOString(),
-    });
-  } catch { /* stub */ }
+  void companyId;
+  void vehicleListingId;
+  void tier;
+  throw new Error('Wyróżnienie wymaga zweryfikowanej płatności i serwerowej aktywacji. Operacja została zablokowana.');
 }

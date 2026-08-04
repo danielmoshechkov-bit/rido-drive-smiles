@@ -2,6 +2,7 @@
 // i adres parsowany regexami. Zastąpione przez funkcję gus-lookup (GUS BIR1.1, pełny raport).
 // Zostaje tymczasowo dla niezmigrowanych formularzy; do usunięcia po pełnym rollout'cie.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,6 +10,8 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "lookup-nip");
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }

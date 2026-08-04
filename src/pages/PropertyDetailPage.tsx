@@ -24,6 +24,7 @@ import { SimilarListings } from "@/components/realestate/SimilarListings";
 import { AdBannerSlot } from "@/components/realestate/AdBannerSlot";
 import { PropertyMessageDialog } from "@/components/realestate/PropertyMessageDialog";
 import { rewritePhotoUrl } from "@/utils/photoUrlRewrite";
+import { sanitizeRichTextHtml } from "@/security/htmlSanitizer";
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
   sale: "",
@@ -545,7 +546,7 @@ export default function PropertyDetailPage() {
               {listing.aiDescriptionHtml ? (
                 <div
                   className="prose prose-sm max-w-none text-slate-800 font-medium leading-relaxed [&>p]:mb-3 [&>p]:text-slate-800 [&>h3]:mt-5 [&>h3]:mb-2 [&>h3]:text-base [&>h3]:font-extrabold [&>h3]:text-primary [&>ul]:my-2 [&>ul]:pl-5 [&>ul]:list-disc [&>ul>li]:text-slate-800"
-                  dangerouslySetInnerHTML={{ __html: listing.aiDescriptionHtml }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeRichTextHtml(listing.aiDescriptionHtml) }}
                 />
               ) : (
                 <div className="prose prose-sm max-w-none text-slate-800 font-medium leading-relaxed space-y-3">

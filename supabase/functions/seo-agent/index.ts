@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +33,8 @@ async function callClaude(apiKey: string, prompt: string, maxTokens = 400): Prom
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "seo-agent");
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

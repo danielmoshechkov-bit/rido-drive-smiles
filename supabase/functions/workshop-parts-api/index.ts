@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 // Hart API URLs (per doc v1.5)
 const HART_PROD_URL = "https://restapi.hartphp.com.pl";
@@ -134,6 +135,8 @@ Dane pojazdu: ${vehicleCtx || 'brak danych pojazdu'}`;
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "workshop-parts-api");
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }

@@ -388,8 +388,8 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div className="flex items-center justify-between">
-                <div><Label>Agent aktywny</Label><p className="text-xs text-muted-foreground">Włącz, gdy konfiguracja jest gotowa.</p></div>
-                <Switch checked={cfg.is_active} onCheckedChange={(v) => update({ is_active: v })} />
+                <div><Label>Agent aktywny</Label><p className="text-xs text-muted-foreground">Włączenie wymaga autoryzowanej publikacji serwerowej; aktywnego agenta możesz tutaj wyłączyć.</p></div>
+                <Switch checked={cfg.is_active} disabled={!cfg.is_active} onCheckedChange={(v) => update({ is_active: v })} />
               </div>
               <div className="space-y-2">
                 <Label>Nazwa agenta (jak się przedstawia)</Label>
@@ -634,7 +634,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" /> Uprawnienia agenta</CardTitle>
-              <CardDescription>Co agent może robić w systemie podczas rozmowy. Domyślnie wyłączone — włącz, gdy chcesz.</CardDescription>
+              <CardDescription>Uprawnienia produkcyjne nadaje autoryzowany proces serwerowy. W panelu można je jedynie odebrać.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-start justify-between gap-4">
@@ -645,7 +645,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                     <p className="text-xs text-muted-foreground mt-0.5">Agent sprawdza wolne terminy, umawia, przekłada i odwołuje wizyty w Twoim kalendarzu.</p>
                   </div>
                 </div>
-                <Switch checked={cfg.calendar_access} onCheckedChange={(v) => update({ calendar_access: v })} />
+                <Switch checked={cfg.calendar_access} disabled={!cfg.calendar_access} onCheckedChange={(v) => update({ calendar_access: v })} />
               </div>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex gap-3">
@@ -655,14 +655,14 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                     <p className="text-xs text-muted-foreground mt-0.5">Agent zakłada nowe zlecenie z danymi z rozmowy (klient, pojazd, usterka) — trafia do systemu zleceń do przydzielenia.</p>
                   </div>
                 </div>
-                <Switch checked={cfg.orders_access} onCheckedChange={(v) => update({ orders_access: v })} />
+                <Switch checked={cfg.orders_access} disabled={!cfg.orders_access} onCheckedChange={(v) => update({ orders_access: v })} />
               </div>
               <div className="flex items-start justify-between gap-4 pt-2 border-t">
                 <div className="flex gap-3">
                   <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                   <div>
                     <Label>Uczenie z rozmów</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">Po rozmowie system analizuje przebieg, wyciąga wnioski i błędy, i poprawia kolejne rozmowy.</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Analiza może przygotować propozycje zmian. Publikacja zawsze wymaga akceptacji człowieka.</p>
                   </div>
                 </div>
                 <Select value={cfg.learning_mode} onValueChange={(v) => update({ learning_mode: v })}>
@@ -731,28 +731,36 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><PhoneCall className="h-5 w-5" /> Telefonia na żywo (ElevenLabs)</CardTitle>
-              <CardDescription>Wklej te adresy w ustawieniach agenta ElevenLabs. Numer Twilio importujesz w ElevenLabs.</CardDescription>
+              <CardDescription>Telefonia produkcyjna pozostaje zablokowana do czasu uruchomienia bezpiecznego bootstrapu rozmów.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {[
-                { label: "Custom LLM URL (Agent → Custom LLM)", url: `${FUNCTIONS_BASE}/voice-agent-llm?provider_id=${providerId}&persona_key=${cfg.persona_key}` },
-                { label: "Post-call webhook URL (Agent → Post-call webhook)", url: `${FUNCTIONS_BASE}/voice-call-postprocess?provider_id=${providerId}&persona_key=${cfg.persona_key}` },
+                {
+                  label: "Custom LLM URL (Agent → Custom LLM)",
+                  url: "Zablokowane — wymagany krótkotrwały token przypisany do rozmowy",
+                  blocked: true,
+                },
+                {
+                  label: "Post-call webhook URL (Agent → Post-call webhook)",
+                  url: `${FUNCTIONS_BASE}/voice-call-postprocess`,
+                  blocked: false,
+                },
               ].map((row) => (
                 <div key={row.label} className="space-y-1">
                   <Label className="text-xs">{row.label}</Label>
                   <div className="flex gap-2">
                     <Input readOnly value={row.url} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-                    <Button size="sm" variant="outline" className="shrink-0 gap-1" onClick={() => { navigator.clipboard.writeText(row.url); toast.success("Skopiowano"); }}>
+                    <Button size="sm" variant="outline" className="shrink-0 gap-1" disabled={row.blocked} onClick={() => { navigator.clipboard.writeText(row.url); toast.success("Skopiowano"); }}>
                       <Copy className="h-4 w-4" /> Kopiuj
                     </Button>
                   </div>
                 </div>
               ))}
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
-                <p className="font-medium">Przed pierwszym telefonem:</p>
-                <p>• Wygeneruj ŚWIEŻY klucz ElevenLabs i wpisz w panelu admina (stary jest spalony).</p>
+                <p className="font-medium">Telefonia jest obecnie w trybie fail-closed:</p>
+                <p>• Nie uruchamiaj połączeń, dopóki backend nie wydaje krótkotrwałego capability dla każdego `call_id`.</p>
+                <p>• Skonfiguruj i obróć `AI_CAPABILITY_SIGNING_SECRET` oraz `ELEVENLABS_WEBHOOK_SECRET` wyłącznie jako sekrety serwerowe.</p>
                 <p>• W agencie ElevenLabs: ZRM (Zero Retention Mode) ON + „Improve the models for everyone" OFF.</p>
-                <p>• Numer Twilio: zaimportuj w ElevenLabs i dodaj swój telefon do Verified Caller IDs (trial).</p>
               </div>
             </CardContent>
           </Card>

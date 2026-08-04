@@ -1,148 +1,155 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  createServiceClient,
+  consumeRateLimit,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requireAdmin,
+  readJsonBody,
+  SecurityError,
+  writeAuditEvent,
+} from "../_shared/security.ts";
+import { isUuid } from "../_shared/securityPrimitives.ts";
 
 interface CreateUserRequest {
-  email: string;
-  password: string;
-  roles?: string[];
-  fleet_id?: string;
+  email?: unknown;
+  password?: unknown;
+  roles?: unknown;
+  fleet_id?: unknown;
+}
+
+const ASSIGNABLE_ROLES = new Set([
+  "fleet_settlement",
+  "fleet_rental",
+  "driver",
+  "accounting_admin",
+  "accountant",
+  "real_estate_admin",
+  "real_estate_agent",
+  "marketplace_user",
+  "service_provider",
+  "sales_admin",
+  "sales_rep",
+  "marketing_manager",
+]);
+const FLEET_ROLES = new Set(["fleet_settlement", "fleet_rental", "driver"]);
+
+function validEmail(value: string): boolean {
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function validPassword(value: string): boolean {
+  return value.length >= 12 && value.length <= 128 &&
+    /[a-z]/.test(value) && /[A-Z]/.test(value) && /\d/.test(value) && /[^A-Za-z0-9]/.test(value);
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+  if (req.method !== "POST") return jsonResponse(req, 405, { error: "method_not_allowed" });
 
   try {
-    // Get auth header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Brak autoryzacji' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    const adminClient = createServiceClient();
+    const identity = await requireAdmin(req, adminClient);
+    await consumeRateLimit(adminClient, {
+      scope: "admin.user_create.user.hourly",
+      subjectId: identity.userId,
+      limit: 10,
+      windowSeconds: 3_600,
+    });
+    await consumeRateLimit(adminClient, {
+      scope: "admin.user_create.user.daily",
+      subjectId: identity.userId,
+      limit: 30,
+      windowSeconds: 86_400,
+    });
+    const body = await readJsonBody(req, 8_192) as CreateUserRequest;
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    const roles = Array.isArray(body.roles)
+      ? [...new Set(body.roles.filter((role): role is string => typeof role === "string"))]
+      : [];
+    const fleetId = body.fleet_id;
+
+    if (!validEmail(email)) throw new SecurityError(400, "invalid_email", "Podaj prawidłowy adres e-mail");
+    if (!validPassword(password)) {
+      throw new SecurityError(
+        400,
+        "weak_password",
+        "Hasło musi mieć 12–128 znaków oraz małą i wielką literę, cyfrę i znak specjalny",
       );
     }
-
-    // Parse request body
-    const { email, password, roles = [], fleet_id } = await req.json() as CreateUserRequest;
-
-    if (!email || !password) {
-      return new Response(
-        JSON.stringify({ error: 'Email i hasło są wymagane' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (roles.length > 6 || roles.some((role) => !ASSIGNABLE_ROLES.has(role))) {
+      if (roles.includes("admin")) {
+        throw new SecurityError(403, "admin_grant_disabled", "Nadanie roli administratora wymaga osobnego procesu z reautoryzacją");
+      }
+      throw new SecurityError(400, "invalid_role", "Co najmniej jedna rola jest niedozwolona");
     }
 
-    if (password.length < 6) {
-      return new Response(
-        JSON.stringify({ error: 'Hasło musi mieć minimum 6 znaków' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const requiresFleet = roles.some((role) => FLEET_ROLES.has(role));
+    if (requiresFleet) {
+      if (!isUuid(fleetId)) throw new SecurityError(400, "invalid_fleet", "Rola flotowa wymaga prawidłowej floty");
+      const { data: fleet, error: fleetError } = await adminClient
+        .from("fleets")
+        .select("id")
+        .eq("id", fleetId)
+        .maybeSingle();
+      if (fleetError || !fleet) throw new SecurityError(400, "invalid_fleet", "Wskazana flota nie istnieje");
+    } else if (fleetId !== undefined && fleetId !== null && fleetId !== "" && !isUuid(fleetId)) {
+      throw new SecurityError(400, "invalid_fleet", "Nieprawidłowy identyfikator floty");
     }
 
-    // Create client with user's token to verify they're admin
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
+    await writeAuditEvent(adminClient, {
+      actorId: identity.userId,
+      action: "admin.user_create_attempted",
+      resourceType: "auth_user",
+      result: "attempted",
+      correlationId: identity.correlationId,
+      metadata: { roles, fleet_id: requiresFleet ? fleetId : null },
     });
 
-    // Get current user
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    if (userError || !user) {
-      console.error('User auth error:', userError);
-      return new Response(
-        JSON.stringify({ error: 'Nieprawidłowy token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if user is admin
-    const { data: isAdmin, error: roleError } = await userClient.rpc('has_role', {
-      _user_id: user.id,
-      _role: 'admin'
-    });
-
-    if (roleError || !isAdmin) {
-      console.error('Role check error:', roleError);
-      return new Response(
-        JSON.stringify({ error: 'Brak uprawnień administratora' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Create admin client with service role key
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
-
-    // Create user
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // Auto-confirm email
+      email_confirm: false,
+      user_metadata: { created_by_admin: identity.userId, must_change_password: true },
+    });
+    if (createError || !newUser.user) {
+      if (createError?.message.toLowerCase().includes("already")) {
+        throw new SecurityError(409, "user_exists", "Użytkownik z tym adresem e-mail już istnieje");
+      }
+      throw createError ?? new Error("auth_user_create_failed");
+    }
+
+    if (roles.length > 0) {
+      const roleRows = roles.map((role) => ({
+        user_id: newUser.user!.id,
+        role,
+        fleet_id: FLEET_ROLES.has(role) ? fleetId : null,
+      }));
+      const { error: rolesError } = await adminClient.from("user_roles").insert(roleRows);
+      if (rolesError) {
+        const { error: rollbackError } = await adminClient.auth.admin.deleteUser(newUser.user.id);
+        if (rollbackError) console.error("admin_create_user_compensation_failed", { code: rollbackError.code });
+        throw rolesError;
+      }
+    }
+
+    await writeAuditEvent(adminClient, {
+      actorId: identity.userId,
+      action: "admin.user_created",
+      resourceType: "auth_user",
+      resourceId: newUser.user.id,
+      result: "succeeded",
+      correlationId: identity.correlationId,
+      metadata: { roles, fleet_id: requiresFleet ? fleetId : null, email_confirmed: false },
     });
 
-    if (createError) {
-      console.error('Create user error:', createError);
-      if (createError.message.includes('already registered')) {
-        return new Response(
-          JSON.stringify({ error: 'Użytkownik z tym adresem email już istnieje' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw createError;
-    }
-
-    if (!newUser.user) {
-      throw new Error('Nie udało się utworzyć użytkownika');
-    }
-
-    console.log(`Created user ${email} with ID ${newUser.user.id}`);
-
-    // Add roles if specified
-    if (roles.length > 0) {
-      const roleInserts = roles.map(role => ({
-        user_id: newUser.user.id,
-        role: role,
-        fleet_id: ['fleet_settlement', 'fleet_rental'].includes(role) ? fleet_id : null
-      }));
-
-      const { error: rolesInsertError } = await adminClient
-        .from('user_roles')
-        .insert(roleInserts);
-
-      if (rolesInsertError) {
-        console.error('Roles insert error:', rolesInsertError);
-        // Don't fail the whole operation, user is created
-      } else {
-        console.log(`Assigned roles [${roles.join(', ')}] to user ${email}`);
-      }
-    }
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        user: { 
-          id: newUser.user.id, 
-          email: newUser.user.email 
-        } 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return jsonResponse(req, 201, {
+      success: true,
+      user: { id: newUser.user.id, email: newUser.user.email, email_confirmed: false },
+    });
   } catch (error) {
-    console.error('Error creating user:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Błąd serwera' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(req, error);
   }
 });

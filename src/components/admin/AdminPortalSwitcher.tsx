@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { announceSecurityContextChange } from '@/security/sessionIsolation';
 
 interface Portal {
   id: string;
@@ -161,6 +162,12 @@ export function AdminPortalSwitcher() {
 
   const currentPortal = getCurrentPortal();
 
+  const switchPortal = (portal: Portal) => {
+    if (currentPortal?.id === portal.id) return;
+    announceSecurityContextChange(`admin-portal:${portal.id}`);
+    navigate(portal.path);
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -188,7 +195,7 @@ export function AdminPortalSwitcher() {
           return (
             <DropdownMenuItem
               key={portal.id}
-              onClick={() => navigate(portal.path)}
+              onClick={() => switchPortal(portal)}
               className={cn(
                 'flex items-start gap-3 p-3 cursor-pointer',
                 isActive && 'bg-primary/10'
@@ -220,7 +227,7 @@ export function AdminPortalSwitcher() {
           return (
             <DropdownMenuItem
               key={portal.id}
-              onClick={() => navigate(portal.path)}
+              onClick={() => switchPortal(portal)}
               className={cn(
                 'flex items-start gap-3 p-3 cursor-pointer',
                 isActive && 'bg-primary/10'

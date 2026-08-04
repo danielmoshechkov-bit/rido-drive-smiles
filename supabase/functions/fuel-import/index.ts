@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
 import { corsHeaders } from '../_shared/cors.ts';
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 // Deno built-in crypto for UUID generation
 import { crypto } from "https://deno.land/std@0.224.0/crypto/mod.ts";
 
@@ -65,6 +66,8 @@ const parseCSV = (csvText: string, periodFrom: string, periodTo: string, batchId
 };
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "fuel-import");
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

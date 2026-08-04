@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Minus, Plus, CreditCard, Search } from 'lucide-react';
+import { AlertTriangle, CreditCard, Search } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -9,18 +8,7 @@ interface Props {
   onPurchase: (credits: number, priceNet: number) => void;
 }
 
-const PRICE_PER_CREDIT = 1.50;
-const MIN_CREDITS = 10;
-const STEP = 10;
-
-export function VehicleLookupCreditsModal({ open, onOpenChange, onPurchase }: Props) {
-  const [credits, setCredits] = useState(MIN_CREDITS);
-
-  const priceNet = credits * PRICE_PER_CREDIT;
-
-  const decrease = () => setCredits(prev => Math.max(MIN_CREDITS, prev - STEP));
-  const increase = () => setCredits(prev => prev + STEP);
-
+export function VehicleLookupCreditsModal({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -33,49 +21,28 @@ export function VehicleLookupCreditsModal({ open, onOpenChange, onPurchase }: Pr
 
         <div className="space-y-6 py-4">
           <p className="text-sm text-muted-foreground">
-            W tym miejscu możesz kupić kredyty, dzięki którym będziesz mieć możliwość pobierania danych pojazdu po numerze rejestracyjnym.
+            Zakup kredytów wymaga pakietu z ceną i liczbą kredytów zdefiniowanymi w katalogu serwerowym.
           </p>
 
-          <div className="flex items-center justify-center gap-6">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={decrease}
-              disabled={credits <= MIN_CREDITS}
-              className="h-12 w-12 rounded-full"
-            >
-              <Minus className="h-5 w-5" />
-            </Button>
-
-            <div className="text-center">
-              <div className="text-4xl font-bold text-primary">{credits}</div>
-              <div className="text-sm text-muted-foreground">kredytów</div>
-            </div>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={increase}
-              className="h-12 w-12 rounded-full"
-            >
-              <Plus className="h-5 w-5" />
-            </Button>
-          </div>
-
-          <div className="bg-muted/50 rounded-lg p-4 text-center">
-            <div className="text-sm text-muted-foreground">Cena netto</div>
-            <div className="text-2xl font-bold">{priceNet.toFixed(2)} zł</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              ({PRICE_PER_CREDIT.toFixed(2)} zł / kredyt)
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <div>
+                <p className="font-medium">Zakup jest tymczasowo niedostępny</p>
+                <p className="mt-1 text-muted-foreground">
+                  Nie skonfigurowano jeszcze kanonicznego <code>price_id</code> dla kredytów pojazdowych.
+                  Saldo nie zostanie zmienione w przeglądarce.
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
-          <Button onClick={() => onPurchase(credits, priceNet)} className="gap-2">
+          <Button disabled className="gap-2">
             <CreditCard className="h-4 w-4" />
-            Przejdź do płatności
+            Płatność niedostępna
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,117 +1,44 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requireAdmin,
+  SecurityError,
+  writeAuditEvent,
+} from "../_shared/security.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    console.log('🚀 Creating auth accounts for existing drivers...');
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Pobierz wszystkich kierowców z prawdziwymi emailami (nie @rido.internal, nie puste)
-    const { data: drivers, error: driversError } = await supabase
-      .from('drivers')
-      .select('id, email, first_name, last_name, phone')
-      .not('email', 'is', null)
-      .not('email', 'eq', '')
-      .not('email', 'like', '%@rido.internal%');
-
-    if (driversError) throw driversError;
-
-    console.log(`📊 Znaleziono ${drivers?.length || 0} kierowców z prawdziwymi emailami`);
-    
-    // Pobierz wszystkich istniejących użytkowników Auth
-    const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const existingEmails = new Set(existingUsers?.users?.map(u => u.email) || []);
-
-    const results = {
-      total: drivers?.length || 0,
-      created: 0,
-      already_exists: 0,
-      errors: [] as string[]
-    };
-
-    // Dla każdego kierowcy utwórz konto Auth jeśli nie istnieje
-    for (const driver of drivers || []) {
-      try {
-        // Sprawdź czy konto już istnieje
-        if (existingEmails.has(driver.email)) {
-          console.log(`⏭️ Konto już istnieje: ${driver.email}`);
-          results.already_exists++;
-          continue;
-        }
-
-        // Utwórz nowe konto Auth
-        const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-          email: driver.email,
-          password: 'Test12345!',
-          email_confirm: true,
-          user_metadata: {
-            first_name: driver.first_name || '',
-            last_name: driver.last_name || '',
-            phone: driver.phone || ''
-          }
-        });
-
-        if (authError) {
-          console.error(`❌ Błąd dla ${driver.email}:`, authError);
-          results.errors.push(`${driver.email}: ${authError.message}`);
-          continue;
-        }
-
-        console.log(`✅ Utworzono konto: ${driver.email}`);
-
-        // Połącz konto auth z kierowcą i przypisz rolę driver
-        if (authUser?.user) {
-          const { error: linkError } = await supabase.rpc('link_auth_user_to_driver', {
-            p_user_id: authUser.user.id,
-            p_driver_id: driver.id
-          });
-          
-          if (linkError) {
-            console.error(`⚠️ Błąd linkowania ${driver.email}:`, linkError);
-            results.errors.push(`${driver.email}: linkowanie - ${linkError.message}`);
-          } else {
-            console.log(`🔗 Połączono konto z kierowcą: ${driver.email}`);
-          }
-        }
-
-        results.created++;
-
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        console.error(`❌ Błąd dla ${driver.email}:`, errorMsg);
-        results.errors.push(`${driver.email}: ${errorMsg}`);
-      }
+    if (req.method !== "POST") {
+      throw new SecurityError(405, "method_not_allowed", "Dozwolona jest wyłącznie metoda POST");
     }
 
-    console.log('✅ ZAKOŃCZONO:', results);
+    const supabase = createServiceClient();
+    const identity = await requireAdmin(req, supabase);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        results
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Poprzednia wersja tworzyła wszystkie konta z jednym, znanym hasłem i
+    // natychmiast potwierdzała email. Bezpieczny zamiennik musi używać
+    // jednorazowych zaproszeń, limitu partii i jawnego monitoringu wysyłki.
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      action: "driver_accounts.bulk_create",
+      resourceType: "auth_user",
+      result: "denied",
+      correlationId: identity.correlationId,
+      metadata: { reason: "secure_invitation_workflow_required" },
+    });
 
+    return jsonResponse(req, 409, {
+      success: false,
+      error: "bulk_account_creation_disabled",
+      message: "Masowe tworzenie kont jest wyłączone do czasu skonfigurowania bezpiecznych zaproszeń",
+      results: { created: 0, already_exists: 0, errors: [] },
+    });
   } catch (error) {
-    console.error('💥 ERROR:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(req, error);
   }
 });

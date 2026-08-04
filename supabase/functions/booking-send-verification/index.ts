@@ -1,6 +1,7 @@
 // Wysyła 4-cyfrowy kod weryfikacyjny SMS na numer klienta przy rezerwacji portalowej
 // SMS portalowy — używa SMSAPI_TOKEN platformy, nie obciąża salda usługodawcy
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,6 +19,8 @@ function normalizePhone(raw: string): string {
 }
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "booking-send-verification");
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {

@@ -29,6 +29,7 @@ import { RentalPhotoProtocol } from "./RentalPhotoProtocol";
 import { RentalContractViewer } from "./RentalContractViewer";
 import { EditDriverDataModal } from "./EditDriverDataModal";
 import { generateRentalContractHtml, ContractData } from "@/utils/rentalContractGenerator";
+import { sanitizeDocumentHtml } from "@/security/htmlSanitizer";
 
 type RentalStatus = "draft" | "sent_to_client" | "client_signed" | "fleet_signed" | "finalized";
 
@@ -887,7 +888,7 @@ function ContractPreview({ rental }: { rental: RentalData }) {
   return (
     <div 
       className="prose prose-sm max-w-none"
-      dangerouslySetInnerHTML={{ __html: contractHtml }} 
+      dangerouslySetInnerHTML={{ __html: sanitizeDocumentHtml(contractHtml) }}
     />
   );
 }

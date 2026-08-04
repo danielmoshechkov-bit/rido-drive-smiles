@@ -1,253 +1,268 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  createServiceClient,
+  consumeRateLimit,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requireAdmin,
+  readJsonBody,
+  SecurityError,
+  writeAuditEvent,
+} from "../_shared/security.ts";
+import { isUuid } from "../_shared/securityPrimitives.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ASSIGNABLE_ROLES = new Set([
+  "fleet_settlement",
+  "fleet_rental",
+  "driver",
+  "accounting_admin",
+  "accountant",
+  "real_estate_admin",
+  "real_estate_agent",
+  "marketplace_user",
+  "service_provider",
+  "sales_admin",
+  "sales_rep",
+  "marketing_manager",
+]);
+const FLEET_ROLES = new Set(["fleet_settlement", "fleet_rental", "driver"]);
+
+async function requireMutation(result: { error: { code?: string } | null }, operation: string): Promise<void> {
+  if (result.error) {
+    console.error("admin_user_mutation_failed", { operation, code: result.error.code ?? "unknown" });
+    throw new SecurityError(500, "user_operation_failed", "Nie udało się bezpiecznie wykonać operacji na koncie");
+  }
+}
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
+    if (req.method !== "POST") {
+      throw new SecurityError(405, "method_not_allowed", "Dozwolona jest wyłącznie metoda POST");
+    }
+
+    const supabase = createServiceClient();
+    const identity = await requireAdmin(req, supabase);
+    await consumeRateLimit(supabase, {
+      scope: "admin.user_management.user.hourly",
+      subjectId: identity.userId,
+      limit: 120,
+      windowSeconds: 3_600,
     });
+    await consumeRateLimit(supabase, {
+      scope: "admin.user_management.user.daily",
+      subjectId: identity.userId,
+      limit: 500,
+      windowSeconds: 86_400,
+    });
+    const body = await readJsonBody(req, 8_192);
+    const action = typeof body?.action === "string" ? body.action : "";
 
-    // Verify caller is admin
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user: callerUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    
-    if (authError || !callerUser) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
-    }
-
-    // Check if user has admin role
-    const { data: adminRole } = await supabaseAdmin
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', callerUser.id)
-      .eq('role', 'admin')
-      .maybeSingle();
-
-    if (!adminRole) {
-      return new Response(JSON.stringify({ error: "Forbidden - Admin access required" }), { 
-        status: 403, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
-    }
-
-    // Parse request body
-    let body: Record<string, unknown> = {};
-    try {
-      const text = await req.text();
-      if (text) {
-        body = JSON.parse(text);
-      }
-    } catch {
-      // No body or invalid JSON
-    }
-
-    const action = body.action as string;
-
-    // LIST all auth users
     if (action === "list") {
-      const search = (body.search as string) || "";
-      const page = parseInt(String(body.page || "1"));
-      const perPage = parseInt(String(body.per_page || "50"));
+      const search = typeof body?.search === "string" ? body.search.trim().slice(0, 100) : "";
+      const page = Math.max(1, Math.min(10_000, Number.parseInt(String(body?.page ?? "1"), 10) || 1));
+      const perPage = Math.max(1, Math.min(100, Number.parseInt(String(body?.per_page ?? "50"), 10) || 50));
+      const { data: authUsers, error: listError } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (listError) throw new SecurityError(503, "auth_directory_unavailable", "Nie można pobrać katalogu użytkowników");
 
-      const { data: authUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-        page,
-        perPage,
-      });
+      const userIds = authUsers.users.map((user) => user.id);
+      const profiles = userIds.length > 0
+        ? await supabase.from("marketplace_user_profiles")
+          .select("user_id, first_name, last_name, phone, company_name")
+          .in("user_id", userIds)
+        : { data: [], error: null };
+      if (profiles.error) throw new SecurityError(503, "profile_directory_unavailable", "Nie można pobrać profili użytkowników");
+      const profileMap = new Map((profiles.data ?? []).map((profile) => [profile.user_id, profile]));
 
-      if (listError) {
-        console.error("List users error:", listError);
-        return new Response(JSON.stringify({ error: listError.message }), { 
-          status: 500, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-
-      // Get marketplace profiles for cross-reference
-      const { data: marketplaceProfiles } = await supabaseAdmin
-        .from('marketplace_user_profiles')
-        .select('user_id, first_name, last_name, phone, company_name');
-
-      const profileMap = new Map(marketplaceProfiles?.map(p => [p.user_id, p]) || []);
-
-      // Filter and map users
-      let users = authUsers.users.map(u => {
-        const profile = profileMap.get(u.id);
+      let users = authUsers.users.map((user) => {
+        const profile = profileMap.get(user.id);
         return {
-          id: u.id,
-          email: u.email,
-          created_at: u.created_at,
-          email_confirmed_at: u.email_confirmed_at,
-          last_sign_in_at: u.last_sign_in_at,
-          first_name: profile?.first_name || u.user_metadata?.first_name || null,
-          last_name: profile?.last_name || u.user_metadata?.last_name || null,
-          phone: profile?.phone || u.phone || null,
-          company_name: profile?.company_name || null,
+          id: user.id,
+          email: user.email ?? null,
+          created_at: user.created_at,
+          email_confirmed_at: user.email_confirmed_at,
+          last_sign_in_at: user.last_sign_in_at,
+          first_name: profile?.first_name ?? user.user_metadata?.first_name ?? null,
+          last_name: profile?.last_name ?? user.user_metadata?.last_name ?? null,
+          phone: profile?.phone ?? user.phone ?? null,
+          company_name: profile?.company_name ?? null,
           has_profile: !!profile,
-          account_type: u.user_metadata?.account_type || 'unknown'
+          account_type: user.user_metadata?.account_type ?? "unknown",
         };
       });
-
-      // Apply search filter
       if (search) {
-        const searchLower = search.toLowerCase();
-        users = users.filter(u => 
-          u.email?.toLowerCase().includes(searchLower) ||
-          u.first_name?.toLowerCase().includes(searchLower) ||
-          u.last_name?.toLowerCase().includes(searchLower) ||
-          u.phone?.includes(search)
+        const normalized = search.toLocaleLowerCase("pl");
+        users = users.filter((user) => [user.email, user.first_name, user.last_name, user.phone]
+          .some((value) => String(value ?? "").toLocaleLowerCase("pl").includes(normalized)));
+      }
+
+      await writeAuditEvent(supabase, {
+        actorId: identity.userId,
+        action: "admin.users.list",
+        resourceType: "auth_user",
+        result: "succeeded",
+        correlationId: identity.correlationId,
+        metadata: { page, per_page: perPage, returned: users.length, search_used: !!search },
+      });
+      return jsonResponse(req, 200, { users, total: users.length });
+    }
+
+    if (action === "delete") {
+      const userId = body?.user_id;
+      if (!isUuid(userId)) throw new SecurityError(400, "invalid_user", "Nieprawidłowy identyfikator użytkownika");
+      if (userId === identity.userId) throw new SecurityError(409, "self_delete_denied", "Administrator nie może usunąć własnego konta");
+      if (body?.confirmation !== `DELETE_USER:${userId}`) {
+        throw new SecurityError(409, "confirmation_required", "Usunięcie konta wymaga jawnego potwierdzenia");
+      }
+
+      // Sama aktywna sesja administratora i tekstowe potwierdzenie nie są
+      // wystarczającą reautoryzacją dla nieodwracalnego usunięcia konta.
+      // Kod legacy pozostaje poniżej do wykorzystania dopiero w osobnym,
+      // transakcyjnym workflow z MFA/reauth i polityką retencji danych.
+      throw new SecurityError(
+        409,
+        "verified_account_deletion_required",
+        "Usunięcie konta wymaga osobnego procesu z reautoryzacją",
+      );
+
+      const [{ data: target, error: targetError }, { data: targetRoles, error: rolesError }] = await Promise.all([
+        supabase.auth.admin.getUserById(userId),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
+      ]);
+      if (targetError || !target.user) throw new SecurityError(404, "user_not_found", "Użytkownik nie istnieje");
+      if (rolesError) throw new SecurityError(503, "authorization_unavailable", "Nie można potwierdzić ról użytkownika");
+
+      if ((targetRoles ?? []).some((row) => row.role === "admin")) {
+        // Dwa równoległe żądania mogłyby przejść kontrolę "ostatniego admina"
+        // i usunąć oba konta. Usuwanie administratora pozostaje zablokowane do
+        // czasu transakcyjnego, reautoryzowanego workflow z blokadą w DB.
+        throw new SecurityError(
+          409,
+          "admin_delete_disabled",
+          "Usunięcie konta administratora wymaga osobnego procesu z reautoryzacją",
         );
       }
 
-      return new Response(JSON.stringify({ 
-        users,
-        total: users.length
-      }), { 
-        status: 200, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      await writeAuditEvent(supabase, {
+        actorId: identity.userId,
+        action: "admin.users.delete",
+        resourceType: "auth_user",
+        resourceId: userId,
+        result: "attempted",
+        correlationId: identity.correlationId,
       });
+
+      // Usunięcie konta nie może niejawnie kasować całej floty ani danych jej
+      // kierowców. Zasoby tenantowe wymagają osobnego workflow likwidacji firmy.
+      await requireMutation(await supabase.from("driver_app_users").delete().eq("user_id", userId), "driver_app_users");
+      await requireMutation(await supabase.from("marketplace_user_profiles").delete().eq("user_id", userId), "marketplace_user_profiles");
+      await requireMutation(await supabase.from("user_roles").delete().eq("user_id", userId), "user_roles");
+      const deleteResult = await supabase.auth.admin.deleteUser(userId);
+      if (deleteResult.error) throw new SecurityError(500, "auth_user_delete_failed", "Nie udało się usunąć konta użytkownika");
+
+      await writeAuditEvent(supabase, {
+        actorId: identity.userId,
+        action: "admin.users.delete",
+        resourceType: "auth_user",
+        resourceId: userId,
+        result: "succeeded",
+        correlationId: identity.correlationId,
+      });
+      return jsonResponse(req, 200, { success: true, message: "Użytkownik usunięty" });
     }
 
-    // DELETE a user
-    if (action === "delete") {
-      const user_id = body.user_id as string;
-      
-      if (!user_id) {
-        return new Response(JSON.stringify({ error: "user_id is required" }), { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-
-      // 1. Find fleet(s) owned by this user (via user_roles with fleet_id)
-      const { data: userFleetRoles } = await supabaseAdmin
-        .from('user_roles')
-        .select('fleet_id')
-        .eq('user_id', user_id)
-        .in('role', ['fleet_settlement', 'fleet_rental']);
-
-      const fleetIds = (userFleetRoles || [])
-        .map(r => r.fleet_id)
-        .filter(Boolean) as string[];
-
-      // 2. Delete fleet-related data for each fleet
-      for (const fid of fleetIds) {
-        // Delete driver_platform_ids for drivers in this fleet
-        const { data: fleetDrivers } = await supabaseAdmin
-          .from('drivers')
-          .select('id')
-          .eq('fleet_id', fid);
-        
-        const driverIds = (fleetDrivers || []).map(d => d.id);
-        
-        if (driverIds.length > 0) {
-          await supabaseAdmin.from('driver_platform_ids').delete().in('driver_id', driverIds);
-          await supabaseAdmin.from('driver_fleet_relations').delete().in('driver_id', driverIds);
-          await supabaseAdmin.from('driver_app_users').delete().in('driver_id', driverIds);
-          await supabaseAdmin.from('driver_document_statuses').delete().in('driver_id', driverIds);
-          await supabaseAdmin.from('drivers').delete().eq('fleet_id', fid);
-        }
-
-        // Delete the fleet itself (this frees the NIP)
-        await supabaseAdmin.from('fleets').delete().eq('id', fid);
-      }
-
-      // 3. Delete from driver_app_users (if user was also a driver)
-      await supabaseAdmin.from('driver_app_users').delete().eq('user_id', user_id);
-
-      // 4. Delete from marketplace_user_profiles (if exists)
-      await supabaseAdmin
-        .from('marketplace_user_profiles')
-        .delete()
-        .eq('user_id', user_id);
-
-      // 5. Delete from user_roles
-      await supabaseAdmin
-        .from('user_roles')
-        .delete()
-        .eq('user_id', user_id);
-
-      // 6. Delete auth user
-      const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user_id);
-
-      if (deleteError) {
-        console.error("Delete user error:", deleteError);
-        return new Response(JSON.stringify({ error: deleteError.message }), { 
-          status: 500, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-
-      console.log(`✅ User ${user_id} deleted by admin ${callerUser.email}`);
-
-      return new Response(JSON.stringify({ success: true, message: "Użytkownik usunięty" }), { 
-        status: 200, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
-    }
-
-    // CONFIRM email manually
     if (action === "confirm-email") {
-      const user_id = body.user_id as string;
-      
-      if (!user_id) {
-        return new Response(JSON.stringify({ error: "user_id is required" }), { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
+      const userId = body?.user_id;
+      if (!isUuid(userId)) throw new SecurityError(400, "invalid_user", "Nieprawidłowy identyfikator użytkownika");
+      if (body?.confirmation !== `CONFIRM_EMAIL:${userId}`) {
+        throw new SecurityError(409, "confirmation_required", "Potwierdzenie emaila wymaga jawnego potwierdzenia administratora");
       }
-
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
-        email_confirm: true
+      // Potwierdzenie adresu przez admin API omija dowód kontroli skrzynki.
+      // Przywrócić wyłącznie przez natywny invite/recovery i audyt MFA.
+      throw new SecurityError(
+        409,
+        "verified_email_confirmation_required",
+        "Adres email musi zostać potwierdzony przez bezpieczny link użytkownika",
+      );
+      await writeAuditEvent(supabase, {
+        actorId: identity.userId,
+        action: "admin.users.confirm_email",
+        resourceType: "auth_user",
+        resourceId: userId,
+        result: "attempted",
+        correlationId: identity.correlationId,
       });
-
-      if (updateError) {
-        console.error("Confirm email error:", updateError);
-        return new Response(JSON.stringify({ error: updateError.message }), { 
-          status: 500, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        });
-      }
-
-      console.log(`✅ Email confirmed for user ${user_id} by admin ${callerUser.email}`);
-
-      return new Response(JSON.stringify({ success: true, message: "Email potwierdzony" }), { 
-        status: 200, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      const { error } = await supabase.auth.admin.updateUserById(userId, { email_confirm: true });
+      if (error) throw new SecurityError(500, "email_confirmation_failed", "Nie udało się potwierdzić emaila");
+      await writeAuditEvent(supabase, {
+        actorId: identity.userId,
+        action: "admin.users.confirm_email",
+        resourceType: "auth_user",
+        resourceId: userId,
+        result: "succeeded",
+        correlationId: identity.correlationId,
       });
+      return jsonResponse(req, 200, { success: true, message: "Email potwierdzony" });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action" }), { 
-      status: 400, 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
-    });
+    if (action === "set-role") {
+      const userId = body?.user_id;
+      const role = typeof body?.role === "string" ? body.role : "";
+      const enabled = body?.enabled;
+      const fleetId = body?.fleet_id;
+      if (!isUuid(userId) || !ASSIGNABLE_ROLES.has(role) || typeof enabled !== "boolean") {
+        throw new SecurityError(400, "invalid_role_change", "Nieprawidłowa zmiana roli");
+      }
+      if (role === "admin") {
+        throw new SecurityError(403, "admin_role_change_disabled", "Zmiana roli administratora wymaga reautoryzowanego procesu");
+      }
+      const needsFleet = FLEET_ROLES.has(role);
+      if (enabled && needsFleet) {
+        if (!isUuid(fleetId)) throw new SecurityError(400, "fleet_required", "Ta rola wymaga wskazania floty");
+        const { data: fleet, error: fleetError } = await supabase.from("fleets")
+          .select("id")
+          .eq("id", fleetId)
+          .maybeSingle();
+        if (fleetError || !fleet) throw new SecurityError(400, "invalid_fleet", "Wskazana flota nie istnieje");
+      }
+      const { data: target, error: targetError } = await supabase.auth.admin.getUserById(userId);
+      if (targetError || !target.user) throw new SecurityError(404, "user_not_found", "Użytkownik nie istnieje");
 
+      await writeAuditEvent(supabase, {
+        actorId: identity.userId,
+        action: "admin.user_role_change",
+        resourceType: "auth_user",
+        resourceId: userId,
+        result: "attempted",
+        correlationId: identity.correlationId,
+        metadata: { role, enabled, fleet_id: enabled && needsFleet ? fleetId : null },
+      });
+
+      const mutation = enabled
+        ? await supabase.from("user_roles").upsert({
+          user_id: userId,
+          role,
+          fleet_id: needsFleet ? fleetId : null,
+        }, { onConflict: "user_id,role" })
+        : await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", role);
+      await requireMutation(mutation, "user_roles.set_role");
+
+      await writeAuditEvent(supabase, {
+        actorId: identity.userId,
+        action: "admin.user_role_change",
+        resourceType: "auth_user",
+        resourceId: userId,
+        result: "succeeded",
+        correlationId: identity.correlationId,
+        metadata: { role, enabled, fleet_id: enabled && needsFleet ? fleetId : null },
+      });
+      return jsonResponse(req, 200, { success: true });
+    }
+
+    throw new SecurityError(400, "unknown_action", "Nieznana akcja");
   } catch (error) {
-    console.error("Admin users error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), { 
-      status: 500, 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
-    });
+    return errorResponse(req, error);
   }
 });

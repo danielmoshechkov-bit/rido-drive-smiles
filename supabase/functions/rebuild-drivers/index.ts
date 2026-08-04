@@ -1,10 +1,17 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requireAdmin,
+  SecurityError,
+  writeAuditEvent,
+} from '../_shared/security.ts';
+import { isUuid } from '../_shared/securityPrimitives.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const MAX_CSV_BASE64_LENGTH = 7_000_000;
+const MAX_CSV_ROWS = 10_000;
 
 // Convert column letter to index
 function letterToIndex(letter: string): number {
@@ -85,35 +92,65 @@ function parseFullName(fullName: string): { first_name: string; last_name: strin
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    if (req.method !== 'POST') {
+      throw new SecurityError(405, 'method_not_allowed', 'Dozwolona jest wyłącznie metoda POST');
+    }
 
-    const { city_id, main_csv, options } = await req.json();
+    const supabase = createServiceClient();
+    const identity = await requireAdmin(req, supabase);
 
-    if (!city_id || !main_csv) {
-      throw new Error('city_id and main_csv are required');
+    const body = await req.json().catch(() => null);
+    const city_id = body?.city_id;
+    const main_csv = typeof body?.main_csv === 'string' ? body.main_csv : '';
+    const options = body?.options;
+
+    if (!isUuid(city_id) || !main_csv) {
+      throw new SecurityError(400, 'invalid_rebuild_payload', 'Nieprawidłowe dane przebudowy kierowców');
+    }
+    if (main_csv.length > MAX_CSV_BASE64_LENGTH) {
+      throw new SecurityError(413, 'csv_too_large', 'Plik CSV przekracza bezpieczny limit rozmiaru');
     }
 
     const {
       force_replace_getrido = true,
       clear_platform_ids = true,
-      dry_run = false
+      dry_run = true
     } = options || {};
+
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      action: 'drivers.rebuild',
+      resourceType: 'city',
+      resourceId: city_id,
+      result: 'attempted',
+      correlationId: identity.correlationId,
+      metadata: {
+        dry_run: dry_run === true,
+        force_replace_getrido: force_replace_getrido === true,
+        clear_platform_ids: clear_platform_ids === true,
+        csv_base64_length: main_csv.length,
+      },
+    });
 
     console.log(`🔧 Rebuild drivers: city=${city_id}, force_replace_getrido=${force_replace_getrido}, clear_platform_ids=${clear_platform_ids}, dry_run=${dry_run}`);
 
     // Decode CSV
-    const csvText = atob(main_csv);
+    let csvText: string;
+    try {
+      csvText = atob(main_csv);
+    } catch {
+      throw new SecurityError(400, 'invalid_csv_encoding', 'Nieprawidłowe kodowanie pliku CSV');
+    }
     const rows = parseCSV(csvText);
     if (rows.length < 2) {
-      throw new Error('CSV must have at least header and one data row');
+      throw new SecurityError(400, 'csv_empty', 'CSV musi zawierać nagłówek i przynajmniej jeden wiersz danych');
+    }
+    if (rows.length > MAX_CSV_ROWS) {
+      throw new SecurityError(413, 'csv_too_many_rows', 'Plik CSV przekracza bezpieczny limit liczby wierszy');
     }
 
     const headers = rows[0].map(h => h.trim().toLowerCase());
@@ -318,21 +355,8 @@ serve(async (req) => {
         console.log(`➕ Row ${i + 2}: Creating new driver "${full_name}"`);
 
         if (!dry_run) {
-          // Create auth user
-          const tempEmail = email || `${phone || Date.now()}@rido.internal`;
-          const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-            email: tempEmail,
-            password: 'Test12345!',
-            email_confirm: true,
-          });
-
-          if (authError) {
-            console.error(`❌ Error creating auth user:`, authError);
-            skippedRows++;
-            continue;
-          }
-
-          // Create driver record
+          // Przebudowa danych nie tworzy kont logowania. Konto może powstać
+          // wyłącznie przez osobny, audytowany proces jednorazowego zaproszenia.
           const { data: newDriver, error: driverError } = await supabase
             .from('drivers')
             .insert({
@@ -354,15 +378,6 @@ serve(async (req) => {
           }
 
           createdDrivers++;
-
-          // Create driver_app_users mapping
-          await supabase
-            .from('driver_app_users')
-            .insert({
-              user_id: authUser.user.id,
-              driver_id: newDriver.id,
-              city_id,
-            });
 
           // Insert platform IDs
           const idsToInsert = [];
@@ -390,14 +405,18 @@ serve(async (req) => {
 
     console.log(`✅ Rebuild complete:`, report);
 
-    return new Response(JSON.stringify(report), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      action: 'drivers.rebuild',
+      resourceType: 'city',
+      resourceId: city_id,
+      result: 'succeeded',
+      correlationId: identity.correlationId,
+      metadata: report,
     });
+
+    return jsonResponse(req, 200, report);
   } catch (error) {
-    console.error('❌ Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(req, error);
   }
 });

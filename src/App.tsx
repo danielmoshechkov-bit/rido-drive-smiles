@@ -10,6 +10,7 @@ import { QuotaGuardProvider } from "@/components/quota/QuotaGuardProvider";
 import { GlobalRidoAIButton } from "@/components/ai/GlobalRidoAIButton";
 import { ReferralCapture } from "@/components/ReferralCapture";
 import { PwaUpdater } from "@/components/PwaUpdater";
+import { SessionIsolationBoundary } from "@/security/SessionIsolationBoundary";
 
 import { OnboardingWidget } from "@/components/onboarding";
 import { useUISettings } from "@/hooks/useUISettings";
@@ -134,7 +135,7 @@ const isNonRetryableError = (error: any) => {
   return code === '42501' || code.startsWith('PGRST');
 };
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 45 * 1000,
@@ -169,13 +170,14 @@ function UISettingsLoader({ children }: { children: React.ReactNode }) {
  */
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <OnboardingProvider>
-        <UISettingsLoader>
-          <Toaster />
-          <Sonner />
-          <PwaUpdater />
-          <BrowserRouter>
+    <PwaUpdater />
+    <SessionIsolationBoundary>
+      <TooltipProvider>
+        <OnboardingProvider>
+          <UISettingsLoader>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
             <QuotaGuardProvider>
             <CompareProvider>
               <Suspense fallback={<PageLoader />}>
@@ -299,10 +301,11 @@ const App = () => (
               <OnboardingWidget />
             </CompareProvider>
             </QuotaGuardProvider>
-          </BrowserRouter>
-        </UISettingsLoader>
-      </OnboardingProvider>
-    </TooltipProvider>
+            </BrowserRouter>
+          </UISettingsLoader>
+        </OnboardingProvider>
+      </TooltipProvider>
+    </SessionIsolationBoundary>
   </QueryClientProvider>
 );
 

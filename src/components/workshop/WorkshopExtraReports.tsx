@@ -125,15 +125,18 @@ export function WorkshopEmployeesReport({ providerId }: { providerId: string }) 
 }
 
 // ── SPRZEDAŻ (faktury) ──
-export function WorkshopSalesReport({ providerId: _providerId }: { providerId: string }) {
+export function WorkshopSalesReport({ providerId }: { providerId: string }) {
   const [from, setFrom] = useState(startOfMonth());
   const [to, setTo] = useState(todayStr());
   const { data: invoices = [] } = useQuery({
-    queryKey: ['workshop-sales-report'],
+    queryKey: ['workshop-sales-report', providerId],
+    enabled: !!providerId,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
-      const { data, error } = await (supabase as any).from('user_invoices').select('invoice_number, issue_date, gross_total').eq('user_id', user.id).neq('invoice_type', 'cost');
+      // Funkcja SECURITY DEFINER ponownie wiąże provider z auth.uid() i zwraca
+      // wyłącznie faktury połączone ze zleceniami tego warsztatu.
+      const { data, error } = await (supabase as any).rpc('phase_d_workshop_sales_report', {
+        p_provider_id: providerId,
+      });
       if (error) throw error;
       return data || [];
     },
