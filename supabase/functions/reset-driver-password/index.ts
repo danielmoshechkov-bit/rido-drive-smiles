@@ -1,206 +1,163 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requireUser,
+  SecurityError,
+  writeAuditEvent,
+} from "../_shared/security.ts";
+import { isUuid } from "../_shared/securityPrimitives.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+interface ResetRequest {
+  action?: unknown;
+  driver_id?: unknown;
+  user_id?: unknown;
+  email?: unknown;
+  password?: unknown;
+  confirmation?: unknown;
+}
+
+interface DriverTarget {
+  id: string;
+  email: string | null;
+  fleet_id: string | null;
+  city_id: string | null;
+}
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+  if (req.method !== "POST") return jsonResponse(req, 405, { error: "method_not_allowed" });
 
   try {
-    const { email, password, driver_id, user_id, action } = await req.json();
+    const client = createServiceClient();
+    const identity = await requireUser(req, client);
+    const body = await req.json() as ResetRequest;
+    const action = body.action === "delete" ? "delete" : "reset";
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    let driverId: string | null = null;
+    if (body.driver_id !== undefined && body.driver_id !== null && body.driver_id !== "") {
+      if (!isUuid(body.driver_id)) throw new SecurityError(400, "invalid_driver", "Nieprawidłowy kierowca");
+      driverId = body.driver_id;
+    } else if (body.user_id !== undefined && body.user_id !== null && body.user_id !== "") {
+      if (!isUuid(body.user_id)) throw new SecurityError(400, "invalid_user", "Nieprawidłowy użytkownik");
+      const { data: mapping, error: mappingError } = await client
+        .from("driver_app_users")
+        .select("driver_id")
+        .eq("user_id", body.user_id)
+        .maybeSingle();
+      if (mappingError) throw mappingError;
+      driverId = mapping?.driver_id ?? null;
+    }
 
-    // Handle delete action - remove user from auth.users
-    if (action === 'delete') {
-      let userIdToDelete = user_id;
-      
-      // If no user_id provided but email is, find user by email
-      if (!userIdToDelete && email) {
-        console.log(`🔍 Szukam użytkownika po emailu: ${email}`);
-        const { data: existingUsers } = await supabase.auth.admin.listUsers();
-        const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
-        
-        if (existingUser) {
-          userIdToDelete = existingUser.id;
-          console.log(`📧 Znaleziono użytkownika po emailu: ${userIdToDelete}`);
-        } else {
-          console.log(`ℹ️ Nie znaleziono użytkownika z emailem: ${email}`);
-          return new Response(
-            JSON.stringify({ success: true, action: 'not_found', message: 'User not found in auth' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-      }
-      
-      if (userIdToDelete) {
-        console.log(`🗑️ Usuwanie użytkownika auth: ${userIdToDelete}`);
-        
-        const { error: deleteError } = await supabase.auth.admin.deleteUser(userIdToDelete);
-        
-        if (deleteError) {
-          console.error('❌ Błąd usuwania użytkownika:', deleteError);
-          throw deleteError;
-        }
-        
-        console.log(`✅ Użytkownik auth usunięty: ${userIdToDelete}`);
-        
-        return new Response(
-          JSON.stringify({ success: true, action: 'deleted' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      return new Response(
-        JSON.stringify({ success: false, error: 'No user_id or email provided for deletion' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    if (!driverId) {
+      throw new SecurityError(
+        400,
+        "driver_context_required",
+        "Wymagane jest jednoznaczne, istniejące powiązanie z kierowcą",
       );
     }
 
-    if (!email) {
-      throw new Error('Email jest wymagany');
-    }
+    const { data: driver, error: driverError } = await client
+      .from("drivers")
+      .select("id, email, fleet_id, city_id")
+      .eq("id", driverId)
+      .maybeSingle();
+    if (driverError) throw driverError;
+    if (!driver) throw new SecurityError(404, "driver_not_found", "Nie znaleziono kierowcy");
+    const target = driver as DriverTarget;
 
-    console.log(`🔐 Tworzenie/resetowanie konta dla: ${email}`);
-
-    // If no password provided, generate one
-    let finalPassword = password;
-    if (!finalPassword) {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*';
-      finalPassword = '';
-      for (let i = 0; i < 12; i++) {
-        finalPassword += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-    }
-
-    // Sprawdź czy użytkownik istnieje
-    const { data: existingUsers } = await supabase.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
-    
-    // Sprawdź czy istnieje stare konto z @rido.internal dla tego samego kierowcy
-    const fakeUser = existingUsers?.users?.find(u => u.email?.includes('@rido.internal'));
-    if (fakeUser) {
-      console.log(`🗑️ Usuwam stare konto: ${fakeUser.email}`);
-      await supabase.auth.admin.deleteUser(fakeUser.id);
-    }
-
-    if (existingUser) {
-      // Resetuj hasło dla istniejącego użytkownika
-      const { error: updateError } = await supabase.auth.admin.updateUserById(
-        existingUser.id,
-        { password: finalPassword }
-      );
-
-      if (updateError) throw updateError;
-
-      // Link auth user to driver profile and ensure driver role
-      if (driver_id) {
-        const { error: linkError } = await supabase.rpc('link_auth_user_to_driver', {
-          p_user_id: existingUser.id,
-          p_driver_id: driver_id
-        });
-
-        if (linkError) {
-          console.error('⚠️ Nie udało się połączyć konta z kierowcą:', linkError);
-        } else {
-          console.log(`✅ Konto połączone z kierowcą i rola przypisana dla: ${email}`);
-        }
-      } else {
-        // Fallback: tylko przypisz rolę driver jeśli nie ma driver_id
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .upsert({
-            user_id: existingUser.id,
-            role: 'driver'
-          }, {
-            onConflict: 'user_id,role',
-            ignoreDuplicates: true
-          });
-
-        if (roleError) {
-          console.error('⚠️ Nie udało się dodać roli driver:', roleError);
-        } else {
-          console.log(`✅ Rola driver przypisana dla: ${email}`);
-        }
-      }
-
-      console.log(`✅ Hasło zmienione dla: ${email}`);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          password: password ? undefined : finalPassword, // Return password only if auto-generated
-          action: 'reset'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else {
-      // Utwórz nowe konto
-      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-        email,
-        password: finalPassword,
-        email_confirm: true
-      });
-
-      if (authError) throw authError;
-
-      console.log(`✅ Konto utworzone dla: ${email}`);
-
-      // Link auth user to driver profile and ensure driver role
-      if (authUser.user && driver_id) {
-        const { error: linkError } = await supabase.rpc('link_auth_user_to_driver', {
-          p_user_id: authUser.user.id,
-          p_driver_id: driver_id
-        });
-
-        if (linkError) {
-          console.error('⚠️ Nie udało się połączyć konta z kierowcą:', linkError);
-        } else {
-          console.log(`✅ Konto połączone z kierowcą i rola przypisana dla: ${email}`);
-        }
-      } else if (authUser.user) {
-        // Fallback: tylko przypisz rolę driver jeśli nie ma driver_id
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .upsert({
-            user_id: authUser.user.id,
-            role: 'driver'
-          }, {
-            onConflict: 'user_id,role',
-            ignoreDuplicates: true
-          });
-
-        if (roleError) {
-          console.error('⚠️ Nie udało się dodać roli driver:', roleError);
-        } else {
-          console.log(`✅ Rola driver przypisana dla: ${email}`);
-        }
-      }
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          password: password ? undefined : finalPassword, // Return password only if auto-generated
-          action: 'created'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-  } catch (error) {
-    console.error('💥 ERROR:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    const canManageFleet = !!target.fleet_id && identity.fleetRoles.some((membership) =>
+      membership.fleetId === target.fleet_id &&
+      (membership.role === "fleet_settlement" || membership.role === "fleet_rental")
     );
+    if (!identity.isAdmin && !canManageFleet) {
+      throw new SecurityError(403, "cross_tenant_denied", "Brak dostępu do kierowcy");
+    }
+
+    const driverEmail = target.email?.trim().toLowerCase() ?? "";
+    if (!driverEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(driverEmail)) {
+      throw new SecurityError(409, "driver_email_invalid", "Kierowca nie ma prawidłowego adresu e-mail");
+    }
+    if (typeof body.email === "string" && body.email.trim().toLowerCase() !== driverEmail) {
+      throw new SecurityError(400, "driver_identity_mismatch", "Adres e-mail nie odpowiada rekordowi kierowcy");
+    }
+
+    const { data: mapping, error: mappingError } = await client
+      .from("driver_app_users")
+      .select("user_id")
+      .eq("driver_id", target.id)
+      .maybeSingle();
+    if (mappingError) throw mappingError;
+    const mappedUserId = mapping?.user_id ?? null;
+    if (isUuid(body.user_id) && mappedUserId !== body.user_id) {
+      throw new SecurityError(403, "driver_identity_mismatch", "Użytkownik nie jest powiązany z kierowcą");
+    }
+
+    const confirmation = typeof body.confirmation === "string" ? body.confirmation : "";
+    const expectedConfirmation = action === "delete"
+      ? `DELETE_DRIVER_AUTH:${target.id}`
+      : `RESET_DRIVER_PASSWORD:${target.id}`;
+    if (confirmation !== expectedConfirmation) {
+      throw new SecurityError(
+        409,
+        "explicit_confirmation_required",
+        "Operacja wymaga ponownego, jawnego potwierdzenia w bezpiecznym interfejsie",
+      );
+    }
+
+    await writeAuditEvent(client, {
+      actorId: identity.userId,
+      tenantId: target.fleet_id,
+      action: action === "delete" ? "driver.auth_delete_attempted" : "driver.password_reset_attempted",
+      resourceType: "driver",
+      resourceId: target.id,
+      result: "attempted",
+      correlationId: identity.correlationId,
+      metadata: { target_user_id: mappedUserId },
+    });
+
+    if (action === "delete") {
+      await writeAuditEvent(client, {
+        actorId: identity.userId,
+        tenantId: target.fleet_id,
+        action: "driver.auth_delete_blocked",
+        resourceType: "driver",
+        resourceId: target.id,
+        result: "denied",
+        correlationId: identity.correlationId,
+        metadata: {
+          target_user_id: mappedUserId,
+          reason: "dedicated_unlink_and_account_deletion_workflow_required",
+        },
+      });
+      throw new SecurityError(
+        409,
+        "verified_unlink_required",
+        "Usuwanie całego konta Auth przez ekran kierowcy zostało wyłączone; wymagany jest osobny proces odłączenia roli.",
+      );
+    }
+
+    await writeAuditEvent(client, {
+      actorId: identity.userId,
+      tenantId: target.fleet_id,
+      action: "driver.password_reset_blocked",
+      resourceType: "driver",
+      resourceId: target.id,
+      result: "denied",
+      correlationId: identity.correlationId,
+      metadata: {
+        target_user_id: mappedUserId,
+        reason: "verified_recovery_flow_required",
+      },
+    });
+    throw new SecurityError(
+      409,
+      "verified_recovery_required",
+      "Bezpośrednie ustawianie hasła zostało wyłączone. Użyj zweryfikowanego procesu recovery/invite.",
+    );
+  } catch (error) {
+    return errorResponse(req, error);
   }
 });

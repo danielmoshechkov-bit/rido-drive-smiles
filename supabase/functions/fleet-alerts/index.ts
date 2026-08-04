@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,6 +7,8 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "fleet-alerts");
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

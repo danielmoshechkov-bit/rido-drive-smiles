@@ -10,6 +10,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
 import { uiWeekFromDate } from "../_shared/weekMapping.ts";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 interface Plan {
   driver_name: string;
@@ -22,6 +23,8 @@ interface Plan {
 }
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "migrate-ledger-payments-flame");
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(

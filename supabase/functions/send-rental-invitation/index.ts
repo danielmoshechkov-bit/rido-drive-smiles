@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +17,8 @@ interface InvitationRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  return phaseABlockedResponse(req, "send-rental-invitation");
+
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });

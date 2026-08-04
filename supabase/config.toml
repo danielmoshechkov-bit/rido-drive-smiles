@@ -1,5 +1,10 @@
 project_id = "wclrrytmrscqvsyxyvnn"
 
+# Phase A security baseline: gateway JWT jest tylko pierwszą warstwą. Każda
+# funkcja musi dodatkowo egzekwować auth/tenant/rolę albo mieć jawny fail-closed
+# guard. Publiczny klucz anon również jest JWT i nigdy nie zastępuje requireUser.
+# Trzy wyjątki bez JWT mają niezależny sekret/HMAC i zostały statycznie sprawdzone.
+
 [api]
 enabled = true
 port = 54321
@@ -7,207 +12,225 @@ schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
+# Lokalna/deklaratywna polityka Supabase Auth. Przed `config push` należy
+# potwierdzić dokładne limity dla produkcji i stagingu; nie wolno ich luzować
+# tylko po to, aby ukryć abuse. Istniejące hasła nadal mogą służyć do logowania,
+# ale każde nowe lub zmieniane hasło musi spełnić tę politykę po stronie Auth.
+[auth]
+enable_anonymous_sign_ins = false
+minimum_password_length = 12
+password_requirements = "lower_upper_letters_digits_symbols"
+
+[auth.rate_limit]
+email_sent = 2
+sms_sent = 10
+anonymous_users = 1
+token_refresh = 120
+sign_in_sign_ups = 10
+token_verifications = 10
+web3 = 1
+
 [functions.drivers-search]
-verify_jwt = false
+verify_jwt = true
 
 [functions.vehicles]
-verify_jwt = false
+verify_jwt = true
 
 [functions.documents]
-verify_jwt = false
+verify_jwt = true
 
 [functions.document-templates]
-verify_jwt = false
+verify_jwt = true
 
 [functions.reminders]
-verify_jwt = false
+verify_jwt = true
 
 [functions.settlements]
-verify_jwt = false
+verify_jwt = true
 
 [functions.csv-import]
-verify_jwt = false
+verify_jwt = true
 
 [functions.admin-bootstrap]
 verify_jwt = false
 
 [functions.create-driver-accounts]
-verify_jwt = false
+verify_jwt = true
 
 [functions.reset-driver-password]
-verify_jwt = false
+verify_jwt = true
 
 [functions.cleanup-fake-auth-accounts]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-driver-ids]
-verify_jwt = false
+verify_jwt = true
 
 [functions.update-driver-debt]
-verify_jwt = false
+verify_jwt = true
 
 [functions.rebuild-drivers]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sanitize-getrido]
-verify_jwt = false
+verify_jwt = true
 
 [functions.fleet-invitations]
-verify_jwt = false
+verify_jwt = true
 
 [functions.fuel-import]
-verify_jwt = false
+verify_jwt = true
 
 [functions.import-drivers]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-registration-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.register-driver]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-password-reset-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-price-change-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.client-verify-vehicle-ownership]
-verify_jwt = false
+verify_jwt = true
 
 [functions.register-marketplace-user]
-verify_jwt = false
+verify_jwt = true
 
 [functions.resend-activation-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.activate-workshop-trial]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-driver-invoice]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-fleet-account]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-search]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-chat-support]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-admin-assistant]
-verify_jwt = false
+verify_jwt = true
 
 [functions.track-listing-interaction]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-listing-assessment]
-verify_jwt = false
+verify_jwt = true
 
 [functions.transit-data]
-verify_jwt = false
+verify_jwt = true
 
 [functions.location-integrations]
-verify_jwt = false
+verify_jwt = true
 
 [functions.google-location-data]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-service]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-seo-generator]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-photo-edit]
-verify_jwt = false
+verify_jwt = true
 
 [functions.register-fleet]
-verify_jwt = false
+verify_jwt = true
 
 
 [functions.seed-services-demo]
-verify_jwt = false
+verify_jwt = true
 
 [functions.invoice-pdf]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-sms]
-verify_jwt = false
+verify_jwt = true
 
 [functions.rental-payment-reminders]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ksef-integration]
-verify_jwt = false
+verify_jwt = true
 
 [functions.verify-vat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-assistant]
-verify_jwt = false
+verify_jwt = true
 
 [functions.registry-gus]
-verify_jwt = false
+verify_jwt = true
 
 [functions.gus-lookup]
-verify_jwt = false
+verify_jwt = true
 
 [functions.registry-whitelist]
-verify_jwt = false
+verify_jwt = true
 
 [functions.admin-list-users]
-verify_jwt = false
+verify_jwt = true
 
 [functions.admin-create-user]
-verify_jwt = false
+verify_jwt = true
 
 [functions.insurance-alerts]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-invoice-assistant]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-invoice-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-rental-invitation]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-rental-confirmation]
-verify_jwt = false
+verify_jwt = true
 
 [functions.admin-ai-agent]
-verify_jwt = false
+verify_jwt = true
 
 [functions.admin-ai-secrets]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-preview]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-list]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-company-interview]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-agent-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-library]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-add]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-agent-tools]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-call-analyze]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-agent-llm]
 verify_jwt = false
@@ -216,148 +239,354 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.voice-agent-simulate]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ticket-ai-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-repair-prompt]
-verify_jwt = false
+verify_jwt = true
 
 [functions.getrido-ai-execute]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-fleet-registration-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.fleet-alerts]
-verify_jwt = false
+verify_jwt = true
 
 [functions.workshop-send-sms]
-verify_jwt = false
+verify_jwt = true
 
 [functions.workshop-send-scheduled-sms]
-verify_jwt = false
-
-[functions.workshop-tire-reminders]
-verify_jwt = false
+verify_jwt = true
 
 [functions.admin-users]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-test-accounts]
-verify_jwt = false
+verify_jwt = true
 
 [functions.crm-import-asari]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-call-webhook-meta]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-call-webhook-telegram]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-call-worker]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-generate-call-scripts]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.foto-proxy]
-verify_jwt = false
+verify_jwt = true
 
 [functions.seo-agent]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-document-ai]
-verify_jwt = false
+verify_jwt = true
 
 [functions.parse-general-listing]
-verify_jwt = false
+verify_jwt = true
 
 [functions.auto-translate-ui]
-verify_jwt = false
+verify_jwt = true
 
 [functions.auto-translate-listing]
-verify_jwt = false
+verify_jwt = true
 
 [functions.auto-translate-daily]
-verify_jwt = false
+verify_jwt = true
 
 [functions.translation-queue-worker]
-verify_jwt = false
+verify_jwt = true
 
 [functions.translation-queue-add]
-verify_jwt = false
+verify_jwt = true
 
 [functions.translate-content]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-provider-description]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-ad-creative]
 verify_jwt = true
 
 [functions.report-portal-error]
-verify_jwt = false
+verify_jwt = true
 
 [functions.workshop-translate]
-verify_jwt = false
+verify_jwt = true
 
 [functions.workshop-translate-batch]
-verify_jwt = false
+verify_jwt = true
 
 [functions.workshop-invite-employee]
-verify_jwt = false
+verify_jwt = true
 
 [functions.workshop-accept-employee-invitation]
-verify_jwt = false
+verify_jwt = true
 
 [functions.workshop-employee-submit-findings]
-verify_jwt = false
+verify_jwt = true
 
 [functions.workshop-approve-findings]
-verify_jwt = false
+verify_jwt = true
 
 [functions.rental-dispatcher]
-verify_jwt = false
+verify_jwt = true
 
 [functions.rental-availability]
-verify_jwt = false
+verify_jwt = true
 
 [functions.driver-bank-change-request]
-verify_jwt = false
+verify_jwt = true
 
 [functions.driver-bank-change-confirm]
-verify_jwt = false
+verify_jwt = true
 
-[functions.fiscalize-receipt]
-verify_jwt = false
+# Funkcje wcześniej nieujęte w config.toml są jawnie sklasyfikowane. Te, które
+# nie przeszły indywidualnego review, zwracają 503 przez phaseABlockedResponse;
+# `verify_jwt=true` jest warstwą dodatkową, a nie ich mechanizmem autoryzacji.
 
-[functions.fiscal-printer-test]
-verify_jwt = false
+[functions.add-to-call-queue]
+verify_jwt = true
 
-[functions.fiscal-day-report]
-verify_jwt = false
+[functions.admin-sms-settings]
+verify_jwt = true
 
-[functions.fiscal-receipt-session]
-verify_jwt = false
+[functions.ai-agent-contact]
+verify_jwt = true
 
-[functions.contact-form]
-verify_jwt = false
+[functions.ai-agent-learn]
+verify_jwt = true
 
-[functions.submit-category-request]
-verify_jwt = false
+[functions.ai-agent-reply]
+verify_jwt = true
+
+[functions.ai-agent-test]
+verify_jwt = true
+
+[functions.analyze-call]
+verify_jwt = true
+
+[functions.analyze-invoice]
+verify_jwt = true
+
+[functions.auto-queue-hot-leads]
+verify_jwt = true
+
+[functions.booking-available-slots]
+verify_jwt = true
+
+[functions.booking-notify]
+verify_jwt = true
+
+[functions.booking-reminders]
+verify_jwt = true
+
+[functions.booking-review-reminder]
+verify_jwt = true
+
+[functions.booking-send-verification]
+verify_jwt = true
+
+[functions.booking-verify-code]
+verify_jwt = true
+
+[functions.commission-monthly-billing]
+verify_jwt = true
+
+[functions.daily-sales-analysis]
+verify_jwt = true
+
+[functions.deepgram-transcribe]
+verify_jwt = true
+
+[functions.email-probe]
+verify_jwt = true
+
+[functions.execute-agent-action]
+verify_jwt = true
+
+[functions.external-lead-webhook]
+verify_jwt = true
+
+[functions.gmb-sync]
+verify_jwt = true
+
+[functions.ic-catalog-sync]
+verify_jwt = true
+
+[functions.instagram-post]
+verify_jwt = true
+
+[functions.invoice-email-webhook]
+verify_jwt = true
+
+[functions.knowledge-update-bot]
+verify_jwt = true
+
+[functions.ksef-monitor]
+verify_jwt = true
+
+[functions.ksef-unsubscribe]
+verify_jwt = true
+
+[functions.local-seo-autopilot]
+verify_jwt = true
+
+[functions.lookup-nip]
+verify_jwt = true
+
+[functions.marketing-agent-chat]
+verify_jwt = true
+
+[functions.meeting-ai]
+verify_jwt = true
+
+[functions.meta-leads-receiver]
+verify_jwt = true
+
+[functions.meta-leads-webhook]
+verify_jwt = true
+
+[functions.migrate-ledger-payments-flame]
+verify_jwt = true
+
+[functions.parse-listing-ai]
+verify_jwt = true
+
+[functions.parse-purchase-invoice]
+verify_jwt = true
+
+[functions.payment-core]
+verify_jwt = true
+
+[functions.payment-core-webhook]
+verify_jwt = true
+
+[functions.predict-campaign-performance]
+verify_jwt = true
+
+[functions.process-purchase-inventory]
+verify_jwt = true
+
+[functions.private-storage-download]
+verify_jwt = true
+
+[functions.recalculate-week]
+verify_jwt = true
+
+[functions.reset-fleet-settlements]
+verify_jwt = true
+
+[functions.rido-mail]
+verify_jwt = true
+
+[functions.rotate-creatives]
+verify_jwt = true
+
+[functions.run-ab-test]
+verify_jwt = true
+
+[functions.run-automations]
+verify_jwt = true
+
+[functions.schedule-viewings]
+verify_jwt = true
+
+[functions.score-lead]
+verify_jwt = true
+
+[functions.send-daily-report]
+verify_jwt = true
+
+[functions.send-employee-invitation]
+verify_jwt = true
+
+[functions.send-notification]
+verify_jwt = true
+
+[functions.send-project-invitation]
+verify_jwt = true
+
+[functions.smart-followup]
+verify_jwt = true
+
+[functions.sync-external-leads]
+verify_jwt = true
+
+[functions.test-crm-feed]
+verify_jwt = true
+
+[functions.translate]
+verify_jwt = true
+
+[functions.translate-batch]
+verify_jwt = true
+
+[functions.translate-message]
+verify_jwt = true
+
+[functions.vehicle-check]
+verify_jwt = true
+
+[functions.weekly-debt-calc]
+verify_jwt = true
+
+[functions.weekly-debt-rebuild]
+verify_jwt = true
+
+[functions.weekly-learning]
+verify_jwt = true
+
+[functions.workshop-notify-employee]
+verify_jwt = true
+
+[functions.workshop-parts-api]
+verify_jwt = true
+
+# Funkcje dodane w origin/main już po powstaniu prac A–F. Nie przeszły
+# indywidualnej klasyfikacji z phase-a-edge-function-classification.md,
+# więc dostają domyślne verify_jwt=true (fail-closed) do czasu review.
 
 [functions.ai-extract-services]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-service-search]
-verify_jwt = false
+verify_jwt = true
+
+[functions.contact-form]
+verify_jwt = true
+
+[functions.fiscal-day-report]
+verify_jwt = true
+
+[functions.fiscal-printer-test]
+verify_jwt = true
+
+[functions.fiscal-receipt-session]
+verify_jwt = true
+
+[functions.fiscalize-receipt]
+verify_jwt = true
 
 [functions.sitemap]
-verify_jwt = false
+verify_jwt = true
+
+[functions.submit-category-request]
+verify_jwt = true
+
+[functions.workshop-tire-reminders]
+verify_jwt = true

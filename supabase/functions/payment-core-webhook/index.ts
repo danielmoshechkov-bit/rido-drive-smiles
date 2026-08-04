@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -7,6 +8,8 @@ const CORS = {
 };
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "payment-core-webhook");
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {

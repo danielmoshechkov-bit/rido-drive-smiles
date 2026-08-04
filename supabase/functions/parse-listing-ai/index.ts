@@ -1,9 +1,36 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+function escapeHtmlText(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * Wynik modelu nigdy nie jest zaufanym HTML. Usuwamy deklarowane przez model
+ * znaczniki, escapujemy całość i dodajemy wyłącznie własne, stałe wrappery.
+ */
+function aiTextAsSafeHtml(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const plainText = value
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\t ]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, 50_000)
+  if (!plainText) return null
+  return `<p>${escapeHtmlText(plainText).replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')}</p>`
 }
 
 // Determine API endpoint and key based on model
@@ -78,6 +105,8 @@ async function callAI(apiKey: string, config: any, systemPrompt: string, userPro
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "parse-listing-ai");
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   const sb = createClient(
@@ -219,7 +248,7 @@ Zwróć JSON w dokładnie tym formacie:
     "cicha_okolica": true/false/null,
     "widok": "opis widoku" lub null
   },
-  "description_formatted": "Sformatowany opis w czystym HTML. WYMAGANIA: 1) Każdy akapit w <p>. 2) Sekcje jak 'Układ pomieszczeń', 'Wykończenie', 'Lokalizacja' w <h3>. 3) Listy pokoi/cech w <ul><li>. 4) Popraw błędy ortograficzne. 5) Dodaj <br/> między sekcjami. 6) NIE zmieniaj faktów, tylko formatuj czytelnie. Tekst musi być przyjemny wizualnie z wyraźnymi odstępami.",
+  "description_formatted": "Sformatowany opis jako zwykły tekst bez HTML i Markdown. Oddziel akapity pustą linią, popraw błędy ortograficzne i nie zmieniaj faktów.",
   "ai_summary": "Jedno zdanie podsumowujące max 120 znaków",
   "confidence": liczba 0-100
 }
@@ -259,7 +288,7 @@ UWAGA: Wypisz WSZYSTKIE pokoje wymienione w opisie, nie pomijaj żadnego!`
           ai_amenities: parsed.amenities || {},
           ai_building_info: parsed.building_info || {},
           ai_location_details: parsed.location_details || {},
-          ai_description_html: parsed.description_formatted || null,
+          ai_description_html: aiTextAsSafeHtml(parsed.description_formatted),
           ai_summary: parsed.ai_summary || null,
           ai_area_total: aiAreaTotal || null,
           ai_parsed_at: new Date().toISOString(),

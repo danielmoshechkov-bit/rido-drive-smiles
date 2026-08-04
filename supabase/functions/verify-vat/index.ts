@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,8 @@ interface VIESResponse {
 }
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "verify-vat");
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

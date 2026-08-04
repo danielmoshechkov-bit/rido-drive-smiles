@@ -24,6 +24,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 import { round2 } from "../_shared/weeklyDebt.ts";
 import { uiWeekRange, uiWeekFromDate } from "../_shared/weekMapping.ts";
 
@@ -74,6 +75,8 @@ function txIsInvalid(t: any): boolean {
 }
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "weekly-debt-rebuild");
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

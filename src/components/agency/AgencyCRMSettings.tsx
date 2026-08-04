@@ -200,14 +200,9 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
     setSaving(true);
     setSettingUpFtp(true);
     try {
-      // 1. Call setup endpoint to create FTP directories on the server
-      try {
-        await fetch(`https://getrido.pl/crm-import/setup-agency.php?secret=getrido_crm_cron_2026&agency_id=${agencyId}`);
-      } catch (e) {
-        console.warn('FTP setup call failed (may already exist):', e);
-      }
-
-      // 2. Save to database with agency-specific FTP paths
+      // Konfiguracja katalogów FTP musi zostać wykonana przez uwierzytelniony
+      // backend. Historyczny sekret w URL został usunięty z przeglądarki.
+      // Zapisujemy wyłącznie niesekretne parametry integracji.
       const payload = {
         agency_id: agencyId,
         provider_code: 'asari',
@@ -225,7 +220,7 @@ export function AgencyCRMSettings({ agencyId }: AgencyCRMSettingsProps) {
         ? await supabase.from('agency_crm_integrations').update(payload).eq('id', existingId)
         : await supabase.from('agency_crm_integrations').insert([payload]);
       if (error) throw error;
-      toast.success('✅ Integracja ASARI aktywowana! Katalogi FTP zostały utworzone.');
+      toast.success('✅ Konfiguracja ASARI zapisana. Katalog FTP wymaga bezpiecznej aktywacji po stronie serwera.');
       await loadConfig();
     } catch (e: any) {
       toast.error('Błąd aktywacji: ' + e.message);

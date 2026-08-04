@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 /**
  * AI Call Worker - Processes the call queue
@@ -20,6 +21,8 @@ interface ProcessQueueRequest {
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "ai-call-worker");
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });

@@ -2,9 +2,9 @@
 // AI SECRETS — wspólna warstwa odczytu/zapisu kluczy API z ai_secret_store.
 // Wartość czytana WYŁĄCZNIE przez service_role (ten moduł). Nigdy do frontu.
 //
-// Szyfrowanie at-rest: AES-GCM (Web Crypto) gdy ustawiony sekret
-// AI_SECRETS_ENC_KEY. Bez niego wartość leży plaintext (is_encrypted=false) —
-// nadal admin-only (RLS deny-all + REVOKE), panel sygnalizuje brak szyfrowania.
+// Szyfrowanie at-rest: AES-GCM (Web Crypto). Zapis bez poprawnie ustawionego
+// AI_SECRETS_ENC_KEY jest celowo blokowany — sekret nie może trafić do tabeli
+// jako plaintext nawet wtedy, gdy tabela ma restrykcyjne RLS.
 //
 // Odczyt: ai_secret_store -> (fallback) Deno.env.get(key). Dzięki temu klucz
 // można podać albo z panelu (A2), albo klasycznie przez Supabase Secrets.
@@ -32,12 +32,14 @@ async function deriveKey(passphrase: string): Promise<CryptoKey> {
 }
 
 export function encryptionAvailable(): boolean {
-  return !!Deno.env.get("AI_SECRETS_ENC_KEY");
+  return (Deno.env.get("AI_SECRETS_ENC_KEY")?.length ?? 0) >= 32;
 }
 
 export async function encryptValue(plain: string): Promise<{ ciphertext: string; is_encrypted: boolean }> {
   const pass = Deno.env.get("AI_SECRETS_ENC_KEY");
-  if (!pass) return { ciphertext: plain, is_encrypted: false };
+  if (!pass || pass.length < 32) {
+    throw new Error("AI_SECRETS_ENC_KEY missing or too short");
+  }
   const key = await deriveKey(pass);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plain)));
@@ -48,7 +50,7 @@ export async function encryptValue(plain: string): Promise<{ ciphertext: string;
 }
 
 export async function decryptValue(ciphertext: string, isEncrypted: boolean): Promise<string> {
-  if (!isEncrypted) return ciphertext;
+  if (!isEncrypted) throw new Error("Refusing to read a plaintext secret from ai_secret_store");
   const pass = Deno.env.get("AI_SECRETS_ENC_KEY");
   if (!pass) throw new Error("AI_SECRETS_ENC_KEY missing — nie można odszyfrować zapisanego klucza");
   const key = await deriveKey(pass);
@@ -66,7 +68,7 @@ export async function getSecret(sb: any, key: string): Promise<string | null> {
     .select("ciphertext, is_encrypted")
     .eq("secret_key", key)
     .maybeSingle();
-  if (data?.ciphertext) {
+  if (data?.ciphertext && data.is_encrypted === true) {
     try {
       return await decryptValue(data.ciphertext, data.is_encrypted);
     } catch (_) {

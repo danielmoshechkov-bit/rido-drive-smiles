@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -6,6 +7,8 @@ const cors = {
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "translate-batch");
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   try {

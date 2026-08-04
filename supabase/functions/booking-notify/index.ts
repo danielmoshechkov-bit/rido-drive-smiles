@@ -1,6 +1,7 @@
 // Edge function: wysyła SMS-y przy rezerwacjach z portalu przez globalny send-sms
 // type: 'preliminary' | 'confirmed' | 'review_request' | 'rescheduled' | 'cancelled'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,8 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "booking-notify");
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {

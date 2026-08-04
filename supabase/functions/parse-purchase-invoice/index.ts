@@ -2,6 +2,7 @@
 // Returns structured JSON + confidence score (0-1)
 // Used by frontend to upload PDF/image and get parsed invoice data
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -86,6 +87,8 @@ function extractJson(text: string): any {
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "parse-purchase-invoice");
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

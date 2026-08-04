@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,6 +15,8 @@ const recentlySent = new Map<string, number>();
 const THROTTLE_MS = 15 * 60 * 1000; // 15 min per error key
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "report-portal-error");
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

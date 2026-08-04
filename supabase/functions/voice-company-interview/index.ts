@@ -9,6 +9,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecret } from "../_shared/aiSecrets.ts";
 import { resolveAgent } from "../_shared/translationProvider.ts";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -66,6 +67,8 @@ ODPOWIADASZ WYŁĄCZNIE JSON-em (bez markdown, bez tekstu poza JSON):
 {"reply": "<wiadomość do użytkownika po polsku>", "fields": {<tylko pola które ustaliłeś/zmieniłeś>}, "done": <true|false>}`;
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "voice-company-interview");
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");

@@ -21,6 +21,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,6 +68,8 @@ function freeWindows(windowStart: number, windowEnd: number, busy: Interval[]): 
 const iso = (ms: number) => new Date(ms).toISOString();
 
 serve(async (req: Request) => {
+  return phaseABlockedResponse(req, "rental-availability");
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

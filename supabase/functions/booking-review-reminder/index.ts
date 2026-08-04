@@ -2,10 +2,13 @@
 // i tworzy wpis w pending_service_reviews + wysyła SMS z prośbą o ocenę.
 // Uruchamiane co godzinę przez pg_cron.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*' };
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "booking-review-reminder");
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   try {
     const supabase = createClient(

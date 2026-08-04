@@ -4,6 +4,7 @@
 // NIE z tabeli external_integrations). Do usunięcia po pełnym rollout'cie.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -270,6 +271,8 @@ async function queryMFWhiteList(nip: string): Promise<GUSResponse> {
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "registry-gus");
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

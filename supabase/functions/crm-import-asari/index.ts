@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 import { parseOffers, parseDeleteSection, sanitizeText, type ParsedOffer } from "./parser.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -22,6 +23,8 @@ interface ImportStats {
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "crm-import-asari");
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });

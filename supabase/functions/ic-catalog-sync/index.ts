@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const IC_TOKEN_URL = "https://api.webapi.intercars.eu/oauth2/token";
@@ -155,6 +156,8 @@ function json(data: unknown, status = 200) {
 }
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "ic-catalog-sync");
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const supabase = createClient(

@@ -71,28 +71,10 @@ export function UserRolesManager() {
 
   const fetchData = async () => {
     try {
-      // Get current session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Musisz być zalogowany');
-        setLoading(false);
-        return;
-      }
-
-      // Use edge function to list users
-      const response = await fetch(
-        'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/admin-list-users',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      const result = await response.json();
+      const { data: result, error: usersError } = await supabase.functions.invoke('admin-list-users', {
+        body: {},
+      });
+      if (usersError) throw usersError;
       
       if (!result.success) {
         throw new Error(result.error || 'Błąd pobierania użytkowników');
@@ -128,31 +110,18 @@ export function UserRolesManager() {
   };
 
   const toggleRole = async (userId: string, role: AppRole, fleetId: string | null = null) => {
+    if (role === 'admin') {
+      toast.error('Zmiana roli administratora wymaga osobnego procesu z reautoryzacją');
+      return;
+    }
     setSavingUser(userId);
     try {
-      if (hasRole(userId, role)) {
-        // Remove role
-        const { error } = await supabase
-          .from('user_roles')
-          .delete()
-          .eq('user_id', userId)
-          .eq('role', role);
-
-        if (error) throw error;
-        toast.success(`Usunięto rolę ${role}`);
-      } else {
-        // Add role
-        const { error } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: userId,
-            role: role,
-            fleet_id: fleetId
-          });
-
-        if (error) throw error;
-        toast.success(`Dodano rolę ${role}`);
-      }
+      const enabled = !hasRole(userId, role);
+      const { error } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'set-role', user_id: userId, role, enabled, fleet_id: fleetId },
+      });
+      if (error) throw error;
+      toast.success(`${enabled ? 'Dodano' : 'Usunięto'} rolę ${role}`);
 
       await fetchData();
     } catch (error: any) {
@@ -166,11 +135,9 @@ export function UserRolesManager() {
   const updateFleetForRole = async (userId: string, role: AppRole, fleetId: string) => {
     setSavingUser(userId);
     try {
-      const { error } = await supabase
-        .from('user_roles')
-        .update({ fleet_id: fleetId })
-        .eq('user_id', userId)
-        .eq('role', role);
+      const { error } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'set-role', user_id: userId, role, enabled: true, fleet_id: fleetId },
+      });
 
       if (error) throw error;
       toast.success('Zaktualizowano flotę');
@@ -189,38 +156,25 @@ export function UserRolesManager() {
       return;
     }
 
-    if (newUserPassword.length < 6) {
-      toast.error('Hasło musi mieć minimum 6 znaków');
+    const strongPassword = newUserPassword.length >= 12 && newUserPassword.length <= 128 &&
+      /[a-z]/.test(newUserPassword) && /[A-Z]/.test(newUserPassword) &&
+      /\d/.test(newUserPassword) && /[^A-Za-z0-9]/.test(newUserPassword);
+    if (!strongPassword) {
+      toast.error('Hasło musi mieć 12–128 znaków, małą i wielką literę, cyfrę oraz znak specjalny');
       return;
     }
 
     setCreatingUser(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Musisz być zalogowany');
-        return;
-      }
-
-      const response = await fetch(
-        'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/admin-create-user',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            email: newUserEmail,
-            password: newUserPassword,
-            roles: newUserRoles,
-            fleet_id: newUserFleetId || null,
-          }),
-        }
-      );
-
-      const result = await response.json();
+      const { data: result, error: createError } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: newUserEmail,
+          password: newUserPassword,
+          roles: newUserRoles,
+          fleet_id: newUserFleetId || null,
+        },
+      });
+      if (createError) throw createError;
 
       if (!result.success) {
         throw new Error(result.error || 'Błąd tworzenia użytkownika');
@@ -242,6 +196,10 @@ export function UserRolesManager() {
   };
 
   const toggleNewUserRole = (role: AppRole) => {
+    if (role === 'admin') {
+      toast.error('Nadanie roli administratora wymaga osobnego procesu z reautoryzacją');
+      return;
+    }
     setNewUserRoles(prev => 
       prev.includes(role) 
         ? prev.filter(r => r !== role)
@@ -305,7 +263,7 @@ export function UserRolesManager() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Minimum 6 znaków"
+                    placeholder="Minimum 12 znaków, litery, cyfra i znak specjalny"
                     value={newUserPassword}
                     onChange={(e) => setNewUserPassword(e.target.value)}
                   />
@@ -320,6 +278,7 @@ export function UserRolesManager() {
                           id={`new-${role.value}`}
                           checked={newUserRoles.includes(role.value)}
                           onCheckedChange={() => toggleNewUserRole(role.value)}
+                          disabled={role.value === 'admin'}
                         />
                         <Label htmlFor={`new-${role.value}`} className="text-sm cursor-pointer">
                           {role.label}
@@ -329,7 +288,7 @@ export function UserRolesManager() {
                   </div>
                 </div>
                 
-                {(newUserRoles.includes('fleet_settlement') || newUserRoles.includes('fleet_rental')) && (
+                {(newUserRoles.includes('fleet_settlement') || newUserRoles.includes('fleet_rental') || newUserRoles.includes('driver')) && (
                   <div className="space-y-2">
                     <Label>Flota</Label>
                     <Select value={newUserFleetId} onValueChange={setNewUserFleetId}>
@@ -387,7 +346,7 @@ export function UserRolesManager() {
                   id={`${user.id}-admin`}
                   checked={hasRole(user.id, 'admin')}
                   onCheckedChange={() => toggleRole(user.id, 'admin')}
-                  disabled={savingUser === user.id}
+                  disabled
                 />
                 <div className="space-y-1">
                   <Label htmlFor={`${user.id}-admin`} className="cursor-pointer">
@@ -479,14 +438,14 @@ export function UserRolesManager() {
                   id={`${user.id}-driver`}
                   checked={hasRole(user.id, 'driver')}
                   onCheckedChange={() => toggleRole(user.id, 'driver')}
-                  disabled={savingUser === user.id}
+                  disabled
                 />
                 <div className="space-y-1">
                   <Label htmlFor={`${user.id}-driver`} className="cursor-pointer">
                     <Badge variant="outline" className="ml-1">Kierowca</Badge>
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Dostęp do panelu kierowcy
+                    Dostęp do panelu kierowcy (zmiana wyłącznie przez zweryfikowany invite/unlink)
                   </p>
                 </div>
               </div>

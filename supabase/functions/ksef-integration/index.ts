@@ -1,25 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Unzip paczki eksportu KSeF — lekka biblioteka, działa na Uint8Array w Deno
 import { unzipSync } from "https://esm.sh/fflate@0.8.2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requestCorrelationId,
+  requireUser,
+  SecurityError,
+  writeAuditEvent,
+  type RequestIdentity,
+} from "../_shared/security.ts";
+import { isUuid } from "../_shared/securityPrimitives.ts";
 
 const KSEF_URLS: Record<string, string> = {
   test:       'https://api-test.ksef.mf.gov.pl/v2',
   demo:       'https://api-demo.ksef.mf.gov.pl/v2',
   production: 'https://api.ksef.mf.gov.pl/v2',
 };
-
-function jsonRes(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
 
 function getBaseUrl(env?: string): string {
   if (env === 'test' || env === 'integration') return KSEF_URLS.test;
@@ -298,52 +297,185 @@ async function getUserFromJwt(req: Request, supabase: any) {
 
 // ========== RESOLVE CREDENTIALS ==========
 
-async function resolveCredentials(req: Request, supabase: any, body: any) {
-  let nip = body.nip?.trim() || null;
-  let token = body.token?.trim() || null;
-  let environment = normalizeEnv(body.environment);
-  let userId: string | null = null;
+const KSEF_SECRET_PREFIX = 'enc:v1:';
 
-  const user = await getUserFromJwt(req, supabase);
-  userId = user?.id || null;
-
-  if (body.invoice_id && !userId) {
-    const { data: inv } = await supabase.from('user_invoices').select('user_id').eq('id', body.invoice_id).maybeSingle();
-    userId = inv?.user_id || userId;
+async function ksefEncryptionKey(): Promise<CryptoKey> {
+  const configured = Deno.env.get('KSEF_CREDENTIALS_ENC_KEY');
+  if (!configured || configured.length < 32) {
+    throw new SecurityError(503, 'credential_encryption_unavailable', 'Szyfrowanie poświadczeń KSeF nie jest skonfigurowane');
   }
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(configured));
+  return crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
 
-  if (userId && (!nip || !token)) {
-    const { data: cs } = await supabase
-      .from('company_settings')
-      .select('nip, ksef_token, ksef_token_test, ksef_token_production, ksef_environment')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (cs) {
-      nip = nip || cs.nip || null;
-      // Ustal środowisko PRZED wyborem tokenu — token z produkcji nie działa na testowym
-      // i odwrotnie, więc musimy sięgnąć po ten, który pasuje do miejsca wysyłki.
-      if (!body.environment && cs.ksef_environment) environment = normalizeEnv(cs.ksef_environment);
-      const tokenSrodowiska = environment === 'production'
-        ? (cs as any).ksef_token_production
-        : (cs as any).ksef_token_test;
-      // `ksef_token` to stare wspólne pole — używamy go tylko wtedy, gdy nowe jest puste
-      // (konfiguracja sprzed rozdzielenia tokenów).
-      token = token || tokenSrodowiska || cs.ksef_token || null;
+async function encryptKsefCredential(plain: string): Promise<string> {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await ksefEncryptionKey();
+  const ciphertext = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    new TextEncoder().encode(plain),
+  ));
+  const packed = new Uint8Array(iv.length + ciphertext.length);
+  packed.set(iv);
+  packed.set(ciphertext, iv.length);
+  return KSEF_SECRET_PREFIX + bytesToB64(packed);
+}
+
+async function decryptKsefCredential(stored: unknown): Promise<string | null> {
+  if (typeof stored !== 'string' || !stored) return null;
+  if (!stored.startsWith(KSEF_SECRET_PREFIX)) {
+    // Starsze wartości były tylko nazwane "encrypted" i mogły być plaintextem.
+    // Nie wolno ich automatycznie użyć; wymagaj ponownego zapisu po rotacji.
+    throw new SecurityError(409, 'legacy_credential_blocked', 'Poświadczenia KSeF wymagają bezpiecznej rotacji');
+  }
+  try {
+    const packed = b64ToBytes(stored.slice(KSEF_SECRET_PREFIX.length));
+    if (packed.length < 29) throw new Error('invalid_ciphertext');
+    const key = await ksefEncryptionKey();
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: packed.slice(0, 12) },
+      key,
+      packed.slice(12),
+    );
+    return new TextDecoder().decode(plaintext);
+  } catch (error) {
+    if (error instanceof SecurityError) throw error;
+    throw new SecurityError(409, 'credential_decryption_failed', 'Nie można odczytać poświadczeń KSeF');
+  }
+}
+
+async function requireEntityOwner(supabase: any, identity: RequestIdentity, entityId: unknown) {
+  if (!isUuid(entityId)) throw new SecurityError(400, 'invalid_entity', 'Nieprawidłowy identyfikator podmiotu');
+  const { data, error } = await supabase
+    .from('entities')
+    .select('id, owner_user_id, nip')
+    .eq('id', entityId)
+    .maybeSingle();
+  if (error) throw new SecurityError(503, 'authorization_unavailable', 'Nie można potwierdzić podmiotu');
+  if (!data) throw new SecurityError(404, 'entity_not_found', 'Podmiot nie istnieje');
+  if (!identity.isAdmin && data.owner_user_id !== identity.userId) {
+    throw new SecurityError(403, 'cross_tenant_denied', 'Brak dostępu do podmiotu');
+  }
+  return data;
+}
+
+async function requireInvoiceOwner(supabase: any, identity: RequestIdentity, invoiceId: unknown) {
+  if (!isUuid(invoiceId)) throw new SecurityError(400, 'invalid_invoice', 'Nieprawidłowy identyfikator faktury');
+
+  const { data: userInvoice, error: userInvoiceError } = await supabase
+    .from('user_invoices')
+    .select('id, user_id')
+    .eq('id', invoiceId)
+    .maybeSingle();
+  if (userInvoiceError) throw new SecurityError(503, 'authorization_unavailable', 'Nie można potwierdzić faktury');
+  if (userInvoice) {
+    if (!identity.isAdmin && userInvoice.user_id !== identity.userId) {
+      throw new SecurityError(403, 'cross_tenant_denied', 'Brak dostępu do faktury');
     }
+    return { model: 'user_invoice', entityId: null };
   }
 
+  const { data: entityInvoice, error: entityInvoiceError } = await supabase
+    .from('invoices')
+    .select('id, entity_id')
+    .eq('id', invoiceId)
+    .maybeSingle();
+  if (entityInvoiceError) throw new SecurityError(503, 'authorization_unavailable', 'Nie można potwierdzić faktury');
+  if (!entityInvoice) throw new SecurityError(404, 'invoice_not_found', 'Faktura nie istnieje');
+  await requireEntityOwner(supabase, identity, entityInvoice.entity_id);
+  return { model: 'entity_invoice', entityId: entityInvoice.entity_id };
+}
+
+async function authorizeKsefContext(supabase: any, identity: RequestIdentity, body: any, action: string) {
+  if (body.entity_id) await requireEntityOwner(supabase, identity, body.entity_id);
+  if (body.invoice_id) await requireInvoiceOwner(supabase, identity, body.invoice_id);
+
+  if (action === 'backfill_vat_breakdown' && !body.entity_id && !identity.isAdmin) {
+    throw new SecurityError(403, 'entity_context_required', 'Operacja masowa wymaga podmiotu');
+  }
+  if ((action === 'check_status' || action === 'download_upo') && body.session_ref && !body.invoice_id && !identity.isAdmin) {
+    throw new SecurityError(403, 'invoice_context_required', 'Sesja KSeF wymaga powiązanej faktury');
+  }
+}
+
+async function bindKsefReferencesToInvoice(supabase: any, body: any, action: string) {
+  if (!['check_status', 'download_upo', 'download'].includes(action)) return;
+  if (!isUuid(body.invoice_id)) {
+    throw new SecurityError(400, 'invoice_context_required', 'Operacja wymaga identyfikatora autoryzowanej faktury');
+  }
+
+  const { data: invoice, error } = await supabase
+    .from('user_invoices')
+    .select('id, ksef_session_ref, ksef_invoice_ref, ksef_reference')
+    .eq('id', body.invoice_id)
+    .maybeSingle();
+  if (error) throw new SecurityError(503, 'authorization_unavailable', 'Nie można potwierdzić referencji KSeF');
+  if (!invoice) throw new SecurityError(404, 'invoice_not_found', 'Faktura nie istnieje w obsługiwanym modelu KSeF');
+
+  if (action === 'check_status') {
+    if (body.session_ref && body.session_ref !== invoice.ksef_session_ref) {
+      throw new SecurityError(403, 'reference_mismatch', 'Referencja sesji nie należy do faktury');
+    }
+    if (body.invoice_ref && body.invoice_ref !== invoice.ksef_invoice_ref) {
+      throw new SecurityError(403, 'reference_mismatch', 'Referencja dokumentu nie należy do faktury');
+    }
+    body.session_ref = invoice.ksef_session_ref || null;
+    body.invoice_ref = invoice.ksef_invoice_ref || null;
+  }
+
+  if (action === 'download_upo') {
+    if (body.session_ref && body.session_ref !== invoice.ksef_session_ref) {
+      throw new SecurityError(403, 'reference_mismatch', 'Referencja UPO nie należy do faktury');
+    }
+    // Zapytanie do tabeli transmisji musi być zawsze związane z invoice_id.
+    body.session_ref = null;
+  }
+
+  if (action === 'download') {
+    if (!invoice.ksef_reference) {
+      throw new SecurityError(409, 'ksef_reference_unavailable', 'Faktura nie ma zatwierdzonego numeru KSeF');
+    }
+    if (body.ksef_reference && body.ksef_reference !== invoice.ksef_reference) {
+      throw new SecurityError(403, 'reference_mismatch', 'Numer KSeF nie należy do faktury');
+    }
+    body.ksef_reference = invoice.ksef_reference;
+  }
+}
+
+async function resolveCredentials(supabase: any, body: any, identity: RequestIdentity) {
+  let nip: string | null = null;
+  let token: string | null = null;
+  let environment = 'demo';
   const entityId = body.entity_id || null;
-  if (entityId && (!nip || !token)) {
-    const [{ data: entity }, { data: ks }] = await Promise.all([
-      supabase.from('entities').select('nip').eq('id', entityId).maybeSingle(),
-      supabase.from('ksef_settings').select('token_encrypted, environment').eq('entity_id', entityId).maybeSingle(),
-    ]);
-    nip = nip || entity?.nip || null;
-    token = token || ks?.token_encrypted || null;
-    if (!body.environment && ks?.environment) environment = normalizeEnv(ks.environment);
+
+  if (entityId) {
+    const entity = await requireEntityOwner(supabase, identity, entityId);
+    const { data: settings, error } = await supabase
+      .from('ksef_settings')
+      .select('token_encrypted, environment')
+      .eq('entity_id', entityId)
+      .maybeSingle();
+    if (error) throw new SecurityError(503, 'credential_lookup_failed', 'Nie można odczytać konfiguracji KSeF');
+    nip = entity.nip || null;
+    token = await decryptKsefCredential(settings?.token_encrypted);
+    environment = normalizeEnv(settings?.environment);
+  } else {
+    const { data: settings, error } = await supabase
+      .from('company_settings')
+      .select('nip, ksef_token, ksef_environment')
+      .eq('user_id', identity.userId)
+      .maybeSingle();
+    if (error) throw new SecurityError(503, 'credential_lookup_failed', 'Nie można odczytać konfiguracji KSeF');
+    nip = settings?.nip || null;
+    token = await decryptKsefCredential(settings?.ksef_token);
+    environment = normalizeEnv(settings?.ksef_environment);
   }
 
-  return { nip, token, environment, userId, entityId };
+  if (environment === 'production' && Deno.env.get('KSEF_PRODUCTION_ENABLED') !== 'true') {
+    throw new SecurityError(503, 'ksef_production_disabled', 'Połączenia z produkcyjnym KSeF są wyłączone');
+  }
+  return { nip, token, environment, userId: identity.userId, entityId };
 }
 
 // ========== AI CATEGORIZATION ==========
@@ -1305,63 +1437,162 @@ const INVOICE_STATUS_MESSAGES: Record<number, string> = {
 // ========== MAIN HANDLER ==========
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+
+  let auditClient: ReturnType<typeof createServiceClient> | null = null;
+  let auditIdentity: RequestIdentity | null = null;
+  let action = 'unknown';
+  const correlationId = requestCorrelationId(req);
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    if (req.method !== 'POST') {
+      throw new SecurityError(405, 'method_not_allowed', 'Dozwolona jest wyłącznie metoda POST');
+    }
 
+    const supabase = createServiceClient();
+    auditClient = supabase;
+    const identity = await requireUser(req, supabase);
+    auditIdentity = identity;
     const body = await req.json();
-    const action = body.action;
+    if (!body || typeof body !== 'object' || Array.isArray(body) || typeof body.action !== 'string') {
+      throw new SecurityError(400, 'invalid_body', 'Nieprawidłowe dane żądania');
+    }
+    action = body.action;
+    const allowedActions = new Set([
+      'test_connection', 'get_settings', 'save_settings', 'status', 'generate_xml', 'debug',
+      'fetch_received', 'export_start', 'backfill_vat_breakdown', 'send', 'check_status',
+      'download_upo', 'download', 'debug_correction',
+    ]);
+    if (!allowedActions.has(action)) throw new SecurityError(400, 'unknown_action', 'Nieznana operacja KSeF');
+
+    await authorizeKsefContext(supabase, identity, body, action);
+    await bindKsefReferencesToInvoice(supabase, body, action);
+
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      tenantId: identity.companyIds.length === 1 ? identity.companyIds[0] : null,
+      action: `ksef.${action}`,
+      resourceType: body.invoice_id ? 'invoice' : body.entity_id ? 'entity' : 'ksef_integration',
+      resourceId: isUuid(body.invoice_id) ? body.invoice_id : isUuid(body.entity_id) ? body.entity_id : null,
+      result: 'attempted',
+      correlationId: identity.correlationId,
+    });
+
+    const networkActions = new Set([
+      'test_connection', 'fetch_received', 'export_start', 'send', 'check_status', 'download_upo', 'download',
+    ]);
+    if (action === 'send') {
+      // Select-then-send nie chroni przed dwoma równoległymi żądaniami. Wysyłka
+      // pozostaje bezwzględnie zablokowana do czasu atomowego claimu/idempotency key.
+      throw new SecurityError(503, 'ksef_send_disabled', 'Wysyłka KSeF wymaga wdrożenia atomowej idempotencji');
+    }
+    if (networkActions.has(action) && Deno.env.get('KSEF_EXTERNAL_OPERATIONS_ENABLED') !== 'true') {
+      throw new SecurityError(503, 'ksef_external_operations_disabled', 'Operacje zewnętrzne KSeF są wyłączone do czasu bezpiecznej konfiguracji');
+    }
+
+    const jsonRes = (data: unknown, status = 200) => jsonResponse(req, status, data);
+    const response = await (async () => {
 
     // ========== test_connection ==========
     if (action === 'test_connection') {
       const { nip, token, environment } = body;
-      if (!nip || !token) return jsonRes({ success: false, error: 'Brak NIP lub tokenu KSeF' }, 400);
+      if (
+        typeof nip !== 'string' || !/^\d{10}$/.test(nip.replace(/\D/g, '')) ||
+        typeof token !== 'string' || token.length < 16 || token.length > 4096
+      ) {
+        return jsonRes({ success: false, error: 'Nieprawidłowy NIP lub token KSeF' }, 400);
+      }
 
       const env = normalizeEnv(environment);
+      if (env === 'production' && Deno.env.get('KSEF_PRODUCTION_ENABLED') !== 'true') {
+        throw new SecurityError(503, 'ksef_production_disabled', 'Połączenia z produkcyjnym KSeF są wyłączone');
+      }
       const base = getBaseUrl(env);
       try {
         await getKsefAccessToken(base, nip, token);
         console.log('[KSeF] test_connection SUCCESS, env:', env);
-        return jsonRes({ success: true, environment: env, nip });
-      } catch (err: any) {
-        console.error('[KSeF] test_connection FAIL:', err.message);
-        return jsonRes({ success: false, error: err.message });
+        return jsonRes({ success: true, environment: env, nip: nip.replace(/\D/g, '') });
+      } catch {
+        return jsonRes({ success: false, error: 'Nie udało się potwierdzić połączenia KSeF' }, 502);
       }
     }
 
     // ========== get_settings ==========
     if (action === 'get_settings') {
       if (!body.entity_id) return jsonRes({ success: true, settings: null });
-      const { data: settings } = await supabase.from('ksef_settings').select('*').eq('entity_id', body.entity_id).maybeSingle();
-      return jsonRes({ success: true, settings: settings || null });
+      const { data: settings, error } = await supabase
+        .from('ksef_settings')
+        .select('id, entity_id, is_enabled, environment, auto_send, auto_send_enabled, token_encrypted, created_at, updated_at')
+        .eq('entity_id', body.entity_id)
+        .maybeSingle();
+      if (error) throw error;
+      return jsonRes({
+        success: true,
+        settings: settings ? {
+          id: settings.id,
+          entity_id: settings.entity_id,
+          is_enabled: settings.is_enabled,
+          environment: settings.environment,
+          auto_send: settings.auto_send,
+          auto_send_enabled: settings.auto_send_enabled,
+          has_token: typeof settings.token_encrypted === 'string' && settings.token_encrypted.startsWith(KSEF_SECRET_PREFIX),
+          credential_requires_rotation: !!settings.token_encrypted && !settings.token_encrypted.startsWith(KSEF_SECRET_PREFIX),
+          created_at: settings.created_at,
+          updated_at: settings.updated_at,
+        } : null,
+      });
     }
 
     // ========== save_settings ==========
     if (action === 'save_settings') {
-      if (!body.entity_id) return jsonRes({ success: false, error: 'Brak entity_id' }, 400);
-      const { error } = await supabase.from('ksef_settings').upsert({
+      const environment = normalizeEnv(body.environment);
+      if (environment === 'production' && Deno.env.get('KSEF_PRODUCTION_ENABLED') !== 'true') {
+        throw new SecurityError(503, 'ksef_production_disabled', 'Konfiguracja produkcyjnego KSeF jest wyłączona');
+      }
+      if (body.token !== undefined && (typeof body.token !== 'string' || body.token.length < 16 || body.token.length > 4096)) {
+        throw new SecurityError(400, 'invalid_credential', 'Nieprawidłowe poświadczenie KSeF');
+      }
+      const encryptedToken = typeof body.token === 'string' && body.token
+        ? await encryptKsefCredential(body.token)
+        : null;
+
+      if (!body.entity_id) {
+        const userSettingsPatch: Record<string, unknown> = {
+          ksef_environment: environment,
+          updated_at: new Date().toISOString(),
+        };
+        if (encryptedToken) userSettingsPatch.ksef_token = encryptedToken;
+        const { data, error } = await supabase
+          .from('company_settings')
+          .update(userSettingsPatch)
+          .eq('user_id', identity.userId)
+          .select('id')
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) throw new SecurityError(404, 'settings_not_found', 'Ustawienia firmy nie istnieją');
+        return jsonRes({ success: true, has_token: encryptedToken ? true : undefined });
+      }
+
+      const settingsPatch: Record<string, unknown> = {
         entity_id: body.entity_id,
-        is_enabled: body.is_enabled,
-        environment: normalizeEnv(body.environment),
-        token_encrypted: body.token,
-        auto_send: body.auto_send || false,
+        is_enabled: body.is_enabled === true,
+        environment,
+        auto_send: body.auto_send === true,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'entity_id' });
+      };
+      if (encryptedToken) settingsPatch.token_encrypted = encryptedToken;
+      const { error } = await supabase.from('ksef_settings').upsert(settingsPatch, { onConflict: 'entity_id' });
       if (error) throw error;
-      return jsonRes({ success: true });
+      return jsonRes({ success: true, has_token: typeof body.token === 'string' ? true : undefined });
     }
 
     // ========== status ==========
     if (action === 'status') {
       if (!body.invoice_id) return jsonRes({ success: true, service: 'ksef', environments: Object.keys(KSEF_URLS) });
       const { data: transmissions, error } = await supabase
-        .from('ksef_transmissions').select('*')
+        .from('ksef_transmissions')
+        .select('id, invoice_id, entity_id, direction, ksef_reference_number, upo_reference, status, error_message, sent_at, response_at, created_at, environment')
         .eq('invoice_id', body.invoice_id)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -1408,12 +1639,7 @@ serve(async (req) => {
       const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || [], originalItems);
 
       console.log('[KSeF][DEBUG] XML generated, size:', artifacts.xml.length);
-      console.log('[KSeF][DEBUG] Full XML:\n', artifacts.xml);
-      console.log('[KSeF][DEBUG] Podmiot1:\n', artifacts.podmiot1);
-      console.log('[KSeF][DEBUG] Podmiot2:\n', artifacts.podmiot2);
       console.log('[KSeF][DEBUG] formCode:', artifacts.formCode, 'invoiceType:', artifacts.invoiceType);
-      console.log('[KSeF][DEBUG] buyerSource:', JSON.stringify(artifacts.buyerSource));
-      console.log('[KSeF][DEBUG] sellerSource:', JSON.stringify(artifacts.sellerSource));
       console.log('[KSeF][DEBUG] xsdViolations:', JSON.stringify(artifacts.xsdViolations));
       console.log('[KSeF][DEBUG] semanticViolations:', JSON.stringify(artifacts.semanticViolations));
 
@@ -1434,7 +1660,7 @@ serve(async (req) => {
 
     // ========== fetch_received ==========
     if (action === 'fetch_received') {
-      const creds = await resolveCredentials(req, supabase, body);
+      const creds = await resolveCredentials(supabase, body, identity);
       const { nip, token, environment, userId } = creds;
 
       if (!nip) return jsonRes({ success: false, error: 'Brak NIP firmy — skonfiguruj w zakładce KSeF' }, 400);
@@ -1531,7 +1757,7 @@ serve(async (req) => {
     // Klucz AES/IV żyją wyłącznie w pamięci tego wywołania — NIE trafiają do bazy.
     // Omija limit 64/h na GET /invoices/ksef (jedno zlecenie eksportu zamiast N pobrań).
     if (action === 'export_start') {
-      const creds = await resolveCredentials(req, supabase, body);
+      const creds = await resolveCredentials(supabase, body, identity);
       const { nip, token, environment } = creds;
 
       if (!nip) return jsonRes({ success: false, error: 'Brak NIP firmy — skonfiguruj w zakładce KSeF' }, 400);
@@ -1854,7 +2080,6 @@ serve(async (req) => {
       const originalItems = await fetchOriginalItems(supabase, invoice);
       const artifacts = buildKsefInvoiceArtifacts(invoice, sellerEntity, items || [], originalItems);
       const { xml } = artifacts;
-      console.log('[KSeF][send] XML:', xml);
 
       // Pre-send XSD validation — block if critical violations found
       // 'pattern' blokuje na równi z brakiem elementu: NIP spoza wzorca XSD to gwarantowane
@@ -1880,12 +2105,7 @@ serve(async (req) => {
       }
 
       console.log('[KSeF][send] invoice.xml.generated, size:', xmlBytes.byteLength, 'bytes');
-      console.log('[KSeF][send] invoice.xml.full:\n', xml);
-      console.log('[KSeF][send] Podmiot1:\n', artifacts.podmiot1);
-      console.log('[KSeF][send] Podmiot2:\n', artifacts.podmiot2);
       console.log('[KSeF][send] formCode:', artifacts.formCode, 'invoiceType:', artifacts.invoiceType);
-      console.log('[KSeF][send] buyerSource:', JSON.stringify(artifacts.buyerSource));
-      console.log('[KSeF][send] sellerSource:', JSON.stringify(artifacts.sellerSource));
 
       // Ślad transmisji. Wcześniej błąd tego insertu przechodził niezauważony
       // (brak odczytu `error`), przez co faktury szły do KSeF, a historia wysyłek
@@ -1903,7 +2123,7 @@ serve(async (req) => {
       }
 
       try {
-        const creds = await resolveCredentials(req, supabase, body);
+        const creds = await resolveCredentials(supabase, body, identity);
         const { nip, token, environment } = creds;
 
         if (!nip) throw new Error('Brak NIP firmy');
@@ -2135,7 +2355,7 @@ serve(async (req) => {
           effectiveInvoiceRef = inv?.ksef_invoice_ref || null;
         }
 
-        const creds = await resolveCredentials(req, supabase, body);
+        const creds = await resolveCredentials(supabase, body, identity);
         const { nip, token, environment } = creds;
         if (!nip || !token) return jsonRes({ success: true, status: 'processing' });
 
@@ -2215,7 +2435,7 @@ serve(async (req) => {
                     status: 'rejected', 
                     error_message: `${invoiceStatusCode}: ${errMsg}`,
                     response_at: new Date().toISOString() 
-                  }).eq('ksef_reference_number', sessionRef);
+                  }).eq('ksef_reference_number', sessionRef).eq('invoice_id', invoiceId);
                   return jsonRes({ success: false, status: 'rejected', error: errMsg, error_code: invoiceStatusCode });
                 }
 
@@ -2281,7 +2501,9 @@ serve(async (req) => {
             environment,
           };
           if (upoDownloadUrl) txUpdate.upo_download_url = upoDownloadUrl;
-          await supabase.from('ksef_transmissions').update(txUpdate).eq('ksef_reference_number', sessionRef);
+          await supabase.from('ksef_transmissions').update(txUpdate)
+            .eq('ksef_reference_number', sessionRef)
+            .eq('invoice_id', invoiceId);
 
           // Try to download UPO if URL available
           if (upoDownloadUrl) {
@@ -2295,7 +2517,7 @@ serve(async (req) => {
                 await supabase.from('ksef_transmissions').update({ 
                   upo_content: upoXml,
                   upo_reference: upoHash || ksefNumber,
-                }).eq('ksef_reference_number', sessionRef);
+                }).eq('ksef_reference_number', sessionRef).eq('invoice_id', invoiceId);
               } else {
                 console.warn('[KSeF][check_status] UPO download failed:', upoRes.status);
                 await upoRes.text();
@@ -2341,7 +2563,7 @@ serve(async (req) => {
             status: 'rejected', 
             error_message: errDetail, 
             response_at: new Date().toISOString() 
-          }).eq('ksef_reference_number', sessionRef);
+          }).eq('ksef_reference_number', sessionRef).eq('invoice_id', invoiceId);
 
           return jsonRes({ success: false, status: 'rejected', error: errDetail });
         }
@@ -2360,7 +2582,7 @@ serve(async (req) => {
       if (!body.invoice_id && !body.session_ref) return jsonRes({ success: false, error: 'Brak invoice_id lub session_ref' }, 400);
       
       // Try to get UPO from ksef_transmissions first
-      let query = supabase.from('ksef_transmissions').select('upo_content, upo_reference, upo_download_url, ksef_reference_number');
+      let query = supabase.from('ksef_transmissions').select('id, upo_content, upo_reference, upo_download_url, ksef_reference_number');
       if (body.session_ref) {
         query = query.eq('ksef_reference_number', body.session_ref);
       } else {
@@ -2393,7 +2615,7 @@ serve(async (req) => {
     // ========== download ==========
     if (action === 'download') {
       if (!body.ksef_reference) return jsonRes({ success: false, error: 'Brak numeru referencyjnego KSeF' }, 400);
-      const creds = await resolveCredentials(req, supabase, body);
+      const creds = await resolveCredentials(supabase, body, identity);
       if (!creds.nip || !creds.token) return jsonRes({ success: false, error: 'Brak danych autoryzacyjnych KSeF' }, 400);
       const base = getBaseUrl(creds.environment);
       const { accessToken } = await getKsefAccessToken(base, creds.nip, creds.token);
@@ -2455,8 +2677,35 @@ serve(async (req) => {
     }
 
     return jsonRes({ success: false, error: 'Unknown action' }, 400);
+    })();
+
+    await writeAuditEvent(supabase, {
+      actorId: identity.userId,
+      tenantId: identity.companyIds.length === 1 ? identity.companyIds[0] : null,
+      action: `ksef.${action}`,
+      resourceType: body.invoice_id ? 'invoice' : body.entity_id ? 'entity' : 'ksef_integration',
+      resourceId: isUuid(body.invoice_id) ? body.invoice_id : isUuid(body.entity_id) ? body.entity_id : null,
+      result: response.ok ? 'succeeded' : 'failed',
+      correlationId: identity.correlationId,
+      metadata: { status: response.status },
+    });
+    return response;
   } catch (error: any) {
-    console.error('[KSeF] error:', error);
-    return jsonRes({ success: false, error: error.message }, 500);
+    if (auditClient) {
+      try {
+        await writeAuditEvent(auditClient, {
+          actorId: auditIdentity?.userId,
+          tenantId: auditIdentity?.companyIds.length === 1 ? auditIdentity.companyIds[0] : null,
+          action: `ksef.${action}`,
+          resourceType: 'ksef_integration',
+          result: error instanceof SecurityError && error.status === 403 ? 'denied' : 'failed',
+          correlationId: auditIdentity?.correlationId ?? correlationId,
+          metadata: { error_code: error instanceof SecurityError ? error.code : 'internal_error' },
+        });
+      } catch {
+        // Audyt jest fail-closed przed operacją; tu zachowujemy pierwotny błąd odpowiedzi.
+      }
+    }
+    return errorResponse(req, error);
   }
 });

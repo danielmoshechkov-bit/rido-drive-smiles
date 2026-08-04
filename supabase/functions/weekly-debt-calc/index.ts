@@ -4,6 +4,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { corsHeaders } from "../_shared/cors.ts";
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 import { calculateWeeklyDebt, round2 } from "../_shared/weeklyDebt.ts";
 
 interface RequestBody {
@@ -17,6 +18,8 @@ interface RequestBody {
 }
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "weekly-debt-calc");
+
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {

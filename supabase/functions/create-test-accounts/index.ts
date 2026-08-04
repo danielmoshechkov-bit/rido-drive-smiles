@@ -1,145 +1,110 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
-import { corsHeaders } from '../_shared/cors.ts';
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  SecurityError,
+} from "../_shared/security.ts";
+import { constantTimeEqual } from "../_shared/securityPrimitives.ts";
 
-const TEST_ACCOUNTS = [
-  {
-    email: 'warsztat@test.pl',
-    password: 'Test123!',
-    companyName: 'Warsztat Testowy',
-    role: 'service_provider',
-  },
-  {
-    email: 'detaling@test.pl',
-    password: 'Test123!',
-    companyName: 'Detaling Testowy',
-    role: 'service_provider',
-  },
-];
+const LOCAL_TEST_ACCOUNTS = [
+  { email: "warsztat@test.pl", companyName: "Warsztat Testowy" },
+  { email: "detaling@test.pl", companyName: "Detaling Testowy" },
+] as const;
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+function assertLocalRuntime(req: Request): void {
+  const configuredUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  let localHost = false;
+  try {
+    const parsed = new URL(configuredUrl);
+    localHost = parsed.protocol === "http:" &&
+      ["localhost", "127.0.0.1", "host.docker.internal", "kong"].includes(parsed.hostname);
+  } catch {
+    localHost = false;
   }
 
+  if (Deno.env.get("ENVIRONMENT") !== "local" || !localHost) {
+    throw new SecurityError(404, "local_runtime_required", "Funkcja jest dostępna wyłącznie w lokalnym Supabase");
+  }
+  // Narzędzie seedujące jest przeznaczone dla CLI, nie dla kodu przeglądarki.
+  if (req.headers.has("Origin")) {
+    throw new SecurityError(403, "cli_only", "Lokalne konta testowe można utworzyć wyłącznie z CLI");
+  }
+
+  const expected = Deno.env.get("LOCAL_TEST_SETUP_SECRET") ?? "";
+  const supplied = req.headers.get("x-local-test-secret") ?? "";
+  if (expected.length < 32 || !constantTimeEqual(supplied, expected)) {
+    throw new SecurityError(401, "invalid_local_setup_secret", "Brak prawidłowego sekretu lokalnego setupu");
+  }
+}
+
+function generateTemporaryPassword(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
+  const random = crypto.getRandomValues(new Uint8Array(24));
+  const suffix = Array.from(random, (byte) => alphabet[byte % alphabet.length]).join("");
+  return `Aa1!${suffix}`;
+}
+
+Deno.serve(async (req) => {
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
+  if (req.method !== "POST") return jsonResponse(req, 405, { error: "method_not_allowed" });
+
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    assertLocalRuntime(req);
+    const client = createServiceClient();
+    const results: Array<Record<string, unknown>> = [];
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-
-    const results = [];
-
-    for (const account of TEST_ACCOUNTS) {
-      // Check if user already exists
-      const { data: existingUsers } = await supabase.auth.admin.listUsers();
-      const existingUser = existingUsers?.users?.find(u => u.email === account.email);
-
+    for (const account of LOCAL_TEST_ACCOUNTS) {
+      const { data: existing, error: listError } = await client.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (listError) throw listError;
+      const existingUser = existing.users.find((user) => user.email?.toLowerCase() === account.email);
       if (existingUser) {
-        console.log(`User ${account.email} already exists`);
-        results.push({ email: account.email, status: 'exists', userId: existingUser.id });
+        results.push({ email: account.email, status: "exists", userId: existingUser.id });
         continue;
       }
 
-      // Create user
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+      const temporaryPassword = generateTemporaryPassword();
+      const { data: created, error: createError } = await client.auth.admin.createUser({
         email: account.email,
-        password: account.password,
+        password: temporaryPassword,
+        // Ta gałąź jest fizycznie ograniczona do lokalnego stosu Supabase.
         email_confirm: true,
+        user_metadata: { local_test_account: true, must_change_password: true },
       });
+      if (createError || !created.user) throw createError ?? new Error("local_test_user_create_failed");
 
-      if (createError) {
-        console.error(`Error creating ${account.email}:`, createError);
-        results.push({ email: account.email, status: 'error', error: createError.message });
-        continue;
+      const { data: entity, error: entityError } = await client.from("entities").insert({
+        name: account.companyName,
+        owner_user_id: created.user.id,
+        type: "service_provider",
+      }).select("id").single();
+      const { error: roleError } = entityError
+        ? { error: null }
+        : await client.from("user_roles").insert({ user_id: created.user.id, role: "service_provider" });
+
+      if (entityError || roleError) {
+        const { error: compensationError } = await client.auth.admin.deleteUser(created.user.id);
+        if (compensationError) console.error("local_test_compensation_failed", compensationError.code);
+        throw entityError ?? roleError;
       }
 
-      const userId = newUser.user.id;
-      console.log(`Created user ${account.email} with ID ${userId}`);
-
-      // Create entity for the company
-      const { data: entity, error: entityError } = await supabase
-        .from('entities')
-        .insert({
-          name: account.companyName,
-          owner_user_id: userId,
-          type: 'service_provider',
-        })
-        .select()
-        .single();
-
-      if (entityError) {
-        console.error(`Error creating entity for ${account.email}:`, entityError);
-      }
-
-      // Add user role
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: userId,
-          role: account.role,
-        });
-
-      if (roleError) {
-        console.error(`Error adding role for ${account.email}:`, roleError);
-      }
-
-      // Create AI agent config
-      const { data: agentConfig, error: configError } = await supabase
-        .from('ai_agent_configs')
-        .insert({
-          user_id: userId,
-          company_name: account.companyName,
-          language: 'pl',
-          is_active: false,
-        })
-        .select()
-        .single();
-
-      if (configError) {
-        console.error(`Error creating AI config for ${account.email}:`, configError);
-      } else if (agentConfig) {
-        // Create sample business profile
-        await supabase
-          .from('ai_call_business_profiles')
-          .insert({
-            config_id: agentConfig.id,
-            business_description: `${account.companyName} - usługi motoryzacyjne najwyższej jakości`,
-            services_json: [
-              { name: 'Mycie podstawowe', price_from: 50, price_to: 100, currency: 'PLN', duration_minutes: 30 },
-              { name: 'Mycie premium', price_from: 150, price_to: 300, currency: 'PLN', duration_minutes: 60 },
-            ],
-          });
-      }
-
-      results.push({ 
-        email: account.email, 
-        status: 'created', 
-        userId,
-        entityId: entity?.id,
-        configId: agentConfig?.id,
+      results.push({
+        email: account.email,
+        status: "created",
+        userId: created.user.id,
+        entityId: entity.id,
+        temporaryPassword,
       });
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        results,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse(req, 201, {
+      success: true,
+      localOnly: true,
+      warning: "Hasła są wyświetlane jednorazowo i dotyczą wyłącznie lokalnej bazy",
+      results,
+    });
   } catch (error) {
-    console.error('Error creating test accounts:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return errorResponse(req, error);
   }
 });

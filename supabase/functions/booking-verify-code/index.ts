@@ -1,5 +1,6 @@
 // Weryfikuje 4-cyfrowy kod, oznacza rezerwację jako verified i wysyła wstępne potwierdzenie SMS
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +18,8 @@ function normalizePhone(raw: string): string {
 }
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "booking-verify-code");
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {

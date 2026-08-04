@@ -91,23 +91,23 @@ export default function RidoMailPage() {
 
   const loadAccounts = async () => {
     setLoading(true);
-    const { data } = await supabase.from('email_accounts').select('*').order('created_at');
-    setAccounts((data || []) as any);
-    if (data && data.length > 0 && !selectedAccount) {
-      setSelectedAccount(data[0].id);
-      loadEmails(data[0].id);
+    const { data, error } = await supabase.functions.invoke('rido-mail', {
+      body: { action: 'list_accounts' },
+    });
+    const safeAccounts = !error && Array.isArray(data?.accounts) ? data.accounts : [];
+    setAccounts(safeAccounts as EmailAccount[]);
+    if (safeAccounts.length > 0 && !selectedAccount) {
+      setSelectedAccount(safeAccounts[0].id);
+      loadEmails(safeAccounts[0].id);
     }
     setLoading(false);
   };
 
   const loadEmails = async (accountId: string) => {
-    const { data } = await supabase
-      .from('emails')
-      .select('*')
-      .eq('account_id', accountId)
-      .order('received_at', { ascending: false })
-      .limit(50);
-    setEmails((data || []) as any);
+    const { data, error } = await supabase.functions.invoke('rido-mail', {
+      body: { action: 'list_emails', account_id: accountId },
+    });
+    setEmails((!error && Array.isArray(data?.emails) ? data.emails : []) as Email[]);
   };
 
   const handleAddAccount = async () => {
@@ -172,8 +172,10 @@ export default function RidoMailPage() {
       loadEmails(selectedAccount!);
       // Update selected email if it matches
       if (selectedEmail?.id === emailId) {
-        const { data: updated } = await supabase.from('emails').select('*').eq('id', emailId).single();
-        if (updated) setSelectedEmail(updated as any);
+        const { data: updated } = await supabase.functions.invoke('rido-mail', {
+          body: { action: 'get_email', email_id: emailId },
+        });
+        if (updated?.email) setSelectedEmail(updated.email as Email);
       }
     } catch (err: any) {
       toast.error(err.message || 'Błąd analizy');
@@ -203,7 +205,11 @@ export default function RidoMailPage() {
     if (!confirm('Czy na pewno chcesz usunąć tę skrzynkę?')) return;
     try {
       const { error } = await supabase.functions.invoke('rido-mail', {
-        body: { action: 'delete_account', account_id: accountId },
+        body: {
+          action: 'delete_account',
+          account_id: accountId,
+          confirmation: `DELETE_EMAIL_ACCOUNT:${accountId}`,
+        },
       });
       if (error) throw error;
       toast.success('Skrzynka usunięta');

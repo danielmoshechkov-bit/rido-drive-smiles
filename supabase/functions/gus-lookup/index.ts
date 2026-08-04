@@ -4,8 +4,11 @@
 // Opcjonalnie GUS_BIR_ENV=test przełącza na środowisko testowe GUS.
 import { corsHeaders } from '../_shared/cors.ts';
 import { BirError, isValidNip, lookupNipInGus, type BirEnvironment } from './bir.ts';
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 Deno.serve(async (req) => {
+  return phaseABlockedResponse(req, "gus-lookup");
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }

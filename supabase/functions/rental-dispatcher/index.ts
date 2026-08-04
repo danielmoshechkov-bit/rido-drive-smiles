@@ -19,18 +19,24 @@
 //   handlery (faktura, płatność, kalendarz) dochodzą w KOLEJNYCH paczkach.
 //   Tu budujemy samą infrastrukturę — event bez handlera = 'done' (no-op).
 //
-// verify_jwt = false (config.toml). Wywoływane przez pg_cron (WYN6) oraz
-// opcjonalnie akcelerowane przez pg_notify (WYN2). Autoryzacja: service-role.
+// verify_jwt = true (config.toml). Wywoływane przez pg_cron (WYN6) oraz
+// opcjonalnie akcelerowane przez pg_notify (WYN2). Niezależnie od bramki JWT
+// każde wywołanie musi podać x-internal-secret zgodny z
+// RENTAL_DISPATCHER_INTERNAL_SECRET; service_role nie jest poświadczeniem HTTP.
 // =====================================================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-};
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  createServiceClient,
+  errorResponse,
+  handleCors,
+  jsonResponse,
+  requestCorrelationId,
+  requireInternalSecret,
+  SecurityError,
+  writeAuditEvent,
+} from "../_shared/security.ts";
 
 const BATCH_SIZE = 20;
 
@@ -135,15 +141,27 @@ async function processEvent(event: DomainEvent, supabase: SupabaseClient): Promi
 }
 
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const preflight = handleCors(req);
+  if (preflight) return preflight;
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, serviceKey);
+  const correlationId = requestCorrelationId(req);
+  let auditClient: ReturnType<typeof createServiceClient> | null = null;
 
   try {
+    if (req.method !== "POST") {
+      throw new SecurityError(405, "method_not_allowed", "Dozwolona jest wyłącznie metoda POST");
+    }
+    const supabase = createServiceClient();
+    auditClient = supabase;
+    requireInternalSecret(req, { envName: "RENTAL_DISPATCHER_INTERNAL_SECRET" });
+
+    await writeAuditEvent(supabase, {
+      action: "rental.dispatcher.run",
+      resourceType: "domain_event_queue",
+      result: "attempted",
+      correlationId,
+    });
+
     // 1) Atomowy claim porcji eventów.
     const { data: claimed, error: claimError } = await supabase.rpc("claim_domain_events", {
       p_limit: BATCH_SIZE,
@@ -151,10 +169,7 @@ serve(async (req: Request) => {
 
     if (claimError) {
       console.error("[claim-error]", claimError);
-      return new Response(JSON.stringify({ error: claimError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw new Error("domain_event_claim_failed");
     }
 
     const events = (claimed ?? []) as DomainEvent[];
@@ -180,15 +195,29 @@ serve(async (req: Request) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({ claimed: events.length, done, failed }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
-  } catch (e) {
-    console.error("[dispatcher-fatal]", e);
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    await writeAuditEvent(supabase, {
+      action: "rental.dispatcher.run",
+      resourceType: "domain_event_queue",
+      result: failed > 0 ? "failed" : "succeeded",
+      correlationId,
+      metadata: { claimed: events.length, done, failed },
     });
+
+    return jsonResponse(req, 200, { claimed: events.length, done, failed });
+  } catch (e) {
+    if (auditClient) {
+      try {
+        await writeAuditEvent(auditClient, {
+          action: "rental.dispatcher.run",
+          resourceType: "domain_event_queue",
+          result: "failed",
+          correlationId,
+          metadata: { error_code: e instanceof SecurityError ? e.code : "internal_error" },
+        });
+      } catch {
+        // writeAuditEvent raportuje awarię bez ujawniania szczegółów.
+      }
+    }
+    return errorResponse(req, e);
   }
 });

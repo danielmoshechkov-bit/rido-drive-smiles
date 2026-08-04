@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { phaseABlockedResponse } from "../_shared/phaseABlock.ts";
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +15,8 @@ const LANGS: Record<string, string> = {
 const SUPPORTED_LANGS = Object.keys(LANGS)
 
 serve(async (req) => {
+  return phaseABlockedResponse(req, "auto-translate-ui");
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   const sb = createClient(

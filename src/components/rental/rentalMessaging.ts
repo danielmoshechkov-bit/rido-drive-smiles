@@ -5,13 +5,17 @@ import { toast } from 'sonner';
 /**
  * Wysyłka SMS/e-mail dla wynajmu. DOMYŚLNIE dry-run (log zamiast realnej
  * wysyłki) — żeby testy lokalne nie generowały kosztów/realnych wiadomości.
- * Przełącznik trzymany w localStorage; realne wysyłki = przy deployu/konfiguracji.
+ * Klient przeglądarkowy nie jest zaufanym miejscem do włączania wysyłki.
+ * Realne wysyłki mogą wrócić wyłącznie przez serwerowy endpoint z autoryzacją,
+ * tenantem, zgodami, limitami, audytem oraz idempotency key.
  */
 export function getDryRun(): boolean {
-  return localStorage.getItem('rental_dry_run') !== 'false'; // default true
+  return true;
 }
-export function setDryRun(v: boolean) {
-  localStorage.setItem('rental_dry_run', v ? 'true' : 'false');
+export function setDryRun(_v: boolean) {
+  // Zachowanie zgodności API bez możliwości odblokowania produkcyjnej akcji
+  // przez zmianę localStorage lub wywołanie funkcji z konsoli.
+  localStorage.removeItem('rental_dry_run');
 }
 
 export async function sendRentalSms(phone: string, message: string): Promise<{ dryRun: boolean; ok: boolean }> {

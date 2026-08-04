@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Mic, Loader2, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 // Declare global for stopping recording
 declare global {
@@ -108,26 +109,21 @@ export function VoiceInput({
       reader.readAsDataURL(audioBlob);
       const base64Audio = await base64Promise;
 
-      // Send to transcription endpoint
-      const response = await fetch(
-        'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/ai-assistant',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjbHJyeXRtcnNjcXZzeXh5dm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzcxNjAsImV4cCI6MjA3MTQ1MzE2MH0.AUBGgRgUfLkb2X5DXWat2uCa52ptLzQkEigUnNUXtqk',
+      // Klient Supabase dołącza aktualny JWT sesji; anonimowy klucz projektu
+      // nie może już samodzielnie uruchamiać kosztowej transkrypcji.
+      const { data: result, error } = await supabase.functions.invoke('ai-assistant', {
+        body: {
+          action: 'transcribe',
+          payload: {
+            audio: base64Audio,
+            // MediaRecorder commonly appends a codec parameter (for example
+            // `audio/webm;codecs=opus`). The server validates the media type
+            // against an exact allowlist, so send only the canonical MIME type.
+            mimeType: audioBlob.type.split(';')[0] || 'audio/webm',
           },
-          body: JSON.stringify({
-            action: 'transcribe',
-            payload: {
-              audio: base64Audio,
-              mimeType: 'audio/webm',
-            },
-          }),
-        }
-      );
-
-      const result = await response.json();
+        },
+      });
+      if (error) throw error;
       
       if (result.success && result.text) {
         onTranscription(result.text);
