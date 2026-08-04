@@ -143,7 +143,14 @@ serve(async (req) => {
           await admin.from("voice_agent_knowledge").insert({
             persona_key: personaKey, provider_id: providerId, scope: "tenant",
             category: L.category || "other", situation: L.situation, recommended_response: L.recommended_response,
-            rationale: L.rationale || null, source: "distilled", evidence_count: 1, is_active: true,
+            // Nowa reguła czeka na akceptację człowieka. Automatyczna aktywacja
+            // doprowadziła do tego, że agent uczył się zachowań, które właściciel
+            // dopiero co kazał usunąć: powtarzania numeru telefonu, pytań
+            // diagnostycznych, obiecywania cen i pełnych podsumowań. Sześć takich
+            // reguł powstało w jeden dzień, żadnej nikt nie zatwierdził.
+            // Włączenie reguły jest teraz świadomą decyzją:
+            //   UPDATE voice_agent_knowledge SET is_active = true WHERE id = '...'
+            rationale: L.rationale || null, source: "distilled", evidence_count: 1, is_active: false,
           });
         }
         learned++;
