@@ -252,10 +252,12 @@ export function CompanySetupWizard({ open, onOpenChange, onCreated, editEntity }
     try {
       // Compress image automatically - no size limit for user
       const compressedBlob = await compressLogoImage(file);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Wymagane jest uwierzytelnienie');
       
       // Create new file from compressed blob
       const fileName = `logo-${Date.now()}.jpg`;
-      const filePath = `logos/${fileName}`;
+      const filePath = `user/${user.id}/${fileName}`;
       const compressedFile = new File([compressedBlob], fileName, { type: 'image/jpeg' });
 
       const { error: uploadError } = await supabase.storage

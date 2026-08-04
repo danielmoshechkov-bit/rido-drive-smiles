@@ -42,7 +42,7 @@ export function MyViewingsPanel() {
       const requestIds = (data as any[]).map((r: any) => r.id);
       const { data: slotsData } = await supabase
         .from('viewing_slots' as any)
-        .select('*')
+        .select('id,request_id,status')
         .in('request_id', requestIds);
 
       const grouped: Record<string, any[]> = {};

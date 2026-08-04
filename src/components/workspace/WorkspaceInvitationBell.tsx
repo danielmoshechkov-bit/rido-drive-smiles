@@ -24,12 +24,6 @@ export function WorkspaceInvitationBell() {
     if (!user?.email) { setInvites([]); return; }
     const emailLc = user.email.toLowerCase();
 
-    const { error: claimErr } = await supabase
-      .from("workspace_project_members")
-      .update({ user_id: user.id })
-      .eq("email", emailLc).eq("status", "invited").is("user_id", null);
-    if (claimErr) console.error("invite claim:", claimErr);
-
     // RPC zwraca zaproszenia Z NAZWĄ projektu (omija RLS active-only → koniec
     // „Nieznany projekt"). Fallback: bezpośredni odczyt member-rows (bez nazwy).
     const { data: rpcRows, error: rpcErr } = await (supabase as any).rpc("get_my_invited_projects");
