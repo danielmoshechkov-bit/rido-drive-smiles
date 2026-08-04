@@ -308,16 +308,51 @@ test("digits are read one by one and slots are never invented", () => {
   assert.doesNotMatch(chat, /Prosimy przyjechać|10 minut wcześniej|dziesięć minut wcześniej/);
 });
 
-test("registration number is never asked for", () => {
+test("registration number is asked once and never confirmed back", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
-  // Rozmowa z 04.08: sześć nieudanych prób odczytania rejestracji, cztery minuty.
-  assert.match(chat, /NUMERU REJESTRACYJNEGO NIE PYTAJ W OGÓLE/);
-  assert.match(chat, /Warsztat uzupełni go przy przyjęciu auta/);
-  // Lista zbieranych danych kończy się na marce i modelu.
-  assert.match(chat, /imię i nazwisko → telefon → marka i model\. To CAŁA lista/);
-  // Gdy klient poda sam — zapis bez potwierdzania głosowego.
-  assert.match(chat, /NIE potwierdzaj jej głosowo i NIE powtarzaj/);
+  // Warsztat potrzebuje rejestracji, więc pytanie wraca — ale bez pętli
+  // potwierdzania, która 04.08 kosztowała sześć prób i cztery minuty.
+  assert.match(chat, /NUMER REJESTRACYJNY: zapytaj RAZ/);
+  assert.match(chat, /NIE powtarzaj go wstecz, NIE proś o potwierdzenie, NIE literuj/);
+  assert.match(chat, /nie wracaj do tematu/);
+  // Rejestracja domyka listę zbieranych danych.
+  assert.match(chat, /imię i nazwisko → telefon → marka i model → numer rejestracyjny\. To CAŁA lista/);
+});
+
+test("goodbye and end_call happen in the same turn", () => {
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // We wszystkich dotychczasowych rozmowach agent mówił "do widzenia" i stał,
+  // czekając aż klient się rozłączy.
+  assert.match(chat, /=== ZAKOŃCZENIE ROZMOWY ===/);
+  assert.match(chat, /W TEJ SAMEJ TURZE wywołaj narzędzie end_call/);
+  assert.match(chat, /Nie czekaj na kolejną turę, nie milcz po pożegnaniu/);
+  assert.match(chat, /najpierw wypowiadasz "Do widzenia", potem wywołujesz end_call/);
+
+  // Data i godzina w podsumowaniu dokładnie raz.
+  assert.match(chat, /Datę i godzinę podajesz w podsumowaniu DOKŁADNIE RAZ/);
+  assert.match(chat, /ŹLE: "Umawiam na czwartek szóstego o jedenastej, do zobaczenia/);
+});
+
+test("booking deterministically creates the order and a calendar slot", () => {
+  const tools = readFileSync(new URL("../voice-agent-tools/index.ts", import.meta.url), "utf8");
+
+  // Zlecenie nie zależy już od tego, czy model pamięta o drugim narzędziu.
+  assert.match(tools, /ZLECENIE DETERMINISTYCZNIE, nie na łasce modelu/);
+  assert.match(tools, /action: "create_order", provider_id: providerId/);
+  assert.match(tools, /order_id: createdOrderId, order_failed: orderFailed/);
+
+  // complaint to słowa klienta, nie parafraza.
+  assert.match(tools, /complaint = SŁOWA KLIENTA, zwięźle/);
+
+  // Grafik: rezerwacja pojawia się na siatce tylko ze station_id.
+  assert.match(tools, /freeStationId \? \{ station_id: freeStationId \} : \{\}/);
+  assert.match(tools, /from\("workshop_workstations"\)/);
+  assert.match(tools, /const taken = new Set/);
+
+  // Wybór stanowiska nie może blokować rezerwacji.
+  assert.match(tools, /brak stanowisk nie moze blokowac rezerwacji/);
 });
 
 test("post-call webhook resolves the tenant by agent_id and never fails silently", () => {
@@ -342,6 +377,33 @@ test("post-call webhook resolves the tenant by agent_id and never fails silently
   for (const evt of ["tenant_unresolved", "analyze_failed", "transcript_too_short", "request_failed"]) {
     assert.match(pp, new RegExp(`event: "${evt}"`));
   }
+});
+
+test("ElevenLabs system tools reach the model and come back as tool_calls", () => {
+  const llm = readFileSync(new URL("../voice-agent-llm/index.ts", import.meta.url), "utf8");
+  const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
+
+  // llm czyta pole tools z żądania ElevenLabs i przekazuje je dalej (tylko canary).
+  assert.match(llm, /const clientTools: unknown\[\] = Array\.isArray\(reqBody\?\.tools\)/);
+  assert.match(llm, /canary\.enabled && clientTools\.length \? \{ client_tools: clientTools \}/);
+
+  // chat konwertuje OpenAI -> Anthropic i dokłada do TEJ SAMEJ listy co nasze narzędzia.
+  assert.match(chat, /const fn = \(raw\?\.function \?\? raw\)/);
+  assert.match(chat, /input_schema: parameters/);
+  assert.match(chat, /clientToolNames\.add\(name\)/);
+
+  // Narzędzia klienta NIE są wykonywane u nas — rozpoznanie musi poprzedzać
+  // gałąź, która woła voice-agent-tools.
+  const detectAt = chat.indexOf("const requestedClientTools");
+  const executeAt = chat.indexOf('streamed.stopReason === "tool_use"');
+  assert.ok(detectAt > 0 && detectAt < executeAt, "narzędzia klienta muszą być rozpoznane przed wykonaniem naszych");
+
+  // Odpowiedź wraca w formacie OpenAI z finish_reason tool_calls.
+  assert.match(chat, /type: "function",\s*\n\s*function: \{ name: call\.name, arguments: JSON\.stringify/);
+  assert.match(chat, /finish_reason: "tool_calls"/);
+
+  // Przy end_call pusta odpowiedź jest poprawna — agent nie może mówić po pożegnaniu.
+  assert.match(chat, /if \(!reply\.trim\(\) && !clientToolCalls\.length\)/);
 });
 
 test("learned rules never activate themselves", () => {
