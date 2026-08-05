@@ -79,6 +79,24 @@ Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w n
    gdy komplet jest zebrany.
 10. **Budżet 300 ms na inicjację; przy przekroczeniu pusty snapshot, nie błąd.**
     Rozmowa bez snapshotu jest gorsza. Rozmowa, która się nie zaczęła, jest stracona.
+11. **Zakaz musi być WYKONALNY i nie może cytować tego, czego zakazuje.**
+    Dwie odmiany tego samego błędu, obie potwierdzone:
+    *niewykonalny* — „nie witaj się drugi raz" nie mogło zadziałać, bo model nie widzi
+    pierwszej wiadomości (jest usuwana z kontekstu, Anthropic wymaga startu od użytkownika);
+    *podpowiadający* — lista zakazanych zwrotów cytowała „już sprawdzam" dosłownie.
+    Przed dodaniem reguły sprawdź: czy model widzi to, czego reguła dotyczy, i czy da się
+    ją opisać bez cytowania zakazanej frazy.
+12. **Połknięty `error` z zapytania to niewidoczna awaria.**
+    `const { data } = await …` bez `error` daje `null` nie do odróżnienia od braku
+    dopasowania. Trzy incydenty: `maybeSingle()` przy wielu wierszach (3 rezerwacje,
+    6 SMS-ów), nieistniejące kolumny `address`/`city` w `service_providers` (SMS bez
+    nazwy firmy przy poprawnych danych), nieodebrany błąd zapisu do grafiku.
+    **Zawsze odbieraj `error` i loguj go.** W `voice-call-commit` błąd zapytania musi
+    przerwać transakcję, a nie po cichu zmienić wynik.
+
+**Kontrola przed każdym commitem do tego modułu:** przejdź listę i wskaż, którą zasadę
+zmiana realizuje albo mogłaby złamać. Pięć klas sprzeczności w prompcie v1 powstało
+dlatego, że nikt tego nie robił.
 
 ---
 
