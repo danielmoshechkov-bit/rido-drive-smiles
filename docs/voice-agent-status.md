@@ -5,6 +5,45 @@ Spec dalszych prac: `docs/voice-agent-faza1.md`, `docs/voice-agent-faza2.md`.
 
 ---
 
+## ⭐ ZASADA NADRZĘDNA
+
+# AGENT ROZMAWIA I NOTUJE. NIC NIE ROBI W SYSTEMIE.
+
+Wszystko, czego potrzebuje, dostaje **ZANIM klient zacznie mówić** — snapshot przy
+odebraniu połączenia, w trakcie odtwarzania powitania (za darmo, bo powitanie i tak
+trwa ~3 s): wolne terminy, godziny pracy i dni wolne, cennik usług, dane firmy,
+`caller_id`, historia klienta.
+
+**W trakcie rozmowy: ZERO wywołań.** Agent czyta z kontekstu i mówi.
+
+**Po rozłączeniu: portal robi wszystko** — rezerwacja, zlecenie, grafik, SMS,
+transkrypt. Jedna transakcja, bez presji czasu.
+
+### Jedyne wyjątki
+
+**Pytanie o cenę lub usługę:**
+1. jest w katalogu → agent podaje z katalogu
+2. nie ma w katalogu → „wycenimy na miejscu, przed naprawą"
+3. klient nalega → „przekażę, pracownik oddzwoni" → `callback_requests` + SMS do warsztatu
+
+**Agent NIGDY nie zgaduje ceny.**
+
+**Termin spoza snapshotu** → `check_availability` z jawną zapowiedzią
+„chwileczkę, sprawdzę dalsze terminy".
+
+### Dowód liczbowy
+
+```
+tura bez operacji          795 ms  … 2 400 ms
+tura z check_availability  4 900 ms
+tura z zapisem            7 100 ms … 10 752 ms
+```
+
+**Każda przyszła zmiana ma być z tym zgodna. Jeśli któraś funkcja wymaga wywołania
+w trakcie rozmowy — to znak, że projekt jest zły, nie że potrzebny jest wyjątek.**
+
+---
+
 ## Architektura (stan faktyczny)
 
 ```
@@ -323,6 +362,42 @@ hipoteza właściciela: **narzędzie czeka na zakończenie zapisu**, nie na TTS.
 
 To nie jest sufit platformy. Po FAZIE 2 tura to jedna runda modelu, która wypuszcza
 tekst i `end_call` razem — cel 0,5 s od ostatniego słowa jest osiągalny.
+
+## 🔴 voice-agent-tools NIE JEST W KEEP-WARM — zimny start ~2,9 s
+
+Pomiar 06.08 00:41, nowa instrumentacja:
+
+```
+pierwsze check_availability   3 999 ms
+drugie check_availability     1 092 ms
+różnica                       2 907 ms   ← zimny start
+```
+
+Crony `voice-keep-warm-llm` i `voice-keep-warm-chat` istnieją; **`voice-agent-tools`
+nie ma ani `/warmup`, ani wpisu w cronie**. Pierwsze wywołanie narzędzia w KAŻDEJ
+rozmowie płaci zimny start.
+
+To najtańsza niewykorzystana poprawka, jaką mamy — ale FAZA A i tak usuwa narzędzia
+z rozmowy, więc zysk byłby tymczasowy. Do decyzji właściciela.
+
+## Rozbicie create_booking (nowa instrumentacja, 06.08 00:41)
+
+```
+TOTAL                2 881 ms
+  rezerwacja_insert    253 ms
+  stanowiska_select    125 ms
+  grafik_insert        262 ms
+  zlecenie_http        938 ms   ← wywołanie samego siebie po HTTP
+  ──────────────────────────
+  zmierzone          1 578 ms
+  NIEZMIERZONE       1 303 ms   ← 45% !
+```
+
+⚠️ **Zinstrumentowałem cztery operacje z jedenastu.** Poza pomiarem zostały:
+odczyt `voice_agent_configs`, find-or-create `voice_calls`, dedup `service_bookings`,
+select grafiku, sprawdzenie SMS, odczyt `service_providers`, `linkConversation`.
+Te 1303 ms rozkłada się na siedem zapytań, których nie widać.
+`check_availability` nie jest zinstrumentowany w ogóle.
 
 ## Punkt odniesienia: 795 ms — szybkość JUŻ jest, tylko niewidoczna
 
