@@ -43,7 +43,7 @@ kontekst wejściowy. Zostaje `check_availability` i `end_call`.
 
 ---
 
-## Czternaście zasad wyprowadzonych z błędów
+## Piętnaście zasad wyprowadzonych z błędów
 
 Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w nowym kodzie.
 
@@ -115,6 +115,16 @@ Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w n
     `slot_already_booked`, `duplicate`, `order_failed` — a nie samo `ok`.
     Kontrola: przeczytaj odpowiedź narzędzia oczami modelu i zapytaj, czy da się
     z niej zbudować zdanie, które będzie **nieprawdziwe**.
+
+15. **REGUŁA WARUNKOWA MUSI ZNIEŚĆ REGUŁĘ BEZWARUNKOWĄ, KTÓRĄ ŁAMIE.**
+    Gałąź `caller_id` kazała powiedzieć „Potwierdzenie **wyślemy** SMS-em na numer,
+    z którego Pan dzwoni", a blok ZAKOŃCZENIE zakazywał zwrotu „wyślemy SMS"
+    i narzucał inne zdanie. Model wykonał zakaz, więc reguła warunkowa nie zadziałała
+    ani razu — a wyglądała na wdrożoną.
+    Szósta sprzeczność tej samej klasy i pierwsza, w której **nowa reguła nie była
+    błędna sama w sobie** — kolidowała ze starą.
+    **Przed dodaniem reguły warunkowej przeszukaj prompt pod kątem zdań, które
+    zakazują tego, co ona nakazuje.**
 
 **Kontrola przed każdym commitem do tego modułu:** przejdź listę i wskaż, którą zasadę
 zmiana realizuje albo mogłaby złamać. Pięć klas sprzeczności w prompcie v1 powstało
