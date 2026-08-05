@@ -123,6 +123,22 @@ gating po stronie przeglądarki — przechodzi na rolę w bazie.
 
 ---
 
+## Etapy budowy billingu
+
+| Etap | Zakres | Stan |
+|---|---|---|
+| **1** | Schemat: tabele, enumy, funkcje `has_feature` / `feature_limit` / `check_usage`, `billing_gateways`, override limitów per subskrypcja, pola promo i polecenia | PR #34, **niewykonana** |
+| **2** | Zasiew planów i funkcji + macierz plan × funkcja (zatwierdzona 06.08) | do zrobienia |
+| **3** | Panel admina: zakładki Bramki, Funkcje, Plany, Subskrypcje, Zdarzenia, Ustawienia + edge `billing-admin-*` + rola `platform_admin`. **W tym: nadpisywanie limitu na poziomie subskrypcji** (plan „Sieci" — limity per umowa) | do zrobienia |
+| **4** | Podpięcie płatności: `product_type` dla kredytów pojazdowych, naprawa `upsertCredits`, przywrócenie zakupów w UI, usunięcie ścieżki symulacji | do zrobienia |
+| **5** | `provider_sms_balance` — wydzielenie salda SMS z `service_providers` (wariant B, 27 miejsc w kodzie) | do zrobienia |
+| **6** | **Rabaty i polecenia w subskrypcjach**: spięcie istniejących `promo_codes` / `promo_code_redemptions` z planami (dziś rabaty działają tylko na jednorazówki) oraz rozszerzenie `tryReferralCompletion` z `payment-core` o prowizję od subskrypcji, nie tylko od pierwszego zakupu | do zrobienia |
+| **7** | Plany pozostałych portali: **Flota** (25/45/79), **Ogłoszenia** (0/5/9/19/29), **AI** (RidoAI Lite 29, AI Pro 99) oraz pakiety dokupowane (SMS, VIN, minuty AI powyżej limitu — 0,69 zł/min) jako jednorazówki | do zrobienia |
+
+Etap 6 nie wymaga migracji tabeli `billing_subscriptions` — pola `promo_code_id`,
+`promo_code`, `promo_discount_percent`, `referral_use_id` i `referral_code` są
+w schemacie od etapu 1 właśnie po to, żeby nie migrować tabeli z ruchem produkcyjnym.
+
 ## Kolejność wdrożeń
 
 1. **PR #28** — tożsamość w `payment-core`, podpis P24. Bez sekretu `P24_CRC_KEY`
