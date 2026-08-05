@@ -361,3 +361,15 @@ verify_jwt = false
 
 [functions.sitemap]
 verify_jwt = false
+
+# Operuje na saldach i płatnościach kluczem service_role. Bramka JWT to tylko
+# warstwa wstępna — właściwa kontrola (tożsamość z auth.getUser, rola admina
+# czytana z bazy, confirm_webhook wyłącznie kanałem wewnętrznym) jest w funkcji.
+[functions.payment-core]
+verify_jwt = true
+
+# Wejście dla operatora płatności, który nie ma tokenu Supabase — bramka JWT musi
+# być wyłączona. Autentyczność potwierdza podpis SHA-384 z kluczem P24_CRC_KEY;
+# bez skonfigurowanego klucza funkcja zwraca 503 zamiast przepuszczać żądanie.
+[functions.payment-core-webhook]
+verify_jwt = false
