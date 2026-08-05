@@ -231,34 +231,38 @@ serve(async (req) => {
       const exBk = exBkRows?.[0] || null;
 
       let bookingId: string;
-      const bookingDuplicate = !!exBk;
-      if (exBk) {
+      const bookingDuplicate = !!exBk && !body?.confirm_duplicate;
+      if (exBk && !body?.confirm_duplicate) {
         bookingId = exBk.id;
-        // KOLIZJA SLOTU Z INNĄ ROZMOWĄ — trzeci raz ten sam mechanizm.
+        // OSTRZEŻENIE, NIE ODMOWA.
         //
-        // Klient ma już wizytę w tym terminie z WCZEŚNIEJSZEJ rozmowy. Dotąd
-        // zwracaliśmy zwykłe `ok: true`, więc model mówił "gotowe", a w bazie
-        // nie przybywało nic i SMS nie wychodził (rozmowy 05.08 18:23 i 21:37).
-        // Klient słyszał potwierdzenie wizyty, której nie umówiliśmy.
+        // Wcześniejsza wersja ODRZUCAŁA zapis, gdy ten sam klient miał wizytę o tej
+        // samej godzinie. To było błędne kryterium: warsztat ma sześć stanowisk,
+        // więc termin bywa wolny mimo istniejącej wizyty tego klienta — a klient
+        // może przywieźć dwa auta na tę samą godzinę.
         //
-        // Teraz mówimy modelowi PRAWDĘ, żeby mógł ją powiedzieć klientowi.
-        // Nie nadpisujemy istniejącej wizyty i nie wysyłamy drugiego SMS-a —
-        // decyzję o zmianie terminu podejmuje człowiek.
-        if (!conversationCall?.linked_entity_id) {
-          console.info("[voice-agent-tools] slot_taken_by_earlier_call", {
+        // check_availability liczy WOLNE STANOWISKA. create_booking musi używać
+        // tego samego kryterium, inaczej agent mówi "jedenasta jest wolna",
+        // a chwilę później "nie udało się dokończyć operacji".
+        //
+        // Zostaje PYTANIE: informujemy model, a on pyta klienta, czy to pomyłka.
+        // Potwierdzenie wraca jako confirm_duplicate i wtedy zapisujemy normalnie.
+        if (!conversationCall?.linked_entity_id && !body?.confirm_duplicate) {
+          console.info("[voice-agent-tools] client_already_has_booking", {
             date, time, conversation: conversationId.slice(-8),
           });
           return json({
             ok: true,
-            duplicate: true,
-            slot_already_booked: true,
-            booking_id: exBk.id,
+            client_already_has_booking: true,
+            existing_booking_id: exBk.id,
             message: `Ten klient ma już wizytę ${date} o ${time} z wcześniejszej rozmowy. `
-              + "Powiedz mu o tym wprost i zapytaj, czy chce inny termin. "
-              + "NIE mów, że wizyta została właśnie umówiona.",
+              + "ZAPYTAJ go, czy to pomyłka, czy faktycznie chce drugą wizytę w tym terminie "
+              + "(np. drugie auto). NIE mów, że wizyta została umówiona — jeszcze jej nie ma. "
+              + "Jeśli potwierdzi, wywołaj create_booking ponownie z confirm_duplicate: true.",
           });
         }
-      } else {
+      }
+      if (!exBk || body?.confirm_duplicate) {
       // 1) service_bookings (source='portal') -> "Rezerwacje z portalu" + kalendarz
       const { data: sb, error: sbErr } = await admin.from("service_bookings").insert({
         provider_id: providerId,
