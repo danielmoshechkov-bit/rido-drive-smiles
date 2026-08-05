@@ -83,7 +83,11 @@ BEGIN
 
   IF v_client_id IS NULL THEN
     INSERT INTO workshop_clients (provider_id, client_type, first_name, last_name, phone)
-    VALUES (p_provider_id, 'private', coalesce(p_first_name, 'Klient'), p_last_name, p_phone)
+    -- 'individual', NIE 'private'. Ograniczenie workshop_clients_client_type_check
+    -- dopuszcza wyłącznie 'individual' i 'company'. voice-agent-tools miał tu
+    -- 'private' i przez to KAŻDY nowy klient wywalał create_order — złapane
+    -- testem w BEGIN/ROLLBACK, na produkcji objawiało się jako "ok=false".
+    VALUES (p_provider_id, 'individual', coalesce(p_first_name, 'Klient'), p_last_name, p_phone)
     RETURNING id INTO v_client_id;
   END IF;
 
@@ -103,7 +107,20 @@ BEGIN
     END IF;
   END IF;
 
-  -- 4. REZERWACJA.
+  -- 4. REZERWACJA — TYLKO gdy termin jest potwierdzony.
+  --
+  -- DRUGA ŚCIEŻKA: rozmowa sensowna, ale termin nie padł. Dziś taka rozmowa znika
+  -- bez śladu. Teraz powstaje ZLECENIE BEZ REZERWACJI, ze statusem "Oddzwonić" —
+  -- bo brak terminu znaczy, że ktoś ma zadzwonić i go ustalić, a to konkretne
+  -- działanie, nie samo sprawdzenie.
+  --   z terminem:  rezerwacja -> stanowisko -> grafik -> zlecenie ZLP
+  --   bez terminu:                                    -> zlecenie ZL
+  -- Prefiks wybiera trigger po obecności booking_id, więc warsztat od razu widzi,
+  -- że to zlecenie bez umówionej wizyty.
+  -- Zlecenie bez terminu NIE TRAFIA DO GRAFIKU — nie ma na czym go umieścić.
+  IF p_date IS NULL OR p_time IS NULL THEN
+    v_status_name := 'Oddzwonić';
+  ELSE
   INSERT INTO service_bookings (
     provider_id, customer_name, customer_phone, scheduled_date, scheduled_time,
     duration_minutes, customer_notes, vehicle_brand, vehicle_model, vehicle_plate,
@@ -154,6 +171,7 @@ BEGIN
     '[Z ROZMOWY AI] ' || coalesce(p_complaint,''), p_date, p_time, p_duration_min,
     'scheduled', true, ARRAY['24h'], v_station_id)
   RETURNING id, public_token INTO v_calendar_id, v_public_tok;
+  END IF;
 
   -- 7. STATUS ZLECENIA — utwórz raz, jeśli provider go nie ma.
   INSERT INTO workshop_order_statuses (provider_id, name, color, sort_order)
@@ -185,12 +203,25 @@ BEGIN
     CASE WHEN p_needs_review THEN '[DO SPRAWDZENIA] ' || coalesce(p_review_reason,'') END)
   RETURNING id, order_number INTO v_order_id, v_order_no;
 
+  -- 8b. STATUS REAKCJI. Kryterium (b) z doprecyzowaniem: pojazd jest nieznany
+  --     dopiero gdy NIE MA ani rejestracji, ani marki. Sama marka wystarcza —
+  --     mechanik widzi auto na miejscu, rejestracja to wygoda, nie warunek.
+  IF v_status_name <> 'Oddzwonić'
+     AND (p_needs_review OR (p_plate IS NULL AND p_brand IS NULL)) THEN
+    UPDATE workshop_orders SET status_name = 'Wymaga uwagi' WHERE id = v_order_id;
+    v_status_name := 'Wymaga uwagi';
+  END IF;
+
   -- 9. POWIĄZANIE ROZMOWY. Tego szuka zakładka "Rozmowa telefoniczna".
   UPDATE voice_calls
      SET linked_entity_type = 'workshop_order',
          linked_entity_id   = v_order_id,
-         status             = CASE WHEN p_needs_review THEN 'needs_review' ELSE 'completed' END,
-         outcome            = CASE WHEN p_needs_review THEN p_review_reason ELSE 'booked' END
+         status             = CASE WHEN p_needs_review OR p_date IS NULL OR p_time IS NULL
+                                   THEN 'needs_review' ELSE 'completed' END,
+         outcome            = CASE WHEN p_date IS NULL OR p_time IS NULL
+                                   THEN 'Brak potwierdzonego terminu — oddzwonić'
+                                   WHEN p_needs_review THEN p_review_reason
+                                   ELSE 'booked' END
    WHERE id = v_call_id;
 
   RETURN jsonb_build_object(
@@ -203,6 +234,8 @@ BEGIN
     'station_id', v_station_id,
     'order_id', v_order_id,
     'order_number', v_order_no,
+    'status_zlecenia', v_status_name,
+    'bez_terminu', (p_date IS NULL OR p_time IS NULL),
     'public_token', v_public_tok,
     'needs_review', p_needs_review);
 END;

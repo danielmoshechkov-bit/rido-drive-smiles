@@ -538,7 +538,9 @@ serve(async (req) => {
       clientId = (clients || []).find((c: any) => norm9(c.phone || "") === p9)?.id || null;
       if (!clientId) {
         const { data: nc } = await admin.from("workshop_clients").insert({
-          provider_id: providerId, client_type: "private", first_name: first, last_name: last, phone,
+          // workshop_clients_client_type_check dopuszcza tylko "individual" i "company".
+          // "private" powodowało, że KAŻDY nowy klient wywalał create_order.
+          provider_id: providerId, client_type: "individual", first_name: first, last_name: last, phone,
         }).select("id").single();
         clientId = nc.id;
       }
