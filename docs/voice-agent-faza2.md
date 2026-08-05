@@ -218,6 +218,36 @@ dołożyć dopiero, gdy zestaw się ustabilizuje.
 
 `outcome` (text, nullable) nadaje się na powód wymagający uwagi.
 
+### 🔴 DIAGNOZA: czemu trzy wywołania `create_order` dały ZERO zleceń
+
+Rozstrzygnięte co do sekundy — **dedup `recentOrder`, okno 15 minut na `client_id`**:
+
+```
+22:28:19  ZLP-08/2026-005  utworzone dla client_id 9a4d2908  (POPRZEDNIA rozmowa)
+22:42:44  rezerwacja z rozmowy 22:41, telefon +48519474583
+          -> norm9 = 519474583 -> TEN SAM client_id 9a4d2908
+22:42:46  create_order
+odstep:   14,44 minuty            okno dedupu: 15 minut
+```
+
+Kod (`voice-agent-tools`, „dedup #2"):
+```ts
+.eq("client_id", clientId)
+.gte("created_at", new Date(Date.now() - 15 * 60000).toISOString())
+if (recentOrder) return { ok: true, order_id: recentOrder.id, duplicate: true }
+```
+
+Wszystkie trzy wywołania trafiły w zlecenie z **poprzedniej rozmowy** i zwróciły
+jego identyfikator. `linkConversation` jest **za** tym `return`, więc rozmowa
+została z `linked_entity_type: service_booking` i nigdy nie awansowała.
+
+**To ta sama klasa błędu co dedup rezerwacji: tożsamość liczona po kliencie
+i czasie zamiast po ROZMOWIE.** Trzeci raz ten sam wzorzec.
+
+⚠️ **KONSEKWENCJA: `voice-call-commit` NIE MOŻE wołać `create_order`.**
+Odziedziczyłby dokładnie ten dedup. Commit tworzy zlecenie własną transakcją,
+z idempotencją wyłącznie po `conversation_id` — jedno miejsce, jeden klucz (zasada 5).
+
 ### Sprzątanie pustych rozmów — CRON, nie commit
 
 **USUWAMY** (to nie były rozmowy):

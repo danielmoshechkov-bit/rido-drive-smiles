@@ -241,6 +241,12 @@ co właśnie wprowadziliśmy. Obowiązujący podział:
 **Zasada: DANE można dopisywać automatycznie, INSTRUKCJI nie.**
 
 ### C. Widok „Połączenia" w panelu warsztatu
+
+**Korekta uzasadnienia:** `voice_transcripts.call_id` ma FK do `voice_calls(id)`,
+więc transkrypt **zawsze** wisiał na rozmowie, nie na zleceniu. Dane już są —
+`OrderCallPanel` szuka ich wyłącznie od strony zlecenia, więc bez zlecenia są
+nieosiągalne z panelu, ale nie zaginęły.
+**Widok ODSŁANIA dane, nie ratuje — jest więc tańszy, niż zakładaliśmy.**
 Zakładka obok Rezerwacji, licznik nieobsłużonych. Lista: data, numer, czas trwania,
 wynik, link do zlecenia, transkrypt do rozwinięcia. Filtr domyślny: tylko
 problematyczne. Przycisk „Utwórz zlecenie ręcznie". Plus `callback_requests`
