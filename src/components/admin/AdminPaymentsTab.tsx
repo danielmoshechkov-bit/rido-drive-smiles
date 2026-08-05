@@ -8,13 +8,22 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star, Tag } from 'lucide-react';
+import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star, Tag, Puzzle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { PromoCodesPanel } from './PromoCodesPanel';
+import { BillingFeaturesPanel } from './billing/BillingFeaturesPanel';
+import { useUserRole } from '@/hooks/useUserRole';
+
+const TAB_CLASS =
+  'data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1';
 
 export function AdminPaymentsTab() {
   const [activeTab, setActiveTab] = useState('gateways');
+  // Zakładki billingowe czytają tabele billing_*, do których RLS przepuszcza
+  // wyłącznie platform_admin. Ukrycie ich przed zwykłym adminem to kwestia UX —
+  // właściwą kontrolę i tak robi baza, a zapisy edge function.
+  const { isPlatformAdmin } = useUserRole();
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -49,6 +58,13 @@ export function AdminPaymentsTab() {
             <Tag className="h-3.5 w-3.5" /> Kody promo
           </div>
         </TabsTrigger>
+        {isPlatformAdmin && (
+          <TabsTrigger value="billing-features" className={TAB_CLASS}>
+            <div className="flex items-center gap-1.5 justify-center">
+              <Puzzle className="h-3.5 w-3.5" /> Funkcje
+            </div>
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="gateways"><PaymentGatewayConfig /></TabsContent>
@@ -63,6 +79,9 @@ export function AdminPaymentsTab() {
         </div>
       </TabsContent>
       <TabsContent value="promo"><PromoCodesPanel /></TabsContent>
+      {isPlatformAdmin && (
+        <TabsContent value="billing-features"><BillingFeaturesPanel /></TabsContent>
+      )}
     </Tabs>
   );
 }
