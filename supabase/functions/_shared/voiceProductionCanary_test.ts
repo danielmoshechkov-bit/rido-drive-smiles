@@ -307,7 +307,7 @@ test("digits are read one by one and slots are never invented", () => {
   assert.match(chat, /Zabronione w numerach/);
 
   // Bez zapowiedzi "sprawdzam", od razu konkretne godziny z narzędzia.
-  assert.match(chat, /NIE zapowiadaj "sprawdzam wolne terminy"/);
+  assert.match(chat, /nie zapowiadaj sprawdzania dostępności/);
   assert.match(chat, /wyłącznie godziny, które narzędzie faktycznie zwróciło/);
 
   // Zdanie o przyjeździe wcześniej znika z rozmowy.
@@ -334,10 +334,14 @@ test("agent never narrates its own system actions", () => {
   // Cytat z prawdziwej rozmowy: "Już sprawdzam. Teraz tworzę rezerwację: Do widzenia!"
   assert.match(chat, /ZAKAZ RELACJONOWANIA WŁASNYCH DZIAŁAŃ/);
   assert.match(chat, /Klient słyszy WYNIK, nigdy PROCES/);
-  // Lista zakazanych zwrotów zamiast ogólnego zakazu — ogólne zakazy model łamał.
-  for (const phrase of ["sprawdzam", "tworzę rezerwację", "zapisuję", "umawiam Pana", "chwileczkę"]) {
-    assert.ok(chat.includes(`"${phrase}"`), `lista zakazanych zwrotów musi zawierać "${phrase}"`);
+  // Zakaz jest OPISOWY, nie listą cytatów. Lista działała lepiej niż ogólnik, ale mimo
+  // niej fraza wracała — a cytowanie jej dosłownie mogło ją modelowi podpowiadać.
+  // Prompt nie zawiera już ani jednego cytatu zakazanego zwrotu.
+  assert.doesNotMatch(chat, /"już sprawdzam"/i);
+  for (const verb of ["sprawdzasz", "tworzysz", "zapisujesz", "umawiasz"]) {
+    assert.ok(chat.includes(verb), `opisowy zakaz musi obejmować czynność "${verb}"`);
   }
+  assert.match(chat, /jeśli zdanie opisuje, co dzieje się PO TWOJEJ STRONIE/);
   assert.match(chat, /Cisza w trakcie jest lepsza niż relacja z pracy systemu/);
 
   // Powitanie w rejestrze oficjalnym.
