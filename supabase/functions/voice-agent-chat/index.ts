@@ -609,6 +609,14 @@ serve(async (req) => {
       for (let round = 0; round <= voiceRouting.maxToolRounds; round++) {
         if (round > 0 && emittedText && !/\s$/.test(reply)) emit(" ");
         const modelStarted = performance.now();
+        // ROZDZIELENIE NASZEJ PRACY OD PRACY MODELU.
+        //
+        // `first_text` obejmuje wszystko od startu chat do pierwszego tokenu, więc
+        // nie da się z niego odczytać, ile zajęło budowanie promptu, a ile sam model.
+        // Benchmark z eu-central-1 dał surowy TTFT Haiku 625 ms przy prostym żądaniu;
+        // w produkcji `first_text` ma medianę ~1,4 s. Ten znacznik mówi, gdzie leży
+        // różnica: przed wywołaniem modelu czy w nim.
+        if (round === 0) logTiming("prompt_ready", totalStarted, { system_chars: system.length, tools: tools.length });
         const attempted = await executePhase1Fallback(voiceRouting, async (candidate) => {
           if (canaryAbortSignal.aborted) {
             const aborted = new DOMException("client disconnected", "AbortError") as DOMException & { allowFallback?: boolean };

@@ -238,6 +238,32 @@ Trzeci wniosek, wynikowy: skoro surowy TTFT Haiku to ~625 ms, a nasz `first_text
 w produkcji ma medianę ~1,4 s, to **~775 ms dokłada nasza ścieżka** — i to tam,
 nie w modelu, jest reszta budżetu.
 
+## Rozbicie 775 ms narzutu naszej ścieżki (06.08)
+
+Mediany z rozmowy `conv_0301kz9yx3kzeembvz7ajn6qr4zf`, dziesięć tur:
+
+| warstwa | ms | usuwalne? |
+|---|---|---|
+| `auth` (llm) | **0–1** | ✅ zrobione — env-first |
+| `config` (llm) | **~370** (144–543) | ✅ **FAZA A** — kontekst z webhooka inicjującego |
+| hop llm→chat + rozruch chat | **~160** (119–474) | częściowo — FAZA B |
+| `prepare` (chat) | **8** (7–13) | ✅ zrobione — RPC |
+| budowa promptu + SSE + model | **~1000** (646–2727) | patrz niżej |
+| — z tego surowy model (benchmark) | ~625 | ❌ nieusuwalne |
+| — z tego nasza praca | **~370** | do rozstrzygnięcia |
+
+**`config` to potwierdzenie Twojego przypuszczenia liczbą: ~370 ms, największa
+usuwalna pozycja.** Znika w FAZIE A, bo kontekst przyjdzie z webhooka inicjującego.
+
+**`chat_headers` 119–474 ms** to hop plus rozruch chat (parsowanie 4,9 KB, autoryzacja,
+budowa promptu przed zwróceniem strumienia). Sam hop jest mniejszy — FAZA B zdejmie
+tylko jego część, więc próg 0,2 s trzeba sprawdzić na rozdzielonym pomiarze.
+
+⚠️ **Ostatnie ~370 ms jest nierozstrzygnięte.** `first_text` obejmuje i budowę promptu,
+i wywołanie modelu, a benchmark mierzył prostsze żądanie (bez definicji narzędzi
+i bez 40 wiadomości historii). Część tej różnicy to legalnie model przy większym
+wejściu. Znacznik `prompt_ready` (dodany 06.08) rozdziela to przy następnej rozmowie.
+
 ## Kontrola sprzeczności w prompcie — mechaniczna
 
 ```bash
