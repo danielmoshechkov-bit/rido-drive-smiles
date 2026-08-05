@@ -105,12 +105,34 @@ serve(async (req) => {
     }
 
     // 1) voice_calls
-    const { data: call } = await admin.from("voice_calls").insert({
-      provider_id: providerId, persona_key: personaKey, direction: "inbound", status: "completed",
-      contact_name: a?.customer_data?.name || null, summary: a?.summary || null, outcome: a?.outcome || null,
-      linked_entity_type: linkedOrderId ? "workshop_order" : null, linked_entity_id: linkedOrderId || null,
-    }).select("id").maybeSingle();
-    const callId = call?.id || null;
+    // Identyfikator rozmowy z ElevenLabs. Bez niego wiersz voice_calls nie ma tozsamosci,
+    // wiec transkrypt nie da sie powiazac ze zleceniem, a powtorzony webhook tworzy duplikat.
+    const conversationId = String(body?.conversation_id || "");
+
+    // Idempotencja po conversation_id: powtorzenie webhooka aktualizuje istniejacy wiersz
+    // zamiast tworzyc drugi. Bez identyfikatora zachowanie jak dotad.
+    let callId: string | null = null;
+    if (conversationId) {
+      const { data: existing } = await admin.from("voice_calls")
+        .select("id").eq("provider_id", providerId)
+        .eq("elevenlabs_conversation_id", conversationId).maybeSingle();
+      if (existing?.id) callId = existing.id;
+    }
+    if (callId) {
+      await admin.from("voice_calls").update({
+        status: "completed",
+        contact_name: a?.customer_data?.name || null, summary: a?.summary || null, outcome: a?.outcome || null,
+        ...(linkedOrderId ? { linked_entity_type: "workshop_order", linked_entity_id: linkedOrderId } : {}),
+      }).eq("id", callId);
+    } else {
+      const { data: call } = await admin.from("voice_calls").insert({
+        provider_id: providerId, persona_key: personaKey, direction: "inbound", status: "completed",
+        ...(conversationId ? { elevenlabs_conversation_id: conversationId } : {}),
+        contact_name: a?.customer_data?.name || null, summary: a?.summary || null, outcome: a?.outcome || null,
+        linked_entity_type: linkedOrderId ? "workshop_order" : null, linked_entity_id: linkedOrderId || null,
+      }).select("id").maybeSingle();
+      callId = call?.id || null;
+    }
 
     // 2) voice_transcripts
     if (callId) {

@@ -31,20 +31,34 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
   const [call, setCall] = useState<CallData | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
 
+  // Transkrypt dopisuje webhook PO rozłączeniu — dla zlecenia utworzonego
+  // w trakcie rozmowy wiersz voice_calls pojawia się ok. 30 s później.
+  // Jednorazowy fetch przy montowaniu trafiał w tę dziurę i zakładka zostawała
+  // pusta, mimo że dane doszły chwilę potem (zlecenie 00:06:07, rozmowa 00:06:38).
+  // voice_calls nie jest w publikacji supabase_realtime, więc zamiast subskrypcji
+  // odpytujemy co 8 s, ale TYLKO dopóki rozmowy nie ma i najwyżej przez ~4 minuty.
+  // Po znalezieniu odpytywanie się kończy i panel zachowuje się jak dotąd.
   useEffect(() => {
-    (async () => {
-      setLoading(true);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 30;
+    const INTERVAL_MS = 8000;
+
+    const load = async () => {
       const { data: calls } = await (supabase as any)
         .from("voice_calls")
         .select("id, summary, outcome, created_at, contact_name")
         .eq("linked_entity_type", "workshop_order").eq("linked_entity_id", orderId)
         .order("created_at", { ascending: false }).limit(1);
+      if (cancelled) return false;
       const c = calls?.[0];
-      if (!c) { setCall(null); setLoading(false); return; }
+      if (!c) { setCall(null); setLoading(false); return false; }
       const [{ data: tr }, { data: oc }] = await Promise.all([
         (supabase as any).from("voice_transcripts").select("full_text, turns, summary").eq("call_id", c.id).maybeSingle(),
         (supabase as any).from("voice_call_outcomes").select("outcome, objections, next_step, customer_data, losing_signals").eq("call_id", c.id).maybeSingle(),
       ]);
+      if (cancelled) return false;
       setCall({
         id: c.id, summary: c.summary || tr?.summary || null, outcome: c.outcome,
         created_at: c.created_at, contact_name: c.contact_name,
@@ -52,7 +66,27 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
         outcomeRow: oc || null,
       });
       setLoading(false);
-    })();
+      return true;
+    };
+
+    const poll = async () => {
+      const found = await load();
+      if (found || cancelled || attempts >= MAX_ATTEMPTS) return;
+      attempts += 1;
+      timer = setTimeout(poll, INTERVAL_MS);
+    };
+
+    // Powrót do karty to najczęstszy moment, w którym dane już są.
+    const onVisible = () => { if (document.visibilityState === "visible") void load(); };
+    document.addEventListener("visibilitychange", onVisible);
+
+    setLoading(true);
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [orderId]);
 
   if (loading) return compact ? null : <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
