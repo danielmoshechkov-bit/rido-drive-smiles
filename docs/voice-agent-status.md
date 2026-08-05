@@ -296,12 +296,39 @@ workshop_workstations  12 wierszy   ← workshop_orders.workstation_id, grafik, 
 Pytanie do wyjaśnienia: **czy obie są używane, czy jedna to pozostałość.**
 Dziś kod agenta używa wyłącznie `workshop_workstations`.
 
+### 🔴 LEKCJA: ścieżka NOWEGO klienta jest systematycznie nietestowana
+
+`client_type: "private"` łamał `workshop_clients_client_type_check`
+(dopuszcza tylko `individual` i `company`), więc **`create_order` wywalał się
+przy KAŻDYM nowym kliencie** — czyli przy pierwszej wizycie każdej nowej osoby.
+Na produkcji objawiało się jako `tool ok=false` bez podania przyczyny.
+
+To druga połowa zagadki zer w zleceniach: `recentOrder` blokował klientów
+**istniejących**, `client_type` **nowych**. Razem zamykają wszystkie przypadki.
+
+**Nie znalazłbym tego bez `BEGIN … ROLLBACK`, bo tester jest już w bazie** —
+INSERT się nie wykonywał, więc ścieżka nigdy nie była dotykana.
+
+**Wniosek do stosowania:** tester po pierwszym teście zawsze istnieje w bazie,
+więc ścieżka nowego klienta jest nietestowana z definicji. **Każdy scenariusz
+dotykający tworzenia klienta, pojazdu albo zlecenia testuj OSOBNO z danymi,
+których w bazie nie ma.**
+
 ### H. Wiszące `linked_entity_id` — brak klucza obcego
 
 `voice_calls.linked_entity_id` **nie ma FK**, więc każde skasowane zlecenie
 zostawia wskaźnik donikąd. Stan 06.08: **14 wierszy wskazuje na `workshop_order`,
 z czego ZERO zleceń nadal istnieje.** Panel pokaże „brak rozmowy" albo błąd.
 Uniemożliwiło to też porównanie ekstrakcji z danymi historycznymi w dry_run.
+
+### I. Alert dla zleceń „Oddzwonić" starszych niż 4 godziny
+
+SMS-a przy braku terminu **nie wysyłamy** — „oddzwonimy" to obietnica bez terminu
+wykonania, a nie dowód, i obraca się przeciwko warsztatowi. Poza tym nie ma czego
+załączyć: bez rezerwacji nie ma tokenu ani linku `/r/`.
+Zamiast tego: **powiadomienie do warsztatu** przy zleceniach „Oddzwonić" starszych
+niż 4 godziny. Pilnowanie reakcji zamiast jej zapowiadania. Razem z widokiem
+„Połączenia".
 
 ### D. Urlop / nieobecność
 W panelu: okres od-do, powód, blokada slotów. Agent widzi to przez snapshot i podaje

@@ -196,9 +196,53 @@ serve(async (req) => {
     return json({ status: "failed", error: rpcErr.message, conversation_id: conversationId }, 500);
   }
 
+  const wynik = rpc as Record<string, unknown> | null;
+
+  // 6. SMS — OSTATNI KROK, po sukcesie transakcji.
+  //
+  // Wychodzi WYŁĄCZNIE przy zleceniu Z TERMINEM. Przy statusie "Oddzwonić" klient
+  // nie dostaje potwierdzenia wizyty, której nie ma — a SMS „oddzwonimy" byłby
+  // obietnicą bez terminu wykonania, nie dowodem. Reakcji pilnuje status
+  // w liście zleceń, po stronie tego, kto ma coś zrobić.
+  let sms: Record<string, unknown> | null = null;
+  if (wynik?.status === "committed" && wynik?.bez_terminu === false && wynik?.public_token) {
+    const { data: prov } = await admin.from("service_providers")
+      .select("short_name, company_name, company_address, company_postal_code, company_city")
+      .eq("id", providerId).maybeSingle();
+    const firma = prov?.short_name || prov?.company_name || "serwis";
+    const adres = [prov?.company_address, [prov?.company_postal_code, prov?.company_city].filter(Boolean).join(" ")]
+      .filter(Boolean).join(", ");
+    const link = `https://getrido.pl/r/${wynik.public_token}`;
+    const usluga = (zapis.complaint || "").slice(0, 40);
+    let tresc = `${firma}: wizyta ${zapis.date} ${zapis.time}.`
+      + (usluga ? ` ${usluga}.` : "") + (adres ? ` ${adres}.` : "") + ` Zarzadzaj: ${link}`;
+    if (tresc.length > 160) tresc = `${firma}: wizyta ${zapis.date} ${zapis.time}.` + (usluga ? ` ${usluga}.` : "") + ` Zarzadzaj: ${link}`;
+    if (tresc.length > 160) tresc = `${firma}: wizyta ${zapis.date} ${zapis.time}. Zarzadzaj: ${link}`;
+
+    const r = await track("sms", () => fetch(`${supabaseUrl}/functions/v1/workshop-send-sms`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider_id: providerId, phone: zapis.phone, message: tresc,
+        sms_type: "booking_confirmation_ai", appointment_id: wynik.calendar_id,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    }));
+    const rj = await r.json().catch(() => ({}));
+    sms = { wyslany: !rj?.error, blad: rj?.error ? String(rj.error).slice(0, 120) : null };
+    // ZASADA 12: nieudany SMS nie może zniknąć. Zapis już jest, więc nie wycofujemy
+    // transakcji — ale rozmowa dostaje flagę, żeby warsztat wiedział.
+    if (rj?.error) {
+      console.error("[voice-call-commit]", JSON.stringify({ event: "sms_failed", conversation: conversationId.slice(-8) }));
+      await admin.from("voice_calls").update({ outcome: "Zapis OK, ale SMS nie wyszedł" })
+        .eq("provider_id", providerId).eq("elevenlabs_conversation_id", conversationId);
+    }
+  }
+
   console.info("[voice-call-commit]", JSON.stringify({
-    event: "commit", status: (rpc as Record<string, unknown>)?.status,
+    event: "commit", status: wynik?.status, order_status: wynik?.status_zlecenia,
+    bez_terminu: wynik?.bez_terminu, sms: sms?.wyslany ?? null,
     conversation: conversationId.slice(-8), total_ms: Math.round(performance.now() - started), kroki,
   }));
-  return json({ status: "ok", rpc, kroki, total_ms: Math.round(performance.now() - started) });
+  return json({ status: "ok", rpc, sms, kroki, total_ms: Math.round(performance.now() - started) });
 });

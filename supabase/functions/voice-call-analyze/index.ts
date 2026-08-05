@@ -86,23 +86,18 @@ serve(async (req) => {
     let a: any = {};
     try { const s = raw.indexOf("{"), e = raw.lastIndexOf("}"); a = JSON.parse(raw.slice(s, e + 1)); } catch (_) { a = {}; }
 
-    // Powiązanie ze zleceniem: order_id z body LUB fallback po telefonie (telefonia)
-    let linkedOrderId = orderId;
-    const phone = a?.customer_data?.phone;
-    if (!linkedOrderId && phone) {
-      const norm9 = (p: string) => (p || "").replace(/\D/g, "").slice(-9);
-      const sinceISO = new Date(Date.now() - 60 * 60000).toISOString();
-      const { data: recentOrders } = await admin.from("workshop_orders")
-        .select("id, client_id, created_at").eq("provider_id", providerId)
-        .gte("created_at", sinceISO).order("created_at", { ascending: false }).limit(20);
-      const ids = [...new Set((recentOrders || []).map((o: any) => o.client_id).filter(Boolean))];
-      if (ids.length) {
-        const { data: clients } = await admin.from("workshop_clients").select("id, phone").in("id", ids);
-        const match = new Set((clients || []).filter((c: any) => norm9(c.phone || "") === norm9(phone)).map((c: any) => c.id));
-        const ord = (recentOrders || []).find((o: any) => match.has(o.client_id));
-        if (ord) linkedOrderId = ord.id;
-      }
-    }
+    // POWIĄZANIE ZE ZLECENIEM ROBI TERAZ voice-call-commit, po conversation_id.
+    //
+    // Stała tu heurystyka: zamówienia z ostatnich 60 MINUT dopasowywane po telefonie
+    // klienta. To było PIĄTE miejsce z zasady 16 (tożsamość po kliencie i czasie
+    // zamiast po rozmowie) i najszersze z całej piątki — przy dwóch rozmowach tego
+    // samego klienta w godzinę przypinała transkrypt do NIEWŁAŚCIWEJ rozmowy.
+    // Myliła się w około 60% rozmów.
+    //
+    // Skoro commit ma conversation_id i wiąże rozmowę sam, heurystyka przestała być
+    // potrzebna i została wyłącznie ryzykiem. Analyze zajmuje się teraz WYŁĄCZNIE
+    // uczeniem: wnioski, błędy i destylacja reguł.
+    const linkedOrderId = orderId;
 
     // 1) voice_calls
     // Identyfikator rozmowy z ElevenLabs. Bez niego wiersz voice_calls nie ma tozsamosci,
