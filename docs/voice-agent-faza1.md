@@ -145,6 +145,35 @@ type Snapshot = {
 pustki i agent nie miałby co powiedzieć. Lista zajmuje tyle samo miejsca niezależnie
 od obłożenia.
 
+### Parametry prefetchu i rozmiar kontekstu
+
+```
+horyzont          14 dni kalendarzowych  (~10 dni roboczych)
+sloty na dzień    maks. 3
+cache             60 s, klucz per tenant
+```
+
+Sprawdzenie rozmiaru — to jedyny powód, dla którego limit 3 slotów w ogóle istnieje:
+
+```
+"czw 6.08: 9:00, 11:00, 14:00"      ≈ 28 znaków ≈ 10 tokenów / dzień
+10 dni roboczych                    ≈ 100 tokenów
++ first_available i nagłówki        ≈ 150 tokenów łącznie
+```
+
+Przy cachowanym prefiksie 9427 tokenów to **poniżej dwóch procent** kontekstu.
+Mieści się bez zastrzeżeń — a gdyby limit podnieść do 5 slotów, nadal byłoby ~250
+tokenów. Limit 3 jest więc podyktowany **czytelnością wypowiedzi agenta**, nie
+rozmiarem: agent ma zaproponować dwie–trzy godziny, nie odczytać listę.
+
+**Snapshot idzie do części ZMIENNEJ promptu**, za blokiem cachowanym — inaczej
+każda rozmowa unieważniałaby cache (terminy zmieniają się częściej niż reguły).
+
+`check_availability` zostaje **wyłącznie jako walidacja przy zapisie**: między
+prefetchem a potwierdzeniem terminu mija cała rozmowa i ktoś mógł zająć slot.
+To wyścig, nie optymalizacja — dlatego sprawdzenie musi być przy zapisie, a nie
+przy proponowaniu.
+
 **Źródło danych — stan faktyczny sprawdzony w bazie:**
 
 | Tabela | Wierszy w całej platformie |
