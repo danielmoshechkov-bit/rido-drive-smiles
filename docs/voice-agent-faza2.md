@@ -353,6 +353,12 @@ rozmowy — to także zysk bezpieczeństwa przy `verify_jwt = false`.
 | `create_order` | jw. |
 | `lock_slot` | **nowa, jedyny zapis w trakcie** — `EdgeRuntime.waitUntil`, bez `await`, idempotentna po `conversation_id`, TTL 15 min, wygasanie leniwe. Zapis po rozmowie **nie zakłada, że blokada istnieje** |
 
+Rozważane i **odrzucone**: tworzenie zlecenia od razu przy odebraniu połączenia
+(„niewidoczne, potem edytuj"). Powód mocniejszy niż śmiecenie w bazie:
+**numeracja `ZLP-08/2026-NNN` jest widoczna dla klienta i dla księgowości**, więc
+każda pomyłka i rozłączenie po dwóch sekundach zjadałyby numer z sekwencji.
+Rekord ROZMOWY daje ten sam efekt bez tego kosztu.
+
 Rozważane i **odrzucone**: przeniesienie `check_availability` do osobnej funkcji.
 Zysk żaden, a `diagnose-call.sh` i pomiary trzeba by przepisać.
 
