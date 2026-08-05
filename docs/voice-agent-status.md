@@ -215,6 +215,53 @@ pierwszy wolny termin po powrocie.
 
 ---
 
+## 🔬 BENCHMARK MODELI z eu-central-1 (06.08) — FAZA D ODPADA
+
+Pomiar TTFT **z naszego regionu**, przez `voice-model-benchmark`, 5 prób sekwencyjnie:
+
+| model | prompt 4352 tok | prompt 2000 tok |
+|---|---|---|
+| **claude-haiku-4-5** | **624 ms** | **654 ms** |
+| gemini-2.5-flash | 1132 ms | 974 ms |
+| gemini-3-flash-preview | 2120 ms | 2092 ms |
+
+**Dwa wnioski, oba zmieniające plan:**
+
+1. **Haiku jest NAJSZYBSZY.** Gemini 3 Flash jest **3,3× wolniejszy** z Frankfurtu —
+   benchmarki mówiące o 0,42 s nie mają pokrycia na naszej trasie sieciowej.
+   FAZA D (zmiana modelu) **nie jest drogą do 1,1 s** — nie ma dokąd przejść.
+2. **Rozmiar promptu prawie nie wpływa na TTFT.** Haiku: 624 vs 654 ms przy
+   dwukrotnej różnicy w prefiksie — to szum. FAZA C nadal ma sens (koszt,
+   sprzeczności, utrzymywalność), ale **nie jako dźwignia latencji**.
+
+Trzeci wniosek, wynikowy: skoro surowy TTFT Haiku to ~625 ms, a nasz `first_text`
+w produkcji ma medianę ~1,4 s, to **~775 ms dokłada nasza ścieżka** — i to tam,
+nie w modelu, jest reszta budżetu.
+
+## Kontrola sprzeczności w prompcie — mechaniczna
+
+```bash
+node scripts/check-prompt-rules.mjs
+```
+
+Pierwszy przebieg (06.08) dał liczby, które same są diagnozą:
+
+```
+prompt 18081 znaków, ~5166 tokenów
+zdań nakazujących: 13   zakazujących: 36
+fraz zakazanych dosłownie: 56
+```
+
+**Trzydzieści sześć zakazów i pięćdziesiąt sześć dosłownych cytatów.** To jest
+odpowiedź na pytanie, dlaczego sześć razy z rzędu przeoczyliśmy sprzeczność:
+prompt jest za duży, żeby go trzymać w głowie.
+
+⚠️ **Narzędzie jest na razie zbyt hałaśliwe** — heurystyka wyciąga cytaty także
+z przykładów POPRAWNYCH („Poprawnie: …"), więc wszystkie sześć „kolizji twardych"
+z pierwszego przebiegu to fałszywe trafienia (słowa `dobrze`, `jutro`, `pani`
+cytowane w obu rolach). Do dociągnięcia przy FAZIE C: rozróżnienie cytatu
+zakazanego od wzorcowego wymaga oznaczenia ich w prompcie, a nie zgadywania.
+
 ## Kiedy przestajemy optymalizować
 
 Agent jest gotowy **jako wzorzec**, gdy w **PIĘCIU ROZMOWACH Z RZĘDU**:

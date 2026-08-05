@@ -361,3 +361,6 @@ verify_jwt = false
 
 [functions.sitemap]
 verify_jwt = false
+
+[functions.voice-model-benchmark]
+verify_jwt = false
