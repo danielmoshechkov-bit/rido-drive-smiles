@@ -43,7 +43,7 @@ kontekst wejściowy. Zostaje `check_availability` i `end_call`.
 
 ---
 
-## Siedemnaście zasad wyprowadzonych z błędów
+## Osiemnaście zasad wyprowadzonych z błędów
 
 Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w nowym kodzie.
 
@@ -146,6 +146,13 @@ Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w n
     po `client_id` + 15 min do nowej architektury — a wyglądałoby to jak świeża
     usterka transakcji. Diagnoza zajęła piętnaście minut; szukanie tego samego
     w nowym kodzie zajęłoby dni.
+
+18. **PRZY EKSTRAKCJI ODRZUCAMY WARTOŚCI NIEPEWNE, NIE POPRAWIAMY ICH.**
+    `"07.08.2026"` i `"25:00"` dają `null`, a nie zgadywaną datę i godzinę.
+    **Kolejka weryfikacji jest tania, zła data kosztuje wizytę** — klient przyjeżdża
+    w złym terminie albo wcale, a warsztat trzyma zajęty slot.
+    Dotyczy też odwrotności: nie „naprawiamy" nazwiska ani marki na siłę —
+    dopasowanie z bazy owszem, zgadywanie nie.
 
 **Kontrola przed każdym commitem do tego modułu:** przejdź listę i wskaż, którą zasadę
 zmiana realizuje albo mogłaby złamać. Pięć klas sprzeczności w prompcie v1 powstało
