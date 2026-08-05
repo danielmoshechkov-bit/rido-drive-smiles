@@ -4,10 +4,15 @@ Stan na 06.08.2026. Dokument powstał po audycie modułu płatności (KROK 1) i 
 zabezpieczających (KROK 2–3). Jest to **punkt startu do budowy billingu**, nie opis
 działającego systemu.
 
-> **Uwaga o źródle.** Decyzja 4 poniżej odwołuje się do `getrido-billing-admin.md`.
-> Tego pliku nie ma w repozytorium ani w historii gita — nie widziałem jego treści.
-> Zapisałem wyłącznie ustalenie w postaci, w jakiej padło. Jeśli dokument istnieje
-> poza repo, warto go tu wnieść, zanim zacznie się projektowanie `billing_gateways`.
+**Dokumenty w tym katalogu:**
+
+| Plik | Zakres |
+|---|---|
+| `plan.md` (ten) | stan faktyczny, decyzje, podział „przepinamy / budujemy od zera", kolejność wdrożeń |
+| [`admin-panel.md`](./admin-panel.md) | specyfikacja panelu admina: `billing_gateways`, docelowe 10 pod-zakładek, zasady implementacji, test akceptacyjny, dane wejściowe cennika |
+
+`admin-panel.md` powstał przed rozpoczęciem prac, poza repozytorium (jako
+`getrido-billing-admin.md`), i został wniesiony tutaj 06.08.2026 bez zmian w treści.
 
 ---
 
@@ -66,6 +71,18 @@ a nie w kolumnie tabeli. Obecny stan do wyrzucenia: klucz API trafia do kolumny
 brakuje kolumn `pos_id` i `is_sandbox`, przez co przełącznik sandbox/produkcja nie
 ma pokrycia w schemacie i `init` zawsze wskazuje `sandbox.przelewy24.pl`.
 
+Schemat `billing_gateways`, podział „sekret vs jawne", RLS i wymagania UI (karty
+providerów zamiast dropdowna, pole sekretu write-only, badge SANDBOX, blokada
+włączenia bez sekretu i webhooka) — patrz [`admin-panel.md`, sekcja 1](./admin-panel.md#1-sekrety-bramek--obowiązkowa-zmiana).
+`payment_gateway_config` jest pusta, więc migracja danych jest zbędna — wystarczy
+podmiana tabeli i formularza.
+
+### 5. Rola `platform_admin`
+
+Dostęp do sekcji billingowej sprawdzany **serwerowo**, nie ukryciem zakładki.
+Przy tej okazji `OWNER_EMAILS` — dziś zaszyte w siedmiu plikach front-endu jako
+gating po stronie przeglądarki — przechodzi na rolę w bazie.
+
 ---
 
 ## Co przepinamy, a co budujemy od zera
@@ -94,6 +111,9 @@ ma pokrycia w schemacie i `init` zawsze wskazuje `sandbox.przelewy24.pl`.
 | `provider_sms_balance` | wydzielenie salda SMS, wariant B |
 | Przywrócenie zakupów w UI | `VehicleLookupCreditsModal` i `SmsPurchaseModal` pokazują „Doładowania wkrótce"; `onPurchase` został w interfejsie, więc wraca się przepięciem na `init`, bez ruszania siedmiu ekranów |
 | Test podpisu na sandboxie | weryfikacja P24 napisana z dokumentacji, nigdy nie odebrała prawdziwego powiadomienia |
+| `billing_features`, `billing_plans`, `billing_events` + zakładki Plany / Funkcje / Subskrypcje / Zdarzenia / Ustawienia | dziś nie istnieją; Subskrypcje to placeholder „Wkrótce". Pełna specyfikacja: [`admin-panel.md`, sekcja 2](./admin-panel.md#2-docelowa-struktura-pod-zakładek) |
+| Rola `platform_admin` + edge `billing-admin-*` | zapisy billingowe mają iść przez `service_role`, a uprawnienie być sprawdzane serwerowo; dziś gating opiera się na `OWNER_EMAILS` w przeglądarce |
+| Dane cennika w `billing_plans` | Warsztat 0/89/169/indyw., Agent AI 139/289, bundle MAX 289 — brać z gałęzi `feat/cennik-porownanie-warsztat` (w main), nie wymyślać |
 
 ### Zepsute niezależnie od billingu
 
@@ -117,6 +137,11 @@ ma pokrycia w schemacie i `init` zawsze wskazuje `sandbox.przelewy24.pl`.
 
 Kolejność 4 przed 5 jest istotna mimo znaczników czasu sugerujących odwrotnie.
 Rollback lockdownu: `docs/rollback-20260805090000-payments-lockdown.sql`.
+
+**Punkt 7 testu akceptacyjnego** z `admin-panel.md` — „pusta konfiguracja bramki →
+`init` zwraca `GATEWAY_NOT_CONFIGURED`, nie przyznaje produktu" — jest już
+zaimplementowany w PR #29 i gotowy do weryfikacji od razu po jego wdrożeniu.
+Pozostałe sześć punktów wymaga zbudowania billingu.
 
 ---
 
