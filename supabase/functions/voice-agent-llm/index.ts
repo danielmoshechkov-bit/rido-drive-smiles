@@ -14,6 +14,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
+import { cachedContext } from "../_shared/voiceContextCache.ts";
 import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
 import { resolveVoiceLlmRoute } from "../_shared/voicePhase1Route.ts";
 
@@ -115,13 +116,17 @@ serve(async (req) => {
   const configStarted = performance.now();
   let cfg: VoiceAgentConfig | null = null;
   if (providerId) {
-    const { data, error } = await admin.from("voice_agent_configs")
-      .select("business_context, display_name, languages, calendar_access, orders_access, voice_id, elevenlabs_agent_id")
-      .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
-    if (error) {
-      console.warn("[voice-agent-llm] config_lookup_failed", { code: error.code });
-    }
-    cfg = data;
+    // Konfiguracja agenta jest stała przez całą rozmowę — czytamy ją raz na izolat.
+    cfg = await cachedContext(`cfg:${providerId}:${personaKey}`, async () => {
+      const { data, error } = await admin.from("voice_agent_configs")
+        .select("business_context, display_name, languages, calendar_access, orders_access, voice_id, elevenlabs_agent_id")
+        .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
+      if (error) {
+        console.warn("[voice-agent-llm] config_lookup_failed", { code: error.code });
+        return null;
+      }
+      return data as VoiceAgentConfig | null;
+    });
   }
   logTiming("config", configStarted);
 

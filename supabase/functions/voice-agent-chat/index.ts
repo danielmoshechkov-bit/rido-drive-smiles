@@ -18,6 +18,7 @@ import {
   type Phase1ToolCall,
   type Phase1ToolDefinition,
 } from "../_shared/voicePhase1ModelAdapter.ts";
+import { cachedContext } from "../_shared/voiceContextCache.ts";
 import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
 
 const corsHeaders = {
@@ -237,11 +238,18 @@ serve(async (req) => {
     knowledgeQuery = providerId
       ? knowledgeQuery.or(`provider_id.eq.${providerId},provider_id.is.null`)
       : knowledgeQuery.is("provider_id", null);
-    const knowledgePromise = knowledgeQuery.order("evidence_count", { ascending: false }).limit(10);
+    // Reguły wiedzy i persona są stałe przez całą rozmowę — czytamy je raz na izolat.
+    const knowledgePromise = cachedContext(
+      `knowledge:${providerId}:${personaKey}`,
+      () => knowledgeQuery.order("evidence_count", { ascending: false }).limit(10),
+    );
 
     // Persona -> provider_agent_id -> prompt+model z ai_agents_config
-    const { data: persona } = await admin
-      .from("voice_agent_personas").select("provider_agent_id, name, direction").eq("persona_key", personaKey).maybeSingle();
+    const { data: persona } = await cachedContext(
+      `persona:${personaKey}`,
+      () => admin.from("voice_agent_personas").select("provider_agent_id, name, direction")
+        .eq("persona_key", personaKey).maybeSingle(),
+    );
     const agentId = persona?.provider_agent_id || "voice_workshop_secretary";
     const agent = await resolvePhase1Agent(admin, agentId, "claude-sonnet-4-6");
     // Wybór modelu rozmowy.
