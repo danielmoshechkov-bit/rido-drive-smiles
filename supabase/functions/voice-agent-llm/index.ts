@@ -148,9 +148,28 @@ serve(async (req) => {
   const conversationIdSource = conversationIdCandidates
     .find(([, value]) => typeof value === "string" && (value as string).length > 0)?.[0] || null;
 
+  // ROZSTRZYGNIĘCIE HIPOTEZY O PODWÓJNYCH ŻĄDANIACH.
+  //
+  // ElevenLabs wysyła po dwa żądania na turę mimo `speculative_turn: false`
+  // (rozmowa 05.08 02:05 — 12 żądań na 8 tur). Dwa scenariusze, różne wnioski:
+  //   • identyczny skrót -> to retry po stronie ElevenLabs
+  //   • różny skrót      -> ASR poprawił transkrypt i tura poszła drugi raz,
+  //                         co pasuje do `turn_eagerness: "eager"`
+  // Logujemy WYŁĄCZNIE liczbę wiadomości, długość i skrót ostatniej wypowiedzi.
+  // Treść nie trafia do logu — to dane osobowe klienta.
+  const lastUser = [...inMessages].reverse().find((m) => m?.role === "user");
+  const lastUserText = typeof lastUser?.content === "string" ? lastUser.content : "";
+  let lastUserHash = 0;
+  for (let i = 0; i < lastUserText.length; i++) {
+    lastUserHash = (Math.imul(lastUserHash, 31) + lastUserText.charCodeAt(i)) >>> 0;
+  }
+
   console.info("[voice-agent-llm]", JSON.stringify({
     event: "conversation_id_probe",
     used_source: conversationIdSource,
+    messages: inMessages.length,
+    last_user_len: lastUserText.length,
+    last_user_hash: lastUserHash.toString(36),
     caller: callerNumberCandidates
       .filter(([, value]) => typeof value === "string" && value.length > 0)
       .map(([source, value]) => ({ source, length: String(value).length })),

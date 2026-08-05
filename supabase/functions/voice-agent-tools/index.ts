@@ -180,11 +180,24 @@ serve(async (req) => {
       const { first, last } = splitName(name);
 
       // dedup: ta sama rezerwacja (telefon+data+godzina) już istnieje?
+      //
+      // Tu był goły `return`. Skutek: przy trafieniu dedupu funkcja wychodziła
+      // PRZED wpisem do grafiku, przed SMS-em i przed zleceniem. Rozmowa 05.08
+      // 02:05 trafiła w rezerwację z 01:41 (ten sam telefon, 06.08 09:00) — klient
+      // nie dostał SMS-a mimo obietnicy agenta, w grafiku nic nie przybyło,
+      // a zlecenie powstało tylko dlatego, że model osobno zawołał create_order.
+      //
+      // Dedup pomija teraz WYŁĄCZNIE wstawienie do service_bookings. Reszta kroku
+      // wykonuje się dalej i dociąga to, czego brakuje przy istniejącej rezerwacji.
       const { data: exBk } = await admin.from("service_bookings")
         .select("id").eq("provider_id", providerId).eq("customer_phone", phone)
         .eq("scheduled_date", date).eq("scheduled_time", time).neq("status", "cancelled").maybeSingle();
-      if (exBk) return json({ ok: true, booking_id: exBk.id, duplicate: true, message: "Rezerwacja na ten termin już istnieje." });
 
+      let bookingId: string;
+      const bookingDuplicate = !!exBk;
+      if (exBk) {
+        bookingId = exBk.id;
+      } else {
       // 1) service_bookings (source='portal') -> "Rezerwacje z portalu" + kalendarz
       const { data: sb, error: sbErr } = await admin.from("service_bookings").insert({
         provider_id: providerId,
@@ -198,6 +211,8 @@ serve(async (req) => {
         requires_provider_confirmation: true, source: "portal",
       }).select("id").single();
       if (sbErr) return json({ ok: false, error: "Rezerwacja: " + sbErr.message }, 400);
+        bookingId = sb.id;
+      }
 
       // GRAFIK: rezerwacja pojawia sie na siatce warsztatu WYLACZNIE gdy ma station_id.
       // WorkshopScheduler mapuje workshop_client_bookings.station_id -> scheduled_station_id
@@ -216,15 +231,37 @@ serve(async (req) => {
         if (!freeStationId) console.warn("[voice-agent-tools] no_free_station", { date, time });
       } catch (_) { /* brak stanowisk nie moze blokowac rezerwacji */ }
 
-      // 2) workshop_client_bookings -> link /r/:token + 24h reminder
-      const { data: wcb } = await admin.from("workshop_client_bookings").insert({
-        provider_id: providerId, phone, first_name: first, last_name: last,
-        plate: veh.plate || null, brand: veh.brand || null, model: veh.model || null,
-        service_description: notePrefix + (body?.notes || body?.service_name || ""),
-        appointment_date: date, appointment_time: time, duration_minutes: duration,
-        status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
-        ...(freeStationId ? { station_id: freeStationId } : {}),
-      }).select("id, confirmation_token, public_token").maybeSingle();
+      // 2) workshop_client_bookings -> grafik + link /r/:token + 24h reminder
+      //
+      // Przy dedupie albo ponowionej turze wiersz grafiku może już istnieć —
+      // wtedy go używamy zamiast wstawiać drugi (to byłby duplikat na siatce).
+      let wcb: { id: string; confirmation_token: string | null; public_token: string | null } | null = null;
+      const { data: exWcb } = await admin.from("workshop_client_bookings")
+        .select("id, confirmation_token, public_token")
+        .eq("provider_id", providerId).eq("phone", phone)
+        .eq("appointment_date", date).eq("appointment_time", time)
+        .neq("status", "cancelled").maybeSingle();
+      if (exWcb) {
+        wcb = exWcb;
+      } else {
+        // Błąd tego zapisu był dotąd POŁYKANY — destrukturyzacja nie brała `error`,
+        // a `if (wcb?.confirmation_token)` niżej po cichu pomijało SMS. Nieudany
+        // zapis grafiku wyglądał wtedy identycznie jak udany bez SMS-a.
+        const { data: inserted, error: wcbErr } = await admin.from("workshop_client_bookings").insert({
+          provider_id: providerId, phone, first_name: first, last_name: last,
+          plate: veh.plate || null, brand: veh.brand || null, model: veh.model || null,
+          service_description: notePrefix + (body?.notes || body?.service_name || ""),
+          appointment_date: date, appointment_time: time, duration_minutes: duration,
+          status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
+          ...(freeStationId ? { station_id: freeStationId } : {}),
+        }).select("id, confirmation_token, public_token").maybeSingle();
+        if (wcbErr) {
+          console.error("[voice-agent-tools] calendar_insert_failed", {
+            code: wcbErr.code, message: String(wcbErr.message).slice(0, 200),
+          });
+        }
+        wcb = inserted || null;
+      }
 
       // 1.4 — SMS potwierdzenia OD RAZU (data, godzina, adres, link do zarządzania). Best-effort.
       let smsSent = false;
@@ -232,6 +269,15 @@ serve(async (req) => {
       try {
         if (wcb?.confirmation_token) {
           manageLink = buildPublicUrl(`/r/${wcb.public_token ?? wcb.confirmation_token}`);
+          // Jedno potwierdzenie na wizytę. Bez tego dedup albo ponowiona tura
+          // wysłałyby klientowi drugiego SMS-a o tej samej godzinie.
+          const { data: smsAlready } = await admin.from("workshop_sms_log")
+            .select("id").eq("appointment_id", wcb.id)
+            .eq("sms_type", "booking_confirmation_ai").neq("status", "failed")
+            .limit(1).maybeSingle();
+          if (smsAlready) {
+            smsSent = true;
+          } else {
           const { data: prov } = await admin.from("service_providers").select("company_name, address, city").eq("id", providerId).maybeSingle();
           const company = prov?.company_name || "serwis";
           const addr = [prov?.address, prov?.city].filter(Boolean).join(", ");
@@ -245,6 +291,7 @@ serve(async (req) => {
           });
           const rj = await r.json().catch(() => ({}));
           smsSent = !rj?.error;
+          }
         }
       } catch (_) { /* SMS best-effort — nie blokuje rezerwacji */ }
 
@@ -269,7 +316,7 @@ serve(async (req) => {
               ...(conversationId ? { conversation_id: conversationId } : {}),
               customer_name: name, customer_phone: phone, complaint,
               scheduled_date: date, scheduled_time: time, duration_minutes: duration,
-              vehicle: body?.vehicle || {}, booking_id: sb.id,
+              vehicle: body?.vehicle || {}, booking_id: bookingId,
             }),
             signal: AbortSignal.timeout(10_000),
           });
@@ -284,10 +331,10 @@ serve(async (req) => {
 
       // Powiązanie rozmowy z rezerwacją. Po utworzeniu zlecenia zostanie nadpisane
       // na workshop_order, bo tego szuka zakładka "Rozmowa telefoniczna".
-      await linkConversation("service_booking", sb.id);
+      await linkConversation("service_booking", bookingId);
 
       return json({
-        ok: true, booking_id: sb.id,
+        ok: true, booking_id: bookingId, duplicate: bookingDuplicate,
         order_id: createdOrderId, order_failed: orderFailed,
         client_booking_id: wcb?.id || null,
         manage_token: wcb?.confirmation_token || null,
