@@ -364,3 +364,6 @@ verify_jwt = false
 
 [functions.voice-model-benchmark]
 verify_jwt = false
+
+[functions.voice-call-commit]
+verify_jwt = false

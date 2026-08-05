@@ -39,6 +39,30 @@ Zasady:
 - Jeśli klient poprawiał dane, weź WERSJĘ OSTATNIĄ.
 - "complaint" ma być tym, co mechanik ma zobaczyć na zleceniu.`;
 
+/**
+ * DATA ROZMOWY JEST OBOWIĄZKOWA W KONTEKŚCIE.
+ *
+ * Bez niej model nie ma z czego wyliczyć roku: klient mówi „czwartek szósty
+ * sierpnia", a nie „szósty sierpnia dwa tysiące dwudziestego szóstego".
+ * Dry run na 33 rozmowach (06.08) pokazał, że model wpisywał wtedy 2024 albo
+ * 2025 — czyli wizyty w PRZESZŁOŚCI, prawie w każdej rozmowie.
+ *
+ * Data w strefie Europe/Warsaw, nie UTC (zasada 6).
+ */
+export const extractionSystemFor = (callStartedAt: Date): string => {
+  const dzien = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Warsaw" }).format(callStartedAt);
+  const opis = new Intl.DateTimeFormat("pl-PL", {
+    timeZone: "Europe/Warsaw", weekday: "long", day: "numeric", month: "long", year: "numeric",
+  }).format(callStartedAt);
+  return `${EXTRACTION_SYSTEM}
+
+=== KIEDY ODBYŁA SIĘ TA ROZMOWA ===
+${opis} (${dzien}).
+Terminy wyliczaj WZGLĘDEM TEJ DATY. "Jutro" to dzień po niej, "w czwartek" to
+najbliższy czwartek po niej. Rok bierzesz stąd — klient go nie wypowiada.
+Termin NIGDY nie może wypaść przed datą rozmowy.`;
+};
+
 const asString = (v: unknown): string | null => {
   if (typeof v !== "string") return null;
   const t = v.trim();
@@ -126,6 +150,7 @@ export const extractFromTranscript = async (
   apiKey: string,
   model: string,
   turns: TranscriptTurn[],
+  callStartedAt: Date = new Date(),
 ): Promise<ExtractionResult> => {
   const text = transcriptToText(turns);
   if (!text) return { ...EMPTY };
@@ -134,7 +159,7 @@ export const extractFromTranscript = async (
     headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
     body: JSON.stringify({
       model, max_tokens: 800, temperature: 0,
-      system: EXTRACTION_SYSTEM,
+      system: extractionSystemFor(callStartedAt),
       messages: [{ role: "user", content: text }],
     }),
     signal: AbortSignal.timeout(30_000),
