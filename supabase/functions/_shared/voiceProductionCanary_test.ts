@@ -193,14 +193,16 @@ test("failure sentence never misreports whether anything was saved", () => {
 
   // Gdy w tym żądaniu powstała rezerwacja — komunikat to odzwierciedla.
   assert.match(builder, /if \(mutationCreated\)/);
-  assert.match(builder, /Zapis jest w systemie/);
+  // Treść zmieniona po rozmowie 05.08 18:43: "straciłam wątek / zapis jest w systemie"
+  // brzmiało jak usterka mimo pełnego sukcesu. Teraz komunikat po prostu potwierdza.
+  assert.match(builder, /Rezerwacja jest zapisana/);
   // Nigdzie nie wolno twierdzić, że nic nie zapisano: mutationCreated dotyczy tylko
   // bieżącego żądania, a rezerwacja mogła powstać w poprzedniej turze rozmowy.
   // W prawdziwym telefonie ten wariant skłamał — booking istniał w bazie.
   assert.doesNotMatch(builder, /Nic nie zostało/i);
   assert.doesNotMatch(builder, /nie zapisano|niczego nie/i);
   // Komunikat nie sugeruje też, że rezerwacja się udała, gdy nic o niej nie wiemy.
-  assert.doesNotMatch(builder, /rezerwacja została|wizyta jest potwierdzona/i);
+  assert.doesNotMatch(builder, /wizyta jest potwierdzona/i);
   // Limit konta ma własny, spokojniejszy komunikat.
   assert.match(builder, /failure === "quota"/);
   // Rozmówca nie dostaje szczegółów technicznych.
@@ -236,6 +238,12 @@ test("technical failure notifies the workshop and never guesses the caller gende
   // mogłaby wysłać kilka SMS-ów, bo każda tura to osobne żądanie.
   assert.match(chat, /const CALLBACK_SMS_ENABLED = false;/);
   assert.match(chat, /if \(CALLBACK_SMS_ENABLED\) await notifyWorkshopCallback/);
+  // Prawda o zapisie jest na poziomie ROZMOWY, nie żądania: równoległe żądanie mogło
+  // utworzyć rezerwację, a to dostać timeout. Bez tego agent przeprosił za awarię,
+  // której nie było (rozmowa 05.08 18:43).
+  assert.match(chat, /conversationCommitted/);
+  assert.match(chat, /eq\("elevenlabs_conversation_id", conversationId\)/);
+  assert.match(chat, /buildFailureSentence\(lastModelFailure, conversationCommitted\)/);
   const catchBlock = chat.slice(chat.indexOf('event: "stream_failed"'), chat.indexOf("cancel() {"));
   assert.ok(
     catchBlock.indexOf("data: [DONE]") < catchBlock.indexOf("await notifyWorkshopCallback"),
@@ -406,7 +414,10 @@ test("ElevenLabs system tools reach the model and come back as tool_calls", () =
 
   // chat konwertuje OpenAI -> Anthropic i dokłada do TEJ SAMEJ listy co nasze narzędzia.
   assert.match(chat, /const fn = \(raw\?\.function \?\? raw\)/);
-  assert.match(chat, /input_schema: parameters/);
+  // Pole system__message_to_speak jest USUWANE ze schematu: model chował w nim
+  // pożegnanie zamiast je wypowiedzieć, a ElevenLabs go nie odtwarzał.
+  assert.match(chat, /input_schema: stripSpokenParam\(parameters\)/);
+  assert.match(chat, /const SPOKEN_PARAM = "system__message_to_speak"/);
   assert.match(chat, /clientToolNames\.add\(name\)/);
 
   // Narzędzia klienta NIE są wykonywane u nas — rozpoznanie musi poprzedzać
@@ -523,7 +534,9 @@ test("one conversation cannot create two bookings, orders or SMS", () => {
   assert.match(orderBlock, /conversationCall\?\.linked_entity_type === "workshop_order"[\s\S]{0,220}duplicate: true/);
 
   // Powiązanie zapisywane po utworzeniu — to je czyta panel warsztatu.
-  assert.match(tools, /linkConversation\("service_booking", sb\.id\)/);
+  // `sb.id` zastąpione przez `bookingId`: przy trafieniu dedupu rezerwacja nie jest
+  // wstawiana, więc identyfikator pochodzi albo z insertu, albo z istniejącego wiersza.
+  assert.match(tools, /linkConversation\("service_booking", bookingId\)/);
   assert.match(tools, /linkConversation\("workshop_order", order\.id\)/);
   assert.match(tools, /linked_entity_type: entityType, linked_entity_id: entityId/);
 
@@ -673,4 +686,33 @@ test("production preflight is read-only and rollback preserves archived content"
   assert.match(rollback, /voice_deduplication_archive/);
   assert.match(runbook, /VOICE_PRODUCTION_CANARY_ENABLED=false/);
   assert.match(runbook, /\*\*NOT READY\*\*/);
+});
+
+test("prompt caching: część stała jest cachowana, zmienna idzie za nią poza cache", () => {
+  const routing = phase1Routing();
+  const request = buildPhase1AnthropicRequest(
+    routing.primary,
+    "synthetic-key",
+    "STALE REGULY",
+    [{ role: "user", content: "test" }],
+    [],
+    routing.maxOutputTokens,
+    "ZMIENNY CZAS",
+  );
+  const body = JSON.parse(String(request.init.body));
+
+  // Prefiks musi być bajtowo identyczny między turami, więc blok stały jest PIERWSZY,
+  // a zmienny czas doklejony ZA nim. Odwrotna kolejność unieważnia cache w każdej turze.
+  assert.equal(Array.isArray(body.system), true);
+  assert.equal(body.system.length, 2);
+  assert.equal(body.system[0].text, "STALE REGULY");
+  assert.deepEqual(body.system[0].cache_control, { type: "ephemeral" });
+  assert.equal(body.system[1].text, "ZMIENNY CZAS");
+  assert.equal(body.system[1].cache_control, undefined);
+
+  // Bez części zmiennej zostaje jeden blok — zachowanie jak przed zmianą.
+  const single = buildPhase1AnthropicRequest(
+    routing.primary, "synthetic-key", "STALE REGULY", [{ role: "user", content: "t" }], [], routing.maxOutputTokens,
+  );
+  assert.equal(JSON.parse(String(single.init.body)).system.length, 1);
 });

@@ -64,7 +64,8 @@ const logTiming = (stage: string, startedAt: number, extra: Record<string, unkno
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method === "GET") return new Response(JSON.stringify({ ok: true, service: "voice-agent-llm" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  const warmupPath = new URL(req.url).pathname.endsWith("/warmup");
+  if (req.method === "GET" && !warmupPath) return new Response(JSON.stringify({ ok: true, service: "voice-agent-llm" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   const totalStarted = performance.now();
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -72,6 +73,29 @@ serve(async (req) => {
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
   const url = new URL(req.url);
+
+  // /warmup — ROZGRZEWANIE POŁĄCZENIA DO BAZY, poza ścieżką rozmowy.
+  //
+  // Zwykły keep-warm dostawał 401 zanim dotknął bazy, więc grzał tylko rozruch
+  // izolatu. Pomiar z rozmowy 05.08 18:43: `auth`+`config` na pierwszych trzech
+  // turach 827/823/939 ms, od czwartej 260-272 ms. Każda tura ląduje na innym
+  // izolacie, a pierwsze trzy zestawiają połączenie od zera.
+  //
+  // Ta gałąź robi JEDNO trywialne zapytanie i nic więcej. Nie dotyka konfiguracji
+  // agenta, nie woła modelu, nie zapisuje. Za tokenem, bo bez niego byłby to
+  // darmowy generator zapytań do bazy dla każdego, kto zna URL.
+  if (warmupPath) {
+    const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
+    const bearerWarm = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    const providedWarm = url.searchParams.get("token") || bearerWarm;
+    if (!expected || !providedWarm || !timingSafeEqual(providedWarm, expected)) {
+      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const warmStarted = performance.now();
+    await admin.from("voice_agent_configs").select("provider_id").limit(1);
+    logTiming("warmup", warmStarted);
+    return new Response(JSON.stringify({ ok: true, warm: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
   const { providerId, personaKey } = resolveVoiceLlmRoute(url);
 
   // Bez skonfigurowanego VOICE_LLM_TOKEN endpoint jest ZABLOKOWANY (fail-closed) —

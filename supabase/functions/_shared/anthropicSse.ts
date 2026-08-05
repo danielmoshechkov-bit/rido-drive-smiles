@@ -9,6 +9,10 @@ export interface AnthropicContentBlock {
 export interface AnthropicStreamResult {
   blocks: AnthropicContentBlock[];
   stopReason: string | null;
+  // Trafienia prompt cachingu. Bez tego nie da się sprawdzić, czy cache w ogóle
+  // działa: ElevenLabs raportuje w llm_usage tylko to, co sami mu zgłosimy,
+  // więc jego input_cache_read jest zawsze zerem niezależnie od stanu faktycznego.
+  usage: { input: number; cacheRead: number; cacheWrite: number } | null;
 }
 
 interface AnthropicStreamEvent {
@@ -27,6 +31,13 @@ interface AnthropicStreamEvent {
     partial_json?: string;
     stop_reason?: string;
   };
+  message?: {
+    usage?: {
+      input_tokens?: number;
+      cache_read_input_tokens?: number;
+      cache_creation_input_tokens?: number;
+    };
+  };
 }
 
 export async function consumeAnthropicSse(
@@ -38,6 +49,7 @@ export async function consumeAnthropicSse(
   const decoder = new TextDecoder();
   let buffer = "";
   let stopReason: string | null = null;
+  let usage: AnthropicStreamResult["usage"] = null;
   const blocks = new Map<number, AnthropicContentBlock & { partialJson?: string }>();
 
   const processData = (raw: string) => {
@@ -83,6 +95,15 @@ export async function consumeAnthropicSse(
       }
       return;
     }
+    if (event.type === "message_start" && event.message?.usage) {
+      const u = event.message.usage;
+      usage = {
+        input: u.input_tokens || 0,
+        cacheRead: u.cache_read_input_tokens || 0,
+        cacheWrite: u.cache_creation_input_tokens || 0,
+      };
+      return;
+    }
     if (event.type === "message_delta" && event.delta?.stop_reason) {
       stopReason = event.delta.stop_reason;
     }
@@ -116,5 +137,6 @@ export async function consumeAnthropicSse(
       return clean;
     }),
     stopReason,
+    usage,
   };
 }
