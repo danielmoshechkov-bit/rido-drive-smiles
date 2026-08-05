@@ -259,10 +259,87 @@ usuwalna pozycja.** Znika w FAZIE A, bo kontekst przyjdzie z webhooka inicjując
 budowa promptu przed zwróceniem strumienia). Sam hop jest mniejszy — FAZA B zdejmie
 tylko jego część, więc próg 0,2 s trzeba sprawdzić na rozdzielonym pomiarze.
 
-⚠️ **Ostatnie ~370 ms jest nierozstrzygnięte.** `first_text` obejmuje i budowę promptu,
-i wywołanie modelu, a benchmark mierzył prostsze żądanie (bez definicji narzędzi
-i bez 40 wiadomości historii). Część tej różnicy to legalnie model przy większym
-wejściu. Znacznik `prompt_ready` (dodany 06.08) rozdziela to przy następnej rozmowie.
+✅ **ROZSTRZYGNIĘTE znacznikiem `prompt_ready` (rozmowa 06.08 00:26).**
+Budowa promptu kosztuje **1–2 ms**, nie 370. `prompt_ready` wypada 9–18 ms od startu
+chat, czyli praktycznie równo z `prepare`.
+
+Czyli `first_text` − `prompt_ready` = **czysty TTFT modelu w produkcji: 615–1496 ms,
+mediana ~818 ms** (benchmark dawał 625 ms przy prostszym żądaniu — różnicę robi
+sześć definicji narzędzi i historia rozmowy, a nie nasz kod).
+
+**Korekta mojego wcześniejszego oszacowania:** przypisałem naszej ścieżce ~370 ms,
+których tam nie ma. Rzeczywisty narzut to:
+
+| warstwa | ms |
+|---|---|
+| `config` (llm) | ~370 |
+| hop + rozruch chat | ~160 |
+| chat: `prepare` + budowa promptu | **~14** |
+| **razem nasze** | **~545** |
+| model | ~800 |
+
+**Nasza ścieżka to ~545 ms, nie 775.** Z tego usuwalne: `config` w FAZIE A,
+część hopu w FAZIE B. Chat sam w sobie jest już na dnie.
+
+## Tura z zapisem: 12 sekund — najmocniejszy argument za FAZĄ 2
+
+Rozmowa 06.08 00:26, tura siódma (`3b7644`), rozbicie co do milisekundy:
+
+```
+prepare + budowa promptu       13 ms
+model_round #1              2 613 ms
+create_booking              5 743 ms   ← 53% tury
+model_round #2              2 383 ms
+─────────────────────────────────────
+razem                      10 752 ms
+```
+
+`create_booking` to ponad połowa tury. W środku robi: wstawienie rezerwacji,
+wyszukanie stanowiska, wpis do grafiku i wywołanie `create_order` przez HTTP
+do samego siebie. **Nie da się tego rozbić dalej — `voice-agent-tools` nie ma
+instrumentacji.** To najpilniejsza luka pomiarowa.
+
+Dla porównania tura bez narzędzi w tej samej rozmowie: **795 ms**.
+
+**Zalecenie właściciela, przyjęte: nie optymalizujemy tur, tylko usuwamy z nich
+operacje.**
+
+## `end_call` czeka na zapis — mechanizm ustalony
+
+Tura ostatnia (`923ab4`), rozmowa 107 s:
+
+```
+ 99 s  start tury
+102 s  agent zaczyna mówić            (first_text 2822 ms)
+104 s  create_booking                 (385 ms)
+105 s  model_round #3                 (1199 ms)
+105 s  client_tool_requested: end_call
+107 s  koniec
+```
+
+Agent powiedział pożegnanie, a `end_call` poszedł **trzy sekundy później**, bo
+model w tej samej turze robił jeszcze rundę narzędzi. Potwierdza się druga
+hipoteza właściciela: **narzędzie czeka na zakończenie zapisu**, nie na TTS.
+
+To nie jest sufit platformy. Po FAZIE 2 tura to jedna runda modelu, która wypuszcza
+tekst i `end_call` razem — cel 0,5 s od ostatniego słowa jest osiągalny.
+
+## Zachowania, które MUSZĄ przetrwać FAZĘ C
+
+- **Odmowa soboty:** „Pojutrze to sobota — niestety wtedy jesteśmy zamknięci.
+  Pracujemy od poniedziałku do piątku." Nikt tego nie kazał; model wywnioskował
+  z godzin pracy. **Godziny pracy MUSZĄ trafić do snapshotu FAZY A.**
+
+## Lista kontrolna „brzmi jak robot" — do FAZY C, NIE poprawiać punktowo
+
+1. „Dobrze rozumiem" ×2 — wypełniacz ElevenLabs przy turach > 4 s. **Nie nasz**,
+   znika po FAZIE A wraz ze skróceniem tur.
+2. „Świetnie. Teraz umawiam wizytę. Do widzenia." — trzy rzeczy w jednym zdaniu:
+   pochwała, relacjonowanie, pożegnanie. Człowiek powiedziałby: „Dobrze,
+   do zobaczenia w poniedziałek."
+3. Relacjonowanie („teraz umawiam") — znika w FAZIE 2, bo nie będzie czego umawiać.
+
+**Nie poprawiać punktowo — siódma sprzeczność jest ostatnią rzeczą, jakiej chcemy.**
 
 ## Kontrola sprzeczności w prompcie — mechaniczna
 
