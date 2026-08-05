@@ -286,7 +286,11 @@ test("phone is stored silently and the year is never asked", () => {
   assert.match(chat, /NIE powtarzaj numeru słowami/);
   assert.match(chat, /Dziękuję, numer zapisany/);
   // Rok produkcji nie jest potrzebny do rezerwacji.
-  assert.match(chat, /Nie pytaj o rok produkcji/);
+  // Sekwencja jest teraz zależna od caller_id: gdy numer przyszedł z sygnalizacji,
+  // agent NIE pyta o telefon (jedna tura mniej); przy numerze zastrzeżonym pyta.
+  assert.match(chat, /NIE PYTAJ O NUMER TELEFONU — mamy go z połączenia/);
+  assert.match(chat, /Numer telefonu jest wymagany, bo połączenie przyszło z numeru zastrzeżonego/);
+  assert.match(chat, /const callerIdAvailable = isServiceCall && !!body\?\.caller_id_available/);
   // Normalizacja liter zostaje na wypadek, gdy klient poda rejestrację sam.
   assert.match(chat, /"igrek" = Y/);
   assert.match(chat, /"iks" = X/);
@@ -327,8 +331,11 @@ test("registration number is asked once and never confirmed back", () => {
   // Rejestracja domyka listę zbieranych danych.
   // Sekwencja skrócona: nazwisko wypadło z pytań. ASR dał pięć różnych wersji tego
   // samego nazwiska w pięciu rozmowach, a identyfikacja idzie po telefonie i rejestracji.
-  assert.match(chat, /IMIĘ → telefon → marka i model → numer rejestracyjny\. To CAŁA lista/);
+  // Pięć tur zamiast siedmiu: imię łączone z autem, rejestracja osobno.
+  assert.match(chat, /IMIĘ \+ marka i model auta → numer rejestracyjny → podsumowanie/);
   assert.match(chat, /NIE PYTAJ O NAZWISKO/);
+  assert.match(chat, /Rejestracja ZAWSZE osobno/);
+  assert.match(chat, /TON: prosisz, nie odpytujesz/);
 });
 
 test("agent never narrates its own system actions", () => {

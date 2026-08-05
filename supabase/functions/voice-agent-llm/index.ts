@@ -283,6 +283,14 @@ serve(async (req) => {
         ...(canary.enabled && conversationId ? { conversation_id: conversationId } : {}),
         ...(canary.enabled && clientTools.length ? { client_tools: clientTools } : {}),
         ...(canary.enabled && voiceContext ? { voice_context: voiceContext } : {}),
+        // Numer dzwoniącego ze znacznika RIDO. Potwierdzone w produkcji:
+        // used_source = "system_marker", długość 12 znaków (+48XXXXXXXXX).
+        // Gdy go NIE MA (numer zastrzeżony, rozmowa z panelu) — agent musi zapytać,
+        // bo inaczej zostawimy rozmowę bez żadnego kontaktu do klienta.
+        ...(canary.enabled ? {
+          caller_id: markerCallerId || null,
+          caller_id_available: !!markerCallerId,
+        } : {}),
         messages: convo,
         business_context: cfg?.business_context || {}, display_name: cfg?.display_name || "",
         languages: cfg?.languages || ["pl"], calendar_access: !!cfg?.calendar_access, orders_access: !!cfg?.orders_access,

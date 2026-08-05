@@ -244,3 +244,22 @@ test("pusta marka daje null, nie wyjątek", () => {
   assert.equal(matchBrand(""), null);
   assert.equal(matchBrand("   "), null);
 });
+
+test("numer podany świadomie przez klienta wygrywa z caller_id", () => {
+  // "A czy może być inny numer?" — klient wie lepiej, gdzie chce dostać SMS.
+  const r = reconcileCall({
+    extracted: extracted({ phone: "600100200", phone_provided_by_customer: true }),
+    callerId: "+48519474583",
+    clientsByPhone: [], vehiclesByPlate: [],
+  });
+  assert.equal(r.phone, "600100200");
+});
+
+test("bez świadomego wskazania caller_id pozostaje źródłem domyślnym", () => {
+  const r = reconcileCall({
+    extracted: extracted({ phone: "12194747458" }),   // przekręcony przez ASR
+    callerId: "+48519474583",
+    clientsByPhone: [], vehiclesByPlate: [],
+  });
+  assert.equal(r.phone, "519474583");
+});

@@ -234,6 +234,30 @@ serve(async (req) => {
       const bookingDuplicate = !!exBk;
       if (exBk) {
         bookingId = exBk.id;
+        // KOLIZJA SLOTU Z INNĄ ROZMOWĄ — trzeci raz ten sam mechanizm.
+        //
+        // Klient ma już wizytę w tym terminie z WCZEŚNIEJSZEJ rozmowy. Dotąd
+        // zwracaliśmy zwykłe `ok: true`, więc model mówił "gotowe", a w bazie
+        // nie przybywało nic i SMS nie wychodził (rozmowy 05.08 18:23 i 21:37).
+        // Klient słyszał potwierdzenie wizyty, której nie umówiliśmy.
+        //
+        // Teraz mówimy modelowi PRAWDĘ, żeby mógł ją powiedzieć klientowi.
+        // Nie nadpisujemy istniejącej wizyty i nie wysyłamy drugiego SMS-a —
+        // decyzję o zmianie terminu podejmuje człowiek.
+        if (!conversationCall?.linked_entity_id) {
+          console.info("[voice-agent-tools] slot_taken_by_earlier_call", {
+            date, time, conversation: conversationId.slice(-8),
+          });
+          return json({
+            ok: true,
+            duplicate: true,
+            slot_already_booked: true,
+            booking_id: exBk.id,
+            message: `Ten klient ma już wizytę ${date} o ${time} z wcześniejszej rozmowy. `
+              + "Powiedz mu o tym wprost i zapytaj, czy chce inny termin. "
+              + "NIE mów, że wizyta została właśnie umówiona.",
+          });
+        }
       } else {
       // 1) service_bookings (source='portal') -> "Rezerwacje z portalu" + kalendarz
       const { data: sb, error: sbErr } = await admin.from("service_bookings").insert({

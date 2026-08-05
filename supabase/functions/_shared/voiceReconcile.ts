@@ -24,6 +24,8 @@ export type ExtractedCall = {
   brand: string | null;
   model: string | null;
   plate: string | null;
+  /** Klient świadomie podał inny numer niż ten, z którego dzwoni. */
+  phone_provided_by_customer?: boolean;
 };
 
 export type KnownClient = {
@@ -165,9 +167,17 @@ export const reconcileCall = (input: ReconcileInput): ReconcileResult => {
 
   // Telefon: numer z sygnalizacji SIP bije to, co usłyszał ASR. Gdy go nie ma
   // (rozmowa z panelu, numer zastrzeżony) — zostaje wersja z rozmowy.
+  // NUMER PODANY ŚWIADOMIE PRZEZ KLIENTA WYGRYWA z caller_id.
+  //
+  // caller_id jest domyślnym źródłem, bo pochodzi z sygnalizacji i nie myli się.
+  // Ale gdy klient prosi "proszę wysłać na inny numer" albo sam go podaje, to on
+  // wie lepiej, gdzie chce dostać potwierdzenie. Ekstrakcja ustawia wtedy
+  // `phone_provided_by_customer`.
   const callerNorm = normalizePhone(callerId);
   const asrNorm = normalizePhone(extracted.phone);
-  const phone = callerNorm || asrNorm || null;
+  const phone = extracted.phone_provided_by_customer && asrNorm
+    ? asrNorm
+    : callerNorm || asrNorm || null;
 
   // Pojazd po rejestracji. Rejestracja jest krótka i literowana, więc myli się
   // rzadziej niż nazwisko — a przypisany do niej pojazd niesie markę, model
