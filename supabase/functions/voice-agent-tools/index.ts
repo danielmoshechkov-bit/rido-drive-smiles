@@ -27,6 +27,29 @@ const splitName = (full: string) => {
   const parts = (full || "").trim().split(/\s+/);
   return { first: parts[0] || "Klient", last: parts.slice(1).join(" ") || "" };
 };
+// INSTRUMENTACJA — jedyne miejsce w torze rozmowy bez pomiaru.
+//
+// create_booking trwało 5743 ms i było 53% najgorszej tury (rozmowa 06.08 00:26),
+// a z zewnątrz widać było tylko sumę. Każdy krok mierzy się osobno, wszystko
+// w jednej linii JSON na żądanie, z conversation_id jako kluczem korelacji —
+// tak samo jak w voice-agent-chat i voice-agent-llm.
+type StepTiming = { krok: string; ms: number; ok?: boolean };
+const makeTracker = () => {
+  const steps: StepTiming[] = [];
+  const track = async <T>(krok: string, fn: () => Promise<T>): Promise<T> => {
+    const started = performance.now();
+    try {
+      const out = await fn();
+      steps.push({ krok, ms: Math.round(performance.now() - started) });
+      return out;
+    } catch (e) {
+      steps.push({ krok, ms: Math.round(performance.now() - started), ok: false });
+      throw e;
+    }
+  };
+  return { steps, track };
+};
+
 const addMinutes = (date: string, time: string, mins: number) => {
   const d = new Date(`${date}T${(time || "09:00")}:00`);
   return new Date(d.getTime() + mins * 60000).toISOString();
@@ -40,9 +63,22 @@ serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
+    const requestStarted = performance.now();
+    const { steps, track } = makeTracker();
     const authHeader = req.headers.get("Authorization");
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "");
+    // Jedna linia na żądanie, wypuszczana tuż przed odpowiedzią.
+    const logRequest = (result: string) => {
+      console.info("[voice-agent-tools]", JSON.stringify({
+        event: "request_timing",
+        action,
+        result,
+        total_ms: Math.round(performance.now() - requestStarted),
+        conversation: String(body?.conversation_id || "").slice(-8) || null,
+        kroki: steps,
+      }));
+    };
     let providerId = String(body?.provider_id || "");
     const personaKey = String(body?.persona_key || "workshop_secretary");
 
@@ -154,6 +190,7 @@ serve(async (req) => {
           if ((load[t] || 0) < capacity) slots.push(t);
         }
       }
+      logRequest("dostepnosc");
       return json({ ok: true, date, slots, capacity });
     }
 
@@ -264,7 +301,7 @@ serve(async (req) => {
       }
       if (!exBk || body?.confirm_duplicate) {
       // 1) service_bookings (source='portal') -> "Rezerwacje z portalu" + kalendarz
-      const { data: sb, error: sbErr } = await admin.from("service_bookings").insert({
+      const { data: sb, error: sbErr } = await track("rezerwacja_insert", () => admin.from("service_bookings").insert({
         provider_id: providerId,
         service_id: body?.service_id || null,
         customer_name: name, customer_phone: phone, customer_email: null,
@@ -274,8 +311,8 @@ serve(async (req) => {
         vehicle_year: veh.year || null, vehicle_plate: veh.plate || null,
         status: "pending", completion_status: "pending",
         requires_provider_confirmation: true, source: "portal",
-      }).select("id").single();
-      if (sbErr) return json({ ok: false, error: "Rezerwacja: " + sbErr.message }, 400);
+      }).select("id").single());
+      if (sbErr) { logRequest("blad_rezerwacji"); return json({ ok: false, error: "Rezerwacja: " + sbErr.message }, 400); }
         bookingId = sb.id;
       }
 
@@ -286,8 +323,8 @@ serve(async (req) => {
       // Przypisujemy PIERWSZE wolne stanowisko o tej godzinie. Klientowi tego nie mowimy.
       let freeStationId: string | null = null;
       try {
-        const { data: stations } = await admin.from("workshop_workstations")
-          .select("id").eq("provider_id", providerId).eq("is_active", true).order("sort_order", { ascending: true });
+        const { data: stations } = await track("stanowiska_select", () => admin.from("workshop_workstations")
+          .select("id").eq("provider_id", providerId).eq("is_active", true).order("sort_order", { ascending: true }));
         const { data: takenRows } = await admin.from("workshop_client_bookings")
           .select("station_id").eq("provider_id", providerId)
           .eq("appointment_date", date).eq("appointment_time", time).neq("status", "cancelled");
@@ -314,14 +351,14 @@ serve(async (req) => {
         // Błąd tego zapisu był dotąd POŁYKANY — destrukturyzacja nie brała `error`,
         // a `if (wcb?.confirmation_token)` niżej po cichu pomijało SMS. Nieudany
         // zapis grafiku wyglądał wtedy identycznie jak udany bez SMS-a.
-        const { data: inserted, error: wcbErr } = await admin.from("workshop_client_bookings").insert({
+        const { data: inserted, error: wcbErr } = await track("grafik_insert", () => admin.from("workshop_client_bookings").insert({
           provider_id: providerId, phone, first_name: first, last_name: last,
           plate: veh.plate || null, brand: veh.brand || null, model: veh.model || null,
           service_description: notePrefix + (body?.notes || body?.service_name || ""),
           appointment_date: date, appointment_time: time, duration_minutes: duration,
           status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
           ...(freeStationId ? { station_id: freeStationId } : {}),
-        }).select("id, confirmation_token, public_token").maybeSingle();
+        }).select("id, confirmation_token, public_token").maybeSingle());
         if (wcbErr) {
           console.error("[voice-agent-tools] calendar_insert_failed", {
             code: wcbErr.code, message: String(wcbErr.message).slice(0, 200),
@@ -401,7 +438,7 @@ serve(async (req) => {
       if (ordersAccess) {
         try {
           const complaint = String(body?.notes || body?.service_name || "Zgłoszenie telefoniczne").trim();
-          const orderRes = await fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
+          const orderRes = await track("zlecenie_http", () => fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
             method: "POST",
             headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -412,7 +449,7 @@ serve(async (req) => {
               vehicle: body?.vehicle || {}, booking_id: bookingId,
             }),
             signal: AbortSignal.timeout(10_000),
-          });
+          }));
           const orderOut = await orderRes.json().catch(() => ({}));
           if (orderOut?.ok && orderOut?.order_id) createdOrderId = String(orderOut.order_id);
           else { orderFailed = true; console.error("[voice-agent-tools] order_after_booking_failed", { status: orderRes.status }); }
@@ -426,6 +463,7 @@ serve(async (req) => {
       // na workshop_order, bo tego szuka zakładka "Rozmowa telefoniczna".
       await linkConversation("service_booking", bookingId);
 
+      logRequest("rezerwacja_ok");
       return json({
         ok: true, booking_id: bookingId, duplicate: bookingDuplicate,
         order_id: createdOrderId, order_failed: orderFailed,
@@ -523,6 +561,7 @@ serve(async (req) => {
       // "Rozmowa telefoniczna" (voice_calls po linked_entity_type/linked_entity_id).
       await linkConversation("workshop_order", order.id);
 
+      logRequest("zlecenie_ok");
       return json({ ok: true, order_id: order.id, order_number: order.order_number, client_id: clientId, vehicle_id: vehicleId });
     }
 
