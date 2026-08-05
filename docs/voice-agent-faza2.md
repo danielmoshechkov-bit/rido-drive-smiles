@@ -163,6 +163,83 @@ dopiero w kroku 7 kolejności z `voice-agent-faza1.md`.
 
 ---
 
+## ROZMOWA JAKO BYT PIERWOTNY
+
+Zależność była odwrócona: `voice_calls.linked_entity_id` wskazuje **na zlecenie**,
+więc rozmowa była doczepką do zlecenia. Przy nieudanym `create_order` zostawała
+z `linked_entity_type: service_booking` i nigdy nie awansowała — dokładnie to
+stało się 06.08 00:41 (trzy wywołania `create_order`, zero zleceń).
+
+**Rozmowa ma istnieć zawsze. Zlecenie powstaje Z rozmowy.**
+
+### Przy odebraniu połączenia (webhook inicjujący)
+```sql
+INSERT INTO voice_calls (elevenlabs_conversation_id, provider_id, from_number,
+                         started_at, status)
+VALUES (…, 'in_progress');
+```
+Jeden INSERT, przed powitaniem, nikt na niego nie czeka. Idempotentny dzięki
+`voice_calls_conversation_uniq`.
+
+### Po rozłączeniu (`voice-call-commit`), w tej kolejności
+1. `UPDATE voice_calls` — transkrypt, `ended_at`, `status`
+2. ekstrakcja danych z transkryptu
+3. dopasowanie klienta po telefonie, pojazdu po rejestracji (`voiceReconcile`)
+4. gdy komplet → **transakcja**: rezerwacja + zlecenie + grafik
+5. `UPDATE voice_calls` — `linked_entity_id` = zlecenie
+6. **SMS dopiero teraz**, gdy wszystko istnieje
+
+Gdy krok 4 się nie uda — **rozmowa i transkrypt ZOSTAJĄ**, bez powiązania,
+ze statusem wymagającym uwagi.
+
+### ⚠️ Sprostowanie do uzasadnienia
+
+„Transkrypt nie ma gdzie usiąść" jest nieścisłe: `voice_transcripts.call_id` ma
+FK do `voice_calls(id) ON DELETE CASCADE`, więc **transkrypt już dziś wisi
+na rozmowie, nie na zleceniu**. Problem jest w DOSTĘPIE: `OrderCallPanel` szuka go
+wyłącznie od strony zlecenia (`linked_entity_type` + `linked_entity_id`), więc bez
+zlecenia transkrypt istnieje, ale jest nieosiągalny z panelu.
+
+Wniosek projektowy się nie zmienia — zmienia się to, co naprawia widok „Połączenia":
+nie ratuje danych, tylko je **odsłania**.
+
+### MIGRACJA NIE JEST POTRZEBNA — sprawdzone
+
+```
+voice_calls.status   text  NOT NULL  DEFAULT 'initiated'
+CHECK constraints:   BRAK
+wartości w użyciu:   'completed' (49 wierszy)
+```
+
+Nowe wartości (`in_progress`, `needs_review`, `abandoned`) można wprowadzić
+bez DDL. Powód uboczny: **brak CHECK oznacza, że literówka w statusie nie zostanie
+złapana** — lista dozwolonych wartości musi być stałą w kodzie, a CHECK warto
+dołożyć dopiero, gdy zestaw się ustabilizuje.
+
+`outcome` (text, nullable) nadaje się na powód wymagający uwagi.
+
+### Sprzątanie pustych rozmów — CRON, nie commit
+
+**USUWAMY** (to nie były rozmowy):
+- brak transkryptu w ogóle
+- rozmowa krócej niż 10 s
+- transkrypt zawiera wyłącznie powitanie agenta, zero wypowiedzi klienta
+- klient powiedział tylko „halo", „pomyłka", „przepraszam"
+
+**ZOSTAWIAMY, oznaczone jako wymagające uwagi:**
+- klient mówił, ale ekstrakcja nie dała kompletu
+- klient rozłączył się w trakcie zbierania danych
+- agent nie zrozumiał problemu
+- klient pytał o coś, na co agent nie umiał odpowiedzieć
+
+Kasowanie robi **cron raz na dobę, NIE commit** — commit tylko oznacza status.
+Dzięki temu kryteria da się zmienić bez ruszania ścieżki zapisu.
+Cron loguje ile i dlaczego. **Jeśli kasuje połowę, kryterium jest złe.**
+
+Uwaga techniczna: `voice_transcripts` ma `ON DELETE CASCADE`, więc usunięcie
+rozmowy usuwa też transkrypt — to jest zamierzone, ale znaczy, że kasowanie
+jest nieodwracalne i kryteria muszą być ostrożne.
+
 ## Kontrakt `voice-call-commit`
 
 Nowa akcja. Jedno wejście, jedno wyjście, jedna transakcja.
