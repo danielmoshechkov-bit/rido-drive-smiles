@@ -56,7 +56,6 @@ DECLARE
   v_order_id    uuid;
   v_order_no    text;
   v_status_name text := 'Umówiony telefonicznie';
-  v_seq         int;
   v_public_tok  text;
 BEGIN
   -- 1. IDEMPOTENCJA — jedno miejsce, jeden klucz.
@@ -135,6 +134,14 @@ BEGIN
       USING ERRCODE = 'check_violation';
   END IF;
 
+  -- UWAGA NA DWIE TABELE STANOWISK, złapane testem w BEGIN/ROLLBACK:
+  --   workshop_orders.station_id      -> FK do workshop_stations      (2 wiersze)
+  --   workshop_orders.workstation_id  -> FK do workshop_workstations  (12 wierszy)
+  -- Grafik i check_availability operują na workshop_workstations, więc zlecenie
+  -- dostaje `workstation_id` i `scheduled_station_id`, a NIE `station_id`.
+  -- Pierwsza wersja wpisywała identyfikator do złej kolumny i transakcja padała
+  -- na kluczu obcym.
+
   -- 6. GRAFIK. Bez station_id rezerwacja nie pojawia się na siatce
   --    (WorkshopScheduler mapuje station_id -> scheduled_station_id).
   INSERT INTO workshop_client_bookings (
@@ -155,22 +162,28 @@ BEGIN
      SELECT 1 FROM workshop_order_statuses
       WHERE provider_id = p_provider_id AND name = v_status_name);
 
-  -- 8. ZLECENIE. Numeracja per provider i miesiąc, liczona wewnątrz transakcji.
-  SELECT count(*) + 1 INTO v_seq FROM workshop_orders
-   WHERE provider_id = p_provider_id
-     AND date_trunc('month', created_at) = date_trunc('month', now());
-  v_order_no := 'ZLP-' || to_char(now(), 'MM/YYYY') || '-' || lpad(v_seq::text, 3, '0');
-
+  -- 8. ZLECENIE.
+  --
+  -- NUMERU NIE NADAJEMY SAMI. Na workshop_orders działa trigger
+  -- `trg_workshop_order_number`, który woła istniejącą od dawna funkcję
+  -- `next_workshop_order_number(provider_id, kind)` — z blokadą wiersza
+  -- w `workshop_order_sequences` i wyborem ZLP/ZL po obecności booking_id.
+  --
+  -- Pierwsza wersja tej funkcji liczyła numer sama przez count(*)+1, a druga
+  -- dokładała własny licznik w osobnej tabeli. Oba były DUPLIKATEM mechanizmu,
+  -- który projekt już miał — a przeciążenie next_workshop_order_number(uuid)
+  -- wprowadziło niejednoznaczność dla wywołań jednoargumentowych.
+  -- Numer bierzemy z RETURNING, po tym jak trigger go nada.
   INSERT INTO workshop_orders (
-    provider_id, client_id, vehicle_id, booking_id, order_number,
-    status_name, description, scheduled_date, scheduled_station_id, station_id,
+    provider_id, client_id, vehicle_id, booking_id,
+    status_name, description, scheduled_date, scheduled_station_id, workstation_id,
     internal_notes)
   VALUES (
-    p_provider_id, v_client_id, v_vehicle_id, v_booking_id, v_order_no,
+    p_provider_id, v_client_id, v_vehicle_id, v_booking_id,
     v_status_name, coalesce(p_complaint, 'Zgłoszenie telefoniczne'),
-    p_date, v_station_id, v_station_id,
+    p_date, v_station_id, v_station_id,   -- oba wskazują workshop_workstations
     CASE WHEN p_needs_review THEN '[DO SPRAWDZENIA] ' || coalesce(p_review_reason,'') END)
-  RETURNING id INTO v_order_id;
+  RETURNING id, order_number INTO v_order_id, v_order_no;
 
   -- 9. POWIĄZANIE ROZMOWY. Tego szuka zakładka "Rozmowa telefoniczna".
   UPDATE voice_calls

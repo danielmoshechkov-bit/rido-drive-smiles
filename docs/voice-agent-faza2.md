@@ -298,6 +298,42 @@ Uwaga techniczna: `voice_transcripts` ma `ON DELETE CASCADE`, więc usunięcie
 rozmowy usuwa też transkrypt — to jest zamierzone, ale znaczy, że kasowanie
 jest nieodwracalne i kryteria muszą być ostrożne.
 
+## ⚠️ Numeracja zleceń — projekt JUŻ to miał, ja zbudowałem duplikat
+
+Zaproponowałem tabelę licznika i funkcję `next_workshop_order_number(uuid)`.
+**Obie były niepotrzebne**, a druga wyrządziła szkodę:
+
+```
+public.next_workshop_order_number(p_provider_id uuid, p_kind text DEFAULT 'ZL')
+  -> istnieje od 20260420, blokuje wiersz w workshop_order_sequences
+  -> trigger trg_workshop_order_number na workshop_orders woła ją automatycznie
+  -> wybiera ZLP gdy booking_id jest ustawione, inaczej ZL
+```
+
+Moje przeciążenie `(uuid)` uczyniło wywołania **jednoargumentowe niejednoznacznymi**
+(`function is not unique`), bo istniejąca ma domyślny `p_kind`. Cofnięte:
+przeciążenie i tabela usunięte, `voice_commit_call` **nie nadaje numeru sam** —
+wstawia wiersz bez `order_number` i bierze go z `RETURNING`, po tym jak trigger go nada.
+
+**Pozostaje otwarte i NIE jest moje do naprawy:** istniejąca funkcja liczy
+„najmniejszy nieużywany numer od 1 do max+1", więc **po usunięciu zlecenia numer
+wraca do obiegu**. Potwierdzone: po skasowaniu sierpniowych zleceń testowych
+kolejne dostało `ZLP-08/2026-001`, czyli numer, który już był u klienta na SMS-ie.
+To dokładnie ryzyko, o którym mówił właściciel — ale dotyczy **całego modułu
+warsztatu**, nie tylko agenta, więc zmiana wymaga osobnej decyzji.
+
+## ⚠️ Dwie tabele stanowisk — pułapka złapana testem
+
+```
+workshop_orders.station_id      -> FK do workshop_stations      (2 wiersze)
+workshop_orders.workstation_id  -> FK do workshop_workstations  (12 wierszy)
+```
+
+Grafik i `check_availability` operują na `workshop_workstations`. Pierwsza wersja
+`voice_commit_call` wpisywała ten identyfikator do `station_id` i transakcja padała
+na kluczu obcym. Złapane testem w `BEGIN … ROLLBACK`, zanim cokolwiek trafiło
+na produkcję — i to jest argument za tym, żeby każdą migrację tak testować.
+
 ## Kontrakt `voice-call-commit`
 
 Nowa akcja. Jedno wejście, jedno wyjście, jedna transakcja.
