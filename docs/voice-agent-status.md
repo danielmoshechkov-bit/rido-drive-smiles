@@ -254,6 +254,27 @@ w tej samej warstwie.
 Uzasadnienie: **dziś awarie są niewidzialne** — warsztat nie ma jak się dowiedzieć,
 że stracił klienta.
 
+### E. Rozmowa o ISTNIEJĄCEJ rezerwacji — projektować przy FAZIE A
+
+Snapshot dostaje pole **aktywne rezerwacje tego numeru** (data, godzina, usługa,
+pojazd). To załatwia rozpoznanie intencji: jeśli klient ma wizytę, agent zaczyna
+od niej — „Dzień dobry, widzę wizytę jutro o jedenastej — w tej sprawie?" —
+co skraca rozmowę powracającego klienta do dwóch tur.
+
+**1. „Na kiedy mam wizytę?"** — tylko odczyt, agent odpowiada z kontekstu, zero wywołań.
+
+**2. „Chcę przełożyć"** — odczyt + zapis po rozmowie. Commit: anuluj starą, utwórz
+nową, **jeden** SMS z nowym terminem.
+
+**3. „Chcę odwołać" — TU JEST PUŁAPKA.** Odwołanie MUSI się wykonać. Jeśli agent
+powie „odwołane", a commit padnie, warsztat czeka na klienta, który nie przyjedzie.
+Dlatego **agent NIE mówi „odwołane"**, tylko: „Przekażę do odwołania, potwierdzenie
+przyjdzie SMS-em." **SMS jest dowodem, nie obietnicą.**
+Gdy commit się nie uda → rozmowa do kolejki ze statusem `cancel_failed`
+**plus alert**, bo slot zostaje zajęty przez kogoś, kto nie przyjdzie.
+
+Do wdrożenia **po** progu pięciu udanych rozmów.
+
 ### D. Urlop / nieobecność
 W panelu: okres od-do, powód, blokada slotów. Agent widzi to przez snapshot i podaje
 pierwszy wolny termin po powrocie.

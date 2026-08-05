@@ -43,7 +43,7 @@ kontekst wejściowy. Zostaje `check_availability` i `end_call`.
 
 ---
 
-## Piętnaście zasad wyprowadzonych z błędów
+## Siedemnaście zasad wyprowadzonych z błędów
 
 Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w nowym kodzie.
 
@@ -125,6 +125,27 @@ Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w n
     błędna sama w sobie** — kolidowała ze starą.
     **Przed dodaniem reguły warunkowej przeszukaj prompt pod kątem zdań, które
     zakazują tego, co ona nakazuje.**
+
+16. **TOŻSAMOŚĆ ZAWSZE PO ROZMOWIE, NIGDY PO KLIENCIE I CZASIE.**
+    Każda heurystyka „ten sam klient w oknie N minut" jest błędna, bo klient MOŻE
+    zadzwonić dwa razy i za każdym razem umówić co innego. Jedyny poprawny klucz
+    to `conversation_id`.
+    **PIĘĆ niezależnych miejsc miało ten sam błąd:**
+    1. dedup rezerwacji po telefon + data + godzina
+    2. reuse wpisu w grafiku po telefon + data + godzina
+    3. `create_booking` sprawdzający klienta zamiast wolnego stanowiska
+    4. `create_order` po `client_id` + 15 minut
+    5. `voice-call-analyze` — powiązanie transkryptu po telefonie + **60 minut**
+       (okno czterokrotnie szersze niż w punkcie 4; to jest ta „heurystyka po
+       numerze telefonu", która myliła się w ~60% rozmów)
+    Przy każdym nowym zapisie sprawdź, czy nie powtarzasz.
+
+17. **PRZED PRZEPISANIEM SPRAWDŹ, DLACZEGO STARE NIE DZIAŁA.**
+    Inaczej nowe odziedziczy przyczynę i będzie wyglądać jak nowy błąd.
+    Przypadek: gdyby `voice-call-commit` wołał `create_order`, przeniósłby dedup
+    po `client_id` + 15 min do nowej architektury — a wyglądałoby to jak świeża
+    usterka transakcji. Diagnoza zajęła piętnaście minut; szukanie tego samego
+    w nowym kodzie zajęłoby dni.
 
 **Kontrola przed każdym commitem do tego modułu:** przejdź listę i wskaż, którą zasadę
 zmiana realizuje albo mogłaby złamać. Pięć klas sprzeczności w prompcie v1 powstało

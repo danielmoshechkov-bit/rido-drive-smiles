@@ -14,6 +14,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildPublicUrl } from "../_shared/publicUrl.ts";
+import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +64,25 @@ serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
+    // /warmup — ta sama gałąź co w llm i chat, dodana później i to był błąd.
+    //
+    // Pomiar 06.08 00:41: pierwsze check_availability w rozmowie 3999 ms, drugie
+    // 1092 ms. Różnica 2907 ms to zimny start, płacony w KAŻDEJ rozmowie, bo crony
+    // obejmowały tylko voice-agent-llm i voice-agent-chat. Fałszował wszystkie
+    // pomiary tur z narzędziami.
+    if (new URL(req.url).pathname.endsWith("/warmup")) {
+      const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
+      const provided = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+      if (!expected || provided !== expected) return json({ ok: false, error: "unauthorized" }, 401);
+      const warmStarted = performance.now();
+      await admin.from("voice_agent_configs").select("provider_id").limit(1);
+      console.info("[voice-agent-tools]", JSON.stringify({
+        event: "stage_timing", stage: "warmup",
+        duration_ms: Math.round(performance.now() - warmStarted),
+      }));
+      return json({ ok: true, warm: true });
+    }
+
     const requestStarted = performance.now();
     const { steps, track } = makeTracker();
     const authHeader = req.headers.get("Authorization");
@@ -102,10 +122,10 @@ serve(async (req) => {
     if (!providerId) return json({ ok: false, error: "Brak provider_id" }, 400);
 
     // --- Konfig agenta (uprawnienia) ---
-    const { data: cfg } = await admin
+    const { data: cfg } = await track("konfig_select", () => admin
       .from("voice_agent_configs")
       .select("calendar_access, orders_access")
-      .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
+      .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle());
     const calendarAccess = !!cfg?.calendar_access;
     const ordersAccess = !!cfg?.orders_access;
 
@@ -126,17 +146,17 @@ serve(async (req) => {
     const conversationId = isServiceCall ? String(body?.conversation_id || "") : "";
     let conversationCall: { id: string; linked_entity_type: string | null; linked_entity_id: string | null } | null = null;
     if (conversationId && providerId) {
-      const { data: existingCall } = await admin.from("voice_calls")
+      const { data: existingCall } = await track("rozmowa_select", () => admin.from("voice_calls")
         .select("id, linked_entity_type, linked_entity_id")
-        .eq("provider_id", providerId).eq("elevenlabs_conversation_id", conversationId).maybeSingle();
+        .eq("provider_id", providerId).eq("elevenlabs_conversation_id", conversationId).maybeSingle());
       if (existingCall) {
         conversationCall = existingCall as typeof conversationCall;
       } else {
-        const { data: createdCall } = await admin.from("voice_calls").insert({
+        const { data: createdCall } = await track("rozmowa_insert", () => admin.from("voice_calls").insert({
           provider_id: providerId, persona_key: personaKey, direction: "inbound",
           elevenlabs_conversation_id: conversationId, status: "in_progress",
           started_at: new Date().toISOString(),
-        }).select("id, linked_entity_type, linked_entity_id").maybeSingle();
+        }).select("id, linked_entity_type, linked_entity_id").maybeSingle());
         conversationCall = (createdCall as typeof conversationCall) || null;
       }
     }
@@ -161,8 +181,8 @@ serve(async (req) => {
       // godziny pracy (service_working_hours -> fallback 9-17)
       const dow = new Date(`${date}T00:00:00`).getDay(); // 0=nd
       let fromH = 9, toH = 17;
-      const { data: wh } = await admin.from("service_working_hours")
-        .select("*").eq("provider_id", providerId).eq("day_of_week", dow).maybeSingle();
+      const { data: wh } = await track("godziny_pracy", () => admin.from("service_working_hours")
+        .select("*").eq("provider_id", providerId).eq("day_of_week", dow).maybeSingle());
       if (wh) {
         if (wh.is_open === false || wh.is_closed === true) return json({ ok: true, slots: [], note: "Nieczynne tego dnia" });
         const s = wh.start_time || wh.open_time, e = wh.end_time || wh.close_time;
@@ -170,13 +190,13 @@ serve(async (req) => {
         if (e) toH = parseInt(String(e).slice(0, 2));
       }
       // pojemność = liczba aktywnych stanowisk (min 1)
-      const { count: stations } = await admin.from("workshop_workstations")
-        .select("id", { count: "exact", head: true }).eq("provider_id", providerId).eq("is_active", true);
+      const { count: stations } = await track("stanowiska_count", () => admin.from("workshop_workstations")
+        .select("id", { count: "exact", head: true }).eq("provider_id", providerId).eq("is_active", true));
       const capacity = Math.max(1, stations || 0);
       // zajętość z service_bookings tego dnia
-      const { data: booked } = await admin.from("service_bookings")
+      const { data: booked } = await track("zajetosc_select", () => admin.from("service_bookings")
         .select("scheduled_time, duration_minutes").eq("provider_id", providerId)
-        .eq("scheduled_date", date).not("status", "in", "(cancelled,rejected)");
+        .eq("scheduled_date", date).not("status", "in", "(cancelled,rejected)"));
       const load: Record<string, number> = {};
       for (const b of booked || []) {
         const start = parseInt(String(b.scheduled_time).slice(0, 2)) * 60 + parseInt(String(b.scheduled_time).slice(3, 5));
@@ -261,10 +281,10 @@ serve(async (req) => {
       // przez co następne sprawdzenie pasuje do jeszcze większej liczby wierszy.
       // Rozmowa 05.08 17:56 zrobiła tak trzy wpisy w grafiku i wysłała 6 SMS-ów.
       // Dlatego wszędzie tam, gdzie duplikaty są możliwe: `limit(1)` + tablica.
-      const { data: exBkRows } = await admin.from("service_bookings")
+      const { data: exBkRows } = await track("dedup_rezerwacji", () => admin.from("service_bookings")
         .select("id").eq("provider_id", providerId).eq("customer_phone", phone)
         .eq("scheduled_date", date).eq("scheduled_time", time).neq("status", "cancelled")
-        .order("created_at", { ascending: true }).limit(1);
+        .order("created_at", { ascending: true }).limit(1));
       const exBk = exBkRows?.[0] || null;
 
       let bookingId: string;
@@ -338,12 +358,12 @@ serve(async (req) => {
       // Przy dedupie albo ponowionej turze wiersz grafiku może już istnieć —
       // wtedy go używamy zamiast wstawiać drugi (to byłby duplikat na siatce).
       let wcb: { id: string; confirmation_token: string | null; public_token: string | null } | null = null;
-      const { data: exWcbRows } = await admin.from("workshop_client_bookings")
+      const { data: exWcbRows } = await track("grafik_select", () => admin.from("workshop_client_bookings")
         .select("id, confirmation_token, public_token")
         .eq("provider_id", providerId).eq("phone", phone)
         .eq("appointment_date", date).eq("appointment_time", time)
         .neq("status", "cancelled")
-        .order("created_at", { ascending: true }).limit(1);
+        .order("created_at", { ascending: true }).limit(1));
       const exWcb = exWcbRows?.[0] || null;
       if (exWcb) {
         wcb = exWcb;
@@ -375,10 +395,10 @@ serve(async (req) => {
           manageLink = buildPublicUrl(`/r/${wcb.public_token ?? wcb.confirmation_token}`);
           // Jedno potwierdzenie na wizytę. Bez tego dedup albo ponowiona tura
           // wysłałyby klientowi drugiego SMS-a o tej samej godzinie.
-          const { data: smsAlready } = await admin.from("workshop_sms_log")
+          const { data: smsAlready } = await track("sms_select", () => admin.from("workshop_sms_log")
             .select("id").eq("appointment_id", wcb.id)
             .eq("sms_type", "booking_confirmation_ai").neq("status", "failed")
-            .limit(1).maybeSingle();
+            .limit(1).maybeSingle());
           if (smsAlready) {
             smsSent = true;
           } else {
@@ -387,9 +407,9 @@ serve(async (req) => {
           // null — stąd SMS "serwis: potwierdzenie wizyty..." bez nazwy firmy i adresu,
           // przy poprawnie wypełnionych danych warsztatu. Te same pola co
           // booking-reminders: short_name/company_name + company_address/postal/city.
-          const { data: prov, error: provErr } = await admin.from("service_providers")
+          const { data: prov, error: provErr } = await track("firma_select", () => admin.from("service_providers")
             .select("short_name, company_name, company_address, company_postal_code, company_city")
-            .eq("id", providerId).maybeSingle();
+            .eq("id", providerId).maybeSingle());
           if (provErr) console.error("[voice-agent-tools] provider_lookup_failed", { code: provErr.code });
           const company = prov?.short_name || prov?.company_name || "serwis";
           const addr = [prov?.company_address,
