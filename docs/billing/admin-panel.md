@@ -96,12 +96,29 @@ Kolejność w UI = kolejność konfiguracji przy pierwszym uruchomieniu.
 
 ## 5. Dane wejściowe do `billing_plans`
 
-Cennik jest w repo, gałąź `feat/cennik-porownanie-warsztat` (w main):
-- Warsztat: 0 / 89 / 169 / indywidualny
-- Agent AI: 139 / 289
-- Bundle MAX: 289
+Cennik jest w repo, w `src/pages/CennikPage.tsx` (commity gałęzi
+`feat/cennik-porownanie-warsztat` są w `main`; sama gałąź już nie istnieje).
+
+- **Warsztat**: Darmowy 0 · Standard 89 · Pro 169 · Sieci — wycena indywidualna
+- **Agent AI**: Agent 139 · Agent Pro 289
+- **Pakiety łączone**: Warsztat + Agent AI **289** (zamiast 308) · Warsztat Pro + Agent Pro — MAX **399** (zamiast 458)
 
 Brać stamtąd, nie wymyślać od nowa.
+
+> **Sprostowanie (06.08.2026).** Wcześniejsza wersja tego punktu podawała
+> „Bundle MAX: 289". To pomyłka — 289 kosztuje pakiet **podstawowy**
+> (Warsztat Pro + Agent), a **MAX** kosztuje **399**. Kwoty spinają się
+> z cennikiem: 169 + 139 = 308, 169 + 289 = 458.
+
+**Trial.** Strona obiecuje „14 dni pełnego dostępu (Pro + oba Agenty AI), bez
+karty" — zakres, którego nie ma żaden pojedynczy plan. Realizacja: osobny plan
+`trial_max` przypisywany na 14 dni, po którym następuje przejście na plan wybrany
+przez klienta albo na `warsztat_free`. Pole `trial_days` przy planie zostaje
+w schemacie, przyda się przy zwykłych trialach per plan.
+
+**Sieci.** Limity ustalane per umowa, nie w planie — wpisywane przy zakładaniu
+subskrypcji do `billing_subscription_limits`. W macierzy plan × funkcja zostają
+jako „bez limitu" (domyślne).
 
 ---
 

@@ -180,6 +180,23 @@ CREATE TABLE public.billing_subscriptions (
   -- sporze, a nie bieżący cennik.
   price_snapshot           jsonb NOT NULL DEFAULT '{}'::jsonb,
 
+  -- Kod promocyjny użyty przy zakupie. Spięcia rabatów z planami jeszcze nie
+  -- budujemy, ale pola muszą być od razu — dodawanie ich później oznaczałoby
+  -- migrację tabeli, która ma już ruch produkcyjny.
+  -- Obok klucza obcego trzymamy snapshot kodu i procentu: `promo_codes` da się
+  -- edytować i kasować, a warunki subskrypcji mają zostać takie, jakie były
+  -- w chwili zakupu — tak samo jak price_snapshot.
+  promo_code_id            uuid REFERENCES public.promo_codes(id) ON DELETE SET NULL,
+  promo_code               text,
+  promo_discount_percent   numeric(5,2) CHECK (promo_discount_percent IS NULL
+                             OR (promo_discount_percent >= 0 AND promo_discount_percent <= 100)),
+
+  -- Źródło polecenia. Istniejący łańcuch to referral_codes → referral_uses,
+  -- więc wiążemy się z konkretnym użyciem (jest tam referrer_user_id potrzebny
+  -- do prowizji), plus snapshot samego kodu.
+  referral_use_id          uuid REFERENCES public.referral_uses(id) ON DELETE SET NULL,
+  referral_code            text,
+
   created_at               timestamptz NOT NULL DEFAULT now(),
   updated_at               timestamptz NOT NULL DEFAULT now()
 );
@@ -195,6 +212,33 @@ CREATE INDEX billing_subscriptions_subscriber
 CREATE INDEX billing_subscriptions_provider_sub
   ON public.billing_subscriptions (provider, provider_subscription_id)
   WHERE provider_subscription_id IS NOT NULL;
+
+-- ---------------------------------------- billing_subscription_limits
+-- Nadpisanie limitu na poziomie POJEDYNCZEJ subskrypcji.
+--
+-- Po co: plan „Sieci" ma cenę i limity ustalane per umowa. Bez tej tabeli
+-- każda negocjacja kończyłaby się zakładaniem osobnego planu, a lista planów
+-- puchłaby o warianty istniejące dla jednego klienta.
+--
+-- Zakres celowo wąski: nadpisujemy WYŁĄCZNIE limit. O tym, czy funkcja w ogóle
+-- przysługuje, nadal decyduje plan — inaczej uprawnienia rozjechałyby się na
+-- dwa źródła prawdy i nie dałoby się odpowiedzieć „co zawiera plan X".
+--
+-- Uwaga na semantykę NULL: `limit_value = NULL` znaczy „bez limitu", więc
+-- o tym, czy nadpisanie obowiązuje, decyduje ISTNIENIE WIERSZA, a nie wartość.
+-- Dlatego funkcje niżej używają LEFT JOIN i sprawdzają NULL na kluczu, a nie
+-- COALESCE na limicie.
+CREATE TABLE public.billing_subscription_limits (
+  subscription_id uuid NOT NULL REFERENCES public.billing_subscriptions(id) ON DELETE CASCADE,
+  feature_id      uuid NOT NULL REFERENCES public.billing_features(id) ON DELETE CASCADE,
+  limit_value     numeric(12,2),
+  note            text,                      -- np. numer umowy albo kto zatwierdził
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (subscription_id, feature_id),
+  CONSTRAINT billing_subscription_limits_nonneg
+    CHECK (limit_value IS NULL OR limit_value >= 0)
+);
 
 -- ---------------------------------------------------------- billing_usage
 -- Licznik zużycia funkcji metered w okresie rozliczeniowym. Bez tego
@@ -336,6 +380,8 @@ CREATE TRIGGER trg_billing_plan_features_updated_at BEFORE UPDATE ON public.bill
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER trg_billing_subscriptions_updated_at BEFORE UPDATE ON public.billing_subscriptions
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER trg_billing_subscription_limits_updated_at BEFORE UPDATE ON public.billing_subscription_limits
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER trg_billing_usage_updated_at BEFORE UPDATE ON public.billing_usage
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 CREATE TRIGGER trg_billing_settings_updated_at BEFORE UPDATE ON public.billing_settings
@@ -350,6 +396,28 @@ CREATE TRIGGER trg_billing_settings_updated_at BEFORE UPDATE ON public.billing_s
 -- ============================================================================
 
 -- Aktywna subskrypcja = trialing/active i okres jeszcze nie minął.
+-- Zwracamy id subskrypcji, a nie od razu planu, bo limity mogą być nadpisane
+-- na poziomie konkretnej umowy (billing_subscription_limits).
+CREATE OR REPLACE FUNCTION public.billing_active_subscription(
+  p_subscriber_type public.billing_subscriber_type,
+  p_subscriber_id   uuid
+)
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT s.id
+  FROM public.billing_subscriptions s
+  WHERE s.subscriber_type = p_subscriber_type
+    AND s.subscriber_id = p_subscriber_id
+    AND s.status IN ('trialing', 'active')
+    AND (s.current_period_end IS NULL OR s.current_period_end > now())
+  ORDER BY s.created_at DESC
+  LIMIT 1;
+$$;
+
 CREATE OR REPLACE FUNCTION public.billing_active_plan(
   p_subscriber_type public.billing_subscriber_type,
   p_subscriber_id   uuid
@@ -362,12 +430,7 @@ SET search_path = public
 AS $$
   SELECT s.plan_id
   FROM public.billing_subscriptions s
-  WHERE s.subscriber_type = p_subscriber_type
-    AND s.subscriber_id = p_subscriber_id
-    AND s.status IN ('trialing', 'active')
-    AND (s.current_period_end IS NULL OR s.current_period_end > now())
-  ORDER BY s.created_at DESC
-  LIMIT 1;
+  WHERE s.id = public.billing_active_subscription(p_subscriber_type, p_subscriber_id);
 $$;
 
 -- Czy podmiot ma daną funkcję w swoim planie.
@@ -395,9 +458,11 @@ AS $$
   );
 $$;
 
--- Limit funkcji w planie. NULL = bez limitu, ale UWAGA: NULL zwracany jest też,
--- gdy funkcji w planie nie ma. Wołający ma najpierw sprawdzić has_feature(),
--- albo użyć check_usage(), które rozróżnia oba przypadki.
+-- Obowiązujący limit: nadpisanie z umowy, a w jego braku limit z planu.
+--
+-- NULL = bez limitu, ale UWAGA: NULL zwracany jest też, gdy funkcji w planie
+-- nie ma. Wołający ma najpierw sprawdzić has_feature(), albo użyć check_usage(),
+-- które rozróżnia oba przypadki.
 CREATE OR REPLACE FUNCTION public.feature_limit(
   p_subscriber_type public.billing_subscriber_type,
   p_subscriber_id   uuid,
@@ -409,10 +474,18 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT pf.limit_value
-  FROM public.billing_plan_features pf
+  SELECT CASE
+           -- O nadpisaniu decyduje ISTNIENIE wiersza, nie wartość: NULL w
+           -- billing_subscription_limits to świadome „bez limitu".
+           WHEN sl.subscription_id IS NOT NULL THEN sl.limit_value
+           ELSE pf.limit_value
+         END
+  FROM public.billing_subscriptions s
+  JOIN public.billing_plan_features pf ON pf.plan_id = s.plan_id
   JOIN public.billing_features f ON f.id = pf.feature_id
-  WHERE pf.plan_id = public.billing_active_plan(p_subscriber_type, p_subscriber_id)
+  LEFT JOIN public.billing_subscription_limits sl
+         ON sl.subscription_id = s.id AND sl.feature_id = f.id
+  WHERE s.id = public.billing_active_subscription(p_subscriber_type, p_subscriber_id)
     AND f.key = p_feature_key
     AND f.is_active
     AND pf.is_enabled;
@@ -434,26 +507,33 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_plan_id uuid;
-  v_enabled boolean;
-  v_limit   numeric;
-  v_used    numeric;
-  v_period  date := date_trunc('month', now())::date;
+  v_sub_id     uuid;
+  v_enabled    boolean;
+  v_limit      numeric;
+  v_overridden boolean := false;
+  v_used       numeric;
+  v_period     date := date_trunc('month', now())::date;
 BEGIN
-  v_plan_id := public.billing_active_plan(p_subscriber_type, p_subscriber_id);
+  v_sub_id := public.billing_active_subscription(p_subscriber_type, p_subscriber_id);
 
-  IF v_plan_id IS NULL THEN
+  IF v_sub_id IS NULL THEN
     RETURN jsonb_build_object(
       'allowed', false, 'reason', 'no_subscription',
       'used', 0, 'limit', null, 'remaining', 0
     );
   END IF;
 
-  SELECT pf.is_enabled, pf.limit_value
-    INTO v_enabled, v_limit
-  FROM public.billing_plan_features pf
+  -- Uprawnienie bierze się z planu, limit z umowy albo z planu.
+  SELECT pf.is_enabled,
+         CASE WHEN sl.subscription_id IS NOT NULL THEN sl.limit_value ELSE pf.limit_value END,
+         sl.subscription_id IS NOT NULL
+    INTO v_enabled, v_limit, v_overridden
+  FROM public.billing_subscriptions s
+  JOIN public.billing_plan_features pf ON pf.plan_id = s.plan_id
   JOIN public.billing_features f ON f.id = pf.feature_id
-  WHERE pf.plan_id = v_plan_id AND f.key = p_feature_key AND f.is_active;
+  LEFT JOIN public.billing_subscription_limits sl
+         ON sl.subscription_id = s.id AND sl.feature_id = f.id
+  WHERE s.id = v_sub_id AND f.key = p_feature_key AND f.is_active;
 
   IF v_enabled IS NULL OR v_enabled = false THEN
     RETURN jsonb_build_object(
@@ -475,7 +555,8 @@ BEGIN
   IF v_limit IS NULL THEN
     RETURN jsonb_build_object(
       'allowed', true, 'reason', 'unlimited',
-      'used', v_used, 'limit', null, 'remaining', null
+      'used', v_used, 'limit', null, 'remaining', null,
+      'overridden', v_overridden
     );
   END IF;
 
@@ -484,7 +565,9 @@ BEGIN
     'reason',    CASE WHEN (v_used + p_amount) <= v_limit THEN 'ok' ELSE 'limit_exceeded' END,
     'used',      v_used,
     'limit',     v_limit,
-    'remaining', GREATEST(v_limit - v_used, 0)
+    'remaining', GREATEST(v_limit - v_used, 0),
+    -- Panel pokazuje, czy limit pochodzi z planu, czy z indywidualnej umowy.
+    'overridden', v_overridden
   );
 END;
 $$;
@@ -504,6 +587,7 @@ ALTER TABLE public.billing_features       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billing_plans          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billing_plan_features  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billing_subscriptions  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.billing_subscription_limits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billing_usage          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billing_events         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billing_settings       ENABLE ROW LEVEL SECURITY;
@@ -523,6 +607,9 @@ CREATE POLICY billing_plan_features_select_all ON public.billing_plan_features
   FOR SELECT TO authenticated USING (true);
 
 CREATE POLICY billing_subscriptions_select_admin ON public.billing_subscriptions
+  FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'platform_admin'::public.app_role));
+CREATE POLICY billing_subscription_limits_select_admin ON public.billing_subscription_limits
   FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(), 'platform_admin'::public.app_role));
 CREATE POLICY billing_usage_select_admin ON public.billing_usage
@@ -548,6 +635,7 @@ REVOKE INSERT, UPDATE, DELETE ON public.billing_features      FROM anon, authent
 REVOKE INSERT, UPDATE, DELETE ON public.billing_plans         FROM anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.billing_plan_features FROM anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.billing_subscriptions FROM anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE ON public.billing_subscription_limits FROM anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.billing_usage         FROM anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.billing_events        FROM anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON public.billing_settings      FROM anon, authenticated;
@@ -555,6 +643,7 @@ REVOKE INSERT, UPDATE, DELETE ON public.billing_audit_log     FROM anon, authent
 
 -- Funkcje uprawnień woła front (żeby pokazać albo ukryć moduł) i edge functions.
 -- Zwracają wyłącznie flagi i limity, nie dane finansowe.
+GRANT EXECUTE ON FUNCTION public.billing_active_subscription(public.billing_subscriber_type, uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.billing_active_plan(public.billing_subscriber_type, uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.has_feature(public.billing_subscriber_type, uuid, text)    TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.feature_limit(public.billing_subscriber_type, uuid, text)  TO authenticated, service_role;
