@@ -21,6 +21,26 @@ duplikatów żądań** — a te szkodzą także wtedy, gdy nic nie zapisują:
 **Tura tylko-do-odczytu jest na to odporna z definicji.** Duplikat czegoś, co nic nie
 zmienia, jest nieszkodliwy. Nie walczymy z ElevenLabs — przestajemy być podatni.
 
+### Duplikaty są ZAMIERZONE — potwierdzone oficjalnie
+
+Blog ElevenLabs o silniku orkiestracji: orkiestrator zmniejsza odczuwalną latencję,
+przewidując koniec wypowiedzi użytkownika, i w niektórych przypadkach skutkuje to
+wieloma żądaniami generacji LLM z tym samym kontekstem w jednej turze.
+
+To projekt platformy, nie usterka. **Nigdy tego nie wyłączymy.** Trzy próby znalezienia
+wyłącznika (`speculative_turn`, `turn_eagerness`, hipoteza retry) szukały czegoś, co
+nie istnieje. FAZA 2 przestaje być optymalizacją i staje się jedyną drogą.
+
+### Dodatkowy zysk: definicje narzędzi to gruby kawałek promptu
+
+Pomiar prompt cachingu z 05.08 19:42 pokazał cachowany prefiks **9427 tokenów** —
+ponad trzy razy więcej niż sam prompt systemowy (~2650). Różnicę stanowią definicje
+narzędzi przekazywane modelowi w każdym żądaniu.
+
+Usunięcie `create_booking` i `create_order` z listy narzędzi modelu daje więc większy
+zysk, niż zakładaliśmy: to nie tylko krótsza tura bez zapisów, ale i wyraźnie mniejszy
+kontekst wejściowy. Zostaje `check_availability` i `end_call`.
+
 ---
 
 ## Dziesięć zasad wyprowadzonych z błędów
