@@ -118,7 +118,29 @@ serve(async (req) => {
   // trafia do logu, bo identyfikator rozmowy jest daną wrażliwą.
   // Ten blok niczego nie przekazuje dalej — służy tylko zdobyciu dowodu przed
   // podłączeniem conversation_id przez cały łańcuch.
+  // ZNACZNIK RIDO — tożsamość rozmowy z wiadomości systemowej (FAZA 1A).
+  //
+  // ElevenLabs nie przekazuje conversation_id do Custom LLM w żadnym polu (sonda
+  // niżej sprawdza osiem miejsc, wszystkie puste w każdej rozmowie). Ale UDOSTĘPNIA
+  // go jako systemową zmienną dynamiczną `system__conversation_id`, którą podstawia
+  // w prompcie — a prompt przychodzi tu jako wiadomość `system`, którą dotąd
+  // wyrzucaliśmy bez czytania.
+  //
+  // Prompt agenta musi kończyć się linią (panel ElevenLabs):
+  //   <<RIDO conv={{system__conversation_id}} caller={{system__caller_id}} called={{system__called_number}}>>
+  //
+  // Niepodstawiona zmienna zostaje w tekście jako "{{system__…}}" — traktujemy ją
+  // jak brak wartości, nie jak wartość. Znacznik jest wycinany, zanim cokolwiek
+  // trafi do modelu.
+  const systemMessage = inMessages.find((m) => m?.role === "system");
+  const systemText = typeof systemMessage?.content === "string" ? systemMessage.content : "";
+  const ridoMarker = systemText.match(/<<RIDO\s+conv=(\S*)\s+caller=(\S*)\s+called=(\S*)>>/);
+  const unresolved = (v: string | undefined) => !v || v.startsWith("{{") || v === "-";
+  const markerConversationId = ridoMarker && !unresolved(ridoMarker[1]) ? ridoMarker[1] : null;
+  const markerCallerId = ridoMarker && !unresolved(ridoMarker[2]) ? ridoMarker[2] : null;
+
   const conversationIdCandidates: Array<[string, unknown]> = [
+    ["system_marker", markerConversationId],
     ["header.elevenlabs-conversation-id", req.headers.get("elevenlabs-conversation-id")],
     ["header.x-conversation-id", req.headers.get("x-conversation-id")],
     ["header.xi-conversation-id", req.headers.get("xi-conversation-id")],
@@ -132,6 +154,7 @@ serve(async (req) => {
   // przerwie się błędem. Dziś nie wiemy, czy i gdzie ElevenLabs go przekazuje —
   // sonda sprawdza to tak samo jak identyfikator rozmowy i tak samo NIE loguje wartości.
   const callerNumberCandidates: Array<[string, unknown]> = [
+    ["system_marker", markerCallerId],
     ["header.x-caller-number", req.headers.get("x-caller-number")],
     ["header.from", req.headers.get("from")],
     ["body.caller_id", (reqBody as Record<string, unknown>)?.caller_id],
@@ -148,9 +171,28 @@ serve(async (req) => {
   const conversationIdSource = conversationIdCandidates
     .find(([, value]) => typeof value === "string" && (value as string).length > 0)?.[0] || null;
 
+  // ROZSTRZYGNIĘCIE HIPOTEZY O PODWÓJNYCH ŻĄDANIACH.
+  //
+  // ElevenLabs wysyła po dwa żądania na turę mimo `speculative_turn: false`
+  // (rozmowa 05.08 02:05 — 12 żądań na 8 tur). Dwa scenariusze, różne wnioski:
+  //   • identyczny skrót -> to retry po stronie ElevenLabs
+  //   • różny skrót      -> ASR poprawił transkrypt i tura poszła drugi raz,
+  //                         co pasuje do `turn_eagerness: "eager"`
+  // Logujemy WYŁĄCZNIE liczbę wiadomości, długość i skrót ostatniej wypowiedzi.
+  // Treść nie trafia do logu — to dane osobowe klienta.
+  const lastUser = [...inMessages].reverse().find((m) => m?.role === "user");
+  const lastUserText = typeof lastUser?.content === "string" ? lastUser.content : "";
+  let lastUserHash = 0;
+  for (let i = 0; i < lastUserText.length; i++) {
+    lastUserHash = (Math.imul(lastUserHash, 31) + lastUserText.charCodeAt(i)) >>> 0;
+  }
+
   console.info("[voice-agent-llm]", JSON.stringify({
     event: "conversation_id_probe",
     used_source: conversationIdSource,
+    messages: inMessages.length,
+    last_user_len: lastUserText.length,
+    last_user_hash: lastUserHash.toString(36),
     caller: callerNumberCandidates
       .filter(([, value]) => typeof value === "string" && value.length > 0)
       .map(([source, value]) => ({ source, length: String(value).length })),

@@ -337,6 +337,30 @@ serve(async (req) => {
     // Różnica wykonania: naszych narzędzi używamy sami (wołamy voice-agent-tools),
     // narzędzia klienta ODDAJEMY z powrotem do ElevenLabs jako tool_calls w SSE —
     // to on je wykonuje. Dlatego trzymamy ich nazwy osobno.
+    // POŻEGNANIE MA BYĆ WYPOWIEDZIANE, NIE WPISANE W PARAMETR.
+    //
+    // Schemat end_call od ElevenLabs zawiera pole `system__message_to_speak`.
+    // Model traktował je jako miejsce na pożegnanie i zwracał turę z pustym
+    // tekstem — rozmowa 05.08 02:05:
+    //   -> end_call {"system__message_to_speak":"Do widzenia, Panie Danielu."}
+    //   <- end_call {"result_type":"end_call_success","message":null}
+    // ElevenLabs tego nie wypowiedział, więc klient usłyszał rzuconą słuchawkę.
+    //
+    // Usuwamy to pole ze schematu podawanego modelowi. Nie mając gdzie schować
+    // pożegnania, musi je powiedzieć — a mowa leci do TTS zanim ElevenLabs
+    // wykona narzędzie. Samo narzędzie działa bez zmian: pole jest opcjonalne,
+    // a `reason` zostaje nietknięty.
+    const SPOKEN_PARAM = "system__message_to_speak";
+    const stripSpokenParam = (schema: Record<string, unknown>): Record<string, unknown> => {
+      const props = schema?.properties as Record<string, unknown> | undefined;
+      if (!props || !(SPOKEN_PARAM in props)) return schema;
+      const { [SPOKEN_PARAM]: _dropped, ...rest } = props;
+      const required = Array.isArray(schema?.required)
+        ? (schema.required as string[]).filter((r) => r !== SPOKEN_PARAM)
+        : schema?.required;
+      return { ...schema, properties: rest, ...(required !== undefined ? { required } : {}) };
+    };
+
     const clientToolNames = new Set<string>();
     if (isServiceCall && Array.isArray(body?.client_tools)) {
       for (const raw of body.client_tools as Array<Record<string, unknown>>) {
@@ -347,7 +371,7 @@ serve(async (req) => {
         tools.push({
           name,
           description: String(fn?.description || `Narzędzie systemowe ${name}`),
-          input_schema: parameters,
+          input_schema: stripSpokenParam(parameters),
         });
         clientToolNames.add(name);
       }
