@@ -168,6 +168,35 @@ serve(async (req) => {
           message: "Rezerwacja w tej rozmowie już istnieje.",
         });
       }
+
+      // ATOMOWE PRZEJĘCIE ROZMOWY.
+      //
+      // Sprawdzenie "czy już istnieje, jeśli nie to wstaw" NIE wystarcza, gdy żądania
+      // biegną równolegle: wszystkie trzy sprawdzają, zanim którekolwiek zapisze.
+      // Rozmowa 05.08 17:56 dostała trzy wpisy w grafiku i sześć SMS-ów właśnie tak.
+      //
+      // ElevenLabs wysyła duplikaty niezależnie od nas — trzy z czterech to poprawki
+      // ASR (ta sama liczba wiadomości, inna treść ostatniej wypowiedzi), jedno to
+      // czysty retry (identyczny skrót). Nie da się ich odróżnić po treści, więc
+      // rozstrzygamy to zapisem warunkowym w bazie: wygrywa żądanie, któremu UPDATE
+      // faktycznie zmienił wiersz. Reszta dostaje `duplicate` i nie dotyka bazy.
+      //
+      // Żądanie, które przejmie rozmowę, zawsze dokończy zapisy — nawet gdy ElevenLabs
+      // porzuci połączenie (widać w logach: porzucone żądania kończą swoje narzędzia).
+      if (conversationCall) {
+        const { data: claimed } = await admin.from("voice_calls")
+          .update({ linked_entity_type: "voice_booking_claim" })
+          .eq("id", conversationCall.id).eq("provider_id", providerId)
+          .is("linked_entity_type", null)
+          .select("id");
+        if (!claimed?.length) {
+          console.info("[voice-agent-tools] booking_claim_lost", { conversation: conversationId.slice(-8) });
+          return json({
+            ok: true, duplicate: true,
+            message: "Rezerwacja w tej rozmowie jest już tworzona.",
+          });
+        }
+      }
       const name = String(body?.customer_name || "").trim();
       const phone = String(body?.customer_phone || "").trim();
       const date = String(body?.scheduled_date || "");
@@ -189,9 +218,17 @@ serve(async (req) => {
       //
       // Dedup pomija teraz WYŁĄCZNIE wstawienie do service_bookings. Reszta kroku
       // wykonuje się dalej i dociąga to, czego brakuje przy istniejącej rezerwacji.
-      const { data: exBk } = await admin.from("service_bookings")
+      // UWAGA na `maybeSingle()`: przy WIĘCEJ NIŻ JEDNYM pasującym wierszu PostgREST
+      // zwraca BŁĄD, a nie wiersz. Z `const { data } = …` (bez `error`) wygląda to
+      // identycznie jak brak dopasowania — czyli kod idzie wstawić kolejny duplikat,
+      // przez co następne sprawdzenie pasuje do jeszcze większej liczby wierszy.
+      // Rozmowa 05.08 17:56 zrobiła tak trzy wpisy w grafiku i wysłała 6 SMS-ów.
+      // Dlatego wszędzie tam, gdzie duplikaty są możliwe: `limit(1)` + tablica.
+      const { data: exBkRows } = await admin.from("service_bookings")
         .select("id").eq("provider_id", providerId).eq("customer_phone", phone)
-        .eq("scheduled_date", date).eq("scheduled_time", time).neq("status", "cancelled").maybeSingle();
+        .eq("scheduled_date", date).eq("scheduled_time", time).neq("status", "cancelled")
+        .order("created_at", { ascending: true }).limit(1);
+      const exBk = exBkRows?.[0] || null;
 
       let bookingId: string;
       const bookingDuplicate = !!exBk;
@@ -236,11 +273,13 @@ serve(async (req) => {
       // Przy dedupie albo ponowionej turze wiersz grafiku może już istnieć —
       // wtedy go używamy zamiast wstawiać drugi (to byłby duplikat na siatce).
       let wcb: { id: string; confirmation_token: string | null; public_token: string | null } | null = null;
-      const { data: exWcb } = await admin.from("workshop_client_bookings")
+      const { data: exWcbRows } = await admin.from("workshop_client_bookings")
         .select("id, confirmation_token, public_token")
         .eq("provider_id", providerId).eq("phone", phone)
         .eq("appointment_date", date).eq("appointment_time", time)
-        .neq("status", "cancelled").maybeSingle();
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: true }).limit(1);
+      const exWcb = exWcbRows?.[0] || null;
       if (exWcb) {
         wcb = exWcb;
       } else {
