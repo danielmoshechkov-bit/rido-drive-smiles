@@ -296,6 +296,13 @@ workshop_workstations  12 wierszy   ← workshop_orders.workstation_id, grafik, 
 Pytanie do wyjaśnienia: **czy obie są używane, czy jedna to pozostałość.**
 Dziś kod agenta używa wyłącznie `workshop_workstations`.
 
+### H. Wiszące `linked_entity_id` — brak klucza obcego
+
+`voice_calls.linked_entity_id` **nie ma FK**, więc każde skasowane zlecenie
+zostawia wskaźnik donikąd. Stan 06.08: **14 wierszy wskazuje na `workshop_order`,
+z czego ZERO zleceń nadal istnieje.** Panel pokaże „brak rozmowy" albo błąd.
+Uniemożliwiło to też porównanie ekstrakcji z danymi historycznymi w dry_run.
+
 ### D. Urlop / nieobecność
 W panelu: okres od-do, powód, blokada slotów. Agent widzi to przez snapshot i podaje
 pierwszy wolny termin po powrocie.

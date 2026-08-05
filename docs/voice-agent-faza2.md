@@ -43,7 +43,7 @@ kontekst wejściowy. Zostaje `check_availability` i `end_call`.
 
 ---
 
-## Dziewiętnaście zasad wyprowadzonych z błędów
+## Dwadzieścia zasad wyprowadzonych z błędów
 
 Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w nowym kodzie.
 
@@ -166,6 +166,14 @@ Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w n
 
 **Test w `BEGIN … ROLLBACK` przy KAŻDEJ migracji jest standardem.** To on złapał
 wpisywanie identyfikatora do złej kolumny stanowiska, zanim trafiło na produkcję.
+
+20. **TESTY JEDNOSTKOWE SPRAWDZAJĄ KOD, NIE KONTEKST.**
+    `parseExtraction` miał 8/8 i był poprawny — brakowało mu **daty rozmowy**,
+    a klient nie wypowiada roku. Model wpisywał 2024/2025, czyli wizyty
+    w przeszłości, prawie w każdej rozmowie. Test na prawdziwym zbiorze
+    złapał to w minutę.
+    **Przy każdym module dotykającym danych z rozmowy: przepuść go przez
+    WSZYSTKIE zapisane transkrypty, zanim uznasz za gotowy.**
 
 **Kontrola przed każdym commitem do tego modułu:** przejdź listę i wskaż, którą zasadę
 zmiana realizuje albo mogłaby złamać. Pięć klas sprzeczności w prompcie v1 powstało
