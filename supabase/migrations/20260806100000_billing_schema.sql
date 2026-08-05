@@ -268,6 +268,62 @@ CREATE TABLE public.billing_audit_log (
 CREATE INDEX billing_audit_log_target ON public.billing_audit_log (target_table, target_id, created_at DESC);
 
 
+-- ------------------------------------------- walidacja podmiotu subskrypcji
+-- `subscriber_id` nie ma klucza obcego, bo wskazuje na jedną z pięciu tabel —
+-- platforma sprzedaje warsztatom, flotom, wynajmowi i nieruchomościom, więc
+-- przypięcie do jednej z nich wymagałoby później przepisania schematu.
+--
+-- Trigger odtwarza tę część integralności, której FK by pilnował: nie da się
+-- zapisać subskrypcji ani zużycia dla podmiotu, którego nie ma.
+--
+-- UWAGA — czego trigger NIE robi: nie kasuje kaskadowo. Po usunięciu warsztatu
+-- czy floty jego subskrypcja i liczniki zostaną w bazie jako sieroty. To ten sam
+-- wzorzec, który CLAUDE.md opisuje przy `drivers` („cascade deletes are manual"),
+-- więc ścieżki usuwania podmiotów trzeba uzupełnić o te dwie tabele.
+CREATE OR REPLACE FUNCTION public.billing_validate_subscriber()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_exists boolean;
+BEGIN
+  CASE NEW.subscriber_type
+    WHEN 'service_provider' THEN
+      SELECT EXISTS (SELECT 1 FROM public.service_providers WHERE id = NEW.subscriber_id) INTO v_exists;
+    WHEN 'fleet' THEN
+      SELECT EXISTS (SELECT 1 FROM public.fleets WHERE id = NEW.subscriber_id) INTO v_exists;
+    WHEN 'entity' THEN
+      SELECT EXISTS (SELECT 1 FROM public.entities WHERE id = NEW.subscriber_id) INTO v_exists;
+    WHEN 'company' THEN
+      SELECT EXISTS (SELECT 1 FROM public.companies WHERE id = NEW.subscriber_id) INTO v_exists;
+    WHEN 'user' THEN
+      SELECT EXISTS (SELECT 1 FROM auth.users WHERE id = NEW.subscriber_id) INTO v_exists;
+    ELSE
+      -- Nowa wartość enuma bez gałęzi tutaj = twarda odmowa, nie ciche przejście.
+      RAISE EXCEPTION 'billing: brak walidacji dla subscriber_type = %', NEW.subscriber_type;
+  END CASE;
+
+  IF NOT v_exists THEN
+    RAISE EXCEPTION 'billing: nie istnieje % o id %', NEW.subscriber_type, NEW.subscriber_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.billing_validate_subscriber() FROM anon, authenticated, PUBLIC;
+
+CREATE TRIGGER trg_billing_subscriptions_validate_subscriber
+  BEFORE INSERT OR UPDATE OF subscriber_type, subscriber_id ON public.billing_subscriptions
+  FOR EACH ROW EXECUTE FUNCTION public.billing_validate_subscriber();
+
+CREATE TRIGGER trg_billing_usage_validate_subscriber
+  BEFORE INSERT OR UPDATE OF subscriber_type, subscriber_id ON public.billing_usage
+  FOR EACH ROW EXECUTE FUNCTION public.billing_validate_subscriber();
+
+
 -- --------------------------------------------------------- updated_at
 -- Reuse istniejącego helpera (84 użycia w repo), zamiast dokładać własny.
 CREATE TRIGGER trg_billing_gateways_updated_at BEFORE UPDATE ON public.billing_gateways
