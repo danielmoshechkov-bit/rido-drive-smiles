@@ -324,6 +324,43 @@ hipoteza właściciela: **narzędzie czeka na zakończenie zapisu**, nie na TTS.
 To nie jest sufit platformy. Po FAZIE 2 tura to jedna runda modelu, która wypuszcza
 tekst i `end_call` razem — cel 0,5 s od ostatniego słowa jest osiągalny.
 
+## Punkt odniesienia: 795 ms — szybkość JUŻ jest, tylko niewidoczna
+
+Tura bez narzędzi w rozmowie 06.08 00:26: **795 ms**. To jest cel, który sobie
+postawiliśmy, i on **już został osiągnięty** — tylko przesłaniają go tury
+z narzędziami (4,9 s, 5,3 s, 12,0 s).
+
+**Nie budujemy szybkości, tylko ją odsłaniamy.**
+
+Budżet po FAZIE 2 + FAZIE A:
+```
+config     0 ms   (z webhooka inicjującego)
+hop     ~160 ms   (FAZA B, po rozdzielonym pomiarze)
+chat     ~14 ms
+model   ~800 ms
+─────────────────
+        ~975 ms
+```
+Cel 0,9–1,1 s jest realny **bez zmiany modelu i bez FAZY C**.
+
+## ⚠️ ZASADA PRACY: własne szacunki weryfikuj pomiarem, zanim staną się założeniem
+
+Dwie korekty własnych oszacowań w jednej sesji, obie moje:
+
+1. **„2,3 s w potoku ElevenLabs"** — okazało się zimnym startem naszych funkcji.
+2. **„775 ms narzutu naszej ścieżki"** — okazało się ~545 ms; przypisałem sobie
+   230 ms, których tam nie ma (budowa promptu to 1–2 ms, nie 370).
+
+W obu przypadkach oszacowanie zdążyło wejść do planu, zanim ktokolwiek je zmierzył.
+Liczba bez pomiaru jest hipotezą i ma być tak nazwana.
+
+## Otwarte: nakładające się głosy
+
+Rozmowa 06.08 00:26 miała **zero równoległych żądań** (osiem tur, osiem
+`execution_id`), a właściciel i tak słyszał nakładające się dźwięki.
+**Jeśli po FAZIE A objaw nadal wystąpi — zgłaszamy do ElevenLabs z `conversation_id`**,
+bo wtedy na pewno nie pochodzi od nas.
+
 ## Zachowania, które MUSZĄ przetrwać FAZĘ C
 
 - **Odmowa soboty:** „Pojutrze to sobota — niestety wtedy jesteśmy zamknięci.
