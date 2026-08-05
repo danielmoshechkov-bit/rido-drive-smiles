@@ -43,7 +43,7 @@ kontekst wejściowy. Zostaje `check_availability` i `end_call`.
 
 ---
 
-## Trzynaście zasad wyprowadzonych z błędów
+## Czternaście zasad wyprowadzonych z błędów
 
 Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w nowym kodzie.
 
@@ -106,6 +106,15 @@ Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w n
     i daje poprawne dane; halucynacja psuje całą rozmowę. Przekręcenie jest
     naprawialne, halucynacja nie.
     `asr.keywords` zostaje **puste na stałe**.
+
+14. **ODPOWIEDŹ NARZĘDZIA MUSI ODRÓŻNIAĆ SUKCES OD BEZCZYNNOŚCI.**
+    `ok: true` przy dedupie znaczyło „nic nie zrobiłem, bo już było" — a model
+    przeczytał to jako „zrobione" i powiedział klientowi „gotowe". Klient usłyszał
+    potwierdzenie wizyty, której nie umówiliśmy (rozmowy 05.08 18:23 i 21:37).
+    Każde narzędzie ma zwracać, **CO SIĘ STAŁO**, nie tylko czy się nie wywróciło:
+    `slot_already_booked`, `duplicate`, `order_failed` — a nie samo `ok`.
+    Kontrola: przeczytaj odpowiedź narzędzia oczami modelu i zapytaj, czy da się
+    z niej zbudować zdanie, które będzie **nieprawdziwe**.
 
 **Kontrola przed każdym commitem do tego modułu:** przejdź listę i wskaż, którą zasadę
 zmiana realizuje albo mogłaby złamać. Pięć klas sprzeczności w prompcie v1 powstało

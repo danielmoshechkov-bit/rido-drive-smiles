@@ -140,6 +140,81 @@ system__call_sid         system__timezone      system__time
 
 ---
 
+### 10. WRAŻENIE UŻYTKOWNIKA NIE ZASTĘPUJE LOGU
+
+`end_call` był zgłaszany jako niedziałający **pięć razy**. Przy ostatniej zmianie
+(rozdzielenie pytania domykającego od pożegnania) zaczął działać, ale zgłoszenie
+przyszło ponownie — bo właściciel rozłączył się w tej samej sekundzie co agent:
+
+```
+92s agent: "Do widzenia!"
+93s agent: TOOL -> end_call
+94s agent: WYNIK <- {"result_type":"end_call_success","status":"success"}
+termination_reason: "end_call tool was called."     (rozmowa trwała 95 s)
+```
+
+Zanim uznasz objaw za istniejący, sprawdź log. Dotyczy to obu stron: kilka razy
+to właściciel poprawiał moją błędną diagnozę dowodem, a kilka razy odwrotnie.
+
+---
+
+## Transfer do człowieka — temat ZAMKNIĘTY, nie wracać
+
+Rozeznane w dokumentacji ElevenLabs:
+
+1. `transfer_to_number` ma trzy tryby: **Conference** (domyślny, usuwa agenta
+   z rozmowy), **Blind** (tylko natywna integracja Twilio), **SIP REFER**
+   (działa przy naszym trunku, wymaga zgody operatora).
+2. **NIE MA POWROTU Z TRANSFERU.** Brak fallbacku, gdy nikt nie odbierze.
+   Scenariusz „człowiek pierwszy, agent zapasowy" jest dziś **niewykonalny na tej
+   platformie**. SignalWire ma na to `final=false`, ElevenLabs nie ma odpowiednika.
+3. **Znany błąd, istotny dla nas:** przy transferze ORAZ przy `end_call` połączenie
+   bywa ucinane, zanim agent skończy mówić. Zgłaszane od trzech miesięcy, występuje
+   przy SIP trunk i przy Twilio. Obejście istnieje tylko dla numerów z natywnej
+   integracji Twilio. **To może tłumaczyć „Do widzenia!..." z wielokropkiem
+   w transkrypcie.**
+
+Wniosek: transkrypcja rozmów prowadzonych przez człowieka wymagałaby centrali
+PRZED ElevenLabs (logika po stronie SuperVoIP), nie naszego kodu. Odkładamy —
+najpierw jeden agent działający niezawodnie.
+
+---
+
+## Backlog — do zrobienia PO osiągnięciu progu
+
+### A. Pytania klienta w trakcie rozmowy
+Dziś agent improwizuje. Dowód: klient zapytał o cenę, agent odpowiedział „to będzie
+wiadomo po diagnozie", mimo że warsztat ma cennik w module Moje usługi.
+Do FAZY 1B — snapshot ma zawierać **cennik, godziny otwarcia, adres i listę usług**.
+Trzy przypadki w prompcie: odpowiedź jest w kontekście → podaj od razu; usługi nie ma
+w cenniku → „wycenimy na miejscu"; klient nalega albo pyta o coś spoza kontekstu →
+`callback_requests`. **Agent NIGDY nie zgaduje ceny ani terminu realizacji.**
+
+### B. Uczenie się z rozmów — zasady, zanim to zbudujemy
+`voice-call-analyze` dopisał sobie sześć reguł, z których **pięć przeczyło** temu,
+co właśnie wprowadziliśmy. Obowiązujący podział:
+- **WYCIĄGAMY automatycznie (DANE):** ceny padające w rozmowie, czasy realizacji,
+  słownictwo klientów, aliasy marek, najczęstsze pytania. Zawsze `is_active = false`
+  do akceptacji człowieka.
+- **NIE WYCIĄGAMY (INSTRUKCJE):** sposób prowadzenia rozmowy, reguły zachowania,
+  formuły grzecznościowe.
+
+**Zasada: DANE można dopisywać automatycznie, INSTRUKCJI nie.**
+
+### C. Widok „Połączenia" w panelu warsztatu
+Zakładka obok Rezerwacji, licznik nieobsłużonych. Lista: data, numer, czas trwania,
+wynik, link do zlecenia, transkrypt do rozwinięcia. Filtr domyślny: tylko
+problematyczne. Przycisk „Utwórz zlecenie ręcznie". Plus `callback_requests`
+w tej samej warstwie.
+Uzasadnienie: **dziś awarie są niewidzialne** — warsztat nie ma jak się dowiedzieć,
+że stracił klienta.
+
+### D. Urlop / nieobecność
+W panelu: okres od-do, powód, blokada slotów. Agent widzi to przez snapshot i podaje
+pierwszy wolny termin po powrocie.
+
+---
+
 ## Kiedy przestajemy optymalizować
 
 Agent jest gotowy **jako wzorzec**, gdy w **PIĘCIU ROZMOWACH Z RZĘDU**:
