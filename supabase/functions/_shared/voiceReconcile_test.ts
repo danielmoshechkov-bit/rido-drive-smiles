@@ -210,6 +210,7 @@ test("marka rozpoznana dokładnie i z dokładnością do zapisu", () => {
 test("przekręcenia z PRAWDZIWYCH rozmów trafiają przez tablicę aliasów", () => {
   // Rozmowa 05.08 20:40 — klient powiedział "BMW X5", ASR zapisał "Bamboo Exchange".
   assert.deepEqual(matchBrand("Bamboo Exchange"), { brand: "BMW", source: "alias" });
+  assert.deepEqual(matchBrand("Brembo Extensja"), { brand: "BMW", source: "alias" });
   assert.deepEqual(matchBrand("szkoda"), { brand: "Skoda", source: "alias" });
   assert.deepEqual(matchBrand("Reno"), { brand: "Renault", source: "alias" });
 });

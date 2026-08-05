@@ -140,6 +140,33 @@ system__call_sid         system__timezone      system__time
 
 ---
 
+## Kiedy przestajemy optymalizować
+
+Agent jest gotowy **jako wzorzec**, gdy w **PIĘCIU ROZMOWACH Z RZĘDU**:
+
+- rozmowa poniżej **1:10**
+- tura poniżej **1,5 s** (mediana)
+- zlecenie, wpis w grafiku, SMS i transkrypt powstają **za każdym razem**
+- agent rozłącza się **sam, za pierwszym razem**
+- **zero** halucynacji ASR
+
+Po osiągnięciu tego progu **PRZESTAJEMY optymalizować** i przechodzimy do
+multi-tenancy — nawet jeśli będzie kusiło zejść o kolejne 200 ms.
+
+Powód: wzorzec to nie tylko prompt i architektura. To także `voice-agent-init`
+obsługujący dowolnego tenanta i model danych działający dla fryzjera i hotelu —
+a tego nie sprawdzimy, dopóki nie podepniemy drugiego klienta.
+
+### Rutyna po każdej nieudanej rozmowie
+
+Sprawdź, czy w transkrypcie nie ma przekręconej marki, i jeśli jest — **dopisz
+alias** do `BRAND_ALIASES` w `_shared/voiceReconcile.ts`. Tablica działa wyłącznie
+na tym, co do niej wpiszemy: odległość edycyjna nie zmapuje „Bamboo Exchange"
+na „BMW", bo to podobieństwo fonetyczne, nie literowe. Dotąd zebrane:
+`bambooexchange` i `bremboextensja` → BMW.
+
+---
+
 ## 🔴 OTWARTE RYZYKO BEZPIECZEŃSTWA — trunk SIP bez ograniczeń
 
 `GET /v1/convai/phone-numbers/phnum_4301ky85ype8e11aah6vjsezyvar`:

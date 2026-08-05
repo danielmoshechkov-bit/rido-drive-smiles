@@ -115,18 +115,37 @@ serve(async (req) => {
 
   const configStarted = performance.now();
   let cfg: VoiceAgentConfig | null = null;
+  let voiceContext: Record<string, unknown> | null = null;
   if (providerId) {
-    // Konfiguracja agenta jest stała przez całą rozmowę — czytamy ją raz na izolat.
-    cfg = await cachedContext(`cfg:${providerId}:${personaKey}`, async () => {
+    // JEDNO zapytanie zamiast czterech na turę.
+    //
+    // Pomiar 05.08 20:40: cztery round-tripy (voice_agent_configs w llm oraz
+    // voice_agent_knowledge, voice_agent_personas i ai_agents_config w chat)
+    // kosztowały 132-377 ms + 250-1070 ms. Cache w pamięci izolatu dał ZERO
+    // trafień na 42 odczyty — każda tura ląduje na świeżym izolacie, więc cache
+    // procesowy jest tu bezużyteczny i został zastąpiony tym RPC.
+    //
+    // Wynik jedzie do voice-agent-chat w ciele żądania (połączenie service-role),
+    // dzięki czemu chat nie dotyka bazy w ścieżce tury. Przyrost payloadu to
+    // ~4,9 KB, czyli ułamek milisekundy na serializację.
+    const { data: ctx, error: ctxError } = await admin
+      .rpc("get_voice_context", { p_provider_id: providerId, p_persona_key: personaKey });
+    if (ctxError) {
+      // ZASADA 12: błąd nie może wyglądać jak brak danych. Chat wróci wtedy
+      // do własnych odczytów, bo nie dostanie voice_context.
+      console.warn("[voice-agent-llm] context_rpc_failed", { code: ctxError.code });
+    }
+    voiceContext = (ctx as Record<string, unknown> | null) || null;
+    cfg = (voiceContext?.config as VoiceAgentConfig | null) || null;
+
+    // Fallback, gdy RPC nie zadziała: pojedynczy odczyt jak dotąd.
+    if (!cfg) {
       const { data, error } = await admin.from("voice_agent_configs")
         .select("business_context, display_name, languages, calendar_access, orders_access, voice_id, elevenlabs_agent_id")
         .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
-      if (error) {
-        console.warn("[voice-agent-llm] config_lookup_failed", { code: error.code });
-        return null;
-      }
-      return data as VoiceAgentConfig | null;
-    });
+      if (error) console.warn("[voice-agent-llm] config_lookup_failed", { code: error.code });
+      cfg = data;
+    }
   }
   logTiming("config", configStarted);
 
@@ -263,6 +282,7 @@ serve(async (req) => {
         // bajtowo taki sam jak przed Phase 1.
         ...(canary.enabled && conversationId ? { conversation_id: conversationId } : {}),
         ...(canary.enabled && clientTools.length ? { client_tools: clientTools } : {}),
+        ...(canary.enabled && voiceContext ? { voice_context: voiceContext } : {}),
         messages: convo,
         business_context: cfg?.business_context || {}, display_name: cfg?.display_name || "",
         languages: cfg?.languages || ["pl"], calendar_access: !!cfg?.calendar_access, orders_access: !!cfg?.orders_access,

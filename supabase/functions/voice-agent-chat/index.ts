@@ -238,20 +238,31 @@ serve(async (req) => {
     knowledgeQuery = providerId
       ? knowledgeQuery.or(`provider_id.eq.${providerId},provider_id.is.null`)
       : knowledgeQuery.is("provider_id", null);
-    // Reguły wiedzy i persona są stałe przez całą rozmowę — czytamy je raz na izolat.
-    const knowledgePromise = cachedContext(
-      `knowledge:${providerId}:${personaKey}`,
-      () => knowledgeQuery.order("evidence_count", { ascending: false }).limit(10),
-    );
+    // KONTEKST Z JEDNEGO ZAPYTANIA.
+    //
+    // voice-agent-llm woła get_voice_context i przekazuje wynik tutaj (połączenie
+    // service-role). Dzięki temu ścieżka tury NIE DOTYKA BAZY. Gdy kontekstu nie ma
+    // — panel testowy, starsza wersja llm, błąd RPC — czytamy jak dotąd, więc
+    // rozmowa działa w obu wariantach.
+    const ctx = (isServiceCall ? body?.voice_context : null) as {
+      persona?: { provider_agent_id?: string | null };
+      agent?: { model?: string | null; system_prompt?: string | null };
+      knowledge?: KnowledgeEntry[];
+    } | null;
+
+    const knowledgePromise = ctx?.knowledge
+      ? Promise.resolve({ data: ctx.knowledge })
+      : knowledgeQuery.order("evidence_count", { ascending: false }).limit(10);
 
     // Persona -> provider_agent_id -> prompt+model z ai_agents_config
-    const { data: persona } = await cachedContext(
-      `persona:${personaKey}`,
-      () => admin.from("voice_agent_personas").select("provider_agent_id, name, direction")
-        .eq("persona_key", personaKey).maybeSingle(),
-    );
+    const persona = ctx?.persona
+      ? ctx.persona
+      : (await admin.from("voice_agent_personas").select("provider_agent_id, name, direction")
+          .eq("persona_key", personaKey).maybeSingle()).data;
     const agentId = persona?.provider_agent_id || "voice_workshop_secretary";
-    const agent = await resolvePhase1Agent(admin, agentId, "claude-sonnet-4-6");
+    const agent = ctx?.agent?.model
+      ? { model: ctx.agent.model, systemPrompt: ctx.agent.system_prompt || undefined }
+      : await resolvePhase1Agent(admin, agentId, "claude-sonnet-4-6");
     // Wybór modelu rozmowy.
     //
     // LEGACY bez zmian: odrzuca Haiku i wymusza Sonnet (dawne założenie "Haiku brzmi

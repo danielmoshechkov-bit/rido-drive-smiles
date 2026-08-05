@@ -296,6 +296,7 @@ export const KNOWN_BRANDS = [
  */
 const BRAND_ALIASES: Record<string, string> = {
   bambooexchange: "BMW",   // rozmowa 05.08 20:40, klient mówił "BMW X5"
+  bremboextensja: "BMW",   // rozmowa 04.08, klient mówił "BMW X5"
   bemwu: "BMW",
   bemveu: "BMW",
   wolkswagen: "Volkswagen",
