@@ -284,6 +284,28 @@ async function handleInit(supabase: any, body: any) {
     .limit(1)
     .maybeSingle();
 
+  // Brak skonfigurowanej bramki NIE MOŻE oznaczać darmowego produktu.
+  //
+  // Niżej stoi gałąź, która przy `!gw` ustawiała płatność na "paid" z sesją
+  // "SIM-", uruchamiała processPaymentSuccess i wypłacała prowizję referral —
+  // czyli wydawała towar bez pobrania złotówki. A konfiguracja bramki jest dziś
+  // pusta, bo formularz w panelu zapisuje kolumny pos_id i is_sandbox, których
+  // ta tabela nie ma; każdy zapis kończy się błędem. Efektem było darmowe
+  // przyznawanie WSZYSTKIEGO, co przechodzi przez init.
+  //
+  // Sprawdzamy to PRZED utworzeniem wiersza płatności i przed zdjęciem salda,
+  // żeby odmowa nie zostawiała po sobie obciążonego portfela.
+  //
+  // Wyjątek: gdy saldo pokrywa całość (amount_to_charge === 0), operator nie jest
+  // do niczego potrzebny — ta ścieżka zostaje i jest obsłużona niżej.
+  if (amount_to_charge > 0 && (!gw || !gw.merchant_id)) {
+    console.error("payment-core: init odrzucony — brak konfiguracji bramki płatniczej");
+    return json({
+      error: "Płatności są chwilowo niedostępne",
+      code: "GATEWAY_NOT_CONFIGURED",
+    }, 503);
+  }
+
   // Create payment record
   const { data: payment, error: payErr } = await supabase
     .from("payments")
@@ -338,8 +360,11 @@ async function handleInit(supabase: any, body: any) {
     }
   }
 
-  // If wallet covers full amount, or no gateway configured — simulate paid
-  if (amount_to_charge === 0 || !gw || !gw.merchant_id) {
+  // Saldo pokryło całość — nie ma czego pobierać u operatora, zamówienie jest
+  // opłacone. Warunek `!gw || !gw.merchant_id` został stąd usunięty: brak
+  // konfiguracji bramki odrzucamy wyżej, zamiast wydawać towar za darmo.
+  // Prefiks "SIM-" zostaje dla zgodności z istniejącymi wierszami.
+  if (amount_to_charge === 0) {
     await supabase
       .from("payments")
       .update({ status: "paid", gateway_session_id: "SIM-" + payment.id, updated_at: new Date().toISOString() })
@@ -577,26 +602,58 @@ async function processPaymentSuccess(
   }
 }
 
+/**
+ * ⚠️ TA FUNKCJA NIE DZIAŁA PRZECIWKO OBECNEMU SCHEMATOWI.
+ *
+ * Odpytuje `user_credits` po kolumnach `balance` i `credit_type`, a tabela ma
+ * wyłącznie `credits_balance`, `user_id`, `id`, `created_at`, `updated_at`.
+ * Każde wywołanie kończy się błędem PostgREST, więc przyznanie kredytów po
+ * opłaceniu zamówienia (`ai_credits`, `sms_credits`, `ai_photo_package`) po
+ * cichu nie następuje — dotąd nikt tego nie zauważył, bo błędy nie były
+ * sprawdzane.
+ *
+ * Naprawa schematu i uzgodnienie magazynów należy do prac nad billingiem
+ * (patrz docs/billing/plan.md). Tutaj wyłącznie przestajemy milczeć: każde
+ * niepowodzenie zostawia ślad w logach z kompletem danych do ręcznej korekty.
+ *
+ * Osobna niezgodność, też do billingu: dla `sms_credits` środki lądują tutaj,
+ * a aplikacja czyta saldo SMS z `service_providers.sms_balance` — czyli z innego
+ * miejsca. Docelowym magazynem jest to drugie.
+ */
 async function upsertCredits(supabase: any, userId: string, creditType: string, amount: number) {
-  const { data: existing } = await supabase
+  const fail = (stage: string, error: unknown) =>
+    console.error(
+      `payment-core: NIE PRZYZNANO kredytów (${stage}) — user=${userId} typ=${creditType} ilosc=${amount}`,
+      error,
+    );
+
+  const { data: existing, error: readErr } = await supabase
     .from("user_credits")
     .select("id, balance")
     .eq("user_id", userId)
     .eq("credit_type", creditType)
     .maybeSingle();
 
+  if (readErr) {
+    fail("odczyt salda", readErr);
+    return;
+  }
+
   if (existing) {
-    await supabase
+    const { error } = await supabase
       .from("user_credits")
       .update({ balance: existing.balance + amount, updated_at: new Date().toISOString() })
       .eq("id", existing.id);
-  } else {
-    await supabase.from("user_credits").insert({
-      user_id: userId,
-      credit_type: creditType,
-      balance: amount,
-    });
+    if (error) fail("aktualizacja salda", error);
+    return;
   }
+
+  const { error } = await supabase.from("user_credits").insert({
+    user_id: userId,
+    credit_type: creditType,
+    balance: amount,
+  });
+  if (error) fail("utworzenie salda", error);
 }
 
 async function handleCreditsCheck(supabase: any, body: any) {
