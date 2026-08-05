@@ -81,7 +81,24 @@ tworzył**. Zakaz sprzeczny z rzeczywistością nie działa. Zniknie dopiero z F
 Klucz telefon+data+godzina sprawiał, że każdy test zderzał się z poprzednim: dedup
 zwracał wczorajszą rezerwację, `create_order` widział wczorajsze zlecenie, nie powstawało nic.
 
-### 6. Latencja — co jest, a co nie jest przyczyną
+### 6. NAJPIERW KONFIGURACJA PLATFORMY, POTEM KOD
+
+`turn_timeout` 10 s → 4 s, jedno pole w panelu ElevenLabs:
+
+| | przed | po |
+|---|---|---|
+| cisza przed inicjacją, średnia | 2,52 s | **0,79 s** |
+| maksymalna | 6,40 s | **2,56 s** |
+| tury ucięte w połowie zdania | — | **0** |
+
+**−1,73 s na turze — więcej niż wszystkie zmiany w kodzie z tego tygodnia razem.**
+Prompt caching, env-first, keep-warm i cache izolatu dały łącznie mniej.
+
+Lekcja: zanim zaczniesz optymalizować kod, **przejrzyj konfigurację platformy**.
+Przez tydzień mierzyliśmy własne warstwy, a największa pojedyncza pozycja siedziała
+w polu, którego nikt nie ruszył.
+
+### 7. Latencja — co jest, a co nie jest przyczyną
 | Pozycja | Wartość | Status |
 |---|---|---|
 | zimny start dwóch funkcji | 1,96 s | ✅ zdjęte keep-warmem (dwa crony `* * * * *`, sprawdzone: `succeeded`) |
@@ -91,7 +108,7 @@ zwracał wczorajszą rezerwację, `create_order` widział wczorajsze zlecenie, n
 | tura Z zapisem | 8316 ms / 15218 ms | znika z FAZĄ 2 |
 | region / migracja | eu-central-1, PoP Praga | zysk 0, kierunek skreślony |
 
-### 7. `conversation_id` — jest, ale nie tam, gdzie go szukaliśmy
+### 8. `conversation_id` — jest, ale nie tam, gdzie go szukaliśmy
 ElevenLabs **nie przekazuje** go do Custom LLM w żadnym polu (sonda: 8 miejsc, wszystkie
 puste w każdej rozmowie). **Udostępnia go jako zmienną dynamiczną** `system__conversation_id`,
 podstawianą w prompcie — a prompt przychodzi jako wiadomość `system`, którą
@@ -103,7 +120,7 @@ system__conversation_id  system__caller_id     system__called_number
 system__call_sid         system__timezone      system__time
 ```
 
-### 8. Inne
+### 9. Inne
 - **`station_id` w `workshop_client_bookings` = warunek widoczności w grafiku**
   (`WorkshopScheduler:277` mapuje na `scheduled_station_id`)
 - **Daty w `Europe/Warsaw`** — runtime chodzi w UTC, a między północą a 2:00 lokalnego

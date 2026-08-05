@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   findSimilarPlates,
   isPlausiblePlate,
+  matchBrand,
   missingForCommit,
   plateFingerprint,
   normalizePhone,
@@ -194,4 +195,51 @@ test("nazwisko uzupełnia się z bazy także po rozpoznaniu pojazdu", () => {
   });
   assert.equal(r.clientId, "c-wlasciciel");
   assert.equal(r.needsReview, true);
+});
+
+// ---------------------------------------------------------------------------
+// MARKI — dopasowanie po rozmowie (zasada 13: nie poprawiaj ASR na wejściu)
+// ---------------------------------------------------------------------------
+
+test("marka rozpoznana dokładnie i z dokładnością do zapisu", () => {
+  assert.deepEqual(matchBrand("BMW"), { brand: "BMW", source: "exact" });
+  assert.deepEqual(matchBrand("bmw"), { brand: "BMW", source: "exact" });
+  assert.deepEqual(matchBrand("Alfa Romeo"), { brand: "Alfa Romeo", source: "exact" });
+});
+
+test("przekręcenia z PRAWDZIWYCH rozmów trafiają przez tablicę aliasów", () => {
+  // Rozmowa 05.08 20:40 — klient powiedział "BMW X5", ASR zapisał "Bamboo Exchange".
+  assert.deepEqual(matchBrand("Bamboo Exchange"), { brand: "BMW", source: "alias" });
+  assert.deepEqual(matchBrand("szkoda"), { brand: "Skoda", source: "alias" });
+  assert.deepEqual(matchBrand("Reno"), { brand: "Renault", source: "alias" });
+});
+
+test("literówki w nazwach wymawianych jako słowo łapie odległość edycyjna", () => {
+  assert.equal(matchBrand("Toyta")?.brand, "Toyota");
+  assert.equal(matchBrand("Toyta")?.source, "fuzzy");
+  assert.equal(matchBrand("Mercedez")?.brand, "Mercedes");
+  assert.equal(matchBrand("Hyundaj")?.brand, "Hyundai");
+  // Pierwszy człon wystarczy — "Toyta Corolla" ma trafić po marce.
+  assert.equal(matchBrand("Toyta Corolla")?.brand, "Toyota");
+});
+
+test("krótkie nazwy nie przyjmują dwóch poprawek — inaczej Kia zlałaby się z Fiatem", () => {
+  assert.equal(matchBrand("Kia")?.source, "exact");
+  // Dwie zmiany na trzyliterowej nazwie to już inna marka, nie literówka.
+  const daleko = matchBrand("Xyz");
+  assert.equal(daleko?.source, "unknown");
+});
+
+test("nierozpoznana marka NIE blokuje zapisu — zostaje to, co powiedział klient", () => {
+  // ZASADA 9. Warsztat poprawi przy przyjęciu auta, tak samo jak rejestrację.
+  const m = matchBrand("Jakaś Chińska Marka");
+  assert.equal(m?.source, "unknown");
+  assert.equal(m?.brand, "Jakaś Chińska Marka");
+  assert.deepEqual(missingForCommit(extracted({ brand: "Jakaś Chińska Marka" }), "519474583"), []);
+});
+
+test("pusta marka daje null, nie wyjątek", () => {
+  assert.equal(matchBrand(null), null);
+  assert.equal(matchBrand(""), null);
+  assert.equal(matchBrand("   "), null);
 });

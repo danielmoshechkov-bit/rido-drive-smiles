@@ -43,7 +43,7 @@ kontekst wejściowy. Zostaje `check_availability` i `end_call`.
 
 ---
 
-## Dziesięć zasad wyprowadzonych z błędów
+## Trzynaście zasad wyprowadzonych z błędów
 
 Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w nowym kodzie.
 
@@ -93,6 +93,19 @@ Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w n
     nazwy firmy przy poprawnych danych), nieodebrany błąd zapisu do grafiku.
     **Zawsze odbieraj `error` i loguj go.** W `voice-call-commit` błąd zapytania musi
     przerwać transakcję, a nie po cichu zmienić wynik.
+
+13. **NIE POPRAWIAJ ASR NA WEJŚCIU, POPRAW DANE NA WYJŚCIU.**
+    Wszystko, co próbuje pomóc rozpoznawaniu w locie — `asr.keywords`, keyword
+    biasing, ponowna transkrypcja — ryzykuje halucynacją. Dopasowanie po rozmowie
+    jest darmowe, bezpieczne i bez presji czasu.
+    Dowód: `asr.keywords` przez tydzień produkowało zmyślone wypowiedzi (agent
+    odpowiedział na nieistniejące pytanie o cenę, `end_call` unieważniony
+    dziewięć razy); po wyczyszczeniu listy halucynacje zniknęły w pierwszej
+    rozmowie. Ten sam problem rozwiązuje `matchBrand` po rozmowie, bez ryzyka.
+    **Ryzyko jest asymetryczne:** przekręcenie kosztuje jedną turę dopytania
+    i daje poprawne dane; halucynacja psuje całą rozmowę. Przekręcenie jest
+    naprawialne, halucynacja nie.
+    `asr.keywords` zostaje **puste na stałe**.
 
 **Kontrola przed każdym commitem do tego modułu:** przejdź listę i wskaż, którą zasadę
 zmiana realizuje albo mogłaby złamać. Pięć klas sprzeczności w prompcie v1 powstało
