@@ -43,7 +43,7 @@ kontekst wejściowy. Zostaje `check_availability` i `end_call`.
 
 ---
 
-## Osiemnaście zasad wyprowadzonych z błędów
+## Dziewiętnaście zasad wyprowadzonych z błędów
 
 Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w nowym kodzie.
 
@@ -153,6 +153,19 @@ Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w n
     w złym terminie albo wcale, a warsztat trzyma zajęty slot.
     Dotyczy też odwrotności: nie „naprawiamy" nazwiska ani marki na siłę —
     dopasowanie z bazy owszem, zgadywanie nie.
+
+19. **PRZED ZBUDOWANIEM SPRAWDŹ, CZY TEGO NIE MA.**
+    Zasada 17 mówi: zanim przepiszesz, sprawdź **czemu stare nie działa**.
+    Ta mówi: zanim napiszesz nowe, sprawdź **czy stare nie istnieje**.
+    Dowód: `next_workshop_order_number` istniała od kwietnia, z triggerem
+    i blokadą wiersza. Duplikat nie tylko był zbędny — przeciążenie uczyniło
+    wywołania jednoargumentowe niejednoznacznymi i mogło zepsuć RPC z panelu,
+    czyli coś **spoza agenta**.
+    **Kontrola:** przy każdej nowej funkcji SQL i każdym nowym module najpierw
+    przeszukaj schemat i kod pod kątem nazwy oraz nazw zbliżonych.
+
+**Test w `BEGIN … ROLLBACK` przy KAŻDEJ migracji jest standardem.** To on złapał
+wpisywanie identyfikatora do złej kolumny stanowiska, zanim trafiło na produkcję.
 
 **Kontrola przed każdym commitem do tego modułu:** przejdź listę i wskaż, którą zasadę
 zmiana realizuje albo mogłaby złamać. Pięć klas sprzeczności w prompcie v1 powstało

@@ -275,6 +275,27 @@ Gdy commit się nie uda → rozmowa do kolejki ze statusem `cancel_failed`
 
 Do wdrożenia **po** progu pięciu udanych rozmów.
 
+### F. 🔴 Numeracja zleceń zwraca numery do obiegu — PRIORYTET WYSOKI
+
+`next_workshop_order_number` szuka **najmniejszego nieużywanego numeru od 1 do max+1**,
+więc skasowanie zlecenia **oddaje jego numer następnemu**. Potwierdzone 06.08:
+po usunięciu sierpniowych zleceń testowych kolejne dostało `ZLP-08/2026-001` —
+numer, który już był u klienta na SMS-ie.
+
+Właściwe zachowanie: **numer raz nadany nigdy nie wraca, licznik idzie tylko w górę.**
+
+Zmiana dotknie też zleceń zakładanych ręcznie w panelu, więc trzeba to **zaplanować,
+nie załatać**. Do zrobienia PO dry_run i po wdrożeniu commitu.
+
+### G. Dwie tabele stanowisk — dług do rozstrzygnięcia
+
+```
+workshop_stations       2 wiersze   ← workshop_orders.station_id
+workshop_workstations  12 wierszy   ← workshop_orders.workstation_id, grafik, check_availability
+```
+Pytanie do wyjaśnienia: **czy obie są używane, czy jedna to pozostałość.**
+Dziś kod agenta używa wyłącznie `workshop_workstations`.
+
 ### D. Urlop / nieobecność
 W panelu: okres od-do, powód, blokada slotów. Agent widzi to przez snapshot i podaje
 pierwszy wolny termin po powrocie.
