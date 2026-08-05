@@ -123,6 +123,28 @@ system__call_sid         system__timezone      system__time
 
 ---
 
+## 🔴 OTWARTE RYZYKO BEZPIECZEŃSTWA — trunk SIP bez ograniczeń
+
+`GET /v1/convai/phone-numbers/phnum_4301ky85ype8e11aah6vjsezyvar`:
+
+```
+inbound_trunk.allowed_addresses: ["0.0.0.0/0"]
+has_auth_credentials: false
+username: null
+media_encryption: "allowed"     (nie "required")
+```
+
+**Trunk przyjmuje połączenia z całego internetu, bez uwierzytelnienia.** Kto zna
+adres SIP, może dzwonić na agenta i palić kredyty ElevenLabs — a to główny koszt
+rozmowy (21 rozmów = 21,4 tys. kredytów przy koszcie LLM 0 $).
+
+Do zamknięcia: zakres adresów IP SBC od SuperVoIP → wpisać w `allowed_addresses`
+zamiast `0.0.0.0/0`. Zgłoszone do operatora 05.08.
+
+Osobno, znalezione przy okazji: **siedem zadań cron ma token wpisany wprost
+w treści** (`Bearer <wartość>` w `cron.job.command`). Zadania voice keep-warm
+czytają go z Vault; pozostałe nie. Nie ruszane.
+
 ## Konfiguracja ElevenLabs
 
 ```
