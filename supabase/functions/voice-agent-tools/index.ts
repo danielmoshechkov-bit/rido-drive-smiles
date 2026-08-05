@@ -317,19 +317,45 @@ serve(async (req) => {
           if (smsAlready) {
             smsSent = true;
           } else {
-          const { data: prov } = await admin.from("service_providers").select("company_name, address, city").eq("id", providerId).maybeSingle();
-          const company = prov?.company_name || "serwis";
-          const addr = [prov?.address, prov?.city].filter(Boolean).join(", ");
-          // Skrócony szablon — mieści się w 1 SMS; drop adresu jeśli i tak przekracza 160.
-          let msg = `${company}: potwierdzenie wizyty ${date} ${time}.` + (addr ? ` ${addr}.` : "") + ` Zarzadzaj: ${manageLink}`;
-          if (msg.length > 160) msg = `${company}: potwierdzenie wizyty ${date} ${time}. Zarzadzaj: ${manageLink}`;
-          const r = await fetch(`${supabaseUrl}/functions/v1/workshop-send-sms`, {
+          // KOLUMNY: `service_providers` NIE MA pól `address` ani `city`. Poprzednie
+          // zapytanie o nie zwracało błąd, a `const { data: prov }` bez `error` dawał
+          // null — stąd SMS "serwis: potwierdzenie wizyty..." bez nazwy firmy i adresu,
+          // przy poprawnie wypełnionych danych warsztatu. Te same pola co
+          // booking-reminders: short_name/company_name + company_address/postal/city.
+          const { data: prov, error: provErr } = await admin.from("service_providers")
+            .select("short_name, company_name, company_address, company_postal_code, company_city")
+            .eq("id", providerId).maybeSingle();
+          if (provErr) console.error("[voice-agent-tools] provider_lookup_failed", { code: provErr.code });
+          const company = prov?.short_name || prov?.company_name || "serwis";
+          const addr = [prov?.company_address,
+                        [prov?.company_postal_code, prov?.company_city].filter(Boolean).join(" ")]
+                       .filter(Boolean).join(", ");
+          const service = String(body?.notes || body?.service_name || "").replace(/^\[[^\]]*\]\s*/, "").trim();
+          let msg = `${company}: wizyta ${date} ${time}.`
+            + (service ? ` ${service}.` : "")
+            + (addr ? ` ${addr}.` : "")
+            + ` Zarzadzaj: ${manageLink}`;
+          // Kolejno odchudzamy, aż zmieści się w jednym SMS-ie: najpierw adres, potem usługa.
+          if (msg.length > 160) msg = `${company}: wizyta ${date} ${time}.` + (service ? ` ${service}.` : "") + ` Zarzadzaj: ${manageLink}`;
+          if (msg.length > 160) msg = `${company}: wizyta ${date} ${time}. Zarzadzaj: ${manageLink}`;
+
+          // SMS NIE MOŻE OPÓŹNIAĆ TURY. To wywołanie sieciowe do bramki, a klient
+          // czeka w tym czasie w ciszy. Oddajemy je runtime'owi: żądanie może się
+          // zakończyć, a wysyłka i tak dobiegnie końca.
+          const sendSms = fetch(`${supabaseUrl}/functions/v1/workshop-send-sms`, {
             method: "POST",
             headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
             body: JSON.stringify({ provider_id: providerId, phone, message: msg, sms_type: "booking_confirmation_ai", appointment_id: wcb.id }),
-          });
-          const rj = await r.json().catch(() => ({}));
-          smsSent = !rj?.error;
+          }).then(async (r) => {
+            const rj = await r.json().catch(() => ({}));
+            if (rj?.error) console.error("[voice-agent-tools] sms_failed", { status: r.status });
+          }).catch((e) => console.error("[voice-agent-tools] sms_error", { name: (e as Error)?.name }));
+
+          const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+          if (runtime?.waitUntil) runtime.waitUntil(sendSms); else await sendSms;
+          // Zaplanowany, nie potwierdzony — dlatego agent mówi "przyjdzie w ciągu
+          // kilku minut", a nie "wysłaliśmy".
+          smsSent = true;
           }
         }
       } catch (_) { /* SMS best-effort — nie blokuje rezerwacji */ }
@@ -378,7 +404,9 @@ serve(async (req) => {
         client_booking_id: wcb?.id || null,
         manage_token: wcb?.confirmation_token || null,
         manage_link: manageLink, sms_sent: smsSent,
-        message: `Rezerwacja utworzona na ${date} ${time}.${smsSent ? " Wysłano SMS potwierdzenia z linkiem." : ""}`,
+        // Model powtarza to, co dostanie. "Wysłano SMS" kazało mu mówić w czasie
+        // przeszłym o wiadomości, która dopiero wychodzi.
+        message: `Rezerwacja utworzona na ${date} ${time}.${smsSent ? " Potwierdzenie przyjdzie SMS-em w ciągu kilku minut." : ""}`,
       });
     }
 

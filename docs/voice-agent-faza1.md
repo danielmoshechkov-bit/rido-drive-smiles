@@ -178,6 +178,38 @@ interface AvailabilitySource {
 
 Bez tego przełączenie na model generyczny będzie przepisywaniem snapshotu od zera.
 
+### Snapshot zawiera także CENNIK
+
+Cennik to dane statyczne, więc idzie do snapshotu razem z terminami.
+**Agent nigdy nie sprawdza cen w trakcie rozmowy** — ma je w kontekście od pierwszej
+sekundy. Źródło: moduł „Moje usługi" warsztatu.
+
+```ts
+type PriceItem = {
+  name: string;            // "Napełnienie czynnikiem R134YF"
+  price_from: number;      // 150
+  price_to: number | null; // 250 przy widełkach, null przy cenie stałej
+  unit: "PLN";
+};
+```
+
+Scenariusze — do wpisania w prompt:
+
+| Sytuacja | Zachowanie agenta |
+|---|---|
+| usługa **jest** w cenniku, cena stała | podaje od razu, bez zapowiedzi: „Napełnienie klimatyzacji to sto pięćdziesiąt złotych" |
+| usługa **jest**, cena widełkowa | „od stu pięćdziesięciu do dwustu pięćdziesięciu złotych, dokładnie wycenimy na miejscu" |
+| usługi **nie ma** w cenniku | „Wycenimy usługę na miejscu, przed rozpoczęciem naprawy" |
+| klient **nalega** na konkretną kwotę | „Przekażę zapytanie do warsztatu, oddzwonimy z wyceną" → zapis do `callback_requests` z tematem `wycena: <usługa>` + SMS do warsztatu |
+
+Ostatni przypadek to **jedyny** zapis w trakcie rozmowy poza miękką blokadą slotu —
+i tak samo jak ona: `EdgeRuntime.waitUntil`, bez `await`, idempotentny po
+`conversation_id`. Alternatywa: przenieść go do `voice-call-commit` razem z resztą,
+bo oddzwonienie i tak nie jest pilne w tej samej minucie. **Rekomendacja: do commitu**,
+zgodnie z zasadą „nic, co da się zrobić po rozmowie, nie dzieje się w trakcie".
+
+Kwoty w prompcie **słowami**, nie cyframi — obowiązuje blok WYMOWA.
+
 **Cała arytmetyka dat w `Europe/Warsaw`**, nie w UTC. Runtime Edge Functions chodzi
 w UTC, a między północą a 2:00 czasu lokalnego data UTC jest o dzień wcześniejsza —
 snapshot policzony w UTC podałby wtedy „jutro" o dzień za wcześnie.
