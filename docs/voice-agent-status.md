@@ -296,6 +296,29 @@ workshop_workstations  12 wierszy   ← workshop_orders.workstation_id, grafik, 
 Pytanie do wyjaśnienia: **czy obie są używane, czy jedna to pozostałość.**
 Dziś kod agenta używa wyłącznie `workshop_workstations`.
 
+### 🔴 LEKCJA OGÓLNA: ŚCIEŻKI STANU POCZĄTKOWEGO SĄ TESTOWANE NAJRZADZIEJ
+
+Do przeczytania **przed podpięciem drugiego tenanta.**
+
+Każda ścieżka, która wykonuje się **raz na klienta i nigdy więcej**, jest testowana
+najrzadziej — a psuje się u **każdego nowego użytkownika**:
+
+- pierwszy klient (INSERT do `workshop_clients`) — **złapane**: `client_type: "private"`
+  łamał CHECK i wywalał każdą pierwszą wizytę nowej osoby
+- pierwszy provider bez statusów zleceń
+- pierwszy miesiąc bez wpisu w liczniku numeracji
+- pierwsza rozmowa bez wiersza w `voice_calls`
+- pierwszy pojazd, pierwsza kategoria usług, pierwszy wpis w grafiku
+
+Tester po pierwszym teście **istnieje w bazie**, więc te ścieżki przestają się
+wykonywać i nikt ich już nie dotyka.
+
+**To jest wprost ryzyko przy multi-tenancy: drugi warsztat trafi we WSZYSTKIE
+te ścieżki naraz, pierwszego dnia.**
+
+**Do stosowania:** każdy scenariusz tworzący cokolwiek po raz pierwszy testuj
+osobno, z danymi, których w bazie nie ma — najlepiej w `BEGIN … ROLLBACK`.
+
 ### 🔴 LEKCJA: ścieżka NOWEGO klienta jest systematycznie nietestowana
 
 `client_type: "private"` łamał `workshop_clients_client_type_check`

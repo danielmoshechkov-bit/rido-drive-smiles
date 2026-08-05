@@ -367,3 +367,6 @@ verify_jwt = false
 
 [functions.voice-call-commit]
 verify_jwt = false
+
+[functions.voice-call-reconcile]
+verify_jwt = false

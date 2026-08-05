@@ -491,15 +491,24 @@ test("address form: no surname, no plural", () => {
   assert.match(chat, /NIGDY "Wam", "Wasze", "Chętnie Wam pomogę"/);
 });
 
-test("booking must precede order and SMS is not promised before success", () => {
+test("agent NIE tworzy rezerwacji ani zlecenia — robi to commit po rozmowie", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
-  // W rozmowie z 04.08 21:05 powstały DWA zlecenia i ZERO rezerwacji — więc SMS
-  // nie mógł wyjść, bo wysyłka żyje wyłącznie w create_booking.
-  assert.match(chat, /create_booking MUSI zostać wywołane PRZED create_order/);
-  assert.match(chat, /samo zlecenie NIE wysyła SMS-a/);
-  assert.match(chat, /NIGDY nie wywołuj create_order dwa razy w jednej turze/);
-  assert.match(chat, /NIE obiecuj SMS-a, dopóki create_booking nie zwróci sukcesu/);
+  // Zasada nadrzędna: agent rozmawia i notuje. Narzędzia zapisujące zniknęły 06.08,
+  // bo tura z zapisem trwała 7,1-10,8 s wobec 795 ms bez narzędzi, a każdy zapis
+  // był podatny na duplikat żądania od ElevenLabs i przerywał turę przed end_call.
+  assert.doesNotMatch(chat, /name: "create_booking"/);
+  assert.doesNotMatch(chat, /name: "create_order"/);
+  assert.match(chat, /name: "check_availability"/, "check_availability zostaje jako wyjątek");
+  assert.match(chat, /NIE TWORZYSZ rezerwacji ani zlecenia/);
+  assert.match(chat, /Masz JEDNO narzędzie: check_availability/);
+
+  // W prompcie nie może zostać ani jedno odwołanie do narzędzi, których już nie ma —
+  // reguła o narzędziu, którego model nie dostał, jest niewykonalna (zasada 11).
+  const prompt = [...chat.matchAll(/system \+= `((?:[^`\\]|\\.)*)`/g)].map((m) => m[1]).join("\n");
+  for (const znikle of ["create_booking", "create_order", "KOLEJNOŚĆ NARZĘDZI"]) {
+    assert.equal(prompt.includes(znikle), false, `prompt nie może wspominać o ${znikle}`);
+  }
 });
 
 test("conversation model comes from configuration, legacy still forced to Sonnet", () => {
