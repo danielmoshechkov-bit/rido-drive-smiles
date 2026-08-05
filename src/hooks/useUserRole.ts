@@ -2,11 +2,18 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { DelegatedRolePermissions } from './useDelegatedRole';
 
-export type UserRole = 'admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'real_estate_agent' | 'real_estate_admin' | 'marketplace_user' | 'accounting_admin' | 'accountant' | 'sales_admin' | 'sales_rep' | 'service_provider' | null;
+export type UserRole = 'admin' | 'platform_admin' | 'fleet_settlement' | 'fleet_rental' | 'driver' | 'real_estate_agent' | 'real_estate_admin' | 'marketplace_user' | 'accounting_admin' | 'accountant' | 'sales_admin' | 'sales_rep' | 'service_provider' | null;
 
 interface UseUserRoleReturn {
   role: UserRole;
   roles: UserRole[];
+  /**
+   * Rola właściciela platformy — bramkuje sekcję billingową. Celowo osobna od
+   * `isAdmin`: administrator obsługuje klientów, `platform_admin` ustala cennik
+   * i konfigurację operatorów płatności. Tabele billing_* i tak sprawdzają ją
+   * po stronie bazy (RLS), tutaj decydujemy tylko o widoczności zakładek.
+   */
+  isPlatformAdmin: boolean;
   fleetId: string | null;
   loading: boolean;
   isAdmin: boolean;
@@ -162,6 +169,9 @@ export const useUserRole = (): UseUserRoleReturn => {
     fleetId,
     loading,
     isAdmin: role === 'admin',
+    // Świadomie po `roles`, nie po `role`: konto właściciela ma zwykle też rolę
+    // `admin`, która wygrywa w priorytecie wyboru pojedynczej roli wyżej.
+    isPlatformAdmin: roles.includes('platform_admin' as UserRole),
     isFleetSettlement: roles.includes('fleet_settlement'),
     isFleetRental: roles.includes('fleet_rental'),
     isDriver: role === 'driver' || roles.includes('driver'),

@@ -373,3 +373,9 @@ verify_jwt = true
 # bez skonfigurowanego klucza funkcja zwraca 503 zamiast przepuszczać żądanie.
 [functions.payment-core-webhook]
 verify_jwt = false
+
+# Jedyna droga zapisu do katalogu funkcji billingowych. Bramka JWT to warstwa
+# wstępna — właściwa kontrola (rola platform_admin z tabeli user_roles) jest
+# w samej funkcji.
+[functions.billing-admin-features]
+verify_jwt = true
