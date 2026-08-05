@@ -49,6 +49,8 @@ export type ReconcileInput = {
   clientsByPhone: KnownClient[];
   /** Kandydaci wyszukani po znormalizowanej rejestracji. */
   vehiclesByPlate: KnownVehicle[];
+  /** Wszystkie pojazdy tenanta — do wykrycia rejestracji podobnej, nie identycznej. */
+  allVehicles?: Array<{ id: string; plate: string | null }>;
 };
 
 export type ReconcileResult = {
@@ -66,6 +68,10 @@ export type ReconcileResult = {
   /** Sprzeczność, którą zapisujemy mimo wszystko (zasada 9). */
   needsReview: boolean;
   reviewReason: string | null;
+  /** Rejestracja nie przeszła walidacji formatu — agent powinien dopytać. */
+  plateSuspicious: boolean;
+  /** Podobne rejestracje z bazy. Do DOPYTANIA, nigdy do automatycznego scalenia. */
+  plateCandidates: PlateCandidate[];
 };
 
 /** Dziewięć ostatnich cyfr — znosi prefiksy, spacje i myślniki. */
@@ -76,6 +82,76 @@ export const normalizePhone = (value: string | null | undefined): string =>
 export const normalizePlate = (value: string | null | undefined): string =>
   (value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
+// ---------------------------------------------------------------------------
+// REJESTRACJA JAKO GŁÓWNY IDENTYFIKATOR POJAZDU
+//
+// Nazwisko wypada z sekwencji, więc pojazd rozpoznajemy po rejestracji — a ta
+// przychodzi z ASR. Rozmowa 05.08 20:40 dała "Bamboo Exchange" zamiast "BMW X5",
+// więc na przekręcenia trzeba być przygotowanym również tutaj.
+// ---------------------------------------------------------------------------
+
+/**
+ * Polskie tablice po normalizacji: 1-3 litery wyróżnika, potem 4-5 znaków
+ * alfanumerycznych. Celowo permisywne — tablice indywidualne i zabytkowe łamią
+ * węższe wzorce, a my chcemy odrzucać śmieci z ASR, nie nietypowe rejestracje.
+ */
+export const isPlausiblePlate = (plate: string): boolean =>
+  /^[A-Z]{1,3}[A-Z0-9]{4,5}$/.test(plate) && plate.length >= 5 && plate.length <= 8;
+
+/**
+ * Pary, które ASR i ludzkie ucho mylą najczęściej. Sprowadzamy każdą do jednego
+ * przedstawiciela, żeby "WY996EU" i "WY99GEU" dały tę samą postać kanoniczną.
+ */
+const CONFUSABLE: Record<string, string> = {
+  O: "0", I: "1", L: "1", B: "8", S: "5", Z: "2", G: "6", Q: "0", D: "0",
+};
+
+/** Postać kanoniczna do PORÓWNAŃ. Nigdy nie zapisujemy jej do bazy. */
+export const plateFingerprint = (plate: string): string =>
+  normalizePlate(plate).split("").map((c) => CONFUSABLE[c] ?? c).join("");
+
+/** Odległość edycyjna z wczesnym wyjściem — interesuje nas tylko 0 albo 1. */
+const editDistanceAtMostOne = (a: string, b: string): boolean => {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0, j = 0, diff = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++diff > 1) return false;
+    if (a.length > b.length) i++;
+    else if (a.length < b.length) j++;
+    else { i++; j++; }
+  }
+  return diff + (a.length - i) + (b.length - j) <= 1;
+};
+
+export type PlateCandidate = { plate: string; vehicleId: string; reason: "confusable" | "typo" };
+
+/**
+ * Rejestracje z bazy podobne do usłyszanej — do DOPYTANIA, nie do scalenia.
+ *
+ * Automatyczne scalenie przypisałoby wizytę do cudzego auta. Zwracamy kandydatów
+ * i zostawiamy decyzję: w rozmowie agentowi, po rozmowie obsłudze.
+ */
+export const findSimilarPlates = (
+  plate: string,
+  known: Array<{ id: string; plate: string | null }>,
+): PlateCandidate[] => {
+  const target = normalizePlate(plate);
+  if (!target) return [];
+  const targetPrint = plateFingerprint(target);
+  const out: PlateCandidate[] = [];
+  for (const row of known) {
+    const candidate = normalizePlate(row.plate);
+    if (!candidate || candidate === target) continue;
+    if (plateFingerprint(candidate) === targetPrint) {
+      out.push({ plate: candidate, vehicleId: row.id, reason: "confusable" });
+    } else if (editDistanceAtMostOne(candidate, target)) {
+      out.push({ plate: candidate, vehicleId: row.id, reason: "typo" });
+    }
+  }
+  return out;
+};
+
 const firstNonEmpty = (...values: Array<string | null | undefined>): string | null => {
   for (const value of values) {
     const trimmed = (value || "").trim();
@@ -85,7 +161,7 @@ const firstNonEmpty = (...values: Array<string | null | undefined>): string | nu
 };
 
 export const reconcileCall = (input: ReconcileInput): ReconcileResult => {
-  const { extracted, callerId, clientsByPhone, vehiclesByPlate } = input;
+  const { extracted, callerId, clientsByPhone, vehiclesByPlate, allVehicles } = input;
 
   // Telefon: numer z sygnalizacji SIP bije to, co usłyszał ASR. Gdy go nie ma
   // (rozmowa z panelu, numer zastrzeżony) — zostaje wersja z rozmowy.
@@ -146,6 +222,13 @@ export const reconcileCall = (input: ReconcileInput): ReconcileResult => {
   const brand = firstNonEmpty(vehicle?.brand, extracted.brand);
   const model = firstNonEmpty(vehicle?.model, extracted.model);
 
+  // Rejestracja niezgodna z formatem polskich tablic albo podobna do istniejącej —
+  // agent ma dopytać, a nie zgadywać. Scalanie zostawiamy człowiekowi.
+  const plateSuspicious = !!plateNorm && !isPlausiblePlate(plateNorm);
+  const plateCandidates = !vehicle && plateNorm && allVehicles?.length
+    ? findSimilarPlates(plateNorm, allVehicles)
+    : [];
+
   return {
     clientId: client?.id || null,
     vehicleId: vehicle?.id || null,
@@ -159,6 +242,8 @@ export const reconcileCall = (input: ReconcileInput): ReconcileResult => {
     vehicleSource: vehicle ? "by_plate" : plateNorm ? "new" : "none",
     needsReview,
     reviewReason,
+    plateSuspicious,
+    plateCandidates,
   };
 };
 
@@ -169,6 +254,10 @@ export const reconcileCall = (input: ReconcileInput): ReconcileResult => {
  * gdy zapisu NIE DA SIĘ wykonać. Nigdy „bo nazwisko brzmi dziwnie".
  */
 export const missingForCommit = (extracted: ExtractedCall, phone: string | null): string[] => {
+  // NAZWISKO NIE JEST WYMAGANE. Agent o nie nie pyta — ASR dał pięć różnych wersji
+  // w pięciu rozmowach ("Wandym Oszadkow", "Mosaczkowski", "Noszeczkow", "Mosleczko",
+  // "Moseczkow"), a identyfikacja i tak idzie po telefonie i rejestracji.
+  // Przy dopasowaniu nazwisko uzupełnia się z bazy; dla nowego klienta zostaje puste.
   const missing: string[] = [];
   if (!extracted.date) missing.push("termin: brak daty");
   if (!extracted.time) missing.push("termin: brak godziny");

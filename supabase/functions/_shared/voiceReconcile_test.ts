@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  findSimilarPlates,
+  isPlausiblePlate,
   missingForCommit,
+  plateFingerprint,
   normalizePhone,
   normalizePlate,
   reconcileCall,
@@ -110,4 +113,85 @@ test("rozmowa urwana przed kompletem trafia do kolejki, a nie do bazy", () => {
   const urwana = extracted({ date: null, time: null, plate: null, last_name: null });
   const braki = missingForCommit(urwana, null);
   assert.equal(braki.length, 3);
+});
+
+// ---------------------------------------------------------------------------
+// REJESTRACJA JAKO GŁÓWNY IDENTYFIKATOR (nazwisko wypadło z sekwencji)
+// ---------------------------------------------------------------------------
+
+test("walidacja formatu polskich tablic odrzuca śmieci z ASR, nie nietypowe tablice", () => {
+  for (const ok of ["WY996EU", "WZ363DN", "KR12345", "W1234A", "PO5AB12"]) {
+    assert.equal(isPlausiblePlate(ok), true, `${ok} powinna przejść`);
+  }
+  for (const zle of ["", "W", "BAMBOOEXCHANGE", "1234", "12345678901"]) {
+    assert.equal(isPlausiblePlate(normalizePlate(zle)), false, `"${zle}" powinna odpaść`);
+  }
+});
+
+test("mylone znaki sprowadzają się do wspólnej postaci kanonicznej", () => {
+  // O/0, I/1, B/8, S/5, Z/2 — pary, które ASR i ucho mylą najczęściej.
+  assert.equal(plateFingerprint("WO996EU"), plateFingerprint("W0996EU"));
+  assert.equal(plateFingerprint("WI123AB"), plateFingerprint("W1123AB"));
+  assert.equal(plateFingerprint("WB123AB"), plateFingerprint("W8123AB"));
+  assert.equal(plateFingerprint("WS123AB"), plateFingerprint("W5123AB"));
+  assert.equal(plateFingerprint("WZ363DN"), plateFingerprint("W2363DN"));
+  // Różne tablice NIE mogą się skleić.
+  assert.notEqual(plateFingerprint("WY996EU"), plateFingerprint("KR12345"));
+});
+
+test("podobna rejestracja wraca jako KANDYDAT, nigdy nie jest scalana automatycznie", () => {
+  const r = reconcileCall({
+    extracted: extracted({ plate: "WO996EU" }),           // ASR usłyszał O zamiast 0
+    callerId: "+48519474583",
+    clientsByPhone: [],
+    vehiclesByPlate: [],                                   // dokładnego trafienia BRAK
+    allVehicles: [{ id: "v-inny", plate: "W0996EU" }],     // w bazie jest z zerem
+  });
+  assert.equal(r.vehicleId, null, "bez dokładnego trafienia NIE przypisujemy pojazdu");
+  assert.equal(r.plateCandidates.length, 1);
+  assert.equal(r.plateCandidates[0].vehicleId, "v-inny");
+  assert.equal(r.plateCandidates[0].reason, "confusable");
+});
+
+test("rejestracja niezgodna z formatem podnosi flagę do dopytania", () => {
+  const r = reconcileCall({
+    extracted: extracted({ plate: "Bamboo Exchange" }),
+    callerId: null, clientsByPhone: [], vehiclesByPlate: [],
+  });
+  assert.equal(r.plateSuspicious, true);
+  // ZASADA 9: podejrzana rejestracja nie blokuje zapisu.
+  assert.deepEqual(missingForCommit(extracted({ plate: "Bamboo Exchange" }), "519474583"), []);
+});
+
+test("NAZWISKO NIE JEST WYMAGANE — agent o nie nie pyta", () => {
+  const bezNazwiska = extracted({ last_name: null });
+  // Nowy klient: zostaje samo imię, zapis idzie normalnie.
+  assert.deepEqual(missingForCommit(bezNazwiska, "519474583"), []);
+  const nowy = reconcileCall({
+    extracted: bezNazwiska, callerId: "+48519474583", clientsByPhone: [], vehiclesByPlate: [],
+  });
+  assert.equal(nowy.firstName, "Daniel");
+  assert.equal(nowy.lastName, null);
+  assert.equal(nowy.needsReview, false);
+});
+
+test("nazwisko uzupełnia się Z BAZY, gdy klient rozpoznany po telefonie", () => {
+  const r = reconcileCall({
+    extracted: extracted({ last_name: null }),
+    callerId: "+48519474583",
+    clientsByPhone: [{ id: "c1", first_name: "Daniel", last_name: "Moszeczkow", phone: "519474583" }],
+    vehiclesByPlate: [],
+  });
+  assert.equal(r.lastName, "Moszeczkow", "brak nazwiska w rozmowie ma być uzupełniony z bazy");
+});
+
+test("nazwisko uzupełnia się z bazy także po rozpoznaniu pojazdu", () => {
+  const r = reconcileCall({
+    extracted: extracted({ last_name: null }),
+    callerId: "+48600100200",
+    clientsByPhone: [{ id: "c-inny", first_name: "Anna", last_name: "Nowak", phone: "600100200" }],
+    vehiclesByPlate: [{ id: "v1", owner_client_id: "c-wlasciciel", brand: "BMW", model: "X5", plate: "WY996EU" }],
+  });
+  assert.equal(r.clientId, "c-wlasciciel");
+  assert.equal(r.needsReview, true);
 });

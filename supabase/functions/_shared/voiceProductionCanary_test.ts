@@ -325,7 +325,10 @@ test("registration number is asked once and never confirmed back", () => {
   assert.match(chat, /NIE powtarzaj go wstecz, NIE proś o potwierdzenie, NIE literuj/);
   assert.match(chat, /nie wracaj do tematu/);
   // Rejestracja domyka listę zbieranych danych.
-  assert.match(chat, /imię i nazwisko → telefon → marka i model → numer rejestracyjny\. To CAŁA lista/);
+  // Sekwencja skrócona: nazwisko wypadło z pytań. ASR dał pięć różnych wersji tego
+  // samego nazwiska w pięciu rozmowach, a identyfikacja idzie po telefonie i rejestracji.
+  assert.match(chat, /IMIĘ → telefon → marka i model → numer rejestracyjny\. To CAŁA lista/);
+  assert.match(chat, /NIE PYTAJ O NAZWISKO/);
 });
 
 test("agent never narrates its own system actions", () => {
@@ -462,7 +465,7 @@ test("night calls, surname and politeness", () => {
   assert.match(chat, /ZAWSZE podawaj dzień tygodnia I datę, nigdy samo "jutro"/);
 
   // Nazwisko zapisujemy tak, jak usłyszane — warsztat poprawi przy przyjęciu.
-  assert.match(chat, /NAZWISKA NIE POTWIERDZAJ, NIE LITERUJ i NIE POWTARZAJ/);
+  assert.match(chat, /IMIENIA NIE POTWIERDZAJ, NIE LITERUJ i NIE POWTARZAJ/);
   assert.match(chat, /Żadnego "czy dobrze zapisałem", żadnego literowania/);
 
   // Grzeczności: bez preambuł przy zbieraniu danych.
