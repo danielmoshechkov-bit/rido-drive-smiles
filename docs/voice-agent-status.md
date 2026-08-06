@@ -33,7 +33,7 @@ nazwisko: z BAZY („Moshechkov"), nie z ASR
 | problem | liczba | znika przy |
 |---|---|---|
 | tura o termin | **5,1 s** — `check_availability` 1321 ms, z czego **626 ms (47%) to preambuła funkcji**, nie liczenie terminów | FAZA A |
-| `end_call` | **1082 ms** na generowanie wywołania PO wypowiedzeniu tekstu (`first_text` 1340 vs `model_round` 2422) | `max_tokens` 150 |
+| `end_call` | **1082 ms** na generowanie wywołania PO wypowiedzeniu tekstu (`first_text` 1340 vs `model_round` 2422) | `max_tokens` 150 — wdrożone, czeka na pomiar |
 | zacinanie / nakładanie audio | dwa równoległe żądania na turach **41 s i 58 s** (tura „Jedenasta w piątek siódmego — świetnie…") | FAZA A |
 | `config` na każdej turze | **140–506 ms** | FAZA A (kontekst z webhooka) |
 
@@ -48,7 +48,12 @@ działają równolegle i da się je zestawić.
 
 ### Następne kroki, w kolejności
 
-1. **`max_tokens` 600 → 150** — w trakcie. Zdejmuje ogon generacji po tekście.
+1. ~~**`max_tokens` 600 → 150**~~ — ✅ WDROŻONE 06.08, SHA-256 zgodne.
+   Dobrane z pomiaru: najdłuższa wypowiedź tej rozmowy to 183 znaki ≈ 57 tokenów,
+   z argumentami narzędzia ~100 — zapas połowy. Limit jest twardym ucięciem,
+   nie podpowiedzią, więc ucięcie loguje `output_truncated` i oddaje turę
+   rozmówcy. **Do zweryfikowania w rozmowie kontrolnej: czy ogon 1082 ms zniknął
+   i czy nie ma ani jednego `output_truncated`.**
 2. **FAZA A** — webhook inicjujący ze snapshotem (terminy, godziny pracy, cennik,
    `caller_id_available`). Usuwa turę 5,1 s i `config` z każdej tury.
 3. **Próg pięciu udanych rozmów** — patrz „Kiedy przestajemy optymalizować".
@@ -800,7 +805,7 @@ post_call_webhook_id    a9f9457cf459465297f20b3c3c6c6648  (events: transcript, j
 
 ## Kolejka
 
-1. **`max_tokens` 600 → 150** — w trakcie
+1. ~~`max_tokens` 600 → 150~~ — ✅ wdrożone 06.08
 2. **FAZA A** — `voice-agent-init`: snapshot terminów, godziny pracy, cennik,
    `caller_id_available`, historia klienta. Usuwa `check_availability` z rozmowy
    i `config` z każdej tury.
