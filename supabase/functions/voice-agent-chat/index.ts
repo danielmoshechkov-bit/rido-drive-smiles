@@ -289,7 +289,7 @@ serve(async (req) => {
         timeoutMs: 30_000, adapterKey: "anthropic_messages", secretKey: "ANTHROPIC_API_KEY",
         endpoint: "https://api.anthropic.com/v1/messages",
       },
-      fallback: null, allowFallback: false, maxToolRounds: 5, maxOutputTokens: 600,
+      fallback: null, allowFallback: false, maxToolRounds: 5, maxOutputTokens: 150,
     };
     const phase1CanaryRouting: Phase1VoiceRouting = {
       primary: { ...legacyRouting.primary, providerName: "Anthropic (Phase 1 primary)", timeoutMs: 8_000 },
@@ -299,9 +299,15 @@ serve(async (req) => {
         adapterKey: "anthropic_messages", secretKey: "ANTHROPIC_API_KEY",
         endpoint: "https://api.anthropic.com/v1/messages",
       },
-      // 600 tokenów jak w legacy. Przy 400 pojedyncza tura z zapowiedzią, wynikiem
-      // narzędzia i propozycją terminu urywała się w połowie zdania.
-      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 600,
+      // 150 tokenów. Limit jest TWARDYM UCIĘCIEM, nie podpowiedzią — model nie
+      // skraca się od niego sam, więc dobrany jest z pomiaru, nie z oka.
+      // Najdłuższa wypowiedź ostatniej rozmowy (conv_0501kza…way, 06.08) to
+      // 183 znaki ≈ 57 tokenów; z argumentami narzędzia daje to ok. 100.
+      // 150 zostawia połowę zapasu. Ucięcie NIE jest ciche: stopReason
+      // "max_tokens" loguje `output_truncated` i oddaje turę rozmówcy (niżej).
+      // Wcześniejsze 400 urywało zdania, bo tura zawierała jeszcze zapowiedź
+      // i wynik create_booking — tych narzędzi już w rozmowie nie ma.
+      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 150,
     };
     const voiceRouting = canary.enabled ? phase1CanaryRouting : legacyRouting;
     logTiming("prepare", totalStarted, { production_canary: canary.enabled });
@@ -476,7 +482,7 @@ serve(async (req) => {
         const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-          body: JSON.stringify({ model, max_tokens: 600, temperature: 0.7, system: system + systemTimeContext, messages: legacyConvo, ...(tools.length ? { tools } : {}) }),
+          body: JSON.stringify({ model, max_tokens: 150, temperature: 0.7, system: system + systemTimeContext, messages: legacyConvo, ...(tools.length ? { tools } : {}) }),
         });
         if (!aiResponse.ok) {
           const responseText = await aiResponse.text().catch(() => "");

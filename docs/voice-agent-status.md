@@ -1,7 +1,61 @@
-# AI Voice Agent — stan projektu (2026-08-05, wieczór)
+# AI Voice Agent — stan projektu (2026-08-06)
 
-Punkt powrotu po utracie kontekstu. Ma wystarczyć bez historii czatu.
-Spec dalszych prac: `docs/voice-agent-faza1.md`, `docs/voice-agent-faza2.md`.
+**Punkt powrotu po utracie kontekstu. Ten dokument ma wystarczyć bez historii czatu.**
+Spec dalszych prac: `docs/voice-agent-faza1.md`, `docs/voice-agent-faza2.md`
+(tam jest **dwadzieścia zasad** wyprowadzonych z konkretnych awarii — przeczytaj je
+przed dotknięciem czegokolwiek).
+
+---
+
+## 📍 GDZIE JESTEŚMY — przeczytaj to najpierw
+
+**Architektura po przełączeniu (06.08):** agent w trakcie rozmowy **nic nie zapisuje**.
+Zbiera dane, a cały zapis robi `voice-call-commit` po rozłączeniu, w jednej transakcji.
+
+### Ostatnia rozmowa: `conv_0501kza5m07xfm59hg6vxkrwbway`, 06.08 00:54, **1:16**
+
+```
+tury:  2,4 / 1,6 / 5,1 / 1,7 / 1,5 / 1,4 / 3,2 s     (najkrótsza rozmowa dotąd)
+tura z podsumowaniem:  7,1 s  →  1,4 s
+```
+
+Commit dowiózł komplet — **16 sekund PO rozłączeniu**:
+```
+1 rezerwacja · 1 wpis w grafiku (ze station_id) · 1 zlecenie ZLP-08/2026-001
+1 transkrypt · 1 SMS (23:56:28 wobec końca rozmowy 23:56:12)
+voice_calls: status=completed, linked_entity_type=workshop_order, outcome=booked
+complaint = słowa klienta: „Stuka na nierównościach i ogólnie chciałbym przejechać samochód"
+nazwisko: z BAZY („Moshechkov"), nie z ASR
+```
+
+### Co zostało — z liczbami
+
+| problem | liczba | znika przy |
+|---|---|---|
+| tura o termin | **5,1 s** — `check_availability` 1321 ms, z czego **626 ms (47%) to preambuła funkcji**, nie liczenie terminów | FAZA A |
+| `end_call` | **1082 ms** na generowanie wywołania PO wypowiedzeniu tekstu (`first_text` 1340 vs `model_round` 2422) | `max_tokens` 150 |
+| zacinanie / nakładanie audio | dwa równoległe żądania na turach **41 s i 58 s** (tura „Jedenasta w piątek siódmego — świetnie…") | FAZA A |
+| `config` na każdej turze | **140–506 ms** | FAZA A (kontekst z webhooka) |
+
+### ⚠️ Czego NIE DA SIĘ już zrobić — lekcja o kolejności prac
+
+**Porównania ekstrakcji ze starą ścieżką.** Punkt 6 (wyłączenie `create_booking`
+i `create_order`) usunął drugie źródło danych, zanim zdążyłem porównać wyniki.
+
+**Lekcja: porównanie starej i nowej ścieżki trzeba zrobić ZANIM stara zniknie,
+a nie po.** Przy każdym przełączeniu architektury zaplanuj okno, w którym obie
+działają równolegle i da się je zestawić.
+
+### Następne kroki, w kolejności
+
+1. **`max_tokens` 600 → 150** — w trakcie. Zdejmuje ogon generacji po tekście.
+2. **FAZA A** — webhook inicjujący ze snapshotem (terminy, godziny pracy, cennik,
+   `caller_id_available`). Usuwa turę 5,1 s i `config` z każdej tury.
+3. **Próg pięciu udanych rozmów** — patrz „Kiedy przestajemy optymalizować".
+4. **Multi-tenancy** — przedtem koniecznie przeczytaj sekcję o ścieżkach stanu
+   początkowego: drugi warsztat trafi we wszystkie naraz, pierwszego dnia.
+
+---
 
 ---
 
@@ -708,54 +762,69 @@ post_call_webhook_id    a9f9457cf459465297f20b3c3c6c6648  (events: transcript, j
 
 ## Wdrożone (weryfikowane SHA-256 wobec `main`)
 
-| Obszar | Stan |
+### Architektura zapisu — przełączona 06.08
+| Element | Stan |
 |---|---|
-| Okno kontekstu 12 → 40 | ✅ (przyczyna 9 powtórzonych pytań) |
-| `max_tokens` 400 → 600, `stop_reason=max_tokens` | ✅ |
-| Klasyfikacja odmów Anthropic 400/429/529 | ✅ fallback tylko 529/5xx |
-| Jedno powitanie w telefonii, formy oficjalne | ✅ |
-| Zakaz relacjonowania działań (lista czasowników) | ✅ — usunął „już sprawdzam" |
-| Keep-warm | ✅ −1,96 s |
-| `end_call` — przekazanie `tools` + usunięcie `system__message_to_speak` | ✅ pożegnanie wypowiedziane |
-| Deterministyczne `create_order`, `station_id` → grafik | ✅ |
-| Rozpoznanie tenanta po `agent_id`, koniec cichych 200 | ✅ |
-| **FAZA 1A — parser znacznika RIDO** | ✅ wdrożone, czeka na potwierdzenie telefonem |
-| **Atomowe przejęcie rozmowy w `create_booking`** | ✅ |
-| **`limit(1)` zamiast `maybeSingle()`** | ✅ |
-| **`scripts/diagnose-call.sh`** | ✅ |
+| `voice-call-commit` — cała ścieżka po rozłączeniu | ✅ |
+| `voice_commit_call` — jedna transakcja SQL, idempotencja po `conversation_id` | ✅ |
+| `voiceExtraction` (parser czysty) + `voiceReconcile` (dopasowanie) | ✅ 31 asercji |
+| `create_booking` / `create_order` **usunięte** z narzędzi modelu | ✅ |
+| `check_availability` — jedyne pozostałe narzędzie | ✅ |
+| `voice-call-postprocess`: commit → analyze, błąd analyze nie wywraca webhooka | ✅ |
+| `voice-call-analyze` bez heurystyki po telefonie (piąte miejsce zasady 16) | ✅ |
+| `voice-call-reconcile` — cron `*/15`, okno 3 h, siatka pod webhookiem | ✅ |
+| SMS jako **ostatni** krok, tylko przy zleceniu z terminem | ✅ |
+| statusy „Wymaga uwagi" i „Oddzwonić" dla 7 providerów | ✅ |
+| zlecenie bez terminu → `ZL`, bez grafiku, status „Oddzwonić" | ✅ |
 
-### Baza — wykonane 05.08 wieczorem
-- 6 duplikatów w grafiku **anulowanych** (nie skasowanych — `public_token` poszedł SMS-em,
-  skasowany dałby 404 na `/r/:token`)
-- slot testowy 06.08 09:00 zwolniony, `d3786b82` anulowana,
-  `ZLP-08/2026-001` odpięta od rezerwacji (brak statusu „Anulowane" w `workshop_order_statuses`)
-- **indeksy** `workshop_client_bookings_slot_uniq` i `voice_calls_conversation_uniq` założone
-- skrypt: `scripts/sql/voice-calendar-dedup-20260805.sql` (+ rollback)
+### Wydajność
+| Element | Efekt |
+|---|---|
+| `get_voice_context` — 4 zapytania → 1 RPC | `prepare` 250–1070 ms → **8 ms** |
+| env-first w `getPhase1Secret` | `auth` 140–820 ms → **0–1 ms** |
+| prompt caching (`cache_control: ephemeral`) | 100% trafień, `model_round` 1211–6322 → 777–1878 ms |
+| keep-warm: `llm`, `chat`, **`tools`** (co minutę, token z Vault) | zimny start narzędzia −2,9 s |
+| `turn_timeout` 10 s → 4 s (panel) | cisza 2,52 → **0,79 s** — największy pojedynczy zysk |
+| `asr.keywords` wyczyszczone **na stałe** | halucynacje ASR: 2/9 tur → **0** |
+| instrumentacja `voice-agent-tools` 14/14 + `prompt_ready` w chat | — |
 
----
+### Zachowanie agenta
+| Element | Stan |
+|---|---|
+| sekwencja pięciotorowa, bez pytania o nazwisko i telefon | ✅ |
+| `caller_id` ze znacznika RIDO (`used_source: system_marker`) | ✅ |
+| `caller_id_available` — przy zastrzeżonym numerze agent pyta | ✅ |
+| `end_call` w tej samej turze co pożegnanie | ✅ |
+| sześć sprzeczności w prompcie usuniętych | ✅ |
+| kontrola sprzeczności `scripts/check-prompt-rules.mjs` | ⚠️ zbyt hałaśliwa, do FAZY C |
 
 ## Kolejka
 
-1. **Potwierdzenie FAZY 1A telefonem** — `used_source: "system_marker"`, jedna rezerwacja,
-   jedno zlecenie, `end_call`, czy bełkot zniknął
-2. **FAZA 1B** — webhook inicjujący `voice-agent-init` + snapshot (lista N terminów,
-   interfejs generyczny)
-3. **FAZA 1C** — zero odczytów per tura + prompt caching → tura < 1,2 s
-4. **Cron rekoncyliacyjny + alert** ← przed 6 i 7
-5. **Kolejka weryfikacji w panelu** ← przed 6 i 7
-6. **FAZA 2** — `voice-call-commit`, zapis po rozłączeniu w jednej transakcji
-7. Wyłączenie narzędzi zapisujących w rozmowie
+1. **`max_tokens` 600 → 150** — w trakcie
+2. **FAZA A** — `voice-agent-init`: snapshot terminów, godziny pracy, cennik,
+   `caller_id_available`, historia klienta. Usuwa `check_availability` z rozmowy
+   i `config` z każdej tury.
+3. **Próg pięciu udanych rozmów** (patrz „Kiedy przestajemy optymalizować")
+4. **Multi-tenancy** — drugi tenant
+5. FAZA B (scalenie llm+chat) — **tylko jeśli** pomiar hopu pokaże powyżej 0,2 s
+6. FAZA C (przepisanie promptu) — jako dług techniczny, **nie** jako optymalizacja
+   latencji: benchmark pokazał, że rozmiar promptu prawie nie wpływa na TTFT
+
+**FAZA D (zmiana modelu) ODPADŁA** — Haiku jest najszybszy z dostępnych
+(624 ms wobec 1132 ms Gemini 2.5 i 2120 ms Gemini 3 Flash, mierzone z eu-central-1).
 
 ### Odłożone
-- SMS awaryjny do warsztatu (`CALLBACK_SMS_ENABLED = false`)
-- kolumna `priority` w `voice_agent_knowledge`
-- cięcie promptu do bazy wiedzy (stałe reguły ~2900 tokenów)
-- Twilio/Deepgram niezaszyfrowane w `ai_secret_store`
-- panel: widok reguł oczekujących, ujednolicenie panelu z telefonem
-  (panel = legacy/Sonnet/bez SSE)
-- brak statusu „Anulowane" w `workshop_order_statuses`
-
----
+- alert dla zleceń „Oddzwonić" starszych niż 4 h (backlog I)
+- widok „Połączenia" w panelu (backlog C) — ODSŁANIA dane, nie ratuje
+- numeracja zleceń zwraca numery do obiegu po skasowaniu (backlog F, **priorytet wysoki**)
+- dwie tabele stanowisk — czy obie używane (backlog G)
+- wiszące `linked_entity_id` bez FK (backlog H)
+- kategorie usług (Warsztat / Myjnia) — projektować przy FAZIE A
+- rozmowa o istniejącej rezerwacji: odczyt / przełożenie / odwołanie (backlog E)
+- Twilio/Deepgram niezaszyfrowane w `ai_secret_store`, `AI_SECRETS_ENC_KEY` nieustawiony
+- siedem crontabów z tokenem wprost w treści zadania
+- `CALLBACK_SMS_ENABLED = false`
+- cięcie promptu do bazy wiedzy
 
 ## Rollback
 
