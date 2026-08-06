@@ -504,6 +504,57 @@ select grafiku, sprawdzenie SMS, odczyt `service_providers`, `linkConversation`.
 Te 1303 ms rozkłada się na siedem zapytań, których nie widać.
 `check_availability` nie jest zinstrumentowany w ogóle.
 
+## ✅ PIERWSZA ROZMOWA NA NOWEJ ARCHITEKTURZE (06.08 00:54)
+
+Rozmowa **1:16**, siedem tur, komplet zapisu **po rozłączeniu**:
+
+```
+tury:  2,4 / 1,6 / 5,1 / 1,7 / 1,5 / 1,4 / 3,2 s
+zapis: 1 rezerwacja · 1 grafik · 1 zlecenie ZLP-08/2026-001 · 1 transkrypt
+SMS:   23:56:28, rozmowa skończyła się 23:56:12  →  16 s PO rozłączeniu
+voice_calls: status=completed, linked_entity_type=workshop_order, outcome=booked
+```
+
+`complaint` to słowa klienta: „Stuka na nierównościach i ogólnie chciałbym
+przejechać samochód". Tura z podsumowaniem **7,1 s → 1,4 s**.
+
+⚠️ **Porównania ekstrakcji ze starą ścieżką NIE DA SIĘ już zrobić** — wyłączenie
+narzędzi zapisujących (punkt 6) usunęło ścieżkę, z którą miałem porównywać.
+Kolejność prac to przesądziła; nie ma drugiego źródła danych z tej samej rozmowy.
+
+### Gdzie naprawdę siedzi opóźnienie przy rozłączeniu
+
+`end_call` **nie jest opóźniony**:
+```
+69s  klient: "Nie, to wszystko"
+74s  agent:  "Do widzenia."        ← 5 s PRZED pożegnaniem, nie po
+74s  end_call
+75s  end_call_success
+76s  koniec
+```
+Od pożegnania do ciszy: **2 s**. Pięć sekund, które słychać, jest **przed**
+pożegnaniem: 0,8 s wykrywania ciszy + 1,34 s nasz TTFT + TTS i orkiestracja.
+
+Jedna rzecz do wyciśnięcia: `model_round` 2422 ms wobec `first_text` 1340 ms —
+model spędził **1,1 s po wypowiedzeniu tekstu na wygenerowaniu wywołania
+`end_call`**, a ElevenLabs czeka na całą generację. To argument za
+`max_tokens 600 → 150`: mniej do zaplanowania, krótszy ogon.
+
+### `check_availability` rozbity co do zapytania
+
+```
+TOTAL 1321 ms
+  konfig_select      232      ) preambuła KAŻDEGO wywołania narzędzia
+  rozmowa_select     165      ) 626 ms, czyli 47% —
+  rozmowa_insert     229      ) NIE liczy dostępności
+  godziny_pracy      357      \
+  stanowiska_count   151       > właściwa praca: 693 ms
+  zajetosc_select    185      /
+```
+Suma kroków = total, więc **nic się nie ukrywa** i to nie jest zimny start
+(keep-warm działa). **Prawie połowa czasu narzędzia to preambuła funkcji**, nie
+liczenie terminów — znika razem z narzędziem w FAZIE A.
+
 ## Punkt odniesienia: 795 ms — szybkość JUŻ jest, tylko niewidoczna
 
 Tura bez narzędzi w rozmowie 06.08 00:26: **795 ms**. To jest cel, który sobie
