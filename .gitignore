@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Konfiguracja lokalna — może zawierać poświadczenia. Śledzimy wyłącznie wzorzec.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
