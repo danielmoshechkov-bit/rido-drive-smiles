@@ -29,7 +29,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.admin-bootstrap]
-verify_jwt = false
+# Nadaje rolę admina, więc bramka JWT jest tu obowiązkowa. Sama funkcja dodatkowo
+# sprawdza rolę wywołującego w bazie oraz sekret ADMIN_BOOTSTRAP_SECRET.
+verify_jwt = true
 
 [functions.create-driver-accounts]
 verify_jwt = false
