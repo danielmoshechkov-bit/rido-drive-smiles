@@ -17,16 +17,25 @@ export async function sendMail(to: string, subject: string, html: string): Promi
     .eq("id", "00000000-0000-0000-0000-000000000001")
     .single();
 
+  // Host i login muszą pochodzić z konfiguracji. Wcześniejsze zaszyte wartości
+  // zapasowe powodowały, że przy pustym `email_settings` wysyłka cicho logowała
+  // się na zgadnięte konto — a sam login siedział w publicznym repozytorium.
+  const smtpHost = s?.smtp_host;
+  const smtpUser = s?.smtp_user;
+  if (!smtpHost || !smtpUser) {
+    throw new Error("Konfiguracja SMTP jest niekompletna (email_settings: smtp_host, smtp_user)");
+  }
+
   const senderName = s?.sender_name || "GetRido";
-  const senderEmail = s?.sender_email || s?.smtp_user || "noreply@getrido.pl";
+  const senderEmail = s?.sender_email || smtpUser;
   const port = s?.smtp_port || 587;
 
   const client = new SMTPClient({
     connection: {
-      hostname: s?.smtp_host || "getrido.pl",
+      hostname: smtpHost,
       port,
       tls: port === 465,
-      auth: { username: s?.smtp_user || "kontakt@getrido.pl", password: smtpPassword },
+      auth: { username: smtpUser, password: smtpPassword },
     },
   });
 
