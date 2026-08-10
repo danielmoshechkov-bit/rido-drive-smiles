@@ -113,6 +113,21 @@ const bazowy = poprzednie.length ? JSON.parse(readFileSync(join(KATALOG, poprzed
 
 console.log(`\x1b[1mREGRESJA NA ZAPISANYCH TRANSKRYPTACH\x1b[0m`);
 console.log(`  rozmów: ${Object.keys(wynik.rozmowy).length}   wpisów wiedzy: ${Object.keys(wynik.wiedza).length}`);
+
+// PUSTY ZBIÓR TO PORAŻKA, NIE SUKCES — zasada 12 zastosowana do narzędzi
+// diagnostycznych. Przebieg na zerze rozmów wypisze „bez regresji" i wygląda
+// dokładnie tak samo jak przebieg czysty. Raz już się na to nadziałem: skrypt
+// czytał `duration_seconds`, które nigdy nie było wypełniane, i pokazał 0/23.
+if (Object.keys(wynik.rozmowy).length === 0) {
+  console.error("\n  \x1b[31mZERO ROZMÓW DO PORÓWNANIA\x1b[0m — przebieg nic nie sprawdził.");
+  console.error("  To nie jest czysty wynik, tylko ślepe narzędzie. Sprawdź, czy voice_calls");
+  console.error("  ma wypełnione duration_seconds i czy transkrypty się wiążą.");
+  process.exit(2);
+}
+if (Object.keys(wynik.wiedza).length === 0) {
+  console.error("\n  \x1b[31mZERO WPISÓW BAZY WIEDZY\x1b[0m — kontrola redakcji nic nie obejrzała.");
+  process.exit(2);
+}
 const uczy = Object.values(wynik.rozmowy).filter((r) => r.uczy).length;
 console.log(`  bramka przepuszcza: ${uczy} / ${Object.keys(wynik.rozmowy).length}`);
 if (pominiete.length) {

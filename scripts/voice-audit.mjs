@@ -50,7 +50,31 @@ const EL = process.env.ELEVENLABS_API_KEY;
 // --- raport -----------------------------------------------------------------
 const problemy = [];
 let sprawdzen = 0;
-const ok = (sekcja, co) => { sprawdzen++; console.log(`  \x1b[32m✔\x1b[0m [${sekcja}] ${co}`); };
+
+// KAŻDA KONTROLA MUSI POWIEDZIEĆ, ILE WIERSZY OBEJRZAŁA.
+//
+// Zasada 12 zastosowana do narzędzi diagnostycznych: cichy audyt wygląda
+// identycznie jak czysty wynik. Kontrola A2 zaraportowała „bez zastrzeżeń",
+// bo pytała o zły `persona_key` i nie obejrzała ANI JEDNEGO wiersza.
+//
+// `n` jest obowiązkowe. n === 0 zamienia sukces w porażkę, bo kontrola,
+// która nic nie sprawdziła, nie jest kontrolą.
+// Wyjątek świadomy: `pusteDozwolone` dla stanów, w których zero jest CELEM
+// (np. wyzerowana baza wiedzy) — tam trzeba to napisać wprost.
+const ok = (sekcja, co, n, pusteDozwolone = false) => {
+  sprawdzen++;
+  if (n === undefined) {
+    problemy.push({ sekcja, co: `${co} — kontrola nie podała, ile sprawdziła` });
+    console.log(`  \x1b[31mX\x1b[0m [${sekcja}] ${co}  \x1b[31m(brak licznika sprawdzonych)\x1b[0m`);
+    return;
+  }
+  if (n === 0 && !pusteDozwolone) {
+    problemy.push({ sekcja, co: `${co} — ZERO sprawdzonych, kontrola ślepa` });
+    console.log(`  \x1b[31mX\x1b[0m [${sekcja}] ${co}  \x1b[31m(0 sprawdzonych — kontrola ślepa)\x1b[0m`);
+    return;
+  }
+  console.log(`  \x1b[32m✔\x1b[0m [${sekcja}] ${co}  \x1b[90m(${n} sprawdzonych)\x1b[0m`);
+};
 const zle = (sekcja, co, szczegol) => {
   sprawdzen++;
   problemy.push({ sekcja, co, szczegol });
@@ -98,7 +122,7 @@ async function sekcjaA() {
     zle("A1", "prompt persony wywołuje narzędzia, których kod NIE przekazuje",
       `${nieistniejace.join(", ")}\nnarzędzia realnie przekazywane: ${[...narzedziaKodu, ...narzedziaKlienta].join(", ")}`);
   } else {
-    ok("A1", `persona nie wywołuje nieistniejących narzędzi (kod daje: ${[...narzedziaKodu].join(", ")})`);
+    ok("A1", `persona nie wywołuje nieistniejących narzędzi (kod daje: ${[...narzedziaKodu].join(", ")})`, promptPersony.length ? 1 : 0);
   }
 
   // A2: aktywne reguły bazy wiedzy nie mogą przeczyć promptowi.
@@ -106,6 +130,10 @@ async function sekcjaA() {
     `select id::text as id, situation, recommended_response from voice_agent_knowledge
       where is_active and persona_key = '${PERSONA_KEY}'`,
   );
+  const [licz] = await db(
+    `select count(*)::int as n from voice_agent_knowledge where persona_key = '${PERSONA_KEY}'`);
+  const wszystkieDlaPersony = licz?.n ?? 0;
+
   // Pary: (co prompt uznaje za NADRZĘDNE, wzorzec przeczącej reguły)
   const kolizje = [
     { prompt: /każdą cyfrę czytasz OSOBNO/i, regula: /grupami|naturalnie, grupami|bez rozbijania na pojedyncze cyfry/i,
@@ -133,15 +161,33 @@ async function sekcjaA() {
   // pytała o zły `persona_key` i raportowała „bez zastrzeżeń", nie obejrzawszy
   // ani jednego wiersza. Zero danych = zepsuta kontrola, nie czysty wynik.
   if (reguly.length === 0) {
-    zle("A2", "zero aktywnych reguł do sprawdzenia — kontrola nic nie obejrzała",
-      `persona_key = '${PERSONA_KEY}'; jeśli reguły istnieją pod innym kluczem, ta kontrola jest ślepa`);
+    // ZERO AKTYWNYCH REGUŁ TO STAN DOCELOWY, NIE AWARIA.
+    //
+    // 11.08 wyzerowaliśmy całą aktywną dziesiątkę: 5 reguł było wadliwych
+    // (zmyślone godziny, dane osobowe), 3 sprzeczne z promptem, a wszystkie
+    // sensowne były już w prompcie w wersji nowszej. Baza wiedzy ma rosnąć
+    // OD ZERA, wyłącznie przez bramkę uczenia: z rozmów udanych, po redakcji,
+    // z `is_active = false` do świadomej akceptacji człowieka.
+    //
+    // NIE WŁĄCZAJ ICH Z POWROTEM, jeśli tu trafiłeś szukając awarii.
+    // Rollback istnieje (voice-knowledge-reset-20260811-rollback.sql), ale jego
+    // użycie przywróci trzy znane sprzeczności.
+    //
+    // Rozróżnienie: pusta tabela dla tej persony = kontrola ślepa (błąd);
+    // wpisy są, tylko żaden nie jest aktywny = stan docelowy (w porządku).
+    if (wszystkieDlaPersony === 0) {
+      zle("A2", "brak JAKICHKOLWIEK wpisów dla tej persony — kontrola ślepa",
+        `persona_key = '${PERSONA_KEY}'; sprawdź, czy klucz jest poprawny`);
+    } else {
+      ok("A2", `zero aktywnych reguł — STAN DOCELOWY po wyzerowaniu 11.08 (${wszystkieDlaPersony} wpisów nieaktywnych czeka na bramkę)`, 1, true);
+    }
   } else if (!kolizji) {
-    ok("A2", `${reguly.length} aktywnych reguł, żadna nie przeczy promptowi`);
+    ok("A2", `${reguly.length} aktywnych reguł, żadna nie przeczy promptowi`, reguly.length * kolizje.length);
   }
 
   // A3: reguła nie może NAKAZYWAĆ tego, co prompt ZAKAZUJE (odwrotny kierunek).
   const zakazy = [...chat.matchAll(/ZAKAZ(?:ANE)?:?\s*([^\n\\]{10,120})/g)].map((m) => m[1].trim());
-  ok("A3", `wykryto ${zakazy.length} bloków zakazów w prompcie z kodu (materiał do kontroli ręcznej)`);
+  ok("A3", `wykryto ${zakazy.length} bloków zakazów w prompcie z kodu (materiał do kontroli ręcznej)`, zakazy.length);
 }
 
 // ============================================================================
@@ -171,7 +217,7 @@ async function sekcjaB() {
     const trafienia = wpisy.filter((x) => w.rx.test(tekst(x)));
     const aktywne = trafienia.filter((x) => x.is_active);
     if (trafienia.length === 0) {
-      ok("B", `${w.nazwa}: zero w CAŁEJ tabeli (${wpisy.length} wpisów)`);
+      ok("B", `${w.nazwa}: zero trafień`, wpisy.length);
     } else {
       // Aktywne = błąd twardy. Nieaktywne = ostrzeżenie, bo ożyją po włączeniu.
       const szcz = trafienia.slice(0, 3).map((x) =>
@@ -199,7 +245,7 @@ async function sekcjaD() {
     zle("D1", "pola wypełniane przez ekstrakcję, których NIKT nie czyta",
       `${nieczytane.join(", ")}\n(tak było z wants_cancel: wykrywany i ignorowany, więc system zakładał drugą rezerwację)`);
   } else {
-    ok("D1", `wszystkie ${unikalne.length} pól ekstrakcji ma konsumenta`);
+    ok("D1", `wszystkie ${unikalne.length} pól ekstrakcji ma konsumenta`, unikalne.length);
   }
 
   // D2: każdy status zdefiniowany w RPC musi być osiągalny.
@@ -218,7 +264,7 @@ async function sekcjaD() {
       zle("D2", "statusy zdefiniowane w RPC, ale NIEOSIĄGALNE z kodu",
         `${nieosiagalne.join(", ")}\ncommit zatrzymuje się przed RPC, więc gałąź nigdy nie wykona się w praktyce`);
     } else {
-      ok("D2", `wszystkie statusy RPC osiągalne (${statusy.join(", ")})`);
+      ok("D2", `wszystkie statusy RPC osiągalne (${statusy.join(", ")})`, statusy.length);
     }
   }
 
@@ -232,7 +278,7 @@ async function sekcjaD() {
     }
   }
   if (brakujace.size) zle("D3", "wołane funkcje, których nie ma w repozytorium", [...brakujace].join("\n"));
-  else ok("D3", "każda wołana funkcja istnieje w repozytorium");
+  else ok("D3", "każda wołana funkcja istnieje w repozytorium", wszystkie.length);
 }
 
 // ============================================================================
@@ -248,25 +294,25 @@ async function sekcjaC() {
   const kw = cfg.asr?.keywords || [];
   if (kw.length) zle("C1", `asr.keywords MUSZĄ być puste — jest ${kw.length}`,
     `${kw.slice(0, 6).join(", ")}…\nprzy 12 słowach ASR halucynował w 2 z 9 tur; wracały już DWA RAZY`);
-  else ok("C1", "asr.keywords puste");
+  else ok("C1", "asr.keywords puste", 1);
 
   const tt = cfg.turn?.turn_timeout;
-  tt === 4 ? ok("C2", "turn_timeout = 4 s") : zle("C2", `turn_timeout = ${tt}, oczekiwane 4`);
+  tt === 4 ? ok("C2", "turn_timeout = 4 s", 1) : zle("C2", `turn_timeout = ${tt}, oczekiwane 4`);
 
   const narzedzia = (cfg.agent?.prompt?.tools || []).map((t) => t.name).sort();
   const oczekiwane = ["end_call", "language_detection"];
   JSON.stringify(narzedzia) === JSON.stringify(oczekiwane)
-    ? ok("C3", `narzędzia agenta: ${narzedzia.join(", ")}`)
+    ? ok("C3", `narzędzia agenta: ${narzedzia.join(", ")}`, narzedzia.length)
     : zle("C3", `narzędzia agenta: ${narzedzia.join(", ") || "(brak)"}, oczekiwane: ${oczekiwane.join(", ")}`);
 
   const chat = czytajFunkcje("voice-agent-chat");
   const mt = [...new Set([...chat.matchAll(/max(?:_t|OutputT)okens:?\s*(\d+)/g)].map((m) => m[1]))];
   JSON.stringify(mt) === JSON.stringify(["400"])
-    ? ok("C4", "max_tokens = 400 we wszystkich miejscach")
+    ? ok("C4", "max_tokens = 400 we wszystkich miejscach", mt.length)
     : zle("C4", `max_tokens niespójne albo inne niż 400: ${mt.join(", ")}`);
 
   const presety = Object.keys(cfg.agent?.language_presets || {});
-  presety.length ? ok("C5", `language_presets: ${presety.join(", ")}`)
+  presety.length ? ok("C5", `language_presets: ${presety.join(", ")}`, presety.length)
     : zle("C5", "language_presets PUSTE — language_detection nie ma na co przełączyć");
 }
 
@@ -293,7 +339,7 @@ async function sekcjaE() {
     let hm;
     try { hm = createHash("sha256").update(execSync(`git show origin/main:supabase/functions/${f}/index.ts`, { cwd: ROOT })).digest("hex").slice(0, 12); }
     catch { zle("E", `${f}: brak na origin/main`); continue; }
-    hp === hm ? ok("E", `${f} ${hp}`) : zle("E", `${f}: ROZJAZD`, `produkcja=${hp}  main=${hm}`);
+    hp === hm ? ok("E", `${f} ${hp}`, 1) : zle("E", `${f}: ROZJAZD`, `produkcja=${hp}  main=${hm}`);
   }
 }
 

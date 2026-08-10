@@ -1,5 +1,168 @@
 {
- "rozmowy": {},
+ "rozmowy": {
+  "conv_9901kz7jbw75fmjsg9gvgjvcd9x3": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 10
+  },
+  "conv_8501kz7ks42ze1hva18zp5d13srn": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 9
+  },
+  "conv_0401kz9a45vbfddtb1w0qy2gngkh": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "brak zapisu"
+   ],
+   "tur_agenta": 10
+  },
+  "conv_2501kz9ckhttf4s9v3n8dm28ckxf": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "agent przepraszał — do przeglądu, nie do destylacji"
+   ],
+   "tur_agenta": 10
+  },
+  "conv_9201kz9g93ywejz9n2cxzewbtvjp": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 9
+  },
+  "conv_4901kz9jn04rea3tsjah7k4aj25d": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 10
+  },
+  "conv_0901kz9tgrw2egr8nageam2phqn5": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 13
+  },
+  "conv_7801kz9xs1bpfxpvfabp7wh84q8w": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 10
+  },
+  "conv_0301kz9yx3kzeembvz7ajn6qr4zf": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 7
+  },
+  "conv_8701kza0jshre5br0vqw9be06mnr": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 9
+  },
+  "conv_0601kza1dt1zfmsvc144z3jn7g3h": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 10
+  },
+  "conv_0501kza5m07xfm59hg6vxkrwbway": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 8
+  },
+  "conv_6901kzaz1n9efaz9wgjta11sbtx7": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 9
+  },
+  "conv_2901kzb8y6mzfshsg0pzsmpm56w2": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "brak zapisu"
+   ],
+   "tur_agenta": 3
+  },
+  "conv_5501kzbgmv1rfr7tpfnjtqe7ncw9": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 7
+  },
+  "conv_3201kzbgsd29fr7bwc1c6r803n3e": {
+   "uczy": false,
+   "przeglad": false,
+   "powody": [
+    "brak zapisu",
+    "rozmowa krótsza niż 30 s"
+   ],
+   "tur_agenta": 2
+  },
+  "conv_1301kzbgtyqcfd58tcqtqrgbn9cy": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "agent przepraszał — do przeglądu, nie do destylacji",
+    "brak zapisu",
+    "odpowiedź modelu została ucięta"
+   ],
+   "tur_agenta": 5
+  },
+  "conv_3301kzbh0aj2fw78v7ng1pesgkaa": {
+   "uczy": false,
+   "przeglad": false,
+   "powody": [
+    "brak zapisu",
+    "rozmowa krótsza niż 30 s"
+   ],
+   "tur_agenta": 2
+  },
+  "conv_7501kzbh1s9yepmaes7f12ms5em6": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 6
+  },
+  "conv_5301kzbgx9dhe86tpwc7wfck4m3h": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "agent przepraszał — do przeglądu, nie do destylacji"
+   ],
+   "tur_agenta": 13
+  },
+  "conv_5501kzbh8m5jerqt47tgbj6t2qmm": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 20
+  },
+  "conv_4901kzbhnqpyec1b8986me0bhctj": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "agent przepraszał — do przeglądu, nie do destylacji",
+    "odpowiedź modelu została ucięta"
+   ],
+   "tur_agenta": 16
+  },
+  "conv_5301kzbqypx7fpxsafnbr6c14bzp": {
+   "uczy": false,
+   "przeglad": false,
+   "powody": [
+    "brak zapisu",
+    "rozmowa krótsza niż 30 s"
+   ],
+   "tur_agenta": 2
+  }
+ },
  "wiedza": {
   "049a6186-210d-4ddf-9bdf-52bc804f1869": {
    "aktywny": false,

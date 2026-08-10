@@ -147,6 +147,55 @@ SQL naprawczy: `scripts/sql/voice-knowledge-sanitize-20260810.sql` (+ rollback).
 
 **Nic z punktów 8–11 przed progiem.**
 
+### 🎯 „JESTEM PANIĄ, NIE JESTEM PANEM" — najlepszy dowód w całym śledztwie
+
+```
+bj6t2qmm, 06.08
+   5s KLIENT  Dzień dobry. Ee, coś stucze w samochodzie moim. Nie wiem, co to jest.
+  13s AGENT   Rozumiem, stuka w samochodzie. Mogę zaproponować wizytę w naszym
+              warsztacie — kiedy byłoby dla PANA najwygodniej?
+  22s KLIENT  Jestem panią, nie jestem panem.
+```
+
+Prompt ma na to regułę, i to stanowczą: *„Kolejność zbierania danych sprawia, że imię
+poznajesz DOPIERO W CZWARTEJ TURZE. Wszystko przed nią musi być BEZOSOBOWE"*, z dopiskiem
+„REGUŁA ZŁAMANA W PIERWSZYM ZDANIU PRAWDZIWEJ ROZMOWY".
+
+A agent i tak powiedział „dla Pana" w trzynastej sekundzie — bo **reguła w bazie wiedzy
+podawała mu to zdanie jako wzorzec**:
+
+> `e7daef7a` [closing] → „Rozumiem. Mogę zaproponować wizytę w naszym warsztacie.
+> Kiedy byłby **dla Pana** najwygodniejszy termin — jutro, czy może w innym dniu?"
+
+**Przez tydzień poprawialiśmy to w prompcie sześć razy. Przyczyna siedziała w bazie,
+której prompt nie widzi.** Zdanie z bazy było w dodatku silniejsze niż zakaz: konkretny
+wzorzec do naśladowania bije ogólną regułę.
+
+To jest dowód na zasadę 15 (trzy kierunki kontroli) i na zasadę 22 (przykład staje się
+zachowaniem) w jednym cytacie.
+
+### ✅ BAZA WIEDZY WYZEROWANA — 11.08, to jest STAN DOCELOWY
+
+Aktywnych reguł: **0 z 75**. **To nie jest awaria i nie należy ich włączać z powrotem.**
+
+Powody, każdy sprawdzony:
+- 5 z 10 aktywnych było **wadliwych** — zmyślane godziny, nieaktualne daty, dane osobowe
+- 3 z pozostałych **przeczyły promptowi** (wykryte niezależnie przez `voice-audit.mjs`):
+  cyfry „grupami" wobec „OSOBNO", „zapisuję Pana teraz" wobec zakazu relacjonowania,
+  „dla Pana" wobec formy bezosobowej
+- wszystkie powstały 14.06–04.08, **przed** zebranymi rozmowami — pochodzenia nie da się
+  zweryfikować, a automatyczne włączanie wyłączono dopiero 04.08, więc **żadna nie przeszła
+  przez świadomą akceptację**
+- **nie straciliśmy nic**: każda sensowna reguła jest w prompcie z kodu w wersji nowszej
+  i mocniejszej (sprawdzone regułą po regule)
+
+Zysk: trzy sprzeczności mniej i prompt krótszy o **2 146 znaków (~613 tokenów, 11%)**.
+
+**Wiedza branżowa wraca do bazy wyłącznie przez bramkę** (`voiceLearningGate`): z rozmów
+udanych, po redakcji danych osobowych i konkretów, z `is_active = false` do świadomej
+akceptacji człowieka. Rollback istnieje (`voice-knowledge-reset-20260811-rollback.sql`),
+ale jego użycie przywróci trzy znane sprzeczności.
+
 ### 🧪 CZEGO NIGDY NIE PRZETESTOWALIŚMY — audyt dziesięciu scenariuszy
 
 Wszystkie 21 zebranych rozmów to umówienie wizyty przez osobę, która wie, jak z agentem
