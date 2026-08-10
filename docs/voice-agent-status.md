@@ -147,6 +147,52 @@ SQL naprawczy: `scripts/sql/voice-knowledge-sanitize-20260810.sql` (+ rollback).
 
 **Nic z punktów 8–11 przed progiem.**
 
+### 🧪 CZEGO NIGDY NIE PRZETESTOWALIŚMY — audyt dziesięciu scenariuszy
+
+Wszystkie 21 zebranych rozmów to umówienie wizyty przez osobę, która wie, jak z agentem
+rozmawiać. Przeszukałem transkrypty; dla scenariuszy, które nie wystąpiły, sprawdziłem
+w prompcie i bazie wiedzy, co agent zrobiłby **dziś**.
+
+| # | scenariusz | wystąpił | co się stanie dziś |
+|---|---|---|---|
+| 1 | pytanie zamiast wizyty | ❌ 0/21 | **częściowo**. Godziny otwarcia i usługi są w `KONTEKST FIRMY` (agent poprawnie powiedział „pracujemy do siedemnastej"). Cena → „to będzie wiadomo po diagnozie" i **pętla**, którą widzieliśmy przez 152 s w `bj6t2qmm`. Brakuje reguły „klient nie chce wizyty" — sekwencja z promptu prowadzi do terminu bezwarunkowo. |
+| 2 | odwołanie / przełożenie wizyty | ❌ 0/21 | 🔴 **NAJGROŹNIEJSZA LUKA.** `voiceExtraction` wykrywa `wants_cancel` i `wants_reschedule`, ale **nikt tych pól nie czyta** — ani `voice-call-commit`, ani RPC. Efekt: klient odwołuje wizytę, a system **zakłada mu drugą**. Zero reguł w prompcie. |
+| 3 | auto już w warsztacie („kiedy gotowe?") | ❌ 0/21 | **nieobsłużone**. Brak reguły i brak narzędzia do odczytu statusu zlecenia. Sekwencja poprowadzi do umówienia kolejnej wizyty. |
+| 4 | niezrozumiała wypowiedź | ✅ `bj6t2qmm` („Słucham? Jeszcze raz.") | **obsłużone** — blok `HAŁAS I NIEWYRAŹNA MOWA`: pytaj o jedną brakującą informację, nie zaczynaj od nowa. Zadziałało. |
+| 5 | klient zdenerwowany, reklamacja | ❌ 0/21 | **nieobsłużone**. Zero reguł. Agent poprowadzi do umówienia wizyty, co przy reklamacji zabrzmi głucho. |
+| 6 | pomyłka, zły numer | ❌ 0/21 | **nieobsłużone**, ale skutek łagodny: rozmowa skończy się rozłączeniem klienta albo `silence_end_call_timeout` po 20 s. |
+| 7 | prośba o człowieka | ❌ 0/21 | 🔴 patrz niżej |
+| 8 | cisza po odebraniu | ✅ 2 rozmowy (3 s, zero wypowiedzi) | **obsłużone konfiguracją**, nie promptem: `silence_end_call_timeout` = 20 s. Oba przypadki to rozłączenia po 3 s, więc realna cisza nie została sprawdzona. |
+| 9 | klient przerywa agentowi | ✅ **14 z 21**, do 5 razy w rozmowie | **obsłużone** przez turn-taking ElevenLabs. Skutek uboczny: urwane zdanie agenta zostaje urwane (`me0bhctj`: „Cenę będzie wiadomo po diagnozie na…"). |
+| 10 | dwie osoby mówią naraz | ❌ 0/21 | **nieobsłużone wprost**; ASR zwróci plątaninę, zadziała ścieżka ze scenariusza 4. |
+
+#### Scenariusz 7 — dlaczego nie wolno go „naprawić" regułą w prompcie
+
+- transferu do człowieka **nie ma**: narzędzia agenta w ElevenLabs to wyłącznie `end_call`
+  i `language_detection`
+- obietnice przełączenia siedziały w bazie wiedzy i **zostały skasowane 10.08**
+- w prompcie **nie ma żadnej reguły** o prośbie o człowieka — model zaimprowizuje
+
+Kuszące jest dopisanie „przekażę prośbę, obsługa oddzwoni". **Dziś byłoby to kłamstwo:**
+tabela `callback_requests` **nie istnieje**, jedyny mechanizm to SMS do warsztatu za
+stałą `CALLBACK_SMS_ENABLED = false`, a ścieżka zlecenia „Oddzwonić" jest **martwa**
+(`missingForCommit` zatrzymuje commit przed RPC).
+
+**Kolejność jest więc wymuszona: najpierw ożywić „Oddzwonić", potem dopiero wolno
+obiecać oddzwonienie.** Reguła w prompcie bez działającego mechanizmu to zasada 11.
+
+#### ⚠️ Prompt persony w bazie jest NIEAKTUALNY i sprzeczny z kodem
+
+`ai_agents_config.system_prompt` dla `voice_workshop_secretary` (1357 znaków) wciąż zawiera:
+- „**Umów wizytę przez `create_booking`**" — narzędzia nie ma od 06.08
+- „poproś o **imię i nazwisko oraz numer telefonu**" — sekwencja tego nie robi
+
+Blok budowany w kodzie mówi później coś przeciwnego („Masz JEDNO narzędzie:
+`check_availability`", „NIE TWORZYSZ rezerwacji ani zlecenia", „NIE PYTAJ O NAZWISKO"),
+więc w praktyce wygrywa — ale to jest dokładnie ta klasa sprzeczności, którą opisuje
+zasada 15, tylko odwrócona: tym razem **kod nie widzi bazy**. Do poprawienia jednym
+`UPDATE` przy najbliższej okazji; pokażę SQL.
+
 ### 🔴 POZYCJE BEZPIECZEŃSTWA — do zamknięcia PRZED pierwszym prawdziwym klientem
 
 | pozycja | stan |
@@ -192,6 +238,28 @@ dane wstrzykiwane w prompt **cudzej** rozmowy to incydent.
 `voice-call-postprocess` ich **nie przekazywał** — bez tego bramka widziałaby każdą
 rozmowę jako zerowej długości bez zapisu i zablokowałaby uczenie ZAWSZE, po cichu.
 Dopisane przy tej samej zmianie.
+
+### 📎 DWIE LEKCJE Z 10.08 — obie o rzeczach, których nie szukałem
+
+**1. Gwarancja obejmująca jedną operację nie obejmuje pozostałych.**
+Cały mechanizm auto-reguł opierał się na zdaniu „nowa reguła czeka na akceptację
+człowieka". Gwarancja była zaimplementowana wyłącznie w `INSERT` (`is_active: false`).
+Gałąź `UPDATE` — wykonywana, gdy wpis o tej samej `situation` już istnieje — podmieniała
+`recommended_response` **aktywnej** reguły bez niczyjej zgody. Reguła zatwierdzona raz
+mogła po cichu zmienić treść.
+**Jak stosować: przy każdej regule „wymaga akceptacji" sprawdź `INSERT`, `UPDATE`
+i `UPSERT` osobno.** Zabezpieczenie jednej ścieżki zapisu nie zabezpiecza pozostałych.
+
+**2. Zabezpieczenie potrafi zablokować wszystko po cichu.**
+Bramka uczenia potrzebuje `duration_seconds` i `order_id`. `voice-call-postprocess`
+nie przekazywał ani jednego, ani drugiego — bramka widziałaby każdą rozmowę jako zerowej
+długości bez zapisu i odrzucała **zawsze**. Brak nowych reguł wygląda dokładnie tak samo
+jak „rozmowy nie wniosły nic nowego", więc nikt by tego nie zauważył.
+**Kontrola wdrożona** (`voice-call-reconcile`): jeśli w oknie 7 dni były rozmowy,
+a destylator nie dopisał żadnej reguły **i** nie oznaczył żadnej rozmowy do przeglądu —
+log `distiller_silent` na poziomie `error`. Liczby (`rozmow_7dni`, `nowych_regul_7dni`,
+`do_przegladu_7dni`) idą w **każdym** wpisie crona, nie tylko przy alercie, żeby trend
+był widoczny zanim zrobi się źle.
 
 ### Dług do sprzątnięcia (nie teraz)
 

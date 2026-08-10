@@ -46,6 +46,28 @@ test("ZASADA 22: data i kwota też są wartościami", () => {
   assert.match(redactPersonalData("koszt 250 zł"), /\[kwota\]/);
 });
 
+test("liczebnik nie zostaje urwany — regresja z prawdziwego wpisu", () => {
+  // Bez sortowania alternatywy po długości zostawało „[numer telefonu]set osiemdziesiąt trzy".
+  const out = redactPersonalData(
+    "Powtórz numer głośno: 'Czyli pięćset dziewiętnaście, cztery siedem, cztery, pięćset osiemdziesiąt trzy - dobrze?'",
+  );
+  assert.ok(!/set osiemdziesiąt/.test(out), out);
+});
+
+test("polskie znaki w liczebniku porzadkowym — regresja urwanego szostego", () => {
+  const out = redactPersonalData("Czekamy na Pana w czwartek szóstego sierpnia o jedenastej");
+  assert.ok(!/szó\[/.test(out), out);
+  assert.match(out, /\[data\]/);
+});
+
+test("imię i nazwisko razem też znika, marki i modele zostają", () => {
+  assert.match(redactPersonalData("Dziękuję, Daniel Moshechkov, numer 519474583"), /\[imię\]/);
+  assert.ok(!/Moshechkov/.test(redactPersonalData("Dziękuję, Daniel Moshechkov")));
+  // Nazwa marki i modelu nie może zostać zjedzona.
+  assert.equal(redactPersonalData("Toyota Corolla, biała"), "Toyota Corolla, biała");
+  assert.equal(redactPersonalData("BMW X5"), "BMW X5");
+});
+
 test("hasPersonalData wykrywa to, co redact zmienia", () => {
   assert.equal(hasPersonalData("Podsumuj usługę, pojazd i termin"), false);
   assert.equal(hasPersonalData("numer 519474583"), true);
@@ -84,7 +106,18 @@ test("rozmowa z ucięciem odpowiedzi nie uczy — to był qrgbn9cy", () => {
   assert.equal(v.flagForReview, true);
 });
 
-test("agent przepraszał → przegląd, nie destylacja", () => {
+test("UPRZEJME przeprosiny NIE blokują uczenia — test na 21 rozmowach odrzucił 4 udane", () => {
+  for (const zdanie of [
+    "Przepraszam, nie dosłyszałam — czy chodzi o numer rejestracyjny?",
+    "Przepraszam, nie znam tej marki. Czy to marka chińska?",
+    "Przepraszam — środa to trzynasty sierpnia.",
+  ]) {
+    const v = shouldDistill({ ...udana, agentMessages: [zdanie] });
+    assert.equal(v.allow, true, `zablokowane przez uprzejmość: "${zdanie}"`);
+  }
+});
+
+test("agent przepraszał ZA USTERKĘ → przegląd, nie destylacja", () => {
   const v = shouldDistill({
     ...udana,
     agentMessages: ["Przepraszam, nie zdążyłem dokończyć. Czy mogę powtórzyć krócej?"],

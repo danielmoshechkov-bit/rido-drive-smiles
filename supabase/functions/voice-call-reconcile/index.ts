@@ -108,11 +108,39 @@ serve(async (req) => {
     });
   }
 
+  // --- KONTROLA ZDROWIA DESTYLATORA ------------------------------------------
+  // Bramka uczenia potrafi zablokować wszystko PO CICHU: brak nowych reguł
+  // wygląda dokładnie tak samo jak „rozmowy nie wniosły nic nowego". Raz już
+  // o to otarliśmy się o włos — `voice-call-postprocess` nie przekazywał
+  // `duration_seconds` ani `order_id`, więc bramka widziałaby każdą rozmowę
+  // jako zerowej długości bez zapisu i odrzucała ZAWSZE.
+  //
+  // Sygnał: w oknie 7 dni BYŁY rozmowy, a destylator nie zrobił NIC — ani nie
+  // dopisał reguły, ani nie oznaczył rozmowy do przeglądu. Jedno albo drugie
+  // musi wystąpić, jeśli działa.
+  const od7dni = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+  const [{ count: rozmow7 }, { count: regul7 }, { count: przeglad7 }] = await Promise.all([
+    admin.from("voice_calls").select("id", { count: "exact", head: true }).gte("created_at", od7dni),
+    admin.from("voice_agent_knowledge").select("id", { count: "exact", head: true }).gte("created_at", od7dni),
+    admin.from("voice_calls").select("id", { count: "exact", head: true })
+      .gte("created_at", od7dni).eq("status", "needs_review"),
+  ]);
+  if ((rozmow7 || 0) > 0 && (regul7 || 0) === 0 && (przeglad7 || 0) === 0) {
+    console.error("[voice-call-reconcile]", JSON.stringify({
+      event: "distiller_silent",
+      alert: "7 dni rozmów bez ani jednej reguły i bez ani jednego przeglądu — destylator prawdopodobnie NIE DZIAŁA, a nie: rozmowy były bezbłędne",
+      rozmow_7dni: rozmow7, nowych_regul: regul7, do_przegladu: przeglad7,
+    }));
+  }
+
   const suma = raport.reduce((a, x) => a + (Number(x.domowionych) || 0), 0);
   // Milczący cron nie daje żadnej wiedzy. Logujemy ZAWSZE, także zero — brak wpisu
   // znaczyłby wtedy „cron nie chodzi", a nie „nie było czego domawiać".
   console.info("[voice-call-reconcile]", JSON.stringify({
     event: "reconcile", okno_h: okno, dry_run: dryRun, domowionych: suma, tenantow: raport.length,
+    // Liczby zdrowia destylatora w KAŻDYM wpisie, nie tylko przy alercie —
+    // inaczej trend widać dopiero, gdy jest już źle.
+    rozmow_7dni: rozmow7, nowych_regul_7dni: regul7, do_przegladu_7dni: przeglad7,
   }));
   return json({ ok: true, okno_h: okno, dry_run: dryRun, domowionych: suma, raport });
 });
