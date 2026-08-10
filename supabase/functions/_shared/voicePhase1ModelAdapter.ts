@@ -41,6 +41,17 @@ const toAnthropicMessages = (messages: Phase1ConversationMessage[]) => messages.
   return message;
 });
 
+// PROMPT CACHING.
+//
+// Prompt systemowy ma ~2650 tokenów i dotąd był przeliczany od zera w KAŻDEJ turze
+// (`input_cache_read: 0` w raporcie ElevenLabs). To główne źródło ogonów opóźnień —
+// w rozmowie 05.08 18:43 jedna tura czekała 6322 ms na pierwszy token przy pytaniu
+// "Imię i nazwisko?", bez żadnego narzędzia.
+//
+// `system` (persona, kontekst firmy, baza wiedzy, wszystkie reguły) dostaje
+// `cache_control: ephemeral`. `systemVolatile` (kontekst czasu, zmienny co minutę)
+// idzie ZA nim, poza cache — prefiks musi być bajtowo identyczny, żeby trafić.
+// Przy pustej części zmiennej wysyłamy jeden blok, czyli zachowanie jak dotąd.
 export const buildPhase1AnthropicRequest = (
   candidate: Phase1VoiceModelCandidate,
   apiKey: string,
@@ -48,6 +59,7 @@ export const buildPhase1AnthropicRequest = (
   messages: Phase1ConversationMessage[],
   tools: Phase1ToolDefinition[],
   maxOutputTokens: number,
+  systemVolatile = "",
 ): { url: string; init: RequestInit } => ({
   url: candidate.endpoint,
   init: {
@@ -57,7 +69,10 @@ export const buildPhase1AnthropicRequest = (
       model: candidate.model,
       max_tokens: maxOutputTokens,
       temperature: 0.5,
-      system,
+      system: [
+        { type: "text", text: system, cache_control: { type: "ephemeral" } },
+        ...(systemVolatile ? [{ type: "text", text: systemVolatile }] : []),
+      ],
       messages: toAnthropicMessages(messages),
       stream: true,
       ...(tools.length ? { tools } : {}),
@@ -79,5 +94,6 @@ export const consumePhase1AnthropicSse = async (
       input: block.input || {},
     })),
     stopReason: result.stopReason,
+    usage: result.usage,
   };
 };

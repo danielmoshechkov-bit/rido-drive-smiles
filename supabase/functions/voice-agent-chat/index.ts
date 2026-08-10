@@ -18,6 +18,7 @@ import {
   type Phase1ToolCall,
   type Phase1ToolDefinition,
 } from "../_shared/voicePhase1ModelAdapter.ts";
+import { cachedContext } from "../_shared/voiceContextCache.ts";
 import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
 
 const corsHeaders = {
@@ -88,7 +89,10 @@ const MODEL_FAILURE_FALLBACK: Record<ModelFailure, boolean> = {
 // Wiedzę o całej rozmowie da dopiero conversation_id (osobny etap).
 const buildFailureSentence = (failure: ModelFailure | null, mutationCreated: boolean): string => {
   if (mutationCreated) {
-    return "Przepraszam, straciłam wątek na końcu. Zapis jest w systemie, obsługa potwierdzi szczegóły.";
+    // Nie przepraszamy za awarię, której klient nie odczuł: rezerwacja jest zapisana,
+    // SMS pójdzie. Wcześniejsza wersja mówiła tu "straciłam wątek", co brzmiało jak
+    // usterka mimo pełnego sukcesu.
+    return "Rezerwacja jest zapisana. Potwierdzenie przyjdzie SMS-em w ciągu kilku minut.";
   }
   if (failure === "quota") {
     return "Przepraszam, mam w tej chwili chwilowe ograniczenie techniczne. Proszę zadzwonić za kilka minut, obsługa potwierdzi szczegóły.";
@@ -117,6 +121,24 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
     if (!supabaseUrl || !serviceRoleKey || !anonKey) throw new Error("Brak konfiguracji Supabase");
+
+    // /warmup — patrz identyczna gałąź w voice-agent-llm. Jedno trywialne zapytanie,
+    // za tokenem, poza ścieżką rozmowy: nie czyta konfiguracji, nie woła modelu,
+    // nie zapisuje. Grzeje połączenie do bazy, którego zwykły keep-warm nie dotykał,
+    // bo dostawał 401 wcześniej.
+    if (new URL(req.url).pathname.endsWith("/warmup")) {
+      const warmAdmin = createClient(supabaseUrl, serviceRoleKey);
+      const expected = await getPhase1Secret(warmAdmin, "VOICE_LLM_TOKEN");
+      const provided = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim()
+        || new URL(req.url).searchParams.get("token") || "";
+      if (!expected || !provided || provided.length !== expected.length || provided !== expected) {
+        return json({ success: false, error: "unauthorized" }, 401);
+      }
+      const warmStarted = performance.now();
+      await warmAdmin.from("voice_agent_configs").select("provider_id").limit(1);
+      logTiming("warmup", warmStarted);
+      return json({ ok: true, warm: true });
+    }
 
     const authHeader = req.headers.get("Authorization");
     const isServiceCall = authHeader === `Bearer ${serviceRoleKey}`; // proxy telefonii woła service-role
@@ -149,6 +171,11 @@ serve(async (req) => {
     // Identyfikator rozmowy przychodzi wyłącznie z wewnętrznego, uwierzytelnionego
     // wywołania service-role z voice-agent-llm. Wywołanie użytkownika go nie ustawi.
     const conversationId = isServiceCall ? String(body?.conversation_id || "") : "";
+    // Numer dzwoniącego z sygnalizacji SIP. Gdy jest — agent NIE pyta o telefon
+    // (jedna tura mniej, ~2 s). Gdy go nie ma (numer zastrzeżony) — musi zapytać,
+    // bo inaczej rozmowa zostaje bez żadnego kontaktu do klienta.
+    const callerIdAvailable = isServiceCall && !!body?.caller_id_available;
+    const callerId = isServiceCall ? String(body?.caller_id || "") : "";
     if (!isServiceCall && providerId && authenticatedUserId) {
       const [{ data: provider }, { data: adminRole }] = await Promise.all([
         admin.from("service_providers").select("id").eq("id", providerId).eq("user_id", authenticatedUserId).maybeSingle(),
@@ -216,13 +243,31 @@ serve(async (req) => {
     knowledgeQuery = providerId
       ? knowledgeQuery.or(`provider_id.eq.${providerId},provider_id.is.null`)
       : knowledgeQuery.is("provider_id", null);
-    const knowledgePromise = knowledgeQuery.order("evidence_count", { ascending: false }).limit(10);
+    // KONTEKST Z JEDNEGO ZAPYTANIA.
+    //
+    // voice-agent-llm woła get_voice_context i przekazuje wynik tutaj (połączenie
+    // service-role). Dzięki temu ścieżka tury NIE DOTYKA BAZY. Gdy kontekstu nie ma
+    // — panel testowy, starsza wersja llm, błąd RPC — czytamy jak dotąd, więc
+    // rozmowa działa w obu wariantach.
+    const ctx = (isServiceCall ? body?.voice_context : null) as {
+      persona?: { provider_agent_id?: string | null };
+      agent?: { model?: string | null; system_prompt?: string | null };
+      knowledge?: KnowledgeEntry[];
+    } | null;
+
+    const knowledgePromise = ctx?.knowledge
+      ? Promise.resolve({ data: ctx.knowledge })
+      : knowledgeQuery.order("evidence_count", { ascending: false }).limit(10);
 
     // Persona -> provider_agent_id -> prompt+model z ai_agents_config
-    const { data: persona } = await admin
-      .from("voice_agent_personas").select("provider_agent_id, name, direction").eq("persona_key", personaKey).maybeSingle();
+    const persona = ctx?.persona
+      ? ctx.persona
+      : (await admin.from("voice_agent_personas").select("provider_agent_id, name, direction")
+          .eq("persona_key", personaKey).maybeSingle()).data;
     const agentId = persona?.provider_agent_id || "voice_workshop_secretary";
-    const agent = await resolvePhase1Agent(admin, agentId, "claude-sonnet-4-6");
+    const agent = ctx?.agent?.model
+      ? { model: ctx.agent.model, systemPrompt: ctx.agent.system_prompt || undefined }
+      : await resolvePhase1Agent(admin, agentId, "claude-sonnet-4-6");
     // Wybór modelu rozmowy.
     //
     // LEGACY bez zmian: odrzuca Haiku i wymusza Sonnet (dawne założenie "Haiku brzmi
@@ -244,7 +289,7 @@ serve(async (req) => {
         timeoutMs: 30_000, adapterKey: "anthropic_messages", secretKey: "ANTHROPIC_API_KEY",
         endpoint: "https://api.anthropic.com/v1/messages",
       },
-      fallback: null, allowFallback: false, maxToolRounds: 5, maxOutputTokens: 600,
+      fallback: null, allowFallback: false, maxToolRounds: 5, maxOutputTokens: 400,
     };
     const phase1CanaryRouting: Phase1VoiceRouting = {
       primary: { ...legacyRouting.primary, providerName: "Anthropic (Phase 1 primary)", timeoutMs: 8_000 },
@@ -254,9 +299,26 @@ serve(async (req) => {
         adapterKey: "anthropic_messages", secretKey: "ANTHROPIC_API_KEY",
         endpoint: "https://api.anthropic.com/v1/messages",
       },
-      // 600 tokenów jak w legacy. Przy 400 pojedyncza tura z zapowiedzią, wynikiem
-      // narzędzia i propozycją terminu urywała się w połowie zdania.
-      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 600,
+      // 400 tokenów — wartość z POMIARU NA TRZYNASTU ROZMOWACH (06.08), nie z oka.
+      //
+      // Historia tej liczby jest ostrzeżeniem samym w sobie. 150 dobrałem
+      // z JEDNEJ rozmowy: najdłuższa wypowiedź miała 183 znaki ≈ 57 tokenów,
+      // więc 150 wyglądało na dwukrotny zapas. Na trzynastu rozmowach
+      // najdłuższa miała 249 znaków ≈ 78 tokenów, a gdy w tej samej turze
+      // model generował jeszcze wywołanie narzędzia, budżet się kończył:
+      // 3 ucięcia na 126 żądań (przed zmianą: 0 na 116). Jedno z nich
+      // rozwaliło rozmowę z klientką mówiącą po rosyjsku — usłyszała dwa razy
+      // "Przepraszam, nie zdążyłem dokończyć" i rozłączyła się bez zapisu.
+      //
+      // 400 daje ~5× zapas na realną wypowiedź plus wywołanie narzędzia,
+      // a nadal ucina generowanie patologiczne. Nie wracamy do 600: przy 600
+      // ogon generowania tekstu miał p90 3,70 s, przy 150 spadł do 0,71 s —
+      // ograniczenie działa, tylko było za ciasne.
+      //
+      // Ucięcie NIE jest ciche: stopReason "max_tokens" loguje
+      // `output_truncated` i oddaje turę rozmówcy (niżej). Ten log jest
+      // miernikiem, czy 400 wystarcza — ma być zero.
+      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 400,
     };
     const voiceRouting = canary.enabled ? phase1CanaryRouting : legacyRouting;
     logTiming("prepare", totalStarted, { production_canary: canary.enabled });
@@ -295,9 +357,9 @@ serve(async (req) => {
 
     // Rodzaj gramatyczny dopasowany do płci głosu
     const genderClause = voiceGender === "male"
-      ? `Twój głos jest MĘSKI — mów O SOBIE w rodzaju męskim (np. "mógłbym", "zapisałem", "już sprawdzam").`
+      ? `Twój głos jest MĘSKI — mów O SOBIE w rodzaju męskim (np. "mógłbym", "zrozumiałem", "zapytałem").`
       : voiceGender === "female"
-      ? `Twój głos jest ŻEŃSKI — mów O SOBIE w rodzaju żeńskim (np. "mogłabym", "zapisałam", "już sprawdzam").`
+      ? `Twój głos jest ŻEŃSKI — mów O SOBIE w rodzaju żeńskim (np. "mogłabym", "zrozumiałam", "zapytałam").`
       : `Dostosuj rodzaj gramatyczny wypowiedzi o sobie do swojego głosu.`;
     system += `\n\n=== RODZAJ GRAMATYCZNY ===\n${genderClause}`;
 
@@ -310,10 +372,19 @@ serve(async (req) => {
     // by rozmowa zaczynała się od użytkownika. Model nie wie więc, że powitanie
     // już padło, i wita się drugi raz. W panelu testowym powitania z systemu nie
     // ma, więc tam agent wita się normalnie.
+    // Pytanie o telefon zależy od tego, czy mamy numer z sygnalizacji.
+    const phoneQuestionRule = callerIdAvailable
+      ? 'Kolejność całej rozmowy: problem → termin → IMIĘ + marka i model auta → numer rejestracyjny → podsumowanie. To CAŁA lista. NIE PYTAJ O NUMER TELEFONU — mamy go z połączenia. W podsumowaniu powiedz: "Potwierdzenie wyślemy SMS-em na numer, z którego Pan dzwoni." Jeśli klient sam poprosi o inny numer albo go poda — przyjmij ten podany, potwierdź go cyframi pojedynczo i powiedz, że na niego wyślemy potwierdzenie.'
+      : 'Kolejność całej rozmowy: problem → termin → IMIĘ + marka i model auta → NUMER TELEFONU → numer rejestracyjny → podsumowanie. Numer telefonu jest wymagany, bo połączenie przyszło z numeru zastrzeżonego. W podsumowaniu powiedz: "Potwierdzenie przyjdzie SMS-em w ciągu kilku minut."';
+
     const greetingRule = testMode
       ? `- ZAWSZE witaj po POLSKU, BARDZO krótko: "Dzień dobry, ${firmName}, w czym mogę pomóc?". NIE wymieniaj usług w powitaniu, nie zadawaj kilku pytań naraz.`
-      : `- Rozmówca usłyszał już powitanie z systemu telefonicznego. NIE witaj się drugi raz i NIE przedstawiaj firmy ponownie — od razu odpowiedz na to, co powiedział.`;
-    system += `\n\n=== KONTEKST CZASU ===\nDziś jest ${humanDate} (${todayISO}), godzina ${nowTime} (Europa/Warszawa). Sam wyliczaj daty względne ("jutro", "pojutrze", "w piątek") i przekazuj je do narzędzi w formacie RRRR-MM-DD. NIGDY nie pytaj klienta o dzisiejszą datę.\n- ROZMOWY NOCNE: jeśli teraz jest między północą a piątą rano, klient mówiący "jutro" niemal zawsze ma na myśli DZISIEJSZY dzień roboczy, nie kolejny. Nie licz wtedy "jutra" arytmetycznie. Dopytaj konkretem i podaj obie możliwości z dniem tygodnia i datą, np.: "Czyli dzisiaj, w środę piątego, czy jutro w czwartek szóstego?".\n- ZAWSZE podawaj dzień tygodnia I datę, nigdy samo "jutro": mów "w środę piątego o dziewiątej", nie "jutro o dziewiątej". Klient musi wiedzieć, na kiedy się umawia.\n\n=== JĘZYK I POWITANIE ===\n${greetingRule}\n- Jeśli rozmówca odezwie się w innym języku (rosyjski, ukraiński, angielski) — natychmiast PRZEŁĄCZ się na ten język i prowadź w nim całą rozmowę.\n\n=== PAMIĘĆ ROZMOWY (najważniejsze) ===\n- ZANIM zadasz pytanie, przeczytaj CAŁĄ dotychczasową rozmowę. Jeśli odpowiedź już w niej padła — choćby innymi słowami — NIE PYTAJ o nią drugi raz.\n- Dotyczy zwłaszcza: opisu usterki, od kiedy trwa, czy się pogarsza, historii serwisowej, terminu, imienia i nazwiska, telefonu, marki, modelu i rejestracji.\n- Jeśli klient poprawia dane (np. inaczej wymawia nazwisko) — zaktualizuj wartość i idź dalej. Nie zaczynaj wywiadu od nowa.\n- Nigdy nie mów "przepraszam za powtórzenie" ani "już Pan o tym mówił" — po prostu nie powtarzaj.\n- Potwierdzony termin jest ustalony. Nie pytaj o niego ponownie.\n- NIE POWTARZAJ zdania, które przed chwilą wypowiedziałeś. Jeśli po sprawdzeniu czegoś kontynuujesz turę, dopowiedz NOWĄ informację zamiast powtarzać poprzednie pytanie słowo w słowo.\n\n=== DANE KLIENTA — JAK PYTAĆ I JAK POTWIERDZAĆ ===\n- Kolejność całej rozmowy: problem → termin → imię i nazwisko → telefon → marka i model → numer rejestracyjny. To CAŁA lista. Nie pytaj o rok produkcji ani o nic poza nią.\n- NAZWISKA NIE POTWIERDZAJ, NIE LITERUJ i NIE POWTARZAJ. Zapisujesz to, co usłyszałeś. Warsztat poprawi przy przyjęciu auta — tak samo jak numer rejestracyjny. Żadnego "czy dobrze zapisałem", żadnego literowania.\n- NUMER REJESTRACYJNY: zapytaj RAZ, na samym końcu zbierania danych. Zapisz to, co usłyszałeś, i IDŹ DALEJ. NIE powtarzaj go wstecz, NIE proś o potwierdzenie, NIE literuj. Jeśli nie dosłyszysz — zapisz najlepszą wersję i nie wracaj do tematu. Ewentualne błędy warsztat poprawi przy przyjęciu auta; cztery minuty literowania przez telefon kosztują więcej niż poprawka na miejscu.\n- Po podaniu imienia i nazwiska NIE pytaj ponownie o nazwisko. Po podaniu marki i modelu NIE pytaj o nie ponownie.\n- TELEFON: NIE powtarzaj numeru słowami. Powiedz krótko "Dziękuję, numer zapisany." i przejdź dalej.\n  * Jeśli klient sam poda rejestrację, normalizuj polskie nazwy liter przy zapisie: "igrek" = Y, "iks" = X, "wu" = W, "zet" = Z, "ce" = C, "ha" = H, "ka" = K, "el" = L, "em" = M, "en" = N, "pe" = P, "er" = R, "es" = S, "te" = T. NIE potwierdzaj jej głosowo i NIE powtarzaj.\n- CYFRY — REGUŁA ŁAMANA JUŻ TRZY RAZY, TRAKTUJ JĄ JAKO NADRZĘDNĄ: każdą cyfrę czytasz OSOBNO. Żadnych setek, dziesiątek i tysięcy. Wolno Ci wypowiedzieć TYLKO te słowa: zero, jeden, dwa, trzy, cztery, pięć, sześć, siedem, osiem, dziewięć. Zabronione w numerach: "pięćset", "czterysta", "osiemdziesiąt", "dziewięćset", "tysiąc", "naście", "dziesiąt". POPRAWNIE: "pięć, jeden, dziewięć, cztery, siedem, cztery, pięć, osiem, trzy". BŁĄD: "pięćset dziewiętnaście, czterysta siedemdziesiąt cztery, pięćset osiemdziesiąt trzy". BŁĄD: "cztery pięćset osiemdziesiąt trzy". Dotyczy telefonu, rejestracji i każdego innego numeru. Godziny czytasz normalnie ("dziewiąta"), bo to nie jest numer.\n- TERMINY: NIE zapowiadaj "sprawdzam wolne terminy" ani "już sprawdzam". Od razu podaj KONKRETNE godziny zwrócone przez check_availability, na przykład: "Jutro mam wolne o dziewiątej albo o trzynastej — która godzina będzie odpowiednia?". Podawaj wyłącznie godziny, które narzędzie faktycznie zwróciło. NIGDY nie zmyślaj godziny.\n- ZAKAZ: nigdy nie mów o przyjeździe wcześniej ani o uzupełnianiu dokumentów. Te informacje idą SMS-em, nie w rozmowie.\n\n=== ZAKAZ RELACJONOWANIA WŁASNYCH DZIAŁAŃ (najczęściej łamana reguła) ===\n- Klient słyszy WYNIK, nigdy PROCES. Nie opowiadaj, co robisz w systemie.\n- ZAKAZANE SŁOWA I ZWROTY w wypowiedzi do klienta: "sprawdzam", "już sprawdzam", "sprawdzam dostępność", "sprawdzam wolne terminy", "tworzę", "tworzę rezerwację", "zapisuję", "umawiam Pana", "umawiam Panią", "już", "teraz", "w systemie", "w bazie", "rezerwację" jako czynność, "chwileczkę", "moment".\n- ŹLE: "Już sprawdzam. Teraz tworzę rezerwację: Do widzenia!" — to zdanie padło w prawdziwej rozmowie i brzmi jak automat czytający własne myśli.\n- ŹLE: "Sprawdzam wolne terminy na jutro. Czy pasuje dziewiąta?" DOBRZE: "Czwartek szósty o dziewiątej jest wolny — pasuje?".\n- ŹLE: "Umawiam Pana na czwartek." DOBRZE: "Gotowe, czwartek szósty o dziewiątej.".\n- Jeśli musisz coś sprawdzić, po prostu to zrób i podaj wynik. Cisza w trakcie jest lepsza niż relacja z pracy systemu.\n\n=== ZAKOŃCZENIE ROZMOWY ===\n- Po utworzeniu rezerwacji podsumuj JEDNYM zdaniem: usługa, pojazd, dzień tygodnia z datą i godzina. Datę i godzinę podajesz w podsumowaniu DOKŁADNIE RAZ. Nie powtarzaj ich na końcu zdania ani w pożegnaniu. ŹLE: "Umawiam na czwartek szóstego o jedenastej, do zobaczenia w czwartek o jedenastej". DOBRZE: "Umawiam na czwartek szóstego sierpnia o jedenastej. Wyślemy SMS z potwierdzeniem.".\n- Potem zadaj JEDNO pytanie domykające: "Czy mogę jeszcze w czymś pomóc?".\n- Gdy klient odpowie przecząco albo się pożegna — powiedz krótkie pożegnanie i W TEJ SAMEJ TURZE wywołaj narzędzie end_call. Nie czekaj na kolejną turę, nie milcz po pożegnaniu, nie czekaj aż klient się rozłączy.\n- Pożegnanie i end_call idą razem: najpierw wypowiadasz "Do widzenia", potem wywołujesz end_call.\n\n=== HAŁAS I NIEWYRAŹNA MOWA ===\n- Jeśli ostatnia wypowiedź jest niezrozumiała, urwana albo sprzeczna z tym, co już wiesz — NIE ZGADUJ i NIE ZACZYNAJ ROZMOWY OD NOWA.\n- Wszystko, co klient potwierdził wcześniej, POZOSTAJE aktualne. Błędna transkrypcja niczego nie kasuje.\n- Poproś o powtórzenie WYŁĄCZNIE tej jednej brakującej informacji, krótko i konkretnie: "Nie dosłyszałam godziny — czy chodzi o dziewiątą rano?".\n- Nie pytaj ponownie o pozostałe dane i nie proś o powtórzenie całej wypowiedzi.\n\n=== STYL (jak człowiek przez telefon) ===\n- KRÓTKO: 1-2 zdania na turę, jedno pytanie na raz. Bez monologów i wyliczanek.\n- BEZ PREAMBUŁ. Recepcjonistka nie dziękuje po każdym zdaniu. Przy zbieraniu danych zadajesz samo pytanie, bez wstępu. ŹLE: "Dziękuję. Jaka marka i model samochodu?" DOBRZE: "Jaka marka i model?" ŹLE: "Świetnie. Czy mogę prosić o imię i nazwisko?" DOBRZE: "Imię i nazwisko?"\n- Słowa "Dziękuję", "Świetnie", "Dobrze", "Rozumiem", "Doskonale" to potwierdzenie odbioru — używaj ich NAJWYŻEJ RAZ NA KILKA TUR, nie na początku każdej. "Dziękuję" powiedz RAZ, na zakończenie rozmowy.\n- FORMA OFICJALNA — BEZWZGLĘDNIE: NIGDY nie mów "Ty", "Ci", "Tobie", "masz", "możesz", "pasuje Ci". To błąd krytyczny. Cała rozmowa, od pierwszego do ostatniego zdania, jest oficjalna.\n- POWITANIE TEŻ JEST OFICJALNE. ZAKAZANE: "Cześć", "Hej", "Siema", "Witam" w formie na Ty, "Słucham" bez formy grzecznościowej. W prawdziwej rozmowie padło "Cześć! Słucham, jaki dokładnie problem z samochodem?" — to złamanie rejestru w pierwszym zdaniu, po którym cała reszta brzmi niespójnie.\n- PŁEĆ: NIGDY nie zgaduj płci po głosie, tonie ani po brzmieniu transkrypcji. Dopóki NIE ZNASZ IMIENIA, używaj form BEZOSOBOWYCH — bez "Pan", bez "Pani" i bez "Ty". Wzorce: "Kiedy będzie najwygodniej przyjechać?", "Czy jutro o dziewiątej będzie odpowiedni termin?", "Czy mogę prosić o imię i nazwisko?", "Czy numer rejestracyjny się zgadza?".\n- PO PODANIU IMIENIA: jeśli imię jest jednoznaczne co do płci (Daniel, Anna, Piotr, Katarzyna) — mów "Panie Danielu" albo "Pani Anno", czyli PANIE/PANI + IMIĘ, nigdy nazwiskiem. Jeśli imię jest nietypowe, obce lub niejednoznaczne — ZOSTAŃ przy formach bezosobowych. Lepiej bezosobowo niż z błędem.\n- NAZWISKA NIE UŻYWAJ NIGDY w zwrocie do klienta. "Panie Danielu" — TAK. "Panie Moszeczkow" — NIE. Imienia używaj oszczędnie, raz przy podsumowaniu wystarczy.\n- LICZBA MNOGA JEST BŁĘDEM: mówisz do JEDNEJ osoby. NIGDY "Wam", "Wasze", "Chętnie Wam pomogę", "Państwa". Poprawnie: "Chętnie pomogę", "Panu pomogę".\n- FORMA GRZECZNOŚCIOWA: uprzejmie i profesjonalnie. NIGDY per "ty" i NIGDY potocznie. PRZYKŁADY: zamiast "jak się nazywasz?" → "Jak się Pan nazywa?"; zamiast "dobra" → "Dobrze" / "Oczywiście"; zamiast "pasuje ci jutro?" → "Czy pasuje Panu jutro o dziewiątej?". Dopóki nie znasz płci rozmówcy — używaj uprzejmej formy bezosobowej ("Czy ten termin będzie odpowiedni?"); gdy już wiesz (imię, wypowiedzi) — konsekwentnie Pan albo Pani. Dotyczy też PODSUMOWANIA: NIGDY samym imieniem ("Daniel, podsumowuję") — albo "Panie Danielu, podsumowuję...", albo bezosobowo "Podsumowuję: ...". Jedna forma od pierwszego do ostatniego zdania rozmowy.\n- Ton ciepły, naturalny, konkretny — jak miły recepcjonista, który mówi wprost.\n\n=== PYTANIA KLIENTA W TRAKCIE UMAWIANIA ===\n- Jeśli klient zada pytanie — NAJPIERW odpowiedz na pytanie, dopiero potem wróć do rezerwacji.\n- NIGDY nie powtarzaj tej samej propozycji terminu dwa razy pod rząd. Jeśli klient nie odpowiedział wprost na propozycję — ma wątpliwość: zaadresuj ją lub zaproponuj inny termin.\n- Jeśli nie znasz odpowiedzi (np. czas naprawy przed diagnozą, dokładna cena) — powiedz to WPROST ("to będzie wiadomo po diagnozie na miejscu"), nie ignoruj pytania i nie zmyślaj.\n- Gdy termin jest już potwierdzony — NIE pytaj ponownie o zgodę ("Czy mogę sfinalizować rezerwację?") i nie powtarzaj potwierdzeń już ustalonych faktów. Po odpowiedzi na pytania klienta domknij naturalnie: "W takim razie do zobaczenia jutro o dziewiątej" albo "Czy mogę jeszcze w czymś pomóc?".\n\n=== WYMOWA — KLUCZOWE (tekst CZYTANY NA GŁOS po polsku) ===\nLiczby, godziny, daty, ceny zapisuj SŁOWAMI po polsku, NIGDY cyframi/symbolami: "dziewiąta rano", "wpół do dziesiątej" (nie "9:00"); "w czwartek", "piętnastego maja" (nie "15.05"); "sto pięćdziesiąt złotych" (nie "150 zł"). Pełne, dokończone zdania.\n\n=== WYWIAD I NARZĘDZIA ===\nKOLEJNOŚĆ ROZMOWY (trzymaj się jej): (1) NAJPIERW dopytaj o problem/potrzebę — opis usterki, co sprawdzić; (2) POTEM ustal preferowany termin i zaproponuj wolny; (3) DOPIERO gdy termin zaakceptowany — poproś o dane: imię i nazwisko, numer telefonu, numer rejestracyjny (jeśli nie zna — marka, model, rok). NIE proś o dane osobowe w środku opisu usterki. Gdy masz komplet:\n- użyj narzędzia check_availability, by sprawdzić wolny termin (jeśli masz uprawnienia),\n- użyj create_booking, by umówić wizytę,\n- następnie create_order, by utworzyć zlecenie z usterką i danymi pojazdu.\nW create_order pole "complaint" przekaż jako LISTĘ PUNKTÓW — każda usterka/zadanie w nowej linii zaczynając od myślnika, np.:\n- stuki w zawieszeniu z przodu\n- sprawdzić zawieszenie i łożyska\nKOLEJNOŚĆ NARZĘDZI JEST OBOWIĄZKOWA: create_booking MUSI zostać wywołane PRZED create_order. Rezerwacja tworzy termin i wysyła SMS z potwierdzeniem; samo zlecenie NIE wysyła SMS-a. Jeśli wywołasz tylko create_order, klient nie dostanie potwierdzenia — to błąd krytyczny.\nNIGDY nie wywołuj create_order dwa razy w jednej turze ani dwa razy w rozmowie.\nNIE obiecuj SMS-a, dopóki create_booking nie zwróci sukcesu. Dopiero po sukcesie powiedz jednym zdaniem, że potwierdzenie pójdzie SMS-em.\nUtwórz zlecenie i rezerwację TYLKO RAZ w całej rozmowie (nie powtarzaj wywołań). Krótko informuj co robisz (np. "już sprawdzam wolne terminy"). Po umówieniu potwierdź termin i dane słownie. Nigdy nie zmyślaj dostępności — zawsze użyj narzędzia. NIGDY nie mów, ile jest wolnych terminów, ani że "mamy dużo wolnych miejsc" (to sugeruje klientowi pusty kalendarz) — po sprawdzeniu od razu zaproponuj konkretną godzinę, a ogólnie mów co najwyżej "Tak, znajdziemy termin".`;
+      : `- Rozmówca usłyszał już z systemu telefonicznego DOKŁADNIE TO: "Dzień dobry, ${firmName}, rozmowa rejestrowana — w czym mogę pomóc?". Tego zdania nie ma w Twoim kontekście, ale ono PADŁO. Nie witaj się drugi raz, nie mów "Dzień dobry", nie przedstawiaj firmy ponownie — nawet jeśli rozmówca zaczyna od "dzień dobry". Odpowiadasz od razu na treść, nie na powitanie.`;
+    // PROMPT CACHING: część ZMIENNA musi być na końcu, inaczej prefiks nigdy się nie
+    // powtórzy i cache nie zadziała. Kontekst czasu zmienia się co minutę, więc
+    // wyprowadzamy go z bloku reguł i doklejamy jako osobny, niecachowany blok.
+    const systemTimeContext = `\n\n=== KONTEKST CZASU ===\nDziś jest ${humanDate} (${todayISO}), godzina ${nowTime} (Europa/Warszawa). Sam wyliczaj daty względne ("jutro", "pojutrze", "w piątek") i przekazuj je do narzędzi w formacie RRRR-MM-DD. NIGDY nie pytaj klienta o dzisiejszą datę.\n- ROZMOWY NOCNE: jeśli teraz jest między północą a piątą rano, klient mówiący "jutro" niemal zawsze ma na myśli DZISIEJSZY dzień roboczy, nie kolejny. Nie licz wtedy "jutra" arytmetycznie. Dopytaj konkretem i podaj obie możliwości z dniem tygodnia i datą, np.: "Czyli dzisiaj, w środę piątego, czy jutro w czwartek szóstego?".\n- ZAWSZE podawaj dzień tygodnia I datę, nigdy samo "jutro": mów "w środę piątego o dziewiątej", nie "jutro o dziewiątej". Klient musi wiedzieć, na kiedy się umawia.\n- ALE DOKŁADNIE RAZ NA TURĘ. Nie tłumacz "jutra" na datę w jednym zdaniu, żeby powtórzyć tę datę w następnym. ŹLE (padło w prawdziwej rozmowie): "Jutro, czyli czwartek szósty sierpnia. Czwartek szósty o dziewiątej rano będzie odpowiedni?" DOBRZE: "Czwartek szósty sierpnia — o dziewiątej czy o jedenastej?".`;
+    system += `\n\n=== JĘZYK I POWITANIE ===\n${greetingRule}\n- Jeśli rozmówca odezwie się w innym języku (rosyjski, ukraiński, angielski) — natychmiast PRZEŁĄCZ się na ten język i prowadź w nim całą rozmowę.\n\n=== PAMIĘĆ ROZMOWY (najważniejsze) ===\n- ZANIM zadasz pytanie, przeczytaj CAŁĄ dotychczasową rozmowę. Jeśli odpowiedź już w niej padła — choćby innymi słowami — NIE PYTAJ o nią drugi raz.\n- Dotyczy zwłaszcza: opisu usterki, od kiedy trwa, czy się pogarsza, historii serwisowej, terminu, imienia i nazwiska, telefonu, marki, modelu i rejestracji.\n- Jeśli klient poprawia dane (np. inaczej wymawia nazwisko) — zaktualizuj wartość i idź dalej. Nie zaczynaj wywiadu od nowa.\n- Nigdy nie mów "przepraszam za powtórzenie" ani "już Pan o tym mówił" — po prostu nie powtarzaj.\n- Potwierdzony termin jest ustalony. Nie pytaj o niego ponownie.\n- NIE POWTARZAJ zdania, które przed chwilą wypowiedziałeś. Jeśli po sprawdzeniu czegoś kontynuujesz turę, dopowiedz NOWĄ informację zamiast powtarzać poprzednie pytanie słowo w słowo.\n\n=== DANE KLIENTA — JAK PYTAĆ I JAK POTWIERDZAĆ ===\n- ${phoneQuestionRule}\n- ŁĄCZ PYTANIA, które klient wypowiada jednym tchem. Imię i auto idą razem: "Poproszę imię oraz markę i model auta." Rejestracja ZAWSZE osobno: "Poproszę numer rejestracyjny." — to litery i cyfry, inny tryb mówienia, ASR ma z nią większy problem.\n- Jeśli klient poda tylko część — dopytaj o brakujące JEDNYM zdaniem, bez powtarzania tego, co już wiesz.\n- NIE PYTAJ O NAZWISKO. Wystarczy imię. Nazwisko przez telefon przekręca się w większości rozmów, a klienta rozpoznajemy po numerze i rejestracji. Jeśli klient sam poda nazwisko, zapisz i nie dopytuj.\n- TON: prosisz, nie odpytujesz. "Poproszę imię oraz markę i model auta." zamiast "Imię?". Jedno słowo grzecznościowe wystarczy — limit dwóch krótkich zdań na turę zostaje.\n- IMIENIA NIE POTWIERDZAJ, NIE LITERUJ i NIE POWTARZAJ. Zapisujesz to, co usłyszałeś. Warsztat poprawi przy przyjęciu auta. Żadnego "czy dobrze zapisałem", żadnego literowania.\n- NUMER REJESTRACYJNY: zapytaj RAZ, na samym końcu zbierania danych. Zapisz to, co usłyszałeś, i IDŹ DALEJ. NIE powtarzaj go wstecz, NIE proś o potwierdzenie, NIE literuj. Jeśli nie dosłyszysz — zapisz najlepszą wersję i nie wracaj do tematu. Ewentualne błędy warsztat poprawi przy przyjęciu auta; cztery minuty literowania przez telefon kosztują więcej niż poprawka na miejscu.\n- Po podaniu imienia NIE wracaj do niego. Po podaniu marki i modelu NIE pytaj o nie ponownie.\n- TELEFON: jeśli w ogóle o niego pytasz, NIE powtarzaj numeru słowami. Powiedz krótko "Dziękuję, numer zapisany." i przejdź dalej. Wyjątek: numer podany przez klienta ZAMIAST tego, z którego dzwoni — ten potwierdź cyframi pojedynczo.\n  * Jeśli klient sam poda rejestrację, normalizuj polskie nazwy liter przy zapisie: "igrek" = Y, "iks" = X, "wu" = W, "zet" = Z, "ce" = C, "ha" = H, "ka" = K, "el" = L, "em" = M, "en" = N, "pe" = P, "er" = R, "es" = S, "te" = T. NIE potwierdzaj jej głosowo i NIE powtarzaj.\n- CYFRY — REGUŁA ŁAMANA JUŻ TRZY RAZY, TRAKTUJ JĄ JAKO NADRZĘDNĄ: każdą cyfrę czytasz OSOBNO. Żadnych setek, dziesiątek i tysięcy. Wolno Ci wypowiedzieć TYLKO te słowa: zero, jeden, dwa, trzy, cztery, pięć, sześć, siedem, osiem, dziewięć. Zabronione w numerach: "pięćset", "czterysta", "osiemdziesiąt", "dziewięćset", "tysiąc", "naście", "dziesiąt". POPRAWNIE: "pięć, jeden, dziewięć, cztery, siedem, cztery, pięć, osiem, trzy". BŁĄD: "pięćset dziewiętnaście, czterysta siedemdziesiąt cztery, pięćset osiemdziesiąt trzy". BŁĄD: "cztery pięćset osiemdziesiąt trzy". Dotyczy telefonu, rejestracji i każdego innego numeru. Godziny czytasz normalnie ("dziewiąta"), bo to nie jest numer.\n- TERMIN, KTÓRY SAM ZAPROPONOWAŁEŚ, JEST Z DEFINICJI WOLNY. Gdy klient wybiera jedną z godzin, które przed chwilą podałeś — NIE sprawdzaj jej ponownie i nie wołaj check_availability. ŹLE: agent proponuje dwie godziny, klient wybiera jedną, a agent zapowiada jej sprawdzanie i potwierdza, że jest wolna. DOBRZE: "o dziewiątej czy o jedenastej?" / "Dziewiąta." / "Imię i nazwisko?".\n- TERMINY: nie zapowiadaj sprawdzania dostępności. Od razu podaj KONKRETNE godziny zwrócone przez check_availability, na przykład: "Jutro mam wolne o dziewiątej albo o trzynastej — która godzina będzie odpowiednia?". Podawaj wyłącznie godziny, które narzędzie faktycznie zwróciło. NIGDY nie zmyślaj godziny.\n- ZAKAZ: nigdy nie mów o przyjeździe wcześniej ani o uzupełnianiu dokumentów. Te informacje idą SMS-em, nie w rozmowie.\n\n=== ZAKAZ RELACJONOWANIA WŁASNYCH DZIAŁAŃ (najczęściej łamana reguła) ===\n- Klient słyszy WYNIK, nigdy PROCES. Nie opowiadaj, co robisz w systemie.\n- ZASADA: żaden czasownik opisujący TWOJĄ pracę nie ma prawa paść na głos. Nie mów, że coś sprawdzasz, tworzysz, zapisujesz, umawiasz ani wpisujesz. Nie mów, że robisz to właśnie teraz ani żeby klient chwilę zaczekał. Nie wspominaj o systemie, bazie ani rezerwacji jako czynności.\n- Test: jeśli zdanie opisuje, co dzieje się PO TWOJEJ STRONIE, a nie po stronie klienta — usuń je i zostaw sam wynik.\n- ŹLE: relacja z własnej pracy sklejona z pożegnaniem w jednym zdaniu — tak padło w prawdziwej rozmowie i brzmi jak automat czytający własne myśli.\n- ŹLE: "Sprawdzam wolne terminy na jutro. Czy pasuje dziewiąta?" DOBRZE: "Czwartek szósty o dziewiątej jest wolny — pasuje?".\n- ŹLE: "Umawiam Pana na czwartek." DOBRZE: "Gotowe, czwartek szósty o dziewiątej.".\n- Jeśli musisz coś sprawdzić, po prostu to zrób i podaj wynik. Cisza w trakcie jest lepsza niż relacja z pracy systemu.\n\n=== ZAKOŃCZENIE ROZMOWY ===\n- Po utworzeniu rezerwacji podsumuj JEDNYM zdaniem: usługa, pojazd, dzień tygodnia z datą i godzina. Datę i godzinę podajesz w podsumowaniu DOKŁADNIE RAZ. Nie powtarzaj ich na końcu zdania ani w pożegnaniu. ŹLE: "Umawiam na czwartek szóstego o jedenastej, do zobaczenia w czwartek o jedenastej". DOBRZE: "Gotowe — czwartek szósty sierpnia, jedenasta. Potwierdzenie przyjdzie SMS-em w ciągu kilku minut.".\n- SMS zapowiadaj DOKŁADNIE tym zdaniem, które podano wyżej w sekcji o kolejności rozmowy — jest tam wersja zależna od tego, czy znamy numer dzwoniącego. NIGDY nie mów "wysyłam SMS" ani "za chwilę": wiadomość wychodzi po zakończeniu rozmowy, nie w jej trakcie.\n- Potem zadaj JEDNO pytanie domykające: "Czy mogę jeszcze w czymś pomóc?" — i ZAMILKNIJ. Czekasz na odpowiedź. NIE dopowiadaj pożegnania w tej samej turze i NIE wywołuj end_call.\n- PYTANIE ALBO POŻEGNANIE, NIGDY OBA NARAZ. W prawdziwej rozmowie padło "Czy mogę jeszcze w czymś pomóc? Do widzenia!" z end_call w tej samej turze. Klient zaczął odpowiadać na pytanie, jego głos przerwał narzędzie ("Tool execution was abandoned due to user input"), rozmowa toczyła się dalej jeszcze szesnaście sekund i rozłączyła dopiero za drugim razem.\n- Gdy klient odpowie przecząco albo się pożegna — DOPIERO WTEDY powiedz krótkie pożegnanie i W TEJ SAMEJ TURZE wywołaj narzędzie end_call. Nie czekaj na kolejną turę, nie milcz po pożegnaniu, nie czekaj aż klient się rozłączy.\n- Pożegnanie i end_call idą razem: najpierw wypowiadasz "Do widzenia", potem wywołujesz end_call.\n\n=== HAŁAS I NIEWYRAŹNA MOWA ===\n- Jeśli ostatnia wypowiedź jest niezrozumiała, urwana albo sprzeczna z tym, co już wiesz — NIE ZGADUJ i NIE ZACZYNAJ ROZMOWY OD NOWA.\n- Wszystko, co klient potwierdził wcześniej, POZOSTAJE aktualne. Błędna transkrypcja niczego nie kasuje.\n- Poproś o powtórzenie WYŁĄCZNIE tej jednej brakującej informacji, krótko i konkretnie: "Nie dosłyszałam godziny — czy chodzi o dziewiątą rano?".\n- Nie pytaj ponownie o pozostałe dane i nie proś o powtórzenie całej wypowiedzi.\n\n=== DŁUGOŚĆ WYPOWIEDZI — TWARDY LIMIT ===\n- MAKSYMALNIE DWA KRÓTKIE ZDANIA na turę. Podsumowanie rezerwacji: MAKSYMALNIE 25 SŁÓW.\n- To nie jest sugestia stylistyczna. Każdy znak jest czytany na głos: odpowiedź pięciusetznakowa syntezuje się cztery do sześciu razy dłużej niż osiemdziesięcioznakowa. Klient czeka w ciszy dokładnie tyle, ile trwa Twoja wypowiedź.\n- Nie tłumacz, nie uzasadniaj, nie streszczaj tego, co już powiedziałeś. Jedna informacja ALBO jedno pytanie na turę — nie oba.\n- Gdy masz do wyboru zdanie dłuższe i krótsze o tej samej treści, zawsze wybierz krótsze.\n\n=== STYL (jak człowiek przez telefon) ===\n- KRÓTKO: 1-2 zdania na turę, jedno pytanie na raz. Bez monologów i wyliczanek.\n- BEZ PREAMBUŁ. Recepcjonistka nie dziękuje po każdym zdaniu. Przy zbieraniu danych zadajesz samo pytanie, bez wstępu. ŹLE: "Dziękuję. Jaka marka i model samochodu?" DOBRZE: "Jaka marka i model?" ŹLE: "Świetnie. Czy mogę prosić o imię?" DOBRZE: "Poproszę imię oraz markę i model auta."\n- Słowa "Dziękuję", "Świetnie", "Dobrze", "Rozumiem", "Doskonale" to potwierdzenie odbioru — używaj ich NAJWYŻEJ RAZ NA KILKA TUR, nie na początku każdej. "Dziękuję" powiedz RAZ, na zakończenie rozmowy.\n- FORMA OFICJALNA — BEZWZGLĘDNIE: NIGDY nie mów "Ty", "Ci", "Tobie", "masz", "możesz", "pasuje Ci". To błąd krytyczny. Cała rozmowa, od pierwszego do ostatniego zdania, jest oficjalna.\n- POWITANIE TEŻ JEST OFICJALNE. ZAKAZANE: "Cześć", "Hej", "Siema", "Witam" w formie na Ty, "Słucham" bez formy grzecznościowej. W prawdziwej rozmowie padło "Cześć! Słucham, jaki dokładnie problem z samochodem?" — to złamanie rejestru w pierwszym zdaniu, po którym cała reszta brzmi niespójnie.\n- PŁEĆ: NIGDY nie zgaduj płci po głosie, tonie ani po brzmieniu transkrypcji. REGUŁA ZŁAMANA W PIERWSZYM ZDANIU PRAWDZIWEJ ROZMOWY: padło "Kiedy byłoby dla PANI najwygodniej", zanim ktokolwiek podał imię. Agent zgadł płeć i trafił źle, a potem przeszedł na "Pana" — rozmówca usłyszał obie formy w jednej rozmowie.\n- Kolejność zbierania danych sprawia, że imię poznajesz DOPIERO W CZWARTEJ TURZE. Wszystko przed nią — powitanie, pytanie o usterkę, propozycja terminu, potwierdzenie godziny — musi być BEZOSOBOWE — bez "Pan", bez "Pani" i bez "Ty".\n- Wzorce na tę fazę: "W czym mogę pomóc?", "Kiedy będzie najwygodniej przyjechać?", "Czy jutro o dziewiątej będzie odpowiednie?", "Poproszę imię oraz markę i model auta.", "Poproszę numer rejestracyjny.".\n- ŹLE przed poznaniem imienia: "dla Pana", "dla Pani", "Czy pasuje Panu", "Jak się Pan nazywa", "Czy mogę Panią prosić".\n- PO PODANIU IMIENIA: jeśli imię jest jednoznaczne co do płci (Daniel, Anna, Piotr, Katarzyna) — mów "Panie Danielu" albo "Pani Anno", czyli PANIE/PANI + IMIĘ, nigdy nazwiskiem. Jeśli imię jest nietypowe, obce lub niejednoznaczne — ZOSTAŃ przy formach bezosobowych. Lepiej bezosobowo niż z błędem.\n- NAZWISKA NIE UŻYWAJ NIGDY w zwrocie do klienta. "Panie Danielu" — TAK. "Panie Moszeczkow" — NIE. Imienia używaj oszczędnie, raz przy podsumowaniu wystarczy.\n- LICZBA MNOGA JEST BŁĘDEM: mówisz do JEDNEJ osoby. NIGDY "Wam", "Wasze", "Chętnie Wam pomogę", "Państwa". Poprawnie: "Chętnie pomogę" (zawsze bezpiecznie), a po poznaniu imienia także "Panu pomogę".\n- FORMA GRZECZNOŚCIOWA: uprzejmie i profesjonalnie. NIGDY per "ty" i NIGDY potocznie. PRZYKŁADY: zamiast "jak się nazywasz?" → "Poproszę imię."; zamiast "dobra" → "Dobrze" / "Oczywiście"; zamiast "pasuje ci jutro?" → "Czy jutro o dziewiątej będzie odpowiednie?". Zwróć uwagę: te przykłady są BEZOSOBOWE, bo na tym etapie nie znasz jeszcze płci rozmówcy. Formy z "Pan"/"Pani" wolno użyć DOPIERO po poznaniu imienia. Dotyczy też PODSUMOWANIA: NIGDY samym imieniem ("Daniel, podsumowuję") — albo "Panie Danielu, podsumowuję...", albo bezosobowo "Podsumowuję: ...". Jedna forma od pierwszego do ostatniego zdania rozmowy.\n- Ton ciepły, naturalny, konkretny — jak miły recepcjonista, który mówi wprost.\n\n=== PYTANIA KLIENTA W TRAKCIE UMAWIANIA ===\n- Jeśli klient zada pytanie — NAJPIERW odpowiedz na pytanie, dopiero potem wróć do rezerwacji.\n- NIGDY nie powtarzaj tej samej propozycji terminu dwa razy pod rząd. Jeśli klient nie odpowiedział wprost na propozycję — ma wątpliwość: zaadresuj ją lub zaproponuj inny termin.\n- Jeśli nie znasz odpowiedzi (np. czas naprawy przed diagnozą, dokładna cena) — powiedz to WPROST ("to będzie wiadomo po diagnozie na miejscu"), nie ignoruj pytania i nie zmyślaj.\n- Gdy termin jest już potwierdzony — NIE pytaj ponownie o zgodę ("Czy mogę sfinalizować rezerwację?") i nie powtarzaj potwierdzeń już ustalonych faktów. Po odpowiedzi na pytania klienta domknij naturalnie: "W takim razie do zobaczenia jutro o dziewiątej" albo "Czy mogę jeszcze w czymś pomóc?".\n\n=== WYMOWA — KLUCZOWE (tekst CZYTANY NA GŁOS po polsku) ===\nLiczby, godziny, daty, ceny zapisuj SŁOWAMI po polsku, NIGDY cyframi/symbolami: "dziewiąta rano", "wpół do dziesiątej" (nie "9:00"); "w czwartek", "piętnastego maja" (nie "15.05"); "sto pięćdziesiąt złotych" (nie "150 zł"). Pełne, dokończone zdania.\n\n=== WYWIAD ===\nKOLEJNOŚĆ ROZMOWY (trzymaj się jej): (1) NAJPIERW dopytaj o problem lub potrzebę; (2) POTEM ustal termin i zaproponuj wolny; (3) DOPIERO gdy termin zaakceptowany — poproś o dane w DWÓCH turach: najpierw imię z marką i modelem, potem osobno numer rejestracyjny.\n- Masz JEDNO narzędzie: check_availability, do sprawdzenia wolnych godzin w danym dniu. Nic więcej nie wołasz.\n- NIE TWORZYSZ rezerwacji ani zlecenia. Zajmuje się tym system po zakończeniu rozmowy. Twoje zadanie to ZEBRAĆ dane i potwierdzić je klientowi.\n- Gdy masz komplet (problem, termin, imię, marka i model, rejestracja) — podsumuj JEDNYM zdaniem i zapowiedz SMS zgodnie z regułą wyżej. Nie pytaj o zgodę na "sfinalizowanie" i nie mów, że coś zapisujesz.\n- Nigdy nie zmyślaj dostępności — godziny bierzesz wyłącznie z check_availability. NIGDY nie mów, ile jest wolnych terminów ani że "mamy dużo wolnych miejsc" — po sprawdzeniu od razu zaproponuj konkretną godzinę, a ogólnie mów co najwyżej "Tak, znajdziemy termin".`;
 
     const convo: Phase1ConversationMessage[] = messages
       .filter((message): message is { role: "user" | "assistant"; content: string } =>
@@ -376,33 +447,25 @@ serve(async (req) => {
         clientToolNames.add(name);
       }
     }
+    // NARZĘDZIA ZAPISUJĄCE ZNIKNĘŁY (zasada nadrzędna: agent rozmawia i notuje).
+    //
+    // create_booking i create_order były tu do 06.08. Pomiary, które o tym przesądziły:
+    //   tura bez narzędzi        795 ms
+    //   tura z check_availability  4 900 ms
+    //   tura z zapisem            7 100 - 10 752 ms   (create_booking = 53% tury)
+    // Do tego każdy zapis w turze był podatny na duplikat żądania od ElevenLabs
+    // i przerywał turę przed end_call.
+    //
+    // Zapis robi teraz voice-call-commit po rozłączeniu, w JEDNEJ transakcji,
+    // z idempotencją po conversation_id. Agent o tym nie wie i nie musi.
+    //
+    // check_availability ZOSTAJE — jako wyjątek dla terminów spoza snapshotu.
+    // Po FAZIE 1B (snapshot przy odebraniu) będzie wołany rzadko.
     if (providerId && calendarAccess) {
       tools.push({
         name: "check_availability",
         description: "Sprawdź wolne terminy w danym dniu. Użyj zanim zaproponujesz godzinę.",
         input_schema: { type: "object", properties: { date: { type: "string", description: "Data RRRR-MM-DD" }, duration_minutes: { type: "integer" } }, required: ["date"] },
-      });
-      tools.push({
-        name: "create_booking",
-        description: "Umów wizytę (rezerwacja w kalendarzu). Wywołaj gdy masz: imię i nazwisko, telefon, datę i godzinę.",
-        input_schema: { type: "object", properties: {
-          customer_name: { type: "string" }, customer_phone: { type: "string" },
-          scheduled_date: { type: "string", description: "RRRR-MM-DD" }, scheduled_time: { type: "string", description: "GG:MM" },
-          duration_minutes: { type: "integer" }, service_name: { type: "string" }, notes: { type: "string", description: "Krótki opis usterki / czego dotyczy wizyta (trafia do rezerwacji, widoczny w panelu)" },
-          vehicle: { type: "object", properties: { brand: { type: "string" }, model: { type: "string" }, year: { type: "integer" }, plate: { type: "string" } } },
-        }, required: ["customer_name", "customer_phone", "scheduled_date", "scheduled_time"] },
-      });
-    }
-    if (providerId && ordersAccess) {
-      tools.push({
-        name: "create_order",
-        description: "Utwórz zlecenie warsztatowe z danymi z rozmowy. Wywołaj po umówieniu wizyty (jeśli masz booking_id z create_booking — podaj go).",
-        input_schema: { type: "object", properties: {
-          customer_name: { type: "string" }, customer_phone: { type: "string" }, complaint: { type: "string", description: "Lista usterek/zadań do wykonania — KAŻDA w nowej linii od myślnika '- ' (np. '- stuki w zawieszeniu z przodu\\n- sprawdzić łożyska')" },
-          scheduled_date: { type: "string" }, scheduled_time: { type: "string" }, duration_minutes: { type: "integer" },
-          vehicle: { type: "object", properties: { brand: { type: "string" }, model: { type: "string" }, year: { type: "integer" }, plate: { type: "string" } } },
-          booking_id: { type: "string" },
-        }, required: ["customer_name", "customer_phone", "complaint"] },
       });
     }
 
@@ -430,7 +493,7 @@ serve(async (req) => {
         const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-          body: JSON.stringify({ model, max_tokens: 600, temperature: 0.7, system, messages: legacyConvo, ...(tools.length ? { tools } : {}) }),
+          body: JSON.stringify({ model, max_tokens: 400, temperature: 0.7, system: system + systemTimeContext, messages: legacyConvo, ...(tools.length ? { tools } : {}) }),
         });
         if (!aiResponse.ok) {
           const responseText = await aiResponse.text().catch(() => "");
@@ -463,9 +526,32 @@ serve(async (req) => {
     const completedToolActions = new Map<string, ToolOutput>();
     const failedToolActions = new Map<string, number>();
     const toolResultCache = new Map<string, ToolOutput>();
-    const callTool = async (name: string, input: Record<string, unknown>): Promise<ToolOutput> => {
+    const callTool = async (name: string, inputRaw: Record<string, unknown>): Promise<ToolOutput> => {
+      let input = inputRaw;
       if (canaryAbortSignal.aborted) {
         return { ok: false, error: "Połączenie zostało przerwane.", do_not_retry: true, cancelled: true };
+      }
+      // NUMER DZWONIĄCEGO WSTRZYKUJEMY PO STRONIE SERWERA.
+      //
+      // Po usunięciu pytania o telefon model musiał czymś wypełnić wymagane pole
+      // i wpisał "+48" (rozmowa 05.08 21:57). Skutki: dedup nie trafił, create_order
+      // zwrócił błąd, SMS nie wyszedł, a agent powiedział "Nie udało się bezpiecznie
+      // dokończyć operacji" — po tym, jak wcześniej powiedział "gotowe".
+      //
+      // Numer z sygnalizacji SIP jest FAKTEM i ma pierwszeństwo nad wszystkim, co
+      // model wpisze — chyba że klient świadomie podał inny (wtedy ma co najmniej
+      // dziewięć cyfr i to jego zostawiamy).
+      if (callerId && (name === "create_booking" || name === "create_order")) {
+        const modelPhone = String((input as Record<string, unknown>)?.customer_phone || "");
+        const modelDigits = modelPhone.replace(/\D/g, "");
+        if (modelDigits.length < 9) {
+          if (modelPhone) {
+            console.warn("[voice-agent-chat]", JSON.stringify({
+              event: "phone_from_model_rejected", tool: name, digits: modelDigits.length,
+            }));
+          }
+          input = { ...input, customer_phone: callerId };
+        }
       }
       const cacheKey = `${name}:${JSON.stringify(input || {})}`;
       if (toolResultCache.has(cacheKey)) return { ...toolResultCache.get(cacheKey), duplicate: true };
@@ -532,6 +618,14 @@ serve(async (req) => {
       for (let round = 0; round <= voiceRouting.maxToolRounds; round++) {
         if (round > 0 && emittedText && !/\s$/.test(reply)) emit(" ");
         const modelStarted = performance.now();
+        // ROZDZIELENIE NASZEJ PRACY OD PRACY MODELU.
+        //
+        // `first_text` obejmuje wszystko od startu chat do pierwszego tokenu, więc
+        // nie da się z niego odczytać, ile zajęło budowanie promptu, a ile sam model.
+        // Benchmark z eu-central-1 dał surowy TTFT Haiku 625 ms przy prostym żądaniu;
+        // w produkcji `first_text` ma medianę ~1,4 s. Ten znacznik mówi, gdzie leży
+        // różnica: przed wywołaniem modelu czy w nim.
+        if (round === 0) logTiming("prompt_ready", totalStarted, { system_chars: system.length, tools: tools.length });
         const attempted = await executePhase1Fallback(voiceRouting, async (candidate) => {
           if (canaryAbortSignal.aborted) {
             const aborted = new DOMException("client disconnected", "AbortError") as DOMException & { allowFallback?: boolean };
@@ -539,7 +633,7 @@ serve(async (req) => {
             throw aborted;
           }
           let candidateEmittedText = false;
-          const request = buildPhase1AnthropicRequest(candidate, apiKey, system, convo, tools, voiceRouting.maxOutputTokens);
+          const request = buildPhase1AnthropicRequest(candidate, apiKey, system, convo, tools, voiceRouting.maxOutputTokens, systemTimeContext);
           const modelTimeoutSignal = request.init.signal as AbortSignal;
           let modelResponse: Response;
           try {
@@ -586,6 +680,13 @@ serve(async (req) => {
           provider: attempted.candidate.providerKey,
           model: attempted.candidate.model,
           fallback_used: attempted.attempts > 1,
+          // Weryfikacja prompt cachingu. cache_read > 0 = trafienie; cache_write > 0
+          // = ta tura zapisała prefiks (pierwsza rozmowa po zmianie promptu).
+          // Oba zera przy niepustym input = cache NIE działa i trzeba szukać, co
+          // rozbija prefiks (np. coś zmiennego wcięło się przed blok stały).
+          cache_read: streamed.usage?.cacheRead ?? null,
+          cache_write: streamed.usage?.cacheWrite ?? null,
+          input_tokens: streamed.usage?.input ?? null,
         });
         // Ucięcie na limicie tokenów nie jest poprawnym zakończeniem tury. Nie
         // wykonujemy narzędzi z niepełnej odpowiedzi, bo wywołanie mogło zostać
@@ -622,7 +723,12 @@ serve(async (req) => {
             break;
           }
           toolRounds++;
-          if (!emittedText) emit("Już sprawdzam. ");
+          // NIE wstrzykujemy tu żadnego wypełniacza.
+          //
+          // Stało tu `emit("Już sprawdzam. ")`. Przez pięć rozmów szukaliśmy tej frazy
+          // w prompcie, w bazie wiedzy i w konfiguracji ElevenLabs — a wstrzykiwał ją
+          // NASZ WŁASNY KOD, i to dokładnie łamiąc regułę, którą sam prompt narzuca.
+          // Ciszę na czas narzędzia pokrywa soft_timeout ElevenLabs (4 s, "Dobrze rozumiem").
           convo.push({ role: "assistant_tools", content: streamed.text, calls: streamed.toolCalls });
           const results = [];
           let stopAfterToolError = false;
@@ -714,15 +820,38 @@ serve(async (req) => {
               try { controller.close(); } catch { /* już zamknięty przez cancel() */ }
               return;
             }
+            // AGENT NIE MOŻE PRZEPRASZAĆ ZA AWARIĘ, KTÓREJ NIE BYŁO.
+            //
+            // `anyMutationCreated` dotyczy TEGO żądania, a ElevenLabs wysyła na jedną
+            // turę kilka żądań. Rozmowa 05.08 18:43: żądanie b0ebb3c6 utworzyło
+            // rezerwację i zlecenie, a równoległe 092f17a2 dostało TimeoutError
+            // i wypowiedziało "wystąpił chwilowy problem techniczny" — klient usłyszał
+            // przeprosiny, choć rezerwacja, zlecenie i SMS były gotowe.
+            //
+            // Prawda jest na poziomie ROZMOWY, nie żądania: pytamy bazę, czy ta rozmowa
+            // czegokolwiek już nie zapisała. Zapytanie jest w ścieżce awaryjnej, więc
+            // nie dotyka czasu normalnej tury.
+            let conversationCommitted = anyMutationCreated;
+            if (!conversationCommitted && conversationId && providerId) {
+              try {
+                const { data: call } = await admin.from("voice_calls")
+                  .select("linked_entity_id")
+                  .eq("provider_id", providerId)
+                  .eq("elevenlabs_conversation_id", conversationId)
+                  .limit(1);
+                conversationCommitted = !!call?.[0]?.linked_entity_id;
+              } catch (_) { /* brak potwierdzenia = zostajemy przy stanie żądania */ }
+            }
             console.error("[voice-agent-chat]", JSON.stringify({
               event: "stream_failed",
               error: (error as Error)?.name || "error",
               failure: lastModelFailure,
               mutation_created: anyMutationCreated,
+              conversation_committed: conversationCommitted,
             }));
             send({
               id, object: "chat.completion.chunk", created: createdAt, model,
-              choices: [{ index: 0, delta: { content: buildFailureSentence(lastModelFailure, anyMutationCreated) }, finish_reason: null }],
+              choices: [{ index: 0, delta: { content: buildFailureSentence(lastModelFailure, conversationCommitted) }, finish_reason: null }],
             });
             send({ id, object: "chat.completion.chunk", created: createdAt, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] });
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));

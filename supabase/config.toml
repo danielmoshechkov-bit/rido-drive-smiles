@@ -385,3 +385,12 @@ verify_jwt = true
 # żeby DELETE i INSERT wykonały się w jednej transakcji.
 [functions.billing-admin-plans]
 verify_jwt = true
+
+[functions.voice-model-benchmark]
+verify_jwt = false
+
+[functions.voice-call-commit]
+verify_jwt = false
+
+[functions.voice-call-reconcile]
+verify_jwt = false

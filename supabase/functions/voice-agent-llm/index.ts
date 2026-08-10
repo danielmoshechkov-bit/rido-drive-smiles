@@ -14,6 +14,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
+import { cachedContext } from "../_shared/voiceContextCache.ts";
 import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
 import { resolveVoiceLlmRoute } from "../_shared/voicePhase1Route.ts";
 
@@ -64,7 +65,8 @@ const logTiming = (stage: string, startedAt: number, extra: Record<string, unkno
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method === "GET") return new Response(JSON.stringify({ ok: true, service: "voice-agent-llm" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  const warmupPath = new URL(req.url).pathname.endsWith("/warmup");
+  if (req.method === "GET" && !warmupPath) return new Response(JSON.stringify({ ok: true, service: "voice-agent-llm" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   const totalStarted = performance.now();
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -72,6 +74,29 @@ serve(async (req) => {
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
   const url = new URL(req.url);
+
+  // /warmup — ROZGRZEWANIE POŁĄCZENIA DO BAZY, poza ścieżką rozmowy.
+  //
+  // Zwykły keep-warm dostawał 401 zanim dotknął bazy, więc grzał tylko rozruch
+  // izolatu. Pomiar z rozmowy 05.08 18:43: `auth`+`config` na pierwszych trzech
+  // turach 827/823/939 ms, od czwartej 260-272 ms. Każda tura ląduje na innym
+  // izolacie, a pierwsze trzy zestawiają połączenie od zera.
+  //
+  // Ta gałąź robi JEDNO trywialne zapytanie i nic więcej. Nie dotyka konfiguracji
+  // agenta, nie woła modelu, nie zapisuje. Za tokenem, bo bez niego byłby to
+  // darmowy generator zapytań do bazy dla każdego, kto zna URL.
+  if (warmupPath) {
+    const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
+    const bearerWarm = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    const providedWarm = url.searchParams.get("token") || bearerWarm;
+    if (!expected || !providedWarm || !timingSafeEqual(providedWarm, expected)) {
+      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const warmStarted = performance.now();
+    await admin.from("voice_agent_configs").select("provider_id").limit(1);
+    logTiming("warmup", warmStarted);
+    return new Response(JSON.stringify({ ok: true, warm: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
   const { providerId, personaKey } = resolveVoiceLlmRoute(url);
 
   // Bez skonfigurowanego VOICE_LLM_TOKEN endpoint jest ZABLOKOWANY (fail-closed) —
@@ -90,14 +115,37 @@ serve(async (req) => {
 
   const configStarted = performance.now();
   let cfg: VoiceAgentConfig | null = null;
+  let voiceContext: Record<string, unknown> | null = null;
   if (providerId) {
-    const { data, error } = await admin.from("voice_agent_configs")
-      .select("business_context, display_name, languages, calendar_access, orders_access, voice_id, elevenlabs_agent_id")
-      .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
-    if (error) {
-      console.warn("[voice-agent-llm] config_lookup_failed", { code: error.code });
+    // JEDNO zapytanie zamiast czterech na turę.
+    //
+    // Pomiar 05.08 20:40: cztery round-tripy (voice_agent_configs w llm oraz
+    // voice_agent_knowledge, voice_agent_personas i ai_agents_config w chat)
+    // kosztowały 132-377 ms + 250-1070 ms. Cache w pamięci izolatu dał ZERO
+    // trafień na 42 odczyty — każda tura ląduje na świeżym izolacie, więc cache
+    // procesowy jest tu bezużyteczny i został zastąpiony tym RPC.
+    //
+    // Wynik jedzie do voice-agent-chat w ciele żądania (połączenie service-role),
+    // dzięki czemu chat nie dotyka bazy w ścieżce tury. Przyrost payloadu to
+    // ~4,9 KB, czyli ułamek milisekundy na serializację.
+    const { data: ctx, error: ctxError } = await admin
+      .rpc("get_voice_context", { p_provider_id: providerId, p_persona_key: personaKey });
+    if (ctxError) {
+      // ZASADA 12: błąd nie może wyglądać jak brak danych. Chat wróci wtedy
+      // do własnych odczytów, bo nie dostanie voice_context.
+      console.warn("[voice-agent-llm] context_rpc_failed", { code: ctxError.code });
     }
-    cfg = data;
+    voiceContext = (ctx as Record<string, unknown> | null) || null;
+    cfg = (voiceContext?.config as VoiceAgentConfig | null) || null;
+
+    // Fallback, gdy RPC nie zadziała: pojedynczy odczyt jak dotąd.
+    if (!cfg) {
+      const { data, error } = await admin.from("voice_agent_configs")
+        .select("business_context, display_name, languages, calendar_access, orders_access, voice_id, elevenlabs_agent_id")
+        .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
+      if (error) console.warn("[voice-agent-llm] config_lookup_failed", { code: error.code });
+      cfg = data;
+    }
   }
   logTiming("config", configStarted);
 
@@ -234,6 +282,15 @@ serve(async (req) => {
         // bajtowo taki sam jak przed Phase 1.
         ...(canary.enabled && conversationId ? { conversation_id: conversationId } : {}),
         ...(canary.enabled && clientTools.length ? { client_tools: clientTools } : {}),
+        ...(canary.enabled && voiceContext ? { voice_context: voiceContext } : {}),
+        // Numer dzwoniącego ze znacznika RIDO. Potwierdzone w produkcji:
+        // used_source = "system_marker", długość 12 znaków (+48XXXXXXXXX).
+        // Gdy go NIE MA (numer zastrzeżony, rozmowa z panelu) — agent musi zapytać,
+        // bo inaczej zostawimy rozmowę bez żadnego kontaktu do klienta.
+        ...(canary.enabled ? {
+          caller_id: markerCallerId || null,
+          caller_id_available: !!markerCallerId,
+        } : {}),
         messages: convo,
         business_context: cfg?.business_context || {}, display_name: cfg?.display_name || "",
         languages: cfg?.languages || ["pl"], calendar_access: !!cfg?.calendar_access, orders_access: !!cfg?.orders_access,

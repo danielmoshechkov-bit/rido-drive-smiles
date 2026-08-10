@@ -139,6 +139,34 @@ serve(async (req) => {
       return json({ ok: true, skipped: "brak transkryptu", conversation_id: conversationId });
     }
 
+    // 1) COMMIT — zapis rozmowy. To jest krok KRYTYCZNY i idzie PIERWSZY.
+    //
+    // Kolejność nie jest kosmetyczna: analyze to uczenie, commit to rezerwacja,
+    // zlecenie, grafik i SMS. Gdyby analyze padło pierwsze, zapis by nie powstał
+    // przez awarię destylacji reguł.
+    const commitStarted = performance.now();
+    const commitRes = await fetch(`${supabaseUrl}/functions/v1/voice-call-commit`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversation_id: conversationId, provider_id: providerId,
+        transcript: rawTranscript,
+        caller_id: payload?.data?.metadata?.phone_call?.external_number
+          || payload?.data?.conversation_initiation_client_data?.dynamic_variables?.system__caller_id || null,
+        started_at: payload?.data?.metadata?.start_time_unix_secs
+          ? new Date(payload.data.metadata.start_time_unix_secs * 1000).toISOString() : undefined,
+      }),
+      signal: AbortSignal.timeout(60_000),
+    }).catch((e) => ({ ok: false, status: 0, json: async () => ({ error: (e as Error).name }) } as unknown as Response));
+    const commitOut = await commitRes.json().catch(() => ({}));
+    console.info("[voice-call-postprocess]", JSON.stringify({
+      event: "commit_done", conversation_id: conversationId,
+      status: commitOut?.status || null, ok: commitRes.ok,
+      ms: Math.round(performance.now() - commitStarted),
+    }));
+
+    // 2) ANALYZE — uczenie. BŁĄD TUTAJ NIE MOŻE WYWRÓCIĆ WEBHOOKA.
+    //    Zapis jest już zrobiony; destylacja reguł jest dodatkiem.
     const r = await fetch(`${supabaseUrl}/functions/v1/voice-call-analyze`, {
       method: "POST",
       headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
@@ -149,24 +177,32 @@ serve(async (req) => {
     // Błąd analizy propagujemy zamiast go połykać. Wcześniej zwracaliśmy ok:true
     // z analyzed:false, więc ElevenLabs widział 200 i nikt się nie dowiadywał,
     // że transkrypt nie został zapisany.
+    // Awaria uczenia jest logowana, ale NIE wywraca webhooka — inaczej ElevenLabs
+    // ponowiłby żądanie i commit poszedłby drugi raz. Idempotencja po
+    // conversation_id by go obroniła, ale nie ma powodu jej testować bez potrzeby.
     if (!r.ok || out?.ok === false) {
       console.error("[voice-call-postprocess]", JSON.stringify({
         event: "analyze_failed", conversation_id: conversationId,
         status: r.status, tenant_source: tenantSource, error: String(out?.error || "").slice(0, 200),
       }));
-      return json({
-        ok: false, error: out?.error || `voice-call-analyze zwróciło ${r.status}`,
-        conversation_id: conversationId,
-      }, r.status >= 400 ? r.status : 502);
     }
 
     console.info("[voice-call-postprocess]", JSON.stringify({
       event: "analyzed", conversation_id: conversationId, tenant_source: tenantSource,
       call_id: out?.call_id || null, lessons: out?.lessons_learned || 0,
     }));
+    // O powodzeniu webhooka decyduje COMMIT, nie analyze.
+    if (!commitRes.ok) {
+      return json({
+        ok: false, error: commitOut?.error || "voice-call-commit nie powiódł się",
+        conversation_id: conversationId, commit: commitOut?.status || null,
+      }, 502);
+    }
     return json({
-      ok: true, analyzed: true, call_id: out?.call_id || null,
-      lessons: out?.lessons_learned || 0, conversation_id: conversationId,
+      ok: true, commit: commitOut?.status || null,
+      analyzed: r.ok && out?.ok !== false,
+      call_id: out?.call_id || null, lessons: out?.lessons_learned || 0,
+      conversation_id: conversationId,
     });
   } catch (e) {
     console.error("[voice-call-postprocess]", JSON.stringify({

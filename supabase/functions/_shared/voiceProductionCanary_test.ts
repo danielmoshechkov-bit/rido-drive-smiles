@@ -103,7 +103,7 @@ test("Phase 1 preserves legacy execution and enables streaming only behind the p
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
   assert.match(chat, /if \(!canary\.enabled\) \{/);
-  assert.match(chat, /max_tokens: 600/);
+  assert.match(chat, /max_tokens: 400/);
   assert.match(chat, /for \(let round = 0; round < 5; round\+\+\)/);
   assert.match(chat, /body: JSON\.stringify\(\{ action: name, provider_id: providerId, persona_key: personaKey, is_test: testMode, \.\.\.input \}\)/);
   assert.match(chat, /claude-haiku-4-5-20251001/);
@@ -115,8 +115,9 @@ test("Phase 1 preserves legacy execution and enables streaming only behind the p
 test("truncated output is never treated as a finished turn", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
-  // Canary ma ten sam budżet tokenów co legacy — 400 ucinało wypowiedź w połowie zdania.
-  assert.match(chat, /maxToolRounds: 3, maxOutputTokens: 600/);
+  // 400 z pomiaru na 13 rozmowach: najdłuższa wypowiedź 249 znaków ~78 tokenów.
+  // Przy 150 były 3 ucięcia na 126 żądań, w tym jedno kończące rozmowę.
+  assert.match(chat, /maxToolRounds: 3, maxOutputTokens: 400/);
   // Ucięcie jest obsłużone i zalogowane...
   assert.match(chat, /streamed\.stopReason === "max_tokens"/);
   assert.match(chat, /event: "output_truncated"/);
@@ -193,14 +194,16 @@ test("failure sentence never misreports whether anything was saved", () => {
 
   // Gdy w tym żądaniu powstała rezerwacja — komunikat to odzwierciedla.
   assert.match(builder, /if \(mutationCreated\)/);
-  assert.match(builder, /Zapis jest w systemie/);
+  // Treść zmieniona po rozmowie 05.08 18:43: "straciłam wątek / zapis jest w systemie"
+  // brzmiało jak usterka mimo pełnego sukcesu. Teraz komunikat po prostu potwierdza.
+  assert.match(builder, /Rezerwacja jest zapisana/);
   // Nigdzie nie wolno twierdzić, że nic nie zapisano: mutationCreated dotyczy tylko
   // bieżącego żądania, a rezerwacja mogła powstać w poprzedniej turze rozmowy.
   // W prawdziwym telefonie ten wariant skłamał — booking istniał w bazie.
   assert.doesNotMatch(builder, /Nic nie zostało/i);
   assert.doesNotMatch(builder, /nie zapisano|niczego nie/i);
   // Komunikat nie sugeruje też, że rezerwacja się udała, gdy nic o niej nie wiemy.
-  assert.doesNotMatch(builder, /rezerwacja została|wizyta jest potwierdzona/i);
+  assert.doesNotMatch(builder, /wizyta jest potwierdzona/i);
   // Limit konta ma własny, spokojniejszy komunikat.
   assert.match(builder, /failure === "quota"/);
   // Rozmówca nie dostaje szczegółów technicznych.
@@ -236,6 +239,12 @@ test("technical failure notifies the workshop and never guesses the caller gende
   // mogłaby wysłać kilka SMS-ów, bo każda tura to osobne żądanie.
   assert.match(chat, /const CALLBACK_SMS_ENABLED = false;/);
   assert.match(chat, /if \(CALLBACK_SMS_ENABLED\) await notifyWorkshopCallback/);
+  // Prawda o zapisie jest na poziomie ROZMOWY, nie żądania: równoległe żądanie mogło
+  // utworzyć rezerwację, a to dostać timeout. Bez tego agent przeprosił za awarię,
+  // której nie było (rozmowa 05.08 18:43).
+  assert.match(chat, /conversationCommitted/);
+  assert.match(chat, /eq\("elevenlabs_conversation_id", conversationId\)/);
+  assert.match(chat, /buildFailureSentence\(lastModelFailure, conversationCommitted\)/);
   const catchBlock = chat.slice(chat.indexOf('event: "stream_failed"'), chat.indexOf("cancel() {"));
   assert.ok(
     catchBlock.indexOf("data: [DONE]") < catchBlock.indexOf("await notifyWorkshopCallback"),
@@ -278,7 +287,11 @@ test("phone is stored silently and the year is never asked", () => {
   assert.match(chat, /NIE powtarzaj numeru słowami/);
   assert.match(chat, /Dziękuję, numer zapisany/);
   // Rok produkcji nie jest potrzebny do rezerwacji.
-  assert.match(chat, /Nie pytaj o rok produkcji/);
+  // Sekwencja jest teraz zależna od caller_id: gdy numer przyszedł z sygnalizacji,
+  // agent NIE pyta o telefon (jedna tura mniej); przy numerze zastrzeżonym pyta.
+  assert.match(chat, /NIE PYTAJ O NUMER TELEFONU — mamy go z połączenia/);
+  assert.match(chat, /Numer telefonu jest wymagany, bo połączenie przyszło z numeru zastrzeżonego/);
+  assert.match(chat, /const callerIdAvailable = isServiceCall && !!body\?\.caller_id_available/);
   // Normalizacja liter zostaje na wypadek, gdy klient poda rejestrację sam.
   assert.match(chat, /"igrek" = Y/);
   assert.match(chat, /"iks" = X/);
@@ -299,7 +312,7 @@ test("digits are read one by one and slots are never invented", () => {
   assert.match(chat, /Zabronione w numerach/);
 
   // Bez zapowiedzi "sprawdzam", od razu konkretne godziny z narzędzia.
-  assert.match(chat, /NIE zapowiadaj "sprawdzam wolne terminy"/);
+  assert.match(chat, /nie zapowiadaj sprawdzania dostępności/);
   assert.match(chat, /wyłącznie godziny, które narzędzie faktycznie zwróciło/);
 
   // Zdanie o przyjeździe wcześniej znika z rozmowy.
@@ -317,7 +330,13 @@ test("registration number is asked once and never confirmed back", () => {
   assert.match(chat, /NIE powtarzaj go wstecz, NIE proś o potwierdzenie, NIE literuj/);
   assert.match(chat, /nie wracaj do tematu/);
   // Rejestracja domyka listę zbieranych danych.
-  assert.match(chat, /imię i nazwisko → telefon → marka i model → numer rejestracyjny\. To CAŁA lista/);
+  // Sekwencja skrócona: nazwisko wypadło z pytań. ASR dał pięć różnych wersji tego
+  // samego nazwiska w pięciu rozmowach, a identyfikacja idzie po telefonie i rejestracji.
+  // Pięć tur zamiast siedmiu: imię łączone z autem, rejestracja osobno.
+  assert.match(chat, /IMIĘ \+ marka i model auta → numer rejestracyjny → podsumowanie/);
+  assert.match(chat, /NIE PYTAJ O NAZWISKO/);
+  assert.match(chat, /Rejestracja ZAWSZE osobno/);
+  assert.match(chat, /TON: prosisz, nie odpytujesz/);
 });
 
 test("agent never narrates its own system actions", () => {
@@ -326,10 +345,14 @@ test("agent never narrates its own system actions", () => {
   // Cytat z prawdziwej rozmowy: "Już sprawdzam. Teraz tworzę rezerwację: Do widzenia!"
   assert.match(chat, /ZAKAZ RELACJONOWANIA WŁASNYCH DZIAŁAŃ/);
   assert.match(chat, /Klient słyszy WYNIK, nigdy PROCES/);
-  // Lista zakazanych zwrotów zamiast ogólnego zakazu — ogólne zakazy model łamał.
-  for (const phrase of ["sprawdzam", "tworzę rezerwację", "zapisuję", "umawiam Pana", "chwileczkę"]) {
-    assert.ok(chat.includes(`"${phrase}"`), `lista zakazanych zwrotów musi zawierać "${phrase}"`);
+  // Zakaz jest OPISOWY, nie listą cytatów. Lista działała lepiej niż ogólnik, ale mimo
+  // niej fraza wracała — a cytowanie jej dosłownie mogło ją modelowi podpowiadać.
+  // Prompt nie zawiera już ani jednego cytatu zakazanego zwrotu.
+  assert.doesNotMatch(chat, /"już sprawdzam"/i);
+  for (const verb of ["sprawdzasz", "tworzysz", "zapisujesz", "umawiasz"]) {
+    assert.ok(chat.includes(verb), `opisowy zakaz musi obejmować czynność "${verb}"`);
   }
+  assert.match(chat, /jeśli zdanie opisuje, co dzieje się PO TWOJEJ STRONIE/);
   assert.match(chat, /Cisza w trakcie jest lepsza niż relacja z pracy systemu/);
 
   // Powitanie w rejestrze oficjalnym.
@@ -406,7 +429,10 @@ test("ElevenLabs system tools reach the model and come back as tool_calls", () =
 
   // chat konwertuje OpenAI -> Anthropic i dokłada do TEJ SAMEJ listy co nasze narzędzia.
   assert.match(chat, /const fn = \(raw\?\.function \?\? raw\)/);
-  assert.match(chat, /input_schema: parameters/);
+  // Pole system__message_to_speak jest USUWANE ze schematu: model chował w nim
+  // pożegnanie zamiast je wypowiedzieć, a ElevenLabs go nie odtwarzał.
+  assert.match(chat, /input_schema: stripSpokenParam\(parameters\)/);
+  assert.match(chat, /const SPOKEN_PARAM = "system__message_to_speak"/);
   assert.match(chat, /clientToolNames\.add\(name\)/);
 
   // Narzędzia klienta NIE są wykonywane u nas — rozpoznanie musi poprzedzać
@@ -447,7 +473,7 @@ test("night calls, surname and politeness", () => {
   assert.match(chat, /ZAWSZE podawaj dzień tygodnia I datę, nigdy samo "jutro"/);
 
   // Nazwisko zapisujemy tak, jak usłyszane — warsztat poprawi przy przyjęciu.
-  assert.match(chat, /NAZWISKA NIE POTWIERDZAJ, NIE LITERUJ i NIE POWTARZAJ/);
+  assert.match(chat, /IMIENIA NIE POTWIERDZAJ, NIE LITERUJ i NIE POWTARZAJ/);
   assert.match(chat, /Żadnego "czy dobrze zapisałem", żadnego literowania/);
 
   // Grzeczności: bez preambuł przy zbieraniu danych.
@@ -466,15 +492,24 @@ test("address form: no surname, no plural", () => {
   assert.match(chat, /NIGDY "Wam", "Wasze", "Chętnie Wam pomogę"/);
 });
 
-test("booking must precede order and SMS is not promised before success", () => {
+test("agent NIE tworzy rezerwacji ani zlecenia — robi to commit po rozmowie", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
-  // W rozmowie z 04.08 21:05 powstały DWA zlecenia i ZERO rezerwacji — więc SMS
-  // nie mógł wyjść, bo wysyłka żyje wyłącznie w create_booking.
-  assert.match(chat, /create_booking MUSI zostać wywołane PRZED create_order/);
-  assert.match(chat, /samo zlecenie NIE wysyła SMS-a/);
-  assert.match(chat, /NIGDY nie wywołuj create_order dwa razy w jednej turze/);
-  assert.match(chat, /NIE obiecuj SMS-a, dopóki create_booking nie zwróci sukcesu/);
+  // Zasada nadrzędna: agent rozmawia i notuje. Narzędzia zapisujące zniknęły 06.08,
+  // bo tura z zapisem trwała 7,1-10,8 s wobec 795 ms bez narzędzi, a każdy zapis
+  // był podatny na duplikat żądania od ElevenLabs i przerywał turę przed end_call.
+  assert.doesNotMatch(chat, /name: "create_booking"/);
+  assert.doesNotMatch(chat, /name: "create_order"/);
+  assert.match(chat, /name: "check_availability"/, "check_availability zostaje jako wyjątek");
+  assert.match(chat, /NIE TWORZYSZ rezerwacji ani zlecenia/);
+  assert.match(chat, /Masz JEDNO narzędzie: check_availability/);
+
+  // W prompcie nie może zostać ani jedno odwołanie do narzędzi, których już nie ma —
+  // reguła o narzędziu, którego model nie dostał, jest niewykonalna (zasada 11).
+  const prompt = [...chat.matchAll(/system \+= `((?:[^`\\]|\\.)*)`/g)].map((m) => m[1]).join("\n");
+  for (const znikle of ["create_booking", "create_order", "KOLEJNOŚĆ NARZĘDZI"]) {
+    assert.equal(prompt.includes(znikle), false, `prompt nie może wspominać o ${znikle}`);
+  }
 });
 
 test("conversation model comes from configuration, legacy still forced to Sonnet", () => {
@@ -523,7 +558,9 @@ test("one conversation cannot create two bookings, orders or SMS", () => {
   assert.match(orderBlock, /conversationCall\?\.linked_entity_type === "workshop_order"[\s\S]{0,220}duplicate: true/);
 
   // Powiązanie zapisywane po utworzeniu — to je czyta panel warsztatu.
-  assert.match(tools, /linkConversation\("service_booking", sb\.id\)/);
+  // `sb.id` zastąpione przez `bookingId`: przy trafieniu dedupu rezerwacja nie jest
+  // wstawiana, więc identyfikator pochodzi albo z insertu, albo z istniejącego wiersza.
+  assert.match(tools, /linkConversation\("service_booking", bookingId\)/);
   assert.match(tools, /linkConversation\("workshop_order", order\.id\)/);
   assert.match(tools, /linked_entity_type: entityType, linked_entity_id: entityId/);
 
@@ -673,4 +710,33 @@ test("production preflight is read-only and rollback preserves archived content"
   assert.match(rollback, /voice_deduplication_archive/);
   assert.match(runbook, /VOICE_PRODUCTION_CANARY_ENABLED=false/);
   assert.match(runbook, /\*\*NOT READY\*\*/);
+});
+
+test("prompt caching: część stała jest cachowana, zmienna idzie za nią poza cache", () => {
+  const routing = phase1Routing();
+  const request = buildPhase1AnthropicRequest(
+    routing.primary,
+    "synthetic-key",
+    "STALE REGULY",
+    [{ role: "user", content: "test" }],
+    [],
+    routing.maxOutputTokens,
+    "ZMIENNY CZAS",
+  );
+  const body = JSON.parse(String(request.init.body));
+
+  // Prefiks musi być bajtowo identyczny między turami, więc blok stały jest PIERWSZY,
+  // a zmienny czas doklejony ZA nim. Odwrotna kolejność unieważnia cache w każdej turze.
+  assert.equal(Array.isArray(body.system), true);
+  assert.equal(body.system.length, 2);
+  assert.equal(body.system[0].text, "STALE REGULY");
+  assert.deepEqual(body.system[0].cache_control, { type: "ephemeral" });
+  assert.equal(body.system[1].text, "ZMIENNY CZAS");
+  assert.equal(body.system[1].cache_control, undefined);
+
+  // Bez części zmiennej zostaje jeden blok — zachowanie jak przed zmianą.
+  const single = buildPhase1AnthropicRequest(
+    routing.primary, "synthetic-key", "STALE REGULY", [{ role: "user", content: "t" }], [], routing.maxOutputTokens,
+  );
+  assert.equal(JSON.parse(String(single.init.body)).system.length, 1);
 });

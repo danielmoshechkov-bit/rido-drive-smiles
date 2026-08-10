@@ -145,6 +145,35 @@ type Snapshot = {
 pustki i agent nie miałby co powiedzieć. Lista zajmuje tyle samo miejsca niezależnie
 od obłożenia.
 
+### Parametry prefetchu i rozmiar kontekstu
+
+```
+horyzont          14 dni kalendarzowych  (~10 dni roboczych)
+sloty na dzień    maks. 3
+cache             60 s, klucz per tenant
+```
+
+Sprawdzenie rozmiaru — to jedyny powód, dla którego limit 3 slotów w ogóle istnieje:
+
+```
+"czw 6.08: 9:00, 11:00, 14:00"      ≈ 28 znaków ≈ 10 tokenów / dzień
+10 dni roboczych                    ≈ 100 tokenów
++ first_available i nagłówki        ≈ 150 tokenów łącznie
+```
+
+Przy cachowanym prefiksie 9427 tokenów to **poniżej dwóch procent** kontekstu.
+Mieści się bez zastrzeżeń — a gdyby limit podnieść do 5 slotów, nadal byłoby ~250
+tokenów. Limit 3 jest więc podyktowany **czytelnością wypowiedzi agenta**, nie
+rozmiarem: agent ma zaproponować dwie–trzy godziny, nie odczytać listę.
+
+**Snapshot idzie do części ZMIENNEJ promptu**, za blokiem cachowanym — inaczej
+każda rozmowa unieważniałaby cache (terminy zmieniają się częściej niż reguły).
+
+`check_availability` zostaje **wyłącznie jako walidacja przy zapisie**: między
+prefetchem a potwierdzeniem terminu mija cała rozmowa i ktoś mógł zająć slot.
+To wyścig, nie optymalizacja — dlatego sprawdzenie musi być przy zapisie, a nie
+przy proponowaniu.
+
 **Źródło danych — stan faktyczny sprawdzony w bazie:**
 
 | Tabela | Wierszy w całej platformie |
@@ -177,6 +206,38 @@ interface AvailabilitySource {
 ```
 
 Bez tego przełączenie na model generyczny będzie przepisywaniem snapshotu od zera.
+
+### Snapshot zawiera także CENNIK
+
+Cennik to dane statyczne, więc idzie do snapshotu razem z terminami.
+**Agent nigdy nie sprawdza cen w trakcie rozmowy** — ma je w kontekście od pierwszej
+sekundy. Źródło: moduł „Moje usługi" warsztatu.
+
+```ts
+type PriceItem = {
+  name: string;            // "Napełnienie czynnikiem R134YF"
+  price_from: number;      // 150
+  price_to: number | null; // 250 przy widełkach, null przy cenie stałej
+  unit: "PLN";
+};
+```
+
+Scenariusze — do wpisania w prompt:
+
+| Sytuacja | Zachowanie agenta |
+|---|---|
+| usługa **jest** w cenniku, cena stała | podaje od razu, bez zapowiedzi: „Napełnienie klimatyzacji to sto pięćdziesiąt złotych" |
+| usługa **jest**, cena widełkowa | „od stu pięćdziesięciu do dwustu pięćdziesięciu złotych, dokładnie wycenimy na miejscu" |
+| usługi **nie ma** w cenniku | „Wycenimy usługę na miejscu, przed rozpoczęciem naprawy" |
+| klient **nalega** na konkretną kwotę | „Przekażę zapytanie do warsztatu, oddzwonimy z wyceną" → zapis do `callback_requests` z tematem `wycena: <usługa>` + SMS do warsztatu |
+
+Ostatni przypadek to **jedyny** zapis w trakcie rozmowy poza miękką blokadą slotu —
+i tak samo jak ona: `EdgeRuntime.waitUntil`, bez `await`, idempotentny po
+`conversation_id`. Alternatywa: przenieść go do `voice-call-commit` razem z resztą,
+bo oddzwonienie i tak nie jest pilne w tej samej minucie. **Rekomendacja: do commitu**,
+zgodnie z zasadą „nic, co da się zrobić po rozmowie, nie dzieje się w trakcie".
+
+Kwoty w prompcie **słowami**, nie cyframi — obowiązuje blok WYMOWA.
 
 **Cała arytmetyka dat w `Europe/Warsaw`**, nie w UTC. Runtime Edge Functions chodzi
 w UTC, a między północą a 2:00 czasu lokalnego data UTC jest o dzień wcześniejsza —
