@@ -3,6 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export type BillingInterval = 'month' | 'year' | 'one_time';
+export type ProductLine = 'warsztat' | 'agent' | 'other';
+
+export const PRODUCT_LINE_LABEL: Record<ProductLine, string> = {
+  warsztat: 'Warsztat',
+  agent: 'Agent AI',
+  other: 'Inne',
+};
 
 export interface BillingPlan {
   id: string;
@@ -10,8 +17,12 @@ export interface BillingPlan {
   name: string;
   description: string | null;
   subscriber_type: string;
+  product_line: ProductLine;
   price_net: number | null;
   price_gross: number | null;
+  /** Cena po zakończeniu promocji wprowadzającej; NULL = cennik się nie zmienia. */
+  price_net_target: number | null;
+  price_gross_target: number | null;
   vat_rate: number;
   currency: string;
   billing_interval: BillingInterval;
@@ -26,7 +37,10 @@ export interface PlanFeatureRow {
   plan_id: string;
   feature_id: string;
   is_enabled: boolean;
+  /** Limit twardy — po jego przekroczeniu funkcja przestaje działać. */
   limit_value: number | null;
+  /** Próg miękki (fair use) — ostrzega, nie blokuje. */
+  soft_limit_value: number | null;
 }
 
 /**
@@ -102,7 +116,12 @@ export function useBillingPlans() {
   const setFeatures = useMutation({
     mutationFn: ({ plan_id, features }: {
       plan_id: string;
-      features: Array<{ feature_id: string; is_enabled: boolean; limit_value: number | null }>;
+      features: Array<{
+        feature_id: string;
+        is_enabled: boolean;
+        limit_value: number | null;
+        soft_limit_value: number | null;
+      }>;
     }) => call('set_features', { plan_id, features }),
     onSuccess: (data) => {
       invalidate();

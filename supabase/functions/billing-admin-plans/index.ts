@@ -16,6 +16,7 @@ const json = (body: unknown, status = 200) =>
 const CODE_RE = /^[a-z][a-z0-9_]{2,48}$/;
 const INTERVALS = ["month", "year", "one_time"];
 const SUBSCRIBER_TYPES = ["service_provider", "fleet", "entity", "company", "user"];
+const PRODUCT_LINES = ["warsztat", "agent", "other"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -54,7 +55,8 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       const { data: matrix, error: mErr } = await admin
-        .from("billing_plan_features").select("plan_id, feature_id, is_enabled, limit_value");
+        .from("billing_plan_features")
+        .select("plan_id, feature_id, is_enabled, limit_value, soft_limit_value");
       if (mErr) throw mErr;
 
       return json({ plans: plans ?? [], matrix: matrix ?? [] });
@@ -89,7 +91,7 @@ Deno.serve(async (req) => {
       const { data: before } = await admin.from("billing_plans").select("*").eq("id", id).maybeSingle();
       if (!before) return json({ error: "Plan nie istnieje" }, 404);
 
-      const invalid = validatePricing({ ...before, ...body });
+      const invalid = validatePricing({ ...before, ...body }, body);
       if (invalid) return json({ error: invalid }, 400);
 
       // `code` jest niezmienny — jak klucz funkcji, siedzi w konfiguracji
@@ -146,15 +148,27 @@ Deno.serve(async (req) => {
       if (!planId || !rows) return json({ error: "Brak planu lub listy funkcji" }, 400);
 
       const { data: before } = await admin
-        .from("billing_plan_features").select("feature_id, is_enabled, limit_value").eq("plan_id", planId);
+        .from("billing_plan_features")
+        .select("feature_id, is_enabled, limit_value, soft_limit_value").eq("plan_id", planId);
 
       for (const r of rows) {
         if (!r?.feature_id) return json({ error: "Pozycja bez identyfikatora funkcji" }, 400);
-        if (r.limit_value !== null && r.limit_value !== undefined && r.limit_value !== "") {
-          const n = Number(r.limit_value);
+        for (const [field, label] of [["limit_value", "Limit"], ["soft_limit_value", "Próg miękki"]]) {
+          const v = r[field];
+          if (v === null || v === undefined || v === "") continue;
+          const n = Number(v);
           if (!Number.isFinite(n) || n < 0) {
-            return json({ error: "Limit musi być liczbą nieujemną albo pusty (bez limitu)" }, 400);
+            return json({ error: `${label} musi być liczbą nieujemną albo pusty` }, 400);
           }
+        }
+        // Próg miękki ostrzega, twardy blokuje. Próg wyższy od limitu nigdy by
+        // się nie odpalił — to zawsze pomyłka, nie konfiguracja.
+        if (
+          r.limit_value !== null && r.limit_value !== undefined && r.limit_value !== "" &&
+          r.soft_limit_value !== null && r.soft_limit_value !== undefined && r.soft_limit_value !== "" &&
+          Number(r.soft_limit_value) > Number(r.limit_value)
+        ) {
+          return json({ error: "Próg miękki nie może być wyższy od limitu twardego" }, 400);
         }
       }
 
@@ -165,7 +179,8 @@ Deno.serve(async (req) => {
       if (error) throw error;
 
       const { data: after } = await admin
-        .from("billing_plan_features").select("feature_id, is_enabled, limit_value").eq("plan_id", planId);
+        .from("billing_plan_features")
+        .select("feature_id, is_enabled, limit_value, soft_limit_value").eq("plan_id", planId);
 
       await audit(admin, caller.id, "plan.features_set", planId, before, after);
       return json({ saved: count ?? 0 });
@@ -179,7 +194,7 @@ Deno.serve(async (req) => {
 });
 
 /** Wspólna walidacja ceny — te same reguły co CHECK-i w bazie, ale z czytelnym komunikatem. */
-function validatePricing(p: Record<string, any>): string | null {
+function validatePricing(p: Record<string, any>, raw: Record<string, any> = p): string | null {
   const isCustom = p?.is_custom === true;
   const price = p?.price_net;
 
@@ -189,6 +204,16 @@ function validatePricing(p: Record<string, any>): string | null {
   if (price !== null && price !== undefined && price !== "") {
     const n = Number(price);
     if (!Number.isFinite(n) || n < 0) return "Cena netto musi być liczbą nieujemną";
+  }
+  // Cena docelowa: kwota po zakończeniu promocji wprowadzającej. Pusta znaczy
+  // „cennik nie zmienia się po promocji", nie zero. Sprawdzamy wyłącznie wartość
+  // PRZYSŁANĄ — zapisana już raz przeszła walidację, a przy przełączeniu planu
+  // na cenę indywidualną i tak zostanie wyczyszczona.
+  const target = raw?.price_net_target;
+  if (target !== null && target !== undefined && target !== "") {
+    const t = Number(target);
+    if (!Number.isFinite(t) || t < 0) return "Cena docelowa musi być liczbą nieujemną";
+    if (isCustom) return "Plan z ceną indywidualną nie ma ceny docelowej";
   }
   if (p?.vat_rate !== undefined && p.vat_rate !== null) {
     const v = Number(p.vat_rate);
@@ -204,6 +229,9 @@ function validatePricing(p: Record<string, any>): string | null {
   if (p?.subscriber_type && !SUBSCRIBER_TYPES.includes(p.subscriber_type)) {
     return "Nieznany typ podmiotu";
   }
+  if (p?.product_line && !PRODUCT_LINES.includes(p.product_line)) {
+    return "Nieznana linia produktowa";
+  }
   return null;
 }
 
@@ -212,16 +240,28 @@ function buildPatch(body: Record<string, any>, isCreate: boolean): Record<string
   if (isCreate) {
     patch.code = String(body.code).trim();
     patch.subscriber_type = body.subscriber_type ?? "service_provider";
+    // Linia produktowa jest niezmienna po utworzeniu. Indeks jednej aktywnej
+    // subskrypcji liczy się po linii, a subskrypcje trzymają ją zdenormalizowaną
+    // — przestawienie planu przeniosłoby ofertę, ale nie klientów, i część
+    // podmiotów zostałaby z dwiema subskrypcjami w tej samej linii.
+    patch.product_line = body.product_line ?? "other";
   }
   if (body.name !== undefined) patch.name = String(body.name).trim();
   if (body.description !== undefined) patch.description = body.description ? String(body.description) : null;
   if (body.price_net !== undefined) {
     patch.price_net = body.price_net === null || body.price_net === "" ? null : Number(body.price_net);
   }
+  if (body.price_net_target !== undefined) {
+    patch.price_net_target =
+      body.price_net_target === null || body.price_net_target === "" ? null : Number(body.price_net_target);
+  }
   if (body.vat_rate !== undefined) patch.vat_rate = Number(body.vat_rate);
   if (body.billing_interval !== undefined) patch.billing_interval = body.billing_interval;
   if (body.trial_days !== undefined) patch.trial_days = Number(body.trial_days);
-  if (body.is_custom !== undefined) patch.is_custom = body.is_custom === true;
+  if (body.is_custom !== undefined) {
+    patch.is_custom = body.is_custom === true;
+    if (patch.is_custom) patch.price_net_target = null;
+  }
   if (body.sort_order !== undefined && Number.isInteger(body.sort_order)) patch.sort_order = body.sort_order;
   if (isCreate && body.is_active !== undefined) patch.is_active = body.is_active === true;
   return patch;
