@@ -85,15 +85,75 @@ ograniczenie działa, tylko było za ciasne.
 | `config` na każdej turze | 140–506 ms | FAZA A |
 | `asr.keywords` | **12 słów wróciło do konfiguracji** mimo ustalenia „puste na stałe" | do decyzji |
 
-### Następne kroki, w kolejności
+### 🔁 LISTA KONTROLNA KONFIGURACJI ELEVENLABS — sprawdzać przy KAŻDYM przeglądzie
 
-1. ~~scalenie do `main` + wdrożenie + weryfikacja~~ ✅ 10.08
-2. **naprawa ścieżki „Oddzwonić"** — `missingForCommit` zatrzymuje commit przed RPC,
-   a RPC ma pełną obsługę `bez_terminu`
-3. **FAZA A** — `voice-agent-init`: snapshot **z nazwanymi dniami**, cennik z czasem
-   trwania, schemat zamykania, wielojęzyczność. Szczegóły w `voice-agent-faza1.md`.
-4. próg pięciu udanych rozmów
-5. multi-tenancy — przedtem przeczytaj kryterium generyczności w `faza1.md`
+| pozycja | wymagane | dlaczego |
+|---|---|---|
+| **`asr.keywords`** | **PUSTE** | **Wracały już dwa razy.** Przy 12 słowach ASR halucynował w 2 z 9 tur — słyszał „przegląd" i „rozrząd" tam, gdzie klient ich nie powiedział. Wyczyszczone 06.08 przez Ciebie, znów pełne 10.08. |
+| `language_presets` | `ru`, `uk`, `en` | dziś PUSTE — `language_detection` nie ma na co przełączyć |
+| `turn_timeout` | 4 s | 10 s dawało 2,52 s ciszy; 4 s dało 0,79 s |
+| `silence_end_call_timeout` | 20 s | wartość **globalna**, brak osobnego progu dla fazy zamykającej |
+| `max_duration_seconds` | 600 s | najdłuższa rozmowa 315 s = połowa limitu |
+
+### ⚠️ SPROSTOWANIE: reguły językowe NIE były przyczyną
+
+Napisałem 10.08, że trzy reguły w `voice_agent_knowledge` kazały agentowi zapowiedzieć
+przełączenie języka. **To było błędne.** Te wpisy są `is_active = false`, a kod bierze
+wyłącznie aktywne (RPC `get_voice_context`, `LIMIT 10`) — nigdy nie trafiły do promptu.
+Co więcej, **powstały 06.08**, czyli zostały wydestylowane z tych właśnie rozmów: to
+skutek błędu zapisany jako zalecenie, nie jego przyczyna.
+
+Prawdziwa przyczyna angielskiej zapowiedzi: **brak jakiejkolwiek reguły o języku** —
+ani w prompcie persony, ani w aktywnej bazie wiedzy — przy włączonym narzędziu
+`language_detection`, które ElevenLabs podaje z **pustym opisem**. Model dostał gołe
+narzędzie bez instrukcji i zachował się domyślnie.
+
+**Ale przegląd bazy wiedzy znalazł coś gorszego, z dowodem przyczynowym.** Trzy z dziesięciu
+AKTYWNYCH wpisów zawierają przykłady z konkretnymi godzinami i danymi osobowymi:
+```
+wpis 7bdc7302:  "Zaproponuj 2-3 opcje: 'Mamy dostępne 9:00, 11:00 lub 14:00'"
+agent bj6t2qmm 52 s: "Mamy wolne jutro o dziewiątej, jedenastej lub czternastej"
+```
+Klientka prosiła o **środę przyszłego tygodnia**, a `check_availability` padł dopiero
+na 90 s — godziny zostały **zmyślone 38 sekund wcześniej**, wprost z przykładu.
+Do tego w prompcie każdej rozmowy siedziały: tablica rejestracyjna, fragment numeru
+telefonu i imię prawdziwych klientów.
+
+SQL naprawczy: `scripts/sql/voice-knowledge-sanitize-20260810.sql` (+ rollback).
+**Czeka na zatwierdzenie, nie wykonany.**
+
+### Następne kroki — JEDNA WERSJA PLANU
+
+**Teraz, przed rozmową kontrolną:**
+1. ~~scalenie do `main` + wdrożenie + weryfikacja SHA~~ ✅ 10.08
+2. `asr.keywords` do wyczyszczenia w panelu — **Twoja ręka**
+3. SQL `voice-knowledge-sanitize-20260810.sql` — czeka na zatwierdzenie
+4. **rozmowa kontrolna** — sprawdzasz `max_tokens` 400 i czy produkcja wróciła
+
+**Po rozmowie kontrolnej:**
+5. naprawa martwej ścieżki „Oddzwonić" (`missingForCommit` blokuje commit przed RPC,
+   a RPC ma pełną obsługę `bez_terminu`)
+6. **FAZA A** — `voice-agent-init`: snapshot z nazwanymi dniami, czasy trwania usług,
+   schemat zamykania (5 reguł), wielojęzyczność. Szczegóły w `voice-agent-faza1.md`.
+7. **próg pięciu udanych rozmów** — do tego momentu ZERO nowych funkcji
+
+**Po progu, w tej kolejności:**
+8. widok „Połączenia" w panelu — dane są w bazie, zostaje sam interfejs
+9. cennik i czasy trwania w snapshocie (bez tego agent nadal mówi „to zależy")
+10. kategorie usług Warsztat / Myjnia — **pierwszy test kryterium generyczności**
+    („czy zadziała dla fryzjera bez zmiany kodu", patrz `faza1.md`)
+11. multi-tenancy: kreator agenta w portalu, numer techniczny jednym kliknięciem,
+    metering minut
+
+**Nic z punktów 8–11 przed progiem.**
+
+### Dług do sprzątnięcia (nie teraz)
+
+- 13 wystąpień `create_booking`/`create_order` w `voice-agent-chat` jako komentarze
+  i martwa obsługa wyników. Nie wpływa na zachowanie — model nie może wywołać czegoś,
+  czego nie ma w `tools` — ale przy następnym czytaniu kodu ktoś pomyśli, że narzędzia działają.
+- `voice-model-benchmark` — funkcja tymczasowa, FAZA D rozstrzygnięta, do usunięcia
+- 72 nieaktywne wpisy w `voice_agent_knowledge`, których panel nie pokazuje
 
 ### Czego NIE DA SIĘ już zrobić
 

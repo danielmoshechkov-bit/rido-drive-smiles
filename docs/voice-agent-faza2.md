@@ -126,6 +126,33 @@ Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w n
     **Przed dodaniem reguły warunkowej przeszukaj prompt pod kątem zdań, które
     zakazują tego, co ona nakazuje.**
 
+    **ROZSZERZENIE (10.08) — kontrola spójności MUSI objąć `voice_agent_knowledge`.**
+    Dotąd sprzeczności były MIĘDZY promptem a przykładami w tym samym pliku. Nowa klasa
+    jest między promptem a bazą wiedzy, **której prompt nie widzi w momencie pisania**:
+    RPC `get_voice_context` dokłada do promptu do dziesięciu wpisów
+    (`is_active = true`, `ORDER BY evidence_count DESC`), a panel ich nie pokazuje.
+    Prompt persony ma 1357 znaków — do modelu idzie 19 347.
+
+    Trzy skutki widziane 06.08, wszystkie z AKTYWNYCH wpisów:
+    - wpis podawał przykład „Mamy dostępne 9:00, 11:00 lub 14:00" → agent wyrecytował
+      te godziny jako realną dostępność 38 sekund przed jakimkolwiek
+      `check_availability`, klientce, która prosiła o inny dzień
+    - wpis kazał „zawsze podaj pełną datę" → data powtórzona cztery razy w jednej rozmowie
+    - trzy wpisy zawierały **dane osobowe prawdziwych klientów** (tablica, fragment
+      numeru telefonu, imię) wstrzykiwane do promptu KAŻDEJ rozmowy
+
+    **Jak stosować:** przy zmianie promptu czytaj też aktywne wpisy bazy wiedzy.
+    Przykłady w bazie nie mogą zawierać konkretnych godzin, dat ani danych osobowych —
+    model recytuje przykład jako fakt. Kontrola: aktywne wpisy nie mogą pasować do
+    `[0-9]{1,2}:00` ani do wzorca tablicy i numeru telefonu.
+
+    **I odwrotna strona tej samej monety:** destylator zapisuje ZACHOWANIE agenta jako
+    zalecenie, także wtedy, gdy zachowanie było błędne. Pięć reguł o języku powstało
+    06.08 z rozmowy, w której agent po angielsku zapowiedział przejście na rosyjski
+    i zaoferował „kolegę mówiącego po ukraińsku". Nieudana rozmowa stała się wzorcem
+    do naśladowania. **Wpisy z rozmowy zakończonej rozłączeniem klienta nie mogą
+    trafiać do bazy jako zalecenia.**
+
 16. **TOŻSAMOŚĆ ZAWSZE PO ROZMOWIE, NIGDY PO KLIENCIE I CZASIE.**
     Każda heurystyka „ten sam klient w oknie N minut" jest błędna, bo klient MOŻE
     zadzwonić dwa razy i za każdym razem umówić co innego. Jedyny poprawny klucz

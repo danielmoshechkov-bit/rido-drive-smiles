@@ -398,10 +398,24 @@ zakończenie.
 - pożegnanie i `end_call` **zawsze w tej samej turze**, nigdy osobno (rozdzielenie było
   przyczyną 16-sekundowego czekania)
 - po pożegnaniu agent nie odzywa się więcej, cokolwiek klient powie
-- **`end_call` nigdy, gdy klient zadał pytanie, na które agent nie odpowiedział** —
-  to był bug w `me0bhctj`
 - maksymalnie **dwa** pytania „czy jeszcze w czymś pomóc" na rozmowę; po drugim agent
   kończy niezależnie od odpowiedzi
+
+**Reguła 4 — LUSTRZANE ODBICIE: gdy to KLIENT się żegna.**
+Schemat wyżej obejmował tylko przypadek, w którym kończy agent. `bj6t2qmm` pokazała
+drugi: klientka powiedziała „O! Super. Okej, do widzenia" i to ona się rozłączyła —
+agent nie wywołał `end_call` ani razu w całej 315-sekundowej rozmowie.
+**Gdy klient się żegna, agent odpowiada jednym zdaniem i wywołuje `end_call` w tej samej
+turze. Nie czeka, aż klient rozłączy się sam.**
+
+**Reguła 5 — PYTANIE BLOKUJE ZAKOŃCZENIE, nawet razem z sygnałem domknięcia.**
+`me0bhctj`: „**Nie, dziękuję na razie. Ile to będzie kosztowało?**" — jedna wypowiedź,
+dwie treści. Agent złapał pierwszą i wywołał `end_call`, ignorując pytanie.
+- sygnał domknięcia **bez** pytania → kończymy
+- sygnał domknięcia **z** pytaniem → najpierw pełna odpowiedź, potem punkt 1 schematu
+
+To nie jest przypadek brzegowy: klient, który dziękuje i od razu pyta, jest normą,
+nie wyjątkiem.
 
 **Konfiguracja — sprawdzone:** `silence_end_call_timeout` = **20 s i jest globalne**
 (jedna wartość w `conversation_config.turn`, brak osobnego progu dla fazy zamykającej).
@@ -431,12 +445,21 @@ Agent zadał „czy mogę jeszcze w czymś pomóc" dwa razy (183 s, 203 s), a po
 i tylko odpowiadał, otwierając kolejne wątki. Rozmowę zakończyła klientka słowami
 „do widzenia" — `end_call` nie padł.
 
-Dwie przyczyny, obie do FAZY A:
-1. **brak reguły domykania** (schemat wyżej, w tym limit dwóch pytań domykających)
-2. **brak czasu trwania i ceny usługi w snapshocie** — gdyby agent powiedział „przegląd
-   trwa 30–45 minut, cena po diagnozie", pytanie nie wróciłoby cztery razy
+Dwie naprawy, obie do FAZY A:
 
-Punkt 2 łączy się z cennikiem w snapshocie: obok ceny musi być **czas trwania**.
+**(a) CZAS TRWANIA USŁUGI W SNAPSHOCIE.** Agent musi umieć odpowiedzieć „około godziny",
+a nie „to zależy". Obok ceny w snapshocie musi stać czas trwania — to ta sama struktura,
+`{ usługa, czas_trwania_min, cena, kategoria }`, i ta sama, której potrzebuje wyliczenie
+ostatniego wolnego slotu w dniu.
+
+⚠️ Uwaga na źródło: nie wolno wziąć tych liczb z bazy wiedzy. Wpis „Przegląd ogólny trwa
+około 30–45 minut i jest bezpłatny" istnieje, jest nieaktywny i **nikt nie potwierdził,
+że to prawda** — destylator wymyślił to z rozmowy. Czas i cena mają pochodzić z cennika
+usługodawcy, nie z destylatu.
+
+**(b) REGUŁA DOMYKANIA.** Po zebraniu kompletu agent przechodzi do podsumowania.
+Nie otwiera nowych wątków i nie pyta o rzeczy, których nie potrzebuje do rezerwacji.
+Plus limit dwóch pytań domykających ze schematu wyżej.
 
 ---
 
