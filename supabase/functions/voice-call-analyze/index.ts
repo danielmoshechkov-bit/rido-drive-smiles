@@ -10,6 +10,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecret } from "../_shared/aiSecrets.ts";
+import { redactPersonalData, shouldDistill } from "../_shared/voiceLearningGate.ts";
 import { resolveAgent } from "../_shared/translationProvider.ts";
 
 const corsHeaders = {
@@ -144,22 +145,64 @@ serve(async (req) => {
     }
 
     // 4) per_call -> dopisz reguły do bazy wiedzy (dedup po situation)
+    //
+    // BRAMKA UCZENIA (10.08). Uczymy się z rozmów UDANYCH. Rozmowa nieudana nie
+    // jest wzorcem do naśladowania — jest materiałem do przeglądu przez człowieka.
+    // Skąd: qrgbn9cy skończyła się rozłączeniem klientki bez żadnego zapisu,
+    // a destylator zrobił z niej trzy zalecenia, w tym obietnicę przełączenia
+    // do kolegi mówiącego po ukraińsku. Nieudana rozmowa stała się wzorcem.
+    const agentMessages = transcript
+      .filter((m: any) => m?.role === "assistant")
+      .map((m: any) => String(m?.content || ""));
+    const bramka = shouldDistill({
+      hasOrder: !!linkedOrderId,
+      durationSeconds: Number(body?.duration_seconds) || 0,
+      hadTruncation: agentMessages.some((m: string) =>
+        /nie zdążyłem dokończyć|muszę się streścić/i.test(m)),
+      agentMessages,
+    });
+    if (!bramka.allow) {
+      console.info("[voice-call-analyze]", JSON.stringify({
+        event: "distill_skipped", conversation: conversationId.slice(-8),
+        reasons: bramka.reasons, flag_for_review: bramka.flagForReview,
+      }));
+      if (bramka.flagForReview && callId) {
+        await admin.from("voice_calls").update({ status: "needs_review" }).eq("id", callId);
+      }
+    }
+
     let learned = 0;
-    if (learningMode === "per_call" && Array.isArray(a?.lessons)) {
+    if (bramka.allow && learningMode === "per_call" && Array.isArray(a?.lessons)) {
       for (const L of a.lessons.slice(0, 8)) {
         if (!L?.situation || !L?.recommended_response) continue;
+        // ZASADA 22 + dane osobowe: przykład ma pokazywać FORMĘ, nie treść.
+        // Bez tego do promptu KAŻDEJ rozmowy trafiały tablica rejestracyjna,
+        // fragment numeru telefonu i imię prawdziwego klienta, a przykład
+        // „Mamy dostępne 9:00, 11:00 lub 14:00" agent recytował jako fakt.
+        const situation = redactPersonalData(String(L.situation));
+        const response = redactPersonalData(String(L.recommended_response));
         const { data: ex } = await admin.from("voice_agent_knowledge")
-          .select("id, evidence_count").eq("persona_key", personaKey).eq("provider_id", providerId)
-          .ilike("situation", L.situation).maybeSingle();
-        if (ex) {
+          .select("id, evidence_count, is_active").eq("persona_key", personaKey).eq("provider_id", providerId)
+          .ilike("situation", situation).limit(1);
+        const istniejacy = ex?.[0];
+        if (istniejacy) {
+          // AKTYWNEJ reguły nie przepisujemy po cichu. Gwarancja „nowa reguła czeka
+          // na akceptację człowieka" obejmowała tylko wstawienie; aktualizacja
+          // podmieniała treść aktywnego wpisu bez niczyjej zgody.
+          if (istniejacy.is_active) {
+            console.info("[voice-call-analyze]", JSON.stringify({
+              event: "active_rule_not_overwritten", rule: String(istniejacy.id).slice(0, 8),
+            }));
+            continue;
+          }
           await admin.from("voice_agent_knowledge").update({
-            evidence_count: (ex.evidence_count || 0) + 1, recommended_response: L.recommended_response,
+            evidence_count: (istniejacy.evidence_count || 0) + 1, recommended_response: response,
             last_reinforced_at: new Date().toISOString(),
-          }).eq("id", ex.id);
+          }).eq("id", istniejacy.id);
         } else {
           await admin.from("voice_agent_knowledge").insert({
             persona_key: personaKey, provider_id: providerId, scope: "tenant",
-            category: L.category || "other", situation: L.situation, recommended_response: L.recommended_response,
+            category: L.category || "other", situation, recommended_response: response,
             // Nowa reguła czeka na akceptację człowieka. Automatyczna aktywacja
             // doprowadziła do tego, że agent uczył się zachowań, które właściciel
             // dopiero co kazał usunąć: powtarzania numeru telefonu, pytań
@@ -174,7 +217,8 @@ serve(async (req) => {
       }
     }
 
-    return json({ ok: true, call_id: callId, outcome: a?.outcome || null, lessons_learned: learned, mistakes: a?.mistakes || [] });
+    return json({ ok: true, call_id: callId, outcome: a?.outcome || null, lessons_learned: learned,
+      distill_skipped: bramka.allow ? null : bramka.reasons, mistakes: a?.mistakes || [] });
   } catch (e) {
     return json({ ok: false, error: (e as Error).message }, 500);
   }

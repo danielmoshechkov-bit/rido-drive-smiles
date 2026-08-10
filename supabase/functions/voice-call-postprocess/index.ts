@@ -170,7 +170,16 @@ serve(async (req) => {
     const r = await fetch(`${supabaseUrl}/functions/v1/voice-call-analyze`, {
       method: "POST",
       headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ provider_id: providerId, persona_key: personaKey, messages, is_test: false, conversation_id: conversationId }),
+      // duration_seconds i order_id są WYMAGANE przez bramkę uczenia w analyze
+      // (voiceLearningGate). Bez nich bramka widziałaby rozmowę zerowej długości
+      // bez zapisu i zablokowałaby destylację ZAWSZE — po cichu, bo brak reguł
+      // wygląda tak samo jak brak wniosków z rozmowy.
+      body: JSON.stringify({
+        provider_id: providerId, persona_key: personaKey, messages, is_test: false,
+        conversation_id: conversationId,
+        duration_seconds: Number(payload?.data?.metadata?.call_duration_secs) || 0,
+        order_id: commitOut?.rpc?.order_id || commitOut?.order_id || null,
+      }),
     });
     const out = await r.json().catch(() => ({}));
 

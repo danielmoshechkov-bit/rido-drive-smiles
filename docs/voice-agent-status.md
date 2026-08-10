@@ -147,6 +147,52 @@ SQL naprawczy: `scripts/sql/voice-knowledge-sanitize-20260810.sql` (+ rollback).
 
 **Nic z punktów 8–11 przed progiem.**
 
+### 🔴 POZYCJE BEZPIECZEŃSTWA — do zamknięcia PRZED pierwszym prawdziwym klientem
+
+| pozycja | stan |
+|---|---|
+| **dane osobowe w bazie wiedzy** | ✅ **zamknięte 10.08** — zero aktywnych wpisów z danymi; filtr `redactPersonalData` w destylatorze |
+| dane osobowe w 14 NIEAKTYWNYCH wpisach | ⚠️ otwarte — bezczynne, ale ożyją, jeśli ktoś je włączy w panelu |
+| trunk SIP otwarty na `0.0.0.0/0` | ⚠️ otwarte |
+| `AI_SECRETS_ENC_KEY` nieustawiony | ⚠️ otwarte — Twilio i Deepgram leżą niezaszyfrowane w `ai_secret_store` |
+| 7 crontabów z tokenem wprost w treści zadania | ⚠️ otwarte |
+
+**Incydent 10.08 — dane osobowe w prompcie każdej rozmowy.** Trzy AKTYWNE wpisy bazy
+wiedzy zawierały tablicę rejestracyjną, fragment numeru telefonu i imię prawdziwego
+klienta. `voice_agent_knowledge` jest wstrzykiwana do promptu **każdej** rozmowy
+u **każdego** klienta tego warsztatu, a panel jej nie pokazuje.
+
+Zasięg — sprawdzony, nie założony:
+
+| miejsce | wynik |
+|---|---|
+| `voice_agent_knowledge`, aktywne | ✅ zero po sanityzacji |
+| `voice_agent_knowledge`, nieaktywne | ⚠️ **14 z 75** wpisów; bezczynne |
+| `ai_agents_config.system_prompt` | ✅ zero |
+| `voice_agent_personas` | ✅ zero |
+| `voice_call_outcomes.winning_phrases` | ✅ zero |
+| logi funkcji `chat`/`llm`/`tools`, 7 dni | ✅ zero — logujemy długości i skróty, nie treść |
+| `voice_transcripts`, `voice_call_outcomes.customer_data`, `voice_calls.summary` | zawierają dane, ale **to rekord własnej rozmowy klienta** — legalne i zamierzone |
+
+Rozróżnienie, które tu decyduje: dane w rekordzie **własnej** rozmowy są w porządku;
+dane wstrzykiwane w prompt **cudzej** rozmowy to incydent.
+
+**Naprawa systemowa** (`_shared/voiceLearningGate.ts`, 13 asercji):
+1. `redactPersonalData` przed każdym zapisem do bazy wiedzy — telefon cyframi i słownie,
+   tablica, VIN, e-mail, imię w wołaczu, a także godzina, data i kwota (zasada 22)
+2. `shouldDistill` — **uczymy się tylko z rozmów udanych**: brak zapisu, rozmowa krótsza
+   niż 30 s, `output_truncated` albo przeprosiny agenta → brak destylacji, rozmowa idzie
+   do przeglądu (`status = needs_review`)
+3. **aktywna reguła nie jest już przepisywana po cichu.** Gwarancja „nowa reguła czeka
+   na akceptację człowieka" obejmowała tylko wstawianie — gałąź aktualizacji podmieniała
+   treść AKTYWNEGO wpisu bez niczyjej zgody. To była droga, którą dane osobowe mogły
+   wrócić do włączonej reguły.
+
+⚠️ Bramka wymaga `duration_seconds` i `order_id` w żądaniu do `voice-call-analyze`.
+`voice-call-postprocess` ich **nie przekazywał** — bez tego bramka widziałaby każdą
+rozmowę jako zerowej długości bez zapisu i zablokowałaby uczenie ZAWSZE, po cichu.
+Dopisane przy tej samej zmianie.
+
 ### Dług do sprzątnięcia (nie teraz)
 
 - 13 wystąpień `create_booking`/`create_order` w `voice-agent-chat` jako komentarze

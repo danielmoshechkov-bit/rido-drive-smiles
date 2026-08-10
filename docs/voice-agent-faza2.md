@@ -496,6 +496,34 @@ Kroki 4 i 5 są przed 6 i 7 celowo (zasada 8).
 - `diagnose-call.sh` sekcja 6: zero czerwonych flag na czystej rozmowie
 - tura poniżej 1,2 s, zero narzędzi zapisujących w osi czasu
 
+### ZASADA DWUDZIESTA DRUGA: przykład z konkretną wartością ZOSTANIE UŻYTY JAKO WARTOŚĆ
+
+Szósta odsłona tego samego wzorca. Pięć razy zdarzyło się to w prompcie, szósty raz
+w bazie wiedzy — czyli mechanizm jest ogólniejszy niż zasada 15 i nie zależy od tego,
+gdzie tekst siedzi.
+
+```
+wpis w bazie:        "Zaproponuj 2-3 opcje: 'Mamy dostępne 9:00, 11:00 lub 14:00'"
+agent, bj6t2qmm 52 s: "Mamy wolne jutro o dziewiątej, jedenastej lub czternastej"
+```
+Klientka prosiła o środę przyszłego tygodnia. `check_availability` padł dopiero na 90 s.
+Godziny zostały zmyślone 38 sekund wcześniej — model wziął przykład za dane.
+
+**Nigdy nie podawaj przykładu z prawdziwą godziną, datą, kwotą ani danymi osobowymi.
+Przykład ma pokazywać FORMĘ, nie treść:**
+```
+źle:   "Mamy dostępne 9:00, 11:00 lub 14:00"
+dobrze: "Mamy dostępne [godzina], [godzina] lub [godzina]"
+```
+
+**Kontrola wykonywalna** — aktywne wpisy bazy wiedzy nie mogą pasować do:
+`[0-9]{1,2}:00` (godzina), wzorca daty (`\d{4}-\d{2}-\d{2}`, „7 sierpnia",
+„siedemnastego czerwca"), kwoty (`\d+\s*(zł|PLN|złotych)`), tablicy, numeru telefonu
+cyframi i słownie, VIN-u oraz adresu e-mail.
+
+Egzekwuje to `_shared/voiceLearningGate.ts` → `redactPersonalData`, wołane przed każdym
+zapisem do `voice_agent_knowledge` (13 asercji, w tym przypadki wzięte wprost z bazy).
+
 ### ZASADA DWUDZIESTA PIERWSZA: pomiar na jednym przypadku to nie pomiar
 
 Skąd: `max_tokens` 150. Dobrałem tę wartość z JEDNEJ rozmowy — najdłuższa wypowiedź
