@@ -468,3 +468,21 @@ Kroki 4 i 5 są przed 6 i 7 celowo (zasada 8).
 - świadomie zgubiony webhook → odzyskany przez cron w ≤ 15 min
 - `diagnose-call.sh` sekcja 6: zero czerwonych flag na czystej rozmowie
 - tura poniżej 1,2 s, zero narzędzi zapisujących w osi czasu
+
+### ZASADA DWUDZIESTA PIERWSZA: pomiar na jednym przypadku to nie pomiar
+
+Skąd: `max_tokens` 150. Dobrałem tę wartość z JEDNEJ rozmowy — najdłuższa wypowiedź
+183 znaki ≈ 57 tokenów, więc 150 wyglądało na dwukrotny zapas. Na trzynastu rozmowach
+najdłuższa miała 249 znaków ≈ 78 tokenów, a z wywołaniem narzędzia w tej samej turze
+budżet się kończył: 3 ucięcia na 126 żądań, w tym jedno kończące rozmowę z klientką
+bez żadnego zapisu.
+
+To zasada 20 („własne szacunki weryfikuj pomiarem") zastosowana do samego pomiaru.
+Jeden przypadek daje wartość, nie rozkład — a próg ustawia się na ogonie rozkładu,
+nie na medianie.
+
+**Jak stosować:** zanim ustawisz próg, limit albo wartość odcięcia, zbierz rozkład
+z co najmniej kilkunastu przypadków i patrz na maksimum, nie na typową wartość.
+Do każdego progu dołóż licznik jego przekroczeń (tu: `output_truncated`), żeby
+pomyłka była widoczna od razu, a nie po analizie transkryptów tydzień później.
+
