@@ -289,7 +289,7 @@ serve(async (req) => {
         timeoutMs: 30_000, adapterKey: "anthropic_messages", secretKey: "ANTHROPIC_API_KEY",
         endpoint: "https://api.anthropic.com/v1/messages",
       },
-      fallback: null, allowFallback: false, maxToolRounds: 5, maxOutputTokens: 150,
+      fallback: null, allowFallback: false, maxToolRounds: 5, maxOutputTokens: 400,
     };
     const phase1CanaryRouting: Phase1VoiceRouting = {
       primary: { ...legacyRouting.primary, providerName: "Anthropic (Phase 1 primary)", timeoutMs: 8_000 },
@@ -299,15 +299,26 @@ serve(async (req) => {
         adapterKey: "anthropic_messages", secretKey: "ANTHROPIC_API_KEY",
         endpoint: "https://api.anthropic.com/v1/messages",
       },
-      // 150 tokenów. Limit jest TWARDYM UCIĘCIEM, nie podpowiedzią — model nie
-      // skraca się od niego sam, więc dobrany jest z pomiaru, nie z oka.
-      // Najdłuższa wypowiedź ostatniej rozmowy (conv_0501kza…way, 06.08) to
-      // 183 znaki ≈ 57 tokenów; z argumentami narzędzia daje to ok. 100.
-      // 150 zostawia połowę zapasu. Ucięcie NIE jest ciche: stopReason
-      // "max_tokens" loguje `output_truncated` i oddaje turę rozmówcy (niżej).
-      // Wcześniejsze 400 urywało zdania, bo tura zawierała jeszcze zapowiedź
-      // i wynik create_booking — tych narzędzi już w rozmowie nie ma.
-      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 150,
+      // 400 tokenów — wartość z POMIARU NA TRZYNASTU ROZMOWACH (06.08), nie z oka.
+      //
+      // Historia tej liczby jest ostrzeżeniem samym w sobie. 150 dobrałem
+      // z JEDNEJ rozmowy: najdłuższa wypowiedź miała 183 znaki ≈ 57 tokenów,
+      // więc 150 wyglądało na dwukrotny zapas. Na trzynastu rozmowach
+      // najdłuższa miała 249 znaków ≈ 78 tokenów, a gdy w tej samej turze
+      // model generował jeszcze wywołanie narzędzia, budżet się kończył:
+      // 3 ucięcia na 126 żądań (przed zmianą: 0 na 116). Jedno z nich
+      // rozwaliło rozmowę z klientką mówiącą po rosyjsku — usłyszała dwa razy
+      // "Przepraszam, nie zdążyłem dokończyć" i rozłączyła się bez zapisu.
+      //
+      // 400 daje ~5× zapas na realną wypowiedź plus wywołanie narzędzia,
+      // a nadal ucina generowanie patologiczne. Nie wracamy do 600: przy 600
+      // ogon generowania tekstu miał p90 3,70 s, przy 150 spadł do 0,71 s —
+      // ograniczenie działa, tylko było za ciasne.
+      //
+      // Ucięcie NIE jest ciche: stopReason "max_tokens" loguje
+      // `output_truncated` i oddaje turę rozmówcy (niżej). Ten log jest
+      // miernikiem, czy 400 wystarcza — ma być zero.
+      allowFallback: true, maxToolRounds: 3, maxOutputTokens: 400,
     };
     const voiceRouting = canary.enabled ? phase1CanaryRouting : legacyRouting;
     logTiming("prepare", totalStarted, { production_canary: canary.enabled });
@@ -482,7 +493,7 @@ serve(async (req) => {
         const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-          body: JSON.stringify({ model, max_tokens: 150, temperature: 0.7, system: system + systemTimeContext, messages: legacyConvo, ...(tools.length ? { tools } : {}) }),
+          body: JSON.stringify({ model, max_tokens: 400, temperature: 0.7, system: system + systemTimeContext, messages: legacyConvo, ...(tools.length ? { tools } : {}) }),
         });
         if (!aiResponse.ok) {
           const responseText = await aiResponse.text().catch(() => "");

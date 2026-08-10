@@ -103,7 +103,7 @@ test("Phase 1 preserves legacy execution and enables streaming only behind the p
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
   assert.match(chat, /if \(!canary\.enabled\) \{/);
-  assert.match(chat, /max_tokens: 150/);
+  assert.match(chat, /max_tokens: 400/);
   assert.match(chat, /for \(let round = 0; round < 5; round\+\+\)/);
   assert.match(chat, /body: JSON\.stringify\(\{ action: name, provider_id: providerId, persona_key: personaKey, is_test: testMode, \.\.\.input \}\)/);
   assert.match(chat, /claude-haiku-4-5-20251001/);
@@ -115,9 +115,9 @@ test("Phase 1 preserves legacy execution and enables streaming only behind the p
 test("truncated output is never treated as a finished turn", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
-  // Budżet dobrany z pomiaru: najdłuższa wypowiedź rozmowy z 06.08 to ~57 tokenów,
-  // z argumentami narzędzia ~100. Ucięcie jest widoczne w logach, nie ciche.
-  assert.match(chat, /maxToolRounds: 3, maxOutputTokens: 150/);
+  // 400 z pomiaru na 13 rozmowach: najdłuższa wypowiedź 249 znaków ~78 tokenów.
+  // Przy 150 były 3 ucięcia na 126 żądań, w tym jedno kończące rozmowę.
+  assert.match(chat, /maxToolRounds: 3, maxOutputTokens: 400/);
   // Ucięcie jest obsłużone i zalogowane...
   assert.match(chat, /streamed\.stopReason === "max_tokens"/);
   assert.match(chat, /event: "output_truncated"/);
