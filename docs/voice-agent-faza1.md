@@ -253,6 +253,48 @@ Oba są dziś `null` / `false`.
 
 ---
 
+## 🎯 FAZA A — CO WCHODZI I KIEDY UZNAJEMY JĄ ZA ZROBIONĄ
+
+**Nic jej nie wyprzedza.** `check_availability` w rozmowie to jedyna operacja, jaka
+została w trakcie połączenia, i jedyna tura powyżej 2 s: zmierzone **5,2–7,3 s**.
+Klient czeka, bo agent w trakcie rozmowy sprawdza kalendarz.
+
+Webhook inicjujący pobiera wszystko **przy odebraniu połączenia** — w czasie, gdy agent
+mówi powitanie. Powitanie i tak trwa ~3 s, więc snapshot jest za darmo.
+
+### Zawartość snapshotu
+- wolne terminy: **14 dni, maks. 3 sloty na dzień**, plus `first_available`
+- **NAZWANE DNI ze statusem otwarcia** — dzisiaj/jutro/pojutrze + dzień tygodnia + data
+  + otwarte/zamknięte. Model nie liczy dat, tylko wybiera z listy (patrz rozdział wyżej)
+- godziny pracy i dni wolne
+- **czasy trwania usług z cennika** — bez tego agent mówi „to zależy" i rozmowa rośnie
+  do 315 s, jak `bj6t2qmm`
+- cennik
+- konfiguracja, persona, reguły — czyli **`config` znika z każdej tury** (140–506 ms)
+- `caller_id` + flaga `caller_id_available`
+- **aktywne rezerwacje tego numeru** — potrzebne też do ścieżki odwołania
+
+### Ograniczenia twarde
+- **budżet 300 ms**; przy przekroczeniu **pusty snapshot, nie błąd** — rozmowa ma się
+  zacząć nawet bez terminów, agent wtedy po prostu użyje `check_availability`
+- snapshot ląduje w **ZMIENNEJ** części promptu, nigdy w stałej. Blok stały ma
+  `cache_control: { type: "ephemeral" }` i 100% trafień; terminy zmieniają się częściej
+  niż reguły, więc wrzucenie ich do prefiksu unieważniłoby cache **przy każdej rozmowie**
+- `check_availability` **zostaje**, ale WYŁĄCZNIE jako wyjątek dla terminów spoza
+  snapshotu, z jawną zapowiedzią: „chwileczkę, sprawdzę dalsze terminy"
+
+### Próg odbioru FAZY A
+| miernik | cel |
+|---|---|
+| tury powyżej 2,5 s | **zero** |
+| mediana tury | **poniżej 1,7 s** |
+| `config` na turę | **0 ms** (znika ze ścieżki) |
+
+Punkt wyjścia do porównania (06.08, metryki ElevenLabs): mediana ciszy **2,92 s**,
+p90 **4,77 s**, tura z `check_availability` **5,2–7,3 s**.
+
+---
+
 ## ⭐ KRYTERIUM GENERYCZNOŚCI — sprawdzaj przy KAŻDEJ decyzji
 
 > **Czy to zadziała dla fryzjera bez zmiany kodu?**
