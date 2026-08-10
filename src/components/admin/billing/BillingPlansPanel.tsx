@@ -333,19 +333,34 @@ export function BillingPlansPanel() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Interwał</Label>
-              <Select
-                value={draft?.billing_interval ?? 'month'}
-                onValueChange={(v) => setDraft((d) => ({ ...d, billing_interval: v as BillingPlan['billing_interval'] }))}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="month">Miesięcznie</SelectItem>
-                  <SelectItem value="year">Rocznie</SelectItem>
-                  <SelectItem value="one_time">Jednorazowo</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Kolejność</Label>
+                <Input
+                  type="number" min="0" step="10"
+                  value={draft?.sort_order ?? 999}
+                  onChange={(e) => setDraft((d) => ({ ...d, sort_order: Number(e.target.value) }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Rosnąco — tak samo ustawią się karty w cenniku.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Interwał</Label>
+                <Select
+                  value={draft?.billing_interval ?? 'month'}
+                  onValueChange={(v) =>
+                    setDraft((d) => ({ ...d, billing_interval: v as BillingPlan['billing_interval'] }))
+                  }
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Miesięcznie</SelectItem>
+                    <SelectItem value="year">Rocznie</SelectItem>
+                    <SelectItem value="one_time">Jednorazowo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {!draft?.is_custom && (
