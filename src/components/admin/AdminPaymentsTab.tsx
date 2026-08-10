@@ -8,11 +8,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star, Tag, Puzzle } from 'lucide-react';
+import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star, Tag, Puzzle, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { PromoCodesPanel } from './PromoCodesPanel';
 import { BillingFeaturesPanel } from './billing/BillingFeaturesPanel';
+import { BillingPlansPanel } from './billing/BillingPlansPanel';
 import { useUserRole } from '@/hooks/useUserRole';
 
 const TAB_CLASS =
@@ -65,6 +66,13 @@ export function AdminPaymentsTab() {
             </div>
           </TabsTrigger>
         )}
+        {isPlatformAdmin && (
+          <TabsTrigger value="billing-plans" className={TAB_CLASS}>
+            <div className="flex items-center gap-1.5 justify-center">
+              <Layers className="h-3.5 w-3.5" /> Plany
+            </div>
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContent value="gateways"><PaymentGatewayConfig /></TabsContent>
@@ -81,6 +89,9 @@ export function AdminPaymentsTab() {
       <TabsContent value="promo"><PromoCodesPanel /></TabsContent>
       {isPlatformAdmin && (
         <TabsContent value="billing-features"><BillingFeaturesPanel /></TabsContent>
+      )}
+      {isPlatformAdmin && (
+        <TabsContent value="billing-plans"><BillingPlansPanel /></TabsContent>
       )}
     </Tabs>
   );

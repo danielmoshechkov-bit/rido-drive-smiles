@@ -379,3 +379,9 @@ verify_jwt = false
 # w samej funkcji.
 [functions.billing-admin-features]
 verify_jwt = true
+
+# Zapis planów i macierzy plan × funkcja. Kontrola roli platform_admin jest
+# w samej funkcji; podmiana macierzy idzie przez RPC billing_set_plan_features,
+# żeby DELETE i INSERT wykonały się w jednej transakcji.
+[functions.billing-admin-plans]
+verify_jwt = true
