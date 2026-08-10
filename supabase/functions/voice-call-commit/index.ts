@@ -17,7 +17,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
 import { extractFromTranscript, type TranscriptTurn } from "../_shared/voiceExtraction.ts";
-import { matchBrand, missingForCommit, reconcileCall } from "../_shared/voiceReconcile.ts";
+import { isCancellationIntent, matchBrand, missingForCommit, reconcileCall } from "../_shared/voiceReconcile.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -100,15 +100,32 @@ serve(async (req) => {
   const brandMatch = matchBrand(reconciled.brand);
   const braki = missingForCommit(extracted, reconciled.phone);
 
+  // ODWOŁANIE / PRZEŁOŻENIE — nie zakładamy drugiej rezerwacji.
+  //
+  // Do czasu pełnej obsługi (anulowanie w bazie + SMS potwierdzający) robimy
+  // minimum, które ma jedną właściwość: system NIE robi czegoś odwrotnego do
+  // prośby klienta. Zamiast rezerwacji powstaje zlecenie ze statusem
+  // „Oddzwonić", z adnotacją w treści i pełnym transkryptem obok.
+  const odwolanie = isCancellationIntent(extracted);
+  const adnotacja = extracted.wants_cancel
+    ? "[KLIENT PROSI O ODWOŁANIE WIZYTY] "
+    : extracted.wants_reschedule ? "[KLIENT PROSI O PRZEŁOŻENIE WIZYTY] " : "";
+
   const zapis = {
     first_name: reconciled.firstName, last_name: reconciled.lastName,
     phone: reconciled.phone,
     brand: brandMatch?.brand ?? reconciled.brand, model: reconciled.model,
     plate: reconciled.plate,
-    complaint: extracted.complaint, date: extracted.date, time: extracted.time,
-    needs_review: reconciled.needsReview || reconciled.plateSuspicious,
-    review_reason: reconciled.reviewReason
-      || (reconciled.plateSuspicious ? "Numer rejestracyjny nie pasuje do formatu tablic." : null),
+    complaint: adnotacja + (extracted.complaint || (odwolanie ? "Prośba zgłoszona telefonicznie." : "")),
+    // Przy odwołaniu NIE przekazujemy terminu, nawet jeśli klient go wymienił —
+    // wymienił go, żeby wskazać wizytę do usunięcia, a nie żeby umówić nową.
+    date: odwolanie ? null : extracted.date,
+    time: odwolanie ? null : extracted.time,
+    needs_review: reconciled.needsReview || reconciled.plateSuspicious || odwolanie,
+    review_reason: odwolanie
+      ? (extracted.wants_cancel ? "Klient prosi o ODWOŁANIE wizyty — wymaga kontaktu." : "Klient prosi o PRZEŁOŻENIE wizyty — wymaga kontaktu.")
+      : reconciled.reviewReason
+        || (reconciled.plateSuspicious ? "Numer rejestracyjny nie pasuje do formatu tablic." : null),
   };
 
   // 4. DRY RUN — pokazuje, co BY zapisał, i porównuje z tym, co JEST.

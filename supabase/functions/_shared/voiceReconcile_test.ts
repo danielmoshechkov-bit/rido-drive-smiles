@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   findSimilarPlates,
+  isCancellationIntent,
   isPlausiblePlate,
   matchBrand,
   missingForCommit,
@@ -262,4 +263,45 @@ test("bez świadomego wskazania caller_id pozostaje źródłem domyślnym", () =
     clientsByPhone: [], vehiclesByPlate: [],
   });
   assert.equal(r.phone, "519474583");
+});
+
+// --- INTENCJA ODWOŁANIA — system nie może zrobić czegoś odwrotnego do prośby ---
+
+test("odwołanie wizyty: brak daty i godziny NIE jest brakiem danych", () => {
+  const braki = missingForCommit(
+    { complaint: "chcę odwołać", date: null, time: null, first_name: "Anna",
+      last_name: null, phone: null, brand: null, model: null, plate: null,
+      phone_provided_by_customer: false, wants_cancel: true } as never,
+    "600100200",
+  );
+  assert.deepEqual(braki, [], "klient nie podaje terminu, bo chce go USUNĄĆ");
+});
+
+test("odwołanie bez telefonu nadal blokuje — nie ma jak oddzwonić", () => {
+  const braki = missingForCommit(
+    { complaint: null, date: null, time: null, first_name: null, last_name: null,
+      phone: null, brand: null, model: null, plate: null,
+      phone_provided_by_customer: false, wants_cancel: true } as never,
+    null,
+  );
+  assert.equal(braki.length, 1);
+  assert.match(braki[0], /telefonu/);
+});
+
+test("przełożenie działa tak samo jak odwołanie", () => {
+  assert.equal(isCancellationIntent({ wants_reschedule: true } as never), true);
+  assert.equal(isCancellationIntent({ wants_cancel: true } as never), true);
+  assert.equal(isCancellationIntent({} as never), false);
+  // Wartości inne niż true nie włączają intencji.
+  assert.equal(isCancellationIntent({ wants_cancel: "tak" } as never), false);
+});
+
+test("zwykła rezerwacja NADAL wymaga daty i godziny", () => {
+  const braki = missingForCommit(
+    { complaint: "stuka", date: null, time: null, first_name: "Jan", last_name: null,
+      phone: null, brand: null, model: null, plate: null,
+      phone_provided_by_customer: false } as never,
+    "600100200",
+  );
+  assert.equal(braki.length, 2, "bez intencji odwołania brak terminu to nadal brak");
 });

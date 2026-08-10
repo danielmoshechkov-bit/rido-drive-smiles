@@ -263,7 +263,35 @@ export const reconcileCall = (input: ReconcileInput): ReconcileResult => {
  * ZASADA 9: to jedyne miejsce, które może wstrzymać commit — i wyłącznie wtedy,
  * gdy zapisu NIE DA SIĘ wykonać. Nigdy „bo nazwisko brzmi dziwnie".
  */
-export const missingForCommit = (extracted: ExtractedCall, phone: string | null): string[] => {
+/**
+ * INTENCJA ODWOŁANIA ALBO PRZEŁOŻENIA ZMIENIA SENS CAŁEJ ROZMOWY.
+ *
+ * `voiceExtraction` wykrywała `wants_cancel` i `wants_reschedule` od początku,
+ * ale NIKT tych pól nie czytał — ani commit, ani RPC. Skutek był odwrotny do
+ * prośby klienta: dzwonił odwołać wizytę, a system zakładał mu DRUGĄ.
+ * Warsztat dostawał dwie rezerwacje zamiast zera.
+ *
+ * Przy takiej intencji brak daty i godziny NIE jest brakiem danych — jest
+ * normalnym stanem. Klient nie podaje terminu, bo chce go usunąć.
+ */
+export const isCancellationIntent = (extracted: ExtractedCall & {
+  wants_cancel?: boolean;
+  wants_reschedule?: boolean;
+}): boolean => extracted.wants_cancel === true || extracted.wants_reschedule === true;
+
+export const missingForCommit = (extracted: ExtractedCall & {
+  wants_cancel?: boolean;
+  wants_reschedule?: boolean;
+}, phone: string | null): string[] => {
+  // Odwołanie/przełożenie: wymagamy WYŁĄCZNIE telefonu — bez niego nie ma jak
+  // oddzwonić, a rozmowa i tak musi zostawić ślad.
+  if (isCancellationIntent(extracted)) {
+    return phone ? [] : ["brak numeru telefonu (ani z sygnalizacji, ani z rozmowy)"];
+  }
+  return missingForBooking(extracted, phone);
+};
+
+const missingForBooking = (extracted: ExtractedCall, phone: string | null): string[] => {
   // NAZWISKO NIE JEST WYMAGANE. Agent o nie nie pyta — ASR dał pięć różnych wersji
   // w pięciu rozmowach ("Wandym Oszadkow", "Mosaczkowski", "Noszeczkow", "Mosleczko",
   // "Moseczkow"), a identyfikacja i tak idzie po telefonie i rejestracji.

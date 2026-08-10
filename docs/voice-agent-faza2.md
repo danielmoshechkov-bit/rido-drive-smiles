@@ -126,6 +126,19 @@ Każda ma za sobą konkretną awarię. Wpisane tu, żeby nie powtórzyć ich w n
     **Przed dodaniem reguły warunkowej przeszukaj prompt pod kątem zdań, które
     zakazują tego, co ona nakazuje.**
 
+    **TRZY KIERUNKI KONTROLI (11.08).** Sprzeczność może wystąpić między każdą parą
+    z trzech źródeł, a nie tylko między promptem a przykładami:
+
+    | kierunek | przykład | skutek |
+    |---|---|---|
+    | prompt ↔ przykłady w prompcie | pięć pierwszych sprzeczności | reguła nie działa |
+    | prompt ↔ baza wiedzy | „9:00, 11:00 lub 14:00" jako przykład | agent zmyślił dostępność |
+    | **baza ↔ kod** | persona każe wywołać `create_booking`, kod go nie przekazuje | instrukcja niewykonalna |
+
+    Trzeci kierunek jest najtrudniejszy do zauważenia, bo **żadna ze stron nie widzi
+    drugiej w momencie pisania**: prompt persony leży w bazie, lista narzędzi powstaje
+    w kodzie. Kontrolę wykonuje `scripts/voice-audit.mjs`, sekcja A.
+
     **ROZSZERZENIE (10.08) — kontrola spójności MUSI objąć `voice_agent_knowledge`.**
     Dotąd sprzeczności były MIĘDZY promptem a przykładami w tym samym pliku. Nowa klasa
     jest między promptem a bazą wiedzy, **której prompt nie widzi w momencie pisania**:

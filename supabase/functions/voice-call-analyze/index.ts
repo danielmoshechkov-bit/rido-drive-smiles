@@ -114,15 +114,23 @@ serve(async (req) => {
         .eq("elevenlabs_conversation_id", conversationId).maybeSingle();
       if (existing?.id) callId = existing.id;
     }
+    // DŁUGOŚĆ I KONIEC ROZMOWY. Kolumny istniały od początku i przez cały czas
+    // były PUSTE — 0 z 61 wierszy miało `duration_seconds`, 0 miało `ended_at`.
+    // Ta sama klasa co `wants_cancel`: pole zdefiniowane, którego nikt nie wypełnia.
+    // Bez nich nie da się policzyć niczego po czasie rozmowy ani odtworzyć
+    // werdyktu bramki uczenia na zapisanych danych.
+    const dlugosc = Number(body?.duration_seconds) || null;
+    const metryki = dlugosc ? { duration_seconds: dlugosc, ended_at: new Date().toISOString() } : {};
+
     if (callId) {
       await admin.from("voice_calls").update({
-        status: "completed",
+        status: "completed", ...metryki,
         contact_name: a?.customer_data?.name || null, summary: a?.summary || null, outcome: a?.outcome || null,
         ...(linkedOrderId ? { linked_entity_type: "workshop_order", linked_entity_id: linkedOrderId } : {}),
       }).eq("id", callId);
     } else {
       const { data: call } = await admin.from("voice_calls").insert({
-        provider_id: providerId, persona_key: personaKey, direction: "inbound", status: "completed",
+        provider_id: providerId, persona_key: personaKey, direction: "inbound", status: "completed", ...metryki,
         ...(conversationId ? { elevenlabs_conversation_id: conversationId } : {}),
         contact_name: a?.customer_data?.name || null, summary: a?.summary || null, outcome: a?.outcome || null,
         linked_entity_type: linkedOrderId ? "workshop_order" : null, linked_entity_id: linkedOrderId || null,
