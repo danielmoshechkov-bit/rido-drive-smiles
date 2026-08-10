@@ -253,6 +253,193 @@ Oba są dziś `null` / `false`.
 
 ---
 
+## ⭐ KRYTERIUM GENERYCZNOŚCI — sprawdzaj przy KAŻDEJ decyzji
+
+> **Czy to zadziała dla fryzjera bez zmiany kodu?**
+
+Agent głosowy nie jest funkcją warsztatu. To silnik obsługi połączeń dla każdej branży
+w portalu: warsztat, myjnia, fryzjer, kosmetyczka, wynajem, hotel. Multi-tenancy nie jest
+zadaniem na teraz — ale od FAZY A **nic nowego nie może być przypięte do warsztatu na sztywno**.
+
+| pojęcie | warsztat | fryzjer | hotel | wynajem |
+|---|---|---|---|---|
+| **zasób** | stanowisko | osoba | pokój | pojazd |
+| **usługa** | przegląd | strzyżenie | doba | wynajem dobowy |
+| **obiekt klienta** | pojazd | brak | liczba osób | brak |
+
+Zasady:
+- zasób jest generyczny — nigdy „stanowisko" w kontrakcie, zawsze „zasób"
+- usługa ma **czas trwania, cenę i kategorię** — nie „naprawę"
+- obiekt klienta jest **opcjonalny**
+- pola branżowe (rejestracja, marka, model) idą do struktury branżowej, **nie do korzenia**
+- prompt = część wspólna + część branżowa **z bazy wiedzy**; nic branżowego w kodzie
+
+**Pierwszy test tego modelu: kategorie Warsztat / Myjnia z backlogu.** Projektujemy je jako
+„kategoria → zasoby → terminy", nie jako „warsztat albo myjnia". Jeśli wyjdzie konstrukcja,
+w której trzeba dopisać `if (branża === 'myjnia')`, model jest zły i wracamy do projektu.
+
+---
+
+## Snapshot Z NAZWANYMI DNIAMI — osobny punkt, nie „snapshot terminów"
+
+**Problem, który to rozwiązuje, to cała RODZINA błędów, nie jeden.** Z transkryptów
+06.08:
+
+| co się stało | rozmowa |
+|---|---|
+| klient prosi o środę przyszłego tygodnia, agent proponuje „jutro o 9, 11, 14" | `bj6t2qmm` 52 s |
+| agent proponuje 17:00, choć warsztat pracuje do 17:00 | `bj6t2qmm` 61–72 s |
+| klient gubi się: „czy pan jest pewien, że środa to szesnasty?" | `bj6t2qmm` 114 s |
+| pełna data powtórzona cztery razy w jednej rozmowie | `bj6t2qmm` 90/103/120/163 s |
+| ekstrakcja wpisuje rok 2024/2025 | naprawione 06.08 |
+
+**Wspólna przyczyna:** model dostaje czas jako tekst i za każdym razem liczy od nowa,
+który dzień to „jutro", czy „piątek" to ten tydzień czy następny, czy 17:00 mieści się
+w godzinach pracy. Każde liczenie to okazja do pomyłki.
+
+**Rozwiązanie: model nie liczy dat, tylko WYBIERA Z LISTY.** Snapshot podaje dni
+z nazwami i statusem otwarcia:
+
+```json
+{
+  "dni": [
+    { "klucz": "dzisiaj",      "nazwa": "czwartek 10 sierpnia",  "otwarte": true,
+      "godziny": "8:00-17:00", "wolne": ["15:00", "16:00"] },
+    { "klucz": "jutro",        "nazwa": "piątek 11 sierpnia",    "otwarte": true,
+      "godziny": "8:00-17:00", "wolne": ["9:00", "11:00", "14:00"] },
+    { "klucz": "pojutrze",     "nazwa": "sobota 12 sierpnia",    "otwarte": false,
+      "powod": "zamknięte" },
+    { "klucz": "poniedzialek", "nazwa": "poniedziałek 13 sierpnia", "otwarte": true,
+      "godziny": "8:00-17:00", "wolne": ["9:00", "10:00", "16:00"] }
+  ]
+}
+```
+
+**Reguła twarda:** agent NIGDY nie podaje terminu, którego nie ma na liście `wolne`.
+Prośba spoza listy → `check_availability` albo „nie mamy". Nie ma trzeciej możliwości
+i nie ma miejsca na wyliczanie.
+
+Ostatnia godzina w `wolne` musi uwzględniać czas trwania usługi — jeśli warsztat
+pracuje do 17:00, a usługa trwa godzinę, ostatni slot to 16:00. Dziś agent tego nie
+wie i proponował 17:00.
+
+---
+
+## Wielojęzyczność — DIAGNOZA PRZED ZMIANĄ (zasada 11)
+
+**Co się stało** (`qrgbn9cy`, 06.08): klientka mówiła po rosyjsku, agent odpowiedział
+po angielsku „I notice you've **written** in Russian. Let me switch to Russian…" —
+zły język i „written" zamiast „spoken", czyli model myślał, że to czat.
+
+**Co ustaliłem, zanim cokolwiek dopiszę do promptu:**
+
+1. **`language_detection` to narzędzie systemowe ElevenLabs, nie nasze.** W kodzie
+   nie ma po nim śladu poza obsługą narzędzi klienta. Jest włączone w konfiguracji
+   agenta obok `end_call`.
+2. **`language_presets` w konfiguracji agenta: PUSTE.** Narzędzie ma więc *co* wykryć,
+   ale nie ma *na co* przełączyć — brak głosu, powitania i promptu per język.
+3. **ASR był przypięty do polskiego.** Dowód z transkryptu: rosyjska mowa zapisana
+   alfabetem łacińskim fonetycznie („Pozdravite, ja bykhotyala zapisatsa…"), a cyrylica
+   („Вы говорите по-русски?") pojawia się dopiero PO zadziałaniu `language_detection`.
+4. **Prompt nie ma żadnej reguły o języku** — sprawdzone wyrażeniem regularnym po
+   całym prompcie persony.
+5. **Ale baza wiedzy ma trzy reguły, które każą agentowi robić dokładnie to, co zrobił:**
+   - „Gdy klient prosi o zmianę języka → **Potwierdzić zmianę języka**…"
+   - „Klient prosi o obsługę w innym języku → **Przepraszam, nie mówię po ukraińsku.**
+     …mogę połączyć Pana/Panią z kolegą, który mówi po ukraińsku"
+   - „Gdy klient mówi w innym języku → Potwierdzić możliwość komunikacji, ale
+     **wyjaśnić poziom biegłości**. Jeśli agent nie mówi płynnie — zaproponować tłumacza"
+
+**Wniosek: to nie jest brak reguły, to jest ZŁA reguła.** Agent zapowiedział przełączenie,
+bo baza wiedzy mu tak kazała. Trzecia z tych reguł obiecuje dodatkowo przełączenie do
+człowieka — temat zamknięty jako niedostępny. Dopisanie „nie zapowiadaj zmiany języka"
+do promptu **nie zadziała**, dopóki te trzy wpisy tam siedzą; będzie szóstą sprzecznością.
+
+**Kolejność naprawy:**
+1. usunąć/przepisać te trzy wpisy w `voice_agent_knowledge` (do zatwierdzenia — pokażę SQL)
+2. skonfigurować `language_presets` dla `ru`, `uk`, `en` po stronie ElevenLabs (**Twoja
+   ręka**) — głos, powitanie, ewentualnie prompt per język
+3. sprawdzić głos po rosyjsku i ukraińsku; jeśli brzmi źle, osobny `voice_id` w presecie
+4. **dopiero na końcu** reguła w prompcie: „Odpowiadaj w języku, w którym mówi klient.
+   Nigdy nie zapowiadaj zmiany języka." — ma sens dopiero, gdy jest na co przełączyć
+
+Zakres: polski domyślny, powitanie zawsze po polsku, przełącza dopiero odpowiedź klienta,
+przy mieszaniu języków agent trzyma się większości, przy niepewności zostaje przy polskim.
+
+**Powód biznesowy:** w Warszawie znaczna część klientów warsztatów mówi po ukraińsku
+lub rosyjsku. Agent, który ich nie obsłuży, traci klientów, których człowiek by obsłużył.
+
+---
+
+## Zamykanie rozmowy — schemat twardy
+
+**Stan dzisiejszy:** w 3 z 13 rozmów `end_call` w ogóle nie padł, a w jednej agent
+rozłączył się w środku pytania klientki o cenę.
+
+**Diagnoza `me0bhctj` (161 s z 229 s) — co go wywołało:**
+```
+155s KLIENT  Nie, dziękuję na razie. Ile to będzie kosztowało?
+160s AGENT   Cenę będzie wiadomo po diagnozie na...
+161s AGENT   <end_call>
+163s KLIENT  Ale plus minus.          ← rozmowa trwała dalej jeszcze 68 s
+```
+Wypowiedź klientki zawierała **jednocześnie sygnał domknięcia („Nie, dziękuję")
+i nowe pytanie**. Agent złapał się pierwszego i zignorował drugie. To nie jest problem
+latencji ani limitu tokenów — to brak reguły, że pytanie bez odpowiedzi blokuje
+zakończenie.
+
+**Schemat docelowy:**
+1. po podsumowaniu agent pyta: „Czy mogę jeszcze w czymś pomóc?"
+2. odpowiedź przecząca → **jedno** krótkie pożegnanie i `end_call` **w tej samej turze**
+3. cisza 2 s po pytaniu domykającym → pożegnanie i `end_call`
+4. nowe pytanie → agent odpowiada i wraca do punktu 1
+
+**Reguły twarde:**
+- pożegnanie i `end_call` **zawsze w tej samej turze**, nigdy osobno (rozdzielenie było
+  przyczyną 16-sekundowego czekania)
+- po pożegnaniu agent nie odzywa się więcej, cokolwiek klient powie
+- **`end_call` nigdy, gdy klient zadał pytanie, na które agent nie odpowiedział** —
+  to był bug w `me0bhctj`
+- maksymalnie **dwa** pytania „czy jeszcze w czymś pomóc" na rozmowę; po drugim agent
+  kończy niezależnie od odpowiedzi
+
+**Konfiguracja — sprawdzone:** `silence_end_call_timeout` = **20 s i jest globalne**
+(jedna wartość w `conversation_config.turn`, brak osobnego progu dla fazy zamykającej).
+Zostaje 20 s jako wyłącznik awaryjny, a punkt 3 realizujemy promptem. `max_duration_seconds`
+= 600 s.
+
+**Miernik po zmianie:** sekundy od ostatniego słowa agenta do rozłączenia. Cel < 1 s.
+
+---
+
+## Domykanie rozmowy — dlaczego 315 s
+
+`bj6t2qmm` trwała 315 s przy limicie 600 s. **Komplet danych agent miał na 163 s.**
+Pozostałe 152 s (48% rozmowy) to pytania klientki, na które agent nie potrafił
+odpowiedzieć konkretnie:
+
+```
+176s  ile to będzie kosztowało?        → "będzie wiadomo po diagnozie"
+210s  ile czasu to sprawdzanie?        → "zależy od problemu"
+231s  ile czasu muszę zaplanować?      → "może pół godziny, może dłużej"
+245s  to będzie tylko przegląd?        → "to będzie diagnoza"
+275s  to ile czasu ten przegląd?       → "kilka minut do pół godziny"
+```
+
+**To nie klientka marudziła — pytała cztery razy o to samo, bo nie dostała odpowiedzi.**
+Agent zadał „czy mogę jeszcze w czymś pomóc" dwa razy (183 s, 203 s), a potem przestał
+i tylko odpowiadał, otwierając kolejne wątki. Rozmowę zakończyła klientka słowami
+„do widzenia" — `end_call` nie padł.
+
+Dwie przyczyny, obie do FAZY A:
+1. **brak reguły domykania** (schemat wyżej, w tym limit dwóch pytań domykających)
+2. **brak czasu trwania i ceny usługi w snapshocie** — gdyby agent powiedział „przegląd
+   trwa 30–45 minut, cena po diagnozie", pytanie nie wróciłoby cztery razy
+
+Punkt 2 łączy się z cennikiem w snapshocie: obok ceny musi być **czas trwania**.
+
+---
+
 ## FAZA 1C — zero odczytów per tura
 
 Dziś `stage prepare` to 377–1342 ms **na każdą turę**: konfiguracja agenta, baza

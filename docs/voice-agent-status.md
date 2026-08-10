@@ -9,58 +9,102 @@ przed dotknięciem czegokolwiek).
 
 ## 📍 GDZIE JESTEŚMY — przeczytaj to najpierw
 
-**Architektura po przełączeniu (06.08):** agent w trakcie rozmowy **nic nie zapisuje**.
-Zbiera dane, a cały zapis robi `voice-call-commit` po rozłączeniu, w jednej transakcji.
+**Stan na 10.08 wieczór: produkcja = `main`, potwierdzone SHA-256.** Gałąź
+`tools/voice-call-diagnostics` scalona do `main` (PR #33), sześć funkcji wdrożonych
+z `main`, nie z gałęzi.
 
-### Ostatnia rozmowa: `conv_0501kza5m07xfm59hg6vxkrwbway`, 06.08 00:54, **1:16**
+### ⚠️ DLACZEGO SCALENIE BYŁO KONIECZNE — piąte cofnięcie
+
+10.08 o **22:03:53** zbiorczy deploy (nikt świadomie go nie robił — do wyjaśnienia)
+cofnął **wszystkie** funkcje głosowe do wersji z `main`. Produkcja stała wtedy z:
+`client_type: 'private'` (żywy bug), `create_booking` w narzędziach modelu,
+15× `maybeSingle()`, `postprocess` bez wywołania `voice-call-commit`, brak `/warmup`.
+
+Powstała **hybryda gorsza niż rollback**: `voice-call-commit` i `voice-call-reconcile`
+przetrwały (nie istnieją na `main`, więc deploy ich nie nadpisał), ale `postprocess`
+przestał je wywoływać. Zapis po rozłączeniu nie działał, a agent znów pisał do bazy
+w trakcie rozmowy starym, zabugowanym `create_booking`.
+
+**Reguła na stałe: Lovable deployuje z `main`. Kod, którego tam nie ma, nie istnieje.**
+Weryfikacja wyłącznie przez `functions download` + SHA-256 — numer wersji niczego nie dowodzi.
+
+### Wynik 13 rozmów z 06.08 (jedyny materiał po wdrożeniu)
+
+**Co działało:**
+- 6 rozmów z terminem → **6 kompletnych zapisów** (klient, pojazd, rezerwacja, grafik ze
+  `station_id`, zlecenie, transkrypt, SMS)
+- **SMS po rozłączeniu w KAŻDYM przypadku** (18–36 s)
+- **zero duplikatów, zero podwójnych SMS-ów** — sprawdzone zapytaniem o `appointment_id`
+  z więcej niż jednym SMS-em: zbiór pusty. Potwierdzone na sześciu rozmowach, nie na jednej.
+- cron `voice-call-reconcile` uratował `wfck4m3h`, gdy webhook nie dojechał (zapis 10 min
+  po rozłączeniu). Dokładnie po to powstał.
+- transkrypt 11/11
+- **cztery rozmowy naraz nie spowolniły tur**: mediana 3,00 s wobec 2,87 s przy rozmowach
+  pojedynczych, p90 4,66 vs 4,77. Współbieżność nie jest wąskim gardłem przed multi-tenancy.
+
+**Latencja (metryki ElevenLabs, pula tur, przed → po):**
+
+| metryka | 600 tokenów | 150 tokenów |
+|---|---|---|
+| cisza słyszana przez klienta | mediana 3,41 · p90 5,73 s | **2,92** · p90 4,77 s |
+| TTFB naszej warstwy | 1,98 s | **1,73 s** |
+| ogon generowania tekstu | śr. 1,01 · p90 **3,70** s | śr. 0,33 · p90 **0,71** s |
+| ogon generowania narzędzia | mediana 0,74 s | **1,88 s** (gorzej) |
+| `output_truncated` | **0** / 116 | **3** / 126 |
+
+### 🔴 NAJDROŻSZY BŁĄD SESJI — `max_tokens` 150
+
+`150` dobrałem z **jednej** rozmowy: najdłuższa wypowiedź 183 znaki ≈ 57 tokenów, więc
+150 wyglądało na dwukrotny zapas. Na trzynastu rozmowach najdłuższa miała **249 znaków
+≈ 78 tokenów**, a gdy w tej samej turze model generował wywołanie narzędzia, budżet się
+kończył. Trzy ucięcia, wszystkie z `had_tool_calls: true`. Jedno z nich:
 
 ```
-tury:  2,4 / 1,6 / 5,1 / 1,7 / 1,5 / 1,4 / 3,2 s     (najkrótsza rozmowa dotąd)
-tura z podsumowaniem:  7,1 s  →  1,4 s
+qrgbn9cy — klientka mówi po rosyjsku
+   19s AGENT  Dobrze rozumiem. Przepraszam, nie zdążyłem dokończyć. Czy mogę powtórzyć krócej?
+   42s AGENT  Przepraszam, nie zdążyłem dokończyć. Czy mogę powtórzyć krócej?
+   → klientka rozłączyła się, ZERO zapisu
 ```
 
-Commit dowiózł komplet — **16 sekund PO rozłączeniu**:
-```
-1 rezerwacja · 1 wpis w grafiku (ze station_id) · 1 zlecenie ZLP-08/2026-001
-1 transkrypt · 1 SMS (23:56:28 wobec końca rozmowy 23:56:12)
-voice_calls: status=completed, linked_entity_type=workshop_order, outcome=booked
-complaint = słowa klienta: „Stuka na nierównościach i ogólnie chciałbym przejechać samochód"
-nazwisko: z BAZY („Moshechkov"), nie z ASR
-```
+**Lekcja, do czytania przed każdą kolejną optymalizacją: pomiar na jednym przypadku to
+nie pomiar.** To zasada 20 zastosowana do siebie — sam ją zapisałem i sam ją złamałem
+tydzień później. Miernikiem, czy nowa wartość wystarcza, jest log `output_truncated`:
+ma być zero.
+
+`max_tokens` = **400** (5× zapas na realną wypowiedź plus wywołanie narzędzia). Nie 600:
+ograniczenie działa, tylko było za ciasne.
 
 ### Co zostało — z liczbami
 
 | problem | liczba | znika przy |
 |---|---|---|
-| tura o termin | **5,1 s** — `check_availability` 1321 ms, z czego **626 ms (47%) to preambuła funkcji**, nie liczenie terminów | FAZA A |
-| `end_call` | **1082 ms** na generowanie wywołania PO wypowiedzeniu tekstu (`first_text` 1340 vs `model_round` 2422) | `max_tokens` 150 — wdrożone, czeka na pomiar |
-| zacinanie / nakładanie audio | dwa równoległe żądania na turach **41 s i 58 s** (tura „Jedenasta w piątek siódmego — świetnie…") | FAZA A |
-| `config` na każdej turze | **140–506 ms** | FAZA A (kontekst z webhooka) |
-
-### ⚠️ Czego NIE DA SIĘ już zrobić — lekcja o kolejności prac
-
-**Porównania ekstrakcji ze starą ścieżką.** Punkt 6 (wyłączenie `create_booking`
-i `create_order`) usunął drugie źródło danych, zanim zdążyłem porównać wyniki.
-
-**Lekcja: porównanie starej i nowej ścieżki trzeba zrobić ZANIM stara zniknie,
-a nie po.** Przy każdym przełączeniu architektury zaplanuj okno, w którym obie
-działają równolegle i da się je zestawić.
+| tura o termin | **5,2–7,3 s**; `check_availability` 935–3916 ms | FAZA A |
+| martwa ścieżka „Oddzwonić" | 4 rozmowy bez żadnego widocznego śladu | naprawa przed FAZĄ A |
+| `end_call` nie pada | 3 z 13 rozmów; raz przedwcześnie | FAZA A (schemat zamykania) |
+| wielojęzyczność | `language_presets` PUSTE, 3 złe reguły w bazie wiedzy | FAZA A |
+| `config` na każdej turze | 140–506 ms | FAZA A |
+| `asr.keywords` | **12 słów wróciło do konfiguracji** mimo ustalenia „puste na stałe" | do decyzji |
 
 ### Następne kroki, w kolejności
 
-1. ~~**`max_tokens` 600 → 150**~~ — ✅ WDROŻONE 06.08, SHA-256 zgodne.
-   Dobrane z pomiaru: najdłuższa wypowiedź tej rozmowy to 183 znaki ≈ 57 tokenów,
-   z argumentami narzędzia ~100 — zapas połowy. Limit jest twardym ucięciem,
-   nie podpowiedzią, więc ucięcie loguje `output_truncated` i oddaje turę
-   rozmówcy. **Do zweryfikowania w rozmowie kontrolnej: czy ogon 1082 ms zniknął
-   i czy nie ma ani jednego `output_truncated`.**
-2. **FAZA A** — webhook inicjujący ze snapshotem (terminy, godziny pracy, cennik,
-   `caller_id_available`). Usuwa turę 5,1 s i `config` z każdej tury.
-3. **Próg pięciu udanych rozmów** — patrz „Kiedy przestajemy optymalizować".
-4. **Multi-tenancy** — przedtem koniecznie przeczytaj sekcję o ścieżkach stanu
-   początkowego: drugi warsztat trafi we wszystkie naraz, pierwszego dnia.
+1. ~~scalenie do `main` + wdrożenie + weryfikacja~~ ✅ 10.08
+2. **naprawa ścieżki „Oddzwonić"** — `missingForCommit` zatrzymuje commit przed RPC,
+   a RPC ma pełną obsługę `bez_terminu`
+3. **FAZA A** — `voice-agent-init`: snapshot **z nazwanymi dniami**, cennik z czasem
+   trwania, schemat zamykania, wielojęzyczność. Szczegóły w `voice-agent-faza1.md`.
+4. próg pięciu udanych rozmów
+5. multi-tenancy — przedtem przeczytaj kryterium generyczności w `faza1.md`
 
----
+### Czego NIE DA SIĘ już zrobić
+
+**Porównania ekstrakcji ze starą ścieżką.** Punkt 6 usunął drugie źródło danych, zanim
+zdążyłem porównać wyniki. Lekcja: okno, w którym stara i nowa ścieżka działają
+równolegle, planuje się PRZED przełączeniem, nie po.
+
+**Przypisania logów do rozmowy przy rozmowach nakładających się.** Nasze logi nie
+zawierają `conversation_id` (celowo — dane osobowe). **Metodologia obowiązująca:**
+czasy tur z metryk `convai_*` ElevenLabs, logi wyłącznie do tego, czego ElevenLabs
+nie widzi (narzędzia po naszej stronie, ucięcia).
 
 ---
 
