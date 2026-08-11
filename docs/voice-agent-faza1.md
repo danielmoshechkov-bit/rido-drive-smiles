@@ -341,6 +341,13 @@ tylko wybiera z listy**. Odmiana po polsku jest zadaniem dla kodu, nie dla model
 
 **Nic jej nie wyprzedza.** `check_availability` w rozmowie to jedyna operacja, jaka
 została w trakcie połączenia, i jedyna tura powyżej 2 s: zmierzone **5,2–7,3 s**.
+
+**Argument dodatkowy, zmierzony 11.08:** w jednej turze (klientka pytała o przyszły
+wtorek) ElevenLabs wystrzelił **trzy równoległe żądania**, które razem wywołały
+`check_availability` **siedem razy** — 2353, 973, 945, 1167, 1328, 946 i 717 ms —
+a jedno żądanie zostało porzucone po **9,5 s** („connection closed before message
+completed"). Tura trwała **17 sekund**. Snapshot usuwa to całkowicie: nie ma narzędzia
+w turze, nie ma czego zwielokrotnić.
 Klient czeka, bo agent w trakcie rozmowy sprawdza kalendarz.
 
 Webhook inicjujący pobiera wszystko **przy odebraniu połączenia** — w czasie, gdy agent
@@ -376,6 +383,95 @@ mówi powitanie. Powitanie i tak trwa ~3 s, więc snapshot jest za darmo.
 
 Punkt wyjścia do porównania (06.08, metryki ElevenLabs): mediana ciszy **2,92 s**,
 p90 **4,77 s**, tura z `check_availability` **5,2–7,3 s**.
+
+---
+
+## 🧭 ILE DZIELI NAS OD FRYZJERA — audyt kodu, 11.08
+
+**Odpowiedź: mniej, niż zakładaliśmy. Model generyczny JUŻ ISTNIEJE w bazie
+i jest używany przez moduł Usług. Zaszyta pod warsztat jest wyłącznie ścieżka głosowa.**
+
+### Co już jest generyczne — i nikt tego nie musi budować
+
+| tabela | co daje | dla fryzjera |
+|---|---|---|
+| `provider_services` | `name`, `price_from/to`, **`duration_minutes`**, `category_id` | cennik i czasy trwania, których szuka FAZA A |
+| `booking_resources` | `type`, **`name`**, `email`, `phone`, `avatar_url`, `user_id`, `color` | **zasób = KONKRETNA OSOBA**, nie zamienne stanowisko |
+| `booking_resource_services` | **`custom_duration_minutes`**, **`custom_price_net`** | **czas i cena RÓŻNE per osoba** — dokładnie to, o co pytałeś |
+| `service_working_hours` | `employee_id`, `day_of_week`, `start_time`, `end_time` | godziny pracy per osoba |
+| `service_calendar_blocks` | — | dni wolne i urlopy |
+| `service_bookings` | `service_id`, `employee_id`, `resource_id`, `duration_minutes`, `source` | rezerwacja bez pojazdu; pola `vehicle_*` są **opcjonalne, z boku** |
+| `voice_agent_personas` | `calendar_target`, `allowed_tools` per persona | już są persony `service_scheduler`, `realestate_acquirer` |
+
+Trzy z czterech rzeczy, które wypisałeś jako „czego fryzjer potrzebuje, a warsztat nie ma",
+**są w schemacie od dawna**: zasób jako osoba, czas trwania per osoba, brak obiektu klienta.
+
+⚠️ **Ale u naszego warsztatu te tabele są PUSTE**: 0 usług, 0 zasobów, 0 godzin pracy.
+Model istnieje, dane nie. To zmienia sens FAZY A: snapshot ma czytać z tabel
+generycznych, a warsztat musi je wypełnić — tyle samo pracy co wypełnienie tabel
+warsztatowych, tylko raz dla wszystkich branż.
+
+### 1. Co w PROMPCIE jest pod warsztat
+
+Prompt budowany w kodzie — **11 wystąpień**: `model` ×4, `auta` ×2, `marka` ×2,
+`rejestracyjn` ×2, `warsztat` ×1. Wszystkie w dwóch blokach: sekwencji zbierania danych
+i normalizacji liter w tablicy.
+
+Prompt persony w bazie — **cały jest warsztatowy** („asystentka głosowa warsztatu
+samochodowego", „mechanik zdiagnozuje na miejscu", „marka i model", „numer rejestracyjny").
+**Ale to nie jest problem**: persona siedzi w `ai_agents_config` per `agent_id`, więc
+fryzjer dostaje własną. To jedyne miejsce, gdzie treść branżowa NALEŻY.
+
+### 2. Co w KODZIE jest pod warsztat
+
+| miejsce | zaszycie |
+|---|---|
+| `check_availability` | liczy pojemność z **`workshop_workstations`** |
+| `voice_commit_call` (RPC) | pisze do `workshop_orders`, `workshop_vehicles`, `workshop_clients`, `workshop_client_bookings`, `workshop_order_statuses` |
+| `voiceExtraction` | pola `brand`, `model`, `plate` w kontrakcie ekstrakcji |
+| `voiceReconcile` | `KNOWN_BRANDS` (30 marek aut), normalizacja i wiarygodność tablicy |
+| `voice-agent-tools` | 6× `workshop_order`, 5× `workshop_vehicles`, 4× `workshop_clients` |
+
+### 3. Czego fryzjer potrzebuje, a czego naprawdę brakuje
+
+| potrzeba | stan |
+|---|---|
+| zasób = konkretna osoba | ✅ `booking_resources.name` + `type` |
+| czas trwania per osoba | ✅ `booking_resource_services.custom_duration_minutes` |
+| cena per osoba | ✅ `custom_price_net` |
+| brak obiektu klienta | ✅ pola pojazdu opcjonalne |
+| **preferencja osoby w rozmowie** („chcę do Ani") | ❌ **jedyna realna luka** — `check_availability` traktuje zasoby jako zamienne |
+| **`workshop_*` w commicie** | ❌ zapis trafia do tabel warsztatowych |
+
+### 4. Minimalny zakres, żeby fryzjer zadziałał
+
+**Przy FAZIE A, prawie bez dodatkowego kosztu** (i tak przebudowuję snapshot):
+1. snapshot czyta **`provider_services`** (nazwa, cena, `duration_minutes`) zamiast
+   wymyślać źródło warsztatowe
+2. snapshot czyta **`service_working_hours`** i `service_calendar_blocks`
+3. pojemność z **`booking_resources`** zamiast `workshop_workstations` (z zapasową
+   ścieżką na `workshop_workstations`, dopóki warsztat nie wypełni nowej tabeli)
+4. snapshot podaje **listę zasobów z nazwami**, nie samą liczbę — fryzjer dostaje „Ania,
+   Kasia", warsztat „Stanowisko 1–6", ten sam kontrakt
+5. sekcja branżowa promptu z persony, nie z kodu — przenieść te 11 wystąpień
+
+**Wymaga osobnej pracy, PO progu:**
+6. wybór osoby w rozmowie („do Ani") — nowe pole w ekstrakcji + dopasowanie po imieniu
+   zasobu + `employee_id` w rezerwacji
+7. zapis do `service_bookings` zamiast `workshop_orders` dla branż bez zleceń
+   (fryzjer nie ma „zlecenia", ma wizytę) — **to jest największy kawałek**
+8. ekstrakcja warunkowa: pola pojazdu tylko dla branż, które mają obiekt
+
+### 5. Czy projektować generycznie OD RAZU — **TAK**
+
+Punkty 1–5 to **ta sama praca**, którą i tak wykonuję w FAZIE A, tylko wykonana wobec
+tabel generycznych zamiast warsztatowych. Różnica w koszcie: bliska zeru. Różnica
+w koszcie przeróbki za miesiąc: przepisanie kontraktu snapshotu, migracja danych
+i ponowne przejście całego progu pięciu rozmów.
+
+**Decyzja: snapshot projektuję generycznie od pierwszej linii.** Kontrakt mówi
+`zasoby`, `usługi`, `godziny`, nigdy `stanowiska`, `naprawy`, `pojazdy`.
+Pola branżowe idą do `branża: { … }`, nie do korzenia.
 
 ---
 

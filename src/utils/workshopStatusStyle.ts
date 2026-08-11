@@ -39,6 +39,16 @@ const TONE_MAP: Record<string, StatusTone> = {
   'Wycena do wysłania': 'red', // pierwsza wycena zrobiona, jeszcze niewysłana
   'Dodatek do naprawy': 'red', // zmiana/dodatek PO podpisie klienta, niewysłana
 
+  // Zlecenia z rozmowy głosowej, w których agent NIE mógł dokończyć sam.
+  // Ten sam ton co "Wycena do wysłania": czerwony z pulsowaniem, bo obie
+  // sytuacje znaczą to samo — czeka człowiek, nie klient.
+  // Szary zlewał je z "Nowe zlecenie", a różnica jest zasadnicza: przy
+  // "Wymaga uwagi" dane z rozmowy są niepewne (np. numer rejestracyjny
+  // nie pasuje do formatu), a przy "Oddzwonić" klient NIE MA terminu
+  // i nie dostał SMS-a — nikt do niego nie oddzwoni, dopóki tego nie zobaczy.
+  'Wymaga uwagi': 'red',
+  'Oddzwonić': 'red',
+
   'Akceptacja klienta': 'green',
   'Zaakceptowano': 'green',
   'Zgoda na naprawę': 'green',
