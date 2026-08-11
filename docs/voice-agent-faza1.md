@@ -253,6 +253,90 @@ Oba są dziś `null` / `false`.
 
 ---
 
+## ⚙️ USTAWIENIA WARSZTATU — trzy pola do dodania w panelu (wchodzą do snapshotu)
+
+Powód, dosłownie z rozmowy 11.08:
+
+```
+142s KLIENTKA  a jeśli z samochodem wszystko w porządku, to ja muszę płacić za diagnozę?
+151s AGENT     To pytanie do obsługi warsztatu — zadzwoń bezpośrednio na numer firmy.
+```
+
+Odesłanie do telefonu osoby, która **właśnie dzwoni**, w dodatku per „ty",
+jako **trzecia odmowa pod rząd**. Sentyment klientki spadł do −0,30.
+
+### 1. NAJPÓŹNIEJSZA GODZINA PRZYJĘCIA
+Osobne pole, **niezależne od godzin pracy**. Warsztat pracuje do 17:00, ale ostatnie
+auto przyjmuje o 16:00, bo diagnostyka trwa godzinę.
+
+11.08 agent sam wyliczył 16:30 i **trafił dobrze — ale zgadywał**:
+> „Siedemnasta to koniec naszych godzin pracy — ostatni termin to szesnasta trzydzieści."
+
+To ma być ustawienie, nie wnioskowanie. W snapshocie: **sloty kończą się na tej godzinie**.
+
+### 2. POLITYKA WYCENY — pole WYBORU, nie tekst
+Warsztat wybiera jedną pozycję, agent mówi dokładnie ją:
+
+| | treść |
+|---|---|
+| a | „Kosztorys przedstawiamy przed rozpoczęciem naprawy" |
+| b | „Diagnoza jest bezpłatna przy zleceniu naprawy" |
+| c | „Diagnoza kosztuje [kwota], odliczana od naprawy" |
+| d | „Diagnoza kosztuje [kwota] niezależnie od decyzji" |
+
+**Wybór z listy, nigdy wolny tekst.** W wolnym tekście ktoś wpisze obietnicę, której
+nie dotrzyma, a agent powtórzy ją setce klientów. To ta sama pułapka co przykłady
+w bazie wiedzy (zasada 22), tylko wpisywana ręcznie.
+
+### 3. OPŁATA ZA DIAGNOZĘ, GDY NIC NIE ZNALEZIONO
+`Tak / Nie / Zależy od przypadku`. To było konkretne pytanie klientki i wróci.
+
+---
+
+## 💬 ZASADA ODPOWIADANIA O CENIE — trzy przypadki
+
+1. **Usługa JEST w cenniku** → cena wprost: „Wymiana oleju to sto osiemdziesiąt złotych."
+2. **Usługi nie ma, bo to naprawa po diagnozie** → **polityka wyceny z ustawień**,
+   nigdy odesłanie: „Kosztorys przedstawimy przed rozpoczęciem naprawy."
+3. **Pytanie spoza obu** → docelowo „Przekażę pytanie, oddzwonimy" +
+   `callback_requests` + SMS do warsztatu. **Mechanizmu NIE MA** (tabela nie istnieje,
+   `CALLBACK_SMS_ENABLED = false`), więc do czasu jego zbudowania agent mówi prawdę,
+   która nie odsyła: **„Nie mam tej informacji — mechanik odpowie na miejscu przy
+   przyjęciu auta."**
+
+### ⛔ REGUŁA TWARDA: agent NIGDY nie odsyła do telefonu
+„Proszę zadzwonić do warsztatu", „proszę skontaktować się z obsługą", „numer ma Pan
+na stronie" — **klient już dzwoni**. To jedyna odpowiedź zawsze zła, niezależnie
+od pytania. Wdrożone 11.08 w prompcie z kodu i w prompcie persony.
+
+Do tego **limit dwóch odmów pod rząd**: przy trzecim pytaniu agent mówi to, co WIE
+(termin, co się wydarzy przy przyjęciu), zamiast po raz trzeci powtarzać, czego nie wie.
+
+---
+
+## 🔤 DATY GOTOWE DO WYPOWIEDZENIA — do snapshotu
+
+Agent odmienia dzień miesiąca niekonsekwentnie. Rozmowa 11.08:
+```
+ 34s  „w środę dwunastego"           ✅ poprawnie
+ 68s  „w wtorek dziewiętnaście sierpnia"   ❌
+ 78s  „wtorek dziewiętnaście sierpnia"     ❌
+116s  „wtorek dziewiętnaście sierpnia"     ❌
+```
+Raz dobrze, trzy razy źle — w jednej rozmowie. Reguła w prompcie **jest** („piętnastego
+maja, nie 15.05") i została 11.08 wzmocniona o liczebnik porządkowy i „we wtorek",
+ale to leczenie objawu.
+
+**Rozwiązanie docelowe: snapshot podaje datę JUŻ ODMIENIONĄ, gotową do przeczytania:**
+```json
+{ "klucz": "wtorek_19", "do_wypowiedzenia": "wtorek, dziewiętnastego sierpnia",
+  "data": "2026-08-19", "otwarte": true, "wolne": ["9:00", "16:00"] }
+```
+Model nie odmienia — czyta. Ta sama zasada co przy nazwanych dniach: **nie liczy,
+tylko wybiera z listy**. Odmiana po polsku jest zadaniem dla kodu, nie dla modelu.
+
+---
+
 ## 🎯 FAZA A — CO WCHODZI I KIEDY UZNAJEMY JĄ ZA ZROBIONĄ
 
 **Nic jej nie wyprzedza.** `check_availability` w rozmowie to jedyna operacja, jaka
