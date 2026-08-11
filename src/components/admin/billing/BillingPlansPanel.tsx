@@ -13,15 +13,27 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Layers, Loader2, Plus, Save, SlidersHorizontal } from 'lucide-react';
-import { useBillingPlans, type BillingPlan } from '@/hooks/useBillingPlans';
+import { toast } from 'sonner';
+import {
+  useBillingPlans, PRODUCT_LINE_LABEL, type BillingPlan, type ProductLine,
+} from '@/hooks/useBillingPlans';
 import { useBillingFeatures } from '@/hooks/useBillingFeatures';
 
 type Draft = Partial<BillingPlan>;
 
 const EMPTY: Draft = {
-  code: '', name: '', description: '', price_net: 0, vat_rate: 23,
-  billing_interval: 'month', trial_days: 0, is_custom: false, is_active: true, sort_order: 999,
+  code: '', name: '', description: '', price_net: 0, price_net_target: null, vat_rate: 23,
+  product_line: 'other', billing_interval: 'month', trial_days: 0,
+  is_custom: false, is_active: true, sort_order: 999,
 };
+
+/** Pusty ciąg z inputa to „brak wartości", nie zero — zero jest świadomym limitem. */
+const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v));
+const strOf = (v: number | null | undefined) => (v === null || v === undefined ? '' : String(v));
+
+/** Podgląd brutto w formularzu — w bazie liczy to kolumna generowana. */
+const gross = (net: number | null | undefined, vat: number | null | undefined) =>
+  net == null ? null : Number((Number(net) * (1 + Number(vat ?? 23) / 100)).toFixed(2));
 
 const fmt = (v: number | null | undefined) =>
   v === null || v === undefined ? '—' : `${Number(v).toFixed(2)} zł`;
@@ -39,7 +51,7 @@ export function BillingPlansPanel() {
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [matrixPlan, setMatrixPlan] = useState<BillingPlan | null>(null);
-  const [rows, setRows] = useState<Record<string, { enabled: boolean; limit: string }>>({});
+  const [rows, setRows] = useState<Record<string, { enabled: boolean; limit: string; soft: string }>>({});
   const [confirmOff, setConfirmOff] = useState<BillingPlan | null>(null);
 
   const isNew = draft && !draft.id;
@@ -54,12 +66,13 @@ export function BillingPlansPanel() {
   const activeFeatures = useMemo(() => features.filter((f) => f.is_active), [features]);
 
   const openMatrix = (plan: BillingPlan) => {
-    const current: Record<string, { enabled: boolean; limit: string }> = {};
+    const current: Record<string, { enabled: boolean; limit: string; soft: string }> = {};
     for (const f of activeFeatures) {
       const row = matrix.find((m) => m.plan_id === plan.id && m.feature_id === f.id);
       current[f.id] = {
         enabled: !!row?.is_enabled,
-        limit: row?.limit_value === null || row?.limit_value === undefined ? '' : String(row.limit_value),
+        limit: strOf(row?.limit_value),
+        soft: strOf(row?.soft_limit_value),
       };
     }
     setRows(current);
@@ -76,8 +89,20 @@ export function BillingPlansPanel() {
       .map((f) => ({
         feature_id: f.id,
         is_enabled: true,
-        limit_value: rows[f.id].limit.trim() === '' ? null : Number(rows[f.id].limit),
+        limit_value: numOrNull(rows[f.id].limit),
+        soft_limit_value: numOrNull(rows[f.id].soft),
       }));
+
+    // Ten sam warunek pilnuje edge; łapiemy go tutaj, żeby nie kasować
+    // wypełnionego formularza żądaniem, które i tak wróci błędem.
+    const wrong = payload.find(
+      (r) => r.limit_value != null && r.soft_limit_value != null && r.soft_limit_value > r.limit_value,
+    );
+    if (wrong) {
+      const f = activeFeatures.find((x) => x.id === wrong.feature_id);
+      toast.error(`„${f?.name ?? 'Funkcja'}": próg miękki jest wyższy od limitu twardego`);
+      return;
+    }
     setFeatures.mutate(
       { plan_id: matrixPlan.id, features: payload },
       { onSuccess: () => setMatrixPlan(null) },
@@ -116,6 +141,7 @@ export function BillingPlansPanel() {
           <TableHeader>
             <TableRow>
               <TableHead>Plan</TableHead>
+              <TableHead>Linia</TableHead>
               <TableHead className="text-right">Netto</TableHead>
               <TableHead className="text-right">Brutto</TableHead>
               <TableHead className="text-center">Trial</TableHead>
@@ -134,7 +160,21 @@ export function BillingPlansPanel() {
                     {p.is_custom && <Badge variant="outline" className="ml-2">wycena indywidualna</Badge>}
                   </div>
                 </TableCell>
-                <TableCell className="text-right">{p.is_custom ? '—' : fmt(p.price_net)}</TableCell>
+                <TableCell>
+                  <Badge variant={p.product_line === 'other' ? 'outline' : 'secondary'}>
+                    {PRODUCT_LINE_LABEL[p.product_line] ?? p.product_line}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  {p.is_custom ? '—' : fmt(p.price_net)}
+                  {/* Cena docelowa to obietnica wobec klienta — musi być widoczna
+                      obok ceny promocyjnej, inaczej nikt jej nie pilnuje. */}
+                  {!p.is_custom && p.price_net_target != null && (
+                    <div className="text-xs text-muted-foreground">
+                      po promocji {fmt(p.price_net_target)}
+                    </div>
+                  )}
+                </TableCell>
                 <TableCell className="text-right text-muted-foreground">
                   {p.is_custom ? '—' : fmt(p.price_gross)}
                 </TableCell>
@@ -199,6 +239,27 @@ export function BillingPlansPanel() {
             </div>
 
             <div className="space-y-2">
+              <Label>Linia produktowa</Label>
+              <Select
+                value={draft?.product_line ?? 'other'}
+                disabled={!isNew}
+                onValueChange={(v) => setDraft((d) => ({ ...d, product_line: v as ProductLine }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="warsztat">Warsztat</SelectItem>
+                  <SelectItem value="agent">Agent AI</SelectItem>
+                  <SelectItem value="other">Inne</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {isNew
+                  ? 'Klient może mieć jedną aktywną subskrypcję w każdej linii — Warsztat i Agent kupuje się osobno.'
+                  : 'Linii nie można zmienić: subskrypcje trzymają ją u siebie, więc przestawienie planu rozjechałoby limit jednej subskrypcji na linię.'}
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label>Opis</Label>
               <Textarea
                 rows={2}
@@ -211,7 +272,11 @@ export function BillingPlansPanel() {
             <div className="flex items-center gap-3 rounded-lg border p-3">
               <Switch
                 checked={draft?.is_custom ?? false}
-                onCheckedChange={(v) => setDraft((d) => ({ ...d, is_custom: v, price_net: v ? null : 0 }))}
+                onCheckedChange={(v) =>
+                  setDraft((d) => ({
+                    ...d, is_custom: v, price_net: v ? null : 0, price_net_target: null,
+                  }))
+                }
               />
               <div>
                 <Label className="cursor-pointer">Cena indywidualna</Label>
@@ -221,7 +286,7 @@ export function BillingPlansPanel() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Cena netto</Label>
                 <Input
@@ -230,7 +295,26 @@ export function BillingPlansPanel() {
                   value={draft?.price_net ?? ''}
                   onChange={(e) => setDraft((d) => ({ ...d, price_net: Number(e.target.value) }))}
                 />
+                <p className="text-xs text-muted-foreground">Kwota, którą klient płaci dziś.</p>
               </div>
+              <div className="space-y-2">
+                <Label>Cena docelowa</Label>
+                <Input
+                  type="number" min="0" step="0.01"
+                  placeholder="bez zmiany"
+                  disabled={draft?.is_custom}
+                  value={draft?.price_net_target ?? ''}
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, price_net_target: numOrNull(e.target.value) }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Cennik po zakończeniu promocji. Puste = cena się nie zmienia.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>VAT %</Label>
                 <Input
@@ -249,27 +333,41 @@ export function BillingPlansPanel() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Interwał</Label>
-              <Select
-                value={draft?.billing_interval ?? 'month'}
-                onValueChange={(v) => setDraft((d) => ({ ...d, billing_interval: v as BillingPlan['billing_interval'] }))}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="month">Miesięcznie</SelectItem>
-                  <SelectItem value="year">Rocznie</SelectItem>
-                  <SelectItem value="one_time">Jednorazowo</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Kolejność</Label>
+                <Input
+                  type="number" min="0" step="10"
+                  value={draft?.sort_order ?? 999}
+                  onChange={(e) => setDraft((d) => ({ ...d, sort_order: Number(e.target.value) }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Rosnąco — tak samo ustawią się karty w cenniku.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Interwał</Label>
+                <Select
+                  value={draft?.billing_interval ?? 'month'}
+                  onValueChange={(v) =>
+                    setDraft((d) => ({ ...d, billing_interval: v as BillingPlan['billing_interval'] }))
+                  }
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Miesięcznie</SelectItem>
+                    <SelectItem value="year">Rocznie</SelectItem>
+                    <SelectItem value="one_time">Jednorazowo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {!draft?.is_custom && (
               <p className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
-                Brutto policzy się samo: {fmt(
-                  draft?.price_net != null
-                    ? Number((Number(draft.price_net) * (1 + Number(draft.vat_rate ?? 23) / 100)).toFixed(2))
-                    : null,
+                Brutto policzy się samo: {fmt(gross(draft?.price_net, draft?.vat_rate))}
+                {draft?.price_net_target != null && (
+                  <> · po promocji {fmt(gross(draft.price_net_target, draft.vat_rate))}</>
                 )}
               </p>
             )}
@@ -291,14 +389,23 @@ export function BillingPlansPanel() {
           <DialogHeader>
             <DialogTitle>Funkcje planu: {matrixPlan?.name}</DialogTitle>
             <DialogDescription>
-              Puste pole limitu znaczy „bez limitu". Zero znaczy, że funkcja jest w planie,
-              ale z zerowym przydziałem.
+              <strong>Limit</strong> blokuje po przekroczeniu. <strong>Próg</strong> tylko ostrzega
+              (fair use) — funkcja działa dalej. Puste pole znaczy „bez limitu"; zero znaczy, że
+              funkcja jest w planie, ale z zerowym przydziałem.
             </DialogDescription>
           </DialogHeader>
 
+          <div className="flex items-center gap-3 border-b px-2 pb-1 text-xs text-muted-foreground">
+            <span className="w-4" />
+            <span className="min-w-0 flex-1">Funkcja</span>
+            <span className="w-24 text-center">Limit</span>
+            <span className="w-24 text-center">Próg</span>
+            <span className="w-16" />
+          </div>
+
           <div className="space-y-1">
             {activeFeatures.map((f) => {
-              const row = rows[f.id] ?? { enabled: false, limit: '' };
+              const row = rows[f.id] ?? { enabled: false, limit: '', soft: '' };
               return (
                 <div
                   key={f.id}
@@ -315,7 +422,7 @@ export function BillingPlansPanel() {
                     <code className="text-xs text-muted-foreground">{f.key}</code>
                   </div>
                   {f.kind === 'metered' ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <Input
                         type="number" min="0" step="1"
                         className="w-24"
@@ -326,10 +433,20 @@ export function BillingPlansPanel() {
                           setRows((r) => ({ ...r, [f.id]: { ...row, limit: e.target.value } }))
                         }
                       />
-                      <span className="w-16 text-xs text-muted-foreground">{f.unit}</span>
+                      <Input
+                        type="number" min="0" step="1"
+                        className="w-24"
+                        placeholder="brak"
+                        disabled={!row.enabled}
+                        value={row.soft}
+                        onChange={(e) =>
+                          setRows((r) => ({ ...r, [f.id]: { ...row, soft: e.target.value } }))
+                        }
+                      />
+                      <span className="w-16 truncate text-xs text-muted-foreground">{f.unit}</span>
                     </div>
                   ) : (
-                    <span className="w-[152px] text-right text-xs text-muted-foreground">wł/wył</span>
+                    <span className="w-[232px] text-right text-xs text-muted-foreground">wł/wył</span>
                   )}
                 </div>
               );
