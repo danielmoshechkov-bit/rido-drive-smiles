@@ -509,6 +509,30 @@ Kroki 4 i 5 są przed 6 i 7 celowo (zasada 8).
 - `diagnose-call.sh` sekcja 6: zero czerwonych flag na czystej rozmowie
 - tura poniżej 1,2 s, zero narzędzi zapisujących w osi czasu
 
+### ZASADA DWUDZIESTA PIĄTA: zanim uznasz coś za sufit platformy, zobacz, co naprawdę wysyłasz
+
+Ogon generowania `end_call` mierzyliśmy **trzy razy** — 1082, 1236 i 1236 ms między
+gotowym tekstem a końcem generowania. Za każdym razem wniosek brzmiał „model po prostu
+tak długo emituje wywołanie narzędzia, to sufit platformy". Za każdym razem był błędny.
+
+Wystarczyło zalogować schemat, który wysyłamy modelowi:
+
+```json
+{"nazwa":"end_call","pola":["reason","system__message_to_speak"]}
+```
+
+**Model pisał prozę do pola `reason`** — uzasadnienie, którego nikt nie czyta, bo
+ElevenLabs kończy rozmowę niezależnie od jego treści. To nie był sufit modelu ani
+platformy, tylko pole w schemacie, którego nigdy nie obejrzeliśmy.
+
+**Jak stosować:** zanim uznasz opóźnienie za nieusuwalne, wypisz do logu DOKŁADNIE to,
+co wysyłasz w żądaniu — schematy narzędzi, długość promptu, listę pól. Trzy pomiary
+tej samej liczby to sygnał, że mierzysz skutek, a nie przyczynę.
+
+Konsekwencja w kodzie: `ZBEDNE_POLA` wycina `reason` i `system__message_to_speak`
+ze schematów narzędzi klienta. `language` w `language_detection` zostaje — bez niego
+narzędzie nie wie, na co przełączyć.
+
 ### ZASADA DWUDZIESTA CZWARTA: model nie liczy dat
 
 Każda data podawana klientowi pochodzi z **gotowego pola `do_wypowiedzenia`**

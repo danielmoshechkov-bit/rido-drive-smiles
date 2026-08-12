@@ -401,7 +401,12 @@ serve(async (req) => {
         + `- CENA: czytasz DOKŁADNIE pole "do_powiedzenia" przy usłudze — jest już zapisane słowami i odmienione. NIE przeliczaj liczb z pól "od" i "do" samodzielnie: przy widełkach sto pięćdziesiąt–dwieście pięćdziesiąt agent powiedział „do TRZYSTU złotych", czyli zmyślił cenę o pięćdziesiąt złotych wyższą. Przy "typ": "widelki" dodajesz słowo "orientacyjnie" i zastrzeżenie, że dokładną cenę poda mechanik. Gdy usługi nie ma na liście albo "cena": null → "wycenimy po obejrzeniu auta".\n`
         + `- CZAS TRWANIA: mówisz o nim TYLKO gdy "czas_znany": true — wtedy używasz gotowej formy z "czas_do_powiedzenia". Gdy false, NIE mówisz nic o czasie, nawet zapytany wprost: "to mechanik oceni przy przyjęciu".\n`
         + `- KLIENT: jeśli "aktywne_rezerwacje" nie jest puste, ten numer MA już wizytę. Zanim umówisz kolejną, upewnij się, że klient chce DRUGĄ, a nie przełożyć istniejącą.\n`
-        + `- Gdy czegoś nie ma w tych danych — użyj check_availability albo powiedz, że nie wiesz. NIE ZGADUJ.\n`;
+        + `- Gdy czegoś nie ma w tych danych — użyj check_availability albo powiedz, że nie wiesz. NIE ZGADUJ.\n`
+        + `\n=== JAK KOŃCZYSZ ROZMOWĘ (przeczytaj to na końcu, zanim odpowiesz) ===\n`
+        + `1. Podsumowujesz rezerwację JEDNYM zdaniem.\n`
+        + `2. W TEJ SAMEJ turze pytasz: "Czy mogę jeszcze w czymś pomóc?" i MILKNIESZ.\n`
+        + `3. ⛔ PO WŁASNYM PODSUMOWANIU NIE WOLNO CI WYWOŁAĆ end_call. Nigdy. Klient musi mieć możliwość odpowiedzi — inaczej zostaje z wrażeniem, że go odcięto w połowie zdania. TAK SIĘ STAŁO w prawdziwej rozmowie: agent podsumował i rozłączył się bez pożegnania.\n`
+        + `4. end_call wywołujesz WYŁĄCZNIE wtedy, gdy klient odpowiedział przecząco ("nie", "to wszystko", "dziękuję") albo sam się pożegnał. Wtedy mówisz jedno krótkie pożegnanie i wywołujesz end_call w tej samej turze.\n`;
     }
 
     // Część ZMIENNA promptu: kontekst czasu + snapshot. Idzie za blokiem
@@ -447,12 +452,24 @@ serve(async (req) => {
     // wykona narzędzie. Samo narzędzie działa bez zmian: pole jest opcjonalne,
     // a `reason` zostaje nietknięty.
     const SPOKEN_PARAM = "system__message_to_speak";
+    // POLA, KTORYCH MODEL NIE MA WYPELNIAC.
+    //
+    // `reason` w schemacie end_call to PROZA, ktora model musi ulozyc PO tekscie
+    // pozegnania. Zmierzone trzy razy: 1082, 1236 i 1236 ms ogona miedzy
+    // first_text a koncem model_round. To nie byl sufit platformy — to bylo pisanie
+    // uzasadnienia, ktorego nikt nie czyta: ElevenLabs konczy rozmowe niezaleznie
+    // od tresci tego pola.
+    //
+    // `language` w language_detection ZOSTAJE — bez niego narzedzie nie wie,
+    // na co przelaczyc.
+    const ZBEDNE_POLA = new Set([SPOKEN_PARAM, "reason"]);
     const stripSpokenParam = (schema: Record<string, unknown>): Record<string, unknown> => {
       const props = schema?.properties as Record<string, unknown> | undefined;
-      if (!props || !(SPOKEN_PARAM in props)) return schema;
-      const { [SPOKEN_PARAM]: _dropped, ...rest } = props;
+      if (!props) return schema;
+      const rest = Object.fromEntries(Object.entries(props).filter(([k]) => !ZBEDNE_POLA.has(k)));
+      if (Object.keys(rest).length === Object.keys(props).length) return schema;
       const required = Array.isArray(schema?.required)
-        ? (schema.required as string[]).filter((r) => r !== SPOKEN_PARAM)
+        ? (schema.required as string[]).filter((r) => !ZBEDNE_POLA.has(r))
         : schema?.required;
       return { ...schema, properties: rest, ...(required !== undefined ? { required } : {}) };
     };
