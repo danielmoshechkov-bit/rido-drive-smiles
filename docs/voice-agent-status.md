@@ -242,6 +242,39 @@ więc w praktyce wygrywa — ale to jest dokładnie ta klasa sprzeczności, któ
 zasada 15, tylko odwrócona: tym razem **kod nie widzi bazy**. Do poprawienia jednym
 `UPDATE` przy najbliższej okazji; pokażę SQL.
 
+### ⚠️ SPROSTOWANIE 12.08 — ZŁY `provider_id` W MOICH POMIARACH
+
+Raportowałem „0 usług, 0 zasobów, 0 godzin pracy, 0 pozycji w zleceniach".
+**Wszystkie te liczby były policzone dla identyfikatora, który nie istnieje.**
+
+Zobaczyłem kiedyś skrócony `provider=664ed87b…` i **dopisałem resztę UUID z głowy**
+zamiast go odczytać. To ten sam błąd, który popełniłem wcześniej z `function_id`
+w zapytaniu o logi — druga odsłona tego samego wzorca.
+
+```
+zmyślony:    664ed87b-b1e4-4b28-9db2-2a3b40e8a5b6   → wszędzie zero
+prawdziwy:   664ed87b-a20f-457b-a9fa-97ca13dcae7c   → Cart78Garage
+```
+
+**Stan faktyczny warsztatu (Cart78Garage):**
+
+| tabela | ile | wniosek |
+|---|---|---|
+| `provider_services` | **7** | cennik JEST, tylko 1 pozycja ma `duration_minutes` |
+| `workshop_workstations` | **6** | stanowiska SĄ |
+| `workshop_orders` | **121** | |
+| `workshop_order_items` | **569** | **jest z czego zaimportować usługi** |
+| `booking_resources` | 0 | tabela generyczna nieużywana — to było prawdą |
+| `service_working_hours` | 0 | godziny siedzą w `service_providers.working_hours` |
+
+Trzy moje wcześniejsze odpowiedzi były wobec tego błędne: „warsztat nie ma cennika",
+„nie ma czego zaimportować" i „snapshot nie będzie miał skąd wziąć danych".
+
+**Lekcja do zasady 21:** identyfikatora nigdy nie uzupełniaj z pamięci. Skrócony
+identyfikator w raporcie jest dobry do czytania, nie do zapytania — do zapytania
+pobiera się pełny. Zapytanie na zmyślonym identyfikatorze **nie zwraca błędu**,
+tylko pustkę, która wygląda jak prawdziwe zero.
+
 ### 🔴 POZYCJE BEZPIECZEŃSTWA — do zamknięcia PRZED pierwszym prawdziwym klientem
 
 | pozycja | stan |
