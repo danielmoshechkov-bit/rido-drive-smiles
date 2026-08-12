@@ -471,6 +471,20 @@ serve(async (req) => {
         });
         clientToolNames.add(name);
       }
+      // SCHEMATY NARZĘDZI KLIENTA — logujemy NAZWY PÓL, nigdy wartości.
+      //
+      // Powód: ogon generowania wywołania `end_call` mierzymy trzeci raz
+      // (1082 ms, potem 1236 ms). Jeśli model musi wypełnić pole tekstowe
+      // w schemacie, ten ogon to jego pisanie — a wtedy da się go usunąć.
+      // Jeśli schemat jest pusty, to sufit platformy i przestajemy szukać.
+      console.info("[voice-agent-chat]", JSON.stringify({
+        event: "client_tools_schema",
+        narzedzia: (body.client_tools as Array<Record<string, unknown>>).map((raw) => {
+          const fn = (raw?.function ?? raw) as Record<string, unknown>;
+          const props = ((fn?.parameters as Record<string, unknown>)?.properties ?? {}) as Record<string, unknown>;
+          return { nazwa: fn?.name, pola: Object.keys(props) };
+        }),
+      }));
     }
     // NARZĘDZIA ZAPISUJĄCE ZNIKNĘŁY (zasada nadrzędna: agent rozmawia i notuje).
     //
