@@ -18,11 +18,17 @@ import {
   Users,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { usePublicPricing, type PublicPlan, type ProductLine } from "@/hooks/usePublicPricing";
+import { formatMoneyPLN } from "@/utils/formatters";
 
 type Plan = {
   name: string;
   price: string;
   period?: string;
+  /** Cena po zakończeniu promocji — pokazywana przekreślona obok startowej. */
+  targetPrice?: string;
+  /** Druga linia pod ceną, np. kwota brutto. */
+  priceNote?: string;
   description?: string;
   features: string[];
   highlighted?: boolean;
@@ -119,138 +125,12 @@ const sections: Section[] = [
     subtitle:
       "Warsztaty, detailing, wulkanizacja, blacharnia, mechanika. Wybierz plan dopasowany do skali Twojego serwisu.",
     topNote:
-      "System ERP dla warsztatów, detailingów i każdego serwisu aut – zarządzaj wszystkimi zleceniami (własnymi i z platformy GetRido) w jednym miejscu. Na start: 14 dni pełnego dostępu (Pro + oba Agenty AI), bez karty.",
+      "System ERP dla warsztatów, detailingów i każdego serwisu aut – zarządzaj wszystkimi zleceniami (własnymi i z platformy GetRido) w jednym miejscu. Wdrożenie, migracja danych z obecnego programu, konfiguracja kasy fiskalnej i KSeF — 0 zł (wartość 690 zł).",
     bottomNote:
-      "Pakiety dokupowane (jak doładowanie telefonu): SMS — pakiety wg zużycia · Sprawdzanie VIN / nr rej. — pakiety wg zużycia · Minuty Agenta AI — Agent ma 120 min w cenie (Agent Pro — 300 min), powyżej 0,69 zł/min lub tańszy pakiet minut. Płacisz tylko za to, czego realnie używasz.",
-    groups: [
-      {
-        heading: "GetRido Warsztat — program dla serwisu",
-        plans: [
-          {
-            name: "Darmowy",
-            price: "0 zł",
-            period: "/ mc",
-            features: [
-              "Baza klientów + pojazdów, historia",
-              "Terminarz + zlecenia 20/mc",
-              "Zdjęcia przy przyjęciu",
-              "Pomoc AI przy naprawie — 3 pytania / mc",
-              "Dostęp do giełdy GetRido",
-            ],
-            cta: "Zacznij za darmo",
-          },
-          {
-            name: "Standard",
-            price: "89 zł",
-            period: "netto/mc",
-            features: [
-              "Zlecenia, wyceny, faktury — bez limitu",
-              "Przechowalnia + fiskalizacja + KSeF",
-              "Raporty + marża live, dane po VIN",
-              "Dynamiczne statusy + e-podpis",
-              "Pomoc AI przy naprawie — 50 pytań / mc",
-              "Wyceny robocizny AI",
-              "Dostęp do giełdy GetRido",
-            ],
-            highlighted: true,
-            badge: "Najpopularniejszy",
-            cta: "Wypróbuj 14 dni",
-          },
-          {
-            name: "Pro",
-            price: "169 zł",
-            period: "netto/mc",
-            features: [
-              "Wszystko ze Standard",
-              "Magazyn + OCR faktur",
-              "Integracje z hurtowniami",
-              "Panel pracowników + listy kontrolne",
-              "Pomoc AI przy naprawie — 300 pytań / mc",
-              "Wyceny robocizny AI — 100 / mc",
-              "Dostęp do giełdy GetRido",
-              "Dane naprawcze (TecRMI) + czas pracy mechanika (wkrótce)",
-            ],
-            cta: "Wypróbuj 14 dni",
-          },
-          {
-            name: "Sieci",
-            price: "Wycena",
-            period: "indywidualna",
-            features: [
-              "Wszystko z Pro",
-              "Wiele lokalizacji, wspólna baza",
-              "Analityka sieci + dedykowany opiekun",
-              "Bez płacenia wielu osobnych abonamentów",
-            ],
-            cta: "Napisz do nas",
-          },
-        ],
-      },
-      {
-        heading: "GetRido Agent AI — odbiera telefon 24/7",
-        plans: [
-          {
-            name: "Agent",
-            price: "139 zł",
-            period: "netto/mc",
-            features: [
-              "AI voicebot ODBIERA telefon 24/7 — 120 min AI / mc w cenie",
-              "Bot po godzinach + oddzwanianie do leadów",
-              "Transkrypcje + umawianie wizyt",
-              "Tworzy zlecenie (wpięty w program GetRido)",
-            ],
-            highlighted: true,
-            badge: "Najpopularniejszy",
-            cta: "Wypróbuj 14 dni",
-          },
-          {
-            name: "Agent Pro",
-            price: "289 zł",
-            period: "netto/mc",
-            features: [
-              "AI voicebot 24/7 — 300 min AI / mc w cenie",
-              "Obsługa wielu numerów / lokalizacji",
-              "Wyceny AI + dobór części, protokoły napraw",
-              "Priorytetowa jakość głosu i szybsze odpowiedzi",
-              "Zaawansowana analityka rozmów (tagi, powody, raporty)",
-              "Dedykowany opiekun klienta",
-            ],
-            cta: "Wypróbuj 14 dni",
-          },
-        ],
-      },
-      {
-        heading: "Pakiety łączone",
-        plans: [
-          {
-            name: "Pakiet Warsztat + Agent AI",
-            price: "289 zł",
-            period: "/mc (zamiast 308 zł)",
-            description: "Program Pro + Agent w jednym — agent wpięty w program tworzy zlecenia z rozmów sam.",
-            features: [
-              "Wszystko z pakietu Pro",
-              "Wszystko z pakietu Agent (120 min AI / mc)",
-              "Agent tworzy zlecenia z rozmów automatycznie",
-            ],
-            badge: "Pakiet",
-            cta: "Wypróbuj 14 dni",
-          },
-          {
-            name: "Warsztat Pro + Agent Pro — MAX",
-            price: "399 zł",
-            period: "/mc (zamiast 458 zł)",
-            description: "Wszystko na maksa: pełny program + Agent Pro z 300 min AI + Pomoc AI 500 pytań/mc. Agent wpięty w program tworzy zlecenia sam.",
-            features: [
-              "Wszystko z pakietu Pro",
-              "Agent Pro — 300 min AI / mc",
-              "Pomoc AI przy naprawie — 500 pytań / mc",
-            ],
-            badge: "Promocja na start",
-            cta: "Wypróbuj 14 dni",
-          },
-        ],
-      },
-    ],
+      "Ceny startowe obowiązują przy uruchomieniu konta do 31.12.2026 i są gwarantowane przez 12 miesięcy od aktywacji — o zmianie informujemy 30 dni wcześniej. Pakiety dokupowane: SMS · sprawdzenia VIN i nr rejestracyjnego · minuty Agenta AI (0,60 zł/min netto albo pakiet 100 / 250 / 500 minut). Funkcje AI bez podanego limitu działają w ramach uczciwego użycia. Agent nigdy nie przestaje odbierać telefonu — po wyczerpaniu minut przechodzi w tryb awaryjny i przekazuje wiadomość do warsztatu.",
+    // Plany, ceny i zakres czyta WarsztatContent z billing_plans. W kodzie
+    // zostają wyłącznie nagłówki, teksty marketingowe i przypisy.
+    groups: [],
   },
   {
     id: "uslugi",
@@ -431,12 +311,18 @@ const PlanCard = ({ plan, onCta }: { plan: Plan; onCta: () => void }) => (
     )}
     <div className="mb-4">
       <h3 className="text-lg font-bold text-primary mb-2">{plan.name}</h3>
-      <div className="flex items-baseline gap-1 mb-2">
+      <div className="flex items-baseline gap-2 flex-wrap">
         <span className="text-3xl font-bold text-foreground">{plan.price}</span>
         {plan.period && <span className="text-sm text-muted-foreground">{plan.period}</span>}
+        {plan.targetPrice && (
+          <span className="text-sm text-muted-foreground line-through">{plan.targetPrice}</span>
+        )}
       </div>
+      {plan.priceNote && (
+        <p className="text-xs text-muted-foreground mt-1">{plan.priceNote}</p>
+      )}
       {plan.description && (
-        <p className="text-sm text-muted-foreground">{plan.description}</p>
+        <p className="text-sm text-muted-foreground mt-2">{plan.description}</p>
       )}
     </div>
     <ul className="space-y-2 mb-6 flex-1">
@@ -457,7 +343,142 @@ const PlanCard = ({ plan, onCta }: { plan: Plan; onCta: () => void }) => (
   </Card>
 );
 
+/**
+ * Sekcja „Warsztat i Detailing" — jedyna karmiona z bazy.
+ *
+ * Ceny, nazwy, opisy, kolejność i lista funkcji pochodzą z `billing_plans`
+ * i macierzy plan × funkcja, więc zmiana cennika to klik w panelu, nie deploy.
+ * Karty grupują się po linii produktowej: Warsztat i Agent AI kupuje się
+ * osobno, pakietów łączonych już nie sprzedajemy.
+ */
+const PRODUCT_GROUPS: Array<{ line: ProductLine; heading: string }> = [
+  { line: "warsztat", heading: "GetRido Warsztat — program dla serwisu" },
+  { line: "agent", heading: "GetRido Agent AI — odbiera telefon 24/7" },
+];
+
+/** Wyróżnienie karty — decyzja marketingowa, nie dana z cennika. */
+const HIGHLIGHTED: Record<string, string> = {
+  warsztat_standard: "Najpopularniejszy",
+  agent_pro: "Najpopularniejszy",
+};
+
+const ctaFor = (plan: PublicPlan): string => {
+  if (plan.is_custom) return "Napisz do nas";
+  if (Number(plan.price_net) === 0) return "Zacznij za darmo";
+  if (plan.product_line === "agent") return "Posłuchaj agenta";
+  if (plan.trial_days > 0) return `Wypróbuj ${plan.trial_days} dni`;
+  return "Wybieram plan";
+};
+
+const toCard = (plan: PublicPlan): Plan => {
+  const badge = HIGHLIGHTED[plan.code];
+  if (plan.is_custom) {
+    return {
+      name: plan.name,
+      price: "Wycena",
+      period: "indywidualna",
+      description: plan.description ?? undefined,
+      features: plan.features,
+      highlighted: !!badge,
+      badge,
+      cta: ctaFor(plan),
+    };
+  }
+
+  const net = Number(plan.price_net ?? 0);
+  return {
+    name: plan.name,
+    price: formatMoneyPLN(net),
+    period: net === 0 ? "/ mc" : "netto / mc",
+    // Cena docelowa jest widoczna od pierwszego dnia — nie ma podwyżki,
+    // jest koniec promocji. Przekreślona obok startowej mówi to bez słów.
+    targetPrice: plan.price_net_target != null ? formatMoneyPLN(plan.price_net_target) : undefined,
+    priceNote: net === 0 ? undefined : `${formatMoneyPLN(plan.price_gross)} brutto`,
+    description: plan.description ?? undefined,
+    features: plan.features,
+    highlighted: !!badge,
+    badge,
+    cta: ctaFor(plan),
+  };
+};
+
+const gridClass = (count: number) =>
+  count === 1
+    ? "md:grid-cols-1 max-w-md"
+    : count === 2
+    ? "md:grid-cols-2 max-w-3xl"
+    : count === 3
+    ? "md:grid-cols-3"
+    : "md:grid-cols-2 lg:grid-cols-4";
+
+const WarsztatContent = ({ section, onCta }: { section: Section; onCta: () => void }) => {
+  const { plans, loading, error } = usePublicPricing();
+
+  return (
+    <div>
+      <div className="text-center mb-10">
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">{section.title}</h2>
+        <p className="text-muted-foreground max-w-2xl mx-auto">{section.subtitle}</p>
+        {section.topNote && (
+          <p className="mt-4 text-sm text-foreground bg-primary/5 border border-primary/20 rounded-lg p-4 max-w-3xl mx-auto">
+            {section.topNote}
+          </p>
+        )}
+      </div>
+
+      {loading && (
+        <div className="grid gap-6 max-w-6xl mx-auto md:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Card key={i} className="p-6 h-72 animate-pulse bg-muted/40 border-border" />
+          ))}
+        </div>
+      )}
+
+      {/* Przy błędzie NIE pokazujemy zapasowego cennika — zła cena na stronie
+          ofertowej jest gorsza niż jej brak. Pusta lista leci tą samą ścieżką:
+          RLS odcinający gościa nie zwraca błędu, tylko zero wierszy, a sekcja
+          bez ani jednej karty wyglądałaby jak zwinięta oferta. */}
+      {!loading && (error || plans.length === 0) && (
+        <Card className="max-w-2xl mx-auto p-6 text-center">
+          <p className="text-sm text-foreground mb-4">
+            Nie udało się wczytać aktualnego cennika. Odśwież stronę albo napisz do nas —
+            podamy ceny od ręki.
+          </p>
+          <Button variant="default" onClick={onCta}>
+            Skontaktuj się z nami
+          </Button>
+        </Card>
+      )}
+
+      {!loading &&
+        !error &&
+        plans.length > 0 &&
+        PRODUCT_GROUPS.map(({ line, heading }) => {
+          const group = plans.filter((p) => p.product_line === line);
+          if (group.length === 0) return null;
+          return (
+            <div key={line} className="mb-10">
+              <h3 className="text-xl font-semibold text-foreground text-center mb-6">{heading}</h3>
+              <div className={`grid gap-6 mx-auto max-w-6xl ${gridClass(group.length)}`}>
+                {group.map((plan) => (
+                  <PlanCard key={plan.code} plan={toCard(plan)} onCta={onCta} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+      {section.bottomNote && (
+        <p className="text-center text-sm text-foreground bg-accent/10 border border-accent/30 rounded-lg p-4 max-w-3xl mx-auto mt-6">
+          {section.bottomNote}
+        </p>
+      )}
+    </div>
+  );
+};
+
 const SectionContent = ({ section, onCta }: { section: Section; onCta: () => void }) => {
+  if (section.id === "warsztat") return <WarsztatContent section={section} onCta={onCta} />;
   if (section.id === "uslugi") return <UslugiContent onCta={onCta} />;
   if (section.id === "ai") return <AiProContent onCta={onCta} />;
   if (section.id === "polecenia") return <PoleceniaContent />;
