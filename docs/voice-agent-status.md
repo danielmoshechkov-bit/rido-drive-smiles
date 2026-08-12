@@ -350,6 +350,26 @@ Snapshot: **92–229 ms**, 5016 znaków — wrócił poniżej pierwotnego budże
 
 Nie podnosiliśmy planu. Problem to były nieposprzątane logi, nie obciążenie.
 
+### ⚠️ CZYTAJĄC LICZBY Z 12.08: ZMIENIŁA SIĘ INFRASTRUKTURA
+
+**Porównania „przed/po" z tego dnia są zafałszowane w OBIE strony i nie wolno ich
+cytować bez tego zastrzeżenia.**
+
+| kiedy | compute | stan IO | zmierzona budowa snapshotu |
+|---|---|---|---|
+| do 12.08 rano | poprzedni (mniejszy) | budżet Disk IO **wyczerpany** | 133–310 ms, potem **808 ms** |
+| 12.08 wieczór | **Small** (podniesiony ręcznie) | po sprzątnięciu 481 MB logów | **92–229 ms** |
+
+Zmieniły się **trzy rzeczy naraz**: rozmiar compute, stan budżetu IO i rozmiar
+`cron.job_run_details`. Poprawy 808 ms → 92 ms **nie wolno przypisać sprzątaniu** —
+część z niej to mocniejsza maszyna.
+
+Compute wróci do mniejszego po dobie, gdy właściciel zobaczy realne obciążenie.
+**Dopiero pomiary po tym powrocie są porównywalne z czymkolwiek sprzed 12.08.**
+
+Zapisane, bo za tydzień ktoś zobaczy „133 ms wobec 808 ms" i uzna, że to zasługa
+jednej zmiany.
+
 ### 🔁 POZYCJA OPERACYJNA: sprawdzać `cron.job_run_details` RAZ W MIESIĄCU
 
 **To odrasta.** Codzienne sprzątanie trzyma retencję 7 dni, ale przy zmianie liczby

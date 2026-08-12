@@ -253,6 +253,40 @@ Oba są dziś `null` / `false`.
 
 ---
 
+## 🔧 ZNANY DŁUG: model wyjazdowy potrzebuje innego ALGORYTMU, nie innego kontraktu
+
+**Nie szukaj brakującego pola — go nie ma i nie będzie.**
+
+Kryterium generyczności brzmi od 12.08: **„czy zadziała dla HYDRAULIKA bez zmiany
+kodu?"** — trudniejszy test niż fryzjer, bo hydraulik nie ma stanowiska, jedzie
+do klienta, a adres klienta jest kluczowy, nie opcjonalny.
+
+Przegląd kontraktu snapshotu pod tym kątem:
+
+| element | dla hydraulika |
+|---|---|
+| `zasoby: { nazwa, typ }` | ✅ działa — „Marek" tak samo jak „Stanowisko 3" |
+| `klient.adres` | ✅ **dodanie pola**, kształt bez zmian |
+| czas dojazdu | ✅ **`branza: { wyjazdowa: true, czas_dojazdu_min: 30 }`** |
+| **`dni[].wolne`** | ❌ **NIE DZIAŁA** |
+
+**Dlaczego `wolne` nie zadziała:** godziny liczymy z pojemności = liczby zasobów,
+zakładając, że zasób jest NA MIEJSCU. U hydraulika między wizytami jest dojazd,
+którego długość zależy od dwóch adresów — a adresu następnego klienta nie znamy
+w chwili budowy snapshotu. **Dostępność przestaje być własnością usługodawcy,
+a staje się funkcją trasy.**
+
+Rozwiązaniem będzie zwracanie **okien zamiast godzin** („jutro przed południem,
+okolica Mokotowa") i osobny algorytm układania trasy. **To nie jest brakujące pole
+w kontrakcie — to inny sposób liczenia.** Dołożenie pól niczego nie rozwiąże.
+
+**Świadomie NIE budujemy tego teraz.** Dodalibyśmy pola, których nikt nie wypełnia,
+a mamy już trzy takie przypadki: `wants_cancel` (wykrywany i nieczytany),
+`duration_seconds` i `ended_at` (0 z 61 wierszy). Kontrakt tego nie blokuje
+i to wystarczy. Wracamy, gdy pojawi się pierwszy usługodawca wyjazdowy.
+
+---
+
 ## 📋 BACKLOG PYTAŃ OTWARTYCH (rozstrzygnąć przed multi-tenancy)
 
 - **Zasoby: fallback na stałe czy migracja?** Snapshot czyta `booking_resources`,
