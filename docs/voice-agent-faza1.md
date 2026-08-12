@@ -253,6 +253,27 @@ Oba są dziś `null` / `false`.
 
 ---
 
+## 📋 BACKLOG PYTAŃ OTWARTYCH (rozstrzygnąć przed multi-tenancy)
+
+- **Zasoby: fallback na stałe czy migracja?** Snapshot czyta `booking_resources`,
+  a gdy pusto — `workshop_workstations`. Jeśli fallback zostaje na zawsze, **każda
+  nowa funkcja będzie musiała obsłużyć dwie ścieżki**. Do rozstrzygnięcia: czy warsztat
+  docelowo migruje na `booking_resources` (jedno źródło, jedna ścieżka), czy godzimy się
+  na dwie na stałe.
+- **Dwa mechanizmy cenowe — NIE ŁĄCZYĆ.** `provider_services` to płaska lista dla AGENTA,
+  ładowana raz do snapshotu; `workshop_order_items` (569 pozycji) to baza referencyjna
+  dla WYCENY w panelu, z wyszukiwaniem po marce, modelu, roczniku i silniku, docelowo
+  ze wszystkich warsztatów portalu. **Agent NIGDY nie sięga do historii zleceń** — to byłoby
+  zapytanie w trakcie rozmowy, czyli dokładnie to, co usuwaliśmy przez dwa dni.
+  Import z historii robimy PO TO, żeby wypełnić cennik, a nie po to, żeby agent w niej szukał.
+- **Numeracja zleceń** — licznik tylko w górę, numer raz nadany nigdy nie wraca
+  (dziś `MAX` z używanych, więc skasowanie zwraca numer do obiegu; `ZLP-08/2026-001`
+  wystąpił dwa razy, a mógł już pójść klientowi SMS-em).
+- **Soft-delete zleceń** — wysoki priorytet. Dziś kasowanie nie zostawia śladu,
+  bo historia statusów leci kaskadą. Przy prawdziwych klientach nie do przyjęcia.
+
+---
+
 ## ⚙️ USTAWIENIA WARSZTATU — trzy pola do dodania w panelu (wchodzą do snapshotu)
 
 Powód, dosłownie z rozmowy 11.08:
@@ -264,6 +285,13 @@ Powód, dosłownie z rozmowy 11.08:
 
 Odesłanie do telefonu osoby, która **właśnie dzwoni**, w dodatku per „ty",
 jako **trzecia odmowa pod rząd**. Sentyment klientki spadł do −0,30.
+
+### 0. OPIS POLA `duration_minutes` W PANELU — obowiązkowy
+
+Pole musi mieć w panelu podpis: **„czas blokady stanowiska, nie czas pracy"**.
+Wymiana oleju to 30 minut pracy, ale auto stoi godzinę — wpisuje się **60**.
+Bez tego podpisu warsztat wpisze czas pracy, a agent umówi dwa auta na jedno
+stanowisko w tym samym czasie.
 
 ### 1. NAJPÓŹNIEJSZA GODZINA PRZYJĘCIA
 Osobne pole, **niezależne od godzin pracy**. Warsztat pracuje do 17:00, ale ostatnie

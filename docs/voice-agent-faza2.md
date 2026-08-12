@@ -509,6 +509,34 @@ Kroki 4 i 5 są przed 6 i 7 celowo (zasada 8).
 - `diagnose-call.sh` sekcja 6: zero czerwonych flag na czystej rozmowie
 - tura poniżej 1,2 s, zero narzędzi zapisujących w osi czasu
 
+### ZASADA DWUDZIESTA TRZECIA: nigdy nie uzupełniaj identyfikatora z pamięci
+
+Dwa razy w jednej sesji zbudowałem pełny identyfikator ze skróconej formy widzianej
+wcześniej w raporcie:
+
+```
+function_id   zobaczyłem c2840003…   wpisałem c2840003-4b2e-4fbd-84f6-4b1a4c85c31f
+              prawdziwy:             c2840003-6b62-4864-9b70-5b0ef2c60bd4
+provider_id   zobaczyłem 664ed87b…   wpisałem 664ed87b-b1e4-4b28-9db2-2a3b40e8a5b6
+              prawdziwy:             664ed87b-a20f-457b-a9fa-97ca13dcae7c
+```
+
+Drugi przypadek kosztował trzy błędne wnioski w raporcie: „warsztat nie ma cennika",
+„nie ma czego zaimportować", „snapshot nie będzie miał skąd wziąć danych". W rzeczywistości
+było 7 usług, 6 stanowisk i 569 pozycji w zleceniach.
+
+**UUID, `function_id`, `conversation_id`, `provider_id` — zawsze odczytane z zapytania
+albo z wyniku narzędzia, NIGDY dopisane ze skróconej formy.** Skrócony identyfikator
+jest do czytania, nie do pytania.
+
+**Dlaczego to groźniejsze niż zwykła literówka:** zapytanie na nieistniejącym
+identyfikatorze **nie zwraca błędu**. Zwraca pustkę, która wygląda jak prawdziwe zero —
+i wygląda tak samo jak poprawnie policzony brak danych.
+
+To ta sama klasa co „pusty zbiór to porażka, nie sukces" z audytu, tylko po stronie
+WEJŚCIA, nie wyjścia. Kontrola w `voice-audit.mjs`: przed zaraportowaniem zera dla
+konkretnego identyfikatora sprawdź, czy ten identyfikator w ogóle istnieje.
+
 ### ZASADA DWUDZIESTA DRUGA: przykład z konkretną wartością ZOSTANIE UŻYTY JAKO WARTOŚĆ
 
 Szósta odsłona tego samego wzorca. Pięć razy zdarzyło się to w prompcie, szósty raz

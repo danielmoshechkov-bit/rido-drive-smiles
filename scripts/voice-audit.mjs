@@ -193,6 +193,20 @@ async function sekcjaA() {
 // ============================================================================
 // B. HIGIENA BAZY WIEDZY (zasady 20, 22)
 // ============================================================================
+// ZASADA 23: zanim zaraportujesz zero dla identyfikatora, sprawdź, czy ten
+// identyfikator istnieje. Zapytanie na zmyślonym UUID nie zwraca błędu — zwraca
+// pustkę nieodróżnialną od prawdziwego zera. Dwa razy w jednej sesji zbudowałem
+// pełny UUID ze skróconej formy i zaraportowałem trzy błędne wnioski.
+async function sprawdzIdentyfikator(sekcja, tabela, kolumna, wartosc, opis) {
+  const [r] = await db(`select count(*)::int as n from ${tabela} where ${kolumna} = '${wartosc}'`);
+  if ((r?.n ?? 0) === 0) {
+    zle(sekcja, `${opis} NIE ISTNIEJE w ${tabela} — każde zero policzone dla niego jest fałszywe`,
+      `${kolumna} = ${wartosc}`);
+    return false;
+  }
+  return true;
+}
+
 async function sekcjaB() {
   naglowek("B. HIGIENA BAZY WIEDZY");
   const wpisy = await db(
@@ -233,6 +247,24 @@ async function sekcjaB() {
 // ============================================================================
 async function sekcjaD() {
   naglowek("D. MARTWE ŚCIEŻKI");
+
+  // D0: tożsamość tenanta. Bez tego cała sekcja liczyłaby zera dla nikogo.
+  const [cfg] = await db("select provider_id::text as p from voice_agent_configs limit 1");
+  if (cfg?.p) {
+    const ok1 = await sprawdzIdentyfikator("D0", "service_providers", "id", cfg.p, "provider_id agenta głosowego");
+    if (ok1) {
+      const [dane] = await db(`select
+        (select count(*) from provider_services where provider_id='${cfg.p}') as uslugi,
+        (select count(*) from workshop_workstations where provider_id='${cfg.p}') as stanowiska,
+        (select count(*) from booking_resources where provider_id='${cfg.p}') as zasoby`);
+      ok("D0", `tenant istnieje; usługi=${dane.uslugi} stanowiska=${dane.stanowiska} zasoby=${dane.zasoby}`, 1);
+      if (Number(dane.uslugi) === 0) {
+        zle("D0", "cennik PUSTY — snapshot FAZY A nie będzie miał skąd wziąć cen ani czasów trwania");
+      }
+    }
+  } else {
+    zle("D0", "brak konfiguracji agenta — nie wiadomo, dla kogo liczyć");
+  }
 
   // D1: każde pole ekstrakcji musi być gdzieś czytane.
   const ekstrakcja = readFileSync(join(ROOT, "supabase/functions/_shared/voiceExtraction.ts"), "utf8");
