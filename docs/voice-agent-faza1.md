@@ -295,8 +295,7 @@ o czymś, co wie. Rozdzielenie usuwa ten wybór.
   "czas_znany": true,                        // czy pochodzi z duration_minutes USŁUGI
   "czas_do_powiedzenia": "około godziny",     // null gdy czas_znany = false
 
-  "tryb_terminu": "godzina",                 // "godzina" | "dzien"
-  "dni_robocze": 1 }
+  "ostatni_start": "16:00" }                 // wyliczony per usługa, patrz niżej
 ```
 
 ### Skąd bierze się `czas_blokady_min` — trzy szczeble
@@ -317,60 +316,37 @@ w grafiku; agent nie podaje go klientowi"*.
 
 ---
 
-## 📅 USŁUGI DŁUŻSZE NIŻ DZIEŃ PRACY
+## 📅 USŁUGI DŁUGIE — mniej slotów, ZERO obietnic o odbiorze
 
-Dotyczy każdego warsztatu z detailingiem, nie tylko naszego: **Ceramika 4-letnia ≈ 8 h**
-(przy 9–17 to CAŁY dzień, zero zapasu) i **Folie BBF ≈ 2 dni**.
+Dotyczy każdego warsztatu z detailingiem: **Ceramika 4-letnia ≈ 8 h**, **Folie BBF ≈ 2 dni**.
 
-### Decyzja 1 — agent nie proponuje terminu, w którym usługa się nie zmieści
-
-Ostatni możliwy start liczy się **per usługa**, nie globalnie:
+### Co robimy: ostatni start liczony PER USŁUGA
 
 ```
 ostatni_start = min( najpóźniejsza_godzina_przyjęcia,  zamknięcie − czas_blokady_min )
 ```
 
-Dla mycia (60 min) przy pracy do 17:00 → 16:00. Dla ceramiki (480 min) → **9:00 i tylko
-9:00**. Snapshot podaje już przefiltrowane godziny, więc agent nie ma czego przeliczać
-ani czym się pomylić — to ta sama zasada co przy nazwanych dniach.
+Mycie (60 min) przy pracy do 17:00 → 16:00. **Ceramika (480 min) → 9:00 i tylko 9:00.**
+Snapshot podaje już przefiltrowane godziny, więc agent niczego nie przelicza — przy
+długiej usłudze po prostu widzi mniej slotów w ciągu dnia. **I to wystarczy.**
 
-⚠️ Wcześniej „najpóźniejsza godzina przyjęcia" była jedną liczbą dla całego warsztatu.
-Teraz jest **górnym ograniczeniem**, a nie jedyną regułą: usługa ośmiogodzinna musi
-zacząć się rano niezależnie od tego, co warsztat wpisał w tym polu.
+⚠️ „Najpóźniejsza godzina przyjęcia" jest przez to **górnym ograniczeniem**, a nie jedyną
+regułą: usługa ośmiogodzinna musi zacząć rano niezależnie od tego, co warsztat tam wpisał.
 
-### Decyzja 2 — usługi wielodniowe blokują zasób na kolejne dni robocze
+### Czego NIE robimy — i dlaczego (decyzja 12.08)
 
-`dni_robocze > 1` oznacza blokadę tego samego zasobu przez tyle **dni roboczych**
-(sobota i niedziela nie liczą się, jeśli warsztat wtedy nie pracuje). Termin wolny
-dla takiej usługi to dzień, po którym następuje wymagana liczba dni roboczych z wolnym
-zasobem — snapshot podaje **`pierwszy_mozliwy_start`** jako jedną datę, a nie każdy
-możliwy dzień, żeby nie liczyć kombinacji w kontrakcie.
+**Agent umawia klienta na TERMIN PRZYJĘCIA. Kropka.** Nie mówi, kiedy auto będzie gotowe,
+nie proponuje „zostawia Pan na dwa dni", nie blokuje zasobu na kolejne dni.
 
-### Decyzja 3 — przy wielodniowych agent proponuje DZIEŃ, nie godzinę
+Odrzucone: `tryb_terminu: "dzien"`, `dni_robocze`, blokada wielodniowa, informowanie
+o dacie odbioru. Zaprojektowałem to i **zostało odrzucone słusznie**: ile potrwa robota,
+ocenia mechanik przy przyjęciu, po obejrzeniu auta. Agent nie ma skąd tego wiedzieć,
+bo zależy to od stanu pojazdu, nie od nazwy usługi. Agent, który obieca „odbierze Pan
+w środę", może się pomylić — i wtedy problem ma warsztat, nie agent.
 
-`tryb_terminu: "dzien"` zmienia sposób mówienia:
+To ta sama zasada co przy cenie: **agent nie zgaduje tego, co rozstrzyga się na miejscu.**
 
-```
-godzina:  „Piątek dziewiętnastego, o dziewiątej — pasuje?"
-dzien:    „Zostawia Pan auto w poniedziałek rano, odbiera w środę. Pasuje?"
-```
-
-Godzina rozpoczęcia to wtedy godzina otwarcia i **agent jej nie negocjuje** — pytanie
-„czy może być o czternastej" przy usłudze dwudniowej nie ma sensu, bo auto i tak zostaje.
-W rezerwacji zapisujemy godzinę otwarcia jako `scheduled_time`, a `duration_minutes`
-pokrywa pełne dni.
-
-**Kiedy `tryb_terminu` jest `"dzien"`:** gdy `czas_blokady_min` przekracza długość dnia
-roboczego. Wyliczane w snapshocie, nie wpisywane ręcznie — warsztat podaje tylko czas
-trwania, resztę robi kod. Ceramika 480 min przy dniu 8 h = dokładnie jeden dzień, więc
-jeszcze `"godzina"` ze startem o 9:00; Folie 960 min = `"dzien"`, `dni_robocze: 2`.
-
-### Czego świadomie NIE robimy teraz
-- rezerwacji częściowych („auto stoi trzy dni, ale robota jest tylko pierwszego") —
-  blokujemy pełne dni, prościej i uczciwiej wobec grafiku
-- pytania „czy zostawia Pan auto" — przy `tryb_terminu: "dzien"` to wynika z usługi
-- przenoszenia usług wielodniowych przez weekend z pracą w sobotę — najpierw godziny
-  pracy per dzień muszą trafić do `service_working_hours`, dziś są puste
+Do backlogu jako pytanie otwarte, wracamy **po progu pięciu rozmów**.
 
 ---
 

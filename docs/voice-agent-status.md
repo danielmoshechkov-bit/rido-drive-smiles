@@ -147,6 +147,29 @@ SQL naprawczy: `scripts/sql/voice-knowledge-sanitize-20260810.sql` (+ rollback).
 
 **Nic z punktów 8–11 przed progiem.**
 
+### 🔴 BŁĄD Z ROZMOWY 11.08, KTÓREGO NIKT NIE ZAUWAŻYŁ — zły dzień tygodnia
+
+Znaleziony przypadkiem, przy pisaniu testów modułu snapshotu: moje oczekiwanie się
+nie zgadzało, a rację miał kalendarz.
+
+```
+klientka:  „poproszę o przyszły tydzień… wtorek na przykład, godzina szesnasta"
+agent 3×:  „wtorek dziewiętnaście sierpnia"
+klientka:  „to dziewiętnasty sierpnia, tak?"        ← upewniała się!
+agent:     „Tak, wtorek dziewiętnaście sierpnia."
+
+19.08.2026 to ŚRODA. Wtorek przyszłego tygodnia to 18 sierpnia.
+```
+
+Agent pomylił **dzień tygodnia z datą**, potwierdził to klientce, gdy dopytała,
+i zapisał rezerwację. Rozmawialiśmy o odmianie („dziewiętnaście" zamiast
+„dziewiętnastego") i przeoczyliśmy, że **liczba też była zła**.
+
+To jest najmocniejszy argument za nazwanymi dniami w snapshocie: model dostał datę
+do wyliczenia i pomylił się w obie strony naraz. Przy liście `{ "do_wypowiedzenia":
+"wtorek, osiemnastego sierpnia", "data": "2026-08-18" }` nie ma czego pomylić — nie
+liczy, tylko wybiera.
+
 ### 🎯 „JESTEM PANIĄ, NIE JESTEM PANEM" — najlepszy dowód w całym śledztwie
 
 ```
