@@ -394,3 +394,6 @@ verify_jwt = false
 
 [functions.voice-call-reconcile]
 verify_jwt = false
+
+[functions.voice-agent-init]
+verify_jwt = false

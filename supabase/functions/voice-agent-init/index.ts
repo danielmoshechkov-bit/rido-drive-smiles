@@ -1,0 +1,289 @@
+// ============================================================================
+// voice-agent-init — WEBHOOK INICJUJĄCY. Snapshot pobierany PRZY ODEBRANIU.
+//
+// Po co: `check_availability` w trakcie rozmowy to jedyna operacja, jaka została,
+// i jedyna tura powyżej 2 s — zmierzone 5,2-7,3 s. W jednej turze ElevenLabs
+// wystrzelił trzy równoległe żądania, które razem wywołały narzędzie SIEDEM razy,
+// a jedno porzucił po 9,5 s. Tura trwała 17 sekund.
+//
+// Snapshot pobiera wszystko w czasie, gdy agent mówi powitanie — czyli za darmo,
+// bo powitanie i tak trwa ~3 s.
+//
+// TRZY ZASADY, KTÓRE TU MIESZKAJĄ:
+//
+// 1. BUDŻET 300 ms, a przy przekroczeniu PUSTY SNAPSHOT, NIE BŁĄD. Rozmowa ma się
+//    zacząć nawet bez terminów — agent wróci wtedy do `check_availability`.
+//    Brak danych to nie awaria (zasada 12: błąd nie może wyglądać jak brak danych,
+//    ale i brak danych nie może wywracać rozmowy).
+//
+// 2. MODEL NIE LICZY, TYLKO WYBIERA. Dni mają gotową formę „wtorek, osiemnastego
+//    sierpnia", godziny są przefiltrowane per usługa. Agent trzykrotnie powiedział
+//    „wtorek dziewiętnaście sierpnia" o dacie, która była ŚRODĄ, i zapisał
+//    rezerwację o dzień za późno (zasada 24).
+//
+// 3. KONTRAKT GENERYCZNY. `dni`, `uslugi`, `zasoby` — nigdy `stanowiska`,
+//    `naprawy`, `pojazdy`. Pola branżowe w `branza: {}`. Kryterium przy każdej
+//    decyzji: czy zadziała dla fryzjera bez zmiany kodu?
+// ============================================================================
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
+import {
+  czasDoWypowiedzenia, czasUslugi, hhmm, kluczDnia, minuty, ostatniStart,
+  wolneGodziny, zbudujDni, type GodzinyDnia, type Usluga,
+} from "../_shared/voiceSnapshot.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+const json = (b: unknown, s = 200) =>
+  new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+const BUDZET_MS = 300;
+const DNI_W_PRZOD = 14;
+const GODZINY_ZAPASOWE: GodzinyDnia = { open: "09:00", close: "17:00" };
+
+/** Wartości domyślne — agent ma działać u warsztatu, który niczego nie ustawił. */
+const POLITYKI: Record<string, string> = {
+  kosztorys_przed_naprawa: "Kosztorys przedstawiamy przed rozpoczęciem naprawy.",
+  diagnoza_bezplatna_przy_naprawie: "Diagnoza jest bezpłatna przy zleceniu naprawy.",
+  diagnoza_platna_odliczana: "Diagnoza kosztuje {kwota}, odliczana od naprawy.",
+  diagnoza_platna_zawsze: "Diagnoza kosztuje {kwota} niezależnie od decyzji.",
+};
+
+const dzisiajWarszawa = (): string =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Warsaw" }).format(new Date());
+
+const tylkoCyfry = (v: unknown) => String(v ?? "").replace(/\D/g, "").slice(-9);
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const started = performance.now();
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+
+  // /warmup — jak w pozostałych funkcjach: jedno trywialne zapytanie za tokenem,
+  // poza ścieżką rozmowy. Webhook inicjujący MUSI być ciepły, bo jego opóźnienie
+  // idzie prosto w czas odebrania połączenia.
+  if (new URL(req.url).pathname.endsWith("/warmup")) {
+    const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
+    const provided = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim()
+      || new URL(req.url).searchParams.get("token") || "";
+    if (!expected || provided !== expected) return json({ error: "unauthorized" }, 401);
+    await admin.from("voice_agent_configs").select("provider_id").limit(1);
+    return json({ ok: true, warm: true });
+  }
+
+  const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
+  const provided = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!expected || provided !== expected) return json({ error: "unauthorized" }, 401);
+
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  // ElevenLabs podaje te pola w ładunku inicjującym; nazwy bywają różne
+  // w zależności od wersji, więc bierzemy pierwszą niepustą.
+  const agentId = String(
+    (body as Record<string, unknown>)?.agent_id
+    ?? ((body as Record<string, Record<string, unknown>>)?.conversation_initiation_client_data?.agent_id)
+    ?? "",
+  );
+  const callerRaw = (body as Record<string, unknown>)?.caller_id
+    ?? (body as Record<string, Record<string, unknown>>)?.call?.from_number
+    ?? (body as Record<string, unknown>)?.from_number ?? "";
+  const callerId = tylkoCyfry(callerRaw);
+
+  // Pusty snapshot to POPRAWNA odpowiedź, nie awaria. Agent wraca wtedy do
+  // check_availability i do „wycenimy po obejrzeniu auta".
+  const pusty = (powod: string) => {
+    console.info("[voice-agent-init]", JSON.stringify({
+      event: "snapshot_pusty", powod, ms: Math.round(performance.now() - started),
+    }));
+    return json({
+      dynamic_variables: { rido_snapshot: "", rido_caller_znany: callerId ? "tak" : "nie" },
+    });
+  };
+
+  try {
+    const zbuduj = async () => {
+      const { data: cfg } = await admin.from("voice_agent_configs")
+        .select("provider_id, persona_key")
+        .eq(agentId ? "elevenlabs_agent_id" : "persona_key", agentId || "workshop_secretary")
+        .limit(1);
+      const providerId = cfg?.[0]?.provider_id as string | undefined;
+      if (!providerId) return null;
+
+      const dzisiaj = dzisiajWarszawa();
+      const koniecOkna = new Date(new Date(dzisiaj + "T12:00:00Z").getTime() + DNI_W_PRZOD * 864e5)
+        .toISOString().slice(0, 10);
+
+      // JEDNA RUNDA RÓWNOLEGŁA — sześć odczytów naraz, żeby zmieścić się w budżecie.
+      const [prov, uslugi, zasobyGen, zasobyWarsztat, zajete, klient] = await Promise.all([
+        admin.from("service_providers")
+          .select("short_name, company_name, company_address, company_city, working_hours")
+          .eq("id", providerId).limit(1),
+        admin.from("provider_services")
+          .select("id, name, price_from, price_to, duration_minutes, category")
+          .eq("provider_id", providerId).eq("is_active", true).limit(40),
+        admin.from("booking_resources")
+          .select("id, name, type").eq("provider_id", providerId).eq("is_active", true).limit(30),
+        admin.from("workshop_workstations")
+          .select("id, name").eq("provider_id", providerId).limit(30),
+        admin.from("workshop_client_bookings")
+          .select("appointment_date, appointment_time, phone, status")
+          .eq("provider_id", providerId)
+          .gte("appointment_date", dzisiaj).lte("appointment_date", koniecOkna).limit(400),
+        callerId
+          ? admin.from("workshop_clients").select("id, first_name, phone").eq("provider_id", providerId).limit(500)
+          : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+      ]);
+
+      // BŁĄD ZAPYTANIA NIE MOŻE WYGLĄDAĆ JAK BRAK DANYCH (zasada 12).
+      // Pierwsza wersja pobierała nieistniejącą kolumnę `phone`; PostgREST zwrócił
+      // błąd, `data` było null, a snapshot pokazał WSZYSTKIE DNI jako zamknięte —
+      // wyglądało to jak warsztat nieczynny cały tydzień, nie jak awaria zapytania.
+      for (const [nazwa, wynik] of [["firma", prov], ["uslugi", uslugi], ["zasoby", zasobyGen],
+        ["stanowiska", zasobyWarsztat], ["rezerwacje", zajete], ["klienci", klient]] as const) {
+        const err = (wynik as { error?: { message?: string } }).error;
+        if (err) {
+          console.error("[voice-agent-init]", JSON.stringify({
+            event: "zapytanie_nie_powiodlo_sie", zrodlo: nazwa, blad: err.message,
+          }));
+        }
+      }
+
+      const p = prov.data?.[0] as Record<string, unknown> | undefined;
+      const godzinyTygodnia = (p?.working_hours as Record<string, GodzinyDnia>) || {};
+      // Brak godzin pracy = wszystkie dni zamknięte, czyli snapshot bez ani jednego
+      // terminu. To ma być WIDOCZNE, a nie ciche — inaczej agent milczy o terminach
+      // i nikt nie wie dlaczego.
+      if (!Object.keys(godzinyTygodnia).length) {
+        console.error("[voice-agent-init]", JSON.stringify({
+          event: "brak_godzin_pracy",
+          skutek: "wszystkie dni wyjda jako zamkniete, agent nie zaproponuje terminu",
+        }));
+      }
+
+      // ZASOBY: generyczne najpierw, warsztatowe jako zapas. Nie kopiujemy jednych
+      // w drugie — dwa źródła prawdy o tym samym to gwarantowany rozjazd.
+      const zasoby = (zasobyGen.data?.length
+        ? zasobyGen.data.map((z: Record<string, unknown>) => ({ id: z.id, nazwa: z.name, typ: String(z.type || "zasob") }))
+        : (zasobyWarsztat.data || []).map((z: Record<string, unknown>) => ({ id: z.id, nazwa: z.name, typ: "stanowisko" })));
+      const pojemnosc = Math.max(1, zasoby.length);
+
+      // USTAWIENIA — tabeli jeszcze nie ma, więc wartości domyślne. Kontrakt ma już
+      // gałąź `ustawienia`, żeby zakładka w panelu weszła bez zmiany kształtu.
+      const zamkniecieTypowe = (godzinyTygodnia["mon"] || GODZINY_ZAPASOWE).close;
+      const ustawienia = {
+        najpozniejsze_przyjecie: zamkniecieTypowe,
+        domyslny_czas_wizyty_min: 60,
+        polityka_wyceny: "kosztorys_przed_naprawa",
+        polityka_wyceny_tekst: POLITYKI.kosztorys_przed_naprawa,
+        oplata_za_diagnoze_bez_usterki: "zalezy",
+      };
+
+      const zajeteWgDnia: Record<string, string[]> = {};
+      for (const b of zajete.data || []) {
+        const d = String((b as Record<string, unknown>).appointment_date);
+        const t = String((b as Record<string, unknown>).appointment_time || "").slice(0, 5);
+        (zajeteWgDnia[d] ||= []).push(t);
+      }
+
+      // Sloty liczymy dla DOMYŚLNEGO czasu wizyty — to jest lista „na kiedy w ogóle
+      // można przyjechać". Usługa z własnym, dłuższym czasem ma swój `ostatni_start`
+      // podany obok, więc agent widzi ograniczenie bez drugiego zapytania.
+      const dni = zbudujDni(dzisiaj, DNI_W_PRZOD, godzinyTygodnia, (iso, g) =>
+        wolneGodziny(g, ustawienia.domyslny_czas_wizyty_min, pojemnosc,
+          zajeteWgDnia[iso] || [], 30, ustawienia.najpozniejsze_przyjecie, 3));
+
+      const uslugiOut = (uslugi.data || []).map((u: Record<string, unknown>) => {
+        const usluga: Usluga = {
+          id: String(u.id), nazwa: String(u.name),
+          cena_od: u.price_from as number | null, cena_do: u.price_to as number | null,
+          duration_minutes: u.duration_minutes as number | null,
+          kategoria: u.category as string | null,
+        };
+        const czas = czasUslugi(usluga, ustawienia.domyslny_czas_wizyty_min);
+        const od = usluga.cena_od, do_ = usluga.cena_do;
+        // price_to = 0 znaczy „nie podano", nie „za darmo" — tak wypełnia to panel.
+        const maCene = typeof od === "number" && od > 0;
+        const widelki = maCene && typeof do_ === "number" && do_ > 0 && do_ !== od;
+        return {
+          nazwa: usluga.nazwa,
+          cena: maCene ? { od, do: widelki ? do_ : od, typ: widelki ? "widelki" : "stala" } : null,
+          czas_blokady_min: czas.czas_blokady_min,
+          czas_znany: czas.czas_znany,
+          czas_do_powiedzenia: czas.czas_znany ? czasDoWypowiedzenia(czas.czas_blokady_min) : null,
+          ostatni_start: hhmm(ostatniStart(zamkniecieTypowe, czas.czas_blokady_min, ustawienia.najpozniejsze_przyjecie)),
+          kategoria: usluga.kategoria || null,
+        };
+      });
+
+      const dopasowany = (klient.data || []).find((c: Record<string, unknown>) =>
+        tylkoCyfry(c.phone) === callerId) as Record<string, unknown> | undefined;
+
+      // AKTYWNE REZERWACJE DZWONIĄCEGO. Potrzebne, żeby agent wiedział, że klient
+      // MA już wizytę — bez tego na „chcę przełożyć" założyłby drugą (ta sama klasa
+      // co wants_cancel, który był wykrywany i przez nikogo nieczytany).
+      // Dopasowanie po telefonie z sygnalizacji, nie po nazwisku.
+      const rezerwacjeKlienta = callerId
+        ? (zajete.data || [])
+          .filter((b: Record<string, unknown>) =>
+            tylkoCyfry(b.phone) === callerId && String(b.status || "") !== "cancelled")
+          .slice(0, 3)
+          .map((b: Record<string, unknown>) => ({
+            data: String(b.appointment_date),
+            godzina: String(b.appointment_time || "").slice(0, 5),
+          }))
+        : [];
+
+      return {
+        wersja: 1,
+        firma: {
+          nazwa: (p?.short_name || p?.company_name || "") as string,
+          adres: [p?.company_address, p?.company_city].filter(Boolean).join(", "),
+        },
+        ustawienia,
+        dni,
+        uslugi: uslugiOut,
+        zasoby: zasoby.map((z) => ({ nazwa: z.nazwa, typ: z.typ })),
+        klient: {
+          caller_id_znany: !!callerId,
+          imie: (dopasowany?.first_name as string) || null,
+          aktywne_rezerwacje: rezerwacjeKlienta,
+        },
+        branza: { rodzaj: "warsztat" },
+      };
+    };
+
+    // BUDŻET. Przekroczenie NIE jest błędem — rozmowa startuje bez snapshotu.
+    const snapshot = await Promise.race([
+      zbuduj(),
+      new Promise<null>((r) => setTimeout(() => r(null), BUDZET_MS)),
+    ]);
+    if (!snapshot) return pusty("przekroczony budżet 300 ms albo brak konfiguracji agenta");
+
+    const tekst = JSON.stringify(snapshot);
+    console.info("[voice-agent-init]", JSON.stringify({
+      event: "snapshot", ms: Math.round(performance.now() - started),
+      dni: snapshot.dni.length, uslugi: snapshot.uslugi.length,
+      zasoby: snapshot.zasoby.length, znakow: tekst.length,
+      caller_znany: snapshot.klient.caller_id_znany,
+    }));
+    return json({
+      dynamic_variables: {
+        rido_snapshot: tekst,
+        rido_caller_znany: snapshot.klient.caller_id_znany ? "tak" : "nie",
+      },
+      // Czas BUDOWY po naszej stronie, bez sieci — jedyny sposób sprawdzenia
+      // budżetu 300 ms, gdy endpoint logów nie odpowiada. ElevenLabs ignoruje
+      // nieznane pola.
+      _ms: Math.round(performance.now() - started),
+    });
+  } catch (e) {
+    // Awaria budowy snapshotu nie może przerwać odbierania połączenia.
+    console.error("[voice-agent-init]", JSON.stringify({ event: "blad", msg: (e as Error).message }));
+    return pusty("wyjątek: " + (e as Error).message);
+  }
+});
