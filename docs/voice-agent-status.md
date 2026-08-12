@@ -336,13 +336,39 @@ chodzą po indeksach, a `provider_services` ma 414 wierszy przeczytanych sekwenc
 przez cały okres pomiaru. **Przy baseline 22 MB/s snapshot mieści się w 800 ms
 z dużym zapasem** — nie ma czego optymalizować po naszej stronie.
 
-Do zatwierdzenia:
-- `cron-prune-job-run-details-20260812.sql` — kasowanie partiami + `VACUUM FULL`
-  + codzienne sprzątanie. Odzyskuje ~470 MB i kończy skany całej tabeli.
-- `voice-keep-warm-consolidate-20260812.sql` — cztery crony w jeden, −75% naszego
-  przyrostu (5 760 → 1 440 wierszy dziennie).
+**✅ WYKONANE 12.08, 23:00:**
 
-**Nie trzeba podnosić planu.** Problem to nieposprzątane logi, nie obciążenie.
+| krok | wynik |
+|---|---|
+| konsolidacja cronów | cztery zadania → **jedno** `voice-keep-warm` |
+| kasowanie partiami | **385 268 wierszy** usuniętych w 8 partiach, zostało 54 751 |
+| `VACUUM FULL` | **481 MB → 27 MB** |
+| codzienne sprzątanie | `cron-prune-run-details`, 4:00, retencja 7 dni |
+
+Baza po sprzątaniu: `count(*)` **527–665 ms** (przed: 755 ms / 4,8 s / **29,5 s**).
+Snapshot: **92–229 ms**, 5016 znaków — wrócił poniżej pierwotnego budżetu 300 ms.
+
+Nie podnosiliśmy planu. Problem to były nieposprzątane logi, nie obciążenie.
+
+### 🔁 POZYCJA OPERACYJNA: sprawdzać `cron.job_run_details` RAZ W MIESIĄCU
+
+**To odrasta.** Codzienne sprzątanie trzyma retencję 7 dni, ale przy zmianie liczby
+cronów albo awarii samego zadania sprzątającego tabela znów zacznie puchnąć — a objaw
+będzie taki sam i równie mylący: „baza wolna", `connection timeout`, wyczerpany budżet
+Disk IO, przy zerowym wzroście ruchu.
+
+```sql
+SELECT count(*), pg_size_pretty(pg_total_relation_size('cron.job_run_details'))
+  FROM cron.job_run_details;
+-- norma po sprzątaniu: ~55 tys. wierszy, ~27 MB
+-- alarm: powyżej 150 tys. wierszy albo 100 MB
+```
+
+**Do zgłoszenia właścicielom pozostałych cronów:** `translation-queue-worker`
+i `workshop-scheduled-sms-dispatch` chodzą **co minutę** i dają razem ~20 tys. wierszy
+tygodniowo, czyli ok. 40% przyrostu po naszej konsolidacji. Pytanie do nich: czy
+naprawdę muszą tak często — kolejka tłumaczeń i wysyłka SMS-ów prawdopodobnie zniosłyby
+co 5 minut bez odczuwalnej różnicy dla użytkownika.
 
 ### 🔴 POZYCJE BEZPIECZEŃSTWA — do zamknięcia PRZED pierwszym prawdziwym klientem
 
