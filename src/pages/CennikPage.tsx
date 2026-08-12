@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePublicPricing, type PublicPlan, type ProductLine } from "@/hooks/usePublicPricing";
-import { formatMoneyPLN } from "@/utils/formatters";
+import { planPriceLabels, planCtaLabel } from "@/lib/pricingCards";
 
 type Plan = {
   name: string;
@@ -362,43 +362,20 @@ const HIGHLIGHTED: Record<string, string> = {
   agent_pro: "Najpopularniejszy",
 };
 
-const ctaFor = (plan: PublicPlan): string => {
-  if (plan.is_custom) return "Napisz do nas";
-  if (Number(plan.price_net) === 0) return "Zacznij za darmo";
-  if (plan.product_line === "agent") return "Posłuchaj agenta";
-  if (plan.trial_days > 0) return `Wypróbuj ${plan.trial_days} dni`;
-  return "Wybieram plan";
-};
-
 const toCard = (plan: PublicPlan): Plan => {
   const badge = HIGHLIGHTED[plan.code];
-  if (plan.is_custom) {
-    return {
-      name: plan.name,
-      price: "Wycena",
-      period: "indywidualna",
-      description: plan.description ?? undefined,
-      features: plan.features,
-      highlighted: !!badge,
-      badge,
-      cta: ctaFor(plan),
-    };
-  }
-
-  const net = Number(plan.price_net ?? 0);
+  const price = planPriceLabels(plan);
   return {
     name: plan.name,
-    price: formatMoneyPLN(net),
-    period: net === 0 ? "/ mc" : "netto / mc",
-    // Cena docelowa jest widoczna od pierwszego dnia — nie ma podwyżki,
-    // jest koniec promocji. Przekreślona obok startowej mówi to bez słów.
-    targetPrice: plan.price_net_target != null ? formatMoneyPLN(plan.price_net_target) : undefined,
-    priceNote: net === 0 ? undefined : `${formatMoneyPLN(plan.price_gross)} brutto`,
+    price: price.price,
+    period: price.period,
+    targetPrice: price.target,
+    priceNote: price.note,
     description: plan.description ?? undefined,
     features: plan.features,
     highlighted: !!badge,
     badge,
-    cta: ctaFor(plan),
+    cta: planCtaLabel(plan),
   };
 };
 
