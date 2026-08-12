@@ -304,6 +304,46 @@ identyfikator w raporcie jest dobry do czytania, nie do zapytania — do zapytan
 pobiera się pełny. Zapytanie na zmyślonym identyfikatorze **nie zwraca błędu**,
 tylko pustkę, która wygląda jak prawdziwe zero.
 
+### 💾 WYCZERPANY BUDŻET DISK IO — przyczyna znaleziona 12.08
+
+Supabase ostrzegł: *„Your project is about to deplete its Disk IO Budget"*. Objaw:
+`select count(*)` na małej tabeli trwał 755 ms, 4,8 s i **29,5 s** w trzech kolejnych
+próbach, a zapytania zwracały `Connection terminated due to connection timeout`.
+
+**Przyczyną NIE są zapytania agenta.** Zmierzone:
+
+```
+NAJWIĘKSZA TABELA W CAŁEJ BAZIE:
+  cron.job_run_details    439 956 wierszy   481 MB   najstarszy wpis: 2026-04-05
+  dla porównania: ic_parts_catalog 88 MB, ai_messages 34 MB, reszta poniżej 7 MB
+
+NAJDROŻSZE ZAPYTANIE (pg_stat_statements, wg bloków z dysku):
+  update cron.job_run_details set status = $1 ... where status in ($3,$4)
+  JEDNO wywołanie · 2 924 ms · 60 261 bloków = ~470 MB odczytu
+```
+
+**pg_cron nie sprząta po sobie, Supabase też nie.** Tabela logów wykonań rośnie od
+kwietnia, a pg_cron aktualizuje w niej statusy skanując ją **w całości** — im większa,
+tym drożej, i tak w kółko.
+
+**Nasz udział: 57%** przyrostu z ostatnich 7 dni (31 156 z 54 733 wierszy). Cztery
+crony podtrzymujące co minutę to 5 760 wierszy dziennie. Reszta to `translation-queue-worker`
+i `workshop-scheduled-sms-dispatch`, też co minutę.
+
+**Snapshot NIE jest problemem** — jego tabele są mikroskopijne (żadna nie mieści się
+w pierwszej ósemce, czyli poniżej 2 MB), `workshop_clients` i `workshop_client_bookings`
+chodzą po indeksach, a `provider_services` ma 414 wierszy przeczytanych sekwencyjnie
+przez cały okres pomiaru. **Przy baseline 22 MB/s snapshot mieści się w 800 ms
+z dużym zapasem** — nie ma czego optymalizować po naszej stronie.
+
+Do zatwierdzenia:
+- `cron-prune-job-run-details-20260812.sql` — kasowanie partiami + `VACUUM FULL`
+  + codzienne sprzątanie. Odzyskuje ~470 MB i kończy skany całej tabeli.
+- `voice-keep-warm-consolidate-20260812.sql` — cztery crony w jeden, −75% naszego
+  przyrostu (5 760 → 1 440 wierszy dziennie).
+
+**Nie trzeba podnosić planu.** Problem to nieposprzątane logi, nie obciążenie.
+
 ### 🔴 POZYCJE BEZPIECZEŃSTWA — do zamknięcia PRZED pierwszym prawdziwym klientem
 
 | pozycja | stan |
