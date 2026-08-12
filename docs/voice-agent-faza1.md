@@ -276,6 +276,104 @@ Oba są dziś `null` / `false`.
 
 ---
 
+## ⏱️ CZAS TRWANIA — OPCJONALNY, I DWA RÓŻNE POLA W KONTRAKCIE
+
+**Wpisanie czasu NIE MOŻE być warunkiem działania.** Warsztat zakładający konto ma wpisać
+nazwę i cenę w minutę; wymuszanie czasu to bariera na wejściu. Ale slot trzeba czymś
+wypełnić — więc czas potrzebny do MATEMATYKI istnieje zawsze, a czas do POWIEDZENIA
+tylko wtedy, gdy ktoś go naprawdę podał.
+
+**To są dwa osobne pola i tu leży cała rzecz.** Jedno pole zmusiłoby agenta do wyboru
+między kłamstwem („około godziny", bo tyle wyszło z domyślnej wartości) a milczeniem
+o czymś, co wie. Rozdzielenie usuwa ten wybór.
+
+```json
+{ "id": "…", "nazwa": "Serwis olejowy",
+  "cena": { "od": 163, "do": 163, "typ": "stala" },
+
+  "czas_blokady_min": 60,                    // ZAWSZE — wyłącznie do wyliczania slotów
+  "czas_znany": true,                        // czy pochodzi z duration_minutes USŁUGI
+  "czas_do_powiedzenia": "około godziny",     // null gdy czas_znany = false
+
+  "tryb_terminu": "godzina",                 // "godzina" | "dzien"
+  "dni_robocze": 1 }
+```
+
+### Skąd bierze się `czas_blokady_min` — trzy szczeble
+
+| sytuacja | `czas_blokady_min` | `czas_znany` | co mówi agent |
+|---|---|---|---|
+| usługa ma `duration_minutes` | z usługi | `true` | „to zajmie około godziny" |
+| usługa nie ma, warsztat ma **domyślny czas wizyty** | z ustawień | **`false`** | **nic o czasie** — umawia termin i tyle |
+| nie ma ani jednego | **60** | `false` | **nic o czasie** |
+
+**Reguła twarda: agent mówi o czasie trwania WYŁĄCZNIE gdy `czas_znany = true`.**
+Domyślna wartość służy do rezerwowania miejsca w grafiku, nie do informowania klienta.
+„Nie wiem, ile potrwa" jest lepsze od zmyślonej godziny — klient planuje wokół tego dzień.
+
+**Nowe pole w ustawieniach warsztatu: „domyślny czas wizyty"** (minuty, domyślnie 60),
+obok trzech już zaplanowanych. Opis w panelu: *„używany tylko do rezerwowania miejsca
+w grafiku; agent nie podaje go klientowi"*.
+
+---
+
+## 📅 USŁUGI DŁUŻSZE NIŻ DZIEŃ PRACY
+
+Dotyczy każdego warsztatu z detailingiem, nie tylko naszego: **Ceramika 4-letnia ≈ 8 h**
+(przy 9–17 to CAŁY dzień, zero zapasu) i **Folie BBF ≈ 2 dni**.
+
+### Decyzja 1 — agent nie proponuje terminu, w którym usługa się nie zmieści
+
+Ostatni możliwy start liczy się **per usługa**, nie globalnie:
+
+```
+ostatni_start = min( najpóźniejsza_godzina_przyjęcia,  zamknięcie − czas_blokady_min )
+```
+
+Dla mycia (60 min) przy pracy do 17:00 → 16:00. Dla ceramiki (480 min) → **9:00 i tylko
+9:00**. Snapshot podaje już przefiltrowane godziny, więc agent nie ma czego przeliczać
+ani czym się pomylić — to ta sama zasada co przy nazwanych dniach.
+
+⚠️ Wcześniej „najpóźniejsza godzina przyjęcia" była jedną liczbą dla całego warsztatu.
+Teraz jest **górnym ograniczeniem**, a nie jedyną regułą: usługa ośmiogodzinna musi
+zacząć się rano niezależnie od tego, co warsztat wpisał w tym polu.
+
+### Decyzja 2 — usługi wielodniowe blokują zasób na kolejne dni robocze
+
+`dni_robocze > 1` oznacza blokadę tego samego zasobu przez tyle **dni roboczych**
+(sobota i niedziela nie liczą się, jeśli warsztat wtedy nie pracuje). Termin wolny
+dla takiej usługi to dzień, po którym następuje wymagana liczba dni roboczych z wolnym
+zasobem — snapshot podaje **`pierwszy_mozliwy_start`** jako jedną datę, a nie każdy
+możliwy dzień, żeby nie liczyć kombinacji w kontrakcie.
+
+### Decyzja 3 — przy wielodniowych agent proponuje DZIEŃ, nie godzinę
+
+`tryb_terminu: "dzien"` zmienia sposób mówienia:
+
+```
+godzina:  „Piątek dziewiętnastego, o dziewiątej — pasuje?"
+dzien:    „Zostawia Pan auto w poniedziałek rano, odbiera w środę. Pasuje?"
+```
+
+Godzina rozpoczęcia to wtedy godzina otwarcia i **agent jej nie negocjuje** — pytanie
+„czy może być o czternastej" przy usłudze dwudniowej nie ma sensu, bo auto i tak zostaje.
+W rezerwacji zapisujemy godzinę otwarcia jako `scheduled_time`, a `duration_minutes`
+pokrywa pełne dni.
+
+**Kiedy `tryb_terminu` jest `"dzien"`:** gdy `czas_blokady_min` przekracza długość dnia
+roboczego. Wyliczane w snapshocie, nie wpisywane ręcznie — warsztat podaje tylko czas
+trwania, resztę robi kod. Ceramika 480 min przy dniu 8 h = dokładnie jeden dzień, więc
+jeszcze `"godzina"` ze startem o 9:00; Folie 960 min = `"dzien"`, `dni_robocze: 2`.
+
+### Czego świadomie NIE robimy teraz
+- rezerwacji częściowych („auto stoi trzy dni, ale robota jest tylko pierwszego") —
+  blokujemy pełne dni, prościej i uczciwiej wobec grafiku
+- pytania „czy zostawia Pan auto" — przy `tryb_terminu: "dzien"` to wynika z usługi
+- przenoszenia usług wielodniowych przez weekend z pracą w sobotę — najpierw godziny
+  pracy per dzień muszą trafić do `service_working_hours`, dziś są puste
+
+---
+
 ## ⚙️ USTAWIENIA WARSZTATU — trzy pola do dodania w panelu (wchodzą do snapshotu)
 
 Powód, dosłownie z rozmowy 11.08:
@@ -296,7 +394,9 @@ Bez tego podpisu warsztat wpisze czas pracy, a agent umówi dwa auta na jedno
 stanowisko w tym samym czasie.
 
 ### 1. NAJPÓŹNIEJSZA GODZINA PRZYJĘCIA
-Osobne pole, **niezależne od godzin pracy**. Warsztat pracuje do 17:00, ale ostatnie
+Osobne pole, **niezależne od godzin pracy**. Od 12.08 jest **górnym ograniczeniem**,
+a nie jedyną regułą — patrz „usługi dłuższe niż dzień pracy": usługa ośmiogodzinna
+musi zacząć się rano niezależnie od tej wartości. Warsztat pracuje do 17:00, ale ostatnie
 auto przyjmuje o 16:00, bo diagnostyka trwa godzinę.
 
 11.08 agent sam wyliczył 16:30 i **trafił dobrze — ale zgadywał**:
