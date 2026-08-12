@@ -268,9 +268,17 @@ serve(async (req) => {
       // Sloty liczymy dla DOMYŚLNEGO czasu wizyty — to jest lista „na kiedy w ogóle
       // można przyjechać". Usługa z własnym, dłuższym czasem ma swój `ostatni_start`
       // podany obok, więc agent widzi ograniczenie bez drugiego zapytania.
+      // AKTUALNA GODZINA W WARSZAWIE — potrzebna, żeby nie proponować terminów,
+      // które już minęły. Bez tego o 23:42 snapshot podawał poranek jako „dzisiaj".
+      const terazWarszawa = new Intl.DateTimeFormat("pl-PL", {
+        timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit", hour12: false,
+      }).format(new Date());
+
       const dni = zbudujDni(dzisiaj, DNI_W_PRZOD, godzinyTygodnia, (iso, g) =>
         wolneGodziny(g, ustawienia.domyslny_czas_wizyty_min, pojemnosc,
-          zajeteWgDnia[iso] || [], 30, ustawienia.najpozniejsze_przyjecie, 3));
+          zajeteWgDnia[iso] || [], 30, ustawienia.najpozniejsze_przyjecie, 3,
+          // Filtr po aktualnej godzinie WYŁĄCZNIE dla dzisiejszego dnia.
+          iso === dzisiaj ? terazWarszawa : null));
 
       const uslugiOut = (uslugi.data || []).map((u: Record<string, unknown>) => {
         const usluga: Usluga = {

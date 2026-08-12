@@ -130,9 +130,22 @@ export const wolneGodziny = (
   krokMin = 30,
   najpozniejszePrzyjecie?: string | null,
   maks = 3,
+  /**
+   * Godzina, przed którą nie wolno proponować terminów — TYLKO dla dzisiejszego
+   * dnia. `null` dla dni przyszłych.
+   *
+   * BŁĄD Z PRAWDZIWEJ ROZMOWY (12.08, 23:42): agent zaproponował „dzisiaj mamy
+   * wolne o dziewiątej, wpół do dziewiątej i o dziesiątej", a klient musiał go
+   * poprawić: „dzisiaj jest dwudziesta trzecia czterdzieści dwa, to jak to
+   * dzisiaj?". Snapshot filtrował dzień po GODZINACH PRACY, ale nie po AKTUALNEJ
+   * GODZINIE — więc o 23:42 podawał poranek, który dawno minął.
+   *
+   * Dotyczy też środka dnia: o 14:00 agent nie może proponować 9:00.
+   */
+  odGodziny?: string | null,
 ): string[] => {
   if (godziny.closed) return [];
-  const start = minuty(godziny.open);
+  const start = Math.max(minuty(godziny.open), odGodziny ? minuty(odGodziny) : 0);
   const koniec = ostatniStart(godziny.close, czasBlokadyMin, najpozniejszePrzyjecie);
   if (koniec < start) return [];
   const obciazenie: Record<string, number> = {};
@@ -185,6 +198,15 @@ export const zbudujDni = (
     } else {
       wpis.godziny = `${g.open}-${g.close}`;
       wpis.wolne = slotyDlaDnia(iso, g);
+      // DZIEŃ BEZ WOLNYCH GODZIN TO DZIEŃ ZAMKNIĘTY DLA AGENTA.
+      // Bez tego „dzisiaj" po zamknięciu zostaje na liście z pustą tablicą,
+      // a model i tak coś z niej wymyśli — widzieliśmy to o 23:42.
+      if (!wpis.wolne.length) {
+        wpis.otwarte = false;
+        wpis.powod = "brak wolnych terminów";
+        delete wpis.wolne;
+        delete wpis.godziny;
+      }
     }
     out.push(wpis);
   }

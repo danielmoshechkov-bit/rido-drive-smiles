@@ -137,3 +137,30 @@ test("widelki w dopelniaczu — agent powiedzial TRZYSTU zamiast dwustu piecdzie
 test("kwoty spoza zakresu nie sa zmyslane", () => {
   assert.equal(cenaDoWypowiedzenia(0, 0), "0 złotych");
 });
+
+// --- regresja: sloty na dzis po zamknieciu (rozmowa 12.08, 23:42) ---------
+
+test("po zamknieciu dzisiaj nie ma zadnego slotu", () => {
+  const g = { open: "09:00", close: "17:00" };
+  assert.deepEqual(wolneGodziny(g, 60, 6, [], 30, "16:00", 3, "23:42"), []);
+});
+
+test("w srodku dnia nie proponujemy godzin, ktore minely", () => {
+  const g = { open: "09:00", close: "17:00" };
+  const o = wolneGodziny(g, 60, 6, [], 30, "16:00", 3, "14:00");
+  assert.deepEqual(o, ["14:00", "14:30", "15:00"]);
+  assert.ok(!o.includes("09:00"), "poranek juz minal");
+});
+
+test("dni przyszle sa nietkniete (odGodziny null)", () => {
+  const g = { open: "09:00", close: "17:00" };
+  assert.deepEqual(wolneGodziny(g, 60, 6, [], 30, "16:00", 3, null), ["09:00", "09:30", "10:00"]);
+});
+
+test("dzien bez wolnych godzin znika z listy jako zamkniety", () => {
+  const godziny = { wed: { open: "09:00", close: "17:00" } };
+  const dni = zbudujDni("2026-08-12", 1, godziny, () => []);
+  assert.equal(dni[0].otwarte, false);
+  assert.equal(dni[0].powod, "brak wolnych terminów");
+  assert.equal(dni[0].wolne, undefined);
+});
