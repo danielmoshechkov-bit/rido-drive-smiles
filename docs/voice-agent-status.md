@@ -363,6 +363,28 @@ Snapshot: **92–229 ms**, 5016 znaków — wrócił poniżej pierwotnego budże
 
 Nie podnosiliśmy planu. Problem to były nieposprzątane logi, nie obciążenie.
 
+### 🔍 PRZY DIAGNOZIE TRANSKRYPTU CZYTAJ `original_message`, NIE INTERFEJSU
+
+Interfejs ElevenLabs pokazuje wypowiedź **uciętą**, a nie to, co agent naprawdę
+powiedział. Pole `original_message` w API pokazuje pełną treść.
+
+```
+w interfejsie:    "Dobrze..."
+original_message: "Dobrze. Poproszę imię oraz markę i model auta."   interrupted=true
+```
+
+Przez to wzięliśmy przerwane wypowiedzi za **wypełniacze ElevenLabs** i szukaliśmy
+przyczyny w latencji, której tam nie było. To klient zaczynał mówić w trakcie
+odpowiedzi agenta.
+
+To samo pole rozstrzygnęło zagadkę „seplenienia":
+```
+original_message: "Do zobaczenia w czwartek o dziesiątej. Dziękuję!Dobrze rozumiem. "
+                                                          ^^^ brak spacji
+```
+Dwie odpowiedzi z równoległych żądań **sklejone w jedną wiadomość**. Bez tego pola
+widać tylko dziwnie brzmiące audio.
+
 ### ⚠️ CZYTAJĄC LICZBY Z 12.08: ZMIENIŁA SIĘ INFRASTRUKTURA
 
 **Porównania „przed/po" z tego dnia są zafałszowane w OBIE strony i nie wolno ich
