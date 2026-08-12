@@ -56,14 +56,20 @@ przebudowy `/cennik` (podetap 3.3) i wtedy wyłączyć — dziś siedzi w opisac
 
 ### warsztat_standard
 - Opis: `Warsztat 1–3 stanowiska. Zlecenia, wyceny i faktury bez limitu, fiskalizacja, KSeF`
-- Cena netto **89 → 99**, cena docelowa **139**, Trial **14 → 0**
+- Cena netto **89 → 99**, cena docelowa **139**, Trial **14 → 30**
 - Funkcje bez zmian. Jeśli otworzysz macierz — sprawdź, że `ai_repair_help` ma Limit
   pusty / Próg **50**, a `ai_labor_pricing` Limit pusty / Próg **30**
 
 ### warsztat_pro
 - Opis: `Warsztat od 4 stanowisk. Standard plus magazyn, hurtownie, panel pracowników`
-- Cena netto **169** (bez zmian), cena docelowa **249**, Trial **14 → 0**
+- Cena netto **169** (bez zmian), cena docelowa **249**, Trial **14 → 30**
 - Funkcje bez zmian (progi **300** / **100**)
+
+> **Korekta z 12.08:** `trial_days` na planach warsztatowych zostaje **30**, nie 0.
+> Karta w cenniku bierze z tego pola napis na przycisku („Wypróbuj 30 dni"), a plan
+> `trial_warsztat` jest niewidoczny dla gościa, więc strona nie ma skąd tego wziąć.
+> Dwa mechanizmy nie kolidują: `trial_days` opisuje ofertę, `trial_warsztat` jest
+> planem realnie przypisywanym na czas triala.
 
 ### warsztat_sieci
 - Opis: `Wiele lokalizacji. Wspólna baza, analityka sieci, wycena indywidualna`
