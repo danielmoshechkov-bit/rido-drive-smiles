@@ -2321,7 +2321,11 @@
         "daneNaprawcze": "Dane naprawcze",
         "pracownicy": "Pracownicy",
         "stanowiska": "Stanowiska",
+        "cennik": "Cennik usług",
         "ustawienia": "Ustawienia"
+      },
+      "cennik": {
+        "desc": "Ceny i czasy trwania usług. To jedyne źródło, z którego asystent głosowy podaje ceny klientom — wpisz tylko to, co chcesz, żeby mówił. Czas trwania podawaj jako CZAS BLOKADY STANOWISKA, nie czas pracy: jeśli auto stoi godzinę, wpisz 60, choć sama praca trwa 30 minut."
       },
       "freeTrialBadge": "14 dni za darmo — bez zobowiązań",
       "heroTitle": "Warsztat & Auto — wszystko w jednym miejscu",

@@ -27,6 +27,7 @@ const WorkshopWarehouse = lazyNamed(() => import('./WorkshopWarehouse'), 'Worksh
 const WorkshopTireStorage = lazyNamed(() => import('./WorkshopTireStorage'), 'WorkshopTireStorage');
 const WorkshopRepairData = lazyNamed(() => import('./WorkshopRepairData'), 'WorkshopRepairData');
 const WorkshopSettingsStandalone = lazyNamed(() => import('./WorkshopSettingsStandalone'), 'WorkshopSettingsStandalone');
+const MyServicesPanel = lazy(() => import('@/components/services/MyServicesPanel').then(m => ({ default: m.MyServicesPanel })));
 const WorkshopEmployeesPage = lazyNamed(() => import('./WorkshopEmployeesPage'), 'WorkshopEmployeesPage');
 const WorkshopStationsManager = lazyNamed(() => import('./WorkshopStationsManager'), 'WorkshopStationsManager');
 
@@ -64,6 +65,11 @@ const modules = [
   { key: 'dane-naprawcze', labelKey: 'workshop.dashboard.tiles.daneNaprawcze', img: tileDaneNaprawcze, ready: true },
   { key: 'pracownicy', labelKey: 'workshop.dashboard.tiles.pracownicy', img: tilePracownicy, ready: true },
   { key: 'stanowiska', labelKey: 'workshop.dashboard.tiles.stanowiska', img: tileStanowiska, ready: true },
+  // Cennik usług — JEDYNE źródło cen dla agenta głosowego (provider_services).
+  // Bez tego ekranu warsztat nie ma jak wpisać usług, a agent na pytanie o cenę
+  // odpowiada „wycenimy po obejrzeniu auta" i nic więcej. Ceny NIE pochodzą
+  // z historii zleceń ani od innych warsztatów — każdy wpisuje swoje.
+  { key: 'cennik', labelKey: 'workshop.dashboard.tiles.cennik', img: tileTowary, ready: true },
   { key: 'ustawienia', labelKey: 'workshop.dashboard.tiles.ustawienia', img: tileUstawienia, ready: true },
 ];
 
@@ -323,6 +329,16 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
               {t('workshop.dashboard.stations.desc')}
             </p>
             <WorkshopStationsManager providerId={providerId} />
+          </div>
+        );
+      case 'cennik':
+        return (
+          <div className="max-w-5xl mx-auto py-2">
+            <h2 className="text-xl font-semibold mb-1">{t('workshop.dashboard.tiles.cennik')}</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t('workshop.dashboard.cennik.desc')}
+            </p>
+            <MyServicesPanel providerId={providerId} />
           </div>
         );
       case 'ustawienia':

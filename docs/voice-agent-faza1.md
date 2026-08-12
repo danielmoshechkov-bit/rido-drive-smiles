@@ -260,12 +260,14 @@ Oba są dziś `null` / `false`.
   nowa funkcja będzie musiała obsłużyć dwie ścieżki**. Do rozstrzygnięcia: czy warsztat
   docelowo migruje na `booking_resources` (jedno źródło, jedna ścieżka), czy godzimy się
   na dwie na stałe.
-- **Dwa mechanizmy cenowe — NIE ŁĄCZYĆ.** `provider_services` to płaska lista dla AGENTA,
-  ładowana raz do snapshotu; `workshop_order_items` (569 pozycji) to baza referencyjna
-  dla WYCENY w panelu, z wyszukiwaniem po marce, modelu, roczniku i silniku, docelowo
-  ze wszystkich warsztatów portalu. **Agent NIGDY nie sięga do historii zleceń** — to byłoby
-  zapytanie w trakcie rozmowy, czyli dokładnie to, co usuwaliśmy przez dwa dni.
-  Import z historii robimy PO TO, żeby wypełnić cennik, a nie po to, żeby agent w niej szukał.
+- **Historia zleceń to OSOBNY PRODUKT, bez związku z agentem.** `workshop_order_items`
+  (569 pozycji) docelowo posłuży jako baza referencyjna do wyceny w panelu, z wyszukiwaniem
+  po marce, modelu i roczniku, ze wszystkich warsztatów portalu. Osobny moduł, osobna decyzja,
+  **nie teraz**.
+  **Import z historii do cennika ODRZUCONY 12.08** — zadziałałby raz, u nas; nowy warsztat
+  ma zero historii (patrz „zasada produktowa" w `status.md`).
+  **Agent czyta ceny WYŁĄCZNIE z `provider_services`** i nigdy nie sięga do historii —
+  to byłoby zapytanie w trakcie rozmowy, czyli dokładnie to, co usuwaliśmy przez dwa dni.
 - **Numeracja zleceń** — licznik tylko w górę, numer raz nadany nigdy nie wraca
   (dziś `MAX` z używanych, więc skasowanie zwraca numer do obiegu; `ZLP-08/2026-001`
   wystąpił dwa razy, a mógł już pójść klientowi SMS-em).

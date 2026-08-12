@@ -364,6 +364,29 @@ nie widzi (narzędzia po naszej stronie, ucięcia).
 
 ---
 
+## ⭐ ZASADA PRODUKTOWA: rozwiązanie, które działa tylko u nas, to obejście
+
+**Budujemy produkt dla WSZYSTKICH warsztatów, nie narzędzie dla naszego.**
+Każdy mechanizm ma działać dla warsztatu, który zakłada konto DZISIAJ i ma zero historii.
+
+Skąd: 12.08 przygotowałem propozycję cennika wygenerowaną z 569 pozycji historii zleceń —
+prawdziwe ceny z wykonanych napraw, mediany, widełki, daty ostatniego wykonania.
+Robota była poprawna i **została odrzucona w całości**, bo zadziałałaby **raz, u nas**.
+Nowy warsztat nie ma 569 pozycji. Ma zero.
+
+**CENY POCHODZĄ WYŁĄCZNIE Z KARTY USŁUG (`provider_services`).** Jedno źródło.
+Warsztat wpisuje swoje ceny sam, przez panel. Agent czyta tylko stamtąd — nie z historii
+zleceń, nie z innych warsztatów, nie z bazy referencyjnej. Każdy warsztat ma swoje ceny
+i tylko on decyduje, co agent mówi jego klientom.
+
+Pusty cennik to **poprawny stan nowego warsztatu**, nie awaria: agent mówi wtedy
+„wycenimy po obejrzeniu auta" i proponuje termin.
+
+Test przy każdej decyzji, obok „czy zadziała dla fryzjera bez zmiany kodu":
+**czy zadziała dla warsztatu, który założył konto dziś rano?**
+
+---
+
 ## ⭐ ZASADA NADRZĘDNA
 
 # AGENT ROZMAWIA I NOTUJE. NIC NIE ROBI W SYSTEMIE.
