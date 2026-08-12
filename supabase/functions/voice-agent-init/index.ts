@@ -58,11 +58,13 @@ const DNI_W_PRZOD = 14;
 const GODZINY_ZAPASOWE: GodzinyDnia = { open: "09:00", close: "17:00" };
 
 /** Wartości domyślne — agent ma działać u warsztatu, który niczego nie ustawił. */
+// Teksty pisane JĘZYKIEM ROZMOWY, nie regulaminu — agent czyta je na głos.
+// Każdy mówi klientowi KIEDY pozna cenę, nie tylko pod jakim warunkiem.
 const POLITYKI: Record<string, string> = {
-  kosztorys_przed_naprawa: "Kosztorys przedstawiamy przed rozpoczęciem naprawy.",
-  diagnoza_bezplatna_przy_naprawie: "Diagnoza jest bezpłatna przy zleceniu naprawy.",
-  diagnoza_platna_odliczana: "Diagnoza kosztuje {kwota}, odliczana od naprawy.",
-  diagnoza_platna_zawsze: "Diagnoza kosztuje {kwota} niezależnie od decyzji.",
+  kosztorys_przed_naprawa: "Kosztorys pokażemy przed rozpoczęciem naprawy — nic nie robimy bez Pana zgody.",
+  diagnoza_bezplatna_przy_naprawie: "Jeśli zlecą Państwo naprawę, diagnoza jest bezpłatna.",
+  diagnoza_platna_odliczana: "Diagnoza kosztuje {kwota}, a przy naprawie odliczamy ją od rachunku.",
+  diagnoza_platna_zawsze: "Diagnoza kosztuje {kwota} — niezależnie od tego, czy zdecydują się Państwo na naprawę.",
 };
 
 const dzisiajWarszawa = (): string =>

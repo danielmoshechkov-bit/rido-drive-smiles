@@ -509,6 +509,36 @@ Kroki 4 i 5 są przed 6 i 7 celowo (zasada 8).
 - `diagnose-call.sh` sekcja 6: zero czerwonych flag na czystej rozmowie
 - tura poniżej 1,2 s, zero narzędzi zapisujących w osi czasu
 
+### ZASADA DWUDZIESTA SZÓSTA: pozycja reguły w prompcie decyduje o jej sile
+
+Agent podsumował rezerwację i **rozłączył się bez pożegnania** — mimo że blok
+ZAKOŃCZENIE ROZMOWY mówi wprost: zadaj pytanie domykające, ZAMILKNIJ, nie wywołuj
+`end_call`. Reguła była, była stanowcza i została zignorowana.
+
+**Przyczyną nie była słabość reguły, tylko jej POŁOŻENIE.** Reguły zamykania siedzą
+w bloku cachowanym, czyli na początku 23 kB promptu. Snapshot z własnymi zasadami
+kończy prompt. **To, co model czyta ostatnie, wygrywa.**
+
+To ma konsekwencję dla całej architektury promptu, nie dla jednej naprawy:
+
+| blok | pozycja | siła |
+|---|---|---|
+| `system` z `cache_control` | zawsze na początku (cache wymusza stały prefiks) | słabsza |
+| część zmienna (`systemVolatile`) | zawsze na końcu | **mocniejsza** |
+
+**Cache i recencja ciągną w przeciwne strony.** Blok cachowany MUSI być bajtowo stały
+i na początku, inaczej traci trafienia — a to właśnie odbiera mu siłę.
+
+**Jak stosować:** reguły krytyczne — zamykanie rozmowy, zakazy, forma grzecznościowa,
+limit długości — powtórz w SKRÓCIE na końcu części zmiennej. Pełna treść zostaje
+w bloku cachowanym (żeby nie płacić za nią co turę), skrót na końcu daje recencję.
+Wdrożone jako blok „PIĘĆ REGUŁ, KTÓRE ŁAMAŁEŚ NAJCZĘŚCIEJ".
+
+**Podejrzenie do sprawdzenia przy kolejnych rozmowach:** reguły łamane wielokrotnie
+mimo stanowczego brzmienia — forma bezosobowa („dla Pana" do kobiety), limit dwóch
+zdań, zakaz relacjonowania („Już sprawdzam") — wszystkie siedzą w bloku cachowanym.
+**To może być ta sama przyczyna, nie słabość reguł.** Wszystkie trafiły do skrótu.
+
 ### ZASADA DWUDZIESTA PIĄTA: zanim uznasz coś za sufit platformy, zobacz, co naprawdę wysyłasz
 
 Ogon generowania `end_call` mierzyliśmy **trzy razy** — 1082, 1236 i 1236 ms między
@@ -532,6 +562,16 @@ tej samej liczby to sygnał, że mierzysz skutek, a nie przyczynę.
 Konsekwencja w kodzie: `ZBEDNE_POLA` wycina `reason` i `system__message_to_speak`
 ze schematów narzędzi klienta. `language` w `language_detection` zostaje — bez niego
 narzędzie nie wie, na co przełączyć.
+
+**To jest ODSŁONA ZASADY 3** („model schowa tekst w każdym polu, które dostanie") —
+tylko że tym razem **pole nie było nasze**. Przyszło z ElevenLabs w formacie OpenAI,
+przekazywaliśmy je dalej bez oglądania, i nikt nigdy na nie nie spojrzał. Zasada 3
+mówiła o polach, które sami definiujemy; ta rozszerza ją na **wszystko, co podajemy
+modelowi, niezależnie od tego, kto to napisał**.
+
+**Kontrola w audycie:** loguj schemat KAŻDEGO narzędzia przekazywanego modelowi wraz
+z nazwami pól (`client_tools_schema`). Pole, które nie jest nam potrzebne, wytnij —
+model wypełni każde, które zobaczy, i zapłacisz za to czasem generowania.
 
 ### ZASADA DWUDZIESTA CZWARTA: model nie liczy dat
 

@@ -304,6 +304,19 @@ identyfikator w raporcie jest dobry do czytania, nie do zapytania — do zapytan
 pobiera się pełny. Zapytanie na zmyślonym identyfikatorze **nie zwraca błędu**,
 tylko pustkę, która wygląda jak prawdziwe zero.
 
+### ✅ CENNIK JEST WIELOTENANTOWY OD PIERWSZEGO DNIA
+
+**Snapshot budowany jest per `provider_id`** — wyprowadzony z `elevenlabs_agent_id`
+w `voice_agent_configs`. Sprawdzone w kodzie: **wszystkie sześć odczytów** jest
+ograniczonych do jednego tenanta (`provider_services`, `booking_resources`,
+`workshop_workstations`, `workshop_client_bookings`, `workshop_clients` po
+`provider_id`; `service_providers` po `id`).
+
+**Drugi warsztat dostanie swój cennik, swoje godziny, swoje zasoby i swoich klientów
+bez jednej linii zmiany w kodzie.** To jedna z niewielu rzeczy, które już dziś działają
+wielotenantowo — reszta (kreator agenta, numer techniczny, metering) czeka na próg
+pięciu rozmów.
+
 ### 💾 WYCZERPANY BUDŻET DISK IO — przyczyna znaleziona 12.08
 
 Supabase ostrzegł: *„Your project is about to deplete its Disk IO Budget"*. Objaw:

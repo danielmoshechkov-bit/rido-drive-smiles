@@ -358,6 +358,19 @@ async function sekcjaD() {
   if (zaslepki.length) zle("D5", "zaślepki w kodzie produkcyjnym", zaslepki.join("\n"));
   else ok("D5", "brak zaślepek (filter(() => false), TODO, FIXME, XXX)", wszystkie.length);
 
+  // D6: SCHEMATY NARZĘDZI MUSZĄ BYĆ LOGOWANE (zasada 25).
+  // Pole `reason` w end_call kosztowało 1236 ms na każdej rozmowie przez trzy
+  // pomiary, bo nikt nigdy nie obejrzał schematu, który wysyłamy modelowi.
+  const chatKod = czytajFunkcje("voice-agent-chat");
+  const maLog = /client_tools_schema/.test(chatKod);
+  const maFiltr = /ZBEDNE_POLA/.test(chatKod);
+  if (maLog && maFiltr) {
+    ok("D6", "schematy narzędzi są logowane i filtrowane (ZBEDNE_POLA)", 1);
+  } else {
+    zle("D6", "schematy narzędzi klienta nie są logowane albo nie są filtrowane",
+      `log=${maLog} filtr=${maFiltr}\nmodel wypełni KAŻDE pole, które zobaczy — także takie, którego nikt nie czyta`);
+  }
+
   // D3: funkcje wołane przez fetch muszą istnieć w repozytorium.
   const brakujace = new Set();
   for (const f of wszystkie) {
