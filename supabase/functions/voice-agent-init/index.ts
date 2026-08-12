@@ -40,7 +40,20 @@ const corsHeaders = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const BUDZET_MS = 300;
+// BUDŻET. Podniesiony z 300 na 800 ms — POMIAR, nie przeczucie.
+//
+// 300 ms było ustalone z góry, zanim cokolwiek zmierzyliśmy. Na produkcji budowa
+// zajmuje 133-310 ms zależnie od obciążenia bazy, więc limit wypadał W ŚRODKU
+// rozkładu: przy wolniejszej bazie snapshot znikał, czyli był niedostępny
+// dokładnie wtedy, gdy system jest pod obciążeniem.
+//
+// 800 ms nadal nie opóźnia odebrania: powitanie ("Dzień dobry, Warsztat, rozmowa
+// rejestrowana — w czym mogę pomóc?") to ~3 s syntezy, a klient odzywa się dopiero
+// po nim. Osiemset milisekund mieści się w tym oknie z zapasem.
+//
+// Zasada 21 zastosowana do progu: próg ustawia się na OGONIE rozkładu, nie na
+// medianie, i po pomiarze — nie przed.
+const BUDZET_MS = 800;
 const DNI_W_PRZOD = 14;
 const GODZINY_ZAPASOWE: GodzinyDnia = { open: "09:00", close: "17:00" };
 
@@ -57,6 +70,35 @@ const dzisiajWarszawa = (): string =>
 
 const tylkoCyfry = (v: unknown) => String(v ?? "").replace(/\D/g, "").slice(-9);
 
+
+/**
+ * TOKENY, KTÓRE OTWIERAJĄ TEN WEBHOOK.
+ *
+ * `VOICE_INIT_TOKEN` czytamy WYŁĄCZNIE ze zmiennych środowiskowych — sekrety Edge
+ * Functions tam właśnie żyją. `VOICE_LLM_TOKEN` zostaje jako zapas, żeby wdrożenie
+ * nie zerwało konfiguracji, zanim nowy sekret powstanie.
+ *
+ * DLACZEGO NIE `getPhase1Secret` DLA OBU: pierwsza wersja pytała o oba przez ten
+ * czytnik. Dla klucza spoza env schodzi on do bazy, a ten odczyt NIE MA LIMITU
+ * CZASU — przy wolnej bazie funkcja wisiała. Zmierzone: OPTIONS 200 w 0,16 s,
+ * POST bez odpowiedzi po 40 s. Zawiesiłem działający webhook dokładając
+ * jedno zapytanie, które zawsze chybia.
+ *
+ * Fallback bazodanowy zostaje TYLKO dla VOICE_LLM_TOKEN, bo tam już był i działa
+ * z env, ale i on dostaje limit czasu — autoryzacja nie ma prawa wisieć.
+ */
+async function tokenyDozwolone(admin: Parameters<typeof getPhase1Secret>[0]): Promise<string[]> {
+  const zEnv = [Deno.env.get("VOICE_INIT_TOKEN"), Deno.env.get("VOICE_LLM_TOKEN")]
+    .filter((t): t is string => !!t && t.length > 0);
+  if (zEnv.length) return zEnv;
+  // Dopiero gdy env nic nie dało — jedno zapytanie, z twardym limitem.
+  const zBazy = await Promise.race([
+    getPhase1Secret(admin, "VOICE_LLM_TOKEN"),
+    new Promise<null>((r) => setTimeout(() => r(null), 1500)),
+  ]);
+  return zBazy ? [zBazy] : [];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -69,17 +111,32 @@ serve(async (req) => {
   // poza ścieżką rozmowy. Webhook inicjujący MUSI być ciepły, bo jego opóźnienie
   // idzie prosto w czas odebrania połączenia.
   if (new URL(req.url).pathname.endsWith("/warmup")) {
-    const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
     const provided = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim()
       || new URL(req.url).searchParams.get("token") || "";
-    if (!expected || provided !== expected) return json({ error: "unauthorized" }, 401);
+    const dozwoloneW = await tokenyDozwolone(admin);
+    if (!dozwoloneW.length || !provided || !dozwoloneW.includes(provided)) {
+      return json({ error: "unauthorized" }, 401);
+    }
     await admin.from("voice_agent_configs").select("provider_id").limit(1);
     return json({ ok: true, warm: true });
   }
 
-  const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
+  // OSOBNY TOKEN DLA TEGO WEBHOOKA.
+  //
+  // `VOICE_INIT_TOKEN` jest sprawdzany pierwszy; `VOICE_LLM_TOKEN` zostaje jako
+  // zapas, żeby wdrożenie tej zmiany nie zerwało konfiguracji, zanim nowy sekret
+  // powstanie. Po jego ustawieniu kompromitacja jednego nie otwiera drugiego,
+  // a rotacja Custom LLM nie zrywa webhooka inicjującego.
+  //
+  // NAGŁÓWEK: przyjmujemy OBA warianty — „Bearer <token>" i sam token.
+  // ElevenLabs, gdy wybierze się sekret jako wartość nagłówka, wstawia SAMĄ
+  // WARTOŚĆ bez prefiksu. Wymuszanie „Bearer" zmuszałoby do wpisania tokenu
+  // jawnie w panelu, czyli do trzymania sekretu poza sejfem.
   const provided = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  if (!expected || provided !== expected) return json({ error: "unauthorized" }, 401);
+  const dozwolone = await tokenyDozwolone(admin);
+  if (!dozwolone.length || !provided || !dozwolone.includes(provided)) {
+    return json({ error: "unauthorized" }, 401);
+  }
 
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
   // ElevenLabs podaje te pola w ładunku inicjującym; nazwy bywają różne
@@ -101,7 +158,15 @@ serve(async (req) => {
       event: "snapshot_pusty", powod, ms: Math.round(performance.now() - started),
     }));
     return json({
+      // Kształt WYMAGANY przez ElevenLabs. Bez pola `type` webhook inicjujący
+      // jest odrzucany, a agent startuje bez żadnych zmiennych dynamicznych.
+      type: "conversation_initiation_client_data",
       dynamic_variables: { rido_snapshot: "", rido_caller_znany: callerId ? "tak" : "nie" },
+      // Powód pustego snapshotu widoczny TYLKO przy ręcznym ?debug=1 — bez tego
+      // „pusty" i „pusty z innego powodu" wyglądają identycznie.
+      ...(new URL(req.url).searchParams.get("debug") === "1"
+        ? { _powod: powod, _ms: Math.round(performance.now() - started) }
+        : {}),
     });
   };
 
@@ -279,15 +344,17 @@ serve(async (req) => {
       zasoby: snapshot.zasoby.length, znakow: tekst.length,
       caller_znany: snapshot.klient.caller_id_znany,
     }));
+    // Odpowiedź w kształcie WYMAGANYM przez ElevenLabs — bez dodatkowych pól.
+    // `_ms` (czas budowy) dokładamy WYŁĄCZNIE przy ręcznym wywołaniu z ?debug=1,
+    // żeby nie ryzykować odrzucenia zdarzenia przez ściślejszy parser.
+    const debug = new URL(req.url).searchParams.get("debug") === "1";
     return json({
+      type: "conversation_initiation_client_data",
       dynamic_variables: {
         rido_snapshot: tekst,
         rido_caller_znany: snapshot.klient.caller_id_znany ? "tak" : "nie",
       },
-      // Czas BUDOWY po naszej stronie, bez sieci — jedyny sposób sprawdzenia
-      // budżetu 300 ms, gdy endpoint logów nie odpowiada. ElevenLabs ignoruje
-      // nieznane pola.
-      _ms: Math.round(performance.now() - started),
+      ...(debug ? { _ms: Math.round(performance.now() - started) } : {}),
     });
   } catch (e) {
     // Awaria budowy snapshotu nie może przerwać odbierania połączenia.
