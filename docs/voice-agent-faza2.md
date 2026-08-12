@@ -509,6 +509,43 @@ Kroki 4 i 5 są przed 6 i 7 celowo (zasada 8).
 - `diagnose-call.sh` sekcja 6: zero czerwonych flag na czystej rozmowie
 - tura poniżej 1,2 s, zero narzędzi zapisujących w osi czasu
 
+### ZASADA DWUDZIESTA CZWARTA: model nie liczy dat
+
+Każda data podawana klientowi pochodzi z **gotowego pola `do_wypowiedzenia`**
+wyliczonego przez kod. Model nie wylicza dnia tygodnia, nie dodaje tygodnia, nie
+sprawdza, czy dziewiętnasty to wtorek. **Czyta to, co dostał.**
+
+Dowód — rozmowa 11.08, 13:55:
+
+```
+ 51s KLIENTKA  nie, to poproszę o przyszłą tygodnię, co u was jest wolnego?
+               Wtorek na przykład, godzina szesnasta.
+ 68s AGENT     Szesnasta w wtorek dziewiętnaście sierpnia jest wolna — pasuje?
+ 74s KLIENTKA  Ee, tak, to dziewiętnasty sierpnia, tak?          ← UPEWNIAŁA SIĘ
+ 78s AGENT     Tak, wtorek dziewiętnaście sierpnia o szesnastej.
+116s AGENT     Gotowe — wtorek dziewiętnaście sierpnia, szesnasta.
+
+19.08.2026 to ŚRODA. Wtorek przyszłego tygodnia to 18 sierpnia.
+```
+
+Zapisana rezerwacja: **2026-08-19 16:00**. SMS wysłany do klientki: *„wizyta
+2026-08-19 16:00"*. Klientka prosiła o wtorek, dostała środę, potwierdziła błąd
+na własne wyraźne pytanie i ma go na piśmie.
+
+**To najgorsza klasa błędu w tym projekcie:** klient przyjeżdża w złym dniu, warsztat
+ma pustą godzinę i nikt nie wie dlaczego. Nie widać go w logach, nie łapie go żaden
+test, a rozmowa brzmi bezbłędnie.
+
+Przeoczyliśmy go OBAJ — rozmawialiśmy o odmianie („dziewiętnaście" zamiast
+„dziewiętnastego") i nie zauważyliśmy, że **sama liczba też była zła**. Wyszedł
+przypadkiem, przy pisaniu testu do `voiceSnapshot`: moje oczekiwanie się nie zgadzało,
+a rację miał kalendarz.
+
+**Jak stosować:** w snapshocie każdy dzień ma `{ "data": "2026-08-18",
+"do_wypowiedzenia": "wtorek, osiemnastego sierpnia" }`. Model wybiera pozycję z listy
+i czyta gotowy tekst. Nie ma czego pomylić, bo nie ma czego wyliczać.
+Odmiana po polsku i arytmetyka kalendarza to zadania dla kodu.
+
 ### ZASADA DWUDZIESTA TRZECIA: nigdy nie uzupełniaj identyfikatora z pamięci
 
 Dwa razy w jednej sesji zbudowałem pełny identyfikator ze skróconej formy widzianej

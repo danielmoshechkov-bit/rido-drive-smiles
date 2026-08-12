@@ -276,6 +276,51 @@ Oba są dziś `null` / `false`.
 
 ---
 
+## 🧩 KONTRAKT SNAPSHOTU — kształt, w który wchodzą ustawienia bez przebudowy
+
+Ustawienia agenta dostają **własną gałąź `ustawienia`**, a nie pola rozrzucone po
+korzeniu. Dzięki temu dodanie piątego czy dziesiątego ustawienia nie zmienia kształtu
+kontraktu — dochodzi klucz, nic się nie przesuwa.
+
+```json
+{
+  "wersja": 1,
+  "firma":   { "nazwa": "…", "adres": "…", "telefon": "…" },
+  "ustawienia": {
+    "najpozniejsze_przyjecie": "16:00",
+    "domyslny_czas_wizyty_min": 60,
+    "polityka_wyceny": "kosztorys_przed_naprawa",
+    "polityka_wyceny_tekst": "Kosztorys przedstawiamy przed rozpoczęciem naprawy.",
+    "oplata_za_diagnoze_bez_usterki": "zalezy"
+  },
+  "dni":     [ { "klucz": "jutro", "data": "2026-08-18",
+                 "do_wypowiedzenia": "wtorek, osiemnastego sierpnia",
+                 "otwarte": true, "godziny": "09:00-17:00",
+                 "wolne": ["09:00", "09:30", "10:00"] } ],
+  "uslugi":  [ { "nazwa": "Serwis olejowy", "cena": { "od": 163, "do": 163, "typ": "stala" },
+                 "czas_blokady_min": 60, "czas_znany": true,
+                 "czas_do_powiedzenia": "około godziny", "ostatni_start": "16:00" } ],
+  "zasoby":  [ { "id": "…", "nazwa": "Stanowisko 1", "typ": "stanowisko" } ],
+  "klient":  { "caller_id_znany": true, "imie": "Daniel",
+               "aktywne_rezerwacje": [ { "data": "2026-08-18", "godzina": "14:00" } ] },
+  "branza":  { "rodzaj": "warsztat" }
+}
+```
+
+**Dlaczego `polityka_wyceny` ma dwa pola:** klucz (`kosztorys_przed_naprawa`) jest do
+logiki i nie zmienia się przy poprawce językowej; tekst jest gotowy do wypowiedzenia,
+składany przez kod z wybranej opcji i kwoty. Warsztat wybiera z listy — **nigdy
+nie wpisuje własnego zdania**, bo w wolnym tekście ktoś obieca coś, czego nie dotrzyma,
+a agent powtórzy to setce klientów (zasada 22).
+
+**Wartości domyślne, gdy warsztat niczego nie ustawił** — agent ma działać od pierwszej
+minuty: `najpozniejsze_przyjecie` = godzina zamknięcia, `domyslny_czas_wizyty_min` = 60,
+`polityka_wyceny` = `kosztorys_przed_naprawa`, `oplata_za_diagnoze_bez_usterki` = `zalezy`.
+Żadna z nich nie jest wypowiadana jako pewnik poza polityką wyceny, która ma neutralne
+i zawsze prawdziwe brzmienie.
+
+---
+
 ## ⏱️ CZAS TRWANIA — OPCJONALNY, I DWA RÓŻNE POLA W KONTRAKCIE
 
 **Wpisanie czasu NIE MOŻE być warunkiem działania.** Warsztat zakładający konto ma wpisać

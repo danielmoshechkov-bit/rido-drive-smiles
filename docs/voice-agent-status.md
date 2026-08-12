@@ -161,6 +161,12 @@ agent:     „Tak, wtorek dziewiętnaście sierpnia."
 19.08.2026 to ŚRODA. Wtorek przyszłego tygodnia to 18 sierpnia.
 ```
 
+**Sprawdzone w bazie 12.08:** rezerwacja stoi na `2026-08-19 16:00`, a SMS do klientki
+brzmiał *„Cart78Garage: wizyta 2026-08-19 16:00"*. **Nie poprawiam jej po cichu** —
+klientka ma 19. w SMS-ie ORAZ we własnym potwierdzeniu na głos, więc przyjedzie
+najpewniej w środę. Przesunięcie na 18. zamieniłoby jeden błąd na drugi. Decyzja
+należy do warsztatu: zostawić 19. albo zadzwonić i ustalić.
+
 Agent pomylił **dzień tygodnia z datą**, potwierdził to klientce, gdy dopytała,
 i zapisał rezerwację. Rozmawialiśmy o odmianie („dziewiętnaście" zamiast
 „dziewiętnastego") i przeoczyliśmy, że **liczba też była zła**.
