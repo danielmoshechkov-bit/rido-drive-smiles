@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { resolveWorkshopTrialDays, workshopTrialExpiresAt } from "../_shared/workshopTrial.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -141,7 +142,8 @@ Deno.serve(async (req) => {
       console.log("✅ Marketplace role assigned");
     }
 
-    // 3a-bis. Moduł warsztatowy: rola + wpis usługodawcy (status wstępny) + minimalny trial 14 dni.
+    // 3a-bis. Moduł warsztatowy: rola + wpis usługodawcy (status wstępny) + minimalny trial.
+    // Długość triala z billing_plans.trial_days, nie z liczby w kodzie.
     // UWAGA: celowo TYLKO zapis daty końca trialu (expires_at) — egzekwowanie
     // wygasania/blokad/płatności robimy osobno, później.
     if (module === "warsztat") {
@@ -173,7 +175,8 @@ Deno.serve(async (req) => {
         console.log("✅ Workshop service_provider created (pending)");
       }
 
-      const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      const trialDays = await resolveWorkshopTrialDays(supabaseAdmin);
+      const trialEndsAt = workshopTrialExpiresAt(trialDays);
       const { error: trialError } = await supabaseAdmin
         .from("paid_service_subscriptions")
         .insert({
@@ -182,7 +185,7 @@ Deno.serve(async (req) => {
           started_at: new Date().toISOString(),
           expires_at: trialEndsAt,
           amount_paid: 0,
-          metadata: { module, plan: plan || null, trial: true, source: "self_signup" },
+          metadata: { module, plan: plan || null, trial: true, trial_days: trialDays, source: "self_signup" },
         });
       if (trialError) {
         console.error("⚠️ trial subscription insert error:", trialError.message);
