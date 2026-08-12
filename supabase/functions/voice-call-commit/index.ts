@@ -197,6 +197,25 @@ serve(async (req) => {
     return json({ status: "queued", powod: extracted.parse_failed ? "parse_failed" : braki, conversation_id: conversationId });
   }
 
+  // NORMALIZACJA MARKI PRZY DOPASOWANIU — dane poprawiają się same.
+  //
+  // Pojazd WZ363CN leży w bazie od 30.04 jako „toyota / corola" (małą literą,
+  // z literówką). Dopasowanie po tablicy działa i pobiera tę treść, więc w każdej
+  // kolejnej rozmowie i na każdym zleceniu widnieje „toyota corola".
+  // `matchBrand` zna formę kanoniczną („toyota" → „Toyota", exact), tylko nikt
+  // nie zapisywał jej z powrotem. Jedna aktualizacja przy kontakcie i rekord
+  // naprawia się sam — bez migracji i bez ruszania danych, których nie dotykamy.
+  //
+  // MODELU NIE RUSZAMY: nie mamy listy modeli, więc każda „poprawka" byłaby
+  // zgadywaniem (zasada 18). „corola" zostaje „corola".
+  if (reconciled.vehicleId && brandMatch?.brand && brandMatch.source === "exact"
+      && brandMatch.brand !== reconciled.brand) {
+    await admin.from("workshop_vehicles").update({ brand: brandMatch.brand }).eq("id", reconciled.vehicleId);
+    console.info("[voice-call-commit]", JSON.stringify({
+      event: "marka_znormalizowana", z: reconciled.brand, na: brandMatch.brand,
+    }));
+  }
+
   const { data: rpc, error: rpcErr } = await track("commit", () => admin.rpc("voice_commit_call", {
     p_conversation_id: conversationId, p_provider_id: providerId,
     p_first_name: zapis.first_name, p_last_name: zapis.last_name, p_phone: zapis.phone,
