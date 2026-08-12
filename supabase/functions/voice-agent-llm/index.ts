@@ -182,6 +182,16 @@ serve(async (req) => {
   // trafi do modelu.
   const systemMessage = inMessages.find((m) => m?.role === "system");
   const systemText = typeof systemMessage?.content === "string" ? systemMessage.content : "";
+  // SNAPSHOT Z WEBHOOKA INICJUJĄCEGO. ElevenLabs wstawia go w prompt jako zmienną
+  // dynamiczną między znaczniki; my wycinamy go, zanim cokolwiek trafi do modelu.
+  // Osobne znaczniki w oddzielnych liniach, bo snapshot to ~4,5 kB JSON-a i nie
+  // zmieściłby się bezpiecznie w jednolinijkowym znaczniku RIDO.
+  const snapMarker = systemText.match(/<<RIDO_SNAPSHOT>>([\s\S]*?)<<\/RIDO_SNAPSHOT>>/);
+  const snapshotRaw = snapMarker ? snapMarker[1].trim() : "";
+  // Niepodstawiona zmienna zostaje jako "{{rido_snapshot}}" — to brak wartości,
+  // nie wartość (ta sama zasada co przy znaczniku RIDO).
+  const snapshot = snapshotRaw && !snapshotRaw.includes("{{") ? snapshotRaw : "";
+
   const ridoMarker = systemText.match(/<<RIDO\s+conv=(\S*)\s+caller=(\S*)\s+called=(\S*)>>/);
   const unresolved = (v: string | undefined) => !v || v.startsWith("{{") || v === "-";
   const markerConversationId = ridoMarker && !unresolved(ridoMarker[1]) ? ridoMarker[1] : null;
@@ -237,6 +247,7 @@ serve(async (req) => {
 
   console.info("[voice-agent-llm]", JSON.stringify({
     event: "conversation_id_probe",
+    snapshot_znakow: snapshot.length,
     used_source: conversationIdSource,
     messages: inMessages.length,
     last_user_len: lastUserText.length,
@@ -283,6 +294,7 @@ serve(async (req) => {
         ...(canary.enabled && conversationId ? { conversation_id: conversationId } : {}),
         ...(canary.enabled && clientTools.length ? { client_tools: clientTools } : {}),
         ...(canary.enabled && voiceContext ? { voice_context: voiceContext } : {}),
+        ...(canary.enabled && snapshot ? { snapshot } : {}),
         // Numer dzwoniącego ze znacznika RIDO. Potwierdzone w produkcji:
         // used_source = "system_marker", długość 12 znaków (+48XXXXXXXXX).
         // Gdy go NIE MA (numer zastrzeżony, rozmowa z panelu) — agent musi zapytać,

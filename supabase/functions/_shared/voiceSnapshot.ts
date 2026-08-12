@@ -190,3 +190,58 @@ export const zbudujDni = (
   }
   return out;
 };
+
+// ---------------------------------------------------------------------------
+// CENA SŁOWAMI — model NIE przelicza liczb na słowa.
+//
+// Test 12.08: snapshot podawał „Wymiana klocków 150-250", a agent powiedział
+// „od stu pięćdziesięciu do TRZYSTU złotych". Zmyślona cena, o pięćdziesiąt
+// złotych wyższa, na pytanie klienta wprost.
+//
+// To ta sama klasa co daty (zasada 24): każde przeliczenie po stronie modelu
+// jest okazją do pomyłki, a przy cenie pomyłka jest obietnicą, której warsztat
+// nie dotrzyma. Odmiana i konwersja to zadania dla kodu.
+// ---------------------------------------------------------------------------
+const JEDNOSTKI = ["", "jeden", "dwa", "trzy", "cztery", "pięć", "sześć", "siedem", "osiem", "dziewięć",
+  "dziesięć", "jedenaście", "dwanaście", "trzynaście", "czternaście", "piętnaście",
+  "szesnaście", "siedemnaście", "osiemnaście", "dziewiętnaście"];
+const DZIESIATKI = ["", "", "dwadzieścia", "trzydzieści", "czterdzieści", "pięćdziesiąt",
+  "sześćdziesiąt", "siedemdziesiąt", "osiemdziesiąt", "dziewięćdziesiąt"];
+const SETKI = ["", "sto", "dwieście", "trzysta", "czterysta", "pięćset",
+  "sześćset", "siedemset", "osiemset", "dziewięćset"];
+/** Dopełniacz — „od stu pięćdziesięciu", nie „od sto pięćdziesiąt". */
+const SETKI_DOP = ["", "stu", "dwustu", "trzystu", "czterystu", "pięciuset",
+  "sześciuset", "siedmiuset", "ośmiuset", "dziewięciuset"];
+const DZIESIATKI_DOP = ["", "", "dwudziestu", "trzydziestu", "czterdziestu", "pięćdziesięciu",
+  "sześćdziesięciu", "siedemdziesięciu", "osiemdziesięciu", "dziewięćdziesięciu"];
+const JEDNOSTKI_DOP = ["", "jednego", "dwóch", "trzech", "czterech", "pięciu", "sześciu", "siedmiu",
+  "ośmiu", "dziewięciu", "dziesięciu", "jedenastu", "dwunastu", "trzynastu", "czternastu",
+  "piętnastu", "szesnastu", "siedemnastu", "osiemnastu", "dziewiętnastu"];
+
+const liczbaSlownie = (n: number, dopelniacz: boolean): string => {
+  if (n <= 0 || n > 9999) return String(n);
+  const czesci: string[] = [];
+  const tysiace = Math.floor(n / 1000);
+  let reszta = n % 1000;
+  if (tysiace === 1) czesci.push(dopelniacz ? "tysiąca" : "tysiąc");
+  else if (tysiace > 1) {
+    czesci.push(`${(dopelniacz ? JEDNOSTKI_DOP : JEDNOSTKI)[tysiace]} ${dopelniacz ? "tysięcy" : "tysiące"}`);
+  }
+  const set = Math.floor(reszta / 100);
+  if (set) czesci.push((dopelniacz ? SETKI_DOP : SETKI)[set]);
+  reszta %= 100;
+  if (reszta >= 20) {
+    const dz = Math.floor(reszta / 10);
+    czesci.push((dopelniacz ? DZIESIATKI_DOP : DZIESIATKI)[dz]);
+    if (reszta % 10) czesci.push((dopelniacz ? JEDNOSTKI_DOP : JEDNOSTKI)[reszta % 10]);
+  } else if (reszta > 0) {
+    czesci.push((dopelniacz ? JEDNOSTKI_DOP : JEDNOSTKI)[reszta]);
+  }
+  return czesci.filter(Boolean).join(" ");
+};
+
+/** Gotowe do przeczytania: „sto sześćdziesiąt złotych", „od stu do dwustu pięćdziesięciu złotych". */
+export const cenaDoWypowiedzenia = (od: number, do_: number | null): string => {
+  if (!do_ || do_ === od) return `${liczbaSlownie(od, false)} złotych`;
+  return `od ${liczbaSlownie(od, true)} do ${liczbaSlownie(do_, true)} złotych`;
+};

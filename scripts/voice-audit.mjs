@@ -300,9 +300,65 @@ async function sekcjaD() {
     }
   }
 
-  // D3: funkcje wołane przez fetch muszą istnieć w repozytorium.
-  const wszystkie = ["voice-agent-chat", "voice-agent-llm", "voice-agent-tools",
+  const wszystkie = ["voice-agent-chat", "voice-agent-llm", "voice-agent-tools", "voice-agent-init",
     "voice-call-commit", "voice-call-postprocess", "voice-call-analyze", "voice-call-reconcile"];
+
+  // D4: KOLUMNY W ZAPYTANIACH MUSZĄ ISTNIEĆ W SCHEMACIE.
+  //
+  // Czwarty raz ta sama klasa błędu: maybeSingle, address/city, duration_seconds,
+  // teraz service_providers.phone. Za każdym razem PostgREST zwracał błąd, `data`
+  // było null, a skutek wyglądał jak brak danych — ostatnio jako warsztat zamknięty
+  // przez czternaście dni. Da się to sprawdzić mechanicznie i tu jest to zrobione.
+  const kolumnyBazy = new Map();
+  for (const r of await db(
+    `select table_name, string_agg(column_name, ',') as cols from information_schema.columns
+      where table_schema = 'public' group by table_name`)) {
+    kolumnyBazy.set(r.table_name, new Set(String(r.cols).split(",")));
+  }
+  const zle_kolumny = [];
+  let sprawdzonychSelectow = 0;
+  for (const f of wszystkie) {
+    const kod = czytajFunkcje(f);
+    // .from("tabela")…select("a, b, c") — bierzemy tylko proste listy kolumn,
+    // bez zagnieżdżeń PostgREST (te mają nawiasy) i bez count/head.
+    for (const m of kod.matchAll(/\.from\("([a-z_]+)"\)[\s\S]{0,200}?\.select\(\s*"([^"()*]+)"/g)) {
+      const [, tabela, lista] = m;
+      const znane = kolumnyBazy.get(tabela);
+      if (!znane) continue;
+      sprawdzonychSelectow++;
+      for (const kol of lista.split(",").map((c) => c.trim().split(":")[0].trim()).filter(Boolean)) {
+        if (!znane.has(kol)) zle_kolumny.push(`${f}: ${tabela}.${kol}`);
+      }
+    }
+  }
+  if (zle_kolumny.length) {
+    zle("D4", "zapytania wybierają kolumny, których NIE MA w schemacie",
+      `${[...new Set(zle_kolumny)].join("\n")}\nPostgREST zwróci błąd, a data będzie null — skutek wygląda jak brak danych`);
+  } else {
+    ok("D4", `wszystkie kolumny w zapytaniach istnieją w schemacie`, sprawdzonychSelectow);
+  }
+
+  // D5: ZAŚLEPKI W KODZIE PRODUKCYJNYM.
+  // `filter(() => false)` napisane jako miejsce na późniejszą logikę omal nie
+  // pojechało na produkcję. To ta sama klasa co wants_cancel: pole w kontrakcie,
+  // którego nikt nie wypełnia.
+  const zaslepki = [];
+  const WZORCE_ZASLEPEK = [
+    [/filter\(\(\) => false\)/g, "filter(() => false)"],
+    [/\bTODO\b/g, "TODO"], [/\bFIXME\b/g, "FIXME"],
+    [/\bXXX\b/g, "XXX"], [/return \[\];\s*\/\/\s*(tymczas|placeholder|na razie)/gi, "pusta tablica tymczasowo"],
+  ];
+  for (const f of wszystkie) {
+    const kod = czytajFunkcje(f);
+    for (const [rx, opis] of WZORCE_ZASLEPEK) {
+      const n = (kod.match(rx) || []).length;
+      if (n) zaslepki.push(`${f}: ${opis} ×${n}`);
+    }
+  }
+  if (zaslepki.length) zle("D5", "zaślepki w kodzie produkcyjnym", zaslepki.join("\n"));
+  else ok("D5", "brak zaślepek (filter(() => false), TODO, FIXME, XXX)", wszystkie.length);
+
+  // D3: funkcje wołane przez fetch muszą istnieć w repozytorium.
   const brakujace = new Set();
   for (const f of wszystkie) {
     for (const m of czytajFunkcje(f).matchAll(/functions\/v1\/([a-z0-9-]+)/g)) {

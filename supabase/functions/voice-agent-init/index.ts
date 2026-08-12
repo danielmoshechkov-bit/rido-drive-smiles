@@ -29,7 +29,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
 import {
-  czasDoWypowiedzenia, czasUslugi, hhmm, kluczDnia, minuty, ostatniStart,
+  cenaDoWypowiedzenia, czasDoWypowiedzenia, czasUslugi, hhmm, kluczDnia, minuty, ostatniStart,
   wolneGodziny, zbudujDni, type GodzinyDnia, type Usluga,
 } from "../_shared/voiceSnapshot.ts";
 
@@ -211,7 +211,15 @@ serve(async (req) => {
         const widelki = maCene && typeof do_ === "number" && do_ > 0 && do_ !== od;
         return {
           nazwa: usluga.nazwa,
-          cena: maCene ? { od, do: widelki ? do_ : od, typ: widelki ? "widelki" : "stala" } : null,
+          cena: maCene
+            ? {
+              od, do: widelki ? do_ : od, typ: widelki ? "widelki" : "stala",
+              // GOTOWE DO PRZECZYTANIA. Model przeliczał liczbę na słowa i pomylił
+              // się: przy widełkach 150-250 powiedział „do TRZYSTU złotych".
+              // Konwersja i odmiana to zadania dla kodu (zasada 24).
+              do_powiedzenia: cenaDoWypowiedzenia(od as number, widelki ? (do_ as number) : null),
+            }
+            : null,
           czas_blokady_min: czas.czas_blokady_min,
           czas_znany: czas.czas_znany,
           czas_do_powiedzenia: czas.czas_znany ? czasDoWypowiedzenia(czas.czas_blokady_min) : null,

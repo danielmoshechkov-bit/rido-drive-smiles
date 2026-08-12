@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   czasDoWypowiedzenia, czasUslugi, doWypowiedzenia, hhmm, kluczDnia,
-  minuty, ostatniStart, przyimekZDniem, wolneGodziny, zbudujDni,
+  cenaDoWypowiedzenia, minuty, ostatniStart, przyimekZDniem, wolneGodziny, zbudujDni,
 } from "./voiceSnapshot.ts";
 
 // --- odmiana: dokładnie te błędy padły w rozmowie 11.08 -------------------
@@ -118,4 +118,22 @@ test("klucz dnia tygodnia zgadza się z kalendarzem", () => {
   assert.equal(kluczDnia("2026-08-17"), "mon");
   assert.equal(minuty("16:30"), 990);
   assert.equal(hhmm(990), "16:30");
+});
+
+// --- cena słowami: regresja z testu na żywo 12.08 -------------------------
+
+test("cena stala slownie", () => {
+  assert.equal(cenaDoWypowiedzenia(160, 160), "sto sześćdziesiąt złotych");
+  assert.equal(cenaDoWypowiedzenia(150, null), "sto pięćdziesiąt złotych");
+  assert.equal(cenaDoWypowiedzenia(122, 122), "sto dwadzieścia dwa złotych");
+});
+
+test("widelki w dopelniaczu — agent powiedzial TRZYSTU zamiast dwustu piecdziesieciu", () => {
+  // Dokladnie ten przypadek: snapshot 150-250, model powiedzial "do trzystu".
+  assert.equal(cenaDoWypowiedzenia(150, 250), "od stu pięćdziesięciu do dwustu pięćdziesięciu złotych");
+  assert.equal(cenaDoWypowiedzenia(1500, 2500), "od tysiąca pięciuset do dwóch tysięcy pięciuset złotych");
+});
+
+test("kwoty spoza zakresu nie sa zmyslane", () => {
+  assert.equal(cenaDoWypowiedzenia(0, 0), "0 złotych");
 });
