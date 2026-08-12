@@ -68,7 +68,19 @@ export const buildPhase1AnthropicRequest = (
     body: JSON.stringify({
       model: candidate.model,
       max_tokens: maxOutputTokens,
-      temperature: 0.5,
+      // TEMPERATURA 0 — dekodowanie zachłanne, odpowiedź powtarzalna.
+      //
+      // ElevenLabs wystrzeliwuje tę samą turę wielokrotnie (zmierzone: 22 żądania
+      // na 10 tur, jedna tura z czterema) i SKLEJA odpowiedzi w jedną wiadomość:
+      //   "Do zobaczenia w czwartek o dziesiątej. Dziękuję!Dobrze rozumiem. "
+      // Przy 0.5 każdy duplikat brzmiał inaczej i klient słyszał plątaninę.
+      // Przy 0 dwa identyczne żądania dają (prawie) identyczny tekst, więc nawet
+      // bez cache'u sklejenie daje powtórzone zdanie, nie mieszaninę.
+      //
+      // Kreatywność nie jest tu potrzebna: agent zbiera dane i czyta ze snapshotu.
+      // Ton budujemy promptem, nie losowością. Zysk uboczny: ta sama rozmowa daje
+      // tę samą odpowiedź, więc regresje widać od razu.
+      temperature: 0,
       system: [
         { type: "text", text: system, cache_control: { type: "ephemeral" } },
         ...(systemVolatile ? [{ type: "text", text: systemVolatile }] : []),

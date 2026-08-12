@@ -104,6 +104,8 @@ test("Phase 1 preserves legacy execution and enables streaming only behind the p
 
   assert.match(chat, /if \(!canary\.enabled\) \{/);
   assert.match(chat, /max_tokens: 400/);
+  // Temperatura 0: duplikaty zadan od ElevenLabs maja dawac ten sam tekst.
+  assert.match(chat, /temperature: 0,/);
   assert.match(chat, /for \(let round = 0; round < 5; round\+\+\)/);
   assert.match(chat, /body: JSON\.stringify\(\{ action: name, provider_id: providerId, persona_key: personaKey, is_test: testMode, \.\.\.input \}\)/);
   assert.match(chat, /claude-haiku-4-5-20251001/);

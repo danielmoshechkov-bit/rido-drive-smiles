@@ -555,7 +555,7 @@ serve(async (req) => {
         const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-          body: JSON.stringify({ model, max_tokens: 400, temperature: 0.7, system: system + systemVolatile, messages: legacyConvo, ...(tools.length ? { tools } : {}) }),
+          body: JSON.stringify({ model, max_tokens: 400, temperature: 0, system: system + systemVolatile, messages: legacyConvo, ...(tools.length ? { tools } : {}) }),
         });
         if (!aiResponse.ok) {
           const responseText = await aiResponse.text().catch(() => "");
