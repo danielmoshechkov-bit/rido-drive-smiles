@@ -117,7 +117,15 @@ serve(async (req) => {
     if (!dozwoloneW.length || !provided || !dozwoloneW.includes(provided)) {
       return json({ error: "unauthorized" }, 401);
     }
+    const warmStarted = performance.now();
     await admin.from("voice_agent_configs").select("provider_id").limit(1);
+    // Log jak w pozostałych funkcjach. Bez niego `warmup` nie pojawiał się
+    // w logach i wyglądało to jak brak podtrzymywania — a pg_net dostawał 200.
+    // Cicha gałąź jest nieodróżnialna od gałęzi niewywoływanej.
+    console.info("[voice-agent-init]", JSON.stringify({
+      event: "stage_timing", stage: "warmup",
+      duration_ms: Math.round(performance.now() - warmStarted),
+    }));
     return json({ ok: true, warm: true });
   }
 
