@@ -47,21 +47,69 @@ function rowneStale(a: string, b: string): boolean {
   return roznica === 0;
 }
 
-async function podpisPoprawny(surowe: string, naglowek: string, sekret: string): Promise<boolean> {
-  // Nagłówek ma postać: t=1700000000,v1=abc...,v0=... (v0 ignorujemy)
-  const czesci = Object.fromEntries(
-    naglowek.split(",").map((p) => {
-      const i = p.indexOf("=");
-      return [p.slice(0, i).trim(), p.slice(i + 1).trim()];
-    }),
-  );
-  const t = Number(czesci.t);
-  const v1 = czesci.v1;
-  if (!t || !v1) return false;
+/**
+ * Weryfikacja podpisu operatora.
+ *
+ * Zwraca diagnostykę, nie samo `true/false` — przy odrzuceniu trzeba wiedzieć,
+ * CZY problem jest w sekrecie, czy w ładunku, a jedno i drugie wygląda tak samo
+ * z zewnątrz.
+ *
+ * Dwie rzeczy, na których poprzednia wersja się wykładała:
+ *
+ *  1. Nagłówek może zawierać WIELE podpisów `v1` — Stripe wysyła je równolegle
+ *     podczas rotacji sekretu. `Object.fromEntries` zostawiał ostatni, więc gdy
+ *     pasował pierwszy, weryfikacja padała. Sprawdzamy wszystkie.
+ *  2. Sekret z panelu bywa wklejony z niewidocznym znakiem końca linii.
+ *     `importKey` bierze bajty dosłownie, więc `whsec_abc` i `whsec_abc\n` to
+ *     dwa różne klucze. Przycinamy.
+ *
+ * Ładunek składamy z BAJTÓW, nie z tekstu: `t.` + surowe body, bez dekodowania
+ * i ponownego kodowania. Round-trip przez UTF-8 jest bezstratny dla poprawnego
+ * wejścia, ale nie ma powodu go robić — podpis dotyczy bajtów, które przyszły.
+ */
+interface WynikPodpisu {
+  ok: boolean;
+  powod?: string;
+  diag: Record<string, unknown>;
+}
 
-  if (Math.abs(Date.now() / 1000 - t) > TOLERANCJA_S) {
-    console.error("billing-stripe-webhook: znacznik czasu poza tolerancją");
-    return false;
+async function sprawdzPodpis(
+  bajtyCiala: Uint8Array,
+  naglowek: string,
+  sekretSurowy: string,
+): Promise<WynikPodpisu> {
+  const sekret = sekretSurowy.trim();
+  const diag: Record<string, unknown> = {
+    sekret_prefiks: sekret.slice(0, 8),
+    sekret_dlugosc: sekret.length,
+    sekret_przyciety: sekret.length !== sekretSurowy.length,
+    body_bajtow: bajtyCiala.length,
+    naglowek_obecny: !!naglowek,
+  };
+
+  if (!naglowek) return { ok: false, powod: "brak nagłówka stripe-signature", diag };
+
+  let t = 0;
+  const podpisyV1: string[] = [];
+  for (const czesc of naglowek.split(",")) {
+    const i = czesc.indexOf("=");
+    if (i < 0) continue;
+    const klucz = czesc.slice(0, i).trim();
+    const wartosc = czesc.slice(i + 1).trim();
+    if (klucz === "t") t = Number(wartosc);
+    else if (klucz === "v1") podpisyV1.push(wartosc);
+  }
+  diag.timestamp = t;
+  diag.podpisow_v1 = podpisyV1.length;
+
+  if (!t || podpisyV1.length === 0) {
+    return { ok: false, powod: "nagłówek bez t albo v1", diag };
+  }
+
+  const roznicaS = Math.abs(Date.now() / 1000 - t);
+  diag.roznica_czasu_s = Math.round(roznicaS);
+  if (roznicaS > TOLERANCJA_S) {
+    return { ok: false, powod: `znacznik czasu poza tolerancją (${Math.round(roznicaS)} s)`, diag };
   }
 
   const klucz = await crypto.subtle.importKey(
@@ -71,35 +119,23 @@ async function podpisPoprawny(surowe: string, naglowek: string, sekret: string):
     false,
     ["sign"],
   );
-  const podpis = await crypto.subtle.sign("HMAC", klucz, new TextEncoder().encode(`${t}.${surowe}`));
+
+  // `${t}.` jako bajty + surowe bajty ciała, sklejone bez konwersji tekstowej.
+  const prefiks = new TextEncoder().encode(`${t}.`);
+  const ladunek = new Uint8Array(prefiks.length + bajtyCiala.length);
+  ladunek.set(prefiks, 0);
+  ladunek.set(bajtyCiala, prefiks.length);
+
+  const podpis = await crypto.subtle.sign("HMAC", klucz, ladunek);
   const hex = Array.from(new Uint8Array(podpis))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-  return rowneStale(hex, v1);
-}
 
-/**
- * Aktualizacja subskrypcji po identyfikatorze u operatora.
- *
- * Zwraca liczbę trafionych wierszy. Zero znaczy, że operator zna subskrypcję,
- * której my nie mamy — to NIE jest sukces i nie wolno tego zamknąć jako
- * przetworzone. Taki stan powstaje, gdy ktoś kupił, zanim webhook istniał,
- * albo gdy wiersz skasowano ręcznie; cicho pominięty, wracałby co miesiąc przy
- * każdym `invoice.paid` i nikt by się nie dowiedział, że klient płaci za nic.
- */
-async function aktualizujSubskrypcje(
-  admin: ReturnType<typeof createClient>,
-  providerSubId: string,
-  patch: Record<string, unknown>,
-): Promise<number> {
-  const { data, error } = await admin
-    .from("billing_subscriptions")
-    .update(patch)
-    .eq("provider", "stripe")
-    .eq("provider_subscription_id", providerSubId)
-    .select("id");
-  if (error) throw error;
-  return (data ?? []).length;
+  diag.policzony_prefiks = hex.slice(0, 12);
+  diag.otrzymane_prefiksy = podpisyV1.map((p) => p.slice(0, 12));
+
+  const pasuje = podpisyV1.some((v) => rowneStale(hex, v));
+  return pasuje ? { ok: true, diag } : { ok: false, powod: "żaden podpis v1 nie pasuje", diag };
 }
 
 const naDate = (sekundy: number | null | undefined): string | null =>
@@ -132,17 +168,26 @@ Deno.serve(async (req) => {
     return json({ error: "GATEWAY_NOT_CONFIGURED" }, 503);
   }
 
-  // Ciało czytane RAZ i tylko jako tekst — podpis liczy się z dokładnie tych bajtów.
-  const surowe = await req.text();
+  // Ciało czytane RAZ, jako bajty. Podpis dotyczy dokładnie tych bajtów, więc
+  // nie przepuszczamy ich przez dekodowanie i ponowne kodowanie.
+  const bajtyCiala = new Uint8Array(await req.arrayBuffer());
   const naglowek = req.headers.get("stripe-signature") || "";
-  if (!naglowek || !(await podpisPoprawny(surowe, naglowek, sekret))) {
-    console.error("billing-stripe-webhook: podpis odrzucony");
+
+  const wynik = await sprawdzPodpis(bajtyCiala, naglowek, sekret);
+  if (!wynik.ok) {
+    // Diagnostyka w logu, nie w odpowiedzi: nadawcy bez poprawnego podpisu nie
+    // mówimy, co dokładnie mu nie wyszło. Sekret wyłącznie jako 8 znaków —
+    // tyle wystarczy, żeby porównać z panelem, i za mało, żeby go użyć.
+    console.error("billing-stripe-webhook: podpis odrzucony", JSON.stringify({
+      powod: wynik.powod,
+      ...wynik.diag,
+    }));
     return json({ error: "Nieprawidłowy podpis" }, 400);
   }
 
   let zdarzenie: any;
   try {
-    zdarzenie = JSON.parse(surowe);
+    zdarzenie = JSON.parse(new TextDecoder().decode(bajtyCiala));
   } catch {
     return json({ error: "Nieprawidłowy ładunek" }, 400);
   }
