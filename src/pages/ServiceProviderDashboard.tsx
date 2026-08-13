@@ -272,6 +272,13 @@ export default function ServiceProviderDashboard() {
     localStorage.setItem(draftKey, JSON.stringify(activationForm));
   }, [activationForm, user?.id]);
 
+  // Efekt zalezal od TABLICY `roles` — a ta dostaje nowa referencje przy kazdym
+  // renderze hooka rol, wiec checkAuth() odpalalo sie kilka razy i KAZDE z jego
+  // czterech zapytan (konfiguracja AI, warsztat, kategorie, ustawienia) leciało
+  // podwojnie przy wejsciu w panel. Zalezymy teraz od stabilnego napisu i
+  // dodatkowo blokujemy powtorke dla tego samego uzytkownika.
+  const rolePodpis = roles.join(',');
+  const sprawdzonoRef = useRef(false);
   useEffect(() => {
     if (roleLoading) return;
     const isServiceProvider = roles.some(r => r === 'service_provider');
@@ -280,8 +287,11 @@ export default function ServiceProviderDashboard() {
       navigate('/auth');
       return;
     }
+    if (sprawdzonoRef.current) return;
+    sprawdzonoRef.current = true;
     checkAuth();
-  }, [roleLoading, roles]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleLoading, rolePodpis]);
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();

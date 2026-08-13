@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +56,8 @@ const orderGrossAmount = (o: any) =>
   Array.isArray(o?.items) ? computeOrderTotals(o.items).total_gross : (o?.total_gross || 0);
 
 export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
-  const { t } = useTranslation();
+  const { t } = useTranslation();  const confirmAction = useConfirm();
+
   const queryClient = useQueryClient();
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [search, setSearch] = useState('');
@@ -85,7 +87,11 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   // PERF C2: paginacja archiwum zakończonych — "Załaduj więcej" podbija limit.
   const [completedLimit, setCompletedLimit] = useState(100);
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
-    search: search || undefined,
+    // Wyszukiwarka NIE chodzi do serwera: kazda litera tworzyla nowy klucz zapytania,
+    // a wiec nowy request z pelnymi joinami (klient + pojazd + wszystkie pozycje).
+    // Stad spinner przy kazdym znaku i zawieszanie. Lista aktywnych i tak jest
+    // w pamieci — filtrujemy ja lokalnie (patrz filteredOrders), natychmiast
+    // i po WSZYSTKICH polach, ktorych ludzie szukaja (marka, tablica, klient).
     // PERF C2: filtr widoku + zakres dat serwerowo — wejście na "Aktywne" nie
     // ściąga już całego archiwum zakończonych zleceń.
     view: orderView,
@@ -191,8 +197,29 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
       });
     }
+    // Szukanie: numer zlecenia, opis, status, dane klienta i pojazdu.
+    // Tablice porownujemy bez spacji i myslnikow ("WA 123 AB" znajdzie "WA123AB").
+    const phrase = search.trim().toLowerCase();
+    if (phrase) {
+      const plain = (v: unknown) => String(v ?? '').toLowerCase();
+      const compact = (v: unknown) => plain(v).replace(/[\s-]/g, '');
+      const needle = compact(phrase);
+      filtered = filtered.filter((o: any) => {
+        const haystack = [
+          o.order_number, o.description, o.status_name, o.client_code,
+          o.client?.first_name, o.client?.last_name, o.client?.company_name,
+          o.client?.phone, o.client?.email, o.client?.nip,
+          o.vehicle?.brand, o.vehicle?.model, o.vehicle?.vin, o.vehicle?.year,
+        ].map(plain).join(' ');
+        if (haystack.includes(phrase)) return true;
+        // marka + model razem: "bmw x5" znajdzie pojazd BMW / X5
+        const brandModel = `${plain(o.vehicle?.brand)} ${plain(o.vehicle?.model)}`;
+        if (brandModel.includes(phrase)) return true;
+        return compact(o.vehicle?.plate).includes(needle);
+      });
+    }
     return filtered;
-  }, [orders, orderView, statusFilter, dateFrom, dateTo]);
+  }, [orders, orderView, statusFilter, dateFrom, dateTo, search]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -468,7 +495,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         {selectedIds.size > 0 && (
           <Button variant="destructive" size="sm" className="gap-1" onClick={async () => {
             const count = selectedIds.size;
-            if (!confirm(t('workshop.orders.confirmDelete', { count }))) return;
+            if (!(await confirmAction({ title: t('workshop.orders.confirmDelete', { count }) }))) return;
             const ids = Array.from(selectedIds);
             // Optimistic: remove from cache + clear selection immediately
             queryClient.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
@@ -564,6 +591,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         <div className="relative w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            onFocus={e => e.currentTarget.select()}
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={t('common.search')}
@@ -1084,10 +1112,16 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
   };
 
   const extractDigits = (value?: string | number) => {
-    if (value === null || value === undefined) return '';
-    const text = String(value);
-    const match = text.match(/\d+/g);
-    return match ? match.join('') : '';
+    // UWAGA: proste usuniecie wszystkich nie-cyfr psulo wynik, bo jednostka tez
+    // ma cyfre: "1197 cm3" dawalo 11973. Bierzemy PIERWSZA liczbe, wczesniej
+    // sklejajac spacje w srodku liczby ("1 968 cm3" -> 1968).
+    const tekst = String(value ?? '').replace(/(\d)[\s\u00A0](?=\d)/g, '$1');
+    const m = tekst.match(/\d+(?:[.,]\d+)?/);
+    if (!m) return null;
+    const liczba = parseFloat(m[0].replace(',', '.'));
+    if (!Number.isFinite(liczba)) return null;
+    // Pojemnosc podana w litrach ("1.6") zamieniamy na cm3.
+    return Math.round(liczba < 100 && m[0].match(/[.,]/) ? liczba * 1000 : liczba);
   };
 
   const applyLookup = (data: any) => {
@@ -1166,7 +1200,7 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
           <div>
             <Label className="text-xs">{t('workshop.orders.plateNumber')}</Label>
             <div className="flex gap-1">
-              <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="WW12345" />
+              <Input onFocus={e => e.currentTarget.select()} value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder="WW12345" />
               <Button variant="outline" size="icon" onClick={handlePlateSearch} disabled={lookupLoading || !form.plate.trim()} title={t('workshop.orders.searchByPlate')}>
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
@@ -1174,12 +1208,12 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
           </div>
           <div>
             <Label className="text-xs">{t('workshop.orders.yearOfProduction')}</Label>
-            <Input value={form.year} onChange={e => set('year', e.target.value)} placeholder="2020" />
+            <Input onFocus={e => e.currentTarget.select()} value={form.year} onChange={e => set('year', e.target.value)} placeholder="2020" />
           </div>
           <div className="col-span-2">
             <Label className="text-xs">{t('workshop.orders.vin')}</Label>
             <div className="flex gap-1">
-              <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="WVWZZZ3CZWE123456" />
+              <Input onFocus={e => e.currentTarget.select()} value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder="WVWZZZ3CZWE123456" />
               <Button variant="outline" size="icon" onClick={handleVinSearch} disabled={lookupLoading || !form.vin.trim()} title={t('workshop.orders.searchByVin')}>
                 {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
@@ -1187,19 +1221,19 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
           </div>
           <div>
             <Label className="text-xs">{t('workshop.orders.brand')}</Label>
-            <Input value={form.brand} onChange={e => set('brand', e.target.value)} placeholder="BMW" />
+            <Input onFocus={e => e.currentTarget.select()} value={form.brand} onChange={e => set('brand', e.target.value)} placeholder="BMW" />
           </div>
           <div>
             <Label className="text-xs">{t('workshop.orders.model')}</Label>
-            <Input value={form.model} onChange={e => set('model', e.target.value)} placeholder="X5" />
+            <Input onFocus={e => e.currentTarget.select()} value={form.model} onChange={e => set('model', e.target.value)} placeholder="X5" />
           </div>
           <div>
             <Label className="text-xs">{t('workshop.orders.engineCapacityCc')}</Label>
-            <Input value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="1998" />
+            <Input onFocus={e => e.currentTarget.select()} value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="1998" />
           </div>
           <div>
             <Label className="text-xs">{t('workshop.orders.enginePowerKw')}</Label>
-            <Input value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="150" />
+            <Input onFocus={e => e.currentTarget.select()} value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="150" />
           </div>
           <div>
             <Label className="text-xs">{t('workshop.orders.fuelType')}</Label>
@@ -1212,7 +1246,7 @@ function VehicleEditDialog({ vehicle, onClose }: { vehicle: any; onClose: () => 
           </div>
           <div>
             <Label className="text-xs">{t('workshop.orders.color')}</Label>
-            <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder={t('workshop.orders.colorPlaceholder')} />
+            <Input onFocus={e => e.currentTarget.select()} value={form.color} onChange={e => set('color', e.target.value)} placeholder={t('workshop.orders.colorPlaceholder')} />
           </div>
         </div>
 
