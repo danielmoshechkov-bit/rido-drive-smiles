@@ -331,3 +331,9 @@ verify_jwt = false
 
 [functions.driver-bank-change-confirm]
 verify_jwt = false
+
+[functions.support-notify]
+verify_jwt = false
+
+[functions.support-ai-reply]
+verify_jwt = false
