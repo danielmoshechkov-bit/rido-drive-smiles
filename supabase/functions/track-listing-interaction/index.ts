@@ -17,7 +17,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { listingId, interactionType } = await req.json();
+    // `listingKind` domyślnie 'real_estate' — tak wołają dotychczasowi klienci
+    // (PropertyListingCard, PropertyDetailPage). Marketplace przekazuje 'general'.
+    const { listingId, interactionType, listingKind } = await req.json();
+    const isGeneral = listingKind === "general";
 
     if (!listingId || !interactionType) {
       return new Response(
@@ -55,7 +58,7 @@ serve(async (req) => {
     let agentId: string | null = null;
     let agencyId: string | null = null;
     
-    if (interactionType === "contact_reveal") {
+    if (interactionType === "contact_reveal" && !isGeneral) {
       const { data: listing } = await supabase
         .from("real_estate_listings")
         .select("agent_id")
@@ -76,18 +79,22 @@ serve(async (req) => {
       }
     }
 
-    // Record the interaction in real_estate_listing_interactions table
-    const { error: insertError } = await supabase
-      .from("real_estate_listing_interactions")
-      .insert({
-        listing_id: listingId,
-        user_id: userId,
-        interaction_type: interactionType,
-        ip_address: userId ? null : ipAddress, // Only store IP for anonymous users
-        device_info: req.headers.get("user-agent") || null,
-        agent_id: agentId,
-        agency_id: agencyId,
-      });
+    // Dziennik interakcji istnieje wyłącznie dla nieruchomości — `listing_id`
+    // wskazuje na real_estate_listings, więc wpis dla ogłoszenia marketplace
+    // odbiłby się od klucza obcego przy każdym wyświetleniu.
+    const { error: insertError } = isGeneral
+      ? { error: null }
+      : await supabase
+          .from("real_estate_listing_interactions")
+          .insert({
+            listing_id: listingId,
+            user_id: userId,
+            interaction_type: interactionType,
+            ip_address: userId ? null : ipAddress, // Only store IP for anonymous users
+            device_info: req.headers.get("user-agent") || null,
+            agent_id: agentId,
+            agency_id: agencyId,
+          });
 
     if (insertError) {
       console.error("Error inserting interaction:", insertError);
@@ -111,29 +118,25 @@ serve(async (req) => {
         break;
     }
 
+    // Ogłoszenia marketplace mają wyłącznie licznik wyświetleń; pozostałych
+    // typów interakcji nie ma tam gdzie zapisać i świadomie ich nie liczymy,
+    // zamiast udawać, że wpadły gdziekolwiek.
+    if (isGeneral) {
+      updateColumn = interactionType === "view" ? "views_count" : "";
+    }
+
     if (updateColumn) {
-      // Use raw SQL to increment counter
       const { error: updateError } = await supabase.rpc("increment_listing_counter", {
-        listing_id_param: listingId,
-        column_name: updateColumn,
+        p_table: isGeneral ? "general_listings" : "real_estate_listings",
+        p_listing_id: listingId,
+        p_column: updateColumn,
       });
 
+      // Bez cichego fallbacku. Odczyt-i-zapis, który tu stał, gubił zliczenia
+      // przy równoczesnych wejściach i logował błąd przy KAŻDYM wywołaniu,
+      // bo wołany RPC nie istniał w bazie.
       if (updateError) {
-        console.error("Error updating counter:", updateError);
-        // Try direct update as fallback
-        const { data: currentListing } = await supabase
-          .from("real_estate_listings")
-          .select(updateColumn)
-          .eq("id", listingId)
-          .single();
-
-        if (currentListing) {
-          const currentCount = (currentListing as any)[updateColumn] || 0;
-          await supabase
-            .from("real_estate_listings")
-            .update({ [updateColumn]: currentCount + 1 })
-            .eq("id", listingId);
-        }
+        console.error("track-listing-interaction: nie podniesiono licznika", updateColumn, updateError);
       }
     }
 

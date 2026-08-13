@@ -343,6 +343,69 @@ Pełny etap 4 ze wszystkim: 26–33 sesje.
 
 ---
 
+## Zmiana planu w trakcie okresu (do 4.5) — decyzje z 13.08
+
+**Proration liczy Stripe, nie my.** Własna logika oznaczałaby liczenie
+niewykorzystanych dni, kredytów i przypadków brzegowych, które Stripe ma
+przetestowane, a i tak trzeba by wystawić dokument na różnicę.
+
+- **Upgrade** (Standard → Pro): `proration_behavior: 'always_invoice'`. Stripe
+  liczy zwrot za niewykorzystaną część starego planu, dolicza nowy pro rata,
+  wystawia fakturę na różnicę i pobiera ją **od razu**. Webhook widzi
+  `invoice.paid` i podnosi `plan_id`. Klient dostaje wyższy plan natychmiast,
+  bo zapłacił.
+- **Downgrade** (Pro → Standard): `proration_behavior: 'none'` + zmiana
+  **zaplanowana na koniec okresu**. Klient dopłacił za Pro do końca miesiąca,
+  więc niech go ma. Oszczędza nam zwrotów, korekt i sald kredytowych u Stripe'a,
+  których nie ma jak odwzorować w polskiej fakturze.
+
+**Konsekwencja dla 4.17:** faktura z upgrade'u ma **dwie pozycje** — ujemną
+(zwrot za stary plan) i dodatnią (nowy plan pro rata). To zwykła faktura
+z pozycją ujemną, nie korekta. Generator musi odwzorować pozycje Stripe'a jeden
+do jednego, VAT liczony od sumy.
+
+**Gwarancja ceny PRZECHODZI na nowy plan, nie startuje od nowa.** Trzy powody:
+obietnica brzmi „12 miesięcy **od aktywacji**", więc jest przypisana do wejścia
+klienta na platformę, nie do planu; restart tworzyłby patologię (upgrade w 364.
+dniu kupuje kolejne 12 miesięcy cen promocyjnych, downgrade zamyka pętlę);
+skrócenie byłoby karą za upgrade. Schemat to ułatwia — jedna aktywna subskrypcja
+na linię produktową, więc upgrade to `UPDATE plan_id` na istniejącym wierszu
+i `price_guarantee_until` przetrwa samo, o ile nikt go nie nadpisze.
+
+**`price_snapshot` aktualizowany** na cenę **startową** nowego planu (Pro = 169,
+nie docelową 249 — klient jest w oknie gwarancji), wraz z datą zmiany i kodem
+poprzedniego planu. Pełne przed/po ląduje w `billing_audit_log` w tej samej
+transakcji. Kolumna jest `jsonb`, więc bez migracji.
+
+---
+
+## 4.20 — Wygaśnięcie gwarancji ceny
+
+Dziura w łańcuchu obietnicy, znaleziona 13.08: mamy `price_net_target` w planie
+i `price_guarantee_until` w subskrypcji, ale **nic nie przenosi klienta z ceny
+startowej na docelową** po 12 miesiącach ani nie powiadamia go 30 dni wcześniej,
+jak obiecuje cennik.
+
+Konsekwencja dla **4.5**: każdy plan potrzebuje **dwóch obiektów Price w Stripe**
+— startowego i docelowego — tworzonych od razu przy synchronizacji, z zapisem obu
+identyfikatorów. Wygaśnięcie gwarancji to podmiana pozycji subskrypcji z jednej
+ceny na drugą. Jeśli synchronizacja utworzy tylko cenę startową, za rok trzeba
+będzie zakładać ceny ręcznie dla każdego klienta osobno.
+
+Zakres 4.20: zadanie cykliczne — mail 30 dni przed datą z `price_guarantee_until`,
+po dacie podmiana pozycji w Stripe i aktualizacja `price_snapshot`. **~1,5 sesji**,
+plus 1 sesja doliczona do 4.5 na drugą cenę. Nie blokuje pierwszej płatności;
+pierwszy termin zapada 12 miesięcy po pierwszym kliencie.
+
+**Do przemyślenia przed implementacją** (pytanie Daniela z 13.08): klient
+w gwarancji robi upgrade, a po jej wygaśnięciu ma przejść na cenę docelową planu,
+na którym **wtedy** jest. Czy `price_guarantee_until` wystarczy, czy trzeba
+trzymać także, **z którego `price_id` przechodzimy** — bo po zmianie planu
+w międzyczasie pozycja subskrypcji wskazuje już inną cenę startową, niż ta,
+od której gwarancja się zaczynała. Rozstrzygnąć przed pisaniem zadania cyklicznego.
+
+---
+
 ## 4.18 — Przywrócenie Agent Pro do sprzedaży
 
 **13.08.2026 sprzedaż `agent_pro` i `agent_sieci` wstrzymana** (`is_active = false`).

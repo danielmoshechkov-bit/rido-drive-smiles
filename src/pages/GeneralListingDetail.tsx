@@ -98,8 +98,10 @@ export default function GeneralListingDetail() {
         }
       }
 
+      // `listingKind` jest obowiązkowe dla marketplace'u — bez niego funkcja
+      // szuka ogłoszenia w real_estate_listings i wyświetlenia przepadają.
       supabase.functions.invoke("track-listing-interaction", {
-        body: { listingId: id, interactionType: "view" }
+        body: { listingId: id, interactionType: "view", listingKind: "general" }
       }).catch(() => {});
 
       if (listRes.data.user_id) {

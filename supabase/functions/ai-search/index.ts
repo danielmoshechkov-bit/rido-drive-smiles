@@ -10,6 +10,13 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+// Bezpieczniki dla gościa — chronią przed skryptem, nie przed człowiekiem.
+// Limit dzienny jest konfigurowalny w `ai_settings.guest_daily_limit`; poniższa
+// wartość to wyłącznie zapasowa, gdy ustawień nie ma.
+const GUEST_DAILY_LIMIT_FALLBACK = 50;
+const GUEST_WINDOW_SECONDS = 60;
+const GUEST_WINDOW_LIMIT = 5;
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // KROK 1: Rozumienie intencji
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -273,27 +280,11 @@ async function updateUsageTracking(supabase: any, userId: string | null, ipAddre
         monthly_free_used: 1
       });
     }
-  } else {
-    const today = new Date().toISOString().split('T')[0];
-    await supabase.from('ai_guest_usage').upsert({
-      ip_address: ipAddress || 'unknown',
-      device_fingerprint: deviceFingerprint || null,
-      usage_date: today,
-      query_count: 1
-    }, {
-      onConflict: 'ip_address,device_fingerprint,usage_date'
-    });
-
-    try {
-      await supabase.rpc('increment_guest_usage', {
-        p_ip: ipAddress || 'unknown',
-        p_fingerprint: deviceFingerprint || null,
-        p_date: today
-      });
-    } catch {
-      // RPC might not exist
-    }
   }
+  // Gość jest odnotowywany PRZY SPRAWDZANIU limitu (RPC guest_usage_touch),
+  // nie tutaj. Wcześniej stał w tym miejscu upsert z `query_count: 1`, który
+  // przy konflikcie NADPISYWAŁ licznik jedynką zamiast go podnieść — dlatego
+  // limit dzienny nigdy nie zadziałał.
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -365,16 +356,41 @@ serve(async (req) => {
         );
       }
     } else {
+      // Wyszukiwarka jest otwarta bez logowania — to funkcja akwizycyjna.
+      // Oba liczniki są bezpiecznikami przed skryptem, nie polityką produktu:
+      // dzienny (domyślnie 50) i minutowy (5). Jedno wywołanie podnosi licznik
+      // i zwraca oba stany, więc nie ma wyścigu między odczytem a zapisem.
       const today = new Date().toISOString().split('T')[0];
-      const { data: guestUsage } = await supabase
-        .from('ai_guest_usage')
-        .select('query_count')
-        .eq('ip_address', ipAddress || 'unknown')
-        .eq('usage_date', today)
-        .maybeSingle();
+      const { data: usageRows, error: usageErr } = await supabase.rpc('guest_usage_touch', {
+        p_ip: ipAddress || 'unknown',
+        p_fingerprint: deviceFingerprint || '',
+        p_date: today,
+        p_window_seconds: GUEST_WINDOW_SECONDS
+      });
 
-      const guestLimit = settings?.guest_daily_limit || 3;
-      if (guestUsage && guestUsage.query_count >= guestLimit) {
+      if (usageErr) {
+        // Fail-closed: jeśli nie umiemy policzyć, nie wpuszczamy. Inaczej awaria
+        // licznika zamienia się w otwarty endpoint AI na nasz koszt.
+        console.error('ai-search: nie policzono zapytania gościa', usageErr);
+        return new Response(
+          JSON.stringify({ error: 'Chwilowo nie możemy obsłużyć zapytania. Spróbuj za moment.' }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const usage = Array.isArray(usageRows) ? usageRows[0] : usageRows;
+      const dailyCount = Number(usage?.daily_count ?? 0);
+      const windowCount = Number(usage?.window_count ?? 0);
+
+      if (windowCount > GUEST_WINDOW_LIMIT) {
+        return new Response(
+          JSON.stringify({ error: 'Za dużo zapytań w krótkim czasie. Odczekaj chwilę.', rateLimited: true }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const guestLimit = settings?.guest_daily_limit || GUEST_DAILY_LIMIT_FALLBACK;
+      if (dailyCount > guestLimit) {
         return new Response(
           JSON.stringify({
             error: 'Wykorzystałeś dzienny limit zapytań AI. Zaloguj się, aby kontynuować.',
