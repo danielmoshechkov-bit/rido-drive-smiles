@@ -702,32 +702,12 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         onDragLeave={() => setDragOverUnplanned(false)}
         onDrop={handleDropToUnplanned}
       >
-<<<<<<< HEAD
-        <CardContent className="py-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-base">{t('workshop.scheduler.tasksToSchedule')}</h3>
-              <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1.5 ml-2 h-7 text-xs">
-                <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
-              </Button>
-              {dragSource === 'scheduled' && (
-                <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse">
-                  <Undo2 className="h-3 w-3" /> {t('workshop.scheduler.dropToUnschedule')}
-                </span>
-              )}
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input onFocus={e => e.currentTarget.select()} value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-[200px] h-8" />
-            </div>
-=======
         <CardContent className="py-3 px-3 flex flex-col min-h-0 flex-1">
           <div className="flex items-center justify-between gap-2 mb-2">
             <h3 className="font-semibold text-sm">{t('workshop.scheduler.tasksToSchedule')}</h3>
             <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1 h-7 text-xs">
               <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
             </Button>
->>>>>>> origin/main
           </div>
           {dragSource === 'scheduled' && (
             <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse mb-2">
@@ -736,7 +716,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           )}
           <div className="relative mb-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-full h-8" />
+            <Input onFocus={e => e.currentTarget.select()} value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-full h-8" />
           </div>
           <div className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
             {unplannedOrders.length === 0 ? (
@@ -1687,12 +1667,6 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
           </div>
 
           {/* Editable date/time/category/station info */}
-<<<<<<< HEAD
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
-            <div>
-              <Label className="font-medium text-xs">{t('workshop.scheduler.date')}</Label>
-              <Input onFocus={e => e.currentTarget.select()} type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-9 text-sm w-full" />
-=======
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm rounded-xl border bg-muted/20 p-3">
             <div className="min-w-0">
               <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.date')}</Label>
@@ -1713,7 +1687,6 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   />
                 </PopoverContent>
               </Popover>
->>>>>>> origin/main
             </div>
             <div className="min-w-0">
               <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.time')}</Label>

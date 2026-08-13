@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { WorkshopPager, pageSlice } from './WorkshopPager';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -174,7 +175,8 @@ function printStorageReceipt(
 }
 
 export function WorkshopTireStorage({ providerId, onBack }: Props) {
-  const { t } = useTranslation();
+  const { t } = useTranslation();  const confirmAction = useConfirm();
+
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   /**
@@ -190,7 +192,12 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
 
   const issueSet = async (record: any) => {
     const label = [record.tire_brand, record.tire_size].filter(Boolean).join(' ') || 'komplet';
-    if (!confirm(`Wydać ${label} klientowi? Wpis trafi do historii wydanych.`)) return;
+    if (!(await confirmAction({
+      title: `Wydać ${label} klientowi?`,
+      description: 'Wpis trafi do historii wydanych.',
+      confirmLabel: 'Wydaj',
+      destructive: false,
+    }))) return;
     const { error } = await (supabase as any)
       .from('workshop_tire_storage')
       .update({ is_active: false, pickup_at: new Date().toISOString() })
@@ -677,16 +684,9 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
 
           {/* Reminder */}
           <div className="space-y-2">
-<<<<<<< HEAD
-            <Label>{t('workshop.tireStorage.smsReminderIn')}</Label>
-            <div className="flex items-center gap-2">
-              <Input onFocus={e => e.currentTarget.select()} type="number" min="1" max="12" value={reminderMonths} onChange={e => setReminderMonths(e.target.value)} className="w-20 h-9" />
-              onFocus={e => e.currentTarget.select()}
-=======
             <Label>Przypomnienie o odbiorze za</Label>
             <div className="flex items-center gap-2 flex-wrap">
-              <Input type="number" min="1" max="12" value={reminderMonths} onChange={e => setReminderMonths(e.target.value)} className="w-20 h-9" />
->>>>>>> origin/main
+              <Input onFocus={e => e.currentTarget.select()} type="number" min="1" max="12" value={reminderMonths} onChange={e => setReminderMonths(e.target.value)} className="w-20 h-9" />
               <span className="text-sm text-muted-foreground">{t('workshop.tireStorage.months')}</span>
               <Select value={reminderChannel} onValueChange={(v) => setReminderChannel(v as any)}>
                 <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>

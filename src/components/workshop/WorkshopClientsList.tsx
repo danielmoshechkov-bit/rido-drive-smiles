@@ -134,11 +134,7 @@ export function WorkshopClientsList({ providerId, onBack, onOpenVehicle }: Props
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-<<<<<<< HEAD
-          <Input onFocus={e => e.currentTarget.select()} value={search} onChange={e => setSearch(e.target.value)} placeholder={t('common.search')} className="pl-9 w-[250px]" />
-=======
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj: nazwisko, telefon, nr rej, VIN…" className="pl-9 w-[280px]" />
->>>>>>> origin/main
+          <Input onFocus={e => e.currentTarget.select()} value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj: nazwisko, telefon, nr rej, VIN…" className="pl-9 w-[280px]" />
         </div>
       </div>
 

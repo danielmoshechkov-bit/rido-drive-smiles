@@ -120,15 +120,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
   }, [search]);
 
   const { data: orders = [], isLoading } = useWorkshopOrders(providerId, {
-<<<<<<< HEAD
-    // Wyszukiwarka NIE chodzi do serwera: kazda litera tworzyla nowy klucz zapytania,
-    // a wiec nowy request z pelnymi joinami (klient + pojazd + wszystkie pozycje).
-    // Stad spinner przy kazdym znaku i zawieszanie. Lista aktywnych i tak jest
-    // w pamieci — filtrujemy ja lokalnie (patrz filteredOrders), natychmiast
-    // i po WSZYSTKICH polach, ktorych ludzie szukaja (marka, tablica, klient).
-=======
     search: searchDebounced || undefined,
->>>>>>> origin/main
     // PERF C2: filtr widoku + zakres dat serwerowo — wejście na "Aktywne" nie
     // ściąga już całego archiwum zakończonych zleceń.
     view: orderView,
@@ -234,31 +226,6 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         return (!dateFrom || d >= dateFrom) && (!dateTo || d <= dateTo);
       });
     }
-<<<<<<< HEAD
-    // Szukanie: numer zlecenia, opis, status, dane klienta i pojazdu.
-    // Tablice porownujemy bez spacji i myslnikow ("WA 123 AB" znajdzie "WA123AB").
-    const phrase = search.trim().toLowerCase();
-    if (phrase) {
-      const plain = (v: unknown) => String(v ?? '').toLowerCase();
-      const compact = (v: unknown) => plain(v).replace(/[\s-]/g, '');
-      const needle = compact(phrase);
-      filtered = filtered.filter((o: any) => {
-        const haystack = [
-          o.order_number, o.description, o.status_name, o.client_code,
-          o.client?.first_name, o.client?.last_name, o.client?.company_name,
-          o.client?.phone, o.client?.email, o.client?.nip,
-          o.vehicle?.brand, o.vehicle?.model, o.vehicle?.vin, o.vehicle?.year,
-        ].map(plain).join(' ');
-        if (haystack.includes(phrase)) return true;
-        // marka + model razem: "bmw x5" znajdzie pojazd BMW / X5
-        const brandModel = `${plain(o.vehicle?.brand)} ${plain(o.vehicle?.model)}`;
-        if (brandModel.includes(phrase)) return true;
-        return compact(o.vehicle?.plate).includes(needle);
-      });
-    }
-    return filtered;
-  }, [orders, orderView, statusFilter, dateFrom, dateTo, search]);
-=======
     if (documentFilter !== 'all') {
       filtered = filtered.filter((o: any) => {
         const badges = documentBadges?.get(o.id);
@@ -269,7 +236,6 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
     }
     return filtered;
   }, [orders, orderView, statusFilter, dateFrom, dateTo, documentFilter, documentBadges]);
->>>>>>> origin/main
 
   useEffect(() => {
     setSelectedIds(new Set());

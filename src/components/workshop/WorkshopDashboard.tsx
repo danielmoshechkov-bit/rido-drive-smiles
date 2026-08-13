@@ -229,44 +229,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         {/* Pricing */}
         <div>
           <h2 className="text-2xl font-bold text-center text-foreground mb-6">{t('workshop.dashboard.pricing.title')}</h2>
-<<<<<<< HEAD
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Plany z bazy (billing_plans) — to samo zrodlo, co strona sprzedazowa. */}
-            {warsztatPlans.map((plan: any) => {
-              const cena = planPriceLabels(plan);
-              const wyrozniony = plan.code === 'warsztat_standard';
-              return (
-              <div key={plan.code} className={`rounded-xl border bg-card p-5 flex flex-col ${wyrozniony ? 'ring-2 ring-primary' : ''}`}>
-                {wyrozniony && (
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit mb-3 bg-primary text-primary-foreground">
-                    {t('workshop.dashboard.pricing.plans.warsztat.badge', 'Najczęściej wybierany')}
-                  </span>
-                )}
-                <h3 className="font-bold text-lg text-foreground">{plan.name}</h3>
-                <div className="mt-1 mb-4">
-                  <span className="text-2xl font-bold text-foreground">{cena.price}</span>
-                  <span className="text-sm text-muted-foreground ml-1">{cena.period}</span>
-                </div>
-                <ul className="space-y-1.5 text-sm flex-1">
-                  {plan.features.map((f, j) => (
-                    <li key={j} className="flex items-start gap-1.5">
-                      <span className="text-green-500 mt-0.5">✓</span>
-                      <span className="text-muted-foreground">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button
-                  className="mt-4 w-full"
-                  variant={wyrozniony ? 'default' : 'outline'}
-                  onClick={() => window.location.href = plan.is_custom ? '/kontakt' : '/auth'}
-                >
-                  {planCtaLabel(plan)}
-                </Button>
-              </div>
-              );
-            })}
-          </div>
-=======
           {pricingLoading && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[0, 1, 2, 3].map((i) => (
@@ -334,7 +296,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
               })}
             </div>
           )}
->>>>>>> origin/main
         </div>
 
         {error && <p className="text-xs text-destructive text-center">{t('workshop.dashboard.error', { message: (error as Error).message })}</p>}

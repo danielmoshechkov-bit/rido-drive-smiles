@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-import { useMemo, useState } from 'react';
-import { useConfirm } from '@/components/ui/confirm-dialog';
-=======
 import { useEffect, useMemo, useRef, useState } from 'react';
->>>>>>> origin/main
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, Pencil, Ban, Trash2 } from 'lucide-react';
