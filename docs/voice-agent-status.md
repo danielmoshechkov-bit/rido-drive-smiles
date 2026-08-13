@@ -363,6 +363,42 @@ Snapshot: **92–229 ms**, 5016 znaków — wrócił poniżej pierwotnego budże
 
 Nie podnosiliśmy planu. Problem to były nieposprzątane logi, nie obciążenie.
 
+### 🔊 AUDIO NIEPEŁNE PRZY POPRAWNYM TEKŚCIE — pięć hipotez, stan sprawdzenia
+
+Objaw: transkrypt pokazuje pełne zdanie, klient słyszy zjedzone słowa. Występuje
+od początku, losowo, niezależnie od zmian w prompcie i kodzie.
+
+| hipoteza | stan | ustalone |
+|---|---|---|
+| **`optimize_streaming_latency: 3`** | 🔴 **główny podejrzany** | ElevenLabs zaczyna wysyłać audio przed dokończeniem syntezy; poziom 3 to agresywna optymalizacja kosztem jakości |
+| kodek SIP | ⚠️ niemierzalne u nas | ElevenLabs wysyła **`pcm_16000`**, czyli surowy PCM bez kompresji — strata, jeśli jest, powstaje przy przekodowaniu po stronie SuperVoIP |
+| utrata pakietów / jitter | ⚠️ niemierzalne u nas | ElevenLabs **nie udostępnia** metryk jakości połączenia; `warnings: []`, `error: null` |
+| głos / model TTS | ✅ sprawdzone | `eleven_flash_v2_5`, `stability 0.5`, `speed 1.0`, `similarity 0.8` — wartości typowe |
+| przekodowanie | ⚠️ niemierzalne u nas | wejście i wyjście to `pcm_16000`; liczba przekodowań zależy od trunku |
+
+**Rozstrzygnięcie należy do nagrania.** Nagranie po stronie ElevenLabs jest dostępne przez
+`GET /v1/convai/conversations/{id}/audio` (MP3 128 kbps, 16 kHz mono).
+
+- **audio w nagraniu PEŁNE** → synteza jest dobra, tracimy w transmisji do telefonu
+  → pytanie do SuperVoIP o kodek i utratę pakietów
+- **audio w nagraniu UCIĘTE** → problem jest w syntezie → zejść z `optimize_streaming_latency`
+
+`convai_tts_service_ttfb` wynosi stabilnie **0,09 s** we wszystkich turach, więc synteza
+startuje szybko i równo — to nie jest przeciążenie TTS.
+
+### 🗣️ „EEE", „YYY" W TRANSKRYPCIE — to wahania KLIENTA, nie agenta
+
+Zmierzone na rozmowie z 13.08: **3 wypełniacze w wypowiedziach klienta, 0 w wypowiedziach
+agenta**. ASR zapisuje je wiernie, bo to jest wierny zapis rozmowy.
+
+Agent na nie **nie reaguje** — nie ma ani jednego przypadku, w którym potraktowałby
+„ee" jako odpowiedź i poszedł dalej.
+
+Do zrobienia: przy zapisie do **opisu zlecenia** wycinać wypełniacze z wypowiedzi klienta
+(`ee`, `yy`, `mm`, `hm`, `no`, urwane słowa z `--`). Surowy transkrypt zostaje
+w `voice_transcripts` bez zmian. **Ta sama zasada co przy nazwisku: surowe dane zostają,
+ale to, co widzi warsztat, ma być czytelne.**
+
 ### 🔍 PRZY DIAGNOZIE TRANSKRYPTU CZYTAJ `original_message`, NIE INTERFEJSU
 
 Interfejs ElevenLabs pokazuje wypowiedź **uciętą**, a nie to, co agent naprawdę
