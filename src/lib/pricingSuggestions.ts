@@ -42,6 +42,10 @@ export interface RangeResult {
   scope: 'exact' | 'model' | 'brand' | 'any';
   /** Ile z tych wycen pochodzi z własnej historii warsztatu. */
   own: number;
+  /** Ile różnych stawek złożyło się na zakres (1 = wszyscy liczą tyle samo). */
+  distinct: number;
+  /** Zakres jest bezwartościowy jako podpowiedź: jedna stawka albo za mało danych. */
+  degenerate: boolean;
 }
 
 /** Słowa, które nic nie znaczą przy dopasowaniu (są w co drugiej nazwie). */
@@ -151,16 +155,34 @@ const percentyl = (posortowane: number[], p: number) => {
  * Widełki z listy cen. Przy 4+ wycenach obcinamy skrajne (kwartyle), przy
  * mniejszej liczbie pokazujemy pełny zakres — bo nie ma czego obcinać.
  */
+/** Ile razy ta sama cena moze wazyc w rozkladzie (patrz komentarz nizej). */
+const MAX_POWTORZEN = 3;
+
 export const computeRange = (ceny: number[]) => {
   const dodatnie = ceny.filter(c => Number.isFinite(c) && c > 0).sort((a, b) => a - b);
   if (dodatnie.length === 0) return null;
-  const min = dodatnie.length >= 4 ? percentyl(dodatnie, 0.25) : dodatnie[0];
-  const max = dodatnie.length >= 4 ? percentyl(dodatnie, 0.75) : dodatnie[dodatnie.length - 1];
+
+  // Jeden warsztat, ktory 31 razy wpisal te sama stawke, zdominowalby caly
+  // rozklad — kwartyle wychodzily wtedy 200-200, czyli „widelki" bedace echem
+  // wlasnej ceny. Ograniczamy wage powtorzen: kazda wartosc liczy sie najwyzej
+  // MAX_POWTORZEN razy, wiec pojedyncze inne oferty przestaja znikac w tle.
+  const licznik = new Map<number, number>();
+  const wazone: number[] = [];
+  for (const c of dodatnie) {
+    const ile = (licznik.get(c) || 0) + 1;
+    licznik.set(c, ile);
+    if (ile <= MAX_POWTORZEN) wazone.push(c);
+  }
+
+  const min = wazone.length >= 4 ? percentyl(wazone, 0.25) : wazone[0];
+  const max = wazone.length >= 4 ? percentyl(wazone, 0.75) : wazone[wazone.length - 1];
   return {
     min: Math.round(min),
     max: Math.round(max),
-    median: Math.round(percentyl(dodatnie, 0.5)),
+    median: Math.round(percentyl(wazone, 0.5)),
     count: dodatnie.length,
+    /** Ile RÓŻNYCH stawek widzieliśmy — po tym poznajemy echo jednej ceny. */
+    distinct: licznik.size,
   };
 };
 
@@ -246,7 +268,10 @@ export const matchPrices = (
     const zakres = computeRange(lista.map(r => (mode === 'gross' ? r.price_gross : r.price_net)));
     if (!zakres) continue;
     const own = lista.filter(r => wlasneKlucze.has(`${r.service_name_normalized}|${r.price_gross}`)).length;
-    return { ...zakres, scope, own };
+    // „Widełki" 200-200 nie są podpowiedzią, tylko echem tego, co warsztat sam
+    // wpisał. W takim przypadku sensowniejsza jest propozycja asystenta.
+    const degenerate = zakres.distinct < 2 || zakres.min === zakres.max;
+    return { ...zakres, scope, own, degenerate };
   }
   return null;
 };

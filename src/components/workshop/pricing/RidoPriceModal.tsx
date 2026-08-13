@@ -22,6 +22,12 @@ interface Suggestion {
   source?: 'history' | 'ai';
   /** Ile wycen zlozylo sie na zakres z historii. */
   count?: number;
+  /** Konkretna stawka proponowana przez asystenta. */
+  recommended?: number | null;
+  /** Ocena ceny wpisanej przez warsztat: za nisko / w rynku / za wysoko. */
+  verdict?: 'low' | 'ok' | 'high' | null;
+  /** Zakres z historii jest echem jednej stawki — nie nadaje sie na podpowiedz. */
+  degenerate?: boolean;
   own?: number;
   scope?: 'model' | 'brand' | 'any';
 }
@@ -157,7 +163,7 @@ export function RidoPriceModal({
     const swiezosc = new Date(Date.now() - 90 * 24 * 3600_000).toISOString();
     const { data } = await (supabase as any)
       .from('ai_price_cache')
-      .select('cache_key, min_price, max_price, note')
+      .select('cache_key, min_price, max_price, recommended_price, note')
       .in('cache_key', klucze)
       .gte('created_at', swiezosc);
 
@@ -177,6 +183,7 @@ export function RidoPriceModal({
         name: s2.name,
         min: Number(wpis.min_price) || 0,
         max: Number(wpis.max_price) || 0,
+        recommended: Number(wpis.recommended_price) || null,
         note: wpis.note || null,
         source: 'ai' as const,
       };
@@ -275,6 +282,7 @@ export function RidoPriceModal({
         count: dopasowanie.count,
         own: dopasowanie.own,
         scope: dopasowanie.scope,
+        degenerate: dopasowanie.degenerate,
         note: null,
       };
     });
@@ -321,13 +329,22 @@ Ceny podawaj w: ${mode === 'gross' ? 'brutto' : 'netto'}
 Uslugi do wyceny:
 ${lista}
 
-Dla KAZDEJ uslugi podaj realistyczny zakres OD-DO dla tego konkretnego auta
-(marka, model, rocznik, silnik, paliwo) i tej lokalizacji. W polu note napisz
-zwiezle (2-3 zdania), co cena obejmuje, od czego zalezy i na co uwazac —
-np. lancuch vs pasek, P+L, konieczna geometria po wymianie.
+Dla KAZDEJ uslugi:
+1. podaj realistyczny zakres rynkowy OD-DO dla tego konkretnego auta
+   (marka, model, rocznik, silnik, paliwo) i tej lokalizacji,
+2. ZAPROPONUJ konkretna stawke ("recommended"), ktora sam bys zastosowal —
+   nie srodek zakresu na sile, tylko cena uczciwa dla klienta i oplacalna dla
+   warsztatu przy tym nakladzie pracy,
+3. OCEN cene, ktora warsztat ma teraz ("verdict"): "low" gdy zanizona,
+   "high" gdy zawyzona, "ok" gdy w rynku. Gdy warsztat nie ma jeszcze ceny
+   (0 zl), ustaw verdict na null,
+4. w polu note napisz zwiezle (2-3 zdania), co cena obejmuje, od czego zalezy
+   i na co uwazac — np. lancuch vs pasek, P+L, konieczna geometria po wymianie.
+   Jesli cena warsztatu odbiega od rynku, napisz to wprost i uzasadnij.
 
 Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
-[{ "name": "nazwa", "min": liczba, "max": liczba, "note": "opis" }]`;
+[{ "name": "nazwa", "min": liczba, "max": liczba, "recommended": liczba,
+   "verdict": "low"|"ok"|"high"|null, "note": "opis" }]`;
 
       const result = await execute({
         feature: 'rido_price',
@@ -354,9 +371,14 @@ Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
             const hasPL = PL_PATTERNS.test(p.item.name);
             const note = ai.note || (hasPL ? t('workshop.pricing.priceModal.plNote') : null);
             const zHistorii = prev[p.indeks];
-            // Widelki z historii sa mocniejsze niz oszacowanie modelu — zostaja.
-            if (zHistorii && zHistorii.source === 'history' && zHistorii.max > 0) {
-              kopia[p.indeks] = { ...zHistorii, note: note || zHistorii.note };
+            const rekomendacja = Number(ai.recommended) || null;
+            const ocena = ['low', 'ok', 'high'].includes(ai.verdict) ? ai.verdict : null;
+            // Widelki z historii sa mocniejsze niz oszacowanie modelu, ALE tylko
+            // gdy naprawde sa widelkami. Gdy caly zakres to jedna powtarzana
+            // stawka (albo brak danych), pokazujemy propozycje asystenta —
+            // inaczej „podpowiedz" bylaby przepisaniem wlasnej ceny warsztatu.
+            if (zHistorii && zHistorii.source === 'history' && zHistorii.max > 0 && !zHistorii.degenerate) {
+              kopia[p.indeks] = { ...zHistorii, note: note || zHistorii.note, recommended: rekomendacja, verdict: ocena };
             } else {
               kopia[p.indeks] = {
                 name: p.item.name,
@@ -364,6 +386,8 @@ Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
                 max: ai.max || 0,
                 note,
                 source: 'ai' as const,
+                recommended: rekomendacja,
+                verdict: ocena,
               };
             }
           });
@@ -392,6 +416,7 @@ Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
               price_mode: mode,
               min_price: ai.min || null,
               max_price: ai.max || null,
+              recommended_price: Number(ai.recommended) || null,
               note: ai.note || null,
               updated_at: new Date().toISOString(),
             }));
@@ -541,8 +566,29 @@ Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
                             }}
                             inputMode="decimal"
                             className="h-10 text-right tabular-nums"
-                            placeholder={s.min && s.max ? fmt(Math.round((s.min + s.max) / 2)) : '0'}
+                            placeholder={s.recommended ? fmt(s.recommended) : (s.min && s.max ? fmt(Math.round((s.min + s.max) / 2)) : '0')}
                           />
+                          {/* Konkretna propozycja asystenta — jedno klikniecie wstawia ja
+                              do pola. Sama informacja „od-do" zostawiala decyzje w prozni. */}
+                          {!!s.recommended && (
+                            <button
+                              type="button"
+                              onClick={() => { handlePriceChange(i, String(s.recommended)); handlePriceCommit(i); }}
+                              className="mt-1 w-full text-xs text-primary hover:underline underline-offset-2 text-right"
+                            >
+                              {t('workshop.pricing.priceModal.useSuggested', { price: fmt(s.recommended), defaultValue: `Zastosuj ${fmt(s.recommended)} zł` })}
+                            </button>
+                          )}
+                          {s.verdict === 'low' && (
+                            <p className="mt-1 text-[11px] text-amber-600 text-right">
+                              {t('workshop.pricing.priceModal.priceLow', 'Poniżej rynku')}
+                            </p>
+                          )}
+                          {s.verdict === 'high' && (
+                            <p className="mt-1 text-[11px] text-amber-600 text-right">
+                              {t('workshop.pricing.priceModal.priceHigh', 'Powyżej rynku')}
+                            </p>
+                          )}
                         </td>
                         {/* „0 zl" wygladalo jak wycena na zero. Dopoki nie ma danych,
                             pokazujemy kreske — brak wyniku to nie jest cena. */}
