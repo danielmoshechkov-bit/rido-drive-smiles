@@ -54,8 +54,10 @@ async function stripeGet(key: string, path: string): Promise<any> {
  * albo gdy wiersz skasowano ręcznie; cicho pominięty, wracałby co miesiąc przy
  * każdym `invoice.paid` i nikt by się nie dowiedział, że klient płaci za nic.
  */
+type KlientBazy = { from: (tabela: string) => any };
+
 async function aktualizujSubskrypcje(
-  admin: ReturnType<typeof createClient>,
+  admin: KlientBazy,
   providerSubId: string,
   patch: Record<string, unknown>,
 ): Promise<number> {
