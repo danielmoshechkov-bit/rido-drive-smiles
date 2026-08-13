@@ -371,8 +371,14 @@ async function sekcjaD() {
   const plciowe = [];
   for (const m of chatSrc.matchAll(/"[^"]{0,160}(?:z którego Pan|dla Pana|Panu wygodnie|mógłby Pan|zdecydują się Państwo)[^"]{0,80}"/g)) {
     const kontekst = chatSrc.slice(Math.max(0, m.index - 120), m.index);
-    // Przykłady negatywne („ŹLE:", „BŁĄD:") są w porządku — pokazują, czego nie robić.
+    // Przykłady NEGATYWNE są w porządku — pokazują, czego nie robić. Rozpoznajemy je
+    // po znacznikach („ŹLE:", „BŁĄD:") ORAZ po zaprzeczeniu tuż przed cytatem
+    // („…, nie »…«", „zamiast »…«"). Bez tego drugiego warunku kontrola krzyczała
+    // na własną regułę zakazującą tej formy — a kontrola, która myli się przy
+    // pierwszym uruchomieniu, przestaje być czytana.
     if (/ŹLE|BŁĄD|padło|nie mów/i.test(kontekst)) continue;
+    if (/(,\s*nie|zamiast|nigdy)\s*$/i.test(kontekst.trimEnd() + " ")) continue;
+    if (/(,\s*nie|zamiast|nigdy)\s*$/i.test(kontekst)) continue;
     plciowe.push(m[0].slice(0, 110));
   }
   if (plciowe.length) {

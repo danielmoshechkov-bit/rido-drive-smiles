@@ -410,6 +410,190 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+### 🔴 KOREKTA MOJEGO WŁASNEGO POMIARU UCIĘĆ — liczby były zawyżone
+
+Podałem „17% wypowiedzi ucinanych, 18 przypadków bez mowy klienta". **Obie liczby
+były za wysokie.** Liczyłem każdy rozjazd `original_message` vs `message` jako
+ucięcie — a ElevenLabs dokleja `...` także do wypowiedzi, które padły w CAŁOŚCI.
+
+Po odjęciu samego wielokropka (próg: co najmniej 10 znaków realnie utraconych):
+
+```
+tur agenta:                         540
+realnie uciętych:                    59   (11%, nie 17%)
+  przerwane przez klienta:           41
+  BEZ ŻADNEJ MOWY KLIENTA:            6   (nie 18)
+mediana ciszy po urwaniu: 1,4 s   maks 3,9 s
+mediana utraconego tekstu: 56 znaków
+```
+
+Zjawisko jest realne — sześć razy agent zamilkł w połowie zdania, a nikt go nie
+przerywał, w tym w rozmowie z „CTM" (41 s, urwane 15 znaków, 3,9 s ciszy). Ale
+skala jest trzykrotnie mniejsza, niż napisałem, i tak trzeba to zgłaszać.
+
+### ✅ MAMY DOSTĘP DO LOGÓW SIP — `GET /v1/convai/conversations/{id}/sip-messages`
+
+Działa, `store_sip_messages: true`. Co widać w dwóch rozmowach z bełkotem:
+
+```
+brak re-INVITE          jeden INVITE na rozmowę, żadnej zmiany kodeka w trakcie
+brak BYE/CANCEL         w zapisanych wiadomościach
+error_message           puste we wszystkich
+transport               TCP (sygnalizacja)
+```
+
+**Warstwa sygnalizacji SIP jest czysta.** Ale zapis pokazuje dwie rzeczy, których
+nie widzieliśmy wcześniej.
+
+### 🔴 KODEK: NEGOCJOWANY JEST G.722, MIMO ŻE SUPERVOIP OFERUJE LEPSZE
+
+SuperVoIP w `INVITE` proponuje cztery kodeki. ElevenLabs w `200 OK` wybiera JEDEN:
+
+```
+oferta SuperVoIP:   PCMA/8000    (a-law, nieskompresowany, bezstanowy)
+                    AMR-WB/16000 (szerokopasmowy)
+                    G722/8000    (szerokopasmowy, ADPCM — STANOWY)
+                    PCMU/8000    (µ-law, nieskompresowany, bezstanowy)
+
+wybór ElevenLabs:   G722/8000
+```
+
+To ma znaczenie dla bełkotu. G.722 to subpasmowy ADPCM z **predyktorem, który ma
+stan**: każda próbka zależy od poprzednich. Zgubiony albo przestawiony pakiet
+rozjeżdża stan predyktora i dźwięk jest zniekształcony *jeszcze przez chwilę po
+tym*, aż predyktor się zbiegnie. PCMA i PCMU takiego stanu nie mają — przy stracie
+pakietu słychać dziurę, nie mamrotanie.
+
+To jest hipoteza mechanizmu, nie dowód. Ale zgadza się z objawem lepiej niż
+cokolwiek, co dotąd sprawdzaliśmy.
+
+### 🔴 RTP IDZIE PRZEZ ATLANTYK: 146 ms zamiast 23 ms
+
+SDP w `200 OK` wskazuje serwer mediów `34.45.0.205`. Zmierzone stąd:
+
+```
+serwer mediów ElevenLabs (34.45.0.205):    146 ms RTT
+serwer mediów SuperVoIP  (213.199.246.208): 23 ms RTT
+```
+
+Głos klienta z Warszawy jedzie do Stanów i wraca. Sześciokrotnie dłuższa droga
+to sześciokrotnie większa ekspozycja na straty pakietów i jitter — a odbiorcą
+jest kodek stanowy. **Te dwa ustalenia razem tłumaczą, czemu żadna zmiana
+w konfiguracji syntezy nie pomogła.**
+
+### 🔴 NAGRANIE Z ELEVENLABS **NIE JEST** WIERNYM ZAPISEM SYNTEZY — pomiar widma
+
+To obala wniosek, który sam wyciągnąłem: „bełkot słychać w nagraniu, więc powstaje
+w syntezie". Nagranie przeszło przez co najmniej jeden stratny etap.
+
+Zsyntezowałem **to samo zdanie, tym samym głosem i modelem**, wprost przez API
+(`pcm_16000`, bez telefonii), i porównałem widmo z nagraniem rozmowy:
+
+```
+                                    7500 Hz      górna granica
+synteza wprost (referencja)        −35,9 dB        7711 Hz
+agent w nagraniu rozmowy           −91,7 dB        7250 Hz
+```
+
+**56 dB różnicy.** Pasmo, które syntezator na pewno wyprodukował, w nagraniu
+nie istnieje. Coś je obcięło po drodze — G.722 (pasmo 50–7000 Hz) albo kompresja
+mp3, w której ElevenLabs udostępnia nagranie (API nie daje innego formatu:
+`format=wav`, `output_format=pcm_16000` i `multichannel` zwracają ten sam mp3).
+
+Nie umiem rozstrzygnąć, które z dwóch — ale wniosek praktyczny jest ten sam:
+**„słychać w nagraniu" nie dowodzi, że powstaje w syntezie.**
+
+### ❌ HIPOTEZA B OBALONA: duplikaty żądań NIE powodują ucięć
+
+Sprawdzone na 113 turach z 12–13.08, dla których mamy jeszcze logi:
+
+```
+tury UCIĘTE    (n=23):  z żądaniem w trakcie mówienia   6/23  =  26%
+tury NIEUCIĘTE (n=90):  z żądaniem w trakcie mówienia  28/90  =  31%
+```
+
+Ucinane tury mają takich żądań **mniej**, nie więcej. Cache tury tego nie naprawi.
+
+Przy okazji potwierdzone i **narastające**: żądań do modelu na jedną turę agenta
+
+```
+12.08:  1,2   1,2   1,8
+13.08:  1,4   1,5   1,6   1,7   2,4   2,0   2,2
+```
+
+To osobny problem — koszt i opóźnienie — ale nie przyczyna ucięć.
+
+### 📏 ILE KOSZTUJE ZMIANA MODELU SYNTEZY — zmierzone przed decyzją
+
+To samo zdanie, ten sam głos, `pcm_16000`, pięć powtórzeń, czas do pierwszego
+bajtu audio. Pomiar z Warszawy, nie z ich serwera rozmów — bezwzględne wartości
+są zawyżone, liczy się RÓŻNICA:
+
+```
+eleven_flash_v2_5        0,195 s   (odniesienie)
+eleven_turbo_v2_5        0,242 s   +46 ms
+eleven_multilingual_v2   0,981 s   +785 ms
+```
+
+**Turbo v2.5 kosztuje 46 ms — to mieści się w budżecie.** Multilingual v2
+dokłada 785 ms i sam z siebie wywala cel 600–800 ms na turę. Multilingual
+wchodzi w grę tylko wtedy, gdyby nic innego nie pomogło i uznalibyśmy, że
+zrozumiałość jest ważniejsza od tempa.
+
+### 🎯 CEL LATENCJI: 600–800 ms na turę (zewnętrzny punkt odniesienia)
+
+Zastępuje nasze dotychczasowe „1,0–1,3 s", które było własnym przeczuciem.
+Poniżej 600–800 ms rozmówca nie odczuwa opóźnienia jako pauzy.
+**Jesteśmy przy ~940 ms.**
+
+### 📊 WYNIK ZMIANY `optimize_streaming_latency` 3 → 0: PARAMETR JEST MARTWY
+
+```
+convai_tts_service_ttfb
+  PRZED (latency = 3):  n=571   mediana 0,0898 s   średnia 0,1322   p90 0,3048
+  PO    (latency = 0):  n= 31   mediana 0,0902 s   średnia 0,0903   p90 0,0967
+  RÓŻNICA MEDIAN: +0,4 ms
+```
+
+Gdyby parametr działał, zejście z 3 na 0 **musiałoby TTFB podnieść** — mniej agresywne
+strumieniowanie znaczy późniejszy pierwszy bajt. Mediana nie drgnęła. **Dokumentacja
+mówi prawdę: parametr jest przestarzały i ignorowany.**
+
+⚠️ Poprawa średniej i p90 (0,132 → 0,090 i 0,305 → 0,097) **NIE jest zasługą tej
+zmiany** — to compute Small i posprzątane logi. `n = 31` to dwie rozmowy, za mało
+na wniosek. Nie łączyć tych liczb w jedną narrację.
+
+**Bełkot został.** Klientka usłyszała „CTM" zamiast „Dobrze, notuję. Poproszę numer
+rejestracyjny." (13.08, 21:59, 41 s).
+
+### 🔍 NOWY TROP: bełkot koncentruje się na CZYTANIU NUMERU REJESTRACYJNEGO
+
+Przegląd wszystkich przypadków niezrozumienia pokazuje wzorzec, którego wcześniej
+nie widzieliśmy — **cztery z pięciu ostatnich dotyczą numeru rejestracyjnego**:
+
+```
+"A czy mógłby powtórzyć numer samochodu?"
+"ja bym chciała, żeby wy powtórzyli mój numer samochodu"
+"To nieprawidłowe. Jeszcze raz powoli powtórz."
+"ja wątpię, że pan prawidłowo napisał numer samochodu"
+```
+
+Ciąg pojedynczych liter i cyfr („WI osiem pięć osiem MV") to **najtrudniejszy możliwy
+materiał dla syntezy** — i dokładnie tam prosimy agenta o czytanie znak po znaku.
+To wzmacnia hipotezę `enable_phoneme_tags`, ale też stawia pytanie, czy w ogóle
+powinniśmy czytać tablice na głos.
+
+### 📈 MIERNIK NIEZROZUMIENIA — punkt odniesienia
+
+```
+PRZED zmianą:  49 rozmów, 7 z niezrozumieniem = 14%    (11 z 515 tur klienta = 2,1%)
+PO zmianie:     2 rozmowy, 2 z niezrozumieniem = 100%  (5 z 31 tur = 16,1%)
+```
+
+⚠️ `n = 2` po zmianie — **to nie jest pomiar, to dwie rozmowy**. Podaję, żeby nie
+wyglądało na przemilczenie, ale nie wolno z tego wyciągać wniosku o pogorszeniu.
+Wniosek jest jeden i pochodzi z TTFB: parametr nie działa.
+
 ### ⚠️ `optimize_streaming_latency` JEST OZNACZONY JAKO PRZESTARZAŁY
 
 Właściciel znalazł to w dokumentacji TTS API. Zmiana 3 → 0 została zapisana i potwierdzona

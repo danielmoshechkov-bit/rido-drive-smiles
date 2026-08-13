@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useSubscriptionActivation } from '@/hooks/useSubscriptionActivation';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
@@ -126,6 +127,10 @@ export default function ServiceProviderDashboard() {
   const [selectedAgentType, setSelectedAgentType] = useState<string | null>(null);
   const [aiAgentSubTab, setAiAgentSubTab] = useState<'overview' | 'knowledge' | 'analytics' | 'learning'>('overview');
   const [providerId, setProviderId] = useState<string | null>(null);
+  // Powrót z płatności: webhook bywa wolniejszy niż przekierowanie, więc panel
+  // odpytuje o subskrypcję przez 30 s. Bez tego klient widzi brak dostępu mimo
+  // opłaconej faktury i płaci drugi raz.
+  useSubscriptionActivation(providerId);
   const [calendarSubTab, setCalendarSubTab] = useState<'calendar' | 'bookings'>('calendar');
   const [moreOpen, setMoreOpen] = useState(false);
   const [primaryTabs, setPrimaryTabs] = useState<string[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);

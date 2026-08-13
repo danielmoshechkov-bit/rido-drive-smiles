@@ -30,7 +30,11 @@ export interface BillingPlan {
   is_custom: boolean;
   is_active: boolean;
   sort_order: number;
+  /** Cena STARTOWA u operatora. Pusta = plan wymaga synchronizacji. */
   stripe_price_id: string | null;
+  /** Cena DOCELOWA — na nią przechodzi subskrypcja po wygaśnięciu gwarancji. */
+  stripe_price_id_target: string | null;
+  stripe_product_id: string | null;
 }
 
 export interface PlanFeatureRow {
@@ -130,6 +134,63 @@ export function useBillingPlans() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * Synchronizacja cennika z operatorem — tworzy w Stripe produkt i DWIE ceny
+   * na plan (startową i docelową). Bez ceny docelowej wygaśnięcie gwarancji
+   * po 12 miesiącach oznaczałoby zakładanie cen ręcznie dla każdego klienta.
+   */
+  const syncStripe = useMutation({
+    mutationFn: async (planCode?: string) => {
+      const { data, error } = await supabase.functions.invoke('billing-stripe-sync', {
+        body: planCode ? { plan_code: planCode } : {},
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error === 'GATEWAY_NOT_CONFIGURED'
+        ? 'Brak konfiguracji Stripe — uzupełnij sekret STRIPE_SECRET_KEY'
+        : data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      invalidate();
+      const bledy = (data?.wynik ?? []).filter((w: { blad?: string }) => w.blad);
+      if (bledy.length) {
+        toast.warning(`Zsynchronizowano ${data?.zsynchronizowano ?? 0}, ${bledy.length} z błędem`);
+      } else {
+        toast.success(`Zsynchronizowano ${data?.zsynchronizowano ?? 0} planów (${data?.tryb})`);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  /**
+   * TYMCZASOWE — przycisk „Testuj zakup" w panelu admina.
+   *
+   * Otwiera sesję Checkout dla wybranego planu, żeby potwierdzić, że kwota
+   * dochodzi do operatora poprawnie (brutto, nie netto), zanim na /cennik
+   * pojawią się właściwe przyciski. Do usunięcia razem z podpięciem zakupu
+   * po stronie klienta.
+   */
+  const testCheckout = useMutation({
+    mutationFn: async (planCode: string) => {
+      const { data, error } = await supabase.functions.invoke('billing-checkout', {
+        body: { plan_code: planCode },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        const opis: Record<string, string> = {
+          GATEWAY_NOT_CONFIGURED: 'Brak sekretu STRIPE_SECRET_KEY',
+          PLAN_NOT_SYNCED: 'Plan wymaga synchronizacji ze Stripe',
+          NO_PROVIDER: 'To konto nie ma warsztatu — checkout ustala podmiot z service_providers',
+          ALREADY_SUBSCRIBED: 'Ten warsztat ma już subskrypcję w tej linii produktowej',
+        };
+        throw new Error(opis[data.code as string] ?? data.error);
+      }
+      if (!data?.url) throw new Error('Operator nie zwrócił adresu płatności');
+      return data.url as string;
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return {
     plans: query.data?.plans ?? [],
     matrix: query.data?.matrix ?? [],
@@ -139,6 +200,8 @@ export function useBillingPlans() {
     update,
     setActive,
     setFeatures,
+    syncStripe,
+    testCheckout,
     refetch: query.refetch,
   };
 }
