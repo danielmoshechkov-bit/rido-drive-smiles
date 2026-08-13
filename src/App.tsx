@@ -1,4 +1,7 @@
 import { lazy, Suspense } from "react";
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { ConfirmDialogProvider } from '@/components/ui/confirm-dialog';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,7 +10,9 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CompareProvider } from "@/contexts/CompareContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { QuotaGuardProvider } from "@/components/quota/QuotaGuardProvider";
-import { GlobalRidoAIButton } from "@/components/ai/GlobalRidoAIButton";
+// Ludek RidoAI chwilowo zdjęty z ekranu — patrz miejsce montowania niżej.
+// import { GlobalRidoAIButton } from "@/components/ai/GlobalRidoAIButton";
+import { SupportChatWidget } from "@/components/support/SupportChatWidget";
 import { ReferralCapture } from "@/components/ReferralCapture";
 import { PwaUpdater } from "@/components/PwaUpdater";
 
@@ -28,88 +33,88 @@ import { InviteWelcomeBanner } from "./components/workspace/InviteWelcomeBanner"
 import EasyHub from "./pages/EasyHub";
 import NotFound from "./pages/NotFound";
 
-const AddVehicleListing = lazy(() => import("./pages/AddVehicleListing"));
-const GeneralMarketplace = lazy(() => import("./pages/GeneralMarketplace"));
-const GeneralListingDetail = lazy(() => import("./pages/GeneralListingDetail"));
-const MarketplaceCart = lazy(() => import("./pages/MarketplaceCart"));
-const MarketplaceWishlist = lazy(() => import("./pages/MarketplaceWishlist"));
-const MarketplaceCompare = lazy(() => import("./pages/MarketplaceCompare"));
-const Auth = lazy(() => import("./pages/Auth"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-const AdminRealEstate = lazy(() => import("./pages/AdminRealEstate"));
-const AdminMarketplace = lazy(() => import("./pages/AdminMarketplace"));
-const AdminMaps = lazy(() => import("./pages/AdminMaps"));
-const AdminPortal = lazy(() => import("./pages/AdminPortal"));
-const AdminServices = lazy(() => import("./pages/AdminServices"));
-const AdminAIBrain = lazy(() => import("./pages/AdminAIBrain"));
-const FleetVehicleDetails = lazy(() => import("./pages/FleetVehicleDetails"));
-const DriverRegister = lazy(() => import("./pages/DriverRegister"));
-const RegisterSuccess = lazy(() => import("./pages/RegisterSuccess"));
-const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
-const ActivationConfirm = lazy(() => import("./pages/ActivationConfirm"));
-const DriverDashboard = lazy(() => import("./pages/DriverDashboard"));
-const FleetDashboard = lazy(() => import("./pages/FleetDashboard"));
-const SettlementSheet = lazy(() => import("./pages/SettlementSheet"));
-const SystemAlerts = lazy(() => import("./pages/SystemAlerts"));
-const Install = lazy(() => import("./pages/Install"));
-const RentalModule = lazy(() => import("./pages/RentalModule"));
-const RentalContractPortal = lazy(() => import("./pages/RentalContractPortal"));
-const CennikPage = lazy(() => import("./pages/CennikPage"));
-const JakZaczacPage = lazy(() => import("./pages/JakZaczacPage"));
-const KontaktPage = lazy(() => import("./pages/KontaktPage"));
-const VehicleMarketplace = lazy(() => import("./pages/VehicleMarketplace"));
-const VehicleDetailPage = lazy(() => import("./pages/VehicleDetailPage"));
-const VehicleCompare = lazy(() => import("./pages/VehicleCompare"));
-const MarketplaceRegister = lazy(() => import("./pages/MarketplaceRegister"));
-const MarketplaceAuth = lazy(() => import("./pages/MarketplaceAuth"));
-const WorkshopLanding = lazy(() => import("./pages/WorkshopLanding"));
-const RealEstateMarketplace = lazy(() => import("./pages/RealEstateMarketplace"));
-const RealEstateLanding = lazy(() => import("./pages/RealEstateLanding"));
-const OfertaPage = lazy(() => import("./pages/OfertaPage"));
-const PropertyCompare = lazy(() => import("./pages/PropertyCompare"));
-const RealEstateAgentRegister = lazy(() => import("./pages/RealEstateAgentRegister"));
-const RealEstateAgentDashboard = lazy(() => import("./pages/RealEstateAgentDashboard"));
-const GeneralListingAdd = lazy(() => import("./pages/GeneralListingAdd"));
-const GeneralListingEdit = lazy(() => import("./pages/GeneralListingEdit"));
-const MarketplaceSellerProfile = lazy(() => import("./pages/MarketplaceSellerProfile"));
-const FleetLanding = lazy(() => import("./pages/FleetLanding"));
-const FleetRegister = lazy(() => import("./pages/FleetRegister"));
-const FleetRegisterSuccess = lazy(() => import("./pages/FleetRegisterSuccess"));
-const PropertyDetailPage = lazy(() => import("./pages/PropertyDetailPage"));
-const LegalPage = lazy(() => import("./pages/LegalPage"));
-const GetRidoMaps = lazy(() => import("./pages/GetRidoMaps"));
-const ServicesMarketplace = lazy(() => import("./pages/ServicesMarketplace"));
-const AdminRidoMarket = lazy(() => import("./pages/AdminRidoMarket"));
-const ServiceProviderDetail = lazy(() => import("./pages/ServiceProviderDetail"));
-const ServiceProviderDashboard = lazy(() => import("./pages/ServiceProviderDashboard"));
-const WorkflowModule = lazy(() => import("./pages/WorkflowModule"));
-const UniversalSearchResults = lazy(() => import("./pages/UniversalSearchResults"));
-const AccountingDashboard = lazy(() => import("./pages/AccountingDashboard"));
-const InsuranceAgentRegister = lazy(() => import("./pages/InsuranceAgentRegister"));
-const InsuranceAgentDashboard = lazy(() => import("./pages/InsuranceAgentDashboard"));
-const InvoiceProgram = lazy(() => import("./pages/InvoiceProgram"));
-const ClientPortal = lazy(() => import("./pages/ClientPortal"));
-const AIProPage = lazy(() => import("./pages/AIProPage"));
-const InvoicingLanding = lazy(() => import("./pages/InvoicingLanding"));
-const DriverInfoLanding = lazy(() => import("./pages/DriverInfoLanding"));
-const SalesPortal = lazy(() => import("./pages/SalesPortal"));
-const RentalClientPortal = lazy(() => import("./pages/RentalClientPortal"));
-const WorkshopClientCard = lazy(() => import("./pages/WorkshopClientCard"));
-const DriverBankChangeConfirm = lazy(() => import("./pages/DriverBankChangeConfirm"));
-const BookingConfirm = lazy(() => import("./pages/BookingConfirm"));
-const WorkshopSmsCenter = lazy(() => import("./pages/WorkshopSmsCenter"));
-const RidoAIChat = lazy(() => import("./pages/RidoAIChat"));
-const MeetingsPage = lazy(() => import("./pages/MeetingsPage"));
-const RidoMailPage = lazy(() => import("./pages/RidoMailPage"));
-const AdminAIAgentsPage = lazy(() => import("./pages/AdminAIAgentsPage"));
-const AdminMarketing = lazy(() => import("./pages/AdminMarketing"));
-const ConfirmViewingPage = lazy(() => import("./pages/ConfirmViewingPage"));
-const MyViewingsPage = lazy(() => import("./pages/MyViewingsPage"));
-const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
-const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
-const BuyCredits = lazy(() => import("./pages/BuyCredits"));
-const WorkshopEmployeePortal = lazy(() => import("./pages/WorkshopEmployeePortal"));
+const AddVehicleListing = lazyWithRetry(() => import("./pages/AddVehicleListing"));
+const GeneralMarketplace = lazyWithRetry(() => import("./pages/GeneralMarketplace"));
+const GeneralListingDetail = lazyWithRetry(() => import("./pages/GeneralListingDetail"));
+const MarketplaceCart = lazyWithRetry(() => import("./pages/MarketplaceCart"));
+const MarketplaceWishlist = lazyWithRetry(() => import("./pages/MarketplaceWishlist"));
+const MarketplaceCompare = lazyWithRetry(() => import("./pages/MarketplaceCompare"));
+const Auth = lazyWithRetry(() => import("./pages/Auth"));
+const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
+const AdminDashboard = lazyWithRetry(() => import("./pages/AdminDashboard"));
+const AdminRealEstate = lazyWithRetry(() => import("./pages/AdminRealEstate"));
+const AdminMarketplace = lazyWithRetry(() => import("./pages/AdminMarketplace"));
+const AdminMaps = lazyWithRetry(() => import("./pages/AdminMaps"));
+const AdminPortal = lazyWithRetry(() => import("./pages/AdminPortal"));
+const AdminServices = lazyWithRetry(() => import("./pages/AdminServices"));
+const AdminAIBrain = lazyWithRetry(() => import("./pages/AdminAIBrain"));
+const FleetVehicleDetails = lazyWithRetry(() => import("./pages/FleetVehicleDetails"));
+const DriverRegister = lazyWithRetry(() => import("./pages/DriverRegister"));
+const RegisterSuccess = lazyWithRetry(() => import("./pages/RegisterSuccess"));
+const EmailConfirmed = lazyWithRetry(() => import("./pages/EmailConfirmed"));
+const ActivationConfirm = lazyWithRetry(() => import("./pages/ActivationConfirm"));
+const DriverDashboard = lazyWithRetry(() => import("./pages/DriverDashboard"));
+const FleetDashboard = lazyWithRetry(() => import("./pages/FleetDashboard"));
+const SettlementSheet = lazyWithRetry(() => import("./pages/SettlementSheet"));
+const SystemAlerts = lazyWithRetry(() => import("./pages/SystemAlerts"));
+const Install = lazyWithRetry(() => import("./pages/Install"));
+const RentalModule = lazyWithRetry(() => import("./pages/RentalModule"));
+const RentalContractPortal = lazyWithRetry(() => import("./pages/RentalContractPortal"));
+const CennikPage = lazyWithRetry(() => import("./pages/CennikPage"));
+const JakZaczacPage = lazyWithRetry(() => import("./pages/JakZaczacPage"));
+const KontaktPage = lazyWithRetry(() => import("./pages/KontaktPage"));
+const VehicleMarketplace = lazyWithRetry(() => import("./pages/VehicleMarketplace"));
+const VehicleDetailPage = lazyWithRetry(() => import("./pages/VehicleDetailPage"));
+const VehicleCompare = lazyWithRetry(() => import("./pages/VehicleCompare"));
+const MarketplaceRegister = lazyWithRetry(() => import("./pages/MarketplaceRegister"));
+const MarketplaceAuth = lazyWithRetry(() => import("./pages/MarketplaceAuth"));
+const WorkshopLanding = lazyWithRetry(() => import("./pages/WorkshopLanding"));
+const RealEstateMarketplace = lazyWithRetry(() => import("./pages/RealEstateMarketplace"));
+const RealEstateLanding = lazyWithRetry(() => import("./pages/RealEstateLanding"));
+const OfertaPage = lazyWithRetry(() => import("./pages/OfertaPage"));
+const PropertyCompare = lazyWithRetry(() => import("./pages/PropertyCompare"));
+const RealEstateAgentRegister = lazyWithRetry(() => import("./pages/RealEstateAgentRegister"));
+const RealEstateAgentDashboard = lazyWithRetry(() => import("./pages/RealEstateAgentDashboard"));
+const GeneralListingAdd = lazyWithRetry(() => import("./pages/GeneralListingAdd"));
+const GeneralListingEdit = lazyWithRetry(() => import("./pages/GeneralListingEdit"));
+const MarketplaceSellerProfile = lazyWithRetry(() => import("./pages/MarketplaceSellerProfile"));
+const FleetLanding = lazyWithRetry(() => import("./pages/FleetLanding"));
+const FleetRegister = lazyWithRetry(() => import("./pages/FleetRegister"));
+const FleetRegisterSuccess = lazyWithRetry(() => import("./pages/FleetRegisterSuccess"));
+const PropertyDetailPage = lazyWithRetry(() => import("./pages/PropertyDetailPage"));
+const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
+const GetRidoMaps = lazyWithRetry(() => import("./pages/GetRidoMaps"));
+const ServicesMarketplace = lazyWithRetry(() => import("./pages/ServicesMarketplace"));
+const AdminRidoMarket = lazyWithRetry(() => import("./pages/AdminRidoMarket"));
+const ServiceProviderDetail = lazyWithRetry(() => import("./pages/ServiceProviderDetail"));
+const ServiceProviderDashboard = lazyWithRetry(() => import("./pages/ServiceProviderDashboard"));
+const WorkflowModule = lazyWithRetry(() => import("./pages/WorkflowModule"));
+const UniversalSearchResults = lazyWithRetry(() => import("./pages/UniversalSearchResults"));
+const AccountingDashboard = lazyWithRetry(() => import("./pages/AccountingDashboard"));
+const InsuranceAgentRegister = lazyWithRetry(() => import("./pages/InsuranceAgentRegister"));
+const InsuranceAgentDashboard = lazyWithRetry(() => import("./pages/InsuranceAgentDashboard"));
+const InvoiceProgram = lazyWithRetry(() => import("./pages/InvoiceProgram"));
+const ClientPortal = lazyWithRetry(() => import("./pages/ClientPortal"));
+const AIProPage = lazyWithRetry(() => import("./pages/AIProPage"));
+const InvoicingLanding = lazyWithRetry(() => import("./pages/InvoicingLanding"));
+const DriverInfoLanding = lazyWithRetry(() => import("./pages/DriverInfoLanding"));
+const SalesPortal = lazyWithRetry(() => import("./pages/SalesPortal"));
+const RentalClientPortal = lazyWithRetry(() => import("./pages/RentalClientPortal"));
+const WorkshopClientCard = lazyWithRetry(() => import("./pages/WorkshopClientCard"));
+const DriverBankChangeConfirm = lazyWithRetry(() => import("./pages/DriverBankChangeConfirm"));
+const BookingConfirm = lazyWithRetry(() => import("./pages/BookingConfirm"));
+const WorkshopSmsCenter = lazyWithRetry(() => import("./pages/WorkshopSmsCenter"));
+const RidoAIChat = lazyWithRetry(() => import("./pages/RidoAIChat"));
+const MeetingsPage = lazyWithRetry(() => import("./pages/MeetingsPage"));
+const RidoMailPage = lazyWithRetry(() => import("./pages/RidoMailPage"));
+const AdminAIAgentsPage = lazyWithRetry(() => import("./pages/AdminAIAgentsPage"));
+const AdminMarketing = lazyWithRetry(() => import("./pages/AdminMarketing"));
+const ConfirmViewingPage = lazyWithRetry(() => import("./pages/ConfirmViewingPage"));
+const MyViewingsPage = lazyWithRetry(() => import("./pages/MyViewingsPage"));
+const PaymentSuccess = lazyWithRetry(() => import("./pages/PaymentSuccess"));
+const PaymentCancel = lazyWithRetry(() => import("./pages/PaymentCancel"));
+const BuyCredits = lazyWithRetry(() => import("./pages/BuyCredits"));
+const WorkshopEmployeePortal = lazyWithRetry(() => import("./pages/WorkshopEmployeePortal"));
 
 // Fallback ładowania chunku strony
 const PageLoader = () => (
@@ -168,6 +173,10 @@ function UISettingsLoader({ children }: { children: React.ReactNode }) {
  * @version 2.0.0
  */
 const App = () => (
+  // Granica bledu: bez niej kazdy blad renderowania (albo nieaktualny plik
+  // modulu po wdrozeniu) konczyl sie bialym ekranem bez zadnej informacji.
+  <AppErrorBoundary>
+  <ConfirmDialogProvider>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <OnboardingProvider>
@@ -293,8 +302,13 @@ const App = () => (
               <InviteWelcomeBanner />
               {/* Global referral tracking + welcome banner */}
               <ReferralCapture />
-              {/* Global RidoAI Button */}
-              <GlobalRidoAIButton />
+              {/* Global RidoAI Button — CHWILOWO WYŁĄCZONY.
+                  Prawy dolny róg zajmuje czat wsparcia (SupportChatWidget).
+                  Gdy ludek wróci, ma stanąć po LEWEJ stronie:
+                  w GlobalRidoAIButton.tsx zamień `right-6` na `left-6`. */}
+              {/* <GlobalRidoAIButton /> */}
+              {/* Czat wsparcia — dymek w prawym dolnym rogu */}
+              <SupportChatWidget />
               {/* Global Onboarding Widget */}
               <OnboardingWidget />
             </CompareProvider>
@@ -304,6 +318,8 @@ const App = () => (
       </OnboardingProvider>
     </TooltipProvider>
   </QueryClientProvider>
+  </ConfirmDialogProvider>
+  </AppErrorBoundary>
 );
 
 export default App;
