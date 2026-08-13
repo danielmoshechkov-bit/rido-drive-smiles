@@ -410,6 +410,43 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+### ⚠️ `optimize_streaming_latency` JEST OZNACZONY JAKO PRZESTARZAŁY
+
+Właściciel znalazł to w dokumentacji TTS API. Zmiana 3 → 0 została zapisana i potwierdzona
+pobraniem, ale **zapisanie wartości nie dowodzi, że ma ona skutek**.
+
+**Test rozstrzygający — najprostszy z możliwych:** porównać `convai_tts_service_ttfb`
+z punktem odniesienia. Zejście z 3 na 0 MUSI podnieść TTFB, jeśli parametr działa —
+mniej agresywne strumieniowanie znaczy późniejszy pierwszy bajt.
+
+```
+punkt odniesienia (latency = 3):  mediana 0,090 s   średnia 0,132 s   n = 547
+```
+
+**Jeśli mediana zostanie 0,090 s co do milisekundy — parametr jest ignorowany
+przez nowszą ścieżkę syntezy i szukamy dalej.** Kolejni kandydaci, w tej kolejności:
+
+1. **`enable_phoneme_tags: true`** — TTS interpretuje pewne sekwencje znaków jako zapis
+   fonetyczny zamiast mowy. Pasuje do objawu lepiej niż cokolwiek innego: **tekst czysty,
+   audio bełkot**. W turze „Męcząc rurczce" tekst nie zawierał nic podobnego do znacznika,
+   więc to nie tłumaczy tamtego przypadku — ale tłumaczyłoby losowość.
+2. `stability 0.5` przy Flash v2.5 — czy nie za nisko dla telefonii
+3. `speed 1.0`
+4. `eleven_flash_v2_5` wobec Turbo v2.5 przy polskim i SIP
+
+### ⚠️ SPROSTOWANIE: `agent_response_correction` ISTNIEJE
+
+Napisałem 12.08, że metryki korekty odpowiedzi nie ma. **To było niepełne.**
+Nie ma jej wśród `conversation_turn_metrics`, ale **jest** na liście `client_events`
+w konfiguracji agenta — czyli ElevenLabs takie zdarzenie emituje w strumieniu na żywo.
+
+Sprawdzone: **w żadnej z 55 zapisanych rozmów to zdarzenie nie zostało utrwalone**,
+więc z historii go nie odtworzymy. Hipoteza właściciela o korekcie odpowiedzi była
+bliższa prawdy, niż wynikało z mojej odpowiedzi — po prostu tego sygnału nie widać
+w danych po fakcie.
+
+Gdybyśmy chcieli go zobaczyć, trzeba by podłączyć się do strumienia zdarzeń na żywo.
+
 ### 📼 NAGRANIA W PANELU — rachunek przed decyzją
 
 Zmierzone na prawdziwym nagraniu: **0,92 MB/min** (MP3 128 kbps, 16 kHz, mono).
