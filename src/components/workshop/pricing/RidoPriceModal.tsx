@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +73,9 @@ export function RidoPriceModal({
   // Widelki z historii sa natychmiast, opis od asystenta dochodzi chwile pozniej —
   // zamiast „Brak uwag" pokazujemy wtedy, ze jeszcze pracuje.
   const [opisWDrodze, setOpisWDrodze] = useState(false);
+  // Wyniki z historii trzymamy w ref, bo korzysta z nich zapytanie do asystenta,
+  // ktore startuje rownolegle — stan Reacta moglby jeszcze nie byc widoczny.
+  const historiaRef = useRef<Record<number, { min: number; max: number; median: number; count: number }>>({});
   const [error, setError] = useState<string | null>(null);
   const { execute } = useGetRidoAI();
 
@@ -179,13 +182,25 @@ export function RidoPriceModal({
       if (zHistorii && zHistorii.source === 'history' && zHistorii.max > 0) {
         return { ...zHistorii, note: wpis.note || zHistorii.note };
       }
+      // Oceny ceny NIE bierzemy z pamieci: zapamietany zakres jest wspolny dla
+      // wszystkich warsztatow, a „za nisko / za wysoko" zalezy od tego, ile
+      // bierze TEN warsztat. Liczymy ja tutaj, na miejscu.
+      const minC = Number(wpis.min_price) || 0;
+      const maxC = Number(wpis.max_price) || 0;
+      const moja = Number(s2.currentPrice) || 0;
+      const ocena: 'low' | 'ok' | 'high' | null = !moja || !maxC
+        ? null
+        : moja < minC * 0.9 ? 'low'
+        : moja > maxC * 1.1 ? 'high'
+        : 'ok';
       return {
         name: s2.name,
-        min: Number(wpis.min_price) || 0,
-        max: Number(wpis.max_price) || 0,
+        min: minC,
+        max: maxC,
         recommended: Number(wpis.recommended_price) || null,
         note: wpis.note || null,
         source: 'ai' as const,
+        verdict: ocena,
       };
     }));
 
@@ -273,6 +288,14 @@ export function RidoPriceModal({
       // wlasnej ceny warsztatu ("od 150 do 150"). Lepiej pokazac kreske i poczekac
       // na propozycje asystenta, niz udawac, ze to podpowiedz rynkowa.
       if (dopasowanie.degenerate) return null;
+      // Zapamietujemy zakres z historii dla zapytania do asystenta — nawet gdy
+      // jest to echo jednej stawki, bo dla modelu to nadal informacja o tym,
+      // ile warsztat brał do tej pory.
+      historiaRef.current[services.indexOf(s)] = {
+        min: dopasowanie.min, max: dopasowanie.max,
+        median: dopasowanie.median, count: dopasowanie.count,
+      };
+
       // W kolumnie uwag NIE pokazujemy, ile bylo wycen ani czyje one byly.
       // Warsztat nie ma prawa wiedziec, ze „3 wyceny pochodza od innych" —
       // to informacja o cudzych danych. Liczby z historii siedza w widelkach
@@ -321,7 +344,17 @@ export function RidoPriceModal({
 
     const wyniki = await Promise.all(paczki.map(async (paczka) => {
       const lista = paczka
-        .map((p, i) => `${i + 1}. ${p.item.name} | aktualna cena: ${p.item.currentPrice || 0} zl (${mode})`)
+        .map((p, i) => {
+          // Do modelu idzie tez to, co warsztat bral do tej pory za te usluge.
+          // NIE jako gotowa odpowiedz — cena z historii nie znaczy, ze byla dobra —
+          // tylko jako material do weryfikacji: model ma ocenic, czy te stawki
+          // trzymaja poziom rynku dla TEGO auta i TEJ lokalizacji.
+          const h = historiaRef.current[p.indeks];
+          const kontekst = h && h.max > 0
+            ? ` | dotychczasowe stawki tego warsztatu: ${h.min}-${h.max} zl (mediana ${h.median}, ${h.count} wycen)`
+            : '';
+          return `${i + 1}. ${p.item.name} | aktualna cena: ${p.item.currentPrice || 0} zl (${mode})${kontekst}`;
+        })
         .join('\n');
 
       const systemPrompt = `Jestes ekspertem od wyceny uslug motoryzacyjnych w Polsce.
@@ -339,6 +372,13 @@ Ceny podawaj w: ${mode === 'gross' ? 'brutto' : 'netto'}
 
 Uslugi do wyceny (podaj cene ROBOCIZNY):
 ${lista}
+
+Jesli podano dotychczasowe stawki warsztatu, POTRAKTUJ JE JAKO MATERIAL DO
+WERYFIKACJI, a nie jako prawde. To, ze warsztat tyle brał, nie znaczy, ze liczyl
+dobrze — mogl zanizac albo zawyzac przez lata. Sprawdz je wzgledem realiow rynku
+dla TEJ marki, modelu, rocznika, silnika i TEJ lokalizacji, a nastepnie podaj
+wlasny, uczciwy zakres. Jesli stawki warsztatu sa sensowne, zakres bedzie do nich
+zblizony; jesli odbiegaja — skoryguj i napisz o tym w note.
 
 Dla KAZDEJ uslugi:
 1. podaj realistyczny zakres rynkowy OD-DO ROBOCIZNY dla tego konkretnego auta
@@ -386,23 +426,21 @@ Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
             const zHistorii = prev[p.indeks];
             const rekomendacja = Number(ai.recommended) || null;
             const ocena = ['low', 'ok', 'high'].includes(ai.verdict) ? ai.verdict : null;
-            // Widelki z historii sa mocniejsze niz oszacowanie modelu, ALE tylko
-            // gdy naprawde sa widelkami. Gdy caly zakres to jedna powtarzana
-            // stawka (albo brak danych), pokazujemy propozycje asystenta —
-            // inaczej „podpowiedz" bylaby przepisaniem wlasnej ceny warsztatu.
-            if (zHistorii && zHistorii.source === 'history' && zHistorii.max > 0 && !zHistorii.degenerate) {
-              kopia[p.indeks] = { ...zHistorii, note: note || zHistorii.note, recommended: rekomendacja, verdict: ocena };
-            } else {
-              kopia[p.indeks] = {
-                name: p.item.name,
-                min: ai.min || 0,
-                max: ai.max || 0,
-                note,
-                source: 'ai' as const,
-                recommended: rekomendacja,
-                verdict: ocena,
-              };
-            }
+            // Zakres pokazuje ASYSTENT, bo to on zweryfikowal stawki wzgledem
+            // rynku dla tej marki, modelu, rocznika, silnika i lokalizacji.
+            // Historia poszla do niego jako material — sama w sobie nie dowodzi,
+            // ze warsztat liczyl dobrze. Zakres z historii zostaje tylko wtedy,
+            // gdy asystent nie podal wlasnego.
+            const maZakresAI = (ai.min || 0) > 0 || (ai.max || 0) > 0;
+            kopia[p.indeks] = {
+              name: p.item.name,
+              min: maZakresAI ? (ai.min || 0) : (zHistorii?.min || 0),
+              max: maZakresAI ? (ai.max || 0) : (zHistorii?.max || 0),
+              note: note || zHistorii?.note || null,
+              source: maZakresAI ? ('ai' as const) : (zHistorii?.source ?? ('ai' as const)),
+              recommended: rekomendacja,
+              verdict: ocena,
+            };
           });
           return kopia;
         });
