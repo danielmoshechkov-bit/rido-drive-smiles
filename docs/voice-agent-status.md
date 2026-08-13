@@ -376,6 +376,62 @@ od początku, losowo, niezależnie od zmian w prompcie i kodzie.
 | głos / model TTS | ✅ sprawdzone | `eleven_flash_v2_5`, `stability 0.5`, `speed 1.0`, `similarity 0.8` — wartości typowe |
 | przekodowanie | ⚠️ niemierzalne u nas | wejście i wyjście to `pcm_16000`; liczba przekodowań zależy od trunku |
 
+### ✅ ROZSTRZYGNIĘTE 13.08: przyczyna jest w SYNTEZIE, nie w transmisji
+
+Właściciel odsłuchał nagranie **z ElevenLabs** — objaw jest w nim słyszalny. SuperVoIP
+i kodek SIP są **niewinne**: ElevenLabs wysyła `pcm_16000`, a zniekształcenie istnieje
+już po ich stronie.
+
+**Dowód rozstrzygający pochodzi od PRAWDZIWEGO KLIENTA** (13.08, 16:01, `+48 450 022 088`):
+
+```
+75s AGENT   original_message: "Dobrze, piątek czternastego o dziesiątej.
+                               Poproszę imię oraz numer rejestracyjny."   ← CZYSTE, JEDNO ZDANIE
+81s KLIENT  "A przed chwilą co pan powiedział? »Męcząc rurczce«? Co to znaczy?"
+```
+
+Tekst **bez sklejenia i bez powtórzenia**, a klient usłyszał bełkot i nie zrozumiał nic.
+To wyklucza duplikaty jako przyczynę TEGO przypadku i wskazuje na
+**`optimize_streaming_latency: 3`** — TTS wysyła audio, zanim dokończy syntezę.
+
+**Dwie przyczyny istnieją naprawdę, ale to są dwie różne rzeczy:**
+
+| objaw | mechanizm | miara |
+|---|---|---|
+| sklejone zdania („Dziękuję!Dobrze rozumiem") | duplikaty żądań od ElevenLabs | **21 na 501 wypowiedzi = 4,2%** |
+| bełkot przy czystym tekście | `optimize_streaming_latency: 3` | patrz wyżej |
+
+Powtórzenia tego samego zdania: 3 na 501 = 0,6%.
+
+**Ile to kosztuje w rozmowach:** na 48 rozmów dłuższych niż 30 s **5 zawiera dopytanie
+klienta** („co pan powiedział", „nie rozumiem", „proszę powtórzyć") — **10%**.
+To jest miernik, po którym poznamy, czy zmiana pomogła.
+
+**Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
+średnia 0,132 s, n = 547.
+
+### 📼 NAGRANIA W PANELU — rachunek przed decyzją
+
+Zmierzone na prawdziwym nagraniu: **0,92 MB/min** (MP3 128 kbps, 16 kHz, mono).
+
+| wariant | 1 warsztat (20 rozmów × 2 min) | 50 warsztatów | 50 warsztatów przez rok |
+|---|---|---|---|
+| 128 kbps (jak dziś) | 1,1 GB/mies. | **54 GB/mies.** | **0,6 TB** |
+| 64 kbps mono | 0,5 GB/mies. | 27 GB/mies. | 0,3 TB |
+
+Do mowy telefonicznej **64 kbps mono w zupełności wystarcza** — źródło i tak jest
+16 kHz mono. To połowa kosztu za brak słyszalnej różnicy.
+
+**Retencja po stronie ElevenLabs:** `deletion_settings` ma wszystkie pola `null`/`false`,
+czyli **nagrania nie są automatycznie kasowane**. Ale to jest ustawienie konta, nie
+gwarancja umowna — **przy uruchomieniu funkcji trzeba kopiować nagrania do siebie**,
+inaczej zmiana polityki ElevenLabs zabiera warsztatowi historię.
+
+**RODO:** nagranie rozmowy to dane osobowe. Potrzebne przed uruchomieniem: okres
+retencji (proponuję 90 dni, tyle co reklamacje), kasowanie na żądanie klienta oraz
+powiązanie kasowania ze zleceniem — dziś usunięcie zlecenia nie usuwa niczego
+poza zleceniem.
+
 **Rozstrzygnięcie należy do nagrania.** Nagranie po stronie ElevenLabs jest dostępne przez
 `GET /v1/convai/conversations/{id}/audio` (MP3 128 kbps, 16 kHz mono).
 
