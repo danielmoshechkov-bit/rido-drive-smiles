@@ -410,6 +410,30 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🧾 TRZY KOREKTY WŁASNYCH USTALEŃ (13.08) — do zapamiętania jako klasa błędu
+
+Zapisane osobno, bo wszystkie trzy wyszły w jednej turze i wszystkie trzy
+działały PRZECIW wygodnej narracji.
+
+**1. Zawyżona skala ucięć: 17% → 11%, 18 przypadków → 6.**
+Liczyłem każdy rozjazd `original_message` vs `message` jako ucięcie. ElevenLabs
+dokleja `...` także do wypowiedzi kompletnych. Większa liczba lepiej uzasadniałaby
+zgłoszenie do dostawcy — zgłoszona została mniejsza, bo jest prawdziwa.
+
+**2. „Słychać w nagraniu, więc powstaje w syntezie" — wniosek obalony pomiarem widma.**
+Trzy dni szukaliśmy na jego podstawie w ustawieniach ElevenLabs. Referencja
+zsyntezowana wprost przez API ma przy 7500 Hz −35,9 dB, nagranie rozmowy −91,7 dB.
+Nagranie przeszło przez stratny etap, więc nie rozstrzyga, gdzie powstaje bełkot.
+
+**3. Hipoteza o duplikatach żądań obalona liczbami.**
+Tury ucięte mają żądań w trakcie mówienia MNIEJ (26%) niż nieucięte (31%).
+Cache tury, przygotowany jako lekarstwo na oba objawy, nie leczy ucięć.
+
+**Wspólny mianownik: każde z trzech twierdzeń brzmiało wiarygodnie i każde padło
+dopiero przy pomiarze zaprojektowanym tak, żeby mogło je obalić.** Przy następnej
+hipotezie najpierw pytanie „jaki pomiar by ją zabił", potem dopiero szukanie
+potwierdzeń.
+
 ### 🔴 KOREKTA MOJEGO WŁASNEGO POMIARU UCIĘĆ — liczby były zawyżone
 
 Podałem „17% wypowiedzi ucinanych, 18 przypadków bez mowy klienta". **Obie liczby
