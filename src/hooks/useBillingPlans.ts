@@ -162,6 +162,35 @@ export function useBillingPlans() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * TYMCZASOWE — przycisk „Testuj zakup" w panelu admina.
+   *
+   * Otwiera sesję Checkout dla wybranego planu, żeby potwierdzić, że kwota
+   * dochodzi do operatora poprawnie (brutto, nie netto), zanim na /cennik
+   * pojawią się właściwe przyciski. Do usunięcia razem z podpięciem zakupu
+   * po stronie klienta.
+   */
+  const testCheckout = useMutation({
+    mutationFn: async (planCode: string) => {
+      const { data, error } = await supabase.functions.invoke('billing-checkout', {
+        body: { plan_code: planCode },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        const opis: Record<string, string> = {
+          GATEWAY_NOT_CONFIGURED: 'Brak sekretu STRIPE_SECRET_KEY',
+          PLAN_NOT_SYNCED: 'Plan wymaga synchronizacji ze Stripe',
+          NO_PROVIDER: 'To konto nie ma warsztatu — checkout ustala podmiot z service_providers',
+          ALREADY_SUBSCRIBED: 'Ten warsztat ma już subskrypcję w tej linii produktowej',
+        };
+        throw new Error(opis[data.code as string] ?? data.error);
+      }
+      if (!data?.url) throw new Error('Operator nie zwrócił adresu płatności');
+      return data.url as string;
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return {
     plans: query.data?.plans ?? [],
     matrix: query.data?.matrix ?? [],
@@ -172,6 +201,7 @@ export function useBillingPlans() {
     setActive,
     setFeatures,
     syncStripe,
+    testCheckout,
     refetch: query.refetch,
   };
 }
