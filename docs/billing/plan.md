@@ -127,13 +127,13 @@ gating po stronie przeglądarki — przechodzi na rolę w bazie.
 
 | Etap | Zakres | Stan |
 |---|---|---|
-| **1** | Schemat: tabele, enumy, funkcje `has_feature` / `feature_limit` / `check_usage`, `billing_gateways`, override limitów per subskrypcja, pola promo i polecenia | PR #34, **niewykonana** |
-| **2** | Zasiew planów i funkcji + macierz plan × funkcja (zatwierdzona 06.08) | do zrobienia |
-| **3** | Panel admina — kolejność: **3.0** fundament (`platform_admin` w `useUserRole`, edge `billing-admin-*`) · **3.1** Funkcje · **3.2** Plany + macierz · **3.3** strona `/cennik` czyta z `billing_plans` · **3.4** Bramki · **3.5** Subskrypcje, Zdarzenia, Ustawienia + nadpisywanie limitu per subskrypcja (plan „Sieci") | 3.0–3.2 gotowe |
-| **3.6** 🔴 | **Kontekst wielu podmiotów we froncie.** `useWorkshopProviderId` (`src/hooks/useWorkshop.ts:80`) robi `.eq('user_id', …).maybeSingle()`, co **rzuca błędem przy dwóch warsztatach na jednym koncie** — wywala cały panel warsztatu, nie tylko billing. Dotyczy dokładnie tych klientów, którzy kupią najwięcej. RPC `get_user_provider_ids` już istnieje; brakuje przełącznika podmiotu i miejsca na wybór. **Priorytet: przed etapem 4** | do zrobienia |
+| **1** | Schemat: tabele, enumy, funkcje `has_feature` / `feature_limit` / `check_usage`, `billing_gateways`, override limitów per subskrypcja, pola promo i polecenia | **wykonana** 07.08 |
+| **2** | Zasiew planów i funkcji + macierz plan × funkcja (zatwierdzona 06.08) | **wykonana**; cennik zrewidowany 11–13.08 |
+| **3** | Panel admina — kolejność: **3.0** fundament (`platform_admin` w `useUserRole`, edge `billing-admin-*`) · **3.1** Funkcje · **3.2** Plany + macierz · **3.3** strona `/cennik` czyta z `billing_plans` · **3.4** Bramki · **3.5** Subskrypcje, Zdarzenia, Ustawienia + nadpisywanie limitu per subskrypcja (plan „Sieci") | **3.0–3.3 gotowe**; 3.4–3.5 zostają |
+| **3.6** 🔴 | **Kontekst wielu podmiotów we froncie.** `useWorkshopProviderId` (`src/hooks/useWorkshop.ts:80`) robi `.eq('user_id', …).maybeSingle()`, co **rzuca błędem przy dwóch warsztatach na jednym koncie** — wywala cały panel warsztatu, nie tylko billing. Dotyczy dokładnie tych klientów, którzy kupią najwięcej. RPC `get_user_provider_ids` już istnieje; brakuje przełącznika podmiotu i miejsca na wybór. **Odłożone 13.08**: na produkcji zero userów z dwoma warsztatami. Wymagane przed sprzedażą planu Sieci | odłożone |
 | **3.7** | Zadanie cykliczne: zejście z `trial_warsztat` na `warsztat_free` po 30 dniach | do zrobienia |
 | **3.8** | `billing_consume()` — zdjęcie z puli planu, potem z pakietów FIFO wg daty ważności, reszta jako nadwyżka. Wymaga reguł rozliczenia (0,60 zł/min, sufit 200 zł/mc), więc idzie razem z katalogiem produktów | do zrobienia |
-| **4** | Podpięcie płatności: `product_type` dla kredytów pojazdowych, naprawa `upsertCredits`, przywrócenie zakupów w UI, usunięcie ścieżki symulacji | do zrobienia |
+| **4** | Uruchomienie płatności — **pełny rozpis w sekcji „ETAP 4" na końcu dokumentu**. Wariant startowy (a): subskrypcje Stripe, 7 sesji do pierwszej płatności | w toku |
 | **5** | `provider_sms_balance` — wydzielenie salda SMS z `service_providers` (wariant B, 27 miejsc w kodzie) | do zrobienia |
 | **6** | **Rabaty i polecenia w subskrypcjach**: spięcie istniejących `promo_codes` / `promo_code_redemptions` z planami (dziś rabaty działają tylko na jednorazówki) oraz rozszerzenie `tryReferralCompletion` z `payment-core` o prowizję od subskrypcji, nie tylko od pierwszego zakupu | do zrobienia |
 | **7** | Plany pozostałych portali: **Flota** (25/45/79), **Ogłoszenia** (0/5/9/19/29), **AI** (RidoAI Lite 29, AI Pro 99) oraz pakiety dokupowane (SMS, VIN, minuty AI powyżej limitu — 0,69 zł/min) jako jednorazówki | do zrobienia |
@@ -192,3 +192,290 @@ Pozostałe sześć punktów wymaga zbudowania billingu.
 - `service_providers` z saldem SMS: 3, łącznie 334 SMS-y — salda realne, nietknięte
 
 Wszystkie zmiany są prewencyjne. Nie ma sald do korekty ani kont do zablokowania.
+
+---
+
+# ETAP 4 — URUCHOMIENIE PŁATNOŚCI
+
+Rozpisany 13.08.2026 po audycie pokrycia funkcji kodem. Cel: **warsztat wchodzi na
+cennik, klika plan, płaci, dostaje to, co kupił, i otrzymuje fakturę VAT od
+GETRIDO sp. z o.o. na maila oraz w KSeF.**
+
+Wariant startowy zatwierdzony 13.08: **(a) — subskrypcje Stripe, bez pakietów
+dokupowanych, bez PayU, bez gatingu, faktura półautomatyczna**, z pominięciem
+podetapu 4.2 (panel bramek). Uzasadnienie przy każdym podetapie niżej.
+
+---
+
+## 0. DO ZROBIENIA PRZEZ DANIELA, POZA KODEM
+
+Trzy rzeczy, których nie da się zaprogramować. **Blokują 4.5 i 4.17** — dopóki nie
+są zrobione, kod nie ma się o co oprzeć.
+
+### 0.A Stripe — Products i Prices
+
+Konto jest zweryfikowane, produktów nie ma. Synchronizacja z 4.5 ma je **tworzyć od
+zera** przez API, nie tylko podpinać istniejące — więc ręcznie nic nie zakładaj.
+Do sprawdzenia w panelu Stripe przed startem:
+
+1. **Tryb testowy i produkcyjny to dwa osobne światy.** Przełącznik „Test mode"
+   w prawym górnym rogu. Produkty, ceny, klucze i webhooki utworzone w trybie
+   testowym **nie istnieją** w produkcyjnym. Zaczynamy w testowym, przechodzimy na
+   produkcyjny dopiero po punkcie kontrolnym.
+2. **Klucze API** — Developers → API keys. Potrzebne dwa:
+   - `sk_test_…` (Secret key) → do **Supabase secrets**, nigdy do bazy i nigdy do frontu
+   - `pk_test_…` (Publishable) → tylko jeśli użyjemy Stripe Elements; przy Checkoucie
+     hostowanym przez Stripe nie jest potrzebny
+   Po przejściu na produkcję: te same pola, wartości `sk_live_…`.
+3. **Webhook** — Developers → Webhooks → Add endpoint.
+   - URL: `https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/stripe-webhook`
+   - zdarzenia: `checkout.session.completed`, `invoice.paid`,
+     `invoice.payment_failed`, `customer.subscription.updated`,
+     `customer.subscription.deleted`, `charge.refunded`
+   - po zapisaniu skopiuj **Signing secret** (`whsec_…`) → do Supabase secrets.
+     Bez niego weryfikacja podpisu nie ma czym działać, a funkcja ma wtedy odmawiać
+     (fail-closed), nie przepuszczać
+4. **Waluta i profil firmy** — Settings → Business: waluta domyślna **PLN**, dane
+   spółki zgodne z NIP 5223377431.
+5. **Customer Portal** — Settings → Billing → Customer portal: włączyć, zaznaczyć
+   „Update payment method" i „Cancel subscription". Potrzebne do 4.8.
+
+**Decyzja POTWIERDZONA 13.08: cena w Stripe to kwota BRUTTO.** W `billing_plans`
+trzymamy netto (99, 169, 199) i brutto liczone kolumną generowaną. Stripe pobiera
+jedną kwotę — jeśli wystawimy tam netto, obciążymy klienta o 23% za mało. Dlatego
+`stripe_price_id` wskazuje cenę **brutto** (99 → 121,77 zł), a rozbicie na netto
+i VAT robi nasza faktura z 4.17. Stripe Tax odrzucony na start — osobna konfiguracja podatkowa i dodatkowy koszt.
+
+### 0.B KSeF — token dla GETRIDO sp. z o.o.
+
+Dzisiejsze tokeny w `company_settings` należą do **warsztatów**. Token jest wydawany
+na NIP, więc GetRido potrzebuje własnego, na NIP **5223377431**.
+
+Kroki:
+
+1. Wejdź na **środowisko testowe**: `ksef-test.mf.gov.pl`. Uwierzytelnienie jako
+   podmiot — podpisem kwalifikowanym, pieczęcią kwalifikowaną albo Profilem
+   Zaufanym osoby uprawnionej do reprezentacji.
+2. Jeśli spółka nie ma podpisu ani pieczęci kwalifikowanej — najpierw **ZAW-FA**
+   (papierowe zawiadomienie do urzędu skarbowego wskazujące osobę uprawnioną).
+   To jest ścieżka najdłuższa, kilka dni, więc sprawdź to najpierw.
+3. Po zalogowaniu: sekcja **Tokeny** → wygeneruj token z uprawnieniami do
+   **wystawiania i odczytu faktur**. Token pokazuje się **raz** — zapisz od razu.
+4. Powtórz **to samo na produkcji** (`ksef.mf.gov.pl`). Token testowy nie działa
+   na produkcji i odwrotnie — kod (`ksef-integration/index.ts:316-320`) trzyma je
+   w osobnych kolumnach `ksef_token_test` i `ksef_token_production` właśnie dlatego.
+5. Oba tokeny wklejasz w ustawieniach konta platformowego (0.C), nie w sekretach.
+
+**Zakładamy, że KSeF jest obowiązkowy od pierwszej faktury.** Zwolnienie dla
+drobnych faktur (do 450 zł, do 10 tys. zł miesięcznie) Daniel weryfikuje z księgową
+— implementacji na nim nie opieramy.
+
+### 0.C Konto platformowe GetRido
+
+**Migracja nie jest potrzebna.** Wszystko w silniku faktur jest kluczowane po
+`user_id`: `company_settings` (NIP, tokeny KSeF, środowisko) i numeracja
+`user_invoices`. Wystarczy zwykłe konto.
+
+1. Zarejestruj konto na dedykowany adres, np. `faktury@getrido.pl` — nie na adres
+   prywatny, bo to konto będzie wystawiać wszystkie faktury sprzedażowe spółki.
+2. W ustawieniach firmy uzupełnij dane GETRIDO sp. z o.o. wraz z NIP 5223377431
+   i adresem rejestrowym.
+3. Wklej oba tokeny KSeF z 0.B, ustaw środowisko na **testowe** do czasu punktu
+   kontrolnego przed pierwszą prawdziwą płatnością.
+4. **Seria numeracji — ustawić PRZED fakturą numer 1.** Kolizji z fakturami
+   warsztatów nie ma z definicji, bo numeracja jest per użytkownik, ale seria musi
+   być czytelna w razie kontroli i nie może się zmienić w połowie roku.
+   Rekomendacja: **`FS/{nr}/{rok}`** („faktura sprzedaży"), licznik od 1, reset
+   roczny. Przenumerować się później nie da.
+
+---
+
+## Podetapy
+
+Szacunek w sesjach roboczych. **Pogrubione** leżą na ścieżce krytycznej wariantu (a).
+
+### Tor A — fundament
+
+| # | podetap | sesje | zależy od |
+|---|---|---|---|
+| 4.3 | Naprawa `upsertCredits` — `payment-core/index.ts:630-635` robi `select("id, balance")` z filtrem `.eq("credit_type", …)`, a `user_credits` ma wyłącznie `id`, `user_id`, `credits_balance`. PostgREST zwraca błąd, `fail("odczyt salda")` loguje i funkcja **kończy się cicho**: płatność przechodzi, kredyty nie wchodzą | 1 | — |
+| 4.1 | Kontekst wielu podmiotów (podetap 3.6). **Odłożony**: na produkcji zero userów z dwoma warsztatami (sprawdzone 13.08). `maybeSingle()` nie wywala się przy jednym. **Wymagane przed sprzedażą planu Sieci** | 1–2 | — |
+| 4.2 | Panel bramek — `billing_gateways`, sekrety write-only, test połączenia, webhook URL, badge SANDBOX. **Pominięty na start**: przy jednej bramce i jednym administratorze klucze wystarczy raz wstawić w sekretach Supabase. Oszczędza 2 sesje. Wraca razem z PayU | 2 | — |
+| 4.4 | Uzgodnienie magazynu SMS — dziś trzy prawdy o jednym saldzie: `service_providers.sms_balance`, `user_credits`, `billing_addon_packs`. **Nieodwracalna migracja danych na saldach, za które ktoś zapłacił** — punkt kontrolny | 2 | 4.3 |
+
+### Tor B — pieniądze wchodzą
+
+| # | podetap | sesje | zależy od |
+|---|---|---|---|
+| **4.5** | **Stripe checkout subskrypcji** + synchronizacja `billing_plans` → Stripe Products/Prices (tworzenie od zera), zapis `stripe_price_id` | 3 | 0.A |
+| **4.6** | **Stripe webhook** — `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated/deleted`, `charge.refunded` → statusy `billing_subscriptions`. Idempotencja po `event.id` w `billing_events` | 2 | 4.5 |
+| **4.9** | **`price_guarantee_until`** przy aktywacji: `now() + 12 miesięcy`, gdy zakup przed `promo_enrollment_until` | 0,5 | 4.6 |
+| 4.8 | Stripe Customer Portal — zmiana karty, anulowanie, historia | 1 | 4.6, 0.A pkt 5 |
+| 4.7 | PayU — jednorazówki (BLIK, przelew), webhook z weryfikacją `OpenPayu-Signature` (MD5 z second key). **Uwaga:** w kodzie jest szkielet P24, nigdy nieuruchomiony — to nie to samo | 3 | 4.2, 4.3, 4.4 |
+
+### Tor C — zużycie i produkty dokupowane
+
+| # | podetap | sesje | zależy od |
+|---|---|---|---|
+| 4.10 | `billing_consume()` — pula planu → `billing_addon_packs` FIFO wg daty ważności → nadwyżka; sufit 200 zł/mc; jedna transakcja | 2–3 | 4.1 |
+| 4.11 | Katalog produktów dokupowanych — pakiety SMS, VIN, minuty 100/250/500, ceny, `product_type` | 2 | 4.10 |
+| 4.12 | `vehicle_lookup` — jedno źródło prawdy. Dziś limit 3 na Free jest **ozdobą**: siedzi w `billing_plan_features`, a kod czyta `vehicle_lookup_credits`. **Przed uruchomieniem sprzedaży Free** — to jedna z dwóch bram konwersji | 1–2 | 4.10 |
+| 4.13 | Przywrócenie ukrytych przycisków doładowania (`VehicleLookupCreditsModal`, `SmsPurchaseModal`) | 0,5 | 4.11 |
+
+### Tor D — dostęp i dokumenty
+
+| # | podetap | sesje | zależy od |
+|---|---|---|---|
+| 4.14 + 4.16 | **Jeden PR, nierozdzielnie**: gating (`useFeature`, `FeatureGate`, bramka serwerowa w edge) **i** tryb `read_only`. Wdrożenie blokady bez trybu odczytu odcięłoby klientowi dostęp do własnych danych | 3–4 | 4.1 |
+| 4.15 | RLS na tabelach modułowych — bez tego gating frontowy jest dekoracją | 2 | 4.14 |
+| **4.17-mini** | **Faktura sprzedażowa, wersja startowa: PDF + mail automatycznie, wysyłka do KSeF ręcznym kliknięciem tego samego dnia.** W reżimie obowiązkowym faktura jest wystawiona w dniu wysłania do KSeF, a tryby offline dają czas do następnego dnia roboczego — „wypchnę za tydzień" nie jest legalne | 1,5 | 0.B, 0.C, 4.6 |
+| 4.17 | Faktura sprzedażowa, pełna: automat KSeF w webhooku, korekty przy zwrocie, faktury bez NIP i zagraniczne | 2 | 4.17-mini |
+
+**Ścieżka krytyczna wariantu (a): 4.5 → 4.6 → 4.9 → 4.17-mini = 7 sesji.**
+Pełny etap 4 ze wszystkim: 26–33 sesje.
+
+### Co można robić równolegle
+
+- 4.3 i 4.5 — rozłączne; 4.3 nie leży na ścieżce subskrypcji
+- Tor B i Tor C — spotykają się dopiero przy 4.13
+- 4.14 i 4.15 — najlepiej jedna osoba, to ta sama decyzja na dwóch poziomach
+- 4.17 — może iść na końcu, równolegle do czegokolwiek
+
+---
+
+## 4.18 — Przywrócenie Agent Pro do sprzedaży
+
+**13.08.2026 sprzedaż `agent_pro` i `agent_sieci` wstrzymana** (`is_active = false`).
+Powód: po zdjęciu z kart funkcji bez implementacji różnica 199 → 399 zł opierała się
+na czterech pozycjach, z których **trzy nie były egzekwowane, a czwarta działała
+w połowie**. Warsztat płacący 399 dostawał technicznie to samo co za 199.
+
+Warunki przywrócenia — **komplet, nie wybiórczo**:
+
+1. **Liczenie minut** (4.10) — `voice_minutes` zdejmowane z puli planu do
+   `billing_usage`. Dziś nikt nie liczy, więc „600 vs 1000 minut" jest liczbą bez
+   pokrycia w pomiarze.
+2. **Egzekwowanie `voice_concurrent_calls`** — limit sprawdzany w momencie
+   zestawiania połączenia, przez `feature_limit()`, nie `check_usage()`
+   (to pojemność, nie licznik miesięczny). To jest główny argument wobec fonio Solo.
+3. **Egzekwowanie `voice_numbers`** — jak wyżej.
+4. **Zbiorcza analityka rozmów** — dziś `voice_call_outcomes` widać wyłącznie
+   w karcie zlecenia (`OrderCallPanel`), a `ai-agents/ConversationAnalytics.tsx`
+   to martwy kod z usuniętym importem.
+
+Punkty 1–3 leżą w wątku agenta głosowego, nie w billingu.
+
+Przy okazji przywracania rozstrzygnąć, czy wracają na karty `voice_ai_quotes`,
+`voice_priority_quality` i `voice_multi_number` — zdjęte 13.08 jako obietnice bez
+ani jednej linii kodu. Zostały w `billing_features`, więc wracają jednym `INSERT`-em.
+
+---
+
+## Tryb `read_only` — specyfikacja (do 4.16)
+
+Warsztat bez opłaconego abonamentu. Zasada nadrzędna: **może domknąć to, co zaczął
+i za co zapłacił, ale nie zaczyna nic nowego.** Po opłaceniu wszystko wraca
+natychmiast, bez utraty danych.
+
+**DZIAŁA:**
+
+- podgląd wszystkich swoich zleceń, klientów, pojazdów, historii, zdjęć
+- wyszukiwanie i filtrowanie
+- **eksport danych (CSV, PDF) — zawsze, bez wyjątku, w każdym statusie.**
+  Trzymanie danych klienta zakładnikiem zamienia windykację w spór i generuje złe
+  opinie. To nie podlega dyskusji
+- wystawianie faktur — moduł fakturowy jest ogólnodostępny, poza gatingiem
+- wysyłka SMS wyłącznie do zleceń, które **już istnieją**, i tylko z posiadanego pakietu
+- opłacenie abonamentu
+
+**ZABLOKOWANE:**
+
+- tworzenie nowych zleceń
+- edycja istniejących: zmiana pojazdu, właściciela, pozycji, statusu
+- dodawanie klientów i pojazdów
+- fiskalizacja, wysyłka do KSeF
+- zamówienia do hurtowni
+- akcje AI
+- e-podpis SMS na nowych dokumentach
+
+Banner: *„Subskrypcja wygasła. Masz podgląd i eksport danych. Aby wrócić do pracy —
+opłać abonament."*
+
+Statusy: `trialing` (30 dni) → `active` → `past_due` (7 dni karencji, **pełny
+dostęp**) → `read_only` → `canceled`.
+
+**Ustalone i ZWERYFIKOWANE 13.08:** moduł fakturowy da się wyłączyć z gatingu
+czysto. Powiązanie zlecenia z fakturą siedzi na `user_invoices.workshop_order_id`,
+a `workshop_orders` **nie ma** kolumny wskazującej na fakturę. Sprawdzone również
+triggery po obu stronach — żaden nie przekracza granicy tabeli:
+
+| tabela | triggery | wniosek |
+|---|---|---|
+| `user_invoices` | `trg_freeze_ksef_invoice_delete`, `trg_freeze_ksef_invoice_update`, `trg_unique_invoice_number`, `update_user_invoices_updated_at` | wszystkie na własnej tabeli, żaden nie pisze do `workshop_orders` |
+| `workshop_orders` | `trg_log_workshop_order_status`, `trg_workshop_client_code`, `trg_workshop_order_delete_sync`, `trg_workshop_order_flags_update_status`, `trg_workshop_order_number`, `trg_workshop_orders_updated` | żaden nie odwołuje się do faktur |
+
+Blokada zapisu na zleceniach nie dotknie wystawiania faktur — rozdział jest czysty,
+bez skutków ubocznych.
+
+---
+
+## 🔴 Jawny dług: pierwsi klienci bez gatingu
+
+**Decyzja z 13.08, świadoma.** Wariant (a) wpuszcza pierwszych płacących klientów,
+zanim powstanie gating (4.14–4.16). Konsekwencje, przyjęte z pełną świadomością:
+
+- **Danych to nie psuje.** `has_feature` / `feature_limit` / `check_usage` nie mają
+  ani jednego wywołania w kodzie, więc nie ma czego zapisać źle. `billing_usage`
+  zostaje puste i zacznie liczyć od zera, gdy wejdzie 4.10 — to poprawny stan
+  początkowy, nie luka.
+- **Klient dostaje więcej, niż kupił.** Koszt realny w trzech miejscach — zapytania
+  AI, SMS-y, sprawdzenia VIN — ale każde ma własny, działający licznik kredytów
+  niezależny od billingu, więc to brak różnicowania planów, nie dziura bez dna.
+- **Nieopłacona subskrypcja niczego nie odetnie**, bo `read_only` też jeszcze nie
+  działa.
+- **Ryzyko niefinansowe:** klient przyzwyczai się do funkcji spoza swojego planu
+  i odbierze późniejszy gating jako zabranie czegoś, za co płacił. Dlatego pierwsi
+  klienci mają być **uprzedzeni, że są na wczesnym dostępie**.
+
+**Termin spłaty: gating musi wejść przed szóstym klientem.** Przy pięciu pierwszych
+rozmowa wystarczy; przy szóstym to już polityka, a nie wyjątek.
+
+---
+
+## Plan testów przed pierwszą prawdziwą płatnością
+
+Do przeprowadzenia w trybie testowym Stripe i sandboxie PayU, zanim ktokolwiek
+zapłaci naprawdę.
+
+1. **Stripe test mode, pełna ścieżka** — checkout → webhook →
+   `billing_subscriptions.status = 'active'` → uprawnienia → faktura → mail → KSeF testowy
+2. **PayU sandbox** — jednorazówka: pakiet SMS → webhook → `billing_addon_packs` →
+   saldo widoczne w panelu warsztatu *(dopiero po 4.7)*
+3. **Nieudana płatność** — `invoice.payment_failed` → `past_due` → 7 dni karencji
+   z pełnym dostępem → `read_only` → opłacenie → natychmiastowy powrót *(po 4.16)*
+4. **Webhook trzy razy** — to samo zdarzenie wysłane trzykrotnie: jeden wpis
+   w `billing_events`, jedna subskrypcja, **jedna faktura**
+5. **Zwrot płatności** — `charge.refunded` → korekta → KSeF
+6. **Druga subskrypcja na jednym koncie** — Warsztat + Agent równolegle
+   (test `product_line`; przed rewizją cennika baza by tego zabroniła)
+7. **Doładowanie ponad limit planu** — `check_usage` pokazuje `remaining` z planu
+   i `packs_remaining` osobno, `available` jako sumę
+8. **Pusta konfiguracja bramki** — `init` zwraca `GATEWAY_NOT_CONFIGURED`, nie
+   przyznaje produktu za darmo
+9. **Gating** — próba `INSERT` do tabeli modułu tokenem użytkownika bez uprawnienia:
+   RLS odrzuca, nie tylko UI *(po 4.15)*
+
+---
+
+## Zasady pracy w etapie 4
+
+- **Fail-closed przy wszystkim, co dotyka pieniędzy.** Brak konfiguracji = odmowa,
+  nigdy domyślne przepuszczenie. Żadnych `TODO` w miejscu weryfikacji podpisu.
+- **Idempotencja przy każdym webhooku** — operator wyśle to samo zdarzenie dwa razy.
+- **Migracje pokazywane do wklejenia.** `ALTER TYPE … ADD VALUE` w osobnej
+  transakcji; SQL Editor rozbija skrypt na sesje, więc `CREATE TEMP TABLE` nie
+  przeżywa — audyt przez CTE w tym samym zapytaniu.
+- **Po każdym deployu edge: `functions download` + SHA-256 wobec `main`.** Lovable
+  deployuje z `main` i nadpisuje funkcje wdrożone z gałęzi.
+- **Nie dotykać plików agenta głosowego** (`voice-*`, `_shared/voice*`) — praca
+  równoległa w drugim wątku.
