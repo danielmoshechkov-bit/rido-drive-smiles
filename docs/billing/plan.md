@@ -326,6 +326,46 @@ Szacunek w sesjach roboczych. **Pogrubione** leżą na ścieżce krytycznej wari
 
 | # | podetap | sesje | zależy od |
 |---|---|---|---|
+
+### Kontrola dostępu — ustalenia z audytu 13.08 (fundament pod 4.14)
+
+Audyt panelu usługodawcy wykazał, że izolacja między warsztatami **trzyma się**:
+anon nie ma dostępu do żadnej tabeli warsztatowej (`SECFIX1b` z 14.07 wykonany,
+sprawdzone empirycznie kluczem anon — osiem tabel zwraca zero wierszy), a konto
+bez warsztatu nie zobaczy cudzych danych, bo RLS filtruje po
+`provider_id IN (SELECT id FROM service_providers WHERE user_id = auth.uid())`.
+
+Trzy rzeczy do naprawienia przed gatingiem:
+
+**A. Rola bez podmiotu to stan nielegalny, a powstaje po cichu.** `/uslugi/panel`
+bramkuje wyłącznie po roli `service_provider` (`ServiceProviderDashboard.tsx:287`),
+nie po istnieniu wiersza w `service_providers`. Rolę nadają `upsert`-em
+`activate-workshop-trial` i `register-marketplace-user`, a wstawienie wiersza
+providera jest w obu osobnym krokiem, który przy błędzie tylko loguje ostrzeżenie
+i idzie dalej. Efekt: konto z rolą i bez warsztatu widzi pełny panel z zerami.
+**Do 4.1**: nadanie roli atomowe z utworzeniem podmiotu + jednorazowe sprzątanie
+istniejących kont w tym stanie.
+
+**B. Panel ma odmawiać przy `providerId = null`.** Dziś warunek jest tylko przy
+Kalendarzu i Rezerwacjach; Zlecenia, Kasa, Magazyn, Pracownicy i reszta renderują
+się puste. Zera nie są zabezpieczeniem — biorą się z `enabled: !!providerId`
+w sześciu hookach `useWorkshop.ts`, czyli z warstwy prezentacji. **Do 4.14**, ten
+sam `FeatureGate`, inny warunek: „masz warsztat" zamiast „masz plan".
+
+**C. `Admin full access` do rozstrzygnięcia PRZED 4.14.** Sześć polityk RLS
+(`workshop_orders`, `_clients`, `_vehicles`, `_order_items`, `_order_statuses`,
+`_order_status_history`) daje roli `admin` pełny odczyt i zapis danych
+**wszystkich** warsztatów. Polityki łączą się przez OR, więc dopóki tak jest,
+każda bramka planowa w UI jest dla admina dekoracją. Panel usługodawcy nie jest
+narzędziem administracyjnym, a `provider_id` cudzych warsztatów jest publiczny
+(`service_providers` czyta anon).
+
+Zależność jest wąska: **jedyny ekran korzystający z tych polityk to wyszukiwarka
+pojazdów po VIN/nr rej. w `AdminPaymentsTab.tsx:306`**. Pozostali czytelnicy tych
+tabel (`useFiscal`, `CalendarView`, `FiscalReceiptDialog`, `workshopStationHandover`)
+działają w kontekście właściciela i mieszczą się w polityce providera. Edge
+functions używają service_role, więc RLS ich nie dotyczy.
+
 | 4.14 + 4.16 | **Jeden PR, nierozdzielnie**: gating (`useFeature`, `FeatureGate`, bramka serwerowa w edge) **i** tryb `read_only`. Wdrożenie blokady bez trybu odczytu odcięłoby klientowi dostęp do własnych danych | 3–4 | 4.1 |
 | 4.15 | RLS na tabelach modułowych — bez tego gating frontowy jest dekoracją | 2 | 4.14 |
 | **4.17-mini** | **Faktura sprzedażowa, wersja startowa: PDF + mail automatycznie, wysyłka do KSeF ręcznym kliknięciem tego samego dnia.** W reżimie obowiązkowym faktura jest wystawiona w dniu wysłania do KSeF, a tryby offline dają czas do następnego dnia roboczego — „wypchnę za tydzień" nie jest legalne | 1,5 | 0.B, 0.C, 4.6 |
