@@ -78,6 +78,30 @@ async function podpisPoprawny(surowe: string, naglowek: string, sekret: string):
   return rowneStale(hex, v1);
 }
 
+/**
+ * Aktualizacja subskrypcji po identyfikatorze u operatora.
+ *
+ * Zwraca liczbę trafionych wierszy. Zero znaczy, że operator zna subskrypcję,
+ * której my nie mamy — to NIE jest sukces i nie wolno tego zamknąć jako
+ * przetworzone. Taki stan powstaje, gdy ktoś kupił, zanim webhook istniał,
+ * albo gdy wiersz skasowano ręcznie; cicho pominięty, wracałby co miesiąc przy
+ * każdym `invoice.paid` i nikt by się nie dowiedział, że klient płaci za nic.
+ */
+async function aktualizujSubskrypcje(
+  admin: ReturnType<typeof createClient>,
+  providerSubId: string,
+  patch: Record<string, unknown>,
+): Promise<number> {
+  const { data, error } = await admin
+    .from("billing_subscriptions")
+    .update(patch)
+    .eq("provider", "stripe")
+    .eq("provider_subscription_id", providerSubId)
+    .select("id");
+  if (error) throw error;
+  return (data ?? []).length;
+}
+
 const naDate = (sekundy: number | null | undefined): string | null =>
   sekundy ? new Date(sekundy * 1000).toISOString() : null;
 
@@ -249,12 +273,16 @@ Deno.serve(async (req) => {
         if (!subId) { await zakoncz("ignored"); break; }
         const sub = await stripeGet(stripeKey, `/subscriptions/${subId}`);
 
-        const { error } = await admin.from("billing_subscriptions").update({
+        const trafione = await aktualizujSubskrypcje(admin, subId, {
           status: mapujStatus(sub.status),
           current_period_start: naDate(sub.current_period_start),
           current_period_end: naDate(sub.current_period_end),
-        }).eq("provider", "stripe").eq("provider_subscription_id", subId);
-        if (error) throw error;
+        });
+        if (trafione === 0) {
+          console.error("billing-stripe-webhook: opłacona subskrypcja bez odpowiednika w bazie", subId);
+          await zakoncz("failed", `Subskrypcja ${subId} nieznana w bazie — klient płaci, my o tym nie wiemy`);
+          break;
+        }
 
         // TODO(4.17): tutaj wpina się wystawienie faktury VAT GetRido —
         // idempotentnie, po `external_id` zdarzenia, żeby powtórna dostawa
@@ -268,10 +296,11 @@ Deno.serve(async (req) => {
         const subId = obiekt.subscription;
         if (!subId) { await zakoncz("ignored"); break; }
 
-        const { error } = await admin.from("billing_subscriptions")
-          .update({ status: "past_due" })
-          .eq("provider", "stripe").eq("provider_subscription_id", subId);
-        if (error) throw error;
+        const trafione = await aktualizujSubskrypcje(admin, subId, { status: "past_due" });
+        if (trafione === 0) {
+          await zakoncz("failed", `Subskrypcja ${subId} nieznana w bazie`);
+          break;
+        }
 
         // Karencja (billing_settings.grace_period_days, domyślnie 7 dni) z pełnym
         // dostępem; zejście na read_only robi zadanie cykliczne z 4.16, nie webhook.
@@ -284,14 +313,21 @@ Deno.serve(async (req) => {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const status = typ.endsWith("deleted") ? "canceled" : mapujStatus(obiekt.status);
-        const { error } = await admin.from("billing_subscriptions").update({
+        const trafione = await aktualizujSubskrypcje(admin, obiekt.id, {
           status,
           current_period_start: naDate(obiekt.current_period_start),
           current_period_end: naDate(obiekt.current_period_end),
           canceled_at: obiekt.canceled_at ? naDate(obiekt.canceled_at) : null,
           cancel_at: obiekt.cancel_at ? naDate(obiekt.cancel_at) : null,
-        }).eq("provider", "stripe").eq("provider_subscription_id", obiekt.id);
-        if (error) throw error;
+        });
+        if (trafione === 0) {
+          // Subskrypcja spoza naszej bazy (np. sprzed wdrożenia webhooka).
+          // `ignored`, nie `failed`: przy anulowaniu takiej subskrypcji nie ma
+          // czego naprawiać, a ponawianie w nieskończoność nic nie da.
+          console.warn("billing-stripe-webhook: zdarzenie cyklu życia dla nieznanej subskrypcji", obiekt.id);
+          await zakoncz("ignored", `Subskrypcja ${obiekt.id} nieznana w bazie`);
+          break;
+        }
         await zakoncz("processed");
         break;
       }
