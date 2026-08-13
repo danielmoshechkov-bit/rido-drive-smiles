@@ -58,7 +58,7 @@ export function WorkshopClientsReport({ providerId }: { providerId: string }) {
   return (
     <div className="space-y-4">
       <PeriodBar from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Nowi klienci</p><p className="text-xl font-bold">{data.nowi}</p></CardContent></Card>
         <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Powracający (&gt;1 zlecenie)</p><p className="text-xl font-bold">{data.powracajacy}</p></CardContent></Card>
         <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Klientów w okresie</p><p className="text-xl font-bold">{data.total}</p></CardContent></Card>
@@ -98,7 +98,9 @@ export function WorkshopEmployeesReport({ providerId }: { providerId: string }) 
     const inPeriod = (o: any) => dpart(o.created_at) >= from && dpart(o.created_at) <= to;
     const periodOrders = (orders as any[]).filter(inPeriod);
     return (employees as any[]).map((e) => {
-      const eo = periodOrders.filter((o) => o.mechanic_id === e.id);
+      // Przypisanie robi się w Terminarzu (assigned_employee_id -> workshop_employees).
+      // Stare `mechanic_id` wskazuje na nieużywaną tabelę workshop_mechanics.
+      const eo = periodOrders.filter((o) => o.assigned_employee_id === e.id);
       const value = eo.reduce((s, o) => s + orderGross(o), 0);
       const paid = (payouts as any[]).filter((p) => p.employee_id === e.id && !p.voided).reduce((s, p) => s + safeNumber(p.amount), 0);
       return { e, count: eo.length, value, paid };
@@ -118,7 +120,7 @@ export function WorkshopEmployeesReport({ providerId }: { providerId: string }) 
             {rows.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-6 text-muted-foreground">Brak aktywnych pracowników.</TableCell></TableRow>}
           </TableBody>
         </Table>
-        <p className="text-xs text-muted-foreground mt-2">„Zleceń/wartość" liczone wg przypisanego mechanika (mechanic_id). „Wypłacono" z modułu płac (wypłaty/zaliczki/premie).</p>
+        <p className="text-xs text-muted-foreground mt-2">„Zleceń/wartość" liczone wg pracownika przypisanego do zlecenia w Terminarzu. „Wypłacono" z modułu płac (wypłaty/zaliczki/premie).</p>
       </CardContent></Card>
     </div>
   );
@@ -150,7 +152,7 @@ export function WorkshopSalesReport({ providerId: _providerId }: { providerId: s
   return (
     <div className="space-y-4">
       <PeriodBar from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t); }} />
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Obrót</p><p className="text-xl font-bold tabular-nums">{fmt(data.turnover)} zł</p></CardContent></Card>
         <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Liczba faktur</p><p className="text-xl font-bold">{data.count}</p></CardContent></Card>
         <Card><CardContent className="py-3"><p className="text-xs text-muted-foreground">Średnia wartość</p><p className="text-xl font-bold tabular-nums">{fmt(data.avg)} zł</p></CardContent></Card>
