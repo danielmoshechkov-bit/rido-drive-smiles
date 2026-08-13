@@ -20,6 +20,12 @@ jobs:
   edge:
     name: Edge functions (Deno)
     runs-on: ubuntu-latest
+    env:
+      # Repo ma `package.json` frontu (Vite). Bez tego Deno traktuje katalog jak
+      # projekt Node'a, szuka `node_modules` i wywala się na `@types/node` przy
+      # imporcie `node:test`. Edge functions nie mają z tym package.json nic
+      # wspólnego — typy dla `node:` daje sam Deno.
+      DENO_NO_PACKAGE_JSON: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -46,7 +52,8 @@ jobs:
                      supabase/functions/billing-admin-plans/index.ts \
                      supabase/functions/billing-admin-features/index.ts
 
-      # Testy jednostkowe. `--allow-none` nie istnieje, więc jawnie nie dajemy
-      # uprawnień: testy mają być offline i bez dostępu do plików.
+      # Testy jednostkowe. Bez flag uprawnień — mają być offline i bez dostępu
+      # do plików; gdyby któryś tego potrzebował, to sygnał, że przestał być
+      # testem jednostkowym.
       - name: Testy
         run: deno test supabase/functions/_shared/
