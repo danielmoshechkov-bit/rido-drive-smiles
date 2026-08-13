@@ -302,8 +302,11 @@ export function EmployeeOrderCardDialog({
             order_id: orderId, name: p.name.trim(), item_type: 'part',
             quantity: 1, unit: 'szt', task_group: group,
             employee_id: employeeId || null, mechanic: employeeName || null,
-            sort_order: sort++, unit_price_net: 0, unit_price_gross: 0,
-            total_net: 0, total_gross: 0, discount_percent: 0,
+            // Mechanik nie podaje cen — biuro wycenia później. NULL zamiast zera,
+            // bo zero znaczyłoby „za darmo" i pozycja poszłaby klientowi
+            // do wyceny jako gratis (patrz src/lib/orderItemPricing.ts).
+            sort_order: sort++, unit_price_net: null, unit_price_gross: null,
+            total_net: null, total_gross: null, discount_percent: 0,
           });
         }
       });
@@ -328,8 +331,8 @@ export function EmployeeOrderCardDialog({
               order_id: orderId, name: l.name.trim(), item_type: 'service',
               quantity: 1, unit: 'usł.', labor_hours: lhrs, task_group: group,
               employee_id: employeeId || null, mechanic: employeeName || null,
-              sort_order: sort++, unit_price_net: 0, unit_price_gross: lcost,
-              total_net: 0, total_gross: lcost, discount_percent: 0,
+              sort_order: sort++, unit_price_net: null, unit_price_gross: lcost || null,
+              total_net: null, total_gross: lcost || null, discount_percent: 0,
             });
           }
         });
@@ -961,8 +964,8 @@ export function EmployeeOrderCardDialog({
                       order_id: orderId, name, item_type: 'part',
                       quantity: 1, unit: 'szt', task_group: 'Dodatek do naprawy',
                       employee_id: employeeId || null, mechanic: employeeName || null,
-                      sort_order: s++, unit_price_net: 0, unit_price_gross: 0,
-                      total_net: 0, total_gross: 0, discount_percent: 0,
+                      sort_order: s++, unit_price_net: null, unit_price_gross: null,
+                      total_net: null, total_gross: null, discount_percent: 0,
                       is_addon: true,
                     });
                   });
@@ -972,8 +975,8 @@ export function EmployeeOrderCardDialog({
                       item_type: 'service', quantity: 1, unit: 'usł.',
                       labor_hours: hrs, task_group: 'Dodatek do naprawy',
                       employee_id: employeeId || null, mechanic: employeeName || null,
-                      sort_order: s++, unit_price_net: 0, unit_price_gross: cost,
-                      total_net: 0, total_gross: cost, discount_percent: 0,
+                      sort_order: s++, unit_price_net: null, unit_price_gross: cost || null,
+                      total_net: null, total_gross: cost || null, discount_percent: 0,
                       is_addon: true,
                     });
                   }

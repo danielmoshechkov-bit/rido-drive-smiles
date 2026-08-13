@@ -7,8 +7,9 @@
 //
 // Co znika, decyduje funkcja bazy voice_recordings_expired — cała arytmetyka
 // dat siedzi tam, więc da się ją sprawdzić zapytaniem, bez uruchamiania
-// kasowania. Domyślnie: 90 dni po zakończeniu zlecenia, a rozmowy bez zlecenia
-// twardo po 180 dniach. Warsztat może to zmienić w voice_recording_retention.
+// kasowania. Domyślnie: 30 dni po zakończeniu zlecenia; nagranie znika też od
+// razu razem z usuniętym zleceniem. Warsztat może to zmienić w tabeli
+// voice_recording_retention.
 //
 // ZNIKA WYŁĄCZNIE PLIK AUDIO. Transkrypcja i podsumowanie zostają przy zleceniu
 // na zawsze — ważą tyle co nic, a to one mówią, co zostało ustalone.
@@ -36,7 +37,36 @@ serve(async (req) => {
     // Ta sama brama co w voice-call-reconcile: token z sejfu albo service-role.
     const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
     const provided = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-    if (provided !== serviceRoleKey && (!expected || provided !== expected)) return json({ error: "unauthorized" }, 401);
+    const pelnyPrzebieg = provided === serviceRoleKey || (!!expected && provided === expected);
+
+    // TRYB „PO USUNIĘCIU ZLECENIA". Panel woła to zaraz po skasowaniu zlecenia,
+    // żeby nagranie znikło od razu — a panel ma tylko token zalogowanego
+    // użytkownika, nie sekret nocnego sprzątania. Taki gość NIE decyduje, co jest
+    // przeterminowane: opróżnia wyłącznie kolejkę SWOJEGO warsztatu, czyli
+    // pliki, o których baza już orzekła, że mają zniknąć.
+    if (!pelnyPrzebieg) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
+      if (!provided) return json({ error: "unauthorized" }, 401);
+      const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${provided}` } } });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) return json({ error: "unauthorized" }, 401);
+
+      const [{ data: wlasne }, { data: zatrudnienie }] = await Promise.all([
+        admin.from("service_providers").select("id").eq("user_id", user.id),
+        admin.from("workshop_employees").select("provider_id").eq("user_id", user.id).eq("status", "active"),
+      ]);
+      const moje = [...(wlasne || []).map((p: any) => p.id), ...(zatrudnienie || []).map((e: any) => e.provider_id)];
+      if (!moje.length) return json({ nagrania_z_kolejki: 0 });
+
+      const { data: kolejkaMoja } = await admin.from("voice_recordings_purge_queue")
+        .select("id, path").in("provider_id", moje).limit(200);
+      if (!kolejkaMoja?.length) return json({ nagrania_z_kolejki: 0 });
+
+      const { error: qErr } = await admin.storage.from(KOSZYK).remove(kolejkaMoja.map((k) => k.path));
+      if (qErr) return json({ nagrania_z_kolejki: 0, blad: qErr.message }, 500);
+      await admin.from("voice_recordings_purge_queue").delete().in("id", kolejkaMoja.map((k) => k.id));
+      return json({ nagrania_z_kolejki: kolejkaMoja.length, tryb: "kolejka" });
+    }
 
     const body = await req.json().catch(() => ({}));
     const dryRun = body?.dry_run === true;
@@ -78,6 +108,23 @@ serve(async (req) => {
       usuniete += paczka.length;
     }
 
+    // KOLEJKA PO USUNIĘTYCH ZLECENIACH. Wiersz rozmowy kasuje wyzwalacz w tej
+    // samej chwili co zlecenie, ale do koszyka baza nie sięga — ścieżkę pliku
+    // zostawia więc tutaj. Wołane zaraz po usunięciu zlecenia, żeby nagranie
+    // znikało od razu, a nie następnej nocy.
+    let zKolejki = 0;
+    const { data: kolejka } = await admin.from("voice_recordings_purge_queue")
+      .select("id, path").limit(500);
+    if (kolejka?.length) {
+      const { error: qErr } = await admin.storage.from(KOSZYK).remove(kolejka.map((k) => k.path));
+      if (qErr) {
+        console.error("[voice-recordings-cleanup]", JSON.stringify({ event: "queue_remove_failed", error: qErr.message }));
+      } else {
+        await admin.from("voice_recordings_purge_queue").delete().in("id", kolejka.map((k) => k.id));
+        zKolejki = kolejka.length;
+      }
+    }
+
     // DRUGI KROK: rozmowy po usuniętych zleceniach. Dopiero teraz, gdy plik audio
     // jest już z koszyka usunięty — inaczej zostałby tam na zawsze, bo bez wiersza
     // nikt by nie wiedział, że tam leży.
@@ -85,10 +132,10 @@ serve(async (req) => {
     if (purgeErr) console.error("[voice-recordings-cleanup]", JSON.stringify({ event: "purge_failed", error: purgeErr.message }));
 
     console.info("[voice-recordings-cleanup]", JSON.stringify({
-      event: "sprzatanie", usuniete, bledy, rozmowy_skasowane: skasowaneRozmowy ?? 0,
+      event: "sprzatanie", usuniete, bledy, z_kolejki: zKolejki, rozmowy_skasowane: skasowaneRozmowy ?? 0,
     }));
     return json({
-      usuniete, blad_kasowania: bledy,
+      usuniete, blad_kasowania: bledy, nagrania_z_kolejki: zKolejki,
       rozmowy_po_usunietych_zleceniach: skasowaneRozmowy ?? 0,
       blad_kasowania_rozmow: purgeErr?.message || null,
     });
