@@ -240,12 +240,11 @@ Do sprawdzenia w panelu Stripe przed startem:
 5. **Customer Portal** — Settings → Billing → Customer portal: włączyć, zaznaczyć
    „Update payment method" i „Cancel subscription". Potrzebne do 4.8.
 
-**Decyzja do podjęcia przed 4.5: cena w Stripe to kwota BRUTTO.** W `billing_plans`
+**Decyzja POTWIERDZONA 13.08: cena w Stripe to kwota BRUTTO.** W `billing_plans`
 trzymamy netto (99, 169, 199) i brutto liczone kolumną generowaną. Stripe pobiera
 jedną kwotę — jeśli wystawimy tam netto, obciążymy klienta o 23% za mało. Dlatego
 `stripe_price_id` wskazuje cenę **brutto** (99 → 121,77 zł), a rozbicie na netto
-i VAT robi nasza faktura z 4.17. Alternatywa (Stripe Tax) to osobna konfiguracja
-podatkowa i dodatkowy koszt — nie na start.
+i VAT robi nasza faktura z 4.17. Stripe Tax odrzucony na start — osobna konfiguracja podatkowa i dodatkowy koszt.
 
 ### 0.B KSeF — token dla GETRIDO sp. z o.o.
 
@@ -405,16 +404,18 @@ opłać abonament."*
 Statusy: `trialing` (30 dni) → `active` → `past_due` (7 dni karencji, **pełny
 dostęp**) → `read_only` → `canceled`.
 
-**Ustalone 13.08:** moduł fakturowy da się wyłączyć z gatingu czysto. Powiązanie
-zlecenia z fakturą siedzi na `user_invoices.workshop_order_id`, a `workshop_orders`
-**nie ma** kolumny wskazującej na fakturę — blokada zapisu na zleceniach nie dotknie
-wystawiania faktur. Do potwierdzenia jednym zapytaniem przed implementacją:
+**Ustalone i ZWERYFIKOWANE 13.08:** moduł fakturowy da się wyłączyć z gatingu
+czysto. Powiązanie zlecenia z fakturą siedzi na `user_invoices.workshop_order_id`,
+a `workshop_orders` **nie ma** kolumny wskazującej na fakturę. Sprawdzone również
+triggery po obu stronach — żaden nie przekracza granicy tabeli:
 
-```sql
-select tgname, pg_get_triggerdef(t.oid)
-from pg_trigger t join pg_class c on c.oid = t.tgrelid
-where c.relname in ('user_invoices','workshop_orders') and not t.tgisinternal;
-```
+| tabela | triggery | wniosek |
+|---|---|---|
+| `user_invoices` | `trg_freeze_ksef_invoice_delete`, `trg_freeze_ksef_invoice_update`, `trg_unique_invoice_number`, `update_user_invoices_updated_at` | wszystkie na własnej tabeli, żaden nie pisze do `workshop_orders` |
+| `workshop_orders` | `trg_log_workshop_order_status`, `trg_workshop_client_code`, `trg_workshop_order_delete_sync`, `trg_workshop_order_flags_update_status`, `trg_workshop_order_number`, `trg_workshop_orders_updated` | żaden nie odwołuje się do faktur |
+
+Blokada zapisu na zleceniach nie dotknie wystawiania faktur — rozdział jest czysty,
+bez skutków ubocznych.
 
 ---
 
