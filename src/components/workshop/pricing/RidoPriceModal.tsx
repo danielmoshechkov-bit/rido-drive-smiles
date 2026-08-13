@@ -6,6 +6,7 @@ import { Loader2, AlertTriangle, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGetRidoAI } from '@/hooks/useGetRidoAI';
 import { supabase } from '@/integrations/supabase/client';
+import { matchPrices, serviceKeywords, isJunkService, priceCacheKey, cacheBuckets, type PriceRecord } from '@/lib/pricingSuggestions';
 
 interface ServiceItem {
   name: string;
@@ -17,16 +18,23 @@ interface Suggestion {
   min: number;
   max: number;
   note: string | null;
+  /** Skad wzielismy zakres — pokazujemy to warsztatowi wprost. */
+  source?: 'history' | 'ai';
+  /** Ile wycen zlozylo sie na zakres z historii. */
+  count?: number;
+  own?: number;
+  scope?: 'model' | 'brand' | 'any';
 }
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   services: ServiceItem[];
-  vehicle: { brand?: string; model?: string; year?: number; engine_capacity?: number; fuel_type?: string } | null;
+  vehicle: { brand?: string; model?: string; year?: number; engine_capacity_cm3?: number; fuel_type?: string } | null;
   city?: string;
   voivodeship?: string;
   industry?: string;
+  providerId?: string | null;
   priceMode: 'net' | 'gross';
   onApplySuggestions: (prices: { index: number; price: number }[]) => void;
   missingVehicleData?: boolean;
@@ -45,6 +53,7 @@ export function RidoPriceModal({
   city,
   voivodeship,
   industry = 'warsztat',
+  providerId,
   priceMode: initialMode,
   onApplySuggestions,
   missingVehicleData = false,
@@ -55,6 +64,9 @@ export function RidoPriceModal({
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [priceInputs, setPriceInputs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  // Widelki z historii sa natychmiast, opis od asystenta dochodzi chwile pozniej —
+  // zamiast „Brak uwag" pokazujemy wtedy, ze jeszcze pracuje.
+  const [opisWDrodze, setOpisWDrodze] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { execute } = useGetRidoAI();
 
@@ -87,134 +99,315 @@ export function RidoPriceModal({
     }
   }, [mode]);
 
+  /**
+   * Kolejnosc ma znaczenie: NAJPIERW historia (wlasna + portalu), bo odpowiada
+   * w ulamku sekundy i opiera sie na realnych cenach; AI leci ROWNOLEGLE i
+   * uzupelnia to, czego w historii nie ma. Wczesniej bylo odwrotnie — okno
+   * czekalo na model AI, stad "bardzo dlugo mysli".
+   */
   const fetchSuggestions = async () => {
     setLoading(true);
     setError(null);
 
-    try {
-      // Prefer AI pricing first for live, vehicle-aware suggestions
-      const aiWorked = await fetchAISuggestions();
-      if (aiWorked) {
-        return;
-      }
-
-      // Fallback to community DB
-      const serviceNames = services.map(s => s.name.trim().toLowerCase().replace(/\s+/g, ' '));
-      const { data: dbPrices } = await (supabase as any)
-        .from('anonymous_service_prices')
-        .select('service_name_normalized, price_net, price_gross')
-        .in('service_name_normalized', serviceNames);
-
-      const grouped = new Map<string, number[]>();
-      if (dbPrices) {
-        for (const p of dbPrices) {
-          const arr = grouped.get(p.service_name_normalized) || [];
-          arr.push(mode === 'gross' ? p.price_gross : p.price_net);
-          grouped.set(p.service_name_normalized, arr);
+    const historia = fetchHistorySuggestions()
+      .then(wynik => {
+        if (wynik.some(Boolean)) {
+          setSuggestions(prev => scal(prev, wynik, services));
+          setLoading(false);   // uzytkownik ma juz widelki, reszte dosyla AI
         }
-      }
+        return wynik;
+      })
+      .catch(() => services.map(() => null));
 
-      // Check if we have enough DB data (3+ prices per service)
-      const allHaveData = serviceNames.every(n => (grouped.get(n)?.length || 0) >= 3);
+    setOpisWDrodze(true);
+    // Najpierw zapamietane odpowiedzi — sa natychmiast i za darmo. Do modelu
+    // idzie potem tylko to, czego w pamieci nie bylo.
+    const zPamieci = await fetchCachedSuggestions().catch(() => new Set<number>());
+    const ai = fetchAISuggestions(zPamieci)
+      .then(ok => ok)
+      .catch(() => false)
+      .finally(() => setOpisWDrodze(false));
 
-      if (allHaveData) {
-        const result: Suggestion[] = services.map((s, i) => {
-          const prices = grouped.get(serviceNames[i]) || [];
-          const sorted = prices.sort((a, b) => a - b);
-          const hasPL = PL_PATTERNS.test(s.name);
-          return {
-            name: s.name,
-            min: sorted[0] || 0,
-            max: sorted[sorted.length - 1] || 0,
-            note: hasPL ? t('workshop.pricing.priceModal.plNoteWithRange', { min: fmt(sorted[0] / 2), max: fmt(sorted[sorted.length - 1] / 2) }) : null,
-          };
-        });
-        setSuggestions(result);
-      } else {
-        setError(t('workshop.pricing.priceModal.suggestionUnavailable'));
-      }
-    } catch (e) {
-      setError('Sugestia chwilowo niedostępna. Spróbuj ponownie.');
-    } finally {
-      setLoading(false);
+    const [zHistorii, aiOk] = await Promise.all([historia, ai]);
+    setLoading(false);
+
+    if (!aiOk && !zHistorii.some(Boolean)) {
+      setError(t('workshop.pricing.priceModal.suggestionUnavailable'));
     }
   };
 
-  const fetchAISuggestions = async () => {
+  /** Scala nowe wyniki z juz pokazanymi — historia nie kasuje odpowiedzi AI i odwrotnie. */
+  const scal = (poprzednie: Suggestion[], nowe: (Suggestion | null)[], lista: ServiceItem[]): Suggestion[] =>
+    lista.map((s, i) => nowe[i] || poprzednie[i] || { name: s.name, min: 0, max: 0, note: null });
+
+  /**
+   * Zapamietane odpowiedzi asystenta dla tej samej uslugi i tego samego auta.
+   * Zwraca indeksy pozycji, ktorych NIE trzeba juz pytac modelu.
+   */
+  const fetchCachedSuggestions = async (): Promise<Set<number>> => {
+    const opisAuta = {
+      brand: vehicle?.brand,
+      model: vehicle?.model,
+      engineCapacity: vehicle?.engine_capacity_cm3,
+      year: vehicle?.year,
+    };
+    const klucze = services.map(s2 => priceCacheKey(s2.name, opisAuta, mode));
+    if (klucze.length === 0) return new Set();
+
+    const swiezosc = new Date(Date.now() - 90 * 24 * 3600_000).toISOString();
+    const { data } = await (supabase as any)
+      .from('ai_price_cache')
+      .select('cache_key, min_price, max_price, note')
+      .in('cache_key', klucze)
+      .gte('created_at', swiezosc);
+
+    const poKluczu = new Map<string, any>((data || []).map((r: any) => [r.cache_key, r]));
+    const trafione = new Set<number>();
+
+    setSuggestions(prev => services.map((s2, i) => {
+      const wpis = poKluczu.get(klucze[i]);
+      if (!wpis) return prev[i] || { name: s2.name, min: 0, max: 0, note: null };
+      trafione.add(i);
+      const zHistorii = prev[i];
+      // Widelki z realnej historii zostaja; z pamieci bierzemy wtedy sam opis.
+      if (zHistorii && zHistorii.source === 'history' && zHistorii.max > 0) {
+        return { ...zHistorii, note: wpis.note || zHistorii.note };
+      }
+      return {
+        name: s2.name,
+        min: Number(wpis.min_price) || 0,
+        max: Number(wpis.max_price) || 0,
+        note: wpis.note || null,
+        source: 'ai' as const,
+      };
+    }));
+
+    return trafione;
+  };
+
+  /** Widelki z wlasnej historii warsztatu + wspolnej bazy portalu. */
+  const fetchHistorySuggestions = async (): Promise<(Suggestion | null)[]> => {
+    const doWyceny = services.filter(s => !isJunkService(s.name));
+    if (doWyceny.length === 0) return services.map(() => null);
+
+    // Pobieramy kandydatow po slowach kluczowych (a nie po calej nazwie) —
+    // "wymiana rozrzadu" ma trafic tez w "rozrzad wymiana kompletna".
+    const slowa = Array.from(new Set(doWyceny.flatMap(s => serviceKeywords(s.name)))).slice(0, 12);
+    if (slowa.length === 0) return services.map(() => null);
+    const filtr = slowa.map(w => `service_name_normalized.ilike.%${w}%`).join(',');
+
+    const [globalne, wlasne, zeZlecen] = await Promise.all([
+      (supabase as any)
+        .from('anonymous_service_prices')
+        .select('service_name_normalized, price_net, price_gross, vehicle_brand, vehicle_model, engine_capacity, vehicle_year, fuel_type, city')
+        .or(filtr)
+        .limit(2000),
+      providerId
+        ? (supabase as any)
+            .from('service_price_history')
+            .select('service_name, price_net, price_gross')
+            .eq('provider_id', providerId)
+            .or(slowa.map(w => `service_name.ilike.%${w}%`).join(','))
+            .limit(1000)
+        : Promise.resolve({ data: [] }),
+      // NAJWAZNIEJSZE ZRODLO: realne pozycje z wczesniejszych zlecen TEGO
+      // warsztatu, razem z autem, na ktorym robota byla wykonana. To jest
+      // odpowiedz na pytanie "ile bralem za to samo, przy podobnym aucie".
+      providerId
+        ? (supabase as any)
+            .from('workshop_order_items')
+            .select('name, unit_price_net, unit_price_gross, order:workshop_orders!inner(provider_id, vehicle:workshop_vehicles(brand, model, year, fuel_type, engine_capacity_cm3))')
+            .eq('order.provider_id', providerId)
+            .in('item_type', ['service', 'task'])
+            .gt('unit_price_gross', 0)
+            .or(slowa.map(w => `name.ilike.%${w}%`).join(','))
+            .limit(1000)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    // UWAGA: service_price_history nie trzyma pojazdu, wiec po wprowadzeniu
+    // zasady „wycena bez auta sie nie liczy" nie moze juz zasilac widelek.
+    // Zostaje jako zrodlo podpowiedzi nazw uslug przy pisaniu.
+    const wlasneRekordy: PriceRecord[] = [];
+    // Pozycje z wlasnych zlecen — z marka i modelem auta, wiec dzialaja
+    // w zawezaniu "ten sam model → ta sama marka".
+    const zeZlecenRekordy: PriceRecord[] = (zeZlecen?.data || [])
+      // Ta sama zasada co przy wspolnej bazie: pozycja bez auta nie wchodzi.
+      .filter((r: any) => r.order?.vehicle?.brand && r.order?.vehicle?.model)
+      .map((r: any) => ({
+      service_name_normalized: r.name,
+      price_net: r.unit_price_net,
+      price_gross: r.unit_price_gross,
+      vehicle_brand: r.order?.vehicle?.brand ?? null,
+      vehicle_model: r.order?.vehicle?.model ?? null,
+      engine_capacity: r.order?.vehicle?.engine_capacity_cm3 ?? null,
+      vehicle_year: r.order?.vehicle?.year ?? null,
+      fuel_type: r.order?.vehicle?.fuel_type ?? null,
+    }));
+
+    const wlasneWszystkie = [...wlasneRekordy, ...zeZlecenRekordy];
+    const wlasneKlucze = new Set(wlasneWszystkie.map(r => `${r.service_name_normalized}|${r.price_gross}`));
+    // Wlasne ceny licza sie podwojnie — to stawki tego zakladu, nie srednia z rynku.
+    const wszystkie: PriceRecord[] = [
+      ...wlasneWszystkie, ...wlasneWszystkie,
+      ...((globalne?.data as PriceRecord[]) || []),
+    ];
+
+    return services.map(s => {
+      const dopasowanie = matchPrices(s.name, wszystkie, wlasneKlucze, {
+        brand: vehicle?.brand,
+        model: vehicle?.model,
+        engineCapacity: vehicle?.engine_capacity_cm3,
+        year: vehicle?.year,
+        fuelType: vehicle?.fuel_type,
+      }, mode);
+      if (!dopasowanie) return null;
+      // W kolumnie uwag NIE pokazujemy, ile bylo wycen ani czyje one byly.
+      // Warsztat nie ma prawa wiedziec, ze „3 wyceny pochodza od innych" —
+      // to informacja o cudzych danych. Liczby z historii siedza w widelkach
+      // OD-DO, a w uwagach ma byc rzeczowy opis, co ta cena obejmuje —
+      // dopisze go asystent, gdy tylko odpowie.
+      return {
+        name: s.name,
+        min: dopasowanie.min,
+        max: dopasowanie.max,
+        source: 'history' as const,
+        count: dopasowanie.count,
+        own: dopasowanie.own,
+        scope: dopasowanie.scope,
+        note: null,
+      };
+    });
+  };
+
+  /**
+   * Sugestie od asystenta — w ROWNOLEGLYCH PACZKACH po kilka uslug.
+   *
+   * Wczesniej szlo jedno zapytanie z cala lista: model musial napisac kilkanascie
+   * opisow po kolei, wiec czas rosl liniowo z liczba pozycji (jedna usluga ~5 s,
+   * dwanascie — pol minuty). Teraz paczki lecą naraz, a kazda wraca osobno i od
+   * razu ląduje w tabeli, wiec pierwsze uwagi widac po kilku sekundach.
+   */
+  const ROZMIAR_PACZKI = 3;
+
+  const fetchAISuggestions = async (pomin: Set<number> = new Set()): Promise<boolean> => {
     const vehicleDesc = vehicle
-      ? `${vehicle.brand || ''} ${vehicle.model || ''} rok ${vehicle.year || ''} silnik ${vehicle.engine_capacity || ''}cc ${vehicle.fuel_type || ''}`.trim()
+      ? `${vehicle.brand || ''} ${vehicle.model || ''} rok ${vehicle.year || ''} silnik ${vehicle.engine_capacity_cm3 || ''}cm3 ${vehicle.fuel_type || ''}`.trim()
       : 'nieznany pojazd';
 
-    const servicesList = services.map((s, index) => `${index + 1}. ${s.name} | aktualna cena: ${s.currentPrice || 0} zł (${mode})`).join('\n');
+    // Pytamy TYLKO o pozycje, ktorych nie bylo w pamieci.
+    const doZapytania = services
+      .map((item, indeks) => ({ indeks, item }))
+      .filter(({ indeks }) => !pomin.has(indeks));
+    if (doZapytania.length === 0) return true;
 
-    const systemPrompt = `Jesteś ekspertem od wyceny usług motoryzacyjnych w Polsce.
-
-Pojazd: ${vehicleDesc}
-Usługi do wyceny (lista):
-${servicesList}
-Lokalizacja: ${city || 'nieznane'}, ${voivodeship || 'nieznane'}
-Branża: ${industry}
-Wyświetlaj ceny w: ${mode}
-
-Dla każdej usługi z listy podaj realistyczny zakres cenowy OD-DO dla miasta użytkownika i typu pojazdu.
-Uwzględnij markę, model, rok, silnik, lokalizację warsztatu oraz treść kosztorysu.
-Jeśli aktualna cena jest zbyt niska lub zbyt wysoka, wskaż to krótko w note.
-Jeśli usługa zawiera P+L, obie strony, x2 — uwzględnij to w cenie i dodaj uwagę.
-
-Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak lista wejściowa:
-[
-  { "name": "nazwa usługi", "min": liczba, "max": liczba, "currency": "PLN", "unit": "${mode}", "note": "uwaga jeśli P+L lub coś szczególnego, w przeciwnym razie null" }
-]`;
-
-    const result = await execute({
-      feature: 'rido_price',
-      taskType: 'pricing_suggestion',
-      query: `Wycena usług: ${servicesList}`,
-      systemPrompt,
-      mode: 'pro',
-      contextHints: {
-        vehicle: vehicleDesc,
-        city,
-        voivodeship,
-        industry,
-        priceUnit: mode,
-      },
+    const paczki: { indeks: number; item: ServiceItem }[][] = [];
+    doZapytania.forEach((wpis, i) => {
+      const nr = Math.floor(i / ROZMIAR_PACZKI);
+      (paczki[nr] ||= []).push(wpis);
     });
 
-    if (!result || result.error) {
-      return false;
-    }
+    const wyniki = await Promise.all(paczki.map(async (paczka) => {
+      const lista = paczka
+        .map((p, i) => `${i + 1}. ${p.item.name} | aktualna cena: ${p.item.currentPrice || 0} zl (${mode})`)
+        .join('\n');
 
-    try {
-      let parsed: any[];
-      const text = result.result || '';
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error('No JSON array found');
-      }
+      const systemPrompt = `Jestes ekspertem od wyceny uslug motoryzacyjnych w Polsce.
 
-      const mapped: Suggestion[] = services.map((s, i) => {
-        const ai = parsed[i] || {};
-        const hasPL = PL_PATTERNS.test(s.name);
-        let note = ai.note || null;
-        if (hasPL && !note) {
-          note = t('workshop.pricing.priceModal.plNote');
-        }
-        return {
-          name: s.name,
-          min: ai.min || 0,
-          max: ai.max || 0,
-          note,
-        };
+Pojazd: ${vehicleDesc}
+Lokalizacja: ${city || 'nieznane'}, ${voivodeship || 'nieznane'}
+Ceny podawaj w: ${mode === 'gross' ? 'brutto' : 'netto'}
+
+Uslugi do wyceny:
+${lista}
+
+Dla KAZDEJ uslugi podaj realistyczny zakres OD-DO dla tego konkretnego auta
+(marka, model, rocznik, silnik, paliwo) i tej lokalizacji. W polu note napisz
+zwiezle (2-3 zdania), co cena obejmuje, od czego zalezy i na co uwazac —
+np. lancuch vs pasek, P+L, konieczna geometria po wymianie.
+
+Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
+[{ "name": "nazwa", "min": liczba, "max": liczba, "note": "opis" }]`;
+
+      const result = await execute({
+        feature: 'rido_price',
+        taskType: 'pricing_suggestion',
+        query: `Wycena uslug: ${lista}`,
+        systemPrompt,
+        mode: 'pro',
+        contextHints: { vehicle: vehicleDesc, city, voivodeship, industry, priceUnit: mode },
       });
-      setSuggestions(mapped);
-      setError(null);
-      return true;
-    } catch {
-      return false;
-    }
+
+      if (!result || result.error) return false;
+      try {
+        const text = result.result || '';
+        const dopasowanie = text.match(/\[[\s\S]*\]/);
+        if (!dopasowanie) return false;
+        const parsed = JSON.parse(dopasowanie[0]);
+
+        // Kazda paczka wpada do tabeli OSOBNO — nie czekamy na pozostale.
+        setSuggestions(prev => {
+          const kopia = services.map((s2, i) => prev[i] || { name: s2.name, min: 0, max: 0, note: null });
+          paczka.forEach((p, i) => {
+            const ai = parsed[i] || {};
+            if (!ai.min && !ai.max && !ai.note) return;
+            const hasPL = PL_PATTERNS.test(p.item.name);
+            const note = ai.note || (hasPL ? t('workshop.pricing.priceModal.plNote') : null);
+            const zHistorii = prev[p.indeks];
+            // Widelki z historii sa mocniejsze niz oszacowanie modelu — zostaja.
+            if (zHistorii && zHistorii.source === 'history' && zHistorii.max > 0) {
+              kopia[p.indeks] = { ...zHistorii, note: note || zHistorii.note };
+            } else {
+              kopia[p.indeks] = {
+                name: p.item.name,
+                min: ai.min || 0,
+                max: ai.max || 0,
+                note,
+                source: 'ai' as const,
+              };
+            }
+          });
+          return kopia;
+        });
+        // Zapamietujemy odpowiedz, zeby nastepnym razem byla natychmiast.
+        // Blad zapisu nie moze przeszkodzic w pokazaniu wyceny — to tylko pamiec.
+        try {
+          const opisAuta = {
+            brand: vehicle?.brand,
+            model: vehicle?.model,
+            engineCapacity: vehicle?.engine_capacity_cm3,
+            year: vehicle?.year,
+          };
+          const kubelki = cacheBuckets(opisAuta);
+          const doZapisu = paczka
+            .map((p, i) => ({ p, ai: parsed[i] || {} }))
+            .filter(({ ai }) => ai.min || ai.max || ai.note)
+            .map(({ p, ai }) => ({
+              cache_key: priceCacheKey(p.item.name, opisAuta, mode),
+              service_name: p.item.name,
+              vehicle_brand: vehicle?.brand || null,
+              vehicle_model: vehicle?.model || null,
+              engine_bucket: kubelki.engine_bucket,
+              year_bucket: kubelki.year_bucket,
+              price_mode: mode,
+              min_price: ai.min || null,
+              max_price: ai.max || null,
+              note: ai.note || null,
+              updated_at: new Date().toISOString(),
+            }));
+          if (doZapisu.length) {
+            void (supabase as any).from('ai_price_cache').upsert(doZapisu, { onConflict: 'cache_key' });
+          }
+        } catch { /* pamiec jest opcjonalna */ }
+
+        setError(null);
+        return true;
+      } catch {
+        return false;
+      }
+    }));
+
+    return wyniki.some(Boolean);
   };
 
   const fmt = (v: number) => v.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -248,7 +441,7 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
   };
 
   const vehicleLabel = vehicle
-    ? `${vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.engine_capacity ? vehicle.engine_capacity + 'cc' : ''}`.trim()
+    ? `${vehicle.brand || ''} ${vehicle.model || ''} ${vehicle.engine_capacity_cm3 ? vehicle.engine_capacity_cm3 + ' cm3' : ''}`.trim()
     : '';
 
   return (
@@ -339,6 +532,7 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
                         </td>
                         <td className="p-3">
                           <Input
+                            onFocus={e => e.currentTarget.select()}
                             value={priceInputs[i] ?? ''}
                             onChange={(e) => handlePriceChange(i, e.target.value)}
                             onBlur={() => handlePriceCommit(i)}
@@ -350,11 +544,22 @@ Odpowiedz TYLKO w formacie JSON — tablica obiektów, kolejność taka sama jak
                             placeholder={s.min && s.max ? fmt(Math.round((s.min + s.max) / 2)) : '0'}
                           />
                         </td>
-                        <td className="p-2 text-right tabular-nums">{fmt(s.min)} zł</td>
-                        <td className="p-2 text-right tabular-nums">{fmt(s.max)} zł</td>
+                        {/* „0 zl" wygladalo jak wycena na zero. Dopoki nie ma danych,
+                            pokazujemy kreske — brak wyniku to nie jest cena. */}
+                        <td className="p-2 text-right tabular-nums">
+                          {s.max > 0 ? `${fmt(s.min)} zł` : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="p-2 text-right tabular-nums">
+                          {s.max > 0 ? `${fmt(s.max)} zł` : <span className="text-muted-foreground">—</span>}
+                        </td>
                         <td className="p-3">
                           {s.note ? (
                             <p className="text-sm leading-6 text-foreground/80">{s.note}</p>
+                          ) : opisWDrodze ? (
+                            <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              {t('workshop.pricing.priceModal.notePending', 'Asystent dopisuje uwagi…')}
+                            </span>
                           ) : (
                             <span className="text-sm text-muted-foreground">{t('workshop.pricing.priceModal.noExtraNotes')}</span>
                           )}
