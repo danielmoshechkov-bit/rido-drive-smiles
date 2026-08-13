@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Phone, ListChecks, ArrowRight, MessageSquare, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Phone, ListChecks, ArrowRight, MessageSquare, ChevronDown, Play, Download, AlertCircle } from "lucide-react";
 
 interface Outcome {
   outcome: string | null;
@@ -30,6 +31,16 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
   const [loading, setLoading] = useState(true);
   const [call, setCall] = useState<CallData | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  // Podsumowanie: gdy analiza po rozmowie go nie zapisała, odtwarzamy je
+  // z zapisanego transkryptu — raz na rozmowę, przy pierwszym otwarciu.
+  const [summaryPending, setSummaryPending] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const summaryTried = useRef<string | null>(null);
+  // Nagranie ściągamy dopiero na żądanie — plik waży kilkaset kB, a większość
+  // wejść w kartę kończy się na przeczytaniu podsumowania.
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   // Transkrypt dopisuje webhook PO rozłączeniu — dla zlecenia utworzonego
   // w trakcie rozmowy wiersz voice_calls pojawia się ok. 30 s później.
@@ -89,6 +100,41 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
     };
   }, [orderId]);
 
+  // Przy zmianie zlecenia zaczynamy od zera — inaczej przy przejściu na sąsiednie
+  // zlecenie zostałby w odtwarzaczu link do POPRZEDNIEJ rozmowy.
+  useEffect(() => {
+    setAudioUrl(null); setAudioError(null); setAudioLoading(false);
+    setSummaryError(null); setSummaryPending(false);
+  }, [orderId]);
+
+  // Brakujące podsumowanie odtwarzamy z transkryptu, bez klikania. Pracownik
+  // ma zobaczyć „co trzeba było zrobić", a nie dowiedzieć się, że akurat tej
+  // rozmowy analiza nie dokończyła.
+  useEffect(() => {
+    if (compact || !call || call.summary || !call.turns.length) return;
+    if (summaryTried.current === call.id) return;
+    summaryTried.current = call.id;
+    let anulowane = false;
+    setSummaryPending(true);
+    (async () => {
+      const { data, error } = await supabase.functions.invoke("voice-call-summary", { body: { call_id: call.id } });
+      if (anulowane) return;
+      setSummaryPending(false);
+      if (data?.summary) setCall((c) => (c && c.id === call.id ? { ...c, summary: data.summary } : c));
+      else setSummaryError(data?.error || error?.message || "Nie udało się przygotować podsumowania.");
+    })();
+    return () => { anulowane = true; };
+  }, [call, compact]);
+
+  const pobierzNagranie = async () => {
+    if (!call) return;
+    setAudioLoading(true); setAudioError(null);
+    const { data, error } = await supabase.functions.invoke("voice-call-audio", { body: { call_id: call.id } });
+    setAudioLoading(false);
+    if (data?.available && data?.url) setAudioUrl(data.url);
+    else setAudioError(data?.reason || data?.error || error?.message || "Nie udało się pobrać nagrania.");
+  };
+
   if (loading) return compact ? null : <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>;
   if (!call) {
     if (compact) return null;
@@ -112,13 +158,52 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
         <span className="text-muted-foreground text-xs">{new Date(call.created_at).toLocaleString("pl-PL")}</span>
       </div>
 
-      {/* Podsumowanie w punktach */}
-      {summaryLines.length > 0 && (
+      {/* Podsumowanie w punktach — to jest pierwsza rzecz do przeczytania */}
+      {(summaryLines.length > 0 || summaryPending || summaryError) && (
         <div className="rounded-lg border p-3">
           <div className="flex items-center gap-2 text-sm font-medium mb-2"><ListChecks className="h-4 w-4 text-primary" /> Podsumowanie rozmowy</div>
-          <ul className="space-y-1 text-sm">
-            {summaryLines.map((l, i) => <li key={i} className="flex gap-2"><span className="text-primary">•</span><span>{l}</span></li>)}
-          </ul>
+          {summaryLines.length > 0 ? (
+            <ul className="space-y-1 text-sm">
+              {summaryLines.map((l, i) => <li key={i} className="flex gap-2"><span className="text-primary">•</span><span>{l}</span></li>)}
+            </ul>
+          ) : summaryPending ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Przygotowuję podsumowanie z transkrypcji…
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{summaryError} Pełna transkrypcja jest poniżej.</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Nagranie rozmowy */}
+      {!compact && (
+        <div className="rounded-lg border p-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 text-sm font-medium"><Phone className="h-4 w-4 text-primary" /> Nagranie rozmowy</div>
+            {!audioUrl && (
+              <Button size="sm" variant="outline" onClick={pobierzNagranie} disabled={audioLoading}>
+                {audioLoading
+                  ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Pobieram…</>
+                  : <><Play className="h-4 w-4 mr-1" /> Odsłuchaj</>}
+              </Button>
+            )}
+            {audioUrl && (
+              <a href={audioUrl} download={`rozmowa-${call.id.slice(0, 8)}.mp3`}
+                 className="text-xs text-primary inline-flex items-center gap-1 hover:underline">
+                <Download className="h-3.5 w-3.5" /> Pobierz plik
+              </a>
+            )}
+          </div>
+          {audioUrl && <audio controls preload="metadata" src={audioUrl} className="w-full mt-3" />}
+          {audioError && (
+            <div className="flex items-start gap-2 text-xs text-muted-foreground mt-2">
+              <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" /><span>{audioError}</span>
+            </div>
+          )}
         </div>
       )}
 
