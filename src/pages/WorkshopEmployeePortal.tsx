@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsWorkshopEmployee } from '@/hooks/useIsWorkshopEmployee';
@@ -22,7 +23,8 @@ import { translateWorkshopStatus, getStatusStyle, getStatusTone } from '@/utils/
 type Tab = 'home' | 'mine' | 'pool' | 'history';
 
 export default function WorkshopEmployeePortal() {
-  const { t } = useTranslation();
+  const { t } = useTranslation();  const confirmAction = useConfirm();
+
   const navigate = useNavigate();
   const { loading, isWorkshopEmployee, records } = useIsWorkshopEmployee();
   const [tab, setTab] = useState<Tab>('home');
@@ -213,7 +215,7 @@ export default function WorkshopEmployeePortal() {
 
   const release = async (assignmentId: string, orderId: string, providerId: string) => {
     if (!userId) return;
-    if (!confirm(t('workshop.employeePortal.confirmRelease'))) return;
+    if (!(await confirmAction({ title: t('workshop.employeePortal.confirmRelease'), confirmLabel: 'Zwolnij', destructive: false }))) return;
     setBusy(assignmentId);
     try {
       const { error } = await (supabase.from('workshop_order_assignments') as any)

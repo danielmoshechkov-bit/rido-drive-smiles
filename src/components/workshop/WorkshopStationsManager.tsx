@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +20,8 @@ type Mapping = { station_id: string; employee_user_id: string; id: string; };
 const PALETTE = ['#8b5cf6', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
 
 export function WorkshopStationsManager({ providerId }: Props) {
-  const { t } = useTranslation();
+  const { t } = useTranslation();  const confirmAction = useConfirm();
+
   const [stations, setStations] = useState<Station[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [mappings, setMappings] = useState<Mapping[]>([]);
@@ -60,7 +62,7 @@ export function WorkshopStationsManager({ providerId }: Props) {
   };
 
   const remove = async (id: string) => {
-    if (!confirm(t('workshop.stations.confirmRemove'))) return;
+    if (!(await confirmAction({ title: t('workshop.stations.confirmRemove') }))) return;
     await (supabase.from('workshop_stations') as any).delete().eq('id', id);
     await load();
   };
@@ -99,7 +101,7 @@ export function WorkshopStationsManager({ providerId }: Props) {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex gap-2 flex-wrap items-center">
-              <Input value={newName} onChange={e => setNewName(e.target.value)}
+              <Input onFocus={e => e.currentTarget.select()} value={newName} onChange={e => setNewName(e.target.value)}
                 placeholder={t('workshop.stations.namePlaceholder')}
                 onKeyDown={e => e.key === 'Enter' && add()} className="flex-1 min-w-[200px]" />
               <div className="flex gap-1">

@@ -282,6 +282,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               ) : (
                 <div className="relative" ref={ownerDropdownRef}>
                   <Input
+                    onFocus={e => e.currentTarget.select()}
                     value={ownerSearch}
                     onChange={e => { setOwnerSearch(e.target.value); setShowOwnerList(true); }}
                     onClick={() => setShowOwnerList(true)}
@@ -316,7 +317,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               <div className="space-y-1.5">
                 <Label>{t('workshop.orders.plateNumber')}</Label>
                 <div className="relative">
-                  <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder={t('workshop.orders.plateNumber')} className="pr-10" />
+                  <Input onFocus={e => e.currentTarget.select()} value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder={t('workshop.orders.plateNumber')} className="pr-10" />
                   <button type="button" onClick={handleSearchPlate} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
                     {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}
                   </button>
@@ -325,7 +326,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               <div className="space-y-1.5">
                 <Label>{t('workshop.vehicles.vinNumber')}</Label>
                 <div className="relative">
-                  <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder={t('workshop.orders.vin')} className="pr-10" />
+                  <Input onFocus={e => e.currentTarget.select()} value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} placeholder={t('workshop.orders.vin')} className="pr-10" />
                   <button type="button" onClick={handleSearchVin} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
                     {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}
                   </button>
@@ -334,39 +335,42 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
             </div>
 
             {/* Marka | Model | Kolor */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label>{t('workshop.orders.brand')}</Label>
-                <Input value={form.brand} onChange={e => set('brand', e.target.value)} placeholder={t('workshop.orders.brand')} />
+                <Input onFocus={e => e.currentTarget.select()} value={form.brand} onChange={e => set('brand', e.target.value)} placeholder={t('workshop.orders.brand')} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t('workshop.orders.model')}</Label>
-                <Input value={form.model} onChange={e => set('model', e.target.value)} placeholder={t('workshop.orders.model')} />
+                <Input onFocus={e => e.currentTarget.select()} value={form.model} onChange={e => set('model', e.target.value)} placeholder={t('workshop.orders.model')} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t('workshop.orders.color')}</Label>
-                <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder={t('workshop.orders.color')} />
+                <Input onFocus={e => e.currentTarget.select()} value={form.color} onChange={e => set('color', e.target.value)} placeholder={t('workshop.orders.color')} />
               </div>
             </div>
 
             {/* Rok produkcji | Pojemność | Moc */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label>{t('workshop.orders.yearOfProduction')}</Label>
-                <Input type="number" value={form.year} onChange={e => set('year', e.target.value)} placeholder={t('workshop.orders.yearOfProd')} />
+                <Input onFocus={e => e.currentTarget.select()} type="number" value={form.year} onChange={e => set('year', e.target.value)} placeholder={t('workshop.orders.yearOfProd')} />
+                onFocus={e => e.currentTarget.select()}
               </div>
               <div className="space-y-1.5">
                 <Label>{t('workshop.vehicles.capacityCm3')}</Label>
-                <Input type="number" value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="cm³" />
+                <Input onFocus={e => e.currentTarget.select()} type="number" value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="cm³" />
+                onFocus={e => e.currentTarget.select()}
               </div>
               <div className="space-y-1.5">
                 <Label>{t('workshop.orders.enginePowerKw')}</Label>
-                <Input type="number" value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="kW" />
+                <Input onFocus={e => e.currentTarget.select()} type="number" value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="kW" />
+                onFocus={e => e.currentTarget.select()}
               </div>
             </div>
 
             {/* Rodzaj paliwa | Typ nadwozia | Data pierwszej rejestracji */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label>{t('workshop.orders.fuelType')}</Label>
                 <Select value={form.fuel_type} onValueChange={v => set('fuel_type', v)}>
@@ -387,7 +391,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               </div>
               <div className="space-y-1.5">
                 <Label>{t('workshop.vehicles.firstRegistrationDate')}</Label>
-                <Input type="date" value={form.first_registration_date} onChange={e => set('first_registration_date', e.target.value)} />
+                <Input onFocus={e => e.currentTarget.select()} type="date" value={form.first_registration_date} onChange={e => set('first_registration_date', e.target.value)} />
               </div>
             </div>
 

@@ -192,6 +192,7 @@ export function CalendarSettingsPage({ providerId }: Props) {
               <Label className="text-xs">{t('workshop.settings.calendar.maxBookingsPerDay', 'Limit aut dziennie (rezerwacje online)')}</Label>
               <Input
                 type="number" min={0} inputMode="numeric"
+                onFocus={e => e.currentTarget.select()}
                 value={reminderForm.max_bookings_per_day || ''}
                 onChange={e => setReminderForm(f => ({ ...f, max_bookings_per_day: Math.max(0, parseInt(e.target.value) || 0) }))}
                 placeholder="0"

@@ -58,7 +58,7 @@ export function InventoryProductAutocomplete({ value, onChange, onSelectProduct,
         placeholder={placeholder}
         className={className}
         onChange={(e) => { onChange(e.target.value); setOpen(true); }}
-        onFocus={() => setOpen(true)}
+        onFocus={(e) => { e.currentTarget.select(); setOpen(true); }}
         onKeyDown={onKeyDown}
       />
       {open && products.length > 0 && (

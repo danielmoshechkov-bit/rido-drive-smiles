@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { WorkshopPayroll } from './WorkshopPayroll';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,7 +41,8 @@ interface Employee {
 }
 
 export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | null }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation();  const confirmAction = useConfirm();
+
   const rolesKey = `workshop_roles_${providerId || 'na'}`;
   const rateKey = `workshop_rate_types_${providerId || 'na'}`;
   const [payrollView, setPayrollView] = useState<'lista' | 'rozliczenia'>('lista');
@@ -179,7 +181,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
   };
 
   const removeEmployee = async (emp: any) => {
-    if (!confirm(t('workshop.employees.confirmRemove', { name: emp.name }))) return;
+    if (!(await confirmAction({ title: t('workshop.employees.confirmRemove', { name: emp.name }) }))) return;
     try {
       const { error } = await (supabase.from('workshop_employees') as any)
         .update({ is_active: false, status: 'inactive', removed_at: new Date().toISOString() })
@@ -463,11 +465,11 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t('workshop.employees.firstNameRequired')}</Label>
-                <Input value={firstName} onChange={e => setFirstName(e.target.value)} />
+                <Input onFocus={e => e.currentTarget.select()} value={firstName} onChange={e => setFirstName(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label>{t('workshop.employees.lastNameRequired')}</Label>
-                <Input value={lastName} onChange={e => setLastName(e.target.value)} />
+                <Input onFocus={e => e.currentTarget.select()} value={lastName} onChange={e => setLastName(e.target.value)} />
               </div>
             </div>
 
@@ -496,6 +498,7 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
               </Select>
               <div className="flex gap-2">
                 <Input
+                  onFocus={e => e.currentTarget.select()}
                   placeholder={t('workshop.employees.newRolePlaceholder')}
                   value={newRoleLabel}
                   onChange={e => setNewRoleLabel(e.target.value)}
@@ -533,16 +536,16 @@ export const WorkshopEmployeesPage = ({ providerId }: { providerId: string | nul
 
             <div className="space-y-2">
               <Label>{t('workshop.employees.businessPhone')}</Label>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} value={phone} onChange={e => setPhone(e.target.value)} />
             </div>
 
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5"><Mail className="h-4 w-4" /> E‑mail <span className="text-xs text-muted-foreground font-normal">(albo telefon — wystarczy jeden kanał, na niego pójdzie zaproszenie)</span></Label>
-              <Input type="email" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder={t('workshop.employees.emailPlaceholder')} />
+              <Input onFocus={e => e.currentTarget.select()} type="email" value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder={t('workshop.employees.emailPlaceholder')} />
             </div>
             <div className="space-y-2">
               <Label>{t('workshop.employees.pinLabel')}</Label>
-              <Input value={pinCode} onChange={e => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} placeholder="••••" />
+              <Input onFocus={e => e.currentTarget.select()} value={pinCode} onChange={e => setPinCode(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} placeholder="••••" />
             </div>
             <div className="flex items-center justify-between">
               <Label>{t('workshop.employees.active')}</Label>

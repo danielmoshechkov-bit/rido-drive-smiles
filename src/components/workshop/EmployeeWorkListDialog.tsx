@@ -3,6 +3,7 @@
 // Can remove items (decreases price → no client re-accept needed)
 // or add via "Dodatek do naprawy" modal (increases price → admin/client re-accept).
 import { useEffect, useMemo, useState } from 'react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +46,8 @@ interface Group {
 export function EmployeeWorkListDialog({
   open, onOpenChange, orderId, employeeId, employeeName, onSaved,
 }: Props) {
-  const { t } = useTranslation();
+  const { t } = useTranslation();  const confirmAction = useConfirm();
+
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<any>(null);
   const [vehicle, setVehicle] = useState<any>(null);
@@ -125,7 +127,7 @@ export function EmployeeWorkListDialog({
   const { t: tr } = useWorkshopTranslations(trFields, 'auto');
 
   const removeItem = async (id: string) => {
-    if (!confirm(t('workshop.workList.confirmRemoveItem'))) return;
+    if (!(await confirmAction({ title: t('workshop.workList.confirmRemoveItem') }))) return;
     setBusy(id);
     try {
       const { error } = await (supabase.from('workshop_order_items') as any).delete().eq('id', id);
@@ -160,7 +162,7 @@ export function EmployeeWorkListDialog({
     }
     // Warn if parts added but no labor
     if (partsList.length > 0 && !addonLabor.trim() && hrs === 0) {
-      if (!confirm(t('workshop.workList.confirmNoLabor'))) return;
+      if (!(await confirmAction({ title: t('workshop.workList.confirmNoLabor'), confirmLabel: 'Kontynuuj', destructive: false }))) return;
     }
     setAddonSaving(true);
     try {
@@ -395,6 +397,7 @@ export function EmployeeWorkListDialog({
               )}
               <div className="flex gap-2">
                 <Input
+                  onFocus={e => e.currentTarget.select()}
                   value={addonPartDraft}
                   onChange={(e) => setAddonPartDraft(e.target.value)}
                   placeholder={t('workshop.workList.enterPartPlaceholder')}
@@ -422,6 +425,7 @@ export function EmployeeWorkListDialog({
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">{t('workshop.workList.additionalLabor')}</div>
               <Input
+                onFocus={e => e.currentTarget.select()}
                 value={addonLabor} onChange={(e) => setAddonLabor(e.target.value)}
                 placeholder={t('workshop.workList.laborPlaceholder')} className="h-11"
               />
@@ -430,6 +434,7 @@ export function EmployeeWorkListDialog({
               <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">{t('workshop.workList.timeHours')}</label>
               <Input
                 type="number" step="0.25" min="0" inputMode="decimal"
+                onFocus={e => e.currentTarget.select()}
                 value={addonHours} onChange={(e) => setAddonHours(e.target.value)}
                 placeholder="0.5" className="h-11"
               />

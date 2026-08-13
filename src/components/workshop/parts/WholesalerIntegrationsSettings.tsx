@@ -259,6 +259,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 <div className="space-y-1">
                   <Label className="text-xs">{t('workshop.parts.wholesaler.usernameLogin')} <span className="text-destructive">*</span></Label>
                   <Input
+                    onFocus={e => e.currentTarget.select()}
                     value={forms.hart.api_username}
                     onChange={(e) => updateForm('hart', { api_username: e.target.value })}
                     placeholder={t('workshop.parts.wholesaler.hart.usernamePlaceholder')}
@@ -268,6 +269,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 <div className="space-y-1">
                   <Label className="text-xs">{t('workshop.parts.wholesaler.apiPassword')} <span className="text-destructive">*</span></Label>
                   <Input
+                    onFocus={e => e.currentTarget.select()}
                     type="password"
                     value={forms.hart.api_password}
                     onChange={(e) => updateForm('hart', { api_password: e.target.value })}
@@ -277,7 +279,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">{t('workshop.parts.wholesaler.environment')}</Label>
                   <Select value={forms.hart.environment} onValueChange={(v) => updateForm('hart', { environment: v })}>
@@ -310,6 +312,7 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                   <Label className="text-xs">{t('workshop.parts.wholesaler.salesMargin')}</Label>
                   <Input
                     type="number"
+                    onFocus={e => e.currentTarget.select()}
                     value={forms.hart.sales_margin_percent}
                     onChange={(e) => updateForm('hart', { sales_margin_percent: Number(e.target.value) })}
                   />
@@ -379,17 +382,17 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Client Code <span className="text-destructive">*</span></Label>
-                  <Input value={getExtraField('auto_partner', 'clientCode')} onChange={(e) => setExtraField('auto_partner', 'clientCode', e.target.value)} placeholder={t('workshop.parts.wholesaler.autoPartner.clientCodePlaceholder')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={getExtraField('auto_partner', 'clientCode')} onChange={(e) => setExtraField('auto_partner', 'clientCode', e.target.value)} placeholder={t('workshop.parts.wholesaler.autoPartner.clientCodePlaceholder')} />
                   <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.autoPartner.clientCodeHint')}</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">WS Password <span className="text-destructive">*</span></Label>
-                  <Input type="password" value={getExtraField('auto_partner', 'wsPassword')} onChange={(e) => setExtraField('auto_partner', 'wsPassword', e.target.value)} placeholder="••••••••" />
+                  <Input onFocus={e => e.currentTarget.select()} type="password" value={getExtraField('auto_partner', 'wsPassword')} onChange={(e) => setExtraField('auto_partner', 'wsPassword', e.target.value)} placeholder="••••••••" />
                   <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.autoPartner.wsPasswordHint')}</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Client Password (MD5) <span className="text-destructive">*</span></Label>
-                  <Input type="password" value={getExtraField('auto_partner', 'clientPassword')} onChange={(e) => setExtraField('auto_partner', 'clientPassword', e.target.value)} placeholder="np. e10adc3949ba59abbe56..." />
+                  <Input onFocus={e => e.currentTarget.select()} type="password" value={getExtraField('auto_partner', 'clientPassword')} onChange={(e) => setExtraField('auto_partner', 'clientPassword', e.target.value)} placeholder="np. e10adc3949ba59abbe56..." />
                   <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.autoPartner.clientPasswordHint')}</p>
                 </div>
               </div>
@@ -406,7 +409,8 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">{t('workshop.parts.wholesaler.salesMargin')}</Label>
-                  <Input type="number" value={forms.auto_partner.sales_margin_percent} onChange={(e) => updateForm('auto_partner', { sales_margin_percent: Number(e.target.value) })} />
+                  <Input onFocus={e => e.currentTarget.select()} type="number" value={forms.auto_partner.sales_margin_percent} onChange={(e) => updateForm('auto_partner', { sales_margin_percent: Number(e.target.value) })} />
+                  onFocus={e => e.currentTarget.select()}
                 </div>
               </div>
               <div className="flex gap-2 pt-3 border-t">
@@ -473,24 +477,24 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Client ID <span className="text-destructive">*</span></Label>
-                    <Input value={getExtraField('inter_cars', 'clientId')} onChange={(e) => setExtraField('inter_cars', 'clientId', e.target.value)} placeholder="np. isMb4_2m..." />
+                    <Input onFocus={e => e.currentTarget.select()} value={getExtraField('inter_cars', 'clientId')} onChange={(e) => setExtraField('inter_cars', 'clientId', e.target.value)} placeholder="np. isMb4_2m..." />
                     <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.interCars.clientIdHint')}</p>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Client Secret <span className="text-destructive">*</span></Label>
-                    <Input type="password" value={getExtraField('inter_cars', 'clientSecret')} onChange={(e) => setExtraField('inter_cars', 'clientSecret', e.target.value)} placeholder="••••••••" />
+                    <Input onFocus={e => e.currentTarget.select()} type="password" value={getExtraField('inter_cars', 'clientSecret')} onChange={(e) => setExtraField('inter_cars', 'clientSecret', e.target.value)} placeholder="••••••••" />
                     <p className="text-[10px] text-muted-foreground">OAuth2 Client Secret</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">{t('workshop.parts.wholesaler.interCars.customerNumberLabel')} <span className="text-destructive">*</span></Label>
-                    <Input value={getExtraField('inter_cars', 'customerNumber')} onChange={(e) => setExtraField('inter_cars', 'customerNumber', e.target.value)} placeholder="np. 9AE06V" />
+                    <Input onFocus={e => e.currentTarget.select()} value={getExtraField('inter_cars', 'customerNumber')} onChange={(e) => setExtraField('inter_cars', 'customerNumber', e.target.value)} placeholder="np. 9AE06V" />
                     <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.interCars.customerNumberHint')}</p>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">{t('workshop.parts.wholesaler.interCars.branchLabel')}</Label>
-                    <Input value={getExtraField('inter_cars', 'branch')} onChange={(e) => setExtraField('inter_cars', 'branch', e.target.value)} placeholder="np. MAT" />
+                    <Input onFocus={e => e.currentTarget.select()} value={getExtraField('inter_cars', 'branch')} onChange={(e) => setExtraField('inter_cars', 'branch', e.target.value)} placeholder="np. MAT" />
                     <p className="text-[10px] text-muted-foreground">{t('workshop.parts.wholesaler.interCars.branchHint')}</p>
                   </div>
                 </div>
@@ -508,7 +512,8 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">{t('workshop.parts.wholesaler.salesMargin')}</Label>
-                  <Input type="number" value={forms.inter_cars.sales_margin_percent} onChange={(e) => updateForm('inter_cars', { sales_margin_percent: Number(e.target.value) })} />
+                  <Input onFocus={e => e.currentTarget.select()} type="number" value={forms.inter_cars.sales_margin_percent} onChange={(e) => updateForm('inter_cars', { sales_margin_percent: Number(e.target.value) })} />
+                  onFocus={e => e.currentTarget.select()}
                 </div>
               </div>
 

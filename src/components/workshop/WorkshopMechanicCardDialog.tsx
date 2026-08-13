@@ -240,7 +240,7 @@ export function WorkshopMechanicCardDialog({ open, onOpenChange, order }: Props)
               {tasks.map((task, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground w-6 text-right">{i + 1}.</span>
-                  <Input value={task} onChange={e => updateTask(i, e.target.value)} placeholder={t('workshop.mechanicCard.taskPlaceholder')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={task} onChange={e => updateTask(i, e.target.value)} placeholder={t('workshop.mechanicCard.taskPlaceholder')} />
                   {tasks.length > 1 && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeTask(i)}><X className="h-4 w-4" /></Button>}
                 </div>
               ))}
@@ -273,9 +273,9 @@ export function WorkshopMechanicCardDialog({ open, onOpenChange, order }: Props)
                   </>
                 ) : (
                   <>
-                    <Input value={p.name} onChange={e => updatePart(i, 'name', e.target.value)} placeholder={t('workshop.mechanicCard.partNamePlaceholder')} className="h-8" />
-                    <Input value={p.qty} onChange={e => updatePart(i, 'qty', e.target.value)} placeholder={t('workshop.mechanicCard.qtyPlaceholder')} className="h-8" />
-                    <Input value={p.note} onChange={e => updatePart(i, 'note', e.target.value)} placeholder={t('workshop.mechanicCard.notePlaceholder')} className="h-8" />
+                    <Input onFocus={e => e.currentTarget.select()} value={p.name} onChange={e => updatePart(i, 'name', e.target.value)} placeholder={t('workshop.mechanicCard.partNamePlaceholder')} className="h-8" />
+                    <Input onFocus={e => e.currentTarget.select()} value={p.qty} onChange={e => updatePart(i, 'qty', e.target.value)} placeholder={t('workshop.mechanicCard.qtyPlaceholder')} className="h-8" />
+                    <Input onFocus={e => e.currentTarget.select()} value={p.note} onChange={e => updatePart(i, 'note', e.target.value)} placeholder={t('workshop.mechanicCard.notePlaceholder')} className="h-8" />
                     {parts.length > 1 && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removePart(i)}><X className="h-4 w-4" /></Button>}
                   </>
                 )}

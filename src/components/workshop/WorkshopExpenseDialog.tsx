@@ -110,7 +110,8 @@ export function WorkshopExpenseDialog({ open, onOpenChange, providerId, defaultC
           </div>
           <div className="space-y-1.5">
             <Label>Kwota</Label>
-            <Input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" className="text-right" />
+            <Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" className="text-right" />
+            onFocus={e => e.currentTarget.select()}
           </div>
           <div className="space-y-1.5">
             <Label>Forma płatności</Label>
@@ -121,7 +122,7 @@ export function WorkshopExpenseDialog({ open, onOpenChange, providerId, defaultC
           </div>
           <div className="space-y-1.5">
             <Label>Data</Label>
-            <Input type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} />
+            <Input onFocus={e => e.currentTarget.select()} type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)} />
           </div>
           {category === 'wyplata' && (
             <div className="space-y-1.5">
@@ -134,15 +135,15 @@ export function WorkshopExpenseDialog({ open, onOpenChange, providerId, defaultC
           )}
           <div className="space-y-1.5 col-span-2">
             <Label>Opis / za co</Label>
-            <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="np. olej + filtr, faktura FV/123" />
+            <Input onFocus={e => e.currentTarget.select()} value={description} onChange={e => setDescription(e.target.value)} placeholder="np. olej + filtr, faktura FV/123" />
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label className="flex items-center gap-1"><Paperclip className="h-3.5 w-3.5" /> Dokument (faktura/paragon)</Label>
-            <Input type="file" accept="image/*,application/pdf" onChange={e => setFile(e.target.files?.[0] || null)} />
+            <Input onFocus={e => e.currentTarget.select()} type="file" accept="image/*,application/pdf" onChange={e => setFile(e.target.files?.[0] || null)} />
           </div>
           <div className="space-y-1.5 col-span-2">
             <Label>Zarejestrował (opcj.)</Label>
-            <Input value={who} onChange={e => setWho(e.target.value)} placeholder="imię i nazwisko" />
+            <Input onFocus={e => e.currentTarget.select()} value={who} onChange={e => setWho(e.target.value)} placeholder="imię i nazwisko" />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">

@@ -126,6 +126,7 @@ export function WorkshopPaymentDialog({ open, onOpenChange, providerId, orderId,
                 </Select>
                 <Input
                   type="number"
+                  onFocus={e => e.currentTarget.select()}
                   step="0.01"
                   min="0"
                   value={row.amount || ''}

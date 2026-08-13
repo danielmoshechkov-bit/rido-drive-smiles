@@ -164,7 +164,7 @@ export function RidoPartsCartButton({ providerId }: Props) {
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-[400px] sm:w-[500px] overflow-y-auto">
+      <SheetContent className="w-full sm:w-[500px] sm:max-w-[500px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />

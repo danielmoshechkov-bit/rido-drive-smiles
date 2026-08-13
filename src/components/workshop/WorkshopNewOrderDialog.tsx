@@ -12,6 +12,7 @@ import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { Plus, ClipboardList, Loader2, Car, Users, Camera, X, MessageSquare, AlertCircle, Mail, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
@@ -87,6 +88,36 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
   const [vehicleSearch, setVehicleSearch] = useState('');
+  const [userId, setUserId] = useState<string | undefined>();
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => { if (data?.user) setUserId(data.user.id); });
+  }, []);
+  const { checkRegistration } = useVehicleLookup(userId);
+
+  // Te same reguly co przy edycji pojazdu: baza podaje paliwo i pojemnosc
+  // w roznych formatach ("Diesel", "1968 cm3"), a my trzymamy je jednolicie.
+  const normalizeFuelType = (value?: string) => {
+    const v = String(value || '').toLowerCase();
+    if (!v) return null;
+    if (v.includes('diesel') || v.includes('olej')) return 'diesel';
+    if (v.includes('lpg') || v.includes('gaz')) return 'lpg';
+    if (v.includes('hybryd')) return 'hybryda';
+    if (v.includes('elektr')) return 'elektryczny';
+    if (v.includes('benz')) return 'benzyna';
+    return v;
+  };
+  const extractDigits = (value?: string | number) => {
+    // UWAGA: proste usuniecie wszystkich nie-cyfr psulo wynik, bo jednostka tez
+    // ma cyfre: "1197 cm3" dawalo 11973. Bierzemy PIERWSZA liczbe, wczesniej
+    // sklejajac spacje w srodku liczby ("1 968 cm3" -> 1968).
+    const tekst = String(value ?? '').replace(/(\d)[\s\u00A0](?=\d)/g, '$1');
+    const m = tekst.match(/\d+(?:[.,]\d+)?/);
+    if (!m) return null;
+    const liczba = parseFloat(m[0].replace(',', '.'));
+    if (!Number.isFinite(liczba)) return null;
+    // Pojemnosc podana w litrach ("1.6") zamieniamy na cm3.
+    return Math.round(liczba < 100 && m[0].match(/[.,]/) ? liczba * 1000 : liczba);
+  };
   const [clientSearch, setClientSearch] = useState('');
   const [showVehicleList, setShowVehicleList] = useState(false);
   const [showClientList, setShowClientList] = useState(false);
@@ -376,7 +407,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                         <Label className="text-xs text-destructive font-medium">{t('workshop.newOrder.noPhoneEnterManually')}</Label>
                         <div className="flex gap-2">
                           <span className="flex items-center px-3 border rounded-md bg-muted text-sm">+48</span>
-                          <Input value={manualPhone} onChange={e => setManualPhone(e.target.value)} placeholder={t('workshop.newOrder.phonePlaceholder')} />
+                          <Input onFocus={e => e.currentTarget.select()} value={manualPhone} onChange={e => setManualPhone(e.target.value)} placeholder={t('workshop.newOrder.phonePlaceholder')} />
                         </div>
                       </div>
                     )}
@@ -389,7 +420,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                     ) : (
                       <div className="space-y-1.5 max-w-sm mx-auto">
                         <Label className="text-xs text-destructive font-medium">{t('workshop.newOrder.noEmailEnterManually')}</Label>
-                        <Input type="email" value={manualEmail} onChange={e => setManualEmail(e.target.value)} placeholder={t('workshop.newOrder.email')} />
+                        <Input onFocus={e => e.currentTarget.select()} type="email" value={manualEmail} onChange={e => setManualEmail(e.target.value)} placeholder={t('workshop.newOrder.email')} />
                       </div>
                     )}
                   </div>
@@ -455,6 +486,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                     ) : (
                       <div className="relative">
                         <Input
+                          onFocus={e => e.currentTarget.select()}
                           value={vehicleSearch}
                           onChange={e => { setVehicleSearch(e.target.value); setShowVehicleList(true); }}
                           onClick={() => setShowVehicleList(true)}
@@ -499,9 +531,30 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                       const brand = brandModel[0] || null;
                                       const model = brandModel.slice(1).join(' ') || null;
                                       try {
+                                        // Auto zakladamy na podstawie DANYCH POJAZDU, nie tego, co ktos
+                                        // wpisal recznie: po numerze rejestracyjnym pobieramy VIN, marke,
+                                        // model, rocznik, pojemnosc, moc i paliwo. Bez tego zlecenie
+                                        // powstawaloby dla auta bez danych, a takie wyceny sa bezwartosciowe.
+                                        let dane: any = null;
+                                        if (plate) {
+                                          try { dane = await checkRegistration(plate); } catch { dane = null; }
+                                        }
+                                        const pojazd = {
+                                          provider_id: providerId,
+                                          plate,
+                                          brand: dane?.make || brand,
+                                          model: dane?.model
+                                            ? String(dane.model).replace(/\s+\d+\.\d+(\s+\S+)*$/, '').trim()
+                                            : model,
+                                          vin: dane?.vin ? String(dane.vin).toUpperCase() : null,
+                                          year: dane?.registration_year || null,
+                                          engine_capacity_cm3: extractDigits(dane?.engine_size),
+                                          engine_power_kw: extractDigits(dane?.engine_power_kw),
+                                          fuel_type: normalizeFuelType(dane?.fuel_type),
+                                        };
                                         const { data: v, error } = await (supabase as any)
                                           .from('workshop_vehicles')
-                                          .insert({ provider_id: providerId, brand, model, plate })
+                                          .insert(pojazd)
                                           .select()
                                           .single();
                                         if (error) throw error;
@@ -511,7 +564,11 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                         setVehicleSearch('');
                                         setErrors(e => { const { vehicle, ...rest } = e; return rest; });
                                         qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
-                                        toast.success(t('workshop.newOrder.vehicleAddedManually'));
+                                        toast.success(
+                                          v.vin
+                                            ? `Dodano ${[v.brand, v.model].filter(Boolean).join(' ')} — VIN i dane silnika pobrane`
+                                            : t('workshop.newOrder.vehicleAddedManually'),
+                                        );
                                       } catch (e: any) {
                                         toast.error(t('workshop.newOrder.vehicleAddError', { error: e.message }));
                                       }
@@ -545,6 +602,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                           <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-72 overflow-hidden flex flex-col">
                             <div className="p-2 border-b bg-muted/40">
                               <Input
+                                onFocus={e => e.currentTarget.select()}
                                 autoFocus
                                 value={clientSearch}
                                 onChange={e => setClientSearch(e.target.value)}
@@ -607,11 +665,12 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                 </div>
 
                 {/* Mileage, Fuel, Notes */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">{t('workshop.newOrder.mileage')}</Label>
                     <div className="flex gap-1">
-                      <Input type="number" value={mileage} onChange={e => setMileage(e.target.value)} placeholder="km" />
+                      <Input onFocus={e => e.currentTarget.select()} type="number" value={mileage} onChange={e => setMileage(e.target.value)} placeholder="km" />
+                      onFocus={e => e.currentTarget.select()}
                       <span className="flex items-center px-2 text-xs text-muted-foreground border rounded-md bg-muted">km</span>
                     </div>
                   </div>
@@ -626,7 +685,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">{t('workshop.newOrder.clientNotes')}</Label>
-                    <Input value={clientNotes} onChange={e => setClientNotes(e.target.value)} placeholder={t('workshop.newOrder.additionalNotesPlaceholder')} />
+                    <Input onFocus={e => e.currentTarget.select()} value={clientNotes} onChange={e => setClientNotes(e.target.value)} placeholder={t('workshop.newOrder.additionalNotesPlaceholder')} />
                   </div>
                 </div>
 
@@ -657,6 +716,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                       <div key={index} className="flex items-center gap-2">
                         <span className="text-sm font-bold text-primary min-w-[28px] text-center">{index + 1}.</span>
                         <Input
+                          onFocus={e => e.currentTarget.select()}
                           ref={el => { taskInputRefs.current[index] = el; }}
                           value={point.text}
                           onChange={e => { updateTaskPoint(index, e.target.value); if (errors.description) setErrors(e2 => { const { description, ...rest } = e2; return rest; }); }}

@@ -120,11 +120,11 @@ export function WorkshopPayroll({ providerId }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>Od</Label>
-              <Input type="time" value={sched.work_start} onChange={e => setWorkStart(e.target.value)} className="w-28" />
+              <Input onFocus={e => e.currentTarget.select()} type="time" value={sched.work_start} onChange={e => setWorkStart(e.target.value)} className="w-28" />
             </div>
             <div className="space-y-1.5">
               <Label>Do</Label>
-              <Input type="time" value={sched.work_end} onChange={e => setWorkEnd(e.target.value)} className="w-28" />
+              <Input onFocus={e => e.currentTarget.select()} type="time" value={sched.work_end} onChange={e => setWorkEnd(e.target.value)} className="w-28" />
             </div>
             <Button onClick={() => saveSettings.mutate({ provider_id: providerId, ...sched })} disabled={saveSettings.isPending} className="gap-2">
               {saveSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Zapisz grafik
@@ -136,8 +136,8 @@ export function WorkshopPayroll({ providerId }: Props) {
       {/* Period */}
       <Card>
         <CardContent className="py-4 flex flex-wrap items-end gap-3">
-          <div className="space-y-1.5"><Label>Okres od</Label><Input type="date" value={from} onChange={e => setFrom(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>do</Label><Input type="date" value={to} onChange={e => setTo(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label>Okres od</Label><Input onFocus={e => e.currentTarget.select()} type="date" value={from} onChange={e => setFrom(e.target.value)} /></div>
+          <div className="space-y-1.5"><Label>do</Label><Input onFocus={e => e.currentTarget.select()} type="date" value={to} onChange={e => setTo(e.target.value)} /></div>
           <Button variant="outline" size="sm" className="h-9" onClick={() => { setFrom(startOfWeek()); setTo(today()); }}>Ten tydzień</Button>
           <Button variant="outline" size="sm" className="h-9" onClick={() => { setFrom(startOfMonth()); setTo(today()); }}>Ten miesiąc</Button>
         </CardContent>
@@ -167,7 +167,8 @@ export function WorkshopPayroll({ providerId }: Props) {
                     <TableCell className="font-medium">{e.name}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Input type="number" step="0.01" value={r.rate} onChange={ev => setRateEdit(p => ({ ...p, [e.id]: { ...getRate(e), rate: ev.target.value } }))} className="h-8 w-20 text-right" />
+                        <Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" value={r.rate} onChange={ev => setRateEdit(p => ({ ...p, [e.id]: { ...getRate(e), rate: ev.target.value } }))} className="h-8 w-20 text-right" />
+                        onFocus={e => e.currentTarget.select()}
                         <Select value={r.unit} onValueChange={(v) => setRateEdit(p => ({ ...p, [e.id]: { ...getRate(e), unit: v as PayUnit } }))}>
                           <SelectTrigger className="h-8 w-24"><SelectValue /></SelectTrigger>
                           <SelectContent>{PAY_UNITS.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
@@ -213,11 +214,12 @@ export function WorkshopPayroll({ providerId }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>Kwota</Label>
-              <Input type="number" step="0.01" min="0" value={payoutAmount} onChange={e => setPayoutAmount(e.target.value)} className="text-right" placeholder="0,00" />
+              <Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" min="0" value={payoutAmount} onChange={e => setPayoutAmount(e.target.value)} className="text-right" placeholder="0,00" />
+              onFocus={e => e.currentTarget.select()}
             </div>
             <div className="space-y-1.5">
               <Label>Notatka (opcj.)</Label>
-              <Input value={payoutNote} onChange={e => setPayoutNote(e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} value={payoutNote} onChange={e => setPayoutNote(e.target.value)} />
             </div>
             <p className="text-xs text-muted-foreground">Premia dolicza się do „należy się"; zaliczka/wypłata pomniejszają „pozostało".</p>
             <div className="flex justify-end gap-2">

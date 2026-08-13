@@ -1,4 +1,5 @@
 import { Fragment, useState, useEffect } from "react";
+import { WORKSHOP_PLANS, AGENT_PLANS } from '@/config/workshopPlans';
 import { useNavigate } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -211,42 +212,9 @@ export default function WorkshopLanding() {
     { q: "Ile kosztuje SMS do klienta?", a: "SMS-y rozliczane są z Twojego pakietu SMS (kupujesz osobno). System pokazuje saldo i historię wysyłek." },
   ];
 
-  const warsztatPlans = [
-    {
-      id: "darmowy", name: "Darmowy", priceLabel: "0 zł", period: "/mc",
-      features: ["Baza klientów + pojazdów, historia", "Terminarz + zlecenia 20/mc", "Zdjęcia przy przyjęciu", "Pomoc AI przy naprawie — 3 pytania / mc", "Dostęp do giełdy GetRido"],
-      cta: "Zacznij za darmo",
-    },
-    {
-      id: "standard", name: "Standard", popular: true, priceLabel: "89 zł", period: "netto/mc",
-      features: ["Zlecenia, wyceny, faktury — bez limitu", "Przechowalnia + fiskalizacja + KSeF", "Raporty + marża live, dane po VIN", "Dynamiczne statusy + e-podpis", "Pomoc AI przy naprawie — 50 pytań / mc", "Wyceny robocizny AI", "Dostęp do giełdy GetRido"],
-      cta: "Wypróbuj 14 dni",
-    },
-    {
-      id: "pro", name: "Pro", priceLabel: "169 zł", period: "netto/mc",
-      features: ["Wszystko ze Standard", "Magazyn + OCR faktur", "Integracje z hurtowniami", "Panel pracowników + listy kontrolne", "Pomoc AI przy naprawie — 300 pytań / mc", "Wyceny robocizny AI — 100 / mc", "Dostęp do giełdy GetRido"],
-      comingSoon: ["Dane naprawcze (TecRMI) + czas pracy mechanika"],
-      cta: "Wypróbuj 14 dni",
-    },
-    {
-      id: "sieci", name: "Sieci", priceLabel: "Wycena", period: "indywidualna", contact: true,
-      features: ["Wszystko z Pro", "Wiele lokalizacji, wspólna baza", "Analityka sieci + dedykowany opiekun", "Bez płacenia wielu osobnych abonamentów"],
-      cta: "Napisz do nas",
-    },
-  ];
-
-  const agentPlans = [
-    {
-      id: "agent", name: "Agent", popular: true, priceLabel: "139 zł", period: "netto/mc",
-      features: ["AI voicebot ODBIERA telefon 24/7 — 120 min AI / mc w cenie", "Bot po godzinach + oddzwanianie do leadów", "Transkrypcje + umawianie wizyt", "Tworzy zlecenie (wpięty w program GetRido)"],
-      cta: "Wypróbuj 14 dni",
-    },
-    {
-      id: "agent-pro", name: "Agent Pro", priceLabel: "289 zł", period: "netto/mc",
-      features: ["AI voicebot 24/7 — 300 min AI / mc w cenie", "Obsługa wielu numerów / lokalizacji", "Wyceny AI + dobór części, protokoły napraw", "Priorytetowa jakość głosu i szybsze odpowiedzi", "Zaawansowana analityka rozmów (tagi, powody, raporty)", "Dedykowany opiekun klienta"],
-      cta: "Wypróbuj 14 dni",
-    },
-  ];
+  // Cennik pochodzi z jednego miejsca — src/config/workshopPlans.ts
+  const warsztatPlans = WORKSHOP_PLANS;
+  const agentPlans = AGENT_PLANS;
 
   const renderPlanCard = (plan: {
     id: string; name: string; priceLabel: string; period: string;

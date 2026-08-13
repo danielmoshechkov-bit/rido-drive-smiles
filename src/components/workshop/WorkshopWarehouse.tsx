@@ -136,7 +136,7 @@ function WarehouseStock({ providerId, search, setSearch }: { providerId: string;
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('workshop.warehouse.searchByNameSku')} className="pl-9" />
+          <Input onFocus={e => e.currentTarget.select()} value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('workshop.warehouse.searchByNameSku')} className="pl-9" />
         </div>
         <Badge variant="outline">{t('workshop.warehouse.itemsCount', { count: products.length })}</Badge>
       </div>
@@ -434,7 +434,7 @@ function WarehouseDocuments({ providerId, search, setSearch }: { providerId: str
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('workshop.warehouse.searchDocsPlaceholder')} className="pl-9 w-[280px]" />
+          <Input onFocus={e => e.currentTarget.select()} value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('workshop.warehouse.searchDocsPlaceholder')} className="pl-9 w-[280px]" />
         </div>
       </div>
 
@@ -531,7 +531,7 @@ function PurchaseDocModal({ docId, onClose }: { docId: string; onClose: () => vo
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Card><CardContent className="py-3">
             <div className="text-xs text-muted-foreground">{t('workshop.warehouse.col.net')}</div>
             <div className="text-lg font-bold whitespace-nowrap">{fmt(doc?.net_total)}&nbsp;zł</div>

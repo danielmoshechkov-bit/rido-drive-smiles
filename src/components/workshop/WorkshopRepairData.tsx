@@ -101,6 +101,7 @@ export function WorkshopRepairData({ providerId, onBack }: Props) {
             <h3 className="font-semibold text-sm uppercase tracking-wide mb-4">{t('workshop.repairData.decodeVin')}</h3>
             <div className="space-y-3">
               <Input
+                onFocus={e => e.currentTarget.select()}
                 value={vin}
                 onChange={e => setVin(e.target.value.toUpperCase())}
                 placeholder={t('workshop.repairData.enterVin')}

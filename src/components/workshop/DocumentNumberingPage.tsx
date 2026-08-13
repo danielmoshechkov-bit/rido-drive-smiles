@@ -156,7 +156,7 @@ export const DocumentNumberingPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label>{t('workshop.docNumbering.prefix')}</Label>
-                  <Input value={config.prefix} maxLength={10}
+                  <Input onFocus={e => e.currentTarget.select()} value={config.prefix} maxLength={10}
                     onChange={e => updateConfig(idx, 'prefix', e.target.value.toUpperCase())} />
                 </div>
                 <div className="space-y-2">
@@ -171,6 +171,7 @@ export const DocumentNumberingPage = () => {
                 <div className="space-y-2">
                   <Label>{t('workshop.docNumbering.nextNumber')}</Label>
                   <Input type="number" min={1} value={config.next_number}
+                  onFocus={e => e.currentTarget.select()}
                     onChange={e => updateConfig(idx, 'next_number', Math.max(1, Number(e.target.value)))} />
                 </div>
                 <div className="space-y-2">

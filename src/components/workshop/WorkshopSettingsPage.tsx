@@ -292,12 +292,12 @@ export const WorkshopSettingsPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.companyName')}</Label>
-                  <Input value={firmName} onChange={e => setFirmName(e.target.value)} placeholder={t('workshop.settings.company.fullCompanyNamePlaceholder')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={firmName} onChange={e => setFirmName(e.target.value)} placeholder={t('workshop.settings.company.fullCompanyNamePlaceholder')} />
                 </div>
                 <div className="space-y-2">
                   <Label>NIP</Label>
                   <div className="flex gap-2">
-                    <Input value={nip} onChange={e => setNip(e.target.value)} placeholder="1234567890" maxLength={13} className="flex-1" />
+                    <Input onFocus={e => e.currentTarget.select()} value={nip} onChange={e => setNip(e.target.value)} placeholder="1234567890" maxLength={13} className="flex-1" />
                     <Button variant="outline" size="icon" onClick={handleNipSearch} disabled={nipSearching} title={t('workshop.settings.company.nipSearchTooltip')}>
                       {nipSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
@@ -306,34 +306,34 @@ export const WorkshopSettingsPage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.shortName')}</Label>
-                  <Input value={shortName} onChange={e => setShortName(e.target.value)} placeholder={t('workshop.settings.company.shortNamePlaceholder')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={shortName} onChange={e => setShortName(e.target.value)} placeholder={t('workshop.settings.company.shortNamePlaceholder')} />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.address')}</Label>
-                  <Input value={address} onChange={e => setAddress(e.target.value)} placeholder="ul. Przykładowa 1" />
+                  <Input onFocus={e => e.currentTarget.select()} value={address} onChange={e => setAddress(e.target.value)} placeholder="ul. Przykładowa 1" />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.postalCodeCity')}</Label>
                   <div className="flex gap-2">
-                    <Input value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="00-000" maxLength={6} className="w-28" />
-                    <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Warszawa" className="flex-1" />
+                    <Input onFocus={e => e.currentTarget.select()} value={postalCode} onChange={e => setPostalCode(e.target.value)} placeholder="00-000" maxLength={6} className="w-28" />
+                    <Input onFocus={e => e.currentTarget.select()} value={city} onChange={e => setCity(e.target.value)} placeholder="Warszawa" className="flex-1" />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.phone')}</Label>
-                  <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+48 123 456 789" />
+                  <Input onFocus={e => e.currentTarget.select()} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+48 123 456 789" />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.email')}</Label>
-                  <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="warsztat@firma.pl" type="email" />
+                  <Input onFocus={e => e.currentTarget.select()} value={email} onChange={e => setEmail(e.target.value)} placeholder="warsztat@firma.pl" type="email" />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.website')}</Label>
-                  <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..." />
+                  <Input onFocus={e => e.currentTarget.select()} value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://..." />
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>{t('workshop.settings.company.bankAccount')}</Label>
-                  <Input value={bankAccount} onChange={e => setBankAccount(e.target.value)} placeholder="PL 00 0000 0000 0000 0000 0000 0000" />
+                  <Input onFocus={e => e.currentTarget.select()} value={bankAccount} onChange={e => setBankAccount(e.target.value)} placeholder="PL 00 0000 0000 0000 0000 0000 0000" />
                 </div>
               </div>
 
@@ -392,7 +392,8 @@ export const WorkshopSettingsPage = () => {
               <div className="border-t pt-4 mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.hourlyRateNet')}</Label>
-                  <Input type="number" value={hourlyRate} onChange={e => setHourlyRate(Number(e.target.value))} />
+                  <Input onFocus={e => e.currentTarget.select()} type="number" value={hourlyRate} onChange={e => setHourlyRate(Number(e.target.value))} />
+                  onFocus={e => e.currentTarget.select()}
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.defaultShowAmounts')}</Label>
@@ -473,14 +474,14 @@ export const WorkshopSettingsPage = () => {
                   <span className="w-28 font-medium text-sm">{t(`workshop.settings.company.day.${dayKey}`)}</span>
                   {workingHours[i]?.open ? (
                     <div className="flex items-center gap-2">
-                      <Input type="time" className="w-32" value={workingHours[i]?.from || '08:00'}
+                      <Input onFocus={e => e.currentTarget.select()} type="time" className="w-32" value={workingHours[i]?.from || '08:00'}
                         onChange={e => {
                           const h = [...workingHours];
                           h[i] = { ...h[i], from: e.target.value };
                           setWorkingHours(h);
                         }} />
                       <span className="text-muted-foreground">—</span>
-                      <Input type="time" className="w-32" value={workingHours[i]?.to || '17:00'}
+                      <Input onFocus={e => e.currentTarget.select()} type="time" className="w-32" value={workingHours[i]?.to || '17:00'}
                         onChange={e => {
                           const h = [...workingHours];
                           h[i] = { ...h[i], to: e.target.value };
@@ -501,7 +502,7 @@ export const WorkshopSettingsPage = () => {
             <CardHeader><CardTitle>{t('workshop.settings.company.workstationsTitle')}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <Input value={newStation} onChange={e => setNewStation(e.target.value)} placeholder={t('workshop.settings.company.workstationPlaceholder')}
+                <Input onFocus={e => e.currentTarget.select()} value={newStation} onChange={e => setNewStation(e.target.value)} placeholder={t('workshop.settings.company.workstationPlaceholder')}
                   onKeyDown={e => e.key === 'Enter' && addStation()} />
                 <Button onClick={addStation} size="sm"><Plus className="h-4 w-4 mr-1" />{t('workshop.settings.company.add')}</Button>
               </div>

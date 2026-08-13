@@ -44,8 +44,8 @@ export function WorkshopVoidDialog({ open, onOpenChange, op }: { open: boolean; 
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">{op?.label} — <span className="font-medium tabular-nums">{fmt(op?.amount || 0)} zł</span></p>
           <p className="text-xs text-amber-600">Operacja nie zostanie usunięta — będzie widoczna jako przekreślona „Anulowano" i wykluczona z obliczeń.</p>
-          <div className="space-y-1.5"><Label>Kto anuluje (imię i nazwisko)</Label><Input value={who} onChange={e => setWho(e.target.value)} placeholder="np. Jan Kowalski" /></div>
-          <div className="space-y-1.5"><Label>Powód korekty</Label><Input value={reason} onChange={e => setReason(e.target.value)} placeholder="np. pomyłka w kwocie" /></div>
+          <div className="space-y-1.5"><Label>Kto anuluje (imię i nazwisko)</Label><Input onFocus={e => e.currentTarget.select()} value={who} onChange={e => setWho(e.target.value)} placeholder="np. Jan Kowalski" /></div>
+          <div className="space-y-1.5"><Label>Powód korekty</Label><Input onFocus={e => e.currentTarget.select()} value={reason} onChange={e => setReason(e.target.value)} placeholder="np. pomyłka w kwocie" /></div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Wróć</Button>
             <Button variant="destructive" onClick={confirm} disabled={voidOp.isPending} className="gap-2">{voidOp.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Anuluj operację</Button>
@@ -88,7 +88,8 @@ export function WorkshopOpEditDialog({ open, onOpenChange, op }: { open: boolean
         <DialogHeader><DialogTitle className="flex items-center gap-2"><Pencil className="h-5 w-5" /> Edytuj operację</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">{op?.label}</p>
-          <div className="space-y-1.5"><Label>Kwota</Label><Input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className="text-right" /></div>
+          <div className="space-y-1.5"><Label>Kwota</Label><Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className="text-right" /></div>
+          onFocus={e => e.currentTarget.select()}
           {hasMethod && (
             <div className="space-y-1.5"><Label>Forma</Label>
               <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
@@ -97,8 +98,8 @@ export function WorkshopOpEditDialog({ open, onOpenChange, op }: { open: boolean
               </Select>
             </div>
           )}
-          {hasDesc && <div className="space-y-1.5"><Label>Opis</Label><Input value={description} onChange={e => setDescription(e.target.value)} /></div>}
-          <div className="space-y-1.5"><Label>Kto edytuje (opcj.)</Label><Input value={editedBy} onChange={e => setEditedBy(e.target.value)} placeholder="imię i nazwisko" /></div>
+          {hasDesc && <div className="space-y-1.5"><Label>Opis</Label><Input onFocus={e => e.currentTarget.select()} value={description} onChange={e => setDescription(e.target.value)} /></div>}
+          <div className="space-y-1.5"><Label>Kto edytuje (opcj.)</Label><Input onFocus={e => e.currentTarget.select()} value={editedBy} onChange={e => setEditedBy(e.target.value)} placeholder="imię i nazwisko" /></div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
             <Button onClick={save} disabled={updateOp.isPending} className="gap-2">{updateOp.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Zapisz</Button>

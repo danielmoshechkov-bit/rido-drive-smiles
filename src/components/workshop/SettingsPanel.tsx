@@ -415,11 +415,11 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
             {settingsForm.business_type === 'firma' && (
               <>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>{t('workshop.settingsPanel.companyName')}</Label><Input value={settingsForm.company_name} onChange={e => setSettingsForm((p: any) => ({ ...p, company_name: e.target.value }))} placeholder={t('workshop.settingsPanel.companyNamePlaceholder')} /></div>
+                  <div className="space-y-2"><Label>{t('workshop.settingsPanel.companyName')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.company_name} onChange={e => setSettingsForm((p: any) => ({ ...p, company_name: e.target.value }))} placeholder={t('workshop.settingsPanel.companyNamePlaceholder')} /></div>
                   <div className="space-y-2">
                     <Label>NIP</Label>
                     <div className="flex gap-2">
-                      <Input value={settingsForm.nip} onChange={e => setSettingsForm((p: any) => ({ ...p, nip: e.target.value }))} placeholder="0000000000" className="flex-1" />
+                      <Input onFocus={e => e.currentTarget.select()} value={settingsForm.nip} onChange={e => setSettingsForm((p: any) => ({ ...p, nip: e.target.value }))} placeholder="0000000000" className="flex-1" />
                       <Button variant="outline" size="icon" onClick={handleNipSearch} disabled={nipSearching} title={t('workshop.settingsPanel.nipSearchTooltip')}>
                         {nipSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
@@ -428,8 +428,8 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>{t('workshop.settingsPanel.shortName')}</Label><Input value={settingsForm.short_name || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, short_name: e.target.value }))} placeholder={t('workshop.settingsPanel.shortNamePlaceholder')} /></div>
-                  <div className="space-y-2"><Label>{t('workshop.settingsPanel.address')}</Label><Input value={settingsForm.address} onChange={e => setSettingsForm((p: any) => ({ ...p, address: e.target.value }))} placeholder="ul. Przykładowa 1" /></div>
+                  <div className="space-y-2"><Label>{t('workshop.settingsPanel.shortName')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.short_name || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, short_name: e.target.value }))} placeholder={t('workshop.settingsPanel.shortNamePlaceholder')} /></div>
+                  <div className="space-y-2"><Label>{t('workshop.settingsPanel.address')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.address} onChange={e => setSettingsForm((p: any) => ({ ...p, address: e.target.value }))} placeholder="ul. Przykładowa 1" /></div>
                 </div>
               </>
             )}
@@ -437,21 +437,21 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
               <div className="space-y-2">
                 <Label>{t('workshop.settingsPanel.postalCodeCity')}</Label>
                 <div className="flex gap-2">
-                  <Input value={settingsForm.postal_code} onChange={e => setSettingsForm((p: any) => ({ ...p, postal_code: e.target.value }))} placeholder="00-000" maxLength={6} className="w-28" />
-                  <Input value={settingsForm.city} onChange={e => setSettingsForm((p: any) => ({ ...p, city: e.target.value }))} placeholder={t('workshop.settingsPanel.cityPlaceholder')} className="flex-1" />
+                  <Input onFocus={e => e.currentTarget.select()} value={settingsForm.postal_code} onChange={e => setSettingsForm((p: any) => ({ ...p, postal_code: e.target.value }))} placeholder="00-000" maxLength={6} className="w-28" />
+                  <Input onFocus={e => e.currentTarget.select()} value={settingsForm.city} onChange={e => setSettingsForm((p: any) => ({ ...p, city: e.target.value }))} placeholder={t('workshop.settingsPanel.cityPlaceholder')} className="flex-1" />
                 </div>
               </div>
-              <div className="space-y-2"><Label>{t('workshop.settingsPanel.phone')}</Label><Input value={settingsForm.phone} onChange={e => setSettingsForm((p: any) => ({ ...p, phone: e.target.value }))} placeholder="+48 000 000 000" /></div>
+              <div className="space-y-2"><Label>{t('workshop.settingsPanel.phone')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.phone} onChange={e => setSettingsForm((p: any) => ({ ...p, phone: e.target.value }))} placeholder="+48 000 000 000" /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>{t('workshop.settingsPanel.firstName')}</Label><Input value={settingsForm.first_name} onChange={e => setSettingsForm((p: any) => ({ ...p, first_name: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>{t('workshop.settingsPanel.lastName')}</Label><Input value={settingsForm.last_name} onChange={e => setSettingsForm((p: any) => ({ ...p, last_name: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>{t('workshop.settingsPanel.firstName')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.first_name} onChange={e => setSettingsForm((p: any) => ({ ...p, first_name: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>{t('workshop.settingsPanel.lastName')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.last_name} onChange={e => setSettingsForm((p: any) => ({ ...p, last_name: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>{t('workshop.settingsPanel.email')}</Label><Input type="email" value={settingsForm.email} onChange={e => setSettingsForm((p: any) => ({ ...p, email: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>{t('workshop.settingsPanel.website')}</Label><Input value={settingsForm.website} onChange={e => setSettingsForm((p: any) => ({ ...p, website: e.target.value }))} placeholder="https://warsztat.pl" /></div>
+              <div className="space-y-2"><Label>{t('workshop.settingsPanel.email')}</Label><Input onFocus={e => e.currentTarget.select()} type="email" value={settingsForm.email} onChange={e => setSettingsForm((p: any) => ({ ...p, email: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>{t('workshop.settingsPanel.website')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.website} onChange={e => setSettingsForm((p: any) => ({ ...p, website: e.target.value }))} placeholder="https://warsztat.pl" /></div>
             </div>
-            <div className="space-y-2"><Label>{t('workshop.settingsPanel.bankAccount')}</Label><Input value={settingsForm.bank_account || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, bank_account: e.target.value }))} placeholder="PL 00 0000 0000 0000 0000 0000 0000" /></div>
+            <div className="space-y-2"><Label>{t('workshop.settingsPanel.bankAccount')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.bank_account || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, bank_account: e.target.value }))} placeholder="PL 00 0000 0000 0000 0000 0000 0000" /></div>
 
             {/* Logo upload */}
             <div className="space-y-2">
@@ -617,7 +617,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                     </div>
                     <div className="space-y-2">
                       <Label>{t('workshop.settingsPanel.workstations.nameLabel')}</Label>
-                      <Input value={wsName} onChange={e => setWsName(e.target.value)} placeholder={t('workshop.settingsPanel.workstations.namePlaceholder')} />
+                      <Input onFocus={e => e.currentTarget.select()} value={wsName} onChange={e => setWsName(e.target.value)} placeholder={t('workshop.settingsPanel.workstations.namePlaceholder')} />
                     </div>
                   </div>
                   <DialogFooter>
@@ -632,7 +632,7 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                   <DialogHeader><DialogTitle>{t('workshop.settingsPanel.workstations.newCategoryTitle')}</DialogTitle></DialogHeader>
                   <div className="space-y-2">
                     <Label>{t('workshop.settingsPanel.workstations.categoryNameLabel')}</Label>
-                    <Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder={t('workshop.settingsPanel.workstations.categoryNamePlaceholder')} />
+                    <Input onFocus={e => e.currentTarget.select()} value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder={t('workshop.settingsPanel.workstations.categoryNamePlaceholder')} />
                     <p className="text-xs text-muted-foreground">{t('workshop.settingsPanel.workstations.categoryHint')}</p>
                   </div>
                   <DialogFooter>

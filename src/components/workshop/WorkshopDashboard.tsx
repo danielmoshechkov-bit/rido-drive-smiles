@@ -1,4 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazyNamedWithRetry } from '@/lib/lazyWithRetry';
+import { WORKSHOP_PLANS } from '@/config/workshopPlans';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -12,8 +14,9 @@ import { Button } from '@/components/ui/button';
 // komponentów (w tym 1890-liniowy Scheduler i Reports→recharts) lądowało w
 // initial bundle, mimo że renderuje się tylko aktywny. React.lazy = osobny
 // chunk per moduł, ładowany przy pierwszym wejściu w kafelek.
-const lazyNamed = <T extends Record<string, any>, K extends keyof T>(loader: () => Promise<T>, name: K) =>
-  lazy(() => loader().then(m => ({ default: m[name] })));
+// Ladowanie na zadanie odporne na nieaktualne pliki po wdrozeniu/restarcie —
+// bez tego wejscie w kafelek (np. Zlecenia) konczylo sie bialym ekranem.
+const lazyNamed = lazyNamedWithRetry;
 
 const WorkshopOrdersList = lazyNamed(() => import('./WorkshopOrdersList'), 'WorkshopOrdersList');
 const WorkshopOrderDetail = lazyNamed(() => import('./WorkshopOrderDetail'), 'WorkshopOrderDetail');
@@ -206,17 +209,17 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         <div>
           <h2 className="text-2xl font-bold text-center text-foreground mb-6">{t('workshop.dashboard.pricing.title')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { name: 'Start', price: '0 zł', period: '/mies.', badge: t('workshop.dashboard.pricing.plans.start.badge'), badgeColor: 'bg-muted text-muted-foreground', border: '', features: [t('workshop.dashboard.pricing.plans.start.f1'), t('workshop.dashboard.pricing.plans.start.f2'), t('workshop.dashboard.pricing.plans.start.f3'), t('workshop.dashboard.pricing.plans.start.f4'), t('workshop.dashboard.pricing.plans.start.f5'), t('workshop.dashboard.pricing.plans.start.f6')] },
-              { name: 'Warsztat', price: '99 zł', period: 'netto/mies.', badge: t('workshop.dashboard.pricing.plans.warsztat.badge'), badgeColor: 'bg-primary text-primary-foreground', border: 'ring-2 ring-primary', features: [t('workshop.dashboard.pricing.plans.warsztat.f1'), t('workshop.dashboard.pricing.plans.warsztat.f2'), t('workshop.dashboard.pricing.plans.warsztat.f3'), t('workshop.dashboard.pricing.plans.warsztat.f4'), t('workshop.dashboard.pricing.plans.warsztat.f5'), t('workshop.dashboard.pricing.plans.warsztat.f6')] },
-              { name: 'Warsztat Pro', price: '175 zł', period: 'netto/mies.', badge: t('workshop.dashboard.pricing.plans.pro.badge'), badgeColor: 'bg-orange-100 text-orange-700', border: '', features: [t('workshop.dashboard.pricing.plans.pro.f1'), t('workshop.dashboard.pricing.plans.pro.f2'), t('workshop.dashboard.pricing.plans.pro.f3'), t('workshop.dashboard.pricing.plans.pro.f4'), t('workshop.dashboard.pricing.plans.pro.f5'), t('workshop.dashboard.pricing.plans.pro.f6')] },
-              { name: 'GetRido AI', price: '249 zł', period: 'netto/mies.', badge: t('workshop.dashboard.pricing.plans.ai.badge'), badgeColor: 'bg-green-100 text-green-700', border: 'ring-2 ring-green-500', features: [t('workshop.dashboard.pricing.plans.ai.f1'), t('workshop.dashboard.pricing.plans.ai.f2'), t('workshop.dashboard.pricing.plans.ai.f3'), t('workshop.dashboard.pricing.plans.ai.f4'), t('workshop.dashboard.pricing.plans.ai.f5'), t('workshop.dashboard.pricing.plans.ai.f6')] },
-            ].map((plan, i) => (
-              <div key={i} className={`rounded-xl border bg-card p-5 flex flex-col ${plan.border}`}>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit mb-3 ${plan.badgeColor}`}>{plan.badge}</span>
+            {/* Plany z src/config/workshopPlans.ts — te same, co na stronie sprzedażowej. */}
+            {WORKSHOP_PLANS.map((plan) => (
+              <div key={plan.id} className={`rounded-xl border bg-card p-5 flex flex-col ${plan.popular ? 'ring-2 ring-primary' : ''}`}>
+                {plan.popular && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit mb-3 bg-primary text-primary-foreground">
+                    {t('workshop.dashboard.pricing.plans.warsztat.badge', 'Najczęściej wybierany')}
+                  </span>
+                )}
                 <h3 className="font-bold text-lg text-foreground">{plan.name}</h3>
                 <div className="mt-1 mb-4">
-                  <span className="text-2xl font-bold text-foreground">{plan.price}</span>
+                  <span className="text-2xl font-bold text-foreground">{plan.priceLabel}</span>
                   <span className="text-sm text-muted-foreground ml-1">{plan.period}</span>
                 </div>
                 <ul className="space-y-1.5 text-sm flex-1">
@@ -226,9 +229,19 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
                       <span className="text-muted-foreground">{f}</span>
                     </li>
                   ))}
+                  {plan.comingSoon?.map((f, j) => (
+                    <li key={`soon-${j}`} className="flex items-start gap-1.5">
+                      <span className="text-muted-foreground mt-0.5">◷</span>
+                      <span className="text-muted-foreground italic">{f} — wkrótce</span>
+                    </li>
+                  ))}
                 </ul>
-                <Button className="mt-4 w-full" variant={i === 1 ? 'default' : 'outline'} onClick={() => window.location.href = '/auth'}>
-                  {i === 0 ? t('workshop.dashboard.pricing.startFree') : t('workshop.dashboard.pricing.choosePlan')}
+                <Button
+                  className="mt-4 w-full"
+                  variant={plan.popular ? 'default' : 'outline'}
+                  onClick={() => window.location.href = plan.contact ? '/kontakt' : '/auth'}
+                >
+                  {plan.cta}
                 </Button>
               </div>
             ))}
