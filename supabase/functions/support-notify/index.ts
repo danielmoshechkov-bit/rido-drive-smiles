@@ -72,11 +72,26 @@ Deno.serve(async (req) => {
 
     const { data: conv, error: convError } = await supabase
       .from('support_conversations')
-      .select('id, contact_name, contact_email, admin_notified_at, client_notified_at, unread_for_user')
+      .select('id, contact_name, contact_email, admin_notified_at, client_notified_at, unread_for_user, is_test')
       .eq('id', conversation_id)
       .maybeSingle();
     if (convError) throw convError;
     if (!conv) return json({ error: 'Nie znaleziono rozmowy' }, 404);
+
+    // ROZMOWA TESTOWA — bez SMS-a i bez e-maila.
+    //
+    // Zestaw testów zakłada rozmowę i sprawdza eskalację do człowieka, a ta
+    // kończy się tutaj. Każdy przebieg wysyłał więc dwie prawdziwe wiadomości
+    // na prywatny numer admina; ograniczenie częstotliwości nie pomagało, bo
+    // liczy się per rozmowa, a każdy przebieg zakładał nową.
+    //
+    // Nazwa z prefiksem to druga linia obrony — dla rozmów sprzed dodania
+    // znacznika i na wypadek testu, który zapomni go ustawić.
+    const nazwaTestowa = /^\[(AI-)?TEST\]/i.test(String(conv.contact_name || ''));
+    if (conv.is_test || nazwaTestowa) {
+      console.info('[support-notify]', JSON.stringify({ event: 'test_conversation_skipped', conversation: String(conv.id).slice(0, 8) }));
+      return json({ skipped: 'rozmowa testowa' });
+    }
 
     const { data: settings } = await supabase.from('support_settings').select('*').eq('id', true).maybeSingle();
     if (!settings) return json({ skipped: 'brak ustawień wsparcia' });
