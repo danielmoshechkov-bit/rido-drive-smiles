@@ -19,6 +19,14 @@
 // Nigdy nie ufamy treści zdarzenia bez potwierdzenia, że pochodzi od operatora.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import {
+  czyDuplikat,
+  mapujStatus,
+  naDate,
+  okresSubskrypcji,
+  sprawdzPodpis,
+  wynikBrakuWiersza,
+} from "../_shared/stripeWebhook.ts";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -27,8 +35,6 @@ const json = (body: unknown, status = 200) =>
   });
 
 const STRIPE_API = "https://api.stripe.com/v1";
-/** Okno tolerancji znacznika czasu — chroni przed odtworzeniem starego żądania. */
-const TOLERANCJA_S = 300;
 
 async function stripeGet(key: string, path: string): Promise<any> {
   const res = await fetch(`${STRIPE_API}${path}`, {
@@ -39,140 +45,28 @@ async function stripeGet(key: string, path: string): Promise<any> {
   return data;
 }
 
-/** Porównanie w czasie stałym — długość i tak jest jawna, treść nie. */
-function rowneStale(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let roznica = 0;
-  for (let i = 0; i < a.length; i++) roznica |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return roznica === 0;
-}
-
 /**
- * Weryfikacja podpisu operatora.
+ * Aktualizacja subskrypcji po identyfikatorze u operatora.
  *
- * Zwraca diagnostykę, nie samo `true/false` — przy odrzuceniu trzeba wiedzieć,
- * CZY problem jest w sekrecie, czy w ładunku, a jedno i drugie wygląda tak samo
- * z zewnątrz.
- *
- * Dwie rzeczy, na których poprzednia wersja się wykładała:
- *
- *  1. Nagłówek może zawierać WIELE podpisów `v1` — Stripe wysyła je równolegle
- *     podczas rotacji sekretu. `Object.fromEntries` zostawiał ostatni, więc gdy
- *     pasował pierwszy, weryfikacja padała. Sprawdzamy wszystkie.
- *  2. Sekret z panelu bywa wklejony z niewidocznym znakiem końca linii.
- *     `importKey` bierze bajty dosłownie, więc `whsec_abc` i `whsec_abc\n` to
- *     dwa różne klucze. Przycinamy.
- *
- * Ładunek składamy z BAJTÓW, nie z tekstu: `t.` + surowe body, bez dekodowania
- * i ponownego kodowania. Round-trip przez UTF-8 jest bezstratny dla poprawnego
- * wejścia, ale nie ma powodu go robić — podpis dotyczy bajtów, które przyszły.
+ * Zwraca liczbę trafionych wierszy. Zero znaczy, że operator zna subskrypcję,
+ * której my nie mamy — to NIE jest sukces i nie wolno tego zamknąć jako
+ * przetworzone. Taki stan powstaje, gdy ktoś kupił, zanim webhook istniał,
+ * albo gdy wiersz skasowano ręcznie; cicho pominięty, wracałby co miesiąc przy
+ * każdym `invoice.paid` i nikt by się nie dowiedział, że klient płaci za nic.
  */
-interface WynikPodpisu {
-  ok: boolean;
-  powod?: string;
-  diag: Record<string, unknown>;
-}
-
-async function sprawdzPodpis(
-  bajtyCiala: Uint8Array,
-  naglowek: string,
-  sekretSurowy: string,
-): Promise<WynikPodpisu> {
-  const sekret = sekretSurowy.trim();
-  const diag: Record<string, unknown> = {
-    sekret_prefiks: sekret.slice(0, 8),
-    sekret_dlugosc: sekret.length,
-    sekret_przyciety: sekret.length !== sekretSurowy.length,
-    body_bajtow: bajtyCiala.length,
-    naglowek_obecny: !!naglowek,
-  };
-
-  if (!naglowek) return { ok: false, powod: "brak nagłówka stripe-signature", diag };
-
-  let t = 0;
-  const podpisyV1: string[] = [];
-  for (const czesc of naglowek.split(",")) {
-    const i = czesc.indexOf("=");
-    if (i < 0) continue;
-    const klucz = czesc.slice(0, i).trim();
-    const wartosc = czesc.slice(i + 1).trim();
-    if (klucz === "t") t = Number(wartosc);
-    else if (klucz === "v1") podpisyV1.push(wartosc);
-  }
-  diag.timestamp = t;
-  diag.podpisow_v1 = podpisyV1.length;
-
-  if (!t || podpisyV1.length === 0) {
-    return { ok: false, powod: "nagłówek bez t albo v1", diag };
-  }
-
-  const roznicaS = Math.abs(Date.now() / 1000 - t);
-  diag.roznica_czasu_s = Math.round(roznicaS);
-  if (roznicaS > TOLERANCJA_S) {
-    return { ok: false, powod: `znacznik czasu poza tolerancją (${Math.round(roznicaS)} s)`, diag };
-  }
-
-  const klucz = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(sekret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-
-  // `${t}.` jako bajty + surowe bajty ciała, sklejone bez konwersji tekstowej.
-  const prefiks = new TextEncoder().encode(`${t}.`);
-  const ladunek = new Uint8Array(prefiks.length + bajtyCiala.length);
-  ladunek.set(prefiks, 0);
-  ladunek.set(bajtyCiala, prefiks.length);
-
-  const podpis = await crypto.subtle.sign("HMAC", klucz, ladunek);
-  const hex = Array.from(new Uint8Array(podpis))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  diag.policzony_prefiks = hex.slice(0, 12);
-  diag.otrzymane_prefiksy = podpisyV1.map((p) => p.slice(0, 12));
-
-  const pasuje = podpisyV1.some((v) => rowneStale(hex, v));
-  return pasuje ? { ok: true, diag } : { ok: false, powod: "żaden podpis v1 nie pasuje", diag };
-}
-
-const naDate = (sekundy: number | null | undefined): string | null =>
-  sekundy ? new Date(sekundy * 1000).toISOString() : null;
-
-/**
- * Okres rozliczeniowy subskrypcji.
- *
- * Od wersji API `2026-06-24.dahlia` `current_period_start` i `current_period_end`
- * NIE są już polami subskrypcji — zeszły na poziom pozycji
- * (`subscription.items.data[]`), bo pozycje jednej subskrypcji mogą mieć różne
- * okresy. Czytanie ze starego miejsca dawało `undefined`, a stąd NULL w kolumnie
- * `NOT NULL` i odrzucony zapis.
- *
- * Bierzemy pozycję pierwszą (sprzedajemy jeden plan na subskrypcję), z odwrotem
- * do pól na poziomie subskrypcji — na wypadek konta pinowanego do starszej
- * wersji API. Gdy nie ma ani jednego, zwracamy null i decyzję zostawiamy
- * wywołującemu, zamiast wstawiać NULL do kolumny, która go nie przyjmie.
- */
-function okresSubskrypcji(sub: any): { start: string | null; end: string | null } {
-  const pozycja = sub?.items?.data?.[0];
-  const start = pozycja?.current_period_start ?? sub?.current_period_start ?? null;
-  const end = pozycja?.current_period_end ?? sub?.current_period_end ?? null;
-  return { start: naDate(start), end: naDate(end) };
-}
-
-/** Statusy Stripe → nasze. `incomplete_expired` i `unpaid` traktujemy jak koniec. */
-function mapujStatus(stripeStatus: string): string {
-  switch (stripeStatus) {
-    case "trialing": return "trialing";
-    case "active": return "active";
-    case "past_due": return "past_due";
-    case "canceled":
-    case "incomplete_expired":
-    case "unpaid": return "canceled";
-    default: return "past_due";
-  }
+async function aktualizujSubskrypcje(
+  admin: ReturnType<typeof createClient>,
+  providerSubId: string,
+  patch: Record<string, unknown>,
+): Promise<number> {
+  const { data, error } = await admin
+    .from("billing_subscriptions")
+    .update(patch)
+    .eq("provider", "stripe")
+    .eq("provider_subscription_id", providerSubId)
+    .select("id");
+  if (error) throw error;
+  return (data ?? []).length;
 }
 
 Deno.serve(async (req) => {
@@ -243,7 +137,7 @@ Deno.serve(async (req) => {
       .eq("provider", "stripe").eq("external_id", eventId)
       .maybeSingle();
 
-    if (istniejace && (istniejace.status === "processed" || istniejace.status === "ignored")) {
+    if (istniejace && czyDuplikat(istniejace.status)) {
       console.log(JSON.stringify({ event: "duplikat", typ, eventId, status: istniejace.status }));
       return json({ received: true, duplicate: true });
     }
@@ -350,7 +244,7 @@ Deno.serve(async (req) => {
         });
         if (trafione === 0) {
           console.error("billing-stripe-webhook: opłacona subskrypcja bez odpowiednika w bazie", subId);
-          await zakoncz("failed", `Subskrypcja ${subId} nieznana w bazie — klient płaci, my o tym nie wiemy`);
+          await zakoncz(wynikBrakuWiersza(typ), `Subskrypcja ${subId} nieznana w bazie — klient płaci, my o tym nie wiemy`);
           break;
         }
 
@@ -368,7 +262,7 @@ Deno.serve(async (req) => {
 
         const trafione = await aktualizujSubskrypcje(admin, subId, { status: "past_due" });
         if (trafione === 0) {
-          await zakoncz("failed", `Subskrypcja ${subId} nieznana w bazie`);
+          await zakoncz(wynikBrakuWiersza(typ), `Subskrypcja ${subId} nieznana w bazie`);
           break;
         }
 
@@ -396,7 +290,7 @@ Deno.serve(async (req) => {
           // `ignored`, nie `failed`: przy anulowaniu takiej subskrypcji nie ma
           // czego naprawiać, a ponawianie w nieskończoność nic nie da.
           console.warn("billing-stripe-webhook: zdarzenie cyklu życia dla nieznanej subskrypcji", obiekt.id);
-          await zakoncz("ignored", `Subskrypcja ${obiekt.id} nieznana w bazie`);
+          await zakoncz(wynikBrakuWiersza(typ), `Subskrypcja ${obiekt.id} nieznana w bazie`);
           break;
         }
         await zakoncz("processed");

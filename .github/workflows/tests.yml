@@ -1,0 +1,39 @@
+name: Testy i kontrola typów
+
+# Powód istnienia tego workflow (13.08.2026):
+#
+# Repo miało siedem plików `*_test.ts` i NIC ich nie uruchamiało — działały tylko
+# u kogoś lokalnie. W tym samym tygodniu trzy błędy webhooka Stripe wyszły
+# dopiero na produkcji, a jeden z nich (funkcja wołana, ale bez definicji —
+# wycięta przy edycji sąsiedniego bloku) zostałby złapany przez `deno check`
+# w kilka sekund.
+#
+# Dlatego oba kroki, nie sam `test`: testy sprawdzają logikę, `check` sprawdza,
+# czy kod w ogóle się trzyma kupy.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  edge:
+    name: Edge functions (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Kontrola typów całego katalogu funkcji. Łapie literówki, wycięte
+      # definicje i rozjazdy sygnatur między modułem współdzielonym a
+      # wywołaniem — czyli dokładnie tę klasę błędów, która nas kosztowała.
+      - name: Kontrola typów
+        run: deno check supabase/functions/**/*.ts
+
+      # Testy jednostkowe. `--allow-none` nie istnieje, więc jawnie nie dajemy
+      # uprawnień: testy mają być offline i bez dostępu do plików.
+      - name: Testy
+        run: deno test supabase/functions/_shared/
