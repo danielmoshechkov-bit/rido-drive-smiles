@@ -52,8 +52,12 @@ jobs:
                      supabase/functions/billing-admin-plans/index.ts \
                      supabase/functions/billing-admin-features/index.ts
 
-      # Testy jednostkowe. Bez flag uprawnień — mają być offline i bez dostępu
-      # do plików; gdyby któryś tego potrzebował, to sygnał, że przestał być
-      # testem jednostkowym.
+      # Testy jednostkowe. `--allow-read` jest konieczne: część istniejących
+      # testów agenta głosowego czyta pliki źródłowe i sprawdza, czego w nich
+      # NIE MA (np. że runtime nie zawiera identyfikatorów canary). To audyt
+      # kodu, nie test logiki, ale łapie realne regresje — więc dajemy odczyt.
+      #
+      # Świadomie NIE dajemy sieci ani zapisu: test, który ich potrzebuje,
+      # przestał być testem jednostkowym.
       - name: Testy
-        run: deno test supabase/functions/_shared/
+        run: deno test --allow-read supabase/functions/_shared/
