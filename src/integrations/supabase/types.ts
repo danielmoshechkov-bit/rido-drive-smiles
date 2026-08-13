@@ -24067,6 +24067,7 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           brand: string | null
+          cancellation_ack_at: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           confirmation_sms_sent: boolean | null
@@ -24098,6 +24099,7 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           brand?: string | null
+          cancellation_ack_at?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           confirmation_sms_sent?: boolean | null
@@ -24129,6 +24131,7 @@ export type Database = {
           appointment_date?: string
           appointment_time?: string
           brand?: string | null
+          cancellation_ack_at?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           confirmation_sms_sent?: boolean | null
@@ -24953,7 +24956,9 @@ export type Database = {
       workshop_order_items: {
         Row: {
           created_at: string | null
+          discount_amount: number | null
           discount_percent: number | null
+          discount_type: string
           employee_id: string | null
           id: string
           inventory_product_id: string | null
@@ -24977,7 +24982,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          discount_amount?: number | null
           discount_percent?: number | null
+          discount_type?: string
           employee_id?: string | null
           id?: string
           inventory_product_id?: string | null
@@ -25001,7 +25008,9 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          discount_amount?: number | null
           discount_percent?: number | null
+          discount_type?: string
           employee_id?: string | null
           id?: string
           inventory_product_id?: string | null
@@ -25244,6 +25253,7 @@ export type Database = {
       workshop_orders: {
         Row: {
           acceptance_date: string | null
+          assigned_employee_id: string | null
           booking_id: string | null
           client_acceptance_confirmed: boolean | null
           client_code: string | null
@@ -25303,6 +25313,7 @@ export type Database = {
         }
         Insert: {
           acceptance_date?: string | null
+          assigned_employee_id?: string | null
           booking_id?: string | null
           client_acceptance_confirmed?: boolean | null
           client_code?: string | null
@@ -25362,6 +25373,7 @@ export type Database = {
         }
         Update: {
           acceptance_date?: string | null
+          assigned_employee_id?: string | null
           booking_id?: string | null
           client_acceptance_confirmed?: boolean | null
           client_code?: string | null

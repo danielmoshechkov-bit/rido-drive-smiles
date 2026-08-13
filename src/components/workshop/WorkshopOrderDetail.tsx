@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -93,6 +93,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
   // subskrybuje TEN order; UPDATE merguje się do wspólnego cache ['workshop-orders']
   // (i single, i lista) → status wchodzi w 1-2 s BEZ akcji warsztatu.
   const orderId = order?.id;
+  const itemsRefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!orderId) return;
     const channel = (supabase as any)
@@ -109,9 +110,20 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
         })
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'workshop_order_items', filter: `order_id=eq.${orderId}` },
-        () => { queryClient.invalidateQueries({ queryKey: ['workshop-orders', 'single', orderId] }); })
+        () => {
+          // Dodanie kilku pozycji pod rzad to seria zdarzen, a kazde ciagnelo
+          // pelny refetch zlecenia z joinami. Sklejamy je w jedno odswiezenie.
+          if (itemsRefetchTimer.current) clearTimeout(itemsRefetchTimer.current);
+          itemsRefetchTimer.current = setTimeout(() => {
+            itemsRefetchTimer.current = null;
+            queryClient.invalidateQueries({ queryKey: ['workshop-orders', 'single', orderId] });
+          }, 600);
+        })
       .subscribe();
-    return () => { (supabase as any).removeChannel(channel); };
+    return () => {
+      if (itemsRefetchTimer.current) clearTimeout(itemsRefetchTimer.current);
+      (supabase as any).removeChannel(channel);
+    };
   }, [orderId, queryClient]);
 
   // Wspólny handler zmiany statusu z pickera: optimistic patch cache (badge zmienia
