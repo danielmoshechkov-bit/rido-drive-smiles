@@ -42,7 +42,11 @@ const TabsContent = React.forwardRef<
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      // Radix nadaje panelowi zakładki tabindex="0", więc trafia w niego focus przy
+      // nawigacji klawiaturą. Domyślny `focus-visible:ring-2` obrysowywał wtedy CAŁY
+      // panel — u nas to pół ekranu i wyglądało jak awaria interfejsu. Sam panel nic
+      // nie obsługuje, więc obrys mu nie przysługuje; kontrolki w środku mają własny.
+      "mt-2 ring-offset-background focus-visible:outline-none",
       className
     )}
     {...props}

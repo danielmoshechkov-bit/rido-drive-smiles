@@ -67,6 +67,9 @@ const Footer = () => {
               <Link to="/prawne?tab=cookies" className="text-primary-foreground/90 hover:text-primary-foreground hover:underline transition-colors">
                 {t('common.cookies', 'Cookies 🍪')}
               </Link>
+              <Link to="/usuwanie-danych" className="text-primary-foreground/90 hover:text-primary-foreground hover:underline transition-colors">
+                {t('footer.dataDeletion', 'Usuwanie danych')}
+              </Link>
             </nav>
           </div>
         </div>

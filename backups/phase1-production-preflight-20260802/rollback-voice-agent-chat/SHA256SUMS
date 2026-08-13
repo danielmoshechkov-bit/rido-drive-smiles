@@ -1,0 +1,3 @@
+5ff7c619ab0615455754513cd32514d8a0735ab44d5d67f501aaa8a2c0bd0055  supabase/functions/voice-agent-chat/index.ts
+e34f5e3a2717be8f96ed52d44ab80f79481e8335f846ea95578061c677f6c119  supabase/functions/_shared/aiSecrets.ts
+41d4045c5574a54d732aaa42d3c01abb3a19557a57eaeef3ed1b59339239b903  supabase/functions/_shared/translationProvider.ts

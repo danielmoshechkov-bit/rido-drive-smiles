@@ -163,11 +163,25 @@ interface SimpleFreeInvoiceProps {
   prefillItems?: PrefillItem[];
   prefillBuyer?: PrefillBuyer;
   prefillNotes?: string;
+  /** Dane pojazdu (marka/model/nr rej/VIN) — wstawiane do uwag tylko gdy user zaznaczy
+      checkbox „Dodaj dane pojazdu"; stan pamiętany w localStorage. */
+  prefillVehicleNotes?: string;
+  /** Nr zlecenia („Do zlecenia: X") — osobny checkbox „Dodaj nr zlecenia", osobna pamięć. */
+  prefillOrderNotes?: string;
   prefillOrderNumber?: string;
   prefillWorkshopOrderId?: string;
+  /**
+   * Faktura wystawiana DO PARAGONU fiskalnego. Sprzedaż jest już w raporcie dobowym,
+   * więc powiązanie musi zostać zapisane — inaczej księgowa policzy obrót dwa razy.
+   */
+  prefillFiscalReceiptId?: string;
+  prefillFiscalReceiptNumber?: number | null;
 }
 
-export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillOrderNumber, prefillWorkshopOrderId }: SimpleFreeInvoiceProps = {}) {
+const VEHICLE_NOTES_PREF_KEY = 'invoice_include_vehicle_notes';
+const ORDER_NOTES_PREF_KEY = 'invoice_include_order_notes';
+
+export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillVehicleNotes, prefillOrderNotes, prefillOrderNumber, prefillWorkshopOrderId, prefillFiscalReceiptId, prefillFiscalReceiptNumber }: SimpleFreeInvoiceProps = {}) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const defaultDueDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
   
@@ -192,6 +206,17 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   const [issuePlace, setIssuePlace] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'cash' | 'card'>('transfer');
   const [notes, setNotes] = useState('');
+  // Checkboxy „Dodaj dane pojazdu" / „Dodaj nr zlecenia" — niezależne, każdy pamięta
+  // ostatni wybór usera w localStorage; pierwszy raz: odznaczone.
+  const readNotesPref = (key: string) => {
+    try { return localStorage.getItem(key) === '1'; } catch { return false; }
+  };
+  const [includeVehicleNotes, setIncludeVehicleNotes] = useState<boolean>(
+    () => !!prefillVehicleNotes && readNotesPref(VEHICLE_NOTES_PREF_KEY)
+  );
+  const [includeOrderNotes, setIncludeOrderNotes] = useState<boolean>(
+    () => !!prefillOrderNotes && readNotesPref(ORDER_NOTES_PREF_KEY)
+  );
   
   // Payment tab fields
   const [paidAmount, setPaidAmount] = useState<number>(0);
@@ -515,8 +540,31 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         email: prefillBuyer.email || prev.email,
       }));
     }
-    if (prefillNotes) setNotes(prefillNotes);
+    const initialNotes = [
+      includeVehicleNotes ? prefillVehicleNotes : '',
+      includeOrderNotes ? prefillOrderNotes : '',
+      prefillNotes,
+    ].filter(Boolean).join('\n');
+    if (initialNotes) setNotes(initialNotes);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Wstaw/usuń dany blok (dane pojazdu / nr zlecenia) w uwagach; ręczne dopiski usera
+  // zostają nietknięte. Każdy checkbox działa niezależnie i pamięta swój stan.
+  const toggleNotesBlock = (block: string | undefined, prefKey: string, setChecked: (v: boolean) => void) =>
+    (checked: boolean) => {
+      setChecked(checked);
+      try { localStorage.setItem(prefKey, checked ? '1' : '0'); } catch { /* np. tryb prywatny */ }
+      if (!block) return;
+      setNotes(prev => {
+        if (checked) {
+          if (prev.includes(block)) return prev;
+          return block + (prev ? '\n' + prev : '');
+        }
+        return prev.replace(block, '').replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '');
+      });
+    };
+  const handleVehicleNotesToggle = toggleNotesBlock(prefillVehicleNotes, VEHICLE_NOTES_PREF_KEY, setIncludeVehicleNotes);
+  const handleOrderNotesToggle = toggleNotesBlock(prefillOrderNotes, ORDER_NOTES_PREF_KEY, setIncludeOrderNotes);
 
   // Check auth state and load saved company data
   // Helper function to load user company data from multiple sources
@@ -1302,6 +1350,7 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             split_payment: getSplitPayment(),
             ksef_status: asDraft ? 'draft' : undefined,
             ...(prefillWorkshopOrderId ? { workshop_order_id: prefillWorkshopOrderId } : {}),
+            ...(prefillFiscalReceiptId ? { fiscal_receipt_id: prefillFiscalReceiptId } : {}),
         };
         if (isCorrection) {
           insertData.is_correction = true;
@@ -1551,6 +1600,20 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             <p className="text-xs sm:text-sm text-muted-foreground">Bez rejestracji • Za darmo wygeneruj PDF w przeglądarce</p>
           </div>
         </div>
+
+      {/* Faktura do paragonu — sprzedaż jest już zaewidencjonowana na kasie */}
+      {prefillFiscalReceiptId && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <div className="font-medium">
+            Faktura do paragonu fiskalnego{prefillFiscalReceiptNumber ? ` nr ${prefillFiscalReceiptNumber}` : ''}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Ta sprzedaż jest już ujęta w raporcie dobowym z kasy — w JPK_V7 wykazuje się ją raz, zapisem
+            zbiorczym RO, a fakturę oznacza się jako wystawioną do paragonu. Powiązanie zapisuje się
+            automatycznie. Do egzemplarza faktury pozostającego u sprzedawcy dołącz oryginał paragonu.
+          </p>
+        </div>
+      )}
 
       {/* Invoice Type Selection */}
       <Card>
@@ -2399,7 +2462,35 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="notes" className="mt-4">
+            <TabsContent value="notes" className="mt-4 space-y-2">
+              {(prefillVehicleNotes || prefillOrderNotes) && (
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                  {prefillVehicleNotes && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="include-vehicle-notes"
+                        checked={includeVehicleNotes}
+                        onCheckedChange={(v) => handleVehicleNotesToggle(v === true)}
+                      />
+                      <Label htmlFor="include-vehicle-notes" className="text-sm font-normal cursor-pointer">
+                        Dodaj dane pojazdu
+                      </Label>
+                    </div>
+                  )}
+                  {prefillOrderNotes && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="include-order-notes"
+                        checked={includeOrderNotes}
+                        onCheckedChange={(v) => handleOrderNotesToggle(v === true)}
+                      />
+                      <Label htmlFor="include-order-notes" className="text-sm font-normal cursor-pointer">
+                        Dodaj nr zlecenia
+                      </Label>
+                    </div>
+                  )}
+                </div>
+              )}
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

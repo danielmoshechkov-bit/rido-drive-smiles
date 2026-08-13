@@ -1,5 +1,4 @@
 import { Fragment, useState, useEffect } from "react";
-import { WORKSHOP_PLANS, AGENT_PLANS } from '@/config/workshopPlans';
 import { useNavigate } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +36,8 @@ import {
 } from "lucide-react";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
+import { usePublicPricing, type PublicPlan } from "@/hooks/usePublicPricing";
+import { planPriceLabels, planCtaLabel, trialDaysFor } from "@/lib/pricingCards";
 import tileWorkshop from "@/assets/tile-workshop.jpg";
 import tileDetailing from "@/assets/tile-detailing.jpg";
 import tilePpf from "@/assets/tile-ppf.jpg";
@@ -107,6 +108,21 @@ type Feature = {
   soon?: boolean;
 };
 
+/**
+ * Wyróżnienie karty — decyzja marketingowa, nie dana z cennika. Klucz to kod
+ * planu z billing_plans.
+ */
+const HIGHLIGHTED = new Set(["warsztat_standard", "agent_pro"]);
+
+/**
+ * Zapowiedzi „wkrótce" — obietnice, nie zakres planu. Funkcja, która jeszcze
+ * nie działa, nie ma prawa siedzieć w macierzy plan × funkcja, bo natychmiast
+ * dałaby do niej dostęp.
+ */
+const COMING_SOON: Record<string, string[]> = {
+  warsztat_pro: ["Dane naprawcze (TecRMI) + czas pracy mechanika"],
+};
+
 export default function WorkshopLanding() {
   const navigate = useNavigate();
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -116,6 +132,14 @@ export default function WorkshopLanding() {
   const [isProvider, setIsProvider] = useState(false);
   const [activating, setActivating] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+
+  // Cennik z bazy — te same dane co /cennik. Zmiana ceny w panelu wchodzi tu
+  // bez deployu, a obie strony nie mają jak się rozjechać.
+  const { plans, loading: pricingLoading, error: pricingError } = usePublicPricing();
+  const warsztatPlans = plans.filter((p) => p.product_line === "warsztat");
+  const agentPlans = plans.filter((p) => p.product_line === "agent");
+  const trialDays = trialDaysFor(plans, "warsztat");
+  const trialLabel = trialDays > 0 ? `${trialDays} dni` : null;
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -152,7 +176,11 @@ export default function WorkshopLanding() {
     try {
       const result = await activateWorkshopTrial(plan);
       if (result.success) {
-        toast.success("Moduł warsztatowy aktywowany! Trwa 14-dniowy okres próbny.");
+        toast.success(
+          trialLabel
+            ? `Moduł warsztatowy aktywowany! Okres próbny trwa ${trialLabel}.`
+            : "Moduł warsztatowy aktywowany!",
+        );
         navigate("/uslugi/panel");
       } else {
         toast.error(result.error);
@@ -184,7 +212,7 @@ export default function WorkshopLanding() {
   ];
 
   const benefits = [
-    { icon: Zap, text: "14 dni za darmo, bez karty" },
+    { icon: Zap, text: trialLabel ? `${trialLabel} za darmo, bez karty` : "Bez karty, bez zobowiązań" },
     { icon: Shield, text: "Polska chmura, RODO" },
     { icon: Clock, text: "Dostęp 24/7, każde urządzenie" },
     { icon: Users, text: "Bez limitu klientów" },
@@ -205,68 +233,98 @@ export default function WorkshopLanding() {
   ];
 
   const faq = [
-    { q: "Czy potrzebuję karty kredytowej, żeby wypróbować?", a: "Nie. Pełne 14 dni bez karty, bez zobowiązań. Po okresie próbnym decydujesz, czy chcesz kontynuować." },
+    { q: "Czy potrzebuję karty kredytowej, żeby wypróbować?", a: `Nie. ${trialLabel ? `Pełne ${trialLabel}` : "Okres próbny"} bez karty, bez zobowiązań. Po okresie próbnym decydujesz, czy chcesz kontynuować.` },
     { q: "Czy moje dane są bezpieczne?", a: "Tak. Dane są przechowywane w polskiej chmurze zgodnej z RODO, szyfrowane w spoczynku i w transporcie. Codzienne backupy." },
     { q: "Czy mogę importować dane z innego systemu?", a: "Tak. Wspieramy import klientów, pojazdów i historii z plików CSV/Excel. W razie potrzeby pomożemy przy migracji." },
     { q: "Czy KSeF jest już wbudowany?", a: "Tak. Wystawianie i wysyłka FA(3), monitoring statusów oraz alerty MF są dostępne od pakietu Warsztat." },
     { q: "Ile kosztuje SMS do klienta?", a: "SMS-y rozliczane są z Twojego pakietu SMS (kupujesz osobno). System pokazuje saldo i historię wysyłek." },
   ];
 
-  // Cennik pochodzi z jednego miejsca — src/config/workshopPlans.ts
-  const warsztatPlans = WORKSHOP_PLANS;
-  const agentPlans = AGENT_PLANS;
-
-  const renderPlanCard = (plan: {
-    id: string; name: string; priceLabel: string; period: string;
-    features: string[]; cta: string; popular?: boolean; contact?: boolean;
-    comingSoon?: string[];
-  }) => (
-    <Card
-      key={plan.id}
-      className={`relative flex flex-col ${plan.popular ? "border-primary border-2 shadow-xl lg:scale-[1.03]" : ""}`}
-    >
-      {plan.popular && (
-        <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">Najpopularniejszy</Badge>
-      )}
-      <CardContent className="p-6 flex flex-col flex-1">
-        <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
-        <div className="mb-5 mt-3">
-          <span className="text-4xl font-bold">{plan.priceLabel}</span>
-          <span className="text-muted-foreground text-sm"> {plan.period}</span>
-        </div>
-        <Button
-          className={`w-full mb-5 ${plan.popular ? "bg-gradient-to-r from-primary to-purple-600" : ""}`}
-          variant={plan.popular ? "default" : "outline"}
-          onClick={() => (plan.contact ? navigate("/kontakt") : handleStartTrial(plan.id))}
-        >
-          {plan.cta}
-        </Button>
-        <ul className="space-y-2 flex-1">
-          {plan.features.map((f, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm">
-              <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-              <span>{f}</span>
-            </li>
-          ))}
-        </ul>
-        {plan.comingSoon && plan.comingSoon.length > 0 && (
-          <ul className="space-y-2 mt-3 pt-3 border-t">
-            {plan.comingSoon.map((f, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground/60">
-                <Clock className="h-4 w-4 mt-0.5 shrink-0" />
-                <span>
-                  {f}
-                  <Badge variant="outline" className="ml-1.5 text-[10px] px-1.5 py-0 align-middle text-muted-foreground/70">
-                    wkrótce
-                  </Badge>
-                </span>
+  const renderPlanCard = (plan: PublicPlan) => {
+    const price = planPriceLabels(plan);
+    const popular = HIGHLIGHTED.has(plan.code);
+    const comingSoon = COMING_SOON[plan.code];
+    return (
+      <Card
+        key={plan.code}
+        className={`relative flex flex-col ${popular ? "border-primary border-2 shadow-xl lg:scale-[1.03]" : ""}`}
+      >
+        {popular && (
+          <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary">Najpopularniejszy</Badge>
+        )}
+        <CardContent className="p-6 flex flex-col flex-1">
+          <h3 className="text-xl font-bold mb-1">{plan.name}</h3>
+          <div className="mb-5 mt-3">
+            <span className="text-4xl font-bold">{price.price}</span>
+            <span className="text-muted-foreground text-sm"> {price.period}</span>
+            {price.target && (
+              <span className="text-muted-foreground text-sm line-through ml-2">{price.target}</span>
+            )}
+            {price.note && <div className="text-xs text-muted-foreground mt-1">{price.note}</div>}
+          </div>
+          <Button
+            className={`w-full mb-5 ${popular ? "bg-gradient-to-r from-primary to-purple-600" : ""}`}
+            variant={popular ? "default" : "outline"}
+            onClick={() => (plan.is_custom ? navigate("/kontakt") : handleStartTrial(plan.code))}
+          >
+            {planCtaLabel(plan)}
+          </Button>
+          <ul className="space-y-2 flex-1">
+            {plan.features.map((f, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <Check className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                <span>{f}</span>
               </li>
             ))}
           </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
+          {comingSoon && comingSoon.length > 0 && (
+            <ul className="space-y-2 mt-3 pt-3 border-t">
+              {comingSoon.map((f, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground/60">
+                  <Clock className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    {f}
+                    <Badge variant="outline" className="ml-1.5 text-[10px] px-1.5 py-0 align-middle text-muted-foreground/70">
+                      wkrótce
+                    </Badge>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderPlanGrid = (group: PublicPlan[], gridClass: string, emptyHint: string) => {
+    if (pricingLoading) {
+      return (
+        <div className={`grid gap-5 mx-auto ${gridClass}`}>
+          {[0, 1, 2, 3].slice(0, Math.max(2, group.length || 4)).map((i) => (
+            <Card key={i} className="h-80 animate-pulse bg-muted/40" />
+          ))}
+        </div>
+      );
+    }
+    // Przy błędzie i przy pustej odpowiedzi NIE pokazujemy zapasowych kwot —
+    // zła cena na stronie, na którą kierujemy ruch, jest gorsza niż jej brak.
+    if (pricingError || group.length === 0) {
+      return (
+        <Card className="max-w-2xl mx-auto">
+          <CardContent className="p-6 text-center">
+            <p className="text-sm mb-4">{emptyHint}</p>
+            <Button onClick={() => navigate("/kontakt")}>Skontaktuj się z nami</Button>
+          </CardContent>
+        </Card>
+      );
+    }
+    return (
+      <div className={`grid gap-5 mx-auto ${gridClass}`}>
+        {group.map((plan) => renderPlanCard(plan))}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -282,7 +340,7 @@ export default function WorkshopLanding() {
                 <>
                   <Button variant="ghost" size="sm" onClick={() => navigate("/klient")}>Moje konto</Button>
                   <Button size="sm" disabled={activating} onClick={() => handleStartTrial("pro")}>
-                    {activating ? "Aktywuję..." : "Aktywuj 14 dni"}
+                    {activating ? "Aktywuję..." : trialLabel ? `Aktywuj ${trialLabel}` : "Aktywuj"}
                   </Button>
                 </>
               )
@@ -307,7 +365,7 @@ export default function WorkshopLanding() {
             <div className="text-center md:text-left order-2 md:order-1">
               <Badge className="mb-4 bg-primary/10 text-primary border-primary/20 text-sm px-4 py-1">
                 <Sparkles className="h-3.5 w-3.5 mr-1" />
-                14 dni za darmo · bez karty
+                {trialLabel ? `${trialLabel} za darmo · bez karty` : "Bez karty · bez zobowiązań"}
               </Badge>
 
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-5 leading-tight">
@@ -341,7 +399,7 @@ export default function WorkshopLanding() {
                   onClick={() => handleStartTrial("pro")}
                 >
                   <Wrench className="h-5 w-5" />
-                  {activating ? "Aktywuję..." : session && isProvider ? "Przejdź do panelu" : "Wypróbuj 14 dni za darmo"}
+                  {activating ? "Aktywuję..." : session && isProvider ? "Przejdź do panelu" : trialLabel ? `Wypróbuj ${trialLabel} za darmo` : "Zacznij za darmo"}
                   <ArrowRight className="h-5 w-5" />
                 </Button>
                 <Button size="lg" variant="ghost" className="w-full sm:w-auto" onClick={() => {
@@ -718,17 +776,22 @@ export default function WorkshopLanding() {
           <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Wybierz pakiet</h2>
         </div>
 
-        {/* Trial banner */}
-        <div className="max-w-3xl mx-auto mb-14">
-          <Card className="border-primary/30 bg-gradient-to-r from-primary/10 via-purple-500/10 to-primary/10">
-            <CardContent className="p-6 text-center">
-              <h3 className="text-xl md:text-2xl font-extrabold mb-2">14 dni — pełny dostęp do wszystkiego</h3>
-              <p className="text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
-                Na start dostajesz pełny program (Pro) + oba Agenty AI. Bez karty. Testujesz maksimum, a po trialu zostawiasz to, bez czego nie możesz się obejść.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Trial banner — znika, gdy plany nie obiecują okresu próbnego */}
+        {trialLabel && (
+          <div className="max-w-3xl mx-auto mb-14">
+            <Card className="border-primary/30 bg-gradient-to-r from-primary/10 via-purple-500/10 to-primary/10">
+              <CardContent className="p-6 text-center">
+                <h3 className="text-xl md:text-2xl font-extrabold mb-2">
+                  {trialLabel} — pełny dostęp do programu
+                </h3>
+                <p className="text-base font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
+                  Na start dostajesz pełny program w zakresie Pro. Bez karty. Wdrożenie, migracja danych
+                  z obecnego programu, konfiguracja kasy fiskalnej i KSeF — 0 zł (wartość 690 zł).
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Product 1 — GetRido Warsztat */}
         <div className="text-center mb-8">
@@ -737,9 +800,11 @@ export default function WorkshopLanding() {
             Dla warsztatów, które chcą tylko dobry program. Taniej i z większym zakresem niż popularne systemy.
           </p>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto">
-          {warsztatPlans.map((plan) => renderPlanCard(plan))}
-        </div>
+        {renderPlanGrid(
+          warsztatPlans,
+          "sm:grid-cols-2 lg:grid-cols-4 max-w-6xl",
+          "Nie udało się wczytać aktualnego cennika programu. Odśwież stronę albo napisz do nas — podamy ceny od ręki.",
+        )}
         <p className="text-center text-sm text-muted-foreground mt-6 max-w-2xl mx-auto">
           Magazyn, integracje i panel pracowników — u nas w cenie Pro. SMS i sprawdzanie VIN — pakiety dokupowane.
         </p>
@@ -756,57 +821,21 @@ export default function WorkshopLanding() {
             Odbiera telefon 24/7, umawia wizyty, tworzy zlecenia. Działa samodzielnie, a najlepiej wpięty w program GetRido.
           </p>
         </div>
-        <div className="grid sm:grid-cols-2 gap-5 max-w-3xl mx-auto">
-          {agentPlans.map((plan) => renderPlanCard(plan))}
-        </div>
+        {renderPlanGrid(
+          agentPlans,
+          "sm:grid-cols-2 max-w-3xl",
+          "Nie udało się wczytać aktualnego cennika Agenta AI. Odśwież stronę albo napisz do nas — podamy ceny od ręki.",
+        )}
         <p className="text-center text-sm text-muted-foreground mt-6 max-w-2xl mx-auto">
-          Powyżej limitu minut: 0,69 zł/min lub pakiet minut.
+          Powyżej limitu minut: 0,60 zł/min netto albo pakiet 100 / 250 / 500 minut.
+          Agent nigdy nie przestaje odbierać telefonu — po wyczerpaniu minut przechodzi
+          w tryb awaryjny i przekazuje wiadomość do warsztatu.
         </p>
-
-        {/* Bundles */}
-        <div className="grid sm:grid-cols-2 gap-5 max-w-5xl mx-auto mt-16">
-          <Card className="relative flex flex-col border-2 border-purple-500 bg-gradient-to-br from-primary/10 to-purple-500/10 shadow-xl">
-            <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-purple-600 text-white">Pakiet</Badge>
-            <CardContent className="p-6 md:p-8 text-center flex flex-col flex-1">
-              <h3 className="text-2xl font-extrabold mb-2">Pakiet Warsztat + Agent AI</h3>
-              <div className="mb-3">
-                <span className="text-muted-foreground text-lg line-through mr-2">308 zł</span>
-                <span className="text-4xl font-bold">289 zł</span>
-                <span className="text-muted-foreground text-sm"> /mc</span>
-              </div>
-              <p className="text-base font-medium text-slate-700 dark:text-slate-200 mb-5 leading-relaxed flex-1">
-                Program Pro + Agent w jednym — agent wpięty w program tworzy zlecenia z rozmów sam.
-              </p>
-              <Button
-                className="bg-gradient-to-r from-primary to-purple-600 px-8"
-                onClick={() => handleStartTrial("bundle")}
-              >
-                Wypróbuj 14 dni
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="relative flex flex-col border-2 border-purple-500 bg-gradient-to-br from-purple-500/15 to-primary/10 shadow-xl">
-            <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-primary text-white">Promocja na start</Badge>
-            <CardContent className="p-6 md:p-8 text-center flex flex-col flex-1">
-              <h3 className="text-2xl font-extrabold mb-2">Warsztat Pro + Agent Pro — MAX</h3>
-              <div className="mb-3">
-                <span className="text-muted-foreground text-lg line-through mr-2">458 zł</span>
-                <span className="text-4xl font-bold">399 zł</span>
-                <span className="text-muted-foreground text-sm"> /mc</span>
-              </div>
-              <p className="text-base font-medium text-slate-700 dark:text-slate-200 mb-5 leading-relaxed flex-1">
-                Wszystko na maksa: pełny program + Agent Pro z 300 min AI + Pomoc AI 500 pytań/mc. Agent wpięty w program tworzy zlecenia sam.
-              </p>
-              <Button
-                className="bg-gradient-to-r from-purple-600 to-primary px-8"
-                onClick={() => handleStartTrial("bundle-max")}
-              >
-                Wypróbuj 14 dni
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+        <p className="text-center text-sm text-muted-foreground mt-4 max-w-2xl mx-auto">
+          Ceny startowe obowiązują przy uruchomieniu konta do 31.12.2026 i są gwarantowane
+          przez 12 miesięcy od aktywacji — o zmianie informujemy 30 dni wcześniej.
+          Funkcje AI bez podanego limitu działają w ramach uczciwego użycia.
+        </p>
       </section>
 
       {/* FAQ */}
@@ -846,7 +875,7 @@ export default function WorkshopLanding() {
               <ArrowRight className="h-6 w-6 md:h-7 md:w-7" />
             </Button>
             <p className="mt-4 text-sm md:text-base font-medium text-slate-600 dark:text-slate-300">
-              14 dni za darmo · bez karty · aktywacja w minutę
+              {trialLabel ? `${trialLabel} za darmo · bez karty · aktywacja w minutę` : "Bez karty · aktywacja w minutę"}
             </p>
           </div>
         </div>

@@ -224,7 +224,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
   );
 
   const filteredDrivers = drivers.filter(d =>
-    `${d.first_name} ${d.last_name}`.toLowerCase().includes(driverSearch.toLowerCase())
+    `${[d.first_name, d.last_name].filter(Boolean).join(' ')}`.toLowerCase().includes(driverSearch.toLowerCase())
   );
 
   // Combine sent requests + document instances for sent tab
@@ -249,7 +249,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
 
   const filteredSent = allSentDocs.filter((req: any) => {
     const driver = drivers.find(d => d.id === req.driver_id);
-    const name = driver ? `${driver.first_name} ${driver.last_name}` : '';
+    const name = driver ? `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}` : '';
     return name.toLowerCase().includes(sentSearch.toLowerCase()) || req.template_name?.toLowerCase().includes(sentSearch.toLowerCase());
   });
 
@@ -577,7 +577,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
                               {req.contract_number && <Badge variant="outline" className="text-[10px]">Nr {req.contract_number}</Badge>}
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              Kierowca: {driver ? `${driver.first_name} ${driver.last_name}` : '—'}
+                              Kierowca: {driver ? `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}` : '—'}
                             </p>
                             <div className="flex gap-3 text-xs text-muted-foreground mt-0.5">
                               {(req.sent_at || req.created_at) && (
@@ -631,7 +631,7 @@ export const DocumentsManagement = ({ cityId, cityName, fleetId }: DocumentsMana
                               <Badge className="bg-green-600 text-white text-[10px] gap-1"><CheckCircle className="h-3 w-3" /> Podpisany</Badge>
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {driver ? `${driver.first_name} ${driver.last_name}` : '—'}
+                              {driver ? `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}` : '—'}
                             </p>
                             {doc.signed_at && (
                               <p className="text-xs text-muted-foreground">

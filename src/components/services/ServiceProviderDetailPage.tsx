@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import SEOHead from '@/components/SEOHead';
+import { buildLocalBusinessJsonLd } from '@/lib/seo-schema';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,6 +14,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ServiceBookingModal } from './ServiceBookingModal';
+import { ProviderSidebarInfo } from './ProviderSidebarInfo';
 import { getServiceCoverImage } from './serviceCategoryImages';
 import { cn } from '@/lib/utils';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
@@ -28,6 +31,13 @@ interface Service {
   price_type: string;
   duration_minutes: number;
   photos?: string[];
+  category_id?: string | null;
+}
+
+interface ProviderCatalogCategory {
+  id: string;
+  name: string;
+  service_category_id: string | null;
 }
 
 interface Review {
@@ -61,7 +71,16 @@ interface ServiceProvider {
 export function ServiceProviderDetailPage() {
   const navigate = useNavigate();
   const { providerId } = useParams();
-  
+  const [searchParams] = useSearchParams();
+  const browsedCategorySlug = searchParams.get('kategoria');
+  const [providerCats, setProviderCats] = useState<ProviderCatalogCategory[]>([]);
+  const [browsedCatalogId, setBrowsedCatalogId] = useState<string | null>(null);
+
+  // Auth state
+  const [user, setUser] = useState<any>(null);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showContactPhone, setShowContactPhone] = useState(false);
+
   const [provider, setProvider] = useState<ServiceProvider | null>(null);
   const [services, setServices] = useState<Service[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -70,11 +89,33 @@ export function ServiceProviderDetailPage() {
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
+
+  // Oferta pogrupowana po kategoriach usługodawcy — kategoria, z której przyszedł klient, na górze
+  const serviceGroups = useMemo(() => {
+    const groups = providerCats.map(c => ({
+      key: c.id,
+      name: c.name,
+      highlighted: !!browsedCatalogId && c.service_category_id === browsedCatalogId,
+      items: services.filter(s => s.category_id === c.id),
+    })).filter(g => g.items.length > 0);
+
+    const knownIds = new Set(providerCats.map(c => c.id));
+    const rest = services.filter(s => !s.category_id || !knownIds.has(s.category_id));
+    if (rest.length > 0) {
+      groups.push({ key: 'other', name: 'Pozostałe usługi', highlighted: false, items: rest });
+    }
+    return groups.sort((a, b) => Number(b.highlighted) - Number(a.highlighted));
+  }, [providerCats, services, browsedCatalogId]);
+
+  const [activeGroup, setActiveGroup] = useState<string>('all');
+  const visibleGroups = useMemo(
+    () => (activeGroup === 'all' ? serviceGroups : serviceGroups.filter(g => g.key === activeGroup)),
+    [serviceGroups, activeGroup]
+  );
+
+
   
-  // Auth state
-  const [user, setUser] = useState<any>(null);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const [showContactPhone, setShowContactPhone] = useState(false);
+  
 
   // CORE: tłumaczenie opisu usługodawcy (lazy + globalny cache)
   const { text: providerDescription, loading: descLoading } =
@@ -148,6 +189,7 @@ export function ServiceProviderDetailPage() {
           price_type: s.price_type || 'fixed',
           duration_minutes: s.duration_minutes || 60,
           category: s.category,
+          category_id: s.category_id || null,
           photos: s.photos || [],
           is_active: true,
           _isProviderCategory: s.category === providerCategory || s.category === 'ogolne',
@@ -167,6 +209,25 @@ export function ServiceProviderDetailPage() {
       });
       
       if (allServices.length > 0) setServices(allServices);
+
+      // Kategorie usługodawcy (grupowanie oferty) + kategoria, z której klient przyszedł
+      const { data: pcats } = await (supabase as any)
+        .from('provider_service_categories')
+        .select('id, name, service_category_id, is_active, sort_order')
+        .eq('provider_id', providerId)
+        .order('sort_order', { ascending: true });
+      setProviderCats(((pcats || []) as any[]).filter(c => c.is_active !== false));
+
+      if (browsedCategorySlug) {
+        const { data: cat } = await supabase
+          .from('service_categories')
+          .select('id')
+          .eq('slug', browsedCategorySlug)
+          .maybeSingle();
+        setBrowsedCatalogId(cat?.id || null);
+      } else {
+        setBrowsedCatalogId(null);
+      }
 
       // Load reviews
       const { data: reviewsData } = await supabase
@@ -256,6 +317,32 @@ export function ServiceProviderDetailPage() {
     return name.charAt(0) + '***@***.' + domain?.split('.').pop();
   };
 
+  // ── Automatyczne SEO: title/opis/canonical + JSON-LD LocalBusiness ──
+  const seoJsonLd = useMemo(
+    () =>
+      provider
+        ? buildLocalBusinessJsonLd({
+            id: provider.id,
+            name: provider.company_name,
+            description: provider.description,
+            address: provider.company_address,
+            city: provider.company_city,
+            postalCode: (provider as any).company_postal_code ?? null,
+            phone: provider.company_phone,
+            email: provider.company_email,
+            website: provider.company_website,
+            image: provider.cover_image_url || provider.logo_url,
+            lat: (provider as any).latitude ?? null,
+            lng: (provider as any).longitude ?? null,
+            ratingAvg: provider.rating_avg,
+            ratingCount: provider.rating_count,
+            workingHours: (provider as any).working_hours ?? null,
+            services: services.map((s) => ({ name: s.name, priceFrom: s.price_from ?? s.price })),
+          })
+        : null,
+    [provider, services]
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -278,6 +365,20 @@ export function ServiceProviderDetailPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/30">
+      <SEOHead
+        title={`${provider.company_name}${provider.company_city ? ` — ${provider.company_city}` : ''} | GetRido`}
+        description={
+          (provider.description || '').slice(0, 155) ||
+          `${provider.company_name} — sprawdzony usługodawca${provider.company_city ? ` w mieście ${provider.company_city}` : ''}. Cennik, opinie i rezerwacja terminu online w GetRido.`
+        }
+        keywords={[provider.company_name, provider.company_city, provider.category?.name, 'usługi', 'GetRido']
+          .filter(Boolean)
+          .join(', ')}
+        canonicalUrl={`https://getrido.pl/uslugi/uslugodawca/${provider.id}`}
+        ogImage={provider.cover_image_url || provider.logo_url || undefined}
+        schemaType="LocalBusiness"
+        schemaData={seoJsonLd || undefined}
+      />
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
@@ -452,8 +553,53 @@ export function ServiceProviderDetailPage() {
                   Ten usługodawca nie ma jeszcze dodanych usług
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {services.map(service => (
+                <>
+                  {serviceGroups.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-5 -mx-1 px-1">
+                      <button
+                        onClick={() => setActiveGroup('all')}
+                        className={cn(
+                          "shrink-0 rounded-full px-4 py-2 text-sm font-bold border transition-colors",
+                          activeGroup === 'all'
+                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                            : "bg-white text-slate-700 border-slate-200 hover:border-primary/50 hover:text-primary"
+                        )}
+                      >
+                        Wszystkie <span className="opacity-70">({services.length})</span>
+                      </button>
+                      {serviceGroups.map(g => (
+                        <button
+                          key={g.key}
+                          onClick={() => setActiveGroup(g.key)}
+                          className={cn(
+                            "shrink-0 rounded-full px-4 py-2 text-sm font-bold border transition-colors",
+                            activeGroup === g.key
+                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                              : "bg-white text-slate-700 border-slate-200 hover:border-primary/50 hover:text-primary"
+                          )}
+                        >
+                          {g.name} <span className="opacity-70">({g.items.length})</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                <div className="space-y-6">
+                  {visibleGroups.map(group => (
+                    <div key={group.key} className="rounded-2xl border border-primary/15 bg-primary/[0.03] p-4 md:p-5 space-y-3">
+                      {serviceGroups.length > 1 && (
+                        <div className="flex items-center gap-2 border-b border-primary/15 pb-2">
+                          <span className="h-5 w-1.5 rounded-full bg-primary" />
+                          <h3 className="text-base md:text-lg font-extrabold text-primary uppercase tracking-wide">{group.name}</h3>
+                          <span className="text-xs font-bold text-primary bg-primary/10 rounded-full px-2 py-0.5">
+                            {group.items.length}
+                          </span>
+                          {group.highlighted && (
+                            <Badge className="text-[10px]">Szukana kategoria</Badge>
+                          )}
+                        </div>
+                      )}
+                      {group.items.map(service => (
+
                     <Card key={service.id} className="hover:border-primary/50 hover:shadow-md transition-all rounded-xl border border-slate-200">
                       <CardContent className="p-4 flex items-center justify-between">
                         <div className="flex-1">
@@ -493,9 +639,14 @@ export function ServiceProviderDetailPage() {
                         </div>
                       </CardContent>
                     </Card>
+                      ))}
+                    </div>
                   ))}
                 </div>
+                </>
               )}
+
+
             </div>
 
             {/* Reviews — sekcja w ogóle ukryta gdy 0 opinii */}
@@ -657,6 +808,18 @@ export function ServiceProviderDetailPage() {
                   Zarezerwuj wizytę
                 </Button>
               </Card>
+
+              <div className="mt-6 space-y-6">
+                <ProviderSidebarInfo
+                  providerId={provider.id}
+                  workingHours={(provider as any).working_hours}
+                  latitude={(provider as any).latitude ?? null}
+                  longitude={(provider as any).longitude ?? null}
+                  address={provider.company_address}
+                  city={provider.company_city}
+                  companyName={provider.company_name}
+                />
+              </div>
             </div>
           </div>
         </div>

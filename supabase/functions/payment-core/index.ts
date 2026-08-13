@@ -6,6 +6,48 @@ const CORS = {
   "Content-Type": "application/json",
 };
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...CORS, "Cache-Control": "no-store" } });
+
+/** Porównanie sekretów po skrócie — stała długość, brak wycieku przez czas odpowiedzi. */
+async function secretsMatch(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const va = new Uint8Array(ha), vb = new Uint8Array(hb);
+  let diff = 0;
+  for (let i = 0; i < va.length; i++) diff |= va[i] ^ vb[i];
+  return diff === 0;
+}
+
+type Caller =
+  | { kind: "internal" }
+  | { kind: "user"; userId: string };
+
+/**
+ * Ta funkcja pracuje na service_role, więc omija RLS — tożsamość MUSI być
+ * ustalona tutaj, a nie przyjęta z body. Wcześniej nie było jej wcale:
+ * `admin_grant` przyznawał kredyty komukolwiek na podstawie samego JSON-a.
+ *
+ * Wywołanie wewnętrzne (payment-core-webhook po weryfikacji podpisu) rozpoznajemy
+ * po kluczu service_role w nagłówku Authorization.
+ */
+async function resolveCaller(req: Request, supabaseUrl: string, serviceKey: string): Promise<Caller | null> {
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return null;
+
+  if (await secretsMatch(token, serviceKey)) return { kind: "internal" };
+
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data } = await userClient.auth.getUser(token);
+  return data?.user ? { kind: "user", userId: data.user.id } : null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -17,22 +59,197 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    if (action === "init") {
-      return await handleInit(supabase, body);
-    } else if (action === "confirm_webhook") {
+    const caller = await resolveCaller(req, supabaseUrl, serviceKey);
+    if (!caller) return json({ error: "Unauthorized" }, 401);
+
+    if (action === "init" || action === "credits_check") {
+      // Operacje zdejmują środki. Właściciel portfela to zalogowany wywołujący,
+      // nigdy `user_id` z body — inaczej można wydać cudze saldo.
+      if (caller.kind === "user") body.user_id = caller.userId;
+      if (!body.user_id) return json({ error: "Brak user_id" }, 400);
+
+      return action === "init"
+        ? await handleInit(supabase, body)
+        : await handleCreditsCheck(supabase, body);
+    }
+
+    if (action === "confirm_webhook") {
+      // Wyłącznie wywołanie wewnętrzne z payment-core-webhook, i to dopiero po
+      // weryfikacji podpisu operatora. Z zewnątrz oznaczenie płatności jako
+      // opłaconej jest nieosiągalne.
+      if (caller.kind !== "internal") {
+        console.warn("payment-core: próba confirm_webhook spoza kanału wewnętrznego");
+        return json({ error: "Forbidden" }, 403);
+      }
       return await handleWebhook(supabase, body);
-    } else if (action === "credits_check") {
-      return await handleCreditsCheck(supabase, body);
-    } else if (action === "admin_grant") {
+    }
+
+    if (action === "admin_grant") {
+      if (caller.kind === "user") {
+        // Rola z bazy, nie z tokenu ani z body.
+        const { data: row, error } = await supabase
+          .from("drivers")
+          .select("user_role")
+          .eq("id", caller.userId)
+          .maybeSingle();
+        if (error) {
+          console.error("payment-core: nie można potwierdzić roli", error);
+          return json({ error: "Nie można potwierdzić uprawnień" }, 503);
+        }
+        if (row?.user_role !== "admin") {
+          console.warn("payment-core: admin_grant odrzucony dla", caller.userId);
+          return json({ error: "Forbidden" }, 403);
+        }
+        console.log("payment-core: admin_grant przez", caller.userId);
+      }
       return await handleAdminGrant(supabase, body);
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400, headers: CORS });
+    if (action === "welcome_credits_claim") {
+      if (caller.kind !== "user") return json({ error: "Wymagane zalogowanie" }, 401);
+      return await handleWelcomeCreditsClaim(supabase, caller.userId);
+    }
+
+    if (action === "admin_wallet_topup") {
+      if (caller.kind === "user" && !(await isAdmin(supabase, caller.userId))) {
+        console.warn("payment-core: admin_wallet_topup odrzucony dla", caller.userId);
+        return json({ error: "Forbidden" }, 403);
+      }
+      return await handleAdminWalletTopup(supabase, body, caller.kind === "user" ? caller.userId : null);
+    }
+
+    return json({ error: "Unknown action" }, 400);
   } catch (e: any) {
     console.error("payment-core error:", e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: CORS });
+    return json({ error: e.message }, 500);
   }
 });
+
+/** Rola z bazy. Błąd odczytu = brak uprawnień (fail-closed). */
+async function isAdmin(supabase: any, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("drivers")
+    .select("user_role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    console.error("payment-core: nie można potwierdzić roli", error);
+    return false;
+  }
+  return data?.user_role === "admin";
+}
+
+const WELCOME_CREDITS = 50;
+
+/**
+ * Bonus powitalny. Kwota jest stała po stronie serwera, a jednorazowości pilnuje
+ * klucz główny tabeli credit_welcome_claims — nie obecność salda, którą
+ * użytkownik mógł wcześniej skasować i odebrać bonus ponownie.
+ */
+async function handleWelcomeCreditsClaim(supabase: any, userId: string) {
+  const { data: claimed, error: claimErr } = await supabase
+    .from("credit_welcome_claims")
+    .upsert({ user_id: userId, amount: WELCOME_CREDITS }, { onConflict: "user_id", ignoreDuplicates: true })
+    .select("user_id");
+
+  if (claimErr) {
+    console.error("payment-core: błąd księgi bonusów", claimErr);
+    return json({ error: "Nie można przyznać bonusu" }, 503);
+  }
+
+  const granted = Array.isArray(claimed) && claimed.length > 0;
+
+  const { data: existing } = await supabase
+    .from("user_credits")
+    .select("id, credits_balance")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!granted) {
+    // Bonus już był — zwracamy wyłącznie aktualny stan.
+    return json({ granted: false, balance: existing?.credits_balance ?? 0 });
+  }
+
+  const balance = (existing?.credits_balance ?? 0) + WELCOME_CREDITS;
+
+  const { error: writeErr } = existing
+    ? await supabase.from("user_credits")
+        .update({ credits_balance: balance, updated_at: new Date().toISOString() })
+        .eq("id", existing.id)
+    : await supabase.from("user_credits")
+        .insert({ user_id: userId, credits_balance: balance });
+
+  if (writeErr) {
+    console.error("payment-core: nie zapisano bonusu", writeErr);
+    return json({ error: "Nie można przyznać bonusu" }, 503);
+  }
+
+  console.log("payment-core: bonus powitalny dla", userId);
+  return json({ granted: true, balance });
+}
+
+const MAX_ADMIN_TOPUP = 100_000;
+
+/**
+ * Ręczne doładowanie portfela przez administratora — zastępuje zapis wykonywany
+ * dotąd wprost z panelu w przeglądarce.
+ *
+ * Wpis do księgi wiąże się z portfelem przez wallet_transactions.wallet_id, czyli
+ * user_wallets.id. Panel wstawiał tam user_id, więc insert odbijał się od klucza
+ * obcego JUŻ PO zmianie salda: saldo rosło, wpisu w księdze nie było, a admin
+ * widział błąd.
+ */
+async function handleAdminWalletTopup(supabase: any, body: any, actorId: string | null) {
+  const targetUserId = body?.target_user_id;
+  const amount = Number(body?.amount);
+  const reason = typeof body?.reason === "string" ? body.reason.slice(0, 200) : null;
+
+  if (!targetUserId || typeof targetUserId !== "string") {
+    return json({ error: "Brak identyfikatora użytkownika" }, 400);
+  }
+  if (!Number.isInteger(amount) || amount <= 0 || amount > MAX_ADMIN_TOPUP) {
+    return json({ error: `Kwota musi być całkowita z zakresu 1–${MAX_ADMIN_TOPUP}` }, 400);
+  }
+
+  const { data: wallet, error: walletErr } = await supabase
+    .from("user_wallets")
+    .upsert({ user_id: targetUserId }, { onConflict: "user_id" })
+    .select("id, balance")
+    .single();
+
+  if (walletErr || !wallet) {
+    console.error("payment-core: brak portfela dla", targetUserId, walletErr);
+    return json({ error: "Nie można odczytać portfela" }, 503);
+  }
+
+  const balance = (wallet.balance ?? 0) + amount;
+
+  const { error: updErr } = await supabase
+    .from("user_wallets")
+    .update({ balance, updated_at: new Date().toISOString() })
+    .eq("id", wallet.id);
+
+  if (updErr) {
+    console.error("payment-core: nie zapisano salda", updErr);
+    return json({ error: "Nie można zapisać salda" }, 503);
+  }
+
+  const { error: txErr } = await supabase.from("wallet_transactions").insert({
+    wallet_id: wallet.id,
+    type: "topup",
+    amount,
+    description: reason || "Doładowanie przez administratora",
+  });
+
+  if (txErr) {
+    // Saldo już zmienione — księga jest tu jedynym śladem, więc głośno logujemy.
+    console.error("payment-core: saldo zmienione, wpis do księgi NIEUDANY", wallet.id, txErr);
+    return json({ error: "Saldo doładowane, ale nie zapisano wpisu w historii", balance }, 500);
+  }
+
+  console.log("payment-core: doładowanie", amount, "dla", targetUserId, "przez", actorId ?? "kanał wewnętrzny");
+  return json({ balance });
+}
 
 async function handleInit(supabase: any, body: any) {
   const {
@@ -66,6 +283,28 @@ async function handleInit(supabase: any, body: any) {
     .eq("is_enabled", true)
     .limit(1)
     .maybeSingle();
+
+  // Brak skonfigurowanej bramki NIE MOŻE oznaczać darmowego produktu.
+  //
+  // Niżej stoi gałąź, która przy `!gw` ustawiała płatność na "paid" z sesją
+  // "SIM-", uruchamiała processPaymentSuccess i wypłacała prowizję referral —
+  // czyli wydawała towar bez pobrania złotówki. A konfiguracja bramki jest dziś
+  // pusta, bo formularz w panelu zapisuje kolumny pos_id i is_sandbox, których
+  // ta tabela nie ma; każdy zapis kończy się błędem. Efektem było darmowe
+  // przyznawanie WSZYSTKIEGO, co przechodzi przez init.
+  //
+  // Sprawdzamy to PRZED utworzeniem wiersza płatności i przed zdjęciem salda,
+  // żeby odmowa nie zostawiała po sobie obciążonego portfela.
+  //
+  // Wyjątek: gdy saldo pokrywa całość (amount_to_charge === 0), operator nie jest
+  // do niczego potrzebny — ta ścieżka zostaje i jest obsłużona niżej.
+  if (amount_to_charge > 0 && (!gw || !gw.merchant_id)) {
+    console.error("payment-core: init odrzucony — brak konfiguracji bramki płatniczej");
+    return json({
+      error: "Płatności są chwilowo niedostępne",
+      code: "GATEWAY_NOT_CONFIGURED",
+    }, 503);
+  }
 
   // Create payment record
   const { data: payment, error: payErr } = await supabase
@@ -121,8 +360,11 @@ async function handleInit(supabase: any, body: any) {
     }
   }
 
-  // If wallet covers full amount, or no gateway configured — simulate paid
-  if (amount_to_charge === 0 || !gw || !gw.merchant_id) {
+  // Saldo pokryło całość — nie ma czego pobierać u operatora, zamówienie jest
+  // opłacone. Warunek `!gw || !gw.merchant_id` został stąd usunięty: brak
+  // konfiguracji bramki odrzucamy wyżej, zamiast wydawać towar za darmo.
+  // Prefiks "SIM-" zostaje dla zgodności z istniejącymi wierszami.
+  if (amount_to_charge === 0) {
     await supabase
       .from("payments")
       .update({ status: "paid", gateway_session_id: "SIM-" + payment.id, updated_at: new Date().toISOString() })
@@ -225,9 +467,9 @@ async function handleWebhook(supabase: any, body: any) {
     return new Response(JSON.stringify({ error: "Payment not found" }), { status: 404, headers: CORS });
   }
 
-  // TODO: Verify CRC signature with SHA384 for production
-  // const crc = Deno.env.get("P24_CRC_KEY");
-  // Verify: SHA384(sessionId|merchantId|amount|currency|crc)
+  // Podpis operatora (SHA-384 z kluczem CRC) jest sprawdzany w payment-core-webhook,
+  // zanim żądanie tu trafi. Ta ścieżka jest osiągalna wyłącznie kanałem wewnętrznym
+  // — dispatcher wyżej odrzuca `confirm_webhook` od każdego innego wywołującego.
 
   // Mark as paid
   await supabase
@@ -360,26 +602,58 @@ async function processPaymentSuccess(
   }
 }
 
+/**
+ * ⚠️ TA FUNKCJA NIE DZIAŁA PRZECIWKO OBECNEMU SCHEMATOWI.
+ *
+ * Odpytuje `user_credits` po kolumnach `balance` i `credit_type`, a tabela ma
+ * wyłącznie `credits_balance`, `user_id`, `id`, `created_at`, `updated_at`.
+ * Każde wywołanie kończy się błędem PostgREST, więc przyznanie kredytów po
+ * opłaceniu zamówienia (`ai_credits`, `sms_credits`, `ai_photo_package`) po
+ * cichu nie następuje — dotąd nikt tego nie zauważył, bo błędy nie były
+ * sprawdzane.
+ *
+ * Naprawa schematu i uzgodnienie magazynów należy do prac nad billingiem
+ * (patrz docs/billing/plan.md). Tutaj wyłącznie przestajemy milczeć: każde
+ * niepowodzenie zostawia ślad w logach z kompletem danych do ręcznej korekty.
+ *
+ * Osobna niezgodność, też do billingu: dla `sms_credits` środki lądują tutaj,
+ * a aplikacja czyta saldo SMS z `service_providers.sms_balance` — czyli z innego
+ * miejsca. Docelowym magazynem jest to drugie.
+ */
 async function upsertCredits(supabase: any, userId: string, creditType: string, amount: number) {
-  const { data: existing } = await supabase
+  const fail = (stage: string, error: unknown) =>
+    console.error(
+      `payment-core: NIE PRZYZNANO kredytów (${stage}) — user=${userId} typ=${creditType} ilosc=${amount}`,
+      error,
+    );
+
+  const { data: existing, error: readErr } = await supabase
     .from("user_credits")
     .select("id, balance")
     .eq("user_id", userId)
     .eq("credit_type", creditType)
     .maybeSingle();
 
+  if (readErr) {
+    fail("odczyt salda", readErr);
+    return;
+  }
+
   if (existing) {
-    await supabase
+    const { error } = await supabase
       .from("user_credits")
       .update({ balance: existing.balance + amount, updated_at: new Date().toISOString() })
       .eq("id", existing.id);
-  } else {
-    await supabase.from("user_credits").insert({
-      user_id: userId,
-      credit_type: creditType,
-      balance: amount,
-    });
+    if (error) fail("aktualizacja salda", error);
+    return;
   }
+
+  const { error } = await supabase.from("user_credits").insert({
+    user_id: userId,
+    credit_type: creditType,
+    balance: amount,
+  });
+  if (error) fail("utworzenie salda", error);
 }
 
 async function handleCreditsCheck(supabase: any, body: any) {

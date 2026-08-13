@@ -253,7 +253,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
     
     // Search filter (name, email, phone)
     const matchesSearch = 
-      `${driver.first_name} ${driver.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       driver.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       driver.phone?.includes(searchTerm);
     
@@ -1271,7 +1271,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            openDeleteDialog(driver.id, `${driver.first_name} ${driver.last_name}`);
+                            openDeleteDialog(driver.id, `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`);
                           }}
                           className="text-red-500 hover:text-red-700 hover:bg-red-50"
                           title="Usuń z floty"
@@ -1321,7 +1321,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              deleteDriver(driver.id, `${driver.first_name} ${driver.last_name}`);
+                              deleteDriver(driver.id, `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`);
                             }}
                             className="text-red-500 hover:text-red-700 hover:bg-red-50"
                             title="Usuń kierowcę"
@@ -1334,7 +1334,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                resetDriverRegistration(driver.id, driver.email!, `${driver.first_name} ${driver.last_name}`);
+                                resetDriverRegistration(driver.id, driver.email!, `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`);
                               }}
                               className="text-orange-500 hover:text-orange-700 hover:bg-orange-50"
                               title="Zresetuj rejestrację - usuwa konto auth i pozwala kierowcy zarejestrować się ponownie"
@@ -1447,7 +1447,7 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
           isOpen={true}
           onClose={() => setFeesModalDriver(null)}
           driverId={feesModalDriver.id}
-          driverName={`${feesModalDriver.first_name} ${feesModalDriver.last_name}`}
+          driverName={`${[feesModalDriver.first_name, feesModalDriver.last_name].filter(Boolean).join(' ')}`}
         />
       )}
 

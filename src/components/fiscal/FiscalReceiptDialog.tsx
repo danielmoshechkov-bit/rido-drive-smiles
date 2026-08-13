@@ -1,0 +1,664 @@
+/**
+ * Dialog „Drukuj paragon" — wywoływany z dokumentu (na start: zlecenie warsztatowe).
+ *
+ * Kolejność zgodna z założeniem modułu: najpierw płatność, potem fiskalizacja.
+ * Karta i BLIK przechodzą przez bramkę terminala (`FiscalTerminalStep`) — paragon
+ * drukuje się dopiero po potwierdzeniu płatności, bo wydruku nie da się cofnąć.
+ */
+
+import { useEffect, useMemo, useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Loader2, Printer, Receipt, TriangleAlert, Wallet, CreditCard, Smartphone, CheckCircle2, Copy, ShieldCheck, Undo2, Pencil, Save, Building2, User, FileText, FileWarning } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  useFiscalPrinter,
+  useFiscalizeReceipt,
+  useDocumentFiscalState,
+  useResolveStuckReceipt,
+  useCatalogFiscalNames,
+  useRememberFiscalName,
+  useRememberClientNip,
+  FiscalError,
+} from '@/hooks/useFiscal';
+import { printReceiptCopy } from '@/lib/fiscalCopy';
+import { useOrderPaidGrosze, useRegisterReceiptPayment } from '@/hooks/useFiscalCash';
+import { FiscalReturnDialog } from './FiscalReturnDialog';
+import { FiscalCorrectionDialog } from './FiscalCorrectionDialog';
+import { computeReceiptTotalGrosze, formatPln, mapWorkshopItemsToReceipt, toGrosze, type MappedReceipt } from '@/lib/fiscal';
+import { DEFAULT_FISCAL_NAME_LENGTH, toFiscalName } from '@/lib/fiscalName';
+import { normalizeNip } from '@/lib/nip';
+import { FiscalBuyerSection, buyerBlocksPrint, buyerNipForPrint } from './FiscalBuyerSection';
+import { FiscalTerminalStep, type TerminalStepState } from './FiscalTerminalStep';
+import {
+  getTerminalConfig,
+  needsTerminal,
+  TERMINAL_PROVIDERS,
+  type TerminalConfig,
+  type TerminalMethod,
+} from '@/lib/fiscalTerminal';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  providerId: string;
+  /** Wiersz zlecenia z listy — razem z danymi klienta (client_type, nip, company_name). */
+  order: { id: string; order_number?: string | null; client?: any } | null;
+  /** Skrót „Wystaw fakturę zamiast paragonu" — powyżej 450 zł firma potrzebuje faktury. */
+  onIssueInvoice?: () => void;
+}
+
+type PaymentMethod = 'cash' | 'card' | 'blik';
+
+const PAYMENT_LABELS: Record<PaymentMethod, { label: string; printer: string; icon: typeof Wallet }> = {
+  cash: { label: 'Gotówka', printer: 'GOTOWKA', icon: Wallet },
+  card: { label: 'Karta', printer: 'KARTA', icon: CreditCard },
+  blik: { label: 'BLIK', printer: 'BLIK', icon: Smartphone },
+};
+
+export function FiscalReceiptDialog({ open, onOpenChange, providerId, order, onIssueInvoice }: Props) {
+  const { data: printer, isLoading: printerLoading } = useFiscalPrinter(providerId);
+  const fiscalize = useFiscalizeReceipt(providerId);
+  const { data: fiscalState, isLoading: stateLoading } = useDocumentFiscalState(
+    providerId,
+    'workshop_order',
+    order?.id,
+  );
+  const resolveStuck = useResolveStuckReceipt(providerId);
+
+  const [rawItems, setRawItems] = useState<any[] | null>(null);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [method, setMethod] = useState<PaymentMethod>('cash');
+  const [result, setResult] = useState<{ receiptNumber: number | null; total: number } | null>(null);
+  const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [terminal, setTerminal] = useState<TerminalConfig>({ enabled: false, provider: 'manual' });
+  const [terminalState, setTerminalState] = useState<TerminalStepState>('idle');
+  const [terminalMessage, setTerminalMessage] = useState<string | null>(null);
+  // Ręczna „nazwa na paragon" per pozycja; pusta = automatyczne skracanie.
+  const [nameOverrides, setNameOverrides] = useState<Record<number, string>>({});
+  const [editingNames, setEditingNames] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [registerCash, setRegisterCash] = useState(true);
+  const { data: paidGrosze = 0 } = useOrderPaidGrosze(providerId, order?.id);
+  const registerPayment = useRegisterReceiptPayment(providerId);
+  const [buyerType, setBuyerType] = useState<'individual' | 'company'>('individual');
+  const [nip, setNip] = useState('');
+  const [printNip, setPrintNip] = useState(true);
+  const rememberNip = useRememberClientNip();
+
+  useEffect(() => {
+    if (!open || !order) return;
+    setResult(null);
+    setError(null);
+    setMethod('cash');
+    setTerminal(getTerminalConfig(providerId));
+    setTerminalState('idle');
+    setTerminalMessage(null);
+    setNameOverrides({});
+    setEditingNames(false);
+    setRawItems(null);
+    // Domyślny nabywca z kartoteki klienta; NIP podciągamy, jeśli jest zapisany.
+    const client = order?.client;
+    const isCompany = client?.client_type === 'company';
+    setBuyerType(isCompany ? 'company' : 'individual');
+    setNip(normalizeNip(client?.nip ?? ''));
+    setPrintNip(true);
+    setRegisterCash(true);
+    setLoadingItems(true);
+    (async () => {
+      const { data, error: itemsError } = await (supabase as any)
+        .from('workshop_order_items')
+        .select('*')
+        .eq('order_id', order.id)
+        .order('sort_order');
+      if (itemsError) {
+        setError({ code: 'DB', message: `Nie udało się wczytać pozycji zlecenia: ${itemsError.message}` });
+        setRawItems(null);
+      } else {
+        setRawItems(data || []);
+      }
+      setLoadingItems(false);
+    })();
+  }, [open, order?.id, printer?.default_unit]);
+
+  const productIds = useMemo(
+    () => (rawItems ?? []).map((item) => item?.inventory_product_id).filter(Boolean) as string[],
+    [rawItems],
+  );
+  const { data: catalogFiscalNames } = useCatalogFiscalNames(productIds);
+  const rememberName = useRememberFiscalName();
+
+  const mapped: MappedReceipt | null = useMemo(
+    () =>
+      rawItems
+        ? mapWorkshopItemsToReceipt(rawItems, {
+            defaultUnit: printer?.default_unit,
+            catalogFiscalNames,
+          })
+        : null,
+    [rawItems, printer?.default_unit, catalogFiscalNames],
+  );
+
+  const nameLength = printer?.item_name_length ?? DEFAULT_FISCAL_NAME_LENGTH;
+
+  /** Nazwa, która faktycznie pójdzie na papier: ręczna albo automatycznie skrócona. */
+  const fiscalNameOf = (index: number, name: string) =>
+    (nameOverrides[index]?.trim() || toFiscalName(name, nameLength)).slice(0, nameLength);
+
+  const itemsForPrint = useMemo(
+    () => (mapped?.items ?? []).map((item, index) => ({ ...item, name: fiscalNameOf(index, item.name) })),
+    [mapped, nameOverrides, nameLength],
+  );
+
+  const totalGrosze = useMemo(() => (mapped ? computeReceiptTotalGrosze(mapped.items) : 0), [mapped]);
+  const buyerState = { buyerType, nip, printNip };
+  // Błędny NIP blokuje wydruk — paragonu fiskalnego z błędnym numerem nie da się poprawić.
+  const nipBlocks = buyerBlocksPrint(buyerState);
+
+  const alreadyFiscalized = Boolean(fiscalState?.blocking);
+  const canPrint =
+    Boolean(printer) &&
+    Boolean(mapped?.items.length) &&
+    !mapped?.blocking.length &&
+    !alreadyFiscalized &&
+    !nipBlocks &&
+    !fiscalize.isPending;
+
+  const handleCopy = () => {
+    if (!fiscalState?.blocking) return;
+    try {
+      printReceiptCopy(fiscalState.blocking, { documentLabel: order?.order_number ?? undefined });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleResolve = async (decision?: 'printed' | 'failed') => {
+    if (!fiscalState?.blocking) return;
+    try {
+      const result = await resolveStuck.mutateAsync({
+        receiptId: fiscalState.blocking.id,
+        printer,
+        decision,
+      });
+      toast.success(
+        result.status === 'printed'
+          ? 'Oznaczono jako wystawiony — paragon wyszedł z drukarki.'
+          : 'Oznaczono jako nieudany — można wystawić paragon ponownie.',
+      );
+    } catch (e) {
+      toast.error((e as FiscalError).message);
+    }
+  };
+
+  /** Karta/BLIK: najpierw potwierdzenie płatności, dopiero potem nieodwracalny wydruk. */
+  const handleConfirm = async () => {
+    if (!mapped || !order) return;
+    if (needsTerminal(terminal, method) && terminalState !== 'approved') {
+      setError(null);
+      setTerminalMessage(null);
+      setTerminalState('waiting');
+      const provider = TERMINAL_PROVIDERS[terminal.provider];
+      if (provider.mode === 'auto' && provider.request) {
+        const outcome = await provider
+          .request(terminal, {
+            amountGrosze: totalGrosze,
+            method: method as TerminalMethod,
+            reference: order.order_number ?? undefined,
+          })
+          .catch((e) => ({ status: 'declined' as const, message: (e as Error).message }));
+        if (outcome.status !== 'approved') {
+          setTerminalMessage(outcome.message ?? null);
+          setTerminalState('declined');
+          return;
+        }
+        setTerminalState('approved');
+      } else {
+        return; // sterownik ręczny — czekamy na potwierdzenie kasjera
+      }
+    }
+    await handlePrint();
+  };
+
+  const handlePrint = async () => {
+    if (!mapped || !order) return;
+    setError(null);
+    try {
+      const response = await fiscalize.mutateAsync({
+        printerId: printer?.id,
+        printer,
+        documentType: 'workshop_order',
+        documentId: order.id,
+        items: itemsForPrint,
+        payments: [{ name: PAYMENT_LABELS[method].printer, amount: totalGrosze / 100 }],
+        buyerNip: buyerNipForPrint(buyerState),
+      });
+      setResult({ receiptNumber: response.receiptNumber, total: response.total });
+
+      // Zlecenie mogło być opłacone wcześniej — hook dopłaca tylko różnicę
+      // albo nie tworzy nic, żeby nie zdublować przychodu.
+      if (registerCash && response.receiptId) {
+        try {
+          const cash = await registerPayment.mutateAsync({
+            receiptId: response.receiptId,
+            orderId: order.id,
+            amountGrosze: totalGrosze,
+            method,
+          });
+          if (cash.created) {
+            toast.success(`Wpłata ${formatPln(cash.amountGrosze)} zapisana w kasie.`);
+          } else if (cash.reason === 'already_paid') {
+            toast.info('Zlecenie było już opłacone — kasa bez zmian.');
+          }
+        } catch (cashError: any) {
+          toast.error(`Paragon wydrukowany, ale wpłata do kasy nie zapisała się: ${cashError?.message ?? ''}`);
+        }
+      }
+
+      toast.success(
+        response.receiptNumber
+          ? `Paragon wydrukowany (nr ${response.receiptNumber})`
+          : 'Paragon wydrukowany',
+      );
+    } catch (e) {
+      const fiscalError = e as FiscalError;
+      setError({ code: fiscalError.code ?? 'UNKNOWN', message: fiscalError.message });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5" /> Paragon fiskalny
+          </DialogTitle>
+          <DialogDescription>
+            {order?.order_number ? `Zlecenie ${order.order_number}` : 'Wydruk paragonu na drukarce fiskalnej'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {printerLoading || loadingItems ? (
+          <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Wczytywanie…
+          </div>
+        ) : !printer ? (
+          <Alert variant="destructive">
+            <TriangleAlert className="h-4 w-4" />
+            <AlertDescription>
+              Nie skonfigurowano drukarki fiskalnej. Przejdź do <b>Ustawienia → Fiskalizacja</b> i dodaj drukarkę.
+            </AlertDescription>
+          </Alert>
+        ) : stateLoading ? (
+          <div className="flex items-center gap-2 py-8 justify-center text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Sprawdzanie stanu fiskalizacji…
+          </div>
+        ) : fiscalState?.isPrinted && !result ? (
+          <div className="space-y-4 py-2">
+            <Alert>
+              <ShieldCheck className="h-4 w-4" />
+              <AlertDescription>
+                <div className="font-medium">
+                  Paragon fiskalny nr {fiscalState.blocking?.printer_receipt_number ?? '—'} wystawiony{' '}
+                  {new Date(fiscalState.blocking?.printed_at ?? fiscalState.blocking!.created_at).toLocaleString('pl-PL', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                  , {formatPln(fiscalState.blocking!.total_grosze)}
+                </div>
+                <div className="mt-1 text-sm">
+                  Do jednego zlecenia można wystawić tylko jeden paragon — drugi podwoiłby zarejestrowany
+                  obrót. Potrzebujesz wydruku dla klienta? Użyj kopii.
+                </div>
+              </AlertDescription>
+            </Alert>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={handleCopy} className="gap-2">
+                <Copy className="h-4 w-4" /> Drukuj kopię
+              </Button>
+              <Button variant="outline" onClick={() => setReturnOpen(true)} className="gap-2">
+                <Undo2 className="h-4 w-4" /> Zwrot/reklamacja
+              </Button>
+              <Button variant="outline" onClick={() => setCorrectionOpen(true)} className="gap-2">
+                <FileWarning className="h-4 w-4" /> Korekta pomyłki
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Kopia to dokument niefiskalny drukowany z GetRido — nie dotyka drukarki fiskalnej
+              i nie zwiększa obrotu.
+            </p>
+          </div>
+        ) : fiscalState?.isInProgress ? (
+          <Alert>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <AlertDescription>
+              Trwa fiskalizacja tego zlecenia (rozpoczęta{' '}
+              {new Date(fiscalState.blocking!.created_at).toLocaleTimeString('pl-PL')}). Poczekaj na zakończenie
+              wydruku.
+            </AlertDescription>
+          </Alert>
+        ) : fiscalState?.isStuck ? (
+          <div className="space-y-3 py-2">
+            <Alert variant="destructive">
+              <TriangleAlert className="h-4 w-4" />
+              <AlertDescription>
+                Poprzednia próba fiskalizacji nie zakończyła się jednoznacznie. Sprawdź, czy paragon wyszedł
+                z drukarki — dopiero potem można wystawić kolejny.
+              </AlertDescription>
+            </Alert>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => handleResolve()} disabled={resolveStuck.isPending} className="gap-2">
+                {resolveStuck.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                Sprawdź w drukarce automatycznie
+              </Button>
+              <Button variant="outline" onClick={() => handleResolve('printed')} disabled={resolveStuck.isPending}>
+                Paragon wyszedł
+              </Button>
+              <Button variant="outline" onClick={() => handleResolve('failed')} disabled={resolveStuck.isPending}>
+                Nie wyszedł — pozwól ponowić
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Automatyczne sprawdzenie porównuje licznik paragonów drukarki z wartością sprzed wydruku.
+            </p>
+          </div>
+        ) : result ? (
+          <div className="space-y-3 py-4">
+            <div className="flex items-center gap-2 text-green-600">
+              <CheckCircle2 className="h-5 w-5" />
+              <span className="font-medium">Paragon wydrukowany</span>
+            </div>
+            <div className="text-sm text-muted-foreground space-y-1">
+              <div>Numer paragonu z drukarki: <b className="text-foreground">{result.receiptNumber ?? '—'}</b></div>
+              <div>Kwota: <b className="text-foreground">{result.total.toFixed(2).replace('.', ',')} zł</b></div>
+              <div>Forma płatności: <b className="text-foreground">{method === 'cash' ? 'gotówka' : 'karta'}</b></div>
+              {printer.mode === 'training' && (
+                <div className="text-amber-600">Drukarka pracuje w trybie szkoleniowym — wydruk niefiskalny.</div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {printer.mode === 'training' && (
+              <Alert>
+                <TriangleAlert className="h-4 w-4" />
+                <AlertDescription>
+                  Drukarka pracuje w <b>trybie szkoleniowym</b> — paragon będzie niefiskalny.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {fiscalState?.lastFailed && (
+              <Alert>
+                <TriangleAlert className="h-4 w-4" />
+                <AlertDescription>
+                  Poprzednia próba nie powiodła się ({fiscalState.lastFailed.error_message ?? 'brak szczegółów'}).
+                  Paragon nie został wydrukowany, więc można wystawić go teraz.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {mapped?.blocking.length ? (
+              <Alert variant="destructive">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="font-medium">Popraw zlecenie przed wydrukiem:</div>
+                  <ul className="list-disc pl-4 mt-1">
+                    {mapped.blocking.map((problem, index) => (
+                      <li key={index}>„{problem.name}" — {problem.reason}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {mapped?.skipped.length ? (
+              <Alert>
+                <TriangleAlert className="h-4 w-4" />
+                <AlertDescription>
+                  Pominięte pozycje: {mapped.skipped.map((s) => `„${s.name}" (${s.reason})`).join(', ')}.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {mapped?.items.length ? (
+              <>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  Nazwy skracane do {nameLength} znaków (limit pola drukarki) — tak wyjdą na papierze.
+                </span>
+                <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => setEditingNames((v) => !v)}>
+                  <Pencil className="h-3 w-3" /> {editingNames ? 'Gotowe' : 'Zmień nazwy'}
+                </Button>
+              </div>
+              <div className="rounded-md border max-h-64 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nazwa</TableHead>
+                      <TableHead className="text-right">Ilość</TableHead>
+                      <TableHead className="text-right">Cena</TableHead>
+                      <TableHead className="text-right">VAT</TableHead>
+                      <TableHead className="text-right">Wartość</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mapped.items.map((item, index) => {
+                      const printedName = fiscalNameOf(index, item.name);
+                      const shortened = printedName !== item.name;
+                      return (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">
+                          {editingNames ? (
+                            <div className="space-y-1">
+                              <Input
+                                value={nameOverrides[index] ?? printedName}
+                                maxLength={nameLength}
+                                onChange={(e) =>
+                                  setNameOverrides((prev) => ({ ...prev, [index]: e.target.value }))
+                                }
+                                className="h-8 font-mono text-xs"
+                              />
+                              {item.productId && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-1 text-[11px] gap-1"
+                                  disabled={rememberName.isPending}
+                                  onClick={async () => {
+                                    try {
+                                      await rememberName.mutateAsync({
+                                        productId: item.productId!,
+                                        fiscalName: (nameOverrides[index] ?? printedName).slice(0, nameLength),
+                                      });
+                                      toast.success('Zapamiętano nazwę na paragon dla tej pozycji w katalogu.');
+                                    } catch (e: any) {
+                                      toast.error(e?.message || 'Nie udało się zapamiętać nazwy.');
+                                    }
+                                  }}
+                                >
+                                  <Save className="h-3 w-3" /> Zapamiętaj w katalogu
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="font-mono text-xs">{printedName}</div>
+                              {(shortened || (item.originalName && item.originalName !== item.name)) && (
+                                <div className="text-[11px] text-muted-foreground line-through">
+                                  {item.originalName ?? item.name}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          {item.quantity} {item.unit}
+                        </TableCell>
+                        <TableCell className="text-right whitespace-nowrap">{formatPln(toGrosze(item.unitPrice))}</TableCell>
+                        <TableCell className="text-right">{item.vatRate === 'zw' ? 'zw.' : `${item.vatRate}%`}</TableCell>
+                        <TableCell className="text-right whitespace-nowrap">
+                          {formatPln(Math.round(toGrosze(item.unitPrice) * item.quantity))}
+                        </TableCell>
+                      </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              </>
+            ) : (
+              <Alert variant="destructive">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertDescription>Zlecenie nie ma pozycji, które można wydrukować na paragonie.</AlertDescription>
+              </Alert>
+            )}
+
+            <FiscalBuyerSection
+              buyerType={buyerType}
+              nip={nip}
+              printNip={printNip}
+              onChange={(patch) => {
+                if (patch.buyerType !== undefined) setBuyerType(patch.buyerType);
+                if (patch.nip !== undefined) setNip(patch.nip);
+                if (patch.printNip !== undefined) setPrintNip(patch.printNip);
+              }}
+              totalGrosze={totalGrosze}
+              client={order?.client}
+              onIssueInvoice={onIssueInvoice ? () => { onOpenChange(false); onIssueInvoice(); } : undefined}
+            />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Forma płatności</div>
+                <div className="flex gap-2">
+                  {(Object.keys(PAYMENT_LABELS) as PaymentMethod[]).map((key) => {
+                    const { label, icon: Icon } = PAYMENT_LABELS[key];
+                    return (
+                      <Button
+                        key={key}
+                        type="button"
+                        size="sm"
+                        variant={method === key ? 'default' : 'outline'}
+                        onClick={() => {
+                          setMethod(key);
+                          setTerminalState('idle');
+                          setTerminalMessage(null);
+                        }}
+                        className="gap-1"
+                      >
+                        <Icon className="h-4 w-4" /> {label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-muted-foreground">Do zapłaty</div>
+                <div className="text-2xl font-bold">{formatPln(totalGrosze)}</div>
+              </div>
+            </div>
+
+            {/* Paragon a przepływ gotówki — decyzja widoczna, nigdy po cichu. */}
+            <label className="flex items-start gap-2 text-sm cursor-pointer">
+              <Checkbox
+                checked={registerCash && paidGrosze < totalGrosze}
+                disabled={paidGrosze >= totalGrosze}
+                onCheckedChange={(v) => setRegisterCash(v === true)}
+                className="mt-0.5"
+              />
+              <span>
+                Zarejestruj wpłatę w kasie
+                {paidGrosze >= totalGrosze ? (
+                  <span className="block text-[11px] text-muted-foreground">
+                    Zlecenie ma już wpłatę {formatPln(paidGrosze)} — paragon jej nie zdubluje.
+                  </span>
+                ) : paidGrosze > 0 ? (
+                  <span className="block text-[11px] text-muted-foreground">
+                    Wpłacono już {formatPln(paidGrosze)} — do kasy trafi różnica {formatPln(totalGrosze - paidGrosze)}.
+                  </span>
+                ) : (
+                  <span className="block text-[11px] text-muted-foreground">
+                    Do kasy trafi {formatPln(totalGrosze)} ({PAYMENT_LABELS[method].label.toLowerCase()}).
+                  </span>
+                )}
+              </span>
+            </label>
+
+            {terminalState !== 'idle' && needsTerminal(terminal, method) && (
+              <FiscalTerminalStep
+                config={terminal}
+                method={method as TerminalMethod}
+                amountGrosze={totalGrosze}
+                state={terminalState}
+                message={terminalMessage}
+                onApproved={() => {
+                  setTerminalState('approved');
+                  handlePrint();
+                }}
+                onDeclined={() => setTerminalState('declined')}
+                onBack={() => {
+                  setTerminalState('idle');
+                  setTerminalMessage(null);
+                }}
+              />
+            )}
+
+            {error && (
+              <Alert variant="destructive">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertDescription>
+                  {error.message}
+                  <Badge variant="outline" className="ml-2 text-[10px]">{error.code}</Badge>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {result ? 'Zamknij' : 'Anuluj'}
+          </Button>
+          {!result && !alreadyFiscalized && terminalState === 'idle' && (
+            <Button onClick={handleConfirm} disabled={!canPrint} className="gap-2">
+              {fiscalize.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Printer className="h-4 w-4" />}
+              {fiscalize.isPending
+                ? 'Drukowanie…'
+                : needsTerminal(terminal, method)
+                  ? 'Przyjmij płatność'
+                  : 'Drukuj paragon'}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+
+      <FiscalCorrectionDialog
+        open={correctionOpen}
+        onOpenChange={setCorrectionOpen}
+        providerId={providerId}
+        receipt={fiscalState?.blocking ?? null}
+        documentLabel={order?.order_number ?? undefined}
+        // Po korekcie dokument jest odblokowany — zamknięcie dialogu wystarczy,
+        // bo stan fiskalny zlecenia odświeża się i wraca zwykły widok wydruku.
+        onIssueCorrectedReceipt={() => setCorrectionOpen(false)}
+      />
+
+      <FiscalReturnDialog
+        open={returnOpen}
+        onOpenChange={setReturnOpen}
+        providerId={providerId}
+        receipt={fiscalState?.blocking ?? null}
+        documentLabel={order?.order_number ?? undefined}
+      />
+    </Dialog>
+  );
+}

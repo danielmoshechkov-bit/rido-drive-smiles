@@ -46,18 +46,9 @@ export function useVehicleLookup(userId?: string) {
         console.error('Error fetching vehicle lookup credits:', error);
       }
       
-      if (data) {
-        setCredits(data);
-      } else {
-        // Create initial record with 0 credits
-        const { data: newData } = await supabase
-          .from('vehicle_lookup_credits')
-          .insert({ user_id: userId, remaining_credits: 0, total_credits_purchased: 0 })
-          .select('remaining_credits, total_credits_purchased')
-          .single();
-        if (newData) setCredits(newData);
-        else setCredits({ remaining_credits: 0, total_credits_purchased: 0 });
-      }
+      // Brak wiersza to zerowe saldo — rekord zakłada trigger na auth.users.
+      // Klient nie zapisuje już nic do vehicle_lookup_credits.
+      setCredits(data ?? { remaining_credits: 0, total_credits_purchased: 0 });
     } catch (err) {
       console.error(err);
     } finally {

@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { WorkshopPager, pageSlice } from './WorkshopPager';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,9 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   const filtered = useMemo(() => {
     if (!search) return vehicles;
     const q = search.toLowerCase();
@@ -37,6 +41,10 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
       (v.vin || '').toLowerCase().includes(q)
     );
   }, [vehicles, search]);
+
+  const paged = pageSlice(filtered, page, pageSize);
+  // Zmiana wyszukiwania cofa na pierwszą stronę — inaczej wynik ląduje poza widokiem.
+  useEffect(() => { setPage(1); }, [search, pageSize]);
 
   const getOwnerName = (v: any) => {
     if (!v.owner) return '';
@@ -116,18 +124,18 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
                       onCheckedChange={toggleAll}
                     />
                   </TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.colBrandModel')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.plateNumber')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.vin')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.owner')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.yearOfProd')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.orders.capacity')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.engine')}</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{t('workshop.vehicles.enginePower')}</TableHead>
+                  <TableHead>{t('workshop.vehicles.colBrandModel')}</TableHead>
+                  <TableHead>{t('workshop.orders.plateNumber')}</TableHead>
+                  <TableHead>{t('workshop.orders.vin')}</TableHead>
+                  <TableHead>{t('workshop.vehicles.owner')}</TableHead>
+                  <TableHead>{t('workshop.orders.yearOfProd')}</TableHead>
+                  <TableHead>{t('workshop.orders.capacity')}</TableHead>
+                  <TableHead>{t('workshop.vehicles.engine')}</TableHead>
+                  <TableHead>{t('workshop.vehicles.enginePower')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((v: any) => (
+                {paged.map((v: any) => (
                   <TableRow
                     key={v.id}
                     className={`cursor-pointer transition-colors hover:bg-[hsl(45,100%,85%)] ${selected.has(v.id) ? 'bg-[hsl(45,100%,90%)]' : ''}`}
@@ -142,23 +150,23 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Car className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-semibold text-[13px] tracking-wide">{v.brand} {v.model}</span>
+                        <span className="font-semibold">{v.brand} {v.model}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-[13px] font-semibold tracking-wide">{v.plate || ''}</TableCell>
-                    <TableCell className="text-[12px] text-muted-foreground tracking-wide">{v.vin || ''}</TableCell>
+                    <TableCell className="font-semibold">{v.plate || ''}</TableCell>
+                    <TableCell className="text-muted-foreground">{v.vin || ''}</TableCell>
                     <TableCell>
                       {getOwnerName(v) && (
-                        <div className="flex items-center gap-1.5 text-[13px] font-medium">
+                        <div className="flex items-center gap-1.5 font-medium">
                           <User className="h-3.5 w-3.5 text-muted-foreground" />
                           {getOwnerName(v)}
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="text-[13px] font-semibold">{v.year || ''}</TableCell>
-                    <TableCell className="text-[13px]">{v.engine_capacity_cm3 || ''}</TableCell>
-                    <TableCell className="text-[13px]">{v.fuel_type || ''}</TableCell>
-                    <TableCell className="text-[13px]">
+                    <TableCell className="text-sm font-semibold">{v.year || ''}</TableCell>
+                    <TableCell className="text-sm">{v.engine_capacity_cm3 || ''}</TableCell>
+                    <TableCell className="text-sm">{v.fuel_type || ''}</TableCell>
+                    <TableCell className="text-sm">
                       {v.engine_power_kw ? `${v.engine_power_kw} kW` : ''}
                     </TableCell>
                   </TableRow>
@@ -176,9 +184,13 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
         </CardContent>
       </Card>
 
-      <div className="text-sm text-muted-foreground">
-        {t('workshop.clients.resultsRange', { shown: filtered.length, total: vehicles.length })}
-      </div>
+      <WorkshopPager
+        page={page}
+        pageSize={pageSize}
+        total={filtered.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       <WorkshopAddVehicleDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
     </div>

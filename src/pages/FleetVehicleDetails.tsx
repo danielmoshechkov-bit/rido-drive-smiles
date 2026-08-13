@@ -223,7 +223,7 @@ function VehicleDriverHistory({ vehicleId }: { vehicleId: string }) {
   // Przygotuj listę kierowców dla UniversalSelector
   const driverItems = drivers.map(driver => ({
     id: driver.id,
-    name: `${driver.first_name} ${driver.last_name}`,
+    name: `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`,
     value: driver.email
   }));
 

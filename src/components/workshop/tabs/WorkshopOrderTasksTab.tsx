@@ -507,8 +507,16 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     || getDraftPrice(row as any, true) > 0
     || getDraftCost(row as any, true) > 0;
 
-  const isTaskDraftFilled = (row: TaskRow) => row.name.trim().length > 0 && getDraftPrice(row, isTaskGross) > 0;
-  const isGoodsDraftFilled = (row: GoodsRow) => row.name.trim().length > 0 && getDraftPrice(row, isGoodsGross) > 0;
+  /**
+   * Do zapisu wystarczy NAZWA — cena może dojść później.
+   *
+   * Wcześniej wiersz bez ceny nie trafiał do bazy i po odświeżeniu znikał. To realna
+   * strata pracy: część warsztatów spisuje najpierw listę robót, a ceny uzupełnia na
+   * końcu, i te nazwy muszą przetrwać zamknięcie karty oraz być widoczne na innym
+   * urządzeniu. Brakującą cenę pokazujemy na czerwono, zamiast wyrzucać pozycję.
+   */
+  const isTaskDraftFilled = (row: TaskRow) => row.name.trim().length > 0;
+  const isGoodsDraftFilled = (row: GoodsRow) => row.name.trim().length > 0;
 
   const getDraftTaskTotal = (row: TaskRow) => {
     const raw = row.quantity * getDraftPrice(row, isTaskGross);
@@ -770,13 +778,23 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   };
 
   // Task row handlers
+  /**
+   * Wpisanie czegokolwiek w ostatni wiersz dokleja pod spodem kolejny pusty —
+   * jak na paragonie. Nie trzeba klikać „Dodaj usługę" ani wciskać Entera, żeby
+   * mieć gdzie pisać dalej; pusty wiersz nigdzie nie trafia, bo do bazy idą tylko
+   * wiersze z nazwą i ceną.
+   */
+  const appendEmptyIfLastFilled = <T extends { draftKey?: string }>(
+    rows: T[],
+    idx: number,
+    hasValue: (row: T) => boolean,
+    create: () => T,
+  ): T[] => (idx === rows.length - 1 && hasValue(rows[idx]) ? [...rows, create()] : rows);
+
   const updateTaskRow = (idx: number, updates: Partial<TaskRow>) => {
     setTaskRows(prev => {
       const next = prev.map((r, i) => i === idx ? { ...r, ...updates } : r);
-      // Wpis w OSTATNIM wierszu od razu podstawia kolejny pusty — nie trzeba
-      // klikac "Dodaj usluge", zeby wpisac druga pozycje pod rzad.
-      if (idx === next.length - 1 && draftTouched(next[idx])) next.push(createEmptyTask());
-      return next;
+      return appendEmptyIfLastFilled(next, idx, hasTaskDraftValue, createEmptyTask);
     });
   };
 
@@ -898,8 +916,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const updateGoodsRow = (idx: number, updates: Partial<GoodsRow>) => {
     setGoodsRows(prev => {
       const next = prev.map((r, i) => i === idx ? { ...r, ...updates } : r);
-      if (idx === next.length - 1 && draftTouched(next[idx])) next.push(createEmptyGoods());
-      return next;
+      // draftTouched zamiast hasGoodsDraftValue: nowy wiersz czesci ma z gory
+      // wpisane "szt", wiec ten drugi uznalby go za uzupelniony, zanim ktokolwiek
+      // go dotknie.
+      return appendEmptyIfLastFilled(next, idx, draftTouched, createEmptyGoods);
     });
   };
 
@@ -1304,6 +1324,154 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     }
   };
 
+  /**
+   * Zapis wskazanych wierszy roboczych — bez ruszania tych, których użytkownik
+   * właśnie wypełnia. Stary `save*DraftRows` czyścił CAŁĄ listę do jednego pustego
+   * wiersza, więc nie nadawał się do zapisu w tle: kasowałby wiersz spod kursora.
+   */
+  const commitTaskRows = async (keys: string[]) => {
+    const rows = taskRows.filter(r => r.draftKey && keys.includes(r.draftKey) && isTaskDraftFilled(r));
+    if (!rows.length) return;
+    showQuoteWarningIfNeeded();
+    const entries = rows.map(buildTaskEntry);
+    setTaskRows(prev => {
+      const rest = prev.filter(r => !(r.draftKey && keys.includes(r.draftKey)));
+      return rest.length ? rest : [createEmptyTask()];
+    });
+    await enqueueEntries(entries);
+  };
+
+  const commitGoodsRows = async (keys: string[]) => {
+    const rows = goodsRows.filter(r => r.draftKey && keys.includes(r.draftKey) && isGoodsDraftFilled(r));
+    if (!rows.length) return;
+    showQuoteWarningIfNeeded();
+    const entries = rows.map(buildGoodsEntry);
+    setGoodsRows(prev => {
+      const rest = prev.filter(r => !(r.draftKey && keys.includes(r.draftKey)));
+      return rest.length ? rest : [createEmptyGoods()];
+    });
+    await enqueueEntries(entries);
+  };
+
+  /**
+   * Wyjście z wiersza = zapis od razu.
+   *
+   * Bez tego kompletna pozycja czekała na upływ sekundy bezruchu, więc przy szybkim
+   * wpisywaniu kilku pozycji pod rząd wszystkie wisiały niezapisane. Teraz wystarczy
+   * przejść do następnego wiersza — poprzedni jest już w bazie.
+   *
+   * `relatedTarget` to element, który przejmuje focus. Gdy nadal jest w tym samym
+   * wierszu (przeskok z nazwy na cenę), nic nie robimy — użytkownik wciąż go wypełnia.
+   */
+  /**
+   * Enter = „skończyłem tę pozycję, przechodzę do następnej".
+   *
+   * Wcześniej Enter wołał `add*Row`, które DOKŁADAŁO kolejny wiersz — a że pusty wiersz
+   * dokleja się już sam przy pisaniu, powstawały dwa i kursor przeskakiwał przez jeden.
+   * Teraz Enter zapisuje bieżący wiersz i wchodzi w pierwszy pusty, który już istnieje;
+   * nowy dokłada tylko wtedy, gdy pustego nie ma.
+   */
+  const handleDraftEnter = (kind: 'task' | 'goods', draftKey?: string) => {
+    if (draftKey) {
+      const rows = kind === 'task' ? taskRows : goodsRows;
+      const row = rows.find((r: any) => r.draftKey === draftKey);
+      const filled = kind === 'task'
+        ? row && isTaskDraftFilled(row as TaskRow)
+        : row && isGoodsDraftFilled(row as GoodsRow);
+      if (filled) {
+        if (kind === 'task') void commitTaskRows([draftKey]);
+        else void commitGoodsRows([draftKey]);
+      }
+    }
+
+    requestAnimationFrame(() => {
+      const scope = kind === 'task' ? serviceCardRef.current : goodsCardRef.current;
+      const selector = kind === 'task' ? 'tr[data-task-draft-key]' : 'tr[data-goods-draft-key]';
+      const rows = scope?.querySelectorAll<HTMLTableRowElement>(selector);
+      for (const rowEl of Array.from(rows ?? [])) {
+        const input = rowEl.querySelector<HTMLInputElement>('input[type="text"], input:not([type])');
+        if (input && !input.value.trim()) {
+          input.focus();
+          return;
+        }
+      }
+      // Pustego wiersza nie ma (np. wszystkie właśnie poszły do bazy) — dokładamy jeden.
+      if (kind === 'task') {
+        const next = createEmptyTask();
+        setTaskRows((prev) => [...prev, next]);
+        focusTaskDraftRow(next.draftKey);
+      } else {
+        const next = createEmptyGoods();
+        setGoodsRows((prev) => [...prev, next]);
+        focusGoodsDraftRow(next.draftKey);
+      }
+    });
+  };
+
+  const commitRowOnLeave = (
+    event: React.FocusEvent<HTMLTableRowElement>,
+    kind: 'task' | 'goods',
+    draftKey?: string,
+  ) => {
+    if (!draftKey) return;
+    const next = event.relatedTarget as Node | null;
+    if (next && event.currentTarget.contains(next)) return;
+
+    if (kind === 'task') {
+      const row = taskRows.find((r) => r.draftKey === draftKey);
+      if (!row || !isTaskDraftFilled(row) || autoSavingTaskDraftsRef.current) return;
+      autoSavingTaskDraftsRef.current = true;
+      void commitTaskRows([draftKey]).finally(() => { autoSavingTaskDraftsRef.current = false; });
+    } else {
+      const row = goodsRows.find((r) => r.draftKey === draftKey);
+      if (!row || !isGoodsDraftFilled(row) || autoSavingGoodsDraftsRef.current) return;
+      autoSavingGoodsDraftsRef.current = true;
+      void commitGoodsRows([draftKey]).finally(() => { autoSavingGoodsDraftsRef.current = false; });
+    }
+  };
+
+  /**
+   * Zapas na wypadek, gdyby użytkownik nie wyszedł z pola: kompletne wiersze zapisują się
+   * po chwili bezruchu.
+   *
+   * PO CO: pozycja wpisana i zostawiona bez Entera znikała przy przeładowaniu listy —
+   * wyglądało to jak gubienie danych. Teraz wiersz zapisuje się sam, a Enter
+   * i „Dodaj pozycję" zostają wyłącznie jako skrót.
+   *
+   * Wiersz Z KURSOREM jest pomijany: przeniesienie go do listy zapisanych w trakcie
+   * pisania wyrywałoby pole spod palców. Zapisze się, gdy tylko klikniesz gdzie indziej.
+   */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const active = document.activeElement;
+      const focusedTaskKey = active instanceof Element
+        ? active.closest('tr[data-task-draft-key]')?.getAttribute('data-task-draft-key')
+        : null;
+      const focusedGoodsKey = active instanceof Element
+        ? active.closest('tr[data-goods-draft-key]')?.getAttribute('data-goods-draft-key')
+        : null;
+
+      const taskKeys = taskRows
+        .filter(r => isTaskDraftFilled(r) && r.draftKey && r.draftKey !== focusedTaskKey)
+        .map(r => r.draftKey as string);
+      const goodsKeys = goodsRows
+        .filter(r => isGoodsDraftFilled(r) && r.draftKey && r.draftKey !== focusedGoodsKey)
+        .map(r => r.draftKey as string);
+
+      if (taskKeys.length && !autoSavingTaskDraftsRef.current) {
+        autoSavingTaskDraftsRef.current = true;
+        void commitTaskRows(taskKeys).finally(() => { autoSavingTaskDraftsRef.current = false; });
+      }
+      if (goodsKeys.length && !autoSavingGoodsDraftsRef.current) {
+        autoSavingGoodsDraftsRef.current = true;
+        void commitGoodsRows(goodsKeys).finally(() => { autoSavingGoodsDraftsRef.current = false; });
+      }
+    }, 1200);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskRows, goodsRows]);
+
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -1588,12 +1756,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5 tabular-nums">
                         {renderEditableCell(task, 'labor_hours', String(safeNumber(task.labor_hours) || '—'), 'tabular-nums', 'center')}
                       </td>
-                      <td className="p-1.5 tabular-nums border-r border-border/60">{renderEditableCell(task, 'price', fmt(price), 'tabular-nums', 'right')}</td>
-                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor
-                          item={task}
-                          isGross={isTaskGross}
-                          onCommit={commitSavedRowDiscount}
-                        /></td>
+                      {/* Pozycja zapisana bez ceny: nazwa jest bezpieczna w bazie, a puste
+                          miejsce po cenie krzyczy czerwienią, żeby nikt o nim nie zapomniał. */}
+                      <td className={`p-1.5 tabular-nums border-r border-border/60 ${price === 0 ? 'bg-destructive/10 ring-1 ring-destructive/40 rounded' : ''}`}>
+                        {renderEditableCell(task, 'price', price === 0 ? 'podaj cenę' : fmt(price), `tabular-nums ${price === 0 ? 'text-destructive font-medium' : ''}`, 'right')}
+                      </td>
+                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10">
+                        <SavedRowDiscountEditor item={task} isGross={isTaskGross} onCommit={commitSavedRowDiscount} />
+                      </td>
                       <td className="p-2 text-center font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(task.id)}>
@@ -1615,7 +1785,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   // FIX duplikatów: prefiks "draft-" — zapisana pozycja dostaje id === draftKey,
                   // więc goły draftKey kolidowałby z key={task.id} zapisanego wiersza obok.
                   return (
-                    <tr key={`draft-${row.draftKey ?? `new-task-${idx}`}`} className={nameMissing ? 'bg-destructive/10' : 'bg-primary/5'} data-task-draft-key={row.draftKey}>
+                    <tr key={`draft-${row.draftKey ?? `new-task-${idx}`}`} className={nameMissing ? 'bg-destructive/10' : 'bg-primary/5'} data-task-draft-key={row.draftKey} onBlur={(e) => commitRowOnLeave(e, 'task', row.draftKey)}>
                       <td className="p-2 text-center text-muted-foreground">
                         {tasks.length + idx + 1}
                       </td>
@@ -1633,7 +1803,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                               addTaskRow();
+                              handleDraftEnter('task', row.draftKey);
                             }
                           }}
                         />
@@ -1678,7 +1848,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                               addTaskRow();
+                              handleDraftEnter('task', row.draftKey);
                             }
                           }}
                         />
@@ -1695,7 +1865,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                               addTaskRow();
+                              handleDraftEnter('task', row.draftKey);
                             }
                           }}
                           className="h-9 w-full text-sm text-right min-w-0"
@@ -1722,7 +1892,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             onKeyDown={e => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                addTaskRow();
+                                handleDraftEnter('task', row.draftKey);
                               }
                             }}
                           />
@@ -1994,7 +2164,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1">{renderEditableCell(g, 'quantity', String(g.quantity), '', 'center')}</td>
                       <td className="p-1.5">{renderEditableCell(g, 'unit', g.unit || 'szt', '', 'center')}</td>
                       <td className="p-1.5 text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums', 'right')}</td>
-                      <td className="p-1.5 tabular-nums">{renderEditableCell(g, 'price', fmt(itemPrice), 'tabular-nums', 'right')}</td>
+                      <td className={`p-1.5 tabular-nums ${itemPrice === 0 ? 'bg-destructive/10 ring-1 ring-destructive/40 rounded' : ''}`}>
+                        {renderEditableCell(g, 'price', itemPrice === 0 ? 'podaj cenę' : fmt(itemPrice), `tabular-nums ${itemPrice === 0 ? 'text-destructive font-medium' : ''}`, 'right')}
+                      </td>
                       <td className="p-2 text-center tabular-nums border-r border-border/60">{fmt(rawTotal)}</td>
                       <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor
                           item={g}
@@ -2020,7 +2192,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     : rowTotal - row.discount;
                   const nameMissing = !row.name.trim() && getDraftPrice(row, isGoodsGross) > 0;
                   return (
-                    <tr key={`draft-${row.draftKey ?? `new-goods-${idx}`}`} className={nameMissing ? 'bg-destructive/10' : 'bg-amber-500/5'} data-goods-draft-key={row.draftKey}>
+                    <tr key={`draft-${row.draftKey ?? `new-goods-${idx}`}`} className={nameMissing ? 'bg-destructive/10' : 'bg-amber-500/5'} data-goods-draft-key={row.draftKey} onBlur={(e) => commitRowOnLeave(e, 'goods', row.draftKey)}>
                       <td className="p-2 text-center text-muted-foreground">
                         {goods.length + idx + 1}
                       </td>
@@ -2041,7 +2213,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                               addGoodsRow();
+                              handleDraftEnter('goods', row.draftKey);
                             }
                           }}
                         />
@@ -2062,7 +2234,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                               addGoodsRow();
+                              handleDraftEnter('goods', row.draftKey);
                             }
                           }}
                         />
@@ -2077,7 +2249,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                               addGoodsRow();
+                              handleDraftEnter('goods', row.draftKey);
                             }
                           }}
                         />
@@ -2096,7 +2268,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              addGoodsRow();
+                              handleDraftEnter('goods', row.draftKey);
                             }
                           }}
                         />
@@ -2113,7 +2285,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                               addGoodsRow();
+                              handleDraftEnter('goods', row.draftKey);
                             }
                           }}
                           className="h-9 w-full text-sm text-right min-w-0 px-2"
@@ -2143,7 +2315,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                             onKeyDown={e => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                addGoodsRow();
+                                handleDraftEnter('goods', row.draftKey);
                               }
                             }}
                           />

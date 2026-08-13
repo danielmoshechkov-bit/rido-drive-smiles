@@ -102,7 +102,9 @@ export function ServiceListingCard({
   const remainingServicesCount = (provider.services?.length || 0) - 3;
 
   const handleCardClick = () => {
-    navigate(`/uslugi/uslugodawca/${provider.id}`);
+    // Przekazujemy przeglądaną kategorię — na karcie usługi z niej trafiają na górę
+    const kategoria = new URLSearchParams(window.location.search).get('kategoria');
+    navigate(`/uslugi/uslugodawca/${provider.id}${kategoria ? `?kategoria=${encodeURIComponent(kategoria)}` : ''}`);
   };
 
   // Handle clicking on the photo area - open lightbox

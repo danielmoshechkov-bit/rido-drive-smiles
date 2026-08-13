@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { buildPublicUrl } from "@/lib/publicUrl";
 import { WorkspaceProject, WorkspaceMember } from "@/hooks/useWorkspace";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -227,7 +228,7 @@ export function WorkspaceMembersView({ project, workspace }: Props) {
         token,
       });
     if (error) { console.error("generateInviteLink:", error); toast.error("Błąd generowania linku: " + error.message); return; }
-    setInviteLink(`${window.location.origin}/workspace/join/${token}`);
+    setInviteLink(buildPublicUrl(`/workspace/join/${token}`));
   };
 
   const copyLink = () => {

@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { buildPublicUrl } from '@/lib/publicUrl';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -171,13 +172,30 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
     return vehicles;
   }, [vehicles, createdVehicleData]);
 
+  /**
+   * Numer rejestracyjny bez ozdobników — „WY 996EU", „wy-996eu" i „wy996eu" to jedno auto.
+   *
+   * PO CO: dopasowanie po surowym tekscie nie znajdowalo auta zapisanego ze spacja,
+   * wiec uzytkownik zakladal nowe. Tak w kartotece powstalo 38 numerow rejestracyjnych
+   * z duplikatami, a historia napraw rozjechala sie miedzy rekordy.
+   */
+  const squash = (text: unknown) => String(text ?? '').toLowerCase().replace(/[\s-]/g, '');
+
   const filteredVehicles = useMemo(() => {
     if (!vehicleSearch) return allVehicles;
     const s = vehicleSearch.toLowerCase();
+    const sq = squash(vehicleSearch);
     return allVehicles.filter((v: any) =>
       v.brand?.toLowerCase().includes(s) || v.model?.toLowerCase().includes(s) ||
-      v.plate?.toLowerCase().includes(s) || v.vin?.toLowerCase().includes(s)
+      squash(v.plate).includes(sq) || squash(v.vin).includes(sq)
     );
+  }, [allVehicles, vehicleSearch]);
+
+  /** Auto o tym numerze już jest w kartotece — podpowiadamy je zamiast zakładać duplikat. */
+  const existingByPlate = useMemo(() => {
+    const sq = squash(vehicleSearch);
+    if (sq.length < 4) return null;
+    return allVehicles.find((v: any) => squash(v.plate) === sq) || null;
   }, [allVehicles, vehicleSearch]);
 
   const filteredClients = useMemo(() => {
@@ -319,7 +337,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
           const { data: ord } = await supabase.from('workshop_orders').select('client_code').eq('id', createdOrderId).maybeSingle();
           clientCode = ord?.client_code || '';
         }
-        const clientLink = clientCode ? `${window.location.origin}/warsztat/klient/${clientCode}` : '';
+        const clientLink = clientCode ? buildPublicUrl(`/warsztat/klient/${clientCode}`) : '';
         const removePl = (s: string) => {
           const m: Record<string, string> = {'ą':'a','ć':'c','ę':'e','ł':'l','ń':'n','ó':'o','ś':'s','ź':'z','ż':'z','Ą':'A','Ć':'C','Ę':'E','Ł':'L','Ń':'N','Ó':'O','Ś':'S','Ź':'Z','Ż':'Z'};
           return s.replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, c => m[c] || c);
@@ -464,6 +482,12 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                             <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
                               <Plus className="h-4 w-4 text-primary" /> {t('workshop.newOrder.createNewVehicle')}
                             </button>
+                            {existingByPlate && (
+                              <div className="px-3 py-2 text-xs bg-amber-500/10 border-b text-amber-900 dark:text-amber-200">
+                                Auto <b>{existingByPlate.plate}</b> jest już w kartotece — wybierz je z listy,
+                                żeby zachować historię napraw.
+                              </div>
+                            )}
                             {filteredVehicles.map((v: any) => (
                               <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => {
                                 setVehicleId(v.id); setCreatedVehicleData(null); setShowVehicleList(false); setVehicleSearch('');
@@ -530,6 +554,19 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                       const brandModel = looksLikePlate ? parts.slice(0, -1) : (plate ? [] : parts);
                                       const brand = brandModel[0] || null;
                                       const model = brandModel.slice(1).join(' ') || null;
+                                      // Ostatnia zapora przed duplikatem: ten sam numer rejestracyjny
+                                      // już jest w kartotece razem z całą historią napraw.
+                                      if (plate) {
+                                        const dup = allVehicles.find((v: any) => squash(v.plate) === squash(plate));
+                                        if (dup) {
+                                          setVehicleId(dup.id);
+                                          setShowVehicleList(false);
+                                          setVehicleSearch('');
+                                          setErrors(e => { const { vehicle, ...rest } = e; return rest; });
+                                          toast.info(`Auto ${dup.plate} jest już w kartotece — wybrano istniejące, z historią napraw.`);
+                                          return;
+                                        }
+                                      }
                                       try {
                                         // Auto zakladamy na podstawie DANYCH POJAZDU, nie tego, co ktos
                                         // wpisal recznie: po numerze rejestracyjnym pobieramy VIN, marke,

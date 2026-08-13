@@ -33,6 +33,7 @@ import { InviteWelcomeBanner } from "./components/workspace/InviteWelcomeBanner"
 import EasyHub from "./pages/EasyHub";
 import NotFound from "./pages/NotFound";
 
+<<<<<<< HEAD
 const AddVehicleListing = lazyWithRetry(() => import("./pages/AddVehicleListing"));
 const GeneralMarketplace = lazyWithRetry(() => import("./pages/GeneralMarketplace"));
 const GeneralListingDetail = lazyWithRetry(() => import("./pages/GeneralListingDetail"));
@@ -115,6 +116,92 @@ const PaymentSuccess = lazyWithRetry(() => import("./pages/PaymentSuccess"));
 const PaymentCancel = lazyWithRetry(() => import("./pages/PaymentCancel"));
 const BuyCredits = lazyWithRetry(() => import("./pages/BuyCredits"));
 const WorkshopEmployeePortal = lazyWithRetry(() => import("./pages/WorkshopEmployeePortal"));
+=======
+const AddVehicleListing = lazy(() => import("./pages/AddVehicleListing"));
+const GeneralMarketplace = lazy(() => import("./pages/GeneralMarketplace"));
+const GeneralListingDetail = lazy(() => import("./pages/GeneralListingDetail"));
+const MarketplaceCart = lazy(() => import("./pages/MarketplaceCart"));
+const MarketplaceWishlist = lazy(() => import("./pages/MarketplaceWishlist"));
+const MarketplaceCompare = lazy(() => import("./pages/MarketplaceCompare"));
+const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminRealEstate = lazy(() => import("./pages/AdminRealEstate"));
+const AdminMarketplace = lazy(() => import("./pages/AdminMarketplace"));
+const AdminMaps = lazy(() => import("./pages/AdminMaps"));
+const AdminPortal = lazy(() => import("./pages/AdminPortal"));
+const AdminServices = lazy(() => import("./pages/AdminServices"));
+const AdminAIBrain = lazy(() => import("./pages/AdminAIBrain"));
+const FleetVehicleDetails = lazy(() => import("./pages/FleetVehicleDetails"));
+const DriverRegister = lazy(() => import("./pages/DriverRegister"));
+const RegisterSuccess = lazy(() => import("./pages/RegisterSuccess"));
+const EmailConfirmed = lazy(() => import("./pages/EmailConfirmed"));
+const ActivationConfirm = lazy(() => import("./pages/ActivationConfirm"));
+const DriverDashboard = lazy(() => import("./pages/DriverDashboard"));
+const FleetDashboard = lazy(() => import("./pages/FleetDashboard"));
+const SettlementSheet = lazy(() => import("./pages/SettlementSheet"));
+const SystemAlerts = lazy(() => import("./pages/SystemAlerts"));
+const Install = lazy(() => import("./pages/Install"));
+const RentalModule = lazy(() => import("./pages/RentalModule"));
+const RentalContractPortal = lazy(() => import("./pages/RentalContractPortal"));
+const CennikPage = lazy(() => import("./pages/CennikPage"));
+const JakZaczacPage = lazy(() => import("./pages/JakZaczacPage"));
+const KontaktPage = lazy(() => import("./pages/KontaktPage"));
+const DataDeletionPage = lazy(() => import("./pages/DataDeletionPage"));
+const VehicleMarketplace = lazy(() => import("./pages/VehicleMarketplace"));
+const VehicleDetailPage = lazy(() => import("./pages/VehicleDetailPage"));
+const VehicleCompare = lazy(() => import("./pages/VehicleCompare"));
+const MarketplaceRegister = lazy(() => import("./pages/MarketplaceRegister"));
+const MarketplaceAuth = lazy(() => import("./pages/MarketplaceAuth"));
+const WorkshopLanding = lazy(() => import("./pages/WorkshopLanding"));
+const RealEstateMarketplace = lazy(() => import("./pages/RealEstateMarketplace"));
+const RealEstateLanding = lazy(() => import("./pages/RealEstateLanding"));
+const OfertaPage = lazy(() => import("./pages/OfertaPage"));
+const PropertyCompare = lazy(() => import("./pages/PropertyCompare"));
+const RealEstateAgentRegister = lazy(() => import("./pages/RealEstateAgentRegister"));
+const RealEstateAgentDashboard = lazy(() => import("./pages/RealEstateAgentDashboard"));
+const GeneralListingAdd = lazy(() => import("./pages/GeneralListingAdd"));
+const GeneralListingEdit = lazy(() => import("./pages/GeneralListingEdit"));
+const MarketplaceSellerProfile = lazy(() => import("./pages/MarketplaceSellerProfile"));
+const FleetLanding = lazy(() => import("./pages/FleetLanding"));
+const FleetRegister = lazy(() => import("./pages/FleetRegister"));
+const FleetRegisterSuccess = lazy(() => import("./pages/FleetRegisterSuccess"));
+const PropertyDetailPage = lazy(() => import("./pages/PropertyDetailPage"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+const GetRidoMaps = lazy(() => import("./pages/GetRidoMaps"));
+const GetRidoMap = lazy(() => import("./pages/GetRidoMap"));
+const ServicesMarketplace = lazy(() => import("./pages/ServicesMarketplace"));
+const AdminRidoMarket = lazy(() => import("./pages/AdminRidoMarket"));
+const ServiceProviderDetail = lazy(() => import("./pages/ServiceProviderDetail"));
+const ServiceProviderDashboard = lazy(() => import("./pages/ServiceProviderDashboard"));
+const WorkflowModule = lazy(() => import("./pages/WorkflowModule"));
+const UniversalSearchResults = lazy(() => import("./pages/UniversalSearchResults"));
+const AccountingDashboard = lazy(() => import("./pages/AccountingDashboard"));
+const InsuranceAgentRegister = lazy(() => import("./pages/InsuranceAgentRegister"));
+const InsuranceAgentDashboard = lazy(() => import("./pages/InsuranceAgentDashboard"));
+const InvoiceProgram = lazy(() => import("./pages/InvoiceProgram"));
+const ClientPortal = lazy(() => import("./pages/ClientPortal"));
+const AIProPage = lazy(() => import("./pages/AIProPage"));
+const InvoicingLanding = lazy(() => import("./pages/InvoicingLanding"));
+const DriverInfoLanding = lazy(() => import("./pages/DriverInfoLanding"));
+const SalesPortal = lazy(() => import("./pages/SalesPortal"));
+const RentalClientPortal = lazy(() => import("./pages/RentalClientPortal"));
+const WorkshopClientCard = lazy(() => import("./pages/WorkshopClientCard"));
+const DriverBankChangeConfirm = lazy(() => import("./pages/DriverBankChangeConfirm"));
+const BookingConfirm = lazy(() => import("./pages/BookingConfirm"));
+const WorkshopSmsCenter = lazy(() => import("./pages/WorkshopSmsCenter"));
+const RidoAIChat = lazy(() => import("./pages/RidoAIChat"));
+const MeetingsPage = lazy(() => import("./pages/MeetingsPage"));
+const RidoMailPage = lazy(() => import("./pages/RidoMailPage"));
+const AdminAIAgentsPage = lazy(() => import("./pages/AdminAIAgentsPage"));
+const AdminMarketing = lazy(() => import("./pages/AdminMarketing"));
+const ConfirmViewingPage = lazy(() => import("./pages/ConfirmViewingPage"));
+const MyViewingsPage = lazy(() => import("./pages/MyViewingsPage"));
+const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
+const PaymentCancel = lazy(() => import("./pages/PaymentCancel"));
+const BuyCredits = lazy(() => import("./pages/BuyCredits"));
+const WorkshopEmployeePortal = lazy(() => import("./pages/WorkshopEmployeePortal"));
+>>>>>>> origin/main
 
 // Fallback ładowania chunku strony
 const PageLoader = () => (
@@ -222,6 +309,7 @@ const App = () => (
                 <Route path="/nieruchomosci/agent/rejestracja" element={<RealEstateAgentRegister />} />
                 <Route path="/nieruchomosci/agent/panel" element={<RealEstateAgentDashboard />} />
                 <Route path="/uslugi" element={<ServicesMarketplace />} />
+                <Route path="/mapa" element={<Navigate to="/mapy" replace />} />
                 <Route path="/uslugi/panel" element={<ServiceProviderDashboard />} />
                 <Route path="/workflow" element={<WorkflowModule />} />
                 <Route path="/uslugi/uslugodawca/:providerId" element={<ServiceProviderDetail />} />
@@ -273,6 +361,7 @@ const App = () => (
                 <Route path="/cennik" element={<CennikPage />} />
                 <Route path="/jak-zaczac" element={<JakZaczacPage />} />
                 <Route path="/kontakt" element={<KontaktPage />} />
+                <Route path="/usuwanie-danych" element={<DataDeletionPage />} />
                 <Route path="/polityka-prywatnosci" element={<Navigate to="/prawne?tab=polityka" replace />} />
                 <Route path="/regulamin" element={<Navigate to="/prawne?tab=regulamin" replace />} />
                 <Route path="/rodo" element={<Navigate to="/prawne?tab=rodo" replace />} />

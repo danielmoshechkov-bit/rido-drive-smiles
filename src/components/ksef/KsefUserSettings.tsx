@@ -16,26 +16,22 @@ import {
   Save, Loader2, AlertTriangle, Info, Mail, X, Plus, ChevronDown, ChevronRight
 } from 'lucide-react';
 
-type KsefEnvironment = 'integration' | 'demo' | 'production';
+// Do wyboru zostają DWA środowiska, bo tylko takie mają sens w codziennej pracy:
+// jedno do testów i jedno prawdziwe. Wcześniej były trzy, a trzecie („Demo") wskazywało
+// na ksef-demo.mf.gov.pl, gdzie API v2 w ogóle nie istnieje (404) — wybór, który nie mógł
+// zadziałać, a wyglądał na zalecany. Backend nadal rozumie wartość 'demo' (api-demo.ksef.mf.gov.pl),
+// więc istniejące konfiguracje nie przestają działać; po prostu nie da się jej już wybrać ręcznie.
+type KsefEnvironment = 'integration' | 'production';
 
 const ENV_CONFIG: Record<KsefEnvironment, { label: string; url: string; apiBase: string; desc: string; badgeClass: string; badgeLabel: string; loginUrl: string }> = {
   integration: {
-    label: 'Integracyjne (testy programistyczne)',
+    label: 'Testowe — przedprodukcyjne (do testów)',
     url: 'api-test.ksef.mf.gov.pl',
     apiBase: 'https://api-test.ksef.mf.gov.pl/api/v2',
-    desc: 'Dane zanonimizowane. Do testów technicznych.',
-    badgeClass: 'bg-muted text-muted-foreground',
-    badgeLabel: 'INTEGRACYJNE',
-    loginUrl: 'https://api-test.ksef.mf.gov.pl',
-  },
-  demo: {
-    label: 'Demo — przedprodukcyjne (zalecane do testów)',
-    url: 'ksef-demo.mf.gov.pl',
-    apiBase: 'https://ksef-demo.mf.gov.pl/api/v2',
-    desc: 'Prawdziwy token i NIP, faktury bez skutków prawnych.',
+    desc: 'Faktury BEZ skutków prawnych. Tu sprawdzasz, zanim wyślesz naprawdę.',
     badgeClass: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
-    badgeLabel: 'DEMO',
-    loginUrl: 'https://ksef-demo.mf.gov.pl',
+    badgeLabel: 'TESTOWE',
+    loginUrl: 'https://api-test.ksef.mf.gov.pl',
   },
   production: {
     label: 'Produkcyjne',
@@ -48,13 +44,42 @@ const ENV_CONFIG: Record<KsefEnvironment, { label: string; url: string; apiBase:
   },
 };
 
+// W bazie mogą siedzieć starsze wartości ('demo', 'test'), których nie ma już w wyborze.
+// Bez tego ENV_CONFIG[zapisana_wartość] byłoby undefined i ekran ustawień by się wysypał.
+// Wszystko, co nie jest produkcją, traktujemy jako środowisko testowe — nigdy odwrotnie,
+// bo pomyłka w tę stronę oznacza wysłanie faktury naprawdę.
+function toKnownEnv(value: unknown): KsefEnvironment {
+  return value === 'production' ? 'production' : 'integration';
+}
+
+// Token KSeF działa TYLKO na tym środowisku, na którym powstał, więc każde środowisko
+// ma własny komplet: token, status i wynik ostatniego testu. Wcześniej było jedno pole
+// na oba — przełączenie „testowe ↔ produkcja" nadpisywało poprzedni token i trzeba go
+// było wklejać od nowa przy każdej zmianie.
+type StanSrodowiska = { token: string; status: string; lastTestAt: string | null; lastTestResult: string | null };
+const PUSTE_SRODOWISKO: StanSrodowiska = { token: '', status: 'not_configured', lastTestAt: null, lastTestResult: null };
+
 export function KsefUserSettings() {
   const queryClient = useQueryClient();
-  const [ksefToken, setKsefToken] = useState('');
-  const [ksefEnvironment, setKsefEnvironment] = useState<KsefEnvironment>('demo');
-  const [ksefStatus, setKsefStatus] = useState('not_configured');
-  const [ksefLastTestAt, setKsefLastTestAt] = useState<string | null>(null);
-  const [ksefLastTestResult, setKsefLastTestResult] = useState<string | null>(null);
+  const [ksefEnvironment, setKsefEnvironment] = useState<KsefEnvironment>('integration');
+  const [envState, setEnvState] = useState<Record<KsefEnvironment, StanSrodowiska>>({
+    integration: { ...PUSTE_SRODOWISKO },
+    production: { ...PUSTE_SRODOWISKO },
+  });
+
+  // Widok i logika niżej operują na „aktywnym" środowisku — dzięki temu przełącznik
+  // podmienia tylko to, co widać, a dane drugiego środowiska czekają nietknięte.
+  const patchEnv = (zmiana: Partial<StanSrodowiska>) =>
+    setEnvState(s => ({ ...s, [ksefEnvironment]: { ...s[ksefEnvironment], ...zmiana } }));
+
+  const ksefToken = envState[ksefEnvironment].token;
+  const setKsefToken = (v: string) => patchEnv({ token: v });
+  const ksefStatus = envState[ksefEnvironment].status;
+  const setKsefStatus = (v: string) => patchEnv({ status: v });
+  const ksefLastTestAt = envState[ksefEnvironment].lastTestAt;
+  const setKsefLastTestAt = (v: string | null) => patchEnv({ lastTestAt: v });
+  const ksefLastTestResult = envState[ksefEnvironment].lastTestResult;
+  const setKsefLastTestResult = (v: string | null) => patchEnv({ lastTestResult: v });
   const [testing, setTesting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState('');
@@ -93,11 +118,27 @@ export function KsefUserSettings() {
       if (error) throw error;
       if (data) {
         setSettingsId(data.id);
-        setKsefToken(data.ksef_token || '');
-        setKsefEnvironment((data.ksef_environment as KsefEnvironment) || 'demo');
-        setKsefStatus(data.ksef_status || 'not_configured');
-        setKsefLastTestAt(data.ksef_last_test_at || null);
-        setKsefLastTestResult(data.ksef_last_test_result || null);
+        const zapisane = toKnownEnv(data.ksef_environment);
+        setKsefEnvironment(zapisane);
+
+        // Stare pole `ksef_token` przypisujemy TYLKO do środowiska, które było wtedy wybrane —
+        // token z produkcji nie może wylądować w polu testowym i odwrotnie.
+        const d = data as any;
+        const zapas = (env: KsefEnvironment) => (zapisane === env ? (d.ksef_token || '') : '');
+        setEnvState({
+          integration: {
+            token: d.ksef_token_test || zapas('integration'),
+            status: d.ksef_status_test || (zapisane === 'integration' ? d.ksef_status : null) || 'not_configured',
+            lastTestAt: zapisane === 'integration' ? (d.ksef_last_test_at || null) : null,
+            lastTestResult: zapisane === 'integration' ? (d.ksef_last_test_result || null) : null,
+          },
+          production: {
+            token: d.ksef_token_production || zapas('production'),
+            status: d.ksef_status_production || (zapisane === 'production' ? d.ksef_status : null) || 'not_configured',
+            lastTestAt: zapisane === 'production' ? (d.ksef_last_test_at || null) : null,
+            lastTestResult: zapisane === 'production' ? (d.ksef_last_test_result || null) : null,
+          },
+        });
         setAutoSendEnabled(((data as any).ksef_auto_send_enabled as boolean) || false);
         setSendInvoicesEnabled(((data as any).ksef_send_invoices_enabled as boolean) || false);
       }
@@ -117,8 +158,15 @@ export function KsefUserSettings() {
   const saveMutation = useMutation({
     mutationFn: async (overrides?: { status?: string; testAt?: string; testResult?: string }) => {
       if (!userId) throw new Error('Nie zalogowany');
+      // Token i status lądują w szufladce wybranego środowiska. `ksef_token`/`ksef_status`
+      // zapisujemy dodatkowo dla zgodności — czyta je jeszcze starszy kod, który nie zna
+      // pól per środowisko.
+      const kolumnaTokenu = ksefEnvironment === 'production' ? 'ksef_token_production' : 'ksef_token_test';
+      const kolumnaStatusu = ksefEnvironment === 'production' ? 'ksef_status_production' : 'ksef_status_test';
       const payload = {
         user_id: userId,
+        [kolumnaTokenu]: ksefToken,
+        [kolumnaStatusu]: overrides?.status ?? ksefStatus,
         ksef_token: ksefToken,
         ksef_environment: ksefEnvironment,
         ksef_status: overrides?.status ?? ksefStatus,
@@ -332,7 +380,7 @@ export function KsefUserSettings() {
               <div>
                 <h4 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">Etap 1 — Wybierz środowisko</h4>
                 <p className="text-sm text-muted-foreground">
-                  <strong>Demo</strong> (zalecane na start): <a href="https://ap-demo.ksef.mf.gov.pl" target="_blank" rel="noopener noreferrer" className="text-primary underline">ap-demo.ksef.mf.gov.pl</a> — faktury bez skutków prawnych.<br/>
+                  <strong>Testowe</strong> (zacznij tutaj): <a href="https://ap-test.ksef.mf.gov.pl" target="_blank" rel="noopener noreferrer" className="text-primary underline">ap-test.ksef.mf.gov.pl</a> — faktury bez skutków prawnych.<br/>
                   <strong>Produkcja</strong>: <a href="https://ap.ksef.mf.gov.pl/web/" target="_blank" rel="noopener noreferrer" className="text-primary underline">ap.ksef.mf.gov.pl/web/</a> — faktury trafiają do urzędu.
                 </p>
               </div>
@@ -437,14 +485,23 @@ export function KsefUserSettings() {
             )}
 
             <div>
-              <Label className="text-xs">Token autoryzacyjny KSeF</Label>
+              <Label className="text-xs">
+                Token dla środowiska: <span className="font-semibold">{ENV_CONFIG[ksefEnvironment].badgeLabel}</span>
+              </Label>
               <Input
                 type="password"
                 value={ksefToken}
                 onChange={e => setKsefToken(e.target.value)}
-                placeholder="Wklej token z KSeF..."
+                placeholder={`Wklej token wygenerowany na ${ENV_CONFIG[ksefEnvironment].url}`}
                 className="text-sm"
               />
+              {/* Każde środowisko trzyma własny token, więc przełącznik niczego nie kasuje.
+                  Ale użytkownik musi wiedzieć, że drugiego trzeba wkleić osobno. */}
+              <p className="text-xs text-muted-foreground mt-1">
+                {envState[ksefEnvironment === 'production' ? 'integration' : 'production'].token
+                  ? `Token drugiego środowiska (${ENV_CONFIG[ksefEnvironment === 'production' ? 'integration' : 'production'].badgeLabel}) jest zapisany — przełącznik go nie skasuje.`
+                  : `Drugie środowisko (${ENV_CONFIG[ksefEnvironment === 'production' ? 'integration' : 'production'].badgeLabel}) nie ma jeszcze tokenu. Token działa tylko tam, gdzie powstał.`}
+              </p>
             </div>
 
             {ksefLastTestAt && (

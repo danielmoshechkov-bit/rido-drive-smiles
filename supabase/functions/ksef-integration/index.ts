@@ -315,13 +315,20 @@ async function resolveCredentials(req: Request, supabase: any, body: any) {
   if (userId && (!nip || !token)) {
     const { data: cs } = await supabase
       .from('company_settings')
-      .select('nip, ksef_token, ksef_environment')
+      .select('nip, ksef_token, ksef_token_test, ksef_token_production, ksef_environment')
       .eq('user_id', userId)
       .maybeSingle();
     if (cs) {
       nip = nip || cs.nip || null;
-      token = token || cs.ksef_token || null;
+      // Ustal środowisko PRZED wyborem tokenu — token z produkcji nie działa na testowym
+      // i odwrotnie, więc musimy sięgnąć po ten, który pasuje do miejsca wysyłki.
       if (!body.environment && cs.ksef_environment) environment = normalizeEnv(cs.ksef_environment);
+      const tokenSrodowiska = environment === 'production'
+        ? (cs as any).ksef_token_production
+        : (cs as any).ksef_token_test;
+      // `ksef_token` to stare wspólne pole — używamy go tylko wtedy, gdy nowe jest puste
+      // (konfiguracja sprzed rozdzielenia tokenów).
+      token = token || tokenSrodowiska || cs.ksef_token || null;
     }
   }
 
@@ -448,6 +455,44 @@ function hasEmptyTag(xml: string, tag: string): boolean {
 
 function addViolation(list: Array<{ kind: string; path: string; message: string }>, kind: string, path: string, message: string) {
   list.push({ kind, path, message });
+}
+
+// Wzorzec NIP-u wprost z XSD FA(3): dokładnie 10 cyfr, pierwsza niezerowa, a druga i trzecia
+// nie mogą być zerami jednocześnie. Faktura z NIP-em spoza tego wzorca NIE PRZEJDZIE walidacji
+// po stronie KSeF — lepiej powiedzieć to przed wysyłką niż zbierać odrzucenie.
+const NIP_XSD_PATTERN = /^[1-9]((\d[1-9])|([1-9]\d))\d{7}$/;
+
+// Suma kontrolna NIP (wagi 6,5,7,2,3,4,5,6,7, modulo 11). Wynik 10 oznacza NIP nieprawidłowy.
+// To reguła spoza XSD — schemat sprawdza tylko kształt, ale KSeF weryfikuje NIP w rejestrze,
+// więc literówka w cyfrze i tak skończy się odrzuceniem.
+function hasValidNipChecksum(nip: string): boolean {
+  if (!/^\d{10}$/.test(nip)) return false;
+  const wagi = [6, 5, 7, 2, 3, 4, 5, 6, 7];
+  const suma = wagi.reduce((acc, waga, i) => acc + waga * Number(nip[i]), 0);
+  const kontrolna = suma % 11;
+  return kontrolna !== 10 && kontrolna === Number(nip[9]);
+}
+
+// Sprawdza NIP jednej ze stron faktury i dopisuje naruszenia. Pusty NIP zgłaszają
+// osobne kontrole (minOccurs), więc tutaj go pomijamy — inaczej ten sam brak
+// pojawiłby się na liście dwa razy.
+function validateNip(
+  nip: string | null | undefined,
+  path: string,
+  strona: string,
+  violations: Array<{ kind: string; path: string; message: string }>,
+) {
+  const wartosc = String(nip ?? '').trim();
+  if (!wartosc) return;
+  if (!NIP_XSD_PATTERN.test(wartosc)) {
+    addViolation(violations, 'pattern', path,
+      `NIP ${strona} „${wartosc}" nie pasuje do wzorca XSD (10 cyfr) — KSeF odrzuci taką fakturę.`);
+    return;
+  }
+  if (!hasValidNipChecksum(wartosc)) {
+    addViolation(violations, 'checksum', path,
+      `NIP ${strona} „${wartosc}" ma błędną sumę kontrolną — najczęściej literówka w cyfrze.`);
+  }
 }
 
 function ensureTagOrder(fragment: string, tags: string[], basePath: string, violations: Array<{ kind: string; path: string; message: string }>) {
@@ -676,6 +721,7 @@ function validatePodmiot1Xsd(podmiot1: string, sellerSource: any) {
   ensureTagOrder(podmiot1, ['DaneIdentyfikacyjne', 'Adres', 'AdresKoresp', 'DaneKontaktowe', 'StatusInfoPodatnika'], basePath, violations);
 
   if (!sellerSource.nip) addViolation(violations, 'minOccurs', `${basePath}/DaneIdentyfikacyjne/NIP`, 'TPodmiot1/NIP jest obowiązkowy i nie może być pusty.');
+  validateNip(sellerSource.nip, `${basePath}/DaneIdentyfikacyjne/NIP`, 'sprzedawcy', violations);
   if (!sellerSource.name) addViolation(violations, 'minOccurs', `${basePath}/DaneIdentyfikacyjne/Nazwa`, 'TPodmiot1/Nazwa jest obowiązkowa i nie może być pusta.');
   if (!sellerSource.addressStreet) addViolation(violations, 'minOccurs', `${basePath}/Adres/AdresL1`, 'TAdres/AdresL1 dla Podmiot1 jest obowiązkowy, bo Adres ma minOccurs=1.');
 
@@ -728,6 +774,9 @@ function validatePodmiot2Xsd(podmiot2: string, buyerSource: any) {
   }
 
   if (hasEmptyTag(podmiot2, 'NIP')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/NIP`, 'Nie wolno generować pustego tagu <NIP>.');
+  // NIP nabywcy sprawdzamy tylko, gdy w ogóle wybrano ten wariant identyfikatora —
+  // faktura dla osoby prywatnej idzie z <BrakID> i wtedy nie ma czego walidować.
+  if (nipCount > 0) validateNip(buyerSource.nip, `${basePath}/DaneIdentyfikacyjne/NIP`, 'nabywcy', violations);
   if (hasEmptyTag(podmiot2, 'BrakID')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/BrakID`, 'Nie wolno generować pustego tagu <BrakID>.');
   if (hasEmptyTag(podmiot2, 'Nazwa')) addViolation(violations, 'empty', `${basePath}/DaneIdentyfikacyjne/Nazwa`, 'Nie wolno generować pustego tagu <Nazwa>.');
   if (hasEmptyTag(podmiot2, 'AdresL1')) addViolation(violations, 'empty', `${basePath}/Adres/AdresL1`, 'Nie wolno generować pustego tagu <AdresL1>.');
@@ -892,6 +941,11 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], r
   const sumGross = (list: any[]) => list.reduce((sum, item) => sum + (Number(item.gross_amount) || 0), 0);
   const grossTotal = round2(sumGross(items) - sumGross(beforeItems));
 
+  // Procedura marży (art. 119/120): podstawą jest marża, nie obrót, więc na fakturze
+  // NIE wykazuje się ani stawki, ani kwoty VAT. XSD FA(3) opisuje sekwencję P_13_1/P_14_1
+  // jako „z wyłączeniem procedury marży" — przy marży pomijamy CAŁE rozbicie P_13/P_14.
+  const isMargin = invoice.is_margin === true || ['margin', 'vat_margin'].includes(rawType);
+
   // Rubryki podsumowania VAT wg XSD FA(3):
   //   P_13_1/P_14_1 = 23/22% · P_13_2/P_14_2 = 8/7% · P_13_3/P_14_3 = 5% ·
   //   P_13_4/P_14_4 = ryczałt taxi (4/3%) · P_13_6_1 = 0% krajowe (bez pola VAT) ·
@@ -922,7 +976,7 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], r
   const BUCKET_ORDER = ['1', '2', '3', '4', '6_1', '6_2', '6_3', '7', '8', '9', '10'];
 
   const byBucket: Record<string, { net: number; vat: number }> = {};
-  for (const [rate, amounts] of Object.entries(vatByRate)) {
+  for (const [rate, amounts] of Object.entries(isMargin ? {} : vatByRate)) {
     const b = rateToBucket(rate);
     if (!byBucket[b]) byBucket[b] = { net: 0, vat: 0 };
     byBucket[b].net = round2(byBucket[b].net + amounts.net);
@@ -965,6 +1019,20 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], r
         <P_9A>${round2(Number(a?.unit_net_price || 0) - Number(b?.unit_net_price || 0)).toFixed(2)}</P_9A>
         <P_11>${round2(Number(a?.net_amount || 0) - Number(b?.net_amount || 0)).toFixed(2)}</P_11>
         <P_12>${vatCodeOf(src)}</P_12>
+      </FaWiersz>`;
+    }).join('');
+  } else if (isMargin) {
+    // Marża: wiersz BEZ stawki (P_12) i BEZ ceny jednostkowej netto (P_9A).
+    // Wartość pozycji to należność brutto — przy marży netto = brutto.
+    itemsXML = items.map((item, idx) => {
+      const lineValue = Number(item.gross_amount) || Number(item.net_amount) || 0;
+      return `
+      <FaWiersz>
+        <NrWierszaFa>${idx + 1}</NrWierszaFa>
+        <P_7>${escapeXml(item.name || 'Usługa')}</P_7>
+        <P_8A>${escapeXml(item.unit || 'szt')}</P_8A>
+        <P_8B>${Number(item.quantity || 1).toFixed(4)}</P_8B>
+        <P_11>${lineValue.toFixed(2)}</P_11>
       </FaWiersz>`;
     }).join('');
   } else {
@@ -1163,12 +1231,14 @@ function buildKsefInvoiceArtifacts(invoice: any, entity: any, rawItems: any[], r
       <Zwolnienie>${zwolnienieXml}</Zwolnienie>
       <NoweSrodkiTransportu><P_22N>1</P_22N></NoweSrodkiTransportu>
       <P_23>2</P_23>
-      <PMarzy>${invoice.is_margin ? (() => {
+      <PMarzy>${isMargin ? (() => {
+        // XSD FA(3): sekwencja wymaga NAJPIERW <P_PMarzy>1</P_PMarzy>, potem konkretny znacznik procedury.
         const mpt = invoice.margin_procedure_type || 'used_goods';
-        if (mpt === 'tourism') return '<P_PMarzy_2>1</P_PMarzy_2>';
-        if (mpt === 'art') return '<P_PMarzy_3_2>1</P_PMarzy_3_2>';
-        if (mpt === 'antiques') return '<P_PMarzy_3_3>1</P_PMarzy_3_3>';
-        return '<P_PMarzy_3_1>1</P_PMarzy_3_1>';
+        const proc = mpt === 'tourism' ? '<P_PMarzy_2>1</P_PMarzy_2>'
+          : mpt === 'art' ? '<P_PMarzy_3_2>1</P_PMarzy_3_2>'
+          : mpt === 'antiques' ? '<P_PMarzy_3_3>1</P_PMarzy_3_3>'
+          : '<P_PMarzy_3_1>1</P_PMarzy_3_1>';
+        return `<P_PMarzy>1</P_PMarzy>${proc}`;
       })() : '<P_PMarzyN>1</P_PMarzyN>'}</PMarzy>
     </Adnotacje>
     <RodzajFaktury>${invoiceType}</RodzajFaktury>${correctionBlockXml}${itemsContent}${fakZalXml}
@@ -1731,6 +1801,34 @@ serve(async (req) => {
       const { data: invoice, error: invErr } = await supabase
         .from('user_invoices').select('*').eq('id', body.invoice_id).single();
       if (invErr || !invoice) throw new Error('Faktura nie znaleziona');
+
+      // Do KSeF trafiają WYŁĄCZNIE faktury. Interfejs już tego pilnował, ale bramka
+      // musi stać tutaj: wysyłkę uruchamia też automat i ponowne próby, a do KSeF
+      // wysyłamy nieodwracalnie — dokumentu nie da się wycofać, można go tylko skorygować.
+      // Sprawdzone na środowisku testowym: bez tej blokady proforma szła do KSeF
+      // jako zwykła faktura VAT i była przyjmowana.
+      const NIE_DO_KSEF: Record<string, string> = {
+        proforma: 'Proforma nie jest fakturą — nie dokumentuje sprzedaży i nie rodzi obowiązku podatkowego.',
+        receipt:  'Rachunek nie jest fakturą VAT.',
+        kp:       'KP to dokument kasowy, nie faktura.',
+        kw:       'KW to dokument kasowy, nie faktura.',
+        wz:       'WZ to dokument magazynowy, nie faktura.',
+        pz:       'PZ to dokument magazynowy, nie faktura.',
+        nota:     'Nota księgowa nie jest fakturą VAT.',
+        // VAT RR to faktura, ale KSeF przyjmuje ją na ODRĘBNYM wzorze (FA_RR), którego
+        // jeszcze nie generujemy. Wysłanie jej na wzorze FA(3) byłoby wysłaniem złego
+        // dokumentu — lepiej zatrzymać i powiedzieć wprost.
+        vat_rr:   'Faktura VAT RR wymaga odrębnego wzoru KSeF (FA_RR), którego system jeszcze nie obsługuje.',
+      };
+      const powod = NIE_DO_KSEF[String(invoice.invoice_type || '').toLowerCase()];
+      if (powod) {
+        return jsonRes({
+          success: false,
+          error: `Tego dokumentu nie wysyła się do KSeF. ${powod}`,
+          invoice_type: invoice.invoice_type,
+        }, 400);
+      }
+
       if (invoice.corrected_invoice_id) {
         const { data: orig } = await supabase.from('user_invoices').select('invoice_number, issue_date, ksef_reference').eq('id', invoice.corrected_invoice_id).maybeSingle();
         if (orig) {
@@ -1759,7 +1857,10 @@ serve(async (req) => {
       console.log('[KSeF][send] XML:', xml);
 
       // Pre-send XSD validation — block if critical violations found
-      const criticalViolations = artifacts.xsdViolations.filter(v => ['minOccurs', 'choice', 'missing'].includes(v.kind));
+      // 'pattern' blokuje na równi z brakiem elementu: NIP spoza wzorca XSD to gwarantowane
+      // odrzucenie po stronie KSeF, więc lepiej zatrzymać wysyłkę tutaj i pokazać powód.
+      // 'checksum' celowo NIE blokuje — to reguła spoza schematu, zgłaszana jako ostrzeżenie.
+      const criticalViolations = artifacts.xsdViolations.filter(v => ['minOccurs', 'choice', 'missing', 'pattern'].includes(v.kind));
       if (criticalViolations.length > 0) {
         console.error('[KSeF][send] BLOCKED: XSD violations detected before send:', JSON.stringify(criticalViolations));
         return jsonRes({
@@ -1786,13 +1887,20 @@ serve(async (req) => {
       console.log('[KSeF][send] buyerSource:', JSON.stringify(artifacts.buyerSource));
       console.log('[KSeF][send] sellerSource:', JSON.stringify(artifacts.sellerSource));
 
-      // Create transmission record
-      const { data: transmission } = await supabase.from('ksef_transmissions').insert({
+      // Ślad transmisji. Wcześniej błąd tego insertu przechodził niezauważony
+      // (brak odczytu `error`), przez co faktury szły do KSeF, a historia wysyłek
+      // i UPO nie zapisywały się w ogóle — patrz migracja 20260803_ksef_transmissions_fix.sql.
+      // Wysyłki NIE blokujemy, gdy zapis padnie: faktura w urzędzie jest ważniejsza niż
+      // nasz dziennik. Ale zostawiamy głośny ślad w logach, żeby dało się to wyłapać.
+      const { data: transmission, error: transmissionErr } = await supabase.from('ksef_transmissions').insert({
         invoice_id: body.invoice_id,
         direction: 'outgoing',
         status: 'pending',
         xml_content: xml,
       }).select().single();
+      if (transmissionErr) {
+        console.error('[KSeF][send] NIE ZAPISANO transmisji — UPO nie będzie dostępne:', transmissionErr.message);
+      }
 
       try {
         const creds = await resolveCredentials(req, supabase, body);

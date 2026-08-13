@@ -1,0 +1,549 @@
+{
+ "rozmowy": {
+  "conv_9901kz7jbw75fmjsg9gvgjvcd9x3": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 10
+  },
+  "conv_8501kz7ks42ze1hva18zp5d13srn": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 9
+  },
+  "conv_0401kz9a45vbfddtb1w0qy2gngkh": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "brak zapisu"
+   ],
+   "tur_agenta": 10
+  },
+  "conv_2501kz9ckhttf4s9v3n8dm28ckxf": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "agent przepraszał — do przeglądu, nie do destylacji"
+   ],
+   "tur_agenta": 10
+  },
+  "conv_9201kz9g93ywejz9n2cxzewbtvjp": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 9
+  },
+  "conv_4901kz9jn04rea3tsjah7k4aj25d": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 10
+  },
+  "conv_0901kz9tgrw2egr8nageam2phqn5": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 13
+  },
+  "conv_7801kz9xs1bpfxpvfabp7wh84q8w": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 10
+  },
+  "conv_0301kz9yx3kzeembvz7ajn6qr4zf": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 7
+  },
+  "conv_8701kza0jshre5br0vqw9be06mnr": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 9
+  },
+  "conv_0601kza1dt1zfmsvc144z3jn7g3h": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 10
+  },
+  "conv_0501kza5m07xfm59hg6vxkrwbway": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 8
+  },
+  "conv_6901kzaz1n9efaz9wgjta11sbtx7": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 9
+  },
+  "conv_2901kzb8y6mzfshsg0pzsmpm56w2": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "brak zapisu"
+   ],
+   "tur_agenta": 3
+  },
+  "conv_5501kzbgmv1rfr7tpfnjtqe7ncw9": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 7
+  },
+  "conv_3201kzbgsd29fr7bwc1c6r803n3e": {
+   "uczy": false,
+   "przeglad": false,
+   "powody": [
+    "brak zapisu",
+    "rozmowa krótsza niż 30 s"
+   ],
+   "tur_agenta": 2
+  },
+  "conv_1301kzbgtyqcfd58tcqtqrgbn9cy": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "agent przepraszał — do przeglądu, nie do destylacji",
+    "brak zapisu",
+    "odpowiedź modelu została ucięta"
+   ],
+   "tur_agenta": 5
+  },
+  "conv_3301kzbh0aj2fw78v7ng1pesgkaa": {
+   "uczy": false,
+   "przeglad": false,
+   "powody": [
+    "brak zapisu",
+    "rozmowa krótsza niż 30 s"
+   ],
+   "tur_agenta": 2
+  },
+  "conv_7501kzbh1s9yepmaes7f12ms5em6": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 6
+  },
+  "conv_5301kzbgx9dhe86tpwc7wfck4m3h": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "agent przepraszał — do przeglądu, nie do destylacji"
+   ],
+   "tur_agenta": 13
+  },
+  "conv_5501kzbh8m5jerqt47tgbj6t2qmm": {
+   "uczy": true,
+   "przeglad": false,
+   "powody": [],
+   "tur_agenta": 20
+  },
+  "conv_4901kzbhnqpyec1b8986me0bhctj": {
+   "uczy": false,
+   "przeglad": true,
+   "powody": [
+    "agent przepraszał — do przeglądu, nie do destylacji",
+    "odpowiedź modelu została ucięta"
+   ],
+   "tur_agenta": 16
+  },
+  "conv_5301kzbqypx7fpxsafnbr6c14bzp": {
+   "uczy": false,
+   "przeglad": false,
+   "powody": [
+    "brak zapisu",
+    "rozmowa krótsza niż 30 s"
+   ],
+   "tur_agenta": 2
+  }
+ },
+ "wiedza": {
+  "049a6186-210d-4ddf-9bdf-52bc804f1869": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po potwierdzeniu terminu||Zbierać numer telefonu: 'Poproszę numer telefonu, aby wysłać potwierdzenie i ewentualnie skontaktować się w razie pytań'"
+  },
+  "0c9fc1d6-0e95-4034-be39-f2db5b42ff9c": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Przed zamknięciem rozmowy, gdy klient wyraża brak pytań||Zawsze potwierdzić orientacyjny koszt lub zakres cen (np. \"Diagnostyka to [kwota], a naprawa zależy od "
+  },
+  "0e115705-0ffb-4ff7-9b8a-66ff3ab60ec1": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po potwierdzeniu wizyty||Agent powinien dodać: 'Przypominamy, że wizyta jest jutro o [godzina]. Proszę przyjechać 10 minut wcześniej. Czy ma Pan jakieś pytania?"
+  },
+  "192927ae-654e-478c-a36c-5c9b10f20b0e": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po powitaniu klienta||Zanim przejdziemy do szczegółów — mogę prosić o Pana imię i numer telefonu do kontaktu?"
+  },
+  "198c847c-19c7-426c-a6a4-1ea8b050a687": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Komunikacja z klientem mówiącym innym językiem||Zachować profesjonalizm i pewność siebie; nie przesadnie upraszczać, ale być jasnym i konkretnym"
+  },
+  "1b7921da-3f82-479c-90a9-c59a338b3532": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Klient podaje numer rejestracyjny||Powtórz dokładnie: 'WY dziewięć dziewięć sześć EU - zgadza się?' zamiast czytania jako liczby"
+  },
+  "1b923129-05e2-4f33-930a-0072db44724e": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Agent nie rozumie lub nie może spełnić żądania klienta||Wyjaśnić sytuację wprost, zaproponować konkretne alternatywy, nie zostawiać klienta w niepewności"
+  },
+  "21b2a86e-a09d-4962-adb0-e25440f5db81": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient już wyjaśnił swoje potrzeby||Przejść bezpośrednio do zbierania danych, nie powtarzać pytania o problem"
+  },
+  "22f698ce-8428-4048-aca1-94a33e46faa5": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po potwierdzeniu wszystkich danych||Podsumuj: 'Potwierdzam — czwartek [data] o [godzina], BMW X5, diagnostyka. Wyślemy SMS. Czy jest jakiś problem, który chciał"
+  },
+  "26d57d80-84e1-485f-bbc3-968984c32098": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po potwierdzeniu danych kontaktowych||Powtórzę dla pewności — numer [numer telefonu], zgadza się?"
+  },
+  "278317a2-a217-41f5-b142-05e3e4721a5e": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Na początku rozmowy po potwierdzeniu problemu||Rozumiem — nierówna praca i stukami w zawieszeniu to rzeczywiście wymaga dokładnego przejrzenia. Czy to problem, "
+  },
+  "2a120de3-94e0-41ac-a43f-fa0154f62613": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po zarezerwowaniu terminu, przed podsumowaniem||Powtórzyć wszystkie usługi, które klient chce wykonać: 'Podsumowując: wymiana oleju i sprawdzenie ogólne BMW X5,"
+  },
+  "39c21e98-ed6c-47cd-b5c5-48ebed42aae3": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Na początku rozmowy po zgłoszeniu problemu||Dziękuję za zaufanie. Aby lepiej Panu pomóc, potrzebuję kilka informacji: jak się Pan/Pani nazywa, jaki numer telefo"
+  },
+  "39d309af-6379-4bbf-bdcc-5102d6a1f350": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient wyraźnie określi usługę, którą chce||Nie pytaj o dodatkowe problemy — przejdź bezpośrednio do potwierdzenia i rezerwacji. Pytanie o 'problem' sugeruj"
+  },
+  "3a415fe8-b46f-46a1-99ea-08c4d525321b": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po ustaleniu typu usługi (przegląd zawieszenia)||Żeby przygotować się do Twojej wizyty — czy zauważyłeś konkretny problem, np. hałas, sztywność, czy to ogólna k"
+  },
+  "3be05aa2-b5a2-4d05-8ab9-f1772b14e85d": {
+   "aktywny": true,
+   "zmieniona": false,
+   "skrot": "Gdy klient podał już wszystkie kluczowe dane (imię, nazwisko, numer telefonu, rejestrację, termin)||Nie zadawać dodatkowych pytań, które nie wpływają na rezerwa"
+  },
+  "3cc481c3-f88e-4007-bf60-58bfea7b28de": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Przed zakończeniem rozmowy||Powtórzyć wszystkie dane: 'Podsumowując: Daniel, BMW X5, [nr rejestracyjny], piątek [data] o [godzina] — czy wszystko się zgadza?'"
+  },
+  "3f12a776-1cbb-4d1d-9a73-164fbfe3fb64": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po zarezerwowaniu usługi podstawowej||Zaproponować dodatkowe usługi: 'Czy chciałbyś, żebyśmy sprawdzili też hamulce lub wymienili olej podczas przeglądu?'"
+  },
+  "40fb95b6-288f-4efa-9a8b-6def4699273f": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient pyta o cenę usługi diagnostycznej||Odpowiedź była dobra, ale można dodać: 'Przegląd rutynowy BMW X5 zazwyczaj trwa 1-1,5 godziny. Jeśli będą dodatkow"
+  },
+  "414dcf7e-3099-424f-905f-6aa939a32641": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po potwierdzeniu terminu i danych pojazdu||Panie [imię], aby przygotować się do Pana wizyty — czy mogę potwierdzić numer telefonu? Oraz czy to Lexus CT benzynow"
+  },
+  "446d5266-8fd4-45f8-8e17-680c8acd76aa": {
+   "aktywny": true,
+   "zmieniona": false,
+   "skrot": "Umówienie terminu w przyszłym tygodniu||Przy terminie w przyszłym tygodniu podaj dzień tygodnia RAZEM z datą dzienną, jeden raz, przy potwierdzaniu. Nie powtarz"
+  },
+  "47911638-289d-4c81-ad30-3c7a676df7e7": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient mówi o preferencji czasowej, agent powinien potwierdzić dokładnie to, co usłyszał||Klient: 'chciałbym na piątek' → Agent: 'Rozumiem, chciałby Pan pią"
+  },
+  "4844143a-e093-4a60-8e25-17ce543aea64": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po zarezerwowaniu, agent powinien przeczytać numer telefonu z powrotem do potwierdzenia||Klient podaje numer → Agent: 'Dziękuję, potwierdzam: [numer telefonu] —"
+  },
+  "4ce81e63-b532-4490-903a-0601525cbdf3": {
+   "aktywny": true,
+   "zmieniona": false,
+   "skrot": "Potwierdzanie danych (numer telefonu, rejestracja)||Czytaj dane naturalnie, grupami, bez rozbijania na pojedyncze cyfry — chyba że klient wyraźnie o to prosi."
+  },
+  "51d9e47c-9fec-4446-ba23-acdfa9dc4b41": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Podczas całej rozmowy||Używać bardziej naturalnego, mniej formalnego tonu — zamiast 'Mogę zaproponować' lepiej 'Moglibyśmy umówić Pana na diagnostykę' lub 'Zapr"
+  },
+  "657e8806-aecd-47d2-bc6f-649cfbfb58f1": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient podaje dane osobowe (imię, nazwisko, telefon)||Agent powinien natychmiast potwierdzić każdą część: 'Dziękuję, [imię], numer [numer telefonu] — dobrze"
+  },
+  "6730086b-1660-4ade-a2f5-be9a7c38b486": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Podczas zbierania danych||Powtarzać każdą informację na głos: '[numer telefonu] — to numer [numer telefonu], dobrze?'"
+  },
+  "6cfbea4e-9aa0-4998-9415-2d899de8bd52": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient zgłasza problem z pojazdem||Przed zaproponowaniem wizyty: 'Rozumiem. Czy mogę zapytać — jaki marka i model pojazdu? Kiedy po raz ostatni auto odpalił"
+  },
+  "747d0fa9-33ec-4c70-b141-f75a1c600fc8": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po otrzymaniu numeru telefonu od klienta||Powtórzyć numer głośno: 'Czyli [numer telefonu] — dobrze?'"
+  },
+  "7b580c95-4b5e-47b7-b7eb-21f81e1080b1": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po potwierdzeniu wszystkich danych przed zakończeniem rozmowy||Agent powinien zaproponować dodatkowe usługi: 'Czy podczas wizyty moglibyśmy sprawdzić również fi"
+  },
+  "7b6c189a-b4d5-4109-acbf-42e170bf62e7": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po powitaniu formalnym||Utrzymać spójny ton — jeśli zaczęto 'Dzień dobry', kontynuować formalnie lub przejść na 'ty' konsekwentnie od początku"
+  },
+  "7bdc7302-d47a-48c6-bcdb-f796dc7c3f93": {
+   "aktywny": true,
+   "zmieniona": false,
+   "skrot": "Klient mówi 'jutro' bez konkretnej godziny||Zaproponuj 2-3 opcje godzin zamiast jednej. Godziny bierz WYŁĄCZNIE z wyniku check_availability dla dnia, o który pr"
+  },
+  "800b015b-ce2b-4f2e-9dff-fea090c1596e": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po ustaleniu daty i godziny||Zaproponuj dodatkowe usługi: 'Czy podczas wizyty moglibyśmy sprawdzić również [olej, filtry, opony]?' — przed zamknięciem rozmowy."
+  },
+  "84cedb76-7b46-48f3-b727-c63bdd2b853e": {
+   "aktywny": true,
+   "zmieniona": false,
+   "skrot": "Gdy klient od razu wyraża chęć rezerwacji (\"chce się umówić na jutro na 15\"), agent powinien to priorytetyzować||Potwierdzić dostępność terminu PRZED zadawaniem"
+  },
+  "8a1509c0-84fa-4b4c-8039-74dd8ccfc782": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy agent czeka na informacje lub sprawdza dostępność||Użyć 'Sprawdzam' lub 'Moment' maksymalnie raz na rozmowę; unikać powtórzeń tego samego zwrotu"
+  },
+  "8f42c893-6ebc-45a6-bf14-caf3cc975eb3": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po otrzymaniu numeru telefonu||Powtórzyć numer głośno: 'Panie [imię], potwierdzam: [numer telefonu] — zgadza się?'"
+  },
+  "92c0d18e-53d6-48fd-b9ea-9d20d3c6e62a": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient nie jest pewny problemu ('chyba wydaje mi się')||Panie [imię], rozumiem — zawieszenie może wydawać się podejrzane. Czy mogę zapytać — słyszy Pan jaki"
+  },
+  "99be4f56-332f-469e-8a2f-ecf93d45bc8d": {
+   "aktywny": true,
+   "zmieniona": false,
+   "skrot": "Podsumowanie rezerwacji||Podsumowuj naturalnym tonem, w jednym zdaniu: forma grzecznościowa, marka i model, ustalony dzień i godzina, zgłoszony problem. Nie czy"
+  },
+  "9b05854f-092f-4a75-ad21-a6b3b50f572e": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Przed zaproponowaniem konkretnej godziny||Zapytać o preferencje: 'Kiedy byłoby dla Pana najwygodniej — rano, czy może po południu?' zamiast od razu proponować ["
+  },
+  "9bd075d4-0ecf-4969-bfdb-4d761bad71ae": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Klient podaje numer telefonu bez separatorów||Powtórz numer głośno: 'Czyli [numer telefonu] - dobrze?'"
+  },
+  "a1a28f41-484d-46a4-9a82-87da2c1622c4": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient zgłasza problem techniczny||Przed zarezerwowaniem zapytać o przybliżony koszt: 'Diagnostyka zawieszenia to około X zł, wymiana oleju Y zł — czy to mi"
+  },
+  "a4b556e3-6009-4a91-89b0-7c018385c3eb": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Na koniec rozmowy zawsze dokończ pożegnanie||Pełne pożegnanie: 'Do widzenia, Panie [imię]! Czekamy na Pana w czwartek [data] o [godzina]. Dziękuję!'"
+  },
+  "b4b1d7f0-f3e4-40c0-ada6-b57e2898d59d": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Podczas zbierania danych kontaktowych||Czytaj numer telefonu z powrotem: '[numer telefonu] — czy dobrze zrozumiałem?'"
+  },
+  "b5c5cad8-88a8-438e-b4be-a1bce77e9063": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient zaproponuje godzinę niedostępną||Jasno potwierdzić niedostępność, zaproponować alternatywy, a następnie czekać na wybór klienta — nie akceptować godz"
+  },
+  "b8529b7f-8f2c-40eb-bdff-6e1df46a1ea0": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient mówi ogólnie 'przejrzeć samochód'||Rozumiem. Czy to przegląd diagnostyczny, czy konkretnie coś Pana niepokoi — np. dziwne dźwięki, problemy z silniki"
+  },
+  "bb0d2182-7ebc-43fa-8118-31e07b1817a8": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Dane pojazdu (marka, model, numer rejestracyjny) powinny być zebrane PRZED zaproponowaniem konkretnych godzin||Po usłyszeniu 'wymiana oleju' → 'Dziękuję. Jaki m"
+  },
+  "bb262fc8-caf1-4d5d-8ea3-c37c4684ce93": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient podaje dane pojazdu||Potwierdzić każdy element: 'Czyli Toyota Corolla, biała, rejestracja [nr rejestracyjny] — dobrze rozumiem?' Jeśli klient mówi ni"
+  },
+  "c009f30f-5288-4fd3-a4d0-2a3d0d256391": {
+   "aktywny": true,
+   "zmieniona": false,
+   "skrot": "Gdy agent musi poprosić o powtórzenie informacji||Wyjaśnić przyczynę: 'Przepraszam, linia się zacinęła — czy mogę prosić o numer telefonu jeszcze raz?'"
+  },
+  "c2ba87f8-fa21-438e-bd19-c29daf3caa63": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Na początku rozmowy, zaraz po powitaniu||Potwierdzić dokładnie, co klient chce: 'Rozumiem, że chciałby Pan nabicia klimatyzacji — czy to uzupełnienie czynnika, "
+  },
+  "c462f0c1-b34e-4b2e-9a89-91b19f5819cb": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Przed potwierdzeniem rezerwacji SMS-em||Zawsze pobrać numer telefonu: 'Poproszę numer telefonu, na który wyślemy potwierdzenie'"
+  },
+  "c58d0504-97f5-451b-b209-fffdae377305": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Na koniec rozmowy||Pełne, profesjonalne pożegnanie: 'Do widzenia, czekamy na Pana w czwartek o [godzina]. Dziękujemy!'"
+  },
+  "c5de9ebe-2bbb-4a15-917d-2a2fa72cfbb5": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po potwierdzeniu terminu rezerwacji||Potwierdzam — czwartek szóstego o [godzina]. Czy zna Pan naszą lokalizację? Mogę podać adres warsztatu i instrukcje dojazdu"
+  },
+  "c66eb806-51d3-4841-a63f-08dfa28b2eb5": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Zbieranie danych pojazdu||Pytaj w logicznej kolejności: marka → model → rok → rejestracja (od ogólnego do szczegółowego)"
+  },
+  "c94ed983-f586-4cc3-aee9-e621902d341d": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Potwierdzenie SMS-em||Zamiast 'SMS został wysłany' powiedz: 'Wyślę Ci SMS z potwierdzeniem - sprawdzisz go?'"
+  },
+  "ca3a437a-d7d1-4945-96d1-1168cf6516c9": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Przed finalizacją rezerwacji||Diagnostyka zajmie nam około 1-1,5 godziny. Czy chciałby Pan wiedzieć przybliżony koszt przed przyjazdem, czy wolałby czekać na sz"
+  },
+  "caa27860-50dd-48f4-9026-3486d901f2e7": {
+   "aktywny": true,
+   "zmieniona": false,
+   "skrot": "Gdy klient wykazuje znaki niecierpliwości (mówi szybko, powtarza już podane informacje)||Zmień tempo — przyspieszaj, potwierdzaj zwięźle, unikaj dodatkowych pyt"
+  },
+  "cd255a93-f0ab-401c-a013-a880a1ad31a1": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po zarezerwowaniu usługi||Jedno pytanie 'Czy mogę jeszcze w czymś pomóc?' wystarczy; jeśli klient mówi 'nie', zakończyć rozmowę"
+  },
+  "cf9abe3c-8a90-4500-963f-84e5837eb5a9": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po potwierdzeniu rezerwacji||Przegląd zajmie około [X minut]. Potwierdzenie przyjdzie SMS-em. Czy masz jakieś pytania przed czwartkiem?"
+  },
+  "d2e053b4-5dc5-4acc-8341-0f9d8813c568": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient mówi coś niejasnego lub sprzecznego z naszymi założeniami||Zamiast domyślać się, zapytaj: 'Rozumiem, że chciałby Pan sprawdzić auto — czy chodzi o to"
+  },
+  "d636e2aa-c525-4e89-8ce1-ce11ab73030f": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po zarezerwowaniu terminu||Dodaj: 'Czy masz jakieś pytania dotyczące kosztów lub czasu naprawy? Czy chciałbyś wiedzieć coś więcej o naszych usługach?'"
+  },
+  "d757eb98-736a-4bce-a8d7-de22f545160e": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po powitaniu, zanim rozmowa się urwie||Szybko zapytać: 'Jak się Pan/Pani ma? W czym mogę dzisiaj pomóc?' i słuchać aktywnie, aby zidentyfikować potrzebę"
+  },
+  "d7d1bbb4-8677-4f13-b9ea-f02fa3f8ed45": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po potwierdzeniu danych osobowych||Zawsze powtórz imię i nazwisko: 'Czyli [imię], dobrze się mówi?' — przed przejściem dalej"
+  },
+  "d90691b4-8278-4780-99b4-f99eb4697b4c": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient mówi niejasno lub niedokończy zdanie||Nie ignorować — zapytać: 'Przepraszam, czy mogę Pana o coś zapytać?' lub 'Czy chciał Pan coś jeszcze dodać?'"
+  },
+  "da7f8212-7dff-4bf2-ae48-fbfcc6b04a58": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po podaniu numeru telefonu przez klienta||Agent powinien powtórzyć numer: 'Czyli [numer telefonu] — dobrze zapisałem?'"
+  },
+  "df661877-2d34-4be9-bea4-63d99a389e19": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient wspomina o braku przeglądu technicznego||Rozumiem — oprócz sprawdzenia hamulców, czy chciałby Pan pełny przegląd techniczny? Mogę zaproponować pakiet"
+  },
+  "e7868b07-5f5a-4990-87b4-09b245ed7a83": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Na początku rozmowy||Unikać powtórzenia pytania 'w czym mogę pomóc' — klient już to powiedział. Przejść bezpośrednio: 'Rozumiem, że chce Pan umówić się na serwi"
+  },
+  "e7daef7a-34b6-498a-a3d8-43acdfc61886": {
+   "aktywny": true,
+   "zmieniona": false,
+   "skrot": "Po ustaleniu problemu||Rozumiem. Mogę zaproponować wizytę w naszym warsztacie. Kiedy byłby dla Pana najwygodniejszy termin — jutro, czy może w innym dniu?"
+  },
+  "ec0bebd4-4a05-484c-84b8-909c7ddd2d98": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient już wyjaśnił swój problem||Nie powtarzać pytania 'W czym mogę pomóc?' — przejść bezpośrednio do zbierania danych (imię, pojazd, dostępność)"
+  },
+  "ed04f121-bcf1-480f-a59e-77715d0a8cbf": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Przed potwierdzeniem rezerwacji||Zawsze potwierdź numer telefonu klienta słownie: 'Poproszę potwierdzić numer, na który wyślemy SMS z potwierdzeniem' — nawet je"
+  },
+  "eede3c25-a24e-4849-b2da-ea570fd70017": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy agent już powiedział 'Do widzenia', nie powinien kontynuować rozmowę||Jedno 'Do widzenia' i koniec połączenia — bez 'Już sprawdzam' i powtórzeń"
+  },
+  "f2326912-35fc-46bc-b4fd-7735148e83a7": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient mówi niejasno lub słychać szumy||Przepraszam, nie dosłyszałem ostatnią cyfrę — czy to była [cyfra]? Mogę powtórzyć cały numer dla pewności?"
+  },
+  "f9cf0a3b-c068-4e9d-aae3-86011c8e99e7": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient mówi 'nie wiem co się dzieje'||Zadać pytania diagnostyczne: 'Jakie objawy Pan obserwuje? Dziwne dźwięki, lampki na desce, problemy z rozruchem?' — to"
+  },
+  "fa7fd34b-2905-4aa4-95ac-c0d7eee75b86": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Gdy klient podaje datę, która wydaje się błędna||Zamiast kwestionować: 'Dziękuję. Czy chodzi o [data] przyszłego roku? Mogę zarezerwować ten termin' — potwierdz"
+  },
+  "fb6ed347-4a2b-4daf-aeab-d904025da8fd": {
+   "aktywny": false,
+   "zmieniona": false,
+   "skrot": "Po zarezerwowaniu wizyty||Zawsze potwierdzić numer telefonu: 'Poproszę numer telefonu, na który wyślemy SMS z potwierdzeniem' — nie zakładać, że to numer, z któ"
+  },
+  "fc943f39-7512-454f-a8d9-840eff09ed0d": {
+   "aktywny": true,
+   "zmieniona": false,
+   "skrot": "Gdy masz wszystkie dane do rezerwacji||Podsumuj: usługa, pojazd, termin, imię klienta. Każdą pozycję raz. Nie powtarzaj tego samego zdania wielokrotnie."
+  }
+ },
+ "odwolanie": {
+  "z_telefonem": 0,
+  "bez_telefonu": 1,
+  "przelozenie": true,
+  "zwykla_bez_terminu": 2
+ }
+}

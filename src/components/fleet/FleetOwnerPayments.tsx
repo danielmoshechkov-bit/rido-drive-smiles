@@ -123,7 +123,7 @@ export function FleetOwnerPayments({ fleetId }: FleetOwnerPaymentsProps) {
           .select("id, first_name, last_name")
           .in("id", driverIds);
         driversMap = ((driversData as any[]) || []).reduce((acc: any, d: any) => {
-          acc[d.id] = `${d.first_name} ${d.last_name}`;
+          acc[d.id] = `${[d.first_name, d.last_name].filter(Boolean).join(' ')}`;
           return acc;
         }, {});
       }

@@ -67,7 +67,7 @@ const CATEGORY_GROUPS = [
       'services.groups.auto.sub.fleet',
       'services.groups.auto.sub.ppf',
     ],
-    slugs: ['warsztat', 'detailing', 'ppf'],
+    slugs: ['warsztat', 'mechanika', 'detailing', 'myjnia', 'wulkanizacja', 'klimatyzacja', 'elektryka-auto', 'blacharstwo', 'auto-szyby', 'serwis-lpg', 'przeglady', 'holowanie', 'ppf'],
   },
   {
     id: 'dom',
@@ -95,7 +95,7 @@ const CATEGORY_GROUPS = [
       'services.groups.beauty.sub.lashes',
       'services.groups.beauty.sub.spa',
     ],
-    slugs: [],
+    slugs: ['fryzjer', 'kosmetyczka', 'paznokcie', 'rzesy-brwi', 'spa-masaz', 'barber'],
   },
   {
     id: 'zdrowie',
@@ -109,7 +109,7 @@ const CATEGORY_GROUPS = [
       'services.groups.zdrowie.sub.psychologists',
       'services.groups.zdrowie.sub.dietitians',
     ],
-    slugs: [],
+    slugs: ['lekarz', 'dentysta', 'fizjoterapeuta', 'psycholog', 'dietetyk'],
   },
   {
     id: 'ekspert',
@@ -123,7 +123,7 @@ const CATEGORY_GROUPS = [
       'services.groups.ekspert.sub.notaries',
       'services.groups.ekspert.sub.translators',
     ],
-    slugs: [],
+    slugs: ['prawnik', 'ksiegowy', 'doradca-finansowy', 'notariusz', 'tlumacz'],
   },
   {
     id: 'dostawy',
@@ -136,7 +136,7 @@ const CATEGORY_GROUPS = [
       'services.groups.dostawy.sub.moving',
       'services.groups.dostawy.sub.passengerTransport',
     ],
-    slugs: ['przeprowadzki'],
+    slugs: ['kurier', 'transport', 'przeprowadzki', 'przewoz-osob'],
   },
   {
     id: 'fachowiec',
@@ -150,7 +150,7 @@ const CATEGORY_GROUPS = [
       'services.groups.fachowiec.sub.painters',
       'services.groups.fachowiec.sub.handyman',
     ],
-    slugs: ['hydraulik', 'elektryk', 'zlota-raczka', 'ogrodnik'],
+    slugs: ['hydraulik', 'elektryk', 'stolarz', 'malarz', 'glazurnik', 'dekarz', 'klimatyzacja-dom', 'zlota-raczka', 'ogrodnik'],
   },
 ];
 
@@ -242,7 +242,8 @@ export default function ServicesMarketplace() {
           *,
           category:service_categories(*),
           services(id, name, price, price_type),
-          provider_services(id, name, price_from, price_to, is_active, category)
+          provider_services(id, name, price_from, price_to, is_active, category, category_id),
+          provider_service_categories(id, name, service_category_id, is_active)
         `)
         .eq('status', 'active')
         .order('rating_avg', { ascending: false, nullsFirst: false });
@@ -268,12 +269,36 @@ export default function ServicesMarketplace() {
 
   const selectedCategory = categories.find(c => c.slug === selectedCategorySlug);
 
+  // Czy dana kategoria ma choć jednego usługodawcę (ta sama logika co filtr kategorii)
+  const providerInCategory = (provider: any, slug: string, catId?: string) => {
+    const slugWords = slug.replace(/-/g, ' ');
+    return provider.category?.slug === slug
+      || (!!catId && provider.provider_service_categories?.some(
+        (pc: any) => pc.is_active !== false && pc.service_category_id === catId))
+      || provider.provider_services?.some((ps: any) => (ps.is_active !== false) && (
+        ps.category?.toLowerCase().includes(slug) ||
+        ps.category?.toLowerCase().includes(slugWords) ||
+        ps.name?.toLowerCase().includes(slugWords)))
+      || provider.company_name?.toLowerCase().includes(slugWords)
+      || provider.description?.toLowerCase().includes(slugWords);
+  };
+
+  // Puste kategorie ukrywamy przed klientami — usługodawcy nadal je widzą w swoim panelu,
+  // a kategoria pojawi się na portalu, gdy ktoś doda w niej swoją usługę.
+  const visibleCategories = categories.filter(cat =>
+    cat.slug === selectedCategorySlug ||
+    providers.some(p => providerInCategory(p, cat.slug, cat.id))
+  );
+
   const filteredProviders = providers.filter(provider => {
     // Category filter - show provider if they have matching category OR have services in that category
     if (selectedCategorySlug) {
       const slug = selectedCategorySlug.toLowerCase();
       const slugWords = slug.replace(/-/g, ' ');
-      const categoryMatch = provider.category?.slug === selectedCategorySlug;
+      const selectedCatId = categories.find(c => c.slug === selectedCategorySlug)?.id;
+      const categoryMatch = provider.category?.slug === selectedCategorySlug
+        || (!!selectedCatId && (provider as any).provider_service_categories?.some(
+          (pc: any) => pc.is_active !== false && pc.service_category_id === selectedCatId));
       // Sprawdź provider_services (raw) – is_active + dopasowanie po category lub nazwie usługi
       const hasServicesInCategory = (provider as any).provider_services?.some(
         (ps: any) => (ps.is_active !== false) && (
@@ -296,7 +321,10 @@ export default function ServicesMarketplace() {
     if (selectedGroup && !selectedCategorySlug) {
       const group = selectedGroup;
       if (group.slugs.length > 0) {
-        const hasGroupSlug = group.slugs.includes(provider.category?.slug || '');
+        const groupCatIds = categories.filter(c => group.slugs.includes(c.slug)).map(c => c.id);
+        const hasGroupSlug = group.slugs.includes(provider.category?.slug || '')
+          || (provider as any).provider_service_categories?.some(
+            (pc: any) => pc.is_active !== false && groupCatIds.includes(pc.service_category_id));
         const nameOrDescMatch = group.slugs.some(s => {
           const sw = s.replace(/-/g, ' ');
           return provider.company_name?.toLowerCase().includes(sw) ||
@@ -393,6 +421,15 @@ export default function ServicesMarketplace() {
               <span className="font-semibold text-foreground">{t('services.title', 'Usługi')}</span>
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 rounded-full border-primary/30 text-primary hover:bg-primary/10"
+                onClick={() => navigate('/mapy')}
+              >
+                <MapPin className="h-4 w-4" />
+                <span className="hidden sm:inline">Mapa GetRido</span>
+              </Button>
                <LanguageSwitcher />
               <MyGetRidoButton user={user} />
             </div>
@@ -586,8 +623,8 @@ export default function ServicesMarketplace() {
               {t('ui.all', 'Wszystkie')}
             </Badge>
             {(activeGroup
-              ? categories.filter(c => activeGroup.slugs.includes(c.slug))
-              : categories
+              ? visibleCategories.filter(c => activeGroup.slugs.includes(c.slug))
+              : visibleCategories
             ).map(cat => {
               const IconComponent = categoryIcons[cat.icon];
               return (

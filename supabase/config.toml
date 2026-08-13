@@ -239,6 +239,9 @@ verify_jwt = false
 [functions.workshop-send-scheduled-sms]
 verify_jwt = false
 
+[functions.workshop-tire-reminders]
+verify_jwt = false
+
 [functions.admin-users]
 verify_jwt = false
 
@@ -331,6 +334,68 @@ verify_jwt = false
 
 [functions.driver-bank-change-confirm]
 verify_jwt = false
+
+[functions.fiscalize-receipt]
+verify_jwt = false
+
+[functions.fiscal-printer-test]
+verify_jwt = false
+
+[functions.fiscal-day-report]
+verify_jwt = false
+
+[functions.fiscal-receipt-session]
+verify_jwt = false
+
+[functions.contact-form]
+verify_jwt = false
+
+[functions.submit-category-request]
+verify_jwt = false
+
+[functions.ai-extract-services]
+verify_jwt = false
+
+[functions.ai-service-search]
+verify_jwt = false
+
+[functions.sitemap]
+verify_jwt = false
+
+# Operuje na saldach i płatnościach kluczem service_role. Bramka JWT to tylko
+# warstwa wstępna — właściwa kontrola (tożsamość z auth.getUser, rola admina
+# czytana z bazy, confirm_webhook wyłącznie kanałem wewnętrznym) jest w funkcji.
+[functions.payment-core]
+verify_jwt = true
+
+# Wejście dla operatora płatności, który nie ma tokenu Supabase — bramka JWT musi
+# być wyłączona. Autentyczność potwierdza podpis SHA-384 z kluczem P24_CRC_KEY;
+# bez skonfigurowanego klucza funkcja zwraca 503 zamiast przepuszczać żądanie.
+[functions.payment-core-webhook]
+verify_jwt = false
+
+# Jedyna droga zapisu do katalogu funkcji billingowych. Bramka JWT to warstwa
+# wstępna — właściwa kontrola (rola platform_admin z tabeli user_roles) jest
+# w samej funkcji.
+[functions.billing-admin-features]
+verify_jwt = true
+
+# Zapis planów i macierzy plan × funkcja. Kontrola roli platform_admin jest
+# w samej funkcji; podmiana macierzy idzie przez RPC billing_set_plan_features,
+# żeby DELETE i INSERT wykonały się w jednej transakcji.
+[functions.billing-admin-plans]
+verify_jwt = true
+
+[functions.voice-model-benchmark]
+verify_jwt = false
+
+[functions.voice-call-commit]
+verify_jwt = false
+
+[functions.voice-call-reconcile]
+verify_jwt = false
+
+[functions.voice-agent-init]
 
 [functions.support-notify]
 verify_jwt = false

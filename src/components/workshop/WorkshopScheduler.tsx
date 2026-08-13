@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { buildPublicUrl } from '@/lib/publicUrl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWorkshopOrders, useUpdateWorkshopOrder } from '@/hooks/useWorkshop';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Car, Wrench, Plus, GripVertical, Undo2, X, ChevronsUpDown, Phone, User, Eye, Clock, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, isToday, subDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { getDateLocale } from '@/lib/dateLocale';
 import { Input } from '@/components/ui/input';
@@ -27,6 +29,12 @@ interface Props {
 }
 
 const ROW_HEIGHT = 56; // px — stała wysokość każdego wiersza godziny
+
+// Sloty czasowe co 5 minut (00:00 – 23:55)
+const TIME_SLOTS: string[] = Array.from({ length: (24 * 60) / 5 }, (_, i) => {
+  const m = i * 5;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+});
 
 export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrderId }: Props) {
   const { t, i18n } = useTranslation();
@@ -87,14 +95,14 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
     },
   });
 
-  // Working hours from provider settings (service_working_hours) — używane do wyliczenia zakresu godzin w kalendarzu (±2h)
+  // Working hours from provider settings (service_working_hours)
   const { data: workingHoursRows = [] } = useQuery({
     queryKey: ['service-working-hours', providerId],
     enabled: !!providerId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('service_working_hours')
-        .select('start_time, end_time, is_working')
+        .select('day_of_week, start_time, end_time, is_working')
         .eq('provider_id', providerId)
         .is('employee_id', null);
       if (error) throw error;
@@ -102,22 +110,44 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
     },
   });
 
-  // Wyliczenie zakresu godzin: min start - 2h, max end + 2h (clamp 0–24); domyślnie 8–18
-  const HOURS = useMemo(() => {
-    const working = (workingHoursRows as any[]).filter(r => r.is_working !== false);
-    let minStart = 9;
-    let maxEnd = 17;
-    if (working.length > 0) {
-      const starts = working.map(r => parseInt(String(r.start_time).split(':')[0], 10)).filter(n => !isNaN(n));
-      const ends = working.map(r => parseInt(String(r.end_time).split(':')[0], 10)).filter(n => !isNaN(n));
-      if (starts.length) minStart = Math.min(...starts);
-      if (ends.length) maxEnd = Math.max(...ends);
+  // Pełna doba — godziny pracy podświetlone, reszta przyciemniona
+  const HOURS = useMemo(() => Array.from({ length: 24 }, (_, i) => i), []);
+
+  // Mapa: dzień tygodnia (0=niedz) -> [startHour, endHour)
+  const workRangeByDow = useMemo(() => {
+    const map: Record<number, { from: number; to: number } | null> = {};
+    const rows = workingHoursRows as any[];
+    for (let d = 0; d < 7; d++) {
+      const row = rows.find(r => Number(r.day_of_week) === d);
+      if (rows.length === 0) { map[d] = d === 0 ? null : { from: 8, to: 18 }; continue; }
+      if (!row || row.is_working === false) { map[d] = null; continue; }
+      const from = parseInt(String(row.start_time).split(':')[0], 10);
+      const to = parseInt(String(row.end_time).split(':')[0], 10);
+      map[d] = { from: isNaN(from) ? 8 : from, to: isNaN(to) ? 18 : to };
     }
-    const from = Math.max(0, minStart - 2);
-    const to = Math.min(24, maxEnd + 2);
-    const len = Math.max(1, to - from);
-    return Array.from({ length: len }, (_, i) => from + i);
+    return map;
   }, [workingHoursRows]);
+
+  const isWorkHour = useCallback((day: Date, hour: number) => {
+    const r = workRangeByDow[getDay(day)];
+    if (!r) return false;
+    return hour >= r.from && hour < r.to;
+  }, [workRangeByDow]);
+
+  const firstWorkHour = useMemo(() => {
+    const vals = Object.values(workRangeByDow).filter(Boolean) as { from: number }[];
+    return vals.length ? Math.min(...vals.map(v => v.from)) : 8;
+  }, [workRangeByDow]);
+
+  // Auto-scroll do pierwszej godziny pracy
+  const gridScrollRef = useRef<HTMLDivElement | null>(null);
+  const didAutoScroll = useRef(false);
+  useEffect(() => {
+    if (didAutoScroll.current || !gridScrollRef.current) return;
+    didAutoScroll.current = true;
+    gridScrollRef.current.scrollTop = Math.max(0, (firstWorkHour - 1) * ROW_HEIGHT);
+  }, [firstWorkHour]);
+
 
   // PERF C2: kalendarz pokazuje też zakończone (historia tygodnia) — 'all'
   const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
@@ -232,9 +262,10 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           let phone = (b.phone || '').replace(/\D/g, '');
           if (phone.length === 9) phone = `+48${phone}`; else if (phone.startsWith('48')) phone = `+${phone}`;
           const [y, mo, d] = String(b.proposed_date).split('-');
-          const link = b.confirmation_token ? `${window.location.origin}/r/${b.confirmation_token}` : '';
-          let msg = rmPl(`Twoja wizyta zostala zmieniona na ${d}.${mo}.${y} o godz. ${String(b.proposed_time).slice(0,5)}.`);
-          if (link) msg += ` Szczegoly: ${link}`;
+          const rToken = b.public_token || b.confirmation_token;
+          const link = rToken ? buildPublicUrl(`/r/${rToken}`) : '';
+          let msg = rmPl(`Nowy termin wizyty: ${d}.${mo}.${y} ${String(b.proposed_time).slice(0,5)}.`);
+          if (link) msg += ` ${link}`;
           if (phone) await supabase.functions.invoke('workshop-send-sms', {
             body: { phone, message: msg, sms_type: 'reschedule_confirmed', provider_id: providerId },
           });
@@ -663,13 +694,15 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         </div>
       )}
 
-      {/* Unplanned orders */}
+      <div className="flex flex-wrap lg:flex-nowrap gap-3 items-start min-h-0">
+      {/* Unplanned orders — boczny panel */}
       <Card
-        className={`border-2 shadow-sm transition-all flex-shrink-0 ${dragOverUnplanned && dragSource === 'scheduled' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20' : 'border-border'}`}
+        className={`hidden lg:flex flex-col w-[270px] flex-shrink-0 border shadow-sm transition-all h-[calc(100vh-200px)] ${dragOverUnplanned && dragSource === 'scheduled' ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20' : 'border-border'}`}
         onDragOver={(e) => { if (dragSource === 'scheduled') { e.preventDefault(); setDragOverUnplanned(true); } }}
         onDragLeave={() => setDragOverUnplanned(false)}
         onDrop={handleDropToUnplanned}
       >
+<<<<<<< HEAD
         <CardContent className="py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -687,8 +720,25 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input onFocus={e => e.currentTarget.select()} value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-[200px] h-8" />
             </div>
+=======
+        <CardContent className="py-3 px-3 flex flex-col min-h-0 flex-1">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="font-semibold text-sm">{t('workshop.scheduler.tasksToSchedule')}</h3>
+            <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1 h-7 text-xs">
+              <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
+            </Button>
+>>>>>>> origin/main
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          {dragSource === 'scheduled' && (
+            <span className="text-xs text-orange-600 font-medium flex items-center gap-1 animate-pulse mb-2">
+              <Undo2 className="h-3 w-3" /> {t('workshop.scheduler.dropToUnschedule')}
+            </span>
+          )}
+          <div className="relative mb-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-full h-8" />
+          </div>
+          <div className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
             {unplannedOrders.length === 0 ? (
               <div className="text-sm text-muted-foreground py-3 text-center w-full">{t('workshop.scheduler.noTasksToSchedule')}</div>
             ) : (
@@ -699,6 +749,30 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           </div>
         </CardContent>
       </Card>
+
+      {/* Mobilny pasek zadań */}
+      <Card className="lg:hidden border shadow-sm w-full">
+        <CardContent className="py-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-sm">{t('workshop.scheduler.tasksToSchedule')}</h3>
+            <Button size="sm" onClick={() => { setSlotData({ day: weekDays[0], hour: HOURS[0], stationId: categoryStations[0]?.id || '__default' }); setShowSlotDialog(true); }} className="gap-1 h-7 text-xs">
+              <Plus className="h-3.5 w-3.5" /> {t('workshop.scheduler.add')}
+            </Button>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {unplannedOrders.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-3 text-center w-full">{t('workshop.scheduler.noTasksToSchedule')}</div>
+            ) : (
+              unplannedOrders.map((o: any) => (
+                <OrderCard key={`m-${o.id}`} tc={tc} order={o} onDragStart={() => { setDraggedOrder(o); setDragSource('unplanned'); }} onDragEnd={resetDrag} isFocused={o.id === focusOrderId} employees={employees} updateOrder={updateOrder} />
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex-1 min-w-0">
+
 
       {/* Category tabs + controls */}
       <div className="flex items-center justify-between flex-wrap gap-2 my-2 flex-shrink-0">
@@ -765,8 +839,9 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
         </div>
       ) : (
         /* Day/Week grid */
-        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-xl border-2 border-foreground/20 shadow-lg flex flex-col">
-          <div className="flex-1 min-h-0 overflow-auto">
+        <div className="h-[calc(100vh-240px)] min-h-[420px] overflow-hidden rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-card shadow-sm flex flex-col">
+          <div ref={gridScrollRef} className="flex-1 min-h-0 overflow-auto rounded-2xl [&_table]:rounded-2xl">
+
             <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '60px' }} />
@@ -778,17 +853,17 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
               </colgroup>
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className="bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] border-b-2 border-r-2 border-foreground/20 p-2 text-left text-foreground font-bold" rowSpan={2}>
+                  <th className="bg-primary text-primary-foreground border-b border-r border-primary/40 p-2 text-left font-bold text-[10px] uppercase tracking-widest" rowSpan={2}>
                     {t('workshop.scheduler.hour')}
                   </th>
                   {categoryStations.map((st: any, stIdx: number) => (
-                    <th key={st.id} colSpan={weekDays.length} className={`bg-[hsl(220,80%,50%)] text-white border-b border-foreground/20 p-1.5 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-[3px] border-r-foreground/40' : 'border-r-2 border-r-foreground/20'}`}>
-                      <div className="flex items-center justify-center gap-1">
-                        <Wrench className="h-3 w-3" />
-                        <span className="font-semibold text-xs truncate">{st.id === '__default' ? t('workshop.scheduler.defaultStation') : tc(st.name)}</span>
+                    <th key={st.id} colSpan={weekDays.length} className={`bg-primary text-primary-foreground border-b border-primary/40 p-0 text-center ${stIdx < categoryStations.length - 1 ? 'border-r-2 border-r-primary-foreground/40' : ''}`}>
+                      <div className="flex items-center justify-center gap-1.5 py-2">
+                        <Wrench className="h-3.5 w-3.5" />
+                        <span className="font-extrabold text-sm truncate tracking-tight">{st.id === '__default' ? t('workshop.scheduler.defaultStation') : tc(st.name)}</span>
                         {st.id !== '__default' && (
-                          <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-50 hover:opacity-100 ml-0.5">
-                            <X className="h-3 w-3" />
+                          <button onClick={() => removeStationMut.mutate(st.id)} className="opacity-60 hover:opacity-100 ml-0.5">
+                            <X className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>
@@ -801,23 +876,28 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                       const today = isToday(day);
                       const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
                       return (
-                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b-2 border-r border-foreground/20 p-1 text-center ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${today ? 'bg-[hsl(220,80%,50%)] text-white' : 'bg-[hsl(220,30%,95%)] dark:bg-[hsl(220,20%,20%)] text-foreground'}`}>
-                          <div className="font-bold text-[10px]">{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
-                          <div className={`text-xs font-black ${today ? 'text-white' : ''}`}>{format(day, 'dd.MM')}</div>
+                        <th key={`${st.id}-${day.toISOString()}`} className={`border-b border-r border-slate-400 dark:border-slate-600 p-1 text-center bg-[hsl(220,14%,97%)] dark:bg-[hsl(220,14%,16%)] ${isLastDayOfStation ? 'border-r-2 border-r-primary-foreground/60' : ''}`}>
+                          <div className={`mx-1 rounded-xl py-1 ${today ? 'bg-primary text-primary-foreground shadow-sm' : ''}`}>
+                            <div className={`font-semibold text-[10px] uppercase tracking-wider ${today ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{format(day, 'EEE', { locale: getDateLocale(i18n.language) })}</div>
+                            <div className={`text-sm font-bold tabular-nums ${today ? 'text-primary-foreground' : 'text-foreground'}`}>{format(day, 'dd.MM')}</div>
+                          </div>
                         </th>
                       );
                     })
                   )}
                 </tr>
+
               </thead>
               <tbody>
-                {HOURS.map((hour, hourIdx) => {
-                  const isEvenRow = hourIdx % 2 === 0;
+                {HOURS.map((hour) => {
+                  const anyWork = weekDays.some(d => isWorkHour(d, hour));
                   return (
                     <tr key={hour} style={{ height: `${ROW_HEIGHT}px` }}>
-                      <td className={`border-b border-r-2 border-foreground/20 p-1.5 text-right font-mono font-bold text-xs sticky left-0 z-10 ${isEvenRow ? 'bg-[hsl(220,20%,97%)] dark:bg-[hsl(220,15%,15%)] text-foreground' : 'bg-[hsl(220,25%,93%)] dark:bg-[hsl(220,15%,18%)] text-foreground'}`} style={{ height: `${ROW_HEIGHT}px` }}>
-                        {`${hour}:00`}
+                      <td className={`border-b border-r-2 border-slate-400 dark:border-slate-600 p-1.5 text-right text-xs sticky left-0 z-10 tabular-nums ${anyWork ? 'bg-white dark:bg-card text-foreground font-extrabold' : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)] text-muted-foreground font-semibold'}`} style={{ height: `${ROW_HEIGHT}px` }}>
+                        {`${String(hour).padStart(2, '0')}:00`}
                       </td>
+
+
                       {categoryStations.map((st: any, stIdx: number) =>
                         weekDays.map((day, dayIdx) => {
                           const key = cellKey(st.id, day, hour);
@@ -857,15 +937,17 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
                           }
 
                           const isLastDayOfStation = dayIdx === weekDays.length - 1 && stIdx < categoryStations.length - 1;
+                          const work = isWorkHour(day, hour);
                           return (
                             <td
                               key={key}
                               rowSpan={scheduledOrder ? displaySpan : 1}
-                              className={`border-b border-r border-foreground/15 p-0 cursor-pointer transition-all relative ${isLastDayOfStation ? 'border-r-[3px] border-r-foreground/40' : ''} ${
-                                today
-                                  ? (isEvenRow ? 'bg-[hsl(220,60%,97%)] dark:bg-[hsl(220,30%,15%)]' : 'bg-[hsl(220,60%,94%)] dark:bg-[hsl(220,30%,18%)]')
-                                  : (isEvenRow ? 'bg-background' : 'bg-[hsl(220,15%,96%)] dark:bg-[hsl(220,10%,14%)]')
-                              } ${isDragOver && draggedOrder ? '!bg-[hsl(220,70%,85%)] dark:!bg-[hsl(220,50%,25%)] ring-2 ring-[hsl(220,70%,50%)] ring-inset' : scheduledOrder ? '' : 'hover:bg-[hsl(220,40%,92%)] dark:hover:bg-[hsl(220,20%,22%)]'}`}
+                              className={`border-b border-r border-slate-400 dark:border-slate-600 p-0 cursor-pointer transition-colors relative ${isLastDayOfStation ? 'border-r-2 border-r-slate-500 dark:border-r-slate-400' : ''} ${
+                                work
+                                  ? (today ? 'bg-primary/[0.06]' : 'bg-white dark:bg-card')
+                                  : 'bg-[hsl(220,14%,92%)] dark:bg-[hsl(220,14%,18%)]'
+                              } ${isDragOver && draggedOrder ? '!bg-primary/25 ring-2 ring-primary ring-inset' : scheduledOrder ? '' : 'hover:bg-primary/15'}`}
+
                               style={{ height: `${(scheduledOrder ? displaySpan : 1) * ROW_HEIGHT}px` }}
                               onClick={() => scheduledOrder ? setDetailItem(scheduledOrder) : handleCellClick(day, hour, st.id)}
                               onDragOver={(e) => { e.preventDefault(); setDragOverCell(key); }}
@@ -900,6 +982,9 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           </div>
         </div>
       )}
+      </div>
+      </div>
+
 
       {/* Add Station Dialog */}
       <Dialog open={showAddStation} onOpenChange={setShowAddStation}>
@@ -1471,7 +1556,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
         reminder_times: clientForm.reminderOptions,
         confirmation_sms_sent: false,
         status: 'scheduled',
-      }).select('id, confirmation_token').single();
+      }).select('id, confirmation_token, public_token').single();
       if (error) throw error;
 
       // Sukces OD RAZU — nie czekamy na SMS. Wcześniej cały zapis czekał na
@@ -1530,15 +1615,15 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             const finalAddress = providerInfo?.company_address || wsAddress;
             const finalCity = providerInfo?.company_city || wsCity;
             const addressText = compactSpaces(removePl([finalAddress, finalCity].filter(Boolean).join(', ')));
-            const token = insertedBooking?.confirmation_token;
-            const manageUrl = token ? `${window.location.origin}/r/${token}` : '';
-            // NIE wpisujemy opisu usługi — tylko zaproszenie + adres + link.
-            let smsMessage = `Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.`;
-            if (addressText) smsMessage += ` Adres: ${addressText}.`;
-            if (manageUrl) smsMessage += ` Zarzadzaj rezerwacja: ${manageUrl}`;
+            const token = insertedBooking?.public_token || insertedBooking?.confirmation_token;
+            const manageUrl = token ? buildPublicUrl(`/r/${token}`) : '';
+            // Skrócony szablon (krótki public_token) — 1 SMS; drop adresu jeśli > 160.
+            let smsMessage = `${workshopName}: potwierdzamy wizyte ${dateStr} ${timeStr}.`;
+            if (addressText) smsMessage += ` ${addressText}.`;
+            if (manageUrl) smsMessage += ` Zarzadzaj: ${manageUrl}`;
             smsMessage = compactSpaces(smsMessage);
-            if (smsMessage.length > 320 && addressText) {
-              smsMessage = compactSpaces(`Witam, ${workshopName} potwierdza wizyte dnia ${dateStr} o godz. ${timeStr}. Zapraszamy.${manageUrl ? ` Zarzadzaj rezerwacja: ${manageUrl}` : ''}`);
+            if (smsMessage.length > 160 && addressText) {
+              smsMessage = compactSpaces(`${workshopName}: potwierdzamy wizyte ${dateStr} ${timeStr}.${manageUrl ? ` Zarzadzaj: ${manageUrl}` : ''}`);
             }
             const { error: smsError } = await supabase.functions.invoke('workshop-send-sms', {
               body: { phone: smsPhone, message: smsMessage, sms_type: 'booking_confirmation', provider_id: providerId },
@@ -1583,54 +1668,107 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) { setSelectedOrderId(''); setActiveTab('client'); } onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle>{t('workshop.scheduler.newAppointment')}</DialogTitle>
+          <DialogTitle className="text-xl font-extrabold tracking-tight">{t('workshop.scheduler.newAppointment')}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {/* Tabs */}
-          <div className="flex gap-1 border rounded-lg p-0.5 bg-muted/30">
-            <Button variant={activeTab === 'client' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('client')} className="flex-1 text-xs">
+          <div className="grid grid-cols-3 gap-1 rounded-xl p-1 bg-muted/50">
+            <Button variant={activeTab === 'client' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('client')} className="w-full text-xs font-semibold rounded-lg">
               {t('workshop.scheduler.bookClient')}
             </Button>
-            <Button variant={activeTab === 'event' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('event')} className="flex-1 text-xs">
+            <Button variant={activeTab === 'event' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('event')} className="w-full text-xs font-semibold rounded-lg">
               {t('workshop.scheduler.newEvent')}
             </Button>
-            <Button variant={activeTab === 'order' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('order')} className="flex-1 text-xs">
+            <Button variant={activeTab === 'order' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('order')} className="w-full text-xs font-semibold rounded-lg">
               {t('workshop.scheduler.newOrder')}
             </Button>
           </div>
 
           {/* Editable date/time/category/station info */}
+<<<<<<< HEAD
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
             <div>
               <Label className="font-medium text-xs">{t('workshop.scheduler.date')}</Label>
               <Input onFocus={e => e.currentTarget.select()} type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="mt-1 h-9 text-sm w-full" />
+=======
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm rounded-xl border bg-muted/20 p-3">
+            <div className="min-w-0">
+              <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.date')}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="mt-1 h-9 w-full justify-start text-sm font-normal bg-background rounded-xl">
+                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                    {editDate ? format(new Date(editDate), 'dd.MM.yyyy') : '—'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[100]" align="start">
+                  <CalendarPicker
+                    mode="single"
+                    selected={editDate ? new Date(editDate) : undefined}
+                    onSelect={(d: Date | undefined) => { if (d) setEditDate(format(d, 'yyyy-MM-dd')); }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+>>>>>>> origin/main
             </div>
-            <div>
-              <Label className="font-medium text-xs">{t('workshop.scheduler.time')}</Label>
-              <div className="flex items-center gap-1.5 mt-1">
-                <Input
-                  inputMode="numeric"
-                  value={editHourStr}
-                  onFocus={e => e.target.select()}
-                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditHourStr(v); }}
-                  onBlur={e => { const n = Math.min(23, Math.max(0, parseInt(e.target.value || '0'))); setEditHourStr(String(n).padStart(2, '0')); }}
-                  className="h-9 text-sm w-16 text-center" placeholder="HH"
-                />
-                <span className="text-sm font-bold">:</span>
-                <Input
-                  inputMode="numeric"
-                  value={editMinStr}
-                  onFocus={e => e.target.select()}
-                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 2); setEditMinStr(v); }}
-                  onBlur={e => { const n = Math.min(59, Math.max(0, parseInt(e.target.value || '0'))); setEditMinStr(String(n).padStart(2, '0')); }}
-                  className="h-9 text-sm w-16 text-center" placeholder="MM"
-                />
-              </div>
+            <div className="min-w-0">
+              <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.time')}</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="mt-1 h-9 w-full justify-start text-sm font-normal bg-background rounded-xl">
+                    <Clock className="mr-2 h-4 w-4 text-primary" />
+                    {`${(editHourStr || '00').padStart(2, '0')}:${(editMinStr || '00').padStart(2, '0')}`}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0 z-[100] rounded-2xl overflow-hidden" align="start">
+                  <div className="grid grid-cols-2 divide-x divide-border">
+                    <div>
+                      <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 text-center">godz.</div>
+                      <div
+                        className="max-h-56 overflow-y-auto overscroll-contain p-1 space-y-0.5"
+                        onWheel={(e) => { e.currentTarget.scrollTop += e.deltaY; }}
+                      >
+                        {Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')).map(h => {
+                          const active = h === (editHourStr || '00').padStart(2, '0');
+                          return (
+                            <button
+                              key={h} type="button"
+                              onClick={() => setEditHourStr(h)}
+                              className={`w-full text-sm rounded-lg py-1 tabular-nums transition-colors ${active ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-primary/10'}`}
+                            >{h}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 text-center">min.</div>
+                      <div
+                        className="max-h-56 overflow-y-auto overscroll-contain p-1 space-y-0.5"
+                        onWheel={(e) => { e.currentTarget.scrollTop += e.deltaY; }}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0')).map(m => {
+                          const active = m === (editMinStr || '00').padStart(2, '0');
+                          return (
+                            <button
+                              key={m} type="button"
+                              onClick={() => setEditMinStr(m)}
+                              className={`w-full text-sm rounded-lg py-1 tabular-nums transition-colors ${active ? 'bg-primary text-primary-foreground font-semibold' : 'hover:bg-primary/10'}`}
+                            >{m}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
-            <div>
-              <Label className="font-medium text-xs">{t('workshop.scheduler.category')}</Label>
+
+            <div className="min-w-0">
+              <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.category')}</Label>
               <Select
                 value={activeCategory}
                 onValueChange={(v) => {
@@ -1639,7 +1777,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                   if (first) { setEditStationId(first.id); onStationChange(first.id); }
                 }}
               >
-                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1 h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c: string) => (
                     <SelectItem key={c} value={c}>{tc(c)}</SelectItem>
@@ -1647,10 +1785,10 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="font-medium text-xs">{t('workshop.scheduler.stationLabel')}</Label>
+            <div className="min-w-0">
+              <Label className="font-medium text-xs text-muted-foreground">{t('workshop.scheduler.stationLabel')}</Label>
               <Select value={editStationId} onValueChange={(v) => { setEditStationId(v); onStationChange(v); }}>
-                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1 h-9 text-sm bg-background"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {stations.map((st: any) => (
                     <SelectItem key={st.id} value={st.id}>{tc(st.name)}</SelectItem>
@@ -1659,6 +1797,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
               </Select>
             </div>
           </div>
+
 
           {activeTab === 'client' ? (
             <div className="space-y-3">

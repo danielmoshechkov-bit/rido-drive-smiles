@@ -218,13 +218,14 @@
     "formSentDesc": "We'll contact you within 24 hours.",
     "placeholders": {
       "name": "John Smith",
-      "phone": "+48 519 474 583",
+      "phone": "+48",
       "email": "john@example.com",
       "city": "Warsaw",
-      "message": "I want to become a Get RIDO driver..."
+      "message": "How can we help? Describe your issue..."
     }
   },
   "footer": {
+    "dataDeletion": "Data Deletion",
     "copyright": "GetRido. All rights reserved.",
     "allListings": "← All listings",
     "privacy": "Privacy Policy",
@@ -1999,7 +2000,14 @@
       "confirmDelete_one": "Are you sure you want to delete {{count}} order?",
       "confirmDelete_other": "Are you sure you want to delete {{count}} orders?",
       "deletedCount_one": "Deleted {{count}} order",
-      "deletedCount_other": "Deleted {{count}} orders"
+      "deletedCount_other": "Deleted {{count}} orders",
+      "selectOrderFirst": "First select the order you want to issue it for",
+      "alreadyFiscalized": "This order already has a fiscal receipt",
+      "colDocuments": "Documents",
+      "docsAll": "All documents",
+      "docsWithReceipt": "With receipt",
+      "docsWithoutReceipt": "Without receipt",
+      "docsWithInvoice": "With invoice"
     },
     "orderDetail": {
       "completedWarningTitle": "Note: order completed.",
@@ -2289,7 +2297,7 @@
         "stanowiska": "Stations",
         "ustawienia": "Settings"
       },
-      "freeTrialBadge": "14 days free — no commitment",
+      "freeTrialBadge": "{{days}} days free — no commitment",
       "heroTitle": "Workshop & Auto — everything in one place",
       "heroSubtitle": "Manage orders, clients, vehicles, inventory and invoices. Save time and grow profits with automation and AI.",
       "features": {
@@ -2322,44 +2330,9 @@
         "title": "Choose a plan for you",
         "startFree": "Start for free",
         "choosePlan": "Choose plan",
-        "plans": {
-          "start": {
-            "badge": "Free",
-            "f1": "20 orders/mo",
-            "f2": "Clients + vehicles",
-            "f3": "Schedule",
-            "f4": "Photos at intake",
-            "f5": "10 VIN checks",
-            "f6": "3 AI questions/mo"
-          },
-          "warsztat": {
-            "badge": "Most popular",
-            "f1": "Unlimited orders",
-            "f2": "Warehouse + storage",
-            "f3": "Sales + invoices",
-            "f4": "Reports + live margin",
-            "f5": "KSeF basic",
-            "f6": "20 AI questions/mo"
-          },
-          "pro": {
-            "badge": "Pro",
-            "f1": "Repair data (TecRMI)",
-            "f2": "Mechanic work time",
-            "f3": "50 AI questions/mo",
-            "f4": "Full KSeF + sending",
-            "f5": "Advanced reports",
-            "f6": "Priority support"
-          },
-          "ai": {
-            "badge": "AI Business",
-            "f1": "AI accounting",
-            "f2": "30 invoices/mo auto-read",
-            "f3": "AI tax advisor",
-            "f4": "Unlimited AI",
-            "f5": "KSeF monitor + alerts",
-            "f6": "Dedicated account manager"
-          }
-        }
+        "popular": "Most popular",
+        "contact": "Contact us",
+        "unavailable": "Could not load the current pricing. Please refresh the page."
       },
       "error": "Error: {{message}}",
       "stations": {
@@ -3561,7 +3534,7 @@
       "model": "Model",
       "modelPlaceholder": "e.g. Corolla",
       "serviceDesc": "Service description",
-      "serviceDescPlaceholder": "e.g. Oil + filter change",
+      "serviceDescPlaceholder": "e.g. tyre change, wash, repair…",
       "serviceDuration": "Service time",
       "dur30min": "30 min",
       "dur1h": "1 h",
@@ -3749,7 +3722,8 @@
         "numbering": "Numbering",
         "integrations": "Integrations",
         "notifications": "Notifications",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Fiscal printer"
       },
       "workstations": {
         "title": "Workstations",
@@ -4133,5 +4107,30 @@
     "selectToActivate": "Select the module you want to activate",
     "comingSoon": "Soon",
     "allAccountTypes": "You already have all available account types"
+  },
+  "dataDeletion": {
+    "title": "Data Deletion",
+    "subtitle": "Instructions for deleting your personal data — including data obtained from Facebook and Instagram (Meta)",
+    "lastUpdated": "Last updated",
+    "adminTitle": "1. Data controller",
+    "rodoContact": "Data protection contact",
+    "metaDataTitle": "2. What data we obtain via Facebook / Instagram",
+    "metaDataIntro": "In connection with publishing listings on GetRido profiles in Meta services, we may obtain the following data via Meta APIs:",
+    "metaData1": "your Meta user identifier",
+    "metaData2": "your profile name",
+    "metaData3": "your e-mail address (if shared)",
+    "metaData4": "identifiers of published posts",
+    "purposeText": "Purpose of processing: publishing the user's listings on GetRido profiles in Meta services and reporting publication statistics.",
+    "howTitle": "3. How to request data deletion",
+    "howIntro": "To request deletion of your data, follow these steps:",
+    "howStep1": "Send an e-mail to:",
+    "howStep2": "Use the subject line: “Data deletion” (Polish: „Usunięcie danych”).",
+    "howStep3": "In the message body, provide the e-mail address of your GetRido account or the name of the Facebook profile the request concerns.",
+    "deadline": "We will process your request without undue delay, no later than within 30 days of receiving it (Art. 12(3) GDPR).",
+    "scopeTitle": "4. What we delete and what we must retain",
+    "scopeDelete": "We delete all personal data associated with the account or profile indicated in the request, including data obtained from Meta services.",
+    "scopeKeep": "The exception is billing data and invoices, which we are required by tax law to retain for 5 years. After this period they are deleted.",
+    "altTitle": "5. Alternatively: revoke access in your Facebook settings",
+    "altText": "You can also disconnect the GetRido app from your Facebook account yourself: go to Settings → Apps and Websites, find GetRido and remove access. Disconnecting the app stops further data collection; to delete data already obtained, send a request as described in section 3."
   }
 }

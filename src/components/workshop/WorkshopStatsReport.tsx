@@ -32,7 +32,8 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub?: string
 export function WorkshopStatsReport({ providerId }: { providerId: string }) {
   const [from, setFrom] = useState(startOfMonth());
   const [to, setTo] = useState(todayStr());
-  const { data: orders = [] } = useWorkshopOrders(providerId);
+  // Statystyki bez zakończonych zleceń nie mają sensu — potrzebny pełny widok.
+  const { data: orders = [] } = useWorkshopOrders(providerId, { view: 'all' });
 
   const stats = useMemo(() => {
     const all = orders as any[];

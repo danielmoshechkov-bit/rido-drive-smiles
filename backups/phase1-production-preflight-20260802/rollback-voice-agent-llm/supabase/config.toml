@@ -1,0 +1,4 @@
+project_id = "phase1-production-rollback-llm"
+
+[functions.voice-agent-llm]
+verify_jwt = false

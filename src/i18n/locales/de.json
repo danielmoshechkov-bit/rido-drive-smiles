@@ -634,10 +634,10 @@
     "formSentDesc": "Wir werden uns innerhalb von 24 Stunden mit Ihnen in Verbindung setzen.",
     "placeholders": {
       "name": "Jan Kowalski",
-      "phone": "+48 519 474 583",
+      "phone": "+48",
       "email": "jan@example.com",
       "city": "Warszawa",
-      "message": "Ich möchte Get RIDO-Fahrer werden..."
+      "message": "Wie können wir helfen? Beschreiben Sie Ihr Anliegen..."
     }
   },
   "register": {
@@ -1906,7 +1906,14 @@
       "confirmDelete_one": "Möchten Sie {{count}} Auftrag wirklich löschen?",
       "confirmDelete_other": "Möchten Sie {{count}} Aufträge wirklich löschen?",
       "deletedCount_one": "{{count}} Auftrag gelöscht",
-      "deletedCount_other": "{{count}} Aufträge gelöscht"
+      "deletedCount_other": "{{count}} Aufträge gelöscht",
+      "selectOrderFirst": "Wählen Sie zuerst den Auftrag aus, für den Sie ausstellen möchten",
+      "alreadyFiscalized": "Für diesen Auftrag wurde bereits ein Kassenbon ausgestellt",
+      "colDocuments": "Dokumente",
+      "docsAll": "Alle Dokumente",
+      "docsWithReceipt": "Mit Kassenbon",
+      "docsWithoutReceipt": "Ohne Kassenbon",
+      "docsWithInvoice": "Mit Rechnung"
     },
     "orderDetail": {
       "completedWarningTitle": "Hinweis: Auftrag abgeschlossen.",
@@ -2196,7 +2203,7 @@
         "stanowiska": "Stationen",
         "ustawienia": "Einstellungen"
       },
-      "freeTrialBadge": "14 Tage kostenlos — unverbindlich",
+      "freeTrialBadge": "{{days}} Tage kostenlos — unverbindlich",
       "heroTitle": "Werkstatt & Auto — alles an einem Ort",
       "heroSubtitle": "Verwalten Sie Aufträge, Kunden, Fahrzeuge, Lager und Rechnungen. Sparen Sie Zeit und steigern Sie den Gewinn mit Automatisierung und KI.",
       "features": {
@@ -2229,44 +2236,9 @@
         "title": "Wählen Sie Ihren Plan",
         "startFree": "Kostenlos starten",
         "choosePlan": "Plan wählen",
-        "plans": {
-          "start": {
-            "badge": "Kostenlos",
-            "f1": "20 Aufträge/Mon.",
-            "f2": "Kunden + Fahrzeuge",
-            "f3": "Terminplan",
-            "f4": "Fotos bei der Annahme",
-            "f5": "10 FIN-Prüfungen",
-            "f6": "3 KI-Fragen/Mon."
-          },
-          "warsztat": {
-            "badge": "Am beliebtesten",
-            "f1": "Unbegrenzte Aufträge",
-            "f2": "Lager + Einlagerung",
-            "f3": "Verkauf + Rechnungen",
-            "f4": "Berichte + Live-Marge",
-            "f5": "KSeF Basic",
-            "f6": "20 KI-Fragen/Mon."
-          },
-          "pro": {
-            "badge": "Pro",
-            "f1": "Reparaturdaten (TecRMI)",
-            "f2": "Arbeitszeit des Mechanikers",
-            "f3": "50 KI-Fragen/Mon.",
-            "f4": "Voll-KSeF + Versand",
-            "f5": "Erweiterte Berichte",
-            "f6": "Prioritäts-Support"
-          },
-          "ai": {
-            "badge": "AI Business",
-            "f1": "KI-Buchhaltung",
-            "f2": "30 Rechnungen/Mon. Auto-Lesen",
-            "f3": "KI-Steuerberater",
-            "f4": "Unbegrenzte KI",
-            "f5": "KSeF-Monitor + Warnungen",
-            "f6": "Persönlicher Betreuer"
-          }
-        }
+        "popular": "Am beliebtesten",
+        "contact": "Kontaktieren Sie uns",
+        "unavailable": "Die aktuelle Preisliste konnte nicht geladen werden. Bitte laden Sie die Seite neu."
       },
       "error": "Fehler: {{message}}",
       "stations": {
@@ -3468,7 +3440,7 @@
       "model": "Modell",
       "modelPlaceholder": "z. B. Corolla",
       "serviceDesc": "Servicebeschreibung",
-      "serviceDescPlaceholder": "z. B. Öl- und Filterwechsel",
+      "serviceDescPlaceholder": "z. B. Reifenwechsel, Wäsche, Reparatur…",
       "serviceDuration": "Servicedauer",
       "dur30min": "30 Min",
       "dur1h": "1 Std.",
@@ -3656,7 +3628,8 @@
         "numbering": "Nummerierung",
         "integrations": "Integrationen",
         "notifications": "Benachrichtigungen",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Fiskalisierung"
       },
       "workstations": {
         "title": "Arbeitsplätze",

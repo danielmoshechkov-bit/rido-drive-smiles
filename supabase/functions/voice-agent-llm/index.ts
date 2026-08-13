@@ -13,15 +13,41 @@
 // ============================================================================
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getSecret } from "../_shared/aiSecrets.ts";
+import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
+import { cachedContext } from "../_shared/voiceContextCache.ts";
+import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
+import { resolveVoiceLlmRoute } from "../_shared/voicePhase1Route.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
+const sseHeaders = {
+  ...corsHeaders,
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache, no-transform",
+  "X-Accel-Buffering": "no",
+  Connection: "keep-alive",
+};
+const legacySseHeaders = {
+  ...corsHeaders,
+  "Content-Type": "text/event-stream",
+  "Cache-Control": "no-cache",
+};
 
 const tenc = new TextEncoder();
+type VoiceAgentConfig = {
+  business_context?: Record<string, unknown>;
+  display_name?: string;
+  languages?: string[];
+  calendar_access?: boolean;
+  orders_access?: boolean;
+  voice_id?: string;
+  elevenlabs_agent_id?: string;
+};
+type LlmInputMessage = { role?: unknown; content?: unknown };
+type LlmContentPart = { text?: unknown };
 function timingSafeEqual(a: string, b: string): boolean {
   const ab = tenc.encode(a), bb = tenc.encode(b);
   if (ab.length !== bb.length) return false;
@@ -29,22 +55,54 @@ function timingSafeEqual(a: string, b: string): boolean {
   for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i];
   return diff === 0;
 }
+const logTiming = (stage: string, startedAt: number, extra: Record<string, unknown> = {}) => {
+  console.info("[voice-agent-llm]", JSON.stringify({
+    event: "stage_timing", stage,
+    duration_ms: Math.round(performance.now() - startedAt),
+    ...extra,
+  }));
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method === "GET") return new Response(JSON.stringify({ ok: true, service: "voice-agent-llm" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  const warmupPath = new URL(req.url).pathname.endsWith("/warmup");
+  if (req.method === "GET" && !warmupPath) return new Response(JSON.stringify({ ok: true, service: "voice-agent-llm" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+  const totalStarted = performance.now();
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
   const url = new URL(req.url);
-  const providerId = url.searchParams.get("provider_id") || "";
-  const personaKey = url.searchParams.get("persona_key") || "workshop_secretary";
+
+  // /warmup — ROZGRZEWANIE POŁĄCZENIA DO BAZY, poza ścieżką rozmowy.
+  //
+  // Zwykły keep-warm dostawał 401 zanim dotknął bazy, więc grzał tylko rozruch
+  // izolatu. Pomiar z rozmowy 05.08 18:43: `auth`+`config` na pierwszych trzech
+  // turach 827/823/939 ms, od czwartej 260-272 ms. Każda tura ląduje na innym
+  // izolacie, a pierwsze trzy zestawiają połączenie od zera.
+  //
+  // Ta gałąź robi JEDNO trywialne zapytanie i nic więcej. Nie dotyka konfiguracji
+  // agenta, nie woła modelu, nie zapisuje. Za tokenem, bo bez niego byłby to
+  // darmowy generator zapytań do bazy dla każdego, kto zna URL.
+  if (warmupPath) {
+    const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
+    const bearerWarm = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    const providedWarm = url.searchParams.get("token") || bearerWarm;
+    if (!expected || !providedWarm || !timingSafeEqual(providedWarm, expected)) {
+      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const warmStarted = performance.now();
+    await admin.from("voice_agent_configs").select("provider_id").limit(1);
+    logTiming("warmup", warmStarted);
+    return new Response(JSON.stringify({ ok: true, warm: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+  const { providerId, personaKey } = resolveVoiceLlmRoute(url);
 
   // Bez skonfigurowanego VOICE_LLM_TOKEN endpoint jest ZABLOKOWANY (fail-closed) —
   // otwarty Custom-LLM to darmowy Claude dla każdego, kto zna provider_id.
-  const expectedToken = await getSecret(admin, "VOICE_LLM_TOKEN");
+  const authStarted = performance.now();
+  const expectedToken = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
   if (!expectedToken) {
     return new Response(JSON.stringify({ error: "VOICE_LLM_TOKEN nie skonfigurowany — endpoint zablokowany" }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
@@ -53,46 +111,225 @@ serve(async (req) => {
   if (!providedToken || !timingSafeEqual(providedToken, expectedToken)) {
     return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
+  logTiming("auth", authStarted);
+
+  const configStarted = performance.now();
+  let cfg: VoiceAgentConfig | null = null;
+  let voiceContext: Record<string, unknown> | null = null;
+  if (providerId) {
+    // JEDNO zapytanie zamiast czterech na turę.
+    //
+    // Pomiar 05.08 20:40: cztery round-tripy (voice_agent_configs w llm oraz
+    // voice_agent_knowledge, voice_agent_personas i ai_agents_config w chat)
+    // kosztowały 132-377 ms + 250-1070 ms. Cache w pamięci izolatu dał ZERO
+    // trafień na 42 odczyty — każda tura ląduje na świeżym izolacie, więc cache
+    // procesowy jest tu bezużyteczny i został zastąpiony tym RPC.
+    //
+    // Wynik jedzie do voice-agent-chat w ciele żądania (połączenie service-role),
+    // dzięki czemu chat nie dotyka bazy w ścieżce tury. Przyrost payloadu to
+    // ~4,9 KB, czyli ułamek milisekundy na serializację.
+    const { data: ctx, error: ctxError } = await admin
+      .rpc("get_voice_context", { p_provider_id: providerId, p_persona_key: personaKey });
+    if (ctxError) {
+      // ZASADA 12: błąd nie może wyglądać jak brak danych. Chat wróci wtedy
+      // do własnych odczytów, bo nie dostanie voice_context.
+      console.warn("[voice-agent-llm] context_rpc_failed", { code: ctxError.code });
+    }
+    voiceContext = (ctx as Record<string, unknown> | null) || null;
+    cfg = (voiceContext?.config as VoiceAgentConfig | null) || null;
+
+    // Fallback, gdy RPC nie zadziała: pojedynczy odczyt jak dotąd.
+    if (!cfg) {
+      const { data, error } = await admin.from("voice_agent_configs")
+        .select("business_context, display_name, languages, calendar_access, orders_access, voice_id, elevenlabs_agent_id")
+        .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
+      if (error) console.warn("[voice-agent-llm] config_lookup_failed", { code: error.code });
+      cfg = data;
+    }
+  }
+  logTiming("config", configStarted);
 
   const reqBody = await req.json().catch(() => ({}));
   const stream = reqBody?.stream !== false;
   const model = reqBody?.model || "rido-claude";
-  const inMessages: any[] = Array.isArray(reqBody?.messages) ? reqBody.messages : [];
+  const inMessages: LlmInputMessage[] = Array.isArray(reqBody?.messages) ? reqBody.messages : [];
+  // Narzędzia systemowe ElevenLabs (end_call, language_detection) przychodzą w polu
+  // tools w formacie OpenAI. Dotąd je ignorowaliśmy, więc model nie miał czym zakończyć
+  // rozmowy i klient musiał rozłączać się sam. Przekazujemy je dalej bez modyfikacji —
+  // konwersją na format Anthropic zajmuje się voice-agent-chat.
+  const clientTools: unknown[] = Array.isArray(reqBody?.tools) ? reqBody.tools : [];
+  const canary = resolveVoiceProductionCanary(providerId, cfg?.elevenlabs_agent_id);
+
+  // SONDA DIAGNOSTYCZNA — ustalenie, w którym polu ElevenLabs przekazuje identyfikator
+  // rozmowy. Nie zgadujemy kontraktu: sprawdzamy wszystkie prawdopodobne miejsca
+  // i logujemy WYŁĄCZNIE nazwę źródła oraz długość wartości. Sama wartość nigdy nie
+  // trafia do logu, bo identyfikator rozmowy jest daną wrażliwą.
+  // Ten blok niczego nie przekazuje dalej — służy tylko zdobyciu dowodu przed
+  // podłączeniem conversation_id przez cały łańcuch.
+  // ZNACZNIK RIDO — tożsamość rozmowy z wiadomości systemowej (FAZA 1A).
+  //
+  // ElevenLabs nie przekazuje conversation_id do Custom LLM w żadnym polu (sonda
+  // niżej sprawdza osiem miejsc, wszystkie puste w każdej rozmowie). Ale UDOSTĘPNIA
+  // go jako systemową zmienną dynamiczną `system__conversation_id`, którą podstawia
+  // w prompcie — a prompt przychodzi tu jako wiadomość `system`, którą dotąd
+  // wyrzucaliśmy bez czytania.
+  //
+  // Prompt agenta musi kończyć się linią (panel ElevenLabs):
+  //   <<RIDO conv={{system__conversation_id}} caller={{system__caller_id}} called={{system__called_number}}>>
+  //
+  // Niepodstawiona zmienna zostaje w tekście jako "{{system__…}}" — traktujemy ją
+  // jak brak wartości, nie jak wartość. Znacznik jest wycinany, zanim cokolwiek
+  // trafi do modelu.
+  const systemMessage = inMessages.find((m) => m?.role === "system");
+  const systemText = typeof systemMessage?.content === "string" ? systemMessage.content : "";
+  // SNAPSHOT Z WEBHOOKA INICJUJĄCEGO. ElevenLabs wstawia go w prompt jako zmienną
+  // dynamiczną między znaczniki; my wycinamy go, zanim cokolwiek trafi do modelu.
+  // Osobne znaczniki w oddzielnych liniach, bo snapshot to ~4,5 kB JSON-a i nie
+  // zmieściłby się bezpiecznie w jednolinijkowym znaczniku RIDO.
+  const snapMarker = systemText.match(/<<RIDO_SNAPSHOT>>([\s\S]*?)<<\/RIDO_SNAPSHOT>>/);
+  const snapshotRaw = snapMarker ? snapMarker[1].trim() : "";
+  // Niepodstawiona zmienna zostaje jako "{{rido_snapshot}}" — to brak wartości,
+  // nie wartość (ta sama zasada co przy znaczniku RIDO).
+  const snapshot = snapshotRaw && !snapshotRaw.includes("{{") ? snapshotRaw : "";
+
+  const ridoMarker = systemText.match(/<<RIDO\s+conv=(\S*)\s+caller=(\S*)\s+called=(\S*)>>/);
+  const unresolved = (v: string | undefined) => !v || v.startsWith("{{") || v === "-";
+  const markerConversationId = ridoMarker && !unresolved(ridoMarker[1]) ? ridoMarker[1] : null;
+  const markerCallerId = ridoMarker && !unresolved(ridoMarker[2]) ? ridoMarker[2] : null;
+
+  const conversationIdCandidates: Array<[string, unknown]> = [
+    ["system_marker", markerConversationId],
+    ["header.elevenlabs-conversation-id", req.headers.get("elevenlabs-conversation-id")],
+    ["header.x-conversation-id", req.headers.get("x-conversation-id")],
+    ["header.xi-conversation-id", req.headers.get("xi-conversation-id")],
+    ["body.conversation_id", (reqBody as Record<string, unknown>)?.conversation_id],
+    ["body.conversationId", (reqBody as Record<string, unknown>)?.conversationId],
+    ["body.user", (reqBody as Record<string, unknown>)?.user],
+    ["body.metadata", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.conversation_id],
+    ["body.elevenlabs_conversation_id", (reqBody as Record<string, unknown>)?.elevenlabs_conversation_id],
+  ];
+  // Numer dzwoniącego jest potrzebny do SMS-a z prośbą o oddzwonienie, gdy rozmowa
+  // przerwie się błędem. Dziś nie wiemy, czy i gdzie ElevenLabs go przekazuje —
+  // sonda sprawdza to tak samo jak identyfikator rozmowy i tak samo NIE loguje wartości.
+  const callerNumberCandidates: Array<[string, unknown]> = [
+    ["system_marker", markerCallerId],
+    ["header.x-caller-number", req.headers.get("x-caller-number")],
+    ["header.from", req.headers.get("from")],
+    ["body.caller_id", (reqBody as Record<string, unknown>)?.caller_id],
+    ["body.from_number", (reqBody as Record<string, unknown>)?.from_number],
+    ["body.metadata.caller_id", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.caller_id],
+    ["body.metadata.from", (reqBody as Record<string, Record<string, unknown>>)?.metadata?.from],
+  ];
+  // Identyfikator rozmowy bierzemy z pierwszego źródła, które faktycznie coś przysłało.
+  // To nie jest zgadywanie kontraktu — sprawdzamy wszystkie prawdopodobne miejsca naraz,
+  // więc działa niezależnie od tego, którego użyje ElevenLabs. Log poniżej mówi, które
+  // źródło zadziałało, żeby dało się to później zawęzić.
+  const conversationId = (conversationIdCandidates
+    .find(([, value]) => typeof value === "string" && (value as string).length > 0)?.[1] as string | undefined) || null;
+  const conversationIdSource = conversationIdCandidates
+    .find(([, value]) => typeof value === "string" && (value as string).length > 0)?.[0] || null;
+
+  // ROZSTRZYGNIĘCIE HIPOTEZY O PODWÓJNYCH ŻĄDANIACH.
+  //
+  // ElevenLabs wysyła po dwa żądania na turę mimo `speculative_turn: false`
+  // (rozmowa 05.08 02:05 — 12 żądań na 8 tur). Dwa scenariusze, różne wnioski:
+  //   • identyczny skrót -> to retry po stronie ElevenLabs
+  //   • różny skrót      -> ASR poprawił transkrypt i tura poszła drugi raz,
+  //                         co pasuje do `turn_eagerness: "eager"`
+  // Logujemy WYŁĄCZNIE liczbę wiadomości, długość i skrót ostatniej wypowiedzi.
+  // Treść nie trafia do logu — to dane osobowe klienta.
+  const lastUser = [...inMessages].reverse().find((m) => m?.role === "user");
+  const lastUserText = typeof lastUser?.content === "string" ? lastUser.content : "";
+  let lastUserHash = 0;
+  for (let i = 0; i < lastUserText.length; i++) {
+    lastUserHash = (Math.imul(lastUserHash, 31) + lastUserText.charCodeAt(i)) >>> 0;
+  }
+
+  console.info("[voice-agent-llm]", JSON.stringify({
+    event: "conversation_id_probe",
+    snapshot_znakow: snapshot.length,
+    used_source: conversationIdSource,
+    messages: inMessages.length,
+    last_user_len: lastUserText.length,
+    last_user_hash: lastUserHash.toString(36),
+    caller: callerNumberCandidates
+      .filter(([, value]) => typeof value === "string" && value.length > 0)
+      .map(([source, value]) => ({ source, length: String(value).length })),
+    found: conversationIdCandidates
+      .filter(([, value]) => typeof value === "string" && value.length > 0)
+      .map(([source, value]) => ({ source, length: String(value).length })),
+    body_keys: Object.keys((reqBody as Record<string, unknown>) || {}),
+    header_keys: [...req.headers.keys()].filter((k) => !/^authorization$|^cookie$|apikey/i.test(k)),
+  }));
 
   // Wyciągnij rozmowę (user/assistant); system od ElevenLabs ignorujemy — mózg buduje własny.
   const convo = inMessages
     .filter((m) => m?.role === "user" || m?.role === "assistant")
     .map((m) => ({
       role: m.role,
-      content: typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.map((c: any) => c?.text || "").join(" ") : "",
+      content: typeof m.content === "string"
+        ? m.content
+        : Array.isArray(m.content)
+        ? (m.content as LlmContentPart[]).map((part) => typeof part.text === "string" ? part.text : "").join(" ")
+        : "",
     }))
     .filter((m) => m.content);
-
-  // Konfiguracja tenanta (dane firmy, język, uprawnienia)
-  let cfg: any = null;
-  if (providerId) {
-    const { data } = await admin.from("voice_agent_configs")
-      .select("business_context, display_name, languages, calendar_access, orders_access, voice_id")
-      .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
-    cfg = data;
-  }
 
   // Wywołaj nasz mózg (service-role)
   let reply = "Przepraszam, chwilowy problem techniczny.";
   try {
+    const chatStarted = performance.now();
     const r = await fetch(`${supabaseUrl}/functions/v1/voice-agent-chat`, {
       method: "POST",
       headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
       body: JSON.stringify({
         provider_id: providerId, persona_key: personaKey, test_mode: false,
+        response_stream: canary.enabled && stream,
+        production_canary: canary.enabled,
+        // Wewnętrzne, uwierzytelnione service-role przekazanie wyłącznie do
+        // ponownej walidacji pary canary w voice-agent-chat.
+        ...(canary.enabled ? { elevenlabs_agent_id: cfg?.elevenlabs_agent_id } : {}),
+        // Identyfikator rozmowy tylko w gałęzi canary — kontrakt legacy zostaje
+        // bajtowo taki sam jak przed Phase 1.
+        ...(canary.enabled && conversationId ? { conversation_id: conversationId } : {}),
+        ...(canary.enabled && clientTools.length ? { client_tools: clientTools } : {}),
+        ...(canary.enabled && voiceContext ? { voice_context: voiceContext } : {}),
+        ...(canary.enabled && snapshot ? { snapshot } : {}),
+        // Numer dzwoniącego ze znacznika RIDO. Potwierdzone w produkcji:
+        // used_source = "system_marker", długość 12 znaków (+48XXXXXXXXX).
+        // Gdy go NIE MA (numer zastrzeżony, rozmowa z panelu) — agent musi zapytać,
+        // bo inaczej zostawimy rozmowę bez żadnego kontaktu do klienta.
+        ...(canary.enabled ? {
+          caller_id: markerCallerId || null,
+          caller_id_available: !!markerCallerId,
+        } : {}),
         messages: convo,
         business_context: cfg?.business_context || {}, display_name: cfg?.display_name || "",
         languages: cfg?.languages || ["pl"], calendar_access: !!cfg?.calendar_access, orders_access: !!cfg?.orders_access,
       }),
+      // Timeout proxy dotyczy wyłącznie Phase 1. Legacy nie otrzymuje nowego
+      // limitu i zachowuje poprzedni kontrakt wykonania.
+      ...(canary.enabled ? {
+        signal: AbortSignal.any([req.signal, AbortSignal.timeout(stream ? 45_000 : 18_000)]),
+      } : {}),
     });
-    const data = await r.json();
-    if (data?.reply) reply = data.reply;
-  } catch (_) { /* zwróć fallback reply */ }
+    if (stream && r.ok && r.body && (r.headers.get("content-type") || "").includes("text/event-stream")) {
+      logTiming("chat_headers", chatStarted, { ok: true, production_canary: true });
+      const measured = r.body.pipeThrough(new TransformStream({
+        transform(chunk, controller) { controller.enqueue(chunk); },
+        flush() { logTiming("total", totalStarted, { stream: true, production_canary: true }); },
+      }));
+      return new Response(measured, {
+        headers: sseHeaders,
+      });
+    }
+    const data = await r.json().catch(() => ({}));
+    if (r.ok && data?.reply) reply = data.reply;
+    else console.warn("[voice-agent-llm] chat_failed", r.status);
+    logTiming("chat", chatStarted, { ok: r.ok });
+  } catch (error) {
+    console.warn("[voice-agent-llm] chat_failed", (error as Error)?.name || "error");
+  }
 
   const id = "chatcmpl-" + Math.random().toString(36).slice(2);
   const created = Math.floor(Date.now() / 1000);
@@ -101,9 +338,11 @@ serve(async (req) => {
     const chunk = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: { role: "assistant", content: reply }, finish_reason: null }] };
     const done = { id, object: "chat.completion.chunk", created, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] };
     const sse = `data: ${JSON.stringify(chunk)}\n\ndata: ${JSON.stringify(done)}\n\ndata: [DONE]\n\n`;
-    return new Response(sse, { headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
+    logTiming("total", totalStarted, { stream: true, production_canary: canary.enabled });
+    return new Response(sse, { headers: canary.enabled ? sseHeaders : legacySseHeaders });
   }
 
   const completion = { id, object: "chat.completion", created, model, choices: [{ index: 0, message: { role: "assistant", content: reply }, finish_reason: "stop" }], usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } };
+  logTiming("total", totalStarted, { stream: false, production_canary: canary.enabled });
   return new Response(JSON.stringify(completion), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });

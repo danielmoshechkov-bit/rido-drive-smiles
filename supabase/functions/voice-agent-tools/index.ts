@@ -13,6 +13,8 @@
 // ============================================================================
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildPublicUrl } from "../_shared/publicUrl.ts";
+import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +28,29 @@ const splitName = (full: string) => {
   const parts = (full || "").trim().split(/\s+/);
   return { first: parts[0] || "Klient", last: parts.slice(1).join(" ") || "" };
 };
+// INSTRUMENTACJA — jedyne miejsce w torze rozmowy bez pomiaru.
+//
+// create_booking trwało 5743 ms i było 53% najgorszej tury (rozmowa 06.08 00:26),
+// a z zewnątrz widać było tylko sumę. Każdy krok mierzy się osobno, wszystko
+// w jednej linii JSON na żądanie, z conversation_id jako kluczem korelacji —
+// tak samo jak w voice-agent-chat i voice-agent-llm.
+type StepTiming = { krok: string; ms: number; ok?: boolean };
+const makeTracker = () => {
+  const steps: StepTiming[] = [];
+  const track = async <T>(krok: string, fn: () => Promise<T>): Promise<T> => {
+    const started = performance.now();
+    try {
+      const out = await fn();
+      steps.push({ krok, ms: Math.round(performance.now() - started) });
+      return out;
+    } catch (e) {
+      steps.push({ krok, ms: Math.round(performance.now() - started), ok: false });
+      throw e;
+    }
+  };
+  return { steps, track };
+};
+
 const addMinutes = (date: string, time: string, mins: number) => {
   const d = new Date(`${date}T${(time || "09:00")}:00`);
   return new Date(d.getTime() + mins * 60000).toISOString();
@@ -39,9 +64,41 @@ serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
+    // /warmup — ta sama gałąź co w llm i chat, dodana później i to był błąd.
+    //
+    // Pomiar 06.08 00:41: pierwsze check_availability w rozmowie 3999 ms, drugie
+    // 1092 ms. Różnica 2907 ms to zimny start, płacony w KAŻDEJ rozmowie, bo crony
+    // obejmowały tylko voice-agent-llm i voice-agent-chat. Fałszował wszystkie
+    // pomiary tur z narzędziami.
+    if (new URL(req.url).pathname.endsWith("/warmup")) {
+      const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
+      const provided = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+      if (!expected || provided !== expected) return json({ ok: false, error: "unauthorized" }, 401);
+      const warmStarted = performance.now();
+      await admin.from("voice_agent_configs").select("provider_id").limit(1);
+      console.info("[voice-agent-tools]", JSON.stringify({
+        event: "stage_timing", stage: "warmup",
+        duration_ms: Math.round(performance.now() - warmStarted),
+      }));
+      return json({ ok: true, warm: true });
+    }
+
+    const requestStarted = performance.now();
+    const { steps, track } = makeTracker();
     const authHeader = req.headers.get("Authorization");
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "");
+    // Jedna linia na żądanie, wypuszczana tuż przed odpowiedzią.
+    const logRequest = (result: string) => {
+      console.info("[voice-agent-tools]", JSON.stringify({
+        event: "request_timing",
+        action,
+        result,
+        total_ms: Math.round(performance.now() - requestStarted),
+        conversation: String(body?.conversation_id || "").slice(-8) || null,
+        kroki: steps,
+      }));
+    };
     let providerId = String(body?.provider_id || "");
     const personaKey = String(body?.persona_key || "workshop_secretary");
 
@@ -65,12 +122,55 @@ serve(async (req) => {
     if (!providerId) return json({ ok: false, error: "Brak provider_id" }, 400);
 
     // --- Konfig agenta (uprawnienia) ---
-    const { data: cfg } = await admin
+    const { data: cfg } = await track("konfig_select", () => admin
       .from("voice_agent_configs")
       .select("calendar_access, orders_access")
-      .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle();
+      .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle());
     const calendarAccess = !!cfg?.calendar_access;
     const ordersAccess = !!cfg?.orders_access;
+
+    // ===================== TOŻSAMOŚĆ ROZMOWY (dodatek) =====================
+    // conversation_id przychodzi wyłącznie z uwierzytelnionego wywołania service-role
+    // (voice-agent-chat w gałęzi canary). Daje dwie rzeczy naraz:
+    //   1) klucz idempotencji — retry tej samej tury nie utworzy drugiej rezerwacji,
+    //   2) powiązanie rozmowy ze zleceniem, którego szuka panel warsztatu
+    //      (OrderCallPanel czyta voice_calls po linked_entity_type/linked_entity_id).
+    //
+    // Cały blok jest DODATKIEM: gdy conversation_id nie przyjdzie, wszystko poniżej
+    // zachowuje się dokładnie tak jak dotąd i żadna istniejąca ścieżka się nie zmienia.
+    //
+    // OGRANICZENIE: brak unikalnego indeksu na voice_calls(provider_id,
+    // elevenlabs_conversation_id), więc find-or-create jest podatny na wyścig przy
+    // równoczesnych żądaniach. W rozmowie telefonicznej tury idą sekwencyjnie, więc
+    // w praktyce to wystarcza; twardą gwarancję dałby unikalny indeks (migracja).
+    const conversationId = isServiceCall ? String(body?.conversation_id || "") : "";
+    let conversationCall: { id: string; linked_entity_type: string | null; linked_entity_id: string | null } | null = null;
+    if (conversationId && providerId) {
+      const { data: existingCall } = await track("rozmowa_select", () => admin.from("voice_calls")
+        .select("id, linked_entity_type, linked_entity_id")
+        .eq("provider_id", providerId).eq("elevenlabs_conversation_id", conversationId).maybeSingle());
+      if (existingCall) {
+        conversationCall = existingCall as typeof conversationCall;
+      } else {
+        const { data: createdCall } = await track("rozmowa_insert", () => admin.from("voice_calls").insert({
+          provider_id: providerId, persona_key: personaKey, direction: "inbound",
+          elevenlabs_conversation_id: conversationId, status: "in_progress",
+          started_at: new Date().toISOString(),
+        }).select("id, linked_entity_type, linked_entity_id").maybeSingle());
+        conversationCall = (createdCall as typeof conversationCall) || null;
+      }
+    }
+    // Zapamiętanie powiązania rozmowy z utworzonym rekordem. Zlecenie ma pierwszeństwo
+    // nad rezerwacją, bo to jego szuka zakładka "Rozmowa telefoniczna".
+    const linkConversation = async (entityType: "service_booking" | "workshop_order", entityId: string) => {
+      if (!conversationCall) return;
+      if (conversationCall.linked_entity_type === "workshop_order" && entityType !== "workshop_order") return;
+      const { error } = await admin.from("voice_calls")
+        .update({ linked_entity_type: entityType, linked_entity_id: entityId })
+        .eq("id", conversationCall.id).eq("provider_id", providerId);
+      if (error) console.warn("[voice-agent-tools] link_failed", { code: error.code });
+      else conversationCall = { ...conversationCall, linked_entity_type: entityType, linked_entity_id: entityId };
+    };
 
     // ========================= CHECK AVAILABILITY =========================
     if (action === "check_availability") {
@@ -81,8 +181,8 @@ serve(async (req) => {
       // godziny pracy (service_working_hours -> fallback 9-17)
       const dow = new Date(`${date}T00:00:00`).getDay(); // 0=nd
       let fromH = 9, toH = 17;
-      const { data: wh } = await admin.from("service_working_hours")
-        .select("*").eq("provider_id", providerId).eq("day_of_week", dow).maybeSingle();
+      const { data: wh } = await track("godziny_pracy", () => admin.from("service_working_hours")
+        .select("*").eq("provider_id", providerId).eq("day_of_week", dow).maybeSingle());
       if (wh) {
         if (wh.is_open === false || wh.is_closed === true) return json({ ok: true, slots: [], note: "Nieczynne tego dnia" });
         const s = wh.start_time || wh.open_time, e = wh.end_time || wh.close_time;
@@ -90,13 +190,13 @@ serve(async (req) => {
         if (e) toH = parseInt(String(e).slice(0, 2));
       }
       // pojemność = liczba aktywnych stanowisk (min 1)
-      const { count: stations } = await admin.from("workshop_workstations")
-        .select("id", { count: "exact", head: true }).eq("provider_id", providerId).eq("is_active", true);
+      const { count: stations } = await track("stanowiska_count", () => admin.from("workshop_workstations")
+        .select("id", { count: "exact", head: true }).eq("provider_id", providerId).eq("is_active", true));
       const capacity = Math.max(1, stations || 0);
       // zajętość z service_bookings tego dnia
-      const { data: booked } = await admin.from("service_bookings")
+      const { data: booked } = await track("zajetosc_select", () => admin.from("service_bookings")
         .select("scheduled_time, duration_minutes").eq("provider_id", providerId)
-        .eq("scheduled_date", date).not("status", "in", "(cancelled,rejected)");
+        .eq("scheduled_date", date).not("status", "in", "(cancelled,rejected)"));
       const load: Record<string, number> = {};
       for (const b of booked || []) {
         const start = parseInt(String(b.scheduled_time).slice(0, 2)) * 60 + parseInt(String(b.scheduled_time).slice(3, 5));
@@ -110,12 +210,50 @@ serve(async (req) => {
           if ((load[t] || 0) < capacity) slots.push(t);
         }
       }
+      logRequest("dostepnosc");
       return json({ ok: true, date, slots, capacity });
     }
 
     // ========================= CREATE BOOKING =========================
     if (action === "create_booking") {
       if (!calendarAccess) return json({ ok: false, error: "Agent nie ma dostępu do kalendarza (włącz w panelu)." }, 403);
+      // IDEMPOTENCJA: ta rozmowa ma już rezerwację albo zlecenie — nie tworzymy drugiej
+      // i nie wysyłamy drugiego SMS-a. Ponowienie tury zwraca istniejący identyfikator.
+      if (conversationCall?.linked_entity_id) {
+        return json({
+          ok: true, booking_id: conversationCall.linked_entity_id, duplicate: true,
+          message: "Rezerwacja w tej rozmowie już istnieje.",
+        });
+      }
+
+      // ATOMOWE PRZEJĘCIE ROZMOWY.
+      //
+      // Sprawdzenie "czy już istnieje, jeśli nie to wstaw" NIE wystarcza, gdy żądania
+      // biegną równolegle: wszystkie trzy sprawdzają, zanim którekolwiek zapisze.
+      // Rozmowa 05.08 17:56 dostała trzy wpisy w grafiku i sześć SMS-ów właśnie tak.
+      //
+      // ElevenLabs wysyła duplikaty niezależnie od nas — trzy z czterech to poprawki
+      // ASR (ta sama liczba wiadomości, inna treść ostatniej wypowiedzi), jedno to
+      // czysty retry (identyczny skrót). Nie da się ich odróżnić po treści, więc
+      // rozstrzygamy to zapisem warunkowym w bazie: wygrywa żądanie, któremu UPDATE
+      // faktycznie zmienił wiersz. Reszta dostaje `duplicate` i nie dotyka bazy.
+      //
+      // Żądanie, które przejmie rozmowę, zawsze dokończy zapisy — nawet gdy ElevenLabs
+      // porzuci połączenie (widać w logach: porzucone żądania kończą swoje narzędzia).
+      if (conversationCall) {
+        const { data: claimed } = await admin.from("voice_calls")
+          .update({ linked_entity_type: "voice_booking_claim" })
+          .eq("id", conversationCall.id).eq("provider_id", providerId)
+          .is("linked_entity_type", null)
+          .select("id");
+        if (!claimed?.length) {
+          console.info("[voice-agent-tools] booking_claim_lost", { conversation: conversationId.slice(-8) });
+          return json({
+            ok: true, duplicate: true,
+            message: "Rezerwacja w tej rozmowie jest już tworzona.",
+          });
+        }
+      }
       const name = String(body?.customer_name || "").trim();
       const phone = String(body?.customer_phone || "").trim();
       const date = String(body?.scheduled_date || "");
@@ -128,13 +266,62 @@ serve(async (req) => {
       const { first, last } = splitName(name);
 
       // dedup: ta sama rezerwacja (telefon+data+godzina) już istnieje?
-      const { data: exBk } = await admin.from("service_bookings")
+      //
+      // Tu był goły `return`. Skutek: przy trafieniu dedupu funkcja wychodziła
+      // PRZED wpisem do grafiku, przed SMS-em i przed zleceniem. Rozmowa 05.08
+      // 02:05 trafiła w rezerwację z 01:41 (ten sam telefon, 06.08 09:00) — klient
+      // nie dostał SMS-a mimo obietnicy agenta, w grafiku nic nie przybyło,
+      // a zlecenie powstało tylko dlatego, że model osobno zawołał create_order.
+      //
+      // Dedup pomija teraz WYŁĄCZNIE wstawienie do service_bookings. Reszta kroku
+      // wykonuje się dalej i dociąga to, czego brakuje przy istniejącej rezerwacji.
+      // UWAGA na `maybeSingle()`: przy WIĘCEJ NIŻ JEDNYM pasującym wierszu PostgREST
+      // zwraca BŁĄD, a nie wiersz. Z `const { data } = …` (bez `error`) wygląda to
+      // identycznie jak brak dopasowania — czyli kod idzie wstawić kolejny duplikat,
+      // przez co następne sprawdzenie pasuje do jeszcze większej liczby wierszy.
+      // Rozmowa 05.08 17:56 zrobiła tak trzy wpisy w grafiku i wysłała 6 SMS-ów.
+      // Dlatego wszędzie tam, gdzie duplikaty są możliwe: `limit(1)` + tablica.
+      const { data: exBkRows } = await track("dedup_rezerwacji", () => admin.from("service_bookings")
         .select("id").eq("provider_id", providerId).eq("customer_phone", phone)
-        .eq("scheduled_date", date).eq("scheduled_time", time).neq("status", "cancelled").maybeSingle();
-      if (exBk) return json({ ok: true, booking_id: exBk.id, duplicate: true, message: "Rezerwacja na ten termin już istnieje." });
+        .eq("scheduled_date", date).eq("scheduled_time", time).neq("status", "cancelled")
+        .order("created_at", { ascending: true }).limit(1));
+      const exBk = exBkRows?.[0] || null;
 
+      let bookingId: string;
+      const bookingDuplicate = !!exBk && !body?.confirm_duplicate;
+      if (exBk && !body?.confirm_duplicate) {
+        bookingId = exBk.id;
+        // OSTRZEŻENIE, NIE ODMOWA.
+        //
+        // Wcześniejsza wersja ODRZUCAŁA zapis, gdy ten sam klient miał wizytę o tej
+        // samej godzinie. To było błędne kryterium: warsztat ma sześć stanowisk,
+        // więc termin bywa wolny mimo istniejącej wizyty tego klienta — a klient
+        // może przywieźć dwa auta na tę samą godzinę.
+        //
+        // check_availability liczy WOLNE STANOWISKA. create_booking musi używać
+        // tego samego kryterium, inaczej agent mówi "jedenasta jest wolna",
+        // a chwilę później "nie udało się dokończyć operacji".
+        //
+        // Zostaje PYTANIE: informujemy model, a on pyta klienta, czy to pomyłka.
+        // Potwierdzenie wraca jako confirm_duplicate i wtedy zapisujemy normalnie.
+        if (!conversationCall?.linked_entity_id && !body?.confirm_duplicate) {
+          console.info("[voice-agent-tools] client_already_has_booking", {
+            date, time, conversation: conversationId.slice(-8),
+          });
+          return json({
+            ok: true,
+            client_already_has_booking: true,
+            existing_booking_id: exBk.id,
+            message: `Ten klient ma już wizytę ${date} o ${time} z wcześniejszej rozmowy. `
+              + "ZAPYTAJ go, czy to pomyłka, czy faktycznie chce drugą wizytę w tym terminie "
+              + "(np. drugie auto). NIE mów, że wizyta została umówiona — jeszcze jej nie ma. "
+              + "Jeśli potwierdzi, wywołaj create_booking ponownie z confirm_duplicate: true.",
+          });
+        }
+      }
+      if (!exBk || body?.confirm_duplicate) {
       // 1) service_bookings (source='portal') -> "Rezerwacje z portalu" + kalendarz
-      const { data: sb, error: sbErr } = await admin.from("service_bookings").insert({
+      const { data: sb, error: sbErr } = await track("rezerwacja_insert", () => admin.from("service_bookings").insert({
         provider_id: providerId,
         service_id: body?.service_id || null,
         customer_name: name, customer_phone: phone, customer_email: null,
@@ -144,51 +331,181 @@ serve(async (req) => {
         vehicle_year: veh.year || null, vehicle_plate: veh.plate || null,
         status: "pending", completion_status: "pending",
         requires_provider_confirmation: true, source: "portal",
-      }).select("id").single();
-      if (sbErr) return json({ ok: false, error: "Rezerwacja: " + sbErr.message }, 400);
+      }).select("id").single());
+      if (sbErr) { logRequest("blad_rezerwacji"); return json({ ok: false, error: "Rezerwacja: " + sbErr.message }, 400); }
+        bookingId = sb.id;
+      }
 
-      // 2) workshop_client_bookings -> link /r/:token + 24h reminder
-      const { data: wcb } = await admin.from("workshop_client_bookings").insert({
-        provider_id: providerId, phone, first_name: first, last_name: last,
-        plate: veh.plate || null, brand: veh.brand || null, model: veh.model || null,
-        service_description: notePrefix + (body?.notes || body?.service_name || ""),
-        appointment_date: date, appointment_time: time, duration_minutes: duration,
-        status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
-      }).select("id, confirmation_token").maybeSingle();
+      // GRAFIK: rezerwacja pojawia sie na siatce warsztatu WYLACZNIE gdy ma station_id.
+      // WorkshopScheduler mapuje workshop_client_bookings.station_id -> scheduled_station_id
+      // i pokazuje pozycje tylko wtedy, gdy to pole jest ustawione. Bez niego rezerwacja
+      // istnieje w bazie, ale grafik jest pusty - dokladnie to zglosil warsztat.
+      // Przypisujemy PIERWSZE wolne stanowisko o tej godzinie. Klientowi tego nie mowimy.
+      let freeStationId: string | null = null;
+      try {
+        const { data: stations } = await track("stanowiska_select", () => admin.from("workshop_workstations")
+          .select("id").eq("provider_id", providerId).eq("is_active", true).order("sort_order", { ascending: true }));
+        const { data: takenRows } = await admin.from("workshop_client_bookings")
+          .select("station_id").eq("provider_id", providerId)
+          .eq("appointment_date", date).eq("appointment_time", time).neq("status", "cancelled");
+        const taken = new Set((takenRows || []).map((r: any) => r.station_id).filter(Boolean));
+        freeStationId = ((stations || []).find((st: any) => !taken.has(st.id))?.id) || null;
+        if (!freeStationId) console.warn("[voice-agent-tools] no_free_station", { date, time });
+      } catch (_) { /* brak stanowisk nie moze blokowac rezerwacji */ }
+
+      // 2) workshop_client_bookings -> grafik + link /r/:token + 24h reminder
+      //
+      // Przy dedupie albo ponowionej turze wiersz grafiku może już istnieć —
+      // wtedy go używamy zamiast wstawiać drugi (to byłby duplikat na siatce).
+      let wcb: { id: string; confirmation_token: string | null; public_token: string | null } | null = null;
+      const { data: exWcbRows } = await track("grafik_select", () => admin.from("workshop_client_bookings")
+        .select("id, confirmation_token, public_token")
+        .eq("provider_id", providerId).eq("phone", phone)
+        .eq("appointment_date", date).eq("appointment_time", time)
+        .neq("status", "cancelled")
+        .order("created_at", { ascending: true }).limit(1));
+      const exWcb = exWcbRows?.[0] || null;
+      if (exWcb) {
+        wcb = exWcb;
+      } else {
+        // Błąd tego zapisu był dotąd POŁYKANY — destrukturyzacja nie brała `error`,
+        // a `if (wcb?.confirmation_token)` niżej po cichu pomijało SMS. Nieudany
+        // zapis grafiku wyglądał wtedy identycznie jak udany bez SMS-a.
+        const { data: inserted, error: wcbErr } = await track("grafik_insert", () => admin.from("workshop_client_bookings").insert({
+          provider_id: providerId, phone, first_name: first, last_name: last,
+          plate: veh.plate || null, brand: veh.brand || null, model: veh.model || null,
+          service_description: notePrefix + (body?.notes || body?.service_name || ""),
+          appointment_date: date, appointment_time: time, duration_minutes: duration,
+          status: "scheduled", reminder_enabled: true, reminder_times: ["24h"],
+          ...(freeStationId ? { station_id: freeStationId } : {}),
+        }).select("id, confirmation_token, public_token").maybeSingle());
+        if (wcbErr) {
+          console.error("[voice-agent-tools] calendar_insert_failed", {
+            code: wcbErr.code, message: String(wcbErr.message).slice(0, 200),
+          });
+        }
+        wcb = inserted || null;
+      }
 
       // 1.4 — SMS potwierdzenia OD RAZU (data, godzina, adres, link do zarządzania). Best-effort.
       let smsSent = false;
       let manageLink: string | null = null;
       try {
         if (wcb?.confirmation_token) {
-          const appBase = Deno.env.get("APP_PUBLIC_URL") || "https://preview--rido-drive-smiles.lovable.app";
-          manageLink = `${appBase}/r/${wcb.confirmation_token}`;
-          const { data: prov } = await admin.from("service_providers").select("company_name, address, city").eq("id", providerId).maybeSingle();
-          const company = prov?.company_name || "serwis";
-          const addr = [prov?.address, prov?.city].filter(Boolean).join(", ");
-          const msg = `Potwierdzenie wizyty: ${company}, ${date} godz. ${time}.` + (addr ? ` Adres: ${addr}.` : "") + ` Zarzadzaj rezerwacja (anuluj/przesun): ${manageLink}`;
-          const r = await fetch(`${supabaseUrl}/functions/v1/workshop-send-sms`, {
+          manageLink = buildPublicUrl(`/r/${wcb.public_token ?? wcb.confirmation_token}`);
+          // Jedno potwierdzenie na wizytę. Bez tego dedup albo ponowiona tura
+          // wysłałyby klientowi drugiego SMS-a o tej samej godzinie.
+          const { data: smsAlready } = await track("sms_select", () => admin.from("workshop_sms_log")
+            .select("id").eq("appointment_id", wcb.id)
+            .eq("sms_type", "booking_confirmation_ai").neq("status", "failed")
+            .limit(1).maybeSingle());
+          if (smsAlready) {
+            smsSent = true;
+          } else {
+          // KOLUMNY: `service_providers` NIE MA pól `address` ani `city`. Poprzednie
+          // zapytanie o nie zwracało błąd, a `const { data: prov }` bez `error` dawał
+          // null — stąd SMS "serwis: potwierdzenie wizyty..." bez nazwy firmy i adresu,
+          // przy poprawnie wypełnionych danych warsztatu. Te same pola co
+          // booking-reminders: short_name/company_name + company_address/postal/city.
+          const { data: prov, error: provErr } = await track("firma_select", () => admin.from("service_providers")
+            .select("short_name, company_name, company_address, company_postal_code, company_city")
+            .eq("id", providerId).maybeSingle());
+          if (provErr) console.error("[voice-agent-tools] provider_lookup_failed", { code: provErr.code });
+          const company = prov?.short_name || prov?.company_name || "serwis";
+          const addr = [prov?.company_address,
+                        [prov?.company_postal_code, prov?.company_city].filter(Boolean).join(" ")]
+                       .filter(Boolean).join(", ");
+          const service = String(body?.notes || body?.service_name || "").replace(/^\[[^\]]*\]\s*/, "").trim();
+          let msg = `${company}: wizyta ${date} ${time}.`
+            + (service ? ` ${service}.` : "")
+            + (addr ? ` ${addr}.` : "")
+            + ` Zarzadzaj: ${manageLink}`;
+          // Kolejno odchudzamy, aż zmieści się w jednym SMS-ie: najpierw adres, potem usługa.
+          if (msg.length > 160) msg = `${company}: wizyta ${date} ${time}.` + (service ? ` ${service}.` : "") + ` Zarzadzaj: ${manageLink}`;
+          if (msg.length > 160) msg = `${company}: wizyta ${date} ${time}. Zarzadzaj: ${manageLink}`;
+
+          // SMS NIE MOŻE OPÓŹNIAĆ TURY. To wywołanie sieciowe do bramki, a klient
+          // czeka w tym czasie w ciszy. Oddajemy je runtime'owi: żądanie może się
+          // zakończyć, a wysyłka i tak dobiegnie końca.
+          const sendSms = fetch(`${supabaseUrl}/functions/v1/workshop-send-sms`, {
             method: "POST",
             headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
             body: JSON.stringify({ provider_id: providerId, phone, message: msg, sms_type: "booking_confirmation_ai", appointment_id: wcb.id }),
-          });
-          const rj = await r.json().catch(() => ({}));
-          smsSent = !rj?.error;
+          }).then(async (r) => {
+            const rj = await r.json().catch(() => ({}));
+            if (rj?.error) console.error("[voice-agent-tools] sms_failed", { status: r.status });
+          }).catch((e) => console.error("[voice-agent-tools] sms_error", { name: (e as Error)?.name }));
+
+          const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+          if (runtime?.waitUntil) runtime.waitUntil(sendSms); else await sendSms;
+          // Zaplanowany, nie potwierdzony — dlatego agent mówi "przyjdzie w ciągu
+          // kilku minut", a nie "wysłaliśmy".
+          smsSent = true;
+          }
         }
       } catch (_) { /* SMS best-effort — nie blokuje rezerwacji */ }
 
+      // ZLECENIE DETERMINISTYCZNIE, nie na łasce modelu.
+      // Model kilkukrotnie wywoływał samo create_order albo samo create_booking, przez co
+      // raz nie było zlecenia, raz nie było SMS-a. Teraz zlecenie powstaje ZAWSZE po udanej
+      // rezerwacji, po stronie kodu. Wołamy własną akcję create_order, żeby nie duplikować
+      // logiki klienta, pojazdu, numeracji i statusu "Umówiony telefonicznie".
+      //
+      // complaint = SŁOWA KLIENTA, zwięźle. Nie parafraza, nie diagnoza, nie kategoria —
+      // mechanik ma zobaczyć, z czym przyszedł klient.
+      let createdOrderId: string | null = null;
+      let orderFailed = false;
+      if (ordersAccess) {
+        try {
+          const complaint = String(body?.notes || body?.service_name || "Zgłoszenie telefoniczne").trim();
+          const orderRes = await track("zlecenie_http", () => fetch(`${supabaseUrl}/functions/v1/voice-agent-tools`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "create_order", provider_id: providerId, persona_key: personaKey, is_test: isTest,
+              ...(conversationId ? { conversation_id: conversationId } : {}),
+              customer_name: name, customer_phone: phone, complaint,
+              scheduled_date: date, scheduled_time: time, duration_minutes: duration,
+              vehicle: body?.vehicle || {}, booking_id: bookingId,
+            }),
+            signal: AbortSignal.timeout(10_000),
+          }));
+          const orderOut = await orderRes.json().catch(() => ({}));
+          if (orderOut?.ok && orderOut?.order_id) createdOrderId = String(orderOut.order_id);
+          else { orderFailed = true; console.error("[voice-agent-tools] order_after_booking_failed", { status: orderRes.status }); }
+        } catch (error) {
+          orderFailed = true;
+          console.error("[voice-agent-tools] order_after_booking_error", { name: (error as Error)?.name });
+        }
+      }
+
+      // Powiązanie rozmowy z rezerwacją. Po utworzeniu zlecenia zostanie nadpisane
+      // na workshop_order, bo tego szuka zakładka "Rozmowa telefoniczna".
+      await linkConversation("service_booking", bookingId);
+
+      logRequest("rezerwacja_ok");
       return json({
-        ok: true, booking_id: sb.id,
+        ok: true, booking_id: bookingId, duplicate: bookingDuplicate,
+        order_id: createdOrderId, order_failed: orderFailed,
         client_booking_id: wcb?.id || null,
         manage_token: wcb?.confirmation_token || null,
         manage_link: manageLink, sms_sent: smsSent,
-        message: `Rezerwacja utworzona na ${date} ${time}.${smsSent ? " Wysłano SMS potwierdzenia z linkiem." : ""}`,
+        // Model powtarza to, co dostanie. "Wysłano SMS" kazało mu mówić w czasie
+        // przeszłym o wiadomości, która dopiero wychodzi.
+        message: `Rezerwacja utworzona na ${date} ${time}.${smsSent ? " Potwierdzenie przyjdzie SMS-em w ciągu kilku minut." : ""}`,
       });
     }
 
     // ========================= CREATE ORDER =========================
     if (action === "create_order") {
       if (!ordersAccess) return json({ ok: false, error: "Agent nie ma dostępu do zleceń (włącz w panelu)." }, 403);
+      // IDEMPOTENCJA: ta rozmowa ma już zlecenie — zwracamy istniejące zamiast tworzyć drugie.
+      if (conversationCall?.linked_entity_type === "workshop_order" && conversationCall.linked_entity_id) {
+        return json({
+          ok: true, order_id: conversationCall.linked_entity_id, duplicate: true,
+          message: "Zlecenie w tej rozmowie już istnieje.",
+        });
+      }
       const name = String(body?.customer_name || "").trim();
       const phone = String(body?.customer_phone || "").trim();
       // opis jako czyste linie-punkty (karta pracownika sama numeruje 1. 2. 3.)
@@ -221,7 +538,9 @@ serve(async (req) => {
       clientId = (clients || []).find((c: any) => norm9(c.phone || "") === p9)?.id || null;
       if (!clientId) {
         const { data: nc } = await admin.from("workshop_clients").insert({
-          provider_id: providerId, client_type: "private", first_name: first, last_name: last, phone,
+          // workshop_clients_client_type_check dopuszcza tylko "individual" i "company".
+          // "private" powodowało, że KAŻDY nowy klient wywalał create_order.
+          provider_id: providerId, client_type: "individual", first_name: first, last_name: last, phone,
         }).select("id").single();
         clientId = nc.id;
       }
@@ -260,6 +579,11 @@ serve(async (req) => {
       const { data: order, error: oErr } = await admin.from("workshop_orders").insert(insert).select("id, order_number").single();
       if (oErr) return json({ ok: false, error: "Zlecenie: " + oErr.message }, 400);
 
+      // Powiązanie rozmowy ze zleceniem — dokładnie to czyta zakładka
+      // "Rozmowa telefoniczna" (voice_calls po linked_entity_type/linked_entity_id).
+      await linkConversation("workshop_order", order.id);
+
+      logRequest("zlecenie_ok");
       return json({ ok: true, order_id: order.id, order_number: order.order_number, client_id: clientId, vehicle_id: vehicleId });
     }
 

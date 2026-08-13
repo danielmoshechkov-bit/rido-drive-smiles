@@ -10,6 +10,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getSecret } from "../_shared/aiSecrets.ts";
+import { redactPersonalData, shouldDistill } from "../_shared/voiceLearningGate.ts";
 import { resolveAgent } from "../_shared/translationProvider.ts";
 
 const corsHeaders = {
@@ -86,31 +87,56 @@ serve(async (req) => {
     let a: any = {};
     try { const s = raw.indexOf("{"), e = raw.lastIndexOf("}"); a = JSON.parse(raw.slice(s, e + 1)); } catch (_) { a = {}; }
 
-    // Powiązanie ze zleceniem: order_id z body LUB fallback po telefonie (telefonia)
-    let linkedOrderId = orderId;
-    const phone = a?.customer_data?.phone;
-    if (!linkedOrderId && phone) {
-      const norm9 = (p: string) => (p || "").replace(/\D/g, "").slice(-9);
-      const sinceISO = new Date(Date.now() - 60 * 60000).toISOString();
-      const { data: recentOrders } = await admin.from("workshop_orders")
-        .select("id, client_id, created_at").eq("provider_id", providerId)
-        .gte("created_at", sinceISO).order("created_at", { ascending: false }).limit(20);
-      const ids = [...new Set((recentOrders || []).map((o: any) => o.client_id).filter(Boolean))];
-      if (ids.length) {
-        const { data: clients } = await admin.from("workshop_clients").select("id, phone").in("id", ids);
-        const match = new Set((clients || []).filter((c: any) => norm9(c.phone || "") === norm9(phone)).map((c: any) => c.id));
-        const ord = (recentOrders || []).find((o: any) => match.has(o.client_id));
-        if (ord) linkedOrderId = ord.id;
-      }
-    }
+    // POWIĄZANIE ZE ZLECENIEM ROBI TERAZ voice-call-commit, po conversation_id.
+    //
+    // Stała tu heurystyka: zamówienia z ostatnich 60 MINUT dopasowywane po telefonie
+    // klienta. To było PIĄTE miejsce z zasady 16 (tożsamość po kliencie i czasie
+    // zamiast po rozmowie) i najszersze z całej piątki — przy dwóch rozmowach tego
+    // samego klienta w godzinę przypinała transkrypt do NIEWŁAŚCIWEJ rozmowy.
+    // Myliła się w około 60% rozmów.
+    //
+    // Skoro commit ma conversation_id i wiąże rozmowę sam, heurystyka przestała być
+    // potrzebna i została wyłącznie ryzykiem. Analyze zajmuje się teraz WYŁĄCZNIE
+    // uczeniem: wnioski, błędy i destylacja reguł.
+    const linkedOrderId = orderId;
 
     // 1) voice_calls
-    const { data: call } = await admin.from("voice_calls").insert({
-      provider_id: providerId, persona_key: personaKey, direction: "inbound", status: "completed",
-      contact_name: a?.customer_data?.name || null, summary: a?.summary || null, outcome: a?.outcome || null,
-      linked_entity_type: linkedOrderId ? "workshop_order" : null, linked_entity_id: linkedOrderId || null,
-    }).select("id").maybeSingle();
-    const callId = call?.id || null;
+    // Identyfikator rozmowy z ElevenLabs. Bez niego wiersz voice_calls nie ma tozsamosci,
+    // wiec transkrypt nie da sie powiazac ze zleceniem, a powtorzony webhook tworzy duplikat.
+    const conversationId = String(body?.conversation_id || "");
+
+    // Idempotencja po conversation_id: powtorzenie webhooka aktualizuje istniejacy wiersz
+    // zamiast tworzyc drugi. Bez identyfikatora zachowanie jak dotad.
+    let callId: string | null = null;
+    if (conversationId) {
+      const { data: existing } = await admin.from("voice_calls")
+        .select("id").eq("provider_id", providerId)
+        .eq("elevenlabs_conversation_id", conversationId).maybeSingle();
+      if (existing?.id) callId = existing.id;
+    }
+    // DŁUGOŚĆ I KONIEC ROZMOWY. Kolumny istniały od początku i przez cały czas
+    // były PUSTE — 0 z 61 wierszy miało `duration_seconds`, 0 miało `ended_at`.
+    // Ta sama klasa co `wants_cancel`: pole zdefiniowane, którego nikt nie wypełnia.
+    // Bez nich nie da się policzyć niczego po czasie rozmowy ani odtworzyć
+    // werdyktu bramki uczenia na zapisanych danych.
+    const dlugosc = Number(body?.duration_seconds) || null;
+    const metryki = dlugosc ? { duration_seconds: dlugosc, ended_at: new Date().toISOString() } : {};
+
+    if (callId) {
+      await admin.from("voice_calls").update({
+        status: "completed", ...metryki,
+        contact_name: a?.customer_data?.name || null, summary: a?.summary || null, outcome: a?.outcome || null,
+        ...(linkedOrderId ? { linked_entity_type: "workshop_order", linked_entity_id: linkedOrderId } : {}),
+      }).eq("id", callId);
+    } else {
+      const { data: call } = await admin.from("voice_calls").insert({
+        provider_id: providerId, persona_key: personaKey, direction: "inbound", status: "completed", ...metryki,
+        ...(conversationId ? { elevenlabs_conversation_id: conversationId } : {}),
+        contact_name: a?.customer_data?.name || null, summary: a?.summary || null, outcome: a?.outcome || null,
+        linked_entity_type: linkedOrderId ? "workshop_order" : null, linked_entity_id: linkedOrderId || null,
+      }).select("id").maybeSingle();
+      callId = call?.id || null;
+    }
 
     // 2) voice_transcripts
     if (callId) {
@@ -127,30 +153,80 @@ serve(async (req) => {
     }
 
     // 4) per_call -> dopisz reguły do bazy wiedzy (dedup po situation)
+    //
+    // BRAMKA UCZENIA (10.08). Uczymy się z rozmów UDANYCH. Rozmowa nieudana nie
+    // jest wzorcem do naśladowania — jest materiałem do przeglądu przez człowieka.
+    // Skąd: qrgbn9cy skończyła się rozłączeniem klientki bez żadnego zapisu,
+    // a destylator zrobił z niej trzy zalecenia, w tym obietnicę przełączenia
+    // do kolegi mówiącego po ukraińsku. Nieudana rozmowa stała się wzorcem.
+    const agentMessages = transcript
+      .filter((m: any) => m?.role === "assistant")
+      .map((m: any) => String(m?.content || ""));
+    const bramka = shouldDistill({
+      hasOrder: !!linkedOrderId,
+      durationSeconds: Number(body?.duration_seconds) || 0,
+      hadTruncation: agentMessages.some((m: string) =>
+        /nie zdążyłem dokończyć|muszę się streścić/i.test(m)),
+      agentMessages,
+    });
+    if (!bramka.allow) {
+      console.info("[voice-call-analyze]", JSON.stringify({
+        event: "distill_skipped", conversation: conversationId.slice(-8),
+        reasons: bramka.reasons, flag_for_review: bramka.flagForReview,
+      }));
+      if (bramka.flagForReview && callId) {
+        await admin.from("voice_calls").update({ status: "needs_review" }).eq("id", callId);
+      }
+    }
+
     let learned = 0;
-    if (learningMode === "per_call" && Array.isArray(a?.lessons)) {
+    if (bramka.allow && learningMode === "per_call" && Array.isArray(a?.lessons)) {
       for (const L of a.lessons.slice(0, 8)) {
         if (!L?.situation || !L?.recommended_response) continue;
+        // ZASADA 22 + dane osobowe: przykład ma pokazywać FORMĘ, nie treść.
+        // Bez tego do promptu KAŻDEJ rozmowy trafiały tablica rejestracyjna,
+        // fragment numeru telefonu i imię prawdziwego klienta, a przykład
+        // „Mamy dostępne 9:00, 11:00 lub 14:00" agent recytował jako fakt.
+        const situation = redactPersonalData(String(L.situation));
+        const response = redactPersonalData(String(L.recommended_response));
         const { data: ex } = await admin.from("voice_agent_knowledge")
-          .select("id, evidence_count").eq("persona_key", personaKey).eq("provider_id", providerId)
-          .ilike("situation", L.situation).maybeSingle();
-        if (ex) {
+          .select("id, evidence_count, is_active").eq("persona_key", personaKey).eq("provider_id", providerId)
+          .ilike("situation", situation).limit(1);
+        const istniejacy = ex?.[0];
+        if (istniejacy) {
+          // AKTYWNEJ reguły nie przepisujemy po cichu. Gwarancja „nowa reguła czeka
+          // na akceptację człowieka" obejmowała tylko wstawienie; aktualizacja
+          // podmieniała treść aktywnego wpisu bez niczyjej zgody.
+          if (istniejacy.is_active) {
+            console.info("[voice-call-analyze]", JSON.stringify({
+              event: "active_rule_not_overwritten", rule: String(istniejacy.id).slice(0, 8),
+            }));
+            continue;
+          }
           await admin.from("voice_agent_knowledge").update({
-            evidence_count: (ex.evidence_count || 0) + 1, recommended_response: L.recommended_response,
+            evidence_count: (istniejacy.evidence_count || 0) + 1, recommended_response: response,
             last_reinforced_at: new Date().toISOString(),
-          }).eq("id", ex.id);
+          }).eq("id", istniejacy.id);
         } else {
           await admin.from("voice_agent_knowledge").insert({
             persona_key: personaKey, provider_id: providerId, scope: "tenant",
-            category: L.category || "other", situation: L.situation, recommended_response: L.recommended_response,
-            rationale: L.rationale || null, source: "distilled", evidence_count: 1, is_active: true,
+            category: L.category || "other", situation, recommended_response: response,
+            // Nowa reguła czeka na akceptację człowieka. Automatyczna aktywacja
+            // doprowadziła do tego, że agent uczył się zachowań, które właściciel
+            // dopiero co kazał usunąć: powtarzania numeru telefonu, pytań
+            // diagnostycznych, obiecywania cen i pełnych podsumowań. Sześć takich
+            // reguł powstało w jeden dzień, żadnej nikt nie zatwierdził.
+            // Włączenie reguły jest teraz świadomą decyzją:
+            //   UPDATE voice_agent_knowledge SET is_active = true WHERE id = '...'
+            rationale: L.rationale || null, source: "distilled", evidence_count: 1, is_active: false,
           });
         }
         learned++;
       }
     }
 
-    return json({ ok: true, call_id: callId, outcome: a?.outcome || null, lessons_learned: learned, mistakes: a?.mistakes || [] });
+    return json({ ok: true, call_id: callId, outcome: a?.outcome || null, lessons_learned: learned,
+      distill_skipped: bramka.allow ? null : bramka.reasons, mistakes: a?.mistakes || [] });
   } catch (e) {
     return json({ ok: false, error: (e as Error).message }, 500);
   }

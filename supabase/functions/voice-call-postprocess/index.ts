@@ -57,8 +57,13 @@ serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
     const url = new URL(req.url);
-    const providerId = url.searchParams.get("provider_id") || "";
-    const personaKey = url.searchParams.get("persona_key") || "workshop_secretary";
+    // Parametry w URL to już tylko FALLBACK. Podstawową drogą rozpoznania tenanta jest
+    // agent_id z payloadu — inaczej każdemu klientowi trzeba by ręcznie sklejać URL
+    // webhooka, co nie skaluje się przy wielu firmach. Webhook agenta był
+    // skonfigurowany bez parametrów, więc provider_id był pusty, voice-call-analyze
+    // odrzucał żądanie, a my i tak zwracaliśmy 200 — transkrypty ginęły bez śladu.
+    const urlProviderId = url.searchParams.get("provider_id") || "";
+    const urlPersonaKey = url.searchParams.get("persona_key") || "";
 
     // Weryfikacja podpisu NA SUROWYM body (przed parsowaniem JSON), fail-closed.
     const rawBody = await req.text();
@@ -79,16 +84,139 @@ serve(async (req) => {
       }))
       .filter((m: any) => m.content);
 
-    if (messages.length < 2) return json({ ok: true, skipped: "brak transkryptu" });
+    // Identyfikatory rozmowy i agenta — ElevenLabs umieszcza je w kilku miejscach
+    // zależnie od wersji payloadu, więc sprawdzamy wszystkie znane.
+    const conversationId = String(
+      payload?.data?.conversation_id || payload?.conversation_id ||
+      payload?.data?.conversation?.conversation_id || "",
+    );
+    const agentId = String(
+      payload?.data?.agent_id || payload?.agent_id ||
+      payload?.data?.conversation?.agent_id || "",
+    );
 
+    // ROZPOZNANIE TENANTA: najpierw po agent_id, dopiero potem parametry z URL.
+    let providerId = "";
+    let personaKey = "";
+    if (agentId) {
+      const { data: cfg, error: cfgError } = await admin.from("voice_agent_configs")
+        .select("provider_id, persona_key").eq("elevenlabs_agent_id", agentId).maybeSingle();
+      if (cfgError) {
+        console.warn("[voice-call-postprocess]", JSON.stringify({
+          event: "tenant_lookup_failed", conversation_id: conversationId, code: cfgError.code,
+        }));
+      }
+      if (cfg) {
+        providerId = String(cfg.provider_id || "");
+        personaKey = String(cfg.persona_key || "");
+      }
+    }
+    const tenantSource = providerId ? "agent_id" : (urlProviderId ? "url" : "none");
+    if (!providerId) {
+      providerId = urlProviderId;
+      personaKey = personaKey || urlPersonaKey;
+    }
+    if (!personaKey) personaKey = "workshop_secretary";
+
+    // Nie da się ustalić tenanta — to BŁĄD, nie cichy sukces. ElevenLabs ma zobaczyć
+    // 400 i zapisać niepowodzenie webhooka, żeby problem zgłosił się sam.
+    if (!providerId) {
+      console.error("[voice-call-postprocess]", JSON.stringify({
+        event: "tenant_unresolved", conversation_id: conversationId,
+        agent_id_present: !!agentId, url_param_present: !!urlProviderId,
+      }));
+      return json({
+        ok: false,
+        error: "Nie udało się ustalić firmy: agent_id nieznany i brak provider_id w URL",
+        conversation_id: conversationId,
+      }, 400);
+    }
+
+    if (messages.length < 2) {
+      console.warn("[voice-call-postprocess]", JSON.stringify({
+        event: "transcript_too_short", conversation_id: conversationId, turns: messages.length,
+      }));
+      return json({ ok: true, skipped: "brak transkryptu", conversation_id: conversationId });
+    }
+
+    // 1) COMMIT — zapis rozmowy. To jest krok KRYTYCZNY i idzie PIERWSZY.
+    //
+    // Kolejność nie jest kosmetyczna: analyze to uczenie, commit to rezerwacja,
+    // zlecenie, grafik i SMS. Gdyby analyze padło pierwsze, zapis by nie powstał
+    // przez awarię destylacji reguł.
+    const commitStarted = performance.now();
+    const commitRes = await fetch(`${supabaseUrl}/functions/v1/voice-call-commit`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversation_id: conversationId, provider_id: providerId,
+        transcript: rawTranscript,
+        caller_id: payload?.data?.metadata?.phone_call?.external_number
+          || payload?.data?.conversation_initiation_client_data?.dynamic_variables?.system__caller_id || null,
+        started_at: payload?.data?.metadata?.start_time_unix_secs
+          ? new Date(payload.data.metadata.start_time_unix_secs * 1000).toISOString() : undefined,
+      }),
+      signal: AbortSignal.timeout(60_000),
+    }).catch((e) => ({ ok: false, status: 0, json: async () => ({ error: (e as Error).name }) } as unknown as Response));
+    const commitOut = await commitRes.json().catch(() => ({}));
+    console.info("[voice-call-postprocess]", JSON.stringify({
+      event: "commit_done", conversation_id: conversationId,
+      status: commitOut?.status || null, ok: commitRes.ok,
+      ms: Math.round(performance.now() - commitStarted),
+    }));
+
+    // 2) ANALYZE — uczenie. BŁĄD TUTAJ NIE MOŻE WYWRÓCIĆ WEBHOOKA.
+    //    Zapis jest już zrobiony; destylacja reguł jest dodatkiem.
     const r = await fetch(`${supabaseUrl}/functions/v1/voice-call-analyze`, {
       method: "POST",
       headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ provider_id: providerId, persona_key: personaKey, messages, is_test: false }),
+      // duration_seconds i order_id są WYMAGANE przez bramkę uczenia w analyze
+      // (voiceLearningGate). Bez nich bramka widziałaby rozmowę zerowej długości
+      // bez zapisu i zablokowałaby destylację ZAWSZE — po cichu, bo brak reguł
+      // wygląda tak samo jak brak wniosków z rozmowy.
+      body: JSON.stringify({
+        provider_id: providerId, persona_key: personaKey, messages, is_test: false,
+        conversation_id: conversationId,
+        duration_seconds: Number(payload?.data?.metadata?.call_duration_secs) || 0,
+        order_id: commitOut?.rpc?.order_id || commitOut?.order_id || null,
+      }),
     });
     const out = await r.json().catch(() => ({}));
-    return json({ ok: true, analyzed: out?.ok || false, call_id: out?.call_id || null, lessons: out?.lessons_learned || 0 });
+
+    // Błąd analizy propagujemy zamiast go połykać. Wcześniej zwracaliśmy ok:true
+    // z analyzed:false, więc ElevenLabs widział 200 i nikt się nie dowiadywał,
+    // że transkrypt nie został zapisany.
+    // Awaria uczenia jest logowana, ale NIE wywraca webhooka — inaczej ElevenLabs
+    // ponowiłby żądanie i commit poszedłby drugi raz. Idempotencja po
+    // conversation_id by go obroniła, ale nie ma powodu jej testować bez potrzeby.
+    if (!r.ok || out?.ok === false) {
+      console.error("[voice-call-postprocess]", JSON.stringify({
+        event: "analyze_failed", conversation_id: conversationId,
+        status: r.status, tenant_source: tenantSource, error: String(out?.error || "").slice(0, 200),
+      }));
+    }
+
+    console.info("[voice-call-postprocess]", JSON.stringify({
+      event: "analyzed", conversation_id: conversationId, tenant_source: tenantSource,
+      call_id: out?.call_id || null, lessons: out?.lessons_learned || 0,
+    }));
+    // O powodzeniu webhooka decyduje COMMIT, nie analyze.
+    if (!commitRes.ok) {
+      return json({
+        ok: false, error: commitOut?.error || "voice-call-commit nie powiódł się",
+        conversation_id: conversationId, commit: commitOut?.status || null,
+      }, 502);
+    }
+    return json({
+      ok: true, commit: commitOut?.status || null,
+      analyzed: r.ok && out?.ok !== false,
+      call_id: out?.call_id || null, lessons: out?.lessons_learned || 0,
+      conversation_id: conversationId,
+    });
   } catch (e) {
+    console.error("[voice-call-postprocess]", JSON.stringify({
+      event: "request_failed", error: (e as Error)?.name || "error",
+    }));
     return json({ ok: false, error: (e as Error).message }, 500);
   }
 });

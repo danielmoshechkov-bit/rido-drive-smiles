@@ -218,13 +218,14 @@
     "formSentDesc": "Skontaktujemy się z Tobą w ciągu 24 godzin.",
     "placeholders": {
       "name": "Jan Kowalski",
-      "phone": "+48 519 474 583",
+      "phone": "+48",
       "email": "jan@example.com",
       "city": "Warszawa",
-      "message": "Chcę zostać kierowcą Get RIDO..."
+      "message": "W czym możemy pomóc? Opisz swoją sprawę..."
     }
   },
   "footer": {
+    "dataDeletion": "Usuwanie danych",
     "copyright": "GetRido. Wszystkie prawa zastrzeżone.",
     "allListings": "← Wszystkie ogłoszenia",
     "privacy": "Polityka prywatności",
@@ -2003,7 +2004,14 @@
       "deletedCount_one": "Usunięto {{count}} zlecenie",
       "deletedCount_few": "Usunięto {{count}} zlecenia",
       "deletedCount_many": "Usunięto {{count}} zleceń",
-      "deletedCount_other": "Usunięto {{count}} zleceń"
+      "deletedCount_other": "Usunięto {{count}} zleceń",
+      "selectOrderFirst": "Najpierw zaznacz zlecenie, do którego chcesz wystawić",
+      "alreadyFiscalized": "To zlecenie ma już wystawiony paragon fiskalny",
+      "colDocuments": "Dokumenty",
+      "docsAll": "Wszystkie dokumenty",
+      "docsWithReceipt": "Z paragonem",
+      "docsWithoutReceipt": "Bez paragonu",
+      "docsWithInvoice": "Z fakturą"
     },
     "orderDetail": {
       "completedWarningTitle": "Uwaga: zlecenie zakończone.",
@@ -2313,9 +2321,13 @@
         "daneNaprawcze": "Dane naprawcze",
         "pracownicy": "Pracownicy",
         "stanowiska": "Stanowiska",
+        "cennik": "Cennik usług",
         "ustawienia": "Ustawienia"
       },
-      "freeTrialBadge": "14 dni za darmo — bez zobowiązań",
+      "cennik": {
+        "desc": "Ceny i czasy trwania usług. To jedyne źródło, z którego asystent głosowy podaje ceny klientom — wpisz tylko to, co chcesz, żeby mówił. Czas trwania podawaj jako CZAS BLOKADY STANOWISKA, nie czas pracy: jeśli auto stoi godzinę, wpisz 60, choć sama praca trwa 30 minut."
+      },
+      "freeTrialBadge": "{{days}} dni za darmo — bez zobowiązań",
       "heroTitle": "Warsztat & Auto — wszystko w jednym miejscu",
       "heroSubtitle": "Zarządzaj zleceniami, klientami, pojazdami, magazynem i fakturami. Oszczędzaj czas i zwiększ zyski dzięki automatyzacji i AI.",
       "features": {
@@ -2348,44 +2360,9 @@
         "title": "Wybierz plan dla siebie",
         "startFree": "Zacznij za darmo",
         "choosePlan": "Wybierz plan",
-        "plans": {
-          "start": {
-            "badge": "Darmowy",
-            "f1": "20 zleceń/mc",
-            "f2": "Klienci + pojazdy",
-            "f3": "Terminarz",
-            "f4": "Zdjęcia przy przyjęciu",
-            "f5": "10 sprawdzeń VIN",
-            "f6": "3 pytania AI/mc"
-          },
-          "warsztat": {
-            "badge": "Najpopularniejszy",
-            "f1": "Zlecenia bez limitu",
-            "f2": "Magazyn + przechowalnia",
-            "f3": "Sprzedaż + faktury",
-            "f4": "Raporty + marża live",
-            "f5": "KSeF basic",
-            "f6": "20 pytań AI/mc"
-          },
-          "pro": {
-            "badge": "Pro",
-            "f1": "Dane naprawcze (TecRMI)",
-            "f2": "Czas pracy mechanika",
-            "f3": "50 pytań AI/mc",
-            "f4": "KSeF pełny + wysyłka",
-            "f5": "Zaawansowane raporty",
-            "f6": "Priorytetowy support"
-          },
-          "ai": {
-            "badge": "AI Business",
-            "f1": "Księgowość AI",
-            "f2": "30 faktur/mc auto-odczyt",
-            "f3": "Doradca podatkowy AI",
-            "f4": "Nieograniczone AI",
-            "f5": "KSeF monitor + alerty",
-            "f6": "Dedykowany opiekun"
-          }
-        }
+        "popular": "Najpopularniejszy",
+        "contact": "Napisz do nas",
+        "unavailable": "Nie udało się wczytać aktualnego cennika. Odśwież stronę."
       },
       "error": "Błąd: {{message}}",
       "stations": {
@@ -3605,7 +3582,7 @@
       "model": "Model",
       "modelPlaceholder": "np. Corolla",
       "serviceDesc": "Opis usługi",
-      "serviceDescPlaceholder": "np. Wymiana oleju + filtrów",
+      "serviceDescPlaceholder": "np. wymiana opon, mycie, naprawa…",
       "serviceDuration": "Czas na usługę",
       "dur30min": "30 min",
       "dur1h": "1 godz.",
@@ -3809,7 +3786,8 @@
         "numbering": "Numeracja",
         "integrations": "Integracje",
         "notifications": "Powiadomienia",
-        "ridoPrice": "Rido Price"
+        "ridoPrice": "Rido Price",
+        "fiscal": "Fiskalizacja"
       },
       "workstations": {
         "title": "Stanowiska robocze",
@@ -4211,5 +4189,30 @@
     "selectToActivate": "Wybierz moduł, który chcesz aktywować",
     "comingSoon": "Wkrótce",
     "allAccountTypes": "Masz już wszystkie dostępne typy kont"
+  },
+  "dataDeletion": {
+    "title": "Usuwanie danych",
+    "subtitle": "Instrukcja usunięcia danych osobowych — w tym danych z serwisów Facebook i Instagram (Meta)",
+    "lastUpdated": "Ostatnia aktualizacja",
+    "adminTitle": "1. Administrator danych",
+    "rodoContact": "Kontakt w sprawach ochrony danych",
+    "metaDataTitle": "2. Jakie dane pobieramy przez Facebook / Instagram",
+    "metaDataIntro": "W związku z publikacją ogłoszeń na profilach GetRido w serwisach Meta możemy pobierać przez interfejsy API Meta następujące dane:",
+    "metaData1": "identyfikator użytkownika w serwisie Meta",
+    "metaData2": "nazwę profilu",
+    "metaData3": "adres e-mail (jeżeli został udostępniony)",
+    "metaData4": "identyfikatory opublikowanych postów",
+    "purposeText": "Cel przetwarzania: publikacja ogłoszeń użytkownika na profilach GetRido w serwisach Meta oraz raportowanie statystyk publikacji.",
+    "howTitle": "3. Jak zażądać usunięcia danych",
+    "howIntro": "Aby zażądać usunięcia danych, wykonaj następujące kroki:",
+    "howStep1": "Wyślij wiadomość e-mail na adres:",
+    "howStep2": "W temacie wiadomości wpisz: „Usunięcie danych”.",
+    "howStep3": "W treści podaj adres e-mail konta w GetRido lub nazwę profilu na Facebooku, którego dotyczy żądanie.",
+    "deadline": "Żądanie zrealizujemy niezwłocznie, nie później niż w terminie 30 dni od jego otrzymania (art. 12 ust. 3 RODO).",
+    "scopeTitle": "4. Co usuwamy, a co musimy zachować",
+    "scopeDelete": "Usuwamy wszystkie dane osobowe powiązane z kontem lub profilem wskazanym w żądaniu, w tym dane pobrane z serwisów Meta.",
+    "scopeKeep": "Wyjątek stanowią dane rozliczeniowe i faktury, które zgodnie z przepisami prawa podatkowego musimy przechowywać przez okres 5 lat. Po upływie tego okresu zostają one usunięte.",
+    "altTitle": "5. Alternatywnie: cofnięcie dostępu w ustawieniach Facebooka",
+    "altText": "Możesz też samodzielnie odłączyć aplikację GetRido od swojego konta Facebook: wejdź w Ustawienia → Aplikacje i witryny, znajdź GetRido i usuń dostęp. Odłączenie aplikacji zatrzymuje dalsze pobieranie danych; aby usunąć dane już pobrane, wyślij żądanie zgodnie z punktem 3."
   }
 }

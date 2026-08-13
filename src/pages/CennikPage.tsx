@@ -18,11 +18,17 @@ import {
   Users,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { usePublicPricing, type PublicPlan, type ProductLine } from "@/hooks/usePublicPricing";
+import { planPriceLabels, planCtaLabel } from "@/lib/pricingCards";
 
 type Plan = {
   name: string;
   price: string;
   period?: string;
+  /** Cena po zakończeniu promocji — pokazywana przekreślona obok startowej. */
+  targetPrice?: string;
+  /** Druga linia pod ceną, np. kwota brutto. */
+  priceNote?: string;
   description?: string;
   features: string[];
   highlighted?: boolean;
@@ -119,83 +125,12 @@ const sections: Section[] = [
     subtitle:
       "Warsztaty, detailing, wulkanizacja, blacharnia, mechanika. Wybierz plan dopasowany do skali Twojego serwisu.",
     topNote:
-      "System ERP dla warsztatów, detailingów i każdego serwisu aut – zarządzaj wszystkimi zleceniami (własnymi i z platformy GetRido) w jednym miejscu.",
+      "System ERP dla warsztatów, detailingów i każdego serwisu aut – zarządzaj wszystkimi zleceniami (własnymi i z platformy GetRido) w jednym miejscu. Wdrożenie, migracja danych z obecnego programu, konfiguracja kasy fiskalnej i KSeF — 0 zł (wartość 690 zł).",
     bottomNote:
-      "Pakiety dokupowane (jak doładowanie telefonu): SMS — pakiety wg zużycia · Sprawdzanie VIN / nr rej. — pakiety wg zużycia · Minuty AI — Pro · AI ma 120 min w cenie, powyżej 0,69 zł/min lub tańszy pakiet minut. Płacisz tylko za to, czego realnie używasz.",
-    groups: [
-      {
-        plans: [
-          {
-            name: "Start",
-            price: "0 zł",
-            period: "/ mies.",
-            description: "Na start — dla małych warsztatów i jednoosobowych studiów.",
-            features: [
-              "20 zleceń / mc",
-              "Klienci + pojazdy",
-              "Terminarz + rezerwacje online",
-              "Zdjęcia przy przyjęciu",
-              "3 pytania AI / mc (próbka)",
-              "Dostęp do giełdy GetRido",
-            ],
-            cta: "Zacznij za darmo",
-          },
-          {
-            name: "Warsztat",
-            price: "59 zł",
-            period: "netto / mies.",
-            description: "Pełny program dla warsztatu — wszystko, czego potrzebujesz do pracy.",
-            features: [
-              "Zlecenia bez limitu + dynamiczne statusy",
-              "Magazyn + przechowalnia + OCR faktur",
-              "Sprzedaż + faktury + KSeF",
-              "Kosztorysy z e-podpisem klienta",
-              "Raporty + marża live",
-              "Dekoder VIN / sprawdzanie po nr rej.",
-              "5 wycen robocizny AI + 3× pomoc AI w naprawie / mc (gratis)",
-              "Dostęp do giełdy GetRido",
-            ],
-            cta: "Wybieram Warsztat",
-          },
-          {
-            name: "Pro · AI",
-            price: "149 zł",
-            period: "netto / mies.",
-            description: "AI odbiera telefon, umawia wizyty i tworzy zlecenia. Cały warsztat + AI w jednym.",
-            features: [
-              "Wszystko z pakietu Warsztat",
-              "AI voicebot ODBIERA telefon 24/7 — 120 min w cenie",
-              "Bot po godzinach + oddzwanianie do leadów",
-              "Transkrypcje rozmów w karcie zlecenia",
-              "Wyceny AI (Rido AI) bez limitu + dobór części",
-              "Dane naprawcze (TecRMI) + czas pracy mechanika",
-              "Proaktywny CRM + marketing SMS / e-mail",
-              "Dostęp do giełdy GetRido",
-            ],
-            highlighted: true,
-            badge: "Najpopularniejszy",
-            cta: "Wybieram Pro · AI",
-          },
-          {
-            name: "Pro+ · GetRido AI",
-            price: "289 zł",
-            period: "netto / mies.",
-            description: "Pełna automatyzacja z księgowością i większym AI. Dla dużych warsztatów i sieci.",
-            features: [
-              "Wszystko z pakietu Pro · AI",
-              "Więcej minut AI + obsługa wielu numerów",
-              "Księgowość AI + doradca podatkowy AI",
-              "30 faktur / mc auto-odczyt",
-              "KSeF monitor + alerty",
-              "Zaawansowana analityka + dedykowany opiekun",
-              "Dostęp do giełdy GetRido",
-            ],
-            badge: "AI",
-            cta: "Wybieram Pro+",
-          },
-        ],
-      },
-    ],
+      "Ceny startowe obowiązują przy uruchomieniu konta do 31.12.2026 i są gwarantowane przez 12 miesięcy od aktywacji — o zmianie informujemy 30 dni wcześniej. Pakiety dokupowane: SMS · sprawdzenia VIN i nr rejestracyjnego · minuty Agenta AI (0,60 zł/min netto albo pakiet 100 / 250 / 500 minut). Funkcje AI bez podanego limitu działają w ramach uczciwego użycia. Agent nigdy nie przestaje odbierać telefonu — po wyczerpaniu minut przechodzi w tryb awaryjny i przekazuje wiadomość do warsztatu.",
+    // Plany, ceny i zakres czyta WarsztatContent z billing_plans. W kodzie
+    // zostają wyłącznie nagłówki, teksty marketingowe i przypisy.
+    groups: [],
   },
   {
     id: "uslugi",
@@ -339,19 +274,6 @@ const businessSections: Section[] = [
             highlighted: true,
             cta: "Wybieram AI Pro",
           },
-          {
-            name: "AI Voice",
-            price: "Wycena",
-            description: "AI asystent telefoniczny + reklamowy.",
-            features: [
-              "Odbieranie połączeń przez AI",
-              "Transkrypcje rozmów",
-              "AI Sales Agent (Meta Ads)",
-              "Indywidualne wdrożenie",
-            ],
-            badge: "Wkrótce",
-            cta: "Zapytaj o ofertę",
-          },
         ],
       },
     ],
@@ -362,7 +284,6 @@ const businessSections: Section[] = [
 const aiExtras = [
   { icon: "🤖", name: "AI Wycena nieruchomości", price: "19 zł", note: "GRATIS w Premium nieruchomości" },
   { icon: "📊", name: "AI Raport dzielnicy", price: "25 zł" },
-  { icon: "🎙️", name: "Voice Tour 360° (6 języków)", price: "49 zł" },
   { icon: "📸", name: "AI obróbka zdjęć", price: "9 zł" },
   { icon: "🚗", name: "Raport VIN — pełna historia pojazdu", price: "69 zł", note: "Stała cena (u innych 70–90 zł)" },
   { icon: "🏦", name: "Kalkulator kredytu", price: "DARMOWY" },
@@ -390,12 +311,18 @@ const PlanCard = ({ plan, onCta }: { plan: Plan; onCta: () => void }) => (
     )}
     <div className="mb-4">
       <h3 className="text-lg font-bold text-primary mb-2">{plan.name}</h3>
-      <div className="flex items-baseline gap-1 mb-2">
+      <div className="flex items-baseline gap-2 flex-wrap">
         <span className="text-3xl font-bold text-foreground">{plan.price}</span>
         {plan.period && <span className="text-sm text-muted-foreground">{plan.period}</span>}
+        {plan.targetPrice && (
+          <span className="text-sm text-muted-foreground line-through">{plan.targetPrice}</span>
+        )}
       </div>
+      {plan.priceNote && (
+        <p className="text-xs text-muted-foreground mt-1">{plan.priceNote}</p>
+      )}
       {plan.description && (
-        <p className="text-sm text-muted-foreground">{plan.description}</p>
+        <p className="text-sm text-muted-foreground mt-2">{plan.description}</p>
       )}
     </div>
     <ul className="space-y-2 mb-6 flex-1">
@@ -416,7 +343,119 @@ const PlanCard = ({ plan, onCta }: { plan: Plan; onCta: () => void }) => (
   </Card>
 );
 
+/**
+ * Sekcja „Warsztat i Detailing" — jedyna karmiona z bazy.
+ *
+ * Ceny, nazwy, opisy, kolejność i lista funkcji pochodzą z `billing_plans`
+ * i macierzy plan × funkcja, więc zmiana cennika to klik w panelu, nie deploy.
+ * Karty grupują się po linii produktowej: Warsztat i Agent AI kupuje się
+ * osobno, pakietów łączonych już nie sprzedajemy.
+ */
+const PRODUCT_GROUPS: Array<{ line: ProductLine; heading: string }> = [
+  { line: "warsztat", heading: "GetRido Warsztat — program dla serwisu" },
+  { line: "agent", heading: "GetRido Agent AI — odbiera telefon 24/7" },
+];
+
+/** Wyróżnienie karty — decyzja marketingowa, nie dana z cennika. */
+const HIGHLIGHTED: Record<string, string> = {
+  warsztat_standard: "Najpopularniejszy",
+  agent_pro: "Najpopularniejszy",
+};
+
+const toCard = (plan: PublicPlan): Plan => {
+  const badge = HIGHLIGHTED[plan.code];
+  const price = planPriceLabels(plan);
+  return {
+    name: plan.name,
+    price: price.price,
+    period: price.period,
+    targetPrice: price.target,
+    priceNote: price.note,
+    description: plan.description ?? undefined,
+    features: plan.features,
+    highlighted: !!badge,
+    badge,
+    cta: planCtaLabel(plan),
+  };
+};
+
+const gridClass = (count: number) =>
+  count === 1
+    ? "md:grid-cols-1 max-w-md"
+    : count === 2
+    ? "md:grid-cols-2 max-w-3xl"
+    : count === 3
+    ? "md:grid-cols-3"
+    : "md:grid-cols-2 lg:grid-cols-4";
+
+const WarsztatContent = ({ section, onCta }: { section: Section; onCta: () => void }) => {
+  const { plans, loading, error } = usePublicPricing();
+
+  return (
+    <div>
+      <div className="text-center mb-10">
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">{section.title}</h2>
+        <p className="text-muted-foreground max-w-2xl mx-auto">{section.subtitle}</p>
+        {section.topNote && (
+          <p className="mt-4 text-sm text-foreground bg-primary/5 border border-primary/20 rounded-lg p-4 max-w-3xl mx-auto">
+            {section.topNote}
+          </p>
+        )}
+      </div>
+
+      {loading && (
+        <div className="grid gap-6 max-w-6xl mx-auto md:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Card key={i} className="p-6 h-72 animate-pulse bg-muted/40 border-border" />
+          ))}
+        </div>
+      )}
+
+      {/* Przy błędzie NIE pokazujemy zapasowego cennika — zła cena na stronie
+          ofertowej jest gorsza niż jej brak. Pusta lista leci tą samą ścieżką:
+          RLS odcinający gościa nie zwraca błędu, tylko zero wierszy, a sekcja
+          bez ani jednej karty wyglądałaby jak zwinięta oferta. */}
+      {!loading && (error || plans.length === 0) && (
+        <Card className="max-w-2xl mx-auto p-6 text-center">
+          <p className="text-sm text-foreground mb-4">
+            Nie udało się wczytać aktualnego cennika. Odśwież stronę albo napisz do nas —
+            podamy ceny od ręki.
+          </p>
+          <Button variant="default" onClick={onCta}>
+            Skontaktuj się z nami
+          </Button>
+        </Card>
+      )}
+
+      {!loading &&
+        !error &&
+        plans.length > 0 &&
+        PRODUCT_GROUPS.map(({ line, heading }) => {
+          const group = plans.filter((p) => p.product_line === line);
+          if (group.length === 0) return null;
+          return (
+            <div key={line} className="mb-10">
+              <h3 className="text-xl font-semibold text-foreground text-center mb-6">{heading}</h3>
+              <div className={`grid gap-6 mx-auto max-w-6xl ${gridClass(group.length)}`}>
+                {group.map((plan) => (
+                  <PlanCard key={plan.code} plan={toCard(plan)} onCta={onCta} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+      {section.bottomNote && (
+        <p className="text-center text-sm text-foreground bg-accent/10 border border-accent/30 rounded-lg p-4 max-w-3xl mx-auto mt-6">
+          {section.bottomNote}
+        </p>
+      )}
+    </div>
+  );
+};
+
 const SectionContent = ({ section, onCta }: { section: Section; onCta: () => void }) => {
+  if (section.id === "warsztat") return <WarsztatContent section={section} onCta={onCta} />;
   if (section.id === "uslugi") return <UslugiContent onCta={onCta} />;
   if (section.id === "ai") return <AiProContent onCta={onCta} />;
   if (section.id === "polecenia") return <PoleceniaContent />;
@@ -612,7 +651,7 @@ const AiProContent = ({ onCta }: { onCta: () => void }) => {
         </p>
       </div>
 
-      <div className="grid gap-6 max-w-5xl mx-auto md:grid-cols-3 mb-14">
+      <div className="grid gap-6 max-w-3xl mx-auto md:grid-cols-2 mb-14">
         {aiPlans.map((plan) => (
           <PlanCard key={plan.name} plan={plan} onCta={onCta} />
         ))}
@@ -800,10 +839,11 @@ const KsiegowoscContent = ({ onCta }: { onCta: () => void }) => {
         "Wszystko z Basic",
         "AI Asystent Księgowy",
         "Program magazynowy",
-        "Auto-odczyt faktur (zdjęcie → dane)",
+        "Auto-odczyt faktur (zdjęcie → dane) — 30 / mc",
         "Doradca podatkowy AI",
         "Wykrywanie błędów w fakturach",
         "KSeF pełny + wysyłka",
+        "KSeF monitor + alerty",
         "Weryfikacja Białej Listy",
         "Zaawansowane raporty",
       ],

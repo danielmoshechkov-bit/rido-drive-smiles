@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { lazyNamedWithRetry } from '@/lib/lazyWithRetry';
-import { WORKSHOP_PLANS } from '@/config/workshopPlans';
+import { usePublicPricing } from '@/hooks/usePublicPricing';
+import { planPriceLabels, planCtaLabel } from '@/lib/pricingCards';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -9,6 +10,8 @@ import { useWorkshopOrders, useWorkshopOrder, useWorkshopProviderId } from '@/ho
 import { useDisableNumberInputScroll } from '@/hooks/useDisableNumberInputScroll';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usePublicPricing } from '@/hooks/usePublicPricing';
+import { planPriceLabels, trialDaysFor } from '@/lib/pricingCards';
 
 // PERF C1: wszystkie podmoduły warsztatu były importowane statycznie — 14
 // komponentów (w tym 1890-liniowy Scheduler i Reports→recharts) lądowało w
@@ -30,6 +33,7 @@ const WorkshopWarehouse = lazyNamed(() => import('./WorkshopWarehouse'), 'Worksh
 const WorkshopTireStorage = lazyNamed(() => import('./WorkshopTireStorage'), 'WorkshopTireStorage');
 const WorkshopRepairData = lazyNamed(() => import('./WorkshopRepairData'), 'WorkshopRepairData');
 const WorkshopSettingsStandalone = lazyNamed(() => import('./WorkshopSettingsStandalone'), 'WorkshopSettingsStandalone');
+const MyServicesPanel = lazy(() => import('@/components/services/MyServicesPanel').then(m => ({ default: m.MyServicesPanel })));
 const WorkshopEmployeesPage = lazyNamed(() => import('./WorkshopEmployeesPage'), 'WorkshopEmployeesPage');
 const WorkshopStationsManager = lazyNamed(() => import('./WorkshopStationsManager'), 'WorkshopStationsManager');
 
@@ -67,6 +71,11 @@ const modules = [
   { key: 'dane-naprawcze', labelKey: 'workshop.dashboard.tiles.daneNaprawcze', img: tileDaneNaprawcze, ready: true },
   { key: 'pracownicy', labelKey: 'workshop.dashboard.tiles.pracownicy', img: tilePracownicy, ready: true },
   { key: 'stanowiska', labelKey: 'workshop.dashboard.tiles.stanowiska', img: tileStanowiska, ready: true },
+  // Cennik usług — JEDYNE źródło cen dla agenta głosowego (provider_services).
+  // Bez tego ekranu warsztat nie ma jak wpisać usług, a agent na pytanie o cenę
+  // odpowiada „wycenimy po obejrzeniu auta" i nic więcej. Ceny NIE pochodzą
+  // z historii zleceń ani od innych warsztatów — każdy wpisuje swoje.
+  { key: 'cennik', labelKey: 'workshop.dashboard.tiles.cennik', img: tileTowary, ready: true },
   { key: 'ustawienia', labelKey: 'workshop.dashboard.tiles.ustawienia', img: tileUstawienia, ready: true },
 ];
 
@@ -128,8 +137,18 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   const { t } = useTranslation();
   useDisableNumberInputScroll(); // scroll nad polem ceny/kwoty nie zmienia wartości (cały moduł)
   const { data: hookProviderId, isLoading, error } = useWorkshopProviderId();
+  // Cennik z bazy (billing_plans) — to samo zrodlo, co strona sprzedazowa.
+  // Wczesniej panel mial WLASNY, nieaktualny zestaw cen wpisany w kodzie.
+  const { plans: publicPlans = [] } = usePublicPricing();
+  const warsztatPlans = publicPlans.filter((p: any) => p.product_line === 'warsztat');
   const providerId = propProviderId || hookProviderId;
   const { data: workshopOrders = [] } = useWorkshopOrders(providerId);
+  // Cennik dla konta bez warsztatu — te same dane co /cennik i /warsztat-info.
+  // Zapytanie jest współdzielone przez TanStack Query, więc nie kosztuje
+  // dodatkowego round-tripu, jeśli któraś z tych stron była już otwarta.
+  const { plans: pricingPlans, loading: pricingLoading, error: pricingError } = usePublicPricing();
+  const offeredPlans = pricingPlans.filter((p) => p.product_line === 'warsztat');
+  const trialDays = trialDaysFor(pricingPlans, 'warsztat');
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
@@ -176,9 +195,11 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
       <div className="max-w-5xl mx-auto py-12 px-4 space-y-10">
         {/* Hero */}
         <div className="text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
-            🚀 {t('workshop.dashboard.freeTrialBadge')}
-          </div>
+          {trialDays > 0 && (
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
+              🚀 {t('workshop.dashboard.freeTrialBadge', { days: trialDays })}
+            </div>
+          )}
           <h1 className="text-3xl md:text-4xl font-bold text-foreground">
             {t('workshop.dashboard.heroTitle')}
           </h1>
@@ -208,19 +229,23 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         {/* Pricing */}
         <div>
           <h2 className="text-2xl font-bold text-center text-foreground mb-6">{t('workshop.dashboard.pricing.title')}</h2>
+<<<<<<< HEAD
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Plany z src/config/workshopPlans.ts — te same, co na stronie sprzedażowej. */}
-            {WORKSHOP_PLANS.map((plan) => (
-              <div key={plan.id} className={`rounded-xl border bg-card p-5 flex flex-col ${plan.popular ? 'ring-2 ring-primary' : ''}`}>
-                {plan.popular && (
+            {/* Plany z bazy (billing_plans) — to samo zrodlo, co strona sprzedazowa. */}
+            {warsztatPlans.map((plan: any) => {
+              const cena = planPriceLabels(plan);
+              const wyrozniony = plan.code === 'warsztat_standard';
+              return (
+              <div key={plan.code} className={`rounded-xl border bg-card p-5 flex flex-col ${wyrozniony ? 'ring-2 ring-primary' : ''}`}>
+                {wyrozniony && (
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit mb-3 bg-primary text-primary-foreground">
                     {t('workshop.dashboard.pricing.plans.warsztat.badge', 'Najczęściej wybierany')}
                   </span>
                 )}
                 <h3 className="font-bold text-lg text-foreground">{plan.name}</h3>
                 <div className="mt-1 mb-4">
-                  <span className="text-2xl font-bold text-foreground">{plan.priceLabel}</span>
-                  <span className="text-sm text-muted-foreground ml-1">{plan.period}</span>
+                  <span className="text-2xl font-bold text-foreground">{cena.price}</span>
+                  <span className="text-sm text-muted-foreground ml-1">{cena.period}</span>
                 </div>
                 <ul className="space-y-1.5 text-sm flex-1">
                   {plan.features.map((f, j) => (
@@ -229,23 +254,87 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
                       <span className="text-muted-foreground">{f}</span>
                     </li>
                   ))}
-                  {plan.comingSoon?.map((f, j) => (
-                    <li key={`soon-${j}`} className="flex items-start gap-1.5">
-                      <span className="text-muted-foreground mt-0.5">◷</span>
-                      <span className="text-muted-foreground italic">{f} — wkrótce</span>
-                    </li>
-                  ))}
                 </ul>
                 <Button
                   className="mt-4 w-full"
-                  variant={plan.popular ? 'default' : 'outline'}
-                  onClick={() => window.location.href = plan.contact ? '/kontakt' : '/auth'}
+                  variant={wyrozniony ? 'default' : 'outline'}
+                  onClick={() => window.location.href = plan.is_custom ? '/kontakt' : '/auth'}
                 >
-                  {plan.cta}
+                  {planCtaLabel(plan)}
                 </Button>
               </div>
-            ))}
+              );
+            })}
           </div>
+=======
+          {pricingLoading && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="rounded-xl border bg-muted/40 p-5 h-72 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {/* Bez zapasowych kwot: zla cena pokazana zalogowanemu klientowi
+              wraca potem jako spor o fakture. */}
+          {!pricingLoading && (pricingError || offeredPlans.length === 0) && (
+            <div className="rounded-xl border bg-card p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                {t('workshop.dashboard.pricing.unavailable')}
+              </p>
+            </div>
+          )}
+
+          {!pricingLoading && !pricingError && offeredPlans.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {offeredPlans.map((plan) => {
+                const price = planPriceLabels(plan);
+                const popular = plan.code === 'warsztat_standard';
+                return (
+                  <div
+                    key={plan.code}
+                    className={`rounded-xl border bg-card p-5 flex flex-col ${popular ? 'ring-2 ring-primary' : ''}`}
+                  >
+                    {popular && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit mb-3 bg-primary text-primary-foreground">
+                        {t('workshop.dashboard.pricing.popular')}
+                      </span>
+                    )}
+                    <h3 className="font-bold text-lg text-foreground">{plan.name}</h3>
+                    <div className="mt-1 mb-4">
+                      <span className="text-2xl font-bold text-foreground">{price.price}</span>
+                      <span className="text-sm text-muted-foreground ml-1">{price.period}</span>
+                      {price.target && (
+                        <span className="text-sm text-muted-foreground line-through ml-2">{price.target}</span>
+                      )}
+                    </div>
+                    <ul className="space-y-1.5 text-sm flex-1">
+                      {plan.features.map((f, j) => (
+                        <li key={j} className="flex items-start gap-1.5">
+                          <span className="text-green-500 mt-0.5">✓</span>
+                          <span className="text-muted-foreground">{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {/* CTA z tlumaczen, nie z planCtaLabel: panel dziala w 7 jezykach,
+                        a helper zwraca polskie napisy pod strony ofertowe. */}
+                    <Button
+                      className="mt-4 w-full"
+                      variant={popular ? 'default' : 'outline'}
+                      onClick={() => (window.location.href = plan.is_custom ? '/kontakt' : '/auth')}
+                    >
+                      {plan.is_custom
+                        ? t('workshop.dashboard.pricing.contact')
+                        : Number(plan.price_net) === 0
+                        ? t('workshop.dashboard.pricing.startFree')
+                        : t('workshop.dashboard.pricing.choosePlan')}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+>>>>>>> origin/main
         </div>
 
         {error && <p className="text-xs text-destructive text-center">{t('workshop.dashboard.error', { message: (error as Error).message })}</p>}
@@ -305,7 +394,13 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
       case 'zlecenia':
         return <WorkshopOrdersList providerId={providerId} onSelectOrder={setSelectedOrder} />;
       case 'klienci':
-        return <WorkshopClientsList providerId={providerId} onBack={() => goTo(null)} />;
+        return (
+          <WorkshopClientsList
+            providerId={providerId}
+            onBack={() => goTo(null)}
+            onOpenVehicle={(vehicle) => setSelectedVehicle(vehicle)}
+          />
+        );
       case 'pojazdy':
         return <WorkshopVehiclesList providerId={providerId} onBack={() => goTo(null)} onSelectVehicle={setSelectedVehicle} />;
       case 'terminarz':
@@ -330,6 +425,16 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
               {t('workshop.dashboard.stations.desc')}
             </p>
             <WorkshopStationsManager providerId={providerId} />
+          </div>
+        );
+      case 'cennik':
+        return (
+          <div className="max-w-5xl mx-auto py-2">
+            <h2 className="text-xl font-semibold mb-1">{t('workshop.dashboard.tiles.cennik')}</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t('workshop.dashboard.cennik.desc')}
+            </p>
+            <MyServicesPanel providerId={providerId} />
           </div>
         );
       case 'ustawienia':

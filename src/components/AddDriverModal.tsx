@@ -57,7 +57,7 @@ export const AddDriverModal = ({ isOpen, onClose, cityId, onSuccess }: AddDriver
     const fullName = `${firstName} ${lastName}`.toLowerCase();
     
     for (const driver of existingDrivers) {
-      const existingName = `${driver.first_name} ${driver.last_name}`.toLowerCase();
+      const existingName = `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}`.toLowerCase();
       
       // Check for exact match or very similar names
       if (existingName === fullName || 
@@ -86,7 +86,7 @@ export const AddDriverModal = ({ isOpen, onClose, cityId, onSuccess }: AddDriver
       
       if (duplicateDriver) {
         const confirmed = window.confirm(
-          `Znaleziono podobnego kierowcę: ${duplicateDriver.first_name} ${duplicateDriver.last_name}. 
+          `Znaleziono podobnego kierowcę: ${[duplicateDriver.first_name, duplicateDriver.last_name].filter(Boolean).join(' ')}. 
           Czy chcesz kontynuować i dodać nowego kierowcę?`
         );
         

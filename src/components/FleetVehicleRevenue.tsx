@@ -249,7 +249,7 @@ export function FleetVehicleRevenue({ fleetId, mode = 'fleet' }: FleetVehicleRev
 
           return {
             driver_id: assignment.driver_id,
-            driver_name: driver ? `${driver.first_name} ${driver.last_name}` : '—',
+            driver_name: driver ? `${[driver.first_name, driver.last_name].filter(Boolean).join(' ')}` : '—',
             vehicle_id: vehicle.id,
             vehicle_plate: vehicle.plate,
             vehicle_brand: vehicle.brand,

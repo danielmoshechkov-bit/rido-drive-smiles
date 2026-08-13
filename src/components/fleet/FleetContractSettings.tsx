@@ -403,12 +403,12 @@ export function FleetContractSettings({ fleetId }: FleetContractSettingsProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Nazwa firmy *</Label>
-                  <Input value={companyData.name} onChange={e => setCompanyData(p => ({...p, name: e.target.value}))} placeholder="np. Car4Ride sp. z o.o." />
+                  <Input value={companyData.name} onChange={e => setCompanyData(p => ({...p, name: e.target.value}))} placeholder="np. Twoja Firma Sp. z o.o." />
                 </div>
                 <div className="space-y-2">
                   <Label>NIP *</Label>
                   <div className="flex gap-2">
-                    <Input value={companyData.nip} onChange={e => setCompanyData(p => ({...p, nip: e.target.value}))} placeholder="np. 5223252793" />
+                    <Input value={companyData.nip} onChange={e => setCompanyData(p => ({...p, nip: e.target.value}))} placeholder="np. 0000000000" />
                     <Button
                       type="button"
                       variant="outline"
