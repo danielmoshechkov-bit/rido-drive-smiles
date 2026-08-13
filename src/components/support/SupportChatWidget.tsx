@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useUserRole } from '@/hooks/useUserRole';
 import {
   useMySupportConversation,
   useSupportMessages,
@@ -27,6 +28,10 @@ export function SupportChatWidget() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: conversation } = useMySupportConversation(!!isLogged);
+  // Admin tez widzi dymek (moze chciec cos sprawdzic), ale wpisana tu wiadomosc
+  // jest ZGLOSZENIEM KLIENTA, nie odpowiedzia — trafia do skrzynki i budzi
+  // asystenta. Bez tego ostrzezenia latwo pomylic okna i odpisac w zle miejsce.
+  const { isAdmin } = useUserRole();
   const { data: messages = [], isLoading } = useSupportMessages(conversation?.id);
   const sendMessage = useSendSupportMessage();
   const markRead = useMarkSupportRead();
@@ -115,6 +120,13 @@ export function SupportChatWidget() {
             </button>
           </div>
 
+          {isLogged && isAdmin && (
+            <div className="px-3 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 text-[11px] text-amber-900 dark:text-amber-200">
+              Piszesz tu <strong>jako klient</strong> — ta wiadomość trafi do skrzynki zgłoszeń.
+              Żeby odpowiadać klientom, wejdź w{' '}
+              <a href="/admin/portal" className="underline font-medium">Panel administratora → Czat</a>.
+            </div>
+          )}
           {!isLogged ? (
             <div className="p-5 text-center space-y-3 bg-background">
               <p className="text-sm text-foreground font-medium">Zaloguj się, żeby napisać do nas</p>
