@@ -411,3 +411,9 @@ verify_jwt = false
 
 [functions.billing-checkout]
 verify_jwt = false
+
+# Webhook operatora — tożsamość potwierdza PODPIS (HMAC z STRIPE_WEBHOOK_SECRET),
+# nie JWT. Stripe nie wysyła nagłówka Authorization, więc verify_jwt musi być
+# wyłączone; brak sekretu = 503 i zero przetwarzania.
+[functions.billing-stripe-webhook]
+verify_jwt = false
