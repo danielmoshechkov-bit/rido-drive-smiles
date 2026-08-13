@@ -22,24 +22,17 @@ interface ToolCall {
 }
 
 // Available tools for the AI agent
+//
+// USUNIĘTE 13.08: narzędzie `query_database`. Wołało RPC `execute_read_query`,
+// które nigdy nie istniało w żadnym schemacie, więc każde użycie kończyło się
+// błędem zwracanym modelowi jako „spróbuj prostszego zapytania" — i pętlą.
+//
+// Nie przywracamy go razem z brakującą funkcją świadomie. SECURITY DEFINER
+// wykonujący dowolny SQL sklejony przez model, chroniony sprawdzeniem
+// `startsWith('select')` i czarną listą słów, to otwarte drzwi do całej bazy
+// z pominięciem RLS. Jeśli asystent ma czytać dane — przez zestaw gotowych,
+// sparametryzowanych zapytań, nie przez wolny SQL.
 const tools = [
-  {
-    type: "function",
-    function: {
-      name: "query_database",
-      description: "Execute a read-only SELECT query on the database to retrieve data. Use this for generating lists, reports, or statistics.",
-      parameters: {
-        type: "object",
-        properties: {
-          query: { 
-            type: "string", 
-            description: "SQL SELECT query to execute. Only SELECT queries are allowed." 
-          }
-        },
-        required: ["query"]
-      }
-    }
-  },
   {
     type: "function",
     function: {
@@ -154,26 +147,6 @@ async function executeToolCall(
   
   try {
     switch (toolName) {
-      case "query_database": {
-        const query = args.query?.toLowerCase() || '';
-        // Security: Only allow SELECT queries
-        if (!query.trim().startsWith('select')) {
-          return JSON.stringify({ error: "Only SELECT queries are allowed for security." });
-        }
-        // Block dangerous patterns
-        if (query.includes('delete') || query.includes('drop') || query.includes('insert') || query.includes('update') || query.includes('alter')) {
-          return JSON.stringify({ error: "Modification queries are not allowed." });
-        }
-        
-        const { data, error } = await supabaseAdmin.rpc('execute_read_query', { query_text: args.query });
-        if (error) {
-          // Fallback: try direct query for simple selects
-          console.log("RPC failed, trying direct query");
-          return JSON.stringify({ error: `Query error: ${error.message}. Try a simpler query.` });
-        }
-        return JSON.stringify({ results: data, count: data?.length || 0 });
-      }
-      
       case "toggle_feature": {
         const { error } = await supabaseAdmin
           .from('feature_toggles')
