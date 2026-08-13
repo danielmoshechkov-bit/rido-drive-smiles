@@ -358,6 +358,30 @@ async function sekcjaD() {
   if (zaslepki.length) zle("D5", "zaślepki w kodzie produkcyjnym", zaslepki.join("\n"));
   else ok("D5", "brak zaślepek (filter(() => false), TODO, FIXME, XXX)", wszystkie.length);
 
+  // D7: ZDANIA WZORCOWE W PROMPCIE NIE MOGĄ MIEĆ ZASZYTEJ PŁCI.
+  //
+  // Siedem razy agent zwrócił się „Pan" do kobiety. Przez sześć z nich szukaliśmy
+  // przyczyny w regułach o zgadywaniu płci. Przyczyną było ZDANIE, które prompt
+  // każe wypowiedzieć DOSŁOWNIE:
+  //   „W podsumowaniu powiedz: »Potwierdzenie wyślemy SMS-em na numer,
+  //    z którego Pan dzwoni.«"
+  // Model nie zgadywał — recytował nasz szablon. Zasada 22 (przykład staje się
+  // zachowaniem) w najczystszej postaci, tylko dotyczy rodzaju gramatycznego.
+  const chatSrc = czytajFunkcje("voice-agent-chat");
+  const plciowe = [];
+  for (const m of chatSrc.matchAll(/"[^"]{0,160}(?:z którego Pan|dla Pana|Panu wygodnie|mógłby Pan|zdecydują się Państwo)[^"]{0,80}"/g)) {
+    const kontekst = chatSrc.slice(Math.max(0, m.index - 120), m.index);
+    // Przykłady negatywne („ŹLE:", „BŁĄD:") są w porządku — pokazują, czego nie robić.
+    if (/ŹLE|BŁĄD|padło|nie mów/i.test(kontekst)) continue;
+    plciowe.push(m[0].slice(0, 110));
+  }
+  if (plciowe.length) {
+    zle("D7", "zdania wzorcowe w prompcie mają zaszytą formę męską",
+      `${plciowe.join("\n")}\nmodel wypowie je DOSŁOWNIE, także do kobiety`);
+  } else {
+    ok("D7", "żadne zdanie wzorcowe nie zakłada płci rozmówcy", 1);
+  }
+
   // D6: SCHEMATY NARZĘDZI MUSZĄ BYĆ LOGOWANE (zasada 25).
   // Pole `reason` w end_call kosztowało 1236 ms na każdej rozmowie przez trzy
   // pomiary, bo nikt nigdy nie obejrzał schematu, który wysyłamy modelowi.

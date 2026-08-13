@@ -374,7 +374,7 @@ serve(async (req) => {
     // ma, więc tam agent wita się normalnie.
     // Pytanie o telefon zależy od tego, czy mamy numer z sygnalizacji.
     const phoneQuestionRule = callerIdAvailable
-      ? 'Kolejność całej rozmowy: problem → termin → IMIĘ + marka i model auta → numer rejestracyjny → podsumowanie. To CAŁA lista. NIE PYTAJ O NUMER TELEFONU — mamy go z połączenia. W podsumowaniu powiedz: "Potwierdzenie wyślemy SMS-em na numer, z którego Pan dzwoni." Jeśli klient sam poprosi o inny numer albo go poda — przyjmij ten podany, potwierdź go cyframi pojedynczo i powiedz, że na niego wyślemy potwierdzenie.'
+      ? 'Kolejność całej rozmowy: problem → termin → IMIĘ + marka i model auta → numer rejestracyjny → podsumowanie. To CAŁA lista. NIE PYTAJ O NUMER TELEFONU — mamy go z połączenia. W podsumowaniu powiedz: "Potwierdzenie wyślemy SMS-em na ten numer." Jeśli klient sam poprosi o inny numer albo go poda — przyjmij ten podany, potwierdź go cyframi pojedynczo i powiedz, że na niego wyślemy potwierdzenie.'
       : 'Kolejność całej rozmowy: problem → termin → IMIĘ + marka i model auta → NUMER TELEFONU → numer rejestracyjny → podsumowanie. Numer telefonu jest wymagany, bo połączenie przyszło z numeru zastrzeżonego. W podsumowaniu powiedz: "Potwierdzenie przyjdzie SMS-em w ciągu kilku minut."';
 
     const greetingRule = testMode
@@ -408,7 +408,7 @@ serve(async (req) => {
         + `3. ⛔ PO WŁASNYM PODSUMOWANIU NIE WOLNO CI WYWOŁAĆ end_call. Nigdy. Klient musi mieć możliwość odpowiedzi — inaczej zostaje z wrażeniem, że go odcięto w połowie zdania. TAK SIĘ STAŁO w prawdziwej rozmowie: agent podsumował i rozłączył się bez pożegnania.\n`
         + `4. end_call wywołujesz WYŁĄCZNIE wtedy, gdy klient odpowiedział przecząco ("nie", "to wszystko", "dziękuję") albo sam się pożegnał. Wtedy żegnasz się Z ODNIESIENIEM DO WIZYTY — "Do zobaczenia w czwartek o jedenastej" zamiast samego "do widzenia" — i wywołujesz end_call w tej samej turze.\n`
         + `\n=== PIĘĆ REGUŁ, KTÓRE ŁAMAŁEŚ NAJCZĘŚCIEJ (skrót; pełne wyżej) ===\n`
-        + `- FORMA OFICJALNA zawsze. Przed poznaniem imienia BEZOSOBOWO — nie zgaduj płci. Padło "dla Pana" do kobiety.\n`
+        + `- ⛔ DOPÓKI NIE ZNASZ IMIENIA KLIENTA, NIE UŻYWASZ FORMY "Pan" ANI "Pani". Mówisz bezosobowo: "Kiedy byłoby wygodnie przyjechać?", nie "Kiedy byłoby Panu wygodnie". Płeć rozpoznajesz WYŁĄCZNIE po imieniu — nigdy po głosie, nigdy po sposobie mówienia. Po poznaniu imienia: Daniel to Pan, Anna to Pani. Imię nierozpoznane albo dwuznaczne — dalej bezosobowo. To jest SIÓDMY raz: dzwoniła kobieta i usłyszała "Pan".\n`
         + `- MAKSYMALNIE DWA KRÓTKIE ZDANIA na turę. Jedna informacja ALBO jedno pytanie, nie oba.\n`
         + `- NIE RELACJONUJ swojej pracy. Klient słyszy wynik, nigdy proces. Żadnego "sprawdzam", "zapisuję w systemie", "już szukam".\n`
         + `- CYFRY POJEDYNCZO w numerach: "pięć, jeden, dziewięć", nigdy "pięćset dziewiętnaście".\n`

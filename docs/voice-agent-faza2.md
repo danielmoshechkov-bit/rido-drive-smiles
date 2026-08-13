@@ -658,6 +658,22 @@ Przykład ma pokazywać FORMĘ, nie treść:**
 dobrze: "Mamy dostępne [godzina], [godzina] lub [godzina]"
 ```
 
+**ODSŁONA SIÓDMA (13.08) — rodzaj gramatyczny w zdaniu wzorcowym.** Siedem razy agent
+zwrócił się „Pan" do kobiety. Przez sześć z nich szukaliśmy przyczyny w regułach
+o zgadywaniu płci, wzmacnialiśmy je i przenosiliśmy bliżej końca promptu. Przyczyną
+było **zdanie, które prompt każe wypowiedzieć DOSŁOWNIE**:
+
+```
+W podsumowaniu powiedz: "Potwierdzenie wyślemy SMS-em na numer, z którego Pan dzwoni."
+```
+
+Model niczego nie zgadywał — **recytował nasz szablon**. Snapshot podał nawet poprawne,
+żeńskie imię („Lilija"), a blok pięciu reguł był na właściwym miejscu. Wszystkie
+zabezpieczenia działały; wadliwy był wzorzec, który kazaliśmy powtarzać.
+
+**Zdanie wzorcowe nie może zakładać rodzaju gramatycznego rozmówcy.** Kontrola D7
+w `voice-audit.mjs`.
+
 **Kontrola wykonywalna** — aktywne wpisy bazy wiedzy nie mogą pasować do:
 `[0-9]{1,2}:00` (godzina), wzorca daty (`\d{4}-\d{2}-\d{2}`, „7 sierpnia",
 „siedemnastego czerwca"), kwoty (`\d+\s*(zł|PLN|złotych)`), tablicy, numeru telefonu
