@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Layers, Loader2, Plus, Save, SlidersHorizontal } from 'lucide-react';
+import { Layers, Loader2, Plus, RefreshCw, Save, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useBillingPlans, PRODUCT_LINE_LABEL, type BillingPlan, type ProductLine,
@@ -46,7 +46,7 @@ const fmt = (v: number | null | undefined) =>
  * RPC billing_set_plan_features, żeby DELETE i INSERT poszły w jednej transakcji.
  */
 export function BillingPlansPanel() {
-  const { plans, matrix, loading, create, update, setActive, setFeatures } = useBillingPlans();
+  const { plans, matrix, loading, create, update, setActive, setFeatures, syncStripe } = useBillingPlans();
   const { features, loading: featuresLoading } = useBillingFeatures();
 
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -131,9 +131,23 @@ export function BillingPlansPanel() {
             te trzymają cenę z chwili zakupu.
           </CardDescription>
         </div>
-        <Button size="sm" onClick={() => setDraft({ ...EMPTY })} className="gap-2">
-          <Plus className="h-4 w-4" /> Dodaj plan
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={syncStripe.isPending}
+            onClick={() => syncStripe.mutate(undefined)}
+            className="gap-2"
+          >
+            {syncStripe.isPending
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <RefreshCw className="h-4 w-4" />}
+            Synchronizuj ze Stripe
+          </Button>
+          <Button size="sm" onClick={() => setDraft({ ...EMPTY })} className="gap-2">
+            <Plus className="h-4 w-4" /> Dodaj plan
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent>
@@ -146,6 +160,7 @@ export function BillingPlansPanel() {
               <TableHead className="text-right">Brutto</TableHead>
               <TableHead className="text-center">Trial</TableHead>
               <TableHead className="text-center">Funkcje</TableHead>
+              <TableHead className="text-center">Stripe</TableHead>
               <TableHead className="w-[100px] text-center">Aktywny</TableHead>
               <TableHead className="w-[170px]" />
             </TableRow>
@@ -183,6 +198,23 @@ export function BillingPlansPanel() {
                 </TableCell>
                 <TableCell className="text-center">
                   <Badge variant="secondary">{featureCount[p.id] ?? 0}</Badge>
+                </TableCell>
+                {/* Plan bez ceny startowej u operatora nie da się kupić —
+                    billing-checkout odmawia z kodem PLAN_NOT_SYNCED. */}
+                <TableCell className="text-center">
+                  {p.is_custom ? (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  ) : !p.stripe_price_id ? (
+                    <Badge variant="destructive">do synchronizacji</Badge>
+                  ) : !p.stripe_price_id_target && p.price_net_target != null ? (
+                    <Badge variant="outline" className="text-amber-600 border-amber-500/50">
+                      brak ceny docelowej
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-emerald-600 border-emerald-500/50">
+                      gotowy
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell className="text-center">
                   <Switch

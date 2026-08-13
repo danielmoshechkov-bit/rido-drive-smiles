@@ -30,7 +30,11 @@ export interface BillingPlan {
   is_custom: boolean;
   is_active: boolean;
   sort_order: number;
+  /** Cena STARTOWA u operatora. Pusta = plan wymaga synchronizacji. */
   stripe_price_id: string | null;
+  /** Cena DOCELOWA — na nią przechodzi subskrypcja po wygaśnięciu gwarancji. */
+  stripe_price_id_target: string | null;
+  stripe_product_id: string | null;
 }
 
 export interface PlanFeatureRow {
@@ -130,6 +134,34 @@ export function useBillingPlans() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /**
+   * Synchronizacja cennika z operatorem — tworzy w Stripe produkt i DWIE ceny
+   * na plan (startową i docelową). Bez ceny docelowej wygaśnięcie gwarancji
+   * po 12 miesiącach oznaczałoby zakładanie cen ręcznie dla każdego klienta.
+   */
+  const syncStripe = useMutation({
+    mutationFn: async (planCode?: string) => {
+      const { data, error } = await supabase.functions.invoke('billing-stripe-sync', {
+        body: planCode ? { plan_code: planCode } : {},
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error === 'GATEWAY_NOT_CONFIGURED'
+        ? 'Brak konfiguracji Stripe — uzupełnij sekret STRIPE_SECRET_KEY'
+        : data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      invalidate();
+      const bledy = (data?.wynik ?? []).filter((w: { blad?: string }) => w.blad);
+      if (bledy.length) {
+        toast.warning(`Zsynchronizowano ${data?.zsynchronizowano ?? 0}, ${bledy.length} z błędem`);
+      } else {
+        toast.success(`Zsynchronizowano ${data?.zsynchronizowano ?? 0} planów (${data?.tryb})`);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return {
     plans: query.data?.plans ?? [],
     matrix: query.data?.matrix ?? [],
@@ -139,6 +171,7 @@ export function useBillingPlans() {
     update,
     setActive,
     setFeatures,
+    syncStripe,
     refetch: query.refetch,
   };
 }

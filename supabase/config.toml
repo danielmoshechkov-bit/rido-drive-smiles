@@ -402,3 +402,12 @@ verify_jwt = false
 
 [functions.support-ai-reply]
 verify_jwt = false
+
+# Billing 4.5 — obie funkcje weryfikują tożsamość samodzielnie:
+# billing-stripe-sync wymaga roli platform_admin, billing-checkout zalogowanego
+# użytkownika i ustala podmiot z service_providers, nigdy z ciała żądania.
+[functions.billing-stripe-sync]
+verify_jwt = false
+
+[functions.billing-checkout]
+verify_jwt = false

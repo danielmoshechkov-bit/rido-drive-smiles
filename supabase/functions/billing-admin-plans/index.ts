@@ -53,6 +53,9 @@ Deno.serve(async (req) => {
       const { data: plans, error } = await admin
         .from("billing_plans").select("*").order("sort_order");
       if (error) throw error;
+      // `stripe_product_id`, `stripe_price_id` i `stripe_price_id_target` idą
+      // razem z resztą (select *) — panel pokazuje na ich podstawie, czy plan
+      // jest zsynchronizowany z operatorem.
 
       const { data: matrix, error: mErr } = await admin
         .from("billing_plan_features")
@@ -104,16 +107,22 @@ Deno.serve(async (req) => {
       // cenie u operatora. Panel pokaże, że plan wymaga ponownej synchronizacji.
       const priceChanged =
         patch.price_net !== undefined && Number(patch.price_net) !== Number(before.price_net);
-      if (priceChanged && before.stripe_price_id) {
-        patch.stripe_price_id = null;
-      }
 
+      // Czyszczeniem identyfikatorów cen zajmuje się teraz trigger
+      // `billing_clear_stripe_prices` (migracja 4.5) — obejmuje też cenę
+      // docelową i zmianę stawki VAT, a kwota u operatora jest brutto.
+      // Reguła w dwóch miejscach naraz rozjechałaby się przy pierwszej zmianie.
       const { data, error } = await admin
         .from("billing_plans").update(patch).eq("id", id).select().single();
       if (error) throw error;
 
       await audit(admin, caller.id, priceChanged ? "plan.price_changed" : "plan.updated", id, before, data);
-      return json({ plan: data, price_id_cleared: priceChanged && !!before.stripe_price_id });
+      return json({
+        plan: data,
+        // Panel pokazuje ostrzeżenie na podstawie stanu PO zapisie, nie własnej
+        // prognozy — trigger mógł wyczyścić więcej, niż wynikałoby z ceny netto.
+        price_id_cleared: !!before.stripe_price_id && !data.stripe_price_id,
+      });
     }
 
     // ---------------------------------------------------------- set_active
