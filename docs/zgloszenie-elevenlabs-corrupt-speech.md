@@ -1,71 +1,92 @@
-# Zgłoszenie do ElevenLabs — corrupt speech + cięcie TTS w połowie słowa (SIP, polski)
+# Zgłoszenie do ElevenLabs
 
-**Status: PRZYGOTOWANE, NIEWYSŁANE.** Czeka na akceptację.
-Kanał: support@elevenlabs.io albo formularz w panelu (Help → Contact support).
+**Status: PRZEPISANE, NIEWYSŁANE.** Czeka na akceptację.
+Kanał: support@elevenlabs.io albo Help → Contact support w panelu.
+
+Pierwsza wersja opisywała „corrupt speech". Po pomiarach to już nie jest główna
+teza — zgłoszenie dotyczy trzech konkretnych, policzonych rzeczy.
 
 ---
 
 Hi,
 
-We run a production Conversational AI agent over SIP trunking in Polish
-(agent `…0h11354g`, workspace GetRido). Two separate problems, both
-reproducible in stored conversations.
+Production Conversational AI agent over SIP trunking, inbound, Polish
+(agent `…0h11354g`, workspace GetRido). Three issues, all measured on stored
+conversations, ordered by how much they cost us.
 
-## 1. Corrupt speech (your documented issue) — happening on telephony, in Polish
+## 1. TTS is cut off mid-sentence while the caller is silent
 
-Callers repeatedly hear muffled, unintelligible fragments while the stored
-transcript is clean. This matches the "Corrupt Speech" issue in your docs.
-On telephony it is not cosmetic: the caller asks "what did it say?" and we
-lose the booking.
+We compared `original_message` (what our custom LLM returned) with `message`
+(what was actually spoken) across **540 agent turns in 59 conversations**.
+Counting only turns where at least 10 characters of real text are missing —
+so not the trailing `...` you append to completed turns:
 
-Conversation IDs and timestamps:
+    truncated turns:                        59 / 540   (11%)
+      genuine barge-in (caller spoke):      41
+      caller said nothing at all:            6
 
-    conv_…78qkrx0a    13 Aug 2026, 21:59 UTC+2   at 00:41
-    conv_…d1c2f9s7    13 Aug 2026, 21:55 UTC+2   at 00:46
+For those 6 we measured when the agent fell silent (start time + spoken length
+at 14 chars/sec) against the next caller utterance. Median silence after the cut
+is **1.4 s**, maximum **3.9 s** — no one was speaking.
 
-At 00:41 the agent text was `Dobrze, notuję. Poproszę numer rejestracyjny.`
-The caller responded 6 seconds later asking what "CTM" meant — she heard
-noise, not words. The garbling is audible in the recording you serve from
-your own API, so it is not our SIP transport.
+Clearest example, conversation `conv_…78qkrx0a`, 13 Aug 2026 21:59 CEST, at 00:41:
 
-Config: `eleven_flash_v2_5`, `pcm_16000` in and out, `stability 0.5`,
-`speed 1.0`, `similarity_boost 0.8`, `optimize_streaming_latency 0`.
-No non-textual characters ever reach TTS — we checked all 630 agent
-utterances across 59 conversations: zero occurrences of `{ } [ ] < >`
-and zero leakage of our system-prompt markers. Median utterance length
-is 71 characters, longest 314 — nothing near the 800-character guidance.
-
-Questions:
-- Is corrupt speech more frequent on `eleven_flash_v2_5` than `turbo_v2_5`?
-- Is it voice-dependent, and can you tell us whether our voice is affected?
-- Is it more frequent for Polish than English?
-
-## 2. TTS is cut off mid-word when nobody is speaking
-
-Separate and, for us, larger. **17% of agent utterances (90 of 540) are
-truncated mid-word** and flagged `interrupted: true`. In 6 of them not a
-single word was spoken.
-
-We tested whether these are genuine barge-in by comparing when the agent
-fell silent against the next caller utterance. **18 of 78 measurable cases
-had no caller speech at all** — median gap after the agent stopped is
-positive, and reaches 6.9 seconds.
-
-Example, conversation `conv_…78qkrx0a` at 00:41:
-
-    LLM produced : Dobrze, notuję. Poproszę numer rejestracyjny.
+    LLM returned : Dobrze, notuję. Poproszę numer rejestracyjny.
     actually said: Dobrze, notuję. Poproszę numer
     next caller utterance: 3.9 seconds later
 
-Config: `turn_v3`, `mode: turn`, `turn_eagerness: normal`,
-`turn_timeout 4.0`, `speculative_turn false`, ASR `scribe_realtime`,
-quality `high`.
+Second example, `conv_…d1c2f9s7`, same evening 21:55, at 01:34 — 77 characters
+lost, 1.3 s of silence after.
 
-Questions:
-- What triggers an interruption when the caller is silent? Is line noise
-  or acoustic echo on the SIP leg being detected as speech?
-- Is there a sensitivity control beyond `interruption_ignore_terms`?
-- Does `turn_v3` behave differently on 8 kHz-sourced telephony audio
-  upsampled to `pcm_16000`?
+Relevant config: `turn_v3`, `mode: turn`, `turn_eagerness: normal`,
+`turn_timeout 4.0`, `speculative_turn false`, `background_voice_detection: true`,
+ASR `scribe_realtime` quality `high`.
 
-We are happy to share full conversation exports.
+- What can trigger an interruption when the caller is silent?
+- Is `background_voice_detection` expected to suppress line noise and codec
+  artifacts, or only competing human voices?
+- Does `turn_v3` behave differently on telephony audio that originated at
+  8 kHz and was upsampled?
+
+## 2. G.722 is negotiated even though we offer uncompressed codecs
+
+Our SIP provider offers four codecs in the INVITE; your `200 OK` picks G.722:
+
+    offered:  PCMA/8000, AMR-WB/16000, G722/8000, PCMU/8000
+    chosen:   G722/8000
+
+G.722 is sub-band ADPCM with a stateful predictor, so a single lost or reordered
+packet degrades audio until the predictor reconverges — which sounds exactly like
+the muffled speech our callers report. PCMA/PCMU have no such state.
+
+- Can we pin the codec per phone number or per SIP trunk? We see no such field
+  on `/v1/convai/phone-numbers/{id}` (`provider_config` is null,
+  `livekit_stack: standard`).
+- If not, what determines the preference order?
+
+## 3. Media server is transatlantic for a Polish number
+
+The SDP in your `200 OK` points at `34.45.0.205`. Measured from Warsaw:
+
+    ElevenLabs media (34.45.0.205):     146 ms RTT
+    our SIP provider (213.199.246.208):  23 ms RTT
+
+A Polish caller's audio crosses the Atlantic twice. Combined with a stateful
+codec that is a plausible cause of both issues above.
+
+- Can inbound SIP media be pinned to an EU region?
+- Is there a region setting we are missing on the phone number or the trunk?
+
+## Ruled out on our side
+
+Not to send you down these paths:
+- No non-textual characters reach TTS. Zero `{ } [ ] < >` and zero prompt-marker
+  leakage across all 630 agent utterances.
+- Utterance length is not a factor: median 71 characters, longest 314.
+- `optimize_streaming_latency` 3 → 0 changed median `convai_tts_service_ttfb`
+  by +0.4 ms (0.0898 → 0.0902 s), consistent with it being deprecated/ignored.
+- Duplicate LLM requests do not correlate with the cuts (26% of cut turns vs
+  31% of intact turns had a request arrive mid-speech).
+- SIP signalling is clean: one INVITE per call, no re-INVITE, no error_message.
+
+Happy to share full conversation exports and the recordings.
