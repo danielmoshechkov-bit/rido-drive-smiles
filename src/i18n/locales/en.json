@@ -2297,7 +2297,7 @@
         "stanowiska": "Stations",
         "ustawienia": "Settings"
       },
-      "freeTrialBadge": "14 days free — no commitment",
+      "freeTrialBadge": "{{days}} days free — no commitment",
       "heroTitle": "Workshop & Auto — everything in one place",
       "heroSubtitle": "Manage orders, clients, vehicles, inventory and invoices. Save time and grow profits with automation and AI.",
       "features": {
@@ -2330,44 +2330,9 @@
         "title": "Choose a plan for you",
         "startFree": "Start for free",
         "choosePlan": "Choose plan",
-        "plans": {
-          "start": {
-            "badge": "Free",
-            "f1": "20 orders/mo",
-            "f2": "Clients + vehicles",
-            "f3": "Schedule",
-            "f4": "Photos at intake",
-            "f5": "10 VIN checks",
-            "f6": "3 AI questions/mo"
-          },
-          "warsztat": {
-            "badge": "Most popular",
-            "f1": "Unlimited orders",
-            "f2": "Warehouse + storage",
-            "f3": "Sales + invoices",
-            "f4": "Reports + live margin",
-            "f5": "KSeF basic",
-            "f6": "20 AI questions/mo"
-          },
-          "pro": {
-            "badge": "Pro",
-            "f1": "Repair data (TecRMI)",
-            "f2": "Mechanic work time",
-            "f3": "50 AI questions/mo",
-            "f4": "Full KSeF + sending",
-            "f5": "Advanced reports",
-            "f6": "Priority support"
-          },
-          "ai": {
-            "badge": "AI Business",
-            "f1": "AI accounting",
-            "f2": "30 invoices/mo auto-read",
-            "f3": "AI tax advisor",
-            "f4": "Unlimited AI",
-            "f5": "KSeF monitor + alerts",
-            "f6": "Dedicated account manager"
-          }
-        }
+        "popular": "Most popular",
+        "contact": "Contact us",
+        "unavailable": "Could not load the current pricing. Please refresh the page."
       },
       "error": "Error: {{message}}",
       "stations": {
