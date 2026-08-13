@@ -410,6 +410,86 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🚫 GŁOS WYKLUCZONY JAKO PRZYCZYNA (13.08, 23:53)
+
+Zmiana na **Kamila** (polski natywny, `mr1ubFaLs5xVrh1EqWtc`) nie zmieniła nic.
+To samo zniekształcenie, ten sam moment.
+
+```
+transkrypt:  „Dzień dobry, Warsztat, rozmowa rejestrowana — w czym mogę pomóc?"
+usłyszane :  „Dzień dobry, warsztat, theeee, w czym mogę pomóc"
+```
+
+**Wykluczone: Eric (angielski) i Kamil (polski) — oba z tym samym objawem
+w tym samym miejscu.** Hipoteza „angielski głos gorzej radzi sobie z polskimi
+zbitkami" upada.
+
+### ⭐ OBJAW DOTKNĄŁ POWITANIA — to wyklucza CAŁY nasz kod
+
+Potwierdzone w konfiguracji:
+
+```
+conversation_config.agent.first_message =
+  "Dzień dobry, Warsztat, rozmowa rejestrowana — w czym mogę pomóc?"
+```
+
+To **stały napis w konfiguracji ElevenLabs**, syntezowany zanim cokolwiek trafi
+do naszego Custom LLM. Nie ma tam promptu, snapshotu, narzędzi ani żadnej naszej
+logiki. **Nasz kod jest poza podejrzeniem w całości** — i to jest najprostszy
+możliwy przypadek do zgłoszenia: jedno zdanie, zero kontekstu.
+
+### ❌ DWIE PRÓBY ZNALEZIENIA ZNIEKSZTAŁCENIA W NAGRANIU — OBIE NIEUDANE
+
+Zapisuję je, żeby nikt nie powtarzał tej samej drogi.
+
+**Próba 1 — „wybuchy górnego pasma".** Szukałem okien, w których energia siedzi
+w 3–7 kHz, a w 200–1000 Hz jej nie ma, zakładając, że tak wygląda artefakt.
+Znalazłem cztery w nagraniu telefonicznym — i **od trzech do sześciu w syntezie
+puszczonej wprost przez API, bez żadnej telefonii**. To nie są artefakty, tylko
+**głoski szczelinowe**: „sz" w „Warsztat", „cz" w „w czym". Detektor wykrywał
+sybilanty, nie usterkę. Odrzucony.
+
+**Próba 2 — czy z powitania coś wypadło.** Porównanie długości dźwięku:
+
+```
+synteza wprost (3 próby): rozpiętość 3,56 s   dźwięku 2,58 s
+przez telefon           : rozpiętość 3,14 s   dźwięku 2,74 s   (+6%)
+```
+
+Przez telefon dźwięku jest **więcej**, nie mniej. Nic nie wypadło.
+
+**Wniosek: nie mam dowodu akustycznego w żadną stronę.** Nagranie z ElevenLabs
+jest w mp3 i już wcześniej wykazało utratę pasma, więc nie nadaje się na sąd
+ostateczny. Uczciwa pozycja: hipoteza transportowa nadal jest najlepsza, ale
+z powodu *wykluczeń* (kod, prompt, głos, długość, znaki, parametry syntezy),
+a nie z powodu bezpośredniego dowodu.
+
+**Uboczne, ale warte zapamiętania:** to samo zdanie zsyntezowane trzy razy pod rząd
+trwa 3,38 s, 3,42 s i 3,90 s. **15% rozrzutu długości** przy identycznym wejściu —
+synteza sama w sobie jest mocno niedeterministyczna.
+
+### 🔄 TURBO v2.5 WŁĄCZONE (ostatni kandydat po naszej stronie)
+
+`eleven_flash_v2_5` → `eleven_turbo_v2_5`, koszt zmierzony wcześniej: +46 ms.
+Kopia konfiguracji w `backups/elevenlabs-agent-przed-turbo.json`. Zweryfikowane
+pobraniem: głos, prompt, `first_message`, znaczniki snapshotu, blok `turn`, `vad`
+i `enable_phoneme_tags: false` — wszystko bez zmian.
+
+Stan wykluczeń po tej zmianie:
+
+```
+✗ nasz kod, prompt, snapshot     objaw dotyka first_message z konfiguracji
+✗ znaki spoza tekstu             0 na 630 wypowiedzi
+✗ długość wypowiedzi             mediana 71 znaków, maks 314
+✗ optimize_streaming_latency     +0,4 ms — parametr martwy
+✗ enable_phoneme_tags            zmienione na false, objaw został
+✗ głos                           Eric i Kamil, ten sam objaw
+✗ duplikaty żądań                26% wobec 31% — brak związku
+? model syntezy                  Turbo v2.5 — TESTOWANE TERAZ
+? kodek G.722                    czekamy na SuperVoIP
+? trasa przez USA                czekamy na ElevenLabs
+```
+
 ## 🧾 TRZY KOREKTY WŁASNYCH USTALEŃ (13.08) — do zapamiętania jako klasa błędu
 
 Zapisane osobno, bo wszystkie trzy wyszły w jednej turze i wszystkie trzy
