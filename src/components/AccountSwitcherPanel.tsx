@@ -192,7 +192,9 @@ export function AccountSwitcherPanel({
     {
       id: 'workshop',
       label: 'Warsztat / Detailing',
-      description: 'System do zarządzania warsztatem i detailingiem — 14 dni za darmo',
+      // Bez liczby dni: długość triala mieszka w billing_plans i zmienia się
+      // z panelu, a ten kafelek nie ma po co jej powtarzać i rozjeżdżać.
+      description: 'System do zarządzania warsztatem i detailingiem — wypróbuj za darmo',
       image: workshopEmployeeImg,
       route: '/warsztat-info',
       available: true

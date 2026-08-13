@@ -7,6 +7,8 @@ import { useWorkshopOrders, useWorkshopOrder, useWorkshopProviderId } from '@/ho
 import { useDisableNumberInputScroll } from '@/hooks/useDisableNumberInputScroll';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usePublicPricing } from '@/hooks/usePublicPricing';
+import { planPriceLabels, trialDaysFor } from '@/lib/pricingCards';
 
 // PERF C1: wszystkie podmoduły warsztatu były importowane statycznie — 14
 // komponentów (w tym 1890-liniowy Scheduler i Reports→recharts) lądowało w
@@ -133,6 +135,12 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   const { data: hookProviderId, isLoading, error } = useWorkshopProviderId();
   const providerId = propProviderId || hookProviderId;
   const { data: workshopOrders = [] } = useWorkshopOrders(providerId);
+  // Cennik dla konta bez warsztatu — te same dane co /cennik i /warsztat-info.
+  // Zapytanie jest współdzielone przez TanStack Query, więc nie kosztuje
+  // dodatkowego round-tripu, jeśli któraś z tych stron była już otwarta.
+  const { plans: pricingPlans, loading: pricingLoading, error: pricingError } = usePublicPricing();
+  const offeredPlans = pricingPlans.filter((p) => p.product_line === 'warsztat');
+  const trialDays = trialDaysFor(pricingPlans, 'warsztat');
   const [activeModule, setActiveModule] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
@@ -179,9 +187,11 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
       <div className="max-w-5xl mx-auto py-12 px-4 space-y-10">
         {/* Hero */}
         <div className="text-center space-y-4">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
-            🚀 {t('workshop.dashboard.freeTrialBadge')}
-          </div>
+          {trialDays > 0 && (
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
+              🚀 {t('workshop.dashboard.freeTrialBadge', { days: trialDays })}
+            </div>
+          )}
           <h1 className="text-3xl md:text-4xl font-bold text-foreground">
             {t('workshop.dashboard.heroTitle')}
           </h1>
@@ -211,34 +221,73 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         {/* Pricing */}
         <div>
           <h2 className="text-2xl font-bold text-center text-foreground mb-6">{t('workshop.dashboard.pricing.title')}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { name: 'Start', price: '0 zł', period: '/mies.', badge: t('workshop.dashboard.pricing.plans.start.badge'), badgeColor: 'bg-muted text-muted-foreground', border: '', features: [t('workshop.dashboard.pricing.plans.start.f1'), t('workshop.dashboard.pricing.plans.start.f2'), t('workshop.dashboard.pricing.plans.start.f3'), t('workshop.dashboard.pricing.plans.start.f4'), t('workshop.dashboard.pricing.plans.start.f5'), t('workshop.dashboard.pricing.plans.start.f6')] },
-              { name: 'Warsztat', price: '99 zł', period: 'netto/mies.', badge: t('workshop.dashboard.pricing.plans.warsztat.badge'), badgeColor: 'bg-primary text-primary-foreground', border: 'ring-2 ring-primary', features: [t('workshop.dashboard.pricing.plans.warsztat.f1'), t('workshop.dashboard.pricing.plans.warsztat.f2'), t('workshop.dashboard.pricing.plans.warsztat.f3'), t('workshop.dashboard.pricing.plans.warsztat.f4'), t('workshop.dashboard.pricing.plans.warsztat.f5'), t('workshop.dashboard.pricing.plans.warsztat.f6')] },
-              { name: 'Warsztat Pro', price: '175 zł', period: 'netto/mies.', badge: t('workshop.dashboard.pricing.plans.pro.badge'), badgeColor: 'bg-orange-100 text-orange-700', border: '', features: [t('workshop.dashboard.pricing.plans.pro.f1'), t('workshop.dashboard.pricing.plans.pro.f2'), t('workshop.dashboard.pricing.plans.pro.f3'), t('workshop.dashboard.pricing.plans.pro.f4'), t('workshop.dashboard.pricing.plans.pro.f5'), t('workshop.dashboard.pricing.plans.pro.f6')] },
-              { name: 'GetRido AI', price: '249 zł', period: 'netto/mies.', badge: t('workshop.dashboard.pricing.plans.ai.badge'), badgeColor: 'bg-green-100 text-green-700', border: 'ring-2 ring-green-500', features: [t('workshop.dashboard.pricing.plans.ai.f1'), t('workshop.dashboard.pricing.plans.ai.f2'), t('workshop.dashboard.pricing.plans.ai.f3'), t('workshop.dashboard.pricing.plans.ai.f4'), t('workshop.dashboard.pricing.plans.ai.f5'), t('workshop.dashboard.pricing.plans.ai.f6')] },
-            ].map((plan, i) => (
-              <div key={i} className={`rounded-xl border bg-card p-5 flex flex-col ${plan.border}`}>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-fit mb-3 ${plan.badgeColor}`}>{plan.badge}</span>
-                <h3 className="font-bold text-lg text-foreground">{plan.name}</h3>
-                <div className="mt-1 mb-4">
-                  <span className="text-2xl font-bold text-foreground">{plan.price}</span>
-                  <span className="text-sm text-muted-foreground ml-1">{plan.period}</span>
-                </div>
-                <ul className="space-y-1.5 text-sm flex-1">
-                  {plan.features.map((f, j) => (
-                    <li key={j} className="flex items-start gap-1.5">
-                      <span className="text-green-500 mt-0.5">✓</span>
-                      <span className="text-muted-foreground">{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Button className="mt-4 w-full" variant={i === 1 ? 'default' : 'outline'} onClick={() => window.location.href = '/auth'}>
-                  {i === 0 ? t('workshop.dashboard.pricing.startFree') : t('workshop.dashboard.pricing.choosePlan')}
-                </Button>
-              </div>
-            ))}
-          </div>
+          {pricingLoading && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="rounded-xl border bg-muted/40 p-5 h-72 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {/* Bez zapasowych kwot: zla cena pokazana zalogowanemu klientowi
+              wraca potem jako spor o fakture. */}
+          {!pricingLoading && (pricingError || offeredPlans.length === 0) && (
+            <div className="rounded-xl border bg-card p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                {t('workshop.dashboard.pricing.unavailable')}
+              </p>
+            </div>
+          )}
+
+          {!pricingLoading && !pricingError && offeredPlans.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {offeredPlans.map((plan) => {
+                const price = planPriceLabels(plan);
+                const popular = plan.code === 'warsztat_standard';
+                return (
+                  <div
+                    key={plan.code}
+                    className={`rounded-xl border bg-card p-5 flex flex-col ${popular ? 'ring-2 ring-primary' : ''}`}
+                  >
+                    {popular && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full w-fit mb-3 bg-primary text-primary-foreground">
+                        {t('workshop.dashboard.pricing.popular')}
+                      </span>
+                    )}
+                    <h3 className="font-bold text-lg text-foreground">{plan.name}</h3>
+                    <div className="mt-1 mb-4">
+                      <span className="text-2xl font-bold text-foreground">{price.price}</span>
+                      <span className="text-sm text-muted-foreground ml-1">{price.period}</span>
+                      {price.target && (
+                        <span className="text-sm text-muted-foreground line-through ml-2">{price.target}</span>
+                      )}
+                    </div>
+                    <ul className="space-y-1.5 text-sm flex-1">
+                      {plan.features.map((f, j) => (
+                        <li key={j} className="flex items-start gap-1.5">
+                          <span className="text-green-500 mt-0.5">✓</span>
+                          <span className="text-muted-foreground">{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {/* CTA z tlumaczen, nie z planCtaLabel: panel dziala w 7 jezykach,
+                        a helper zwraca polskie napisy pod strony ofertowe. */}
+                    <Button
+                      className="mt-4 w-full"
+                      variant={popular ? 'default' : 'outline'}
+                      onClick={() => (window.location.href = plan.is_custom ? '/kontakt' : '/auth')}
+                    >
+                      {plan.is_custom
+                        ? t('workshop.dashboard.pricing.contact')
+                        : Number(plan.price_net) === 0
+                        ? t('workshop.dashboard.pricing.startFree')
+                        : t('workshop.dashboard.pricing.choosePlan')}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {error && <p className="text-xs text-destructive text-center">{t('workshop.dashboard.error', { message: (error as Error).message })}</p>}

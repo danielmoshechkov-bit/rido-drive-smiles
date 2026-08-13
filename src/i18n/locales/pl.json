@@ -2327,7 +2327,7 @@
       "cennik": {
         "desc": "Ceny i czasy trwania usług. To jedyne źródło, z którego asystent głosowy podaje ceny klientom — wpisz tylko to, co chcesz, żeby mówił. Czas trwania podawaj jako CZAS BLOKADY STANOWISKA, nie czas pracy: jeśli auto stoi godzinę, wpisz 60, choć sama praca trwa 30 minut."
       },
-      "freeTrialBadge": "14 dni za darmo — bez zobowiązań",
+      "freeTrialBadge": "{{days}} dni za darmo — bez zobowiązań",
       "heroTitle": "Warsztat & Auto — wszystko w jednym miejscu",
       "heroSubtitle": "Zarządzaj zleceniami, klientami, pojazdami, magazynem i fakturami. Oszczędzaj czas i zwiększ zyski dzięki automatyzacji i AI.",
       "features": {
@@ -2360,44 +2360,9 @@
         "title": "Wybierz plan dla siebie",
         "startFree": "Zacznij za darmo",
         "choosePlan": "Wybierz plan",
-        "plans": {
-          "start": {
-            "badge": "Darmowy",
-            "f1": "20 zleceń/mc",
-            "f2": "Klienci + pojazdy",
-            "f3": "Terminarz",
-            "f4": "Zdjęcia przy przyjęciu",
-            "f5": "10 sprawdzeń VIN",
-            "f6": "3 pytania AI/mc"
-          },
-          "warsztat": {
-            "badge": "Najpopularniejszy",
-            "f1": "Zlecenia bez limitu",
-            "f2": "Magazyn + przechowalnia",
-            "f3": "Sprzedaż + faktury",
-            "f4": "Raporty + marża live",
-            "f5": "KSeF basic",
-            "f6": "20 pytań AI/mc"
-          },
-          "pro": {
-            "badge": "Pro",
-            "f1": "Dane naprawcze (TecRMI)",
-            "f2": "Czas pracy mechanika",
-            "f3": "50 pytań AI/mc",
-            "f4": "KSeF pełny + wysyłka",
-            "f5": "Zaawansowane raporty",
-            "f6": "Priorytetowy support"
-          },
-          "ai": {
-            "badge": "AI Business",
-            "f1": "Księgowość AI",
-            "f2": "30 faktur/mc auto-odczyt",
-            "f3": "Doradca podatkowy AI",
-            "f4": "Nieograniczone AI",
-            "f5": "KSeF monitor + alerty",
-            "f6": "Dedykowany opiekun"
-          }
-        }
+        "popular": "Najpopularniejszy",
+        "contact": "Napisz do nas",
+        "unavailable": "Nie udało się wczytać aktualnego cennika. Odśwież stronę."
       },
       "error": "Błąd: {{message}}",
       "stations": {
