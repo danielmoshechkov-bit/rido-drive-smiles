@@ -535,6 +535,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
                 ]);
                 await (supabase as any).from('workshop_orders').delete().eq('id', id);
               }));
+              // Nagranie rozmowy telefonicznej leży w koszyku plików, do którego
+              // baza nie sięga — wyzwalacz zostawia po nim tylko ścieżkę w kolejce.
+              // Wołamy sprzątanie od razu, żeby plik znikał razem ze zleceniem,
+              // a nie dopiero podczas nocnego przebiegu. Bez czekania i bez
+              // komunikatu: to porządki, a nie część usuwania.
+              void (supabase as any).functions.invoke('voice-recordings-cleanup').catch(() => {});
             } catch (e: any) {
               toast.error(e.message || t('workshop.orders.deleteError'));
             } finally {

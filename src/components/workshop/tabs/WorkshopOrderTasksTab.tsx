@@ -21,6 +21,7 @@ import { WorkshopVehicleEditDialog } from '../WorkshopVehicleEditDialog';
 import { useSaveServicePrice, useSaveAnonymousPrice } from '@/hooks/useServicePriceHistory';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { cenaNieustalona } from '@/lib/orderItemPricing';
 import { useTranslation } from 'react-i18next';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
 import { VAT_RATE, safeNumber, getDiscountPercent, getLineTotal } from '@/utils/workshopOrderTotals';
@@ -35,6 +36,11 @@ type DiscountType = 'percent' | 'amount';
 interface TaskRow {
   draftKey?: string;
   name: string;
+  /** Czy ktoś wpisał cenę. Puste pole to BRAK ceny, a wpisane 0 to cena zero —
+   *  patrz src/lib/orderItemPricing.ts. Bez tego znacznika obie sytuacje
+   *  wyglądałyby w wierszu tak samo (liczba 0) i klient widziałby „gratis"
+   *  przy pozycjach, których nikt jeszcze nie wycenił. */
+  priceSet?: boolean;
   mechanic: string;
   quantity: number;
   price_net: number;
@@ -48,6 +54,8 @@ interface TaskRow {
 }
 
 interface GoodsRow {
+  /** Jak wyżej: odróżnia „nie podano ceny" od „cena 0". */
+  priceSet?: boolean;
   draftKey?: string;
   name: string;
   quantity: number;
@@ -495,8 +503,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       : (netValue || (grossValue > 0 ? grossValue / VAT_RATE : 0));
   };
 
-  const hasTaskDraftValue = (row: TaskRow) => row.name.trim().length > 0 || row.mechanic.trim().length > 0 || getDraftPrice(row, true) > 0 || getDraftCost(row, true) > 0;
-  const hasGoodsDraftValue = (row: GoodsRow) => row.name.trim().length > 0 || row.unit.trim().length > 0 || getDraftPrice(row, true) > 0 || getDraftCost(row, true) > 0;
+  const hasTaskDraftValue = (row: TaskRow) => row.name.trim().length > 0 || row.mechanic.trim().length > 0 || !!row.priceSet || getDraftPrice(row, true) > 0 || getDraftCost(row, true) > 0;
+  const hasGoodsDraftValue = (row: GoodsRow) => row.name.trim().length > 0 || row.unit.trim().length > 0 || !!row.priceSet || getDraftPrice(row, true) > 0 || getDraftCost(row, true) > 0;
 
   // Czy uzytkownik cokolwiek wpisal w wierszu roboczym. Nie uzywamy tu
   // hasGoodsDraftValue, bo nowy wiersz czesci ma z gory wpisana jednostke
@@ -798,9 +806,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     });
   };
 
-  const updateTaskRowPrice = (idx: number, val: number) => {
+  const updateTaskRowPrice = (idx: number, raw: string) => {
+    // Puste pole = cena nieustalona; „0" = ustalona na zero. Dlatego bierzemy
+    // tekst z pola, a nie liczbę: Number('') i Number('0') dają to samo zero.
+    const ustawiona = String(raw).trim() !== '';
+    const val = ustawiona ? (Number(String(raw).replace(',', '.')) || 0) : 0;
     const { net, gross } = syncPrice(val, isTaskGross ? 'gross' : 'net');
-    updateTaskRow(idx, { price_net: net, price_gross: gross });
+    updateTaskRow(idx, { price_net: net, price_gross: gross, priceSet: ustawiona });
   };
 
   const addTaskRow = async () => {
@@ -872,8 +884,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         unit: 'oper',
         quantity: row.quantity,
         sort_order: allocSortOrder('task'),
-        unit_price_gross: row.price_gross,
-        unit_price_net: row.price_net,
+        // Bez wpisanej ceny zapisujemy NULL, nie zero. Zero znaczyłoby „za darmo"
+        // i pozycja poszłaby klientowi do wyceny jako gratis.
+        unit_price_gross: row.priceSet ? row.price_gross : null,
+        unit_price_net: row.priceSet ? row.price_net : null,
         unit_cost_net: row.cost_net,
         unit_cost_gross: row.cost_gross,
         discount_percent: discountPercent,
@@ -881,8 +895,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         discount_amount: row.discountType === 'amount'
           ? round2(isTaskGross ? row.discount : row.discount * VAT_RATE)
           : null,
-        total_gross: isTaskGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
-        total_net: isTaskGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
+        total_gross: row.priceSet ? (isTaskGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE) : null,
+        total_net: row.priceSet ? (isTaskGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount) : null,
       },
       restore: () => setTaskRows(prev => [...prev.filter(r => r.draftKey !== row.draftKey), row]),
       onCommitted: () => {
@@ -923,9 +937,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     });
   };
 
-  const updateGoodsRowPrice = (idx: number, val: number) => {
+  const updateGoodsRowPrice = (idx: number, raw: string) => {
+    const ustawiona = String(raw).trim() !== '';
+    const val = ustawiona ? (Number(String(raw).replace(',', '.')) || 0) : 0;
     const { net, gross } = syncPrice(val, isGoodsGross ? 'gross' : 'net');
-    updateGoodsRow(idx, { price_net: net, price_gross: gross });
+    updateGoodsRow(idx, { price_net: net, price_gross: gross, priceSet: ustawiona });
   };
 
   const updateGoodsRowCost = (idx: number, val: number) => {
@@ -989,8 +1005,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         quantity: row.quantity,
         inventory_product_id: row.inventory_product_id || null,
         sort_order: allocSortOrder('goods'),
-        unit_price_gross: row.price_gross,
-        unit_price_net: row.price_net,
+        unit_price_gross: row.priceSet ? row.price_gross : null,
+        unit_price_net: row.priceSet ? row.price_net : null,
         unit_cost_net: row.cost_net,
         unit_cost_gross: row.cost_gross,
         discount_percent: discountPercent,
@@ -998,8 +1014,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         discount_amount: row.discountType === 'amount'
           ? round2(isGoodsGross ? row.discount : row.discount * VAT_RATE)
           : null,
-        total_gross: isGoodsGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
-        total_net: isGoodsGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
+        total_gross: row.priceSet ? (isGoodsGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE) : null,
+        total_net: row.priceSet ? (isGoodsGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount) : null,
       },
       restore: () => setGoodsRows(prev => [...prev.filter(r => r.draftKey !== row.draftKey), row]),
     };
@@ -1054,9 +1070,22 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
       }
     } else if (myField === 'price') {
+      // WYCZYSZCZONE POLE = cofnięcie ceny. Pozycja wraca do stanu „do wyceny"
+      // i znika klientowi z wyceny, zamiast zostać za 0 zł.
+      if (myValue.trim() === '') {
+        if (!cenaNieustalona(item)) {
+          updates.unit_price_net = null;
+          updates.unit_price_gross = null;
+          updates.total_net = null;
+          updates.total_gross = null;
+        }
+      } else {
       const val = parseFloat(myValue.replace(',', '.')) || 0;
       const synced = syncPrice(val, gross ? 'gross' : 'net');
-      if (synced.net !== safeNumber(item.unit_price_net) || synced.gross !== safeNumber(item.unit_price_gross)) {
+      // Przy pozycji jeszcze nie wycenionej wpisanie 0 JEST zmianą (NULL -> 0),
+      // choć liczbowo wygląda identycznie. Bez tego warunku „0" nie dałoby się
+      // wpisać: porównanie z safeNumber(null) = 0 uznawało to za brak zmiany.
+      if (cenaNieustalona(item) || synced.net !== safeNumber(item.unit_price_net) || synced.gross !== safeNumber(item.unit_price_gross)) {
         updates.unit_price_net = synced.net;
         updates.unit_price_gross = synced.gross;
         const rawTotal = (item.quantity || 1) * (gross ? synced.gross : synced.net);
@@ -1064,6 +1093,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         const afterDiscount = rawTotal - (rawTotal * disc / 100);
         updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
         updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
+      }
       }
     } else if (myField === 'cost') {
       const val = parseFloat(myValue.replace(',', '.')) || 0;
@@ -1133,6 +1163,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const savedGoodsNetTotal = goods.reduce((s: number, g: any) => s + getLineTotal(g, false), 0);
   const savedGrandGrossTotal = tasks.reduce((s: number, t: any) => s + getLineTotal(t, true), 0) + goods.reduce((s: number, g: any) => s + getLineTotal(g, true), 0);
   const savedGrandNetTotal = savedTasksNetTotal + savedGoodsNetTotal;
+
+  // Ile pozycji czeka na wycenę — klient ich nie widzi, więc warsztat musi
+  // wiedzieć, że jego wycena jest niepełna, zanim ją wyśle.
+  const bezCenyIle = (order.items || []).filter((it: any) => cenaNieustalona(it)).length;
 
   const draftTasksTotal = taskRows.reduce((sum, row) => sum + (isTaskDraftFilled(row) ? getDraftTaskTotal(row) : 0), 0);
   const draftTasksCost = taskRows.reduce((sum, row) => sum + (isTaskDraftFilled(row) ? getDraftTaskCost(row) : 0), 0);
@@ -1665,6 +1699,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
             </div>
           </div>
 
+          {bezCenyIle > 0 && (
+            <div className="px-4 py-2 text-[11px] text-amber-800 bg-amber-50 border-b border-amber-200">
+              {bezCenyIle === 1
+                ? 'Jedna pozycja czeka na cenę — klient jej nie widzi w wycenie.'
+                : `${bezCenyIle} pozycje czekają na cenę — klient ich nie widzi w wycenie.`}
+              {' '}Wpisz 0, jeśli robisz to w cenie — wtedy klient zobaczy „0 zł".
+            </div>
+          )}
+
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[1180px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
@@ -1759,7 +1802,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       {/* Pozycja zapisana bez ceny: nazwa jest bezpieczna w bazie, a puste
                           miejsce po cenie krzyczy czerwienią, żeby nikt o nim nie zapomniał. */}
                       <td className={`p-1.5 tabular-nums border-r border-border/60 ${price === 0 ? 'bg-destructive/10 ring-1 ring-destructive/40 rounded' : ''}`}>
-                        {renderEditableCell(task, 'price', price === 0 ? 'podaj cenę' : fmt(price), `tabular-nums ${price === 0 ? 'text-destructive font-medium' : ''}`, 'right')}
+                        {renderEditableCell(task, 'price', cenaNieustalona(task) ? 'podaj cenę' : fmt(price), `tabular-nums ${cenaNieustalona(task) ? 'text-destructive font-medium' : ''}`, 'right')}
                       </td>
                       <td className="p-1.5 text-center border-l border-border/60 bg-muted/10">
                         <SavedRowDiscountEditor item={task} isGross={isTaskGross} onCommit={commitSavedRowDiscount} />
@@ -1860,8 +1903,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
                           onFocus={e => e.currentTarget.select()}
                           placeholder={isTaskGross ? t('workshop.orderTasks.grossPlaceholder') : t('workshop.orderTasks.netPlaceholder')}
-                          value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
-                          onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
+                          value={row.priceSet ? (isTaskGross ? row.price_gross : row.price_net) : ''}
+                          onChange={e => updateTaskRowPrice(idx, e.target.value)}
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -2040,8 +2083,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     type="number"
                     inputMode="decimal"
                     placeholder={isTaskGross ? t('workshop.orderTasks.grossPlaceholder') : t('workshop.orderTasks.netPlaceholder')}
-                    value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
-                    onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
+                    value={row.priceSet ? (isTaskGross ? row.price_gross : row.price_net) : ''}
+                    onChange={e => updateTaskRowPrice(idx, e.target.value)}
                     className="h-10 text-sm text-right"
                   />
                   <Button variant="outline" className="h-10" onClick={() => removeTaskRow(idx)}>
@@ -2165,7 +2208,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5">{renderEditableCell(g, 'unit', g.unit || 'szt', '', 'center')}</td>
                       <td className="p-1.5 text-muted-foreground tabular-nums">{renderEditableCell(g, 'cost', fmt(itemCost), 'tabular-nums', 'right')}</td>
                       <td className={`p-1.5 tabular-nums ${itemPrice === 0 ? 'bg-destructive/10 ring-1 ring-destructive/40 rounded' : ''}`}>
-                        {renderEditableCell(g, 'price', itemPrice === 0 ? 'podaj cenę' : fmt(itemPrice), `tabular-nums ${itemPrice === 0 ? 'text-destructive font-medium' : ''}`, 'right')}
+                        {renderEditableCell(g, 'price', cenaNieustalona(g) ? 'podaj cenę' : fmt(itemPrice), `tabular-nums ${cenaNieustalona(g) ? 'text-destructive font-medium' : ''}`, 'right')}
                       </td>
                       <td className="p-2 text-center tabular-nums border-r border-border/60">{fmt(rawTotal)}</td>
                       <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor
@@ -2280,8 +2323,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
                           onFocus={e => e.currentTarget.select()}
                           placeholder={isGoodsGross ? t('workshop.orderTasks.grossPlaceholder') : t('workshop.orderTasks.netPlaceholder')}
-                          value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
-                          onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
+                          value={row.priceSet ? (isGoodsGross ? row.price_gross : row.price_net) : ''}
+                          onChange={e => updateGoodsRowPrice(idx, e.target.value)}
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
@@ -2465,8 +2508,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     type="number"
                     inputMode="decimal"
                     placeholder={isGoodsGross ? t('workshop.orderTasks.grossPlaceholder') : t('workshop.orderTasks.netPlaceholder')}
-                    value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
-                    onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
+                    value={row.priceSet ? (isGoodsGross ? row.price_gross : row.price_net) : ''}
+                    onChange={e => updateGoodsRowPrice(idx, e.target.value)}
                     className="h-10 text-sm text-right"
                   />
                   <Button variant="outline" className="h-10" onClick={() => removeGoodsRow(idx)}>

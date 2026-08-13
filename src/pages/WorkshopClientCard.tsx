@@ -18,6 +18,7 @@ import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopT
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { TranslationLoader } from '@/components/workshop/TranslationLoader';
 import { BASE_LANGS, pretranslateContent, type ContentItem } from '@/lib/contentTranslation';
+import { tylkoWycenione } from '@/lib/orderItemPricing';
 import { sortWorkshopOrderItems } from '@/hooks/useWorkshop';
 
 const statusColors: Record<string, string> = {
@@ -305,7 +306,16 @@ export default function WorkshopClientCard() {
   // Kolejność MUSI być ta sama, co w wycenie u warsztatu: klient dzwoni z pytaniem
   // o „trzecią pozycję", a przy innym porządku obie strony patrzą na co innego.
   // Dane z edge function przychodzą bez ORDER BY, więc sortujemy tak samo jak panel.
-  const displayItems: any[] = sortWorkshopOrderItems(displaySnapshot?.items ?? (order.items || []));
+  // KLIENT NIE WIDZI POZYCJI BEZ CENY.
+  //
+  // Pozycja czeka na wycenę (cena NULL) dopóty, dopóki warsztat nie wpisze kwoty.
+  // Pokazana klientowi wyglądałaby na gratis — a to gorsze niż jej brak, bo
+  // później kwota i tak się pojawi i klient słusznie poczuje się oszukany.
+  // Cena 0 to co innego: świadoma decyzja „w cenie", więc taka pozycja JEST
+  // pokazywana. Rozróżnienie mieszka w src/lib/orderItemPricing.ts.
+  const displayItems: any[] = tylkoWycenione(
+    sortWorkshopOrderItems(displaySnapshot?.items ?? (order.items || []))
+  );
   const tasks = displayItems.filter((i: any) => i.item_type === 'service' || i.item_type === 'task');
   const goods = displayItems.filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other');
   const tasksTotal = tasks.reduce((s: number, t: any) => s + (t.total_gross || 0), 0);
