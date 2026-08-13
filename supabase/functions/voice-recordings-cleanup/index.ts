@@ -47,16 +47,17 @@ serve(async (req) => {
     const lista = (doUsuniecia || []) as Array<{ call_id: string; provider_id: string; recording_path: string; powod: string }>;
 
     if (dryRun) {
+      const { data: ileSierot } = await admin.rpc("voice_calls_orphans_count");
       return json({
-        dry_run: true, znaleziono: lista.length,
+        dry_run: true, nagrania_do_usuniecia: lista.length,
         przyklady: lista.slice(0, 10).map((r) => ({ rozmowa: r.call_id.slice(0, 8), powod: r.powod })),
+        rozmowy_po_usunietych_zleceniach: ileSierot ?? null,
       });
     }
-    if (!lista.length) return json({ usuniete: 0, blad_kasowania: 0 });
 
     let usuniete = 0;
     let bledy = 0;
-    for (let i = 0; i < lista.length; i += PACZKA) {
+    for (let i = 0; i < lista.length && lista.length > 0; i += PACZKA) {
       const paczka = lista.slice(i, i + PACZKA);
       const { error: delErr } = await admin.storage.from(KOSZYK).remove(paczka.map((r) => r.recording_path));
       if (delErr) {
@@ -77,8 +78,20 @@ serve(async (req) => {
       usuniete += paczka.length;
     }
 
-    console.info("[voice-recordings-cleanup]", JSON.stringify({ event: "sprzatanie", usuniete, bledy }));
-    return json({ usuniete, blad_kasowania: bledy });
+    // DRUGI KROK: rozmowy po usuniętych zleceniach. Dopiero teraz, gdy plik audio
+    // jest już z koszyka usunięty — inaczej zostałby tam na zawsze, bo bez wiersza
+    // nikt by nie wiedział, że tam leży.
+    const { data: skasowaneRozmowy, error: purgeErr } = await admin.rpc("voice_calls_purge_orphans", { p_limit: 500 });
+    if (purgeErr) console.error("[voice-recordings-cleanup]", JSON.stringify({ event: "purge_failed", error: purgeErr.message }));
+
+    console.info("[voice-recordings-cleanup]", JSON.stringify({
+      event: "sprzatanie", usuniete, bledy, rozmowy_skasowane: skasowaneRozmowy ?? 0,
+    }));
+    return json({
+      usuniete, blad_kasowania: bledy,
+      rozmowy_po_usunietych_zleceniach: skasowaneRozmowy ?? 0,
+      blad_kasowania_rozmow: purgeErr?.message || null,
+    });
   } catch (e) {
     return json({ error: (e as Error).message }, 500);
   }
