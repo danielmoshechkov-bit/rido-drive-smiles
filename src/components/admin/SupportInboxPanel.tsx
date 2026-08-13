@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   useSupportInbox,
+  useSupportPreviews,
   useSupportMessages,
   useAdminReply,
   useMarkSupportRead,
@@ -43,6 +44,9 @@ export function SupportInboxPanel() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: conversations = [], isLoading } = useSupportInbox();
+  // Podglad ostatniej wiadomosci kazdej rozmowy — lista ma mowic, o co chodzi,
+  // zanim admin w cokolwiek kliknie.
+  const { data: podglady = {} } = useSupportPreviews(conversations.map(c => c.id));
   const { data: messages = [], isLoading: loadingMessages } = useSupportMessages(selectedId);
   const reply = useAdminReply();
   const markRead = useMarkSupportRead();
@@ -62,13 +66,18 @@ export function SupportInboxPanel() {
   const selected = conversations.find(c => c.id === selectedId) || null;
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_for_admin || 0), 0);
 
+  // Kolejnosc: najpierw to, co czeka na Ciebie, potem najswiezsze.
+  const waga = (c: SupportConversation) =>
+    (c.unread_for_admin > 0 ? 2 : 0) + (c.escalated_at && c.status !== 'closed' ? 1 : 0);
+
   const filtered = conversations.filter(c => {
     if (statusFilter !== 'all' && c.status !== statusFilter) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return [c.contact_name, c.contact_email, c.contact_phone, c.subject]
       .filter(Boolean).some(v => String(v).toLowerCase().includes(q));
-  });
+  }).sort((a, b) => (waga(b) - waga(a))
+    || (new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()));
 
   // Podsumowanie — ile spraw czeka i jak szybko odpowiadamy.
   const summary = (() => {
@@ -268,7 +277,11 @@ export function SupportInboxPanel() {
               <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Szukaj po nazwisku lub mailu…" className="pl-8 h-9" />
             </div>
             <div className="flex gap-1">
-              {([['all','Wszystkie'],['open','Otwarte'],['closed','Historia']] as const).map(([value, label]) => (
+              {([['all','Wszystkie'],['open','Otwarte'],['closed','Historia']] as const).map(([value, label]) => {
+                const ile = value === 'all'
+                  ? conversations.length
+                  : conversations.filter(c => c.status === value).length;
+                return (
                 <button
                   key={value}
                   type="button"
@@ -277,9 +290,10 @@ export function SupportInboxPanel() {
                     statusFilter === value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-accent'
                   }`}
                 >
-                  {label}
+                  {label} {ile > 0 && <span className="opacity-70">{ile}</span>}
                 </button>
-              ))}
+                );
+              })}
             </div>
             <div className="max-h-[60vh] overflow-y-auto space-y-1.5 pr-1">
               {isLoading ? (
@@ -304,14 +318,21 @@ export function SupportInboxPanel() {
                       <span className="text-xs text-muted-foreground truncate">{c.contact_email || '—'}</span>
                       <span className="text-xs text-muted-foreground shrink-0">{timeAgo(c.last_message_at)}</span>
                     </div>
+                    {podglady[c.id] && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2 text-left">
+                        {podglady[c.id].sender_role === 'user' ? '' : '↩ '}{podglady[c.id].body}
+                      </p>
+                    )}
                     <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                      {c.escalated_at && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive font-medium">przekazane do Ciebie</span>
-                      )}
-                      {!c.escalated_at && (c.ai_replies_count || 0) > 0 && (
+                      {c.status === 'closed' ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">zamknięta</span>
+                      ) : c.escalated_at ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive font-medium">czeka na Ciebie</span>
+                      ) : (c.ai_replies_count || 0) > 0 ? (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">obsłużone przez AI</span>
+                      ) : (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">nowa</span>
                       )}
-                      {c.status === 'closed' && <span className="text-[10px] text-muted-foreground">zamknięta</span>}
                     </div>
                   </button>
                 ))
@@ -326,17 +347,30 @@ export function SupportInboxPanel() {
             ) : (
               <>
                 <div className="px-3 py-2.5 border-b border-border flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <button type="button" className="md:hidden" onClick={() => setSelectedId(null)} aria-label="Wróć do listy">
-                        <ArrowLeft className="h-4 w-4" />
-                      </button>
+                  <div className="min-w-0 flex items-start gap-2">
+                    {/* Wstecz na KAZDYM ekranie — przy wielu zgloszeniach powrot do
+                        listy to najczestszy ruch, nie tylko na telefonie. */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(null)}
+                      className="mt-0.5 p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground shrink-0"
+                      aria-label="Wróć do listy zgłoszeń"
+                      title="Wróć do listy zgłoszeń"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                    <div className="min-w-0">
                       <p className="font-semibold truncate">{personName(selected)}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {selected.contact_email || 'brak adresu e-mail'}
+                        {selected.contact_phone ? ` · ${selected.contact_phone}` : ''}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground/80 truncate">
+                        {selected.origin_path ? `pisał z ${selected.origin_path} · ` : ''}
+                        zgłoszenie z {new Date(selected.created_at).toLocaleDateString('pl-PL')}
+                        {selected.escalated_at ? ' · przekazane do Ciebie' : ''}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {[selected.contact_email, selected.contact_phone].filter(Boolean).join(' · ') || 'brak kontaktu'}
-                      {selected.origin_path ? ` · pisał z ${selected.origin_path}` : ''}
-                    </p>
                   </div>
                   <Button
                     size="sm"

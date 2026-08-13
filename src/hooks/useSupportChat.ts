@@ -331,3 +331,34 @@ export function useDeleteSupportKnowledge() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['support-knowledge'] }),
   });
 }
+
+/**
+ * Ostatnia wiadomość każdej rozmowy — podgląd na liście w skrzynce.
+ *
+ * Przy kilkudziesięciu zgłoszeniach sama nazwa i data nic nie mówią; admin musi
+ * widzieć, o co chodzi, zanim w cokolwiek kliknie. Pobieramy jednym zapytaniem
+ * dla wszystkich widocznych rozmów, a nie po jednym na wiersz.
+ */
+export function useSupportPreviews(conversationIds: string[]) {
+  const klucz = [...conversationIds].sort().join(',');
+  return useQuery({
+    queryKey: ['support-previews', klucz],
+    enabled: conversationIds.length > 0,
+    queryFn: async (): Promise<Record<string, { body: string; sender_role: string }>> => {
+      const { data, error } = await (supabase as any)
+        .from('support_messages')
+        .select('conversation_id, body, sender_role, created_at')
+        .in('conversation_id', conversationIds)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      const out: Record<string, { body: string; sender_role: string }> = {};
+      for (const m of data || []) {
+        // Lista jest posortowana malejąco, więc pierwszy trafiony wpis
+        // dla danej rozmowy to jej ostatnia wiadomość.
+        if (!out[m.conversation_id]) out[m.conversation_id] = { body: m.body, sender_role: m.sender_role };
+      }
+      return out;
+    },
+  });
+}
