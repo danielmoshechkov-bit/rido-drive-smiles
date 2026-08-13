@@ -80,12 +80,43 @@ serve(async (req) => {
     const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-      body: JSON.stringify({ model, max_tokens: 1400, temperature: 0.2, system: SYSTEM, messages: [{ role: "user", content: convoText }] }),
+      // LIMIT TOKENÓW. Przy 1400 dłuższe rozmowy nie mieściły całego JSON-a:
+      // odpowiedź urywała się w połowie, parsowanie leciało w catch, a `a` zostawało
+      // pustym obiektem. Skutek widoczny w karcie zlecenia — sam transkrypt, bez
+      // podsumowania i bez wyniku rozmowy. Dotyczyło to 4 z 8 ostatnich rozmów
+      // w bazie i za każdym razem tych DŁUŻSZYCH (25-38 wypowiedzi), czyli tych,
+      // przy których podsumowanie jest najbardziej potrzebne.
+      body: JSON.stringify({ model, max_tokens: 4000, temperature: 0.2, system: SYSTEM, messages: [{ role: "user", content: convoText }] }),
     });
     if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ ok: false, error: `Anthropic ${aiRes.status}: ${t.slice(0, 150)}` }, 400); }
-    const raw = (await aiRes.json())?.content?.[0]?.text || "";
+    const aiJson = await aiRes.json();
+    const raw = aiJson?.content?.[0]?.text || "";
     let a: any = {};
     try { const s = raw.indexOf("{"), e = raw.lastIndexOf("}"); a = JSON.parse(raw.slice(s, e + 1)); } catch (_) { a = {}; }
+
+    // AWARYJNIE: gdy JSON mimo wszystko nie da się odczytać, ratujemy przynajmniej
+    // podsumowanie. Rozmowa bez wniosków do nauki jest do przeżycia; rozmowa,
+    // po której człowiek musi czytać 38 wypowiedzi, żeby wiedzieć, o co chodziło,
+    // nie jest. Cichy `a = {}` sprawiał, że taka awaria wyglądała jak sukces.
+    if (!a?.summary) {
+      console.error("[voice-call-analyze]", JSON.stringify({
+        event: "analysis_json_unreadable", stop_reason: aiJson?.stop_reason || null,
+        raw_len: raw.length, conversation: String(body?.conversation_id || "").slice(-8),
+      }));
+      try {
+        const fb = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model, max_tokens: 500, temperature: 0.1,
+            system: "Streszcz rozmowę klienta z warsztatem w 2-5 punktach, każdy od myślnika: czego dotyczyła sprawa, auto, ustalony termin, co trzeba zrobić. Tylko fakty z rozmowy, bez wstępu.",
+            messages: [{ role: "user", content: convoText }],
+          }),
+          signal: AbortSignal.timeout(45_000),
+        });
+        if (fb.ok) a.summary = String((await fb.json())?.content?.[0]?.text || "").trim() || null;
+      } catch (_) { /* podsumowanie da się odtworzyć później z zapisanego transkryptu */ }
+    }
 
     // POWIĄZANIE ZE ZLECENIEM ROBI TERAZ voice-call-commit, po conversation_id.
     //
