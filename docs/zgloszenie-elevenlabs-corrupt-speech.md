@@ -74,8 +74,24 @@ The SDP in your `200 OK` points at `34.45.0.205`. Measured from Warsaw:
 A Polish caller's audio crosses the Atlantic twice. Combined with a stateful
 codec that is a plausible cause of both issues above.
 
-- Can inbound SIP media be pinned to an EU region?
-- Is there a region setting we are missing on the phone number or the trunk?
+Your docs describe regional endpoints — `sip-static.rtc.<region>.residency.elevenlabs.io`.
+We resolved and measured them from Warsaw:
+
+    sip.rtc.elevenlabs.io                        136.112.48.140    144 ms   (what we use now)
+    sip-static.rtc.eu.residency.elevenlabs.io    199.88.252.50      35 ms
+    sip-static.rtc.in.residency.elevenlabs.io    199.88.252.66     241 ms
+
+`sip.rtc.elevenlabs.io` resolves to a single US address from Poland — there is no
+GeoDNS in front of it, so a European caller has no way to reach a nearer server.
+The EU endpoint is **4x closer**.
+
+- What do we need in order to point this number at the EU endpoint? The docs tie
+  it to static IP / data residency — is that an enterprise-only feature, and if so
+  what is the path?
+- Our number is `livekit_stack: standard`, `provider_config: null`. Is there a
+  supported way to move an existing inbound number to EU media without losing it?
+- EU residency also matters to us for GDPR: the call recordings contain personal
+  data of EU residents.
 
 ## Ruled out on our side
 
