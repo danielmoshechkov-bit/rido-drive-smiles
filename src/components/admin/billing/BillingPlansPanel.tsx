@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Layers, Loader2, Plus, RefreshCw, Save, SlidersHorizontal } from 'lucide-react';
+import { CreditCard, Layers, Loader2, Plus, RefreshCw, Save, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useBillingPlans, PRODUCT_LINE_LABEL, type BillingPlan, type ProductLine,
@@ -46,7 +46,7 @@ const fmt = (v: number | null | undefined) =>
  * RPC billing_set_plan_features, żeby DELETE i INSERT poszły w jednej transakcji.
  */
 export function BillingPlansPanel() {
-  const { plans, matrix, loading, create, update, setActive, setFeatures, syncStripe } = useBillingPlans();
+  const { plans, matrix, loading, create, update, setActive, setFeatures, syncStripe, testCheckout } = useBillingPlans();
   const { features, loading: featuresLoading } = useBillingFeatures();
 
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -107,6 +107,19 @@ export function BillingPlansPanel() {
       { plan_id: matrixPlan.id, features: payload },
       { onSuccess: () => setMatrixPlan(null) },
     );
+  };
+
+  // Kartę otwieramy SYNCHRONICZNIE, przed zapytaniem — przeglądarka blokuje
+  // window.open wywołane po await, bo nie widzi już gestu użytkownika.
+  const testujZakup = (planCode: string) => {
+    const karta = window.open('', '_blank');
+    testCheckout.mutate(planCode, {
+      onSuccess: (url) => {
+        if (karta) karta.location.href = url;
+        else window.location.href = url;
+      },
+      onError: () => karta?.close(),
+    });
   };
 
   const save = () => {
@@ -226,6 +239,20 @@ export function BillingPlansPanel() {
                   />
                 </TableCell>
                 <TableCell className="text-right space-x-2">
+                  {/* TYMCZASOWE — weryfikacja, że do operatora idzie kwota brutto.
+                      Znika, gdy zakup pojawi się na /cennik. */}
+                  {!p.is_custom && Number(p.price_net) > 0 && p.stripe_price_id && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={testCheckout.isPending}
+                      onClick={() => testujZakup(p.code)}
+                      className="gap-1"
+                      title="Otwiera sesję Stripe Checkout dla tego planu"
+                    >
+                      <CreditCard className="h-3.5 w-3.5" /> Testuj zakup
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={() => openMatrix(p)} className="gap-1">
                     <SlidersHorizontal className="h-3.5 w-3.5" /> Funkcje
                   </Button>
