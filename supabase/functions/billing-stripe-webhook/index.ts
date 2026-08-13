@@ -141,6 +141,27 @@ async function sprawdzPodpis(
 const naDate = (sekundy: number | null | undefined): string | null =>
   sekundy ? new Date(sekundy * 1000).toISOString() : null;
 
+/**
+ * Okres rozliczeniowy subskrypcji.
+ *
+ * Od wersji API `2026-06-24.dahlia` `current_period_start` i `current_period_end`
+ * NIE są już polami subskrypcji — zeszły na poziom pozycji
+ * (`subscription.items.data[]`), bo pozycje jednej subskrypcji mogą mieć różne
+ * okresy. Czytanie ze starego miejsca dawało `undefined`, a stąd NULL w kolumnie
+ * `NOT NULL` i odrzucony zapis.
+ *
+ * Bierzemy pozycję pierwszą (sprzedajemy jeden plan na subskrypcję), z odwrotem
+ * do pól na poziomie subskrypcji — na wypadek konta pinowanego do starszej
+ * wersji API. Gdy nie ma ani jednego, zwracamy null i decyzję zostawiamy
+ * wywołującemu, zamiast wstawiać NULL do kolumny, która go nie przyjmie.
+ */
+function okresSubskrypcji(sub: any): { start: string | null; end: string | null } {
+  const pozycja = sub?.items?.data?.[0];
+  const start = pozycja?.current_period_start ?? sub?.current_period_start ?? null;
+  const end = pozycja?.current_period_end ?? sub?.current_period_end ?? null;
+  return { start: naDate(start), end: naDate(end) };
+}
+
 /** Statusy Stripe → nasze. `incomplete_expired` i `unpaid` traktujemy jak koniec. */
 function mapujStatus(stripeStatus: string): string {
   switch (stripeStatus) {
@@ -257,6 +278,7 @@ Deno.serve(async (req) => {
         }
 
         const sub = await stripeGet(stripeKey, `/subscriptions/${obiekt.subscription}`);
+        const okres = okresSubskrypcji(sub);
 
         const { data: plan } = await admin.from("billing_plans")
           .select("code, name, price_net, price_gross, vat_rate, price_net_target")
@@ -278,8 +300,10 @@ Deno.serve(async (req) => {
           subscriber_id: subscriberId,
           plan_id: planId,
           status: mapujStatus(sub.status),
-          current_period_start: naDate(sub.current_period_start),
-          current_period_end: naDate(sub.current_period_end),
+          // Okres z pozycji subskrypcji — patrz okresSubskrypcji(). Gdy operator
+          // go nie poda, zostawiamy wartość domyślną kolumny zamiast NULL-a.
+          ...(okres.start ? { current_period_start: okres.start } : {}),
+          current_period_end: okres.end,
           provider: "stripe",
           provider_subscription_id: sub.id,
           price_guarantee_until: gwarancja,
@@ -318,10 +342,11 @@ Deno.serve(async (req) => {
         if (!subId) { await zakoncz("ignored"); break; }
         const sub = await stripeGet(stripeKey, `/subscriptions/${subId}`);
 
+        const okres = okresSubskrypcji(sub);
         const trafione = await aktualizujSubskrypcje(admin, subId, {
           status: mapujStatus(sub.status),
-          current_period_start: naDate(sub.current_period_start),
-          current_period_end: naDate(sub.current_period_end),
+          ...(okres.start ? { current_period_start: okres.start } : {}),
+          current_period_end: okres.end,
         });
         if (trafione === 0) {
           console.error("billing-stripe-webhook: opłacona subskrypcja bez odpowiednika w bazie", subId);
@@ -358,10 +383,11 @@ Deno.serve(async (req) => {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const status = typ.endsWith("deleted") ? "canceled" : mapujStatus(obiekt.status);
+        const okres = okresSubskrypcji(obiekt);
         const trafione = await aktualizujSubskrypcje(admin, obiekt.id, {
           status,
-          current_period_start: naDate(obiekt.current_period_start),
-          current_period_end: naDate(obiekt.current_period_end),
+          ...(okres.start ? { current_period_start: okres.start } : {}),
+          current_period_end: okres.end,
           canceled_at: obiekt.canceled_at ? naDate(obiekt.canceled_at) : null,
           cancel_at: obiekt.cancel_at ? naDate(obiekt.cancel_at) : null,
         });
