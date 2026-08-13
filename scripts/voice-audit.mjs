@@ -23,7 +23,7 @@
 // Wymaga w .env.local: SUPABASE_ACCESS_TOKEN, ELEVENLABS_API_KEY
 // Tylko ODCZYT. Niczego nie zmienia.
 // ============================================================================
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join, dirname } from "node:path";
@@ -410,6 +410,40 @@ async function sekcjaD() {
   }
   if (brakujace.size) zle("D3", "wołane funkcje, których nie ma w repozytorium", [...brakujace].join("\n"));
   else ok("D3", "każda wołana funkcja istnieje w repozytorium", wszystkie.length);
+
+  // D8: KAŻDA FUNKCJA BAZY WOŁANA PRZEZ RPC MUSI BYĆ W MIGRACJACH.
+  //
+  // `voice_commit_call` i `get_voice_context` działały na produkcji od 11.08,
+  // a nie było ich w ŻADNEJ migracji — powstały przez `db query` i istniały
+  // wyłącznie w bazie. Reset schematu albo odtworzenie środowiska z repozytorium
+  // dawało bazę, w której agent przyjmuje rozmowy i NIC NIE ZAPISUJE, bez żadnego
+  // śladu w gicie, że czegokolwiek brakuje.
+  //
+  // Ta kontrola czyta, co Edge Functions faktycznie wołają przez `.rpc("…")`,
+  // i sprawdza każdą nazwę w katalogu migracji. Nie ufa liście wpisanej ręcznie,
+  // bo taka lista starzeje się przy pierwszym nowym RPC.
+  const wywolaneRpc = new Set();
+  for (const f of wszystkie) {
+    for (const m of czytajFunkcje(f).matchAll(/\.rpc\(\s*["'`]([a-z0-9_]+)["'`]/gi)) wywolaneRpc.add(m[1]);
+  }
+  const migracje = readdirSync(join(ROOT, "supabase/migrations"))
+    .filter((f) => f.endsWith(".sql"))
+    .map((f) => readFileSync(join(ROOT, "supabase/migrations", f), "utf8"))
+    .join("\n");
+  const pozaGitem = [...wywolaneRpc].filter(
+    (n) => !new RegExp(`FUNCTION\\s+(?:public\\.)?${n}\\s*\\(`, "i").test(migracje));
+
+  if (!wywolaneRpc.size) {
+    // Pusty zbiór to porażka, nie sukces (zasada 12). Zero wykrytych wywołań RPC
+    // znaczy, że przestał pasować wzorzec — nie że wszystko jest w porządku.
+    zle("D8", "nie wykryto ANI JEDNEGO wywołania .rpc() w Edge Functions",
+      "kontrola nic nie sprawdziła — popsuł się wzorzec, nie kod");
+  } else if (pozaGitem.length) {
+    zle("D8", "funkcje bazy wołane przez RPC, których NIE MA w migracjach",
+      `${pozaGitem.join(", ")}\nreset schematu usunie je bez śladu w gicie`);
+  } else {
+    ok("D8", "każda funkcja bazy wołana przez RPC jest w migracjach", wywolaneRpc.size);
+  }
 }
 
 // ============================================================================
