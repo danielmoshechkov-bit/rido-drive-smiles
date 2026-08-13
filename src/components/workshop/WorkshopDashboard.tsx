@@ -1,7 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { lazyNamedWithRetry } from '@/lib/lazyWithRetry';
-import { usePublicPricing } from '@/hooks/usePublicPricing';
-import { planPriceLabels, planCtaLabel } from '@/lib/pricingCards';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -137,10 +135,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   const { t } = useTranslation();
   useDisableNumberInputScroll(); // scroll nad polem ceny/kwoty nie zmienia wartości (cały moduł)
   const { data: hookProviderId, isLoading, error } = useWorkshopProviderId();
-  // Cennik z bazy (billing_plans) — to samo zrodlo, co strona sprzedazowa.
-  // Wczesniej panel mial WLASNY, nieaktualny zestaw cen wpisany w kodzie.
-  const { plans: publicPlans = [] } = usePublicPricing();
-  const warsztatPlans = publicPlans.filter((p: any) => p.product_line === 'warsztat');
   const providerId = propProviderId || hookProviderId;
   const { data: workshopOrders = [] } = useWorkshopOrders(providerId);
   // Cennik dla konta bez warsztatu — te same dane co /cennik i /warsztat-info.
