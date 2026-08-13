@@ -410,6 +410,54 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+### 📊 WYNIK ZMIANY `optimize_streaming_latency` 3 → 0: PARAMETR JEST MARTWY
+
+```
+convai_tts_service_ttfb
+  PRZED (latency = 3):  n=571   mediana 0,0898 s   średnia 0,1322   p90 0,3048
+  PO    (latency = 0):  n= 31   mediana 0,0902 s   średnia 0,0903   p90 0,0967
+  RÓŻNICA MEDIAN: +0,4 ms
+```
+
+Gdyby parametr działał, zejście z 3 na 0 **musiałoby TTFB podnieść** — mniej agresywne
+strumieniowanie znaczy późniejszy pierwszy bajt. Mediana nie drgnęła. **Dokumentacja
+mówi prawdę: parametr jest przestarzały i ignorowany.**
+
+⚠️ Poprawa średniej i p90 (0,132 → 0,090 i 0,305 → 0,097) **NIE jest zasługą tej
+zmiany** — to compute Small i posprzątane logi. `n = 31` to dwie rozmowy, za mało
+na wniosek. Nie łączyć tych liczb w jedną narrację.
+
+**Bełkot został.** Klientka usłyszała „CTM" zamiast „Dobrze, notuję. Poproszę numer
+rejestracyjny." (13.08, 21:59, 41 s).
+
+### 🔍 NOWY TROP: bełkot koncentruje się na CZYTANIU NUMERU REJESTRACYJNEGO
+
+Przegląd wszystkich przypadków niezrozumienia pokazuje wzorzec, którego wcześniej
+nie widzieliśmy — **cztery z pięciu ostatnich dotyczą numeru rejestracyjnego**:
+
+```
+"A czy mógłby powtórzyć numer samochodu?"
+"ja bym chciała, żeby wy powtórzyli mój numer samochodu"
+"To nieprawidłowe. Jeszcze raz powoli powtórz."
+"ja wątpię, że pan prawidłowo napisał numer samochodu"
+```
+
+Ciąg pojedynczych liter i cyfr („WI osiem pięć osiem MV") to **najtrudniejszy możliwy
+materiał dla syntezy** — i dokładnie tam prosimy agenta o czytanie znak po znaku.
+To wzmacnia hipotezę `enable_phoneme_tags`, ale też stawia pytanie, czy w ogóle
+powinniśmy czytać tablice na głos.
+
+### 📈 MIERNIK NIEZROZUMIENIA — punkt odniesienia
+
+```
+PRZED zmianą:  49 rozmów, 7 z niezrozumieniem = 14%    (11 z 515 tur klienta = 2,1%)
+PO zmianie:     2 rozmowy, 2 z niezrozumieniem = 100%  (5 z 31 tur = 16,1%)
+```
+
+⚠️ `n = 2` po zmianie — **to nie jest pomiar, to dwie rozmowy**. Podaję, żeby nie
+wyglądało na przemilczenie, ale nie wolno z tego wyciągać wniosku o pogorszeniu.
+Wniosek jest jeden i pochodzi z TTFB: parametr nie działa.
+
 ### ⚠️ `optimize_streaming_latency` JEST OZNACZONY JAKO PRZESTARZAŁY
 
 Właściciel znalazł to w dokumentacji TTS API. Zmiana 3 → 0 została zapisana i potwierdzona
