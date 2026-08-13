@@ -447,6 +447,19 @@ w danych po fakcie.
 
 Gdybyśmy chcieli go zobaczyć, trzeba by podłączyć się do strumienia zdarzeń na żywo.
 
+### 📼 NAGRANIA W KARCIE ZLECENIA — pełna specyfikacja w osobnym pliku
+
+`docs/voice-agent-nagrania-spec.md`. **Backlog, nie przed progiem pięciu rozmów.**
+
+Skrót: odtwarzacz dokładany do ISTNIEJĄCEJ zakładki „Rozmowa telefoniczna"
+(`OrderCallPanel.tsx`), retencja **90 dni** (reklamacja wychodzi po dwóch-trzech
+miesiącach, miesiąc to za krótko), format 64 kbps mono, kopiowanie do siebie.
+
+**Koszt przy 50 warsztatach: ~1,94 $/miesiąc — cztery centy na warsztat.**
+81 GB składowania w stanie ustalonym + 2,7 GB transferu. Koszt nie jest argumentem
+przeciw; argumentem jest RODO i to, że **usunięcie zlecenia nie usuwa dziś nawet
+transkryptu** — ten dług trzeba spłacić PRZED dołożeniem nagrań.
+
 ### 📼 NAGRANIA W PANELU — rachunek przed decyzją
 
 Zmierzone na prawdziwym nagraniu: **0,92 MB/min** (MP3 128 kbps, 16 kHz, mono).
