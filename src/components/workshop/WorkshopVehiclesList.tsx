@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { WorkshopPager, pageSlice } from './WorkshopPager';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +20,8 @@ interface Props {
 }
 
 export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Props) {
-  const { t } = useTranslation();
+  const { t } = useTranslation();  const confirmAction = useConfirm();
+
   const { data: vehicles = [], isLoading, refetch } = useWorkshopVehicles(providerId);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
@@ -68,7 +70,7 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
 
   const handleBulkDelete = async () => {
     if (selected.size === 0) return;
-    if (!confirm(t('workshop.vehicles.confirmDelete', { count: selected.size }))) return;
+    if (!(await confirmAction({ title: t('workshop.vehicles.confirmDelete', { count: selected.size }) }))) return;
     setDeleting(true);
     try {
       const { error } = await (supabase as any)
@@ -102,7 +104,7 @@ export function WorkshopVehiclesList({ providerId, onBack, onSelectVehicle }: Pr
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('common.search')} className="pl-9 w-[250px]" />
+          <Input onFocus={e => e.currentTarget.select()} value={search} onChange={e => setSearch(e.target.value)} placeholder={t('common.search')} className="pl-9 w-[250px]" />
         </div>
       </div>
 

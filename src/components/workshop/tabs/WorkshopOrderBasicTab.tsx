@@ -137,6 +137,7 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
                 <div className="flex gap-1">
                   <Input
                     type="number"
+                    onFocus={e => e.currentTarget.select()}
                     value={form.mileage}
                     onChange={e => set('mileage', e.target.value)}
                     placeholder={t('workshop.newOrder.mileage')}
@@ -188,6 +189,7 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
             <div className="space-y-1">
               <Label className="text-xs">{t('workshop.orderBasic.dateAndTime')}</Label>
               <Input
+                onFocus={e => e.currentTarget.select()}
                 type="datetime-local"
                 value={form.scheduled_date}
                 onChange={e => set('scheduled_date', e.target.value)}
@@ -221,11 +223,11 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-xs">{t('workshop.orderBasic.startDate')}</Label>
-          <Input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
+          <Input onFocus={e => e.currentTarget.select()} type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">{t('workshop.orderBasic.defaultWorker')}</Label>
-          <Input value={form.worker} onChange={e => set('worker', e.target.value)} placeholder={t('workshop.orderBasic.defaultWorker')} />
+          <Input onFocus={e => e.currentTarget.select()} value={form.worker} onChange={e => set('worker', e.target.value)} placeholder={t('workshop.orderBasic.defaultWorker')} />
         </div>
       </div>
 
@@ -264,6 +266,7 @@ export function WorkshopOrderBasicTab({ order, providerId }: Props) {
           <div className="flex items-center justify-between">
             <span className="bg-red-500 text-white text-sm font-medium px-4 py-1.5 rounded">{t('workshop.orderBasic.serviceReception')}</span>
             <Input
+              onFocus={e => e.currentTarget.select()}
               type="date"
               value={form.pickup_date}
               onChange={e => set('pickup_date', e.target.value)}

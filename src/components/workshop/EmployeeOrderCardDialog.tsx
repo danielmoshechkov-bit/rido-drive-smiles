@@ -40,6 +40,8 @@ interface TaskBlock {
   existingServiceIds: string[];
   timeError?: string;
   isAddon?: boolean;       // dodatek do naprawy (po akceptacji klienta)
+  isCustom?: boolean;      // pozycja dopisana przez pracownika (sam ją nazywa)
+  nameError?: string;
 }
 
 const fmtMoney = (n: number) => `${n.toFixed(2).replace('.', ',')}\u00A0zł`;
@@ -247,6 +249,14 @@ export function EmployeeOrderCardDialog({
       if (laborEl && laborVal) laborEl.value = '';
     }
     const t = workingTasks[ti];
+    // Pozycja dopisana przez pracownika musi mieć nazwę — inaczej w wycenie
+    // pojawi się bezimienny punkt i biuro nie wie, za co liczyć.
+    if (t.isCustom && !t.complaint.trim()) {
+      setTasks(workingTasks.map((x, idx) => idx === ti
+        ? { ...x, nameError: tr('workshop.employeeCard.positionNameRequired', 'Wpisz, czego dotyczy ta pozycja') }
+        : x));
+      return;
+    }
     const hrs = parseFloat(t.time || '0');
     if (!hrs || hrs <= 0) {
       setTasks(workingTasks.map((x, idx) => idx === ti ? { ...x, timeError: tr('workshop.employeeCard.timeRequired') } : x));
@@ -397,9 +407,9 @@ export function EmployeeOrderCardDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[94vh] overflow-y-auto p-0 gap-0">
+      <DialogContent className="max-w-2xl max-h-[94vh] overflow-hidden flex flex-col p-0 gap-0">
         {/* HEADER */}
-        <div className="sticky top-0 z-10 bg-card border-b px-4 py-3">
+        <div className="shrink-0 bg-card border-b pl-4 pr-12 py-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="font-semibold text-base truncate">{headerTitle}</div>
@@ -423,7 +433,7 @@ export function EmployeeOrderCardDialog({
         </div>
 
         {/* BODY */}
-        <div className="p-3 space-y-2 bg-muted/20">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-2 bg-muted/20">
           {loading ? (
             <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : (
@@ -439,8 +449,10 @@ export function EmployeeOrderCardDialog({
                 const partsCount = t.parts.filter(p => p.name.trim()).length;
                 const hrsNum = parseFloat(t.time || '0') || 0;
                 const costNum = parseFloat(String(t.cost || '0').replace(',', '.')) || 0;
+                const laborCount = t.labor.filter(l => l.name.trim()).length;
                 const summary = filled
                   ? [
+                      laborCount ? tr('workshop.employeeCard.laborCount', { count: laborCount, defaultValue: `praca: ${laborCount}` }) : null,
                       partsCount ? tr('workshop.employeeCard.partsCount', { count: partsCount }) : null,
                       hrsNum ? `${hrsNum} h` : null,
                       costNum ? fmtMoney(costNum) : null,
@@ -466,7 +478,9 @@ export function EmployeeOrderCardDialog({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold truncate">
-                          {t.index}. {tComplaint(t) || tr('workshop.employeeCard.task')}
+                          {t.index}. {tComplaint(t) || (t.isCustom
+                            ? tr('workshop.employeeCard.newPositionUnnamed', 'Nowa pozycja — wpisz czego dotyczy')
+                            : tr('workshop.employeeCard.task'))}
                           {t.isAddon && (
                             <Badge className="ml-2 bg-yellow-400 text-yellow-950 text-[10px]">{tr('workshop.employeeCard.addon')}</Badge>
                           )}
@@ -480,88 +494,65 @@ export function EmployeeOrderCardDialog({
 
                     {isOpen && (
                       <div className="px-3 pb-3 space-y-3 border-t border-border/60 pt-3">
-                        {t.complaint && (
+                        {t.isCustom && !ro && (
+                          <div>
+                            <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">
+                              {tr('workshop.employeeCard.positionName', 'Czego dotyczy ta pozycja?')} <span className="text-destructive">*</span>
+                            </label>
+                            <Input
+                              onFocus={e => e.currentTarget.select()}
+                              value={t.complaint}
+                              onChange={e => {
+                                const value = e.target.value;
+                                setTasks(ts => ts.map((x, idx) => idx === ti
+                                  ? { ...x, complaint: value, key: `${x.index}. ${value.trim()}`, nameError: undefined }
+                                  : x));
+                              }}
+                              placeholder={tr('workshop.employeeCard.positionNamePlaceholder', 'np. wymiana oleju, wyciek z chłodnicy')}
+                              className={`h-11 text-base ${t.nameError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                            />
+                            {t.nameError && <p className="text-xs text-destructive mt-1">{t.nameError}</p>}
+                          </div>
+                        )}
+                        {t.complaint && !t.isCustom && (
                           <div className="rounded-md bg-muted/60 border px-3 py-2">
                             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{tr('workshop.employeeCard.clientComplaint')}</div>
                             <div className="text-sm text-foreground">{tComplaint(t)}</div>
                           </div>
                         )}
-                        <div>
-                          <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">
-                            {tr('workshop.employeeCard.parts')}
-                          </div>
-                          {t.parts.length > 0 && (
-                            <div className="divide-y border rounded-md mb-2 bg-background">
-                              {t.parts.map((p, pi) => (
-                                <div key={pi} className="flex items-center gap-2 px-3 py-2">
-                                  <span className="flex-1 text-sm">{tc(p.name)}</span>
-                                  {!ro && (
-                                    <button
-                                      type="button" onClick={() => removePart(ti, pi)}
-                                      className="text-muted-foreground hover:text-destructive p-1"
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {!ro && (
-                            <div className="flex gap-2">
-                              <Input
-                                ref={el => { partInputRefs.current[ti] = el; }}
-                                placeholder={tr('workshop.employeeCard.enterPartPlaceholder')}
-                                className="h-11 text-base flex-1"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    addPart(ti, (e.target as HTMLInputElement).value);
-                                  }
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="h-11 px-3 shrink-0"
-                                onClick={() => {
-                                  const el = partInputRefs.current[ti];
-                                  if (el) addPart(ti, el.value);
-                                }}
-                                aria-label={tr('workshop.employeeCard.addPartAria')}
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">
-                            {tr('workshop.employeeCard.workDoneLabor')}
+                        {/* 1. CO ZROBIŁEŚ (robocizna) — trafia na zlecenie jako pozycja usługi */}
+                        <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <Wrench className="h-4 w-4 text-primary shrink-0" />
+                            <span className="text-sm font-semibold text-foreground">
+                              {tr('workshop.employeeCard.workDoneLabor', 'Co zrobiłeś?')}
+                            </span>
                           </div>
                           {t.labor.length > 0 && (
-                            <div className="divide-y border rounded-md mb-2 bg-background">
+                            <div className="flex flex-wrap gap-1.5 mb-2">
                               {t.labor.map((l, li) => (
-                                <div key={li} className="flex items-center gap-2 px-3 py-2">
-                                  <span className="flex-1 text-sm">{tc(l.name)}</span>
+                                <span key={li} className="inline-flex items-center gap-1 rounded-full bg-primary text-primary-foreground py-1 pl-3 pr-1 text-sm max-w-full">
+                                  <span className="truncate">{tc(l.name)}</span>
                                   {!ro && (
                                     <button
                                       type="button" onClick={() => removeLabor(ti, li)}
-                                      className="text-muted-foreground hover:text-destructive p-1"
+                                      className="rounded-full p-0.5 hover:bg-black/20 shrink-0"
+                                      aria-label={tr('common.remove', 'Usuń')}
                                     >
-                                      <X className="h-4 w-4" />
+                                      <X className="h-3.5 w-3.5" />
                                     </button>
                                   )}
-                                </div>
+                                </span>
                               ))}
                             </div>
                           )}
                           {!ro && (
                             <div className="flex gap-2">
                               <Input
+                                onFocus={e => e.currentTarget.select()}
                                 ref={el => { laborInputRefs.current[ti] = el; }}
-                                placeholder={tr('workshop.employeeCard.laborPlaceholder')}
-                                className="h-11 text-base flex-1"
+                                placeholder={tr('workshop.employeeCard.laborPlaceholder', 'np. wymiana klocków przód')}
+                                className="h-11 text-base flex-1 bg-background"
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
                                     e.preventDefault();
@@ -570,22 +561,91 @@ export function EmployeeOrderCardDialog({
                                 }}
                               />
                               <Button
-                                type="button"
-                                variant="outline"
-                                className="h-11 px-3 shrink-0"
+                                type="button" className="h-11 px-4 shrink-0"
                                 onClick={() => {
                                   const el = laborInputRefs.current[ti];
                                   if (el) addLabor(ti, el.value);
                                 }}
-                                aria-label={tr('workshop.employeeCard.workDoneLabor')}
                               >
-                                <Plus className="h-4 w-4" />
+                                <Plus className="h-4 w-4 mr-1" />{tr('common.add', 'Dodaj')}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 2. CZEGO UŻYŁEŚ (części) — trafia na zlecenie jako pozycja części */}
+                        <div className="rounded-lg border border-amber-400/40 bg-amber-50/70 dark:bg-amber-950/20 p-2.5">
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <PackagePlus className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span className="text-sm font-semibold text-foreground">
+                              {tr('workshop.employeeCard.parts', 'Jakich części użyłeś?')}
+                            </span>
+                            <span className="text-xs text-muted-foreground">{tr('workshop.employeeCard.partsHint', '(ceny wpisuje biuro)')}</span>
+                          </div>
+                          {t.parts.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                              {t.parts.map((p, pi) => (
+                                <span key={pi} className="inline-flex items-center gap-1 rounded-full bg-amber-500 text-white py-1 pl-3 pr-1 text-sm max-w-full">
+                                  <span className="truncate">{tc(p.name)}</span>
+                                  {!ro && (
+                                    <button
+                                      type="button" onClick={() => removePart(ti, pi)}
+                                      className="rounded-full p-0.5 hover:bg-black/20 shrink-0"
+                                      aria-label={tr('common.remove', 'Usuń')}
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {!ro && (
+                            <div className="flex gap-2">
+                              <Input
+                                onFocus={e => e.currentTarget.select()}
+                                ref={el => { partInputRefs.current[ti] = el; }}
+                                placeholder={tr('workshop.employeeCard.enterPartPlaceholder', 'np. klocki hamulcowe przód')}
+                                className="h-11 text-base flex-1 bg-background"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    addPart(ti, (e.target as HTMLInputElement).value);
+                                  }
+                                }}
+                              />
+                              <Button
+                                type="button" variant="outline" className="h-11 px-4 shrink-0 bg-background"
+                                onClick={() => {
+                                  const el = partInputRefs.current[ti];
+                                  if (el) addPart(ti, el.value);
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-1" />{tr('common.add', 'Dodaj')}
                               </Button>
                             </div>
                           )}
                         </div>
 
                         {/* Czas + koszt */}
+                        {!ro && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {['0.5', '1', '1.5', '2', '3', '4'].map(h => (
+                              <button
+                                key={h}
+                                type="button"
+                                onClick={() => setTime(ti, h)}
+                                className={`h-9 min-w-[52px] px-3 rounded-md border text-sm font-medium transition-colors ${
+                                  t.time === h
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-background border-input hover:bg-accent'
+                                }`}
+                              >
+                                {h.replace('.', ',')} h
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">
@@ -650,6 +710,7 @@ export function EmployeeOrderCardDialog({
                       key: `${nextIdx}. `,
                       index: nextIdx,
                       complaint: '',
+                      isCustom: true,
                       labor: [],
                       parts: [],
                       time: '',
@@ -676,7 +737,7 @@ export function EmployeeOrderCardDialog({
         </div>
 
         {/* FOOTER */}
-        <div className="sticky bottom-0 bg-card border-t p-3 space-y-2">
+        <div className="shrink-0 bg-card border-t p-3 space-y-2">
           {ro ? (
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1 h-11" onClick={() => onOpenChange(false)}>{tr('workshop.employeeCard.close')}</Button>
@@ -808,6 +869,7 @@ export function EmployeeOrderCardDialog({
               )}
               <div className="flex gap-2">
                 <Input
+                  onFocus={e => e.currentTarget.select()}
                   value={addonPartDraft}
                   onChange={(e) => setAddonPartDraft(e.target.value)}
                   placeholder={tr('workshop.employeeCard.enterPartPlaceholder')}
@@ -838,6 +900,7 @@ export function EmployeeOrderCardDialog({
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wide text-foreground mb-1.5">{tr('workshop.employeeCard.additionalLabor')}</div>
               <Input
+                onFocus={e => e.currentTarget.select()}
                 value={addonLabor}
                 onChange={(e) => setAddonLabor(e.target.value)}
                 placeholder={tr('workshop.employeeCard.laborPlaceholder')}
@@ -850,6 +913,7 @@ export function EmployeeOrderCardDialog({
                 <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">{tr('workshop.employeeCard.timeHours')}</label>
                 <Input
                   type="number" step="0.25" min="0" inputMode="decimal"
+                  onFocus={e => e.currentTarget.select()}
                   value={addonHours}
                   onChange={(e) => setAddonHours(e.target.value)}
                   placeholder="0.5"
@@ -860,6 +924,7 @@ export function EmployeeOrderCardDialog({
                 <label className="text-[11px] font-bold uppercase tracking-wide text-foreground">{tr('workshop.employeeCard.costZl')}</label>
                 <Input
                   type="number" step="0.01" min="0" inputMode="decimal"
+                  onFocus={e => e.currentTarget.select()}
                   value={addonCost}
                   onChange={(e) => setAddonCost(e.target.value)}
                   placeholder={tr('workshop.employeeCard.optional')}

@@ -208,7 +208,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
       const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const { data } = await (supabase as any)
         .from('workshop_client_bookings')
-        .select('id, first_name, last_name, phone, plate, appointment_date, appointment_time, cancelled_at, cancellation_reason')
+        .select('id, first_name, last_name, phone, plate, appointment_date, appointment_time, cancelled_at, cancellation_reason, cancellation_ack_at')
         .eq('provider_id', providerId).eq('status', 'cancelled').gte('cancelled_at', since)
         .order('cancelled_at', { ascending: false });
       return data || [];
@@ -218,7 +218,31 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
     () => (clientBookings as any[]).filter(b => b.status === 'reschedule_requested'),
     [clientBookings],
   );
-  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+  // „Ukryj" przy odwołanej wizycie = OBSŁUŻONE: znacznik ląduje w bazie, więc
+  // ostrzeżenie znika na stałe i dla całego warsztatu (wcześniej lista ukrytych
+  // żyła w useState i wracała przy każdej zmianie zakładki).
+  const [showAckedCancellations, setShowAckedCancellations] = useState(false);
+  const pendingCancellations = useMemo(
+    () => (cancelledBookings as any[]).filter(c => !c.cancellation_ack_at),
+    [cancelledBookings],
+  );
+  const visibleCancellations = showAckedCancellations ? (cancelledBookings as any[]) : pendingCancellations;
+
+  const ackCancellation = async (ids: string[]) => {
+    if (!ids.length) return;
+    const stamp = new Date().toISOString();
+    // Optymistycznie: ostrzeżenie znika od razu, bez czekania na sieć.
+    queryClient.setQueryData(['workshop-bookings-cancelled', providerId], (old: any) =>
+      Array.isArray(old) ? old.map((c: any) => (ids.includes(c.id) ? { ...c, cancellation_ack_at: stamp } : c)) : old);
+    const { error } = await (supabase as any)
+      .from('workshop_client_bookings')
+      .update({ cancellation_ack_at: stamp })
+      .in('id', ids);
+    if (error) {
+      queryClient.invalidateQueries({ queryKey: ['workshop-bookings-cancelled', providerId] });
+      toast.error(t('workshop.scheduler.error', 'Nie udało się zapisać'));
+    }
+  };
 
   const acceptReschedule = async (b: any) => {
     try {
@@ -610,7 +634,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
       {resolvedTitle && <h2 className="text-2xl font-bold tracking-tight mb-3">{resolvedTitle}</h2>}
 
       {/* Powiadomienia od klientów: prośby o zmianę terminu + odwołania */}
-      {(rescheduleRequests.length > 0 || cancelledBookings.filter((c: any) => !dismissedAlerts.includes(c.id)).length > 0) && (
+      {(rescheduleRequests.length > 0 || visibleCancellations.length > 0) && (
         <div className="mb-3 space-y-2">
           {rescheduleRequests.map((b: any) => (
             <div key={b.id} className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
@@ -629,20 +653,44 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
               </div>
             </div>
           ))}
-          {cancelledBookings.filter((c: any) => !dismissedAlerts.includes(c.id)).map((c: any) => (
-            <div key={c.id} className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-950/20 p-3 flex items-center gap-2">
-              <X className="h-4 w-4 text-red-600 shrink-0" />
+          {visibleCancellations.map((c: any) => (
+            <div key={c.id} className={`rounded-lg border p-3 flex items-center gap-2 ${
+              c.cancellation_ack_at
+                ? 'border-border bg-muted/40 opacity-70'
+                : 'border-red-300 bg-red-50 dark:bg-red-950/20'
+            }`}>
+              <X className={`h-4 w-4 shrink-0 ${c.cancellation_ack_at ? 'text-muted-foreground' : 'text-red-600'}`} />
               <div className="text-sm flex-1 min-w-0">
                 <span className="font-semibold">{[c.first_name, c.last_name].filter(Boolean).join(' ') || c.phone}</span>
                 {' '}{t('workshop.scheduler.cancelledVisit', 'odwołał(a) wizytę')}{' '}
                 <span className="whitespace-nowrap">{c.appointment_date ? c.appointment_date.split('-').reverse().join('.') : ''} {c.appointment_time?.slice(0,5)}</span>
                 {c.cancellation_reason && <span className="text-muted-foreground"> — {c.cancellation_reason}</span>}
               </div>
-              <button type="button" onClick={() => setDismissedAlerts(prev => [...prev, c.id])} className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-red-100 text-red-600 shrink-0" title={t('common.dismiss', 'Ukryj')}>
-                <X className="h-4 w-4" />
-              </button>
+              {c.cancellation_ack_at ? (
+                <span className="text-xs text-muted-foreground shrink-0">{t('workshop.scheduler.handled', 'Obsłużone')}</span>
+              ) : (
+                <button type="button" onClick={() => ackCancellation([c.id])} className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-red-100 text-red-600 shrink-0" title={t('workshop.scheduler.markHandled', 'Oznacz jako obsłużone')}>
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ))}
+          {(pendingCancellations.length > 0 || (cancelledBookings as any[]).some((c: any) => c.cancellation_ack_at)) && (
+            <div className="flex items-center gap-3 pl-1">
+              {pendingCancellations.length > 1 && (
+                <button type="button" onClick={() => ackCancellation(pendingCancellations.map((c: any) => c.id))} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
+                  {t('workshop.scheduler.markAllHandled', 'Oznacz wszystkie jako obsłużone')}
+                </button>
+              )}
+              {(cancelledBookings as any[]).some((c: any) => c.cancellation_ack_at) && (
+                <button type="button" onClick={() => setShowAckedCancellations(v => !v)} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
+                  {showAckedCancellations
+                    ? t('workshop.scheduler.hideHandled', 'Ukryj obsłużone')
+                    : t('workshop.scheduler.showHandled', 'Pokaż obsłużone')}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -668,7 +716,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           )}
           <div className="relative mb-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-full h-8" />
+            <Input onFocus={e => e.currentTarget.select()} value={search} onChange={e => setSearch(e.target.value)} placeholder={t('workshop.scheduler.search')} className="pl-9 w-full h-8" />
           </div>
           <div className="flex flex-col gap-2 overflow-y-auto flex-1 min-h-0 pr-1">
             {unplannedOrders.length === 0 ? (
@@ -925,7 +973,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           <div className="space-y-3">
             <div>
               <Label>{t('workshop.scheduler.stationName')}</Label>
-              <Input value={newStationName} onChange={e => setNewStationName(e.target.value)} placeholder={t('workshop.scheduler.stationNamePlaceholder')} />
+              <Input onFocus={e => e.currentTarget.select()} value={newStationName} onChange={e => setNewStationName(e.target.value)} placeholder={t('workshop.scheduler.stationNamePlaceholder')} />
             </div>
             <div>
               <Label>{t('workshop.scheduler.category')}</Label>
@@ -981,7 +1029,7 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           <DialogHeader><DialogTitle>{t('workshop.scheduler.addCategory')}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <Label>{t('workshop.scheduler.categoryName')}</Label>
-            <Input value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder={t('workshop.scheduler.categoryNamePlaceholder')} />
+            <Input onFocus={e => e.currentTarget.select()} value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} placeholder={t('workshop.scheduler.categoryNamePlaceholder')} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddCategory(false)}>{t('common.cancel')}</Button>
@@ -1038,10 +1086,11 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
   const { t, i18n } = useTranslation();
   const isBooking = !!order._isBooking;
   const [showPreview, setShowPreview] = useState(false);
-  const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || 'none');
+  // Źródłem prawdy jest zapis w bazie (order.assigned_employee_id), nie lokalny stan —
+  // dzięki temu po odświeżeniu listy widać to, co faktycznie zapisane, a nie ostatni klik.
+  const assignedEmployee = order.assigned_employee_id || 'none';
 
   const handleAssignEmployee = async (empId: string) => {
-    setAssignedEmployee(empId || 'none');
     if (isBooking) return;
     try {
       await updateOrder.mutateAsync({ id: order.id, assigned_employee_id: empId === 'none' ? null : empId });
@@ -1179,10 +1228,11 @@ function ScheduledOrderBlock({ order, displaySpan, employees, updateOrder, onDra
 function OrderCard({ order, onDragStart, onDragEnd, isFocused, employees, updateOrder, tc }: { order: any; onDragStart: () => void; onDragEnd: () => void; isFocused?: boolean; employees: any[]; updateOrder: any; tc: (t?: string) => string; }) {
   const { t, i18n } = useTranslation();
   const [showPreview, setShowPreview] = useState(false);
-  const [assignedEmployee, setAssignedEmployee] = useState(order.assigned_employee_id || 'none');
+  // Źródłem prawdy jest zapis w bazie (order.assigned_employee_id), nie lokalny stan —
+  // dzięki temu po odświeżeniu listy widać to, co faktycznie zapisane, a nie ostatni klik.
+  const assignedEmployee = order.assigned_employee_id || 'none';
 
   const handleAssignEmployee = async (empId: string) => {
-    setAssignedEmployee(empId || 'none');
     try {
       await updateOrder.mutateAsync({ id: order.id, assigned_employee_id: empId === 'none' ? null : empId });
       toast.success(t('workshop.scheduler.employeeAssigned'));
@@ -1752,11 +1802,11 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-sm">{t('workshop.scheduler.firstName')}</Label>
-                  <Input value={clientForm.firstName} onChange={e => setClientForm(f => ({...f, firstName: e.target.value}))} placeholder={t('workshop.scheduler.firstNamePlaceholder')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={clientForm.firstName} onChange={e => setClientForm(f => ({...f, firstName: e.target.value}))} placeholder={t('workshop.scheduler.firstNamePlaceholder')} />
                 </div>
                 <div>
                   <Label className="text-sm">{t('workshop.scheduler.lastName')}</Label>
-                  <Input value={clientForm.lastName} onChange={e => setClientForm(f => ({...f, lastName: e.target.value}))} placeholder={t('workshop.scheduler.lastNamePlaceholder')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={clientForm.lastName} onChange={e => setClientForm(f => ({...f, lastName: e.target.value}))} placeholder={t('workshop.scheduler.lastNamePlaceholder')} />
                 </div>
               </div>
               {/* Nr rejestracyjny — wybór auta z bazy / auta właściciela / lookup po numerze */}
@@ -1817,15 +1867,15 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
                   <Label className="text-sm">{t('workshop.scheduler.brand')}</Label>
-                  <Input value={clientForm.brand} onChange={e => setClientForm(f => ({...f, brand: e.target.value}))} placeholder={t('workshop.scheduler.brandPlaceholder')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={clientForm.brand} onChange={e => setClientForm(f => ({...f, brand: e.target.value}))} placeholder={t('workshop.scheduler.brandPlaceholder')} />
                 </div>
                 <div>
                   <Label className="text-sm">{t('workshop.scheduler.model')}</Label>
-                  <Input value={clientForm.model} onChange={e => setClientForm(f => ({...f, model: e.target.value}))} placeholder={t('workshop.scheduler.modelPlaceholder')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={clientForm.model} onChange={e => setClientForm(f => ({...f, model: e.target.value}))} placeholder={t('workshop.scheduler.modelPlaceholder')} />
                 </div>
                 <div className="col-span-2 sm:col-span-1">
                   <Label className="text-sm">{t('workshop.scheduler.year', 'Rok')}</Label>
-                  <Input value={clientForm.year} onChange={e => setClientForm(f => ({...f, year: e.target.value.replace(/\D/g, '').slice(0, 4)}))} inputMode="numeric" placeholder="2019" />
+                  <Input onFocus={e => e.currentTarget.select()} value={clientForm.year} onChange={e => setClientForm(f => ({...f, year: e.target.value.replace(/\D/g, '').slice(0, 4)}))} inputMode="numeric" placeholder="2019" />
                 </div>
               </div>
               {/* Usługi — wiele pozycji: Enter lub plusik dodaje, X usuwa */}
@@ -1846,6 +1896,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
                 )}
                 <div className="flex gap-2">
                   <Input
+                    onFocus={e => e.currentTarget.select()}
                     value={serviceInput}
                     onChange={e => setServiceInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addServiceItem(); } }}
@@ -1912,7 +1963,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
             <div className="space-y-3">
               <div>
                 <Label>{t('workshop.scheduler.serviceOrActivity')}</Label>
-                <Input value={eventForm.service} onChange={e => setEventForm(f => ({...f, service: e.target.value}))} placeholder={t('workshop.scheduler.serviceOrActivityPlaceholder')} />
+                <Input onFocus={e => e.currentTarget.select()} value={eventForm.service} onChange={e => setEventForm(f => ({...f, service: e.target.value}))} placeholder={t('workshop.scheduler.serviceOrActivityPlaceholder')} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1956,11 +2007,11 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
               </div>
               <div>
                 <Label>{t('workshop.scheduler.employee')}</Label>
-                <Input value={eventForm.worker} onChange={e => setEventForm(f => ({...f, worker: e.target.value}))} placeholder={t('workshop.scheduler.selectEmployeeOptional')} />
+                <Input onFocus={e => e.currentTarget.select()} value={eventForm.worker} onChange={e => setEventForm(f => ({...f, worker: e.target.value}))} placeholder={t('workshop.scheduler.selectEmployeeOptional')} />
               </div>
               <div>
                 <Label>{t('workshop.scheduler.descriptionLabel')}</Label>
-                <Input value={eventForm.description} onChange={e => setEventForm(f => ({...f, description: e.target.value}))} placeholder={t('workshop.scheduler.additionalInfoPlaceholder')} />
+                <Input onFocus={e => e.currentTarget.select()} value={eventForm.description} onChange={e => setEventForm(f => ({...f, description: e.target.value}))} placeholder={t('workshop.scheduler.additionalInfoPlaceholder')} />
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>

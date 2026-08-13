@@ -202,11 +202,11 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
         <TabsContent value="dane">
           <Card>
             <CardContent className="py-6 space-y-6">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>{t('workshop.vehicles.vinNumber')}</Label>
                   <div className="flex gap-2">
-                    <Input value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} className="tracking-wide flex-1" />
+                    <Input onFocus={e => e.currentTarget.select()} value={form.vin} onChange={e => set('vin', e.target.value.toUpperCase())} className="tracking-wide flex-1" />
                     <Button size="icon" variant="outline" onClick={handleLookupVin} disabled={lookupLoading} title={t('workshop.vehicles.lookupByVin')}>
                       {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
@@ -214,7 +214,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.vehicles.firstRegistrationDate')}</Label>
-                  <Input type="date" value={form.first_registration_date} onChange={e => set('first_registration_date', e.target.value)} />
+                  <Input onFocus={e => e.currentTarget.select()} type="date" value={form.first_registration_date} onChange={e => set('first_registration_date', e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.orders.fuelType')}</Label>
@@ -227,30 +227,30 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>{t('workshop.vehicles.engineNumber')}</Label>
-                  <Input value={form.engine_number} onChange={e => set('engine_number', e.target.value)} placeholder={t('workshop.vehicles.engineNumber')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={form.engine_number} onChange={e => set('engine_number', e.target.value)} placeholder={t('workshop.vehicles.engineNumber')} />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.orders.brand')}</Label>
-                  <Input value={form.brand} onChange={e => set('brand', e.target.value)} />
+                  <Input onFocus={e => e.currentTarget.select()} value={form.brand} onChange={e => set('brand', e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.orders.model')}</Label>
-                  <Input value={form.model} onChange={e => set('model', e.target.value)} />
+                  <Input onFocus={e => e.currentTarget.select()} value={form.model} onChange={e => set('model', e.target.value)} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>{t('workshop.orders.color')}</Label>
-                  <Input value={form.color} onChange={e => set('color', e.target.value)} placeholder={t('workshop.orders.color')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={form.color} onChange={e => set('color', e.target.value)} placeholder={t('workshop.orders.color')} />
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.orders.plateNumber')}</Label>
                   <div className="flex gap-2">
-                    <Input value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} className="tracking-wide flex-1" />
+                    <Input onFocus={e => e.currentTarget.select()} value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} className="tracking-wide flex-1" />
                     <Button size="icon" variant="outline" onClick={handleLookupPlate} disabled={lookupLoading} title={t('workshop.vehicles.lookupByPlate')}>
                       {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                     </Button>
@@ -258,22 +258,25 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.orders.yearOfProduction')}</Label>
-                  <Input type="number" value={form.year} onChange={e => set('year', e.target.value)} />
+                  <Input onFocus={e => e.currentTarget.select()} type="number" value={form.year} onChange={e => set('year', e.target.value)} />
+                  onFocus={e => e.currentTarget.select()}
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>{t('workshop.orders.capacity')}</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="number" value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} />
+                    <Input onFocus={e => e.currentTarget.select()} type="number" value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} />
+                    onFocus={e => e.currentTarget.select()}
                     <span className="text-sm text-muted-foreground whitespace-nowrap">cm³</span>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.vehicles.enginePower')}</Label>
                   <div className="flex items-center gap-2">
-                    <Input type="number" value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} />
+                    <Input onFocus={e => e.currentTarget.select()} type="number" value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} />
+                    onFocus={e => e.currentTarget.select()}
                     <Badge variant="secondary">kW</Badge>
                   </div>
                 </div>
@@ -306,6 +309,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 ) : (
                   <div className="relative">
                     <Input
+                      onFocus={e => e.currentTarget.select()}
                       value={ownerSearch}
                       onChange={e => { setOwnerSearch(e.target.value); setShowOwnerList(true); }}
                       onClick={() => setShowOwnerList(true)}
@@ -363,7 +367,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
               <div className="flex-1" />
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder={t('common.search')} className="pl-9 w-[250px]" />
+                <Input onFocus={e => e.currentTarget.select()} placeholder={t('common.search')} className="pl-9 w-[250px]" />
               </div>
             </div>
 

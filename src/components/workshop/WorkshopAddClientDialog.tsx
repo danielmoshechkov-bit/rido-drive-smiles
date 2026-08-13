@@ -115,29 +115,29 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
       <div className="grid grid-cols-[1fr_auto_auto] gap-3">
         <div className="space-y-1.5">
           <Label>{t('workshop.clients.street')}</Label>
-          <Input value={form.street} onChange={e => set('street', e.target.value)} placeholder={t('workshop.clients.street')} />
+          <Input onFocus={e => e.currentTarget.select()} value={form.street} onChange={e => set('street', e.target.value)} placeholder={t('workshop.clients.street')} />
         </div>
         <div className="space-y-1.5 w-24">
           <Label>{t('workshop.clients.houseNumber')}</Label>
-          <Input value={form.house_number} onChange={e => set('house_number', e.target.value)} placeholder={t('workshop.clients.houseNumberShort')} />
+          <Input onFocus={e => e.currentTarget.select()} value={form.house_number} onChange={e => set('house_number', e.target.value)} placeholder={t('workshop.clients.houseNumberShort')} />
         </div>
         <div className="space-y-1.5 w-24">
           <Label>{t('workshop.clients.apartmentNumber')}</Label>
-          <Input value={form.apartment_number} onChange={e => set('apartment_number', e.target.value)} placeholder={t('workshop.clients.apartmentNumberShort')} />
+          <Input onFocus={e => e.currentTarget.select()} value={form.apartment_number} onChange={e => set('apartment_number', e.target.value)} placeholder={t('workshop.clients.apartmentNumberShort')} />
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-1.5">
           <Label>{t('workshop.clients.postalCode')}</Label>
-          <Input value={form.postal_code} onChange={e => handlePostalCode(e.target.value)} placeholder="00-000" inputMode="numeric" maxLength={6} />
+          <Input onFocus={e => e.currentTarget.select()} value={form.postal_code} onChange={e => handlePostalCode(e.target.value)} placeholder="00-000" inputMode="numeric" maxLength={6} />
         </div>
         <div className="space-y-1.5">
           <Label>{t('workshop.clients.city')}</Label>
-          <Input value={form.city} onChange={e => set('city', e.target.value)} placeholder={t('workshop.clients.city')} />
+          <Input onFocus={e => e.currentTarget.select()} value={form.city} onChange={e => set('city', e.target.value)} placeholder={t('workshop.clients.city')} />
         </div>
         <div className="space-y-1.5">
           <Label>{t('workshop.clients.country')}</Label>
-          <Input value={form.country} onChange={e => set('country', e.target.value)} />
+          <Input onFocus={e => e.currentTarget.select()} value={form.country} onChange={e => set('country', e.target.value)} />
         </div>
       </div>
     </>
@@ -167,7 +167,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.companyNameRequired')}</Label>
-                  <Input value={form.company_name} onChange={e => { set('company_name', e.target.value); setShortNameSuggestion(null); }} placeholder={t('workshop.clients.companyName')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={form.company_name} onChange={e => { set('company_name', e.target.value); setShortNameSuggestion(null); }} placeholder={t('workshop.clients.companyName')} />
                   {shortNameSuggestion && form.company_name !== shortNameSuggestion && (
                     <button
                       type="button"
@@ -183,6 +183,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                   <Label>{t('workshop.clients.nipLabel')}</Label>
                   <div className="relative">
                     <Input
+                      onFocus={e => e.currentTarget.select()}
                       value={form.nip}
                       onChange={e => set('nip', e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleNipLookup(); } }}
@@ -211,11 +212,11 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>{t('workshop.clients.firstName')}</Label>
-                    <Input value={form.contact_first_name} onChange={e => set('contact_first_name', e.target.value)} placeholder={t('workshop.clients.firstName')} />
+                    <Input onFocus={e => e.currentTarget.select()} value={form.contact_first_name} onChange={e => set('contact_first_name', e.target.value)} placeholder={t('workshop.clients.firstName')} />
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t('workshop.clients.lastName')}</Label>
-                    <Input value={form.contact_last_name} onChange={e => set('contact_last_name', e.target.value)} placeholder={t('workshop.clients.lastName')} />
+                    <Input onFocus={e => e.currentTarget.select()} value={form.contact_last_name} onChange={e => set('contact_last_name', e.target.value)} placeholder={t('workshop.clients.lastName')} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mt-3">
@@ -223,12 +224,12 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                     <Label>{t('workshop.clients.phone')}</Label>
                     <div className="flex gap-2">
                       <span className="flex items-center px-3 border rounded-md bg-muted text-sm">+48</span>
-                      <Input value={form.contact_phone} onChange={e => set('contact_phone', e.target.value)} placeholder={t('workshop.clients.phone')} />
+                      <Input onFocus={e => e.currentTarget.select()} value={form.contact_phone} onChange={e => set('contact_phone', e.target.value)} placeholder={t('workshop.clients.phone')} />
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t('workshop.clients.email')}</Label>
-                    <Input type="email" value={form.contact_email} onChange={e => set('contact_email', e.target.value)} placeholder={t('workshop.clients.email')} />
+                    <Input onFocus={e => e.currentTarget.select()} type="email" value={form.contact_email} onChange={e => set('contact_email', e.target.value)} placeholder={t('workshop.clients.email')} />
                   </div>
                 </div>
               </div>
@@ -238,11 +239,11 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.firstNameRequired')}</Label>
-                  <Input value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder={t('workshop.clients.firstName')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder={t('workshop.clients.firstName')} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.lastName')}</Label>
-                  <Input value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder={t('workshop.clients.lastName')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder={t('workshop.clients.lastName')} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -250,12 +251,12 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                   <Label>{t('workshop.clients.phone')}</Label>
                   <div className="flex gap-2">
                     <span className="flex items-center px-3 border rounded-md bg-muted text-sm">+48</span>
-                    <Input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder={t('workshop.clients.phone')} />
+                    <Input onFocus={e => e.currentTarget.select()} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder={t('workshop.clients.phone')} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.email')}</Label>
-                  <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder={t('workshop.clients.email')} />
+                  <Input onFocus={e => e.currentTarget.select()} type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder={t('workshop.clients.email')} />
                 </div>
               </div>
               {addressFields}

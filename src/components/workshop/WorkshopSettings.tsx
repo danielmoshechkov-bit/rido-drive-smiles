@@ -334,7 +334,7 @@ function DocumentNumberingSettings({ providerId }: { providerId: string }) {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-2 border-t">
                   <div className="space-y-1">
                     <Label className="text-xs">{t('workshop.settings.docNumbering.prefix')}</Label>
-                    <Input value={fmt.prefix} onChange={e => update(key, { prefix: e.target.value.toUpperCase().slice(0, 8) })} className="h-9" />
+                    <Input onFocus={e => e.currentTarget.select()} value={fmt.prefix} onChange={e => update(key, { prefix: e.target.value.toUpperCase().slice(0, 8) })} className="h-9" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">{t('workshop.settings.docNumbering.counterReset')}</Label>
@@ -368,12 +368,14 @@ function DocumentNumberingSettings({ providerId }: { providerId: string }) {
                   <div className="space-y-1">
                     <Label className="text-xs">{t('workshop.settings.docNumbering.digitCount')}</Label>
                     <Input type="number" min={1} max={8} value={fmt.padding}
+                    onFocus={e => e.currentTarget.select()}
                       onChange={e => update(key, { padding: Math.max(1, Math.min(8, Number(e.target.value) || 1)) })}
                       className="h-9" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">{t('workshop.settings.docNumbering.startNumber')}</Label>
                     <Input type="number" min={1} value={fmt.startNumber}
+                    onFocus={e => e.currentTarget.select()}
                       onChange={e => update(key, { startNumber: Math.max(1, Number(e.target.value) || 1) })}
                       className="h-9" />
                   </div>
@@ -400,35 +402,35 @@ function CompanyDataSettings() {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>{t('workshop.settings.companyData.companyName')}</Label>
-            <Input placeholder={t('workshop.settings.companyData.companyNamePlaceholder')} />
+            <Input onFocus={e => e.currentTarget.select()} placeholder={t('workshop.settings.companyData.companyNamePlaceholder')} />
           </div>
           <div className="space-y-2">
             <Label>NIP</Label>
-            <Input placeholder="0000000000" />
+            <Input onFocus={e => e.currentTarget.select()} placeholder="0000000000" />
           </div>
           <div className="space-y-2">
             <Label>{t('workshop.settings.companyData.address')}</Label>
-            <Input placeholder="ul. Przykładowa 1" />
+            <Input onFocus={e => e.currentTarget.select()} placeholder="ul. Przykładowa 1" />
           </div>
           <div className="space-y-2">
             <Label>{t('workshop.settings.companyData.postalCodeCity')}</Label>
-            <Input placeholder={t('workshop.settings.companyData.postalCodeCityPlaceholder')} />
+            <Input onFocus={e => e.currentTarget.select()} placeholder={t('workshop.settings.companyData.postalCodeCityPlaceholder')} />
           </div>
           <div className="space-y-2">
             <Label>{t('workshop.settings.companyData.phone')}</Label>
-            <Input placeholder="+48 000 000 000" />
+            <Input onFocus={e => e.currentTarget.select()} placeholder="+48 000 000 000" />
           </div>
           <div className="space-y-2">
             <Label>{t('workshop.settings.companyData.email')}</Label>
-            <Input type="email" placeholder="kontakt@warsztat.pl" />
+            <Input onFocus={e => e.currentTarget.select()} type="email" placeholder="kontakt@warsztat.pl" />
           </div>
           <div className="space-y-2">
             <Label>{t('workshop.settings.companyData.website')}</Label>
-            <Input placeholder="https://warsztat.pl" />
+            <Input onFocus={e => e.currentTarget.select()} placeholder="https://warsztat.pl" />
           </div>
           <div className="space-y-2">
             <Label>{t('workshop.settings.companyData.bankAccount')}</Label>
-            <Input placeholder="PL 00 0000 0000 0000 0000 0000 0000" />
+            <Input onFocus={e => e.currentTarget.select()} placeholder="PL 00 0000 0000 0000 0000 0000 0000" />
           </div>
         </div>
         <div className="space-y-2">
@@ -599,7 +601,7 @@ function WorkstationSettings({ providerId }: { providerId: string }) {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>{t('workshop.settings.station.nameLabel')}</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder={t('workshop.settings.station.namePlaceholder')} />
+                <Input onFocus={e => e.currentTarget.select()} value={name} onChange={e => setName(e.target.value)} placeholder={t('workshop.settings.station.namePlaceholder')} />
               </div>
             </div>
             <DialogFooter>
@@ -733,11 +735,11 @@ function WorkerSettings({ providerId }: { providerId: string }) {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>{t('workshop.settings.worker.fullNameLabel')}</Label>
-                <Input value={empName} onChange={e => setEmpName(e.target.value)} placeholder="Jan Kowalski" />
+                <Input onFocus={e => e.currentTarget.select()} value={empName} onChange={e => setEmpName(e.target.value)} placeholder="Jan Kowalski" />
               </div>
               <div className="space-y-2">
                 <Label>{t('workshop.settings.worker.phoneLabel')}</Label>
-                <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+48 000 000 000" />
+                <Input onFocus={e => e.currentTarget.select()} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+48 000 000 000" />
               </div>
             </div>
             <DialogFooter>
@@ -777,8 +779,8 @@ function WorkingHoursSettings() {
               <TableRow key={dayKey}>
                 <TableCell className="font-medium">{t(`workshop.settings.workingHours.day.${dayKey}`)}</TableCell>
                 <TableCell><Switch defaultChecked={i < 5} /></TableCell>
-                <TableCell><Input type="time" defaultValue={i < 5 ? '08:00' : ''} className="w-28" disabled={i >= 5} /></TableCell>
-                <TableCell><Input type="time" defaultValue={i < 5 ? '17:00' : ''} className="w-28" disabled={i >= 5} /></TableCell>
+                <TableCell><Input onFocus={e => e.currentTarget.select()} type="time" defaultValue={i < 5 ? '08:00' : ''} className="w-28" disabled={i >= 5} /></TableCell>
+                <TableCell><Input onFocus={e => e.currentTarget.select()} type="time" defaultValue={i < 5 ? '17:00' : ''} className="w-28" disabled={i >= 5} /></TableCell>
               </TableRow>
             ))}
           </TableBody>

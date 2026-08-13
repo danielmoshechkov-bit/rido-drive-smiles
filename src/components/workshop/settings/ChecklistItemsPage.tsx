@@ -134,7 +134,7 @@ export function ChecklistItemsPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editId ? t('workshop.settings.checklist.editItem') : t('workshop.settings.checklist.addItem')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>{t('workshop.settings.checklist.nameLabel')}</Label><Input value={form.label} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} placeholder={t('workshop.settings.checklist.namePlaceholder')} /></div>
+            <div className="space-y-2"><Label>{t('workshop.settings.checklist.nameLabel')}</Label><Input onFocus={e => e.currentTarget.select()} value={form.label} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} placeholder={t('workshop.settings.checklist.namePlaceholder')} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t('workshop.settings.checklist.fieldTypeLabel')}</Label>
@@ -149,7 +149,8 @@ export function ChecklistItemsPage() {
               </div>
               <div className="space-y-2">
                 <Label>{t('workshop.settings.checklist.orderLabel')}</Label>
-                <Input type="number" value={form.sort_order} onChange={e => setForm(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))} />
+                <Input onFocus={e => e.currentTarget.select()} type="number" value={form.sort_order} onChange={e => setForm(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))} />
+                onFocus={e => e.currentTarget.select()}
               </div>
             </div>
             <div className="flex items-center gap-2">

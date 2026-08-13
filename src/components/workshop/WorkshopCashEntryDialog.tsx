@@ -70,15 +70,16 @@ export function WorkshopCashEntryDialog({ open, onOpenChange, providerId, kind }
           </div>
           <div className="space-y-1.5">
             <Label>Kwota</Label>
-            <Input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className="text-right" placeholder="0,00" />
+            <Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className="text-right" placeholder="0,00" />
+            onFocus={e => e.currentTarget.select()}
           </div>
           <div className="space-y-1.5">
             <Label>Opis (opcj.)</Label>
-            <Input value={desc} onChange={e => setDesc(e.target.value)} placeholder={kind === 'in' ? 'np. wpłata własna' : 'np. wypłata właściciela'} />
+            <Input onFocus={e => e.currentTarget.select()} value={desc} onChange={e => setDesc(e.target.value)} placeholder={kind === 'in' ? 'np. wpłata własna' : 'np. wypłata właściciela'} />
           </div>
           <div className="space-y-1.5">
             <Label>Zarejestrował (opcj.)</Label>
-            <Input value={who} onChange={e => setWho(e.target.value)} placeholder="imię i nazwisko" />
+            <Input onFocus={e => e.currentTarget.select()} value={who} onChange={e => setWho(e.target.value)} placeholder="imię i nazwisko" />
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>

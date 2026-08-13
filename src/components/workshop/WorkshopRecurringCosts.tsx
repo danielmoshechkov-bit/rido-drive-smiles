@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -55,6 +56,7 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
   const fixedRows: BreakdownRow[] = (costs as any[]).filter((c) => c.active)
     .map((c) => ({ label: `${c.name} (${c.frequency === 'weekly' ? 'tyg. ×4,33' : 'mies.'})`, amount: Number(c.amount || 0) * (c.frequency === 'weekly' ? 4.33 : 1) }));
   const [breakdown, setBreakdown] = useState<{ title: string; rows: BreakdownRow[] } | null>(null);
+  const confirmAction = useConfirm();
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState<ExpenseCategory>('oplata');
@@ -126,7 +128,7 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="space-y-1.5 col-span-2 md:col-span-1">
               <Label>Nazwa</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="np. Czynsz" />
+              <Input onFocus={e => e.currentTarget.select()} value={name} onChange={e => setName(e.target.value)} placeholder="np. Czynsz" />
             </div>
             <div className="space-y-1.5">
               <Label>Kategoria</Label>
@@ -137,7 +139,8 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>Kwota</Label>
-              <Input type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className="text-right" placeholder="0,00" />
+              <Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className="text-right" placeholder="0,00" />
+              onFocus={e => e.currentTarget.select()}
             </div>
             <div className="space-y-1.5">
               <Label>Częstotliwość</Label>
@@ -203,7 +206,7 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(c)} title="Edytuj">
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { if (confirm('Usunąć opłatę cykliczną?')) deleteCost.mutate(c.id); }}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={async () => { if (await confirmAction({ title: 'Usunąć opłatę cykliczną?', description: 'Tej operacji nie można cofnąć.' })) deleteCost.mutate(c.id); }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

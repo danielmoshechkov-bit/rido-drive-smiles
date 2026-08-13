@@ -193,7 +193,7 @@ export function OrderStatusesPage({ providerId }: Props) {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>{t('workshop.settings.orderStatuses.nameLabel')}</Label>
-              <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+              <Input onFocus={e => e.currentTarget.select()} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
             </div>
             <div className="flex items-center gap-4">
               {customColors && (
@@ -204,7 +204,8 @@ export function OrderStatusesPage({ providerId }: Props) {
               )}
               <div className="space-y-2">
                 <Label>{t('workshop.settings.orderStatuses.orderLabel')}</Label>
-                <Input type="number" value={form.sort_order} onChange={e => setForm(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))} className="w-20" />
+                <Input onFocus={e => e.currentTarget.select()} type="number" value={form.sort_order} onChange={e => setForm(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))} className="w-20" />
+                onFocus={e => e.currentTarget.select()}
               </div>
             </div>
             <div className="flex items-center gap-2">

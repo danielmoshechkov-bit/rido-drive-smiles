@@ -112,6 +112,7 @@ export function IcCatalogSettings({ providerId }: Props) {
         <div>
           <Label className="text-xs">Client ID (OAuth2)</Label>
           <Input
+            onFocus={e => e.currentTarget.select()}
             value={clientId}
             onChange={e => setClientId(e.target.value)}
             placeholder={t('workshop.parts.icCatalog.clientIdPlaceholder')}
@@ -121,6 +122,7 @@ export function IcCatalogSettings({ providerId }: Props) {
         <div>
           <Label className="text-xs">Client Secret (OAuth2)</Label>
           <Input
+            onFocus={e => e.currentTarget.select()}
             type="password"
             value={clientSecret}
             onChange={e => setClientSecret(e.target.value)}

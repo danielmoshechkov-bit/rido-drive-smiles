@@ -114,6 +114,7 @@ export function RidoPriceSettingsTab({ providerId }: Props) {
         <Label>{t('workshop.pricing.settings.partsMarginLabel')}</Label>
         <Input
           type="number"
+          onFocus={e => e.currentTarget.select()}
           value={form.default_parts_margin}
           onChange={e => setForm(p => ({ ...p, default_parts_margin: Number(e.target.value) }))}
           className="w-32"

@@ -12,6 +12,7 @@ import { PortalCategoriesManager } from '@/components/admin/PortalCategoriesMana
 import { AdminAIAssistant } from '@/components/admin/AdminAIAssistant';
 import { WorkspaceManagement } from '@/components/admin/WorkspaceManagement';
 import { SupportTicketsPanel } from '@/components/admin/SupportTicketsPanel';
+import { SupportInboxPanel } from '@/components/admin/SupportInboxPanel';
 import { AdminAuthUsersPanel } from '@/components/admin/AdminAuthUsersPanel';
 import { AdminApiKeysTab } from '@/components/admin/AdminApiKeysTab';
 import { AdminIntegrationsTab } from '@/components/admin/AdminIntegrationsTab';
@@ -23,7 +24,7 @@ import { WeeklyDebtRebuildPanel } from '@/components/admin/WeeklyDebtRebuildPane
 import { ReferralSystemPanel } from '@/components/admin/ReferralSystemPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserDropdown } from '@/components/UserDropdown';
-import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet, Shield, Cpu, Globe, RefreshCcw, Gift } from 'lucide-react';
+import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet, Shield, Cpu, Globe, RefreshCcw, Gift, MessageSquare } from 'lucide-react';
 
 export default function AdminPortal() {
   const navigate = useNavigate();
@@ -93,6 +94,7 @@ export default function AdminPortal() {
 
   const tabs: { value: string; label: string; icon: React.ComponentType<any> }[] = [
     { value: 'ai-assistant', label: 'AI Asystent', icon: Bot },
+    { value: 'support-inbox', label: 'Czat', icon: MessageSquare },
     { value: 'tickets', label: 'Zgłoszenia', icon: TicketCheck },
     { value: 'api', label: 'Klucze API', icon: Key },
     { value: 'integrations', label: 'Integracje', icon: Plug },
@@ -204,6 +206,11 @@ export default function AdminPortal() {
           {/* AI Assistant Tab */}
           <TabsContent value="ai-assistant">
             <AdminAIAssistant />
+          </TabsContent>
+
+          {/* Czat wsparcia — rozmowy z klientami na żywo */}
+          <TabsContent value="support-inbox">
+            <SupportInboxPanel />
           </TabsContent>
 
           {/* Tickets Tab */}

@@ -197,7 +197,7 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.companyNameRequired')}</Label>
-                  <Input value={form.company_name} onChange={e => { set('company_name', e.target.value); setShortNameSuggestion(null); }} placeholder={t('workshop.clients.companyName')} />
+                  <Input onFocus={e => e.currentTarget.select()} value={form.company_name} onChange={e => { set('company_name', e.target.value); setShortNameSuggestion(null); }} placeholder={t('workshop.clients.companyName')} />
                   {shortNameSuggestion && form.company_name !== shortNameSuggestion && (
                     <button
                       type="button"
@@ -213,6 +213,7 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
                   <Label>{t('workshop.clients.nipLabel')}</Label>
                   <div className="relative">
                     <Input
+                      onFocus={e => e.currentTarget.select()}
                       value={form.nip}
                       onChange={e => set('nip', e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleNipLookup(); } }}
@@ -239,11 +240,11 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>{t('workshop.clients.firstName')}</Label>
-                    <Input value={form.first_name} onChange={e => set('first_name', e.target.value)} />
+                    <Input onFocus={e => e.currentTarget.select()} value={form.first_name} onChange={e => set('first_name', e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t('workshop.clients.lastName')}</Label>
-                    <Input value={form.last_name} onChange={e => set('last_name', e.target.value)} />
+                    <Input onFocus={e => e.currentTarget.select()} value={form.last_name} onChange={e => set('last_name', e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -252,11 +253,11 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>{t('workshop.clients.firstNameRequired')}</Label>
-                <Input value={form.first_name} onChange={e => set('first_name', e.target.value)} />
+                <Input onFocus={e => e.currentTarget.select()} value={form.first_name} onChange={e => set('first_name', e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t('workshop.clients.lastName')}</Label>
-                <Input value={form.last_name} onChange={e => set('last_name', e.target.value)} />
+                <Input onFocus={e => e.currentTarget.select()} value={form.last_name} onChange={e => set('last_name', e.target.value)} />
               </div>
             </div>
           )}
@@ -266,41 +267,41 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
               <Label>{t('workshop.clients.phone')}</Label>
               <div className="flex gap-2">
                 <span className="flex items-center px-3 border rounded-md bg-muted text-sm">+48</span>
-                <Input value={form.phone} onChange={e => set('phone', e.target.value)} />
+                <Input onFocus={e => e.currentTarget.select()} value={form.phone} onChange={e => set('phone', e.target.value)} />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>{t('workshop.clients.email')}</Label>
-              <Input type="email" value={form.email} onChange={e => set('email', e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} type="email" value={form.email} onChange={e => set('email', e.target.value)} />
             </div>
           </div>
 
           <div className="grid grid-cols-[1fr_auto_auto] gap-3">
             <div className="space-y-1.5">
               <Label>{t('workshop.clients.street')}</Label>
-              <Input value={form.street} onChange={e => set('street', e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} value={form.street} onChange={e => set('street', e.target.value)} />
             </div>
             <div className="space-y-1.5 w-24">
               <Label>{t('workshop.clients.houseNumber')}</Label>
-              <Input value={form.house_number} onChange={e => set('house_number', e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} value={form.house_number} onChange={e => set('house_number', e.target.value)} />
             </div>
             <div className="space-y-1.5 w-24">
               <Label>{t('workshop.clients.apartmentNumber')}</Label>
-              <Input value={form.apartment_number} onChange={e => set('apartment_number', e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} value={form.apartment_number} onChange={e => set('apartment_number', e.target.value)} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <Label>{t('workshop.clients.postalCode')}</Label>
-              <Input value={form.postal_code} onChange={e => set('postal_code', formatPostalCode(e.target.value))} placeholder="00-000" />
+              <Input onFocus={e => e.currentTarget.select()} value={form.postal_code} onChange={e => set('postal_code', formatPostalCode(e.target.value))} placeholder="00-000" />
             </div>
             <div className="space-y-1.5">
               <Label>{t('workshop.clients.city')}</Label>
-              <Input value={form.city} onChange={e => set('city', e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} value={form.city} onChange={e => set('city', e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label>{t('workshop.clients.country')}</Label>
-              <Input value={form.country} onChange={e => set('country', e.target.value)} />
+              <Input onFocus={e => e.currentTarget.select()} value={form.country} onChange={e => set('country', e.target.value)} />
             </div>
           </div>
 

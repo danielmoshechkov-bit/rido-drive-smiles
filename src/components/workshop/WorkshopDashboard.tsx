@@ -1,4 +1,7 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazyNamedWithRetry } from '@/lib/lazyWithRetry';
+import { usePublicPricing } from '@/hooks/usePublicPricing';
+import { planPriceLabels, planCtaLabel } from '@/lib/pricingCards';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -14,8 +17,9 @@ import { planPriceLabels, trialDaysFor } from '@/lib/pricingCards';
 // komponentów (w tym 1890-liniowy Scheduler i Reports→recharts) lądowało w
 // initial bundle, mimo że renderuje się tylko aktywny. React.lazy = osobny
 // chunk per moduł, ładowany przy pierwszym wejściu w kafelek.
-const lazyNamed = <T extends Record<string, any>, K extends keyof T>(loader: () => Promise<T>, name: K) =>
-  lazy(() => loader().then(m => ({ default: m[name] })));
+// Ladowanie na zadanie odporne na nieaktualne pliki po wdrozeniu/restarcie —
+// bez tego wejscie w kafelek (np. Zlecenia) konczylo sie bialym ekranem.
+const lazyNamed = lazyNamedWithRetry;
 
 const WorkshopOrdersList = lazyNamed(() => import('./WorkshopOrdersList'), 'WorkshopOrdersList');
 const WorkshopOrderDetail = lazyNamed(() => import('./WorkshopOrderDetail'), 'WorkshopOrderDetail');
@@ -133,6 +137,10 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   const { t } = useTranslation();
   useDisableNumberInputScroll(); // scroll nad polem ceny/kwoty nie zmienia wartości (cały moduł)
   const { data: hookProviderId, isLoading, error } = useWorkshopProviderId();
+  // Cennik z bazy (billing_plans) — to samo zrodlo, co strona sprzedazowa.
+  // Wczesniej panel mial WLASNY, nieaktualny zestaw cen wpisany w kodzie.
+  const { plans: publicPlans = [] } = usePublicPricing();
+  const warsztatPlans = publicPlans.filter((p: any) => p.product_line === 'warsztat');
   const providerId = propProviderId || hookProviderId;
   const { data: workshopOrders = [] } = useWorkshopOrders(providerId);
   // Cennik dla konta bez warsztatu — te same dane co /cennik i /warsztat-info.

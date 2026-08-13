@@ -120,7 +120,12 @@ export function ServiceAutocomplete({
           }
           onKeyDown?.(e);
         }}
-        onFocus={() => !lockedRef.current && value.length >= 2 && setOpen(true)}
+        onFocus={(e) => {
+          // Klikniecie zaznacza cala nazwe — poprawiasz wpisujac od nowa,
+          // bez kasowania. Lista podpowiedzi otwiera sie jak dotad.
+          e.currentTarget.select();
+          if (!lockedRef.current && value.length >= 2) setOpen(true);
+        }}
       />
       {open && suggestions.length > 0 && createPortal(
         <div

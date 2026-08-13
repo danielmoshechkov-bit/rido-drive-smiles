@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, Banknote, CreditCard, TrendingUp, TrendingDown, Wallet, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Receipt, AlertCircle, Lock, Pencil, Ban, Trash2 } from 'lucide-react';
@@ -49,6 +50,7 @@ export function WorkshopCashPanel({ providerId }: Props) {
   const { data: recurringCosts = [] } = useWorkshopRecurringCosts(providerId);
 
   const [from, setFrom] = useState(startOfWeek());
+  const confirmAction = useConfirm();
   const [to, setTo] = useState(today());
   const [cashIn, setCashIn] = useState(false);
   const [quickReceipt, setQuickReceipt] = useState(false);
@@ -705,7 +707,7 @@ export function WorkshopCashPanel({ providerId }: Props) {
                         {s.closed
                           ? <span className="inline-flex items-center gap-1 text-xs text-green-700"><Lock className="h-3 w-3" />zatwierdzony</span>
                           : <span className="text-xs text-muted-foreground">otwarty — poglądowo</span>}
-                        {s.closed && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" title="Usuń zatwierdzenie" onClick={() => { if (confirm('Usunąć zatwierdzenie tego miesiąca?')) deleteClosure.mutate(s.closed.id); }}><Trash2 className="h-3 w-3" /></Button>}
+                        {s.closed && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" title="Usuń zatwierdzenie" onClick={async () => { if (await confirmAction({ title: 'Usunąć zatwierdzenie tego miesiąca?', description: 'Miesiąc wróci do stanu otwartego.' })) deleteClosure.mutate(s.closed.id); }}><Trash2 className="h-3 w-3" /></Button>}
                       </div>
                     </td>
                   </tr>

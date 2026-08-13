@@ -199,14 +199,14 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>{t('workshop.sms.client')}</Label>
-            <Input value={clientName} disabled />
+            <Input onFocus={e => e.currentTarget.select()} value={clientName} disabled />
           </div>
 
           <div className="space-y-1.5">
             <Label>{t('workshop.sms.phoneNumber')}</Label>
             <div className="flex gap-2">
               <span className="flex items-center px-3 border rounded-md bg-muted text-sm">+48</span>
-              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder={t('workshop.sms.phonePlaceholder')} />
+              <Input onFocus={e => e.currentTarget.select()} value={phone} onChange={e => setPhone(e.target.value)} placeholder={t('workshop.sms.phonePlaceholder')} />
             </div>
           </div>
 

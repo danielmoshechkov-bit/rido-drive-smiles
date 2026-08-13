@@ -35,6 +35,45 @@ interface UseUserRoleReturn {
   isDelegatedFleetManager: boolean;
 }
 
+/**
+ * Wspolna pamiec rol.
+ *
+ * Ten hook montuje sie w kilkunastu miejscach naraz (naglowek, kafelki, gating
+ * modulow), a kazde montowanie robilo wlasne zapytanie o `user_roles` — przy
+ * wejsciu w panel widac to bylo jako te same zapytania powtorzone kilka razy.
+ * Trzymamy wiec jedna odpowiedz przez chwile i sklejamy rownolegle wywolania;
+ * zmiana sesji czysci pamiec (patrz nasluch nizej).
+ */
+const ROLE_TTL_MS = 15_000;
+type RoleRow = { role: string; fleet_id: string | null };
+let roleCache: { userId: string; dane: RoleRow[]; czas: number } | null = null;
+let roleWLocie: { userId: string; promise: Promise<RoleRow[]> } | null = null;
+
+const pobierzRole = async (userId: string): Promise<RoleRow[]> => {
+  if (roleCache && roleCache.userId === userId && Date.now() - roleCache.czas < ROLE_TTL_MS) {
+    return roleCache.dane;
+  }
+  if (roleWLocie && roleWLocie.userId === userId) return roleWLocie.promise;
+
+  const promise = (supabase as any)
+    .from('user_roles')
+    .select('role, fleet_id')
+    .eq('user_id', userId)
+    .then(({ data, error }: any) => {
+      roleWLocie = null;
+      if (error) throw error;
+      const dane = (data || []) as RoleRow[];
+      roleCache = { userId, dane, czas: Date.now() };
+      return dane;
+    })
+    .catch((e: any) => { roleWLocie = null; throw e; });
+
+  roleWLocie = { userId, promise };
+  return promise;
+};
+
+supabase.auth.onAuthStateChange(() => { roleCache = null; roleWLocie = null; });
+
 export const useUserRole = (): UseUserRoleReturn => {
   const [role, setRole] = useState<UserRole>(null);
   const [roles, setRoles] = useState<UserRole[]>([]);
@@ -63,10 +102,13 @@ export const useUserRole = (): UseUserRoleReturn => {
         currentUserId = user.id;
       }
 
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role, fleet_id')
-        .eq('user_id', currentUserId);
+      let data: RoleRow[] | null = null;
+      let error: unknown = null;
+      try {
+        data = await pobierzRole(currentUserId);
+      } catch (e) {
+        error = e;
+      }
 
       if (error || !data || data.length === 0) {
         setRole(null);

@@ -396,4 +396,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.voice-agent-init]
+
+[functions.support-notify]
+verify_jwt = false
+
+[functions.support-ai-reply]
 verify_jwt = false

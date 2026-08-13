@@ -108,6 +108,7 @@ const ORDER_LIST_COLUMNS = [
   'quote_accepted', 'quote_done_at', 'quote_done_by_user_id',
   'estimate_sent_to_client', 'estimate_changed_after_send',
   'repaired_at', 'repair_started_at', 'repaired_by_user_id', 'mechanic_id',
+  'assigned_employee_id',
   'sms_confirmed', 'sms_sent_count', 'last_sms_sent_at', 'ready_notification_sent',
   'sms_reminder_24h', 'sms_reminder_2h',
   'reception_protocol', 'return_parts_to_client', 'registration_document',

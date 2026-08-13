@@ -68,7 +68,7 @@ export function OrderTypesPage() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder={t('workshop.settings.orderTypes.newNamePlaceholder')} className="max-w-xs"
+        <Input onFocus={e => e.currentTarget.select()} value={newName} onChange={e => setNewName(e.target.value)} placeholder={t('workshop.settings.orderTypes.newNamePlaceholder')} className="max-w-xs"
           onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) addMut.mutate(newName.trim()); }} />
         <Button onClick={() => newName.trim() && addMut.mutate(newName.trim())} disabled={!newName.trim()} className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.settings.orderTypes.add')}</Button>
       </div>

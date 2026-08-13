@@ -121,6 +121,108 @@ const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number) => {
   return nextItems;
 };
 
+// Rabat pozycji: `discount_percent` pozostaje wartością kanoniczną (sumy, kosztorys,
+// PDF), a `discount_type` + `discount_amount` przechowują to, co użytkownik wybrał
+// i wpisał. `discount_amount` trzymamy ZAWSZE w kwocie brutto, żeby wartość nie
+// zależała od tego, czy tabela jest przełączona na NETTO czy BRUTTO.
+const getRowDiscountType = (item: any): DiscountType =>
+  item?.discount_type === 'amount' ? 'amount' : 'percent';
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
+
+// Kwota rabatu w jednostce, w której aktualnie wyświetlana jest tabela.
+const getRowDiscountAmount = (item: any, isGross: boolean, rawTotal: number) => {
+  const storedGross = safeNumber(item?.discount_amount);
+  const amountGross = storedGross > 0
+    ? storedGross
+    // Fallback dla pozycji sprzed migracji: odtwórz kwotę z zapisanego procentu.
+    : (isGross ? rawTotal : rawTotal * VAT_RATE) * (safeNumber(item?.discount_percent) || 0) / 100;
+  return round2(isGross ? amountGross : amountGross / VAT_RATE);
+};
+
+// Procent rabatu do przeliczenia sum po zmianie ceny lub ilości.
+// Rabat procentowy zostaje procentowy; rabat kwotowy ma pozostać tą samą kwotą,
+// więc procent przeliczamy od nowej wartości pozycji (i dopisujemy do zapisu).
+const resolveDiscountPercent = (item: any, isGross: boolean, rawTotal: number, updates: any) => {
+  if (getRowDiscountType(item) !== 'amount') return safeNumber(item?.discount_percent) || 0;
+  const amount = getRowDiscountAmount(item, isGross, rawTotal);
+  const percent = rawTotal > 0 ? Math.min(100, (amount / rawTotal) * 100) : 0;
+  updates.discount_percent = percent;
+  return percent;
+};
+
+// Inline rabat editor dla zapisanych pozycji (przełącznik % / zł + wartość).
+// UWAGA: komponent MUSI być zdefiniowany na poziomie modułu — gdyby powstawał
+// wewnątrz WorkshopOrderTasksTab, każdy render rodzica montowałby go od nowa
+// i wybór „zł" natychmiast wracałby do „%".
+const SavedRowDiscountEditor = ({
+  item,
+  isGross,
+  onCommit,
+}: {
+  item: any;
+  isGross: boolean;
+  onCommit: (item: any, isGross: boolean, type: DiscountType, value: number) => void | Promise<void>;
+}) => {
+  const qty = safeNumber(item.quantity) || 1;
+  const unitPrice = isGross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
+  const rawTotal = qty * unitPrice;
+  const discountType = getRowDiscountType(item);
+  // Wyświetlana wartość wynika z danych z bazy, więc przeżywa zapis, refetch
+  // i wyjście ze zlecenia. Lokalny stan trzyma tylko trwające wpisywanie.
+  const savedValue = discountType === 'amount'
+    ? getRowDiscountAmount(item, isGross, rawTotal)
+    : round2(safeNumber(item.discount_percent) || 0);
+  const [draft, setDraft] = useState<string | null>(null);
+  const inputValue = draft ?? (savedValue ? String(savedValue) : '');
+
+  return (
+    <div className="flex items-center gap-1 justify-center" onClick={e => e.stopPropagation()}>
+      <Select
+        value={discountType}
+        onValueChange={(v: DiscountType) => {
+          if (v === discountType) return;
+          setDraft(null);
+          // Sama zmiana jednostki nie zmienia wysokości rabatu — przeliczamy
+          // bieżącą wartość na nową jednostkę i zapisujemy wybór w bazie.
+          const nextValue = v === 'amount'
+            ? getRowDiscountAmount(item, isGross, rawTotal)
+            : round2(safeNumber(item.discount_percent) || 0);
+          void onCommit(item, isGross, v, nextValue);
+        }}
+      >
+        <SelectTrigger className="h-9 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="percent">%</SelectItem>
+          <SelectItem value="amount">zł</SelectItem>
+        </SelectContent>
+      </Select>
+      <Input
+        type="number"
+        // Klikniecie w pole zaznacza wartosc — wpisujesz nowa od razu, bez
+        // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
+        onFocus={e => e.currentTarget.select()}
+        placeholder="0"
+        value={inputValue}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft === null) return;
+          const next = Number(draft) || 0;
+          setDraft(null);
+          if (next !== savedValue) void onCommit(item, isGross, discountType, next);
+        }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        className="h-9 text-sm text-right w-16 shrink-0"
+      />
+    </div>
+  );
+};
+
 export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const { t } = useTranslation();
   const updateItem = useUpdateWorkshopOrderItem();
@@ -293,13 +395,40 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
   // Memoized so the sort only re-runs when the items actually change, not on every
   // keystroke/render (the parent now hands down a stable `order` identity).
+  // FIX: pozycje wyslane do zapisu, ktorych serwer jeszcze nie zwrocil.
+  //
+  // Karta zlecenia nasluchuje zmian w workshop_order_items i przy KAZDYM
+  // zdarzeniu przeladowuje zlecenie. Gdy taki refetch trafil w okno miedzy
+  // wpisaniem pozycji a jej zapisem (kolejka czeka 400 ms), odpowiedz serwera
+  // — jeszcze bez nowego wiersza — kasowala pozycje z ekranu. Uzytkownik widzial
+  // znikniecie, wpisywal ponownie i robil duplikat. Trzymamy wiec wpisane wiersze
+  // TU, dopoki nie wroca z serwera; zaden refetch ich juz nie zdejmie.
+  const [pendingItems, setPendingItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (pendingItems.length === 0) return;
+    const serverIds = new Set((order.items || []).map((i: any) => i.id));
+    setPendingItems(prev => {
+      const next = prev.filter(p => !serverIds.has(p.id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [order.items, pendingItems.length]);
+
+  // Pozycje z serwera + te, ktore wlasnie wpisano i czekaja na potwierdzenie.
+  const visibleItems = useMemo(() => {
+    const serverItems = order.items || [];
+    if (pendingItems.length === 0) return serverItems;
+    const serverIds = new Set(serverItems.map((i: any) => i.id));
+    return [...serverItems, ...pendingItems.filter(p => !serverIds.has(p.id))];
+  }, [order.items, pendingItems]);
+
   const sortedTaskItems = useMemo(
-    () => sortItemsBySortOrder((order.items || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'))),
-    [order.items]
+    () => sortItemsBySortOrder((visibleItems || []).filter((i: any) => i.item_type === 'service' || i.item_type === 'task' || (i.item_type !== 'part' && i.item_type !== 'goods' && i.item_type !== 'other'))),
+    [visibleItems]
   );
   const sortedGoodsItems = useMemo(
-    () => sortItemsBySortOrder((order.items || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other')),
-    [order.items]
+    () => sortItemsBySortOrder((visibleItems || []).filter((i: any) => i.item_type === 'part' || i.item_type === 'goods' || i.item_type === 'other')),
+    [visibleItems]
   );
   const tasks = taskPreview ?? sortedTaskItems;
   const goods = goodsPreview ?? sortedGoodsItems;
@@ -368,6 +497,15 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
   const hasTaskDraftValue = (row: TaskRow) => row.name.trim().length > 0 || row.mechanic.trim().length > 0 || getDraftPrice(row, true) > 0 || getDraftCost(row, true) > 0;
   const hasGoodsDraftValue = (row: GoodsRow) => row.name.trim().length > 0 || row.unit.trim().length > 0 || getDraftPrice(row, true) > 0 || getDraftCost(row, true) > 0;
+
+  // Czy uzytkownik cokolwiek wpisal w wierszu roboczym. Nie uzywamy tu
+  // hasGoodsDraftValue, bo nowy wiersz czesci ma z gory wpisana jednostke
+  // ("szt") i wygladalby jak uzupelniony, zanim ktokolwiek go dotknie.
+  const draftTouched = (row: { name: string; mechanic?: string }) =>
+    row.name.trim().length > 0
+    || (row.mechanic?.trim().length ?? 0) > 0
+    || getDraftPrice(row as any, true) > 0
+    || getDraftCost(row as any, true) > 0;
 
   /**
    * Do zapisu wystarczy NAZWA — cena może dojść później.
@@ -467,6 +605,8 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         toast.success(t('workshop.orderTasks.itemsAdded', { count: batch.length }));
       } catch (e: any) {
         removeItemsFromCaches(batch.map((entry) => entry.payload));
+        const failedIds = new Set(batch.map((entry) => entry.payload.id));
+        setPendingItems(prev => prev.filter(p => !failedIds.has(p.id)));
         batch.forEach((entry) => entry.restore());
         toast.error(e?.message || t('common.saveError'));
       }
@@ -485,6 +625,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     // Entera nie nadpisała na chwilę cache bez świeżo dodanych wierszy.
     void queryClient.cancelQueries({ queryKey: ['workshop-orders'] });
     patchCachesWithItems(entries.map((e) => e.payload));
+    setPendingItems(prev => [...prev, ...entries.map((e) => e.payload)]);
     pendingEntriesRef.current.push(...entries);
     return new Promise<void>((resolve) => {
       drainResolversRef.current.push(resolve);
@@ -687,6 +828,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       void enqueueEntries(entries);
       return;
     }
+    // Pisanie samo dokłada pusty wiersz na dole, więc Enter / „Dodaj usługę"
+    // ma PRZENIEŚĆ kursor do tego wiersza, a nie tworzyć kolejny i przeskakiwać
+    // pusty. Nowy wiersz powstaje dopiero, gdy żaden pusty nie czeka.
+    const pusty = taskRows.find(r => !draftTouched(r));
+    if (pusty) {
+      focusTaskDraftRow(pusty.draftKey);
+      return;
+    }
     const nextRow = createEmptyTask();
     setTaskRows(prev => [...prev, nextRow]);
     focusTaskDraftRow(nextRow.draftKey);
@@ -728,6 +877,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         unit_cost_net: row.cost_net,
         unit_cost_gross: row.cost_gross,
         discount_percent: discountPercent,
+        discount_type: row.discountType,
+        discount_amount: row.discountType === 'amount'
+          ? round2(isTaskGross ? row.discount : row.discount * VAT_RATE)
+          : null,
         total_gross: isTaskGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
         total_net: isTaskGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
       },
@@ -735,15 +888,22 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       onCommitted: () => {
         // Save to price history
         saveServicePrice.mutate({ name: row.name, priceNet: row.price_net, priceGross: row.price_gross });
-        // Save anonymous data if enabled
-        if (ridoPriceSettings?.share_anonymous_data !== false) {
+        // Do wspolnej bazy trafiaja WYLACZNIE wyceny z autem (marka + model).
+        // Cena bez pojazdu jest nieporownywalna, wiec zamiast pomagac innym
+        // warsztatom, psulaby im widelki.
+        const maAuto = !!order.vehicle?.brand?.trim() && !!order.vehicle?.model?.trim();
+        if (maAuto && ridoPriceSettings?.share_anonymous_data !== false) {
           saveAnonymousPrice.mutate({
             name: row.name,
             priceNet: row.price_net,
             priceGross: row.price_gross,
             brand: order.vehicle?.brand,
             model: order.vehicle?.model,
-            engineCapacity: order.vehicle?.engine_capacity,
+            // BYLO: engine_capacity — takiego pola pojazd nie ma, wiec do bazy
+            // szlo NULL i 490 wycen nie mialo ani jednej pojemnosci silnika.
+            engineCapacity: order.vehicle?.engine_capacity_cm3,
+            year: order.vehicle?.year,
+            fuelType: order.vehicle?.fuel_type,
             city: order.client?.city,
             industry: ridoPriceSettings?.industry || 'warsztat',
           });
@@ -756,7 +916,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   const updateGoodsRow = (idx: number, updates: Partial<GoodsRow>) => {
     setGoodsRows(prev => {
       const next = prev.map((r, i) => i === idx ? { ...r, ...updates } : r);
-      return appendEmptyIfLastFilled(next, idx, hasGoodsDraftValue, createEmptyGoods);
+      // draftTouched zamiast hasGoodsDraftValue: nowy wiersz czesci ma z gory
+      // wpisane "szt", wiec ten drugi uznalby go za uzupelniony, zanim ktokolwiek
+      // go dotknie.
+      return appendEmptyIfLastFilled(next, idx, draftTouched, createEmptyGoods);
     });
   };
 
@@ -788,6 +951,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       setGoodsRows([nextRow]);
       requestAnimationFrame(() => focusGoodsDraftRow(nextRow.draftKey));
       void enqueueEntries(entries);
+      return;
+    }
+    const pusty = goodsRows.find(r => !draftTouched(r));
+    if (pusty) {
+      focusGoodsDraftRow(pusty.draftKey);
       return;
     }
     const nextRow = createEmptyGoods();
@@ -826,6 +994,10 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         unit_cost_net: row.cost_net,
         unit_cost_gross: row.cost_gross,
         discount_percent: discountPercent,
+        discount_type: row.discountType,
+        discount_amount: row.discountType === 'amount'
+          ? round2(isGoodsGross ? row.discount : row.discount * VAT_RATE)
+          : null,
         total_gross: isGoodsGross ? totalAfterDiscount : totalAfterDiscount * VAT_RATE,
         total_net: isGoodsGross ? totalAfterDiscount / VAT_RATE : totalAfterDiscount,
       },
@@ -876,7 +1048,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         updates.quantity = newQty;
         const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
         const rawTotal = newQty * unitPrice;
-        const disc = item.discount_percent || 0;
+        const disc = resolveDiscountPercent(item, gross, rawTotal, updates);
         const afterDiscount = rawTotal - (rawTotal * disc / 100);
         updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
         updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
@@ -888,7 +1060,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
         updates.unit_price_net = synced.net;
         updates.unit_price_gross = synced.gross;
         const rawTotal = (item.quantity || 1) * (gross ? synced.gross : synced.net);
-        const disc = item.discount_percent || 0;
+        const disc = resolveDiscountPercent(item, gross, rawTotal, updates);
         const afterDiscount = rawTotal - (rawTotal * disc / 100);
         updates.total_gross = gross ? afterDiscount : afterDiscount * VAT_RATE;
         updates.total_net = gross ? afterDiscount / VAT_RATE : afterDiscount;
@@ -917,6 +1089,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       const disc = Math.max(0, Math.min(100, parseFloat(myValue.replace(',', '.')) || 0));
       if (disc !== safeNumber(item.discount_percent)) {
         updates.discount_percent = disc;
+        // Ta ścieżka edytuje wprost procent — jednostka wraca na „%".
+        updates.discount_type = 'percent';
+        updates.discount_amount = null;
         const qty = safeNumber(item.quantity) || 1;
         const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
         const rawTotal = qty * unitPrice;
@@ -1037,6 +1212,25 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       localStorage.removeItem(draftStorageKey);
     }
   }, [draftStorageKey, order.items]);
+
+  // ZASADA: na dole tabeli ZAWSZE czeka jeden pusty wiersz.
+  //
+  // Bez tego pusty wiersz znikal w kilku sytuacjach naraz: przywracanie wersji
+  // roboczej z pamieci przegladarki zapisuje tylko wiersze Z TRESCIA i podmienia
+  // cala liste, a odpala sie przy kazdym odswiezeniu zlecenia. Uzytkownik
+  // wpisywal pozycje i nie mial gdzie wpisac kolejnej. Tu pilnujemy niezmiennika
+  // w jednym miejscu, zamiast latac kazda sciezke osobno.
+  useEffect(() => {
+    setTaskRows(prev => (prev.length === 0 || draftTouched(prev[prev.length - 1]))
+      ? [...prev, createEmptyTask()]
+      : prev);
+  }, [taskRows]);
+
+  useEffect(() => {
+    setGoodsRows(prev => (prev.length === 0 || draftTouched(prev[prev.length - 1]))
+      ? [...prev, createEmptyGoods()]
+      : prev);
+  }, [goodsRows]);
 
   useEffect(() => {
     const draftPayload = {
@@ -1327,67 +1521,29 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
   }, [taskRows, goodsRows, saveTaskDraftRows, saveGoodsDraftRows]);
 
 
-  // Inline rabat editor for saved rows (persistent % / zł selector + input)
-  const SavedRowDiscountEditor = ({ item, isGross }: { item: any; isGross: boolean }) => {
+  // Zapis rabatu zapisanej pozycji. Utrwala wybraną jednostkę (% / zł) i kwotę,
+  // żeby po wyjściu ze zlecenia pokazywało się dokładnie to, co wybrał użytkownik.
+  const commitSavedRowDiscount = async (item: any, isGross: boolean, type: DiscountType, value: number) => {
     const qty = safeNumber(item.quantity) || 1;
     const unitPrice = isGross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
     const rawTotal = qty * unitPrice;
-    const savedPercent = safeNumber(item.discount_percent) || 0;
-    const initialType: DiscountType = (item._discount_type_ui as DiscountType) || 'percent';
-    const initialValue = initialType === 'amount'
-      ? Math.round((rawTotal * savedPercent / 100) * 100) / 100
-      : savedPercent;
-    const [dType, setDType] = useState<DiscountType>(initialType);
-    const [dValue, setDValue] = useState<number>(initialValue);
-
-    const commit = async (nextType: DiscountType, nextValue: number) => {
-      const safeVal = Math.max(0, nextValue || 0);
-      let percent = 0;
-      if (nextType === 'percent') {
-        percent = Math.min(100, safeVal);
-      } else if (rawTotal > 0) {
-        percent = Math.min(100, (safeVal / rawTotal) * 100);
-      }
-      const afterDiscount = rawTotal - (rawTotal * percent / 100);
-      await updateItem.mutateAsync({
-        id: item.id,
-        discount_percent: percent,
-        total_gross: isGross ? afterDiscount : afterDiscount * VAT_RATE,
-        total_net: isGross ? afterDiscount / VAT_RATE : afterDiscount,
-      });
-    };
-
-    return (
-      <div className="flex items-center gap-1 justify-center" onClick={e => e.stopPropagation()}>
-        <Select
-          value={dType}
-          onValueChange={(v: DiscountType) => {
-            setDType(v);
-            commit(v, dValue);
-          }}
-        >
-          <SelectTrigger className="h-9 text-xs w-16 shrink-0"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="percent">%</SelectItem>
-            <SelectItem value="amount">zł</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          type="number"
-          placeholder="0"
-          value={dValue || ''}
-          onChange={e => setDValue(Number(e.target.value))}
-          onBlur={() => commit(dType, dValue)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
-          className="h-9 text-sm text-right w-16 shrink-0"
-        />
-      </div>
-    );
+    const safeVal = Math.max(0, value || 0);
+    let percent = 0;
+    if (type === 'percent') {
+      percent = Math.min(100, safeVal);
+    } else if (rawTotal > 0) {
+      percent = Math.min(100, (safeVal / rawTotal) * 100);
+    }
+    const afterDiscount = rawTotal - (rawTotal * percent / 100);
+    await updateItem.mutateAsync({
+      id: item.id,
+      discount_percent: percent,
+      discount_type: type,
+      // Kwota zawsze w brutto — niezależna od przełącznika NETTO/BRUTTO tabeli.
+      discount_amount: type === 'amount' ? round2(isGross ? safeVal : safeVal * VAT_RATE) : null,
+      total_gross: isGross ? afterDiscount : afterDiscount * VAT_RATE,
+      total_net: isGross ? afterDiscount / VAT_RATE : afterDiscount,
+    });
   };
 
   // Inline editable cell renderer
@@ -1504,12 +1660,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               </div>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input value={taskSearch} onChange={e => setTaskSearch(e.target.value)} placeholder={t('workshop.orderTasks.searchServicePlaceholder')} className="pl-8 h-8 w-40 text-xs" />
+                <Input onFocus={e => e.currentTarget.select()} value={taskSearch} onChange={e => setTaskSearch(e.target.value)} placeholder={t('workshop.orderTasks.searchServicePlaceholder')} className="pl-8 h-8 w-40 text-xs" />
               </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[1180px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
@@ -1605,7 +1761,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className={`p-1.5 tabular-nums border-r border-border/60 ${price === 0 ? 'bg-destructive/10 ring-1 ring-destructive/40 rounded' : ''}`}>
                         {renderEditableCell(task, 'price', price === 0 ? 'podaj cenę' : fmt(price), `tabular-nums ${price === 0 ? 'text-destructive font-medium' : ''}`, 'right')}
                       </td>
-                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={task} isGross={isTaskGross} /></td>
+                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10">
+                        <SavedRowDiscountEditor item={task} isGross={isTaskGross} onCommit={commitSavedRowDiscount} />
+                      </td>
                       <td className="p-2 text-center font-semibold tabular-nums">{fmt(total)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(task.id)}>
@@ -1667,6 +1825,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           </select>
                         ) : (
                           <Input
+                            onFocus={e => e.currentTarget.select()}
                             placeholder={t('workshop.orderTasks.employeePlaceholder')}
                             value={row.mechanic}
                             onChange={e => updateTaskRow(idx, { mechanic: e.target.value })}
@@ -1677,6 +1836,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5">
                         <Input
                           type="number"
+                          // Klikniecie w pole zaznacza wartosc — wpisujesz nowa od razu, bez
+                          // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
+                          onFocus={e => e.currentTarget.select()}
                           step="0.25"
                           min="0"
                           placeholder="0"
@@ -1694,6 +1856,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5 border-r border-border/60">
                         <Input
                           type="number"
+                          // Klikniecie w pole zaznacza wartosc — wpisujesz nowa od razu, bez
+                          // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
+                          onFocus={e => e.currentTarget.select()}
                           placeholder={isTaskGross ? t('workshop.orderTasks.grossPlaceholder') : t('workshop.orderTasks.netPlaceholder')}
                           value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
@@ -1717,6 +1882,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           </Select>
                           <Input
                             type="number"
+                            // Klikniecie w pole zaznacza wartosc — wpisujesz nowa od razu, bez
+                            // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
+                            onFocus={e => e.currentTarget.select()}
                             placeholder="0"
                             value={row.discount || ''}
                             onChange={e => updateTaskRow(idx, { discount: Number(e.target.value) })}
@@ -1813,6 +1981,77 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               </tbody>
             </table>
           </div>
+
+          {/* TELEFON: jedna pozycja = jedna karta. Tabela ma 1180 px szerokosci,
+              wiec na telefonie byla trzema ekranami przewijania w bok. */}
+          <div className="md:hidden space-y-2 px-2 pb-2">
+            {tasks.map((task: any) => {
+              const cena = isTaskGross ? safeNumber(task.unit_price_gross) : safeNumber(task.unit_price_net);
+              const poRabacie = getLineTotal(task, isTaskGross);
+              return (
+                <div key={task.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      {renderEditableCell(task, 'name', nameDisplay(task), 'font-medium')}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteItem(task.id)}
+                      className="p-2 text-muted-foreground hover:text-destructive shrink-0"
+                      aria-label={t('common.delete', 'Usuń')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">
+                        {t('workshop.orderTasks.priceHeader', 'Cena')}
+                      </p>
+                      {renderEditableCell(task, 'price', fmt(cena), '', 'right')}
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">
+                        {t('workshop.orderTasks.discountHeader', 'Rabat')}
+                      </p>
+                      <SavedRowDiscountEditor item={task} isGross={isTaskGross} onCommit={commitSavedRowDiscount} />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                    <span className="text-xs text-muted-foreground">{t('workshop.orderTasks.afterDiscount', 'Po rabacie')}</span>
+                    <span className="font-semibold tabular-nums">{fmt(poRabacie)}</span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {taskRows.map((row, idx) => (
+              <div key={row.draftKey} className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
+                <ServiceAutocomplete
+                  value={row.name}
+                  onChange={name => updateTaskRow(idx, { name })}
+                  onSelectSuggestion={(name, priceNet, priceGross) => updateTaskRow(idx, { name, price_net: priceNet, price_gross: priceGross })}
+                  providerId={providerId}
+                  className="h-10 w-full text-sm"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    onFocus={e => e.currentTarget.select()}
+                    type="number"
+                    inputMode="decimal"
+                    placeholder={isTaskGross ? t('workshop.orderTasks.grossPlaceholder') : t('workshop.orderTasks.netPlaceholder')}
+                    value={isTaskGross ? (row.price_gross || '') : (row.price_net || '')}
+                    onChange={e => updateTaskRowPrice(idx, Number(e.target.value))}
+                    className="h-10 text-sm text-right"
+                  />
+                  <Button variant="outline" className="h-10" onClick={() => removeTaskRow(idx)}>
+                    <Trash2 className="h-4 w-4 mr-1" /> {t('common.delete', 'Usuń')}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
         </CardContent>
       </Card>
       </div>
@@ -1834,12 +2073,12 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               </div>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input value={goodsSearch} onChange={e => setGoodsSearch(e.target.value)} placeholder={t('workshop.orderTasks.searchPartPlaceholder')} className="pl-8 h-8 w-40 text-xs" />
+                <Input onFocus={e => e.currentTarget.select()} value={goodsSearch} onChange={e => setGoodsSearch(e.target.value)} placeholder={t('workshop.orderTasks.searchPartPlaceholder')} className="pl-8 h-8 w-40 text-xs" />
               </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[1040px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
@@ -1929,7 +2168,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                         {renderEditableCell(g, 'price', itemPrice === 0 ? 'podaj cenę' : fmt(itemPrice), `tabular-nums ${itemPrice === 0 ? 'text-destructive font-medium' : ''}`, 'right')}
                       </td>
                       <td className="p-2 text-center tabular-nums border-r border-border/60">{fmt(rawTotal)}</td>
-                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor item={g} isGross={isGoodsGross} /></td>
+                      <td className="p-1.5 text-center border-l border-border/60 bg-muted/10"><SavedRowDiscountEditor
+                          item={g}
+                          isGross={isGoodsGross}
+                          onCommit={commitSavedRowDiscount}
+                        /></td>
                       <td className="p-2 text-center font-semibold tabular-nums">{fmt(itemTotal)}</td>
                       <td className="p-2 text-center">
                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteItem(g.id)}>
@@ -1981,6 +2224,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5">
                         <Input
                           type="number"
+                          // Klikniecie w pole zaznacza wartosc — wpisujesz nowa od razu, bez
+                          // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
+                          onFocus={e => e.currentTarget.select()}
                           min={1}
                           value={row.quantity}
                           onChange={e => updateGoodsRow(idx, { quantity: Number(e.target.value) })}
@@ -1995,6 +2241,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       </td>
                       <td className="p-1.5">
                         <Input
+                          onFocus={e => e.currentTarget.select()}
                           placeholder="szt"
                           value={row.unit}
                           onChange={e => updateGoodsRow(idx, { unit: e.target.value })}
@@ -2010,6 +2257,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5">
                         <Input
                           type="number"
+                          // Klikniecie w pole zaznacza wartosc — wpisujesz nowa od razu, bez
+                          // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
+                          onFocus={e => e.currentTarget.select()}
                           placeholder={t('workshop.orderTasks.costPlaceholder')}
                           title={t('workshop.orderTasks.costTitle')}
                           value={isGoodsGross ? (row.cost_gross || '') : (row.cost_net || '')}
@@ -2026,6 +2276,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       <td className="p-1.5">
                         <Input
                           type="number"
+                          // Klikniecie w pole zaznacza wartosc — wpisujesz nowa od razu, bez
+                          // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
+                          onFocus={e => e.currentTarget.select()}
                           placeholder={isGoodsGross ? t('workshop.orderTasks.grossPlaceholder') : t('workshop.orderTasks.netPlaceholder')}
                           value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
                           onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
@@ -2052,6 +2305,9 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           </Select>
                           <Input
                             type="number"
+                            // Klikniecie w pole zaznacza wartosc — wpisujesz nowa od razu, bez
+                            // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
+                            onFocus={e => e.currentTarget.select()}
                             placeholder="0"
                             value={row.discount || ''}
                             onChange={e => updateGoodsRow(idx, { discount: Number(e.target.value) })}
@@ -2128,6 +2384,99 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               </tbody>
             </table>
           </div>
+
+          {/* TELEFON: karta na pozycje zamiast tabeli 1040 px. */}
+          <div className="md:hidden space-y-2 px-2 pb-2">
+            {goods.map((g: any) => {
+              const ilosc = safeNumber(g.quantity) || 1;
+              const cena = isGoodsGross ? safeNumber(g.unit_price_gross) : safeNumber(g.unit_price_net);
+              const poRabacie = getLineTotal(g, isGoodsGross);
+              return (
+                <div key={g.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      {renderEditableCell(g, 'name', nameDisplay(g), 'font-medium')}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteItem(g.id)}
+                      className="p-2 text-muted-foreground hover:text-destructive shrink-0"
+                      aria-label={t('common.delete', 'Usuń')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">
+                        {t('workshop.orderTasks.quantityHeader', 'Ilość')}
+                      </p>
+                      {renderEditableCell(g, 'quantity', String(ilosc), '', 'center')}
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">
+                        {t('workshop.orderTasks.priceHeader', 'Cena')}
+                      </p>
+                      {renderEditableCell(g, 'price', fmt(cena), '', 'right')}
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">
+                        {t('workshop.orderTasks.discountHeader', 'Rabat')}
+                      </p>
+                      <SavedRowDiscountEditor item={g} isGross={isGoodsGross} onCommit={commitSavedRowDiscount} />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                    <span className="text-xs text-muted-foreground">{t('workshop.orderTasks.afterDiscount', 'Po rabacie')}</span>
+                    <span className="font-semibold tabular-nums">{fmt(poRabacie)}</span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {goodsRows.map((row, idx) => (
+              <div key={row.draftKey} className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-3 space-y-2">
+                <InventoryProductAutocomplete
+                  value={row.name}
+                  onChange={name => updateGoodsRow(idx, { name })}
+                  onSelectProduct={(produkt: any) => updateGoodsRow(idx, {
+                    name: produkt.name,
+                    price_net: produkt.price_net || 0,
+                    price_gross: produkt.price_gross || 0,
+                    cost_net: produkt.cost_net || 0,
+                    cost_gross: produkt.cost_gross || 0,
+                    unit: produkt.unit || 'szt',
+                    inventory_product_id: produkt.id,
+                  })}
+                  providerId={providerId}
+                  className="h-10 w-full text-sm"
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <Input
+                    onFocus={e => e.currentTarget.select()}
+                    type="number"
+                    inputMode="decimal"
+                    value={row.quantity}
+                    onChange={e => updateGoodsRow(idx, { quantity: Number(e.target.value) })}
+                    className="h-10 text-sm text-center"
+                  />
+                  <Input
+                    onFocus={e => e.currentTarget.select()}
+                    type="number"
+                    inputMode="decimal"
+                    placeholder={isGoodsGross ? t('workshop.orderTasks.grossPlaceholder') : t('workshop.orderTasks.netPlaceholder')}
+                    value={isGoodsGross ? (row.price_gross || '') : (row.price_net || '')}
+                    onChange={e => updateGoodsRowPrice(idx, Number(e.target.value))}
+                    className="h-10 text-sm text-right"
+                  />
+                  <Button variant="outline" className="h-10" onClick={() => removeGoodsRow(idx)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
         </CardContent>
       </Card>
       </div>
@@ -2230,6 +2579,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
 
       {/* Rido Price Modal — działa wyłącznie na zapisanych pozycjach (tasks). Drafty są zapisywane PRZED otwarciem modala. */}
       <RidoPriceModal
+        providerId={providerId}
         open={ridoPriceOpen}
         onOpenChange={setRidoPriceOpen}
         services={[

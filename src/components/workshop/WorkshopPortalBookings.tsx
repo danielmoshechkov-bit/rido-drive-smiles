@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,7 +52,8 @@ const STATUS_LABELS: Record<string, { labelKey: string; cls: string }> = {
 };
 
 export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
-  const { t } = useTranslation();
+  const { t } = useTranslation();  const confirmAction = useConfirm();
+
   const queryClient = useQueryClient();
   const [actingId, setActingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<Booking | null>(null);
@@ -250,7 +252,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
   };
 
   const handleReject = async (b: Booking) => {
-    if (!confirm(t('workshop.bookings.confirmReject', { number: b.booking_number }))) return;
+    if (!(await confirmAction({ title: t('workshop.bookings.confirmReject', { number: b.booking_number }), confirmLabel: 'Odrzuć' }))) return;
     setActingId(b.id);
     try {
       const { error } = await (supabase as any)
@@ -364,7 +366,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
 
   const bulkCancel = async () => {
     if (selected.size === 0) return;
-    if (!confirm(t('workshop.bookings.confirmBulkCancel', { count: selected.size }))) return;
+    if (!(await confirmAction({ title: t('workshop.bookings.confirmBulkCancel', { count: selected.size }), confirmLabel: 'Anuluj wizyty' }))) return;
     setBulkBusy(true);
     try {
       const ids = Array.from(selected);
@@ -635,11 +637,11 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">{t('workshop.bookings.date')}</Label>
-                  <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                  <Input onFocus={e => e.currentTarget.select()} type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
                 </div>
                 <div>
                   <Label className="text-xs">{t('workshop.bookings.time')}</Label>
-                  <Input type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
+                  <Input onFocus={e => e.currentTarget.select()} type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">

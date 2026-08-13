@@ -104,6 +104,8 @@ export function useSaveAnonymousPrice() {
       brand?: string;
       model?: string;
       engineCapacity?: number;
+      year?: number;
+      fuelType?: string;
       city?: string;
       voivodeship?: string;
       industry?: string;
@@ -118,6 +120,8 @@ export function useSaveAnonymousPrice() {
           vehicle_brand: params.brand || null,
           vehicle_model: params.model || null,
           engine_capacity: params.engineCapacity || null,
+          vehicle_year: params.year || null,
+          fuel_type: params.fuelType || null,
           city: params.city || null,
           voivodeship: params.voivodeship || null,
           industry: params.industry || 'warsztat',
