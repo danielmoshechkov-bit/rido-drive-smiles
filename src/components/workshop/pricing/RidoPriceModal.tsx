@@ -269,6 +269,10 @@ export function RidoPriceModal({
         fuelType: vehicle?.fuel_type,
       }, mode);
       if (!dopasowanie) return null;
+      // Zakres zlozony z jednej powtarzanej stawki to NIE widelki, tylko echo
+      // wlasnej ceny warsztatu ("od 150 do 150"). Lepiej pokazac kreske i poczekac
+      // na propozycje asystenta, niz udawac, ze to podpowiedz rynkowa.
+      if (dopasowanie.degenerate) return null;
       // W kolumnie uwag NIE pokazujemy, ile bylo wycen ani czyje one byly.
       // Warsztat nie ma prawa wiedziec, ze „3 wyceny pochodza od innych" —
       // to informacja o cudzych danych. Liczby z historii siedza w widelkach
@@ -322,25 +326,34 @@ export function RidoPriceModal({
 
       const systemPrompt = `Jestes ekspertem od wyceny uslug motoryzacyjnych w Polsce.
 
+WYCENIASZ WYLACZNIE ROBOCIZNE — sama prace mechanika.
+Czesci, oleje, filtry i materialy eksploatacyjne warsztat wycenia OSOBNO,
+w oddzielnej tabeli kosztorysu. NIE WLICZAJ ich do ceny.
+Przyklad: "serwis olejowy" to koszt WYMIANY oleju i filtrow (praca), a nie
+koszt oleju i filtrow. Jesli chcesz uprzedzic o cenie czesci, napisz to
+w polu note jako informacje dodatkowa — nigdy w kwotach min/max/recommended.
+
 Pojazd: ${vehicleDesc}
 Lokalizacja: ${city || 'nieznane'}, ${voivodeship || 'nieznane'}
 Ceny podawaj w: ${mode === 'gross' ? 'brutto' : 'netto'}
 
-Uslugi do wyceny:
+Uslugi do wyceny (podaj cene ROBOCIZNY):
 ${lista}
 
 Dla KAZDEJ uslugi:
-1. podaj realistyczny zakres rynkowy OD-DO dla tego konkretnego auta
-   (marka, model, rocznik, silnik, paliwo) i tej lokalizacji,
-2. ZAPROPONUJ konkretna stawke ("recommended"), ktora sam bys zastosowal —
-   nie srodek zakresu na sile, tylko cena uczciwa dla klienta i oplacalna dla
-   warsztatu przy tym nakladzie pracy,
+1. podaj realistyczny zakres rynkowy OD-DO ROBOCIZNY dla tego konkretnego auta
+   (marka, model, rocznik, silnik, paliwo) i tej lokalizacji — bez czesci,
+2. ZAPROPONUJ konkretna stawke robocizny ("recommended"), ktora sam bys
+   zastosowal — nie srodek zakresu na sile, tylko cena uczciwa dla klienta
+   i oplacalna dla warsztatu przy tym nakladzie pracy (czas + trudnosc),
 3. OCEN cene, ktora warsztat ma teraz ("verdict"): "low" gdy zanizona,
    "high" gdy zawyzona, "ok" gdy w rynku. Gdy warsztat nie ma jeszcze ceny
    (0 zl), ustaw verdict na null,
 4. w polu note napisz zwiezle (2-3 zdania), co cena obejmuje, od czego zalezy
-   i na co uwazac — np. lancuch vs pasek, P+L, konieczna geometria po wymianie.
-   Jesli cena warsztatu odbiega od rynku, napisz to wprost i uzasadnij.
+   i na co uwazac — np. ile czasu zajmuje, lancuch vs pasek, P+L, konieczna
+   geometria po wymianie. Koszt czesci mozesz podac orientacyjnie jako
+   informacje dodatkowa. Jesli STAWKA ROBOCIZNY warsztatu odbiega od rynku,
+   napisz to wprost i uzasadnij.
 
 Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
 [{ "name": "nazwa", "min": liczba, "max": liczba, "recommended": liczba,
