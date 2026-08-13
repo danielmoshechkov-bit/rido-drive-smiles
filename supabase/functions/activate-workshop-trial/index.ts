@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { resolveWorkshopTrialDays, workshopTrialExpiresAt } from "../_shared/workshopTrial.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +11,9 @@ const corsHeaders = {
  * (landing /warsztat-info dla usera z sesją oraz ServiceRegistrationModal).
  *
  * Idempotentna: rola/provider/trial zakładane tylko, jeśli ich brak.
- * UWAGA: minimalny trial — tylko zapis expires_at (+14 dni), bez logiki wygasania.
+ * UWAGA: minimalny trial — tylko zapis expires_at, bez logiki wygasania.
+ * Długość okresu bierze się z billing_plans.trial_days (patrz _shared/workshopTrial.ts),
+ * nie z liczby w kodzie.
  *
  * TODO (odłożone, do wdrożenia później): wymagać danych firmy (NIP, REGON, dane
  * rejestrowe) ZANIM trial ruszy — żeby użytkownicy nie zakładali kont na marne /
@@ -89,7 +92,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. Minimalny trial 14 dni — tylko jeśli user nie ma żadnej subskrypcji
+    // 4. Minimalny trial — tylko jeśli user nie ma żadnej subskrypcji.
+    // Istniejące triale zostają na swoich datach: to INSERT, nie upsert,
+    // i wykonuje się wyłącznie przy braku wiersza.
     const { data: existingSub } = await supabaseAdmin
       .from("paid_service_subscriptions")
       .select("id")
@@ -97,18 +102,26 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!existingSub) {
+      const trialDays = await resolveWorkshopTrialDays(supabaseAdmin);
+      const trialEndsAt = workshopTrialExpiresAt(trialDays);
       const { error: trialError } = await supabaseAdmin.from("paid_service_subscriptions").insert({
         user_id: userId,
         status: "trial",
         started_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        expires_at: trialEndsAt,
         amount_paid: 0,
-        metadata: { module: "warsztat", plan: plan || null, trial: true, source: "existing_account_activation" },
+        metadata: {
+          module: "warsztat",
+          plan: plan || null,
+          trial: true,
+          trial_days: trialDays,
+          source: "existing_account_activation",
+        },
       });
       if (trialError) {
         console.error("⚠️ trial insert error:", trialError.message);
       } else {
-        console.log("✅ Workshop trial saved (+14 dni)");
+        console.log(`✅ Workshop trial saved (+${trialDays} dni), expires_at:`, trialEndsAt);
       }
     }
 
