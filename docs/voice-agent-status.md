@@ -523,6 +523,23 @@ Przy okazji potwierdzone i **narastające**: żądań do modelu na jedną turę 
 
 To osobny problem — koszt i opóźnienie — ale nie przyczyna ucięć.
 
+### 📏 ILE KOSZTUJE ZMIANA MODELU SYNTEZY — zmierzone przed decyzją
+
+To samo zdanie, ten sam głos, `pcm_16000`, pięć powtórzeń, czas do pierwszego
+bajtu audio. Pomiar z Warszawy, nie z ich serwera rozmów — bezwzględne wartości
+są zawyżone, liczy się RÓŻNICA:
+
+```
+eleven_flash_v2_5        0,195 s   (odniesienie)
+eleven_turbo_v2_5        0,242 s   +46 ms
+eleven_multilingual_v2   0,981 s   +785 ms
+```
+
+**Turbo v2.5 kosztuje 46 ms — to mieści się w budżecie.** Multilingual v2
+dokłada 785 ms i sam z siebie wywala cel 600–800 ms na turę. Multilingual
+wchodzi w grę tylko wtedy, gdyby nic innego nie pomogło i uznalibyśmy, że
+zrozumiałość jest ważniejsza od tempa.
+
 ### 🎯 CEL LATENCJI: 600–800 ms na turę (zewnętrzny punkt odniesienia)
 
 Zastępuje nasze dotychczasowe „1,0–1,3 s", które było własnym przeczuciem.
