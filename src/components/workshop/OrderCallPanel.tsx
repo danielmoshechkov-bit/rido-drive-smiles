@@ -203,7 +203,8 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
           {audioUrl && <audio controls preload="metadata" src={audioUrl} className="w-full mt-3" />}
           {audioUrl && retencjaDni && (
             <p className="text-[11px] text-muted-foreground mt-2">
-              Nagranie przechowujemy {retencjaDni} dni po zakończeniu zlecenia. Transkrypcja i podsumowanie zostają na stałe.
+              Nagranie znika razem z usuniętym zleceniem, a po zakończonym — {retencjaDni} dni później.
+              Transkrypcja i podsumowanie zostają na stałe.
             </p>
           )}
           {audioError && (

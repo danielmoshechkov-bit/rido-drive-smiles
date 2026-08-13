@@ -54,10 +54,10 @@ serve(async (req) => {
 
     // Ile nagranie u nas żyje — panel ma to napisać wprost przy odtwarzaczu.
     const { data: ust } = await admin.from("voice_recording_retention")
-      .select("keep_days_after_order, keep_days_max").eq("provider_id", call.provider_id).maybeSingle();
+      .select("keep_days_after_order, keep_days_no_order").eq("provider_id", call.provider_id).maybeSingle();
     const retencja = {
       po_zakonczeniu_dni: ust?.keep_days_after_order ?? 90,
-      maks_dni: ust?.keep_days_max ?? 180,
+      bez_zlecenia_dni: ust?.keep_days_no_order ?? 30,
     };
 
     // 0) Nagranie skasowane przez sprzątanie NIE wraca. Ponowne ściągnięcie od
@@ -65,7 +65,7 @@ serve(async (req) => {
     if (call.recording_status === "deleted") {
       return json({
         available: false, retencja,
-        reason: `Nagranie zostało usunięte zgodnie z zasadą przechowywania (${retencja.po_zakonczeniu_dni} dni po zakończeniu zlecenia). Transkrypcja i podsumowanie zostają.`,
+        reason: `Nagranie zostało usunięte zgodnie z zasadą przechowywania — nagrania znikają razem z usuniętym zleceniem, a przy zakończonym ${retencja.po_zakonczeniu_dni} dni po jego zamknięciu. Transkrypcja i podsumowanie zostają.`,
       });
     }
 
