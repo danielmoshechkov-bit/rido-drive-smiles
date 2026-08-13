@@ -41,6 +41,7 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioLoading, setAudioLoading] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [retencjaDni, setRetencjaDni] = useState<number | null>(null);
 
   // Transkrypt dopisuje webhook PO rozłączeniu — dla zlecenia utworzonego
   // w trakcie rozmowy wiersz voice_calls pojawia się ok. 30 s później.
@@ -131,6 +132,7 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
     setAudioLoading(true); setAudioError(null);
     const { data, error } = await supabase.functions.invoke("voice-call-audio", { body: { call_id: call.id } });
     setAudioLoading(false);
+    if (data?.retencja?.po_zakonczeniu_dni) setRetencjaDni(data.retencja.po_zakonczeniu_dni);
     if (data?.available && data?.url) setAudioUrl(data.url);
     else setAudioError(data?.reason || data?.error || error?.message || "Nie udało się pobrać nagrania.");
   };
@@ -199,6 +201,11 @@ export function OrderCallPanel({ orderId, compact = false }: { orderId: string; 
             )}
           </div>
           {audioUrl && <audio controls preload="metadata" src={audioUrl} className="w-full mt-3" />}
+          {audioUrl && retencjaDni && (
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Nagranie przechowujemy {retencjaDni} dni po zakończeniu zlecenia. Transkrypcja i podsumowanie zostają na stałe.
+            </p>
+          )}
           {audioError && (
             <div className="flex items-start gap-2 text-xs text-muted-foreground mt-2">
               <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" /><span>{audioError}</span>

@@ -47,16 +47,33 @@ serve(async (req) => {
     const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: call } = await userClient
       .from("voice_calls")
-      .select("id, provider_id, elevenlabs_conversation_id, recording_path, recording_status, recording_checked_at")
+      .select("id, provider_id, elevenlabs_conversation_id, recording_path, recording_status, recording_checked_at, recording_deleted_at")
       .eq("id", callId)
       .maybeSingle();
     if (!call) return json({ error: "Nie znaleziono rozmowy" }, 404);
+
+    // Ile nagranie u nas żyje — panel ma to napisać wprost przy odtwarzaczu.
+    const { data: ust } = await admin.from("voice_recording_retention")
+      .select("keep_days_after_order, keep_days_max").eq("provider_id", call.provider_id).maybeSingle();
+    const retencja = {
+      po_zakonczeniu_dni: ust?.keep_days_after_order ?? 90,
+      maks_dni: ust?.keep_days_max ?? 180,
+    };
+
+    // 0) Nagranie skasowane przez sprzątanie NIE wraca. Ponowne ściągnięcie od
+    //    dostawcy obchodziłoby zasadę przechowywania, którą warsztat sam ustawił.
+    if (call.recording_status === "deleted") {
+      return json({
+        available: false, retencja,
+        reason: `Nagranie zostało usunięte zgodnie z zasadą przechowywania (${retencja.po_zakonczeniu_dni} dni po zakończeniu zlecenia). Transkrypcja i podsumowanie zostają.`,
+      });
+    }
 
     // 1) Mamy już plik u siebie — wystarczy podpisany link.
     if (call.recording_path) {
       const { data: signed, error } = await admin.storage.from(KOSZYK)
         .createSignedUrl(call.recording_path, WAZNOSC_LINKU_S);
-      if (signed?.signedUrl) return json({ available: true, url: signed.signedUrl, source: "cache" });
+      if (signed?.signedUrl) return json({ available: true, url: signed.signedUrl, source: "cache", retencja });
       console.error("[voice-call-audio]", JSON.stringify({ event: "signed_url_failed", call: callId.slice(0, 8), error: error?.message }));
     }
 
@@ -119,7 +136,7 @@ serve(async (req) => {
     console.info("[voice-call-audio]", JSON.stringify({
       event: "recording_cached", call: callId.slice(0, 8), bytes: audio.byteLength,
     }));
-    return json({ available: true, url: signed?.signedUrl || null, source: "provider", bytes: audio.byteLength });
+    return json({ available: true, url: signed?.signedUrl || null, source: "provider", bytes: audio.byteLength, retencja });
   } catch (e) {
     return json({ available: false, error: (e as Error).message }, 500);
   }

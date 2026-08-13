@@ -215,6 +215,9 @@ verify_jwt = false
 [functions.voice-call-summary]
 verify_jwt = false
 
+[functions.voice-recordings-cleanup]
+verify_jwt = false
+
 [functions.voice-agent-llm]
 verify_jwt = false
 
