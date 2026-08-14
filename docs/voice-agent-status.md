@@ -410,6 +410,74 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🔴 ZNALEZIONE: WTRĘTY POWSTAJĄ W SAMEJ SYNTEZIE, PRZY JEDNYM ZAPYTANIU HTTP
+
+**I muszę odwołać własne twierdzenie, które trafiło do wysłanego zgłoszenia.**
+
+Napisałem tam: *„ta sama synteza przez ich TTS API jest czysta 20 razy na 20"*.
+**Nieprawda.** Wtedy zmierzyłem tylko DŁUGOŚĆ tych dwudziestu próbek, nigdy ich
+nie przeczytałem. Teraz przepuściłem je przez naszą transkrypcję:
+
+```
+próbek: 20     z obcymi słowami: 12     = 60%
+```
+
+Przykłady — słowa, których NIE MA w tekście wejściowym:
+
+```
+…rozmowa rejestrowana  ściamake             w czym mogę pomóc
+…rozmowa rejestrowana  krystyna             w czym mogę pomóc
+…rozmowa rejestrowana  freetonoka weź       w czym mogę pomóc
+…rozmowa rejestrowana  czemotema coa        w czym mogę pomóc
+…rozmowa rejestrowana  wśród tata marszla   w czym mogę pomóc
+…rozmowa rejestrowana  fanem tomaszem toma to już jest to możliwe  w czym mogę pomóc
+```
+
+**Wtręt ZAWSZE ląduje w tym samym miejscu — w pauzie w środku zdania.**
+Model dosypuje zmyśloną mowę w ciszę.
+
+### To upraszcza wszystko: nie trzeba ani telefonii, ani platformy Agents
+
+```
+długie zdanie z pauzą w środku, polski     4/6 wadliwych
+to samo zdanie, inny głos (Eric)           1/6
+to samo zdanie PO ANGIELSKU                3/6
+krótkie zdanie bez pauzy                   0/6
+średnie zdanie bez pauzy                   0/6
+```
+
+`„Poproszę numer rejestracyjny."` — 0/6. `„Poproszę imię oraz markę i model auta."` — 0/6.
+
+**Nie jest to problem polskiego** (angielski też), **nie jest to problem głosu**
+(dwa niezależne), **nie jest to problem platformy Agents** (goły TTS API).
+Wiąże się z dłuższą wypowiedzią zawierającą pauzę.
+
+Znak w miejscu pauzy nie ma znaczenia — myślnik, przecinek, kropka i dywiz ASCII
+dają podobny odsetek. Hipoteza o „znakach nietekstowych" z ich dokumentacji
+sprawdzona i odrzucona.
+
+### Konsekwencja dla nas — natychmiastowa i tania
+
+Nasz agent mówi **głównie długimi, wieloczłonowymi zdaniami z pauzami**, bo tak
+go nauczyliśmy: „Dobrze, wymiana klocków — kiedy byłoby wygodnie przyjechać?".
+Krótkie zdania są czyste w 0/6. **Rozbicie wypowiedzi na krótkie zdania jest
+obejściem, które możemy wdrożyć sami, dziś, bez czekania na kogokolwiek.**
+
+To nie jest naprawa — usterka zostaje po ich stronie. Ale zmniejsza ekspozycję
+w miejscu, w którym najbardziej boli.
+
+⚠️ Uczciwie o granicach tego pomiaru: „krótkie" i „średnie" zdania są też
+KRÓTSZE, więc nie umiem rozdzielić długości od pauzy. Do obejścia to wystarcza
+— obie drogi prowadzą do tego samego: mów krócej.
+
+### Skąd wzięła się moja pomyłka
+
+Zmierzyłem długość i rozrzut, bo brzmienia nie umiem zmierzyć. Potem napisałem
+wniosek o CZYSTOŚCI, którego ten pomiar nie uprawniał. To ta sama klasa błędu co
+detektor sybilantów i „turbo-04 jest wadliwy" — **mierzę, co umiem, a wniosek
+wyciągam o tym, co mnie interesuje.** Trzeci raz. Odtąd każde twierdzenie
+o brzmieniu przechodzi przez transkrypcję albo nie pada.
+
 ## 📉 „NA POCZĄTKU BEŁKOTU NIE BYŁO" — SPRAWDZONE NA DANYCH. BYŁ.
 
 Wszystkie **69 nagrań** od najstarszego (23.07) do dzisiejszego przepuszczone

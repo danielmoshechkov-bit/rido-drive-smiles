@@ -56,21 +56,30 @@ serve(async (req) => {
   // „osiemnastego sierpnia" na „18 sierpnia", a „szesnastej" na „szesnaście:zero"
   // — i porównanie tekstów pokazuje rozjazd tam, gdzie różni się WYŁĄCZNIE zapis.
   // Pierwszy przebieg dał z tego powodu 26 fałszywych rozjazdów na 66 tur.
-  const { conversation_id, od_s, do_s, surowy } = await req.json().catch(() => ({}));
-  if (!conversation_id) return json({ error: "brak conversation_id" }, 400);
+  const { conversation_id, od_s, do_s, surowy, audio_b64, mime } = await req.json().catch(() => ({}));
+  // `audio_b64` pozwala sprawdzić DOWOLNE audio, nie tylko nagranie rozmowy —
+  // np. próbki zsyntezowane na dwa różne sposoby, żeby porównać, który psuje.
+  // Bez tego nie da się rozstrzygnąć, czy wina jest w strumieniowaniu tekstu
+  // do syntezy, bo nagrań takich prób po prostu nie ma u dostawcy.
+  if (!conversation_id && !audio_b64) return json({ error: "brak conversation_id albo audio_b64" }, 400);
 
   const elKey = czysty((await getSecret(admin, "ELEVENLABS_API_KEY")) || "");
   const dgKey = czysty((await getSecret(admin, "DEEPGRAM_API_KEY")) || "");
   // ZASADA 12: brak klucza to BŁĄD, nie pusty wynik. Bez tego funkcja zwróciłaby
   // pustą transkrypcję i wyglądałoby to jak „nagranie nieme".
-  if (!elKey) return json({ error: "brak klucza dostawcy telefonii w magazynie sekretów" }, 503);
+  if (!elKey && !audio_b64) return json({ error: "brak klucza dostawcy telefonii w magazynie sekretów" }, 503);
   if (!dgKey) return json({ error: "brak klucza silnika transkrypcji w magazynie sekretów" }, 503);
 
-  const audioRes = await fetch(
-    `https://api.elevenlabs.io/v1/convai/conversations/${conversation_id}/audio`,
-    { headers: { "xi-api-key": elKey } });
-  if (!audioRes.ok) return json({ error: "nagranie niedostępne", status: audioRes.status }, 502);
-  const audio = new Uint8Array(await audioRes.arrayBuffer());
+  let audio: Uint8Array;
+  if (audio_b64) {
+    audio = Uint8Array.from(atob(audio_b64 as string), (c) => c.charCodeAt(0));
+  } else {
+    const audioRes = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversations/${conversation_id}/audio`,
+      { headers: { "xi-api-key": elKey } });
+    if (!audioRes.ok) return json({ error: "nagranie niedostępne", status: audioRes.status }, 502);
+    audio = new Uint8Array(await audioRes.arrayBuffer());
+  }
 
   // Znaczniki czasu przy KAŻDYM słowie — bez nich nie da się wskazać, które
   // słowo w której sekundzie zostało odczytane inaczej niż wygenerowane.
@@ -81,7 +90,7 @@ serve(async (req) => {
         diarize: "true", utterances: "true" });
   const dgRes = await fetch(`https://api.deepgram.com/v1/listen?${p}`, {
     method: "POST",
-    headers: { Authorization: `Token ${dgKey}`, "Content-Type": "audio/mpeg" },
+    headers: { Authorization: `Token ${dgKey}`, "Content-Type": (mime as string) || "audio/mpeg" },
     body: audio,
   });
   if (!dgRes.ok) {
