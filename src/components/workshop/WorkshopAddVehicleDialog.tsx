@@ -356,17 +356,14 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               <div className="space-y-1.5">
                 <Label>{t('workshop.orders.yearOfProduction')}</Label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" value={form.year} onChange={e => set('year', e.target.value)} placeholder={t('workshop.orders.yearOfProd')} />
-                onFocus={e => e.currentTarget.select()}
               </div>
               <div className="space-y-1.5">
                 <Label>{t('workshop.vehicles.capacityCm3')}</Label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} placeholder="cm³" />
-                onFocus={e => e.currentTarget.select()}
               </div>
               <div className="space-y-1.5">
                 <Label>{t('workshop.orders.enginePowerKw')}</Label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} placeholder="kW" />
-                onFocus={e => e.currentTarget.select()}
               </div>
             </div>
 

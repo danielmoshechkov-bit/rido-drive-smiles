@@ -168,7 +168,6 @@ export function WorkshopPayroll({ providerId }: Props) {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" value={r.rate} onChange={ev => setRateEdit(p => ({ ...p, [e.id]: { ...getRate(e), rate: ev.target.value } }))} className="h-8 w-20 text-right" />
-                        onFocus={e => e.currentTarget.select()}
                         <Select value={r.unit} onValueChange={(v) => setRateEdit(p => ({ ...p, [e.id]: { ...getRate(e), unit: v as PayUnit } }))}>
                           <SelectTrigger className="h-8 w-24"><SelectValue /></SelectTrigger>
                           <SelectContent>{PAY_UNITS.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}</SelectContent>
@@ -215,7 +214,6 @@ export function WorkshopPayroll({ providerId }: Props) {
             <div className="space-y-1.5">
               <Label>Kwota</Label>
               <Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" min="0" value={payoutAmount} onChange={e => setPayoutAmount(e.target.value)} className="text-right" placeholder="0,00" />
-              onFocus={e => e.currentTarget.select()}
             </div>
             <div className="space-y-1.5">
               <Label>Notatka (opcj.)</Label>

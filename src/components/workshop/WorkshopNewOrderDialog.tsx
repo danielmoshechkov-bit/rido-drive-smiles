@@ -707,7 +707,6 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                     <Label className="text-xs font-medium">{t('workshop.newOrder.mileage')}</Label>
                     <div className="flex gap-1">
                       <Input onFocus={e => e.currentTarget.select()} type="number" value={mileage} onChange={e => setMileage(e.target.value)} placeholder="km" />
-                      onFocus={e => e.currentTarget.select()}
                       <span className="flex items-center px-2 text-xs text-muted-foreground border rounded-md bg-muted">km</span>
                     </div>
                   </div>

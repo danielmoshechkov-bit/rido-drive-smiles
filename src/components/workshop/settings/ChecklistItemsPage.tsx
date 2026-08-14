@@ -150,7 +150,6 @@ export function ChecklistItemsPage() {
               <div className="space-y-2">
                 <Label>{t('workshop.settings.checklist.orderLabel')}</Label>
                 <Input onFocus={e => e.currentTarget.select()} type="number" value={form.sort_order} onChange={e => setForm(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))} />
-                onFocus={e => e.currentTarget.select()}
               </div>
             </div>
             <div className="flex items-center gap-2">

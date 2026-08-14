@@ -393,7 +393,6 @@ export const WorkshopSettingsPage = () => {
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.hourlyRateNet')}</Label>
                   <Input onFocus={e => e.currentTarget.select()} type="number" value={hourlyRate} onChange={e => setHourlyRate(Number(e.target.value))} />
-                  onFocus={e => e.currentTarget.select()}
                 </div>
                 <div className="space-y-2">
                   <Label>{t('workshop.settings.company.defaultShowAmounts')}</Label>

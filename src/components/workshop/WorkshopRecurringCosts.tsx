@@ -140,7 +140,6 @@ export function WorkshopRecurringCosts({ providerId }: Props) {
             <div className="space-y-1.5">
               <Label>Kwota</Label>
               <Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className="text-right" placeholder="0,00" />
-              onFocus={e => e.currentTarget.select()}
             </div>
             <div className="space-y-1.5">
               <Label>Częstotliwość</Label>
