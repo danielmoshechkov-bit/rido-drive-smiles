@@ -410,6 +410,70 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🧱 LISTA WYKLUCZEŃ ZAMKNIĘTA — zostało tylko to, do czego nie mamy dostępu
+
+Po zmianie kodeka na PCMA/PCMU i modelu na Turbo v2.5: **objaw został.**
+14.08, sekunda 16–17: „samochodem temtemmte".
+
+`turbo-04.mp3` odsłuchane — **czyste**. Dłuższa próbka jest po prostu wolniejsza,
+nie zepsuta. **Synteza odpada**, a mój pomiar długości okazał się miernikiem
+tempa, nie usterki. Trzeci raz z rzędu pomiar akustyczny nie potwierdził tego,
+co wyglądało na trafienie.
+
+```
+✗ nasz kod, prompt, snapshot     objaw dotyka statycznego first_message
+✗ znaki spoza tekstu             0 na 630 wypowiedzi
+✗ długość wypowiedzi             mediana 71 znaków
+✗ optimize_streaming_latency     +0,4 ms — parametr martwy
+✗ enable_phoneme_tags            false, objaw został
+✗ głos                           Eric (ang.) i Kamil (pol.) — to samo
+✗ model syntezy                  Flash v2.5 i Turbo v2.5 — to samo
+✗ duplikaty żądań                26% wobec 31% — brak korelacji
+✗ synteza sama w sobie           20 próbek przez API, wszystkie czyste
+✗ kodek                          G.722 usunięty z trunku, PCMA/PCMU — to samo
+✗ straty u operatora             SuperVoIP: 133 ms, ZERO strat
+✗ łącze i operator dzwoniącego   wiele numerów, sieci komórkowe i stacjonarny
+```
+
+**Zostały dwie rzeczy, obie w infrastrukturze ElevenLabs:**
+trasa RTP przez USA oraz ich warstwa SIP / brama medialna.
+
+### Czy da się przełączyć na EU bez ich zgody — ODCZYT KONFIGURACJI
+
+W `/v1/convai/phone-numbers/{id}` **nie ma żadnego pola o regionie.** Pełna lista:
+
+```
+phone_number, label, supports_inbound, supports_outbound, phone_number_id,
+assigned_agent{…}, provider, provider_config (null), outbound_trunk (null),
+inbound_trunk{allowed_addresses, allowed_numbers, media_encryption,
+has_auth_credentials, username, remote_domains}, livekit_stack ("standard"),
+store_sip_messages
+```
+
+Po stronie ElevenLabs **nie da się.** Zostaje jedna droga do spróbowania
+samodzielnie — opisana niżej, razem z ryzykiem.
+
+### 🎯 CO MOŻEMY SPRÓBOWAĆ SAMI: przepiąć trunk na host EU
+
+O tym, dokąd trafia połączenie, decyduje **adres docelowy w konfiguracji trunku
+u SuperVoIP** — czyli coś, co ustawiamy my, nie oni. Dziś jest tam
+`sip.rtc.elevenlabs.io`. Oba hosty odpowiadają na TCP 5061:
+
+```
+sip.rtc.elevenlabs.io                       136.112.48.140   144 ms   TLS 5061 otwarty
+sip-static.rtc.eu.residency.elevenlabs.io   199.88.252.50     35 ms   TLS 5061 otwarty
+```
+
+⚠️ **RYZYKO, które trzeba przyjąć świadomie:** `sip-static` jest w dokumentacji
+powiązany ze statycznymi adresami IP i rezydencją danych, czyli prawdopodobnie
+z wyższym planem. **ElevenLabs może odrzucić `INVITE` dla numeru, który nie jest
+przypisany do tego regionu — i wtedy numer przestanie odbierać połączenia,
+dopóki nie cofniemy zmiany.** Cofnięcie trwa tyle samo co zmiana, ~20 minut.
+
+To decyzja biznesowa, nie techniczna: kwadrans potencjalnej niedostępności
+numeru w zamian za rozstrzygnięcie hipotezy, na którą inaczej czekamy dni.
+**Nie robię tego bez wyraźnej zgody.**
+
 ## 📩 ODPOWIEDŹ SUPERVOIP — częściowe wykluczenie strat pakietów
 
 **Kodek: możemy ograniczyć sami.** Wirtualna Centrala → Stanowiska → 1291084,
