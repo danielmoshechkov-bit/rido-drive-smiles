@@ -56,7 +56,7 @@ serve(async (req) => {
   // „osiemnastego sierpnia" na „18 sierpnia", a „szesnastej" na „szesnaście:zero"
   // — i porównanie tekstów pokazuje rozjazd tam, gdzie różni się WYŁĄCZNIE zapis.
   // Pierwszy przebieg dał z tego powodu 26 fałszywych rozjazdów na 66 tur.
-  const { conversation_id, od_s, do_s, surowy, audio_b64, mime } = await req.json().catch(() => ({}));
+  const { conversation_id, od_s, do_s, surowy, audio_b64, mime, jezyk } = await req.json().catch(() => ({}));
   // `audio_b64` pozwala sprawdzić DOWOLNE audio, nie tylko nagranie rozmowy —
   // np. próbki zsyntezowane na dwa różne sposoby, żeby porównać, który psuje.
   // Bez tego nie da się rozstrzygnąć, czy wina jest w strumieniowaniu tekstu
@@ -83,10 +83,14 @@ serve(async (req) => {
 
   // Znaczniki czasu przy KAŻDYM słowie — bez nich nie da się wskazać, które
   // słowo w której sekundzie zostało odczytane inaczej niż wygenerowane.
+  // Jezyk transkrypcji musi zgadzac sie z jezykiem nagrania — inaczej polski
+  // silnik czyta angielski jako belkot i odwrotnie, co dalo by falszywy wynik
+  // w porownaniu miedzyjezykowym.
+  const lang = (jezyk as string) || "pl";
   const p = new URLSearchParams(surowy
-    ? { model: "nova-2", language: "pl", punctuate: "false", smart_format: "false",
+    ? { model: "nova-2", language: lang, punctuate: "false", smart_format: "false",
         numerals: "false", diarize: "true", utterances: "true" }
-    : { model: "nova-2", language: "pl", punctuate: "true", smart_format: "true",
+    : { model: "nova-2", language: lang, punctuate: "true", smart_format: "true",
         diarize: "true", utterances: "true" });
   const dgRes = await fetch(`https://api.deepgram.com/v1/listen?${p}`, {
     method: "POST",

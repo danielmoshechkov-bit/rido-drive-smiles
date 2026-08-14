@@ -410,6 +410,66 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🧭 DRUGIE ŹRÓDŁO USTAWIEŃ GŁOSU — ISTNIEJE, ALE NIC GO NIE WYSYŁA
+
+Pytanie było trafne i trzeba było je zadać. Odpowiedź jest dwuczęściowa.
+
+**Tak, w bazie jest drugi komplet ustawień syntezy — i jest wypełniony:**
+
+```
+voice_agent_configs (persona workshop_secretary)
+  voice_id            = onwK4e9ZLuTAKqWW03F9      (głos „Daniel")
+  voice_mode          = per_language
+  voice_per_language  = { "pl": "853X4BjOscPIWJYTmuYo" }
+  voice_similarity    = 0,75
+  voice_speed         = 1,00
+  voice_stability     = 0,45
+  voice_style         = 0,00
+```
+
+**Nie, nic z tego nie trafia do ElevenLabs.** Trzy niezależne dowody:
+
+**1. Żadna funkcja brzegowa tych kolumn nie czyta.** Jedyne miejsce w całym
+repozytorium, które ich dotyka, to `src/components/ai-sales/VoiceAgentPanel.tsx`
+— czyli sam panel, po stronie przeglądarki. Zero trafień w `supabase/functions/`.
+
+**2. `voice-agent-init` nie odsyła żadnych nadpisań.** Jego odpowiedź to dokładnie:
+
+```js
+{ type: "conversation_initiation_client_data",
+  dynamic_variables: { rido_snapshot, rido_caller_znany } }
+```
+
+Ani `conversation_config_override`, ani `tts`, ani `voice_settings`, ani `voice_id`.
+`voice-agent-llm` i `voice-agent-chat` też nie — `voice_id` pojawia się tam
+wyłącznie jako pole w zapytaniu `SELECT`, nigdzie nie jest przekazywane dalej.
+
+**3. ElevenLabs zapisał, co faktycznie dostał, w każdej z 69 rozmów:**
+
+```
+67 rozmów: conversation_config_override — wszystkie pola None
+ 2 rozmowy: obiekt obecny, ale każda wartość w środku null
+```
+
+**Wniosek wprost: NIE MA drugiego źródła prawdy w ścieżce rozmowy.** Nasze
+trzy dni zmian w panelu ElevenLabs zadziałały — każdą weryfikowałem pobraniem
+konfiguracji po zmianie, a teraz potwierdza to również zapis po ich stronie.
+
+### 🐛 ALE TO JEST OSOBNY, REALNY BŁĄD — i to w wersji wielotenantowej groźny
+
+Panel `VoiceAgentPanel` pokazuje warsztatowi suwaki głosu, stabilności, tempa
+i podobieństwa. **Zapisuje je do bazy i nic ich nie czyta.** Warsztat może
+przestawiać je do woli — agent mówi dalej tym, co jest ustawione w panelu
+ElevenLabs, ręcznie, dla wszystkich naraz.
+
+Widać to w danych: baza mówi `voice_id = onwK4e9ZLuTAKqWW03F9` i głos polski
+`853X4BjOscPIWJYTmuYo`, a rozmowy szły głosem Eric, a od wczoraj Kamil.
+**Trzy różne odpowiedzi na pytanie „jakim głosem mówi agent".**
+
+To ta sama klasa błędu co `voice_commit_call` poza migracjami: interfejs obiecuje
+kontrolę, której nie ma. Do backlogu — z notatką, że przy wielu warsztatach to
+przestaje być kosmetyką, bo każdy będzie chciał własny głos.
+
 ## 🎛️ `similarity_boost` — OSTATNI NIERUSZONY PARAMETR. NIE JEST PRZYCZYNĄ.
 
 Zmierzone, zanim cokolwiek zmieniłem. Głos Kamil (klon z biblioteki),
