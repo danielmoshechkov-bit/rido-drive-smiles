@@ -410,6 +410,55 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 📩 ODPOWIEDŹ SUPERVOIP — częściowe wykluczenie strat pakietów
+
+**Kodek: możemy ograniczyć sami.** Wirtualna Centrala → Stanowiska → 1291084,
+zmiana wchodzi w 20 minut. Zostają PCMA + PCMU, znikają G.722 i AMR-WB.
+Nie potrzeba ich zgody ani zgłoszenia — to nasze ustawienie.
+
+**Trasa: nie widzą strat.** Cytat: *„nie mamy wpływu na trasę, ale jest ona dobra
+jak na Atlantyk — mamy od nas 133 ms do 34.45.0.205 i NIE MAMY DO TEGO ADRESU
+ŻADNYCH STRAT."*
+
+To **osłabia hipotezę o stratach pakietów**, ale jej nie zabija. Trzy możliwości:
+
+```
+a) straty są dalej, już w sieci ElevenLabs (ich odcinek, nie widzą go ani oni, ani my)
+b) problem nie jest w transporcie w ogóle
+c) straty są sporadyczne i nie widać ich w uśrednionych metrykach operatora
+```
+
+Ich 133 ms zgadza się z naszymi 146 ms z Warszawy — trasa jest zmierzona z dwóch
+niezależnych punktów i to nie jest wąskie gardło ani anomalia.
+
+**Zapisane jako częściowe wykluczenie: operator nie widzi strat na swoim odcinku
+do serwera mediów.**
+
+## 🔬 DWADZIEŚCIA SYNTEZ POWITANIA — jedna na dwadzieścia jest wadliwa
+
+To samo zdanie, ten sam głos (Kamil), te same ustawienia, **bez telefonii**.
+Dziesięć na Flash v2.5 i dziesięć na Turbo v2.5.
+
+```
+Flash v2.5    mediana 3,76 s   rozrzut 3,39–3,99 s  = 16%
+Turbo v2.5    mediana 3,85 s   rozrzut 3,34–5,57 s  = 58%
+```
+
+**Odstająca próbka: `turbo-04` — 5,57 s przy medianie 3,85 s (+45%), z ciszą
+1,18 s w środku zdania.** Pozostałe dziewiętnaście mieszczą się w 3,3–4,3 s.
+
+To jest kandydat na dokładnie ten defekt, o który chodzi: **jedna na dwadzieścia
+syntez tego samego zdania jest wyraźnie inna, a telefonii przy tym nie było.**
+Częstość ~5% zgadza się z tym, jak często słychać bełkot w rozmowach.
+
+**Do odsłuchania w pierwszej kolejności: `~/Desktop/powitanie-20/turbo-04.mp3`.**
+Jeśli tam słychać „theeee" albo mamrotanie — sprawa rozstrzygnięta i to NIE jest
+transport, tylko synteza. Wszystkie dwadzieścia próbek są w tym katalogu.
+
+⚠️ Zastrzeżenie: 1 na 20 to nie jest pomiar częstości, tylko sygnał. I mierzę
+długość oraz ciszę, nie brzmienie — o tym, czy próbka faktycznie jest zepsuta,
+rozstrzyga ucho, nie mój skrypt.
+
 ## ⏱️ LATENCJA — ROZBIÓR NA CZĘŚCI, POMIAR Z OSTATNICH 24 h
 
 Wszystkie liczby z `stage_timing` prawdziwych rozmów, nie z syntetycznych prób.
