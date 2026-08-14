@@ -410,6 +410,62 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## ✅ POTWIERDZONE NA 30 PRÓBKACH: `v3` I `multilingual_v2` — ZERO WTRĘTÓW
+
+Trzy różne polskie zdania **bez liczb i dat** × 10 syntez = 30 na model.
+Asercja w kodzie nie przepuszcza zdania z liczebnikiem — po tym, jak poprzedni
+przebieg dał fałszywe 10/30.
+
+```
+eleven_multilingual_v2      0/30
+eleven_v3                   0/30
+```
+
+### ⚠️ TRZECI RAZ TEGO SAMEGO BŁĘDU W MOIM MIERNIKU
+
+Pierwszy przebieg potwierdzenia dał `multilingual_v2 — 10/30`. Wszystkie
+dziesięć „wtrętów" to było `osiemnaście dziewięć zero`: silnik zapisał
+„osiemnastego" jako „osiemnaście", a „dziewiątej" jako „dziewięć zero".
+**Odmiana liczebnika, nie zmyślone słowo.** Zdanie testowe zawierało datę.
+
+To ta sama klasa co detektor sybilantów i „turbo-04 jest wadliwy". Poprawka
+weszła do kodu jako **asercja**, nie jako komentarz — zdanie z liczbą nie
+przejdzie przez ten test.
+
+### ⏱️ KOSZT LATENCJI — v3 JEST TAŃSZY OD MULTILINGUAL O 203 ms
+
+Czas do pierwszego bajtu audio, sześć prób, ta sama sesja, endpoint `/stream`:
+
+```
+eleven_turbo_v2_5        0,342 s     (odniesienie)
+eleven_v3                0,892 s     +550 ms      ×2,6
+eleven_multilingual_v2   1,095 s     +753 ms      ×3,2
+```
+
+⚠️ **Te wartości bezwzględne zawyżają karę w rozmowie**, bo mierzone są z mojego
+łącza w Warszawie i zawierają pełny czas podróży. W rozmowie
+`convai_tts_service_ttfb` dla Flasha wynosi ~0,090 s, nie 0,342. Przenosi się
+**stosunek, nie różnica**: przy ×2,6 v3 dałby w rozmowie około 0,23 s zamiast
+0,09 s, czyli **realnie ~+145 ms**, a nie +550 ms.
+
+**To mieści się w budżecie.** Cel 600–800 ms na turę zostaje osiągalny.
+
+### 🎯 REKOMENDACJA: Eric + v3
+
+Dwie zmiany, obie z pomiarem, obie odwracalne w sekundę:
+
+```
+głos   Kamil -> Eric     45% -> 15% wadliwych     p = 0,007
+model  Turbo -> v3       57% ->  0% wadliwych     koszt ~+145 ms w rozmowie
+```
+
+`multilingual_v2` jest równie czysty, ale o 203 ms wolniejszy od `v3` — bierzemy
+go tylko wtedy, gdy `v3` okaże się niestabilny w rozmowie (jest ich najnowszym
+modelem i nie mamy go przetestowanego na żywym ruchu).
+
+**Nie przełączam bez zgody.** Kopie konfiguracji sprzed każdej zmiany leżą
+w `backups/`.
+
 ## 🔬 ROZBICIE 2×2: GŁOS MA ZNACZENIE. MODEL FLASH/TURBO — NIE.
 
 Cztery kombinacje po 20 syntez tego samego polskiego zdania, `stability 0,5`.
