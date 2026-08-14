@@ -410,6 +410,67 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🔬 ROZBICIE 2×2: GŁOS MA ZNACZENIE. MODEL FLASH/TURBO — NIE.
+
+Cztery kombinacje po 20 syntez tego samego polskiego zdania, `stability 0,5`.
+
+```
+A  stan sprzed zmian: Eric  + Flash + sim 0,8      4/20 = 20%
+B  stan dzisiejszy:   Kamil + Turbo + sim 0,6      6/20 = 30%
+C  Eric  + Turbo + sim 0,8                         2/20 = 10%
+D  Kamil + Flash + sim 0,6                        12/20 = 60%
+```
+
+Rozbite na pojedyncze zmienne, po 40 próbek na poziom:
+
+```
+GŁOS    Eric   6/40 = 15%      Kamil 18/40 = 45%     p = 0,007   ISTOTNE
+MODEL   Turbo  8/40 = 20%      Flash 16/40 = 40%     p = 0,087   nieistotne
+```
+
+### ⚠️ MUSZĘ COFNĄĆ WŁASNE WYKLUCZENIE GŁOSU
+
+Wpisałem „✗ głos — Eric i Kamil, to samo" na listę wykluczeń i **to było
+za mocne**. Prawda jest taka: **objaw występuje przy obu głosach, ale przy
+Kamilu TRZY RAZY CZĘŚCIEJ** (45% wobec 15%, p = 0,007).
+
+Pomyliłem „występuje przy obu" z „nie zależy od głosu". To dwie różne rzeczy
+i pierwsza nie dowodzi drugiej. **Zmiana na Kamila była zmianą na gorsze** —
+zrobiliśmy ją wczoraj wieczorem, szukając poprawy.
+
+To zdanie jest też w wysłanym zgłoszeniu („reproduces on two unrelated voices")
+— tam akurat jest prawdziwe, bo mówi tylko o reprodukcji, nie o niezależności.
+Ale w naszej liście wykluczeń było mylące.
+
+### ❌ PAMIĘĆ O „WCZEŚNIEJ BYŁO LEPIEJ" — NIE POTWIERDZONA
+
+```
+A (stan sprzed wszystkich zmian)  4/20
+B (stan dzisiejszy)               6/20
+p = 0,716   -> to szum
+```
+
+Stan sprzed naszych zmian i stan dzisiejszy są nieodróżnialne. Wrażenie, że
+kiedyś było lepiej, nie ma pokrycia w pomiarze — tak samo jak przy szeregu
+chronologicznym z 69 nagrań.
+
+⚠️ Czego ten test NIE mierzy: `enable_phoneme_tags` nie istnieje w TTS API,
+to parametr platformy Agents. Tej zmiennej nie da się odtworzyć poza rozmową
+i nie udaję, że ją sprawdziłem.
+
+## 🚫 ZEWNĘTRZNY TTS W ELEVENLABS AGENTS — NIE ISTNIEJE
+
+Sprawdzone w schemacie agenta i w ich dokumentacji: blok `tts` przyjmuje
+wyłącznie `model_id` i `voice_id` z ich katalogu. **Nie ma pola na endpoint,
+webhook ani zewnętrznego dostawcę.** Custom LLM tak, custom TTS nie.
+
+Odwrotnie działa u konkurencji: Vapi, Retell i LiveKit są modularne — STT, LLM
+i TTS wybiera się niezależnie i można mieszać dostawców. Czyli migracja dawałaby
+dokładnie tę modularność, której ElevenLabs odmawia.
+
+**Ale po dzisiejszym wyniku ta decyzja może być niepotrzebna** — skoro ich własny
+`multilingual_v2` i `v3` są czyste, problemem nie jest dostawca, tylko wybór modelu.
+
 ## ✅ ROZWIĄZANIE: `eleven_multilingual_v2` — ZERO WTRĘTÓW PO POLSKU
 
 Piętnaście syntez tego samego polskiego zdania na każdy model, ten sam głos,
