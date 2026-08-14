@@ -209,6 +209,9 @@ verify_jwt = false
 [functions.voice-call-analyze]
 verify_jwt = false
 
+[functions.voice-audio-diagnose]
+verify_jwt = false
+
 [functions.voice-call-audio]
 verify_jwt = false
 

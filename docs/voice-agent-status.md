@@ -410,6 +410,102 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🎙️ TRZECI ŚWIADEK: NASZA WŁASNA TRANSKRYPCJA NAGRAŃ
+
+Dotąd jedynym sędzią było ucho, a trzy moje pomiary akustyczne z rzędu mierzyły
+co innego, niż zakładałem. Teraz mamy niezależnego świadka: **nagranie rozmowy
+przepuszczone przez nasz własny silnik transkrypcji** (`deepgram-transcribe`,
+nova-2, polski) — ten sam, którym transkrybujemy spotkania.
+
+Narzędzie: `supabase/functions/voice-audio-diagnose`. Klucze ElevenLabs
+i silnika czytane po stronie serwera z magazynu sekretów — nie przechodzą przez
+moje ręce, nie ma ich w żadnym pliku.
+
+### ⚠️ PIERWSZE PODEJŚCIE BYŁO ZAŚMIECONE — i tak by wyglądał fałszywy dowód
+
+Porównanie tekstów dało 26 „rozjazdów" na 66 tur. Prawie wszystkie były
+**różnicą zapisu, nie brzmienia**:
+
+```
+wygenerowane: „Wtorek, osiemnastego sierpnia — o szesnastej czy o siedemnastej?"
+odczytane   : „Wtorek 18 sierpnia? O szesnaście:zero czy o siedemnaście:zero?"
+```
+
+To ten sam dźwięk zapisany inaczej. Dodałem tryb `surowy` (`numerals=false`,
+`smart_format=false`) i **przestałem używać podobieństwa tekstów jako miernika** —
+myli się dokładnie tam, gdzie nasz agent mówi najwięcej: przy datach, godzinach
+i tablicach.
+
+**Właściwy miernik to PEWNOŚĆ ODCZYTU słowo po słowie.** Zniekształcony fragment
+wygląda tak: dwa–trzy słowa z niską pewnością, otoczone słowami odczytanymi pewnie.
+
+### ✅ ZNALEZIONE: 41 s w rozmowie „co to jest CTM"
+
+```
+wygenerowane:  Dobrze, notuję. Poproszę numer rejestracyjny.
+
+odczytane z dźwięku, słowo po słowie:
+   41,95–42,27   0,91   dobrze
+   42,27–42,35   0,94   no
+   42,35–42,67   0,49   tu          ⚠
+   42,67–42,99   0,43   em          ⚠
+   42,99–43,49   0,50   no          ⚠
+   43,55–44,05   0,50   sczytuje    ⚠
+   44,35–44,67   0,99   poproszę
+   44,67–44,99   0,93   numer
+   44,99–45,49   0,99   rejestracyjny
+```
+
+**Jedno słowo — „notuję" — zostało odczytane jako cztery bełkotliwe tokeny
+z pewnością 0,43–0,50, a słowa tuż przed i tuż po mają 0,91–0,99.**
+
+To nie jest „Daniel słyszy dziwnie". Maszyna, która nie wie, czego szuka,
+odczytała z tego dźwięku co innego, niż zostało wygenerowane. **I to jest
+w NAGRANIU** — czyli powstało przed punktem, w którym ElevenLabs je zapisuje.
+
+### ❗ ALE MOMENT Z 14.08 („samochodem temtemmte") W NAGRANIU JEST CZYSTY
+
+```
+wygenerowane:  W czym mogę pomóc? Jaki problem z samochodem?
+
+   14,08–14,32   0,99   w
+   14,32–14,48   1,00   czym
+   14,48–14,72   1,00   mogę
+   14,72–15,22   0,98   pomóc
+   15,45–15,68   0,99   jaki
+   15,68–15,93   0,99   problem
+   15,93–16,24   0,97   z
+   16,24–16,52   0,96   samochodem      <- czyste
+```
+
+Słowo, które usłyszałeś jako „samochodem temtemmte", **w nagraniu odczytuje się
+z pewnością 0,96.** Zniekształcenia tam NIE MA.
+
+### Co z tego wynika — dwa różne miejsca, nie jedno
+
+```
+41 s (13.08)      zniekształcenie JEST w nagraniu   -> powstaje PRZED zapisem
+16 s (14.08)      nagranie CZYSTE, słyszalny bełkot -> powstaje PO zapisie
+```
+
+**To nie jest jedna usterka.** Albo działają dwie niezależne rzeczy, albo
+ElevenLabs zapisuje nagranie w punkcie, przez który część zniekształceń już
+przeszła, a część jeszcze nie. Tak czy inaczej: **„czyste nagranie" nie dowodzi,
+że rozmówca usłyszał czysto — i odwrotnie.**
+
+### Tło statystyczne
+
+```
+słów agenta przeanalizowanych:       880
+mediana pewności odczytu:           0,97
+słów z pewnością < 0,60:              60  = 6,8%
+zapaści wewnątrz mowy agenta:          5  (z tego 4 to nachodzący głos klienta,
+                                          1 realna — ta z 41 s)
+```
+
+Mediana 0,97 mówi, że nagrania są w większości bardzo czyste. Usterka jest
+rzadka i punktowa — zgodne z tym, co słychać.
+
 ## 🧱 LISTA WYKLUCZEŃ ZAMKNIĘTA — zostało tylko to, do czego nie mamy dostępu
 
 Po zmianie kodeka na PCMA/PCMU i modelu na Turbo v2.5: **objaw został.**
