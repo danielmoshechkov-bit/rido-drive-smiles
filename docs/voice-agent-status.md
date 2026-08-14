@@ -410,6 +410,102 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## ⏱️ LATENCJA — ROZBIÓR NA CZĘŚCI, POMIAR Z OSTATNICH 24 h
+
+Wszystkie liczby z `stage_timing` prawdziwych rozmów, nie z syntetycznych prób.
+
+```
+etap                     n   mediana     p90     maks
+────────────────────────────────────────────────────────
+llm.total              117    1549 ms   3459    6893
+chat.total             131    1240 ms   3279    6564
+chat.model_round       149    1159 ms   1943    4503
+chat.tool               18     983 ms   1723    2178
+chat.first_text        123     769 ms   2161    4222
+llm.config             135     154 ms    341   17370   ⚠
+llm.chat_headers       135     120 ms    280    5800
+chat.prompt_ready      136      10 ms     13     357
+chat.prepare           136       9 ms     11     355
+llm.auth               135       0 ms      1       1
+```
+
+### Odpowiedzi na trzy pytania
+
+**1. Hop llm → chat = 111 ms.** `chat_headers` to 120 ms, ale zawiera własne
+`prepare` chatu (9 ms), bo nagłówki lecą dopiero po nim. Zostaje **111 ms czystego
+przeskoku** — powyżej progu 100 ms, więc FAZA B się kwalifikuje. Ale ledwo.
+
+**2. `config` w llm NIE zszedł do zera. To 154 ms — WIĘCEJ niż hop.**
+I to jest ważniejsze znalezisko niż sam hop.
+
+**3. `model_round` 1159 ms** — ale to cała runda z narzędziami. Do pierwszego
+tokenu jest `first_text` = **769 ms**. To sufit Haiku i tego nie ruszamy.
+
+### 🔴 154 ms NA `config` TO NIE ZAPYTANIE, TYLKO PODRÓŻ
+
+`EXPLAIN ANALYZE` na `get_voice_context`, pięć przebiegów pod rząd:
+
+```
+planowanie 0,03 ms    wykonanie 3,48 / 3,35 / 3,54 / 3,46 / 3,47 ms
+```
+
+**Zapytanie trwa 3,5 ms. Etap mierzy 154 ms.** Czyli **150 ms to jeden round-trip
+HTTP z izolatu do PostgREST** — nawiązanie połączenia, TLS, serializacja. Tabele
+są malutkie (1, 4, 13 i 84 wiersze) i mają indeksy. **Dokładanie indeksów nic nie da.**
+
+Wniosek: jedyny sposób na te 150 ms to **nie wykonywać tego wywołania w ścieżce tury.**
+
+### Rachunek: ile realnie zostało do wyciśnięcia
+
+```
+do pierwszego tekstu       ≈ 154 (config) + 111 (hop) + 769 (model)  ≈ 1034 ms
+minus FAZA B (scalenie)                            −111 ms  ->  923 ms
+minus round-trip po kontekst                       −154 ms  ->  769 ms
+```
+
+**Obie zmiany razem lądują w celu 600–800 ms.** Sama FAZA B nie wystarczy.
+
+⚠️ Turbo v2.5 dokłada 46 ms, ale **po stronie TTS**, czyli za `first_text`.
+Jeśli miernik 940 ms liczy tylko naszą stronę — nie wchodzi do tego rachunku.
+Jeśli liczy do pierwszego dźwięku — wchodzi i wynik to 815 ms.
+**Trzeba ustalić, co dokładnie mierzy te 940 ms, zanim ogłosimy sukces.**
+
+### ⚠️ `config` p90 = 341 ms, maks = 17 370 ms
+
+Jedna tura czekała **siedemnaście sekund** na odczyt kontekstu. To nie jest
+mediana, ale to się zdarzyło i rozmówca to usłyszał jako martwą ciszę.
+Kolejny argument, żeby tego wywołania nie było w ścieżce tury.
+
+### REKOMENDACJA — odwrotna kolejność niż zakładaliśmy
+
+**Najpierw zabić round-trip po kontekst (154 ms), potem FAZA B (111 ms).**
+Wygrywa więcej i jest tańsze w robocie.
+
+Trzy drogi, w kolejności od najtańszej:
+
+**a) Cache w pamięci izolatu.** Komentarz w kodzie mówi, że w 05.08 dał ZERO
+trafień na 42 odczyty — ale to było **przed keep-warm**. Czy izolaty są dziś
+używane wielokrotnie, **nie udało mi się zmierzyć**: zapytanie o `execution_id`
+przez `unnest(metadata)` zwraca „Backend error! Retry" i 429. Najtańsze
+rozstrzygnięcie: dołożyć licznik w module i logować trafienia/pudła, wdrożyć,
+zmierzyć na prawdziwych rozmowach. Jeśli izolaty są ponownie używane — 150 ms
+znika za darmo.
+
+**b) Przekazać kontekst z webhooka inicjującego**, tak jak snapshot. Działa na
+pewno, ale kontekst zawiera `system_prompt` — poleciałby w każdą turę w payloadzie
+od ElevenLabs. Trzeba zmierzyć, ile to dokłada, zanim się na to zdecydujemy.
+
+**c) FAZA B nie rozwiązuje tego problemu** — po scaleniu odczyt nadal będzie,
+tylko w jednej funkcji zamiast dwóch.
+
+### 🐛 BŁĄD W MOIM WŁASNYM NARZĘDZIU (znaleziony przy okazji)
+
+Skrypt do logów miał `.get("result") or []` — czyli **błąd backendu i throttling
+zamieniał w pusty zbiór**. Trzy razy zaraportowałbym „0 wierszy" jako fakt, a to
+były „Backend error! Retry your query" i HTTP 429. Zasada 12 („pusty zbiór to
+porażka") złamana w narzędziu, które ją egzekwuje. Poprawione: ponawianie
+z narastającą zwłoką i wyjątek zamiast pustej listy.
+
 ## 🚫 GŁOS WYKLUCZONY JAKO PRZYCZYNA (13.08, 23:53)
 
 Zmiana na **Kamila** (polski natywny, `mr1ubFaLs5xVrh1EqWtc`) nie zmieniła nic.
