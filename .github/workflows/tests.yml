@@ -1,0 +1,63 @@
+name: Testy i kontrola typów
+
+# Powód istnienia tego workflow (13.08.2026):
+#
+# Repo miało siedem plików `*_test.ts` i NIC ich nie uruchamiało — działały tylko
+# u kogoś lokalnie. W tym samym tygodniu trzy błędy webhooka Stripe wyszły
+# dopiero na produkcji, a jeden z nich (funkcja wołana, ale bez definicji —
+# wycięta przy edycji sąsiedniego bloku) zostałby złapany przez `deno check`
+# w kilka sekund.
+#
+# Dlatego oba kroki, nie sam `test`: testy sprawdzają logikę, `check` sprawdza,
+# czy kod w ogóle się trzyma kupy.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  edge:
+    name: Edge functions (Deno)
+    runs-on: ubuntu-latest
+    env:
+      # Repo ma `package.json` frontu (Vite). Bez tego Deno traktuje katalog jak
+      # projekt Node'a, szuka `node_modules` i wywala się na `@types/node` przy
+      # imporcie `node:test`. Edge functions nie mają z tym package.json nic
+      # wspólnego — typy dla `node:` daje sam Deno.
+      DENO_NO_PACKAGE_JSON: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Kontrola typów. Łapie literówki, wycięte definicje i rozjazdy sygnatur
+      # między modułem współdzielonym a wywołaniem — czyli dokładnie tę klasę
+      # błędów, która nas kosztowała.
+      #
+      # ZAKRES ZAWĘŻONY do modułu wspólnego i billingu. Sprawdzenie całego
+      # katalogu wywala się na funkcjach z zależnościami `npm:` (np. `email-probe`
+      # ciągnie `nodemailer`), które wymagają `node_modules` — a instalowanie ich
+      # w CI tylko po to, żeby sprawdzić typy, kosztuje więcej, niż daje.
+      # Rozszerzenie zakresu = osobne zadanie, po uporządkowaniu tych zależności.
+      - name: Kontrola typów (billing + moduł wspólny)
+        run: |
+          deno check supabase/functions/_shared/stripeWebhook.ts \
+                     supabase/functions/_shared/stripeWebhook_test.ts \
+                     supabase/functions/billing-stripe-webhook/index.ts \
+                     supabase/functions/billing-checkout/index.ts \
+                     supabase/functions/billing-stripe-sync/index.ts \
+                     supabase/functions/billing-admin-plans/index.ts \
+                     supabase/functions/billing-admin-features/index.ts
+
+      # Testy jednostkowe. `--allow-read` jest konieczne: część istniejących
+      # testów agenta głosowego czyta pliki źródłowe i sprawdza, czego w nich
+      # NIE MA (np. że runtime nie zawiera identyfikatorów canary). To audyt
+      # kodu, nie test logiki, ale łapie realne regresje — więc dajemy odczyt.
+      #
+      # Świadomie NIE dajemy sieci ani zapisu: test, który ich potrzebuje,
+      # przestał być testem jednostkowym.
+      - name: Testy
+        run: deno test --allow-read supabase/functions/_shared/
