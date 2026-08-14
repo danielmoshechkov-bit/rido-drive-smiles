@@ -410,6 +410,38 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## ✅ ROZWIĄZANIE: `eleven_multilingual_v2` — ZERO WTRĘTÓW PO POLSKU
+
+Piętnaście syntez tego samego polskiego zdania na każdy model, ten sam głos,
+te same ustawienia, jedna sesja. Wtręt = słowo, którego nie ma w tekście.
+
+```
+model                      POLSKI     ANGIELSKI
+eleven_flash_v2_5           8/15        0/15
+eleven_turbo_v2_5           8/15        0/15
+eleven_multilingual_v2      0/15        0/15
+```
+
+**Dwie rzeczy naraz, obie rozstrzygające:**
+
+**1. To jest defekt POLSKIEGO, nie ogólny.** Flash i Turbo psują się w ponad
+połowie polskich prób i **ani razu** po angielsku. Trzydzieści syntez angielskich,
+zero wtrętów. To nie jest „ElevenLabs czasem bełkocze" — to **model gubi polską
+fonetykę**.
+
+**2. Jeden z ich modeli tego nie robi.** `eleven_multilingual_v2` — 0/15 po polsku.
+Ten sam głos, to samo zdanie, ta sama sesja, ta sama minuta.
+
+**To jest rozwiązanie dostępne dziś, bez migracji i bez czekania na support.**
+
+⚠️ Cena: zmierzone wcześniej **+785 ms** do pierwszego bajtu (0,195 → 0,981 s).
+To samo wywala cel 600–800 ms na turę. Wybór jest wprost: **agent wolniejszy
+o osiem dziesiątych sekundy albo agent, którego co druga wypowiedź zawiera
+zmyślone słowo.**
+
+⚠️ Wynik czeka na potwierdzenie na trzech różnych zdaniach po 10 syntez
+(30 na model) — jedno zdanie to za wąska podstawa na decyzję o produkcji.
+
 ## 🧭 DRUGIE ŹRÓDŁO USTAWIEŃ GŁOSU — ISTNIEJE, ALE NIC GO NIE WYSYŁA
 
 Pytanie było trafne i trzeba było je zadać. Odpowiedź jest dwuczęściowa.
