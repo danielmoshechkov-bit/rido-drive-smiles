@@ -410,7 +410,6 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 <div className="space-y-1">
                   <Label className="text-xs">{t('workshop.parts.wholesaler.salesMargin')}</Label>
                   <Input onFocus={e => e.currentTarget.select()} type="number" value={forms.auto_partner.sales_margin_percent} onChange={(e) => updateForm('auto_partner', { sales_margin_percent: Number(e.target.value) })} />
-                  onFocus={e => e.currentTarget.select()}
                 </div>
               </div>
               <div className="flex gap-2 pt-3 border-t">
@@ -513,7 +512,6 @@ export function WholesalerIntegrationsSettings({ providerId }: Props) {
                 <div className="space-y-1">
                   <Label className="text-xs">{t('workshop.parts.wholesaler.salesMargin')}</Label>
                   <Input onFocus={e => e.currentTarget.select()} type="number" value={forms.inter_cars.sales_margin_percent} onChange={(e) => updateForm('inter_cars', { sales_margin_percent: Number(e.target.value) })} />
-                  onFocus={e => e.currentTarget.select()}
                 </div>
               </div>
 

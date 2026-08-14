@@ -111,7 +111,6 @@ export function WorkshopExpenseDialog({ open, onOpenChange, providerId, defaultC
           <div className="space-y-1.5">
             <Label>Kwota</Label>
             <Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" className="text-right" />
-            onFocus={e => e.currentTarget.select()}
           </div>
           <div className="space-y-1.5">
             <Label>Forma płatności</Label>

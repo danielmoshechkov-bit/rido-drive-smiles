@@ -328,7 +328,11 @@ test("registration number is asked once and never confirmed back", () => {
 
   // Warsztat potrzebuje rejestracji, więc pytanie wraca — ale bez pętli
   // potwierdzania, która 04.08 kosztowała sześć prób i cztery minuty.
-  assert.match(chat, /NUMER REJESTRACYJNY: zapytaj RAZ/);
+  // Wzorzec CELOWO luźny w środku. Reguła bywa wzmacniana (13.08 doszło
+  // „ZAKAZ CZYTANIA NA GŁOS, BEZ WYJĄTKÓW"), a test ma pilnować ZASADY,
+  // nie interpunkcji — dopasowanie co do znaku wywracało CI przy każdym
+  // doprecyzowaniu promptu, choć zachowanie agenta było poprawne.
+  assert.match(chat, /NUMER REJESTRACYJNY[^\n]{0,140}zapytaj RAZ/);
   assert.match(chat, /NIE powtarzaj go wstecz, NIE proś o potwierdzenie, NIE literuj/);
   assert.match(chat, /nie wracaj do tematu/);
   // Rejestracja domyka listę zbieranych danych.

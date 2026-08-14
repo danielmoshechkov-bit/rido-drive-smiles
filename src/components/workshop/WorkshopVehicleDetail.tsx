@@ -259,7 +259,6 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 <div className="space-y-2">
                   <Label>{t('workshop.orders.yearOfProduction')}</Label>
                   <Input onFocus={e => e.currentTarget.select()} type="number" value={form.year} onChange={e => set('year', e.target.value)} />
-                  onFocus={e => e.currentTarget.select()}
                 </div>
               </div>
 
@@ -268,7 +267,6 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                   <Label>{t('workshop.orders.capacity')}</Label>
                   <div className="flex items-center gap-2">
                     <Input onFocus={e => e.currentTarget.select()} type="number" value={form.engine_capacity_cm3} onChange={e => set('engine_capacity_cm3', e.target.value)} />
-                    onFocus={e => e.currentTarget.select()}
                     <span className="text-sm text-muted-foreground whitespace-nowrap">cm³</span>
                   </div>
                 </div>
@@ -276,7 +274,6 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                   <Label>{t('workshop.vehicles.enginePower')}</Label>
                   <div className="flex items-center gap-2">
                     <Input onFocus={e => e.currentTarget.select()} type="number" value={form.engine_power_kw} onChange={e => set('engine_power_kw', e.target.value)} />
-                    onFocus={e => e.currentTarget.select()}
                     <Badge variant="secondary">kW</Badge>
                   </div>
                 </div>

@@ -89,7 +89,6 @@ export function WorkshopOpEditDialog({ open, onOpenChange, op }: { open: boolean
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">{op?.label}</p>
           <div className="space-y-1.5"><Label>Kwota</Label><Input onFocus={e => e.currentTarget.select()} type="number" step="0.01" min="0" value={amount} onChange={e => setAmount(e.target.value)} className="text-right" /></div>
-          onFocus={e => e.currentTarget.select()}
           {hasMethod && (
             <div className="space-y-1.5"><Label>Forma</Label>
               <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>

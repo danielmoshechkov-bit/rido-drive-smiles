@@ -128,9 +128,7 @@ export function TaskTemplatesPage() {
             <div className="space-y-2"><Label>{t('workshop.settings.taskTemplates.descriptionLabel')}</Label><Textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={2} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label>{t('workshop.settings.taskTemplates.standardHoursLabel')}</Label><Input onFocus={e => e.currentTarget.select()} type="number" step="0.25" value={form.hours || ''} onChange={e => setForm(p => ({ ...p, hours: parseFloat(e.target.value) || 0 }))} /></div>
-              onFocus={e => e.currentTarget.select()}
               <div className="space-y-2"><Label>{t('workshop.settings.taskTemplates.netPriceLabel')}</Label><Input onFocus={e => e.currentTarget.select()} type="number" value={form.price || ''} onChange={e => setForm(p => ({ ...p, price: parseFloat(e.target.value) || 0 }))} /></div>
-              onFocus={e => e.currentTarget.select()}
             </div>
           </div>
           <DialogFooter>

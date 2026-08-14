@@ -677,7 +677,6 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
             <Label>{t('workshop.tireStorage.storageCost')}</Label>
             <div className="flex items-center gap-2">
               <Input onFocus={e => e.currentTarget.select()} type="number" value={storageCost} onChange={e => setStorageCost(e.target.value)} className="flex-1 h-9" />
-              onFocus={e => e.currentTarget.select()}
               <span className="text-sm text-muted-foreground">{t('workshop.tireStorage.plnNet')}</span>
             </div>
           </div>
@@ -757,7 +756,6 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
             <div className="space-y-1">
               <Label className="text-xs">{t('workshop.tireStorage.treadDepth')}</Label>
               <Input onFocus={e => e.currentTarget.select()} type="number" value={treadDepth} onChange={e => setTreadDepth(e.target.value)} placeholder="6.5" className="h-8" />
-              onFocus={e => e.currentTarget.select()}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t('workshop.tireStorage.rimType')}</Label>
@@ -770,7 +768,6 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
             <div className="space-y-1">
               <Label className="text-xs">{t('workshop.tireStorage.quantity')}</Label>
               <Input onFocus={e => e.currentTarget.select()} type="number" value={quantity} onChange={e => setQuantity(e.target.value)} className="h-8" />
-              onFocus={e => e.currentTarget.select()}
             </div>
           </div>
           <div className="mt-3 space-y-1">
@@ -814,7 +811,6 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
           <div className="flex items-center gap-2 mt-2">
             <Input onFocus={e => e.currentTarget.select()} value={newTaskName} onChange={e => setNewTaskName(e.target.value)} placeholder={t('workshop.tireStorage.taskNamePlaceholder')} className="flex-1 h-8" onKeyDown={e => e.key === 'Enter' && addTask()} />
             <Input onFocus={e => e.currentTarget.select()} type="number" value={newTaskPrice} onChange={e => setNewTaskPrice(e.target.value)} placeholder={t('workshop.tireStorage.pricePlaceholder')} className="w-24 h-8" onKeyDown={e => e.key === 'Enter' && addTask()} />
-            onFocus={e => e.currentTarget.select()}
             <Button variant="outline" size="sm" className="gap-1 h-8" onClick={addTask}>
               <Plus className="h-4 w-4" /> {t('workshop.tireStorage.add')}
             </Button>
