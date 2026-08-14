@@ -410,6 +410,79 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 📉 „NA POCZĄTKU BEŁKOTU NIE BYŁO" — SPRAWDZONE NA DANYCH. BYŁ.
+
+Wszystkie **69 nagrań** od najstarszego (23.07) do dzisiejszego przepuszczone
+przez `voice-audio-diagnose`. Zero błędów transkrypcji. Miernik: **odsetek słów
+agenta odczytanych z pewnością poniżej 0,60** — ten sam, który złapał
+„w czepiesie parszo-bazirę".
+
+Rozmowy poniżej 80 słów agenta odrzucone: przy piętnastu słowach jedno
+przekręcone daje 7%, co jest szumem, nie sygnałem.
+
+```
+okres                         rozmów   słów    <0,6   mediana        zakres
+PRZED FAZĄ 1A                     19   2760    4,9%      4,8%    1,1–14,4%
+PO 1A, PRZED SNAPSHOTEM           17   2247    4,9%      4,6%    2,0–11,3%
+PO SNAPSHOCIE (+5000 znaków)      10   1443    5,8%      6,0%    0,9–10,2%
+PO ZMIANACH TTS                    3    344    5,8%      4,5%    4,0–9,3%
+```
+
+**Skoku nie ma.** Od 23.07 do 14.08 wskaźnik idzie 4,9 → 4,9 → 5,8 → 5,8 —
+**+1,0 punktu procentowego przez trzy tygodnie**, przy zakresach, które się
+nakładają w każdym okresie. Żadna nasza zmiana nie zostawiła progu.
+
+**Druga rozmowa, jaką w ogóle mamy nagraną — 23.07, 21:34 — ma 22,2%**, czyli
+gorzej niż cokolwiek z ostatniego tygodnia. To było **przed** znacznikami RIDO,
+przed snapshotem, przed prompt cachingiem, przed RPC, przed zmianą głosu i modelu.
+
+Pięć najgorszych rozmów w całej historii:
+
+```
+06.08 14:29   40,0%   (8/20 słów — rozmowa 20-słowowa, szum)
+23.07 21:34   22,2%   (4/18 — druga rozmowa w historii projektu)
+06.08 14:33   20,0%   (3/15 — szum)
+05.08 02:04   14,4%   (17/118 — realna)
+06.08 14:30   12,9%   (4/31)
+```
+
+**Wniosek: usterka była od początku.** Nie wywołaliśmy jej ani nie nasilili.
+To, że wcześniej jej nie zauważaliśmy, ma prostsze wytłumaczenie: przez pierwsze
+dwa tygodnie słuchaliśmy TREŚCI — czy agent dobrze umawia, czy nie zmyśla godzin,
+czy nie mówi „Pan" do kobiety. Bełkotu zaczęliśmy szukać dopiero wtedy, gdy
+reszta przestała się psuć.
+
+**Praktycznie: zgłoszenie do ElevenLabs jest jedyną drogą.** Nie ma po naszej
+stronie zmiany do cofnięcia.
+
+⚠️ Zastrzeżenie do miernika: pewność ASR to przybliżenie, nie pomiar
+zniekształcenia. Wyłapuje też mowę nakładającą się i szum w tle. Wartość ma
+przy porównaniu okresów, nie jako liczba bezwzględna.
+
+## 📸 PIERWSZA TURA MA SNAPSHOT — SOBOTA WZIĘŁA SIĘ Z PRZEGLĄDARKI
+
+Sprawdzone w logach jedenastu rozmów telefonicznych: `voice-agent-init` odpala
+się **0,3–0,8 s od początku połączenia**, a `snapshot_znakow` w KAŻDYM żądaniu
+do llm — łącznie z pierwszym — wynosi 4949–5104.
+
+```
+14.08 12:29  m2eaasns   init +0,3 s   snapshot w turach: 5104 od pierwszej (10,0 s)
+13.08 21:59  78qkrx0a   init +0,7 s   snapshot 5069 wszędzie
+13.08 21:55  d1c2f9s7   init +0,4 s   snapshot 5069 wszędzie
+```
+
+**Pierwsza tura NIE leci bez snapshotu.** Hipoteza upada.
+
+Sobota wzięła się stąd, że rozmowa `7prs838h` była **w przeglądarce**, a tam
+`rido_snapshot` ma **zero znaków** — webhook inicjujący nie dostarcza zmiennych
+w kanale WebRTC. Agent nie miał kalendarza i zmyślił dzień. Potem powiedział
+„pracujemy od poniedziałku do piątku", bo godziny są w stałej części promptu,
+nie w snapshocie.
+
+**To jest artefakt testu w przeglądarce, nie błąd produkcyjny.** Ale warto
+zapamiętać: **Podgląd nie nadaje się do sprawdzania terminów i cennika** —
+tylko do oceny brzmienia.
+
 ## 🎙️ TRZECI ŚWIADEK: NASZA WŁASNA TRANSKRYPCJA NAGRAŃ
 
 Dotąd jedynym sędzią było ucho, a trzy moje pomiary akustyczne z rzędu mierzyły
