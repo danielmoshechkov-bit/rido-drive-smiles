@@ -410,6 +410,61 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🎯 TO NIE MODEL. TO NASZE POWITANIE. 50% → 0% BEZ ZMIANY CZEGOKOLWIEK U NICH.
+
+Pięć zdań po 20 syntez, model Turbo v2.5 (ten „zepsuty"), głos Kamil (ten gorszy):
+
+```
+1  powitanie (obecne)                          10/20 = 50%
+2  „Dobrze, wymiana klocków i tarcz…"            0/20 =  0%
+3  „Rozumiem, zajmiemy się tym — mechanik…"      1/20 =  5%
+4  „Dzień dobry, Warsztat. W czym mogę pomóc?"   0/20 =  0%
+5  „…rozmowa jest nagrywana — w czym…"           4/20 = 20%
+```
+
+**Wada siedzi w JEDNYM zdaniu — naszym powitaniu.** Normalne wypowiedzi agenta
+o usłudze i terminie są czyste. Skrócenie powitania daje **0/20**.
+`10/20 wobec 0/20 → p = 0,0002`.
+
+### ⚠️ TO OSŁABIA MOJĄ WCZEŚNIEJSZĄ REKOMENDACJĘ MODELU
+
+Napisałem „`eleven_v3` — rozwiązanie, 0% wadliwych" i to było **przedwczesne**.
+Ramię kontrolne na trzech różnych zdaniach dało `Turbo 5/30`, `Flash 8/30`,
+a nie 53% — bo tamte 8/15 pochodziło **wyłącznie ze zdania powitalnego**.
+
+```
+multilingual_v2 (0/30) wobec Turbo (5/30):   p = 0,052
+v3              (0/30) wobec Turbo (5/30):   p = 0,052
+```
+
+**Ledwo poza progiem istotności.** Przewaga v3 i Multilingual wygląda prawdziwie,
+ale na tej próbie nie jest dowiedziona — a ja ogłosiłem ją jako rozwiązanie.
+Czwarty raz dziś ta sama klasa błędu: **wniosek szerszy niż pomiar**.
+
+### 📌 KOLEJNOŚĆ DZIAŁAŃ — ODWRÓCONA
+
+```
+1. przeredagować powitanie      50% -> 0%    p = 0,0002   ZA DARMO, dziś
+2. wrócić na głos Eric          45% -> 15%   p = 0,007    za darmo
+3. zmienić model na v3           17% ->  0%   p = 0,052    kosztuje ~145 ms
+```
+
+**Punkty 1 i 2 nic nie kosztują i mają mocniejszy dowód niż punkt 3.**
+Model zostawiamy na koniec — jeśli po dwóch pierwszych zmianach bełkot zniknie
+z rozmów, nie płacimy 145 ms za nic.
+
+### ⚖️ ALE WARIANT 4 JEST BEZUŻYTECZNY — WYCINA OBOWIĄZEK RODO
+
+`„Dzień dobry, Warsztat. W czym mogę pomóc?"` jest czyste, ale **nie informuje
+o nagrywaniu**. To obowiązek prawny, nie ozdobnik — nie wolno go usunąć, żeby
+poprawić statystykę syntezy.
+
+Wariant 5 (`„rozmowa jest nagrywana"`) obniża z 50% do 20%, ale nie do zera —
+więc samo słowo „rejestrowana" też nie jest całą przyczyną.
+
+Trwa test czterech wariantów, które **zachowują informację o nagrywaniu**
+i rozbijają ją na krótsze człony.
+
 ## ✅ POTWIERDZONE NA 30 PRÓBKACH: `v3` I `multilingual_v2` — ZERO WTRĘTÓW
 
 Trzy różne polskie zdania **bez liczb i dat** × 10 syntez = 30 na model.
