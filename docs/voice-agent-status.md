@@ -410,6 +410,46 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## ✅ MAMY POWITANIE, KTÓRE JEST CZYSTE I ZACHOWUJE OBOWIĄZEK RODO
+
+20 syntez na wariant, model Turbo v2.5 (ten „zepsuty"), głos Kamil (ten gorszy):
+
+```
+0  obecne: „…Warsztat, rozmowa rejestrowana — w czym mogę pomóc?"      9/20 = 45%
+A  „Dzień dobry, Warsztat. Rozmowa jest nagrywana. W czym mogę pomóc?" 0/20 =  0%
+B  „Dzień dobry, Warsztat. Nagrywamy rozmowy. W czym mogę pomóc?"      0/20 =  0%
+C  „Dzień dobry. Warsztat, rozmowa nagrywana. W czym mogę pomóc?"      1/20 =  5%
+D  „Dzień dobry, tu Warsztat. Rozmowa jest nagrywana. Jak mogę pomóc?" 0/20 =  0%
+```
+
+**Trzy warianty czyste w 20/20, wszystkie zachowują informację o nagrywaniu.**
+
+```
+obecne (9/20) wobec A (0/20):                        p = 0,0012
+łączna kontrola z dwóch przebiegów (19/40) wobec A:  p = 0,00008
+```
+
+**Rekomendacja: wariant A** — najbliższy obecnemu brzmieniu, zachowuje nazwę firmy
+w tym samym miejscu i używa standardowego sformułowania „rozmowa jest nagrywana".
+Różnica wobec dzisiejszego to **rozbicie jednego zdania na trzy** i zamiana
+imiesłowu „rejestrowana" na „jest nagrywana".
+
+### 🔗 UWAGA: POWITANIE JEST W DWÓCH MIEJSCACH I MUSZĄ SIĘ ZGADZAĆ
+
+`voice-agent-chat/index.ts` cytuje je **dosłownie** w regule powitania:
+
+```
+- Rozmówca usłyszał już z systemu telefonicznego DOKŁADNIE TO:
+  "Dzień dobry, ${firmName}, rozmowa rejestrowana — w czym mogę pomóc?".
+  Tego zdania nie ma w Twoim kontekście, ale ono PADŁO. Nie witaj się drugi raz…
+```
+
+**Zmiana `first_message` bez zmiany tej linii rozjeżdża prompt z rzeczywistością** —
+model dostałby informację, że padło inne zdanie, niż faktycznie padło. To dokładnie
+ta klasa cichego rozjazdu, którą już raz mieliśmy przy `voice_commit_call`.
+
+Obie zmiany idą razem albo żadna.
+
 ## 🎯 TO NIE MODEL. TO NASZE POWITANIE. 50% → 0% BEZ ZMIANY CZEGOKOLWIEK U NICH.
 
 Pięć zdań po 20 syntez, model Turbo v2.5 (ten „zepsuty"), głos Kamil (ten gorszy):
