@@ -410,6 +410,47 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🎛️ `similarity_boost` — OSTATNI NIERUSZONY PARAMETR. NIE JEST PRZYCZYNĄ.
+
+Zmierzone, zanim cokolwiek zmieniłem. Głos Kamil (klon z biblioteki),
+Turbo v2.5, `stability 0.5`. Wtręt = słowo, którego nie ma w tekście.
+
+```
+similarity_boost   wadliwych   wtrętów    przykłady
+  0,8                 6/10        12      „auchae", „jaciam"
+  0,75                4/10         7      „o się nazywana", „szata"
+  0,7                 7/10        14      „bohoo włodasza", „to go"
+  0,6                 3/10         5      „szanstadaś", „tata"
+  0,5                 3/10         3      „kasiu", „sata"
+```
+
+Wygląda na spadek — więc sprawdziłem to na większej próbie, tylko skrajne wartości:
+
+```
+  0,8   14/25 = 56%
+  0,6    9/25 = 36%
+  test dokładny Fishera: p = 0,256   ->  RÓŻNICA NIEISTOTNA
+```
+
+**Przy pięćdziesięciu próbkach różnica nadal mieści się w szumie.** Kierunek jest
+zgodny z poradą (niżej = odrobinę lepiej), ale danych na to nie ma.
+**`similarity_boost` nie jest przyczyną.** Ostatni nietknięty parametr syntezy
+właśnie odpadł.
+
+Ustawione mimo to na **0,6** — nie jako naprawa, tylko dlatego, że jest
+w zalecanym zakresie i w pomiarze wypadło nie gorzej. Kopia poprzedniej
+konfiguracji w `backups/elevenlabs-agent-przed-similarity.json`.
+
+⚠️ **Wartość 0,7, o którą prosiłeś, wypadła w pomiarze NAJGORZEJ (7/10).**
+Nie ustawiłem jej z tego powodu. Jeśli wolisz mimo wszystko 0,7 — mów, zmieniam
+w sekundę; przy p = 0,26 ta różnica i tak nic nie znaczy.
+
+📌 **I sprostowanie do przesłanki Twojej wiadomości:** napisałeś, że „20 czystych
+próbek przez API wyklucza model i głos". Te próbki **nie były czyste** — 12 z 20
+miało wtręty; odwołałem to zdanie w poprzedniej turze. To akurat **wzmacnia**
+sens tego testu: skoro goły TTS API psuje, to parametry syntezy były właściwym
+miejscem do sprawdzenia. Sprawdzone. Odpadły.
+
 ## 🔴 ZNALEZIONE: WTRĘTY POWSTAJĄ W SAMEJ SYNTEZIE, PRZY JEDNYM ZAPYTANIU HTTP
 
 **I muszę odwołać własne twierdzenie, które trafiło do wysłanego zgłoszenia.**
