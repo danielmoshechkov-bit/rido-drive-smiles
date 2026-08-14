@@ -410,6 +410,573 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🎛️ `similarity_boost` — OSTATNI NIERUSZONY PARAMETR. NIE JEST PRZYCZYNĄ.
+
+Zmierzone, zanim cokolwiek zmieniłem. Głos Kamil (klon z biblioteki),
+Turbo v2.5, `stability 0.5`. Wtręt = słowo, którego nie ma w tekście.
+
+```
+similarity_boost   wadliwych   wtrętów    przykłady
+  0,8                 6/10        12      „auchae", „jaciam"
+  0,75                4/10         7      „o się nazywana", „szata"
+  0,7                 7/10        14      „bohoo włodasza", „to go"
+  0,6                 3/10         5      „szanstadaś", „tata"
+  0,5                 3/10         3      „kasiu", „sata"
+```
+
+Wygląda na spadek — więc sprawdziłem to na większej próbie, tylko skrajne wartości:
+
+```
+  0,8   14/25 = 56%
+  0,6    9/25 = 36%
+  test dokładny Fishera: p = 0,256   ->  RÓŻNICA NIEISTOTNA
+```
+
+**Przy pięćdziesięciu próbkach różnica nadal mieści się w szumie.** Kierunek jest
+zgodny z poradą (niżej = odrobinę lepiej), ale danych na to nie ma.
+**`similarity_boost` nie jest przyczyną.** Ostatni nietknięty parametr syntezy
+właśnie odpadł.
+
+Ustawione mimo to na **0,6** — nie jako naprawa, tylko dlatego, że jest
+w zalecanym zakresie i w pomiarze wypadło nie gorzej. Kopia poprzedniej
+konfiguracji w `backups/elevenlabs-agent-przed-similarity.json`.
+
+⚠️ **Wartość 0,7, o którą prosiłeś, wypadła w pomiarze NAJGORZEJ (7/10).**
+Nie ustawiłem jej z tego powodu. Jeśli wolisz mimo wszystko 0,7 — mów, zmieniam
+w sekundę; przy p = 0,26 ta różnica i tak nic nie znaczy.
+
+📌 **I sprostowanie do przesłanki Twojej wiadomości:** napisałeś, że „20 czystych
+próbek przez API wyklucza model i głos". Te próbki **nie były czyste** — 12 z 20
+miało wtręty; odwołałem to zdanie w poprzedniej turze. To akurat **wzmacnia**
+sens tego testu: skoro goły TTS API psuje, to parametry syntezy były właściwym
+miejscem do sprawdzenia. Sprawdzone. Odpadły.
+
+## 🔴 ZNALEZIONE: WTRĘTY POWSTAJĄ W SAMEJ SYNTEZIE, PRZY JEDNYM ZAPYTANIU HTTP
+
+**I muszę odwołać własne twierdzenie, które trafiło do wysłanego zgłoszenia.**
+
+Napisałem tam: *„ta sama synteza przez ich TTS API jest czysta 20 razy na 20"*.
+**Nieprawda.** Wtedy zmierzyłem tylko DŁUGOŚĆ tych dwudziestu próbek, nigdy ich
+nie przeczytałem. Teraz przepuściłem je przez naszą transkrypcję:
+
+```
+próbek: 20     z obcymi słowami: 12     = 60%
+```
+
+Przykłady — słowa, których NIE MA w tekście wejściowym:
+
+```
+…rozmowa rejestrowana  ściamake             w czym mogę pomóc
+…rozmowa rejestrowana  krystyna             w czym mogę pomóc
+…rozmowa rejestrowana  freetonoka weź       w czym mogę pomóc
+…rozmowa rejestrowana  czemotema coa        w czym mogę pomóc
+…rozmowa rejestrowana  wśród tata marszla   w czym mogę pomóc
+…rozmowa rejestrowana  fanem tomaszem toma to już jest to możliwe  w czym mogę pomóc
+```
+
+**Wtręt ZAWSZE ląduje w tym samym miejscu — w pauzie w środku zdania.**
+Model dosypuje zmyśloną mowę w ciszę.
+
+### To upraszcza wszystko: nie trzeba ani telefonii, ani platformy Agents
+
+```
+długie zdanie z pauzą w środku, polski     4/6 wadliwych
+to samo zdanie, inny głos (Eric)           1/6
+to samo zdanie PO ANGIELSKU                3/6
+krótkie zdanie bez pauzy                   0/6
+średnie zdanie bez pauzy                   0/6
+```
+
+`„Poproszę numer rejestracyjny."` — 0/6. `„Poproszę imię oraz markę i model auta."` — 0/6.
+
+**Nie jest to problem polskiego** (angielski też), **nie jest to problem głosu**
+(dwa niezależne), **nie jest to problem platformy Agents** (goły TTS API).
+Wiąże się z dłuższą wypowiedzią zawierającą pauzę.
+
+Znak w miejscu pauzy nie ma znaczenia — myślnik, przecinek, kropka i dywiz ASCII
+dają podobny odsetek. Hipoteza o „znakach nietekstowych" z ich dokumentacji
+sprawdzona i odrzucona.
+
+### Konsekwencja dla nas — natychmiastowa i tania
+
+Nasz agent mówi **głównie długimi, wieloczłonowymi zdaniami z pauzami**, bo tak
+go nauczyliśmy: „Dobrze, wymiana klocków — kiedy byłoby wygodnie przyjechać?".
+Krótkie zdania są czyste w 0/6. **Rozbicie wypowiedzi na krótkie zdania jest
+obejściem, które możemy wdrożyć sami, dziś, bez czekania na kogokolwiek.**
+
+To nie jest naprawa — usterka zostaje po ich stronie. Ale zmniejsza ekspozycję
+w miejscu, w którym najbardziej boli.
+
+⚠️ Uczciwie o granicach tego pomiaru: „krótkie" i „średnie" zdania są też
+KRÓTSZE, więc nie umiem rozdzielić długości od pauzy. Do obejścia to wystarcza
+— obie drogi prowadzą do tego samego: mów krócej.
+
+### Skąd wzięła się moja pomyłka
+
+Zmierzyłem długość i rozrzut, bo brzmienia nie umiem zmierzyć. Potem napisałem
+wniosek o CZYSTOŚCI, którego ten pomiar nie uprawniał. To ta sama klasa błędu co
+detektor sybilantów i „turbo-04 jest wadliwy" — **mierzę, co umiem, a wniosek
+wyciągam o tym, co mnie interesuje.** Trzeci raz. Odtąd każde twierdzenie
+o brzmieniu przechodzi przez transkrypcję albo nie pada.
+
+## 📉 „NA POCZĄTKU BEŁKOTU NIE BYŁO" — SPRAWDZONE NA DANYCH. BYŁ.
+
+Wszystkie **69 nagrań** od najstarszego (23.07) do dzisiejszego przepuszczone
+przez `voice-audio-diagnose`. Zero błędów transkrypcji. Miernik: **odsetek słów
+agenta odczytanych z pewnością poniżej 0,60** — ten sam, który złapał
+„w czepiesie parszo-bazirę".
+
+Rozmowy poniżej 80 słów agenta odrzucone: przy piętnastu słowach jedno
+przekręcone daje 7%, co jest szumem, nie sygnałem.
+
+```
+okres                         rozmów   słów    <0,6   mediana        zakres
+PRZED FAZĄ 1A                     19   2760    4,9%      4,8%    1,1–14,4%
+PO 1A, PRZED SNAPSHOTEM           17   2247    4,9%      4,6%    2,0–11,3%
+PO SNAPSHOCIE (+5000 znaków)      10   1443    5,8%      6,0%    0,9–10,2%
+PO ZMIANACH TTS                    3    344    5,8%      4,5%    4,0–9,3%
+```
+
+**Skoku nie ma.** Od 23.07 do 14.08 wskaźnik idzie 4,9 → 4,9 → 5,8 → 5,8 —
+**+1,0 punktu procentowego przez trzy tygodnie**, przy zakresach, które się
+nakładają w każdym okresie. Żadna nasza zmiana nie zostawiła progu.
+
+**Druga rozmowa, jaką w ogóle mamy nagraną — 23.07, 21:34 — ma 22,2%**, czyli
+gorzej niż cokolwiek z ostatniego tygodnia. To było **przed** znacznikami RIDO,
+przed snapshotem, przed prompt cachingiem, przed RPC, przed zmianą głosu i modelu.
+
+Pięć najgorszych rozmów w całej historii:
+
+```
+06.08 14:29   40,0%   (8/20 słów — rozmowa 20-słowowa, szum)
+23.07 21:34   22,2%   (4/18 — druga rozmowa w historii projektu)
+06.08 14:33   20,0%   (3/15 — szum)
+05.08 02:04   14,4%   (17/118 — realna)
+06.08 14:30   12,9%   (4/31)
+```
+
+**Wniosek: usterka była od początku.** Nie wywołaliśmy jej ani nie nasilili.
+To, że wcześniej jej nie zauważaliśmy, ma prostsze wytłumaczenie: przez pierwsze
+dwa tygodnie słuchaliśmy TREŚCI — czy agent dobrze umawia, czy nie zmyśla godzin,
+czy nie mówi „Pan" do kobiety. Bełkotu zaczęliśmy szukać dopiero wtedy, gdy
+reszta przestała się psuć.
+
+**Praktycznie: zgłoszenie do ElevenLabs jest jedyną drogą.** Nie ma po naszej
+stronie zmiany do cofnięcia.
+
+⚠️ Zastrzeżenie do miernika: pewność ASR to przybliżenie, nie pomiar
+zniekształcenia. Wyłapuje też mowę nakładającą się i szum w tle. Wartość ma
+przy porównaniu okresów, nie jako liczba bezwzględna.
+
+## 📸 PIERWSZA TURA MA SNAPSHOT — SOBOTA WZIĘŁA SIĘ Z PRZEGLĄDARKI
+
+Sprawdzone w logach jedenastu rozmów telefonicznych: `voice-agent-init` odpala
+się **0,3–0,8 s od początku połączenia**, a `snapshot_znakow` w KAŻDYM żądaniu
+do llm — łącznie z pierwszym — wynosi 4949–5104.
+
+```
+14.08 12:29  m2eaasns   init +0,3 s   snapshot w turach: 5104 od pierwszej (10,0 s)
+13.08 21:59  78qkrx0a   init +0,7 s   snapshot 5069 wszędzie
+13.08 21:55  d1c2f9s7   init +0,4 s   snapshot 5069 wszędzie
+```
+
+**Pierwsza tura NIE leci bez snapshotu.** Hipoteza upada.
+
+Sobota wzięła się stąd, że rozmowa `7prs838h` była **w przeglądarce**, a tam
+`rido_snapshot` ma **zero znaków** — webhook inicjujący nie dostarcza zmiennych
+w kanale WebRTC. Agent nie miał kalendarza i zmyślił dzień. Potem powiedział
+„pracujemy od poniedziałku do piątku", bo godziny są w stałej części promptu,
+nie w snapshocie.
+
+**To jest artefakt testu w przeglądarce, nie błąd produkcyjny.** Ale warto
+zapamiętać: **Podgląd nie nadaje się do sprawdzania terminów i cennika** —
+tylko do oceny brzmienia.
+
+## 🎙️ TRZECI ŚWIADEK: NASZA WŁASNA TRANSKRYPCJA NAGRAŃ
+
+Dotąd jedynym sędzią było ucho, a trzy moje pomiary akustyczne z rzędu mierzyły
+co innego, niż zakładałem. Teraz mamy niezależnego świadka: **nagranie rozmowy
+przepuszczone przez nasz własny silnik transkrypcji** (`deepgram-transcribe`,
+nova-2, polski) — ten sam, którym transkrybujemy spotkania.
+
+Narzędzie: `supabase/functions/voice-audio-diagnose`. Klucze ElevenLabs
+i silnika czytane po stronie serwera z magazynu sekretów — nie przechodzą przez
+moje ręce, nie ma ich w żadnym pliku.
+
+### ⚠️ PIERWSZE PODEJŚCIE BYŁO ZAŚMIECONE — i tak by wyglądał fałszywy dowód
+
+Porównanie tekstów dało 26 „rozjazdów" na 66 tur. Prawie wszystkie były
+**różnicą zapisu, nie brzmienia**:
+
+```
+wygenerowane: „Wtorek, osiemnastego sierpnia — o szesnastej czy o siedemnastej?"
+odczytane   : „Wtorek 18 sierpnia? O szesnaście:zero czy o siedemnaście:zero?"
+```
+
+To ten sam dźwięk zapisany inaczej. Dodałem tryb `surowy` (`numerals=false`,
+`smart_format=false`) i **przestałem używać podobieństwa tekstów jako miernika** —
+myli się dokładnie tam, gdzie nasz agent mówi najwięcej: przy datach, godzinach
+i tablicach.
+
+**Właściwy miernik to PEWNOŚĆ ODCZYTU słowo po słowie.** Zniekształcony fragment
+wygląda tak: dwa–trzy słowa z niską pewnością, otoczone słowami odczytanymi pewnie.
+
+### ✅ ZNALEZIONE: 41 s w rozmowie „co to jest CTM"
+
+```
+wygenerowane:  Dobrze, notuję. Poproszę numer rejestracyjny.
+
+odczytane z dźwięku, słowo po słowie:
+   41,95–42,27   0,91   dobrze
+   42,27–42,35   0,94   no
+   42,35–42,67   0,49   tu          ⚠
+   42,67–42,99   0,43   em          ⚠
+   42,99–43,49   0,50   no          ⚠
+   43,55–44,05   0,50   sczytuje    ⚠
+   44,35–44,67   0,99   poproszę
+   44,67–44,99   0,93   numer
+   44,99–45,49   0,99   rejestracyjny
+```
+
+**Jedno słowo — „notuję" — zostało odczytane jako cztery bełkotliwe tokeny
+z pewnością 0,43–0,50, a słowa tuż przed i tuż po mają 0,91–0,99.**
+
+To nie jest „Daniel słyszy dziwnie". Maszyna, która nie wie, czego szuka,
+odczytała z tego dźwięku co innego, niż zostało wygenerowane. **I to jest
+w NAGRANIU** — czyli powstało przed punktem, w którym ElevenLabs je zapisuje.
+
+### ❗ ALE MOMENT Z 14.08 („samochodem temtemmte") W NAGRANIU JEST CZYSTY
+
+```
+wygenerowane:  W czym mogę pomóc? Jaki problem z samochodem?
+
+   14,08–14,32   0,99   w
+   14,32–14,48   1,00   czym
+   14,48–14,72   1,00   mogę
+   14,72–15,22   0,98   pomóc
+   15,45–15,68   0,99   jaki
+   15,68–15,93   0,99   problem
+   15,93–16,24   0,97   z
+   16,24–16,52   0,96   samochodem      <- czyste
+```
+
+Słowo, które usłyszałeś jako „samochodem temtemmte", **w nagraniu odczytuje się
+z pewnością 0,96.** Zniekształcenia tam NIE MA.
+
+### Co z tego wynika — dwa różne miejsca, nie jedno
+
+```
+41 s (13.08)      zniekształcenie JEST w nagraniu   -> powstaje PRZED zapisem
+16 s (14.08)      nagranie CZYSTE, słyszalny bełkot -> powstaje PO zapisie
+```
+
+**To nie jest jedna usterka.** Albo działają dwie niezależne rzeczy, albo
+ElevenLabs zapisuje nagranie w punkcie, przez który część zniekształceń już
+przeszła, a część jeszcze nie. Tak czy inaczej: **„czyste nagranie" nie dowodzi,
+że rozmówca usłyszał czysto — i odwrotnie.**
+
+### Tło statystyczne
+
+```
+słów agenta przeanalizowanych:       880
+mediana pewności odczytu:           0,97
+słów z pewnością < 0,60:              60  = 6,8%
+zapaści wewnątrz mowy agenta:          5  (z tego 4 to nachodzący głos klienta,
+                                          1 realna — ta z 41 s)
+```
+
+Mediana 0,97 mówi, że nagrania są w większości bardzo czyste. Usterka jest
+rzadka i punktowa — zgodne z tym, co słychać.
+
+## 🧱 LISTA WYKLUCZEŃ ZAMKNIĘTA — zostało tylko to, do czego nie mamy dostępu
+
+Po zmianie kodeka na PCMA/PCMU i modelu na Turbo v2.5: **objaw został.**
+14.08, sekunda 16–17: „samochodem temtemmte".
+
+`turbo-04.mp3` odsłuchane — **czyste**. Dłuższa próbka jest po prostu wolniejsza,
+nie zepsuta. **Synteza odpada**, a mój pomiar długości okazał się miernikiem
+tempa, nie usterki. Trzeci raz z rzędu pomiar akustyczny nie potwierdził tego,
+co wyglądało na trafienie.
+
+```
+✗ nasz kod, prompt, snapshot     objaw dotyka statycznego first_message
+✗ znaki spoza tekstu             0 na 630 wypowiedzi
+✗ długość wypowiedzi             mediana 71 znaków
+✗ optimize_streaming_latency     +0,4 ms — parametr martwy
+✗ enable_phoneme_tags            false, objaw został
+✗ głos                           Eric (ang.) i Kamil (pol.) — to samo
+✗ model syntezy                  Flash v2.5 i Turbo v2.5 — to samo
+✗ duplikaty żądań                26% wobec 31% — brak korelacji
+✗ synteza sama w sobie           20 próbek przez API, wszystkie czyste
+✗ kodek                          G.722 usunięty z trunku, PCMA/PCMU — to samo
+✗ straty u operatora             SuperVoIP: 133 ms, ZERO strat
+✗ łącze i operator dzwoniącego   wiele numerów, sieci komórkowe i stacjonarny
+```
+
+**Zostały dwie rzeczy, obie w infrastrukturze ElevenLabs:**
+trasa RTP przez USA oraz ich warstwa SIP / brama medialna.
+
+### Czy da się przełączyć na EU bez ich zgody — ODCZYT KONFIGURACJI
+
+W `/v1/convai/phone-numbers/{id}` **nie ma żadnego pola o regionie.** Pełna lista:
+
+```
+phone_number, label, supports_inbound, supports_outbound, phone_number_id,
+assigned_agent{…}, provider, provider_config (null), outbound_trunk (null),
+inbound_trunk{allowed_addresses, allowed_numbers, media_encryption,
+has_auth_credentials, username, remote_domains}, livekit_stack ("standard"),
+store_sip_messages
+```
+
+Po stronie ElevenLabs **nie da się.** Zostaje jedna droga do spróbowania
+samodzielnie — opisana niżej, razem z ryzykiem.
+
+### 🎯 CO MOŻEMY SPRÓBOWAĆ SAMI: przepiąć trunk na host EU
+
+O tym, dokąd trafia połączenie, decyduje **adres docelowy w konfiguracji trunku
+u SuperVoIP** — czyli coś, co ustawiamy my, nie oni. Dziś jest tam
+`sip.rtc.elevenlabs.io`. Oba hosty odpowiadają na TCP 5061:
+
+```
+sip.rtc.elevenlabs.io                       136.112.48.140   144 ms   TLS 5061 otwarty
+sip-static.rtc.eu.residency.elevenlabs.io   199.88.252.50     35 ms   TLS 5061 otwarty
+```
+
+⚠️ **RYZYKO, które trzeba przyjąć świadomie:** `sip-static` jest w dokumentacji
+powiązany ze statycznymi adresami IP i rezydencją danych, czyli prawdopodobnie
+z wyższym planem. **ElevenLabs może odrzucić `INVITE` dla numeru, który nie jest
+przypisany do tego regionu — i wtedy numer przestanie odbierać połączenia,
+dopóki nie cofniemy zmiany.** Cofnięcie trwa tyle samo co zmiana, ~20 minut.
+
+To decyzja biznesowa, nie techniczna: kwadrans potencjalnej niedostępności
+numeru w zamian za rozstrzygnięcie hipotezy, na którą inaczej czekamy dni.
+**Nie robię tego bez wyraźnej zgody.**
+
+## 📩 ODPOWIEDŹ SUPERVOIP — częściowe wykluczenie strat pakietów
+
+**Kodek: możemy ograniczyć sami.** Wirtualna Centrala → Stanowiska → 1291084,
+zmiana wchodzi w 20 minut. Zostają PCMA + PCMU, znikają G.722 i AMR-WB.
+Nie potrzeba ich zgody ani zgłoszenia — to nasze ustawienie.
+
+**Trasa: nie widzą strat.** Cytat: *„nie mamy wpływu na trasę, ale jest ona dobra
+jak na Atlantyk — mamy od nas 133 ms do 34.45.0.205 i NIE MAMY DO TEGO ADRESU
+ŻADNYCH STRAT."*
+
+To **osłabia hipotezę o stratach pakietów**, ale jej nie zabija. Trzy możliwości:
+
+```
+a) straty są dalej, już w sieci ElevenLabs (ich odcinek, nie widzą go ani oni, ani my)
+b) problem nie jest w transporcie w ogóle
+c) straty są sporadyczne i nie widać ich w uśrednionych metrykach operatora
+```
+
+Ich 133 ms zgadza się z naszymi 146 ms z Warszawy — trasa jest zmierzona z dwóch
+niezależnych punktów i to nie jest wąskie gardło ani anomalia.
+
+**Zapisane jako częściowe wykluczenie: operator nie widzi strat na swoim odcinku
+do serwera mediów.**
+
+## 🔬 DWADZIEŚCIA SYNTEZ POWITANIA — jedna na dwadzieścia jest wadliwa
+
+To samo zdanie, ten sam głos (Kamil), te same ustawienia, **bez telefonii**.
+Dziesięć na Flash v2.5 i dziesięć na Turbo v2.5.
+
+```
+Flash v2.5    mediana 3,76 s   rozrzut 3,39–3,99 s  = 16%
+Turbo v2.5    mediana 3,85 s   rozrzut 3,34–5,57 s  = 58%
+```
+
+**Odstająca próbka: `turbo-04` — 5,57 s przy medianie 3,85 s (+45%), z ciszą
+1,18 s w środku zdania.** Pozostałe dziewiętnaście mieszczą się w 3,3–4,3 s.
+
+To jest kandydat na dokładnie ten defekt, o który chodzi: **jedna na dwadzieścia
+syntez tego samego zdania jest wyraźnie inna, a telefonii przy tym nie było.**
+Częstość ~5% zgadza się z tym, jak często słychać bełkot w rozmowach.
+
+**Do odsłuchania w pierwszej kolejności: `~/Desktop/powitanie-20/turbo-04.mp3`.**
+Jeśli tam słychać „theeee" albo mamrotanie — sprawa rozstrzygnięta i to NIE jest
+transport, tylko synteza. Wszystkie dwadzieścia próbek są w tym katalogu.
+
+⚠️ Zastrzeżenie: 1 na 20 to nie jest pomiar częstości, tylko sygnał. I mierzę
+długość oraz ciszę, nie brzmienie — o tym, czy próbka faktycznie jest zepsuta,
+rozstrzyga ucho, nie mój skrypt.
+
+## ⏱️ LATENCJA — ROZBIÓR NA CZĘŚCI, POMIAR Z OSTATNICH 24 h
+
+Wszystkie liczby z `stage_timing` prawdziwych rozmów, nie z syntetycznych prób.
+
+```
+etap                     n   mediana     p90     maks
+────────────────────────────────────────────────────────
+llm.total              117    1549 ms   3459    6893
+chat.total             131    1240 ms   3279    6564
+chat.model_round       149    1159 ms   1943    4503
+chat.tool               18     983 ms   1723    2178
+chat.first_text        123     769 ms   2161    4222
+llm.config             135     154 ms    341   17370   ⚠
+llm.chat_headers       135     120 ms    280    5800
+chat.prompt_ready      136      10 ms     13     357
+chat.prepare           136       9 ms     11     355
+llm.auth               135       0 ms      1       1
+```
+
+### Odpowiedzi na trzy pytania
+
+**1. Hop llm → chat = 111 ms.** `chat_headers` to 120 ms, ale zawiera własne
+`prepare` chatu (9 ms), bo nagłówki lecą dopiero po nim. Zostaje **111 ms czystego
+przeskoku** — powyżej progu 100 ms, więc FAZA B się kwalifikuje. Ale ledwo.
+
+**2. `config` w llm NIE zszedł do zera. To 154 ms — WIĘCEJ niż hop.**
+I to jest ważniejsze znalezisko niż sam hop.
+
+**3. `model_round` 1159 ms** — ale to cała runda z narzędziami. Do pierwszego
+tokenu jest `first_text` = **769 ms**. To sufit Haiku i tego nie ruszamy.
+
+### 🔴 154 ms NA `config` TO NIE ZAPYTANIE, TYLKO PODRÓŻ
+
+`EXPLAIN ANALYZE` na `get_voice_context`, pięć przebiegów pod rząd:
+
+```
+planowanie 0,03 ms    wykonanie 3,48 / 3,35 / 3,54 / 3,46 / 3,47 ms
+```
+
+**Zapytanie trwa 3,5 ms. Etap mierzy 154 ms.** Czyli **150 ms to jeden round-trip
+HTTP z izolatu do PostgREST** — nawiązanie połączenia, TLS, serializacja. Tabele
+są malutkie (1, 4, 13 i 84 wiersze) i mają indeksy. **Dokładanie indeksów nic nie da.**
+
+Wniosek: jedyny sposób na te 150 ms to **nie wykonywać tego wywołania w ścieżce tury.**
+
+### Rachunek: ile realnie zostało do wyciśnięcia
+
+```
+do pierwszego tekstu       ≈ 154 (config) + 111 (hop) + 769 (model)  ≈ 1034 ms
+minus FAZA B (scalenie)                            −111 ms  ->  923 ms
+minus round-trip po kontekst                       −154 ms  ->  769 ms
+```
+
+**Obie zmiany razem lądują w celu 600–800 ms.** Sama FAZA B nie wystarczy.
+
+⚠️ Turbo v2.5 dokłada 46 ms, ale **po stronie TTS**, czyli za `first_text`.
+Jeśli miernik 940 ms liczy tylko naszą stronę — nie wchodzi do tego rachunku.
+Jeśli liczy do pierwszego dźwięku — wchodzi i wynik to 815 ms.
+**Trzeba ustalić, co dokładnie mierzy te 940 ms, zanim ogłosimy sukces.**
+
+### ⚠️ `config` p90 = 341 ms, maks = 17 370 ms
+
+Jedna tura czekała **siedemnaście sekund** na odczyt kontekstu. To nie jest
+mediana, ale to się zdarzyło i rozmówca to usłyszał jako martwą ciszę.
+Kolejny argument, żeby tego wywołania nie było w ścieżce tury.
+
+### REKOMENDACJA — odwrotna kolejność niż zakładaliśmy
+
+**Najpierw zabić round-trip po kontekst (154 ms), potem FAZA B (111 ms).**
+Wygrywa więcej i jest tańsze w robocie.
+
+Trzy drogi, w kolejności od najtańszej:
+
+**a) Cache w pamięci izolatu.** Komentarz w kodzie mówi, że w 05.08 dał ZERO
+trafień na 42 odczyty — ale to było **przed keep-warm**. Czy izolaty są dziś
+używane wielokrotnie, **nie udało mi się zmierzyć**: zapytanie o `execution_id`
+przez `unnest(metadata)` zwraca „Backend error! Retry" i 429. Najtańsze
+rozstrzygnięcie: dołożyć licznik w module i logować trafienia/pudła, wdrożyć,
+zmierzyć na prawdziwych rozmowach. Jeśli izolaty są ponownie używane — 150 ms
+znika za darmo.
+
+**b) Przekazać kontekst z webhooka inicjującego**, tak jak snapshot. Działa na
+pewno, ale kontekst zawiera `system_prompt` — poleciałby w każdą turę w payloadzie
+od ElevenLabs. Trzeba zmierzyć, ile to dokłada, zanim się na to zdecydujemy.
+
+**c) FAZA B nie rozwiązuje tego problemu** — po scaleniu odczyt nadal będzie,
+tylko w jednej funkcji zamiast dwóch.
+
+### 🐛 BŁĄD W MOIM WŁASNYM NARZĘDZIU (znaleziony przy okazji)
+
+Skrypt do logów miał `.get("result") or []` — czyli **błąd backendu i throttling
+zamieniał w pusty zbiór**. Trzy razy zaraportowałbym „0 wierszy" jako fakt, a to
+były „Backend error! Retry your query" i HTTP 429. Zasada 12 („pusty zbiór to
+porażka") złamana w narzędziu, które ją egzekwuje. Poprawione: ponawianie
+z narastającą zwłoką i wyjątek zamiast pustej listy.
+
+## 🚫 GŁOS WYKLUCZONY JAKO PRZYCZYNA (13.08, 23:53)
+
+Zmiana na **Kamila** (polski natywny, `mr1ubFaLs5xVrh1EqWtc`) nie zmieniła nic.
+To samo zniekształcenie, ten sam moment.
+
+```
+transkrypt:  „Dzień dobry, Warsztat, rozmowa rejestrowana — w czym mogę pomóc?"
+usłyszane :  „Dzień dobry, warsztat, theeee, w czym mogę pomóc"
+```
+
+**Wykluczone: Eric (angielski) i Kamil (polski) — oba z tym samym objawem
+w tym samym miejscu.** Hipoteza „angielski głos gorzej radzi sobie z polskimi
+zbitkami" upada.
+
+### ⭐ OBJAW DOTKNĄŁ POWITANIA — to wyklucza CAŁY nasz kod
+
+Potwierdzone w konfiguracji:
+
+```
+conversation_config.agent.first_message =
+  "Dzień dobry, Warsztat, rozmowa rejestrowana — w czym mogę pomóc?"
+```
+
+To **stały napis w konfiguracji ElevenLabs**, syntezowany zanim cokolwiek trafi
+do naszego Custom LLM. Nie ma tam promptu, snapshotu, narzędzi ani żadnej naszej
+logiki. **Nasz kod jest poza podejrzeniem w całości** — i to jest najprostszy
+możliwy przypadek do zgłoszenia: jedno zdanie, zero kontekstu.
+
+### ❌ DWIE PRÓBY ZNALEZIENIA ZNIEKSZTAŁCENIA W NAGRANIU — OBIE NIEUDANE
+
+Zapisuję je, żeby nikt nie powtarzał tej samej drogi.
+
+**Próba 1 — „wybuchy górnego pasma".** Szukałem okien, w których energia siedzi
+w 3–7 kHz, a w 200–1000 Hz jej nie ma, zakładając, że tak wygląda artefakt.
+Znalazłem cztery w nagraniu telefonicznym — i **od trzech do sześciu w syntezie
+puszczonej wprost przez API, bez żadnej telefonii**. To nie są artefakty, tylko
+**głoski szczelinowe**: „sz" w „Warsztat", „cz" w „w czym". Detektor wykrywał
+sybilanty, nie usterkę. Odrzucony.
+
+**Próba 2 — czy z powitania coś wypadło.** Porównanie długości dźwięku:
+
+```
+synteza wprost (3 próby): rozpiętość 3,56 s   dźwięku 2,58 s
+przez telefon           : rozpiętość 3,14 s   dźwięku 2,74 s   (+6%)
+```
+
+Przez telefon dźwięku jest **więcej**, nie mniej. Nic nie wypadło.
+
+**Wniosek: nie mam dowodu akustycznego w żadną stronę.** Nagranie z ElevenLabs
+jest w mp3 i już wcześniej wykazało utratę pasma, więc nie nadaje się na sąd
+ostateczny. Uczciwa pozycja: hipoteza transportowa nadal jest najlepsza, ale
+z powodu *wykluczeń* (kod, prompt, głos, długość, znaki, parametry syntezy),
+a nie z powodu bezpośredniego dowodu.
+
+**Uboczne, ale warte zapamiętania:** to samo zdanie zsyntezowane trzy razy pod rząd
+trwa 3,38 s, 3,42 s i 3,90 s. **15% rozrzutu długości** przy identycznym wejściu —
+synteza sama w sobie jest mocno niedeterministyczna.
+
+### 🔄 TURBO v2.5 WŁĄCZONE (ostatni kandydat po naszej stronie)
+
+`eleven_flash_v2_5` → `eleven_turbo_v2_5`, koszt zmierzony wcześniej: +46 ms.
+Kopia konfiguracji w `backups/elevenlabs-agent-przed-turbo.json`. Zweryfikowane
+pobraniem: głos, prompt, `first_message`, znaczniki snapshotu, blok `turn`, `vad`
+i `enable_phoneme_tags: false` — wszystko bez zmian.
+
+Stan wykluczeń po tej zmianie:
+
+```
+✗ nasz kod, prompt, snapshot     objaw dotyka first_message z konfiguracji
+✗ znaki spoza tekstu             0 na 630 wypowiedzi
+✗ długość wypowiedzi             mediana 71 znaków, maks 314
+✗ optimize_streaming_latency     +0,4 ms — parametr martwy
+✗ enable_phoneme_tags            zmienione na false, objaw został
+✗ głos                           Eric i Kamil, ten sam objaw
+✗ duplikaty żądań                26% wobec 31% — brak związku
+? model syntezy                  Turbo v2.5 — TESTOWANE TERAZ
+? kodek G.722                    czekamy na SuperVoIP
+? trasa przez USA                czekamy na ElevenLabs
+```
+
 ## 🧾 TRZY KOREKTY WŁASNYCH USTALEŃ (13.08) — do zapamiętania jako klasa błędu
 
 Zapisane osobno, bo wszystkie trzy wyszły w jednej turze i wszystkie trzy

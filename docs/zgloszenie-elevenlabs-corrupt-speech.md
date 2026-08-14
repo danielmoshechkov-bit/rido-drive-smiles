@@ -93,6 +93,29 @@ The EU endpoint is **4x closer**.
 - EU residency also matters to us for GDPR: the call recordings contain personal
   data of EU residents.
 
+## 4. The distortion also hits `first_message` — your own static text
+
+Added after the report above. On 13 Aug 23:53 CEST the corruption occurred in the
+greeting itself:
+
+    conversation_config.agent.first_message =
+      "Dzień dobry, Warsztat, rozmowa rejestrowana — w czym mogę pomóc?"
+
+    what the caller heard:
+      "Dzień dobry, warsztat, theeee, w czym mogę pomóc"
+
+This is a **static string in your configuration**, synthesised before anything
+reaches our custom LLM. No prompt, no snapshot, no tools, no context — the
+simplest possible input. Our code cannot be involved.
+
+We also changed the voice in between: `Eric` (English) and now a native Polish
+voice (`mr1ubFaLs5xVrh1EqWtc`). **Same symptom with both.** It is not voice-specific.
+
+Conversation: `conv_…6dwpfgqm`, 13 Aug 2026 23:53 CEST, at 00:00–00:03.
+
+If you want a reproduction case, this is it: one fixed sentence, one agent,
+no LLM involvement.
+
 ## Ruled out on our side
 
 Not to send you down these paths:

@@ -328,6 +328,30 @@ Szacunek w sesjach roboczych. **Pogrubione** leżą na ścieżce krytycznej wari
 |---|---|---|---|
 | 4.14 + 4.16 | **Jeden PR, nierozdzielnie**: gating (`useFeature`, `FeatureGate`, bramka serwerowa w edge) **i** tryb `read_only`. Wdrożenie blokady bez trybu odczytu odcięłoby klientowi dostęp do własnych danych | 3–4 | 4.1 |
 | 4.15 | RLS na tabelach modułowych — bez tego gating frontowy jest dekoracją | 2 | 4.14 |
+
+### Kolejność zdarzeń przy fakturowaniu (obserwacja z 13.08, do 4.17)
+
+Przy pierwszym udanym zakupie `invoice.paid` dotarł **18 ms przed**
+`checkout.session.completed` i został zignorowany, bo w tym momencie nie było
+jeszcze subskrypcji do zaktualizowania. Dziś bez szkody — okres i status ustawia
+zdarzenie sesji, które przyszło zaraz potem.
+
+Przy 4.17 to przestanie być obojętne: `invoice.paid` niesie **numer faktury
+u operatora i datę opłacenia**, czyli dane, które trafią na naszą fakturę VAT.
+Zignorowane zdarzenie oznacza, że trzeba je odtworzyć z API przy wystawianiu.
+
+Do rozstrzygnięcia przy 4.17, dwie drogi:
+
+- **buforować** — `invoice.paid` bez pasującej subskrypcji zostaje w
+  `billing_events` jako `pending` i jest domykany po założeniu subskrypcji
+  (wymaga przeglądania zaległych zdarzeń po `checkout.session.completed`)
+- **dociągać z API** — przy wystawianiu faktury pobrać `invoice` po
+  `subscription` i wziąć numer oraz datę stamtąd (prościej, kosztuje jedno
+  zapytanie do operatora na fakturę)
+
+Skłaniam się do drugiej: bufor wprowadza stan pośredni, który trzeba sprzątać,
+a jedno zapytanie przy wystawianiu faktury jest tanie i zawsze aktualne.
+
 | **4.17-mini** | **Faktura sprzedażowa, wersja startowa: PDF + mail automatycznie, wysyłka do KSeF ręcznym kliknięciem tego samego dnia.** W reżimie obowiązkowym faktura jest wystawiona w dniu wysłania do KSeF, a tryby offline dają czas do następnego dnia roboczego — „wypchnę za tydzień" nie jest legalne | 1,5 | 0.B, 0.C, 4.6 |
 | 4.17 | Faktura sprzedażowa, pełna: automat KSeF w webhooku, korekty przy zwrocie, faktury bez NIP i zagraniczne | 2 | 4.17-mini |
 

@@ -45,7 +45,9 @@ Deno.serve(async (req) => {
     }
     if (!roleRow) return json({ error: "Forbidden" }, 403);
 
-    const body = await req.json().catch(() => null) as Record<string, any> | null;
+    // Puste ciało to brak akcji, nie null do przekazywania dalej — inaczej
+    // `validatePricing` dostaje null tam, gdzie oczekuje obiektu.
+    const body = (await req.json().catch(() => null) ?? {}) as Record<string, any>;
     const action = body?.action;
 
     // ---------------------------------------------------------------- list
