@@ -2912,3 +2912,27 @@ Konsekwencja praktyczna, wynikająca z zasady 12: gdy asercja nie ma czym
 zmierzyć — logi niedostępne, brak snapshotu, brak klucza — raportuje
 **NIE SPRAWDZONE**, nigdy zielone. Zielone bez pomiaru to fałszywy alarm
 w drugą stronę i kosztuje więcej, bo nikt go nie zauważy.
+
+---
+
+## ZASADA 29 — prompt, którego nikt nie czyta w całości, jest niesprawdzalny
+
+W prompcie stał **pusty nagłówek** — `=== PYTANIA KLIENTA W TRAKCIE UMAWIANIA ===`,
+a zaraz po nim następny nagłówek. Bez ani jednej reguły pod spodem. Leżał tam
+co najmniej tydzień.
+
+**Nikt tego nie zauważył, bo nikt nie czyta promptu w całości.**
+
+To jest osobny argument za trzydziestoma regułami zamiast stu piętnastu,
+niezależny od tego, jak model je stosuje. Tekst na 31 tysięcy znaków i 115
+reguł nie jest instrukcją — jest archiwum decyzji, w którym instrukcja gdzieś
+tam siedzi. Nie da się go zrecenzować, więc nie da się w nim znaleźć
+sprzeczności, więc sprzeczności w nim narastają.
+
+Sprawdzian praktyczny: **jeśli nie potrafisz przeczytać promptu w całości
+przed wdrożeniem, nie wiesz, co wdrażasz.** Stąd twarde ograniczenie FAZY C —
+25–30 reguł to nie estetyka, to próg czytelności.
+
+Konsekwencja dla procesu: każda zmiana promptu jest czytana w całości, nie
+w diffie. Diff pokazuje, co doszło; nie pokazuje, że nowa reguła przeczy tej
+z sekcji siódmej.

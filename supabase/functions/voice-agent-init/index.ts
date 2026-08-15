@@ -31,6 +31,7 @@ import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
 import {
   cenaDoWypowiedzenia, czasDoWypowiedzenia, czasUslugi, hhmm, kluczDnia, minuty, ostatniStart,
   wolneGodziny, zbudujDni, godzinaDoWypowiedzenia, type GodzinyDnia, type Usluga,
+  doZaproponowania,
 } from "../_shared/voiceSnapshot.ts";
 // ANGIELSKI — OSOBNY MODUŁ, DOKŁADANY OBOK. Moduł polski zostaje nietknięty:
 // ma 22 asercje i trzy dni poprawek za sobą, a uogólnianie go na drugi język
@@ -336,6 +337,12 @@ serve(async (req) => {
         // snapshot podał „12:30", agent powiedział „o półtorej" i klient dostał
         // potwierdzenie wizyty z godziną, która nie istnieje.
         ...(d.wolne ? { wolne_do_wypowiedzenia: d.wolne.map(godzinaDoWypowiedzenia) } : {}),
+        // ZAPAS I PROPOZYCJA TO DWA ROZNE POLA (FAZA C).
+        // `wolne` sluzy do dopasowania tego, co powie klient, i do wyboru, gdy
+        // klient wskaze pore dnia. `zaproponuj` ma najwyzej dwie pozycje i to je
+        // agent wypowiada — regula „dwie godziny, nigdy trzy" lamala sie 3/3.
+        ...(d.wolne ? { zaproponuj: doZaproponowania(d.wolne) } : {}),
+        ...(d.wolne ? { zaproponuj_do_wypowiedzenia: doZaproponowania(d.wolne).map(godzinaDoWypowiedzenia) } : {}),
         ...(d.ostatni_mozliwy_start
           ? { ostatni_mozliwy_start_do_wypowiedzenia: godzinaDoWypowiedzenia(d.ostatni_mozliwy_start) }
           : {}),

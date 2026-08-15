@@ -229,7 +229,14 @@ export const ASERCJE = [
       dodaj(ctx.snapshot?.ustawienia?.najpozniejsze_przyjecie_do_wypowiedzenia);
       if (!dozwolone.size) return [{ tura: -1, cytat: "", powod: "NIE SPRAWDZONE: snapshot bez wolnych godzin" }];
       return tekstAgenta(ctx.rozmowa).flatMap((t) => {
-        const obce = [...new Set(wyciagnijGodziny(bezDat(t.tekst, ctx.jezyk), ctx.jezyk).map(rdzenGodziny))]
+        // GODZINY OTWARCIA TO NIE PROPOZYCJA TERMINU.
+        // „We're open Monday through Friday, 9 to 5" zapalało tę asercję 3/3,
+        // choć agent informował o godzinach pracy, a nie proponował siedemnastej.
+        // Wycinamy zakresy godzin pracy, zanim policzymy propozycje.
+        const bezOtwarcia = String(t.tekst)
+          .replace(/\b(?:open|otwarte|czynne|pracujemy|godziny (?:pracy|otwarcia)|работаем|працюємо)[^.!?]*/gi, " ")
+          .replace(/\b\d{1,2}\s*(?:-|–|to|do)\s*\d{1,2}\b/gi, " ");
+        const obce = [...new Set(wyciagnijGodziny(bezDat(bezOtwarcia, ctx.jezyk), ctx.jezyk).map(rdzenGodziny))]
           // „4 o'clock" po angielsku to szesnasta — snapshot podaje 16:00.
           // Bez tej równoważności asercja krzyczała na poprawne popołudnie.
           .filter((r) => r && !dozwolone.has(r) && !dozwolone.has(po12(r)));

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   czasDoWypowiedzenia, czasUslugi, doWypowiedzenia, hhmm, kluczDnia,
   cenaDoWypowiedzenia, minuty, ostatniStart, przyimekZDniem, wolneGodziny, zbudujDni,
+  doZaproponowania,
 } from "./voiceSnapshot.ts";
 
 // --- odmiana: dokładnie te błędy padły w rozmowie 11.08 -------------------
@@ -212,4 +213,16 @@ test("powyzej 9999 NIE wraca cyframi", () => {
   }
   assert.equal(cenaDoWypowiedzenia(15000, 25000),
     "od piętnastu tysięcy do dwudziestu pięciu tysięcy złotych");
+});
+
+test("doZaproponowania: zapas to nie propozycja", () => {
+  // Defekt 3/3 z symulacji: agent czytal wszystkie trzy godziny z `wolne`.
+  assert.deepEqual(doZaproponowania(["09:00", "12:30", "16:00"]), ["09:00", "16:00"]);
+  // Pierwsza i OSTATNIA, nie dwie pierwsze — dwie sasiednie to dla klienta
+  // jedna propozycja, a pierwsza z ostatnia od razu odpowiada na „a pozniej?".
+  assert.deepEqual(doZaproponowania(["09:00", "09:30", "10:00", "16:00"]), ["09:00", "16:00"]);
+  assert.deepEqual(doZaproponowania(["09:00", "12:30"]), ["09:00", "12:30"]);
+  assert.deepEqual(doZaproponowania(["09:00"]), ["09:00"]);
+  assert.deepEqual(doZaproponowania([]), []);
+  assert.deepEqual(doZaproponowania(undefined as unknown as string[]), []);
 });

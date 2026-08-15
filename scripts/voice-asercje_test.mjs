@@ -133,3 +133,12 @@ test("brak snapshotu daje NIE SPRAWDZONE, nie zielone", () => {
 test("asercje polskie nie dotyczą rozmowy obcojęzycznej", () => {
   assert.equal(wynik(ctx(["Чем могу помочь?"], { jezyk: "ru" }), "forma_ty").stan, "nie_dotyczy");
 });
+
+test("godziny otwarcia to nie propozycja terminu", () => {
+  // 07-en padal 3/3 na „godzina spoza wolnych: 5:00", a agent mowil
+  // „we're open Monday through Friday, 9 to 5" — informowal o godzinach pracy.
+  czysta(ctx(["We're closed on Sundays. We're open Monday through Friday, 9 to 5."], { jezyk: "en" }), "godzina_spoza_wolnych");
+  czysta(ctx(["Pracujemy od dziewiątej do siedemnastej."]), "godzina_spoza_wolnych");
+  // ale PROPOZYCJA spoza wolnych dalej jest bledem
+  brudna(ctx(["Does Monday at 7 work for you?"], { jezyk: "en" }), "godzina_spoza_wolnych");
+});
