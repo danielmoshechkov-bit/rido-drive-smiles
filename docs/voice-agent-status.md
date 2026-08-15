@@ -2673,22 +2673,28 @@ praca oparta na błędnym wniosku:                      doba
   REGUŁA WDROŻONA DO PRODUKCJI, która zepsuła działającą funkcję
 ```
 
-### Dwa niezależne źródła: pomiar i pamięć
+### Reguła praktyczna, nie rachunek zasług
 
-Pamięć użytkownika w jednym dniu **pomyliła się dwa razy** („bełkot był
-od początku" — nie był, szereg z 69 nagrań pokazał 4,9% → 5,8%; „przed zmianami
-było lepiej" — A wobec B, p = 0,72) i **raz miała rację** („przełączanie kiedyś
-działało" — działało, trzy rozmowy z 06.08).
+Kusi, żeby zestawić „pamięć trafiła 1 raz na 3" z „pomiary dały 6 błędnych
+wniosków" i orzec, które źródło jest lepsze. **To zła miara** — te liczby nie są
+tej samej klasy. Jedna trafiona intuicja („przełączanie kiedyś działało")
+oszczędziła dobę pracy; jeden błędny wniosek kosztował godzinę (detektor
+sybilantów), a inny dobę (`language_detection`). Liczy się koszt, nie licznik.
 
-**Skuteczność pamięci: 1 na 3. Skuteczność moich pomiarów tego tygodnia:
-6 błędnych wniosków przy poprawnych pomiarach.** Żadne z tych źródeł nie jest
-wiarygodne samo w sobie.
+> **Przy każdym wniosku, który ZMIENIA KIERUNEK PRACY — sprawdź drugie źródło.
+> Nawet jeśli pierwsze wydaje się rozstrzygające.**
 
-> **Gdy pomiar i pamięć się rozjeżdżają — sprawdzamy OBA, nie wybieramy jednego.**
-> Sprawdzenie pamięci jest tanie: to zapytanie do historii.
+Bo asymetria jest brutalna:
 
-Mój błąd 15.08 nie polegał na tym, że zaufałem pomiarowi. Polegał na tym,
-że **nie sprawdziłem drugiego źródła, choć kosztowało cztery minuty.**
+```
+sprawdzenie drugiego źródła      minuty
+niesprawdzenie                   dni
+```
+
+„Zmienia kierunek pracy" to test praktyczny: jeśli po tym wniosku zamierzam
+napisać dokumentację, przygotować migrację albo wdrożyć regułę — to jest ten
+moment. 15.08 zrobiłem wszystkie trzy rzeczy naraz, na wniosku, którego
+nie sprawdziłem.
 
 ## 📌 PLAN B (transfer do agenta per język) — NIE SPRAWDZANY, pytania zapisane
 
