@@ -289,6 +289,18 @@ serve(async (req) => {
         polityka_wyceny: "kosztorys_przed_naprawa",
         polityka_wyceny_tekst: POLITYKI.kosztorys_przed_naprawa,
         oplata_za_diagnoze_bez_usterki: "zalezy",
+        // TYMCZASOWE — wartosc w kodzie do czasu zakladki ustawien warsztatu.
+        //
+        // "do_uzgodnienia" jest domyslne i celowo OSTROZNE: agent moze wspomniec
+        // o zostawieniu auta, ale zaznacza, ze ustala to mechanik przy przyjeciu.
+        // "nie"  — agent nie wspomina o tym w ogole.
+        // "tak"  — agent moze powiedziec wprost, ze auto da sie zostawic.
+        //
+        // Powod: ostatni_mozliwy_start odpowiada na "do ktorej przyjmujemy",
+        // ale nie na "a jesli potrzebuje pozniej". Bez tego pola agent konczy
+        // rozmowe na "najpozniej szesnasta" i klient odklada sluchawke, choc
+        // warsztat czesto przyjmuje auto na noc.
+        przyjmowanie_na_noc: "do_uzgodnienia" as "tak" | "nie" | "do_uzgodnienia",
       };
 
       const zajeteWgDnia: Record<string, string[]> = {};

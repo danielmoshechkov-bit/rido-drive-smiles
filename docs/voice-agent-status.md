@@ -2936,3 +2936,38 @@ przed wdrożeniem, nie wiesz, co wdrażasz.** Stąd twarde ograniczenie FAZY C �
 Konsekwencja dla procesu: każda zmiana promptu jest czytana w całości, nie
 w diffie. Diff pokazuje, co doszło; nie pokazuje, że nowa reguła przeczy tej
 z sekcji siódmej.
+
+---
+
+## ZASADA 29 — uzupełnienie: recenzja nie zastępuje testu kontraktowego
+
+Prompt ma być czytelny **po to**, żeby dało się go zrecenzować. Ale recenzja
+i test kontraktowy to **dwie różne kontrole i obie są potrzebne**.
+
+Dowód z FAZY C: nowy prompt przeczytaliśmy w całości — obaj — i **żaden z nas
+nie zauważył czterech wymagań, które wypadły przy przepisaniu**. Złapały je
+dopiero testy pinujące treść promptu:
+
+- liczba mnoga („Chętnie **Wam** pomogę")
+- zakaz powtarzania numeru telefonu słowami
+- informacje, które idą SMS-em, a nie w rozmowie
+- **„NIE TWORZYSZ rezerwacji ani zlecenia"** — najgroźniejsze: bez tego agent
+  może twierdzić, że coś zapisał
+
+Recenzja sprawdza, czy to, co jest, ma sens. Test kontraktowy sprawdza, czy to,
+co ma być, jest. Czytając nowy tekst, widzi się jego logikę — nie widzi się
+nieobecności.
+
+### Konsekwencja dla procesu
+
+**Każde wymaganie usunięte z promptu świadomie zostaje w teście z adnotacją**
+— `// WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): …` — mówiącą, dokąd poszło:
+„do kodu", „pokazane wzorcem", „zbędne obok reguły X".
+
+Bez tej adnotacji za miesiąc nikt nie odróżni usunięcia świadomego od
+przeoczenia, a jedyną bezpieczną reakcją na czerwony test będzie dopisanie
+reguły z powrotem — czyli powrót do stu piętnastu.
+
+W FAZIE C tak oznaczonych jest jedenaście: normalizacja polskich nazw liter
+(→ do kodu przy zapisie), zakaz preambuł (→ pokazany wzorcem), konkretne
+przykłady błędnych liczebników (→ zbędne obok reguły „każdą cyfrę osobno").
