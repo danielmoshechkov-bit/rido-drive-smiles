@@ -2620,6 +2620,40 @@ post_call_webhook_id    a9f9457cf459465297f20b3c3c6c6648  (events: transcript, j
   `stage "auth"` (llm)
 - Bez pushy i merge'y do `main` bez zgody właściciela
 
+## 🧨 ZASADA: MIERZYLIŚMY NARZĘDZIE ZAMIAST ZJAWISKA
+
+`language_detection` **nigdy nie było mechanizmem mówienia po rosyjsku.**
+06.08 agent po prostu **napisał odpowiedź cyrylicą**, a synteza ją przeczytała.
+Narzędzie w tej rozmowie zostało wywołane z `{"language":"pl"}` — czyli nie
+przełączało niczego.
+
+15.08 model sięgnął po narzędzie zamiast po prostu odpowiedzieć, dostał
+„Invalid language", i **na tej podstawie ogłosiłem, że wielojęzyczność jest
+zablokowana**. Napisałem dokumentację, przygotowałem migrację, zaprojektowałem
+obejście przez `preferred_language` i wpisałem do promptu regułę, która
+**zablokowała jedyną rzecz, jaka działała.**
+
+> **Zbadałem, czy działa NARZĘDZIE, i wyciągnąłem wniosek o ZJAWISKU.**
+
+To ta sama klasa co wszystkie pozostałe pomyłki tego tygodnia:
+
+```
+detektor sybilantów      mierzył głoski szczelinowe    wniosek o artefaktach
+„turbo-04 wadliwy"       mierzył tempo                  wniosek o zepsuciu
+„20/20 czyste"           mierzyło długość               wniosek o czystości
+liczebniki               mierzyły odmianę ASR           wniosek o wtrętach
+nagranie klienta         mierzyło zły język             wniosek o jakości nagrania
+language_detection       mierzyło narzędzie             wniosek o języku rozmowy
+```
+
+**Sześć razy. Za każdym razem pomiar był poprawny.** Brakowało pytania:
+*czy to, co mierzę, jest tym samym co to, o czym chcę orzec?*
+
+Konkretnie tutaj wystarczyłoby jedno sprawdzenie, którego nie zrobiłem:
+**poszukać w historii rozmowy, w której agent mówił po rosyjsku.** Użytkownik
+o niej pamiętał; ja uwierzyłem własnemu testowi bardziej niż jego pamięci.
+Rozmowy były trzy, wszystkie z 06.08, i zajęło mi to potem cztery minuty.
+
 ## 📐 CO SPRAWIA, ŻE TEN PROCES DZIAŁA — do utrzymania poza agentem
 
 W tym tygodniu **pięć razy zbudowałem wniosek szerszy niż pomiar** i pięć razy
