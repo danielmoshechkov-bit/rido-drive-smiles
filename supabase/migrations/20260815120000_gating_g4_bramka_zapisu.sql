@@ -95,11 +95,12 @@ GRANT EXECUTE ON FUNCTION public.jest_klientem_linii(uuid, text) TO authenticate
 -- ---------------------------------------------------------------------------
 -- 2. Bramka zapisu na tabelach warsztatowych
 -- ---------------------------------------------------------------------------
-DO $$
-DECLARE
-  t text; warunek text;
-  -- Tabele z provider_id wprost.
-  bezposrednie text[] := ARRAY[
+-- Lista tabel jako funkcje, a nie literały w bloku DO. Migracja G0 przebudowuje
+-- te same polityki, dokładając furtkę serwisową dla administratora — a dwie
+-- kopie listy trzydziestu tabel rozjechałyby się przy pierwszej nowej tabeli.
+CREATE OR REPLACE FUNCTION public.warsztat_tabele_wprost()
+RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
+  SELECT ARRAY[
     'workshop_orders', 'workshop_clients', 'workshop_vehicles',
     'workshop_cash_closures', 'workshop_expenses', 'workshop_recurring_costs',
     'workshop_finance_settings', 'workshop_payments',
@@ -112,13 +113,25 @@ DECLARE
     'workshop_status_settings', 'workshop_order_sequences',
     'workshop_parts_integrations', 'workshop_parts_orders'
   ];
-  -- Tabele podpięte pod zlecenie — właściciela ustala się przez workshop_orders.
-  przez_zlecenie text[] := ARRAY[
+$$;
+
+CREATE OR REPLACE FUNCTION public.warsztat_tabele_przez_zlecenie()
+RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
+  SELECT ARRAY[
     'workshop_order_items', 'workshop_order_files',
     'workshop_order_photos', 'workshop_order_signatures'
   ];
+$$;
+
+-- Zakłada polityki zapisu na wszystkich tabelach warsztatowych.
+-- `p_dodatkowy_warunek` doklejamy przez OR — G0 wstawia tam furtkę serwisową.
+CREATE OR REPLACE PROCEDURE public.warsztat_zaloz_bramke(p_dodatkowy_warunek text DEFAULT NULL)
+LANGUAGE plpgsql AS $$
+DECLARE
+  t text; warunek text;
+  przez_zlecenie text[] := public.warsztat_tabele_przez_zlecenie();
 BEGIN
-  FOREACH t IN ARRAY bezposrednie || przez_zlecenie LOOP
+  FOREACH t IN ARRAY public.warsztat_tabele_wprost() || przez_zlecenie LOOP
     IF to_regclass('public.' || t) IS NULL THEN
       RAISE NOTICE 'pomijam % — brak tabeli', t; CONTINUE;
     END IF;
@@ -126,8 +139,15 @@ BEGIN
     IF t = ANY (przez_zlecenie) THEN
       warunek := 'public.moze_pracowac('
               || '(SELECT o.provider_id FROM public.workshop_orders o WHERE o.id = order_id), ''warsztat'')';
+      IF p_dodatkowy_warunek IS NOT NULL THEN
+        warunek := warunek || ' OR ' || replace(p_dodatkowy_warunek, '%KOLUMNA%',
+          '(SELECT o.provider_id FROM public.workshop_orders o WHERE o.id = order_id)');
+      END IF;
     ELSE
       warunek := 'public.moze_pracowac(provider_id, ''warsztat'')';
+      IF p_dodatkowy_warunek IS NOT NULL THEN
+        warunek := warunek || ' OR ' || replace(p_dodatkowy_warunek, '%KOLUMNA%', 'provider_id');
+      END IF;
     END IF;
 
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'warsztat_zapis_insert', t);
@@ -144,6 +164,8 @@ BEGIN
     RAISE NOTICE 'bramka zapisu: %', t;
   END LOOP;
 END $$;
+
+CALL public.warsztat_zaloz_bramke();
 
 -- ---------------------------------------------------------------------------
 -- 3. Rezerwacje — obsługa TAK, zakładanie nowych NIE

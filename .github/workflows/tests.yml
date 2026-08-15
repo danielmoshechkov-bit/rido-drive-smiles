@@ -50,6 +50,8 @@ jobs:
                      supabase/functions/_shared/requireRole_test.ts \
                      supabase/functions/_shared/subscriptionGate.ts \
                      supabase/functions/_shared/subscriptionGate_test.ts \
+                     supabase/functions/_shared/statusyDostepu.ts \
+                     supabase/functions/_shared/statusyDostepu_test.ts \
                      supabase/functions/billing-stripe-webhook/index.ts \
                      supabase/functions/billing-checkout/index.ts \
                      supabase/functions/billing-stripe-sync/index.ts \
