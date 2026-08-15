@@ -20,6 +20,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import { usePublicPricing, type PublicPlan, type ProductLine } from "@/hooks/usePublicPricing";
 import { planPriceLabels, planCtaLabel } from "@/lib/pricingCards";
+import { usePlanAction } from "@/hooks/usePlanAction";
+import { AuthModal } from "@/components/auth/AuthModal";
 
 type Plan = {
   name: string;
@@ -391,6 +393,15 @@ const gridClass = (count: number) =>
 const WarsztatContent = ({ section, onCta }: { section: Section; onCta: () => void }) => {
   const { plans, loading, error } = usePublicPricing();
 
+  // Rejestracja odbywa się na miejscu, bez przerzucania na inną stronę:
+  // klient kliknął konkretny plan i ma wrócić do niego, a nie szukać go od nowa.
+  const [authOpen, setAuthOpen] = useState(false);
+  const [wybranyPlan, setWybranyPlan] = useState<string | null>(null);
+  const { klik: klikPlan, pending: planPending } = usePlanAction((plan) => {
+    setWybranyPlan(plan.code);
+    setAuthOpen(true);
+  });
+
   return (
     <div>
       <div className="text-center mb-10">
@@ -438,7 +449,14 @@ const WarsztatContent = ({ section, onCta }: { section: Section; onCta: () => vo
               <h3 className="text-xl font-semibold text-foreground text-center mb-6">{heading}</h3>
               <div className={`grid gap-6 mx-auto max-w-6xl ${gridClass(group.length)}`}>
                 {group.map((plan) => (
-                  <PlanCard key={plan.code} plan={toCard(plan)} onCta={onCta} />
+                  <PlanCard
+                    key={plan.code}
+                    plan={{
+                      ...toCard(plan),
+                      cta: planPending === plan.code ? "Otwieram płatność…" : toCard(plan).cta,
+                    }}
+                    onCta={() => klikPlan(plan)}
+                  />
                 ))}
               </div>
             </div>
@@ -450,6 +468,14 @@ const WarsztatContent = ({ section, onCta }: { section: Section; onCta: () => vo
           {section.bottomNote}
         </p>
       )}
+
+      <AuthModal
+        open={authOpen}
+        onOpenChange={setAuthOpen}
+        initialMode="register"
+        redirectAfterLogin="/uslugi/panel"
+        signupContext={{ module: "warsztat", plan: wybranyPlan ?? undefined }}
+      />
     </div>
   );
 };
