@@ -73,3 +73,15 @@ test("uszkodzony snapshot nie wywraca tury", () => {
   assert.equal(snapshotWJezyku("to nie jest JSON", "ru"), "to nie jest JSON");
   assert.equal(snapshotWJezyku("", "ru"), "");
 });
+
+test("nazwy uslug ZOSTAJA po polsku — to dane warsztatu, nie nasz tekst", () => {
+  // Swiadome ograniczenie, nie przeoczenie: cennik nalezy do warsztatu i nie
+  // wolno nam podmieniac nazw, bo przestalyby sie zgadzac z tym, co warsztat
+  // widzi w panelu i na zleceniu. Za to prompt zakazuje CZYTANIA polskiej
+  // nazwy na glos w obcojezycznej rozmowie — agent nazywa uslugę wlasnymi
+  // slowami w jezyku rozmowy.
+  const s = JSON.stringify({ uslugi: [{ nazwa: "Wymiana klocków hamulcowych", cena: { od: 150, do: 250 } }] });
+  const ru = JSON.parse(snapshotWJezyku(s, "ru"));
+  assert.equal(ru.uslugi[0].nazwa, "Wymiana klocków hamulcowych");
+  assert.equal(ru.uslugi[0].cena.do_powiedzenia, "от ста пятидесяти до двухсот пятидесяти злотых");
+});
