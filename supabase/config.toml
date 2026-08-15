@@ -8,7 +8,7 @@ extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
 [functions.drivers-search]
-verify_jwt = false
+verify_jwt = true
 
 [functions.vehicles]
 verify_jwt = false
@@ -35,7 +35,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.reset-driver-password]
-verify_jwt = false
+verify_jwt = true
 
 [functions.cleanup-fake-auth-accounts]
 verify_jwt = false
@@ -89,7 +89,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.create-fleet-account]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-search]
 verify_jwt = false
@@ -237,7 +237,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.getrido-ai-execute]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-fleet-registration-email]
 verify_jwt = false

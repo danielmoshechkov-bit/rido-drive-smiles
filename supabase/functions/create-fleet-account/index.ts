@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { wymagajRoli, odmowa } from '../_shared/requireRole.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +24,14 @@ serve(async (req) => {
       }
     );
 
+    // ── Autoryzacja ────────────────────────────────────────────────────
+    // TEGO NIE BYŁO. Funkcja zakładała konto i wpisywała role WPROST z ciała
+    // żądania, kluczem service_role — a `app_role` zawiera 'admin', więc
+    // `{"roles":["admin"]}` tworzyło administratora platformy bez sesji.
+    // To była ta sama luka co w `admin-bootstrap`, tylko mniej widoczna.
+    const brama = await wymagajRoli(supabaseAdmin, req, ['admin']);
+    if (!brama.ok) return brama.odp;
+
     const { email, phone, fleet_id, roles } = await req.json();
 
     if (!email || !fleet_id || !roles || roles.length === 0) {
@@ -31,6 +40,20 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Rola NIGDY z ciała żądania bez ograniczenia zbioru. Nawet administrator
+    // nie zakłada tędy kont administratorskich: to funkcja od kont FLOTOWYCH,
+    // a do nadawania ról platformowych jest `admin-create-user`. Zawężenie
+    // zbioru znaczy, że przejęcie konta administratora nie daje od razu
+    // fabryki kolejnych administratorów.
+    const DOZWOLONE = ['fleet_settlement', 'fleet_rental', 'driver'];
+    const niedozwolone = (roles as string[]).filter((r) => !DOZWOLONE.includes(r));
+    if (niedozwolone.length > 0) {
+      console.warn(`create-fleet-account: ${brama.kto.id} próbował nadać role [${niedozwolone.join(',')}]`);
+      return odmowa(400, `Niedozwolone role: ${niedozwolone.join(', ')}. Dozwolone: ${DOZWOLONE.join(', ')}.`);
+    }
+
+    console.log(`[create-fleet-account] ${brama.kto.email ?? brama.kto.id} → ${email}, role [${(roles as string[]).join(',')}]`);
 
     // Generate random password
     const generatePassword = () => {
@@ -68,6 +91,9 @@ serve(async (req) => {
           user_id: userId,
           role,
           fleet_id,
+          // Ślad autorstwa. Bez tego nie da się później odpowiedzieć na
+          // pytanie „kto nadał tę rolę" — a właśnie tego zabrakło przy audycie.
+          created_by: brama.kto.id,
         });
 
       if (roleError) {
@@ -102,7 +128,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Unexpected error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

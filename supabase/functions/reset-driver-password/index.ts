@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
+import { wymagajRoli } from '../_shared/requireRole.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,11 +12,21 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, password, driver_id, user_id, action } = await req.json();
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // ── Autoryzacja ────────────────────────────────────────────────────
+    // TEGO NIE BYŁO. Funkcja pisze kluczem service_role i potrafi USUNĄĆ
+    // dowolne konto oraz ustawić dowolne hasło — a przyjmowała `email`,
+    // `user_id` i `action` wprost z ciała żądania, bez pytania, kto dzwoni.
+    // Wołają ją wyłącznie panele floty i administratora, więc wymaganie roli
+    // niczego nie psuje.
+    const brama = await wymagajRoli(supabase, req, ['admin', 'fleet_settlement', 'fleet_rental']);
+    if (!brama.ok) return brama.odp;
+
+    const { email, password, driver_id, user_id, action } = await req.json();
+    console.log(`[reset-driver-password] ${brama.kto.email ?? brama.kto.id} → ${action ?? 'reset'} ${email ?? user_id ?? ''}`);
 
     // Handle delete action - remove user from auth.users
     if (action === 'delete') {
@@ -83,11 +94,25 @@ Deno.serve(async (req) => {
     const { data: existingUsers } = await supabase.auth.admin.listUsers();
     const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
     
-    // Sprawdź czy istnieje stare konto z @rido.internal dla tego samego kierowcy
-    const fakeUser = existingUsers?.users?.find(u => u.email?.includes('@rido.internal'));
-    if (fakeUser) {
-      console.log(`🗑️ Usuwam stare konto: ${fakeUser.email}`);
-      await supabase.auth.admin.deleteUser(fakeUser.id);
+    // BŁĄD NAPRAWIONY PRZY OKAZJI: to szukało PIERWSZEGO konta z domeną
+    // `@rido.internal` w CAŁEJ bazie i kasowało je — niezależnie od tego,
+    // którego kierowcy dotyczyło wywołanie. Przy dwóch takich kontach każde
+    // wywołanie kasowało cudze. Teraz kasujemy wyłącznie konto techniczne
+    // powiązane z TYM kierowcą.
+    if (driver_id) {
+      const { data: powiazane } = await supabase
+        .from('driver_app_users')
+        .select('user_id')
+        .eq('driver_id', driver_id);
+
+      const idPowiazane = new Set((powiazane ?? []).map((w: { user_id: string }) => w.user_id));
+      const fakeUser = existingUsers?.users?.find(
+        u => u.email?.includes('@rido.internal') && idPowiazane.has(u.id),
+      );
+      if (fakeUser) {
+        console.log(`🗑️ Usuwam techniczne konto kierowcy: ${fakeUser.email}`);
+        await supabase.auth.admin.deleteUser(fakeUser.id);
+      }
     }
 
     if (existingUser) {
