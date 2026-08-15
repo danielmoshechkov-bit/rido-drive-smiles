@@ -2813,3 +2813,41 @@ Do sprawdzenia:
   tylko dla rozmów, które się odbyły)
 - czy da się policzyć różnicę „call attempts vs answered" po ich stronie
 ```
+
+---
+
+## ZASADA 26 — wzorzec bije regułę
+
+**Model sięga po wzorzec, bo wzorzec jest konkretniejszy niż reguła.**
+
+To mocniejsza odsłona zasady 22 („przykład staje się zachowaniem"). Zasada 22
+mówiła, co się dzieje, gdy przykład zawiera konkretną wartość. Zasada 26 mówi
+coś gorszego: **przykład wygrywa z regułą NAWET WTEDY, GDY REGUŁA MÓWI COŚ
+PRZECIWNEGO.**
+
+**Dowód, rozmowa `c0yn9bxn` z 15.08.** Reguła w prompcie: „gdy rozmówca odezwie
+się po rosyjsku — od następnego zdania odpowiadasz w tym języku i prowadzisz
+w nim całą resztę rozmowy". Detektor trzymał `ru` przez siedem tur z ośmiu.
+Snapshot był przerobiony na rosyjski (8605 → 7372 znaki). Wszystko po naszej
+stronie stało na rosyjskim.
+
+Agent i tak powiedział po polsku: *„Poproszę imię oraz markę i model auta."* —
+zdanie stojące w prompcie **dokładnie w tej formie**.
+
+Policzone na bloku budującym prompt: **34 pełne zdania gotowe do wypowiedzenia,
+wszystkie po polsku, zero w jakimkolwiek innym języku.** Cyrylicy w całym bloku:
+70 znaków na 35 328, czyli 0,2 %. Reguła „mów po rosyjsku" była jedna.
+Przykładów, jak brzmi dobra odpowiedź, było 34.
+
+**Zastosowanie przy FAZIE C: jeden przykład wart jest więcej niż pięć reguł.
+Zamiast dopisywać reguły, poprawiaj przykłady.**
+
+Praktycznie znaczy to tyle:
+- gdy agent robi coś źle, najpierw sprawdź, czy w prompcie nie stoi wzorzec,
+  który dokładnie to podpowiada — dopisanie zakazu obok wzorca nie pomoże;
+- reguła bez wzorca działa słabiej niż wzorzec bez reguły;
+- wzorzec w złym języku, złym rejestrze albo z niewłaściwą liczbą opcji jest
+  groźniejszy niż jego brak, bo model skopiuje go dosłownie;
+- kontrola D7 w audycie pilnuje już wzorców pod kątem płci. Pod kątem języka
+  pilnuje ich `voiceWzorce_test.ts` (asercja „żaden wzorzec obcojęzyczny nie
+  zawiera polszczyzny").

@@ -136,3 +136,51 @@ i sloty rozłożone na cały dzień. Agent nie musi liczyć, więc nie może pol
 
 → Nasz łańcuch zajął ~1,2 s. Reszta to `turn_timeout` (4 s) plus synteza.
   Klient nie wie, że system czeka na ciszę — słyszy, że agent się zawiesił.
+
+---
+
+## Rozmowa `c0yn9bxn` — 15.08, 20:36:41, 63 s, telefon, po rosyjsku
+
+**16. Pół zdania po polsku, pół po rosyjsku**
+> `[4s] KLIENT: Dobry dzień, wy mówicie po ruski?`
+> `[8s] AGENT: Tak, oczywiście! В чём я могу помочь?`
+
+→ Wzorzec z promptu brzmi `„Да, конечно! В чём я могу помочь?"`. Model wziął
+  drugą połowę wzorca dosłownie, a pierwszą przełożył na polski — bo pytanie
+  klienta padło po polsku. Jedno zdanie, dwa języki, jedna synteza.
+→ To nie jest błąd detektora: w tej turze detektor pokazał `pl` i miał rację
+  (klient mówił po polsku). To model nie potrafił wybrać jednego języka.
+
+**17. Trzy terminy zamiast dwóch — i klient się zgubił**
+> `[33s] AGENT: ...у нас есть свободные места в девять часов, в двенадцать
+>   тридцать или в четыре часа дня. Какое время подойдёт?`
+> `[42s] KLIENT: W nadtrist.`   ← transkrypcja rozsypanej odpowiedzi
+
+→ Prompt każe podawać DWIE godziny (`„o dziewiątej czy o jedenastej?"`).
+  Padły trzy. Dziewięć sekund ciszy i odpowiedź, której ASR nie rozpoznał.
+→ **Godziny po rosyjsku wyszły poprawnie** — `„в девять часов"`,
+  `„в двенадцать тридцать"`. Poprawka z 15.08 (renderowanie godzin w kodzie)
+  działa również w rosyjskim. Jedyna rzecz, która w tej rozmowie zadziałała
+  tak, jak miała.
+
+**18. Dopytał o dwie godziny z trzech — pominął tę, którą klient wybrał**
+> `[47s] AGENT: Przepraszam, nie dosłyszałem. Chodzi o dziewiątą rano czy
+>   o cztery po południu?`
+> `[52s] KLIENT: Dwunasta trzydzieści.`
+
+→ Agent podał trzy terminy, przy dopytaniu wymienił dwa skrajne, a klient
+  wybrał ten pominięty. Wyszło dobrze przypadkiem — klient sam podał godzinę
+  zamiast wybrać z listy.
+→ Zdanie jest **sklejone z dwóch polskich wzorców z promptu**:
+  `„Nie dosłyszałam godziny — czy chodzi o dziewiątą rano?"` +
+  `„Przepraszam, dziewiąta czy jedenasta?"`.
+
+**19. Domknięcie po polsku — wzorzec skopiowany słowo w słowo**
+> `[55s] AGENT: Dobrze, dwunasta trzydzieści we wtorek, osiemnastego sierpnia.
+>   Poproszę imię oraz markę i model auta.`
+
+→ `„Poproszę imię oraz markę i model auta."` stoi w prompcie **dokładnie w tej
+  formie**, po polsku. Model nie ułożył zdania — przepisał je.
+→ Detektor w tej turze pokazywał `ru`, snapshot był po rosyjsku (7372 znaki
+  zamiast 8605). Wszystko po naszej stronie było ustawione na rosyjski.
+  Zawiódł wyłącznie prompt.
