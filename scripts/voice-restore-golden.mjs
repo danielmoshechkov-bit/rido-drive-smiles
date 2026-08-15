@@ -40,6 +40,7 @@ const PILNOWANE = [
   ["conversation_config.tts.similarity_boost",    "podobieństwo"],
   ["conversation_config.tts.speed",               "tempo"],
   ["conversation_config.tts.enable_phoneme_tags", "znaczniki fonemów"],
+  ["conversation_config.tts.supported_voices",    "głos per język — pusta lista znaczy brak przypisania dla polskiego"],
   ["conversation_config.tts.optimize_streaming_latency", "parametr martwy, wartość zgodna z dokumentacją"],
   ["conversation_config.asr.keywords",            "MUSZĄ być puste — powodowały halucynacje rozpoznawania"],
   ["conversation_config.asr.quality",             "jakość rozpoznawania"],

@@ -76,30 +76,7 @@
   "tts": {
    "model_id": "eleven_multilingual_v2",
    "voice_id": "cjVigY5qzO86Huf0OWal",
-   "supported_voices": [
-    {
-     "label": "polski",
-     "voice_id": "cjVigY5qzO86Huf0OWal",
-     "description": null,
-     "language": "pl",
-     "model_family": null,
-     "optimize_streaming_latency": null,
-     "stability": 0.5,
-     "speed": 1.15,
-     "similarity_boost": 0.6
-    },
-    {
-     "label": "angielski",
-     "voice_id": "cjVigY5qzO86Huf0OWal",
-     "description": null,
-     "language": "en",
-     "model_family": null,
-     "optimize_streaming_latency": null,
-     "stability": 0.5,
-     "speed": 1.15,
-     "similarity_boost": 0.6
-    }
-   ],
+   "supported_voices": [],
    "expressive_mode": false,
    "suggested_audio_tags": [],
    "agent_output_audio_format": "pcm_16000",
@@ -227,7 +204,7 @@
      "url": "https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/voice-agent-llm/664ed87b-a20f-457b-a9fa-97ca13dcae7c/workshop_secretary/llm",
      "model_id": "rido",
      "api_key": {
-      "secret_id": "(w panelu ElevenLabs)"
+      "secret_id": "lHYAikroQyaHXDHOzawh"
      },
      "auth_connection": null,
      "request_headers": {},
@@ -295,7 +272,7 @@
  },
  "metadata": {
   "created_at_unix_secs": 1784822566,
-  "updated_at_unix_secs": 1786783225
+  "updated_at_unix_secs": 1786793758
  },
  "platform_settings": {
   "evaluation": {
@@ -595,7 +572,7 @@
     "url": "https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/voice-agent-init",
     "request_headers": {
      "Authorization": {
-      "secret_id": "(w panelu ElevenLabs)"
+      "secret_id": "3Rq9NhoJzffiI9OfzLYm"
      }
     }
    },
@@ -897,7 +874,7 @@
   "access_source": "creator"
  },
  "tags": [],
- "version_id": "agtvrsn_5501m0298nx8esst2fs6e5b8v2dd",
+ "version_id": "agtvrsn_2301m02ka4dvep6srr97habwpxdt",
  "branch_id": "agtbrch_4001ky7ve3d7eqsv842pg4k5a7p9",
  "main_branch_id": "agtbrch_4001ky7ve3d7eqsv842pg4k5a7p9",
  "procedures": {},
