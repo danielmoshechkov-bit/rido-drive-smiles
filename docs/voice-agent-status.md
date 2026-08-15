@@ -410,6 +410,77 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🔴 `eleven_v3` NIEDOSTĘPNY W AGENTS NA NASZYM PLANIE — produkcja idzie na multilingual_v2
+
+Próba przełączenia zwróciła:
+
+```
+400  {"code":"feature_not_available","message":"Expressive TTS is not allowed",
+      "status":"expressive_tts_not_allowed"}
+```
+
+**v3 działa przez TTS API — testowałem na nim 45 syntez — ale platforma Agents
+odmawia go naszemu kontu.** To osobna licencja („Expressive TTS"). Sprawdzone,
+co platforma w ogóle przyjmuje:
+
+```
+eleven_multilingual_v2   PRZYJĘTY
+eleven_turbo_v2_5        PRZYJĘTY
+eleven_flash_v2_5        PRZYJĘTY
+eleven_v3                ODRZUCONY — feature_not_available
+eleven_turbo_v2          ODRZUCONY — „Non-english Agents must use turbo_v2_5"
+```
+
+Wybór zawęża się do jednego czystego modelu: **`eleven_multilingual_v2`**.
+Ustawiony. Koszt to te +203 ms, których chcieliśmy uniknąć.
+
+**Do zgłoszenia dochodzi czwarte pytanie:** czy „Expressive TTS" da się włączyć
+na naszym planie i ile kosztuje — bo v3 jest jedynym czystym modelem, który
+jest jednocześnie szybszy.
+
+### ⚠️ MÓJ BŁĄD PRZY DIAGNOZIE: PĘTLA PRÓBNA ZMIENIŁA PRODUKCJĘ
+
+Żeby ustalić, które modele platforma przyjmuje, puściłem pętlę `PATCH` po pięciu
+nazwach. **Każdy udany PATCH faktycznie zmieniał konfigurację produkcyjną**,
+więc po pętli agent stał na `eleven_flash_v2_5` — modelu z najgorszym wynikiem.
+
+Zauważyłem i naprawiłem w tej samej minucie, telefon w tym czasie nie dzwonił.
+Ale to była zmiana produkcji zrobiona **przypadkiem, w trakcie sprawdzania**,
+a nie świadomie. Sondowanie, które zapisuje, nie jest sondowaniem.
+
+Stan końcowy zweryfikowany pobraniem — jedyna różnica wobec stanu sprzed operacji:
+
+```
+model_id: eleven_turbo_v2_5 -> eleven_multilingual_v2
+```
+
+Głos Eric, `stability 0,5`, `similarity 0,6`, `speed 1,0`, `phoneme_tags false`,
+prompt, `first_message`, znaczniki snapshotu i blok `turn` — bez zmian.
+
+## 🚫 NAGRANIE OD KLIENTA — NIE NADAJE SIĘ DO PORÓWNANIA
+
+Twoje zastrzeżenie było słuszne i potwierdza się w liczbach.
+
+```
+nagranie z WhatsAppa:      66 słów   mediana pewności 0,46   poniżej 0,60: 68%
+nasze nagrania z ElevenLabs: 880 słów  mediana pewności 0,97   poniżej 0,60: 6,8%
+```
+
+**Zniekształcenie jest tam rozłożone na całość, nie punktowe.** Cała transkrypcja
+to bełkot od pierwszej do ostatniej sekundy — „dobre wiesz ode mnie już to od was
+ten temat zaczynać reklamne kompanie". To sygnatura złego łańcucha nagrywania
+(kompresja Opus plus nagrywanie głośnika telefonu), a nie usterki, której szukamy.
+
+Nasza usterka wygląda inaczej i mamy jej wzorzec: **dwa–cztery słowa z pewnością
+0,4–0,5 pomiędzy słowami odczytanymi na 0,9–0,99.** Tutaj nie ma czystego tła,
+z którym można by porównać.
+
+**Nie wyciągam z tego materiału żadnego wniosku.** To byłoby czwarte fałszywe
+trafienie z rzędu, przed którym ostrzegałeś.
+
+Co można z niego wziąć: nic o syntezie, ale to, że **klient nagrał rozmowę
+i przysłał ją jako dowód**, mówi samo za siebie o skali problemu z jego strony.
+
 ## ✅ MAMY POWITANIE, KTÓRE JEST CZYSTE I ZACHOWUJE OBOWIĄZEK RODO
 
 20 syntez na wariant, model Turbo v2.5 (ten „zepsuty"), głos Kamil (ten gorszy):
