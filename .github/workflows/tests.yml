@@ -45,6 +45,9 @@ jobs:
       - name: Kontrola typów (billing + moduł wspólny)
         run: |
           deno check supabase/functions/_shared/stripeWebhook.ts \
+                     supabase/functions/_shared/invoiceNumbering.ts \
+                     supabase/functions/_shared/invoiceNumbering_test.ts \
+                     supabase/functions/billing-invoice-issue/index.ts \
                      supabase/functions/_shared/stripeWebhook_test.ts \
                      supabase/functions/_shared/requireRole.ts \
                      supabase/functions/_shared/requireRole_test.ts \

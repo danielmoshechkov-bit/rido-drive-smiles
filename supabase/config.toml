@@ -453,3 +453,8 @@ verify_jwt = false
 # wyłączone; brak sekretu = 503 i zero przetwarzania.
 [functions.billing-stripe-webhook]
 verify_jwt = false
+
+# Faktura sprzedażowa GetRido — wywoływana wyłącznie wewnętrznie (z webhooka
+# albo ręcznie przy naprawie), autoryzowana kluczem serwisowym w nagłówku.
+[functions.billing-invoice-issue]
+verify_jwt = false
