@@ -184,6 +184,9 @@ export const ASERCJE = [
     opis: "data, której nie ma w snapshocie, bez wywołania check_availability",
     wymagaSnapshotu: true,
     sprawdz: (ctx) => {
+      // Bez wiedzy o narzędziach serwerowych nie da się odróżnić „agent zmyślił
+      // datę" od „agent ją sprawdził". Milczące zielone byłoby tu kłamstwem.
+      if (ctx.logiNieznane) return [{ tura: -1, cytat: "", powod: "NIE SPRAWDZONE: logi narzędzi serwerowych niedostępne" }];
       if (ctx.narzedzia.includes("check_availability")) return [];
       const dozwolone = new Set();
       for (const d of ctx.snapshot?.dni || []) {
@@ -208,6 +211,7 @@ export const ASERCJE = [
     opis: "godzina spoza wolnych albo po ostatnim możliwym starcie",
     wymagaSnapshotu: true,
     sprawdz: (ctx) => {
+      if (ctx.logiNieznane) return [{ tura: -1, cytat: "", powod: "NIE SPRAWDZONE: logi narzędzi serwerowych niedostępne" }];
       if (ctx.narzedzia.includes("check_availability")) return [];
       // PORÓWNUJEMY RDZENIE, NIE PEŁNE FORMY.
       // Pierwsza wersja porównywała słowo w słowo i zapaliła się na

@@ -98,6 +98,39 @@ async function symuluj(scenariusz, dynamicVariables) {
   return d.simulated_conversation || [];
 }
 
+// --- narzędzia SERWEROWE -----------------------------------------------------
+//
+// KOREKTA Z 15.08: transkrypt z ElevenLabs zawiera WYŁĄCZNIE narzędzia po ICH
+// stronie — end_call i language_detection. Nasze check_availability wykonuje
+// się wewnątrz voice-agent-chat i w transkrypcie nie widać go ani razu.
+//
+// Pierwsza wersja tego skryptu czytała tylko transkrypt i raportowała
+// „nie wywołano check_availability" w scenariuszu, w którym narzędzie ZOSTAŁO
+// wywołane — sprawdzone w logach: dziesięć wpisów `stage_timing` w tym samym
+// oknie czasu. Asercja mierzyła nie to źródło co system.
+async function narzedziaZLogow(od, do_) {
+  const SB = process.env.SUPABASE_ACCESS_TOKEN;
+  if (!SB) return null;
+  const sql = "select timestamp, event_message from function_logs where event_message like '%stage_timing%' and event_message like '%\"stage\":\"tool\"%' limit 200";
+  for (let i = 0; i < 5; i++) {
+    try {
+      const u = `https://api.supabase.com/v1/projects/wclrrytmrscqvsyxyvnn/analytics/endpoints/logs.all?` +
+        new URLSearchParams({ iso_timestamp_start: new Date(od).toISOString(), iso_timestamp_end: new Date(do_).toISOString(), sql });
+      const r = await fetch(u, { headers: { Authorization: `Bearer ${SB}`, "User-Agent": "curl/8.7.1" } });
+      if (!r.ok) throw new Error(String(r.status));
+      const d = await r.json();
+      // „Backend error! Retry" to NIE jest pusty zbiór — traktowanie go jak
+      // pustki dawałoby ciche „żadne narzędzie nie poszło".
+      if (d.error) throw new Error("backend");
+      return (d.result || []).map((x) => {
+        const m = String(x.event_message).match(/"tool":"([a-z_]+)"/);
+        return m ? { ms: x.timestamp / 1000, tool: m[1] } : null;
+      }).filter(Boolean);
+    } catch { await new Promise((r) => setTimeout(r, 4000 * (i + 1))); }
+  }
+  return null;   // null znaczy NIE WIEM — nie to samo co pusta lista
+}
+
 // --- gotowość do zlecenia (bez zapisu) --------------------------------------
 async function gotowoscDoZlecenia(rozmowa) {
   if (!ANT) return { stan: "nie_sprawdzone", powod: "brak ANTHROPIC_API_KEY w .env.local" };
@@ -129,22 +162,42 @@ async function main() {
   console.log(`snapshot: ${snap.dynamic_variables.rido_snapshot.length} znaków, ${snap.obiekt.dni?.length} dni, ${snap.obiekt.uslugi?.length} usług`);
   console.log(`scenariuszy: ${scenariusze.length}${FILTR_JEZYK ? ` (język ${FILTR_JEZYK})` : ""}\n`);
 
-  const wyniki = [];
+  // Najpierw WSZYSTKIE symulacje, z zapamiętanym oknem czasu każdej. Logi naszych
+  // funkcji brzegowej mają kilkusekundowe opóźnienie, więc czytamy je raz na
+  // końcu i przypisujemy po znaczniku czasu.
+  const przebiegi = [];
   for (const s of scenariusze) {
     process.stdout.write(`  ${s.id} [${s.jezyk}] ${s.opis}… `);
+    const od = Date.now() - 2000;
     let rozmowa = [], blad = null;
     try { rozmowa = await symuluj(s, snap.dynamic_variables); } catch (e) { blad = e.message; }
+    console.log(blad ? `BŁĄD: ${blad}` : `${rozmowa.length} tur`);
+    przebiegi.push({ s, rozmowa, blad, od, do_: Date.now() + 2000 });
+  }
+
+  process.stdout.write("\n  czytam narzędzia serwerowe z logów… ");
+  const logi = await narzedziaZLogow(Math.min(...przebiegi.map((p) => p.od)), Date.now() + 5000);
+  console.log(logi === null ? "NIEDOSTĘPNE — narzędzia serwerowe NIE SPRAWDZONE" : `${logi.length} wywołań`);
+  console.log("");
+
+  const wyniki = [];
+  for (const { s, rozmowa, blad, od, do_ } of przebiegi) {
+    process.stdout.write(`  ${s.id} [${s.jezyk}] ${s.opis}… `);
     if (blad) { console.log(`BŁĄD: ${blad}`); wyniki.push({ id: s.id, jezyk: s.jezyk, opis: s.opis, blad }); continue; }
 
-    const narzedzia = rozmowa.flatMap((t) => (t.tool_calls || []).map((c) => c.tool_name));
+    const klienckie = rozmowa.flatMap((t) => (t.tool_calls || []).map((c) => c.tool_name));
+    const serwerowe = logi === null ? [] : logi.filter((l) => l.ms >= od && l.ms <= do_).map((l) => l.tool);
+    const narzedzia = [...new Set([...klienckie, ...serwerowe])];
+    const logiNieznane = logi === null;
     const wzorce = (wzorceWJezyku(s.jezyk) || "").split("\n").filter((l) => l.startsWith("  ")).map((l) => l.trim());
-    const asercje = sprawdzRozmowe({ rozmowa, jezyk: s.jezyk, snapshot: snap.obiekt, narzedzia, wzorce });
+    const asercje = sprawdzRozmowe({ rozmowa, jezyk: s.jezyk, snapshot: snap.obiekt, narzedzia, wzorce, logiNieznane });
     const commit = await gotowoscDoZlecenia(rozmowa);
 
     // Oczekiwania ze scenariusza — narzędzia i intencja odwołania.
     const oczek = [];
     for (const n of s.oczekiwane?.narzedzia || []) {
-      if (!narzedzia.includes(n)) oczek.push(`nie wywołano ${n}`);
+      if (logiNieznane) oczek.push(`NIE SPRAWDZONE: czy wywołano ${n} (logi niedostępne)`);
+      else if (!narzedzia.includes(n)) oczek.push(`nie wywołano ${n}`);
     }
     if (s.oczekiwane?.gotowe_do_zlecenia && commit.stan === "blad") oczek.push(`brakuje do zlecenia: ${commit.braki.join(", ")}`);
     if (s.oczekiwane?.odwolanie && commit.stan !== "nie_sprawdzone" && !commit.odwolanie) oczek.push("nie rozpoznano intencji odwołania");
@@ -153,7 +206,7 @@ async function main() {
     const ostrzezenia = asercje.filter((a) => a.stan === "blad" && a.waga === "ostrzezenie");
     const nieSprawdzone = asercje.filter((a) => a.stan === "nie_sprawdzone");
     const czy = bledy.length + oczek.length === 0;
-    console.log(`${czy ? "✓" : "✗"}  ${rozmowa.length} tur${bledy.length ? `, ${bledy.length} błędów` : ""}${oczek.length ? `, ${oczek.length} niespełnionych oczekiwań` : ""}${ostrzezenia.length ? `, ${ostrzezenia.length} ostrzeżeń` : ""}${nieSprawdzone.length ? `, ${nieSprawdzone.length} niesprawdzonych` : ""}`);
+    console.log(`${czy ? "✓" : "✗"}  ${narzedzia.length ? `narzędzia: ${narzedzia.join(", ")}; ` : ""}${rozmowa.length} tur${bledy.length ? `, ${bledy.length} błędów` : ""}${oczek.length ? `, ${oczek.length} niespełnionych oczekiwań` : ""}${ostrzezenia.length ? `, ${ostrzezenia.length} ostrzeżeń` : ""}${nieSprawdzone.length ? `, ${nieSprawdzone.length} niesprawdzonych` : ""}`);
 
     for (const a of bledy) for (const n of a.naruszenia) console.log(`       ✗ [${a.id}] ${n.powod}\n         „${n.cytat}"`);
     for (const o of oczek) console.log(`       ✗ [oczekiwanie] ${o}`);

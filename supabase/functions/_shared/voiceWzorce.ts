@@ -35,6 +35,7 @@ type Wzorce = {
   termin: string[];
   dane: string[];
   cena: string[];
+  odwolanie: string[];
   domkniecie: string[];
 };
 
@@ -68,6 +69,10 @@ const RU: Wzorce = {
     "Не хочу говорить наугад. Механик посмотрит и оценит при приёмке. Завтра свободно в одиннадцать — подойдёт?",
     "Такой информации у меня нет — механик ответит на месте, при приёмке машины.",
     "Шины мы, к сожалению, не меняем. Но если что-то другое по машине — с радостью помогу.",
+  ],
+  odwolanie: [
+    "Хорошо, передаю это в сервис — вам перезвонят, чтобы подтвердить.",
+    "Понятно, передаю в сервис. Перезвонят и согласуют новое время.",
   ],
   domkniecie: [
     "Готово — четверг, шестого, в девять.",
@@ -109,6 +114,10 @@ const UK: Wzorce = {
     "Такої інформації я не маю — механік відповість на місці, під час приймання авто.",
     "Шини ми, на жаль, не міняємо. Але якщо щось інше по авто — залюбки допоможу.",
   ],
+  odwolanie: [
+    "Добре, передаю це до сервісу — вам передзвонять, щоб підтвердити.",
+    "Зрозуміло, передаю до сервісу. Передзвонять і узгодять новий час.",
+  ],
   domkniecie: [
     "Готово — четвер, шостого, о дев'ятій.",
     "Готово — четвер, шостого серпня, одинадцята. Підтвердження надійде в СМС протягом кількох хвилин.",
@@ -149,6 +158,10 @@ const EN: Wzorce = {
     "I don't have that information — the mechanic will answer when you drop the car off.",
     "We don't do tyres, unfortunately. But if there's anything else with the car — happy to help.",
   ],
+  odwolanie: [
+    "Alright, I'm passing this to the workshop — they'll call you back to confirm.",
+    "Understood, I'm passing it on. They'll call back and arrange a new time.",
+  ],
   domkniecie: [
     "Done — Thursday the 6th at 9.",
     "Done — Thursday 6 August at 11. You'll get a confirmation text within a few minutes.",
@@ -161,9 +174,9 @@ const EN: Wzorce = {
 const TABLICE: Record<Exclude<JezykWzorcow, "pl">, Wzorce> = { ru: RU, uk: UK, en: EN };
 
 const NAGLOWKI: Record<Exclude<JezykWzorcow, "pl">, Record<keyof Wzorce, string>> = {
-  ru: { otwarcie: "ОТКРЫТИЕ", termin: "ВРЕМЯ ВИЗИТА", dane: "ДАННЫЕ КЛИЕНТА", cena: "ЦЕНА И ОТКАЗ", domkniecie: "ЗАВЕРШЕНИЕ" },
-  uk: { otwarcie: "ПОЧАТОК", termin: "ЧАС ВІЗИТУ", dane: "ДАНІ КЛІЄНТА", cena: "ЦІНА ТА ВІДМОВА", domkniecie: "ЗАВЕРШЕННЯ" },
-  en: { otwarcie: "OPENING", termin: "APPOINTMENT TIME", dane: "CUSTOMER DETAILS", cena: "PRICE AND DECLINING", domkniecie: "CLOSING" },
+  ru: { otwarcie: "ОТКРЫТИЕ", termin: "ВРЕМЯ ВИЗИТА", dane: "ДАННЫЕ КЛИЕНТА", cena: "ЦЕНА И ОТКАЗ", odwolanie: "ОТМЕНА И ПЕРЕНОС", domkniecie: "ЗАВЕРШЕНИЕ" },
+  uk: { otwarcie: "ПОЧАТОК", termin: "ЧАС ВІЗИТУ", dane: "ДАНІ КЛІЄНТА", cena: "ЦІНА ТА ВІДМОВА", odwolanie: "СКАСУВАННЯ ТА ПЕРЕНЕСЕННЯ", domkniecie: "ЗАВЕРШЕННЯ" },
+  en: { otwarcie: "OPENING", termin: "APPOINTMENT TIME", dane: "CUSTOMER DETAILS", cena: "PRICE AND DECLINING", odwolanie: "CANCELLING AND RESCHEDULING", domkniecie: "CLOSING" },
 };
 
 /**

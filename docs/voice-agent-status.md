@@ -2882,3 +2882,33 @@ Skutek uboczny, który okazał się ważniejszy niż sama kontrola: **wypisanie
 źródeł znalazło jedno, którego nie pilnowało NIC** — personę z
 `ai_agents_config.system_prompt`. Prompt ma dwa źródła, kod i bazę; pilnowaliśmy
 tylko pierwszego.
+
+---
+
+## ZASADA 28 — czerwone przy poprawnym zdaniu uczy ignorowania czerwonego
+
+**Asercja, która świeci na czerwono przy poprawnej wypowiedzi, jest gorsza niż
+jej brak.** To ta sama klasa co czerwone CI, które wszyscy przeskakują.
+
+Trzy fałszywe alarmy z pierwszego dnia symulacji, każdy naprawiony razem
+z własnym przypadkiem testowym:
+
+- **„Najpóźniej mogę zapisać na szesnastą"** przy snapshocie ze `szesnastej` —
+  ta sama godzina, inny przypadek. Porównanie napisem nie ma szans przy czterech
+  językach i kilkunastu odmianach. Porównujemy RDZENIE.
+- **„poniedziałek siedemnastego sierpnia o dziewiątej albo o dwunastej trzydzieści"**
+  policzone jako TRZY godziny, bo `siedemnastego` wpadało we wzorzec liczebnika.
+  Najpierw wycinamy daty, potem liczymy godziny.
+- **„nie wywołano check_availability"** w rozmowie, w której narzędzie ZOSTAŁO
+  wywołane. Transkrypt z ElevenLabs zawiera wyłącznie narzędzia po ICH stronie;
+  nasze wykonują się wewnątrz `voice-agent-chat`. Asercja czytała nie to źródło
+  co system — i przez jeden przebieg raportowałem defekt, którego nie było.
+
+**Każdy złapany fałszywy alarm dostaje własny przypadek w
+`voice-asercje_test.mjs`**, na utrwalonej wypowiedzi. Symulacja jest
+niedeterministyczna, testy asercji nie są.
+
+Konsekwencja praktyczna, wynikająca z zasady 12: gdy asercja nie ma czym
+zmierzyć — logi niedostępne, brak snapshotu, brak klucza — raportuje
+**NIE SPRAWDZONE**, nigdy zielone. Zielone bez pomiaru to fałszywy alarm
+w drugą stronę i kosztuje więcej, bo nikt go nie zauważy.
