@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { mozePracowac, odmowaBramki } from "../_shared/subscriptionGate.ts";
+
+// Komunikat z rzuconego wyjątku. `catch (e)` daje `unknown`, więc sięgnięcie
+// wprost po `tresc(e)` nie przechodzi kontroli typów.
+const tresc = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
 
 // Hart API URLs (per doc v1.5)
 const HART_PROD_URL = "https://restapi.hartphp.com.pl";
@@ -156,6 +162,34 @@ serve(async (req) => {
     const body = await req.json();
     const { action, provider_id, supplier_code = "hart", params = {} } = body;
 
+    // ── Właściciel ─────────────────────────────────────────────────────
+    // Tego sprawdzenia NIE BYŁO. Funkcja pisze kluczem service_role, a
+    // `provider_id` brała wprost z ciała żądania — dowolne zalogowane konto
+    // mogło podstawić cudzy identyfikator i sterować integracją hurtowni
+    // innego warsztatu, łącznie z zapytaniami na jego danych dostępowych.
+    // Dopuszczamy właściciela ORAZ czynnego pracownika, bo wyszukiwanie
+    // części to codzienna praca mechanika, nie czynność właścicielska.
+    {
+      const [wlasciciel, pracownik] = await Promise.all([
+        supabase.from("service_providers").select("id")
+          .eq("id", provider_id).eq("user_id", user.id).maybeSingle(),
+        supabase.from("workshop_employees").select("id")
+          .eq("provider_id", provider_id).eq("user_id", user.id)
+          .eq("is_active", true).maybeSingle(),
+      ]);
+      if (!wlasciciel.data && !pracownik.data) {
+        return new Response(JSON.stringify({ error: "forbidden" }), {
+          status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Bramka subskrypcji (G5) — zamawianie i wyszukiwanie części u hurtowni
+      // to korzystanie z produktu, a funkcja omija RLS.
+      const bramka = await mozePracowac(supabase, provider_id);
+      if (!bramka.wolno) return odmowaBramki(corsHeaders, bramka.powod);
+    }
+    // ── koniec ─────────────────────────────────────────────────────────
+
     const { data: integration } = await supabase
       .from("workshop_parts_integrations")
       .select("*")
@@ -242,7 +276,7 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
       } catch (e) {
         console.error("AP test error:", e);
         await updateConnectionStatus(supabase, integration.id, "error");
-        return json({ error: `Nie można połączyć z Auto Partner: ${e.message}` }, 500);
+        return json({ error: `Nie można połączyć z Auto Partner: ${tresc(e)}` }, 500);
       }
     }
 
@@ -335,7 +369,7 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
                 await searchRes.text(); // consume body
               }
             } catch (e: any) {
-              console.warn(`[AP] Strategy B (${searchEndpoint}) failed:`, e.message);
+              console.warn(`[AP] Strategy B (${searchEndpoint}) failed:`, tresc(e));
             }
           }
         }
@@ -380,7 +414,7 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
           confidence: resolved.confidence,
         });
       } catch (e) {
-        return json({ error: `Błąd wyszukiwania AP: ${e.message}` }, 500);
+        return json({ error: `Błąd wyszukiwania AP: ${tresc(e)}` }, 500);
       }
     }
 
@@ -399,7 +433,7 @@ async function handleAutoPartner(supabase: any, integration: any, action: string
         const data = await res.json();
         return json({ availability: data?.RestProductsAvailabilityV2Result?.Availability || [] });
       } catch (e) {
-        return json({ error: `Błąd dostępności AP: ${e.message}` }, 500);
+        return json({ error: `Błąd dostępności AP: ${tresc(e)}` }, 500);
       }
     }
 
@@ -924,7 +958,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
       } catch (e) {
         console.error("[IC] Test connection error:", e);
         await updateConnectionStatus(supabase, integration.id, "error");
-        return json({ error: `Nie można połączyć z Inter Cars: ${e.message}` }, 400);
+        return json({ error: `Nie można połączyć z Inter Cars: ${tresc(e)}` }, 400);
       }
     }
 
@@ -1090,7 +1124,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
           confidence: resolved.confidence,
         });
       } catch (e) {
-        return json({ error: `Błąd wyszukiwania Inter Cars: ${e.message}` }, 500);
+        return json({ error: `Błąd wyszukiwania Inter Cars: ${tresc(e)}` }, 500);
       }
     }
 
@@ -1136,7 +1170,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
           },
         });
       } catch (e) {
-        return json({ error: `Błąd zamówienia Inter Cars: ${e.message}` }, 500);
+        return json({ error: `Błąd zamówienia Inter Cars: ${tresc(e)}` }, 500);
       }
     }
 
@@ -1160,7 +1194,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         const data = await availRes.json();
         return json({ availability: Array.isArray(data) ? data : data?.items || [] });
       } catch (e) {
-        return json({ error: `Błąd dostępności IC: ${e.message}` }, 500);
+        return json({ error: `Błąd dostępności IC: ${tresc(e)}` }, 500);
       }
     }
 
@@ -1183,7 +1217,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         const data = await priceRes.json();
         return json({ pricing: data });
       } catch (e) {
-        return json({ error: `Błąd wyceny IC: ${e.message}` }, 500);
+        return json({ error: `Błąd wyceny IC: ${tresc(e)}` }, 500);
       }
     }
 
@@ -1204,7 +1238,7 @@ async function handleInterCars(supabase: any, integration: any, action: string, 
         const data = await statusRes.json();
         return json({ order: data });
       } catch (e) {
-        return json({ error: `Błąd statusu IC: ${e.message}` }, 500);
+        return json({ error: `Błąd statusu IC: ${tresc(e)}` }, 500);
       }
     }
 

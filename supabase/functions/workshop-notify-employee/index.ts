@@ -6,6 +6,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { mozePracowac, odmowaBramki } from "../_shared/subscriptionGate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -120,6 +121,15 @@ serve(async (req) => {
       }
     }
     // ── koniec Authorization ───────────────────────────────────────────
+
+    // Bramka subskrypcji (G5). Powiadamianie pracownika o zleceniu to praca
+    // warsztatu i kosztuje SMS. Ścieżka wewnętrzna (service_role) i ścieżka
+    // klienta z kodem `quote_accepted` przechodzą wyżej własnymi drogami —
+    // tutaj bramkujemy warsztat, bo provider bierzemy ze zlecenia w bazie.
+    {
+      const bramka = await mozePracowac(admin, (order as any).provider_id);
+      if (!bramka.wolno) return odmowaBramki(corsHeaders, bramka.powod);
+    }
     const v: any = (order as any).vehicle;
     const vehicleStr = v ? [v.brand, v.model, v.license_plate].filter(Boolean).join(' ') : '';
     const appOrigin = Deno.env.get("APP_ORIGIN") || "https://getrido.pl";

@@ -8,6 +8,7 @@
 // Mail idzie bezpośrednio przez Resend, bo dla maili takiej kolejki nie ma.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { mozePracowac } from "../_shared/subscriptionGate.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
@@ -80,7 +81,22 @@ serve(async (req) => {
     let sms = 0, email = 0, skipped = 0;
     const problems: string[] = [];
 
+    // Bramka subskrypcji (G5), per warsztat. To przypomnienie o wymianie opon,
+    // czyli działanie handlowe WARSZTATU — inaczej niż przypomnienie o wizycie,
+    // które służy klientowi i dlatego bramce nie podlega. Pytamy raz na
+    // warsztat, nie raz na wiersz: kolejka bywa długa.
+    const decyzje = new Map<string, boolean>();
+    const wolnoWysylac = async (providerId: string | null | undefined) => {
+      if (!providerId) return false;
+      const znane = decyzje.get(providerId);
+      if (znane !== undefined) return znane;
+      const { wolno } = await mozePracowac(supabaseAdmin, providerId);
+      decyzje.set(providerId, wolno);
+      return wolno;
+    };
+
     for (const row of due as any[]) {
+      if (!(await wolnoWysylac(row.provider_id))) { skipped++; continue; }
       const warsztat = row.provider_name || "Warsztat";
       const termin = formatDate(row.due_date);
       const miejsce = row.storage_number ? ` (nr ${row.storage_number})` : "";

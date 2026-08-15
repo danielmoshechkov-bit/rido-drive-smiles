@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { mozePracowac, odmowaBramki } from '../_shared/subscriptionGate.ts';
 
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -39,6 +40,14 @@ serve(async (req) => {
     }
     if (inv.status !== 'pending') {
       return json({ error: 'already_processed', status: inv.status }, 400);
+    }
+
+    // Bramka subskrypcji (G5) — tylko na PRZYJĘCIU zaproszenia. Odrzucenie
+    // zostaje wolne: to zamknięcie sprawy, nie praca, a zablokowanie go
+    // zostawiłoby zaproszenie wiszące w nieskończoność.
+    if (accept) {
+      const bramka = await mozePracowac(admin, inv.provider_id);
+      if (!bramka.wolno) return odmowaBramki(corsHeaders, bramka.powod);
     }
 
     if (!accept) {

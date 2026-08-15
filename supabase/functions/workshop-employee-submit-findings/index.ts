@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { mozePracowac, odmowaBramki } from '../_shared/subscriptionGate.ts';
 
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -40,6 +41,11 @@ serve(async (req) => {
     const { data: assignment } = await admin.from('workshop_order_assignments')
       .select('id, provider_id').eq('order_id', order_id).eq('employee_user_id', user.id).maybeSingle();
     if (!assignment) return json({ error: 'no assignment for this order' }, 403);
+
+    // Bramka subskrypcji (G5) — provider bierzemy z przypisania, nie z ciała
+    // żądania, więc nie da się jej ominąć podstawiając cudze provider_id.
+    const bramka = await mozePracowac(admin, assignment.provider_id);
+    if (!bramka.wolno) return odmowaBramki(corsHeaders, bramka.powod);
 
     // Get current max position
     const { data: existing } = await admin.from('workshop_employee_findings')

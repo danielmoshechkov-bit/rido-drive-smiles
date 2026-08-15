@@ -18,6 +18,24 @@ Deno.serve(async (req) => {
 
     const { action } = await req.json();
 
+    // ── ZABEZPIECZENIE (dopisane przy G5) ──────────────────────────────
+    // Ta funkcja ma `verify_jwt = false` i NIE sprawdzała niczego, a gałąź
+    // `delete` kasuje WSZYSTKIE wiersze z service_providers, services,
+    // service_bookings i service_reviews — całą giełdę usług, nie tylko dane
+    // przykładowe. Kto znał adres funkcji, mógł ją wyczyścić jednym żądaniem.
+    //
+    // Fail-closed: bez ustawionego sekretu funkcja nie robi NIC. Nie da się
+    // jej „przypadkiem odblokować" brakiem konfiguracji.
+    const sekret = Deno.env.get('SEED_DEMO_SECRET') ?? '';
+    const podany = req.headers.get('x-seed-secret') ?? '';
+    if (sekret.length < 16 || podany !== sekret) {
+      console.warn('[seed-services-demo] odmowa: zły sekret albo brak konfiguracji');
+      return new Response(JSON.stringify({ error: 'forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    // ── koniec zabezpieczenia ──────────────────────────────────────────
+
     if (action === 'delete') {
       // Delete all demo data
       await supabase.from('service_reviews').delete().neq('id', '00000000-0000-0000-0000-000000000000');
@@ -599,7 +617,7 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
