@@ -56,15 +56,89 @@ własny albo któryś z trzech realnie używanych (CART78GARAGE, AUTO-SERWIS
 HAWRYLUK, Beata Smosarska) — **najpierw** nadaj mu trial albo aktywną
 subskrypcję, dopiero potem migracja.
 
-Nadanie trialu na 30 dni, gdyby było potrzebne:
+### Zachowanie dostępu istniejącym warsztatom
+
+Trzy realnie pracujące warsztaty mają zachować pełny dostęp do odwołania.
+Rozważane były trzy drogi; **wybrana jest druga** i poniżej jest napisane,
+dlaczego pierwsza jest pułapką.
+
+**❌ Ręczna subskrypcja `active` w `billing_subscriptions` — NIE.**
+Wygląda najczyściej, a zamyka drogę do zakupu:
+
+- `billing-checkout:100-113` odmawia z `ALREADY_SUBSCRIBED`, gdy istnieje wiersz
+  o statusie `trialing`/`active`/`past_due`/`read_only` w tej linii. Warsztat
+  kliknąłby „Kup" i usłyszał „masz już aktywną subskrypcję". Koniec konwersji.
+- Gdyby jednak doszło do zakupu, webhook robi `INSERT`, a indeks
+  `billing_subscriptions_one_active` dopuszcza jedną aktywną subskrypcję na
+  podmiot — dostalibyśmy `23505` i zdarzenie zamknięte jako `failed`
+  z adnotacją „sprawdź zwrot". Klient płaci, subskrypcja nie powstaje.
+
+Czyli wariant, który miał uniknąć sprzątania, wymagałby pamiętania o skasowaniu
+wiersza **dokładnie przed** pierwszym zakupem — czyli dokładnie tego długu,
+którego chcieliśmy uniknąć.
+
+**✅ Przedłużony okres próbny w `paid_service_subscriptions` — TAK.**
+Sprząta się sam:
+
+- `moze_pracowac` sprawdza NAJPIERW `billing_subscriptions`; przy braku wiersza
+  schodzi do triala. Trial z odległą datą → pełny dostęp.
+- `billing-checkout` nie zagląda do tej tabeli, więc zakup działa normalnie.
+- Po zakupie pojawia się wiersz w `billing_subscriptions` i **od tej chwili
+  decyduje on**, a trial przestaje mieć znaczenie sam z siebie. Zero sprzątania.
+
+Podgląd — najpierw sprawdź, kogo obejmie:
 ```sql
-INSERT INTO paid_service_subscriptions (user_id, status, started_at, expires_at, amount_paid, metadata)
-SELECT sp.user_id, 'trial', now(), now() + interval '30 days', 0,
-       jsonb_build_object('module','warsztat','trial',true,'source','wdrozenie_gatingu')
+SELECT sp.id, sp.company_name, sp.user_id,
+       ps.id AS trial_id, ps.status, ps.expires_at
 FROM service_providers sp
-WHERE sp.id = '…'::uuid
-  AND NOT EXISTS (SELECT 1 FROM paid_service_subscriptions ps WHERE ps.user_id = sp.user_id);
+LEFT JOIN LATERAL (
+  SELECT * FROM paid_service_subscriptions p
+  WHERE p.user_id = sp.user_id ORDER BY p.created_at DESC LIMIT 1
+) ps ON true
+WHERE sp.company_name ILIKE ANY (ARRAY['%cart78%','%hawryluk%','%smosarska%']);
 ```
+
+Nadanie — dwa polecenia, bo część może już mieć wiersz triala:
+```sql
+-- 1) przedłużenie istniejących
+UPDATE paid_service_subscriptions ps
+SET status     = 'trial',
+    expires_at = timestamptz '2027-12-31 23:59:59+01',
+    metadata   = COALESCE(ps.metadata, '{}'::jsonb) || jsonb_build_object(
+                   'module', 'warsztat', 'trial', true,
+                   'source', 'dostep_zachowany_przed_gatingiem')
+FROM service_providers sp
+WHERE sp.user_id = ps.user_id
+  AND sp.company_name ILIKE ANY (ARRAY['%cart78%','%hawryluk%','%smosarska%']);
+
+-- 2) założenie brakujących
+INSERT INTO paid_service_subscriptions (user_id, status, started_at, expires_at, amount_paid, metadata)
+SELECT sp.user_id, 'trial', now(), timestamptz '2027-12-31 23:59:59+01', 0,
+       jsonb_build_object('module', 'warsztat', 'trial', true,
+                          'source', 'dostep_zachowany_przed_gatingiem')
+FROM service_providers sp
+WHERE sp.company_name ILIKE ANY (ARRAY['%cart78%','%hawryluk%','%smosarska%'])
+  AND sp.user_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM paid_service_subscriptions p WHERE p.user_id = sp.user_id);
+```
+
+Kontrola po nadaniu — trzy razy `true`:
+```sql
+SELECT sp.company_name, public.moze_pracowac(sp.id, 'warsztat')
+FROM service_providers sp
+WHERE sp.company_name ILIKE ANY (ARRAY['%cart78%','%hawryluk%','%smosarska%']);
+```
+(to zapytanie zadziała dopiero PO migracji z kroku 1)
+
+**Planu nie przypisujemy.** Trial nie ma `plan_id` i nie potrzebuje go: dostęp
+jest dziś rozstrzygany zerojedynkowo, a ograniczenia funkcji per plan
+(`has_feature`, `feature_limit`) nie mają jeszcze ani jednego wywołania.
+Wpisanie `warsztat_pro` do metadanych uruchomiłoby za to baner namawiający ich
+do kupna Pro i stworzyło obietnicę, której nikt nie składał.
+
+Do rozstrzygnięcia później, przy 4.10: gdy wejdą limity per plan, trial bez
+planu nie będzie miał zdefiniowanych limitów — wtedy trzeba tym trzem albo
+przypisać plan, albo zamienić dostęp na prawdziwą subskrypcję.
 
 **Stan po kroku 0:** nic nie zmienione.
 
