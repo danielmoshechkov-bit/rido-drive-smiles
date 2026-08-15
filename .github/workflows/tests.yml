@@ -50,7 +50,8 @@ jobs:
                      supabase/functions/billing-checkout/index.ts \
                      supabase/functions/billing-stripe-sync/index.ts \
                      supabase/functions/billing-admin-plans/index.ts \
-                     supabase/functions/billing-admin-features/index.ts
+                     supabase/functions/billing-admin-features/index.ts \
+                     supabase/functions/payment-core/index.ts
 
       # Testy jednostkowe. `--allow-read` jest konieczne: część istniejących
       # testów agenta głosowego czyta pliki źródłowe i sprawdza, czego w nich

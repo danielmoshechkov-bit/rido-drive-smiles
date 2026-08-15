@@ -603,22 +603,19 @@ async function processPaymentSuccess(
 }
 
 /**
- * ⚠️ TA FUNKCJA NIE DZIAŁA PRZECIWKO OBECNEMU SCHEMATOWI.
+ * Dopisanie kredytów po opłaconej płatności.
  *
- * Odpytuje `user_credits` po kolumnach `balance` i `credit_type`, a tabela ma
- * wyłącznie `credits_balance`, `user_id`, `id`, `created_at`, `updated_at`.
- * Każde wywołanie kończy się błędem PostgREST, więc przyznanie kredytów po
- * opłaceniu zamówienia (`ai_credits`, `sms_credits`, `ai_photo_package`) po
- * cichu nie następuje — dotąd nikt tego nie zauważył, bo błędy nie były
- * sprawdzane.
+ * NAPRAWA 15.08. Funkcja czytała i zapisywała kolumny `balance` i `credit_type`,
+ * których w `user_credits` NIE MA — tabela ma wyłącznie `credits_balance`.
+ * PostgREST zwracał błąd, `fail("odczyt salda")` logował i funkcja kończyła się
+ * po cichu: płatność przechodziła, kredyty nie wchodziły. Sprawdzone na
+ * produkcji — nikt nigdy nie kupił kredytów, więc nie ma sald do korekty.
  *
- * Naprawa schematu i uzgodnienie magazynów należy do prac nad billingiem
- * (patrz docs/billing/plan.md). Tutaj wyłącznie przestajemy milczeć: każde
- * niepowodzenie zostawia ślad w logach z kompletem danych do ręcznej korekty.
- *
- * Osobna niezgodność, też do billingu: dla `sms_credits` środki lądują tutaj,
- * a aplikacja czyta saldo SMS z `service_providers.sms_balance` — czyli z innego
- * miejsca. Docelowym magazynem jest to drugie.
+ * `creditType` ZOSTAJE w sygnaturze, ale nie trafia do bazy: saldo jest jedno
+ * i wspólne dla wszystkich rodzajów. Rozdzielenie typów to decyzja z podetapu
+ * 4.4, razem z uzgodnieniem trzech magazynów SMS — do tego czasu nie zgadujemy
+ * i nie dokładamy kolumny. Typ jest logowany, żeby po 4.4 dało się odtworzyć,
+ * co komu naliczono.
  */
 async function upsertCredits(supabase: any, userId: string, creditType: string, amount: number) {
   const fail = (stage: string, error: unknown) =>
@@ -629,9 +626,8 @@ async function upsertCredits(supabase: any, userId: string, creditType: string, 
 
   const { data: existing, error: readErr } = await supabase
     .from("user_credits")
-    .select("id, balance")
+    .select("id, credits_balance")
     .eq("user_id", userId)
-    .eq("credit_type", creditType)
     .maybeSingle();
 
   if (readErr) {
@@ -642,39 +638,69 @@ async function upsertCredits(supabase: any, userId: string, creditType: string, 
   if (existing) {
     const { error } = await supabase
       .from("user_credits")
-      .update({ balance: existing.balance + amount, updated_at: new Date().toISOString() })
+      .update({
+        credits_balance: (existing.credits_balance ?? 0) + amount,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", existing.id);
     if (error) fail("aktualizacja salda", error);
+    else console.log(`payment-core: przyznano ${amount} kredytów (typ ${creditType}) — user=${userId}`);
     return;
   }
 
   const { error } = await supabase.from("user_credits").insert({
     user_id: userId,
-    credit_type: creditType,
-    balance: amount,
+    credits_balance: amount,
   });
   if (error) fail("utworzenie salda", error);
+  else console.log(`payment-core: utworzono saldo ${amount} kredytów (typ ${creditType}) — user=${userId}`);
 }
 
+/**
+ * Sprawdzenie i pobranie kredytów. Te same nieistniejące kolumny co wyżej —
+ * akcja kończyła się błędem ZAWSZE, więc żadne zużycie nigdy się nie zapisało.
+ *
+ * `credit_type` przyjmowany dla zgodności z wołającymi, ale saldo jest jedno.
+ * Rozdzielenie typów: podetap 4.4.
+ */
 async function handleCreditsCheck(supabase: any, body: any) {
   const { user_id, credit_type, amount_needed } = body;
+  const potrzeba = Number(amount_needed ?? 0);
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("user_credits")
-    .select("id, balance")
+    .select("id, credits_balance")
     .eq("user_id", user_id)
-    .eq("credit_type", credit_type)
     .maybeSingle();
 
-  const balance = data?.balance || 0;
+  if (error) {
+    // Fail-closed: gdy nie umiemy odczytać salda, nie wydajemy produktu.
+    console.error(`payment-core: nie odczytano salda — user=${user_id}`, error);
+    return new Response(JSON.stringify({ ok: false, balance: 0, error: "Nie udało się odczytać salda" }), {
+      status: 503,
+      headers: CORS,
+    });
+  }
 
-  if (balance >= amount_needed) {
-    await supabase
+  const balance = data?.credits_balance ?? 0;
+
+  if (data && balance >= potrzeba) {
+    const { error: updErr } = await supabase
       .from("user_credits")
-      .update({ balance: balance - amount_needed, updated_at: new Date().toISOString() })
+      .update({ credits_balance: balance - potrzeba, updated_at: new Date().toISOString() })
       .eq("id", data.id);
 
-    return new Response(JSON.stringify({ ok: true, remaining: balance - amount_needed }), { headers: CORS });
+    if (updErr) {
+      // Zdjęcie salda nie może zawieść po cichu — inaczej klient dostaje
+      // produkt, za który nie zapłacił.
+      console.error(`payment-core: NIE ZDJĘTO kredytów — user=${user_id} ilosc=${potrzeba} typ=${credit_type}`, updErr);
+      return new Response(JSON.stringify({ ok: false, balance, error: "Nie udało się pobrać kredytów" }), {
+        status: 503,
+        headers: CORS,
+      });
+    }
+
+    return new Response(JSON.stringify({ ok: true, remaining: balance - potrzeba }), { headers: CORS });
   }
 
   return new Response(JSON.stringify({ ok: false, balance }), { headers: CORS });
