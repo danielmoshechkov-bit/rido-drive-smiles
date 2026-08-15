@@ -94,6 +94,34 @@ export const ostatniStart = (
   return Math.min(zZamkniecia, zUstawien);
 };
 
+
+/**
+ * GODZINA SŁOWAMI — „o dziewiątej", „o dwunastej trzydzieści".
+ *
+ * BŁĄD, KTÓRY TO NAPRAWIA (rozmowa 15.08 19:28): snapshot podawał „12:30",
+ * model zamieniał je na słowa sam i powiedział klientowi „o półtorej" —
+ * godzinę, która nie istnieje. Klient dostał POTWIERDZENIE WIZYTY z tą godziną.
+ *
+ * Forma jest w miejscowniku, gotowa do wstawienia po „o": „o dziewiątej".
+ * Świadomie NIE używamy „wpół do pierwszej" — „wpół do" przy godzinach
+ * popołudniowych jest dwuznaczne („wpół do pierwszej" to 12:30 czy 00:30?),
+ * a „dwunasta trzydzieści" nie jest.
+ */
+const GODZINY_MSC = ["", "pierwszej", "drugiej", "trzeciej", "czwartej", "piątej", "szóstej",
+  "siódmej", "ósmej", "dziewiątej", "dziesiątej", "jedenastej", "dwunastej", "trzynastej",
+  "czternastej", "piętnastej", "szesnastej", "siedemnastej", "osiemnastej", "dziewiętnastej",
+  "dwudziestej", "dwudziestej pierwszej", "dwudziestej drugiej", "dwudziestej trzeciej"];
+const MINUTY_SLOWNIE: Record<number, string> = {
+  15: "piętnaście", 30: "trzydzieści", 45: "czterdzieści pięć",
+};
+export const godzinaDoWypowiedzenia = (hhmm: string): string => {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(h) || h < 0 || h > 23) return hhmm;
+  const g = h === 0 ? "dwudziestej czwartej" : GODZINY_MSC[h];
+  if (!m) return g;
+  return `${g} ${MINUTY_SLOWNIE[m] || String(m)}`;
+};
+
 /** Ile minut blokuje usługa i czy wolno o tym mówić klientowi. */
 export const czasUslugi = (u: Usluga, domyslnyCzasMin: number | null) => {
   if (typeof u.duration_minutes === "number" && u.duration_minutes > 0) {

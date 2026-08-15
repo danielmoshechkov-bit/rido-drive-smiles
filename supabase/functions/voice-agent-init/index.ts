@@ -30,7 +30,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
 import {
   cenaDoWypowiedzenia, czasDoWypowiedzenia, czasUslugi, hhmm, kluczDnia, minuty, ostatniStart,
-  wolneGodziny, zbudujDni, type GodzinyDnia, type Usluga,
+  wolneGodziny, zbudujDni, godzinaDoWypowiedzenia, type GodzinyDnia, type Usluga,
 } from "../_shared/voiceSnapshot.ts";
 // ANGIELSKI — OSOBNY MODUŁ, DOKŁADANY OBOK. Moduł polski zostaje nietknięty:
 // ma 22 asercje i trzy dni poprawek za sobą, a uogólnianie go na drugi język
@@ -283,6 +283,7 @@ serve(async (req) => {
         ostatniStart(zamkniecieTypowe, DOMYSLNY_CZAS_MIN, null));
       const ustawienia = {
         najpozniejsze_przyjecie: najpozniejszePrzyjecie,
+        najpozniejsze_przyjecie_do_wypowiedzenia: godzinaDoWypowiedzenia(najpozniejszePrzyjecie),
         domyslny_czas_wizyty_min: DOMYSLNY_CZAS_MIN,
         polityka_wyceny: "kosztorys_przed_naprawa",
         polityka_wyceny_tekst: POLITYKI.kosztorys_przed_naprawa,
@@ -331,6 +332,13 @@ serve(async (req) => {
 
       const dniZAngielskim = dni.map((d) => ({
         ...d,
+        // GODZINY SŁOWAMI — model nie zamienia ich sam. Rozmowa 15.08 19:28:
+        // snapshot podał „12:30", agent powiedział „o półtorej" i klient dostał
+        // potwierdzenie wizyty z godziną, która nie istnieje.
+        ...(d.wolne ? { wolne_do_wypowiedzenia: d.wolne.map(godzinaDoWypowiedzenia) } : {}),
+        ...(d.ostatni_mozliwy_start
+          ? { ostatni_mozliwy_start_do_wypowiedzenia: godzinaDoWypowiedzenia(d.ostatni_mozliwy_start) }
+          : {}),
         do_wypowiedzenia_en: doWypowiedzeniaEn(d.data),
         ...(d.powod ? { powod_en: powodEn(d.powod) } : {}),
         ...(jezykSlow
@@ -376,6 +384,8 @@ serve(async (req) => {
             ? { [`czas_do_powiedzenia_${jezykSlow}`]: czasDoWypowiedzeniaSlow(czas.czas_blokady_min, jezykSlow) }
             : {}),
           ostatni_start: hhmm(ostatniStart(zamkniecieTypowe, czas.czas_blokady_min, najpozniejszePrzyjecie)),
+          ostatni_start_do_wypowiedzenia: godzinaDoWypowiedzenia(
+            hhmm(ostatniStart(zamkniecieTypowe, czas.czas_blokady_min, najpozniejszePrzyjecie))),
           // USŁUGA DŁUŻSZA NIŻ POŁOWA DNIA ROBOCZEGO MUSI ZACZĄĆ SIĘ RANO.
           // Ceramika i folie ochronne trwają cały dzień albo dwa — proponowanie
           // ich na popołudnie to obietnica, której warsztat nie dotrzyma.

@@ -67,3 +67,16 @@ export const cenaDoWypowiedzeniaEn = (od: number, do_: number | null): string =>
 /** Powody zamknięcia dnia — te same dwa stany co po polsku. */
 export const powodEn = (powodPl: string): string =>
   powodPl === "zamknięte" ? "closed" : powodPl === "brak wolnych terminów" ? "no free slots" : powodPl;
+
+/** „nine o'clock", „twelve thirty" — gotowe do wstawienia po „at". */
+export const godzinaDoWypowiedzeniaEn = (hhmm: string): string => {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(h) || h < 0 || h > 23) return hhmm;
+  const SL = ["twelve", "one", "two", "three", "four", "five", "six", "seven", "eight",
+    "nine", "ten", "eleven", "twelve", "one", "two", "three", "four", "five", "six",
+    "seven", "eight", "nine", "ten", "eleven"];
+  const g = SL[h];
+  if (!m) return `${g} o'clock`;
+  const MIN: Record<number, string> = { 15: "fifteen", 30: "thirty", 45: "forty-five" };
+  return `${g} ${MIN[m] || String(m)}`;
+};

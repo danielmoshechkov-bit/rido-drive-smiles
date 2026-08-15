@@ -85,3 +85,45 @@ test("nazwy uslug ZOSTAJA po polsku — to dane warsztatu, nie nasz tekst", () =
   assert.equal(ru.uslugi[0].nazwa, "Wymiana klocków hamulcowych");
   assert.equal(ru.uslugi[0].cena.do_powiedzenia, "от ста пятидесяти до двухсот пятидесяти злотых");
 });
+
+test("JEZYK JEST LEPKI — rejestracja i imie go nie przestawiaja", () => {
+  // Regresja z rozmowy 15.08 19:28: trzy ostatnie tury to "Daniel, Mazda RX8",
+  // "ENU3658E" i "Понятно". Detektor przeglosowal cyrylice, wykryl polski
+  // i agent pozegnal sie po polsku w rosyjskiej rozmowie.
+  const r = [
+    { role: "user", content: "Здравствуйте, а вы говорите по-русски?" },
+    { role: "user", content: "Я б хотел записаться на сервис" },
+    { role: "user", content: "Daniel, mm, ee, Mazda RX8" },
+    { role: "user", content: "ENU3658E" },
+    { role: "user", content: "Понятно" },
+  ];
+  assert.equal(jezykRozmowy(r), "ru");
+});
+
+test("zmiana jezyka wymaga DWOCH kolejnych tur", () => {
+  const jedna = [
+    { role: "user", content: "Dzień dobry, chciałbym umówić wizytę" },
+    { role: "user", content: "Poproszę termin na jutro" },
+    { role: "user", content: "Здравствуйте" },
+  ];
+  assert.equal(jezykRozmowy(jedna), "pl", "jedna tura w srodku rozmowy nie wystarcza");
+  const dwie = [...jedna, { role: "user", content: "Я хочу записаться на сервис" }];
+  assert.equal(jezykRozmowy(dwie), "ru", "dwie kolejne przestawiaja");
+});
+
+test("WYJATEK NA START — jedna wyrazna tura wystarcza", () => {
+  // Czekanie na druga ture znaczyloby, ze pierwsza odpowiedz pojdzie po polsku
+  // do kogos, kto polskiego nie zna.
+  assert.equal(jezykRozmowy([{ role: "user", content: "Здравствуйте! Вы говорите по-русски?" }]), "ru");
+  assert.equal(jezykRozmowy([{ role: "user", content: "Good morning, I would like to book my car in" }]), "en");
+});
+
+test("sama lacinka bez slow to BRAK SYGNALU, nie polski", () => {
+  const r = [
+    { role: "user", content: "Здравствуйте, я хочу записаться" },
+    { role: "user", content: "Я хотел бы на понедельник" },
+    { role: "user", content: "WPM6VC7" },
+    { role: "user", content: "Mazda RX8" },
+  ];
+  assert.equal(jezykRozmowy(r), "ru");
+});

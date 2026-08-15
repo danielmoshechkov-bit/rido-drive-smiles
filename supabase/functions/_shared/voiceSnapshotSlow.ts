@@ -42,6 +42,8 @@ type Formy = {
   czasCalyDzien: string;
   zamkniete: string;
   brakTerminow: string;
+  godziny: string[];        // 0..23, forma po przyimku „в" / „о"
+  minuty: Record<number, string>;
 };
 
 const RU: Formy = {
@@ -77,6 +79,12 @@ const RU: Formy = {
     [180, "около трёх часов"], [240, "около четырёх часов"]],
   czasKrotko: "недолго", czasKilka: "несколько часов", czasCalyDzien: "целый день",
   zamkniete: "закрыто", brakTerminow: "нет свободного времени",
+  godziny: ["двенадцать часов ночи", "час", "два часа", "три часа", "четыре часа", "пять часов",
+    "шесть часов", "семь часов", "восемь часов", "девять часов", "десять часов", "одиннадцать часов",
+    "двенадцать часов", "тринадцать часов", "четырнадцать часов", "пятнадцать часов",
+    "шестнадцать часов", "семнадцать часов", "восемнадцать часов", "девятнадцать часов",
+    "двадцать часов", "двадцать один час", "двадцать два часа", "двадцать три часа"],
+  minuty: { 15: "пятнадцать", 30: "тридцать", 45: "сорок пять" },
 };
 
 const UK: Formy = {
@@ -112,6 +120,11 @@ const UK: Formy = {
     [180, "близько трьох годин"], [240, "близько чотирьох годин"]],
   czasKrotko: "недовго", czasKilka: "кілька годин", czasCalyDzien: "цілий день",
   zamkniete: "зачинено", brakTerminow: "немає вільного часу",
+  godziny: ["двадцять четвертій", "першій", "другій", "третій", "четвертій", "п'ятій", "шостій",
+    "сьомій", "восьмій", "дев'ятій", "десятій", "одинадцятій", "дванадцятій", "тринадцятій",
+    "чотирнадцятій", "п'ятнадцятій", "шістнадцятій", "сімнадцятій", "вісімнадцятій",
+    "дев'ятнадцятій", "двадцятій", "двадцять першій", "двадцять другій", "двадцять третій"],
+  minuty: { 15: "п'ятнадцять", 30: "тридцять", 45: "сорок п'ять" },
 };
 
 const F: Record<JezykSlow, Formy> = { ru: RU, uk: UK };
@@ -195,4 +208,23 @@ export const powodSlow = (powodPl: string, jezyk: JezykSlow): string => {
   const f = F[jezyk];
   return powodPl === "zamknięte" ? f.zamkniete
     : powodPl === "brak wolnych terminów" ? f.brakTerminow : powodPl;
+};
+
+/**
+ * GODZINA SŁOWAMI. Rosyjski dostaje formę po „в" („в девять часов"),
+ * ukraiński po „о" („о дев'ятій"). To dwa różne przypadki gramatyczne
+ * i dlatego dwie osobne tablice, a nie jedna z podmienionymi literami.
+ */
+export const godzinaDoWypowiedzeniaSlow = (hhmm: string, jezyk: JezykSlow): string => {
+  const f = F[jezyk];
+  const [h, m] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(h) || h < 0 || h > 23) return hhmm;
+  const g = f.godziny[h];
+  if (!m) return g;
+  // Z MINUTAMI SŁOWO „ГОДЗИНА" ZNIKA. Po rosyjsku mówi się „девять тридцать",
+  // nie „девять часов тридцать" — pierwsza wersja tego modułu produkowała
+  // dokładnie tę drugą formę. Ukraiński ma miejscownik („о дев'ятій тридцять")
+  // i tam nic nie usuwamy, bo słowa „година" w formie i tak nie ma.
+  const bez = g.replace(/\s+(часов|часа|час)$/u, "");
+  return `${bez} ${f.minuty[m] || String(m)}`;
 };
