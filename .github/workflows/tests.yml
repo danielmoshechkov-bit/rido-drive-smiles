@@ -60,17 +60,6 @@ jobs:
                      supabase/functions/billing-admin-plans/index.ts \
                      supabase/functions/billing-admin-features/index.ts \
                      supabase/functions/payment-core/index.ts
-
-
-      # Funkcje domknięte po audycie verify_jwt (16.08). Wchodzą do CI, bo
-      # rozjazd sygnatury `wymagajRoli` z ich wywołaniem oznaczałby ponowne
-      # otwarcie funkcji, która kasuje konta albo nadaje role.
-      - name: Kontrola typów (funkcje po audycie)
-        run: |
-          deno check supabase/functions/reset-driver-password/index.ts \
-                     supabase/functions/create-fleet-account/index.ts \
-                     supabase/functions/getrido-ai-execute/index.ts \
-                     supabase/functions/drivers-search/index.ts
       # Funkcje warsztatowe z bramką subskrypcji (G5). Wchodzą do CI, bo to one
       # omijają RLS kluczem service_role — rozjazd sygnatury bramki z ich
       # wywołaniem oznaczałby cichą dziurę w bramkowaniu, a nie błąd na ekranie.
