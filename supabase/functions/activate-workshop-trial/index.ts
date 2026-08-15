@@ -50,26 +50,23 @@ Deno.serve(async (req) => {
 
     console.log("🔧 Activating workshop module for:", user.email, "plan:", plan || "-");
 
-    // 1. Rola service_provider (bramka panelu /uslugi/panel)
-    const { error: roleError } = await supabaseAdmin
-      .from("user_roles")
-      .upsert({ user_id: userId, role: "service_provider" }, { onConflict: "user_id,role" });
-    if (roleError) {
-      console.error("❌ role error:", roleError.message);
-      throw roleError;
-    }
-
-    // 2. user_metadata: module + plan (merge, nie nadpisujemy pozostałych pól)
+    // 1. user_metadata: module + plan (merge, nie nadpisujemy pozostałych pól)
     const meta = (user.user_metadata || {}) as Record<string, unknown>;
     await supabaseAdmin.auth.admin.updateUserById(userId, {
       user_metadata: { ...meta, module: "warsztat", ...(plan ? { plan } : {}) },
     });
 
-    // 3. Wpis usługodawcy (status wstępny) — tylko jeśli brak
+    // 2. Wpis usługodawcy (status wstępny) — tylko jeśli brak.
+    //    MUSI poprzedzać nadanie roli: patrz komentarz niżej.
     const { data: existingProvider } = await supabaseAdmin
       .from("service_providers")
       .select("id, status")
       .eq("user_id", userId)
+      // Konto może mieć więcej niż jeden warsztat. `maybeSingle` zwraca wtedy
+      // BŁĄD, nie pierwszy wiersz — a błąd tutaj wyglądał jak „brak warsztatu"
+      // i zakładał KOLEJNY.
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (!existingProvider) {
@@ -86,10 +83,25 @@ Deno.serve(async (req) => {
         status: "pending",
       });
       if (spError) {
-        console.error("⚠️ service_providers insert error:", spError.message);
-      } else {
-        console.log("✅ service_provider row created (pending)");
+        // Rzucamy, zamiast tylko logować. Wcześniej nieudany zapis zostawiał
+        // konto z rolą `service_provider` wskazującą na NIC: panel wpuszczał,
+        // a warsztatu nie było — i nic tego stanu nie naprawiało, bo dla
+        // ponownego wywołania rola już istniała.
+        console.error("❌ service_providers insert error:", spError.message);
+        throw spError;
       }
+      console.log("✅ service_provider row created (pending)");
+    }
+
+    // Rola DOPIERO TERAZ, gdy warsztat na pewno istnieje. Odwrócona kolejność
+    // znaczy, że nie ma czego wycofywać przy błędzie — a wycofywanie roli
+    // byłoby zgadywaniem, czy nadaliśmy ją my, czy była wcześniej.
+    const { error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: userId, role: "service_provider" }, { onConflict: "user_id,role" });
+    if (roleError) {
+      console.error("❌ role error:", roleError.message);
+      throw roleError;
     }
 
     // 4. Minimalny trial — tylko jeśli user nie ma żadnej subskrypcji.

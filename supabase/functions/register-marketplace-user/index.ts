@@ -147,16 +147,14 @@ Deno.serve(async (req) => {
     // UWAGA: celowo TYLKO zapis daty końca trialu (expires_at) — egzekwowanie
     // wygasania/blokad/płatności robimy osobno, później.
     if (module === "warsztat") {
-      // Panel /uslugi/panel bramkuje po roli service_provider — bez niej "Brak uprawnień"
-      const { error: spRoleError } = await supabaseAdmin
-        .from("user_roles")
-        .upsert({ user_id: userId, role: "service_provider" }, { onConflict: "user_id,role" });
-      if (spRoleError) {
-        console.error("⚠️ service_provider role error:", spRoleError.message);
-      } else {
-        console.log("✅ service_provider role assigned");
-      }
-
+      // KOLEJNOŚĆ MA ZNACZENIE: najpierw warsztat, dopiero potem rola.
+      //
+      // Odwrotnie było tak, że nieudany zapis warsztatu tylko logował ostrzeżenie,
+      // a rola `service_provider` zostawała nadana. Konto wchodziło wtedy do
+      // panelu, który nie miał czego pokazać, i nic tego nie naprawiało: przy
+      // ponownej próbie rola już istniała, więc nikt nie widział problemu.
+      // Przy tej kolejności nie ma czego wycofywać — bez warsztatu po prostu
+      // nie ma roli.
       const { error: spError } = await supabaseAdmin
         .from("service_providers")
         .insert({
@@ -169,10 +167,24 @@ Deno.serve(async (req) => {
           company_phone: phone || null,
           status: "pending",
         });
+
       if (spError) {
-        console.error("⚠️ service_providers insert error:", spError.message);
+        // Konto i mail powitalny już istnieją, więc nie wywracamy całej
+        // rejestracji — ale roli NIE nadajemy. Klient dokończy aktywację
+        // przez `activate-workshop-trial`, które robi dokładnie to samo.
+        console.error("❌ service_providers insert error — pomijam nadanie roli:", spError.message);
       } else {
         console.log("✅ Workshop service_provider created (pending)");
+
+        // Panel /uslugi/panel bramkuje po roli service_provider — bez niej "Brak uprawnień"
+        const { error: spRoleError } = await supabaseAdmin
+          .from("user_roles")
+          .upsert({ user_id: userId, role: "service_provider" }, { onConflict: "user_id,role" });
+        if (spRoleError) {
+          console.error("⚠️ service_provider role error:", spRoleError.message);
+        } else {
+          console.log("✅ service_provider role assigned");
+        }
       }
 
       const trialDays = await resolveWorkshopTrialDays(supabaseAdmin);

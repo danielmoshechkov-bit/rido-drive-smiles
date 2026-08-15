@@ -430,6 +430,13 @@ verify_jwt = false
 [functions.billing-portal]
 verify_jwt = false
 
+# Zadanie cykliczne gwarancji ceny (4.20). Woła je pg_cron, który nie ma JWT —
+# tożsamość potwierdza nagłówek x-cron-secret. Brak sekretu = 403 i zero
+# działania: ta funkcja ZMIENIA CENĘ, więc domyślne przepuszczenie znaczyłoby,
+# że dowolne żądanie rusza cudze pieniądze.
+[functions.billing-price-guarantee]
+verify_jwt = false
+
 # Webhook operatora — tożsamość potwierdza PODPIS (HMAC z STRIPE_WEBHOOK_SECRET),
 # nie JWT. Stripe nie wysyła nagłówka Authorization, więc verify_jwt musi być
 # wyłączone; brak sekretu = 503 i zero przetwarzania.
