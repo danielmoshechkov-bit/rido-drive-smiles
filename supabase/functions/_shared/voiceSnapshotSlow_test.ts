@@ -86,3 +86,12 @@ test("powody zamkniecia maja odpowiedniki", () => {
   assert.equal(powodSlow("zamknięte", "uk"), "зачинено");
   assert.equal(powodSlow("brak wolnych terminów", "ru"), "нет свободного времени");
 });
+
+test("okragly tysiac BEZ slowa jeden", () => {
+  // Zweryfikowane przez uzytkownika: „тысяча злотых" brzmi naturalniej niz
+  // „одна тысяча злотых". Przy 21000 „одна" ZOSTAJE, bo tam jest czescia
+  // liczby zlozonej.
+  assert.equal(cenaDoWypowiedzeniaSlow(1000, null, "ru"), "тысяча злотых");
+  assert.equal(cenaDoWypowiedzeniaSlow(1000, null, "uk"), "тисяча злотих");
+  assert.match(cenaDoWypowiedzeniaSlow(21000, null, "ru"), /двадцать одна тысяча/);
+});

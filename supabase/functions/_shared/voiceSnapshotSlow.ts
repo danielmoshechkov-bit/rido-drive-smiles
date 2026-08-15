@@ -152,8 +152,15 @@ const liczbaSlownie = (n: number, f: Formy, dop: boolean): string => {
     // ⚠️ RODZAJ ŻEŃSKI PRZY TYSIĄCACH: „одна тысяча", „две тысячи" — nie
     // „один"/„два". To różnica wobec polskiego, gdzie „tysiąc" jest męski.
     const czesc = doTysiaca(tys, f, dop);
-    if (!dop && tys % 10 === 1 && tys % 100 !== 11) czesc[czesc.length - 1] = f === RU ? "одна" : "одна";
-    if (!dop && tys % 10 === 2 && tys % 100 !== 12) czesc[czesc.length - 1] = f === RU ? "две" : "дві";
+    // OKRĄGŁY TYSIĄC BEZ „JEDEN": po rosyjsku i ukraińsku mówi się „тысяча
+    // злотых", nie „одна тысяча злотых" — samo „одна" brzmi sztucznie.
+    // (Zweryfikowane przez użytkownika znającego oba języki.)
+    if (tys === 1) czesc.length = 0;
+    else {
+      // RODZAJ ŻEŃSKI przy tysiącach: „две тысячи" / „дві тисячі", nie „два".
+      if (!dop && tys % 10 === 1 && tys % 100 !== 11) czesc[czesc.length - 1] = "одна";
+      if (!dop && tys % 10 === 2 && tys % 100 !== 12) czesc[czesc.length - 1] = f === RU ? "две" : "дві";
+    }
     out.push(...czesc, dop ? f.tysiacDop : formaMnoga(tys, f.tysiac));
   }
   out.push(...doTysiaca(n % 1000, f, dop));
