@@ -182,3 +182,34 @@ test("dzien bez wolnych godzin znika z listy jako zamkniety", () => {
   assert.equal(dni[0].powod, "brak wolnych terminów");
   assert.equal(dni[0].wolne, undefined);
 });
+
+// --- regresja: forma slowa "tysiac" (znalezione 15.08 przy wycenie jezykow) ---
+
+test("tysiace maja TRZY formy, nie dwie", () => {
+  // Kod znal tylko "tysiac" i "tysiace", wiec dla 5000 mowil "piec TYSIACE
+  // zlotych". Ceramika i folie ochronne kosztuja 5-15 tysiecy, wiec to zdanie
+  // padloby przed klientem.
+  assert.equal(cenaDoWypowiedzenia(1000, null), "tysiąc złotych");
+  assert.equal(cenaDoWypowiedzenia(2000, null), "dwa tysiące złotych");
+  assert.equal(cenaDoWypowiedzenia(4000, null), "cztery tysiące złotych");
+  assert.equal(cenaDoWypowiedzenia(5000, null), "pięć tysięcy złotych");
+  assert.equal(cenaDoWypowiedzenia(9000, null), "dziewięć tysięcy złotych");
+});
+
+test("wyjatek na dwanascie, trzynascie i czternascie tysiecy", () => {
+  // Ostatnia cyfra 2-4, ale forma jest jak przy 5+ — polska pulapka,
+  // ktora lapie kazdy naiwny selektor liczby mnogiej.
+  assert.equal(cenaDoWypowiedzenia(12000, null), "dwanaście tysięcy złotych");
+  assert.equal(cenaDoWypowiedzenia(13000, null), "trzynaście tysięcy złotych");
+  assert.equal(cenaDoWypowiedzenia(22000, null), "dwadzieścia dwa tysiące złotych");
+});
+
+test("powyzej 9999 NIE wraca cyframi", () => {
+  // Stary prog zwracal "12000 zlotych" — czyli lamal wlasna regule "liczby
+  // zawsze slowami", te sama, przy ktorej zapis cyframi dal 4/20 wtretow.
+  for (const kwota of [10000, 12000, 15000, 99000]) {
+    assert.ok(!/\d/.test(cenaDoWypowiedzenia(kwota, null)), `${kwota} wraca cyframi`);
+  }
+  assert.equal(cenaDoWypowiedzenia(15000, 25000),
+    "od piętnastu tysięcy do dwudziestu pięciu tysięcy złotych");
+});

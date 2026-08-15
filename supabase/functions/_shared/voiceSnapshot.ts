@@ -272,25 +272,60 @@ const JEDNOSTKI_DOP = ["", "jednego", "dwóch", "trzech", "czterech", "pięciu",
   "ośmiu", "dziewięciu", "dziesięciu", "jedenastu", "dwunastu", "trzynastu", "czternastu",
   "piętnastu", "szesnastu", "siedemnastu", "osiemnastu", "dziewiętnastu"];
 
-const liczbaSlownie = (n: number, dopelniacz: boolean): string => {
-  if (n <= 0 || n > 9999) return String(n);
+/** Setki, dziesiątki i jedności — część wspólna dla samej liczby i dla tysięcy. */
+const doTysiaca = (n: number, dopelniacz: boolean): string[] => {
   const czesci: string[] = [];
-  const tysiace = Math.floor(n / 1000);
-  let reszta = n % 1000;
-  if (tysiace === 1) czesci.push(dopelniacz ? "tysiąca" : "tysiąc");
-  else if (tysiace > 1) {
-    czesci.push(`${(dopelniacz ? JEDNOSTKI_DOP : JEDNOSTKI)[tysiace]} ${dopelniacz ? "tysięcy" : "tysiące"}`);
-  }
-  const set = Math.floor(reszta / 100);
+  const set = Math.floor(n / 100);
   if (set) czesci.push((dopelniacz ? SETKI_DOP : SETKI)[set]);
-  reszta %= 100;
+  const reszta = n % 100;
   if (reszta >= 20) {
-    const dz = Math.floor(reszta / 10);
-    czesci.push((dopelniacz ? DZIESIATKI_DOP : DZIESIATKI)[dz]);
+    czesci.push((dopelniacz ? DZIESIATKI_DOP : DZIESIATKI)[Math.floor(reszta / 10)]);
     if (reszta % 10) czesci.push((dopelniacz ? JEDNOSTKI_DOP : JEDNOSTKI)[reszta % 10]);
   } else if (reszta > 0) {
     czesci.push((dopelniacz ? JEDNOSTKI_DOP : JEDNOSTKI)[reszta]);
   }
+  return czesci;
+};
+
+/**
+ * FORMA SŁOWA „TYSIĄC" — polski ma TRZY, nie dwie.
+ *
+ * BŁĄD, KTÓRY TO NAPRAWIA: kod znał tylko „tysiąc" i „tysiące", więc dla 5000
+ * mówił „pięć TYSIĄCE złotych", a dla 12000 wracał cyframi („12000 złotych"),
+ * łamiąc własną regułę „liczby zawsze słowami" — tę samą, przy której zapis
+ * cyframi dał 4/20 wtrętów wobec 0/20 przy słowach.
+ *
+ * Boli przy ceramice i foliach ochronnych: te kosztują 5–15 tysięcy złotych.
+ *
+ * Reguła: 1 → tysiąc; 2–4 → tysiące; reszta → tysięcy.
+ * Wyjątek na 12, 13, 14 (i każde x12–x14): tam wraca „tysięcy", mimo że
+ * ostatnia cyfra to 2–4.
+ * W dopełniaczu forma jest jedna: zawsze „tysięcy" (poza „tysiąca" dla 1).
+ */
+const formaTysiaca = (ile: number, dopelniacz: boolean): string => {
+  if (ile === 1) return dopelniacz ? "tysiąca" : "tysiąc";
+  if (dopelniacz) return "tysięcy";
+  const ost = ile % 10;
+  const dwie = ile % 100;
+  if (ost >= 2 && ost <= 4 && !(dwie >= 12 && dwie <= 14)) return "tysiące";
+  return "tysięcy";
+};
+
+const liczbaSlownie = (n: number, dopelniacz: boolean): string => {
+  // Próg podniesiony z 9999 na 999999. Powyżej wracamy cyframi, ale przy cenach
+  // warsztatowych to nie występuje — a 9999 występowało.
+  if (n <= 0 || n > 999999) return String(n);
+  const czesci: string[] = [];
+  const tysiace = Math.floor(n / 1000);
+  if (tysiace === 1) {
+    czesci.push(formaTysiaca(1, dopelniacz));
+  } else if (tysiace > 1) {
+    // Liczbę tysięcy odmieniamy DOPEŁNIACZEM ZAWSZE („pięciu tysięcy" wewnątrz
+    // „od pięciu tysięcy"), ale w mianowniku mówimy „pięć tysięcy" — stąd
+    // przekazujemy `dopelniacz` dalej, a formę słowa liczy `formaTysiaca`.
+    czesci.push(...doTysiaca(tysiace, dopelniacz), formaTysiaca(tysiace, dopelniacz));
+  }
+  czesci.push(...doTysiaca(n % 1000, dopelniacz));
   return czesci.filter(Boolean).join(" ");
 };
 
