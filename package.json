@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "lint:urls": "node scripts/check-public-urls.mjs",
     "typecheck": "tsc --noEmit",
-    "test:voice": "node --test supabase/functions/_shared/anthropicSse_test.ts supabase/functions/_shared/voiceProductionCanary_test.ts",
+    "test:voice": "DENO_NO_PACKAGE_JSON=1 deno test --allow-read supabase/functions/_shared/",
     "preview": "vite preview",
     "elzab:health": "node --no-warnings=ExperimentalWarning scripts/elzab/01-healthcheck.ts",
     "elzab:receipt": "node --no-warnings=ExperimentalWarning scripts/elzab/02-receipt.ts",
