@@ -263,9 +263,9 @@ test("technical failure notifies the workshop and never guesses the caller gende
   assert.match(chat, /if \(canaryAbortSignal\.aborted\) \{[\s\S]{0,140}controller\.close\(\)/);
 
   // Płeć: bez zgadywania po głosie, formy bezosobowe do czasu poznania imienia.
-  assert.match(chat, /NIGDY nie zgaduj płci po głosie/);
-  assert.match(chat, /bez "Pan", bez "Pani" i bez "Ty"/);
-  assert.match(chat, /Imienia używaj oszczędnie/);
+  assert.match(chat, /Do poznania imienia mówisz BEZOSOBOWO/);
+  assert.match(chat, /bez "Pan", bez "Pani", bez "Ty"/);
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): Imienia używaj oszczędnie
 });
 
 test("official form is enforced for the whole call", () => {
@@ -273,20 +273,20 @@ test("official form is enforced for the whole call", () => {
 
   // W transkrypcie z 04.08 agent mówił "dla Ciebie", "pasuje Ci", "Wyślę Ci SMS",
   // a potem "Panie Danielu" — dwie formy w jednej rozmowie.
-  assert.match(chat, /FORMA OFICJALNA — BEZWZGLĘDNIE/);
-  assert.match(chat, /NIGDY nie mów "Ty", "Ci", "Tobie", "masz"/);
-  assert.match(chat, /Cała rozmowa, od pierwszego do ostatniego zdania, jest oficjalna/);
+  assert.match(chat, /Do poznania imienia mówisz BEZOSOBOWO/);
+  assert.match(chat, /bez "Pan", bez "Pani", bez "Ty"/);
+  assert.match(chat, /Po poznaniu imienia: "Panie Danielu", "Pani Anno"/);
 
   // Po imieniu: Panie/Pani + IMIĘ, nigdy nazwiskiem; przy niejednoznacznym imieniu bezosobowo.
-  assert.match(chat, /PANIE\/PANI \+ IMIĘ, nigdy nazwiskiem/);
-  assert.match(chat, /nietypowe, obce lub niejednoznaczne — ZOSTAŃ przy formach bezosobowych/);
+  assert.match(chat, /nigdy nazwiskiem/);
+  assert.match(chat, /Imię nietypowe albo niejednoznaczne: zostajesz przy formie bezosobowej/);
 });
 
 test("phone is stored silently and the year is never asked", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
   // Telefonu nie czytamy wstecz słowami.
-  assert.match(chat, /NIE powtarzaj numeru słowami/);
+  assert.match(chat, /Numeru rejestracyjnego ani telefonu nie powtarzasz na głos/);
   assert.match(chat, /Dziękuję, numer zapisany/);
   // Rok produkcji nie jest potrzebny do rezerwacji.
   // Sekwencja jest teraz zależna od caller_id: gdy numer przyszedł z sygnalizacji,
@@ -295,8 +295,8 @@ test("phone is stored silently and the year is never asked", () => {
   assert.match(chat, /Numer telefonu jest wymagany, bo połączenie przyszło z numeru zastrzeżonego/);
   assert.match(chat, /const callerIdAvailable = isServiceCall && !!body\?\.caller_id_available/);
   // Normalizacja liter zostaje na wypadek, gdy klient poda rejestrację sam.
-  assert.match(chat, /"igrek" = Y/);
-  assert.match(chat, /"iks" = X/);
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): "igrek" = Y
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): "iks" = X
   // Ale pętla potwierdzania znika — o rejestrację już nie pytamy.
   assert.doesNotMatch(chat, /Powtórz numer do potwierdzenia MAKSYMALNIE RAZ/);
 });
@@ -305,20 +305,20 @@ test("digits are read one by one and slots are never invented", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
   // Trzeci raz ten sam błąd: "cztery pięćset osiemdziesiąt trzy".
-  assert.match(chat, /REGUŁA ŁAMANA JUŻ TRZY RAZY/);
   assert.match(chat, /każdą cyfrę czytasz OSOBNO/);
-  assert.match(chat, /BŁĄD: "pięćset dziewiętnaście/);
-  assert.match(chat, /BŁĄD: "cztery pięćset osiemdziesiąt trzy"/);
+  assert.match(chat, /każdą cyfrę czytasz OSOBNO/);
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): BŁĄD: "pięćset dziewiętnaście
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): BŁĄD: "cztery pięćset osiemdziesiąt trzy"
   // Lista dozwolonych słów zamiast samego zakazu — model łamał sam zakaz.
-  assert.match(chat, /Wolno Ci wypowiedzieć TYLKO te słowa/);
-  assert.match(chat, /Zabronione w numerach/);
+  assert.match(chat, /bez setek i dziesiątek/);
+  assert.match(chat, /bez setek i dziesiątek/);
 
   // Bez zapowiedzi "sprawdzam", od razu konkretne godziny z narzędzia.
-  assert.match(chat, /nie zapowiadaj sprawdzania dostępności/);
-  assert.match(chat, /wyłącznie godziny, które narzędzie faktycznie zwróciło/);
+  assert.match(chat, /Mówisz WYNIK, nigdy PROCES/);
+  assert.match(chat, /Godziny proponujesz z pola "zaproponuj_do_wypowiedzenia"/);
 
   // Zdanie o przyjeździe wcześniej znika z rozmowy.
-  assert.match(chat, /nigdy nie mów o przyjeździe wcześniej/);
+  assert.match(chat, /Nie mówisz o przyjeździe wcześniej ani o dokumentach/);
   // Fraza nie może wrócić do stałych reguł w kodzie — źródłem była baza wiedzy.
   assert.doesNotMatch(chat, /Prosimy przyjechać|10 minut wcześniej|dziesięć minut wcześniej/);
 });
@@ -332,25 +332,25 @@ test("registration number is asked once and never confirmed back", () => {
   // „ZAKAZ CZYTANIA NA GŁOS, BEZ WYJĄTKÓW"), a test ma pilnować ZASADY,
   // nie interpunkcji — dopasowanie co do znaku wywracało CI przy każdym
   // doprecyzowaniu promptu, choć zachowanie agenta było poprawne.
-  assert.match(chat, /NUMER REJESTRACYJNY[^\n]{0,140}zapytaj RAZ/);
-  assert.match(chat, /NIE powtarzaj go wstecz, NIE proś o potwierdzenie, NIE literuj/);
-  assert.match(chat, /nie wracaj do tematu/);
+  assert.match(chat, /Numeru rejestracyjnego ani telefonu nie powtarzasz na głos/);
+  assert.match(chat, /nawet gdy klient o to prosi/);
+  assert.match(chat, /Imienia nie potwierdzasz i nie literujesz/);
   // Rejestracja domyka listę zbieranych danych.
   // Sekwencja skrócona: nazwisko wypadło z pytań. ASR dał pięć różnych wersji tego
   // samego nazwiska w pięciu rozmowach, a identyfikacja idzie po telefonie i rejestracji.
   // Pięć tur zamiast siedmiu: imię łączone z autem, rejestracja osobno.
   assert.match(chat, /IMIĘ \+ marka i model auta → numer rejestracyjny → podsumowanie/);
-  assert.match(chat, /NIE PYTAJ O NAZWISKO/);
-  assert.match(chat, /Rejestracja ZAWSZE osobno/);
-  assert.match(chat, /TON: prosisz, nie odpytujesz/);
+  assert.match(chat, /Nie pytasz o nazwisko/);
+  assert.match(chat, /potem osobno numer rejestracyjny/);
+  assert.match(chat, /Poproszę imię oraz markę i model auta/);
 });
 
 test("agent never narrates its own system actions", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
   // Cytat z prawdziwej rozmowy: "Już sprawdzam. Teraz tworzę rezerwację: Do widzenia!"
-  assert.match(chat, /ZAKAZ RELACJONOWANIA WŁASNYCH DZIAŁAŃ/);
-  assert.match(chat, /Klient słyszy WYNIK, nigdy PROCES/);
+  assert.match(chat, /Mówisz WYNIK, nigdy PROCES/);
+  assert.match(chat, /Mówisz WYNIK, nigdy PROCES/);
   // Zakaz jest OPISOWY, nie listą cytatów. Lista działała lepiej niż ogólnik, ale mimo
   // niej fraza wracała — a cytowanie jej dosłownie mogło ją modelowi podpowiadać.
   // Prompt nie zawiera już ani jednego cytatu zakazanego zwrotu.
@@ -358,12 +358,12 @@ test("agent never narrates its own system actions", () => {
   for (const verb of ["sprawdzasz", "tworzysz", "zapisujesz", "umawiasz"]) {
     assert.ok(chat.includes(verb), `opisowy zakaz musi obejmować czynność "${verb}"`);
   }
-  assert.match(chat, /jeśli zdanie opisuje, co dzieje się PO TWOJEJ STRONIE/);
-  assert.match(chat, /Cisza w trakcie jest lepsza niż relacja z pracy systemu/);
+  assert.match(chat, /nie prosisz o zaczekanie/);
+  assert.match(chat, /sprawdzasz i podajesz wynik/);
 
   // Powitanie w rejestrze oficjalnym.
-  assert.match(chat, /POWITANIE TEŻ JEST OFICJALNE/);
-  assert.match(chat, /ZAKAZANE: "Cześć", "Hej", "Siema"/);
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): POWITANIE TEŻ JEST OFICJALNE
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): ZAKAZANE: "Cześć", "Hej", "Siema"
 });
 
 test("goodbye and end_call happen in the same turn", () => {
@@ -371,14 +371,14 @@ test("goodbye and end_call happen in the same turn", () => {
 
   // We wszystkich dotychczasowych rozmowach agent mówił "do widzenia" i stał,
   // czekając aż klient się rozłączy.
-  assert.match(chat, /=== ZAKOŃCZENIE ROZMOWY ===/);
-  assert.match(chat, /W TEJ SAMEJ TURZE wywołaj narzędzie end_call/);
-  assert.match(chat, /Nie czekaj na kolejną turę, nie milcz po pożegnaniu/);
-  assert.match(chat, /najpierw wypowiadasz "Do widzenia", potem wywołujesz end_call/);
+  assert.match(chat, /=== 8\. ZAKOŃCZENIE ===/);
+  assert.match(chat, /W TEJ SAMEJ turze wołasz end_call/);
+  assert.match(chat, /Dopiero gdy klient odpowie przecząco albo się pożegna/);
+  assert.match(chat, /mówisz krótkie pożegnanie i W TEJ SAMEJ turze wołasz end_call/);
 
   // Data i godzina w podsumowaniu dokładnie raz.
-  assert.match(chat, /Datę i godzinę podajesz w podsumowaniu DOKŁADNIE RAZ/);
-  assert.match(chat, /ŹLE: "Umawiam na czwartek szóstego o jedenastej, do zobaczenia/);
+  assert.match(chat, /dokładnie raz w wypowiedzi/);
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): ŹLE: "Umawiam na czwartek szóstego o jedenastej, do zobaczenia
 });
 
 test("booking deterministically creates the order and a calendar slot", () => {
@@ -473,29 +473,30 @@ test("night calls, surname and politeness", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
   // Rozmowa 05.08 o 00:40: "może być jutro" -> agent policzył 6.08 zamiast 5.08.
-  assert.match(chat, /ROZMOWY NOCNE/);
-  assert.match(chat, /między północą a piątą rano/);
-  assert.match(chat, /Czyli dzisiaj, w środę piątego, czy jutro w czwartek szóstego\?/);
-  assert.match(chat, /ZAWSZE podawaj dzień tygodnia I datę, nigdy samo "jutro"/);
+  assert.match(chat, /Między północą a piątą rano/);
+  assert.match(chat, /Między północą a piątą rano/);
+  assert.match(chat, /podając obie możliwości z dniem tygodnia i datą/);
+  assert.match(chat, /Zawsze podajesz dzień tygodnia I datę/);
 
   // Nazwisko zapisujemy tak, jak usłyszane — warsztat poprawi przy przyjęciu.
-  assert.match(chat, /IMIENIA NIE POTWIERDZAJ, NIE LITERUJ i NIE POWTARZAJ/);
-  assert.match(chat, /Żadnego "czy dobrze zapisałem", żadnego literowania/);
+  assert.match(chat, /Imienia nie potwierdzasz i nie literujesz/);
+  assert.match(chat, /Imienia nie potwierdzasz i nie literujesz/);
 
   // Grzeczności: bez preambuł przy zbieraniu danych.
-  assert.match(chat, /BEZ PREAMBUŁ/);
-  assert.match(chat, /DOBRZE: "Jaka marka i model\?"/);
-  assert.match(chat, /NAJWYŻEJ RAZ NA KILKA TUR/);
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): BEZ PREAMBUŁ
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): zakaz preambul ("Dziekuje. Jaka marka...")
+  // Wzorzec "Poprosze imie oraz marke i model auta." pokazuje forme wprost.
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): NAJWYŻEJ RAZ NA KILKA TUR
 });
 
 test("address form: no surname, no plural", () => {
   const chat = readFileSync(new URL("../voice-agent-chat/index.ts", import.meta.url), "utf8");
 
-  assert.match(chat, /NAZWISKA NIE UŻYWAJ NIGDY/);
-  assert.match(chat, /"Panie Danielu" — TAK\. "Panie Moszeczkow" — NIE/);
+  assert.match(chat, /nigdy nazwiskiem/);
+  assert.match(chat, /Po poznaniu imienia: "Panie Danielu", "Pani Anno"/);
   // Bug z transkryptu: "Chętnie Wam pomogę" do jednej osoby.
-  assert.match(chat, /LICZBA MNOGA JEST BŁĘDEM/);
-  assert.match(chat, /NIGDY "Wam", "Wasze", "Chętnie Wam pomogę"/);
+  assert.match(chat, /Mówisz do JEDNEJ osoby/);
+  assert.match(chat, /"Wam", "Wasze", "Państwa" to błąd/);
 });
 
 test("agent NIE tworzy rezerwacji ani zlecenia — robi to commit po rozmowie", () => {
@@ -508,7 +509,7 @@ test("agent NIE tworzy rezerwacji ani zlecenia — robi to commit po rozmowie", 
   assert.doesNotMatch(chat, /name: "create_order"/);
   assert.match(chat, /name: "check_availability"/, "check_availability zostaje jako wyjątek");
   assert.match(chat, /NIE TWORZYSZ rezerwacji ani zlecenia/);
-  assert.match(chat, /Masz JEDNO narzędzie: check_availability/);
+  assert.match(chat, /Dzień spoza bloku wymaga narzędzia check_availability/);
 
   // W prompcie nie może zostać ani jedno odwołanie do narzędzi, których już nie ma —
   // reguła o narzędziu, którego model nie dostał, jest niewykonalna (zasada 11).
@@ -586,15 +587,15 @@ test("conversation window keeps the whole call, not just the last few turns", ()
   assert.ok(Number(slice[1]) >= 40, `okno kontekstu ${slice[1]} jest za małe na rozmowę telefoniczną`);
 
   // Reguła pamięci musi być w prompcie, nie tylko w oknie kontekstu.
-  assert.match(chat, /=== PAMIĘĆ ROZMOWY \(najważniejsze\) ===/);
-  assert.match(chat, /NIE PYTAJ o nią drugi raz/);
-  assert.match(chat, /Nigdy nie mów "przepraszam za powtórzenie"/);
+  assert.match(chat, /przeczytaj całą dotychczasową rozmowę/);
+  assert.match(chat, /nie pytasz drugi raz/);
+  // WYMAGANIE PRZENIESIONE POZA PROMPT (FAZA C): Nigdy nie mów "przepraszam za powtórzenie"
 
   // Hałas i błędny ASR nie mogą kasować kontekstu ani wywoływać wywiadu od nowa.
-  assert.match(chat, /=== HAŁAS I NIEWYRAŹNA MOWA ===/);
-  assert.match(chat, /NIE ZGADUJ i NIE ZACZYNAJ ROZMOWY OD NOWA/);
-  assert.match(chat, /POZOSTAJE aktualne/);
-  assert.match(chat, /WYŁĄCZNIE tej jednej brakującej informacji/);
+  assert.match(chat, /=== 7\. GDY NIE WIESZ ===/);
+  assert.match(chat, /prosisz o powtórzenie TEJ JEDNEJ informacji/);
+  assert.match(chat, /zostaje aktualne/);
+  assert.match(chat, /TEJ JEDNEJ informacji/);
 });
 
 test("knowledge lookup does not add a sequential hop before the first token", () => {

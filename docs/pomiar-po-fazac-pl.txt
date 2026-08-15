@@ -1,0 +1,38 @@
+
+════ SYMULACJA ROZMÓW ════
+snapshot: 9385 znaków, 14 dni, 8 usług
+scenariuszy: 7 (język pl)
+
+  01-umowienie [pl] umówienie wizyty… 15 15 17 tur
+  02-cena [pl] klient pyta o cenę… 15 15 15 tur
+  03-odwolanie [pl] klient chce odwołać wizytę… 7 7 7 tur
+  04-niewyrazny [pl] klient mówi niewyraźnie, prosi o powtórzenie… 15 11 11 tur
+  05-usluga-spoza-cennika [pl] usługa spoza cennika… 9 9 9 tur
+  06-termin-poza-snapshotem [pl] termin poza zakresem snapshotu… 15 17 17 tur
+  07-termin-zajety [pl] klient chce godzinę, której nie ma… 13 15 9 tur
+
+  czytam narzędzia serwerowe z logów… 6 wywołań
+
+  ~  01-umowienie [pl] umówienie wizyty — 2/3  NIESTABILNY  (end_call)
+       ✗ [oczekiwanie] nie wywołano end_call
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✓  02-cena [pl] klient pyta o cenę — 3/3
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✓  03-odwolanie [pl] klient chce odwołać wizytę — 3/3  (end_call)
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✓  04-niewyrazny [pl] klient mówi niewyraźnie, prosi o powtórzenie — 3/3  (end_call, check_availability)
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✓  05-usluga-spoza-cennika [pl] usługa spoza cennika — 3/3  (end_call)
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ~  06-termin-poza-snapshotem [pl] termin poza zakresem snapshotu — 2/3  NIESTABILNY  (end_call, check_availability)
+       ✗ [oczekiwanie] nie wywołano check_availability
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✓  07-termin-zajety [pl] klient chce godzinę, której nie ma — 3/3  (end_call)
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+
+────────────────────────────────────────────────────────────────
+PRZESZŁO 7 z 7 scenariuszy (3 przebiegi na scenariusz, wynik = większość)
+niestabilne: 01-umowienie[pl] 2/3, 06-termin-poza-snapshotem[pl] 2/3
+
+wobec przebiegu z 2026-08-15 21:30: bez regresji; naprawione: 03-odwolanie, 06-termin-poza-snapshotem, 07-termin-zajety
+---pl GOTOWE---
