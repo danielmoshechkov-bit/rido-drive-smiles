@@ -23,6 +23,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useSubscriptionActivation } from '@/hooks/useSubscriptionActivation';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
+import { WorkshopCallsList } from '@/components/workshop/WorkshopCallsList';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
 import { ServiceProviderAccountingView } from '@/components/service-provider/ServiceProviderAccountingView';
 import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_ORDER } from '@/components/service-provider/navConfig';
@@ -1134,10 +1135,13 @@ export default function ServiceProviderDashboard() {
           </TabsContent>
 
           {/* AI Agent Tab */}
-          <TabsContent value="ai-agent" className="mt-6">
+          <TabsContent value="ai-agent" className="mt-6 space-y-6">
             <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
               <AISalesAgentsDashboard providerId={providerId} />
             </Suspense>
+            {/* Lista WSZYSTKICH rozmów, także tych bez zlecenia — panel rozmowy
+                w karcie zlecenia pokazuje tylko te, które zlecenie utworzyły. */}
+            <WorkshopCallsList providerId={providerId} />
           </TabsContent>
 
           {/* Website Builder Tab */}
