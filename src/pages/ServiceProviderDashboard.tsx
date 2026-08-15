@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useSubscriptionActivation } from '@/hooks/useSubscriptionActivation';
+import { TrialPlanBanner } from '@/components/billing/TrialPlanBanner';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
@@ -791,6 +792,11 @@ export default function ServiceProviderDashboard() {
 
           {/* Pulpit / Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6 mt-6">
+            {/* Zamyka wyciek konwersji: klient wybrał plan na cenniku, przeszedł
+                rejestrację i wylądował tutaj — bez płatności i bez śladu po
+                swoim wyborze. Baner sam się nie pokaże, gdy plan już kupiony. */}
+            <TrialPlanBanner providerId={providerId} />
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.allBookings')}</CardTitle></CardHeader>
