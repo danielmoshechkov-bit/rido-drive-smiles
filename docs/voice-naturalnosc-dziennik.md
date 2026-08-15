@@ -104,3 +104,35 @@ i sloty rozłożone na cały dzień. Agent nie musi liczyć, więc nie może pol
 → Agent obiecał coś, czego platforma nie pozwala zrobić. Wina była w prompcie,
   który kazał „natychmiast PRZEŁĄCZ się na ten język" — instrukcja niewykonalna.
 → Nowa reguła: **nie zapowiadaj i nie obiecuj zmiany języka.**
+
+## 15.08, 19:28 — `26v8jtt8`, 77 s (pierwsza rozmowa dwujęzyczna)
+
+**13. Zakończył po POLSKU rozmowę prowadzoną po rosyjsku**
+> `[67s] KLIENT: Понятно.`
+> `[74s] AGENT: Do zobaczenia w poniedziałek o półtorej.`  → `end_call`
+
+→ Dwa błędy w jednym zdaniu. Po pierwsze **język**: cała rozmowa szła po
+  rosyjsku, a pożegnanie padło po polsku. Po drugie **godzina**: „o półtorej"
+  to nie jest 12:30. Klient umawiał się na „половина первого", czyli wpół
+  do pierwszej.
+→ **„o półtorej" nie istnieje jako godzina.** Model przetłumaczył rosyjskie
+  „половина первого" dosłownie i wyszła liczba 1,5.
+→ Przyczyna językowa jest po naszej stronie i opisana w `status.md`
+  (detektor wykrył `pl` przy ostatniej turze). Przyczyna godzinowa jest inna:
+  **godzin NIE renderujemy w żadnym języku** — snapshot podaje `"12:30"`,
+  a model zamienia je na słowa sam. Przy datach i cenach odebraliśmy mu tę
+  robotę, przy godzinach nie.
+
+**14. Zapowiedź przejścia — TYM RAZEM JEJ NIE BYŁO**
+> `[3s] KLIENT: Wysłuchaj. Dobry dzień, а вы говорите по-русски?`
+> `[10s] AGENT: Да, конечно! В чём я могу помочь?`
+
+→ **Zrobił to płynnie, bez pytania o zgodę.** Poprawka z 15.08 zadziałała —
+  poprzednio padło „Czy chciałbyś przejść na rozmowę w tym języku?".
+  Jedyna rzecz w tej rozmowie, która wyszła lepiej niż poprzednio.
+
+**15. Siedem sekund na „Да, конечно!"**
+> `[3s] KLIENT` → `[10s] AGENT` — siedem sekund na trzy słowa.
+
+→ Nasz łańcuch zajął ~1,2 s. Reszta to `turn_timeout` (4 s) plus synteza.
+  Klient nie wie, że system czeka na ciszę — słyszy, że agent się zawiesił.
