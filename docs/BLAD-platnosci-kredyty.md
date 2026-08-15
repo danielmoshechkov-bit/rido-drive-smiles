@@ -1,7 +1,12 @@
-# 🔴 KUPIONE KREDYTY NIE SĄ PRZYZNAWANE — `payment-core`
+# 🔴 PILNE — KUPIONE KREDYTY NIE SĄ PRZYZNAWANE
 
-**Znalezione 15.08 przy projektowaniu licznika minut. NIE NAPRAWIONE.**
-Poza zakresem agenta głosowego, ale dotyczy pieniędzy, więc zgłaszam osobno.
+**Status: SPECYFIKACJA GOTOWA, PRACA NIEROZPOCZĘTA. Zakres zatwierdzony 15.08.**
+
+**Dlaczego PILNE:** pierwszy płacący klient w to trafi. Dziś nikt nie ucierpiał
+tylko dlatego, że nikt jeszcze nie kupił pakietu przez bramkę — patrz „Czy to
+już kogoś kosztowało" niżej.
+
+Znalezione przy projektowaniu licznika minut, poza zakresem agenta głosowego.
 
 ## Na czym polega
 
@@ -97,3 +102,88 @@ płatnością** i wyszłaby dopiero przy pierwszym płacącym kliencie.
 Minuty miały iść tą samą ścieżką. **Gdybym zbudował je na `upsertCredits`,
 odziedziczyłyby ten sam błąd** — z tą różnicą, że minuty mają być głównym
 modelem rozliczeniowym produktu, a nie dodatkiem.
+
+
+---
+
+# SPECYFIKACJA NAPRAWY — zatwierdzona 15.08, do wykonania
+
+## Trzy znaleziska
+
+```
+1. upsertCredits czyta z user_credits kolumny "balance" i "credit_type",
+   których w tej tabeli NIE MA. Zapytanie błądzi, funkcja wychodzi bez
+   przyznania. Dotyczy: sms_credits, ai_credits, ai_photo_package.
+
+2. vehicle_lookup NIE MA ŚCIEŻKI ZAKUPU przez bramkę. Ani w
+   processPaymentSuccess, ani w productTypeMap na froncie. Tabela
+   vehicle_lookup_credits jest zasilana WYŁĄCZNIE przez handleAdminGrant —
+   te 72 wiersze to nadania administratora, nie zakupy.
+
+3. CICHY FALLBACK: `productTypeMap[pkg.credit_type] || "sms_credits"`.
+   Każdy pakiet o nieznanym typie zostaje kupiony jako SMS. Dziś nieaktywne
+   (w credit_packages są tylko sms, ai_photo, listing_featured), ale zadziała
+   w dniu dodania pakietu minut albo sprawdzeń.
+```
+
+## Decyzje właściciela
+
+```
+upsertCredits    WYŁĄCZYĆ, nie zostawiać z komentarzem ostrzegawczym.
+                 Zakup kredytów AI ma zwracać BŁĄD, nie milczeć.
+fallback         USUNĄĆ BEZWZGLĘDNIE. Nieznany typ = błąd, nie domysł.
+salda            SPRAWDZIĆ, czy istniejące nie przepadną przy migracji —
+                 3 wiersze user_credits nieznanego pochodzenia,
+                 3 warsztaty z sms_balance > 0, 72 wiersze vehicle_lookup.
+user_credits     NIE rozbudowywać o kolumnę typu. Osobna tabela per typ,
+                 bo to jedyny wzorzec, który u nas działa.
+```
+
+## Pliki
+
+```
+supabase/functions/payment-core/index.ts
+    upsertCredits            wyłączyć — zwracać błąd zamiast cichej porażki
+    processPaymentSuccess    case sms_credits -> service_providers.sms_balance
+                             case vehicle_lookup -> vehicle_lookup_credits (NOWY)
+                             e-mail DOPIERO po udanym przyznaniu
+    handleAdminGrant         ujednolicić z zakupem — jedno źródło per typ
+
+src/pages/BuyCredits.tsx
+    productTypeMap           usunąć fallback, dodać vehicle_lookup
+```
+
+## Tabele
+
+```
+CZYTANE     credit_packages, payments
+ZAPISYWANE  service_providers.sms_balance
+            vehicle_lookup_credits
+            vehicle_lookup_credit_transactions
+NIETKNIĘTE  user_credits — zostaje, nie kasować (3 wiersze nieznanego pochodzenia)
+```
+
+## Migracje SQL
+
+**Żadne nie są potrzebne** — wszystkie tabele i kolumny istnieją.
+Gdyby w trakcie okazało się inaczej: pokazać przed wykonaniem.
+
+## Alert przy nieudanym przyznaniu
+
+Dziś jedynym śladem jest `console.error`. Ma powstać wpis w tabeli błędów
+albo powiadomienie — **cicha porażka przy pieniądzach jest niedopuszczalna.**
+
+## Test od końca do końca
+
+Wymaga klucza Stripe w trybie testowym. **Do potwierdzenia, czy mamy go
+skonfigurowany** — bez niego da się zweryfikować tylko logikę przyznawania
+(wywołanie funkcji z symulowanym zdarzeniem), nie pełną ścieżkę płatności.
+
+## Czego ta specyfikacja NIE obejmuje
+
+```
+pakiety minut agenta      osobny temat, po zamknięciu rachunku marży
+cennik agenta             j.w.
+ai_credits, ai_photo      zostają zepsute — świadomie, po wyłączeniu
+                          upsertCredits będą zwracać błąd zamiast milczeć
+```
