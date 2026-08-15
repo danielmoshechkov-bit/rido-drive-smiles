@@ -82,7 +82,7 @@
    "agent_output_audio_format": "pcm_16000",
    "optimize_streaming_latency": 0,
    "stability": 0.5,
-   "speed": 1.15,
+   "speed": 1.0,
    "similarity_boost": 0.6,
    "text_normalisation_type": "system_prompt",
    "pronunciation_dictionary_locators": [],
@@ -204,7 +204,7 @@
      "url": "https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/voice-agent-llm/664ed87b-a20f-457b-a9fa-97ca13dcae7c/workshop_secretary/llm",
      "model_id": "rido",
      "api_key": {
-      "secret_id": "(w panelu ElevenLabs)"
+      "secret_id": "lHYAikroQyaHXDHOzawh"
      },
      "auth_connection": null,
      "request_headers": {},
@@ -572,7 +572,7 @@
     "url": "https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/voice-agent-init",
     "request_headers": {
      "Authorization": {
-      "secret_id": "(w panelu ElevenLabs)"
+      "secret_id": "3Rq9NhoJzffiI9OfzLYm"
      }
     }
    },

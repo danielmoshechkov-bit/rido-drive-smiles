@@ -2620,6 +2620,36 @@ post_call_webhook_id    a9f9457cf459465297f20b3c3c6c6648  (events: transcript, j
   `stage "auth"` (llm)
 - Bez pushy i merge'y do `main` bez zgody właściciela
 
+## 📐 CO SPRAWIA, ŻE TEN PROCES DZIAŁA — do utrzymania poza agentem
+
+W tym tygodniu **pięć razy zbudowałem wniosek szerszy niż pomiar** i pięć razy
+został obalony, zanim cokolwiek na nim zbudowaliśmy: detektor sybilantów,
+„turbo-04 wadliwy", „20/20 czyste", odmiana liczebnika jako wtręt, nagranie
+„nieczytelne" (bo po rosyjsku).
+
+**Ale nie wszystkie obaliłem sam.** Dwa z pięciu wykryła prośba użytkownika,
+nie moja czujność: „sprawdź liczebniki" i „daj surową transkrypcję". To zmienia
+wniosek o procesie.
+
+> **Proces działa nie dlatego, że autor się kontroluje, tylko dlatego, że każde
+> ustalenie wraca w formie, którą DA SIĘ ZAKWESTIONOWAĆ: z liczbą, cytatem
+> i opisem metody.**
+
+Twierdzenie „to wygląda lepiej" jest nie do sprawdzenia. Twierdzenie „4/20 wobec
+12/20, test dokładny Fishera p = 0,022, na tym zdaniu, tym głosem" — jest.
+Drugie zaprasza do obalenia, pierwsze zamyka temat.
+
+To dotyczy każdej pracy, nie tylko agenta głosowego. Trzy rzeczy, które to niosą:
+
+```
+LICZBA    ile próbek, jaki odsetek, jaka istotność — nie „często", nie „zwykle"
+CYTAT     dokładne zdanie z rozmowy albo logu, nie streszczenie
+METODA    czym mierzone i CZEGO ten pomiar NIE obejmuje
+```
+
+Trzeci punkt jest najważniejszy i najczęściej pomijany. Każda z pięciu pomyłek
+wzięła się z pominięcia zdania „ten pomiar nie mówi nic o…".
+
 ## 🔴 DWIE MOJE POMYŁKI PRZY NAGRANIU OD KLIENTA — obie odwołane
 
 **1. Nagranie NIE było nieczytelne. Było po ROSYJSKU, a ja transkrybowałem po polsku.**
