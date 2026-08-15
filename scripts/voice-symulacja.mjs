@@ -60,6 +60,13 @@ const FILTR_JEZYK = wartosc("--jezyk");
 const FILTR_ID = wartosc("--scenariusz");
 const ZAPISZ = arg("--zapisz");
 const TRANSKRYPT = arg("--transkrypt");
+// TRZY PRZEBIEGI TO STANDARD, NIE OPCJA.
+//
+// Symulacja jest niedeterministyczna: ukraińskie 05 padło raz i przeszło przy
+// powtórce, polskie 01 i 02 pokazały się jako „regresje", choć nic się nie
+// zmieniło. Jeden przebieg nie odróżnia regresji od losowości, a fałszywy
+// alarm uczy ignorowania czerwonego (zasada 28).
+const PRZEBIEGI = Math.max(1, Number(wartosc("--przebiegi")) || 3);
 
 // --- snapshot ---------------------------------------------------------------
 // Jeden na cały przebieg: pobranie kosztuje ~100 ms, a wszystkie scenariusze
@@ -168,11 +175,14 @@ async function main() {
   const przebiegi = [];
   for (const s of scenariusze) {
     process.stdout.write(`  ${s.id} [${s.jezyk}] ${s.opis}… `);
-    const od = Date.now() - 2000;
-    let rozmowa = [], blad = null;
-    try { rozmowa = await symuluj(s, snap.dynamic_variables); } catch (e) { blad = e.message; }
-    console.log(blad ? `BŁĄD: ${blad}` : `${rozmowa.length} tur`);
-    przebiegi.push({ s, rozmowa, blad, od, do_: Date.now() + 2000 });
+    for (let n = 0; n < PRZEBIEGI; n++) {
+      const od = Date.now() - 2000;
+      let rozmowa = [], blad = null;
+      try { rozmowa = await symuluj(s, snap.dynamic_variables); } catch (e) { blad = e.message; }
+      process.stdout.write(blad ? "!" : `${rozmowa.length} `);
+      przebiegi.push({ s, n, rozmowa, blad, od, do_: Date.now() + 2000 });
+    }
+    console.log("tur");
   }
 
   process.stdout.write("\n  czytam narzędzia serwerowe z logów… ");
@@ -180,10 +190,9 @@ async function main() {
   console.log(logi === null ? "NIEDOSTĘPNE — narzędzia serwerowe NIE SPRAWDZONE" : `${logi.length} wywołań`);
   console.log("");
 
-  const wyniki = [];
-  for (const { s, rozmowa, blad, od, do_ } of przebiegi) {
-    process.stdout.write(`  ${s.id} [${s.jezyk}] ${s.opis}… `);
-    if (blad) { console.log(`BŁĄD: ${blad}`); wyniki.push({ id: s.id, jezyk: s.jezyk, opis: s.opis, blad }); continue; }
+  const oceny = [];
+  for (const { s, n, rozmowa, blad, od, do_ } of przebiegi) {
+    if (blad) { oceny.push({ s, n, blad, czy: false, bledy: [], oczek: [], ostrzezenia: [], nieSprawdzone: [], rozmowa: [] }); continue; }
 
     const klienckie = rozmowa.flatMap((t) => (t.tool_calls || []).map((c) => c.tool_name));
     const serwerowe = logi === null ? [] : logi.filter((l) => l.ms >= od && l.ms <= do_).map((l) => l.tool);
@@ -206,28 +215,52 @@ async function main() {
     const ostrzezenia = asercje.filter((a) => a.stan === "blad" && a.waga === "ostrzezenie");
     const nieSprawdzone = asercje.filter((a) => a.stan === "nie_sprawdzone");
     const czy = bledy.length + oczek.length === 0;
-    console.log(`${czy ? "✓" : "✗"}  ${narzedzia.length ? `narzędzia: ${narzedzia.join(", ")}; ` : ""}${rozmowa.length} tur${bledy.length ? `, ${bledy.length} błędów` : ""}${oczek.length ? `, ${oczek.length} niespełnionych oczekiwań` : ""}${ostrzezenia.length ? `, ${ostrzezenia.length} ostrzeżeń` : ""}${nieSprawdzone.length ? `, ${nieSprawdzone.length} niesprawdzonych` : ""}`);
+    oceny.push({ s, n, czy, rozmowa, narzedzia, commit,
+      bledy: bledy.flatMap((a) => a.naruszenia.map((x) => ({ id: a.id, ...x }))),
+      oczek, ostrzezenia: ostrzezenia.map((a) => a.id), nieSprawdzone: nieSprawdzone.map((a) => `${a.id}: ${a.powod}`) });
+  }
 
-    for (const a of bledy) for (const n of a.naruszenia) console.log(`       ✗ [${a.id}] ${n.powod}\n         „${n.cytat}"`);
-    for (const o of oczek) console.log(`       ✗ [oczekiwanie] ${o}`);
-    for (const a of ostrzezenia) console.log(`       ! [${a.id}] ${a.opis}`);
-    for (const a of nieSprawdzone) console.log(`       — [${a.id}] NIE SPRAWDZONE: ${a.powod}`);
-    if (commit.stan === "nie_sprawdzone") console.log(`       — [gotowe_do_zlecenia] NIE SPRAWDZONE: ${commit.powod}`);
-    if (commit.marka_rozpoznana === false) console.log(`       ! [marka] „${commit.marka_uslyszana}" nie jest znaną marką — zapisalibyśmy śmieć`);
-    if (TRANSKRYPT) for (const t of rozmowa) console.log(`         [${t.role}] ${String(t.message || "").slice(0, 130)}`);
+  // WYNIK SCENARIUSZA = WIĘKSZOŚĆ Z PRZEBIEGÓW.
+  // 3/3 to stabilnie zielony, 2/3 to zielony NIESTABILNY — i to jest osobna
+  // informacja, bo scenariusz, który pada co trzeci raz, pada też u klienta.
+  const wyniki = [];
+  for (const s of scenariusze) {
+    const grupa = oceny.filter((o) => o.s.id === s.id && o.s.jezyk === s.jezyk);
+    const zielone = grupa.filter((o) => o.czy).length;
+    const przeszedl = zielone * 2 > grupa.length;
+    const stabilny = zielone === grupa.length || zielone === 0;
+    const znak = !przeszedl ? "✗" : stabilny ? "✓" : "~";
+    const narzedzia = [...new Set(grupa.flatMap((o) => o.narzedzia || []))];
+    console.log(`  ${znak}  ${s.id} [${s.jezyk}] ${s.opis} — ${zielone}/${grupa.length}${stabilny ? "" : "  NIESTABILNY"}${narzedzia.length ? `  (${narzedzia.join(", ")})` : ""}`);
 
-    wyniki.push({
-      id: s.id, jezyk: s.jezyk, opis: s.opis, tur: rozmowa.length, przeszedl: czy,
-      bledy: bledy.map((a) => a.id), oczekiwania: oczek,
-      ostrzezenia: ostrzezenia.map((a) => a.id), nie_sprawdzone: nieSprawdzone.map((a) => a.id),
-      rozmowa: rozmowa.map((t) => ({ role: t.role, message: t.message, tool_calls: (t.tool_calls || []).map((c) => c.tool_name) })),
-    });
+    // Naruszenie pokazujemy RAZ, z liczbą przebiegów, w których wystąpiło.
+    const licznik = new Map();
+    for (const o of grupa) for (const b of o.bledy) {
+      const k = `${b.id}|${b.powod}`;
+      if (!licznik.has(k)) licznik.set(k, { ...b, ile: 0 });
+      licznik.get(k).ile++;
+    }
+    for (const b of [...licznik.values()].sort((a, z) => z.ile - a.ile))
+      console.log(`       ✗ [${b.id}] ${b.ile}/${grupa.length}  ${b.powod}\n         „${b.cytat}"`);
+    for (const o of grupa) for (const x of o.oczek) console.log(`       ✗ [oczekiwanie] ${x}`);
+    const ns = [...new Set(grupa.flatMap((o) => o.nieSprawdzone))];
+    for (const x of ns) console.log(`       — NIE SPRAWDZONE: ${x}`);
+    const bezKlucza = grupa.find((o) => o.commit?.stan === "nie_sprawdzone");
+    if (bezKlucza) console.log(`       — [gotowe_do_zlecenia] NIE SPRAWDZONE: ${bezKlucza.commit.powod}`);
+    const zlaMarka = grupa.find((o) => o.commit?.marka_rozpoznana === false);
+    if (zlaMarka) console.log(`       ! [marka] „${zlaMarka.commit.marka_uslyszana}" nie jest znaną marką`);
+    if (TRANSKRYPT) for (const t of grupa[0]?.rozmowa || []) console.log(`         [${t.role}] ${String(t.message || "").slice(0, 130)}`);
+
+    wyniki.push({ id: s.id, jezyk: s.jezyk, opis: s.opis, przeszedl, zielone, przebiegow: grupa.length, stabilny,
+      bledy: [...new Set([...licznik.values()].map((b) => b.id))] });
   }
 
   // --- podsumowanie i regresja ---------------------------------------------
   const przeszlo = wyniki.filter((w) => w.przeszedl).length;
   console.log("\n" + "─".repeat(64));
-  console.log(`PRZESZŁO ${przeszlo} z ${wyniki.length} scenariuszy`);
+  console.log(`PRZESZŁO ${przeszlo} z ${wyniki.length} scenariuszy (${PRZEBIEGI} przebiegi na scenariusz, wynik = większość)`);
+  const niestabilne = wyniki.filter((w) => !w.stabilny);
+  if (niestabilne.length) console.log(`niestabilne: ${niestabilne.map((w) => `${w.id}[${w.jezyk}] ${w.zielone}/${w.przebiegow}`).join(", ")}`);
   const padly = wyniki.filter((w) => !w.przeszedl);
   if (padly.length) console.log("padły: " + padly.map((w) => `${w.id}[${w.jezyk}]`).join(", "));
 
