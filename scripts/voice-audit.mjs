@@ -473,6 +473,34 @@ async function sekcjaD() {
         `${pola.join("\n")}\nprzywrócenie: node scripts/voice-restore-golden.mjs --wykonaj`);
     }
   }
+
+  // D10: POLSKI AGENT MUSI ZGADZAĆ SIĘ Z OSTATNIM POTWIERDZONYM STANEM.
+  //
+  // D9 pilnuje konfiguracji ElevenLabs — 22 pola. Nie pilnuje ANI JEDNEGO znaku
+  // promptu, persony z bazy ani modułu renderującego godziny. 15.08 prompt urósł
+  // o 4950 znaków, voiceSnapshot.ts zmienił się trzy razy, a jedyną kontrolą było
+  // to, że pamiętałem policzyć SHA ręcznie.
+  //
+  // Regresja 0/20 świadomie NIE jest tu uruchamiana: kosztuje 20 syntez, a audyt
+  // ma być darmowy i puszczalny zawsze. Odciski łapią zmianę, regresja odpowiada
+  // na inne pytanie („czy nadal brzmi dobrze") i ma własne polecenie.
+  const odciskPlik = join(ROOT, "config/POLSKI-ODCISK.json");
+  if (!existsSync(odciskPlik)) {
+    zle("D10", "brak odcisku polskiego agenta",
+      "config/POLSKI-ODCISK.json — utwórz: node scripts/voice-polski-nienaruszony.mjs --zapisz");
+  } else {
+    try {
+      const wyj = execSync("node scripts/voice-polski-nienaruszony.mjs --bez-regresji", { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+      const zgodnych = (wyj.match(/^ ✓/gm) || []).length;
+      if (!zgodnych) zle("D10", "sprawdzenie polskiego nic nie potwierdziło", "ślepa kontrola");
+      else ok("D10", `polski zgodny z ostatnim potwierdzonym stanem (${zgodnych} warstwy)`, zgodnych);
+    } catch (e) {
+      const tekst = String(e.stdout || "") + String(e.stderr || "");
+      const linia = (tekst.match(/^POLSKI NIENARUSZONY: NIE.*$/m) || [])[0] || tekst.slice(-500);
+      zle("D10", "POLSKI ODBIEGA OD OSTATNIEGO POTWIERDZONEGO STANU",
+        `${linia}\nszczegóły: node scripts/voice-polski-nienaruszony.mjs`);
+    }
+  }
 }
 
 // ============================================================================

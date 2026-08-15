@@ -20,7 +20,7 @@ model_id     eleven_multilingual_v2
 voice_id     cjVigY5qzO86Huf0OWal        (Eric)
 stability    0.5
 similarity_boost  0.6
-speed        1.0
+speed        1.15        <- opis mówił 1.0, produkcja i JSON mają 1.15
 enable_phoneme_tags   false
 optimize_streaming_latency  0
 agent_output_audio_format   pcm_16000
@@ -251,3 +251,59 @@ w tej samej minucie, telefon nie dzwonił.
 
 Sprawdzanie możliwości przez próbę zapisu na produkcji jest zmianą produkcji.
 Jeśli nie da się inaczej — przywracaj stan po **każdej** próbie, nie po pętli.
+
+---
+
+## Czego złoty stan NIE obejmuje — i co to zastąpiło
+
+**Ten plik pilnuje 22 pól konfiguracji ElevenLabs. Ani jednego znaku promptu.**
+
+15.08 przez jeden dzień blok promptu urósł z 24 165 do 29 115 znaków,
+`voiceSnapshot.ts` zmienił się trzy razy, persona siedzi w bazie i da się ją
+zmienić z panelu bez commita — a jedyną kontrolą było to, że pamiętałem
+policzyć SHA ręcznie. Pamięć nie jest kontrolą.
+
+Od 15.08 polskiego agenta pilnuje **`config/POLSKI-ODCISK.json`** i jedno
+polecenie:
+
+```
+node scripts/voice-polski-nienaruszony.mjs
+```
+
+Odpowiada **TAK albo NIE** na pięciu warstwach:
+
+| warstwa | co pilnuje | skąd bierze |
+|---|---|---|
+| 1 | konfiguracja ElevenLabs | `voice-restore-golden.mjs`, 22 pola |
+| 2 | blok polski w prompcie | odcisk treści literałów w `voice-agent-chat` |
+| 3 | persona | `ai_agents_config.system_prompt` z produkcji |
+| 4 | `voiceSnapshot.ts` | SHA-256 pliku |
+| 5 | regresja 0/20 | 20 syntez + transkrypcja niezależnym silnikiem |
+
+**Warstwy 1–4 odpowiadają na „czy coś się zmieniło". Warstwa 5 na „czy nadal
+brzmi dobrze". To NIE jest to samo pytanie** — 15.08 prompt i moduł zmieniły
+się o 4950 znaków, a regresja dalej dawała 0/20. Odciski bez regresji
+alarmowałyby o zmianach nieszkodliwych; regresja bez odcisków przepuściłaby
+cichą podmianę persony w panelu.
+
+Odcisk bloku promptu **nie jest hashem pliku ani zakresu linii** — obie te
+rzeczy zmieniają się przy przesunięciu importu. Hashowana jest TREŚĆ: literały
+tekstu promptu, z wyciętymi wstawkami `${…}`, ze znormalizowaną spacją.
+Ta sama funkcja działa na dowolnej rewizji git, więc:
+
+```
+node scripts/voice-polski-nienaruszony.mjs --wobec 14fea1dd
+```
+
+porównuje dzisiejszy stan z dowolnym dniem wstecz i **wypisuje, które fragmenty
+promptu doszły, a które zniknęły** — bo sam rozjazd SHA nie mówi, czy zmiana
+dotyczyła polskiego.
+
+`--zapisz` **odmawia zapisu, gdy regresja nie przeszła albo nie została
+uruchomiona.** Punktem odniesienia może być wyłącznie stan potwierdzony
+pomiarem — zapisanie stanu, którego nikt nie odsłuchał, zamienia kontrolę
+w echo.
+
+Audyt (`voice-audit.mjs`, kontrola **D10**) uruchamia to sprawdzenie
+z `--bez-regresji`, żeby zostać darmowym i puszczalnym zawsze. Regresja jest
+osobnym, świadomym poleceniem, bo kosztuje 20 syntez.
