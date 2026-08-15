@@ -150,10 +150,31 @@ export const wolneGodziny = (
   if (koniec < start) return [];
   const obciazenie: Record<string, number> = {};
   for (const g of zajete) obciazenie[g] = (obciazenie[g] || 0) + 1;
-  const out: string[] = [];
-  for (let t = start; t <= koniec && out.length < maks; t += krokMin) {
+
+  // WSZYSTKIE wolne godziny dnia, potem wybór ROZŁOŻONY NA CAŁY DZIEŃ.
+  //
+  // Wcześniej braliśmy trzy pierwsze od otwarcia — i przez to KAŻDY dzień
+  // w snapshocie wyglądał identycznie: ["09:00","09:30","10:00"]. Agent nigdy
+  // nie widział popołudnia, więc na pytanie „a później?" nie miał danych
+  // i zmyślał albo odsyłał do godzin otwarcia.
+  //
+  // PRAWDZIWA ROZMOWA 15.08, 10:49: klient trzy razy prosił o późną godzinę,
+  // agent trzy razy podał te same dwie poranne, aż klient powiedział
+  // „nie, nie działaj". Potem agent oświadczył, że przyjmują do siedemnastej,
+  // a osiem sekund później, że ostatnia godzina to szesnasta trzydzieści.
+  const wolne: string[] = [];
+  for (let t = start; t <= koniec; t += krokMin) {
     const etykieta = hhmm(t);
-    if ((obciazenie[etykieta] || 0) < Math.max(1, pojemnosc)) out.push(etykieta);
+    if ((obciazenie[etykieta] || 0) < Math.max(1, pojemnosc)) wolne.push(etykieta);
+  }
+  if (wolne.length <= maks) return wolne;
+
+  // Równomierne rozłożenie: pierwszy, ostatni i to, co pomiędzy. Klient pytający
+  // o popołudnie musi je ZOBACZYĆ w danych, a nie usłyszeć regułę o zamknięciu.
+  const out: string[] = [];
+  for (let i = 0; i < maks; i++) {
+    const idx = Math.round((i * (wolne.length - 1)) / (maks - 1));
+    if (!out.includes(wolne[idx])) out.push(wolne[idx]);
   }
   return out;
 };
@@ -164,6 +185,12 @@ export type Dzien = {
   do_wypowiedzenia: string;
   otwarte: boolean;
   godziny?: string;
+  /**
+   * OSTATNIA GODZINA, O KTÓREJ WOLNO ZACZĄĆ — osobne pole, bo `godziny`
+   * („09:00-17:00") agent czytał jako „można umówić na 17:00".
+   * Tu jest liczba, której nie trzeba interpretować.
+   */
+  ostatni_mozliwy_start?: string;
   wolne?: string[];
   powod?: string;
 };
@@ -198,6 +225,11 @@ export const zbudujDni = (
     } else {
       wpis.godziny = `${g.open}-${g.close}`;
       wpis.wolne = slotyDlaDnia(iso, g);
+      // Ostatnia realna godzina startu = ostatni slot, który przeszedł przez
+      // wszystkie ograniczenia (zamknięcie minus czas usługi, najpóźniejsze
+      // przyjęcie, zajętość). Podana WPROST, żeby agent nie liczył jej sam
+      // z „09:00-17:00" — bo liczył źle i mówił klientowi dwie różne rzeczy.
+      if (wpis.wolne.length) wpis.ostatni_mozliwy_start = wpis.wolne[wpis.wolne.length - 1];
       // DZIEŃ BEZ WOLNYCH GODZIN TO DZIEŃ ZAMKNIĘTY DLA AGENTA.
       // Bez tego „dzisiaj" po zamknięciu zostaje na liście z pustą tablicą,
       // a model i tak coś z niej wymyśli — widzieliśmy to o 23:42.

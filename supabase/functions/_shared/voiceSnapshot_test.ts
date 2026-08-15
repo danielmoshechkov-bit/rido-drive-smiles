@@ -84,6 +84,23 @@ test("zwracamy najwyżej trzy sloty — reszta to szum w prompcie", () => {
   assert.equal(wolneGodziny({ open: "09:00", close: "17:00" }, 60, 6, []).length, 3);
 });
 
+test("trzy sloty ROZLOZONE NA DZIEN, nie trzy pierwsze od otwarcia", () => {
+  // Regresja z rozmowy 15.08 10:49: kazdy dzien w snapshocie wygladal identycznie
+  // (["09:00","09:30","10:00"]), wiec agent nigdy nie widzial popoludnia.
+  // Klient trzy razy prosil o pozna godzine i trzy razy uslyszal to samo,
+  // az powiedzial „nie, nie dzialaj".
+  const o = wolneGodziny({ open: "09:00", close: "17:00" }, 60, 6, []);
+  assert.equal(o[0], "09:00", "pierwszy slot to nadal otwarcie");
+  assert.equal(o.at(-1), "16:00", "ostatni slot to ostatni MOZLIWY start, nie 10:00");
+  assert.ok(minuty(o[1]) > minuty("11:00"), "srodkowy slot ma byc w srodku dnia");
+});
+
+test("gdy wolnych godzin jest mniej niz trzy, wracaja wszystkie", () => {
+  // 16:00 i 16:30 zajete przy pojemnosci 1 -> zostaje sam poranek
+  const g = { open: "15:00", close: "17:00" };
+  assert.deepEqual(wolneGodziny(g, 60, 1, ["16:00"], 30, null, 3), ["15:00", "15:30"]);
+});
+
 // --- nazwane dni ----------------------------------------------------------
 
 test("pierwsze trzy dni mają nazwy, weekend jest zamknięty z powodem", () => {
@@ -148,13 +165,14 @@ test("po zamknieciu dzisiaj nie ma zadnego slotu", () => {
 test("w srodku dnia nie proponujemy godzin, ktore minely", () => {
   const g = { open: "09:00", close: "17:00" };
   const o = wolneGodziny(g, 60, 6, [], 30, "16:00", 3, "14:00");
-  assert.deepEqual(o, ["14:00", "14:30", "15:00"]);
+  assert.equal(o[0], "14:00", "zaczynamy od aktualnej godziny");
+  assert.equal(o.at(-1), "16:00", "konczymy na ostatnim mozliwym starcie");
   assert.ok(!o.includes("09:00"), "poranek juz minal");
 });
 
 test("dni przyszle sa nietkniete (odGodziny null)", () => {
   const g = { open: "09:00", close: "17:00" };
-  assert.deepEqual(wolneGodziny(g, 60, 6, [], 30, "16:00", 3, null), ["09:00", "09:30", "10:00"]);
+  assert.deepEqual(wolneGodziny(g, 60, 6, [], 30, "16:00", 3, null), ["09:00", "12:30", "16:00"]);
 });
 
 test("dzien bez wolnych godzin znika z listy jako zamkniety", () => {

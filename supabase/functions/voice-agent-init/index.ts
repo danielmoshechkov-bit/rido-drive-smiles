@@ -250,9 +250,24 @@ serve(async (req) => {
       // USTAWIENIA — tabeli jeszcze nie ma, więc wartości domyślne. Kontrakt ma już
       // gałąź `ustawienia`, żeby zakładka w panelu weszła bez zmiany kształtu.
       const zamkniecieTypowe = (godzinyTygodnia["mon"] || GODZINY_ZAPASOWE).close;
+      const DOMYSLNY_CZAS_MIN = 60;
+      // NAJPÓŹNIEJSZE PRZYJĘCIE NIE MOŻE RÓWNAĆ SIĘ ZAMKNIĘCIU.
+      //
+      // Było `= zamkniecieTypowe`, czyli 17:00 przy pracy do 17:00. Pole nie
+      // ograniczało niczego w wyliczeniach (bo `ostatniStart` bierze minimum
+      // i pierwszy człon i tak wychodził niżej), ALE trafiało do snapshotu jako
+      // tekst — i agent czytał je dosłownie.
+      //
+      // ROZMOWA 15.08, 10:49 — agent zaprzeczył sam sobie w osiem sekund:
+      //   [83s] „Najpóźniej przyjmujemy do siedemnastej."
+      //   [91s] „Niestety siedemnasta to już koniec dnia. Ostatnia godzina
+      //          to szesnasta trzydzieści."
+      // Do czasu powstania zakładki ustawień liczymy je z zamknięcia i czasu wizyty.
+      const najpozniejszePrzyjecie = hhmm(
+        ostatniStart(zamkniecieTypowe, DOMYSLNY_CZAS_MIN, null));
       const ustawienia = {
-        najpozniejsze_przyjecie: zamkniecieTypowe,
-        domyslny_czas_wizyty_min: 60,
+        najpozniejsze_przyjecie: najpozniejszePrzyjecie,
+        domyslny_czas_wizyty_min: DOMYSLNY_CZAS_MIN,
         polityka_wyceny: "kosztorys_przed_naprawa",
         polityka_wyceny_tekst: POLITYKI.kosztorys_przed_naprawa,
         oplata_za_diagnoze_bez_usterki: "zalezy",
@@ -275,8 +290,8 @@ serve(async (req) => {
       }).format(new Date());
 
       const dni = zbudujDni(dzisiaj, DNI_W_PRZOD, godzinyTygodnia, (iso, g) =>
-        wolneGodziny(g, ustawienia.domyslny_czas_wizyty_min, pojemnosc,
-          zajeteWgDnia[iso] || [], 30, ustawienia.najpozniejsze_przyjecie, 3,
+        wolneGodziny(g, DOMYSLNY_CZAS_MIN, pojemnosc,
+          zajeteWgDnia[iso] || [], 30, najpozniejszePrzyjecie, 3,
           // Filtr po aktualnej godzinie WYŁĄCZNIE dla dzisiejszego dnia.
           iso === dzisiaj ? terazWarszawa : null));
 
@@ -306,7 +321,13 @@ serve(async (req) => {
           czas_blokady_min: czas.czas_blokady_min,
           czas_znany: czas.czas_znany,
           czas_do_powiedzenia: czas.czas_znany ? czasDoWypowiedzenia(czas.czas_blokady_min) : null,
-          ostatni_start: hhmm(ostatniStart(zamkniecieTypowe, czas.czas_blokady_min, ustawienia.najpozniejsze_przyjecie)),
+          ostatni_start: hhmm(ostatniStart(zamkniecieTypowe, czas.czas_blokady_min, najpozniejszePrzyjecie)),
+          // USŁUGA DŁUŻSZA NIŻ POŁOWA DNIA ROBOCZEGO MUSI ZACZĄĆ SIĘ RANO.
+          // Ceramika i folie ochronne trwają cały dzień albo dwa — proponowanie
+          // ich na popołudnie to obietnica, której warsztat nie dotrzyma.
+          // Pole mówi agentowi wprost, zamiast kazać mu liczyć.
+          tylko_od_otwarcia: czas.czas_blokady_min * 2 > (minuty(zamkniecieTypowe) - minuty(
+            (godzinyTygodnia["mon"] || GODZINY_ZAPASOWE).open)),
           kategoria: usluga.kategoria || null,
         };
       });
