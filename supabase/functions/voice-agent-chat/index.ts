@@ -20,6 +20,7 @@ import {
 } from "../_shared/voicePhase1ModelAdapter.ts";
 import { cachedContext } from "../_shared/voiceContextCache.ts";
 import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
+import { jezykRozmowy, snapshotWJezyku } from "../_shared/voiceJezykRozmowy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -390,7 +391,23 @@ serve(async (req) => {
     // częściej niż reguły, więc wrzucenie snapshotu do prefiksu unieważniłoby cache
     // PRZY KAŻDEJ ROZMOWIE. Dlatego ląduje w `systemTimeContext`, który idzie za
     // blokiem cachowanym.
-    const snapshotRaw = isServiceCall ? String(body?.snapshot || "") : "";
+    const snapshotSurowy = isServiceCall ? String(body?.snapshot || "") : "";
+    // JĘZYK ROZMOWY I PRZEROBIENIE SNAPSHOTU — na KAŻDEJ turze, bo rozmówca
+    // może przejść na inny język w dowolnym momencie, a snapshot powstał raz,
+    // przy odebraniu połączenia, i niesie wyłącznie polskie formy.
+    //
+    // ZASADA NADRZĘDNA: agent nigdy nie miesza języków w jednej wypowiedzi.
+    // Bez tego kroku rosyjskie zdanie dostawało polską datę („poniedziałek,
+    // siedemnastego sierpnia") — a obce słowo w środku zdania odbiera zaufanie
+    // do całej rozmowy.
+    const jezyk = jezykRozmowy(messages as Array<{ role?: string; content?: unknown }>);
+    const snapshotRaw = snapshotWJezyku(snapshotSurowy, jezyk);
+    if (snapshotSurowy) {
+      logTiming("jezyk_rozmowy", totalStarted, {
+        jezyk, przerobiony: snapshotRaw !== snapshotSurowy,
+        znakow_przed: snapshotSurowy.length, znakow_po: snapshotRaw.length,
+      });
+    }
     let snapshotBlok = "";
     if (snapshotRaw) {
       snapshotBlok = `\n\n=== CO WIESZ O DZIŚ (dane pobrane przy odebraniu połączenia) ===\n${snapshotRaw}\n`
@@ -404,7 +421,8 @@ serve(async (req) => {
         + `- PÓŹNA GODZINA: gdy klient pyta o wieczór albo o godzinę spoza "wolne", odpowiadasz liczbą z pola "ostatni_mozliwy_start" przy tym dniu i od razu ją proponujesz: "Najpóźniej mogę zapisać na szesnastą trzydzieści — pasuje?". NIE powołuj się na godzinę zamknięcia z pola "godziny": to godziny pracy warsztatu, a nie ostatni moment, o którym można zacząć. W prawdziwej rozmowie agent powiedział "najpóźniej przyjmujemy do siedemnastej", a osiem sekund później "siedemnasta to już koniec dnia, ostatnia godzina to szesnasta trzydzieści" — klient usłyszał dwie sprzeczne rzeczy.\n`
         + `- USŁUGA Z "tylko_od_otwarcia": true zajmuje ponad pół dnia. Proponujesz przy niej WYŁĄCZNIE pierwszą godzinę otwarcia, nawet jeśli w "wolne" stoją późniejsze. Ceramika i folie ochronne trwają cały dzień — termin po południu to obietnica, której warsztat nie dotrzyma.\n`
         + `- DWIE ODMOWY TEGO SAMEGO TERMINU = KONIEC PROPONOWANIA. Gdy klient dwa razy odrzucił te same godziny, NIE podajesz ich trzeci raz. Oddajesz inicjatywę: "Rozumiem, przedpołudnia nie pasują. Jaka pora dnia byłaby dobra?". PRAWDZIWA ROZMOWA: agent trzy razy podał "dziewiąta albo jedenasta", aż klient powiedział "nie, nie działaj".\n`
-        + `- JĘZYK ANGIELSKI: gdy rozmowa toczy się po angielsku, czytasz pola z końcówką "_en" — "do_wypowiedzenia_en", "do_powiedzenia_en", "czas_do_powiedzenia_en", "powod_en". NIGDY nie tłumacz polskich pól samodzielnie i nigdy nie wstawiaj polskiej daty w angielskie zdanie. Pola bez końcówki są WYŁĄCZNIE do rozmowy po polsku.\n`
+        + `- DANE W TYM BLOKU SĄ JUŻ W JĘZYKU ROZMOWY. Daty, ceny i czasy czytasz DOKŁADNIE tak, jak stoją — nie tłumaczysz ich i nie odmieniasz. Jeśli czegoś w nich nie ma, NIE mówisz tego po polsku: pomijasz albo mówisz, że sprawdzi to mechanik. NIGDY nie wtrącaj polskiego słowa w zdanie w innym języku.\n`
+        + `- STARE POLA Z KOŃCÓWKĄ "_en": gdy rozmowa toczy się po angielsku, czytasz pola z końcówką "_en" — "do_wypowiedzenia_en", "do_powiedzenia_en", "czas_do_powiedzenia_en", "powod_en". NIGDY nie tłumacz polskich pól samodzielnie i nigdy nie wstawiaj polskiej daty w angielskie zdanie. Pola bez końcówki są WYŁĄCZNIE do rozmowy po polsku.\n`
         + `- WALUTA ZOSTAJE ZŁOTÓWKĄ w każdym języku. Nie przeliczasz na funty, euro ani dolary — klient płaci w warsztacie złotówkami.\n`
         + `- Gdy czegoś nie ma w tych danych — użyj check_availability albo powiedz, że nie wiesz. NIE ZGADUJ.\n`
         + `\n=== JAK KOŃCZYSZ ROZMOWĘ (przeczytaj to na końcu, zanim odpowiesz) ===\n`
