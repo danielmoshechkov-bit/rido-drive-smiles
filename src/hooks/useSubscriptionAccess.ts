@@ -49,9 +49,19 @@ const BRAK: Omit<DostepWarsztatu, 'loading'> = {
   koniecOkresu: null,
 };
 
-export function useSubscriptionAccess(providerId: string | null | undefined): DostepWarsztatu {
+/**
+ * Linia produktowa. Panel usługodawcy jest DZIŚ darmowy, ale docelowo ma być
+ * osobnym produktem — dlatego linia jest parametrem od początku. Gdy zapadnie
+ * decyzja o opłacie, wystarczy dodać plan w panelu i przypisać funkcje.
+ */
+export type LiniaProduktowa = 'warsztat' | 'uslugi';
+
+export function useSubscriptionAccess(
+  providerId: string | null | undefined,
+  linia: LiniaProduktowa = 'warsztat',
+): DostepWarsztatu {
   const query = useQuery({
-    queryKey: ['subscription-access', providerId],
+    queryKey: ['subscription-access', providerId, linia],
     enabled: !!providerId,
     // Stan dostępu zmienia się rzadko, ale po opłaceniu ma wrócić NATYCHMIAST —
     // dlatego krótki czas świeżości i odświeżenie przy powrocie do karty.
@@ -68,7 +78,7 @@ export function useSubscriptionAccess(providerId: string | null | undefined): Do
           .select('status, current_period_end')
           .eq('subscriber_type', 'service_provider')
           .eq('subscriber_id', providerId)
-          .eq('product_line', 'warsztat')
+          .eq('product_line', linia)
           .order('created_at', { ascending: false })
           .limit(1),
         supabase
