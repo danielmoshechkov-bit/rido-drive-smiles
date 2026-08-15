@@ -22,6 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useUserRole } from '@/hooks/useUserRole';
 import { useSubscriptionActivation } from '@/hooks/useSubscriptionActivation';
 import { TrialPlanBanner } from '@/components/billing/TrialPlanBanner';
+import { ModuleLock } from '@/components/billing/ModuleLock';
+import { useSubscriptionAccess } from '@/hooks/useSubscriptionAccess';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
@@ -132,6 +134,8 @@ export default function ServiceProviderDashboard() {
   // odpytuje o subskrypcję przez 30 s. Bez tego klient widzi brak dostępu mimo
   // opłaconej faktury i płaci drugi raz.
   useSubscriptionActivation(providerId);
+  // Stan dostępu do modułu Warsztat — jeden odczyt na cały panel.
+  const dostepWarsztatu = useSubscriptionAccess(providerId);
   const [calendarSubTab, setCalendarSubTab] = useState<'calendar' | 'bookings'>('calendar');
   const [moreOpen, setMoreOpen] = useState(false);
   const [primaryTabs, setPrimaryTabs] = useState<string[]>(DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS);
@@ -1194,7 +1198,17 @@ export default function ServiceProviderDashboard() {
           </TabsContent>
 
           <TabsContent value="workshop" className={`mt-6 ${isWorkshopLayout ? 'flex-1 min-h-0 overflow-hidden' : ''}`}>
-            <WorkshopDashboard providerId={providerId} />
+            {/* Jedna nakładka na cały moduł, nie trzynaście na każdą zakładkę.
+                Warunek `!!providerId` jest istotny: bez warsztatu hook zwraca
+                „brak" (zapytanie jest wyłączone), a pod spodem renderuje się
+                strona sprzedażowa dla kogoś, kto warsztatu jeszcze nie ma —
+                przyciemnianie jej paywallem odcięłoby ścieżkę zakładania konta. */}
+            <ModuleLock
+              zablokowane={!!providerId && !dostepWarsztatu.loading && !dostepWarsztatu.moznaPracowac}
+              powod={dostepWarsztatu.powod}
+            >
+              <WorkshopDashboard providerId={providerId} />
+            </ModuleLock>
           </TabsContent>
 
           {/* Leads Tab */}

@@ -22,7 +22,16 @@ export type StanDostepu =
   /** Nigdy nie było subskrypcji w tej linii. */
   | 'brak';
 
-export type PowodBlokady = 'platnosc' | 'wygasla' | null;
+export type PowodBlokady =
+  /** Karta odrzucona — klient jest klientem, tylko płatność nie przeszła. */
+  | 'platnosc'
+  /** Kupił, subskrypcja się skończyła. */
+  | 'wygasla'
+  /** Skończył okres próbny i NIGDY nie kupił. Najczęstszy przypadek na starcie. */
+  | 'trial'
+  /** Warsztat bez triala i bez subskrypcji — konto sprzed wprowadzenia okresów próbnych. */
+  | 'brak'
+  | null;
 
 export interface DostepWarsztatu {
   stan: StanDostepu;
@@ -35,7 +44,7 @@ export interface DostepWarsztatu {
 
 const BRAK: Omit<DostepWarsztatu, 'loading'> = {
   stan: 'brak',
-  powod: null,
+  powod: 'brak',
   moznaPracowac: false,
   koniecOkresu: null,
 };
@@ -49,48 +58,86 @@ export function useSubscriptionAccess(providerId: string | null | undefined): Do
     staleTime: 30_000,
     refetchOnWindowFocus: true,
     queryFn: async (): Promise<Omit<DostepWarsztatu, 'loading'>> => {
-      const { data, error } = await supabase
-        .from('billing_subscriptions' as any)
-        .select('status, current_period_end, product_line')
-        .eq('subscriber_type', 'service_provider')
-        .eq('subscriber_id', providerId)
-        .eq('product_line', 'warsztat')
-        .order('created_at', { ascending: false })
-        .limit(1);
+      // DWA źródła, bo trial i subskrypcja płatna żyją w różnych tabelach.
+      // Trial zakłada `register-marketplace-user` w `paid_service_subscriptions`;
+      // `billing_subscriptions` dostaje wiersz dopiero po zakupie. Czytanie
+      // wyłącznie tej drugiej blokowałoby KAŻDEGO klienta w okresie próbnym.
+      const [platna, trial] = await Promise.all([
+        supabase
+          .from('billing_subscriptions' as any)
+          .select('status, current_period_end')
+          .eq('subscriber_type', 'service_provider')
+          .eq('subscriber_id', providerId)
+          .eq('product_line', 'warsztat')
+          .order('created_at', { ascending: false })
+          .limit(1),
+        supabase
+          .from('paid_service_subscriptions' as any)
+          .select('status, expires_at')
+          .eq('user_id', (await supabase.auth.getUser()).data.user?.id ?? '')
+          .order('created_at', { ascending: false })
+          .limit(1),
+      ]);
 
-      if (error) throw error;
+      if (platna.error) throw platna.error;
 
-      const wiersz = (Array.isArray(data) ? data[0] : null) as
+      const wiersz = (Array.isArray(platna.data) ? platna.data[0] : null) as
         | { status: string; current_period_end: string | null }
         | null;
-      if (!wiersz) return BRAK;
 
-      const koniec = wiersz.current_period_end;
+      // Subskrypcja płatna ma pierwszeństwo: gdy istnieje, trial jest nieistotny.
+      if (wiersz) {
+        const koniec = wiersz.current_period_end;
+        switch (wiersz.status) {
+          case 'active':
+          case 'trialing':
+            return { stan: 'aktywna', powod: null, moznaPracowac: true, koniecOkresu: koniec };
 
-      switch (wiersz.status) {
-        case 'active':
-        case 'trialing':
-          return { stan: 'aktywna', powod: null, moznaPracowac: true, koniecOkresu: koniec };
+          case 'past_due':
+            // Karencja z PEŁNYM dostępem. Operator ponawia pobranie przez kilka
+            // dni i połowa nieudanych płatności naprawia się bez udziału klienta —
+            // blokada w dniu odrzucenia karty byłaby zbyt agresywna.
+            return { stan: 'karencja', powod: 'platnosc', moznaPracowac: true, koniecOkresu: koniec };
 
-        case 'past_due':
-          // Karencja z PEŁNYM dostępem. Operator ponawia pobranie przez kilka
-          // dni i połowa nieudanych płatności naprawia się bez udziału klienta —
-          // blokada w dniu odrzucenia karty byłaby zbyt agresywna.
-          return { stan: 'karencja', powod: 'platnosc', moznaPracowac: true, koniecOkresu: koniec };
+          case 'read_only':
+            // Do tego stanu dochodzi się WYŁĄCZNIE z `past_due`, czyli po nieudanej
+            // płatności — stąd powód, a nie „wygasła".
+            return { stan: 'zablokowana', powod: 'platnosc', moznaPracowac: false, koniecOkresu: koniec };
 
-        case 'read_only':
-          // Do tego stanu dochodzi się WYŁĄCZNIE z `past_due`, czyli po nieudanej
-          // płatności — stąd powód, a nie „wygasła".
-          return { stan: 'zablokowana', powod: 'platnosc', moznaPracowac: false, koniecOkresu: koniec };
+          case 'canceled':
+          case 'expired':
+            return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, koniecOkresu: koniec };
 
-        case 'canceled':
-        case 'expired':
-          return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, koniecOkresu: koniec };
-
-        default:
-          // Nieznany status nie może dawać dostępu: brak wiedzy to nie zgoda.
-          return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, koniecOkresu: koniec };
+          default:
+            // Nieznany status nie może dawać dostępu: brak wiedzy to nie zgoda.
+            return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, koniecOkresu: koniec };
+        }
       }
+
+      // Brak subskrypcji płatnej — decyduje okres próbny.
+      //
+      // WAŻNE: datę wygaśnięcia czytamy TUTAJ, bo nikt inny jej nie egzekwuje.
+      // `activate-workshop-trial` i `register-marketplace-user` zapisują
+      // `expires_at` i na tym koniec — nie ma zadania, które po tej dacie
+      // cokolwiek zmienia. Do czasu podetapu 3.7 gating jest jedynym miejscem,
+      // w którym trial faktycznie się kończy.
+      // Nie filtrujemy po `metadata->>module`, bo `activate-workshop-trial`
+      // sprawdza istnienie triala BEZ filtra — dla niego jeden wiersz na konto
+      // oznacza „ten użytkownik ma już okres próbny". Filtrowanie tutaj
+      // rozjechałoby się z zapisem: komuś odmówiono by założenia drugiego triala,
+      // a jednocześnie pierwszy nie dawałby mu dostępu.
+      const t = (Array.isArray(trial.data) ? trial.data[0] : null) as
+        | { status: string; expires_at: string | null }
+        | null;
+
+      if (t && t.status === 'trial') {
+        const trwa = !t.expires_at || new Date(t.expires_at) > new Date();
+        return trwa
+          ? { stan: 'aktywna', powod: null, moznaPracowac: true, koniecOkresu: t.expires_at }
+          : { stan: 'zablokowana', powod: 'trial', moznaPracowac: false, koniecOkresu: t.expires_at };
+      }
+
+      return BRAK;
     },
   });
 
