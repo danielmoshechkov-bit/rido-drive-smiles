@@ -2620,6 +2620,48 @@ post_call_webhook_id    a9f9457cf459465297f20b3c3c6c6648  (events: transcript, j
   `stage "auth"` (llm)
 - Bez pushy i merge'y do `main` bez zgody właściciela
 
+## 🔴 DWIE MOJE POMYŁKI PRZY NAGRANIU OD KLIENTA — obie odwołane
+
+**1. Nagranie NIE było nieczytelne. Było po ROSYJSKU, a ja transkrybowałem po polsku.**
+
+```
+język transkrypcji   pewność całości
+polski                   0,475        <- na tym oparłem werdykt „nie nadaje się"
+ukraiński                0,712
+rosyjski                 0,925        <- czysty tekst, 161 słów
+angielski                0,000
+```
+
+Napisałem: *„zniekształcenie rozłożone na całość — sygnatura złego łańcucha
+nagrywania, kompresja Opus plus głośnik telefonu"* i odradziłem wyciąganie
+wniosków. **Nagranie jest w porządku.** Zmierzyłem jakość odczytu przy złym
+języku i uznałem wynik za jakość nagrania.
+
+To ta sama klasa co detektor sybilantów, „turbo-04 wadliwy", „20/20 czyste"
+i odmiana liczebnika jako wtręt — **piąty raz: wniosek szerszy niż pomiar.**
+Konkretnie tutaj: `voice-audio-diagnose` domyślnie ustawia `language: "pl"`,
+a ja nie sprawdziłem, w jakim języku mówi nagranie, zanim orzekłem o jego jakości.
+
+**Wniosek narzędziowy:** przy każdym nagraniu z zewnątrz najpierw przepuszczać
+przez cztery języki i brać ten o najwyższej pewności, a nie zakładać polskiego.
+
+**2. Zlecenie ZAWIERA pełen zakres. Napisałem, że zawiera tylko olej.**
+
+```
+klient   : „Aa, tak, wymiana benzyn masła, aa, i wszystkich filtrów, tak?"
+agent    : „Tak, zajmiemy się wymianą oleju i filtrów…"
+zlecenie ZLP-08/2026-002: „wymiana oleju, wymiana benzyny masła i wszystkich filtrów"
+```
+
+Napisałem: *„Zlecenie z tamtej rozmowy mówi tylko o wymianie oleju"* — **nie
+sprawdziwszy opisu zlecenia.** Sprawdzone teraz: zawiera wszystko, co agent
+potwierdził.
+
+**Wzorca nie ma.** Przegląd wszystkich 71 rozmów pod kątem „klient dopytał
+o zakres → agent potwierdził → zlecenie zawiera mniej": **jeden przypadek,
+i w nim zlecenie jest kompletne.** Reguła „wszystko, co agent potwierdzi, trafia
+do opisu zlecenia" nie jest potrzebna — to już działa.
+
 ## 📋 BACKLOG: POŁĄCZENIA, KTÓRYCH NIE WIDZIMY — priorytet wysoki
 
 **Nie mamy żadnego zapisu połączeń, które nie zostały odebrane.**
