@@ -424,6 +424,12 @@ verify_jwt = false
 [functions.billing-checkout]
 verify_jwt = false
 
+# Portal klienta Stripe (4.8) — ta sama zasada: tożsamość z tokenu, podmiot
+# z service_providers.user_id. Bez tego dowolny zalogowany otworzyłby portal
+# cudzej firmy i anulował cudzą subskrypcję.
+[functions.billing-portal]
+verify_jwt = false
+
 # Webhook operatora — tożsamość potwierdza PODPIS (HMAC z STRIPE_WEBHOOK_SECRET),
 # nie JWT. Stripe nie wysyła nagłówka Authorization, więc verify_jwt musi być
 # wyłączone; brak sekretu = 503 i zero przetwarzania.

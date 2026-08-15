@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useUserRole } from '@/hooks/useUserRole';
 import { useSubscriptionActivation } from '@/hooks/useSubscriptionActivation';
 import { TrialPlanBanner } from '@/components/billing/TrialPlanBanner';
+import { SubscriptionCard } from '@/components/billing/SubscriptionCard';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
@@ -1161,7 +1162,11 @@ export default function ServiceProviderDashboard() {
           </TabsContent>
 
           {/* Account Switcher Tab */}
-          <TabsContent value="account" className="mt-6">
+          <TabsContent value="account" className="mt-6 space-y-6">
+            {/* „Twój plan" trafia do Konta, nie do osobnej zakładki: klient
+                szuka rachunków tam, gdzie ma resztę spraw administracyjnych. */}
+            <SubscriptionCard providerId={providerId} />
+
             <AccountSwitcherPanel
               isDriverAccount={roles.includes('driver')}
               isFleetAccount={roles.includes('fleet_settlement') || roles.includes('fleet_rental')}

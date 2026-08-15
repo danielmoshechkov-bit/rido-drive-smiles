@@ -506,6 +506,38 @@ bez skutków ubocznych.
 
 ---
 
+## 🔴 Okres próbny nie wygasa nigdzie poza gatingiem
+
+**Ustalone 15.08.2026, przy G3. To nie jest martwy kod — to jedyne miejsce,
+w którym trial się kończy.**
+
+`expires_at` w `paid_service_subscriptions` zapisują dwie funkcje brzegowe:
+`register-marketplace-user` (rejestracja z cennika) i `activate-workshop-trial`
+(aktywacja na istniejącym koncie). I na tym koniec. Przeszukanie całego repo
+daje trzech czytelników tej tabeli: obie powyższe funkcje przy zakładaniu
+wiersza oraz `PaidServicesPanel` w adminie, który tylko listuje. **Nie ma
+zadania cyklicznego, nie ma triggera, nie ma żadnego kodu, który po tej dacie
+cokolwiek zmienia.** Status zostaje `trial` na zawsze.
+
+Wniosek dla każdego, kto to czyta później: **`useSubscriptionAccess` porównuje
+`expires_at` z bieżącą datą SAM** (`src/hooks/useSubscriptionAccess.ts`),
+a `moze_pracowac` robi to samo po stronie bazy. Usunięcie któregokolwiek
+z tych porównań jako „niepotrzebnego" oznacza dożywotni darmowy dostęp dla
+wszystkich, którzy kiedykolwiek zaczęli okres próbny — bez żadnego sygnału,
+że coś jest nie tak.
+
+Docelowo trial powinien wygasać po stronie danych (zadanie przestawiające
+`status` na `expired`), żeby prawda o subskrypcji nie zależała od tego, kto
+pyta. Do tego czasu obowiązuje powyższe.
+
+Przy okazji, z tego samego rozpoznania: `useSubscriptionAccess` w pierwszej
+wersji czytał WYŁĄCZNIE `billing_subscriptions`. Trial tam nie istnieje, więc
+każdy klient w okresie próbnym dostawał `moznaPracowac: false` — paywall od
+pierwszego dnia, z komunikatem „Subskrypcja wygasła". Wyszłoby dopiero przy
+pierwszym prawdziwym rejestrującym się warsztacie.
+
+---
+
 ## 🔴 Jawny dług: pierwsi klienci bez gatingu
 
 **Decyzja z 13.08, świadoma.** Wariant (a) wpuszcza pierwszych płacących klientów,
