@@ -1,0 +1,13 @@
+{
+  "id": "02-cena",
+  "jezyk": "en",
+  "opis": "klient pyta o cenę",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Hi, how much is a brake pad replacement?",
+    "prompt": "You are a customer calling about the price of a brake pad replacement. Your car is a Skoda Octavia. If the answer is vague, ask about the price a second time. If they offer an appointment, accept. Answer short, in English. Thank them and finish at the end."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

@@ -48,6 +48,18 @@ serve(async (req) => {
     const transcript = Array.isArray(body?.messages) ? body.messages : [];
     const orderId = body?.order_id || null;
     const bookingId = body?.booking_id || null;
+    // ROZMOWA TESTOWA NIGDY NIE UCZY.
+    //
+    // `is_test` przyjmowaliśmy od wołających (voice-agent-simulate wysyła je od
+    // początku) i NIE CZYTALIŚMY GO ANI RAZU. Skutek: każda symulacja dopisywała
+    // reguły do voice_agent_knowledge — dziś leży tam 108 wpisów wydestylowanych,
+    // część z losowych scenariuszy wymyślonych przez model. Wszystkie mają
+    // `is_active = false`, więc do promptu nie trafiły; od poprawki z 11.08 nowa
+    // reguła czeka na akceptację człowieka. Ale to jedna komenda
+    // `UPDATE ... SET is_active = true` od zatrucia promptu treścią, której nikt
+    // nie napisał. Bramka aktywacji chroni przed skutkiem — ta linia przed
+    // gromadzeniem materiału.
+    const isTest = body?.is_test === true;
     if (transcript.length < 2) return json({ ok: false, error: "Za krótka rozmowa do analizy" }, 400);
 
     const isServiceCall = authHeader === `Bearer ${serviceRoleKey}`;
@@ -211,7 +223,12 @@ serve(async (req) => {
     }
 
     let learned = 0;
-    if (bramka.allow && learningMode === "per_call" && Array.isArray(a?.lessons)) {
+    if (isTest && Array.isArray(a?.lessons) && a.lessons.length) {
+      console.info("[voice-call-analyze]", JSON.stringify({
+        event: "learning_skipped_test", lessons_dropped: a.lessons.length,
+      }));
+    }
+    if (!isTest && bramka.allow && learningMode === "per_call" && Array.isArray(a?.lessons)) {
       for (const L of a.lessons.slice(0, 8)) {
         if (!L?.situation || !L?.recommended_response) continue;
         // ZASADA 22 + dane osobowe: przykład ma pokazywać FORMĘ, nie treść.

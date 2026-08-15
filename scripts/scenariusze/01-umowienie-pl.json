@@ -1,0 +1,16 @@
+{
+  "id": "01-umowienie",
+  "jezyk": "pl",
+  "opis": "umówienie wizyty",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałbym umówić wymianę oleju.",
+    "prompt": "Jesteś klientem warsztatu. Chcesz umówić wymianę oleju na najbliższy możliwy termin. Masz Toyotę Yaris z 2018 roku, imię Jan. Odpowiadaj krótko, jednym-dwoma zdaniami, jak przez telefon. Nie podawaj danych, dopóki agent nie zapyta. Gdy termin jest ustalony i wszystko jasne — podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true,
+    "narzedzia": [
+      "end_call"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "05-usluga-spoza-cennika",
+  "jezyk": "pl",
+  "opis": "usługa spoza cennika",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, robicie wymianę opon?",
+    "prompt": "Jesteś klientem. Pytasz o wymianę opon — usługę, której warsztat nie ma w ofercie. Gdy agent odmówi, zapytaj jeszcze o mycie silnika. Jeśli agent zaproponuje coś innego, możesz się zainteresować. Odpowiadaj krótko. Na koniec podziękuj i zakończ."
+  },
+  "oczekiwane": {}
+}

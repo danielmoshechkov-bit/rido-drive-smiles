@@ -1,0 +1,13 @@
+{
+  "id": "01-umowienie",
+  "jezyk": "en",
+  "opis": "umówienie wizyty",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Hello, do you speak English?",
+    "prompt": "You are a customer of a car workshop in Poland, an English speaker. You want to book an oil change as soon as possible. Your car is a Toyota Yaris. Your name is Mark. Answer SHORT, in English, like on the phone. Only give details when asked. When the time is agreed, thank them and finish."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

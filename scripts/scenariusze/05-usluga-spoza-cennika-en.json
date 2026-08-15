@@ -1,0 +1,11 @@
+{
+  "id": "05-usluga-spoza-cennika",
+  "jezyk": "en",
+  "opis": "usługa spoza cennika",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Hi, do you do tyre changes?",
+    "prompt": "You are a customer asking about tyre fitting, a service the workshop does not offer. When refused, also ask about engine washing. If they suggest something else you may be interested. Answer short, in English. Thank them and finish."
+  },
+  "oczekiwane": {}
+}

@@ -1,0 +1,15 @@
+{
+  "id": "06-termin-poza-snapshotem",
+  "jezyk": "en",
+  "opis": "termin poza zakresem snapshotu",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Hello, I would like to book in a month from now.",
+    "prompt": "You are a customer who wants a service EXACTLY one month from today. You insist on that distant date and refuse anything earlier. Your car is a BMW 3 series, your name is Claire. Answer short, in English. Thank them and finish."
+  },
+  "oczekiwane": {
+    "narzedzia": [
+      "check_availability"
+    ]
+  }
+}

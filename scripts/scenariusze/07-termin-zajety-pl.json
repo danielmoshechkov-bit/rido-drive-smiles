@@ -1,0 +1,13 @@
+{
+  "id": "07-termin-zajety",
+  "jezyk": "pl",
+  "opis": "klient chce godzinę, której nie ma",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałbym jutro o siódmej wieczorem.",
+    "prompt": "Jesteś klientem. Chcesz przyjechać jutro o dziewiętnastej — poza godzinami pracy. Gdy agent zaproponuje inną godzinę, dopytaj \"a najpóźniej o której?\", potem zgódź się na to, co poda. Masz Audi A4, imię Tomasz. Odpowiadaj krótko. Na koniec podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

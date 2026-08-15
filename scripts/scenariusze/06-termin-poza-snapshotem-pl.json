@@ -1,0 +1,15 @@
+{
+  "id": "06-termin-poza-snapshotem",
+  "jezyk": "pl",
+  "opis": "termin poza zakresem snapshotu",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałbym umówić się za miesiąc.",
+    "prompt": "Jesteś klientem. Chcesz umówić przegląd DOKŁADNIE za miesiąc od dziś — nalegasz na ten odległy termin, nie zgadzasz się na wcześniejszy. Masz BMW serii trzy, imię Anna. Odpowiadaj krótko. Na koniec podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "narzedzia": [
+      "check_availability"
+    ]
+  }
+}

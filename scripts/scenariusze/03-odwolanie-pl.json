@@ -1,0 +1,13 @@
+{
+  "id": "03-odwolanie",
+  "jezyk": "pl",
+  "opis": "klient chce odwołać wizytę",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałbym odwołać moją wizytę.",
+    "prompt": "Jesteś klientem warsztatu. Masz umówioną wizytę i chcesz ją odwołać, bo wyjeżdżasz. Nie chcesz nowego terminu. Imię Piotr. Odpowiadaj krótko. Gdy agent potwierdzi odwołanie — podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "odwolanie": true
+  }
+}

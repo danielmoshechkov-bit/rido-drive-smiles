@@ -1,0 +1,13 @@
+{
+  "id": "02-cena",
+  "jezyk": "pl",
+  "opis": "klient pyta o cenę",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, ile kosztuje wymiana klocków hamulcowych?",
+    "prompt": "Jesteś klientem warsztatu. Dzwonisz zapytać o cenę wymiany klocków hamulcowych. Masz Skodę Octavię. Dopytaj o cenę drugi raz, jeśli agent odpowie ogólnikowo. Jeśli agent zaproponuje termin — zgódź się. Odpowiadaj krótko. Na koniec podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "04-niewyrazny",
+  "jezyk": "pl",
+  "opis": "klient mówi niewyraźnie, prosi o powtórzenie",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, ja bym chciał... yyy... na przegląd.",
+    "prompt": "Jesteś klientem warsztatu dzwoniącym z ulicy, słabo słychać. Mówisz niewyraźnie, urywasz zdania. DWA RAZY poproś agenta o powtórzenie: powiedz \"nie dosłyszałem, jeszcze raz?\" i \"co proszę?\". Chcesz przegląd, masz Forda Focusa, imię Marek. Na koniec podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "07-termin-zajety",
+  "jezyk": "en",
+  "opis": "klient chce godzinę, której nie ma",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Hi, I would like to come tomorrow at seven in the evening.",
+    "prompt": "You are a customer who wants to come tomorrow at 7 pm, outside working hours. When another time is offered, ask \"what is the latest you can take me?\", then accept it. Your car is an Audi A4, your name is Tom. Answer short, in English. Thank them and finish."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

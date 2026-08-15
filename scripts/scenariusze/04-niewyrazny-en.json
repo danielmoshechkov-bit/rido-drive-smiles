@@ -1,0 +1,13 @@
+{
+  "id": "04-niewyrazny",
+  "jezyk": "en",
+  "opis": "klient mówi niewyraźnie, prosi o powtórzenie",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Hello, I wanted... erm... a service.",
+    "prompt": "You are a customer calling from the street, the line is bad. You speak in fragments. TWICE ask them to repeat: say \"sorry, again?\" and \"what was that?\". You need a service, the car is a Ford Focus, your name is Andrew. Answer short, in English. Thank them and finish."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

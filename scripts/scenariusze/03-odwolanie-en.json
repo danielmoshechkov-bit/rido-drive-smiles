@@ -1,0 +1,13 @@
+{
+  "id": "03-odwolanie",
+  "jezyk": "en",
+  "opis": "klient chce odwołać wizytę",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Hello, I would like to cancel my appointment.",
+    "prompt": "You are a customer with an existing appointment you want to cancel because you are travelling. You do not want a new date. Your name is Paul. Answer short, in English. Once the cancellation is confirmed, thank them and finish."
+  },
+  "oczekiwane": {
+    "odwolanie": true
+  }
+}

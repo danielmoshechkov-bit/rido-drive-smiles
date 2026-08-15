@@ -497,6 +497,24 @@ async function sekcjaD() {
   else if (!wPromptcie) zle("D11", "wzorceWJezyku wołane, ale wynik nie trafia do promptu", "sprawdź, czy blokWzorcow jest doklejany do systemVolatile");
   else ok("D11", "wzorce w języku rozmowy doklejane do promptu (systemVolatile)", 1);
 
+  // D12: ROZMOWA TESTOWA NIE MOŻE UCZYĆ.
+  //
+  // `is_test` był wysyłany przez voice-agent-simulate od początku i nie był
+  // czytany ani razu — 108 wydestylowanych reguł w bazie, część z losowych
+  // scenariuszy wymyślonych przez model. Kontrola pilnuje OBU warunków:
+  // że flaga jest czytana I że blokuje zapis do bazy wiedzy.
+  const analyzeSrc = czytajFunkcje("voice-call-analyze");
+  const czytaFlage = /const\s+isTest\s*=\s*body\?\.is_test/.test(analyzeSrc);
+  const blokuje = /if\s*\(\s*!isTest\s*&&[^)]*Array\.isArray\(a\?\.lessons\)/.test(analyzeSrc);
+  if (!czytaFlage) zle("D12", "voice-call-analyze NIE CZYTA is_test", "symulacje karmią voice_agent_knowledge");
+  else if (!blokuje) zle("D12", "is_test czytane, ale nie blokuje zapisu do bazy wiedzy", "sprawdź warunek przy pętli lessons");
+  else {
+    const aktywne = await db(`select count(*)::int n from voice_agent_knowledge where is_active`);
+    const n = aktywne?.[0]?.n ?? -1;
+    if (n > 0) zle("D12", `baza wiedzy ma ${n} AKTYWNYCH reguł`, "miała mieć zero do czasu zbudowania bramki uczenia");
+    else ok("D12", "rozmowa testowa nie uczy; baza wiedzy bez aktywnych reguł", 1);
+  }
+
   const odciskPlik = join(ROOT, "config/POLSKI-ODCISK.json");
   if (!existsSync(odciskPlik)) {
     zle("D10", "brak odcisku polskiego agenta",
