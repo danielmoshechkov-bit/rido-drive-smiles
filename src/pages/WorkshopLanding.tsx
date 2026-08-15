@@ -38,6 +38,7 @@ import { AuthModal } from "@/components/auth/AuthModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
 import { usePublicPricing, type PublicPlan } from "@/hooks/usePublicPricing";
 import { planPriceLabels, planCtaLabel, trialDaysFor } from "@/lib/pricingCards";
+import { usePlanAction } from "@/hooks/usePlanAction";
 import tileWorkshop from "@/assets/tile-workshop.jpg";
 import tileDetailing from "@/assets/tile-detailing.jpg";
 import tilePpf from "@/assets/tile-ppf.jpg";
@@ -139,6 +140,14 @@ export default function WorkshopLanding() {
   const warsztatPlans = plans.filter((p) => p.product_line === "warsztat");
   const agentPlans = plans.filter((p) => p.product_line === "agent");
   const trialDays = trialDaysFor(plans, "warsztat");
+
+  // Klik w kartę planu: indywidualny → kontakt, darmowy albo niezalogowany →
+  // rejestracja z zapamiętanym planem, reszta → checkout.
+  const { klik: klikPlan, pending: planPending } = usePlanAction((plan) => {
+    setSelectedPlan(plan.code);
+    setLoginMode("register");
+    setShowLoginModal(true);
+  });
   const trialLabel = trialDays > 0 ? `${trialDays} dni` : null;
 
   useEffect(() => {
@@ -265,9 +274,10 @@ export default function WorkshopLanding() {
           <Button
             className={`w-full mb-5 ${popular ? "bg-gradient-to-r from-primary to-purple-600" : ""}`}
             variant={popular ? "default" : "outline"}
-            onClick={() => (plan.is_custom ? navigate("/kontakt") : handleStartTrial(plan.code))}
+            disabled={!!planPending}
+            onClick={() => klikPlan(plan)}
           >
-            {planCtaLabel(plan)}
+            {planPending === plan.code ? "Otwieram płatność…" : planCtaLabel(plan)}
           </Button>
           <ul className="space-y-2 flex-1">
             {plan.features.map((f, i) => (

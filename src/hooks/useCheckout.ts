@@ -13,7 +13,13 @@ const KOMUNIKATY: Record<string, string> = {
   GATEWAY_NOT_CONFIGURED: 'Płatności są chwilowo niedostępne. Spróbuj za chwilę albo napisz do nas.',
   PLAN_NOT_SYNCED: 'Ten plan jest właśnie aktualizowany. Spróbuj za kilka minut.',
   NO_PROVIDER: 'Ten plan jest dla warsztatów. Załóż profil usługodawcy, aby kupić.',
-  ALREADY_SUBSCRIBED: 'Masz już aktywny plan w tej linii. Zmiany planu dokonasz w ustawieniach subskrypcji.',
+  ALREADY_SUBSCRIBED: 'Masz już aktywny plan w tej linii produktowej.',
+};
+
+/** Kody, przy których sam komunikat nie wystarcza — klient musi wiedzieć, gdzie iść. */
+const AKCJE: Record<string, { label: string; href: string }> = {
+  ALREADY_SUBSCRIBED: { label: 'Przejdź do panelu', href: '/uslugi/panel' },
+  NO_PROVIDER: { label: 'Załóż warsztat', href: '/warsztat-info' },
 };
 
 export function useCheckout() {
@@ -34,7 +40,19 @@ export function useCheckout() {
       });
       if (error) throw error;
       if (data?.error) {
-        throw new Error(KOMUNIKATY[data.code as string] ?? data.error);
+        const kod = data.code as string;
+        const akcja = AKCJE[kod];
+        if (akcja) {
+          // Komunikat z przyciskiem: „masz już plan" bez wskazania, gdzie go
+          // zmienić, zostawia klienta z problemem, a nie z rozwiązaniem.
+          toast.error(KOMUNIKATY[kod] ?? data.error, {
+            duration: 10000,
+            action: { label: akcja.label, onClick: () => { window.location.href = akcja.href; } },
+          });
+          karta?.close();
+          return;
+        }
+        throw new Error(KOMUNIKATY[kod] ?? data.error);
       }
       if (!data?.url) throw new Error('Nie udało się rozpocząć płatności. Spróbuj ponownie.');
 
