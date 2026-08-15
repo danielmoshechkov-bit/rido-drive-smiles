@@ -358,6 +358,11 @@ Deno.serve(async (req) => {
         // przedłużona, klient ma dostęp — brak faktury to sprawa do naprawienia,
         // nie powód, żeby cofać dostęp albo kazać operatorowi ponawiać w kółko.
         try {
+          const { data: ustawieniaFaktur } = await admin
+            .from("billing_settings")
+            .select("auto_invoice_on_paid, platform_invoice_user_id")
+            .eq("id", true).maybeSingle();
+
           const { data: sub } = await admin
             .from("billing_subscriptions")
             .select("subscriber_id, plan_id")
@@ -405,6 +410,10 @@ Deno.serve(async (req) => {
                 sale_date: naDate(obiekt?.status_transitions?.paid_at)?.slice(0, 10),
                 payment_method: "card",
                 notes: `Płatność ${obiekt?.number ?? obiekt?.id}`,
+                // Faktury wystawione zanim KSeF ruszy muszą dać się odróżnić
+                // i wyczyścić. Marker jest w treści, bo przetrwa eksport i jest
+                // widoczny bez zaglądania do kolumn technicznych.
+                pre_ksef: true,
               }),
             });
             const wynik = await res.json().catch(() => ({}));
@@ -412,19 +421,31 @@ Deno.serve(async (req) => {
             if (res.ok && wynik?.invoice_id && !wynik?.duplicate) {
               console.log(JSON.stringify({ event: "faktura_wystawiona", numer: wynik.invoice_number, ref: obiekt?.id }));
 
-              // Mail z fakturą. Bez załącznika PDF — generator HTML faktury
-              // żyje dziś wyłącznie we froncie (patrz plan.md, 4.17). Mail
-              // niesie numer i kwoty, PDF dochodzi osobno.
-              const mail = await fetch(`${supabaseUrl}/functions/v1/send-invoice-email`, {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ invoice_id: wynik.invoice_id, type: "new_invoice" }),
-              });
-              if (!mail.ok) {
-                console.error("billing-stripe-webhook: faktura wystawiona, mail nie wyszedł", wynik.invoice_number, mail.status);
+              // Mail WYŁĄCZNIE gdy `billing_settings.auto_invoice_on_paid`.
+              //
+              // Domyślnie wyłączone i to jest właściwe ustawienie na start:
+              // dopóki PDF powstaje w przeglądarce, fakturę wysyła administrator
+              // z panelu — jednym kliknięciem, z załącznikiem. Automat wysłałby
+              // wtedy DRUGI mail, bez PDF, i klient dostałby dwa dokumenty
+              // o tej samej fakturze.
+              if (ustawieniaFaktur?.auto_invoice_on_paid) {
+                const mail = await fetch(`${supabaseUrl}/functions/v1/send-invoice-email`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({ invoice_id: wynik.invoice_id, type: "new_invoice" }),
+                });
+                if (!mail.ok) {
+                  console.error("billing-stripe-webhook: faktura wystawiona, mail nie wyszedł", wynik.invoice_number, mail.status);
+                }
+              } else {
+                console.log(JSON.stringify({
+                  event: "faktura_do_wyslania_recznie",
+                  numer: wynik.invoice_number,
+                  powod: "auto_invoice_on_paid = false",
+                }));
               }
             } else if (!res.ok) {
               console.error("billing-stripe-webhook: faktura NIE wystawiona", res.status, wynik?.error);

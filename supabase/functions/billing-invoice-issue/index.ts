@@ -214,7 +214,11 @@ Deno.serve(async (req) => {
           buyer_email: body?.buyer_email ?? null,
           external_payment_ref: ref,
           source: "billing",
-          notes: body?.notes ?? null,
+          // Marker faktur wystawionych zanim KSeF ruszył — mają dać się
+          // odróżnić i wyczyścić po testach.
+          notes: body?.pre_ksef
+            ? `[PRZED URUCHOMIENIEM KSEF] ${body?.notes ?? ""}`.trim()
+            : (body?.notes ?? null),
         })
         .select("id, invoice_number")
         .single();
