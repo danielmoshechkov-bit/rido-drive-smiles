@@ -2654,6 +2654,63 @@ Konkretnie tutaj wystarczyłoby jedno sprawdzenie, którego nie zrobiłem:
 o niej pamiętał; ja uwierzyłem własnemu testowi bardziej niż jego pamięci.
 Rozmowy były trzy, wszystkie z 06.08, i zajęło mi to potem cztery minuty.
 
+## 🔁 WNIOSEK OPERACYJNY: SPRAWDŹ, CZY KIEDYŚ DZIAŁAŁO
+
+Diagnoza „mierzyliśmy narzędzie zamiast zjawiska" mówi, co poszło źle.
+To mówi, co robić.
+
+> **ZANIM UZNASZ, ŻE COŚ NIE DZIAŁA — SPRAWDŹ, CZY KIEDYŚ DZIAŁAŁO.**
+> Historia rozmów, logi, transkrypty. Kosztuje minuty, oszczędza dni.
+
+Rachunek z 15.08:
+
+```
+szukanie w historii rozmowy z rosyjskim agentem       4 minuty
+praca oparta na błędnym wniosku:                      doba
+  dokumentacja „wielojęzyczność zablokowana"
+  migracja preferred_language
+  projekt obejścia przez zapamiętany język
+  REGUŁA WDROŻONA DO PRODUKCJI, która zepsuła działającą funkcję
+```
+
+### Dwa niezależne źródła: pomiar i pamięć
+
+Pamięć użytkownika w jednym dniu **pomyliła się dwa razy** („bełkot był
+od początku" — nie był, szereg z 69 nagrań pokazał 4,9% → 5,8%; „przed zmianami
+było lepiej" — A wobec B, p = 0,72) i **raz miała rację** („przełączanie kiedyś
+działało" — działało, trzy rozmowy z 06.08).
+
+**Skuteczność pamięci: 1 na 3. Skuteczność moich pomiarów tego tygodnia:
+6 błędnych wniosków przy poprawnych pomiarach.** Żadne z tych źródeł nie jest
+wiarygodne samo w sobie.
+
+> **Gdy pomiar i pamięć się rozjeżdżają — sprawdzamy OBA, nie wybieramy jednego.**
+> Sprawdzenie pamięci jest tanie: to zapytanie do historii.
+
+Mój błąd 15.08 nie polegał na tym, że zaufałem pomiarowi. Polegał na tym,
+że **nie sprawdziłem drugiego źródła, choć kosztowało cztery minuty.**
+
+## 📌 PLAN B (transfer do agenta per język) — NIE SPRAWDZANY, pytania zapisane
+
+Uruchamiamy tylko wtedy, gdy `model_family` odpadnie w prawdziwej rozmowie.
+
+Kontekst nie jest problemem: przełączenie następuje w pierwszych sekundach,
+gdy agent nie zna jeszcze problemu, terminu, imienia ani auta. **Nie ma czego
+stracić** — cały kontekst powstaje po przełączeniu.
+
+Trzy pytania do sprawdzenia, żeby nie szukać ich od nowa:
+
+```
+1. czy transfer_to_agent działa przy połączeniu z trunku SIP
+2. czy agent docelowy dostaje caller_id
+3. czy conversation_id ZOSTAJE TEN SAM, czy powstaje nowy
+```
+
+**Trzecie jest krytyczne.** Nasza idempotencja w `voice_commit_call` stoi
+na kluczu `(provider_id, elevenlabs_conversation_id)`. Przy nowym identyfikatorze
+z jednej rozmowy powstaną **dwa zlecenia** — i klient dostanie dwa SMS-y
+z tym samym terminem.
+
 ## 📐 CO SPRAWIA, ŻE TEN PROCES DZIAŁA — do utrzymania poza agentem
 
 W tym tygodniu **pięć razy zbudowałem wniosek szerszy niż pomiar** i pięć razy
