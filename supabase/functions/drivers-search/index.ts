@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
 import { corsHeaders } from '../_shared/cors.ts';
+import { wymagajRoli } from '../_shared/requireRole.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -11,6 +12,19 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // ── Autoryzacja ────────────────────────────────────────────────────
+    // TEGO NIE BYŁO. Funkcja przeszukuje kierowców po imieniu, nazwisku,
+    // adresie e-mail, telefonie i identyfikatorach platform — kluczem
+    // service_role, czyli z pominięciem RLS. Bez sesji był to publiczny
+    // interfejs do danych osobowych całej bazy kierowców.
+    //
+    // UWAGA: ta funkcja nie ma ANI JEDNEGO wywołania w kodzie aplikacji
+    // (sprawdzone 16.08.2026). Zamykam ją zamiast usuwać, bo nie wiem, czy
+    // nie woła jej coś spoza repozytorium — ale kandyduje do skasowania.
+    const brama = await wymagajRoli(supabase, req, ['admin', 'fleet_settlement', 'fleet_rental']);
+    if (!brama.ok) return brama.odp;
+
     const { 
       q,  // fallback for simple search
       first_name, 
@@ -228,7 +242,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('❌ Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

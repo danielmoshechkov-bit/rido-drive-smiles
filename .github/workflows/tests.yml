@@ -46,6 +46,8 @@ jobs:
         run: |
           deno check supabase/functions/_shared/stripeWebhook.ts \
                      supabase/functions/_shared/stripeWebhook_test.ts \
+                     supabase/functions/_shared/requireRole.ts \
+                     supabase/functions/_shared/requireRole_test.ts \
                      supabase/functions/billing-stripe-webhook/index.ts \
                      supabase/functions/billing-checkout/index.ts \
                      supabase/functions/billing-stripe-sync/index.ts \
@@ -53,6 +55,16 @@ jobs:
                      supabase/functions/billing-admin-features/index.ts \
                      supabase/functions/payment-core/index.ts
 
+
+      # Funkcje domknięte po audycie verify_jwt (16.08). Wchodzą do CI, bo
+      # rozjazd sygnatury `wymagajRoli` z ich wywołaniem oznaczałby ponowne
+      # otwarcie funkcji, która kasuje konta albo nadaje role.
+      - name: Kontrola typów (funkcje po audycie)
+        run: |
+          deno check supabase/functions/reset-driver-password/index.ts \
+                     supabase/functions/create-fleet-account/index.ts \
+                     supabase/functions/getrido-ai-execute/index.ts \
+                     supabase/functions/drivers-search/index.ts
       # Testy jednostkowe. `--allow-read` jest konieczne: część istniejących
       # testów agenta głosowego czyta pliki źródłowe i sprawdza, czego w nich
       # NIE MA (np. że runtime nie zawiera identyfikatorów canary). To audyt
