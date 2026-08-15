@@ -484,6 +484,19 @@ async function sekcjaD() {
   // Regresja 0/20 świadomie NIE jest tu uruchamiana: kosztuje 20 syntez, a audyt
   // ma być darmowy i puszczalny zawsze. Odciski łapią zmianę, regresja odpowiada
   // na inne pytanie („czy nadal brzmi dobrze") i ma własne polecenie.
+  // D11: WZORCE JĘZYKOWE MUSZĄ TRAFIAĆ DO PROMPTU.
+  //
+  // Moduł, który istnieje i ma zielone testy, ale nikt go nie woła, wygląda
+  // w repozytorium identycznie jak moduł działający — a agent dalej mówi po
+  // polsku w rosyjskiej rozmowie. Dokładnie ten kształt błędu złapało D1
+  // (pola ekstrakcji, których nikt nie czyta).
+  const chatWzorce = czytajFunkcje("voice-agent-chat");
+  const wolane = /wzorceWJezyku\s*\(/.test(chatWzorce);
+  const wPromptcie = /systemVolatile\s*=[^;]*blokWzorcow/.test(chatWzorce);
+  if (!wolane) zle("D11", "voiceWzorce.ts nie jest wołane w voice-agent-chat", "moduł jest martwy — obcojęzyczne rozmowy dostaną wzorce polskie");
+  else if (!wPromptcie) zle("D11", "wzorceWJezyku wołane, ale wynik nie trafia do promptu", "sprawdź, czy blokWzorcow jest doklejany do systemVolatile");
+  else ok("D11", "wzorce w języku rozmowy doklejane do promptu (systemVolatile)", 1);
+
   const odciskPlik = join(ROOT, "config/POLSKI-ODCISK.json");
   if (!existsSync(odciskPlik)) {
     zle("D10", "brak odcisku polskiego agenta",
