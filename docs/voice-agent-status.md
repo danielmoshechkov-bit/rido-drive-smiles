@@ -2851,3 +2851,34 @@ Praktycznie znaczy to tyle:
 - kontrola D7 w audycie pilnuje już wzorców pod kątem płci. Pod kątem języka
   pilnuje ich `voiceWzorce_test.ts` (asercja „żaden wzorzec obcojęzyczny nie
   zawiera polszczyzny").
+
+---
+
+## ZASADA 27 — stan z kilku źródeł wymaga warstw, nie lepszego testu
+
+**Kontrola sprawdzająca jedną rzecz odpowiada na jedno pytanie. Przy stanie
+złożonym z kilku źródeł potrzeba warstw, nie lepszego pojedynczego testu.**
+
+Dowód z 15.08, sprawdzenie „czy polski jest nienaruszony":
+
+- **Sam odcisk** (hash promptu, persony, modułu) alarmowałby tego dnia bez
+  powodu: prompt urósł o 5778 znaków przy pracy nad wielojęzycznością, a polski
+  brzmiał tak samo dobrze przed i po.
+- **Sama regresja** (20 syntez, transkrypcja niezależnym silnikiem) przepuściłaby
+  cichą podmianę persony w panelu — persona siedzi w bazie, nie w repozytorium,
+  i zmienia się bez commita, a syntezę testujemy na stałym zdaniu.
+
+Żadna z nich nie jest „lepsza". Odpowiadają na różne pytania: **odcisk mówi
+„czy coś się zmieniło", regresja mówi „czy nadal działa".** Pomylenie tych
+pytań to najczęstsza przyczyna kontroli, która świeci na zielono przy zepsutym
+systemie.
+
+Praktycznie: zanim napiszesz kontrolę, wypisz źródła stanu. Polski agent ma
+cztery (konfiguracja ElevenLabs, kod promptu, baza z personą, moduł renderujący)
+plus jedno zachowanie (jak to brzmi). Stąd pięć warstw w
+`voice-polski-nienaruszony.mjs`, a nie jeden sprytniejszy test.
+
+Skutek uboczny, który okazał się ważniejszy niż sama kontrola: **wypisanie
+źródeł znalazło jedno, którego nie pilnowało NIC** — personę z
+`ai_agents_config.system_prompt`. Prompt ma dwa źródła, kod i bazę; pilnowaliśmy
+tylko pierwszego.
