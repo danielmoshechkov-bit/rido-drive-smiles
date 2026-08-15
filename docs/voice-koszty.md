@@ -2,6 +2,111 @@
 
 Wszystkie liczby z pola `charging` w metadanych 78 rozmów.
 
+## Stawka jest PŁASKA: 440 kredytów za minutę rozmowy
+
+76 rozmów telefonicznych, wszystkie po polsku. Kredyty na minutę:
+
+```
+mediana    441
+kwartyle   439 – 443
+zakres     390 – 694
+```
+
+**Rozrzut w kwartylach to cztery kredyty na 440 — czyli mniej niż jeden procent.**
+To nie jest średnia z rozstrzelonych wartości, tylko stawka ryczałtowa.
+
+Skrajne 390 i 504 to rozmowy **pięcio- i sześciosekundowe**, gdzie zaokrąglenie
+naliczania widać w procentach. Górne 694 pochodzi wyłącznie z lipcowych rozmów
+na `v3_conversational` — patrz niżej.
+
+### Per model — i tu jest odpowiedź na „czy rosyjski kosztuje tyle samo"
+
+```
+model                 n    mediana kred/min   zakres
+multilingual_v2       9         440           420–442
+turbo_v2_5            7         441           390–504
+flash_v2_5           45         440           420–475
+v3_conversational    15         624           429–694
+```
+
+**Trzy modele produkcyjne kosztują identycznie.** Rosyjski w rozmowie
+dwujęzycznej `26v8jtt8`: **442 kredyty na minutę** — czyli dokładnie tyle samo
+co polski.
+
+`v3_conversational` z 23.07–04.08 wychodzi o 40% drożej. To rozmowy sprzed
+przejścia na Flash i nie mam dla tej różnicy wyjaśnienia — możliwe, że to inna
+stawka za model wtedy dostępny w Agents. **Nie zgaduję.**
+
+## Koszt w złotówkach
+
+```
+stawka        0,00018046 USD za kredyt   (mediana z 78 rozmów)
+minuta        440 kredytów = 0,0794 USD = 0,318 PLN      (kurs 4,00)
+```
+
+```
+rozmowa 1,5 min      660 kredytów      0,48 PLN
+rozmowa 2 min        880 kredytów      0,64 PLN
+rozmowa 3 min      1 320 kredytów      0,95 PLN
+```
+
+## 💰 MODEL „ZŁOTÓWKA ZA MINUTĘ" — marża
+
+```
+przychód                     1,000 PLN / min
+koszt głosu (ElevenLabs)     0,318 PLN / min
+koszt modelu językowego      0,045 PLN / min      (Haiku, z naszych metadanych)
+─────────────────────────────────────────────
+razem zmierzone              0,363 PLN / min
+MARŻA                        0,637 PLN / min  =  64%
+```
+
+Model językowy policzony z prawdziwych liczników: **mediana 21 320 tokenów
+wejścia i 279 wyjścia na rozmowę**. Wejście jest duże, bo snapshot i prompt
+lecą w każdej turze — i to jest dodatkowy argument za trzymaniem snapshotu
+w ryzach.
+
+⚠️ **Czego te 64% NIE obejmuje:** telefonii SuperVoIP, SMS-ów potwierdzających,
+naszej infrastruktury Supabase i podatku. Marża na samym głosie i modelu to
+nie jest marża produktu.
+
+⚠️ I drugie zastrzeżenie, ważniejsze: **to jest stawka planu Creator, czyli
+najgorsza możliwa.** Przy 4–17 mln kredytów miesięcznie cena jednostkowa niemal
+na pewno spada. **Wycena „złotówka za minutę" na podstawie 0,318 PLN jest
+bezpieczna, ale prawdopodobnie zbyt ostrożna.**
+
+## 🔴 GDZIE NAPRAWDĘ POSZŁY KREDYTY
+
+```
+rozmowy telefoniczne (76)      58 383   63%
+rozmowy przez przeglądarkę (2)    709    1%
+MOJE PRÓBKI PRZEZ TTS API      33 799   36%
+──────────────────────────────────────
+licznik konta                  92 891
+```
+
+**Ponad trzecia część miesięcznego limitu poszła na moje pomiary** — dwadzieścia
+syntez powitania, dwadzieścia na wariant liczebników, osiem na kombinację przy
+językach, dziesięć powtórzeń rosyjskiego. Twoje podejrzenie było trafne, choć
+rozmowy i tak zjadły więcej.
+
+To nie jest zmarnowane: te próbki dały odpowiedzi, których nie dałoby się
+dostać inaczej. Ale **przy następnych pomiarach warto liczyć budżet z góry** —
+100 syntez po 150 znaków to około 15 tysięcy kredytów, czyli 12% miesiąca.
+
+## Ile zostało do 3 września
+
+```
+kredytów            28 207
+minut rozmowy           64
+rozmów po 98 s          39
+rozmów po 2 min         32
+próbek po 150 znaków  ~188
+```
+
+**Na testy wystarczy, na demo dla klienta już nie.** Jeśli w tym okresie ma być
+pokaz na żywo, trzeba podnieść plan albo wstrzymać pomiary syntezy.
+
 ## 🔴 NAJPIERW SPROSTOWANIE: turbo NIE jest tańsze w Agents
 
 Założenie „turbo to połowa kredytów za znak" pochodzi z cennika **TTS API**.
