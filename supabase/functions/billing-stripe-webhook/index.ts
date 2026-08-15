@@ -348,9 +348,92 @@ Deno.serve(async (req) => {
           console.log(JSON.stringify({ event: "subskrypcja_odtworzona", subId }));
         }
 
-        // TODO(4.17): tutaj wpina się wystawienie faktury VAT GetRido —
-        // idempotentnie, po `external_id` zdarzenia, żeby powtórna dostawa
-        // nie stworzyła drugiego dokumentu.
+        // ---- faktura VAT GetRido (4.17-mini) ----
+        //
+        // Idempotencja NIE opiera się na `external_id` zdarzenia, tylko na
+        // identyfikatorze faktury u operatora: to samo obciążenie może dojść
+        // kilkoma różnymi zdarzeniami, a faktura ma być jedna.
+        //
+        // Błąd wystawienia NIE wywraca obsługi zdarzenia. Subskrypcja jest już
+        // przedłużona, klient ma dostęp — brak faktury to sprawa do naprawienia,
+        // nie powód, żeby cofać dostęp albo kazać operatorowi ponawiać w kółko.
+        try {
+          const { data: sub } = await admin
+            .from("billing_subscriptions")
+            .select("subscriber_id, plan_id")
+            .eq("provider", "stripe").eq("provider_subscription_id", subId)
+            .maybeSingle();
+
+          const { data: warsztat } = sub?.subscriber_id
+            ? await admin.from("service_providers")
+                .select("company_name, company_nip, company_address, company_postal_code, company_city, owner_email, company_email")
+                .eq("id", sub.subscriber_id).maybeSingle()
+            : { data: null };
+
+          // Pozycje z faktury operatora, kwoty BRUTTO (tak są ustawione ceny).
+          // Grosze → złote; VAT liczy „w stu" billing-invoice-issue, żeby suma
+          // zgadzała się z obciążeniem co do grosza.
+          const linie = (obiekt?.lines?.data ?? []) as any[];
+          const pozycje = linie.map((l) => ({
+            name: String(l?.description || "Abonament GetRido"),
+            quantity: Number(l?.quantity ?? 1),
+            unit: "mies.",
+            unit_gross_price: Number(l?.amount ?? 0) / 100 / Number(l?.quantity ?? 1),
+            vat_rate: 23,
+          })).filter((p) => p.unit_gross_price > 0);
+
+          if (!pozycje.length) {
+            console.warn("billing-stripe-webhook: faktura operatora bez pozycji do zafakturowania", obiekt?.id);
+          } else {
+            const adres = [warsztat?.company_address, `${warsztat?.company_postal_code ?? ""} ${warsztat?.company_city ?? ""}`.trim()]
+              .filter(Boolean).join(", ");
+
+            const res = await fetch(`${supabaseUrl}/functions/v1/billing-invoice-issue`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                external_payment_ref: obiekt?.id,
+                items: pozycje,
+                buyer_name: warsztat?.company_name ?? null,
+                buyer_nip: warsztat?.company_nip ?? null,
+                buyer_address: adres || null,
+                buyer_email: warsztat?.company_email || warsztat?.owner_email || null,
+                paid_at: naDate(obiekt?.status_transitions?.paid_at) ?? new Date().toISOString(),
+                sale_date: naDate(obiekt?.status_transitions?.paid_at)?.slice(0, 10),
+                payment_method: "card",
+                notes: `Płatność ${obiekt?.number ?? obiekt?.id}`,
+              }),
+            });
+            const wynik = await res.json().catch(() => ({}));
+
+            if (res.ok && wynik?.invoice_id && !wynik?.duplicate) {
+              console.log(JSON.stringify({ event: "faktura_wystawiona", numer: wynik.invoice_number, ref: obiekt?.id }));
+
+              // Mail z fakturą. Bez załącznika PDF — generator HTML faktury
+              // żyje dziś wyłącznie we froncie (patrz plan.md, 4.17). Mail
+              // niesie numer i kwoty, PDF dochodzi osobno.
+              const mail = await fetch(`${supabaseUrl}/functions/v1/send-invoice-email`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ invoice_id: wynik.invoice_id, type: "new_invoice" }),
+              });
+              if (!mail.ok) {
+                console.error("billing-stripe-webhook: faktura wystawiona, mail nie wyszedł", wynik.invoice_number, mail.status);
+              }
+            } else if (!res.ok) {
+              console.error("billing-stripe-webhook: faktura NIE wystawiona", res.status, wynik?.error);
+            }
+          }
+        } catch (e) {
+          console.error("billing-stripe-webhook: wyjątek przy fakturze", e);
+        }
+
         await zakoncz("processed");
         break;
       }

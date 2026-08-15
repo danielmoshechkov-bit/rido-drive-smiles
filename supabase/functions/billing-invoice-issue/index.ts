@@ -40,7 +40,16 @@ interface Pozycja {
   name: string;
   quantity: number;
   unit: string;
-  unit_net_price: number;
+  /** Cena netto — gdy sprzedajemy „od netto". */
+  unit_net_price?: number;
+  /**
+   * Cena BRUTTO — gdy kwota jest z góry ustalona i musi się zgodzić co do grosza.
+   * Tak jest przy subskrypcjach: operator pobrał konkretną kwotę brutto i to ona
+   * rozstrzyga. Liczymy wtedy „w stu": netto = brutto / (1 + stawka), a VAT jako
+   * RÓŻNICĘ, nie z osobnego mnożenia — inaczej suma faktury potrafi rozejść się
+   * z obciążeniem o grosz, a faktura ma się zgadzać z tym, co klient zapłacił.
+   */
+  unit_gross_price?: number;
   vat_rate: number;
 }
 
@@ -116,26 +125,45 @@ Deno.serve(async (req) => {
     // ------------------------------------------------------- 3. sumy z pozycji
     let netto = 0;
     let vat = 0;
+    let brutto = 0;
+
     const doZapisu = pozycje.map((p, i) => {
       const ilosc = Number(p.quantity ?? 1);
-      const cena = Number(p.unit_net_price ?? 0);
       const stawka = Number(p.vat_rate ?? 23);
-      const netPoz = zaokr(ilosc * cena);
-      const vatPoz = zaokr(netPoz * stawka / 100);
+
+      let netPoz: number;
+      let vatPoz: number;
+      let bruttoPoz: number;
+      let cenaNetto: number;
+
+      if (p.unit_gross_price != null) {
+        // Liczenie „w stu" — kwota brutto jest dana i nie wolno jej ruszyć.
+        bruttoPoz = zaokr(ilosc * Number(p.unit_gross_price));
+        netPoz = zaokr(bruttoPoz / (1 + stawka / 100));
+        vatPoz = zaokr(bruttoPoz - netPoz);
+        cenaNetto = zaokr(netPoz / (ilosc || 1));
+      } else {
+        cenaNetto = Number(p.unit_net_price ?? 0);
+        netPoz = zaokr(ilosc * cenaNetto);
+        vatPoz = zaokr(netPoz * stawka / 100);
+        bruttoPoz = zaokr(netPoz + vatPoz);
+      }
+
       netto = zaokr(netto + netPoz);
       vat = zaokr(vat + vatPoz);
+      brutto = zaokr(brutto + bruttoPoz);
+
       return {
         name: String(p.name ?? "Abonament GetRido"),
         quantity: ilosc,
         unit: String(p.unit ?? "szt."),
-        unit_net_price: cena,
+        unit_net_price: cenaNetto,
         vat_rate: stawka,
         net_amount: netPoz,
         vat_amount: vatPoz,
         sort_order: i,
       };
     });
-    const brutto = zaokr(netto + vat);
 
     // -------------------------------------- 4. numer + zapis, z ponowieniem
     //

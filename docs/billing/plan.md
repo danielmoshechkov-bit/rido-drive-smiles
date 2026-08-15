@@ -329,6 +329,38 @@ Szacunek w sesjach roboczych. **Pogrubione** leżą na ścieżce krytycznej wari
 | 4.14 + 4.16 | **Jeden PR, nierozdzielnie**: gating (`useFeature`, `FeatureGate`, bramka serwerowa w edge) **i** tryb `read_only`. Wdrożenie blokady bez trybu odczytu odcięłoby klientowi dostęp do własnych danych | 3–4 | 4.1 |
 | 4.15 | RLS na tabelach modułowych — bez tego gating frontowy jest dekoracją | 2 | 4.14 |
 
+### PDF faktury sprzedażowej — decyzja do podjęcia (4.17)
+
+Ustalenie z 15.08, przy wpinaniu faktury w webhook: **nie ma serwerowej ścieżki
+generowania PDF dla `user_invoices`.**
+
+- `invoice-pdf` (edge) czyta z tabel `invoices` / `invoice_items` — to moduł
+  flotowy, inna para tabel. Dla faktur sprzedażowych bezużyteczny.
+- PDF faktur warsztatowych powstaje **w przeglądarce**: `src/utils/renderInvoicePdf.ts`
+  wysyła HTML do `public/invoice-pdf.php` (Dompdf na LH.pl) i dostaje PDF.
+- `send-invoice-email` przyjmuje gotowy `pdf_base64` jako załącznik — czyli
+  oczekuje, że ktoś PDF już wygenerował.
+
+Webhook wysyła dziś mail **bez załącznika**: z numerem faktury i kwotami, bo
+tyle potrafi bez przeglądarki. Trzy drogi do domknięcia:
+
+1. **Port generatora do `_shared`** — `src/utils/invoiceHtmlGenerator.ts` ma 1303
+   linie, jeden import (maskotka w data-URI) i jedną funkcję zależną od
+   przeglądarki (`printHtmlDocument` z `window.open`). Reszta jest czysta.
+   Po wydzieleniu części czystej edge function składa HTML i woła
+   `https://getrido.pl/invoice-pdf.php` tak jak front. Ten sam wzorzec co
+   z numeracją: kanoniczna kopia w `_shared`, re-eksport we froncie.
+   **Duży zakres, duży promień rażenia** — plik jest używany przez wiele ekranów
+   warsztatu.
+2. **Akcja w panelu** — administrator otwiera fakturę i klika „wyślij z PDF".
+   Zero nowego kodu, ale ręczna robota przy każdej płatności.
+3. **Zostawić mail bez PDF** — faktura istnieje w systemie i w KSeF, klient widzi
+   ją w panelu. Formalnie wystarczy, ale odbiega od oczekiwań.
+
+Rekomendacja: **1**, ale jako osobny podetap po pierwszych płatnościach —
+port 1300 linii bez możliwości obejrzenia wyniku to zły moment na ryzyko.
+Do tego czasu **2** jako obejście.
+
 ### Kolejność zdarzeń przy fakturowaniu (obserwacja z 13.08, do 4.17)
 
 Przy pierwszym udanym zakupie `invoice.paid` dotarł **18 ms przed**
