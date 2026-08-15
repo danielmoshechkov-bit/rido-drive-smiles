@@ -399,7 +399,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
         // Fallback: service_providers / workshop_settings
         if (!logoUrl) {
           const { data: sp } = await supabase
-            .from('service_providers').select('logo_url').eq('user_id', session.user.id).maybeSingle();
+            .from('service_providers').select('logo_url').eq('user_id', session.user.id)
+// Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
+// zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
+// najstarszy i tak samo we wszystkich miejscach, żeby różne ekrany
+// nie pokazywały różnych firm.
+.order('created_at', { ascending: true })
+.limit(1)
+.maybeSingle();
           if (sp?.logo_url) logoUrl = sp.logo_url;
         }
         if (!logoUrl) {

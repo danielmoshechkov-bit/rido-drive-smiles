@@ -6,6 +6,8 @@ import {
   okresSubskrypcji,
   sprawdzPodpis,
   wynikBrakuWiersza,
+  gwarancjaCeny,
+  kwotyZFaktury,
 } from "./stripeWebhook.ts";
 
 // ============================================================================
@@ -205,4 +207,66 @@ test("PRZYPADEK 7b: zero trafionych wierszy przy cyklu życia to ignored", () =>
   // Przy anulowaniu subskrypcji, której nie mamy, nie ma czego naprawiać.
   assert.equal(wynikBrakuWiersza("customer.subscription.deleted"), "ignored");
   assert.equal(wynikBrakuWiersza("customer.subscription.updated"), "ignored");
+});
+
+
+// ============================================================================
+// 4.6b — odtworzenie subskrypcji z `invoice.paid`
+//
+// Gdy `checkout.session.completed` przepadnie, klient płaci co miesiąc, a u nas
+// nie istnieje. Odtworzenie jest wykonalne, bo metadane subskrypcji są pełne —
+// ale dwie rzeczy trzeba przy tym zrobić dobrze, i to sprawdzają te testy.
+// ============================================================================
+
+test("gwarancja ceny liczy się od założenia subskrypcji, nie od dziś", () => {
+  const zalozona = new Date("2026-03-15T10:00:00.000Z");
+  assert.equal(gwarancjaCeny(zalozona, null), "2027-03-15T10:00:00.000Z");
+});
+
+test("odzysk nie wydłuża gwarancji względem zwykłego zakupu", () => {
+  // Ten sam moment zakupu ma dać tę samą datę końca gwarancji niezależnie od
+  // tego, KIEDY powstał wiersz. Inaczej nasza awaria byłaby nagrodą dla
+  // jednego klienta i krzywdą dla drugiego.
+  const zalozona = new Date("2026-03-15T10:00:00.000Z");
+  assert.equal(gwarancjaCeny(zalozona, null), gwarancjaCeny(new Date(zalozona), null));
+});
+
+test("zakup po końcu promocji nie daje gwarancji", () => {
+  assert.equal(gwarancjaCeny(new Date("2026-07-01T00:00:00.000Z"), "2026-06-30T23:59:59.000Z"), null);
+});
+
+test("zakup w ostatniej chwili promocji gwarancję daje", () => {
+  assert.equal(
+    gwarancjaCeny(new Date("2026-06-30T23:59:58.000Z"), "2026-06-30T23:59:59.000Z"),
+    "2027-06-30T23:59:58.000Z",
+  );
+});
+
+test("kwoty biorą się z pozycji faktury, nie z bieżącego cennika", () => {
+  // 121,77 zł brutto to kwota z prawdziwej płatności testowej.
+  const w = kwotyZFaktury({ lines: { data: [{ amount: 12177 }] }, amount_paid: 99999 }, 23);
+  assert.equal(w.brutto, 121.77);
+  assert.equal(w.netto, 99.00);
+  assert.equal(w.zrodlo, "pozycja_faktury");
+});
+
+test("bez pozycji schodzimy do amount_paid i zapisujemy, skąd kwota", () => {
+  const w = kwotyZFaktury({ amount_paid: 12177 }, 23);
+  assert.equal(w.brutto, 121.77);
+  assert.equal(w.zrodlo, "amount_paid");
+});
+
+test("brak kwoty nie zmyśla zera", () => {
+  // Zero w snapshocie znaczyłoby „klient zapłacił 0 zł" i przy sporze
+  // działałoby przeciwko nam. Brak danych ma zostać brakiem danych.
+  const w = kwotyZFaktury(null, 23);
+  assert.equal(w.brutto, null);
+  assert.equal(w.netto, null);
+  assert.equal(w.zrodlo, "brak");
+});
+
+test("stawka 0% nie zmienia kwoty i nie dzieli przez zero", () => {
+  const w = kwotyZFaktury({ lines: { data: [{ amount: 10000 }] } }, 0);
+  assert.equal(w.brutto, 100);
+  assert.equal(w.netto, 100);
 });

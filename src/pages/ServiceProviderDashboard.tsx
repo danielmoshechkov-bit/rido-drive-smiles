@@ -320,6 +320,12 @@ export default function ServiceProviderDashboard() {
         .from('service_providers')
         .select('id, rating_avg, rating_count, company_name, short_name, description, company_phone, company_address, company_city, company_postal_code, company_nip, company_website, owner_first_name, owner_last_name, owner_email, status, category_id, cover_image_url, logo_url')
         .eq('user_id', user.id)
+        // Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
+        // zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
+        // najstarszy i tak samo we wszystkich miejscach, żeby różne ekrany
+        // nie pokazywały różnych firm.
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle(),
       supabase
         .from('service_categories')

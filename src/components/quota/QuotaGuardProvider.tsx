@@ -145,6 +145,12 @@ export function QuotaGuardProvider({ children }: { children: ReactNode }) {
       .from('service_providers')
       .select('id, sms_balance')
       .eq('user_id', user.id)
+      // Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
+      // zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
+      // najstarszy i tak samo we wszystkich miejscach, żeby różne ekrany
+      // nie pokazywały różnych firm.
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
     if (!sp) { toast.error('Brak konta usługodawcy'); return; }
     const { error } = await supabase

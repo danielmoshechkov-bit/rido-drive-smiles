@@ -26,6 +26,8 @@ import {
   okresSubskrypcji,
   sprawdzPodpis,
   wynikBrakuWiersza,
+  gwarancjaCeny,
+  kwotyZFaktury,
 } from "../_shared/stripeWebhook.ts";
 
 const json = (body: unknown, status = 200) =>
@@ -69,6 +71,92 @@ async function aktualizujSubskrypcje(
     .select("id");
   if (error) throw error;
   return (data ?? []).length;
+}
+
+/**
+ * Odtworzenie brakującego wiersza subskrypcji (4.6b).
+ *
+ * `checkout.session.completed` bywa jedynym zdarzeniem, przy którym zakładamy
+ * subskrypcję. Jeśli przepadnie — bo webhook był chwilowo niedostępny, bo
+ * sekret akurat rotował, bo funkcja miała błąd — klient płaci co miesiąc,
+ * a u nas nie istnieje. Dziś kończy się to wpisem „klient płaci, my o tym nie
+ * wiemy" powtarzanym w nieskończoność.
+ *
+ * Metadane subskrypcji są kompletne (`subscription_data[metadata]` ustawia
+ * billing-checkout), więc odtworzenie jest wykonalne. Dwie rzeczy muszą być
+ * przy tym zrobione dobrze:
+ *
+ *  1. GWARANCJA CENY liczy się od ZAŁOŻENIA subskrypcji (`sub.created`),
+ *     nie od dnia odzysku. Inaczej klient, którego zdarzenie przepadło,
+ *     dostałby gwarancję dłuższą niż ten, u którego wszystko zadziałało —
+ *     nagroda za naszą awarię.
+ *  2. CENA w snapshocie pochodzi z POZYCJI FAKTURY, nie z bieżącego cennika.
+ *     Między zakupem a odzyskiem cennik mógł się zmienić, a snapshot ma
+ *     świadczyć o tym, ile klient naprawdę zapłacił.
+ */
+async function odtworzSubskrypcje(
+  admin: KlientBazy,
+  sub: any,
+  faktura: any,
+): Promise<{ ok: boolean; powod?: string }> {
+  const meta = sub?.metadata ?? {};
+  const planId = meta.plan_id;
+  const subscriberId = meta.subscriber_id;
+  const subscriberType = meta.subscriber_type ?? "service_provider";
+
+  if (!planId || !subscriberId) {
+    return { ok: false, powod: "brak metadanych plan_id/subscriber_id na subskrypcji" };
+  }
+
+  const { data: plan } = await admin.from("billing_plans")
+    .select("code, name, vat_rate, price_net_target")
+    .eq("id", planId).maybeSingle();
+
+  // Data założenia u operatora — sekundy uniksowe.
+  const zalozona = sub?.created ? new Date(sub.created * 1000) : new Date();
+
+  const { data: ustawienia } = await admin.from("billing_settings")
+    .select("promo_enrollment_until").eq("id", true).maybeSingle();
+  const gwarancja = gwarancjaCeny(zalozona, ustawienia?.promo_enrollment_until);
+
+  const stawka = Number(plan?.vat_rate ?? 23);
+  const { brutto, netto, zrodlo: zrodloKwoty } = kwotyZFaktury(faktura, stawka);
+
+  const okres = okresSubskrypcji(sub);
+
+  const { error } = await admin.from("billing_subscriptions").insert({
+    subscriber_type: subscriberType,
+    subscriber_id: subscriberId,
+    plan_id: planId,
+    status: mapujStatus(sub.status),
+    ...(okres.start ? { current_period_start: okres.start } : {}),
+    current_period_end: okres.end,
+    provider: "stripe",
+    provider_subscription_id: sub.id,
+    price_guarantee_until: gwarancja,
+    price_snapshot: {
+      code: plan?.code ?? null,
+      name: plan?.name ?? null,
+      price_net: netto,
+      price_gross: brutto,
+      vat_rate: stawka,
+      price_net_target: plan?.price_net_target ?? null,
+      // Znacznik pochodzenia. Przy sporze o cenę widać od razu, że wiersz
+      // powstał z odzysku, a nie z checkoutu — i skąd wzięła się kwota.
+      zrodlo: "odzysk_invoice_paid",
+      zrodlo_kwoty: zrodloKwoty,
+      subskrypcja_zalozona: zalozona.toISOString(),
+      data: new Date().toISOString(),
+    },
+  });
+
+  if (error) {
+    // 23505 = ktoś (albo równoległa dostawa zdarzenia) zdążył założyć wiersz.
+    // To nie błąd — cel osiągnięty, subskrypcja istnieje.
+    if ((error as { code?: string }).code === "23505") return { ok: true };
+    return { ok: false, powod: (error as { message?: string }).message ?? "insert nieudany" };
+  }
+  return { ok: true };
 }
 
 Deno.serve(async (req) => {
@@ -245,9 +333,19 @@ Deno.serve(async (req) => {
           current_period_end: okres.end,
         });
         if (trafione === 0) {
-          console.error("billing-stripe-webhook: opłacona subskrypcja bez odpowiednika w bazie", subId);
-          await zakoncz(wynikBrakuWiersza(typ), `Subskrypcja ${subId} nieznana w bazie — klient płaci, my o tym nie wiemy`);
-          break;
+          // 4.6b — zamiast tylko krzyczeć do logu, próbujemy odtworzyć wiersz.
+          // Klient zapłacił; brak wiersza u nas jest NASZĄ awarią, nie jego.
+          console.warn("billing-stripe-webhook: brak wiersza dla opłaconej subskrypcji, próbuję odtworzyć", subId);
+          const odzysk = await odtworzSubskrypcje(admin, sub, obiekt);
+          if (!odzysk.ok) {
+            console.error("billing-stripe-webhook: odzysk nieudany", subId, odzysk.powod);
+            await zakoncz(
+              wynikBrakuWiersza(typ),
+              `Subskrypcja ${subId} nieznana w bazie i nie dała się odtworzyć: ${odzysk.powod}`,
+            );
+            break;
+          }
+          console.log(JSON.stringify({ event: "subskrypcja_odtworzona", subId }));
         }
 
         // TODO(4.17): tutaj wpina się wystawienie faktury VAT GetRido —

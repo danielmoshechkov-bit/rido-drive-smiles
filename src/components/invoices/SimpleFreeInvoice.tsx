@@ -582,6 +582,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         .from('service_providers')
         .select('logo_url')
         .eq('user_id', userId)
+        // Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
+        // zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
+        // najstarszy i tak samo we wszystkich miejscach, żeby różne ekrany
+        // nie pokazywały różnych firm.
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle();
       if (sp?.logo_url) { setCompanyLogo(sp.logo_url); return sp.logo_url; }
       const { data: ws } = await (supabase as any)

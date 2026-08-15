@@ -68,6 +68,12 @@ export function CalendarView() {
         .from('service_providers')
         .select('id')
         .eq('user_id', user.id)
+        // Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
+        // zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
+        // najstarszy i tak samo we wszystkich miejscach, żeby różne ekrany
+        // nie pokazywały różnych firm.
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle();
       if (data) setProviderId(data.id);
     };
