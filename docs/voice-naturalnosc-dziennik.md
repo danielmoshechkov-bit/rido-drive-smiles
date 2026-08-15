@@ -86,3 +86,21 @@ i sloty rozłożone na cały dzień. Agent nie musi liczyć, więc nie może pol
 > Klient pytał dwa razy, zanim usłyszał liczbę.
 
 → **Człowiek podałby cenę razem z terminem**, zanim klient zapyta.
+
+## 15.08, 18:19 — `hjg0hyhv`, 30 s (rozmowa testowa o języku)
+
+**11. Forma na „Ty" — TRZECI RAZ ta sama reguła złamana**
+> „Tak, mówimy po rosyjsku. Czy **chciałbyś** przejść na rozmowę w tym języku?"
+
+→ Reguła „NIGDY nie mów Ty, Ci, Tobie" jest w prompcie, wypisana wielkimi
+  literami, z przykładami. Model łamie ją mimo to — po raz trzeci w tygodniu.
+→ **Nie dopisuję czwartej wersji tej samej instrukcji.** To jest materiał
+  na FAZĘ C: reguła istnieje i nie działa, więc problemem nie jest jej brzmienie.
+
+**12. Obietnica bez pokrycia** — NAPRAWIONE 15.08
+> „Czy chciałbyś przejść na rozmowę w tym języku?" → klient: „Da" → trzy odmowy
+> platformy → cisza → klient: „Halo?"
+
+→ Agent obiecał coś, czego platforma nie pozwala zrobić. Wina była w prompcie,
+  który kazał „natychmiast PRZEŁĄCZ się na ten język" — instrukcja niewykonalna.
+→ Nowa reguła: **nie zapowiadaj i nie obiecuj zmiany języka.**

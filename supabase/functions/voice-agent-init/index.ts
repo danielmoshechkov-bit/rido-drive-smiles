@@ -39,6 +39,10 @@ import {
 import {
   cenaDoWypowiedzeniaEn, czasDoWypowiedzeniaEn, doWypowiedzeniaEn, powodEn,
 } from "../_shared/voiceSnapshotEn.ts";
+import {
+  cenaDoWypowiedzeniaSlow, czasDoWypowiedzeniaSlow, doWypowiedzeniaSlow, powodSlow,
+  type JezykSlow,
+} from "../_shared/voiceSnapshotSlow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -256,6 +260,11 @@ serve(async (req) => {
 
       // USTAWIENIA — tabeli jeszcze nie ma, więc wartości domyślne. Kontrakt ma już
       // gałąź `ustawienia`, żeby zakładka w panelu weszła bez zmiany kształtu.
+      // ŹRÓDŁEM BĘDZIE `workshop_clients.preferred_language` — kolumna czeka
+      // na zatwierdzenie migracji. Do tego czasu null, czyli zachowanie
+      // dzisiejsze: polski plus angielski, bez rosyjskiego i ukraińskiego.
+      const jezykKlienta: string | null = null;
+
       const zamkniecieTypowe = (godzinyTygodnia["mon"] || GODZINY_ZAPASOWE).close;
       const DOMYSLNY_CZAS_MIN = 60;
       // NAJPÓŹNIEJSZE PRZYJĘCIE NIE MOŻE RÓWNAĆ SIĘ ZAMKNIĘCIU.
@@ -305,10 +314,31 @@ serve(async (req) => {
       // ANGIELSKIE POLA DNI — dokładane PO `zbudujDni`, nie w jego środku.
       // Funkcja polska zostaje bez zmiany, a my wzbogacamy jej wynik. Dzięki temu
       // usunięcie tego bloku wraca do stanu sprzed, bez dotykania polszczyzny.
+      // JĘZYK DODATKOWY — DOKŁADNIE JEDEN, NIE WSZYSTKIE NARAZ.
+      //
+      // Kusi, żeby wysłać pola dla czterech języków i pozwolić modelowi wybrać.
+      // Nie robimy tego: snapshot ma dziś 6,7 kB przy polskim i angielskim,
+      // a cztery języki to około 10 kB — i ten payload wraca do nas
+      // W KAŻDEJ TURZE, nie raz na rozmowę. To rachunek i opóźnienie za dane,
+      // z których 3/4 nigdy nie zostanie użyte.
+      //
+      // Język bierzemy z tego, co zapamiętaliśmy przy poprzedniej rozmowie
+      // tego numeru. Dopóki kolumna `preferred_language` nie istnieje,
+      // `jezykKlienta` jest null i lecą wyłącznie pola polskie i angielskie
+      // — czyli stan dzisiejszy, bez zmiany zachowania.
+      const jezykSlow: JezykSlow | null =
+        jezykKlienta === "ru" || jezykKlienta === "uk" ? jezykKlienta : null;
+
       const dniZAngielskim = dni.map((d) => ({
         ...d,
         do_wypowiedzenia_en: doWypowiedzeniaEn(d.data),
         ...(d.powod ? { powod_en: powodEn(d.powod) } : {}),
+        ...(jezykSlow
+          ? {
+            [`do_wypowiedzenia_${jezykSlow}`]: doWypowiedzeniaSlow(d.data, jezykSlow),
+            ...(d.powod ? { [`powod_${jezykSlow}`]: powodSlow(d.powod, jezykSlow) } : {}),
+          }
+          : {}),
       }));
 
       const uslugiOut = (uslugi.data || []).map((u: Record<string, unknown>) => {
@@ -333,12 +363,18 @@ serve(async (req) => {
               // Konwersja i odmiana to zadania dla kodu (zasada 24).
               do_powiedzenia: cenaDoWypowiedzenia(od as number, widelki ? (do_ as number) : null),
               do_powiedzenia_en: cenaDoWypowiedzeniaEn(od as number, widelki ? (do_ as number) : null),
+              ...(jezykSlow
+                ? { [`do_powiedzenia_${jezykSlow}`]: cenaDoWypowiedzeniaSlow(od as number, widelki ? (do_ as number) : null, jezykSlow) }
+                : {}),
             }
             : null,
           czas_blokady_min: czas.czas_blokady_min,
           czas_znany: czas.czas_znany,
           czas_do_powiedzenia: czas.czas_znany ? czasDoWypowiedzenia(czas.czas_blokady_min) : null,
           czas_do_powiedzenia_en: czas.czas_znany ? czasDoWypowiedzeniaEn(czas.czas_blokady_min) : null,
+          ...(jezykSlow && czas.czas_znany
+            ? { [`czas_do_powiedzenia_${jezykSlow}`]: czasDoWypowiedzeniaSlow(czas.czas_blokady_min, jezykSlow) }
+            : {}),
           ostatni_start: hhmm(ostatniStart(zamkniecieTypowe, czas.czas_blokady_min, najpozniejszePrzyjecie)),
           // USŁUGA DŁUŻSZA NIŻ POŁOWA DNIA ROBOCZEGO MUSI ZACZĄĆ SIĘ RANO.
           // Ceramika i folie ochronne trwają cały dzień albo dwa — proponowanie
