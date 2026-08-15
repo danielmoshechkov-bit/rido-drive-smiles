@@ -32,6 +32,13 @@ import {
   cenaDoWypowiedzenia, czasDoWypowiedzenia, czasUslugi, hhmm, kluczDnia, minuty, ostatniStart,
   wolneGodziny, zbudujDni, type GodzinyDnia, type Usluga,
 } from "../_shared/voiceSnapshot.ts";
+// ANGIELSKI — OSOBNY MODUŁ, DOKŁADANY OBOK. Moduł polski zostaje nietknięty:
+// ma 22 asercje i trzy dni poprawek za sobą, a uogólnianie go na drugi język
+// znaczyłoby przepisanie kodu sprawdzonego na produkcji dla języka, który
+// jeszcze nikogo nie obsłużył.
+import {
+  cenaDoWypowiedzeniaEn, czasDoWypowiedzeniaEn, doWypowiedzeniaEn, powodEn,
+} from "../_shared/voiceSnapshotEn.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -295,6 +302,15 @@ serve(async (req) => {
           // Filtr po aktualnej godzinie WYŁĄCZNIE dla dzisiejszego dnia.
           iso === dzisiaj ? terazWarszawa : null));
 
+      // ANGIELSKIE POLA DNI — dokładane PO `zbudujDni`, nie w jego środku.
+      // Funkcja polska zostaje bez zmiany, a my wzbogacamy jej wynik. Dzięki temu
+      // usunięcie tego bloku wraca do stanu sprzed, bez dotykania polszczyzny.
+      const dniZAngielskim = dni.map((d) => ({
+        ...d,
+        do_wypowiedzenia_en: doWypowiedzeniaEn(d.data),
+        ...(d.powod ? { powod_en: powodEn(d.powod) } : {}),
+      }));
+
       const uslugiOut = (uslugi.data || []).map((u: Record<string, unknown>) => {
         const usluga: Usluga = {
           id: String(u.id), nazwa: String(u.name),
@@ -316,11 +332,13 @@ serve(async (req) => {
               // się: przy widełkach 150-250 powiedział „do TRZYSTU złotych".
               // Konwersja i odmiana to zadania dla kodu (zasada 24).
               do_powiedzenia: cenaDoWypowiedzenia(od as number, widelki ? (do_ as number) : null),
+              do_powiedzenia_en: cenaDoWypowiedzeniaEn(od as number, widelki ? (do_ as number) : null),
             }
             : null,
           czas_blokady_min: czas.czas_blokady_min,
           czas_znany: czas.czas_znany,
           czas_do_powiedzenia: czas.czas_znany ? czasDoWypowiedzenia(czas.czas_blokady_min) : null,
+          czas_do_powiedzenia_en: czas.czas_znany ? czasDoWypowiedzeniaEn(czas.czas_blokady_min) : null,
           ostatni_start: hhmm(ostatniStart(zamkniecieTypowe, czas.czas_blokady_min, najpozniejszePrzyjecie)),
           // USŁUGA DŁUŻSZA NIŻ POŁOWA DNIA ROBOCZEGO MUSI ZACZĄĆ SIĘ RANO.
           // Ceramika i folie ochronne trwają cały dzień albo dwa — proponowanie
@@ -357,7 +375,7 @@ serve(async (req) => {
           adres: [p?.company_address, p?.company_city].filter(Boolean).join(", "),
         },
         ustawienia,
-        dni,
+        dni: dniZAngielskim,
         uslugi: uslugiOut,
         zasoby: zasoby.map((z) => ({ nazwa: z.nazwa, typ: z.typ })),
         klient: {
