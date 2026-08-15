@@ -435,7 +435,18 @@ Deno.serve(async (req) => {
                     Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
                     "Content-Type": "application/json",
                   },
-                  body: JSON.stringify({ invoice_id: wynik.invoice_id, type: "new_invoice" }),
+                  body: JSON.stringify({
+                    invoice_id: wynik.invoice_id,
+                    type: "new_invoice",
+                    // Świadomie BEZ odnośnika do panelu: wszystkie widoki faktur
+                    // pokazują dokumenty, w których zalogowany jest SPRZEDAWCĄ.
+                    // Ta faktura należy do konta platformowego, a warsztat jest
+                    // nabywcą — link prowadziłby na pustą listę. Dopóki nie ma
+                    // widoku „faktury wystawione mnie", zostaje sam załącznik.
+                    custom_message:
+                      "Faktura za abonament GetRido. Dokument w załączniku — " +
+                      "w razie pytań odpowiedz na tę wiadomość.",
+                  }),
                 });
                 if (!mail.ok) {
                   console.error("billing-stripe-webhook: faktura wystawiona, mail nie wyszedł", wynik.invoice_number, mail.status);
