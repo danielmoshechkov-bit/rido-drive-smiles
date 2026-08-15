@@ -70,6 +70,23 @@ WHERE sp.id = '…'::uuid
 
 ---
 
+## KROK 0b — kontrola rozjazdu schematu (NIC nie zmienia)
+
+Nie blokuje wdrożenia, ale wykonaj przed nim, żeby wiedzieć, na czym stoisz.
+Pełne zapytania i wyjaśnienie: `docs/security/rozjazd-repo-produkcja.md`.
+
+Minimum dla ścieżki billingu — obie kolumny muszą istnieć **po kroku 4**:
+```sql
+SELECT column_name FROM information_schema.columns
+WHERE table_schema='public' AND table_name='billing_plans'
+  AND column_name IN ('stripe_product_id','stripe_price_id_target');
+```
+Jeśli przed migracją zwraca dwa wiersze — istniały poza repo i migracja 4.20
+tylko dopisuje je do repozytorium. Jeśli zero lub jeden — synchronizacja cennika
+była zepsuta i migracja 4.20 ją naprawia.
+
+---
+
 ## KROK 1 — migracja G4 (bramka zapisu + widoczność publiczna)
 
 Plik: `supabase/migrations/20260815120000_gating_g4_bramka_zapisu.sql`

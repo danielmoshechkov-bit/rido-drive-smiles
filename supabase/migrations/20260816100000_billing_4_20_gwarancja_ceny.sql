@@ -15,6 +15,13 @@
 ALTER TABLE public.billing_plans
   ADD COLUMN IF NOT EXISTS stripe_price_id_target text;
 
+-- To samo dotyczy `stripe_product_id`: `billing-stripe-sync` czyta ją
+-- (`:169`), sprawdza przez nią istnienie produktu w Stripe (`:63`) i zapisuje
+-- (`:203`), a żadna migracja jej nie tworzy. Bez niej synchronizacja cennika
+-- na świeżym środowisku wywala się na pierwszym zapytaniu.
+ALTER TABLE public.billing_plans
+  ADD COLUMN IF NOT EXISTS stripe_product_id text;
+
 COMMENT ON COLUMN public.billing_plans.stripe_price_id_target IS
   'Obiekt Price w Stripe dla ceny DOCELOWEJ. Ceny w Stripe są niezmienne, więc '
   'każdy plan potrzebuje dwóch: startowej i docelowej. Bez tej drugiej wygaśnięcie '
