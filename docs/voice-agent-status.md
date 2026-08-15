@@ -2619,3 +2619,28 @@ post_call_webhook_id    a9f9457cf459465297f20b3c3c6c6648  (events: transcript, j
   tym samym identyfikatorem. Żądanie wyodrębnia się po `stage "prepare"` (chat) /
   `stage "auth"` (llm)
 - Bez pushy i merge'y do `main` bez zgody właściciela
+
+## 📋 BACKLOG: POŁĄCZENIA, KTÓRYCH NIE WIDZIMY — priorytet wysoki
+
+**Nie mamy żadnego zapisu połączeń, które nie zostały odebrane.**
+
+Nasz łańcuch startuje od webhooka inicjującego, a ten odpala się dopiero, gdy
+ElevenLabs połączenie **przyjmie**. Połączenie odrzucone, nieodebrane albo urwane
+przy zestawianiu jest dla nas niewidzialne — klient dzwoni, słyszy sygnał albo
+ciszę, rozłącza się, i nie ma tego nigdzie.
+
+**Dlaczego to jest wysoko:** „ile połączeń nie doszło" to pierwsze pytanie, jakie
+zada warsztat przy sprzedaży agenta. Dziś odpowiedź brzmi „nie wiemy",
+a to jest gorsza odpowiedź niż jakakolwiek liczba.
+
+Wyszło przy okazji 15.08: użytkownik dzwonił trzy razy, ElevenLabs ma dwie
+rozmowy, obie u nas kompletne (wiersz, transkrypt, zlecenie). Trzeciej nie ma
+nigdzie — i **nie umiemy rozstrzygnąć, czy w ogóle wyszła z telefonu**.
+
+Do sprawdzenia:
+```
+- czy SuperVoIP ma API do bilingów (CDR) — wtedy liczymy próby wobec odebranych
+- czy ElevenLabs raportuje nieudane próby zestawienia (dziś sip-messages mamy
+  tylko dla rozmów, które się odbyły)
+- czy da się policzyć różnicę „call attempts vs answered" po ich stronie
+```
