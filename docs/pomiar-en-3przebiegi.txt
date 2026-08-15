@@ -1,0 +1,67 @@
+
+════ SYMULACJA ROZMÓW ════
+snapshot: 8495 znaków, 14 dni, 8 usług
+scenariuszy: 7 (język en)
+
+  01-umowienie [en] umówienie wizyty… 10 13 5 tur
+  02-cena [en] klient pyta o cenę… 15 15 17 tur
+  03-odwolanie [en] klient chce odwołać wizytę… 11 10 10 tur
+  04-niewyrazny [en] klient mówi niewyraźnie, prosi o powtórzenie… 9 7 11 tur
+  05-usluga-spoza-cennika [en] usługa spoza cennika… 10 10 11 tur
+  06-termin-poza-snapshotem [en] termin poza zakresem snapshotu… 11 9 9 tur
+  07-termin-zajety [en] klient chce godzinę, której nie ma… 7 7 7 tur
+
+  czytam narzędzia serwerowe z logów… 5 wywołań
+
+  ~  01-umowienie [en] umówienie wizyty — 2/3  NIESTABILNY  (end_call, check_availability)
+       ✗ [data_spoza_snapshotu] 1/3  data spoza snapshotu (?.8), a check_availability nie zostało wywołane
+         „Done — Monday, seventeenth of August at nine.  You'll get a confirmation SMS in a few minutes.
+
+Czy mogę jeszcze w czymś pomóc?"
+       ✗ [polszczyzna_w_obcym] 1/3  polski znak diakrytyczny „ę"
+         „Done — Monday, seventeenth of August at nine.  You'll get a confirmation SMS in a few minutes.
+
+Czy mogę jeszcze w czymś pomóc?"
+       ✗ [polszczyzna_w_obcym] 1/3  polskie słowo „pomóc"
+         „Done — Monday, seventeenth of August at nine.  You'll get a confirmation SMS in a few minutes.
+
+Czy mogę jeszcze w czymś pomóc?"
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✓  02-cena [en] klient pyta o cenę — 3/3  (end_call)
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ~  03-odwolanie [en] klient chce odwołać wizytę — 2/3  NIESTABILNY  (end_call)
+       ✗ [polszczyzna_w_obcym] 1/3  polskie słowo „Do widzenia"
+         „Do widzenia."
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✗  04-niewyrazny [en] klient mówi niewyraźnie, prosi o powtórzenie — 0/3  (end_call)
+       ✗ [polszczyzna_w_obcym] 1/3  polskie słowo „Do widzenia"
+         „Understood — the line is too poor to continue safely. Let me close this out properly.
+
+Do widzenia, Andrew.  Potwierdzenie przyjdzie SMS-em."
+       ✗ [polszczyzna_w_obcym] 1/3  polski znak diakrytyczny „ę"
+         „Got it — Andrew, Ford Focus.  Poproszę numer rejestracyjny."
+       ✗ [polszczyzna_w_obcym] 1/3  polskie słowo „numer rejestracyjny"
+         „Got it — Andrew, Ford Focus.  Poproszę numer rejestracyjny."
+       ✗ [polszczyzna_w_obcym] 1/3  polski znak diakrytyczny „ł"
+         „Dobrze — poniedziałek siedemnastego sierpnia,  dziewiąta rano.  Potwierdzenie przyjdzie SMS-em w ciągu kilku minut."
+       ✗ [polszczyzna_w_obcym] 1/3  polskie słowo „Dobrze"
+         „Dobrze — poniedziałek siedemnastego sierpnia,  dziewiąta rano.  Potwierdzenie przyjdzie SMS-em w ciągu kilku minut."
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✓  05-usluga-spoza-cennika [en] usługa spoza cennika — 3/3  (end_call)
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ~  06-termin-poza-snapshotem [en] termin poza zakresem snapshotu — 2/3  NIESTABILNY  (end_call, check_availability)
+       ✗ [polszczyzna_w_obcym] 1/3  polskie słowo „Dobrze"
+         „Goodbye. Dobrze rozumiem."
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✗  07-termin-zajety [en] klient chce godzinę, której nie ma — 0/3
+       ✗ [godzina_spoza_wolnych] 3/3  godzina spoza wolnych: 5:00
+         „I appreciate you providing those details, Tom.  Unfortunately, we close at 5 pm, so 7 in the evening isn't possible.  Tomorrow I have free s"
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+
+────────────────────────────────────────────────────────────────
+PRZESZŁO 5 z 7 scenariuszy (3 przebiegi na scenariusz, wynik = większość)
+niestabilne: 01-umowienie[en] 2/3, 03-odwolanie[en] 2/3, 06-termin-poza-snapshotem[en] 2/3
+padły: 04-niewyrazny[en], 07-termin-zajety[en]
+
+wobec przebiegu z 2026-08-15 21:30: bez regresji
+---EN GOTOWE---

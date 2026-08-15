@@ -1,0 +1,47 @@
+
+════ SYMULACJA ROZMÓW ════
+snapshot: 8482 znaków, 14 dni, 8 usług
+scenariuszy: 7 (język pl)
+
+  01-umowienie [pl] umówienie wizyty… 15 15 15 tur
+  02-cena [pl] klient pyta o cenę… 17 15 15 tur
+  03-odwolanie [pl] klient chce odwołać wizytę… 7 7 7 tur
+  04-niewyrazny [pl] klient mówi niewyraźnie, prosi o powtórzenie… 13 11 13 tur
+  05-usluga-spoza-cennika [pl] usługa spoza cennika… 9 9 9 tur
+  06-termin-poza-snapshotem [pl] termin poza zakresem snapshotu… 13 17 11 tur
+  07-termin-zajety [pl] klient chce godzinę, której nie ma… 15 9 11 tur
+
+  czytam narzędzia serwerowe z logów… 3 wywołań
+
+  ✗  01-umowienie [pl] umówienie wizyty — 1/3  NIESTABILNY  (end_call)
+       ✗ [forma_ty] 2/3  forma na ty — rozmowa ma być oficjalna od pierwszego do ostatniego zdania
+         „Nie ma problemu — numer mamy z numeru,  z którego dzwonisz. Gotowe, poniedziałek siedemnastego sierpnia o dziewiątej, Toyota Yaris.  Potwier"
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✗  02-cena [pl] klient pyta o cenę — 0/3  (end_call)
+       ✗ [trzy_godziny] 3/3  3 godziny w jednej turze — limit to dwie
+         „Poniedziałek siedemnastego sierpnia mam wolne o dziewiątej,  dwunastej trzydzieści albo szesnastej — która godzina będzie odpowiednia?"
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✓  03-odwolanie [pl] klient chce odwołać wizytę — 3/3  (end_call)
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✓  04-niewyrazny [pl] klient mówi niewyraźnie, prosi o powtórzenie — 3/3  (end_call)
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✓  05-usluga-spoza-cennika [pl] usługa spoza cennika — 3/3  (end_call)
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ✗  06-termin-poza-snapshotem [pl] termin poza zakresem snapshotu — 0/3  (end_call, check_availability)
+       ✗ [relacjonowanie_pracy] 3/3  relacja z własnej pracy — klient słyszy wynik, nigdy proces
+         „Sprawdzę dostępność za miesiąc.  Szesnastego września mam wolne — o dziewiątej rano czy o dwunastej trzydzieści?"
+       ✗ [plec_przed_imieniem] 2/3  forma z domyśloną płcią przed poznaniem imienia
+         „Rozumiem.  Numer telefonu jest potrzebny do potwierdzenia wizyty SMS-em — bez niego nie będę w stanie wysłać Pani potwierdzenia."
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+  ~  07-termin-zajety [pl] klient chce godzinę, której nie ma — 2/3  NIESTABILNY  (end_call)
+       ✗ [trzy_godziny] 1/3  3 godziny w jednej turze — limit to dwie
+         „Jutro, czyli niedziela, jest zamknięta.  Mam wolne od poniedziałku — poniedziałek siedemnastego o dziewiątej,  dwunastej trzydzieści albo sz"
+       — [gotowe_do_zlecenia] NIE SPRAWDZONE: brak ANTHROPIC_API_KEY w .env.local
+
+────────────────────────────────────────────────────────────────
+PRZESZŁO 4 z 7 scenariuszy (3 przebiegi na scenariusz, wynik = większość)
+niestabilne: 01-umowienie[pl] 1/3, 07-termin-zajety[pl] 2/3
+padły: 01-umowienie[pl], 02-cena[pl], 06-termin-poza-snapshotem[pl]
+
+wobec przebiegu z 2026-08-15 21:30: REGRESJE — 01-umowienie, 02-cena; naprawione: 03-odwolanie, 07-termin-zajety
+---PL GOTOWE---
