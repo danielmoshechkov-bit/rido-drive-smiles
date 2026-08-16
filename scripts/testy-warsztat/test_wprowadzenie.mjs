@@ -68,7 +68,10 @@ sprawdz('furtka „Dalej", gdy klikniecia nie da sie wykryc', silnik.includes('s
 // Krok wynika z EKRANU, nie z licznika — inaczej dymek mówi o czymś innym,
 // niż widać na wierzchu (okno pojazdu vs. lista zadań w oknie pod spodem).
 sprawdz('krok wybierany po tym, co na ekranie', silnik.includes('wybierzKrok'));
-sprawdz('liczy sie najglebsze otwarte okno', silnik.includes("getAttribute('role') === 'dialog'"));
+// Okna są portalowane (leżą obok siebie), więc o wierzchu decyduje kolejność
+// w dokumencie, a tło pod oknem jest oznaczone `aria-hidden` i wypada z gry.
+sprawdz('o wierzchu decyduje kolejnosc okien', silnik.includes('okna.indexOf(okno)'));
+sprawdz('tlo pod oknem nie wchodzi do gry', silnik.includes("closest('[aria-hidden=\"true\"]')"));
 // Zlecenie próbne dostaje gotowe pozycje — na pustej tabeli nie ma czego pokazać.
 sprawdz('zlecenie probne ma przykladowe pozycje', okno.includes('przykladowe') && okno.includes('Wymiana klocków'));
 sprawdz('pozycje przykladowe BEZ cen', /przykladowe[\s\S]{0,600}unit_price_gross: null/.test(okno));
