@@ -1,0 +1,15 @@
+{
+  "_po_co": "Zapytania o kolumny, ktorych nie ma, zastane 16.08.2026 w modulach spoza tej pracy (flota, sprzedaz, nieruchomosci, wycena). Lista ma tylko MALEC. Nowy brak wywraca CI od razu; brak usuniety z kodu, a zostawiony tutaj, TEZ wywraca CI, bo nieaktualna lista wyjatkow ukrywa regresje.",
+  "_zastane": "2026-08-16",
+  "braki": [
+    { "plik": "src/components/admin/AdminUsersPanel.tsx", "tabela": "real_estate_agents", "kolumna": "agent_name" },
+    { "plik": "src/components/admin/AdminUsersPanel.tsx", "tabela": "real_estate_agents", "kolumna": "email" },
+    { "plik": "src/components/admin/AdminUsersPanel.tsx", "tabela": "real_estate_agents", "kolumna": "phone" },
+    { "plik": "src/components/fleet/UnmappedDriversModal.tsx", "tabela": "driver_app_users", "kolumna": "id" },
+    { "plik": "src/components/sales/ai-agent/AIAgentQueuePanel.tsx", "tabela": "sales_leads", "kolumna": "first_name" },
+    { "plik": "src/components/sales/ai-agent/AIAgentQueuePanel.tsx", "tabela": "sales_leads", "kolumna": "last_name" },
+    { "plik": "src/components/workshop/pricing/RidoPriceModal.tsx", "tabela": "service_price_history", "kolumna": "price_net" },
+    { "plik": "src/components/workshop/pricing/RidoPriceModal.tsx", "tabela": "service_price_history", "kolumna": "price_gross" },
+    { "plik": "src/pages/MarketplaceAuth.tsx", "tabela": "driver_app_users", "kolumna": "id" }
+  ]
+}

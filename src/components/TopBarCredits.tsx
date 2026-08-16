@@ -29,12 +29,24 @@ export function TopBarCredits() {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return 0;
-      const { data } = await supabase
+      // SALDO SMS NIE JEST KOLUMNĄ W `service_providers` — takiej kolumny NIE MA
+      // i nigdy nie było. Zapytanie zawodziło przy każdym otwarciu panelu,
+      // błędu nikt nie sprawdzał, więc licznik w nagłówku pokazywał zero
+      // każdemu warsztatowi, niezależnie od tego, ile SMS-ów naprawdę miał.
+      //
+      // Prawdziwe źródło to księga `sms_credit_ledger` i funkcja `sms_dostepne`,
+      // która liczy z niej saldo. Wołamy funkcję, a nie księgę, bo to ona jest
+      // jedynym miejscem, gdzie zapisana jest reguła liczenia salda.
+      const { data: sp, error: bladProfilu } = await supabase
         .from('service_providers')
-        .select('sms_balance')
+        .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
-      return data?.sms_balance ?? 0;
+      if (bladProfilu) { console.error('[TopBarCredits] profil usługodawcy:', bladProfilu.message); return 0; }
+      if (!sp?.id) return 0;
+      const { data, error } = await supabase.rpc('sms_dostepne', { p_provider_id: sp.id });
+      if (error) { console.error('[TopBarCredits] saldo SMS:', error.message); return 0; }
+      return Number(data ?? 0);
     },
   });
 

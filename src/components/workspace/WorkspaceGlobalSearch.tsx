@@ -74,7 +74,7 @@ export function WorkspaceGlobalSearch({ projectId, onNavigate }: Props) {
         .limit(5),
       (supabase as any)
         .from("workspace_documents")
-        .select("id, title, doc_type, updated_at")
+        .select("id, title, is_template, updated_at")
         .eq("project_id", projectId)
         .ilike("title", searchTerm)
         .limit(5),
@@ -111,7 +111,7 @@ export function WorkspaceGlobalSearch({ projectId, onNavigate }: Props) {
     (docs.data || []).forEach((d: any) => all.push({
       id: d.id, type: "document",
       title: d.title,
-      subtitle: d.doc_type,
+      subtitle: d.is_template ? "Szablon" : "Dokument",
     }));
 
     (members.data || []).forEach((m: any) => all.push({

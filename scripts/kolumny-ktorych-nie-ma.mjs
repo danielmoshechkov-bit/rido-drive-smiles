@@ -18,7 +18,7 @@
 //
 //   node scripts/kolumny-ktorych-nie-ma.mjs
 // ============================================================================
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -28,6 +28,17 @@ for (const line of existsSync(join(ROOT, ".env.local")) ? readFileSync(join(ROOT
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
 }
 const PROJEKT = "wclrrytmrscqvsyxyvnn";
+const MIGAWKA = join(ROOT, "config/schemat-kolumn.json");
+
+// DWA TRYBY, i to nie jest wygodnictwo.
+//
+// CI nie ma dostępu do bazy i nie powinno go mieć — kontrola, która wymaga
+// sekretu produkcyjnego, albo nie zostanie włączona, albo ten sekret trafi
+// tam, gdzie nie powinien. Dlatego w CI porównujemy kod z MIGAWKĄ schematu
+// leżącą w repozytorium, a migawkę odświeża człowiek: `--odswiez`.
+//
+// Migawka jest jednocześnie drugą kontrolą: jeśli ktoś doda kolumnę i nie
+// odświeży pliku, w przeglądzie zmian widać, że schemat się rozjechał.
 
 async function schemat() {
   const r = await fetch(`https://api.supabase.com/v1/projects/${PROJEKT}/database/query`, {
@@ -92,8 +103,26 @@ export function znajdzZapytania(kod) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const mapa = await schemat();
-  console.log(`schemat: ${mapa.size} tabel`);
+  let mapa;
+  if (process.argv.includes("--odswiez")) {
+    mapa = await schemat();
+    mkdirSync(dirname(MIGAWKA), { recursive: true });
+    writeFileSync(MIGAWKA, JSON.stringify({
+      pobrano: new Date().toISOString().slice(0, 10),
+      tabele: Object.fromEntries([...mapa].map(([t, k]) => [t, [...k].sort()])),
+    }, null, 0) + "\n");
+    console.log(`migawka odświeżona: ${mapa.size} tabel → ${MIGAWKA.replace(ROOT + "/", "")}`);
+  } else {
+    if (!existsSync(MIGAWKA)) {
+      console.error("BRAK MIGAWKI SCHEMATU. Uruchom raz: node scripts/kolumny-ktorych-nie-ma.mjs --odswiez");
+      process.exit(2);
+    }
+    const zapis = JSON.parse(readFileSync(MIGAWKA, "utf8"));
+    mapa = new Map(Object.entries(zapis.tabele).map(([t, k]) => [t, new Set(k)]));
+    const dni = Math.round((Date.now() - Date.parse(zapis.pobrano)) / 864e5);
+    if (dni > 30) console.warn(`⚠️ migawka schematu ma ${dni} dni — odśwież: --odswiez`);
+    console.log(`schemat z migawki (${zapis.pobrano}): ${mapa.size} tabel`);
+  }
   const bledy = [];
   let sprawdzonych = 0;
   for (const p of pliki(join(ROOT, "src"))) {
@@ -109,8 +138,37 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // LICZNIK, nie samo „czysto". Kontrola, która sprawdziła zero kolumn,
   // wygląda w wyniku identycznie jak kontrola, która sprawdziła wszystkie.
   console.log(`sprawdzonych odwołań do kolumn: ${sprawdzonych}`);
-  if (!bledy.length) { console.log("✅ każda kolumna, o którą pyta kod, istnieje w bazie"); process.exit(0); }
-  console.log(`\n❌ ${bledy.length} zapytań o kolumny, których NIE MA:`);
-  for (const b of bledy) console.log(`   ${b.plik}:${b.linia}  ${b.tabela}.${b.kolumna}`);
-  process.exit(1);
+
+  // ZNANE BRAKI — lista, która ma tylko MALEĆ.
+  //
+  // W chwili powstania kontroli w kodzie było 13 takich zapytań, w modułach,
+  // których ta praca nie dotyczy (flota, sprzedaż, nieruchomości). Zrobienie
+  // z tego czerwonego CI na starcie znaczyłoby, że wszyscy nauczą się je
+  // przeskakiwać — a wtedy kontrola przestaje cokolwiek znaczyć.
+  //
+  // Dlatego: NOWY brak wywraca CI od razu. Brak z listy tylko przypomina o sobie.
+  // Brak, który zniknął z kodu, a został na liście, TEŻ wywraca CI — nieaktualna
+  // lista wyjątków ukrywa regresje równie skutecznie jak brak kontroli.
+  const PLIK_ZNANE = join(ROOT, "config/kolumny-znane-braki.json");
+  const znane = existsSync(PLIK_ZNANE) ? JSON.parse(readFileSync(PLIK_ZNANE, "utf8")).braki ?? [] : [];
+  const klucz = (b) => `${b.plik}|${b.tabela}.${b.kolumna}`;
+  const zbiorZnanych = new Set(znane.map(klucz));
+  const nowe = bledy.filter((b) => !zbiorZnanych.has(klucz(b)));
+  const znalezione = new Set(bledy.map(klucz));
+  const naprawione = znane.filter((b) => !znalezione.has(klucz(b)));
+
+  if (znane.length) console.log(`znane braki (do usunięcia, lista ma maleć): ${znane.length - naprawione.length}`);
+  if (naprawione.length) {
+    console.log(`\n❌ ${naprawione.length} braków ZNIKNĘŁO z kodu, ale zostało na liście znanych — usuń je z config/kolumny-znane-braki.json:`);
+    for (const b of naprawione) console.log(`   ${b.plik}  ${b.tabela}.${b.kolumna}`);
+  }
+  if (nowe.length) {
+    console.log(`\n❌ ${nowe.length} NOWYCH zapytań o kolumny, których NIE MA:`);
+    for (const b of nowe) console.log(`   ${b.plik}:${b.linia}  ${b.tabela}.${b.kolumna}`);
+  }
+  if (nowe.length || naprawione.length) process.exit(1);
+  console.log(bledy.length
+    ? "✅ bez nowych braków (lista znanych bez zmian)"
+    : "✅ każda kolumna, o którą pyta kod, istnieje w bazie");
+  process.exit(0);
 }

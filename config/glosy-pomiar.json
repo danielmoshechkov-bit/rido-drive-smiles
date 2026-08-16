@@ -1,0 +1,27 @@
+{
+ "zdanie": "Środa, osiemnastego sierpnia, godzina dziewiąta trzydzieści — sto pięćdziesiąt złotych.",
+ "probek": 10,
+ "wyniki": [
+  {
+   "glos": "Alicja",
+   "id": "ldzFbnOs5w23MLcNBXQx",
+   "probek": 10,
+   "wtretow": 0,
+   "szczegoly": []
+  },
+  {
+   "glos": "Luiza",
+   "id": "C8ZVSJxcymeT86xT429O",
+   "probek": 10,
+   "wtretow": 0,
+   "szczegoly": []
+  },
+  {
+   "glos": "BJBJ",
+   "id": "m6j9iSWdnSmguZuMqQjg",
+   "probek": 10,
+   "wtretow": 0,
+   "szczegoly": []
+  }
+ ]
+}

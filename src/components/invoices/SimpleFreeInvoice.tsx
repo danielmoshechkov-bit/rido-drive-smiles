@@ -571,12 +571,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   const loadUserCompanyData = async (userId: string) => {
     // Load logo from any available source as fallback
     const loadLogoFallback = async () => {
-      const { data: cs } = await (supabase as any)
-        .from('company_settings')
-        .select('logo_url')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (cs?.logo_url) { setCompanyLogo(cs.logo_url); return cs.logo_url; }
+      // `company_settings` NIE MA kolumny `logo_url` — sprawdzone w schemacie.
+      // To ogniwo łańcucha zawodziło zawsze, więc logo i tak przychodziło
+      // z `service_providers` albo `workshop_settings`. Usunięte, żeby nie
+      // wyglądało na działające źródło, którego nikt nie wypełnia.
 
       const { data: sp } = await supabase
         .from('service_providers')

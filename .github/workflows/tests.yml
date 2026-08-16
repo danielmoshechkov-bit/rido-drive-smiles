@@ -61,3 +61,18 @@ jobs:
       # przestał być testem jednostkowym.
       - name: Testy
         run: deno test --allow-read supabase/functions/_shared/
+
+      # Kolumny, o które pyta front, kontra prawdziwy schemat bazy.
+      #
+      # Powód: panel warsztatu pytał `service_providers` o `address, city` —
+      # takich kolumn nie ma. Zapytanie zawodziło ZAWSZE, błędu nikt nie
+      # sprawdzał, więc formularz był pusty, choć dane w bazie były. Testy tego
+      # nie łapią, bo nikt nie klika w każdy formularz.
+      #
+      # Porównujemy z MIGAWKĄ schematu leżącą w repozytorium — CI nie dostaje
+      # dostępu do produkcyjnej bazy. Migawkę odświeża człowiek: `--odswiez`.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Kolumny, których nie ma
+        run: node scripts/kolumny-ktorych-nie-ma.mjs

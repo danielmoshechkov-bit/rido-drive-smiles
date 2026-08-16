@@ -295,16 +295,28 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground pt-1">
-                    Przekierowanie jest płatne u Twojego operatora według jego cennika — my za nie nie pobieramy opłat.
+                    Samo ustawienie przekierowania jest bezpłatne. Operator nalicza koszt za
+                    przekierowane połączenie — w abonamentach firmowych zwykle mieści się ono
+                    w pakiecie minut, a poza pakietem kosztuje tyle, co zwykłe połączenie
+                    na numer stacjonarny (rzędu 0,20–0,40 zł za minutę). Dokładną stawkę
+                    ma Twój operator w cenniku — my za przekierowanie nie pobieramy nic.
                   </p>
                 </div>
               </div>
             ) : (
               <div className="rounded-lg border border-dashed p-3 space-y-3">
                 {stan?.zadanie && ["oczekuje", "w_toku", "czeka_na_zgode"].includes(stan.zadanie.status) ? (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                    <span>{stan.zadanie.etap}</span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                      <span>{stan.zadanie.etap}</span>
+                    </div>
+                    {/* Ile to potrwa — bez tego klient odświeża stronę albo klika
+                        drugi raz, bo nieskończony kręciołek wygląda jak zawieszenie. */}
+                    <p className="text-xs text-muted-foreground pl-6">
+                      Zwykle trwa około minuty. Możesz zamknąć tę stronę — numer pojawi się tutaj,
+                      gdy będzie gotowy.
+                    </p>
                   </div>
                 ) : (
                   <>

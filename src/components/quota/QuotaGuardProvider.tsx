@@ -141,19 +141,23 @@ export function QuotaGuardProvider({ children }: { children: ReactNode }) {
   const handleSmsPurchase = useCallback(async (count: number, _priceNet: number) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast.error('Musisz być zalogowany'); return; }
-    const { data: sp } = await supabase
-      .from('service_providers')
-      .select('id, sms_balance')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (!sp) { toast.error('Brak konta usługodawcy'); return; }
-    const { error } = await supabase
-      .from('service_providers')
-      .update({ sms_balance: (sp.sms_balance || 0) + count })
-      .eq('id', sp.id);
-    if (error) { toast.error('Błąd doładowania SMS'); return; }
-    toast.success(`Dodano ${count} SMS`);
-    await handlePurchased('sms');
+    // ŚWIADOMIE NIE PRZYZNAJEMY TU KREDYTÓW.
+    //
+    // Do 16.08 ten kod czytał i zapisywał `service_providers.sms_balance` —
+    // kolumnę, KTÓREJ NIE MA. SELECT zawodził, `sp` wychodziło puste i użytkownik
+    // dostawał „Brak konta usługodawcy". Wyglądało to na awarię konta.
+    //
+    // Ale naprawienie kolumny otworzyłoby GORSZĄ dziurę niż ta, którą naprawia:
+    // ta funkcja jest wołana po zamknięciu okna zakupu, które NIE PRZEPROWADZA
+    // ŻADNEJ PŁATNOŚCI (wyżej w kodzie: toast „Przekierowanie do płatności…").
+    // Działający zapis znaczyłby SMS-y za darmo dla każdego, kto kliknie.
+    //
+    // Kredyty przyznaje `grant_sms_credits(provider, ile, powod, actor, opis)`
+    // i ma to robić potwierdzenie płatności po stronie serwera, nie przeglądarka.
+    // Do czasu, gdy płatności będą podłączone, mówimy prawdę zamiast udawać.
+    console.warn('[QuotaGuard] zakup SMS bez podłączonych płatności — nie przyznaję kredytów', { count });
+    toast.info('Doładowania SMS uruchomimy wkrótce — napisz do nas, dodamy pakiet ręcznie.');
+    return;
   }, [handlePurchased]);
 
   return (
