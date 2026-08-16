@@ -526,6 +526,24 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                           value={vehicleSearch}
                           onChange={e => { setVehicleSearch(e.target.value); setShowVehicleList(true); }}
                           onClick={() => setShowVehicleList(true)}
+                          // ENTER ROBI TO, PO CO SIĘ TU PRZYSZŁO.
+                          // Przy jednym wyniku wybiera auto, przy braku wyników otwiera
+                          // formularz nowego pojazdu z wpisanym numerem. Wcześniej Enter
+                          // nie robił nic: trzeba było sięgnąć po mysz i trafić w pozycję
+                          // listy, mimo że numer był już wpisany.
+                          onKeyDown={e => {
+                            if (e.key !== 'Enter') return;
+                            e.preventDefault();
+                            if (filteredVehicles.length === 1) {
+                              const v: any = filteredVehicles[0];
+                              setVehicleId(v.id); setCreatedVehicleData(null);
+                              setShowVehicleList(false); setVehicleSearch('');
+                              setErrors(er => { const { vehicle, ...reszta } = er; return reszta; });
+                              if (v.owner_client_id) setClientId(v.owner_client_id);
+                              return;
+                            }
+                            if (vehicleSearch.trim()) { setShowVehicleList(false); setShowAddVehicle(true); }
+                          }}
                           placeholder={t('workshop.newOrder.vehiclePlaceholder')}
                           className={errors.vehicle ? 'border-destructive' : ''}
                         />
@@ -559,6 +577,12 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                             {filteredVehicles.length === 0 && (
                               <div className="px-3 py-3 text-sm text-muted-foreground text-center">
                                 {t('workshop.newOrder.noResults')}
+                                {/* Sam komunikat „brak wyników" zostawiał człowieka bez wyjścia:
+                                    auta nie ma na liście, a co dalej — nie wiadomo. */}
+                                <div className="mt-1 text-xs">
+                                  Tego auta nie ma jeszcze w kartotece — kliknij „Utwórz nowy pojazd"
+                                  albo naciśnij <b>Enter</b>.
+                                </div>
                               </div>
                             )}
                           </div>

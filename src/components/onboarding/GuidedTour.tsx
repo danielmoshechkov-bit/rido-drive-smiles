@@ -53,7 +53,25 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
     const el = document.querySelector(`[data-tour="${biezacy.cel}"]`) as HTMLElement | null;
     if (!el) { setObszar(null); return; }
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    setObszar(el.getBoundingClientRect());
+
+    // PODŚWIETLAMY RAZEM Z TYM, CO Z ELEMENTU WYCHODZI.
+    //
+    // Lista podpowiedzi pod polem (pojazdy, klienci) jest pozycjonowana
+    // bezwzględnie, więc NIE wchodzi do prostokąta rodzica — podświetlone
+    // zostawało samo pole, a lista z „Utwórz nowy pojazd" lądowała w cieniu,
+    // czyli dokładnie ta rzecz, którą trzeba kliknąć.
+    const r = el.getBoundingClientRect();
+    let gora = r.top, dol = r.bottom, lewo = r.left, prawo = r.right;
+    el.querySelectorAll('*').forEach((dziecko) => {
+      const rd = (dziecko as HTMLElement).getBoundingClientRect();
+      if (rd.width === 0 || rd.height === 0) return;
+      // Bierzemy tylko to, co realnie wystaje poza rodzica (rozwinięte listy).
+      gora = Math.min(gora, rd.top);
+      dol = Math.max(dol, rd.bottom);
+      lewo = Math.min(lewo, rd.left);
+      prawo = Math.max(prawo, rd.right);
+    });
+    setObszar(new DOMRect(lewo, gora, prawo - lewo, dol - gora));
   }, [biezacy?.cel]);
 
   useLayoutEffect(() => { zmierz(); }, [zmierz, krok]);
@@ -84,6 +102,23 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
     el.addEventListener('click', poKlikniecie);
     return () => el.removeEventListener('click', poKlikniecie);
   }, [biezacy, onDalej, krok]);
+
+  // WPROWADZENIE IDZIE ZA UŻYTKOWNIKIEM, nie odwrotnie.
+  //
+  // Krok czekający na kliknięcie potrafił utknąć: przycisk „Nowe zlecenie"
+  // bywa zasłonięty otwartym oknem (np. po ponownym włączeniu wprowadzenia
+  // przy już otwartym zleceniu), więc kliknąć się go nie da i wprowadzenie
+  // stoi w miejscu. Jeśli jednak cel NASTĘPNEGO kroku jest już na ekranie,
+  // znaczy że użytkownik i tak jest dalej — przechodzimy za nim.
+  const celNastepnego = kroki[krok + 1]?.cel;
+  useEffect(() => {
+    if (!biezacy?.czekaNaKlikniecie || !celNastepnego) return;
+    const sprawdz = () => {
+      if (document.querySelector(`[data-tour="${celNastepnego}"]`)) onDalej();
+    };
+    const timer = window.setInterval(sprawdz, 500);
+    return () => window.clearInterval(timer);
+  }, [biezacy, celNastepnego, onDalej]);
 
   if (!biezacy) return null;
 

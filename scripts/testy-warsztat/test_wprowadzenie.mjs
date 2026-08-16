@@ -48,5 +48,15 @@ const kreator = czytaj('src/components/workshop/onboarding/WorkshopSetupWizard.t
 sprawdz('KSeF: sprawdzenie polaczenia zamiast wysylki testowej',
   kreator.includes('Testuj połączenie') && !kreator.includes('wyślij dowolny dokument'));
 
+// 6. Wprowadzenie nie może utknąć na kroku „kliknij", gdy cel jest zasłonięty.
+sprawdz('krok czekajacy przechodzi, gdy uzytkownik jest juz dalej', silnik.includes('celNastepnego'));
+// 7. Podświetlenie obejmuje rozwinięte listy (są pozycjonowane bezwzględnie).
+sprawdz('podswietlenie obejmuje rozwinieta liste', silnik.includes('el.querySelectorAll'));
+
+// 8. Enter w polu pojazdu robi to samo, co przycisk dodania auta.
+const okno = czytaj('src/components/workshop/WorkshopNewOrderDialog.tsx', 'utf8');
+sprawdz('Enter zaklada auto, gdy nie ma go w kartotece', /e.key !== 'Enter'[\s\S]{0,900}setShowAddVehicle\(true\)/.test(okno));
+sprawdz('podpowiedz przy braku wynikow', okno.includes('Tego auta nie ma jeszcze w kartotece'));
+
 console.log(bledy ? `BLAD: ${bledy} przypadkow` : 'WPROWADZENIE KOMPLETNE');
 process.exit(bledy ? 1 : 0);

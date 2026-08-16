@@ -23,7 +23,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'pole-rejestracji',
     tytul: 'Numer rejestracyjny',
-    tresc: 'Wpisz numer auta, na którym chcesz poćwiczyć — może być Twoje własne.\n\nPo numerze pobierzemy markę, model, rocznik, pojemność, moc i VIN, więc nie trzeba wpisywać ich ręcznie.',
+    tresc: 'Wpisz numer auta, na którym chcesz poćwiczyć — może być Twoje własne.\n\nJeśli auta nie ma jeszcze w kartotece, kliknij „Utwórz nowy pojazd" albo naciśnij Enter. Po numerze pobierzemy markę, model, rocznik, pojemność, moc i VIN, więc nie trzeba wpisywać ich ręcznie.',
     akcja: 'To sprawdzenie jest częścią wprowadzenia — nie schodzi z Twojego limitu',
   },
   {
