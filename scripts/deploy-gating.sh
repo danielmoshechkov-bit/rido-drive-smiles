@@ -38,7 +38,10 @@ ROZJAZD=()
 for f in "${WSZYSTKIE[@]}"; do
   printf '%-40s' "$f"
   supabase functions download "$f" --project-ref "$REF" >/dev/null 2>&1
-  POBRANE=$(find . -path "*$f/index.ts" | head -1)
+  # Ścieżka DOKŁADNA, nie wzorzec. `*send-sms/index.ts` pasuje także do
+  # `workshop-send-sms/index.ts` — przy takiej parze nazw skrypt porównywał
+  # nie ten plik i zgłaszał rozjazd tam, gdzie go nie było.
+  POBRANE="./supabase/functions/$f/index.ts"
   LOKALNE="$REPO/supabase/functions/$f/index.ts"
   if [ ! -f "$POBRANE" ]; then echo "🔴 brak pobrania"; ROZJAZD+=("$f"); continue; fi
   A=$(shasum -a 256 "$POBRANE" | cut -d' ' -f1)
