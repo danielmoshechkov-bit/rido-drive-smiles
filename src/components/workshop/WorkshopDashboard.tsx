@@ -13,6 +13,9 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePublicPricing } from '@/hooks/usePublicPricing';
 import { planPriceLabels, trialDaysFor } from '@/lib/pricingCards';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { WorkshopSetupWizard } from '@/components/workshop/onboarding/WorkshopSetupWizard';
 
 // PERF C1: wszystkie podmoduły warsztatu były importowane statycznie — 14
 // komponentów (w tym 1890-liniowy Scheduler i Reports→recharts) lądowało w
@@ -170,6 +173,33 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
       vehicle: live.vehicle || selectedOrder.vehicle,
     };
   }, [selectedOrder, fullOrder, workshopOrders]);
+
+  // PIERWSZE URUCHOMIENIE. Nowe konto wchodzi tu po potwierdzeniu maila i widzi
+  // kafelki, którymi nie ma czym pracować: faktura wyszłaby bez sprzedawcy,
+  // a SMS do klienta bez nazwy warsztatu. Dlatego zanim cokolwiek pokażemy,
+  // pytamy o dane firmy.
+  //
+  // O tym, czy okno ma się pokazać, decydują DANE, a nie osobna flaga
+  // „onboarding zrobiony": flaga potrafi zostać ustawiona przy przerwanym
+  // zapisie i wtedy warsztat pracuje z pustymi danymi, nie wiedząc o tym.
+  const { data: daneFirmy, isLoading: ladujeDaneFirmy, refetch: odswiezDaneFirmy } = useQuery({
+    queryKey: ['workshop-onboarding-status'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await (supabase as any)
+        .from('workshop_settings')
+        .select('firm_name, nip, address, city, phone')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      return data ?? {};
+    },
+  });
+  const [kreatorZamkniety, setKreatorZamkniety] = useState(false);
+  const brakujeDanychFirmy = !!daneFirmy && !(
+    daneFirmy.firm_name && daneFirmy.nip && daneFirmy.address && daneFirmy.city && daneFirmy.phone
+  );
+  const pokazKreator = !ladujeDaneFirmy && brakujeDanychFirmy && !kreatorZamkniety && !!providerId;
 
   // Gating funkcji "wkrótce" — musi być przed jakimkolwiek warunkowym return (Rules of Hooks).
   const { isBetaTester } = useIsBetaTester();
@@ -474,6 +504,11 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   // Module view with sidebar
   return (
     <div className={isSchedulerModule ? 'flex h-full min-h-0 gap-0 overflow-hidden' : 'flex gap-0 min-h-[calc(100dvh-120px)]'}>
+      {/* Pierwsze uruchomienie: dane firmy, godziny, stanowiska, KSeF. */}
+      <WorkshopSetupWizard
+        open={pokazKreator}
+        onZamknij={() => { setKreatorZamkniety(true); void odswiezDaneFirmy(); }}
+      />
       <WorkshopSidebar activeModule={activeModule} lockedKeys={lockedKeys} onNavigate={goTo} />
       <div className={isSchedulerModule ? 'flex-1 md:pl-3 min-w-0 flex h-full min-h-0 flex-col overflow-hidden' : 'flex-1 md:pl-3 min-w-0 flex flex-col'}>
         <MobileBackButton onBack={() => goTo(null)} />

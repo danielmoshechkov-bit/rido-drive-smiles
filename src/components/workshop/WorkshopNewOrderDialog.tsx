@@ -479,8 +479,14 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                         </div>
                         {showVehicleList && (
                           <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-60 overflow-y-auto">
-                            <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
-                              <Plus className="h-4 w-4 text-primary" /> {t('workshop.newOrder.createNewVehicle')}
+                            {/* Jedyna droga do założenia auta z tego miejsca. Wcześniej były DWIE:
+                                ta pozycja i fioletowy przycisk „Dodaj «wpisany tekst» jako nowy
+                                pojazd" pod komunikatem o braku wyników. Ten drugi zakładał auto
+                                z tego, co akurat wpisano w wyszukiwarkę, więc literówka w numerze
+                                rejestracyjnym stawała się nowym autem w kartotece. Zostaje jedna
+                                droga — do formularza, gdzie dane pojazdu pobiera się po numerze. */}
+                            <button className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 border-b font-medium bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
+                              <Plus className="h-4 w-4" /> {t('workshop.newOrder.createNewVehicle')}
                             </button>
                             {existingByPlate && (
                               <div className="px-3 py-2 text-xs bg-amber-500/10 border-b text-amber-900 dark:text-amber-200">
@@ -520,8 +526,14 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                         {errors.vehicle && <p className="text-xs text-destructive mt-1 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {errors.vehicle}</p>}
                         {showVehicleList && (
                           <div className="absolute z-50 w-full mt-1 border-2 border-border rounded-lg bg-background shadow-xl max-h-60 overflow-y-auto">
-                            <button className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm flex items-center gap-2 border-b font-medium" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
-                              <Plus className="h-4 w-4 text-primary" /> {t('workshop.newOrder.createNewVehicle')}
+                            {/* Jedyna droga do założenia auta z tego miejsca. Wcześniej były DWIE:
+                                ta pozycja i fioletowy przycisk „Dodaj «wpisany tekst» jako nowy
+                                pojazd" pod komunikatem o braku wyników. Ten drugi zakładał auto
+                                z tego, co akurat wpisano w wyszukiwarkę, więc literówka w numerze
+                                rejestracyjnym stawała się nowym autem w kartotece. Zostaje jedna
+                                droga — do formularza, gdzie dane pojazdu pobiera się po numerze. */}
+                            <button className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 border-b font-medium bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
+                              <Plus className="h-4 w-4" /> {t('workshop.newOrder.createNewVehicle')}
                             </button>
                             {filteredVehicles.map((v: any) => (
                               <button key={v.id} className="w-full text-left px-3 py-2.5 hover:bg-accent text-sm transition-colors" onClick={() => {
@@ -541,79 +553,6 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                             {filteredVehicles.length === 0 && (
                               <div className="px-3 py-3 text-sm text-muted-foreground text-center">
                                 {t('workshop.newOrder.noResults')}
-                                {vehicleSearch.trim().length >= 2 && (
-                                  <button
-                                    className="block w-full mt-2 px-3 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-sm"
-                                    onClick={async () => {
-                                      const txt = vehicleSearch.trim();
-                                      // Heuristic: "MARKA MODEL REJ" or "REJ" or just "MARKA MODEL"
-                                      const parts = txt.split(/\s+/);
-                                      const last = parts[parts.length - 1];
-                                      const looksLikePlate = /^[A-Z0-9]{4,8}$/i.test(last) && parts.length > 1;
-                                      const plate = looksLikePlate ? last.toUpperCase() : (parts.length === 1 && /^[A-Z0-9]{4,8}$/i.test(last) ? last.toUpperCase() : null);
-                                      const brandModel = looksLikePlate ? parts.slice(0, -1) : (plate ? [] : parts);
-                                      const brand = brandModel[0] || null;
-                                      const model = brandModel.slice(1).join(' ') || null;
-                                      // Ostatnia zapora przed duplikatem: ten sam numer rejestracyjny
-                                      // już jest w kartotece razem z całą historią napraw.
-                                      if (plate) {
-                                        const dup = allVehicles.find((v: any) => squash(v.plate) === squash(plate));
-                                        if (dup) {
-                                          setVehicleId(dup.id);
-                                          setShowVehicleList(false);
-                                          setVehicleSearch('');
-                                          setErrors(e => { const { vehicle, ...rest } = e; return rest; });
-                                          toast.info(`Auto ${dup.plate} jest już w kartotece — wybrano istniejące, z historią napraw.`);
-                                          return;
-                                        }
-                                      }
-                                      try {
-                                        // Auto zakladamy na podstawie DANYCH POJAZDU, nie tego, co ktos
-                                        // wpisal recznie: po numerze rejestracyjnym pobieramy VIN, marke,
-                                        // model, rocznik, pojemnosc, moc i paliwo. Bez tego zlecenie
-                                        // powstawaloby dla auta bez danych, a takie wyceny sa bezwartosciowe.
-                                        let dane: any = null;
-                                        if (plate) {
-                                          try { dane = await checkRegistration(plate); } catch { dane = null; }
-                                        }
-                                        const pojazd = {
-                                          provider_id: providerId,
-                                          plate,
-                                          brand: dane?.make || brand,
-                                          model: dane?.model
-                                            ? String(dane.model).replace(/\s+\d+\.\d+(\s+\S+)*$/, '').trim()
-                                            : model,
-                                          vin: dane?.vin ? String(dane.vin).toUpperCase() : null,
-                                          year: dane?.registration_year || null,
-                                          engine_capacity_cm3: extractDigits(dane?.engine_size),
-                                          engine_power_kw: extractDigits(dane?.engine_power_kw),
-                                          fuel_type: normalizeFuelType(dane?.fuel_type),
-                                        };
-                                        const { data: v, error } = await (supabase as any)
-                                          .from('workshop_vehicles')
-                                          .insert(pojazd)
-                                          .select()
-                                          .single();
-                                        if (error) throw error;
-                                        setCreatedVehicleData(v);
-                                        setVehicleId(v.id);
-                                        setShowVehicleList(false);
-                                        setVehicleSearch('');
-                                        setErrors(e => { const { vehicle, ...rest } = e; return rest; });
-                                        qc.invalidateQueries({ queryKey: ['workshop-vehicles'] });
-                                        toast.success(
-                                          v.vin
-                                            ? `Dodano ${[v.brand, v.model].filter(Boolean).join(' ')} — VIN i dane silnika pobrane`
-                                            : t('workshop.newOrder.vehicleAddedManually'),
-                                        );
-                                      } catch (e: any) {
-                                        toast.error(t('workshop.newOrder.vehicleAddError', { error: e.message }));
-                                      }
-                                    }}
-                                  >
-                                    {t('workshop.newOrder.addAsNewVehicle', { name: vehicleSearch.trim() })}
-                                  </button>
-                                )}
                               </div>
                             )}
                           </div>
