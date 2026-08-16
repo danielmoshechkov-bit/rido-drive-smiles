@@ -220,7 +220,7 @@ interface CompanyRow {
   id: string; user_id: string; email: string;
   company_name: string | null; company_nip: string | null;
   company_address: string | null; company_city: string | null;
-  company_phone: string | null; sms_balance: number | null;
+  company_phone: string | null; sms_dostepne: number | null;
 }
 
 function AssignCreditsPanel() {
@@ -255,7 +255,7 @@ function AssignCreditsPanel() {
         id: r.id, user_id: r.user_id, email: r.owner_email || '',
         company_name: r.company_name, company_nip: r.company_nip,
         company_address: r.company_address, company_city: r.company_city,
-        company_phone: r.company_phone, sms_balance: r.sms_balance,
+        company_phone: r.company_phone, sms_dostepne: r.sms_dostepne,
       })));
     } catch (e: any) {
       console.error('loadCompanies', e);
@@ -474,7 +474,7 @@ function AssignCreditsPanel() {
                       </TableCell>
                       <TableCell className="text-xs hidden md:table-cell">{c.company_phone || '—'}</TableCell>
                       <TableCell className="text-right">
-                        <Badge variant={(c.sms_balance || 0) > 0 ? 'default' : 'secondary'}>{c.sms_balance ?? 0}</Badge>
+                        <Badge variant={(c.sms_dostepne || 0) > 0 ? 'default' : 'secondary'}>{c.sms_dostepne ?? 0}</Badge>
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); selectCompany(c); }}>Wybierz</Button>

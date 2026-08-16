@@ -26,6 +26,7 @@ interface Zamowienie {
   id: string;
   status: string;
   wydane_at: string | null;
+  amount_gross: number | string;
 }
 
 const json = (body: unknown, status = 200) =>
@@ -113,12 +114,12 @@ Deno.serve(async (req) => {
 
     if (naszeId) {
       const { data } = await (admin as any).from('billing_orders')
-        .select('id, status, wydane_at').eq('id', naszeId).maybeSingle();
+        .select('id, status, wydane_at, amount_gross').eq('id', naszeId).maybeSingle();
       zamowienie = (data ?? null) as Zamowienie | null;
     }
     if (!zamowienie) {
       const { data } = await (admin as any).from('billing_orders')
-        .select('id, status, wydane_at')
+        .select('id, status, wydane_at, amount_gross')
         .eq('provider', 'payu').eq('provider_order_id', idUOperatora).maybeSingle();
       zamowienie = (data ?? null) as Zamowienie | null;
     }
@@ -182,6 +183,36 @@ Deno.serve(async (req) => {
         console.error('billing-payu-webhook: potwierdzenie odbioru rzuciło wyjątkiem', e);
         await zakoncz('failed', e instanceof Error ? e.message : String(e));
         return json({ ok: true, uwaga: 'odbiór niepotwierdzony' });
+      }
+    }
+
+    // ── Kwota musi się zgadzać ──────────────────────────────────────
+    //
+    // Podpis potwierdza NADAWCĘ, nie treść zamówienia. Bez tego sprawdzenia
+    // powiadomienie z poprawnym podpisem i niepełną kwotą wydawało pełną
+    // paczkę — a PayU dopuszcza płatności częściowe.
+    //
+    // Porównujemy w groszach, żeby nie zderzyć się z arytmetyką zmiennoprzecinkową.
+    if (status === 'oplacone') {
+      const oczekiwane = Math.round(Number(zamowienie.amount_gross) * 100);
+      const zaplacone = Math.round(Number(zamowienieP.totalAmount ?? NaN));
+
+      if (!Number.isFinite(zaplacone)) {
+        console.error('billing-payu-webhook: brak totalAmount przy COMPLETED', zamowienie.id);
+        await zakoncz('failed', 'Powiadomienie o zapłacie bez kwoty');
+        return json({ ok: true, uwaga: 'brak kwoty' });
+      }
+
+      if (zaplacone !== oczekiwane) {
+        // Nie wydajemy nic. To wymaga zajrzenia człowieka: albo klient zapłacił
+        // mniej, albo rozjechał nam się cennik między założeniem zamówienia
+        // a zapłatą. Jedno i drugie kosztuje, jeśli wydamy towar automatycznie.
+        console.error(JSON.stringify({
+          event: 'payu_kwota_niezgodna', order: zamowienie.id,
+          oczekiwane_grosze: oczekiwane, zaplacone_grosze: zaplacone,
+        }));
+        await zakoncz('failed', `Kwota niezgodna: oczekiwano ${oczekiwane} gr, przyszło ${zaplacone} gr`);
+        return json({ ok: true, uwaga: 'kwota niezgodna' });
       }
     }
 
