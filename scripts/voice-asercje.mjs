@@ -12,7 +12,19 @@
 // Cicha asercja wygląda identycznie jak asercja, która przeszła.
 // ============================================================================
 
-const bezOgonkow = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+// ZDEJMUJEMY OGONKI TYLKO Z ŁACINKI.
+//
+// Pierwsza wersja rozbijała NFD i wycinała WSZYSTKIE znaki łączące — także
+// cyrylickie. „зателефонуйте" stawało się „зателефонуите", a „ёлka" → „елka",
+// więc każde rosyjskie i ukraińskie słowo z „й" albo „ё" przestawało pasować
+// do wzorca. Asercja `odsylanie_do_telefonu` była z tego powodu martwa
+// po ukraińsku i nikt tego nie widział.
+//
+// Wycinamy znak łączący tylko wtedy, gdy stoi po literze łacińskiej,
+// a potem składamy z powrotem — cyrylica wraca do postaci wyjściowej.
+const bezOgonkow = (s) => String(s).normalize("NFD")
+  .replace(/([a-zA-Z])[\u0300-\u036f]+/g, "$1")
+  .normalize("NFC");
 const zdania = (t) => String(t || "").split(/(?<=[.!?])\s+/).filter(Boolean);
 
 // --- języki ----------------------------------------------------------------
@@ -322,7 +334,7 @@ export const ASERCJE = [
       // agent nazwał to „полный сервис" — pakietem, którego warsztat nie ma.
       // UWAGA: \b w JS jest oparte na ASCII i NIE dziala przed cyrylica — pierwsza
       // wersja tego wzorca nie lapala „полный сервис" w ogole.
-      const wymyslone = /(?:\b(?:pe[łl]ny serwis|kompleksowy serwis|pakiet serwisowy|full service|complete service|service package)\b)|(?:полный сервис|комплексный сервис|повний сервіс|комплексне обслуговування)/i;
+      const wymyslone = /(?:\b(?:pe[łl]ny serwis|kompleksowy serwis|pakiet serwisowy|full service|complete service|service package)\b)|(?:полный сервис|комплексный сервис|повний сервіс|повне обслуговування|комплексне обслуговування)/i;
       const nazwy = (ctx.snapshot?.uslugi || []).map((u) => bezOgonkow(String(u.nazwa || "").toLowerCase()));
       return tekstAgenta(ctx.rozmowa).flatMap((t) => {
         const m = t.tekst.match(wymyslone);
