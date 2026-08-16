@@ -198,7 +198,9 @@ test("failure sentence never misreports whether anything was saved", () => {
   assert.match(builder, /if \(mutationCreated\)/);
   // Treść zmieniona po rozmowie 05.08 18:43: "straciłam wątek / zapis jest w systemie"
   // brzmiało jak usterka mimo pełnego sukcesu. Teraz komunikat po prostu potwierdza.
-  assert.match(builder, /Rezerwacja jest zapisana/);
+  // Tresc przeniesiona do voiceWzorce.ts (cztery jezyki) — builder wskazuje
+  // na nia, a samo brzmienie pilnuje voiceWzorce_test.ts.
+  assert.match(builder, /zdanieAwarii\("zapisane", jezyk\)/);
   // Nigdzie nie wolno twierdzić, że nic nie zapisano: mutationCreated dotyczy tylko
   // bieżącego żądania, a rezerwacja mogła powstać w poprzedniej turze rozmowy.
   // W prawdziwym telefonie ten wariant skłamał — booking istniał w bazie.
@@ -246,7 +248,7 @@ test("technical failure notifies the workshop and never guesses the caller gende
   // której nie było (rozmowa 05.08 18:43).
   assert.match(chat, /conversationCommitted/);
   assert.match(chat, /eq\("elevenlabs_conversation_id", conversationId\)/);
-  assert.match(chat, /buildFailureSentence\(lastModelFailure, conversationCommitted\)/);
+  assert.match(chat, /buildFailureSentence\(lastModelFailure, conversationCommitted, jezyk\)/);
   const catchBlock = chat.slice(chat.indexOf('event: "stream_failed"'), chat.indexOf("cancel() {"));
   assert.ok(
     catchBlock.indexOf("data: [DONE]") < catchBlock.indexOf("await notifyWorkshopCallback"),

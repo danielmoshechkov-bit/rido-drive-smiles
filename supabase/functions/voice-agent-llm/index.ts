@@ -325,7 +325,8 @@ serve(async (req) => {
     }
     const data = await r.json().catch(() => ({}));
     if (r.ok && data?.reply) reply = data.reply;
-    else console.warn("[voice-agent-llm] chat_failed", r.status);
+    // TRESC BLEDU, NIE TYLKO STATUS (16.08) — patrz voice-agent-chat.
+    else console.warn("[voice-agent-llm] chat_failed", r.status, (await r.clone().text().catch(() => "")).slice(0, 300));
     logTiming("chat", chatStarted, { ok: r.ok });
   } catch (error) {
     console.warn("[voice-agent-llm] chat_failed", (error as Error)?.name || "error");

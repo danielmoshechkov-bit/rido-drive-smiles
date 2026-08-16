@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { liczbaWzorcow, wzorceWJezyku } from "./voiceWzorce.ts";
+import { liczbaWzorcow, wzorceWJezyku, zdanieAwarii } from "./voiceWzorce.ts";
 
 // POLSKI NIE DOSTAJE ANI JEDNEGO ZNAKU. To jest cała umowa tej zmiany.
 Deno.test("polski nie dostaje bloku wzorcow", () => {
@@ -79,4 +79,27 @@ Deno.test("blok jest krotki — jeden jezyk, nie cztery", () => {
     const d = wzorceWJezyku(j)!.length;
     assert(d < 3500, `${j}: blok ma ${d} znakow, za duzo jak na doklejke do promptu`);
   }
+});
+
+// AWARIA MUSI BYC ZROZUMIALA. 16.08 kazda rozmowa — takze rosyjska —
+// konczyla sie polskim zdaniem o problemie technicznym.
+Deno.test("zdanie awarii jest w jezyku rozmowy", () => {
+  assert(/Извините/.test(zdanieAwarii("techniczne", "ru")));
+  assert(/Перепрошую/.test(zdanieAwarii("techniczne", "uk")));
+  assert(/Sorry/.test(zdanieAwarii("techniczne", "en")));
+  assert(/Przepraszam/.test(zdanieAwarii("techniczne", "pl")));
+});
+
+Deno.test("zdanie awarii nie zawiera polszczyzny w obcym jezyku", () => {
+  for (const j of ["ru", "uk", "en"]) {
+    for (const r of ["zapisane", "limit", "techniczne"] as const) {
+      const z = zdanieAwarii(r, j);
+      assert(!/[ąćęłńóśźż]/i.test(z), `${j}/${r}: polskie znaki w zdaniu awarii: ${z}`);
+    }
+  }
+});
+
+Deno.test("nieznany jezyk wraca do polskiego, nie do pustki", () => {
+  assertEquals(zdanieAwarii("techniczne", "de"), zdanieAwarii("techniczne", "pl"));
+  assertEquals(zdanieAwarii("techniczne", null), zdanieAwarii("techniczne", "pl"));
 });

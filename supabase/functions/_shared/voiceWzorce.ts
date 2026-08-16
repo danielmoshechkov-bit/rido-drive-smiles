@@ -52,6 +52,7 @@ const RU: Wzorce = {
     "Извините, девять или одиннадцать?",
     "Плохо слышно — речь о девяти утра?",
     "Понедельник. Девять утра подойдёт?",
+    "Третьего сентября свободно в девять — подойдёт?",
   ],
   dane: [
     "Назовите, пожалуйста, имя, а также марку и модель машины.",
@@ -96,6 +97,7 @@ const UK: Wzorce = {
     "Перепрошую, о дев'ятій чи об одинадцятій?",
     "Погано чутно — йдеться про дев'яту ранку?",
     "Понеділок. Дев'ята ранку підійде?",
+    "Третього вересня вільно о дев'ятій — підійде?",
   ],
   dane: [
     "Назвіть, будь ласка, ім'я, а також марку й модель авто.",
@@ -140,6 +142,7 @@ const EN: Wzorce = {
     "Sorry — 9 or 11?",
     "I didn't catch the time — did you mean 9 in the morning?",
     "Monday. Does 9 in the morning work?",
+    "3 September, 9 is free — does that work?",
   ],
   dane: [
     "Could I have your first name, and the make and model of the car?",
@@ -205,4 +208,48 @@ export function wzorceWJezyku(jezyk: JezykWzorcow | string | null | undefined): 
 export function liczbaWzorcow(jezyk: JezykWzorcow | string): number {
   const tab = TABLICE[jezyk as Exclude<JezykWzorcow, "pl">];
   return tab ? Object.values(tab).reduce((s, a) => s + a.length, 0) : 0;
+}
+
+/**
+ * ZDANIA AWARYJNE — wypowiadane, gdy model nie odpowiedział.
+ *
+ * 16.08 skończyły się kredyty Anthropic i KAŻDA rozmowa, w każdym języku,
+ * kończyła się polskim „Przepraszam, wystąpił chwilowy problem techniczny".
+ * Rosyjski i angielski rozmówca dostawał zdanie, którego nie rozumiał —
+ * w jedynym momencie, w którym musi zrozumieć.
+ *
+ * To NIE są wzorce do naśladowania, tylko gotowe teksty do wypowiedzenia
+ * przez nasz kod, dlatego stoją osobno od `wzorceWJezyku`.
+ */
+type ZdaniaAwarii = { zapisane: string; limit: string; techniczne: string };
+
+const AWARIA: Record<JezykWzorcow, ZdaniaAwarii> = {
+  pl: {
+    zapisane: "Rezerwacja jest zapisana. Potwierdzenie przyjdzie SMS-em w ciągu kilku minut.",
+    limit: "Przepraszam, mam w tej chwili chwilowe ograniczenie techniczne. Proszę zadzwonić za kilka minut, obsługa potwierdzi szczegóły.",
+    techniczne: "Przepraszam, wystąpił chwilowy problem techniczny. Obsługa oddzwoni i potwierdzi szczegóły.",
+  },
+  ru: {
+    zapisane: "Запись сохранена. Подтверждение придёт по СМС в течение нескольких минут.",
+    limit: "Извините, сейчас есть техническое ограничение. Перезвоните, пожалуйста, через несколько минут — сервис подтвердит детали.",
+    techniczne: "Извините, произошёл технический сбой. Из сервиса перезвонят и подтвердят детали.",
+  },
+  uk: {
+    zapisane: "Запис збережено. Підтвердження надійде в СМС протягом кількох хвилин.",
+    limit: "Перепрошую, зараз є технічне обмеження. Зателефонуйте, будь ласка, за кілька хвилин — сервіс підтвердить деталі.",
+    techniczne: "Перепрошую, стався технічний збій. Із сервісу передзвонять і підтвердять деталі.",
+  },
+  en: {
+    zapisane: "Your booking is saved. You'll get a confirmation text within a few minutes.",
+    limit: "Sorry, there's a temporary technical limit right now. Please call back in a few minutes and the workshop will confirm the details.",
+    techniczne: "Sorry, there's been a technical problem. The workshop will call you back to confirm the details.",
+  },
+};
+
+export function zdanieAwarii(
+  rodzaj: keyof ZdaniaAwarii,
+  jezyk: JezykWzorcow | string | null | undefined,
+): string {
+  const tab = AWARIA[(jezyk as JezykWzorcow) in AWARIA ? (jezyk as JezykWzorcow) : "pl"];
+  return tab[rodzaj];
 }

@@ -21,7 +21,7 @@ import {
 import { cachedContext } from "../_shared/voiceContextCache.ts";
 import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
 import { jezykRozmowy, snapshotWJezyku } from "../_shared/voiceJezykRozmowy.ts";
-import { wzorceWJezyku } from "../_shared/voiceWzorce.ts";
+import { wzorceWJezyku, zdanieAwarii } from "../_shared/voiceWzorce.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,17 +89,20 @@ const MODEL_FAILURE_FALLBACK: Record<ModelFailure, boolean> = {
 // MOŻE tu wystąpić — w prawdziwej rozmowie skłamał: booking i zlecenie powstały
 // w turze wcześniejszej, a agent powiedział, że nic nie zostało zapisane.
 // Wiedzę o całej rozmowie da dopiero conversation_id (osobny etap).
-const buildFailureSentence = (failure: ModelFailure | null, mutationCreated: boolean): string => {
+// JEZYK ROZMOWY, NIE POLSKI NA SZTYWNO (16.08).
+// Gdy skonczyly sie kredyty Anthropic, kazda rozmowa — takze rosyjska
+// i angielska — konczyla sie polskim zdaniem o problemie technicznym.
+// Rozmowca dostawal komunikat, ktorego nie rozumial, w jedynym momencie,
+// w ktorym musi zrozumiec.
+const buildFailureSentence = (failure: ModelFailure | null, mutationCreated: boolean, jezyk?: string | null): string => {
   if (mutationCreated) {
     // Nie przepraszamy za awarię, której klient nie odczuł: rezerwacja jest zapisana,
     // SMS pójdzie. Wcześniejsza wersja mówiła tu "straciłam wątek", co brzmiało jak
     // usterka mimo pełnego sukcesu.
-    return "Rezerwacja jest zapisana. Potwierdzenie przyjdzie SMS-em w ciągu kilku minut.";
+    return zdanieAwarii("zapisane", jezyk);
   }
-  if (failure === "quota") {
-    return "Przepraszam, mam w tej chwili chwilowe ograniczenie techniczne. Proszę zadzwonić za kilka minut, obsługa potwierdzi szczegóły.";
-  }
-  return "Przepraszam, wystąpił chwilowy problem techniczny. Obsługa oddzwoni i potwierdzi szczegóły.";
+  if (failure === "quota") return zdanieAwarii("limit", jezyk);
+  return zdanieAwarii("techniczne", jezyk);
 };
 
 const logTiming = (stage: string, startedAt: number, extra: Record<string, unknown> = {}) => {
@@ -109,6 +112,46 @@ const logTiming = (stage: string, startedAt: number, extra: Record<string, unkno
     ...extra,
   }));
 };
+
+// ALERT ROZLICZENIOWY.
+//
+// 16.08 skonczyly sie kredyty Anthropic. Kazda rozmowa konczyla sie zdaniem
+// o problemie technicznym, a dowiedzielismy sie o tym PRZYPADKIEM, przy okazji
+// symulacji. Bez niej pierwsza informacja przyszlaby od klienta warsztatu.
+//
+// System, ktory przestaje dzialac po cichu, jest gorszy niz system, ktory krzyczy.
+//
+// Alert idzie do `system_alerts` RAZ NA GODZINE, nie raz na ture — awaria
+// rozliczeniowa dotyka kazdego polaczenia i bez tego progu zalalaby tabele.
+const BLAD_ROZLICZENIOWY = /credit balance|insufficient.{0,20}(credit|quota|funds)|billing|payment required/i;
+
+const zapiszAlertRozliczeniowy = async (
+  admin: { from: (t: string) => any },
+  tresc: string,
+  providerId: string | null,
+) => {
+  try {
+    const godzinaTemu = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: istnieje } = await admin.from("system_alerts")
+      .select("id").eq("category", "voice_agent_billing").eq("status", "open")
+      .gte("created_at", godzinaTemu).limit(1);
+    if (istnieje?.length) return;
+    await admin.from("system_alerts").insert({
+      type: "error",
+      category: "voice_agent_billing",
+      title: "Agent glosowy nie odpowiada — problem rozliczeniowy dostawcy modelu",
+      description: "Kazde polaczenie konczy sie komunikatem o problemie technicznym. "
+        + "Doladuj konto dostawcy modelu. Tresc bledu: " + tresc.slice(0, 300),
+      status: "open",
+      metadata: { provider_id: providerId, wykryte: new Date().toISOString() },
+    });
+    console.error("[voice-agent-chat]", JSON.stringify({ event: "billing_alert_zapisany" }));
+  } catch (e) {
+    // Alert, ktorego nie da sie zapisac, nie moze przewrocic rozmowy.
+    console.error("[voice-agent-chat]", JSON.stringify({ event: "billing_alert_nieudany", blad: (e as Error)?.message?.slice(0, 120) }));
+  }
+};
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -817,11 +860,23 @@ ${greetingRule}
           }
           if (!modelResponse.ok) {
             const failure = classifyModelFailure(modelResponse.status);
+            // TRESC BLEDU, NIE TYLKO STATUS.
+            //
+            // 16.08 caly przebieg angielski padl na 400, a log mowil wylacznie
+            // „status: 400, failure: bad_request". Diagnoza wymagala reprodukcji
+            // i zgadywania. Status mowi, ze zapytanie bylo zle; dopiero tresc
+            // mowi, CO w nim bylo zle. Obcinamy do 300 znakow, zeby nie wlac
+            // do logu calego promptu.
+            const trescBledu = await modelResponse.clone().text().catch(() => "");
+            if (BLAD_ROZLICZENIOWY.test(trescBledu)) {
+              await zapiszAlertRozliczeniowy(admin, trescBledu, providerId || null);
+            }
             console.warn("[voice-agent-chat]", JSON.stringify({
               event: "model_failed",
               status: modelResponse.status,
               failure,
               provider: candidate.providerKey,
+              tresc: trescBledu.slice(0, 300),
             }));
             const upstreamError = new Error(`MODEL_${failure.toUpperCase()}`) as Error & { allowFallback?: boolean };
             // Jedna kontrolowana próba: druga próba tylko tam, gdzie inny model
@@ -941,7 +996,7 @@ ${greetingRule}
       // modelu — o tym wie `lastModelFailure`.
       if (!reply.trim() && !clientToolCalls.length) {
         if (lastModelFailure) {
-          emit(buildFailureSentence(lastModelFailure, anyMutationCreated));
+          emit(buildFailureSentence(lastModelFailure, anyMutationCreated, jezyk));
         } else {
           console.info("[voice-agent-chat]", JSON.stringify({
             event: "empty_reply_silent",
@@ -1038,7 +1093,7 @@ ${greetingRule}
             }));
             send({
               id, object: "chat.completion.chunk", created: createdAt, model,
-              choices: [{ index: 0, delta: { content: buildFailureSentence(lastModelFailure, conversationCommitted) }, finish_reason: null }],
+              choices: [{ index: 0, delta: { content: buildFailureSentence(lastModelFailure, conversationCommitted, jezyk) }, finish_reason: null }],
             });
             send({ id, object: "chat.completion.chunk", created: createdAt, model, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] });
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));

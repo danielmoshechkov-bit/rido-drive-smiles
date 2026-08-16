@@ -433,7 +433,8 @@ serve(async (req) => {
             body: JSON.stringify({ provider_id: providerId, phone, message: msg, sms_type: "booking_confirmation_ai", appointment_id: wcb.id }),
           }).then(async (r) => {
             const rj = await r.json().catch(() => ({}));
-            if (rj?.error) console.error("[voice-agent-tools] sms_failed", { status: r.status });
+            // TRESC BLEDU, NIE TYLKO STATUS (16.08) — patrz voice-agent-chat.
+            if (rj?.error) console.error("[voice-agent-tools] sms_failed", { status: r.status, tresc: String(rj.error).slice(0, 300) });
           }).catch((e) => console.error("[voice-agent-tools] sms_error", { name: (e as Error)?.name }));
 
           const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
@@ -472,7 +473,9 @@ serve(async (req) => {
           }));
           const orderOut = await orderRes.json().catch(() => ({}));
           if (orderOut?.ok && orderOut?.order_id) createdOrderId = String(orderOut.order_id);
-          else { orderFailed = true; console.error("[voice-agent-tools] order_after_booking_failed", { status: orderRes.status }); }
+          // TRESC BLEDU, NIE TYLKO STATUS (16.08) — patrz voice-agent-chat.
+          // Tu odpowiedz jest juz sparsowana, wiec logujemy JA, nie ponowny text().
+          else { orderFailed = true; console.error("[voice-agent-tools] order_after_booking_failed", { status: orderRes.status, tresc: JSON.stringify(orderOut).slice(0, 300) }); }
         } catch (error) {
           orderFailed = true;
           console.error("[voice-agent-tools] order_after_booking_error", { name: (error as Error)?.name });

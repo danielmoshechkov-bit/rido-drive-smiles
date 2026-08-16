@@ -103,7 +103,9 @@ serve(async (req) => {
         recording_status: status === 404 ? "unavailable" : "error",
         recording_checked_at: new Date().toISOString(),
       }).eq("id", callId);
-      console.error("[voice-call-audio]", JSON.stringify({ event: "provider_audio_failed", status, conversation: conversationId.slice(-8) }));
+      // TRESC BLEDU, NIE TYLKO STATUS (16.08) — patrz voice-agent-chat.
+      const trescBledu = await res.clone().text().catch(() => "");
+      console.error("[voice-call-audio]", JSON.stringify({ event: "provider_audio_failed", status, conversation: conversationId.slice(-8), tresc: trescBledu.slice(0, 300) }));
       return json({
         available: false,
         reason: status === 404

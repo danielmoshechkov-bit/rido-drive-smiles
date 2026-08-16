@@ -65,7 +65,9 @@ serve(async (req) => {
       { headers: { "xi-api-key": cleanKey(elKey) }, signal: AbortSignal.timeout(20_000) },
     ).catch(() => null);
     if (!r?.ok) {
-      console.error("[voice-call-reconcile]", JSON.stringify({ event: "elevenlabs_failed", agent: agentId.slice(-8) }));
+      // TRESC BLEDU, NIE TYLKO STATUS (16.08) — patrz voice-agent-chat.
+      const tresc = r ? (await r.clone().text().catch(() => "")).slice(0, 300) : "brak odpowiedzi";
+      console.error("[voice-call-reconcile]", JSON.stringify({ event: "elevenlabs_failed", agent: agentId.slice(-8), status: r?.status ?? null, tresc }));
       raport.push({ provider: cfg.provider_id, blad: "ElevenLabs niedostępny" });
       continue;
     }

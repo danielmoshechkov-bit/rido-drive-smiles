@@ -269,7 +269,8 @@ serve(async (req) => {
     // ZASADA 12: nieudany SMS nie może zniknąć. Zapis już jest, więc nie wycofujemy
     // transakcji — ale rozmowa dostaje flagę, żeby warsztat wiedział.
     if (rj?.error) {
-      console.error("[voice-call-commit]", JSON.stringify({ event: "sms_failed", conversation: conversationId.slice(-8) }));
+      // TRESC BLEDU, NIE TYLKO STATUS (16.08) — patrz voice-agent-chat.
+      console.error("[voice-call-commit]", JSON.stringify({ event: "sms_failed", conversation: conversationId.slice(-8), tresc: String(rj.error).slice(0, 300) }));
       await admin.from("voice_calls").update({ outcome: "Zapis OK, ale SMS nie wyszedł" })
         .eq("provider_id", providerId).eq("elevenlabs_conversation_id", conversationId);
     }

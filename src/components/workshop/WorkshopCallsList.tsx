@@ -44,6 +44,7 @@ export function WorkshopCallsList({ providerId, onOpenOrder }: {
   const [ladowanie, setLadowanie] = useState(true);
   const [blad, setBlad] = useState<string | null>(null);
   const [tylkoUwaga, setTylkoUwaga] = useState(false);
+  const [alertAwarii, setAlertAwarii] = useState<{ title: string; description: string } | null>(null);
 
   useEffect(() => {
     let anulowane = false;
@@ -78,7 +79,22 @@ export function WorkshopCallsList({ providerId, onOpenOrder }: {
       setRozmowy(lista);
       setLadowanie(false);
     };
+    // AWARIA ROZLICZENIOWA MA KRZYCZEC.
+    // 16.08 skonczyly sie kredyty dostawcy modelu i o awarii dowiedzielismy sie
+    // przypadkiem. voice-agent-chat zapisuje teraz alert do system_alerts —
+    // ta lista jest miejscem, w ktore warsztat i tak patrzy.
+    const wczytajAlert = async () => {
+      const { data } = await (supabase as any)
+        .from("system_alerts")
+        .select("title, description")
+        .eq("category", "voice_agent_billing")
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (!anulowane && data?.[0]) setAlertAwarii(data[0]);
+    };
     void wczytaj();
+    void wczytajAlert();
     return () => { anulowane = true; };
   }, [providerId]);
 
@@ -115,6 +131,14 @@ export function WorkshopCallsList({ providerId, onOpenOrder }: {
         )}
       </CardHeader>
       <CardContent className="space-y-2">
+        {alertAwarii && (
+          <div className="mb-3 rounded-lg border border-destructive bg-destructive/10 p-3">
+            <p className="flex items-center gap-2 text-sm font-medium text-destructive">
+              <AlertTriangle className="h-4 w-4" />{alertAwarii.title}
+            </p>
+            <p className="mt-1 text-xs text-destructive/90">{alertAwarii.description}</p>
+          </div>
+        )}
         {widoczne.length === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">
             {tylkoUwaga ? "Żadna rozmowa nie wymaga uwagi." : "Brak połączeń."}
