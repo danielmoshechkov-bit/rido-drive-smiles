@@ -37,5 +37,16 @@ sprawdz('pokazuje, ile sie zarabia', tresci.includes('zarabiasz'));
 sprawdz('mowi o dokumentach po naprawie', tresci.includes('faktur'));
 sprawdz('mowi, jak zakonczyc i usunac', tresci.includes('zakończone') && tresci.includes('usu'));
 
+// 4. Dymek musi dać się kliknąć nad oknem modalnym i nie zasłaniać pola.
+import { readFileSync as czytaj } from 'node:fs';
+const silnik = czytaj('src/components/onboarding/GuidedTour.tsx', 'utf8');
+sprawdz('dymek klikalny nad oknem modalnym', silnik.includes('pointer-events-auto'));
+sprawdz('dymek staje z boku, nie na polu', silnik.includes('miejsceZPrawej'));
+
+// 5. Instrukcja KSeF nie każe wysyłać próbnej faktury — jest przycisk sprawdzenia.
+const kreator = czytaj('src/components/workshop/onboarding/WorkshopSetupWizard.tsx', 'utf8');
+sprawdz('KSeF: sprawdzenie polaczenia zamiast wysylki testowej',
+  kreator.includes('Testuj połączenie') && !kreator.includes('wyślij dowolny dokument'));
+
 console.log(bledy ? `BLAD: ${bledy} przypadkow` : 'WPROWADZENIE KOMPLETNE');
 process.exit(bledy ? 1 : 0);

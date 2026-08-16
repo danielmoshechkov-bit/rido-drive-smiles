@@ -87,16 +87,37 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
 
   if (!biezacy) return null;
 
-  const ciemne = 'fixed bg-black/60 z-[95] transition-all duration-200';
+  // `pointer-events-auto` jest tu KONIECZNE. Okna modalne (Radix) na czas
+  // otwarcia ustawiają `pointer-events: none` na całym dokumencie i przywracają
+  // klikalność tylko wewnątrz siebie. Dymek wprowadzenia leży poza oknem, więc
+  // bez tego przycisków „Dalej" i „Zamknij" NIE DA SIĘ kliknąć — wprowadzenie
+  // zatrzymywało się na kroku z otwartym oknem zlecenia.
+  const ciemne = 'fixed bg-black/60 z-[95] transition-all duration-200 pointer-events-auto';
   const dymekNaSrodku = !obszar;
 
+  // GDZIE POSTAWIĆ DYMEK.
+  //
+  // Pierwszy wybór to BOK, nie „pod spodem": pod polem otwierają się listy
+  // podpowiedzi (klienci, pojazdy) i przyciski lupki, a dymek je zasłaniał —
+  // użytkownik widział podpowiedź „wpisz numer", ale nie mógł kliknąć wyszukania.
+  // Dopiero gdy z boku nie ma miejsca, schodzimy pod cel albo nad niego.
+  const SZEROKOSC = 320;
   const styleDymka: React.CSSProperties = dymekNaSrodku
     ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
     : (() => {
-        const podSpodem = obszar!.bottom + 180 < window.innerHeight;
-        const gora = podSpodem ? obszar!.bottom + ODSTEP + 6 : Math.max(12, obszar!.top - 190);
-        const lewa = Math.min(Math.max(12, obszar!.left), window.innerWidth - 340);
-        return { top: gora, left: lewa };
+        const miejsceZPrawej = window.innerWidth - obszar!.right;
+        const miejsceZLewej = obszar!.left;
+        const gora = Math.min(
+          Math.max(12, obszar!.top - 20),
+          Math.max(12, window.innerHeight - 240),
+        );
+        if (miejsceZPrawej > SZEROKOSC + 24) return { top: gora, left: obszar!.right + 16 };
+        if (miejsceZLewej > SZEROKOSC + 24) return { top: gora, left: obszar!.left - SZEROKOSC - 16 };
+        const podSpodem = obszar!.bottom + 220 < window.innerHeight;
+        return {
+          top: podSpodem ? obszar!.bottom + ODSTEP + 6 : Math.max(12, obszar!.top - 210),
+          left: Math.min(Math.max(12, obszar!.left), window.innerWidth - SZEROKOSC - 12),
+        };
       })();
 
   return createPortal(
@@ -118,7 +139,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
       )}
 
       <div
-        className="fixed z-[97] w-[320px] max-w-[92vw] rounded-xl border bg-background p-4 shadow-2xl"
+        className="fixed z-[97] w-[320px] max-w-[92vw] rounded-xl border bg-background p-4 shadow-2xl pointer-events-auto"
         style={styleDymka}
       >
         <div className="flex items-start justify-between gap-2 mb-1">

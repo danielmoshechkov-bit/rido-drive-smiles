@@ -440,8 +440,9 @@ export function WorkshopSetupWizard({ open, onZamknij }: Props) {
                 „Token autoryzacyjny KSeF".
               </li>
               <li className="rounded-lg border p-3">
-                <b>4. Sprawdź na jednej fakturze.</b> Na środowisku Demo wyślij dowolny dokument —
-                zobaczysz, czy token działa, bez konsekwencji podatkowych.
+                <b>4. Kliknij „Testuj połączenie".</b> Przycisk jest pod polem tokena. Gdy wszystko
+                gra, status zmieni się na zielony „Połączony" — i tyle, nie musisz nic wysyłać
+                na próbę.
               </li>
             </ol>
 

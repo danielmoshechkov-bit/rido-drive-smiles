@@ -519,7 +519,13 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           setKreatorZamkniety(true);
           void odswiezDaneFirmy();
           // Prosto z ustawień do pierwszego zlecenia — bez wracania do pustego ekranu.
-          if (wprowadzenie.dostepne) { setActiveModule('zlecenia'); wprowadzenie.zacznij(); }
+          //
+          // Bez warunku „czy wprowadzenie nie było zamykane": kreator pokazuje się
+          // WYŁĄCZNIE warsztatowi bez danych firmy, czyli przy pierwszym uruchomieniu.
+          // Ktoś, kto zamknął wprowadzenie na innym warsztacie albo przed
+          // wyczyszczeniem danych, i tak zaczyna od zera i ma prawo je zobaczyć.
+          setActiveModule('zlecenia');
+          wprowadzenie.zacznij();
         }}
       />
       {wprowadzenie.aktywne && (
