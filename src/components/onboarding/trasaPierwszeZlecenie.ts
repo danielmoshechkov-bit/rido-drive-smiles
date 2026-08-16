@@ -18,7 +18,9 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     tytul: 'Zacznijmy od pierwszego zlecenia',
     tresc: 'Tu zakłada się zlecenie: auto, klient, opis usterki. Wszystko inne — wycena, SMS-y, faktura — dzieje się już w środku.',
     akcja: 'Kliknij „Nowe zlecenie", żeby zacząć',
-    czekaNaKlikniecie: true,
+    // Bez `czekaNaKlikniecie`: pierwsza podpowiedź ma być PRZECZYTANA. Kliknięcie
+    // w przycisk i tak przenosi dalej, ale kto czyta wolniej, ma przycisk „Dalej"
+    // i nie zostaje z wrażeniem, że coś mignęło.
   },
   {
     cel: 'pole-rejestracji',
@@ -33,10 +35,25 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     akcja: 'Na czas nauki wpisz siebie i swój numer',
   },
   {
+    cel: 'klient-imie-nazwisko',
+    tytul: 'Dane właściciela',
+    tresc: 'Wystarczy imię i nazwisko. „Osoba prywatna" albo „Firma" — przy firmie dojdzie NIP i pobierzemy dane z GUS.',
+  },
+  {
+    cel: 'klient-telefon',
+    tytul: 'Telefon — najważniejsze pole',
+    tresc: 'Na ten numer pójdzie protokół przyjęcia, kosztorys do akceptacji i wiadomość, że auto jest gotowe.\n\nNa czas nauki wpisz swój własny numer — zobaczysz dokładnie to, co dostanie klient. Potem „Zapisz".',
+  },
+  {
     cel: 'pojazd-rejestracja',
     tytul: 'Numer i lupka',
     tresc: 'Gdy właściciel jest już wybrany, wpisz numer rejestracyjny i kliknij lupkę obok pola — marka, model, rocznik, pojemność, moc i VIN pobiorą się same.\n\nMożesz też wpisać wszystko ręcznie, jeśli auta nie ma w bazie CEPiK.',
     akcja: 'Kliknij lupkę przy numerze — to sprawdzenie nie schodzi z Twojego limitu',
+  },
+  {
+    cel: 'pobrane-dane',
+    tytul: 'To przyszło z rejestru',
+    tresc: 'Zielona ramka pokazuje, co dokładnie pobraliśmy po numerze: markę, model, rocznik, pojemność, moc, paliwo i VIN.\n\nWszystko możesz poprawić — zapisujemy to, co jest w polach poniżej. Potem „Zapisz".',
   },
   {
     cel: 'pole-klienta',

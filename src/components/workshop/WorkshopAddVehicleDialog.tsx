@@ -52,6 +52,10 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
   const [showAddOwner, setShowAddOwner] = useState(false);
   const [createdOwner, setCreatedOwner] = useState<any>(null);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  // Co dokładnie przyszło z rejestru. Same wypełnione pola nie wystarczą:
+  // formularz ma kilkanaście rubryk i nie widać, które zmieniło sprawdzenie,
+  // a które warsztat wpisał sam.
+  const [pobranePola, setPobranePola] = useState<string[]>([]);
   const ownerDropdownRef = useRef<HTMLDivElement>(null);
 
   const { credits, loading: lookupLoading, checkRegistration, checkVin } = useVehicleLookup(userId);
@@ -85,6 +89,21 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
   const set = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
 
   const applyVehicleData = (data: any) => {
+    const pobrane: string[] = [];
+    const dopisz = (etykieta: string, wartosc: unknown) => {
+      if (wartosc !== undefined && wartosc !== null && String(wartosc).trim() !== '') pobrane.push(`${etykieta}: ${wartosc}`);
+    };
+    dopisz('marka', data.make);
+    dopisz('model', data.model ? trimModelName(data.model) : null);
+    dopisz('rok', data.registration_year);
+    dopisz('pojemność', data.engine_size);
+    dopisz('moc', data.engine_power_kw ? `${data.engine_power_kw} kW` : null);
+    dopisz('paliwo', data.fuel_type);
+    dopisz('nadwozie', data.body_style);
+    dopisz('kolor', data.color);
+    if (data.vin && !String(data.vin).includes('*')) dopisz('VIN', data.vin);
+    setPobranePola(pobrane);
+
     setForm(prev => {
       const updated = { ...prev };
       if (data.make) updated.brand = data.make;
@@ -314,6 +333,26 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
             <div className="border-t pt-4">
               <Label className="text-sm font-semibold">{t('workshop.vehicles.vehicleData')}</Label>
             </div>
+
+            {/* CO DOKŁADNIE PRZYSZŁO Z REJESTRU.
+                Po kliknięciu lupki pola po prostu się wypełniały i nie było
+                wiadomo, co pobrał system, a co wpisał człowiek — ani czy w ogóle
+                coś przyszło. Ta lista mówi to wprost. */}
+            {pobranePola.length > 0 && (
+              <div className="rounded-lg border border-green-600/40 bg-green-600/5 p-3" data-tour="pobrane-dane">
+                <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-1.5">
+                  Pobrano z rejestru ({pobranePola.length}):
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {pobranePola.map((wpis) => (
+                    <span key={wpis} className="text-[11px] rounded-full border bg-background px-2 py-0.5">{wpis}</span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Możesz to poprawić — zapisujemy to, co widzisz w polach poniżej.
+                </p>
+              </div>
+            )}
 
             {/* Nr rejestracyjny | VIN */}
             <div className="grid grid-cols-2 gap-4">

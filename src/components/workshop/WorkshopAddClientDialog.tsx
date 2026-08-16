@@ -236,7 +236,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
             </>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4" data-tour="klient-imie-nazwisko">
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.firstNameRequired')}</Label>
                   <Input onFocus={e => e.currentTarget.select()} value={form.first_name} onChange={e => set('first_name', e.target.value)} placeholder={t('workshop.clients.firstName')} />
@@ -246,7 +246,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
                   <Input onFocus={e => e.currentTarget.select()} value={form.last_name} onChange={e => set('last_name', e.target.value)} placeholder={t('workshop.clients.lastName')} />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4" data-tour="klient-telefon">
                 <div className="space-y-1.5">
                   <Label>{t('workshop.clients.phone')}</Label>
                   <div className="flex gap-2">

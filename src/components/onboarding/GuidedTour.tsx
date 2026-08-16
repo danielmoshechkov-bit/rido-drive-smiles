@@ -213,13 +213,16 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
         className="fixed z-[97] w-[320px] max-w-[92vw] rounded-xl border bg-background p-4 shadow-2xl pointer-events-auto"
         style={styleDymka}
       >
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <h3 className="font-semibold text-sm">{biezacy.tytul}</h3>
+        <div className="flex items-start justify-between gap-2 mb-1.5">
+          <h3 className="font-semibold text-base">{biezacy.tytul}</h3>
           <button onClick={onZamknij} className="text-muted-foreground hover:text-foreground shrink-0" title="Zamknij wprowadzenie">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <p className="text-sm text-muted-foreground whitespace-pre-line">{biezacy.tresc}</p>
+        {/* Tekst czytany w biegu, często na ciemnym tle przygaszonego ekranu —
+            `muted-foreground` zlewał się z tłem. Pełny kolor tekstu i większy
+            odstęp między wierszami. */}
+        <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">{biezacy.tresc}</p>
         {biezacy.akcja && (
           <p className="mt-2 text-xs font-medium text-primary">{biezacy.akcja}</p>
         )}
