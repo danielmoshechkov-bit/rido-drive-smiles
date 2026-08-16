@@ -34,6 +34,7 @@ import {
   doZaproponowania,
 } from "../_shared/voiceSnapshot.ts";
 import { dopasowanieUslugi } from "../_shared/voiceDopasowanie.ts";
+import { rozpoznajWarsztat } from "../_shared/voiceRozpoznanieWarsztatu.ts";
 // ANGIELSKI — OSOBNY MODUŁ, DOKŁADANY OBOK. Moduł polski zostaje nietknięty:
 // ma 22 asercje i trzy dni poprawek za sobą, a uogólnianie go na drugi język
 // znaczyłoby przepisanie kodu sprawdzonego na produkcji dla języka, który
@@ -211,11 +212,38 @@ serve(async (req) => {
 
   try {
     const zbuduj = async () => {
-      const { data: cfg } = await admin.from("voice_agent_configs")
-        .select("provider_id, persona_key")
-        .eq(agentId ? "elevenlabs_agent_id" : "persona_key", agentId || "workshop_secretary")
-        .limit(1);
-      const providerId = cfg?.[0]?.provider_id as string | undefined;
+      // KTÓRY WARSZTAT ODBIERA. Numer, NA KTÓRY zadzwoniono, ma pierwszeństwo
+      // przed `agent_id` — agent jest wspólny dla wszystkich warsztatów i mówi
+      // tylko, która persona odbiera. Fallback na `agent_id` zostaje, dopóki
+      // log nie pokaże, że nikt już tędy nie chodzi.
+      const rozpoznanie = await rozpoznajWarsztat(
+        body as Record<string, unknown>,
+        async (numer) => {
+          const { data, error } = await admin.from("voice_numbers")
+            .select("provider_id").eq("phone_number", numer).eq("status", "aktywny").limit(1);
+          // Błąd odczytu NIE MOŻE wyglądać jak „numeru nie ma" — to po cichu
+          // przełączyłoby rozmowę na fallback i podało CUDZY snapshot.
+          if (error) {
+            console.error("[voice-agent-init] odczyt voice_numbers nieudany:", error.code, error.message);
+            throw error;
+          }
+          return (data?.[0]?.provider_id as string | undefined) ?? null;
+        },
+        async () => {
+          const { data: cfg } = await admin.from("voice_agent_configs")
+            .select("provider_id, persona_key")
+            .eq(agentId ? "elevenlabs_agent_id" : "persona_key", agentId || "workshop_secretary")
+            .limit(1);
+          return (cfg?.[0]?.provider_id as string | undefined) ?? null;
+        },
+      );
+      console.info("[voice-agent-init]", JSON.stringify({
+        event: "rozpoznanie_warsztatu",
+        droga: rozpoznanie.droga,
+        ma_numer: rozpoznanie.numer != null,   // sam numer NIE trafia do logu
+        warsztat: rozpoznanie.providerId ? "jest" : "brak",
+      }));
+      const providerId = rozpoznanie.providerId ?? undefined;
       if (!providerId) return null;
 
       const dzisiaj = dzisiajWarszawa();
