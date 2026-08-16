@@ -65,8 +65,19 @@ export async function signUpMarketplace(payload: MarketplaceSignupPayload): Prom
   if (response.data?.error) {
     return { success: false, error: response.data.error, field: response.data.field };
   }
+  // invoke() przy statusie != 2xx ustawia data = null, a `error.message` to
+  // ZAWSZE ten sam tekst: „Edge Function returned a non-2xx status code".
+  // Treść, którą funkcja naprawdę zwróciła — łącznie z polskim komunikatem
+  // i nazwą pola — siedzi w `error.context`. Bez tego odczytu użytkownik
+  // rejestrujący się na istniejący adres widział surowy błąd zamiast
+  // „Ten email jest już zarejestrowany".
   if (response.error) {
-    return { success: false, error: response.error.message };
+    const body = await extractErrorBody(response.error);
+    return {
+      success: false,
+      error: body?.error || "Nie udało się założyć konta. Spróbuj ponownie za chwilę.",
+      field: body?.field,
+    };
   }
   return {
     success: true,
@@ -86,7 +97,12 @@ export async function signUpFleet(payload: FleetSignupPayload): Promise<SignupRe
     return { success: false, error: response.data.error, field: response.data.field };
   }
   if (response.error) {
-    return { success: false, error: response.error.message };
+    const body = await extractErrorBody(response.error);
+    return {
+      success: false,
+      error: body?.error || "Nie udało się założyć konta. Spróbuj ponownie za chwilę.",
+      field: body?.field,
+    };
   }
   return {
     success: true,
@@ -146,7 +162,7 @@ export function isEmailNotConfirmedError(message: string | undefined): boolean {
   return !!message && /email not confirmed/i.test(message);
 }
 
-async function extractErrorBody(error: unknown): Promise<{ error?: string; message?: string } | null> {
+async function extractErrorBody(error: unknown): Promise<{ error?: string; message?: string; field?: string } | null> {
   try {
     const ctx = (error as { context?: Response }).context;
     if (ctx && typeof ctx.json === "function") {
