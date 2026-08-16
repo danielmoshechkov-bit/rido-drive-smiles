@@ -3294,6 +3294,7 @@ dokumentem.
 | 35 pomiar ma koszt | ✅ | koszt liczony przed przebiegiem, próg 5 PLN blokuje bez `--zgoda` |
 | 36 zasada bez kontroli | ✅ | bramka zapisu + test obejścia |
 | 37 cisza musi być odróżnialna | ⚠️ częściowo | patrz przegląd niżej |
+| 38 porównuj skrót treści, nie rozmiar | ✅ | regresja rozpoznania warsztatu, trzy drogi |
 
 **Jedna zasada bez kontroli: 30** — i to świadomie: „uporządkowany wzorzec
 jest łatwiejszy do skopiowania" to obserwacja o redakcji promptu, nie warunek,
@@ -3313,6 +3314,29 @@ przebiegu, także zerowym** — liczbę, nie milczenie.
 
 „20 numerów u operatora, 20 u nas, 0 rozbieżności" widziane codziennie znaczy,
 że kontrola chodzi. Brak wiadomości nie znaczy nic.
+
+## ZASADA 38 — przy zmianie ścieżki rozpoznania porównuj SKRÓT TREŚCI
+
+Wdrażając rozpoznanie warsztatu po numerze sprawdziłem trzy drogi — przez numer
+z `agent_id`, przez sam numer i przez fallback bez numeru — i porównałem
+**skrót SHA-256 snapshotu**, nie jego długość ani czas budowy.
+
+Wyszło `2ca0c48118a8` trzy razy. To znaczy: przełączenie drogi nie zmieniło
+ani jednego znaku.
+
+Gdybym porównał rozmiar, dostałbym `10885` trzy razy i uznał to za dowód —
+a snapshot dwóch różnych warsztatów o podobnej liczbie usług ma bardzo zbliżoną
+długość. **Zgodny rozmiar przy innej treści jest scenariuszem prawdopodobnym,
+nie egzotycznym**, bo długość zależy od liczby dni i usług, a nie od tego,
+czyje one są.
+
+Czas budowy nie jest dowodem tym bardziej: 116, 186 i 180 ms to trzy różne
+liczby dla identycznej treści.
+
+**Reguła: przy każdej zmianie ścieżki rozpoznania albo źródła danych
+porównujemy skrót treści.** Rozmiar i czas są diagnostyką, nie dowodem.
+
+---
 
 ### Przegląd naszych kontroli i alertów
 

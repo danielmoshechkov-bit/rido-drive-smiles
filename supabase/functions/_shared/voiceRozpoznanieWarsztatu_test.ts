@@ -16,10 +16,21 @@ const NASZ = "48221015896";
 const tabela = (mapa: Record<string, string>) => (n: string) => Promise.resolve(mapa[n] ?? null);
 const agent = (id: string | null) => () => Promise.resolve(id);
 
-Deno.test("REGRESJA: numeru nie ma w tabeli — dziala dotychczasowa sciezka", async () => {
-  const r = await rozpoznajWarsztat({ called_number: "+48221015896", agent_id: "agent_x" }, tabela({}), agent(WARSZTAT_TESTOWY));
-  assertEquals(r.providerId, WARSZTAT_TESTOWY);
-  assertEquals(r.droga, "agent_id");
+Deno.test("WYCIEK: nieznany numer NIE dostaje snapshotu warsztatu domyslnego", async () => {
+  // 16.08 sprawdzone na produkcji: wywolanie z numerem spoza tabeli dostawalo
+  // pelny snapshot jedynego warsztatu — z lista klientow (imie + telefon).
+  // Agent jest WSPOLNY dla wszystkich warsztatow, wiec agent_id nie odroznia
+  // niczego i nie ma z czego wyprowadzic wlasciwego warsztatu.
+  const r = await rozpoznajWarsztat({ called_number: "+48221009999", agent_id: "agent_x" }, tabela({}), agent(WARSZTAT_TESTOWY));
+  assertEquals(r.providerId, null, "nieznany numer nie moze dostac CUDZEGO warsztatu");
+  assertEquals(r.droga, "nieznany_numer");
+  assertEquals(r.numer, "48221009999", "numer ma zostac w wyniku — to slad do zbadania");
+});
+
+Deno.test("fallback NIE jest wolany, gdy numer jest obecny ale nieznany", async () => {
+  let wolan = 0;
+  await rozpoznajWarsztat({ called_number: "48221009999" }, tabela({}), () => { wolan++; return Promise.resolve(WARSZTAT_TESTOWY); });
+  assertEquals(wolan, 0, "samo wywolanie fallbacku juz jest bledem — snapshot bylby cudzy");
 });
 
 Deno.test("REGRESJA: brak called_number w ogole — tak wygladaja dzisiejsze rozmowy", async () => {
@@ -48,15 +59,16 @@ Deno.test("dwa numery to dwa warsztaty — o to w tym wszystkim chodzi", async (
 Deno.test("nie znamy ani numeru, ani agenta — pusty snapshot, nie wyjatek", async () => {
   const r = await rozpoznajWarsztat({ called_number: "48500600700" }, tabela({}), agent(null));
   assertEquals(r.providerId, null);
-  assertEquals(r.droga, "brak");
-  assertEquals(r.numer, "48500600700");   // numer znamy, warsztatu nie — to jest sierota do zbadania
+  assertEquals(r.droga, "nieznany_numer");
+  assertEquals(r.numer, "48500600700");   // numer znamy, warsztatu nie — slad do zbadania
 });
 
-Deno.test("numer nieaktywny zachowuje sie jak nieznany, nie jak blad", async () => {
+Deno.test("numer w trakcie aktywacji tez nie dostaje cudzego snapshotu", async () => {
   // Zapytanie filtruje po status='aktywny', wiec numer w trakcie aktywacji
-  // po prostu nie trafia — i ma zadzialac fallback, a nie 500.
+  // nie trafia. To ma dac pusty snapshot, a nie snapshot innego warsztatu.
   const r = await rozpoznajWarsztat({ called_number: NASZ, agent_id: "agent_x" }, tabela({}), agent(WARSZTAT_TESTOWY));
-  assertEquals(r.droga, "agent_id");
+  assertEquals(r.droga, "nieznany_numer");
+  assertEquals(r.providerId, null);
 });
 
 Deno.test("normalizacja: wszystkie postaci daja jeden zapis", () => {

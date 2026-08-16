@@ -16,7 +16,7 @@
 // ============================================================================
 
 /** Skąd wzięliśmy warsztat. Trafia do logu — inaczej nie wiadomo, czy nowa droga w ogóle działa. */
-export type Droga = "numer" | "agent_id" | "brak";
+export type Droga = "numer" | "agent_id" | "nieznany_numer" | "brak";
 
 export interface Rozpoznanie {
   providerId: string | null;
@@ -72,10 +72,22 @@ export async function rozpoznajWarsztat(
   if (numer) {
     const zNumeru = await poNumerze(numer);
     if (zNumeru) return { providerId: zNumeru, droga: "numer", numer };
+    // NUMER JEST, ALE GO NIE ZNAMY — I TU FALLBACK JEST ZAKAZANY.
+    //
+    // Pierwsza wersja szła wtedy na `agent_id`. Sprawdzone na produkcji 16.08:
+    // wywołanie z nieznanym numerem dostawało PEŁNY snapshot warsztatu
+    // domyślnego — usługi, ceny i do 500 rekordów `workshop_clients`
+    // z imieniem i telefonem. Przy jednym warsztacie nieszkodliwe, przy drugim
+    // to wyciek danych osobowych KLIENTÓW cudzego warsztatu.
+    //
+    // Agent jest wspólny dla wszystkich warsztatów, więc `agent_id` nie
+    // odróżnia niczego — nie ma z czego wyprowadzić „właściwego" warsztatu.
+    // Pusty snapshot jest tu jedyną poprawną odpowiedzią: agent bez danych
+    // zamiast agenta z cudzymi.
+    return { providerId: null, droga: "nieznany_numer", numer };
   }
-  // FALLBACK. Nasz numer testowy nie jest jeszcze w tabeli numerów, a rozmowy
-  // na nim mają działać przez cały czas przenoszenia. Fallback znika dopiero
-  // wtedy, gdy log pokaże, że nikt już tędy nie chodzi.
+  // FALLBACK TYLKO GDY NUMERU NIE MA W OGÓLE. Zostaje, dopóki log nie pokaże,
+  // że żadna prawdziwa rozmowa już tędy nie chodzi.
   const zAgenta = await poAgencie();
   if (zAgenta) return { providerId: zAgenta, droga: "agent_id", numer };
   return { providerId: null, droga: "brak", numer };

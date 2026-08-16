@@ -211,6 +211,12 @@ serve(async (req) => {
   };
 
   try {
+    // POWÓD PUSTEGO SNAPSHOTU. Jedna etykieta na trzy różne sytuacje jest
+    // diagnostycznym kłamstwem: „przekroczony budżet 300 ms albo brak
+    // konfiguracji agenta" mówiło o progu, którego od dawna nie ma, i zlewało
+    // timeout z nieznanym numerem. Pusty snapshot z KAŻDEGO z tych powodów
+    // wygląda w słuchawce tak samo — w logu nie ma prawa.
+    let powodPustego: string | null = null;
     const zbuduj = async () => {
       // KTÓRY WARSZTAT ODBIERA. Numer, NA KTÓRY zadzwoniono, ma pierwszeństwo
       // przed `agent_id` — agent jest wspólny dla wszystkich warsztatów i mówi
@@ -240,11 +246,28 @@ serve(async (req) => {
       console.info("[voice-agent-init]", JSON.stringify({
         event: "rozpoznanie_warsztatu",
         droga: rozpoznanie.droga,
-        ma_numer: rozpoznanie.numer != null,   // sam numer NIE trafia do logu
+        ma_numer: rozpoznanie.numer != null,   // numer DZWONIĄCEGO nie trafia do logu nigdy
         warsztat: rozpoznanie.providerId ? "jest" : "brak",
       }));
+      if (rozpoznanie.droga === "nieznany_numer") {
+        // TU NUMER WYPISUJEMY W CAŁOŚCI — i jest to świadomy wyjątek.
+        // To numer DOCELOWY, czyli nasz albo niczyj: numer firmowy, nie dane
+        // osobowe dzwoniącego. Bez niego wiemy tylko, że „ktoś zadzwonił pod
+        // nieznany numer", a to zdanie nic nie daje. Z nim wiemy, czy to
+        // pomyłka klienta, czy numer, który kupiliśmy i zgubiliśmy.
+        console.warn("[voice-agent-init]", JSON.stringify({
+          event: "polaczenie_na_nieznany_numer",
+          numer: rozpoznanie.numer,
+          skutek: "pusty snapshot — fallback zakazany, zeby nie podac cudzych danych",
+        }));
+      }
       const providerId = rozpoznanie.providerId ?? undefined;
-      if (!providerId) return null;
+      if (!providerId) {
+        powodPustego = rozpoznanie.droga === "nieznany_numer"
+          ? "numer spoza tabeli numerow — fallback zakazany, zeby nie podac cudzych danych"
+          : "brak konfiguracji agenta dla tego agent_id/persony";
+        return null;
+      }
 
       const dzisiaj = dzisiajWarszawa();
       const koniecOkna = new Date(new Date(dzisiaj + "T12:00:00Z").getTime() + DNI_W_PRZOD * 864e5)
@@ -511,7 +534,7 @@ serve(async (req) => {
       zbuduj(),
       new Promise<null>((r) => setTimeout(() => r(null), BUDZET_MS)),
     ]);
-    if (!snapshot) return pusty("przekroczony budżet 300 ms albo brak konfiguracji agenta");
+    if (!snapshot) return pusty(powodPustego ?? `przekroczony budzet ${BUDZET_MS} ms`);
 
     const tekst = JSON.stringify(snapshot);
     console.info("[voice-agent-init]", JSON.stringify({
