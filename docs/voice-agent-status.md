@@ -3286,13 +3286,49 @@ dokumentem.
 | 27 stan z kilku źródeł wymaga warstw | ✅ | `voice-polski-nienaruszony.mjs`, 5 warstw |
 | 28 czerwone przy poprawnym zdaniu | ✅ | 27 przypadków testowych asercji |
 | 29 prompt musi być czytelny | ⚠️ częściowo | brak kontroli liczby reguł |
-| 30 uporządkowany wzorzec jest silniejszy | ❌ | **brak** |
-| 31 scenariusz odtwarza rzeczywistość | ❌ | **brak** — nikt nie sprawdza, czy scenariusz pochodzi z transkryptu |
+| 30 uporządkowany wzorzec jest silniejszy | ❌ | **brak** — świadomie, patrz niżej |
+| 31 scenariusz odtwarza rzeczywistość | ✅ | `scenariusze_test.mjs` — pole `zrodlo` obowiązkowe |
 | 32 pułapka powtarzalna wymaga kontroli | ✅ | test `\b` przy cyrylicy, test żywotności asercji |
 | 33 porównuj wartości, nie formy | ⚠️ częściowo | testy dat i godzin, ale nowe pola bez ochrony |
 | 34 agent proponuje, nie pyta | ✅ | dwa testy wzorców |
-| 35 pomiar ma koszt | ❌ | **brak** — nic nie liczy kosztu przed przebiegiem |
+| 35 pomiar ma koszt | ✅ | koszt liczony przed przebiegiem, próg 5 PLN blokuje bez `--zgoda` |
 | 36 zasada bez kontroli | ✅ | bramka zapisu + test obejścia |
+| 37 cisza musi być odróżnialna | ⚠️ częściowo | patrz przegląd niżej |
 
-**Trzy zasady bez kontroli: 30, 31, 35.** To one zostaną złamane następnym
-razem — i to nie jest przewidywanie, tylko obserwacja z tego tygodnia.
+**Jedna zasada bez kontroli: 30** — i to świadomie: „uporządkowany wzorzec
+jest łatwiejszy do skopiowania" to obserwacja o redakcji promptu, nie warunek,
+który da się sprawdzić maszyną. 31 i 35 kontrole dostały 18.08.
+
+---
+
+## ZASADA 37 — cisza musi być odróżnialna od awarii
+
+Alert, który odzywa się wyłącznie przy kłopocie, jest nietestowalny: nie wiadomo,
+czy milczy, bo jest dobrze, czy dlatego, że nie działa.
+
+To ta sama lekcja co martwe asercje (zasada 32) i co cicha gałąź `warmup`,
+która nie pojawiała się w logach i wyglądała jak brak podtrzymywania, choć
+`pg_net` dostawał 200. **Kontrola okresowa ma zostawiać ślad przy KAŻDYM
+przebiegu, także zerowym** — liczbę, nie milczenie.
+
+„20 numerów u operatora, 20 u nas, 0 rozbieżności" widziane codziennie znaczy,
+że kontrola chodzi. Brak wiadomości nie znaczy nic.
+
+### Przegląd naszych kontroli i alertów
+
+| mechanizm | zostawia ślad przy „wszystko dobrze"? |
+|---|---|
+| regresja 0/20 | ✅ zawsze wypisuje licznik |
+| `voice-polski-nienaruszony.mjs` | ✅ pięć warstw, każda z wynikiem |
+| audyt D1–D12 | ✅ liczniki (D7 wypisuje 311 zdań, nie stałe 1) |
+| symulacja rozmów | ✅ „PRZESZŁO n z m" |
+| `warmup` w funkcjach głosowych | ✅ log przy każdym przebiegu (naprawione 15.08) |
+| testy żywotności asercji | ✅ raportują asercje, które nic nie łapią |
+| **alert billingowy** (`voice-agent-chat`) | ❌ **odzywa się tylko przy awarii** |
+| **`telephony-webhook`** | ❌ **cisza operatora nieodróżnialna od awarii wpięcia** |
+| rekoncyliacja numerów | ✅ w projekcie — pasek z wynikiem każdego przebiegu |
+
+**Dwa braki do naprawienia:** alert billingowy potrzebuje licznika „ile razy
+sprawdzono, ile razy zapaliło", a webhook operatora — sygnału, że w ogóle
+przychodzi (np. „ostatnie zdarzenie: 12 minut temu" obok listy Połączeń).
+Bez tego wyłączony webhook wygląda identycznie jak spokojny dzień.

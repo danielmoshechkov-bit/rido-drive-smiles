@@ -273,3 +273,45 @@ techniczna najpierw.
 
 Punkty 1–5 nie wydają ani złotówki. Pierwszy zakup zdarza się w punkcie 7
 i wtedy przechodzi przez `supervoipZakup.ts`.
+
+---
+
+# Po wdrożeniu punktu 3 (16.08) — co pokazał kontakt z produkcją
+
+Regresja przeszła: ten sam odcisk snapshotu (`2ca0c48118a8`) trzema drogami —
+przez numer z `agent_id`, przez sam numer i przez fallback bez numeru.
+Log potwierdza `droga: numer` po dopisaniu numeru i `droga: agent_id` bez niego.
+Czas budowy 116–186 ms przy budżecie 800 ms.
+
+## RYZYKO ZNALEZIONE PRZY OKAZJI: fallback jest bezpieczny tylko dla jednego warsztatu
+
+Wywołanie z numerem, którego NIE MA w tabeli, dostało **pełny snapshot
+warsztatu domyślnego**. Dziś to nieszkodliwe, bo warsztat jest jeden.
+Przy drugim warsztacie znaczy: klient dzwoni pod numer, którego nie
+obsługujemy, i słyszy usługi, ceny **oraz listę klientów** cudzego warsztatu
+(snapshot niesie do 500 rekordów `workshop_clients` z imieniem i telefonem).
+
+Dwie ścieżki prowadzą do tego samego:
+
+- brak `agent_id` → fallback szuka po `persona_key = 'workshop_secretary'`
+  i trafia w jedyną konfigurację,
+- jest `agent_id` → fallback trafia w konfigurację tego agenta, a agent jest
+  **wspólny dla wszystkich warsztatów**.
+
+**Naprawa (do akceptacji, bo zmienia zachowanie):** fallback wolno odpalać
+WYŁĄCZNIE wtedy, gdy w ładunku nie ma `called_number`. Numer obecny, ale
+nieznany → pusty snapshot, czyli agent bez danych, a nie agent z cudzymi.
+
+Kolejność ma znaczenie i dlatego nie robię tego dziś jednym ruchem: dopóki
+nasz numer nie był w tabeli, taka reguła zabrałaby snapshot wszystkim
+prawdziwym rozmowom. Numer jest w tabeli od dziś, więc naprawa jest bezpieczna
+od następnego wdrożenia — ale to osobna zmiana i osobna regresja.
+
+## Backlog
+
+- **Czerwony typecheck `voice-agent-init`** — 3 błędy `TS2345/TS2589`
+  w `tokenyDozwolone(admin)`, sprzed naszych zmian. Nie blokują wdrożenia,
+  ale czerwone, które wszyscy mijają, przestaje cokolwiek znaczyć — to ta sama
+  klasa co sekcja E audytu, która zawsze świeciła na czerwono.
+- **Fallback po `agent_id`** — do usunięcia, gdy log przestanie go pokazywać.
+- **Ślad życia webhooka operatora i alertu billingowego** (zasada 37).
