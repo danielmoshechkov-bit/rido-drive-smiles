@@ -246,11 +246,28 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
     if (!vehicleId) errs.vehicle = t('workshop.newOrder.errorSelectVehicle');
     if (!taskPoints.some(p => p.text.trim())) errs.description = t('workshop.newOrder.errorAddTask');
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+    if (Object.keys(errs).length) {
+      // Komunikaty przy polach giną w długim oknie — po kliknięciu „Utwórz
+      // zlecenie" wygląda to, jakby przycisk nie działał. Mówimy wprost.
+      toast.error(`Nie mogę utworzyć zlecenia: ${Object.values(errs).join('; ')}`);
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async () => {
     if (!validate()) return;
+    try {
+      await utworzZlecenie();
+    } catch (e: any) {
+      // Bez tego wyjątek z zapisu leciał w próżnię: okno zostawało otwarte,
+      // zlecenia nie było, a użytkownik nie wiedział, że coś poszło nie tak.
+      console.error('Nie udało się utworzyć zlecenia:', e);
+      toast.error(`Nie udało się utworzyć zlecenia: ${e?.message || 'nieznany błąd'}`);
+    }
+  };
+
+  const utworzZlecenie = async () => {
     const descriptionText = taskPoints.filter(p => p.text.trim()).map((p, i) => `${i + 1}. ${p.text.trim()}`).join('\n');
     const order = await createOrder.mutateAsync({
       provider_id: providerId,

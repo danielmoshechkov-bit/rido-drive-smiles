@@ -29,7 +29,7 @@ sprawdz('powiadomienie wyslane', stanOdbioru({ status_name: 'Gotowy do odbioru',
 
 // Kolory i podpowiedzi
 const czerwony = stanKosztorysu({}, true);
-if (!czerwony.klasa.includes('animate-pulse') || !czerwony.klasa.includes('red')) { bledy++; console.log('BLAD  stan „do wyslania" nie miga na czerwono'); }
+if (!czerwony.klasa.includes('miga-do-wyslania') || !czerwony.klasa.includes('red')) { bledy++; console.log('BLAD  stan „do wyslania" nie miga na czerwono'); }
 else console.log(' OK   stan „do wyslania" miga na czerwono');
 if (!/wyślij/i.test(czerwony.podpowiedz)) { bledy++; console.log('BLAD  podpowiedz nie mowi, co zrobic'); }
 else console.log(' OK   podpowiedz mowi, co zrobic');

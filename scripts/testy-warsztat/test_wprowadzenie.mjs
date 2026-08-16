@@ -58,5 +58,17 @@ const okno = czytaj('src/components/workshop/WorkshopNewOrderDialog.tsx', 'utf8'
 sprawdz('Enter zaklada auto, gdy nie ma go w kartotece', /e.key !== 'Enter'[\s\S]{0,900}setShowAddVehicle\(true\)/.test(okno));
 sprawdz('podpowiedz przy braku wynikow', okno.includes('Tego auta nie ma jeszcze w kartotece'));
 
+// 9. Kroki nie mogą przelatywać same, gdy cel bieżącego kroku wciąż jest widoczny.
+sprawdz('auto-przejscie tylko gdy krok utknal', silnik.includes('if (celBiezacego) return;'));
+// 10. Wprowadzenie prowadzi też przez okno nowego pojazdu (właściciel, lupka).
+sprawdz('trasa obejmuje wlasciciela pojazdu', cele.includes('pojazd-wlasciciel'));
+sprawdz('trasa obejmuje lupke przy rejestracji', cele.includes('pojazd-rejestracja'));
+// 11. Darmowe sprawdzenie nie może być blokowane licznikiem kredytów w przeglądarce.
+const oknoPojazdu = czytaj('src/components/workshop/WorkshopAddVehicleDialog.tsx', 'utf8');
+sprawdz('licznik kredytow nie blokuje darmowego sprawdzenia', oknoPojazdu.includes('!trybProbny && (!credits'));
+// 12. Nieudane zapisanie zlecenia musi być widoczne.
+sprawdz('blad zapisu zlecenia widoczny', okno.includes('Nie udało się utworzyć zlecenia'));
+sprawdz('walidacja mowi, czego brakuje', okno.includes('Nie mogę utworzyć zlecenia'));
+
 console.log(bledy ? `BLAD: ${bledy} przypadkow` : 'WPROWADZENIE KOMPLETNE');
 process.exit(bledy ? 1 : 0);

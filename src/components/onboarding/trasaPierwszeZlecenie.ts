@@ -27,14 +27,25 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     akcja: 'To sprawdzenie jest częścią wprowadzenia — nie schodzi z Twojego limitu',
   },
   {
+    cel: 'pojazd-wlasciciel',
+    tytul: 'Najpierw właściciel auta',
+    tresc: 'W oknie nowego pojazdu zaczynasz od właściciela: wyszukaj go na liście klientów, a jeśli go tam nie ma — kliknij „Dodaj właściciela".\n\nDzięki temu auto od razu ma przypisanego klienta i całą historię napraw w jednym miejscu.',
+  },
+  {
+    cel: 'pojazd-rejestracja',
+    tytul: 'Numer i lupka',
+    tresc: 'Teraz numer rejestracyjny. Możesz wpisać dane auta ręcznie, ale szybciej jest kliknąć lupkę — marka, model, rocznik, pojemność, moc i VIN pobiorą się same.',
+    akcja: 'Kliknij lupkę przy numerze — to sprawdzenie nie schodzi z Twojego limitu',
+  },
+  {
     cel: 'pole-klienta',
     tytul: 'Dane klienta',
     tresc: 'Tu wybierasz klienta z kartoteki albo dodajesz nowego.\n\nNa czas wprowadzenia wpisz SIEBIE i swój numer telefonu — wszystkie SMS-y z tego zlecenia przyjdą do Ciebie i zobaczysz dokładnie to, co zobaczy klient.',
   },
   {
     cel: 'pole-opisu',
-    tytul: 'Co jest do zrobienia',
-    tresc: 'Opis usterki albo lista czynności. Każda linia stanie się osobną pozycją do odhaczenia przez mechanika.\n\nNa próbę wpisz na przykład:\nWymiana klocków\nWymiana wahaczy',
+    tytul: 'Lista zadań do wykonania',
+    tresc: 'Tu wpisujesz w punktach to, z czym przyjechał klient, oraz to, co trzeba przy okazji sprawdzić w aucie.\n\nKażdy punkt to osobna pozycja, którą mechanik odhacza w swojej karcie, a potem wyceniasz ją w kosztorysie. Przycisk „Dodaj pozycję" albo Enter dokłada kolejną.\n\nNa próbę wpisz na przykład:\nWymiana klocków przód\nWymiana wahaczy\nSprawdzić stan tarcz i płynu hamulcowego',
   },
   {
     cel: 'zapisz-zlecenie',

@@ -27,7 +27,7 @@ export interface OpisAkcji {
 
 const KLASY: Record<StanAkcji, string> = {
   nieaktywny: 'text-muted-foreground/50',
-  do_wyslania: 'text-red-500 animate-pulse',
+  do_wyslania: 'text-red-500 miga-do-wyslania',
   wyslane: 'text-amber-500',
   gotowe: 'text-green-500',
 };

@@ -161,13 +161,16 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       toast.error(t('workshop.vehicles.enterPlate'));
       return;
     }
-    if (!credits || credits.remaining_credits < 1) {
+    // W trakcie wprowadzenia NIE pytamy o kredyty: pierwsze sprawdzenie jest
+    // darmowe, a decyduje o tym serwer. Wcześniej ta bramka po stronie
+    // przeglądarki odcinała je zanim zapytanie w ogóle wyszło — warsztat
+    // z zerem kredytów widział okno sprzedaży pakietu zamiast danych auta.
+    if (!trybProbny && (!credits || credits.remaining_credits < 1)) {
       setShowCreditsModal(true);
       return;
     }
-    // W trakcie wprowadzenia pierwsze sprawdzenie jest darmowe (decyduje serwer).
     const data = await checkRegistration(form.plate, trybProbny);
-    if (!data && credits && credits.remaining_credits < 1) {
+    if (!data && !trybProbny && credits && credits.remaining_credits < 1) {
       setShowCreditsModal(true);
     } else if (data) {
       applyVehicleData(data);
@@ -266,7 +269,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
           <div className="space-y-4">
 
             {/* === SECTION: Dane klienta === */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" data-tour="pojazd-wlasciciel">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">{t('workshop.vehicles.clientData')}</Label>
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddOwner(true)}>
@@ -316,7 +319,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>{t('workshop.orders.plateNumber')}</Label>
-                <div className="relative">
+                <div className="relative" data-tour="pojazd-rejestracja">
                   <Input onFocus={e => e.currentTarget.select()} value={form.plate} onChange={e => set('plate', e.target.value.toUpperCase())} placeholder={t('workshop.orders.plateNumber')} className="pr-10" />
                   <button type="button" onClick={handleSearchPlate} disabled={lookupLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-accent transition-colors">
                     {lookupLoading ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <Search className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer" />}

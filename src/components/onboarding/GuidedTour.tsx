@@ -114,6 +114,13 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
   useEffect(() => {
     if (!biezacy?.czekaNaKlikniecie || !celNastepnego) return;
     const sprawdz = () => {
+      // Warunek jest podwójny i to jest sedno: przechodzimy dalej WYŁĄCZNIE
+      // wtedy, gdy celu bieżącego kroku nie ma już na ekranie (użytkownik
+      // poszedł dalej albo cel jest zasłonięty), a cel następnego już jest.
+      // Bez pierwszego warunku kroki w tym samym oknie przelatywały same —
+      // „lista zadań" znikała, zanim ktokolwiek zdążył ją przeczytać.
+      const celBiezacego = biezacy.cel ? document.querySelector(`[data-tour="${biezacy.cel}"]`) : null;
+      if (celBiezacego) return;
       if (document.querySelector(`[data-tour="${celNastepnego}"]`)) onDalej();
     };
     const timer = window.setInterval(sprawdz, 500);
