@@ -357,6 +357,12 @@ Skróty muszą się zgadzać. Jeśli nie — funkcja została nadpisana, deploy 
    - Zlecenia: lista pod nakładką, Rezerwacje **nad** nią i używalne
    - Nakładka → „Przeglądaj i eksportuj swoje dane" → eksport z Raportów działa
    - Próba założenia zlecenia → odmowa z bazy
+   - ⚠️ **Edycja istniejącego zlecenia po odsłonięciu nakładki**: baza nie zmieni
+     ani jednego wiersza (sprawdzone na lokalnym Postgresie), ale polityka
+     RESTRICTIVE przy `UPDATE`/`DELETE` **filtruje wiersze zamiast rzucać
+     wyjątek** — więc formularz nie pokaże błędu. Zapisz zmianę, odśwież stronę
+     i sprawdź, że jej nie ma. Naprawa po stronie interfejsu jest osobnym
+     zadaniem (patrz niżej).
    - „Przenieś do zleceń" w Rezerwacjach → komunikat po polsku, nie błąd bazy
    - Potwierdzenie rezerwacji → **udaje się**
 3. **Widoczność publiczna** — w oknie incognito warsztat zniknął z `/uslugi`,
@@ -380,3 +386,22 @@ Skróty muszą się zgadzać. Jeśli nie — funkcja została nadpisana, deploy 
 | 5 | + zadania mogą działać | funkcje brzegowe wciąż bez bramki |
 | 6 | pełny gating | — |
 | 7 | potwierdzone, że nic nie nadpisane | — |
+
+
+---
+
+## Znany brak do domknięcia po wdrożeniu
+
+**Cicha „udana" edycja po odsłonięciu nakładki.** Polityki RESTRICTIVE chronią
+dane w pełni — zapis nie przechodzi. Ale przy `UPDATE` i `DELETE` Postgres
+*filtruje wiersze*, zamiast zgłaszać błąd, więc `supabase.update()` wraca bez
+błędu i z zerem zmienionych wierszy. Formularz, który nie sprawdza liczby
+zmienionych wierszy, pokaże „zapisano".
+
+Dotyczy wyłącznie ścieżki po świadomym kliknięciu „Przeglądaj i eksportuj swoje
+dane" — przy nietkniętej nakładce formularze są niedostępne (`inert`).
+
+Dane są bezpieczne w obu wariantach; problemem jest mylący komunikat.
+Naprawa: przy zapisach dopisać `.select()` i potraktować pustą odpowiedź jak
+odmowę, z komunikatem „Zapis wymaga aktywnego planu". Do zrobienia po
+uruchomieniu sprzedaży — nie blokuje wdrożenia.
