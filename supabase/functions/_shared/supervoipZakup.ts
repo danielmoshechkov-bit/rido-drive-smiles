@@ -19,7 +19,6 @@ export interface StanKonta {
   saldo: number;                 // accountBalance
   mozeKupic: boolean;            // canBuyVoipNumber
   numeryZablokowane: boolean;    // voipNumberLock
-  staleMiesieczne: number;       // pakiet + usługi, brutto
 }
 
 export interface KosztNumeru {
@@ -31,45 +30,34 @@ export interface Werdykt {
   wolno: boolean;
   powod: string;
   saldoPo: number;
-  miesiecyZapasu: number;
 }
 
 /**
  * Czy wolno kupić numer.
  *
- * `zapasMiesiecy` to nie ostrożność dla ostrożności: numer sprzedany warsztatowi
- * ma działać w kolejnym miesiącu, a saldo prepaid schodzi też na abonament
- * i rozmowy. Zakup, po którym nie stać nas na następny okres rozliczeniowy,
- * jest zakupem, który zaraz zabierze numer klientowi.
+ * Sprawdzamy TYLKO to, czego operator nie sprawdzi za nas w chwili zakupu:
+ * czy konto nie jest zablokowane i czy saldo pokrywa ten jeden zakup.
+ *
+ * Pierwsza wersja wymagała zapasu na dwa miesiące stałych kosztów. Zdjęte:
+ * SuperVoIP jest prepaid i sam pobiera abonament z salda, więc pilnowanie
+ * tego po naszej stronie dublowało cudzy mechanizm i opierało się na liczbie
+ * (stałe miesięczne), którą musielibyśmy utrzymywać ręcznie — a zdezaktualizowana
+ * stała w kontroli jest gorsza niż brak kontroli, bo wygląda na pilnowanie.
  */
-export function czyWolnoKupic(
-  konto: StanKonta,
-  koszt: KosztNumeru,
-  zapasMiesiecy = 2,
-): Werdykt {
-  const saldoPo = Number((konto.saldo - koszt.aktywacja - koszt.miesiecznie).toFixed(2));
-  const naMiesiac = konto.staleMiesieczne + koszt.miesiecznie;
-  const miesiecyZapasu = naMiesiac > 0 ? Number((saldoPo / naMiesiac).toFixed(2)) : Infinity;
+export function czyWolnoKupic(konto: StanKonta, koszt: KosztNumeru): Werdykt {
+  const doZaplaty = Number((koszt.aktywacja + koszt.miesiecznie).toFixed(2));
+  const saldoPo = Number((konto.saldo - doZaplaty).toFixed(2));
 
   if (!konto.mozeKupic) {
-    return { wolno: false, powod: "operator zwraca canBuyVoipNumber=false — zakup zablokowany po ich stronie", saldoPo, miesiecyZapasu };
+    return { wolno: false, powod: "operator zwraca canBuyVoipNumber=false — zakup zablokowany po ich stronie", saldoPo };
   }
   if (konto.numeryZablokowane) {
-    return { wolno: false, powod: "voipNumberLock=true — numery na koncie są zablokowane", saldoPo, miesiecyZapasu };
+    return { wolno: false, powod: "voipNumberLock=true — numery na koncie są zablokowane", saldoPo };
   }
   if (saldoPo < 0) {
-    return { wolno: false, powod: `saldo nie pokrywa zakupu: ${konto.saldo} zł, koszt ${(koszt.aktywacja + koszt.miesiecznie).toFixed(2)} zł`, saldoPo, miesiecyZapasu };
+    return { wolno: false, powod: `saldo nie pokrywa zakupu: ${konto.saldo} zł, koszt ${doZaplaty.toFixed(2)} zł`, saldoPo };
   }
-  if (miesiecyZapasu < zapasMiesiecy) {
-    return {
-      wolno: false,
-      powod: `po zakupie zostaje ${saldoPo} zł, czyli ${miesiecyZapasu} miesiąca przy stałych ${naMiesiac.toFixed(2)} zł/mc — `
-        + `wymagany zapas to ${zapasMiesiecy}. Numer, za który nie ma z czego zapłacić, przestanie działać warsztatowi.`,
-      saldoPo,
-      miesiecyZapasu,
-    };
-  }
-  return { wolno: true, powod: `saldo ${konto.saldo} zł → ${saldoPo} zł, zapas ${miesiecyZapasu} mies.`, saldoPo, miesiecyZapasu };
+  return { wolno: true, powod: `saldo ${konto.saldo} zł → ${saldoPo} zł`, saldoPo };
 }
 
 /**
@@ -87,7 +75,6 @@ export function przygotujZakup(opcje: {
   koszt: KosztNumeru;
   zamierzone?: boolean;
   powod?: string;
-  zapasMiesiecy?: number;
 }): { sciezka: string; cialo: Record<string, unknown>; werdykt: Werdykt } {
   if (opcje.zamierzone !== true) {
     throw new Error(
@@ -103,7 +90,7 @@ export function przygotujZakup(opcje: {
   if (!/^\/api\/sips\/\d+$/.test(opcje.sipIri)) {
     throw new Error(`ODMOWA ZAKUPU: sipIri ma być postaci /api/sips/{id}, dostałem: ${opcje.sipIri}`);
   }
-  const werdykt = czyWolnoKupic(opcje.konto, opcje.koszt, opcje.zapasMiesiecy);
+  const werdykt = czyWolnoKupic(opcje.konto, opcje.koszt);
   if (!werdykt.wolno) throw new Error(`ODMOWA ZAKUPU: ${werdykt.powod}`);
 
   return {
