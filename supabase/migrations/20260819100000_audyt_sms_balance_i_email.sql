@@ -227,8 +227,8 @@ WHERE EXISTS (
   SELECT 1 FROM public.pakiety_startowe q
   WHERE public.normalizuj_email(q.email) = public.normalizuj_email(p.email)
     AND q.email <> p.email
-    AND (COALESCE(q.created_at, '-infinity'::timestamptz), q.email)
-      < (COALESCE(p.created_at, '-infinity'::timestamptz), p.email)
+    AND (COALESCE(q.przyznany_at, '-infinity'::timestamptz), q.email)
+      < (COALESCE(p.przyznany_at, '-infinity'::timestamptz), p.email)
 );
 
 UPDATE public.pakiety_startowe
