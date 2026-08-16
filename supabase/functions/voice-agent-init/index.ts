@@ -173,6 +173,22 @@ serve(async (req) => {
     ?? (body as Record<string, unknown>)?.from_number ?? "";
   const callerId = tylkoCyfry(callerRaw);
 
+  // JAKIE POLA W OGOLE DOSTAJEMY OD PLATFORMY.
+  //
+  // Architektura multi-tenancy zalezy od tego, czy webhook inicjujacy niesie
+  // NUMER, NA KTORY klient zadzwonil. Diversion od SuperVoIP nie przychodzi
+  // (sprawdzone 17.08 na dziewieciu rozmowach), wiec numer docelowy jest
+  // jedynym kandydatem na rozpoznanie warsztatu. Logujemy KLUCZE, nie
+  // wartosci — numery telefonu nie maja prawa trafic do logu.
+  console.info("[voice-agent-init]", JSON.stringify({
+    event: "pola_webhooka",
+    klucze: Object.keys((body as Record<string, unknown>) || {}),
+    ma_called_number: (body as Record<string, unknown>)?.called_number != null,
+    ma_agent_number: (body as Record<string, unknown>)?.agent_number != null,
+    ma_to_number: (body as Record<string, unknown>)?.to_number != null,
+    klucze_call: Object.keys(((body as Record<string, Record<string, unknown>>)?.call) || {}),
+  }));
+
   // Pusty snapshot to POPRAWNA odpowiedź, nie awaria. Agent wraca wtedy do
   // check_availability i do „wycenimy po obejrzeniu auta".
   const pusty = (powod: string) => {

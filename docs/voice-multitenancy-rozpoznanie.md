@@ -3,7 +3,25 @@
 Stan na 15.08.2026. **Kodu nie ma** — to są odpowiedzi na trzy pytania,
 od których zależy architektura.
 
-## 1. Jeden numer techniczny, nie pula
+## ⛔ ROZSTRZYGNIĘTE 17.08: architektura z JEDNYM numerem NIE DZIAŁA
+
+**Test kontrolowany wykonany.** Właściciel ustawił przekierowanie i zadzwonił
+z trzeciego telefonu. Dziewięć połączeń z 17.08, w tym kilka przekierowanych,
+ma **identyczny zestaw nagłówków** jak połączenia bezpośrednie:
+
+    Record-Route, Via, Max-Forwards, From, To, Contact, Call-ID, CSeq,
+    User-Agent, Date, Allow, Supported, X-Callid, X-CallerID, Content-*
+
+**Brak `Diversion`. Brak `History-Info`. Brak `P-Asserted-Identity`.**
+`To` zawiera zawsze nasz numer techniczny — numeru, na który klient dzwonił
+pierwotnie, nie da się odczytać z niczego.
+
+Zapytanie do SuperVoIP wysłane (`docs/zgloszenie-supervoip-diversion.md`).
+Do czasu odpowiedzi obowiązuje **wariant z pulą numerów**.
+
+Poniższa sekcja opisuje wariant, który odpadł — zostaje jako zapis rozumowania.
+
+## 1. (ODPADŁO) Jeden numer techniczny, nie pula
 
 Zmierzone na naszej konfiguracji, nie przeczytane w dokumentacji:
 
@@ -129,3 +147,76 @@ W INVITE szukam po kolei:
 
 Po teście podaj mi `conversation_id` albo samą godzinę połączenia — resztę
 odczytam sam.
+
+---
+
+# WARIANT OBOWIĄZUJĄCY: PULA NUMERÓW (od 17.08)
+
+## Kluczowe ustalenie: potrzebujemy osobnego NUMERU, nie osobnego AGENTA
+
+Sprawdzone na API:
+
+- **Numer → agent jest 1:1**: pole `assigned_agent` na numerze przyjmuje
+  jednego agenta.
+- **Agent → numery jest 1:N**: nic w API nie ogranicza liczby numerów
+  wskazujących tego samego agenta. Przypisanie jest atrybutem NUMERU,
+  a nie listą po stronie agenta.
+
+**Czyli jeden agent obsłuży wszystkie warsztaty, a warsztat rozpoznajemy
+po numerze, na który przyszło połączenie.** Nie potrzeba `Diversion`,
+nie potrzeba pytać operatora o cokolwiek, nie potrzeba agenta per warsztat.
+
+To jest rozwiązanie tańsze niż wariant z agentem per warsztat: jeden komplet
+promptu, jeden złoty stan, jedna konfiguracja do pilnowania.
+
+### Czego jeszcze brakuje do potwierdzenia
+
+`voice-agent-init` czyta dziś `agent_id` i `caller_id`. **Nie czyta numeru
+docelowego** — a to on ma rozpoznawać warsztat. Nie wiem, czy platforma go
+przysyła: dodałem log kluczy webhooka (bez wartości, numery nie trafiają
+do logu) i odczytam to przy następnym prawdziwym połączeniu.
+
+Jeśli webhook go nie niesie, zostaje `phone_call.agent_number` w metadanych
+rozmowy — ale to dane PO rozmowie, za późno na snapshot.
+
+## Dodawanie numerów przez API ElevenLabs — działa
+
+```
+POST /v1/convai/phone-numbers
+  warianty dostawcy: Twilio | Exotel | SIPTrunk
+  SIPTrunk wymaga:   phone_number, label  (+ konfiguracja trunku)
+```
+
+Przypisanie do agenta idzie przez `PATCH /v1/convai/phone-numbers/{id}`
+(sprawdzone: pusty PATCH zwraca 200 z aktualnym stanem numeru).
+
+**Krok „podepnij numer do agenta" w kreatorze jest wykonalny w całości
+przez API.**
+
+## Czego NIE mogę sprawdzić
+
+**SuperVoIP nie ma u nas żadnej integracji** — w repozytorium nie ma ani
+klienta ich API, ani danych dostępowych, ani śladu po dokumentacji.
+Nie zweryfikuję, czy da się kupić numer programowo.
+
+Te pytania trafiły do zgłoszenia (`docs/zgloszenie-supervoip-diversion.md`,
+punkty 4–7): API do zamawiania numerów, czas aktywacji, limit numerów
+na trunku, cena przy kilkudziesięciu sztukach.
+
+**Do czasu odpowiedzi nie umiem policzyć kosztu puli** — a bez ceny numeru
+nie da się rozstrzygnąć, czy wariant jest tani.
+
+## Przepływ docelowy — co jest gotowe, a co czeka
+
+| krok | stan |
+|---|---|
+| 1. warsztat klika „Aktywuj agenta" | do zbudowania (panel) |
+| 2. zakup numeru w SuperVoIP | **nieznane — czeka na odpowiedź operatora** |
+| 3. zapis numeru przy koncie warsztatu | trywialne (kolumna w bazie) |
+| 4. podpięcie numeru do agenta w ElevenLabs | **API działa, sprawdzone** |
+| 5. panel pokazuje numer i instrukcję | do zbudowania |
+| 6. warsztat ustawia przekierowanie | instrukcja gotowa (kody GSM w tym dokumencie) |
+
+Krok 2 jest jedynym, którego nie umiem dziś ocenić. Jeśli SuperVoIP nie ma
+API, zostaje ręczne zamówienie numeru — i wtedy trzeba zmierzyć, ile to minut
+na warsztat, bo przy pięćdziesięciu klientach to przesądza o modelu.
