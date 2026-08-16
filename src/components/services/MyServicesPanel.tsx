@@ -27,8 +27,7 @@ import { ProviderStaffPanel } from './ProviderStaffPanel';
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
 import {
   DAY_ORDER, DAY_LABELS, DEFAULT_WORKING_HOURS, normalizeWorkingHours, getOpenStatus,
-  type WorkingHours, type DayKey,
-} from '@/lib/provider-hours';
+  type WorkingHours, type DayKey,, naFormatWarsztatu } from '@/lib/provider-hours';
 import { formatMoneyPLN } from '@/utils/formatters';
 
 interface ProviderCategory {
@@ -583,8 +582,14 @@ export function MyServicesPanel({ providerId }: { providerId: string }) {
       if (error) throw error;
       // synchronizacja z ustawieniami firmy (warsztat) — jedno źródło, dwa miejsca edycji
       if (provider?.user_id) {
+        // KONWERSJA, nie kopia. `workshop_settings.working_hours` trzyma
+        // TABLICĘ Pn…Nd w kształcie {open, from, to}, a nie obiekt z kluczami
+        // dni. Wrzucanie tu obiektu psuło formularz rezerwacji u klienta
+        // końcowego — czytelnik odrzucał wszystko, co nie jest tablicą.
         await (supabase as any)
-          .from('workshop_settings').update({ working_hours: hours }).eq('user_id', provider.user_id);
+          .from('workshop_settings')
+          .update({ working_hours: naFormatWarsztatu(hours) })
+          .eq('user_id', provider.user_id);
       }
     },
     onSuccess: () => {
