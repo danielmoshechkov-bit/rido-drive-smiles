@@ -53,8 +53,12 @@ export function CalendarSettingsPage({ providerId }: Props) {
     queryKey: ['workshop-settings', providerId],
     enabled: !!providerId,
     queryFn: async () => {
+      // Ustawienia siedzą w workshop_calendar_settings (tabela warsztatu).
+      // Wcześniej ten ekran czytał `workshop_settings.calendar_settings` —
+      // kolumny, której nie ma, w tabeli bez `provider_id`. Zapytanie kończyło
+      // się błędem, ale nikt go nie pokazywał, więc ekran po prostu stał pusty.
       const { data } = await (supabase as any)
-        .from('workshop_settings')
+        .from('workshop_calendar_settings')
         .select('*')
         .eq('provider_id', providerId)
         .maybeSingle();
@@ -74,12 +78,12 @@ export function CalendarSettingsPage({ providerId }: Props) {
   const [templatesLoaded, setTemplatesLoaded] = useState(false);
 
   // Sync form with loaded settings
-  const loaded = settings?.calendar_settings;
+  const loaded = settings;
   if (loaded && !reminderForm._loaded) {
     setReminderForm({
       sms_confirmation_on_booking: loaded.sms_confirmation_on_booking ?? true,
       default_reminders: loaded.default_reminders || ['24h', '2h'],
-      default_duration: loaded.default_duration || '60',
+      default_duration: String(loaded.default_duration || 60),
       max_bookings_per_day: loaded.max_bookings_per_day ?? 0,
       _loaded: true,
     });
@@ -102,16 +106,14 @@ export function CalendarSettingsPage({ providerId }: Props) {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const { error } = await (supabase as any)
-        .from('workshop_settings')
+        .from('workshop_calendar_settings')
         .upsert({
           provider_id: providerId,
-          calendar_settings: {
-            sms_confirmation_on_booking: reminderForm.sms_confirmation_on_booking,
-            default_reminders: reminderForm.default_reminders,
-            default_duration: reminderForm.default_duration,
-            max_bookings_per_day: reminderForm.max_bookings_per_day,
-            sms_templates: smsTemplates,
-          },
+          sms_confirmation_on_booking: reminderForm.sms_confirmation_on_booking,
+          default_reminders: reminderForm.default_reminders,
+          default_duration: parseInt(String(reminderForm.default_duration), 10) || 60,
+          max_bookings_per_day: reminderForm.max_bookings_per_day,
+          sms_templates: smsTemplates,
         }, { onConflict: 'provider_id' });
       if (error) throw error;
     },

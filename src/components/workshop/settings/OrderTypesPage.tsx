@@ -70,7 +70,14 @@ export function OrderTypesPage() {
       <div className="flex items-center gap-2">
         <Input onFocus={e => e.currentTarget.select()} value={newName} onChange={e => setNewName(e.target.value)} placeholder={t('workshop.settings.orderTypes.newNamePlaceholder')} className="max-w-xs"
           onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) addMut.mutate(newName.trim()); }} />
-        <Button onClick={() => newName.trim() && addMut.mutate(newName.trim())} disabled={!newName.trim()} className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.settings.orderTypes.add')}</Button>
+        {/* Przycisk BYŁ wyłączony przy pustym polu i nic tego nie tłumaczyło —
+            wyglądał na zepsuty („nie da się kliknąć"). Teraz jest klikalny
+            i sam mówi, czego brakuje. */}
+        <Button onClick={() => {
+          const nazwa = newName.trim();
+          if (!nazwa) { toast.error(t('workshop.settings.orderTypes.nameRequired', 'Najpierw wpisz nazwę rodzaju zlecenia')); return; }
+          addMut.mutate(nazwa);
+        }} className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.settings.orderTypes.add')}</Button>
       </div>
 
       <div className="space-y-2">

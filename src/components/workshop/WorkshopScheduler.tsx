@@ -1353,6 +1353,25 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     service: '', type: 'Wydarzenie', color: 'Niebieski', allDay: false,
     duration: '1 godz.', worker: '', description: '',
   });
+  // USTAWIENIA WARSZTATU MAJĄ PIERWSZEŃSTWO nad pamięcią przeglądarki.
+  //
+  // Domyślne przypomnienia ustawia się w „Ustawienia → Kalendarz". Wcześniej
+  // ten ekran zapisywał w nieistniejącą kolumnę, a rezerwacja i tak brała
+  // ustawienia z localStorage — czyli osobne u każdego pracownika i inne po
+  // przesiadce na inny komputer. Teraz: ustawienie warsztatu, a pamięć
+  // przeglądarki tylko wtedy, gdy warsztat nic nie ustawił.
+  const { data: kalendarzUstawienia } = useQuery({
+    queryKey: ['workshop-calendar-settings', providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('workshop_calendar_settings')
+        .select('sms_confirmation_on_booking, default_reminders, default_duration')
+        .eq('provider_id', providerId).maybeSingle();
+      return data;
+    },
+  });
+
   const [clientForm, setClientForm] = useState(() => {
     const prefs = readReminderPrefs();
     return {
@@ -1363,6 +1382,21 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
     };
   });
   const [saving, setSaving] = useState(false);
+  const ustawieniaZastosowane = useRef(false);
+
+  useEffect(() => {
+    if (!open) { ustawieniaZastosowane.current = false; return; }
+    if (ustawieniaZastosowane.current || !kalendarzUstawienia) return;
+    ustawieniaZastosowane.current = true;
+    setClientForm(f => ({
+      ...f,
+      reminderOptions: Array.isArray(kalendarzUstawienia.default_reminders) && kalendarzUstawienia.default_reminders.length
+        ? kalendarzUstawienia.default_reminders
+        : f.reminderOptions,
+      sendConfirmationSms: kalendarzUstawienia.sms_confirmation_on_booking ?? f.sendConfirmationSms,
+      duration: String(kalendarzUstawienia.default_duration || f.duration),
+    }));
+  }, [open, kalendarzUstawienia]);
 
   // Lista usług/pozycji (plus lub Enter dodaje kolejną) + bieżący wpis
   const [serviceItems, setServiceItems] = useState<string[]>([]);

@@ -19,6 +19,7 @@ import {
   type NotificationModule,
 } from '@/config/notificationTypes';
 import { TelegramConnectButton } from '@/components/notifications/TelegramConnectButton';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface Props {
   /** Filter shown modules. If omitted — all. */
@@ -28,6 +29,21 @@ interface Props {
 }
 
 export function NotificationsSettings({ visibleModules, userEmail, userPhone }: Props) {
+  const { isAdmin } = useUserRole();
+  // KANAŁY, KTÓRE POKAZUJEMY.
+  //
+  // Wspólny mechanizm powiadomień (_shared/notifications.ts) nie jest jeszcze
+  // podpięty do żadnej funkcji — w dzienniku wysyłek jest zero wpisów. Telegram
+  // nie ma nawet backendu, a e-mail i push z tego ekranu nigdzie nie trafiają.
+  // Pokazywanie czterech kolumn do klikania obiecuje coś, czego nie ma.
+  //
+  // Zwykły użytkownik widzi więc tylko SMS — jedyny kanał, którym warsztat
+  // faktycznie się komunikuje. Administrator widzi wszystkie, żeby dało się
+  // dokończyć i przetestować resztę.
+  const widoczneKanaly = useMemo<NotificationChannel[]>(
+    () => (isAdmin ? [...ALL_CHANNELS] : ['sms']),
+    [isAdmin]
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [prefs, setPrefs] = useState<Record<string, boolean>>({});
@@ -75,7 +91,9 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
     setPrefs((p) => {
       const next = { ...p };
       for (const t of mod.types) {
-        for (const c of ALL_CHANNELS) {
+        // „Zaznacz wszystko" dotyczy tego, co użytkownik WIDZI. Ustawianie
+        // ukrytych kanałów zmieniałoby po cichu rzeczy, których nie ma na ekranie.
+        for (const c of widoczneKanaly) {
           next[prefKey(t.key, c)] = value;
         }
       }
@@ -127,9 +145,11 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
       <div className="rounded-lg border bg-muted/40 p-4 flex items-start gap-3">
         <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
         <div className="space-y-1 text-sm">
-          <p className="font-medium">Integracja Telegram jest w trakcie konfiguracji.</p>
+          <p className="font-medium">Te przełączniki dotyczą powiadomień w przygotowaniu.</p>
           <p className="text-muted-foreground">
-            Możesz zapisać preferencje powiadomień teraz — Telegram zostanie aktywowany po wdrożeniu backendu.
+            SMS-y, które warsztat wysyła dziś — potwierdzenie rezerwacji, przypomnienie o wizycie (24h / 2h),
+            przyjęcie do serwisu, kosztorys do akceptacji i „auto gotowe do odbioru" — działają niezależnie
+            od tego ekranu i nie trzeba ich tu włączać.
           </p>
         </div>
       </div>
@@ -143,6 +163,7 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
           <CardDescription>Wybierz jakimi sposobami chcesz otrzymywać powiadomienia</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          {widoczneKanaly.includes('email') && (
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div className="flex items-center gap-3">
               <Mail className="h-5 w-5 text-muted-foreground" />
@@ -153,6 +174,7 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
             </div>
             <Badge variant="default">Aktywne</Badge>
           </div>
+          )}
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div className="flex items-center gap-3">
               <MessageSquare className="h-5 w-5 text-muted-foreground" />
@@ -164,6 +186,7 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
             <Badge variant={userPhone ? 'default' : 'secondary'}>{userPhone ? 'Aktywne' : 'Brak numeru'}</Badge>
           </div>
 
+          {widoczneKanaly.includes('telegram') && (
           <div className="flex items-center justify-between p-3 border rounded-lg gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <MessageSquare className="h-5 w-5 text-primary" />
@@ -174,6 +197,8 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
             </div>
             <TelegramConnectButton variant="compact" />
           </div>
+          )}
+          {widoczneKanaly.includes('app') && (
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div className="flex items-center gap-3">
               <Smartphone className="h-5 w-5 text-muted-foreground" />
@@ -184,6 +209,7 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
             </div>
             <Badge variant="default">Aktywne</Badge>
           </div>
+          )}
         </CardContent>
       </Card>
 
@@ -209,7 +235,7 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
                 <thead>
                   <tr className="border-b">
                     <th className="text-left font-medium pb-2 pr-4">Typ powiadomienia</th>
-                    {ALL_CHANNELS.map((c) => (
+                    {widoczneKanaly.map((c) => (
                       <th key={c} className="font-medium pb-2 px-2 text-center w-16">
                         {CHANNEL_LABELS[c]}
                       </th>
@@ -229,7 +255,7 @@ export function NotificationsSettings({ visibleModules, userEmail, userPhone }: 
                           )}
                         </div>
                       </td>
-                      {ALL_CHANNELS.map((c) => (
+                      {widoczneKanaly.map((c) => (
                         <td key={c} className="text-center py-2 px-2">
                           <Checkbox
                             checked={!!prefs[prefKey(t.key, c)]}
