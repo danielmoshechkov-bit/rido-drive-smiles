@@ -1581,8 +1581,25 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
       toast.success(t('workshop.scheduler.clientBooked'));
       const sendSms = clientForm.sendConfirmationSms;
       const phoneForSms = clientForm.phone;
-      // Zapamiętaj wybór przypomnień — następne umawianie podstawi to samo
+      // WYBÓR Z TEGO OKNA STAJE SIĘ DOMYŚLNYM NA PRZYSZŁOŚĆ.
+      //
+      // Tak to działa w praktyce: przypomnienia zaznacza się przy umawianiu
+      // wizyty i oczekuje, że następnym razem będzie tak samo. Ekran
+      // „Ustawienia → Kalendarz" jest od świadomej zmiany, a nie jedynym
+      // miejscem, w którym da się to ustawić.
+      //
+      // Zapis idzie do ustawień WARSZTATU, więc wybór przenosi się na inny
+      // komputer i na drugą osobę przy recepcji. Pracownik bez prawa zapisu
+      // dostanie odmowę z bazy — wtedy zostaje pamięć przeglądarki, czyli
+      // zachowanie sprzed zmiany. Dlatego błędu nie pokazujemy.
       saveReminderPrefs(clientForm.reminderOptions, clientForm.sendConfirmationSms);
+      void (supabase as any).from('workshop_calendar_settings').upsert({
+        provider_id: providerId,
+        default_reminders: clientForm.reminderOptions,
+        sms_confirmation_on_booking: clientForm.sendConfirmationSms,
+      }, { onConflict: 'provider_id' }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['workshop-calendar-settings', providerId] });
+      });
       onOpenChange(false);
       setClientForm({ phone: '', firstName: '', lastName: '', plate: '', brand: '', model: '', year: '', serviceDesc: '', duration: '60', reminderOptions: clientForm.reminderOptions, sendConfirmationSms: clientForm.sendConfirmationSms });
       setServiceItems([]);
