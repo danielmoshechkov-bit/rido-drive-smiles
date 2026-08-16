@@ -85,17 +85,20 @@ serve(async (req) => {
         if (user) {
           const { data: sp } = await supabase
             .from('service_providers')
-            .select('id, sms_balance')
+            .select('id')
             .eq('user_id', user.id)
             .maybeSingle();
-          // Oba źródła — patrz komentarz w `workshop-send-sms`: funkcja musi
-          // działać przed przejściem na `billing_consume` i po nim.
-          let dostepneSms = Number(sp?.sms_balance ?? 0);
-          if (sp && dostepneSms <= 0) {
+          // 🔴 NAPRAWIONE 16.08.2026 (audyt): `sms_balance` był tu czytany jako
+          // pierwsze źródło, a klient może go sobie podnieść z przeglądarki
+          // (polityka „Users can update own provider", RLS nie zawęża kolumn).
+          // Jedyne źródło to `sms_dostepne` — pula planu plus paczki.
+          let dostepneSms = 0;
+          if (sp) {
             const { data: nowe, error: bladNowe } = await supabase
               .rpc('sms_dostepne', { p_provider_id: sp.id });
-            if (!bladNowe && nowe === null) dostepneSms = Number.POSITIVE_INFINITY;
-            else if (!bladNowe) dostepneSms = Number(nowe ?? 0);
+            if (bladNowe) dostepneSms = 0;                                  // fail-closed
+            else if (nowe === null) dostepneSms = Number.POSITIVE_INFINITY;  // bez limitu w planie
+            else dostepneSms = Number(nowe ?? 0);
           }
           if (sp && dostepneSms <= 0) {
             return new Response(
@@ -212,18 +215,20 @@ serve(async (req) => {
           if (user) {
             const { data: provider } = await supabase
               .from('service_providers')
-              .select('id, sms_balance')
+              .select('id')
               .eq('user_id', user.id)
               .maybeSingle();
-            if (provider && (provider.sms_balance || 0) > 0) {
+            // 🔴 NAPRAWIONE 16.08.2026 (audyt): tu jednostka była odejmowana
+            // WPROST z `sms_balance` — kolumny, którą klient sam sobie zapisuje.
+            // Nie tylko przepuszczało to darmową wysyłkę, ale i pozwalało jej
+            // się nie kończyć. Rozliczenie idzie przez `deduct_sms_credit`,
+            // czyli `billing_consume`: pula planu, potem paczki.
+            if (provider) {
               const { error: decrErr } = await supabase
-                .from('service_providers')
-                .update({ sms_balance: (provider.sms_balance || 0) - 1 })
-                .eq('id', provider.id);
-              if (decrErr) console.warn('[SMS] Could not deduct user SMS credit:', decrErr.message);
-              else console.log(`[SMS] Deducted 1 SMS credit from provider ${provider.id}, remaining: ${(provider.sms_balance || 0) - 1}`);
+                .rpc('deduct_sms_credit', { p_provider_id: provider.id });
+              if (decrErr) console.warn('[SMS] Nie udało się rozliczyć SMS-a:', decrErr.message);
             } else {
-              console.warn('[SMS] User has no SMS balance or no provider record');
+              console.warn('[SMS] Brak warsztatu dla użytkownika — SMS NIEROZLICZONY');
             }
           }
         }

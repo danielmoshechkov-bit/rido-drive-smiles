@@ -221,32 +221,35 @@ serve(async (req) => {
       }
     }
 
-    // Pre-check SMS balance
-    //
-    // Sprawdzamy OBA źródła, bo funkcja musi działać przed przejściem na
-    // `billing_consume` (4.10) i po nim. Przed migracją prawdą jest kolumna
-    // `sms_balance`; po niej jest wyzerowana, a zapas siedzi w paczkach
-    // i w puli planu, które zlicza `sms_dostepne`.
-    //
-    // Bez tego deploy tej funkcji PO migracji odmawiałby wszystkim, a przed
-    // migracją — po niej.
+    // Sprawdzenie pokrycia przed wysyłką
     if (resolvedProviderId && !smsProbny) {
-      const { data: spBal } = await supabaseAdmin
-        .from("service_providers")
-        .select("sms_balance")
-        .eq("id", resolvedProviderId)
-        .maybeSingle();
+      // 🔴 NAPRAWIONE 16.08.2026 (audyt). Ta bramka czytała najpierw
+      // `service_providers.sms_balance` i przepuszczała wysyłkę, gdy było tam
+      // cokolwiek dodatniego — `sms_dostepne` pytała dopiero przy zerze.
+      //
+      // A `sms_balance` klient MOŻE sobie ustawić z przeglądarki: polityka
+      // „Users can update own provider" pozwala właścicielowi zapisać własny
+      // wiersz, a RLS nie ogranicza kolumn. Jeden `update({sms_balance:
+      // 999999})` w konsoli dawał nieograniczone SMS-y na nasz koszt.
+      //
+      // Ta gałąź była zgodnością na czas przejścia 4.10 („ma działać przed
+      // migracją i po niej"). Migracja jest wykonana, kolumna wyzerowana
+      // i martwa, więc zgodność przestała być potrzebna i została dziurą.
+      // Jedynym źródłem prawdy jest `sms_dostepne`: pula planu plus paczki.
+      let dostepne = 0;
+      const { data: nowe, error: bladNowe } = await supabaseAdmin
+        .rpc("sms_dostepne", { p_provider_id: resolvedProviderId });
 
-      const stare = Number(spBal?.sms_balance ?? 0);
-      let dostepne = stare;
-
-      if (stare <= 0) {
-        const { data: nowe, error: bladNowe } = await supabaseAdmin
-          .rpc("sms_dostepne", { p_provider_id: resolvedProviderId });
-        // `null` znaczy „bez limitu w planie" — wtedy przepuszczamy.
-        if (!bladNowe && nowe === null) dostepne = Number.POSITIVE_INFINITY;
-        else if (!bladNowe) dostepne = Number(nowe ?? 0);
+      if (bladNowe) {
+        // Fail-closed: nie wiemy, czy klient ma pokrycie, więc nie wysyłamy.
+        console.error("workshop-send-sms: sms_dostepne nie odpowiedziało —", bladNowe.message);
+        return new Response(
+          JSON.stringify({ error: "NO_SMS", message: "Nie udało się sprawdzić pakietu SMS. Spróbuj za chwilę." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+      // `null` znaczy „bez limitu w planie" — wtedy przepuszczamy.
+      dostepne = nowe === null ? Number.POSITIVE_INFINITY : Number(nowe ?? 0);
 
       if (dostepne <= 0) {
         return new Response(

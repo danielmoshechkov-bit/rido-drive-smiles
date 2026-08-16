@@ -14,12 +14,46 @@ export function TopBarCredits() {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return 0;
-      const { data } = await supabase
-        .from('vehicle_lookup_credits')
-        .select('remaining_credits')
+
+      // 🔴 NAPRAWIONE 16.08.2026 (audyt). Pasek czytał `vehicle_lookup_credits`
+      // — saldo OSOBISTE. Migracja 4.12 przeniosła kredyty właścicieli do puli
+      // warsztatu (paczki), więc po wdrożeniu ta kolumna jest u nich zerowa
+      // i pasek pokazywał zero komuś, kto ma 48 sprawdzeń. Klient mógłby
+      // kupić drugi raz to, co już ma.
+      const { data: warsztat } = await supabase
+        .from('service_providers')
+        .select('id')
         .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle();
-      return data?.remaining_credits ?? 0;
+
+      // Bez warsztatu (portal klienta, flota) prawdą nadal jest saldo osobiste.
+      if (!warsztat?.id) {
+        const { data } = await supabase
+          .from('vehicle_lookup_credits')
+          .select('remaining_credits')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        return data?.remaining_credits ?? 0;
+      }
+
+      const { data: stan, error } = await (supabase as any).rpc('check_usage', {
+        p_subscriber_type: 'service_provider',
+        p_subscriber_id: warsztat.id,
+        p_feature_key: 'vehicle_lookup',
+        p_amount: 1,
+      });
+      if (error) return 0;
+
+      // Sprawdzenia są poza abonamentem (limit 0 w każdym planie), więc
+      // w praktyce liczy się `packs_remaining`. Pula planu zostaje w sumie
+      // na wypadek, gdyby kiedyś wróciła do pakietów.
+      if ((stan as any)?.reason === 'unlimited') return null;
+      const limit = Number((stan as any)?.limit ?? 0);
+      const uzyte = Number((stan as any)?.used ?? 0);
+      const paczki = Number((stan as any)?.packs_remaining ?? 0);
+      return Math.max(limit - uzyte, 0) + paczki;
     },
   });
 
@@ -30,7 +64,7 @@ export function TopBarCredits() {
       if (!user) return 0;
       const { data } = await supabase
         .from('service_providers')
-        .select('id, sms_balance')
+        .select('id')
         .eq('user_id', user.id)
         // Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
         // zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
@@ -42,13 +76,10 @@ export function TopBarCredits() {
 
       if (!data?.id) return 0;
 
-      // Stara kolumna, dopóki coś w niej jest — po przejściu na
-      // `billing_consume` (4.10) jest wyzerowana, a zapas siedzi w paczkach
-      // i w puli planu. Czytamy oba źródła, żeby pasek pokazywał prawdę
-      // przed migracją i po niej, bez okna z zerem.
-      const stare = Number(data.sms_balance ?? 0);
-      if (stare > 0) return stare;
-
+      // Wyłącznie `sms_dostepne` — pula planu plus paczki. Wcześniej pasek
+      // czytał najpierw `service_providers.sms_balance`, a tę kolumnę klient
+      // może sobie zapisać z przeglądarki (polityka „Users can update own
+      // provider"). Pasek pokazywałby wtedy liczbę, którą sam wpisał.
       const { data: dostepne, error } = await (supabase as any)
         .rpc('sms_dostepne', { p_provider_id: data.id });
       if (error) return 0;
