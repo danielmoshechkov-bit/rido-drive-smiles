@@ -66,42 +66,23 @@ export default function RentalClientPortal() {
 
   const validateAccess = async () => {
     try {
-      // First try to find rental by ID (for fleet managers opening link)
-      let query = (supabase.from("vehicle_rentals") as any)
-        .select(`
-          id,
-          status,
-          driver_signed_at,
-          portal_access_token,
-          contract_locked_at,
-          vehicle:vehicle_id (brand, model, plate),
-          driver:driver_id (first_name, last_name)
-        `)
-        .eq("id", rentalId);
-      
-      // If token is provided, validate it
-      if (accessToken) {
-        query = query.eq("portal_access_token", accessToken);
-      }
-      
-      const { data, error } = await query.single();
+      // Umowę oddaje `rental-portal-get`, nie zapytanie z przeglądarki.
+      //
+      // Polityka RLS przepuszczała odczyt warunkiem `portal_access_token
+      // IS NOT NULL` — sprawdzała, że umowa MA token, a nie że wołający go ZNA.
+      // Filtr po tokenie dokładał ten kod i wystarczyło go pominąć, żeby
+      // pobrać dowolną umowę. Teraz token porównuje serwer.
+      const { data: odpowiedz, error } = await supabase.functions.invoke("rental-portal-get", {
+        body: { rentalId, token: accessToken },
+      });
+
+      const data = (odpowiedz as any)?.umowa;
 
       if (error || !data) {
-        console.error("Rental not found:", error);
+        const blad = error ? await odczytajBladFunkcji(error) : null;
         setStep("error");
-        setErrorMessage("Link jest nieprawidłowy lub wygasł");
+        setErrorMessage(blad?.komunikat ?? "Link jest nieprawidłowy lub wygasł");
         return;
-      }
-
-      // If no token in URL but rental has token, require it for non-authenticated access
-      if (!accessToken && data.portal_access_token) {
-        // Check if user is authenticated and is fleet manager
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setStep("error");
-          setErrorMessage("Link jest nieprawidłowy lub wygasł");
-          return;
-        }
       }
 
       setRentalData(data);
@@ -146,20 +127,11 @@ export default function RentalClientPortal() {
     try {
       await logAction("signature_drawn");
 
-      // 1. Sprawdź czy rental istnieje
-      const { data: existingRental, error: checkError } = await (supabase
-        .from("vehicle_rentals") as any)
-        .select("id, status, portal_access_token")
-        .eq("id", rentalId)
-        .single();
-      
-      if (checkError || !existingRental) {
-        console.error("Rental not found:", checkError);
-        toast.error("Nie znaleziono umowy");
-        return;
-      }
-
-      console.log("Found rental:", existingRental.id, "status:", existingRental.status);
+      // Sprawdzenia „czy umowa istnieje" nie robimy tutaj. Robił je odczyt
+      // z przeglądarki, pobierając przy okazji `portal_access_token` — czyli
+      // pytał bazę o sekret, który miał dopiero potwierdzić. `rental-sign`
+      // weryfikuje istnienie umowy, token i status po stronie serwera
+      // i odmawia czytelnym komunikatem.
 
       // 2. Upload signature to storage
       const blob = await (await fetch(signatureDataUrl)).blob();

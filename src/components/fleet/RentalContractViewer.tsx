@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { odczytajBladFunkcji } from "@/utils/bladFunkcji";
 import { toast } from "sonner";
 import { 
   FileText, 
@@ -44,24 +45,18 @@ export function RentalContractViewer({ rentalId, accessToken, onSigned }: Rental
   const loadRentalData = async () => {
     setLoading(true);
     try {
-      // Build query - if token provided, validate it; otherwise rely on RLS
-      let query = (supabase.from("vehicle_rentals") as any)
-        .select(`
-          *,
-          vehicles:vehicle_id (id, plate, brand, model, year, vin),
-          drivers:driver_id (id, first_name, last_name, email, phone, pesel, address_street, address_city, address_postal_code, license_number),
-          fleets:fleet_id (id, name, nip, street, city, postal_code, phone, email)
-        `)
-        .eq("id", rentalId);
-      
-      // Only add token filter if token is provided
-      if (accessToken) {
-        query = query.eq("portal_access_token", accessToken);
-      }
-      
-      const { data: rental, error } = await query.single();
+      // Pełna treść umowy idzie przez `rental-portal-get` z zakresem 'umowa'.
+      //
+      // To zapytanie pobierało `*` wraz ze złączeniami: PESEL najemcy, adres,
+      // numer prawa jazdy, telefon. Przy polityce `portal_access_token
+      // IS NOT NULL` mógł to zrobić każdy, dla dowolnej umowy — wystarczyło
+      // nie dokładać filtra po tokenie, bo dokładała go przeglądarka.
+      const { data: odpowiedz, error } = await supabase.functions.invoke("rental-portal-get", {
+        body: { rentalId, token: accessToken, zakres: "umowa" },
+      });
 
-      if (error) throw error;
+      if (error) throw new Error((await odczytajBladFunkcji(error)).komunikat);
+      const rental = (odpowiedz as any)?.umowa;
       if (!rental) throw new Error("Nie znaleziono umowy");
 
       setRentalData(rental);

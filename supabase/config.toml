@@ -458,3 +458,9 @@ verify_jwt = false
 # zatrudnienie w tym warsztacie. Bez jednego i drugiego — 401/403.
 [functions.workshop-notify-owner]
 verify_jwt = false
+
+# Dwie ścieżki autoryzacji w środku: token portalu porównywany z wierszem umowy
+# (najemca) albo JWT z przypisaniem do floty (pracownik). Bez jednego i drugiego
+# — 403. Dlatego verify_jwt musi być wyłączone: najemca nie ma sesji.
+[functions.rental-sign]
+verify_jwt = false
