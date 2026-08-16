@@ -40,6 +40,49 @@ Deno.serve(async (req) => {
 
     console.log("📝 Starting marketplace user registration for:", email, module ? `(module: ${module}, plan: ${plan || '-'})` : "");
 
+    // ── Ograniczenie częstotliwości ────────────────────────────────────
+    // Pole „Nie jestem robotem" w formularzu to WYŁĄCZNIE stan przeglądarki
+    // (`if (!isHuman) return`) — do serwera nie dociera nic, więc żądanie
+    // wysłane z pominięciem formularza omija je w całości. Ta funkcja ma
+    // `verify_jwt = false`, zakłada konta i wysyła maile, więc bez limitu
+    // jest darmową fabryką jednego i drugiego.
+    //
+    // Limit liczymy po adresie IP w oknie godzinnym. Świadomie NIE blokujemy
+    // po adresie e-mail: to pozwalałoby sprawdzać, które adresy są już
+    // zarejestrowane, czyli wyliczać bazę użytkowników.
+    const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+    const LIMIT_NA_GODZINE = 5;
+
+    if (ip !== "unknown") {
+      const godzinaTemu = new Date(Date.now() - 3600_000).toISOString();
+      const { count, error: bladLicznika } = await supabaseAdmin
+        .from("rejestracje_ip")
+        .select("id", { count: "exact", head: true })
+        .eq("ip", ip)
+        .gte("created_at", godzinaTemu);
+
+      // Awaria licznika nie może zatrzymać rejestracji — to byłaby blokada
+      // sprzedaży z powodu tabeli pomocniczej. Logujemy i przepuszczamy.
+      if (bladLicznika) {
+        console.error("⚠️ rejestracje_ip: nie udało się policzyć prób:", bladLicznika.message);
+      } else if ((count ?? 0) >= LIMIT_NA_GODZINE) {
+        console.warn(`🚧 Limit rejestracji dla IP ${ip}: ${count} prób w godzinę`);
+        return new Response(
+          JSON.stringify({
+            error: "Zbyt wiele prób rejestracji z tego adresu. Spróbuj ponownie za godzinę.",
+            code: "RATE_LIMITED",
+          }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // Zapisujemy PRÓBĘ, nie sukces — inaczej bot odbijający się od walidacji
+      // mógłby próbować bez końca, bo żadna próba nie zwiększałaby licznika.
+      await supabaseAdmin.from("rejestracje_ip").insert({
+        ip, email, sciezka: module ?? "marketplace",
+      });
+    }
+
     // Check feature toggle for email confirmation requirement
     const { data: toggleData } = await supabaseAdmin
       .from('feature_toggles')
