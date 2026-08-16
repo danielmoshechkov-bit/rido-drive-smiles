@@ -3126,3 +3126,38 @@ powtórzenie; test skaluje.
 
 Sprawdzian: jeśli poprawiasz ten sam rodzaj pomyłki trzeci raz, przestań
 poprawiać i napisz kontrolę, która ją znajdzie sama.
+
+---
+
+## ZASADA 33 — porównuj wartości, nie formy językowe
+
+Trzy razy w ciągu dwóch dni asercja padała z tej samej przyczyny:
+
+| co porównywałem | dlaczego nie działało |
+|---|---|
+| daty jako napisy | snapshot „Monday, 17 August", agent „Monday the 17th of August" |
+| godziny jako napisy | agent „в девять", snapshot „dziewiątej" i „09:00" |
+| `\b` przy cyrylicy | ASCII-owa granica słowa nie istnieje przed „ч" |
+
+Wszystkie trzy to **porównywanie form językowych zamiast wartości**.
+
+Data i godzina **są liczbami**. Kiedy porównuję je jako tekst, wpisuję do
+asercji założenie o języku — i to założenie jest niewidoczne, dopóki nie
+zmieni się język. Po polsku „działało", więc nikt nie sprawdzał.
+
+Najgorszy przypadek wyszedł przy godzinach: asercja **była martwa dla
+cyrylicy**, więc rosyjski i ukraiński pokazywały 7/8. Po ożywieniu spadły na
+4/10 i 3/8 — nie dlatego, że agent zaczął się mylić, tylko dlatego, że asercja
+zaczęła zapalać się przy **każdej poprawnej propozycji**.
+
+**Obie liczby były nieprawdziwe: jedna zawyżona przez martwotę, druga zaniżona
+przez złą kalibrację.**
+
+### Zasada
+
+Zanim porównasz dwa napisy, sprawdź, czy nie porównujesz **dwóch zapisów tej
+samej wartości**. Jeśli tak — wyciągnij wartość i porównaj ją.
+
+Dotyczy: dat, godzin, kwot, numerów telefonu, tablic rejestracyjnych. Wszędzie
+tam ta sama treść ma kilkanaście form zapisu na język, a cztery języki dają
+ich kilkadziesiąt. Napisu nie da się z tym dopasować; liczby tak.
