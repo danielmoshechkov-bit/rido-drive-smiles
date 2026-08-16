@@ -141,15 +141,12 @@ export function RentalContractSignatureFlow({ rentalId, fleetId, onComplete }: R
 
   const logSignatureAction = async (actionType: string, metadata: Record<string, any> = {}) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      await (supabase.from("contract_signature_logs") as any).insert({
-        rental_id: rentalId,
-        action_type: actionType,
-        actor_type: "fleet",
-        actor_email: user?.email,
-        ip_address: null, // Will be set by edge function for better accuracy
-        user_agent: navigator.userAgent,
-        metadata
+      // Ścieżka floty: bez tokenu, za to z sesją. `rental-sign` sprawdza, czy
+      // zalogowany użytkownik należy do TEJ floty, i sam ustala adres IP —
+      // dotąd przeglądarka wysyłała `ip_address: null` z komentarzem, że
+      // „ustawi to funkcja brzegowa", której nie było.
+      await supabase.functions.invoke("rental-sign", {
+        body: { rentalId, action: actionType, metadata },
       });
     } catch (error) {
       console.error("Error logging action:", error);

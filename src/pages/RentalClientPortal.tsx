@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { odczytajBladFunkcji } from "@/utils/bladFunkcji";
 import { Loader2, AlertCircle, ChevronDown } from "lucide-react";
 import { RentalContractViewer } from "@/components/fleet/RentalContractViewer";
 import { SignaturePad } from "@/components/fleet/SignaturePad";
@@ -43,16 +44,20 @@ export default function RentalClientPortal() {
     }
   }, [rentalId, accessToken]);
 
+  /**
+   * Zdarzenia dziennika idą przez `rental-sign`, nie wprost do bazy.
+   *
+   * Powód: polityka RLS przepuszczała zapis warunkiem `portal_access_token
+   * IS NOT NULL` — sprawdzała, że umowa MA token, nie że wołający go ZNA.
+   * Każdy mógł dopisać dowolne zdarzenie do dowolnej umowy, z dowolnym IP.
+   * Teraz token porównuje serwer, a adres i przeglądarkę ustala z nagłówków
+   * żądania zamiast wierzyć w to, co przyszło z przeglądarki.
+   */
   const logAction = async (actionType: string, metadata: Record<string, any> = {}) => {
     if (!rentalId) return;
     try {
-      await (supabase.from("contract_signature_logs") as any).insert({
-        rental_id: rentalId,
-        action_type: actionType,
-        actor_type: "driver",
-        ip_address: null, // Will be enhanced server-side
-        user_agent: navigator.userAgent,
-        metadata
+      await supabase.functions.invoke("rental-sign", {
+        body: { rentalId, token: accessToken, action: actionType, metadata },
       });
     } catch (error) {
       console.error("Error logging action:", error);
@@ -175,23 +180,33 @@ export default function RentalClientPortal() {
 
       console.log("Signature uploaded:", publicUrl);
 
-      // 3. Update rental - BEZ filtra po tokenie (już zweryfikowaliśmy dostęp wcześniej)
-      const { error: updateError } = await (supabase
-        .from("vehicle_rentals") as any)
-        .update({
-          driver_signed_at: new Date().toISOString(),
-          driver_signature_url: publicUrl,
-          driver_signature_user_agent: navigator.userAgent,
-          status: "client_signed",
-        })
-        .eq("id", rentalId);
+      // 3. Podpis zapisuje SERWER, nie przeglądarka.
+      //
+      // Poprzedni komentarz brzmiał „już zweryfikowaliśmy dostęp wcześniej" —
+      // ale ta weryfikacja działa się w przeglądarce, a polityka RLS wymagała
+      // tylko, żeby umowa miała jakikolwiek token. Każdy mógł oznaczyć dowolną
+      // umowę jako podpisaną, podstawiając własny obrazek.
+      //
+      // `rental-sign` porównuje token z wierszem umowy, odmawia przy nieważnym,
+      // odmawia przy umowie już podpisanej i sam ustala IP oraz przeglądarkę.
+      // Zdarzenie dziennika zapisuje w tym samym wywołaniu.
+      const { data: wynik, error: bladPodpisu } = await supabase.functions.invoke("rental-sign", {
+        body: {
+          rentalId,
+          token: accessToken,
+          action: "signature_submitted",
+          signatureUrl: publicUrl,
+          metadata: { signature_url: publicUrl },
+        },
+      });
 
-      if (updateError) {
-        console.error("Update error:", updateError);
-        throw updateError;
+      if (bladPodpisu) {
+        const blad = await odczytajBladFunkcji(bladPodpisu);
+        throw new Error(blad.komunikat);
       }
-
-      await logAction("signature_submitted", { signature_url: publicUrl });
+      if ((wynik as any)?.error) {
+        throw new Error((wynik as any).message || "Nie udało się zapisać podpisu");
+      }
 
       toast.success("Umowa podpisana pomyślnie!");
       setStep("complete");
