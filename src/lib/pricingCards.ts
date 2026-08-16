@@ -36,13 +36,31 @@ export function planPriceLabels(plan: PublicPlan): PlanPriceLabels {
   };
 }
 
-/** Napis na przycisku. Liczba dni triala pochodzi z planu, nie z kodu. */
-export function planCtaLabel(plan: PublicPlan): string {
+/**
+ * Napis na przycisku. Liczba dni triala pochodzi z planu, nie z kodu.
+ *
+ * `jestKlientem` mówi, czy ten klient JUŻ korzysta z tej linii produktowej
+ * — ma trial albo subskrypcję. Bez tego napis „Wypróbuj 30 dni" pokazywał się
+ * komuś, kto jest w okresie próbnym od pół roku: przycisk prowadził do
+ * płatności, a obiecywał darmowy okres. Klient mógł uznać, że przedłuża trial,
+ * i nie kliknąć — albo kliknąć i zdziwić się płatnością.
+ *
+ * Domyślnie `false`, więc wywołania bez tego argumentu działają jak dotąd.
+ */
+export function planCtaLabel(
+  plan: PublicPlan,
+  stan?: { jestKlientem?: boolean },
+): string {
   if (plan.is_custom) return 'Napisz do nas';
   if (Number(plan.price_net) === 0) return 'Zacznij za darmo';
   // Agent nie ma triala — zamiast niego jest numer demonstracyjny i rozmowa
   // na żywo przy sprzedaży (decyzja z rewizji cennika).
   if (plan.product_line === 'agent') return 'Posłuchaj agenta';
+
+  // Kto już jest w tej linii, nie dostanie drugiego okresu próbnego —
+  // jedyną sensowną akcją jest dla niego zapłata.
+  if (stan?.jestKlientem) return 'Kup';
+
   if (plan.trial_days > 0) return `Wypróbuj ${plan.trial_days} dni`;
   return 'Wybieram plan';
 }
