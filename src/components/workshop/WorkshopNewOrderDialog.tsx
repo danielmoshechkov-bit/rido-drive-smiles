@@ -326,6 +326,37 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         });
       }
     }
+    // ZLECENIE PRÓBNE DOSTAJE GOTOWE POZYCJE.
+    //
+    // Wprowadzenie ma pokazać wycenę i Rido Wycenę, a na pustej tabeli nie ma
+    // czego pokazywać — trzeba by najpierw wpisać trzy pozycje, zanim cokolwiek
+    // się wydarzy. Wstawiamy je BEZ CEN: to jest dokładnie ten stan, w którym
+    // warsztat sięga po Rido Wycenę albo wpisuje własną stawkę.
+    if (trybProbny) {
+      try {
+        const przykladowe = [
+          { name: 'Wymiana klocków hamulcowych przód', item_type: 'service', unit: 'oper', sort_order: 1 },
+          { name: 'Wymiana wahaczy przednich', item_type: 'service', unit: 'oper', sort_order: 2 },
+          { name: 'Klocki hamulcowe przód (komplet)', item_type: 'part', unit: 'szt', sort_order: 3 },
+        ];
+        await (supabase as any).from('workshop_order_items').insert(
+          przykladowe.map((poz) => ({
+            order_id: order.id,
+            quantity: 1,
+            unit_price_net: null,
+            unit_price_gross: null,
+            total_net: null,
+            total_gross: null,
+            ...poz,
+          })),
+        );
+      } catch (e) {
+        // Brak przykładowych pozycji nie może zablokować zlecenia — najwyżej
+        // warsztat wpisze je sam, a o to i tak chodzi.
+        console.error('Nie udało się dodać pozycji przykładowych:', e);
+      }
+    }
+
     setCreatedOrderId(order.id);
     setSendMethod(clientPhone ? 'sms' : clientEmail ? 'email' : 'sms');
     setManualPhone(''); setManualEmail('');

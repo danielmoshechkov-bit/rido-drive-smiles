@@ -114,13 +114,14 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
   useEffect(() => {
     if (!biezacy?.czekaNaKlikniecie || !celNastepnego) return;
     const sprawdz = () => {
-      // Warunek jest podwójny i to jest sedno: przechodzimy dalej WYŁĄCZNIE
-      // wtedy, gdy celu bieżącego kroku nie ma już na ekranie (użytkownik
-      // poszedł dalej albo cel jest zasłonięty), a cel następnego już jest.
-      // Bez pierwszego warunku kroki w tym samym oknie przelatywały same —
-      // „lista zadań" znikała, zanim ktokolwiek zdążył ją przeczytać.
-      const celBiezacego = biezacy.cel ? document.querySelector(`[data-tour="${biezacy.cel}"]`) : null;
-      if (celBiezacego) return;
+      // Cel następnego kroku pojawia się dopiero wtedy, gdy użytkownik NAPRAWDĘ
+      // ruszył dalej (otworzyło się okno, wczytał się inny ekran). To wystarcza
+      // za dowód i ratuje sytuację, w której kliknięcia nie da się wykryć —
+      // przycisk zasłonięty oknem, kliknięcie przechwycone przez bibliotekę.
+      //
+      // Reguła obowiązuje WYŁĄCZNIE kroki czekające na kliknięcie (wyżej jest
+      // warunek `czekaNaKlikniecie`). Kroki do przeczytania czekają na „Dalej",
+      // więc nie przelecą same, choćby cel następnego był tuż obok na ekranie.
       if (document.querySelector(`[data-tour="${celNastepnego}"]`)) onDalej();
     };
     const timer = window.setInterval(sprawdz, 500);

@@ -59,7 +59,12 @@ sprawdz('Enter zaklada auto, gdy nie ma go w kartotece', /e.key !== 'Enter'[\s\S
 sprawdz('podpowiedz przy braku wynikow', okno.includes('Tego auta nie ma jeszcze w kartotece'));
 
 // 9. Kroki nie mogą przelatywać same, gdy cel bieżącego kroku wciąż jest widoczny.
-sprawdz('auto-przejscie tylko gdy krok utknal', silnik.includes('if (celBiezacego) return;'));
+// Auto-przejście działa TYLKO dla kroków czekających na kliknięcie — kroki do
+// przeczytania czekają na „Dalej" i nie mogą przelecieć same.
+sprawdz('auto-przejscie tylko przy krokach z klikaniem', /czekaNaKlikniecie[\s\S]{0,400}celNastepnego/.test(silnik));
+// Zlecenie próbne dostaje gotowe pozycje — na pustej tabeli nie ma czego pokazać.
+sprawdz('zlecenie probne ma przykladowe pozycje', okno.includes('przykladowe') && okno.includes('Wymiana klocków'));
+sprawdz('pozycje przykladowe BEZ cen', /przykladowe[\s\S]{0,600}unit_price_gross: null/.test(okno));
 // 10. Wprowadzenie prowadzi też przez okno nowego pojazdu (właściciel, lupka).
 sprawdz('trasa obejmuje wlasciciela pojazdu', cele.includes('pojazd-wlasciciel'));
 sprawdz('trasa obejmuje lupke przy rejestracji', cele.includes('pojazd-rejestracja'));

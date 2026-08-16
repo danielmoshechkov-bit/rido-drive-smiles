@@ -57,7 +57,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'tabela-robocizny',
     tytul: 'Robocizna',
-    tresc: 'Tu wpisujesz, co robisz — „Wymiana klocków przód", „Wymiana wahaczy".\n\nKolejny pusty wiersz dokłada się sam, a Enter przenosi niżej. Pozycja bez ceny jest podświetlona i klient jej nie widzi, dopóki nie wpiszesz kwoty.',
+    tresc: 'Dwie pozycje już tu są — wpisaliśmy je za Ciebie, żeby było na czym poćwiczyć. Obie bez ceny, czyli w stanie, w którym klient ich jeszcze nie widzi.\n\nKolejny pusty wiersz dokłada się sam, a Enter przenosi niżej. Dopisz swoją pozycję albo od razu przejdź dalej — pokażę, jak wycenić je jednym kliknięciem.',
   },
   {
     cel: 'rido-wycena',
@@ -67,7 +67,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'tabela-czesci',
     tytul: 'Części i materiały',
-    tresc: 'Tu wpisujesz nazwy części, których użyjesz — „Klocki przód", „Płyn hamulcowy". Możesz też wziąć część z magazynu albo poszukać u hurtowni.',
+    tresc: 'Jedna część już tu jest, też bez ceny. Kolejne wpisujesz ręcznie, bierzesz z magazynu albo szukasz u hurtowni.',
   },
   {
     cel: 'kolumna-koszt',
