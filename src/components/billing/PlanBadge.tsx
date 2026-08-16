@@ -27,6 +27,16 @@ const dniDo = (iso: string | null): number | null => {
 // Po polsku odmienia się tylko jedynka: „1 dzień", reszta to „dni".
 const odmianaDni = (n: number) => (n === 1 ? 'dzień' : 'dni');
 
+/**
+ * Powyżej tylu dni licznik przestaje nieść informację.
+ *
+ * „Okres próbny, 503 dni" nie mówi nic użytecznego — a wygląda jak usterka.
+ * Licznik ma znaczenie wtedy, gdy zbliża się decyzja o zakupie, czyli
+ * w ostatnich tygodniach. Dłuższe okresy to dostęp nadany ręcznie (jak trzem
+ * warsztatom przed uruchomieniem bramkowania) i tam liczba dni to szum.
+ */
+const PROG_LICZNIKA_DNI = 90;
+
 export function PlanBadge({ providerId }: { providerId: string | null | undefined }) {
   const dostep = useSubscriptionAccess(providerId, 'warsztat');
   const { data: szczegoly } = useSubscriptionDetails(providerId);
@@ -73,6 +83,7 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
     // Ostatni tydzień na bursztynowo — to moment, w którym decyzja o zakupie
     // albo zapada, albo klient znika.
     const pilne = dni <= 7;
+    const pokazLicznik = dni <= PROG_LICZNIKA_DNI;
     const mozliwyZakup = planZKonta && !planZKonta.is_custom && Number(planZKonta.price_net) > 0;
 
     return (
@@ -86,7 +97,8 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
       >
         <Sparkles className="h-3.5 w-3.5 shrink-0" />
         <span>
-          {planZKonta ? `${planZKonta.name} · ` : ''}okres próbny, {dni} {odmianaDni(dni)}
+          {planZKonta ? `${planZKonta.name} · ` : ''}okres próbny
+          {pokazLicznik ? `, ${dni} ${odmianaDni(dni)}` : ''}
         </span>
 
         {/* „Przedłuż" prowadzi wprost do płatności za wybrany plan. Gdy planu
