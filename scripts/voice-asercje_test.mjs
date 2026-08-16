@@ -151,3 +151,28 @@ test("godzina zamkniecia to nie propozycja terminu", () => {
   // Ta sama tura nie moze tez liczyc sie jako trzy PROPOZYCJE.
   czysta(ctx(["We close at 5 pm — the latest we can take a car in is 4 o'clock. Would 9 in the morning work?"], { jezyk: "en" }), "trzy_godziny");
 });
+
+test("pytanie otwierajace nie moze paść dwa razy", () => {
+  const POWITANIE_PL = { role: "agent", message: "Dzień dobry, Warsztat — w czym mogę pomóc?" };
+  // Prawdziwa rozmowa 16.08.
+  brudna(ctx([POWITANIE_PL, { role: "user", message: "Chciałbym sprawdzenie zawieszenia i wymianę filtrów." },
+    "W czym mogę pomóc? Kiedy będzie najwygodniej przyjechać?"]), "pytanie_otwierajace_dwa_razy");
+  // Powitanie samo w sobie jest w porzadku.
+  czysta(ctx([POWITANIE_PL, { role: "user", message: "Dzień dobry." }, "Kiedy będzie najwygodniej przyjechać?"]), "pytanie_otwierajace_dwa_razy");
+  // Pytanie DOMYKAJACE to inne pytanie i wolno je zadac.
+  czysta(ctx([POWITANIE_PL, { role: "user", message: "Dobrze." }, "Gotowe. Czy mogę jeszcze w czymś pomóc?"]), "pytanie_otwierajace_dwa_razy");
+  // Dziala tez w obcych jezykach.
+  brudna(ctx([POWITANIE_PL, { role: "user", message: "Здравствуйте, хочу записаться." }, "Чем могу помочь?"], { jezyk: "ru" }), "pytanie_otwierajace_dwa_razy");
+});
+
+test("pytanie domykajace to nie pytanie otwierajace", () => {
+  const P = { role: "agent", message: "Dzień dobry, Warsztat — w czym mogę pomóc?" };
+  // Falszywy alarm z przebiegu 16.08: to jest poprawne domkniecie rozmowy.
+  czysta(ctx([P, { role: "user", message: "Chciałbym zapytać o wymianę opon." },
+    "Opon niestety nie wymieniamy. Ale jeśli coś innego przy aucie — chętnie pomogę.",
+    { role: "user", message: "A czy myjecie silniki?" },
+    "Nie mam tej informacji — mechanik odpowie na miejscu. Czy jest coś innego, w czym mogę pomóc?"]),
+    "pytanie_otwierajace_dwa_razy");
+  // Krotkie „dzien dobry" nie niesie sprawy — agent ma prawo dopytac.
+  czysta(ctx([P, { role: "user", message: "Dzień dobry." }, "W czym mogę pomóc?"]), "pytanie_otwierajace_dwa_razy");
+});

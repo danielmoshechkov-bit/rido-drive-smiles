@@ -1,0 +1,13 @@
+{
+  "id": "08-od-razu-sprawa",
+  "jezyk": "en",
+  "opis": "klient od razu mówi, czego chce (z prawdziwej rozmowy 16.08)",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Hello, I would like to find out about a free slot, to book a, erm, suspension check, a filter change and a general inspection.",
+    "prompt": "You are a customer of a car workshop. YOUR FIRST SENTENCE MUST BE EXACTLY THIS, word for word: \"Hello, I would like to find out about a free slot, to book a, erm, suspension check, a filter change and a general inspection.\" Do not shorten or change it. After that answer briefly and naturally. The car is a Mazda RX8, your name is Daniel. Give details only when asked. When the time is agreed, thank them and finish."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

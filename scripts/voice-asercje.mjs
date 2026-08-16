@@ -101,6 +101,23 @@ const tekstAgenta = (rozmowa) => rozmowa
 
 const naruszenie = (t, powod) => ({ tura: t.i, cytat: t.tekst.slice(0, 140), powod });
 
+/**
+ * Czy tekst zawiera którykolwiek z wariantów, z granicą słowa działającą
+ * TAKŻE dla cyrylicy.
+ *
+ * `\b` w JavaScripcie jest oparte na ASCII: `/\bчем\b/` NIE dopasuje się
+ * nigdy, bo „ч" nie jest znakiem słownym w rozumieniu tego silnika. Wpadłem
+ * w to CZTERY RAZY — przy „полный сервис", przy „восемнадцатого", przy
+ * liczebnikach ukraińskich i przy „чем могу помочь". Za każdym razem asercja
+ * milczała i wyglądało to jak czysty wynik.
+ *
+ * Stąd ten helper: granicę budujemy z lookaroundów na literę Unicode.
+ */
+const zawiera = (tekst, warianty) => {
+  const t = String(tekst || "");
+  return warianty.some((w) => new RegExp(`(?<!\\p{L})${w}(?!\\p{L})`, "iu").test(t));
+};
+
 // ============================================================================
 // ASERCJE WSPÓLNE DLA WSZYSTKICH JĘZYKÓW
 // ============================================================================
@@ -175,6 +192,43 @@ export const ASERCJE = [
     sprawdz: (ctx) => tekstAgenta(ctx.rozmowa).flatMap((t) =>
       /\b(pi[ęe][ćc]set|czterysta|trzysta|dziewi[ęe][ćc]set|sze[śs][ćc]set|siedemset|osiemset|dwie[śs]cie)\b/i.test(bezOgonkow(t.tekst))
         ? [naruszenie(t, "setki w numerze — każdą cyfrę czytamy osobno")] : []),
+  },
+
+  {
+    id: "pytanie_otwierajace_dwa_razy",
+    waga: "blad",
+    opis: "pytanie otwierające pada drugi raz",
+    sprawdz: (ctx) => {
+      // PRAWDZIWA ROZMOWA 16.08: klient w pierwszym zdaniu powiedział, czego
+      // chce („zawieszenie, filtry, przegląd"), a agent odpowiedział
+      // „W czym mogę pomóc? Kiedy będzie najwygodniej przyjechać?" —
+      // pytaniem, które padło już w powitaniu. Brzmi, jakby nie słuchał.
+      const OTWIERAJACE = ["w czym mogę pomóc", "чем могу помочь", "чим можу допомогти", "how can i help", "what can i help"];
+      // DEFEKT DOTYCZY WYLACZNIE PIERWSZEJ ODPOWIEDZI po wypowiedzi klienta.
+      //
+      // Pierwsza wersja liczyla kazde wystapienie i zapalila sie na
+      // „Czy jest coś innego, w czym mogę pomóc?" — poprawnym pytaniu
+      // DOMYKAJACYM. Proba wyliczenia wyjatkow („jeszcze", „coś innego",
+      // „anything else") to droga bez konca: tych sformulowan jest tyle,
+      // ile sposobow domkniecia rozmowy.
+      //
+      // Defektem jest sytuacja, w ktorej klient WLASNIE powiedzial, czego chce,
+      // a agent odpowiada pytaniem z powitania. To zawsze pierwsza odpowiedz.
+      const agenci = tekstAgenta(ctx.rozmowa);
+      const pierwszaOdpowiedz = agenci[1];
+      if (!pierwszaOdpowiedz) return [];
+      // „Klient powiedzial, czego chce" = po odjeciu samego powitania zostaly
+      // jeszcze co najmniej dwa slowa. Liczenie surowych slow nie dziala:
+      // „Здравствуйте, хочу записаться." to trzy slowa, z czego jedno to
+      // powitanie, a sprawa JEST powiedziana.
+      const POWITANIA = /\b(dzień dobry|dzien dobry|witam|halo|здравствуйте|добрый день|доброе утро|доброго дня|вітаю|hello|good morning|good afternoon|hi)\b/gi;
+      const klientPowiedzial = ctx.rozmowa.some((t, i) => t.role === "user" && i < pierwszaOdpowiedz.i
+        && String(t.message || "").replace(POWITANIA, " ").trim().split(/\s+/).filter(Boolean).length >= 2);
+      if (!klientPowiedzial) return [];   // samo „dzień dobry" nie niesie sprawy
+      return zawiera(pierwszaOdpowiedz.tekst, OTWIERAJACE)
+        ? [naruszenie(pierwszaOdpowiedz, "pytanie otwierające zadane po raz drugi — klient już powiedział, czego chce")]
+        : [];
+    },
   },
 
   // ---- NOWE: dane spoza snapshotu -----------------------------------------

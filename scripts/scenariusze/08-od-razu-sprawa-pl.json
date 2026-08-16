@@ -1,0 +1,13 @@
+{
+  "id": "08-od-razu-sprawa",
+  "jezyk": "pl",
+  "opis": "klient od razu mówi, czego chce (z prawdziwej rozmowy 16.08)",
+  "tury": 14,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałbym się dowiedzieć o wolny termin, żeby się umówić na, ee, sprawdzenie zawieszenia, wymienić filtry i przejechać samochód.",
+    "prompt": "Jesteś klientem warsztatu. TWOJE PIERWSZE ZDANIE MUSI BRZMIEĆ DOKŁADNIE TAK, słowo w słowo: \"Dzień dobry, chciałbym się dowiedzieć o wolny termin, żeby się umówić na, ee, sprawdzenie zawieszenia, wymienić filtry i przejechać samochód.\" Nie skracaj go i nie zmieniaj. Potem odpowiadaj krótko i naturalnie. Auto to Mazda RX8, imię Daniel, rejestracja WW666WW. Dane podawaj dopiero gdy agent zapyta. Gdy termin ustalony — podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

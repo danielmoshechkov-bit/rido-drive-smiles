@@ -136,3 +136,26 @@ Deno.test("zaden wzorzec nie zaklada plci rozmowcy", () => {
     }
   }
 });
+
+// PYTANIE OTWIERAJACE NIE MOZE BYC WZORCEM.
+//
+// Powitanie wypowiada platforma (first_message). Dopoki „W czym moge pomoc?"
+// stalo jako pierwszy wzorzec listy, model siegal po nie odruchowo — takze
+// w turze, w ktorej klient wlasnie powiedzial, czego chce. Prawdziwa rozmowa
+// 16.08 i reprodukcja 3/3 w symulacji.
+Deno.test("zaden wzorzec nie jest pytaniem otwierajacym", () => {
+  const otwierajace = ["w czym mogę pomóc", "чем могу помочь", "чим можу допомогти", "how can i help"];
+  for (const j of ["pl", "ru", "uk", "en"]) {
+    const blok = wzorceWJezyku(j);
+    if (!blok) continue;
+    for (const z of blok.split("\n").filter((l) => l.startsWith("  ")).map((l) => l.trim().toLowerCase())) {
+      // Wyjatek: odpowiedz na prosbe o zmiane jezyka („Да, конечно! Чем могу
+      // помочь?") — tam pytanie jest CZESCIA przejscia na inny jezyk i pada
+      // zamiast powitania, nie po nim.
+      if (/^(да|так|yes)[,!]/.test(z)) continue;
+      for (const o of otwierajace) {
+        assert(!z.includes(o), `${j}: wzorzec jest pytaniem otwierajacym: ${z}`);
+      }
+    }
+  }
+});

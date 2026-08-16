@@ -184,3 +184,57 @@ i sloty rozłożone na cały dzień. Agent nie musi liczyć, więc nie może pol
 → Detektor w tej turze pokazywał `ru`, snapshot był po rosyjsku (7372 znaki
   zamiast 8605). Wszystko po naszej stronie było ustawione na rosyjski.
   Zawiódł wyłącznie prompt.
+
+---
+
+## Rozmowa 16.08, 07:03, 85 s, telefon, po polsku
+
+**20. Pytanie z powitania zadane drugi raz**
+> `[ 4s] KLIENT: Dzień dobry, chciałbym się dowiedzieć o wolny termin, żeby się
+>   umówić na, ee, sprawdzenie zawieszenia, wymienić filtry i przejechać samochód.`
+> `[15s] AGENT:  W czym mogę pomóc? Kiedy będzie najwygodniej przyjechać?`
+
+→ Klient POWIEDZIAŁ, czego chce — trzy usługi w jednym zdaniu. Agent odpowiedział
+  pytaniem, które padło już w powitaniu. Brzmi, jakby nie słuchał.
+→ **Przyczyna: „W czym mogę pomóc?" było PIERWSZYM wzorcem na liście**, pod
+  nagłówkiem OTWARCIE. Model sięgnął po pierwszy z brzegu zamiast dopasować do
+  sytuacji. Zasada 26 obrócona przeciwko nam.
+→ Agent nigdy nie musi tego zdania mówić: powitanie wypowiada platforma
+  z `first_message`. Wzorzec **usunięty**, w jego miejsce weszło zdanie na tę
+  właśnie sytuację: „Dobrze, zawieszenie i filtry. Kiedy będzie najwygodniej
+  przyjechać?".
+→ Reprodukcja w symulacji **3/3**, po poprawce **0/3**.
+
+**21. Tłumaczenie, co się już wie, zamiast dopytania o to, co się pytało**
+> `[39s] AGENT:  Dobrze, Panie Danielu — jaki model Mazdy?`
+> `[43s] KLIENT: Eryk Zoszyn.`   ← ASR przekręcił „RX8"
+> `[46s] AGENT:  Przepraszam, to imię czy nazwisko? Potrzebuję imię —
+>   już mam Daniela z poprzedniego zdania.`
+
+→ Trzy zdania zamiast dwóch, relacja z własnego stanu („już mam Daniela")
+  i nietrafiona interpretacja. Agent sam zapytał o MODEL, dostał niezrozumiałą
+  odpowiedź — i zaczął tłumaczyć, co wie o imieniu.
+→ Klient musiał go poprawić: *„Nie, to RX8 to jest marka. Jak się pan zapytał
+  model, to jest RX8."* Dwie tury stracone na wyjaśnianie nieporozumienia,
+  którego agent sam nie zauważył.
+→ Reguła brzmi: przy niezrozumiałej odpowiedzi dopytujesz o TO, o co pytałeś.
+  Brakuje wzorca na tę sytuację — to samo, co przy odwołaniu wizyty.
+
+**22. Skrajne godziny zamiast sąsiednich**
+> `[24s] AGENT: Poniedziałek siedemnastego sierpnia — o dziewiątej czy o szesnastej?`
+
+→ Poprawne wobec danych: `zaproponuj` bierze pierwszą i ostatnią wolną godzinę.
+  Ale klient nie dowiaduje się, że jest też jedenasta i trzynasta — dostaje
+  ranek albo koniec dnia i musi wybrać między skrajnościami.
+
+**23. Sześć sekund na „Do widzenia"**
+> `[76s] KLIENT: Nie, to wszystko. Dziękuję bardzo.`
+> `[82s] AGENT:  Do widzenia.` → `end_call`
+
+→ TTFB naszego łańcucha: **1,22 s**. Reszta to `turn_timeout` (4 s) plus
+  synteza. Klient nie wie, że system czeka na ciszę — słyszy, że agent się
+  zawiesił, po zdaniu, po którym rozmowa powinna się już skończyć.
+
+**Czasy tur w tej rozmowie** (TTFB naszego serwera): 1,09 / 1,55 / 1,17 / 1,13 /
+1,11 / 1,19 / 1,23 / 1,22 s. Mediana **1,19 s**, bez ogonów. Opóźnienie,
+które słychać, jest po stronie tury i syntezy, nie po naszej.

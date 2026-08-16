@@ -41,7 +41,11 @@ type Wzorce = {
 
 const PL: Wzorce = {
   otwarcie: [
-    "W czym mogę pomóc?",
+    // „W czym mogę pomóc?" USUNIETE (16.08). Agent nigdy nie musi tego mowic:
+    // powitanie wypowiada platforma z pola first_message. Dopoki zdanie stalo
+    // jako PIERWSZY wzorzec listy, model siegal po nie odruchowo — takze wtedy,
+    // gdy klient wlasnie powiedzial, czego chce. Reprodukcja 3/3.
+    "Dobrze, zawieszenie i filtry. Kiedy będzie najwygodniej przyjechać?",
   ],
   termin: [
     "Kiedy będzie najwygodniej przyjechać?",
@@ -78,7 +82,7 @@ const PL: Wzorce = {
 const RU: Wzorce = {
   otwarcie: [
     "Да, конечно! Чем могу помочь?",
-    "Чем могу помочь?",
+    "Хорошо, подвеска и фильтры. Когда вам было бы удобно приехать?",
   ],
   termin: [
     "Когда вам было бы удобно приехать?",
@@ -123,7 +127,7 @@ const RU: Wzorce = {
 const UK: Wzorce = {
   otwarcie: [
     "Так, звичайно! Чим можу допомогти?",
-    "Чим можу допомогти?",
+    "Добре, підвіска та фільтри. Коли вам було б зручно приїхати?",
   ],
   termin: [
     "Коли вам було б зручно приїхати?",
@@ -168,7 +172,7 @@ const UK: Wzorce = {
 const EN: Wzorce = {
   otwarcie: [
     "Yes, of course! How can I help?",
-    "How can I help?",
+    "Alright, suspension and filters. When would it suit you to come in?",
   ],
   termin: [
     "When would it suit you to come in?",

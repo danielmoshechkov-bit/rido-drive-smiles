@@ -20,7 +20,7 @@ model_id     eleven_multilingual_v2
 voice_id     cjVigY5qzO86Huf0OWal        (Eric)
 stability    0.5
 similarity_boost  0.6
-speed        1.15        <- opis mówił 1.0, produkcja i JSON mają 1.15
+speed        1.0         <- cofnięte z 1.15 dnia 16.08
 enable_phoneme_tags   false
 optimize_streaming_latency  0
 agent_output_audio_format   pcm_16000
@@ -61,6 +61,12 @@ w poszukiwaniu poprawy.
 potem 0,8 wobec 0,6 po 25. **Różnica nieistotna** (`p = 0,26`). Wartość 0,6
 wybrana, bo jest w zalecanym zakresie i nie wypadła gorzej — nie dlatego,
 że coś naprawia.
+
+**`speed 1.0`, cofnięte z 1.15 dnia 16.08.** Wartość 1,15 dobierano, gdy
+staliśmy na Flash i Turbo — te modele mówią szybko i płasko, więc przyspieszenie
+ich nie psuło. `eleven_multilingual_v2` mówi wolniej i z większą modulacją;
+przyspieszony sepleni i gubi rytm. Odsłuchane w rozmowie 16.08.
+Gdyby 1,0 okazało się za wolne, następny krok to 1,1 — nie 1,15.
 
 **`enable_phoneme_tags false`** — zmienione 13.08 w poszukiwaniu przyczyny.
 Nie pomogło, ale też nie zaszkodziło. Zostaje jako stan zbadany.
