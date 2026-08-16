@@ -82,3 +82,63 @@ export function getOpenStatus(raw: any, now = new Date()): { open: boolean; labe
   }
   return { open: false, label: 'Zamknięte' };
 }
+
+// ---------------------------------------------------------------------------
+// Konwersja między dwoma formatami tej samej informacji
+// ---------------------------------------------------------------------------
+//
+// 🔴 POWÓD (16.08.2026). Godziny pracy żyją w dwóch kolumnach, w DWÓCH RÓŻNYCH
+// kształtach, i mirror między nimi robił się bez konwersji:
+//
+//   `service_providers.working_hours`  → OBIEKT { mon: {closed, open, close}, … }
+//   `workshop_settings.working_hours`  → TABLICA [ {open, from, to} × 7 ], Pn→Nd
+//
+// „Moje usługi" zapisywały obiekt do OBU kolumn. Formularz rezerwacji
+// (`ServiceBookingModal`) czyta tę drugą i miał `if (!Array.isArray(wh))
+// return []` — więc po każdym zapisie godzin z „Moich usług" klient końcowy
+// widział **zero wolnych terminów**, bez błędu i bez ostrzeżenia. Warsztat
+// nie miał jak się dowiedzieć, że traci rezerwacje.
+
+/** Kształt jednego dnia w tabeli `workshop_settings`. */
+export interface DzienTablicowy {
+  open: boolean;
+  from: string;
+  to: string;
+}
+
+/** Obiekt (service_providers) → tablica Pn…Nd (workshop_settings). */
+export function naFormatWarsztatu(godziny: WorkingHours): DzienTablicowy[] {
+  return DAY_ORDER.map((d) => ({
+    open: !godziny[d].closed,
+    from: godziny[d].open,
+    to: godziny[d].close,
+  }));
+}
+
+/** Tablica Pn…Nd (workshop_settings) → obiekt (service_providers). */
+export function zFormatuWarsztatu(tablica: unknown): WorkingHours {
+  if (!Array.isArray(tablica)) return normalizeWorkingHours(tablica);
+  const out = {} as WorkingHours;
+  DAY_ORDER.forEach((d, i) => {
+    const v = tablica[i] as Partial<DzienTablicowy> | undefined;
+    out[d] = {
+      closed: !(v?.open ?? !DEFAULT_WORKING_HOURS[d].closed),
+      open: typeof v?.from === 'string' ? v.from : DEFAULT_WORKING_HOURS[d].open,
+      close: typeof v?.to === 'string' ? v.to : DEFAULT_WORKING_HOURS[d].close,
+    };
+  });
+  return out;
+}
+
+/**
+ * Przyjmuje JEDEN Z DWÓCH kształtów i zawsze zwraca tablicę warsztatową.
+ *
+ * Używane przez czytelników, żeby dane zapisane wcześniej w złym kształcie
+ * nadal działały. Naprawa samych zapisów nie wystarcza — w bazie siedzą już
+ * wiersze zapisane obiektem i nikt ich nie przepisze.
+ */
+export function jakoFormatWarsztatu(surowe: unknown): DzienTablicowy[] {
+  if (Array.isArray(surowe)) return surowe as DzienTablicowy[];
+  if (surowe && typeof surowe === 'object') return naFormatWarsztatu(normalizeWorkingHours(surowe));
+  return [];
+}

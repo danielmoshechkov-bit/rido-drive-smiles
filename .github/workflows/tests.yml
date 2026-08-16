@@ -49,6 +49,9 @@ jobs:
                      supabase/functions/_shared/requireRole.ts \
                      supabase/functions/_shared/requireRole_test.ts \
                      supabase/functions/_shared/bladFunkcji_test.ts \
+                     supabase/functions/_shared/bramkaKompletna_test.ts \
+                     supabase/functions/_shared/payu.ts \
+                     supabase/functions/_shared/payu_test.ts \
                      supabase/functions/_shared/subscriptionGate.ts \
                      supabase/functions/_shared/subscriptionGate_test.ts \
                      supabase/functions/_shared/statusyDostepu.ts \
@@ -60,7 +63,9 @@ jobs:
                      supabase/functions/billing-stripe-sync/index.ts \
                      supabase/functions/billing-admin-plans/index.ts \
                      supabase/functions/billing-admin-features/index.ts \
-                     supabase/functions/payment-core/index.ts
+                     supabase/functions/payment-core/index.ts \
+                     supabase/functions/billing-payu-order/index.ts \
+                     supabase/functions/billing-payu-webhook/index.ts
       # Funkcje warsztatowe z bramką subskrypcji (G5). Wchodzą do CI, bo to one
       # omijają RLS kluczem service_role — rozjazd sygnatury bramki z ich
       # wywołaniem oznaczałby cichą dziurę w bramkowaniu, a nie błąd na ekranie.

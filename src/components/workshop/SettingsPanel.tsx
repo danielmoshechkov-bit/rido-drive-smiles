@@ -408,18 +408,14 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
               </CardContent>
             </Card>
 
-            <div className="space-y-2">
-              <Label>{t('workshop.settingsPanel.accountType')}</Label>
-              <Select value={settingsForm.business_type} onValueChange={v => setSettingsForm((p: any) => ({ ...p, business_type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="firma">{t('workshop.settingsPanel.company')}</SelectItem>
-                  <SelectItem value="osoba">{t('workshop.settingsPanel.individual')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {settingsForm.business_type === 'firma' && (
-              <>
+            {/* USUNIĘTY przełącznik „Typ konta" (16.08.2026).
+                `business_type` nie miał kolumny ani w `service_providers`, ani
+                w `workshop_settings`, i nie trafiał do żadnego zapisu — czysty
+                stan lokalny, ginący po odświeżeniu. Gorzej: wisiał na nim
+                warunek renderowania nazwy firmy, NIP-u, nazwy skróconej
+                i adresu, więc tam, gdzie nikt go nie ustawił, te cztery pola
+                po prostu znikały. Jeśli rozróżnienie firma/osoba będzie kiedyś
+                potrzebne, wraca razem z kolumną w bazie. */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>{t('workshop.settingsPanel.companyName')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.company_name} onChange={e => setSettingsForm((p: any) => ({ ...p, company_name: e.target.value }))} placeholder={t('workshop.settingsPanel.companyNamePlaceholder')} /></div>
                   <div className="space-y-2">
@@ -437,8 +433,6 @@ export function SettingsPanel({ providerId, settingsForm, setSettingsForm, websi
                   <div className="space-y-2"><Label>{t('workshop.settingsPanel.shortName')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.short_name || ''} onChange={e => setSettingsForm((p: any) => ({ ...p, short_name: e.target.value }))} placeholder={t('workshop.settingsPanel.shortNamePlaceholder')} /></div>
                   <div className="space-y-2"><Label>{t('workshop.settingsPanel.address')}</Label><Input onFocus={e => e.currentTarget.select()} value={settingsForm.address} onChange={e => setSettingsForm((p: any) => ({ ...p, address: e.target.value }))} placeholder="ul. Przykładowa 1" /></div>
                 </div>
-              </>
-            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t('workshop.settingsPanel.postalCodeCity')}</Label>

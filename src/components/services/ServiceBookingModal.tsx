@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Loader2, Calendar as CalendarIcon, Clock, Check, AlertTriangle, Car, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { jakoFormatWarsztatu } from '@/lib/provider-hours';
 import { toast } from 'sonner';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { format, addMinutes, parse } from 'date-fns';
@@ -148,8 +149,12 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
       .eq('user_id', prov.user_id)
       .maybeSingle();
 
-    const wh = ws?.working_hours;
-    if (!Array.isArray(wh)) {
+    // Przyjmujemy OBA kształty. Wcześniej było tu `if (!Array.isArray(wh))
+    // return []` — a „Moje usługi" zapisywały do tej kolumny obiekt, więc
+    // klient końcowy widział zero wolnych terminów. Sama poprawka zapisów nie
+    // wystarczy: w bazie siedzą już wiersze zapisane w złym kształcie.
+    const wh = jakoFormatWarsztatu(ws?.working_hours);
+    if (wh.length === 0) {
       setWorkingHours([]);
       return;
     }
