@@ -137,3 +137,23 @@ CREATE POLICY "Admin full access workshop_order_status_history" ON public.worksh
 CREATE POLICY "Admin full access workshop_order_statuses" ON public.workshop_order_statuses FOR ALL USING ((SELECT public.has_role(auth.uid(),'admin')));
 CREATE POLICY "Admin full access workshop_orders" ON public.workshop_orders FOR ALL USING ((SELECT public.has_role(auth.uid(),'admin')));
 CREATE POLICY "Admin full access workshop_vehicles" ON public.workshop_vehicles FOR ALL USING ((SELECT public.has_role(auth.uid(),'admin')));
+
+-- Kredyty VIN — potrzebne do sprawdzenia pakietu startowego.
+CREATE TABLE public.vehicle_lookup_credits (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  total_credits_purchased integer DEFAULT 0,
+  remaining_credits integer DEFAULT 0,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now());
+
+CREATE TABLE public.vehicle_lookup_credit_transactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  type text NOT NULL CHECK (type IN ('purchase','usage','manual_add','manual_remove')),
+  credits integer NOT NULL,
+  price_net numeric(10,2),
+  source text DEFAULT 'system' CHECK (source IN ('payment','admin','system')),
+  note text,
+  created_at timestamptz DEFAULT now(),
+  created_by_admin_id uuid);

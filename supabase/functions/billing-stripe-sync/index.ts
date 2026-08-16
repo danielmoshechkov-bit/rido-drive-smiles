@@ -56,12 +56,45 @@ async function stripe(key: string, { path, method = "GET", form }: StripeCall): 
   return data;
 }
 
-/** Produkt po kodzie planu — szukamy, zanim utworzymy, żeby nie mnożyć duplikatów. */
+/**
+ * OPISU PLANU NIE WYSYŁAMY DO STRIPE'A — świadomie.
+ *
+ * `billing_plans.description` jest tekstem CENNIKOWYM i zawiera segmentację
+ * po wielkości warsztatu („Warsztat od 4 stanowisk…"). Na `/cennik` to ma
+ * sens: klient porównuje plany i wybiera swój rozmiar. Na stronie płatności
+ * działa odwrotnie — warsztat z dwoma stanowiskami czyta „od 4 stanowisk"
+ * dokładnie w chwili, gdy ma zapłacić, i się wycofuje.
+ *
+ * Zamiast redagować opis pod dwa różne konteksty zostawiamy w Stripe samą
+ * nazwę („GetRido Pro"). Cennik dalej czyta `description` z bazy, więc ta
+ * zmiana go nie dotyka.
+ */
 async function ensureProduct(key: string, plan: any): Promise<string> {
+  // Produkty założone WCZEŚNIEJ mają opis zapisany po stronie operatora.
+  // Samo przestanie go wysyłać nic by nie dało — trzeba go aktywnie wyczyścić,
+  // bo `ensureProduct` przy znalezionym produkcie i tak kończy działanie.
+  const wyczyscOpis = async (productId: string) => {
+    try {
+      await stripe(key, {
+        path: `/products/${productId}`,
+        method: "POST",
+        // Pusty łańcuch to w API Stripe'a sposób na skasowanie pola opcjonalnego.
+        form: { description: "" },
+      });
+    } catch (e) {
+      // Nieudane czyszczenie nie może wywrócić synchronizacji cennika —
+      // najwyżej na stronie płatności zostanie stary opis.
+      console.warn(`ensureProduct: nie udało się wyczyścić opisu produktu ${productId}:`, e);
+    }
+  };
+
   if (plan.stripe_product_id) {
     try {
       const existing = await stripe(key, { path: `/products/${plan.stripe_product_id}` });
-      if (existing && !existing.deleted) return existing.id;
+      if (existing && !existing.deleted) {
+        if (existing.description) await wyczyscOpis(existing.id);
+        return existing.id;
+      }
     } catch {
       // Produkt zniknął po stronie operatora (np. inne środowisko) — zakładamy nowy.
     }
@@ -70,7 +103,11 @@ async function ensureProduct(key: string, plan: any): Promise<string> {
   const found = await stripe(key, {
     path: `/products/search?query=${encodeURIComponent(`metadata['plan_code']:'${plan.code}'`)}`,
   });
-  if (found?.data?.length) return found.data[0].id;
+  if (found?.data?.length) {
+    const znaleziony = found.data[0];
+    if (znaleziony.description) await wyczyscOpis(znaleziony.id);
+    return znaleziony.id;
+  }
 
   const created = await stripe(key, {
     path: "/products",
@@ -79,7 +116,6 @@ async function ensureProduct(key: string, plan: any): Promise<string> {
       name: `GetRido ${plan.name}`,
       "metadata[plan_code]": plan.code,
       "metadata[product_line]": plan.product_line ?? "other",
-      ...(plan.description ? { description: String(plan.description).slice(0, 350) } : {}),
     },
   });
   return created.id;

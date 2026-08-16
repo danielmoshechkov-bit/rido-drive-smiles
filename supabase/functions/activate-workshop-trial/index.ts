@@ -96,6 +96,27 @@ Deno.serve(async (req) => {
       console.log("✅ service_provider row created (pending)");
     }
 
+    // Pakiet startowy — także dla kont, które aktywują moduł później.
+    {
+      const { data: warsztat } = await supabaseAdmin
+        .from("service_providers").select("id").eq("user_id", userId)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+      // Pakiet startowy: 20 SMS + 5 sprawdzeń VIN, raz na adres. Funkcja jest
+      // idempotentna po znormalizowanym e-mailu, więc powtórna rejestracja
+      // ani odtworzenie warsztatu nie dadzą drugiego pakietu.
+      const { data: pakiet, error: bladPakietu } = await supabaseAdmin.rpc(
+        "przyznaj_pakiet_startowy",
+        { p_user_id: userId, p_provider_id: warsztat?.id ?? null, p_email: user.email },
+      );
+      if (bladPakietu) {
+        // Brak pakietu nie może wywrócić rejestracji — konto ma powstać.
+        console.error("⚠️ pakiet startowy:", bladPakietu.message);
+      } else {
+        console.log(pakiet ? "✅ Pakiet startowy przyznany" : "ℹ️ Pakiet startowy już był");
+      }
+    }
+
     // Rola DOPIERO TERAZ, gdy warsztat na pewno istnieje. Odwrócona kolejność
     // znaczy, że nie ma czego wycofywać przy błędzie — a wycofywanie roli
     // byłoby zgadywaniem, czy nadaliśmy ją my, czy była wcześniej.

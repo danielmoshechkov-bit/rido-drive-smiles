@@ -237,6 +237,26 @@ Deno.serve(async (req) => {
       } else {
         console.log("✅ Workshop service_provider created (pending)");
 
+        // Identyfikator świeżo założonego warsztatu — pakiet startowy zapisuje
+        // się na nim, więc musimy go odczytać.
+        const { data: swiezyWarsztat } = await supabaseAdmin
+          .from("service_providers").select("id").eq("user_id", userId)
+          .order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+        // Pakiet startowy: 20 SMS + 5 sprawdzeń VIN, raz na adres. Funkcja jest
+        // idempotentna po znormalizowanym e-mailu, więc powtórna rejestracja
+        // ani odtworzenie warsztatu nie dadzą drugiego pakietu.
+        const { data: pakiet, error: bladPakietu } = await supabaseAdmin.rpc(
+          "przyznaj_pakiet_startowy",
+          { p_user_id: userId, p_provider_id: swiezyWarsztat?.id ?? null, p_email: email },
+        );
+        if (bladPakietu) {
+          // Brak pakietu nie może wywrócić rejestracji — konto ma powstać.
+          console.error("⚠️ pakiet startowy:", bladPakietu.message);
+        } else {
+          console.log(pakiet ? "✅ Pakiet startowy przyznany" : "ℹ️ Pakiet startowy już był");
+        }
+
         // Panel /uslugi/panel bramkuje po roli service_provider — bez niej "Brak uprawnień"
         const { error: spRoleError } = await supabaseAdmin
           .from("user_roles")
