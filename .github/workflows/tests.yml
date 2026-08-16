@@ -101,3 +101,29 @@ jobs:
       # przestał być testem jednostkowym.
       - name: Testy
         run: deno test --allow-read supabase/functions/_shared/
+
+  front:
+    name: Kontrola typów (front)
+    runs-on: ubuntu-latest
+    # Powód (16.08.2026): `npm run typecheck` przez tydzień NIE SPRAWDZAŁ NICZEGO.
+    # Główny `tsconfig.json` ma `"files": []` i same `references`, więc `tsc
+    # --noEmit` bez `-p` dostawał zero plików wejściowych i zawsze kończył się
+    # zielono. Celowo wstawiona nieistniejąca zmienna dawała zero trafień.
+    #
+    # Przez to na produkcję poszły: `useUserWallet` zwracający skrót do
+    # nieistniejącej funkcji (ReferenceError — zakładka Portfel nie renderowała
+    # się w ogóle) i `handleCheckVin` używający parametru, którego nie ma
+    # w sygnaturze (sprawdzanie po VIN wywalało się przy każdym wywołaniu).
+    #
+    # Skrypt celuje teraz w oba projekty, a to zadanie pilnuje, żeby zostało
+    # zero. Bramka jest twarda, bo stan zerowy osiągnęliśmy — każdy nowy błąd
+    # jest nowy i ma być naprawiony, zanim wejdzie.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Kontrola typów
+        run: npm run typecheck

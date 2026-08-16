@@ -91,7 +91,12 @@ export function useSubscriptionAccess(
 
       if (platna.error) throw platna.error;
 
-      const wiersz = (Array.isArray(platna.data) ? platna.data[0] : null) as
+      // Rzutowanie przez `unknown`, bo `billing_subscriptions` nie ma jeszcze
+      // w wygenerowanym `types.ts` — klient zwraca wtedy `SelectQueryError`,
+      // który z docelowym kształtem się nie pokrywa. Tabela w bazie ISTNIEJE;
+      // to rozjazd wygenerowanego pliku, nie zapytania. Pliku nie tykamy ręcznie
+      // (jest generowany), więc niezgodność zdejmujemy tutaj i nazywamy powód.
+      const wiersz = (Array.isArray(platna.data) ? platna.data[0] : null) as unknown as
         | { status: string; current_period_end: string | null }
         | null;
 
@@ -136,7 +141,8 @@ export function useSubscriptionAccess(
       // oznacza „ten użytkownik ma już okres próbny". Filtrowanie tutaj
       // rozjechałoby się z zapisem: komuś odmówiono by założenia drugiego triala,
       // a jednocześnie pierwszy nie dawałby mu dostępu.
-      const t = (Array.isArray(trial.data) ? trial.data[0] : null) as
+      // Jak wyżej: `paid_service_subscriptions` brak w wygenerowanych typach.
+      const t = (Array.isArray(trial.data) ? trial.data[0] : null) as unknown as
         | { status: string; expires_at: string | null }
         | null;
 
