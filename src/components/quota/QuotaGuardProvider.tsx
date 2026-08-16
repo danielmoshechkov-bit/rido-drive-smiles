@@ -6,6 +6,8 @@ import { SmsPurchaseModal } from '@/components/SmsPurchaseModal';
 import { VehicleLookupCreditsModal } from '@/components/vehicle/VehicleLookupCreditsModal';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ZgodaNaWlasnyKredyt } from '@/components/vehicle/ZgodaNaWlasnyKredyt';
+import type { ProsbaOZgode } from '@/hooks/useVehicleLookup';
 
 type QuotaKind = 'sms' | 'vehicle_lookup';
 
@@ -26,6 +28,13 @@ interface QuotaGuardCtx {
   runWithQuota: <T,>(kind: QuotaKind, action: () => Promise<T>, opts?: { retryLabel?: string }) => Promise<T | null>;
   // Manually open top-up dialogs
   openTopUp: (kind: QuotaKind) => void;
+  /**
+   * Zapytanie pracownika, czy dołożyć z własnych kredytów, gdy pula warsztatu
+   * jest pusta. Stan siedzi TUTAJ, a nie w `useVehicleLookup`, bo sprawdzenia
+   * pojazdu wywołuje dziesięć różnych komponentów — przy stanie w hooku każdy
+   * z nich musiałby renderować własny dialog i w którymś by go zabrakło.
+   */
+  poprosOZgode: (prosba: ProsbaOZgode) => void;
 }
 
 const Ctx = createContext<QuotaGuardCtx | null>(null);
@@ -58,6 +67,7 @@ function detectQuotaError(result: any, error: any): QuotaKind | null {
 export function QuotaGuardProvider({ children }: { children: ReactNode }) {
   const [smsModalOpen, setSmsModalOpen] = useState(false);
   const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
+  const [prosbaOZgode, setProsbaOZgode] = useState<ProsbaOZgode | null>(null);
   const [warning, setWarning] = useState<{ kind: QuotaKind } | null>(null);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [retrying, setRetrying] = useState(false);
@@ -131,7 +141,7 @@ export function QuotaGuardProvider({ children }: { children: ReactNode }) {
 
 
   return (
-    <Ctx.Provider value={{ runWithQuota, openTopUp }}>
+    <Ctx.Provider value={{ runWithQuota, openTopUp, poprosOZgode: setProsbaOZgode }}>
       {children}
 
       {/* Warning dialog */}
@@ -167,6 +177,8 @@ export function QuotaGuardProvider({ children }: { children: ReactNode }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ZgodaNaWlasnyKredyt prosba={prosbaOZgode} onOdrzuc={() => setProsbaOZgode(null)} />
 
       {/* Doładowania — oba modale prowadzą do PayU (suwak jednostek).
           Nie przyjmują `onPurchase`: handlery, które tu były, dopisywały
