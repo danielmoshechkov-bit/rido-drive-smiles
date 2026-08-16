@@ -367,9 +367,16 @@ async function sekcjaD() {
   //    z którego Pan dzwoni.«"
   // Model nie zgadywał — recytował nasz szablon. Zasada 22 (przykład staje się
   // zachowaniem) w najczystszej postaci, tylko dotyczy rodzaju gramatycznego.
-  const chatSrc = czytajFunkcje("voice-agent-chat");
+  // WZORCE MIESZKAJA TERAZ W DWOCH PLIKACH.
+  // 16.08 dopisalem wzorzec „Jesli potrzebuje PAN pozniej, mozna zostawic auto"
+  // do voiceWzorce.ts — i D7 go NIE ZOBACZYLA, bo skanowala wylacznie prompt.
+  // Asercja `plec_przed_imieniem` w symulacji zlapala to piec razy na trzech
+  // przebiegach. Kontrola, ktora patrzy w jedno z dwoch zrodel, jest slepa
+  // na polowe materialu.
+  const chatSrc = czytajFunkcje("voice-agent-chat")
+    + "\n" + readFileSync(join(ROOT, "supabase/functions/_shared/voiceWzorce.ts"), "utf8");
   const plciowe = [];
-  for (const m of chatSrc.matchAll(/"[^"]{0,160}(?:z którego Pan|dla Pana|Panu wygodnie|mógłby Pan|zdecydują się Państwo)[^"]{0,80}"/g)) {
+  for (const m of chatSrc.matchAll(/"[^"]{0,160}(?:z którego Pan|dla Pana|Panu wygodnie|mógłby Pan|zdecydują się Państwo|potrzebuje Pan|dla Pani|Pani wygodnie)[^"]{0,80}"/g)) {
     const kontekst = chatSrc.slice(Math.max(0, m.index - 120), m.index);
     // Przykłady NEGATYWNE są w porządku — pokazują, czego nie robić. Rozpoznajemy je
     // po znacznikach („ŹLE:", „BŁĄD:") ORAZ po zaprzeczeniu tuż przed cytatem

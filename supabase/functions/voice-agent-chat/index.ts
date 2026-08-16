@@ -479,7 +479,16 @@ serve(async (req) => {
     // wypowiedzi). Jeden jezyk na raz, nigdy dwa naraz.
     const blokWzorcow = wzorceWJezyku(jezyk) || "";
     if (blokWzorcow) logTiming("wzorce_jezyka", totalStarted, { jezyk, znakow: blokWzorcow.length });
-    const systemVolatile = systemTimeContext + snapshotBlok + blokWzorcow;
+    // KOLEJNOSC: reguly -> WZORCE -> dane.
+    //
+    // Pierwsza wersja stawiala wzorce NA KONCU, za blokiem danych (~9 000
+    // znakow). Polski spadl wtedy z 7/7 na 4/7 i wrocily trzy defekty
+    // deterministyczne (forma_ty, data_powtorzona, relacjonowanie_pracy),
+    // ktore FAZA C usunela. Wzorce oddzielone od regul dziewiecioma tysiacami
+    // znakow danych przestaly dzialac jak ilustracja reguly.
+    //
+    // Teraz wzorce stoja TUZ ZA regulami, a dane na koncu.
+    const systemVolatile = systemTimeContext + blokWzorcow + snapshotBlok;
 
     // ========================================================================
     // PROMPT — FAZA C, 16.08.2026. 115 reguł -> 29, 21 sekcji -> 8.

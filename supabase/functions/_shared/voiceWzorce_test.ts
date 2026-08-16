@@ -118,3 +118,21 @@ Deno.test("nieznany jezyk wraca do polskiego, nie do pustki", () => {
   assertEquals(zdanieAwarii("techniczne", "de"), zdanieAwarii("techniczne", "pl"));
   assertEquals(zdanieAwarii("techniczne", null), zdanieAwarii("techniczne", "pl"));
 });
+
+// ZADEN WZORZEC NIE ZAKLADA PLCI ROZMOWCY.
+//
+// Wzorzec o zostawieniu auta na noc brzmial „Jesli potrzebuje PAN pozniej" —
+// czyli lamal regule, ktora sam prompt stawia w sekcji 1: do poznania imienia
+// mowisz bezosobowo. Asercja `plec_przed_imieniem` zlapala to 5 razy na trzech
+// przebiegach, a kontrola D7 w audycie nie — bo skanowala prompt, a wzorzec
+// mieszka tutaj.
+Deno.test("zaden wzorzec nie zaklada plci rozmowcy", () => {
+  const plec = /\b(Pan|Pani|Panu|Pana|Panią|Pani[ae])\b/;
+  for (const j of ["pl", "ru", "uk", "en"]) {
+    const blok = wzorceWJezyku(j);
+    if (!blok) continue;
+    for (const z of blok.split("\n").filter((l) => l.startsWith("  ")).map((l) => l.trim())) {
+      assert(!plec.test(z), `${j}: wzorzec zaklada plec rozmowcy: ${z}`);
+    }
+  }
+});

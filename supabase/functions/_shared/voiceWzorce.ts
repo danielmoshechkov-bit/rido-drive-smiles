@@ -50,7 +50,7 @@ const PL: Wzorce = {
     "Przepraszam, dziewiąta czy jedenasta?",
     "Nie dosłyszałam godziny — czy chodzi o dziewiątą rano?",
     "Trzeciego września wolne o dziewiątej — pasuje?",
-    "Najpóźniej mogę zapisać na szesnastą — o siedemnastej zamykamy. Jeśli potrzebuje Pan później, można zostawić auto do jutra, tylko to trzeba ustalić z mechanikiem przy przyjęciu.",
+    "Najpóźniej mogę zapisać na szesnastą — o siedemnastej zamykamy. Jeśli potrzeba później, można zostawić auto do jutra, tylko to trzeba ustalić z mechanikiem przy przyjęciu.",
   ],
   dane: [
     "Poproszę imię oraz markę i model auta.",
