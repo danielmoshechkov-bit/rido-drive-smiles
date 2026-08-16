@@ -421,7 +421,11 @@ function mapRegCheckVehicle(vehicleData: any, regNumber: string | null, vinNumbe
     color: colorFinal,
     registration_year: parseYear(vehicleData?.ManufacturingYear || vehicleData?.ManufactureYear || extractValue(vehicleData, "RegistrationYear") || extractValue(vehicleData, "Year")),
     first_registration_date: extractValue(vehicleData, "FirstRegistrationDate") || extractValue(vehicleData, "DateFirstRegistered") || null,
-    fuel_type: normalizeFuelType(vehicleData?.FuelType || extractCurrentText(vehicleData, "FuelType") || extractValue(vehicleData, "FuelType")),
+    // Gdy rejestr nie poda paliwa wprost, probujemy odczytac je z opisu — tam
+    // czesto stoi „PETROL" albo „HYBRID". Lepsze to niz puste pole, ktore
+    // warsztat i tak musi uzupelnic recznie przy kazdym aucie.
+    fuel_type: normalizeFuelType(vehicleData?.FuelType || extractCurrentText(vehicleData, "FuelType") || extractValue(vehicleData, "FuelType"))
+      || paliwoZOpisu(descriptionRaw || ""),
     engine_size: engineSize || null,
     engine_power_kw: powerRaw || null,
     mileage: extractNumberText(vehicleData?.Mileage) || null,
@@ -543,6 +547,17 @@ function extractPowerKw(value: any): string {
 function parseYear(value: any): number | null {
   const year = String(value || "").match(/(19|20)\d{2}/)?.[0];
   return year ? parseInt(year, 10) : null;
+}
+
+/** Paliwo wyczytane z opisu auta — ostatnia deska ratunku, tylko po jasnych slowach. */
+function paliwoZOpisu(opis: string): string | null {
+  const t = String(opis || "").toLowerCase();
+  if (!t) return null;
+  if (t.includes("hybrid") || t.includes("hybryd")) return "Hybryda";
+  if (t.includes("diesel")) return "Diesel";
+  if (t.includes("petrol") || t.includes("gasoline") || t.includes("benzyn")) return "Benzyna";
+  if (t.includes("electric")) return "Elektryczny";
+  return null;
 }
 
 function normalizeFuelType(value: any): string | null {

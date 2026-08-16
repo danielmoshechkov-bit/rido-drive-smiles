@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, ArrowRight } from 'lucide-react';
 import { wybierzKrok, nastepnyKrok, type WidocznyCel } from '@/components/onboarding/wyborKroku';
+import { pozycjaDymka } from '@/components/onboarding/pozycjaDymka';
 
 /**
  * Wprowadzenie „pokaż palcem": przygaszony ekran, jedno jasne miejsce i dymek,
@@ -94,23 +95,48 @@ function widoczneCele(cele: Array<string | undefined>): WidocznyCel[] {
     if (!el || el.offsetParent === null) continue;
     if (el.closest('[aria-hidden="true"]')) continue;
     const okno = el.closest('[role="dialog"]');
-    wynik.push({ cel, glebokosc: okno ? okna.indexOf(okno) + 1 : 0, wypelniony: wypelnione(el) });
+    wynik.push({ cel, glebokosc: okno ? okna.indexOf(okno) + 1 : 0, wypelniony: wypelnione(el, cel) });
   }
   return wynik;
 }
 
 /**
- * Czy pole w podswietlonym miejscu jest juz wypelnione.
+ * Czy pole w podswietlonym miejscu jest juz wypelnione — i CZY CZLOWIEK SKONCZYL.
  *
  * Bierzemy PIERWSZE pole, bo w parze „Imie / Nazwisko" obowiazkowe jest imie,
  * a na nazwisko nikt nie ma obowiazku czekac.
+ *
+ * Druga polowa jest wazniejsza od pierwszej. Poprzednia wersja uznawala pole za
+ * wypelnione po PIERWSZEJ wpisanej literze, wiec ramka uciekala na „Zapisz"
+ * w polowie wystukiwania numeru telefonu. Dlatego:
+ *   - numer telefonu liczy sie dopiero przy komplecie cyfr (9),
+ *   - dopoki kursor stoi w tym polu, dajemy sekunde i pol ciszy — dopiero
+ *     wtedy uznajemy, ze to koniec pisania,
+ *   - gdy kursor juz z pola wyszedl, nie ma na co czekac.
  */
-function wypelnione(el: HTMLElement): boolean {
+const ostatniaTresc = new Map<string, { wartosc: string; czas: number }>();
+
+function wypelnione(el: HTMLElement, klucz: string): boolean {
   const pole = el.querySelector('input, textarea') as HTMLInputElement | null;
   // Nie ma czego wpisywac — bo wybrany klient zastapil pole wyszukiwania swoja
   // wizytowka. Skoro nie ma pola, to znaczy, ze rzecz jest juz zalatwiona.
   if (!pole) return true;
-  return pole.value.trim().length > 0;
+
+  const wartosc = pole.value.trim();
+  if (!wartosc) { ostatniaTresc.delete(klucz); return false; }
+
+  const telefon = pole.type === 'tel' || /telefon|phone/i.test(pole.name + pole.placeholder);
+  if (telefon && wartosc.replace(/\D/g, '').length < 9) return false;
+
+  const teraz = Date.now();
+  const poprzednia = ostatniaTresc.get(klucz);
+  if (!poprzednia || poprzednia.wartosc !== wartosc) {
+    ostatniaTresc.set(klucz, { wartosc, czas: teraz });
+    return false;
+  }
+
+  const pisze = el.contains(document.activeElement);
+  return !pisze || teraz - poprzednia.czas > 1500;
 }
 
 export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLicznik = true }: Props) {
@@ -253,50 +279,72 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
   // bez tego przycisków „Dalej" i „Zamknij" NIE DA SIĘ kliknąć — wprowadzenie
   // zatrzymywało się na kroku z otwartym oknem zlecenia.
   const ciemne = 'fixed bg-black/60 z-[95] transition-all duration-200 pointer-events-auto';
+
+  // TO ZAMYKALO OKNO ZLECENIA.
+  //
+  // Dymek i przyciemnienie leza POZA oknem modalnym (portal do body). Radix
+  // nasluchuje wcisniecia myszy na calym dokumencie i wszystko, co nie jest
+  // w srodku okna, traktuje jako „klikniecie obok" — czyli zamkniecie okna.
+  // Nacisniecie „Dalej" kasowalo wiec zaczete zlecenie razem z wpisanymi
+  // danymi. Zatrzymujemy zdarzenie, zanim dojdzie do dokumentu.
+  const nieZamykajOkna = {
+    onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+    onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
+    onTouchStart: (e: React.TouchEvent) => e.stopPropagation(),
+  };
+
+  // PRZEWIJANIE PRZEZ PRZYCIEMNIENIE.
+  //
+  // Przyciemnienie zakrywa cale okno, wiec kolko myszy nad nim nie przewijalo
+  // niczego: dolna czesc formularza (zdjecia, uszkodzenia, „Zapisz") byla nie
+  // do osiagniecia. Przekazujemy ruch kolka do tego, co realnie sie przewija —
+  // najczesciej do tresci otwartego okna.
+  const przewinPodSpodem = (e: React.WheelEvent) => {
+    const okna = document.querySelectorAll('[role="dialog"]');
+    const okno = okna[okna.length - 1] as HTMLElement | undefined;
+    const kandydaci: HTMLElement[] = [];
+    if (okno) {
+      kandydaci.push(okno);
+      okno.querySelectorAll('*').forEach((el) => kandydaci.push(el as HTMLElement));
+    }
+    const przewijalny = kandydaci.find((el) => {
+      const st = getComputedStyle(el);
+      return /(auto|scroll)/.test(st.overflowY) && el.scrollHeight > el.clientHeight + 4;
+    });
+    if (przewijalny) { przewijalny.scrollTop += e.deltaY; return; }
+    window.scrollBy(0, e.deltaY);
+  };
   const dymekNaSrodku = !obszar;
 
-  // GDZIE POSTAWIĆ DYMEK.
-  //
-  // Pierwszy wybór to BOK, nie „pod spodem": pod polem otwierają się listy
-  // podpowiedzi (klienci, pojazdy) i przyciski lupki, a dymek je zasłaniał —
-  // użytkownik widział podpowiedź „wpisz numer", ale nie mógł kliknąć wyszukania.
-  // Dopiero gdy z boku nie ma miejsca, schodzimy pod cel albo nad niego.
+  // GDZIE POSTAWIĆ DYMEK — patrz pozycjaDymka.ts. Reguła jest tam, bo dopiero
+  // jako czysta funkcja da się ją sprawdzić testem, a nie okiem użytkownika.
   const SZEROKOSC = 320;
-  // Wysokość dymka mierzymy PO wyrenderowaniu (patrz `wysokoscDymka`), bo zależy
-  // od długości tekstu. Zanim ją poznamy, zakładamy typową.
+  // Wysokość mierzymy PO wyrenderowaniu (zależy od długości tekstu). Zanim ją
+  // poznamy, zakładamy typową.
   const wysokosc = wysokoscDymka || 260;
-  const dolnaGranica = Math.max(12, window.innerHeight - wysokosc - 12);
-  const przytnij = (y: number) => Math.min(Math.max(12, y), dolnaGranica);
 
   const styleDymka: React.CSSProperties = dymekNaSrodku
     ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
     : (() => {
-        const miejsceZPrawej = window.innerWidth - obszar!.right;
-        const miejsceZLewej = obszar!.left;
-        // PRZYCINAMY DO EKRANU — inaczej dymek z długim tekstem wychodzi dołem
-        // poza okno i razem z nim znika przycisk „Dalej". Człowiek zostaje wtedy
-        // z podpowiedzią, której nie da się zamknąć inaczej niż krzyżykiem, i
-        // traci zaczęte zlecenie. To się wydarzyło na żywo.
-        const gora = przytnij(obszar!.top - 20);
-        if (miejsceZPrawej > SZEROKOSC + 24) return { top: gora, left: obszar!.right + 16 };
-        if (miejsceZLewej > SZEROKOSC + 24) return { top: gora, left: obszar!.left - SZEROKOSC - 16 };
-        // Z boku nie ma miejsca: schodzimy pod cel, a jeśli pod nim się nie mieści
-        // — nad niego. W obu wypadkach i tak przycinamy do ekranu.
-        const podSpodem = obszar!.bottom + wysokosc + 24 < window.innerHeight;
-        return {
-          top: przytnij(podSpodem ? obszar!.bottom + ODSTEP + 6 : obszar!.top - wysokosc - ODSTEP - 6),
-          left: Math.min(Math.max(12, obszar!.left), window.innerWidth - SZEROKOSC - 12),
-        };
+        const { top, left } = pozycjaDymka({
+          obszar: { top: obszar!.top, bottom: obszar!.bottom, left: obszar!.left, right: obszar!.right },
+          szerokosc: SZEROKOSC,
+          wysokosc,
+          ekranW: window.innerWidth,
+          ekranH: window.innerHeight,
+          odstep: ODSTEP,
+        });
+        return { top, left };
       })();
 
   return createPortal(
     <>
       {obszar ? (
         <>
-          <div className={ciemne} style={{ top: 0, left: 0, right: 0, height: Math.max(0, obszar.top - ODSTEP) }} />
-          <div className={ciemne} style={{ top: obszar.bottom + ODSTEP, left: 0, right: 0, bottom: 0 }} />
-          <div className={ciemne} style={{ top: obszar.top - ODSTEP, left: 0, width: Math.max(0, obszar.left - ODSTEP), height: obszar.height + ODSTEP * 2 }} />
-          <div className={ciemne} style={{ top: obszar.top - ODSTEP, left: obszar.right + ODSTEP, right: 0, height: obszar.height + ODSTEP * 2 }} />
+          <div className={ciemne} {...nieZamykajOkna} onWheel={przewinPodSpodem} style={{ top: 0, left: 0, right: 0, height: Math.max(0, obszar.top - ODSTEP) }} />
+          <div className={ciemne} {...nieZamykajOkna} onWheel={przewinPodSpodem} style={{ top: obszar.bottom + ODSTEP, left: 0, right: 0, bottom: 0 }} />
+          <div className={ciemne} {...nieZamykajOkna} onWheel={przewinPodSpodem} style={{ top: obszar.top - ODSTEP, left: 0, width: Math.max(0, obszar.left - ODSTEP), height: obszar.height + ODSTEP * 2 }} />
+          <div className={ciemne} {...nieZamykajOkna} onWheel={przewinPodSpodem} style={{ top: obszar.top - ODSTEP, left: obszar.right + ODSTEP, right: 0, height: obszar.height + ODSTEP * 2 }} />
           {/* Ramka wokół dziury — sam brak przyciemnienia bywa niewidoczny na jasnym tle. */}
           <div
             className="fixed z-[96] rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-transparent pointer-events-none animate-pulse"
@@ -304,11 +352,12 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
           />
         </>
       ) : (
-        <div className={ciemne} style={{ inset: 0 }} />
+        <div className={ciemne} {...nieZamykajOkna} onWheel={przewinPodSpodem} style={{ inset: 0 }} />
       )}
 
       <div
         ref={dymekRef}
+        {...nieZamykajOkna}
         // max-h + przewijanie tresci: przyciski na dole maja byc widoczne ZAWSZE,
         // nawet przy dlugim opisie na niskim ekranie.
         className="fixed z-[97] flex max-h-[80vh] w-[320px] max-w-[92vw] flex-col rounded-xl border bg-background p-4 shadow-2xl pointer-events-auto"

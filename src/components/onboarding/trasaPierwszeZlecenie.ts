@@ -80,8 +80,12 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     // Pola stoja puste od otwarcia okna — mowimy o nich dopiero wtedy, gdy
     // wypelni je odpowiedz z rejestru.
     pokazGdyWypelniony: true,
+    // Razem z polami swieci przycisk zapisu — zeby nie trzeba bylo szukac, czym
+    // to zatwierdzic.
+    celeDodatkowe: ['pojazd-zapisz'],
     tytul: 'To przyszło z rejestru',
-    tresc: 'Podświetlone pola wypełniły się same: marka, model, rocznik, pojemność, moc, rodzaj paliwa i VIN.\n\nWszystko możesz poprawić — zapisujemy dokładnie to, co tu widzisz. Czego rejestr nie zna (kolor, nadwozie), dopisujesz ręcznie.',
+    tresc: 'Podświetlone pola wypełniły się same — tyle, ile rejestr wie o tym aucie: marka, model, rocznik, pojemność, VIN.\n\nCzego nie podał (kolor, nadwozie, czasem paliwo albo moc), dopisujesz ręcznie — zapisujemy dokładnie to, co tu widzisz. Na dole tego okna czeka „Zapisz".',
+    akcja: 'Uzupełnij, czego brakuje, i kliknij „Zapisz"',
   },
   {
     cel: 'pojazd-zapisz',

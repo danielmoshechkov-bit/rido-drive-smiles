@@ -46,7 +46,10 @@ sprawdz('mowi, jak zakonczyc i usunac', tresci.includes('zakończone') && tresci
 import { readFileSync as czytaj } from 'node:fs';
 const silnik = czytaj('src/components/onboarding/GuidedTour.tsx', 'utf8');
 sprawdz('dymek klikalny nad oknem modalnym', silnik.includes('pointer-events-auto'));
-sprawdz('dymek staje z boku, nie na polu', silnik.includes('miejsceZPrawej'));
+// Regula pozycjonowania wyprowadzila sie do pozycjaDymka.ts, zeby dalo sie ja
+// sprawdzic liczbowo (patrz test_dymek_miesci_sie.mjs). Tu pilnujemy tylko, ze
+// komponent z niej korzysta, a nie stawia dymka „na oko".
+sprawdz('dymek stawiany wedlug reguly, nie na oko', silnik.includes('pozycjaDymka('));
 
 // 5. Instrukcja KSeF nie każe wysyłać próbnej faktury — jest przycisk sprawdzenia.
 const kreator = czytaj('src/components/workshop/onboarding/WorkshopSetupWizard.tsx', 'utf8');
