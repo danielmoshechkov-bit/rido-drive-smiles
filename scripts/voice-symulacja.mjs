@@ -307,7 +307,17 @@ async function main() {
     const mapa = new Map((stare.wyniki || []).map((w) => [`${w.id}|${w.jezyk}`, w]));
     const regresje = wyniki.filter((w) => { const p = mapa.get(`${w.id}|${w.jezyk}`); return p?.przeszedl && !w.przeszedl; });
     const naprawy = wyniki.filter((w) => { const p = mapa.get(`${w.id}|${w.jezyk}`); return p && !p.przeszedl && w.przeszedl; });
+    // „Bez regresji" wolno napisać TYLKO o scenariuszach, które w punkcie
+    // odniesienia w ogóle są. Scenariusz nieznany baseline'owi (bo powstał
+    // później) przechodził przez `p?.przeszedl` jako `undefined` i milcząco
+    // wpadał do „bez regresji" — pusty zbiór udawał zero. Ta sama klasa co
+    // odczyt narzędzi z pustego logu: BRAK DANYCH TO NIE JEST WYNIK.
+    const nieznane = wyniki.filter((w) => !mapa.has(`${w.id}|${w.jezyk}`));
     console.log(`\nwobec przebiegu z ${stare.kiedy}: ${regresje.length ? `REGRESJE — ${regresje.map((w) => w.id).join(", ")}` : "bez regresji"}${naprawy.length ? `; naprawione: ${naprawy.map((w) => w.id).join(", ")}` : ""}`);
+    if (nieznane.length) {
+      console.log(`  UWAGA: ${nieznane.length} scenariuszy NIE MA w punkcie odniesienia `
+        + `(${nieznane.map((w) => `${w.id}[${w.jezyk}]`).join(", ")}) — dla nich „bez regresji" nic nie znaczy.`);
+    }
   } else {
     console.log("\nbrak punktu odniesienia — uruchom z --zapisz");
   }
