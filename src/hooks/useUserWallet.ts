@@ -97,7 +97,12 @@ export function useUserWallet(userId?: string): UseUserWalletReturn {
     loading,
     transactions,
     transactionsLoading,
-    refreshWallet,
+    // Skrót `refreshWallet` odwoływał się do nieistniejącej zmiennej (funkcja
+    // nazywa się `fetchWallet`). Skrócony zapis obiektu to zwykłe odwołanie,
+    // więc `return` rzucał ReferenceError i zakładka Portfel nie renderowała
+    // się w ogóle. Nie wyszło wcześniej, bo `npm run typecheck` sprawdzał
+    // pusty zbiór plików — patrz package.json.
+    refreshWallet: fetchWallet,
     loadTransactions
   };
 }

@@ -146,44 +146,15 @@ export function useVehicleLookup(userId?: string) {
     }
   }, [userId, fetchCredits, runWithQuota]);
 
-  const purchaseCredits = useCallback(async (amount: number, priceNet: number) => {
-    if (!userId) return false;
-    try {
-      // For now, simulate purchase (payment gateway integration later)
-      const currentCredits = credits?.remaining_credits || 0;
-      const totalPurchased = credits?.total_credits_purchased || 0;
+  // USUNIĘTE 16.08.2026 — `purchaseCredits` dopisywał kredyty wprost do
+  // `vehicle_lookup_credits` z przeglądarki, z komentarzem „For now, simulate
+  // purchase (payment gateway integration later)". Płatności nikt nie pobierał.
+  //
+  // Był wpięty w SZEŚĆ komponentów. Dziś martwy (modal doładowania prowadzi do
+  // PayU i ignoruje ten handler) i zablokowany politykami z 05.08, ale dopóki
+  // istniał, wystarczyło podpiąć go z powrotem albo poluzować RLS, żeby wrócił
+  // darmowy dystrybutor kredytów. Doładowania idą przez `billing-payu-order`.
 
-      const { error } = await supabase
-        .from('vehicle_lookup_credits')
-        .update({
-          remaining_credits: currentCredits + amount,
-          total_credits_purchased: totalPurchased + amount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId);
-
-      if (error) {
-        toast.error('Błąd zakupu kredytów');
-        return false;
-      }
-
-      await supabase.from('vehicle_lookup_credit_transactions').insert({
-        user_id: userId,
-        type: 'purchase',
-        credits: amount,
-        price_net: priceNet,
-        source: 'payment',
-        note: `Zakup ${amount} kredytów za ${priceNet.toFixed(2)} zł netto`,
-      });
-
-      await fetchCredits();
-      toast.success(`Dodano ${amount} kredytów!`);
-      return true;
-    } catch {
-      toast.error('Błąd zakupu');
-      return false;
-    }
-  }, [userId, credits, fetchCredits]);
 
   return {
     credits,
@@ -191,7 +162,6 @@ export function useVehicleLookup(userId?: string) {
     loading,
     checkRegistration,
     checkVin,
-    purchaseCredits,
     refreshCredits: fetchCredits,
   };
 }

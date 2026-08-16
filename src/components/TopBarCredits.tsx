@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Car, MessageSquare } from 'lucide-react';
 import { VehicleLookupCreditsModal } from './vehicle/VehicleLookupCreditsModal';
 import { SmsPurchaseModal } from './SmsPurchaseModal';
-import { toast } from 'sonner';
 
 export function TopBarCredits() {
   const [showVehicleModal, setShowVehicleModal] = useState(false);
@@ -58,15 +57,7 @@ export function TopBarCredits() {
     },
   });
 
-  const handleVehiclePurchase = (credits: number, priceNet: number) => {
-    toast.info(`Przekierowanie do płatności za ${credits} kredytów (${priceNet.toFixed(2)} zł netto)`);
-    setShowVehicleModal(false);
-  };
 
-  const handleSmsPurchase = (count: number, priceNet: number) => {
-    toast.info(`Przekierowanie do płatności za ${count} SMS (${priceNet.toFixed(2)} zł netto)`);
-    setShowSmsModal(false);
-  };
 
   return (
     <>
@@ -99,13 +90,11 @@ export function TopBarCredits() {
       <VehicleLookupCreditsModal
         open={showVehicleModal}
         onOpenChange={setShowVehicleModal}
-        onPurchase={handleVehiclePurchase}
       />
 
       <SmsPurchaseModal
         open={showSmsModal}
         onOpenChange={setShowSmsModal}
-        onPurchase={handleSmsPurchase}
       />
     </>
   );

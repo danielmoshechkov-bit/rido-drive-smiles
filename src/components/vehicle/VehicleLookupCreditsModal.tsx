@@ -9,7 +9,9 @@ interface Props {
    * („simulate purchase, payment gateway integration later") i był dostępny
    * z każdego z tych ekranów.
    */
-  onPurchase?: (credits: number, priceNet: number) => void;
+  // BEZ `onPurchase`. Każde z pięciu miejsc, które go podawało, dopisywało
+  // jednostki do bazy bez pobrania pieniędzy albo udawało przekierowanie.
+  // Zakup prowadzi wyłącznie przez `billing-payu-order`.
 }
 
 /** Zachowane dla zgodności — cena jest teraz w `billing_addon_products`. */

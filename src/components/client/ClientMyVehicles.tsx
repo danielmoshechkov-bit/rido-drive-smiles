@@ -818,7 +818,7 @@ function ClientVehicleAddDialog({
   const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set());
   const [showCreditsModal, setShowCreditsModal] = useState(false);
 
-  const { credits, loading: lookupLoading, checkRegistration, checkVin, purchaseCredits } = useVehicleLookup(userId || undefined);
+  const { credits, loading: lookupLoading, checkRegistration, checkVin } = useVehicleLookup(userId || undefined);
 
   const resetForm = () => {
     setPlate("");
@@ -1078,10 +1078,6 @@ function ClientVehicleAddDialog({
       <VehicleLookupCreditsModal
         open={showCreditsModal}
         onOpenChange={setShowCreditsModal}
-        onPurchase={async (amount: number, priceNet: number) => {
-          const ok = await purchaseCredits(amount, priceNet);
-          if (ok) setShowCreditsModal(false);
-        }}
       />
     </>
   );

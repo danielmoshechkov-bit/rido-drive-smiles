@@ -50,7 +50,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
   const [{ data: { user } = { user: null } } = { data: { user: null } }] = [{ data: { user: null } }];
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   useEffect(() => { supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id)); }, []);
-  const { checkRegistration, checkVin, loading: lookupLoading, purchaseCredits } = useVehicleLookup(currentUserId);
+  const { checkRegistration, checkVin, loading: lookupLoading } = useVehicleLookup(currentUserId);
 
   const numberOnly = (value: any) => String(value || '').replace(/[^0-9]/g, '');
   const applyLookup = async (data: any) => {
@@ -466,10 +466,6 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
       <VehicleLookupCreditsModal
         open={showCreditsModal}
         onOpenChange={setShowCreditsModal}
-        onPurchase={async (credits, priceNet) => {
-          const ok = await purchaseCredits(credits, priceNet);
-          if (ok) setShowCreditsModal(false);
-        }}
       />
     </div>
   );

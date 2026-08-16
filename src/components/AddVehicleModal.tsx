@@ -50,7 +50,7 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
   const [userId, setUserId] = useState<string | undefined>();
   const [showCreditsModal, setShowCreditsModal] = useState(false);
 
-  const { credits, loading: lookupLoading, checkRegistration, checkVin, purchaseCredits } = useVehicleLookup(userId);
+  const { credits, loading: lookupLoading, checkRegistration, checkVin } = useVehicleLookup(userId);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -103,10 +103,6 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
     else if (data) applyVehicleData(data);
   };
 
-  const handlePurchaseCredits = async (amount: number, priceNet: number) => {
-    const ok = await purchaseCredits(amount, priceNet);
-    if (ok) setShowCreditsModal(false);
-  };
 
   const handleSave = async () => {
     const errors = new Set<string>();
@@ -372,7 +368,6 @@ export function AddVehicleModal({ isOpen, onClose, onSuccess, cityId, fleetId, f
     <VehicleLookupCreditsModal
       open={showCreditsModal}
       onOpenChange={setShowCreditsModal}
-      onPurchase={handlePurchaseCredits}
     />
     </>
   );
