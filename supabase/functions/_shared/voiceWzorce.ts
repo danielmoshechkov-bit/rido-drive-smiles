@@ -336,3 +336,28 @@ export function zdanieAwarii(
   const tab = AWARIA[(jezyk as JezykWzorcow) in AWARIA ? (jezyk as JezykWzorcow) : "pl"];
   return tab[rodzaj];
 }
+
+// ============================================================================
+// ZAJĘTOŚĆ — wszystkie linie warsztatu są w tej chwili zajęte.
+//
+// Webhook inicjujący NIE MOŻE odrzucić połączenia — może tylko ukształtować
+// rozmowę. Więc przy przekroczeniu limitu rozmów równoczesnych agent odbiera,
+// mówi jedno zdanie i kończy. To kosztuje kilka sekund syntezy zamiast pełnej
+// rozmowy, ale nie udaje, że umiemy nie odebrać.
+//
+// Zdania piszemy tak samo jak komunikaty awarii: bez rodzaju gramatycznego
+// mówiącego (nie „przepraszam, że Pana zatrzymuję"), bez obietnicy oddzwonienia,
+// której nikt nie dotrzyma, i z KONKRETNĄ prośbą — „proszę zadzwonić za chwilę"
+// zamiast „przepraszamy za utrudnienia".
+// ============================================================================
+const ZAJETOSC: Record<JezykWzorcow, string> = {
+  pl: "Przepraszam, wszystkie linie są w tej chwili zajęte. Proszę zadzwonić za kilka minut.",
+  en: "I'm sorry, all lines are busy right now. Please call back in a few minutes.",
+  ru: "Извините, сейчас все линии заняты. Пожалуйста, перезвоните через несколько минут.",
+  uk: "Вибачте, зараз усі лінії зайняті. Будь ласка, зателефонуйте за кілька хвилин.",
+};
+
+/** Zdanie o zajętości w języku rozmowy. Nieznany język → polski. */
+export function zdanieZajetosci(jezyk: JezykWzorcow | string | null | undefined): string {
+  return ZAJETOSC[(jezyk as JezykWzorcow) in ZAJETOSC ? (jezyk as JezykWzorcow) : "pl"];
+}

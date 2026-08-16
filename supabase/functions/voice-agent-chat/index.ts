@@ -21,7 +21,7 @@ import {
 import { cachedContext } from "../_shared/voiceContextCache.ts";
 import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
 import { jezykRozmowy, snapshotWJezyku } from "../_shared/voiceJezykRozmowy.ts";
-import { wzorceWJezyku, zdanieAwarii } from "../_shared/voiceWzorce.ts";
+import { wzorceWJezyku, zdanieAwarii, zdanieZajetosci } from "../_shared/voiceWzorce.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -468,13 +468,23 @@ serve(async (req) => {
     // AGENT WYŁĄCZONY PRZEZ WARSZTAT. Snapshot niesie wtedy jedno pole i nic
     // więcej — nie ma terminów, cennika ani klientów, bo nie ma czego proponować.
     let wylaczony: { zdanie: string } | null = null;
+    let zajete = false;
     try {
       const s = snapshotRaw ? JSON.parse(snapshotRaw) : null;
       if (s && s.wylaczony === true) wylaczony = { zdanie: String(s.zdanie || "") };
+      if (s && s.zajete === true) zajete = true;
     } catch { /* snapshot nie jest JSON-em — zachowujemy się jak dotąd */ }
 
     let snapshotBlok = "";
-    if (wylaczony) {
+    if (zajete) {
+      // WSZYSTKIE LINIE ZAJĘTE. Zdanie bierzemy z modułu wzorców w JĘZYKU
+      // ROZMOWY — nie z snapshotu, bo snapshot powstaje przy odebraniu,
+      // a język rozpoznajemy dopiero z tego, co klient powiedział.
+      snapshotBlok = `\n\n=== WSZYSTKIE LINIE SĄ W TEJ CHWILI ZAJĘTE ===\n`
+        + `Powiedz DOKŁADNIE to zdanie: „${zdanieZajetosci(jezyk)}"\n`
+        + `Potem zakończ rozmowę. NIE proponujesz terminów, NIE pytasz o dane, `
+        + `NIE zapisujesz zgłoszenia — nie masz wolnej linii, żeby obsłużyć tę rozmowę.\n`;
+    } else if (wylaczony) {
       snapshotBlok = `\n\n=== WARSZTAT WYŁĄCZYŁ OBSŁUGĘ TELEFONICZNĄ ===\n`
         + `Powiedz DOKŁADNIE to zdanie, w języku rozmowy: „${wylaczony.zdanie}"\n`
         + `Potem grzecznie zakończ rozmowę. NIE proponujesz terminów, NIE pytasz o dane, `

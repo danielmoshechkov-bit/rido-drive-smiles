@@ -132,6 +132,16 @@ serve(async (req) => {
       }, 400);
     }
 
+    // ZWOLNIENIE LINII. Wiersz w `voice_active_calls` powstaje przy odebraniu
+    // i liczy się do limitu rozmów równoczesnych. Kasujemy go TU, przed
+    // wszystkimi wcześniejszymi wyjściami z funkcji — rozmowa bez transkryptu
+    // też się skończyła i też ma zwolnić linię. Gdyby kasowanie stało niżej,
+    // krótka rozmowa blokowałaby warsztat do wygaśnięcia okna 30 minut.
+    if (conversationId) {
+      const { error: delErr } = await admin.from("voice_active_calls").delete().eq("conversation_id", conversationId);
+      if (delErr) console.error("[voice-call-postprocess] zwolnienie linii nieudane:", delErr.code, delErr.message);
+    }
+
     if (messages.length < 2) {
       console.warn("[voice-call-postprocess]", JSON.stringify({
         event: "transcript_too_short", conversation_id: conversationId, turns: messages.length,

@@ -273,7 +273,7 @@ serve(async (req) => {
         // Wyłączony agent NIE PRZESTAJE ODBIERAĆ (tego nie umiemy z poziomu
         // webhooka), tylko dostaje snapshot z jednym zdaniem do powiedzenia.
         const { data: stan, error: stanErr } = await admin.from("voice_agent_configs")
-          .select("is_active, business_context").eq("provider_id", providerId).limit(1);
+          .select("is_active, business_context, max_rozmow_rownoczesnie").eq("provider_id", providerId).limit(1);
         if (stanErr) {
           console.error("[voice-agent-init] odczyt is_active nieudany:", stanErr.code, stanErr.message);
           throw stanErr;
@@ -285,6 +285,41 @@ serve(async (req) => {
           console.info("[voice-agent-init]", JSON.stringify({ event: "agent_wylaczony_przez_warsztat" }));
           return { wylaczony: true, zdanie };
         }
+
+        // LIMIT ROZMÓW RÓWNOCZESNYCH.
+        //
+        // Liczymy TYLKO okno 30 minut. Rozmowa, o której końcu nie
+        // dowiedzieliśmy się (padł webhook, zerwane połączenie), ma wygasać
+        // sama — inaczej jeden zgubiony wiersz blokuje warsztatowi telefon
+        // na zawsze, a to gorsza awaria niż ta, przed którą chronimy.
+        const limit = Math.max(1, Number(stan?.[0]?.max_rozmow_rownoczesnie ?? 1));
+        const odKiedy = new Date(Date.now() - 30 * 60_000).toISOString();
+        const { count, error: cntErr } = await admin.from("voice_active_calls")
+          .select("conversation_id", { count: "exact", head: true })
+          .eq("provider_id", providerId).gte("started_at", odKiedy);
+        if (cntErr) {
+          // Błąd liczenia NIE MOŻE blokować rozmowy. Wpuszczamy i logujemy —
+          // przepuszczona rozmowa ponad limit jest tańsza niż odmowa obsługi
+          // z powodu naszej awarii.
+          console.error("[voice-agent-init] liczenie rozmow nieudane:", cntErr.code, cntErr.message);
+        } else if ((count ?? 0) >= limit) {
+          console.info("[voice-agent-init]", JSON.stringify({
+            event: "limit_rozmow_przekroczony", w_toku: count, limit,
+          }));
+          return { zajete: true };
+        }
+
+        // ŚLAD ROZMOWY. `conversation_id` bywa nieobecny w ładunku — wtedy
+        // klucz losowy: wiersz i tak wygaśnie z oknem, a bez niego ta rozmowa
+        // nie liczyłaby się do limitu następnej.
+        const idRozmowy = String(
+          (body as Record<string, unknown>)?.conversation_id
+          ?? ((body as Record<string, Record<string, unknown>>)?.call)?.conversation_id
+          ?? `bez-id-${crypto.randomUUID()}`,
+        );
+        const { error: insErr } = await admin.from("voice_active_calls")
+          .upsert({ conversation_id: idRozmowy, provider_id: providerId, phone_number: rozpoznanie.numer }, { onConflict: "conversation_id" });
+        if (insErr) console.error("[voice-agent-init] zapis voice_active_calls nieudany:", insErr.code, insErr.message);
       }
       if (!providerId) {
         powodPustego = rozpoznanie.droga === "nieznany_numer"
@@ -567,10 +602,16 @@ serve(async (req) => {
     // co rzucało wyjątkiem, wpadało w ogólny `catch` i zwracało pusty snapshot.
     // Wyglądało to identycznie jak „nie zdążyliśmy zbudować" — czyli awaria
     // udawała normalne działanie. Sprawdzone: zdanie o wyłączeniu nie docierało.
-    if ((snapshot as { wylaczony?: boolean }).wylaczony === true) {
+    // `zbuduj()` zwraca ALBO pełny snapshot, ALBO jeden z dwóch krótkich
+    // kształtów specjalnych (agent wyłączony / wszystkie linie zajęte).
+    // Rozdzielamy je JAWNIE, bo pierwsza wersja szła dalej do logu
+    // z `snapshot.dni.length`, rzucała wyjątkiem i wracała pustym snapshotem —
+    // awaria wyglądała identycznie jak brak danych.
+    const spec = snapshot as { wylaczony?: boolean; zajete?: boolean };
+    if (spec.wylaczony === true || spec.zajete === true) {
       const debugW = new URL(req.url).searchParams.get("debug") === "1";
       console.info("[voice-agent-init]", JSON.stringify({
-        event: "snapshot_wylaczony", ms: Math.round(performance.now() - started), znakow: tekst.length,
+        event: "snapshot_specjalny", ms: Math.round(performance.now() - started), znakow: tekst.length,
       }));
       return json({
         type: "conversation_initiation_client_data",
@@ -579,11 +620,18 @@ serve(async (req) => {
       });
     }
 
+    // Od tego miejsca snapshot jest NA PEWNO pełny — kształty specjalne
+    // odpadły wyżej. Jedno rzutowanie zamiast pytajnika przy każdym polu:
+    // pytajniki ukryłyby prawdziwy brak pola, gdyby budowa się zmieniła.
+    const pelny = snapshot as {
+      dni: unknown[]; uslugi: unknown[]; zasoby: unknown[];
+      klient: { caller_id_znany: boolean };
+    };
     console.info("[voice-agent-init]", JSON.stringify({
       event: "snapshot", ms: Math.round(performance.now() - started),
-      dni: snapshot.dni.length, uslugi: snapshot.uslugi.length,
-      zasoby: snapshot.zasoby.length, znakow: tekst.length,
-      caller_znany: snapshot.klient.caller_id_znany,
+      dni: pelny.dni.length, uslugi: pelny.uslugi.length,
+      zasoby: pelny.zasoby.length, znakow: tekst.length,
+      caller_znany: pelny.klient.caller_id_znany,
     }));
     // Odpowiedź w kształcie WYMAGANYM przez ElevenLabs — bez dodatkowych pól.
     // `_ms` (czas budowy) dokładamy WYŁĄCZNIE przy ręcznym wywołaniu z ?debug=1,
@@ -593,7 +641,7 @@ serve(async (req) => {
       type: "conversation_initiation_client_data",
       dynamic_variables: {
         rido_snapshot: tekst,
-        rido_caller_znany: snapshot.klient.caller_id_znany ? "tak" : "nie",
+        rido_caller_znany: pelny.klient.caller_id_znany ? "tak" : "nie",
       },
       ...(debug ? { _ms: Math.round(performance.now() - started) } : {}),
     });

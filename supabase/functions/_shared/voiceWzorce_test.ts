@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { liczbaWzorcow, wzorceWJezyku, zdanieAwarii } from "./voiceWzorce.ts";
+import { liczbaWzorcow, wzorceWJezyku, zdanieAwarii, zdanieZajetosci } from "./voiceWzorce.ts";
 
 // KAZDY JEZYK DOSTAJE WYLACZNIE SWOJ BLOK.
 //
@@ -229,6 +229,40 @@ Deno.test("zaden wzorzec nie laczy potwierdzenia z prosba o te sama rzecz", () =
       const przedProsba = z.split(/(?=Poproszę|Назовите|Назвіть|And the|Could I have)/)[0];
       const maTresc = /[A-ZĄĆĘŁŃÓŚŹŻ][\wąćęłńóśźż]{2,}|\d/.test(przedProsba.replace(potwierdzenie, ""));
       assert(maTresc, `${j}: puste potwierdzenie sklejone z prosba — „${z}"`);
+    }
+  }
+});
+
+Deno.test("zdanie o zajetosci istnieje w kazdym jezyku i nie jest po polsku", () => {
+  const pl = zdanieZajetosci("pl");
+  for (const j of ["en", "ru", "uk"] as const) {
+    const z = zdanieZajetosci(j);
+    assert(z.length > 20, `zdanie o zajetosci w ${j} jest puste albo za krotkie`);
+    assert(z !== pl, `zdanie o zajetosci w ${j} to kopia polskiego`);
+  }
+  // Nieznany jezyk ma wracac do polskiego, a nie zwracac undefined.
+  assertEquals(zdanieZajetosci("de"), pl);
+  assertEquals(zdanieZajetosci(null), pl);
+});
+
+Deno.test("zdanie o zajetosci nie obiecuje oddzwonienia ani nie ma rodzaju", () => {
+  for (const j of ["pl", "en", "ru", "uk"] as const) {
+    const z = zdanieZajetosci(j).toLowerCase();
+    for (const obietnica of ["oddzwoni", "call you back", "перезвоним", "передзвонимо"]) {
+      assert(!z.includes(obietnica), `${j}: obiecujemy oddzwonienie, ktorego nikt nie dotrzyma`);
+    }
+    // RODZAJ GRAMATYCZNY MOWIACEGO — ta sama pulapka co przy "nie doslyszalem".
+    //
+    // Pierwsza wersja tej kontroli szukala "занят" i zapalila sie na poprawnym
+    // "все линии заняты", gdzie forma zgadza sie z LINIAMI, nie z mowiacym.
+    // Kontrola, ktora oskarza poprawne zdanie, jest gorsza niz jej brak
+    // (zasada 28) — dlatego szukamy form odnoszacych sie do MOWIACEGO.
+    for (const rodzaj of [
+      "zrozumiałem", "zrozumiałam", "usłyszałem", "usłyszałam", "jestem zajęty", "jestem zajęta",
+      "расслышал", "расслышала", "рад", "рада", "готов", "готова",
+      "розчув", "розчула", "готовий", "готова",
+    ]) {
+      assert(!z.includes(rodzaj), `${j}: zdanie ma rodzaj gramatyczny MOWIACEGO (${rodzaj})`);
     }
   }
 });
