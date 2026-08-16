@@ -91,6 +91,17 @@ BEGIN
 
     CONTINUE WHEN w.saldo = 0 AND v_dubl = 0 AND v_nowe = 0;
 
+    -- 🔴 DOPISANE 16.08.2026, PO WYKONANIU TEJ MIGRACJI NA PRODUKCJI.
+    -- Zmiana nie ma skutku w bazie (migracja jest już zaaplikowana) — chodzi
+    -- o rozbrojenie pliku. Bez tego warunku PONOWNE uruchomienie KASUJE
+    -- SMS-y: paczka scalona powstaje ze znacznikiem `odzwierciedlone_at`,
+    -- więc przy drugim przebiegu krok „wyzeruj duplikaty" dopasowuje ją samą.
+    -- Kontrola „przed = po" tego NIE wykrywa, bo `sms_balance` jest już
+    -- wyzerowane i obie strony równania wychodzą zgodnie.
+    -- Wykryte przy pisaniu bliźniaczej migracji 4.12, na lokalnym uruchomieniu
+    -- trzy razy pod rząd.
+    CONTINUE WHEN EXISTS (SELECT 1 FROM sms_migracja_4_10 WHERE provider_id = w.id);
+
     -- Ile klient może wysłać PRZED zmianą: stare saldo plus paczki, których
     -- do tego salda nigdy nie doliczono.
     v_przed := w.saldo + v_nowe;
@@ -112,7 +123,9 @@ BEGIN
         note = COALESCE(note, '') || ' [4.10: jednostki przeniesione do paczki scalonej]',
         updated_at = now()
     WHERE subscriber_type = 'service_provider' AND subscriber_id = w.id
-      AND feature_id = v_sms AND amount_remaining > 0 AND odzwierciedlone_at IS NOT NULL;
+      AND feature_id = v_sms AND amount_remaining > 0 AND odzwierciedlone_at IS NOT NULL
+      -- Paczka założona przez migrację NIE jest duplikatem — jest wynikiem.
+      AND source <> 'migracja';
 
     -- Jedna paczka bezterminowa równa staremu saldu.
     IF w.saldo > 0 THEN

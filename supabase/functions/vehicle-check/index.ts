@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ustalKontekst, ustalZrodlo, pobierz, type Decyzja, type Kontekst } from "../_shared/vinRozliczenie.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,6 +42,8 @@ serve(async (req) => {
 
     const body = await req.json();
     const { registrationNumber, vin, action } = body;
+    // Zgodę na użycie własnych kredytów zbiera interfejs — tu jest tylko jej nośnikiem.
+    const uzyjWlasnych = body.uzyjWlasnych === true;
 
     // JEDNO DARMOWE SPRAWDZENIE W TRAKCIE WPROWADZENIA.
     //
@@ -66,9 +69,9 @@ serve(async (req) => {
 
     // Handle action: check-registration or check-vin
     if (action === "check-registration" && registrationNumber) {
-      return await handleCheckRegistration(supabase, supabaseAdmin, user.id, registrationNumber.trim().toUpperCase(), zaDarmo);
+      return await handleCheckRegistration(supabase, supabaseAdmin, user.id, registrationNumber.trim().toUpperCase(), uzyjWlasnych, zaDarmo);
     } else if (action === "check-vin" && vin) {
-      return await handleCheckVin(supabase, supabaseAdmin, user.id, vin.trim().toUpperCase(), zaDarmo);
+      return await handleCheckVin(supabase, supabaseAdmin, user.id, vin.trim().toUpperCase(), uzyjWlasnych, zaDarmo);
     } else {
       return new Response(JSON.stringify({ error: "Podaj action: check-registration, check-vin lub test-connection" }), {
         status: 400,
@@ -133,48 +136,41 @@ async function handleTestConnection(supabaseAdmin: any) {
   }
 }
 
-async function checkCredits(supabaseAdmin: any, userId: string): Promise<{ hasCredits: boolean; remaining: number }> {
-  const { data } = await supabaseAdmin
-    .from("vehicle_lookup_credits")
-    .select("remaining_credits")
-    .eq("user_id", userId)
-    .maybeSingle();
 
-  if (!data) return { hasCredits: false, remaining: 0 };
-  return { hasCredits: data.remaining_credits > 0, remaining: data.remaining_credits };
-}
 
-async function deductCredit(supabaseAdmin: any, userId: string, regNum: string | null, vin: string | null, sourceType: string) {
-  // Deduct 1 credit
-  await supabaseAdmin.rpc("deduct_vehicle_lookup_credit", { p_user_id: userId });
-
-  // Log usage
-  await supabaseAdmin.from("vehicle_lookup_usage").insert({
-    user_id: userId,
-    registration_number: regNum,
-    vin: vin,
-    source_type: sourceType,
-    credits_used: 1,
-  });
-
-  // Log transaction
-  await supabaseAdmin.from("vehicle_lookup_credit_transactions").insert({
-    user_id: userId,
-    type: "usage",
-    credits: -1,
-    source: "system",
-    note: regNum ? `Sprawdzenie: ${regNum}` : `Sprawdzenie VIN: ${vin}`,
-  });
-}
-
-async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId: string, regNumber: string, zaDarmo = false) {
+async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId: string, regNumber: string, uzyjWlasnych: boolean, zaDarmo = false) {
   // Step 1: Check credits
-  const { hasCredits } = await checkCredits(supabaseAdmin, userId);
-  if (!hasCredits && !zaDarmo) {
-    return new Response(JSON.stringify({ error: "NO_CREDITS", message: "Brak kredytów. Kup pakiet kredytów." }), {
-      status: 402,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  // Z czego to opłacimy: pula warsztatu → jego paczki → własne kredyty pracownika.
+  // Sprawdzenie z wprowadzenia omija rozliczenie w całości — baza odhaczyła już,
+  // że warsztat wykorzystał swoje jedyne darmowe, więc nie ma czego pobierać.
+  let kontekst: Kontekst = { providerId: null, jestWlascicielem: false };
+  let decyzja: Decyzja = { zrodlo: null, wymagaZgody: false, wlasnePozostalo: 0, powodFirmy: null };
+
+  if (!zaDarmo) {
+    kontekst = await ustalKontekst(supabaseAdmin, userId);
+    decyzja = await ustalZrodlo(supabaseAdmin, userId, kontekst, uzyjWlasnych);
+
+    if (decyzja.wymagaZgody) {
+      // Pula firmy pusta, ale pracownik ma swoje. Nie pytamy płatnego API —
+      // najpierw człowiek świadomie decyduje, że dokłada z własnej kieszeni.
+      return new Response(JSON.stringify({
+        error: "ZGODA_WLASNE_KREDYTY",
+        wymagaZgody: true,
+        wlasnePozostalo: decyzja.wlasnePozostalo,
+        providerId: kontekst.providerId,
+        message: "Pula warsztatu wyczerpana.",
+      }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (!decyzja.zrodlo) {
+      return new Response(JSON.stringify({
+        error: "NO_CREDITS",
+        mozeDoladowac: kontekst.jestWlascicielem || !kontekst.providerId,
+        message: kontekst.providerId && !kontekst.jestWlascicielem
+          ? "Pula warsztatu wyczerpana. Poproś właściciela o doładowanie."
+          : "Brak sprawdzeń. Doładuj pakiet.",
+      }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
   }
 
   // Step 2: Always call the external API. Local workshop/cache data can be incomplete or stale,
@@ -240,7 +236,7 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
     // Deduct credit (only after confirmed success)
     // Sprawdzenie z wprowadzenia nie schodzi z limitu — baza już odhaczyła,
     // że warsztat wykorzystał swoje jedyne darmowe.
-    if (!zaDarmo) await deductCredit(supabaseAdmin, userId, regNumber, mapped.vin, "external_api");
+    if (!zaDarmo) await pobierz(supabaseAdmin, userId, kontekst, decyzja, { regNum: regNumber, vin: mapped.vin, sourceType: "external_api" });
     await logIntegration(supabaseAdmin, userId, regNumber, mapped.vin, "registration", "success", vehicleData, null);
 
     return new Response(JSON.stringify({ data: mapped, source: "external_api" }), {
@@ -255,14 +251,39 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
   }
 }
 
-async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string, vinNumber: string) {
+async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string, vinNumber: string, uzyjWlasnych: boolean, zaDarmo = false) {
   // Step 1: Check credits
-  const { hasCredits } = await checkCredits(supabaseAdmin, userId);
-  if (!hasCredits && !zaDarmo) {
-    return new Response(JSON.stringify({ error: "NO_CREDITS", message: "Brak kredytów. Kup pakiet kredytów." }), {
-      status: 402,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  // Z czego to opłacimy: pula warsztatu → jego paczki → własne kredyty pracownika.
+  // Sprawdzenie z wprowadzenia omija rozliczenie w całości — baza odhaczyła już,
+  // że warsztat wykorzystał swoje jedyne darmowe, więc nie ma czego pobierać.
+  let kontekst: Kontekst = { providerId: null, jestWlascicielem: false };
+  let decyzja: Decyzja = { zrodlo: null, wymagaZgody: false, wlasnePozostalo: 0, powodFirmy: null };
+
+  if (!zaDarmo) {
+    kontekst = await ustalKontekst(supabaseAdmin, userId);
+    decyzja = await ustalZrodlo(supabaseAdmin, userId, kontekst, uzyjWlasnych);
+
+    if (decyzja.wymagaZgody) {
+      // Pula firmy pusta, ale pracownik ma swoje. Nie pytamy płatnego API —
+      // najpierw człowiek świadomie decyduje, że dokłada z własnej kieszeni.
+      return new Response(JSON.stringify({
+        error: "ZGODA_WLASNE_KREDYTY",
+        wymagaZgody: true,
+        wlasnePozostalo: decyzja.wlasnePozostalo,
+        providerId: kontekst.providerId,
+        message: "Pula warsztatu wyczerpana.",
+      }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    if (!decyzja.zrodlo) {
+      return new Response(JSON.stringify({
+        error: "NO_CREDITS",
+        mozeDoladowac: kontekst.jestWlascicielem || !kontekst.providerId,
+        message: kontekst.providerId && !kontekst.jestWlascicielem
+          ? "Pula warsztatu wyczerpana. Poproś właściciela o doładowanie."
+          : "Brak sprawdzeń. Doładuj pakiet.",
+      }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
   }
 
   const { data: integration } = await supabaseAdmin
@@ -321,7 +342,7 @@ async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string,
       });
     }
 
-    if (!zaDarmo) await deductCredit(supabaseAdmin, userId, mapped.registration_number, vinNumber, "external_api_vin");
+    if (!zaDarmo) await pobierz(supabaseAdmin, userId, kontekst, decyzja, { regNum: mapped.registration_number, vin: vinNumber, sourceType: "external_api_vin" });
     await logIntegration(supabaseAdmin, userId, mapped.registration_number, vinNumber, "vin", "success", vehicleData, null);
 
     return new Response(JSON.stringify({ data: mapped, source: "external_api_vin" }), {

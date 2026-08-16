@@ -453,3 +453,8 @@ verify_jwt = false
 # wyłączone; brak sekretu = 503 i zero przetwarzania.
 [functions.billing-stripe-webhook]
 verify_jwt = false
+
+# Autoryzacja jest w środku funkcji: token użytkownika + potwierdzone
+# zatrudnienie w tym warsztacie. Bez jednego i drugiego — 401/403.
+[functions.workshop-notify-owner]
+verify_jwt = false
