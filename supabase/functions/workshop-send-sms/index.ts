@@ -196,6 +196,31 @@ serve(async (req) => {
       });
     }
 
+    // ── ZLECENIE PRÓBNE Z WPROWADZENIA ─────────────────────────────────
+    //
+    // Warsztat uczy się na własnym aucie i własnym numerze — musi zobaczyć
+    // prawdziwy SMS, bo inaczej nie wie, co dostaje jego klient. Za naukę nie
+    // płaci pakietem, ale nadużycie odcinamy trzema warunkami sprawdzanymi
+    // W BAZIE, nie w przeglądarce: tylko własny numer warsztatu, ograniczona
+    // pula i tylko dla zlecenia oznaczonego jako próbne.
+    let smsProbny = false;
+    if (order_id && resolvedProviderId) {
+      const { data: zlec } = await supabaseAdmin
+        .from("workshop_orders").select("is_demo").eq("id", order_id).maybeSingle();
+      if (zlec?.is_demo) {
+        const { data: ocena } = await supabaseAdmin
+          .rpc("demo_sms_dozwolony", { p_provider: resolvedProviderId, p_telefon: phone });
+        const wpis = Array.isArray(ocena) ? ocena[0] : ocena;
+        if (!wpis?.dozwolone) {
+          return new Response(JSON.stringify({
+            error: "DEMO_SMS_BLOCKED",
+            message: wpis?.powod || "Wiadomość próbna niedozwolona",
+          }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        smsProbny = true;
+      }
+    }
+
     // Pre-check SMS balance
     //
     // Sprawdzamy OBA źródła, bo funkcja musi działać przed przejściem na
@@ -205,7 +230,7 @@ serve(async (req) => {
     //
     // Bez tego deploy tej funkcji PO migracji odmawiałby wszystkim, a przed
     // migracją — po niej.
-    if (resolvedProviderId) {
+    if (resolvedProviderId && !smsProbny) {
       const { data: spBal } = await supabaseAdmin
         .from("service_providers")
         .select("sms_balance")
@@ -351,7 +376,12 @@ serve(async (req) => {
     // Deduct SMS credit. resolvedProviderId jest już ustalony i zweryfikowany
     // w bloku Authorization (dawny fallback po auth-headerze usunięty jako martwy).
     try {
-      if (resolvedProviderId) {
+      if (resolvedProviderId && smsProbny) {
+        // Wiadomość próbna nie schodzi z pakietu — zwiększamy tylko licznik
+        // wykorzystanej puli wprowadzenia.
+        await supabaseAdmin.rpc("demo_sms_zapisz", { p_provider: resolvedProviderId });
+        console.log(`[Workshop SMS] Wiadomosc probna (wprowadzenie), pakiet nietkniety: ${resolvedProviderId}`);
+      } else if (resolvedProviderId) {
         const { error: decrError } = await supabaseAdmin.rpc("deduct_sms_credit", { p_provider_id: resolvedProviderId });
         if (decrError) console.warn("[Workshop SMS] Could not deduct SMS credit:", decrError.message);
         else console.log(`[Workshop SMS] Deducted 1 SMS credit from provider ${resolvedProviderId}`);

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useCreateWorkshopOrder, useWorkshopClients, useWorkshopVehicles, useCreateWorkshopOrderItem } from '@/hooks/useWorkshop';
+import { useTrybProbny } from '@/components/onboarding/TrybProbny';
 import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { Plus, ClipboardList, Loader2, Car, Users, Camera, X, MessageSquare, AlertCircle, Mail, Phone } from 'lucide-react';
@@ -77,6 +78,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
   const { data: clients = [] } = useWorkshopClients(providerId);
   const { data: vehicles = [] } = useWorkshopVehicles(providerId);
   const createOrder = useCreateWorkshopOrder();
+  const trybProbny = useTrybProbny();
 
   const [vehicleId, setVehicleId] = useState('');
   const [clientId, setClientId] = useState('');
@@ -261,6 +263,10 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
       fuel_level: fuelLevel || null,
       internal_notes: clientNotes || null,
       status_name: 'Nowe zlecenie',
+      // Zlecenie założone w trakcie wprowadzenia jest PRÓBNE: jego SMS-y nie
+      // schodzą z pakietu (sprawdza to serwer po tej właśnie kolumnie), a samo
+      // zlecenie warsztat kasuje na końcu nauki.
+      is_demo: trybProbny,
       station_id: stationId || null,
       return_parts_to_client: checklist.return_parts,
       registration_document: checklist.registration_doc,

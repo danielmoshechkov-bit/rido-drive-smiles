@@ -54,6 +54,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
   const ownerDropdownRef = useRef<HTMLDivElement>(null);
 
   const { credits, loading: lookupLoading, checkRegistration, checkVin } = useVehicleLookup(userId);
+  const trybProbny = useTrybProbny();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -163,7 +164,8 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       setShowCreditsModal(true);
       return;
     }
-    const data = await checkRegistration(form.plate);
+    // W trakcie wprowadzenia pierwsze sprawdzenie jest darmowe (decyduje serwer).
+    const data = await checkRegistration(form.plate, trybProbny);
     if (!data && credits && credits.remaining_credits < 1) {
       setShowCreditsModal(true);
     } else if (data) {

@@ -58,13 +58,18 @@ export function useVehicleLookup(userId?: string) {
 
   useEffect(() => { fetchCredits(); }, [fetchCredits]);
 
-  const checkRegistration = useCallback(async (regNumber: string): Promise<VehicleData | null> => {
+  /**
+   * `wprowadzenie` przekazujemy dalej do serwera — TAM zapada decyzja, czy to
+   * sprawdzenie jest darmowe. Przeglądarka może wysłać tę flagę w kółko;
+   * baza odhacza jedyne darmowe sprawdzenie w jednej transakcji.
+   */
+  const checkRegistration = useCallback(async (regNumber: string, wprowadzenie = false): Promise<VehicleData | null> => {
     if (!userId) { toast.error('Musisz być zalogowany'); return null; }
     setLoading(true);
     try {
       const result = await runWithQuota('vehicle_lookup', async () => {
         const { data, error } = await supabase.functions.invoke('vehicle-check', {
-          body: { action: 'check-registration', registrationNumber: regNumber },
+          body: { action: 'check-registration', registrationNumber: regNumber, onboarding: wprowadzenie },
         });
         if (error) {
           const msg = error.message || '';

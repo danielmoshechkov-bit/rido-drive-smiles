@@ -42,6 +42,23 @@ serve(async (req) => {
     const body = await req.json();
     const { registrationNumber, vin, action } = body;
 
+    // JEDNO DARMOWE SPRAWDZENIE W TRAKCIE WPROWADZENIA.
+    //
+    // Warsztat uczy się na własnym aucie i pierwsze sprawdzenie ma być za darmo
+    // — inaczej pierwsze wrażenie z produktu to zużyty limit. Przysługuje RAZ
+    // i decyduje o tym baza (`onboarding_pojazd_za_darmo` odhacza wykorzystanie
+    // w jednej transakcji), a nie flaga z przeglądarki: tę można wysłać w kółko.
+    let zaDarmo = false;
+    if (body?.onboarding === true) {
+      const { data: sp } = await supabaseAdmin
+        .from("service_providers").select("id").eq("user_id", user.id)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+      if (sp?.id) {
+        const { data: wolno } = await supabaseAdmin.rpc("onboarding_pojazd_za_darmo", { p_provider: sp.id });
+        zaDarmo = wolno === true;
+      }
+    }
+
     // Handle test-connection action (no credits needed)
     if (action === "test-connection") {
       return await handleTestConnection(supabaseAdmin);
@@ -49,9 +66,9 @@ serve(async (req) => {
 
     // Handle action: check-registration or check-vin
     if (action === "check-registration" && registrationNumber) {
-      return await handleCheckRegistration(supabase, supabaseAdmin, user.id, registrationNumber.trim().toUpperCase());
+      return await handleCheckRegistration(supabase, supabaseAdmin, user.id, registrationNumber.trim().toUpperCase(), zaDarmo);
     } else if (action === "check-vin" && vin) {
-      return await handleCheckVin(supabase, supabaseAdmin, user.id, vin.trim().toUpperCase());
+      return await handleCheckVin(supabase, supabaseAdmin, user.id, vin.trim().toUpperCase(), zaDarmo);
     } else {
       return new Response(JSON.stringify({ error: "Podaj action: check-registration, check-vin lub test-connection" }), {
         status: 400,
@@ -150,10 +167,10 @@ async function deductCredit(supabaseAdmin: any, userId: string, regNum: string |
   });
 }
 
-async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId: string, regNumber: string) {
+async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId: string, regNumber: string, zaDarmo = false) {
   // Step 1: Check credits
   const { hasCredits } = await checkCredits(supabaseAdmin, userId);
-  if (!hasCredits) {
+  if (!hasCredits && !zaDarmo) {
     return new Response(JSON.stringify({ error: "NO_CREDITS", message: "Brak kredytów. Kup pakiet kredytów." }), {
       status: 402,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -221,7 +238,9 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
     }
 
     // Deduct credit (only after confirmed success)
-    await deductCredit(supabaseAdmin, userId, regNumber, mapped.vin, "external_api");
+    // Sprawdzenie z wprowadzenia nie schodzi z limitu — baza już odhaczyła,
+    // że warsztat wykorzystał swoje jedyne darmowe.
+    if (!zaDarmo) await deductCredit(supabaseAdmin, userId, regNumber, mapped.vin, "external_api");
     await logIntegration(supabaseAdmin, userId, regNumber, mapped.vin, "registration", "success", vehicleData, null);
 
     return new Response(JSON.stringify({ data: mapped, source: "external_api" }), {
@@ -239,7 +258,7 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
 async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string, vinNumber: string) {
   // Step 1: Check credits
   const { hasCredits } = await checkCredits(supabaseAdmin, userId);
-  if (!hasCredits) {
+  if (!hasCredits && !zaDarmo) {
     return new Response(JSON.stringify({ error: "NO_CREDITS", message: "Brak kredytów. Kup pakiet kredytów." }), {
       status: 402,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -302,7 +321,7 @@ async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string,
       });
     }
 
-    await deductCredit(supabaseAdmin, userId, mapped.registration_number, vinNumber, "external_api_vin");
+    if (!zaDarmo) await deductCredit(supabaseAdmin, userId, mapped.registration_number, vinNumber, "external_api_vin");
     await logIntegration(supabaseAdmin, userId, mapped.registration_number, vinNumber, "vin", "success", vehicleData, null);
 
     return new Response(JSON.stringify({ data: mapped, source: "external_api_vin" }), {

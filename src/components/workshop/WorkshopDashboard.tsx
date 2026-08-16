@@ -19,6 +19,7 @@ import { WorkshopSetupWizard } from '@/components/workshop/onboarding/WorkshopSe
 import { GuidedTour } from '@/components/onboarding/GuidedTour';
 import { TRASA_PIERWSZE_ZLECENIE } from '@/components/onboarding/trasaPierwszeZlecenie';
 import { useWprowadzenie } from '@/hooks/useWprowadzenie';
+import { TrybProbnyProvider } from '@/components/onboarding/TrybProbny';
 
 // PERF C1: wszystkie podmoduły warsztatu były importowane statycznie — 14
 // komponentów (w tym 1890-liniowy Scheduler i Reports→recharts) lądowało w
@@ -509,6 +510,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
 
   // Module view with sidebar
   return (
+    <TrybProbnyProvider aktywny={wprowadzenie.aktywne}>
     <div className={isSchedulerModule ? 'flex h-full min-h-0 gap-0 overflow-hidden' : 'flex gap-0 min-h-[calc(100dvh-120px)]'}>
       {/* Pierwsze uruchomienie: dane firmy, godziny, stanowiska, KSeF. */}
       <WorkshopSetupWizard
@@ -551,5 +553,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         </Suspense>
       </div>
     </div>
+    </TrybProbnyProvider>
   );
 }
