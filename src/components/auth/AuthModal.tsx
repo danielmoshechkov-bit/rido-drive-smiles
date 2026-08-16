@@ -204,7 +204,10 @@ export function AuthModal({
         phone: registerData.phone,
         email: registerData.email,
         password: registerData.password,
-        referral_code: getStoredReferralCode() || undefined,
+        // Program poleceń wyłączony do odwołania — kodu nie wysyłamy.
+        // Gdy wróci, `link_referral_on_signup` i tak sprawdza flagę w bazie,
+        // więc to jest druga bariera, nie jedyna.
+        referral_code: undefined,
         module: signupContext?.module,
         plan: signupContext?.plan,
       });

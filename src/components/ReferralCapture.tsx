@@ -3,10 +3,15 @@ import { useLocation } from "react-router-dom";
 import { captureReferralCodeFromUrl, getStoredReferralCode, clearReferralCode } from "@/lib/referralTracking";
 import { Gift, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useProgramPolecen } from "@/hooks/useProgramPolecen";
 
 const BANNER_DISMISSED_KEY = "getrido_ref_banner_dismissed";
 
 export const ReferralCapture = () => {
+  // Program wyłączony do odwołania — nie przechwytujemy kodu, którego nikt
+  // nie rozliczy, i nie obiecujemy nagrody w banerze. Flagę trzyma baza
+  // (`referral_settings.is_enabled`), więc włączenie nie wymaga wdrożenia.
+  const { wlaczony } = useProgramPolecen();
   const location = useLocation();
   const [activeCode, setActiveCode] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(() => {
@@ -14,10 +19,11 @@ export const ReferralCapture = () => {
   });
 
   useEffect(() => {
+    if (!wlaczony) { setActiveCode(null); return; }
     // Capture on every navigation (handles both initial load and SPA route changes)
     captureReferralCodeFromUrl();
     setActiveCode(getStoredReferralCode());
-  }, [location.pathname, location.search]);
+  }, [location.pathname, location.search, wlaczony]);
 
   const handleDismiss = () => {
     try { sessionStorage.setItem(BANNER_DISMISSED_KEY, "1"); } catch {}

@@ -97,7 +97,12 @@ GRANT EXECUTE ON FUNCTION public.grant_sms_credits(uuid, integer, text, uuid, te
 -- ---------------------------------------------------------------------------
 -- 2. Panel administratora pokazuje realną dostępność
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.admin_list_service_providers()
+-- DROP przed CREATE: zmieniamy NAZWĘ kolumny w zwracanej tabeli
+-- (`sms_balance` → `sms_dostepne`), a `CREATE OR REPLACE FUNCTION` nie potrafi
+-- zmienić typu zwracanego. Padło na produkcji przy pierwszym uruchomieniu.
+DROP FUNCTION IF EXISTS public.admin_list_service_providers();
+
+CREATE FUNCTION public.admin_list_service_providers()
 RETURNS TABLE(
   id uuid,
   user_id uuid,

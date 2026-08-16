@@ -35,6 +35,7 @@ import { ServiceRegistrationModal } from '@/components/services/ServiceRegistrat
 import { MyViewingsPanel } from '@/components/realestate/MyViewingsPanel';
 import { ClientMyVehicles } from '@/components/client/ClientMyVehicles';
 import { ReferralsTab } from '@/components/referrals/ReferralsTab';
+import { useProgramPolecen } from '@/hooks/useProgramPolecen';
 import { 
   Car,
   Eye,
@@ -573,6 +574,8 @@ export default function ClientPortal() {
     return userData?.email?.split('@')[0] || t('cp.userFallback');
   };
 
+  const { wlaczony: programPolecen } = useProgramPolecen();
+
   // Build tabs dynamically - Księgowość only for users with company setup, Ulubione moved to Ogłoszenia
   const mainTabs = [
     { id: 'start', label: t('cp.tabs.start'), icon: Home },
@@ -582,7 +585,9 @@ export default function ClientPortal() {
     ...(hasCompanySetup ? [{ id: 'ksiegowosc', label: t('cp.tabs.ksiegowosc'), icon: Calculator }] : []),
     { id: 'ogladania', label: t('cp.tabs.ogladania'), icon: Eye },
     { id: 'wiadomosci', label: t('cp.tabs.wiadomosci'), icon: MessageSquare },
-    { id: 'polecenia', label: t('cp.tabs.polecenia'), icon: Gift },
+    // Zakładka znika, gdy program poleceń jest wyłączony — flagę trzyma baza,
+    // więc przywrócenie jej nie wymaga wdrożenia frontu.
+    ...(programPolecen ? [{ id: 'polecenia', label: t('cp.tabs.polecenia'), icon: Gift }] : []),
     { id: 'ustawienia', label: t('cp.tabs.ustawienia'), icon: Settings },
     { id: 'konta', label: t('cp.tabs.konta'), icon: RefreshCw },
   ];
@@ -1494,8 +1499,8 @@ export default function ClientPortal() {
             </div>
           )}
 
-          {/* Referrals Tab */}
-          {activeTab === 'polecenia' && (
+          {/* Referrals Tab — tylko przy włączonym programie */}
+          {activeTab === 'polecenia' && programPolecen && (
             <ReferralsTab />
           )}
 
