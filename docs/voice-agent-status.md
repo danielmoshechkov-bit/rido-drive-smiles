@@ -3249,3 +3249,50 @@ nie odruchem.**
 Symulacja kosztuje **zero po stronie ElevenLabs** (sprawdzone: 11 tur, różnica
 znaków 0, rozmowa nie pojawia się na liście) — ale **nie jest darmowa**.
 Mówiąc o niej „za darmo", mówiłem prawdę o połowie rachunku.
+
+---
+
+## ZASADA 36 — zasada bez kontroli jest dokumentem
+
+15.08 zapisałem: „sondowanie, które zapisuje, nie jest sondowaniem", po tym jak
+pętla `PATCH` zostawiła produkcję na najgorszym modelu syntezy.
+
+17.08 złamałem ją ponownie — sondując dozwolone wartości `turn_timeout`
+wysłałem `PATCH` z `-1`. API przyjęło i zapisało. Telefon w tym czasie
+nie dzwonił, ale mógł.
+
+**Dwa dni między zapisaniem zasady a jej złamaniem.** To nie był problem
+pamięci — pamiętałem ją, bo sam ją napisałem. To był brak mechanizmu.
+
+### Kontrola zamiast zapisu
+
+`scripts/elevenlabs-zapis.mjs` — jedyna droga zapisu do konfiguracji
+ElevenLabs. Wymaga jawnego `zamierzone: true` i powodu dłuższego niż dziesięć
+znaków, weryfikuje zapis ponownym odczytem i rzuca wyjątkiem, gdy wartość się
+nie utrzymała. Sondowanie ma osobną funkcję, która **wyłącznie czyta**.
+
+Plus `elevenlabs-zapis_test.mjs`, który skanuje wszystkie skrypty i szuka
+`PATCH`-ów pisanych z ręki — bo bramka, którą da się obejść, jest kolejnym
+dokumentem.
+
+### Przegląd: które zasady mają kontrolę
+
+| zasada | kontrola | gdzie |
+|---|---|---|
+| 12 cicha porażka wygląda jak sukces | ✅ | licznik `n` w audycie, D4, D12, treść błędu w logach |
+| 22 przykład staje się zachowaniem | ✅ | D7 + redakcja w bramce uczenia |
+| 24 co da się policzyć, liczy kod | ⚠️ częściowo | testy snapshotu, ale nikt nie pilnuje nowych pól |
+| 26 wzorzec bije regułę | ✅ | D11 + testy wzorców (płeć, język, pytanie otwierające) |
+| 27 stan z kilku źródeł wymaga warstw | ✅ | `voice-polski-nienaruszony.mjs`, 5 warstw |
+| 28 czerwone przy poprawnym zdaniu | ✅ | 27 przypadków testowych asercji |
+| 29 prompt musi być czytelny | ⚠️ częściowo | brak kontroli liczby reguł |
+| 30 uporządkowany wzorzec jest silniejszy | ❌ | **brak** |
+| 31 scenariusz odtwarza rzeczywistość | ❌ | **brak** — nikt nie sprawdza, czy scenariusz pochodzi z transkryptu |
+| 32 pułapka powtarzalna wymaga kontroli | ✅ | test `\b` przy cyrylicy, test żywotności asercji |
+| 33 porównuj wartości, nie formy | ⚠️ częściowo | testy dat i godzin, ale nowe pola bez ochrony |
+| 34 agent proponuje, nie pyta | ✅ | dwa testy wzorców |
+| 35 pomiar ma koszt | ❌ | **brak** — nic nie liczy kosztu przed przebiegiem |
+| 36 zasada bez kontroli | ✅ | bramka zapisu + test obejścia |
+
+**Trzy zasady bez kontroli: 30, 31, 35.** To one zostaną złamane następnym
+razem — i to nie jest przewidywanie, tylko obserwacja z tego tygodnia.

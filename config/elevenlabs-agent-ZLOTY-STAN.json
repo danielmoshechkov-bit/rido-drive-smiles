@@ -49,10 +49,7 @@
         "right",
         "gotcha",
         "dzień dobry",
-        "halo",
-        "tak",
-        "nie",
-        "no"
+        "halo"
       ],
       "interruption_ignore_term_languages": [
         "pl",

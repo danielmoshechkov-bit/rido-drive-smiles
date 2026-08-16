@@ -33,6 +33,7 @@ import {
   wolneGodziny, zbudujDni, godzinaDoWypowiedzenia, type GodzinyDnia, type Usluga,
   doZaproponowania,
 } from "../_shared/voiceSnapshot.ts";
+import { dopasowanieUslugi } from "../_shared/voiceDopasowanie.ts";
 // ANGIELSKI — OSOBNY MODUŁ, DOKŁADANY OBOK. Moduł polski zostaje nietknięty:
 // ma 22 asercje i trzy dni poprawek za sobą, a uogólnianie go na drugi język
 // znaczyłoby przepisanie kodu sprawdzonego na produkcji dla języka, który
@@ -398,6 +399,15 @@ serve(async (req) => {
         const widelki = maCene && typeof do_ === "number" && do_ > 0 && do_ !== od;
         return {
           nazwa: usluga.nazwa,
+          // SLOWA DO ROZPOZNANIA, NIE DO WYPOWIEDZENIA.
+          // Snapshot po angielsku mial przetlumaczona CENE i nieprzetlumaczona
+          // NAZWE — „engine check" nie mialo jak trafic na „Diagnoza usterki"
+          // i agent dwa razy odmowil ceny, ktora stala w cenniku (17.08).
+          // Kazdy jezyk dostaje swoja liste; zostaja tylko niepuste.
+          ...(dopasowanieUslugi(usluga.nazwa, "pl").length ? { dopasowanie: dopasowanieUslugi(usluga.nazwa, "pl") } : {}),
+          ...(dopasowanieUslugi(usluga.nazwa, "en").length ? { dopasowanie_en: dopasowanieUslugi(usluga.nazwa, "en") } : {}),
+          ...(jezykSlow && dopasowanieUslugi(usluga.nazwa, jezykSlow).length
+            ? { [`dopasowanie_${jezykSlow}`]: dopasowanieUslugi(usluga.nazwa, jezykSlow) } : {}),
           cena: maCene
             ? {
               od, do: widelki ? do_ : od, typ: widelki ? "widelki" : "stala",

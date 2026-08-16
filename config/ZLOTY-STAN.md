@@ -107,7 +107,7 @@ turn_timeout              4.0
 silence_end_call_timeout  20.0
 speculative_turn          false
 soft_timeout_config       8.0 s, "Dobrze rozumiem", maks 1 na generację
-interruption_ignore_terms 34 pozycje w pl/ru/uk/en
+interruption_ignore_terms 31 pozycji w pl/ru/uk/en   <- „nie", „tak", „no" USUNIĘTE 17.08
 ```
 
 **`soft_timeout` podniesiony z 4 na 8 s.** Wypełniacz „Dobrze rozumiem" doklejał

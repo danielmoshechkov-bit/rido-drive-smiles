@@ -141,6 +141,17 @@ export const snapshotWJezyku = (surowy: string, jezyk: JezykRozmowy): string => 
       u.czas_do_powiedzenia = czas(u.czas_blokady_min as number);
     }
     if (typeof u.ostatni_start === "string") u.ostatni_start_do_wypowiedzenia = godz(u.ostatni_start as string);
+    // SLOWA DO ROZPOZNANIA USLUGI — podmiana, nie tylko kasowanie.
+    //
+    // Petla nizej usuwa wszystkie pola z przyrostkiem jezykowym. Bez tej linii
+    // `dopasowanie_en` znikaloby, a zostawaloby POLSKIE `dopasowanie` —
+    // czyli angielski agent dalej nie mialby jak trafic „engine check"
+    // na „Diagnoza usterki". Najpierw podmieniamy, potem kasujemy resztę.
+    const kluczDop = `dopasowanie_${jezyk}`;
+    // Funkcja zwraca wczesniej dla "pl", wiec tutaj jezyk jest zawsze obcy:
+    // brak wlasnej listy = pole znika, zeby nie zostawic polskiej.
+    if (Array.isArray(u[kluczDop])) u.dopasowanie = u[kluczDop];
+    else delete u.dopasowanie;
     for (const k of Object.keys(u)) if (/_(en|ru|uk)$/.test(k)) delete u[k];
   }
   // Teksty ustawień są po polsku i NIE MAMY ich tłumaczeń. Zgodnie z zasadą

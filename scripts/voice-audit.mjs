@@ -610,10 +610,10 @@ async function sekcjaC() {
 }
 
 // ============================================================================
-// E. ZGODNOŚĆ PRODUKCJI Z MAIN
+// E. ZGODNOŚĆ PRODUKCJI Z WDROŻONYM KODEM
 // ============================================================================
 async function sekcjaE() {
-  naglowek("E. ZGODNOŚĆ PRODUKCJI Z MAIN");
+  naglowek("E. ZGODNOŚĆ PRODUKCJI Z WDROŻONYM KODEM");
   const funkcje = ["voice-agent-chat", "voice-agent-llm", "voice-agent-tools",
     "voice-call-commit", "voice-call-postprocess", "voice-call-analyze", "voice-call-reconcile"];
   let katalog;
@@ -629,10 +629,27 @@ async function sekcjaE() {
     const prod = join(katalog, "supabase/functions", f, "index.ts");
     if (!existsSync(prod)) { zle("E", `${f}: nie pobrano z produkcji`); continue; }
     const hp = createHash("sha256").update(readFileSync(prod)).digest("hex").slice(0, 12);
-    let hm;
-    try { hm = createHash("sha256").update(execSync(`git show origin/main:supabase/functions/${f}/index.ts`, { cwd: ROOT })).digest("hex").slice(0, 12); }
-    catch { zle("E", `${f}: brak na origin/main`); continue; }
-    hp === hm ? ok("E", `${f} ${hp}`, 1) : zle("E", `${f}: ROZJAZD`, `produkcja=${hp}  main=${hm}`);
+    // PORÓWNUJEMY Z TYM, CO WDRAŻAMY — czyli z lokalnym HEAD, nie z main.
+    //
+    // Pierwsza wersja porównywała z `origin/main`. Wdrażamy z gałęzi roboczej,
+    // więc KAŻDA funkcja świeciła na czerwono i sekcja przestała cokolwiek
+    // znaczyć — dokładnie „czerwone CI, które wszyscy przeskakują" (zasada 28).
+    //
+    // Pytanie, na które ta kontrola ma odpowiadać, brzmi: „czy na produkcji
+    // stoi to, co ostatnio wdrożyliśmy" — bo Lovable potrafi nadpisać funkcję
+    // z main i cofnąć naszą pracę bez śladu.
+    let hl;
+    try { hl = createHash("sha256").update(readFileSync(join(ROOT, "supabase/functions", f, "index.ts"))).digest("hex").slice(0, 12); }
+    catch { zle("E", `${f}: brak w repozytorium`); continue; }
+    if (hp === hl) { ok("E", `${f} ${hp} (zgodne z HEAD)`, 1); continue; }
+    // Rozjazd z HEAD: sprawdzamy, CZY produkcja to przypadkiem main —
+    // to znaczyłoby, że ktoś nadpisał nasze wdrożenie.
+    let hm = null;
+    try { hm = createHash("sha256").update(execSync(`git show origin/main:supabase/functions/${f}/index.ts`, { cwd: ROOT })).digest("hex").slice(0, 12); } catch { /* brak na main */ }
+    zle("E", `${f}: PRODUKCJA ODBIEGA OD HEAD`,
+      hp === hm
+        ? `produkcja=${hp} = origin/main — NASZE WDROŻENIE ZOSTAŁO NADPISANE`
+        : `produkcja=${hp}  HEAD=${hl}${hm ? `  main=${hm}` : ""} — wdróż albo sprawdź, co stoi na produkcji`);
   }
 }
 

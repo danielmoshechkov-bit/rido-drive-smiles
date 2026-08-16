@@ -127,3 +127,32 @@ test("sama lacinka bez slow to BRAK SYGNALU, nie polski", () => {
   ];
   assert.equal(jezykRozmowy(r), "ru");
 });
+
+// SLOWA DO ROZPOZNANIA USLUGI MUSZA BYC W JEZYKU ROZMOWY.
+//
+// 17.08 angielski agent dwa razy odmowil ceny, ktora stala w cenniku:
+// snapshot mial przetlumaczona CENE i polska NAZWE, wiec „engine check"
+// nie mialo jak trafic na „Diagnoza usterki".
+test("snapshotWJezyku podmienia dopasowanie na jezyk rozmowy", () => {
+  const surowy = JSON.stringify({
+    dni: [], zasoby: [], klient: {},
+    uslugi: [{
+      nazwa: "Diagnoza usterki",
+      dopasowanie: ["diagnoza", "przegląd"],
+      dopasowanie_en: ["diagnostics", "engine check"],
+      dopasowanie_ru: ["диагностика", "осмотр"],
+      cena: { od: 150, do: 150, typ: "stala", do_powiedzenia: "sto pięćdziesiąt złotych" },
+    }],
+  });
+  const en = JSON.parse(snapshotWJezyku(surowy, "en"));
+  assert.deepEqual(en.uslugi[0].dopasowanie, ["diagnostics", "engine check"], "angielski musi dostac angielskie slowa");
+  assert.equal(en.uslugi[0].dopasowanie_en, undefined, "pola z przyrostkiem znikaja");
+  assert.equal(en.uslugi[0].nazwa, "Diagnoza usterki", "NAZWA zostaje po polsku — jej nie tlumaczymy");
+
+  const ru = JSON.parse(snapshotWJezyku(surowy, "ru"));
+  assert.deepEqual(ru.uslugi[0].dopasowanie, ["диагностика", "осмотр"]);
+
+  // Jezyk bez wlasnej listy nie moze dostac polskiej.
+  const uk = JSON.parse(snapshotWJezyku(surowy, "uk"));
+  assert.equal(uk.uslugi[0].dopasowanie, undefined, "brak listy = brak pola, nie polska lista");
+});

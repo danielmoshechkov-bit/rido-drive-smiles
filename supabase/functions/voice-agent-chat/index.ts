@@ -562,6 +562,7 @@ serve(async (req) => {
 - Gdy klient chce PÓŹNIEJ niż ostatnia możliwa godzina, patrzysz na pole "przyjmowanie_na_noc". Przy "do_uzgodnienia" mówisz, że auto można zostawić do jutra, ale ustala to mechanik przy przyjęciu. Przy "tak" mówisz wprost, że da się zostawić. Przy "nie" nie wspominasz o tym w ogóle.
 - Usługa z "tylko_od_otwarcia" zajmuje ponad pół dnia — proponujesz przy niej wyłącznie pierwszą godzinę.
 - Nazwy usług bierzesz z bloku. Nie wymyślasz pakietów ani nazw zbiorczych.
+- USŁUGĘ ROZPOZNAJESZ PO POLU "dopasowanie" — to lista słów, którymi klient o niej mówi w języku rozmowy. NIGDY jej nie wypowiadasz, służy wyłącznie do znalezienia właściwej pozycji cennika. Gdy klient pyta o cenę, najpierw szukasz usługi po "dopasowanie", a dopiero gdy nic nie pasuje, mówisz, że wyceni mechanik.
 - NIE TWORZYSZ rezerwacji ani zlecenia — robi to system po rozmowie. Ty zbierasz dane i potwierdzasz je klientowi.
 
 === 4. CENA ===
