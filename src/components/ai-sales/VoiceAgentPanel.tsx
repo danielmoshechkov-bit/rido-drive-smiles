@@ -197,12 +197,16 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
         };
       } else {
         loaded = defaultsFor(persona);
+        // Kolumny nazywają się `company_address` i `company_city` — pytanie
+        // o `address`/`city` zwracało błąd, więc przy pierwszym otwarciu panelu
+        // agent dostawał PUSTĄ nazwę firmy, opis i adres. Nie było tego widać,
+        // bo puste pola wyglądają jak „jeszcze nieuzupełnione".
         const { data: sp } = await (supabase as any)
-          .from("service_providers").select("company_name, description, address, city").eq("id", providerId).maybeSingle();
+          .from("service_providers").select("company_name, description, company_address, company_city").eq("id", providerId).maybeSingle();
         if (sp) {
           loaded.business_context.company_name = sp.company_name || "";
           loaded.business_context.description = sp.description || "";
-          loaded.business_context.location = [sp.address, sp.city].filter(Boolean).join(", ");
+          loaded.business_context.location = [sp.company_address, sp.company_city].filter(Boolean).join(", ");
         }
       }
       setAdvancedOpen(loaded.voice_mode === "per_language");

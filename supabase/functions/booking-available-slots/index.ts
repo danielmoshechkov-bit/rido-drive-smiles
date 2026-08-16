@@ -49,21 +49,29 @@ Deno.serve(async (req) => {
 
     const { data: occupied } = await q;
 
-    // Limit aut/dzień (ustawienia kalendarza). 0 = bez limitu.
+    // LIMIT AUT NA DZIEŃ. 0 = bez limitu.
+    //
+    // Czytaliśmy tu `workshop_settings.calendar_settings` — kolumnę, której
+    // NIGDY nie było. Zapytanie zwracało błąd, `ws` wychodziło puste, limit
+    // wypadał 0, czyli „bez limitu": ustawienie z panelu nie działało od
+    // początku i nikt tego nie widział, bo brak limitu wygląda normalnie.
+    //
+    // Ustawienia siedzą teraz w workshop_calendar_settings, kluczowane po
+    // warsztacie — a `provider_id` mamy wprost z rezerwacji, więc odpada też
+    // pośrednie pytanie o service_providers po user_id.
     let dayFull = false;
-    const { data: sp } = await supabase
-      .from('service_providers').select('user_id').eq('id', booking.provider_id).maybeSingle();
-    if (sp?.user_id) {
-      const { data: ws } = await supabase
-        .from('workshop_settings').select('calendar_settings').eq('user_id', sp.user_id).maybeSingle();
-      const maxPerDay = Number((ws?.calendar_settings as any)?.max_bookings_per_day) || 0;
-      if (maxPerDay > 0) {
-        const { count } = await supabase
-          .from('workshop_client_bookings')
-          .select('id', { count: 'exact', head: true })
-          .eq('provider_id', booking.provider_id).eq('appointment_date', date).neq('status', 'cancelled');
-        if ((count || 0) >= maxPerDay) dayFull = true;
-      }
+    const { data: ustawienia } = await supabase
+      .from('workshop_calendar_settings')
+      .select('max_bookings_per_day')
+      .eq('provider_id', booking.provider_id)
+      .maybeSingle();
+    const maxPerDay = Number(ustawienia?.max_bookings_per_day) || 0;
+    if (maxPerDay > 0) {
+      const { count } = await supabase
+        .from('workshop_client_bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('provider_id', booking.provider_id).eq('appointment_date', date).neq('status', 'cancelled');
+      if ((count || 0) >= maxPerDay) dayFull = true;
     }
 
     // Generuj sloty co 30 min od 8:00 do 18:00

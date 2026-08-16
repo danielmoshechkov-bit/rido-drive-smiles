@@ -218,20 +218,20 @@ export function RidoPriceModal({
     if (slowa.length === 0) return services.map(() => null);
     const filtr = slowa.map(w => `service_name_normalized.ilike.%${w}%`).join(',');
 
-    const [globalne, wlasne, zeZlecen] = await Promise.all([
+    // ZAPYTANIE O service_price_history USUNIĘTE (16.08).
+    //
+    // Dwa powody naraz. Po pierwsze jego wynik i tak nie był używany: odkąd
+    // obowiązuje zasada „wycena bez auta się nie liczy", ta tabela nie może
+    // zasilać widełek, bo nie trzyma pojazdu (patrz komentarz niżej).
+    // Po drugie pytało o kolumny `price_net`/`price_gross`, których tam nie ma —
+    // są `last_price_net`/`last_price_gross`. Czyli przy każdym otwarciu wyceny
+    // leciało zapytanie, które zwracało błąd, a wynik i tak trafiał do kosza.
+    const [globalne, zeZlecen] = await Promise.all([
       (supabase as any)
         .from('anonymous_service_prices')
         .select('service_name_normalized, price_net, price_gross, vehicle_brand, vehicle_model, engine_capacity, vehicle_year, fuel_type, city')
         .or(filtr)
         .limit(2000),
-      providerId
-        ? (supabase as any)
-            .from('service_price_history')
-            .select('service_name, price_net, price_gross')
-            .eq('provider_id', providerId)
-            .or(slowa.map(w => `service_name.ilike.%${w}%`).join(','))
-            .limit(1000)
-        : Promise.resolve({ data: [] }),
       // NAJWAZNIEJSZE ZRODLO: realne pozycje z wczesniejszych zlecen TEGO
       // warsztatu, razem z autem, na ktorym robota byla wykonana. To jest
       // odpowiedz na pytanie "ile bralem za to samo, przy podobnym aucie".
