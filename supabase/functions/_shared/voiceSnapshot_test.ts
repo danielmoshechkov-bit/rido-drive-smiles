@@ -217,10 +217,11 @@ test("powyzej 9999 NIE wraca cyframi", () => {
 
 test("doZaproponowania: zapas to nie propozycja", () => {
   // Defekt 3/3 z symulacji: agent czytal wszystkie trzy godziny z `wolne`.
-  assert.deepEqual(doZaproponowania(["09:00", "12:30", "16:00"]), ["09:00", "16:00"]);
-  // Pierwsza i OSTATNIA, nie dwie pierwsze — dwie sasiednie to dla klienta
-  // jedna propozycja, a pierwsza z ostatnia od razu odpowiada na „a pozniej?".
-  assert.deepEqual(doZaproponowania(["09:00", "09:30", "10:00", "16:00"]), ["09:00", "16:00"]);
+  assert.deepEqual(doZaproponowania(["09:00", "12:30", "16:00"]), ["09:00", "12:30"]);
+  // DWIE PIERWSZE, nie pierwsza i ostatnia. Prawdziwa rozmowa 16.08 dala
+  // „o dziewiatej czy o szesnastej?" — dwie skrajnosci brzmia jak ultimatum,
+  // a klient nie wie, ze jest jeszcze jedenasta i trzynasta.
+  assert.deepEqual(doZaproponowania(["09:00", "09:30", "10:00", "16:00"]), ["09:00", "09:30"]);
   assert.deepEqual(doZaproponowania(["09:00", "12:30"]), ["09:00", "12:30"]);
   assert.deepEqual(doZaproponowania(["09:00"]), ["09:00"]);
   assert.deepEqual(doZaproponowania([]), []);

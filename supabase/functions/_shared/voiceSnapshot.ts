@@ -376,12 +376,17 @@ export const cenaDoWypowiedzenia = (od: number, do_: number | null): string => {
  * do dopasowania tego, co powie klient, i do wyboru, gdy klient wskaże porę
  * dnia. `zaproponuj` ma najwyżej dwie pozycje i to je agent wypowiada.
  *
- * Wybieramy PIERWSZĄ I OSTATNIĄ, nie dwie pierwsze: dwie sąsiednie godziny
- * to dla klienta jedna propozycja („rano"), a pierwsza z ostatnią pokrywają
- * dzień i od razu odpowiadają na „a coś później?".
+ * Wybieramy DWIE PIERWSZE, licząc od najwcześniejszej wolnej.
+ *
+ * ZMIANA 16.08: wcześniej braliśmy pierwszą i OSTATNIĄ. W prawdziwej rozmowie
+ * dało to „o dziewiątej czy o szesnastej?" — dwie skrajności, między którymi
+ * klient musi wybrać, nie wiedząc, że jest jeszcze jedenasta i trzynasta.
+ * Dwie bliskie godziny brzmią jak propozycja, dwie skrajne jak ultimatum.
+ *
+ * Gdy klient odrzuci obie, agent pyta wprost, która pora by pasowała —
+ * i wtedy dopiero sięga po resztę pola `wolne` albo po check_availability.
  */
 export const doZaproponowania = (wolne: string[], maks = 2): string[] => {
   if (!Array.isArray(wolne) || wolne.length === 0) return [];
-  if (wolne.length <= maks) return [...wolne];
-  return [wolne[0], wolne[wolne.length - 1]];
+  return wolne.slice(0, maks);
 };

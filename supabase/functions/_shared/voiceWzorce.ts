@@ -54,6 +54,9 @@ const PL: Wzorce = {
     "Przepraszam, dziewiąta czy jedenasta?",
     "Nie dosłyszałam godziny — czy chodzi o dziewiątą rano?",
     "Trzeciego września wolne o dziewiątej — pasuje?",
+    "A która godzina bardziej by pasowała?",
+    "Trzynastej niestety nie ma, ale mam dwunastą albo czternastą.",
+    "Szesnastego września mam wolne o dziewiątej albo o jedenastej.",
     "Najpóźniej mogę zapisać na szesnastą — o siedemnastej zamykamy. Jeśli potrzeba później, można zostawić auto do jutra, tylko to trzeba ustalić z mechanikiem przy przyjęciu.",
   ],
   dane: [
@@ -62,6 +65,7 @@ const PL: Wzorce = {
     "Dobrze, zapisuję. Poproszę numer rejestracyjny.",
     "Dziękuję, numer zapisany.",
     "Numer mam zapisany — będzie w SMS-ie potwierdzającym, łatwiej go sprawdzić wzrokowo niż ze słuchu.",
+    "Przepraszam, nie dosłyszałam modelu — jaki to model?",
   ],
   cena: [
     "Wymiana oleju to sto sześćdziesiąt złotych. Kiedy byłoby wygodnie przyjechać?",
@@ -93,6 +97,9 @@ const RU: Wzorce = {
     "Плохо слышно — речь о девяти утра?",
     "Понедельник. Девять утра подойдёт?",
     "Третьего сентября свободно в девять — подойдёт?",
+    "А какое время было бы удобнее?",
+    "Тринадцати, к сожалению, нет, но есть двенадцать или четырнадцать.",
+    "Шестнадцатого сентября свободно в девять или в одиннадцать.",
   ],
   dane: [
     "Назовите, пожалуйста, имя, а также марку и модель машины.",
@@ -102,6 +109,7 @@ const RU: Wzorce = {
     "Назовите, пожалуйста, номер машины.",
     "Спасибо, номер записан.",
     "Номер записан — он будет в СМС с подтверждением, глазами проверить проще, чем на слух.",
+    "Извините, не расслышала модель — какая модель?",
   ],
   cena: [
     "Замена масла — сто шестьдесят злотых. Когда вам было бы удобно приехать?",
@@ -138,6 +146,9 @@ const UK: Wzorce = {
     "Погано чутно — йдеться про дев'яту ранку?",
     "Понеділок. Дев'ята ранку підійде?",
     "Третього вересня вільно о дев'ятій — підійде?",
+    "А який час був би зручніший?",
+    "Тринадцятої, на жаль, немає, але є дванадцята або чотирнадцята.",
+    "Шістнадцятого вересня вільно о дев'ятій або об одинадцятій.",
   ],
   dane: [
     "Назвіть, будь ласка, ім'я, а також марку й модель авто.",
@@ -147,6 +158,7 @@ const UK: Wzorce = {
     "Назвіть, будь ласка, номер авто.",
     "Дякую, номер записано.",
     "Номер записано — він буде в СМС із підтвердженням, очима перевірити простіше, ніж на слух.",
+    "Перепрошую, не розчула модель — яка модель?",
   ],
   cena: [
     "Заміна оливи — сто шістдесят злотих. Коли вам було б зручно приїхати?",
@@ -183,6 +195,9 @@ const EN: Wzorce = {
     "I didn't catch the time — did you mean 9 in the morning?",
     "Monday. Does 9 in the morning work?",
     "3 September, 9 is free — does that work?",
+    "What time would suit you better?",
+    "1 pm isn't free, but I have 12 or 2.",
+    "16 September I have 9 or 11 free.",
   ],
   dane: [
     "Could I have your first name, and the make and model of the car?",
@@ -192,6 +207,7 @@ const EN: Wzorce = {
     "And the registration number, please.",
     "Thank you, I have the number.",
     "I have the number — it'll be in the confirmation text, easier to check by eye than by ear.",
+    "Sorry, I didn't catch the model — which model is it?",
   ],
   cena: [
     "An oil change is 160 zloty. When would it suit you to come in?",

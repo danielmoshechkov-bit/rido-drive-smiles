@@ -138,13 +138,24 @@ async function sekcjaA() {
   const kolizje = [
     { prompt: /każdą cyfrę czytasz OSOBNO/i, regula: /grupami|naturalnie, grupami|bez rozbijania na pojedyncze cyfry/i,
       opis: "prompt każe czytać cyfry POJEDYNCZO, reguła każe czytać GRUPAMI" },
-    { prompt: /żaden czasownik opisujący TWOJĄ pracę/i, regula: /zapisuję Pana|umawiam Pana|tworzę rezerwacj|sprawdzam terminy/i,
+    { prompt: /Mówisz WYNIK, nigdy PROCES/i, regula: /zapisuję Pana|umawiam Pana|tworzę rezerwacj|sprawdzam terminy/i,
       opis: "prompt zakazuje relacjonowania własnych działań, reguła podaje taką frazę jako wzorzec" },
-    { prompt: /NIE PYTAJ O NAZWISKO/i, regula: /popro[śs].*nazwisk|zapytaj.*nazwisk/i,
+    { prompt: /Nie pytasz o nazwisko/i, regula: /popro[śs].*nazwisk|zapytaj.*nazwisk/i,
       opis: "prompt zakazuje pytać o nazwisko, reguła każe je zebrać" },
-    { prompt: /musi być BEZOSOBOWE/i, regula: /dla Pana najwygodniejszy|dla Pani najwygodniej/i,
+    { prompt: /Do poznania imienia mówisz BEZOSOBOWO/i, regula: /dla Pana najwygodniejszy|dla Pani najwygodniej/i,
       opis: "prompt wymaga formy bezosobowej przed poznaniem imienia, reguła podaje zwrot z domyśloną płcią" },
   ];
+  // REGUŁA, KTÓREJ NIE MA W PROMPCIE, TO NIE JEST „BRAK KOLIZJI".
+  //
+  // Pierwsza wersja robiła `continue` — i po przepisaniu promptu w FAZIE C
+  // TRZY z czterech par przestały pasować, ciche. Kontrola świeciła na zielono,
+  // sprawdzając jedną parę zamiast czterech. Zasada 12 zastosowana do kontroli,
+  // która sama miała pilnować sprzeczności.
+  const zagubione = kolizje.filter((k) => !k.prompt.test(chat)).map((k) => k.opis);
+  if (zagubione.length) {
+    zle("A2", `${zagubione.length} z ${kolizje.length} par kolizji NIE MA ODPOWIEDNIKA w prompcie`,
+      `${zagubione.join("\n")}\nreguła zniknęła albo zmieniła brzmienie — para nie jest sprawdzana`);
+  }
   let kolizji = 0;
   for (const k of kolizje) {
     if (!k.prompt.test(chat)) continue;
@@ -176,7 +187,12 @@ async function sekcjaA() {
     // Rozróżnienie: pusta tabela dla tej persony = kontrola ślepa (błąd);
     // wpisy są, tylko żaden nie jest aktywny = stan docelowy (w porządku).
     if (wszystkieDlaPersony === 0) {
-      zle("A2", "brak JAKICHKOLWIEK wpisów dla tej persony — kontrola ślepa",
+      // PUSTA BAZA WIEDZY TO STAN DOCELOWY (od 16.08, po skasowaniu 108 wpisow
+    // wydestylowanych automatycznie). Kontrola ma prawo powiedziec „nie ma czego
+    // sprawdzac" — ale MUSI to powiedziec wprost, nie udawac zielonego.
+    ok("A2", "baza wiedzy pusta — brak reguł mogących przeczyć promptowi (stan docelowy)", 0, true);
+  } else if (false) {
+    zle("A2", "brak JAKICHKOLWIEK wpisów dla tej persony — kontrola ślepa",
         `persona_key = '${PERSONA_KEY}'; sprawdź, czy klucz jest poprawny`);
     } else {
       ok("A2", `zero aktywnych reguł — STAN DOCELOWY po wyzerowaniu 11.08 (${wszystkieDlaPersony} wpisów nieaktywnych czeka na bramkę)`, 1, true);
@@ -186,8 +202,11 @@ async function sekcjaA() {
   }
 
   // A3: reguła nie może NAKAZYWAĆ tego, co prompt ZAKAZUJE (odwrotny kierunek).
-  const zakazy = [...chat.matchAll(/ZAKAZ(?:ANE)?:?\s*([^\n\\]{10,120})/g)].map((m) => m[1].trim());
-  ok("A3", `wykryto ${zakazy.length} bloków zakazów w prompcie z kodu (materiał do kontroli ręcznej)`, zakazy.length);
+  // FAZA C usunela naglowki „ZAKAZ…" — zakazy sa teraz zwyklymi zdaniami
+  // („Nigdy nie odsylasz do telefonu", „Nie mowisz, ze sprawdzasz"). Wzorzec
+  // szukajacy naglowka zwrocil ZERO i kontrola zglosila slepote — poprawnie.
+  const zakazy = [...chat.matchAll(/^\s*-?\s*(?:⛔\s*)?((?:Nigdy nie|Nie mówisz|Nie pytasz|Nie wyliczaj|Nie wymyślasz|Nie zgadujesz|Nie anulujesz|Nie obiecujesz|Nie tłumaczysz|Nie wołasz|ZAKAZ(?:ANE)?:?)[^\n\\]{5,120})/gmi)].map((m) => m[1].trim());
+  ok("A3", `wykryto ${zakazy.length} zakazów w prompcie z kodu (materiał do kontroli ręcznej)`, zakazy.length);
 }
 
 // ============================================================================

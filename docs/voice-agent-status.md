@@ -3008,3 +3008,43 @@ gotowego zdania do wypowiedzenia. Jeden język na raz, nigdy dwa naraz.
 
 Kosztuje to cache'owanie kilkuset znaków więcej na turę i jest tego warte:
 poprzedni układ dawał angielskiemu polskie podsumowanie rezerwacji.
+
+---
+
+## ZASADA 31 — scenariusz odtwarza rzeczywistość, nie jej uporządkowaną wersję
+
+Po prawdziwej rozmowie 16.08 dopisałem scenariusz „klient od razu mówi, czego
+chce". Wyszedł **zielony 3/3** — defekt się nie powtórzył.
+
+Napisałem go czysto:
+
+> „Chciałbym umówić się na sprawdzenie zawieszenia, wymianę filtrów i przegląd."
+
+Klient powiedział:
+
+> „Dzień dobry, chciałbym się dowiedzieć o wolny termin, żeby się umówić na,
+> **ee**, sprawdzenie zawieszenia, wymienić filtry i przejechać samochód."
+
+Symulowany klient dostał moją wygładzoną wersję jako wzór, **zignorował ją
+i wymyślił własną sprawę** (wymiana opon). Testowałem inną rozmowę niż ta,
+która się wydarzyła.
+
+Po przepisaniu scenariusza na **dosłowny cytat z transkryptu** — z wahaniem
+„ee", z rozwlekłą składnią, z trzema usługami w jednym oddechu — defekt wyszedł
+**3/3**.
+
+### Konsekwencja
+
+Każdy nowy scenariusz budujemy z **dosłownego cytatu**: z wahaniami,
+urwaniami, przekręceniami ASR i błędami składni. Nie z tego, co klient
+chciał powiedzieć — z tego, co powiedział.
+
+Wygładzenie wypowiedzi klienta usuwa dokładnie te cechy, które wywołują defekt.
+Rozmowa, w której klient mówi pełnymi zdaniami i od razu podaje wszystko po
+kolei, nie zdarza się w warsztacie ani razu.
+
+### Rewizja istniejących scenariuszy
+
+Siedem pierwszych scenariuszy napisałem, **zanim mieliśmy transkrypty**.
+Wszystkie są „czyste". Sytuacje, które zdarzyły się na żywo i nie mają
+odpowiednika w zestawie, są wypisane w `docs/voice-scenariusze-luki.md`.

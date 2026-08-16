@@ -132,18 +132,26 @@ const zapiszAlertRozliczeniowy = async (
 ) => {
   try {
     const godzinaTemu = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    // system_alerts ma ZAMKNIETE listy wartosci:
+    //   category IN (import, matching, validation, system)
+    //   status   IN (pending, resolved, ignored)
+    // Pierwsza wersja uzywala category='voice_agent_billing' i status='open'
+    // — baza odrzucala INSERT, a `catch` nizej zjadal blad. Alert NIGDY by nie
+    // powstal i nikt by sie o tym nie dowiedzial. Zlapane wierszem testowym,
+    // nie przez awarie. Rozpoznajemy wlasne alerty po metadata.zrodlo.
     const { data: istnieje } = await admin.from("system_alerts")
-      .select("id").eq("category", "voice_agent_billing").eq("status", "open")
+      .select("id").eq("category", "system").eq("status", "pending")
+      .eq("metadata->>zrodlo", "voice_agent_billing")
       .gte("created_at", godzinaTemu).limit(1);
     if (istnieje?.length) return;
     await admin.from("system_alerts").insert({
       type: "error",
-      category: "voice_agent_billing",
+      category: "system",
       title: "Agent glosowy nie odpowiada — problem rozliczeniowy dostawcy modelu",
       description: "Kazde polaczenie konczy sie komunikatem o problemie technicznym. "
         + "Doladuj konto dostawcy modelu. Tresc bledu: " + tresc.slice(0, 300),
-      status: "open",
-      metadata: { provider_id: providerId, wykryte: new Date().toISOString() },
+      status: "pending",
+      metadata: { zrodlo: "voice_agent_billing", provider_id: providerId, wykryte: new Date().toISOString() },
     });
     console.error("[voice-agent-chat]", JSON.stringify({ event: "billing_alert_zapisany" }));
   } catch (e) {
@@ -530,6 +538,7 @@ serve(async (req) => {
 - Wszystko w bloku jest już policzone i odmienione w języku rozmowy. Czytasz gotowe formy z pól kończących się na "do_wypowiedzenia" i "do_powiedzenia". Nie przeliczasz, nie tłumaczysz, nie zamieniasz cyfr na słowa.
 - Godziny proponujesz z pola "zaproponuj_do_wypowiedzenia" PRZY DNIU, O KTÓRY PYTA KLIENT. Pole "wolne" jest ZAPASEM: służy do rozpoznania godziny, którą wskaże klient, i do wyboru, gdy klient poda porę dnia.
 - Termin, który sam zaproponowałeś, jest z definicji wolny — nie sprawdzasz go ponownie.
+- Gdy klient odrzuci obie godziny, pytasz, która pora dnia by pasowała, i podajesz wynik od razu. Nie zapowiadasz sprawdzania.
 - Dzień spoza bloku wymaga narzędzia check_availability PRZED podaniem godziny. Nie wyliczasz dat samodzielnie.
 - Gdy klient chce PÓŹNIEJ niż ostatnia możliwa godzina, patrzysz na pole "przyjmowanie_na_noc". Przy "do_uzgodnienia" mówisz, że auto można zostawić do jutra, ale ustala to mechanik przy przyjęciu. Przy "tak" mówisz wprost, że da się zostawić. Przy "nie" nie wspominasz o tym w ogóle.
 - Usługa z "tylko_od_otwarcia" zajmuje ponad pół dnia — proponujesz przy niej wyłącznie pierwszą godzinę.
@@ -555,7 +564,7 @@ ${greetingRule}
 - ⛔ Nigdy nie odsyłasz do telefonu. Klient właśnie dzwoni.
 - Mówisz jednym zdaniem, czego nie wiesz i kto odpowie, i wracasz do rozmowy. Nie obiecujesz oddzwonienia poza odwołaniem wizyty.
 - Najwyżej dwie odmowy pod rząd. Przy trzecim pytaniu mówisz to, co WIESZ.
-- Gdy nie dosłyszysz — prosisz o powtórzenie TEJ JEDNEJ informacji. Wszystko, co klient potwierdził wcześniej, zostaje aktualne.
+- Gdy nie dosłyszysz — prosisz o powtórzenie TEGO, O CO PYTAŁEŚ, jednym zdaniem. Nie tłumaczysz, co już wiesz, i nie zgadujesz, czym była niezrozumiała odpowiedź. Wszystko, co klient potwierdził wcześniej, zostaje aktualne.
 
 === 8. ZAKOŃCZENIE ===
 - Podsumowujesz jednym zdaniem: usługa, pojazd, dzień z datą, godzina. Nie mówisz o przyjeździe wcześniej ani o dokumentach — to idzie SMS-em.

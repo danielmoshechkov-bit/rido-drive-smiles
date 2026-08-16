@@ -87,8 +87,9 @@ export function WorkshopCallsList({ providerId, onOpenOrder }: {
       const { data } = await (supabase as any)
         .from("system_alerts")
         .select("title, description")
-        .eq("category", "voice_agent_billing")
-        .eq("status", "open")
+        .eq("category", "system")
+        .eq("status", "pending")
+        .eq("metadata->>zrodlo", "voice_agent_billing")
         .order("created_at", { ascending: false })
         .limit(1);
       if (!anulowane && data?.[0]) setAlertAwarii(data[0]);
