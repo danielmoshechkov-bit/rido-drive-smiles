@@ -8,16 +8,18 @@ import { AISalesAgentWizard } from './AISalesAgentWizard';
 import { VoiceAgentPanel } from './VoiceAgentPanel';
 
 export function AISalesAgentsDashboard({ providerId = null }: { providerId?: string | null }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('voice');
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editAgentId, setEditAgentId] = useState<string | null>(null);
 
+  // Asystent głosowy PIERWSZY — to jest rzecz, po którą warsztat tu wchodzi.
+  // Dashboard i Leady dotyczą agenta sprzedażowego, czyli innego produktu.
   const tabs = [
+    { value: 'voice', label: 'Asystent głosowy', visible: true },
     { value: 'overview', label: 'Dashboard', visible: true },
     { value: 'leads', label: 'Leady', visible: true },
     { value: 'conversations', label: 'Konwersacje', visible: true },
     { value: 'my-agent', label: 'Mój Agent', visible: true },
-    { value: 'voice', label: 'Asystent głosowy', visible: true },
   ];
 
   if (wizardOpen) {

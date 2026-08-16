@@ -262,6 +262,30 @@ serve(async (req) => {
         }));
       }
       const providerId = rozpoznanie.providerId ?? undefined;
+      if (providerId) {
+        // WYŁĄCZNIK WARSZTATU MA DZIAŁAĆ NAPRAWDĘ.
+        //
+        // Do 16.08 `is_active` nie było czytane przez nikogo: warsztat wyłączał
+        // agenta, widział wyłączony przełącznik i był przekonany, że telefon
+        // nie jest odbierany — a agent odbierał i umawiał wizyty. Pole, które
+        // kłamie o stanie, jest gorsze niż brak pola.
+        //
+        // Wyłączony agent NIE PRZESTAJE ODBIERAĆ (tego nie umiemy z poziomu
+        // webhooka), tylko dostaje snapshot z jednym zdaniem do powiedzenia.
+        const { data: stan, error: stanErr } = await admin.from("voice_agent_configs")
+          .select("is_active, business_context").eq("provider_id", providerId).limit(1);
+        if (stanErr) {
+          console.error("[voice-agent-init] odczyt is_active nieudany:", stanErr.code, stanErr.message);
+          throw stanErr;
+        }
+        if (stan?.[0] && stan[0].is_active === false) {
+          const bc = (stan[0].business_context ?? {}) as Record<string, unknown>;
+          const zdanie = String((bc?.wylaczony_zdanie as string) || "")
+            || "Przepraszam, w tej chwili nie przyjmujemy zgłoszeń telefonicznych.";
+          console.info("[voice-agent-init]", JSON.stringify({ event: "agent_wylaczony_przez_warsztat" }));
+          return { wylaczony: true, zdanie };
+        }
+      }
       if (!providerId) {
         powodPustego = rozpoznanie.droga === "nieznany_numer"
           ? "numer spoza tabeli numerow — fallback zakazany, zeby nie podac cudzych danych"
@@ -537,6 +561,24 @@ serve(async (req) => {
     if (!snapshot) return pusty(powodPustego ?? `przekroczony budzet ${BUDZET_MS} ms`);
 
     const tekst = JSON.stringify(snapshot);
+
+    // AGENT WYŁĄCZONY PRZEZ WARSZTAT — snapshot ma wtedy dwa pola i nic więcej.
+    // Pierwsza wersja tej gałęzi przechodziła dalej, do logu z `snapshot.dni.length`,
+    // co rzucało wyjątkiem, wpadało w ogólny `catch` i zwracało pusty snapshot.
+    // Wyglądało to identycznie jak „nie zdążyliśmy zbudować" — czyli awaria
+    // udawała normalne działanie. Sprawdzone: zdanie o wyłączeniu nie docierało.
+    if ((snapshot as { wylaczony?: boolean }).wylaczony === true) {
+      const debugW = new URL(req.url).searchParams.get("debug") === "1";
+      console.info("[voice-agent-init]", JSON.stringify({
+        event: "snapshot_wylaczony", ms: Math.round(performance.now() - started), znakow: tekst.length,
+      }));
+      return json({
+        type: "conversation_initiation_client_data",
+        dynamic_variables: { rido_snapshot: tekst, rido_caller_znany: callerId ? "tak" : "nie" },
+        ...(debugW ? { _ms: Math.round(performance.now() - started) } : {}),
+      });
+    }
+
     console.info("[voice-agent-init]", JSON.stringify({
       event: "snapshot", ms: Math.round(performance.now() - started),
       dni: snapshot.dni.length, uslugi: snapshot.uslugi.length,

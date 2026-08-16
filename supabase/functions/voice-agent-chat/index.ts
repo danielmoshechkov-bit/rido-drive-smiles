@@ -465,8 +465,21 @@ serve(async (req) => {
         znakow_przed: snapshotSurowy.length, znakow_po: snapshotRaw.length,
       });
     }
+    // AGENT WYŁĄCZONY PRZEZ WARSZTAT. Snapshot niesie wtedy jedno pole i nic
+    // więcej — nie ma terminów, cennika ani klientów, bo nie ma czego proponować.
+    let wylaczony: { zdanie: string } | null = null;
+    try {
+      const s = snapshotRaw ? JSON.parse(snapshotRaw) : null;
+      if (s && s.wylaczony === true) wylaczony = { zdanie: String(s.zdanie || "") };
+    } catch { /* snapshot nie jest JSON-em — zachowujemy się jak dotąd */ }
+
     let snapshotBlok = "";
-    if (snapshotRaw) {
+    if (wylaczony) {
+      snapshotBlok = `\n\n=== WARSZTAT WYŁĄCZYŁ OBSŁUGĘ TELEFONICZNĄ ===\n`
+        + `Powiedz DOKŁADNIE to zdanie, w języku rozmowy: „${wylaczony.zdanie}"\n`
+        + `Potem grzecznie zakończ rozmowę. NIE proponujesz terminów, NIE pytasz o dane, `
+        + `NIE zapisujesz zgłoszenia — nie masz do czego.\n`;
+    } else if (snapshotRaw) {
       snapshotBlok = `\n\n=== CO WIESZ O DZIŚ (dane pobrane przy odebraniu połączenia) ===\n${snapshotRaw}\n`
         + `Zasady korzystania z tego bloku stoją w sekcji 3. Dane są już policzone i odmienione — czytasz je znak w znak.\n`
         + `Gdy czegoś w bloku nie ma — użyj check_availability albo powiedz, że nie wiesz. NIE ZGADUJ.\n`;
