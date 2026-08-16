@@ -96,9 +96,9 @@ export function WorkshopVehicleEditDialog({ vehicle, open, onOpenChange }: Props
     const normalizedFuel = normalizeFuelType(data.fuel_type);
     if (normalizedFuel) set('fuel_type', normalizedFuel);
     const capacity = extractDigits(data.engine_size);
-    if (capacity) set('engine_capacity_cm3', capacity);
+    if (capacity) set('engine_capacity_cm3', String(capacity));
     const power = extractDigits(data.engine_power_kw || data.power_kw || data.engine_power);
-    if (power) set('engine_power_kw', power);
+    if (power) set('engine_power_kw', String(power));
   };
 
   const handlePlateSearch = async () => {

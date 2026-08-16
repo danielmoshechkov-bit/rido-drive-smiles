@@ -10,6 +10,7 @@ import { useCreateWorkshopVehicle, useWorkshopClients } from '@/hooks/useWorksho
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { VehicleLookupCreditsModal } from '@/components/vehicle/VehicleLookupCreditsModal';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
+import { useTrybProbny } from '@/components/onboarding/TrybProbny';
 import { Car, Search, Loader2, Plus, Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';

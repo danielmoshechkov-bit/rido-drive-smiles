@@ -2492,7 +2492,6 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                     unit: produkt.unit || 'szt',
                     inventory_product_id: produkt.id,
                   })}
-                  providerId={providerId}
                   className="h-10 w-full text-sm"
                 />
                 <div className="grid grid-cols-3 gap-2">

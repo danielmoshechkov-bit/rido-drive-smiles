@@ -29,7 +29,7 @@ interface Suggestion {
   /** Zakres z historii jest echem jednej stawki — nie nadaje sie na podpowiedz. */
   degenerate?: boolean;
   own?: number;
-  scope?: 'model' | 'brand' | 'any';
+  scope?: 'exact' | 'model' | 'brand' | 'any';
 }
 
 interface Props {

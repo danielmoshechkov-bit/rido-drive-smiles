@@ -74,6 +74,20 @@ const pobierzRole = async (userId: string): Promise<RoleRow[]> => {
 
 supabase.auth.onAuthStateChange(() => { roleCache = null; roleWLocie = null; });
 
+/**
+ * Zapomnij zapamiętane role.
+ *
+ * Wołane po KAŻDYM nadaniu roli (np. aktywacji modułu warsztatowego). Bez tego
+ * przez kilkanaście sekund obowiązuje lista sprzed nadania — a że panel warsztatu
+ * odsyła do logowania kogoś bez roli `service_provider`, świeżo aktywowane konto
+ * wylatywało z komunikatem „Brak uprawnień do panelu usługodawcy" na ekran
+ * logowania. Rola już była, tylko my jej jeszcze nie widzieliśmy.
+ */
+export function wyczyscPamiecRol() {
+  roleCache = null;
+  roleWLocie = null;
+}
+
 export const useUserRole = (): UseUserRoleReturn => {
   const [role, setRole] = useState<UserRole>(null);
   const [roles, setRoles] = useState<UserRole[]>([]);

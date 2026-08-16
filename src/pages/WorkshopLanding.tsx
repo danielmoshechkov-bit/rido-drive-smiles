@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { activateWorkshopTrial } from "@/services/authService";
+import { wyczyscPamiecRol } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -221,6 +222,10 @@ export default function WorkshopLanding() {
     try {
       const result = await activateWorkshopTrial(plan);
       if (result.success) {
+        // Rola `service_provider` właśnie powstała — zapamiętana lista ról jest
+        // już nieaktualna. Bez tego panel warsztatu odsyła świeżo aktywowane
+        // konto do logowania z komunikatem o braku uprawnień.
+        wyczyscPamiecRol();
         toast.success(
           trialLabel
             ? `Moduł warsztatowy aktywowany! Okres próbny trwa ${trialLabel}.`
