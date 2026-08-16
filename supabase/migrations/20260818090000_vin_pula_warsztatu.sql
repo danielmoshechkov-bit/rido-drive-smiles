@@ -62,50 +62,41 @@ SET kind = 'metered', unit = 'sprawdzenie'
 WHERE key = 'vehicle_lookup';
 
 -- ---------------------------------------------------------------------------
--- 4. Limity sprawdzeń w planach
+-- 4. VIN NIE WCHODZI W ABONAMENT — limit zero we wszystkich planach
 -- ---------------------------------------------------------------------------
--- Liczby Twoje, z sześciu miesięcy zużycia: 12-20 sprawdzeń na użytkownika
--- miesięcznie. Moja pierwsza propozycja (40/150/400) była zapasem, którego
--- nikt by nie dobił — a limit, którego nie da się wyczerpać, nie jest limitem
--- i nie sprzeda ani jednego doładowania.
+-- Sprawdzenia pojazdu są osobnym produktem, nie funkcją abonamentu. Każdy plan
+-- ma limit 0; jedyne źródła to pakiet startowy (5 przy rejestracji) i suwak
+-- doładowań (krok 10 po 1,70 zł).
 --
--- Dane są mocniejszą podstawą, niż zakładałem: od marca do 5 sierpnia działał
--- dystrybutor darmowych kredytów (usunięty w 4.13), więc to zużycie NIE było
--- niczym ograniczone. Ludzie mogli sobie dosypać i mimo to brali 12-20.
+-- Dlaczego 0, a nie NULL: `check_usage` czyta NULL jako „bez limitu" i zwraca
+-- `unlimited`. Zero znaczy „funkcja jest w planie, ale z zerowym przydziałem",
+-- więc `check_usage` schodzi do paczek — dokładnie tego chcemy. Różnica między
+-- NULL a 0 to tu różnica między „za darmo bez końca" a „tylko z doładowania".
 --
--- TRZY POPRAWKI wobec listy, którą podałeś:
---  * `trial_warsztat` NIE ISTNIEJE — plan próbny ma kod `trial_max`. Wpis
---    z nieistniejącym kodem nie rzuca błędu, tylko cicho nie zmienia nic.
---  * `warsztat_free` nie ma `vehicle_lookup` w planie w ogóle, więc poniżej
---    jest INSERT, nie UPDATE (patrz sekcja 4b).
---  * `bundle_warsztat_agent` i `bundle_max` były pominięte, a mają tę cechę.
---    Zostawione z NULL zachowałyby NIEOGRANICZONE darmowe sprawdzenia
---    w najdroższych pakietach. Przypisane do odpowiadających im poziomów —
---    potwierdź, jeśli miały być inne.
+-- Zaleta wobec limitów per plan: nie trzeba tego pilnować przy każdym nowym
+-- planie. Zasada jest jedna i sama się broni.
 UPDATE public.billing_plan_features pf
-SET limit_value = v.limit_value
-FROM (VALUES
-  ('warsztat_standard',       15),
-  ('warsztat_pro',            40),
-  ('warsztat_sieci',         150),
-  ('bundle_warsztat_agent',   40),   -- poziom Pro
-  ('bundle_max',             150),   -- poziom Sieci
-  ('trial_max',               40)    -- okres próbny w zakresie Pro
-) AS v(plan_code, limit_value)
-JOIN public.billing_plans p ON p.code = v.plan_code
-JOIN public.billing_features f ON f.key = 'vehicle_lookup'
-WHERE pf.plan_id = p.id AND pf.feature_id = f.id;
+SET limit_value = 0
+FROM public.billing_features f
+WHERE pf.feature_id = f.id AND f.key = 'vehicle_lookup';
 
--- 4b. Plan darmowy dostaje tę cechę po raz pierwszy — stąd INSERT.
+-- Plany, które tej cechy jeszcze nie mają (np. darmowy), dostają ją z zerem —
+-- inaczej `check_usage` zwróciłby `feature_not_in_plan`, a to inny komunikat
+-- niż „doładuj" i użytkownik nie wiedziałby, że produkt w ogóle istnieje.
 INSERT INTO public.billing_plan_features (plan_id, feature_id, is_enabled, limit_value)
-SELECT p.id, f.id, true, 3
-FROM public.billing_plans p, public.billing_features f
-WHERE p.code = 'warsztat_free' AND f.key = 'vehicle_lookup'
-ON CONFLICT (plan_id, feature_id) DO UPDATE SET limit_value = 3, is_enabled = true;
+SELECT p.id, f.id, true, 0
+FROM public.billing_plans p
+CROSS JOIN public.billing_features f
+WHERE f.key = 'vehicle_lookup'
+  AND p.subscriber_type = 'service_provider'
+  AND NOT EXISTS (
+    SELECT 1 FROM public.billing_plan_features x
+    WHERE x.plan_id = p.id AND x.feature_id = f.id)
+ON CONFLICT (plan_id, feature_id) DO NOTHING;
 
--- 4c. Kontrola: żaden plan z tą cechą nie może zostać bez limitu.
--- NULL znaczy „bez limitu", więc pominięty plan = darmowe sprawdzenia bez końca.
--- Lepiej zatrzymać migrację, niż zostawić otwartą dziurę i nie wiedzieć o tym.
+-- 4c. Kontrola: żaden plan nie może zostać z NULL.
+-- NULL = „bez limitu" = darmowe sprawdzenia bez końca. Przy nowym modelu ma to
+-- być NIEMOŻLIWE, więc migracja przerywa i wypisuje winowajcę.
 DO $$
 DECLARE v_brak text;
 BEGIN
@@ -116,7 +107,7 @@ BEGIN
   WHERE f.key = 'vehicle_lookup' AND pf.limit_value IS NULL AND pf.is_enabled;
 
   IF v_brak IS NOT NULL THEN
-    RAISE EXCEPTION 'Plany bez limitu sprawdzeń: %. To darmowe VIN-y bez końca — uzupełnij sekcję 4.', v_brak;
+    RAISE EXCEPTION 'Plany bez limitu sprawdzeń: %. NULL znaczy „bez limitu" — to darmowe VIN-y bez końca.', v_brak;
   END IF;
 END $$;
 
@@ -343,6 +334,106 @@ BEGIN
   RETURN v_pack;
 END;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 8. 🔴 Pakiet startowy: 30 SMS + 5 sprawdzeń, do paczek warsztatu
+-- ---------------------------------------------------------------------------
+-- Liczba SMS-ów zmieniona z 50 na 30 (Twoja decyzja).
+--
+-- Ale ważniejsze jest GDZIE trafiają: dotąd SMS-y szły do `sms_balance`, którą
+-- migracja 4.10 uczyniła martwą. Nic jej nie czyta — `sms_dostepne` liczy plan
+-- plus paczki, a `deduct_sms_credit` idzie przez `billing_consume`. Każdy
+-- warsztat zarejestrowany PO 4.10 dostał więc pakiet startowy, którego nie ma.
+-- Poniżej jest lista tych warsztatów (sekcja 9) — wymagają wyrównania.
+CREATE OR REPLACE FUNCTION public.przyznaj_pakiet_startowy(
+  p_user_id     uuid,
+  p_provider_id uuid,
+  p_email       text,
+  p_sms         integer DEFAULT 30,
+  p_vin         integer DEFAULT 5
+)
+RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  v_email text := lower(btrim(p_email));
+BEGIN
+  IF v_email = '' OR p_provider_id IS NULL THEN
+    RAISE WARNING 'przyznaj_pakiet_startowy: brak adresu albo warsztatu — pomijam';
+    RETURN false;
+  END IF;
+
+  INSERT INTO pakiety_startowe (email, user_id, provider_id, sms, vin)
+  VALUES (v_email, p_user_id, p_provider_id, p_sms, p_vin)
+  ON CONFLICT (email) DO NOTHING;
+
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+
+  -- ── Pakiet startowy trafia do PACZEK warsztatu ───────────────────
+  -- Wcześniej SMS-y szły przez `grant_sms_credits` do `sms_balance`, a
+  -- sprawdzenia do osobistego `vehicle_lookup_credits` właściciela. Po
+  -- przełączeniu na `billing_consume` (4.10 dla SMS, 4.12 dla VIN) żadne
+  -- z tych miejsc nie jest już źródłem prawdy: wysyłka i sprawdzenia czytają
+  -- pulę planu i paczki. Pakiet startowy zapisany po staremu byłby
+  -- NIEWIDOCZNY — warsztat dostawałby jednostki, których nie może wydać.
+  INSERT INTO billing_addon_packs
+    (subscriber_type, subscriber_id, feature_id, amount_total, amount_remaining,
+     expires_at, source, note)
+  SELECT 'service_provider', p_provider_id, f.id, p_sms, p_sms,
+         NULL, 'admin_grant', 'Pakiet startowy przy rejestracji'
+  FROM billing_features f WHERE f.key = 'sms' AND p_sms > 0;
+
+  INSERT INTO billing_addon_packs
+    (subscriber_type, subscriber_id, feature_id, amount_total, amount_remaining,
+     expires_at, source, note)
+  SELECT 'service_provider', p_provider_id, f.id, p_vin, p_vin,
+         NULL, 'admin_grant', 'Pakiet startowy przy rejestracji'
+  FROM billing_features f WHERE f.key = 'vehicle_lookup' AND p_vin > 0;
+
+  -- Księga SMS zostaje — to ona odpowiada na pytanie „skąd to saldo".
+  -- Bez zmiany `sms_balance`: ta kolumna jest po 4.10 martwa.
+  INSERT INTO sms_credit_ledger (provider_id, delta, powod, opis)
+  VALUES (p_provider_id, p_sms, 'pakiet_startowy', 'Pakiet startowy przy rejestracji');
+
+  RAISE NOTICE 'Pakiet startowy dla % : % SMS, % VIN', v_email, p_sms, p_vin;
+  RETURN true;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 9. Kto dostał pakiet startowy, którego nie widzi — TYLKO ROZPOZNANIE
+-- ---------------------------------------------------------------------------
+-- Świadomie NIC nie naprawiamy. Dosypanie jednostek to zmiana danych klienta
+-- wstecz i wymaga osobnej decyzji — migracja ma o tym POWIEDZIEĆ, nie zrobić
+-- tego przy okazji czegoś innego. Zapytanie naprawcze jest w
+-- docs/billing/4-12-pakiet-startowy-wyrownanie.sql.
+DO $$
+DECLARE
+  v_ile  integer;
+  v_lista text;
+BEGIN
+  SELECT count(*), string_agg(sp.company_name, ', ')
+  INTO v_ile, v_lista
+  FROM pakiety_startowe ps
+  JOIN service_providers sp ON sp.id = ps.provider_id
+  WHERE NOT EXISTS (
+    SELECT 1 FROM billing_addon_packs p
+    JOIN billing_features f ON f.id = p.feature_id
+    WHERE p.subscriber_type = 'service_provider'
+      AND p.subscriber_id = ps.provider_id
+      AND f.key = 'sms'
+      AND p.note = 'Pakiet startowy przy rejestracji');
+
+  IF v_ile > 0 THEN
+    RAISE WARNING 'Pakiet startowy bez pokrycia w paczkach: % warsztatów (%). Patrz docs/billing/4-12-pakiet-startowy-wyrownanie.sql',
+      v_ile, left(COALESCE(v_lista, ''), 200);
+  ELSE
+    RAISE NOTICE 'Pakiety startowe: wszystkie mają pokrycie w paczkach.';
+  END IF;
+END $$;
+
 
 COMMIT;
 
