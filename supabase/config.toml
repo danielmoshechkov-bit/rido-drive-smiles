@@ -437,6 +437,17 @@ verify_jwt = false
 [functions.billing-price-guarantee]
 verify_jwt = false
 
+# PayU (4.7). billing-payu-order ustala tożsamość z tokenu i podmiot
+# z service_providers.user_id — kwota pochodzi z bazy, nigdy z żądania.
+[functions.billing-payu-order]
+verify_jwt = false
+
+# Powiadomienia operatora — tożsamość potwierdza PODPIS (OpenPayu-Signature),
+# nie JWT. PayU nie wysyła nagłówka Authorization, więc verify_jwt musi być
+# wyłączone; brak drugiego klucza = 503 i zero przetwarzania.
+[functions.billing-payu-webhook]
+verify_jwt = false
+
 # Webhook operatora — tożsamość potwierdza PODPIS (HMAC z STRIPE_WEBHOOK_SECRET),
 # nie JWT. Stripe nie wysyła nagłówka Authorization, więc verify_jwt musi być
 # wyłączone; brak sekretu = 503 i zero przetwarzania.
