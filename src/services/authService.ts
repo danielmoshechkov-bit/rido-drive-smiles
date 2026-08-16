@@ -22,6 +22,12 @@ export type SignupResult = {
   error?: string;
   /** Nazwa pola formularza, którego dotyczy błąd (np. "email"). */
   field?: string;
+  /**
+   * Kod błędu z funkcji brzegowej, np. `EMAIL_EXISTS`, `RATE_LIMITED`.
+   * Interfejs reaguje na KOD, nie na treść komunikatu — dopasowywanie po
+   * słowach w zdaniu psuło się przy każdej zmianie tekstu i przy tłumaczeniu.
+   */
+  code?: string;
 };
 
 const activationRedirect = () => `${window.location.origin}/email-confirmed`;
@@ -64,14 +70,24 @@ export async function signUpMarketplace(payload: MarketplaceSignupPayload): Prom
   const response = await supabase.functions.invoke("register-marketplace-user", { body: payload });
 
   if (response.data?.error) {
-    return { success: false, error: response.data.error, field: response.data.field };
+    return {
+      success: false,
+      error: response.data.error,
+      field: response.data.field,
+      code: response.data.code,
+    };
   }
   if (response.error) {
     // Treść odpowiedzi funkcji siedzi w `error.context`, nie w `error.message`
     // — bez tego użytkownik widzi „Edge Function returned a non-2xx status
     // code" zamiast zdania, które funkcja naprawdę odesłała.
     const blad = await odczytajBladFunkcji(response.error);
-    return { success: false, error: blad.komunikat, field: blad.pole };
+    return {
+      success: false,
+      error: blad.komunikat,
+      field: blad.pole,
+      code: typeof blad.surowe?.code === 'string' ? blad.surowe.code : undefined,
+    };
   }
   return {
     success: true,
@@ -88,14 +104,24 @@ export async function signUpFleet(payload: FleetSignupPayload): Promise<SignupRe
   const response = await supabase.functions.invoke("register-fleet", { body: payload });
 
   if (response.data?.error) {
-    return { success: false, error: response.data.error, field: response.data.field };
+    return {
+      success: false,
+      error: response.data.error,
+      field: response.data.field,
+      code: response.data.code,
+    };
   }
   if (response.error) {
     // Treść odpowiedzi funkcji siedzi w `error.context`, nie w `error.message`
     // — bez tego użytkownik widzi „Edge Function returned a non-2xx status
     // code" zamiast zdania, które funkcja naprawdę odesłała.
     const blad = await odczytajBladFunkcji(response.error);
-    return { success: false, error: blad.komunikat, field: blad.pole };
+    return {
+      success: false,
+      error: blad.komunikat,
+      field: blad.pole,
+      code: typeof blad.surowe?.code === 'string' ? blad.surowe.code : undefined,
+    };
   }
   return {
     success: true,
