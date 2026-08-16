@@ -31,7 +31,7 @@ export function TopBarCredits() {
       if (!user) return 0;
       const { data } = await supabase
         .from('service_providers')
-        .select('sms_balance')
+        .select('id, sms_balance')
         .eq('user_id', user.id)
         // Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
         // zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
@@ -40,7 +40,21 @@ export function TopBarCredits() {
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle();
-      return data?.sms_balance ?? 0;
+
+      if (!data?.id) return 0;
+
+      // Stara kolumna, dopóki coś w niej jest — po przejściu na
+      // `billing_consume` (4.10) jest wyzerowana, a zapas siedzi w paczkach
+      // i w puli planu. Czytamy oba źródła, żeby pasek pokazywał prawdę
+      // przed migracją i po niej, bez okna z zerem.
+      const stare = Number(data.sms_balance ?? 0);
+      if (stare > 0) return stare;
+
+      const { data: dostepne, error } = await (supabase as any)
+        .rpc('sms_dostepne', { p_provider_id: data.id });
+      if (error) return 0;
+      // `null` = plan bez limitu; pasek pokazuje wtedy kreskę zamiast liczby.
+      return dostepne === null ? null : Number(dostepne ?? 0);
     },
   });
 
@@ -74,7 +88,11 @@ export function TopBarCredits() {
           title="Pakiet SMS"
         >
           <MessageSquare className="h-4 w-4 text-foreground" />
-          <span className="text-sm font-semibold text-foreground">{smsCredits ?? 0}</span>
+          {/* `null` z `sms_dostepne` znaczy plan bez limitu — kreska zamiast
+              zmyślonej liczby. `undefined` to jeszcze niewczytane. */}
+          <span className="text-sm font-semibold text-foreground">
+            {smsCredits === null ? '∞' : (smsCredits ?? 0)}
+          </span>
         </button>
       </div>
 

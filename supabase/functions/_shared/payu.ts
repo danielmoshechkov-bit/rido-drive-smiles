@@ -150,3 +150,74 @@ export function ipKupujacego(naglowki: Headers): string {
   if (pierwszy) return pierwszy;
   return naglowki.get('cf-connecting-ip')?.trim() || '127.0.0.1';
 }
+
+// ---------------------------------------------------------------------------
+// Rozmowa z operatorem
+// ---------------------------------------------------------------------------
+
+/** Token dostępu OAuth. PayU wymaga go przy każdej operacji na zamówieniu. */
+export async function tokenPayu(
+  baza: string,
+  clientId: string,
+  clientSecret: string,
+): Promise<string> {
+  const res = await fetch(`${baza}/pl/standard/user/oauth/authorize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+  const dane = await res.json().catch(() => ({}));
+  if (!res.ok || !dane?.access_token) {
+    throw new Error(`PayU OAuth ${res.status}: ${dane?.error_description ?? dane?.error ?? 'brak tokenu'}`);
+  }
+  return dane.access_token as string;
+}
+
+/**
+ * Potwierdzenie odbioru środków (capture).
+ *
+ * 🔴 POWÓD (17.08.2026, znalezione w teście sandboxa): przy WYŁĄCZONYM
+ * automatycznym odbiorze w punkcie płatności PayU zatrzymuje zamówienie na
+ * `WAITING_FOR_CONFIRMATION` i **czeka, aż sprzedawca sam potwierdzi**.
+ * Z własnej inicjatywy `COMPLETED` nie przyśle. My tego kroku nie robiliśmy,
+ * więc zamówienie stało w nieskończoność: klient zapłacił, operator potwierdził,
+ * a pakiet nie został wydany.
+ *
+ * Potwierdzamy z naszej strony zamiast polegać na ustawieniu w panelu —
+ * ustawienie da się przestawić przy zakładaniu punktu produkcyjnego i ten sam
+ * błąd wróciłby z prawdziwymi pieniędzmi.
+ *
+ * Po potwierdzeniu PayU przysyła osobne powiadomienie ze statusem `COMPLETED`
+ * i dopiero ono wydaje pakiet. Tu niczego nie wydajemy — pieniądze są nasze
+ * dopiero po tym potwierdzeniu.
+ */
+export async function potwierdzOdbior(
+  baza: string,
+  token: string,
+  orderId: string,
+): Promise<{ ok: boolean; powod?: string }> {
+  const res = await fetch(`${baza}/api/v2_1/orders/${orderId}/status`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ orderId, orderStatus: 'COMPLETED' }),
+  });
+
+  const dane = await res.json().catch(() => ({}));
+  const kod = dane?.status?.statusCode;
+
+  // `SUCCESS` przy pierwszym potwierdzeniu. Powtórne potwierdzenie tego samego
+  // zamówienia zwraca błąd „zły stan" — i to NIE jest usterka, tylko dowód,
+  // że zamówienie zostało już potwierdzone wcześniej.
+  if (res.ok && (kod === 'SUCCESS' || kod === undefined)) return { ok: true };
+  if (kod === 'ERROR_ORDER_NOT_UNIQUE' || kod === 'ERROR_VALUE_INVALID') {
+    return { ok: true, powod: `już potwierdzone (${kod})` };
+  }
+  return { ok: false, powod: `${res.status} ${kod ?? ''} ${dane?.status?.statusDesc ?? ''}`.trim() };
+}

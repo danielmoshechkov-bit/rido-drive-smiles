@@ -88,7 +88,16 @@ serve(async (req) => {
             .select('id, sms_balance')
             .eq('user_id', user.id)
             .maybeSingle();
-          if (sp && (sp.sms_balance || 0) <= 0) {
+          // Oba źródła — patrz komentarz w `workshop-send-sms`: funkcja musi
+          // działać przed przejściem na `billing_consume` i po nim.
+          let dostepneSms = Number(sp?.sms_balance ?? 0);
+          if (sp && dostepneSms <= 0) {
+            const { data: nowe, error: bladNowe } = await supabase
+              .rpc('sms_dostepne', { p_provider_id: sp.id });
+            if (!bladNowe && nowe === null) dostepneSms = Number.POSITIVE_INFINITY;
+            else if (!bladNowe) dostepneSms = Number(nowe ?? 0);
+          }
+          if (sp && dostepneSms <= 0) {
             return new Response(
               JSON.stringify({ success: false, error: 'NO_SMS', message: 'Brak pakietu SMS. Doładuj pakiet, aby kontynuować.' }),
               { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

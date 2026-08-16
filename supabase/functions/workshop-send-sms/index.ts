@@ -197,13 +197,33 @@ serve(async (req) => {
     }
 
     // Pre-check SMS balance
+    //
+    // Sprawdzamy OBA źródła, bo funkcja musi działać przed przejściem na
+    // `billing_consume` (4.10) i po nim. Przed migracją prawdą jest kolumna
+    // `sms_balance`; po niej jest wyzerowana, a zapas siedzi w paczkach
+    // i w puli planu, które zlicza `sms_dostepne`.
+    //
+    // Bez tego deploy tej funkcji PO migracji odmawiałby wszystkim, a przed
+    // migracją — po niej.
     if (resolvedProviderId) {
       const { data: spBal } = await supabaseAdmin
         .from("service_providers")
         .select("sms_balance")
         .eq("id", resolvedProviderId)
         .maybeSingle();
-      if (!spBal || (spBal.sms_balance || 0) <= 0) {
+
+      const stare = Number(spBal?.sms_balance ?? 0);
+      let dostepne = stare;
+
+      if (stare <= 0) {
+        const { data: nowe, error: bladNowe } = await supabaseAdmin
+          .rpc("sms_dostepne", { p_provider_id: resolvedProviderId });
+        // `null` znaczy „bez limitu w planie" — wtedy przepuszczamy.
+        if (!bladNowe && nowe === null) dostepne = Number.POSITIVE_INFINITY;
+        else if (!bladNowe) dostepne = Number(nowe ?? 0);
+      }
+
+      if (dostepne <= 0) {
         return new Response(
           JSON.stringify({ error: "NO_SMS", message: "Brak pakietu SMS. Doładuj pakiet, aby kontynuować." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -20,6 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { usePublicPricing, type PublicPlan, type ProductLine } from "@/hooks/usePublicPricing";
 import { planPriceLabels, planCtaLabel } from "@/lib/pricingCards";
+import { useJestKlientemLinii } from "@/hooks/useJestKlientemLinii";
 import { usePlanAction } from "@/hooks/usePlanAction";
 import { AuthModal } from "@/components/auth/AuthModal";
 
@@ -364,7 +365,7 @@ const HIGHLIGHTED: Record<string, string> = {
   agent_pro: "Najpopularniejszy",
 };
 
-const toCard = (plan: PublicPlan): Plan => {
+const toCard = (plan: PublicPlan, jestKlientem = false): Plan => {
   const badge = HIGHLIGHTED[plan.code];
   const price = planPriceLabels(plan);
   return {
@@ -377,7 +378,7 @@ const toCard = (plan: PublicPlan): Plan => {
     features: plan.features,
     highlighted: !!badge,
     badge,
-    cta: planCtaLabel(plan),
+    cta: planCtaLabel(plan, { jestKlientem }),
   };
 };
 
@@ -397,6 +398,11 @@ const WarsztatContent = ({ section, onCta }: { section: Section; onCta: () => vo
   // klient kliknął konkretny plan i ma wrócić do niego, a nie szukać go od nowa.
   const [authOpen, setAuthOpen] = useState(false);
   const [wybranyPlan, setWybranyPlan] = useState<string | null>(null);
+  // Napis na przyciskach zależy od tego, czy ten klient już korzysta
+  // z warsztatu. Zapytanie leci wyłącznie przy istniejącej sesji — /cennik
+  // jest stroną publiczną i większość wejść to niezalogowani.
+  const { jestKlientem: jestKlientemWarsztatu } = useJestKlientemLinii("warsztat");
+
   const { klik: klikPlan, pending: planPending } = usePlanAction((plan) => {
     setWybranyPlan(plan.code);
     setAuthOpen(true);
@@ -452,8 +458,10 @@ const WarsztatContent = ({ section, onCta }: { section: Section; onCta: () => vo
                   <PlanCard
                     key={plan.code}
                     plan={{
-                      ...toCard(plan),
-                      cta: planPending === plan.code ? "Otwieram płatność…" : toCard(plan).cta,
+                      ...toCard(plan, jestKlientemWarsztatu),
+                      cta: planPending === plan.code
+                        ? "Otwieram płatność…"
+                        : toCard(plan, jestKlientemWarsztatu).cta,
                     }}
                     onCta={() => klikPlan(plan)}
                   />

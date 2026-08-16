@@ -15,7 +15,10 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { corsHeaders } from '../_shared/cors.ts';
-import { sprawdzPodpisPayu, mapujStatusPayu } from '../_shared/payu.ts';
+import {
+  sprawdzPodpisPayu, mapujStatusPayu, potwierdzOdbior, tokenPayu,
+  PAYU_SANDBOX, PAYU_PRODUKCJA,
+} from '../_shared/payu.ts';
 
 /** Tylko te pola zamówienia są tu potrzebne — nazwany typ, bo `as typeof x`
  *  jest samozwrotne i gubi zawężenie po sprawdzeniu na null. */
@@ -135,6 +138,52 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', zamowienie.id);
+
+    // ── Potwierdzenie odbioru środków ───────────────────────────────
+    //
+    // 🔴 ZNALEZIONE W TEŚCIE SANDBOXA (17.08.2026): przy wyłączonym
+    // automatycznym odbiorze PayU zatrzymuje zamówienie na
+    // `WAITING_FOR_CONFIRMATION` i CZEKA, aż sprzedawca sam potwierdzi.
+    // Bez tego kroku zamówienie stało w nieskończoność — klient zapłacił,
+    // operator potwierdził, a pakiet nie został wydany.
+    //
+    // Pakietu tu NIE wydajemy: pieniądze są nasze dopiero po potwierdzeniu,
+    // a PayU przyśle wtedy osobne powiadomienie ze statusem `COMPLETED`.
+    if (statusPayu.toUpperCase() === 'WAITING_FOR_CONFIRMATION') {
+      const clientId = Deno.env.get('PAYU_CLIENT_ID');
+      const clientSecret = Deno.env.get('PAYU_CLIENT_SECRET');
+
+      if (!clientId || !clientSecret) {
+        // Bez poświadczeń nie da się potwierdzić — i trzeba o tym wiedzieć,
+        // bo zamówienie utknie z opłaconą płatnością i bez towaru.
+        console.error('billing-payu-webhook: brak PAYU_CLIENT_ID/SECRET — nie mogę potwierdzić odbioru');
+        await zakoncz('failed', 'Brak poświadczeń do potwierdzenia odbioru');
+        return json({ ok: true, uwaga: 'brak poświadczeń' });
+      }
+
+      const { data: bramka } = await (admin as any)
+        .from('billing_gateways').select('is_sandbox').eq('provider', 'payu').maybeSingle();
+      const baza = bramka?.is_sandbox === false ? PAYU_PRODUKCJA : PAYU_SANDBOX;
+
+      try {
+        const dostep = await tokenPayu(baza, clientId, clientSecret);
+        const wynik = await potwierdzOdbior(baza, dostep, idUOperatora);
+        if (wynik.ok) {
+          console.log(JSON.stringify({
+            event: 'payu_odbior_potwierdzony', order: zamowienie.id, payu: idUOperatora,
+            uwaga: wynik.powod ?? null,
+          }));
+        } else {
+          console.error('billing-payu-webhook: potwierdzenie odbioru nieudane —', wynik.powod);
+          await zakoncz('failed', `Potwierdzenie odbioru: ${wynik.powod}`);
+          return json({ ok: true, uwaga: 'odbiór niepotwierdzony' });
+        }
+      } catch (e) {
+        console.error('billing-payu-webhook: potwierdzenie odbioru rzuciło wyjątkiem', e);
+        await zakoncz('failed', e instanceof Error ? e.message : String(e));
+        return json({ ok: true, uwaga: 'odbiór niepotwierdzony' });
+      }
+    }
 
     // ── Wydanie pakietu ─────────────────────────────────────────────
     if (status === 'oplacone') {
