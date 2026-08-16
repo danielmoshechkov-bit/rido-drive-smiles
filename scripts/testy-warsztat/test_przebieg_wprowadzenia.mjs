@@ -111,5 +111,36 @@ for (const [opis, oczek] of [
 krok = nastepnyKrok(cele, krok, panel);
 sprawdz('na końcu: zakończone i usuwanie', krok, 'filtr-zakonczone');
 
-console.log(bledy ? `BLAD: ${bledy} krokow poszlo nie tam` : 'PRZEBIEG WPROWADZENIA POPRAWNY');
+
+// ── PRZYPADKI BRZEGOWE, KTÓRE WYSZŁY NA ŻYWO ────────────────────────────────
+console.log('--- przypadki brzegowe ---');
+
+// 1. Na wierzchu okno, w którym wprowadzenie nie ma nic do pokazania
+//    (podgląd wystawionego dokumentu). „Dalej" nie może iść w ciemno.
+const podgladDokumentu = [];
+const naDokumentach = cele.indexOf('dokumenty-zlecenia');
+const poDalej = nastepnyKrok(cele, naDokumentach, podgladDokumentu);
+{
+  const ok = poDalej === naDokumentach;
+  console.log(`${ok ? ' OK  ' : 'BLAD '} „Dalej" przy otwartym podglądzie zostaje na miejscu (${poDalej})`);
+  if (!ok) bledy++;
+}
+
+// 2. Zamknięcie podglądu wraca do listy — wprowadzenie ma tam swoje kroki.
+{
+  const wynik = wybierzKrok(cele, naDokumentach, panel);
+  const ok = cele[wynik] === 'dokumenty-zlecenia' || cele[wynik] === 'filtr-zakonczone' || cele[wynik] === 'zaznacz-zlecenie';
+  console.log(`${ok ? ' OK  ' : 'BLAD '} po zamknięciu podglądu wracamy na listę → ${cele[wynik]}`);
+  if (!ok) bledy++;
+}
+
+// 3. Wprowadzenie nie może samo przeskoczyć na koniec, gdy nic nie widać.
+{
+  const wynik = wybierzKrok(cele, 3, []);
+  const ok = wynik === 3;
+  console.log(`${ok ? ' OK  ' : 'BLAD '} pusty ekran nie przesuwa kroku (${wynik})`);
+  if (!ok) bledy++;
+}
+
+console.log(bledy ? `BLAD: ${bledy} przypadkow poszlo nie tam` : 'PRZEBIEG WPROWADZENIA POPRAWNY');
 process.exit(bledy ? 1 : 0);

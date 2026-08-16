@@ -155,13 +155,17 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
     if (!onKrok) return;
     const cele = kroki.map((k) => k.cel);
 
+    // CHWILA NA PRZECZYTANIE. Ekran zmienia sie w ulamku sekundy po kliknieciu,
+    // a podpowiedz ma byc przeczytana, nie mignac. Przez pierwsze 2,5 sekundy
+    // krok zostaje na miejscu, nawet jesli ekran juz sie przelaczyl.
+    const wejscie = Date.now();
     const dopasuj = () => {
+      if (Date.now() - wejscie < 2500) return;
       const trafiony = wybierzKrok(cele, krok, widoczneCele(cele));
       if (trafiony !== krok) onKrok(trafiony);
     };
 
-    dopasuj();
-    const timer = window.setInterval(dopasuj, 500);
+    const timer = window.setInterval(dopasuj, 400);
     return () => window.clearInterval(timer);
   }, [kroki, krok, onKrok]);
 
@@ -259,6 +263,13 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
         <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">{biezacy.tresc}</p>
         {biezacy.akcja && (
           <p className="mt-2 text-xs font-medium text-primary">{biezacy.akcja}</p>
+        )}
+        {dymekNaSrodku && (
+          // Cel kroku jest schowany pod otwartym oknem (np. podglądem dokumentu).
+          // Zamiast pozwolić „Dalej" iść w ciemno, mówimy, co zrobić.
+          <p className="mt-2 text-xs text-muted-foreground">
+            Zamknij otwarte okno, żeby wrócić do zlecenia — wprowadzenie podąży za Tobą.
+          </p>
         )}
         <div className="flex items-center justify-between mt-3">
           {pokazLicznik && <span className="text-[11px] text-muted-foreground">Krok {krok + 1} z {kroki.length}</span>}

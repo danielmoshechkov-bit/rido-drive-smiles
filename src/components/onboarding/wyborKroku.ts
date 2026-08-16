@@ -73,7 +73,12 @@ export function nastepnyKrok(
 ): number {
   const nastepny = biezacy + 1;
   if (nastepny >= cele.length) return nastepny;
-  if (!widoczne.length) return nastepny;
+
+  // NIC NIE WIDAC — zostajemy. Tak jest, gdy na wierzchu stoi okno, w ktorym
+  // wprowadzenie nie ma nic do pokazania (np. podglad wystawionego dokumentu).
+  // Wczesniej „Dalej" szedl wtedy w ciemno i po dwoch klknieciach wprowadzenie
+  // konczylo sie na kroku 22, choc czlowiek byl w polowie drogi.
+  if (!widoczne.length) return biezacy;
 
   const najglebiej = Math.max(...widoczne.map((w) => w.glebokosc));
   const naWierzchu = new Set(
