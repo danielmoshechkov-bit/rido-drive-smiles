@@ -147,3 +147,21 @@ Deno.test('pusty x-forwarded-for schodzi do cf-connecting-ip', () => {
   const h = new Headers({ 'x-forwarded-for': '', 'cf-connecting-ip': '198.51.100.4' });
   assertEquals(ipKupujacego(h), '198.51.100.4');
 });
+
+// ─────────────────────────────────────────── potwierdzenie odbioru (capture)
+
+Deno.test('WAITING_FOR_CONFIRMATION wymaga potwierdzenia, nie wydaje towaru', () => {
+  // Ten status NIE może mapować się na „opłacone": pieniądze są zablokowane,
+  // ale stają się nasze dopiero po potwierdzeniu odbioru. Wydanie pakietu
+  // wcześniej oznaczałoby oddanie towaru przed zapłatą.
+  //
+  // Jednocześnie NIE wolno go zostawić bez działania — PayU czeka wtedy
+  // w nieskończoność i klient płaci za nic. To był błąd znaleziony
+  // w sandboxie 17.08.2026.
+  assertEquals(mapujStatusPayu('WAITING_FOR_CONFIRMATION'), 'oczekuje');
+  assert(mapujStatusPayu('WAITING_FOR_CONFIRMATION') !== 'oplacone');
+});
+
+Deno.test('dopiero COMPLETED wydaje pakiet', () => {
+  assertEquals(mapujStatusPayu('COMPLETED'), 'oplacone');
+});

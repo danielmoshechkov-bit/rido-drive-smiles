@@ -15,31 +15,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { corsHeaders } from '../_shared/cors.ts';
 import { buildPublicUrl } from '../_shared/publicUrl.ts';
-import { PAYU_SANDBOX, PAYU_PRODUKCJA, naGrosze, ipKupujacego } from '../_shared/payu.ts';
+import { PAYU_SANDBOX, PAYU_PRODUKCJA, naGrosze, ipKupujacego, tokenPayu } from '../_shared/payu.ts';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });
-
-/** Token dostępu OAuth. PayU wymaga go przy każdym zamówieniu. */
-async function tokenPayu(baza: string, clientId: string, clientSecret: string): Promise<string> {
-  const res = await fetch(`${baza}/pl/standard/user/oauth/authorize`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret,
-    }),
-  });
-  const dane = await res.json().catch(() => ({}));
-  if (!res.ok || !dane?.access_token) {
-    throw new Error(`PayU OAuth ${res.status}: ${dane?.error_description ?? dane?.error ?? 'brak tokenu'}`);
-  }
-  return dane.access_token as string;
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
