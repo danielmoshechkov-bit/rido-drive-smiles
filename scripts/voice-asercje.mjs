@@ -221,10 +221,16 @@ export const ASERCJE = [
       // jeszcze co najmniej dwa slowa. Liczenie surowych slow nie dziala:
       // „Здравствуйте, хочу записаться." to trzy slowa, z czego jedno to
       // powitanie, a sprawa JEST powiedziana.
-      const POWITANIA = /\b(dzień dobry|dzien dobry|witam|halo|здравствуйте|добрый день|доброе утро|доброго дня|вітаю|hello|good morning|good afternoon|hi)\b/gi;
+      const POWITANIA = /(?<!\p{L})(?:dzień dobry|dzien dobry|witam|halo|здравствуйте|добрый день|доброе утро|доброго дня|вітаю|hello|good morning|good afternoon|hi)(?!\p{L})/giu;
       const klientPowiedzial = ctx.rozmowa.some((t, i) => t.role === "user" && i < pierwszaOdpowiedz.i
         && String(t.message || "").replace(POWITANIA, " ").trim().split(/\s+/).filter(Boolean).length >= 2);
       if (!klientPowiedzial) return [];   // samo „dzień dobry" nie niesie sprawy
+      // WYJATEK: przejscie na inny jezyk. Gdy klient pyta WYLACZNIE „czy mowicie
+      // po rosyjsku", odpowiedz „Да, конечно! Чем могу помочь?" jest poprawna —
+      // pytanie pada tam ZAMIAST powitania w nowym jezyku, nie po nim.
+      // Rozpoznajemy po tym, ze odpowiedz zaczyna sie od potwierdzenia.
+      // NIE `\b` — piaty raz ta sama pulapka. Uzywamy lookaroundu na litere.
+      if (/^\s*(?:да|так|tak|yes)(?!\p{L})/iu.test(pierwszaOdpowiedz.tekst)) return [];
       return zawiera(pierwszaOdpowiedz.tekst, OTWIERAJACE)
         ? [naruszenie(pierwszaOdpowiedz, "pytanie otwierające zadane po raz drugi — klient już powiedział, czego chce")]
         : [];
@@ -292,11 +298,11 @@ export const ASERCJE = [
         // zapalalo asercje 3/3, choc agent podal poprawnie i zamkniecie,
         // i ostatni mozliwy start. Wycinamy oba rodzaje zdan.
         const bezOtwarcia = String(t.tekst)
-          .replace(/\b(?:open|otwarte|czynne|pracujemy|godziny (?:pracy|otwarcia)|работаем|працюємо)[^.!?—]*/gi, " ")
+          .replace(/(?<!\p{L})(?:open|otwarte|czynne|pracujemy|godziny (?:pracy|otwarcia)|работаем|працюємо)[^.!?—]*/giu, " ")
           .replace(/\b(?:we close|closes? at)[^.!?—]*/gi, " ")
           // W polskim, rosyjskim i ukrainskim godzina stoi PRZED czasownikiem
           // („o siedemnastej zamykamy"), wiec wycinamy takze wstecz.
-          .replace(/[^.!?—]*\b(?:zamykamy|zamknięcie|zamkniecie|закрываемся|зачиняємося)\b/gi, " ")
+          .replace(/[^.!?—]*(?<!\p{L})(?:zamykamy|zamknięcie|zamkniecie|закрываемся|зачиняємося)(?!\p{L})/giu, " ")
           .replace(/\b\d{1,2}\s*(?:-|–|to|do)\s*\d{1,2}\b/gi, " ");
         const obce = [...new Set(wyciagnijGodziny(bezDat(bezOtwarcia, ctx.jezyk), ctx.jezyk).map(rdzenGodziny))]
           // „4 o'clock" po angielsku to szesnasta — snapshot podaje 16:00.
@@ -394,8 +400,8 @@ export const ASERCJE_JEZYK = [
 // --- godziny ---------------------------------------------------------------
 const SLOWA_GODZIN = {
   pl: /\b(pierwsz|drug|trzeci|czwart|pi[ąa]t|sz[óo]st|si[óo]dm|[óo]sm|dziewi[ąa]t|dziesi[ąa]t|jedenast|dwunast|trzynast|czternast|pi[ęe]tnast|szesnast|siedemnast)(?:[aąeyi]|ej|ą)\b/gi,
-  ru: /\b(девят|десят|одиннадцат|двенадцат|тринадцат|четырнадцат|пятнадцат|шестнадцат|семнадцат|восем)\w*/gi,
-  uk: /\b(дев\S?ят|десят|одинадцят|дванадцят|тринадцят|чотирнадцят|п\S?ятнадцят|шістнадцят|сімнадцят)\w*/gi,
+  ru: /(?<!\p{L})(?:девят|десят|одиннадцат|двенадцат|тринадцат|четырнадцат|пятнадцат|шестнадцат|семнадцат|восем)\p{L}*/giu,
+  uk: /(?<!\p{L})(?:дев\S?ят|десят|одинадцят|дванадцят|тринадцят|чотирнадцят|п\S?ятнадцят|шістнадцят|сімнадцят)\p{L}*/giu,
   // Wymagamy KONTEKSTU godziny (at / am / pm / o'clock), inaczej „Monday the
   // 17th" i „BMW 3 series" liczyłyby się jako godziny.
   en: /\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(?:am|pm|o'clock)|\bat\s+(\d{1,2})(?::(\d{2}))?\b/gi,
@@ -429,7 +435,7 @@ function policzGodziny(tekst, jezyk) {
   const bezDat = String(tekst).replace(new RegExp(`\\S+\\s+(${mies.join("|")})`, "gi"), " ");
   const txt = bezOgonkow(bezDat.toLowerCase());
   // Liczymy tylko tury, w których agent PROPONUJE (jest spójnik wyboru albo pytajnik).
-  if (!/[?]|\balbo\b|\bczy\b|\bили\b|\bчи\b|\bor\b/.test(txt)) return 0;
+  if (!/[?]|(?<!\p{L})(?:albo|czy|или|чи|or)(?!\p{L})/u.test(txt)) return 0;
   return new Set(wyciagnijGodziny(txt, jezyk)).size;
 }
 

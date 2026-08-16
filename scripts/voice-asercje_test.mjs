@@ -13,6 +13,7 @@
 // ============================================================================
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { sprawdzRozmowe } from "./voice-asercje.mjs";
 
 const SNAPSHOT = {
@@ -175,4 +176,34 @@ test("pytanie domykajace to nie pytanie otwierajace", () => {
     "pytanie_otwierajace_dwa_razy");
   // Krotkie „dzien dobry" nie niesie sprawy — agent ma prawo dopytac.
   czysta(ctx([P, { role: "user", message: "Dzień dobry." }, "W czym mogę pomóc?"]), "pytanie_otwierajace_dwa_razy");
+});
+
+test("przejscie na inny jezyk to nie powtorzone pytanie otwierajace", () => {
+  const P = { role: "agent", message: "Dzień dobry, Warsztat — w czym mogę pomóc?" };
+  // Klient pyta WYLACZNIE o jezyk — odpowiedz z pytaniem jest poprawna.
+  czysta(ctx([P, { role: "user", message: "Wysłuchaj. Dobry dzień, а вы говорите по-русски?" },
+    "Да, конечно! Чем могу помочь?"], { jezyk: "ru" }), "pytanie_otwierajace_dwa_razy");
+  // Ale gdy klient PODAL SPRAWE, doklejenie pytania otwierajacego dalej jest bledem.
+  brudna(ctx([P, { role: "user", message: "Chciałbym umówić auto na przegląd zawieszenia." },
+    "Dobrze, Mazda RX8 — w czym mogę pomóc?"]), "pytanie_otwierajace_dwa_razy");
+});
+
+// KONTROLA NA MNIE SAMEGO.
+//
+// Piec razy napisalem `\b` obok wzorca cyrylickiego i pieciokrotnie asercja
+// milczala, bo `\b` w JS jest oparte na ASCII. Za kazdym razem wygladalo to
+// jak czysty wynik. Helper `zawiera()` powstal po czwartym razie — i przy
+// piatym i tak siegnalem po surowy regex.
+test("zaden wzorzec w tym pliku nie uzywa \\b obok cyrylicy", () => {
+  // Komentarze pomijamy — w naglowku helpera CELOWO stoi /\bчем\b/ jako
+  // przyklad pulapki. Szukamy `\b` PRZYLEGAJACEGO do cyrylicy, nie samego
+  // wspolwystepowania: wzorzec „usluga_spoza_cennika" ma poprawnie rozdzielona
+  // czesc lacinska (z \b) i cyrylicka (bez).
+  const src = readFileSync(new URL("./voice-asercje.mjs", import.meta.url), "utf8")
+    .split("\n").filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*")).join("\n");
+  const zle = [];
+  for (const m of src.matchAll(/\\b[а-яА-ЯёЁіїєґІЇЄҐ]|[а-яА-ЯёЁіїєґІЇЄҐ]\\b/g)) {
+    zle.push(m[0]);
+  }
+  assert.deepEqual(zle, [], "regex z \\b i cyrylica — \\b w JS jest ASCII i nigdy nie dopasuje");
 });

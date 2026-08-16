@@ -46,6 +46,8 @@ const PL: Wzorce = {
     // jako PIERWSZY wzorzec listy, model siegal po nie odruchowo — takze wtedy,
     // gdy klient wlasnie powiedzial, czego chce. Reprodukcja 3/3.
     "Dobrze, zawieszenie i filtry. Kiedy będzie najwygodniej przyjechać?",
+    "Dobrze, przegląd. Kiedy będzie najwygodniej przyjechać?",
+    "Rozumiem, hamulce. Kiedy byłoby wygodnie podjechać?",
   ],
   termin: [
     "Kiedy będzie najwygodniej przyjechać?",
@@ -87,6 +89,8 @@ const RU: Wzorce = {
   otwarcie: [
     "Да, конечно! Чем могу помочь?",
     "Хорошо, подвеска и фильтры. Когда вам было бы удобно приехать?",
+    "Хорошо, осмотр. Когда вам было бы удобно приехать?",
+    "Понятно, тормоза. Когда вам было бы удобно подъехать?",
   ],
   termin: [
     "Когда вам было бы удобно приехать?",
@@ -136,6 +140,8 @@ const UK: Wzorce = {
   otwarcie: [
     "Так, звичайно! Чим можу допомогти?",
     "Добре, підвіска та фільтри. Коли вам було б зручно приїхати?",
+    "Добре, огляд. Коли вам було б зручно приїхати?",
+    "Зрозуміло, гальма. Коли вам було б зручно під'їхати?",
   ],
   termin: [
     "Коли вам було б зручно приїхати?",
@@ -185,6 +191,8 @@ const EN: Wzorce = {
   otwarcie: [
     "Yes, of course! How can I help?",
     "Alright, suspension and filters. When would it suit you to come in?",
+    "Alright, an inspection. When would it suit you to come in?",
+    "Understood, the brakes. When would it suit you to come in?",
   ],
   termin: [
     "When would it suit you to come in?",

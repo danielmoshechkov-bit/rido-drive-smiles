@@ -3091,3 +3091,38 @@ w ciszy. Materiał, którego nie ma, jest wynikiem, a nie jego brakiem.
 Przed napisaniem `catch` albo `continue` zadaj pytanie: **gdyby ta ścieżka
 zadziałała teraz, czy ktokolwiek by się dowiedział?** Jeśli nie — brakuje
 zgłoszenia, nie obsługi.
+
+---
+
+## ZASADA 32 — pułapka, w którą wpadłeś pięć razy, wymaga kontroli, nie uwagi
+
+`\b` w JavaScripcie jest oparte na ASCII. `/\bчем\b/` **nie dopasuje się nigdy**,
+bo „ч" nie jest znakiem słownym w rozumieniu tego silnika. Regex wygląda
+poprawnie, kompiluje się, nie rzuca błędu i **cicho nie działa**.
+
+Wpadłem w to **pięć razy**: przy „полный сервис", przy „восемнадцатого", przy
+ukraińskich liczebnikach, przy „чем могу помочь" i — już po napisaniu helpera
+`zawiera()`, który miał temu zapobiec — przy sprawdzeniu „Да, конечно".
+
+Za szóstym razem napisałem **test, który skanuje własny plik asercji**
+i szuka `\b` przylegającego do cyrylicy. Uruchomiony pierwszy raz znalazł
+**trzy kolejne żywe błędy, o których nie wiedziałem**:
+
+| wzorzec | co nie działało |
+|---|---|
+| `POWITANIA` | rosyjskie i ukraińskie powitania nigdy nie były wycinane, więc „klient powiedział sprawę" liczyło słowa powitania jako treść |
+| `SLOWA_GODZIN.ru` / `.uk` | **liczebniki godzin po rosyjsku i ukraińsku nie dopasowywały się ani razu** — asercje `godzina_spoza_wolnych` i `trzy_godziny` były dla tych języków martwe |
+| `policzGodziny` | spójnik wyboru „или" / „чи" nie działał, więc liczenie propozycji też |
+
+**Trzy asercje raportowały zielone, nie sprawdzając niczego w dwóch z czterech
+języków.** Rosyjskie 7/8 i ukraińskie 7/8 były więc zawyżone — nie wiadomo
+o ile, bo część kontroli w ogóle nie działała.
+
+### Zasada
+
+Błąd, w który wpadasz **za każdym razem mimo wiedzy, że istnieje**, nie jest
+błędem uwagi — jest brakiem kontroli. Uwaga nie skaluje się na piąte
+powtórzenie; test skaluje.
+
+Sprawdzian: jeśli poprawiasz ten sam rodzaj pomyłki trzeci raz, przestań
+poprawiać i napisz kontrolę, która ją znajdzie sama.
