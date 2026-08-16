@@ -497,6 +497,20 @@ serve(async (req) => {
     //
     // Teraz wzorce stoja TUZ ZA regulami, a dane na koncu.
     const systemVolatile = systemTimeContext + blokWzorcow + snapshotBlok;
+    // SKLAD PROMPTU — placimy za czesc zmienna w KAZDEJ turze.
+    //
+    // Blok staly idzie z cache_control, wiec od drugiej tury kosztuje 1/10.
+    // Blok zmienny (czas + wzorce + snapshot) jest naliczany pelna stawka
+    // za kazdym razem. 16.08: 5 420 tokenow swiezych na wywolanie i nie
+    // wiedzialem, ile z tego to snapshot — stad ten log.
+    logTiming("sklad_promptu", totalStarted, {
+      staly_znakow: system.length,
+      zmienny_znakow: systemVolatile.length,
+      w_tym_snapshot: snapshotBlok.length,
+      w_tym_wzorce: blokWzorcow.length,
+      w_tym_czas: systemTimeContext.length,
+      historia_znakow: (messages as Array<{ content?: unknown }>).reduce((a, m) => a + String(m?.content || "").length, 0),
+    });
 
     // ========================================================================
     // PROMPT — FAZA C, 16.08.2026. 115 reguł -> 29, 21 sekcji -> 8.

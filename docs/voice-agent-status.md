@@ -3212,3 +3212,40 @@ przy przyjęciu i tak wszystko ustala.
 są zapisane w sześciu (dwa braki to rozmowa przerwana przez klienta i znany
 defekt walidacji marki — „EDD"). Opis usterki trafia jako
 `[Z ROZMOWY AI] …` w każdej.
+
+---
+
+## ZASADA 35 — pomiar ma koszt i trzeba go planować
+
+16.08 rachunek Anthropic wyniósł około 24 dolarów. **Dwa prawdziwe telefony
+kosztowały 6 centów; reszta to moje symulacje.** Puściłem kilkanaście pełnych
+pomiarów, bo mierzyłem po każdej pojedynczej poprawce zamiast zebrać zmiany
+i zmierzyć raz.
+
+To ta sama klasa co „trzy przebiegi zamiast jednego": **pomiar jest zasobem,
+nie odruchem.**
+
+### Cennik pomiaru (zmierzony, nie oszacowany)
+
+| wariant | wywołań modelu | koszt |
+|---|---|---|
+| jeden scenariusz, jeden przebieg | ~6 | 0,15 PLN |
+| jeden scenariusz, trzy przebiegi | ~17 | 0,40 PLN |
+| jeden język, 15 scenariuszy × 3 | ~250 | 6 PLN |
+| cztery języki | ~700 | 17 PLN |
+
+### Reguły
+
+1. Po **pojedynczej poprawce** — jeden scenariusz, jeden przebieg. Ten,
+   którego poprawka dotyczy.
+2. Po **serii poprawek** — jeden język, polski, bo to on idzie na demo.
+3. **Cztery języki** — tylko przed decyzją, nie częściej niż raz dziennie
+   i tylko na wyraźne pytanie.
+4. **Zawsze podaj koszt planowanego pomiaru, zanim go puścisz.** Powyżej
+   5 PLN — zapytaj.
+
+### Co jeszcze z tego wynika
+
+Symulacja kosztuje **zero po stronie ElevenLabs** (sprawdzone: 11 tur, różnica
+znaków 0, rozmowa nie pojawia się na liście) — ale **nie jest darmowa**.
+Mówiąc o niej „za darmo", mówiłem prawdę o połowie rachunku.
