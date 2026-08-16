@@ -32,7 +32,16 @@ BEGIN
   FROM billing_subscriptions
   WHERE subscriber_type = 'service_provider'
     AND subscriber_id   = p_provider
-    AND product_line    = p_linia
+    -- `product_line` jest typem wyliczeniowym `billing_product_line`, a parametr
+    -- przychodzi jako `text` — bez rzutowania Postgres nie ma operatora
+    -- `billing_product_line = text` i całe zapytanie pada.
+    --
+    -- Rzutujemy KOLUMNĘ na tekst, nie parametr na typ wyliczeniowy. Rzutowanie
+    -- parametru wywalałoby się wyjątkiem przy nieznanej nazwie linii, a ta
+    -- funkcja stoi w politykach RLS: wyjątek przerwałby każde zapytanie do
+    -- tabeli. Porównanie tekstowe przy nieznanej nazwie po prostu nic nie
+    -- znajdzie i skończy się odmową — czyli fail-closed, tak jak reszta.
+    AND product_line::text = p_linia
   ORDER BY created_at DESC LIMIT 1;
 
   -- Subskrypcja płatna ma pierwszeństwo. 'past_due' PRZEPUSZCZA: to okres
@@ -77,7 +86,16 @@ AS $$
     SELECT 1 FROM billing_subscriptions
     WHERE subscriber_type = 'service_provider'
       AND subscriber_id   = p_provider
-      AND product_line    = p_linia
+      -- `product_line` jest typem wyliczeniowym `billing_product_line`, a parametr
+    -- przychodzi jako `text` — bez rzutowania Postgres nie ma operatora
+    -- `billing_product_line = text` i całe zapytanie pada.
+    --
+    -- Rzutujemy KOLUMNĘ na tekst, nie parametr na typ wyliczeniowy. Rzutowanie
+    -- parametru wywalałoby się wyjątkiem przy nieznanej nazwie linii, a ta
+    -- funkcja stoi w politykach RLS: wyjątek przerwałby każde zapytanie do
+    -- tabeli. Porównanie tekstowe przy nieznanej nazwie po prostu nic nie
+    -- znajdzie i skończy się odmową — czyli fail-closed, tak jak reszta.
+    AND product_line::text = p_linia
   ) OR EXISTS (
     SELECT 1
     FROM paid_service_subscriptions ps
