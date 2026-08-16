@@ -65,9 +65,16 @@ Deno.serve(async (req) => {
       console.error("❌ Auth error:", authError.message);
       
       if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
+        // Rejestracja Z LANDINGU MODUŁU to inna sytuacja niż zwykła rejestracja.
+        // Ten człowiek nie chce drugiego konta — chce dołożyć moduł do konta,
+        // które już ma. „Użyj logowania lub resetuj hasło" wysyłałoby go
+        // w stronę odzyskiwania dostępu, którego nie zgubił.
         return new Response(
-          JSON.stringify({ 
-            error: "Ten email jest już zarejestrowany. Użyj logowania lub resetuj hasło.",
+          JSON.stringify({
+            error: module
+              ? "Na ten adres jest już konto w GetRido. Zaloguj się — moduł dodamy do istniejącego konta, bez zakładania nowego."
+              : "Ten email jest już zarejestrowany. Użyj logowania lub resetuj hasło.",
+            code: "EMAIL_EXISTS",
             field: "email"
           }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -94,8 +101,15 @@ Deno.serve(async (req) => {
         );
       }
       
+      // Ostatnia furtka. NIE odsyłamy `authError.message` — to komunikat
+      // Supabase po angielsku, pisany dla programisty. Trafiał wprost na ekran
+      // użytkownika. Oryginał zostaje w logu, gdzie jest przydatny.
+      console.error("❌ Nieobsłużony błąd auth:", authError.message);
       return new Response(
-        JSON.stringify({ error: authError.message }),
+        JSON.stringify({
+          error: "Nie udało się założyć konta. Sprawdź dane i spróbuj ponownie.",
+          code: "AUTH_FAILED"
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

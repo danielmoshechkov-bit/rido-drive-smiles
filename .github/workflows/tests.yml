@@ -48,6 +48,7 @@ jobs:
                      supabase/functions/_shared/stripeWebhook_test.ts \
                      supabase/functions/_shared/requireRole.ts \
                      supabase/functions/_shared/requireRole_test.ts \
+                     supabase/functions/_shared/bladFunkcji_test.ts \
                      supabase/functions/_shared/subscriptionGate.ts \
                      supabase/functions/_shared/subscriptionGate_test.ts \
                      supabase/functions/_shared/statusyDostepu.ts \
