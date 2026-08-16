@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
+import { mozePracowac, odmowaBramki } from '../_shared/subscriptionGate.ts';
 
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -33,6 +34,14 @@ serve(async (req) => {
     const { data: provs } = await admin.from('service_providers').select('id').eq('user_id', user.id);
     const ownedIds = new Set((provs || []).map(p => p.id));
     if (findings.some(f => !ownedIds.has(f.provider_id))) return json({ error: 'forbidden' }, 403);
+
+    // Bramka subskrypcji (G5). Zatwierdzenie usterek dopisuje pozycje do
+    // zlecenia, czyli jest pracą — RLS by tego nie zatrzymał, bo piszemy
+    // kluczem service_role.
+    for (const p of new Set(findings.map(f => f.provider_id))) {
+      const bramka = await mozePracowac(admin, p);
+      if (!bramka.wolno) return odmowaBramki(corsHeaders, bramka.powod);
+    }
 
     // Get next sort_order for each order
     const orderIds = [...new Set(findings.map(f => f.order_id))];

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -20,6 +21,30 @@ type Stan = 'idle' | 'czekam' | 'aktywna' | 'opoznienie';
 
 export function useSubscriptionActivation(providerId: string | null | undefined) {
   const [stan, setStan] = useState<Stan>('idle');
+  const queryClient = useQueryClient();
+
+  // Powrót z portalu operatora (4.8) — inna sytuacja niż powrót z płatności.
+  // Klient mógł tam zmienić kartę, anulować albo nic nie zrobić, więc nie ma
+  // na co czekać w pętli; wystarczy odświeżyć stan. Odświeżamy DWA razy, bo
+  // anulowanie widać u nas dopiero po webhooku `customer.subscription.updated`,
+  // a ten potrafi przyjść sekundę po przekierowaniu.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('platnosc') !== 'portal') return;
+
+    const czysty = new URL(window.location.href);
+    czysty.searchParams.delete('platnosc');
+    window.history.replaceState({}, '', czysty.toString());
+
+    const odswiez = () => {
+      queryClient.invalidateQueries({ queryKey: ['subscription-details'] });
+      queryClient.invalidateQueries({ queryKey: ['subscription-access'] });
+    };
+
+    odswiez();
+    const t = setTimeout(odswiez, 4000);
+    return () => clearTimeout(t);
+  }, [queryClient]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

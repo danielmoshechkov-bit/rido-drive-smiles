@@ -20,6 +20,14 @@ import { useTranslation } from 'react-i18next';
 interface Props {
   providerId: string;
   onSelectOrder?: (order: any) => void;
+  /**
+   * Bez opłaconej subskrypcji rezerwację wolno POTWIERDZIĆ, odwołać i przełożyć,
+   * ale nie wolno założyć z niej zlecenia — to już praca w module Warsztat.
+   * Bramką rozstrzygającą jest RLS; tutaj zatrzymujemy się wcześniej, żeby
+   * warsztat dostał zdanie po polsku zamiast błędu bazy, i żeby potwierdzenie
+   * nie wyglądało na nieudane tylko dlatego, że konwersja odbiła się od bramki.
+   */
+  mozeZakladacZlecenia?: boolean;
 }
 
 type Booking = {
@@ -51,7 +59,11 @@ const STATUS_LABELS: Record<string, { labelKey: string; cls: string }> = {
   cancelled: { labelKey: 'workshop.bookings.status.cancelled', cls: 'bg-gray-400 text-white' },
 };
 
-export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
+export function WorkshopPortalBookings({
+  providerId,
+  onSelectOrder,
+  mozeZakladacZlecenia = true,
+}: Props) {
   const { t } = useTranslation();  const confirmAction = useConfirm();
 
   const queryClient = useQueryClient();
@@ -66,6 +78,10 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
 
   // Konwertuje rezerwację na zlecenie warsztatowe (numeracja ZLP-) i opcjonalnie otwiera kartę
   const convertToOrder = async (b: Booking, openAfter = true): Promise<any | null> => {
+    if (!mozeZakladacZlecenia) {
+      toast.info('Rezerwacja obsłużona. Założenie zlecenia wymaga aktywnego planu.');
+      return null;
+    }
     const sb: any = supabase as any;
 
     // 1) Czy zlecenie już istnieje?
@@ -240,7 +256,11 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
       // Konwersja → zlecenie ZLP-, otwiera kartę
       await convertToOrder(b, true);
 
-      toast.success(t('workshop.bookings.confirmedOrderCreated'));
+      toast.success(
+        mozeZakladacZlecenia
+          ? t('workshop.bookings.confirmedOrderCreated')
+          : 'Rezerwacja potwierdzona.',
+      );
       queryClient.invalidateQueries({ queryKey: ['portal-bookings', providerId] });
       queryClient.invalidateQueries({ queryKey: ['workshop-orders'] });
       queryClient.invalidateQueries({ queryKey: ['pending-bookings-count'] });
@@ -445,7 +465,7 @@ export function WorkshopPortalBookings({ providerId, onSelectOrder }: Props) {
                   <DropdownMenuItem onClick={bulkConfirm} disabled={bulkBusy}>
                     <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" /> {t('workshop.bookings.confirmSms')}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={bulkMoveToOrders} disabled={bulkBusy}>
+                  <DropdownMenuItem onClick={bulkMoveToOrders} disabled={bulkBusy || !mozeZakladacZlecenia}>
                     <ArrowRightCircle className="h-4 w-4 mr-2 text-primary" /> {t('workshop.bookings.moveToOrders')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

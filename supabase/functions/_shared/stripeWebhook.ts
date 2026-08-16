@@ -168,3 +168,43 @@ export function czyDuplikat(status: string | null | undefined): boolean {
 export function wynikBrakuWiersza(typZdarzenia: string): "failed" | "ignored" {
   return typZdarzenia.startsWith("customer.subscription.") ? "ignored" : "failed";
 }
+
+/**
+ * Data, do której obowiązuje gwarancja ceny (4.6b / 4.9).
+ *
+ * Liczy się od ZAŁOŻENIA subskrypcji u operatora, nie od chwili obliczenia.
+ * Ma to znaczenie przy odtwarzaniu wiersza po zgubionym `checkout.session
+ * .completed`: gdyby liczyć od dnia odzysku, klient dotknięty naszą awarią
+ * dostałby gwarancję dłuższą niż ten, u którego wszystko zadziałało.
+ */
+export function gwarancjaCeny(
+  zalozona: Date,
+  promoDoKiedy: string | null | undefined,
+): string | null {
+  const wPromocji = !promoDoKiedy || zalozona <= new Date(promoDoKiedy);
+  if (!wPromocji) return null;
+  const koniec = new Date(zalozona);
+  koniec.setFullYear(koniec.getFullYear() + 1);
+  return koniec.toISOString();
+}
+
+/**
+ * Kwoty do snapshotu, wyliczone z POZYCJI FAKTURY.
+ *
+ * Ceny w Stripe trzymamy jako brutto, więc netto liczymy „w stu". Źródłem jest
+ * faktura, a nie bieżący cennik: między zakupem a odtworzeniem wiersza cennik
+ * mógł się zmienić, a snapshot ma świadczyć o tym, ile klient ZAPŁACIŁ.
+ */
+export function kwotyZFaktury(
+  faktura: { lines?: { data?: Array<{ amount?: number }> }; amount_paid?: number } | null | undefined,
+  stawkaVat: number,
+): { brutto: number | null; netto: number | null; zrodlo: string } {
+  const pozycja = faktura?.lines?.data?.[0];
+  const zPozycji = pozycja?.amount;
+  const grosze = Number(zPozycji ?? faktura?.amount_paid ?? NaN);
+  if (!Number.isFinite(grosze)) return { brutto: null, netto: null, zrodlo: "brak" };
+
+  const brutto = grosze / 100;
+  const netto = Math.round((brutto / (1 + stawkaVat / 100)) * 100) / 100;
+  return { brutto, netto, zrodlo: zPozycji != null ? "pozycja_faktury" : "amount_paid" };
+}

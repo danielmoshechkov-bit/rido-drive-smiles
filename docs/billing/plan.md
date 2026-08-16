@@ -421,12 +421,32 @@ po dacie podmiana pozycji w Stripe i aktualizacja `price_snapshot`. **~1,5 sesji
 plus 1 sesja doliczona do 4.5 na drugą cenę. Nie blokuje pierwszej płatności;
 pierwszy termin zapada 12 miesięcy po pierwszym kliencie.
 
-**Do przemyślenia przed implementacją** (pytanie Daniela z 13.08): klient
-w gwarancji robi upgrade, a po jej wygaśnięciu ma przejść na cenę docelową planu,
-na którym **wtedy** jest. Czy `price_guarantee_until` wystarczy, czy trzeba
-trzymać także, **z którego `price_id` przechodzimy** — bo po zmianie planu
-w międzyczasie pozycja subskrypcji wskazuje już inną cenę startową, niż ta,
-od której gwarancja się zaczynała. Rozstrzygnąć przed pisaniem zadania cyklicznego.
+**Rozstrzygnięte 16.08, przed implementacją.** Pytanie brzmiało: czy trzeba
+pamiętać, **z którego `price_id` przechodzimy**, skoro klient mógł w międzyczasie
+zmienić plan.
+
+**Nie trzeba — i nie należy.** Zapamiętana cena po zmianie planu byłaby
+nieaktualna, a jedynym wiarygodnym źródłem jest sama subskrypcja u operatora:
+identyfikator pozycji odczytujemy na żywo w chwili podmiany i to jego, nie ceny,
+wymaga API Stripe'a.
+
+Potrzebne jest natomiast **co innego, czego pytanie nie obejmowało**: pewność,
+że jesteśmy tam, gdzie myślimy. Zadanie podmienia cenę **wyłącznie wtedy**, gdy
+bieżąca pozycja subskrypcji wskazuje dokładnie `stripe_price_id` planu, na którym
+klient jest teraz. Cokolwiek innego — cena wynegocjowana indywidualnie, cena już
+docelowa, cena nieznana — zostaje nietknięte, ze śladem w logu. Zadanie cykliczne,
+które po cichu nadpisuje umowę handlową, jest gorsze niż zadanie, które czegoś
+nie zrobi.
+
+Do zapamiętania w bazie zostaje więc tylko to, czego ze Stripe'a odczytać się nie
+da: `price_guarantee_notified_at` i `price_target_applied_at` — dwa znaczniki
+idempotencji, żeby nie uprzedzić dwa razy i nie podmienić dwa razy.
+
+**Znalezione przy okazji:** kolumny `billing_plans.stripe_price_id_target`
+**nie tworzy żadna migracja w repo**, choć `billing-stripe-sync` ją czyta
+i zapisuje. Na produkcji istnieje (synchronizacja przeszła), więc powstała poza
+repozytorium. Świeże środowisko postawione z tych migracji miałoby niedziałającą
+synchronizację cennika. Naprawione przez `ADD COLUMN IF NOT EXISTS` w migracji 4.20.
 
 ---
 
@@ -503,6 +523,38 @@ triggery po obu stronach — żaden nie przekracza granicy tabeli:
 
 Blokada zapisu na zleceniach nie dotknie wystawiania faktur — rozdział jest czysty,
 bez skutków ubocznych.
+
+---
+
+## 🔴 Okres próbny nie wygasa nigdzie poza gatingiem
+
+**Ustalone 15.08.2026, przy G3. To nie jest martwy kod — to jedyne miejsce,
+w którym trial się kończy.**
+
+`expires_at` w `paid_service_subscriptions` zapisują dwie funkcje brzegowe:
+`register-marketplace-user` (rejestracja z cennika) i `activate-workshop-trial`
+(aktywacja na istniejącym koncie). I na tym koniec. Przeszukanie całego repo
+daje trzech czytelników tej tabeli: obie powyższe funkcje przy zakładaniu
+wiersza oraz `PaidServicesPanel` w adminie, który tylko listuje. **Nie ma
+zadania cyklicznego, nie ma triggera, nie ma żadnego kodu, który po tej dacie
+cokolwiek zmienia.** Status zostaje `trial` na zawsze.
+
+Wniosek dla każdego, kto to czyta później: **`useSubscriptionAccess` porównuje
+`expires_at` z bieżącą datą SAM** (`src/hooks/useSubscriptionAccess.ts`),
+a `moze_pracowac` robi to samo po stronie bazy. Usunięcie któregokolwiek
+z tych porównań jako „niepotrzebnego" oznacza dożywotni darmowy dostęp dla
+wszystkich, którzy kiedykolwiek zaczęli okres próbny — bez żadnego sygnału,
+że coś jest nie tak.
+
+Docelowo trial powinien wygasać po stronie danych (zadanie przestawiające
+`status` na `expired`), żeby prawda o subskrypcji nie zależała od tego, kto
+pyta. Do tego czasu obowiązuje powyższe.
+
+Przy okazji, z tego samego rozpoznania: `useSubscriptionAccess` w pierwszej
+wersji czytał WYŁĄCZNIE `billing_subscriptions`. Trial tam nie istnieje, więc
+każdy klient w okresie próbnym dostawał `moznaPracowac: false` — paywall od
+pierwszego dnia, z komunikatem „Subskrypcja wygasła". Wyszłoby dopiero przy
+pierwszym prawdziwym rejestrującym się warsztacie.
 
 ---
 

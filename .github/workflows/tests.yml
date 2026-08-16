@@ -48,13 +48,33 @@ jobs:
                      supabase/functions/_shared/stripeWebhook_test.ts \
                      supabase/functions/_shared/requireRole.ts \
                      supabase/functions/_shared/requireRole_test.ts \
+                     supabase/functions/_shared/subscriptionGate.ts \
+                     supabase/functions/_shared/subscriptionGate_test.ts \
+                     supabase/functions/_shared/statusyDostepu.ts \
+                     supabase/functions/_shared/statusyDostepu_test.ts \
+                     supabase/functions/_shared/requireRole.ts \
+                     supabase/functions/_shared/requireRole_test.ts \
                      supabase/functions/billing-stripe-webhook/index.ts \
                      supabase/functions/billing-checkout/index.ts \
                      supabase/functions/billing-stripe-sync/index.ts \
                      supabase/functions/billing-admin-plans/index.ts \
                      supabase/functions/billing-admin-features/index.ts \
                      supabase/functions/payment-core/index.ts
-
+      # Funkcje warsztatowe z bramką subskrypcji (G5). Wchodzą do CI, bo to one
+      # omijają RLS kluczem service_role — rozjazd sygnatury bramki z ich
+      # wywołaniem oznaczałby cichą dziurę w bramkowaniu, a nie błąd na ekranie.
+      # Przy okazji wyszło, że żadna z nich nie przechodziła dotąd `deno check`:
+      # `workshop-parts-api` miał dziewięć błędów typów, `workshop-send-sms` jeden.
+      - name: Kontrola typów (bramka warsztatowa)
+        run: |
+          deno check supabase/functions/workshop-send-sms/index.ts \
+                     supabase/functions/workshop-notify-employee/index.ts \
+                     supabase/functions/workshop-parts-api/index.ts \
+                     supabase/functions/workshop-tire-reminders/index.ts \
+                     supabase/functions/workshop-invite-employee/index.ts \
+                     supabase/functions/workshop-accept-employee-invitation/index.ts \
+                     supabase/functions/workshop-approve-findings/index.ts \
+                     supabase/functions/workshop-employee-submit-findings/index.ts
 
       # Funkcje domknięte po audycie verify_jwt (16.08). Wchodzą do CI, bo
       # rozjazd sygnatury `wymagajRoli` z ich wywołaniem oznaczałby ponowne
@@ -65,6 +85,7 @@ jobs:
                      supabase/functions/create-fleet-account/index.ts \
                      supabase/functions/getrido-ai-execute/index.ts \
                      supabase/functions/drivers-search/index.ts
+
       # Testy jednostkowe. `--allow-read` jest konieczne: część istniejących
       # testów agenta głosowego czyta pliki źródłowe i sprawdza, czego w nich
       # NIE MA (np. że runtime nie zawiera identyfikatorów canary). To audyt

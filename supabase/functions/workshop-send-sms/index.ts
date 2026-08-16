@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { mozePracowac, odmowaBramki } from "../_shared/subscriptionGate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -134,6 +135,33 @@ serve(async (req) => {
       resolvedProviderId = target;
     }
     // ── koniec Authorization ───────────────────────────────────────────
+
+    // ── Bramka subskrypcji (G5), wersja lekka ──────────────────────────
+    // Warsztat bez planu może jeszcze dopisać się do klienta, który MA u niego
+    // zlecenie — rozmowa w toku nie ma się urwać w połowie. Nie może natomiast
+    // rozsyłać SMS-ów w dowolne miejsce: to już jest korzystanie z produktu.
+    //
+    // Wołania WEWNĘTRZNE (kluczem service_role) przechodzą bez bramki celowo.
+    // Tą drogą idą przypomnienia o wizycie do klienta końcowego, a on nie ma
+    // nic wspólnego z tym, czy warsztat zapłacił. Bramkę zakładamy u ŹRÓDŁA
+    // takich wywołań, tam gdzie to praca warsztatu (workshop-tire-reminders).
+    if (!isInternal) {
+      const bramka = await mozePracowac(supabaseAdmin, resolvedProviderId);
+      if (!bramka.wolno) {
+        if (!order_id) {
+          return odmowaBramki(corsHeaders, `${bramka.powod}; SMS bez order_id`);
+        }
+        const { data: zlecenie } = await supabaseAdmin
+          .from("workshop_orders")
+          .select("id, provider_id")
+          .eq("id", order_id)
+          .maybeSingle();
+        if (!zlecenie || zlecenie.provider_id !== resolvedProviderId) {
+          return odmowaBramki(corsHeaders, `${bramka.powod}; zlecenie ${order_id} nie należy do warsztatu`);
+        }
+      }
+    }
+    // ── koniec bramki ──────────────────────────────────────────────────
 
     const appKey = smsSettings?.api_key || Deno.env.get("SMSAPI_TOKEN");
     if (!appKey) {
@@ -311,7 +339,7 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("[Workshop SMS] Unexpected error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

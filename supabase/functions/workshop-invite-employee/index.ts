@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { corsHeaders } from '../_shared/cors.ts';
+import { mozePracowac, odmowaBramki } from '../_shared/subscriptionGate.ts';
 
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -31,6 +32,12 @@ serve(async (req) => {
     const { data: prov } = await admin.from('service_providers').select('id, user_id, company_name')
       .eq('id', provider_id).maybeSingle();
     if (!prov || prov.user_id !== user.id) return json({ error: 'forbidden' }, 403);
+
+    // Bramka subskrypcji (G5). Powiększanie zespołu to praca, a zaproszenie
+    // wysyła też SMS i realny link rejestracyjny — nie może działać za darmo
+    // po wygaśnięciu planu.
+    const bramka = await mozePracowac(admin, prov.id);
+    if (!bramka.wolno) return odmowaBramki(corsHeaders, bramka.powod);
 
     // Look up user by email (tylko gdy mamy email)
     let invitedUserId: string | null = null;
