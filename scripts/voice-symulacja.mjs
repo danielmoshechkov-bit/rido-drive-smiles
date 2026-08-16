@@ -129,6 +129,16 @@ async function narzedziaZLogow(od, do_) {
       // „Backend error! Retry" to NIE jest pusty zbiór — traktowanie go jak
       // pustki dawałoby ciche „żadne narzędzie nie poszło".
       if (d.error) throw new Error("backend");
+      // PUSTY ZBIÓR TEŻ NIE ZNACZY „NARZĘDZIE NIE POSZŁO".
+      //
+      // Analityka Supabase ma kilkusekundowe opóźnienie. Zapytanie potrafi
+      // zwrócić 200 i zero wierszy tylko dlatego, że wpisy jeszcze nie doszły.
+      // 16.08 cały pomiar zaraportował „0 wywołań" i przez to `nie wywołano
+      // check_availability` w scenariuszach, w których narzędzie mogło pójść.
+      //
+      // Zero wierszy przy PIERWSZYCH próbach traktujemy jak brak odpowiedzi
+      // i ponawiamy; dopiero zero po ostatniej próbie znaczy naprawdę zero.
+      if ((d.result || []).length === 0 && i < 3) throw new Error("pusto — czekam na logi");
       return (d.result || []).map((x) => {
         const m = String(x.event_message).match(/"tool":"([a-z_]+)"/);
         return m ? { ms: x.timestamp / 1000, tool: m[1] } : null;

@@ -911,6 +911,7 @@ ${greetingRule}
           cache_read: streamed.usage?.cacheRead ?? null,
           cache_write: streamed.usage?.cacheWrite ?? null,
           input_tokens: streamed.usage?.input ?? null,
+          output_tokens: streamed.usage?.output ?? null,
         });
         // Ucięcie na limicie tokenów nie jest poprawnym zakończeniem tury. Nie
         // wykonujemy narzędzi z niepełnej odpowiedzi, bo wywołanie mogło zostać

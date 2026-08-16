@@ -12,7 +12,7 @@ export interface AnthropicStreamResult {
   // Trafienia prompt cachingu. Bez tego nie da się sprawdzić, czy cache w ogóle
   // działa: ElevenLabs raportuje w llm_usage tylko to, co sami mu zgłosimy,
   // więc jego input_cache_read jest zawsze zerem niezależnie od stanu faktycznego.
-  usage: { input: number; cacheRead: number; cacheWrite: number } | null;
+  usage: { input: number; cacheRead: number; cacheWrite: number; output: number } | null;
 }
 
 interface AnthropicStreamEvent {
@@ -31,11 +31,15 @@ interface AnthropicStreamEvent {
     partial_json?: string;
     stop_reason?: string;
   };
+  // Anthropic podaje tokeny WYJSCIA dopiero tutaj, w message_delta na koncu
+  // strumienia — message_start ma tylko 1-2.
+  usage?: { output_tokens?: number };
   message?: {
     usage?: {
       input_tokens?: number;
       cache_read_input_tokens?: number;
       cache_creation_input_tokens?: number;
+      output_tokens?: number;
     };
   };
 }
@@ -101,11 +105,18 @@ export async function consumeAnthropicSse(
         input: u.input_tokens || 0,
         cacheRead: u.cache_read_input_tokens || 0,
         cacheWrite: u.cache_creation_input_tokens || 0,
+        // Na starcie wiadomosci jest zwykle 1-2; prawdziwa liczba przychodzi
+        // w message_delta na koncu strumienia i nadpisuje ta.
+        output: u.output_tokens || 0,
       };
       return;
     }
-    if (event.type === "message_delta" && event.delta?.stop_reason) {
-      stopReason = event.delta.stop_reason;
+    if (event.type === "message_delta") {
+      if (event.delta?.stop_reason) stopReason = event.delta.stop_reason;
+      // TOKENY WYJSCIA. Bez nich rachunek da sie tylko ZAKRESIC — 16.08
+      // musialem podac „miedzy 23 a 28 USD" zamiast liczby, bo logowalismy
+      // wylacznie wejscie.
+      if (event.usage?.output_tokens != null && usage) usage.output = event.usage.output_tokens;
     }
   };
 
