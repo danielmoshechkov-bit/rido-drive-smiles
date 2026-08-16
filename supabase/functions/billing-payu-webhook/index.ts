@@ -152,6 +152,84 @@ Deno.serve(async (req) => {
       console.log(JSON.stringify({
         event: 'payu_pakiet_wydany', order: zamowienie.id, pack: packId,
       }));
+
+      // ── Faktura ───────────────────────────────────────────────────
+      //
+      // ⚠️ CAŁY TEN BLOK JEST DODATKIEM, NIE WARUNKIEM. Paczka została już
+      // wydana wyżej i klient ma swoje SMS-y niezależnie od tego, co stanie
+      // się tutaj. Brak faktury to sprawa do naprawienia, a nie powód, żeby
+      // odbierać towar albo kazać operatorowi ponawiać powiadomienie w kółko.
+      //
+      // Dzięki temu doładowania działają, zanim fakturowanie ruszy: na `main`
+      // tego bloku po prostu nie ma, a płatność przebiega tak samo.
+      try {
+        const { data: zam } = await (admin as any)
+          .from('billing_orders')
+          .select('id, units, amount_gross, snapshot, subscriber_id, provider_order_id')
+          .eq('id', zamowienie.id)
+          .maybeSingle();
+
+        const { data: warsztat } = zam?.subscriber_id
+          ? await (admin as any).from('service_providers')
+              .select('company_name, company_nip, company_address, company_postal_code, company_city, company_email, owner_email')
+              .eq('id', zam.subscriber_id).maybeSingle()
+          : { data: null };
+
+        const snap = (zam?.snapshot ?? {}) as Record<string, unknown>;
+        const sztuk = Number(zam?.units ?? 0);
+        const brutto = Number(zam?.amount_gross ?? 0);
+
+        if (sztuk > 0 && brutto > 0) {
+          const adres = [
+            warsztat?.company_address,
+            `${warsztat?.company_postal_code ?? ''} ${warsztat?.company_city ?? ''}`.trim(),
+          ].filter(Boolean).join(', ');
+
+          const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/billing-invoice-issue`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              // Identyfikator zamówienia u operatora, nie zdarzenia: to samo
+              // obciążenie potrafi dojść kilkoma powiadomieniami, a faktura
+              // ma być jedna.
+              external_payment_ref: `payu:${zam?.provider_order_id ?? zamowienie.id}`,
+              items: [{
+                name: String(snap.name ?? 'Doładowanie GetRido'),
+                quantity: sztuk,
+                unit: 'szt.',
+                // Cena JEDNOSTKOWA BRUTTO — `billing-invoice-issue` liczy VAT
+                // „w stu", więc suma zgadza się z obciążeniem co do grosza.
+                unit_gross_price: Math.round((brutto / sztuk) * 10000) / 10000,
+                vat_rate: Number(snap.vat_rate ?? 23),
+              }],
+              buyer_name: warsztat?.company_name ?? null,
+              buyer_nip: warsztat?.company_nip ?? null,
+              buyer_address: adres || null,
+              buyer_email: warsztat?.company_email || warsztat?.owner_email || null,
+              paid_at: new Date().toISOString(),
+              sale_date: new Date().toISOString().slice(0, 10),
+              payment_method: 'other',
+              notes: `Doładowanie ${sztuk} szt. — PayU ${zam?.provider_order_id ?? ''}`.trim(),
+              pre_ksef: true,
+            }),
+          });
+
+          const wynik = await res.json().catch(() => ({}));
+          if (res.ok && wynik?.invoice_id && !wynik?.duplicate) {
+            console.log(JSON.stringify({
+              event: 'faktura_doladowania', numer: wynik.invoice_number, order: zamowienie.id,
+            }));
+          } else if (!res.ok) {
+            console.error('billing-payu-webhook: faktura nieudana', res.status, JSON.stringify(wynik));
+          }
+        }
+      } catch (e) {
+        // Świadomie połykamy: paczka jest wydana, płatność przyjęta.
+        console.error('billing-payu-webhook: wystawienie faktury nie powiodło się', e);
+      }
     }
 
     await zakoncz('processed');
