@@ -50,6 +50,12 @@ import { useTranslation } from 'react-i18next';
 interface Props {
   providerId: string;
   onSelectOrder?: (order: any) => void;
+  /**
+   * Rezerwacje wychodzą spod bramki płatności: klient, który się umówił, ma
+   * zostać obsłużony. Przy blokadzie WorkshopDashboard renderuje je SAM, poza
+   * nakładką, i wyłącza je tutaj — inaczej pojawiłyby się dwa razy.
+   */
+  ukryjRezerwacje?: boolean;
 }
 
 // A: derive the displayed amount straight from the order's line items instead of the
@@ -59,7 +65,7 @@ interface Props {
 const orderGrossAmount = (o: any) =>
   Array.isArray(o?.items) ? computeOrderTotals(o.items).total_gross : (o?.total_gross || 0);
 
-export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
+export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje }: Props) {
   const { t } = useTranslation();  const confirmAction = useConfirm();
 
   const queryClient = useQueryClient();
@@ -393,7 +399,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
         // Fallback: service_providers / workshop_settings
         if (!logoUrl) {
           const { data: sp } = await supabase
-            .from('service_providers').select('logo_url').eq('user_id', session.user.id).maybeSingle();
+            .from('service_providers').select('logo_url').eq('user_id', session.user.id)
+// Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
+// zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
+// najstarszy i tak samo we wszystkich miejscach, żeby różne ekrany
+// nie pokazywały różnych firm.
+.order('created_at', { ascending: true })
+.limit(1)
+.maybeSingle();
           if (sp?.logo_url) logoUrl = sp.logo_url;
         }
         if (!logoUrl) {
@@ -1121,7 +1134,9 @@ export function WorkshopOrdersList({ providerId, onSelectOrder }: Props) {
       </Card>
 
       {/* Rezerwacje z portalu — druga tabela poniżej */}
-      <WorkshopPortalBookings providerId={providerId} onSelectOrder={onSelectOrder} />
+      {!ukryjRezerwacje && (
+        <WorkshopPortalBookings providerId={providerId} onSelectOrder={onSelectOrder} />
+      )}
       <WorkshopNewOrderDialog
         open={showNewOrder}
         onOpenChange={setShowNewOrder}

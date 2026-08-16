@@ -1,0 +1,882 @@
+{
+ "agent_id": "agent_8301ky7ve28ee6jsb3h30h11354g",
+ "name": "GetRido",
+ "conversation_config": {
+  "asr": {
+   "quality": "high",
+   "provider": "scribe_realtime",
+   "user_input_audio_format": "pcm_16000",
+   "keywords": []
+  },
+  "turn": {
+   "turn_timeout": 4.0,
+   "initial_wait_time": null,
+   "silence_end_call_timeout": 20.0,
+   "mode": "turn",
+   "turn_eagerness": "normal",
+   "spelling_patience": "auto",
+   "speculative_turn": false,
+   "retranscribe_on_turn_timeout": false,
+   "turn_model": "turn_v3",
+   "interruption_ignore_terms": [
+    "mhm",
+    "mm",
+    "aha",
+    "okej",
+    "ok",
+    "dobra",
+    "słucham",
+    "proszę",
+    "мм",
+    "хм",
+    "угу",
+    "окей",
+    "ок",
+    "так",
+    "слушаю",
+    "говорите",
+    "слухаю",
+    "mmhmm",
+    "uhhuh",
+    "uh huh",
+    "uh",
+    "hmm",
+    "okay",
+    "okey",
+    "i see",
+    "go on",
+    "go ahead",
+    "right",
+    "gotcha",
+    "dzień dobry",
+    "halo",
+    "tak",
+    "nie",
+    "no"
+   ],
+   "interruption_ignore_term_languages": [
+    "pl",
+    "ru",
+    "uk",
+    "en"
+   ],
+   "merge_with_default_ignore_terms": false,
+   "transcribe_on_disabled_interruptions": false,
+   "soft_timeout_config": {
+    "timeout_seconds": 8.0,
+    "message": "Dobrze rozumiem",
+    "additional_soft_timeout_messages": [],
+    "use_llm_generated_message": false,
+    "randomize_fillers": false,
+    "max_soft_timeouts_per_generation": 1,
+    "llm_generated_message_prompt_override": null,
+    "disable_until_first_user_message": false
+   }
+  },
+  "tts": {
+   "model_id": "eleven_turbo_v2_5",
+   "voice_id": "cjVigY5qzO86Huf0OWal",
+   "supported_voices": [],
+   "expressive_mode": false,
+   "suggested_audio_tags": [],
+   "agent_output_audio_format": "pcm_16000",
+   "optimize_streaming_latency": 0,
+   "stability": 0.5,
+   "speed": 1.0,
+   "similarity_boost": 0.6,
+   "text_normalisation_type": "system_prompt",
+   "pronunciation_dictionary_locators": [],
+   "enable_phoneme_tags": false,
+   "audio_effects": null
+  },
+  "conversation": {
+   "text_only": false,
+   "max_duration_seconds": 600,
+   "max_duration_seconds_after_last_agent_message": null,
+   "client_events": [
+    "audio",
+    "interruption",
+    "agent_response",
+    "user_transcript",
+    "agent_response_correction",
+    "agent_tool_response"
+   ],
+   "file_input": {
+    "enabled": true,
+    "max_files_in_memory": 10,
+    "max_files_per_conversation": 10
+   },
+   "monitoring_enabled": false,
+   "monitoring_events": [
+    "user_transcript",
+    "agent_response",
+    "agent_response_correction"
+   ],
+   "dtmf_input_settings": null,
+   "background_sound": {
+    "source_type": null,
+    "source_id": null,
+    "volume": 0.6,
+    "crossfade_loop": false
+   },
+   "source_attribution": false
+  },
+  "language_presets": {},
+  "vad": {
+   "background_voice_detection": true
+  },
+  "agent": {
+   "first_message": "Dzień dobry, Warsztat, rozmowa rejestrowana — w czym mogę pomóc?",
+   "language": "pl",
+   "hinglish_mode": false,
+   "dynamic_variables": {
+    "dynamic_variable_placeholders": {
+     "rido_snapshot": ""
+    }
+   },
+   "disable_first_message_interruptions": true,
+   "max_conversation_duration_message": "",
+   "text_behavior_overrides": null,
+   "prompt": {
+    "prompt": "Instrukcje pochodzą z serwera LLM.\n<<RIDO conv={{system__conversation_id}} caller={{system__caller_id}} called={{system__called_number}}>>\n<<RIDO_SNAPSHOT>>\n{{rido_snapshot}}\n<</RIDO_SNAPSHOT>>",
+    "llm": "custom-llm",
+    "reasoning_effort": "none",
+    "opener": null,
+    "thinking_budget": null,
+    "enable_reasoning_summary": false,
+    "temperature": 0.0,
+    "max_tokens": 600,
+    "tool_ids": [],
+    "built_in_tools": {
+     "transfer_to_agent": null,
+     "update_state": null,
+     "memory_entry_search": null,
+     "run_subagent": null,
+     "request_help": null,
+     "end_call": {
+      "type": "system",
+      "name": "end_call",
+      "description": "",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "params": {
+       "system_tool_type": "end_call"
+      }
+     },
+     "language_detection": {
+      "type": "system",
+      "name": "language_detection",
+      "description": "",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "params": {
+       "system_tool_type": "language_detection",
+       "only_at_conversation_start": false
+      }
+     },
+     "transfer_to_number": null,
+     "skip_turn": null,
+     "play_keypad_touch_tone": null,
+     "voicemail_detection": null,
+     "transfer_to_genesys": null,
+     "transfer_to_genesys_chat": null,
+     "transfer_to_genesys_bot": null
+    },
+    "enable_parallel_tool_calls": false,
+    "mcp_server_ids": [],
+    "native_mcp_server_ids": [],
+    "knowledge_base": [],
+    "custom_llm": {
+     "url": "https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/voice-agent-llm/664ed87b-a20f-457b-a9fa-97ca13dcae7c/workshop_secretary/llm",
+     "model_id": "rido",
+     "api_key": {
+      "secret_id": "lHYAikroQyaHXDHOzawh"
+     },
+     "auth_connection": null,
+     "request_headers": {},
+     "api_version": null,
+     "api_type": "chat_completions"
+    },
+    "bedrock_llm": null,
+    "speech_engine": null,
+    "ignore_default_personality": false,
+    "rag": {
+     "enabled": false,
+     "embedding_model": "e5_mistral_7b_instruct",
+     "optional_rag_enabled": false,
+     "max_vector_distance": 0.6,
+     "max_documents_length": 50000,
+     "max_retrieved_rag_chunks_count": 20,
+     "num_candidates": null,
+     "query_rewrite_prompt_override": null,
+     "knowledge_base_tool_info": null
+    },
+    "timezone": "Europe/Warsaw",
+    "backup_llm_config": {
+     "preference": "default"
+    },
+    "cascade_timeout_seconds": 15.0,
+    "tools": [
+     {
+      "type": "system",
+      "name": "end_call",
+      "description": "",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "params": {
+       "system_tool_type": "end_call"
+      }
+     },
+     {
+      "type": "system",
+      "name": "language_detection",
+      "description": "",
+      "response_timeout_secs": 20,
+      "disable_interruptions": false,
+      "interruption_mode": "allow",
+      "force_pre_tool_speech": false,
+      "pre_tool_speech": "auto",
+      "assignments": [],
+      "tool_call_sound": null,
+      "tool_call_sound_behavior": "auto",
+      "tool_error_handling_mode": "auto",
+      "params": {
+       "system_tool_type": "language_detection",
+       "only_at_conversation_start": false
+      }
+     }
+    ]
+   }
+  }
+ },
+ "metadata": {
+  "created_at_unix_secs": 1784822566,
+  "updated_at_unix_secs": 1786782364
+ },
+ "platform_settings": {
+  "evaluation": {
+   "criteria": [
+    {
+     "id": "issue_resolved",
+     "name": "Issue Resolved",
+     "type": "prompt",
+     "conversation_goal_prompt": "Czy agent rozwiązał problem klienta związany z portalem?",
+     "use_knowledge_base": false,
+     "scope": "conversation",
+     "llm": null,
+     "llm_billed": false,
+     "scoring_mode": "binary",
+     "max_score": 100,
+     "score_instructions": null
+    },
+    {
+     "id": "customer_satisfaction",
+     "name": "Customer Satisfaction",
+     "type": "prompt",
+     "conversation_goal_prompt": "Czy klient wyraził zadowolenie z obsługi i rozwiązania?",
+     "use_knowledge_base": false,
+     "scope": "conversation",
+     "llm": null,
+     "llm_billed": false,
+     "scoring_mode": "binary",
+     "max_score": 100,
+     "score_instructions": null
+    },
+    {
+     "id": "information_accuracy",
+     "name": "Information Accuracy",
+     "type": "prompt",
+     "conversation_goal_prompt": "Czy agent dostarczył dokładne i prawdziwe informacje?",
+     "use_knowledge_base": false,
+     "scope": "conversation",
+     "llm": null,
+     "llm_billed": false,
+     "scoring_mode": "binary",
+     "max_score": 100,
+     "score_instructions": null
+    },
+    {
+     "id": "escalation_handled_correctly",
+     "name": "Escalation Handled Correctly",
+     "type": "prompt",
+     "conversation_goal_prompt": "Czy agent prawidłowo eskalował problem, jeśli nie mógł go rozwiązać?",
+     "use_knowledge_base": false,
+     "scope": "conversation",
+     "llm": null,
+     "llm_billed": false,
+     "scoring_mode": "binary",
+     "max_score": 100,
+     "score_instructions": null
+    }
+   ]
+  },
+  "widget": {
+   "variant": "full",
+   "placement": "bottom-right",
+   "expandable": "never",
+   "avatar": {
+    "type": "orb",
+    "color_1": "#2792dc",
+    "color_2": "#9ce6e6"
+   },
+   "feedback_mode": "none",
+   "end_feedback": {
+    "type": "rating"
+   },
+   "bg_color": "#ffffff",
+   "text_color": "#000000",
+   "btn_color": "#000000",
+   "btn_text_color": "#ffffff",
+   "border_color": "#e1e1e1",
+   "focus_color": "#000000",
+   "border_radius": null,
+   "btn_radius": null,
+   "action_text": null,
+   "start_call_text": null,
+   "end_call_text": null,
+   "expand_text": null,
+   "listening_text": null,
+   "speaking_text": null,
+   "shareable_page_text": null,
+   "shareable_page_show_terms": true,
+   "terms_text": null,
+   "terms_html": null,
+   "terms_key": null,
+   "show_avatar_when_collapsed": false,
+   "disable_banner": false,
+   "override_link": null,
+   "markdown_link_allowed_hosts": [],
+   "markdown_link_include_www": true,
+   "markdown_link_allow_http": true,
+   "mic_muting_enabled": false,
+   "transcript_enabled": false,
+   "text_input_enabled": true,
+   "conversation_mode_toggle_enabled": false,
+   "default_expanded": false,
+   "always_expanded": false,
+   "dismissible": false,
+   "show_agent_status": false,
+   "show_conversation_id": true,
+   "strip_audio_tags": true,
+   "syntax_highlight_theme": null,
+   "text_contents": {
+    "main_label": null,
+    "start_call": null,
+    "start_chat": null,
+    "new_call": null,
+    "end_call": null,
+    "mute_microphone": null,
+    "change_language": null,
+    "collapse": null,
+    "expand": null,
+    "copied": null,
+    "accept_terms": null,
+    "dismiss_terms": null,
+    "listening_status": null,
+    "speaking_status": null,
+    "connecting_status": null,
+    "chatting_status": null,
+    "input_label": null,
+    "input_placeholder": null,
+    "input_placeholder_text_only": null,
+    "input_placeholder_new_conversation": null,
+    "user_ended_conversation": null,
+    "agent_ended_conversation": null,
+    "conversation_id": null,
+    "error_occurred": null,
+    "copy_id": null,
+    "initiate_feedback": null,
+    "request_follow_up_feedback": null,
+    "thanks_for_feedback": null,
+    "thanks_for_feedback_details": null,
+    "follow_up_feedback_placeholder": null,
+    "submit": null,
+    "go_back": null,
+    "send_message": null,
+    "text_mode": null,
+    "voice_mode": null,
+    "switched_to_text_mode": null,
+    "switched_to_voice_mode": null,
+    "copy": null,
+    "download": null,
+    "wrap": null,
+    "agent_working": null,
+    "agent_done": null,
+    "agent_error": null,
+    "attach_file": null,
+    "remove_file": null,
+    "file_upload_error": null,
+    "file_type_unsupported": null,
+    "file_too_large": null,
+    "file_limit_reached": null,
+    "typing_indicator": null
+   },
+   "styles": {
+    "base": null,
+    "base_hover": null,
+    "base_active": null,
+    "base_border": null,
+    "base_subtle": null,
+    "base_primary": null,
+    "base_error": null,
+    "accent": null,
+    "accent_hover": null,
+    "accent_active": null,
+    "accent_border": null,
+    "accent_subtle": null,
+    "accent_primary": null,
+    "overlay_padding": null,
+    "button_radius": null,
+    "input_radius": null,
+    "bubble_radius": null,
+    "sheet_radius": null,
+    "compact_sheet_radius": null,
+    "dropdown_sheet_radius": null
+   },
+   "show_resize_button": true,
+   "language_selector": false,
+   "supports_text_only": true,
+   "custom_avatar_path": null,
+   "language_presets": {}
+  },
+  "data_collection": {
+   "customer_name": {
+    "type": "string",
+    "description": "Imię i nazwisko klienta.",
+    "enum": null,
+    "is_system_provided": false,
+    "dynamic_variable": "",
+    "allowed_values_dynamic_variable": "",
+    "constant_value": "",
+    "is_omitted": false,
+    "llm": null,
+    "llm_billed": false
+   },
+   "issue_type": {
+    "type": "string",
+    "description": "Rodzaj problemu zgłoszonego przez klienta (np. problem z logowaniem, błąd usługi, pytanie o funkcjonalność).",
+    "enum": null,
+    "is_system_provided": false,
+    "dynamic_variable": "",
+    "allowed_values_dynamic_variable": "",
+    "constant_value": "",
+    "is_omitted": false,
+    "llm": null,
+    "llm_billed": false
+   },
+   "resolution_status": {
+    "type": "string",
+    "description": "Status rozwiązania problemu (rozwiązany, eskalowany, wymaga dalszych działań).",
+    "enum": [
+     "resolved",
+     "escalated",
+     "pending_further_action"
+    ],
+    "is_system_provided": false,
+    "dynamic_variable": "",
+    "allowed_values_dynamic_variable": "",
+    "constant_value": "",
+    "is_omitted": false,
+    "llm": null,
+    "llm_billed": false
+   },
+   "escalation_reason": {
+    "type": "string",
+    "description": "Powód eskalacji, jeśli problem nie został rozwiązany.",
+    "enum": null,
+    "is_system_provided": false,
+    "dynamic_variable": "",
+    "allowed_values_dynamic_variable": "",
+    "constant_value": "",
+    "is_omitted": false,
+    "llm": null,
+    "llm_billed": false
+   },
+   "customer_email": {
+    "type": "string",
+    "description": "Adres e-mail klienta, jeśli został podany.",
+    "enum": null,
+    "is_system_provided": false,
+    "dynamic_variable": "",
+    "allowed_values_dynamic_variable": "",
+    "constant_value": "",
+    "is_omitted": false,
+    "llm": null,
+    "llm_billed": false
+   }
+  },
+  "data_collection_scopes": {},
+  "analysis_items": null,
+  "overrides": {
+   "conversation_config_override": {
+    "asr": {
+     "keywords": false
+    },
+    "turn": {
+     "soft_timeout_config": {
+      "message": false
+     }
+    },
+    "tts": {
+     "model_id": false,
+     "voice_id": true,
+     "stability": false,
+     "speed": false,
+     "similarity_boost": false,
+     "pronunciation_dictionary_locators": false
+    },
+    "conversation": {
+     "text_only": false,
+     "max_duration_seconds": false
+    },
+    "agent": {
+     "first_message": true,
+     "language": true,
+     "max_conversation_duration_message": false,
+     "prompt": {
+      "prompt": true,
+      "llm": false,
+      "tool_ids": false,
+      "native_mcp_server_ids": false,
+      "knowledge_base": false
+     }
+    }
+   },
+   "custom_llm_extra_body": false,
+   "enable_conversation_initiation_client_data_from_webhook": true,
+   "enable_starting_workflow_node_id_from_client": false
+  },
+  "workspace_overrides": {
+   "conversation_initiation_client_data_webhook": {
+    "url": "https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/voice-agent-init",
+    "request_headers": {
+     "Authorization": {
+      "secret_id": "3Rq9NhoJzffiI9OfzLYm"
+     }
+    }
+   },
+   "webhooks": {
+    "post_call_webhook_id": "a9f9457cf459465297f20b3c3c6c6648",
+    "events": [
+     "transcript"
+    ],
+    "transcript_format": "json",
+    "send_audio": false
+   }
+  },
+  "testing": {
+   "attached_tests": [
+    {
+     "test_id": "test_2201ky7ve247fxbsgh5ybfvgjey6",
+     "workflow_node_id": null
+    },
+    {
+     "test_id": "test_2801ky7ve249e1m8ybkhcf9150ep",
+     "workflow_node_id": null
+    },
+    {
+     "test_id": "test_4601ky7ve24af9x909dxj12rbptd",
+     "workflow_node_id": null
+    },
+    {
+     "test_id": "test_8201ky7ve24cfn7sp7j6qs0d7spn",
+     "workflow_node_id": null
+    }
+   ],
+   "referenced_tests_ids": [
+    "test_2201ky7ve247fxbsgh5ybfvgjey6",
+    "test_2801ky7ve249e1m8ybkhcf9150ep",
+    "test_4601ky7ve24af9x909dxj12rbptd",
+    "test_8201ky7ve24cfn7sp7j6qs0d7spn"
+   ]
+  },
+  "archived": false,
+  "guardrails": {
+   "version": "1",
+   "focus": {
+    "is_enabled": false
+   },
+   "prompt_injection": {
+    "is_enabled": false
+   },
+   "synthetic_voice": {
+    "is_enabled": false,
+    "trigger_action": {
+     "type": "end_call"
+    }
+   },
+   "content": {
+    "execution_mode": "streaming",
+    "config": {
+     "sexual": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "violence": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "harassment": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "self_harm": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "profanity": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "religion_or_politics": {
+      "is_enabled": false,
+      "threshold": "medium"
+     },
+     "medical_and_legal_information": {
+      "is_enabled": false,
+      "threshold": "medium"
+     }
+    },
+    "trigger_action": {
+     "type": "end_call"
+    }
+   },
+   "moderation": null,
+   "custom": {
+    "config": {
+     "configs": []
+    }
+   }
+  },
+  "summary_language": null,
+  "auto_translate_transcript_to_app_language": null,
+  "auth": {
+   "enable_auth": false,
+   "allowlist": [],
+   "require_origin_header": false,
+   "shareable_token": null
+  },
+  "call_limits": {
+   "agent_concurrency_limit": -1,
+   "daily_limit": 100000,
+   "bursting_enabled": false
+  },
+  "queueing_config": {
+   "enabled": false,
+   "wait_timeout_seconds": 180
+  },
+  "ban": null,
+  "smb_metadata": null,
+  "privacy": {
+   "record_voice": true,
+   "retention_days": -1,
+   "delete_transcript_and_pii": false,
+   "delete_audio": false,
+   "apply_to_existing_conversations": false,
+   "zero_retention_mode": false,
+   "conversation_history_redaction": {
+    "enabled": false,
+    "entities": []
+   }
+  },
+  "trust_context": "low",
+  "analysis_llm": "gemini-2.5-flash",
+  "analysis_bedrock_llm": null,
+  "analysis_llm_billed": false,
+  "topic_discovery": {
+   "enabled": true
+  },
+  "sentiment_analysis": {
+   "enabled": true
+  },
+  "simulation_library": {
+   "enabled": false,
+   "test_ids": []
+  },
+  "alerting": null,
+  "overview_dashboard_template_id": null,
+  "safety": {
+   "is_blocked_ivc": false,
+   "is_blocked_non_ivc": false,
+   "ignore_safety_evaluation": false
+  }
+ },
+ "phone_numbers": [
+  {
+   "phone_number": "+48221015896",
+   "label": "GetRrio",
+   "supports_inbound": true,
+   "supports_outbound": false,
+   "phone_number_id": "phnum_4301ky85ype8e11aah6vjsezyvar",
+   "assigned_agent": {
+    "agent_id": "agent_8301ky7ve28ee6jsb3h30h11354g",
+    "agent_name": "GetRido",
+    "environment": null,
+    "branch_id": null
+   },
+   "provider": "sip_trunk",
+   "provider_config": null,
+   "outbound_trunk": null,
+   "inbound_trunk": {
+    "allowed_addresses": [
+     "0.0.0.0/0"
+    ],
+    "allowed_numbers": null,
+    "media_encryption": "allowed",
+    "has_auth_credentials": false,
+    "username": null,
+    "remote_domains": null,
+    "attributes_to_headers": {}
+   },
+   "livekit_stack": "standard",
+   "store_sip_messages": true
+  }
+ ],
+ "whatsapp_accounts": [],
+ "workflow": {
+  "edges": {
+   "edge_7101ky7vdg54f85tr1qm24zc8362": {
+    "source": "node_9301ky7vdg50f0wtkcj6z6zf7bnk",
+    "target": "node_9601ky7vdg51ej7sjhn4fz8wm0dv",
+    "forward_condition": {
+     "label": null,
+     "type": "llm",
+     "condition": "Klient określił cel kontaktu i potrzebuje dalszej pomocy."
+    },
+    "backward_condition": null
+   },
+   "edge_8301ky7vdg55fxq9azf77m7tm65t": {
+    "source": "node_9601ky7vdg51ej7sjhn4fz8wm0dv",
+    "target": "node_7501ky7vdg52ew6tpefvza9zn6kq",
+    "forward_condition": {
+     "label": null,
+     "type": "llm",
+     "condition": "Zebrano wszystkie niezbędne informacje do rozwiązania problemu lub udzielenia odpowiedzi."
+    },
+    "backward_condition": null
+   }
+  },
+  "nodes": {
+   "start_node": {
+    "type": "start",
+    "position": {
+     "x": 0.0,
+     "y": 0.0
+    },
+    "edge_order": []
+   },
+   "node_9301ky7vdg50f0wtkcj6z6zf7bnk": {
+    "type": "override_agent",
+    "position": {
+     "x": 0.0,
+     "y": 178.0
+    },
+    "edge_order": [
+     "edge_7101ky7vdg54f85tr1qm24zc8362"
+    ],
+    "conversation_config": {
+     "agent": {
+      "prompt": {
+       "built_in_tools": {}
+      }
+     }
+    },
+    "additional_prompt": "Powitaj klienta serdecznie, przedstaw się jako asystent portalu i zapytaj, w czym możesz pomóc. Ustal, czy klient dzwoni w sprawie ogólnej, technicznej, czy dotyczącej konkretnego ogłoszenia lub konta użytkownika. Bądź uprzejmy i cierpliwy.",
+    "additional_knowledge_base": [],
+    "additional_tool_ids": [],
+    "label": "Powitanie i identyfikacja",
+    "entry_behavior": "auto",
+    "forced_tool_name": null
+   },
+   "node_9601ky7vdg51ej7sjhn4fz8wm0dv": {
+    "type": "override_agent",
+    "position": {
+     "x": 0.0,
+     "y": 356.0
+    },
+    "edge_order": [
+     "edge_8301ky7vdg55fxq9azf77m7tm65t"
+    ],
+    "conversation_config": {
+     "turn": {
+      "turn_eagerness": null,
+      "spelling_patience": null,
+      "speculative_turn": null
+     },
+     "tts": {},
+     "conversation": {
+      "client_events": null
+     },
+     "agent": {
+      "prompt": {
+       "built_in_tools": {}
+      }
+     }
+    },
+    "additional_prompt": "W zależności od zgłoszonego problemu, poproś klienta o podanie szczegółów, takich jak nazwa użytkownika, numer ogłoszenia, opis problemu technicznego lub konkretne pytanie. Potwierdź zrozumienie zebranych informacji i upewnij się, że masz wszystko, co potrzebne do dalszego działania.",
+    "additional_knowledge_base": [],
+    "additional_tool_ids": [],
+    "label": "Zbieranie szczegółów",
+    "entry_behavior": "auto",
+    "forced_tool_name": null
+   },
+   "node_7501ky7vdg52ew6tpefvza9zn6kq": {
+    "type": "override_agent",
+    "position": {
+     "x": 0.0,
+     "y": 534.0
+    },
+    "edge_order": [],
+    "conversation_config": {
+     "agent": {
+      "prompt": {
+       "built_in_tools": {}
+      }
+     }
+    },
+    "additional_prompt": "Jeśli to możliwe, udziel klientowi bezpośredniego rozwiązania lub odpowiedzi na jego pytanie. Jeśli problem wymaga interwencji specjalisty, poinformuj klienta o przekierowaniu i zapewnij, że jego sprawa zostanie rozwiązana. Podsumuj rozmowę i zapytaj, czy masz jeszcze w czymś pomóc.",
+    "additional_knowledge_base": [],
+    "additional_tool_ids": [],
+    "label": "Rozwiązanie/Przekierowanie",
+    "entry_behavior": "auto",
+    "forced_tool_name": null
+   }
+  },
+  "prevent_subagent_loops": false
+ },
+ "access_info": {
+  "is_creator": true,
+  "creator_name": "daniel@getrido.pl",
+  "creator_email": "daniel@getrido.pl",
+  "role": "admin",
+  "anonymous_access_level_override": null,
+  "access_source": "creator"
+ },
+ "tags": [],
+ "version_id": "agtvrsn_6601m028ecvye9c9ft3d6p5pt2pp",
+ "branch_id": "agtbrch_4001ky7ve3d7eqsv842pg4k5a7p9",
+ "main_branch_id": "agtbrch_4001ky7ve3d7eqsv842pg4k5a7p9",
+ "procedures": {},
+ "trust_context": "low"
+}

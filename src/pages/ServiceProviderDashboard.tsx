@@ -21,6 +21,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useSubscriptionActivation } from '@/hooks/useSubscriptionActivation';
+import { TrialPlanBanner } from '@/components/billing/TrialPlanBanner';
+import { SubscriptionCard } from '@/components/billing/SubscriptionCard';
+import { PlanBadge } from '@/components/billing/PlanBadge';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
@@ -318,6 +321,12 @@ export default function ServiceProviderDashboard() {
         .from('service_providers')
         .select('id, rating_avg, rating_count, company_name, short_name, description, company_phone, company_address, company_city, company_postal_code, company_nip, company_website, owner_first_name, owner_last_name, owner_email, status, category_id, cover_image_url, logo_url')
         .eq('user_id', user.id)
+        // Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
+        // zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
+        // najstarszy i tak samo we wszystkich miejscach, żeby różne ekrany
+        // nie pokazywały różnych firm.
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle(),
       supabase
         .from('service_categories')
@@ -654,9 +663,15 @@ export default function ServiceProviderDashboard() {
             <UniversalHomeButton />
             <div className="hidden sm:block">
               <h1 className="font-semibold text-lg">{t('sp.panel')}</h1>
-              <p className="text-xs text-muted-foreground">
-                {configData?.company_name || settingsForm.company_name || t('sp.yourCompany')}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground">
+                  {configData?.company_name || settingsForm.company_name || t('sp.yourCompany')}
+                </p>
+                {/* Plan i licznik dni trialu przy nazwie firmy — baner na
+                    Pulpicie łatwo przewinąć i przestaje być widziany po
+                    drugim wejściu. */}
+                <PlanBadge providerId={providerId} />
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -791,6 +806,11 @@ export default function ServiceProviderDashboard() {
 
           {/* Pulpit / Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6 mt-6">
+            {/* Zamyka wyciek konwersji: klient wybrał plan na cenniku, przeszedł
+                rejestrację i wylądował tutaj — bez płatności i bez śladu po
+                swoim wyborze. Baner sam się nie pokaże, gdy plan już kupiony. */}
+            <TrialPlanBanner providerId={providerId} />
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.allBookings')}</CardTitle></CardHeader>
@@ -1155,7 +1175,11 @@ export default function ServiceProviderDashboard() {
           </TabsContent>
 
           {/* Account Switcher Tab */}
-          <TabsContent value="account" className="mt-6">
+          <TabsContent value="account" className="mt-6 space-y-6">
+            {/* „Twój plan" trafia do Konta, nie do osobnej zakładki: klient
+                szuka rachunków tam, gdzie ma resztę spraw administracyjnych. */}
+            <SubscriptionCard providerId={providerId} />
+
             <AccountSwitcherPanel
               isDriverAccount={roles.includes('driver')}
               isFleetAccount={roles.includes('fleet_settlement') || roles.includes('fleet_rental')}

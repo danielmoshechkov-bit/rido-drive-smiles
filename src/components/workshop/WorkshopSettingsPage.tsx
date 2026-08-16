@@ -78,6 +78,12 @@ export const WorkshopSettingsPage = () => {
         .from('service_providers')
         .select('company_name,company_nip,company_address,company_city,company_postal_code,company_phone,owner_email,company_website,logo_url,short_name')
         .eq('user_id', user.id)
+        // Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
+        // zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
+        // najstarszy i tak samo we wszystkich miejscach, żeby różne ekrany
+        // nie pokazywały różnych firm.
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle();
 
       const { data: cs } = await (supabase as any)
@@ -208,6 +214,12 @@ export const WorkshopSettingsPage = () => {
           .from('service_providers')
           .select('id')
           .eq('user_id', user.id)
+          // Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
+          // zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
+          // najstarszy i tak samo we wszystkich miejscach, żeby różne ekrany
+          // nie pokazywały różnych firm.
+          .order('created_at', { ascending: true })
+          .limit(1)
           .maybeSingle();
         if (sp) {
           await supabase.from('service_providers').update({

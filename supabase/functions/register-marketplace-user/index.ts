@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveWorkshopTrialDays, workshopTrialExpiresAt } from "../_shared/workshopTrial.ts";
+import { sprawdzKodPlanu } from "../_shared/kodPlanu.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +41,52 @@ Deno.serve(async (req) => {
 
     console.log("📝 Starting marketplace user registration for:", email, module ? `(module: ${module}, plan: ${plan || '-'})` : "");
 
+    // ── Ograniczenie częstotliwości ────────────────────────────────────
+    // Pole „Nie jestem robotem" w formularzu to WYŁĄCZNIE stan przeglądarki
+    // (`if (!isHuman) return`) — do serwera nie dociera nic, więc żądanie
+    // wysłane z pominięciem formularza omija je w całości. Ta funkcja ma
+    // `verify_jwt = false`, zakłada konta i wysyła maile, więc bez limitu
+    // jest darmową fabryką jednego i drugiego.
+    //
+    // Limit liczymy po adresie IP w oknie godzinnym. Świadomie NIE blokujemy
+    // po adresie e-mail: to pozwalałoby sprawdzać, które adresy są już
+    // zarejestrowane, czyli wyliczać bazę użytkowników.
+    // Kod planu sprawdzamy w cenniku ZANIM go gdziekolwiek zapiszemy.
+    const planSprawdzony = await sprawdzKodPlanu(supabaseAdmin, plan);
+
+    const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+    const LIMIT_NA_GODZINE = 5;
+
+    if (ip !== "unknown") {
+      const godzinaTemu = new Date(Date.now() - 3600_000).toISOString();
+      const { count, error: bladLicznika } = await supabaseAdmin
+        .from("rejestracje_ip")
+        .select("id", { count: "exact", head: true })
+        .eq("ip", ip)
+        .gte("created_at", godzinaTemu);
+
+      // Awaria licznika nie może zatrzymać rejestracji — to byłaby blokada
+      // sprzedaży z powodu tabeli pomocniczej. Logujemy i przepuszczamy.
+      if (bladLicznika) {
+        console.error("⚠️ rejestracje_ip: nie udało się policzyć prób:", bladLicznika.message);
+      } else if ((count ?? 0) >= LIMIT_NA_GODZINE) {
+        console.warn(`🚧 Limit rejestracji dla IP ${ip}: ${count} prób w godzinę`);
+        return new Response(
+          JSON.stringify({
+            error: "Zbyt wiele prób rejestracji z tego adresu. Spróbuj ponownie za godzinę.",
+            code: "RATE_LIMITED",
+          }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      // Zapisujemy PRÓBĘ, nie sukces — inaczej bot odbijający się od walidacji
+      // mógłby próbować bez końca, bo żadna próba nie zwiększałaby licznika.
+      await supabaseAdmin.from("rejestracje_ip").insert({
+        ip, email, sciezka: module ?? "marketplace",
+      });
+    }
+
     // Check feature toggle for email confirmation requirement
     const { data: toggleData } = await supabaseAdmin
       .from('feature_toggles')
@@ -57,7 +104,7 @@ Deno.serve(async (req) => {
       email_confirm: !requireEmailConfirmation,
       user_metadata: {
         first_name, last_name, phone, account_type: 'marketplace',
-        ...(module ? { module, plan } : {})
+        ...(module ? { module, plan: planSprawdzony } : {})
       }
     });
 
@@ -65,9 +112,16 @@ Deno.serve(async (req) => {
       console.error("❌ Auth error:", authError.message);
       
       if (authError.message.includes("already been registered") || authError.message.includes("already exists")) {
+        // Rejestracja Z LANDINGU MODUŁU to inna sytuacja niż zwykła rejestracja.
+        // Ten człowiek nie chce drugiego konta — chce dołożyć moduł do konta,
+        // które już ma. „Użyj logowania lub resetuj hasło" wysyłałoby go
+        // w stronę odzyskiwania dostępu, którego nie zgubił.
         return new Response(
-          JSON.stringify({ 
-            error: "Ten email jest już zarejestrowany. Użyj logowania lub resetuj hasło.",
+          JSON.stringify({
+            error: module
+              ? "Na ten adres jest już konto w GetRido. Zaloguj się — moduł dodamy do istniejącego konta, bez zakładania nowego."
+              : "Ten email jest już zarejestrowany. Użyj logowania lub resetuj hasło.",
+            code: "EMAIL_EXISTS",
             field: "email"
           }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -94,8 +148,15 @@ Deno.serve(async (req) => {
         );
       }
       
+      // Ostatnia furtka. NIE odsyłamy `authError.message` — to komunikat
+      // Supabase po angielsku, pisany dla programisty. Trafiał wprost na ekran
+      // użytkownika. Oryginał zostaje w logu, gdzie jest przydatny.
+      console.error("❌ Nieobsłużony błąd auth:", authError.message);
       return new Response(
-        JSON.stringify({ error: authError.message }),
+        JSON.stringify({
+          error: "Nie udało się założyć konta. Sprawdź dane i spróbuj ponownie.",
+          code: "AUTH_FAILED"
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -147,16 +208,14 @@ Deno.serve(async (req) => {
     // UWAGA: celowo TYLKO zapis daty końca trialu (expires_at) — egzekwowanie
     // wygasania/blokad/płatności robimy osobno, później.
     if (module === "warsztat") {
-      // Panel /uslugi/panel bramkuje po roli service_provider — bez niej "Brak uprawnień"
-      const { error: spRoleError } = await supabaseAdmin
-        .from("user_roles")
-        .upsert({ user_id: userId, role: "service_provider" }, { onConflict: "user_id,role" });
-      if (spRoleError) {
-        console.error("⚠️ service_provider role error:", spRoleError.message);
-      } else {
-        console.log("✅ service_provider role assigned");
-      }
-
+      // KOLEJNOŚĆ MA ZNACZENIE: najpierw warsztat, dopiero potem rola.
+      //
+      // Odwrotnie było tak, że nieudany zapis warsztatu tylko logował ostrzeżenie,
+      // a rola `service_provider` zostawała nadana. Konto wchodziło wtedy do
+      // panelu, który nie miał czego pokazać, i nic tego nie naprawiało: przy
+      // ponownej próbie rola już istniała, więc nikt nie widział problemu.
+      // Przy tej kolejności nie ma czego wycofywać — bez warsztatu po prostu
+      // nie ma roli.
       const { error: spError } = await supabaseAdmin
         .from("service_providers")
         .insert({
@@ -169,10 +228,44 @@ Deno.serve(async (req) => {
           company_phone: phone || null,
           status: "pending",
         });
+
       if (spError) {
-        console.error("⚠️ service_providers insert error:", spError.message);
+        // Konto i mail powitalny już istnieją, więc nie wywracamy całej
+        // rejestracji — ale roli NIE nadajemy. Klient dokończy aktywację
+        // przez `activate-workshop-trial`, które robi dokładnie to samo.
+        console.error("❌ service_providers insert error — pomijam nadanie roli:", spError.message);
       } else {
         console.log("✅ Workshop service_provider created (pending)");
+
+        // Identyfikator świeżo założonego warsztatu — pakiet startowy zapisuje
+        // się na nim, więc musimy go odczytać.
+        const { data: swiezyWarsztat } = await supabaseAdmin
+          .from("service_providers").select("id").eq("user_id", userId)
+          .order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+        // Pakiet startowy: 20 SMS + 5 sprawdzeń VIN, raz na adres. Funkcja jest
+        // idempotentna po znormalizowanym e-mailu, więc powtórna rejestracja
+        // ani odtworzenie warsztatu nie dadzą drugiego pakietu.
+        const { data: pakiet, error: bladPakietu } = await supabaseAdmin.rpc(
+          "przyznaj_pakiet_startowy",
+          { p_user_id: userId, p_provider_id: swiezyWarsztat?.id ?? null, p_email: email },
+        );
+        if (bladPakietu) {
+          // Brak pakietu nie może wywrócić rejestracji — konto ma powstać.
+          console.error("⚠️ pakiet startowy:", bladPakietu.message);
+        } else {
+          console.log(pakiet ? "✅ Pakiet startowy przyznany" : "ℹ️ Pakiet startowy już był");
+        }
+
+        // Panel /uslugi/panel bramkuje po roli service_provider — bez niej "Brak uprawnień"
+        const { error: spRoleError } = await supabaseAdmin
+          .from("user_roles")
+          .upsert({ user_id: userId, role: "service_provider" }, { onConflict: "user_id,role" });
+        if (spRoleError) {
+          console.error("⚠️ service_provider role error:", spRoleError.message);
+        } else {
+          console.log("✅ service_provider role assigned");
+        }
       }
 
       const trialDays = await resolveWorkshopTrialDays(supabaseAdmin);
@@ -185,7 +278,7 @@ Deno.serve(async (req) => {
           started_at: new Date().toISOString(),
           expires_at: trialEndsAt,
           amount_paid: 0,
-          metadata: { module, plan: plan || null, trial: true, trial_days: trialDays, source: "self_signup" },
+          metadata: { module, plan: planSprawdzony, trial: true, trial_days: trialDays, source: "self_signup" },
         });
       if (trialError) {
         console.error("⚠️ trial subscription insert error:", trialError.message);

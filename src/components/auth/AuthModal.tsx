@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { KontoJuzIstnieje } from '@/components/auth/KontoJuzIstnieje';
 import { supabase } from "@/integrations/supabase/client";
 import { signUpMarketplace, resendActivationEmail, getModuleRedirect } from "@/services/authService";
 import { getStoredReferralCode, clearReferralCode } from "@/lib/referralTracking";
@@ -60,6 +61,10 @@ export function AuthModal({
   const [isHuman, setIsHuman] = useState(false);
   const [honeypot, setHoneypot] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Adres, dla którego funkcja odpowiedziała EMAIL_EXISTS. Trzymany osobno od
+  // `fieldErrors`, bo to nie jest błąd walidacji, tylko rozwidlenie ścieżki:
+  // ten człowiek ma konto i potrzebuje drogi do niego, a nie poprawki pola.
+  const [kontoIstnieje, setKontoIstnieje] = useState<string | null>(null);
   
   // Reset password state
   const [showResetForm, setShowResetForm] = useState(false);
@@ -71,6 +76,8 @@ export function AuthModal({
       setMode(initialMode);
       setShowResetForm(false);
       setFieldErrors({});
+      setKontoIstnieje(null);
+    setKontoIstnieje(null);
     }
   }, [open, initialMode]);
 
@@ -203,6 +210,10 @@ export function AuthModal({
       });
 
       if (!result.success) {
+        if (result.code === "EMAIL_EXISTS") {
+          setKontoIstnieje(registerData.email);
+          return;
+        }
         const errorMessage = result.error || t("auth.registerError");
         const errorField = result.field || "general";
         if (errorField === "email" || errorMessage.toLowerCase().includes("email") || errorMessage.includes("zarejestrowany")) {
@@ -472,6 +483,23 @@ export function AuthModal({
           ) : (
             /* Register Form */
             <form onSubmit={handleRegister} className="space-y-4">
+              {kontoIstnieje && (
+                <KontoJuzIstnieje
+                  email={kontoIstnieje}
+                  zModulu={!!signupContext?.module}
+                  onZaloguj={() => {
+                    setLoginEmail(kontoIstnieje);
+                    setKontoIstnieje(null);
+                    setMode("login");
+                  }}
+                  onResetHasla={() => {
+                    setResetEmail(kontoIstnieje);
+                    setKontoIstnieje(null);
+                    setMode("login");
+                    setShowResetForm(true);
+                  }}
+                />
+              )}
               {/* Honeypot */}
               <input
                 type="text"

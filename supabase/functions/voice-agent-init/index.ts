@@ -30,8 +30,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
 import {
   cenaDoWypowiedzenia, czasDoWypowiedzenia, czasUslugi, hhmm, kluczDnia, minuty, ostatniStart,
-  wolneGodziny, zbudujDni, type GodzinyDnia, type Usluga,
+  wolneGodziny, zbudujDni, godzinaDoWypowiedzenia, type GodzinyDnia, type Usluga,
 } from "../_shared/voiceSnapshot.ts";
+// ANGIELSKI — OSOBNY MODUŁ, DOKŁADANY OBOK. Moduł polski zostaje nietknięty:
+// ma 22 asercje i trzy dni poprawek za sobą, a uogólnianie go na drugi język
+// znaczyłoby przepisanie kodu sprawdzonego na produkcji dla języka, który
+// jeszcze nikogo nie obsłużył.
+import {
+  cenaDoWypowiedzeniaEn, czasDoWypowiedzeniaEn, doWypowiedzeniaEn, powodEn,
+} from "../_shared/voiceSnapshotEn.ts";
+import {
+  cenaDoWypowiedzeniaSlow, czasDoWypowiedzeniaSlow, doWypowiedzeniaSlow, powodSlow,
+  type JezykSlow,
+} from "../_shared/voiceSnapshotSlow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -249,10 +260,31 @@ serve(async (req) => {
 
       // USTAWIENIA — tabeli jeszcze nie ma, więc wartości domyślne. Kontrakt ma już
       // gałąź `ustawienia`, żeby zakładka w panelu weszła bez zmiany kształtu.
+      // ŹRÓDŁEM BĘDZIE `workshop_clients.preferred_language` — kolumna czeka
+      // na zatwierdzenie migracji. Do tego czasu null, czyli zachowanie
+      // dzisiejsze: polski plus angielski, bez rosyjskiego i ukraińskiego.
+      const jezykKlienta: string | null = null;
+
       const zamkniecieTypowe = (godzinyTygodnia["mon"] || GODZINY_ZAPASOWE).close;
+      const DOMYSLNY_CZAS_MIN = 60;
+      // NAJPÓŹNIEJSZE PRZYJĘCIE NIE MOŻE RÓWNAĆ SIĘ ZAMKNIĘCIU.
+      //
+      // Było `= zamkniecieTypowe`, czyli 17:00 przy pracy do 17:00. Pole nie
+      // ograniczało niczego w wyliczeniach (bo `ostatniStart` bierze minimum
+      // i pierwszy człon i tak wychodził niżej), ALE trafiało do snapshotu jako
+      // tekst — i agent czytał je dosłownie.
+      //
+      // ROZMOWA 15.08, 10:49 — agent zaprzeczył sam sobie w osiem sekund:
+      //   [83s] „Najpóźniej przyjmujemy do siedemnastej."
+      //   [91s] „Niestety siedemnasta to już koniec dnia. Ostatnia godzina
+      //          to szesnasta trzydzieści."
+      // Do czasu powstania zakładki ustawień liczymy je z zamknięcia i czasu wizyty.
+      const najpozniejszePrzyjecie = hhmm(
+        ostatniStart(zamkniecieTypowe, DOMYSLNY_CZAS_MIN, null));
       const ustawienia = {
-        najpozniejsze_przyjecie: zamkniecieTypowe,
-        domyslny_czas_wizyty_min: 60,
+        najpozniejsze_przyjecie: najpozniejszePrzyjecie,
+        najpozniejsze_przyjecie_do_wypowiedzenia: godzinaDoWypowiedzenia(najpozniejszePrzyjecie),
+        domyslny_czas_wizyty_min: DOMYSLNY_CZAS_MIN,
         polityka_wyceny: "kosztorys_przed_naprawa",
         polityka_wyceny_tekst: POLITYKI.kosztorys_przed_naprawa,
         oplata_za_diagnoze_bez_usterki: "zalezy",
@@ -275,10 +307,47 @@ serve(async (req) => {
       }).format(new Date());
 
       const dni = zbudujDni(dzisiaj, DNI_W_PRZOD, godzinyTygodnia, (iso, g) =>
-        wolneGodziny(g, ustawienia.domyslny_czas_wizyty_min, pojemnosc,
-          zajeteWgDnia[iso] || [], 30, ustawienia.najpozniejsze_przyjecie, 3,
+        wolneGodziny(g, DOMYSLNY_CZAS_MIN, pojemnosc,
+          zajeteWgDnia[iso] || [], 30, najpozniejszePrzyjecie, 3,
           // Filtr po aktualnej godzinie WYŁĄCZNIE dla dzisiejszego dnia.
           iso === dzisiaj ? terazWarszawa : null));
+
+      // ANGIELSKIE POLA DNI — dokładane PO `zbudujDni`, nie w jego środku.
+      // Funkcja polska zostaje bez zmiany, a my wzbogacamy jej wynik. Dzięki temu
+      // usunięcie tego bloku wraca do stanu sprzed, bez dotykania polszczyzny.
+      // JĘZYK DODATKOWY — DOKŁADNIE JEDEN, NIE WSZYSTKIE NARAZ.
+      //
+      // Kusi, żeby wysłać pola dla czterech języków i pozwolić modelowi wybrać.
+      // Nie robimy tego: snapshot ma dziś 6,7 kB przy polskim i angielskim,
+      // a cztery języki to około 10 kB — i ten payload wraca do nas
+      // W KAŻDEJ TURZE, nie raz na rozmowę. To rachunek i opóźnienie za dane,
+      // z których 3/4 nigdy nie zostanie użyte.
+      //
+      // Język bierzemy z tego, co zapamiętaliśmy przy poprzedniej rozmowie
+      // tego numeru. Dopóki kolumna `preferred_language` nie istnieje,
+      // `jezykKlienta` jest null i lecą wyłącznie pola polskie i angielskie
+      // — czyli stan dzisiejszy, bez zmiany zachowania.
+      const jezykSlow: JezykSlow | null =
+        jezykKlienta === "ru" || jezykKlienta === "uk" ? jezykKlienta : null;
+
+      const dniZAngielskim = dni.map((d) => ({
+        ...d,
+        // GODZINY SŁOWAMI — model nie zamienia ich sam. Rozmowa 15.08 19:28:
+        // snapshot podał „12:30", agent powiedział „o półtorej" i klient dostał
+        // potwierdzenie wizyty z godziną, która nie istnieje.
+        ...(d.wolne ? { wolne_do_wypowiedzenia: d.wolne.map(godzinaDoWypowiedzenia) } : {}),
+        ...(d.ostatni_mozliwy_start
+          ? { ostatni_mozliwy_start_do_wypowiedzenia: godzinaDoWypowiedzenia(d.ostatni_mozliwy_start) }
+          : {}),
+        do_wypowiedzenia_en: doWypowiedzeniaEn(d.data),
+        ...(d.powod ? { powod_en: powodEn(d.powod) } : {}),
+        ...(jezykSlow
+          ? {
+            [`do_wypowiedzenia_${jezykSlow}`]: doWypowiedzeniaSlow(d.data, jezykSlow),
+            ...(d.powod ? { [`powod_${jezykSlow}`]: powodSlow(d.powod, jezykSlow) } : {}),
+          }
+          : {}),
+      }));
 
       const uslugiOut = (uslugi.data || []).map((u: Record<string, unknown>) => {
         const usluga: Usluga = {
@@ -301,12 +370,28 @@ serve(async (req) => {
               // się: przy widełkach 150-250 powiedział „do TRZYSTU złotych".
               // Konwersja i odmiana to zadania dla kodu (zasada 24).
               do_powiedzenia: cenaDoWypowiedzenia(od as number, widelki ? (do_ as number) : null),
+              do_powiedzenia_en: cenaDoWypowiedzeniaEn(od as number, widelki ? (do_ as number) : null),
+              ...(jezykSlow
+                ? { [`do_powiedzenia_${jezykSlow}`]: cenaDoWypowiedzeniaSlow(od as number, widelki ? (do_ as number) : null, jezykSlow) }
+                : {}),
             }
             : null,
           czas_blokady_min: czas.czas_blokady_min,
           czas_znany: czas.czas_znany,
           czas_do_powiedzenia: czas.czas_znany ? czasDoWypowiedzenia(czas.czas_blokady_min) : null,
-          ostatni_start: hhmm(ostatniStart(zamkniecieTypowe, czas.czas_blokady_min, ustawienia.najpozniejsze_przyjecie)),
+          czas_do_powiedzenia_en: czas.czas_znany ? czasDoWypowiedzeniaEn(czas.czas_blokady_min) : null,
+          ...(jezykSlow && czas.czas_znany
+            ? { [`czas_do_powiedzenia_${jezykSlow}`]: czasDoWypowiedzeniaSlow(czas.czas_blokady_min, jezykSlow) }
+            : {}),
+          ostatni_start: hhmm(ostatniStart(zamkniecieTypowe, czas.czas_blokady_min, najpozniejszePrzyjecie)),
+          ostatni_start_do_wypowiedzenia: godzinaDoWypowiedzenia(
+            hhmm(ostatniStart(zamkniecieTypowe, czas.czas_blokady_min, najpozniejszePrzyjecie))),
+          // USŁUGA DŁUŻSZA NIŻ POŁOWA DNIA ROBOCZEGO MUSI ZACZĄĆ SIĘ RANO.
+          // Ceramika i folie ochronne trwają cały dzień albo dwa — proponowanie
+          // ich na popołudnie to obietnica, której warsztat nie dotrzyma.
+          // Pole mówi agentowi wprost, zamiast kazać mu liczyć.
+          tylko_od_otwarcia: czas.czas_blokady_min * 2 > (minuty(zamkniecieTypowe) - minuty(
+            (godzinyTygodnia["mon"] || GODZINY_ZAPASOWE).open)),
           kategoria: usluga.kategoria || null,
         };
       });
@@ -336,7 +421,7 @@ serve(async (req) => {
           adres: [p?.company_address, p?.company_city].filter(Boolean).join(", "),
         },
         ustawienia,
-        dni,
+        dni: dniZAngielskim,
         uslugi: uslugiOut,
         zasoby: zasoby.map((z) => ({ nazwa: z.nazwa, typ: z.typ })),
         klient: {

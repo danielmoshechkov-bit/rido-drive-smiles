@@ -138,23 +138,14 @@ export function QuotaGuardProvider({ children }: { children: ReactNode }) {
     await handlePurchased('vehicle_lookup');
   }, [handlePurchased]);
 
-  const handleSmsPurchase = useCallback(async (count: number, _priceNet: number) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { toast.error('Musisz być zalogowany'); return; }
-    const { data: sp } = await supabase
-      .from('service_providers')
-      .select('id, sms_balance')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (!sp) { toast.error('Brak konta usługodawcy'); return; }
-    const { error } = await supabase
-      .from('service_providers')
-      .update({ sms_balance: (sp.sms_balance || 0) + count })
-      .eq('id', sp.id);
-    if (error) { toast.error('Błąd doładowania SMS'); return; }
-    toast.success(`Dodano ${count} SMS`);
-    await handlePurchased('sms');
-  }, [handlePurchased]);
+  // USUNIĘTE 16.08.2026 — `handleSmsPurchase` dopisywał SMS-y wprost do
+  // `service_providers.sms_balance` z przeglądarki, BEZ POBRANIA PŁATNOŚCI.
+  // Ścieżka była otwarta od marca do sierpnia 2026 i jest najbardziej
+  // prawdopodobnym źródłem sald, których nie da się wytłumaczyć migracjami.
+  // Dziś blokuje ją trigger `guard_sms_balance`, a modal został wyłączony —
+  // ale dopóki handler był wpięty, wystarczyło odblokować modal, żeby wrócił
+  // darmowy przydział. Doładowania wracają przez `payment-core` (4.11).
+
 
   return (
     <Ctx.Provider value={{ runWithQuota, openTopUp }}>
@@ -195,10 +186,11 @@ export function QuotaGuardProvider({ children }: { children: ReactNode }) {
       </Dialog>
 
       {/* Top-up modals */}
+      {/* Bez `onPurchase` — modal jest zaślepką „Doładowania wkrótce",
+          a jedyny handler, jaki tu był, dawał SMS-y za darmo. */}
       <SmsPurchaseModal
         open={smsModalOpen}
         onOpenChange={setSmsModalOpen}
-        onPurchase={handleSmsPurchase}
       />
       <VehicleLookupCreditsModal
         open={vehicleModalOpen}

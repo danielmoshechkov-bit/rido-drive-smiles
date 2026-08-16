@@ -8,7 +8,7 @@ extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
 [functions.drivers-search]
-verify_jwt = false
+verify_jwt = true
 
 [functions.vehicles]
 verify_jwt = false
@@ -35,7 +35,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.reset-driver-password]
-verify_jwt = false
+verify_jwt = true
 
 [functions.cleanup-fake-auth-accounts]
 verify_jwt = false
@@ -89,7 +89,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.create-fleet-account]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ai-search]
 verify_jwt = false
@@ -237,7 +237,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.getrido-ai-execute]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-fleet-registration-email]
 verify_jwt = false
@@ -422,6 +422,19 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.billing-checkout]
+verify_jwt = false
+
+# Portal klienta Stripe (4.8) — ta sama zasada: tożsamość z tokenu, podmiot
+# z service_providers.user_id. Bez tego dowolny zalogowany otworzyłby portal
+# cudzej firmy i anulował cudzą subskrypcję.
+[functions.billing-portal]
+verify_jwt = false
+
+# Zadanie cykliczne gwarancji ceny (4.20). Woła je pg_cron, który nie ma JWT —
+# tożsamość potwierdza nagłówek x-cron-secret. Brak sekretu = 403 i zero
+# działania: ta funkcja ZMIENIA CENĘ, więc domyślne przepuszczenie znaczyłoby,
+# że dowolne żądanie rusza cudze pieniądze.
+[functions.billing-price-guarantee]
 verify_jwt = false
 
 # Webhook operatora — tożsamość potwierdza PODPIS (HMAC z STRIPE_WEBHOOK_SECRET),

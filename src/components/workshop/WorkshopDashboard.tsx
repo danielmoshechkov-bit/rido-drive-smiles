@@ -2,6 +2,9 @@ import { lazy, Suspense, useMemo, useState } from 'react';
 import { lazyNamedWithRetry } from '@/lib/lazyWithRetry';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import { ModuleLock } from '@/components/billing/ModuleLock';
+import { useSubscriptionAccess } from '@/hooks/useSubscriptionAccess';
+import { WorkshopPortalBookings } from '@/components/workshop/WorkshopPortalBookings';
 import { Card } from '@/components/ui/card';
 import { useIsBetaTester } from '@/hooks/useIsBetaTester';
 import { useWorkshopOrders, useWorkshopOrder, useWorkshopProviderId } from '@/hooks/useWorkshop';
@@ -171,6 +174,16 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   // Gating funkcji "wkrótce" — musi być przed jakimkolwiek warunkowym return (Rules of Hooks).
   const { isBetaTester } = useIsBetaTester();
   const lockedKeys = isBetaTester ? [] : COMING_SOON_MODULE_KEYS;
+
+  // Bramka płatności. Świadomie NIE jest jedną nakładką na cały moduł: Terminarz
+  // i Rezerwacje muszą zostać używalne, bo klient, który umówił się przed
+  // blokadą, ma zostać obsłużony — potwierdzony, odwołany albo przełożony.
+  // Czego warsztat nie zrobi, rozstrzyga baza (G4), nie ten ekran: nie założy
+  // zlecenia z rezerwacji, nie doda klienta ani pojazdu, nie wystawi kosztorysu.
+  const dostep = useSubscriptionAccess(providerId, 'warsztat');
+  const zablokowany = !!providerId && !dostep.loading && !dostep.moznaPracowac;
+  // Terminarz zostaje w pełni otwarty — to kalendarz cudzych wizyt, nie warsztatu.
+  const MODULY_POZA_BRAMKA = ['terminarz'];
   const goTo = (key: string | null) => {
     if (key && lockedKeys.includes(key)) { toast.info(COMING_SOON_MSG); return; }
     setActiveModule(key);
@@ -308,12 +321,14 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
               zakładka "Dane podstawowe" (kopiuje pola do stanu formularza)
               czeka na niego — patrz fullOrderLoaded w WorkshopOrderDetail. */}
           <Suspense fallback={<ModuleFallback />}>
-            <WorkshopOrderDetail
-              order={currentSelectedOrder}
-              providerId={providerId}
-              fullOrderLoaded={!!fullOrder}
-              onBack={() => setSelectedOrder(null)}
-            />
+            <ModuleLock zablokowane={zablokowany} powod={dostep.powod} linia="warsztat">
+              <WorkshopOrderDetail
+                order={currentSelectedOrder}
+                providerId={providerId}
+                fullOrderLoaded={!!fullOrder}
+                onBack={() => setSelectedOrder(null)}
+              />
+            </ModuleLock>
           </Suspense>
         </div>
       </div>
@@ -327,15 +342,17 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         <div className="flex-1 md:pl-3 min-w-0">
           <MobileBackButton onBack={() => setSelectedVehicle(null)} label={t('workshop.dashboard.tiles.pojazdy')} />
           <Suspense fallback={<ModuleFallback />}>
-            <WorkshopVehicleDetail
-              vehicle={selectedVehicle}
-              providerId={providerId}
-              onBack={() => setSelectedVehicle(null)}
-              onOpenOrder={(order) => {
-                setSelectedVehicle(null);
-                setSelectedOrder(order);
-              }}
-            />
+            <ModuleLock zablokowane={zablokowany} powod={dostep.powod} linia="warsztat">
+              <WorkshopVehicleDetail
+                vehicle={selectedVehicle}
+                providerId={providerId}
+                onBack={() => setSelectedVehicle(null)}
+                onOpenOrder={(order) => {
+                  setSelectedVehicle(null);
+                  setSelectedOrder(order);
+                }}
+              />
+            </ModuleLock>
           </Suspense>
         </div>
       </div>
@@ -347,7 +364,15 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   const renderModuleContent = () => {
     switch (activeModule) {
       case 'zlecenia':
-        return <WorkshopOrdersList providerId={providerId} onSelectOrder={setSelectedOrder} />;
+        // Przy blokadzie rozdzielamy ekran: lista zleceń idzie pod nakładkę,
+        // rezerwacje zostają nad nią i w pełni używalne.
+        return (
+          <WorkshopOrdersList
+            providerId={providerId}
+            onSelectOrder={setSelectedOrder}
+            ukryjRezerwacje={zablokowany}
+          />
+        );
       case 'klienci':
         return (
           <WorkshopClientsList
@@ -402,6 +427,17 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   // Main dashboard tiles
   if (!activeModule) {
     return (
+      // Wariant „baner", nie nakładka: kafelki to NAWIGACJA, nie praca. Pod nimi
+      // nie ma czego zapisać, a przyciemnienie odcięłoby jedyną drogę do
+      // Terminarza i Rezerwacji, które mają zostać dostępne. Jednocześnie to
+      // pierwszy ekran modułu, więc karta sprzedażowa trafia tam, gdzie widać ją
+      // najczęściej.
+      <ModuleLock
+        zablokowane={zablokowany}
+        powod={dostep.powod}
+        linia="warsztat"
+        wariant="baner"
+      >
       <div className="space-y-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {modules.map(m => {
@@ -431,6 +467,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           })}
         </div>
       </div>
+      </ModuleLock>
     );
   }
 
@@ -441,7 +478,22 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
       <div className={isSchedulerModule ? 'flex-1 md:pl-3 min-w-0 flex h-full min-h-0 flex-col overflow-hidden' : 'flex-1 md:pl-3 min-w-0 flex flex-col'}>
         <MobileBackButton onBack={() => goTo(null)} />
         <Suspense fallback={<ModuleFallback />}>
-          {renderModuleContent()}
+          {zablokowany && activeModule === 'zlecenia' && (
+            <div className="mb-4">
+              <WorkshopPortalBookings
+                providerId={providerId}
+                onSelectOrder={setSelectedOrder}
+                mozeZakladacZlecenia={false}
+              />
+            </div>
+          )}
+          <ModuleLock
+            zablokowane={zablokowany && !MODULY_POZA_BRAMKA.includes(activeModule)}
+            powod={dostep.powod}
+            linia="warsztat"
+          >
+            {renderModuleContent()}
+          </ModuleLock>
         </Suspense>
       </div>
     </div>

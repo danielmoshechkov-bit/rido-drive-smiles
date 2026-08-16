@@ -444,6 +444,35 @@ async function sekcjaD() {
   } else {
     ok("D8", "każda funkcja bazy wołana przez RPC jest w migracjach", wywolaneRpc.size);
   }
+
+  // D9: PRODUKCJA MUSI ZGADZAĆ SIĘ ZE ZŁOTYM STANEM.
+  //
+  // Każde pole w config/elevenlabs-agent-ZLOTY-STAN.json kosztowało pomiary:
+  // model syntezy to tydzień diagnozy bełkotu, głos to 80 syntez i test
+  // istotności, puste `asr.keywords` to halucynacje rozpoznawania. Bez tej
+  // kontroli cicha zmiana w panelu albo pętla sondująca (moja, 15.08) cofa
+  // tydzień pracy i nikt się nie dowiaduje.
+  //
+  // RÓŻNICA TO ALARM, NIE INFORMACJA — dlatego zle(), nie ostrzeżenie.
+  const zlotyPlik = join(ROOT, "config/elevenlabs-agent-ZLOTY-STAN.json");
+  if (!existsSync(zlotyPlik)) {
+    zle("D9", "brak pliku złotego stanu", "config/elevenlabs-agent-ZLOTY-STAN.json");
+  } else {
+    try {
+      const wynik = execSync("node scripts/voice-restore-golden.mjs", { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+      const ile = (wynik.match(/(\d+) pól sprawdzonych/) || [])[1];
+      if (!ile || Number(ile) === 0) {
+        zle("D9", "porównanie ze złotym stanem nic nie sprawdziło", "pusty zbiór pól = ślepa kontrola");
+      } else {
+        ok("D9", "produkcja zgodna ze złotym stanem", Number(ile));
+      }
+    } catch (e) {
+      const tekst = String(e.stdout || "") + String(e.stderr || "");
+      const pola = [...tekst.matchAll(/ROZJAZD\S*\s+(\S+)/g)].map((m) => m[1]);
+      zle("D9", "PRODUKCJA ODBIEGA OD ZŁOTEGO STANU",
+        `${pola.join("\n")}\nprzywrócenie: node scripts/voice-restore-golden.mjs --wykonaj`);
+    }
+  }
 }
 
 // ============================================================================

@@ -410,6 +410,381 @@ To jest miernik, po którym poznamy, czy zmiana pomogła.
 **Punkt odniesienia TTFB przed zmianą** (`latency = 3`): mediana **0,090 s**,
 średnia 0,132 s, n = 547.
 
+## 🔴 `eleven_v3` NIEDOSTĘPNY W AGENTS NA NASZYM PLANIE — produkcja idzie na multilingual_v2
+
+Próba przełączenia zwróciła:
+
+```
+400  {"code":"feature_not_available","message":"Expressive TTS is not allowed",
+      "status":"expressive_tts_not_allowed"}
+```
+
+**v3 działa przez TTS API — testowałem na nim 45 syntez — ale platforma Agents
+odmawia go naszemu kontu.** To osobna licencja („Expressive TTS"). Sprawdzone,
+co platforma w ogóle przyjmuje:
+
+```
+eleven_multilingual_v2   PRZYJĘTY
+eleven_turbo_v2_5        PRZYJĘTY
+eleven_flash_v2_5        PRZYJĘTY
+eleven_v3                ODRZUCONY — feature_not_available
+eleven_turbo_v2          ODRZUCONY — „Non-english Agents must use turbo_v2_5"
+```
+
+Wybór zawęża się do jednego czystego modelu: **`eleven_multilingual_v2`**.
+Ustawiony. Koszt to te +203 ms, których chcieliśmy uniknąć.
+
+**Do zgłoszenia dochodzi czwarte pytanie:** czy „Expressive TTS" da się włączyć
+na naszym planie i ile kosztuje — bo v3 jest jedynym czystym modelem, który
+jest jednocześnie szybszy.
+
+### ⚠️ MÓJ BŁĄD PRZY DIAGNOZIE: PĘTLA PRÓBNA ZMIENIŁA PRODUKCJĘ
+
+Żeby ustalić, które modele platforma przyjmuje, puściłem pętlę `PATCH` po pięciu
+nazwach. **Każdy udany PATCH faktycznie zmieniał konfigurację produkcyjną**,
+więc po pętli agent stał na `eleven_flash_v2_5` — modelu z najgorszym wynikiem.
+
+Zauważyłem i naprawiłem w tej samej minucie, telefon w tym czasie nie dzwonił.
+Ale to była zmiana produkcji zrobiona **przypadkiem, w trakcie sprawdzania**,
+a nie świadomie. Sondowanie, które zapisuje, nie jest sondowaniem.
+
+Stan końcowy zweryfikowany pobraniem — jedyna różnica wobec stanu sprzed operacji:
+
+```
+model_id: eleven_turbo_v2_5 -> eleven_multilingual_v2
+```
+
+Głos Eric, `stability 0,5`, `similarity 0,6`, `speed 1,0`, `phoneme_tags false`,
+prompt, `first_message`, znaczniki snapshotu i blok `turn` — bez zmian.
+
+## 🚫 NAGRANIE OD KLIENTA — NIE NADAJE SIĘ DO PORÓWNANIA
+
+Twoje zastrzeżenie było słuszne i potwierdza się w liczbach.
+
+```
+nagranie z WhatsAppa:      66 słów   mediana pewności 0,46   poniżej 0,60: 68%
+nasze nagrania z ElevenLabs: 880 słów  mediana pewności 0,97   poniżej 0,60: 6,8%
+```
+
+**Zniekształcenie jest tam rozłożone na całość, nie punktowe.** Cała transkrypcja
+to bełkot od pierwszej do ostatniej sekundy — „dobre wiesz ode mnie już to od was
+ten temat zaczynać reklamne kompanie". To sygnatura złego łańcucha nagrywania
+(kompresja Opus plus nagrywanie głośnika telefonu), a nie usterki, której szukamy.
+
+Nasza usterka wygląda inaczej i mamy jej wzorzec: **dwa–cztery słowa z pewnością
+0,4–0,5 pomiędzy słowami odczytanymi na 0,9–0,99.** Tutaj nie ma czystego tła,
+z którym można by porównać.
+
+**Nie wyciągam z tego materiału żadnego wniosku.** To byłoby czwarte fałszywe
+trafienie z rzędu, przed którym ostrzegałeś.
+
+Co można z niego wziąć: nic o syntezie, ale to, że **klient nagrał rozmowę
+i przysłał ją jako dowód**, mówi samo za siebie o skali problemu z jego strony.
+
+## ✅ MAMY POWITANIE, KTÓRE JEST CZYSTE I ZACHOWUJE OBOWIĄZEK RODO
+
+20 syntez na wariant, model Turbo v2.5 (ten „zepsuty"), głos Kamil (ten gorszy):
+
+```
+0  obecne: „…Warsztat, rozmowa rejestrowana — w czym mogę pomóc?"      9/20 = 45%
+A  „Dzień dobry, Warsztat. Rozmowa jest nagrywana. W czym mogę pomóc?" 0/20 =  0%
+B  „Dzień dobry, Warsztat. Nagrywamy rozmowy. W czym mogę pomóc?"      0/20 =  0%
+C  „Dzień dobry. Warsztat, rozmowa nagrywana. W czym mogę pomóc?"      1/20 =  5%
+D  „Dzień dobry, tu Warsztat. Rozmowa jest nagrywana. Jak mogę pomóc?" 0/20 =  0%
+```
+
+**Trzy warianty czyste w 20/20, wszystkie zachowują informację o nagrywaniu.**
+
+```
+obecne (9/20) wobec A (0/20):                        p = 0,0012
+łączna kontrola z dwóch przebiegów (19/40) wobec A:  p = 0,00008
+```
+
+**Rekomendacja: wariant A** — najbliższy obecnemu brzmieniu, zachowuje nazwę firmy
+w tym samym miejscu i używa standardowego sformułowania „rozmowa jest nagrywana".
+Różnica wobec dzisiejszego to **rozbicie jednego zdania na trzy** i zamiana
+imiesłowu „rejestrowana" na „jest nagrywana".
+
+### 🔗 UWAGA: POWITANIE JEST W DWÓCH MIEJSCACH I MUSZĄ SIĘ ZGADZAĆ
+
+`voice-agent-chat/index.ts` cytuje je **dosłownie** w regule powitania:
+
+```
+- Rozmówca usłyszał już z systemu telefonicznego DOKŁADNIE TO:
+  "Dzień dobry, ${firmName}, rozmowa rejestrowana — w czym mogę pomóc?".
+  Tego zdania nie ma w Twoim kontekście, ale ono PADŁO. Nie witaj się drugi raz…
+```
+
+**Zmiana `first_message` bez zmiany tej linii rozjeżdża prompt z rzeczywistością** —
+model dostałby informację, że padło inne zdanie, niż faktycznie padło. To dokładnie
+ta klasa cichego rozjazdu, którą już raz mieliśmy przy `voice_commit_call`.
+
+Obie zmiany idą razem albo żadna.
+
+## 🎯 TO NIE MODEL. TO NASZE POWITANIE. 50% → 0% BEZ ZMIANY CZEGOKOLWIEK U NICH.
+
+Pięć zdań po 20 syntez, model Turbo v2.5 (ten „zepsuty"), głos Kamil (ten gorszy):
+
+```
+1  powitanie (obecne)                          10/20 = 50%
+2  „Dobrze, wymiana klocków i tarcz…"            0/20 =  0%
+3  „Rozumiem, zajmiemy się tym — mechanik…"      1/20 =  5%
+4  „Dzień dobry, Warsztat. W czym mogę pomóc?"   0/20 =  0%
+5  „…rozmowa jest nagrywana — w czym…"           4/20 = 20%
+```
+
+**Wada siedzi w JEDNYM zdaniu — naszym powitaniu.** Normalne wypowiedzi agenta
+o usłudze i terminie są czyste. Skrócenie powitania daje **0/20**.
+`10/20 wobec 0/20 → p = 0,0002`.
+
+### ⚠️ TO OSŁABIA MOJĄ WCZEŚNIEJSZĄ REKOMENDACJĘ MODELU
+
+Napisałem „`eleven_v3` — rozwiązanie, 0% wadliwych" i to było **przedwczesne**.
+Ramię kontrolne na trzech różnych zdaniach dało `Turbo 5/30`, `Flash 8/30`,
+a nie 53% — bo tamte 8/15 pochodziło **wyłącznie ze zdania powitalnego**.
+
+```
+multilingual_v2 (0/30) wobec Turbo (5/30):   p = 0,052
+v3              (0/30) wobec Turbo (5/30):   p = 0,052
+```
+
+**Ledwo poza progiem istotności.** Przewaga v3 i Multilingual wygląda prawdziwie,
+ale na tej próbie nie jest dowiedziona — a ja ogłosiłem ją jako rozwiązanie.
+Czwarty raz dziś ta sama klasa błędu: **wniosek szerszy niż pomiar**.
+
+### 📌 KOLEJNOŚĆ DZIAŁAŃ — ODWRÓCONA
+
+```
+1. przeredagować powitanie      50% -> 0%    p = 0,0002   ZA DARMO, dziś
+2. wrócić na głos Eric          45% -> 15%   p = 0,007    za darmo
+3. zmienić model na v3           17% ->  0%   p = 0,052    kosztuje ~145 ms
+```
+
+**Punkty 1 i 2 nic nie kosztują i mają mocniejszy dowód niż punkt 3.**
+Model zostawiamy na koniec — jeśli po dwóch pierwszych zmianach bełkot zniknie
+z rozmów, nie płacimy 145 ms za nic.
+
+### ⚖️ ALE WARIANT 4 JEST BEZUŻYTECZNY — WYCINA OBOWIĄZEK RODO
+
+`„Dzień dobry, Warsztat. W czym mogę pomóc?"` jest czyste, ale **nie informuje
+o nagrywaniu**. To obowiązek prawny, nie ozdobnik — nie wolno go usunąć, żeby
+poprawić statystykę syntezy.
+
+Wariant 5 (`„rozmowa jest nagrywana"`) obniża z 50% do 20%, ale nie do zera —
+więc samo słowo „rejestrowana" też nie jest całą przyczyną.
+
+Trwa test czterech wariantów, które **zachowują informację o nagrywaniu**
+i rozbijają ją na krótsze człony.
+
+## ✅ POTWIERDZONE NA 30 PRÓBKACH: `v3` I `multilingual_v2` — ZERO WTRĘTÓW
+
+Trzy różne polskie zdania **bez liczb i dat** × 10 syntez = 30 na model.
+Asercja w kodzie nie przepuszcza zdania z liczebnikiem — po tym, jak poprzedni
+przebieg dał fałszywe 10/30.
+
+```
+eleven_multilingual_v2      0/30
+eleven_v3                   0/30
+```
+
+### ⚠️ TRZECI RAZ TEGO SAMEGO BŁĘDU W MOIM MIERNIKU
+
+Pierwszy przebieg potwierdzenia dał `multilingual_v2 — 10/30`. Wszystkie
+dziesięć „wtrętów" to było `osiemnaście dziewięć zero`: silnik zapisał
+„osiemnastego" jako „osiemnaście", a „dziewiątej" jako „dziewięć zero".
+**Odmiana liczebnika, nie zmyślone słowo.** Zdanie testowe zawierało datę.
+
+To ta sama klasa co detektor sybilantów i „turbo-04 jest wadliwy". Poprawka
+weszła do kodu jako **asercja**, nie jako komentarz — zdanie z liczbą nie
+przejdzie przez ten test.
+
+### ⏱️ KOSZT LATENCJI — v3 JEST TAŃSZY OD MULTILINGUAL O 203 ms
+
+Czas do pierwszego bajtu audio, sześć prób, ta sama sesja, endpoint `/stream`:
+
+```
+eleven_turbo_v2_5        0,342 s     (odniesienie)
+eleven_v3                0,892 s     +550 ms      ×2,6
+eleven_multilingual_v2   1,095 s     +753 ms      ×3,2
+```
+
+⚠️ **Te wartości bezwzględne zawyżają karę w rozmowie**, bo mierzone są z mojego
+łącza w Warszawie i zawierają pełny czas podróży. W rozmowie
+`convai_tts_service_ttfb` dla Flasha wynosi ~0,090 s, nie 0,342. Przenosi się
+**stosunek, nie różnica**: przy ×2,6 v3 dałby w rozmowie około 0,23 s zamiast
+0,09 s, czyli **realnie ~+145 ms**, a nie +550 ms.
+
+**To mieści się w budżecie.** Cel 600–800 ms na turę zostaje osiągalny.
+
+### 🎯 REKOMENDACJA: Eric + v3
+
+Dwie zmiany, obie z pomiarem, obie odwracalne w sekundę:
+
+```
+głos   Kamil -> Eric     45% -> 15% wadliwych     p = 0,007
+model  Turbo -> v3       57% ->  0% wadliwych     koszt ~+145 ms w rozmowie
+```
+
+`multilingual_v2` jest równie czysty, ale o 203 ms wolniejszy od `v3` — bierzemy
+go tylko wtedy, gdy `v3` okaże się niestabilny w rozmowie (jest ich najnowszym
+modelem i nie mamy go przetestowanego na żywym ruchu).
+
+**Nie przełączam bez zgody.** Kopie konfiguracji sprzed każdej zmiany leżą
+w `backups/`.
+
+## 🔬 ROZBICIE 2×2: GŁOS MA ZNACZENIE. MODEL FLASH/TURBO — NIE.
+
+Cztery kombinacje po 20 syntez tego samego polskiego zdania, `stability 0,5`.
+
+```
+A  stan sprzed zmian: Eric  + Flash + sim 0,8      4/20 = 20%
+B  stan dzisiejszy:   Kamil + Turbo + sim 0,6      6/20 = 30%
+C  Eric  + Turbo + sim 0,8                         2/20 = 10%
+D  Kamil + Flash + sim 0,6                        12/20 = 60%
+```
+
+Rozbite na pojedyncze zmienne, po 40 próbek na poziom:
+
+```
+GŁOS    Eric   6/40 = 15%      Kamil 18/40 = 45%     p = 0,007   ISTOTNE
+MODEL   Turbo  8/40 = 20%      Flash 16/40 = 40%     p = 0,087   nieistotne
+```
+
+### ⚠️ MUSZĘ COFNĄĆ WŁASNE WYKLUCZENIE GŁOSU
+
+Wpisałem „✗ głos — Eric i Kamil, to samo" na listę wykluczeń i **to było
+za mocne**. Prawda jest taka: **objaw występuje przy obu głosach, ale przy
+Kamilu TRZY RAZY CZĘŚCIEJ** (45% wobec 15%, p = 0,007).
+
+Pomyliłem „występuje przy obu" z „nie zależy od głosu". To dwie różne rzeczy
+i pierwsza nie dowodzi drugiej. **Zmiana na Kamila była zmianą na gorsze** —
+zrobiliśmy ją wczoraj wieczorem, szukając poprawy.
+
+To zdanie jest też w wysłanym zgłoszeniu („reproduces on two unrelated voices")
+— tam akurat jest prawdziwe, bo mówi tylko o reprodukcji, nie o niezależności.
+Ale w naszej liście wykluczeń było mylące.
+
+### ❌ PAMIĘĆ O „WCZEŚNIEJ BYŁO LEPIEJ" — NIE POTWIERDZONA
+
+```
+A (stan sprzed wszystkich zmian)  4/20
+B (stan dzisiejszy)               6/20
+p = 0,716   -> to szum
+```
+
+Stan sprzed naszych zmian i stan dzisiejszy są nieodróżnialne. Wrażenie, że
+kiedyś było lepiej, nie ma pokrycia w pomiarze — tak samo jak przy szeregu
+chronologicznym z 69 nagrań.
+
+⚠️ Czego ten test NIE mierzy: `enable_phoneme_tags` nie istnieje w TTS API,
+to parametr platformy Agents. Tej zmiennej nie da się odtworzyć poza rozmową
+i nie udaję, że ją sprawdziłem.
+
+## 🚫 ZEWNĘTRZNY TTS W ELEVENLABS AGENTS — NIE ISTNIEJE
+
+Sprawdzone w schemacie agenta i w ich dokumentacji: blok `tts` przyjmuje
+wyłącznie `model_id` i `voice_id` z ich katalogu. **Nie ma pola na endpoint,
+webhook ani zewnętrznego dostawcę.** Custom LLM tak, custom TTS nie.
+
+Odwrotnie działa u konkurencji: Vapi, Retell i LiveKit są modularne — STT, LLM
+i TTS wybiera się niezależnie i można mieszać dostawców. Czyli migracja dawałaby
+dokładnie tę modularność, której ElevenLabs odmawia.
+
+**Ale po dzisiejszym wyniku ta decyzja może być niepotrzebna** — skoro ich własny
+`multilingual_v2` i `v3` są czyste, problemem nie jest dostawca, tylko wybór modelu.
+
+## ✅ ROZWIĄZANIE: `eleven_multilingual_v2` — ZERO WTRĘTÓW PO POLSKU
+
+Piętnaście syntez tego samego polskiego zdania na każdy model, ten sam głos,
+te same ustawienia, jedna sesja. Wtręt = słowo, którego nie ma w tekście.
+
+```
+model                      POLSKI     ANGIELSKI
+eleven_flash_v2_5           8/15        0/15
+eleven_turbo_v2_5           8/15        0/15
+eleven_multilingual_v2      0/15        0/15
+```
+
+**Dwie rzeczy naraz, obie rozstrzygające:**
+
+**1. To jest defekt POLSKIEGO, nie ogólny.** Flash i Turbo psują się w ponad
+połowie polskich prób i **ani razu** po angielsku. Trzydzieści syntez angielskich,
+zero wtrętów. To nie jest „ElevenLabs czasem bełkocze" — to **model gubi polską
+fonetykę**.
+
+**2. Jeden z ich modeli tego nie robi.** `eleven_multilingual_v2` — 0/15 po polsku.
+Ten sam głos, to samo zdanie, ta sama sesja, ta sama minuta.
+
+**To jest rozwiązanie dostępne dziś, bez migracji i bez czekania na support.**
+
+⚠️ Cena: zmierzone wcześniej **+785 ms** do pierwszego bajtu (0,195 → 0,981 s).
+To samo wywala cel 600–800 ms na turę. Wybór jest wprost: **agent wolniejszy
+o osiem dziesiątych sekundy albo agent, którego co druga wypowiedź zawiera
+zmyślone słowo.**
+
+⚠️ Wynik czeka na potwierdzenie na trzech różnych zdaniach po 10 syntez
+(30 na model) — jedno zdanie to za wąska podstawa na decyzję o produkcji.
+
+## 🧭 DRUGIE ŹRÓDŁO USTAWIEŃ GŁOSU — ISTNIEJE, ALE NIC GO NIE WYSYŁA
+
+Pytanie było trafne i trzeba było je zadać. Odpowiedź jest dwuczęściowa.
+
+**Tak, w bazie jest drugi komplet ustawień syntezy — i jest wypełniony:**
+
+```
+voice_agent_configs (persona workshop_secretary)
+  voice_id            = onwK4e9ZLuTAKqWW03F9      (głos „Daniel")
+  voice_mode          = per_language
+  voice_per_language  = { "pl": "853X4BjOscPIWJYTmuYo" }
+  voice_similarity    = 0,75
+  voice_speed         = 1,00
+  voice_stability     = 0,45
+  voice_style         = 0,00
+```
+
+**Nie, nic z tego nie trafia do ElevenLabs.** Trzy niezależne dowody:
+
+**1. Żadna funkcja brzegowa tych kolumn nie czyta.** Jedyne miejsce w całym
+repozytorium, które ich dotyka, to `src/components/ai-sales/VoiceAgentPanel.tsx`
+— czyli sam panel, po stronie przeglądarki. Zero trafień w `supabase/functions/`.
+
+**2. `voice-agent-init` nie odsyła żadnych nadpisań.** Jego odpowiedź to dokładnie:
+
+```js
+{ type: "conversation_initiation_client_data",
+  dynamic_variables: { rido_snapshot, rido_caller_znany } }
+```
+
+Ani `conversation_config_override`, ani `tts`, ani `voice_settings`, ani `voice_id`.
+`voice-agent-llm` i `voice-agent-chat` też nie — `voice_id` pojawia się tam
+wyłącznie jako pole w zapytaniu `SELECT`, nigdzie nie jest przekazywane dalej.
+
+**3. ElevenLabs zapisał, co faktycznie dostał, w każdej z 69 rozmów:**
+
+```
+67 rozmów: conversation_config_override — wszystkie pola None
+ 2 rozmowy: obiekt obecny, ale każda wartość w środku null
+```
+
+**Wniosek wprost: NIE MA drugiego źródła prawdy w ścieżce rozmowy.** Nasze
+trzy dni zmian w panelu ElevenLabs zadziałały — każdą weryfikowałem pobraniem
+konfiguracji po zmianie, a teraz potwierdza to również zapis po ich stronie.
+
+### 🐛 ALE TO JEST OSOBNY, REALNY BŁĄD — i to w wersji wielotenantowej groźny
+
+Panel `VoiceAgentPanel` pokazuje warsztatowi suwaki głosu, stabilności, tempa
+i podobieństwa. **Zapisuje je do bazy i nic ich nie czyta.** Warsztat może
+przestawiać je do woli — agent mówi dalej tym, co jest ustawione w panelu
+ElevenLabs, ręcznie, dla wszystkich naraz.
+
+Widać to w danych: baza mówi `voice_id = onwK4e9ZLuTAKqWW03F9` i głos polski
+`853X4BjOscPIWJYTmuYo`, a rozmowy szły głosem Eric, a od wczoraj Kamil.
+**Trzy różne odpowiedzi na pytanie „jakim głosem mówi agent".**
+
+To ta sama klasa błędu co `voice_commit_call` poza migracjami: interfejs obiecuje
+kontrolę, której nie ma. Do backlogu — z notatką, że przy wielu warsztatach to
+przestaje być kosmetyką, bo każdy będzie chciał własny głos.
+
 ## 🎛️ `similarity_boost` — OSTATNI NIERUSZONY PARAMETR. NIE JEST PRZYCZYNĄ.
 
 Zmierzone, zanim cokolwiek zmieniłem. Głos Kamil (klon z biblioteki),
@@ -2244,3 +2619,197 @@ post_call_webhook_id    a9f9457cf459465297f20b3c3c6c6648  (events: transcript, j
   tym samym identyfikatorem. Żądanie wyodrębnia się po `stage "prepare"` (chat) /
   `stage "auth"` (llm)
 - Bez pushy i merge'y do `main` bez zgody właściciela
+
+## 🧨 ZASADA: MIERZYLIŚMY NARZĘDZIE ZAMIAST ZJAWISKA
+
+`language_detection` **nigdy nie było mechanizmem mówienia po rosyjsku.**
+06.08 agent po prostu **napisał odpowiedź cyrylicą**, a synteza ją przeczytała.
+Narzędzie w tej rozmowie zostało wywołane z `{"language":"pl"}` — czyli nie
+przełączało niczego.
+
+15.08 model sięgnął po narzędzie zamiast po prostu odpowiedzieć, dostał
+„Invalid language", i **na tej podstawie ogłosiłem, że wielojęzyczność jest
+zablokowana**. Napisałem dokumentację, przygotowałem migrację, zaprojektowałem
+obejście przez `preferred_language` i wpisałem do promptu regułę, która
+**zablokowała jedyną rzecz, jaka działała.**
+
+> **Zbadałem, czy działa NARZĘDZIE, i wyciągnąłem wniosek o ZJAWISKU.**
+
+To ta sama klasa co wszystkie pozostałe pomyłki tego tygodnia:
+
+```
+detektor sybilantów      mierzył głoski szczelinowe    wniosek o artefaktach
+„turbo-04 wadliwy"       mierzył tempo                  wniosek o zepsuciu
+„20/20 czyste"           mierzyło długość               wniosek o czystości
+liczebniki               mierzyły odmianę ASR           wniosek o wtrętach
+nagranie klienta         mierzyło zły język             wniosek o jakości nagrania
+language_detection       mierzyło narzędzie             wniosek o języku rozmowy
+```
+
+**Sześć razy. Za każdym razem pomiar był poprawny.** Brakowało pytania:
+*czy to, co mierzę, jest tym samym co to, o czym chcę orzec?*
+
+Konkretnie tutaj wystarczyłoby jedno sprawdzenie, którego nie zrobiłem:
+**poszukać w historii rozmowy, w której agent mówił po rosyjsku.** Użytkownik
+o niej pamiętał; ja uwierzyłem własnemu testowi bardziej niż jego pamięci.
+Rozmowy były trzy, wszystkie z 06.08, i zajęło mi to potem cztery minuty.
+
+## 🔁 WNIOSEK OPERACYJNY: SPRAWDŹ, CZY KIEDYŚ DZIAŁAŁO
+
+Diagnoza „mierzyliśmy narzędzie zamiast zjawiska" mówi, co poszło źle.
+To mówi, co robić.
+
+> **ZANIM UZNASZ, ŻE COŚ NIE DZIAŁA — SPRAWDŹ, CZY KIEDYŚ DZIAŁAŁO.**
+> Historia rozmów, logi, transkrypty. Kosztuje minuty, oszczędza dni.
+
+Rachunek z 15.08:
+
+```
+szukanie w historii rozmowy z rosyjskim agentem       4 minuty
+praca oparta na błędnym wniosku:                      doba
+  dokumentacja „wielojęzyczność zablokowana"
+  migracja preferred_language
+  projekt obejścia przez zapamiętany język
+  REGUŁA WDROŻONA DO PRODUKCJI, która zepsuła działającą funkcję
+```
+
+### Reguła praktyczna, nie rachunek zasług
+
+Kusi, żeby zestawić „pamięć trafiła 1 raz na 3" z „pomiary dały 6 błędnych
+wniosków" i orzec, które źródło jest lepsze. **To zła miara** — te liczby nie są
+tej samej klasy. Jedna trafiona intuicja („przełączanie kiedyś działało")
+oszczędziła dobę pracy; jeden błędny wniosek kosztował godzinę (detektor
+sybilantów), a inny dobę (`language_detection`). Liczy się koszt, nie licznik.
+
+> **Przy każdym wniosku, który ZMIENIA KIERUNEK PRACY — sprawdź drugie źródło.
+> Nawet jeśli pierwsze wydaje się rozstrzygające.**
+
+Bo asymetria jest brutalna:
+
+```
+sprawdzenie drugiego źródła      minuty
+niesprawdzenie                   dni
+```
+
+„Zmienia kierunek pracy" to test praktyczny: jeśli po tym wniosku zamierzam
+napisać dokumentację, przygotować migrację albo wdrożyć regułę — to jest ten
+moment. 15.08 zrobiłem wszystkie trzy rzeczy naraz, na wniosku, którego
+nie sprawdziłem.
+
+## 📌 PLAN B (transfer do agenta per język) — NIE SPRAWDZANY, pytania zapisane
+
+Uruchamiamy tylko wtedy, gdy `model_family` odpadnie w prawdziwej rozmowie.
+
+Kontekst nie jest problemem: przełączenie następuje w pierwszych sekundach,
+gdy agent nie zna jeszcze problemu, terminu, imienia ani auta. **Nie ma czego
+stracić** — cały kontekst powstaje po przełączeniu.
+
+Trzy pytania do sprawdzenia, żeby nie szukać ich od nowa:
+
+```
+1. czy transfer_to_agent działa przy połączeniu z trunku SIP
+2. czy agent docelowy dostaje caller_id
+3. czy conversation_id ZOSTAJE TEN SAM, czy powstaje nowy
+```
+
+**Trzecie jest krytyczne.** Nasza idempotencja w `voice_commit_call` stoi
+na kluczu `(provider_id, elevenlabs_conversation_id)`. Przy nowym identyfikatorze
+z jednej rozmowy powstaną **dwa zlecenia** — i klient dostanie dwa SMS-y
+z tym samym terminem.
+
+## 📐 CO SPRAWIA, ŻE TEN PROCES DZIAŁA — do utrzymania poza agentem
+
+W tym tygodniu **pięć razy zbudowałem wniosek szerszy niż pomiar** i pięć razy
+został obalony, zanim cokolwiek na nim zbudowaliśmy: detektor sybilantów,
+„turbo-04 wadliwy", „20/20 czyste", odmiana liczebnika jako wtręt, nagranie
+„nieczytelne" (bo po rosyjsku).
+
+**Ale nie wszystkie obaliłem sam.** Dwa z pięciu wykryła prośba użytkownika,
+nie moja czujność: „sprawdź liczebniki" i „daj surową transkrypcję". To zmienia
+wniosek o procesie.
+
+> **Proces działa nie dlatego, że autor się kontroluje, tylko dlatego, że każde
+> ustalenie wraca w formie, którą DA SIĘ ZAKWESTIONOWAĆ: z liczbą, cytatem
+> i opisem metody.**
+
+Twierdzenie „to wygląda lepiej" jest nie do sprawdzenia. Twierdzenie „4/20 wobec
+12/20, test dokładny Fishera p = 0,022, na tym zdaniu, tym głosem" — jest.
+Drugie zaprasza do obalenia, pierwsze zamyka temat.
+
+To dotyczy każdej pracy, nie tylko agenta głosowego. Trzy rzeczy, które to niosą:
+
+```
+LICZBA    ile próbek, jaki odsetek, jaka istotność — nie „często", nie „zwykle"
+CYTAT     dokładne zdanie z rozmowy albo logu, nie streszczenie
+METODA    czym mierzone i CZEGO ten pomiar NIE obejmuje
+```
+
+Trzeci punkt jest najważniejszy i najczęściej pomijany. Każda z pięciu pomyłek
+wzięła się z pominięcia zdania „ten pomiar nie mówi nic o…".
+
+## 🔴 DWIE MOJE POMYŁKI PRZY NAGRANIU OD KLIENTA — obie odwołane
+
+**1. Nagranie NIE było nieczytelne. Było po ROSYJSKU, a ja transkrybowałem po polsku.**
+
+```
+język transkrypcji   pewność całości
+polski                   0,475        <- na tym oparłem werdykt „nie nadaje się"
+ukraiński                0,712
+rosyjski                 0,925        <- czysty tekst, 161 słów
+angielski                0,000
+```
+
+Napisałem: *„zniekształcenie rozłożone na całość — sygnatura złego łańcucha
+nagrywania, kompresja Opus plus głośnik telefonu"* i odradziłem wyciąganie
+wniosków. **Nagranie jest w porządku.** Zmierzyłem jakość odczytu przy złym
+języku i uznałem wynik za jakość nagrania.
+
+To ta sama klasa co detektor sybilantów, „turbo-04 wadliwy", „20/20 czyste"
+i odmiana liczebnika jako wtręt — **piąty raz: wniosek szerszy niż pomiar.**
+Konkretnie tutaj: `voice-audio-diagnose` domyślnie ustawia `language: "pl"`,
+a ja nie sprawdziłem, w jakim języku mówi nagranie, zanim orzekłem o jego jakości.
+
+**Wniosek narzędziowy:** przy każdym nagraniu z zewnątrz najpierw przepuszczać
+przez cztery języki i brać ten o najwyższej pewności, a nie zakładać polskiego.
+
+**2. Zlecenie ZAWIERA pełen zakres. Napisałem, że zawiera tylko olej.**
+
+```
+klient   : „Aa, tak, wymiana benzyn masła, aa, i wszystkich filtrów, tak?"
+agent    : „Tak, zajmiemy się wymianą oleju i filtrów…"
+zlecenie ZLP-08/2026-002: „wymiana oleju, wymiana benzyny masła i wszystkich filtrów"
+```
+
+Napisałem: *„Zlecenie z tamtej rozmowy mówi tylko o wymianie oleju"* — **nie
+sprawdziwszy opisu zlecenia.** Sprawdzone teraz: zawiera wszystko, co agent
+potwierdził.
+
+**Wzorca nie ma.** Przegląd wszystkich 71 rozmów pod kątem „klient dopytał
+o zakres → agent potwierdził → zlecenie zawiera mniej": **jeden przypadek,
+i w nim zlecenie jest kompletne.** Reguła „wszystko, co agent potwierdzi, trafia
+do opisu zlecenia" nie jest potrzebna — to już działa.
+
+## 📋 BACKLOG: POŁĄCZENIA, KTÓRYCH NIE WIDZIMY — priorytet wysoki
+
+**Nie mamy żadnego zapisu połączeń, które nie zostały odebrane.**
+
+Nasz łańcuch startuje od webhooka inicjującego, a ten odpala się dopiero, gdy
+ElevenLabs połączenie **przyjmie**. Połączenie odrzucone, nieodebrane albo urwane
+przy zestawianiu jest dla nas niewidzialne — klient dzwoni, słyszy sygnał albo
+ciszę, rozłącza się, i nie ma tego nigdzie.
+
+**Dlaczego to jest wysoko:** „ile połączeń nie doszło" to pierwsze pytanie, jakie
+zada warsztat przy sprzedaży agenta. Dziś odpowiedź brzmi „nie wiemy",
+a to jest gorsza odpowiedź niż jakakolwiek liczba.
+
+Wyszło przy okazji 15.08: użytkownik dzwonił trzy razy, ElevenLabs ma dwie
+rozmowy, obie u nas kompletne (wiersz, transkrypt, zlecenie). Trzeciej nie ma
+nigdzie — i **nie umiemy rozstrzygnąć, czy w ogóle wyszła z telefonu**.
+
+Do sprawdzenia:
+```
+- czy SuperVoIP ma API do bilingów (CDR) — wtedy liczymy próby wobec odebranych
+- czy ElevenLabs raportuje nieudane próby zestawienia (dziś sip-messages mamy
+  tylko dla rozmów, które się odbyły)
+- czy da się policzyć różnicę „call attempts vs answered" po ich stronie
+```

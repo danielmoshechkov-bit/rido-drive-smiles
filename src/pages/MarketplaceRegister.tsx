@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { KontoJuzIstnieje } from '@/components/auth/KontoJuzIstnieje';
 import { supabase } from "@/integrations/supabase/client";
 import { signUpMarketplace, resendActivationEmail } from "@/services/authService";
 import { getStoredReferralCode, clearReferralCode } from "@/lib/referralTracking";
@@ -27,6 +28,9 @@ export default function MarketplaceRegister() {
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [isHuman, setIsHuman] = useState(false);
+  // Osobno od `fieldErrors`: konto istnieje to nie błąd walidacji pola, tylko
+  // rozwidlenie ścieżki — użytkownik ma iść do logowania, nie poprawiać adres.
+  const [kontoIstnieje, setKontoIstnieje] = useState<string | null>(null);
   const [honeypot, setHoneypot] = useState(""); // Anti-bot honeypot
   
   const [formData, setFormData] = useState({
@@ -76,6 +80,7 @@ export default function MarketplaceRegister() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFieldErrors({});
+    setKontoIstnieje(null);
     
     // Anti-bot check
     if (honeypot) {
@@ -110,6 +115,10 @@ export default function MarketplaceRegister() {
 
       // Check for field-specific errors
       if (!result.success) {
+        if (result.code === "EMAIL_EXISTS") {
+          setKontoIstnieje(formData.email);
+          return;
+        }
         const errorMsg = result.error || t("register.errorRetry");
         if (result.field) {
           setFieldErrors({ [result.field]: errorMsg });
@@ -208,6 +217,13 @@ export default function MarketplaceRegister() {
             )}
             
             <form onSubmit={handleSubmit} className="space-y-4">
+              {kontoIstnieje && (
+                <KontoJuzIstnieje
+                  email={kontoIstnieje}
+                  onZaloguj={() => navigate('/auth', { state: { email: kontoIstnieje } })}
+                  onResetHasla={() => navigate('/auth', { state: { email: kontoIstnieje, reset: true } })}
+                />
+              )}
               {/* Honeypot - hidden from users, bots fill it */}
               <input
                 type="text"

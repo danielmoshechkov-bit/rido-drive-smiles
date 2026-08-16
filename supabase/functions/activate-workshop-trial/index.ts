@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveWorkshopTrialDays, workshopTrialExpiresAt } from "../_shared/workshopTrial.ts";
+import { sprawdzKodPlanu } from "../_shared/kodPlanu.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,28 +49,27 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const plan: string | undefined = typeof body.plan === "string" ? body.plan : undefined;
 
-    console.log("🔧 Activating workshop module for:", user.email, "plan:", plan || "-");
+    // Kod planu sprawdzamy w cenniku ZANIM go gdziekolwiek zapiszemy.
+    const planSprawdzony = await sprawdzKodPlanu(supabaseAdmin, plan);
+    console.log("🔧 Activating workshop module for:", user.email, "plan:", planSprawdzony || "-");
 
-    // 1. Rola service_provider (bramka panelu /uslugi/panel)
-    const { error: roleError } = await supabaseAdmin
-      .from("user_roles")
-      .upsert({ user_id: userId, role: "service_provider" }, { onConflict: "user_id,role" });
-    if (roleError) {
-      console.error("❌ role error:", roleError.message);
-      throw roleError;
-    }
-
-    // 2. user_metadata: module + plan (merge, nie nadpisujemy pozostałych pól)
+    // 1. user_metadata: module + plan (merge, nie nadpisujemy pozostałych pól)
     const meta = (user.user_metadata || {}) as Record<string, unknown>;
     await supabaseAdmin.auth.admin.updateUserById(userId, {
-      user_metadata: { ...meta, module: "warsztat", ...(plan ? { plan } : {}) },
+      user_metadata: { ...meta, module: "warsztat", ...(planSprawdzony ? { plan: planSprawdzony } : {}) },
     });
 
-    // 3. Wpis usługodawcy (status wstępny) — tylko jeśli brak
+    // 2. Wpis usługodawcy (status wstępny) — tylko jeśli brak.
+    //    MUSI poprzedzać nadanie roli: patrz komentarz niżej.
     const { data: existingProvider } = await supabaseAdmin
       .from("service_providers")
       .select("id, status")
       .eq("user_id", userId)
+      // Konto może mieć więcej niż jeden warsztat. `maybeSingle` zwraca wtedy
+      // BŁĄD, nie pierwszy wiersz — a błąd tutaj wyglądał jak „brak warsztatu"
+      // i zakładał KOLEJNY.
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
 
     if (!existingProvider) {
@@ -86,10 +86,46 @@ Deno.serve(async (req) => {
         status: "pending",
       });
       if (spError) {
-        console.error("⚠️ service_providers insert error:", spError.message);
-      } else {
-        console.log("✅ service_provider row created (pending)");
+        // Rzucamy, zamiast tylko logować. Wcześniej nieudany zapis zostawiał
+        // konto z rolą `service_provider` wskazującą na NIC: panel wpuszczał,
+        // a warsztatu nie było — i nic tego stanu nie naprawiało, bo dla
+        // ponownego wywołania rola już istniała.
+        console.error("❌ service_providers insert error:", spError.message);
+        throw spError;
       }
+      console.log("✅ service_provider row created (pending)");
+    }
+
+    // Pakiet startowy — także dla kont, które aktywują moduł później.
+    {
+      const { data: warsztat } = await supabaseAdmin
+        .from("service_providers").select("id").eq("user_id", userId)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+      // Pakiet startowy: 20 SMS + 5 sprawdzeń VIN, raz na adres. Funkcja jest
+      // idempotentna po znormalizowanym e-mailu, więc powtórna rejestracja
+      // ani odtworzenie warsztatu nie dadzą drugiego pakietu.
+      const { data: pakiet, error: bladPakietu } = await supabaseAdmin.rpc(
+        "przyznaj_pakiet_startowy",
+        { p_user_id: userId, p_provider_id: warsztat?.id ?? null, p_email: user.email },
+      );
+      if (bladPakietu) {
+        // Brak pakietu nie może wywrócić rejestracji — konto ma powstać.
+        console.error("⚠️ pakiet startowy:", bladPakietu.message);
+      } else {
+        console.log(pakiet ? "✅ Pakiet startowy przyznany" : "ℹ️ Pakiet startowy już był");
+      }
+    }
+
+    // Rola DOPIERO TERAZ, gdy warsztat na pewno istnieje. Odwrócona kolejność
+    // znaczy, że nie ma czego wycofywać przy błędzie — a wycofywanie roli
+    // byłoby zgadywaniem, czy nadaliśmy ją my, czy była wcześniej.
+    const { error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: userId, role: "service_provider" }, { onConflict: "user_id,role" });
+    if (roleError) {
+      console.error("❌ role error:", roleError.message);
+      throw roleError;
     }
 
     // 4. Minimalny trial — tylko jeśli user nie ma żadnej subskrypcji.
@@ -112,7 +148,7 @@ Deno.serve(async (req) => {
         amount_paid: 0,
         metadata: {
           module: "warsztat",
-          plan: plan || null,
+          plan: planSprawdzony,
           trial: true,
           trial_days: trialDays,
           source: "existing_account_activation",

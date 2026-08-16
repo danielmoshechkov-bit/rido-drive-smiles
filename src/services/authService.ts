@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { odczytajBladFunkcji } from '@/utils/bladFunkcji';
 
 /**
  * Wspólny serwis rejestracji i aktywacji kont.
@@ -21,6 +22,12 @@ export type SignupResult = {
   error?: string;
   /** Nazwa pola formularza, którego dotyczy błąd (np. "email"). */
   field?: string;
+  /**
+   * Kod błędu z funkcji brzegowej, np. `EMAIL_EXISTS`, `RATE_LIMITED`.
+   * Interfejs reaguje na KOD, nie na treść komunikatu — dopasowywanie po
+   * słowach w zdaniu psuło się przy każdej zmianie tekstu i przy tłumaczeniu.
+   */
+  code?: string;
 };
 
 const activationRedirect = () => `${window.location.origin}/email-confirmed`;
@@ -63,10 +70,24 @@ export async function signUpMarketplace(payload: MarketplaceSignupPayload): Prom
   const response = await supabase.functions.invoke("register-marketplace-user", { body: payload });
 
   if (response.data?.error) {
-    return { success: false, error: response.data.error, field: response.data.field };
+    return {
+      success: false,
+      error: response.data.error,
+      field: response.data.field,
+      code: response.data.code,
+    };
   }
   if (response.error) {
-    return { success: false, error: response.error.message };
+    // Treść odpowiedzi funkcji siedzi w `error.context`, nie w `error.message`
+    // — bez tego użytkownik widzi „Edge Function returned a non-2xx status
+    // code" zamiast zdania, które funkcja naprawdę odesłała.
+    const blad = await odczytajBladFunkcji(response.error);
+    return {
+      success: false,
+      error: blad.komunikat,
+      field: blad.pole,
+      code: typeof blad.surowe?.code === 'string' ? blad.surowe.code : undefined,
+    };
   }
   return {
     success: true,
@@ -83,10 +104,24 @@ export async function signUpFleet(payload: FleetSignupPayload): Promise<SignupRe
   const response = await supabase.functions.invoke("register-fleet", { body: payload });
 
   if (response.data?.error) {
-    return { success: false, error: response.data.error, field: response.data.field };
+    return {
+      success: false,
+      error: response.data.error,
+      field: response.data.field,
+      code: response.data.code,
+    };
   }
   if (response.error) {
-    return { success: false, error: response.error.message };
+    // Treść odpowiedzi funkcji siedzi w `error.context`, nie w `error.message`
+    // — bez tego użytkownik widzi „Edge Function returned a non-2xx status
+    // code" zamiast zdania, które funkcja naprawdę odesłała.
+    const blad = await odczytajBladFunkcji(response.error);
+    return {
+      success: false,
+      error: blad.komunikat,
+      field: blad.pole,
+      code: typeof blad.surowe?.code === 'string' ? blad.surowe.code : undefined,
+    };
   }
   return {
     success: true,
@@ -104,11 +139,14 @@ export async function resendActivationEmail(email: string, language = "pl"): Pro
 
   // invoke() zwraca error przy statusach != 2xx — treść błędu jest w context
   if (response.error) {
-    const body = await extractErrorBody(response.error);
-    if (body?.error === "already_confirmed") {
-      return { success: false, error: body.message || "To konto jest już aktywne. Możesz się zalogować." };
+    const blad = await odczytajBladFunkcji(response.error);
+    if (blad.surowe?.error === "already_confirmed") {
+      return {
+        success: false,
+        error: (blad.surowe.message as string) || "To konto jest już aktywne. Możesz się zalogować.",
+      };
     }
-    return { success: false, error: body?.error || "Nie udało się wysłać linku. Spróbuj ponownie." };
+    return { success: false, error: blad.komunikat };
   }
   return {
     success: true,
@@ -122,8 +160,8 @@ export async function activateWorkshopTrial(plan?: string): Promise<SignupResult
     body: { plan },
   });
   if (response.error) {
-    const body = await extractErrorBody(response.error);
-    return { success: false, error: body?.error || "Nie udało się aktywować modułu. Spróbuj ponownie." };
+    const blad = await odczytajBladFunkcji(response.error);
+    return { success: false, error: blad.komunikat };
   }
   return { success: true, message: response.data?.message };
 }
@@ -144,18 +182,6 @@ export function getModuleRedirect(
 /** Czy błąd logowania oznacza niepotwierdzony email (pokaż opcję ponownej wysyłki linku). */
 export function isEmailNotConfirmedError(message: string | undefined): boolean {
   return !!message && /email not confirmed/i.test(message);
-}
-
-async function extractErrorBody(error: unknown): Promise<{ error?: string; message?: string } | null> {
-  try {
-    const ctx = (error as { context?: Response }).context;
-    if (ctx && typeof ctx.json === "function") {
-      return await ctx.json();
-    }
-  } catch {
-    /* ignore */
-  }
-  return null;
 }
 
 function mapAuthError(message: string): string {

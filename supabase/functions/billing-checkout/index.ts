@@ -97,13 +97,24 @@ Deno.serve(async (req) => {
     // Schemat dopuszcza jedną aktywną subskrypcję na linię produktową i pilnuje
     // tego indeksem. Sprawdzamy wcześniej, żeby klient nie zapłacił za coś,
     // czego baza i tak nie przyjmie.
+    //
+    // `read_only` ŚWIADOMIE NIE BLOKUJE. To stan po wygasłej karencji, w którym
+    // klient widzi ekran „Wybierz plan, aby wrócić do pracy" — i musi móc
+    // z niego kupić. Wcześniej ta lista zawierała `read_only`, więc kliknięcie
+    // kończyło się komunikatem „masz już aktywną subskrypcję": jedyna ścieżka
+    // powrotu prowadziła w ślepy zaułek.
+    //
+    // Baza na to pozwala: indeks `billing_subscriptions_one_active` obejmuje
+    // wyłącznie 'trialing', 'active' i 'past_due', więc nowy wiersz nie wchodzi
+    // w konflikt ze starym. Wszędzie, gdzie czytamy subskrypcję, bierzemy
+    // najnowszą (`ORDER BY created_at DESC LIMIT 1`) — czyli tę opłaconą.
     const { data: istniejaca } = await admin
       .from("billing_subscriptions")
       .select("id, status")
       .eq("subscriber_type", "service_provider")
       .eq("subscriber_id", provider.id)
       .eq("product_line", plan.product_line)
-      .in("status", ["trialing", "active", "past_due", "read_only"])
+      .in("status", ["trialing", "active", "past_due"])
       .maybeSingle();
     if (istniejaca) {
       return json({

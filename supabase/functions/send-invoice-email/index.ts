@@ -26,13 +26,26 @@ function generateEmailTemplate(
     issueDate: string;
     currency: string;
     customMessage?: string;
+    /**
+     * Link do panelu, w którym odbiorca zarządza swoją subskrypcją (4.8).
+     *
+     * PARAMETR OPCJONALNY I CELOWO PUSTY DOMYŚLNIE. Ta funkcja wysyła KAŻDĄ
+     * fakturę w portalu — także tę, którą warsztat wystawia swojemu klientowi
+     * za wymianę klocków. Doklejenie tam linku do płatności abonamentowych
+     * GetRido byłoby wysłaniem cudzego klienta w zupełnie nieswoje miejsce.
+     * Podaje go wyłącznie fakturowanie abonamentowe.
+     *
+     * Świadomie NIE linkujemy do samej faktury: wszystkie widoki faktur
+     * w portalu są po stronie WYSTAWCY, więc odbiorca trafiłby na odmowę.
+     */
+    panelPlatnosciUrl?: string;
   }
 ): { subject: string; html: string } {
   const {
     companyName, companyNip, companyAddress, companyBankAccount, companyBankName,
     companyEmail, companyPhone,
     buyerName, invoiceNumber, grossAmount, netAmount, dueDate, issueDate, currency,
-    customMessage,
+    customMessage, panelPlatnosciUrl,
   } = data;
 
   const cur = currency || 'PLN';
@@ -47,6 +60,15 @@ function generateEmailTemplate(
           <tr><td style="padding: 4px 0; color: #666; font-size: 13px;">Tytuł przelewu:</td><td style="padding: 4px 0; font-weight: 500; font-size: 13px;">${invoiceNumber}</td></tr>
           <tr><td style="padding: 4px 0; color: #666; font-size: 13px;">Kwota:</td><td style="padding: 4px 0; font-weight: 700; font-size: 14px; color: #6C5CE7;">${grossAmount} ${cur}</td></tr>
         </table>
+      </div>
+    `
+    : "";
+
+  const panelSection = panelPlatnosciUrl
+    ? `
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${panelPlatnosciUrl}" style="display: inline-block; background: #6C5CE7; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">Zarządzaj subskrypcją</a>
+        <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">Zmiana karty, historia płatności i rezygnacja</p>
       </div>
     `
     : "";
@@ -100,7 +122,8 @@ function generateEmailTemplate(
             ${customMessage ? `<div style="background: #f8f8f8; padding: 14px; border-radius: 8px; margin: 20px 0; font-style: italic; font-size: 13px; color: #555;">${customMessage}</div>` : ""}
             ${bankSection}
             <p style="background: #fef3e2; padding: 12px; border-radius: 6px; color: #8a6d3b; font-size: 12px; margin: 15px 0;">💡 Jeżeli płatność została już dokonana, prosimy o zignorowanie tej wiadomości.</p>
-            ${companySignature}
+            ${panelSection}
+          ${companySignature}
           </div>
         </div>
       `,
@@ -129,7 +152,8 @@ function generateEmailTemplate(
             <div style="background: #f8d7da; padding: 14px; border-radius: 8px; margin: 20px 0; border: 1px solid #f5c6cb;">
               <p style="margin: 0; color: #721c24; font-weight: 500; font-size: 13px;">🔴 Prosimy o pilne uregulowanie należności w celu uniknięcia dodatkowych konsekwencji.</p>
             </div>
-            ${companySignature}
+            ${panelSection}
+          ${companySignature}
           </div>
         </div>
       `,
@@ -159,6 +183,7 @@ function generateEmailTemplate(
           </div>
           ${bankSection}
           <p style="color: #555; font-size: 13px; margin: 15px 0 0 0;">Faktura w formacie PDF jest w załączniku tej wiadomości.</p>
+          ${panelSection}
           ${companySignature}
         </div>
       </div>
@@ -173,7 +198,8 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { invoice_id, type = "new_invoice", custom_message, recipient_email, pdf_base64 } = body;
+    const { invoice_id, type = "new_invoice", custom_message, recipient_email, pdf_base64,
+            panel_platnosci_url } = body;
 
     if (!invoice_id) {
       throw new Error("Missing required field: invoice_id");
@@ -290,6 +316,7 @@ serve(async (req) => {
       companyEmail, companyPhone,
       buyerName, invoiceNumber, grossAmount, netAmount, dueDate, issueDate, currency,
       customMessage: custom_message,
+      panelPlatnosciUrl: panel_platnosci_url,
     });
 
     const senderName = emailSettings.sender_name || "RIDO";
