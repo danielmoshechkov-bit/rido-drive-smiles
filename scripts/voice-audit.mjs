@@ -421,7 +421,8 @@ async function sekcjaD() {
     zle("D7", "zdania wzorcowe w prompcie mają zaszytą formę męską",
       `${plciowe.join("\n")}\nmodel wypowie je DOSŁOWNIE, także do kobiety`);
   } else {
-    ok("D7", "żadne zdanie wzorcowe nie zakłada płci rozmówcy", 1);
+    const zdanWzorcowych = (chatSrc.match(/"[^"\n]{15,200}"/g) || []).length;
+    ok("D7", `żadne z ${zdanWzorcowych} zdań wzorcowych nie zakłada płci rozmówcy`, zdanWzorcowych);
   }
 
   // D6: SCHEMATY NARZĘDZI MUSZĄ BYĆ LOGOWANE (zasada 25).

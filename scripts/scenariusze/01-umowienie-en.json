@@ -2,6 +2,7 @@
   "id": "01-umowienie",
   "jezyk": "en",
   "opis": "umówienie wizyty",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Hello, do you speak English?",

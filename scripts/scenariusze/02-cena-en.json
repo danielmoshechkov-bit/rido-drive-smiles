@@ -2,6 +2,7 @@
   "id": "02-cena",
   "jezyk": "en",
   "opis": "klient pyta o cenę",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Hi, how much is a brake pad replacement?",

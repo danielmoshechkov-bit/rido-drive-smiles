@@ -2,6 +2,7 @@
   "id": "05-usluga-spoza-cennika",
   "jezyk": "pl",
   "opis": "usługa spoza cennika",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Dzień dobry, robicie wymianę opon?",

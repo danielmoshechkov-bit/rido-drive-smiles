@@ -2,6 +2,7 @@
   "id": "07-termin-zajety",
   "jezyk": "en",
   "opis": "klient chce godzinę, której nie ma",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Hi, I would like to come tomorrow at seven in the evening.",

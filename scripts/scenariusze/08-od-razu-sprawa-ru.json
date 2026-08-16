@@ -2,6 +2,7 @@
   "id": "08-od-razu-sprawa",
   "jezyk": "ru",
   "opis": "klient od razu mówi, czego chce (z prawdziwej rozmowy 16.08)",
+  "zrodlo": "conv_0901m04p490yenwrpfrhyg8vjyk2",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Здравствуйте, хотел бы узнать свободное время, чтобы записаться на, ээ, проверку подвески, замену фильтров и осмотр машины.",

@@ -227,3 +227,24 @@ test("doZaproponowania: zapas to nie propozycja", () => {
   assert.deepEqual(doZaproponowania([]), []);
   assert.deepEqual(doZaproponowania(undefined as unknown as string[]), []);
 });
+
+test("kazdy dzien wie, ktory to tydzien", () => {
+  // Rozmowa 17.08 po angielsku: klient prosil o 'next week, Wednesday',
+  // agent podal 26., potem 24., potem 19. — trzy razy zla date, bo liczyl
+  // sam zamiast odczytac. Teraz tydzien jest DANA.
+  const godziny = {
+    mon: { open: "09:00", close: "17:00" }, tue: { open: "09:00", close: "17:00" },
+    wed: { open: "09:00", close: "17:00" }, thu: { open: "09:00", close: "17:00" },
+    fri: { open: "09:00", close: "17:00" },
+    sat: { open: "09:00", close: "17:00", closed: true },
+    sun: { open: "09:00", close: "17:00", closed: true },
+  };
+  const dni = zbudujDni("2026-08-16", 14, godziny, () => ["09:00"]);   // niedziela
+  const ten = dni.filter((d) => d.tydzien === "ten").map((d) => d.data);
+  const nast = dni.filter((d) => d.tydzien === "nastepny").map((d) => d.data);
+  assert.ok(ten.includes("2026-08-16"), "niedziela 16.08 nalezy do TEGO tygodnia (poniedzialek 10.08)");
+  assert.ok(nast.includes("2026-08-17"), "poniedzialek 17.08 zaczyna NASTEPNY tydzien");
+  assert.ok(nast.includes("2026-08-19"), "sroda 19.08 to nastepny tydzien — tej daty agent szukal");
+  assert.ok(!nast.includes("2026-08-26"), "sroda 26.08 NIE jest nastepnym tygodniem");
+  for (const d of dni) assert.ok(d.tydzien, `${d.data}: brak pola tydzien`);
+});

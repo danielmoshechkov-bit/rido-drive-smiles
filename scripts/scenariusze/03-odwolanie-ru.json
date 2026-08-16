@@ -2,6 +2,7 @@
   "id": "03-odwolanie",
   "jezyk": "ru",
   "opis": "klient chce odwołać wizytę",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Добрый день, я хочу отменить свою запись.",

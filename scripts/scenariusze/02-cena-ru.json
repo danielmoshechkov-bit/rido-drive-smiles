@@ -2,6 +2,7 @@
   "id": "02-cena",
   "jezyk": "ru",
   "opis": "klient pyta o cenę",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Добрый день, сколько стоит замена тормозных колодок?",

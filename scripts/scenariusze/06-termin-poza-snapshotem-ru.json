@@ -2,6 +2,7 @@
   "id": "06-termin-poza-snapshotem",
   "jezyk": "ru",
   "opis": "termin poza zakresem snapshotu",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Здравствуйте, хочу записаться через месяц.",

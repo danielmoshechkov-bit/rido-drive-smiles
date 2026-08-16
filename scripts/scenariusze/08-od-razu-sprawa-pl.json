@@ -2,6 +2,7 @@
   "id": "08-od-razu-sprawa",
   "jezyk": "pl",
   "opis": "klient od razu mówi, czego chce (z prawdziwej rozmowy 16.08)",
+  "zrodlo": "conv_0901m04p490yenwrpfrhyg8vjyk2",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Dzień dobry, chciałbym się dowiedzieć o wolny termin, żeby się umówić na, ee, sprawdzenie zawieszenia, wymienić filtry i przejechać samochód.",

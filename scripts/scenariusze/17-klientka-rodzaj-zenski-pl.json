@@ -2,6 +2,7 @@
   "id": "17-klientka-rodzaj-zenski",
   "jezyk": "pl",
   "opis": "klientka, rodzaj żeński od pierwszego zdania (z prawdziwej rozmowy)",
+  "zrodlo": "conv_5401m036p9nfe0t4q0zrccte",
   "tury": 16,
   "klient": {
     "pierwsza_wiadomosc": "Dzień dobry, chciałabym zgłosić samochód. Ee, coś mnie huka, piszczy hamulcy. Chciałabym, żeby zrobić obej-- obejrzeć, ee.",

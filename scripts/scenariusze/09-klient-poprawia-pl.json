@@ -2,6 +2,7 @@
   "id": "09-klient-poprawia",
   "jezyk": "pl",
   "opis": "klient poprawia agenta po nieporozumieniu (z prawdziwej rozmowy)",
+  "zrodlo": "conv_0901m04p490yenwrpfrhyg8vjyk2",
   "tury": 16,
   "klient": {
     "pierwsza_wiadomosc": "Dzień dobry, chciałbym umówić auto na przegląd.",

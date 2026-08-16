@@ -2,6 +2,7 @@
   "id": "01-umowienie",
   "jezyk": "uk",
   "opis": "umówienie wizyty",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Доброго дня, ви українською розмовляєте?",

@@ -2,6 +2,7 @@
   "id": "11-mieszane-jezyki",
   "jezyk": "ru",
   "opis": "klient miesza dwa języki w jednej rozmowie (z prawdziwej rozmowy)",
+  "zrodlo": "conv_7601m037fnwkf9yvbytq26v8jtt8",
   "tury": 16,
   "klient": {
     "pierwsza_wiadomosc": "Wysłuchaj. Dobry dzień, а вы говорите по-русски?",

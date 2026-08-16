@@ -2,6 +2,7 @@
   "id": "07-termin-zajety",
   "jezyk": "uk",
   "opis": "klient chce godzinę, której nie ma",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Доброго дня, хочу завтра о сьомій вечора.",

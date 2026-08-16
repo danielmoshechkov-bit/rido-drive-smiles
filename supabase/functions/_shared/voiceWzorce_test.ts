@@ -207,3 +207,28 @@ Deno.test("wzorce potwierdzenia od razu podaja godzine", () => {
     }
   }
 });
+
+// POTWIERDZENIE I PROSBA TO DWIE ROZNE TURY.
+//
+// Rozmowa 17.08: klientka podala tablice razem z imieniem i marka, agent
+// zapytal o nia trzy razy. Wzorzec „Dobrze, zapisuje. Poprosze numer
+// rejestracyjny." zawieral PROSBE, wiec jego powtorzenie wygladalo poprawnie.
+Deno.test("zaden wzorzec nie laczy potwierdzenia z prosba o te sama rzecz", () => {
+  const potwierdzenie = /^(Dobrze|Rozumiem|Notuję|Хорошо|Записал|Понял|Добре|Записав|Зрозуміло|Alright|Got it|Understood)[,.\s]/i;
+  const prosba = /(Poproszę|Назовите|Назвіть|And the .*please|Could I have)/i;
+  for (const j of ["pl", "ru", "uk", "en"]) {
+    const zdania = (wzorceWJezyku(j) || "").split("\n").filter((l) => l.startsWith("  ")).map((l) => l.trim());
+    for (const z of zdania) {
+      if (!potwierdzenie.test(z)) continue;
+      if (!prosba.test(z)) continue;
+      // WOLNO potwierdzic COS INNEGO i przejsc dalej: „Rozumiem — Mazda RX8.
+      // Poprosze numer rejestracyjny." to dwie rozne rzeczy w jednej turze
+      // i tak ma byc. Zabronione jest potwierdzenie PUSTE — samo „Dobrze,
+      // zapisuje" — sklejone z prosba, bo wtedy tura wyglada jak ponowne
+      // zapytanie o to, co klient wlasnie podal.
+      const przedProsba = z.split(/(?=Poproszę|Назовите|Назвіть|And the|Could I have)/)[0];
+      const maTresc = /[A-ZĄĆĘŁŃÓŚŹŻ][\wąćęłńóśźż]{2,}|\d/.test(przedProsba.replace(potwierdzenie, ""));
+      assert(maTresc, `${j}: puste potwierdzenie sklejone z prosba — „${z}"`);
+    }
+  }
+});

@@ -2,6 +2,7 @@
   "id": "03-odwolanie",
   "jezyk": "en",
   "opis": "klient chce odwołać wizytę",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Hello, I would like to cancel my appointment.",

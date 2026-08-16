@@ -2,6 +2,7 @@
   "id": "01-umowienie",
   "jezyk": "ru",
   "opis": "umówienie wizyty",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Здравствуйте, вы по-русски говорите?",

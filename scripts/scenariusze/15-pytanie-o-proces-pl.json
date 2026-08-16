@@ -2,6 +2,7 @@
   "id": "15-pytanie-o-proces",
   "jezyk": "pl",
   "opis": "klient pyta o proces na końcu rozmowy (z prawdziwej rozmowy)",
+  "zrodlo": "conv_5401m036p9nfe0t4q0zrccte",
   "tury": 16,
   "klient": {
     "pierwsza_wiadomosc": "Dzień dobry, chciałbym umówić auto na diagnostykę.",

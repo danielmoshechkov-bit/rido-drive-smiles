@@ -2,6 +2,7 @@
   "id": "04-niewyrazny",
   "jezyk": "ru",
   "opis": "klient mówi niewyraźnie, prosi o powtórzenie",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Здравствуйте, я хотел бы... эээ... на осмотр.",

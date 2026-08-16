@@ -2,6 +2,7 @@
   "id": "04-niewyrazny",
   "jezyk": "pl",
   "opis": "klient mówi niewyraźnie, prosi o powtórzenie",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Dzień dobry, ja bym chciał... yyy... na przegląd.",

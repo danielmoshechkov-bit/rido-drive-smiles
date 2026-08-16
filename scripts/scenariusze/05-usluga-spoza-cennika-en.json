@@ -2,6 +2,7 @@
   "id": "05-usluga-spoza-cennika",
   "jezyk": "en",
   "opis": "usługa spoza cennika",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Hi, do you do tyre changes?",

@@ -2,6 +2,7 @@
   "id": "03-odwolanie",
   "jezyk": "uk",
   "opis": "klient chce odwołać wizytę",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Доброго дня, я хочу скасувати свій запис.",

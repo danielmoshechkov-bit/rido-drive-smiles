@@ -36,3 +36,25 @@ która ma częściowe pokrycie w zestawie wielojęzycznym). Reszta na koniec.
 Zasada 31: **scenariusz odtwarza rzeczywistość, nie jej uporządkowaną wersję.**
 Każdy z tych dziewięciu scenariuszy ma powstać z DOSŁOWNEGO cytatu, nie z opisu
 sytuacji.
+
+---
+
+## BACKLOG: dopasowanie usług nie odróżnia bliskich pozycji
+
+`Wymiana klocków hamulcowych` i `Wymiana tarcz przednich` dostają **tę samą
+listę** słów do rozpoznania: `brake pads, brake discs, brakes`. Tak samo
+`Ceramika z korektą lakieru OneStep` i `Ceramika 4 letnia + korekta lakieru`.
+
+**To jest realny problem:** klient pyta o klocki (150–250 zł), a agent może
+podać cenę tarcz (100–250 zł). Cena wypowiedziana błędnie to obietnica,
+której warsztat nie dotrzyma — dokładnie ten defekt, przez który powstało
+pole `do_powiedzenia`.
+
+Dlaczego nie naprawiam teraz: słowa pochodzą z wbudowanego słownika kategorii,
+a kategoria „hamulce" jest jedna. Rozróżnienie wymaga słów per USŁUGA, nie per
+kategoria — czyli tego, co i tak ma trafić do bazy i być poprawialne przez
+warsztat.
+
+**Do zrobienia razem ze słowami kluczowymi w bazie.** Do tego czasu agent
+przy dwuznaczności powinien dopytać albo podać widełki — ale tego nie
+wymuszamy i nie mierzymy.

@@ -2,6 +2,7 @@
   "id": "05-usluga-spoza-cennika",
   "jezyk": "uk",
   "opis": "usługa spoza cennika",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Доброго дня, шини міняєте?",

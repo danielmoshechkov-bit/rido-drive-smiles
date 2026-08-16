@@ -209,6 +209,8 @@ export const wolneGodziny = (
 
 export type Dzien = {
   klucz: string;
+  /** „ten" | „nastepny" | „za_N" — liczone w kodzie, nie przez model. */
+  tydzien?: string;
   data: string;
   do_wypowiedzenia: string;
   otwarte: boolean;
@@ -246,6 +248,24 @@ export const zbudujDni = (
       klucz: ETYKIETY[i] ?? `${DNI_TYGODNIA[d.getUTCDay()]}_${d.getUTCDate()}`,
       data: iso,
       do_wypowiedzenia: doWypowiedzenia(iso),
+      // KTORY TO TYDZIEN — DANA, NIE ARYTMETYKA.
+      //
+      // Rozmowa 17.08 po angielsku: klient poprosil o „next week, Wednesday",
+      // a agent podal 26., potem 24., potem 19. — trzy razy zla date i trzy
+      // razy przyznal klientowi racje. Liczyl „nastepny tydzien" sam, choc
+      // wszystkie czternascie dni ma w snapshocie.
+      //
+      // Poniedzialek jako pierwszy dzien tygodnia (norma polska i ISO).
+      tydzien: (() => {
+        const poniedzialek = (x: Date) => {
+          const k = new Date(x);
+          k.setUTCDate(k.getUTCDate() - ((k.getUTCDay() + 6) % 7));
+          k.setUTCHours(0, 0, 0, 0);
+          return k.getTime();
+        };
+        const roznica = Math.round((poniedzialek(d) - poniedzialek(baza)) / 604800000);
+        return roznica === 0 ? "ten" : roznica === 1 ? "nastepny" : `za_${roznica}`;
+      })(),
       otwarte: !!g && !g.closed,
     };
     if (!wpis.otwarte) {

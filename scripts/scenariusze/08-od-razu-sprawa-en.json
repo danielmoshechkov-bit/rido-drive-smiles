@@ -2,6 +2,7 @@
   "id": "08-od-razu-sprawa",
   "jezyk": "en",
   "opis": "klient od razu mówi, czego chce (z prawdziwej rozmowy 16.08)",
+  "zrodlo": "conv_0901m04p490yenwrpfrhyg8vjyk2",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Hello, I would like to find out about a free slot, to book a, erm, suspension check, a filter change and a general inspection.",

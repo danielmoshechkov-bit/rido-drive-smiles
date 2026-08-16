@@ -2,6 +2,7 @@
   "id": "02-cena",
   "jezyk": "pl",
   "opis": "klient pyta o cenę",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Dzień dobry, ile kosztuje wymiana klocków hamulcowych?",

@@ -2,6 +2,7 @@
   "id": "04-niewyrazny",
   "jezyk": "uk",
   "opis": "klient mówi niewyraźnie, prosi o powtórzenie",
+  "zrodlo": "wymyslony-przed-transkryptami",
   "tury": 14,
   "klient": {
     "pierwsza_wiadomosc": "Доброго дня, я хотів би... еее... на огляд.",

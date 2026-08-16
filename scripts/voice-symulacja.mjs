@@ -174,7 +174,33 @@ async function main() {
   if (FILTR_ID) scenariusze = scenariusze.filter((s) => s.id.startsWith(FILTR_ID));
   if (!scenariusze.length) { console.error("Żaden scenariusz nie pasuje do filtrów."); process.exit(2); }
 
+  // KOSZT PRZED URUCHOMIENIEM (zasada 35).
+  //
+  // 16.08 rachunek Anthropic wyniosl ~24 USD w jeden dzien; dwa prawdziwe
+  // telefony kosztowaly 6 centow, reszta to symulacje puszczane po kazdej
+  // pojedynczej poprawce. Pomiar jest zasobem, nie odruchem — a zasada
+  // zapisana w dokumencie nie dziala (zasada 36), wiec liczy ja kod.
+  //
+  // Stawka zmierzona 16.08: 0,0067 USD na wywolanie modelu, ~6 wywolan
+  // na rozmowe symulowana. Kurs przyjety 3,65 PLN/USD.
+  const KOSZT_WYWOLANIA_USD = 0.0067;
+  const WYWOLAN_NA_ROZMOWE = 6;
+  const KURS = 3.65;
+  const PROG_PLN = 5;
+  const przebiegow = scenariusze.length * PRZEBIEGI;
+  const kosztPln = przebiegow * WYWOLAN_NA_ROZMOWE * KOSZT_WYWOLANIA_USD * KURS;
+
   console.log("\n════ SYMULACJA ROZMÓW ════");
+  console.log(`koszt szacowany: ${kosztPln.toFixed(2)} PLN  (${przebiegow} przebiegów × ~${WYWOLAN_NA_ROZMOWE} wywołań modelu)`);
+  if (kosztPln > PROG_PLN && !arg("--zgoda")) {
+    console.error(
+      `\nZATRZYMANE: pomiar kosztuje ~${kosztPln.toFixed(2)} PLN, próg to ${PROG_PLN} PLN.\n` +
+      `Jeśli tego chcesz — dopisz --zgoda. Jeśli nie, zawęź:\n` +
+      `  --jezyk pl               jeden język\n` +
+      `  --scenariusz 09          jeden scenariusz\n` +
+      `  --przebiegi 1            jeden przebieg zamiast trzech`);
+    process.exit(3);
+  }
   const snap = await pobierzSnapshot();
   console.log(`snapshot: ${snap.dynamic_variables.rido_snapshot.length} znaków, ${snap.obiekt.dni?.length} dni, ${snap.obiekt.uslugi?.length} usług`);
   console.log(`scenariuszy: ${scenariusze.length}${FILTR_JEZYK ? ` (język ${FILTR_JEZYK})` : ""}\n`);
