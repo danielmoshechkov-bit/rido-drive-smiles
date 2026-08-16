@@ -99,19 +99,31 @@ export function wybierzKrok(
 
   if (!kandydaci.length) return biezacy;
 
-  // Wśród kroków tego samego ekranu bierzemy pierwszy PO bieżącym — dzięki temu
-  // powrót do okna, w którym już byliśmy (np. zamknięcie okna klienta), nie
-  // cofa wprowadzenia do kroku, który człowiek ma za sobą.
+  // BIERZEMY KROK NAJBLIŻSZY TEMU, GDZIE CZŁOWIEK BYŁ — nie pierwszy z brzegu
+  // do przodu.
+  //
+  // To jest błąd, który wyszedł na żywo: ktoś dodał pojazd i właściciela, okno
+  // zlecenia się zamknęło, a na pustej liście widać było tylko „Nowe zlecenie"
+  // (krok 1) i „Zakończone zlecenia" (krok 28). Reguła „pierwszy do przodu"
+  // wybierała krok 28 — wprowadzenie skakało na koniec drogi i mówiło o
+  // archiwum, zamiast odesłać człowieka do „Nowe zlecenie".
+  //
+  // Odległość od bieżącego kroku jest lepszą miarą niż kierunek: najbliższy
+  // krok to ten z tego samego miejsca w pracy. Przy remisie idziemy do przodu.
   const doPrzodu = kandydaci.find((k) => k.i > biezacy);
+  const doTylu = [...kandydaci].reverse().find((k) => k.i < biezacy);
+
+  if (doPrzodu && doTylu) {
+    return doPrzodu.i - biezacy <= biezacy - doTylu.i ? doPrzodu.i : doTylu.i;
+  }
   if (doPrzodu) return doPrzodu.i;
 
-  // Nic do przodu. Cofamy się TYLKO wtedy, gdy na wierzchu stoi okno — bo wejście
-  // w okno to naprawdę inne miejsce i jego pierwszy krok jest właściwy.
-  //
-  // Na zwykłym ekranie zostajemy. Inaczej po wysłaniu SMS-a o odbiorze (krok
-  // pod koniec drogi) zamknięcie okna rzucałoby wprowadzenie z powrotem na
-  // robociznę — pierwszą rzecz widoczną w karcie zlecenia.
+  // Zostało tylko cofanie. Na zwykłym ekranie NIE cofamy się — inaczej po
+  // wysłaniu SMS-a o odbiorze zamknięcie okna rzucałoby wprowadzenie z powrotem
+  // na ikonę odbioru i człowiek klikałby ją w kółko.
   if (najglebiej === 0) return biezacy;
+  // W oknie, do którego ktoś wrócił (np. poprawia dane klienta), zaczynamy od
+  // pierwszego kroku TEGO okna.
   return kandydaci[0].i;
 }
 

@@ -194,6 +194,43 @@ sprawdzWarunek('to ostatni krok trasy', krok === cele.length - 1);
 // ── PRZYPADKI BRZEGOWE, KTÓRE WYSZŁY NA ŻYWO ────────────────────────────────
 console.log('--- przypadki brzegowe ---');
 
+// 0. NAJGORSZY Z DOTYCHCZASOWYCH: okno zlecenia znika (zamkniete recznie albo
+//    klknieciem obok), a na pustej liscie widac tylko „Nowe zlecenie" i
+//    „Zakonczone zlecenia". Wprowadzenie skakalo wtedy na krok 28 i opowiadalo
+//    o archiwum, zamiast odeslac czlowieka do „Nowe zlecenie".
+{
+  const pustaLista = [
+    { cel: 'nowe-zlecenie', glebokosc: 0 },
+    { cel: 'filtr-zakonczone', glebokosc: 0 },
+  ];
+  for (const skad of ['pole-rejestracji', 'pole-klienta', 'pole-opisu', 'zapisz-zlecenie']) {
+    const wynik = wybierzKrok(cele, cele.indexOf(skad), pustaLista, opcje);
+    sprawdz(`zamkniete okno zlecenia (byl krok „${skad}")`, wynik, 'nowe-zlecenie');
+  }
+}
+
+// 0b. To samo z okna pojazdu i klienta — tam tez nie wolno uciec na koniec.
+{
+  const pustaLista = [
+    { cel: 'nowe-zlecenie', glebokosc: 0 },
+    { cel: 'filtr-zakonczone', glebokosc: 0 },
+  ];
+  for (const skad of ['pojazd-wlasciciel', 'klient-telefon', 'pobrane-dane']) {
+    const wynik = wybierzKrok(cele, cele.indexOf(skad), pustaLista, opcje);
+    sprawdz(`zamkniete okno pojazdu/klienta (byl krok „${skad}")`, wynik, 'nowe-zlecenie');
+  }
+}
+
+// 0c. Klient jest juz wybrany, wiec w polu klienta nie ma czego wpisywac —
+//     ramka ma zejsc na liste zadan, bo to ONA blokuje zapis zlecenia.
+{
+  const zWybranymKlientem = oknoZlecenia.map((w) =>
+    w.cel === 'pole-klienta' ? { ...w, wypelniony: true } : w,
+  );
+  const wynik = wybierzKrok(cele, cele.indexOf('pole-klienta'), zWybranymKlientem, opcje);
+  sprawdz('klient juz wybrany → ramka na liste zadan', wynik, 'pole-opisu');
+}
+
 // 1. Na wierzchu okno, w którym wprowadzenie nie ma nic do pokazania
 //    (podgląd wystawionego dokumentu). „Dalej" nie może iść w ciemno.
 {

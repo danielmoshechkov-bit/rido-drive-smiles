@@ -49,7 +49,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'klient-imie-nazwisko',
     tytul: 'Dane właściciela',
-    tresc: 'Wystarczy imię i nazwisko. „Osoba prywatna" albo „Firma" — przy firmie dojdzie NIP i pobierzemy dane z GUS.',
+    tresc: 'Na czas nauki wpisz TU SIEBIE: swoje imię i nazwisko. Dzięki temu wszystkie wiadomości z tego zlecenia przyjdą do Ciebie i zobaczysz je oczami klienta.\n\n„Osoba prywatna" albo „Firma" — przy firmie dojdzie NIP i pobierzemy dane z GUS.',
     // Po wpisaniu imienia ramka schodzi sama na pole telefonu — w środku jednego
     // formularza nie ma po co klikać „Dalej".
     przejdzGdyWypelnione: true,
@@ -57,7 +57,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'klient-telefon',
     tytul: 'Telefon — najważniejsze pole',
-    tresc: 'Na ten numer pójdzie potwierdzenie przyjęcia, kosztorys do akceptacji i wiadomość, że auto jest gotowe.\n\nNa czas nauki wpisz swój własny numer. Potem „Zapisz".',
+    tresc: 'Wpisz TU SWÓJ numer telefonu — ten, który masz przy sobie.\n\nNa niego pójdzie potwierdzenie przyjęcia, kosztorys do akceptacji i wiadomość, że auto jest gotowe. Przejdziesz całą drogę i zobaczysz każdą wiadomość tak, jak zobaczy ją klient. Potem „Zapisz".',
   },
   {
     cel: 'pojazd-rejestracja',
@@ -76,16 +76,19 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     cel: 'pole-klienta',
     tytul: 'Klient zlecenia',
     tresc: 'Właściciel auta wpisuje się tu sam. Możesz go zmienić, jeśli autem przyjechał kto inny — na przykład firma leasingowa albo pracownik.',
+    // Gdy klient jest już wybrany, nie ma tu nic do wpisania — ramka schodzi
+    // od razu na listę zadań, bo to ona blokuje zapis zlecenia.
+    przejdzGdyWypelnione: true,
   },
   {
     cel: 'pole-opisu',
     tytul: 'Krok 2 — opisz zlecenie',
-    tresc: 'To jest serce zlecenia: w punktach wpisujesz, z czym przyjechał klient i co trzeba przy okazji sprawdzić.\n\nKażdy punkt to osobna pozycja — mechanik odhacza ją w swojej karcie, a Ty wyceniasz ją w kosztorysie. „Dodaj pozycję" albo Enter dokłada kolejną.\n\nNa próbę wpisz na przykład:\nWymiana klocków przód\nWymiana wahaczy\nSprawdzić stan tarcz i płynu hamulcowego',
+    tresc: 'BEZ TEGO ZLECENIE SIĘ NIE ZAPISZE — pole jest obowiązkowe (gwiazdka przy nazwie).\n\nWpisz w punktach, z czym przyjechał klient i co trzeba przy okazji sprawdzić. Każdy punkt to osobna pozycja: mechanik odhacza ją w swojej karcie, a Ty wyceniasz ją w kosztorysie. „Dodaj pozycję" albo Enter dokłada kolejną.\n\nNa próbę wpisz dwie, na przykład:\n1. Wymiana klocków hamulcowych przód\n2. Sprawdzić stan tarcz i płynu hamulcowego',
   },
   {
     cel: 'zapisz-zlecenie',
     tytul: 'Zapisz zlecenie',
-    tresc: 'Zlecenie trafi na listę aktywnych i do Terminarza.',
+    tresc: 'Przycisk jest na samym dole okna — przewiń, jeśli go nie widzisz.\n\nZlecenie trafi na listę aktywnych i do Terminarza, a zaraz po zapisie wyskoczy okno z pytaniem, czy wysłać klientowi potwierdzenie przyjęcia.',
     akcja: 'Kliknij, żeby zapisać',
     czekaNaKlikniecie: true,
   },

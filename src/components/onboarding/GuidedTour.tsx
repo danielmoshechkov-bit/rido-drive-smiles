@@ -102,7 +102,10 @@ function widoczneCele(cele: Array<string | undefined>): WidocznyCel[] {
  */
 function wypelnione(el: HTMLElement): boolean {
   const pole = el.querySelector('input, textarea') as HTMLInputElement | null;
-  return !!pole && pole.value.trim().length > 0;
+  // Nie ma czego wpisywac — bo wybrany klient zastapil pole wyszukiwania swoja
+  // wizytowka. Skoro nie ma pola, to znaczy, ze rzecz jest juz zalatwiona.
+  if (!pole) return true;
+  return pole.value.trim().length > 0;
 }
 
 export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLicznik = true }: Props) {
