@@ -35,6 +35,80 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 
+/**
+ * Powiadomienie o zwrocie albo obciążeniu zwrotnym.
+ *
+ * Rozliczenie robi funkcja bazy `billing_zwrot` — tam jest blokada wiersza
+ * i idempotencja po `refundId`. Tutaj wyłącznie rozpoznanie i przekazanie.
+ */
+async function obsluzZwrot(admin: any, zdarzenie: any, zwrotP: any): Promise<Response> {
+  // ⚠️ ZGADYWANE: nazwy pól zwrotu.
+  const refundId: string | undefined = zwrotP.refundId ?? zwrotP.refundld ?? zwrotP.id;
+  const kwotaGr = Number(zwrotP.amount ?? NaN);
+  const statusZwrotu = String(zwrotP.status ?? '').toUpperCase();
+
+  const orderP = zdarzenie?.order ?? {};
+  const naszeId: string | undefined = orderP.extOrderId;
+  const idUOperatora: string | undefined = orderP.orderId;
+
+  if (!refundId) {
+    console.error('billing-payu-webhook: powiadomienie o zwrocie bez identyfikatora', JSON.stringify(zwrotP));
+    return json({ ok: true, uwaga: 'zwrot bez identyfikatora' });
+  }
+
+  // Zwrot policzony dopiero po sfinalizowaniu. `CANCELED` znaczy, że zwrot
+  // został wycofany — wtedy nie ma czego zdejmować.
+  // ⚠️ ZGADYWANE: zbiór statusów.
+  if (statusZwrotu && statusZwrotu !== 'FINALIZED' && statusZwrotu !== 'COMPLETED') {
+    console.log(JSON.stringify({ event: 'payu_zwrot_pominiety', refund: refundId, status: statusZwrotu }));
+    return json({ ok: true, pominieto: statusZwrotu });
+  }
+
+  if (!Number.isFinite(kwotaGr) || kwotaGr <= 0) {
+    console.error('billing-payu-webhook: zwrot bez czytelnej kwoty', refundId, zwrotP.amount);
+    return json({ ok: true, uwaga: 'zwrot bez kwoty' });
+  }
+
+  // Odnalezienie zamówienia — ta sama kolejność co przy zapłacie.
+  let zamId: string | null = null;
+  if (naszeId) {
+    const { data } = await admin.from('billing_orders').select('id').eq('id', naszeId).maybeSingle();
+    zamId = data?.id ?? null;
+  }
+  if (!zamId && idUOperatora) {
+    const { data } = await admin.from('billing_orders').select('id')
+      .eq('provider', 'payu').eq('provider_order_id', idUOperatora).maybeSingle();
+    zamId = data?.id ?? null;
+  }
+  if (!zamId) {
+    console.error('billing-payu-webhook: zwrot bez zamówienia', refundId, idUOperatora, naszeId);
+    return json({ ok: true, uwaga: 'zwrot bez zamówienia' });
+  }
+
+  // Obciążenie zwrotne rozliczamy ostrzej niż zwrot z naszej woli — zdejmuje
+  // całość, także zużytą. ⚠️ ZGADYWANE: po czym PayU je oznacza.
+  const typ = (zwrotP.type ?? zwrotP.reasonCode ?? '').toString().toUpperCase().includes('CHARGEBACK')
+    ? 'chargeback'
+    : 'zwrot';
+
+  const { data: wynik, error } = await admin.rpc('billing_zwrot', {
+    p_order_id: zamId,
+    p_refund_id: refundId,
+    p_kwota_gr: Math.round(kwotaGr),
+    p_typ: typ,
+    p_payload: zdarzenie,
+  });
+
+  if (error) {
+    console.error('billing-payu-webhook: billing_zwrot', error);
+    // 500, żeby operator ponowił — idempotencja po `refundId` czyni to bezpiecznym.
+    return json({ error: 'Nie udało się zarejestrować zwrotu' }, 500);
+  }
+
+  console.log(JSON.stringify({ event: 'payu_zwrot', refund: refundId, order: zamId, typ, wynik }));
+  return json({ ok: true, zwrot: wynik });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -66,6 +140,25 @@ Deno.serve(async (req) => {
     zdarzenie = JSON.parse(surowaTresc);
   } catch {
     return json({ error: 'Nieprawidłowa treść' }, 400);
+  }
+
+  // ── ROZGAŁĘZIENIE NA WEJŚCIU: zwrot idzie osobną drogą ────────────
+  //
+  // Ścieżka zwrotu NIE MA PRAWA ZAPISU do `billing_orders.status`. Bez tego
+  // rozgałęzienia powiadomienie o zwrocie trafiłoby w `mapujStatusPayu`,
+  // dostało domyślne `oczekuje` i COFNĘŁO opłacone zamówienie na oczekujące —
+  // przy wydanej paczce.
+  //
+  // ⚠️ ZGADYWANY KSZTAŁT ŻĄDANIA. Dokumentacja PayU opisuje powiadomienie
+  // o zwrocie jako obiekt `refund` obok `order`, z polami `refundId`, `amount`
+  // (w groszach) i `status` (`FINALIZED` / `CANCELED`). Nie miałem dostępu do
+  // panelu, żeby zobaczyć prawdziwe żądanie. Miejsca zgadywane oznaczam
+  // „⚠️ ZGADYWANE" — po pierwszym realnym powiadomieniu trzeba je potwierdzić
+  // albo poprawić. Do tego czasu funkcja jest fail-safe: czego nie rozpozna,
+  // tego nie rozlicza, tylko zapisuje jako zdarzenie do przejrzenia.
+  const zwrotP = zdarzenie?.refund ?? null;
+  if (zwrotP) {
+    return await obsluzZwrot(admin, zdarzenie, zwrotP);
   }
 
   const zamowienieP = zdarzenie?.order ?? {};
