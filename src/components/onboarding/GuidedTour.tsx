@@ -40,6 +40,19 @@ export interface KrokTrasy {
    * samego przycisku mówi połowę prawdy i człowiek klika w martwy przycisk.
    */
   celeDodatkowe?: string[];
+  /**
+   * Krok schodzi dalej sam, gdy podświetlone pole zostanie wypełnione.
+   *
+   * Do par typu „imię i nazwisko → telefon", gdzie czekanie na „Dalej" w środku
+   * jednego formularza jest zbędnym klikaniem. Nie używać tam, gdzie po wpisaniu
+   * trzeba jeszcze coś nacisnąć (numer rejestracyjny → lupka).
+   */
+  przejdzGdyWypelnione?: boolean;
+  /**
+   * Krok przejmuje ekran, gdy jego miejsce się POJAWI (zielona ramka z danymi
+   * z rejestru, otwarte menu „Wystaw"). Patrz wyborKroku.ts.
+   */
+  pokazGdySieZjawi?: boolean;
 }
 
 interface Props {
@@ -76,9 +89,20 @@ function widoczneCele(cele: Array<string | undefined>): WidocznyCel[] {
     if (!el || el.offsetParent === null) continue;
     if (el.closest('[aria-hidden="true"]')) continue;
     const okno = el.closest('[role="dialog"]');
-    wynik.push({ cel, glebokosc: okno ? okna.indexOf(okno) + 1 : 0 });
+    wynik.push({ cel, glebokosc: okno ? okna.indexOf(okno) + 1 : 0, wypelniony: wypelnione(el) });
   }
   return wynik;
+}
+
+/**
+ * Czy pole w podswietlonym miejscu jest juz wypelnione.
+ *
+ * Bierzemy PIERWSZE pole, bo w parze „Imie / Nazwisko" obowiazkowe jest imie,
+ * a na nazwisko nikt nie ma obowiazku czekac.
+ */
+function wypelnione(el: HTMLElement): boolean {
+  const pole = el.querySelector('input, textarea') as HTMLInputElement | null;
+  return !!pole && pole.value.trim().length > 0;
 }
 
 export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLicznik = true }: Props) {
@@ -161,7 +185,10 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
     const wejscie = Date.now();
     const dopasuj = () => {
       if (Date.now() - wejscie < 2500) return;
-      const trafiony = wybierzKrok(cele, krok, widoczneCele(cele));
+      const trafiony = wybierzKrok(cele, krok, widoczneCele(cele), {
+        przejdzGdyWypelnione: kroki.map((k) => !!k.przejdzGdyWypelnione),
+        pokazGdySieZjawi: kroki.map((k) => !!k.pokazGdySieZjawi),
+      });
       if (trafiony !== krok) onKrok(trafiony);
     };
 

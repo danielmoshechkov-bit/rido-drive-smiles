@@ -3,20 +3,32 @@ import type { KrokTrasy } from '@/components/onboarding/GuidedTour';
 /**
  * Wprowadzenie: pierwsze zlecenie od zera do usunięcia.
  *
- * Zasada, na której to stoi: warsztat ma przejść CAŁĄ drogę na własnym aucie
- * i własnym numerze telefonu, żeby zobaczyć to, co zobaczy jego klient. Dlatego
- * SMS-y wychodzą naprawdę — tyle że na numer właściciela — a zlecenie i faktura
- * z tego przejścia są do skasowania na końcu, i to też pokazujemy.
+ * Kolejność nie jest wymyślona — to jest droga, którą warsztat opisał własnymi
+ * słowami i którą przechodzi przy każdym prawdziwym kliencie:
  *
- * Kolejność nie jest przypadkowa: to jest dokładnie ta sama droga, którą warsztat
- * przejdzie jutro przy prawdziwym kliencie — auto, klient, opis, robocizna,
- * części z marżą, kosztorys do akceptacji, odbiór, dokument, zamknięcie.
+ *   nowe zlecenie → dane auta (jeśli auta nie ma, dodajemy je po numerze i
+ *   dopisujemy właściciela) → opis, czyli lista zadań → SMS „zlecenie przyjęte"
+ *   → zlecenie pojawia się na liście → wchodzimy w nie i otwiera się karta usług
+ *   → pozycje po kolei → Rido Wycena → wysyłamy kosztorys → klient akceptuje,
+ *   zapala się na zielono, czyli można naprawiać → po naprawie „Gotowe do
+ *   odbioru" i SMS do klienta → klient odbiera auto → zaznaczamy zlecenie i
+ *   wystawiamy potwierdzenie wykonania albo fakturę → status „Zakończone" →
+ *   zlecenie trafia do zakładki „Zakończone". Koniec.
+ *
+ * Zasada, na której to stoi: warsztat przechodzi CAŁĄ drogę na własnym aucie
+ * i własnym numerze telefonu, żeby zobaczyć to, co zobaczy jego klient. SMS-y
+ * wychodzą naprawdę — tyle że na numer właściciela — a zlecenie z tego przejścia
+ * kasuje się na końcu i to też pokazujemy.
+ *
+ * Kroków jest sporo, ale człowiek nie klika ich po kolei: to EKRAN decyduje,
+ * który krok pokazać (patrz wyborKroku.ts). Ta lista jest słownikiem miejsc,
+ * nie pokazem slajdów.
  */
 export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'nowe-zlecenie',
     tytul: 'Zacznijmy od pierwszego zlecenia',
-    tresc: 'Tu zakłada się zlecenie: auto, klient, opis usterki. Wszystko inne — wycena, SMS-y, faktura — dzieje się już w środku.',
+    tresc: 'Przejdziemy razem całą drogę: przyjęcie auta, wycena, kosztorys do akceptacji, odbiór, faktura i zamknięcie. Na Twoim aucie i Twoim numerze telefonu — zobaczysz dokładnie to, co zobaczy klient.',
     akcja: 'Kliknij „Nowe zlecenie", żeby zacząć',
     // Bez `czekaNaKlikniecie`: pierwsza podpowiedź ma być PRZECZYTANA. Kliknięcie
     // w przycisk i tak przenosi dalej, ale kto czyta wolniej, ma przycisk „Dalej"
@@ -24,58 +36,76 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'pole-rejestracji',
-    tytul: 'Numer rejestracyjny',
-    tresc: 'Wpisz numer auta, na którym chcesz poćwiczyć — może być Twoje własne.\n\nJeśli auta nie ma jeszcze w kartotece, kliknij „Utwórz nowy pojazd" albo naciśnij Enter. Po numerze pobierzemy markę, model, rocznik, pojemność, moc i VIN, więc nie trzeba wpisywać ich ręcznie.',
-    akcja: 'To sprawdzenie jest częścią wprowadzenia — nie schodzi z Twojego limitu',
+    tytul: 'Krok 1 — jakie to auto',
+    tresc: 'Wpisz numer rejestracyjny auta, na którym chcesz poćwiczyć — może być Twoje własne.\n\nJeśli auto jest już w kartotece, wybierz je z listy. Jeśli go tam nie ma, naciśnij Enter albo kliknij „Utwórz nowy pojazd" — otworzy się okno, w którym dodamy auto razem z właścicielem.',
+    akcja: 'Sprawdzenie numeru w tym wprowadzeniu nie schodzi z Twojego limitu',
   },
   {
     cel: 'pojazd-wlasciciel',
     tytul: 'Najpierw właściciel auta',
-    tresc: 'Zaczynasz od właściciela — auto bez klienta nie ma komu wysłać SMS-a.\n\nWyszukaj go na liście, a jeśli go tam nie ma, kliknij „Dodaj właściciela" (przycisk po prawej stronie tej sekcji) i wpisz imię, nazwisko i numer telefonu. Numer jest najważniejszy: to na niego pójdzie protokół przyjęcia i kosztorys.',
+    tresc: 'Auto zawsze ma właściciela — bez niego nie ma komu wysłać SMS-a ani wystawić faktury.\n\nWyszukaj go na liście, a jeśli go tam nie ma, kliknij „Dodaj właściciela" po prawej stronie tej sekcji.',
     akcja: 'Na czas nauki wpisz siebie i swój numer',
   },
   {
     cel: 'klient-imie-nazwisko',
     tytul: 'Dane właściciela',
     tresc: 'Wystarczy imię i nazwisko. „Osoba prywatna" albo „Firma" — przy firmie dojdzie NIP i pobierzemy dane z GUS.',
+    // Po wpisaniu imienia ramka schodzi sama na pole telefonu — w środku jednego
+    // formularza nie ma po co klikać „Dalej".
+    przejdzGdyWypelnione: true,
   },
   {
     cel: 'klient-telefon',
     tytul: 'Telefon — najważniejsze pole',
-    tresc: 'Na ten numer pójdzie protokół przyjęcia, kosztorys do akceptacji i wiadomość, że auto jest gotowe.\n\nNa czas nauki wpisz swój własny numer — zobaczysz dokładnie to, co dostanie klient. Potem „Zapisz".',
+    tresc: 'Na ten numer pójdzie potwierdzenie przyjęcia, kosztorys do akceptacji i wiadomość, że auto jest gotowe.\n\nNa czas nauki wpisz swój własny numer. Potem „Zapisz".',
   },
   {
     cel: 'pojazd-rejestracja',
     tytul: 'Numer i lupka',
-    tresc: 'Gdy właściciel jest już wybrany, wpisz numer rejestracyjny i kliknij lupkę obok pola — marka, model, rocznik, pojemność, moc i VIN pobiorą się same.\n\nMożesz też wpisać wszystko ręcznie, jeśli auta nie ma w bazie CEPiK.',
+    tresc: 'Właściciel jest już wybrany, więc teraz auto: wpisz numer rejestracyjny i kliknij lupkę obok pola.\n\nMarka, model, rocznik, pojemność, moc i VIN pobiorą się same — nie trzeba wpisywać ich ręcznie.',
     akcja: 'Kliknij lupkę przy numerze — to sprawdzenie nie schodzi z Twojego limitu',
   },
   {
     cel: 'pobrane-dane',
+    // Ramka pojawia sie dopiero po lupce — wtedy ma o niej byc mowa.
+    pokazGdySieZjawi: true,
     tytul: 'To przyszło z rejestru',
-    tresc: 'Zielona ramka pokazuje, co dokładnie pobraliśmy po numerze: markę, model, rocznik, pojemność, moc, paliwo i VIN.\n\nWszystko możesz poprawić — zapisujemy to, co jest w polach poniżej. Potem „Zapisz".',
+    tresc: 'Zielona ramka pokazuje, co dokładnie pobraliśmy po numerze: markę, model, rocznik, pojemność, moc, paliwo i VIN.\n\nWszystko możesz poprawić — zapisujemy to, co jest w polach poniżej. Potem „Zapisz" i wracamy do zlecenia.',
   },
   {
     cel: 'pole-klienta',
-    tytul: 'Dane klienta',
-    tresc: 'Tu wybierasz klienta z kartoteki albo dodajesz nowego.\n\nNa czas wprowadzenia wpisz SIEBIE i swój numer telefonu — wszystkie SMS-y z tego zlecenia przyjdą do Ciebie i zobaczysz dokładnie to, co zobaczy klient.',
+    tytul: 'Klient zlecenia',
+    tresc: 'Właściciel auta wpisuje się tu sam. Możesz go zmienić, jeśli autem przyjechał kto inny — na przykład firma leasingowa albo pracownik.',
   },
   {
     cel: 'pole-opisu',
-    tytul: 'Lista zadań do wykonania',
-    tresc: 'Tu wpisujesz w punktach to, z czym przyjechał klient, oraz to, co trzeba przy okazji sprawdzić w aucie.\n\nKażdy punkt to osobna pozycja, którą mechanik odhacza w swojej karcie, a potem wyceniasz ją w kosztorysie. Przycisk „Dodaj pozycję" albo Enter dokłada kolejną.\n\nNa próbę wpisz na przykład:\nWymiana klocków przód\nWymiana wahaczy\nSprawdzić stan tarcz i płynu hamulcowego',
+    tytul: 'Krok 2 — opisz zlecenie',
+    tresc: 'To jest serce zlecenia: w punktach wpisujesz, z czym przyjechał klient i co trzeba przy okazji sprawdzić.\n\nKażdy punkt to osobna pozycja — mechanik odhacza ją w swojej karcie, a Ty wyceniasz ją w kosztorysie. „Dodaj pozycję" albo Enter dokłada kolejną.\n\nNa próbę wpisz na przykład:\nWymiana klocków przód\nWymiana wahaczy\nSprawdzić stan tarcz i płynu hamulcowego',
   },
   {
     cel: 'zapisz-zlecenie',
     tytul: 'Zapisz zlecenie',
-    tresc: 'Zlecenie trafi na listę aktywnych i do Terminarza. Od tej chwili masz kartę, w której wyceniasz pracę i rozmawiasz z klientem.',
+    tresc: 'Zlecenie trafi na listę aktywnych i do Terminarza.',
     akcja: 'Kliknij, żeby zapisać',
     czekaNaKlikniecie: true,
   },
   {
+    cel: 'sms-po-utworzeniu',
+    tytul: 'Krok 3 — daj znać klientowi',
+    tresc: 'Zlecenie jest założone. Od razu możesz wysłać klientowi potwierdzenie przyjęcia — SMS-em albo mailem.\n\nKlient dostaje link do swojej strony, na której widzi, co się dzieje z autem. Numer podpowiada się z kartoteki; jeśli go tam nie było, wpisz go tutaj.',
+    akcja: 'Wyślij na swój numer — zobaczysz to, co zobaczy klient',
+  },
+  {
+    cel: 'wiersz-zlecenia',
+    tytul: 'Zlecenie jest na liście',
+    tresc: 'Tak wygląda zlecenie na liście: numer, status, kwota, auto, klient.\n\nKliknij w nie — otworzy się karta zlecenia, w której wyceniasz pracę i rozmawiasz z klientem.',
+    akcja: 'Kliknij numer zlecenia',
+    czekaNaKlikniecie: true,
+  },
+  {
     cel: 'tabela-robocizny',
-    tytul: 'Robocizna',
-    tresc: 'Dwie pozycje już tu są — wpisaliśmy je za Ciebie, żeby było na czym poćwiczyć. Obie bez ceny, czyli w stanie, w którym klient ich jeszcze nie widzi.\n\nKolejny pusty wiersz dokłada się sam, a Enter przenosi niżej. Dopisz swoją pozycję albo od razu przejdź dalej — pokażę, jak wycenić je jednym kliknięciem.',
+    tytul: 'Krok 4 — wpisz pozycje po kolei',
+    tresc: 'Punkty z listy zadań już tu są, każdy bez ceny — czyli w stanie, w którym klient ich jeszcze nie widzi.\n\nWpisz cenę przy każdej pozycji. Kolejny pusty wiersz dokłada się sam, a Enter przenosi niżej. Jeśli coś robisz w cenie, wpisz 0 — klient zobaczy wtedy „0 zł" zamiast pustego miejsca.',
   },
   {
     cel: 'rido-wycena',
@@ -85,7 +115,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'tabela-czesci',
     tytul: 'Części i materiały',
-    tresc: 'Jedna część już tu jest, też bez ceny. Kolejne wpisujesz ręcznie, bierzesz z magazynu albo szukasz u hurtowni.',
+    tresc: 'Części wpisujesz ręcznie, bierzesz z magazynu albo szukasz u hurtowni przyciskiem „Znajdź części z Rido".',
   },
   {
     cel: 'kolumna-koszt',
@@ -104,36 +134,65 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'przycisk-przyjecie',
-    tytul: 'SMS o przyjęciu auta',
-    tresc: 'Pierwszy z trzech kroków rozmowy z klientem: protokół przyjęcia do podpisu.\n\nPrzycisk miga na czerwono, kiedy trzeba coś wysłać, świeci żółto po wysłaniu i zielono, gdy klient podpisze.',
-    akcja: 'Wyślij na swój numer i sprawdź, jak wygląda SMS i strona dla klienta',
+    tytul: 'Protokół przyjęcia do podpisu',
+    tresc: 'Pierwsza z trzech ikon rozmowy z klientem. Klient podpisuje, w jakim stanie zostawił auto — to Twoje zabezpieczenie przy sporze o rysę czy brakującą kołpak.\n\nIkona miga na czerwono, kiedy jest co wysłać, świeci żółto po wysłaniu i zielono, gdy klient podpisze.',
   },
   {
     cel: 'przycisk-kosztorys',
-    tytul: 'Kosztorys do akceptacji',
-    tresc: 'Klient dostaje link z pozycjami i kwotą. Akceptuje go jednym kliknięciem — status zlecenia zmieni się sam.\n\nGdy zmienisz wycenę po wysłaniu, przycisk znów zamiga na czerwono: klient zaakceptował inną kwotę niż ta, którą masz teraz.',
-    akcja: 'Wyślij do siebie i zaakceptuj na telefonie — zobaczysz obie strony',
+    tytul: 'Krok 5 — wyślij kosztorys',
+    tresc: 'Wyceniłeś pozycje, więc czas na akceptację. Kliknij tę ikonę — klient dostanie SMS z linkiem do kosztorysu.',
+    akcja: 'Kliknij ikonę kosztorysu',
+    czekaNaKlikniecie: true,
   },
   {
-    cel: 'przycisk-odbior',
-    tytul: 'Auto gotowe do odbioru',
-    tresc: 'Gdy praca jest skończona, zmieniasz status na „Gotowy do odbioru" i wysyłasz powiadomienie. Klient wie, że może przyjechać.',
-  },
-  {
-    cel: 'dokumenty-zlecenia',
-    celeDodatkowe: ['zaznacz-zlecenie'],
-    tytul: 'Dokumenty po naprawie',
-    tresc: 'Najpierw zaznacz zlecenie na liście (kółko po lewej), dopiero potem kliknij „Wystaw" — bez zaznaczenia system nie wie, do czego wystawić dokument.\n\nDo wyboru: potwierdzenie wykonania usługi, paragon (jeśli masz podpiętą drukarkę fiskalną) albo faktura. Pozycje i kwoty przepisują się z kosztorysu — nie wpisujesz ich drugi raz.',
-    akcja: 'Fakturę z tego zlecenia próbnego skasujesz razem ze zleceniem',
+    cel: 'sms-quote',
+    tytul: 'Treść jest już gotowa',
+    tresc: 'Wiadomość układa się sama: numer zlecenia i link do kosztorysu. Możesz ją zmienić — licznik pod spodem pokazuje, ile SMS-ów pójdzie.\n\nSprawdź numer i wyślij. Otwórz link na swoim telefonie i kliknij „Akceptuję" — zobaczysz obie strony naraz.',
+    akcja: 'Wyślij do siebie i zaakceptuj na telefonie',
   },
   {
     cel: 'status-zlecenia',
-    tytul: 'Zamknięcie zlecenia',
-    tresc: 'Ustaw status „Zakończone". Zlecenie zniknie z listy aktywnych i przejdzie do zakładki „Zakończone" — tam trafiają wszystkie rozliczone naprawy.',
+    tytul: 'Zielone znaczy: można naprawiać',
+    tresc: 'Po akceptacji status zmienia się sam na „Zaakceptowane", a ikona kosztorysu świeci na zielono. Masz zgodę klienta na kwotę i zakres — możesz brać auto na podnośnik.\n\nGdy zmienisz wycenę po akceptacji, ikona znów zamiga na czerwono: klient zgodził się na inną kwotę niż ta, którą masz teraz.\n\nPo skończonej naprawie ustaw tu status „Gotowe do odbioru".',
+  },
+  {
+    cel: 'przycisk-odbior',
+    tytul: 'Krok 6 — auto gotowe',
+    tresc: 'Naprawa skończona, więc powiadom klienta, że może przyjechać po auto.',
+    akcja: 'Kliknij ikonę odbioru',
+    czekaNaKlikniecie: true,
+  },
+  {
+    cel: 'sms-ready',
+    tytul: 'SMS o gotowym aucie',
+    tresc: 'Wiadomość mówi, że pojazd jest gotowy do odbioru, i daje link ze szczegółami.\n\nTo ostatni SMS w tym zleceniu — dalej zostaje już tylko rozliczenie.',
+  },
+  {
+    cel: 'zaznacz-zlecenie',
+    celeDodatkowe: ['dokumenty-zlecenia'],
+    tytul: 'Krok 7 — klient odbiera auto',
+    tresc: 'Najpierw ZAZNACZ zlecenie na liście (kółko po lewej), dopiero potem kliknij „Wystaw".\n\nBez zaznaczenia system nie wie, do czego wystawić dokument — dlatego podświetlamy oba miejsca naraz.',
+  },
+  {
+    cel: 'wystaw-dokumenty',
+    // Menu istnieje tylko wtedy, gdy jest otwarte.
+    pokazGdySieZjawi: true,
+    tytul: 'Potwierdzenie, paragon albo faktura',
+    tresc: 'Do wyboru: potwierdzenie wykonania usługi (podsumowanie zlecenia dla klienta), paragon fiskalny — jeśli masz podpiętą drukarkę — albo faktura.\n\nPozycje i kwoty przepisują się z kosztorysu, nie wpisujesz ich drugi raz.',
+  },
+  {
+    cel: 'status-na-liscie',
+    tytul: 'Krok 8 — zamknij zlecenie',
+    tresc: 'Rozliczone, więc ustaw status „Zakończone". Kliknij status przy zleceniu i wybierz go z listy.\n\nOd tej chwili zlecenie liczy się do przychodu i znika z listy aktywnych.',
   },
   {
     cel: 'filtr-zakonczone',
-    tytul: 'Zakończone i usuwanie',
-    tresc: 'Tu znajdziesz zamknięte zlecenia. Zaznacz to próbne i usuń przyciskiem „Usuń" — razem z nim znika wystawiony do niego dokument.\n\nTo wszystko: auto, klient, wycena, SMS-y, dokument, zamknięcie. Tak samo wygląda praca przy prawdziwym kliencie.',
+    tytul: 'Tu trafiają zamknięte naprawy',
+    tresc: 'Zakładka „Zakończone zlecenia" to Twoje archiwum: co zrobione, za ile i czy zapłacone.\n\nKolumna „Płatność" pokazuje, czy pieniądze wpłynęły — „Nieopłacone" na czerwono to zlecenie do przypilnowania.',
+  },
+  {
+    cel: 'usun-zlecenie',
+    tytul: 'To był tylko trening — skasuj go',
+    tresc: 'Zaznacz zlecenie próbne i kliknij „Usuń". Razem z nim znika wszystko, co do niego należało: pozycje, podpisy, wystawiony dokument i historia SMS-ów.\n\nTo cała droga: auto, klient, opis, wycena, kosztorys, odbiór, dokument, zamknięcie. Przy prawdziwym kliencie wygląda dokładnie tak samo.',
   },
 ];

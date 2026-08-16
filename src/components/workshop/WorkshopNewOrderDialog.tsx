@@ -452,7 +452,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
           {showSmsConfirm ? (
             // FIX P5: twardo wyśrodkowany, wąski kontener treści sukcesu — niezależnie
             // od szerokości DialogContent (wcześniej treść uciekała w lewo).
-            <div className="mx-auto w-full max-w-sm space-y-6 py-4 text-center">
+            <div className="mx-auto w-full max-w-sm space-y-6 py-4 text-center" data-tour="sms-po-utworzeniu">
               <div className="text-center space-y-3">
                 <div className="mx-auto w-16 h-16 rounded-full bg-accent flex items-center justify-center">
                   <ClipboardList className="h-8 w-8 text-primary" />

@@ -188,7 +188,10 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      {/* Znacznik zalezy od RODZAJU wiadomosci: wprowadzenie pokazuje to samo okno
+          dwa razy (kosztorys i odbior) i musi je od siebie odroznic, inaczej po
+          drugim otwarciu cofaloby sie do kroku o kosztorysie. */}
+      <DialogContent className="max-w-lg" data-tour={`sms-${type}`}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5" />

@@ -21,6 +21,36 @@ export interface WidocznyCel {
   cel: string;
   /** Ile okien modalnych opakowuje ten element. 0 = zwykły ekran. */
   glebokosc: number;
+  /** Czy pole w tym miejscu jest już wypełnione (patrz `przejdzGdyWypelnione`). */
+  wypelniony?: boolean;
+}
+
+export interface Opcje {
+  /**
+   * Kroki, które same schodzą dalej, gdy człowiek wypełni podświetlone pole.
+   *
+   * Powód: przy oknie klienta ramka stała na „Imię i nazwisko" także wtedy, gdy
+   * imię było już wpisane, a następne w kolejności jest przecież pole telefonu.
+   * Czekanie na „Dalej" w środku jednego formularza jest zbędnym klikaniem —
+   * ekran wie, że ten krok jest zrobiony.
+   *
+   * Włączamy to TYLKO tam, gdzie wpisanie pola naprawdę kończy krok. Przy numerze
+   * rejestracyjnym nie — tam po wpisaniu trzeba jeszcze nacisnąć lupkę albo
+   * „Utwórz nowy pojazd", więc ramka musi zostać.
+   */
+  przejdzGdyWypelnione?: boolean[];
+  /**
+   * Kroki, które przejmują ekran w chwili, gdy ich miejsce się POJAWI.
+   *
+   * Są rzeczy, których wcześniej fizycznie nie ma: zielona ramka z danymi
+   * pobranymi po numerze pokazuje się dopiero po kliknięciu lupki, a lista
+   * „Paragon / Faktura / Potwierdzenie" — dopiero po otwarciu menu „Wystaw".
+   * Skoro człowiek właśnie to wywołał, to o tym chce przeczytać; czekanie na
+   * „Dalej" znaczyłoby, że dymek mówi o czymś innym niż to, co widać.
+   *
+   * Tylko do przodu — żeby otwarcie czegoś nie cofało wprowadzenia.
+   */
+  pokazGdySieZjawi?: boolean[];
 }
 
 /**
@@ -34,6 +64,7 @@ export function wybierzKrok(
   cele: Array<string | undefined>,
   biezacy: number,
   widoczne: WidocznyCel[],
+  opcje: Opcje = {},
 ): number {
   if (!widoczne.length) return biezacy;
 
@@ -42,13 +73,29 @@ export function wybierzKrok(
     widoczne.filter((w) => w.glebokosc === najglebiej).map((w) => w.cel),
   );
 
-  const celBiezacego = cele[biezacy];
-  // Człowiek jest tam, gdzie stoi bieżący krok — nie ruszamy go.
-  if (celBiezacego && naWierzchu.has(celBiezacego)) return biezacy;
-
   const kandydaci = cele
     .map((cel, i) => ({ cel, i }))
     .filter((k) => k.cel && naWierzchu.has(k.cel));
+
+  // Coś się właśnie pojawiło i samo prosi o opis (zielona ramka z danymi,
+  // otwarte menu „Wystaw") — idziemy za tym, nawet jeśli bieżący krok wciąż widać.
+  const zjawilSie = kandydaci.find((k) => k.i > biezacy && opcje.pokazGdySieZjawi?.[k.i]);
+  if (zjawilSie) return zjawilSie.i;
+
+  const celBiezacego = cele[biezacy];
+  if (celBiezacego && naWierzchu.has(celBiezacego)) {
+    // Krok „samoschodzący": pole wypełnione, więc pokazujemy następne miejsce
+    // w tym samym oknie. Gdy nic dalej w tym oknie nie ma — zostajemy.
+    const zrobiony =
+      opcje.przejdzGdyWypelnione?.[biezacy] &&
+      widoczne.some((w) => w.cel === celBiezacego && w.wypelniony);
+    if (zrobiony) {
+      const dalej = kandydaci.find((k) => k.i > biezacy);
+      if (dalej) return dalej.i;
+    }
+    // Człowiek jest tam, gdzie stoi bieżący krok — nie ruszamy go.
+    return biezacy;
+  }
 
   if (!kandydaci.length) return biezacy;
 
@@ -56,7 +103,16 @@ export function wybierzKrok(
   // powrót do okna, w którym już byliśmy (np. zamknięcie okna klienta), nie
   // cofa wprowadzenia do kroku, który człowiek ma za sobą.
   const doPrzodu = kandydaci.find((k) => k.i > biezacy);
-  return (doPrzodu ?? kandydaci[0]).i;
+  if (doPrzodu) return doPrzodu.i;
+
+  // Nic do przodu. Cofamy się TYLKO wtedy, gdy na wierzchu stoi okno — bo wejście
+  // w okno to naprawdę inne miejsce i jego pierwszy krok jest właściwy.
+  //
+  // Na zwykłym ekranie zostajemy. Inaczej po wysłaniu SMS-a o odbiorze (krok
+  // pod koniec drogi) zamknięcie okna rzucałoby wprowadzenie z powrotem na
+  // robociznę — pierwszą rzecz widoczną w karcie zlecenia.
+  if (najglebiej === 0) return biezacy;
+  return kandydaci[0].i;
 }
 
 /**

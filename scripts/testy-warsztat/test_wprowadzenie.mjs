@@ -16,7 +16,12 @@ const sprawdz = (opis, ok) => { console.log(`${ok ? ' OK  ' : 'BLAD '} ${opis}`)
 // 1. Każdy krok z celem ma odpowiadający znacznik data-tour w kodzie.
 for (const krok of TRASA_PIERWSZE_ZLECENIE) {
   if (!krok.cel) continue;
-  sprawdz(`znacznik dla kroku „${krok.tytul}" (${krok.cel})`, kod.includes(`data-tour="${krok.cel}"`));
+  // Znacznik bywa skladany w locie (`data-tour={`sms-${type}`}`), bo to samo okno
+  // SMS-a pojawia sie w dwoch miejscach drogi i musi je od siebie odroznic.
+  const wprost = kod.includes(`data-tour="${krok.cel}"`);
+  const skladany = /^(.*?)-([a-z]+)$/.exec(krok.cel);
+  const zeZmiennej = skladany ? kod.includes(`data-tour={\`${skladany[1]}-$`) : false;
+  sprawdz(`znacznik dla kroku „${krok.tytul}" (${krok.cel})`, wprost || zeZmiennej);
 }
 
 // 2. Trasa przechodzi CAŁĄ drogę, o którą chodziło.

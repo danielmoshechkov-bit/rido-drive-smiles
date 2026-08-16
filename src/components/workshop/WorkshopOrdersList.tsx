@@ -525,7 +525,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
         </div>
 
         {selectedIds.size > 0 && (
-          <Button variant="destructive" size="sm" className="gap-1" onClick={async () => {
+          <Button data-tour="usun-zlecenie" variant="destructive" size="sm" className="gap-1" onClick={async () => {
             const count = selectedIds.size;
             if (!(await confirmAction({ title: t('workshop.orders.confirmDelete', { count }) }))) return;
             const ids = Array.from(selectedIds);
@@ -573,7 +573,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
               <FileText className="h-4 w-4" /> {t('workshop.orders.issue')} <ChevronDown className="h-3 w-3" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent>
+          <DropdownMenuContent data-tour="wystaw-dokumenty">
             {selectedIds.size !== 1 && (
               <div className="px-2 py-1.5 text-xs text-muted-foreground max-w-[240px]">
                 {t('workshop.orders.selectOrderFirst')}
@@ -790,14 +790,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
                         onCheckedChange={() => toggleSelect(order.id)}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell data-tour="wiersz-zlecenia">
                       <div className="flex items-center gap-2">
                         <span className={`w-1 h-6 rounded-full ${ss.dot}`} />
                         <Wrench className="h-4 w-4 text-muted-foreground" />
                         <span className="font-semibold tabular-nums tracking-tight">{order.order_number}</span>
                       </div>
                     </TableCell>
-                    <TableCell onClick={e => e.stopPropagation()}>
+                    <TableCell onClick={e => e.stopPropagation()} data-tour="status-na-liscie">
                       <WorkshopStatusPicker
                         providerId={providerId}
                         orderId={order.id}
