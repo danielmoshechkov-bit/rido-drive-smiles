@@ -70,3 +70,22 @@ SELECT date_trunc('month', created_at) AS miesiac,
        count(DISTINCT user_id)         AS uzytkownikow
 FROM vehicle_lookup_usage
 GROUP BY 1 ORDER BY 1 DESC LIMIT 6;
+
+-- ---------------------------------------------------------------------------
+-- D. Ile sprawdzeń przypada na JEDNO zlecenie — to rozstrzyga limit Standardu
+-- ---------------------------------------------------------------------------
+-- Samo „12-20 sprawdzeń miesięcznie" nie mówi, czy warsztat sprawdza KAŻDE
+-- auto, czy tylko te, przy których czegoś nie wie. Jeśli sprawdzeń jest tyle
+-- co zleceń, limit 15 zetnie warsztat robiący 3 auta dziennie. Jeśli sprawdzeń
+-- jest ułamek zleceń, 15 spokojnie wystarczy.
+SELECT
+  date_trunc('month', z.created_at)                       AS miesiac,
+  count(DISTINCT z.id)                                    AS zlecen,
+  (SELECT count(*) FROM vehicle_lookup_usage u
+     WHERE date_trunc('month', u.created_at) = date_trunc('month', z.created_at)) AS sprawdzen,
+  round(
+    (SELECT count(*) FROM vehicle_lookup_usage u
+       WHERE date_trunc('month', u.created_at) = date_trunc('month', z.created_at))::numeric
+    / NULLIF(count(DISTINCT z.id), 0), 2)                 AS sprawdzen_na_zlecenie
+FROM workshop_orders z
+GROUP BY 1 ORDER BY 1 DESC LIMIT 6;

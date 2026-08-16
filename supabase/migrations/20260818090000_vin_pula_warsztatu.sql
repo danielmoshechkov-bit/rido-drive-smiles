@@ -61,30 +61,64 @@ UPDATE public.billing_features
 SET kind = 'metered', unit = 'sprawdzenie'
 WHERE key = 'vehicle_lookup';
 
--- ═══════════════════════════════════════════════════════════════════════════
--- 4. 🔴 LIMITY W PLANACH — WYMAGA TWOICH LICZB
--- ═══════════════════════════════════════════════════════════════════════════
--- Bez tego kroku dziura zostaje otwarta: `check_usage` nadal czyta NULL jako
--- „bez limitu" i sprawdzenia pozostają darmowe i nieograniczone.
+-- ---------------------------------------------------------------------------
+-- 4. Limity sprawdzeń w planach
+-- ---------------------------------------------------------------------------
+-- Liczby Twoje, z sześciu miesięcy zużycia: 12-20 sprawdzeń na użytkownika
+-- miesięcznie. Moja pierwsza propozycja (40/150/400) była zapasem, którego
+-- nikt by nie dobił — a limit, którego nie da się wyczerpać, nie jest limitem
+-- i nie sprzeda ani jednego doładowania.
 --
--- Poniższe wartości to MOJA PROPOZYCJA, nie decyzja — wyrównana do tego, jak
--- już wyceniasz `ai_repair_help` (50 / 300). Sprawdzenie kosztuje 1,70 zł
--- w doładowaniu, więc pakiet powinien pokrywać zwykłą pracę, a nie hurt.
+-- Dane są mocniejszą podstawą, niż zakładałem: od marca do 5 sierpnia działał
+-- dystrybutor darmowych kredytów (usunięty w 4.13), więc to zużycie NIE było
+-- niczym ograniczone. Ludzie mogli sobie dosypać i mimo to brali 12-20.
 --
--- Zmień liczby albo powiedz „zostaw", zanim to uruchomisz.
+-- TRZY POPRAWKI wobec listy, którą podałeś:
+--  * `trial_warsztat` NIE ISTNIEJE — plan próbny ma kod `trial_max`. Wpis
+--    z nieistniejącym kodem nie rzuca błędu, tylko cicho nie zmienia nic.
+--  * `warsztat_free` nie ma `vehicle_lookup` w planie w ogóle, więc poniżej
+--    jest INSERT, nie UPDATE (patrz sekcja 4b).
+--  * `bundle_warsztat_agent` i `bundle_max` były pominięte, a mają tę cechę.
+--    Zostawione z NULL zachowałyby NIEOGRANICZONE darmowe sprawdzenia
+--    w najdroższych pakietach. Przypisane do odpowiadających im poziomów —
+--    potwierdź, jeśli miały być inne.
 UPDATE public.billing_plan_features pf
 SET limit_value = v.limit_value
 FROM (VALUES
-  ('warsztat_standard',  40),
-  ('warsztat_pro',      150),
-  ('warsztat_sieci',    400),
-  ('bundle_warsztat_agent', 150),
-  ('bundle_max',        400),
-  ('trial_max',          20)     -- okres próbny: tyle, żeby przetestować, nie żeby przerobić bazę
+  ('warsztat_standard',       15),
+  ('warsztat_pro',            40),
+  ('warsztat_sieci',         150),
+  ('bundle_warsztat_agent',   40),   -- poziom Pro
+  ('bundle_max',             150),   -- poziom Sieci
+  ('trial_max',               40)    -- okres próbny w zakresie Pro
 ) AS v(plan_code, limit_value)
 JOIN public.billing_plans p ON p.code = v.plan_code
 JOIN public.billing_features f ON f.key = 'vehicle_lookup'
 WHERE pf.plan_id = p.id AND pf.feature_id = f.id;
+
+-- 4b. Plan darmowy dostaje tę cechę po raz pierwszy — stąd INSERT.
+INSERT INTO public.billing_plan_features (plan_id, feature_id, is_enabled, limit_value)
+SELECT p.id, f.id, true, 3
+FROM public.billing_plans p, public.billing_features f
+WHERE p.code = 'warsztat_free' AND f.key = 'vehicle_lookup'
+ON CONFLICT (plan_id, feature_id) DO UPDATE SET limit_value = 3, is_enabled = true;
+
+-- 4c. Kontrola: żaden plan z tą cechą nie może zostać bez limitu.
+-- NULL znaczy „bez limitu", więc pominięty plan = darmowe sprawdzenia bez końca.
+-- Lepiej zatrzymać migrację, niż zostawić otwartą dziurę i nie wiedzieć o tym.
+DO $$
+DECLARE v_brak text;
+BEGIN
+  SELECT string_agg(p.code, ', ') INTO v_brak
+  FROM billing_plan_features pf
+  JOIN billing_plans p ON p.id = pf.plan_id
+  JOIN billing_features f ON f.id = pf.feature_id
+  WHERE f.key = 'vehicle_lookup' AND pf.limit_value IS NULL AND pf.is_enabled;
+
+  IF v_brak IS NOT NULL THEN
+    RAISE EXCEPTION 'Plany bez limitu sprawdzeń: %. To darmowe VIN-y bez końca — uzupełnij sekcję 4.', v_brak;
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- 5. Stawka nadwyżki — zgodna z ceną doładowania
