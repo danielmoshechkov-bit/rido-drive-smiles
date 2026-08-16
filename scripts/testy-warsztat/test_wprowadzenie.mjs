@@ -49,7 +49,7 @@ sprawdz('KSeF: sprawdzenie polaczenia zamiast wysylki testowej',
   kreator.includes('Testuj połączenie') && !kreator.includes('wyślij dowolny dokument'));
 
 // 6. Wprowadzenie nie może utknąć na kroku „kliknij", gdy cel jest zasłonięty.
-sprawdz('krok czekajacy przechodzi, gdy uzytkownik jest juz dalej', silnik.includes('celNastepnego'));
+
 // 7. Podświetlenie obejmuje rozwinięte listy (są pozycjonowane bezwzględnie).
 sprawdz('podswietlenie obejmuje rozwinieta liste', silnik.includes('el.querySelectorAll'));
 
@@ -62,9 +62,13 @@ sprawdz('podpowiedz przy braku wynikow', okno.includes('Tego auta nie ma jeszcze
 // Auto-przejście działa TYLKO dla kroków czekających na kliknięcie — kroki do
 // przeczytania czekają na „Dalej" i nie mogą przelecieć same.
 // Podpowiedź nie może zniknąć, zanim da się ją przeczytać, ani uwięzić człowieka.
-sprawdz('krok nie znika, gdy cel nastepnego byl juz na ekranie', silnik.includes('bylOdRazu'));
-sprawdz('minimalny czas podpowiedzi na ekranie', silnik.includes('wejscie < 1500'));
+
+
 sprawdz('furtka „Dalej", gdy klikniecia nie da sie wykryc', silnik.includes('setFurtka'));
+// Krok wynika z EKRANU, nie z licznika — inaczej dymek mówi o czymś innym,
+// niż widać na wierzchu (okno pojazdu vs. lista zadań w oknie pod spodem).
+sprawdz('krok wybierany po tym, co na ekranie', silnik.includes('wybierzKrok'));
+sprawdz('liczy sie najglebsze otwarte okno', silnik.includes("getAttribute('role') === 'dialog'"));
 // Zlecenie próbne dostaje gotowe pozycje — na pustej tabeli nie ma czego pokazać.
 sprawdz('zlecenie probne ma przykladowe pozycje', okno.includes('przykladowe') && okno.includes('Wymiana klocków'));
 sprawdz('pozycje przykladowe BEZ cen', /przykladowe[\s\S]{0,600}unit_price_gross: null/.test(okno));

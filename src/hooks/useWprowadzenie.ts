@@ -63,6 +63,11 @@ export function useWprowadzenie(ileKrokow: number) {
     setWlaczone(true);
   }, [stan.autostart]);
 
+  /** Skok na wskazany krok — używane, gdy ekran mówi, gdzie naprawdę jest człowiek. */
+  const ustawKrok = useCallback((i: number) => {
+    setStan((s) => (s.krok === i ? s : { ...s, krok: i }));
+  }, []);
+
   const dalej = useCallback(() => {
     setStan((s) => {
       const nastepny = s.krok + 1;
@@ -82,6 +87,6 @@ export function useWprowadzenie(ileKrokow: number) {
     krok: stan.krok,
     /** Czy w ogóle proponować wprowadzenie (nie zostało zamknięte wcześniej). */
     dostepne: !stan.zamkniete,
-    zacznij, dalej, zamknij,
+    zacznij, dalej, zamknij, ustawKrok,
   };
 }

@@ -533,6 +533,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           kroki={TRASA_PIERWSZE_ZLECENIE}
           krok={wprowadzenie.krok}
           onDalej={wprowadzenie.dalej}
+          onKrok={wprowadzenie.ustawKrok}
           onZamknij={wprowadzenie.zamknij}
         />
       )}

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, ArrowRight } from 'lucide-react';
+import { wybierzKrok, nastepnyKrok, type WidocznyCel } from '@/components/onboarding/wyborKroku';
 
 /**
  * Wprowadzenie „pokaż palcem": przygaszony ekran, jedno jasne miejsce i dymek,
@@ -38,13 +39,15 @@ interface Props {
   krok: number;
   onDalej: () => void;
   onZamknij: () => void;
+  /** Skok na krok wskazany przez EKRAN (patrz wyborKroku.ts). */
+  onKrok?: (i: number) => void;
   /** Widoczne w dymku „krok 3 z 12". */
   pokazLicznik?: boolean;
 }
 
 const ODSTEP = 8;
 
-export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = true }: Props) {
+export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLicznik = true }: Props) {
   const biezacy = kroki[krok];
   const [obszar, setObszar] = useState<DOMRect | null>(null);
 
@@ -91,56 +94,46 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
     };
   }, [zmierz, biezacy]);
 
-  // Kroki oznaczone `czekaNaKlikniecie` przechodzą dalej dopiero, gdy użytkownik
-  // NAPRAWDĘ kliknie podświetlony element. Bez tego wprowadzenie zamieniłoby się
-  // w pokaz slajdów: „dalej, dalej, dalej" i nikt nic nie umie.
-  useEffect(() => {
-    if (!biezacy?.czekaNaKlikniecie || !biezacy.cel) return;
-    const el = document.querySelector(`[data-tour="${biezacy.cel}"]`);
-    if (!el) return;
-    const poKlikniecie = () => window.setTimeout(onDalej, 350); // dajemy oknu się otworzyć
-    el.addEventListener('click', poKlikniecie);
-    return () => el.removeEventListener('click', poKlikniecie);
-  }, [biezacy, onDalej, krok]);
-
-  // WPROWADZENIE IDZIE ZA UŻYTKOWNIKIEM, nie odwrotnie.
+  // TO EKRAN DECYDUJE, KTORY KROK POKAZAC.
   //
-  // Krok czekający na kliknięcie potrafił utknąć: przycisk „Nowe zlecenie"
-  // bywa zasłonięty otwartym oknem (np. po ponownym włączeniu wprowadzenia
-  // przy już otwartym zleceniu), więc kliknąć się go nie da i wprowadzenie
-  // stoi w miejscu. Jeśli jednak cel NASTĘPNEGO kroku jest już na ekranie,
-  // znaczy że użytkownik i tak jest dalej — przechodzimy za nim.
-  const celNastepnego = kroki[krok + 1]?.cel;
+  // Wprowadzenie bylo licznikiem, a praca w warsztacie licznikiem nie jest:
+  // okno zlecenia otwiera okno pojazdu, to otwiera okno klienta, klient sie
+  // zamyka i wracamy do pojazdu. Licznik zostawal wtedy w innym miejscu niz
+  // czlowiek - dymek mowil o liscie zadan, a na wierzchu stalo okno pojazdu.
+  //
+  // Teraz co pol sekundy sprawdzamy, ktore cele sa na ekranie i jak gleboko
+  // (ile okien modalnych je opakowuje), a decyzje podejmuje czysta funkcja
+  // z wyborKroku.ts - przetestowana na calym przebiegu, bez przegladarki.
   useEffect(() => {
-    if (!celNastepnego) return;
+    if (!onKrok) return;
+    const cele = kroki.map((k) => k.cel);
 
-    // Liczy się ZMIANA, nie stan. Jeśli cel następnego kroku był na ekranie już
-    // w chwili wejścia w ten krok, nie jest żadnym dowodem, że użytkownik ruszył
-    // dalej — a właśnie dlatego pierwsza podpowiedź znikała, zanim dało się ją
-    // przeczytać: okno zlecenia bywa otwarte od początku.
-    const bylOdRazu = !!document.querySelector(`[data-tour="${celNastepnego}"]`);
-    const wejscie = Date.now();
-
-    const sprawdz = () => {
-      // Minimum czasu na ekranie. Podpowiedź, która mignęła, jest gorsza niż
-      // jej brak: człowiek wie, że coś było, i nie wie co.
-      if (Date.now() - wejscie < 1500) return;
-      const jest = !!document.querySelector(`[data-tour="${celNastepnego}"]`);
-      if (!jest) return;
-      if (bylOdRazu) {
-        // Cel następnego kroku był tu od początku — przechodzimy tylko wtedy,
-        // gdy celu BIEŻĄCEGO już nie ma (użytkownik zamknął okno, zmienił ekran).
-        const celTegoKroku = biezacy?.cel
-          ? document.querySelector(`[data-tour="${biezacy.cel}"]`)
-          : null;
-        if (celTegoKroku) return;
+    const zbierz = (): WidocznyCel[] => {
+      const wynik: WidocznyCel[] = [];
+      for (const cel of cele) {
+        if (!cel) continue;
+        const el = document.querySelector(`[data-tour="${cel}"]`) as HTMLElement | null;
+        if (!el || el.offsetParent === null) continue;
+        let glebokosc = 0;
+        let rodzic: HTMLElement | null = el.parentElement;
+        while (rodzic) {
+          if (rodzic.getAttribute('role') === 'dialog') glebokosc++;
+          rodzic = rodzic.parentElement;
+        }
+        wynik.push({ cel, glebokosc });
       }
-      onDalej();
+      return wynik;
     };
 
-    const timer = window.setInterval(sprawdz, 400);
+    const dopasuj = () => {
+      const trafiony = wybierzKrok(cele, krok, zbierz());
+      if (trafiony !== krok) onKrok(trafiony);
+    };
+
+    dopasuj();
+    const timer = window.setInterval(dopasuj, 500);
     return () => window.clearInterval(timer);
-  }, [biezacy, celNastepnego, onDalej, krok]);
+  }, [kroki, krok, onKrok]);
 
   // WYJŚCIE AWARYJNE DLA KROKÓW „KLIKNIJ".
   //
@@ -155,6 +148,30 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
     const timer = window.setTimeout(() => setFurtka(true), 6000);
     return () => window.clearTimeout(timer);
   }, [krok, biezacy?.czekaNaKlikniecie]);
+
+  // „Dalej" idzie po TYM SAMYM ekranie. Gdy następnego kroku nie widać (dotyczy
+  // okna, które się jeszcze nie otworzyło), a na tym ekranie zostało coś do
+  // pokazania — pokazujemy to, zamiast przeskakiwać w próżnię.
+  const dalejPoEkranie = () => {
+    if (!onKrok) { onDalej(); return; }
+    const cele = kroki.map((k) => k.cel);
+    const widoczne: WidocznyCel[] = [];
+    for (const cel of cele) {
+      if (!cel) continue;
+      const el = document.querySelector(`[data-tour="${cel}"]`) as HTMLElement | null;
+      if (!el || el.offsetParent === null) continue;
+      let glebokosc = 0;
+      let rodzic: HTMLElement | null = el.parentElement;
+      while (rodzic) {
+        if (rodzic.getAttribute('role') === 'dialog') glebokosc++;
+        rodzic = rodzic.parentElement;
+      }
+      widoczne.push({ cel, glebokosc });
+    }
+    const nastepny = nastepnyKrok(cele, krok, widoczne);
+    if (nastepny >= kroki.length) { onZamknij(); return; }
+    onKrok(nastepny);
+  };
 
   if (!biezacy) return null;
 
@@ -231,7 +248,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={onZamknij}>Zamknij</Button>
             {(!biezacy.czekaNaKlikniecie || furtka) && (
-              <Button size="sm" variant={biezacy.czekaNaKlikniecie ? 'outline' : 'default'} onClick={onDalej}>
+              <Button size="sm" variant={biezacy.czekaNaKlikniecie ? 'outline' : 'default'} onClick={dalejPoEkranie}>
                 Dalej <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             )}
