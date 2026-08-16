@@ -37,7 +37,32 @@ serve(async (req) => {
   const expected = await getPhase1Secret(admin, "VOICE_LLM_TOKEN");
   const provided = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   const isServiceCall = provided === serviceRoleKey;
-  if (!isServiceCall && (!expected || provided !== expected)) return json({ error: "unauthorized" }, 401);
+  const maTokenGlosowy = !!expected && provided === expected;
+
+  // TRZECIA SCIEZKA: ZALOGOWANY WLASCICIEL WARSZTATU.
+  //
+  // Rozmowa, ktora nie domknela sie sama, trafia do listy „Polaczenia" jako
+  // „Wymaga uwagi". Warsztat musi moc dokonczyc ja recznie — bez tego dane
+  // sa w transkrypcie i nikt ich stamtad nie wyjmie.
+  //
+  // Front nie moze trzymac tokenu serwisowego, wiec przyjmujemy JWT uzytkownika
+  // i SPRAWDZAMY, ze ten uzytkownik jest wlascicielem tego providera.
+  // Bez tej weryfikacji kazdy zalogowany moglby domykac cudze rozmowy.
+  let uzytkownikUprawniony = false;
+  if (!isServiceCall && !maTokenGlosowy && provided) {
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+    const jako = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${provided}` } } });
+    const { data: { user } } = await jako.auth.getUser();
+    if (user) {
+      const { data: sp } = await admin.from("service_providers")
+        .select("id").eq("user_id", user.id).eq("id", String((await req.clone().json().catch(() => ({})))?.provider_id || "")).maybeSingle();
+      uzytkownikUprawniony = !!sp;
+      if (!uzytkownikUprawniony) {
+        console.warn("[voice-call-commit]", JSON.stringify({ event: "obcy_provider", user: user.id.slice(0, 8) }));
+      }
+    }
+  }
+  if (!isServiceCall && !maTokenGlosowy && !uzytkownikUprawniony) return json({ error: "unauthorized" }, 401);
 
   const body = await req.json().catch(() => ({}));
   const conversationId = String(body?.conversation_id || "");
@@ -98,6 +123,10 @@ serve(async (req) => {
     allVehicles: allVehicles || [],
   });
   const brandMatch = matchBrand(reconciled.brand);
+  // matchBrand NIE zwraca null przy braku dopasowania — oddaje source
+  // „unknown" i oryginalny tekst. Pierwsza wersja tej poprawki sprawdzala
+  // `!brandMatch` i nie zadzialalaby ani razu.
+  const markaZnana = !!brandMatch && brandMatch.source !== "unknown";
   const braki = missingForCommit(extracted, reconciled.phone);
 
   // ODWOŁANIE / PRZEŁOŻENIE — nie zakładamy drugiej rezerwacji.
@@ -114,9 +143,20 @@ serve(async (req) => {
   const zapis = {
     first_name: reconciled.firstName, last_name: reconciled.lastName,
     phone: reconciled.phone,
-    brand: brandMatch?.brand ?? reconciled.brand, model: reconciled.model,
+    // MARKA NIEROZPOZNANA NIE JEST MARKA.
+    //
+    // Do bazy trafialy „EDD" i „Vuzet" — smieci z ASR zapisane w polu `brand`,
+    // bo fallback brzmial `?? reconciled.brand`. Marka w karcie zlecenia sluzy
+    // do wyszukiwania i statystyk; wpisany tam szum psuje jedno i drugie,
+    // a przy demo wyglada jak blad systemu.
+    //
+    // Teraz: brak dopasowania = pole PUSTE, a to, co uslyszelismy, laduje
+    // w opisie usterki. Zadna informacja nie ginie, ale zadna nie udaje marki.
+    brand: markaZnana ? brandMatch!.brand : null, model: reconciled.model,
     plate: reconciled.plate,
-    complaint: adnotacja + (extracted.complaint || (odwolanie ? "Prośba zgłoszona telefonicznie." : "")),
+    complaint: adnotacja
+      + (!markaZnana && reconciled.brand ? `[MARKA NIEROZPOZNANA: "${reconciled.brand}"] ` : "")
+      + (extracted.complaint || (odwolanie ? "Prośba zgłoszona telefonicznie." : "")),
     // Przy odwołaniu NIE przekazujemy terminu, nawet jeśli klient go wymienił —
     // wymienił go, żeby wskazać wizytę do usunięcia, a nie żeby umówić nową.
     date: odwolanie ? null : extracted.date,
@@ -266,6 +306,21 @@ serve(async (req) => {
     }));
     const rj = await r.json().catch(() => ({}));
     sms = { wyslany: !rj?.error, blad: rj?.error ? String(rj.error).slice(0, 120) : null };
+    // FLAGA W REZERWACJI, nie tylko w logu SMS.
+    //
+    // `confirmation_sms_sent` ustawial WYLACZNIE reczny kreator w panelu, wiec
+    // wszystkie rezerwacje z agenta mialy `false` mimo wyslanego SMS-a.
+    // Panel pokazywal „SMS niewyslany" przy siedmiu wyslanych — warsztat
+    // widzial problem, ktorego nie bylo, i mogl wyslac drugi raz.
+    if (!rj?.error && wynik.calendar_id) {
+      const { error: flagaErr } = await admin.from("workshop_client_bookings")
+        .update({ confirmation_sms_sent: true }).eq("id", wynik.calendar_id);
+      if (flagaErr) {
+        console.error("[voice-call-commit]", JSON.stringify({
+          event: "flaga_sms_nieustawiona", tresc: flagaErr.message?.slice(0, 200),
+        }));
+      }
+    }
     // ZASADA 12: nieudany SMS nie może zniknąć. Zapis już jest, więc nie wycofujemy
     // transakcji — ale rozmowa dostaje flagę, żeby warsztat wiedział.
     if (rj?.error) {

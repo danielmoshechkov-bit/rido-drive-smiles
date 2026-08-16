@@ -62,7 +62,14 @@ Deno.test("alfabet zgodny z jezykiem", () => {
 Deno.test("konwencja liczb zgodna z modulami snapshotu", () => {
   const zdania = (j: string) => wzorceWJezyku(j)!.split("\n").filter((l) => l.startsWith("  "));
   for (const j of ["ru", "uk"]) {
-    for (const z of zdania(j)) assert(!/\d/.test(z), `${j}: cyfra we wzorcu, ma byc slowami: ${z}`);
+    for (const z of zdania(j)) {
+      // OZNACZENIE MODELU TO NIE LICZBA DO WYPOWIEDZENIA.
+      // „RX8", „A4", „308" to nazwy wlasne — agent czyta je tak, jak stoja,
+      // i nie zamienia na slowa. Zabraniamy cyfr STOJACYCH SAMODZIELNIE,
+      // czyli takich, ktore niosa godzine, date albo kwote.
+      const samodzielne = z.replace(/(?<=\p{L})\d+|\d+(?=\p{L})/gu, "");
+      assert(!/\d/.test(samodzielne), `${j}: samodzielna cyfra we wzorcu, ma byc slowami: ${z}`);
+    }
   }
   assert(zdania("en").some((z) => /\d/.test(z)), "en: brak cyfr, a konwencja angielska to cyfry");
 });

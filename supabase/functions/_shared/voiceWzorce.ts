@@ -67,6 +67,8 @@ const PL: Wzorce = {
     "Dziękuję, numer zapisany.",
     "Numer mam zapisany — będzie w SMS-ie potwierdzającym, łatwiej go sprawdzić wzrokowo niż ze słuchu.",
     "Przepraszam, nie dosłyszałam modelu — jaki to model?",
+    "Rozumiem — Mazda RX8. Poproszę numer rejestracyjny.",
+    "Już poprawiam — Toyota Yaris.",
   ],
   cena: [
     "Wymiana oleju to sto sześćdziesiąt złotych. Jutro o dziewiątej — pasuje?",
@@ -111,6 +113,8 @@ const RU: Wzorce = {
     "Спасибо, номер записан.",
     "Номер записан — он будет в СМС с подтверждением, глазами проверить проще, чем на слух.",
     "Извините, не расслышала модель — какая модель?",
+    "Понял — Мазда RX8. Назовите, пожалуйста, номер машины.",
+    "Исправляю — Тойота Ярис.",
   ],
   cena: [
     "Замена масла — сто шестьдесят злотых. Завтра в девять — подойдёт?",
@@ -160,6 +164,8 @@ const UK: Wzorce = {
     "Дякую, номер записано.",
     "Номер записано — він буде в СМС із підтвердженням, очима перевірити простіше, ніж на слух.",
     "Перепрошую, не розчула модель — яка модель?",
+     "Зрозуміло — Мазда RX8. Назвіть, будь ласка, номер авто.",
+     "Виправляю — Тойота Яріс.",
   ],
   cena: [
     "Заміна оливи — сто шістдесят злотих. Завтра о дев'ятій — підійде?",
@@ -209,6 +215,8 @@ const EN: Wzorce = {
     "Thank you, I have the number.",
     "I have the number — it'll be in the confirmation text, easier to check by eye than by ear.",
     "Sorry, I didn't catch the model — which model is it?",
+    "Got it — a Mazda RX8. And the registration number, please.",
+    "Corrected — a Toyota Yaris.",
   ],
   cena: [
     "An oil change is 160 zloty. Tomorrow at 9 — does that work?",

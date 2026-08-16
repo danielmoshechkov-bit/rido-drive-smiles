@@ -15,7 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, Phone, AlertTriangle, ChevronDown, MessageSquare, FileText } from "lucide-react";
+import { Loader2, Phone, AlertTriangle, ChevronDown, MessageSquare, FileText, FilePlus } from "lucide-react";
+import { toast } from "sonner";
 
 type Tura = { role?: string; message?: string | null };
 type Rozmowa = {
@@ -28,6 +29,7 @@ type Rozmowa = {
   contact_name: string | null;
   linked_entity_type: string | null;
   linked_entity_id: string | null;
+  elevenlabs_conversation_id: string | null;
   turns: Tura[];
 };
 
@@ -45,6 +47,7 @@ export function WorkshopCallsList({ providerId, onOpenOrder }: {
   const [blad, setBlad] = useState<string | null>(null);
   const [tylkoUwaga, setTylkoUwaga] = useState(false);
   const [alertAwarii, setAlertAwarii] = useState<{ title: string; description: string } | null>(null);
+  const [domykana, setDomykana] = useState<string | null>(null);
 
   useEffect(() => {
     let anulowane = false;
@@ -53,7 +56,7 @@ export function WorkshopCallsList({ providerId, onOpenOrder }: {
       setBlad(null);
       const { data, error } = await (supabase as any)
         .from("voice_calls")
-        .select("id, created_at, duration_seconds, status, outcome, summary, contact_name, linked_entity_type, linked_entity_id")
+        .select("id, created_at, duration_seconds, status, outcome, summary, contact_name, linked_entity_type, linked_entity_id, elevenlabs_conversation_id")
         .eq("provider_id", providerId)
         .eq("direction", "inbound")
         .order("created_at", { ascending: false })
@@ -98,6 +101,45 @@ export function WorkshopCallsList({ providerId, onOpenOrder }: {
     void wczytajAlert();
     return () => { anulowane = true; };
   }, [providerId]);
+
+  // DOKONCZENIE ROZMOWY, KTORA NIE DOMKNELA SIE SAMA.
+  //
+  // Rozmowa ze statusem „Wymaga uwagi" ma komplet danych w transkrypcie —
+  // brakowalo tylko sposobu, zeby je stamtad wyjac. Bez tego przycisku
+  // 2 z 9 rozmow dziennie konczy sie tym, ze nikt nic z nimi nie robi.
+  const utworzZlecenie = async (r: Rozmowa) => {
+    setDomykana(r.id);
+    try {
+      const { data: sesja } = await supabase.auth.getSession();
+      const token = sesja?.session?.access_token;
+      if (!token) { toast.error("Sesja wygasła — zaloguj się ponownie."); return; }
+      const odp = await fetch(
+        "https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/voice-call-commit",
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation_id: r.elevenlabs_conversation_id, provider_id: providerId }),
+        },
+      );
+      const wynik = await odp.json().catch(() => ({}));
+      if (!odp.ok || wynik?.error) {
+        // Tresc bledu, nie sam status — inaczej warsztat widzi „nie udalo sie"
+        // i nie wie, czego brakuje.
+        toast.error(wynik?.error || `Nie udało się utworzyć zlecenia (${odp.status}).`);
+        return;
+      }
+      if (wynik?.braki?.length) {
+        toast.warning(`Brakuje danych: ${wynik.braki.join(", ")}. Uzupełnij w karcie zlecenia.`);
+      } else {
+        toast.success("Zlecenie utworzone z tej rozmowy.");
+      }
+      setRozmowy((poprz) => poprz.map((x) => x.id === r.id
+        ? { ...x, status: "completed", linked_entity_type: "workshop_order", linked_entity_id: wynik?.order_id || x.linked_entity_id }
+        : x));
+    } finally {
+      setDomykana(null);
+    }
+  };
 
   const widoczne = useMemo(
     () => (tylkoUwaga ? rozmowy.filter((r) => r.status === "needs_review") : rozmowy),
@@ -173,6 +215,15 @@ export function WorkshopCallsList({ providerId, onOpenOrder }: {
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  {uwaga && r.elevenlabs_conversation_id && (
+                    <Button size="sm" variant="outline" disabled={domykana === r.id}
+                      onClick={() => void utworzZlecenie(r)}>
+                      {domykana === r.id
+                        ? <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                        : <FilePlus className="mr-1 h-4 w-4" />}
+                      Utwórz zlecenie
+                    </Button>
+                  )}
                   {maZlecenie && onOpenOrder && (
                     <Button size="sm" variant="ghost" onClick={() => onOpenOrder(r.linked_entity_id!)}>
                       <FileText className="mr-1 h-4 w-4" />Zlecenie
