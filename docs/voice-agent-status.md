@@ -3297,6 +3297,7 @@ dokumentem.
 | 38 porównuj skrót treści, nie rozmiar | ✅ | regresja rozpoznania warsztatu, trzy drogi |
 | 39 panel warsztatu opisuje firmę, nie agenta | ✅ | panel przepisany, 11 kolumn oznaczonych NIEUŻYWANE |
 | 40 biała lista, nie czarna | ✅ | `supervoip-zapis.mjs` + test ścieżek spoza listy |
+| 41 kryterium domyślnej odmowy | ⚠️ z natury | pytanie do zadania przy każdej liście, nie test |
 
 **Jedna zasada bez kontroli: 30** — i to świadomie: „uporządkowany wzorzec
 jest łatwiejszy do skopiowania" to obserwacja o redakcji promptu, nie warunek,
@@ -3316,6 +3317,30 @@ przebiegu, także zerowym** — liczbę, nie milczenie.
 
 „20 numerów u operatora, 20 u nas, 0 rozbieżności" widziane codziennie znaczy,
 że kontrola chodzi. Brak wiadomości nie znaczy nic.
+
+## ZASADA 41 — kryterium domyślnej odmowy
+
+Uogólnienie zasady 40, stosowane do KAŻDEJ listy — kodeków, endpointów,
+języków, statusów, pól zapisywanych z formularza, ścieżek rozpoznania:
+
+> **Czy w razie mojej nieobecności nowy element domyślnie coś zepsuje,
+> czy domyślnie zostanie odrzucony?**
+
+Jeśli pierwsze — lista jest odwrotna i trzeba ją przepisać.
+
+Pytanie działa, bo nie wymaga wyobrażania sobie zagrożeń (tego nigdy nie
+robimy dobrze), tylko sprawdzenia JEDNEJ rzeczy: co się stanie, gdy pojawi
+się coś, czego nie przewidzieliśmy. A to pojawia się zawsze.
+
+Przykłady z tego projektu, gdzie odpowiedź brzmiała „zepsuje" i lista
+została odwrócona:
+- ścieżki zapisu do API operatora (biała lista zamiast zakazów),
+- kolumny zapisywane z panelu warsztatu (upsert wymienia siedem kolumn
+  jawnie, zamiast „wszystko oprócz usuniętych"),
+- rozpoznanie warsztatu (numer → agent_id → NIC; wcześniej nieznany numer
+  spadał na warsztat domyślny i dostawał cudze dane).
+
+---
 
 ## ZASADA 40 — biała lista, nie czarna
 

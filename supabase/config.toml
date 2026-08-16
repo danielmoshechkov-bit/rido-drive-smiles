@@ -435,3 +435,6 @@ verify_jwt = false
 
 [functions.voice-numbers-worker]
 verify_jwt = false
+
+[functions.voice-number-activate]
+verify_jwt = false

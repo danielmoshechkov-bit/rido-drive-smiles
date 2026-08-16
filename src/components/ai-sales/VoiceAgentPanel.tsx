@@ -81,6 +81,14 @@ interface VoiceConfig {
   calendar_access: boolean; orders_access: boolean;
 }
 interface NumerWarsztatu { phone_number: string; status: string }
+interface StanAktywacji {
+  numer: string | null;
+  zadanie: { status: string; etap: string } | null;
+  miasto: string | null;
+  wymaga_miasta: boolean;
+  error?: string;
+  uwaga?: string;
+}
 
 const emptyBC = (): BusinessContext => ({
   company_name: "", description: "", hours: "", location: "",
@@ -99,6 +107,9 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const [personaKey, setPersonaKey] = useState<string>("");
   const [cfg, setCfg] = useState<VoiceConfig | null>(null);
   const [numer, setNumer] = useState<NumerWarsztatu | null>(null);
+  const [stan, setStan] = useState<StanAktywacji | null>(null);
+  const [miasto, setMiasto] = useState("");
+  const [aktywuje, setAktywuje] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -131,13 +142,21 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           orders_access: !!data.orders_access,
         });
       } else {
-        const { data: sp } = await (supabase as any)
-          .from("service_providers").select("company_name, description, address, city").eq("id", providerId).maybeSingle();
+        // KOLUMNY NAZYWAJĄ SIĘ `company_*`. Poprzednia wersja panelu pytała
+        // o `address, city` — takich kolumn NIE MA, więc całe zapytanie zwracało
+        // błąd i nowy warsztat dostawał pusty formularz zamiast wypełnionego
+        // danymi, które już podał. Nikt tego nie zauważył, bo błąd był
+        // ignorowany (destrukturyzacja bez `error`).
+        const { data: sp, error: bladFirmy } = await (supabase as any)
+          .from("service_providers")
+          .select("company_name, description, company_address, company_city")
+          .eq("id", providerId).maybeSingle();
+        if (bladFirmy) console.error("[panel] odczyt danych firmy:", bladFirmy.message);
         const bc = emptyBC();
         if (sp) {
           bc.company_name = sp.company_name || "";
           bc.description = sp.description || "";
-          bc.location = [sp.address, sp.city].filter(Boolean).join(", ");
+          bc.location = [sp.company_address, sp.company_city].filter(Boolean).join(", ");
         }
         setCfg({
           persona_key: personaKey, is_active: false, display_name: "",
@@ -147,6 +166,43 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
       setLoading(false);
     })();
   }, [personaKey, providerId]);
+
+  const pobierzStan = async () => {
+    const { data, error } = await supabase.functions.invoke("voice-number-activate", { body: { akcja: "status" } });
+    if (error) { console.error("[panel] status aktywacji:", error.message); return null; }
+    setStan(data as StanAktywacji);
+    if ((data as StanAktywacji)?.numer) {
+      setNumer({ phone_number: (data as StanAktywacji).numer as string, status: "aktywny" });
+    }
+    return data as StanAktywacji;
+  };
+  useEffect(() => { if (providerId) pobierzStan(); /* eslint-disable-next-line */ }, [providerId]);
+
+  // ODPYTYWANIE TYLKO W TRAKCIE AKTYWACJI. Aktywacja trwa kilkadziesiąt sekund
+  // (worker chodzi co minutę), więc panel dopytuje co 10 s i przestaje, gdy
+  // numer jest albo gdy zadanie się zamknęło. Stałe odpytywanie obciążałoby
+  // funkcję bez powodu przez cały czas, gdy warsztat po prostu patrzy na ekran.
+  const trwa = !!stan?.zadanie && ["oczekuje", "w_toku"].includes(stan.zadanie.status) && !stan?.numer;
+  useEffect(() => {
+    if (!trwa) return;
+    const t = setInterval(pobierzStan, 10_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line
+  }, [trwa]);
+
+  const aktywuj = async () => {
+    setAktywuje(true);
+    const { data, error } = await supabase.functions.invoke("voice-number-activate", {
+      body: { akcja: "aktywuj", miasto: miasto || undefined },
+    });
+    setAktywuje(false);
+    if (error) { toast.error("Nie udało się rozpocząć aktywacji"); return; }
+    const s = data as StanAktywacji;
+    setStan(s);
+    if (s?.error) { toast.error(s.error); return; }
+    if (s?.numer) { setNumer({ phone_number: s.numer, status: "aktywny" }); toast.success("Numer przypisany"); }
+    else toast.success("Zaczynamy — numer będzie gotowy za chwilę");
+  };
 
   const update = (patch: Partial<VoiceConfig>) => setCfg((c) => (c ? { ...c, ...patch } : c));
   const updateBC = (patch: Partial<BusinessContext>) =>
@@ -244,8 +300,33 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                 </div>
               </div>
             ) : (
-              <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-                Nie masz jeszcze przypisanego numeru. Skontaktuj się z nami — przydzielimy go do Twojego konta.
+              <div className="rounded-lg border border-dashed p-3 space-y-3">
+                {stan?.zadanie && ["oczekuje", "w_toku", "czeka_na_zgode"].includes(stan.zadanie.status) ? (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                    <span>{stan.zadanie.etap}</span>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Nie masz jeszcze numeru. Przydzielimy Ci go teraz — zajmie to chwilę.
+                    </p>
+                    {stan?.wymaga_miasta && (
+                      <div className="space-y-1.5">
+                        <Label>Miasto</Label>
+                        <Input value={miasto} onChange={(e) => setMiasto(e.target.value)}
+                          placeholder="np. Gdańsk" />
+                        <p className="text-xs text-muted-foreground">
+                          Numer będzie z Twojego regionu — klient zobaczy lokalny numer, a nie warszawski.
+                        </p>
+                      </div>
+                    )}
+                    <Button onClick={aktywuj} disabled={aktywuje || (stan?.wymaga_miasta && miasto.trim().length < 2)} className="gap-2">
+                      {aktywuje ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                      Aktywuj agenta
+                    </Button>
+                  </>
+                )}
               </div>
             )
           )}
