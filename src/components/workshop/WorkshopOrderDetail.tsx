@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { buildPublicUrl } from '@/lib/publicUrl';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { stanPrzyjecia, stanKosztorysu, stanOdbioru } from '@/lib/orderActionStatus';
 import { useIsBetaTester } from '@/hooks/useIsBetaTester';
 import { useTranslation } from 'react-i18next';
 import { translateWorkshopStatus } from '@/utils/workshopStatusStyle';
@@ -62,6 +63,33 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
   const { t } = useTranslation();
   const { isBetaTester } = useIsBetaTester();
   const queryClient = useQueryClient();
+
+  // STAN WYSYŁKI NA PRZYCISKACH.
+  //
+  // Akceptację kosztorysu i powiadomienie o gotowości mamy w kolumnach zlecenia,
+  // ale „czy protokół przyjęcia poszedł do klienta" nie ma swojej flagi — jedyny
+  // ślad jest w dzienniku SMS. Jedno lekkie zapytanie po order_id daje komplet.
+  const { data: wyslaneSmsy = [] } = useQuery({
+    queryKey: ['workshop-order-sms-typy', order.id],
+    enabled: !!order.id,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('workshop_sms_log')
+        .select('sms_type')
+        .eq('order_id', order.id)
+        .eq('status', 'sent');
+      return (data || []) as Array<{ sms_type: string | null }>;
+    },
+  });
+  const wyslano = (typ: string) => wyslaneSmsy.some((s) => String(s.sms_type || '').startsWith(typ));
+
+  const sumaPozycji = (order.items || []).reduce((s: number, i: any) => s + (i.total_gross || 0), 0);
+  const maPozycjeZCena = (order.total_gross || 0) > 0 || sumaPozycji > 0;
+  const maKontaktDoKlienta = !!(order.client?.phone || order.client_id);
+
+  const akcjaPrzyjecie = stanPrzyjecia(order, maKontaktDoKlienta, wyslano('reception'));
+  const akcjaKosztorys = stanKosztorysu(order, maPozycjeZCena);
+  const akcjaOdbior = stanOdbioru(order);
 
   // "Pomoc RIDO AI o naprawę" — przycisk na pasku karty zlecenia (przed przydziałem
   // pracownika), stylizowany jak "Przydziel pracownika" (outline + ikona + tekst).
@@ -423,8 +451,8 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost" size="icon" title={t('workshop.orderDetail.receptionProtocol')}
-                  className={order.client_acceptance_confirmed ? 'text-green-500' : 'text-amber-500'}
+                  variant="ghost" size="icon" title={akcjaPrzyjecie.podpowiedz}
+                  className={akcjaPrzyjecie.klasa}
                 >
                   <Eye className="h-4 w-4" />
                 </Button>
@@ -455,8 +483,8 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost" size="icon" title={t('workshop.orderDetail.estimate')}
-                  className={`relative ${order.quote_accepted ? 'text-green-500' : 'text-amber-500'}`}
+                  variant="ghost" size="icon" title={akcjaKosztorys.podpowiedz}
+                  className={`relative ${akcjaKosztorys.klasa}`}
                 >
                   <ClipboardList className="h-4 w-4" />
                   {order.estimate_changed_after_send && (
@@ -506,8 +534,8 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost" size="icon" title={t('workshop.orderDetail.readinessConfirmed')}
-                  className={order.ready_notification_sent ? 'text-green-500' : 'text-amber-500'}
+                  variant="ghost" size="icon" title={akcjaOdbior.podpowiedz}
+                  className={akcjaOdbior.klasa}
                 >
                   <Send className="h-4 w-4" />
                 </Button>
