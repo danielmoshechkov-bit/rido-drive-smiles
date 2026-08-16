@@ -1,61 +1,75 @@
-# Zgłoszenie do SuperVoIP — nagłówek Diversion przy przekierowaniach
+# Zgłoszenie do SuperVoIP — numer docelowy przy przekierowaniu + warunki na pulę numerów
 
 **Do wysłania przez formularz zgłoszeniowy.** Numer +48 22 101 58 96, trunk SIP.
+
+Wersja po przeczytaniu Waszej dokumentacji — pytania, na które w niej
+odpowiedzi znalazłem, zostały USUNIĘTE (API do zamawiania numerów,
+instrukcja ElevenLabs, sposób uwierzytelniania, gdzie wygenerować klucz).
 
 ---
 
 Dzień dobry,
 
-numer **+48 22 101 58 96**, trunk SIP. Odbieramy na nim połączenia
-przekierowane z numerów naszych klientów.
+numer **+48 22 101 58 96**, trunk SIP, integracja z ElevenLabs zestawiona
+według Waszej instrukcji z bazy wiedzy (`pomoc.supervoip.pl/elevenlabs/`).
+Odbieramy na nim połączenia przekierowane z numerów naszych klientów.
 
-W przychodzącym INVITE nie znajdujemy nagłówka `Diversion`, `History-Info`
+## 1. Numer docelowy przy przekierowaniu
+
+W przychodzącym INVITE nie znajdujemy `Diversion`, `History-Info`
 ani `P-Asserted-Identity` — nie mamy jak ustalić, na który numer klient
-dzwonił pierwotnie.
-
-Sprawdziliśmy to na dziewięciu połączeniach z 17.08, w tym na kilku
-przekierowanych. Zestaw nagłówków jest **identyczny** dla połączeń
-bezpośrednich i przekierowanych:
+dzwonił pierwotnie. Sprawdziliśmy dziewięć połączeń z 17.08, w tym
+przekierowane. Zestaw nagłówków jest **identyczny** dla bezpośrednich
+i przekierowanych:
 
     Record-Route, Via, Max-Forwards, From, To, Contact, Call-ID, CSeq,
     User-Agent, Date, Allow, Supported, X-Callid, X-CallerID,
     Content-Type, Content-Length
 
-Pole `To` zawiera zawsze nasz numer techniczny, `From` — numer dzwoniącego.
+`To` zawiera zawsze nasz numer techniczny, `From` — numer dzwoniącego.
 
-## Pytania
+**Pytania:**
 
-1. Czy przekazujecie nagłówek `Diversion` przy połączeniach przekierowanych
-   z sieci komórkowych? Jeśli nie — czy da się to włączyć na naszym trunku?
-2. Czy jest inna droga ustalenia numeru docelowego przekierowania —
-   nagłówek `X-*`, parametr w `To`, cokolwiek?
-3. Jeśli nie — czy przy wielu numerach na jednym trunku pole `To` zawiera
-   numer, **na który przyszło połączenie**?
+1. Czy przy połączeniu przekierowanym z sieci obcej (np. z numeru Orange
+   na nasz numer) przekazujecie gdziekolwiek numer, **z którego** nastąpiło
+   przekierowanie? `Diversion`, `History-Info`, własny nagłówek `X-*`,
+   parametr w `To` — cokolwiek. Jeśli nie przekazujecie domyślnie,
+   czy da się to włączyć na naszym trunku?
 
-## Pytania o API i numery
+2. W dokumentacji SIP trunk piszecie, że usługa pozwala „rozróżniać
+   w urządzeniu na jaki numer telefonu przychodzi połączenie".
+   **W którym polu SIP** ten numer jest, gdy na jednym trunku mamy wiele
+   naszych numerów? `To`, Request-URI, czy jeszcze inne?
 
-Budujemy usługę, w której wielu klientów przekierowuje swoje numery na nasz.
-Bez rozpoznania numeru docelowego musimy kupować osobny numer dla każdego
-klienta — stąd dodatkowe pytania:
+3. W API dla numeru jest `redirectPresentation` o wartościach
+   `incoming` | `redirect`. Rozumiem, że to wybór **albo — albo**:
+   albo widzimy numer dzwoniącego, albo numer przekierowujący.
+   Czy jest konfiguracja, w której dostajemy **oba naraz** — numer
+   dzwoniącego w `From` i numer przekierowujący w osobnym nagłówku?
+   Bez tego przy przekierowaniu musimy wybrać: albo wiemy, kto dzwoni,
+   albo wiemy, do którego klienta.
 
-4. Czy udostępniacie **API** do zamawiania numerów i przypisywania ich
-   do konta SIP? Chcielibyśmy, żeby numer powstawał automatycznie
-   po aktywacji usługi przez klienta, bez naszego udziału.
-5. Ile trwa aktywacja numeru — natychmiast czy po weryfikacji?
-6. Czy jest limit numerów na jednym koncie i na jednym trunku?
-7. Jaki jest miesięczny koszt numeru stacjonarnego przy zamówieniu
-   kilkudziesięciu sztuk?
-8. Czy macie **API pozwalające kupić numer programowo**? W Waszej bazie
-   wiedzy jest tag „API" — proszę o link do dokumentacji.
-9. W Waszej bazie wiedzy jest tag **„ElevenLabs"**. Czy macie dokumentację
-   integracji z tą platformą? Jeśli tak, proszę o link — być może opisuje
-   dokładnie nasz przypadek.
-10. W dokumentacji przekierowań piszecie, że można ustalić prezentację:
-    „numer przychodzący lub numer przekierowywany". Czy to ustawienie
-    dotyczy także połączeń **przychodzących na nasz trunk** z sieci obcych
-    (np. przekierowanie z numeru Orange na nasz numer), czy tylko
-    przekierowań wewnątrz Waszego systemu? Jeśli dotyczy — gdzie w panelu
-    je znaleźć?
+## 2. Pula numerów — warunki handlowe
+
+Budujemy usługę, w której każdy klient (warsztat samochodowy) dostaje
+własny numer obsługiwany przez agenta głosowego. Numer ma powstawać
+automatycznie w chwili aktywacji usługi — przez `POST /api/voip_numbers`.
+
+4. **Ile trwa aktywacja numeru** zamówionego przez API — jest gotowy
+   od razu, czy przechodzi weryfikację?
+
+5. Czy jest **limit numerów na jednym koncie** i limit numerów
+   przypisanych do jednego konta SIP z usługą SIP trunk?
+
+6. Jaki jest miesięczny koszt numeru stacjonarnego przy **kilkudziesięciu
+   sztukach** — czy przy takiej liczbie obowiązuje inna stawka niż
+   cennikowa? Ceny jednostkowe widzę w `GET /api/numbers`, pytam
+   o warunki przy skali.
+
+7. Domyślnie konto SIP ma jeden kanał wychodzący. Czy przy naszym
+   scenariuszu (tylko połączenia PRZYCHODZĄCE, wiele numerów, wiele
+   rozmów jednocześnie) trzeba coś dokupić, czy „połączenia przychodzące
+   nie są limitowane na koncie SIP" obowiązuje bez zastrzeżeń?
 
 ## Przykładowe połączenia (17.08, przekierowane)
 
