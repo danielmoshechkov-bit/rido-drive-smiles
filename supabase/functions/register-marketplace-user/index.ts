@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveWorkshopTrialDays, workshopTrialExpiresAt } from "../_shared/workshopTrial.ts";
+import { sprawdzKodPlanu } from "../_shared/kodPlanu.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,6 +51,9 @@ Deno.serve(async (req) => {
     // Limit liczymy po adresie IP w oknie godzinnym. Świadomie NIE blokujemy
     // po adresie e-mail: to pozwalałoby sprawdzać, które adresy są już
     // zarejestrowane, czyli wyliczać bazę użytkowników.
+    // Kod planu sprawdzamy w cenniku ZANIM go gdziekolwiek zapiszemy.
+    const planSprawdzony = await sprawdzKodPlanu(supabaseAdmin, plan);
+
     const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
     const LIMIT_NA_GODZINE = 5;
 
@@ -100,7 +104,7 @@ Deno.serve(async (req) => {
       email_confirm: !requireEmailConfirmation,
       user_metadata: {
         first_name, last_name, phone, account_type: 'marketplace',
-        ...(module ? { module, plan } : {})
+        ...(module ? { module, plan: planSprawdzony } : {})
       }
     });
 
@@ -254,7 +258,7 @@ Deno.serve(async (req) => {
           started_at: new Date().toISOString(),
           expires_at: trialEndsAt,
           amount_paid: 0,
-          metadata: { module, plan: plan || null, trial: true, trial_days: trialDays, source: "self_signup" },
+          metadata: { module, plan: planSprawdzony, trial: true, trial_days: trialDays, source: "self_signup" },
         });
       if (trialError) {
         console.error("⚠️ trial subscription insert error:", trialError.message);

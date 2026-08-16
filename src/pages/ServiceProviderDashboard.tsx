@@ -23,6 +23,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useSubscriptionActivation } from '@/hooks/useSubscriptionActivation';
 import { TrialPlanBanner } from '@/components/billing/TrialPlanBanner';
 import { SubscriptionCard } from '@/components/billing/SubscriptionCard';
+import { PlanBadge } from '@/components/billing/PlanBadge';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
@@ -662,9 +663,15 @@ export default function ServiceProviderDashboard() {
             <UniversalHomeButton />
             <div className="hidden sm:block">
               <h1 className="font-semibold text-lg">{t('sp.panel')}</h1>
-              <p className="text-xs text-muted-foreground">
-                {configData?.company_name || settingsForm.company_name || t('sp.yourCompany')}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground">
+                  {configData?.company_name || settingsForm.company_name || t('sp.yourCompany')}
+                </p>
+                {/* Plan i licznik dni trialu przy nazwie firmy — baner na
+                    Pulpicie łatwo przewinąć i przestaje być widziany po
+                    drugim wejściu. */}
+                <PlanBadge providerId={providerId} />
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">

@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveWorkshopTrialDays, workshopTrialExpiresAt } from "../_shared/workshopTrial.ts";
+import { sprawdzKodPlanu } from "../_shared/kodPlanu.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,12 +49,14 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const plan: string | undefined = typeof body.plan === "string" ? body.plan : undefined;
 
-    console.log("🔧 Activating workshop module for:", user.email, "plan:", plan || "-");
+    // Kod planu sprawdzamy w cenniku ZANIM go gdziekolwiek zapiszemy.
+    const planSprawdzony = await sprawdzKodPlanu(supabaseAdmin, plan);
+    console.log("🔧 Activating workshop module for:", user.email, "plan:", planSprawdzony || "-");
 
     // 1. user_metadata: module + plan (merge, nie nadpisujemy pozostałych pól)
     const meta = (user.user_metadata || {}) as Record<string, unknown>;
     await supabaseAdmin.auth.admin.updateUserById(userId, {
-      user_metadata: { ...meta, module: "warsztat", ...(plan ? { plan } : {}) },
+      user_metadata: { ...meta, module: "warsztat", ...(planSprawdzony ? { plan: planSprawdzony } : {}) },
     });
 
     // 2. Wpis usługodawcy (status wstępny) — tylko jeśli brak.
@@ -124,7 +127,7 @@ Deno.serve(async (req) => {
         amount_paid: 0,
         metadata: {
           module: "warsztat",
-          plan: plan || null,
+          plan: planSprawdzony,
           trial: true,
           trial_days: trialDays,
           source: "existing_account_activation",

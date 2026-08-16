@@ -116,6 +116,19 @@ type Feature = {
 const HIGHLIGHTED = new Set(["warsztat_standard", "agent_pro"]);
 
 /**
+ * Plan przypisywany przy rejestracji z OGÓLNEGO przycisku („Zarejestruj się",
+ * „Aktywuj", hero, CTA pod FAQ) — czyli wtedy, gdy człowiek nie kliknął
+ * konkretnej karty. Landing obiecuje w okresie próbnym „pełny program
+ * w zakresie Pro", więc to Pro jest planem, ku któremu potem nakłaniamy.
+ *
+ * ⚠️ MUSI BYĆ PEŁNYM KODEM z `billing_plans`. Wcześniej stało tu `"pro"` —
+ * skrót, którego billing nie zna. Trafiał do `user_metadata.plan` i do trialu,
+ * a `TrialPlanBanner` szukał planu po kodzie, nie znajdował i milczał.
+ * Nie było to obcięcie prefiksu: ten literał nigdy nie był pełnym kodem.
+ */
+const PLAN_PROMOWANY = "warsztat_pro";
+
+/**
  * Zapowiedzi „wkrótce" — obietnice, nie zakres planu. Funkcja, która jeszcze
  * nie działa, nie ma prawa siedzieć w macierzy plan × funkcja, bo natychmiast
  * dałaby do niej dostęp.
@@ -170,8 +183,18 @@ export default function WorkshopLanding() {
       .then(({ data }) => setIsProvider(!!data));
   }, [session]);
 
-  const handleStartTrial = async (plan: string) => {
-    setSelectedPlan(plan);
+  /**
+   * Kod planu dla ogólnych przycisków, sprawdzony względem tego, co naprawdę
+   * jest w cenniku. Gdyby plan zmienił kod albo zniknął, wolimy NIE zapisać
+   * niczego niż zapisać kod, którego billing nie rozpozna — cichy rozjazd
+   * jest gorszy niż brak wartości.
+   */
+  const planPromowany = warsztatPlans.some((p) => p.code === PLAN_PROMOWANY)
+    ? PLAN_PROMOWANY
+    : undefined;
+
+  const handleStartTrial = async (plan?: string) => {
+    setSelectedPlan(plan ?? null);
     if (!session) {
       setLoginMode("register");
       setShowLoginModal(true);
@@ -349,7 +372,7 @@ export default function WorkshopLanding() {
               ) : (
                 <>
                   <Button variant="ghost" size="sm" onClick={() => navigate("/klient")}>Moje konto</Button>
-                  <Button size="sm" disabled={activating} onClick={() => handleStartTrial("pro")}>
+                  <Button size="sm" disabled={activating} onClick={() => handleStartTrial(planPromowany)}>
                     {activating ? "Aktywuję..." : trialLabel ? `Aktywuj ${trialLabel}` : "Aktywuj"}
                   </Button>
                 </>
@@ -357,7 +380,7 @@ export default function WorkshopLanding() {
             ) : (
               <>
                 <Button variant="ghost" size="sm" onClick={() => { setLoginMode("login"); setShowLoginModal(true); }}>Zaloguj się</Button>
-                <Button size="sm" onClick={() => handleStartTrial("pro")}>Zarejestruj się</Button>
+                <Button size="sm" onClick={() => handleStartTrial(planPromowany)}>Zarejestruj się</Button>
               </>
             )}
           </div>
@@ -406,7 +429,7 @@ export default function WorkshopLanding() {
                   size="lg"
                   className="w-full sm:w-auto gap-2 text-base px-8 py-6 bg-gradient-to-r from-primary to-purple-600 hover:opacity-90"
                   disabled={activating}
-                  onClick={() => handleStartTrial("pro")}
+                  onClick={() => handleStartTrial(planPromowany)}
                 >
                   <Wrench className="h-5 w-5" />
                   {activating ? "Aktywuję..." : session && isProvider ? "Przejdź do panelu" : trialLabel ? `Wypróbuj ${trialLabel} za darmo` : "Zacznij za darmo"}
@@ -877,7 +900,7 @@ export default function WorkshopLanding() {
           <div className="mt-12 text-center">
             <Button
               size="lg"
-              onClick={() => handleStartTrial("pro")}
+              onClick={() => handleStartTrial(planPromowany)}
               className="gap-3 h-16 md:h-20 px-8 md:px-14 text-lg md:text-2xl font-extrabold rounded-2xl bg-gradient-to-r from-primary via-purple-600 to-primary text-primary-foreground shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all"
             >
               <Wrench className="h-6 w-6 md:h-7 md:w-7" />
