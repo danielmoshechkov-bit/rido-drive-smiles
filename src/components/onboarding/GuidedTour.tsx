@@ -32,6 +32,14 @@ export interface KrokTrasy {
   akcja?: string;
   /** Gdy true, krok czeka na akcję użytkownika i nie pokazuje przycisku „Dalej". */
   czekaNaKlikniecie?: boolean;
+  /**
+   * Dodatkowe miejsca do podświetlenia razem z `cel`.
+   *
+   * Bywa, że jedna czynność wymaga dwóch rzeczy na raz: żeby wystawić dokument,
+   * trzeba NAJPIERW zaznaczyć zlecenie, a potem kliknąć „Wystaw". Podświetlenie
+   * samego przycisku mówi połowę prawdy i człowiek klika w martwy przycisk.
+   */
+  celeDodatkowe?: string[];
 }
 
 interface Props {
@@ -46,6 +54,32 @@ interface Props {
 }
 
 const ODSTEP = 8;
+
+/**
+ * Cele obecne na ekranie wraz z informacja, jak „wysoko" leza.
+ *
+ * Okna modalne sa przenoszone na koniec dokumentu (portal), wiec okno pojazdu
+ * NIE jest dzieckiem okna zlecenia — oba leza obok siebie. Liczenie zagniezdzenia
+ * dawalo wiec obu te sama glebokosc i wprowadzenie pokazywalo krok z okna pod
+ * spodem. Kolejnosc w dokumencie odpowiada kolejnosci otwierania, wiec ostatnie
+ * okno jest tym na wierzchu.
+ *
+ * Pomijamy tez wszystko, co biblioteka ukryla przed czytnikami ekranu
+ * (aria-hidden) — tak oznaczane jest tlo pod otwartym oknem.
+ */
+function widoczneCele(cele: Array<string | undefined>): WidocznyCel[] {
+  const okna = Array.from(document.querySelectorAll('[role="dialog"]'));
+  const wynik: WidocznyCel[] = [];
+  for (const cel of cele) {
+    if (!cel) continue;
+    const el = document.querySelector(`[data-tour="${cel}"]`) as HTMLElement | null;
+    if (!el || el.offsetParent === null) continue;
+    if (el.closest('[aria-hidden="true"]')) continue;
+    const okno = el.closest('[role="dialog"]');
+    wynik.push({ cel, glebokosc: okno ? okna.indexOf(okno) + 1 : 0 });
+  }
+  return wynik;
+}
 
 export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLicznik = true }: Props) {
   const biezacy = kroki[krok];
@@ -65,6 +99,19 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
     // czyli dokładnie ta rzecz, którą trzeba kliknąć.
     const r = el.getBoundingClientRect();
     let gora = r.top, dol = r.bottom, lewo = r.left, prawo = r.right;
+
+    // Miejsca dodatkowe (np. pole wyboru zlecenia przy „Wystaw") wchodzą do tego
+    // samego podświetlenia — czynność wymaga obu naraz.
+    for (const dodatkowy of biezacy.celeDodatkowe || []) {
+      const ed = document.querySelector(`[data-tour="${dodatkowy}"]`) as HTMLElement | null;
+      if (!ed || ed.offsetParent === null) continue;
+      const rd = ed.getBoundingClientRect();
+      gora = Math.min(gora, rd.top);
+      dol = Math.max(dol, rd.bottom);
+      lewo = Math.min(lewo, rd.left);
+      prawo = Math.max(prawo, rd.right);
+    }
+
     el.querySelectorAll('*').forEach((dziecko) => {
       const rd = (dziecko as HTMLElement).getBoundingClientRect();
       if (rd.width === 0 || rd.height === 0) return;
@@ -75,7 +122,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
       prawo = Math.max(prawo, rd.right);
     });
     setObszar(new DOMRect(lewo, gora, prawo - lewo, dol - gora));
-  }, [biezacy?.cel]);
+  }, [biezacy?.cel, biezacy?.celeDodatkowe]);
 
   useLayoutEffect(() => { zmierz(); }, [zmierz, krok]);
 
@@ -108,25 +155,8 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
     if (!onKrok) return;
     const cele = kroki.map((k) => k.cel);
 
-    const zbierz = (): WidocznyCel[] => {
-      const wynik: WidocznyCel[] = [];
-      for (const cel of cele) {
-        if (!cel) continue;
-        const el = document.querySelector(`[data-tour="${cel}"]`) as HTMLElement | null;
-        if (!el || el.offsetParent === null) continue;
-        let glebokosc = 0;
-        let rodzic: HTMLElement | null = el.parentElement;
-        while (rodzic) {
-          if (rodzic.getAttribute('role') === 'dialog') glebokosc++;
-          rodzic = rodzic.parentElement;
-        }
-        wynik.push({ cel, glebokosc });
-      }
-      return wynik;
-    };
-
     const dopasuj = () => {
-      const trafiony = wybierzKrok(cele, krok, zbierz());
+      const trafiony = wybierzKrok(cele, krok, widoczneCele(cele));
       if (trafiony !== krok) onKrok(trafiony);
     };
 
@@ -155,20 +185,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
   const dalejPoEkranie = () => {
     if (!onKrok) { onDalej(); return; }
     const cele = kroki.map((k) => k.cel);
-    const widoczne: WidocznyCel[] = [];
-    for (const cel of cele) {
-      if (!cel) continue;
-      const el = document.querySelector(`[data-tour="${cel}"]`) as HTMLElement | null;
-      if (!el || el.offsetParent === null) continue;
-      let glebokosc = 0;
-      let rodzic: HTMLElement | null = el.parentElement;
-      while (rodzic) {
-        if (rodzic.getAttribute('role') === 'dialog') glebokosc++;
-        rodzic = rodzic.parentElement;
-      }
-      widoczne.push({ cel, glebokosc });
-    }
-    const nastepny = nastepnyKrok(cele, krok, widoczne);
+    const nastepny = nastepnyKrok(cele, krok, widoczneCele(cele));
     if (nastepny >= kroki.length) { onZamknij(); return; }
     onKrok(nastepny);
   };

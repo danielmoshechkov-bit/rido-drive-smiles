@@ -38,8 +38,11 @@ krok = wybierzKrok(cele, krok, oknoZlecenia);
 sprawdz('po otwarciu zlecenia: pole pojazdu', krok, 'pole-rejestracji');
 
 // ── EKRAN 3: okno „Dodaj nowy pojazd" NA WIERZCHU ───────────────────────────
+// Okno pojazdu otwiera sie NAD oknem zlecenia. Biblioteka ukrywa tlo przed
+// czytnikami ekranu, wiec cele z okna pod spodem znikaja z listy widocznych —
+// dokladnie tak, jak liczy to silnik.
 const oknoPojazdu = [
-  ...oknoZlecenia,
+  ...panel,
   { cel: 'pojazd-wlasciciel', glebokosc: 2 },
   { cel: 'pojazd-rejestracja', glebokosc: 2 },
 ];
@@ -48,7 +51,7 @@ sprawdz('okno pojazdu: najpierw właściciel', krok, 'pojazd-wlasciciel');
 
 // ── EKRAN 4: okno „Dodaj nowego klienta" NA WIERZCHU ────────────────────────
 const oknoKlienta = [
-  ...oknoPojazdu,
+  ...panel,
   { cel: 'klient-imie-nazwisko', glebokosc: 3 },
   { cel: 'klient-telefon', glebokosc: 3 },
 ];
@@ -62,7 +65,7 @@ krok = wybierzKrok(cele, krok, oknoPojazdu);
 sprawdz('powrót do pojazdu: numer i lupka', krok, 'pojazd-rejestracja');
 
 // ── EKRAN 6: po lupce pojawia się podsumowanie pobranych danych ─────────────
-const poLupce = [...oknoPojazdu, { cel: 'pobrane-dane', glebokosc: 2 }];
+const poLupce = [...panel, { cel: 'pojazd-wlasciciel', glebokosc: 2 }, { cel: 'pojazd-rejestracja', glebokosc: 2 }, { cel: 'pobrane-dane', glebokosc: 2 }];
 krok = nastepnyKrok(cele, krok, poLupce);
 sprawdz('po lupce: co przyszło z rejestru', krok, 'pobrane-dane');
 

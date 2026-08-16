@@ -121,8 +121,9 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'dokumenty-zlecenia',
+    celeDodatkowe: ['zaznacz-zlecenie'],
     tytul: 'Dokumenty po naprawie',
-    tresc: 'Do zakończonego zlecenia wystawisz potwierdzenie wykonania usługi, paragon (jeśli masz podpiętą drukarkę fiskalną) albo fakturę.\n\nPozycje i kwoty przepisują się z kosztorysu — nie wpisujesz ich drugi raz.',
+    tresc: 'Najpierw zaznacz zlecenie na liście (kółko po lewej), dopiero potem kliknij „Wystaw" — bez zaznaczenia system nie wie, do czego wystawić dokument.\n\nDo wyboru: potwierdzenie wykonania usługi, paragon (jeśli masz podpiętą drukarkę fiskalną) albo faktura. Pozycje i kwoty przepisują się z kosztorysu — nie wpisujesz ich drugi raz.',
     akcja: 'Fakturę z tego zlecenia próbnego skasujesz razem ze zleceniem',
   },
   {

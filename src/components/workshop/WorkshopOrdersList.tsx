@@ -784,7 +784,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
                   const ss = getStatusStyle(order.status_name);
                   return (
                   <TableRow key={order.id} className={`group cursor-pointer transition-colors ${ss.row}`} onClick={() => onSelectOrder?.(order)}>
-                    <TableCell onClick={e => e.stopPropagation()}>
+                    <TableCell onClick={e => e.stopPropagation()} data-tour="zaznacz-zlecenie">
                       <Checkbox
                         checked={selectedIds.has(order.id)}
                         onCheckedChange={() => toggleSelect(order.id)}
