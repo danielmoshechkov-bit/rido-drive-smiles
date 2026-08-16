@@ -663,18 +663,21 @@ export default function ServiceProviderDashboard() {
             <UniversalHomeButton />
             <div className="hidden sm:block">
               <h1 className="font-semibold text-lg">{t('sp.panel')}</h1>
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-muted-foreground">
-                  {configData?.company_name || settingsForm.company_name || t('sp.yourCompany')}
-                </p>
-                {/* Plan i licznik dni trialu przy nazwie firmy — baner na
-                    Pulpicie łatwo przewinąć i przestaje być widziany po
-                    drugim wejściu. */}
-                <PlanBadge providerId={providerId} />
-              </div>
+              <p className="text-xs text-muted-foreground">
+                {configData?.company_name || settingsForm.company_name || t('sp.yourCompany')}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Plan i licznik dni okresu próbnego stoją PRZED ikonami, a nie
+                przy nazwie firmy. Przy nazwie rozpychały lewą stronę paska
+                („okres próbny, 503 dni · Wybierz plan" to długi napis) i cały
+                pasek robił się za szeroki. Tutaj są równie widoczne, a pasek
+                wraca do dawnej wysokości. Na wąskich ekranach chowamy je —
+                tam liczą się ikony, a plan jest w zakładce konta. */}
+            <div className="hidden lg:flex items-center">
+              <PlanBadge providerId={providerId} />
+            </div>
             <Button
               variant="ghost"
               size="icon"

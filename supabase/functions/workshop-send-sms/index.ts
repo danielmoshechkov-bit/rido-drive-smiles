@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { sprawdzTrescSms } from "../_shared/smsModeration.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { mozePracowac, odmowaBramki } from "../_shared/subscriptionGate.ts";
 
@@ -46,6 +47,29 @@ serve(async (req) => {
 
   try {
     const { phone, message, order_id, sms_type, provider_id, sender, scheduled_at, appointment_id, client_id } = await req.json();
+
+    // ── KONTROLA TREŚCI ────────────────────────────────────────────────
+    // SMS-y wychodzą z konta portalu u operatora bramki. Wulgarna albo
+    // oszukańcza treść wysłana przez jednego klienta obciąża to konto i grozi
+    // odcięciem wysyłki WSZYSTKIM warsztatom naraz, a przy podszywaniu się pod
+    // bank czy kuriera także odpowiedzialnością prawną. Ekran ostrzega
+    // wcześniej, ale ekran da się ominąć wołaniem tej funkcji wprost —
+    // dlatego blokada stoi tutaj.
+    //
+    // Wołania WEWNĘTRZNE (przypomnienia, potwierdzenia) też przez to
+    // przechodzą: ich treść składa nasz kod, więc nie mają jak nie przejść,
+    // a gdyby kiedyś miały — chcemy o tym wiedzieć.
+    if (typeof message === "string") {
+      const ocena = sprawdzTrescSms(message);
+      if (!ocena.dozwolone) {
+        console.warn("[Workshop SMS]", JSON.stringify({
+          event: "tresc_zablokowana", powod: ocena.powod, dopasowanie: ocena.dopasowanie,
+        }));
+        return new Response(JSON.stringify({
+          error: "CONTENT_BLOCKED", powod: ocena.powod, message: ocena.komunikat,
+        }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
 
     if (!phone || !message) {
       return new Response(JSON.stringify({ error: "Missing phone or message" }), {
