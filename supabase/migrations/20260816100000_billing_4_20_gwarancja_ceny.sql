@@ -58,6 +58,17 @@ CREATE INDEX IF NOT EXISTS billing_subscriptions_gwarancja
 -- ---------------------------------------------------------------------------
 -- Raz na dobę. Gwarancja liczy się w miesiącach, a mail „30 dni przed" nie
 -- staje się pilniejszy przez sprawdzanie co godzinę.
+--
+-- Sekret NIE jest wklejany w treść zadania. Dwa powody:
+--
+--  1. `ALTER DATABASE … SET app.…` wymaga uprawnień, których SQL Editor
+--     w Supabase nie ma (`42501: permission denied to set parameter`).
+--  2. Nawet gdyby miał — treść zadania ląduje jawnym tekstem w `cron.job
+--     .command`. W tym repozytorium siedem zadań trzyma tam token wprost;
+--     akurat publiczny, ale wzorzec jest zły i nie powielamy go dla sekretu.
+--
+-- Zamiast tego czytamy z Vaulta w chwili wykonania. Sekret leży zaszyfrowany,
+-- a w treści zadania widać wyłącznie zapytanie do niego.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron')
@@ -74,7 +85,9 @@ BEGIN
         url := 'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/billing-price-guarantee',
         headers := jsonb_build_object(
           'Content-Type', 'application/json',
-          'x-cron-secret', current_setting('app.billing_cron_secret', true)
+          'x-cron-secret',
+          (SELECT decrypted_secret FROM vault.decrypted_secrets
+            WHERE name = 'billing_cron_secret')
         ),
         body := '{}'::jsonb
       );
@@ -85,11 +98,10 @@ BEGIN
   END IF;
 END $$;
 
--- Sekret współdzielony z funkcją. Ustawiany osobno, bo nie trzymamy sekretów
--- w repozytorium:
---   ALTER DATABASE postgres SET app.billing_cron_secret = '…';
+-- Sam sekret zakłada się OSOBNO, bo nie trzymamy sekretów w repozytorium:
+--   SELECT vault.create_secret('<wartość>', 'billing_cron_secret', 'Bramka billing-price-guarantee');
 -- Ta sama wartość wchodzi jako `BILLING_CRON_SECRET` w sekretach Supabase.
--- Dopóki nie ustawisz obu, funkcja ODMAWIA — nie chodzi po subskrypcjach
--- z domyślną zgodą.
+-- Dopóki nie ma obu, funkcja ODMAWIA — nie chodzi po subskrypcjach z domyślną
+-- zgodą.
 
 NOTIFY pgrst, 'reload schema';

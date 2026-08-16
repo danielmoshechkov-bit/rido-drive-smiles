@@ -293,16 +293,24 @@ W panelu Supabase (Edge Functions → Secrets):
 - `BILLING_CRON_SECRET` — min. 16 znaków
 - `SEED_DEMO_SECRET` — min. 16 znaków
 
-W bazie, ta sama wartość co pierwszy sekret:
+W bazie — przez **Vault**, nie przez `ALTER DATABASE`. Dwa powody:
+SQL Editor nie ma uprawnień do ustawiania parametrów bazy
+(`42501: permission denied to set parameter`), a nawet gdyby miał, sekret
+wklejony w treść zadania leżałby jawnie w `cron.job.command`.
+
 ```sql
-ALTER DATABASE postgres SET app.billing_cron_secret = '…';
+SELECT vault.create_secret(
+  'TA-SAMA-WARTOSC-CO-W-PANELU',
+  'billing_cron_secret',
+  'Bramka zadania billing-price-guarantee'
+);
 ```
 
-Kontrola:
+Kontrola — bez pokazywania samej wartości:
 ```sql
-SELECT current_setting('app.billing_cron_secret', true) IS NOT NULL AS ustawiony;
+SELECT name, length(decrypted_secret) AS dlugosc
+FROM vault.decrypted_secrets WHERE name = 'billing_cron_secret';
 ```
-(w nowej sesji — `ALTER DATABASE` działa od następnego połączenia)
 
 **Stan po kroku 5:** zadania cykliczne mogą działać. `seed-services-demo`
 przestaje być otwartym przyciskiem kasującym giełdę usług.
