@@ -106,6 +106,66 @@ function datyWTekscie(txt, jezyk) {
   return pary;
 }
 
+
+// ============================================================================
+// GODZINY — PORÓWNUJEMY LICZBY, NIE NAPISY. (druga lekcja tego samego rodzaju)
+//
+// Przy datach nauczyliśmy się tego wcześniej. Godziny zostały na porównaniu
+// napisów — i po ożywieniu asercji dla cyrylicy okazało się, że „в девять"
+// nie ma szans dopasować się do polskiego „dziewiątej" ani do „09:00".
+// Rosyjski i ukraiński dostawały czerwone przy KAŻDEJ poprawnej propozycji.
+// ============================================================================
+const GODZINA_ZE_SLOWA = {
+  pl: { "pierwsz": 13, "drug": 14, "trzeci": 15, "czwart": 16, "piąt": 17, "szóst": 6, "siódm": 7, "ósm": 8,
+        "dziewiąt": 9, "dziesiąt": 10, "jedenast": 11, "dwunast": 12, "trzynast": 13, "czternast": 14,
+        "piętnast": 15, "szesnast": 16, "siedemnast": 17 },
+  ru: { "восем": 8, "девят": 9, "десят": 10, "одиннадцат": 11, "двенадцат": 12, "тринадцат": 13,
+        "четырнадцат": 14, "пятнадцат": 15, "шестнадцат": 16, "семнадцат": 17 },
+  uk: { "восьм": 8, "дев.ят": 9, "десят": 10, "одинадцят": 11, "дванадцят": 12, "тринадцят": 13,
+        "чотирнадцят": 14, "п.ятнадцят": 15, "шістнадцят": 16, "сімнадцят": 17 },
+};
+
+/** Godziny (jako liczby 0-23) wymienione w tekście. */
+function godzinyWTekscie(tekst, jezyk) {
+  const txt = bezOgonkow(String(tekst).toLowerCase());
+  const out = new Set();
+  // Cyfry: „at 9", „9 pm", „09:00", „16:30".
+  for (const m of txt.matchAll(/(?<!\p{L})(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/giu)) {
+    let h = Number(m[1]);
+    if (h < 0 || h > 23) continue;
+    if (m[3] && m[3].toLowerCase() === "pm" && h < 12) h += 12;
+    // Liczba bez kontekstu godziny (rocznik, model auta) odpadnie przy
+    // porównaniu ze zbiorem dozwolonych — nie filtrujemy jej tutaj.
+    out.add(h);
+  }
+  // DZIEŃ MIESIĄCA TO NIE GODZINA. „Poniedziałek siedemnastego" ma ten sam
+  // rdzeń co „siedemnasta", ale końcówkę dopełniacza. Wycinamy liczebniki
+  // porządkowe w dopełniaczu, zanim odczytamy godziny.
+  const bezDni = txt.replace(/(?<!\p{L})\p{L}+(?:ego|ого|ої)(?!\p{L})/giu, " ");
+  const mapa = GODZINA_ZE_SLOWA[jezyk];
+  if (mapa) {
+    // Najdłuższy pasujący rdzeń wygrywa: „пятнадцат" zawiera „пят".
+    const pasujace = Object.keys(mapa).filter((r) => new RegExp(bezOgonkow(r).replace(/\./g, "."), "i").test(bezDni));
+    for (const r of pasujace) {
+      if (pasujace.some((inny) => inny !== r && inny.includes(r))) continue;
+      out.add(mapa[r]);
+    }
+  }
+  return out;
+}
+
+/** Godziny dozwolone przez snapshot, jako liczby. */
+function godzinyDozwolone(snapshot) {
+  const out = new Set();
+  const dodaj = (v) => { const m = String(v || "").match(/^(\d{1,2}):(\d{2})$/); if (m) out.add(Number(m[1])); };
+  for (const d of snapshot?.dni || []) {
+    for (const g of d.wolne || []) dodaj(g);
+    dodaj(d.ostatni_mozliwy_start);
+  }
+  dodaj(snapshot?.ustawienia?.najpozniejsze_przyjecie);
+  return out;
+}
+
 // --- pomocnicze ------------------------------------------------------------
 const tekstAgenta = (rozmowa) => rozmowa
   .map((t, i) => ({ i, rola: t.role, tekst: String(t.message || "").trim() }))
@@ -285,41 +345,14 @@ export const ASERCJE = [
     sprawdz: (ctx) => {
       if (ctx.logiNieznane) return [{ tura: -1, cytat: "", powod: "NIE SPRAWDZONE: logi narzędzi serwerowych niedostępne" }];
       if (ctx.narzedzia.includes("check_availability")) return [];
-      // PORÓWNUJEMY RDZENIE, NIE PEŁNE FORMY.
-      // Pierwsza wersja porównywała słowo w słowo i zapaliła się na
-      // „Najpóźniej mogę zapisać na szesnastą", choć snapshot miał
-      // „szesnastej" — ta sama godzina, inny przypadek. Asercja, która
-      // krzyczy przy poprawnej wypowiedzi, uczy ignorowania czerwonego.
-      const dozwolone = new Set();
-      const dodaj = (v) => { const r = rdzenGodziny(v); if (r) dozwolone.add(r); };
-      for (const d of ctx.snapshot?.dni || []) {
-        for (const g of d.wolne_do_wypowiedzenia || []) dodaj(g);
-        for (const g of d.wolne || []) dodaj(g);
-        dodaj(d.ostatni_mozliwy_start_do_wypowiedzenia);
-        dodaj(d.ostatni_start_do_wypowiedzenia);
-      }
-      dodaj(ctx.snapshot?.ustawienia?.najpozniejsze_przyjecie_do_wypowiedzenia);
+      const dozwolone = godzinyDozwolone(ctx.snapshot);
       if (!dozwolone.size) return [{ tura: -1, cytat: "", powod: "NIE SPRAWDZONE: snapshot bez wolnych godzin" }];
       return tekstAgenta(ctx.rozmowa).flatMap((t) => {
-        // GODZINY OTWARCIA TO NIE PROPOZYCJA TERMINU.
-        // „We're open Monday through Friday, 9 to 5" zapalało tę asercję 3/3,
-        // choć agent informował o godzinach pracy, a nie proponował siedemnastej.
-        // Wycinamy zakresy godzin pracy, zanim policzymy propozycje.
-        // Godziny PRACY i godzina ZAMKNIECIA to informacja, nie propozycja.
-        // „we close at 5 pm — the latest we can take a car in is 4 o'clock"
-        // zapalalo asercje 3/3, choc agent podal poprawnie i zamkniecie,
-        // i ostatni mozliwy start. Wycinamy oba rodzaje zdan.
-        const bezOtwarcia = String(t.tekst)
-          .replace(/(?<!\p{L})(?:open|otwarte|czynne|pracujemy|godziny (?:pracy|otwarcia)|работаем|працюємо)[^.!?—]*/giu, " ")
-          .replace(/\b(?:we close|closes? at)[^.!?—]*/gi, " ")
-          // W polskim, rosyjskim i ukrainskim godzina stoi PRZED czasownikiem
-          // („o siedemnastej zamykamy"), wiec wycinamy takze wstecz.
-          .replace(/[^.!?—]*(?<!\p{L})(?:zamykamy|zamknięcie|zamkniecie|закрываемся|зачиняємося)(?!\p{L})/giu, " ")
-          .replace(/\b\d{1,2}\s*(?:-|–|to|do)\s*\d{1,2}\b/gi, " ");
-        const obce = [...new Set(wyciagnijGodziny(bezDat(bezOtwarcia, ctx.jezyk), ctx.jezyk).map(rdzenGodziny))]
-          // „4 o'clock" po angielsku to szesnasta — snapshot podaje 16:00.
-          // Bez tej równoważności asercja krzyczała na poprawne popołudnie.
-          .filter((r) => r && !dozwolone.has(r) && !dozwolone.has(po12(r)));
+        const bez = bezDat(bezGodzinPracy(t.tekst), ctx.jezyk);
+        // „4 o'clock" po angielsku to szesnasta. Bez tej równoważności
+        // asercja krzyczała na poprawne popołudnie.
+        const obce = [...godzinyWTekscie(bez, ctx.jezyk)]
+          .filter((h) => !dozwolone.has(h) && !(h <= 12 && dozwolone.has(h + 12)));
         return obce.length ? [naruszenie(t, `godzina spoza wolnych: ${obce.join(", ")}`)] : [];
       });
     },
@@ -430,6 +463,13 @@ function rdzenGodziny(v) {
   return s.split(/\s+/)[0].replace(/(ej|a|e|y|ie|em|o|u|ą|a)$/u, "");
 }
 const po12 = (r) => { const m = String(r).match(/^(\d{1,2}):(\d{2})$/); return m && Number(m[1]) <= 12 ? `${Number(m[1]) + 12}:${m[2]}` : r; };
+function bezGodzinPracy(tekst) {
+  // Godziny PRACY i godzina ZAMKNIECIA to informacja, nie propozycja.
+  return String(tekst)
+    .replace(/(?<!\p{L})(?:open|otwarte|czynne|pracujemy|godziny (?:pracy|otwarcia)|работаем|працюємо)[^.!?—]*/giu, " ")
+    .replace(/(?<!\p{L})(?:we close|closes? at)[^.!?—]*/giu, " ")
+    .replace(/[^.!?—]*(?<!\p{L})(?:zamykamy|zamknięcie|zamkniecie|закрываемся|зачиняємося)(?!\p{L})/giu, " ");
+}
 function bezDat(tekst, jezyk) {
   const mies = MIESIACE[jezyk] || MIESIACE.pl;
   return String(tekst).replace(new RegExp(`\\S+\\s+(${mies.join("|")})`, "gi"), " ");
@@ -444,11 +484,11 @@ function policzGodziny(tekst, jezyk) {
   // jest dniem miesiąca. Bez tego cięcia asercja świeciła na czerwono przy
   // poprawnej wypowiedzi, czyli uczyła ignorowania czerwonego.
   const mies = MIESIACE[jezyk] || MIESIACE.pl;
-  const bezDat = String(tekst).replace(new RegExp(`\\S+\\s+(${mies.join("|")})`, "gi"), " ");
-  const txt = bezOgonkow(bezDat.toLowerCase());
+  const bezD = String(bezGodzinPracy(tekst)).replace(new RegExp(`\\S+\\s+(${mies.join("|")})`, "gi"), " ");
+  const txt = bezOgonkow(bezD.toLowerCase());
   // Liczymy tylko tury, w których agent PROPONUJE (jest spójnik wyboru albo pytajnik).
   if (!/[?]|(?<!\p{L})(?:albo|czy|или|чи|or)(?!\p{L})/u.test(txt)) return 0;
-  return new Set(wyciagnijGodziny(txt, jezyk)).size;
+  return godzinyWTekscie(txt, jezyk).size;
 }
 
 /**
