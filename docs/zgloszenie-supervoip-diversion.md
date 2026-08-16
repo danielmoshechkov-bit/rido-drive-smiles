@@ -18,7 +18,7 @@ Odbieramy na nim połączenia przekierowane z numerów naszych klientów.
 
 W przychodzącym INVITE nie znajdujemy `Diversion`, `History-Info`
 ani `P-Asserted-Identity` — nie mamy jak ustalić, na który numer klient
-dzwonił pierwotnie. Sprawdziliśmy dziewięć połączeń z 17.08, w tym
+dzwonił pierwotnie. Sprawdziliśmy dziewięć połączeń z 16.08, w tym
 przekierowane. Zestaw nagłówków jest **identyczny** dla bezpośrednich
 i przekierowanych:
 
@@ -71,7 +71,30 @@ automatycznie w chwili aktywacji usługi — przez `POST /api/voip_numbers`.
    rozmów jednocześnie) trzeba coś dokupić, czy „połączenia przychodzące
    nie są limitowane na koncie SIP" obowiązuje bez zastrzeżeń?
 
-## Przykładowe połączenia (17.08, przekierowane)
+## 3. Ile rozmów naraz — pytanie, od którego zależy nasza architektura
+
+Chcemy, żeby JEDNO konto SIP (z trunkiem do ElevenLabs) obsługiwało
+kilkadziesiąt naszych numerów. Każdy numer to inny klient; rozmowy będą
+się nakładać.
+
+W API widzimy dwa pola i nie umiemy ich rozstrzygnąć z dokumentacji:
+
+8. `Sip.incomingCallQueueLimit` — u nas **1**, w specyfikacji min 1, max 5,
+   opis „Incoming call queue limit size". Czy to jest:
+   (a) długość KOLEJKI oczekujących, przy nieograniczonej liczbie rozmów
+       równoczesnych, czy
+   (b) LIMIT ROZMÓW RÓWNOCZESNYCH przychodzących na konto SIP?
+   Jeśli (b), to maksimum 5 oznacza, że jedno konto SIP obsłuży najwyżej
+   pięć rozmów naraz — i musimy budować inaczej.
+
+9. `VoipNumber.incomingCallLimit` — u nas **0**, i pole jest tylko do
+   odczytu (nie ma go w ciele `PUT /api/voip_numbers/{id}`). Czy 0 znaczy
+   „bez limitu"? Czy da się ustawić limit rozmów równoczesnych NA POJEDYNCZYM
+   NUMERZE — a jeśli tak, to gdzie, skoro nie przez API?
+
+10. Czy jest górny limit liczby numerów przypisanych do jednego konta SIP?
+
+## Przykładowe połączenia (16.08, przekierowane)
 
     Call-ID: 4dbac0b80005d554518b2fb36bf59a2c@213.199.246.213   (14:16)
     Call-ID: 2f9c412803523c034d3358005a500e67@213.199.246.213   (14:14)
