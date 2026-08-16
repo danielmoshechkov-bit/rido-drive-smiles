@@ -1,0 +1,28 @@
+-- ============================================================================
+-- CRON DLA KOLEJKI NUMERÓW.
+--
+-- ⚠️ TEN PLIK NIE ZAWIERA TOKENU. Worker wymaga `VOICE_LLM_TOKEN` w nagłówku,
+-- a sekretów nie trzymamy w repozytorium. Zadanie zakładamy jednorazowo,
+-- wykonując poniższy SQL z podstawionym prawdziwym tokenem — poza repozytorium.
+--
+-- Dlaczego worker w ogóle wymaga tokenu, skoro to nasz własny cron: bo jedno
+-- z zadań KUPUJE NUMER za prawdziwe pieniądze. Otwarty endpoint, który uruchamia
+-- zakup, jest zaproszeniem do wyczerpania salda prepaid.
+--
+-- SELECT cron.schedule(
+--   'voice-numbers-worker',
+--   '* * * * *',
+--   $$ SELECT net.http_post(
+--        url := 'https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/voice-numbers-worker',
+--        headers := '{"Content-Type":"application/json","Authorization":"Bearer <<VOICE_LLM_TOKEN>>"}'::jsonb,
+--        body := '{}'::jsonb) $$
+-- );
+--
+-- Rekoncyliacja raz na dobę — osobne zadanie, bo ma inny rytm niż kolejka:
+--
+-- SELECT cron.schedule(
+--   'voice-numbers-rekoncyliacja', '15 3 * * *',
+--   $$ INSERT INTO public.voice_number_jobs (typ) VALUES ('rekoncyliacja') $$
+-- );
+-- ============================================================================
+SELECT 1;

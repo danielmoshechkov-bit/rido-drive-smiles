@@ -3295,6 +3295,8 @@ dokumentem.
 | 36 zasada bez kontroli | ✅ | bramka zapisu + test obejścia |
 | 37 cisza musi być odróżnialna | ⚠️ częściowo | patrz przegląd niżej |
 | 38 porównuj skrót treści, nie rozmiar | ✅ | regresja rozpoznania warsztatu, trzy drogi |
+| 39 panel warsztatu opisuje firmę, nie agenta | ✅ | panel przepisany, 11 kolumn oznaczonych NIEUŻYWANE |
+| 40 biała lista, nie czarna | ✅ | `supervoip-zapis.mjs` + test ścieżek spoza listy |
 
 **Jedna zasada bez kontroli: 30** — i to świadomie: „uporządkowany wzorzec
 jest łatwiejszy do skopiowania" to obserwacja o redakcji promptu, nie warunek,
@@ -3314,6 +3316,29 @@ przebiegu, także zerowym** — liczbę, nie milczenie.
 
 „20 numerów u operatora, 20 u nas, 0 rozbieżności" widziane codziennie znaczy,
 że kontrola chodzi. Brak wiadomości nie znaczy nic.
+
+## ZASADA 40 — biała lista, nie czarna
+
+Bramka zapisu do API operatora wypuszcza tylko ścieżki, które są NA LIŚCIE
+DOZWOLONYCH. Pierwsza wersja miała listę zakazów — i to był błąd, którego
+skutki zobaczylibyśmy dopiero przy zmianie po drugiej stronie.
+
+**Lista zakazów jest zawsze niekompletna.** Operator doda jutro endpoint,
+o którym nie wiemy — przy czarnej liście będzie on domyślnie DOZWOLONY.
+Przy białej: domyślnie zabroniony, aż ktoś świadomie go dopisze, w kodzie,
+z uzasadnieniem w commicie.
+
+To nie dotyczy tylko tej bramki. Ta sama asymetria jest w:
+- filtrowaniu pól, które trafiają do promptu (wypisujemy, co WOLNO, nie co nie),
+- kolumnach zapisywanych z panelu warsztatu (upsert wymienia kolumny jawnie —
+  po usunięciu pól z panelu zapisujemy siedem kolumn, nie „wszystko oprócz"),
+- ścieżkach, którymi rozpoznajemy warsztat (`called_number`, potem `agent_id`,
+  potem NIC — a nie „cokolwiek innego, co się znajdzie").
+
+Kryterium: **czy w razie mojej nieobecności nowy element domyślnie coś zepsuje,
+czy domyślnie zostanie odrzucony?** Jeśli pierwsze — lista jest odwrotna.
+
+---
 
 ## ZASADA 38 — przy zmianie ścieżki rozpoznania porównuj SKRÓT TREŚCI
 
