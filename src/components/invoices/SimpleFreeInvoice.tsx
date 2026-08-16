@@ -571,13 +571,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   const loadUserCompanyData = async (userId: string) => {
     // Load logo from any available source as fallback
     const loadLogoFallback = async () => {
-      const { data: cs } = await (supabase as any)
-        .from('company_settings')
-        .select('logo_url')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (cs?.logo_url) { setCompanyLogo(cs.logo_url); return cs.logo_url; }
-
+      // Pierwszym ogniwem tego łańcucha było `company_settings.logo_url` —
+      // kolumna, której w tej tabeli nie ma w ogóle. Zapytanie zwracało błąd,
+      // `data` wychodziło puste i szukanie leciało dalej, więc logo i tak się
+      // pokazywało (z warsztatu) i nikt nie miał powodu tego szukać.
+      // Usunięte: jedno zapytanie mniej przy każdym otwarciu faktury.
       const { data: sp } = await supabase
         .from('service_providers')
         .select('logo_url')
