@@ -45,6 +45,17 @@ klienta — stąd dodatkowe pytania:
 6. Czy jest limit numerów na jednym koncie i na jednym trunku?
 7. Jaki jest miesięczny koszt numeru stacjonarnego przy zamówieniu
    kilkudziesięciu sztuk?
+8. Czy macie **API pozwalające kupić numer programowo**? W Waszej bazie
+   wiedzy jest tag „API" — proszę o link do dokumentacji.
+9. W Waszej bazie wiedzy jest tag **„ElevenLabs"**. Czy macie dokumentację
+   integracji z tą platformą? Jeśli tak, proszę o link — być może opisuje
+   dokładnie nasz przypadek.
+10. W dokumentacji przekierowań piszecie, że można ustalić prezentację:
+    „numer przychodzący lub numer przekierowywany". Czy to ustawienie
+    dotyczy także połączeń **przychodzących na nasz trunk** z sieci obcych
+    (np. przekierowanie z numeru Orange na nasz numer), czy tylko
+    przekierowań wewnątrz Waszego systemu? Jeśli dotyczy — gdzie w panelu
+    je znaleźć?
 
 ## Przykładowe połączenia (17.08, przekierowane)
 

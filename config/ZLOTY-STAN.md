@@ -183,9 +183,19 @@ kompromis z ~5× zapasem.
 ## NARZĘDZIA
 
 ```
-narzędzia klienta  end_call, language_detection
-knowledge_base     []           <- puste, celowo
+narzędzia klienta  end_call        <- language_detection WYŁĄCZONE 17.08
+knowledge_base     []              <- puste, celowo
 ```
+
+**`language_detection` wyłączone 17.08.** Reguła w prompcie — z ⛔, z opisem
+prawdziwej rozmowy i z zakazem wprost — **nie zadziałała trzy razy**.
+Ostatni raz 17.08: agent wywołał narzędzie trzy razy pod rząd, dostał trzy
+odmowy „Invalid language", a klient usłyszał **czternaście sekund ciszy**
+i zapytał „Allo! Wy mnie słyszycie?".
+
+Zasada 26 zastosowana odwrotnie: **nie ma czego wywołać, więc nie ma jak
+złamać reguły.** Przełączanie języka nie potrzebuje tego narzędzia — agent
+po prostu zaczyna pisać w innym języku, co robi poprawnie od 15.08.
 
 **`end_call` bez pola `reason`.** Nasz serwer wycina `reason` i `spoken` ze
 schematu przed wysłaniem do modelu — pole `reason` kosztowało **1236 ms na

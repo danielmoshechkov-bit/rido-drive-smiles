@@ -456,6 +456,11 @@ serve(async (req) => {
     const snapshotRaw = snapshotWJezyku(snapshotSurowy, jezyk);
     if (snapshotSurowy) {
       logTiming("jezyk_rozmowy", totalStarted, {
+        // BEZ conversation_id NIE DA SIE ROZDZIELIC ROWNOLEGLYCH ROZMOW.
+        // 17.08 trzy telefony szly jednoczesnie (14:12, 14:13, 14:14) i wpisy
+        // przeplataly sie w logu. Diagnoza „przy ktorej turze detektor
+        // przeskoczyl" byla niewykonalna.
+        rozmowa: conversationId ? String(conversationId).slice(-8) : null,
         jezyk, przerobiony: snapshotRaw !== snapshotSurowy,
         znakow_przed: snapshotSurowy.length, znakow_po: snapshotRaw.length,
       });

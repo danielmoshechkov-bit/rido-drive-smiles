@@ -589,7 +589,11 @@ async function sekcjaC() {
   tt === 4 ? ok("C2", "turn_timeout = 4 s", 1) : zle("C2", `turn_timeout = ${tt}, oczekiwane 4`);
 
   const narzedzia = (cfg.agent?.prompt?.tools || []).map((t) => t.name).sort();
-  const oczekiwane = ["end_call", "language_detection"];
+  // language_detection WYLACZONE 17.08. Regula z ⛔ i opisem nie dzialala trzy
+  // razy — 15.08 i 17.08 agent wywolal je po kolei trzy razy, dostal trzy
+  // odmowy „Invalid language" i klient uslyszal czternascie sekund ciszy.
+  // Zasada 26 odwrotnie: nie ma czego wywolac, wiec nie ma jak zlamac reguly.
+  const oczekiwane = ["end_call"];
   JSON.stringify(narzedzia) === JSON.stringify(oczekiwane)
     ? ok("C3", `narzędzia agenta: ${narzedzia.join(", ")}`, narzedzia.length)
     : zle("C3", `narzędzia agenta: ${narzedzia.join(", ") || "(brak)"}, oczekiwane: ${oczekiwane.join(", ")}`);

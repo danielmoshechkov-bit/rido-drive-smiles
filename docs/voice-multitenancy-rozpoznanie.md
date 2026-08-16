@@ -169,15 +169,39 @@ nie potrzeba pytać operatora o cokolwiek, nie potrzeba agenta per warsztat.
 To jest rozwiązanie tańsze niż wariant z agentem per warsztat: jeden komplet
 promptu, jeden złoty stan, jedna konfiguracja do pilnowania.
 
-### Czego jeszcze brakuje do potwierdzenia
+### POTWIERDZONE 17.08: webhook NIESIE numer docelowy
 
-`voice-agent-init` czyta dziś `agent_id` i `caller_id`. **Nie czyta numeru
-docelowego** — a to on ma rozpoznawać warsztat. Nie wiem, czy platforma go
-przysyła: dodałem log kluczy webhooka (bez wartości, numery nie trafiają
-do logu) i odczytam to przy następnym prawdziwym połączeniu.
+Log kluczy payloadu z prawdziwego połączenia (wartości nie logujemy — numery
+telefonu nie mają prawa trafić do logu):
 
-Jeśli webhook go nie niesie, zostaje `phone_call.agent_number` w metadanych
-rozmowy — ale to dane PO rozmowie, za późno na snapshot.
+```
+klucze: caller_id, agent_id, called_number, call_sid,
+        conversation_id, call_id, sip_headers
+```
+
+**`called_number` jest.** Rozpoznanie warsztatu po numerze docelowym działa
+i nie wymaga niczego od operatora poza samym numerem.
+
+Przy okazji dwa pola, których nie szukałem:
+- **`sip_headers`** — surowe nagłówki SIP dostępne JUŻ w webhooku inicjującym,
+  nie tylko po rozmowie. Gdyby `Diversion` kiedykolwiek zaczął przychodzić,
+  odczytamy go bez zmiany architektury.
+- **`conversation_id`** — dostępny od pierwszej tury, więc snapshot da się
+  powiązać z rozmową od początku.
+
+### Drugi powód, niezależny od ceny: JEDNA konfiguracja do pilnowania
+
+Wariant „agent per warsztat" kosztuje nie tylko pieniądze. Przy pięćdziesięciu
+agentach **każda poprawka promptu wymaga pięćdziesięciu wdrożeń** — a pierwszy
+rozjazd między nimi byłby niewykrywalny: złoty stan, odcisk polskiego i audyt
+pilnują JEDNEJ konfiguracji.
+
+Wszystko, co zbudowaliśmy do pilnowania jakości — regresja 0/20, odcisk
+promptu, kontrola D9 i D10, symulacja na 17 scenariuszach — zakłada jeden
+komplet ustawień. Przy pięćdziesięciu agentach trzeba by to zwielokrotnić
+albo zaakceptować, że pilnujemy jednego z pięćdziesięciu.
+
+**To jest argument mocniejszy niż koszt numeru.**
 
 ## Dodawanie numerów przez API ElevenLabs — działa
 
