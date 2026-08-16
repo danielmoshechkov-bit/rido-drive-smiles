@@ -53,7 +53,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const ownerDropdownRef = useRef<HTMLDivElement>(null);
 
-  const { credits, loading: lookupLoading, checkRegistration, checkVin, purchaseCredits } = useVehicleLookup(userId);
+  const { credits, loading: lookupLoading, checkRegistration, checkVin } = useVehicleLookup(userId);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -190,10 +190,6 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
     }
   };
 
-  const handlePurchaseCredits = async (amount: number, priceNet: number) => {
-    const ok = await purchaseCredits(amount, priceNet);
-    if (ok) setShowCreditsModal(false);
-  };
 
   const allClients = useMemo(() => {
     if (createdOwner && !clients.find((c: any) => c.id === createdOwner.id)) {
@@ -423,7 +419,6 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       <VehicleLookupCreditsModal
         open={showCreditsModal}
         onOpenChange={setShowCreditsModal}
-        onPurchase={handlePurchaseCredits}
       />
     </>
   );

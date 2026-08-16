@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function VehicleLookupCreditsPanel({ userId }: Props) {
-  const { credits, creditsLoading, purchaseCredits, refreshCredits } = useVehicleLookup(userId);
+  const { credits, creditsLoading, refreshCredits } = useVehicleLookup(userId);
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [usage, setUsage] = useState<any[]>([]);
@@ -32,15 +32,6 @@ export function VehicleLookupCreditsPanel({ userId }: Props) {
     fetchHistory();
   }, [userId]);
 
-  const handlePurchase = async (amount: number, priceNet: number) => {
-    const ok = await purchaseCredits(amount, priceNet);
-    if (ok) {
-      setShowBuyModal(false);
-      // Refresh history
-      const { data } = await supabase.from('vehicle_lookup_credit_transactions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(20);
-      setTransactions(data || []);
-    }
-  };
 
   if (creditsLoading) return <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>;
 
@@ -157,7 +148,6 @@ export function VehicleLookupCreditsPanel({ userId }: Props) {
       <VehicleLookupCreditsModal
         open={showBuyModal}
         onOpenChange={setShowBuyModal}
-        onPurchase={handlePurchase}
       />
     </>
   );

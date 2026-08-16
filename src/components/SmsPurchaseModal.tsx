@@ -9,7 +9,9 @@ interface Props {
    * przez handler w przeglądarce — poprzedni handler dopisywał SMS-y wprost
    * do salda bez pobrania płatności.
    */
-  onPurchase?: (count: number, priceNet: number) => void;
+  // BEZ `onPurchase`. Każde z pięciu miejsc, które go podawało, dopisywało
+  // jednostki do bazy bez pobrania pieniędzy albo udawało przekierowanie.
+  // Zakup prowadzi wyłącznie przez `billing-payu-order`.
 }
 
 /** Zachowane dla zgodności — cena jest teraz w `billing_addon_products`. */

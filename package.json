@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "lint:urls": "node scripts/check-public-urls.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "test:voice": "DENO_NO_PACKAGE_JSON=1 deno test --allow-read supabase/functions/_shared/",
     "preview": "vite preview",
     "elzab:health": "node --no-warnings=ExperimentalWarning scripts/elzab/01-healthcheck.ts",
