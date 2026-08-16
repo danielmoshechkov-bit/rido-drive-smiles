@@ -514,7 +514,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                         )}
                       </div>
                     ) : (
-                      <div className="relative">
+                      <div className="relative" data-tour="pole-rejestracji">
                         <Input
                           onFocus={e => e.currentTarget.select()}
                           value={vehicleSearch}
@@ -562,7 +562,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   </div>
 
                   {/* Client */}
-                  <div className="space-y-2" ref={clientDropdownRef}>
+                  <div className="space-y-2" ref={clientDropdownRef} data-tour="pole-klienta">
                     <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t('workshop.newOrder.client')}</Label>
                     {clientId && selectedClient ? (
                       <div className="relative">
@@ -686,7 +686,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                     {t('workshop.newOrder.taskList')} <span className="text-destructive">*</span>
                   </Label>
-                  <div className="space-y-2">
+                  <div className="space-y-2" data-tour="pole-opisu">
                     {taskPoints.map((point, index) => (
                       <div key={index} className="flex items-center gap-2">
                         <span className="text-sm font-bold text-primary min-w-[28px] text-center">{index + 1}.</span>
@@ -769,7 +769,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                 {/* Submit */}
                 <div className="flex justify-end gap-2 pt-4 border-t">
                   <Button variant="outline" onClick={resetAndClose}>{t('common.cancel')}</Button>
-                  <Button onClick={handleSubmit} disabled={createOrder.isPending}>
+                  <Button data-tour="zapisz-zlecenie" onClick={handleSubmit} disabled={createOrder.isPending}>
                     {createOrder.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     {t('workshop.newOrder.createOrder')}
                   </Button>

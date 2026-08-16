@@ -407,13 +407,15 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
         </div>
 
         <div className="flex items-center gap-2">
-          <WorkshopStatusPicker
-            providerId={providerId}
-            orderId={order.id}
-            currentStatus={order.status_name}
-            hasUnreadNotes={order.has_unread_notes}
-            onChanged={handleStatusChanged}
-          />
+          <div data-tour="status-zlecenia">
+            <WorkshopStatusPicker
+              providerId={providerId}
+              orderId={order.id}
+              currentStatus={order.status_name}
+              hasUnreadNotes={order.has_unread_notes}
+              onChanged={handleStatusChanged}
+            />
+          </div>
 
           <Button
             variant="outline"
@@ -451,7 +453,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost" size="icon" title={akcjaPrzyjecie.podpowiedz}
+                  data-tour="przycisk-przyjecie" variant="ghost" size="icon" title={akcjaPrzyjecie.podpowiedz}
                   className={akcjaPrzyjecie.klasa}
                 >
                   <Eye className="h-4 w-4" />
@@ -483,7 +485,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost" size="icon" title={akcjaKosztorys.podpowiedz}
+                  data-tour="przycisk-kosztorys" variant="ghost" size="icon" title={akcjaKosztorys.podpowiedz}
                   className={`relative ${akcjaKosztorys.klasa}`}
                 >
                   <ClipboardList className="h-4 w-4" />
@@ -534,7 +536,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant="ghost" size="icon" title={akcjaOdbior.podpowiedz}
+                  data-tour="przycisk-odbior" variant="ghost" size="icon" title={akcjaOdbior.podpowiedz}
                   className={akcjaOdbior.klasa}
                 >
                   <Send className="h-4 w-4" />

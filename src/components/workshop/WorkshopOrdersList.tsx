@@ -500,7 +500,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={() => setShowNewOrder(true)} className="gap-2" size="sm">
+        <Button data-tour="nowe-zlecenie" onClick={() => setShowNewOrder(true)} className="gap-2" size="sm">
           <Plus className="h-4 w-4" /> <span className="hidden sm:inline">{t('workshop.orders.new')}</span> {t('workshop.orders.order')}
         </Button>
 
@@ -514,6 +514,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
             {t('workshop.orders.activeOrders')}
           </Button>
           <Button
+            data-tour="filtr-zakonczone"
             variant={orderView === 'completed' ? 'default' : 'ghost'}
             size="sm"
             className="h-8"
@@ -568,7 +569,7 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
             zanim zaznaczy zlecenie. Bez zaznaczenia pozycje są wyszarzone z podpowiedzią. */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-1">
+            <Button data-tour="dokumenty-zlecenia" variant="outline" size="sm" className="gap-1">
               <FileText className="h-4 w-4" /> {t('workshop.orders.issue')} <ChevronDown className="h-3 w-3" />
             </Button>
           </DropdownMenuTrigger>

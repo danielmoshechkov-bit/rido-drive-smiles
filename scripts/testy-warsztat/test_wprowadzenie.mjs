@@ -1,0 +1,41 @@
+// Wprowadzenie „pierwsze zlecenie": czy trasa jest kompletna i czy każdy krok
+// ma na co pokazać. Krok bez znacznika w kodzie = przygaszony ekran bez celu.
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, extname } from 'node:path';
+import { TRASA_PIERWSZE_ZLECENIE } from '../../src/components/onboarding/trasaPierwszeZlecenie.ts';
+
+const pliki = (d) => readdirSync(d).flatMap((w) => {
+  const s = join(d, w);
+  return statSync(s).isDirectory() ? pliki(s) : (['.tsx', '.ts'].includes(extname(s)) ? [s] : []);
+});
+const kod = pliki('src').map((f) => readFileSync(f, 'utf8')).join('\n');
+
+let bledy = 0;
+const sprawdz = (opis, ok) => { console.log(`${ok ? ' OK  ' : 'BLAD '} ${opis}`); if (!ok) bledy++; };
+
+// 1. Każdy krok z celem ma odpowiadający znacznik data-tour w kodzie.
+for (const krok of TRASA_PIERWSZE_ZLECENIE) {
+  if (!krok.cel) continue;
+  sprawdz(`znacznik dla kroku „${krok.tytul}" (${krok.cel})`, kod.includes(`data-tour="${krok.cel}"`));
+}
+
+// 2. Trasa przechodzi CAŁĄ drogę, o którą chodziło.
+const cele = TRASA_PIERWSZE_ZLECENIE.map((k) => k.cel);
+for (const wymagany of ['nowe-zlecenie', 'pole-rejestracji', 'pole-klienta', 'pole-opisu',
+                        'tabela-robocizny', 'rido-wycena', 'kolumna-koszt', 'kolumna-cena',
+                        'podsumowanie-zlecenia', 'przycisk-przyjecie', 'przycisk-kosztorys',
+                        'filtr-zakonczone']) {
+  sprawdz(`trasa obejmuje: ${wymagany}`, cele.includes(wymagany));
+}
+
+// 3. Treści mówią o rzeczach, o które prosił warsztat.
+const tresci = TRASA_PIERWSZE_ZLECENIE.map((k) => `${k.tytul} ${k.tresc} ${k.akcja || ''}`).join(' ').toLowerCase();
+sprawdz('mowi, zeby wpisac SWOJ numer telefonu', tresci.includes('swój numer') || tresci.includes('siebie'));
+sprawdz('tlumaczy koszt zakupu czesci', tresci.includes('zakupu'));
+sprawdz('tlumaczy cene sprzedazy', tresci.includes('sprzedaży'));
+sprawdz('pokazuje, ile sie zarabia', tresci.includes('zarabiasz'));
+sprawdz('mowi o dokumentach po naprawie', tresci.includes('faktur'));
+sprawdz('mowi, jak zakonczyc i usunac', tresci.includes('zakończone') && tresci.includes('usu'));
+
+console.log(bledy ? `BLAD: ${bledy} przypadkow` : 'WPROWADZENIE KOMPLETNE');
+process.exit(bledy ? 1 : 0);

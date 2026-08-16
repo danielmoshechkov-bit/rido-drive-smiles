@@ -16,6 +16,9 @@ import { planPriceLabels, trialDaysFor } from '@/lib/pricingCards';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { WorkshopSetupWizard } from '@/components/workshop/onboarding/WorkshopSetupWizard';
+import { GuidedTour } from '@/components/onboarding/GuidedTour';
+import { TRASA_PIERWSZE_ZLECENIE } from '@/components/onboarding/trasaPierwszeZlecenie';
+import { useWprowadzenie } from '@/hooks/useWprowadzenie';
 
 // PERF C1: wszystkie podmoduły warsztatu były importowane statycznie — 14
 // komponentów (w tym 1890-liniowy Scheduler i Reports→recharts) lądowało w
@@ -196,6 +199,9 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     },
   });
   const [kreatorZamkniety, setKreatorZamkniety] = useState(false);
+  // Wprowadzenie „pierwsze zlecenie" rusza zaraz po kreatorze danych firmy —
+  // warsztat ma już czym pracować, więc pokazujemy, jak.
+  const wprowadzenie = useWprowadzenie(TRASA_PIERWSZE_ZLECENIE.length);
   const brakujeDanychFirmy = !!daneFirmy && !(
     daneFirmy.firm_name && daneFirmy.nip && daneFirmy.address && daneFirmy.city && daneFirmy.phone
   );
@@ -507,8 +513,21 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
       {/* Pierwsze uruchomienie: dane firmy, godziny, stanowiska, KSeF. */}
       <WorkshopSetupWizard
         open={pokazKreator}
-        onZamknij={() => { setKreatorZamkniety(true); void odswiezDaneFirmy(); }}
+        onZamknij={() => {
+          setKreatorZamkniety(true);
+          void odswiezDaneFirmy();
+          // Prosto z ustawień do pierwszego zlecenia — bez wracania do pustego ekranu.
+          if (wprowadzenie.dostepne) { setActiveModule('zlecenia'); wprowadzenie.zacznij(); }
+        }}
       />
+      {wprowadzenie.aktywne && (
+        <GuidedTour
+          kroki={TRASA_PIERWSZE_ZLECENIE}
+          krok={wprowadzenie.krok}
+          onDalej={wprowadzenie.dalej}
+          onZamknij={wprowadzenie.zamknij}
+        />
+      )}
       <WorkshopSidebar activeModule={activeModule} lockedKeys={lockedKeys} onNavigate={goTo} />
       <div className={isSchedulerModule ? 'flex-1 md:pl-3 min-w-0 flex h-full min-h-0 flex-col overflow-hidden' : 'flex-1 md:pl-3 min-w-0 flex flex-col'}>
         <MobileBackButton onBack={() => goTo(null)} />

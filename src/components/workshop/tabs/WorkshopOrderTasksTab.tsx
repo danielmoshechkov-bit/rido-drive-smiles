@@ -1682,7 +1682,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       <Card className="border-l-4 border-l-primary">
         <CardContent className="p-0">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" data-tour="tabela-robocizny">
               <Wrench className="h-5 w-5 text-primary" />
               <h3 className="font-semibold text-base">{t('workshop.orderTasks.laborServicesHeading')}</h3>
               <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
@@ -1999,6 +1999,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           variant="outline"
                           size="sm"
                           className="gap-1.5 h-7 text-xs border-primary text-primary hover:bg-primary/10"
+                          data-tour="rido-wycena"
                           data-rido-estimate-trigger="true"
                           onClick={() => {
                             // TODO (odłożone, NIE wdrażać teraz): limity użycia "Rido Wycena"
@@ -2104,7 +2105,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       <Card className="border-l-4 border-l-amber-500">
         <CardContent className="p-0">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" data-tour="tabela-czesci">
               <Package className="h-5 w-5 text-amber-500" />
               <h3 className="font-semibold text-base">{t('workshop.orderTasks.partsMaterialsHeading')}</h3>
               <Badge variant="secondary" className="text-xs">{goods.length}</Badge>
@@ -2141,13 +2142,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <th className="p-2 text-center font-medium text-muted-foreground">{t('workshop.orderTasks.colName')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colQuantity')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colUnit')}</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">
+                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground" data-tour="kolumna-koszt">
                     <div className="flex items-center justify-center gap-1">
                       <EyeOff className="h-3 w-3" />
                       <span>{t('workshop.orderTasks.colCost')}</span>
                     </div>
                   </th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colPrice')}</th>
+                  <th data-tour="kolumna-cena" className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colPrice')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-r border-border/60">{t('workshop.orderTasks.colTotal')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-l border-border/60 bg-muted/30">{t('workshop.orderTasks.colDiscount')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colAfterDiscountShort')}</th>
@@ -2540,7 +2541,7 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
               <p className="text-xs text-muted-foreground mb-1">{t('workshop.orderTasks.totalSpend')}</p>
               <p className="text-lg font-bold text-muted-foreground tabular-nums">{fmt(displayGrandCost)}</p>
             </div>
-            <div className="rounded-xl border bg-background/70 px-4 py-3 text-center">
+            <div className="rounded-xl border bg-background/70 px-4 py-3 text-center" data-tour="podsumowanie-zlecenia">
               <p className="text-xs text-muted-foreground mb-1">{t('workshop.orderTasks.totalProfit')}</p>
               <p className={`text-lg font-bold tabular-nums ${displayGrandProfit >= 0 ? 'text-primary' : 'text-destructive'}`}>
                 {fmt(displayGrandProfit)}
