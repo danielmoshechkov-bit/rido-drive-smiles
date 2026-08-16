@@ -313,3 +313,28 @@ w echo.
 Audyt (`voice-audit.mjs`, kontrola **D10**) uruchamia to sprawdzenie
 z `--bez-regresji`, żeby zostać darmowym i puszczalnym zawsze. Regresja jest
 osobnym, świadomym poleceniem, bo kosztuje 20 syntez.
+
+## SUFIT: `turn_timeout` jest globalny, nie warunkowy
+
+Sprawdzone 16.08 na `platform_settings.overrides.conversation_config_override`:
+
+```
+overrides.turn = { soft_timeout_config: { message: false } }
+```
+
+**Jedyne, co platforma pozwala nadpisać w sekcji `turn`, to treść wypełniacza
+miękkiego — i to też jest wyłączone (`false`).** Nie ma nadpisania
+`turn_timeout` ani na poziomie rozmowy, ani tury.
+
+Skutek, zmierzony w rozmowie 16.08: klient mówi „Nie, to wszystko. Dziękuję
+bardzo." o 76 s, agent odpowiada „Do widzenia" o 82 s. **Nasz TTFB w tej turze
+to 1,22 s** — pozostałe ~4,8 s to `turn_timeout` (4 s) plus synteza.
+
+Przy zdaniu, po którym rozmowa oczywiście się kończy, agent i tak czeka
+cztery sekundy na to, czy klient jeszcze czegoś nie doda. Obniżenie
+`turn_timeout` globalnie skróciłoby ten ogon, ale kosztem przerywania klientowi
+w środku zdania w każdej innej turze — a to defekt droższy.
+
+**Zapisane jako sufit platformy.** Do zmiany tylko wtedy, gdy ElevenLabs doda
+nadpisanie warunkowe albo gdy zmierzymy, że `turn_eagerness: "eager"` skraca
+ogon bez wzrostu przerwań.
