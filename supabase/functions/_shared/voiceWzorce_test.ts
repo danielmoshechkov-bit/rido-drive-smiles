@@ -159,3 +159,44 @@ Deno.test("zaden wzorzec nie jest pytaniem otwierajacym", () => {
     }
   }
 });
+
+// AGENT PROPONUJE, NIE PYTA.
+//
+// Rozmowy 16-17.08: „Kiedy będzie najwygodniej przyjechać?" i „Утро или день?"
+// — agent pytal o pore dnia zamiast podac godzine. Klient dzwoni, zeby sie
+// umowic, nie zeby odpowiadac na pytania. Recepcjonistka mowi „mam jutro
+// o dziewiatej", nie „kiedy Panu pasuje".
+//
+// Pytanie o termin wolno zadac DOPIERO po odrzuceniu propozycji — i wtedy
+// o GODZINE, nie o pore dnia.
+Deno.test("zaden wzorzec nie pyta o termin zamiast go proponowac", () => {
+  const pytania = [
+    "kiedy będzie najwygodniej", "kiedy byłoby wygodnie",
+    "когда вам было бы удобно", "коли вам було б зручно",
+    "when would it suit",
+  ];
+  const poraDnia = ["pora dnia", "время дня", "пора дня", "time of day", "утро или день", "rano czy po południu"];
+  for (const j of ["pl", "ru", "uk", "en"]) {
+    const blok = (wzorceWJezyku(j) || "").toLowerCase();
+    for (const p of [...pytania, ...poraDnia]) {
+      assert(!blok.includes(p), `${j}: wzorzec pyta zamiast proponowac — „${p}"`);
+    }
+  }
+});
+
+Deno.test("wzorce potwierdzenia od razu podaja godzine", () => {
+  // TYLKO SEKCJA OTWARCIA. Wzorzec „Dobrze, zapisuję. Poproszę numer
+  // rejestracyjny." tez zaczyna sie od potwierdzenia, ale zbiera dane
+  // i godziny nie potrzebuje — pierwsza wersja tego testu na nim padla.
+  const godzina = /dziewiąt|jedenast|девят|одиннадцат|дев'ят|одинадцят|\b\d{1,2}\b/i;
+  for (const j of ["pl", "ru", "uk", "en"]) {
+    const blok = wzorceWJezyku(j) || "";
+    const sekcja = blok.split(/\n(?=[A-ZА-ЯЁІЇЄҐ ]{4,}:)/).find((cz) => /^(OTWARCIE|ОТКРЫТИЕ|ПОЧАТОК|OPENING):/.test(cz.trim())) || "";
+    const zdania = sekcja.split("\n").filter((l) => l.startsWith("  ")).map((l) => l.trim());
+    const potwierdzenia = zdania.filter((z) => /^(Dobrze|Rozumiem|Хорошо|Понятно|Добре|Зрозуміло|Alright|Understood)[,\s]/i.test(z));
+    assert(potwierdzenia.length > 0, `${j}: brak wzorca „potwierdz i zaproponuj"`);
+    for (const z of potwierdzenia) {
+      assert(godzina.test(z), `${j}: potwierdzenie bez godziny — „${z}"`);
+    }
+  }
+});

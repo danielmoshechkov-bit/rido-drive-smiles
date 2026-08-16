@@ -45,12 +45,11 @@ const PL: Wzorce = {
     // powitanie wypowiada platforma z pola first_message. Dopoki zdanie stalo
     // jako PIERWSZY wzorzec listy, model siegal po nie odruchowo — takze wtedy,
     // gdy klient wlasnie powiedzial, czego chce. Reprodukcja 3/3.
-    "Dobrze, zawieszenie i filtry. Kiedy będzie najwygodniej przyjechać?",
-    "Dobrze, przegląd. Kiedy będzie najwygodniej przyjechać?",
-    "Rozumiem, hamulce. Kiedy byłoby wygodnie podjechać?",
+    "Dobrze, zawieszenie i filtry. Jutro o dziewiątej — pasuje?",
+    "Dobrze, przegląd. Poniedziałek siedemnasty o dziewiątej — pasuje?",
+    "Rozumiem, hamulce. Mam jutro o dziewiątej albo o jedenastej.",
   ],
   termin: [
-    "Kiedy będzie najwygodniej przyjechać?",
     "Poniedziałek siedemnastego sierpnia — o dziewiątej czy o szesnastej?",
     "Czy jutro o dziewiątej będzie odpowiednie?",
     "Przepraszam, dziewiąta czy jedenasta?",
@@ -70,8 +69,8 @@ const PL: Wzorce = {
     "Przepraszam, nie dosłyszałam modelu — jaki to model?",
   ],
   cena: [
-    "Wymiana oleju to sto sześćdziesiąt złotych. Kiedy byłoby wygodnie przyjechać?",
-    "Cenę poznamy przy przyjęciu auta — mechanik obejrzy i powie dokładnie. Kiedy byłoby wygodnie podjechać?",
+    "Wymiana oleju to sto sześćdziesiąt złotych. Jutro o dziewiątej — pasuje?",
+    "Cenę poznamy przy przyjęciu auta — mechanik obejrzy i powie dokładnie. Mam jutro o dziewiątej — pasuje?",
     "Nie mam tej informacji — mechanik odpowie na miejscu przy przyjęciu auta.",
     "Opon niestety nie wymieniamy. Ale jeśli coś innego przy aucie — chętnie pomogę.",
   ],
@@ -88,15 +87,13 @@ const PL: Wzorce = {
 const RU: Wzorce = {
   otwarcie: [
     "Да, конечно! Чем могу помочь?",
-    "Хорошо, подвеска и фильтры. Когда вам было бы удобно приехать?",
-    "Хорошо, осмотр. Когда вам было бы удобно приехать?",
-    "Понятно, тормоза. Когда вам было бы удобно подъехать?",
+    "Хорошо, подвеска и фильтры. Завтра в девять — подойдёт?",
+    "Хорошо, осмотр. Понедельник, семнадцатого, в девять — подойдёт?",
+    "Понятно, тормоза. Есть завтра в девять или в одиннадцать.",
   ],
   termin: [
-    "Когда вам было бы удобно приехать?",
     "Завтра в девять — подойдёт?",
     "Четверг, шестого, в девять свободен — подойдёт?",
-    "Хорошо, утро не подходит. Какое время дня было бы удобно?",
     "Извините, девять или одиннадцать?",
     "Плохо слышно — речь о девяти утра?",
     "Понедельник. Девять утра подойдёт?",
@@ -116,9 +113,9 @@ const RU: Wzorce = {
     "Извините, не расслышала модель — какая модель?",
   ],
   cena: [
-    "Замена масла — сто шестьдесят злотых. Когда вам было бы удобно приехать?",
-    "Замена колодок — ориентировочно от ста пятидесяти до двухсот пятидесяти, зависит от модели. Точную цену механик назовёт при приёмке. Когда вам было бы удобно приехать?",
-    "Цену узнаем при приёмке машины — механик посмотрит и скажет точно. Когда вам было бы удобно подъехать?",
+    "Замена масла — сто шестьдесят злотых. Завтра в девять — подойдёт?",
+    "Замена колодок — ориентировочно от ста пятидесяти до двухсот пятидесяти, зависит от модели. Точную цену механик назовёт при приёмке. Завтра в девять — подойдёт?",
+    "Цену узнаем при приёмке машины — механик посмотрит и скажет точно. Есть завтра в девять — подойдёт?",
     "Не хочу говорить наугад. Механик посмотрит и оценит при приёмке. Завтра свободно в одиннадцать — подойдёт?",
     "Такой информации у меня нет — механик ответит на месте, при приёмке машины.",
     "Шины мы, к сожалению, не меняем. Но если что-то другое по машине — с радостью помогу.",
@@ -139,15 +136,13 @@ const RU: Wzorce = {
 const UK: Wzorce = {
   otwarcie: [
     "Так, звичайно! Чим можу допомогти?",
-    "Добре, підвіска та фільтри. Коли вам було б зручно приїхати?",
-    "Добре, огляд. Коли вам було б зручно приїхати?",
-    "Зрозуміло, гальма. Коли вам було б зручно під'їхати?",
+    "Добре, підвіска та фільтри. Завтра о дев'ятій — підійде?",
+    "Добре, огляд. Понеділок, сімнадцятого, о дев'ятій — підійде?",
+    "Зрозуміло, гальма. Є завтра о дев'ятій або об одинадцятій.",
   ],
   termin: [
-    "Коли вам було б зручно приїхати?",
     "Завтра о дев'ятій — підійде?",
     "Четвер, шостого, о дев'ятій вільний — підійде?",
-    "Добре, ранок не підходить. Яка пора дня була б зручна?",
     "Перепрошую, о дев'ятій чи об одинадцятій?",
     "Погано чутно — йдеться про дев'яту ранку?",
     "Понеділок. Дев'ята ранку підійде?",
@@ -167,9 +162,9 @@ const UK: Wzorce = {
     "Перепрошую, не розчула модель — яка модель?",
   ],
   cena: [
-    "Заміна оливи — сто шістдесят злотих. Коли вам було б зручно приїхати?",
-    "Заміна колодок — орієнтовно від ста п'ятдесяти до двохсот п'ятдесяти, залежить від моделі. Точну ціну механік назве під час приймання. Коли вам було б зручно приїхати?",
-    "Ціну дізнаємося під час приймання авто — механік огляне й скаже точно. Коли вам було б зручно під'їхати?",
+    "Заміна оливи — сто шістдесят злотих. Завтра о дев'ятій — підійде?",
+    "Заміна колодок — орієнтовно від ста п'ятдесяти до двохсот п'ятдесяти, залежить від моделі. Точну ціну механік назве під час приймання. Завтра о дев'ятій — підійде?",
+    "Ціну дізнаємося під час приймання авто — механік огляне й скаже точно. Є завтра о дев'ятій — підійде?",
     "Не хочу казати навмання. Механік огляне й оцінить під час приймання. Завтра вільно об одинадцятій — підійде?",
     "Такої інформації я не маю — механік відповість на місці, під час приймання авто.",
     "Шини ми, на жаль, не міняємо. Але якщо щось інше по авто — залюбки допоможу.",
@@ -190,15 +185,13 @@ const UK: Wzorce = {
 const EN: Wzorce = {
   otwarcie: [
     "Yes, of course! How can I help?",
-    "Alright, suspension and filters. When would it suit you to come in?",
-    "Alright, an inspection. When would it suit you to come in?",
-    "Understood, the brakes. When would it suit you to come in?",
+    "Alright, suspension and filters. Tomorrow at 9 — does that work?",
+    "Alright, an inspection. Monday the 17th at 9 — does that work?",
+    "Understood, the brakes. I have tomorrow at 9 or 11.",
   ],
   termin: [
-    "When would it suit you to come in?",
     "Would tomorrow at 9 work?",
     "Thursday the 6th at 9 is free — does that work?",
-    "Understood, mornings don't work. What time of day would be better?",
     "Sorry — 9 or 11?",
     "I didn't catch the time — did you mean 9 in the morning?",
     "Monday. Does 9 in the morning work?",
@@ -218,9 +211,9 @@ const EN: Wzorce = {
     "Sorry, I didn't catch the model — which model is it?",
   ],
   cena: [
-    "An oil change is 160 zloty. When would it suit you to come in?",
-    "Brake pads are roughly 150 to 250 zloty, depending on the model. The mechanic will give you the exact price when you drop the car off. When would it suit you to come in?",
-    "We'll know the price when you drop the car off — the mechanic will look at it and tell you exactly. When would it suit you to come in?",
+    "An oil change is 160 zloty. Tomorrow at 9 — does that work?",
+    "Brake pads are roughly 150 to 250 zloty, depending on the model. The mechanic will give you the exact price when you drop the car off. Tomorrow at 9 — does that work?",
+    "We'll know the price when you drop the car off — the mechanic will look at it and tell you exactly. I have tomorrow at 9 — does that work?",
     "I don't want to guess. The mechanic will look at it and price it when you drop it off. I have tomorrow at 11 free — does that work?",
     "I don't have that information — the mechanic will answer when you drop the car off.",
     "We don't do tyres, unfortunately. But if there's anything else with the car — happy to help.",

@@ -3161,3 +3161,54 @@ samej wartości**. Jeśli tak — wyciągnij wartość i porównaj ją.
 Dotyczy: dat, godzin, kwot, numerów telefonu, tablic rejestracyjnych. Wszędzie
 tam ta sama treść ma kilkanaście form zapisu na język, a cztery języki dają
 ich kilkadziesiąt. Napisu nie da się z tym dopasować; liczby tak.
+
+---
+
+## ZASADA 34 — agent proponuje, nie pyta
+
+**Pytanie zadaje tylko wtedy, gdy propozycja została odrzucona.**
+
+Trzy przypadki z rozmów 16–17.08, wszystkie tego samego rodzaju:
+
+> `KLIENT: chciałem umówić na przegląd autka, ogólnie sprawdzić, bo chcę go sprzedać`
+> `AGENT:  Dobrze, przegląd. Kiedy będzie najwygodniej przyjechać?`
+
+> `AGENT:  Хорошо, среда, двадцать седьмого августа. Утро или день?`
+> `AGENT:  Хорошо, утро не подходит. Какое время дня было бы удобно?`
+
+Klient dzwoni, **żeby się umówić, nie żeby odpowiadać na pytania**. Pora dnia
+nie jest terminem — klient i tak będzie musiał usłyszeć godzinę, więc podaj ją
+od razu. Każde takie pytanie kosztuje dwie tury i brzmi jak formularz.
+
+Sprawdzian, ten sam co przy FAZIE C: **czy człowiek w recepcji by tak
+powiedział?** Recepcjonistka mówi „mam jutro o dziewiątej", nie „kiedy Panu
+pasuje".
+
+### Zrobione wzorcem, nie regułą
+
+Zgodnie z zasadą 26. Wszystkie wzorce „potwierdź i zapytaj" zamienione na
+„potwierdź i zaproponuj", we wszystkich czterech językach:
+
+| przed | po |
+|---|---|
+| Dobrze, przegląd. Kiedy będzie najwygodniej przyjechać? | Dobrze, przegląd. Poniedziałek siedemnasty o dziewiątej — pasuje? |
+| Хорошо, осмотр. Когда вам было бы удобно приехать? | Хорошо, осмотр. Понедельник, семнадцатого, в девять — подойдёт? |
+
+Wzorce pytające o **porę dnia** usunięte we wszystkich językach. Zostaje jedno
+pytanie o godzinę — „A która godzina bardziej by pasowała?" — i wolno je zadać
+dopiero po odmowie.
+
+Dwa testy pilnują, żeby to nie wróciło: żaden wzorzec nie zawiera pytania
+o termin ani o porę dnia, a każdy wzorzec potwierdzenia w sekcji otwarcia
+**musi zawierać konkretną godzinę**.
+
+### Podsumowanie tylko dzień, data, godzina
+
+Ta sama logika co przy usługach: marka i model wypadają z podsumowania.
+Jeśli transkrypcja je przekręciła, klient poprawia przez trzy tury, a mechanik
+przy przyjęciu i tak wszystko ustala.
+
+**Sprawdzone, że dane nie giną:** w ośmiu ostatnich rezerwacjach marka i model
+są zapisane w sześciu (dwa braki to rozmowa przerwana przez klienta i znany
+defekt walidacji marki — „EDD"). Opis usterki trafia jako
+`[Z ROZMOWY AI] …` w każdej.

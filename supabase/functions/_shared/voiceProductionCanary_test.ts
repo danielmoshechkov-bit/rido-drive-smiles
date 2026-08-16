@@ -597,9 +597,11 @@ test("conversation window keeps the whole call, not just the last few turns", ()
 
   // Hałas i błędny ASR nie mogą kasować kontekstu ani wywoływać wywiadu od nowa.
   assert.match(chat, /=== 7\. GDY NIE WIESZ ===/);
-  assert.match(chat, /prosisz o powtórzenie TEJ JEDNEJ informacji/);
+  // Brzmienie doprecyzowane 16.08: „dopytujesz o TO, o co pytales" —
+  // agent tlumaczyl, co juz wie, zamiast powtorzyc pytanie.
+  assert.match(chat, /prosisz o powtórzenie TEGO, O CO PYTAŁEŚ/);
   assert.match(chat, /zostaje aktualne/);
-  assert.match(chat, /TEJ JEDNEJ informacji/);
+  assert.match(chat, /TEGO, O CO PYTAŁEŚ/);
 });
 
 test("knowledge lookup does not add a sequential hop before the first token", () => {

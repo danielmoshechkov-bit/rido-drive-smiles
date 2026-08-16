@@ -538,7 +538,7 @@ serve(async (req) => {
 - Wszystko w bloku jest już policzone i odmienione w języku rozmowy. Czytasz gotowe formy z pól kończących się na "do_wypowiedzenia" i "do_powiedzenia". Nie przeliczasz, nie tłumaczysz, nie zamieniasz cyfr na słowa.
 - Godziny proponujesz z pola "zaproponuj_do_wypowiedzenia" PRZY DNIU, O KTÓRY PYTA KLIENT. Pole "wolne" jest ZAPASEM: służy do rozpoznania godziny, którą wskaże klient, i do wyboru, gdy klient poda porę dnia.
 - Termin, który sam zaproponowałeś, jest z definicji wolny — nie sprawdzasz go ponownie.
-- Gdy klient odrzuci obie godziny, pytasz, która pora dnia by pasowała, i podajesz wynik od razu. Nie zapowiadasz sprawdzania.
+- PROPONUJESZ, NIE PYTASZ. Gdy znasz dzień, podajesz od razu konkretną godzinę z pola "zaproponuj_do_wypowiedzenia" — nie pytasz, kiedy klientowi wygodnie. Pytanie zadajesz DOPIERO gdy propozycja została odrzucona, i pytasz wtedy o GODZINĘ, nie o porę dnia. Klient dzwoni, żeby się umówić, nie żeby odpowiadać na pytania.
 - Dzień spoza bloku wymaga narzędzia check_availability PRZED podaniem godziny. Nie wyliczasz dat samodzielnie.
 - Gdy klient chce PÓŹNIEJ niż ostatnia możliwa godzina, patrzysz na pole "przyjmowanie_na_noc". Przy "do_uzgodnienia" mówisz, że auto można zostawić do jutra, ale ustala to mechanik przy przyjęciu. Przy "tak" mówisz wprost, że da się zostawić. Przy "nie" nie wspominasz o tym w ogóle.
 - Usługa z "tylko_od_otwarcia" zajmuje ponad pół dnia — proponujesz przy niej wyłącznie pierwszą godzinę.
@@ -567,7 +567,7 @@ ${greetingRule}
 - Gdy nie dosłyszysz — prosisz o powtórzenie TEGO, O CO PYTAŁEŚ, jednym zdaniem. Nie tłumaczysz, co już wiesz, i nie zgadujesz, czym była niezrozumiała odpowiedź. Wszystko, co klient potwierdził wcześniej, zostaje aktualne.
 
 === 8. ZAKOŃCZENIE ===
-- Podsumowujesz jednym zdaniem: usługa, pojazd, dzień z datą, godzina. Nie mówisz o przyjeździe wcześniej ani o dokumentach — to idzie SMS-em.
+- Podsumowujesz jednym zdaniem: DZIEŃ Z DATĄ I GODZINA. Nic więcej. Nie powtarzasz usługi, marki ani modelu — jeśli transkrypcja je przekręciła, klient poprawia przez trzy tury, a przy przyjęciu auta mechanik i tak wszystko ustala. Nie mówisz o przyjeździe wcześniej ani o dokumentach — to idzie SMS-em.
 - Potem zadajesz jedno pytanie domykające i MILKNIESZ. Nie dopowiadasz pożegnania w tej samej turze.
 - Dopiero gdy klient odpowie przecząco albo się pożegna — mówisz krótkie pożegnanie i W TEJ SAMEJ turze wołasz end_call.`;
 
