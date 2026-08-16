@@ -27,7 +27,7 @@ import { ProviderStaffPanel } from './ProviderStaffPanel';
 import { AdvertiseServiceButton } from '@/components/marketing/AdvertiseServiceButton';
 import {
   DAY_ORDER, DAY_LABELS, DEFAULT_WORKING_HOURS, normalizeWorkingHours, getOpenStatus,
-  type WorkingHours, type DayKey,, naFormatWarsztatu } from '@/lib/provider-hours';
+  type WorkingHours, type DayKey, naFormatWarsztatu } from '@/lib/provider-hours';
 import { formatMoneyPLN } from '@/utils/formatters';
 
 interface ProviderCategory {
