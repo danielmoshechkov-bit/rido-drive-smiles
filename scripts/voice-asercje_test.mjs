@@ -142,3 +142,12 @@ test("godziny otwarcia to nie propozycja terminu", () => {
   // ale PROPOZYCJA spoza wolnych dalej jest bledem
   brudna(ctx(["Does Monday at 7 work for you?"], { jezyk: "en" }), "godzina_spoza_wolnych");
 });
+
+test("godzina zamkniecia to nie propozycja terminu", () => {
+  // 07-en padal 3/3 na „5:00", a agent mowil poprawnie:
+  // „we close at 5 pm — the latest we can take a car in is 4 o'clock".
+  czysta(ctx(["We close at 5 pm — the latest we can take a car in is 4 o'clock. Would 9 in the morning work?"], { jezyk: "en" }), "godzina_spoza_wolnych");
+  czysta(ctx(["Najpóźniej mogę zapisać na szesnastą — o siedemnastej zamykamy."]), "godzina_spoza_wolnych");
+  // Ta sama tura nie moze tez liczyc sie jako trzy PROPOZYCJE.
+  czysta(ctx(["We close at 5 pm — the latest we can take a car in is 4 o'clock. Would 9 in the morning work?"], { jezyk: "en" }), "trzy_godziny");
+});

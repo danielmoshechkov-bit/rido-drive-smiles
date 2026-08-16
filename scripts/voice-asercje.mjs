@@ -233,8 +233,16 @@ export const ASERCJE = [
         // „We're open Monday through Friday, 9 to 5" zapalało tę asercję 3/3,
         // choć agent informował o godzinach pracy, a nie proponował siedemnastej.
         // Wycinamy zakresy godzin pracy, zanim policzymy propozycje.
+        // Godziny PRACY i godzina ZAMKNIECIA to informacja, nie propozycja.
+        // „we close at 5 pm — the latest we can take a car in is 4 o'clock"
+        // zapalalo asercje 3/3, choc agent podal poprawnie i zamkniecie,
+        // i ostatni mozliwy start. Wycinamy oba rodzaje zdan.
         const bezOtwarcia = String(t.tekst)
-          .replace(/\b(?:open|otwarte|czynne|pracujemy|godziny (?:pracy|otwarcia)|работаем|працюємо)[^.!?]*/gi, " ")
+          .replace(/\b(?:open|otwarte|czynne|pracujemy|godziny (?:pracy|otwarcia)|работаем|працюємо)[^.!?—]*/gi, " ")
+          .replace(/\b(?:we close|closes? at)[^.!?—]*/gi, " ")
+          // W polskim, rosyjskim i ukrainskim godzina stoi PRZED czasownikiem
+          // („o siedemnastej zamykamy"), wiec wycinamy takze wstecz.
+          .replace(/[^.!?—]*\b(?:zamykamy|zamknięcie|zamkniecie|закрываемся|зачиняємося)\b/gi, " ")
           .replace(/\b\d{1,2}\s*(?:-|–|to|do)\s*\d{1,2}\b/gi, " ");
         const obce = [...new Set(wyciagnijGodziny(bezDat(bezOtwarcia, ctx.jezyk), ctx.jezyk).map(rdzenGodziny))]
           // „4 o'clock" po angielsku to szesnasta — snapshot podaje 16:00.
