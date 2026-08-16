@@ -102,7 +102,9 @@ Deno.serve(async (req) => {
         }
         console.log("payment-core: admin_grant przez", caller.userId);
       }
-      return await handleAdminGrant(supabase, body);
+      // Autora przekazujemy do księgi: nadanie bez wskazania, kto je zrobił,
+      // nie jest wpisem audytowym. Kanał wewnętrzny (klucz serwisowy) daje null.
+      return await handleAdminGrant(supabase, body, caller.kind === "user" ? caller.userId : null);
     }
 
     if (action === "welcome_credits_claim") {
@@ -706,7 +708,7 @@ async function handleCreditsCheck(supabase: any, body: any) {
   return new Response(JSON.stringify({ ok: false, balance }), { headers: CORS });
 }
 
-async function handleAdminGrant(supabase: any, body: any) {
+async function handleAdminGrant(supabase: any, body: any, actorId: string | null = null) {
   const { user_id, credit_type, amount } = body;
 
   if (credit_type === "vehicle_lookup") {
@@ -731,19 +733,42 @@ async function handleAdminGrant(supabase: any, body: any) {
       user_id, type: "admin_grant", credits: amount, source: "admin", note: `Admin grant ${amount} credits`,
     });
   } else if (credit_type === "sms") {
-    // SMS credits live on service_providers.sms_balance
+    // Saldo SMS żyje na `service_providers.sms_balance`, ale zmieniamy je
+    // WYŁĄCZNIE przez `grant_sms_credits` — funkcja zapisuje saldo i wiersz
+    // księgi w jednej transakcji. Wcześniej był tu goły UPDATE, przez co
+    // nadanie nie zostawiało ŻADNEGO śladu (przy kredytach VIN zostawia)
+    // i na pytanie „skąd to saldo" nie dało się odpowiedzieć z bazy.
     const { data: sp } = await supabase
       .from("service_providers")
-      .select("id, sms_balance")
+      .select("id")
       .eq("user_id", user_id)
+      // Konto może mieć więcej niż jeden warsztat — bez limitu `maybeSingle`
+      // zwróciłby błąd i nadanie po cichu poszłoby do gałęzi zapasowej.
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
-    if (sp) {
-      await supabase.from("service_providers")
-        .update({ sms_balance: (sp.sms_balance || 0) + amount })
-        .eq("id", sp.id);
-    } else {
-      // Fallback to user_credits if no provider record
-      await upsertCredits(supabase, user_id, "sms", amount);
+
+    if (!sp) {
+      // Bez warsztatu nie ma gdzie zapisać SMS-ów. Gałąź zapasowa dopisywała
+      // je do `user_credits`, gdzie NIKT ich nie czyta przy wysyłce — kredyty
+      // znikały w tabeli, z której nie da się ich wydać.
+      console.error("payment-core: nadanie SMS bez warsztatu dla", user_id);
+      return new Response(
+        JSON.stringify({ error: "Konto nie ma warsztatu — nie ma gdzie zapisać SMS-ów." }),
+        { status: 400, headers: CORS },
+      );
+    }
+
+    const { error: bladNadania } = await supabase.rpc("grant_sms_credits", {
+      p_provider_id: sp.id,
+      p_ile: amount,
+      p_powod: "nadanie_admin",
+      p_actor: actorId ?? null,
+      p_opis: "Nadanie z panelu administratora",
+    });
+    if (bladNadania) {
+      console.error("payment-core: grant_sms_credits", bladNadania);
+      return new Response(JSON.stringify({ error: "Nie udało się nadać SMS-ów" }), { status: 503, headers: CORS });
     }
   } else {
     await upsertCredits(supabase, user_id, credit_type, amount);

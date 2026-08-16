@@ -15,7 +15,8 @@ CREATE TABLE public.service_providers (
   status text DEFAULT 'pending',
   company_name text,
   sms_balance int DEFAULT 0,
-  created_at timestamptz DEFAULT now());
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now());
 
 CREATE TABLE public.billing_plans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

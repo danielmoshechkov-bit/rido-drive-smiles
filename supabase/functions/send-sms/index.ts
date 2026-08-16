@@ -169,8 +169,26 @@ serve(async (req) => {
     // Deduct SMS credit - try fleet_id first, then try to find the user's provider
     try {
       if (fleet_id) {
-        const { error: rpcErr } = await supabase.rpc('deduct_sms_credit', { p_provider_id: fleet_id });
-        if (rpcErr) console.warn('[SMS] Could not deduct credit for fleet:', rpcErr.message);
+        // UWAGA: `fleet_id` jest tu parametrem PRZECIĄŻONYM. `booking-notify`
+        // przekazuje w nim `provider_id` usługodawcy i wtedy odjęcie działa.
+        // Ale `rental-payment-reminders` przekazuje prawdziwy identyfikator
+        // z tabeli `fleets`, a `deduct_sms_credit` aktualizuje
+        // `service_providers` — trafiał więc w zero wierszy. UPDATE bez
+        // trafień nie jest błędem, więc `rpcErr` było puste i SMS szedł
+        // za darmo, bez śladu w logu.
+        //
+        // Od 4.4 funkcja sama krzyczy ostrzeżeniem, gdy identyfikator nie
+        // jest warsztatem. Tutaj sprawdzamy to WCZEŚNIEJ, żeby w logu tej
+        // funkcji było widać, ile wysyłek jest nierozliczonych i czyich.
+        const { data: czyWarsztat } = await supabase
+          .from('service_providers').select('id').eq('id', fleet_id).maybeSingle();
+
+        if (!czyWarsztat) {
+          console.warn(`[SMS] NIEROZLICZONY: ${fleet_id} nie jest warsztatem (typ=${type}). Koszt po naszej stronie.`);
+        } else {
+          const { error: rpcErr } = await supabase.rpc('deduct_sms_credit', { p_provider_id: fleet_id });
+          if (rpcErr) console.warn('[SMS] Could not deduct credit:', rpcErr.message);
+        }
       } else {
         // Try to find the user who made the request via auth header
         const authHeader = req.headers.get('Authorization');
