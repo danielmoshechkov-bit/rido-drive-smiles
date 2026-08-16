@@ -39,6 +39,15 @@ problemy = []
 for sciezka in sys.argv[1:]:
     t = pathlib.Path(sciezka).read_text(encoding='utf-8')
     bez_kom = re.sub(r'--[^\n]*', lambda m: ' ' * len(m.group(0)), t)
+
+    # Parametry i zmienne zadeklarowane TYM SAMYM typem wyliczeniowym nie są
+    # rozjazdem — porównanie enum = enum jest poprawne. Bez tego skrypt
+    # krzyczy na każdą funkcję przyjmującą enum jako argument i przestaje
+    # być wiarygodny.
+    zgodne = set()
+    for m in re.finditer(r'(\w+)\s+(?:public\.)?(\w+)\s*(?:,|\)|DEFAULT|:=|;)', bez_kom):
+        if m.group(2).lower() in typy:
+            zgodne.add(m.group(1).lower())
     for kol, typ in kolumny.items():
         # kolumna = COŚ, gdzie COŚ nie jest literałem w apostrofach i nie ma rzutowania
         for m in re.finditer(rf"(?<![\w.]){re.escape(kol)}\s*(=|<>|!=)\s*([^\s;,)]+)", bez_kom):
@@ -48,6 +57,8 @@ for sciezka in sys.argv[1:]:
             if '::' in prawa or '::' in bez_kom[max(0,m.start()-25):m.start()]:
                 continue
             if prawa.lower() in ('null', 'true', 'false', 'any', 'now()'):
+                continue
+            if prawa.lower().lstrip('(').rstrip(')') in zgodne:
                 continue
             linia = t[:m.start()].count('\n') + 1
             problemy.append((sciezka, linia, kol, typ, m.group(0).strip()))
