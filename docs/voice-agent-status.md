@@ -2971,3 +2971,40 @@ reguły z powrotem — czyli powrót do stu piętnastu.
 W FAZIE C tak oznaczonych jest jedenaście: normalizacja polskich nazw liter
 (→ do kodu przy zapisie), zakaz preambuł (→ pokazany wzorcem), konkretne
 przykłady błędnych liczebników (→ zbędne obok reguły „każdą cyfrę osobno").
+
+---
+
+## ZASADA 30 — uporządkowany wzorzec jest łatwiejszy do skopiowania niż rozproszony
+
+FAZA C zebrała polskie przykłady rozsiane po regułach w jedną czystą, opisaną
+listę na końcu promptu statycznego. Prompt stał się czytelny — i **angielski
+zaczął tę listę kopiować dosłownie**:
+
+> „Thank you — **poniedziałek siedemnasty sierpnia, dziewiąta, wymiana oleju.
+> Potwierdzenie przyjdzie SMS-em w ciągu kilku minut.**"
+
+> „**Dobrze rozumiem.** I don't have that information — the mechanic will
+> answer when you drop the car off."
+
+Cztery wzorce wyciekały do angielskiego słowo w słowo: „Poproszę imię oraz
+markę i model auta.", „Poproszę numer rejestracyjny.", „Potwierdzenie przyjdzie
+SMS-em w ciągu kilku minut.", „Do widzenia.".
+
+Przed FAZĄ C te same zdania stały w prompcie **rozproszone wewnątrz reguł**,
+otoczone uzasadnieniami i kontrastami „ŹLE/DOBRZE". Po uporządkowaniu stały się
+listą gotowych zdań pod nagłówkiem „mówisz tymi zdaniami" — czyli dokładnie
+tym, co model kopiuje najchętniej.
+
+**Porządkowanie promptu ZWIĘKSZA siłę wzorca.** To dobrze, gdy wzorzec jest
+właściwy dla rozmowy, i źle, gdy nie jest. Zasada 26 mówi, że wzorzec bije
+regułę; zasada 30 dodaje, że **im lepiej wzorzec wyeksponowany, tym mocniej
+bije** — także wtedy, gdy jest w złym języku.
+
+### Konsekwencja
+
+Wzorce **każdego** języka, łącznie z polskim, idą do części zmiennej promptu
+i są wybierane po języku rozmowy. Blok statyczny nie zawiera ani jednego
+gotowego zdania do wypowiedzenia. Jeden język na raz, nigdy dwa naraz.
+
+Kosztuje to cache'owanie kilkuset znaków więcej na turę i jest tego warte:
+poprzedni układ dawał angielskiemu polskie podsumowanie rezerwacji.

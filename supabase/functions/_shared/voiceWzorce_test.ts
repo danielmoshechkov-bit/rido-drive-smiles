@@ -1,12 +1,25 @@
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
 import { liczbaWzorcow, wzorceWJezyku, zdanieAwarii } from "./voiceWzorce.ts";
 
-// POLSKI NIE DOSTAJE ANI JEDNEGO ZNAKU. To jest cała umowa tej zmiany.
-Deno.test("polski nie dostaje bloku wzorcow", () => {
-  assertEquals(wzorceWJezyku("pl"), null);
-  assertEquals(wzorceWJezyku(null), null);
-  assertEquals(wzorceWJezyku(undefined), null);
-  assertEquals(wzorceWJezyku("de"), null, "nieobslugiwany jezyk = brak bloku, nie polski blok");
+// KAZDY JEZYK DOSTAJE WYLACZNIE SWOJ BLOK.
+//
+// Pierwsza wersja zwracala null dla polskiego, bo polskie wzorce staly
+// w prompcie statycznym. FAZA C uporzadkowala je w czysta liste na koncu —
+// i angielski zaczal je kopiowac doslownie („Potwierdzenie przyjdzie SMS-em"
+// w srodku angielskiego zdania). Teraz polski tez ma swoj blok i nigdy nie
+// widzi cudzego.
+Deno.test("kazdy jezyk dostaje wlasny blok, nigdy cudzy", () => {
+  const pl = wzorceWJezyku("pl")!;
+  assert(pl.includes("Poproszę imię oraz markę i model auta."));
+  assert(!/[а-яА-Я]/.test(pl), "polski blok zawiera cyrylice");
+  for (const j of ["ru", "uk", "en"]) {
+    const b = wzorceWJezyku(j)!;
+    assert(!b.includes("Poproszę imię"), `${j}: polski wzorzec w bloku obcojezycznym`);
+  }
+  // Brak jezyka = polski (rozmowa zaczyna sie po polsku).
+  assertEquals(wzorceWJezyku(null), pl);
+  assertEquals(wzorceWJezyku(undefined), pl);
+  assertEquals(wzorceWJezyku("de"), null, "nieobslugiwany jezyk = brak bloku");
 });
 
 Deno.test("kazdy obslugiwany jezyk ma komplet wzorcow", () => {
@@ -67,10 +80,12 @@ Deno.test("waluta to zlotowka we wszystkich jezykach", () => {
 
 // Blok ma powiedziec modelowi, ze polskie przyklady sa zakazane — bez tego
 // zdania sa tylko dodatkiem, a nie zastapieniem.
-Deno.test("blok zabrania siegania po polskie przyklady", () => {
+Deno.test("blok obcojezyczny zabrania powrotu do polskiego", () => {
+  // Zdanie „polskie przyklady sa ilustracja" stracilo sens, odkad polskich
+  // przykladow w prompcie obcojezycznym po prostu NIE MA. Zostaje zakaz powrotu.
   const b = wzorceWJezyku("ru")!;
-  assert(b.includes("NIE WOLNO ich wypowiedzieć"));
-  assert(b.includes("Nigdy nie wracasz do polskiego"));
+  assert(b.includes("NIGDY nie wracasz do polskiego"));
+  assert(!b.includes("Poproszę"), "blok rosyjski nie moze zawierac polskich wzorcow");
 });
 
 // Rozmiar: caly sens wyboru wariantu (c) to prompt bez wzrostu x4.

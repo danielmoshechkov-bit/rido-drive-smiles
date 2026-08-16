@@ -289,7 +289,9 @@ test("phone is stored silently and the year is never asked", () => {
 
   // Telefonu nie czytamy wstecz słowami.
   assert.match(chat, /Numeru rejestracyjnego ani telefonu nie powtarzasz na głos/);
-  assert.match(chat, /Dziękuję, numer zapisany/);
+  // Wzorce przeniesione do voiceWzorce.ts — kazdy jezyk dostaje wylacznie swoj
+  // blok. Brzmienia pilnuje voiceWzorce_test.ts, tu sprawdzamy tylko podpiecie.
+  assert.match(chat, /wzorceWJezyku\(jezyk\)/);
   // Rok produkcji nie jest potrzebny do rezerwacji.
   // Sekwencja jest teraz zależna od caller_id: gdy numer przyszedł z sygnalizacji,
   // agent NIE pyta o telefon (jedna tura mniej); przy numerze zastrzeżonym pyta.

@@ -473,6 +473,10 @@ serve(async (req) => {
     // Blok wraca jako null dla polskiego, więc polski prompt nie dostaje ANI
     // JEDNEGO znaku. Idzie w systemVolatile, nie w bloku cache'owanym: zmienia
     // się z językiem rozmowy, a statyczny blok ma zostać nietknięty dla cache.
+    // Wzorce KAZDEGO jezyka, takze polskiego, ida tutaj — nigdy do bloku
+    // statycznego. Polska lista w prompcie statycznym byla kopiowana do zdan
+    // angielskich (16.08: „Potwierdzenie przyjdzie SMS-em" w srodku angielskiej
+    // wypowiedzi). Jeden jezyk na raz, nigdy dwa naraz.
     const blokWzorcow = wzorceWJezyku(jezyk) || "";
     if (blokWzorcow) logTiming("wzorce_jezyka", totalStarted, { jezyk, znakow: blokWzorcow.length });
     const systemVolatile = systemTimeContext + snapshotBlok + blokWzorcow;
@@ -547,29 +551,7 @@ ${greetingRule}
 === 8. ZAKOŃCZENIE ===
 - Podsumowujesz jednym zdaniem: usługa, pojazd, dzień z datą, godzina. Nie mówisz o przyjeździe wcześniej ani o dokumentach — to idzie SMS-em.
 - Potem zadajesz jedno pytanie domykające i MILKNIESZ. Nie dopowiadasz pożegnania w tej samej turze.
-- Dopiero gdy klient odpowie przecząco albo się pożegna — mówisz krótkie pożegnanie i W TEJ SAMEJ turze wołasz end_call.
-
-=== WZORCE (mówisz tymi zdaniami; dane podmieniasz z bloku) ===
-  W czym mogę pomóc?
-  Kiedy będzie najwygodniej przyjechać?
-  Poniedziałek siedemnastego sierpnia — o dziewiątej czy o szesnastej?
-  Czy jutro o dziewiątej będzie odpowiednie?
-  Przepraszam, dziewiąta czy jedenasta?
-  Nie dosłyszałam godziny — czy chodzi o dziewiątą rano?
-  Poproszę imię oraz markę i model auta.
-  Poproszę numer rejestracyjny.
-  Dobrze, zapisuję. Poproszę numer rejestracyjny.
-  Dziękuję, numer zapisany.
-  Numer mam zapisany — będzie w SMS-ie potwierdzającym, łatwiej go sprawdzić wzrokowo niż ze słuchu.
-  Wymiana oleju to sto sześćdziesiąt złotych. Kiedy byłoby wygodnie przyjechać?
-  Cenę poznamy przy przyjęciu auta — mechanik obejrzy i powie dokładnie. Kiedy byłoby wygodnie podjechać?
-  Najpóźniej mogę zapisać na szesnastą — o siedemnastej zamykamy. Jeśli potrzebuje Pan później, można zostawić auto do jutra, tylko to trzeba ustalić z mechanikiem przy przyjęciu.
-  Nie mam tej informacji — mechanik odpowie na miejscu przy przyjęciu auta.
-  Opon niestety nie wymieniamy. Ale jeśli coś innego przy aucie — chętnie pomogę.
-  Dobrze, przekazuję to do warsztatu — oddzwonią, żeby potwierdzić.
-  Gotowe — poniedziałek siedemnasty sierpnia, dziewiąta. Potwierdzenie przyjdzie SMS-em w ciągu kilku minut.
-  Czy mogę jeszcze w czymś pomóc?
-  Do widzenia.`;
+- Dopiero gdy klient odpowie przecząco albo się pożegna — mówisz krótkie pożegnanie i W TEJ SAMEJ turze wołasz end_call.`;
 
     const convo: Phase1ConversationMessage[] = messages
       .filter((message): message is { role: "user" | "assistant"; content: string } =>

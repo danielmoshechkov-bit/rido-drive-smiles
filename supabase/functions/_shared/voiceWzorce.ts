@@ -39,6 +39,42 @@ type Wzorce = {
   domkniecie: string[];
 };
 
+const PL: Wzorce = {
+  otwarcie: [
+    "W czym mogę pomóc?",
+  ],
+  termin: [
+    "Kiedy będzie najwygodniej przyjechać?",
+    "Poniedziałek siedemnastego sierpnia — o dziewiątej czy o szesnastej?",
+    "Czy jutro o dziewiątej będzie odpowiednie?",
+    "Przepraszam, dziewiąta czy jedenasta?",
+    "Nie dosłyszałam godziny — czy chodzi o dziewiątą rano?",
+    "Trzeciego września wolne o dziewiątej — pasuje?",
+    "Najpóźniej mogę zapisać na szesnastą — o siedemnastej zamykamy. Jeśli potrzebuje Pan później, można zostawić auto do jutra, tylko to trzeba ustalić z mechanikiem przy przyjęciu.",
+  ],
+  dane: [
+    "Poproszę imię oraz markę i model auta.",
+    "Poproszę numer rejestracyjny.",
+    "Dobrze, zapisuję. Poproszę numer rejestracyjny.",
+    "Dziękuję, numer zapisany.",
+    "Numer mam zapisany — będzie w SMS-ie potwierdzającym, łatwiej go sprawdzić wzrokowo niż ze słuchu.",
+  ],
+  cena: [
+    "Wymiana oleju to sto sześćdziesiąt złotych. Kiedy byłoby wygodnie przyjechać?",
+    "Cenę poznamy przy przyjęciu auta — mechanik obejrzy i powie dokładnie. Kiedy byłoby wygodnie podjechać?",
+    "Nie mam tej informacji — mechanik odpowie na miejscu przy przyjęciu auta.",
+    "Opon niestety nie wymieniamy. Ale jeśli coś innego przy aucie — chętnie pomogę.",
+  ],
+  odwolanie: [
+    "Dobrze, przekazuję to do warsztatu — oddzwonią, żeby potwierdzić.",
+  ],
+  domkniecie: [
+    "Gotowe — poniedziałek siedemnasty sierpnia, dziewiąta. Potwierdzenie przyjdzie SMS-em w ciągu kilku minut.",
+    "Czy mogę jeszcze w czymś pomóc?",
+    "Do widzenia.",
+  ],
+};
+
 const RU: Wzorce = {
   otwarcie: [
     "Да, конечно! Чем могу помочь?",
@@ -174,9 +210,10 @@ const EN: Wzorce = {
   ],
 };
 
-const TABLICE: Record<Exclude<JezykWzorcow, "pl">, Wzorce> = { ru: RU, uk: UK, en: EN };
+const TABLICE: Record<JezykWzorcow, Wzorce> = { pl: PL, ru: RU, uk: UK, en: EN };
 
-const NAGLOWKI: Record<Exclude<JezykWzorcow, "pl">, Record<keyof Wzorce, string>> = {
+const NAGLOWKI: Record<JezykWzorcow, Record<keyof Wzorce, string>> = {
+  pl: { otwarcie: "OTWARCIE", termin: "TERMIN", dane: "DANE KLIENTA", cena: "CENA I ODMOWA", odwolanie: "ODWOŁANIE", domkniecie: "ZAKOŃCZENIE" },
   ru: { otwarcie: "ОТКРЫТИЕ", termin: "ВРЕМЯ ВИЗИТА", dane: "ДАННЫЕ КЛИЕНТА", cena: "ЦЕНА И ОТКАЗ", odwolanie: "ОТМЕНА И ПЕРЕНОС", domkniecie: "ЗАВЕРШЕНИЕ" },
   uk: { otwarcie: "ПОЧАТОК", termin: "ЧАС ВІЗИТУ", dane: "ДАНІ КЛІЄНТА", cena: "ЦІНА ТА ВІДМОВА", odwolanie: "СКАСУВАННЯ ТА ПЕРЕНЕСЕННЯ", domkniecie: "ЗАВЕРШЕННЯ" },
   en: { otwarcie: "OPENING", termin: "APPOINTMENT TIME", dane: "CUSTOMER DETAILS", cena: "PRICE AND DECLINING", odwolanie: "CANCELLING AND RESCHEDULING", domkniecie: "CLOSING" },
@@ -189,18 +226,31 @@ const NAGLOWKI: Record<Exclude<JezykWzorcow, "pl">, Record<keyof Wzorce, string>
  * „prompt bez zmian". Polski nie dostaje ani jednego znaku więcej.
  */
 export function wzorceWJezyku(jezyk: JezykWzorcow | string | null | undefined): string | null {
-  if (!jezyk || jezyk === "pl") return null;
-  const tab = TABLICE[jezyk as Exclude<JezykWzorcow, "pl">];
+  // POLSKI TEŻ DOSTAJE SWÓJ BLOK — i to jest zmiana wobec pierwszej wersji.
+  //
+  // FAZA C przeniosła polskie wzorce do STATYCZNEJ części promptu, jako czystą,
+  // opisaną listę na końcu. Zrobiło się z tego coś ŁATWIEJSZEGO do skopiowania
+  // niż wcześniejsze przykłady rozsiane w regułach — i angielski zaczął zwracać
+  // „Poproszę imię oraz markę i model auta." oraz „Potwierdzenie przyjdzie
+  // SMS-em w ciągu kilku minut." w środku angielskiego zdania. Zasada 26
+  // uderzyła w nas przez wzorce, które sami uporządkowaliśmy.
+  //
+  // Teraz KAŻDY język dostaje wyłącznie swój blok i nigdy cudzego.
+  const klucz = (jezyk || "pl") as JezykWzorcow;
+  const tab = TABLICE[klucz];
   if (!tab) return null;
-  const nag = NAGLOWKI[jezyk as Exclude<JezykWzorcow, "pl">];
+  const nag = NAGLOWKI[klucz];
   const sekcje = (Object.keys(tab) as (keyof Wzorce)[])
     .map((k) => `${nag[k]}:\n` + tab[k].map((z) => `  ${z}`).join("\n"))
     .join("\n");
   // Reguła po polsku, bo cały prompt jest po polsku i model czyta go jako
   // instrukcję. Wzorce są w języku rozmowy, bo to one trafiają do wypowiedzi.
-  return `\n\n=== WZORCE W JĘZYKU ROZMOWY (nadrzędne wobec polskich przykładów wyżej) ===\n` +
-    `Rozmowa toczy się w języku "${jezyk}". Wszystkie polskie zdania przykładowe w tym prompcie są WYŁĄCZNIE ilustracją reguły — NIE WOLNO ich wypowiedzieć ani przetłumaczyć. Mówisz zdaniami z listy poniżej, dopasowując tylko dane (godzinę, datę, cenę, nazwę usługi) z bloku danych.\n` +
-    `Gdy potrzebujesz zdania, którego tu nie ma — układasz je sam W TYM JĘZYKU. Nigdy nie wracasz do polskiego.\n` +
+  if (klucz === "pl") {
+    return `\n\n=== WZORCE (mówisz tymi zdaniami; dane podmieniasz z bloku) ===\n` + sekcje + `\n`;
+  }
+  return `\n\n=== WZORCE W JĘZYKU ROZMOWY ===\n` +
+    `Rozmowa toczy się w języku "${jezyk}". Mówisz zdaniami z listy poniżej, dopasowując tylko dane (godzinę, datę, cenę, nazwę usługi) z bloku danych.\n` +
+    `Gdy potrzebujesz zdania, którego tu nie ma — układasz je sam W TYM JĘZYKU. NIGDY nie wracasz do polskiego.\n` +
     sekcje + `\n`;
 }
 
