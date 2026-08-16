@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Settings, Clock, Wrench, Plus, Trash2, Save, Loader2, Upload, Search } from 'lucide-react';
+import { Settings, Clock, Wrench, Plus, Trash2, Save, Loader2, Upload, Search, GraduationCap } from 'lucide-react';
+import { zaplanujWprowadzenie } from '@/hooks/useWprowadzenie';
 
 const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
@@ -535,6 +536,32 @@ export const WorkshopSettingsPage = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Wprowadzenie da się obejrzeć ponownie bez czyszczenia pamięci
+          przeglądarki — przydaje się nowemu pracownikowi przy recepcji
+          i przy sprawdzaniu, czy nic się nie rozjechało po zmianach. */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg bg-primary/10 p-2 text-primary"><GraduationCap className="h-5 w-5" /></div>
+            <div>
+              <p className="font-medium text-sm">Wprowadzenie: pierwsze zlecenie</p>
+              <p className="text-xs text-muted-foreground">
+                Przejście krok po kroku: auto, klient, wycena, SMS-y, dokument i zamknięcie zlecenia.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              zaplanujWprowadzenie();
+              toast.success('Wprowadzenie ruszy po wejściu w Zlecenia');
+            }}
+          >
+            Pokaż od nowa
+          </Button>
+        </CardContent>
+      </Card>
 
       <Button onClick={handleSave} disabled={saving} className="w-full">
         {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('common.saving')}</> : <><Save className="h-4 w-4 mr-2" />{t('workshop.settings.company.saveSettings')}</>}

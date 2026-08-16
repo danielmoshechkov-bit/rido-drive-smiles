@@ -16,6 +16,8 @@ const KLUCZ = 'rido_wprowadzenie_warsztat_v1';
 interface Zapis {
   zamkniete: boolean;
   krok: number;
+  /** Ustawiane przyciskiem „Pokaż wprowadzenie od nowa" — panel odpala je przy wejściu. */
+  autostart?: boolean;
 }
 
 const odczytaj = (): Zapis => {
@@ -23,7 +25,7 @@ const odczytaj = (): Zapis => {
     const raw = localStorage.getItem(KLUCZ);
     if (raw) {
       const z = JSON.parse(raw);
-      return { zamkniete: !!z.zamkniete, krok: Number(z.krok) || 0 };
+      return { zamkniete: !!z.zamkniete, krok: Number(z.krok) || 0, autostart: !!z.autostart };
     }
   } catch { /* brak dostępu do pamięci przeglądarki — pokazujemy od początku */ }
   return { zamkniete: false, krok: 0 };
@@ -32,6 +34,15 @@ const odczytaj = (): Zapis => {
 const zapisz = (z: Zapis) => {
   try { localStorage.setItem(KLUCZ, JSON.stringify(z)); } catch { /* ignorujemy */ }
 };
+
+/**
+ * Włącza wprowadzenie przy najbliższym wejściu w panel warsztatu.
+ * Wołane z Ustawień — stamtąd nie mamy dostępu do stanu panelu, a nie chcemy,
+ * żeby ktoś musiał czyścić pamięć przeglądarki, żeby obejrzeć je drugi raz.
+ */
+export function zaplanujWprowadzenie() {
+  zapisz({ zamkniete: false, krok: 0, autostart: true });
+}
 
 export function useWprowadzenie(ileKrokow: number) {
   const [stan, setStan] = useState<Zapis>(() => odczytaj());
@@ -43,6 +54,14 @@ export function useWprowadzenie(ileKrokow: number) {
     setStan({ zamkniete: false, krok: 0 });
     setWlaczone(true);
   }, []);
+
+  // Wejście z Ustawień: „Pokaż wprowadzenie od nowa" ustawia znacznik, a panel
+  // odpala je przy najbliższym otwarciu i od razu ten znacznik gasi.
+  useEffect(() => {
+    if (!stan.autostart) return;
+    setStan({ zamkniete: false, krok: 0 });
+    setWlaczone(true);
+  }, [stan.autostart]);
 
   const dalej = useCallback(() => {
     setStan((s) => {
