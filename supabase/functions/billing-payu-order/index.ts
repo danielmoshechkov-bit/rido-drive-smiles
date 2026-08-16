@@ -78,17 +78,38 @@ Deno.serve(async (req) => {
     }
     const baza = bramka.is_sandbox ? PAYU_SANDBOX : PAYU_PRODUKCJA;
 
-    // ── Produkt i podmiot ───────────────────────────────────────────
-    const { product_code } = await req.json().catch(() => ({}));
+    // ── Produkt, liczba jednostek i kwota ───────────────────────────
+    const { product_code, units } = await req.json().catch(() => ({}));
     if (typeof product_code !== 'string' || !product_code.trim()) {
       return json({ error: 'Nie wskazano produktu.' }, 400);
+    }
+    const liczba = Number(units);
+    if (!Number.isInteger(liczba) || liczba <= 0) {
+      return json({ error: 'Nieprawidłowa liczba sztuk.' }, 400);
+    }
+
+    // KWOTĘ LICZY BAZA, nie ta funkcja i tym bardziej nie żądanie. Tam też
+    // siedzi sprawdzenie kroku i minimum, więc reguła obowiązuje niezależnie
+    // od tego, kto pyta — inaczej dałoby się kupić 1 SMS zamiast setki.
+    const { data: wycena, error: bladWyceny } = await (admin as any)
+      .rpc('billing_wylicz_doladowanie', { p_code: product_code.trim(), p_units: liczba })
+      .maybeSingle();
+
+    if (bladWyceny || !wycena) {
+      // 22023 = nasze własne odrzucenia z funkcji (krok, minimum, nieznany
+      // produkt). Komunikat jest po polsku i nadaje się do pokazania.
+      const czyNasze = (bladWyceny as { code?: string } | null)?.code === '22023';
+      console.warn('billing-payu-order: wycena odrzucona', bladWyceny?.message);
+      return json({
+        error: czyNasze ? bladWyceny!.message : 'Nie udało się wycenić doładowania.',
+        code: 'BAD_UNITS',
+      }, 400);
     }
 
     const { data: produkt } = await (admin as any)
       .from('billing_addon_products')
-      .select('id, code, name, amount, price_gross, vat_rate, feature_id, waznosc_dni')
-      .eq('code', product_code.trim())
-      .eq('is_active', true)
+      .select('id, code, name, vat_rate, feature_id, waznosc_dni, unit_price_net, step, min_units')
+      .eq('id', wycena.product_id)
       .maybeSingle();
 
     if (!produkt) return json({ error: 'Ten pakiet jest niedostępny.', code: 'NO_PRODUCT' }, 404);
@@ -115,16 +136,20 @@ Deno.serve(async (req) => {
         subscriber_id: warsztat.id,
         user_id: caller.id,
         product_id: produkt.id,
-        amount_gross: produkt.price_gross,
+        units: liczba,
+        amount_gross: wycena.amount_gross,
         status: 'nowe',
         provider: 'payu',
-        // Zawartość zamrożona: cennik wolno zmieniać, to co klient kupił — nie.
+        // Zamrożona STAWKA, nie tylko kwota. Przy sporze trzeba umieć
+        // odtworzyć, po ile klient kupował, a nie tylko ile zapłacił.
         snapshot: {
           code: produkt.code,
           name: produkt.name,
-          amount: produkt.amount,
-          price_gross: produkt.price_gross,
-          vat_rate: produkt.vat_rate,
+          units: liczba,
+          unit_price_net: wycena.unit_price_net,
+          amount_net: wycena.amount_net,
+          amount_gross: wycena.amount_gross,
+          vat_rate: wycena.vat_rate,
           waznosc_dni: produkt.waznosc_dni,
           data: new Date().toISOString(),
         },
@@ -139,7 +164,7 @@ Deno.serve(async (req) => {
 
     // ── Zamówienie u operatora ──────────────────────────────────────
     const dostep = await tokenPayu(baza, clientId, clientSecret);
-    const grosze = naGrosze(Number(produkt.price_gross));
+    const grosze = naGrosze(Number(wycena.amount_gross));
 
     const odpowiedz = await fetch(`${baza}/api/v2_1/orders`, {
       method: 'POST',
@@ -155,7 +180,7 @@ Deno.serve(async (req) => {
         continueUrl: buildPublicUrl('/uslugi/panel?platnosc=payu'),
         customerIp: ipKupujacego(req.headers),
         merchantPosId: posId,
-        description: `GetRido — ${produkt.name}`,
+        description: `GetRido — ${liczba} × ${produkt.name}`,
         currencyCode: 'PLN',
         totalAmount: String(grosze),
         // `extOrderId` wiąże powiadomienie z naszym wierszem. To po nim,
@@ -166,7 +191,7 @@ Deno.serve(async (req) => {
           language: 'pl',
         },
         products: [{
-          name: produkt.name,
+          name: `${produkt.name} (${liczba} szt.)`,
           unitPrice: String(grosze),
           quantity: '1',
         }],
@@ -195,7 +220,7 @@ Deno.serve(async (req) => {
 
     console.log(JSON.stringify({
       event: 'payu_zamowienie', order: zamowienie.id, payu: idUOperatora,
-      produkt: produkt.code, grosze,
+      produkt: produkt.code, jednostek: liczba, grosze,
     }));
 
     return json({ url: przekierowanie, order_id: zamowienie.id });
