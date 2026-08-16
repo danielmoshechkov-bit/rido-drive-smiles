@@ -18,6 +18,7 @@ const tytul = (i) => TRASA_PIERWSZE_ZLECENIE[i]?.tytul ?? '(brak)';
 const opcje = {
   przejdzGdyWypelnione: TRASA_PIERWSZE_ZLECENIE.map((k) => !!k.przejdzGdyWypelnione),
   pokazGdySieZjawi: TRASA_PIERWSZE_ZLECENIE.map((k) => !!k.pokazGdySieZjawi),
+  pokazGdyWypelniony: TRASA_PIERWSZE_ZLECENIE.map((k) => !!k.pokazGdyWypelniony),
 };
 
 let bledy = 0;
@@ -51,6 +52,8 @@ const oknoZlecenia = [
   { cel: 'pole-rejestracji', glebokosc: 1 },
   { cel: 'pole-klienta', glebokosc: 1 },
   { cel: 'pole-opisu', glebokosc: 1 },
+  { cel: 'dodaj-pozycje', glebokosc: 1 },
+  { cel: 'uszkodzenia-i-zdjecia', glebokosc: 1 },
   { cel: 'zapisz-zlecenie', glebokosc: 1 },
 ];
 krok = wybierzKrok(cele, krok, oknoZlecenia, opcje);
@@ -73,6 +76,10 @@ const oknoPojazdu = [
   ...pustyPanel,
   { cel: 'pojazd-wlasciciel', glebokosc: 2 },
   { cel: 'pojazd-rejestracja', glebokosc: 2 },
+  // Pola pojazdu SA na ekranie od poczatku — tylko puste. Wprowadzenie nie moze
+  // o nich mowic, dopoki rejestr ich nie wypelni.
+  { cel: 'pobrane-dane', glebokosc: 2, wypelniony: false },
+  { cel: 'pojazd-zapisz', glebokosc: 2 },
 ];
 krok = wybierzKrok(cele, krok, oknoPojazdu, opcje);
 sprawdz('okno pojazdu: najpierw właściciel', krok, 'pojazd-wlasciciel');
@@ -91,20 +98,37 @@ const oknoKlientaZImieniem = oknoKlienta.map((w) => (w.cel === 'klient-imie-nazw
 krok = wybierzKrok(cele, krok, oknoKlientaZImieniem, opcje);
 sprawdz('po wpisaniu imienia ramka schodzi sama na telefon', krok, 'klient-telefon');
 
+// A po wpisaniu numeru — na „Zapisz". Wczesniej instrukcja mowila „potem
+// Zapisz", ale nie bylo widac, ktory to przycisk.
+const oknoKlientaZTelefonem = [
+  ...pustyPanel,
+  { cel: 'klient-imie-nazwisko', glebokosc: 3, wypelniony: true },
+  { cel: 'klient-telefon', glebokosc: 3, wypelniony: true },
+  { cel: 'klient-zapisz', glebokosc: 3 },
+];
+krok = wybierzKrok(cele, krok, oknoKlientaZTelefonem, opcje);
+sprawdz('po wpisaniu telefonu ramka pokazuje „Zapisz"', krok, 'klient-zapisz');
+
 // ── EKRAN 5: klient zapisany, wracamy do okna pojazdu ───────────────────────
 krok = wybierzKrok(cele, krok, oknoPojazdu, opcje);
 sprawdz('powrót do pojazdu: numer i lupka', krok, 'pojazd-rejestracja');
 
-// ── EKRAN 6: po lupce pojawia się podsumowanie pobranych danych ─────────────
-const poLupce = [...oknoPojazdu, { cel: 'pobrane-dane', glebokosc: 2 }];
+// ── EKRAN 6: po lupce pola pojazdu sie wypelniaja ───────────────────────────
+const poLupce = oknoPojazdu.map((w) => (w.cel === 'pobrane-dane' ? { ...w, wypelniony: true } : w));
 krok = wybierzKrok(cele, krok, poLupce, opcje);
-sprawdz('po lupce: co przyszło z rejestru', krok, 'pobrane-dane');
+sprawdz('po lupce: wypełnione pola pojazdu', krok, 'pobrane-dane');
+krok = nastepnyKrok(cele, krok, poLupce);
+sprawdz('„Dalej": zapis pojazdu', krok, 'pojazd-zapisz');
 
 // ── EKRAN 7: pojazd zapisany, znów samo okno zlecenia ───────────────────────
 krok = wybierzKrok(cele, krok, oknoZlecenia, opcje);
 sprawdz('powrót do zlecenia: dane klienta', krok, 'pole-klienta');
 krok = nastepnyKrok(cele, krok, oknoZlecenia);
 sprawdz('„Dalej": lista zadań do wykonania', krok, 'pole-opisu');
+krok = nastepnyKrok(cele, krok, oknoZlecenia);
+sprawdz('„Dalej": kolejne punkty listy', krok, 'dodaj-pozycje');
+krok = nastepnyKrok(cele, krok, oknoZlecenia);
+sprawdz('„Dalej": uszkodzenia i zdjęcia przy przyjęciu', krok, 'uszkodzenia-i-zdjecia');
 krok = nastepnyKrok(cele, krok, oknoZlecenia);
 sprawdz('„Dalej": zapis zlecenia', krok, 'zapisz-zlecenie');
 
@@ -243,6 +267,14 @@ console.log('--- przypadki brzegowe ---');
 {
   const wynik = wybierzKrok(cele, 3, [], opcje);
   sprawdzWarunek(`pusty ekran nie przesuwa kroku (${wynik})`, wynik === 3);
+}
+
+// 2b. Puste pola pojazdu nie przejmuja ekranu — dopiero wypelnione. Inaczej po
+//     otwarciu okna pojazdu wprowadzenie od razu mowiloby „to przyszlo z
+//     rejestru", zanim ktokolwiek nacisnal lupke.
+{
+  const wynik = wybierzKrok(cele, cele.indexOf('pole-rejestracji'), oknoPojazdu, opcje);
+  sprawdz('puste pola pojazdu nie udaja pobranych danych', wynik, 'pojazd-wlasciciel');
 }
 
 // 3. Wejście w okno, które już się widziało, wraca do JEGO pierwszego kroku —

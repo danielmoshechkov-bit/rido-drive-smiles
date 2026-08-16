@@ -56,8 +56,18 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'klient-telefon',
+    // Po wpisaniu numeru ramka pokazuje przycisk zapisu — inaczej instrukcja
+    // mowi „potem Zapisz", a nie widac ktory to przycisk.
+    przejdzGdyWypelnione: true,
     tytul: 'Telefon — najważniejsze pole',
     tresc: 'Wpisz TU SWÓJ numer telefonu — ten, który masz przy sobie.\n\nNa niego pójdzie potwierdzenie przyjęcia, kosztorys do akceptacji i wiadomość, że auto jest gotowe. Przejdziesz całą drogę i zobaczysz każdą wiadomość tak, jak zobaczy ją klient. Potem „Zapisz".',
+  },
+  {
+    cel: 'klient-zapisz',
+    tytul: 'Zapisz właściciela',
+    tresc: 'Kliknij „Zapisz" — właściciel trafi do kartoteki i od razu podepnie się do auta.',
+    akcja: 'Kliknij „Zapisz"',
+    czekaNaKlikniecie: true,
   },
   {
     cel: 'pojazd-rejestracja',
@@ -67,10 +77,18 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'pobrane-dane',
-    // Ramka pojawia sie dopiero po lupce — wtedy ma o niej byc mowa.
-    pokazGdySieZjawi: true,
+    // Pola stoja puste od otwarcia okna — mowimy o nich dopiero wtedy, gdy
+    // wypelni je odpowiedz z rejestru.
+    pokazGdyWypelniony: true,
     tytul: 'To przyszło z rejestru',
-    tresc: 'Zielona ramka pokazuje, co dokładnie pobraliśmy po numerze: markę, model, rocznik, pojemność, moc, paliwo i VIN.\n\nWszystko możesz poprawić — zapisujemy to, co jest w polach poniżej. Potem „Zapisz" i wracamy do zlecenia.',
+    tresc: 'Podświetlone pola wypełniły się same: marka, model, rocznik, pojemność, moc, rodzaj paliwa i VIN.\n\nWszystko możesz poprawić — zapisujemy dokładnie to, co tu widzisz. Czego rejestr nie zna (kolor, nadwozie), dopisujesz ręcznie.',
+  },
+  {
+    cel: 'pojazd-zapisz',
+    tytul: 'Zapisz pojazd',
+    tresc: 'Auto trafi do Twojej kartoteki — przy następnej wizycie wystarczy wpisać numer, żeby je znaleźć.',
+    akcja: 'Kliknij „Zapisz"',
+    czekaNaKlikniecie: true,
   },
   {
     cel: 'pole-klienta',
@@ -84,6 +102,17 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     cel: 'pole-opisu',
     tytul: 'Krok 2 — opisz zlecenie',
     tresc: 'BEZ TEGO ZLECENIE SIĘ NIE ZAPISZE — pole jest obowiązkowe (gwiazdka przy nazwie).\n\nWpisz w punktach, z czym przyjechał klient i co trzeba przy okazji sprawdzić. Każdy punkt to osobna pozycja: mechanik odhacza ją w swojej karcie, a Ty wyceniasz ją w kosztorysie. „Dodaj pozycję" albo Enter dokłada kolejną.\n\nNa próbę wpisz dwie, na przykład:\n1. Wymiana klocków hamulcowych przód\n2. Sprawdzić stan tarcz i płynu hamulcowego',
+  },
+  {
+    cel: 'dodaj-pozycje',
+    tytul: 'Kolejne punkty',
+    tresc: 'Każdy kolejny punkt dokładasz tym przyciskiem albo klawiszem Enter w ostatnim wierszu.\n\nWpisz przynajmniej dwa — pierwszy to powód wizyty, drugi to rzecz do sprawdzenia przy okazji.',
+  },
+  {
+    cel: 'uszkodzenia-i-zdjecia',
+    tytul: 'Stan auta przy przyjęciu',
+    tresc: 'Tu opisujesz rysy, wgniecenia i braki, a niżej robisz zdjęcia z sześciu stron.\n\nTo nie jest formalność: zdjęcie z przyjęcia kończy większość sporów o to, „czy ta rysa była wcześniej". Zajmuje minutę i wchodzi do protokołu, który podpisuje klient.',
+    akcja: 'Możesz pominąć na próbę — ale przy prawdziwym aucie warto',
   },
   {
     cel: 'zapisz-zlecenie',

@@ -11,6 +11,7 @@ import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { VehicleLookupCreditsModal } from '@/components/vehicle/VehicleLookupCreditsModal';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { useTrybProbny } from '@/components/onboarding/TrybProbny';
+import { RODZAJE_PALIWA, naszRodzajPaliwa } from '@/lib/rodzajPaliwa';
 import { Car, Search, Loader2, Plus, Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,7 +25,7 @@ interface Props {
   initialPlate?: string;
 }
 
-const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Elektryczny', 'Hybryda', 'Wodór', 'CNG'];
+const fuelTypes = RODZAJE_PALIWA;
 const bodyTypes = ['sedan', 'kombi', 'hatchback', 'suv', 'coupe', 'van', 'pickup', 'cabrio'];
 
 /** Trim model name: "X5 (G05) xDrive50e 3.0 24V" → "X5 (G05) xDrive50e" */
@@ -52,10 +53,6 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
   const [showAddOwner, setShowAddOwner] = useState(false);
   const [createdOwner, setCreatedOwner] = useState<any>(null);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
-  // Co dokładnie przyszło z rejestru. Same wypełnione pola nie wystarczą:
-  // formularz ma kilkanaście rubryk i nie widać, które zmieniło sprawdzenie,
-  // a które warsztat wpisał sam.
-  const [pobranePola, setPobranePola] = useState<string[]>([]);
   const ownerDropdownRef = useRef<HTMLDivElement>(null);
 
   const { credits, loading: lookupLoading, checkRegistration, checkVin } = useVehicleLookup(userId);
@@ -89,21 +86,6 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
   const set = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
 
   const applyVehicleData = (data: any) => {
-    const pobrane: string[] = [];
-    const dopisz = (etykieta: string, wartosc: unknown) => {
-      if (wartosc !== undefined && wartosc !== null && String(wartosc).trim() !== '') pobrane.push(`${etykieta}: ${wartosc}`);
-    };
-    dopisz('marka', data.make);
-    dopisz('model', data.model ? trimModelName(data.model) : null);
-    dopisz('rok', data.registration_year);
-    dopisz('pojemność', data.engine_size);
-    dopisz('moc', data.engine_power_kw ? `${data.engine_power_kw} kW` : null);
-    dopisz('paliwo', data.fuel_type);
-    dopisz('nadwozie', data.body_style);
-    dopisz('kolor', data.color);
-    if (data.vin && !String(data.vin).includes('*')) dopisz('VIN', data.vin);
-    setPobranePola(pobrane);
-
     setForm(prev => {
       const updated = { ...prev };
       if (data.make) updated.brand = data.make;
@@ -111,7 +93,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       if (data.body_style) updated.body_style = data.body_style.toLowerCase();
       if (data.color) updated.color = data.color;
       if (data.registration_year) updated.year = String(data.registration_year);
-      if (data.fuel_type) updated.fuel_type = data.fuel_type;
+      if (data.fuel_type) updated.fuel_type = naszRodzajPaliwa(data.fuel_type) ?? updated.fuel_type;
       if (data.engine_size) {
         const num = data.engine_size.replace(/[^0-9]/g, '');
         if (num) updated.engine_capacity_cm3 = num;
@@ -139,7 +121,9 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
         plate: plate || null,
         year: data.registration_year || null,
         first_registration_date: data.first_registration_date || null,
-        fuel_type: data.fuel_type || null,
+        // Zapisujemy przetlumaczone paliwo, a nie surowy kod z rejestru — inaczej
+        // w kartotece auta siedzi „H", ktorego nie rozumie zaden ekran.
+        fuel_type: naszRodzajPaliwa(data.fuel_type) ?? data.fuel_type ?? null,
         engine_capacity_cm3: engineCap,
         engine_power_kw: enginePow,
         color: data.color || null,
@@ -334,26 +318,6 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               <Label className="text-sm font-semibold">{t('workshop.vehicles.vehicleData')}</Label>
             </div>
 
-            {/* CO DOKŁADNIE PRZYSZŁO Z REJESTRU.
-                Po kliknięciu lupki pola po prostu się wypełniały i nie było
-                wiadomo, co pobrał system, a co wpisał człowiek — ani czy w ogóle
-                coś przyszło. Ta lista mówi to wprost. */}
-            {pobranePola.length > 0 && (
-              <div className="rounded-lg border border-green-600/40 bg-green-600/5 p-3" data-tour="pobrane-dane">
-                <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-1.5">
-                  Pobrano z rejestru ({pobranePola.length}):
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {pobranePola.map((wpis) => (
-                    <span key={wpis} className="text-[11px] rounded-full border bg-background px-2 py-0.5">{wpis}</span>
-                  ))}
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Możesz to poprawić — zapisujemy to, co widzisz w polach poniżej.
-                </p>
-              </div>
-            )}
-
             {/* Nr rejestracyjny | VIN */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -376,6 +340,12 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               </div>
             </div>
 
+            {/* CO PRZYSZLO Z REJESTRU — widac po samych polach.
+                Wczesniej stalo tu zielone podsumowanie „Pobrano z rejestru", ale
+                lezalo NAD polami, ktore opisywalo: czlowiek czytal liste u gory,
+                a wypelnione pola byly ponizej, poza podswietleniem. Teraz
+                wprowadzenie podswietla wprost te pola. */}
+            <div data-tour="pobrane-dane" className="space-y-4">
             {/* Marka | Model | Kolor */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
@@ -433,6 +403,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
                 <Input onFocus={e => e.currentTarget.select()} type="date" value={form.first_registration_date} onChange={e => set('first_registration_date', e.target.value)} />
               </div>
             </div>
+            </div>
 
             {/* Opis pojazdu */}
             <div className="space-y-1.5">
@@ -440,7 +411,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
               <Textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder={t('workshop.vehicles.vehicleDescription')} rows={2} />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2" data-tour="pojazd-zapisz">
               <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleSubmit} disabled={create.isPending}>
                 {create.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

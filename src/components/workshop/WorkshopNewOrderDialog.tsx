@@ -786,13 +786,13 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                     ))}
                   </div>
                   {errors.description && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {errors.description}</p>}
-                  <Button variant="outline" size="sm" onClick={addTaskPoint} className="gap-1">
+                  <Button variant="outline" size="sm" onClick={addTaskPoint} className="gap-1" data-tour="dodaj-pozycje">
                     <Plus className="h-4 w-4" /> {t('workshop.newOrder.addItem')}
                   </Button>
                 </div>
 
                 {/* Damage + photos */}
-                <div className="space-y-3 border-t pt-4">
+                <div className="space-y-3 border-t pt-4" data-tour="uszkodzenia-i-zdjecia">
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t('workshop.newOrder.vehicleDamage')}</Label>
                   <Textarea value={damageDescription} onChange={e => setDamageDescription(e.target.value)} placeholder={t('workshop.newOrder.damagePlaceholder')} rows={3} />
                   <div className="space-y-2">

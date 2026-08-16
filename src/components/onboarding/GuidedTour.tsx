@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, ArrowRight } from 'lucide-react';
@@ -53,6 +53,11 @@ export interface KrokTrasy {
    * z rejestru, otwarte menu „Wystaw"). Patrz wyborKroku.ts.
    */
   pokazGdySieZjawi?: boolean;
+  /**
+   * Krok przejmuje ekran, gdy jego miejsce zostanie WYPEŁNIONE (pola pojazdu po
+   * sprawdzeniu numeru w rejestrze). Patrz wyborKroku.ts.
+   */
+  pokazGdyWypelniony?: boolean;
 }
 
 interface Props {
@@ -111,6 +116,10 @@ function wypelnione(el: HTMLElement): boolean {
 export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLicznik = true }: Props) {
   const biezacy = kroki[krok];
   const [obszar, setObszar] = useState<DOMRect | null>(null);
+  // Ile miejsca zajmuje dymek — potrzebne, zeby go PRZYCIAC do ekranu. Bez tego
+  // dlugi tekst wypychal przyciski „Dalej" i „Zamknij" pod dolna krawedz okna.
+  const dymekRef = useRef<HTMLDivElement | null>(null);
+  const [wysokoscDymka, setWysokoscDymka] = useState(0);
 
   const zmierz = useCallback(() => {
     if (!biezacy?.cel) { setObszar(null); return; }
@@ -168,6 +177,17 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
     };
   }, [zmierz, biezacy]);
 
+  useLayoutEffect(() => {
+    const zmierzDymek = () => {
+      const h = dymekRef.current?.offsetHeight ?? 0;
+      setWysokoscDymka((poprzednia) => (Math.abs(h - poprzednia) > 2 ? h : poprzednia));
+    };
+    zmierzDymek();
+    const timer = window.setInterval(zmierzDymek, 300);
+    window.addEventListener('resize', zmierzDymek);
+    return () => { window.clearInterval(timer); window.removeEventListener('resize', zmierzDymek); };
+  }, [krok]);
+
   // TO EKRAN DECYDUJE, KTORY KROK POKAZAC.
   //
   // Wprowadzenie bylo licznikiem, a praca w warsztacie licznikiem nie jest:
@@ -191,6 +211,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
       const trafiony = wybierzKrok(cele, krok, widoczneCele(cele), {
         przejdzGdyWypelnione: kroki.map((k) => !!k.przejdzGdyWypelnione),
         pokazGdySieZjawi: kroki.map((k) => !!k.pokazGdySieZjawi),
+        pokazGdyWypelniony: kroki.map((k) => !!k.pokazGdyWypelniony),
       });
       if (trafiony !== krok) onKrok(trafiony);
     };
@@ -241,20 +262,29 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
   // użytkownik widział podpowiedź „wpisz numer", ale nie mógł kliknąć wyszukania.
   // Dopiero gdy z boku nie ma miejsca, schodzimy pod cel albo nad niego.
   const SZEROKOSC = 320;
+  // Wysokość dymka mierzymy PO wyrenderowaniu (patrz `wysokoscDymka`), bo zależy
+  // od długości tekstu. Zanim ją poznamy, zakładamy typową.
+  const wysokosc = wysokoscDymka || 260;
+  const dolnaGranica = Math.max(12, window.innerHeight - wysokosc - 12);
+  const przytnij = (y: number) => Math.min(Math.max(12, y), dolnaGranica);
+
   const styleDymka: React.CSSProperties = dymekNaSrodku
     ? { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }
     : (() => {
         const miejsceZPrawej = window.innerWidth - obszar!.right;
         const miejsceZLewej = obszar!.left;
-        const gora = Math.min(
-          Math.max(12, obszar!.top - 20),
-          Math.max(12, window.innerHeight - 240),
-        );
+        // PRZYCINAMY DO EKRANU — inaczej dymek z długim tekstem wychodzi dołem
+        // poza okno i razem z nim znika przycisk „Dalej". Człowiek zostaje wtedy
+        // z podpowiedzią, której nie da się zamknąć inaczej niż krzyżykiem, i
+        // traci zaczęte zlecenie. To się wydarzyło na żywo.
+        const gora = przytnij(obszar!.top - 20);
         if (miejsceZPrawej > SZEROKOSC + 24) return { top: gora, left: obszar!.right + 16 };
         if (miejsceZLewej > SZEROKOSC + 24) return { top: gora, left: obszar!.left - SZEROKOSC - 16 };
-        const podSpodem = obszar!.bottom + 220 < window.innerHeight;
+        // Z boku nie ma miejsca: schodzimy pod cel, a jeśli pod nim się nie mieści
+        // — nad niego. W obu wypadkach i tak przycinamy do ekranu.
+        const podSpodem = obszar!.bottom + wysokosc + 24 < window.innerHeight;
         return {
-          top: podSpodem ? obszar!.bottom + ODSTEP + 6 : Math.max(12, obszar!.top - 210),
+          top: przytnij(podSpodem ? obszar!.bottom + ODSTEP + 6 : obszar!.top - wysokosc - ODSTEP - 6),
           left: Math.min(Math.max(12, obszar!.left), window.innerWidth - SZEROKOSC - 12),
         };
       })();
@@ -278,7 +308,10 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
       )}
 
       <div
-        className="fixed z-[97] w-[320px] max-w-[92vw] rounded-xl border bg-background p-4 shadow-2xl pointer-events-auto"
+        ref={dymekRef}
+        // max-h + przewijanie tresci: przyciski na dole maja byc widoczne ZAWSZE,
+        // nawet przy dlugim opisie na niskim ekranie.
+        className="fixed z-[97] flex max-h-[80vh] w-[320px] max-w-[92vw] flex-col rounded-xl border bg-background p-4 shadow-2xl pointer-events-auto"
         style={styleDymka}
       >
         <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -290,6 +323,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
         {/* Tekst czytany w biegu, często na ciemnym tle przygaszonego ekranu —
             `muted-foreground` zlewał się z tłem. Pełny kolor tekstu i większy
             odstęp między wierszami. */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
         <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">{biezacy.tresc}</p>
         {biezacy.akcja && (
           <p className="mt-2 text-xs font-medium text-primary">{biezacy.akcja}</p>
@@ -301,7 +335,8 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
             Zamknij otwarte okno, żeby wrócić do zlecenia — wprowadzenie podąży za Tobą.
           </p>
         )}
-        <div className="flex items-center justify-between mt-3">
+        </div>
+        <div className="flex items-center justify-between mt-3 shrink-0">
           {pokazLicznik && <span className="text-[11px] text-muted-foreground">Krok {krok + 1} z {kroki.length}</span>}
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={onZamknij}>Zamknij</Button>

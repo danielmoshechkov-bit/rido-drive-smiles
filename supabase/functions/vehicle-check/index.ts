@@ -549,6 +549,13 @@ function normalizeFuelType(value: any): string | null {
   const raw = String(value || "").trim();
   const normalized = raw.toLowerCase();
   if (!normalized) return null;
+  // Rejestr bywa oszczedny i oddaje jedna litere: H = hybryda, D = diesel,
+  // P = petrol, E = electric. Bez tego wracalo samo "H", a pole wyboru w karcie
+  // pojazdu zostawalo puste, bo takiej pozycji na liscie nie ma.
+  if (/^(h|hev|phev)$/.test(normalized)) return "Hybryda";
+  if (/^d$/.test(normalized)) return "Diesel";
+  if (/^(p|b)$/.test(normalized)) return "Benzyna";
+  if (/^(e|ev|bev)$/.test(normalized)) return "Elektryczny";
   if (normalized.includes("diesel") || normalized.includes("olej")) return "Diesel";
   if (normalized.includes("petrol") || normalized.includes("benz")) return "Benzyna";
   if (normalized.includes("lpg")) return "LPG";

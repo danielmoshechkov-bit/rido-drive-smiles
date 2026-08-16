@@ -273,7 +273,7 @@ export function WorkshopAddClientDialog({ open, onOpenChange, providerId, onCrea
             <Label className="text-sm">{t('workshop.clients.marketingConsentLabel')}</Label>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2 pt-2" data-tour="klient-zapisz">
             <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
             <Button onClick={handleSubmit} disabled={create.isPending}>
               {create.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

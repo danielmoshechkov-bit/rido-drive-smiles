@@ -51,6 +51,15 @@ export interface Opcje {
    * Tylko do przodu — żeby otwarcie czegoś nie cofało wprowadzenia.
    */
   pokazGdySieZjawi?: boolean[];
+  /**
+   * Kroki, które przejmują ekran, gdy ich miejsce zostanie WYPEŁNIONE.
+   *
+   * Do rzeczy, które istnieją cały czas, ale mają sens dopiero z treścią: pola
+   * pojazdu stoją puste od otwarcia okna, a mówimy o nich dopiero wtedy, gdy
+   * wypełni je odpowiedź z rejestru. Sam fakt, że są na ekranie, niczego nie
+   * znaczy — dlatego to osobna reguła niż `pokazGdySieZjawi`.
+   */
+  pokazGdyWypelniony?: boolean[];
 }
 
 /**
@@ -81,6 +90,14 @@ export function wybierzKrok(
   // otwarte menu „Wystaw") — idziemy za tym, nawet jeśli bieżący krok wciąż widać.
   const zjawilSie = kandydaci.find((k) => k.i > biezacy && opcje.pokazGdySieZjawi?.[k.i]);
   if (zjawilSie) return zjawilSie.i;
+
+  // To samo, ale dla miejsc, które stoją puste do czasu, aż coś je wypełni
+  // (pola pojazdu po sprawdzeniu numeru w rejestrze).
+  const wypelnilSie = kandydaci.find(
+    (k) => k.i > biezacy && opcje.pokazGdyWypelniony?.[k.i] &&
+      widoczne.some((w) => w.cel === k.cel && w.wypelniony),
+  );
+  if (wypelnilSie) return wypelnilSie.i;
 
   const celBiezacego = cele[biezacy];
   if (celBiezacego && naWierzchu.has(celBiezacego)) {
