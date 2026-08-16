@@ -427,7 +427,7 @@ BEGIN
       AND p.note = 'Pakiet startowy przy rejestracji');
 
   IF v_ile > 0 THEN
-    RAISE WARNING 'Pakiet startowy bez pokrycia w paczkach: % warsztatów (%). Patrz docs/billing/4-12-pakiet-startowy-wyrownanie.sql',
+    RAISE WARNING 'Pakiet startowy bez pokrycia w paczkach: % warsztatów (%). Sprawdzone 16.08: jedyny wiersz to konto testowe, wyrównania świadomie nie robimy',
       v_ile, left(COALESCE(v_lista, ''), 200);
   ELSE
     RAISE NOTICE 'Pakiety startowe: wszystkie mają pokrycie w paczkach.';
