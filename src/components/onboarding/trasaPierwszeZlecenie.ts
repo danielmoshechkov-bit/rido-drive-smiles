@@ -29,12 +29,13 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'pojazd-wlasciciel',
     tytul: 'Najpierw właściciel auta',
-    tresc: 'W oknie nowego pojazdu zaczynasz od właściciela: wyszukaj go na liście klientów, a jeśli go tam nie ma — kliknij „Dodaj właściciela".\n\nDzięki temu auto od razu ma przypisanego klienta i całą historię napraw w jednym miejscu.',
+    tresc: 'Zaczynasz od właściciela — auto bez klienta nie ma komu wysłać SMS-a.\n\nWyszukaj go na liście, a jeśli go tam nie ma, kliknij „Dodaj właściciela" (przycisk po prawej stronie tej sekcji) i wpisz imię, nazwisko i numer telefonu. Numer jest najważniejszy: to na niego pójdzie protokół przyjęcia i kosztorys.',
+    akcja: 'Na czas nauki wpisz siebie i swój numer',
   },
   {
     cel: 'pojazd-rejestracja',
     tytul: 'Numer i lupka',
-    tresc: 'Teraz numer rejestracyjny. Możesz wpisać dane auta ręcznie, ale szybciej jest kliknąć lupkę — marka, model, rocznik, pojemność, moc i VIN pobiorą się same.',
+    tresc: 'Gdy właściciel jest już wybrany, wpisz numer rejestracyjny i kliknij lupkę obok pola — marka, model, rocznik, pojemność, moc i VIN pobiorą się same.\n\nMożesz też wpisać wszystko ręcznie, jeśli auta nie ma w bazie CEPiK.',
     akcja: 'Kliknij lupkę przy numerze — to sprawdzenie nie schodzi z Twojego limitu',
   },
   {

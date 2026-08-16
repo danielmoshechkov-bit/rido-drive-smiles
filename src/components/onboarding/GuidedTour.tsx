@@ -112,21 +112,49 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
   // znaczy że użytkownik i tak jest dalej — przechodzimy za nim.
   const celNastepnego = kroki[krok + 1]?.cel;
   useEffect(() => {
-    if (!biezacy?.czekaNaKlikniecie || !celNastepnego) return;
+    if (!celNastepnego) return;
+
+    // Liczy się ZMIANA, nie stan. Jeśli cel następnego kroku był na ekranie już
+    // w chwili wejścia w ten krok, nie jest żadnym dowodem, że użytkownik ruszył
+    // dalej — a właśnie dlatego pierwsza podpowiedź znikała, zanim dało się ją
+    // przeczytać: okno zlecenia bywa otwarte od początku.
+    const bylOdRazu = !!document.querySelector(`[data-tour="${celNastepnego}"]`);
+    const wejscie = Date.now();
+
     const sprawdz = () => {
-      // Cel następnego kroku pojawia się dopiero wtedy, gdy użytkownik NAPRAWDĘ
-      // ruszył dalej (otworzyło się okno, wczytał się inny ekran). To wystarcza
-      // za dowód i ratuje sytuację, w której kliknięcia nie da się wykryć —
-      // przycisk zasłonięty oknem, kliknięcie przechwycone przez bibliotekę.
-      //
-      // Reguła obowiązuje WYŁĄCZNIE kroki czekające na kliknięcie (wyżej jest
-      // warunek `czekaNaKlikniecie`). Kroki do przeczytania czekają na „Dalej",
-      // więc nie przelecą same, choćby cel następnego był tuż obok na ekranie.
-      if (document.querySelector(`[data-tour="${celNastepnego}"]`)) onDalej();
+      // Minimum czasu na ekranie. Podpowiedź, która mignęła, jest gorsza niż
+      // jej brak: człowiek wie, że coś było, i nie wie co.
+      if (Date.now() - wejscie < 1500) return;
+      const jest = !!document.querySelector(`[data-tour="${celNastepnego}"]`);
+      if (!jest) return;
+      if (bylOdRazu) {
+        // Cel następnego kroku był tu od początku — przechodzimy tylko wtedy,
+        // gdy celu BIEŻĄCEGO już nie ma (użytkownik zamknął okno, zmienił ekran).
+        const celTegoKroku = biezacy?.cel
+          ? document.querySelector(`[data-tour="${biezacy.cel}"]`)
+          : null;
+        if (celTegoKroku) return;
+      }
+      onDalej();
     };
-    const timer = window.setInterval(sprawdz, 500);
+
+    const timer = window.setInterval(sprawdz, 400);
     return () => window.clearInterval(timer);
-  }, [biezacy, celNastepnego, onDalej]);
+  }, [biezacy, celNastepnego, onDalej, krok]);
+
+  // WYJŚCIE AWARYJNE DLA KROKÓW „KLIKNIJ".
+  //
+  // Taki krok czeka na kliknięcie w podświetlony element i celowo nie ma
+  // przycisku „Dalej" — inaczej wprowadzenie byłoby pokazem slajdów. Ale gdy
+  // element jest zasłonięty albo kliknięcia nie da się wykryć, człowiek zostaje
+  // uwięziony. Po kilku sekundach pokazujemy więc „Dalej" jako furtkę.
+  const [furtka, setFurtka] = useState(false);
+  useEffect(() => {
+    setFurtka(false);
+    if (!biezacy?.czekaNaKlikniecie) return;
+    const timer = window.setTimeout(() => setFurtka(true), 6000);
+    return () => window.clearTimeout(timer);
+  }, [krok, biezacy?.czekaNaKlikniecie]);
 
   if (!biezacy) return null;
 
@@ -199,8 +227,8 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, pokazLicznik = tru
           {pokazLicznik && <span className="text-[11px] text-muted-foreground">Krok {krok + 1} z {kroki.length}</span>}
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={onZamknij}>Zamknij</Button>
-            {!biezacy.czekaNaKlikniecie && (
-              <Button size="sm" onClick={onDalej}>
+            {(!biezacy.czekaNaKlikniecie || furtka) && (
+              <Button size="sm" variant={biezacy.czekaNaKlikniecie ? 'outline' : 'default'} onClick={onDalej}>
                 Dalej <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             )}
