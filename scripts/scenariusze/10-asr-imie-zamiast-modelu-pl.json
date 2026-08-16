@@ -1,0 +1,13 @@
+{
+  "id": "10-asr-imie-zamiast-modelu",
+  "jezyk": "pl",
+  "opis": "ASR zamienia odpowiedź w coś, co wygląda jak imię (z prawdziwej rozmowy)",
+  "tury": 16,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałbym wymianę oleju.",
+    "prompt": "Jesteś klientem warsztatu, imię Marek, auto Toyota. Gdy agent zapyta o model, odpowiedz DOKŁADNIE: \"Eryk Zoszyn.\" i nic nie tłumacz. Dopiero gdy agent dopyta o model po raz drugi, powiedz \"Yaris\". Odpowiadaj krótko, po polsku. Gdy termin ustalony — podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "14-rejestracja-dyktowana",
+  "jezyk": "pl",
+  "opis": "klient dyktuje rejestrację po polsku, cyfra po cyfrze (z prawdziwej rozmowy)",
+  "tury": 16,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałbym umówić wymianę klocków.",
+    "prompt": "Jesteś klientem warsztatu, imię Daniel, auto Mazda RX8. Numer rejestracyjny podajesz DOKŁADNIE tak: \"WW sześć sześć sześć WW.\" Jeśli agent poprosi o powtórzenie, powtórz tak samo. Odpowiadaj krótko. Gdy termin ustalony — podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

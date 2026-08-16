@@ -3048,3 +3048,46 @@ kolei, nie zdarza się w warsztacie ani razu.
 Siedem pierwszych scenariuszy napisałem, **zanim mieliśmy transkrypty**.
 Wszystkie są „czyste". Sytuacje, które zdarzyły się na żywo i nie mają
 odpowiednika w zestawie, są wypisane w `docs/voice-scenariusze-luki.md`.
+
+---
+
+## ZASADA 12 — dwie nowe odsłony z 16.08
+
+Zasada brzmiała: **cicha porażka wygląda identycznie jak sukces.** Tego dnia
+złapaliśmy ją w dwóch miejscach, w których nikt jej nie szukał.
+
+### Odsłona A: `catch`, który połyka odrzucony zapis
+
+Alert rozliczeniowy wstawiał wiersz do `system_alerts` z `category` i `status`
+spoza dozwolonych list. Baza odrzucała INSERT, a `catch` wokół zapisu logował
+tylko `billing_alert_nieudany` — bez treści błędu.
+
+**Alert nigdy by nie powstał, a jedynym śladem byłaby linijka mówiąca, że coś
+się nie udało.** Wykryte wierszem testowym, nie awarią: awaria pokazałaby to
+dopiero wtedy, gdy alert był potrzebny.
+
+Stąd rozszerzenie: **`catch` przy zapisie do bazy loguje TREŚĆ błędu, nie sam
+fakt.** Przejrzane wszystkie funkcje głosowe — trzy obsługi najwyższego poziomu
+(`voice-agent-tools`, `voice-call-audio`, `voice-call-summary`) zwracały błąd
+wołającemu i nie zostawiały śladu w logu. Wołającym jest platforma albo nasz
+front, które ten błąd mogą połknąć — wtedy awaria istnieje i nikt jej nie widzi.
+
+### Odsłona B: `continue`, który pomija przypadek zamiast go zgłosić
+
+Kontrola A2 sprawdzała cztery pary sprzecznych reguł wzorcem `if (!k.prompt.test(chat)) continue;`.
+Po przepisaniu promptu w FAZIE C **trzy z czterech wzorców przestały pasować**.
+Kontrola świeciła na zielono, sprawdzając jedną parę zamiast czterech.
+
+Ta sama konstrukcja siedziała w D4: zapytanie do tabeli, której schematu nie
+pobraliśmy, było pomijane — czyli **tabela niesprawdzona wyglądała jak tabela
+bez błędów**.
+
+Stąd druga reguła: **`continue` w kontroli musi być poprzedzone zgłoszeniem.**
+Jeśli kontrola nie może czegoś sprawdzić, mówi to wprost — nie przechodzi dalej
+w ciszy. Materiał, którego nie ma, jest wynikiem, a nie jego brakiem.
+
+### Wspólny test
+
+Przed napisaniem `catch` albo `continue` zadaj pytanie: **gdyby ta ścieżka
+zadziałała teraz, czy ktokolwiek by się dowiedział?** Jeśli nie — brakuje
+zgłoszenia, nie obsługi.

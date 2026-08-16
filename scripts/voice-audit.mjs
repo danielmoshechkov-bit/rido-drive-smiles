@@ -336,6 +336,7 @@ async function sekcjaD() {
   }
   const zle_kolumny = [];
   let sprawdzonychSelectow = 0;
+  const pominieteTabele = new Set();
   for (const f of wszystkie) {
     const kod = czytajFunkcje(f);
     // .from("tabela")…select("a, b, c") — bierzemy tylko proste listy kolumn,
@@ -343,7 +344,11 @@ async function sekcjaD() {
     for (const m of kod.matchAll(/\.from\("([a-z_]+)"\)[\s\S]{0,200}?\.select\(\s*"([^"()*]+)"/g)) {
       const [, tabela, lista] = m;
       const znane = kolumnyBazy.get(tabela);
-      if (!znane) continue;
+      // TABELA, KTOREJ SCHEMATU NIE MAMY, TO NIE JEST TABELA BEZ BLEDOW.
+      // Ciche `continue` sprawialo, ze zapytanie do nieznanej tabeli wygladalo
+      // identycznie jak zapytanie sprawdzone i poprawne. Ta sama klasa co
+      // `catch` polykajacy odrzucony INSERT alertu.
+      if (!znane) { pominieteTabele.add(tabela); continue; }
       sprawdzonychSelectow++;
       for (const kol of lista.split(",").map((c) => c.trim().split(":")[0].trim()).filter(Boolean)) {
         if (!znane.has(kol)) zle_kolumny.push(`${f}: ${tabela}.${kol}`);
@@ -354,7 +359,12 @@ async function sekcjaD() {
     zle("D4", "zapytania wybierają kolumny, których NIE MA w schemacie",
       `${[...new Set(zle_kolumny)].join("\n")}\nPostgREST zwróci błąd, a data będzie null — skutek wygląda jak brak danych`);
   } else {
-    ok("D4", `wszystkie kolumny w zapytaniach istnieją w schemacie`, sprawdzonychSelectow);
+    if (pominieteTabele.size) {
+      zle("D4", `${pominieteTabele.size} tabel POMINIETYCH — brak schematu, zapytania niesprawdzone`,
+        [...pominieteTabele].join(", "));
+    } else {
+      ok("D4", `wszystkie kolumny w zapytaniach istnieją w schemacie`, sprawdzonychSelectow);
+    }
   }
 
   // D5: ZAŚLEPKI W KODZIE PRODUKCYJNYM.

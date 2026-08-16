@@ -1,0 +1,11 @@
+{
+  "id": "11-mieszane-jezyki",
+  "jezyk": "ru",
+  "opis": "klient miesza dwa języki w jednej rozmowie (z prawdziwej rozmowy)",
+  "tury": 16,
+  "klient": {
+    "pierwsza_wiadomosc": "Wysłuchaj. Dobry dzień, а вы говорите по-русски?",
+    "prompt": "Ты клиент автосервиса. ПЕРВАЯ фраза — дословно: \"Wysłuchaj. Dobry dzień, а вы говорите по-русски?\" Потом говоришь по-русски: \"Я б хотел записаться на сервис. У меня сломалась машина.\" На вопрос о проблеме: \"Что-то с подвески, надо посмотреть, там, наверное.\" Время назови по-польски: \"Dwunasta trzydzieści.\" Имя и авто: \"Daniel, mm, ee, Mazda RX8.\" Отвечай коротко. В конце поблагодари и заверши."
+  },
+  "oczekiwane": {}
+}

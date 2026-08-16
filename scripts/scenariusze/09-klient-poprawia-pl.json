@@ -1,0 +1,13 @@
+{
+  "id": "09-klient-poprawia",
+  "jezyk": "pl",
+  "opis": "klient poprawia agenta po nieporozumieniu (z prawdziwej rozmowy)",
+  "tury": 16,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałbym umówić auto na przegląd.",
+    "prompt": "Jesteś klientem warsztatu. Auto to Mazda RX8, imię Daniel. Gdy agent zapyta o MODEL, odpowiedz dokładnie: \"Eryk Zoszyn.\" — tak przekręciła to transkrypcja. Jeśli agent zrozumie to jako imię albo nazwisko, POPRAW GO dokładnie tym zdaniem: \"Nie, to RX8 to jest marka. Jak się pan zapytał model, to jest RX8.\" Potem odpowiadaj krótko. Gdy termin ustalony — podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

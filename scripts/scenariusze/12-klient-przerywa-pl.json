@@ -1,0 +1,13 @@
+{
+  "id": "12-klient-przerywa",
+  "jezyk": "pl",
+  "opis": "klient przerywa, żeby coś sprawdzić (z prawdziwej rozmowy)",
+  "tury": 16,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałabym zgłosić samochód. Ee, coś mnie huka, piszczy hamulcy.",
+    "prompt": "Jesteś KLIENTKĄ warsztatu, imię Lilja, auto Toyota Yaris. Mówisz o sobie w rodzaju żeńskim. Gdy agent zaproponuje termin, przerwij dokładnie tym zdaniem: \"Chwileczkę, muszę tylko to przerysować, bo jest tam coś jeszcze odwrotnie.\" Po chwili wróć: \"Siedemnasty, tak.\" Odpowiadaj krótko. Gdy termin ustalony — podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

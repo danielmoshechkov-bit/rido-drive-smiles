@@ -140,6 +140,7 @@ serve(async (req) => {
     }));
     return json({ available: true, url: signed?.signedUrl || null, source: "provider", bytes: audio.byteLength, retencja });
   } catch (e) {
+    console.error("[voice-call-audio]", JSON.stringify({ event: "unhandled", blad: (e as Error)?.message?.slice(0, 200) }));
     return json({ available: false, error: (e as Error).message }, 500);
   }
 });

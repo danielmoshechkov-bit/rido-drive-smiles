@@ -1,0 +1,13 @@
+{
+  "id": "13-dzien-miesiaca",
+  "jezyk": "pl",
+  "opis": "klient podaje dzień miesiąca zamiast dnia tygodnia (z prawdziwej rozmowy)",
+  "tury": 16,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałbym umówić przegląd.",
+    "prompt": "Jesteś klientem warsztatu, imię Piotr, auto Skoda Octavia. Na pytanie o termin odpowiadasz DZIEŃ MIESIĄCA, nie dzień tygodnia: \"Dwudzieste drugie było.\" Gdy agent dopyta, doprecyzuj: \"Siedemnasty, tak.\" Odpowiadaj krótko. Gdy termin ustalony — podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

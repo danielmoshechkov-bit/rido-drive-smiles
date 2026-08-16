@@ -592,6 +592,11 @@ serve(async (req) => {
 
     return json({ ok: false, error: "Nieznana akcja" }, 400);
   } catch (e) {
+    // BLAD ZWROCONY WOLAJACEMU TO NIE JEST BLAD ZAPISANY.
+    // Obsluga najwyzszego poziomu oddawala tresc klientowi i nie zostawiala
+    // sladu w logu — a wolajacym jest platforma albo nasz front, ktore ten
+    // blad moga polknac. Wtedy awaria istnieje i nikt jej nie widzi.
+    console.error("[voice-agent-tools]", JSON.stringify({ event: "unhandled", blad: (e as Error)?.message?.slice(0, 200) }));
     return json({ ok: false, error: (e as Error).message }, 500);
   }
 });

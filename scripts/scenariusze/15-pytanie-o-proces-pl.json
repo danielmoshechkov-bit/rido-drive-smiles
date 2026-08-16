@@ -1,0 +1,13 @@
+{
+  "id": "15-pytanie-o-proces",
+  "jezyk": "pl",
+  "opis": "klient pyta o proces na końcu rozmowy (z prawdziwej rozmowy)",
+  "tury": 16,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałbym umówić auto na diagnostykę.",
+    "prompt": "Jesteś klientem warsztatu, imię Daniel, auto Toyota Yaris. Gdy termin jest już ustalony i agent podsumuje, zadaj DOKŁADNIE to pytanie: \"I jeszcze, jak my to obrabować, żeby skrócić to czas i wszystko? No, odpowiadać na wszystkie pytania.\" Po odpowiedzi podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}

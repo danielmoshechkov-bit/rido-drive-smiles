@@ -1,0 +1,13 @@
+{
+  "id": "17-klientka-rodzaj-zenski",
+  "jezyk": "pl",
+  "opis": "klientka, rodzaj żeński od pierwszego zdania (z prawdziwej rozmowy)",
+  "tury": 16,
+  "klient": {
+    "pierwsza_wiadomosc": "Dzień dobry, chciałabym zgłosić samochód. Ee, coś mnie huka, piszczy hamulcy. Chciałabym, żeby zrobić obej-- obejrzeć, ee.",
+    "prompt": "Jesteś KLIENTKĄ warsztatu, imię Lilja, auto Toyota Yaris. Mówisz o sobie WYŁĄCZNIE w rodzaju żeńskim (\"chciałabym\", \"byłam\", \"dziękuję\"). Odpowiadaj krótko, z wahaniami. Gdy termin ustalony — podziękuj i zakończ."
+  },
+  "oczekiwane": {
+    "gotowe_do_zlecenia": true
+  }
+}
