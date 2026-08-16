@@ -1,5 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+
+/**
+ * Dokąd prowadzi „Wybierz plan".
+ *
+ * Prowadziło na /cennik — wspólną stronę wszystkich linii produktowych, gdzie
+ * warsztat trafiał na zakładki innych modułów i musiał szukać swoich planów.
+ * Ta plakietka z definicji dotyczy warsztatu (pyta o dostęp dla linii
+ * 'warsztat'), więc kieruje na sekcję z pakietami warsztatu — tam karty
+ * planów prowadzą wprost do płatności (wspólne `usePlanAction`).
+ */
+const SCIEZKA_PAKIETOW = '/warsztat-info#plany';
 import { Sparkles, AlertTriangle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSubscriptionAccess } from '@/hooks/useSubscriptionAccess';
@@ -54,7 +65,7 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
   if (!dostep.moznaPracowac) {
     return (
       <Link
-        to="/cennik"
+        to={SCIEZKA_PAKIETOW}
         className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/15"
       >
         <AlertTriangle className="h-3.5 w-3.5" />
@@ -104,7 +115,7 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
           </button>
         ) : (
           <Link
-            to="/cennik"
+            to={SCIEZKA_PAKIETOW}
             className="rounded-full bg-current/10 px-2 py-0.5 underline underline-offset-2 hover:bg-current/20"
           >
             Wybierz plan

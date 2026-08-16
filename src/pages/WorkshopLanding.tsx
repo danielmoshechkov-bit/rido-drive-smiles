@@ -138,6 +138,15 @@ const COMING_SOON: Record<string, string[]> = {
 };
 
 export default function WorkshopLanding() {
+  // Wejście z panelu idzie pod #plany — React Router sam nie przewija do
+  // kotwicy, więc robimy to tu. Bez tego „Wybierz plan" wyrzucałoby na samą
+  // górę strony i pakietów trzeba by szukać.
+  useEffect(() => {
+    if (window.location.hash !== '#plany') return;
+    const cel = document.getElementById('plany');
+    if (cel) requestAnimationFrame(() => cel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, []);
+
   const navigate = useNavigate();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginMode, setLoginMode] = useState<"login" | "register">("register");
@@ -803,7 +812,7 @@ export default function WorkshopLanding() {
       </section>
 
       {/* Pricing */}
-      <section className="container mx-auto px-4 py-16 md:py-24">
+      <section id="plany" className="container mx-auto px-4 py-16 md:py-24">
         <div className="text-center mb-8">
           <Badge variant="secondary" className="mb-3">Cennik</Badge>
           <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight">Wybierz pakiet</h2>
