@@ -88,6 +88,19 @@ export interface KrokTrasy {
    * za człowieka zapisałoby cudze dane.
    */
   dalejKlika?: boolean;
+  /**
+   * „Dalej" najpierw ZAMYKA otwarte okno, a potem idzie dalej.
+   *
+   * Do kroków, które opisują podgląd (dokument, wydruk): dopóki okno stoi na
+   * wierzchu, następny krok i tak nie ma czego pokazać, a człowiek musiał
+   * zamykać je ręcznie, wracać przyciskiem „Wstecz" i dopiero iść dalej.
+   */
+  zamknijOkno?: boolean;
+  /**
+   * Podświetlenie MIGA — dla miejsc, w których łatwo przeoczyć, że to właśnie
+   * tę pozycję trzeba kliknąć (np. „Gotowe do odbioru" na rozwiniętej liście).
+   */
+  mrugajCel?: boolean;
 }
 
 interface Props {
@@ -312,16 +325,22 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       // oknem nadal ma swoje miejsce na ekranie, więc znowu nie przechodziło.
       //
       // Otwarte okno jest jednoznaczne: człowiek ruszył z miejsca.
-      if (krok === 0 && !document.querySelector('[role="dialog"]')) return;
+      const oknoOtwarte = !!document.querySelector('[role="dialog"]');
+      if (krok === 0 && !oknoOtwarte) return;
 
       // PILNE: rzeczy, które właśnie się pojawiły (okno Rido Wyceny, rozwinięta
       // lista statusów, podgląd dokumentu), przejmują ekran BEZ czekania —
       // inaczej okno stoi otwarte, a dymek jeszcze mówi o przycisku, który je
       // otworzył.
-      const pilne = naEkranieTeraz.some((w) => {
-        const i = cele.indexOf(w.cel);
-        return i > krok && (kroki[i]?.pokazGdySieZjawi || kroki[i]?.pokazGdyWypelniony);
-      });
+      const pilne =
+        // Powitanie ma 20 sekund na przeczytanie, ale gdy okno JUZ jest otwarte,
+        // to czekanie zatrzymywalo wprowadzenie na kroku pierwszym mimo
+        // otwartego formularza. Ruch czlowieka jest wazniejszy niz zegar.
+        (krok === 0 && oknoOtwarte) ||
+        naEkranieTeraz.some((w) => {
+          const i = cele.indexOf(w.cel);
+          return i > krok && (kroki[i]?.pokazGdySieZjawi || kroki[i]?.pokazGdyWypelniony);
+        });
       if (!pilne) {
         if (Date.now() - recznaZmiana.current < 5000) return;
         if (Date.now() - wejscie < cisza) return;
@@ -356,6 +375,12 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   // pokazania — pokazujemy to, zamiast przeskakiwać w próżnię.
   const dalejPoEkranie = () => {
     recznaZmiana.current = Date.now();
+
+    // Krok opisujący podgląd: zamykamy okno za człowieka. Radix zamyka się na
+    // Escape, więc nie musimy szukać krzyżyka w każdym oknie z osobna.
+    if (biezacy.zamknijOkno && document.querySelector('[role="dialog"]')) {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    }
 
     // Krok „samoklikający": naciskamy jego cel i NIE przesuwamy kroku ręcznie —
     // ekran zmieni się sam, a wprowadzenie za nim podąży. Dzięki temu nie ma
@@ -469,7 +494,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
           <div className={ciemne} {...nieZamykajOkna} onWheel={przewinPodSpodem} style={{ top: obszar.top - ODSTEP, left: obszar.right + ODSTEP, right: 0, height: obszar.height + ODSTEP * 2 }} />
           {/* Ramka wokół dziury — sam brak przyciemnienia bywa niewidoczny na jasnym tle. */}
           <div
-            className="fixed z-[96] rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-transparent pointer-events-none animate-pulse"
+            className={`fixed z-[96] rounded-lg ring-2 ring-primary ring-offset-2 ring-offset-transparent pointer-events-none ${biezacy.mrugajCel ? 'miga-dalej' : 'animate-pulse'}`}
             style={{ top: obszar.top - ODSTEP, left: obszar.left - ODSTEP, width: obszar.width + ODSTEP * 2, height: obszar.height + ODSTEP * 2 }}
           />
         </>

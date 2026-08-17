@@ -223,6 +223,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'status-gotowe',
+    mrugajCel: true,
     // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
     dalejKlika: true,
     // Pozycja istnieje tylko wtedy, gdy lista statusow jest rozwinieta.
@@ -259,12 +260,15 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'podglad-dokumentu',
     pokazGdySieZjawi: true,
+    // „Dalej" zamyka podglad — inaczej trzeba go zamknac recznie i cofnac krok.
+    zamknijOkno: true,
     tytul: 'Dokument gotowy — sprawdź, pobierz, wydrukuj',
     tresc: 'Tak wygląda gotowy dokument: Twoje dane jako sprzedawcy, dane klienta, pozycje z kosztorysu, stawki VAT i kwota do zapłaty. Wszystko przepisało się z wyceny — nie wpisujesz tego drugi raz.\n\nU góry masz trzy przyciski: „Pobierz PDF" (plik do wysłania mailem albo do księgowej), „Drukuj" (wydruk dla klienta) i „Zamknij".\n\nTak samo wygląda faktura i paragon — różni się tylko nagłówek i to, co idzie do księgowości.',
     akcja: 'Obejrzyj, ewentualnie pobierz, i zamknij podgląd',
   },
   {
     cel: 'status-zakonczone',
+    mrugajCel: true,
     // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
     dalejKlika: true,
     // Pozycja istnieje tylko wtedy, gdy lista statusow jest rozwinieta.

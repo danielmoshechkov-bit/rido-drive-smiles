@@ -102,7 +102,14 @@ sprawdz('„Zakonczone" ma znacznik', picker.includes("'status-zakonczone'"));
 // Krok pierwszy zwalnia dopiero, gdy OTWORZY SIE OKNO. Sprawdzanie „czy widac
 // cel" nie wystarczalo: przycisk pod otwartym oknem nadal ma swoje miejsce na
 // ekranie, wiec wprowadzenie zostawalo na powitaniu mimo otwartego formularza.
-sprawdz('pierwszy krok zwalnia po otwarciu okna', /krok === 0 && !document\.querySelector\('\[role="dialog"\]'\)/.test(silnik));
+sprawdz('pierwszy krok zwalnia po otwarciu okna', /krok === 0 && !oknoOtwarte/.test(silnik));
+// Czas na przeczytanie powitania NIE moze blokowac przejscia, gdy okno juz
+// stoi otwarte — inaczej wprowadzenie czeka 20 sekund przy gotowym formularzu.
+sprawdz('otwarte okno wazniejsze niz czas na przeczytanie', /\(krok === 0 && oknoOtwarte\) \|\|/.test(silnik));
+// „Dalej" zamyka podglad dokumentu zamiast kazac zamykac go recznie.
+sprawdz('„Dalej" zamyka otwarty podglad', silnik.includes('zamknijOkno') && silnik.includes("key: 'Escape'"));
+// Pozycja do klikniecia na rozwinietej liscie ma mrugac.
+sprawdz('podswietlenie potrafi mrugac', silnik.includes('mrugajCel'));
 sprawdz('to, co sie wlasnie pojawilo, lapie sie od razu', silnik.includes('const pilne ='));
 sprawdz('„Dalej" potrafi nacisnac za czlowieka', silnik.includes('dalejKlika') && silnik.includes('doKlikniecia.click()'));
 // Gdy klikniecie nic nie zmieni (menu juz otwarte), krok i tak ma ruszyc.
