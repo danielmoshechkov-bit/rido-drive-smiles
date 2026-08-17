@@ -19,7 +19,13 @@ export function AISalesAgentsDashboard({ providerId = null }: { providerId?: str
     { value: 'overview', label: 'Dashboard', visible: true },
     { value: 'leads', label: 'Leady', visible: true },
     { value: 'conversations', label: 'Konwersacje', visible: true },
-    { value: 'my-agent', label: 'Mój Agent', visible: true },
+    // „Mój Agent" UKRYTY. Sprawdzone: pisze do `ai_agent_configs`
+    // i `ai_call_business_profiles`, które czyta wyłącznie agent SPRZEDAŻOWY
+    // (ai-generate-call-scripts, ai-call-worker). Asystent telefoniczny NIE
+    // CZYTA z tych tabel ani jednego pola — wypełnienie tej zakładki nie
+    // poprawia rozmów ani o jotę. Warsztat wypełniałby drugą ankietę o tej
+    // samej firmie po to, żeby nic z niej nie wynikało.
+    { value: 'my-agent', label: 'Mój Agent', visible: false },
   ];
 
   if (wizardOpen) {

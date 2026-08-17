@@ -29,12 +29,20 @@ const corsHeaders = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-/** Etapy pokazywane warsztatowi. Nazwy techniczne zostają u nas. */
+/**
+ * Etapy pokazywane warsztatowi. Nazwy techniczne zostają u nas.
+ *
+ * ŻADNEGO OPTYMIZMU, GDY NIE WIEMY, CZY COŚ SIĘ DZIEJE. Pierwsza wersja
+ * mówiła „zaraz się zaczniemy tym zajmować" na status `oczekuje` — a zadanie
+ * stało zaparkowane, bo czekało na naszą zgodę na pierwszy zakup. Po dwóch
+ * minutach takiego „zaraz" komunikat brzmi jak awaria, a warsztat odświeża
+ * stronę albo klika drugi raz.
+ */
 const ETAPY: Record<string, string> = {
-  oczekuje: "W kolejce — zaraz się zaczniemy tym zajmować.",
+  oczekuje: "W kolejce. Numer przygotowujemy zwykle do godziny.",
   w_toku: "Przygotowujemy numer…",
-  czeka_na_zgode: "Czeka na potwierdzenie po naszej stronie — odezwiemy się.",
-  wymaga_uwagi: "Coś poszło nie tak — już to sprawdzamy.",
+  czeka_na_zgode: "Przygotowujemy numer — zwykle do godziny.",
+  wymaga_uwagi: "Coś poszło nie tak — już to sprawdzamy, odezwiemy się.",
   zrobione: "Gotowe.",
 };
 
@@ -78,10 +86,20 @@ serve(async (req) => {
     ]);
     const { data: sp } = await admin.from("service_providers")
       .select("company_city").eq("id", providerId).maybeSingle();
+    // ZADANIE AKTYWACJI CZĘSTO CZEKA NA COŚ INNEGO niż na siebie: na numer
+    // z puli, a pula na naszą zgodę przy pierwszym zakupie. Status samego
+    // zadania aktywacji mówi wtedy „oczekuje" i nie ma w tym ani słowa prawdy
+    // o tym, dlaczego nic się nie dzieje. Dlatego czytamy też zadanie puli.
+    const { data: pula } = await admin.from("voice_number_jobs")
+      .select("status").eq("typ", "uzupelnienie_puli")
+      .in("status", ["oczekuje", "w_toku", "czeka_na_zgode"]).limit(1).maybeSingle();
+    const etap = zadanie
+      ? (pula && zadanie.status === "oczekuje" ? ETAPY.czeka_na_zgode : (ETAPY[zadanie.status] ?? zadanie.status))
+      : null;
     return {
       numer: numer?.phone_number ?? null,
       status_numeru: numer?.status ?? null,
-      zadanie: zadanie ? { status: zadanie.status, etap: ETAPY[zadanie.status] ?? zadanie.status } : null,
+      zadanie: zadanie ? { status: zadanie.status, etap: etap as string } : null,
       miasto: sp?.company_city ?? null,
       // Panel musi wiedzieć, że ma zapytać o miasto, ZANIM pokaże przycisk —
       // inaczej pierwsze kliknięcie kończy się odmową i wygląda jak awaria.

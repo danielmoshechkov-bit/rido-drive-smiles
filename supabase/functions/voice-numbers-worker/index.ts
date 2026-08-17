@@ -176,7 +176,12 @@ serve(async (req) => {
 
     // PIERWSZY ZAKUP W HISTORII CZEKA NA CZŁOWIEKA.
     if (!ustawienia.pierwszy_zakup_zrobiony) {
-      await admin.from("system_alerts").insert({
+      // Alert raz, nie przy każdym przebiegu. Dwadzieścia trzy alerty o tej samej
+      // rzeczy uczą zamykać alerty bez czytania — a wtedy przestają być alertami.
+      const { count: juzOtwarty } = await admin.from("system_alerts")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending").like("title", "Pierwszy automatyczny zakup%");
+      if (!juzOtwarty) await admin.from("system_alerts").insert({
         type: "warning", category: "system", status: "pending",
         title: "Pierwszy automatyczny zakup numeru czeka na zgodę",
         description: "Worker chce po raz pierwszy kupić numer u operatora. Zatwierdź zadanie, "
@@ -291,9 +296,25 @@ serve(async (req) => {
         .select("*").limit(1).maybeSingle();
       if (!zarezerwowany) {
         // Brak wolnego numeru to nie porażka — to znak, że pula ma się uzupełnić.
-        await admin.from("voice_number_jobs").insert({ typ: "uzupelnienie_puli", provider_id: providerId })
-          .select().maybeSingle();
-        return { odroczone: true, powod: "brak wolnego numeru w puli — zlecono uzupelnienie", za_ms: 90_000 };
+        //
+        // 23505 znaczy „zadanie uzupełnienia już stoi w kolejce" i JEST POPRAWNYM
+        // wynikiem. Pierwsza wersja wstawiała bez zabezpieczenia i przy każdym
+        // odroczeniu (co 90 s) dokładała kolejne zadanie: po dwudziestu minutach
+        // stały 22 identyczne, każde z własnym alertem. Unikalność pilnuje teraz
+        // indeks, bo kod sprawdzający przed wstawieniem przy dwóch przebiegach
+        // obok siebie wstawi dwa razy.
+        const { error: bladPuli } = await admin.from("voice_number_jobs")
+          .insert({ typ: "uzupelnienie_puli", provider_id: providerId });
+        if (bladPuli && bladPuli.code !== "23505") {
+          console.error("[voice-numbers-worker] zlecenie uzupelnienia nieudane:", bladPuli.code, bladPuli.message);
+        }
+        return {
+          odroczone: true,
+          powod: bladPuli?.code === "23505"
+            ? "czekam na uzupelnienie puli (zadanie juz stoi w kolejce)"
+            : "brak wolnego numeru w puli — zlecono uzupelnienie",
+          za_ms: 90_000,
+        };
       }
       numer = zarezerwowany;
       await admin.from("voice_number_jobs").update({ number_id: numer.id }).eq("id", zadanie.id);
