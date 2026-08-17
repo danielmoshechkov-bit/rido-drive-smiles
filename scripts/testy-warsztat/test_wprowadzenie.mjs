@@ -99,7 +99,10 @@ sprawdz('„Zakonczone" ma znacznik', picker.includes("'status-zakonczone'"));
 // Krok pierwszy stoi, DOPOKI widac jego cel. Gdy „Nowe zlecenie" zniknie za
 // otwartym oknem, wprowadzenie przechodzi dalej — inaczej zostawaloby na
 // powitaniu mimo otwartego formularza.
-sprawdz('pierwszy krok stoi, dopoki widac jego cel', /krok === 0 && naEkranieTeraz\.some/.test(silnik));
+// Krok pierwszy zwalnia dopiero, gdy OTWORZY SIE OKNO. Sprawdzanie „czy widac
+// cel" nie wystarczalo: przycisk pod otwartym oknem nadal ma swoje miejsce na
+// ekranie, wiec wprowadzenie zostawalo na powitaniu mimo otwartego formularza.
+sprawdz('pierwszy krok zwalnia po otwarciu okna', /krok === 0 && !document\.querySelector\('\[role="dialog"\]'\)/.test(silnik));
 sprawdz('to, co sie wlasnie pojawilo, lapie sie od razu', silnik.includes('const pilne ='));
 sprawdz('„Dalej" potrafi nacisnac za czlowieka', silnik.includes('dalejKlika') && silnik.includes('doKlikniecia.click()'));
 

@@ -300,11 +300,16 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       // uratowalo, wiec krok zerowy jest po prostu poza zasiegiem korektora.
       const naEkranieTeraz = widoczneCele(cele);
 
-      // KROK PIERWSZY stoi nieruchomo, dopóki widać jego cel („Nowe zlecenie").
-      // Gdy cel zniknie — bo otworzyło się okno zlecenia — przechodzimy dalej.
-      // Wcześniej krok zerowy był całkiem poza zasięgiem korektora i po
-      // kliknięciu „Nowe zlecenie" wprowadzenie zostawało na powitaniu.
-      if (krok === 0 && naEkranieTeraz.some((w) => w.cel === cele[0])) return;
+      // KROK PIERWSZY stoi nieruchomo, dopóki NIE OTWORZY SIĘ ŻADNE OKNO.
+      //
+      // Dwie poprzednie wersje tej reguły były błędne z przeciwnych stron:
+      // najpierw krok zerowy był całkiem poza zasięgiem korektora (powitanie
+      // stało, ale po kliknięciu „Nowe zlecenie" wprowadzenie na nim zostawało),
+      // potem trzymał się „dopóki widać jego cel" — a przycisk pod otwartym
+      // oknem nadal ma swoje miejsce na ekranie, więc znowu nie przechodziło.
+      //
+      // Otwarte okno jest jednoznaczne: człowiek ruszył z miejsca.
+      if (krok === 0 && !document.querySelector('[role="dialog"]')) return;
 
       // PILNE: rzeczy, które właśnie się pojawiły (okno Rido Wyceny, rozwinięta
       // lista statusów, podgląd dokumentu), przejmują ekran BEZ czekania —
