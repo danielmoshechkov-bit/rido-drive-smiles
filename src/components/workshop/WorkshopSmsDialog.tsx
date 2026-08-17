@@ -94,6 +94,23 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
       return;
     }
     setSending(true);
+    // Wypełniane tylko dla wyceny — dla pozostałych rodzajów nic nie wyprzedzamy.
+    let stanSprzed: Record<string, unknown> | null = null;
+
+    const cofnijWyprzedzajacyZapis = async () => {
+      if (!stanSprzed) return;
+      try {
+        await (supabase as any).from('workshop_orders').update(stanSprzed).eq('id', order.id);
+        qc.setQueriesData({ queryKey: ['workshop-orders'] }, (old: any) =>
+          Array.isArray(old) ? old.map((o: any) => (o.id === order.id ? { ...o, ...stanSprzed } : o)) : old);
+        await qc.invalidateQueries({ queryKey: ['workshop-orders'] });
+      } catch (err) {
+        // Nie zasłaniamy pierwotnego błędu wysyłki drugim komunikatem — ale
+        // zostawiamy ślad, bo zlecenie zostaje wtedy z zawyżonym statusem.
+        console.error('[WorkshopSmsDialog] nie udało się cofnąć statusu po nieudanej wysyłce', err);
+      }
+    };
+
     try {
       const smsPhone = toSmsPhone(phone);
       if (!smsPhone || smsPhone === phone) {
@@ -105,6 +122,20 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
       // kosztorysu zablokowana i "nic nie ma, odśwież". Zapis krótki, blokuje tylko
       // do czasu wysłania (provider justsend i tak ma ~5 s opóźnienia dostarczenia).
       if (type === 'quote' || type === 'requote') {
+        // Stan SPRZED wyprzedzającego zapisu — do cofnięcia, gdy wysyłka padnie.
+        //
+        // 🔴 NAPRAWIONE 17.08.2026: flagi i status ustawiały się PRZED wysłaniem
+        // (słusznie, żeby klient klikający link nie trafił na zablokowaną
+        // zakładkę), ale przy nieudanej wysyłce NIKT ich nie cofał. Warsztat bez
+        // kredytów SMS naciskał „Wyślij”, wiadomość nie wychodziła, a zlecenie
+        // pokazywało „Wycena wysłana”. To wprowadza w błąd w najgorszym możliwym
+        // miejscu: warsztat myśli, że klient dostał kosztorys, i czeka na odpowiedź.
+        stanSprzed = {
+          status_name: order.status_name ?? null,
+          estimate_sent_to_client: order.estimate_sent_to_client ?? false,
+          estimate_changed_after_send: order.estimate_changed_after_send ?? false,
+          quote_accepted: order.quote_accepted ?? false,
+        };
         const lower = (order.status_name || '').toLowerCase();
         // ETAP B: wysłanie (nowej) wyceny = czeka na akceptację TEJ wersji →
         // reset quote_accepted, żeby klient zobaczył nową i podpisał ją na nowo
@@ -140,11 +171,19 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
         if ((data as any)?.error === 'NO_SMS') throw new Error('NO_SMS');
         return data;
       }, { retryLabel: t('workshop.sms.retryLabel') });
-      if (!result) { setSending(false); return; }
+      if (!result) {
+        // Bramka limitów nie przepuściła wysyłki (brak pakietu, rezygnacja
+        // z doładowania). SMS NIE poszedł, więc status musi wrócić.
+        await cofnijWyprzedzajacyZapis();
+        setSending(false);
+        return;
+      }
 
       // SMS już poszedł (edge zwrócił sukces). Pokaż success i zamknij NATYCHMIAST —
       // aktualizacja flag zlecenia + invalidacja lecą w tle, nie blokują UI.
       // (wcześniej UI "myślało" czekając na 2 kolejne awaity mimo dostarczonego SMS-a)
+      // Wysyłka się udała — wyprzedzający zapis zostaje, nie ma czego cofać.
+      stanSprzed = null;
       toast.success(t('workshop.sms.sentSuccess'));
       setSending(false);
       onOpenChange(false);
@@ -183,6 +222,7 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
         }
       })();
     } catch (e: any) {
+      await cofnijWyprzedzajacyZapis();
       toast.error(t('workshop.sms.sendError', { error: e.message }));
       setSending(false);
     }
