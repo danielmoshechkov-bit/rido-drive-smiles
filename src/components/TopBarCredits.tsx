@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Car, MessageSquare } from 'lucide-react';
 import { VehicleLookupCreditsModal } from './vehicle/VehicleLookupCreditsModal';
@@ -7,6 +7,32 @@ import { SmsPurchaseModal } from './SmsPurchaseModal';
 import { dostepneSprawdzeniaVin, dostepneSms } from '@/lib/dostepneJednostki';
 
 export function TopBarCredits() {
+  const qc = useQueryClient();
+
+  /**
+   * Powrót z bramki płatności — odświeżenie liczników.
+   *
+   * 🔴 NAPRAWIONE 18.08.2026: po zakupie kredyty pojawiały się dopiero po
+   * wylogowaniu. `billing-payu-order` odsyła klienta na `?platnosc=payu`, ale
+   * NIKT tego parametru nie czytał, więc pamięć podręczna liczników zostawała
+   * z liczbą sprzed zakupu.
+   *
+   * Unieważniamy oba klucze naraz, bo jedna wizyta w bramce mogła dotyczyć
+   * SMS-ów albo sprawdzeń — nie wiemy których, a odświeżenie obu nic nie kosztuje.
+   * Parametr usuwamy z adresu, żeby odświeżenie strony nie powtarzało tego bez końca.
+   */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('platnosc') !== 'payu') return;
+
+    qc.invalidateQueries({ queryKey: ['vehicle-lookup-credits'] });
+    qc.invalidateQueries({ queryKey: ['sms-credits'] });
+
+    params.delete('platnosc');
+    const reszta = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (reszta ? `?${reszta}` : ''));
+  }, [qc]);
+
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [showSmsModal, setShowSmsModal] = useState(false);
 

@@ -260,6 +260,34 @@ serve(async (req) => {
       }
     }
 
+    // ── POBRANIE JEDNOSTKI PRZED WYSŁANIEM ──────────────────────────
+    //
+    // 🔴 NAPRAWIONE 18.08.2026. Pobranie stało PO wysyłce, a `deduct_sms_credit`
+    // przy odmowie robiła `RAISE WARNING` — ostrzeżenie nie wraca do wywołującego
+    // jako błąd, więc `decrError` było puste i wiadomość szła dalej. W księdze
+    // została seria wpisów „wyslanie" z `z_puli=0 z_paczek=0`: SMS wyszedł,
+    // paczka nietknięta. To była droga do darmowych SMS-ów na nasz koszt.
+    //
+    // Teraz: najpierw pobieramy, i jeśli baza odmówi — NIE WYSYŁAMY.
+    // Gdy operator SMS padnie już po pobraniu, jednostkę zwracamy niżej.
+    let jednostkaPobrana = false;
+    if (resolvedProviderId && !smsProbny) {
+      const { error: bladPobrania } = await supabaseAdmin
+        .rpc("deduct_sms_credit", { p_provider_id: resolvedProviderId });
+
+      if (bladPobrania) {
+        console.error("[Workshop SMS] pobranie odrzucone —", bladPobrania.message);
+        return new Response(
+          JSON.stringify({
+            error: "NO_SMS",
+            message: "Brak pakietu SMS. Doładuj pakiet, aby kontynuować.",
+          }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      jednostkaPobrana = true;
+    }
+
     const smsProvider = smsSettings?.provider || "justsend";
     const msisdn = normalizePhone(phone);
     const senderName = (sender || smsSettings?.sender_name || "GetRido.pl").replace(/[^a-zA-Z0-9.\-]/g, "").slice(0, 11);
@@ -371,27 +399,32 @@ serve(async (req) => {
     const providerError = smsProvider === "smsapi" ? getSmsApiError(parsedResponse) : null;
 
     if (!isSuccess || providerError) {
+      // Jednostka zeszła przed wysyłką, a operator odmówił — oddajemy ją.
+      // Bez tego klient płaciłby za wiadomość, która nigdy nie wyszła.
+      if (jednostkaPobrana && resolvedProviderId) {
+        const { error: bladZwrotu } = await supabaseAdmin.rpc("zwroc_sms_credit", {
+          p_provider_id: resolvedProviderId,
+          p_powod: `Zwrot: operator SMS odrzucił wysyłkę (HTTP ${response.status})`,
+        });
+        if (bladZwrotu) {
+          console.error("[Workshop SMS] 🔴 NIE UDAŁO SIĘ ZWRÓCIĆ JEDNOSTKI:", bladZwrotu.message);
+        }
+      }
       return new Response(
         JSON.stringify({ error: providerError || `SMS API error (HTTP ${response.status}): ${responseText}` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Deduct SMS credit. resolvedProviderId jest już ustalony i zweryfikowany
-    // w bloku Authorization (dawny fallback po auth-headerze usunięty jako martwy).
-    try {
-      if (resolvedProviderId && smsProbny) {
-        // Wiadomość próbna nie schodzi z pakietu — zwiększamy tylko licznik
-        // wykorzystanej puli wprowadzenia.
+    // Jednostka została pobrana PRZED wysyłką (patrz wyżej). Tutaj zostaje
+    // wyłącznie licznik wiadomości próbnych, który z pakietu nie schodzi.
+    if (resolvedProviderId && smsProbny) {
+      try {
         await supabaseAdmin.rpc("demo_sms_zapisz", { p_provider: resolvedProviderId });
         console.log(`[Workshop SMS] Wiadomosc probna (wprowadzenie), pakiet nietkniety: ${resolvedProviderId}`);
-      } else if (resolvedProviderId) {
-        const { error: decrError } = await supabaseAdmin.rpc("deduct_sms_credit", { p_provider_id: resolvedProviderId });
-        if (decrError) console.warn("[Workshop SMS] Could not deduct SMS credit:", decrError.message);
-        else console.log(`[Workshop SMS] Deducted 1 SMS credit from provider ${resolvedProviderId}`);
+      } catch (e) {
+        console.warn("[Workshop SMS] licznik wiadomosci probnych:", e);
       }
-    } catch (e) {
-      console.warn("[Workshop SMS] Credit deduction failed:", e);
     }
 
     // Log successful send to workshop_sms_log

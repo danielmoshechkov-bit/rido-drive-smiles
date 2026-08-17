@@ -110,6 +110,52 @@ serve(async (req) => {
       }
     } catch (e) { /* non-fatal */ }
 
+    // ── POBRANIE JEDNOSTKI PRZED WYSŁANIEM ──────────────────────────
+    //
+    // 🔴 NAPRAWIONE 18.08.2026. Pobranie stało PO wysyłce i kończyło się
+    // `console.warn`, a `deduct_sms_credit` przy odmowie robiła `RAISE WARNING`,
+    // które nie wraca jako błąd. Wiadomość wychodziła mimo braku pokrycia.
+    let warsztatDoRozliczenia: string | null = null;
+
+    if (fleet_id) {
+      const { data: czyWarsztat } = await supabase
+        .from('service_providers').select('id').eq('id', fleet_id).maybeSingle();
+      // `fleet_id` bywa prawdziwym identyfikatorem floty, nie warsztatu —
+      // wtedy nie ma z czego pobrać i mówimy o tym wprost.
+      if (czyWarsztat) warsztatDoRozliczenia = fleet_id;
+      else console.warn(`[SMS] NIEROZLICZONY: ${fleet_id} nie jest warsztatem (typ=${type}).`);
+    } else {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+        const userClient = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '', anonKey ?? '',
+          { global: { headers: { Authorization: authHeader } } },
+        );
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          const { data: sp } = await supabase
+            .from('service_providers').select('id').eq('user_id', user.id)
+            .order('created_at', { ascending: true }).limit(1).maybeSingle();
+          warsztatDoRozliczenia = sp?.id ?? null;
+        }
+      }
+    }
+
+    let jednostkaPobrana = false;
+    if (warsztatDoRozliczenia) {
+      const { error: bladPobrania } = await supabase
+        .rpc('deduct_sms_credit', { p_provider_id: warsztatDoRozliczenia });
+      if (bladPobrania) {
+        console.error('[SMS] pobranie odrzucone —', bladPobrania.message);
+        return new Response(
+          JSON.stringify({ error: 'NO_SMS', message: 'Brak pakietu SMS. Doładuj pakiet, aby kontynuować.' }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      jednostkaPobrana = true;
+    }
+
     console.log(`[SMS] Sending via ${provider} to ${msisdn}, sender=${senderName}`);
 
     let response: Response;
@@ -172,70 +218,23 @@ serve(async (req) => {
     const isSuccess = response.status === 200 || response.status === 201;
 
     if (!isSuccess) {
+      // Jednostka zeszła przed wysyłką, operator odmówił — oddajemy ją.
+      if (jednostkaPobrana && warsztatDoRozliczenia) {
+        const { error: bladZwrotu } = await supabase.rpc('zwroc_sms_credit', {
+          p_provider_id: warsztatDoRozliczenia,
+          p_powod: `Zwrot: operator SMS odrzucił wysyłkę (HTTP ${response.status})`,
+        });
+        if (bladZwrotu) console.error('[SMS] 🔴 NIE UDAŁO SIĘ ZWRÓCIĆ JEDNOSTKI:', bladZwrotu.message);
+      }
       return new Response(
         JSON.stringify({ success: false, error: `Błąd SMS (HTTP ${response.status})`, details: responseText }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Deduct SMS credit - try fleet_id first, then try to find the user's provider
-    try {
-      if (fleet_id) {
-        // UWAGA: `fleet_id` jest tu parametrem PRZECIĄŻONYM. `booking-notify`
-        // przekazuje w nim `provider_id` usługodawcy i wtedy odjęcie działa.
-        // Ale `rental-payment-reminders` przekazuje prawdziwy identyfikator
-        // z tabeli `fleets`, a `deduct_sms_credit` aktualizuje
-        // `service_providers` — trafiał więc w zero wierszy. UPDATE bez
-        // trafień nie jest błędem, więc `rpcErr` było puste i SMS szedł
-        // za darmo, bez śladu w logu.
-        //
-        // Od 4.4 funkcja sama krzyczy ostrzeżeniem, gdy identyfikator nie
-        // jest warsztatem. Tutaj sprawdzamy to WCZEŚNIEJ, żeby w logu tej
-        // funkcji było widać, ile wysyłek jest nierozliczonych i czyich.
-        const { data: czyWarsztat } = await supabase
-          .from('service_providers').select('id').eq('id', fleet_id).maybeSingle();
-
-        if (!czyWarsztat) {
-          console.warn(`[SMS] NIEROZLICZONY: ${fleet_id} nie jest warsztatem (typ=${type}). Koszt po naszej stronie.`);
-        } else {
-          const { error: rpcErr } = await supabase.rpc('deduct_sms_credit', { p_provider_id: fleet_id });
-          if (rpcErr) console.warn('[SMS] Could not deduct credit:', rpcErr.message);
-        }
-      } else {
-        // Try to find the user who made the request via auth header
-        const authHeader = req.headers.get('Authorization');
-        if (authHeader) {
-          const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
-          const userClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            anonKey ?? '',
-            { global: { headers: { Authorization: authHeader } } }
-          );
-          const { data: { user } } = await userClient.auth.getUser();
-          if (user) {
-            const { data: provider } = await supabase
-              .from('service_providers')
-              .select('id')
-              .eq('user_id', user.id)
-              .maybeSingle();
-            // 🔴 NAPRAWIONE 16.08.2026 (audyt): tu jednostka była odejmowana
-            // WPROST z `sms_balance` — kolumny, którą klient sam sobie zapisuje.
-            // Nie tylko przepuszczało to darmową wysyłkę, ale i pozwalało jej
-            // się nie kończyć. Rozliczenie idzie przez `deduct_sms_credit`,
-            // czyli `billing_consume`: pula planu, potem paczki.
-            if (provider) {
-              const { error: decrErr } = await supabase
-                .rpc('deduct_sms_credit', { p_provider_id: provider.id });
-              if (decrErr) console.warn('[SMS] Nie udało się rozliczyć SMS-a:', decrErr.message);
-            } else {
-              console.warn('[SMS] Brak warsztatu dla użytkownika — SMS NIEROZLICZONY');
-            }
-          }
-        }
-      }
-    } catch (e: any) {
-      console.warn('[SMS] Credit deduction error:', e?.message);
-    }
+    // Pobranie jednostki odbyło się PRZED wysyłką (patrz wyżej). Tutaj nie ma
+    // już czego rozliczać — zostawienie drugiego pobrania zdejmowałoby dwie
+    // jednostki za jedną wiadomość.
 
     // Log to driver_communications
     try {

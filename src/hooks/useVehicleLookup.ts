@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuotaGuard } from '@/components/quota/QuotaGuardProvider';
@@ -66,40 +67,41 @@ async function wolajVehicleCheck(body: Record<string, unknown>) {
 }
 
 export function useVehicleLookup(userId?: string) {
-  const [credits, setCredits] = useState<VehicleLookupCredits | null>(null);
   const [loading, setLoading] = useState(false);
-  const [creditsLoading, setCreditsLoading] = useState(true);
   const { runWithQuota, poprosOZgode } = useQuotaGuard();
+  const qc = useQueryClient();
 
-  const fetchCredits = useCallback(async () => {
-    if (!userId) return;
-    setCreditsLoading(true);
-    try {
-      // 🔴 NAPRAWIONE 17.08.2026. Czytało `vehicle_lookup_credits`, czyli STARE
-      // SALDO OSOBISTE — a migracja 4.12 przeniosła kredyty właścicieli do puli
-      // warsztatu. Skutek: jedno konto pokazywało 58 w bazie, 39 w tym modalu
-      // i 0 na górnym pasku. Trzy liczby tego samego salda.
-      //
-      // Teraz wszystkie liczniki idą przez `dostepneSprawdzeniaVin`, czyli przez
-      // `check_usage` — tę samą funkcję, którą przy wydawaniu jednostki pyta
-      // `billing_consume`. Licznik i wysyłka nie mogą się już rozjechać.
-      const dostepne = await dostepneSprawdzeniaVin(userId);
-
-      setCredits({
+  /**
+   * Licznik sprawdzeń — TA SAMA pamięć podręczna co górny pasek.
+   *
+   * 🔴 NAPRAWIONE 18.08.2026. Wcześniej pasek trzymał liczbę w React Query pod
+   * kluczem `vehicle-lookup-credits`, a ten hak w zwykłym `useState`, pobieranym
+   * niezależnie przy montowaniu. Dwie pamięci na to samo pytanie rozjeżdżały się
+   * po każdym zużyciu — użytkownik widział 28 w jednym miejscu i 29 w drugim
+   * w tej samej chwili.
+   *
+   * Wspólną funkcję (`dostepneSprawdzeniaVin`) mieliśmy już od wczoraj; brakowało
+   * wspólnego CACHE. Teraz jest jeden wpis: unieważnienie w jednym miejscu
+   * odświeża wszystkie liczniki naraz.
+   */
+  const { data: credits, isLoading: creditsLoading } = useQuery({
+    queryKey: ['vehicle-lookup-credits'],
+    enabled: !!userId,
+    queryFn: async (): Promise<VehicleLookupCredits> => {
+      const dostepne = await dostepneSprawdzeniaVin(userId!);
+      return {
         // `null` znaczy „bez limitu w planie". Interfejs sprawdza `< 1`, więc
         // podajemy liczbę, przy której nigdy nie zablokuje.
         remaining_credits: dostepne === null ? Number.MAX_SAFE_INTEGER : dostepne,
         bez_limitu: dostepne === null,
-      });
-    } catch (err) {
-      console.error(err);
-      setCredits({ remaining_credits: 0, bez_limitu: false });
-    } finally {
-      setCreditsLoading(false);
-    }
-  }, [userId]);
+      };
+    },
+  });
 
-  useEffect(() => { fetchCredits(); }, [fetchCredits]);
+  const fetchCredits = useCallback(async () => {
+    await qc.invalidateQueries({ queryKey: ['vehicle-lookup-credits'] });
+  }, [qc]);
+
 
 
 
