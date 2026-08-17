@@ -67,6 +67,14 @@ export interface KrokTrasy {
    * bo to on tłumaczy, po co w ogóle wpisywać SWOJE dane.
    */
   czasNaPrzeczytanie?: number;
+  /**
+   * Krok dzieje się NA LIŚCIE zleceń, nie w karcie.
+   *
+   * Kliknięcie „Dalej" zamyka wtedy otwartą kartę i wraca na listę, zamiast
+   * kazać człowiekowi szukać strzałki „← Zlecenia". Tekst i tak o niej mówi,
+   * ale sam powrót jest szybszy niż instrukcja.
+   */
+  wracajNaListe?: boolean;
 }
 
 interface Props {
@@ -78,6 +86,8 @@ interface Props {
   onKrok?: (i: number) => void;
   /** Widoczne w dymku „krok 3 z 12". */
   pokazLicznik?: boolean;
+  /** Zamyka otwartą kartę zlecenia — dla kroków z `wracajNaListe`. */
+  onWrocNaListe?: () => void;
 }
 
 const ODSTEP = 8;
@@ -94,13 +104,25 @@ const ODSTEP = 8;
  * Pomijamy tez wszystko, co biblioteka ukryla przed czytnikami ekranu
  * (aria-hidden) — tak oznaczane jest tlo pod otwartym oknem.
  */
+/**
+ * Czy element jest naprawde widoczny.
+ *
+ * NIE `offsetParent !== null`, choc tak to tu wygladalo. Ta wlasciwosc zwraca
+ * null takze dla elementow `position: fixed` — a wlasnie takie sa okna modalne.
+ * Przez to okno Rido Wyceny bylo dla wprowadzenia niewidzialne: krok o nim nigdy
+ * nie wchodzil, „Dalej" nie mial dokad isc i jedynym wyjsciem bylo Esc.
+ */
+function naEkranie(el: HTMLElement): boolean {
+  return el.getClientRects().length > 0;
+}
+
 function widoczneCele(cele: Array<string | undefined>): WidocznyCel[] {
   const okna = Array.from(document.querySelectorAll('[role="dialog"]'));
   const wynik: WidocznyCel[] = [];
   for (const cel of cele) {
     if (!cel) continue;
     const el = document.querySelector(`[data-tour="${cel}"]`) as HTMLElement | null;
-    if (!el || el.offsetParent === null) continue;
+    if (!el || !naEkranie(el)) continue;
     if (el.closest('[aria-hidden="true"]')) continue;
     const okno = el.closest('[role="dialog"]');
     wynik.push({
@@ -152,7 +174,7 @@ function wypelnione(el: HTMLElement, klucz: string): boolean {
   return !pisze || teraz - poprzednia.czas > 1500;
 }
 
-export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLicznik = true }: Props) {
+export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaListe, pokazLicznik = true }: Props) {
   const biezacy = kroki[krok];
   const [obszar, setObszar] = useState<DOMRect | null>(null);
   // Ile miejsca zajmuje dymek — potrzebne, zeby go PRZYCIAC do ekranu. Bez tego
@@ -162,6 +184,13 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
   // Czy w tym kroku czlowiek zrobil juz swoje i zostalo tylko nacisnac „Dalej".
   // Wtedy przycisk mruga — inaczej nie wiadomo, ze wprowadzenie czeka.
   const [czekaNaDalej, setCzekaNaDalej] = useState(false);
+  // CZLOWIEK WAZNIEJSZY OD EKRANU.
+  //
+  // „Wstecz" cofalo krok, ale korektor ekranu natychmiast przywracal ten, ktory
+  // pasuje do tego, co widac — wygladalo to, jakby przycisk liczyl od konca albo
+  // w ogole nie dzialal. Po recznej zmianie kroku ekran ma sie nie odzywac przez
+  // kilka sekund, zeby dalo sie przeczytac to, do czego sie wrocilo.
+  const recznaZmiana = useRef(0);
 
   const zmierz = useCallback(() => {
     if (!biezacy?.cel) { setObszar(null); return; }
@@ -182,7 +211,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
     // samego podświetlenia — czynność wymaga obu naraz.
     for (const dodatkowy of biezacy.celeDodatkowe || []) {
       const ed = document.querySelector(`[data-tour="${dodatkowy}"]`) as HTMLElement | null;
-      if (!ed || ed.offsetParent === null) continue;
+      if (!ed || !naEkranie(ed)) continue;
       const rd = ed.getBoundingClientRect();
       gora = Math.min(gora, rd.top);
       dol = Math.max(dol, rd.bottom);
@@ -257,6 +286,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
       // ze wpisujemy WLASNE dane i wlasny numer. Zadne opoznienie tego nie
       // uratowalo, wiec krok zerowy jest po prostu poza zasiegiem korektora.
       if (krok === 0) return;
+      if (Date.now() - recznaZmiana.current < 5000) return;
       if (Date.now() - wejscie < cisza) return;
       const naEkranie = widoczneCele(cele);
       const wlasny = naEkranie.find((w) => w.cel === kroki[krok]?.cel);
@@ -288,10 +318,13 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
   // okna, które się jeszcze nie otworzyło), a na tym ekranie zostało coś do
   // pokazania — pokazujemy to, zamiast przeskakiwać w próżnię.
   const dalejPoEkranie = () => {
+    recznaZmiana.current = Date.now();
     if (!onKrok) { onDalej(); return; }
     const cele = kroki.map((k) => k.cel);
     const nastepny = nastepnyKrok(cele, krok, widoczneCele(cele));
     if (nastepny >= kroki.length) { onZamknij(); return; }
+    // Krok z listy, a stoimy w karcie zlecenia — wracamy tam sami.
+    if (kroki[nastepny]?.wracajNaListe) onWrocNaListe?.();
     onKrok(nastepny);
   };
 
@@ -418,7 +451,12 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
             {/* WSTECZ — zeby dalo sie wrocic do kroku, ktory przelecial za szybko
                 albo ktorego sie nie doczytalo. Na pierwszym kroku nie ma dokad. */}
             {krok > 0 && onKrok && (
-              <Button size="sm" variant="ghost" onClick={() => onKrok(krok - 1)} title="Poprzedni krok">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { recznaZmiana.current = Date.now(); onKrok(krok - 1); }}
+                title="Poprzedni krok"
+              >
                 <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Wstecz
               </Button>
             )}

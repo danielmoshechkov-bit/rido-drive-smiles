@@ -363,6 +363,9 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           onDalej={wprowadzenie.dalej}
           onKrok={wprowadzenie.ustawKrok}
           onZamknij={wprowadzenie.zamknij}
+          // Kroki o dokumentach i zamknięciu dzieją się na LIŚCIE — wprowadzenie
+          // zamyka otwartą kartę samo, zamiast kazać szukać strzałki powrotu.
+          onWrocNaListe={() => setSelectedOrder(null)}
         />
       )}
     </TrybProbnyProvider>

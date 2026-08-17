@@ -117,6 +117,15 @@ export function WorkshopStatusPicker({
             return (
               <div
                 key={`${it.kind}-${it.id}`}
+                // Wprowadzenie pokazuje palcem konkretne pozycje tej listy, wiec
+                // musi umiec je znalezc — same nazwy sa tlumaczone, a te znaczniki nie.
+                // W bazie stoi „Gotowy do odbioru", a na ekranie „Gotowe do
+                // odbioru" (tlumaczenie) — dopasowujemy po poczatku nazwy.
+                data-tour={
+                  it.name.startsWith('Gotow') ? 'status-gotowe'
+                  : it.name.startsWith('Zakończ') ? 'status-zakonczone'
+                  : undefined
+                }
                 className={`group flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-accent cursor-pointer ${active ? 'bg-accent font-medium' : ''}`}
                 onClick={() => apply(it.name)}
               >

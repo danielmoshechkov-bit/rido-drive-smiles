@@ -185,8 +185,19 @@ sprawdz('po kliknięciu ikony: okno SMS-a z kosztorysem', krok, 'sms-quote');
 // ── EKRAN 12: SMS wysłany, klient akceptuje → zielone, można naprawiać ──────
 krok = wybierzKrok(cele, krok, kartaWyceny, opcje);
 sprawdz('SMS wysłany: akceptacja i status', krok, 'status-zlecenia');
+
+// Po naprawie wracamy NA LISTĘ i tam zmieniamy status.
+krok = nastepnyKrok(cele, krok, panel);
+sprawdz('„Dalej": status na liście', krok, 'status-na-liscie');
+
+// Rozwinięta lista statusów — pokazujemy konkretną pozycję.
+{
+  const listaStatusow = [...panel, { cel: 'status-gotowe', glebokosc: 0 }, { cel: 'status-zakonczone', glebokosc: 0 }];
+  krok = wybierzKrok(cele, krok, listaStatusow, opcje);
+  sprawdz('rozwinięta lista: „Gotowe do odbioru"', krok, 'status-gotowe');
+}
 krok = nastepnyKrok(cele, krok, kartaWyceny);
-sprawdz('„Dalej": auto gotowe do odbioru', krok, 'przycisk-odbior');
+sprawdz('„Dalej": powiadomienie o gotowym aucie', krok, 'przycisk-odbior');
 
 // ── EKRAN 13: okno SMS-a o gotowym aucie ────────────────────────────────────
 const oknoSmsOdbior = [...kartaWyceny.map((w) => ({ ...w })), { cel: 'sms-ready', glebokosc: 1 }];
@@ -213,8 +224,11 @@ const menuWystaw = [...panel, { cel: 'wystaw-dokumenty', glebokosc: 0 }];
 krok = wybierzKrok(cele, krok, menuWystaw, opcje);
 sprawdz('otwarte menu: paragon, faktura, potwierdzenie', krok, 'wystaw-dokumenty');
 
-krok = nastepnyKrok(cele, krok, panel);
-sprawdz('„Dalej": zamknięcie zlecenia statusem', krok, 'status-na-liscie');
+{
+  const listaStatusow = [...panel, { cel: 'status-gotowe', glebokosc: 0 }, { cel: 'status-zakonczone', glebokosc: 0 }];
+  krok = nastepnyKrok(cele, krok, listaStatusow);
+  sprawdz('„Dalej": zamknięcie zlecenia statusem', krok, 'status-zakonczone');
+}
 krok = nastepnyKrok(cele, krok, panel);
 sprawdz('„Dalej": zakładka Zakończone', krok, 'filtr-zakonczone');
 

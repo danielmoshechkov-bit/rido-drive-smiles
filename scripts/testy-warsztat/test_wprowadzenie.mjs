@@ -19,9 +19,12 @@ for (const krok of TRASA_PIERWSZE_ZLECENIE) {
   // Znacznik bywa skladany w locie (`data-tour={`sms-${type}`}`), bo to samo okno
   // SMS-a pojawia sie w dwoch miejscach drogi i musi je od siebie odroznic.
   const wprost = kod.includes(`data-tour="${krok.cel}"`);
+  // Znacznik bywa WYLICZANY: pozycje listy statusow dostaja go warunkowo, bo
+  // ich nazwy sa tlumaczone i nie da sie ich wpisac na sztywno w JSX.
+  const zWarunku = kod.includes('data-tour={') && kod.includes(`'${krok.cel}'`);
   const skladany = /^(.*?)-([a-z]+)$/.exec(krok.cel);
   const zeZmiennej = skladany ? kod.includes(`data-tour={\`${skladany[1]}-$`) : false;
-  sprawdz(`znacznik dla kroku „${krok.tytul}" (${krok.cel})`, wprost || zeZmiennej);
+  sprawdz(`znacznik dla kroku „${krok.tytul}" (${krok.cel})`, wprost || zeZmiennej || zWarunku);
 }
 
 // 2. Trasa przechodzi CAŁĄ drogę, o którą chodziło.
@@ -78,6 +81,21 @@ sprawdz('„Dalej" nie chowa sie na krokach z klknieciem', !silnik.includes('set
 // 4d. Powrot i pierwszy krok — dwie rzeczy, o ktore prosil warsztat po tym,
 //     jak powitanie znikalo mu w pol sekundy.
 sprawdz('jest przycisk „Wstecz"', silnik.includes('Wstecz') && silnik.includes('onKrok(krok - 1)'));
+sprawdz('reczne cofniecie ma pierwszenstwo nad ekranem', silnik.includes('recznaZmiana'));
+
+// TO ROBILO OKNO RIDO WYCENY NIEWIDZIALNYM.
+// `offsetParent` zwraca null takze dla `position: fixed`, czyli dla kazdego okna
+// modalnego — krok o tym oknie nigdy nie wchodzil, a „Dalej" nie mial dokad isc.
+sprawdz('widocznosc liczona bez offsetParent', !silnik.includes('offsetParent ===') && silnik.includes('getClientRects'));
+
+// Kroki z listy zamykaja otwarta karte same.
+sprawdz('krok z listy wraca z karty na liste', silnik.includes('wracajNaListe') && silnik.includes('onWrocNaListe'));
+sprawdz('panel podaje powrot na liste', panel.includes('onWrocNaListe={() => setSelectedOrder(null)}'));
+
+// Konkretne pozycje listy statusow maja swoje znaczniki.
+const picker = czytaj('src/components/workshop/WorkshopStatusPicker.tsx', 'utf8');
+sprawdz('„Gotowe do odbioru" ma znacznik', picker.includes("'status-gotowe'"));
+sprawdz('„Zakonczone" ma znacznik', picker.includes("'status-zakonczone'"));
 sprawdz('pierwszy krok nie jest ruszany przez ekran', /if \(krok === 0\) return;/.test(silnik));
 
 // 4e. Podpowiedzi o cenach zostaja w interfejsie, nie tylko w dymku.

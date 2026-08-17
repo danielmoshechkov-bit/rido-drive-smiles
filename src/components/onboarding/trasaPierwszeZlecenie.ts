@@ -206,11 +206,26 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     tresc: 'Po akceptacji status zmienia się sam na „Zaakceptowane", a ikona kosztorysu świeci na zielono. Masz zgodę klienta na kwotę i zakres — możesz brać auto na podnośnik.\n\nGdy zmienisz wycenę po akceptacji, ikona znów zamiga na czerwono: klient zgodził się na inną kwotę niż ta, którą masz teraz.\n\nPo skończonej naprawie ustaw tu status „Gotowe do odbioru".',
   },
   {
-    cel: 'przycisk-odbior',
-    tytul: 'Krok 6 — auto gotowe',
-    tresc: 'Naprawa skończona, więc powiadom klienta, że może przyjechać po auto.',
-    akcja: 'Kliknij ikonę odbioru',
+    cel: 'status-na-liscie',
+    wracajNaListe: true,
+    tytul: 'Krok 6 — naprawa skończona',
+    tresc: 'Auto jest zrobione, więc zmieniamy jego stan. Wracamy na listę zleceń — wprowadzenie zrobi to za Ciebie.\n\nKliknij status przy zleceniu (ten kolorowy napis w kolumnie „Status") — rozwinie się lista wszystkich stanów, w jakich może być naprawa.',
+    akcja: 'Kliknij status przy zleceniu',
     czekaNaKlikniecie: true,
+  },
+  {
+    cel: 'status-gotowe',
+    // Pozycja istnieje tylko wtedy, gdy lista statusow jest rozwinieta.
+    pokazGdySieZjawi: true,
+    tytul: 'Wybierz „Gotowe do odbioru"',
+    tresc: 'Ten stan znaczy: zrobione, klient może przyjeżdżać.\n\nZaraz po jego wybraniu wyskoczy okno z gotowym SMS-em do klienta — wystarczy go wysłać.',
+    akcja: 'Kliknij „Gotowe do odbioru"',
+    czekaNaKlikniecie: true,
+  },
+  {
+    cel: 'przycisk-odbior',
+    tytul: 'Powiadomienie o gotowym aucie',
+    tresc: 'Ta ikona w karcie zlecenia robi to samo: wysyła klientowi wiadomość, że auto czeka.\n\nJeśli SMS poszedł już przy zmianie statusu, ikona świeci na zielono i nie musisz nic robić.',
   },
   {
     cel: 'sms-ready',
@@ -220,8 +235,9 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'zaznacz-zlecenie',
     celeDodatkowe: ['dokumenty-zlecenia'],
+    wracajNaListe: true,
     tytul: 'Krok 7 — klient odbiera auto',
-    tresc: 'Wróć na listę zleceń — strzałka „← Zlecenia" u góry karty.\n\nNajpierw ZAZNACZ zlecenie na liście (kółko po lewej), dopiero potem kliknij „Wystaw".\n\nBez zaznaczenia system nie wie, do czego wystawić dokument — dlatego podświetlamy oba miejsca naraz.',
+    tresc: 'Najpierw ZAZNACZ zlecenie na liście — to kółko po lewej stronie wiersza. Dopiero potem kliknij „Wystaw".\n\nBez zaznaczenia system nie wie, do czego wystawić dokument — dlatego podświetlamy oba miejsca naraz.',
   },
   {
     cel: 'wystaw-dokumenty',
@@ -231,17 +247,24 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     tresc: 'Do wyboru: potwierdzenie wykonania usługi (podsumowanie zlecenia dla klienta), paragon fiskalny — jeśli masz podpiętą drukarkę — albo faktura.\n\nPozycje i kwoty przepisują się z kosztorysu, nie wpisujesz ich drugi raz.',
   },
   {
-    cel: 'status-na-liscie',
+    cel: 'status-zakonczone',
+    // Pozycja istnieje tylko wtedy, gdy lista statusow jest rozwinieta.
+    pokazGdySieZjawi: true,
+    wracajNaListe: true,
     tytul: 'Krok 8 — zamknij zlecenie',
-    tresc: 'Rozliczone, więc ustaw status „Zakończone". Kliknij status przy zleceniu i wybierz go z listy.\n\nOd tej chwili zlecenie liczy się do przychodu i znika z listy aktywnych.',
+    tresc: 'Klient odebrał auto i zapłacił, więc ostatni krok: znów kliknij status przy zleceniu i wybierz „Zakończone".\n\nOd tej chwili zlecenie liczy się do przychodu i znika z listy aktywnych — przechodzi do zakładki „Zakończone zlecenia".',
+    akcja: 'Kliknij „Zakończone"',
+    czekaNaKlikniecie: true,
   },
   {
     cel: 'filtr-zakonczone',
+    wracajNaListe: true,
     tytul: 'Tu trafiają zamknięte naprawy',
     tresc: 'Zakładka „Zakończone zlecenia" to Twoje archiwum: co zrobione, za ile i czy zapłacone.\n\nKolumna „Płatność" pokazuje, czy pieniądze wpłynęły — „Nieopłacone" na czerwono to zlecenie do przypilnowania.',
   },
   {
     cel: 'usun-zlecenie',
+    wracajNaListe: true,
     tytul: 'To był tylko trening — skasuj go',
     tresc: 'Zaznacz zlecenie próbne i kliknij „Usuń". Razem z nim znika wszystko, co do niego należało: pozycje, podpisy, wystawiony dokument i historia SMS-ów.\n\nTo cała droga: auto, klient, opis, wycena, kosztorys, odbiór, dokument, zamknięcie. Przy prawdziwym kliencie wygląda dokładnie tak samo.',
   },
