@@ -131,6 +131,13 @@ interface Props {
   pokazLicznik?: boolean;
   /** Zamyka otwartą kartę zlecenia — dla kroków z `wracajNaListe`. */
   onWrocNaListe?: () => void;
+  /**
+   * Wartości podstawiane w `przykladoweWpisy` pod tokeny `{{nazwa}}`.
+   *
+   * Numer telefonu warsztatu wpisujemy jako telefon klienta próbnego, żeby SMS-y
+   * z tego przejścia trafiły do właściciela, a nie do przypadkowej osoby.
+   */
+  wartosci?: Record<string, string | undefined>;
 }
 
 const ODSTEP = 8;
@@ -217,7 +224,7 @@ function wypelnione(el: HTMLElement, klucz: string): boolean {
   return !pisze || teraz - poprzednia.czas > 1500;
 }
 
-export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaListe, pokazLicznik = true }: Props) {
+export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaListe, wartosci, pokazLicznik = true }: Props) {
   const biezacy = kroki[krok];
   const [obszar, setObszar] = useState<DOMRect | null>(null);
   // Ile miejsca zajmuje dymek — potrzebne, zeby go PRZYCIAC do ekranu. Bez tego
@@ -398,9 +405,10 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
     if (biezacy.przykladoweWpisy && biezacy.cel) {
       const miejsce = document.querySelector(`[data-tour="${biezacy.cel}"]`) as HTMLElement | null;
       const pola = Array.from(miejsce?.querySelectorAll('input, textarea') ?? []) as HTMLInputElement[];
-      biezacy.przykladoweWpisy.forEach((wpis, i) => {
+      biezacy.przykladoweWpisy.forEach((surowy, i) => {
+        const wpis = surowy.replace(/\{\{(\w[\w-]*)\}\}/g, (_, klucz) => wartosci?.[klucz] ?? '');
         const pole = pola[i];
-        if (!pole || pole.value.trim()) return;
+        if (!pole || pole.value.trim() || !wpis) return;
         // React nie zauważa zwykłego `pole.value = ...` — trzeba użyć settera
         // z prototypu i ręcznie wywołać zdarzenie, inaczej stan komponentu
         // zostaje pusty i zlecenie i tak się nie zapisze.

@@ -211,13 +211,14 @@ serve(async (req) => {
         const { data: ocena } = await supabaseAdmin
           .rpc("demo_sms_dozwolony", { p_provider: resolvedProviderId, p_telefon: phone });
         const wpis = Array.isArray(ocena) ? ocena[0] : ocena;
-        if (!wpis?.dozwolone) {
-          return new Response(JSON.stringify({
-            error: "DEMO_SMS_BLOCKED",
-            message: wpis?.powod || "Wiadomość próbna niedozwolona",
-          }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        }
-        smsProbny = true;
+        // BRAK PRAWA DO DARMOWEGO SMS-A NIE JEST ZAKAZEM WYSYŁKI.
+        //
+        // Wcześniej wyczerpana pula próbna (5 sztuk) albo numer inny niż numer
+        // warsztatu KOŃCZYŁY wysyłkę błędem — także wtedy, gdy warsztat miał
+        // w pakiecie 200 wiadomości i chciał je normalnie wydać. „Próbny" znaczy
+        // „za darmo", a nie „jedyny dozwolony": gdy darmowy limit się skończy,
+        // przechodzimy do zwykłej bramki pakietu i SMS schodzi z pakietu.
+        smsProbny = wpis?.dozwolone === true;
       }
     }
 

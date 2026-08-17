@@ -366,6 +366,9 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           // Kroki o dokumentach i zamknięciu dzieją się na LIŚCIE — wprowadzenie
           // zamyka otwartą kartę samo, zamiast kazać szukać strzałki powrotu.
           onWrocNaListe={() => setSelectedOrder(null)}
+          // Telefon klienta próbnego = telefon warsztatu, żeby SMS-y z tego
+          // przejścia przyszły do właściciela, a nie do obcej osoby.
+          wartosci={{ 'telefon-warsztatu': (daneFirmy as any)?.phone || '' }}
         />
       )}
     </TrybProbnyProvider>

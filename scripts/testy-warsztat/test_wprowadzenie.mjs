@@ -116,6 +116,21 @@ sprawdz('„Dalej" wpisuje przyklad w puste pola', silnik.includes('przykladoweW
 // Brak wyniku z rejestru to NIE brak kredytow.
 const pojazd = czytaj('src/components/workshop/WorkshopAddVehicleDialog.tsx', 'utf8');
 sprawdz('zly numer nie udaje braku kredytow', pojazd.includes('Nie znaleziono auta o numerze'));
+// Auto pokazowe: dane zapisane na stale, bez odpytywania rejestru.
+const demo = czytaj('src/lib/autoDemo.ts', 'utf8');
+sprawdz('auto pokazowe ma zapisane dane', demo.includes('WW140TV') && demo.includes('Auris'));
+sprawdz('auto pokazowe nie odpytuje rejestru', pojazd.includes('toAutoDemo(form.plate)'));
+sprawdz('trasa wpisuje numer auta pokazowego', trasa.includes("przykladoweWpisy: ['WW140TV']"));
+// Telefon klienta probnego = telefon warsztatu.
+sprawdz('telefon probny to numer warsztatu', trasa.includes('{{telefon-warsztatu}}') && panel.includes("'telefon-warsztatu'"));
+// „Dalej" tworzy zlecenie, zapisuje klienta i pojazd.
+for (const cel of ['zapisz-zlecenie', 'klient-zapisz', 'pojazd-zapisz']) {
+  const i = trasa.indexOf(`cel: '${cel}'`);
+  sprawdz(`„Dalej" wykonuje krok ${cel}`, i > -1 && trasa.slice(i, i + 200).includes('dalejKlika: true'));
+}
+// Wyczerpana pula probna nie moze blokowac wysylki z pakietu.
+const edgeSms = czytaj('supabase/functions/workshop-send-sms/index.ts', 'utf8');
+sprawdz('pula probna nie blokuje SMS-a z pakietu', !edgeSms.includes('DEMO_SMS_BLOCKED') && edgeSms.includes('smsProbny = wpis?.dozwolone === true'));
 sprawdz('to, co sie wlasnie pojawilo, lapie sie od razu', silnik.includes('const pilne ='));
 sprawdz('„Dalej" potrafi nacisnac za czlowieka', silnik.includes('dalejKlika') && silnik.includes('doKlikniecia.click()'));
 // Gdy klikniecie nic nie zmieni (menu juz otwarte), krok i tak ma ruszyc.

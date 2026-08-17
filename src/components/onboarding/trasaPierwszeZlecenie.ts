@@ -42,9 +42,12 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'pole-rejestracji',
+    // „Dalej" wpisuje numer auta pokazowego — jego dane mamy zapisane na stałe,
+    // więc nie trzeba czekać na rejestr ani zużywać sprawdzenia.
+    przykladoweWpisy: ['WW140TV'],
     tytul: 'Krok 1 — jakie to auto',
-    tresc: 'Wpisz PRAWDZIWY numer rejestracyjny auta — najlepiej własnego.\n\nTo nie jest formalność: po numerze pobieramy markę, model, rocznik, pojemność i VIN, a bez tych danych Rido Wycena nie ma czego wyceniać. Zmyślony numer zablokuje Ci pół drogi.\n\nJeśli auto jest już w kartotece, wybierz je z listy. Jeśli go tam nie ma, naciśnij Enter albo „Utwórz nowy pojazd".',
-    akcja: 'Sprawdzenie numeru w tym wprowadzeniu nie schodzi z Twojego limitu',
+    tresc: 'Kliknij „Dalej", a wpiszę numer auta pokazowego (WW140TV) — jego dane mam zapisane, więc pojawią się od razu.\n\nMożesz też wpisać PRAWDZIWY numer własnego auta: wtedy markę, model, rocznik, pojemność i VIN pobierzemy z rejestru. Zmyślony numer nic nie zwróci — po prostu uzupełnisz dane ręcznie.\n\nJeśli auta nie ma w kartotece, naciśnij Enter albo „Utwórz nowy pojazd".',
+    akcja: 'Kliknij „Dalej" — wpiszę numer auta pokazowego',
   },
   {
     cel: 'pojazd-wlasciciel',
@@ -54,6 +57,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'klient-imie-nazwisko',
+    przykladoweWpisy: ['Jan', 'Przykładowy'],
     tytul: 'Dane właściciela',
     tresc: 'Na czas nauki wpisz TU SIEBIE: swoje imię i nazwisko. Dzięki temu wszystkie wiadomości z tego zlecenia przyjdą do Ciebie i zobaczysz je oczami klienta.\n\n„Osoba prywatna" albo „Firma" — przy firmie dojdzie NIP i pobierzemy dane z GUS.',
     // Po wpisaniu imienia ramka schodzi sama na pole telefonu — w środku jednego
@@ -62,6 +66,8 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'klient-telefon',
+    // „Dalej" wpisuje telefon WARSZTATU — SMS-y z przejścia mają wrócić do Ciebie.
+    przykladoweWpisy: ['{{telefon-warsztatu}}'],
     // Po wpisaniu numeru ramka pokazuje przycisk zapisu — inaczej instrukcja
     // mowi „potem Zapisz", a nie widac ktory to przycisk.
     przejdzGdyWypelnione: true,
@@ -70,16 +76,17 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'klient-zapisz',
+    dalejKlika: true,
     tytul: 'Zapisz właściciela',
     tresc: 'Kliknij „Zapisz" — właściciel trafi do kartoteki i od razu podepnie się do auta.',
     akcja: 'Kliknij „Zapisz"',
-    czekaNaKlikniecie: true,
   },
   {
     cel: 'pojazd-rejestracja',
+    przykladoweWpisy: ['WW140TV'],
     tytul: 'Numer i lupka',
-    tresc: 'Właściciel jest już wybrany, więc teraz auto: wpisz numer rejestracyjny i kliknij lupkę obok pola.\n\nMarka, model, rocznik, pojemność, moc i VIN pobiorą się same — nie trzeba wpisywać ich ręcznie.',
-    akcja: 'Kliknij lupkę przy numerze — to sprawdzenie nie schodzi z Twojego limitu',
+    tresc: 'Właściciel jest już wybrany, więc teraz auto: wpisz numer rejestracyjny i kliknij lupkę obok pola.\n\nDla auta pokazowego (WW140TV) dane wczytają się natychmiast — mamy je zapisane. Dla prawdziwego numeru pobierzemy markę, model, rocznik, pojemność, moc i VIN z rejestru.',
+    akcja: 'Kliknij lupkę przy numerze',
   },
   {
     cel: 'pobrane-dane',
@@ -95,10 +102,10 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'pojazd-zapisz',
+    dalejKlika: true,
     tytul: 'Zapisz pojazd',
     tresc: 'Auto trafi do Twojej kartoteki — przy następnej wizycie wystarczy wpisać numer, żeby je znaleźć.',
     akcja: 'Kliknij „Zapisz"',
-    czekaNaKlikniecie: true,
   },
   {
     cel: 'pole-klienta',
@@ -112,7 +119,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     cel: 'pole-opisu',
     celeDodatkowe: ['dodaj-pozycje'],
     // Kto chce najpierw obejrzec cala droge, klika „Dalej" i dostaje przyklad.
-    przykladoweWpisy: ['Wymiana klocków hamulcowych przód', 'Wymiana wahacza przedniego prawego'],
+    przykladoweWpisy: ['Wymiana wahaczy przednich', 'Wymiana sprężyn przednich'],
     tytul: 'Krok 2 — opisz zlecenie',
     tresc: 'BEZ TEGO ZLECENIE SIĘ NIE ZAPISZE — pole jest obowiązkowe (gwiazdka przy nazwie).\n\nWpisz w punktach, z czym przyjechał klient i co trzeba przy okazji sprawdzić. Każdy punkt to osobna pozycja: mechanik odhacza ją w swojej karcie, a Ty wyceniasz ją w kosztorysie. „Dodaj pozycję" albo Enter dokłada kolejną.\n\nNa próbę wpisz dwie, na przykład:\n1. Wymiana klocków hamulcowych przód\n2. Wymiana wahacza przedniego prawego\n\nGdy skończysz, przycisk „Dalej" zacznie migać.',
   },
@@ -125,13 +132,14 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'zapisz-zlecenie',
+    dalejKlika: true,
     tytul: 'Zapisz zlecenie',
     tresc: 'Przycisk jest na samym dole okna — przewiń, jeśli go nie widzisz.\n\nZlecenie trafi na listę aktywnych i do Terminarza, a zaraz po zapisie wyskoczy okno z pytaniem, czy wysłać klientowi potwierdzenie przyjęcia.',
     akcja: 'Kliknij, żeby zapisać',
-    czekaNaKlikniecie: true,
   },
   {
     cel: 'sms-po-utworzeniu',
+    dalejKlika: true,
     tytul: 'Krok 3 — daj znać klientowi',
     tresc: 'Zlecenie jest założone. Od razu możesz wysłać potwierdzenie przyjęcia — SMS-em albo mailem. Klient dostaje link do swojej strony, na której widzi, co się dzieje z autem.\n\nUWAGA: numer podpowiada się z kartoteki klienta i SMS NAPRAWDĘ tam pójdzie. Przy tym zleceniu próbnym upewnij się, że stoi tam TWÓJ numer — inaczej wiadomość dostanie ktoś obcy.',
     akcja: 'Sprawdź numer i wyślij — zobaczysz to, co zobaczy klient',
@@ -236,6 +244,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'przycisk-odbior',
+    dalejKlika: true,
     celeDodatkowe: ['menu-odbior'],
     tytul: 'Powiadomienie o gotowym aucie',
     tresc: 'Ta ikona w karcie zlecenia robi to samo: wysyła klientowi wiadomość, że auto czeka.\n\nJeśli SMS poszedł już przy zmianie statusu, ikona świeci na zielono i nie musisz nic robić.',

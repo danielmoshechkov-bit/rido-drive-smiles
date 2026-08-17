@@ -12,6 +12,7 @@ import { VehicleLookupCreditsModal } from '@/components/vehicle/VehicleLookupCre
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { useTrybProbny } from '@/components/onboarding/TrybProbny';
 import { RODZAJE_PALIWA, naszRodzajPaliwa } from '@/lib/rodzajPaliwa';
+import { POJAZD_DEMO, toAutoDemo } from '@/lib/autoDemo';
 import { Car, Search, Loader2, Plus, Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -164,6 +165,18 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       toast.error(t('workshop.vehicles.enterPlate'));
       return;
     }
+    // AUTO POKAZOWE — dane bez odpytywania rejestru.
+    //
+    // Wprowadzenie ma pokazac, jak system dziala, a nie czekac na odpowiedz
+    // z zewnatrz i zuzywac sprawdzenie z pakietu. Kto chce zobaczyc przebieg na
+    // WLASNYM aucie, wpisuje swoj numer i idzie zwykla droga.
+    if (toAutoDemo(form.plate)) {
+      applyVehicleData(POJAZD_DEMO);
+      await autoSaveVehicle(POJAZD_DEMO);
+      toast.success('Dane auta pokazowego wczytane');
+      return;
+    }
+
     // W trakcie wprowadzenia NIE pytamy o kredyty: pierwsze sprawdzenie jest
     // darmowe, a decyduje o tym serwer. Wcześniej ta bramka po stronie
     // przeglądarki odcinała je zanim zapytanie w ogóle wyszło — warsztat
