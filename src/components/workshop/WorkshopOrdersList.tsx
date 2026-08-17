@@ -463,14 +463,33 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
           ? order.client.company_name
           : `${order.client.first_name || ''} ${order.client.last_name || ''}`.trim();
         buyer.nip = order.client.nip || '';
-        buyer.address_street = order.client.address || '';
+        // Ten sam błąd, co przy wystawianiu faktury: `order.client.address` to
+        // kolumna, której nie ma — kartoteka trzyma adres sklejony w `street`.
+        const adres = rozbijAdres(order.client.street);
+        buyer.address_street = adres.ulica;
+        buyer.address_building_number = adres.numerBudynku;
+        buyer.address_apartment_number = adres.numerLokalu;
+        buyer.address_city = order.client.city || '';
+        buyer.address_postal_code = order.client.postal_code || '';
       }
 
       const vehicleDesc = order.vehicle
         ? `Pojazd: ${order.vehicle.brand || ''} ${order.vehicle.model || ''}, Nr rej: ${order.vehicle.plate || ''}`
         : '';
 
-      const today = new Date().toISOString().split('T')[0];
+      // 🔴 NAPRAWIONE 17.08.2026: wszystkie trzy daty były ustawiane na DZIŚ.
+      //
+      // Potwierdzenie wykonania usługi dla naprawy z marca drukowało się
+      // z datą sierpniową — i to niezależnie od tego, kiedy naprawa się odbyła.
+      // Użytkownik musiał poprawiać daty ręcznie w gotowym PDF-ie, przy każdym
+      // dokumencie do starszego zlecenia.
+      //
+      // Dokument opisuje wykonanie usługi, więc datą jest dzień jej zakończenia.
+      // Kolejność: zakończenie naprawy → naprawiono → przyjęcie → dziś.
+      const dataDokumentu = (
+        order.completed_at || order.repaired_at || order.acceptance_date || new Date().toISOString()
+      ).toString().split('T')[0];
+      const today = dataDokumentu;
       const invoiceData: any = {
         invoice_number: `PWU/${order.order_number || 'dok'}`,
         type: 'service_confirmation',
