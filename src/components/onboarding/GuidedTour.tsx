@@ -59,6 +59,14 @@ export interface KrokTrasy {
    * sprawdzeniu numeru w rejestrze). Patrz wyborKroku.ts.
    */
   pokazGdyWypelniony?: boolean;
+  /**
+   * Ile milisekund krok ma stać nietknięty, zanim EKRAN dostanie prawo go zmienić.
+   *
+   * Powitalna podpowiedź znikała po sekundzie — ekran zmieniał się szybciej, niż
+   * dało się ją przeczytać. Przy takim kroku trzeba dać czas na przeczytanie,
+   * bo to on tłumaczy, po co w ogóle wpisywać SWOJE dane.
+   */
+  czasNaPrzeczytanie?: number;
 }
 
 interface Props {
@@ -95,7 +103,12 @@ function widoczneCele(cele: Array<string | undefined>): WidocznyCel[] {
     if (!el || el.offsetParent === null) continue;
     if (el.closest('[aria-hidden="true"]')) continue;
     const okno = el.closest('[role="dialog"]');
-    wynik.push({ cel, glebokosc: okno ? okna.indexOf(okno) + 1 : 0, wypelniony: wypelnione(el, cel) });
+    wynik.push({
+      cel,
+      glebokosc: okno ? okna.indexOf(okno) + 1 : 0,
+      wypelniony: wypelnione(el, cel),
+      maPole: !!el.querySelector('input, textarea'),
+    });
   }
   return wynik;
 }
@@ -146,6 +159,9 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
   // dlugi tekst wypychal przyciski „Dalej" i „Zamknij" pod dolna krawedz okna.
   const dymekRef = useRef<HTMLDivElement | null>(null);
   const [wysokoscDymka, setWysokoscDymka] = useState(0);
+  // Czy w tym kroku czlowiek zrobil juz swoje i zostalo tylko nacisnac „Dalej".
+  // Wtedy przycisk mruga — inaczej nie wiadomo, ze wprowadzenie czeka.
+  const [czekaNaDalej, setCzekaNaDalej] = useState(false);
 
   const zmierz = useCallback(() => {
     if (!biezacy?.cel) { setObszar(null); return; }
@@ -232,9 +248,16 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
     // a podpowiedz ma byc przeczytana, nie mignac. Przez pierwsze 2,5 sekundy
     // krok zostaje na miejscu, nawet jesli ekran juz sie przelaczyl.
     const wejscie = Date.now();
+    const cisza = kroki[krok]?.czasNaPrzeczytanie ?? 2500;
     const dopasuj = () => {
-      if (Date.now() - wejscie < 2500) return;
-      const trafiony = wybierzKrok(cele, krok, widoczneCele(cele), {
+      if (Date.now() - wejscie < cisza) return;
+      const naEkranie = widoczneCele(cele);
+      const wlasny = naEkranie.find((w) => w.cel === kroki[krok]?.cel);
+      // Mruga tylko tam, gdzie BYLO co wpisac i zostalo to wpisane. Przy krokach
+      // bez pola (przyciski, kolumny) „Dalej" jest jedyna droga i mruganie przez
+      // caly czas byloby tylko halasem.
+      setCzekaNaDalej(!!wlasny?.maPole && !!wlasny?.wypelniony);
+      const trafiony = wybierzKrok(cele, krok, naEkranie, {
         przejdzGdyWypelnione: kroki.map((k) => !!k.przejdzGdyWypelnione),
         pokazGdySieZjawi: kroki.map((k) => !!k.pokazGdySieZjawi),
         pokazGdyWypelniony: kroki.map((k) => !!k.pokazGdyWypelniony),
@@ -390,7 +413,12 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={onZamknij}>Zamknij</Button>
             {(!biezacy.czekaNaKlikniecie || furtka) && (
-              <Button size="sm" variant={biezacy.czekaNaKlikniecie ? 'outline' : 'default'} onClick={dalejPoEkranie}>
+              <Button
+                size="sm"
+                variant={biezacy.czekaNaKlikniecie ? 'outline' : 'default'}
+                onClick={dalejPoEkranie}
+                className={czekaNaDalej ? 'miga-do-wyslania' : undefined}
+              >
                 Dalej <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             )}

@@ -51,6 +51,21 @@ sprawdz('dymek klikalny nad oknem modalnym', silnik.includes('pointer-events-aut
 // komponent z niej korzysta, a nie stawia dymka „na oko".
 sprawdz('dymek stawiany wedlug reguly, nie na oko', silnik.includes('pozycjaDymka('));
 
+// 4b. WPROWADZENIE MUSI ZOSTAC PO WEJSCIU W ZLECENIE.
+//
+// Karta zlecenia i karta pojazdu to osobne galezie panelu (wczesny return),
+// a wprowadzenie bylo dorysowywane tylko przy liscie. Prowadzilo wiec za reke
+// az do utworzenia zlecenia i znikalo dokladnie tam, gdzie zaczyna sie wycena.
+const panel = czytaj('src/components/workshop/WorkshopDashboard.tsx', 'utf8');
+sprawdz('wprowadzenie ma jedna wspolna oprawe', panel.includes('const zOpieka ='));
+sprawdz('karta zlecenia tez jest pod opieka', /if \(currentSelectedOrder\) \{\s*return zOpieka\(/.test(panel));
+sprawdz('karta pojazdu tez jest pod opieka', /if \(selectedVehicle\) \{\s*return zOpieka\(/.test(panel));
+sprawdz('GuidedTour rysowany tylko w jednym miejscu', (panel.match(/<GuidedTour/g) || []).length === 1);
+
+// 4c. „Dalej" mruga, gdy krok jest zrobiony — inaczej nie wiadomo, ze czeka.
+sprawdz('„Dalej" mruga, gdy pole jest wypelnione', silnik.includes('czekaNaDalej') && silnik.includes('miga-do-wyslania'));
+sprawdz('mruganie tylko tam, gdzie bylo co wpisac', silnik.includes('maPole'));
+
 // 5. Instrukcja KSeF nie każe wysyłać próbnej faktury — jest przycisk sprawdzenia.
 const kreator = czytaj('src/components/workshop/onboarding/WorkshopSetupWizard.tsx', 'utf8');
 sprawdz('KSeF: sprawdzenie polaczenia zamiast wysylki testowej',

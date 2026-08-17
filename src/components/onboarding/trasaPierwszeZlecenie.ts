@@ -27,9 +27,13 @@ import type { KrokTrasy } from '@/components/onboarding/GuidedTour';
 export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'nowe-zlecenie',
+    // Powitanie znikalo, zanim dalo sie je przeczytac — ekran zmienia sie w
+    // ulamku sekundy po kliknieciu. Ten krok ma stac, dopoki nie zostanie
+    // przeczytany, bo to on tlumaczy, po co wpisywac SWOJE dane.
+    czasNaPrzeczytanie: 20000,
     tytul: 'Zacznijmy od pierwszego zlecenia',
-    tresc: 'Przejdziemy razem całą drogę: przyjęcie auta, wycena, kosztorys do akceptacji, odbiór, faktura i zamknięcie. Na Twoim aucie i Twoim numerze telefonu — zobaczysz dokładnie to, co zobaczy klient.',
-    akcja: 'Kliknij „Nowe zlecenie", żeby zacząć',
+    tresc: 'Przejdziemy razem całą drogę: przyjęcie auta, wycena, kosztorys do akceptacji, odbiór, faktura i zamknięcie.\n\nWAŻNE: wpisuj po drodze SWOJE dane — swoje imię i swój numer telefonu. SMS-y z tego zlecenia pójdą wtedy do Ciebie i zobaczysz dokładnie to, co zobaczy klient. To zlecenie próbne, na końcu je skasujemy.',
+    akcja: 'Przeczytaj i kliknij „Dalej", a potem „Nowe zlecenie"',
     // Bez `czekaNaKlikniecie`: pierwsza podpowiedź ma być PRZECZYTANA. Kliknięcie
     // w przycisk i tak przenosi dalej, ale kto czyta wolniej, ma przycisk „Dalej"
     // i nie zostaje z wrażeniem, że coś mignęło.
@@ -37,7 +41,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'pole-rejestracji',
     tytul: 'Krok 1 — jakie to auto',
-    tresc: 'Wpisz numer rejestracyjny auta, na którym chcesz poćwiczyć — może być Twoje własne.\n\nJeśli auto jest już w kartotece, wybierz je z listy. Jeśli go tam nie ma, naciśnij Enter albo kliknij „Utwórz nowy pojazd" — otworzy się okno, w którym dodamy auto razem z właścicielem.',
+    tresc: 'Wpisz PRAWDZIWY numer rejestracyjny auta — najlepiej własnego.\n\nTo nie jest formalność: po numerze pobieramy markę, model, rocznik, pojemność i VIN, a bez tych danych Rido Wycena nie ma czego wyceniać. Zmyślony numer zablokuje Ci pół drogi.\n\nJeśli auto jest już w kartotece, wybierz je z listy. Jeśli go tam nie ma, naciśnij Enter albo „Utwórz nowy pojazd".',
     akcja: 'Sprawdzenie numeru w tym wprowadzeniu nie schodzi z Twojego limitu',
   },
   {
@@ -104,19 +108,16 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'pole-opisu',
+    celeDodatkowe: ['dodaj-pozycje'],
     tytul: 'Krok 2 — opisz zlecenie',
-    tresc: 'BEZ TEGO ZLECENIE SIĘ NIE ZAPISZE — pole jest obowiązkowe (gwiazdka przy nazwie).\n\nWpisz w punktach, z czym przyjechał klient i co trzeba przy okazji sprawdzić. Każdy punkt to osobna pozycja: mechanik odhacza ją w swojej karcie, a Ty wyceniasz ją w kosztorysie. „Dodaj pozycję" albo Enter dokłada kolejną.\n\nNa próbę wpisz dwie, na przykład:\n1. Wymiana klocków hamulcowych przód\n2. Sprawdzić stan tarcz i płynu hamulcowego',
-  },
-  {
-    cel: 'dodaj-pozycje',
-    tytul: 'Kolejne punkty',
-    tresc: 'Każdy kolejny punkt dokładasz tym przyciskiem albo klawiszem Enter w ostatnim wierszu.\n\nWpisz przynajmniej dwa — pierwszy to powód wizyty, drugi to rzecz do sprawdzenia przy okazji.',
+    tresc: 'BEZ TEGO ZLECENIE SIĘ NIE ZAPISZE — pole jest obowiązkowe (gwiazdka przy nazwie).\n\nWpisz w punktach, z czym przyjechał klient i co trzeba przy okazji sprawdzić. Każdy punkt to osobna pozycja: mechanik odhacza ją w swojej karcie, a Ty wyceniasz ją w kosztorysie. „Dodaj pozycję" albo Enter dokłada kolejną.\n\nNa próbę wpisz dwie, na przykład:\n1. Wymiana klocków hamulcowych przód\n2. Wymiana wahacza przedniego prawego\n\nGdy skończysz, przycisk „Dalej" zacznie migać.',
   },
   {
     cel: 'uszkodzenia-i-zdjecia',
+    celeDodatkowe: ['protokol-przyjecia'],
     tytul: 'Stan auta przy przyjęciu',
-    tresc: 'Tu opisujesz rysy, wgniecenia i braki, a niżej robisz zdjęcia z sześciu stron.\n\nTo nie jest formalność: zdjęcie z przyjęcia kończy większość sporów o to, „czy ta rysa była wcześniej". Zajmuje minutę i wchodzi do protokołu, który podpisuje klient.',
-    akcja: 'Możesz pominąć na próbę — ale przy prawdziwym aucie warto',
+    tresc: 'Tu opisujesz rysy, wgniecenia i braki, a niżej dodajesz zdjęcia auta, które właśnie przyjmujesz — sześć stron, także wnętrze.\n\nNiżej, w „Protokole przyjęcia", zaznaczasz ustalenia z klientem: czy oddajecie stare części, czy zostawił dowód rejestracyjny, czy zgadza się na jazdę próbną, czy uzupełniać płyny i oświetlenie.\n\nTo nie jest formalność: zdjęcie z przyjęcia kończy większość sporów o to, „czy ta rysa była wcześniej". Wszystko wchodzi do protokołu, który podpisuje klient.',
+    akcja: 'Na próbę możesz pominąć — przy prawdziwym aucie warto zrobić',
   },
   {
     cel: 'zapisz-zlecenie',
@@ -128,20 +129,25 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'sms-po-utworzeniu',
     tytul: 'Krok 3 — daj znać klientowi',
-    tresc: 'Zlecenie jest założone. Od razu możesz wysłać klientowi potwierdzenie przyjęcia — SMS-em albo mailem.\n\nKlient dostaje link do swojej strony, na której widzi, co się dzieje z autem. Numer podpowiada się z kartoteki; jeśli go tam nie było, wpisz go tutaj.',
-    akcja: 'Wyślij na swój numer — zobaczysz to, co zobaczy klient',
+    tresc: 'Zlecenie jest założone. Od razu możesz wysłać potwierdzenie przyjęcia — SMS-em albo mailem. Klient dostaje link do swojej strony, na której widzi, co się dzieje z autem.\n\nUWAGA: numer podpowiada się z kartoteki klienta i SMS NAPRAWDĘ tam pójdzie. Przy tym zleceniu próbnym upewnij się, że stoi tam TWÓJ numer — inaczej wiadomość dostanie ktoś obcy.',
+    akcja: 'Sprawdź numer i wyślij — zobaczysz to, co zobaczy klient',
   },
   {
     cel: 'wiersz-zlecenia',
     tytul: 'Zlecenie jest na liście',
-    tresc: 'Tak wygląda zlecenie na liście: numer, status, kwota, auto, klient.\n\nKliknij w nie — otworzy się karta zlecenia, w której wyceniasz pracę i rozmawiasz z klientem.',
-    akcja: 'Kliknij numer zlecenia',
+    tresc: 'Tak wygląda zlecenie na liście: numer, status, kwota, auto, klient i terminy.\n\nNaciśnij na zlecenie, żeby je otworzyć — w karcie zlecenia wyceniasz pracę i rozmawiasz z klientem.',
+    akcja: 'Naciśnij na zlecenie, by je otworzyć',
     czekaNaKlikniecie: true,
+  },
+  {
+    cel: 'ikony-wiadomosci',
+    tytul: 'Pasek rozmowy z klientem',
+    tresc: 'Te ikony to cała korespondencja ze zleceniem: protokół przyjęcia, kosztorys, powiadomienie o gotowym aucie, wiadomości i link dla klienta.\n\nKolor mówi, co się dzieje — jednym rzutem oka, bez otwierania:\n\n• SZARY — jeszcze nie ma czego wysłać,\n• CZERWONY MIGAJĄCY — jest co wysłać i nikt tego nie wysłał,\n• ŻÓŁTY — wysłane, czekamy na klienta,\n• ZIELONY — klient podpisał albo zaakceptował.\n\nNajedź na ikonę, a podpowie, co dokładnie zrobić.',
   },
   {
     cel: 'tabela-robocizny',
     tytul: 'Krok 4 — wpisz pozycje po kolei',
-    tresc: 'Punkty z listy zadań już tu są, każdy bez ceny — czyli w stanie, w którym klient ich jeszcze nie widzi.\n\nWpisz cenę przy każdej pozycji. Kolejny pusty wiersz dokłada się sam, a Enter przenosi niżej. Jeśli coś robisz w cenie, wpisz 0 — klient zobaczy wtedy „0 zł" zamiast pustego miejsca.',
+    tresc: 'Tu wpisujesz robociznę — dowolną pozycję, którą wykonujesz przy tym aucie. Na przykład:\n\n• Wymiana klocków hamulcowych przód\n• Wymiana wahacza przedniego prawego\n• Wymiana sprężyn przód\n\nPrzy każdej podajesz cenę. Kolejny pusty wiersz dokłada się sam, a Enter przenosi niżej. Jeśli coś robisz w cenie, wpisz 0 — klient zobaczy wtedy „0 zł" zamiast pustego miejsca.\n\nPozycja bez ceny czeka w kolejce: klient jej nie widzi, dopóki jej nie wycenisz.',
   },
   {
     cel: 'rido-wycena',

@@ -448,7 +448,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
           </Button>
 
           {/* Action icons with dropdowns */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1" data-tour="ikony-wiadomosci">
             {/* Protokół przyjęcia */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

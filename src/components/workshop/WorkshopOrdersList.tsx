@@ -783,14 +783,14 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
                 {pagedOrders.map((order: any) => {
                   const ss = getStatusStyle(order.status_name);
                   return (
-                  <TableRow key={order.id} className={`group cursor-pointer transition-colors ${ss.row}`} onClick={() => onSelectOrder?.(order)}>
+                  <TableRow key={order.id} data-tour="wiersz-zlecenia" className={`group cursor-pointer transition-colors ${ss.row}`} onClick={() => onSelectOrder?.(order)}>
                     <TableCell onClick={e => e.stopPropagation()} data-tour="zaznacz-zlecenie">
                       <Checkbox
                         checked={selectedIds.has(order.id)}
                         onCheckedChange={() => toggleSelect(order.id)}
                       />
                     </TableCell>
-                    <TableCell data-tour="wiersz-zlecenia">
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         <span className={`w-1 h-6 rounded-full ${ss.dot}`} />
                         <Wrench className="h-4 w-4 text-muted-foreground" />

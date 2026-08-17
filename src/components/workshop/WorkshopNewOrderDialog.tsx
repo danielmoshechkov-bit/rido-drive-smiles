@@ -823,7 +823,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                 </div>
 
                 {/* Checklist */}
-                <div className="space-y-3 border-t pt-4">
+                <div className="space-y-3 border-t pt-4" data-tour="protokol-przyjecia">
                   <Label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t('workshop.newOrder.receptionProtocol')}</Label>
                   <div className="flex flex-wrap gap-x-6 gap-y-3 border rounded-md p-4">
                     {[

@@ -52,7 +52,6 @@ const oknoZlecenia = [
   { cel: 'pole-rejestracji', glebokosc: 1 },
   { cel: 'pole-klienta', glebokosc: 1 },
   { cel: 'pole-opisu', glebokosc: 1 },
-  { cel: 'dodaj-pozycje', glebokosc: 1 },
   { cel: 'uszkodzenia-i-zdjecia', glebokosc: 1 },
   { cel: 'zapisz-zlecenie', glebokosc: 1 },
 ];
@@ -125,10 +124,10 @@ krok = wybierzKrok(cele, krok, oknoZlecenia, opcje);
 sprawdz('powrót do zlecenia: dane klienta', krok, 'pole-klienta');
 krok = nastepnyKrok(cele, krok, oknoZlecenia);
 sprawdz('„Dalej": lista zadań do wykonania', krok, 'pole-opisu');
+// Po liscie zadan idziemy PROSTO do zdjec — „Dodaj pozycje" jest podswietlone
+// razem z lista, wiec nie potrzebuje wlasnego kroku.
 krok = nastepnyKrok(cele, krok, oknoZlecenia);
-sprawdz('„Dalej": kolejne punkty listy', krok, 'dodaj-pozycje');
-krok = nastepnyKrok(cele, krok, oknoZlecenia);
-sprawdz('„Dalej": uszkodzenia i zdjęcia przy przyjęciu', krok, 'uszkodzenia-i-zdjecia');
+sprawdz('„Dalej": uszkodzenia, zdjęcia i protokół', krok, 'uszkodzenia-i-zdjecia');
 krok = nastepnyKrok(cele, krok, oknoZlecenia);
 sprawdz('„Dalej": zapis zlecenia', krok, 'zapisz-zlecenie');
 
@@ -143,6 +142,7 @@ sprawdz('zlecenie na liście: wejdź w nie', krok, 'wiersz-zlecenia');
 
 // ── EKRAN 10: karta zlecenia (wycena) ───────────────────────────────────────
 const kartaWyceny = [
+  { cel: 'ikony-wiadomosci', glebokosc: 0 },
   { cel: 'tabela-robocizny', glebokosc: 0 },
   { cel: 'rido-wycena', glebokosc: 0 },
   { cel: 'tabela-czesci', glebokosc: 0 },
@@ -155,8 +155,9 @@ const kartaWyceny = [
   { cel: 'status-zlecenia', glebokosc: 0 },
 ];
 krok = wybierzKrok(cele, krok, kartaWyceny, opcje);
-sprawdz('karta zlecenia: robocizna', krok, 'tabela-robocizny');
+sprawdz('karta zlecenia: pasek rozmowy z klientem', krok, 'ikony-wiadomosci');
 for (const [opis, oczek] of [
+  ['robocizna', 'tabela-robocizny'],
   ['Rido Wycena', 'rido-wycena'],
   ['części', 'tabela-czesci'],
   ['koszt', 'kolumna-koszt'],

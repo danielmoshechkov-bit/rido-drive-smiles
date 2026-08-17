@@ -23,6 +23,8 @@ export interface WidocznyCel {
   glebokosc: number;
   /** Czy pole w tym miejscu jest już wypełnione (patrz `przejdzGdyWypelnione`). */
   wypelniony?: boolean;
+  /** Czy w tym miejscu w ogóle jest co wpisywać (przycisk nie ma pola). */
+  maPole?: boolean;
 }
 
 export interface Opcje {

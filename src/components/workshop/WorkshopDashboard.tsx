@@ -347,8 +347,29 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
     );
   }
 
+  // WPROWADZENIE MUSI TOWARZYSZYC WSZEDZIE.
+  //
+  // Karta zlecenia i karta pojazdu to osobne galezie tego komponentu (wczesny
+  // return), a wprowadzenie bylo dorysowywane tylko w galezi z lista. Efekt byl
+  // taki, ze prowadzilo za reke az do utworzenia zlecenia, a po wejsciu w nie
+  // znikalo bez sladu — dokladnie w miejscu, gdzie zaczyna sie wycena.
+  const zOpieka = (widok: JSX.Element) => (
+    <TrybProbnyProvider aktywny={wprowadzenie.aktywne}>
+      {widok}
+      {wprowadzenie.aktywne && (
+        <GuidedTour
+          kroki={TRASA_PIERWSZE_ZLECENIE}
+          krok={wprowadzenie.krok}
+          onDalej={wprowadzenie.dalej}
+          onKrok={wprowadzenie.ustawKrok}
+          onZamknij={wprowadzenie.zamknij}
+        />
+      )}
+    </TrybProbnyProvider>
+  );
+
   if (currentSelectedOrder) {
-    return (
+    return zOpieka(
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
         <WorkshopSidebar activeModule="zlecenia" lockedKeys={lockedKeys} onNavigate={(key) => { setSelectedOrder(null); goTo(key); }} />
         <div className="flex-1 md:pl-3 min-w-0">
@@ -368,12 +389,12 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
             </ModuleLock>
           </Suspense>
         </div>
-      </div>
+      </div>,
     );
   }
 
   if (selectedVehicle) {
-    return (
+    return zOpieka(
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
         <WorkshopSidebar activeModule="pojazdy" lockedKeys={lockedKeys} onNavigate={(key) => { setSelectedVehicle(null); goTo(key); }} />
         <div className="flex-1 md:pl-3 min-w-0">
@@ -392,7 +413,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
             </ModuleLock>
           </Suspense>
         </div>
-      </div>
+      </div>,
     );
   }
 
@@ -509,8 +530,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   }
 
   // Module view with sidebar
-  return (
-    <TrybProbnyProvider aktywny={wprowadzenie.aktywne}>
+  return zOpieka(
     <div className={isSchedulerModule ? 'flex h-full min-h-0 gap-0 overflow-hidden' : 'flex gap-0 min-h-[calc(100dvh-120px)]'}>
       {/* Pierwsze uruchomienie: dane firmy, godziny, stanowiska, KSeF. */}
       <WorkshopSetupWizard
@@ -528,15 +548,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           wprowadzenie.zacznij();
         }}
       />
-      {wprowadzenie.aktywne && (
-        <GuidedTour
-          kroki={TRASA_PIERWSZE_ZLECENIE}
-          krok={wprowadzenie.krok}
-          onDalej={wprowadzenie.dalej}
-          onKrok={wprowadzenie.ustawKrok}
-          onZamknij={wprowadzenie.zamknij}
-        />
-      )}
       <WorkshopSidebar activeModule={activeModule} lockedKeys={lockedKeys} onNavigate={goTo} />
       <div className={isSchedulerModule ? 'flex-1 md:pl-3 min-w-0 flex h-full min-h-0 flex-col overflow-hidden' : 'flex-1 md:pl-3 min-w-0 flex flex-col'}>
         <MobileBackButton onBack={() => goTo(null)} />
@@ -559,7 +570,6 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           </ModuleLock>
         </Suspense>
       </div>
-    </div>
-    </TrybProbnyProvider>
+    </div>,
   );
 }
