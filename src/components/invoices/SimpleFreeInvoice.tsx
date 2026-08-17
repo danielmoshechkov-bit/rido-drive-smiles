@@ -150,8 +150,15 @@ interface PrefillBuyer {
   name?: string;
   nip?: string;
   address_street?: string;
+  // Numer budynku i lokalu przychodzą OSOBNO. Kartoteka warsztatu trzyma adres
+  // sklejony w jednym polu, więc rozbija go `rozbijAdres` po stronie
+  // wywołującego. Bez tych dwóch pól dochodziły tylko miasto i kod pocztowy,
+  // a użytkownik musiał pobierać dane z GUS-u przy każdej fakturze.
+  address_building_number?: string;
+  address_apartment_number?: string;
   address_city?: string;
   address_postal_code?: string;
+  country?: string;
   email?: string;
   phone?: string;
 }
@@ -535,8 +542,11 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         name: prefillBuyer.name || prev.name,
         nip: prefillBuyer.nip || prev.nip,
         address_street: prefillBuyer.address_street || prev.address_street,
+        address_building_number: prefillBuyer.address_building_number || prev.address_building_number,
+        address_apartment_number: prefillBuyer.address_apartment_number || prev.address_apartment_number,
         address_city: prefillBuyer.address_city || prev.address_city,
         address_postal_code: prefillBuyer.address_postal_code || prev.address_postal_code,
+        country: prefillBuyer.country || prev.country,
         email: prefillBuyer.email || prev.email,
       }));
     }

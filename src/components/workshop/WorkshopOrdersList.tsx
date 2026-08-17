@@ -22,6 +22,7 @@ import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { WorkshopAssignClientDialog } from './WorkshopAssignClientDialog';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
+import { rozbijAdres } from '@/utils/adresKlienta';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
@@ -350,9 +351,22 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
           ? order.client.company_name
           : `${order.client.first_name || ''} ${order.client.last_name || ''}`.trim();
         buyer.nip = order.client.nip || '';
-        buyer.address_street = order.client.address || '';
+
+        // 🔴 NAPRAWIONE 17.08.2026. Było `order.client.address` — KOLUMNY O TEJ
+        // NAZWIE NIE MA. Kartoteka trzyma adres w `street`, i to sklejony:
+        // ulica, numer domu i lokalu lądują tam jednym ciągiem. Faktura
+        // potrzebuje ich osobno (wymaga tego też KSeF).
+        //
+        // Skutek był taki, że na fakturze dochodziły tylko miasto i kod
+        // pocztowy, a użytkownik przy każdym dokumencie musiał klikać lupę
+        // przy NIP-ie i pobierać dane z GUS-u — mimo że w kartotece były.
+        const adres = rozbijAdres(order.client.street);
+        buyer.address_street = adres.ulica;
+        buyer.address_building_number = adres.numerBudynku;
+        buyer.address_apartment_number = adres.numerLokalu;
         buyer.address_city = order.client.city || '';
         buyer.address_postal_code = order.client.postal_code || '';
+        buyer.country = order.client.country || 'Polska';
         buyer.email = order.client.email || '';
       }
 
