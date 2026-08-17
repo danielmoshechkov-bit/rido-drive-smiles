@@ -95,9 +95,21 @@ export function przygotujZakup(opcje: {
 
   return {
     sciezka: "/api/voip_numbers",
-    // firstSubscriptionPeriod jest wymagane TYLKO dla numerów komórkowych.
-    // Kupujemy stacjonarne, więc null — nie zgadujemy okresu abonamentu.
-    cialo: { number: opcje.numerIri, sip: opcje.sipIri, firstSubscriptionPeriod: null },
+    // KSZTAŁT ŻĄDANIA JEST INNY, NIŻ MÓWI SPECYFIKACJA OPERATORA.
+    //
+    // OpenAPI na restapi.supervoip.pl dokumentuje ciało jako
+    // `{number, sip, firstSubscriptionPeriod}`. Prawdziwe API odrzuca to
+    // z błędem 400: „Cannot create an instance of VoipNumberMultipleRequest
+    // because its constructor requires parameter »voipNumbers« to be present".
+    // Czyli endpoint jest zbiorczy i oczekuje TABLICY.
+    //
+    // Wysyłamy DOKŁADNIE JEDEN element. To nie ostrożność na wyrost: przy
+    // zbiorczym endpoincie pomyłka w budowie tablicy kupuje tyle numerów,
+    // ile ma elementów, a każdy z nich to prawdziwe pieniądze z salda prepaid.
+    //
+    // `firstSubscriptionPeriod` jest wymagane TYLKO dla komórkowych; kupujemy
+    // stacjonarne, więc null — nie zgadujemy okresu abonamentu.
+    cialo: { voipNumbers: [{ number: opcje.numerIri, sip: opcje.sipIri, firstSubscriptionPeriod: null }] },
     werdykt,
   };
 }

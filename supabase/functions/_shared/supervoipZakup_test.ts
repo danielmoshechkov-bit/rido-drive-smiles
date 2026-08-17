@@ -75,12 +75,24 @@ Deno.test("brak srodkow zatrzymuje budowanie ladunku, nie dopiero wysylke", () =
   );
 });
 
-Deno.test("poprawny zakup zwraca ladunek zgodny ze specyfikacja operatora", () => {
+Deno.test("poprawny zakup zwraca ladunek zgodny z PRAWDZIWYM API operatora", () => {
   const { sciezka, cialo, werdykt } = przygotujZakup({
     numerIri: "/api/numbers/81045", sipIri: "/api/sips/1291084",
     konto: KONTO, koszt: NUMER, zamierzone: true, powod: "warsztat Kowalski, numer warszawski",
   });
   assertEquals(sciezka, "/api/voip_numbers");
-  assertEquals(cialo, { number: "/api/numbers/81045", sip: "/api/sips/1291084", firstSubscriptionPeriod: null });
+  // Kształt z PRAWDZIWEGO API (tablica), nie ze specyfikacji, która kłamie.
+  assertEquals(cialo, { voipNumbers: [{ number: "/api/numbers/81045", sip: "/api/sips/1291084", firstSubscriptionPeriod: null }] });
   assertEquals(werdykt.wolno, true);
+});
+
+Deno.test("ladunek zakupu ma DOKLADNIE jeden element — endpoint jest zbiorczy", () => {
+  // POST /api/voip_numbers przyjmuje tablice `voipNumbers`. Pomylka w jej
+  // budowie kupuje tyle numerow, ile ma elementow, a kazdy to pieniadze
+  // z salda prepaid. Ten test pilnuje, ze bramka nigdy nie zbuduje wiecej.
+  const { cialo } = przygotujZakup({
+    numerIri: "/api/numbers/13239", sipIri: "/api/sips/1291084",
+    konto: KONTO, koszt: NUMER, zamierzone: true, powod: "kontrola dlugosci tablicy zakupu",
+  });
+  assertEquals((cialo.voipNumbers as unknown[]).length, 1);
 });
