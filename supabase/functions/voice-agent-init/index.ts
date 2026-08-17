@@ -278,11 +278,31 @@ serve(async (req) => {
           console.error("[voice-agent-init] odczyt is_active nieudany:", stanErr.code, stanErr.message);
           throw stanErr;
         }
-        if (stan?.[0] && stan[0].is_active === false) {
-          const bc = (stan[0].business_context ?? {}) as Record<string, unknown>;
+        // BRAK KONFIGURACJI = WYŁĄCZONY, ale tylko na ścieżce „po numerze".
+        //
+        // Warsztat, który aktywował numer i nigdy nie zapisał ustawień, nie ma
+        // wiersza w `voice_agent_configs`. Pierwsza wersja tego warunku
+        // (`stan?.[0] && is_active === false`) traktowała taki przypadek jak
+        // agenta WŁĄCZONEGO — czyli panel pokazywałby „Wyłączony", a telefon
+        // byłby odbierany. To ta sama nieprawda, którą właśnie naprawiliśmy,
+        // wchodząca innymi drzwiami.
+        //
+        // Domyślną odpowiedzią na brak danych jest ODMOWA (zasada 41).
+        // Wyjątek dla ścieżki `agent_id`: tam brak wiersza znaczy „stara
+        // konfiguracja", a nie „nowy warsztat" — i nie wolno nam zabrać
+        // obsługi komuś, kto ją dziś ma.
+        const brakKonfiguracji = !stan?.[0];
+        const wylaczonyPrzezWarsztat = brakKonfiguracji
+          ? rozpoznanie.droga === "numer"
+          : stan[0].is_active === false;
+        if (wylaczonyPrzezWarsztat) {
+          const bc = (stan?.[0]?.business_context ?? {}) as Record<string, unknown>;
           const zdanie = String((bc?.wylaczony_zdanie as string) || "")
             || "Przepraszam, w tej chwili nie przyjmujemy zgłoszeń telefonicznych.";
-          console.info("[voice-agent-init]", JSON.stringify({ event: "agent_wylaczony_przez_warsztat" }));
+          console.info("[voice-agent-init]", JSON.stringify({
+            event: "agent_wylaczony_przez_warsztat",
+            powod: brakKonfiguracji ? "brak wiersza konfiguracji" : "warsztat wylaczyl przelacznik",
+          }));
           return { wylaczony: true, zdanie };
         }
 
