@@ -137,7 +137,11 @@ export function WorkshopSalesReport({ providerId: _providerId }: { providerId: s
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
-      const { data, error } = await (supabase as any).from('user_invoices').select('invoice_number, issue_date, gross_total').eq('user_id', user.id).neq('invoice_type', 'cost');
+      const { data, error } = await (supabase as any).from('user_invoices').select('invoice_number, issue_date, gross_total')
+        .eq('user_id', user.id).neq('invoice_type', 'cost')
+        // Usunięte faktury nie wchodzą do obrotu — bez tego raport sumował
+        // `gross_total` faktur skasowanych i zawyżał sprzedaż.
+        .is('deleted_at', null);
       if (error) throw error;
       return data || [];
     },

@@ -604,7 +604,10 @@ export function useOrderDocumentBadges(providerId?: string, documentType = 'work
           .eq('provider_id', providerId)
           .eq('document_type', documentType)
           .in('status', ['printing', 'printed']),
-        (supabase as any).from('user_invoices').select('workshop_order_id').not('workshop_order_id', 'is', null),
+        // `deleted_at IS NULL` — bez tego zlecenie z USUNIĘTĄ fakturą nadal dostawało
+        // plakietkę „ma fakturę".
+        (supabase as any).from('user_invoices').select('workshop_order_id')
+          .not('workshop_order_id', 'is', null).is('deleted_at', null),
         (supabase as any).from('fiscal_returns').select('receipt_id').eq('provider_id', providerId),
         (supabase as any).from('fiscal_corrections').select('receipt_id').eq('provider_id', providerId),
       ]);
@@ -967,6 +970,8 @@ export function useFiscalInvoices(providerId?: string) {
         .from('user_invoices')
         .select('id, invoice_number, issue_date, buyer_name, ksef_status, is_correction, workshop_order_id, fiscal_receipt_id')
         .not('workshop_order_id', 'is', null)
+        // Jak wyżej: usunięte faktury nie mają się pojawiać na zestawieniu.
+        .is('deleted_at', null)
         .order('issue_date', { ascending: false })
         .limit(200);
       if (error) throw error;

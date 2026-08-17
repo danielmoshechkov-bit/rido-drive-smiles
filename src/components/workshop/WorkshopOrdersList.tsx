@@ -298,12 +298,21 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
 
   const openInvoiceForOrder = async (order: any, docType: 'invoice' | 'receipt' = 'invoice') => {
     try {
-      // Duplicate check: if invoice already exists for this order, show existing-invoice modal
+      // Blokada drugiej faktury do tego samego zlecenia.
+      //
+      // 🔴 NAPRAWIONE 17.08.2026: brakowało `deleted_at IS NULL`. Usuwanie
+      // faktury jest MIĘKKIE — ustawia `deleted_at`, a wiersz zostaje. Wszystkie
+      // listy faktur to filtrują, ta blokada nie. Skutek: użytkownik kasował
+      // błędną fakturę (numeracja poprawnie wracała), a do zlecenia NIE DAŁO
+      // SIĘ wystawić nowej — system pokazywał tę usuniętą, razem z jej numerem
+      // i kwotą. Dotyczyło też faktur nigdy niewysłanych do KSeF, czyli takich,
+      // które wolno usuwać bez żadnych konsekwencji.
       const { data: existing } = await (supabase as any)
         .from('user_invoices')
         .select('*')
         .eq('workshop_order_id', order.id)
         .neq('is_correction', true)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();

@@ -56,7 +56,8 @@ export function RentalInvoices({ companyId }: { companyId: string }) {
     try {
       const bk = bookings.find(b => b.id === editor?.bookingId);
       if (userId && bk) {
-        const { data: inv } = await sb.from('user_invoices').select('id, invoice_number').eq('user_id', userId).ilike('notes', `%${bk.booking_number}%`).order('created_at', { ascending: false }).limit(1);
+        const { data: inv } = await sb.from('user_invoices').select('id, invoice_number').eq('user_id', userId).ilike('notes', `%${bk.booking_number}%`).is('deleted_at', null)
+          .order('created_at', { ascending: false }).limit(1);
         if (inv && inv[0]) {
           const { data: ex } = await sb.from('rental_booking_invoices').select('id').eq('user_invoice_id', inv[0].id).limit(1);
           if (!ex || ex.length === 0) await sb.from('rental_booking_invoices').insert({ company_id: companyId, booking_id: bk.id, user_invoice_id: inv[0].id, invoice_number: inv[0].invoice_number });
