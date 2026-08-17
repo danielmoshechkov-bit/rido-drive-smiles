@@ -159,7 +159,8 @@ inaczej po opłaceniu warsztat musiałby jeszcze pamiętać, żeby coś włączy
 │  Agent Pro       399 zł netto / mc   [Wybierz]         │
 │  3 rozmowy naraz                                       │
 │                                                        │
-│  14 dni bezpłatnie. Numer telefoniczny w cenie.        │
+│  Bez okresu próbnego. Numer telefoniczny w abonamencie │
+│  — wraca do nas po rezygnacji.                         │
 └────────────────────────────────────────────────────────┘
 ```
 
