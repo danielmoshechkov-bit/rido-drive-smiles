@@ -27,13 +27,15 @@ import type { KrokTrasy } from '@/components/onboarding/GuidedTour';
 export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'nowe-zlecenie',
+    // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
+    dalejKlika: true,
     // Powitanie znikalo, zanim dalo sie je przeczytac — ekran zmienia sie w
     // ulamku sekundy po kliknieciu. Ten krok ma stac, dopoki nie zostanie
     // przeczytany, bo to on tlumaczy, po co wpisywac SWOJE dane.
     czasNaPrzeczytanie: 20000,
     tytul: 'Zacznijmy od pierwszego zlecenia',
     tresc: 'Przejdziemy razem całą drogę: przyjęcie auta, wycena, kosztorys do akceptacji, odbiór, faktura i zamknięcie.\n\nWAŻNE: wpisuj po drodze SWOJE dane — swoje imię i swój numer telefonu. SMS-y z tego zlecenia pójdą wtedy do Ciebie i zobaczysz dokładnie to, co zobaczy klient. To zlecenie próbne, na końcu je skasujemy.',
-    akcja: 'Przeczytaj i kliknij „Dalej", a potem „Nowe zlecenie"',
+    akcja: 'Kliknij „Dalej" — otworzę okno nowego zlecenia za Ciebie',
     // Bez `czekaNaKlikniecie`: pierwsza podpowiedź ma być PRZECZYTANA. Kliknięcie
     // w przycisk i tak przenosi dalej, ale kto czyta wolniej, ma przycisk „Dalej"
     // i nie zostaje z wrażeniem, że coś mignęło.
@@ -134,10 +136,11 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'wiersz-zlecenia',
+    // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
+    dalejKlika: true,
     tytul: 'Zlecenie jest na liście',
     tresc: 'Tak wygląda zlecenie na liście: numer, status, kwota, auto, klient i terminy.\n\nNaciśnij na zlecenie, żeby je otworzyć — w karcie zlecenia wyceniasz pracę i rozmawiasz z klientem.',
-    akcja: 'Naciśnij na zlecenie, by je otworzyć',
-    czekaNaKlikniecie: true,
+    akcja: 'Naciśnij na zlecenie albo „Dalej" — otworzę je za Ciebie',
   },
   {
     cel: 'ikony-wiadomosci',
@@ -151,10 +154,11 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'rido-wycena',
+    // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
+    dalejKlika: true,
     tytul: 'Nie wiesz, ile wziąć? Rido Wycena',
     tresc: 'Masz już wpisane pozycje, więc zobaczmy, jak działa wycena.\n\nKliknij „Rido Wycena" — policzymy widełki na podstawie Twoich wcześniejszych zleceń i wycen z portalu dla tego modelu auta, a na końcu sprawdzimy je jeszcze AI dla Twojej okolicy.',
-    akcja: 'Kliknij „Rido Wycena" — zobaczysz, skąd biorą się kwoty',
-    czekaNaKlikniecie: true,
+    akcja: 'Kliknij „Rido Wycena" albo po prostu „Dalej" — otworzę je za Ciebie',
   },
   {
     cel: 'rido-okno',
@@ -189,10 +193,11 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'przycisk-kosztorys',
+    // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
+    dalejKlika: true,
     tytul: 'Krok 5 — wyślij kosztorys',
     tresc: 'Wyceniłeś pozycje, więc czas na akceptację. Kliknij tę ikonę — klient dostanie SMS z linkiem do kosztorysu.',
-    akcja: 'Kliknij ikonę kosztorysu',
-    czekaNaKlikniecie: true,
+    akcja: 'Kliknij ikonę kosztorysu albo „Dalej" — otworzę okno wysyłki',
   },
   {
     cel: 'sms-quote',
@@ -207,20 +212,22 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'status-na-liscie',
+    // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
+    dalejKlika: true,
     wracajNaListe: true,
     tytul: 'Krok 6 — naprawa skończona',
     tresc: 'Auto jest zrobione, więc zmieniamy jego stan. Wracamy na listę zleceń — wprowadzenie zrobi to za Ciebie.\n\nKliknij status przy zleceniu (ten kolorowy napis w kolumnie „Status") — rozwinie się lista wszystkich stanów, w jakich może być naprawa.',
-    akcja: 'Kliknij status przy zleceniu',
-    czekaNaKlikniecie: true,
+    akcja: 'Kliknij status przy zleceniu albo „Dalej" — rozwinę listę',
   },
   {
     cel: 'status-gotowe',
+    // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
+    dalejKlika: true,
     // Pozycja istnieje tylko wtedy, gdy lista statusow jest rozwinieta.
     pokazGdySieZjawi: true,
     tytul: 'Wybierz „Gotowe do odbioru"',
     tresc: 'Ten stan znaczy: zrobione, klient może przyjeżdżać.\n\nZaraz po jego wybraniu wyskoczy okno z gotowym SMS-em do klienta — wystarczy go wysłać.',
-    akcja: 'Kliknij „Gotowe do odbioru"',
-    czekaNaKlikniecie: true,
+    akcja: 'Kliknij „Gotowe do odbioru" albo „Dalej" — ustawię ten status',
   },
   {
     cel: 'przycisk-odbior',
@@ -247,14 +254,22 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     tresc: 'Do wyboru: potwierdzenie wykonania usługi (podsumowanie zlecenia dla klienta), paragon fiskalny — jeśli masz podpiętą drukarkę — albo faktura.\n\nPozycje i kwoty przepisują się z kosztorysu, nie wpisujesz ich drugi raz.',
   },
   {
+    cel: 'podglad-dokumentu',
+    pokazGdySieZjawi: true,
+    tytul: 'Dokument gotowy — sprawdź, pobierz, wydrukuj',
+    tresc: 'Tak wygląda gotowy dokument: Twoje dane jako sprzedawcy, dane klienta, pozycje z kosztorysu, stawki VAT i kwota do zapłaty. Wszystko przepisało się z wyceny — nie wpisujesz tego drugi raz.\n\nU góry masz trzy przyciski: „Pobierz PDF" (plik do wysłania mailem albo do księgowej), „Drukuj" (wydruk dla klienta) i „Zamknij".\n\nTak samo wygląda faktura i paragon — różni się tylko nagłówek i to, co idzie do księgowości.',
+    akcja: 'Obejrzyj, ewentualnie pobierz, i zamknij podgląd',
+  },
+  {
     cel: 'status-zakonczone',
+    // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
+    dalejKlika: true,
     // Pozycja istnieje tylko wtedy, gdy lista statusow jest rozwinieta.
     pokazGdySieZjawi: true,
     wracajNaListe: true,
     tytul: 'Krok 8 — zamknij zlecenie',
     tresc: 'Klient odebrał auto i zapłacił, więc ostatni krok: znów kliknij status przy zleceniu i wybierz „Zakończone".\n\nOd tej chwili zlecenie liczy się do przychodu i znika z listy aktywnych — przechodzi do zakładki „Zakończone zlecenia".',
-    akcja: 'Kliknij „Zakończone"',
-    czekaNaKlikniecie: true,
+    akcja: 'Kliknij „Zakończone" albo „Dalej" — ustawię ten status',
   },
   {
     cel: 'filtr-zakonczone',

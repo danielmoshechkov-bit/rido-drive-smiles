@@ -264,7 +264,7 @@ export function InvoicePreviewModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl w-full h-[95vh] md:h-[95vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="max-w-5xl w-full h-[95vh] md:h-[95vh] flex flex-col p-0 overflow-hidden" data-tour="podglad-dokumentu">
           <DialogHeader className="px-4 md:px-6 pt-4 pb-3 border-b shrink-0">
             <DialogTitle className="text-base md:text-lg">
               {titleLabel || (invoiceIssued ? '✅ Faktura wystawiona' : 'Podgląd')}: {invoiceData.invoice_number}

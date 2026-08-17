@@ -75,6 +75,19 @@ export interface KrokTrasy {
    * ale sam powrót jest szybszy niż instrukcja.
    */
   wracajNaListe?: boolean;
+  /**
+   * „Dalej" NACISKA za człowieka to, o czym mówi krok.
+   *
+   * Prośba warsztatu brzmiała: „jak nacisnę Dalej, to niech system to zrobi
+   * i mi pokaże". Ma to sens tam, gdzie krok opisuje jedno konkretne kliknięcie
+   * (Nowe zlecenie, Rido Wycena, ikona kosztorysu, wybór statusu) — wtedy da się
+   * przejść całą drogę samym „Dalej" i obejrzeć ją jak pokaz, zamiast szukać
+   * przycisków po ekranie.
+   *
+   * NIE dla kroków, w których trzeba coś wpisać albo zdecydować — tam kliknięcie
+   * za człowieka zapisałoby cudze dane.
+   */
+  dalejKlika?: boolean;
 }
 
 interface Props {
@@ -285,16 +298,32 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       // pierwsza podpowiedz tlumaczy rzecz, bez ktorej cala reszta nie ma sensu:
       // ze wpisujemy WLASNE dane i wlasny numer. Zadne opoznienie tego nie
       // uratowalo, wiec krok zerowy jest po prostu poza zasiegiem korektora.
-      if (krok === 0) return;
-      if (Date.now() - recznaZmiana.current < 5000) return;
-      if (Date.now() - wejscie < cisza) return;
-      const naEkranie = widoczneCele(cele);
-      const wlasny = naEkranie.find((w) => w.cel === kroki[krok]?.cel);
+      const naEkranieTeraz = widoczneCele(cele);
+
+      // KROK PIERWSZY stoi nieruchomo, dopóki widać jego cel („Nowe zlecenie").
+      // Gdy cel zniknie — bo otworzyło się okno zlecenia — przechodzimy dalej.
+      // Wcześniej krok zerowy był całkiem poza zasięgiem korektora i po
+      // kliknięciu „Nowe zlecenie" wprowadzenie zostawało na powitaniu.
+      if (krok === 0 && naEkranieTeraz.some((w) => w.cel === cele[0])) return;
+
+      // PILNE: rzeczy, które właśnie się pojawiły (okno Rido Wyceny, rozwinięta
+      // lista statusów, podgląd dokumentu), przejmują ekran BEZ czekania —
+      // inaczej okno stoi otwarte, a dymek jeszcze mówi o przycisku, który je
+      // otworzył.
+      const pilne = naEkranieTeraz.some((w) => {
+        const i = cele.indexOf(w.cel);
+        return i > krok && (kroki[i]?.pokazGdySieZjawi || kroki[i]?.pokazGdyWypelniony);
+      });
+      if (!pilne) {
+        if (Date.now() - recznaZmiana.current < 5000) return;
+        if (Date.now() - wejscie < cisza) return;
+      }
+      const wlasny = naEkranieTeraz.find((w) => w.cel === kroki[krok]?.cel);
       // Mruga tylko tam, gdzie BYLO co wpisac i zostalo to wpisane. Przy krokach
       // bez pola (przyciski, kolumny) „Dalej" jest jedyna droga i mruganie przez
       // caly czas byloby tylko halasem.
       setCzekaNaDalej(!!wlasny?.maPole && !!wlasny?.wypelniony);
-      const trafiony = wybierzKrok(cele, krok, naEkranie, {
+      const trafiony = wybierzKrok(cele, krok, naEkranieTeraz, {
         przejdzGdyWypelnione: kroki.map((k) => !!k.przejdzGdyWypelnione),
         pokazGdySieZjawi: kroki.map((k) => !!k.pokazGdySieZjawi),
         pokazGdyWypelniony: kroki.map((k) => !!k.pokazGdyWypelniony),
@@ -319,6 +348,21 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   // pokazania — pokazujemy to, zamiast przeskakiwać w próżnię.
   const dalejPoEkranie = () => {
     recznaZmiana.current = Date.now();
+
+    // Krok „samoklikający": naciskamy jego cel i NIE przesuwamy kroku ręcznie —
+    // ekran zmieni się sam, a wprowadzenie za nim podąży. Dzięki temu nie ma
+    // rozjazdu między tym, co zrobił człowiek, a tym, co pokazuje dymek.
+    if (biezacy.dalejKlika && biezacy.cel) {
+      const el = document.querySelector(`[data-tour="${biezacy.cel}"]`) as HTMLElement | null;
+      const doKlikniecia = el?.matches('button, a, [role="button"]')
+        ? el
+        : (el?.querySelector('button, a, [role="button"]') as HTMLElement | null) ?? el;
+      if (doKlikniecia && naEkranie(doKlikniecia)) {
+        doKlikniecia.click();
+        return;
+      }
+    }
+
     if (!onKrok) { onDalej(); return; }
     const cele = kroki.map((k) => k.cel);
     const nastepny = nastepnyKrok(cele, krok, widoczneCele(cele));

@@ -96,7 +96,12 @@ sprawdz('panel podaje powrot na liste', panel.includes('onWrocNaListe={() => set
 const picker = czytaj('src/components/workshop/WorkshopStatusPicker.tsx', 'utf8');
 sprawdz('„Gotowe do odbioru" ma znacznik', picker.includes("'status-gotowe'"));
 sprawdz('„Zakonczone" ma znacznik', picker.includes("'status-zakonczone'"));
-sprawdz('pierwszy krok nie jest ruszany przez ekran', /if \(krok === 0\) return;/.test(silnik));
+// Krok pierwszy stoi, DOPOKI widac jego cel. Gdy „Nowe zlecenie" zniknie za
+// otwartym oknem, wprowadzenie przechodzi dalej — inaczej zostawaloby na
+// powitaniu mimo otwartego formularza.
+sprawdz('pierwszy krok stoi, dopoki widac jego cel', /krok === 0 && naEkranieTeraz\.some/.test(silnik));
+sprawdz('to, co sie wlasnie pojawilo, lapie sie od razu', silnik.includes('const pilne ='));
+sprawdz('„Dalej" potrafi nacisnac za czlowieka', silnik.includes('dalejKlika') && silnik.includes('doKlikniecia.click()'));
 
 // 4e. Podpowiedzi o cenach zostaja w interfejsie, nie tylko w dymku.
 const wycena = czytaj('src/components/workshop/tabs/WorkshopOrderTasksTab.tsx', 'utf8');
