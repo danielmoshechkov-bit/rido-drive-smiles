@@ -63,7 +63,17 @@ sprawdz('karta pojazdu tez jest pod opieka', /if \(selectedVehicle\) \{\s*return
 sprawdz('GuidedTour rysowany tylko w jednym miejscu', (panel.match(/<GuidedTour/g) || []).length === 1);
 
 // 4c. „Dalej" mruga, gdy krok jest zrobiony — inaczej nie wiadomo, ze czeka.
-sprawdz('„Dalej" mruga, gdy pole jest wypelnione', silnik.includes('czekaNaDalej') && silnik.includes('miga-do-wyslania'));
+sprawdz('„Dalej" mruga, gdy pole jest wypelnione', silnik.includes('czekaNaDalej') && silnik.includes('miga-dalej'));
+
+// Mruganie ma byc WIDOCZNE: na przycisku sama przezroczystosc ginela, wiec
+// zmienia sie rozmiar i poswiata.
+const style = czytaj('src/index.css', 'utf8');
+sprawdz('mruganie „Dalej" zmienia rozmiar, nie tylko przezroczystosc', /miganie-dalej[\s\S]*scale\(1\.0/.test(style));
+sprawdz('mruganie wylaczone przy ograniczonym ruchu', /prefers-reduced-motion[\s\S]*miga-dalej/.test(style));
+
+// „Dalej" MUSI byc od razu takze na krokach czekajacych na klikniecie —
+// inaczej widac sam „Zamknij" i wyglada to na zaciecie.
+sprawdz('„Dalej" nie chowa sie na krokach z klknieciem', !silnik.includes('setFurtka'));
 sprawdz('mruganie tylko tam, gdzie bylo co wpisac', silnik.includes('maPole'));
 
 // 5. Instrukcja KSeF nie każe wysyłać próbnej faktury — jest przycisk sprawdzenia.
@@ -87,7 +97,6 @@ sprawdz('podpowiedz przy braku wynikow', okno.includes('Tego auta nie ma jeszcze
 // Podpowiedź nie może zniknąć, zanim da się ją przeczytać, ani uwięzić człowieka.
 
 
-sprawdz('furtka „Dalej", gdy klikniecia nie da sie wykryc', silnik.includes('setFurtka'));
 // Krok wynika z EKRANU, nie z licznika — inaczej dymek mówi o czymś innym,
 // niż widać na wierzchu (okno pojazdu vs. lista zadań w oknie pod spodem).
 sprawdz('krok wybierany po tym, co na ekranie', silnik.includes('wybierzKrok'));

@@ -152,7 +152,15 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'rido-wycena',
     tytul: 'Nie wiesz, ile wziąć? Rido Wycena',
-    tresc: 'Kliknij, a policzymy widełki na podstawie Twoich wcześniejszych zleceń i wycen z portalu dla tego modelu auta — i sprawdzimy je jeszcze AI dla Twojej okolicy.\n\nDostajesz zakres OD–DO. Możesz go przyjąć jednym kliknięciem albo wpisać swoją stawkę.',
+    tresc: 'Masz już wpisane pozycje, więc zobaczmy, jak działa wycena.\n\nKliknij „Rido Wycena" — policzymy widełki na podstawie Twoich wcześniejszych zleceń i wycen z portalu dla tego modelu auta, a na końcu sprawdzimy je jeszcze AI dla Twojej okolicy.',
+    akcja: 'Kliknij „Rido Wycena" — zobaczysz, skąd biorą się kwoty',
+    czekaNaKlikniecie: true,
+  },
+  {
+    cel: 'rido-okno',
+    tytul: 'Widełki OD–DO',
+    tresc: 'Dla każdej pozycji dostajesz zakres: od ilu do ilu biorą za to warsztaty przy tym modelu auta. Widać też, na ilu wycenach to policzono — jedna cena to jeszcze nie rynek.\n\nMożesz przyjąć propozycję jednym kliknięciem albo wpisać swoją stawkę. Nic nie dzieje się bez Twojej zgody: to podpowiedź, nie cennik narzucony z góry.',
+    akcja: 'Przyjmij wycenę albo zamknij okno i wpisz swoje ceny',
   },
   {
     cel: 'tabela-czesci',
@@ -213,7 +221,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     cel: 'zaznacz-zlecenie',
     celeDodatkowe: ['dokumenty-zlecenia'],
     tytul: 'Krok 7 — klient odbiera auto',
-    tresc: 'Najpierw ZAZNACZ zlecenie na liście (kółko po lewej), dopiero potem kliknij „Wystaw".\n\nBez zaznaczenia system nie wie, do czego wystawić dokument — dlatego podświetlamy oba miejsca naraz.',
+    tresc: 'Wróć na listę zleceń — strzałka „← Zlecenia" u góry karty.\n\nNajpierw ZAZNACZ zlecenie na liście (kółko po lewej), dopiero potem kliknij „Wystaw".\n\nBez zaznaczenia system nie wie, do czego wystawić dokument — dlatego podświetlamy oba miejsca naraz.',
   },
   {
     cel: 'wystaw-dokumenty',

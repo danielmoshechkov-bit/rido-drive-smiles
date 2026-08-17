@@ -522,7 +522,7 @@ Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-5xl" data-tour="rido-okno">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <Sparkles className="h-5 w-5 text-primary" />

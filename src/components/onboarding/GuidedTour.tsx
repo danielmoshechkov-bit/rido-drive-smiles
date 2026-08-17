@@ -269,19 +269,13 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
     return () => window.clearInterval(timer);
   }, [kroki, krok, onKrok]);
 
-  // WYJŚCIE AWARYJNE DLA KROKÓW „KLIKNIJ".
+  // KROKI „KLIKNIJ" TEŻ MAJĄ „DALEJ" — OD RAZU.
   //
-  // Taki krok czeka na kliknięcie w podświetlony element i celowo nie ma
-  // przycisku „Dalej" — inaczej wprowadzenie byłoby pokazem slajdów. Ale gdy
-  // element jest zasłonięty albo kliknięcia nie da się wykryć, człowiek zostaje
-  // uwięziony. Po kilku sekundach pokazujemy więc „Dalej" jako furtkę.
-  const [furtka, setFurtka] = useState(false);
-  useEffect(() => {
-    setFurtka(false);
-    if (!biezacy?.czekaNaKlikniecie) return;
-    const timer = window.setTimeout(() => setFurtka(true), 6000);
-    return () => window.clearTimeout(timer);
-  }, [krok, biezacy?.czekaNaKlikniecie]);
+  // Wcześniej przycisk pojawiał się dopiero po sześciu sekundach, żeby nie robić
+  // z wprowadzenia pokazu slajdów. Skutek był odwrotny od zamierzonego: przy
+  // kroku z kosztorysem widać było sam „Zamknij" i wyglądało to na zacięcie —
+  // jedynym wyjściem było zamknięcie wprowadzenia. Lepiej dać wyjście od razu
+  // i tylko wyciszyć wygląd przycisku tam, gdzie liczymy na kliknięcie w ekran.
 
   // „Dalej" idzie po TYM SAMYM ekranie. Gdy następnego kroku nie widać (dotyczy
   // okna, które się jeszcze nie otworzyło), a na tym ekranie zostało coś do
@@ -401,10 +395,13 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
           <p className="mt-2 text-xs font-medium text-primary">{biezacy.akcja}</p>
         )}
         {dymekNaSrodku && (
-          // Cel kroku jest schowany pod otwartym oknem (np. podglądem dokumentu).
-          // Zamiast pozwolić „Dalej" iść w ciemno, mówimy, co zrobić.
+          // Nie ma czego podświetlić. Dwa różne powody, więc dwie różne rady:
+          // albo coś leży na wierzchu i trzeba to zamknąć, albo rzecz, o której
+          // mowa, jest po prostu na innym ekranie.
           <p className="mt-2 text-xs text-muted-foreground">
-            Zamknij otwarte okno, żeby wrócić do zlecenia — wprowadzenie podąży za Tobą.
+            {document.querySelector('[role="dialog"]')
+              ? 'Zamknij otwarte okno — wprowadzenie podąży za Tobą.'
+              : 'To, o czym mowa, jest na innym ekranie. Wróć na listę zleceń („← Zlecenia") — wprowadzenie podąży za Tobą.'}
           </p>
         )}
         </div>
@@ -412,12 +409,16 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
           {pokazLicznik && <span className="text-[11px] text-muted-foreground">Krok {krok + 1} z {kroki.length}</span>}
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={onZamknij}>Zamknij</Button>
-            {(!biezacy.czekaNaKlikniecie || furtka) && (
+            {/* „Dalej" jest ZAWSZE. Wczesniej na krokach czekajacych na
+                klikniecie pojawial sie dopiero po kilku sekundach — czlowiek
+                widzial sam „Zamknij" i myslal, ze wprowadzenie sie zacielo.
+                Krok czekajacy dostaje slabszy wyglad, ale da sie go ominac od razu. */}
+            {(
               <Button
                 size="sm"
                 variant={biezacy.czekaNaKlikniecie ? 'outline' : 'default'}
                 onClick={dalejPoEkranie}
-                className={czekaNaDalej ? 'miga-do-wyslania' : undefined}
+                className={czekaNaDalej ? 'miga-dalej' : undefined}
               >
                 Dalej <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>

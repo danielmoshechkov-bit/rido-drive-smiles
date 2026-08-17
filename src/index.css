@@ -1081,3 +1081,21 @@ input[type=number] {
 @media (prefers-reduced-motion: reduce) {
   .miga-do-wyslania { animation: none; }
 }
+
+
+/* „DALEJ" MA SIĘ RZUCAĆ W OCZY.
+   Mruganie samą przezroczystością (jak przy statusach) na przycisku ginęło —
+   człowiek nie wiedział, że wprowadzenie czeka na jego kliknięcie. Tu zmienia
+   się rozmiar i poświata, więc widać to kątem oka. */
+@keyframes miganie-dalej {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 hsl(var(--primary) / 0.7); }
+  50%      { transform: scale(1.08); box-shadow: 0 0 0 10px hsl(var(--primary) / 0); }
+}
+
+.miga-dalej {
+  animation: miganie-dalej 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .miga-dalej { animation: none; outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
+}

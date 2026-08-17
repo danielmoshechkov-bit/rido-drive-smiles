@@ -170,6 +170,13 @@ for (const [opis, oczek] of [
   sprawdz(`„Dalej": ${opis}`, krok, oczek);
 }
 
+// ── EKRAN 10b: okno Rido Wyceny ─────────────────────────────────────────────
+{
+  const oknoRido = [...kartaWyceny.map((w) => ({ ...w })), { cel: 'rido-okno', glebokosc: 1 }];
+  const wynik = wybierzKrok(cele, cele.indexOf('rido-wycena'), oknoRido, opcje);
+  sprawdz('po kliknięciu Rido Wycena: okno widełek', wynik, 'rido-okno');
+}
+
 // ── EKRAN 11: okno SMS-a z kosztorysem ──────────────────────────────────────
 const oknoSmsKosztorys = [...kartaWyceny.map((w) => ({ ...w })), { cel: 'sms-quote', glebokosc: 1 }];
 krok = wybierzKrok(cele, krok, oknoSmsKosztorys, opcje);
