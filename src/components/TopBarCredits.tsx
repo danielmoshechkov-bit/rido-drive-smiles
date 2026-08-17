@@ -4,10 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Car, MessageSquare } from 'lucide-react';
 import { VehicleLookupCreditsModal } from './vehicle/VehicleLookupCreditsModal';
 import { SmsPurchaseModal } from './SmsPurchaseModal';
-import { dostepneSprawdzeniaVin, dostepneSms } from '@/lib/dostepneJednostki';
+import { useDostepneJednostki, useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
 
 export function TopBarCredits() {
-  const qc = useQueryClient();
+  const odswiez = useOdswiezJednostki();
 
   /**
    * Powrót z bramki płatności — odświeżenie liczników.
@@ -25,37 +25,21 @@ export function TopBarCredits() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('platnosc') !== 'payu') return;
 
-    qc.invalidateQueries({ queryKey: ['vehicle-lookup-credits'] });
-    qc.invalidateQueries({ queryKey: ['sms-credits'] });
+    // Bez argumentu = wszystkie jednostki. Nie wiemy, czego dotyczył zakup.
+    odswiez();
 
     params.delete('platnosc');
     const reszta = params.toString();
     window.history.replaceState({}, '', window.location.pathname + (reszta ? `?${reszta}` : ''));
-  }, [qc]);
+  }, [odswiez]);
 
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [showSmsModal, setShowSmsModal] = useState(false);
 
-  const { data: vehicleCredits } = useQuery({
-    queryKey: ['vehicle-lookup-credits'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return 0;
-      // Ten sam helper co w `useVehicleLookup` — patrz `dostepneJednostki.ts`.
-      // Wcześniej pasek miał własną kopię tego wyliczenia i przy zmianie
-      // rozjeżdżał się z modalem dodawania pojazdu.
-      return dostepneSprawdzeniaVin(user.id);
-    },
-  });
-
-  const { data: smsCredits } = useQuery({
-    queryKey: ['sms-credits'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return 0;
-      return dostepneSms(user.id);
-    },
-  });
+  // Oba liczniki przez wspólny hak — jeden klucz na jednostkę, wspólny
+  // z modalami i kartą zlecenia. Patrz `useDostepneJednostki`.
+  const { dostepne: vehicleCredits } = useDostepneJednostki('vehicle_lookup');
+  const { dostepne: smsCredits } = useDostepneJednostki('sms');
 
   return (
     <>

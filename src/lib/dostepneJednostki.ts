@@ -68,16 +68,19 @@ async function przezCheckUsage(providerId: string, cecha: string): Promise<Doste
 }
 
 /**
- * Sprawdzenia pojazdu dostępne dla zalogowanego użytkownika.
+ * Dostępne jednostki DOWOLNEJ cechy rozliczanej.
  *
- * Użytkownik BEZ warsztatu (portal klienta, flota) ma nadal własne saldo
- * w `vehicle_lookup_credits` i to ono jest dla niego prawdą — migracja 4.12
- * przeniosła do puli firmy wyłącznie kredyty WŁAŚCICIELI warsztatów.
+ * Uogólnienie `dostepneSprawdzeniaVin` i `dostepneSms`, żeby kolejna jednostka
+ * (minuty agenta, pytania AI) nie wymagała pisania trzeciej kopii tego samego.
+ * Obie funkcje niżej zostają jako nazwane skróty — czytelniej w miejscu użycia.
  */
-export async function dostepneSprawdzeniaVin(userId: string): Promise<Dostepne> {
+export async function dostepneJednostkiCechy(userId: string, cecha: string): Promise<Dostepne> {
   const providerId = await warsztatUzytkownika(userId);
 
+  // Bez warsztatu jedyną jednostką z osobnym saldem są sprawdzenia pojazdu
+  // (portal klienta, flota). Reszta jest rozliczana wyłącznie na warsztacie.
   if (!providerId) {
+    if (cecha !== 'vehicle_lookup') return 0;
     const { data } = await supabase
       .from('vehicle_lookup_credits')
       .select('remaining_credits')
@@ -86,12 +89,19 @@ export async function dostepneSprawdzeniaVin(userId: string): Promise<Dostepne> 
     return Number(data?.remaining_credits ?? 0);
   }
 
-  return przezCheckUsage(providerId, 'vehicle_lookup');
+  return przezCheckUsage(providerId, cecha);
 }
 
+/**
+ * Sprawdzenia pojazdu dostępne dla zalogowanego użytkownika.
+ *
+ * Użytkownik BEZ warsztatu (portal klienta, flota) ma nadal własne saldo
+ * w `vehicle_lookup_credits` i to ono jest dla niego prawdą — migracja 4.12
+ * przeniosła do puli firmy wyłącznie kredyty WŁAŚCICIELI warsztatów.
+ */
+export const dostepneSprawdzeniaVin = (userId: string) =>
+  dostepneJednostkiCechy(userId, 'vehicle_lookup');
+
 /** SMS-y dostępne dla warsztatu zalogowanego użytkownika. */
-export async function dostepneSms(userId: string): Promise<Dostepne> {
-  const providerId = await warsztatUzytkownika(userId);
-  if (!providerId) return 0;
-  return przezCheckUsage(providerId, 'sms');
-}
+export const dostepneSms = (userId: string) =>
+  dostepneJednostkiCechy(userId, 'sms');

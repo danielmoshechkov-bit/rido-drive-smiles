@@ -10,6 +10,7 @@ import { Send, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { kluczJednostki } from '@/hooks/useDostepneJednostki';
 import { useQuotaGuard } from '@/components/quota/QuotaGuardProvider';
 import { useTranslation } from 'react-i18next';
 
@@ -215,7 +216,9 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
       void (async () => {
         try {
           await (supabase as any).from('workshop_orders').update(updates).eq('id', order.id);
-          await qc.invalidateQueries({ queryKey: ['sms-credits'] });
+          // Licznik SMS schodzi NATYCHMIAST po wysłaniu — wspólny klucz, więc
+          // aktualizuje się pasek i każdy inny licznik tej jednostki naraz.
+          await qc.invalidateQueries({ queryKey: kluczJednostki('sms') });
           await qc.invalidateQueries({ queryKey: ['workshop-orders'] });
         } catch (bgErr) {
           console.warn('[WorkshopSmsDialog] post-send update failed', bgErr);

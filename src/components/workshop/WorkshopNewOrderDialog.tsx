@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { kluczJednostki } from '@/hooks/useDostepneJednostki';
 import { buildPublicUrl } from '@/lib/publicUrl';
 import { powodBleduFunkcji } from '@/lib/bladEdge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -427,7 +428,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         // Powod odmowy trzyma serwer w tresci odpowiedzi — bez tego warsztat
         // widzi tylko „non-2xx status code" i nie wie, co ma poprawic.
         if (error) throw new Error(await powodBleduFunkcji(error));
-        await qc.invalidateQueries({ queryKey: ['sms-credits'] });
+        await qc.invalidateQueries({ queryKey: kluczJednostki('sms') });
         toast.success(t('workshop.newOrder.smsSentTo', { phone }));
       } else if (sendMethod === 'email' && email) {
         toast.success(t('workshop.newOrder.emailSentTo', { email }));

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { kluczJednostki } from '@/hooks/useDostepneJednostki';
 import { buildPublicUrl } from '@/lib/publicUrl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -1663,7 +1664,7 @@ function SlotDialog({ open, onOpenChange, slotData, providerId, unplannedOrders,
               toast.error(t('workshop.scheduler.bookingSavedSmsFailed'));
             } else {
               await (supabase as any).from('workshop_client_bookings').update({ confirmation_sms_sent: true }).eq('id', insertedBooking.id);
-              queryClient.invalidateQueries({ queryKey: ['sms-credits'] });
+              queryClient.invalidateQueries({ queryKey: kluczJednostki('sms') });
             }
           } catch (smsErr) {
             console.error('SMS send failed:', smsErr);

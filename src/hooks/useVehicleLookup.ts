@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useQuotaGuard } from '@/components/quota/QuotaGuardProvider';
 import { odczytajBladFunkcji } from '@/utils/bladFunkcji';
 import { dostepneSprawdzeniaVin } from '@/lib/dostepneJednostki';
+import { kluczJednostki } from '@/hooks/useDostepneJednostki';
 
 interface VehicleLookupCredits {
   /** Ile sprawdzeń klient realnie może wykonać: pula planu plus paczki. */
@@ -85,7 +86,7 @@ export function useVehicleLookup(userId?: string) {
    * odświeża wszystkie liczniki naraz.
    */
   const { data: credits, isLoading: creditsLoading } = useQuery({
-    queryKey: ['vehicle-lookup-credits'],
+    queryKey: kluczJednostki('vehicle_lookup'),
     enabled: !!userId,
     queryFn: async (): Promise<VehicleLookupCredits> => {
       const dostepne = await dostepneSprawdzeniaVin(userId!);
@@ -99,7 +100,7 @@ export function useVehicleLookup(userId?: string) {
   });
 
   const fetchCredits = useCallback(async () => {
-    await qc.invalidateQueries({ queryKey: ['vehicle-lookup-credits'] });
+    await qc.invalidateQueries({ queryKey: kluczJednostki('vehicle_lookup') });
   }, [qc]);
 
 
