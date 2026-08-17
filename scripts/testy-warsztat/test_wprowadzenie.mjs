@@ -74,6 +74,23 @@ sprawdz('mruganie wylaczone przy ograniczonym ruchu', /prefers-reduced-motion[\s
 // „Dalej" MUSI byc od razu takze na krokach czekajacych na klikniecie —
 // inaczej widac sam „Zamknij" i wyglada to na zaciecie.
 sprawdz('„Dalej" nie chowa sie na krokach z klknieciem', !silnik.includes('setFurtka'));
+
+// 4d. Powrot i pierwszy krok — dwie rzeczy, o ktore prosil warsztat po tym,
+//     jak powitanie znikalo mu w pol sekundy.
+sprawdz('jest przycisk „Wstecz"', silnik.includes('Wstecz') && silnik.includes('onKrok(krok - 1)'));
+sprawdz('pierwszy krok nie jest ruszany przez ekran', /if \(krok === 0\) return;/.test(silnik));
+
+// 4e. Podpowiedzi o cenach zostaja w interfejsie, nie tylko w dymku.
+const wycena = czytaj('src/components/workshop/tabs/WorkshopOrderTasksTab.tsx', 'utf8');
+sprawdz('nagłowek kosztu tlumaczy sie pod kursorem', /title="Cena ZAKUPU/.test(wycena));
+sprawdz('nagłowek ceny tlumaczy sie pod kursorem', /title="Cena SPRZEDAŻY/.test(wycena));
+sprawdz('podswietlamy cala sekcje robocizny, nie sam naglowek', /ref=\{serviceCardRef\} data-tour="tabela-robocizny"/.test(wycena));
+
+// 4f. Zlecenie probne ma pokazywac ZYSK na liczbach, nie same zera.
+const nowe = czytaj('src/components/workshop/WorkshopNewOrderDialog.tsx', 'utf8');
+sprawdz('przykladowa czesc ma koszt zakupu', /unit_cost_gross: 120/.test(nowe));
+sprawdz('przykladowa czesc ma cene sprzedazy', /unit_price_gross: 220/.test(nowe));
+sprawdz('robocizna nadal bez cen (jest co pokazac Rido Wycena)', /unit_price_gross: null/.test(nowe));
 sprawdz('mruganie tylko tam, gdzie bylo co wpisac', silnik.includes('maPole'));
 
 // 5. Instrukcja KSeF nie każe wysyłać próbnej faktury — jest przycisk sprawdzenia.

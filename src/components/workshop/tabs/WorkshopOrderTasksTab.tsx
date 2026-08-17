@@ -1678,11 +1678,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       </div>
 
       {/* SERVICES / ROBOCIZNA */}
-      <div ref={serviceCardRef}>
+      <div ref={serviceCardRef} data-tour="tabela-robocizny">
       <Card className="border-l-4 border-l-primary">
         <CardContent className="p-0">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-            <div className="flex items-center gap-2" data-tour="tabela-robocizny">
+            <div className="flex items-center gap-2">
               <Wrench className="h-5 w-5 text-primary" />
               <h3 className="font-semibold text-base">{t('workshop.orderTasks.laborServicesHeading')}</h3>
               <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
@@ -2101,11 +2101,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       </div>
 
       {/* PARTS / CZĘŚCI */}
-      <div ref={goodsCardRef}>
+      <div ref={goodsCardRef} data-tour="tabela-czesci">
       <Card className="border-l-4 border-l-amber-500">
         <CardContent className="p-0">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-            <div className="flex items-center gap-2" data-tour="tabela-czesci">
+            <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-amber-500" />
               <h3 className="font-semibold text-base">{t('workshop.orderTasks.partsMaterialsHeading')}</h3>
               <Badge variant="secondary" className="text-xs">{goods.length}</Badge>
@@ -2142,13 +2142,23 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                   <th className="p-2 text-center font-medium text-muted-foreground">{t('workshop.orderTasks.colName')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colQuantity')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colUnit')}</th>
-                  <th className="p-2 text-center text-[11px] font-medium text-muted-foreground" data-tour="kolumna-koszt">
+                  <th
+                    className="p-2 text-center text-[11px] font-medium text-muted-foreground"
+                    data-tour="kolumna-koszt"
+                    // Podpowiedz zostaje w interfejsie na zawsze — wprowadzenie
+                    // przechodzi sie raz, a pytanie „ktora to cena" wraca.
+                    title="Cena ZAKUPU — tyle płacisz w hurtowni. Klient tej kwoty nie widzi; służy do policzenia zysku."
+                  >
                     <div className="flex items-center justify-center gap-1">
                       <EyeOff className="h-3 w-3" />
                       <span>{t('workshop.orderTasks.colCost')}</span>
                     </div>
                   </th>
-                  <th data-tour="kolumna-cena" className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colPrice')}</th>
+                  <th
+                    data-tour="kolumna-cena"
+                    className="p-2 text-center text-[11px] font-medium text-muted-foreground"
+                    title="Cena SPRZEDAŻY — tę widzi klient na kosztorysie i fakturze. Różnica względem kosztu to Twoja marża."
+                  >{t('workshop.orderTasks.colPrice')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-r border-border/60">{t('workshop.orderTasks.colTotal')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground border-l border-border/60 bg-muted/30">{t('workshop.orderTasks.colDiscount')}</th>
                   <th className="p-2 text-center text-[11px] font-medium text-muted-foreground">{t('workshop.orderTasks.colAfterDiscountShort')}</th>

@@ -328,16 +328,33 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
     }
     // ZLECENIE PRÓBNE DOSTAJE GOTOWE POZYCJE.
     //
-    // Wprowadzenie ma pokazać wycenę i Rido Wycenę, a na pustej tabeli nie ma
-    // czego pokazywać — trzeba by najpierw wpisać trzy pozycje, zanim cokolwiek
-    // się wydarzy. Wstawiamy je BEZ CEN: to jest dokładnie ten stan, w którym
-    // warsztat sięga po Rido Wycenę albo wpisuje własną stawkę.
+    // Wprowadzenie ma pokazać wycenę, Rido Wycenę i zysk, a na pustej tabeli
+    // nie ma czego pokazywać.
+    //
+    // Podział jest celowy:
+    //   ROBOCIZNA idzie BEZ CEN — to jest dokładnie ten stan, w którym warsztat
+    //   sięga po Rido Wycenę, a bez niego nie ma czego demonstrować.
+    //   CZĘŚĆ dostaje koszt i cenę z przykładu, żeby podsumowanie od pierwszej
+    //   chwili pokazywało prawdziwe liczby zamiast samych zer — na zerach nie
+    //   widać ani marży, ani po co w ogóle wpisywać koszt zakupu.
     if (trybProbny) {
       try {
         const przykladowe = [
           { name: 'Wymiana klocków hamulcowych przód', item_type: 'service', unit: 'oper', sort_order: 1 },
           { name: 'Wymiana wahaczy przednich', item_type: 'service', unit: 'oper', sort_order: 2 },
-          { name: 'Klocki hamulcowe przód (komplet)', item_type: 'part', unit: 'szt', sort_order: 3 },
+          {
+            name: 'Klocki hamulcowe przód (komplet)',
+            item_type: 'part',
+            unit: 'szt',
+            sort_order: 3,
+            // Kupione za 120, sprzedane za 220 — 100 zł marży widocznej w podsumowaniu.
+            unit_cost_gross: 120,
+            unit_cost_net: Math.round((120 / 1.23) * 100) / 100,
+            unit_price_gross: 220,
+            total_gross: 220,
+            unit_price_net: Math.round((220 / 1.23) * 100) / 100,
+            total_net: Math.round((220 / 1.23) * 100) / 100,
+          },
         ];
         await (supabase as any).from('workshop_order_items').insert(
           przykladowe.map((poz) => ({

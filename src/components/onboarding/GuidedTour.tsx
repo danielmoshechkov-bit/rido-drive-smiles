@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
-import { X, ArrowRight } from 'lucide-react';
+import { X, ArrowRight, ArrowLeft } from 'lucide-react';
 import { wybierzKrok, nastepnyKrok, type WidocznyCel } from '@/components/onboarding/wyborKroku';
 import { pozycjaDymka } from '@/components/onboarding/pozycjaDymka';
 
@@ -250,6 +250,13 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
     const wejscie = Date.now();
     const cisza = kroki[krok]?.czasNaPrzeczytanie ?? 2500;
     const dopasuj = () => {
+      // POWITANIE ZOSTAJE, DOPOKI SAM NIE PRZEJDZIESZ DALEJ.
+      //
+      // Ekran zmienia sie w ulamku sekundy po kliknieciu „Nowe zlecenie", a
+      // pierwsza podpowiedz tlumaczy rzecz, bez ktorej cala reszta nie ma sensu:
+      // ze wpisujemy WLASNE dane i wlasny numer. Zadne opoznienie tego nie
+      // uratowalo, wiec krok zerowy jest po prostu poza zasiegiem korektora.
+      if (krok === 0) return;
       if (Date.now() - wejscie < cisza) return;
       const naEkranie = widoczneCele(cele);
       const wlasny = naEkranie.find((w) => w.cel === kroki[krok]?.cel);
@@ -408,6 +415,13 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, pokazLiczn
         <div className="flex items-center justify-between mt-3 shrink-0">
           {pokazLicznik && <span className="text-[11px] text-muted-foreground">Krok {krok + 1} z {kroki.length}</span>}
           <div className="flex gap-2">
+            {/* WSTECZ — zeby dalo sie wrocic do kroku, ktory przelecial za szybko
+                albo ktorego sie nie doczytalo. Na pierwszym kroku nie ma dokad. */}
+            {krok > 0 && onKrok && (
+              <Button size="sm" variant="ghost" onClick={() => onKrok(krok - 1)} title="Poprzedni krok">
+                <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Wstecz
+              </Button>
+            )}
             <Button size="sm" variant="ghost" onClick={onZamknij}>Zamknij</Button>
             {/* „Dalej" jest ZAWSZE. Wczesniej na krokach czekajacych na
                 klikniecie pojawial sie dopiero po kilku sekundach — czlowiek

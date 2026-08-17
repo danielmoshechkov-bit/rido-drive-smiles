@@ -147,7 +147,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'tabela-robocizny',
     tytul: 'Krok 4 — wpisz pozycje po kolei',
-    tresc: 'Tu wpisujesz robociznę — dowolną pozycję, którą wykonujesz przy tym aucie. Na przykład:\n\n• Wymiana klocków hamulcowych przód\n• Wymiana wahacza przedniego prawego\n• Wymiana sprężyn przód\n\nPrzy każdej podajesz cenę. Kolejny pusty wiersz dokłada się sam, a Enter przenosi niżej. Jeśli coś robisz w cenie, wpisz 0 — klient zobaczy wtedy „0 zł" zamiast pustego miejsca.\n\nPozycja bez ceny czeka w kolejce: klient jej nie widzi, dopóki jej nie wycenisz.',
+    tresc: 'To jest wycena zlecenia. Dwie pozycje robocizny są już wpisane, żeby było na czym poćwiczyć — nazwy widzisz w tabeli, ceny na razie puste („podaj cenę" na czerwono).\n\nDopisujesz tu dowolną robotę, na przykład: „Wymiana klocków hamulcowych przód", „Wymiana wahacza przedniego prawego", „Wymiana sprężyn przód". Kolejny pusty wiersz dokłada się sam, a Enter przenosi niżej.\n\nPozycja bez ceny czeka w kolejce — klient jej NIE WIDZI, dopóki jej nie wycenisz. Jeśli coś robisz w cenie, wpisz 0: wtedy klient zobaczy „0 zł" zamiast pustego miejsca.\n\nCeny nie musisz wymyślać — za chwilę zrobi to Rido Wycena.',
   },
   {
     cel: 'rido-wycena',
@@ -158,24 +158,24 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'rido-okno',
-    tytul: 'Widełki OD–DO',
-    tresc: 'Dla każdej pozycji dostajesz zakres: od ilu do ilu biorą za to warsztaty przy tym modelu auta. Widać też, na ilu wycenach to policzono — jedna cena to jeszcze nie rynek.\n\nMożesz przyjąć propozycję jednym kliknięciem albo wpisać swoją stawkę. Nic nie dzieje się bez Twojej zgody: to podpowiedź, nie cennik narzucony z góry.',
-    akcja: 'Przyjmij wycenę albo zamknij okno i wpisz swoje ceny',
+    tytul: 'Skąd biorą się te kwoty',
+    tresc: 'To jest podpowiedź do wyceny — nie cennik narzucony z góry. Liczby biorą się z trzech źródeł naraz:\n\n• z Twoich wcześniejszych zleceń na tę samą robotę,\n• z wycen innych warsztatów w portalu dla tego modelu auta,\n• z tego, co dopowie RidoAI dla Twojej okolicy (kolumna „Uwagi RidoAI").\n\nPrzy każdej pozycji masz zakres OD–DO i pole „Twoja cena". Możesz wpisać własną kwotę albo zostawić proponowaną, a potem kliknąć „Zastosuj ceny do kosztorysu" — trafią prosto do wyceny. Jeśli wolisz policzyć sam, po prostu zamknij to okno.',
+    akcja: 'Wpisz swoje ceny albo kliknij „Zastosuj ceny do kosztorysu"',
   },
   {
     cel: 'tabela-czesci',
     tytul: 'Części i materiały',
-    tresc: 'Części wpisujesz ręcznie, bierzesz z magazynu albo szukasz u hurtowni przyciskiem „Znajdź części z Rido".',
+    tresc: 'Jedna część jest już wpisana z przykładowymi kwotami: kupiona za 120 zł, sprzedana za 220 zł. Dzięki temu od razu widzisz na liczbach, jak liczy się zysk.\n\nCzęści dopisujesz ręcznie, bierzesz z magazynu albo szukasz u hurtowni przyciskiem „Znajdź części z Rido".\n\nDwie kolumny obok siebie to nie pomyłka — jedna jest Twoja, druga klienta. Za chwilę pokażę, która jest która.',
   },
   {
     cel: 'kolumna-koszt',
     tytul: 'Koszt — ile Ty płacisz',
-    tresc: 'W tej kolumnie wpisujesz cenę ZAKUPU części: tyle, ile płacisz w hurtowni.\n\nKlient tej kwoty nie widzi. Służy do policzenia, ile na zleceniu zarabiasz.',
+    tresc: 'W tej kolumnie wpisujesz cenę ZAKUPU części: tyle, ile płacisz w hurtowni. W naszym przykładzie 120 zł.\n\nKlient tej kwoty NIE WIDZI — nie ma jej ani na kosztorysie, ani na fakturze. Jest wyłącznie dla Ciebie, żeby policzyć, ile na zleceniu zarabiasz.\n\nTa sama podpowiedź siedzi pod kursorem na nagłówku kolumny, więc znajdziesz ją także po wprowadzeniu.',
   },
   {
     cel: 'kolumna-cena',
     tytul: 'Cena — ile płaci klient',
-    tresc: 'A tu cena SPRZEDAŻY — ta trafia na kosztorys i fakturę.\n\nRóżnica między ceną a kosztem to Twoja marża na częściach.',
+    tresc: 'A tu cena SPRZEDAŻY — ta trafia na kosztorys i fakturę i tylko ją widzi klient. W przykładzie 220 zł.\n\n220 minus 120 to 100 zł Twojej marży na tej jednej części. Dokładnie tę różnicę zobaczysz za chwilę w podsumowaniu jako zysk.',
   },
   {
     cel: 'podsumowanie-zlecenia',
@@ -185,7 +185,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'przycisk-przyjecie',
     tytul: 'Protokół przyjęcia do podpisu',
-    tresc: 'Pierwsza z trzech ikon rozmowy z klientem. Klient podpisuje, w jakim stanie zostawił auto — to Twoje zabezpieczenie przy sporze o rysę czy brakującą kołpak.\n\nIkona miga na czerwono, kiedy jest co wysłać, świeci żółto po wysłaniu i zielono, gdy klient podpisze.',
+    tresc: 'Pierwsza z trzech ikon rozmowy z klientem. Klient podpisuje, w jakim stanie zostawił auto — to Twoje zabezpieczenie przy sporze o rysę czy brakujący kołpak.\n\nZ rozwijanej listy wybierasz „Wyślij do podpisu": SMS idzie na numer wpisany w zleceniu (przy zleceniu próbnym — na Twój własny). Klient otwiera link i podpisuje palcem na telefonie.\n\nŻÓŁTA ikona znaczy: wysłane, czekamy na podpis. Gdy klient podpisze, zrobi się zielona. Nie musisz na to czekać, żeby iść dalej — kliknij „Dalej".',
   },
   {
     cel: 'przycisk-kosztorys',
