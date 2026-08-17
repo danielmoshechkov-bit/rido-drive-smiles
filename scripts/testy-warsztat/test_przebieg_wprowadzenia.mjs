@@ -159,6 +159,9 @@ sprawdz('karta zlecenia: pasek rozmowy z klientem', krok, 'ikony-wiadomosci');
 for (const [opis, oczek] of [
   ['robocizna', 'tabela-robocizny'],
   ['Rido Wycena', 'rido-wycena'],
+  // „Dalej" idzie o JEDEN krok, wiec przechodzi takze przez kroki, ktorych cel
+  // akurat nie jest na wierzchu (okno Rido). Tak jest przewidywalnie.
+  ['okno widelek', 'rido-okno'],
   ['części', 'tabela-czesci'],
   ['koszt', 'kolumna-koszt'],
   ['cena', 'kolumna-cena'],
@@ -224,11 +227,10 @@ const menuWystaw = [...panel, { cel: 'wystaw-dokumenty', glebokosc: 0 }];
 krok = wybierzKrok(cele, krok, menuWystaw, opcje);
 sprawdz('otwarte menu: paragon, faktura, potwierdzenie', krok, 'wystaw-dokumenty');
 
-{
-  const listaStatusow = [...panel, { cel: 'status-gotowe', glebokosc: 0 }, { cel: 'status-zakonczone', glebokosc: 0 }];
-  krok = nastepnyKrok(cele, krok, listaStatusow);
-  sprawdz('„Dalej": zamknięcie zlecenia statusem', krok, 'status-zakonczone');
-}
+krok = nastepnyKrok(cele, krok, panel);
+sprawdz('„Dalej": podgląd wystawionego dokumentu', krok, 'podglad-dokumentu');
+krok = nastepnyKrok(cele, krok, panel);
+sprawdz('„Dalej": zamknięcie zlecenia statusem', krok, 'status-zakonczone');
 krok = nastepnyKrok(cele, krok, panel);
 sprawdz('„Dalej": zakładka Zakończone', krok, 'filtr-zakonczone');
 
@@ -307,12 +309,19 @@ console.log('--- przypadki brzegowe ---');
   sprawdz('klient juz wybrany → ramka na liste zadan', wynik, 'pole-opisu');
 }
 
-// 1. Na wierzchu okno, w którym wprowadzenie nie ma nic do pokazania
-//    (podgląd wystawionego dokumentu). „Dalej" nie może iść w ciemno.
+// 1. „Dalej" IDZIE O JEDEN KROK — zawsze, także gdy celu następnego kroku
+//    akurat nie widać. Wcześniej funkcja szukała „czegoś widocznego" i robiła
+//    skoki (z kroku 2 na 10, z 27 na 35), które wyglądały na awarię.
 {
   const naDokumentach = cele.indexOf('wystaw-dokumenty');
-  const poDalej = nastepnyKrok(cele, naDokumentach, []);
-  sprawdzWarunek(`„Dalej" przy otwartym podglądzie zostaje na miejscu (${poDalej})`, poDalej === naDokumentach);
+  sprawdzWarunek(
+    '„Dalej" idzie dokładnie o jeden krok, nawet gdy nic nie widać',
+    nastepnyKrok(cele, naDokumentach, []) === naDokumentach + 1,
+  );
+  sprawdzWarunek(
+    '„Dalej" idzie o jeden także przy pełnym ekranie',
+    nastepnyKrok(cele, 5, panel) === 6,
+  );
 }
 
 // 2. Wprowadzenie nie może samo przeskoczyć na koniec, gdy nic nie widać.

@@ -156,32 +156,19 @@ export function wybierzKrok(
 export function nastepnyKrok(
   cele: Array<string | undefined>,
   biezacy: number,
-  widoczne: WidocznyCel[],
+  _widoczne: WidocznyCel[],
 ): number {
-  const nastepny = biezacy + 1;
-  if (nastepny >= cele.length) return nastepny;
-
-  // NIC NIE WIDAC — zostajemy. Tak jest, gdy na wierzchu stoi okno, w ktorym
-  // wprowadzenie nie ma nic do pokazania (np. podglad wystawionego dokumentu).
-  // Wczesniej „Dalej" szedl wtedy w ciemno i po dwoch klknieciach wprowadzenie
-  // konczylo sie na kroku 22, choc czlowiek byl w polowie drogi.
-  if (!widoczne.length) return biezacy;
-
-  const najglebiej = Math.max(...widoczne.map((w) => w.glebokosc));
-  const naWierzchu = new Set(
-    widoczne.filter((w) => w.glebokosc === najglebiej).map((w) => w.cel),
-  );
-
-  const celNastepnego = cele[nastepny];
-  // Następny krok pokazuje coś, co widać — idziemy normalnie.
-  if (!celNastepnego || naWierzchu.has(celNastepnego)) return nastepny;
-
-  // Nie widać go: szukamy dalej czegoś, co na tym ekranie widać.
-  for (let i = nastepny + 1; i < cele.length; i++) {
-    const cel = cele[i];
-    if (cel && naWierzchu.has(cel)) return i;
-  }
-  // Nic więcej na tym ekranie — zostawiamy sąsiedni krok. Jego cel pojawi się,
-  // gdy człowiek przejdzie dalej, a do tego czasu dymek stoi na środku.
-  return nastepny;
+  // „DALEJ" IDZIE O JEDEN KROK. ZAWSZE.
+  //
+  // Wcześniej ta funkcja próbowała być mądrzejsza: gdy cel następnego kroku nie
+  // był widoczny, szukała dalej czegoś, co widać. Wychodziły z tego skoki, które
+  // dla człowieka wyglądały na awarię — z kroku 2 na 10, z 27 na 35 — bo
+  // „widoczne" jest na jednym ekranie kilkanaście rzeczy naraz i wyprzedzały one
+  // to, czego człowiek jeszcze nie zrobił.
+  //
+  // Przewidywalność jest tu ważniejsza od sprytu: jeden klik to jeden krok.
+  // Gdy krok dotyczy czegoś, czego akurat nie widać, dymek staje na środku
+  // i mówi, dokąd wrócić — a ekran i tak poprawi krok, gdy człowiek tam trafi
+  // (patrz wybierzKrok).
+  return biezacy + 1;
 }

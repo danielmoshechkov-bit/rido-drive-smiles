@@ -29,13 +29,13 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     cel: 'nowe-zlecenie',
     // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
     dalejKlika: true,
-    // Powitanie znikalo, zanim dalo sie je przeczytac — ekran zmienia sie w
-    // ulamku sekundy po kliknieciu. Ten krok ma stac, dopoki nie zostanie
-    // przeczytany, bo to on tlumaczy, po co wpisywac SWOJE dane.
-    czasNaPrzeczytanie: 20000,
+    // Powitanie NIE ZNIKA samo — zaden zegar tego nie uratowal, bo ekran
+    // zmienia sie szybciej, niz da sie przeczytac. Stoi, dopoki czlowiek nie
+    // kliknie „Dalej"; to jedyny pewny sygnal, ze przeczytal.
+    czekajNaDalej: true,
     tytul: 'Zacznijmy od pierwszego zlecenia',
     tresc: 'Przejdziemy razem całą drogę: przyjęcie auta, wycena, kosztorys do akceptacji, odbiór, faktura i zamknięcie.\n\nWAŻNE: wpisuj po drodze SWOJE dane — swoje imię i swój numer telefonu. SMS-y z tego zlecenia pójdą wtedy do Ciebie i zobaczysz dokładnie to, co zobaczy klient. To zlecenie próbne, na końcu je skasujemy.',
-    akcja: 'Kliknij „Dalej" — otworzę okno nowego zlecenia za Ciebie',
+    akcja: 'Przeczytaj i NACIŚNIJ „Dalej" (mruga) — otworzę okno nowego zlecenia za Ciebie. Ta podpowiedź nie zniknie sama.',
     // Bez `czekaNaKlikniecie`: pierwsza podpowiedź ma być PRZECZYTANA. Kliknięcie
     // w przycisk i tak przenosi dalej, ale kto czyta wolniej, ma przycisk „Dalej"
     // i nie zostaje z wrażeniem, że coś mignęło.
@@ -111,6 +111,8 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'pole-opisu',
     celeDodatkowe: ['dodaj-pozycje'],
+    // Kto chce najpierw obejrzec cala droge, klika „Dalej" i dostaje przyklad.
+    przykladoweWpisy: ['Wymiana klocków hamulcowych przód', 'Wymiana wahacza przedniego prawego'],
     tytul: 'Krok 2 — opisz zlecenie',
     tresc: 'BEZ TEGO ZLECENIE SIĘ NIE ZAPISZE — pole jest obowiązkowe (gwiazdka przy nazwie).\n\nWpisz w punktach, z czym przyjechał klient i co trzeba przy okazji sprawdzić. Każdy punkt to osobna pozycja: mechanik odhacza ją w swojej karcie, a Ty wyceniasz ją w kosztorysie. „Dodaj pozycję" albo Enter dokłada kolejną.\n\nNa próbę wpisz dwie, na przykład:\n1. Wymiana klocków hamulcowych przód\n2. Wymiana wahacza przedniego prawego\n\nGdy skończysz, przycisk „Dalej" zacznie migać.',
   },

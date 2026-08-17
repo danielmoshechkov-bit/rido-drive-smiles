@@ -173,12 +173,23 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       return;
     }
     const data = await checkRegistration(form.plate, trybProbny);
-    if (!data && !trybProbny && credits && credits.remaining_credits < 1) {
-      setShowCreditsModal(true);
-    } else if (data) {
+    if (data) {
       applyVehicleData(data);
       await autoSaveVehicle(data);
+      return;
     }
+    // BRAK WYNIKU TO NIE JEST BRAK KREDYTÓW.
+    //
+    // Wcześniej każdy pusty wynik prowadził do okna sprzedaży pakietu, więc
+    // warsztat po wpisaniu literówki w numerze dowiadywał się, że „nie ma
+    // kredytów" — nieprawda, która kazała mu szukać problemu w rozliczeniach
+    // zamiast w numerze. Powód odmowy podaje `useVehicleLookup` osobnym
+    // komunikatem; tutaj mówimy o tym, co widać: numer nic nie zwrócił.
+    if (!trybProbny && credits && credits.remaining_credits < 1) {
+      setShowCreditsModal(true);
+      return;
+    }
+    toast.error(`Nie znaleziono auta o numerze ${form.plate}. Sprawdź, czy numer jest poprawny — albo wpisz dane ręcznie poniżej.`);
   };
 
   const handleSearchVin = async () => {
@@ -193,6 +204,8 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
     const data = await checkVin(form.vin);
     if (!data && credits && credits.remaining_credits < 1) {
       setShowCreditsModal(true);
+    } else if (!data) {
+      toast.error(`Nie znaleziono auta o numerze VIN ${form.vin}. Sprawdź, czy numer jest poprawny.`);
     } else if (data) {
       applyVehicleData(data);
       await autoSaveVehicle(data);

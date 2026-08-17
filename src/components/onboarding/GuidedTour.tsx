@@ -101,6 +101,23 @@ export interface KrokTrasy {
    * tę pozycję trzeba kliknąć (np. „Gotowe do odbioru" na rozwiniętej liście).
    */
   mrugajCel?: boolean;
+  /**
+   * Krok STOI, dopóki człowiek nie kliknie „Dalej". Ekran go nie rusza.
+   *
+   * Powitanie znikało po pół sekundy, bo ekran zmieniał się szybciej, niż dało
+   * się je przeczytać, a kolejne próby ratowania tego zegarem (2,5 s, potem
+   * 20 s) myliły się raz w jedną, raz w drugą stronę. Zegar to zły pomysł:
+   * jedyny pewny sygnał, że człowiek przeczytał, to jego kliknięcie.
+   */
+  czekajNaDalej?: boolean;
+  /**
+   * Przykładowe wartości, którymi „Dalej" wypełni PUSTE pola tego miejsca.
+   *
+   * Warsztat, który chce najpierw obejrzeć całą drogę, nie musi nic wymyślać:
+   * klika „Dalej" i wprowadzenie wpisuje za niego przykład. Pól już wypełnionych
+   * nie ruszamy — nikt nie chce, żeby jego wpis zniknął.
+   */
+  przykladoweWpisy?: string[];
 }
 
 interface Props {
@@ -210,6 +227,9 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   // Czy w tym kroku czlowiek zrobil juz swoje i zostalo tylko nacisnac „Dalej".
   // Wtedy przycisk mruga — inaczej nie wiadomo, ze wprowadzenie czeka.
   const [czekaNaDalej, setCzekaNaDalej] = useState(false);
+  // Czy czlowiek kliknal juz „Dalej" na kroku, ktory na to czeka.
+  const [ruszony, setRuszony] = useState(false);
+  useEffect(() => { setRuszony(false); }, [krok]);
   // CZLOWIEK WAZNIEJSZY OD EKRANU.
   //
   // „Wstecz" cofalo krok, ale korektor ekranu natychmiast przywracal ten, ktory
@@ -325,18 +345,15 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       // oknem nadal ma swoje miejsce na ekranie, więc znowu nie przechodziło.
       //
       // Otwarte okno jest jednoznaczne: człowiek ruszył z miejsca.
-      const oknoOtwarte = !!document.querySelector('[role="dialog"]');
-      if (krok === 0 && !oknoOtwarte) return;
+      // KROK, KTORY CZEKA NA CZLOWIEKA. Zaden ekran go nie przestawi, dopoki
+      // nie kliknie „Dalej" — patrz czekajNaDalej.
+      if (kroki[krok]?.czekajNaDalej && !ruszony) return;
 
       // PILNE: rzeczy, które właśnie się pojawiły (okno Rido Wyceny, rozwinięta
       // lista statusów, podgląd dokumentu), przejmują ekran BEZ czekania —
       // inaczej okno stoi otwarte, a dymek jeszcze mówi o przycisku, który je
       // otworzył.
       const pilne =
-        // Powitanie ma 20 sekund na przeczytanie, ale gdy okno JUZ jest otwarte,
-        // to czekanie zatrzymywalo wprowadzenie na kroku pierwszym mimo
-        // otwartego formularza. Ruch czlowieka jest wazniejszy niz zegar.
-        (krok === 0 && oknoOtwarte) ||
         naEkranieTeraz.some((w) => {
           const i = cele.indexOf(w.cel);
           return i > krok && (kroki[i]?.pokazGdySieZjawi || kroki[i]?.pokazGdyWypelniony);
@@ -360,7 +377,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
 
     const timer = window.setInterval(dopasuj, 400);
     return () => window.clearInterval(timer);
-  }, [kroki, krok, onKrok]);
+  }, [kroki, krok, onKrok, ruszony]);
 
   // KROKI „KLIKNIJ" TEŻ MAJĄ „DALEJ" — OD RAZU.
   //
@@ -375,6 +392,26 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   // pokazania — pokazujemy to, zamiast przeskakiwać w próżnię.
   const dalejPoEkranie = () => {
     recznaZmiana.current = Date.now();
+    setRuszony(true);
+
+    // Puste pola wypełniamy przykładem — żeby „Dalej" niczego nie blokowało.
+    if (biezacy.przykladoweWpisy && biezacy.cel) {
+      const miejsce = document.querySelector(`[data-tour="${biezacy.cel}"]`) as HTMLElement | null;
+      const pola = Array.from(miejsce?.querySelectorAll('input, textarea') ?? []) as HTMLInputElement[];
+      biezacy.przykladoweWpisy.forEach((wpis, i) => {
+        const pole = pola[i];
+        if (!pole || pole.value.trim()) return;
+        // React nie zauważa zwykłego `pole.value = ...` — trzeba użyć settera
+        // z prototypu i ręcznie wywołać zdarzenie, inaczej stan komponentu
+        // zostaje pusty i zlecenie i tak się nie zapisze.
+        const setter = Object.getOwnPropertyDescriptor(
+          pole instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+          'value',
+        )?.set;
+        setter?.call(pole, wpis);
+        pole.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
 
     // Krok opisujący podgląd: zamykamy okno za człowieka. Radix zamyka się na
     // Escape, więc nie musimy szukać krzyżyka w każdym oknie z osobna.
@@ -566,7 +603,9 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
                 size="sm"
                 variant={biezacy.czekaNaKlikniecie ? 'outline' : 'default'}
                 onClick={dalejPoEkranie}
-                className={czekaNaDalej ? 'miga-dalej' : undefined}
+                // Mruga takze na kroku, ktory CZEKA na klikniecie — inaczej nie widac,
+                // ze wprowadzenie nie ruszy bez tego przycisku.
+                className={czekaNaDalej || biezacy.czekajNaDalej ? 'miga-dalej' : undefined}
               >
                 Dalej <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Button>
