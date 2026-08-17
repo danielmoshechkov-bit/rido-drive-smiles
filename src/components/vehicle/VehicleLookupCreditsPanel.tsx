@@ -47,17 +47,17 @@ export function VehicleLookupCreditsPanel({ userId }: Props) {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Credits summary */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* Było „Kupione łącznie" — kafelek usunięty 17.08.2026.
+              Liczba brała się z `vehicle_lookup_credits.total_credits_purchased`,
+              a migracja 4.12 przeniosła zakupy właścicieli do paczek warsztatu.
+              Poprawnego źródła klient nie ma: `billing_addon_packs` czyta tylko
+              platform_admin. Licznik bez źródła kłamie, więc znika zamiast
+              pokazywać liczbę sprzed migracji. */}
+          <div className="grid grid-cols-2 gap-4">
             <Card>
               <CardContent className="pt-4 text-center">
                 <div className="text-3xl font-bold text-primary">{credits?.remaining_credits || 0}</div>
                 <div className="text-sm text-muted-foreground">Pozostałe kredyty</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4 text-center">
-                <div className="text-3xl font-bold">{credits?.total_credits_purchased || 0}</div>
-                <div className="text-sm text-muted-foreground">Kupione łącznie</div>
               </CardContent>
             </Card>
             <Card>

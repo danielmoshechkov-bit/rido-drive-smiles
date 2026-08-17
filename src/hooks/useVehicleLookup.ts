@@ -3,10 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuotaGuard } from '@/components/quota/QuotaGuardProvider';
 import { odczytajBladFunkcji } from '@/utils/bladFunkcji';
+import { dostepneSprawdzeniaVin } from '@/lib/dostepneJednostki';
 
 interface VehicleLookupCredits {
+  /** Ile sprawdzeń klient realnie może wykonać: pula planu plus paczki. */
   remaining_credits: number;
-  total_credits_purchased: number;
+  /** Plan bez limitu — interfejs pokazuje wtedy znak nieskończoności. */
+  bez_limitu?: boolean;
 }
 
 interface VehicleData {
@@ -72,21 +75,25 @@ export function useVehicleLookup(userId?: string) {
     if (!userId) return;
     setCreditsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('vehicle_lookup_credits')
-        .select('remaining_credits, total_credits_purchased')
-        .eq('user_id', userId)
-        .maybeSingle();
+      // 🔴 NAPRAWIONE 17.08.2026. Czytało `vehicle_lookup_credits`, czyli STARE
+      // SALDO OSOBISTE — a migracja 4.12 przeniosła kredyty właścicieli do puli
+      // warsztatu. Skutek: jedno konto pokazywało 58 w bazie, 39 w tym modalu
+      // i 0 na górnym pasku. Trzy liczby tego samego salda.
+      //
+      // Teraz wszystkie liczniki idą przez `dostepneSprawdzeniaVin`, czyli przez
+      // `check_usage` — tę samą funkcję, którą przy wydawaniu jednostki pyta
+      // `billing_consume`. Licznik i wysyłka nie mogą się już rozjechać.
+      const dostepne = await dostepneSprawdzeniaVin(userId);
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching vehicle lookup credits:', error);
-      }
-      
-      // Brak wiersza to zerowe saldo — rekord zakłada trigger na auth.users.
-      // Klient nie zapisuje już nic do vehicle_lookup_credits.
-      setCredits(data ?? { remaining_credits: 0, total_credits_purchased: 0 });
+      setCredits({
+        // `null` znaczy „bez limitu w planie". Interfejs sprawdza `< 1`, więc
+        // podajemy liczbę, przy której nigdy nie zablokuje.
+        remaining_credits: dostepne === null ? Number.MAX_SAFE_INTEGER : dostepne,
+        bez_limitu: dostepne === null,
+      });
     } catch (err) {
       console.error(err);
+      setCredits({ remaining_credits: 0, bez_limitu: false });
     } finally {
       setCreditsLoading(false);
     }
