@@ -3298,6 +3298,7 @@ dokumentem.
 | 39 panel warsztatu opisuje firmę, nie agenta | ✅ | panel przepisany, 11 kolumn oznaczonych NIEUŻYWANE |
 | 40 biała lista, nie czarna | ✅ | `supervoip-zapis.mjs` + test ścieżek spoza listy |
 | 41 kryterium domyślnej odmowy | ⚠️ z natury | pytanie do zadania przy każdej liście, nie test |
+| 42 sprawdź, co się stanie po naprawie | ⚠️ z natury | pytanie przed naprawą; kontrola kolumn tylko WSKAZUJE miejsca |
 
 **Jedna zasada bez kontroli: 30** — i to świadomie: „uporządkowany wzorzec
 jest łatwiejszy do skopiowania" to obserwacja o redakcji promptu, nie warunek,
@@ -3317,6 +3318,31 @@ przebiegu, także zerowym** — liczbę, nie milczenie.
 
 „20 numerów u operatora, 20 u nas, 0 rozbieżności" widziane codziennie znaczy,
 że kontrola chodzi. Brak wiadomości nie znaczy nic.
+
+## ZASADA 42 — zanim naprawisz zepsute zapytanie, sprawdź, co się stanie, gdy zacznie działać
+
+`QuotaGuardProvider` czytał i zapisywał `service_providers.sms_balance` —
+kolumnę, której nie ma. Zapytanie zawodziło, użytkownik dostawał „Brak konta
+usługodawcy", wyglądało to na awarię konta. Naprawa wydawała się oczywista:
+podmienić kolumnę na właściwe źródło.
+
+**Naprawa otworzyłaby dziurę.** Ta funkcja jest wołana po zamknięciu okna
+zakupu, które NIE PRZEPROWADZA PŁATNOŚCI — wyżej w tym samym pliku stoi
+`toast.info('Przekierowanie do płatności…')` i nic więcej. Działający zapis
+znaczyłby SMS-y za darmo dla każdego, kto kliknie.
+
+**Zepsute zapytanie było jedynym zabezpieczeniem tej ścieżki.**
+
+Stąd reguła: przy każdym „to nie działa, naprawmy" najpierw pytanie —
+*co dokładnie zacznie się dziać, gdy zadziała, i czy ktokolwiek to zaprojektował?*
+Kod, który zawodzi od początku, nigdy nie był sprawdzony w działaniu;
+naprawiając go, uruchamiamy ścieżkę, której nikt nie przetestował.
+
+Konsekwencja dla projektu: mamy ścieżkę zakupu, która nic nie płaci i tylko
+przez przypadek nic nie przyznaje. To jest miara pilności naprawy płatności,
+a nie ciekawostka.
+
+---
 
 ## ZASADA 41 — kryterium domyślnej odmowy
 

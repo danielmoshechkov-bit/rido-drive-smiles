@@ -294,12 +294,14 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                       przekierowania na infolinii swojego operatora albo w jego aplikacji.
                     </p>
                   )}
+                  {/* BEZ KWOT. Widełki „0,20–0,40 zł" były wiedzą ogólną o rynku,
+                      nie odczytem z cennika. Konkretna liczba, która okaże się
+                      nieprawdziwa, kosztuje więcej niż jej brak — warsztat zapamięta,
+                      że podaliśmy cenę, a nie że była orientacyjna. */}
                   <p className="text-xs text-muted-foreground pt-1">
-                    Samo ustawienie przekierowania jest bezpłatne. Operator nalicza koszt za
-                    przekierowane połączenie — w abonamentach firmowych zwykle mieści się ono
-                    w pakiecie minut, a poza pakietem kosztuje tyle, co zwykłe połączenie
-                    na numer stacjonarny (rzędu 0,20–0,40 zł za minutę). Dokładną stawkę
-                    ma Twój operator w cenniku — my za przekierowanie nie pobieramy nic.
+                    Samo ustawienie przekierowania jest bezpłatne. Koszt przekierowanego
+                    połączenia zależy od Twojego operatora — zwykle naliczany jak zwykłe
+                    połączenie na numer stacjonarny. My za przekierowanie nie pobieramy nic.
                   </p>
                 </div>
               </div>
