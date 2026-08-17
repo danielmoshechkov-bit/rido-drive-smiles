@@ -73,6 +73,10 @@ WHERE subscriber_type = 'service_provider' AND subscriber_id = :provider
 Brak wiersza → 402 i komunikat „wybierz pakiet". Zgodnie z zasadą 41: brak
 danych to odmowa, nie zgoda.
 
+`status IN ('active','trialing')` zostawiam w zapytaniu świadomie, mimo że
+agent triala nie ma: gdyby kiedyś wrócił przez pakiet łączony, chcemy, żeby
+działał, a nie żeby klient zapłacił i dostał 402.
+
 `voice_pula_ustawienia.pierwszy_zakup_zrobiony` przestaje być bramką i zostaje
 jako ślad historyczny. **Bezpiecznik dobowy (3 zakupy) zostaje** — on nie chroni
 przed niepłacącym klientem, tylko przed naszym własnym błędem w liczeniu puli,
@@ -80,19 +84,33 @@ a ten nie znika wraz z płatnościami.
 
 ---
 
-## Trzy decyzje, których nie podejmuję sam
+## Trzy decyzje — ROZSTRZYGNIĘTE 17.08
 
-### 1. Czy 14 dni triala odblokowuje numer
+### 1. Trial — NIE MA GO I NIE BĘDZIE
 
-Plan `agent` ma `trial_days: 14`. Jeśli trial odblokowuje aktywację, ryzykujemy
-1,23 zł na warsztat, który może nie zapłacić — czyli **tyle samo co dziś**,
-tylko bez naszej ręcznej zgody. Jeśli nie odblokowuje, trial jest bezwartościowy
-dla produktu, którego całą wartością jest odbieranie telefonów.
+**Decyzja: agent jest płatny od pierwszego dnia. Bez wyjątków.**
+Każdy trial to numer za 1,23 zł z naszych pieniędzy plus minuty rozmów;
+dziesięć warsztatów testujących za darmo to setki złotych bez przychodu.
 
-Rekomendacja: **trial odblokowuje**, bo 1,23 zł to koszt pomijalny przy planie
-199 zł, a produkt bez telefonu nie da się wypróbować. Ryzyko ograniczają:
-jeden numer na konto, bezpiecznik dobowy i zwolnienie numeru po nieopłaconym
-trialu.
+⚠️ **Sprostowanie do mojej wcześniejszej informacji.** Napisałem, że plan
+`agent` ma `trial_days: 14`. To był błąd — patrzyłem na `bundle_warsztat_agent`
+(`product_line='other'`). Odczyt linii agenta:
+
+    agent        trial_days = 0   is_active = true
+    agent_pro    trial_days = 0   is_active = false
+    agent_sieci  trial_days = 0   is_active = false
+
+**Nie ma czego wyłączać — już jest zero.** Dodatkowo sprawdzone:
+`billing-checkout` nie tworzy triala w Stripe (czyta tylko istniejące statusy),
+a `workshopTrial.ts` filtruje po `product_line='warsztat'`, więc trial modułu
+warsztatowego nie dotyka agenta. Żadna dzisiejsza ścieżka nie daje agenta
+za darmo.
+
+**Jedyne ryzyko na przyszłość: pakiety łączone.** `bundle_warsztat_agent`
+(289 zł) i `bundle_max` (399 zł) mają `trial_days: 14` i **zawierają agenta**.
+Dziś oba są nieaktywne i bez ceny w Stripe. Włączenie któregokolwiek bez
+zmiany `trial_days` da agenta za darmo na 14 dni — czyli dokładnie to, czego
+nie chcemy, tylnymi drzwiami. Do sprawdzenia PRZED ich uruchomieniem.
 
 ### 2. Co się dzieje z numerem, gdy płatność wygaśnie
 
@@ -103,21 +121,29 @@ warsztatu dzwonią pod ten numer jeszcze miesiącami — po przypisaniu go komu�
 innemu usłyszą nazwę obcej firmy, a agent zaproponuje im terminy i ceny tego
 drugiego warsztatu. To wygląda jak wyciek, bo w praktyce nim jest.
 
-Projekt: status `karencja` na **90 dni**, w którym numer jest nasz, ale
-nieprzypisany i nieaktywny; dzwoniący słyszy jedno zdanie („ten numer nie jest
-już obsługiwany"). Dopiero po karencji wraca do puli. Koszt: 1,23 zł miesięcznie
-za numer, którego nikt nie używa — trzy złote za spokój.
+**Decyzja: karencja 90 dni.** Numer zostaje nasz, nieprzypisany i nieaktywny;
+dzwoniący słyszy, że numer nie jest już obsługiwany. Dopiero po karencji wraca
+do puli. Koszt: 3,69 zł za numer — nie jest to rachunek do zrobienia.
 
-Alternatywa: nie zwalniać wcale i płacić 1,23 zł bezterminowo. Przy stu
-warsztatach to 123 zł miesięcznie za numery martwe — do decyzji przy skali,
-nie teraz.
+Alternatywa (trzymać bezterminowo) wraca dopiero przy skali: sto martwych
+numerów to 123 zł miesięcznie.
 
 ### 3. Co robi agent po wygaśnięciu płatności, PRZED zwolnieniem numeru
 
-Rekomendacja: `is_active` zostaje po stronie warsztatu, ale init zwraca zdanie
-o zawieszeniu obsługi — tak jak dziś przy wyłączonym przełączniku. Warsztat,
-który zapomniał zapłacić, nie powinien tracić klienta w ciszy, ale i nie
-powinien dostawać usługi za darmo.
+**Decyzja: zdanie o zawieszeniu, ale INNE W TREŚCI niż przy wyłączonym
+przełączniku.**
+
+    przełącznik OFF:   „Przepraszam, w tej chwili nie przyjmujemy zgłoszeń
+                        telefonicznych."          ← decyzja warsztatu, stan trwały
+    płatność wygasła:  „Przepraszam, obsługa telefoniczna jest chwilowo
+                        zawieszona."              ← stan PRZEJŚCIOWY
+
+Różnica nie jest kosmetyczna: warsztat może opłacić i wrócić tego samego dnia,
+a dzwoniący, który usłyszał „nie przyjmujemy zgłoszeń", już nie zadzwoni.
+Zdanie idzie do wzorców w czterech językach, jak komunikaty awarii i zajętości.
+
+`is_active` zostaje decyzją warsztatu i nie jest przez nas przestawiane —
+inaczej po opłaceniu warsztat musiałby jeszcze pamiętać, żeby coś włączyć.
 
 ---
 
