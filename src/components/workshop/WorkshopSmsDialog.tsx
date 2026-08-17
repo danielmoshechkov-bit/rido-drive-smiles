@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { buildPublicUrl } from '@/lib/publicUrl';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { powodBleduFunkcji } from '@/lib/bladEdge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -134,7 +135,8 @@ export function WorkshopSmsDialog({ open, onOpenChange, order, type }: Props) {
             provider_id: order.provider_id,
           },
         });
-        if (error) throw error;
+        // Prawdziwy powod odmowy jest w tresci odpowiedzi serwera.
+        if (error) throw new Error(await powodBleduFunkcji(error));
         if ((data as any)?.error === 'NO_SMS') throw new Error('NO_SMS');
         return data;
       }, { retryLabel: t('workshop.sms.retryLabel') });

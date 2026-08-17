@@ -459,7 +459,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
                   <Eye className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuContent align="start" className="w-52" data-tour="menu-przyjecie">
                 <DropdownMenuItem onClick={() => openClientDoc('reception', 'preview')}>
                   <Eye className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.preview')}
                 </DropdownMenuItem>
@@ -494,7 +494,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuContent align="start" className="w-52" data-tour="menu-kosztorys">
                 {order.estimate_changed_after_send && (
                   <div className="px-3 py-2 text-xs text-destructive bg-destructive/10 border-b">
                     {t('workshop.orderDetail.estimateChangedWarning')}
@@ -542,7 +542,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
                   <Send className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuContent align="start" className="w-52" data-tour="menu-odbior">
                 <DropdownMenuItem onClick={() => openSms('ready')}>
                   <Send className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.sendNotification')}
                 </DropdownMenuItem>

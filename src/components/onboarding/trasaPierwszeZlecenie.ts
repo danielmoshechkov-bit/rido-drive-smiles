@@ -188,16 +188,18 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'przycisk-przyjecie',
+    celeDodatkowe: ['menu-przyjecie'],
     tytul: 'Protokół przyjęcia do podpisu',
     tresc: 'Pierwsza z trzech ikon rozmowy z klientem. Klient podpisuje, w jakim stanie zostawił auto — to Twoje zabezpieczenie przy sporze o rysę czy brakujący kołpak.\n\nZ rozwijanej listy wybierasz „Wyślij do podpisu": SMS idzie na numer wpisany w zleceniu (przy zleceniu próbnym — na Twój własny). Klient otwiera link i podpisuje palcem na telefonie.\n\nŻÓŁTA ikona znaczy: wysłane, czekamy na podpis. Gdy klient podpisze, zrobi się zielona. Nie musisz na to czekać, żeby iść dalej — kliknij „Dalej".',
   },
   {
     cel: 'przycisk-kosztorys',
+    celeDodatkowe: ['menu-kosztorys'],
     // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
     dalejKlika: true,
     tytul: 'Krok 5 — wyślij kosztorys',
-    tresc: 'Wyceniłeś pozycje, więc czas na akceptację. Kliknij tę ikonę — klient dostanie SMS z linkiem do kosztorysu.',
-    akcja: 'Kliknij ikonę kosztorysu albo „Dalej" — otworzę okno wysyłki',
+    tresc: 'Kolejność ma tu znaczenie: NAJPIERW protokół przyjęcia (poprzednia ikona) powinien świecić na ZIELONO, czyli klient go podpisał. Dopiero wtedy wysyłasz kosztorys — inaczej klient akceptuje kwotę, zanim potwierdził, w jakim stanie zostawił auto.\n\nZ rozwiniętej listy wybierz „Wyślij kosztorys". Klient dostanie SMS z linkiem, otworzy go na telefonie i kliknie „Akceptuję" — to zapala ikonę na zielono i znaczy: można brać auto na podnośnik.',
+    akcja: 'Wybierz z listy „Wyślij kosztorys"',
   },
   {
     cel: 'sms-quote',
@@ -231,6 +233,7 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'przycisk-odbior',
+    celeDodatkowe: ['menu-odbior'],
     tytul: 'Powiadomienie o gotowym aucie',
     tresc: 'Ta ikona w karcie zlecenia robi to samo: wysyła klientowi wiadomość, że auto czeka.\n\nJeśli SMS poszedł już przy zmianie statusu, ikona świeci na zielono i nie musisz nic robić.',
   },

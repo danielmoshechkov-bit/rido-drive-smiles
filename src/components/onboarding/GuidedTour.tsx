@@ -204,6 +204,9 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   // w ogole nie dzialal. Po recznej zmianie kroku ekran ma sie nie odzywac przez
   // kilka sekund, zeby dalo sie przeczytac to, do czego sie wrocilo.
   const recznaZmiana = useRef(0);
+  // Numer kroku widziany przez opoznione sprawdzenia (patrz nizej).
+  const krokRef = useRef(krok);
+  krokRef.current = krok;
 
   const zmierz = useCallback(() => {
     if (!biezacy?.cel) { setObszar(null); return; }
@@ -364,6 +367,19 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
         : (el?.querySelector('button, a, [role="button"]') as HTMLElement | null) ?? el;
       if (doKlikniecia && naEkranie(doKlikniecia)) {
         doKlikniecia.click();
+        // ZABEZPIECZENIE: klikniecie nie zawsze zmienia ekran — menu bywa juz
+        // otwarte, a wtedy drugi klik je tylko zamyka. Bez tego „Dalej"
+        // wygladalo na zepsute (najczesciej po powrocie przyciskiem „Wstecz").
+        // Gdy po sekundzie i pol nic sie nie ruszylo, przechodzimy normalnie.
+        const stad = krok;
+        window.setTimeout(() => {
+          if (krokRef.current !== stad || !onKrok) return;
+          const teraz = kroki.map((k) => k.cel);
+          const nastepny = nastepnyKrok(teraz, stad, widoczneCele(teraz));
+          if (nastepny >= kroki.length) { onZamknij(); return; }
+          if (kroki[nastepny]?.wracajNaListe) onWrocNaListe?.();
+          onKrok(nastepny);
+        }, 1500);
         return;
       }
     }
@@ -494,9 +510,14 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
           </p>
         )}
         </div>
-        <div className="flex items-center justify-between mt-3 shrink-0">
-          {pokazLicznik && <span className="text-[11px] text-muted-foreground">Krok {krok + 1} z {kroki.length}</span>}
-          <div className="flex gap-2">
+        {/* Licznik nad przyciskami, nie obok. Przy trzech przyciskach („Wstecz",
+            „Zamknij", „Dalej") w dymku szerokim na 320 px napis „Krok 23 z 37"
+            wypychal „Dalej" poza ramke — to widac bylo na kazdym kroku. */}
+        <div className="mt-3 shrink-0 space-y-2">
+          {pokazLicznik && (
+            <div className="text-[11px] text-muted-foreground">Krok {krok + 1} z {kroki.length}</div>
+          )}
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             {/* WSTECZ — zeby dalo sie wrocic do kroku, ktory przelecial za szybko
                 albo ktorego sie nie doczytalo. Na pierwszym kroku nie ma dokad. */}
             {krok > 0 && onKrok && (
@@ -505,11 +526,12 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
                 variant="ghost"
                 onClick={() => { recznaZmiana.current = Date.now(); onKrok(krok - 1); }}
                 title="Poprzedni krok"
+                className="px-2"
               >
                 <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Wstecz
               </Button>
             )}
-            <Button size="sm" variant="ghost" onClick={onZamknij}>Zamknij</Button>
+            <Button size="sm" variant="ghost" className="px-2" onClick={onZamknij}>Zamknij</Button>
             {/* „Dalej" jest ZAWSZE. Wczesniej na krokach czekajacych na
                 klikniecie pojawial sie dopiero po kilku sekundach — czlowiek
                 widzial sam „Zamknij" i myslal, ze wprowadzenie sie zacielo.

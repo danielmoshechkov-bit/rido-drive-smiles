@@ -105,6 +105,18 @@ sprawdz('„Zakonczone" ma znacznik', picker.includes("'status-zakonczone'"));
 sprawdz('pierwszy krok zwalnia po otwarciu okna', /krok === 0 && !document\.querySelector\('\[role="dialog"\]'\)/.test(silnik));
 sprawdz('to, co sie wlasnie pojawilo, lapie sie od razu', silnik.includes('const pilne ='));
 sprawdz('„Dalej" potrafi nacisnac za czlowieka', silnik.includes('dalejKlika') && silnik.includes('doKlikniecia.click()'));
+// Gdy klikniecie nic nie zmieni (menu juz otwarte), krok i tak ma ruszyc.
+sprawdz('„Dalej" nie zacina sie, gdy klikniecie nic nie zmieni', /krokRef\.current !== stad/.test(silnik));
+// Licznik nad przyciskami, zeby „Dalej" nie wypadal poza ramke.
+sprawdz('licznik krokow nie wypycha przyciskow', silnik.includes('mt-3 shrink-0 space-y-2'));
+// Rozwiniete menu ikony wchodzi do podswietlenia razem z ikona.
+const karta = czytaj('src/components/workshop/WorkshopOrderDetail.tsx', 'utf8');
+sprawdz('rozwiniete menu ikon jest podswietlane', karta.includes('data-tour="menu-kosztorys"') && karta.includes('data-tour="menu-przyjecie"'));
+// Prawdziwy powod odmowy z funkcji brzegowej zamiast „non-2xx status code".
+const bladEdge = czytaj('src/lib/bladEdge.ts', 'utf8');
+sprawdz('powod odmowy czytany z odpowiedzi serwera', bladEdge.includes('powodBleduFunkcji') && bladEdge.includes('context'));
+const nowe2 = czytaj('src/components/workshop/WorkshopNewOrderDialog.tsx', 'utf8');
+sprawdz('okno SMS po utworzeniu pokazuje prawdziwy blad', nowe2.includes('powodBleduFunkcji(error)'));
 
 // 4e. Podpowiedzi o cenach zostaja w interfejsie, nie tylko w dymku.
 const wycena = czytaj('src/components/workshop/tabs/WorkshopOrderTasksTab.tsx', 'utf8');
