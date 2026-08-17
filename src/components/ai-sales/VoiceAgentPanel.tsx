@@ -34,16 +34,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Loader2, Save, Phone, Building2, ShieldCheck, Copy, AlertTriangle, Plane } from "lucide-react";
 
-const LANGS = [
-  { code: "pl", label: "Polski" },
-  { code: "en", label: "English" },
-  { code: "ua", label: "Українська" },
-  { code: "ru", label: "Русский" },
-];
+// JĘZYKÓW WARSZTAT NIE WYBIERA. Agent rozpoznaje język z tego, co mówi
+// dzwoniący, i odpowiada w nim — obsługa rosyjskiego i ukraińskiego jest
+// w prompcie, nie w tym polu. Pole wyboru dawało warsztatowi możliwość
+// WYŁĄCZENIA języka, którym za chwilę zadzwoni jego klient, i nic więcej.
+// W bazie zostaje ["pl"], bo tego pola i tak nikt nie czyta jako listy
+// dozwolonych — czyta je prompt jako informację, jakim językiem zaczynać.
+const JEZYKI_DOMYSLNE = ["pl"];
 
 /** Limit pola „Dodatkowe informacje". To jedyne miejsce, którym warsztat
  *  naprawdę może zepsuć agenta — jego treść idzie prosto do promptu. */
@@ -136,7 +136,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
           persona_key: personaKey,
           is_active: !!data.is_active,
           display_name: data.display_name ?? "",
-          languages: data.languages?.length ? data.languages : ["pl"],
+          languages: data.languages?.length ? data.languages : JEZYKI_DOMYSLNE,
           business_context: { ...emptyBC(), ...(data.business_context ?? {}) },
           calendar_access: !!data.calendar_access,
           orders_access: !!data.orders_access,
@@ -160,7 +160,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
         }
         setCfg({
           persona_key: personaKey, is_active: false, display_name: "",
-          languages: ["pl"], business_context: bc, calendar_access: false, orders_access: false,
+          languages: JEZYKI_DOMYSLNE, business_context: bc, calendar_access: false, orders_access: false,
         });
       }
       setLoading(false);
@@ -244,7 +244,9 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> Asystent głosowy</CardTitle>
-          <CardDescription>Odbiera telefony od Twoich klientów i umawia wizyty.</CardDescription>
+          <CardDescription>
+            Asystent odbierający telefony — odbiera połączenia od Twoich klientów i umawia wizyty.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between rounded-lg border p-3">
@@ -428,26 +430,7 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label>Języki rozmowy</Label>
-            <div className="flex flex-wrap gap-3">
-              {LANGS.map((l) => (
-                <label key={l.code} className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={cfg.languages.includes(l.code)}
-                    onCheckedChange={(v) =>
-                      update({
-                        languages: v
-                          ? [...cfg.languages, l.code]
-                          : cfg.languages.filter((c) => c !== l.code),
-                      })
-                    }
-                  />
-                  {l.label}
-                </label>
-              ))}
-            </div>
-          </div>
+
         </CardContent>
       </Card>
 
