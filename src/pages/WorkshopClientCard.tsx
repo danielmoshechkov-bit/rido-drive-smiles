@@ -191,6 +191,15 @@ export default function WorkshopClientCard() {
 
   const hasSigned = (docType: string) => signatures.some(s => s.document_type === docType);
 
+  /**
+   * Czy klient złożył już JAKIKOLWIEK podpis na tym zleceniu.
+   *
+   * Jeśli tak, oświadczenie o danych osobowych zostało odebrane przy tamtym
+   * dokumencie i nie ma powodu żądać go ponownie przy kosztorysie ani przy
+   * wydaniu pojazdu.
+   */
+  const zgodaJuzUdzielona = signatures.length > 0;
+
   const handleSign = async (docType: string) => {
     setSigning(true);
     const nowIso = new Date().toISOString();
@@ -883,6 +892,33 @@ export default function WorkshopClientCard() {
             </p>
           </div>
 
+          {/* Oświadczenie o danych osobowych pokazujemy TYLKO przy pierwszym
+              podpisie na tym zleceniu.
+
+              Zgłoszenie z 17.08.2026: klient podpisywał przyjęcie pojazdu
+              i zaznaczał zgodę, a potem przy kosztorysie musiał zaznaczać ją
+              DRUGI RAZ. Zgoda na przetwarzanie danych i prawo zatrzymania to
+              oświadczenia jednorazowe — powtarzanie ich przy każdym dokumencie
+              nie dodaje niczego prawnie, a utrudnia podpisanie kosztorysu,
+              czyli moment, w którym klient akceptuje koszty.
+
+              Treść zostaje dostępna do rozwinięcia zawsze — znika wyłącznie
+              wymóg ponownego zaznaczenia. */}
+          {zgodaJuzUdzielona ? (
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer text-primary font-medium hover:underline">{t('workshop.clientCard.expandDeclaration')}</summary>
+              <div className="mt-2 space-y-2 border-l-2 border-primary/20 pl-3">
+                <div>
+                  <p className="font-semibold text-foreground">{t('workshop.clientCard.personalDataTitle')}</p>
+                  <p>{t('workshop.clientCard.personalDataBody')}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">{t('workshop.clientCard.retentionRightTitle')}</p>
+                  <p>{t('workshop.clientCard.retentionRightBody')}</p>
+                </div>
+              </div>
+            </details>
+          ) : (
           <div className="flex items-start gap-3">
             <Checkbox
               checked={accepted}
@@ -909,10 +945,11 @@ export default function WorkshopClientCard() {
               </details>
             </div>
           </div>
+          )}
 
           <Button
             onClick={() => signingDoc && handleSign(signingDoc)}
-            disabled={!accepted || signing}
+            disabled={(!accepted && !zgodaJuzUdzielona) || signing}
             className="w-full gap-2 h-12 text-base font-semibold"
             size="lg"
           >

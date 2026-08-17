@@ -24,7 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cenaNieustalona } from '@/lib/orderItemPricing';
 import { useTranslation } from 'react-i18next';
 import { useWorkshopTranslations, TranslatableField } from '@/hooks/useWorkshopTranslations';
-import { VAT_RATE, safeNumber, getDiscountPercent, getLineTotal } from '@/utils/workshopOrderTotals';
+import { VAT_RATE, safeNumber, getDiscountPercent, getLineTotal, parsujLiczbe, formatujIlosc } from '@/utils/workshopOrderTotals';
 
 interface Props {
   order: any;
@@ -59,6 +59,13 @@ interface GoodsRow {
   draftKey?: string;
   name: string;
   quantity: number;
+  /**
+   * To, co użytkownik ma w polu — dosłownie, razem z przecinkiem i niedokończonym
+   * zapisem („1,”). Bez tego pole przy każdym znaku przeliczałoby się na liczbę
+   * i z powrotem, więc przecinka nie dałoby się dopisać: „1,” zamieniało się
+   * w „1” i kursor tracił znak.
+   */
+  quantityTekst?: string;
   unit: string;
   price_net: number;
   price_gross: number;
@@ -1059,7 +1066,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       // Nie nadpisuj oryginału mechanika, jeśli admin nie zmienił przetłumaczonej nazwy
       if (myValue !== nameDisplay(item)) updates.name = myValue;
     } else if (myField === 'quantity') {
-      const newQty = Math.max(1, parseInt(myValue) || 1);
+      // `parseInt` OBCINAŁO część dziesiętną: „1,5 l” oleju zapisywało się jako 1,
+      // a `Math.max(1, …)` dodatkowo nie pozwalał zejść poniżej sztuki — czyli
+      // pół litra czy 0,25 kg nie dało się wpisać w ogóle.
+      // `parsujLiczbe` rozumie przecinek i kropkę; zero i wartości ujemne
+      // zamieniamy na 1, bo pozycja bez ilości nie ma sensu.
+      const wpisana = parsujLiczbe(myValue);
+      const newQty = wpisana > 0 ? Math.round(wpisana * 1000) / 1000 : 1;
       if (newQty !== (safeNumber(item.quantity) || 1)) {
         updates.quantity = newQty;
         const unitPrice = gross ? safeNumber(item.unit_price_gross) : safeNumber(item.unit_price_net);
@@ -2277,13 +2290,20 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                       </td>
                       <td className="p-1.5">
                         <Input
-                          type="number"
+                          // `type="number"` NIE PRZYJMUJE przecinka — przeglądarka
+                          // odrzuca znak, więc „1,5” nie dało się wpisać w ogóle.
+                          // Tekst plus `inputMode="decimal"` daje na telefonie tę samą
+                          // klawiaturę numeryczną, a przecinek przechodzi.
+                          type="text"
+                          inputMode="decimal"
                           // Klikniecie w pole zaznacza wartosc — wpisujesz nowa od razu, bez
                           // kasowania starej (pole ILOSC ma domyslnie 1, wiec "2" dawalo "21").
                           onFocus={e => e.currentTarget.select()}
-                          min={1}
-                          value={row.quantity}
-                          onChange={e => updateGoodsRow(idx, { quantity: Number(e.target.value) })}
+                          value={row.quantityTekst ?? formatujIlosc(row.quantity)}
+                          onChange={e => updateGoodsRow(idx, {
+                            quantityTekst: e.target.value,
+                            quantity: parsujLiczbe(e.target.value),
+                          })}
                           className="h-9 w-full text-sm text-center min-w-0 px-2"
                           onKeyDown={e => {
                             if (e.key === 'Enter') {
@@ -2507,10 +2527,14 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <div className="grid grid-cols-3 gap-2">
                   <Input
                     onFocus={e => e.currentTarget.select()}
-                    type="number"
+                    // Jak wyżej: tekst, bo `type="number"` odrzuca przecinek.
+                    type="text"
                     inputMode="decimal"
-                    value={row.quantity}
-                    onChange={e => updateGoodsRow(idx, { quantity: Number(e.target.value) })}
+                    value={row.quantityTekst ?? formatujIlosc(row.quantity)}
+                    onChange={e => updateGoodsRow(idx, {
+                      quantityTekst: e.target.value,
+                      quantity: parsujLiczbe(e.target.value),
+                    })}
                     className="h-10 text-sm text-center"
                   />
                   <Input
