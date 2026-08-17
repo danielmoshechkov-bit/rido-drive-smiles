@@ -223,6 +223,36 @@ krok = nastepnyKrok(cele, krok, panelZZaznaczonym);
 sprawdz('„Dalej": usunięcie zlecenia próbnego', krok, 'usun-zlecenie');
 sprawdzWarunek('to ostatni krok trasy', krok === cele.length - 1);
 
+// ── KOLEJNOSC, NA KTOREJ STOI CALA RESZTA ───────────────────────────────────
+//
+// Kosztorys wysyla sie z cenami, a ceny biora sie z Rido Wyceny. Dlatego krok
+// „Rido Wycena" MUSI wypasc przed krokiem „wyslij kosztorys" — inaczej
+// wprowadzenie prowadzi do przycisku, ktory nie ma czego wyslac. Nie blokujemy
+// tego w kodzie (mozna przeciez wpisac ceny recznie), ale pilnujemy kolejnosci.
+{
+  const rido = cele.indexOf('rido-wycena');
+  const oknoRido = cele.indexOf('rido-okno');
+  const kosztorys = cele.indexOf('przycisk-kosztorys');
+  const robocizna = cele.indexOf('tabela-robocizny');
+  sprawdzWarunek(`robocizna (${robocizna}) przed Rido Wyceną (${rido})`, robocizna < rido);
+  sprawdzWarunek(`okno widełek (${oknoRido}) zaraz po przycisku (${rido})`, oknoRido === rido + 1);
+  sprawdzWarunek(`Rido Wycena przed kosztorysem (${rido} < ${kosztorys})`, rido < kosztorys);
+}
+
+// Idac samym „Dalej" od robocizny NIE da sie ominac Rido Wyceny.
+{
+  let i = cele.indexOf('tabela-robocizny');
+  const odwiedzone = [];
+  for (let n = 0; n < 12 && cele[i] !== 'przycisk-kosztorys'; n++) {
+    i = nastepnyKrok(cele, i, kartaWyceny);
+    odwiedzone.push(cele[i]);
+  }
+  sprawdzWarunek(
+    `„Dalej" od robocizny prowadzi przez Rido Wycenę do kosztorysu (${odwiedzone.join(' → ')})`,
+    odwiedzone.includes('rido-wycena') && cele[i] === 'przycisk-kosztorys',
+  );
+}
+
 // ── PRZYPADKI BRZEGOWE, KTÓRE WYSZŁY NA ŻYWO ────────────────────────────────
 console.log('--- przypadki brzegowe ---');
 
