@@ -89,6 +89,15 @@ export interface KrokTrasy {
    */
   dalejKlika?: boolean;
   /**
+   * Co dokładnie ma nacisnąć „Dalej", jeśli to co innego niż `cel`.
+   *
+   * Krok o numerze rejestracyjnym podświetla POLE, a naciska „Utwórz nowy
+   * pojazd" — bo to jest czynność, którą krok opisuje. Bez tego wprowadzenie
+   * wpisywało numer i stało, a następny krok mówił o oknie, które się nie
+   * otworzyło.
+   */
+  dalejKlikaCel?: string;
+  /**
    * „Dalej" najpierw ZAMYKA otwarte okno, a potem idzie dalej.
    *
    * Do kroków, które opisują podgląd (dokument, wydruk): dopóki okno stoi na
@@ -208,6 +217,22 @@ function widoczneCele(cele: Array<string | undefined>): WidocznyCel[] {
  *   - gdy kursor juz z pola wyszedl, nie ma na co czekac.
  */
 const ostatniaTresc = new Map<string, { wartosc: string; czas: number }>();
+
+/**
+ * Przycisk, ktory NAPRAWDE wykonuje czynnosc.
+ *
+ * Pierwszy przycisk w kontenerze to zwykle „Anuluj" — wprowadzenie klikalo wiec
+ * anulowanie zamiast zapisu i cala praca przepadala. Bierzemy ostatni przycisk,
+ * a jesli jakis ma wyglad glowny (variant default), to jego.
+ */
+function przyciskGlowny(el: HTMLElement | null): HTMLElement | null {
+  if (!el) return null;
+  const przyciski = Array.from(el.querySelectorAll('button, a, [role="button"]')) as HTMLElement[];
+  if (!przyciski.length) return el;
+  const odrzuc = /anuluj|zamknij|cancel|pomiń|pomin/i;
+  const sensowne = przyciski.filter((p) => !odrzuc.test(p.textContent || ''));
+  return (sensowne[sensowne.length - 1] ?? przyciski[przyciski.length - 1]) || el;
+}
 
 function wypelnione(el: HTMLElement, klucz: string): boolean {
   const pole = el.querySelector('input, textarea') as HTMLInputElement | null;
@@ -445,6 +470,21 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       });
     }
 
+    // Wpisanie przykładu i kliknięcie w jednym kroku: React musi zdążyć
+    // przerysować listę (np. „Utwórz nowy pojazd" pojawia się po wpisaniu
+    // numeru), więc klikamy z małym opóźnieniem.
+    if (biezacy.przykladoweWpisy && (biezacy.dalejKlika || biezacy.dalejKlikaCel)) {
+      const nazwa = biezacy.dalejKlikaCel || biezacy.cel;
+      window.setTimeout(() => {
+        const el = document.querySelector(`[data-tour="${nazwa}"]`) as HTMLElement | null;
+        const cel = el?.matches('button, a, [role="button"]') ? el : przyciskGlowny(el);
+        if (cel && naEkranie(cel)) cel.click();
+      }, 350);
+      recznaZmiana.current = Date.now();
+      setRuszony(true);
+      return;
+    }
+
     // Krok opisujący podgląd: zamykamy okno za człowieka. Radix zamyka się na
     // Escape, więc nie musimy szukać krzyżyka w każdym oknie z osobna.
     if (biezacy.zamknijOkno && document.querySelector('[role="dialog"]')) {
@@ -454,11 +494,12 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
     // Krok „samoklikający": naciskamy jego cel i NIE przesuwamy kroku ręcznie —
     // ekran zmieni się sam, a wprowadzenie za nim podąży. Dzięki temu nie ma
     // rozjazdu między tym, co zrobił człowiek, a tym, co pokazuje dymek.
-    if (biezacy.dalejKlika && biezacy.cel) {
-      const el = document.querySelector(`[data-tour="${biezacy.cel}"]`) as HTMLElement | null;
+    if ((biezacy.dalejKlika || biezacy.dalejKlikaCel) && (biezacy.dalejKlikaCel || biezacy.cel)) {
+      const nazwa = biezacy.dalejKlikaCel || biezacy.cel;
+      const el = document.querySelector(`[data-tour="${nazwa}"]`) as HTMLElement | null;
       const doKlikniecia = el?.matches('button, a, [role="button"]')
         ? el
-        : (el?.querySelector('button, a, [role="button"]') as HTMLElement | null) ?? el;
+        : przyciskGlowny(el);
       if (doKlikniecia && naEkranie(doKlikniecia)) {
         doKlikniecia.click();
         // ZABEZPIECZENIE: klikniecie nie zawsze zmienia ekran — menu bywa juz

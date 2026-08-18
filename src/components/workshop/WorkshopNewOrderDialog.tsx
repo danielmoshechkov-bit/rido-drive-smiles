@@ -560,7 +560,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                 z tego, co akurat wpisano w wyszukiwarkę, więc literówka w numerze
                                 rejestracyjnym stawała się nowym autem w kartotece. Zostaje jedna
                                 droga — do formularza, gdzie dane pojazdu pobiera się po numerze. */}
-                            <button className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 border-b font-medium bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
+                            <button data-tour="utworz-pojazd" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 border-b font-medium bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
                               <Plus className="h-4 w-4" /> {t('workshop.newOrder.createNewVehicle')}
                             </button>
                             {existingByPlate && (
@@ -625,7 +625,7 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
                                 z tego, co akurat wpisano w wyszukiwarkę, więc literówka w numerze
                                 rejestracyjnym stawała się nowym autem w kartotece. Zostaje jedna
                                 droga — do formularza, gdzie dane pojazdu pobiera się po numerze. */}
-                            <button className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 border-b font-medium bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
+                            <button data-tour="utworz-pojazd" className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 border-b font-medium bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => { setShowVehicleList(false); setShowAddVehicle(true); }}>
                               <Plus className="h-4 w-4" /> {t('workshop.newOrder.createNewVehicle')}
                             </button>
                             {filteredVehicles.map((v: any) => (

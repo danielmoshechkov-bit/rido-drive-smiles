@@ -143,6 +143,11 @@ sprawdz('Rido Wycena ma gotowa odpowiedz dla auta pokazowego', rido.includes('to
 sprawdz('„Dalej" przenosi ceny do kosztorysu', trasa.includes("cel: 'zastosuj-ceny'") && czytaj('src/components/workshop/pricing/RidoPriceModal.tsx','utf8').includes('data-tour="zastosuj-ceny"'));
 // Podswietlenie ma nadazac za klikaniem.
 sprawdz('podswietlenie odswieza sie szybko', silnik.includes('setInterval(odswiez, 120)') && silnik.includes("behavior: 'auto'"));
+// „Dalej" nie moze klikac „Anuluj" — pierwszy przycisk w stopce to wlasnie on.
+sprawdz('„Dalej" wybiera przycisk glowny, nie Anuluj', silnik.includes('przyciskGlowny') && /odrzuc = \/anuluj/.test(silnik));
+// Krok o numerze rejestracyjnym otwiera okno zakladania auta.
+sprawdz('„Dalej" otwiera okno zakladania auta', trasa.includes("dalejKlikaCel: 'utworz-pojazd'") && czytaj('src/components/workshop/WorkshopNewOrderDialog.tsx', 'utf8').includes('data-tour="utworz-pojazd"'));
+sprawdz('„Dalej" otwiera okno wlasciciela', trasa.includes("dalejKlikaCel: 'dodaj-wlasciciela'") && pojazd.includes('data-tour="dodaj-wlasciciela"'));
 sprawdz('to, co sie wlasnie pojawilo, lapie sie od razu', silnik.includes('const pilne ='));
 sprawdz('„Dalej" potrafi nacisnac za czlowieka', silnik.includes('dalejKlika') && silnik.includes('doKlikniecia.click()'));
 // Gdy klikniecie nic nie zmieni (menu juz otwarte), krok i tak ma ruszyc.
