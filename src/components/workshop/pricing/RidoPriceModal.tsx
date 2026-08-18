@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { toAutoDemo, wycenaDemo } from '@/lib/autoDemo';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,7 +37,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   services: ServiceItem[];
-  vehicle: { brand?: string; model?: string; year?: number; engine_capacity_cm3?: number; fuel_type?: string } | null;
+  vehicle: { plate?: string; brand?: string; model?: string; year?: number; engine_capacity_cm3?: number; fuel_type?: string } | null;
   city?: string;
   voivodeship?: string;
   industry?: string;
@@ -117,6 +118,24 @@ export function RidoPriceModal({
   const fetchSuggestions = async () => {
     setLoading(true);
     setError(null);
+
+    // ZLECENIE POKAZOWE — widelki od reki.
+    //
+    // Prawdziwa wycena pyta historie i model AI: kilkanascie sekund czekania
+    // i realny koszt. We wprowadzeniu chodzi o to, ZEBY ZOBACZYC, jak to
+    // wyglada, wiec dla auta pokazowego podajemy zapisane liczby natychmiast.
+    if (toAutoDemo(vehicle?.plate)) {
+      const gotowe = services.map((s) => {
+        const w = wycenaDemo(s.name);
+        return w ? { name: s.name, min: w.min, max: w.max, note: w.note } : { name: s.name, min: 0, max: 0, note: null };
+      });
+      if (gotowe.some((g) => g.min > 0)) {
+        setSuggestions(gotowe);
+        setLoading(false);
+        setOpisWDrodze(false);
+        return;
+      }
+    }
 
     const historia = fetchHistorySuggestions()
       .then(wynik => {
@@ -675,7 +694,7 @@ Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t('workshop.pricing.close')}</Button>
           {!missingVehicleData && suggestions.length > 0 && (
-            <Button onClick={handleApplyAll} className="gap-2">
+            <Button data-tour="zastosuj-ceny" onClick={handleApplyAll} className="gap-2">
               <Sparkles className="h-4 w-4" />
               {t('workshop.pricing.priceModal.applyPrices')}
             </Button>

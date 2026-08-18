@@ -39,3 +39,34 @@ export const KLIENT_DEMO = {
   first_name: 'Jan',
   last_name: 'Przykładowy',
 } as const;
+
+/**
+ * Gotowa odpowiedź Rido Wyceny dla pozycji ze zlecenia próbnego.
+ *
+ * Prawdziwa wycena pyta historię i model AI — to trwa kilkanaście sekund i
+ * kosztuje. We wprowadzeniu chodzi o pokazanie, JAK to wygląda, a nie o wynik,
+ * więc dla auta pokazowego podajemy widełki od razu. Liczby i opisy są tymi,
+ * które model naprawdę zwrócił dla tego auta.
+ */
+export const WYCENA_DEMO: Record<string, { min: number; max: number; note: string }> = {
+  'wymiana wahaczy przednich': {
+    min: 250,
+    max: 500,
+    note: 'Robocizna obejmuje wymianę obu wahaczy przednich (P+L) wraz z demontażem i montażem — po tej operacji geometria kół jest OBOWIĄZKOWA, jej koszt (ok. 100–150 zł) doliczany jest osobno. Czas pracy: 2–3h przy skorodowanych śrubach. Orientacyjny koszt samych wahaczy: 150–450 zł za sztukę.',
+  },
+  'wymiana sprężyn przednich': {
+    min: 300,
+    max: 600,
+    note: 'Wymiana obu sprężyn przednich wymaga ściągacza sprężyn i demontażu kolumn McPhersona. Przy okazji warto sprawdzić amortyzatory i łożyska górne — ich wymiana przy tej samej robociźnie kosztuje niewiele więcej. Czas pracy: 2–3h.',
+  },
+  'wymiana klocków hamulcowych przód': {
+    min: 80,
+    max: 150,
+    note: 'Robocizna obejmuje demontaż zacisku, wymianę klocków na obu kołach (P+L) i docieranie. Warto sprawdzić stan prowadnic i tłoczków zacisku — ich serwis to dodatkowy koszt. Czas pracy: 0,5–1h. Orientacyjny koszt samych klocków: 80–200 zł.',
+  },
+};
+
+/** Widełki dla pozycji, jeśli to jedna z pozycji pokazowych. */
+export function wycenaDemo(nazwa: string) {
+  return WYCENA_DEMO[String(nazwa ?? '').trim().toLowerCase()] ?? null;
+}

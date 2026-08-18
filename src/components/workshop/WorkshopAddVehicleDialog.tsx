@@ -301,7 +301,7 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
             <div className="space-y-1.5" data-tour="pojazd-wlasciciel">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold">{t('workshop.vehicles.clientData')}</Label>
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddOwner(true)}>
+                <Button data-tour="dodaj-wlasciciela" variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAddOwner(true)}>
                   <Plus className="h-3 w-3" /> {t('workshop.vehicles.addOwner')}
                 </Button>
               </div>

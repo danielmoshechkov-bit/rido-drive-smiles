@@ -118,6 +118,14 @@ export interface KrokTrasy {
    * nie ruszamy — nikt nie chce, żeby jego wpis zniknął.
    */
   przykladoweWpisy?: string[];
+  /**
+   * Pole, którego NIE WOLNO pominąć — „Dalej" nie przejdzie, dopóki jest puste.
+   *
+   * Numer telefonu przy zleceniu próbnym musi wpisać sam warsztat: to na niego
+   * pójdą SMS-y z przejścia. Podstawienie czegokolwiek za człowieka znaczyłoby
+   * wysyłkę do przypadkowej osoby.
+   */
+  wymagane?: string;
 }
 
 interface Props {
@@ -236,6 +244,9 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   const [czekaNaDalej, setCzekaNaDalej] = useState(false);
   // Czy czlowiek kliknal juz „Dalej" na kroku, ktory na to czeka.
   const [ruszony, setRuszony] = useState(false);
+  // Komunikat „wpisz to, zanim pójdziemy dalej".
+  const [brakuje, setBrakuje] = useState<string | null>(null);
+  useEffect(() => { setBrakuje(null); }, [krok]);
   useEffect(() => { setRuszony(false); }, [krok]);
   // CZLOWIEK WAZNIEJSZY OD EKRANU.
   //
@@ -252,7 +263,9 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
     if (!biezacy?.cel) { setObszar(null); return; }
     const el = document.querySelector(`[data-tour="${biezacy.cel}"]`) as HTMLElement | null;
     if (!el) { setObszar(null); return; }
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // BEZ plynnego przewijania: animacja trwala pol sekundy, wiec ramka
+    // dojezdzala do celu juz po tym, jak czlowiek przeczytal dymek.
+    el.scrollIntoView({ block: 'center', behavior: 'auto' });
 
     // PODŚWIETLAMY RAZEM Z TYM, CO Z ELEMENTU WYCHODZI.
     //
@@ -296,7 +309,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
     const odswiez = () => zmierz();
     window.addEventListener('scroll', odswiez, true);
     window.addEventListener('resize', odswiez);
-    const timer = window.setInterval(odswiez, 600);
+    const timer = window.setInterval(odswiez, 120);
     return () => {
       window.removeEventListener('scroll', odswiez, true);
       window.removeEventListener('resize', odswiez);
@@ -382,7 +395,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       if (trafiony !== krok) onKrok(trafiony);
     };
 
-    const timer = window.setInterval(dopasuj, 400);
+    const timer = window.setInterval(dopasuj, 120);
     return () => window.clearInterval(timer);
   }, [kroki, krok, onKrok, ruszony]);
 
@@ -398,6 +411,17 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   // okna, które się jeszcze nie otworzyło), a na tym ekranie zostało coś do
   // pokazania — pokazujemy to, zamiast przeskakiwać w próżnię.
   const dalejPoEkranie = () => {
+    // Pole obowiązkowe: zamiast iść dalej, mówimy, czego brakuje.
+    if (biezacy.wymagane && biezacy.cel) {
+      const miejsce = document.querySelector(`[data-tour="${biezacy.cel}"]`) as HTMLElement | null;
+      const pole = miejsce?.querySelector('input, textarea') as HTMLInputElement | null;
+      if (pole && !pole.value.trim()) {
+        setBrakuje(biezacy.wymagane);
+        pole.focus();
+        return;
+      }
+    }
+    setBrakuje(null);
     recznaZmiana.current = Date.now();
     setRuszony(true);
 
@@ -568,6 +592,11 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
         <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">{biezacy.tresc}</p>
         {biezacy.akcja && (
           <p className="mt-2 text-xs font-medium text-primary">{biezacy.akcja}</p>
+        )}
+        {brakuje && (
+          <p className="mt-2 rounded-md bg-destructive/10 px-2 py-1.5 text-xs font-medium text-destructive">
+            {brakuje}
+          </p>
         )}
         {dymekNaSrodku && (
           // Nie ma czego podświetlić. Dwa różne powody, więc dwie różne rady:

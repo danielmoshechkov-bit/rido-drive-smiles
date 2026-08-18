@@ -122,7 +122,9 @@ sprawdz('auto pokazowe ma zapisane dane', demo.includes('WW140TV') && demo.inclu
 sprawdz('auto pokazowe nie odpytuje rejestru', pojazd.includes('toAutoDemo(form.plate)'));
 sprawdz('trasa wpisuje numer auta pokazowego', trasa.includes("przykladoweWpisy: ['WW140TV']"));
 // Telefon klienta probnego = telefon warsztatu.
-sprawdz('telefon probny to numer warsztatu', trasa.includes('{{telefon-warsztatu}}') && panel.includes("'telefon-warsztatu'"));
+// Numeru NIE podstawiamy — musi go wpisac warsztat (patrz „wymagane" nizej).
+// Mechanizm tokenow zostaje, bo przyda sie przy innych polach.
+sprawdz('mechanizm podstawiania wartosci istnieje', silnik.includes('wartosci?.[klucz]') && panel.includes("'telefon-warsztatu'"));
 // „Dalej" tworzy zlecenie, zapisuje klienta i pojazd.
 for (const cel of ['zapisz-zlecenie', 'klient-zapisz', 'pojazd-zapisz']) {
   const i = trasa.indexOf(`cel: '${cel}'`);
@@ -131,6 +133,16 @@ for (const cel of ['zapisz-zlecenie', 'klient-zapisz', 'pojazd-zapisz']) {
 // Wyczerpana pula probna nie moze blokowac wysylki z pakietu.
 const edgeSms = czytaj('supabase/functions/workshop-send-sms/index.ts', 'utf8');
 sprawdz('pula probna nie blokuje SMS-a z pakietu', !edgeSms.includes('DEMO_SMS_BLOCKED') && edgeSms.includes('smsProbny = wpis?.dozwolone === true'));
+// Telefon to jedyne pole, ktorego NIE wypelniamy za czlowieka.
+sprawdz('telefon jest polem obowiazkowym', silnik.includes('wymagane') && trasa.includes("wymagane: 'Wpisz swój numer"));
+sprawdz('brak numeru nie przepuszcza dalej', /if \(pole && !pole\.value\.trim\(\)\) \{\s*setBrakuje/.test(silnik));
+// Rido Wycena dla auta pokazowego odpowiada natychmiast.
+const rido = czytaj('src/components/workshop/pricing/RidoPriceModal.tsx', 'utf8');
+sprawdz('Rido Wycena ma gotowa odpowiedz dla auta pokazowego', rido.includes('toAutoDemo(vehicle?.plate)') && demo.includes('WYCENA_DEMO'));
+// „Zastosuj ceny" to osobny krok, ktory „Dalej" naciska.
+sprawdz('„Dalej" przenosi ceny do kosztorysu', trasa.includes("cel: 'zastosuj-ceny'") && czytaj('src/components/workshop/pricing/RidoPriceModal.tsx','utf8').includes('data-tour="zastosuj-ceny"'));
+// Podswietlenie ma nadazac za klikaniem.
+sprawdz('podswietlenie odswieza sie szybko', silnik.includes('setInterval(odswiez, 120)') && silnik.includes("behavior: 'auto'"));
 sprawdz('to, co sie wlasnie pojawilo, lapie sie od razu', silnik.includes('const pilne ='));
 sprawdz('„Dalej" potrafi nacisnac za czlowieka', silnik.includes('dalejKlika') && silnik.includes('doKlikniecia.click()'));
 // Gdy klikniecie nic nie zmieni (menu juz otwarte), krok i tak ma ruszyc.

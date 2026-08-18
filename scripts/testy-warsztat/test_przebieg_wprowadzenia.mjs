@@ -162,6 +162,7 @@ for (const [opis, oczek] of [
   // „Dalej" idzie o JEDEN krok, wiec przechodzi takze przez kroki, ktorych cel
   // akurat nie jest na wierzchu (okno Rido). Tak jest przewidywalnie.
   ['okno widelek', 'rido-okno'],
+  ['zastosowanie cen', 'zastosuj-ceny'],
   ['części', 'tabela-czesci'],
   ['koszt', 'kolumna-koszt'],
   ['cena', 'kolumna-cena'],
@@ -175,7 +176,11 @@ for (const [opis, oczek] of [
 
 // ── EKRAN 10b: okno Rido Wyceny ─────────────────────────────────────────────
 {
-  const oknoRido = [...kartaWyceny.map((w) => ({ ...w })), { cel: 'rido-okno', glebokosc: 1 }];
+  const oknoRido = [
+    ...kartaWyceny.map((w) => ({ ...w })),
+    { cel: 'rido-okno', glebokosc: 1 },
+    { cel: 'zastosuj-ceny', glebokosc: 1 },
+  ];
   const wynik = wybierzKrok(cele, cele.indexOf('rido-wycena'), oknoRido, opcje);
   sprawdz('po kliknięciu Rido Wycena: okno widełek', wynik, 'rido-okno');
 }

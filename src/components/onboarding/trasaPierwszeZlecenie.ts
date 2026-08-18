@@ -51,13 +51,15 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'pojazd-wlasciciel',
+    celeDodatkowe: ['dodaj-wlasciciela'],
+    dalejKlika: true,
     tytul: 'Najpierw właściciel auta',
     tresc: 'Auto zawsze ma właściciela — bez niego nie ma komu wysłać SMS-a ani wystawić faktury.\n\nWyszukaj go na liście, a jeśli go tam nie ma, kliknij „Dodaj właściciela" po prawej stronie tej sekcji.',
-    akcja: 'Na czas nauki wpisz siebie i swój numer',
+    akcja: 'Kliknij „Dalej" — otworzę okno dodawania właściciela',
   },
   {
     cel: 'klient-imie-nazwisko',
-    przykladoweWpisy: ['Jan', 'Przykładowy'],
+    przykladoweWpisy: ['Jan', 'Nowak'],
     tytul: 'Dane właściciela',
     tresc: 'Na czas nauki wpisz TU SIEBIE: swoje imię i nazwisko. Dzięki temu wszystkie wiadomości z tego zlecenia przyjdą do Ciebie i zobaczysz je oczami klienta.\n\n„Osoba prywatna" albo „Firma" — przy firmie dojdzie NIP i pobierzemy dane z GUS.',
     // Po wpisaniu imienia ramka schodzi sama na pole telefonu — w środku jednego
@@ -66,13 +68,14 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'klient-telefon',
-    // „Dalej" wpisuje telefon WARSZTATU — SMS-y z przejścia mają wrócić do Ciebie.
-    przykladoweWpisy: ['{{telefon-warsztatu}}'],
+    // Tego jednego pola NIE wypełniamy za człowieka: SMS-y z przejścia pójdą
+    // NAPRAWDĘ, więc numer musi być świadomie wpisany przez warsztat.
+    wymagane: 'Wpisz swój numer telefonu — to na niego przyjdą SMS-y z tego zlecenia. Bez niego nie ruszymy dalej.',
     // Po wpisaniu numeru ramka pokazuje przycisk zapisu — inaczej instrukcja
     // mowi „potem Zapisz", a nie widac ktory to przycisk.
     przejdzGdyWypelnione: true,
     tytul: 'Telefon — najważniejsze pole',
-    tresc: 'Wpisz TU SWÓJ numer telefonu — ten, który masz przy sobie.\n\nNa niego pójdzie potwierdzenie przyjęcia, kosztorys do akceptacji i wiadomość, że auto jest gotowe. Przejdziesz całą drogę i zobaczysz każdą wiadomość tak, jak zobaczy ją klient. Potem „Zapisz".',
+    tresc: 'Wpisz TU SWÓJ numer telefonu — ten, który masz przy sobie. To jedyne pole, którego nie wypełnię za Ciebie.\n\nNa ten numer pójdzie potwierdzenie przyjęcia, kosztorys do akceptacji i wiadomość, że auto jest gotowe. Przejdziesz całą drogę i zobaczysz każdą wiadomość tak, jak zobaczy ją klient.',
   },
   {
     cel: 'klient-zapisz',
@@ -172,9 +175,18 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'rido-okno',
+    zamknijOkno: false,
     tytul: 'Skąd biorą się te kwoty',
-    tresc: 'To jest podpowiedź do wyceny — nie cennik narzucony z góry. Liczby biorą się z trzech źródeł naraz:\n\n• z Twoich wcześniejszych zleceń na tę samą robotę,\n• z wycen innych warsztatów w portalu dla tego modelu auta,\n• z tego, co dopowie RidoAI dla Twojej okolicy (kolumna „Uwagi RidoAI").\n\nPrzy każdej pozycji masz zakres OD–DO i pole „Twoja cena". Możesz wpisać własną kwotę albo zostawić proponowaną, a potem kliknąć „Zastosuj ceny do kosztorysu" — trafią prosto do wyceny. Jeśli wolisz policzyć sam, po prostu zamknij to okno.',
-    akcja: 'Wpisz swoje ceny albo kliknij „Zastosuj ceny do kosztorysu"',
+    tresc: 'To jest podpowiedź do wyceny — nie cennik narzucony z góry. Liczby biorą się z trzech źródeł naraz:\n\n• z Twoich wcześniejszych zleceń na tę samą robotę,\n• z wycen innych warsztatów w portalu dla tego modelu auta,\n• z tego, co dopowie RidoAI dla Twojej okolicy (kolumna „Uwagi RidoAI").\n\nPrzy każdej pozycji masz zakres OD–DO i pole „Twoja cena" — możesz wpisać własną kwotę albo zostawić proponowaną.',
+  },
+  {
+    cel: 'zastosuj-ceny',
+    // Osobny krok: „Dalej" naprawde wciska „Zastosuj ceny do kosztorysu",
+    // wiec cala droge da sie przejsc samym „Dalej".
+    dalejKlika: true,
+    tytul: 'Przenieś ceny do kosztorysu',
+    tresc: 'Ceny z tego okna nie wchodzą do wyceny same — trzeba je zatwierdzić.\n\nTen przycisk przepisuje kwoty z kolumny „Twoja cena" prosto do pozycji zlecenia. Od tej chwili kosztorys ma kwoty i można go wysłać klientowi.\n\nJeśli wolisz policzyć sam, po prostu zamknij okno i wpisz ceny ręcznie.',
+    akcja: 'Kliknij „Dalej" — przeniosę te ceny do kosztorysu',
   },
   {
     cel: 'tabela-czesci',
