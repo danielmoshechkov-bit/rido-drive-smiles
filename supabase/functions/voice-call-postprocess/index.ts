@@ -175,6 +175,42 @@ serve(async (req) => {
       ms: Math.round(performance.now() - commitStarted),
     }));
 
+    // 1b) NALICZENIE MINUT.
+    //
+    // Po commicie, bo dopiero on zakłada wiersz rozmowy. Przed analyze, bo
+    // analiza bywa wolna i potrafi zawieść — a minuty muszą się naliczyć
+    // niezależnie od tego, czy model wyciągnął z rozmowy jakieś wnioski.
+    //
+    // BŁĄD NALICZENIA NIE WYWRACA WEBHOOKA. Rozmowa się odbyła i jest zapisana;
+    // nienaliczone minuty odbierze `voice-call-reconcile`, który co 15 minut
+    // szuka rozmów bez znacznika. Wywrócenie webhooka kazałoby ElevenLabs
+    // ponowić żądanie i powtórzyłoby commit.
+    try {
+      const { data: wiersz } = await admin.from("voice_calls")
+        .select("id").eq("elevenlabs_conversation_id", conversationId).maybeSingle();
+      if (wiersz?.id) {
+        const { data: nalicz, error: bladNaliczenia } =
+          await admin.rpc("voice_nalicz_minuty", { p_call_id: wiersz.id });
+        if (bladNaliczenia) {
+          console.error("[voice-call-postprocess] naliczenie minut nieudane:",
+            bladNaliczenia.code, bladNaliczenia.message);
+        } else {
+          console.info("[voice-call-postprocess]", JSON.stringify({
+            event: "minuty_naliczone", conversation_id: conversationId,
+            minuty: (nalicz as Record<string, unknown> | null)?.minuty ?? null,
+            pominiete: (nalicz as Record<string, unknown> | null)?.pominiete ?? null,
+          }));
+        }
+      } else {
+        // Cisza tutaj byłaby nieodróżnialna od naliczenia (zasada 37).
+        console.warn("[voice-call-postprocess]", JSON.stringify({
+          event: "minuty_bez_wiersza_rozmowy", conversation_id: conversationId,
+        }));
+      }
+    } catch (e) {
+      console.error("[voice-call-postprocess] naliczenie minut — wyjatek:", (e as Error).message);
+    }
+
     // 2) ANALYZE — uczenie. BŁĄD TUTAJ NIE MOŻE WYWRÓCIĆ WEBHOOKA.
     //    Zapis jest już zrobiony; destylacja reguł jest dodatkiem.
     const r = await fetch(`${supabaseUrl}/functions/v1/voice-call-analyze`, {
