@@ -4072,7 +4072,8 @@
       },
       "autocomplete": {
         "placeholder": "Wpisz nazwę usługi...",
-        "lastPrice": "ostatnia cena: {{price}} zł"
+        "lastPrice": "{{price}} zł",
+        "forget": "Usuń z pamięci podpowiedzi"
       }
     },
     "clientCard": {

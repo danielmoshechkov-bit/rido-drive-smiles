@@ -4067,7 +4067,8 @@
       },
       "autocomplete": {
         "placeholder": "Введите название услуги...",
-        "lastPrice": "последняя цена: {{price}} zł"
+        "lastPrice": "{{price}} zł",
+        "forget": "Удалить из подсказок"
       }
     },
     "clientCard": {

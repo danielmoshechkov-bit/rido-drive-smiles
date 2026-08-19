@@ -3857,7 +3857,8 @@
       },
       "autocomplete": {
         "placeholder": "Nhập tên dịch vụ...",
-        "lastPrice": "giá gần nhất: {{price}} zł"
+        "lastPrice": "{{price}} zł",
+        "forget": "Xóa khỏi gợi ý"
       }
     },
     "clientCard": {

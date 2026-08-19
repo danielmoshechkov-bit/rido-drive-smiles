@@ -349,6 +349,25 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
     if (!onKrok) return;
     const naKlik = (e: MouseEvent) => {
       if (naszKlik.current) { naszKlik.current = false; return; }
+
+      /**
+       * KLIKNIĘCIE W POLE DO WPISANIA TO POCZĄTEK ROBOTY, NIE JEJ KONIEC.
+       *
+       * 🔴 NAPRAWIONE 19.08.2026. Zgłoszone ze zrzutu: podświetlone było pole
+       * „Numer telefonu", człowiek kliknął w nie, żeby wpisać numer — i krok
+       * od razu przeskoczył na „Zapisz właściciela", przy PUSTYM polu. To samo
+       * przy liście zadań do wykonania: klik w pole, żeby wpisać pozycję,
+       * i wprowadzenie już jest gdzie indziej.
+       *
+       * Kliknięcie w przycisk znaczy „zrobione". Kliknięcie w pole tekstowe
+       * znaczy „zaraz zacznę pisać" — i krok ma na to poczekać. Kiedy pisanie
+       * się kończy, decyduje wyjście z pola (patrz `wypelnione`).
+       */
+      const wPolu = (e.target as HTMLElement | null)?.closest?.(
+        'input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea',
+      );
+      if (wPolu) return;
+
       const start = (e.target as HTMLElement | null)?.closest?.('[data-tour]') as HTMLElement | null;
       if (!start) return;
 

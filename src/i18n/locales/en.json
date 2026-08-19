@@ -3990,7 +3990,8 @@
       },
       "autocomplete": {
         "placeholder": "Enter service name...",
-        "lastPrice": "last price: {{price}} zł"
+        "lastPrice": "{{price}} zł",
+        "forget": "Remove from suggestions"
       }
     },
     "clientCard": {

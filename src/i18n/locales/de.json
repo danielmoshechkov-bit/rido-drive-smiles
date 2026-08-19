@@ -3896,7 +3896,8 @@
       },
       "autocomplete": {
         "placeholder": "Leistungsname eingeben...",
-        "lastPrice": "letzter Preis: {{price}} zł"
+        "lastPrice": "{{price}} zł",
+        "forget": "Aus Vorschlägen entfernen"
       }
     },
     "clientCard": {

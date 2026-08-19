@@ -3989,7 +3989,8 @@
       },
       "autocomplete": {
         "placeholder": "Қызмет атауын енгізіңіз...",
-        "lastPrice": "соңғы баға: {{price}} zł"
+        "lastPrice": "{{price}} zł",
+        "forget": "Ұсыныстардан жою"
       }
     },
     "clientCard": {

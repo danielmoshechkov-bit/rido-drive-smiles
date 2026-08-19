@@ -138,6 +138,10 @@ export function ServiceAutocomplete({
             top: coords.top,
             left: coords.left,
             width: coords.width,
+            // Lista bywa węższa niż nazwy, które ma pokazać — pole „usługa" jest
+            // wąskie w tabeli. Dajemy jej minimum, w którym mieści się pełna nazwa.
+            minWidth: 320,
+            maxWidth: '90vw',
             zIndex: 9999,
           }}
           className="bg-popover border border-border rounded-md shadow-lg overflow-hidden"
@@ -157,9 +161,15 @@ export function ServiceAutocomplete({
                     handleSelect(s);
                   }}
                 >
+                  {/*
+                    NAZWA JEST WAŻNIEJSZA NIŻ PODPIS PRZY CENIE.
+                    Etykieta „ostatnia cena:" zjadała pół szerokości listy i nazwy
+                    ucinały się na „wymiana łącznikó…" — a to po nazwie się wybiera.
+                    Zostaje sama kwota; że to ostatnia cena, widać po tym, gdzie stoi.
+                  */}
                   <span className="font-medium truncate">{nazwa}</span>
                   {price > 0 && (
-                    <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">
+                    <span className="text-xs text-muted-foreground ml-2 shrink-0 whitespace-nowrap">
                       {t('workshop.pricing.autocomplete.lastPrice', { price: fmt(price) })}
                     </span>
                   )}

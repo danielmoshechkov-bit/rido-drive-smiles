@@ -1910,8 +1910,23 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                               price_gross: priceGross,
                               priceSet: priceGross > 0 || priceNet > 0,
                             });
-                            // Auto-add new row and focus it for fast continuous entry
-                            setTimeout(() => addTaskRow(), 50);
+                            //
+                            // TU BYŁO `setTimeout(() => addTaskRow(), 50)` — I TO GUBIŁO WYBÓR.
+                            //
+                            // 🔴 NAPRAWIONE 19.08.2026. `addTaskRow` zapisuje wszystkie
+                            // wypełnione wiersze robocze, biorąc je z `taskRows`
+                            // ZAMROŻONEGO w chwili, gdy funkcja powstała — czyli sprzed
+                            // wyboru podpowiedzi. Zapisywał się więc wiersz ze STARĄ
+                            // nazwą, tą wystukaną ręcznie, i BEZ ceny. Nazwa z podpowiedzi
+                            // i jej cena przepadały.
+                            //
+                            // Stąd w kosztorysie rzędy „wymiana" z czerwonym „podaj cenę",
+                            // mimo że za każdym razem wybierana była „wymiana łączników
+                            // i gum drążka" za 400 zł.
+                            //
+                            // Nowy pusty wiersz i tak dokłada `updateTaskRow` przez
+                            // `appendEmptyIfLastFilled`, więc dokładanie go tutaj drugi
+                            // raz było zbędne — a przy okazji kasowało wybór.
                           }}
                           providerId={providerId}
                           className={`h-9 w-full text-sm min-w-0 ${nameMissing ? 'border-destructive ring-1 ring-destructive' : ''}`}
