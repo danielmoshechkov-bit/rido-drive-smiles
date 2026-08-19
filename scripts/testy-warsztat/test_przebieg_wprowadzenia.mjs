@@ -445,6 +445,43 @@ console.log('--- przypadki brzegowe ---');
   sprawdzWarunek('rzecz, ktora sie wlasnie zjawila, wchodzi natychmiast', pilne.zastosuj === true);
 }
 
+// 5d. KROK „ZAKONCZONE" NIE MOZE BYC POMINIETY.
+//
+//     Zgloszone z testow 19.08.2026: wprowadzenie pokazywalo „zmien status na
+//     gotowe", potem „wystaw dokument" — i od razu przeskakiwalo do opisu
+//     zakladki „Zakonczone zlecenia", POMIJAJAC krok, w ktorym zaznacza sie
+//     status „Zakonczone". Czyli dokladnie te czynnosc, o ktora chodzi.
+//
+//     Pozycja „Zakonczone" istnieje tylko przy ROZWINIETEJ liscie statusow,
+//     a zakladka „Zakonczone zlecenia" stoi na ekranie zawsze.
+{
+  const listaPoDokumencie = [
+    { cel: 'nowe-zlecenie', glebokosc: 0 },
+    { cel: 'status-na-liscie', glebokosc: 0 },
+    { cel: 'filtr-zakonczone', glebokosc: 0 },
+    { cel: 'usun-zlecenie', glebokosc: 0 },
+  ];
+  const zamkniecie = cele.indexOf('status-zakonczone');
+  const podglad = cele.indexOf('podglad-dokumentu');
+
+  const trafiony = wybierzKrok(cele, podglad, listaPoDokumencie, opcje);
+  sprawdzWarunek(
+    'po zamknieciu podgladu dokumentu wprowadzenie NIE przeskakuje przez „Zakonczone"',
+    trafiony <= zamkniecie,
+    `poszlo na ${cele[trafiony]}`,
+  );
+
+  // A gdy lista statusow zostanie rozwinieta — krok wchodzi od razu.
+  const zRozwinieta = [...listaPoDokumencie, { cel: 'status-zakonczone', glebokosc: 0 }];
+  sprawdz('rozwinieta lista statusow po dokumencie pokazuje krok o zamknieciu',
+    wybierzKrok(cele, podglad, zRozwinieta, opcje), 'status-zakonczone');
+
+  // Kolejnosc, o ktora prosil warsztat: gotowe -> dokument -> ZAKONCZONE ->
+  // dopiero potem informacja o zakladce z archiwum.
+  sprawdzWarunek('informacja o zakladce „Zakonczone" stoi PO kroku zamkniecia',
+    cele.indexOf('filtr-zakonczone') > zamkniecie);
+}
+
 // 6. Kroki konca drogi ida po kolei: gotowe -> SMS -> odbior klienta ->
 //    dokument -> podglad -> zamkniecie. Warsztat wprost prosil o te kolejnosc.
 {

@@ -320,6 +320,22 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   // w ogole nie dzialal. Po recznej zmianie kroku ekran ma sie nie odzywac przez
   // kilka sekund, zeby dalo sie przeczytac to, do czego sie wrocilo.
   const recznaZmiana = useRef(0);
+  /**
+   * JAK DŁUGO KOREKTOR MA SIĘ NIE WTRĄCAĆ.
+   *
+   * 🔴 NAPRAWIONE 19.08.2026. Pauza była jedna — pięć sekund — i obowiązywała
+   * także wtedy, gdy to WPROWADZENIE nacisnęło przycisk za człowieka. Skutek
+   * widać było na zrzucie: „Dalej" na powitaniu otwierało okno przyjęcia
+   * pojazdu, okno stało już na ekranie, a dymek i ramka przez kolejne pięć
+   * sekund pokazywały jeszcze przycisk „Nowe zlecenie".
+   *
+   * Pięć sekund ma sens po ręcznym „Wstecz" albo „Dalej": człowiek świadomie
+   * wybrał krok i nie chcemy, żeby ekran mu go zabrał. Gdy klikamy sami,
+   * wystarczy tyle, ile trwa otwarcie okna.
+   */
+  const pauzaMs = useRef(5000);
+  const PAUZA_CZLOWIEK = 5000;
+  const PAUZA_NASZ_KLIK = 1200;
   // Ostatnia PROPOZYCJA korekty i chwila, od ktorej sie utrzymuje — patrz
   // „KOREKTA MUSI SIE USTAC" nizej.
   const propozycja = useRef<{ krok: number; od: number } | null>(null);
@@ -389,6 +405,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
 
       const nastepny = zrobiony + 1;
       recznaZmiana.current = Date.now();
+      pauzaMs.current = PAUZA_CZLOWIEK;
       if (nastepny >= kroki.length) { onZamknij(); return; }
       if (kroki[nastepny]?.wracajNaListe) onWrocNaListe?.();
       onKrok(nastepny);
@@ -534,7 +551,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       const wlasny = naEkranieTeraz.find((w) => w.cel === celBiezacego);
       const nadalWidacBiezacy = !celBiezacego || !!wlasny;
       if (!pilne && nadalWidacBiezacy) {
-        if (Date.now() - recznaZmiana.current < 5000) return;
+        if (Date.now() - recznaZmiana.current < pauzaMs.current) return;
         if (Date.now() - wejscie < cisza) return;
       }
       // Mruga tylko tam, gdzie BYLO co wpisac i zostalo to wpisane. Przy krokach
@@ -604,6 +621,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
     }
     setBrakuje(null);
     recznaZmiana.current = Date.now();
+    pauzaMs.current = PAUZA_CZLOWIEK;
     setRuszony(true);
 
     // Puste pola wypełniamy przykładem — żeby „Dalej" niczego nie blokowało.
@@ -638,7 +656,9 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
           : przyciskGlowny(el);
         if (cel && naEkranie(cel)) { naszKlik.current = true; cel.click(); }
       }, 350);
+      // Klikamy sami, więc korektor ma tylko przeczekać otwarcie okna.
       recznaZmiana.current = Date.now();
+      pauzaMs.current = PAUZA_NASZ_KLIK;
       setRuszony(true);
       return;
     }
@@ -829,7 +849,11 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => { recznaZmiana.current = Date.now(); onKrok(krok - 1); }}
+                onClick={() => {
+                  recznaZmiana.current = Date.now();
+                  pauzaMs.current = PAUZA_CZLOWIEK;
+                  onKrok(krok - 1);
+                }}
                 title="Poprzedni krok"
                 className="px-2"
               >

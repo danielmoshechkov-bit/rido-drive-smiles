@@ -170,13 +170,41 @@ export function wybierzKrok(
   //
   // Odległość od bieżącego kroku jest lepszą miarą niż kierunek: najbliższy
   // krok to ten z tego samego miejsca w pracy. Przy remisie idziemy do przodu.
-  const doPrzodu = kandydaci.find((k) => k.i > biezacy);
+  /**
+   * KROK, KTÓREGO MIEJSCE POJAWIA SIĘ NA ŻĄDANIE, JEST BRAMKĄ — NIE WOLNO GO MINĄĆ.
+   *
+   * 🔴 NAPRAWIONE 19.08.2026. Zgłoszone z testów: wprowadzenie pokazywało
+   * „zmień status na gotowe", potem „wystaw dokument" — i od razu przeskakiwało
+   * do opisu zakładki „Zakończone zlecenia", POMIJAJĄC krok, w którym zaznacza
+   * się status „Zakończone". Czyli dokładnie tę czynność, o którą chodzi.
+   *
+   * Mechanizm: pozycja „Zakończone" istnieje tylko przy ROZWINIĘTEJ liście
+   * statusów, a zakładka „Zakończone zlecenia" stoi na ekranie zawsze. Po
+   * zamknięciu podglądu dokumentu korektor widział więc tylko tę drugą i szedł
+   * prosto do niej.
+   *
+   * Zasada: krok z regułą „pokaż, gdy się zjawi" opisuje rzecz, którą człowiek
+   * musi dopiero wywołać. Dopóki jej nie wywoła, wprowadzenie czeka przed nim,
+   * a nie przeskakuje dalej po tym, co akurat widać.
+   */
+  const bramka = cele.findIndex((_, i) => i > biezacy && opcje.pokazGdySieZjawi?.[i]);
+  const zaBramka = bramka === -1 ? Infinity : bramka;
+
+  const doPrzoduDowolny = kandydaci.find((k) => k.i > biezacy);
+  // Za bramkę nie idziemy — ale to, że ona blokuje, nie może unieruchomić
+  // wprowadzenia. Gdy przód jest zamknięty, a za plecami jest dokąd wrócić
+  // (zamknięte okno zlecenia, pusta lista), wracamy — patrz niżej.
+  const doPrzodu = doPrzoduDowolny && doPrzoduDowolny.i <= zaBramka ? doPrzoduDowolny : undefined;
   const doTylu = [...kandydaci].reverse().find((k) => k.i < biezacy);
 
   if (doPrzodu && doTylu) {
     return doPrzodu.i - biezacy <= biezacy - doTylu.i ? doPrzodu.i : doTylu.i;
   }
   if (doPrzodu) return doPrzodu.i;
+
+  // Przód zamknięty bramką, ale jest dokąd wrócić: człowiek zamknął okno
+  // i wylądował na ekranie, na którym widać tylko wcześniejsze kroki.
+  if (doTylu && doPrzoduDowolny) return doTylu.i;
 
   // Zostało tylko cofanie. Na zwykłym ekranie NIE cofamy się — inaczej po
   // wysłaniu SMS-a o odbiorze zamknięcie okna rzucałoby wprowadzenie z powrotem
