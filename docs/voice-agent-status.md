@@ -3319,6 +3319,39 @@ przebiegu, także zerowym** — liczbę, nie milczenie.
 „20 numerów u operatora, 20 u nas, 0 rozbieżności" widziane codziennie znaczy,
 że kontrola chodzi. Brak wiadomości nie znaczy nic.
 
+## ZASADA 43 — „jeden wiersz z wielu" bez pełnego uporządkowania jest losowaniem
+
+`ORDER BY` po kolumnie, która się powtarza, **nie ustala kolejności wierszy
+o tej samej wartości.** PostgreSQL niczego tu nie obiecuje: przy `LIMIT 1`
+zwycięzcę wybiera plan zapytania i fizyczna kolejność wierszy w tabeli, a ta
+zmienia się przy każdym `UPDATE`. To samo zapytanie, ta sama zawartość tabeli,
+inna odpowiedź — bez żadnej zmiany w kodzie.
+
+Brzmi nieintuicyjnie, bo `ORDER BY` wygląda na deklarację porządku. Jest
+deklaracją porządku TYLKO na tyle, na ile klucz sortowania jest jednoznaczny.
+
+Znalezione 19.08 w `voice_agent_personas`: dwie włączone persony z priorytetem 8.
+Panel brał `order by priority desc limit 1` i przez wiele dni dostawał
+`workshop_secretary` — nie dlatego, że tak miało być, tylko dlatego, że ten
+wiersz leżał wcześniej. Pierwszy `UPDATE` na tej tabeli mógł to odwrócić,
+a skutkiem byłby pusty formularz konfiguracji u warsztatu z działającym agentem
+i drugi wiersz konfiguracji z `is_active: false`.
+
+**Reguła praktyczna:** każde zapytanie biorące jeden wiersz z wielu musi mieć
+albo filtr po kluczu jednoznacznym, albo `ORDER BY` kończący się kolumną
+unikalną (`..., id`). Trzecia droga — i najlepsza tam, gdzie o wiersz konkuruje
+kilka procesów — to `FOR UPDATE SKIP LOCKED` w funkcji bazy, bo rozstrzyga
+nie tylko remis, ale i wyścig.
+
+**Dlaczego to jest osobna zasada, a nie przypis do zasady 42:** błędy tej klasy
+nie wyglądają na błędy. Wyglądają na losowe. Działają przez miesiące, a psują
+się przy pierwszym niepowiązanym zapisie do tabeli — więc szukanie przyczyny
+zaczyna się od zmiany, która nie ma z tym nic wspólnego.
+
+**Kontrola:** `scripts/voice-punkt-odniesienia.mjs` (remisy w danych) plus indeks
+unikalny na `voice_agent_personas (priority) WHERE enabled` (remis niemożliwy).
+Pełna lista miejsc bez uporządkowania — w backlogu poniżej.
+
 ## ZASADA 42 — zanim naprawisz zepsute zapytanie, sprawdź, co się stanie, gdy zacznie działać
 
 `QuotaGuardProvider` czytał i zapisywał `service_providers.sms_balance` —

@@ -361,3 +361,27 @@ const ZAJETOSC: Record<JezykWzorcow, string> = {
 export function zdanieZajetosci(jezyk: JezykWzorcow | string | null | undefined): string {
   return ZAJETOSC[(jezyk as JezykWzorcow) in ZAJETOSC ? (jezyk as JezykWzorcow) : "pl"];
 }
+
+// ============================================================================
+// WYŁĄCZONA OBSŁUGA TELEFONICZNA — warsztat sam przestawił przełącznik.
+//
+// To NIE JEST to samo co zajętość i nie może brzmieć tak samo. Zajętość jest
+// chwilowa („proszę zadzwonić za kilka minut"), wyłączenie jest decyzją firmy
+// i taka prośba byłaby kłamstwem — za kilka minut nadal nikt nie odbierze.
+//
+// Zdanie tłumaczone jak wszystkie pozostałe: dzwoniący z Ukrainy nie ma słuchać
+// po polsku, że warsztat nie przyjmuje zgłoszeń. Do 19.08 słuchał — treść
+// przychodziła z `voice-agent-init` jako stały polski napis, bo tę ścieżkę
+// zbudowaliśmy przed modułem wzorców i nikt jej nie przeniósł.
+// ============================================================================
+const WYLACZENIE: Record<JezykWzorcow, string> = {
+  pl: "Przepraszam, w tej chwili nie przyjmujemy zgłoszeń telefonicznych.",
+  en: "I'm sorry, we are not taking phone enquiries at the moment.",
+  ru: "Извините, сейчас мы не принимаем заявки по телефону.",
+  uk: "Вибачте, зараз ми не приймаємо заявки телефоном.",
+};
+
+/** Zdanie o wyłączonej obsłudze w języku rozmowy. Nieznany język → polski. */
+export function zdanieWylaczenia(jezyk: JezykWzorcow | string | null | undefined): string {
+  return WYLACZENIE[(jezyk as JezykWzorcow) in WYLACZENIE ? (jezyk as JezykWzorcow) : "pl"];
+}

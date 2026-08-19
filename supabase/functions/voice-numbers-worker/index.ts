@@ -87,19 +87,24 @@ serve(async (req) => {
   const log = (event: string, extra: Record<string, unknown> = {}) =>
     console.info("[voice-numbers-worker]", JSON.stringify({ event, ...extra }));
 
-  // ZAWSZE zostawiamy ślad przebiegu, także pustego (zasada 37): „brak zadań"
-  // widziane co minutę znaczy, że worker chodzi. Cisza nie znaczy nic.
-  const { data: zadania, error: bladPobrania } = await admin.from("voice_number_jobs")
-    .select("*").in("status", ["oczekuje"]).lte("nastepna_proba", new Date().toISOString())
-    .order("created_at", { ascending: true }).limit(1);
+  // POBRANIE I ZAJĘCIE ZADANIA W JEDNEJ OPERACJI (voice_pobierz_zadanie).
+  //
+  // Poprzednio były to dwa zapytania: `select ... limit 1`, a potem
+  // `update status='w_toku'`. Między nimi jest okno. Cron chodzi co minutę,
+  // a przebieg czekający na operatora potrafi trwać dłużej niż minutę — więc
+  // dwa przebiegi brały TO SAMO zadanie. Przy zadaniu, które kupuje numer,
+  // to są prawdziwe pieniądze wydane dwa razy.
+  //
+  // Funkcja używa FOR UPDATE SKIP LOCKED: wiersz zajęty przez inny przebieg
+  // jest pomijany, a nie oczekiwany.
+  const { data: zadanie, error: bladPobrania } = await admin.rpc("voice_pobierz_zadanie");
   if (bladPobrania) {
     console.error("[voice-numbers-worker] odczyt kolejki nieudany:", bladPobrania.code, bladPobrania.message);
     return json({ error: "odczyt kolejki nieudany" }, 500);
   }
-  const zadanie = zadania?.[0];
+  // ZAWSZE zostawiamy ślad przebiegu, także pustego (zasada 37): „brak zadań"
+  // widziane co minutę znaczy, że worker chodzi. Cisza nie znaczy nic.
   if (!zadanie) { log("przebieg", { zadan: 0 }); return json({ ok: true, zadan: 0 }); }
-
-  await admin.from("voice_number_jobs").update({ status: "w_toku", updated_at: new Date().toISOString() }).eq("id", zadanie.id);
 
   const { data: ust } = await admin.from("voice_pula_ustawienia").select("*").eq("id", true).maybeSingle();
   const ustawienia = ust ?? { prog_wolnych: 2, max_zakupow_na_dobe: 3, pierwszy_zakup_zrobiony: false };
@@ -290,10 +295,20 @@ serve(async (req) => {
       ? (await admin.from("voice_numbers").select("*").eq("id", zadanie.number_id).maybeSingle()).data
       : null;
     if (!numer) {
-      const { data: zarezerwowany } = await admin.from("voice_numbers")
-        .update({ provider_id: providerId, status: "przypisywany", updated_at: new Date().toISOString() })
-        .eq("status", "wolny").is("provider_id", null)
-        .select("*").limit(1).maybeSingle();
+      // REZERWACJA PRZEZ FUNKCJĘ BAZY, nie przez UPDATE z `limit(1)`.
+      //
+      // `limit` przy UPDATE to rozszerzenie PostgREST-a. Nie sprawdziłem, czy
+      // ogranicza liczbę ZMIENIANYCH wierszy, czy tylko ZWRACANYCH — a jeśli to
+      // drugie, pierwsza aktywacja przy pełniejszej puli przypisałaby jednemu
+      // warsztatowi wszystkie wolne numery, my zobaczylibyśmy jeden i uznali,
+      // że jest dobrze. Do tej pory pula miała jeden numer, więc różnicy nie
+      // było widać (zasada 42: sprawdź, co się stanie, gdy zacznie działać).
+      const { data: zarezerwowany, error: bladRezerwacji } = await admin
+        .rpc("voice_zarezerwuj_numer", { p_provider: providerId });
+      if (bladRezerwacji) {
+        console.error("[voice-numbers-worker] rezerwacja numeru nieudana:", bladRezerwacji.code, bladRezerwacji.message);
+        throw new Error(`rezerwacja numeru: ${bladRezerwacji.message}`);
+      }
       if (!zarezerwowany) {
         // Brak wolnego numeru to nie porażka — to znak, że pula ma się uzupełnić.
         //

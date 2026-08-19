@@ -21,7 +21,12 @@ import {
 import { cachedContext } from "../_shared/voiceContextCache.ts";
 import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
 import { jezykRozmowy, snapshotWJezyku } from "../_shared/voiceJezykRozmowy.ts";
-import { wzorceWJezyku, zdanieAwarii, zdanieZajetosci } from "../_shared/voiceWzorce.ts";
+import { wzorceWJezyku, zdanieAwarii, zdanieWylaczenia, zdanieZajetosci } from "../_shared/voiceWzorce.ts";
+
+// Napis, który `voice-agent-init` wstawia, gdy warsztat nie napisał własnego
+// zdania. Rozpoznajemy go, żeby zamienić na wersję w języku rozmowy — a zdania
+// napisanego przez warsztat NIE tłumaczyć.
+const WYLACZENIE_DOMYSLNE_PL = "Przepraszam, w tej chwili nie przyjmujemy zgłoszeń telefonicznych.";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -485,8 +490,18 @@ serve(async (req) => {
         + `Potem zakończ rozmowę. NIE proponujesz terminów, NIE pytasz o dane, `
         + `NIE zapisujesz zgłoszenia — nie masz wolnej linii, żeby obsłużyć tę rozmowę.\n`;
     } else if (wylaczony) {
+      // ZDANIE Z MODUŁU WZORCÓW, nie z snapshotu — tak samo jak przy zajętości.
+      //
+      // Snapshot powstaje przy ODEBRANIU, a język rozpoznajemy dopiero z tego,
+      // co klient powiedział. Do 19.08 szedł tu stały polski napis z
+      // `voice-agent-init`, więc dzwoniący z Ukrainy słyszał po polsku, że
+      // warsztat nie przyjmuje zgłoszeń. Własne zdanie warsztatu
+      // (`business_context.wylaczony_zdanie`) ma pierwszeństwo — jeśli je
+      // wpisał, to znaczy, że chce powiedzieć coś swojego.
+      const wlasne = wylaczony.zdanie.trim();
+      const doPowiedzenia = wlasne && wlasne !== WYLACZENIE_DOMYSLNE_PL ? wlasne : zdanieWylaczenia(jezyk);
       snapshotBlok = `\n\n=== WARSZTAT WYŁĄCZYŁ OBSŁUGĘ TELEFONICZNĄ ===\n`
-        + `Powiedz DOKŁADNIE to zdanie, w języku rozmowy: „${wylaczony.zdanie}"\n`
+        + `Powiedz DOKŁADNIE to zdanie, w języku rozmowy: „${doPowiedzenia}"\n`
         + `Potem grzecznie zakończ rozmowę. NIE proponujesz terminów, NIE pytasz o dane, `
         + `NIE zapisujesz zgłoszenia — nie masz do czego.\n`;
     } else if (snapshotRaw) {
@@ -719,7 +734,19 @@ ${greetingRule}
     //
     // check_availability ZOSTAJE — jako wyjątek dla terminów spoza snapshotu.
     // Po FAZIE 1B (snapshot przy odebraniu) będzie wołany rzadko.
-    if (providerId && calendarAccess) {
+    // NARZĘDZIA ODCIĘTE, GDY NIE MA CZEGO OBSŁUGIWAĆ.
+    //
+    // Do 19.08 zakaz „NIE proponujesz terminów" stał WYŁĄCZNIE w prompcie,
+    // a `check_availability` było modelowi podane mimo to. Prośba w prompcie
+    // i brak narzędzia to nie jest ta sama siła: agent wyłączony przez warsztat
+    // mógł sprawdzić wolne terminy i zacząć je proponować — czyli warsztat,
+    // który przestawił przełącznik, dostawał agenta improwizującego zamiast
+    // agenta, który mówi jedno zdanie i kończy.
+    //
+    // Narzędzia KLIENTA (end_call) zostają. Agent musi mieć czym się rozłączyć,
+    // inaczej po jednym zdaniu zapada cisza i to klient odkłada słuchawkę.
+    const nieObslugujemy = !!wylaczony || zajete;
+    if (providerId && calendarAccess && !nieObslugujemy) {
       tools.push({
         name: "check_availability",
         description: "Sprawdź wolne terminy w danym dniu. Użyj zanim zaproponujesz godzinę.",

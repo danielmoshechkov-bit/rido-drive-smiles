@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { liczbaWzorcow, wzorceWJezyku, zdanieAwarii, zdanieZajetosci } from "./voiceWzorce.ts";
+import { liczbaWzorcow, wzorceWJezyku, zdanieAwarii, zdanieWylaczenia, zdanieZajetosci } from "./voiceWzorce.ts";
 
 // KAZDY JEZYK DOSTAJE WYLACZNIE SWOJ BLOK.
 //
@@ -265,4 +265,39 @@ Deno.test("zdanie o zajetosci nie obiecuje oddzwonienia ani nie ma rodzaju", () 
       assert(!z.includes(rodzaj), `${j}: zdanie ma rodzaj gramatyczny MOWIACEGO (${rodzaj})`);
     }
   }
+});
+
+// ============================================================================
+// WYŁĄCZONA OBSŁUGA — te same wymagania co przy zajętości, plus jedno własne.
+// ============================================================================
+Deno.test("zdanie o wylaczeniu istnieje w kazdym jezyku i nie jest po polsku", () => {
+  for (const j of ["en", "ru", "uk"] as const) {
+    const z = zdanieWylaczenia(j);
+    if (!z || z.length < 20) throw new Error(`${j}: brak zdania`);
+    if (z === zdanieWylaczenia("pl")) throw new Error(`${j}: to polskie zdanie`);
+  }
+});
+
+// TO JEST RÓŻNICA, KTÓRA MA ZNACZENIE. Zajętość jest chwilowa i wolno prosić
+// o telefon za chwilę. Wyłączenie jest decyzją firmy — ta sama prośba byłaby
+// obietnicą, której nikt nie dotrzyma.
+Deno.test("zdanie o wylaczeniu nie obiecuje, ze za chwile ktos odbierze", () => {
+  const zakazane = [/za kilka minut/i, /in a few minutes/i, /через несколько минут/i, /за кілька хвилин/i];
+  for (const j of ["pl", "en", "ru", "uk"] as const) {
+    const z = zdanieWylaczenia(j);
+    for (const wzorzec of zakazane) {
+      if (wzorzec.test(z)) throw new Error(`${j}: obiecuje rychly telefon — "${z}"`);
+    }
+  }
+});
+
+Deno.test("zdanie o wylaczeniu nie jest tym samym co o zajetosci", () => {
+  for (const j of ["pl", "en", "ru", "uk"] as const) {
+    if (zdanieWylaczenia(j) === zdanieZajetosci(j)) throw new Error(`${j}: te same zdania`);
+  }
+});
+
+Deno.test("nieznany jezyk wraca do polskiego takze przy wylaczeniu", () => {
+  if (zdanieWylaczenia("de") !== zdanieWylaczenia("pl")) throw new Error("brak powrotu do polskiego");
+  if (zdanieWylaczenia(null) !== zdanieWylaczenia("pl")) throw new Error("null nie wraca do polskiego");
 });
