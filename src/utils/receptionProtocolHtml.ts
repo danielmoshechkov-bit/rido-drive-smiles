@@ -96,8 +96,17 @@ function strona(naglowek: string, s: StronaProtokolu): string {
 }
 
 export function generateReceptionProtocolHtml(d: DaneProtokolu): string {
+  /**
+   * Kwadracik „zaznaczone / niezaznaczone".
+   *
+   * 🔴 Kratka MUSI siedzieć w dodatkowym `<span>`. Wiersz jest zbudowany na
+   * `display: table`, a reguła `.ustalenie > span { display: table-cell }` jest
+   * bardziej szczegółowa niż `.kratka { display: inline-block }` — bez opakowania
+   * kwadrat stawał się komórką tabeli i rozciągał na całą wysokość wiersza.
+   * Na wydruku wychodziły z tego prostokąty stykające się ze sobą.
+   */
   const kratka = (tak: boolean) =>
-    `<span class="kratka ${tak ? 'kratka-tak' : ''}">${tak ? '&#10003;' : ''}</span>`;
+    `<span class="kratka-pole"><span class="kratka ${tak ? 'kratka-tak' : ''}">${tak ? '&#10003;' : ''}</span></span>`;
 
   const ustaleniaHtml = d.ustalenia.map((u) => `
     <div class="ustalenie">${kratka(u.tak)} <span class="${u.tak ? '' : 'nie'}">${esc(u.etykieta)}</span>
@@ -173,12 +182,12 @@ export function generateReceptionProtocolHtml(d: DaneProtokolu): string {
 
     .ustalenia { display: table; width: 100%; }
     .ustalenie { display: table-row; }
-    .ustalenie > span { display: table-cell; padding: 2px 0; vertical-align: middle; }
-    .ustalenie > span:first-child { width: 16px; }
+    .ustalenie > span { display: table-cell; padding: 3px 0; vertical-align: middle; }
+    .kratka-pole { width: 18px; }
     .ustalenie > span:nth-child(2) { padding-left: 8px; }
     .ustalenie-odp { text-align: right; font-weight: 700; width: 40px; }
-    .kratka { display: inline-block; width: 12px; height: 12px; border: 1px solid #777;
-              border-radius: 2px; text-align: center; line-height: 11px; font-size: 10px; color: #fff; }
+    .kratka { display: inline-block; width: 11px; height: 11px; border: 1px solid #777;
+              border-radius: 2px; text-align: center; line-height: 10px; font-size: 9px; color: #fff; }
     .kratka-tak { background: ${KOLOR}; border-color: ${KOLOR}; }
     .nie { color: #777; }
 

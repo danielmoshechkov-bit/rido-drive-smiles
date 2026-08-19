@@ -56,6 +56,11 @@ sprawdz(html.includes('Rysa na lewych drzwiach'), 'opis uszkodzen jest przepisan
 sprawdz(html.includes('wymiana oleju i filtrów'), 'zakres prac jest wypisany');
 sprawdz(html.includes('Zgoda na jazdę próbną') && html.includes('TAK') && html.includes('NIE'),
   'ustalenia z klientem z odpowiedziami tak/nie');
+// Kwadracik musi siedziec w dodatkowym <span>: regula `.ustalenie > span` robi
+// z bezposredniego dziecka komorke tabeli, a ta rozciaga sie na cala wysokosc
+// wiersza — na wydruku wychodzily z tego stykajace sie prostokaty.
+sprawdz(/<span class="kratka-pole"><span class="kratka/.test(html),
+  'kratka jest opakowana, wiec nie rozciaga sie na wysokosc wiersza');
 sprawdz(html.includes('data:image/svg+xml'), 'jest sylwetka auta do recznego zaznaczania uszkodzen');
 sprawdz(/X — rysa/.test(html), 'jest legenda oznaczen uszkodzen');
 sprawdz(html.includes('Dokumentacja fotograficzna') && html.includes('data:image/png;base64'),
