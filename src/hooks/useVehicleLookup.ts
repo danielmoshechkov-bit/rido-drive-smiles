@@ -1,11 +1,10 @@
-import { useState, useCallback, useRef } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuotaGuard } from '@/components/quota/QuotaGuardProvider';
 import { odczytajBladFunkcji } from '@/utils/bladFunkcji';
-import { dostepneSprawdzeniaVin } from '@/lib/dostepneJednostki';
-import { kluczJednostki } from '@/hooks/useDostepneJednostki';
+import { kluczJednostki, useDostepneJednostki } from '@/hooks/useDostepneJednostki';
 
 interface VehicleLookupCredits {
   /** Ile sprawdzeń klient realnie może wykonać: pula planu plus paczki. */
@@ -72,32 +71,37 @@ export function useVehicleLookup(userId?: string) {
   const { runWithQuota, poprosOZgode } = useQuotaGuard();
   const qc = useQueryClient();
 
+  const { dostepne, gotowe } = useDostepneJednostki('vehicle_lookup');
+
   /**
-   * Licznik sprawdzeń — TA SAMA pamięć podręczna co górny pasek.
+   * Ten sam licznik co górny pasek — TYLKO OPAKOWANY.
    *
-   * 🔴 NAPRAWIONE 18.08.2026. Wcześniej pasek trzymał liczbę w React Query pod
-   * kluczem `vehicle-lookup-credits`, a ten hak w zwykłym `useState`, pobieranym
-   * niezależnie przy montowaniu. Dwie pamięci na to samo pytanie rozjeżdżały się
-   * po każdym zużyciu — użytkownik widział 28 w jednym miejscu i 29 w drugim
-   * w tej samej chwili.
+   * 🔴 NAPRAWIONE 19.08.2026. Tu stało własne `useQuery` pod kluczem
+   * `kluczJednostki('vehicle_lookup')` — tym samym, którego używa
+   * `useDostepneJednostki`. Klucz był wspólny, ale KSZTAŁT DANYCH nie:
+   * pasek wpisywał pod niego LICZBĘ, a ten hak OBIEKT
+   * `{ remaining_credits, bez_limitu }`.
    *
-   * Wspólną funkcję (`dostepneSprawdzeniaVin`) mieliśmy już od wczoraj; brakowało
-   * wspólnego CACHE. Teraz jest jeden wpis: unieważnienie w jednym miejscu
-   * odświeża wszystkie liczniki naraz.
+   * React Query trzyma jeden wpis na klucz, więc wygrywał ten, kto zapytał
+   * pierwszy. Gdy wygrywał ten hak, pasek dostawał obiekt i próbował go
+   * wyrysować jako tekst — a to jest błąd React #31, który wywala CAŁY widok
+   * („Ten widok się nie wczytał"). Wywalało to także strony, które z pojazdami
+   * nie mają nic wspólnego (np. panel usługodawcy), na dowolnym koncie,
+   * losowo — zależnie od tego, który komponent zamontował się pierwszy.
+   *
+   * Jeden klucz musi mieć jeden kształt. Licznik jest teraz w jednym miejscu,
+   * a obiekt składamy tutaj, poza pamięcią podręczną.
    */
-  const { data: credits, isLoading: creditsLoading } = useQuery({
-    queryKey: kluczJednostki('vehicle_lookup'),
-    enabled: !!userId,
-    queryFn: async (): Promise<VehicleLookupCredits> => {
-      const dostepne = await dostepneSprawdzeniaVin(userId!);
-      return {
-        // `null` znaczy „bez limitu w planie". Interfejs sprawdza `< 1`, więc
-        // podajemy liczbę, przy której nigdy nie zablokuje.
-        remaining_credits: dostepne === null ? Number.MAX_SAFE_INTEGER : dostepne,
-        bez_limitu: dostepne === null,
-      };
-    },
-  });
+  const credits = useMemo<VehicleLookupCredits | undefined>(() => {
+    if (!gotowe) return undefined;
+    return {
+      // `null` znaczy „bez limitu w planie". Interfejs sprawdza `< 1`, więc
+      // podajemy liczbę, przy której nigdy nie zablokuje.
+      remaining_credits: dostepne === null ? Number.MAX_SAFE_INTEGER : dostepne,
+      bez_limitu: dostepne === null,
+    };
+  }, [dostepne, gotowe]);
+  const creditsLoading = !gotowe;
 
   const fetchCredits = useCallback(async () => {
     await qc.invalidateQueries({ queryKey: kluczJednostki('vehicle_lookup') });

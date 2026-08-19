@@ -37,7 +37,20 @@ export function useDostepneJednostki(cecha: string) {
     },
   });
 
-  return { dostepne: data ?? 0, gotowe: !isLoading };
+  // `data === undefined` znaczy „jeszcze nie wiadomo" (pierwsze pobranie), a
+  // `null` znaczy „plan bez limitu". Wcześniej stało tu `data ?? 0`, przez co
+  // BEZ LIMITU zamieniało się w ZERO: pasek pokazywał 0, choć plan nie miał
+  // ograniczenia, a gałąź rysująca „∞" nie miała szans się wykonać.
+  // `undefined` znaczy „jeszcze nie wiadomo" (pierwsze pobranie), a `null` —
+  // „plan bez limitu". Wcześniej stało tu `data ?? 0`, przez co BEZ LIMITU
+  // zamieniało się w ZERO: pasek pokazywał 0, choć plan nie miał ograniczenia,
+  // a gałąź rysująca „∞" nie miała szans się wykonać.
+  //
+  // Sprawdzenie typu jest tu także zabezpieczeniem: gdyby ktoś kiedyś znów
+  // wpisał pod ten klucz inny kształt niż liczba, wyjdzie stąd zero, a nie
+  // obiekt, którego React nie umie wyrysować i który wywala cały widok.
+  const liczba = typeof data === 'number' || data === null ? data : 0;
+  return { dostepne: liczba, gotowe: !isLoading };
 }
 
 /**

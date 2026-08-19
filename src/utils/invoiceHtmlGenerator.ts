@@ -551,9 +551,19 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   const isVatRR = invoice.type === 'vat_rr';
   const isProforma = invoice.type === 'proforma';
   const isServiceConfirmation = invoice.type === 'service_confirmation';
+  const isRepairEstimate = invoice.type === 'repair_estimate';
+  /**
+   * Kosztorys naprawy i potwierdzenie wykonania usługi to TEN SAM DOKUMENT.
+   *
+   * Warsztat wydaje klientowi dwie kartki tej samej sprawy: najpierw wycenę,
+   * potem potwierdzenie wykonania. Muszą wyglądać identycznie — inaczej klient
+   * porównuje dwa różne układy i szuka, co się zmieniło poza kwotą.
+   * Różnią się wyłącznie tytułem, zastrzeżeniem w stopce i podpisami.
+   */
+  const isWarsztatDoc = isServiceConfirmation || isRepairEstimate;
   
   // Documents without VAT columns
-  const noVatDocument = isReceipt || isNota || isMargin || isServiceConfirmation;
+  const noVatDocument = isReceipt || isNota || isMargin || isWarsztatDoc;
 
   const displayItems = isCorrection ? invoice.correction_data!.after_items : items;
   
@@ -594,6 +604,9 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   } else if (isServiceConfirmation) {
     invoiceTitle = 'POTWIERDZENIE WYKONANIA USŁUGI';
     footerNote = 'Niniejszy dokument stanowi potwierdzenie wykonania usługi i nie jest fakturą w rozumieniu ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Nie stanowi podstawy do odliczenia podatku VAT ani do księgowania jako dokument kosztowy.';
+  } else if (isRepairEstimate) {
+    invoiceTitle = 'KOSZTORYS NAPRAWY';
+    footerNote = 'Niniejszy kosztorys jest wyceną planowanej naprawy i nie jest fakturą w rozumieniu ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Zakres i koszt naprawy mogą ulec zmianie po ujawnieniu dodatkowych usterek — każda zmiana wymaga zgody klienta.';
   } else if (isAdvance) {
     invoiceTitle = 'FAKTURA ZALICZKOWA';
     footerNote = 'Faktura zaliczkowa wystawiona zgodnie z art. 106f ust. 1 ustawy z dnia 11 marca 2004 r. o podatku od towarów i usług. Kwota brutto obejmuje otrzymaną zaliczkę.';
@@ -704,7 +717,9 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
     kw: 'KW - Kasa Wyda',
     wz: 'WZ - Wydanie Zewnętrzne',
     pz: 'PZ - Przyjęcie Zewnętrzne',
-    nota: 'Nota księgowa'
+    nota: 'Nota księgowa',
+    service_confirmation: 'Potwierdzenie wykonania usługi',
+    repair_estimate: 'Kosztorys naprawy'
   };
 
   const safeFileName = `${invoice.invoice_number.replace(/\//g, '_')}_${invoice.buyer.name.replace(/[^a-zA-Z0-9ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g, '_').substring(0, 30)}`;
@@ -726,7 +741,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
   // "Podsumowanie faktury" — tabela stawek VAT (lewa kolumna). Wypełnia całą szerokość swojej kolumny.
   const standardVatSummaryHtml = `
     <div class="vat-summary" style="margin-top: 0; font-size: 10px;">
-      <div style="font-size: 11px; font-weight: 600; margin-bottom: 2px; color: #666;">${isServiceConfirmation ? 'Podsumowanie' : 'Podsumowanie faktury'}</div>
+      <div style="font-size: 11px; font-weight: 600; margin-bottom: 2px; color: #666;">${isWarsztatDoc ? 'Podsumowanie' : 'Podsumowanie faktury'}</div>
       <table style="width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10px;">
         <thead>
           <tr class="vat-header" style="background-color: ${themeColor} !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
@@ -778,8 +793,8 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           <span style="font-weight: bold; color: #16a34a;">${formatCurrency(invoice.paid_amount, currency)}</span>
         </div>` : ''}
         <div class="totals-row grand" style="background-color: ${themeColor} !important; color: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;">
-          <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : isVatRR ? 'DO WYPŁATY ROLNIKOWI:' : isMargin ? 'KWOTA BRUTTO:' : (isReceipt || isNota) ? 'RAZEM:' : 'DO ZAPŁATY:'}</span>
-          <span style="font-weight: bold; font-size: 16px; color: #ffffff !important;">${formatCurrency(isVatRR ? Math.round((netTotal + netTotal * (rrRate / 100)) * 100) / 100 : (isReceipt || isNota) ? netTotal : isMargin ? grossTotal : isAdvance ? grossTotal : (grossTotal - (invoice.paid_amount || 0)), currency)}</span>
+          <span style="color: #ffffff !important; font-weight: bold;">${isAdvance ? 'OTRZYMANO ZALICZKĘ:' : isVatRR ? 'DO WYPŁATY ROLNIKOWI:' : isMargin ? 'KWOTA BRUTTO:' : (isReceipt || isNota) ? 'RAZEM:' : isRepairEstimate ? 'SZACOWANY KOSZT:' : 'DO ZAPŁATY:'}</span>
+          <span style="font-weight: bold; font-size: 16px; color: #ffffff !important;">${formatCurrency(isVatRR ? Math.round((netTotal + netTotal * (rrRate / 100)) * 100) / 100 : (isReceipt || isNota) ? netTotal : isMargin ? grossTotal : isAdvance ? grossTotal : isRepairEstimate ? grossTotal : (grossTotal - (invoice.paid_amount || 0)), currency)}</span>
         </div>
         ${isFinal && invoice.advance_data?.advance_amount ? `
         <div class="totals-row" style="margin-top: 6px; border-top: 1px solid #ddd; padding-top: 6px;">
@@ -964,7 +979,7 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="top-meta">
           ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
         </div>
-        ${isServiceConfirmation ? (() => {
+        ${isWarsztatDoc ? (() => {
           // „POTWIERDZENIE WYKONANIA / USŁUGI: PWU-…" — tytuł i tak łamie się na dwie
           // linie, więc numer dostawiamy do drugiej zamiast zostawiać go samego.
           const words = invoiceTitle.trim().split(/\s+/);
@@ -994,11 +1009,12 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
           <div>Faktura rozliczająca zaliczkę nr: ${invoice.advance_data.advance_invoice_number}</div>
         </div>
         ` : ''}
+        ${isRepairEstimate ? '' : `
         <div class="invoice-dates">
           ${isAdvance ? `<div class="invoice-dates-row"><span class="invoice-dates-label">Data zaliczki:</span> <strong>${formatDate(invoice.sale_date)}</strong></div>` : `<div class="invoice-dates-row"><span class="invoice-dates-label">Data sprzedaży:</span> <strong>${formatDate(invoice.sale_date)}</strong></div>`}
           <div class="invoice-dates-row"><span class="invoice-dates-label">Termin płatności:</span> <strong>${formatDate(invoice.due_date)}</strong></div>
           <div class="invoice-dates-row"><span class="invoice-dates-label">Sposób płatności:</span> <strong>${paymentMethodLabels[invoice.payment_method] || invoice.payment_method}</strong></div>
-        </div>
+        </div>`}
       </div>
     </div>
 
@@ -1260,7 +1276,14 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
 
     ${!invoice.hide_signatures ? `
     <div class="footer">
-      ${isServiceConfirmation ? `
+      ${isRepairEstimate ? `
+      <div class="signature">
+        <div class="signature-line">Kosztorys sporządził${invoice.issued_by ? `<br><strong>${invoice.issued_by}</strong>` : ''}</div>
+      </div>
+      <div class="signature">
+        <div class="signature-line">Akceptacja klienta<br>(zgoda na naprawę)</div>
+      </div>
+      ` : isServiceConfirmation ? `
       <div class="signature">
         <div class="signature-line">Podpis osoby upoważnionej<br>do wystawienia${invoice.issued_by ? `<br><strong>${invoice.issued_by}</strong>` : ''}</div>
       </div>

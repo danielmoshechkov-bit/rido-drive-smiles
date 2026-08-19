@@ -56,6 +56,13 @@ interface InvoicePreviewModalProps {
   mode?: 'invoice' | 'document';
   /** Nagłówek okna zamiast „Podgląd" (np. „Potwierdzenie wykonania usługi"). */
   titleLabel?: string;
+  /**
+   * Czynność wykonana SAMA po otwarciu okna — dla pozycji menu „Drukuj"
+   * i „Pobierz", które mają zrobić swoje, a nie kazać klikać drugi raz.
+   * Uruchamia się dopiero, gdy podgląd skończy się renderować, żeby pobranie
+   * dostało ten sam plik, który widać na ekranie.
+   */
+  autoAkcja?: 'print' | 'download';
 }
 
 export function InvoicePreviewModal({
@@ -68,7 +75,8 @@ export function InvoicePreviewModal({
   invoiceIssued = false,
   frozenPdfBase64,
   mode = 'invoice',
-  titleLabel
+  titleLabel,
+  autoAkcja
 }: InvoicePreviewModalProps) {
   const isDocumentMode = mode === 'document';
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -208,6 +216,25 @@ export function InvoicePreviewModal({
       setIsDownloading(false);
     }
   };
+
+  /**
+   * „Drukuj" / „Pobierz" z menu — bez drugiego kliknięcia w oknie.
+   *
+   * Czekamy na koniec renderu podglądu (przejście ładowania z prawdy na fałsz),
+   * bo pobranie bierze wtedy gotowy plik zamiast renderować dokument po raz drugi.
+   */
+  const bylLadowany = useRef(false);
+  const autoWykonane = useRef(false);
+  useEffect(() => {
+    if (!open) { bylLadowany.current = false; autoWykonane.current = false; return; }
+    if (previewLoading) { bylLadowany.current = true; return; }
+    if (!autoAkcja || !bylLadowany.current || autoWykonane.current) return;
+    autoWykonane.current = true;
+    void (autoAkcja === 'print' ? handlePrint() : handleDownloadPdf());
+    // handlePrint/handleDownloadPdf celowo poza zaleznosciami — sa tworzone od nowa
+    // przy kazdym renderze, a ten efekt ma sie wykonac dokladnie raz na otwarcie.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, previewLoading, autoAkcja]);
 
   const handleSaveClick = async () => {
     if (!isLoggedIn) {

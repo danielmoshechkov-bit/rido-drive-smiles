@@ -22,6 +22,7 @@ import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { WorkshopAssignClientDialog } from './WorkshopAssignClientDialog';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
+import { zbudujDokumentZlecenia } from '@/utils/workshopOrderDocument';
 import { rozbijAdres } from '@/utils/adresKlienta';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -392,134 +393,17 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
     }
   };
 
+  /**
+   * Potwierdzenie wykonania uslugi — ten sam dokument co kosztorys naprawy.
+   *
+   * Sklada go `zbudujDokumentZlecenia`, wspolna dla obu kartek, ktore warsztat
+   * wydaje klientowi. Wczesniej to samo skladanie stalo tutaj w 130 liniach,
+   * a kosztorys nie mial swojego dokumentu w ogole — „Drukuj" otwieral strone
+   * klienta.
+   */
   const generateServiceConfirmation = async (order: any) => {
     try {
-      const { data: orderItems } = await (supabase as any)
-        .from('workshop_order_items')
-        .select('*')
-        .eq('order_id', order.id)
-        .order('sort_order');
-
-      const { data: { session } } = await supabase.auth.getSession();
-      let companyData: any = null;
-      let logoUrl: string = '';
-      if (session?.user) {
-        const { data: cs } = await (supabase as any)
-          .from('company_settings')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        companyData = cs;
-        // Try invoice company first (has logo_url)
-        const { data: invCompany } = await (supabase as any)
-          .from('user_invoice_companies')
-          .select('logo_url, name, nip, address_street, address_building_number, address_city, address_postal_code, email, phone')
-          .eq('user_id', session.user.id)
-          .eq('is_default', true)
-          .maybeSingle();
-        if (invCompany?.logo_url) logoUrl = invCompany.logo_url;
-        if (invCompany && !companyData) companyData = invCompany;
-        // Fallback: service_providers / workshop_settings
-        if (!logoUrl) {
-          const { data: sp } = await supabase
-            .from('service_providers').select('logo_url').eq('user_id', session.user.id)
-// Konto może mieć więcej niż jeden warsztat (plan Sieci). `maybeSingle`
-// zwraca wtedy BŁĄD, nie pierwszy wiersz — ekran się wywala. Bierzemy
-// najstarszy i tak samo we wszystkich miejscach, żeby różne ekrany
-// nie pokazywały różnych firm.
-.order('created_at', { ascending: true })
-.limit(1)
-.maybeSingle();
-          if (sp?.logo_url) logoUrl = sp.logo_url;
-        }
-        if (!logoUrl) {
-          const { data: ws } = await (supabase as any)
-            .from('workshop_settings').select('logo_url').eq('user_id', session.user.id).maybeSingle();
-          if (ws?.logo_url) logoUrl = ws.logo_url;
-        }
-      }
-
-      const items = (orderItems || []).map((item: any) => {
-        const qty = item.quantity || 1;
-        const unitNet = item.unit_price_net || 0;
-        const unitGross = item.unit_price_gross || 0;
-        const grossAmount = item.total_gross || qty * unitGross;
-        const netAmount = item.total_net || qty * unitNet;
-        return {
-          name: item.name || '',
-          quantity: qty,
-          unit: item.unit || 'usł.',
-          unit_net_price: unitNet,
-          vat_rate: '23',
-          net_amount: netAmount,
-          vat_amount: grossAmount - netAmount,
-          gross_amount: grossAmount,
-        };
-      });
-
-      const buyer: any = {};
-      if (order.client) {
-        buyer.name = order.client.client_type === 'company'
-          ? order.client.company_name
-          : `${order.client.first_name || ''} ${order.client.last_name || ''}`.trim();
-        buyer.nip = order.client.nip || '';
-        // Ten sam błąd, co przy wystawianiu faktury: `order.client.address` to
-        // kolumna, której nie ma — kartoteka trzyma adres sklejony w `street`.
-        const adres = rozbijAdres(order.client.street);
-        buyer.address_street = adres.ulica;
-        buyer.address_building_number = adres.numerBudynku;
-        buyer.address_apartment_number = adres.numerLokalu;
-        buyer.address_city = order.client.city || '';
-        buyer.address_postal_code = order.client.postal_code || '';
-      }
-
-      const vehicleDesc = order.vehicle
-        ? `Pojazd: ${order.vehicle.brand || ''} ${order.vehicle.model || ''}, Nr rej: ${order.vehicle.plate || ''}`
-        : '';
-
-      // 🔴 NAPRAWIONE 17.08.2026: wszystkie trzy daty były ustawiane na DZIŚ.
-      //
-      // Potwierdzenie wykonania usługi dla naprawy z marca drukowało się
-      // z datą sierpniową — i to niezależnie od tego, kiedy naprawa się odbyła.
-      // Użytkownik musiał poprawiać daty ręcznie w gotowym PDF-ie, przy każdym
-      // dokumencie do starszego zlecenia.
-      //
-      // Dokument opisuje wykonanie usługi, więc datą jest dzień jej zakończenia.
-      // Kolejność: zakończenie naprawy → naprawiono → przyjęcie → dziś.
-      const dataDokumentu = (
-        order.completed_at || order.repaired_at || order.acceptance_date || new Date().toISOString()
-      ).toString().split('T')[0];
-      const today = dataDokumentu;
-      const invoiceData: any = {
-        invoice_number: `PWU/${order.order_number || 'dok'}`,
-        type: 'service_confirmation',
-        issue_date: today,
-        sale_date: today,
-        due_date: today,
-        payment_method: 'cash',
-        notes: vehicleDesc,
-        currency: 'PLN',
-        paid_amount: 0,
-        is_fully_paid: true,
-        items,
-        seller: {
-          name: companyData?.company_name || companyData?.name || '',
-          nip: companyData?.nip || '',
-          address_street: companyData?.street || companyData?.address_street || companyData?.address || '',
-          address_building_number: companyData?.building_number || companyData?.address_building_number || '',
-          address_apartment_number: companyData?.apartment_number || companyData?.address_apartment_number || '',
-          address_city: companyData?.city || companyData?.address_city || '',
-          address_postal_code: companyData?.postal_code || companyData?.address_postal_code || '',
-          email: companyData?.email || '',
-          phone: companyData?.phone || '',
-          bank_name: companyData?.bank_name || '',
-          bank_account: companyData?.bank_account || '',
-          logo_url: logoUrl || companyData?.logo_url || '',
-        },
-        buyer,
-      };
-
-      setConfirmationData(invoiceData);
+      setConfirmationData(await zbudujDokumentZlecenia(order, 'service_confirmation'));
     } catch (e: any) {
       console.error('[generateServiceConfirmation]', e);
       toast.error(t('workshop.orders.confirmationError', { error: e?.message || e?.toString() || t('workshop.orders.unknownError') }));

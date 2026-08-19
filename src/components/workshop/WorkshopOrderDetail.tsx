@@ -30,6 +30,9 @@ import { WorkshopStatusPicker } from './WorkshopStatusPicker';
 import { WorkshopPaymentDialog } from './WorkshopPaymentDialog';
 import { useWorkshopFinanceSettings } from '@/hooks/useWorkshopFinance';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
+import { InvoicePreviewModal } from '@/components/invoices/InvoicePreviewModal';
+import { zbudujDokumentZlecenia } from '@/utils/workshopOrderDocument';
+import type { InvoiceData } from '@/utils/invoiceHtmlGenerator';
 import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
@@ -115,6 +118,9 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
   const [activeTab, setActiveTab] = useState('tasks');
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsType, setSmsType] = useState<'reception' | 'quote' | 'requote' | 'ready'>('reception');
+  // Kosztorys naprawy jako DOKUMENT (ten sam co potwierdzenie wykonania usługi).
+  const [kosztorysDoc, setKosztorysDoc] = useState<InvoiceData | null>(null);
+  const [kosztorysAkcja, setKosztorysAkcja] = useState<'print' | 'download' | undefined>();
 
   // FIX P1: realtime dla OTWARTEGO zlecenia. Lista (która ma własny realtime)
   // jest odmontowana gdy patrzysz na kartę, więc bez tego zmiana zrobiona przez
@@ -297,7 +303,36 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
     window.open(url, '_blank');
   };
 
-  const openClientEstimate = (mode: 'preview' | 'print') => openClientDoc('estimate', mode);
+  /**
+   * Kosztorys naprawy — DOKUMENT, nie zrzut strony klienta.
+   *
+   * 🔴 NAPRAWIONE 19.08.2026. „Podgląd / Drukuj / Pobierz" otwierały tu
+   * `/warsztat/klient/<kod>` — czyli dokładnie to, co klient dostaje SMS-em:
+   * z zakładkami, banerem „Podgląd menedżera" i przyciskiem do podpisu.
+   * Na drukarce wychodziły z tego trzy strony zrzutu ekranu.
+   *
+   * Warsztat potrzebuje kartki do teczki i do ręki klienta, więc kosztorys
+   * składa ta sama funkcja co potwierdzenie wykonania usługi — ten sam układ,
+   * inny tytuł.
+   */
+  const otworzKosztorys = async (akcja?: 'print' | 'download') => {
+    const wycenione = (order.items || []).filter(
+      (i: any) => i?.unit_price_net != null || i?.unit_price_gross != null,
+    );
+    if (!wycenione.length) {
+      // Pusty kosztorys to kartka z zerem — mówimy wprost, czego brakuje,
+      // zamiast wydrukować dokument bez ani jednej pozycji.
+      toast.error('Kosztorys jest pusty — żadna pozycja nie ma jeszcze ceny.');
+      return;
+    }
+    try {
+      setKosztorysAkcja(akcja);
+      setKosztorysDoc(await zbudujDokumentZlecenia(order, 'repair_estimate'));
+    } catch (e: any) {
+      console.error('[kosztorys]', e);
+      toast.error(`Nie udało się przygotować kosztorysu: ${e?.message || e}`);
+    }
+  };
 
   const copyClientLink = () => {
     if (order.client_code) {
@@ -503,13 +538,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
                 <DropdownMenuItem onClick={() => openSms('quote')}>
                   <Send className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.sendEstimateSms')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openClientEstimate('preview')}>
+                <DropdownMenuItem onClick={() => otworzKosztorys()}>
                   <Eye className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.preview')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openClientEstimate('print')}>
+                <DropdownMenuItem onClick={() => otworzKosztorys('print')}>
                   <Printer className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.print')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openClientEstimate('print')}>
+                <DropdownMenuItem onClick={() => otworzKosztorys('download')}>
                   <Download className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.download')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
@@ -792,6 +827,19 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
         amount={computeOrderTotals(order.items).total_gross || order.total_gross || 0}
         title={`Płatność — ${order.order_number || ''}`}
       />
+
+      {/* Kosztorys naprawy — ten sam podgląd co potwierdzenie wykonania usługi */}
+      {kosztorysDoc && (
+        <InvoicePreviewModal
+          open={!!kosztorysDoc}
+          onOpenChange={(v) => { if (!v) { setKosztorysDoc(null); setKosztorysAkcja(undefined); } }}
+          invoiceData={kosztorysDoc}
+          isLoggedIn
+          mode="document"
+          titleLabel="Kosztorys naprawy"
+          autoAkcja={kosztorysAkcja}
+        />
+      )}
     </div>
   );
 }
