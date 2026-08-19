@@ -34,3 +34,6 @@ public/invoice-pdf-lib/vendor/
 ksef-przyklady/
 .env*
 !.env.example
+
+# deno test generuje ten plik przy uruchomieniu na pojedynczym pliku
+deno.lock
