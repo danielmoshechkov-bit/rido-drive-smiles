@@ -123,29 +123,39 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------------
--- 5. Kontrola
+-- 5. Kontrola — po WARUNKU, nie po roli
 -- ---------------------------------------------------------------------------
+-- Pierwsza wersja tej kontroli pytała „czy istnieje polityka UPDATE dla anon".
+-- To pytanie o ROLĘ, a w tej bazie prawie żadna polityka nie ma klauzuli TO,
+-- więc wszystkie mają role `{public}` — łącznie z całkowicie bezpiecznymi
+-- („Drivers can update own rentals", „Fleet can manage their rentals"). Kontrola
+-- wywalała się na nich i cofała całą migrację razem ze zdjęciem dziurawej
+-- polityki. To ta sama pomyłka co zakładanie nazw kolumn zamiast ich odczytania.
+--
+-- Pytanie właściwe brzmi: czy warunek zapisu w ogóle odwołuje się do tożsamości
+-- wołającego. Polityka, której warunek nie wspomina `auth.uid()` ani `has_role`,
+-- przepuszcza każdego, kto ma klucz anonimowy — niezależnie od tego, jak ładnie
+-- wygląda (`portal_access_token IS NOT NULL` wyglądało jak sprawdzenie tokenu,
+-- a było sprawdzeniem, czy token w ogóle istnieje).
+--
+-- Ograniczenie tej kontroli: sprawdza, czy warunek O TOŻSAMOŚCI PYTA, a nie czy
+-- pyta dobrze. Polityka odwołująca się do `auth.uid()` w błędny sposób przejdzie.
 DO $$
 DECLARE v_zostalo text;
 BEGIN
-  SELECT string_agg(tablename || '.' || policyname, ', ') INTO v_zostalo
+  SELECT string_agg(tablename || '.„' || policyname || '" [' || cmd || '] → ' ||
+                    COALESCE(qual, with_check, '(brak warunku)'), E'\n  ')
+    INTO v_zostalo
   FROM pg_policies
   WHERE schemaname = 'public'
-    AND tablename IN ('contract_signature_logs', 'settlement_visibility_settings')
+    AND tablename IN ('contract_signature_logs', 'settlement_visibility_settings', 'vehicle_rentals')
     AND cmd <> 'SELECT'
     AND (roles::text[] && ARRAY['public', 'anon', 'authenticated'])
-    AND COALESCE(btrim(qual), 'true') = 'true';
+    -- Warunek zapisu nie pyta, KTO pisze:
+    AND (COALESCE(qual, '') || ' ' || COALESCE(with_check, '')) !~ 'auth\.uid\(\)|has_role';
 
   IF v_zostalo IS NOT NULL THEN
-    RAISE EXCEPTION 'Nadal otwarty zapis: %', v_zostalo;
-  END IF;
-
-  IF EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname='public' AND tablename='vehicle_rentals'
-      AND cmd = 'UPDATE' AND (roles::text[] && ARRAY['public','anon'])
-  ) THEN
-    RAISE EXCEPTION 'Nadal otwarty ZAPIS umów najmu dla anonimowych';
+    RAISE EXCEPTION E'Zapis otwarty dla wołającego bez tożsamości:\n  %', v_zostalo;
   END IF;
 
   RAISE NOTICE 'Kontrola przeszła: podpis i dziennik wyłącznie przez rental-sign.';
