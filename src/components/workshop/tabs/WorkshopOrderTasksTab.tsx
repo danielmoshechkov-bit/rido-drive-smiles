@@ -1147,6 +1147,31 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
     if (Object.keys(updates).length === 0) return; // nic się nie zmieniło — nie zapisuj
     showQuoteWarningIfNeeded(); // ostrzeżenie TYLKO przy realnej zmianie podpisanej wyceny
     await updateItem.mutateAsync({ id: myId, ...updates });
+
+    /**
+     * ZMIENIONA CENA ROBOCIZNY WRACA DO PAMIĘCI.
+     *
+     * Wcześniej pamięć zapisywała się WYŁĄCZNIE przy zakładaniu nowej pozycji.
+     * Poprawienie ceny już zapisanej — a to najczęstszy przypadek: wybierasz
+     * „wymiana łączników" z podpowiedzi za 400 i zmieniasz na 500 — nie
+     * docierało nigdzie. Następnym razem podpowiedź nadal proponowała 400.
+     *
+     * Teraz każda zmiana ceny pozycji robocizny nadpisuje ostatnią cenę tej
+     * usługi. Działa w obie strony: w górę i w dół, bo `useSaveServicePrice`
+     * po prostu wpisuje ostatnią wartość, a nie największą.
+     *
+     * Tylko robocizna — części mają własną kartotekę i swoje ceny zakupu.
+     */
+    const cenaSieZmienila = updates.unit_price_gross !== undefined || updates.unit_price_net !== undefined;
+    const toRobocizna = item.item_type === 'service' || item.item_type === 'task';
+    if (cenaSieZmienila && toRobocizna && String(item.name || '').trim()) {
+      const netPo = updates.unit_price_net ?? safeNumber(item.unit_price_net);
+      const grossPo = updates.unit_price_gross ?? safeNumber(item.unit_price_gross);
+      // Wyczyszczona cena (powrót do „do wyceny") nie jest ceną — nie zapamiętujemy jej.
+      if (netPo || grossPo) {
+        saveServicePrice.mutate({ name: item.name, priceNet: netPo, priceGross: grossPo });
+      }
+    }
   };
 
   const cancelEdit = () => {
@@ -1722,16 +1747,36 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           )}
 
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full min-w-[1180px] text-xs" style={{ tableLayout: 'fixed' }}>
+            {/*
+              SZEROKOŚCI DOBRANE TAK, ŻEBY OBIE TABELE STAŁY W JEDNEJ LINII.
+
+              🔴 NAPRAWIONE 19.08.2026. Robocizna wymagała 1180 px, a części 1040 px.
+              Skutek: przy tej samej szerokości ekranu robocizna jechała w bok,
+              kosz do usuwania pozycji wypadał poza kadr i trzeba było przewijać
+              tabelę, żeby go znaleźć. Do tego kolumny RABAT i PO RABACIE nie
+              stały nad tymi samymi kolumnami w częściach, więc całość wyglądała
+              na dwie różne tabele.
+
+              Zasada: końcówka obu tabel jest IDENTYCZNA (rabat 170 + po rabacie
+              100 + kosz 50 = 320 px), a kolumna z nazwą bierze całą resztę
+              (`width: auto`). Przy równej szerokości obu tabel oznacza to, że
+              rabat zaczyna się w obu dokładnie w tym samym miejscu — i kolumny
+              układają się jedna pod drugą bez względu na szerokość okna.
+
+              Rachunek: robocizna 40 + auto + 150 + 80 + 110, części
+              40 + auto + 80 + 72 + 110 + 110 + 100. Nazwa w robociźnie wychodzi
+              o 132 px szersza i to właśnie wyrównuje obie końcówki.
+            */}
+            <table className="w-full min-w-[1040px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
-                <col style={{ width: '26%' }} />
+                <col style={{ width: 'auto' }} />
                 <col style={{ width: '150px' }} />
                 <col style={{ width: '80px' }} />
                 <col style={{ width: '110px' }} />
                 <col style={{ width: '170px' }} />
-                <col style={{ width: '110px' }} />
-                <col style={{ width: '72px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '50px' }} />
               </colgroup>
               <thead>
                 <tr className="border-b bg-muted/10">
@@ -1850,7 +1895,21 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                           value={row.name}
                           onChange={name => updateTaskRow(idx, { name })}
                           onSelectSuggestion={(name, priceNet, priceGross) => {
-                            updateTaskRow(idx, { name, price_net: priceNet, price_gross: priceGross });
+                            // `priceSet` MUSI tu być.
+                            //
+                            // 🔴 NAPRAWIONE 19.08.2026. Wybranie podpowiedzi wpisywało
+                            // cenę do wiersza, ale nie podnosiło znacznika „cena podana".
+                            // Pole ceny rysuje się warunkiem `row.priceSet ? ... : ''`,
+                            // więc zostawało PUSTE, a pozycja dostawała czerwone
+                            // „podaj cenę" — mimo że cena z pamięci właśnie do niej
+                            // weszła. Wyglądało to tak, jakby wybór podpowiedzi w ogóle
+                            // nic nie robił.
+                            updateTaskRow(idx, {
+                              name,
+                              price_net: priceNet,
+                              price_gross: priceGross,
+                              priceSet: priceGross > 0 || priceNet > 0,
+                            });
                             // Auto-add new row and focus it for fast continuous entry
                             setTimeout(() => addTaskRow(), 50);
                           }}
@@ -2087,7 +2146,13 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
                 <ServiceAutocomplete
                   value={row.name}
                   onChange={name => updateTaskRow(idx, { name })}
-                  onSelectSuggestion={(name, priceNet, priceGross) => updateTaskRow(idx, { name, price_net: priceNet, price_gross: priceGross })}
+                  onSelectSuggestion={(name, priceNet, priceGross) => updateTaskRow(idx, {
+                    name,
+                    price_net: priceNet,
+                    price_gross: priceGross,
+                    // Bez tego pole ceny zostaje puste — patrz komentarz w widoku tabeli.
+                    priceSet: priceGross > 0 || priceNet > 0,
+                  })}
                   providerId={providerId}
                   className="h-10 w-full text-sm"
                 />
@@ -2136,10 +2201,11 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
           </div>
 
           <div className="hidden md:block overflow-x-auto">
+            {/* Nazwa bierze resztę szerokości — patrz komentarz przy tabeli robocizny. */}
             <table className="w-full min-w-[1040px] text-xs" style={{ tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: '40px' }} />
-                <col style={{ width: '28%' }} />
+                <col style={{ width: 'auto' }} />
                 <col style={{ width: '80px' }} />
                 <col style={{ width: '72px' }} />
                 <col style={{ width: '110px' }} />

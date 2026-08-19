@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
-import { useServiceAutocomplete } from '@/hooks/useServicePriceHistory';
+import { MinusCircle } from 'lucide-react';
+import { useServiceAutocomplete, useForgetServicePrice } from '@/hooks/useServicePriceHistory';
 
 interface Props {
   value: string;
@@ -35,6 +36,7 @@ export function ServiceAutocomplete({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { data: suggestions = [] } = useServiceAutocomplete(providerId, query);
+  const zapomnij = useForgetServicePrice(providerId);
 
   useEffect(() => {
     setQuery(value);
@@ -142,27 +144,56 @@ export function ServiceAutocomplete({
         >
           {suggestions.map((s: any, i: number) => {
             const price = s.last_price_gross || s.price_gross || 0;
+            const nazwa = s.service_name || s.service_name_normalized;
             return (
-              <button
-                key={i}
-                type="button"
-                data-autocomplete-suggestion="true"
-                className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center justify-between"
-                onMouseDown={e => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleSelect(s);
-                }}
-              >
-                <span className="font-medium truncate">
-                  {s.service_name || s.service_name_normalized}
-                </span>
-                {price > 0 && (
-                  <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">
-                    {t('workshop.pricing.autocomplete.lastPrice', { price: fmt(price) })}
-                  </span>
+              <div key={i} className="flex items-center hover:bg-accent transition-colors">
+                <button
+                  type="button"
+                  data-autocomplete-suggestion="true"
+                  className="flex-1 min-w-0 text-left px-3 py-2 text-sm flex items-center justify-between"
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSelect(s);
+                  }}
+                >
+                  <span className="font-medium truncate">{nazwa}</span>
+                  {price > 0 && (
+                    <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">
+                      {t('workshop.pricing.autocomplete.lastPrice', { price: fmt(price) })}
+                    </span>
+                  )}
+                </button>
+
+                {/*
+                  ZAPOMNIJ TĘ POZYCJĘ.
+
+                  Literówka albo cena wbita przez pomyłkę zostawała w podpowiedziach
+                  na zawsze i podstawiała się przy każdym kolejnym kosztorysie —
+                  nie było jak ją stamtąd wyjąć.
+
+                  Minus pojawia się TYLKO przy własnej pamięci warsztatu. Podpowiedzi
+                  ze wspólnej bazy cen są zbiorcze i anonimowe; pojedynczy warsztat
+                  nie kasuje z nich cudzych wpisów.
+                */}
+                {s.wlasna && (
+                  <button
+                    type="button"
+                    title={t('workshop.pricing.autocomplete.forget', 'Usuń z pamięci podpowiedzi')}
+                    aria-label={t('workshop.pricing.autocomplete.forget', 'Usuń z pamięci podpowiedzi')}
+                    className="shrink-0 px-2 py-2 text-destructive hover:text-destructive/80"
+                    onMouseDown={e => {
+                      // `preventDefault` trzyma kursor w polu, `stopPropagation`
+                      // pilnuje, żeby kliknięcie w minus nie wybrało tej pozycji.
+                      e.preventDefault();
+                      e.stopPropagation();
+                      zapomnij.mutate(nazwa);
+                    }}
+                  >
+                    <MinusCircle className="h-4 w-4" />
+                  </button>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>,

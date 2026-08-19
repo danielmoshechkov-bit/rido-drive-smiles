@@ -21,7 +21,9 @@ export function useServiceAutocomplete(providerId: string | null, query: string)
         .order('last_used_at', { ascending: false })
         .limit(3);
 
-      if (own && own.length > 0) return own;
+      // Skąd pochodzi podpowiedź, decyduje o tym, czy da się ją usunąć:
+      // własną historię warsztat kasuje, wspólnej bazy cen nie rusza.
+      if (own && own.length > 0) return own.map((o: any) => ({ ...o, wlasna: true }));
 
       // 2. Community anonymous prices
       const { data: community } = await (supabase as any)
@@ -44,7 +46,7 @@ export function useServiceAutocomplete(providerId: string | null, query: string)
           });
         }
       }
-      return Array.from(map.values()).slice(0, 3);
+      return Array.from(map.values()).slice(0, 3).map((c) => ({ ...c, wlasna: false }));
     },
     staleTime: 5000,
   });
@@ -88,6 +90,35 @@ export function useSaveServicePrice(providerId: string | null) {
             last_price_gross: params.priceGross,
           });
       }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['service-autocomplete'] });
+    },
+  });
+}
+
+/**
+ * Usunięcie pozycji z pamięci podpowiedzi warsztatu.
+ *
+ * Po co: literówka albo cena wbita przez pomyłkę zostawała w podpowiedziach na
+ * zawsze i podstawiała się przy każdym kolejnym kosztorysie. Nie było jak jej
+ * stamtąd wyjąć.
+ *
+ * Kasujemy WYŁĄCZNIE własną historię warsztatu. Wspólna baza cen
+ * (`anonymous_service_prices`) jest zbiorcza i anonimowa — pojedynczy warsztat
+ * nie usuwa z niej cudzych wpisów.
+ */
+export function useForgetServicePrice(providerId: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (name: string) => {
+      if (!providerId) return;
+      await (supabase as any)
+        .from('service_price_history')
+        .delete()
+        .eq('provider_id', providerId)
+        .eq('service_name_normalized', normalize(name));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['service-autocomplete'] });
