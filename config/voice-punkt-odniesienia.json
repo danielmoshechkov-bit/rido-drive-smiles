@@ -59,12 +59,12 @@
   {
    "persona_key": "service_scheduler",
    "enabled": true,
-   "priority": 6
+   "priority": 4
   },
   {
    "persona_key": "workshop_secretary",
    "enabled": true,
-   "priority": 8
+   "priority": 10
   }
  ],
  "wierszy_konfiguracji": [

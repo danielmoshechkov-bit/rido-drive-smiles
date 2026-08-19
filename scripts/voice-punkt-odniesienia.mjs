@@ -69,6 +69,59 @@ async function stan() {
   };
 }
 
+// ============================================================================
+// SPRAWDZENIA NIEZALEŻNE OD PUNKTU ODNIESIENIA.
+//
+// Punkt odniesienia mówi „czy coś się zmieniło". To jest inne pytanie:
+// „czy stan w ogóle ma sens" — i odpowiedź nie zależy od tego, co było wczoraj.
+// ============================================================================
+async function sprawdzenia() {
+  const bledy = [];
+
+  // 1) JEDEN WARSZTAT, JEDNA KONFIGURACJA.
+  //
+  // Baza pilnuje pary (provider_id, persona_key) indeksem unikalnym, ale NIE
+  // pilnuje, żeby warsztat miał tylko jedną personę. Dokładnie tak powstałby
+  // wiersz `sales_agent` z `is_active: false` obok włączonego wiersza warsztatu.
+  //
+  // To jest wykrywanie, nie blokada — provider mógłby kiedyś legalnie mieć
+  // agenta warsztatowego i sprzedażowego naraz. Twardy indeks na samym
+  // provider_id zamknąłby tę drogę na zawsze, a problem jest dziś hipotetyczny.
+  const wiele = await pytaj(`
+    select left(provider_id::text,8) warsztat, count(*)::int wierszy,
+           string_agg(persona_key, ', ' order by persona_key) persony
+    from voice_agent_configs group by provider_id having count(*) > 1`);
+  for (const w of wiele) {
+    bledy.push(`warsztat ${w.warsztat} ma ${w.wierszy} konfiguracje (${w.persony}) — jedna z nich decyduje o odbieraniu telefonu`);
+  }
+
+  // 2) REMIS PRIORYTETÓW PERSON.
+  //
+  // Od 19.08 pilnuje tego indeks unikalny w bazie. Sprawdzenie zostaje, bo
+  // indeks da się usunąć jedną migracją, a wtedy nic by o tym nie powiedziało.
+  const remis = await pytaj(`
+    select priority, count(*)::int ile, string_agg(persona_key, ', ' order by persona_key) persony
+    from voice_agent_personas where enabled group by priority having count(*) > 1`);
+  for (const r of remis) {
+    bledy.push(`priorytet ${r.priority} mają ${r.ile} włączone persony (${r.persony}) — "order by priority desc limit 1" nie ma zwycięzcy`);
+  }
+
+  // 3) NUMER PRZYPISANY DO WIĘCEJ NIŻ JEDNEGO WARSZTATU.
+  //
+  // `voice-agent-init` rozpoznaje warsztat po numerze docelowym przez
+  // `.limit(1)`. Dwa aktywne wiersze na ten sam numer znaczą, że o tym,
+  // czyj snapshot dostanie dzwoniący, decyduje kolejność wierszy w tabeli —
+  // a snapshot zawiera dane klientów warsztatu.
+  const numery = await pytaj(`
+    select phone_number, count(*)::int ile from voice_numbers
+    where status = 'aktywny' group by phone_number having count(*) > 1`);
+  for (const n of numery) {
+    bledy.push(`numer ${String(n.phone_number).slice(0, -4)}···· ma ${n.ile} aktywne wiersze — rozpoznanie warsztatu jest losowe`);
+  }
+
+  return bledy;
+}
+
 const biezacy = await stan();
 
 if (process.argv.includes("--zapisz")) {
@@ -77,7 +130,9 @@ if (process.argv.includes("--zapisz")) {
   console.log(`punkt odniesienia zapisany → ${PLIK.replace(ROOT + "/", "")}`);
   console.log(`  warsztatów z konfiguracją: ${biezacy.wierszy_konfiguracji.length}`);
   console.log(`  numerów: ${biezacy.numery.length}`);
-  process.exit(0);
+  const bledy = await sprawdzenia();
+  bledy.forEach((b) => console.log(`  ⚠️ ${b}`));
+  process.exit(bledy.length ? 1 : 0);
 }
 
 if (!existsSync(PLIK)) {
@@ -108,7 +163,16 @@ for (const s of ["konfiguracje", "numery", "persony", "wierszy_konfiguracji"]) {
   for (const w of biezacy[s] ?? []) sprawdzonych += Object.keys(w).length;
 }
 console.log(`punkt odniesienia z ${odniesienie.konfiguracje?.length ?? 0} konfiguracji; porównanych wartości: ${sprawdzonych}`);
-if (!roznice.length) { console.log("✅ stan agentów identyczny z punktem odniesienia"); process.exit(0); }
+const bledy = await sprawdzenia();
+if (bledy.length) {
+  console.log(`\n❌ ${bledy.length} rzeczy, które nie mają sensu niezależnie od punktu odniesienia:`);
+  for (const b of bledy) console.log(`   ${b}`);
+}
+if (!roznice.length) {
+  console.log(bledy.length ? "\n(stan identyczny z punktem odniesienia, ale patrz wyżej)"
+                           : "✅ stan agentów identyczny z punktem odniesienia");
+  process.exit(bledy.length ? 1 : 0);
+}
 console.log(`\n❌ ${roznice.length} różnic:`);
 for (const r of roznice) console.log(`   ${r.sciezka}\n      było: ${r.bylo}\n      jest: ${r.jest}`);
 process.exit(1);
