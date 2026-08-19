@@ -1,211 +1,289 @@
-# Licznik minut — projekt (przed kodowaniem)
+# Licznik minut — projekt do akceptacji
 
-Zakres z 19.08: pakiety **Agent 199 zł → 200 minut**, **Agent Pro 399 zł → 440 minut**,
-poza pakietem **1,15 zł/min**. Trzeci licznik w nagłówku, okno z rozmowami,
-naliczanie w `voice-call-postprocess`, pełne minuty w górę, idempotencja po
-`conversation_id`. Progi: 20% ostrzeżenie, 0 minut → agent mówi o oddzwonieniu,
-−30 minut → nie odbiera.
-
----
-
-## 1. Czego NIE budujemy — to już działa
-
-Sprawdzone w bazie, nie założone. **Mechanizm licznika jednostek rozliczanych
-istnieje i jest używany przez SMS-y oraz zapytania o pojazdy:**
-
-```
-billing_features        key, kind='metered', unit, overage_price_net, pack_validity_days
-billing_plan_features   limit_value i soft_limit per plan
-billing_addon_packs     dokupione paczki z wygasaniem
-billing_usage           subscriber + feature + period_start + used
-
-check_usage(typ, id, feature_key, ile)   → jsonb {allowed, reason, used, limit,
-                                                  remaining, packs_remaining}
-billing_consume(typ, id, feature_key, ile, p_pozwol_nadwyzke)
-feature_limit(typ, id, feature_key)
-billing_active_subscriptions(typ, id)
-```
-
-To zmienia rozmiar pracy z „nowy podsystem rozliczeń" na „jedna cecha, dwa
-wiersze limitów i wpięcie w jednym miejscu".
-
-⚠️ **Jest też `voice_usage_monthly`** — tabela z minutami, kosztem i tokenami.
-**Zero wierszy, zero kodu, który do niej pisze.** Nie używamy jej i proponuję
-usunąć: druga tabela na to samo, pusta i nieaktualna, będzie mylić przy każdym
-kolejnym pytaniu „ile ten warsztat wydzwonił".
+Zakres z 19.08. Odpowiadam po kolei na trzy pytania, które postawiłeś na końcu:
+**gdzie trzymamy salda, jak wygląda tabela transakcji, co się dzieje przy
+odnowieniu okresu.** Plus dwie rzeczy, których nie da się zrobić tak, jak
+zakładałeś, i jedna, która jest gotowa.
 
 ---
 
-## 2. Co dochodzi
+## 1. GDZIE TRZYMAMY SALDA — nigdzie nowego
 
-### Cecha rozliczana
+To jest najważniejsze ustalenie i zmienia rozmiar pracy.
+
+**`billing_consume` już robi dokładnie to, co opisałeś w punkcie 2.** Nie
+„coś podobnego" — dokładnie to. Przeczytałem definicję funkcji z bazy:
+
+```
+1. PULA Z PLANU     v_wolne := GREATEST(limit − used, 0)
+2. PACZKI, FIFO     ORDER BY expires_at ASC NULLS LAST, created_at ASC
+3. NADWYŻKA         billing_overage + sufit kwotowy (billing_settings.overage_cap_net)
+```
+
+Czyli: **najpierw pakietowe, potem dokupione** — bo tak jest napisane, nie dlatego,
+że o to poprosimy. A paczki bezterminowe (`expires_at IS NULL`) idą **na końcu
+kolejki FIFO**, więc zużywają się jako ostatnie. To ta sama zasada, którą podałeś:
+najpierw to, co i tak przepadnie.
+
+Salda nie trzymamy w żadnej kolumnie — **liczymy je**:
+
+| Co | Skąd | Wygasa? |
+|---|---|---|
+| pula z pakietu | `feature_limit(...) − billing_usage.used` dla bieżącego okresu | tak, z końcem miesiąca — automatycznie |
+| dokupione | `billing_addon_packs.amount_remaining` z `expires_at IS NULL` | nie |
+| nadwyżka | `billing_overage.units` / `amount_net` | rozliczana w okresie |
+
+Zero nowego mechanizmu. Sam licznik to **jedna cecha rozliczana i dwa wiersze
+limitów.**
+
+⚠️ Jest też pusta tabela **`voice_usage_monthly`** (minuty, koszt, tokeny) —
+zero wierszy i zero kodu, który do niej pisze. Do usunięcia, bo przy każdym
+kolejnym pytaniu „ile ten warsztat wydzwonił" będzie mylić.
+
+---
+
+## 2. TABELA TRANSAKCJI — nie ma jej, i tak jest lepiej
+
+Chciałem osobny rejestr `voice_call_minutes`. **Twoja wersja jest prostsza
+i wystarczająca** — idempotencja na kolumnie w `voice_calls`. Rezygnuję ze swojej.
 
 ```sql
+ALTER TABLE voice_calls
+  ADD COLUMN minutes_charged      integer,        -- ile naliczono
+  ADD COLUMN minutes_charged_at   timestamptz,    -- kiedy; NULL = jeszcze nie
+  ADD COLUMN minutes_charge_detail jsonb;         -- {z_puli, z_paczek, nadwyzka}
+
+CREATE UNIQUE INDEX voice_calls_conversation_unikalny
+  ON voice_calls (elevenlabs_conversation_id)
+  WHERE elevenlabs_conversation_id IS NOT NULL;
+```
+
+Rozmowa **jest** transakcją — nie potrzebuje drugiego wiersza obok siebie.
+`minutes_charge_detail` trzyma to, co zwraca `billing_consume`: ile poszło z puli,
+ile z paczek, ile w nadwyżkę. Bez tego nie odpowiemy warsztatowi, dlaczego
+przy 137 minutach zużycia zapłacił za 12.
+
+**Indeks unikalny na `elevenlabs_conversation_id` jest częścią idempotencji,
+nie ozdobą.** Sama kolumna `minutes_charged_at` broni przed powtórnym
+naliczeniem tej samej rozmowy, ale nie broni przed **dwoma wierszami** tej samej
+rozmowy — a webhook ElevenLabs potrafi przyjść dwa razy.
+
+---
+
+## 3. NALICZANIE
+
+W `voice-call-postprocess`, po zapisaniu rozmowy:
+
+```
+minuty = ceil(call_duration_secs / 60)        ← źródło: metadata.call_duration_secs
+                                                 z ElevenLabs, już tam jest
+jeśli minutes_charged_at IS NOT NULL          → koniec, nie naliczamy drugi raz
+jeśli duration_seconds = 0                    → 0 minut, ale minutes_charged_at
+                                                 ustawiamy — inaczej kontrola
+                                                 „rozmowa bez naliczenia" krzyczy
+                                                 na próby techniczne
+billing_consume(..., 'voice_minutes', minuty, p_pozwol_nadwyzke := true)
+UPDATE voice_calls SET minutes_charged, minutes_charged_at, minutes_charge_detail
+```
+
+**Kolejność: `billing_consume` PRZED zapisem znacznika.** Zgon między krokami
+powoduje wtedy naliczenie bez znacznika, czyli **ryzyko podwójnego naliczenia
+przy powtórce webhooka** — i dlatego znacznik zapisujemy w tej samej instrukcji
+`UPDATE`, co resztę, natychmiast po. Odwrotna kolejność (znacznik pierwszy)
+gubiłaby minuty po cichu.
+
+Wybór jest między dwoma niedoskonałościami i wybieram tę **wykrywalną**:
+codzienna kontrola porównuje sumę `minutes_charged` z `billing_usage.used` za
+okres. Rozjazd = alert. Przy zgubionych minutach nie ma czego porównać.
+
+`p_pozwol_nadwyzke := true` jest konieczne: minuty naliczamy PO rozmowie, więc
+odmowa naliczenia nie cofnie rozmowy, tylko zgubi jej ślad.
+
+**Rozmowy testowe** (`is_test`) — nie naliczamy, ale znacznik ustawiamy
+i pokazujemy je w oknie z etykietą „test".
+
+---
+
+## 4. CO SIĘ DZIEJE PRZY ODNOWIENIU OKRESU
+
+**Nic. I to jest zaleta, nie niedoróbka.**
+
+`billing_usage` jest kluczowane `(subscriber, feature, period_start)`, gdzie
+`period_start = date_trunc('month', now())`. 1 września `billing_consume`
+zakłada nowy wiersz z `used = 0` — pula wraca do 200 minut, a niewykorzystane
+**przepadają, bo nigdzie ich nie ma.** Nie ma zadania cyklicznego, nie ma nic
+do zepsucia. Paczki leżą w innej tabeli i odnowienie ich nie dotyka.
+
+🔴 **Ale jest tu rzecz do rozstrzygnięcia i nie chcę jej przemilczeć.**
+
+Okres jest **kalendarzowy**, a subskrypcja niekoniecznie. Warsztat, który
+wykupi Agenta 20 sierpnia, dostanie 200 minut na jedenaście dni i 1 września
+kolejne 200. To hojne, ale niespójne: zapłacił za miesiąc, dostał 400 minut.
+
+Trzy drogi:
+1. **zostawić kalendarzowy** — zgodne z SMS-ami i zapytaniami o pojazdy,
+   zero pracy, klient nigdy nie traci
+2. proporcjonalnie w pierwszym miesiącu — uczciwe, ale trzeba tłumaczyć
+   klientowi, dlaczego ma 129 minut
+3. okres subskrypcji zamiast kalendarza — najuczciwsze i **najdroższe**:
+   `billing_usage` i `check_usage` obsługują dziś tylko kalendarz, więc
+   zmiana dotyka też SMS-ów
+
+**Rekomendacja: 1.** Spójność z tym, co już działa, jest warta więcej niż
+kilkadziesiąt minut podarowanych przy pierwszym zakupie.
+
+---
+
+## 5. STATUS REALIZACJI — sprawdziłem, NIE DA SIĘ ze statusu zlecenia
+
+Prosiłeś, żebym sprawdził. Sprawdziłem i odpowiedź brzmi: nie.
+
+**Statusy zleceń są definiowane osobno przez KAŻDY warsztat**, jako dowolne
+napisy w `workshop_order_statuses`. Nie ma słownika, nie ma flagi „końcowy".
+Fragment z produkcji:
+
+```
+664ed87b: Przyjęcie do serwisu, Zadania wykonane, Gotowy do odbioru, Zakończone
+0307fd12: Przyjęcie do serwisu, Gotowy do odbioru
+3901c323: Nowe zlecenie, W trakcie naprawy, Zadania wykonane
+95a99e7c: ..., Oddzwonić
+```
+
+Trzy warsztaty, trzy różne zestawy. **Żaden nie ma statusu „nie stawił się"** —
+a to akurat nie przypadek: tego nie da się wywnioskować z niczego. Zlecenie
+klienta, który nie przyjechał, wygląda w bazie identycznie jak zlecenie, którym
+nikt się jeszcze nie zajął.
+
+`workshop_client_bookings` mają `scheduled / cancelled / confirmed` — też bez
+„nie stawił się".
+
+**Propozycja: jedna kolumna na słowniku statusów.**
+
+```sql
+ALTER TABLE workshop_order_statuses
+  ADD COLUMN znaczenie text
+  CHECK (znaczenie IN ('wykonane','anulowane','nie_stawil_sie'));
+```
+
+Warsztat raz przypisuje znaczenie swoim statusom („Zakończone" → `wykonane`),
+a my dostajemy maszynowo czytelną odpowiedź dla wszystkich warsztatów naraz.
+Domyślnie `NULL` — czyli **„nie wiemy", a nie „nie stawił się"**.
+
+To jest większa robota niż reszta punktu 4 i **proponuję ją odłożyć**: licznik
+minut działa bez niej, a bez tej kolumny raport „ilu klientów przyjechało"
+byłby zgadywaniem po nazwach statusów. Zgadywanie po nazwach jest gorsze niż
+brak liczby, bo wygląda na pomiar.
+
+W pierwszej wersji okna pokazuję to, co **wiemy na pewno**: czy rozmowa
+utworzyła zlecenie, czy wymaga uwagi, czy była odwołaniem. To już jest
+odpowiedź na „ile mi agent przyniósł", tylko słabsza.
+
+---
+
+## 6. DUBLOWANIE — rozszerzamy „Połączenia", nie robimy drugiego widoku
+
+Sprawdziłem `WorkshopCallsList.tsx` (189 linii, wpięty w zakładkę usługodawcy).
+Ma już: datę, długość, status, wynik, podsumowanie, nazwisko, powiązane
+zlecenie, transkrypcję z `voice_call_transcripts` i przycisk „utwórz zlecenie".
+
+**To jest 80% okna, o które prosisz.** Brakuje: kolumny minut, podsumowania
+na górze, wyszukiwarki po numerze, zakresu dat, sortowania.
+
+**Propozycja: jedno miejsce.** Kafelek w nagłówku prowadzi do tej samej listy,
+rozszerzonej o brakujące elementy. Dwa widoki na te same rozmowy to dwa miejsca
+do poprawiania i dwie odpowiedzi na pytanie „ile było rozmów w sierpniu".
+
+---
+
+## 7. PROGI I FLAGA
+
+```
+20% zostało   →  soft_limit = 80% limitu (kolumna JUŻ JEST w billing_plan_features)
+                 check_usage zwraca soft_exceeded → kafelek na czerwono + mail
+0 minut       →  agent odbiera, mówi o oddzwonieniu, zakłada zlecenie „Oddzwonić"
+−30 minut     →  agent nie odbiera
+```
+
+**Flaga, nie kod do usunięcia**, jak prosiłeś. Dwa warunki, oba muszą być
+spełnione, żeby cokolwiek zablokować:
+
+```sql
+ALTER TABLE billing_settings
+  ADD COLUMN voice_minuty_blokuja boolean NOT NULL DEFAULT false;
+```
+
+```
+blokujemy ⟺ billing_settings.voice_minuty_blokuja = true
+            ORAZ warsztat ma aktywną, OPŁACONĄ subskrypcję
+```
+
+Drugi warunek jest twardy i **nie zależy od flagi**: warsztat bez pakietu nie
+miał jak wykupić minut, więc odcięcie go za ich brak byłoby karą za nasz
+nieuruchomiony cennik. Pierwszy warsztat i CART nie mają dziś żadnej
+subskrypcji — działają bez ograniczeń automatycznie, bez wpisywania ich
+na żadną listę wyjątków.
+
+🔴 **Jedna przeszkoda przy „zleceniu Oddzwonić":** status o tej nazwie ma dziś
+**jeden warsztat z ośmiu**. Utworzenie zlecenia wymaga `status_id` z jego
+własnego słownika. Więc albo zakładamy ten status przy pierwszym użyciu, albo
+używamy statusu domyślnego (`is_default`) i wpisujemy „Oddzwonić" w treść.
+**Proponuję to drugie** — nie chcę dokładać warsztatowi statusu do jego
+własnego procesu bez pytania.
+
+---
+
+## 8. MIGRACJA — do akceptacji, NIEWYKONANA
+
+```sql
+-- 1. cecha rozliczana
 INSERT INTO billing_features (key, name, description, kind, unit,
                               overage_price_net, is_active, sort_order)
 VALUES ('voice_minutes', 'Minuty rozmów agenta',
         'Minuty rozmów telefonicznych obsłużonych przez agenta głosowego',
-        'metered', 'minuta', 1.15, true, 55);
+        'metered', 'minuta', 1.15, true, 55)
+ON CONFLICT (key) DO NOTHING;
 
--- limity w planach
-agent      → limit_value 200
-agent_pro  → limit_value 440
+-- 2. limity w planach: 200 i 440, soft_limit na 80%
+--    (przez billing_set_plan_features, żeby nie omijać istniejącej reguły)
+
+-- 3. naliczenie na rozmowie
+ALTER TABLE voice_calls
+  ADD COLUMN IF NOT EXISTS minutes_charged       integer,
+  ADD COLUMN IF NOT EXISTS minutes_charged_at    timestamptz,
+  ADD COLUMN IF NOT EXISTS minutes_charge_detail jsonb;
+
+CREATE UNIQUE INDEX IF NOT EXISTS voice_calls_conversation_unikalny
+  ON voice_calls (elevenlabs_conversation_id)
+  WHERE elevenlabs_conversation_id IS NOT NULL;
+
+-- 4. flaga blokowania, domyślnie WYŁĄCZONA
+ALTER TABLE billing_settings
+  ADD COLUMN IF NOT EXISTS voice_minuty_blokuja boolean NOT NULL DEFAULT false;
 ```
 
-`soft_limit` (kolumna już jest) ustawiamy na **80% limitu** — stąd bierze się
-próg ostrzegawczy 20% pozostałych, bez dodatkowej logiki po naszej stronie.
+✅ **Sprawdzone przed pokazaniem migracji:** w `voice_calls` jest 67 rozmów,
+36 z identyfikatorem konwersacji, **zero duplikatów**. Indeks unikalny założy
+się bez sprzątania.
 
-### Rejestr naliczeń — jedyna nowa tabela
-
-```sql
-CREATE TABLE voice_call_minutes (
-  conversation_id text PRIMARY KEY,      -- idempotencja SIEDZI W KLUCZU
-  provider_id     uuid NOT NULL REFERENCES service_providers(id),
-  call_id         uuid REFERENCES voice_calls(id),
-  sekundy         integer NOT NULL,
-  minuty          integer NOT NULL,      -- ceil(sekundy/60)
-  naliczone_at    timestamptz NOT NULL DEFAULT now()
-);
-```
-
-**Dlaczego osobna tabela, skoro `billing_usage` już liczy.** `billing_usage`
-trzyma sumę, nie zdarzenia — nie da się z niej odpowiedzieć na pytanie „czy tę
-rozmowę już policzyliśmy". Idempotencja po `conversation_id` wymaga miejsca,
-w którym ten identyfikator jest kluczem. Przy okazji to jest rozliczenie
-pozycja po pozycji, gdy warsztat zapyta, skąd się wzięło 187 minut.
+Warto odnotować, że **31 rozmów nie ma `elevenlabs_conversation_id`** —
+to rozmowy sprzed wpięcia webhooka i symulacje. Ich nie naliczymy i nie da się
+ich naliczyć: nie mamy dla nich ani długości z ElevenLabs, ani klucza
+idempotencji. Naliczanie startuje od rozmów przyszłych, nie wstecz.
 
 ---
 
-## 3. Naliczanie — i decyzja o kierunku porażki
-
-W `voice-call-postprocess`, po ustaleniu długości rozmowy:
-
-```
-1. INSERT INTO voice_call_minutes (...)      ← 23505 = już naliczone, KONIEC
-2. billing_consume(..., 'voice_minutes', minuty, p_pozwol_nadwyzke := true)
-```
-
-**Kolejność nie jest obojętna i wybieram ją świadomie.**
-
-Zapis do rejestru PRZED naliczeniem znaczy, że twardy zgon między krokami
-powoduje **nienaliczenie** minut, które już zużyliśmy. Odwrotna kolejność
-przy ponowieniu naliczyłaby je **dwa razy**.
-
-Wybieram nienaliczenie, bo pomyłka na naszą niekorzyść jest odkrywalna
-rekoncyliacją i nie wymaga tłumaczenia się klientowi, a podwójne obciążenie
-klient znajduje pierwszy. Do tego dochodzi **codzienne sprawdzenie**
-porównujące `voice_calls` z `voice_call_minutes` za ostatnie 48 h — rozmowa
-bez wiersza w rejestrze to alert, nie cisza (zasada 37).
-
-`p_pozwol_nadwyzke := true` jest tu konieczne: minuty naliczamy PO rozmowie,
-więc odmowa naliczenia nie cofnie rozmowy, tylko zgubi jej ślad.
-
-**Zaokrąglenie:** `ceil(sekundy/60)`, minimum 1 minuta za odebraną rozmowę,
-**0 minut za rozmowę bez treści** (`duration_seconds = 0`) — inaczej nieudane
-połączenia i próby techniczne obciążałyby warsztat.
-
----
-
-## 4. Nagłówek i okno rozmów
-
-**Trzeci kafelek** obok zapytań o pojazdy i SMS-ów, tym samym wzorem
-(`TopBarCredits`), przez `check_usage('voice_minutes')`. Pokazuje pozostałe
-minuty; poniżej zera pokazuje debet ze znakiem minus, a nie zero — warsztat
-ma widzieć, że rozmawia na kredyt.
-
-**Okno po kliknięciu** — lista rozmów bieżącego okresu:
-
-```
-data i godzina │ numer dzwoniącego │ czas │ minuty │ zlecenie │ transkrypcja
-filtry: okres, „tylko zakończone zleceniem", „tylko bez zlecenia"
-```
-
-Numer dzwoniącego pokazujemy **warsztatowi** w całości — to jego klient
-i jego dane, a nie nasze. W logach i w naszych raportach zostaje maskowany.
-
----
-
-## 5. 🔴 Progi — WŁĄCZAMY ETAPAMI, nie od razu
-
-Twoje zastrzeżenie zapisane jako reguła: **licznik ma najpierw POKAZYWAĆ.**
-
-| Etap | Co robi | Warunek włączenia |
-|---|---|---|
-| **A** | nalicza i pokazuje; nie blokuje niczego | od razu |
-| **B** | ostrzeżenie przy 20% pozostałych (mail + kafelek na czerwono) | po tygodniu poprawnego naliczania |
-| **C** | 0 minut → agent odbiera i mówi o oddzwonieniu | **dopiero gdy warsztat ma opłaconą subskrypcję** |
-| **D** | −30 minut → agent nie odbiera | po etapie C, osobną decyzją |
-
-**Bramka etapu C i D brzmi odwrotnie niż bramka aktywacji numeru.** Tam brak
-subskrypcji znaczy „nie kupujemy numeru". Tu brak subskrypcji znaczy
-**„nie blokuj"** — warsztat bez pakietu nie miał jak wykupić minut, więc
-odcięcie go za ich brak byłoby karą za nasz własny nieuruchomiony cennik.
-
-```
-JEŚLI brak aktywnej, opłaconej subskrypcji  →  NIGDY nie blokuj, tylko licz
-```
-
-Dziś **żaden z dwóch warsztatów nie ma wiersza w `billing_subscriptions`**,
-więc bez tej reguły etap C wyłączyłby agenta pierwszemu warsztatowi w dniu
-wdrożenia. To ta sama pułapka co przy bramce subskrypcji, w tym samym miejscu.
-
-**Zachowanie przy zerze nie jest wyłączeniem agenta.** Agent odbiera, mówi
-zdanie o oddzwonieniu i kończy — czyli trzeci stan obok `wylaczony` i `zajete`,
-z własnym zdaniem w czterech językach i **bez narzędzi** (mechanizm już jest,
-od 19.08 narzędzia są odcinane przy obu tamtych stanach).
-
----
-
-## 6. Marża — co wiemy, a czego nadal nie
-
-```
-                      cena/min    znany koszt/min    znana marża
-Agent      199 / 200    0,995         0,363             63%
-Agent Pro  399 / 440    0,907         0,363             60%
-poza pakietem           1,150         0,363             68%
-```
-
-Znany koszt to głos ElevenLabs (0,318, zmierzone na 76 rozmowach) plus model
-językowy (0,045, z liczników tokenów).
-
-**Czego nadal nie ma w tym rachunku:** SMS potwierdzający i Supabase.
-Telefonia natomiast **przestała być niewiadomą per minuta** — SuperVoIP rozlicza
-nas pakietem miesięcznym (184,50 zł brutto), a nie za minutę. Przy dzisiejszym
-ruchu to gigantyczny koszt na minutę, przy stu warsztatach — grosze. Nie da się
-go sensownie wliczyć do ceny minuty i nie należy tego robić: to koszt stały,
-który spłaca się liczbą warsztatów, a nie liczbą minut.
-
-**Cena poza pakietem (1,15) jest wyższa niż w obu pakietach** — czyli pakiet
-opłaca się bardziej niż nadwyżka, tak jak przy SMS-ach. To dobrze.
-
----
-
-## 7. Kolejność prac
+## 9. Kolejność prac
 
 | # | Co | Ile |
 |---|---|---|
-| 1 | migracja: cecha `voice_minutes` + limity w dwóch planach + `voice_call_minutes` | 1 h |
-| 2 | naliczanie w `voice-call-postprocess` + rejestr | 2 h |
-| 3 | codzienne sprawdzenie „rozmowa bez naliczenia" + alert | 1 h |
-| 4 | kafelek w nagłówku | 1 h |
-| 5 | okno z rozmowami, filtry, transkrypcja | pół dnia |
-| 6 | etap B — ostrzeżenie przy 20% | 2 h |
-| 7 | etapy C i D — osobno, po uruchomieniu płatności | 3 h |
+| 1 | migracja + sprawdzenie duplikatów | 1 h |
+| 2 | naliczanie w `voice-call-postprocess` | 2 h |
+| 3 | codzienna kontrola: `minutes_charged` vs `billing_usage` | 1 h |
+| 4 | kafelek w nagłówku (usługodawca + zwykły użytkownik) | 1 h |
+| 5 | rozszerzenie „Połączeń": minuty, podsumowanie, filtry, sortowanie | pół dnia |
+| 6 | próg 20% — kafelek na czerwono + mail | 2 h |
+| 7 | progi 0 i −30 za flagą | 3 h |
+| 8 | *(osobno)* `znaczenie` statusów + raport „ilu przyjechało" | 1 dzień |
 
-Punkty 1–4 mają sens same: warsztat widzi zużycie, my widzimy, czy naliczanie
-jest szczelne, a nikomu nic nie grozi.
-
----
-
-## 8. Pytania, na które potrzebuję odpowiedzi przed kodowaniem
-
-1. **Rozmowy testowe i nasze własne** — naliczać? Dziś `voice_calls` ma
-   `is_test`. Proponuję: nie naliczać, ale pokazywać w oknie z etykietą „test",
-   żeby nie wyglądało, że rozmowa zniknęła.
-2. **Okres rozliczeniowy** — miesiąc kalendarzowy (jak `billing_usage` dziś,
-   `date_trunc('month')`) czy okres subskrypcji (`current_period_end`)?
-   Kalendarzowy jest prostszy i zgodny z tym, co już działa; okres subskrypcji
-   jest uczciwszy dla kogoś, kto kupił 20. dnia miesiąca.
-3. **Minuty niewykorzystane** — przepadają z końcem okresu czy przechodzą?
-   Mechanizm paczek (`billing_addon_packs`) umie jedno i drugie
-   (`pack_validity_days`), więc to decyzja handlowa, nie techniczna.
+Punkty 1–5 mają sens same i nikomu nic nie grożą: warsztat widzi zużycie,
+my widzimy, czy naliczanie jest szczelne, nikt nie zostaje odcięty.
