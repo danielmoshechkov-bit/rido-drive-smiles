@@ -195,17 +195,66 @@ do poprawiania i dwie odpowiedzi na pytanie „ile było rozmów w sierpniu".
 
 ---
 
-## 7. PROGI I FLAGA
+## 7. PROGI — zasady z 19.08, i jedna rzecz, której NIE DA SIĘ zrobić
 
 ```
-20% zostało   →  soft_limit = 80% limitu (kolumna JUŻ JEST w billing_plan_features)
-                 check_usage zwraca soft_exceeded → kafelek na czerwono + mail
-0 minut       →  agent odbiera, mówi o oddzwonieniu, zakłada zlecenie „Oddzwonić"
-−30 minut     →  agent nie odbiera
+saldo > 0          → agent odbiera normalnie
+saldo ≤ 0          → agent NIE ODBIERA. Bez komunikatu, bez zlecenia.
+15 minut zostało   → ostrzeżenie w panelu i mailem
+rozmowa rozpoczęta → IDZIE DO KOŃCA, choćby zeszła na −10 minut
+sprawdzenie salda  → TYLKO przy odbieraniu, NIGDY w trakcie rozmowy
 ```
 
-**Flaga, nie kod do usunięcia**, jak prosiłeś. Dwa warunki, oba muszą być
-spełnione, żeby cokolwiek zablokować:
+Sprawdzenie salda trafia w to samo miejsce, co dzisiejszy limit rozmów
+równoczesnych w `voice-agent-init` — czyli raz, przy odebraniu. W `voice-agent-chat`
+nie ma go wcale i nie może być: tam jesteśmy już w środku rozmowy.
+
+### 🔴 „Agent nie odbiera" — webhook tego NIE UMIE
+
+To jest ograniczenie platformy, nie nasze niedopatrzenie, i zapisaliśmy je już
+wcześniej przy limicie rozmów równoczesnych:
+
+> **Webhook inicjujący nie może odrzucić połączenia — może tylko ukształtować
+> rozmowę.** ElevenLabs odbiera telefon, ZANIM zapyta nas o cokolwiek.
+
+Do chwili odpowiedzi webhooka połączenie jest już odebrane. Wszystko, co możemy
+zrobić z poziomu `voice-agent-init`, to kazać agentowi powiedzieć jedno zdanie
+i się rozłączyć — a Ty prosisz wprost o coś innego: **żadnego komunikatu.**
+
+**Jedyna droga do prawdziwego „nie odbiera" to odpięcie numeru od agenta
+po stronie ElevenLabs.** Umiemy to zrobić — tak samo przypinaliśmy numer przy
+aktywacji. Ale to jest operacja asynchroniczna, więc potrzebuje dwóch zadań
+w istniejącej kolejce `voice_number_jobs`:
+
+```
+zawieszenie  — saldo spadło ≤ 0  → odepnij numer od agenta w ElevenLabs
+wznowienie   — doładowano minuty → przypnij z powrotem
+```
+
+**Skutek uboczny, który musisz znać:** dzwoniący na odpięty numer usłyszy to,
+co operator robi z połączeniem bez odbiorcy — sygnał zajętości albo komunikat
+SuperVoIP, nie nasz. Nie mamy nad tym kontroli i nie da się tego ustawić
+z naszej strony.
+
+**Opóźnienie:** worker chodzi co minutę, więc między zejściem na zero
+a odpięciem numeru mija do minuty. W tym czasie agent może jeszcze odebrać
+jedną rozmowę. Uważam to za akceptowalne — alternatywą jest sprawdzanie salda
+synchronicznie przy każdym połączeniu i tak już mamy je w `init`, więc
+**dokładam tam także miękką blokadę**: przy saldzie ≤ 0 agent mówi jedno
+zdanie i kończy, dopóki numer nie zostanie odpięty. To nie jest to, o co
+prosisz, ale jest lepsze niż pełna rozmowa na koszt, którego nikt nie zapłaci.
+
+### Debet i jego spłata
+
+Minus zapisujemy w `billing_overage` (tabela istnieje, `billing_consume` już
+tam pisze przy przekroczeniu limitu — wraz z kwotą i sufitem kwotowym).
+
+**Spłata przy doładowaniu** nie dzieje się sama: `billing_consume` odejmuje
+z paczek przy ZUŻYCIU, a nie wstecz. Więc przy przyznaniu paczki minut
+najpierw pomniejszamy ją o zaległe jednostki z `billing_overage`, potem resztę
+zapisujemy jako `amount_remaining`. Jedna funkcja, wołana przy wydaniu paczki.
+
+### Flaga — nadal obowiązuje
 
 ```sql
 ALTER TABLE billing_settings
@@ -213,24 +262,13 @@ ALTER TABLE billing_settings
 ```
 
 ```
-blokujemy ⟺ billing_settings.voice_minuty_blokuja = true
+blokujemy ⟺ voice_minuty_blokuja = true
             ORAZ warsztat ma aktywną, OPŁACONĄ subskrypcję
 ```
 
-Drugi warunek jest twardy i **nie zależy od flagi**: warsztat bez pakietu nie
-miał jak wykupić minut, więc odcięcie go za ich brak byłoby karą za nasz
-nieuruchomiony cennik. Pierwszy warsztat i CART nie mają dziś żadnej
-subskrypcji — działają bez ograniczeń automatycznie, bez wpisywania ich
-na żadną listę wyjątków.
-
-🔴 **Jedna przeszkoda przy „zleceniu Oddzwonić":** status o tej nazwie ma dziś
-**jeden warsztat z ośmiu**. Utworzenie zlecenia wymaga `status_id` z jego
-własnego słownika. Więc albo zakładamy ten status przy pierwszym użyciu, albo
-używamy statusu domyślnego (`is_default`) i wpisujemy „Oddzwonić" w treść.
-**Proponuję to drugie** — nie chcę dokładać warsztatowi statusu do jego
-własnego procesu bez pytania.
-
----
+Drugi warunek jest twardy i niezależny od flagi. Pierwszy warsztat i CART nie
+mają dziś subskrypcji — działają bez ograniczeń automatycznie, bez listy
+wyjątków, która kiedyś by się zdezaktualizowała.
 
 ## 8. MIGRACJA — do akceptacji, NIEWYKONANA
 
