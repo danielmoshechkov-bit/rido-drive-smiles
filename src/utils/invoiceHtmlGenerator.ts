@@ -979,9 +979,11 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
         <div class="top-meta">
           ${invoice.issue_place ? `${invoice.issue_place}, ` : ''}${formatDate(invoice.issue_date)}
         </div>
-        ${isWarsztatDoc ? (() => {
+        ${isServiceConfirmation ? (() => {
           // „POTWIERDZENIE WYKONANIA / USŁUGI: PWU-…" — tytuł i tak łamie się na dwie
           // linie, więc numer dostawiamy do drugiej zamiast zostawiać go samego.
+          // KOSZTORYS NAPRAWY mieści się w jednej linii, więc idzie zwykłą drogą:
+          // tytuł w jednej linii, numer pod spodem.
           const words = invoiceTitle.trim().split(/\s+/);
           const tail = words.pop() || invoiceTitle;
           const head = words.join(' ');

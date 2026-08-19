@@ -3,6 +3,7 @@ import type { InvoiceData, InvoiceItem } from '@/utils/invoiceHtmlGenerator';
 import { rozbijAdres } from '@/utils/adresKlienta';
 import { tylkoWycenione } from '@/lib/orderItemPricing';
 import { sortWorkshopOrderItems } from '@/hooks/useWorkshop';
+import { robociznaPrzedCzesciami } from '@/lib/kolejnoscPozycji';
 
 /**
  * Dokument warsztatowy dla klienta — kosztorys naprawy i potwierdzenie wykonania.
@@ -27,7 +28,7 @@ import { sortWorkshopOrderItems } from '@/hooks/useWorkshop';
 export type RodzajDokumentu = 'repair_estimate' | 'service_confirmation';
 
 /** Dane sprzedawcy (nagłówek dokumentu) dla zalogowanego warsztatu. */
-async function daneSprzedawcy() {
+export async function daneSprzedawcy() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) return { companyData: null as any, logoUrl: '' };
 
@@ -80,6 +81,11 @@ function stawkaVat(netto: number, brutto: number): string {
   return String(Math.round(((brutto / netto) - 1) * 100));
 }
 
+/** Pozycje w tej samej kolejności, w jakiej warsztat widzi je w zleceniu. */
+function wgKartyZlecenia(items: any[]): any[] {
+  return robociznaPrzedCzesciami(sortWorkshopOrderItems(items));
+}
+
 function pozycje(items: any[]): InvoiceItem[] {
   return items.map((item: any) => {
     const qty = item.quantity || 1;
@@ -121,9 +127,10 @@ export async function zbudujDokumentZlecenia(
     .order('sort_order');
 
   const surowe = orderItems || order.items || [];
+  const uporzadkowane = wgKartyZlecenia(surowe);
   const wybrane = rodzaj === 'repair_estimate'
-    ? tylkoWycenione(sortWorkshopOrderItems(surowe))
-    : sortWorkshopOrderItems(surowe);
+    ? tylkoWycenione(uporzadkowane)
+    : uporzadkowane;
 
   const { companyData, logoUrl } = await daneSprzedawcy();
 
@@ -164,9 +171,14 @@ export async function zbudujDokumentZlecenia(
 
   const prefiks = rodzaj === 'repair_estimate' ? 'KOS' : 'PWU';
 
+  const miasto = companyData?.city || companyData?.address_city || '';
+
   return {
     invoice_number: `${prefiks}/${order.order_number || 'dok'}`,
     type: rodzaj,
+    // „Warszawa, 19.08.2026" zamiast samej daty — dokument mówi, GDZIE go
+    // wystawiono, tak jak każdy papier wychodzący z warsztatu.
+    issue_place: miasto,
     issue_date: data,
     sale_date: data,
     due_date: data,

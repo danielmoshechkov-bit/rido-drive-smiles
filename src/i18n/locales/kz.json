@@ -2034,6 +2034,7 @@
       "estimate": "Смета",
       "estimateChangedWarning": "⚠️ Смета жіберілгеннен кейін өзгертілді — клиентке қайта жіберіңіз",
       "sendEstimateSms": "Сметаны SMS-пен жіберу",
+      "sendReceptionSms": "Хаттаманы SMS арқылы жіберу",
       "estimatePrinting": "Смета басып шығарылуда...",
       "estimateDownloading": "Смета жүктелуде...",
       "estimateDisabled": "Смета өшірілді",

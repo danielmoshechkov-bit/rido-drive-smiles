@@ -2039,6 +2039,7 @@
       "estimate": "Wycena",
       "estimateChangedWarning": "⚠️ Kosztorys zmieniony po wysłaniu — wyślij ponownie do klienta",
       "sendEstimateSms": "Wyślij kosztorys SMS",
+      "sendReceptionSms": "Wyślij protokół SMS",
       "estimatePrinting": "Drukowanie kosztorysu...",
       "estimateDownloading": "Pobieranie kosztorysu...",
       "estimateDisabled": "Wyłączono kosztorys",

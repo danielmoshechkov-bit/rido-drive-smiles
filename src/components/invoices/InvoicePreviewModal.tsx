@@ -206,12 +206,11 @@ export function InvoicePreviewModal({
         saveBlob(new Blob([bytes], { type: 'application/pdf' }));
         return;
       }
-      // Serwerowy generator niedostępny (np. lokalny dev bez PHP). Nie składamy
-      // wtedy PDF-a z obrazka — wychodził dokument INNY niż podgląd. Zamiast tego
-      // ten sam dokument idzie do okna wydruku, gdzie „Zapisz jako PDF" daje plik
-      // wyrenderowany przez samą przeglądarkę, czyli 1:1 z podglądem.
-      toast.info('Generator PDF niedostępny — wybierz „Zapisz jako PDF" w oknie wydruku');
-      await handlePrint();
+      // Serwerowy generator niedostępny. NIE otwieramy wtedy okna wydruku:
+      // „Pobierz" ma pobrać plik, a nie zaskoczyć drukarką — od drukowania jest
+      // przycisk obok. Nie składamy też PDF-a z obrazka, bo wychodził z tego
+      // dokument INNY niż podgląd. Mówimy wprost, co się stało i co zrobić.
+      toast.error('Nie udało się wygenerować PDF-a. Wybierz „Drukuj" i tam „Zapisz jako PDF".');
     } finally {
       setIsDownloading(false);
     }

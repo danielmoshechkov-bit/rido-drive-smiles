@@ -1939,6 +1939,7 @@
       "estimate": "Báo giá",
       "estimateChangedWarning": "⚠️ Báo giá đã thay đổi sau khi gửi — gửi lại cho khách hàng",
       "sendEstimateSms": "Gửi báo giá qua SMS",
+      "sendReceptionSms": "Gửi biên bản qua SMS",
       "estimatePrinting": "Đang in báo giá...",
       "estimateDownloading": "Đang tải báo giá...",
       "estimateDisabled": "Đã tắt báo giá",

@@ -2035,6 +2035,7 @@
       "estimate": "Quote",
       "estimateChangedWarning": "⚠️ Quote changed after sending — resend to the client",
       "sendEstimateSms": "Send quote by SMS",
+      "sendReceptionSms": "Send protocol by SMS",
       "estimatePrinting": "Printing quote...",
       "estimateDownloading": "Downloading quote...",
       "estimateDisabled": "Quote disabled",

@@ -36,6 +36,7 @@ const pozycja = (name, net, gross) => ({
 
 const bazowy = {
   invoice_number: 'KOS/ZL-08/2026-029',
+  issue_place: 'Warszawa',
   issue_date: '2026-08-19', sale_date: '2026-08-19', due_date: '2026-08-19',
   payment_method: 'cash', currency: 'PLN',
   items: [
@@ -51,9 +52,9 @@ const potwierdzenie = generateInvoiceHtml({
   ...bazowy, type: 'service_confirmation', invoice_number: 'PWU/ZL-08/2026-029',
 });
 
-// Tytul lamie sie na dwie linie, a numer dostawia sie do drugiej — sprawdzamy oba czlony.
-sprawdz(/inv-title-main">KOSZTORYS</.test(kosztorys) && /inv-title-main">NAPRAWY:/.test(kosztorys),
-  'dokument nosi tytul „KOSZTORYS NAPRAWY"');
+sprawdz(/inv-title-main">KOSZTORYS NAPRAWY</.test(kosztorys), 'tytul „KOSZTORYS NAPRAWY" w jednej linii');
+sprawdz(/inv-title-num">KOS\/ZL-08\/2026-029</.test(kosztorys), 'numer w osobnej linii pod tytulem');
+sprawdz(kosztorys.includes('Warszawa, 19.08.2026'), 'u gory miejscowosc warsztatu i data');
 sprawdz(kosztorys.includes('KOS/ZL-08/2026-029'), 'numer dokumentu jest na kartce');
 for (const p of bazowy.items) {
   sprawdz(kosztorys.includes(p.name), `pozycja „${p.name}" jest wypisana`);

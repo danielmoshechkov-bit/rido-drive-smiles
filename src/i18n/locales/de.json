@@ -1941,6 +1941,7 @@
       "estimate": "Kostenvoranschlag",
       "estimateChangedWarning": "⚠️ Kostenvoranschlag nach dem Senden geändert — erneut an den Kunden senden",
       "sendEstimateSms": "Kostenvoranschlag per SMS senden",
+      "sendReceptionSms": "Protokoll per SMS senden",
       "estimatePrinting": "Kostenvoranschlag wird gedruckt...",
       "estimateDownloading": "Kostenvoranschlag wird heruntergeladen...",
       "estimateDisabled": "Kostenvoranschlag deaktiviert",

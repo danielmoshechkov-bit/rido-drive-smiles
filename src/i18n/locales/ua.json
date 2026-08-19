@@ -2038,6 +2038,7 @@
       "estimate": "Кошторис",
       "estimateChangedWarning": "⚠️ Кошторис змінено після надсилання — надішліть клієнту повторно",
       "sendEstimateSms": "Надіслати кошторис SMS",
+      "sendReceptionSms": "Надіслати протокол SMS",
       "estimatePrinting": "Друк кошторису...",
       "estimateDownloading": "Завантаження кошторису...",
       "estimateDisabled": "Кошторис вимкнено",

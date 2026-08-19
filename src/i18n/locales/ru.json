@@ -2038,6 +2038,7 @@
       "estimate": "Смета",
       "estimateChangedWarning": "⚠️ Смета изменена после отправки — отправьте клиенту повторно",
       "sendEstimateSms": "Отправить смету по SMS",
+      "sendReceptionSms": "Отправить протокол по SMS",
       "estimatePrinting": "Печать сметы...",
       "estimateDownloading": "Загрузка сметы...",
       "estimateDisabled": "Смета отключена",

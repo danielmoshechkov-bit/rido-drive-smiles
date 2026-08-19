@@ -33,6 +33,9 @@ import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { InvoicePreviewModal } from '@/components/invoices/InvoicePreviewModal';
 import { zbudujDokumentZlecenia } from '@/utils/workshopOrderDocument';
 import type { InvoiceData } from '@/utils/invoiceHtmlGenerator';
+import { WorkshopDocumentModal } from './WorkshopDocumentModal';
+import { zbudujProtokolPrzyjecia } from '@/utils/workshopReceptionDocument';
+import { generateReceptionProtocolHtml } from '@/utils/receptionProtocolHtml';
 import { supabase } from '@/integrations/supabase/client';
 import {
   ArrowLeft, FileText, Send, Eye, Link2, MessageSquare, MoreVertical,
@@ -121,6 +124,10 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
   // Kosztorys naprawy jako DOKUMENT (ten sam co potwierdzenie wykonania usługi).
   const [kosztorysDoc, setKosztorysDoc] = useState<InvoiceData | null>(null);
   const [kosztorysAkcja, setKosztorysAkcja] = useState<'print' | 'download' | undefined>();
+  // Protokół przyjęcia — własny dokument, bo opisuje stan auta, a nie kwoty.
+  const [protokolHtml, setProtokolHtml] = useState<string | null>(null);
+  const [protokolAkcja, setProtokolAkcja] = useState<'print' | 'download' | undefined>();
+  const [protokolWTrakcie, setProtokolWTrakcie] = useState(false);
 
   // FIX P1: realtime dla OTWARTEGO zlecenia. Lista (która ma własny realtime)
   // jest odmontowana gdy patrzysz na kartę, więc bez tego zmiana zrobiona przez
@@ -291,16 +298,29 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
   };
 
   /**
-   * Podgląd / druk / pobranie kosztorysu = ta sama strona, którą dostaje klient.
-   * Wcześniej „Drukuj" i „Pobierz" tylko wyświetlały komunikat i nic nie robiły.
+   * Protokół przyjęcia pojazdu — dokument, nie strona klienta.
+   *
+   * 🔴 DOPISANE 19.08.2026. „Podgląd / Drukuj / Pobierz" otwierały tu kartę
+   * klienta — a warsztat potrzebuje przy przyjęciu papieru do podpisania:
+   * dane auta, przebieg, poziom paliwa, uszkodzenia, ustalenia, zdjęcia
+   * i rysunek auta do obrysowania rys długopisem przy kliencie.
+   *
+   * Zbieranie danych trwa (zdjęcia idą do dokumentu jako pliki, nie linki),
+   * więc pokazujemy, że coś się dzieje — inaczej wygląda to na martwy klik.
    */
-  const openClientDoc = (doc: 'estimate' | 'reception', mode: 'preview' | 'print') => {
-    if (!order.client_code) {
-      toast.error('To zlecenie nie ma jeszcze linku dla klienta.');
-      return;
+  const otworzProtokol = async (akcja?: 'print' | 'download') => {
+    if (protokolWTrakcie) return;
+    setProtokolWTrakcie(true);
+    try {
+      setProtokolAkcja(akcja);
+      const dane = await zbudujProtokolPrzyjecia(order);
+      setProtokolHtml(generateReceptionProtocolHtml(dane));
+    } catch (e: any) {
+      console.error('[protokol-przyjecia]', e);
+      toast.error(`Nie udało się przygotować protokołu: ${e?.message || e}`);
+    } finally {
+      setProtokolWTrakcie(false);
     }
-    const url = `/warsztat/klient/${order.client_code}?admin=1&tab=${doc}${mode === 'print' ? '&print=1' : ''}`;
-    window.open(url, '_blank');
   };
 
   /**
@@ -495,13 +515,16 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-52" data-tour="menu-przyjecie">
-                <DropdownMenuItem onClick={() => openClientDoc('reception', 'preview')}>
+                <DropdownMenuItem onClick={() => openSms('reception')}>
+                  <Send className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.sendReceptionSms', 'Wyślij protokół SMS')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => otworzProtokol()}>
                   <Eye className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.preview')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openClientDoc('reception', 'print')}>
+                <DropdownMenuItem onClick={() => otworzProtokol('print')}>
                   <Printer className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.print')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => openClientDoc('reception', 'print')}>
+                <DropdownMenuItem onClick={() => otworzProtokol('download')}>
                   <Download className="h-4 w-4 mr-2" /> {t('workshop.orderDetail.download')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={markReceptionSigned}>
@@ -827,6 +850,18 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
         amount={computeOrderTotals(order.items).total_gross || order.total_gross || 0}
         title={`Płatność — ${order.order_number || ''}`}
       />
+
+      {/* Protokół przyjęcia pojazdu */}
+      {protokolHtml && (
+        <WorkshopDocumentModal
+          open={!!protokolHtml}
+          onOpenChange={(v) => { if (!v) { setProtokolHtml(null); setProtokolAkcja(undefined); } }}
+          html={protokolHtml}
+          tytul={`Protokół przyjęcia: PP/${order.order_number || ''}`}
+          nazwaPliku={`PP-${order.order_number || 'protokol'}`}
+          autoAkcja={protokolAkcja}
+        />
+      )}
 
       {/* Kosztorys naprawy — ten sam podgląd co potwierdzenie wykonania usługi */}
       {kosztorysDoc && (
