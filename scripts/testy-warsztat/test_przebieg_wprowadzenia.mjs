@@ -359,5 +359,55 @@ console.log('--- przypadki brzegowe ---');
   sprawdzWarunek(`trasa nie ma powtórzonych celów (${bezPustych.length} kroków)`, unikalne.size === bezPustych.length);
 }
 
+// 5. ROZWINIETA LISTA STATUSOW NIE KATAPULTUJE NA KONIEC DROGI.
+//
+//    Lista zawiera i „Gotowe do odbioru" (krok o gotowosci), i „Zakonczone"
+//    (krok zamykajacy) — obie pozycje maja regule „pokaz, gdy sie zjawi".
+//    Po otwarciu listy na kroku o gotowosci wprowadzenie skakalo na sam koniec,
+//    omijajac powiadomienie o gotowym aucie, odbior i wystawienie dokumentu.
+{
+  const listaStatusow = [
+    { cel: 'status-na-liscie', glebokosc: 0 },
+    { cel: 'status-gotowe', glebokosc: 0 },
+    { cel: 'status-zakonczone', glebokosc: 0 },
+  ];
+  const naGotowym = cele.indexOf('status-gotowe');
+  sprawdz('otwarta lista statusow zostawia krok o gotowosci',
+    wybierzKrok(cele, naGotowym, listaStatusow, opcje), 'status-gotowe');
+
+  // A z kroku WCZESNIEJSZEGO rozwinieta lista ma przejac ekran — po to ta regula
+  // w ogole istnieje. Tylko do NAJBLIZSZEJ pozycji, nie do ostatniej.
+  sprawdz('rozwinieta lista przejmuje ekran z kroku wczesniejszego',
+    wybierzKrok(cele, cele.indexOf('status-na-liscie'), listaStatusow, opcje), 'status-gotowe');
+}
+
+// 6. Kroki konca drogi ida po kolei: gotowe -> SMS -> odbior klienta ->
+//    dokument -> podglad -> zamkniecie. Warsztat wprost prosil o te kolejnosc.
+{
+  const kolejnosc = ['status-gotowe', 'przycisk-odbior', 'sms-ready', 'zaznacz-zlecenie',
+                     'wystaw-dokumenty', 'podglad-dokumentu', 'status-zakonczone'];
+  const indeksy = kolejnosc.map((c) => cele.indexOf(c));
+  sprawdzWarunek(
+    `koniec drogi w kolejnosci: ${kolejnosc.join(' -> ')}`,
+    indeksy.every((n, i) => n >= 0 && (i === 0 || n === indeksy[i - 1] + 1)),
+  );
+}
+
+// 7. Kroki, ktorych cel pojawia sie dopiero po klikniecu, MUSZA umiec go otworzyc.
+//    Inaczej „Dalej" przechodzi na krok bez czego pokazac i dymek laduje na srodku.
+{
+  const wystaw = TRASA_PIERWSZE_ZLECENIE[cele.indexOf('wystaw-dokumenty')];
+  sprawdzWarunek('krok o wystawianiu dokumentu sam otwiera menu „Wystaw"',
+    wystaw.dalejKlika === true && wystaw.dalejKlikaCel === 'dokumenty-zlecenia');
+
+  const wiersz = TRASA_PIERWSZE_ZLECENIE[cele.indexOf('wiersz-zlecenia')];
+  sprawdzWarunek('krok o wierszu zlecenia naciska CALY wiersz, nie przycisk w srodku',
+    wiersz.dalejKlika === true && wiersz.dalejKlikaWprost === true);
+
+  const zaznacz = TRASA_PIERWSZE_ZLECENIE[cele.indexOf('zaznacz-zlecenie')];
+  sprawdzWarunek('krok o zaznaczeniu zlecenia zaznacza je za czlowieka',
+    zaznacz.dalejKlika === true);
+}
+
 console.log(bledy ? `BLAD: ${bledy} przypadkow poszlo nie tam` : 'PRZEBIEG WPROWADZENIA POPRAWNY');
 process.exit(bledy ? 1 : 0);

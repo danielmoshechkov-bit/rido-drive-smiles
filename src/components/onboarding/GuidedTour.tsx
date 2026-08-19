@@ -98,6 +98,16 @@ export interface KrokTrasy {
    */
   dalejKlikaCel?: string;
   /**
+   * „Dalej" naciska SAM element z markerem, a nie przycisk w środku niego.
+   *
+   * 🔴 Wiersz zlecenia na liście otwiera kartę zlecenia kliknięciem w SIEBIE
+   * (`onClick` na wierszu). W środku ma jednak pola do zaznaczania i listę
+   * statusów, więc zwykłe szukanie „głównego przycisku" trafiało w nie, a
+   * zlecenie się nie otwierało — dokładnie to, co człowiek robi ręcznie
+   * jednym kliknięciem, „Dalej" robiło źle.
+   */
+  dalejKlikaWprost?: boolean;
+  /**
    * „Dalej" najpierw ZAMYKA otwarte okno, a potem idzie dalej.
    *
    * Do kroków, które opisują podgląd (dokument, wydruk): dopóki okno stoi na
@@ -283,6 +293,57 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   // Numer kroku widziany przez opoznione sprawdzenia (patrz nizej).
   const krokRef = useRef(krok);
   krokRef.current = krok;
+
+  /**
+   * KLIKNIĘCIE W TO, O CZYM MÓWI KROK, PRZESUWA WPROWADZENIE DALEJ.
+   *
+   * 🔴 NAPRAWIONE 19.08.2026. Dwa zgłoszenia z tej samej przyczyny:
+   *   • po ręcznym wysłaniu SMS-a „Dalej" wysyłał go DRUGI RAZ, bo krok wciąż
+   *     stał na tym samym przycisku,
+   *   • po naciśnięciu „Zastosuj ceny" w Rido Wycenie okno się zamykało, a dymek
+   *     zostawał na kroku o tym oknie i pokazywał „to jest na innym ekranie".
+   *
+   * Skoro człowiek zrobił to, o czym mówi krok, to ten krok jest zrobiony.
+   * Patrzymy tylko na najbliższe kroki (bieżący i dwa następne) — inaczej
+   * kliknięcie w status wewnątrz wiersza zlecenia katapultowałoby wprowadzenie
+   * na koniec drogi.
+   *
+   * `naszKlik` odsiewa kliknięcia, które sami wykonaliśmy przyciskiem „Dalej" —
+   * tam krok przesuwa już inna ścieżka i podwójne przejście gubiłoby jeden krok.
+   */
+  const naszKlik = useRef(false);
+  useEffect(() => {
+    if (!onKrok) return;
+    const naKlik = (e: MouseEvent) => {
+      if (naszKlik.current) { naszKlik.current = false; return; }
+      const start = (e.target as HTMLElement | null)?.closest?.('[data-tour]') as HTMLElement | null;
+      if (!start) return;
+
+      // Element bywa opakowany w kilka markerów naraz (przycisk w oknie Rido).
+      const nazwy = new Set<string>();
+      let w: HTMLElement | null = start;
+      while (w) {
+        const n = w.getAttribute('data-tour');
+        if (n) nazwy.add(n);
+        w = w.parentElement?.closest('[data-tour]') as HTMLElement | null;
+      }
+
+      let zrobiony = -1;
+      for (let i = krokRef.current; i <= Math.min(krokRef.current + 2, kroki.length - 1); i++) {
+        const k = kroki[i];
+        if ((k.cel && nazwy.has(k.cel)) || (k.dalejKlikaCel && nazwy.has(k.dalejKlikaCel))) zrobiony = i;
+      }
+      if (zrobiony < 0) return;
+
+      const nastepny = zrobiony + 1;
+      recznaZmiana.current = Date.now();
+      if (nastepny >= kroki.length) { onZamknij(); return; }
+      if (kroki[nastepny]?.wracajNaListe) onWrocNaListe?.();
+      onKrok(nastepny);
+    };
+    document.addEventListener('click', naKlik, true);
+    return () => document.removeEventListener('click', naKlik, true);
+  }, [kroki, onKrok, onZamknij, onWrocNaListe]);
 
   const zmierz = useCallback(() => {
     if (!biezacy?.cel) { setObszar(null); return; }
@@ -477,8 +538,10 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       const nazwa = biezacy.dalejKlikaCel || biezacy.cel;
       window.setTimeout(() => {
         const el = document.querySelector(`[data-tour="${nazwa}"]`) as HTMLElement | null;
-        const cel = el?.matches('button, a, [role="button"]') ? el : przyciskGlowny(el);
-        if (cel && naEkranie(cel)) cel.click();
+        const cel = biezacy.dalejKlikaWprost || el?.matches('button, a, [role="button"]')
+          ? el
+          : przyciskGlowny(el);
+        if (cel && naEkranie(cel)) { naszKlik.current = true; cel.click(); }
       }, 350);
       recznaZmiana.current = Date.now();
       setRuszony(true);
@@ -497,10 +560,11 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
     if ((biezacy.dalejKlika || biezacy.dalejKlikaCel) && (biezacy.dalejKlikaCel || biezacy.cel)) {
       const nazwa = biezacy.dalejKlikaCel || biezacy.cel;
       const el = document.querySelector(`[data-tour="${nazwa}"]`) as HTMLElement | null;
-      const doKlikniecia = el?.matches('button, a, [role="button"]')
+      const doKlikniecia = biezacy.dalejKlikaWprost || el?.matches('button, a, [role="button"]')
         ? el
         : przyciskGlowny(el);
       if (doKlikniecia && naEkranie(doKlikniecia)) {
+        naszKlik.current = true;
         doKlikniecia.click();
         // ZABEZPIECZENIE: klikniecie nie zawsze zmienia ekran — menu bywa juz
         // otwarte, a wtedy drugi klik je tylko zamyka. Bez tego „Dalej"
@@ -646,7 +710,13 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
           <p className="mt-2 text-xs text-muted-foreground">
             {document.querySelector('[role="dialog"]')
               ? 'Zamknij otwarte okno — wprowadzenie podąży za Tobą.'
-              : 'To, o czym mowa, jest na innym ekranie. Wróć na listę zleceń („← Zlecenia") — wprowadzenie podąży za Tobą.'}
+              : biezacy.wracajNaListe
+                ? 'To, o czym mowa, jest na liście zleceń. Wróć tam („← Zlecenia") — wprowadzenie podąży za Tobą.'
+                /* Rada „wróć na listę" była wcześniej JEDYNA — także przy krokach,
+                   które mieszkają w KARCIE zlecenia (pasek ikon, wycena, kosztorys).
+                   Człowiek stał wtedy na liście, czytał „wróć na listę" i nie miał
+                   dokąd pójść. */
+                : 'To, o czym mowa, jest w karcie zlecenia. Otwórz zlecenie z listy — wprowadzenie podąży za Tobą.'}
           </p>
         )}
         </div>

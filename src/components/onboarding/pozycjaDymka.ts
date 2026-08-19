@@ -64,7 +64,28 @@ export function pozycjaDymka({
     { strona: 'lewo', top: przyCelu, left: obszar.left - szerokosc - 16 },
     { strona: 'dol', top: obszar.bottom + odstep + 6, left: wPoziomie(obszar.left) },
     { strona: 'gora', top: obszar.top - wysokosc - odstep - 6, left: wPoziomie(obszar.left) },
+    // OSTATNIA DESKA RATUNKU: prawy dolny róg ekranu.
+    //
+    // Gdy cel jest wielki (tabela robocizny zajmuje prawie cały ekran), każde
+    // ustawienie coś zasłania — nie ma dokąd uciec. Wtedy liczy się CO
+    // zasłaniamy: nazwy pozycji stoją po lewej i u góry, więc dymek schodzi
+    // w prawy dolny róg, gdzie leżą puste kolumny rabatu i dalsze wiersze.
+    { strona: 'dol', top: ekranH - wysokosc - 12, left: ekranW - szerokosc - 12 },
   ];
+
+  /**
+   * Część celu, której zasłaniać nie wolno: lewa i górna.
+   *
+   * Tam siedzą nazwy i pierwsze wiersze — to, od czego człowiek zaczyna czytać.
+   * Prawa i dolna część tabeli to kwoty i wiersze dalsze; jeśli już coś musi
+   * zniknąć pod dymkiem, niech to będzie to.
+   */
+  const strefaCzytania: Prostokat = {
+    top: obszar.top,
+    bottom: obszar.top + (obszar.bottom - obszar.top) * 0.6,
+    left: obszar.left,
+    right: obszar.left + (obszar.right - obszar.left) * 0.55,
+  };
 
   const ocena = (p: PozycjaDymka) => {
     const przyciety = { top: wPionie(p.top), left: wPoziomie(p.left) };
@@ -74,12 +95,25 @@ export function pozycjaDymka({
       left: przyciety.left,
       right: przyciety.left + szerokosc,
     };
-    return { ...p, ...przyciety, zachodzi: zachodzenie(dymek, obszar) };
+    return {
+      ...p,
+      ...przyciety,
+      zachodzi: zachodzenie(dymek, obszar),
+      zaslaniaCzytane: zachodzenie(dymek, strefaCzytania),
+    };
   };
 
   const oceniane = kandydaci.map(ocena);
-  // Najmniej zasłaniający wygrywa; przy remisie zostaje kolejność powyżej,
-  // czyli bok przed dołem i górą — bo pod polami otwierają się listy podpowiedzi.
-  const najlepszy = oceniane.reduce((a, b) => (b.zachodzi < a.zachodzi ? b : a));
+  // NAJPIERW pas czytania, dopiero potem cały cel.
+  //
+  // Przy małym celu (pole, przycisk) obie miary są zerowe i decyduje kolejność
+  // powyżej — bok przed dołem i górą, bo pod polami otwierają się listy
+  // podpowiedzi. Przy wielkim celu, gdzie uciec się nie da, wygrywa ustawienie,
+  // które omija nazwy pozycji, nawet jeśli w sumie przykrywa większy kawałek
+  // tabeli. Lepiej zasłonić puste kolumny rabatu niż to, co się czyta.
+  const najlepszy = oceniane.reduce((a, b) => {
+    if (b.zaslaniaCzytane !== a.zaslaniaCzytane) return b.zaslaniaCzytane < a.zaslaniaCzytane ? b : a;
+    return b.zachodzi < a.zachodzi ? b : a;
+  });
   return { top: najlepszy.top, left: najlepszy.left, strona: najlepszy.strona };
 }

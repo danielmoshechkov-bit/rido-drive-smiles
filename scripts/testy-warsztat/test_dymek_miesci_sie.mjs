@@ -63,5 +63,35 @@ for (const p of przypadki) {
   sprawdz(`dymek wyższy niż okno zaczyna się u góry (${top})`, top === 12);
 }
 
+// ── 4. WIELKI CEL: uciec się nie da, więc zasłaniamy to, co najmniej boli ───
+//
+// Tabela robocizny zajmuje prawie cały ekran. Każde ustawienie dymka coś
+// przykryje — liczy się CO. Nazwy pozycji stoją po lewej i u góry, kwoty i
+// dalsze wiersze po prawej i niżej. Dymek ma iść tam, gdzie nie ma nazw.
+{
+  const obszar = { top: 90, bottom: 940, left: 240, right: 1900 };
+  const wysokosc = 480;
+  const { top, left } = pozycjaDymka({ obszar, szerokosc: SZEROKOSC, wysokosc, ekranW: 2000, ekranH: 1000 });
+  const dymek = { top, bottom: top + wysokosc, left, right: left + SZEROKOSC };
+  const strefaCzytania = {
+    top: obszar.top,
+    bottom: obszar.top + (obszar.bottom - obszar.top) * 0.6,
+    left: obszar.left,
+    right: obszar.left + (obszar.right - obszar.left) * 0.55,
+  };
+  const polePasa = (strefaCzytania.right - strefaCzytania.left) * (strefaCzytania.bottom - strefaCzytania.top);
+  const zasloniete = zachodzenie(dymek, strefaCzytania);
+  sprawdz(
+    `wielki cel: dymek nie siada na nazwach pozycji (${Math.round((zasloniete / polePasa) * 100)}% pasa czytania)`,
+    zasloniete === 0,
+  );
+  sprawdz(`wielki cel: dymek nadal mieści się w oknie (dół ${top + wysokosc} z 1000)`, top + wysokosc <= 1000 && top >= 12);
+}
+
+// ── 5. Zabezpieczenia silnika, ktore musza zostac ───────────────────────────
+sprawdz('klikniecie w to, o czym mowi krok, przesuwa wprowadzenie dalej', /const naszKlik = useRef\(false\)/.test(zrodlo) && /zrobiony = i/.test(zrodlo));
+sprawdz('nasze wlasne klikniecie nie liczy sie podwojnie', /if \(naszKlik\.current\) \{ naszKlik\.current = false; return; \}/.test(zrodlo));
+sprawdz('rada „gdzie tego szukac" rozroznia liste od karty zlecenia', /w karcie zlecenia/.test(zrodlo) && /na liscie zlecen|na li\u015bcie zlece\u0144/.test(zrodlo));
+
 console.log(bledy ? `BLAD: ${bledy} przypadkow` : 'DYMEK ZACHOWUJE SIE POPRAWNIE');
 process.exit(bledy ? 1 : 0);

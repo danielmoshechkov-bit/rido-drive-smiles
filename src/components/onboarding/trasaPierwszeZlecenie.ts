@@ -155,6 +155,10 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     cel: 'wiersz-zlecenia',
     // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
     dalejKlika: true,
+    // Zlecenie otwiera sie klikniciem w CALY WIERSZ. W srodku sa jeszcze pole
+    // zaznaczenia i lista statusow — bez tego „Dalej" trafial w nie, a karta
+    // zlecenia sie nie otwierala i nastepny krok nie mial czego pokazac.
+    dalejKlikaWprost: true,
     tytul: 'Zlecenie jest na liście',
     tresc: 'Tak wygląda zlecenie na liście: numer, status, kwota, auto, klient i terminy.\n\nNaciśnij na zlecenie, żeby je otworzyć — w karcie zlecenia wyceniasz pracę i rozmawiasz z klientem.',
     akcja: 'Naciśnij na zlecenie albo „Dalej" — otworzę je za Ciebie',
@@ -273,6 +277,9 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   {
     cel: 'zaznacz-zlecenie',
     celeDodatkowe: ['dokumenty-zlecenia'],
+    // „Dalej" zaznacza zlecenie za czlowieka — inaczej nastepny krok mowi
+    // o menu „Wystaw", ktore bez zaznaczenia i tak nic nie pokaze.
+    dalejKlika: true,
     wracajNaListe: true,
     tytul: 'Krok 7 — klient odbiera auto',
     tresc: 'Najpierw ZAZNACZ zlecenie na liście — to kółko po lewej stronie wiersza. Dopiero potem kliknij „Wystaw".\n\nBez zaznaczenia system nie wie, do czego wystawić dokument — dlatego podświetlamy oba miejsca naraz.',
@@ -281,6 +288,11 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     cel: 'wystaw-dokumenty',
     // Menu istnieje tylko wtedy, gdy jest otwarte.
     pokazGdySieZjawi: true,
+    // Podswietlamy zawartosc menu, ale „Dalej" naciska przycisk, ktory je
+    // otwiera — bez tego krok o wystawianiu dokumentu byl pomijany, bo nie
+    // mial czego pokazac.
+    dalejKlika: true,
+    dalejKlikaCel: 'dokumenty-zlecenia',
     tytul: 'Potwierdzenie, paragon albo faktura',
     tresc: 'Do wyboru: potwierdzenie wykonania usługi (podsumowanie zlecenia dla klienta), paragon fiskalny — jeśli masz podpiętą drukarkę — albo faktura.\n\nPozycje i kwoty przepisują się z kosztorysu, nie wpisujesz ich drugi raz.',
   },

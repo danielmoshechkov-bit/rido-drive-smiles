@@ -88,14 +88,33 @@ export function wybierzKrok(
     .map((cel, i) => ({ cel, i }))
     .filter((k) => k.cel && naWierzchu.has(k.cel));
 
+  const celBiezacegoNaWierzchu = !!cele[biezacy] && naWierzchu.has(cele[biezacy]!);
+
+  /**
+   * Czy stoimy JUŻ na kroku, który sam pojawił się razem z tym, co widać.
+   *
+   * 🔴 NAPRAWIONE 19.08.2026. Lista statusów zawiera i „Gotowe do odbioru"
+   * (krok 30), i „Zakończone" (krok 36) — obie pozycje mają regułę „pokaż, gdy
+   * się zjawi". Po otwarciu tej listy na kroku 30 reguła szukała czegoś
+   * DALSZEGO i znajdowała krok 36: wprowadzenie przeskakiwało na sam koniec,
+   * omijając powiadomienie o gotowym aucie, odbiór i wystawienie dokumentu.
+   *
+   * Zasada: gdy bieżący krok sam jest krokiem „pojawiającym się" i jego cel
+   * widać na wierzchu, to jesteśmy dokładnie tam, gdzie trzeba — nic dalszego
+   * z tego samego menu nas stąd nie zabierze.
+   */
+  const stoimyNaSwiezym = celBiezacegoNaWierzchu && !!opcje.pokazGdySieZjawi?.[biezacy];
+
   // Coś się właśnie pojawiło i samo prosi o opis (zielona ramka z danymi,
   // otwarte menu „Wystaw") — idziemy za tym, nawet jeśli bieżący krok wciąż widać.
-  const zjawilSie = kandydaci.find((k) => k.i > biezacy && opcje.pokazGdySieZjawi?.[k.i]);
+  const zjawilSie = stoimyNaSwiezym
+    ? undefined
+    : kandydaci.find((k) => k.i > biezacy && opcje.pokazGdySieZjawi?.[k.i]);
   if (zjawilSie) return zjawilSie.i;
 
   // To samo, ale dla miejsc, które stoją puste do czasu, aż coś je wypełni
   // (pola pojazdu po sprawdzeniu numeru w rejestrze).
-  const wypelnilSie = kandydaci.find(
+  const wypelnilSie = stoimyNaSwiezym ? undefined : kandydaci.find(
     (k) => k.i > biezacy && opcje.pokazGdyWypelniony?.[k.i] &&
       widoczne.some((w) => w.cel === k.cel && w.wypelniony),
   );
