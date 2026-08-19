@@ -98,6 +98,10 @@ export function WorkshopStatusPicker({
 
   const style = getStyle(currentStatus);
 
+  // Czy auto jest juz zgloszone jako gotowe — decyduje, ktory status jest
+  // na kolei dla wprowadzenia (patrz znacznik data-tour nizej).
+  const gotowyDoOdbioru = String(currentStatus || '').startsWith('Gotow');
+
   return (
     <>
       <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -121,9 +125,24 @@ export function WorkshopStatusPicker({
                 // musi umiec je znalezc — same nazwy sa tlumaczone, a te znaczniki nie.
                 // W bazie stoi „Gotowy do odbioru", a na ekranie „Gotowe do
                 // odbioru" (tlumaczenie) — dopasowujemy po poczatku nazwy.
+                //
+                // ZNACZNIK DOSTAJE TYLKO TEN STATUS, KTORY JEST TERAZ NA KOLEI.
+                //
+                // 🔴 NAPRAWIONE 19.08.2026. Obie pozycje były oznaczone zawsze,
+                // a obie mają w trasie regułę „pokaż, gdy się zjawi". Otwarcie
+                // tej listy w dowolnym momencie wystawiało więc na ekran cel
+                // kroku 36 („Zakończone") — i wprowadzenie skakało na sam
+                // koniec, omijając powiadomienie o gotowym aucie, odbiór auta
+                // i wystawienie dokumentu. Widać to było najlepiej wtedy, gdy
+                // zaraz potem otwierało się okno SMS-a: dymek mówił „zamknij
+                // zlecenie", a na ekranie stała wiadomość do klienta.
+                //
+                // „Zakończone" ma sens dopiero, gdy auto jest gotowe do odbioru.
+                // Wcześniej na kolei jest „Gotowe do odbioru" — i tylko ono
+                // jest wtedy celem.
                 data-tour={
-                  it.name.startsWith('Gotow') ? 'status-gotowe'
-                  : it.name.startsWith('Zakończ') ? 'status-zakonczone'
+                  it.name.startsWith('Gotow') && !gotowyDoOdbioru ? 'status-gotowe'
+                  : it.name.startsWith('Zakończ') && gotowyDoOdbioru ? 'status-zakonczone'
                   : undefined
                 }
                 className={`group flex items-center gap-2 rounded-sm px-2 py-1.5 hover:bg-accent cursor-pointer ${active ? 'bg-accent font-medium' : ''}`}

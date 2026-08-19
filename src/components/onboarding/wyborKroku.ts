@@ -105,11 +105,33 @@ export function wybierzKrok(
    */
   const stoimyNaSwiezym = celBiezacegoNaWierzchu && !!opcje.pokazGdySieZjawi?.[biezacy];
 
+  /**
+   * ILE KROKÓW DO PRZODU WOLNO PRZESKOCZYĆ, GDY COŚ SIĘ POJAWI.
+   *
+   * 🔴 NAPRAWIONE 19.08.2026. Reguła „pokaż, gdy się zjawi" opisuje rzecz,
+   * którą człowiek WŁAŚNIE wywołał — a to zawsze leży o krok, najwyżej dwa
+   * dalej. Bez ograniczenia jedno otwarte menu potrafiło przenieść
+   * wprowadzenie o sześć kroków: lista statusów zawiera i „Gotowe do odbioru"
+   * (30), i „Zakończone" (36), więc jej otwarcie w okolicy kroku 30 lądowało
+   * na 36 — z pominięciem powiadomienia o gotowym aucie, odbioru auta
+   * i wystawienia dokumentu.
+   *
+   * Samo oznaczanie tylko tego statusu, który jest na kolei, nie wystarcza:
+   * w chwili kliknięcia „Gotowe do odbioru" status zmienia się na gotowy,
+   * a menu jeszcze się zamyka — cel kroku 36 mignąłby na ułamek sekundy
+   * i to wystarczyłoby do przeskoku.
+   *
+   * Otwarcie czegoś może przesunąć o krok. Nie może przenieść na koniec drogi.
+   */
+  const ZASIEG_ZJAWIENIA = 3;
+
   // Coś się właśnie pojawiło i samo prosi o opis (zielona ramka z danymi,
   // otwarte menu „Wystaw") — idziemy za tym, nawet jeśli bieżący krok wciąż widać.
   const zjawilSie = stoimyNaSwiezym
     ? undefined
-    : kandydaci.find((k) => k.i > biezacy && opcje.pokazGdySieZjawi?.[k.i]);
+    : kandydaci.find(
+        (k) => k.i > biezacy && k.i - biezacy <= ZASIEG_ZJAWIENIA && opcje.pokazGdySieZjawi?.[k.i],
+      );
   if (zjawilSie) return zjawilSie.i;
 
   // To samo, ale dla miejsc, które stoją puste do czasu, aż coś je wypełni
@@ -190,4 +212,36 @@ export function nastepnyKrok(
   // i mówi, dokąd wrócić — a ekran i tak poprawi krok, gdy człowiek tam trafi
   // (patrz wybierzKrok).
   return biezacy + 1;
+}
+
+/**
+ * Czy korektę kroku wolno już zastosować.
+ *
+ * Wydzielone z GuidedTour, żeby dało się to sprawdzić testem — reszta pliku
+ * istnieje z tego samego powodu.
+ *
+ * 🔴 Powód: po naciśnięciu „Wyślij SMS" wprowadzenie wracało na sam POCZĄTEK.
+ * Okno zlecenia zamyka się natychmiast, a lista dopiero dociąga swój wiersz;
+ * przez tę jedną chwilę widać tylko „Nowe zlecenie", czyli cel kroku
+ * pierwszego. Ekran w trakcie przerysowania nie jest odpowiedzią na pytanie
+ * „gdzie jest człowiek".
+ *
+ * Dlatego korekta wchodzi dopiero wtedy, gdy ta sama propozycja utrzyma się
+ * przez `prog` milisekund. Wyjątek: rzeczy, które właśnie się zjawiły
+ * (otwarte okno, rozwinięte menu) — te wchodzą natychmiast, bo to człowiek
+ * je przed chwilą otworzył.
+ */
+export function czyZastosowacKorekte(
+  poprzednia: { krok: number; od: number } | null,
+  trafiony: number,
+  teraz: number,
+  pilne: boolean,
+  prog = 500,
+): { zastosuj: boolean; propozycja: { krok: number; od: number } | null } {
+  if (pilne) return { zastosuj: true, propozycja: null };
+  if (poprzednia?.krok !== trafiony) {
+    return { zastosuj: false, propozycja: { krok: trafiony, od: teraz } };
+  }
+  if (teraz - poprzednia.od < prog) return { zastosuj: false, propozycja: poprzednia };
+  return { zastosuj: true, propozycja: null };
 }

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, ArrowRight, ArrowLeft } from 'lucide-react';
-import { wybierzKrok, nastepnyKrok, type WidocznyCel } from '@/components/onboarding/wyborKroku';
+import { czyZastosowacKorekte, wybierzKrok, nastepnyKrok, type WidocznyCel } from '@/components/onboarding/wyborKroku';
 import { pozycjaDymka } from '@/components/onboarding/pozycjaDymka';
 
 /**
@@ -263,8 +263,20 @@ function wypelnione(el: HTMLElement, klucz: string): boolean {
     return false;
   }
 
+  /**
+   * DOPÓKI KURSOR STOI W POLU, CZŁOWIEK JESZCZE PISZE.
+   *
+   * 🔴 NAPRAWIONE 19.08.2026. Wcześniej wystarczyła półtorasekundowa cisza:
+   * ktoś wystukiwał numer telefonu, zatrzymywał się na moment nad klawiaturą —
+   * i ramka uciekała mu na „Zapisz", w środku wpisywania. Człowiek pisze dalej
+   * na oślep, bo podpowiedź mówi już o czymś innym.
+   *
+   * Cisza jest złą miarą końca pisania. Dobrą jest wyjście z pola: klik gdzie
+   * indziej, Tab albo naciśnięcie „Dalej". Dopóki kursor jest w środku, krok
+   * stoi — nawet gdy w polu jest już komplet cyfr.
+   */
   const pisze = el.contains(document.activeElement);
-  return !pisze || teraz - poprzednia.czas > 1500;
+  return !pisze;
 }
 
 export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaListe, wartosci, pokazLicznik = true }: Props) {
@@ -283,6 +295,24 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   const [brakuje, setBrakuje] = useState<string | null>(null);
   useEffect(() => { setBrakuje(null); }, [krok]);
   useEffect(() => { setRuszony(false); }, [krok]);
+
+  /**
+   * ZNACZNIK „WPROWADZENIE TRWA" NA <body>.
+   *
+   * 🔴 NAPRAWIONE 19.08.2026. Powiadomienia („Pojazd dodany", „Status: Gotowe
+   * do odbioru") wychodzą w prawym dolnym rogu — dokładnie tam, gdzie przy
+   * większości kroków stoi dymek. Zasłaniały „Wstecz", „Zamknij" i „Dalej",
+   * czyli jedyne przyciski, którymi da się iść dalej. Do tego siedzą wyżej
+   * w warstwach (sonner ma z-index rzędu miliona), więc podniesienie dymka
+   * niczego by nie dało.
+   *
+   * Na czas wprowadzenia przenosimy powiadomienia pod górną krawędź — reguły
+   * są w `index.css` przy tym znaczniku. Poza wprowadzeniem nic się nie zmienia.
+   */
+  useEffect(() => {
+    document.body.dataset.wprowadzenie = '1';
+    return () => { delete document.body.dataset.wprowadzenie; };
+  }, []);
   // CZLOWIEK WAZNIEJSZY OD EKRANU.
   //
   // „Wstecz" cofalo krok, ale korektor ekranu natychmiast przywracal ten, ktory
@@ -290,6 +320,9 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   // w ogole nie dzialal. Po recznej zmianie kroku ekran ma sie nie odzywac przez
   // kilka sekund, zeby dalo sie przeczytac to, do czego sie wrocilo.
   const recznaZmiana = useRef(0);
+  // Ostatnia PROPOZYCJA korekty i chwila, od ktorej sie utrzymuje — patrz
+  // „KOREKTA MUSI SIE USTAC" nizej.
+  const propozycja = useRef<{ krok: number; od: number } | null>(null);
   // Numer kroku widziany przez opoznione sprawdzenia (patrz nizej).
   const krokRef = useRef(krok);
   krokRef.current = krok;
@@ -433,6 +466,8 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
     // krok zostaje na miejscu, nawet jesli ekran juz sie przelaczyl.
     const wejscie = Date.now();
     const cisza = kroki[krok]?.czasNaPrzeczytanie ?? 2500;
+    // Nowy krok = nowa obserwacja; propozycja z poprzedniego jest nieaktualna.
+    propozycja.current = null;
     const dopasuj = () => {
       // POWITANIE ZOSTAJE, DOPOKI SAM NIE PRZEJDZIESZ DALEJ.
       //
@@ -464,11 +499,25 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
           const i = cele.indexOf(w.cel);
           return i > krok && (kroki[i]?.pokazGdySieZjawi || kroki[i]?.pokazGdyWypelniony);
         });
-      if (!pilne) {
+      // CISZA NA PRZECZYTANIE OBOWIĄZUJE TYLKO DOPÓKI WIDAĆ TO, O CZYM MOWA.
+      //
+      // 🔴 NAPRAWIONE 19.08.2026. Pauza istnieje po to, żeby dymek nie mignął,
+      // zanim człowiek zdąży go przeczytać. Ale trzymała krok także wtedy, gdy
+      // jego miejsce ZNIKNĘŁO z ekranu — okno zlecenia już się zamknęło, karta
+      // była otwarta, a ramka nadal obrysowywała poprzedni widok i dymek mówił
+      // o czymś, czego nie ma. Człowiek widział rozjazd przez kilka sekund.
+      //
+      // Zdanie, którego nie ma o czym czytać, nie potrzebuje czasu na czytanie.
+      // Gdy cel bieżącego kroku zszedł z ekranu, poprawiamy się natychmiast.
+      // Kroki bez celu (dymek na środku) pauzę zachowują — tam nie ma czego
+      // stracić z oczu.
+      const celBiezacego = kroki[krok]?.cel;
+      const wlasny = naEkranieTeraz.find((w) => w.cel === celBiezacego);
+      const nadalWidacBiezacy = !celBiezacego || !!wlasny;
+      if (!pilne && nadalWidacBiezacy) {
         if (Date.now() - recznaZmiana.current < 5000) return;
         if (Date.now() - wejscie < cisza) return;
       }
-      const wlasny = naEkranieTeraz.find((w) => w.cel === kroki[krok]?.cel);
       // Mruga tylko tam, gdzie BYLO co wpisac i zostalo to wpisane. Przy krokach
       // bez pola (przyciski, kolumny) „Dalej" jest jedyna droga i mruganie przez
       // caly czas byloby tylko halasem.
@@ -478,7 +527,34 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
         pokazGdySieZjawi: kroki.map((k) => !!k.pokazGdySieZjawi),
         pokazGdyWypelniony: kroki.map((k) => !!k.pokazGdyWypelniony),
       });
-      if (trafiony !== krok) onKrok(trafiony);
+      if (trafiony === krok) { propozycja.current = null; return; }
+
+      /**
+       * KOREKTA MUSI SIĘ USTAĆ, ZANIM ZADZIAŁA.
+       *
+       * 🔴 NAPRAWIONE 19.08.2026. Zgłoszone z testów: po naciśnięciu „Wyślij
+       * SMS" wprowadzenie wracało na sam POCZĄTEK — „Zacznijmy od pierwszego
+       * zlecenia" — mimo że zlecenie było już założone i SMS wysłany.
+       *
+       * Mechanizm: okno zlecenia zamyka się natychmiast, a lista dopiero
+       * dociąga swój wiersz. Przez tę jedną chwilę na ekranie nie ma NICZEGO
+       * z okolicy bieżącego kroku — widać tylko „Nowe zlecenie", czyli cel
+       * kroku pierwszego. Korektor brał ten migawkowy stan za prawdę i cofał
+       * całą drogę; potem już nie miał powodu ruszyć, bo krok pierwszy stoi
+       * na swoim celu.
+       *
+       * Ekran w trakcie przerysowania nie jest odpowiedzią na pytanie „gdzie
+       * jest człowiek". Dlatego korekta wchodzi dopiero wtedy, gdy ta sama
+       * propozycja utrzyma się przez pół sekundy — tyle wystarczy liście, żeby
+       * dorysować wiersz, a człowiek tej zwłoki nie zauważy.
+       *
+       * Wyjątek: rzeczy, które właśnie się zjawiły (otwarte okno, rozwinięte
+       * menu), wchodzą natychmiast — tam nie ma czego czekać, bo to człowiek
+       * je przed chwilą otworzył.
+       */
+      const decyzja = czyZastosowacKorekte(propozycja.current, trafiony, Date.now(), pilne);
+      propozycja.current = decyzja.propozycja;
+      if (decyzja.zastosuj) onKrok(trafiony);
     };
 
     const timer = window.setInterval(dopasuj, 120);

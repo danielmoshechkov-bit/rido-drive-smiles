@@ -1099,3 +1099,34 @@ input[type=number] {
 @media (prefers-reduced-motion: reduce) {
   .miga-dalej { animation: none; outline: 2px solid hsl(var(--primary)); outline-offset: 2px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   POWIADOMIENIA NA CZAS WPROWADZENIA
+
+   Dymek wprowadzenia stoi przy podświetlonym miejscu, a przy większości kroków
+   wypada to w prawym dolnym rogu — tam, gdzie wychodzą powiadomienia („Pojazd
+   dodany", „Status: Gotowe do odbioru"). Zasłaniały „Wstecz", „Zamknij"
+   i „Dalej", czyli jedyne wyjście z kroku.
+
+   Podniesienie dymka nic by nie dało: sonner rysuje się z z-index rzędu
+   miliona. Dlatego na czas wprowadzenia to POWIADOMIENIA schodzą z drogi —
+   pod górną krawędź, na środek. Poza wprowadzeniem nic się nie zmienia.
+
+   Znacznik `data-wprowadzenie` ustawia GuidedTour na <body> na czas trwania.
+   ═══════════════════════════════════════════════════════════════════════════ */
+body[data-wprowadzenie] [data-sonner-toaster],
+body[data-wprowadzenie] [data-toast-viewport] {
+  top: 12px !important;
+  bottom: auto !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+}
+
+/* Radix układa powiadomienia od dołu (`flex-col-reverse`) — przy górnej
+   krawędzi najnowsze ma być na górze, inaczej nowe wchodzi pod stare. */
+body[data-wprowadzenie] [data-toast-viewport] {
+  flex-direction: column !important;
+  width: auto !important;
+  max-width: min(420px, 92vw) !important;
+}

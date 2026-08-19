@@ -10,7 +10,7 @@
 //
 // To jest test, którego brakowało: błędy typu „dymek mówi o numerze rejestracyjnym,
 // a na ekranie są dane klienta" widać tu od razu, bez klikania.
-import { wybierzKrok, nastepnyKrok } from '../../src/components/onboarding/wyborKroku.ts';
+import { wybierzKrok, nastepnyKrok, czyZastosowacKorekte } from '../../src/components/onboarding/wyborKroku.ts';
 import { TRASA_PIERWSZE_ZLECENIE } from '../../src/components/onboarding/trasaPierwszeZlecenie.ts';
 
 const cele = TRASA_PIERWSZE_ZLECENIE.map((k) => k.cel);
@@ -379,6 +379,70 @@ console.log('--- przypadki brzegowe ---');
   // w ogole istnieje. Tylko do NAJBLIZSZEJ pozycji, nie do ostatniej.
   sprawdz('rozwinieta lista przejmuje ekran z kroku wczesniejszego',
     wybierzKrok(cele, cele.indexOf('status-na-liscie'), listaStatusow, opcje), 'status-gotowe');
+
+  // ZGLOSZONE Z TESTOW NA ZYWO 19.08.2026 (zrzut z otwartym oknem SMS-a).
+  //
+  // Czlowiek stal na kroku o powiadomieniu o gotowym aucie, a lista statusow
+  // dopiero co sie zamykala. Wprowadzenie przeskoczylo na „Krok 8 — zamknij
+  // zlecenie", wiec chwile pozniej, przy otwartym oknie „Wyslij wiadomosc SMS
+  // do klienta", dymek mowil o zamykaniu zlecenia.
+  //
+  // Zaden krok z okolic odbioru nie moze skoczyc na zamkniecie zlecenia tylko
+  // dlatego, ze pozycja „Zakonczone" mignela na ekranie.
+  for (const skad of ['status-gotowe', 'przycisk-odbior', 'sms-ready']) {
+    const trafiony = wybierzKrok(cele, cele.indexOf(skad), listaStatusow, opcje);
+    sprawdzWarunek(
+      `mignieta pozycja „Zakonczone" nie katapultuje z kroku ${skad}`,
+      cele[trafiony] !== 'status-zakonczone',
+    );
+  }
+}
+
+// 5b. OKNO SMS-a O GOTOWYM AUCIE JEST WAZNIEJSZE NIZ LISTA POD SPODEM.
+//
+//     Zrzut z testow: otwarte okno „Wyslij wiadomosc SMS do klienta", a dymek
+//     mowil „Krok 8 — zamknij zlecenie". Okno jest glebiej niz lista, wiec to
+//     ono decyduje — nawet gdy wprowadzenie stalo juz na kroku koncowym.
+{
+  const oknoSmsNadLista = [
+    { cel: 'status-na-liscie', glebokosc: 0 },
+    { cel: 'sms-ready', glebokosc: 1 },
+  ];
+  sprawdz('otwarte okno SMS-a o gotowym aucie sciaga dymek z kroku koncowego',
+    wybierzKrok(cele, cele.indexOf('status-zakonczone'), oknoSmsNadLista, opcje), 'sms-ready');
+}
+
+// 5c. MIGAWKA W TRAKCIE PRZERYSOWANIA NIE COFA CALEJ DROGI.
+//
+//     Zgloszone z testow na zywo 19.08.2026: po nacisnieciu „Wyslij SMS"
+//     wprowadzenie wracalo na „Zacznijmy od pierwszego zlecenia", mimo ze
+//     zlecenie bylo zalozone, a SMS wyslany. Okno zamyka sie natychmiast,
+//     lista dociaga wiersz chwile pozniej — i przez ten moment jedynym celem
+//     na ekranie jest „Nowe zlecenie", czyli krok pierwszy.
+{
+  const doPoczatku = 0;
+
+  // Migawka: propozycja pojawia sie pierwszy raz — nie wolno jej zastosowac.
+  let stan = czyZastosowacKorekte(null, doPoczatku, 1000, false);
+  sprawdzWarunek('pierwsza propozycja korekty jeszcze nie wchodzi', stan.zastosuj === false);
+
+  // Chwile pozniej lista dorysowala wiersz i propozycja jest juz INNA —
+  // poprzednia przepada, zegar rusza od nowa.
+  const poZmianie = czyZastosowacKorekte(stan.propozycja, 14, 1100, false);
+  sprawdzWarunek('zmiana propozycji zeruje odliczanie', poZmianie.zastosuj === false);
+
+  // Propozycja, ktora sie UTRZYMALA, wchodzi.
+  const utrzymana = czyZastosowacKorekte(poZmianie.propozycja, 14, 1700, false);
+  sprawdzWarunek('propozycja utrzymana przez pol sekundy wchodzi', utrzymana.zastosuj === true);
+
+  // Gdyby migawka z krokiem pierwszym utrzymala sie tylko przez ćwierć sekundy,
+  // nie ma prawa nic zmienic.
+  const migniecie = czyZastosowacKorekte(stan.propozycja, doPoczatku, 1250, false);
+  sprawdzWarunek('cofniecie na poczatek po migawce NIE wchodzi', migniecie.zastosuj === false);
+
+  // Otwarte okno to co innego: czlowiek wlasnie je otworzyl, wiec bez zwloki.
+  const pilne = czyZastosowacKorekte(null, 18, 1000, true);
+  sprawdzWarunek('rzecz, ktora sie wlasnie zjawila, wchodzi natychmiast', pilne.zastosuj === true);
 }
 
 // 6. Kroki konca drogi ida po kolei: gotowe -> SMS -> odbior klienta ->
