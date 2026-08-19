@@ -35,6 +35,7 @@ import {
 } from "../_shared/voiceSnapshot.ts";
 import { dopasowanieUslugi } from "../_shared/voiceDopasowanie.ts";
 import { rozpoznajWarsztat } from "../_shared/voiceRozpoznanieWarsztatu.ts";
+import { wybierzKonfiguracjeWarsztatu } from "../_shared/voicePersona.ts";
 // ANGIELSKI — OSOBNY MODUŁ, DOKŁADANY OBOK. Moduł polski zostaje nietknięty:
 // ma 22 asercje i trzy dni poprawek za sobą, a uogólnianie go na drugi język
 // znaczyłoby przepisanie kodu sprawdzonego na produkcji dla języka, który
@@ -272,8 +273,16 @@ serve(async (req) => {
         //
         // Wyłączony agent NIE PRZESTAJE ODBIERAĆ (tego nie umiemy z poziomu
         // webhooka), tylko dostaje snapshot z jednym zdaniem do powiedzenia.
-        const { data: stan, error: stanErr } = await admin.from("voice_agent_configs")
-          .select("is_active, business_context, max_rozmow_rownoczesnie").eq("provider_id", providerId).limit(1);
+        // WSZYSTKIE wiersze warsztatu, nie `limit(1)`.
+        //
+        // `limit(1)` bez sortowania oddaje wiersz, który baza akurat ma pod
+        // ręką. Gdy warsztat ma dwa wiersze (patrz voicePersona.ts), rzut
+        // monetą decydował, czy agent jest włączony. Wierszy są jednostki,
+        // więc odczyt całości nic nie kosztuje, a wynik przestaje zależeć
+        // od fizycznej kolejności w tabeli.
+        const { data: wiersze, error: stanErr } = await admin.from("voice_agent_configs")
+          .select("persona_key, is_active, business_context, max_rozmow_rownoczesnie")
+          .eq("provider_id", providerId);
         if (stanErr) {
           console.error("[voice-agent-init] odczyt is_active nieudany:", stanErr.code, stanErr.message);
           throw stanErr;
@@ -291,12 +300,13 @@ serve(async (req) => {
         // Wyjątek dla ścieżki `agent_id`: tam brak wiersza znaczy „stara
         // konfiguracja", a nie „nowy warsztat" — i nie wolno nam zabrać
         // obsługi komuś, kto ją dziś ma.
-        const brakKonfiguracji = !stan?.[0];
+        const stan = wybierzKonfiguracjeWarsztatu(wiersze);
+        const brakKonfiguracji = !stan;
         const wylaczonyPrzezWarsztat = brakKonfiguracji
           ? rozpoznanie.droga === "numer"
-          : stan[0].is_active === false;
+          : stan.is_active === false;
         if (wylaczonyPrzezWarsztat) {
-          const bc = (stan?.[0]?.business_context ?? {}) as Record<string, unknown>;
+          const bc = (stan?.business_context ?? {}) as Record<string, unknown>;
           const zdanie = String((bc?.wylaczony_zdanie as string) || "")
             || "Przepraszam, w tej chwili nie przyjmujemy zgłoszeń telefonicznych.";
           console.info("[voice-agent-init]", JSON.stringify({
@@ -312,7 +322,7 @@ serve(async (req) => {
         // dowiedzieliśmy się (padł webhook, zerwane połączenie), ma wygasać
         // sama — inaczej jeden zgubiony wiersz blokuje warsztatowi telefon
         // na zawsze, a to gorsza awaria niż ta, przed którą chronimy.
-        const limit = Math.max(1, Number(stan?.[0]?.max_rozmow_rownoczesnie ?? 1));
+        const limit = Math.max(1, Number(stan?.max_rozmow_rownoczesnie ?? 1));
         const odKiedy = new Date(Date.now() - 30 * 60_000).toISOString();
         const { count, error: cntErr } = await admin.from("voice_active_calls")
           .select("conversation_id", { count: "exact", head: true })

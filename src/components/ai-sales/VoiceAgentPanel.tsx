@@ -104,21 +104,29 @@ const ladnyNumer = (n: string) => {
 export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [personaKey, setPersonaKey] = useState<string>("");
+  // PERSONA JEST STAŁA, NIE WYNIKIEM ZAPYTANIA.
+  //
+  // Poprzednia wersja pytała `voice_agent_personas` o personę o najwyższym
+  // priorytecie. W bazie DWIE włączone persony miały priorytet 8
+  // (workshop_secretary i sales_agent), a `order by priority desc limit 1`
+  // przy remisie nie ma zdefiniowanego zwycięzcy — decydowała fizyczna
+  // kolejność wierszy, zmieniana przez każdy UPDATE na tabeli.
+  //
+  // Gdyby wygrał `sales_agent`, ta zakładka pokazałaby warsztatowi PUSTY
+  // formularz z wyłączonym przełącznikiem, a zapis założyłby drugi wiersz
+  // konfiguracji z `is_active: false`. Stara wersja panelu miała listę person
+  // do wyboru, więc dało się z tego wyjść; ta nie ma, więc nie dałoby się.
+  //
+  // Ta zakładka obsługuje agenta warsztatu i tylko jego. Nie ma tu czego
+  // wybierać, więc nie ma czego zgadywać.
+  const personaKey = "workshop_secretary";
   const [cfg, setCfg] = useState<VoiceConfig | null>(null);
   const [numer, setNumer] = useState<NumerWarsztatu | null>(null);
   const [stan, setStan] = useState<StanAktywacji | null>(null);
   const [miasto, setMiasto] = useState("");
   const [aktywuje, setAktywuje] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await (supabase as any)
-        .from("voice_agent_personas").select("persona_key")
-        .eq("enabled", true).order("priority", { ascending: false }).limit(1);
-      setPersonaKey(data?.[0]?.persona_key ?? "workshop_secretary");
-    })();
-  }, []);
+
 
   useEffect(() => {
     if (!personaKey || !providerId) return;

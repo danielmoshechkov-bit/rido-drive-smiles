@@ -56,6 +56,29 @@ Jeśli mają być w panelu, ktoś musi je włączyć i dopisać ceny w Stripe.
 6. jeden numer na konto, bezwzględnie
 ```
 
+### 🔴 BRAMKA WCHODZI WYŁĄCZNIE DO `voice-number-activate`
+
+**TA SAMA REGUŁA W `voice-agent-init` UCISZYŁABY TELEFON W CHWILI WDROŻENIA.**
+
+Sprawdzone w bazie 19.08: **żaden z dwóch dzisiejszych warsztatów nie ma wiersza
+w `billing_subscriptions`** — ani pierwszy, z działającym agentem i czternastoma
+rozmowami w tygodniu, ani testowy. Reguła „brak wiersza → odmowa" wpięta
+w ścieżkę odbierania połączeń wyłączyłaby agenta natychmiast po wdrożeniu,
+bez żadnego czerwonego testu po drodze.
+
+Stąd dwa ograniczenia, obowiązujące bez wyjątku:
+
+1. **Bramka sprawdza subskrypcję TYLKO przy `akcja === "aktywuj"`**, czyli przy
+   wydawaniu naszych pieniędzy na nowy numer. Nigdy przy odbieraniu połączenia.
+2. **Warsztat, który numer już ma, przechodzi bez sprawdzania.** Jawny wyjątek
+   w kodzie, nie „i tak nie kliknie". Aktywacja i tak zwraca mu wtedy
+   „numer juz przypisany" — sprawdzanie subskrypcji w tym miejscu może wyłącznie
+   zaszkodzić.
+
+Odcięcie warsztatu, który przestał płacić, jest OSOBNĄ decyzją z osobnym
+komunikatem (punkt 3 poniżej) i osobnym terminem — nie skutkiem ubocznym bramki
+zakupowej.
+
 ### Bramka jest po stronie SERWERA, nie w przycisku
 
 Zablokowany przycisk to podpowiedź, nie kontrola — do funkcji można wysłać

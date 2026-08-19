@@ -1,0 +1,80 @@
+{
+ "konfiguracje": [
+  {
+   "warsztat": "0307fd12",
+   "persona_key": "workshop_secretary",
+   "is_active": false,
+   "voice_id": null,
+   "voice_speed": "1.00",
+   "voice_stability": "0.45",
+   "voice_similarity": "0.75",
+   "voice_mode": "single",
+   "learning_mode": "per_call",
+   "languages": "{pl}",
+   "max_rozmow_rownoczesnie": 1,
+   "bc_kluczy": 9,
+   "bc_znakow": 191
+  },
+  {
+   "warsztat": "664ed87b",
+   "persona_key": "workshop_secretary",
+   "is_active": true,
+   "voice_id": "onwK4e9ZLuTAKqWW03F9",
+   "voice_speed": "1.00",
+   "voice_stability": "0.45",
+   "voice_similarity": "0.75",
+   "voice_mode": "per_language",
+   "learning_mode": "per_call",
+   "languages": "{pl,en,ua,ru}",
+   "max_rozmow_rownoczesnie": 1,
+   "bc_kluczy": 8,
+   "bc_znakow": 758
+  }
+ ],
+ "numery": [
+  {
+   "warsztat": "664ed87b",
+   "phone_number": "4822101····",
+   "status": "aktywny",
+   "w_elevenlabs": true
+  },
+  {
+   "warsztat": "0307fd12",
+   "phone_number": "4822118····",
+   "status": "aktywny",
+   "w_elevenlabs": true
+  }
+ ],
+ "persony": [
+  {
+   "persona_key": "realestate_acquirer",
+   "enabled": true,
+   "priority": 6
+  },
+  {
+   "persona_key": "sales_agent",
+   "enabled": true,
+   "priority": 8
+  },
+  {
+   "persona_key": "service_scheduler",
+   "enabled": true,
+   "priority": 6
+  },
+  {
+   "persona_key": "workshop_secretary",
+   "enabled": true,
+   "priority": 8
+  }
+ ],
+ "wierszy_konfiguracji": [
+  {
+   "warsztat": "0307fd12",
+   "wierszy": 1
+  },
+  {
+   "warsztat": "664ed87b",
+   "wierszy": 1
+  }
+ ]
+}
