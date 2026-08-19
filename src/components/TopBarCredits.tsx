@@ -4,7 +4,10 @@ import { Car, MessageSquare } from 'lucide-react';
 import { VehicleLookupCreditsModal } from './vehicle/VehicleLookupCreditsModal';
 import { SmsPurchaseModal } from './SmsPurchaseModal';
 import { useDostepneJednostki, useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
-import { czekajNaWydanie, nasluchujDoladowan, LIMIT_POWROTU_MS } from '@/lib/doladowanie';
+import {
+  czekajNaWydanie, nasluchujDoladowan, odczytajZamowienie,
+  LIMIT_POWROTU_MS, LIMIT_KARTY_ZAKUPU_MS,
+} from '@/lib/doladowanie';
 
 export function TopBarCredits() {
   const odswiez = useOdswiezJednostki();
@@ -35,6 +38,9 @@ export function TopBarCredits() {
     window.history.replaceState({}, '', window.location.pathname + (reszta ? `?${reszta}` : ''));
 
     void czekajNaWydanie({
+      // Identyfikator z zapisu, gdy jest; inaczej najnowsze własne zamówienie —
+      // adres powrotu jest stały i nic w nim nie niesie.
+      orderId: odczytajZamowienie(),
       limitMs: LIMIT_POWROTU_MS,
       // Bez argumentu = wszystkie jednostki. Adres powrotu jest stały, więc
       // nie wiemy, czego dotyczył zakup, a odświeżenie obu nic nie kosztuje.
@@ -54,6 +60,29 @@ export function TopBarCredits() {
       }
       // 'brak' — nie znaleźliśmy zamówienia (np. powrót w innej przeglądarce).
       // Milczymy: licznik i tak wczytał się świeżo przy wejściu na stronę.
+    });
+  }, [odswiez]);
+
+  /**
+   * Podjęcie nadzoru nad zamówieniem w toku.
+   *
+   * Scenariusz, który to obsługuje: klient klika doładowanie w panelu, płaci
+   * w karcie PayU, ZAMYKA ją i wraca do panelu. Powrót `?platnosc=payu` poszedł
+   * do zamkniętej karty, więc nigdy go tu nie zobaczymy. Nadzór z chwili zakupu
+   * działa — dopóki karta panelu nie została odświeżona. Ten efekt przywraca go
+   * także po odświeżeniu, po wznowieniu karty przez przeglądarkę i po powrocie
+   * do panelu z innego miejsca.
+   *
+   * Cicho, bez komunikatów: klient nie klikał nic, na co miałby dostać odpowiedź.
+   * Ma tylko zobaczyć, że licznik sam się poprawił.
+   */
+  useEffect(() => {
+    const zamowienie = odczytajZamowienie();
+    if (!zamowienie) return;
+    void czekajNaWydanie({
+      orderId: zamowienie,
+      limitMs: LIMIT_KARTY_ZAKUPU_MS,
+      gdyWydane: () => { void odswiez(); },
     });
   }, [odswiez]);
 
