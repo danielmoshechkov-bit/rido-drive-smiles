@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Edit, FileWarning, Eye, AlertCircle, Send } from 'lucide-react';
+import { Mail, Edit, FileWarning, Eye, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
+import { KsefSendButton } from '@/components/invoices/KsefSendButton';
 import { useTranslation } from 'react-i18next';
 
 interface Props {
@@ -22,7 +23,6 @@ export function ExistingInvoiceModal({ open, onOpenChange, invoice, orderNumber,
   const { t } = useTranslation();
   const [editOpen, setEditOpen] = useState(false);
   const [correctionOpen, setCorrectionOpen] = useState(false);
-  const [sendingKsef, setSendingKsef] = useState(false);
 
   if (!invoice) return null;
 
@@ -44,21 +44,6 @@ export function ExistingInvoiceModal({ open, onOpenChange, invoice, orderNumber,
     }
   };
 
-  const handleKsef = async () => {
-    setSendingKsef(true);
-    try {
-      const { error } = await supabase.functions.invoke('ksef-send', {
-        body: { invoice_id: invoice.id },
-      });
-      if (error) throw error;
-      toast.success(t('workshop.existingInvoice.ksefSent'));
-      onChanged?.();
-    } catch (e: any) {
-      toast.error(t('workshop.existingInvoice.ksefError', { error: e.message }));
-    } finally {
-      setSendingKsef(false);
-    }
-  };
 
   const ksefStatus = invoice.ksef_status || 'draft';
   const ksefBadge =
@@ -107,11 +92,32 @@ export function ExistingInvoiceModal({ open, onOpenChange, invoice, orderNumber,
             <Button variant="outline" onClick={() => setCorrectionOpen(true)} className="gap-2">
               <FileWarning className="h-4 w-4" /> {t('workshop.existingInvoice.issueCorrection')}
             </Button>
-            {ksefStatus !== 'sent' && ksefStatus !== 'accepted' && (
-              <Button onClick={handleKsef} disabled={sendingKsef} className="col-span-2 gap-2">
-                <Send className="h-4 w-4" /> {sendingKsef ? t('workshop.existingInvoice.sending') : t('workshop.existingInvoice.sendToKsef')}
-              </Button>
-            )}
+            {/*
+              WYSYŁKA DO KSeF — TEN SAM KOMPONENT CO NA LIŚCIE FAKTUR.
+
+              🔴 NAPRAWIONE 19.08.2026. Stała tu własna obsługa, która wołała
+              funkcję brzegową `ksef-send`. Taka funkcja nie istnieje — nigdy
+              nie została wdrożona, więc przycisk zawsze kończył się czerwonym
+              komunikatem. Działająca ścieżka to `ksef-integration` z akcją
+              `send` i jest już opakowana w `KsefSendButton`.
+
+              Zamiast powtarzać tu jej wywołanie, wstawiamy ten sam komponent,
+              którego używa lista faktur i karta faktury. Dostajemy przy okazji
+              to, czego własna obsługa nie miała: sprawdzenie stanu PRZED
+              wysyłką (nie da się wysłać drugi raz), odpytywanie o wynik,
+              plakietkę „Wysłano" i „Ponów" po odrzuceniu.
+
+              Świadomie BEZ `onAfterSent` (zamrożenia PDF-a): wymaga pełnych
+              danych faktury, które składa moduł faktur. Tak samo robi
+              `InvoiceDetailSheet` — nie wprowadzamy tu nowej różnicy.
+            */}
+            <div className="col-span-2 flex justify-center">
+              <KsefSendButton
+                invoiceId={invoice.id}
+                size="default"
+                onStatusChange={() => onChanged?.()}
+              />
+            </div>
           </div>
         </DialogContent>
       </Dialog>
