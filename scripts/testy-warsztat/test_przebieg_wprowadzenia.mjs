@@ -482,6 +482,26 @@ console.log('--- przypadki brzegowe ---');
     cele.indexOf('filtr-zakonczone') > zamkniecie);
 }
 
+// 5e. KROK, KTOREGO MIEJSCE TRZEBA WYWOLAC, MUSI UMIEC JE WYWOLAC.
+//
+//     Zgloszone ze zrzutu: po podgladzie dokumentu „Dalej" przeskakiwal krok
+//     „zamknij zlecenie" i ladowal na opisie zakladki „Zakonczone zlecenia".
+//     Pozycja „Zakonczone" istnieje wylacznie przy ROZWINIETEJ liscie statusow,
+//     wiec „Dalej" nie mial czego kliknac.
+{
+  const zamkniecie = TRASA_PIERWSZE_ZLECENIE[cele.indexOf('status-zakonczone')];
+  sprawdzWarunek('krok o zamknieciu zlecenia sam rozwija liste statusow',
+    zamkniecie.dalejOtwiera === 'status-na-liscie');
+  sprawdzWarunek('krok o zamknieciu zlecenia sam wybiera pozycje z listy',
+    !!zamkniecie.dalejKlika);
+
+  // To samo, co przy „Gotowe do odbioru": tam liste rozwija OSOBNY krok
+  // wczesniej, wiec tamten nie potrzebuje `dalejOtwiera`.
+  const gotowe = TRASA_PIERWSZE_ZLECENIE[cele.indexOf('status-gotowe')];
+  sprawdzWarunek('krok o gotowosci ma przed soba krok rozwijajacy liste',
+    cele[cele.indexOf('status-gotowe') - 1] === 'status-na-liscie' && !!gotowe.dalejKlika);
+}
+
 // 6. Kroki konca drogi ida po kolei: gotowe -> SMS -> odbior klienta ->
 //    dokument -> podglad -> zamkniecie. Warsztat wprost prosil o te kolejnosc.
 {

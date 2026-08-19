@@ -312,10 +312,14 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     dalejKlika: true,
     // Pozycja istnieje tylko wtedy, gdy lista statusow jest rozwinieta.
     pokazGdySieZjawi: true,
+    // ...a gdy jeszcze nie jest, „Dalej" NAJPIERW ja rozwija i zostaje na tym
+    // kroku. Bez tego nie mial czego kliknac i przeskakiwal cala czynnosc,
+    // ladujac od razu na opisie zakladki z archiwum.
+    dalejOtwiera: 'status-na-liscie',
     wracajNaListe: true,
     tytul: 'Krok 8 — zamknij zlecenie',
-    tresc: 'Klient odebrał auto i zapłacił, więc ostatni krok: znów kliknij status przy zleceniu i wybierz „Zakończone".\n\nOd tej chwili zlecenie liczy się do przychodu i znika z listy aktywnych — przechodzi do zakładki „Zakończone zlecenia".',
-    akcja: 'Kliknij „Zakończone" albo „Dalej" — ustawię ten status',
+    tresc: 'Klient odebrał auto i zapłacił, więc ostatni krok: kliknij status przy zleceniu — tak samo jak przy „Gotowe do odbioru" — i wybierz „Zakończone".',
+    akcja: 'Naciśnij „Dalej": pierwsze naciśnięcie rozwinie listę statusów, drugie wybierze „Zakończone"',
   },
   {
     cel: 'filtr-zakonczone',
