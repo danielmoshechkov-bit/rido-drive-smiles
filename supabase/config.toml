@@ -470,3 +470,9 @@ verify_jwt = false
 # tokenu z wierszem umowy po stronie serwera; bez zgodności funkcja nie oddaje nic.
 [functions.rental-portal-get]
 verify_jwt = false
+
+# Moduł oglądania nieruchomości jest zamknięty do czasu jego uporządkowania.
+# Wpisu wcześniej nie było, więc funkcja szła domyślną ścieżką. Bramka roli
+# stoi w kodzie funkcji (fail-closed) — to tutaj jest tylko drugą zaporą.
+[functions.schedule-viewings]
+verify_jwt = true

@@ -6,12 +6,76 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * ⛔ MODUŁ OGLĄDANIA NIERUCHOMOŚCI JEST ZAMKNIĘTY DLA KLIENTÓW.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DLACZEGO
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Moduł nie jest gotowy i będzie porządkowany osobno. Do tego czasu wpuszczamy
+ * wyłącznie administratora, do testów.
+ *
+ * Osobny, drugi powód — rozliczenie: ta funkcja wysyła SMS-y wprost do
+ * `api.smsapi.pl` (pięć miejsc niżej), z pominięciem `send-sms`
+ * i `workshop-send-sms`. Nie przechodzi więc przez `deduct_sms_credit`: nie
+ * sprawdza pokrycia, nie zdejmuje jednostki i nie zostawia wpisu w księdze.
+ * Każdy wysłany stąd SMS idzie na koszt platformy. Przepięcie na `send-sms`
+ * robimy przy porządkowaniu nieruchomości — do tego czasu zamknięcie roli
+ * ogranicza to do jednego konta.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DLACZEGO ROLA, A NIE ADRES E-MAIL
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Bramka pyta `has_role(uid, 'admin')` — tak samo jak reszta systemu. Zaszyty
+ * literał z adresem przestałby działać przy zmianie konta i za miesiąc nikt by
+ * nie wiedział, skąd się tam wziął.
+ *
+ * Ukrycie przycisku w interfejsie NIE JEST zabezpieczeniem — funkcja jest pod
+ * adresem publicznym, więc odmowa musi zapaść tutaj. Bramka stoi PRZED
+ * odczytem ciała żądania i obejmuje WSZYSTKIE akcje (`process_new_request`,
+ * `send_reminders`, `check_day_before`, `build_day_plan`), bo każda z nich
+ * potrafi wysłać SMS. Dziś nie woła jej żaden cron ani inna funkcja brzegowa —
+ * jedynym wywołującym jest `ViewingRequestForm`. Gdyby kiedyś doszedł cron,
+ * będzie potrzebował własnego wejścia; celowo go teraz nie zostawiam otwartego.
+ */
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    const odmowa = (status: number, error: string) => new Response(
+      JSON.stringify({ error }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+
+    // Fail-closed: brak konfiguracji to odmowa, nie przepuszczenie.
+    if (!anonKey) {
+      console.error("schedule-viewings: brak SUPABASE_ANON_KEY — nie da się sprawdzić roli");
+      return odmowa(503, "Moduł chwilowo niedostępny.");
+    }
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return odmowa(401, "Wymagane zalogowanie.");
+
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: bladUzytkownika } = await userClient.auth.getUser();
+    if (bladUzytkownika || !user) return odmowa(401, "Nieprawidłowy token.");
+
+    const { data: czyAdmin, error: bladRoli } = await userClient.rpc("has_role", {
+      _user_id: user.id,
+      _role: "admin",
+    });
+    if (bladRoli || !czyAdmin) {
+      // Ta sama odpowiedź, którą pokazuje interfejs — żeby komunikat był jeden.
+      return odmowa(403, "Umawianie oglądań będzie dostępne wkrótce.");
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { action, request_id } = await req.json();
