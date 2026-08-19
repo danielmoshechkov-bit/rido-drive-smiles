@@ -7,6 +7,33 @@ zakładałeś, i jedna, która jest gotowa.
 
 ---
 
+## 0. STAN BAZY 19.08 — połowa tego jest już założona
+
+Sprawdzone, nie założone:
+
+```
+billing_features (kind='metered'):
+  voice_minutes           unit='minuta'      overage_price_net = NULL   ← ISTNIEJE
+  voice_concurrent_calls  unit='połączenie'  overage_price_net = NULL   ← ISTNIEJE
+  voice_numbers           unit='numer'       overage_price_net = NULL   ← ISTNIEJE
+  sms                     unit='SMS'         overage_price_net = 0,20
+  vehicle_lookup          unit='sprawdzenie' overage_price_net = 1,70
+
+billing_plan_features dla cech voice_*:   BRAK — żaden plan nie ma limitu minut
+billing_addon_products:                   sms, vehicle_lookup — BRAK minut
+```
+
+Czyli cecha rozliczana `voice_minutes` **już jest w bazie** (założona przy
+pracy nad rozliczeniami). Brakuje trzech rzeczy: ceny nadwyżki, limitów
+w planach i produktu do dokupienia.
+
+**Ścieżka zakupu też już istnieje i jest ogólna:**
+`DoladowanieModal` przyjmuje `productCode`, czyta `billing_addon_products`
+(`code, name, unit_price_net, step, min_units`) i woła `billing-payu-order`.
+Dołożenie minut to **jeden wiersz produktu**, nie nowy przepływ płatności.
+
+---
+
 ## 1. GDZIE TRZYMAMY SALDA — nigdzie nowego
 
 To jest najważniejsze ustalenie i zmienia rozmiar pracy.
