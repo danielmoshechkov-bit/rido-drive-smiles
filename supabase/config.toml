@@ -464,3 +464,9 @@ verify_jwt = false
 # — 403. Dlatego verify_jwt musi być wyłączone: najemca nie ma sesji.
 [functions.rental-sign]
 verify_jwt = false
+
+# Odczyt umowy najmu dla portalu klienta. Najemca otwiera link z tokenem i NIE MA
+# sesji — dlatego verify_jwt musi być wyłączone. Autoryzacją jest porównanie
+# tokenu z wierszem umowy po stronie serwera; bez zgodności funkcja nie oddaje nic.
+[functions.rental-portal-get]
+verify_jwt = false
