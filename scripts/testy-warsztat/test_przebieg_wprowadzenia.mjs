@@ -234,8 +234,14 @@ sprawdz('otwarte menu: paragon, faktura, potwierdzenie', krok, 'wystaw-dokumenty
 
 krok = nastepnyKrok(cele, krok, panel);
 sprawdz('„Dalej": podgląd wystawionego dokumentu', krok, 'podglad-dokumentu');
+// Zamkniecie zlecenia to DWA kroki, tak samo jak zmiana na „Gotowe do odbioru":
+// najpierw rozwiniecie listy statusow, potem wybor pozycji. Jednym krokiem sie
+// nie da — pozycja „Zakonczone" nie istnieje, dopoki lista jest zwinieta.
 krok = nastepnyKrok(cele, krok, panel);
-sprawdz('„Dalej": zamknięcie zlecenia statusem', krok, 'status-zakonczone');
+sprawdz('„Dalej": rozwiniecie listy statusow do zamkniecia', krok, 'status-na-liscie');
+const panelZRozwinieta = [...panel, { cel: 'status-zakonczone', glebokosc: 0 }];
+krok = nastepnyKrok(cele, krok, panelZRozwinieta);
+sprawdz('„Dalej": wybor statusu „Zakonczone"', krok, 'status-zakonczone');
 krok = nastepnyKrok(cele, krok, panel);
 sprawdz('„Dalej": zakładka Zakończone', krok, 'filtr-zakonczone');
 
@@ -354,9 +360,21 @@ console.log('--- przypadki brzegowe ---');
 //    (Sprawdzenie plików robi osobny test; tu pilnujemy, że nie ma duplikatów
 //    i pustych celów, bo dwa kroki o tym samym celu nigdy się nie pokażą.)
 {
+  // JEDEN SWIADOMY WYJATEK: `status-na-liscie`.
+  //
+  // Ten sam znacznik — plakietka statusu przy zleceniu — jest celem DWA RAZY,
+  // bo warsztat klika go dwa razy w calej drodze: raz zglaszajac gotowosc do
+  // odbioru, raz zamykajac zlecenie. To nie pomylka, tylko ta sama czynnosc
+  // w dwoch momentach; korektor wybiera ten z nich, ktory jest blizej.
+  const DOZWOLONE_POWTORKI = new Set(['status-na-liscie']);
   const bezPustych = cele.filter(Boolean);
-  const unikalne = new Set(bezPustych);
-  sprawdzWarunek(`trasa nie ma powtórzonych celów (${bezPustych.length} kroków)`, unikalne.size === bezPustych.length);
+  const powtorzone = bezPustych.filter((c, i) => bezPustych.indexOf(c) !== i);
+  const nieoczekiwane = powtorzone.filter((c) => !DOZWOLONE_POWTORKI.has(c));
+  sprawdzWarunek(
+    `trasa nie ma przypadkowo powtórzonych celów (${bezPustych.length} kroków)`,
+    nieoczekiwane.length === 0,
+    nieoczekiwane.join(', '),
+  );
 }
 
 // 5. ROZWINIETA LISTA STATUSOW NIE KATAPULTUJE NA KONIEC DROGI.
@@ -489,9 +507,14 @@ console.log('--- przypadki brzegowe ---');
 //     Pozycja „Zakonczone" istnieje wylacznie przy ROZWINIETEJ liscie statusow,
 //     wiec „Dalej" nie mial czego kliknac.
 {
-  const zamkniecie = TRASA_PIERWSZE_ZLECENIE[cele.indexOf('status-zakonczone')];
-  sprawdzWarunek('krok o zamknieciu zlecenia sam rozwija liste statusow',
-    zamkniecie.dalejOtwiera === 'status-na-liscie');
+  const iZakonczone = cele.indexOf('status-zakonczone');
+  const zamkniecie = TRASA_PIERWSZE_ZLECENIE[iZakonczone];
+  // Krok TUZ PRZED wyborem statusu ma rozwinac liste — tak samo jak przy
+  // „Gotowe do odbioru". Bez tego „Dalej" nie ma czego kliknac i przeskakuje
+  // cala czynnosc, ladujac od razu na opisie zakladki z archiwum.
+  sprawdzWarunek('przed wyborem „Zakonczone" stoi krok rozwijajacy liste statusow',
+    cele[iZakonczone - 1] === 'status-na-liscie'
+    && !!TRASA_PIERWSZE_ZLECENIE[iZakonczone - 1].dalejKlika);
   sprawdzWarunek('krok o zamknieciu zlecenia sam wybiera pozycje z listy',
     !!zamkniecie.dalejKlika);
 
@@ -506,8 +529,10 @@ console.log('--- przypadki brzegowe ---');
 //    dokument -> podglad -> zamkniecie. Warsztat wprost prosil o te kolejnosc.
 {
   const kolejnosc = ['status-gotowe', 'przycisk-odbior', 'sms-ready', 'zaznacz-zlecenie',
-                     'wystaw-dokumenty', 'podglad-dokumentu', 'status-zakonczone'];
-  const indeksy = kolejnosc.map((c) => cele.indexOf(c));
+                     'wystaw-dokumenty', 'podglad-dokumentu', 'status-na-liscie',
+                     'status-zakonczone'];
+  // `status-na-liscie` wystepuje dwa razy; na koncu drogi chodzi o TO DRUGIE.
+  const indeksy = kolejnosc.map((c) => (c === 'status-na-liscie' ? cele.lastIndexOf(c) : cele.indexOf(c)));
   sprawdzWarunek(
     `koniec drogi w kolejnosci: ${kolejnosc.join(' -> ')}`,
     indeksy.every((n, i) => n >= 0 && (i === 0 || n === indeksy[i - 1] + 1)),

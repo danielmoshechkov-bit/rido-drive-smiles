@@ -108,14 +108,6 @@ export interface KrokTrasy {
    */
   dalejKlikaWprost?: boolean;
   /**
-   * Co nacisnąć, gdy celu kroku NIE MA jeszcze na ekranie.
-   *
-   * Do kroków, których miejsce trzeba najpierw wywołać: pozycja „Zakończone"
-   * istnieje dopiero po rozwinięciu listy statusów. Bez tego „Dalej" nie miał
-   * czego kliknąć i przeskakiwał krok — a to właśnie ten krok jest czynnością.
-   */
-  dalejOtwiera?: string;
-  /**
    * „Dalej" najpierw ZAMYKA otwarte okno, a potem idzie dalej.
    *
    * Do kroków, które opisują podgląd (dokument, wydruk): dopóki okno stoi na
@@ -711,32 +703,6 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     }
 
-    /**
-     * CEL KROKU JESZCZE NIE ISTNIEJE — NAJPIERW GO WYWOŁUJEMY.
-     *
-     * 🔴 NAPRAWIONE 19.08.2026. Zgłoszone ze zrzutu: po podglądzie dokumentu
-     * „Dalej" przeskakiwał krok „zamknij zlecenie" i lądował od razu na opisie
-     * zakładki „Zakończone zlecenia". Pozycja „Zakończone" istnieje wyłącznie
-     * przy ROZWINIĘTEJ liście statusów, więc „Dalej" nie miał czego kliknąć
-     * i szedł dalej — pomijając czynność, o którą w tym kroku chodzi.
-     *
-     * Teraz pierwsze naciśnięcie ROZWIJA listę i zostaje na kroku, a dopiero
-     * drugie wybiera „Zakończone". Dokładnie tak, jak przy zmianie na „Gotowe
-     * do odbioru" — i bez dokładania nowego kroku do trasy.
-     */
-    if (biezacy.dalejOtwiera && biezacy.cel) {
-      const juzJest = document.querySelector(`[data-tour="${biezacy.cel}"]`) as HTMLElement | null;
-      if (!juzJest || !naEkranie(juzJest)) {
-        const otwieracz = document.querySelector(`[data-tour="${biezacy.dalejOtwiera}"]`) as HTMLElement | null;
-        const doKlikniecia = otwieracz?.matches('button, a, [role="button"]') ? otwieracz : przyciskGlowny(otwieracz);
-        if (doKlikniecia && naEkranie(doKlikniecia)) {
-          naszKlik.current = true;
-          doKlikniecia.click();
-          return;
-        }
-      }
-    }
-
     // Krok „samoklikający": naciskamy jego cel i NIE przesuwamy kroku ręcznie —
     // ekran zmieni się sam, a wprowadzenie za nim podąży. Dzięki temu nie ma
     // rozjazdu między tym, co zrobił człowiek, a tym, co pokazuje dymek.
@@ -774,9 +740,12 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
            * skończyła. Korektor sam nas przesunie, gdy okno się zamknie.
            */
           const teraz = kroki.map((k) => k.cel);
-          const celWciazWOknie = widoczneCele(teraz)
-            .some((w) => w.cel === kroki[stad]?.cel && w.glebokosc > 0);
-          if (celWciazWOknie) return;
+          // Wystarczy, że JAKIEKOLWIEK okno jest otwarte. Wcześniej pytaliśmy
+          // wąziej — czy w oknie jest cel TEGO kroku — i to nie wystarczało:
+          // przy wysyłce SMS-a okno stało na wierzchu, a cel kroku leżał
+          // w karcie zlecenia pod nim, więc ramka i tak skakała na chwilę
+          // dalej i wracała. Otwarte okno znaczy, że klik coś zrobił.
+          if (document.querySelector('[role="dialog"]')) return;
 
           const nastepny = nastepnyKrok(teraz, stad, widoczneCele(teraz));
           if (nastepny >= kroki.length) { onZamknij(); return; }

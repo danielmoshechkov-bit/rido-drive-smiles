@@ -306,20 +306,32 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     akcja: 'Obejrzyj, ewentualnie pobierz, i zamknij podgląd',
   },
   {
+    // ZAMKNIECIE ZLECENIA TO DWA KROKI, TAK JAK ZMIANA NA „GOTOWE DO ODBIORU".
+    //
+    // Najpierw rozwiniecie listy statusow, potem wybor pozycji. Jednym krokiem
+    // sie nie da: pozycja „Zakonczone" nie istnieje, dopoki lista jest zwinieta,
+    // wiec „Dalej" nie mial czego kliknac i przeskakiwal cala czynnosc, ladujac
+    // od razu na opisie zakladki z archiwum. Ten sam uklad co przy kroku
+    // „naprawa skonczona" — a tamten dziala od poczatku.
+    cel: 'status-na-liscie',
+    // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
+    dalejKlika: true,
+    wracajNaListe: true,
+    tytul: 'Krok 8 — zamknij zlecenie',
+    tresc: 'Auto odebrane i rozliczone — czas zamknąć zlecenie.\n\nKliknij status przy zleceniu, tak samo jak wtedy, gdy zgłaszałeś gotowość do odbioru.',
+    akcja: 'Kliknij status przy zleceniu albo „Dalej" — rozwinę listę',
+  },
+  {
     cel: 'status-zakonczone',
     mrugajCel: true,
     // „Dalej” naciska to za Ciebie — patrz dalejKlika w GuidedTour.
     dalejKlika: true,
     // Pozycja istnieje tylko wtedy, gdy lista statusow jest rozwinieta.
     pokazGdySieZjawi: true,
-    // ...a gdy jeszcze nie jest, „Dalej" NAJPIERW ja rozwija i zostaje na tym
-    // kroku. Bez tego nie mial czego kliknac i przeskakiwal cala czynnosc,
-    // ladujac od razu na opisie zakladki z archiwum.
-    dalejOtwiera: 'status-na-liscie',
     wracajNaListe: true,
-    tytul: 'Krok 8 — zamknij zlecenie',
-    tresc: 'Klient odebrał auto i zapłacił, więc ostatni krok: kliknij status przy zleceniu — tak samo jak przy „Gotowe do odbioru" — i wybierz „Zakończone".',
-    akcja: 'Naciśnij „Dalej": pierwsze naciśnięcie rozwinie listę statusów, drugie wybierze „Zakończone"',
+    tytul: 'Wybierz „Zakończone"',
+    tresc: 'Od tej chwili zlecenie liczy się do przychodu i znika z listy aktywnych.',
+    akcja: 'Kliknij „Zakończone" albo „Dalej" — ustawię ten status',
   },
   {
     cel: 'filtr-zakonczone',
