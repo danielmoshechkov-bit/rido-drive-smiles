@@ -140,10 +140,23 @@ BEGIN
     RAISE EXCEPTION 'Nadal otwarty zapis: %', v_zostalo;
   END IF;
 
+  -- PYTAMY O WARUNEK, NIE O ROLĘ.
+  --
+  -- 🔴 POPRAWIONE 19.08.2026 — na tym kontrola wywróciła pierwsze uruchomienie.
+  -- Polityka bez klauzuli `TO` należy w tej bazie do roli `public`, a `public`
+  -- obejmuje także `anon`. Pytanie „czy jakaś polityka UPDATE dotyczy anona"
+  -- zawsze więc znajduje „Drivers can update own rentals" i „Fleet can manage
+  -- their rentals" — mimo że obie wymagają `auth.uid()`, którego anonim nie ma,
+  -- i żadna z nich nie przepuści ani jednego wiersza.
+  --
+  -- Dziurą nie jest rola w nagłówku polityki, tylko warunek, który niczego nie
+  -- sprawdza. Dokładnie tak pyta kontrola wyżej i tak samo pytamy tutaj.
   IF EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname='public' AND tablename='vehicle_rentals'
-      AND cmd = 'UPDATE' AND (roles::text[] && ARRAY['public','anon'])
+      AND cmd = 'UPDATE'
+      AND (roles::text[] && ARRAY['public','anon'])
+      AND COALESCE(btrim(qual), 'true') = 'true'
   ) THEN
     RAISE EXCEPTION 'Nadal otwarty ZAPIS umów najmu dla anonimowych';
   END IF;
