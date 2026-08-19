@@ -173,6 +173,53 @@ odpowiada na najważniejsze pytanie — **czy brak indeksu na
 → czas najdłuższego pojedynczego zapytania (z logów stage_timing)
 ```
 
+### WARIANT 3 — WYKONANY 19.08, oto wynik
+
+`EXPLAIN (ANALYZE, BUFFERS)` na prawdziwych zapytaniach snapshotu, na produkcji,
+bez zapisu czegokolwiek:
+
+```
+REZERWACJE (provider_id + zakres dat, limit 400)
+  Seq Scan on workshop_client_bookings
+  Rows Removed by Filter: 100      ← przeczytane i odrzucone
+  Buffers: shared hit=5
+  Execution Time: 0.142 ms
+
+KLIENCI (provider_id, limit 500)
+  Seq Scan on workshop_clients      ← indeks JEST, planista go nie użył
+  Rows Removed by Filter: 26
+  Execution Time: 0.136 ms
+```
+
+**Dwie rzeczy warte odnotowania.**
+
+Po pierwsze: **planista wybiera skan sekwencyjny nawet tam, gdzie indeks
+istnieje** — bo przy 168 wierszach skan całej tabeli jest tańszy niż zejście
+po indeksie. To znaczy, że **dzisiejszy pomiar nie mówi nic o tym, czy indeks
+działa**. Powie to dopiero pomiar przy większej tabeli.
+
+Po drugie: koszt skanu rośnie **liniowo z liczbą wierszy**, a te tabele są
+globalne — rezerwacje wszystkich warsztatów leżą w jednej tabeli. Ekstrapolacja
+z pomiaru (to jest rachunek, nie pomiar):
+
+```
+                       dziś              przy 100 warsztatach
+workshop_client_bookings   112 wierszy       ~60 000 (50/mc × 100 × 12 mc)
+  czas skanu               0,14 ms           ~75 ms
+workshop_clients           168 wierszy       ~20 000
+  czas skanu               0,14 ms           ~17 ms
+```
+
+92 ms z 800 ms budżetu na dwa zapytania, które dziś kosztują 0,3 ms. Same
+w sobie zmieszczą się. **Problemem jest suma przy równoczesności:** sto rozmów
+naraz to sto takich skanów, czyli ~9 sekund pracy procesora bazy na jeden
+„dzwonek" — i to jest miejsce, w którym budżet 800 ms przestaje się trzymać
+nie z powodu jednego zapytania, tylko z powodu kolejki do procesora.
+
+**Wniosek: indeks na `(provider_id, appointment_date)` jest uzasadniony** — ale
+uzasadnia go rachunek, nie pomiar, więc chcę go dodać razem z pomiarem PO
+dodaniu, a nie zamiast pomiaru.
+
 ### Rekomendacja
 
 **Wariant 3 najpierw** — dziś, za darmo, bez ryzyka. Jeśli pokaże, że zapytania
