@@ -221,6 +221,36 @@ function widoczneCele(cele: Array<string | undefined>): WidocznyCel[] {
 }
 
 /**
+ * PODGLĄD DECYZJI WPROWADZENIA — do diagnozy przeskoków.
+ *
+ * Wypisuje w konsoli KAŻDĄ zmianę kroku razem z powodem i z tym, co w tej
+ * chwili widać na ekranie. Bez tego przyczynę przeskoku trzeba zgadywać
+ * z opisu i zrzutu, a to okazało się zawodne.
+ *
+ * Włącza się samo, gdy w adresie jest `?wprowadzenie=log`, albo po wpisaniu
+ * w konsoli `localStorage.wprowadzenieLog = '1'`. Domyślnie milczy, więc
+ * u klienta nic się nie zmienia.
+ */
+function logWlaczony(): boolean {
+  try {
+    return new URLSearchParams(window.location.search).get('wprowadzenie') === 'log'
+      || localStorage.getItem('wprowadzenieLog') === '1';
+  } catch { return false; }
+}
+
+function log(powod: string, zKroku: number, naKrok: number, kroki: KrokTrasy[], widoczne: WidocznyCel[]) {
+  if (!logWlaczony()) return;
+  const opis = (i: number) => `${i} „${kroki[i]?.tytul ?? '—'}" [${kroki[i]?.cel ?? 'bez celu'}]`;
+  // eslint-disable-next-line no-console
+  console.log(
+    `%c[wprowadzenie] ${powod}%c\n  z:  ${opis(zKroku)}\n  na: ${opis(naKrok)}\n  widać: ${
+      widoczne.map((w) => `${w.cel}${w.glebokosc ? '@okno' + w.glebokosc : ''}${w.wypelniony ? '✓' : ''}`).join(', ') || '(nic)'
+    }`,
+    'color:#7c3aed;font-weight:bold', 'color:inherit',
+  );
+}
+
+/**
  * Czy pole w podswietlonym miejscu jest juz wypelnione — i CZY CZLOWIEK SKONCZYL.
  *
  * Bierzemy PIERWSZE pole, bo w parze „Imie / Nazwisko" obowiazkowe jest imie,
@@ -416,6 +446,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       pauzaMs.current = PAUZA_CZLOWIEK;
       if (nastepny >= kroki.length) { onZamknij(); return; }
       if (kroki[nastepny]?.wracajNaListe) onWrocNaListe?.();
+      log('klik w ekran', krokRef.current, nastepny, kroki, widoczneCele(kroki.map((k) => k.cel)));
       onKrok(nastepny);
     };
     document.addEventListener('click', naKlik, true);
@@ -598,7 +629,10 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
        */
       const decyzja = czyZastosowacKorekte(propozycja.current, trafiony, Date.now(), pilne);
       propozycja.current = decyzja.propozycja;
-      if (decyzja.zastosuj) onKrok(trafiony);
+      if (decyzja.zastosuj) {
+        log('korektor (ekran zdecydowal)', krok, trafiony, kroki, naEkranieTeraz);
+        onKrok(trafiony);
+      }
     };
 
     const timer = window.setInterval(dopasuj, 120);
@@ -747,6 +781,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
           const nastepny = nastepnyKrok(teraz, stad, widoczneCele(teraz));
           if (nastepny >= kroki.length) { onZamknij(); return; }
           if (kroki[nastepny]?.wracajNaListe) onWrocNaListe?.();
+          log('„Dalej": klik nic nie zmienil, ide dalej', stad, nastepny, kroki, widoczneCele(teraz));
           onKrok(nastepny);
         }, 1500);
         return;
@@ -759,6 +794,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
     if (nastepny >= kroki.length) { onZamknij(); return; }
     // Krok z listy, a stoimy w karcie zlecenia — wracamy tam sami.
     if (kroki[nastepny]?.wracajNaListe) onWrocNaListe?.();
+    log('„Dalej"', krok, nastepny, kroki, widoczneCele(cele));
     onKrok(nastepny);
   };
 
@@ -907,6 +943,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
                 onClick={() => {
                   recznaZmiana.current = Date.now();
                   pauzaMs.current = PAUZA_CZLOWIEK;
+                  log('„Wstecz"', krok, krok - 1, kroki, widoczneCele(kroki.map((k) => k.cel)));
                   onKrok(krok - 1);
                 }}
                 title="Poprzedni krok"
