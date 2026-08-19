@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Minus, Plus, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
-import { czekajNaWydanie, LIMIT_KARTY_ZAKUPU_MS } from '@/lib/doladowanie';
+import { czekajNaWydanie, zapamietajZamowienie, LIMIT_KARTY_ZAKUPU_MS } from '@/lib/doladowanie';
 import { toast } from 'sonner';
 import { formatMoneyPLN } from '@/utils/formatters';
 
@@ -109,6 +109,10 @@ export function DoladowanieModal({
       // odświeży (`refetchOnWindowFocus` jest wyłączony). Świadomie bez `await`:
       // modal zaraz się zamknie, a czuwanie ma trwać dalej. Bez komunikatów —
       // te pokazuje karta, na którą klient wraca.
+      // Zapis przeżywa odświeżenie panelu i zamknięcie karty PayU — bez niego
+      // nadzór ginie razem z pamięcią karty.
+      zapamietajZamowienie(data.order_id);
+
       void czekajNaWydanie({
         orderId: data.order_id,
         limitMs: LIMIT_KARTY_ZAKUPU_MS,

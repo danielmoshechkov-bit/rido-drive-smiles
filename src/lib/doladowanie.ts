@@ -31,6 +31,51 @@ import { supabase } from '@/integrations/supabase/client';
  */
 
 const KANAL = 'rido-doladowania';
+const KLUCZ_OCZEKUJACE = 'rido:oczekujace-doladowanie';
+
+/**
+ * Zamówienie w toku przeżywa przeładowanie karty i zamknięcie karty PayU.
+ *
+ * Karta, z której klient kliknął, czuwa nad swoim zamówieniem sama — ale to
+ * czuwanie żyje w pamięci karty. Wystarczy, że klient odświeży panel (albo
+ * przeglądarka odzyska kartę), i nadzór znika, a `?platnosc=payu` już nie
+ * wróci, bo powrót poszedł do karty PayU, którą klient zamknął. Wtedy licznik
+ * zostawałby nieświeży aż do wylogowania — czyli dokładnie w stanie, który
+ * naprawiamy.
+ *
+ * Dlatego identyfikator zamówienia leży w `localStorage` (nie `session`:
+ * powrót ląduje w INNEJ karcie), a każdy pasek liczników przy montowaniu
+ * podejmuje nadzór na nowo.
+ */
+type Oczekujace = { id: string; od: number };
+
+/** Po tylu godzinach przestajemy wracać do zamówienia — sprawa jest do reklamacji. */
+const WAZNOSC_OCZEKUJACEGO_MS = 2 * 60 * 60_000;
+
+export function zapamietajZamowienie(id: string) {
+  try {
+    localStorage.setItem(KLUCZ_OCZEKUJACE, JSON.stringify({ id, od: Date.now() } satisfies Oczekujace));
+  } catch { /* tryb prywatny bez localStorage — tracimy tylko wznowienie */ }
+}
+
+export function odczytajZamowienie(): string | null {
+  try {
+    const surowe = localStorage.getItem(KLUCZ_OCZEKUJACE);
+    if (!surowe) return null;
+    const zapis = JSON.parse(surowe) as Oczekujace;
+    if (!zapis?.id || Date.now() - zapis.od > WAZNOSC_OCZEKUJACEGO_MS) {
+      zapomnijZamowienie();
+      return null;
+    }
+    return zapis.id;
+  } catch {
+    return null;
+  }
+}
+
+export function zapomnijZamowienie() {
+  try { localStorage.removeItem(KLUCZ_OCZEKUJACE); } catch { /* jw. */ }
+}
 
 /** Ile czekamy na powiadomienie od operatora, zanim odezwiemy się do klienta. */
 export const LIMIT_POWROTU_MS = 30_000;
@@ -123,11 +168,13 @@ export async function czekajNaWydanie({
     ostatni = await pobierzZamowienie(orderId);
 
     if (ostatni?.wydane_at) {
+      zapomnijZamowienie();
       gdyWydane();
       rozglosDoladowanie();
       return 'wydane';
     }
     if (ostatni && (ostatni.status === 'anulowane' || ostatni.status === 'odrzucone')) {
+      zapomnijZamowienie();
       return 'odrzucone';
     }
     if (Date.now() + krokMs > koniec) break;
