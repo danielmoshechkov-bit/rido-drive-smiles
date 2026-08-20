@@ -448,35 +448,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
   const zmierz = useCallback(() => {
     if (!biezacy?.cel) { setObszar(null); return; }
     const el = document.querySelector(`[data-tour="${biezacy.cel}"]`) as HTMLElement | null;
-
-    /**
-     * RAMKA STOI, DOPÓKI NOWY EKRAN SIĘ NIE POJAWI.
-     *
-     * 🔴 NAPRAWIONE 20.08.2026. Przy każdej wysyłce SMS-a ramka na moment
-     * się kurczyła i po chwili rozsuwała z powrotem. Wyglądało to na usterkę
-     * i odciągało wzrok dokładnie wtedy, gdy człowiek patrzy na wiadomość,
-     * którą wysyła.
-     *
-     * Powód nie był w wyborze kroku, tylko w MIERZENIU. Ramkę przerysowujemy
-     * dziesięć razy na sekundę, a w trakcie otwierania i zamykania okna
-     * podświetlony element zmienia rozmiar albo na moment znika z układu —
-     * i ramka wiernie za tym podąża, choć nie ma czego pokazywać.
-     *
-     * Dwie zasady, obie sprowadzają się do „nie rysuj, gdy nie wiadomo":
-     *
-     *  1. Celu nie ma na ekranie → ZOSTAWIAMY POPRZEDNIĄ RAMKĘ. Zniknięcie
-     *     bywa chwilowe (przerysowanie listy, zamykane okno); gdy jest trwałe,
-     *     korektor i tak zaraz przestawi krok i ramka trafi w nowe miejsce.
-     *
-     *  2. Otwarte okno, a cel leży POZA nim → też zostawiamy. Podświetlanie
-     *     czegoś pod przyciemnieniem nikomu nic nie mówi, a to właśnie
-     *     wyglądało jak skakanie: ramka szła na element w karcie zlecenia
-     *     schowanej pod oknem wysyłki.
-     */
-    if (!el || !naEkranie(el)) return;
-
-    const okno = document.querySelector('[role="dialog"]');
-    if (okno && !okno.contains(el)) return;
+    if (!el) { setObszar(null); return; }
     // BEZ plynnego przewijania: animacja trwala pol sekundy, wiec ramka
     // dojezdzala do celu juz po tym, jak czlowiek przeczytal dymek.
     el.scrollIntoView({ block: 'center', behavior: 'auto' });
