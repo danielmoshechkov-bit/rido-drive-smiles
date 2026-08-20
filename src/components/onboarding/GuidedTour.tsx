@@ -364,6 +364,14 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
    * wystarczy tyle, ile trwa otwarcie okna.
    */
   const pauzaMs = useRef(5000);
+  /**
+   * Czy ostatnią zmianę kroku człowiek zrobił COFAJĄC SIĘ.
+   *
+   * Cofnięcie trzeba uszanować mocniej niż pójście naprzód: kto naciska
+   * „Wstecz", robi to dlatego, że ekran pokazał NIE TO, czego oczekiwał —
+   * i nie ma sensu odsyłać go z powrotem tam, skąd właśnie uciekł.
+   */
+  const recznyPowrot = useRef(false);
   const PAUZA_CZLOWIEK = 5000;
   const PAUZA_NASZ_KLIK = 1200;
   // Ostatnia PROPOZYCJA korekty i chwila, od ktorej sie utrzymuje — patrz
@@ -436,6 +444,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       const nastepny = zrobiony + 1;
       recznaZmiana.current = Date.now();
       pauzaMs.current = PAUZA_CZLOWIEK;
+      recznyPowrot.current = false;
       if (nastepny >= kroki.length) { onZamknij(); return; }
       if (kroki[nastepny]?.wracajNaListe) onWrocNaListe?.();
       log('klik w ekran', krokRef.current, nastepny, kroki, widoczneCele(kroki.map((k) => k.cel)));
@@ -581,8 +590,30 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       const celBiezacego = kroki[krok]?.cel;
       const wlasny = naEkranieTeraz.find((w) => w.cel === celBiezacego);
       const nadalWidacBiezacy = !celBiezacego || !!wlasny;
+      /**
+       * DECYZJA CZŁOWIEKA JEST WAŻNIEJSZA NIŻ TO, CO WŁAŚNIE WYSKOCZYŁO.
+       *
+       * 🔴 NAPRAWIONE 20.08.2026. Zgłoszone ze zrzutu: menu „Wystaw" otworzyło
+       * się bez zaznaczonego zlecenia, człowiek nacisnął „Wstecz" — i krok
+       * wracał na moment, po czym natychmiast skakał z powrotem do przodu.
+       * „Wstecz" był praktycznie zablokowany.
+       *
+       * Powód: pauza po ręcznym wyborze była pomijana, gdy na ekranie stała
+       * rzecz z regułą „pokaż, gdy się zjawi" — a otwarte menu jest właśnie
+       * taką rzeczą. Pilne biło ręczny wybór.
+       *
+       * Odwracamy kolejność, ale TYLKO dla cofnięcia. Kto naciska „Wstecz",
+       * robi to dlatego, że ekran pokazał nie to, czego oczekiwał — i przez
+       * te kilka sekund nic go stamtąd nie zabiera. Przy „Dalej" zostaje jak
+       * dotąd: tam nadążanie za ekranem jest tym, o co chodzi, i absolutna
+       * pauza tylko spowalniałaby całą trasę.
+       *
+       * Reguła „pokaż, gdy się zjawi" istnieje po to, żeby nadążać za ekranem —
+       * a nie po to, żeby unieważniać decyzję, którą ktoś przed chwilą podjął.
+       */
+      if (recznyPowrot.current && Date.now() - recznaZmiana.current < pauzaMs.current) return;
+
       if (!pilne && nadalWidacBiezacy) {
-        if (Date.now() - recznaZmiana.current < pauzaMs.current) return;
         if (Date.now() - wejscie < cisza) return;
       }
       // Mruga tylko tam, gdzie BYLO co wpisac i zostalo to wpisane. Przy krokach
@@ -656,6 +687,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
     setBrakuje(null);
     recznaZmiana.current = Date.now();
     pauzaMs.current = PAUZA_CZLOWIEK;
+    recznyPowrot.current = false;
     setRuszony(true);
 
     // Puste pola wypełniamy przykładem — żeby „Dalej" niczego nie blokowało.
@@ -693,6 +725,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
       // Klikamy sami, więc korektor ma tylko przeczekać otwarcie okna.
       recznaZmiana.current = Date.now();
       pauzaMs.current = PAUZA_NASZ_KLIK;
+      recznyPowrot.current = false;
       setRuszony(true);
       return;
     }
@@ -912,6 +945,7 @@ export function GuidedTour({ kroki, krok, onDalej, onZamknij, onKrok, onWrocNaLi
                 onClick={() => {
                   recznaZmiana.current = Date.now();
                   pauzaMs.current = PAUZA_CZLOWIEK;
+                  recznyPowrot.current = true;
                   log('„Wstecz"', krok, krok - 1, kroki, widoczneCele(kroki.map((k) => k.cel)));
                   onKrok(krok - 1);
                 }}
