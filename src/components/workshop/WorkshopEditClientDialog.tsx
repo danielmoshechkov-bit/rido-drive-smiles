@@ -13,11 +13,20 @@ import { shortenCompanyName } from '@/utils/companyName';
 import { useGusLookup } from '@/hooks/useGusLookup';
 import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { useTranslation } from 'react-i18next';
+import { PodmienWZleceniu } from './PodmienWZleceniu';
+import { useWorkshopClients } from '@/hooks/useWorkshop';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   client: any;
+  /**
+   * Podmiana klienta W TYM ZLECENIU (a nie poprawka jego danych w kartotece).
+   * Podane razem: identyfikator warsztatu i funkcja, która przypina wybranego
+   * klienta do zlecenia. Bez nich okno działa jak dotąd — sama edycja.
+   */
+  providerId?: string;
+  onPodmien?: (klient: any) => void;
 }
 
 function formatPostalCode(value: string) {
@@ -31,7 +40,7 @@ function capitalizeFirst(val: string) {
   return val.charAt(0).toUpperCase() + val.slice(1);
 }
 
-export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) {
+export function WorkshopEditClientDialog({ open, onOpenChange, client, providerId, onPodmien }: Props) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [saving, setSaving] = useState(false);
@@ -41,6 +50,7 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
   // person, so converting a person → company keeps their data as the contact.
   const [clientType, setClientType] = useState<'individual' | 'company'>(client?.client_type === 'company' ? 'company' : 'individual');
   const [nipLoading, setNipLoading] = useState(false);
+  const { data: klienciWBazie = [] } = useWorkshopClients(providerId);
   const [shortNameSuggestion, setShortNameSuggestion] = useState<string | null>(null);
 
   // Parse street back into parts
@@ -182,6 +192,36 @@ export function WorkshopEditClientDialog({ open, onOpenChange, client }: Props) 
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {/*
+            SZUKANIE INNEGO KLIENTA — NAD POLAMI, BO TO PIERWSZE PYTANIE.
+            „Czy to na pewno ten klient?" pada wcześniej niż „czy jego dane są
+            poprawne". Wcześniej trzeba było zamknąć to okno i szukać osobnego
+            przycisku „Zmień" gdzie indziej na ekranie.
+          */}
+          {onPodmien && providerId && (
+            <PodmienWZleceniu
+              etykieta="To nie ten klient? Znajdź innego w bazie"
+              placeholder="Imię, nazwisko, firma albo numer telefonu…"
+              wpisy={klienciWBazie}
+              pomijaneId={client?.id}
+              pola={(k) => [
+                k.company_name,
+                `${k.first_name || ''} ${k.last_name || ''}`.trim(),
+                k.phone,
+                k.email,
+                k.nip,
+              ]}
+              opis={(k) => ({
+                id: k.id,
+                glowny: k.client_type === 'company'
+                  ? (k.company_name || '—')
+                  : `${k.first_name || ''} ${k.last_name || ''}`.trim() || '—',
+                dodatkowy: [k.phone, k.email].filter(Boolean).join(' · '),
+              })}
+              onWybierz={(k) => { onPodmien(k); onOpenChange(false); }}
+            />
+          )}
+
           {/* Type toggle — switch between private person and company while editing */}
           <div className="flex gap-2 justify-center">
             <Button variant={clientType === 'individual' ? 'default' : 'outline'} size="sm" onClick={() => setClientType('individual')} className="gap-2">

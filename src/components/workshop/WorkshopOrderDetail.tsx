@@ -814,6 +814,17 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
         open={editClientOpen}
         onOpenChange={setEditClientOpen}
         client={order.client}
+        providerId={providerId}
+        // Podmiana dotyczy TYLKO tego zlecenia — kartoteka wybranego klienta
+        // zostaje nietknięta.
+        onPodmien={async (klient) => {
+          try {
+            await updateOrder.mutateAsync({ id: order.id, client_id: klient.id });
+            toast.success('Klient w zleceniu podmieniony');
+          } catch (e: any) {
+            toast.error(e.message || 'Nie udało się podmienić klienta');
+          }
+        }}
       />
       <WorkshopAssignClientDialog
         open={pickClientOpen}
@@ -826,6 +837,15 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
         vehicle={order.vehicle}
         open={editVehicleOpen}
         onOpenChange={setEditVehicleOpen}
+        providerId={providerId}
+        onPodmien={async (pojazd) => {
+          try {
+            await updateOrder.mutateAsync({ id: order.id, vehicle_id: pojazd.id });
+            toast.success('Auto w zleceniu podmienione');
+          } catch (e: any) {
+            toast.error(e.message || 'Nie udało się podmienić auta');
+          }
+        }}
       />
       {/* Estimate Preview Dialog */}
       <WorkshopEstimatePreviewDialog

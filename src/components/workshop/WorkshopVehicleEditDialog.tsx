@@ -10,6 +10,8 @@ import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { PodmienWZleceniu } from './PodmienWZleceniu';
+import { useWorkshopVehicles } from '@/hooks/useWorkshop';
 
 const fuelTypes = ['Benzyna', 'Diesel', 'LPG', 'Elektryczny', 'Hybryda', 'Benzyna+LPG', 'CNG'];
 
@@ -17,13 +19,20 @@ interface Props {
   vehicle: any;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Podmiana auta W TYM ZLECENIU (a nie poprawka danych pojazdu w bazie).
+   * Bez tych dwóch okno działa jak dotąd — sama edycja.
+   */
+  providerId?: string;
+  onPodmien?: (pojazd: any) => void;
 }
 
-export function WorkshopVehicleEditDialog({ vehicle, open, onOpenChange }: Props) {
+export function WorkshopVehicleEditDialog({ vehicle, open, onOpenChange, providerId, onPodmien }: Props) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [userId, setUserId] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
+  const { data: autaWBazie = [] } = useWorkshopVehicles(providerId);
   const [form, setForm] = useState({
     brand: '',
     model: '',
@@ -163,6 +172,27 @@ export function WorkshopVehicleEditDialog({ vehicle, open, onOpenChange }: Props
             {t('workshop.orders.editVehicle')}
           </DialogTitle>
         </DialogHeader>
+
+        {/*
+          SZUKANIE INNEGO AUTA — NAD NUMEREM REJESTRACYJNYM.
+          Szukamy po rejestracji, VIN-ie, marce i modelu naraz, bo warsztat
+          pamięta raz jedno, raz drugie. Lista rusza od drugiego znaku.
+        */}
+        {onPodmien && providerId && (
+          <PodmienWZleceniu
+            etykieta="To nie to auto? Znajdź inne w bazie"
+            placeholder="Rejestracja, VIN, marka albo model…"
+            wpisy={autaWBazie}
+            pomijaneId={vehicle?.id}
+            pola={(a) => [a.plate, a.vin, a.brand, a.model, `${a.brand || ''} ${a.model || ''}`.trim()]}
+            opis={(a) => ({
+              id: a.id,
+              glowny: `${a.plate || '—'} · ${[a.brand, a.model].filter(Boolean).join(' ') || '—'}`,
+              dodatkowy: [a.vin, a.year].filter(Boolean).join(' · '),
+            })}
+            onWybierz={(a) => { onPodmien(a); onOpenChange(false); }}
+          />
+        )}
 
         {missingFields.length > 0 && (
           <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">

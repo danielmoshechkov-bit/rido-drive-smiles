@@ -225,7 +225,11 @@ function widoczneCele(cele: Array<string | undefined>): WidocznyCel[] {
  */
 function logWlaczony(): boolean {
   try {
-    return new URLSearchParams(window.location.search).get('wprowadzenie') === 'log'
+    // TOLERANCYJNIE. Adres wklejony z czatu potrafi mieć na końcu przecinek
+    // albo kropkę („?wprowadzenie=log,") i porównanie co do znaku nie łapało —
+    // podgląd milczał, a wyglądało to, jakby nic nie logował.
+    const w = new URLSearchParams(window.location.search).get('wprowadzenie') || '';
+    return w.replace(/[^a-z]/gi, '').toLowerCase() === 'log'
       || localStorage.getItem('wprowadzenieLog') === '1';
   } catch { return false; }
 }
