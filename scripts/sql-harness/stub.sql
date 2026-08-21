@@ -20,10 +20,26 @@ CREATE TABLE public.service_providers (
 
 CREATE TABLE public.billing_plans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  code text, name text, price_net numeric, price_net_target numeric, vat_rate numeric DEFAULT 23,
+  code text UNIQUE, name text, description text, price_net numeric, price_net_target numeric,
+  vat_rate numeric DEFAULT 23,
+  subscriber_type public.billing_subscriber_type NOT NULL DEFAULT 'service_provider',
+  billing_interval text DEFAULT 'month', trial_days integer DEFAULT 0, sort_order integer DEFAULT 0,
   product_line public.billing_product_line NOT NULL DEFAULT 'other',
   stripe_price_id text, is_active boolean DEFAULT true, is_custom boolean DEFAULT false,
   created_at timestamptz DEFAULT now());
+
+-- Macierz plan x cecha — potrzebna, żeby test wariantu A sprawdzał KOPIOWANIE
+-- zakresu planu próbnego, a nie samo założenie wiersza planu.
+CREATE TABLE public.billing_features (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), key text UNIQUE, name text);
+CREATE TABLE public.billing_plan_features (
+  plan_id uuid NOT NULL REFERENCES public.billing_plans(id) ON DELETE CASCADE,
+  feature_id uuid NOT NULL REFERENCES public.billing_features(id) ON DELETE CASCADE,
+  is_enabled boolean NOT NULL DEFAULT true,
+  limit_value numeric(12,2),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (plan_id, feature_id));
 
 CREATE TABLE public.billing_subscriptions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -161,3 +177,24 @@ CREATE TABLE public.vehicle_lookup_credit_transactions (
   note text,
   created_at timestamptz DEFAULT now(),
   created_by_admin_id uuid);
+
+
+-- Wyzwalacz z 20260810180000: `product_line` na subskrypcji jest denormalizacją
+-- planu. Bez niego test wariantu A pokazywałby linię 'other' i wszystko by
+-- „działało" z niewłaściwego powodu.
+CREATE OR REPLACE FUNCTION public.billing_sync_subscription_product_line()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  SELECT p.product_line INTO NEW.product_line FROM public.billing_plans p WHERE p.id = NEW.plan_id;
+  IF NEW.product_line IS NULL THEN
+    RAISE EXCEPTION 'billing: plan % nie istnieje albo nie ma linii produktowej', NEW.plan_id;
+  END IF;
+  RETURN NEW;
+END; $$;
+CREATE TRIGGER trg_billing_subscriptions_product_line
+  BEFORE INSERT OR UPDATE OF plan_id ON public.billing_subscriptions
+  FOR EACH ROW EXECUTE FUNCTION public.billing_sync_subscription_product_line();
+
+CREATE UNIQUE INDEX billing_subscriptions_one_active
+  ON public.billing_subscriptions (subscriber_type, subscriber_id, product_line)
+  WHERE status IN ('trialing', 'active', 'past_due', 'read_only');
