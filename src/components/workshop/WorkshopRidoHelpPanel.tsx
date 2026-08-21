@@ -176,10 +176,14 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
                 musisz ich podawać. Możesz dorzucić zdjęcie albo PDF.
               </p>
               <p>
-                Najpierw dopytam o szczegóły, których nie da się odczytać z karty —
-                kiedy objaw wychodzi, czy są błędy z komputera. To nic nie kosztuje.
-                Gdy obraz będzie kompletny, przeszukam internet i złożę diagnozę
-                ze źródłami — i dopiero to zdejmuje jednostkę z pakietu.
+                Napisz wszystko naraz: kiedy objaw wychodzi (na zimnym, pod
+                obciążeniem, na jakich obrotach), od kiedy trwa, czy odczytano
+                błędy z komputera i co już sprawdzone. Wtedy od razu przeszukam
+                internet i złożę pełną diagnozę ze źródłami — bez dopytywania.
+              </p>
+              <p className="text-foreground">
+                Każde zapytanie zjada jeden kredyt, więc jedna dobrze opisana
+                wiadomość jest tańsza niż pięć krótkich.
               </p>
             </div>
           )}
@@ -316,13 +320,17 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
           </div>
 
           {/*
-            Dopytywanie jest darmowe — to zbieranie danych, nie odpowiedź.
-            Jednostkę zdejmuje dopiero pełna analiza, bo to ona kosztuje u nas
-            kilka razy więcej i to po nią mechanik przyszedł.
+            JEDNA WIADOMOŚĆ = JEDEN KREDYT, bez wyjątków.
+            Wcześniej stało tu, że dopytywanie jest darmowe — to była zasada
+            nie do wytłumaczenia przy liczniku: licznik czasem schodził, czasem
+            nie, i nie było wiadomo, od czego to zależy.
           */}
-          <p className="text-[11px] text-muted-foreground">
-            Dopytywanie jest darmowe — jednostkę z pakietu zdejmuje dopiero pełna analiza.
-            Możesz przeciągnąć plik na to pole.
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            <span className="font-medium text-foreground">Każde zapytanie zjada jeden kredyt.</span>{' '}
+            Opisz problem od razu tak dokładnie, jak umiesz — kiedy objaw wychodzi,
+            czy są błędy z komputera, co już sprawdzone. Im więcej podasz za pierwszym
+            razem, tym pełniejszą odpowiedź dostaniesz i tym mniej kredytów zejdzie.
+            Zdjęcie albo PDF możesz przeciągnąć na to pole.
           </p>
         </div>
       </DialogContent>

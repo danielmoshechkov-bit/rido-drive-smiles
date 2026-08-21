@@ -69,11 +69,12 @@ Oceń, czy masz komplet do postawienia diagnozy. Potrzebujesz zwykle:
 - co ostatnio przy tym aucie robiono.
 
 ZASADY:
-1. Pytaj W JEDNEJ RUNDZIE. Maksymalnie cztery pytania, krótko, jako lista. Nie przesłuchuj przez pięć wiadomości.
-2. Do pytań DOŁÓŻ podpowiedź, co sprawdzić od ręki, zanim odpowie — coś, co zajmuje minutę i zawęża sprawę.
-3. Gdy mechanik odpowie na większość, uznaj obraz za kompletny. Nie dopytuj o resztę.
-4. Gdy pierwsze zgłoszenie jest już konkretne (objaw + warunki + ewentualne błędy), od razu uznaj obraz za kompletny — nie pytaj dla samego pytania.
-5. Pisz WYŁĄCZNIE po polsku. Bez wulgaryzmów.
+1. KAŻDA TWOJA WIADOMOŚĆ KOSZTUJE MECHANIKA JEDNO PYTANIE Z PAKIETU. Dlatego pytaj TYLKO wtedy, gdy bez odpowiedzi diagnoza byłaby zgadywaniem. Jeśli da się sensownie odpowiedzieć na to, co już masz — uznaj obraz za kompletny i nie pytaj.
+2. Gdy musisz zapytać, zrób to W JEDNEJ RUNDZIE. Maksymalnie cztery pytania, krótko, jako lista. Nigdy nie przesłuchuj przez kilka wiadomości.
+3. Do pytań DOŁÓŻ podpowiedź, co sprawdzić od ręki, zanim odpowie — coś, co zajmuje minutę i zawęża sprawę. Dzięki temu jego wiadomość nie jest zmarnowana.
+4. Gdy mechanik odpowie na większość, uznaj obraz za kompletny. Nie dopytuj o resztę.
+5. Gdy pierwsze zgłoszenie jest już konkretne (objaw + warunki + ewentualne błędy), od razu uznaj obraz za kompletny.
+6. Pisz WYŁĄCZNIE po polsku. Bez wulgaryzmów.
 
 Odpowiadasz TYLKO czystym JSON-em, bez tekstu przed ani po:
 {
@@ -90,6 +91,7 @@ const PERSONA_ANALIZA = `Jesteś ekspertem technicznym z wieloletnią praktyką 
 2. ZAWSZE NAJPIERW SZUKAJ W INTERNECIE — fora markowe, biuletyny serwisowe, filmy. Sprawdź, czy usterka jest w TYM modelu znana.
 3. ZAWSZE KOŃCZ sekcją „Źródła" z linkami, które FAKTYCZNIE otworzyłeś. Nie zmyślaj adresów. Gdy nic wartościowego nie ma — napisz to jednym zdaniem, ale sekcja ma być.
 4. NIE ZADAWAJ PYTAŃ. Wywiad już się odbył. Masz odpowiedzieć.
+4a. ODPOWIADAJ WYCZERPUJĄCO ZA PIERWSZYM RAZEM. Każde kolejne pytanie kosztuje mechanika jednostkę z pakietu, więc napisz wszystko, co wiesz o tej usterce: typowe przyczyny w kolejności prawdopodobieństwa, co je odróżnia od siebie, jak potwierdzić każdą, orientacyjną pracochłonność i to, co zwykle wychodzi przy okazji. Kompletna odpowiedź skraca naprawę i oszczędza mu kredyty.
 5. Pisz WYŁĄCZNIE po polsku — poza skrótami technicznymi (MAF, EGR, DPF). Bez wulgaryzmów.
 6. Nie zgaduj numerów katalogowych ani OE — nie masz katalogu.
 
@@ -324,8 +326,27 @@ Deno.serve(async (req) => {
       } else {
         await admin.from('warsztat_pomoc_ai').insert({ order_id: orderId, provider_id: providerId, wiadomosci: nowa });
       }
-      // Wywiad nie zdejmuje jednostki — to zbieranie danych, nie odpowiedź.
-      return json({ odpowiedz: tresc, zrodla: [], etap: 'wywiad', pobrano: false });
+
+      /**
+       * KAŻDE ZAPYTANIE ZDEJMUJE JEDNĄ JEDNOSTKĘ — TAKŻE DOPYTANIE.
+       *
+       * Zaczęliśmy od zasady „płatna jest tylko analiza", ale to była zasada
+       * niemożliwa do wytłumaczenia przy liczniku: mechanik pisze wiadomość,
+       * licznik czasem schodzi, a czasem nie — i nie wiadomo, od czego to
+       * zależy. Jedna wiadomość = jedna jednostka jest przewidywalna i da się
+       * o niej powiedzieć jednym zdaniem.
+       *
+       * Podział na dwa modele zostaje, bo to NASZ koszt: dopytanie idzie tanim
+       * modelem, analiza mocnym. Dla mechanika cena jest ta sama, dla nas nie.
+       */
+      await admin.rpc('billing_consume', {
+        p_subscriber_type: 'service_provider',
+        p_subscriber_id: providerId,
+        p_feature_key: 'rido_ai',
+        p_amount: 1,
+      });
+
+      return json({ odpowiedz: tresc, zrodla: [], etap: 'wywiad', pobrano: true });
     }
 
     // ═══ KROK 2: ANALIZA (model mocny, z internetem, zdejmuje jednostkę) ══
@@ -340,7 +361,13 @@ Deno.serve(async (req) => {
         { rola: 'rido', tresc, etap: 'wywiad', czas: teraz },
       ];
       await admin.from('warsztat_pomoc_ai').update({ wiadomosci: nowa, updated_at: teraz }).eq('id', watek!.id);
-      return json({ odpowiedz: tresc, zrodla: [], etap: 'limit-analiz', pobrano: false });
+      await admin.rpc('billing_consume', {
+        p_subscriber_type: 'service_provider',
+        p_subscriber_id: providerId,
+        p_feature_key: 'rido_ai',
+        p_amount: 1,
+      });
+      return json({ odpowiedz: tresc, zrodla: [], etap: 'limit-analiz', pobrano: true });
     }
 
     const analiza = await wezMapowanie('rido_help_analiza', 'claude_sonnet');
