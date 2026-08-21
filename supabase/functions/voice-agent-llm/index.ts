@@ -14,6 +14,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
+import { normalizujNumer } from "../_shared/voiceRozpoznanieWarsztatu.ts";
 import { cachedContext } from "../_shared/voiceContextCache.ts";
 import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
 import { resolveVoiceLlmRoute } from "../_shared/voicePhase1Route.ts";
@@ -97,7 +98,12 @@ serve(async (req) => {
     logTiming("warmup", warmStarted);
     return new Response(JSON.stringify({ ok: true, warm: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
-  const { providerId, personaKey } = resolveVoiceLlmRoute(url);
+  const trasa = resolveVoiceLlmRoute(url);
+  const personaKey = trasa.personaKey;
+  // ZMIENNE, nie stałe: właściwy warsztat może przyjść z numeru, na który
+  // zadzwoniono. Adres jest odtąd drogą ZAPASOWĄ (patrz blok niżej).
+  let providerId = trasa.providerId;
+  let zrodloWarsztatu = providerId ? "adres" : "brak";
 
   // Bez skonfigurowanego VOICE_LLM_TOKEN endpoint jest ZABLOKOWANY (fail-closed) —
   // otwarty Custom-LLM to darmowy Claude dla każdego, kto zna provider_id.
@@ -112,6 +118,59 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
   logTiming("auth", authStarted);
+
+  // ROZPOZNANIE WARSZTATU PO NUMERZE, NA KTÓRY ZADZWONIONO.
+  //
+  // Do 21.08 warsztat brał się WYŁĄCZNIE z adresu Custom-LLM, w którym
+  // `provider_id` jest zaszyty na stałe. Agent jest jeden dla wszystkich
+  // numerów, więc każda rozmowa — niezależnie od tego, pod jaki numer
+  // zadzwoniono — była przetwarzana jako warsztat wpisany w adres. Snapshot
+  // przychodził poprawny (rozpoznanie po `called_number` w voice-agent-init),
+  // ale NARZĘDZIA pisały do warsztatu z adresu: rezerwacja umówiona przez
+  // telefon jednego warsztatu lądowała w zleceniach drugiego.
+  //
+  // Kanał już istniał i był ignorowany: znacznik RIDO w prompcie niesie
+  // `called={{system__called_number}}`, a regex wyciągał tę wartość do trzeciej
+  // grupy, której nikt nie czytał.
+  //
+  // ADRES ZOSTAJE JAKO DROGA ZAPASOWA. Pierwszy warsztat odbiera dziś telefony
+  // przez adres z `provider_id` i nie może przestać, zanim nowa droga nie
+  // potwierdzi się prawdziwą rozmową. Log mówi, która zadziałała.
+  const reqBody = await req.json().catch(() => ({}));
+  {
+    const wiadomosci = Array.isArray((reqBody as Record<string, unknown>)?.messages)
+      ? (reqBody as { messages: Array<{ role?: string; content?: unknown }> }).messages : [];
+    const sys = wiadomosci.find((m) => m?.role === "system");
+    const tekst = typeof sys?.content === "string" ? sys.content : "";
+    const znacznik = tekst.match(/<<RIDO\s+conv=(\S*)\s+caller=(\S*)\s+called=(\S*)>>/);
+    // Normalizacja WSPÓLNA z voice-agent-init (`normalizujNumer`), a nie druga
+    // jej kopia. Dwa miejsca rozpoznające ten sam numer muszą go rozumieć
+    // identycznie — inaczej init trafi w warsztat, a llm w nikogo.
+    const surowy = znacznik?.[3];
+    const znormalizowany = surowy && !surowy.startsWith("{{") && surowy !== "-"
+      ? normalizujNumer(surowy)
+      : null;
+    if (znormalizowany) {
+      const { data, error } = await admin.from("voice_numbers")
+        .select("provider_id").eq("phone_number", znormalizowany).eq("status", "aktywny").limit(1);
+      if (error) {
+        // Błąd odczytu NIE MOŻE wyglądać jak "numeru nie znamy" — po cichu
+        // przełączyłby rozmowę na adres, czyli na cudzy warsztat.
+        console.error("[voice-agent-llm] odczyt voice_numbers nieudany:", error.code, error.message);
+      } else if (data?.[0]?.provider_id) {
+        providerId = String(data[0].provider_id);
+        zrodloWarsztatu = "numer";
+      } else {
+        zrodloWarsztatu = providerId ? "adres_numer_nieznany" : "brak";
+      }
+    }
+    console.info("[voice-agent-llm]", JSON.stringify({
+      event: "rozpoznanie_warsztatu",
+      zrodlo: zrodloWarsztatu,
+      ma_numer: znormalizowany != null,   // sam numer NIE trafia do logu
+      warsztat: providerId ? "jest" : "brak",
+    }));
+  }
 
   const configStarted = performance.now();
   let cfg: VoiceAgentConfig | null = null;
@@ -149,7 +208,6 @@ serve(async (req) => {
   }
   logTiming("config", configStarted);
 
-  const reqBody = await req.json().catch(() => ({}));
   const stream = reqBody?.stream !== false;
   const model = reqBody?.model || "rido-claude";
   const inMessages: LlmInputMessage[] = Array.isArray(reqBody?.messages) ? reqBody.messages : [];
