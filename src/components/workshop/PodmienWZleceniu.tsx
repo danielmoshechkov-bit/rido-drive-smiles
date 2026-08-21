@@ -54,9 +54,21 @@ export function PodmienWZleceniu({
   }, [szukaj, wpisy, pola, pomijaneId]);
 
   return (
-    <div className="rounded-lg border border-dashed bg-muted/30 p-3 space-y-2">
+    <div className="rounded-lg border border-dashed bg-muted/30 p-3 space-y-1.5">
       <p className="text-xs font-medium text-muted-foreground">{etykieta}</p>
-      <div className="relative">
+
+      {/*
+        LISTA NAKRYWA FORMULARZ, NIE SPYCHA GO W DÓŁ.
+
+        Wcześniej wyniki wchodziły w układ okna: przy każdej wpisanej literze
+        formularz zjeżdżał w dół, a po skasowaniu litery wracał. Okno skakało
+        w rytm pisania. Teraz lista jest warstwą NAD formularzem — pole
+        wyszukiwania stoi nieruchomo, a pod spodem nic się nie rusza.
+
+        Pasek jest węższy niż okno (`max-w-sm`): mieści komplet informacji
+        o kliencie i aucie, a nie rozciąga się bez potrzeby na całą szerokość.
+      */}
+      <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={szukaj}
@@ -65,32 +77,36 @@ export function PodmienWZleceniu({
           placeholder={placeholder}
           className="pl-9 h-9"
         />
+
+        {szukaj.trim().length >= 2 && (
+          <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border bg-popover shadow-lg overflow-hidden">
+            {znalezione.length === 0 ? (
+              <p className="text-xs text-muted-foreground px-3 py-2">
+                Nic nie znaleziono w bazie warsztatu.
+              </p>
+            ) : (
+              <div className="divide-y max-h-56 overflow-y-auto">
+                {znalezione.map((w) => {
+                  const o = opis(w);
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-accent transition-colors"
+                      onClick={() => { setSzukaj(''); onWybierz(w); }}
+                    >
+                      <span className="block text-sm font-medium truncate">{o.glowny}</span>
+                      {o.dodatkowy && (
+                        <span className="block text-xs text-muted-foreground truncate">{o.dodatkowy}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-
-      {szukaj.trim().length >= 2 && znalezione.length === 0 && (
-        <p className="text-xs text-muted-foreground px-1">Nic nie znaleziono w bazie warsztatu.</p>
-      )}
-
-      {znalezione.length > 0 && (
-        <div className="rounded-md border bg-background divide-y max-h-56 overflow-y-auto">
-          {znalezione.map((w) => {
-            const o = opis(w);
-            return (
-              <button
-                key={o.id}
-                type="button"
-                className="w-full text-left px-3 py-2 hover:bg-accent transition-colors"
-                onClick={() => { setSzukaj(''); onWybierz(w); }}
-              >
-                <span className="block text-sm font-medium truncate">{o.glowny}</span>
-                {o.dodatkowy && (
-                  <span className="block text-xs text-muted-foreground truncate">{o.dodatkowy}</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
