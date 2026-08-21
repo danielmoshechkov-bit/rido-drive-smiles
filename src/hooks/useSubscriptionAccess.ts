@@ -118,7 +118,7 @@ export function useSubscriptionAccess(
             // Wariant A zakłada taki wiersz KAŻDEMU warsztatowi. Bez tej
             // poprawki wszystkie dostałyby okres próbny bez końca — czyli stan
             // gorszy niż przed zmianą. To samo rozstrzygnięcie stoi w bazie
-            // (`moze_pracowac`, migracja 20260821090000); dwa miejsca muszą
+            // (`moze_pracowac`, migracja 20260821091000); dwa miejsca muszą
             // mówić to samo, bo rozjazd znaczy „przycisk widać, a zapis pada".
             //
             // Brak daty = wiersz sprzed wprowadzenia terminów. Zostaje
