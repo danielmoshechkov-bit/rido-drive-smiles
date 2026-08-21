@@ -7,6 +7,9 @@ import { Loader2, AlertTriangle, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGetRidoAI } from '@/hooks/useGetRidoAI';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { sprawdzRidoAi, pobierzRidoAi, CECHA_RIDO_AI } from '@/lib/ridoAi';
+import { useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
 import { matchPrices, serviceKeywords, isJunkService, priceCacheKey, cacheBuckets, type PriceRecord } from '@/lib/pricingSuggestions';
 
 interface ServiceItem {
@@ -79,6 +82,7 @@ export function RidoPriceModal({
   const historiaRef = useRef<Record<number, { min: number; max: number; median: number; count: number }>>({});
   const [error, setError] = useState<string | null>(null);
   const { execute } = useGetRidoAI();
+  const odswiezJednostki = useOdswiezJednostki();
 
   useEffect(() => {
     setMode(initialMode);
@@ -345,6 +349,25 @@ export function RidoPriceModal({
   const ROZMIAR_PACZKI = 3;
 
   const fetchAISuggestions = async (pomin: Set<number> = new Set()): Promise<boolean> => {
+    /**
+     * LIMIT SPRAWDZANY PRZED PYTANIEM, POBRANIE PO ODPOWIEDZI.
+     *
+     * Jedno uruchomienie Rido Wyceny to JEDNO pytanie — niezaleznie od tego,
+     * ile pozycji jest w kosztorysie. Wewnatrz ida one rownoleglymi paczkami,
+     * ale to nasza optymalizacja, nie sprawa warsztatu: policzenie mu czterech
+     * pytan za jeden kosztorys byloby liczeniem wlasnej implementacji.
+     *
+     * Fail-closed: gdy nie wiadomo, czy jest pokrycie, nie pytamy.
+     */
+    const stan = await sprawdzRidoAi(providerId);
+    if (!stan.wolno) {
+      toast.error('Wykorzystales limit pytan do Rido AI w tym miesiacu.', {
+        description: 'Przejdz na wyzszy plan albo poczekaj na odnowienie limitu razem z abonamentem.',
+        duration: 8000,
+      });
+      return false;
+    }
+
     const vehicleDesc = vehicle
       ? `${vehicle.brand || ''} ${vehicle.model || ''} rok ${vehicle.year || ''} silnik ${vehicle.engine_capacity_cm3 || ''}cm3 ${vehicle.fuel_type || ''}`.trim()
       : 'nieznany pojazd';
@@ -502,7 +525,26 @@ Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
       }
     }));
 
-    return wyniki.some(Boolean);
+    const udaloSie = wyniki.some(Boolean);
+
+    /**
+     * POBRANIE DOPIERO PO ODPOWIEDZI.
+     *
+     * Gdy model nie odpowiedzial na zadna paczke, warsztat nie ma za co placic —
+     * i licznik zostaje nietkniety. Odswiezamy go od razu, zeby liczba w pasku
+     * zeszla w tej samej chwili, bez przeladowania strony.
+     */
+    if (udaloSie) {
+      const pobrane = await pobierzRidoAi(providerId);
+      if (!pobrane) {
+        // Nie ukrywamy tego: pytanie poszlo, a licznik nie zszedl. Lepiej, zeby
+        // warsztat o tym wiedzial, niz zeby saldo cicho sie rozjezdzalo.
+        console.error('[Rido Wycena] odpowiedz przyszla, ale pobranie jednostki sie nie udalo');
+      }
+      odswiezJednostki(CECHA_RIDO_AI);
+    }
+
+    return udaloSie;
   };
 
   const fmt = (v: number) => v.toLocaleString('pl-PL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
