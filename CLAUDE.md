@@ -82,6 +82,46 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 - The PWA caches the Supabase domain NetworkFirst; if you add a different backend host, add a matching `runtimeCaching` rule.
 - The `dist/` upload includes `public/foto-proxy.php` — there is a PHP image proxy on the production host used by `foto-proxy` Edge Function callers / marketplace image fetching. Keep it in `public/`.
 
+## Zasady pracy z tym repozytorium (ustalone 21.08.2026)
+
+### Dostęp do bazy produkcyjnej
+
+Dostęp DZIAŁA: `supabase db query --linked -f plik.sql` (project ref `wclrrytmrscqvsyxyvnn`).
+Jeśli `Cannot find project ref`, skopiuj `supabase/.temp/` z `/Users/moshechkov/rido-drive-smiles`
+— w tym `pooler-url`, bez którego CLI próbuje IPv6 i nie dochodzi.
+
+- **Zapytania sprawdzające** (`SELECT`, diagnostyka, kontrole po migracji, rozpoznania)
+  — uruchamiaj SAM. Nie proś użytkownika o klikanie kilkudziesięciu zapytań; podaj wynik
+  i wnioski.
+- **Migracje i zmiany danych** — nadal wyłącznie przez użytkownika, po pokazaniu treści.
+  To nie jest formalność. W jednej sesji kontrole napisane przez asystenta dały fałszywy
+  wynik pięć razy (trzykrotnie przy audycie RLS, raz przy porównaniu SHA, raz przy migracji
+  kasującej własny wynik pomiaru). Każdy z nich wyszedł przy kolejnym podejściu — ale przy
+  migracji ruszającej salda klientów ten jeden krok, w którym człowiek patrzy, co wykonuje,
+  jest tańszy niż jego brak.
+
+### Ukończona praca wraca do `main` tego samego dnia
+
+Lovable pracuje na `main`. Wszystko, co siedzi tylko na gałęzi roboczej, jest dla niego
+niewidoczne i przy pierwszej jego edycji może zostać nadpisane. Przez pięć dni sierpnia
+2026 nasza praca żyła wyłącznie na `wdrozenie` — i tylko szczęściu zawdzięcza, że przetrwała.
+
+- gałąź robocza służy do pracy **w toku**, nie do przechowywania gotowych zmian,
+- po zamknięciu zadania: scalenie do `main` **tego samego dnia**, nie „kiedyś",
+- nie zbieraj dwudziestu commitów, żeby scalić je za tydzień,
+- jeśli coś nie może iść do `main` od razu — powiedz **dlaczego** i **kiedy** pójdzie.
+
+To samo dotyczy produkcji. Kod wdrożony ręcznie, którego nie ma w `main`, jest zaproszeniem
+do nadpisania: **po każdym ręcznym wdrożeniu funkcji brzegowej sprawdź, czy ta sama treść
+jest w `main`** — nie w gałęzi roboczej. Porównuj SHA-256 pobranego kodu, nie numer wersji.
+
+### Rejestr migracji nie odpowiada rzeczywistości
+
+`supabase_migrations.schema_migrations` ma najnowszy wpis z 3 sierpnia 2026, a w repozytorium
+są 63 nowsze migracje — wszystkie wklejane ręcznie w SQL Editorze, z pominięciem rejestru.
+Dopóki to trwa, `db push` i `db reset` uznają je za niewykonane i spróbują nałożyć ponownie.
+Przy migracjach zmieniających salda drugie uruchomienie kasuje jednostki klientom.
+
 ## Conventions worth following
 
 - New components: TS + functional, use shadcn primitives from `@/components/ui/*`, style with Tailwind tokens (`bg-primary`, `text-foreground`, `border-border`, etc.) — not raw colors.
