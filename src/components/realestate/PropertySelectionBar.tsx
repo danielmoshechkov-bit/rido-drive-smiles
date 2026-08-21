@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ViewingRequestForm } from "@/components/realestate/ViewingRequestForm";
+import { useModulOgladan, KOMUNIKAT_OGLADANIA } from "@/hooks/useModulOgladan";
 
 interface PropertySelectionBarProps {
   viewingIds: string[];
@@ -33,6 +34,7 @@ export function PropertySelectionBar({
 }: PropertySelectionBarProps) {
   const navigate = useNavigate();
   const [showViewingForm, setShowViewingForm] = useState(false);
+  const { dostepny: ogladaniaDostepne, gotowe: ogladaniaGotowe } = useModulOgladan();
   const {
     propertyItems,
     removeProperty,
@@ -164,17 +166,24 @@ export function PropertySelectionBar({
                 </Button>
               )}
 
-              {/* Viewing Button - shows when viewing items exist */}
+              {/* Viewing Button - shows when viewing items exist.
+                  Zamiast przycisku, który po kliknięciu dałby błąd z serwera —
+                  wprost powód, dla którego go nie ma. Patrz `useModulOgladan`. */}
               {hasViewing && (
-                <Button
-                  size="sm"
-                  onClick={handleOpenViewing}
-                  className="gap-1 bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <Eye className="h-4 w-4" />
-                  <span className="hidden sm:inline">Umów oglądanie ({viewingIds.length})</span>
-                  <span className="sm:hidden">Umów ({viewingIds.length})</span>
-                </Button>
+                ogladaniaGotowe && !ogladaniaDostepne ? (
+                  <span className="text-xs text-muted-foreground">{KOMUNIKAT_OGLADANIA}</span>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={handleOpenViewing}
+                    disabled={!ogladaniaGotowe}
+                    className="gap-1 bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Eye className="h-4 w-4" />
+                    <span className="hidden sm:inline">Umów oglądanie ({viewingIds.length})</span>
+                    <span className="sm:hidden">Umów ({viewingIds.length})</span>
+                  </Button>
+                )
               )}
             </div>
           </div>

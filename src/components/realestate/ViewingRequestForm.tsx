@@ -17,6 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { useModulOgladan, KOMUNIKAT_OGLADANIA } from '@/hooks/useModulOgladan';
 
 interface ViewingRequestFormProps {
   listingIds?: string[];
@@ -26,6 +27,7 @@ interface ViewingRequestFormProps {
 
 export function ViewingRequestForm({ listingIds = [], listingTitles = [], onSuccess }: ViewingRequestFormProps) {
   const [loading, setLoading] = useState(false);
+  const { dostepny } = useModulOgladan();
   const [form, setForm] = useState({
     client_name: '',
     client_email: '',
@@ -63,6 +65,14 @@ export function ViewingRequestForm({ listingIds = [], listingTitles = [], onSucc
   };
 
   const handleSubmit = async () => {
+    // Druga zapora na wypadek otwarcia okna inną drogą niż paski wyboru.
+    // Bez niej zgłoszenie wpadałoby do `viewing_requests`, funkcja brzegowa
+    // odmawiałaby, a klient i tak zobaczyłby „Zgłoszenie wysłane" — patrz
+    // niżej, gdzie błąd funkcji był połykany.
+    if (!dostepny) {
+      toast.error(KOMUNIKAT_OGLADANIA);
+      return;
+    }
     if (!form.client_name || !form.client_phone) {
       toast.error('Podaj imię i telefon');
       return;
@@ -107,16 +117,19 @@ export function ViewingRequestForm({ listingIds = [], listingTitles = [], onSucc
 
       if (error) throw error;
 
-      // Auto-trigger agent contact flow
-      try {
-        await supabase.functions.invoke('schedule-viewings', {
-          body: { action: 'process_new_request', request_id: requestId },
-        });
-      } catch (fnErr) {
-        console.error('Edge function error:', fnErr);
-      }
+      // Kontakt z agentami. Błąd BYŁ tu połykany (`console.error` i lecimy
+      // dalej), więc przy odmowie funkcji klient widział „Zgłoszenie wysłane",
+      // choć do nikogo nic nie poszło. Teraz odmowa jest widoczna.
+      const { error: bladFunkcji } = await supabase.functions.invoke('schedule-viewings', {
+        body: { action: 'process_new_request', request_id: requestId },
+      });
 
-      toast.success('Zgłoszenie wysłane! Kontaktujemy się z agentami.');
+      if (bladFunkcji) {
+        console.error('schedule-viewings:', bladFunkcji);
+        toast.error('Zgłoszenie zapisane, ale nie udało się powiadomić agentów. Skontaktujemy się ręcznie.');
+      } else {
+        toast.success('Zgłoszenie wysłane! Kontaktujemy się z agentami.');
+      }
       onSuccess?.();
     } catch (err: any) {
       console.error('Viewing request error:', err);

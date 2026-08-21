@@ -75,7 +75,7 @@ export function useSubscriptionAccess(
       const [platna, trial] = await Promise.all([
         supabase
           .from('billing_subscriptions' as any)
-          .select('status, current_period_end')
+          .select('status, current_period_end, trial_ends_at')
           .eq('subscriber_type', 'service_provider')
           .eq('subscriber_id', providerId)
           .eq('product_line', linia)
@@ -97,7 +97,7 @@ export function useSubscriptionAccess(
       // to rozjazd wygenerowanego pliku, nie zapytania. Pliku nie tykamy ręcznie
       // (jest generowany), więc niezgodność zdejmujemy tutaj i nazywamy powód.
       const wiersz = (Array.isArray(platna.data) ? platna.data[0] : null) as unknown as
-        | { status: string; current_period_end: string | null }
+        | { status: string; current_period_end: string | null; trial_ends_at: string | null }
         | null;
 
       // Subskrypcja płatna ma pierwszeństwo: gdy istnieje, trial jest nieistotny.
@@ -105,8 +105,35 @@ export function useSubscriptionAccess(
         const koniec = wiersz.current_period_end;
         switch (wiersz.status) {
           case 'active':
-          case 'trialing':
             return { stan: 'aktywna', powod: null, moznaPracowac: true, koniecOkresu: koniec };
+
+          case 'trialing': {
+            // OKRES PRÓBNY KOŃCZY SIĘ DATĄ.
+            //
+            // Do wariantu A `trialing` znaczyło tu „pełny dostęp" bez patrzenia
+            // na datę — i było to nieszkodliwe, bo prawie żaden warsztat nie
+            // miał wiersza w `billing_subscriptions`; decydowała gałąź zapasowa
+            // niżej, która datę sprawdza.
+            //
+            // Wariant A zakłada taki wiersz KAŻDEMU warsztatowi. Bez tej
+            // poprawki wszystkie dostałyby okres próbny bez końca — czyli stan
+            // gorszy niż przed zmianą. To samo rozstrzygnięcie stoi w bazie
+            // (`moze_pracowac`, migracja 20260821091000); dwa miejsca muszą
+            // mówić to samo, bo rozjazd znaczy „przycisk widać, a zapis pada".
+            //
+            // Brak daty = wiersz sprzed wprowadzenia terminów. Zostaje
+            // bezterminowy: zmiana warunków wstecz byłaby nieuczciwa.
+            // Ta sama kolejność pól co w `moze_pracowac`: `trial_ends_at` jest
+            // polem właściwym, `current_period_end` bierzemy zapasowo, bo Stripe
+            // wypełnia je zawsze. Gdyby front patrzył tylko na drugie, a baza na
+            // pierwsze, rozjechałyby się przy subskrypcjach ze Stripe — przycisk
+            // byłby widoczny, a zapis odrzucony przez RLS.
+            const koniecProbnego = wiersz.trial_ends_at ?? koniec;
+            const trwa = !koniecProbnego || new Date(koniecProbnego) > new Date();
+            return trwa
+              ? { stan: 'aktywna', powod: null, moznaPracowac: true, koniecOkresu: koniecProbnego }
+              : { stan: 'zablokowana', powod: 'trial', moznaPracowac: false, koniecOkresu: koniecProbnego };
+          }
 
           case 'past_due':
             // Karencja z PEŁNYM dostępem. Operator ponawia pobranie przez kilka

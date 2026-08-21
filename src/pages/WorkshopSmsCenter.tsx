@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { UniversalHomeButton } from '@/components/UniversalHomeButton';
 import { MyGetRidoButton } from '@/components/MyGetRidoButton';
 import { TopBarCredits } from '@/components/TopBarCredits';
+import { kluczJednostki } from '@/hooks/useDostepneJednostki';
+import { powodBleduFunkcji } from '@/lib/bladEdge';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { sprawdzTrescSms } from '@/lib/smsModeration';
 import { MessageSquare, Send, RefreshCw, X, Edit, Trash2, Calendar, BarChart3, CheckCircle, AlertCircle, AlertTriangle, Clock, Plus, Eye, ChevronLeft, ChevronRight, BellOff } from 'lucide-react';
@@ -198,9 +200,13 @@ export default function WorkshopSmsCenter() {
       const { error } = await supabase.functions.invoke('workshop-send-sms', {
         body: { phone: toSmsPhone(sms.phone), message: sms.message, sms_type: sms.sms_type, provider_id: providerId, order_id: sms.order_id },
       });
-      if (error) throw error;
+      // Prawdziwy powód odmowy siedzi w treści odpowiedzi; `error.message` to
+      // samo „non-2xx status code", z którego klient niczego się nie dowie.
+      if (error) throw new Error(await powodBleduFunkcji(error));
       toast.success('SMS wysłany ponownie');
       qc.invalidateQueries({ queryKey: ['workshop-sms'] });
+      // Licznik schodzi natychmiast — wspólny klucz z paskiem u góry tej strony.
+      qc.invalidateQueries({ queryKey: kluczJednostki('sms') });
     } catch (e: any) {
       toast.error('Błąd: ' + e.message);
     }
@@ -304,7 +310,9 @@ export default function WorkshopSmsCenter() {
         const { error } = await supabase.functions.invoke('workshop-send-sms', {
           body: { phone: phoneFormatted, message: newMessage, sms_type: 'manual', provider_id: providerId },
         });
-        if (error) throw error;
+        if (error) throw new Error(await powodBleduFunkcji(error));
+        // Licznik schodzi natychmiast, jeszcze przed dopisaniem do dziennika.
+        qc.invalidateQueries({ queryKey: kluczJednostki('sms') });
         await (supabase as any).from('workshop_sms_log').insert({
           provider_id: providerId,
           phone: phoneFormatted,
