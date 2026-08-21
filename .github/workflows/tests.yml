@@ -17,6 +17,22 @@ on:
     branches: [main]
 
 jobs:
+  migracje:
+    name: Numery migracji
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # 21.08.2026: numer 20260821090000 nosiły trzy różne migracje naraz — dwie
+      # z tej gałęzi i jedna z równoległej sesji. Git tego nie widzi (nazwy
+      # plików się różnią), a narzędzie migracyjne czyta wersję z prefiksu.
+      # Kontrola pilnuje pełnych znaczników czasu; prefiks samą datą jest w tym
+      # repozytorium konwencją i nie jest zgłaszany. Szczegóły w nagłówku pliku.
+      - name: Czy numer wersji jest wolny
+        run: python3 scripts/sql-harness/sprawdz_prefiksy.py
+
   edge:
     name: Edge functions (Deno)
     runs-on: ubuntu-latest

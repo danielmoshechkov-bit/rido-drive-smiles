@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Minus, Plus, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
+import { czekajNaWydanie, zapamietajZamowienie, LIMIT_KARTY_ZAKUPU_MS } from '@/lib/doladowanie';
 import { toast } from 'sonner';
 import { formatMoneyPLN } from '@/utils/formatters';
 
@@ -41,6 +43,7 @@ export function DoladowanieModal({
   /** Odmieniona nazwa jednostki do podpisu pod licznikiem, np. „SMS-ów". */
   jednostka: string;
 }) {
+  const odswiez = useOdswiezJednostki();
   const [produkt, setProdukt] = useState<Produkt | null>(null);
   const [ladowanie, setLadowanie] = useState(true);
   const [ile, setIle] = useState<number>(0);
@@ -100,6 +103,21 @@ export function DoladowanieModal({
       if (karta) karta.location.href = data.url;
       else window.location.href = data.url;
       onOpenChange(false);
+
+      // Czuwanie w TEJ karcie. PayU otwiera się obok, więc powrót ląduje gdzie
+      // indziej — a ten panel zostaje otwarty ze starym licznikiem i nic go nie
+      // odświeży (`refetchOnWindowFocus` jest wyłączony). Świadomie bez `await`:
+      // modal zaraz się zamknie, a czuwanie ma trwać dalej. Bez komunikatów —
+      // te pokazuje karta, na którą klient wraca.
+      // Zapis przeżywa odświeżenie panelu i zamknięcie karty PayU — bez niego
+      // nadzór ginie razem z pamięcią karty.
+      zapamietajZamowienie(data.order_id);
+
+      void czekajNaWydanie({
+        orderId: data.order_id,
+        limitMs: LIMIT_KARTY_ZAKUPU_MS,
+        gdyWydane: () => { void odswiez(); },
+      });
     } catch (e) {
       karta?.close();
       toast.error(e instanceof Error ? e.message : 'Nie udało się rozpocząć płatności.');

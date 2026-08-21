@@ -45,6 +45,19 @@ const WYJATKI: Record<string, string> = {
     'Brak kolumny właściciela; do domknięcia razem z `workshop_parts_order_items`.',
   workshop_settings:
     'Kluczowana po `user_id`, nie po `provider_id` — ustawienia konta, nie warsztatu.',
+  workshop_onboarding_usage:
+    'Licznik darmowego wprowadzenia (jedno sprawdzenie pojazdu, pula SMS-ów próbnych). ' +
+    'Bramka zadaje tu ZŁE PYTANIE: pyta „czy ten warsztat ma opłaconą subskrypcję", ' +
+    'a tej tabeli nie wolno zapisywać NIKOMU z przeglądarki — także warsztatowi ' +
+    'płacącemu, bo wpis wprost resetuje mu darmowy przydział. Wpisanie jej do bramki ' +
+    'otworzyłoby zapis wszystkim opłaconym. ' +
+    'Co ją dziś chroni: RLS jest włączone, a jedyna polityka to `wou_read` (SELECT) — ' +
+    'przy braku polityki zapisu RLS odmawia domyślnie. Piszą wyłącznie trzy funkcje ' +
+    '`SECURITY DEFINER`: `demo_sms_dozwolony`, `demo_sms_zapisz`, `onboarding_pojazd_za_darmo`. ' +
+    'DOPÓKI NIKT NIE DOŁOŻY TU POLITYKI ZAPISU, tabela jest zamknięta szczelniej niż bramką. ' +
+    'Uwaga na przyszłość: uprawnienia tabelowe dla `anon`/`authenticated` są szerokie, ' +
+    'ale to domyślna konfiguracja platformy — ma je 530 z 561 tabel tego projektu, ' +
+    'więc jedyną realną warstwą jest tu RLS, tak jak wszędzie indziej.',
 };
 
 async function pliki(): Promise<string[]> {

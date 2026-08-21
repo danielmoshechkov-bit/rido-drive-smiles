@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { kluczJednostki } from '@/hooks/useDostepneJednostki';
+import { useQuotaGuard } from '@/components/quota/QuotaGuardProvider';
 import { buildPublicUrl } from '@/lib/publicUrl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,7 @@ const TIME_SLOTS: string[] = Array.from({ length: (24 * 60) / 5 }, (_, i) => {
 export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrderId }: Props) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const { runWithQuota } = useQuotaGuard();
   const resolvedTitle = title ?? t('workshop.scheduler.title');
   // For 'day' view: anchor = current day. For 'week' view: anchor = Monday of week.
   const [currentWeekStart, setCurrentWeekStart] = useState(new Date());
@@ -267,9 +269,26 @@ export function WorkshopScheduler({ providerId, onBack: _onBack, title, focusOrd
           const link = rToken ? buildPublicUrl(`/r/${rToken}`) : '';
           let msg = rmPl(`Nowy termin wizyty: ${d}.${mo}.${y} ${String(b.proposed_time).slice(0,5)}.`);
           if (link) msg += ` ${link}`;
-          if (phone) await supabase.functions.invoke('workshop-send-sms', {
-            body: { phone, message: msg, sms_type: 'reschedule_confirmed', provider_id: providerId },
-          });
+          // Przez bramkę limitów: przy braku pokrycia serwer odmawia (402),
+          // a klient dostaje komunikat i propozycję doładowania — zamiast ciszy.
+          // Wcześniej odmowa lądowała w `console.warn` i nikt jej nie widział,
+          // choć SMS o nowym terminie NIE szedł.
+          if (phone) {
+            const wyslane = await runWithQuota('sms', async () => {
+              const { data, error } = await supabase.functions.invoke('workshop-send-sms', {
+                body: { phone, message: msg, sms_type: 'reschedule_confirmed', provider_id: providerId },
+              });
+              if (error) throw error;
+              if ((data as any)?.error) throw new Error((data as any).error);
+              return data;
+            }, { retryLabel: 'wysłanie SMS o nowym terminie' });
+
+            if (wyslane) {
+              // Licznik schodzi natychmiast — wspólny klucz, więc pasek i każdy
+              // inny licznik SMS aktualizują się naraz.
+              queryClient.invalidateQueries({ queryKey: kluczJednostki('sms') });
+            }
+          }
         } catch (smsErr) { console.warn('[reschedule SMS] failed', smsErr); }
       })();
     } catch (e: any) { toast.error(e.message); }

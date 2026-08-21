@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ViewingRequestForm } from './ViewingRequestForm';
+import { useModulOgladan, KOMUNIKAT_OGLADANIA } from '@/hooks/useModulOgladan';
 
 interface ViewingSelectionBarProps {
   selectedIds: string[];
@@ -21,6 +22,7 @@ interface ViewingSelectionBarProps {
 export function ViewingSelectionBar({ selectedIds, selectedTitles, onClear, isLoggedIn }: ViewingSelectionBarProps) {
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
+  const { dostepny, gotowe } = useModulOgladan();
 
   if (selectedIds.length === 0) return null;
 
@@ -39,15 +41,22 @@ export function ViewingSelectionBar({ selectedIds, selectedTitles, onClear, isLo
         <span className="text-sm font-medium">
           {selectedIds.length} {selectedIds.length === 1 ? 'nieruchomość' : selectedIds.length < 5 ? 'nieruchomości' : 'nieruchomości'} do oglądania
         </span>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={handleOpenForm}
-          className="gap-1 rounded-full"
-        >
-          <Eye className="h-4 w-4" />
-          Umów oglądanie
-        </Button>
+        {/* Zamiast przycisku, który po kliknięciu dałby błąd z serwera —
+            wprost powód, dla którego go nie ma. Patrz `useModulOgladan`. */}
+        {gotowe && !dostepny ? (
+          <span className="text-xs opacity-90">{KOMUNIKAT_OGLADANIA}</span>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleOpenForm}
+            disabled={!gotowe}
+            className="gap-1 rounded-full"
+          >
+            <Eye className="h-4 w-4" />
+            Umów oglądanie
+          </Button>
+        )}
         <button onClick={onClear} className="ml-1 p-1 rounded-full hover:bg-primary-foreground/20 transition-colors">
           <X className="h-4 w-4" />
         </button>

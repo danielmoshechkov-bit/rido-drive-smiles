@@ -260,6 +260,35 @@ async function handleInit(supabase: any, body: any) {
     wallet_used: walletUsedRaw,
   } = body;
 
+  // ⛔ KREDYTY SMS NIE SĄ SPRZEDAWANE TĄ DROGĄ.
+  //
+  // ═════════════════════════════════════════════════════════════════════════
+  // CO BYŁO NIE TAK
+  // ═════════════════════════════════════════════════════════════════════════
+  // `/buy-credits` prowadził tędy drugą, równoległą sprzedaż SMS-ów: inny
+  // cennik (`credit_packages`, poza gwarancją ceny), inny operator, a jednostki
+  // lądowały w `user_credits` przez `upsertCredits`. Wysyłka SMS-a tej tabeli
+  // NIE CZYTA — liczy się wyłącznie `check_usage` po pulach i paczkach
+  // billingowych. Klient płacił i dostawał jednostki, których nie da się wydać.
+  //
+  // Dziś to uśpione (pakiety SMS w `credit_packages` mają `is_active = false`,
+  // a do `/buy-credits` nie prowadzi żaden link), ale strona stoi pod adresem
+  // i wystarczyłoby, żeby ktoś włączył pakiet.
+  //
+  // Odmowa stoi TUTAJ, przed utworzeniem płatności i przed zdjęciem salda —
+  // czyli zanim klient cokolwiek zapłaci. Odmawianie dopiero przy wydaniu
+  // towaru byłoby gorsze niż stan obecny: pieniądze pobrane, towar żaden.
+  //
+  // Właściwa droga zakupu: `billing-payu-order` → paczka w
+  // `billing_addon_packs` → widoczna dla `check_usage` i dla wysyłki.
+  if (product_type === "sms_credits") {
+    console.error("payment-core: init odrzucony — sprzedaż SMS idzie przez billing-payu-order");
+    return json({
+      error: "Doładowanie SMS odbywa się w panelu, w liczniku SMS u góry ekranu.",
+      code: "SMS_WRONG_CHANNEL",
+    }, 400);
+  }
+
   // ===== WALLET USAGE (max 80% of order) =====
   let wallet_used = Number(walletUsedRaw || 0);
   if (wallet_used < 0) wallet_used = 0;
@@ -566,8 +595,43 @@ async function processPaymentSuccess(
     }
 
     case "sms_credits": {
+      // Nowych płatności tego typu już nie ma — `handleInit` ich nie wpuszcza.
+      // Ta gałąź obsługuje wyłącznie to, co mogło być w locie w chwili wdrożenia:
+      // pieniądze POBRANE, więc odmowa nic by tu nie dała. Wydajemy poprawnie,
+      // do paczek billingowych, zamiast do `user_credits`, których wysyłka
+      // nie czyta.
       const smsAmount = metadata?.credits_amount || 50;
-      await upsertCredits(supabase, userId, "sms", smsAmount);
+
+      const { data: warsztat } = await supabase
+        .from("service_providers")
+        .select("id")
+        .eq("user_id", userId)
+        // Konto może mieć więcej niż jeden warsztat — bez limitu `maybeSingle`
+        // zwróciłby błąd i wydanie po cichu by przepadło.
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!warsztat) {
+        // Bez warsztatu nie ma gdzie zapisać SMS-ów tak, żeby dało się je wysłać.
+        // Zapis do `user_credits` wyglądałby na dostawę, a nią nie jest —
+        // zostawiamy głośny ślad do ręcznego rozliczenia.
+        console.error("payment-core: OPŁACONE SMS-y bez warsztatu — do rozliczenia ręcznego", {
+          payment_id: paymentId, user_id: userId, sms: smsAmount,
+        });
+        break;
+      }
+
+      const { error: bladWydania } = await supabase.rpc("grant_sms_credits", {
+        p_provider_id: warsztat.id,
+        p_ile: smsAmount,
+        p_powod: "zakup",
+        p_actor: null,
+        p_opis: `Zakup przez payment-core, płatność ${paymentId}`,
+      });
+      if (bladWydania) {
+        console.error("payment-core: grant_sms_credits po opłaconym zamówieniu", bladWydania);
+      }
       break;
     }
 
