@@ -470,3 +470,9 @@ verify_jwt = false
 # tokenu z wierszem umowy po stronie serwera; bez zgodności funkcja nie oddaje nic.
 [functions.rental-portal-get]
 verify_jwt = false
+
+# Pomoc RIDO AI — doradca naprawczy przy konkretnym aucie. Funkcja sama
+# sprawdza token wolajacego i przypisanie zlecenia do jego warsztatu, bo
+# w tym projekcie verify_jwt jest wylaczone dla wszystkich funkcji.
+[functions.rido-help]
+verify_jwt = false
