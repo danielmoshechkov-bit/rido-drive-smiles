@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Sparkles, Send, Paperclip, X, Loader2, ExternalLink, FileText } from 'lucide-react';
+import { Send, Paperclip, X, Loader2, ExternalLink, FileText } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
 import { CECHA_RIDO_AI } from '@/lib/ridoAi';
 
@@ -149,7 +150,9 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
       <DialogContent className="max-w-2xl h-[85vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-5 py-3 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="h-5 w-5 text-primary" /> Pomoc RIDO AI
+            {/* Ludek-mechanik — ta sama maskotka co w reszcie portalu. */}
+            <img src="/mascot-mechanic.png" alt="" className="h-7 w-7 rounded-full object-cover" />
+            Pomoc RIDO AI
           </DialogTitle>
           {opisPojazdu && (
             <p className="text-xs text-muted-foreground text-left">{opisPojazdu}</p>
@@ -176,11 +179,32 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
           )}
 
           {wiadomosci.map((w, i) => (
-            <div key={i} className={w.rola === 'czlowiek' ? 'flex justify-end' : ''}>
-              <div className={`rounded-lg px-4 py-3 max-w-[85%] text-sm whitespace-pre-wrap ${
-                w.rola === 'czlowiek' ? 'bg-primary text-primary-foreground' : 'bg-muted'
+            <div key={i} className={w.rola === 'czlowiek' ? 'flex justify-end' : 'flex gap-2'}>
+              {w.rola === 'rido' && (
+                <img src="/mascot-mechanic.png" alt="" className="h-7 w-7 rounded-full object-cover shrink-0 mt-1" />
+              )}
+              <div className={`rounded-lg px-4 py-3 max-w-[85%] text-sm ${
+                w.rola === 'czlowiek' ? 'bg-primary text-primary-foreground whitespace-pre-wrap' : 'bg-muted'
               }`}>
-                {w.tresc}
+                {/*
+                  ODPOWIEDŹ RYSUJEMY JAKO MARKDOWN.
+                  Model pisze nagłówki gwiazdkami i listy numerami. Bez tego
+                  mechanik widział surowe `**Co to najpewniej jest**` zamiast
+                  pogrubienia — wyglądało to na usterkę, a nie na dokument.
+                */}
+                {w.rola === 'rido' ? (
+                  <div className="space-y-2 [&_p]:leading-relaxed [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 [&_strong]:font-semibold [&_strong]:text-foreground [&_a]:text-primary [&_a]:underline">
+                    <ReactMarkdown
+                      components={{
+                        a: ({ node, ...props }) => (
+                          <a {...props} target="_blank" rel="noreferrer noopener" />
+                        ),
+                      }}
+                    >
+                      {w.tresc}
+                    </ReactMarkdown>
+                  </div>
+                ) : w.tresc}
                 {!!w.zalaczniki && (
                   <p className="text-xs opacity-70 mt-1">
                     załączniki: {w.zalaczniki}
