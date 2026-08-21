@@ -33,6 +33,10 @@ CREATE TABLE public.billing_subscriptions (
   status public.billing_subscription_status NOT NULL DEFAULT 'trialing',
   product_line public.billing_product_line NOT NULL DEFAULT 'other',
   current_period_start timestamptz DEFAULT now(), current_period_end timestamptz,
+  -- `trial_ends_at` JEST na produkcji od pierwszej migracji rozliczeniowej
+  -- (20260806100000). Brakowało go w namiastce, więc test wariantu A nie miałby
+  -- gdzie zapisać końca okresu próbnego — czyli sprawdzałby fikcję.
+  trial_ends_at timestamptz,
   provider public.billing_provider, provider_subscription_id text,
   price_snapshot jsonb DEFAULT '{}'::jsonb, price_guarantee_until timestamptz,
   created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
