@@ -35,41 +35,77 @@ const MODEL_DOMYSLNY = 'claude-haiku-4-5-20251001';
  * Persona. Krótko, konkretnie, bez lania wody — mechanik czyta to przy aucie
  * na podnośniku, nie przy biurku.
  */
-const PERSONA = `Jesteś doświadczonym doradcą technicznym w warsztacie samochodowym. Rozmawiasz z mechanikiem — zawodowcem. Mów jak kolega z branży: konkretnie, bez uprzejmościowych wstępów.
+/**
+ * DWA MODELE, DWIE ROLE — I DLACZEGO TAK.
+ *
+ * Jedno głębokie zapytanie do mocnego modelu kosztuje kilka razy więcej niż
+ * krótka wymiana zdań. Zamiast płacić tę stawkę za każdą wiadomość, dzielimy
+ * rozmowę na dwie role:
+ *
+ *   WYWIAD (model tani) — dopytuje mechanika o szczegóły, których nie da się
+ *   zgadnąć z karty zlecenia: kiedy objaw występuje, na jakich obrotach, czy
+ *   odczytano błędy. Podpowiada też, co sprawdzić PRZED analizą. Nie kosztuje
+ *   jednostki z pakietu: to zbieranie danych, nie odpowiedź.
+ *
+ *   ANALIZA (model mocny) — JEDNO zapytanie, gdy obraz jest już kompletny.
+ *   Przeszukuje internet, składa diagnozę ze źródłami. To ona zdejmuje
+ *   jednostkę z pakietu, bo to ona jest tym, po co mechanik przyszedł.
+ *
+ * Po analizie rozmowa wraca do modelu taniego — ma już diagnozę w historii,
+ * więc odpowiada na pytania uzupełniające bez ponownego przeszukiwania sieci.
+ * Gdy w rozmowie zbierze się garść NOWYCH faktów, wywiad znów uzna obraz za
+ * kompletny i pójdzie druga analiza. Sufit: trzy na wątek.
+ */
+const LIMIT_ANALIZ = 3;
+
+const PERSONA_WYWIAD = `Jesteś doświadczonym mechanikiem, który przyjmuje zgłoszenie od kolegi z warsztatu. Twoim zadaniem NIE jest jeszcze diagnoza — tylko zebranie kompletu informacji, żeby diagnoza mogła być trafna.
+
+Dane pojazdu masz niżej i są PEWNE. Nie pytaj o markę, model, rocznik, silnik ani paliwo.
+
+Oceń, czy masz komplet do postawienia diagnozy. Potrzebujesz zwykle:
+- kiedy dokładnie objaw występuje (na zimnym, na ciepłym, pod obciążeniem, na jakich obrotach),
+- od kiedy trwa i czy narasta,
+- czy odczytano błędy z komputera — a jeśli nie, poproś o odczyt,
+- co ostatnio przy tym aucie robiono.
+
+ZASADY:
+1. Pytaj W JEDNEJ RUNDZIE. Maksymalnie cztery pytania, krótko, jako lista. Nie przesłuchuj przez pięć wiadomości.
+2. Do pytań DOŁÓŻ podpowiedź, co sprawdzić od ręki, zanim odpowie — coś, co zajmuje minutę i zawęża sprawę.
+3. Gdy mechanik odpowie na większość, uznaj obraz za kompletny. Nie dopytuj o resztę.
+4. Gdy pierwsze zgłoszenie jest już konkretne (objaw + warunki + ewentualne błędy), od razu uznaj obraz za kompletny — nie pytaj dla samego pytania.
+5. Pisz WYŁĄCZNIE po polsku. Bez wulgaryzmów.
+
+Odpowiadasz TYLKO czystym JSON-em, bez tekstu przed ani po:
+{
+  "gotowe": true albo false,
+  "odpowiedz": "treść dla mechanika — pytania i podpowiedź, gdy gotowe=false; puste, gdy gotowe=true",
+  "brief": "gdy gotowe=true: zwięzłe streszczenie CAŁEJ sprawy dla eksperta — objaw, warunki, błędy, co już sprawdzono. Gdy gotowe=false: puste"
+}`;
+
+const PERSONA_ANALIZA = `Jesteś ekspertem technicznym z wieloletnią praktyką w warsztacie. Dostajesz komplet informacji o usterce i masz postawić diagnozę.
 
 ═══ ZASADY BEZWZGLĘDNE ═══
 
-1. DANE POJAZDU MASZ PODANE NIŻEJ I SĄ PEWNE. Nie pytaj o markę, model, rocznik, silnik ani paliwo — masz je z karty zlecenia. NIGDY nie zmieniaj tych danych ani nie dopisuj własnych: jeśli w danych stoi „Benzyna", to jest benzyna, nawet jeśli ten model bywa też w diesla.
+1. DANE POJAZDU NIŻEJ SĄ PEWNE. Nigdy ich nie zmieniaj: jeśli stoi „Benzyna", to jest benzyna, nawet jeśli ten model bywa też w diesla.
+2. ZAWSZE NAJPIERW SZUKAJ W INTERNECIE — fora markowe, biuletyny serwisowe, filmy. Sprawdź, czy usterka jest w TYM modelu znana.
+3. ZAWSZE KOŃCZ sekcją „Źródła" z linkami, które FAKTYCZNIE otworzyłeś. Nie zmyślaj adresów. Gdy nic wartościowego nie ma — napisz to jednym zdaniem, ale sekcja ma być.
+4. NIE ZADAWAJ PYTAŃ. Wywiad już się odbył. Masz odpowiedzieć.
+5. Pisz WYŁĄCZNIE po polsku — poza skrótami technicznymi (MAF, EGR, DPF). Bez wulgaryzmów.
+6. Nie zgaduj numerów katalogowych ani OE — nie masz katalogu.
 
-2. PIERWSZA ODPOWIEDŹ MA BYĆ KOMPLETNA. Nie odsyłaj mechanika z listą pytań. Jeśli objaw da się rozumieć na kilka sposobów, opisz NAJBARDZIEJ PRAWDOPODOBNY wariant i dopiero na końcu dopisz jedno zdanie, co doprecyzować, żeby zawęzić. Pytania zamiast odpowiedzi to zmarnowane pytanie z pakietu.
-
-3. ZAWSZE NAJPIERW SZUKAJ W INTERNECIE — bez wyjątku, także gdy wydaje ci się, że znasz odpowiedź. Fora markowe, grupy techniczne, biuletyny serwisowe, filmy. Sprawdź, czy usterka jest w TYM modelu znana.
-
-4. ZAWSZE KOŃCZ SEKCJĄ „Źródła" z linkami, które FAKTYCZNIE otworzyłeś w wyszukiwaniu. Nigdy nie zmyślaj adresów. Gdy nic wartościowego nie znalazłeś, napisz w tej sekcji jedno zdanie, że nie ma dobrych źródeł — ale sekcja ma być.
-
-5. PISZ WYŁĄCZNIE PO POLSKU. Ani jednego słowa po rosyjsku, ukraińsku czy angielsku — poza nazwami części i skrótami technicznymi (MAF, EGR, DPF).
-
-6. BEZ WULGARYZMÓW I BEZ LEKCEWAŻENIA. „Typowa usterka", nie „typowe gówno".
-
-7. Nie zgaduj numerów katalogowych ani OE — nie masz katalogu. Opisz część słowami.
-
-═══ UKŁAD ODPOWIEDZI ═══
-
-Używaj Markdown. Nagłówki jako **pogrubienie**, listy jako numerowane pozycje.
+═══ UKŁAD ODPOWIEDZI (Markdown) ═══
 
 **Co to najpewniej jest**
 Jedno–dwa zdania. Jeśli usterka jest w tym modelu częsta, napisz to wprost i podaj, na jakim przebiegu zwykle wychodzi.
 
 **Co sprawdzić po kolei**
-Lista numerowana, od najtańszego i najszybszego do najbardziej pracochłonnego. Przy każdym punkcie: co zrobić, czego użyć, jaki wynik oznacza usterkę.
+Lista numerowana, od najtańszego i najszybszego do najbardziej pracochłonnego. Przy każdym: co zrobić, czego użyć, jaki wynik oznacza usterkę.
 
 **Na co uważać**
-Tylko gdy jest realne ryzyko — moment dokręcania, kalibracja po wymianie, kolejność montażu. Pomiń, gdy nie ma czego.
+Tylko gdy jest realne ryzyko — moment dokręcania, kalibracja po wymianie, kolejność montażu.
 
 **Źródła**
-Lista linków, przy każdym jedno zdanie, co pod nim jest.
-
-Bez „mam nadzieję, że pomogłem" i bez podsumowań na końcu.`;
+Lista linków, przy każdym jedno zdanie, co pod nim jest.`;
 
 function opiszPojazd(z: any): string {
   const p = z?.vehicle || {};
@@ -161,36 +197,43 @@ Deno.serve(async (req) => {
       }, 402);
     }
 
-    // ── Model wybrany przez administratora w Centrum AI ────────────────────
-    const { data: mapowanie } = await admin
-      .from('ai_function_mapping')
-      .select('provider_key, model_override, is_enabled, custom_prompt')
-      .eq('function_key', 'rido_help')
-      .maybeSingle();
+    // ── Dostawcy z Centrum AI: osobno wywiad, osobno analiza ──────────────
+    const wezMapowanie = async (klucz: string, domyslnyDostawca: string) => {
+      const { data: m } = await admin
+        .from('ai_function_mapping')
+        .select('provider_key, model_override, is_enabled, custom_prompt')
+        .eq('function_key', klucz)
+        .maybeSingle();
 
-    if (mapowanie && mapowanie.is_enabled === false) {
+      const { data: d } = await admin
+        .from('ai_providers')
+        .select('api_key_encrypted, default_model, is_enabled')
+        .eq('provider_key', m?.provider_key || domyslnyDostawca)
+        .maybeSingle();
+
+      return {
+        wylaczone: m?.is_enabled === false,
+        klucz: String(d?.api_key_encrypted || Deno.env.get('ANTHROPIC_API_KEY') || '').trim(),
+        model: m?.model_override || d?.default_model || MODEL_DOMYSLNY,
+        prompt: m?.custom_prompt?.trim() || '',
+      };
+    };
+
+    const wywiad = await wezMapowanie('rido_help', 'claude_haiku');
+    if (wywiad.wylaczone) {
       return json({ error: 'Pomoc RIDO AI jest wyłączona przez administratora' }, 503);
     }
-
-    const { data: dostawca } = await admin
-      .from('ai_providers')
-      .select('provider_key, api_key_encrypted, default_model, is_enabled')
-      .eq('provider_key', mapowanie?.provider_key || 'claude_haiku')
-      .maybeSingle();
-
-    const klucz = String(dostawca?.api_key_encrypted || Deno.env.get('ANTHROPIC_API_KEY') || '').trim();
-    if (!klucz) return json({ error: 'Brak klucza do modelu — ustaw go w Centrum AI' }, 503);
-
-    const model = mapowanie?.model_override || dostawca?.default_model || MODEL_DOMYSLNY;
+    if (!wywiad.klucz) return json({ error: 'Brak klucza do modelu — ustaw go w Centrum AI' }, 503);
 
     // ── Historia wątku ────────────────────────────────────────────────────
     const { data: watek } = await admin
       .from('warsztat_pomoc_ai')
-      .select('id, wiadomosci')
+      .select('id, wiadomosci, analizy')
       .eq('order_id', orderId)
       .maybeSingle();
 
     const historia: any[] = Array.isArray(watek?.wiadomosci) ? watek!.wiadomosci : [];
+    const analizyDotad = Number(watek?.analizy || 0);
 
     // Do modelu idzie OSTATNIE OSIEM wpisów. Cała historia rosłaby bez końca,
     // a przy tej rozmowie liczy się wątek bieżącej usterki, nie sprzed miesiąca.
@@ -216,39 +259,110 @@ Deno.serve(async (req) => {
     }
     blokiPytania.push({ type: 'text', text: String(pytanie) });
 
-    const system = [
-      mapowanie?.custom_prompt?.trim() || PERSONA,
-      '',
-      opiszPojazd(zlecenie),
-    ].join('\n');
+    const opisAuta = opiszPojazd(zlecenie);
 
-    // ── Pytanie z DOSTĘPEM DO INTERNETU ───────────────────────────────────
-    const odpowiedzApi = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': klucz,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 3000,
-        system,
-        messages: [...doModelu, { role: 'user', content: blokiPytania }],
-        // Bez tego narzędzia model podaje linki z pamięci, czyli je zmyśla.
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
-      }),
+    const zapytaj = async (cfg: { klucz: string; model: string }, ciało: any) => {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': cfg.klucz,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({ model: cfg.model, ...ciało }),
+      });
+      if (!r.ok) {
+        const t = await r.text();
+        console.error('[rido-help]', cfg.model, r.status, t.slice(0, 400));
+        return null;
+      }
+      return await r.json();
+    };
+
+    // ═══ KROK 1: WYWIAD (model tani, bez pobierania jednostki) ════════════
+    const wynikWywiadu = await zapytaj(wywiad, {
+      max_tokens: 1200,
+      system: [wywiad.prompt || PERSONA_WYWIAD, '', opisAuta].join('\n'),
+      messages: [...doModelu, { role: 'user', content: blokiPytania }],
     });
 
-    if (!odpowiedzApi.ok) {
-      const tresc = await odpowiedzApi.text();
-      console.error('[rido-help] model:', odpowiedzApi.status, tresc.slice(0, 500));
+    if (!wynikWywiadu) {
       return json({ error: 'Model nie odpowiedział. Spróbuj ponownie za chwilę.' }, 502);
     }
 
-    const wynik = await odpowiedzApi.json();
-    const bloki: any[] = Array.isArray(wynik?.content) ? wynik.content : [];
+    const surowy = (Array.isArray(wynikWywiadu?.content) ? wynikWywiadu.content : [])
+      .filter((b: any) => b.type === 'text').map((b: any) => b.text).join('').trim();
 
+    let plan: any = {};
+    try {
+      // Model bywa uprzejmy i opakowuje JSON w ```json — bierzemy to, co
+      // między pierwszym `{` a ostatnim `}`.
+      const od = surowy.indexOf('{');
+      const doZnaku = surowy.lastIndexOf('}');
+      plan = od >= 0 && doZnaku > od ? JSON.parse(surowy.slice(od, doZnaku + 1)) : {};
+    } catch {
+      plan = {};
+    }
+
+    // Gdy wywiad nie zwróci czytelnego JSON-a, NIE blokujemy rozmowy: traktujemy
+    // jego tekst jak zwykłą odpowiedź. Awaria formatu nie może kosztować
+    // mechanika pytania z pakietu.
+    const trzebaDopytac = plan?.gotowe !== true;
+
+    if (trzebaDopytac) {
+      const tresc = String(plan?.odpowiedz || surowy || '').trim();
+      if (!tresc) return json({ error: 'Model zwrócił pustą odpowiedź' }, 502);
+
+      const teraz = new Date().toISOString();
+      const nowa = [
+        ...historia,
+        { rola: 'czlowiek', tresc: String(pytanie), zalaczniki: blokiPytania.length - 1, czas: teraz },
+        { rola: 'rido', tresc, etap: 'wywiad', czas: teraz },
+      ];
+      if (watek?.id) {
+        await admin.from('warsztat_pomoc_ai').update({ wiadomosci: nowa, updated_at: teraz }).eq('id', watek.id);
+      } else {
+        await admin.from('warsztat_pomoc_ai').insert({ order_id: orderId, provider_id: providerId, wiadomosci: nowa });
+      }
+      // Wywiad nie zdejmuje jednostki — to zbieranie danych, nie odpowiedź.
+      return json({ odpowiedz: tresc, zrodla: [], etap: 'wywiad', pobrano: false });
+    }
+
+    // ═══ KROK 2: ANALIZA (model mocny, z internetem, zdejmuje jednostkę) ══
+    if (analizyDotad >= LIMIT_ANALIZ) {
+      // Sufit trzech analiz. Zamiast odmawiać, odpowiadamy tym, co już wiemy —
+      // model tani ma diagnozę w historii, więc nadal jest użyteczny.
+      const tresc = String(plan?.odpowiedz || surowy || 'Mam już komplet informacji z wcześniejszej analizy.').trim();
+      const teraz = new Date().toISOString();
+      const nowa = [
+        ...historia,
+        { rola: 'czlowiek', tresc: String(pytanie), zalaczniki: blokiPytania.length - 1, czas: teraz },
+        { rola: 'rido', tresc, etap: 'wywiad', czas: teraz },
+      ];
+      await admin.from('warsztat_pomoc_ai').update({ wiadomosci: nowa, updated_at: teraz }).eq('id', watek!.id);
+      return json({ odpowiedz: tresc, zrodla: [], etap: 'limit-analiz', pobrano: false });
+    }
+
+    const analiza = await wezMapowanie('rido_help_analiza', 'claude_sonnet');
+    const brief = String(plan?.brief || pytanie).trim();
+
+    const wynik = await zapytaj(
+      { klucz: analiza.klucz || wywiad.klucz, model: analiza.model },
+      {
+        max_tokens: 3000,
+        system: [analiza.prompt || PERSONA_ANALIZA, '', opisAuta].join('\n'),
+        messages: [
+          ...doModelu,
+          { role: 'user', content: [...blokiPytania.slice(0, -1), { type: 'text', text: brief }] },
+        ],
+        // Bez tego narzędzia model podaje linki z pamięci, czyli je zmyśla.
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
+      },
+    );
+
+    if (!wynik) return json({ error: 'Model nie odpowiedział. Spróbuj ponownie za chwilę.' }, 502);
+
+    const bloki: any[] = Array.isArray(wynik?.content) ? wynik.content : [];
     const tekst = bloki.filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
     if (!tekst) return json({ error: 'Model zwrócił pustą odpowiedź' }, 502);
 
@@ -284,19 +398,27 @@ Deno.serve(async (req) => {
     const nowaHistoria = [
       ...historia,
       { rola: 'czlowiek', tresc: String(pytanie), zalaczniki: blokiPytania.length - 1, czas: teraz },
-      { rola: 'rido', tresc: tekst, zrodla, czas: teraz },
+      { rola: 'rido', tresc: tekst, zrodla, etap: 'analiza', czas: teraz },
     ];
 
     if (watek?.id) {
       await admin.from('warsztat_pomoc_ai')
-        .update({ wiadomosci: nowaHistoria, updated_at: teraz })
+        .update({ wiadomosci: nowaHistoria, analizy: analizyDotad + 1, updated_at: teraz })
         .eq('id', watek.id);
     } else {
       await admin.from('warsztat_pomoc_ai')
-        .insert({ order_id: orderId, provider_id: providerId, wiadomosci: nowaHistoria });
+        .insert({ order_id: orderId, provider_id: providerId, wiadomosci: nowaHistoria, analizy: 1 });
     }
 
-    return json({ odpowiedz: tekst, zrodla, model });
+    return json({
+      odpowiedz: tekst,
+      zrodla,
+      etap: 'analiza',
+      pobrano: true,
+      model: analiza.model,
+      analizy: analizyDotad + 1,
+      limitAnaliz: LIMIT_ANALIZ,
+    });
   } catch (e) {
     console.error('[rido-help]', e);
     return json({ error: 'Błąd wewnętrzny' }, 500);

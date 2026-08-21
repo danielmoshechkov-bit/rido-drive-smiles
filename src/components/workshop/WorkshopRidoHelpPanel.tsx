@@ -22,6 +22,8 @@ interface Wiadomosc {
   tresc: string;
   zrodla?: Zrodlo[];
   zalaczniki?: number;
+  /** 'wywiad' = dopytywanie (za darmo), 'analiza' = pełna diagnoza (zdejmuje jednostkę). */
+  etap?: string;
   czas?: string;
 }
 interface Zalacznik { typ: 'obraz' | 'pdf'; dane: string; mime: string; nazwa: string }
@@ -138,8 +140,10 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
         rola: 'rido',
         tresc: (data as any).odpowiedz,
         zrodla: (data as any).zrodla || [],
+        etap: (data as any).etap,
       }]);
-      odswiez(CECHA_RIDO_AI);
+      // Licznik odświeżamy TYLKO po analizie — dopytywanie nic nie zdejmuje.
+      if ((data as any).pobrano) odswiez(CECHA_RIDO_AI);
     } finally {
       setWysylanie(false);
     }
@@ -151,7 +155,7 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
         <DialogHeader className="px-5 py-3 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base">
             {/* Ludek-mechanik — ta sama maskotka co w reszcie portalu. */}
-            <img src="/mascot-mechanic.png" alt="" className="h-7 w-7 rounded-full object-cover" />
+            <img src="/getrido-mascot-email.png" alt="" className="h-7 w-7 rounded-full object-cover" />
             Pomoc RIDO AI
           </DialogTitle>
           {opisPojazdu && (
@@ -172,8 +176,10 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
                 musisz ich podawać. Możesz dorzucić zdjęcie albo PDF.
               </p>
               <p>
-                Szukam w internecie: na forach markowych, w biuletynach serwisowych
-                i filmach. Podaję tylko te linki, które naprawdę otworzyłem.
+                Najpierw dopytam o szczegóły, których nie da się odczytać z karty —
+                kiedy objaw wychodzi, czy są błędy z komputera. To nic nie kosztuje.
+                Gdy obraz będzie kompletny, przeszukam internet i złożę diagnozę
+                ze źródłami — i dopiero to zdejmuje jednostkę z pakietu.
               </p>
             </div>
           )}
@@ -181,7 +187,7 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
           {wiadomosci.map((w, i) => (
             <div key={i} className={w.rola === 'czlowiek' ? 'flex justify-end' : 'flex gap-2'}>
               {w.rola === 'rido' && (
-                <img src="/mascot-mechanic.png" alt="" className="h-7 w-7 rounded-full object-cover shrink-0 mt-1" />
+                <img src="/getrido-mascot-email.png" alt="" className="h-7 w-7 rounded-full object-cover shrink-0 mt-1" />
               )}
               <div className={`rounded-lg px-4 py-3 max-w-[85%] text-sm ${
                 w.rola === 'czlowiek' ? 'bg-primary text-primary-foreground whitespace-pre-wrap' : 'bg-muted'
@@ -234,7 +240,7 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
           {wysylanie && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Szukam w internecie i składam odpowiedź…
+              Proszę czekać — sprawdzam i analizuję…
             </div>
           )}
           <div ref={konicRef} />
@@ -309,8 +315,14 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
             </Button>
           </div>
 
+          {/*
+            Dopytywanie jest darmowe — to zbieranie danych, nie odpowiedź.
+            Jednostkę zdejmuje dopiero pełna analiza, bo to ona kosztuje u nas
+            kilka razy więcej i to po nią mechanik przyszedł.
+          */}
           <p className="text-[11px] text-muted-foreground">
-            Jedno pytanie zdejmuje jedną jednostkę z puli Rido AI. Możesz przeciągnąć plik na to pole.
+            Dopytywanie jest darmowe — jednostkę z pakietu zdejmuje dopiero pełna analiza.
+            Możesz przeciągnąć plik na to pole.
           </p>
         </div>
       </DialogContent>
