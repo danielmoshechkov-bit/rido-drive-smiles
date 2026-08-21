@@ -357,6 +357,30 @@ export function useUpdateWorkshopOrder() {
             : old
         );
       }
+      /**
+       * PODMIANA KLIENTA ALBO AUTA WYMAGA POBRANIA DANYCH Z SERWERA.
+       *
+       * 🔴 NAPRAWIONE 21.08.2026. Zgłoszone z testów: po podmianie klienta
+       * wyskakiwało „Klient w zleceniu podmieniony", a w karcie zlecenia stał
+       * dalej poprzedni — dopiero wyjście i wejście z powrotem pokazywało
+       * zmianę.
+       *
+       * Powód: punktowe wmergowanie wyżej wpisuje do pamięci podręcznej to,
+       * co wysłaliśmy — czyli SAM IDENTYFIKATOR `client_id`. Karta rysuje
+       * `order.client.first_name` i `order.vehicle.plate`, a te obiekty
+       * przychodzą ze złączenia po stronie serwera i zostawały nietknięte.
+       * Zapis był poprawny, kłamał tylko ekran.
+       *
+       * Przy zwykłych polach (status, notatka, kwota) merge zostaje — po to
+       * powstał, żeby nie przeładowywać całej listy ze złączeniami. Ale gdy
+       * zmienia się KTO albo CO jest w zleceniu, dołączonych danych nie da się
+       * zgadnąć lokalnie i trzeba je pobrać.
+       */
+      const podmienionoWpis = variables?.client_id !== undefined || variables?.vehicle_id !== undefined;
+      if (podmienionoWpis) {
+        qc.invalidateQueries({ queryKey: ['workshop-orders'] });
+      }
+
       // translate-on-write: jeśli aktualizacja zawierała pola tekstowe, pre-tłumacz
       if (variables?.id) pretranslateOrderFields(variables.id, variables);
     },
