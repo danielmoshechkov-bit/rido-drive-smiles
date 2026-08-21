@@ -1,5 +1,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Sparkles, Wrench, Stethoscope } from 'lucide-react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Sparkles, Wrench, Stethoscope, ShoppingCart } from 'lucide-react';
+import { DoladowanieModal } from '@/components/billing/DoladowanieModal';
 
 /**
  * Co kryje się pod licznikiem Rido AI.
@@ -19,6 +22,7 @@ interface Props {
 
 export function RidoAiCreditsModal({ open, onOpenChange, dostepne }: Props) {
   const bezLimitu = dostepne === null;
+  const [doladowanie, setDoladowanie] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -64,12 +68,33 @@ export function RidoAiCreditsModal({ open, onOpenChange, dostepne }: Props) {
             </div>
           </div>
 
+          {/*
+            DOKUPIENIE NIE ZASTĘPUJE PLANU — DOKŁADA SIĘ DO NIEGO.
+            Pakiet ma być doładowaniem awaryjnym w miesiącu, w którym limit
+            skończył się wcześniej, a nie tańszą drogą naokoło abonamentu.
+            Dlatego 200 pytań, a nie 500: Pro daje 300 w cenie planu.
+          */}
+          {!bezLimitu && (
+            <Button className="w-full gap-2" onClick={() => setDoladowanie(true)}>
+              <ShoppingCart className="h-4 w-4" /> Dokup 200 pytań — 49,20 zł
+            </Button>
+          )}
+
           <p className="text-xs text-muted-foreground border-t pt-3">
-            Licznik odnawia się co miesiąc razem z abonamentem. Doładowania
-            pakietami dołożymy tutaj — na razie limit wynika z planu.
+            Limit z planu odnawia się co miesiąc razem z abonamentem. Dokupione
+            pytania są bezterminowe i zużywają się dopiero po wyczerpaniu limitu
+            z planu.
           </p>
         </div>
       </DialogContent>
+
+      <DoladowanieModal
+        open={doladowanie}
+        onOpenChange={setDoladowanie}
+        productCode="rido_ai"
+        tytul="Dokup pytania do Rido AI"
+        jednostka="pytań"
+      />
     </Dialog>
   );
 }
