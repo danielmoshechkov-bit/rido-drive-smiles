@@ -13,6 +13,7 @@ import { WorkshopScheduler } from './WorkshopScheduler';
 import { WorkshopOrderSummaryTab } from './tabs/WorkshopOrderSummaryTab';
 import { WorkshopSmsDialog } from './WorkshopSmsDialog';
 import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
+import { WorkshopRidoHelpPanel } from './WorkshopRidoHelpPanel';
 import { WorkshopAssignClientDialog } from './WorkshopAssignClientDialog';
 import { WorkshopVehicleHoverCard } from './WorkshopVehicleHoverCard';
 import { WorkshopVehicleEditDialog } from './WorkshopVehicleEditDialog';
@@ -97,22 +98,27 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
   const akcjaKosztorys = stanKosztorysu(order, maPozycjeZCena);
   const akcjaOdbior = stanOdbioru(order);
 
-  // "Pomoc RIDO AI o naprawę" — przycisk na pasku karty zlecenia (przed przydziałem
-  // pracownika), stylizowany jak "Przydziel pracownika" (outline + ikona + tekst).
-  // Dla nie-testerów zaślepka "wkrótce"; pełna funkcja per-pojazd odłożona.
+  /**
+   * „Pomoc RIDO AI" — doradca naprawczy przy TYM aucie.
+   *
+   * 🔴 URUCHOMIONE 21.08.2026. Przycisk stał tu od dawna, ale nie robił nic:
+   * obie ścieżki pokazywały tylko komunikat („wkrótce" albo „w przygotowaniu").
+   * Teraz otwiera rozmowę przypisaną do zlecenia — dane auta idą do modelu
+   * prosto z karty, więc mechanik opisuje sam objaw.
+   *
+   * Zaślepka dla testerów beta zniknęła: funkcja jest rozliczana z puli Rido AI,
+   * więc bramką jest limit, a nie lista wybranych kont.
+   */
   const ridoAiHelp = (compact: boolean) => (
     <Button
       variant="outline"
       size="sm"
-      className={`gap-1.5 shrink-0 ${compact ? 'h-7 text-xs' : ''} ${isBetaTester ? 'border-primary text-primary hover:bg-primary/10' : 'opacity-60 cursor-not-allowed'}`}
-      title={isBetaTester ? 'Zapytaj RIDO AI o naprawę' : 'Pomoc RIDO AI — wkrótce'}
-      onClick={() => {
-        if (!isBetaTester) { toast.info('Pomoc RIDO AI — już wkrótce'); return; }
-        toast.info('Zapytaj RIDO AI o naprawę — funkcja per-pojazd w przygotowaniu');
-      }}
+      className={`gap-1.5 shrink-0 border-primary text-primary hover:bg-primary/10 ${compact ? 'h-7 text-xs' : ''}`}
+      title="Zapytaj RIDO AI o naprawę tego auta"
+      onClick={() => setPomocAiOpen(true)}
     >
       <Sparkles className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
-      Pomoc RIDO AI{!isBetaTester && <span className="text-[10px] opacity-70">(wkrótce)</span>}
+      Pomoc RIDO AI
     </Button>
   );
   const { data: statuses = [] } = useWorkshopStatuses(providerId);
@@ -199,6 +205,7 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [pickClientOpen, setPickClientOpen] = useState(false);
+  const [pomocAiOpen, setPomocAiOpen] = useState(false);
   const [editVehicleOpen, setEditVehicleOpen] = useState(false);
   const [estimatePreviewOpen, setEstimatePreviewOpen] = useState(false);
   const [mechanicCardOpen, setMechanicCardOpen] = useState(false);
@@ -826,6 +833,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
           }
         }}
       />
+      <WorkshopRidoHelpPanel
+        open={pomocAiOpen}
+        onOpenChange={setPomocAiOpen}
+        orderId={order.id}
+        opisPojazdu={vehicleName || undefined}
+      />
+
       <WorkshopAssignClientDialog
         open={pickClientOpen}
         onOpenChange={setPickClientOpen}

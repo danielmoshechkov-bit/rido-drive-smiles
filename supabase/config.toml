@@ -476,3 +476,9 @@ verify_jwt = false
 # stoi w kodzie funkcji (fail-closed) — to tutaj jest tylko drugą zaporą.
 [functions.schedule-viewings]
 verify_jwt = true
+
+# Pomoc RIDO AI — doradca naprawczy przy konkretnym aucie. Funkcja sama
+# sprawdza token wolajacego i przypisanie zlecenia do jego warsztatu, bo
+# w tym projekcie verify_jwt jest wylaczone dla wszystkich funkcji.
+[functions.rido-help]
+verify_jwt = false
