@@ -202,7 +202,7 @@ Deno.serve(async (req) => {
     // Plany indywidualne (is_custom) nie mają ceny, więc nie mają czego
     // synchronizować — kwota jest ustalana per umowa poza operatorem.
     let q = admin.from("billing_plans")
-      .select("id, code, name, description, product_line, price_net, price_net_target, vat_rate, billing_interval, is_active, is_custom, stripe_product_id, stripe_price_id, stripe_price_id_target")
+      .select("id, code, name, description, product_line, price_net, price_net_target, vat_rate, billing_interval, is_active, is_custom, stripe_product_id, stripe_price_id, stripe_price_id_target, stripe_price_id_rok, stripe_price_id_rok_target")
       .eq("is_active", true).eq("is_custom", false);
     if (tylkoPlan) q = q.eq("code", tylkoPlan);
 
@@ -235,10 +235,56 @@ Deno.serve(async (req) => {
           }
         }
 
+        /**
+         * CENY ROCZNE — ten sam plan, drugi okres.
+         *
+         * Ceny w Stripe są niezmienne, więc każdy okres potrzebuje własnego
+         * obiektu. Zamiast zakładać osobne PLANY roczne (co podwoiłoby cennik
+         * i zamieniło wybór okresu w wybór planu), jeden plan dostaje dwie pary
+         * cen: miesięczną i roczną, każda w wariancie startowym i docelowym.
+         *
+         * Kwotę roczną liczy BAZA — `billing_cena_okresu` z jednym mnożnikiem
+         * w jednym miejscu. Ta funkcja tylko przenosi wynik do Stripe; gdyby
+         * liczyła sama, rabat roczny istniałby w dwóch kopiach.
+         *
+         * Linię warsztatową sprzedajemy miesięcznie albo rocznie; pozostałe
+         * (Agent) zostają przy swoim `billing_interval` do osobnej decyzji.
+         */
+        let priceRok: string | null = null;
+        let priceRokTarget: string | null = null;
+
+        if (plan.product_line === "warsztat" && interval === "month" && !plan.is_custom) {
+          const { data: wycena } = await (admin as any)
+            .rpc("billing_cena_okresu", {
+              p_plan_code: plan.code, p_provider: null, p_okres: "rok",
+            })
+            .maybeSingle();
+
+          if (wycena?.cena_brutto) {
+            const kwotaRok = Math.round(Number(wycena.cena_brutto) * 100);
+            if (kwotaRok > 0) {
+              priceRok = await ensurePrice(stripeKey, productId, kwotaRok, "year", "startowa");
+            }
+          }
+
+          if (plan.price_net_target != null) {
+            // Cena docelowa roku: ta sama reguła (dziesięć miesięcy), tyle że
+            // liczona z ceny docelowej. Nie pytamy o nią bazy, bo funkcja
+            // wycenia po gwarancji KLIENTA, a tu nie ma klienta — mnożnik jest
+            // ten sam i wynika z tej samej reguły.
+            const kwotaRokTarget = grosze(Number(plan.price_net_target) * 10, plan.vat_rate);
+            if (kwotaRokTarget > 0) {
+              priceRokTarget = await ensurePrice(stripeKey, productId, kwotaRokTarget, "year", "docelowa");
+            }
+          }
+        }
+
         const patch = {
           stripe_product_id: productId,
           stripe_price_id: priceStart,
           stripe_price_id_target: priceTarget,
+          stripe_price_id_rok: priceRok,
+          stripe_price_id_rok_target: priceRokTarget,
         };
         const { error: updErr } = await admin.from("billing_plans").update(patch).eq("id", plan.id);
         if (updErr) throw updErr;
