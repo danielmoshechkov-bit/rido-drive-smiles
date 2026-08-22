@@ -37,6 +37,24 @@ bursting_enabled:        false
 
 5. **Czy `daily_limit: 100000` liczy rozmowy, minuty, czy wywołania API?**
 
+## Pytania o nadwyżki (drugi blok)
+
+Jesteśmy na planie Creator (275 minut). Przy naszym modelu — jeden agent, wiele
+numerów, ~200 minut miesięcznie na warsztat — nadwyżki będą regułą, nie
+wyjątkiem. Zanim oprzemy na tym cennik, potrzebujemy trzech odpowiedzi:
+
+6. **Czy minuty ponad plan mają górny limit?** Czy po przekroczeniu pewnej
+   wielokrotności planu konto zostaje odcięte, czy naliczanie idzie dalej?
+
+7. **Czy przy stałym przekraczaniu planu wymuszacie przejście na wyższy plan
+   albo blokujecie konto?** Jeśli tak — przy jakim progu?
+
+8. **Czy burst pricing włącza się automatycznie przy nadwyżkach?** Chcemy
+   wiedzieć, kiedy stawka za minutę rośnie i czy da się to wyłączyć.
+
+To dla nas główna pozycja kosztowa, więc wolimy poznać warunki z góry niż
+z faktury.
+
 ## Dlaczego pytamy zamiast zmierzyć
 
 Zmierzyć możemy wyłącznie własną stronę — nasz webhook. Zajęcie 100 linii

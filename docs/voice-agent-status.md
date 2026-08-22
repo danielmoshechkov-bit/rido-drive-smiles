@@ -3319,6 +3319,57 @@ przebiegu, także zerowym** — liczbę, nie milczenie.
 „20 numerów u operatora, 20 u nas, 0 rozbieżności" widziane codziennie znaczy,
 że kontrola chodzi. Brak wiadomości nie znaczy nic.
 
+## ZASADA 45 — cudzy warsztat wchodzi za każdym razem innymi drzwiami
+
+Ta sama klasa błędu — **rozmowa jednego warsztatu obsłużona danymi drugiego** —
+próbowała wejść trzy razy, za każdym razem inną drogą, i za każdym razem
+wyglądała na coś innego:
+
+```
+16.08  fallback po agent_id       nieznany numer dostawał snapshot
+                                  pierwszego warsztatu (do 500 rekordów klientów)
+21.08  adres Custom-LLM           snapshot poprawny, ale NARZĘDZIA pisały
+                                  do warsztatu zaszytego w adresie
+21.08  cichy fallback przy błędzie odczytu voice_numbers → adres,
+                                  czyli awaria bazy podaje rozmowę obcej firmie
+```
+
+**To nie są trzy usterki. To jeden wzorzec:** przy wielu warsztatach na jednym
+agencie każde miejsce, w którym tożsamość warsztatu bierze się z czegoś INNEGO
+niż numer, na który zadzwoniono, jest kandydatem na wyciek. Adres funkcji,
+identyfikator agenta, wartość domyślna, droga zapasowa przy błędzie — każde
+z nich wygląda niewinnie osobno.
+
+**Reguła praktyczna:** przy każdej zmianie dotykającej ścieżki rozmowy zadaj
+jedno pytanie — *skąd ta linijka wie, o który warsztat chodzi?* Jeśli odpowiedź
+brzmi inaczej niż „z `called_number`", to jest to miejsce do sprawdzenia,
+nawet jeśli dziś działa poprawnie.
+
+**Dlaczego to zasada, a nie trzy wpisy w backlogu:** czwarte wejście będzie
+wyglądało jeszcze inaczej i znowu nie skojarzy się z poprzednimi. Szukanie
+wzorca jest tańsze niż łapanie kolejnych przypadków po jednym.
+
+---
+
+## ZASADA 44 — zanim zbudujesz kanał, sprawdź, czy stary już nie dociera
+
+Przeniesienie `provider_id` z adresu na rozpoznanie po numerze wyceniłem na
+trzy godziny: nowy kanał między `voice-agent-init` a `voice-agent-llm`, przez
+zmienne dynamiczne albo `conversation_id`.
+
+Zajęło godzinę, bo kanał **już istniał**. Znacznik w prompcie agenta niósł
+`called={{system__called_number}}`, regex wyciągał tę wartość do trzeciej grupy
+— i żadna linijka jej nie czytała. Praca została zrobiona wcześniej
+i zatrzymała się jeden krok przed końcem.
+
+**Reguła:** zanim zaprojektujesz przekazywanie danych między częściami systemu,
+sprawdź, czy dane już tam nie docierają i nie są wyrzucane. Koszt sprawdzenia
+to jeden `grep`; koszt pominięcia to zbudowanie drugiego kanału obok
+działającego pierwszego — a wtedy dwa kanały trzeba utrzymywać i pilnować,
+żeby się nie rozjechały.
+
+---
+
 ## ZASADA 43 — „jeden wiersz z wielu" bez pełnego uporządkowania jest losowaniem
 
 `ORDER BY` po kolumnie, która się powtarza, **nie ustala kolejności wierszy
