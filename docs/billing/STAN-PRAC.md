@@ -315,7 +315,20 @@ To decyzja o warstwie zapasowej, nie naprawa dziury.
 Pojedynczych wyjątków nie robimy: jedna wyspa nie jest polityką, a następna
 migracja i tak by ją cofnęła.
 
-### 4.11 Ostrzeżenie o Lovable
+### 4.11 Node.js 20 wycofywany z GitHub Actions
+
+Przy wdrożeniu 21.08.2026 pojawiło się ostrzeżenie, że akcje działające na Node 20
+będą zmuszane do Node 24. Dotyczy `actions/checkout@v4`, `actions/setup-node@v4`
+i `SamKirkland/FTP-Deploy-Action@v4.3.4`.
+
+**Czym grozi:** dziś niczym — działa. Kiedyś przebiegi zaczną padać, i stanie się to
+w dniu, w którym akurat trzeba coś wdrożyć.
+**Jak naprawić:** podbicie do `@v5` przy checkout i setup-node; przy FTP-Deploy
+sprawdzić, czy jest wydanie na Node 24, bo to akcja spoza GitHuba.
+**Pilność:** niska, ale to praca na dziesięć minut — zrobić przy najbliższej okazji,
+nie pod presją zepsutego wdrożenia.
+
+### 4.12 Ostrzeżenie o Lovable
 
 Lovable nadpisuje funkcje brzegowe po scaleniu do `main`. **Po każdym deployu**
 porównuj SHA-256 kodu z produkcji (`supabase functions download`) z zawartością `main`.

@@ -1,0 +1,200 @@
+name: Zgodność produkcji z main
+
+# POWÓD ISTNIENIA (22.08.2026)
+#
+# Przez pięć dni praca żyła wyłącznie na gałęzi roboczej i była niewidoczna dla
+# Lovable, który pracuje na `main`. Tego samego dnia front wdrożony z gałęzi
+# roboczej przetrwał na produkcji DWIE MINUTY — nadpisało go wdrożenie z `main`
+# uruchomione przez równoległą sesję. Nikt nie zauważył tego przez pół dnia.
+#
+# Zasada „ukończona praca wraca do main tego samego dnia" jest zapisana
+# w CLAUDE.md. Ale zasada, o której trzeba pamiętać, prędzej czy później zostanie
+# zapomniana — kontrola, która się zapala, nie.
+#
+# Ten przebieg odpowiada raz dziennie na trzy pytania:
+#   1. czy kod funkcji brzegowych NA PRODUKCJI to ten sam kod, co w `main`,
+#   2. czy front na produkcji pochodzi z `main` i jest aktualny,
+#   3. czy któraś gałąź odjechała od `main` na tyle, że warto ją scalić.
+#
+# Wynik trafia do jednego, wciąż tego samego zgłoszenia — nie zasypujemy skrzynki
+# nowym co dobę.
+
+on:
+  schedule:
+    - cron: '30 5 * * *'   # 5:30 UTC, czyli przed rozpoczęciem pracy
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  zgodnosc:
+    name: Produkcja kontra main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # ---------------------------------------------------------------------
+      # 1. Front — po znaczniku wdrożenia, nie po nazwach kawałków
+      # ---------------------------------------------------------------------
+      # Nazwy plików Vite są liczone z TREŚCI, więc mówią, czy build się różni,
+      # ale nie mówią, z której gałęzi pochodzi. `wersja.json` mówi wprost.
+      - name: Front na produkcji
+        id: front
+        run: |
+          set +e
+          curl -fsS --max-time 20 https://getrido.pl/wersja.json -o /tmp/wersja.json
+          if [ $? -ne 0 ]; then
+            echo "stan=nieznany" >> "$GITHUB_OUTPUT"
+            echo "opis=Brak /wersja.json na produkcji — najbliższe wdrożenie go założy." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          set -e
+          SHA=$(python3 -c "import json;print(json.load(open('/tmp/wersja.json')).get('sha',''))")
+          GAL=$(python3 -c "import json;print(json.load(open('/tmp/wersja.json')).get('galaz',''))")
+          MAIN=$(git rev-parse main)
+          echo "produkcja: $GAL @ ${SHA:0:8}, main: ${MAIN:0:8}"
+          if [ "$SHA" = "$MAIN" ]; then
+            echo "stan=zgodny" >> "$GITHUB_OUTPUT"
+          elif [ "$GAL" != "main" ]; then
+            echo "stan=obca_galaz" >> "$GITHUB_OUTPUT"
+            echo "opis=Front na produkcji pochodzi z gałęzi \`$GAL\` (${SHA:0:8}), nie z main. Najbliższe wdrożenie z main go nadpisze." >> "$GITHUB_OUTPUT"
+          elif git merge-base --is-ancestor "$SHA" main 2>/dev/null; then
+            ZA=$(git rev-list --count "$SHA"..main)
+            echo "stan=przestarzaly" >> "$GITHUB_OUTPUT"
+            echo "opis=Front na produkcji jest z main, ale o $ZA commitów w tyle (${SHA:0:8} zamiast ${MAIN:0:8})." >> "$GITHUB_OUTPUT"
+          else
+            echo "stan=nieznany_commit" >> "$GITHUB_OUTPUT"
+            echo "opis=Front na produkcji stoi na commicie ${SHA:0:8}, którego nie ma w main." >> "$GITHUB_OUTPUT"
+          fi
+
+      # ---------------------------------------------------------------------
+      # 2. Funkcje brzegowe — treść, nie numer wersji
+      # ---------------------------------------------------------------------
+      # Numer wersji rósł już przy PRZYWRÓCONYM starym kodzie, więc nie jest
+      # dowodem. Pobieramy kod i porównujemy bajt w bajt z `main`.
+      - name: Funkcje brzegowe
+        id: funkcje
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          REF: wclrrytmrscqvsyxyvnn
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "stan=brak_sekretu" >> "$GITHUB_OUTPUT"
+            echo "Brak SUPABASE_ACCESS_TOKEN — pomijam porównanie funkcji."
+            exit 0
+          fi
+          curl -fsSL https://github.com/supabase/cli/releases/latest/download/supabase_linux_amd64.tar.gz \
+            | tar -xz -C /usr/local/bin supabase
+          ROZNE=""
+          for f in $(ls supabase/functions | grep -v '^_'); do
+            [ -f "supabase/functions/$f/index.ts" ] || continue
+            PRZED=$(sha256sum "supabase/functions/$f/index.ts" | cut -c1-16)
+            if ! supabase functions download "$f" --project-ref "$REF" >/dev/null 2>&1; then
+              continue   # niewdrożona — to nie jest rozjazd
+            fi
+            PO=$(sha256sum "supabase/functions/$f/index.ts" | cut -c1-16)
+            if [ "$PRZED" != "$PO" ]; then
+              ROZNE="$ROZNE\n  - \`$f\` — main \`$PRZED\`, produkcja \`$PO\`"
+              git checkout -- "supabase/functions/$f/index.ts"
+            fi
+          done
+          if [ -z "$ROZNE" ]; then
+            echo "stan=zgodne" >> "$GITHUB_OUTPUT"
+          else
+            echo "stan=rozjazd" >> "$GITHUB_OUTPUT"
+            { echo "opis<<EOF"; echo -e "$ROZNE"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+          fi
+
+      # ---------------------------------------------------------------------
+      # 3. Gałęzie, które odjechały
+      # ---------------------------------------------------------------------
+      - name: Gałęzie przed main
+        id: galezie
+        run: |
+          # Próg commitów oraz OKNO CZASU. Bez okna kontrola zapalałaby się co
+          # dobę na siedmiu gałęziach sprzed tygodni — a szum uczy ignorowania.
+          # Pytanie brzmi „czy ktoś pracuje i nie scala", a nie „czy w repo
+          # leżą stare gałęzie". Porzucone gałęzie to osobne porządki.
+          PROG=5
+          DNI=14
+          # Zaparkowane świadomie. Dopisanie tu czegoś jest decyzją:
+          #   sec/phase-a-f — paczka bezpieczeństwa A–F, NIE do wdrożenia
+          #                   (faza A zwraca 503 ze 131 funkcji brzegowych).
+          POMIJANE="sec/phase-a-f"
+          GRANICA=$(date -u -d "-$DNI days" +%s)
+          LISTA=""
+          for b in $(git branch -r --format='%(refname:short)' | grep -v 'origin/main$' | grep -v 'HEAD'); do
+            NAZWA="${b#origin/}"
+            echo "$POMIJANE" | tr ' ' '\n' | grep -qx "$NAZWA" && continue
+            PRZED=$(git rev-list --count main.."$b" 2>/dev/null || echo 0)
+            [ "$PRZED" -lt "$PROG" ] && continue
+            KIEDY=$(git log -1 --format=%ct "$b")
+            [ "$KIEDY" -lt "$GRANICA" ] && continue
+            WIEK=$(git log -1 --format=%cr "$b")
+            LISTA="$LISTA\n  - \`$NAZWA\` — $PRZED commitów przed main, ostatni $WIEK"
+          done
+          if [ -z "$LISTA" ]; then
+            echo "stan=czysto" >> "$GITHUB_OUTPUT"
+          else
+            echo "stan=odjechaly" >> "$GITHUB_OUTPUT"
+            { echo "opis<<EOF"; echo -e "$LISTA"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+          fi
+
+      # ---------------------------------------------------------------------
+      # 4. Jedno zgłoszenie, aktualizowane — nie nowe co dobę
+      # ---------------------------------------------------------------------
+      - name: Zgłoszenie
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const f = ${{ toJSON(steps.front.outputs) }};
+            const e = ${{ toJSON(steps.funkcje.outputs) }};
+            const g = ${{ toJSON(steps.galezie.outputs) }};
+
+            const klopoty = [];
+            if (f.stan && !['zgodny', 'nieznany'].includes(f.stan)) klopoty.push(`**Front**\n${f.opis}`);
+            if (e.stan === 'rozjazd') klopoty.push(`**Funkcje brzegowe różnią się od main**\n${e.opis}\n\nLovable przebudowuje funkcje po każdej edycji na main. Kod, który żyje tylko na produkcji, przepadnie przy najbliższej.`);
+            if (g.stan === 'odjechaly') klopoty.push(`**Gałęzie niescalone z main**\n${g.opis}\n\nGałąź robocza służy do pracy w toku, nie do przechowywania gotowych zmian.`);
+
+            const TYTUL = 'Zgodność produkcji z main';
+            const { data: otwarte } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'zgodnosc-produkcji',
+            });
+            const istniejace = otwarte[0];
+
+            if (klopoty.length === 0) {
+              if (istniejace) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: istniejace.number,
+                  body: 'Produkcja zgodna z `main`. Zamykam.',
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: istniejace.number, state: 'closed',
+                });
+              }
+              core.info('Produkcja zgodna z main.');
+              return;
+            }
+
+            const tresc = klopoty.join('\n\n---\n\n') +
+              `\n\n<sub>Sprawdzone ${new Date().toISOString()} — przebieg ${context.runId}.</sub>`;
+
+            if (istniejace) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: istniejace.number, body: tresc,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: TYTUL, body: tresc, labels: ['zgodnosc-produkcji'],
+              });
+            }
