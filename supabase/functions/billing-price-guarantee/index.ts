@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
         "id, subscriber_id, status, provider_subscription_id, price_guarantee_until, " +
           "price_guarantee_notified_at, price_target_applied_at, price_snapshot, " +
           "plan:billing_plans(id, code, name, price_net, price_net_target, vat_rate, " +
-          "stripe_price_id, stripe_price_id_target)",
+          "stripe_price_id, stripe_price_id_target, stripe_price_id_rok, stripe_price_id_rok_target)",
       )
       .eq("provider", "stripe")
       .in("status", ["active", "trialing", "past_due"])
@@ -137,23 +137,42 @@ Deno.serve(async (req) => {
         }
 
         // ── 2. Podmiana ceny ──────────────────────────────────────────
-        if (!plan?.stripe_price_id_target) {
-          console.warn("billing-price-guarantee: plan bez ceny docelowej w Stripe", plan?.code);
-          podsumowanie.pominiete++;
-          continue;
-        }
         if (!w.provider_subscription_id) { podsumowanie.pominiete++; continue; }
 
         const sub = await stripe(stripeKey, `/subscriptions/${w.provider_subscription_id}`);
         const pozycja = sub?.items?.data?.[0];
         const obecnaCena = pozycja?.price?.id;
 
+        /**
+         * OKRES MUSI ZOSTAĆ TEN SAM.
+         *
+         * Zadanie podmienia cenę startową na docelową. Gdyby zawsze brało
+         * wersję miesięczną, klient z subskrypcją ROCZNĄ zostałby po cichu
+         * przerzucony na rozliczenie miesięczne — z ceną docelową miesiąca,
+         * czyli kilkanaście razy niższą kwotą i zupełnie innym cyklem.
+         *
+         * Rozpoznajemy po tym, na której cenie klient JEST — Stripe jest tu
+         * źródłem prawdy, nie nasza kolumna. Dlatego to sprawdzenie stoi
+         * PO pobraniu subskrypcji, nie przed.
+         */
+        const rocznaObecna = !!plan?.stripe_price_id_rok
+          && obecnaCena === plan.stripe_price_id_rok;
+        const cenaStart  = rocznaObecna ? plan?.stripe_price_id_rok : plan?.stripe_price_id;
+        const cenaTarget = rocznaObecna ? plan?.stripe_price_id_rok_target : plan?.stripe_price_id_target;
+
+        if (!cenaTarget) {
+          console.warn("billing-price-guarantee: plan bez ceny docelowej w Stripe",
+            plan?.code, rocznaObecna ? "(rok)" : "(miesiąc)");
+          podsumowanie.pominiete++;
+          continue;
+        }
+
         // Tu jest cała ostrożność tego zadania. Podmieniamy WYŁĄCZNIE z ceny
         // startowej tego planu — nie „z czegokolwiek na docelową".
-        if (!pozycja?.id || obecnaCena !== plan.stripe_price_id) {
+        if (!pozycja?.id || obecnaCena !== cenaStart) {
           console.warn(
             "billing-price-guarantee: pozycja nie wskazuje ceny startowej — pomijam",
-            JSON.stringify({ sub: w.provider_subscription_id, obecnaCena, oczekiwana: plan.stripe_price_id }),
+            JSON.stringify({ sub: w.provider_subscription_id, obecnaCena, oczekiwana: cenaStart }),
           );
           // Stemplujemy mimo pominięcia, żeby nie wracać do tego wiersza
           // codziennie do końca świata. Ślad zostaje w logu.
@@ -167,7 +186,7 @@ Deno.serve(async (req) => {
 
         await stripe(stripeKey, `/subscriptions/${w.provider_subscription_id}`, {
           "items[0][id]": pozycja.id,
-          "items[0][price]": plan.stripe_price_id_target,
+          "items[0][price]": cenaTarget,
           // Bez rozliczenia proporcjonalnego: to nie jest zmiana planu w trakcie
           // okresu, tylko koniec promocji. Nowa cena wchodzi od kolejnego okresu,
           // a klient nie dostaje faktury na różnicę w środku miesiąca.

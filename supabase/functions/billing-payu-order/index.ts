@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     const baza = bramka.is_sandbox ? PAYU_SANDBOX : PAYU_PRODUKCJA;
 
     // ── Produkt, liczba jednostek i kwota ───────────────────────────
-    const { product_code, units, plan_code } = await req.json().catch(() => ({}));
+    const { product_code, units, plan_code, okres } = await req.json().catch(() => ({}));
 
     // Dwie rzeczy do kupienia, jedna droga płatności:
     //   • DOŁADOWANIE — produkt z `billing_addon_products`, liczony w sztukach,
@@ -71,6 +71,9 @@ Deno.serve(async (req) => {
     // warsztatów nie podepnie karty, a bez tego tryb dokończenia pokazuje im
     // drzwi, które nie otwierają się ich kluczem.
     const kupujePlan = typeof plan_code === 'string' && !!plan_code.trim();
+    // Okres rozstrzyga BAZA — tu tylko odsiewamy wartości spoza zbioru, żeby
+    // nie posyłać śmieci do funkcji wyceniającej.
+    const okresZakupu = okres === 'rok' ? 'rok' : 'miesiac';
 
     if (!kupujePlan && (typeof product_code !== 'string' || !product_code.trim())) {
       return json({ error: 'Nie wskazano produktu ani planu.' }, 400);
@@ -122,7 +125,9 @@ Deno.serve(async (req) => {
     // ── MIESIĄC PLANU ───────────────────────────────────────────────
     if (kupujePlan) {
       const { data: cena, error: bladCeny } = await (admin as any)
-        .rpc('billing_cena_miesiaca', { p_plan_code: plan_code.trim(), p_provider: warsztat.id })
+        .rpc('billing_cena_okresu', {
+          p_plan_code: plan_code.trim(), p_provider: warsztat.id, p_okres: okresZakupu,
+        })
         .maybeSingle();
 
       if (bladCeny || !cena) {
@@ -139,10 +144,16 @@ Deno.serve(async (req) => {
         plan_id: cena.plan_id,
         units: 1,
         amount_gross: Number(cena.cena_brutto),
-        opis: `GetRido — ${cena.nazwa}, miesiąc`,
+        opis: `GetRido — ${cena.nazwa}, ${okresZakupu === 'rok' ? 'rok' : 'miesiąc'}`,
         snapshot: {
-          rodzaj: 'miesiac_planu',
+          rodzaj: 'okres_planu',
           plan_code: plan_code.trim(),
+          // Liczba miesięcy jedzie w zamówieniu, bo to ona rozstrzyga wydanie.
+          // Zamrożona razem z ceną: klient dostaje okres, który kupił, choćby
+          // rabat zmienił się przed nadejściem powiadomienia.
+          okres: okresZakupu,
+          miesiecy: cena.miesiecy,
+          bez_rabatu_netto: cena.bez_rabatu_netto,
           name: cena.nazwa,
           amount_net: cena.cena_netto,
           amount_gross: cena.cena_brutto,
