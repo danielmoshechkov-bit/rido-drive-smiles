@@ -26,7 +26,8 @@ import type { PowodBlokady, LiniaProduktowa } from '@/hooks/useSubscriptionAcces
 const TRESC = {
   platnosc: {
     naglowek: 'Nie udało się pobrać płatności',
-    opis: 'Zaktualizuj kartę albo opłać abonament, aby odblokować dostęp.',
+    opis: 'Twoje dane są bezpieczne i wrócą od razu po opłaceniu. Księgowość i faktury '
+      + 'działają bez przerwy. Zaktualizuj kartę albo opłać abonament, aby odblokować resztę.',
     cta: 'Opłać abonament',
     pasek: 'Płatność nie przeszła — moduł działa w trybie odczytu.',
   },
@@ -38,7 +39,11 @@ const TRESC = {
   },
   trial: {
     naglowek: 'Okres próbny dobiegł końca',
-    opis: 'Wybierz plan, aby wrócić do pracy. Wszystko, co wprowadziłeś przez ostatnie tygodnie, czeka na Ciebie.',
+    // Klient, który myśli, że stracił kartotekę, nie wraca. Dlatego zdanie
+    // o danych jest tu pierwsze, a dopiero potem prośba o zakup — i mówi
+    // wprost, co NADAL działa, zamiast zostawiać go z domysłem.
+    opis: 'Twoje dane są bezpieczne — zlecenia, kartoteka klientów i pojazdów czekają w całości '
+      + 'i wrócą od razu po opłaceniu. Księgowość i faktury działają bez przerwy, także teraz.',
     cta: 'Wybierz plan',
     pasek: 'Okres próbny się skończył — moduł działa w trybie odczytu.',
   },
