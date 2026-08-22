@@ -10,6 +10,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CompareProvider } from "@/contexts/CompareContext";
 import { OnboardingProvider } from "@/contexts/OnboardingContext";
 import { QuotaGuardProvider } from "@/components/quota/QuotaGuardProvider";
+import { ZakupProvider } from "@/components/billing/ZakupProvider";
 // Ludek RidoAI chwilowo zdjęty z ekranu — patrz miejsce montowania niżej.
 // import { GlobalRidoAIButton } from "@/components/ai/GlobalRidoAIButton";
 import { SupportChatWidget } from "@/components/support/SupportChatWidget";
@@ -188,6 +189,7 @@ const App = () => (
           <PwaUpdater />
           <BrowserRouter>
             <QuotaGuardProvider>
+            <ZakupProvider>
             <CompareProvider>
               <Suspense fallback={<PageLoader />}>
               <Routes>
@@ -316,6 +318,7 @@ const App = () => (
               {/* Global Onboarding Widget */}
               <OnboardingWidget />
             </CompareProvider>
+            </ZakupProvider>
             </QuotaGuardProvider>
           </BrowserRouter>
         </UISettingsLoader>
