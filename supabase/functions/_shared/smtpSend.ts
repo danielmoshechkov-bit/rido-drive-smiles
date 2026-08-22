@@ -3,7 +3,33 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-export async function sendMail(to: string, subject: string, html: string): Promise<void> {
+/**
+ * Załącznik maila. `content` w base64 — denomailer sam go osadzi.
+ */
+export interface Zalacznik {
+  nazwa: string;
+  typ: string;      // np. "application/pdf"
+  base64: string;
+}
+
+export interface OpcjeMaila {
+  /**
+   * Adres, na który trafi odpowiedź klienta.
+   *
+   * Nadawcą jest `noreply@getrido.pl` i tak zostaje — ale klient, który dostaje
+   * maila w skrzynce, odpisuje odruchowo, nie loguje się do panelu. Bez tego
+   * pola jego odpowiedź szłaby na skrzynkę, do której nikt nie zagląda.
+   */
+  replyTo?: string;
+  zalaczniki?: Zalacznik[];
+}
+
+export async function sendMail(
+  to: string,
+  subject: string,
+  html: string,
+  opcje: OpcjeMaila = {},
+): Promise<void> {
   const smtpPassword = Deno.env.get("SMTP_PASSWORD");
   if (!smtpPassword) throw new Error("SMTP_PASSWORD nie jest skonfigurowany");
 
@@ -37,6 +63,20 @@ export async function sendMail(to: string, subject: string, html: string): Promi
     subject,
     content: "Twoja przeglądarka nie obsługuje HTML.",
     html: minified,
+    // Oba pola są opcjonalne, więc czterej dotychczasowi wywołujący
+    // (billing-price-guarantee, contact-form, dwie od zmiany konta kierowcy)
+    // nie zauważają różnicy.
+    ...(opcje.replyTo ? { replyTo: opcje.replyTo } : {}),
+    ...(opcje.zalaczniki?.length
+      ? {
+          attachments: opcje.zalaczniki.map((z) => ({
+            filename: z.nazwa,
+            contentType: z.typ,
+            encoding: "base64" as const,
+            content: z.base64,
+          })),
+        }
+      : {}),
   });
   await client.close();
 }

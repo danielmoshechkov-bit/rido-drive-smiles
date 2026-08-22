@@ -100,7 +100,7 @@ INSERT INTO public.billing_plans
   (code, name, description, subscriber_type, price_net, vat_rate, billing_interval, trial_days, is_custom, is_active, sort_order)
 VALUES
   ('warsztat_free',         'Darmowy',                          'Baza klientów i pojazdów, terminarz, 20 zleceń miesięcznie', 'service_provider',   0, 23, 'month',  0, false, true,  10),
-  ('warsztat_standard',     'Standard',                         'Zlecenia, wyceny i faktury bez limitu, fiskalizacja, KSeF',   'service_provider',  89, 23, 'month', 14, false, true,  20),
+  ('warsztat_standard',     'Standard',                         'Zlecenia, wyceny i faktury bez limitu, fiskalizacja, KSeF',   'service_provider',  99, 23, 'month', 14, false, true,  20),
   ('warsztat_pro',          'Pro',                              'Standard plus magazyn, hurtownie, panel pracowników',         'service_provider', 169, 23, 'month', 14, false, true,  30),
   ('warsztat_sieci',        'Sieci',                            'Pro dla wielu lokalizacji, wycena indywidualna',              'service_provider', NULL, 23, 'month',  0, true,  true,  40),
   ('agent',                 'Agent',                            'Voicebot odbiera telefon 24/7, 120 minut AI miesięcznie',     'service_provider', 139, 23, 'month', 14, false, true,  50),

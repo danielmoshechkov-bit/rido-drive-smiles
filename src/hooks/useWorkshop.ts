@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { pokazOdmowe } from '@/lib/odmowaDokanczania';
 import { pretranslateContent, type ContentItem } from '@/lib/contentTranslation';
 import { computeOrderTotals } from '@/utils/workshopOrderTotals';
 import { consumeStock, returnStock, adjustStock } from '@/utils/workshopStock';
@@ -330,7 +331,10 @@ export function useCreateWorkshopOrder() {
       if (data?.id) pretranslateOrderFields(data.id, data);
       toast.success('Zlecenie utworzone');
     },
-    onError: (e: any) => toast.error(e.message),
+    // Odmowa w trybie dokończenia wygląda jak surowy komunikat RLS
+    // („new row violates row-level security policy"). Zamieniamy go na zdanie,
+    // które mówi, co zrobić — patrz `lib/odmowaDokanczania`.
+    onError: (e: any) => { if (!pokazOdmowe(e, toast)) toast.error(e.message); },
   });
 }
 
@@ -384,7 +388,9 @@ export function useUpdateWorkshopOrder() {
       // translate-on-write: jeśli aktualizacja zawierała pola tekstowe, pre-tłumacz
       if (variables?.id) pretranslateOrderFields(variables.id, variables);
     },
-    onError: (e: any) => toast.error(e.message),
+    // Podmiana klienta albo auta w trybie dokończenia odbija się od wyzwalacza
+    // z prefiksem `TRYB_DOKONCZENIA:`. Pokazujemy powód i drogę wyjścia.
+    onError: (e: any) => { if (!pokazOdmowe(e, toast)) toast.error(e.message); },
   });
 }
 

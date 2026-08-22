@@ -17,6 +17,11 @@ export type StanDostepu =
   | 'aktywna'
   /** Nieudana płatność, ale trwa karencja. PEŁNY dostęp: operator sam ponawia. */
   | 'karencja'
+  /**
+   * Trzy dni robocze na domknięcie pracy w toku. Warsztat kończy rozpoczęte
+   * zlecenia, ale nie zaczyna nowych i nie podmienia w nich klienta ani auta.
+   */
+  | 'dokanczanie'
   /** Po karencji albo po rezygnacji — tryb odczytu. */
   | 'zablokowana'
   /** Nigdy nie było subskrypcji w tej linii. */
@@ -36,9 +41,23 @@ export type PowodBlokady =
 export interface DostepWarsztatu {
   stan: StanDostepu;
   powod: PowodBlokady;
-  /** Dostęp do pracy: tworzenie i edycja. Odczyt i eksport są zawsze wolne. */
+  /** Pełna praca: zakładanie i edycja bez ograniczeń. */
   moznaPracowac: boolean;
+  /**
+   * Domykanie pracy w toku. `true` WYŁĄCZNIE w trybie dokończenia.
+   *
+   * Osobne od `moznaPracowac`, bo to dwie różne odpowiedzi. Gdyby tryb
+   * dokończenia zwracał `moznaPracowac: false`, nakładka `ModuleLock` przykryłaby
+   * cały panel — a warsztat ma w tym czasie normalnie pracować nad zleceniami,
+   * które już ma. Gdyby zwracał `true`, przycisk „Nowe zlecenie" byłby aktywny
+   * i odbiłby się od bazy bez wyjaśnienia.
+   */
+  moznaDokanczac: boolean;
   koniecOkresu: string | null;
+  /** Kiedy zapada twardy blok. `null` poza trybem dokończenia. */
+  dokanczanieDo: string | null;
+  /** Ile pełnych dni zostało do bloku — do licznika w pasku. */
+  dniDoBloku: number | null;
   loading: boolean;
 }
 
@@ -46,8 +65,18 @@ const BRAK: Omit<DostepWarsztatu, 'loading'> = {
   stan: 'brak',
   powod: 'brak',
   moznaPracowac: false,
+  moznaDokanczac: false,
   koniecOkresu: null,
+  dokanczanieDo: null,
+  dniDoBloku: null,
 };
+
+/** Pełne doby do terminu, zaokrąglone w górę — „został 1 dzień" do ostatniej chwili. */
+function dniDo(termin: string | null): number | null {
+  if (!termin) return null;
+  const ms = new Date(termin).getTime() - Date.now();
+  return ms <= 0 ? 0 : Math.ceil(ms / 86_400_000);
+}
 
 /**
  * Linia produktowa. Panel usługodawcy jest DZIŚ darmowy, ale docelowo ma być
@@ -75,7 +104,7 @@ export function useSubscriptionAccess(
       const [platna, trial] = await Promise.all([
         supabase
           .from('billing_subscriptions' as any)
-          .select('status, current_period_end, trial_ends_at')
+          .select('status, current_period_end, trial_ends_at, dokanczanie_do, dokanczanie_powod')
           .eq('subscriber_type', 'service_provider')
           .eq('subscriber_id', providerId)
           .eq('product_line', linia)
@@ -97,15 +126,33 @@ export function useSubscriptionAccess(
       // to rozjazd wygenerowanego pliku, nie zapytania. Pliku nie tykamy ręcznie
       // (jest generowany), więc niezgodność zdejmujemy tutaj i nazywamy powód.
       const wiersz = (Array.isArray(platna.data) ? platna.data[0] : null) as unknown as
-        | { status: string; current_period_end: string | null; trial_ends_at: string | null }
+        | { status: string; current_period_end: string | null; trial_ends_at: string | null;
+           dokanczanie_do: string | null; dokanczanie_powod: string | null }
         | null;
 
       // Subskrypcja płatna ma pierwszeństwo: gdy istnieje, trial jest nieistotny.
       if (wiersz) {
         const koniec = wiersz.current_period_end;
+
+        // TRYB DOKOŃCZENIA wyprzedza status. Warsztat może mieć w tej chwili
+        // `trialing` z minioną datą albo `past_due` — dla interfejsu to jedno
+        // i to samo: trzy dni roboczych na domknięcie pracy. Rozróżnia je
+        // wyłącznie komunikat, i po to jest `powod`.
+        const doKiedy = wiersz.dokanczanie_do;
+        if (doKiedy && new Date(doKiedy) > new Date()) {
+          return {
+            stan: 'dokanczanie',
+            powod: wiersz.dokanczanie_powod === 'platnosc' ? 'platnosc' : 'trial',
+            moznaPracowac: false,
+            moznaDokanczac: true,
+            koniecOkresu: koniec,
+            dokanczanieDo: doKiedy,
+            dniDoBloku: dniDo(doKiedy),
+          };
+        }
         switch (wiersz.status) {
           case 'active':
-            return { stan: 'aktywna', powod: null, moznaPracowac: true, koniecOkresu: koniec };
+            return { stan: 'aktywna', powod: null, moznaPracowac: true, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null };
 
           case 'trialing': {
             // OKRES PRÓBNY KOŃCZY SIĘ DATĄ.
@@ -131,28 +178,28 @@ export function useSubscriptionAccess(
             const koniecProbnego = wiersz.trial_ends_at ?? koniec;
             const trwa = !koniecProbnego || new Date(koniecProbnego) > new Date();
             return trwa
-              ? { stan: 'aktywna', powod: null, moznaPracowac: true, koniecOkresu: koniecProbnego }
-              : { stan: 'zablokowana', powod: 'trial', moznaPracowac: false, koniecOkresu: koniecProbnego };
+              ? { stan: 'aktywna', powod: null, moznaPracowac: true, moznaDokanczac: false, koniecOkresu: koniecProbnego, dokanczanieDo: null, dniDoBloku: null }
+              : { stan: 'zablokowana', powod: 'trial', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniecProbnego, dokanczanieDo: null, dniDoBloku: null };
           }
 
           case 'past_due':
             // Karencja z PEŁNYM dostępem. Operator ponawia pobranie przez kilka
             // dni i połowa nieudanych płatności naprawia się bez udziału klienta —
             // blokada w dniu odrzucenia karty byłaby zbyt agresywna.
-            return { stan: 'karencja', powod: 'platnosc', moznaPracowac: true, koniecOkresu: koniec };
+            return { stan: 'karencja', powod: 'platnosc', moznaPracowac: true, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null };
 
           case 'read_only':
             // Do tego stanu dochodzi się WYŁĄCZNIE z `past_due`, czyli po nieudanej
             // płatności — stąd powód, a nie „wygasła".
-            return { stan: 'zablokowana', powod: 'platnosc', moznaPracowac: false, koniecOkresu: koniec };
+            return { stan: 'zablokowana', powod: 'platnosc', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null };
 
           case 'canceled':
           case 'expired':
-            return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, koniecOkresu: koniec };
+            return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null };
 
           default:
             // Nieznany status nie może dawać dostępu: brak wiedzy to nie zgoda.
-            return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, koniecOkresu: koniec };
+            return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null };
         }
       }
 
@@ -176,8 +223,8 @@ export function useSubscriptionAccess(
       if (t && t.status === 'trial') {
         const trwa = !t.expires_at || new Date(t.expires_at) > new Date();
         return trwa
-          ? { stan: 'aktywna', powod: null, moznaPracowac: true, koniecOkresu: t.expires_at }
-          : { stan: 'zablokowana', powod: 'trial', moznaPracowac: false, koniecOkresu: t.expires_at };
+          ? { stan: 'aktywna', powod: null, moznaPracowac: true, moznaDokanczac: false, koniecOkresu: t.expires_at, dokanczanieDo: null, dniDoBloku: null }
+          : { stan: 'zablokowana', powod: 'trial', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: t.expires_at, dokanczanieDo: null, dniDoBloku: null };
       }
 
       return BRAK;

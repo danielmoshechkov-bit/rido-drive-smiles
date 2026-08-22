@@ -3,6 +3,7 @@ import { lazyNamedWithRetry } from '@/lib/lazyWithRetry';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { ModuleLock } from '@/components/billing/ModuleLock';
+import { PasekDokanczania } from '@/components/billing/PasekDokanczania';
 import { useSubscriptionAccess } from '@/hooks/useSubscriptionAccess';
 import { WorkshopPortalBookings } from '@/components/workshop/WorkshopPortalBookings';
 import { Card } from '@/components/ui/card';
@@ -218,7 +219,11 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   // Czego warsztat nie zrobi, rozstrzyga baza (G4), nie ten ekran: nie założy
   // zlecenia z rezerwacji, nie doda klienta ani pojazdu, nie wystawi kosztorysu.
   const dostep = useSubscriptionAccess(providerId, 'warsztat');
-  const zablokowany = !!providerId && !dostep.loading && !dostep.moznaPracowac;
+  // Tryb dokończenia NIE przykrywa panelu. Warsztat ma w tym czasie normalnie
+  // pracować nad zleceniami, które już ma — nakładka odcięłaby mu je razem
+  // z resztą. Ogranicza go bramka w bazie i pasek u góry, nie zasłona.
+  const zablokowany =
+    !!providerId && !dostep.loading && !dostep.moznaPracowac && !dostep.moznaDokanczac;
   // Terminarz zostaje w pełni otwarty — to kalendarz cudzych wizyt, nie warsztatu.
   const MODULY_POZA_BRAMKA = ['terminarz'];
   const goTo = (key: string | null) => {
@@ -355,6 +360,12 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   // znikalo bez sladu — dokladnie w miejscu, gdzie zaczyna sie wycena.
   const zOpieka = (widok: JSX.Element) => (
     <TrybProbnyProvider aktywny={wprowadzenie.aktywne}>
+      {/* Pasek trybu dokończenia wchodzi TUTAJ, a nie w gałęzi z listą.
+          `zOpieka` opakowuje wszystkie gałęzie tego komponentu — listę, kartę
+          zlecenia i kartę pojazdu — więc licznik dni towarzyszy warsztatowi
+          wszędzie. Dopisany do jednej gałęzi znikałby dokładnie tam, gdzie
+          klient pracuje najdłużej. */}
+      <PasekDokanczania dostep={dostep} />
       {widok}
       {wprowadzenie.aktywne && (
         <GuidedTour
