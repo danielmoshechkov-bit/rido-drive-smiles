@@ -220,7 +220,18 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
                     załączniki: {w.zalaczniki}
                   </p>
                 )}
-                {!!w.zrodla?.length && (
+                {/*
+                  DOPISEK ZE ŹRÓDŁAMI TYLKO WTEDY, GDY ODPOWIEDŹ ICH NIE MA.
+
+                  🔴 NAPRAWIONE 22.08.2026. Model opisuje teraz źródła sam —
+                  z podziałem na forum, wideo i schematy, po jednym zdaniu, co
+                  jest w środku. Nasza dodatkowa lista dublowała to i zamieniała
+                  koniec odpowiedzi w ścianę dwudziestu adresów.
+
+                  Zostawiamy ją jako zabezpieczenie: gdy model nie wstawił
+                  żadnego linku w treść, lepiej pokazać kilka niż nic.
+                */}
+                {!!w.zrodla?.length && !/\]\(https?:\/\//.test(w.tresc) && (
                   <div className="mt-3 pt-3 border-t border-border/60 space-y-1">
                     <p className="text-xs font-medium">Źródła:</p>
                     {w.zrodla.map((z, j) => (

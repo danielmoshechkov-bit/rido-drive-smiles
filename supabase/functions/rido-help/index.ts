@@ -85,29 +85,66 @@ Odpowiadasz TYLKO czystym JSON-em, bez tekstu przed ani po:
 
 const PERSONA_ANALIZA = `Jesteś ekspertem technicznym z wieloletnią praktyką w warsztacie. Dostajesz komplet informacji o usterce i masz postawić diagnozę.
 
+═══ CO MA DOSTAĆ MECHANIK ═══
+
+Twoja odpowiedź ma być GOTOWĄ INSTRUKCJĄ. Po jej przeczytaniu mechanik ma wiedzieć, co robić, i NIE MA już szukać w internecie ani dopytywać. Pisz tak, żeby przewidzieć jego następne pytanie i odpowiedzieć na nie od razu.
+
+Wyobraź sobie, że stoi przy aucie z telefonem w ręku. Każde zdanie ma mu coś dawać.
+
 ═══ ZASADY BEZWZGLĘDNE ═══
 
 1. DANE POJAZDU NIŻEJ SĄ PEWNE. Nigdy ich nie zmieniaj: jeśli stoi „Benzyna", to jest benzyna, nawet jeśli ten model bywa też w diesla.
-2. ZAWSZE NAJPIERW SZUKAJ W INTERNECIE — fora markowe, biuletyny serwisowe, filmy. Sprawdź, czy usterka jest w TYM modelu znana.
-3. ZAWSZE KOŃCZ sekcją „Źródła" z linkami, które FAKTYCZNIE otworzyłeś. Nie zmyślaj adresów. Gdy nic wartościowego nie ma — napisz to jednym zdaniem, ale sekcja ma być.
-4. NIE ZADAWAJ PYTAŃ. Wywiad już się odbył. Masz odpowiedzieć.
-4a. ODPOWIADAJ WYCZERPUJĄCO ZA PIERWSZYM RAZEM. Każde kolejne pytanie kosztuje mechanika jednostkę z pakietu, więc napisz wszystko, co wiesz o tej usterce: typowe przyczyny w kolejności prawdopodobieństwa, co je odróżnia od siebie, jak potwierdzić każdą, orientacyjną pracochłonność i to, co zwykle wychodzi przy okazji. Kompletna odpowiedź skraca naprawę i oszczędza mu kredyty.
-5. Pisz WYŁĄCZNIE po polsku — poza skrótami technicznymi (MAF, EGR, DPF). Bez wulgaryzmów.
-6. Nie zgaduj numerów katalogowych ani OE — nie masz katalogu.
+2. ZAWSZE NAJPIERW SZUKAJ W INTERNECIE — fora markowe, biuletyny serwisowe, filmy. Sprawdź, czy usterka jest w TYM modelu znana i jak ją tam rozwiązywano.
+3. NIE ZADAWAJ PYTAŃ. Wywiad już się odbył. Masz odpowiedzieć.
+4. Pisz WYŁĄCZNIE po polsku — poza skrótami technicznymi (MAF, EGR, DPF). Bez wulgaryzmów.
+5. Nie zgaduj numerów katalogowych ani OE — nie masz katalogu. Opisz część słowami i powiedz, gdzie sprawdzić numer.
+
+═══ ŹRÓDŁA — NAJWAŻNIEJSZA ZASADA ═══
+
+NIE WKLEJAJ LISTY WSZYSTKIEGO, CO ZNALAZŁEŚ. Ściana dwudziestu linków jest bezużyteczna — mechanik nie będzie ich przeglądał.
+
+Wybierz NAJWYŻEJ CZTERY najlepsze pozycje i podziel je na kategorie. Przy każdej napisz JEDNYM ZDANIEM, co konkretnie jest w środku i po co ma tam wejść:
+
+**Źródła**
+
+*Forum — opisany ten sam przypadek*
+- [tytuł](adres) — co tam ustalono i jak się skończyło
+
+*Wideo — jak to zrobić*
+- [tytuł](adres) — co pokazuje i od której minuty
+
+*Schemat / dokumentacja*
+- [tytuł](adres) — co zawiera
+
+Pomiń kategorię, dla której nie masz nic dobrego. Gdy nie znalazłeś nic wartościowego, napisz jedno zdanie: „Nie znalazłem opisu tego przypadku dla tego modelu". Lepiej jedno trafne źródło niż dwadzieścia przypadkowych.
+
+Linki wstawiaj w treści jako Markdown: [tytuł](adres). Podawaj TYLKO te, które faktycznie otworzyłeś.
 
 ═══ UKŁAD ODPOWIEDZI (Markdown) ═══
 
 **Co to najpewniej jest**
-Jedno–dwa zdania. Jeśli usterka jest w tym modelu częsta, napisz to wprost i podaj, na jakim przebiegu zwykle wychodzi.
+Jedno–dwa zdania: przyczyna i dlaczego akurat ona. Jeśli usterka jest w tym modelu częsta, napisz to wprost i podaj, na jakim przebiegu zwykle wychodzi.
 
-**Co sprawdzić po kolei**
-Lista numerowana, od najtańszego i najszybszego do najbardziej pracochłonnego. Przy każdym: co zrobić, czego użyć, jaki wynik oznacza usterkę.
+**Możliwe przyczyny — od najbardziej prawdopodobnej**
+Krótka lista. Przy każdej jedno zdanie, CO JĄ ODRÓŻNIA od pozostałych — po czym poznać, że to ta, a nie tamta.
+
+**Co zrobić po kolei**
+Lista numerowana, od najtańszego i najszybszego do najbardziej pracochłonnego. Każdy punkt ma zawierać:
+- co odkręcić albo zmierzyć,
+- czym (jaki klucz, jaki miernik, jakie ustawienie),
+- jaki wynik oznacza usterkę, a jaki ją wyklucza,
+- ile to zajmuje.
 
 **Na co uważać**
-Tylko gdy jest realne ryzyko — moment dokręcania, kalibracja po wymianie, kolejność montażu.
+Momenty dokręcania, kalibracje po wymianie, kolejność montażu, rzeczy, które łatwo uszkodzić przy okazji. Pomiń, gdy nie ma czego.
+
+**Jeśli to nie to**
+Jedno–dwa zdania: co sprawdzić w następnej kolejności, gdy powyższe nic nie dało. Dzięki temu mechanik nie musi wracać z kolejnym pytaniem.
 
 **Źródła**
-Lista linków, przy każdym jedno zdanie, co pod nim jest.`;
+Jak wyżej.
+
+Bez wstępów i bez podsumowań na końcu.`;
 
 function opiszPojazd(z: any): string {
   const p = z?.vehicle || {};
@@ -383,7 +420,7 @@ Deno.serve(async (req) => {
           { role: 'user', content: [...blokiPytania.slice(0, -1), { type: 'text', text: brief }] },
         ],
         // Bez tego narzędzia model podaje linki z pamięci, czyli je zmyśla.
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
       },
     );
 
@@ -395,18 +432,37 @@ Deno.serve(async (req) => {
 
     // Źródła zbieramy z wyników wyszukiwania — to są adresy, które model
     // NAPRAWDĘ otworzył, a nie te, które wypisał w treści.
-    const zrodla: Array<{ tytul: string; url: string }> = [];
+    const znalezione: Array<{ tytul: string; url: string }> = [];
     for (const b of bloki) {
       if (b.type !== 'web_search_tool_result') continue;
       // Przy błędzie narzędzia `content` jest OBIEKTEM, nie listą — bez tego
       // sprawdzenia iteracja rzuca wyjątkiem na pozornie udanej odpowiedzi.
       if (!Array.isArray(b.content)) continue;
       for (const r of b.content) {
-        if (r?.url && !zrodla.some((z) => z.url === r.url)) {
-          zrodla.push({ tytul: String(r.title || r.url), url: String(r.url) });
+        if (r?.url && !znalezione.some((z) => z.url === r.url)) {
+          znalezione.push({ tytul: String(r.title || r.url), url: String(r.url) });
         }
       }
     }
+
+    /**
+     * ODDAJEMY TYLKO ŹRÓDŁA, KTÓRE MODEL NAPRAWDĘ PRZYWOŁAŁ.
+     *
+     * 🔴 NAPRAWIONE 22.08.2026. Wcześniej szła lista WSZYSTKIEGO, co model
+     * otworzył w wyszukiwaniu — przy pięciu zapytaniach robiło się z tego
+     * dwadzieścia kilka linków pod odpowiedzią. Mechanik takiej ściany nie
+     * przeczyta, więc była gorsza niż nic: przykrywała samą odpowiedź.
+     *
+     * Model sam wybiera najlepsze pozycje i opisuje je w sekcji „Źródła",
+     * z podziałem na forum, wideo i schematy. Tutaj zostawiamy tylko te, które
+     * faktycznie wstawił w treść — reszta to materiał, z którego korzystał,
+     * a nie lektura dla mechanika.
+     *
+     * Gdyby nie przywołał żadnego (zdarza się przy krótkiej odpowiedzi),
+     * pokazujemy najwyżej trzy pierwsze, żeby nie zostawić go bez niczego.
+     */
+    const przywolane = znalezione.filter((z) => tekst.includes(z.url));
+    const zrodla = przywolane.length > 0 ? przywolane : znalezione.slice(0, 3);
 
     // ── Pobranie jednostki PO odpowiedzi ──────────────────────────────────
     const { data: pobranie } = await admin.rpc('billing_consume', {
