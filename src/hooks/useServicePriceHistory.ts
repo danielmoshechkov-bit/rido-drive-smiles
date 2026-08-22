@@ -58,6 +58,23 @@ export function useSaveServicePrice(providerId: string | null) {
   return useMutation({
     mutationFn: async (params: { name: string; priceNet: number; priceGross: number }) => {
       if (!providerId) return;
+
+      /**
+       * POZYCJA BEZ CENY NIE TRAFIA DO PAMIĘCI.
+       *
+       * 🔴 NAPRAWIONE 22.08.2026. Wiersz zapisuje się sam, gdy tylko ma NAZWĘ —
+       * cena bywa wpisywana chwilę później. Pamięć dostawała więc wpis z ceną
+       * zero, a podpowiedź pokazywała gołą nazwę bez kwoty. Do tego przy
+       * wpisywaniu „wymiana rozrzadu" po drodze zapisywały się urwane wersje
+       * („wymiana rozrz", „wymiana rozrzad") — każda jako osobna pozycja bez ceny.
+       *
+       * Podpowiedź bez kwoty nie ma po co istnieć: cała jej wartość to
+       * przypomnienie, ile warsztat brał ostatnim razem. Zapisujemy więc dopiero
+       * wtedy, gdy cena jest znana — przy zakładaniu pozycji z ceną albo przy
+       * późniejszej poprawce kwoty w zapisanym wierszu.
+       */
+      if (!(params.priceNet > 0) && !(params.priceGross > 0)) return;
+
       const norm = normalize(params.name);
 
       // Upsert to price history
