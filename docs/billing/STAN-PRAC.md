@@ -315,6 +315,27 @@ To decyzja o warstwie zapasowej, nie naprawa dziury.
 Pojedynczych wyjątków nie robimy: jedna wyspa nie jest polityką, a następna
 migracja i tak by ją cofnęła.
 
+### 4.10b Korekta faktury przy zwrocie — ODŁOŻONE ŚWIADOMIE
+
+Zwroty i obciążenia zwrotne odbierają jednostki (migracja `20260819140000`), ale
+**nie wystawiają faktury korygującej**. Przy włączonym KSeF korekta musi tam trafić.
+
+**Decyzja (22.08.2026): odkładamy.** Powód: zwrot na starcie sprzedaży jest zdarzeniem
+rzadkim, a korekta wystawiona ręcznie w module księgowości zajmuje kilka minut i jest
+poprawna. Automat wart jest zbudowania, gdy zwroty przestaną być pojedynczymi
+przypadkami.
+
+**Czym grozi:** przy zwrocie trzeba pamiętać o ręcznej korekcie. Jeśli się o niej
+zapomni, przychód w księgach jest zawyżony.
+**Pilność:** niska, dopóki zwroty liczy się na palcach. **Do przypomnienia po
+pierwszych dziesięciu zwrotach.**
+
+### 4.10c Postacie Rido bez plików graficznych
+
+`mascot-fleet`, `mascot-accountant` i `mascot-driver` istnieją w repozytorium wyłącznie
+jako `.asset.json`, bez samego obrazu. Mapowanie linii produktowej na postać użyje dla
+nich wersji domyślnej. Do wgrania, gdy któraś linia będzie ich potrzebować.
+
 ### 4.11 Node.js 20 wycofywany z GitHub Actions
 
 Przy wdrożeniu 21.08.2026 pojawiło się ostrzeżenie, że akcje działające na Node 20
