@@ -100,6 +100,30 @@ Jeśli `Cannot find project ref`, skopiuj `supabase/.temp/` z `/Users/moshechkov
   migracji ruszającej salda klientów ten jeden krok, w którym człowiek patrzy, co wykonuje,
   jest tańszy niż jego brak.
 
+### Migracja zmieniająca stan bazy unieważnia założenia w kodzie, który jej nie dotyczy
+
+Wariant A dał wiersz w `billing_subscriptions` **każdemu** warsztatowi. `PlanBadge`
+w zupełnie innym pliku zakładał, że **brak** tego wiersza znaczy okres próbny:
+
+```ts
+if (!szczegoly && dostep.koniecOkresu) {   // ← było prawdą do wariantu A
+```
+
+Od migracji warunek jest zawsze fałszywy. Licznik dni zniknął z paska wszystkim
+w okresie próbnym — bez błędu, bez ostrzeżenia, bez śladu w logach. Znalazł to
+dopiero test na żywym koncie.
+
+**Przy każdej migracji zmieniającej to, CZY wiersz istnieje** (uzupełnienie wsteczne,
+zakładanie brakujących wierszy, kasowanie), przejdź po kodzie szukającym **jego braku**:
+
+```
+grep -rn "!szczegoly\|=== null\|== null\|IS NULL\|maybeSingle" src/
+```
+
+Szukaj kodu sprawdzającego **samą obecność**, nie kodu czytającego treść wiersza.
+To inne zapytanie i łatwiej je przeoczyć — czytający treść zwykle i tak ma gałąź
+na `null`, sprawdzający obecność traktuje ją jako znaczącą.
+
 ### `REVOKE ... FROM public` NIE odbiera uprawnień `anon` ani `authenticated`
 
 `PUBLIC` w PostgreSQL to osobne uprawnienie domyślne. Supabase nadaje `EXECUTE`

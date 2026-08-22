@@ -1,6 +1,8 @@
 import { AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { usePublicPricing } from '@/hooks/usePublicPricing';
+import { KupMiesiacBlik } from '@/components/billing/KupMiesiacBlik';
 import type { DostepWarsztatu } from '@/hooks/useSubscriptionAccess';
 
 /**
@@ -42,8 +44,16 @@ function licznik(dni: number | null): string {
 
 export function PasekDokanczania({ dostep }: { dostep: DostepWarsztatu }) {
   const navigate = useNavigate();
+  const { plans } = usePublicPricing();
 
   if (dostep.stan !== 'dokanczanie') return null;
+
+  // Najtańszy plan warsztatowy z ceną — do zapłaty jednorazowej. Wybór planu
+  // zostaje przy kliencie (przycisk obok prowadzi do cennika); tu chodzi o to,
+  // żeby ktoś bez karty miał czym zapłacić OD RAZU, nie po trzech ekranach.
+  const plan = plans
+    .filter((p) => p.product_line === 'warsztat' && !p.is_custom && Number(p.price_net) > 0)
+    .sort((a, b) => Number(a.price_net) - Number(b.price_net))[0];
 
   const t = TRESC[dostep.powod === 'platnosc' ? 'platnosc' : 'trial'];
   const data = dostep.dokanczanieDo
@@ -68,15 +78,23 @@ export function PasekDokanczania({ dostep }: { dostep: DostepWarsztatu }) {
           </div>
         </div>
 
-        {/* Prowadzi do cennika, nie kupuje od razu: wybór planu należy do
-            klienta, a przycisk kupujący „coś" byłby pułapką. */}
-        <Button
-          size="sm"
-          onClick={() => navigate('/cennik')}
-          className="shrink-0 self-start sm:self-auto"
-        >
-          {t.cta}
-        </Button>
+        <div className="flex shrink-0 flex-wrap gap-2 self-start sm:self-auto">
+          {/* Prowadzi do cennika, nie kupuje od razu: wybór planu należy do
+              klienta, a przycisk kupujący „coś" byłby pułapką. */}
+          <Button size="sm" onClick={() => navigate('/cennik')}>
+            {t.cta}
+          </Button>
+
+          {/* Droga bez karty, obok — nie zamiast. */}
+          {plan && (
+            <KupMiesiacBlik
+              planCode={plan.code}
+              etykieta="BLIK-iem za miesiąc"
+              wariant="secondary"
+              klasa="h-9 px-3 text-sm"
+            />
+          )}
+        </div>
       </div>
     </div>
   );

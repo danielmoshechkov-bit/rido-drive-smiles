@@ -61,15 +61,103 @@ Deno.serve(async (req) => {
     const baza = bramka.is_sandbox ? PAYU_SANDBOX : PAYU_PRODUKCJA;
 
     // ── Produkt, liczba jednostek i kwota ───────────────────────────
-    const { product_code, units } = await req.json().catch(() => ({}));
-    if (typeof product_code !== 'string' || !product_code.trim()) {
-      return json({ error: 'Nie wskazano produktu.' }, 400);
+    const { product_code, units, plan_code } = await req.json().catch(() => ({}));
+
+    // Dwie rzeczy do kupienia, jedna droga płatności:
+    //   • DOŁADOWANIE — produkt z `billing_addon_products`, liczony w sztukach,
+    //   • MIESIĄC PLANU — jednorazowa opłata za okres dostępu.
+    //
+    // Miesiąc płatny BLIK-iem to pełnoprawna droga, nie awaryjna: część
+    // warsztatów nie podepnie karty, a bez tego tryb dokończenia pokazuje im
+    // drzwi, które nie otwierają się ich kluczem.
+    const kupujePlan = typeof plan_code === 'string' && !!plan_code.trim();
+
+    if (!kupujePlan && (typeof product_code !== 'string' || !product_code.trim())) {
+      return json({ error: 'Nie wskazano produktu ani planu.' }, 400);
     }
-    const liczba = Number(units);
-    if (!Number.isInteger(liczba) || liczba <= 0) {
+    if (kupujePlan && typeof product_code === 'string' && product_code.trim()) {
+      // Jedno zamówienie dotyczy jednej rzeczy — tak samo mówi ograniczenie
+      // `billing_orders_produkt_albo_plan` w bazie.
+      return json({ error: 'Wskaż produkt ALBO plan, nie oba.' }, 400);
+    }
+
+    const liczba = kupujePlan ? 1 : Number(units);
+    if (!kupujePlan && (!Number.isInteger(liczba) || liczba <= 0)) {
       return json({ error: 'Nieprawidłowa liczba sztuk.' }, 400);
     }
 
+    // Warsztat ustalamy PRZED wyceną: cena miesiąca zależy od jego gwarancji
+    // ceny startowej, a nie od samego kodu planu.
+    const { data: warsztat } = await admin
+      .from('service_providers')
+      .select('id, company_name, owner_email, company_email')
+      .eq('user_id', caller.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (!warsztat) {
+      return json({ error: 'Ten pakiet jest dla usługodawców.', code: 'NO_PROVIDER' }, 404);
+    }
+
+    /**
+     * Jedna pozycja zamówienia, dwa źródła.
+     *
+     * Doładowanie i miesiąc planu różnią się WYCENĄ i tym, którą kolumnę
+     * wypełniają (`product_id` albo `plan_id`). Wszystko dalej — założenie
+     * wiersza, wyjście do operatora, adres powrotu — jest identyczne, więc
+     * stoi w jednym miejscu. Dwie kopie tej ścieżki rozjechałyby się przy
+     * pierwszej poprawce w obsłudze płatności.
+     */
+    interface Pozycja {
+      product_id?: string;
+      plan_id?: string;
+      units: number;
+      amount_gross: number;
+      opis: string;
+      snapshot: Record<string, unknown>;
+    }
+    let pozycja: Pozycja | null = null;
+
+    // ── MIESIĄC PLANU ───────────────────────────────────────────────
+    if (kupujePlan) {
+      const { data: cena, error: bladCeny } = await (admin as any)
+        .rpc('billing_cena_miesiaca', { p_plan_code: plan_code.trim(), p_provider: warsztat.id })
+        .maybeSingle();
+
+      if (bladCeny || !cena) {
+        const tresc = (bladCeny as { message?: string } | null)?.message ?? '';
+        const znane = tresc.startsWith('PLAN_NIEZNANY') || tresc.startsWith('PLAN_NIE_DO_KUPIENIA');
+        console.warn('billing-payu-order: wycena miesiąca odrzucona', tresc);
+        return json({
+          error: znane ? 'Tego planu nie da się kupić na miesiąc.' : 'Nie udało się wycenić miesiąca.',
+          code: 'BAD_PLAN',
+        }, 400);
+      }
+
+      pozycja = {
+        plan_id: cena.plan_id,
+        units: 1,
+        amount_gross: Number(cena.cena_brutto),
+        opis: `GetRido — ${cena.nazwa}, miesiąc`,
+        snapshot: {
+          rodzaj: 'miesiac_planu',
+          plan_code: plan_code.trim(),
+          name: cena.nazwa,
+          amount_net: cena.cena_netto,
+          amount_gross: cena.cena_brutto,
+          vat_rate: cena.vat_rate,
+          po_gwarancji: cena.po_gwarancji,
+          data: new Date().toISOString(),
+        },
+      };
+    }
+
+    // ── DOŁADOWANIE ─────────────────────────────────────────────────
+    // `else` do gałęzi planu wyżej. Bez tego wycena miesiąca ustawiała pozycję,
+    // a wykonanie leciało dalej i pytało bazę o produkt, którego żądanie nie
+    // podało — kończąc się odmową mimo poprawnego zamówienia.
+    if (!kupujePlan) {
     // KWOTĘ LICZY BAZA, nie ta funkcja i tym bardziej nie żądanie. Tam też
     // siedzi sprawdzenie kroku i minimum, więc reguła obowiązuje niezależnie
     // od tego, kto pyta — inaczej dałoby się kupić 1 SMS zamiast setki.
@@ -96,16 +184,33 @@ Deno.serve(async (req) => {
 
     if (!produkt) return json({ error: 'Ten pakiet jest niedostępny.', code: 'NO_PRODUCT' }, 404);
 
-    const { data: warsztat } = await admin
-      .from('service_providers')
-      .select('id, company_name, owner_email, company_email')
-      .eq('user_id', caller.id)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+    pozycja = {
+      product_id: produkt.id,
+      units: liczba,
+      amount_gross: Number(wycena.amount_gross),
+      opis: `GetRido — ${liczba} × ${produkt.name}`,
+      // Zamrożona STAWKA, nie tylko kwota. Przy sporze trzeba umieć odtworzyć,
+      // po ile klient kupował, a nie tylko ile zapłacił.
+      snapshot: {
+        rodzaj: 'doladowanie',
+        code: produkt.code,
+        name: produkt.name,
+        units: liczba,
+        unit_price_net: wycena.unit_price_net,
+        amount_net: wycena.amount_net,
+        amount_gross: wycena.amount_gross,
+        vat_rate: wycena.vat_rate,
+        waznosc_dni: produkt.waznosc_dni,
+        data: new Date().toISOString(),
+      },
+    };
+    }
 
-    if (!warsztat) {
-      return json({ error: 'Ten pakiet jest dla usługodawców.', code: 'NO_PROVIDER' }, 404);
+    // Żadna gałąź nie ustawiła pozycji — nie wiemy, za co pobierać pieniądze.
+    // Fail-closed: brak wiedzy to odmowa, nie domyślne przepuszczenie.
+    if (!pozycja) {
+      console.error('billing-payu-order: żadna gałąź nie ustawiła pozycji zamówienia');
+      return json({ error: 'Nie udało się rozpocząć płatności.' }, 500);
     }
 
     // ── Zamówienie u nas — PRZED wyjściem do operatora ───────────────
@@ -117,24 +222,13 @@ Deno.serve(async (req) => {
         subscriber_type: 'service_provider',
         subscriber_id: warsztat.id,
         user_id: caller.id,
-        product_id: produkt.id,
-        units: liczba,
-        amount_gross: wycena.amount_gross,
+        ...(pozycja.product_id ? { product_id: pozycja.product_id } : {}),
+        ...(pozycja.plan_id ? { plan_id: pozycja.plan_id } : {}),
+        units: pozycja.units,
+        amount_gross: pozycja.amount_gross,
         status: 'nowe',
         provider: 'payu',
-        // Zamrożona STAWKA, nie tylko kwota. Przy sporze trzeba umieć
-        // odtworzyć, po ile klient kupował, a nie tylko ile zapłacił.
-        snapshot: {
-          code: produkt.code,
-          name: produkt.name,
-          units: liczba,
-          unit_price_net: wycena.unit_price_net,
-          amount_net: wycena.amount_net,
-          amount_gross: wycena.amount_gross,
-          vat_rate: wycena.vat_rate,
-          waznosc_dni: produkt.waznosc_dni,
-          data: new Date().toISOString(),
-        },
+        snapshot: pozycja.snapshot,
       })
       .select('id')
       .maybeSingle();
@@ -146,7 +240,7 @@ Deno.serve(async (req) => {
 
     // ── Zamówienie u operatora ──────────────────────────────────────
     const dostep = await tokenPayu(baza, clientId, clientSecret);
-    const grosze = naGrosze(Number(wycena.amount_gross));
+    const grosze = naGrosze(pozycja.amount_gross);
 
     const odpowiedz = await fetch(`${baza}/api/v2_1/orders`, {
       method: 'POST',
@@ -162,7 +256,7 @@ Deno.serve(async (req) => {
         continueUrl: buildPublicUrl('/uslugi/panel?platnosc=payu'),
         customerIp: ipKupujacego(req.headers),
         merchantPosId: posId,
-        description: `GetRido — ${liczba} × ${produkt.name}`,
+        description: pozycja.opis,
         currencyCode: 'PLN',
         totalAmount: String(grosze),
         // `extOrderId` wiąże powiadomienie z naszym wierszem. To po nim,
@@ -173,7 +267,7 @@ Deno.serve(async (req) => {
           language: 'pl',
         },
         products: [{
-          name: `${produkt.name} (${liczba} szt.)`,
+          name: pozycja.opis,
           unitPrice: String(grosze),
           quantity: '1',
         }],
@@ -202,7 +296,7 @@ Deno.serve(async (req) => {
 
     console.log(JSON.stringify({
       event: 'payu_zamowienie', order: zamowienie.id, payu: idUOperatora,
-      produkt: produkt.code, jednostek: liczba, grosze,
+      pozycja: pozycja.snapshot.rodzaj, jednostek: pozycja.units, grosze,
     }));
 
     return json({ url: przekierowanie, order_id: zamowienie.id });
