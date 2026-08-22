@@ -52,7 +52,7 @@ KATALOG = Path(__file__).resolve().parents[2] / "supabase" / "migrations"
 #
 # Gdyby ktoś chciał sprawdzić stan faktyczny, a nie pliki, zapytanie jest
 # w nagłówku niżej.
-OD_WERSJI = "20260822180000"
+OD_WERSJI = "20260822185000"
 
 # Funkcje zamknięte hurtem przez tę migrację. Wymienione z nazwy, bo numer
 # wersji nie porządkuje ich chronologicznie: `20260823090000_ksiega_rejestr_decyzji`
@@ -67,6 +67,9 @@ ZAMKNIETE_ZBIORCZO = {
     "link_referral_on_signup", "onboarding_pojazd_za_darmo", "przyznaj_pakiet_startowy",
     "sms_wygas_paczki", "voice_nadaj_minuty", "voice_wyzeruj_minuty", "zwroc_sms_credit",
     "deduct_sms_credit", "deduct_vehicle_lookup_credit", "billing_znacznik_karencji",
+    # Domknięta osobno migracją 20260822200000 — powstała po poprawce zbiorczej,
+    # tym samym nieskutecznym wzorcem `REVOKE ... FROM public`.
+    "przyznaj_start_rido_ai",
 }
 
 # Tabele, których zapis znaczy „pieniądze albo dostęp".
