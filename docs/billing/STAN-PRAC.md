@@ -1,6 +1,6 @@
 # Stan prac — płatności, kredyty, bezpieczeństwo zapisu
 
-**Data spisania:** 19.08.2026
+**Data spisania:** 19.08.2026, zaktualizowane 21.08.2026
 **Gałąź robocza:** `wdrozenie` (worktree `/Users/moshechkov/rido-pay-lock`)
 **Stan względem `origin/main`:** wszystko scalone poza jednym commitem (`c11710ba`,
 poprawka kontroli w migracji podpisu najmu).
@@ -78,6 +78,13 @@ Zawiera m.in.:
 ---
 
 ## 2. GOTOWE, ALE NIEWDROŻONE
+
+> **Stan na 21.08.2026:** wszystko z tej grupy poza migracją kont demonstracyjnych
+> jest już na produkcji. `20260820140000` i `20260820180000` wykonane, `rental-portal-get`
+> wdrożona 19.08, front scalony do `main` (PR #57) i wdrożony. Dziesięć funkcji
+> brzegowych porównanych z `main` po przebudowie przez Lovable — wszystkie zgodne
+> bajt w bajt. Pozycje niżej zostają jako zapis, co i dlaczego wchodziło w tej
+> kolejności.
 
 ### 2.1 Migracja `20260820140000_podpis_najmu_i_widocznosc` — **następny krok**
 
@@ -279,7 +286,49 @@ oraz w konfiguracji ElevenLabs **obowiązuje**. Zaległe, wszystko jako opis:
 **Grozi:** tym, że klient nie uruchomi funkcji, za którą płaci.
 **Pilność:** przed sprzedażą modułu głosowego.
 
-### 4.10 Ostrzeżenie o Lovable
+### 4.10 Uprawnienia tabelowe w całej bazie — DO ROZSTRZYGNIĘCIA
+
+**530 z 561 tabel** daje rolom `anon` i `authenticated` pełne uprawnienia zapisu
+(`INSERT`, `UPDATE`, `DELETE`). To domyślna konfiguracja platformy Supabase, nie
+przeoczenie w konkretnej migracji — `GRANT SELECT` dopisany w migracji niczego nie
+odbiera, a nowa tabela dostaje szerokie uprawnienia z automatu.
+
+Skutek: **jedyną realną warstwą ochrony jest RLS.** Tabela bez polityki zapisu jest
+zamknięta (RLS odmawia domyślnie), ale wystarczy, że ktoś dołoży politykę zbyt
+szeroką, i uprawnienia nie stawiają żadnego oporu.
+
+Wyszło przy `workshop_onboarding_usage` (licznik darmowego wprowadzenia): migracja
+deklarowała `GRANT SELECT` dla `authenticated`, a produkcja pokazała pełen zestaw.
+
+**Pytanie do rozstrzygnięcia:** czy odbieramy uprawnienia zapisu w całej bazie
+i zostawiamy je tylko tam, gdzie są potrzebne — czy świadomie zostajemy przy RLS
+jako jedynej warstwie.
+
+Argument za domknięciem: dwie warstwy zamiast jednej; błąd w polityce przestaje
+wystarczać do wycieku. Argument przeciw: 530 tabel to duża zmiana o szerokim
+zasięgu, a każda nowa tabela wymagałaby pamiętania o `REVOKE` — czyli reguły,
+o której się zapomina. Jeśli w tę stronę, to razem z kontrolą w CI.
+
+**Czym grozi w międzyczasie:** niczym nowym — tak działa dziś cały projekt.
+To decyzja o warstwie zapasowej, nie naprawa dziury.
+**Pilność:** niska technicznie, ale **rozstrzygnąć przed wzrostem liczby tabel**.
+Pojedynczych wyjątków nie robimy: jedna wyspa nie jest polityką, a następna
+migracja i tak by ją cofnęła.
+
+### 4.11 Node.js 20 wycofywany z GitHub Actions
+
+Przy wdrożeniu 21.08.2026 pojawiło się ostrzeżenie, że akcje działające na Node 20
+będą zmuszane do Node 24. Dotyczy `actions/checkout@v4`, `actions/setup-node@v4`
+i `SamKirkland/FTP-Deploy-Action@v4.3.4`.
+
+**Czym grozi:** dziś niczym — działa. Kiedyś przebiegi zaczną padać, i stanie się to
+w dniu, w którym akurat trzeba coś wdrożyć.
+**Jak naprawić:** podbicie do `@v5` przy checkout i setup-node; przy FTP-Deploy
+sprawdzić, czy jest wydanie na Node 24, bo to akcja spoza GitHuba.
+**Pilność:** niska, ale to praca na dziesięć minut — zrobić przy najbliższej okazji,
+nie pod presją zepsutego wdrożenia.
+
+### 4.12 Ostrzeżenie o Lovable
 
 Lovable nadpisuje funkcje brzegowe po scaleniu do `main`. **Po każdym deployu**
 porównuj SHA-256 kodu z produkcji (`supabase functions download`) z zawartością `main`.
