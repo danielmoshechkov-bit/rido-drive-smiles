@@ -391,7 +391,7 @@ const gridClass = (count: number) =>
     ? "md:grid-cols-3"
     : "md:grid-cols-2 lg:grid-cols-4";
 
-const WarsztatContent = ({ section, onCta }: { section: Section; onCta: () => void }) => {
+const WarsztatContent = ({ section, onCta, onKontakt }: { section: Section; onCta: () => void; onKontakt: () => void }) => {
   const { plans, loading, error } = usePublicPricing();
 
   // Rejestracja odbywa się na miejscu, bez przerzucania na inną stronę:
@@ -438,7 +438,7 @@ const WarsztatContent = ({ section, onCta }: { section: Section; onCta: () => vo
             Nie udało się wczytać aktualnego cennika. Odśwież stronę albo napisz do nas —
             podamy ceny od ręki.
           </p>
-          <Button variant="default" onClick={onCta}>
+          <Button variant="default" onClick={onKontakt}>
             Skontaktuj się z nami
           </Button>
         </Card>
@@ -488,8 +488,8 @@ const WarsztatContent = ({ section, onCta }: { section: Section; onCta: () => vo
   );
 };
 
-const SectionContent = ({ section, onCta }: { section: Section; onCta: () => void }) => {
-  if (section.id === "warsztat") return <WarsztatContent section={section} onCta={onCta} />;
+const SectionContent = ({ section, onCta, onKontakt }: { section: Section; onCta: () => void; onKontakt: () => void }) => {
+  if (section.id === "warsztat") return <WarsztatContent section={section} onCta={onCta} onKontakt={onKontakt} />;
   if (section.id === "uslugi") return <UslugiContent onCta={onCta} />;
   if (section.id === "ai") return <AiProContent onCta={onCta} />;
   if (section.id === "polecenia") return <PoleceniaContent />;
@@ -951,7 +951,21 @@ const PoleceniaContent = () => (
 const CennikPage = () => {
   const [tab, setTab] = useState("auta");
   const navigate = useNavigate();
-  const goCta = () => navigate("/kontakt");
+  /**
+   * Duże przyciski cennika prowadzą do ZAKUPU, nie do formularza kontaktowego.
+   *
+   * Prowadziły do `/kontakt`, a napisy na nich brzmią „Zarejestruj się i wystaw
+   * usługę za darmo" i „Dołącz teraz za darmo". Klient, który klika taki
+   * przycisk i trafia na formularz kontaktowy, uznaje, że od ręki kupić się
+   * nie da — i odchodzi.
+   *
+   * Kafelki planów warsztatowych mają własną drogę (`klikPlan` → `billing-checkout`)
+   * i jej nie ruszamy. Tu chodzi o przyciski, które obiecują rejestrację.
+   */
+  const goCta = () => navigate("/auth");
+
+  /** Wyłącznie awaryjna karta „nie udało się wczytać cennika" — tam kontakt jest na miejscu. */
+  const goKontakt = () => navigate("/kontakt");
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -1002,7 +1016,7 @@ const CennikPage = () => {
 
               {sections.map((section) => (
                 <TabsContent key={section.id} value={section.id} className="mt-0">
-                  <SectionContent section={section} onCta={goCta} />
+                  <SectionContent section={section} onCta={goCta} onKontakt={goKontakt} />
                 </TabsContent>
               ))}
             </Tabs>
