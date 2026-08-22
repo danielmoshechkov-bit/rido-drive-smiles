@@ -2,7 +2,19 @@
 CREATE ROLE anon;  CREATE ROLE authenticated;  CREATE ROLE service_role;
 CREATE SCHEMA auth;
 CREATE TABLE auth.users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text);
-CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
+-- `auth.uid()` MUSI czytać `app.uid`, inaczej każdy test RLS przechodzi
+-- z niewłaściwego powodu.
+--
+-- 22.08.2026: ta funkcja zwracała tu `NULL::uuid`. Skutek: polityka właściciela
+-- („mój warsztat") nigdy nie pasowała, więc baza odmawiała WSZYSTKIEGO — a test
+-- bramki, który sprawdza „czy odmówiono", wypadał zielono. Trzy przypadki
+-- w teście trybu dokończenia przeszły w ten sposób, zanim wyszło, że przypadek
+-- kontrolny („pełny dostęp MA przepuścić") też jest odmawiany.
+--
+-- Stąd zasada: w każdym teście RLS musi być przypadek, który ma PRZEJŚĆ.
+-- Sam zestaw odmów niczego nie dowodzi.
+CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
+AS $$ SELECT NULLIF(current_setting('app.uid', true), '')::uuid $$;
 
 CREATE TYPE public.billing_product_line       AS ENUM ('warsztat','agent','other');
 CREATE TYPE public.billing_subscriber_type    AS ENUM ('service_provider','fleet','entity','company');
