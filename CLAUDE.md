@@ -84,6 +84,29 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 ## Zasady pracy z tym repozytorium (ustalone 21.08.2026)
 
+### Warunek w kodzie i więz w bazie muszą mówić to samo
+
+Najważniejsza rzecz, jaka wyszła z tej sesji. Zmiana jednego bez drugiego nie naprawia
+błędu — **przenosi go w gorsze miejsce**.
+
+`billing-checkout` odmawiał zakupu wszystkim, bo sprawdzał obecność wiersza subskrypcji.
+Poluzowanie tego warunku wyglądało na całą naprawę. Nie było: webhook robi `INSERT`,
+a indeks `billing_subscriptions_one_active` odrzuciłby drugi wiersz. Klient zapłaciłby,
+Stripe pobrałby pieniądze, a subskrypcja by nie powstała — **ciche gubienie płatności
+zamiast widocznej odmowy**.
+
+Przy każdej zmianie warunku decydującego o zapisie sprawdź, czy baza mówi to samo:
+
+```sql
+-- więzy i indeksy na tabeli, którą ruszasz
+SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'public.tabela'::regclass;
+SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'tabela';
+```
+
+Odmowa jest stanem bezpiecznym — widać ją i ktoś ją zgłosi. Zapis, który cicho nie
+dochodzi, wychodzi na jaw przy reklamacji.
+
+
 ### Dostęp do bazy produkcyjnej
 
 Dostęp DZIAŁA: `supabase db query --linked -f plik.sql` (project ref `wclrrytmrscqvsyxyvnn`).
@@ -135,10 +158,6 @@ formach:
 Druga forma jest groźniejsza, bo objawia się odmową, a odmowa wygląda jak zamierzone
 zabezpieczenie. Pierwsza tylko czegoś nie pokazuje.
 
-**Sprawdź też więzy i indeksy.** Poluzowanie warunku w kodzie nie wystarczyło: indeks
-`billing_subscriptions_one_active` odrzucał drugi wiersz, więc zakup trzeba było zmienić
-z „załóż subskrypcję" na „przeprowadź istniejącą w stan opłacony". Warunek w kodzie
-i więz w bazie muszą mówić to samo.
 
 ### `REVOKE ... FROM public` NIE odbiera uprawnień `anon` ani `authenticated`
 
