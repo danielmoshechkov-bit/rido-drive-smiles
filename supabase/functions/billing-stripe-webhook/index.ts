@@ -403,10 +403,50 @@ Deno.serve(async (req) => {
       case "customer.subscription.deleted": {
         const status = typ.endsWith("deleted") ? "canceled" : mapujStatus(obiekt.status);
         const okres = okresSubskrypcji(obiekt);
+
+        /**
+         * 🔴 PLAN TEŻ SIĘ ZMIENIA, NIE TYLKO STATUS I OKRES.
+         *
+         * Ta gałąź aktualizowała status, okres i daty anulowania — a `plan_id`
+         * zostawiała nietknięte. Skutek: ktokolwiek zmieni plan (klient przez
+         * okno zakupu, my ręcznie w panelu Stripe), operator pobiera nową
+         * kwotę, a my dalej bramkujemy po STARYM planie.
+         *
+         * Klient płaci za Pro i widzi Standard. Pieniądze idą, dostęp nie —
+         * i nikt tego nie zauważy, bo obie strony „działają".
+         *
+         * Rozpoznajemy plan po cenie, na której subskrypcja JEST w Stripe.
+         * Cztery kolumny, bo plan ma cenę miesięczną i roczną, każdą
+         * w wariancie startowym i docelowym — a wszystkie cztery znaczą
+         * ten sam plan.
+         */
+        const cenaTeraz = obiekt?.items?.data?.[0]?.price?.id;
+        let planZeStripe: string | null = null;
+        if (cenaTeraz) {
+          const { data: dopasowany } = await admin
+            .from("billing_plans")
+            .select("id, code")
+            .or([
+              `stripe_price_id.eq.${cenaTeraz}`,
+              `stripe_price_id_target.eq.${cenaTeraz}`,
+              `stripe_price_id_rok.eq.${cenaTeraz}`,
+              `stripe_price_id_rok_target.eq.${cenaTeraz}`,
+            ].join(","))
+            .maybeSingle();
+          if (dopasowany?.id) {
+            planZeStripe = dopasowany.id;
+          } else {
+            // Cena spoza naszego cennika — NIE zgadujemy planu. Lepiej zostawić
+            // stary i zostawić ślad, niż przypisać zły zakres funkcji.
+            console.warn("billing-stripe-webhook: cena nieznana w cenniku", cenaTeraz, obiekt.id);
+          }
+        }
+
         const trafione = await aktualizujSubskrypcje(admin, obiekt.id, {
           status,
           ...(okres.start ? { current_period_start: okres.start } : {}),
           current_period_end: okres.end,
+          ...(planZeStripe ? { plan_id: planZeStripe } : {}),
           canceled_at: obiekt.canceled_at ? naDate(obiekt.canceled_at) : null,
           cancel_at: obiekt.cancel_at ? naDate(obiekt.cancel_at) : null,
         });
