@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Lock, Loader2 } from 'lucide-react';
 import { useCheckout } from '@/hooks/useCheckout';
 import { usePublicPricing } from '@/hooks/usePublicPricing';
+import { KupMiesiacBlik } from '@/components/billing/KupMiesiacBlik';
 import type { PowodBlokady, LiniaProduktowa } from '@/hooks/useSubscriptionAccess';
 
 /**
@@ -115,6 +116,18 @@ export function ModuleLock({
           {pending === plan.code ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
           {powod === 'platnosc' ? tresc.cta : `${tresc.cta} — od ${Number(plan.price_net)} zł netto`}
         </Button>
+      )}
+
+      {/* Druga droga płatności, tej samej wielkości i bez nawiasów.
+          Część warsztatów karty nie podepnie — dla nich abonament ze Stripe
+          to nie jest wyjście, tylko ta sama ściana. Po miesiącu blokada wraca
+          i klient płaci ponownie, świadomie. */}
+      {plan && (
+        <KupMiesiacBlik
+          planCode={plan.code}
+          etykieta={`Zapłać BLIK-iem za miesiąc — ${Number(plan.price_net)} zł netto`}
+          klasa="w-full mt-2"
+        />
       )}
 
       {/* Po zakończeniu triala klient nie wie jeszcze, CZEGO chce — jeden
