@@ -100,6 +100,23 @@ Jeśli `Cannot find project ref`, skopiuj `supabase/.temp/` z `/Users/moshechkov
   migracji ruszającej salda klientów ten jeden krok, w którym człowiek patrzy, co wykonuje,
   jest tańszy niż jego brak.
 
+### Test RLS musi zawierać przypadek, który ma PRZEJŚĆ
+
+Sam zestaw odmów niczego nie dowodzi. Jeśli podkład testowy jest zepsuty, baza odmawia
+wszystkiego — a test pytający „czy odmówiono" wypada zielono.
+
+Zdarzyło się to dwa razy w jednej sesji:
+- audyt RLS z `SET LOCAL ROLE` poza transakcją działał jako superużytkownik i pokazał
+  czternaście nieistniejących wycieków,
+- `scripts/sql-harness/stub.sql` definiował `auth.uid()` jako `NULL::uuid`, więc polityka
+  właściciela nigdy nie pasowała; trzy przypadki testu bramki przeszły z niewłaściwego
+  powodu i wyszło to dopiero na przypadku kontrolnym.
+
+Za każdym razem zielony wynik brał się z **niedziałającego narzędzia**, nie z działającego
+kodu. Dlatego: każdy test polityk zawiera co najmniej jedną operację, która MA się udać,
+i sprawdza, że się udała. Przy `UPDATE`/`DELETE` liczy dotknięte wiersze — polityka
+`RESTRICTIVE` filtruje wiersze, nie rzuca wyjątkiem, więc brak błędu nie znaczy sukcesu.
+
 ### Ukończona praca wraca do `main` tego samego dnia
 
 Lovable pracuje na `main`. Wszystko, co siedzi tylko na gałęzi roboczej, jest dla niego
