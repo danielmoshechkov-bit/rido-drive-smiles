@@ -325,7 +325,7 @@ Deno.serve(async (req) => {
       const miesiacPlanu = !!rodzaj?.plan_id;
 
       const { data: packId, error: bladWydania } = miesiacPlanu
-        ? await admin.rpc('billing_wydaj_miesiac', { p_order_id: zamowienie.id })
+        ? await admin.rpc('billing_wydaj_okres', { p_order_id: zamowienie.id })
         : await admin.rpc('billing_wydaj_paczke', { p_order_id: zamowienie.id });
 
       if (bladWydania) {
@@ -337,7 +337,7 @@ Deno.serve(async (req) => {
       }
 
       console.log(JSON.stringify({
-        event: miesiacPlanu ? 'payu_miesiac_wydany' : 'payu_pakiet_wydany',
+        event: miesiacPlanu ? 'payu_okres_wydany' : 'payu_pakiet_wydany',
         order: zamowienie.id, wynik: packId,
       }));
     }

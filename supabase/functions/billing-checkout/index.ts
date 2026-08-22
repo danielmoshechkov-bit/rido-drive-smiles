@@ -64,16 +64,33 @@ Deno.serve(async (req) => {
     const planCode = String(body?.plan_code ?? "").trim();
     if (!planCode) return json({ error: "Brak kodu planu" }, 400);
 
+    // Okres rozliczeniowy. Cokolwiek innego niż „rok" znaczy miesiąc — nie
+    // zgadujemy i nie odmawiamy, bo brak pola to po prostu starsze wywołanie.
+    const okresRok = String(body?.okres ?? "miesiac").trim() === "rok";
+
     // ---- plan ----
     const { data: plan, error: planErr } = await admin
       .from("billing_plans")
-      .select("id, code, name, product_line, price_net, is_active, is_custom, stripe_price_id")
+      .select("id, code, name, product_line, price_net, is_active, is_custom, stripe_price_id, stripe_price_id_rok")
       .eq("code", planCode)
       .maybeSingle();
     if (planErr) throw planErr;
     if (!plan || !plan.is_active) return json({ error: "Plan niedostępny" }, 404);
     if (plan.is_custom) return json({ error: "Ten plan wyceniamy indywidualnie — napisz do nas." }, 400);
     if (Number(plan.price_net) === 0) return json({ error: "Plan darmowy nie wymaga płatności" }, 400);
+    /**
+     * Cena w Stripe zależy od OKRESU, bo obiekty Price są tam niezmienne
+     * i każdy okres ma własny. Zakłada je synchronizacja cennika — jeśli
+     * roczna nie istnieje, mówimy to wprost zamiast po cichu sprzedawać
+     * miesiąc komuś, kto wybrał rok.
+     */
+    const cenaStripe = okresRok ? plan.stripe_price_id_rok : plan.stripe_price_id;
+    if (okresRok && !plan.stripe_price_id_rok) {
+      return json({
+        error: "Ten plan nie ma jeszcze ceny rocznej. Wybierz miesiąc albo odezwij się do nas.",
+        code: "PLAN_ROK_NOT_SYNCED",
+      }, 409);
+    }
     if (!plan.stripe_price_id) {
       // Plan po zmianie ceny czeka na resynchronizację — lepiej odmówić niż
       // obciążyć klienta kwotą, której nie ma już w cenniku.
@@ -160,7 +177,7 @@ Deno.serve(async (req) => {
     const sesja = await stripe(stripeKey, "/checkout/sessions", {
       mode: "subscription",
       customer: customerId!,
-      "line_items[0][price]": plan.stripe_price_id,
+      "line_items[0][price]": cenaStripe,
       "line_items[0][quantity]": "1",
       success_url: buildPublicUrl("/uslugi/panel?platnosc=ok&session_id={CHECKOUT_SESSION_ID}"),
       cancel_url: buildPublicUrl("/cennik?platnosc=anulowana"),
