@@ -16,7 +16,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSubscriptionAccess } from '@/hooks/useSubscriptionAccess';
 import { useSubscriptionDetails } from '@/hooks/useSubscriptionDetails';
 import { usePublicPricing } from '@/hooks/usePublicPricing';
-import { useCheckout } from '@/hooks/useCheckout';
+import { useZakup } from '@/components/billing/ZakupProvider';
+import { nazwaZakupu } from '@/components/billing/nazwyZakupu';
 
 /**
  * Plan i stan subskrypcji przy nazwie firmy, na stałe widoczne.
@@ -52,7 +53,7 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
   const dostep = useSubscriptionAccess(providerId, 'warsztat');
   const { data: szczegoly } = useSubscriptionDetails(providerId);
   const { plans } = usePublicPricing();
-  const { kup, pending } = useCheckout();
+  const { otworzZakup } = useZakup();
 
   const [kodPlanuZKonta, setKodPlanuZKonta] = useState<string | null>(null);
 
@@ -81,28 +82,30 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
   if (dostep.stan === 'dokanczanie') {
     const dni = dostep.dniDoBloku;
     return (
-      <Link
-        to={SCIEZKA_PAKIETOW}
+      <button
+        type="button"
+        onClick={() => otworzZakup({ planCode: kodPlanuZKonta, providerId })}
         className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/15"
       >
         <AlertTriangle className="h-3.5 w-3.5" />
         {dni !== null && dni > 0
           ? `Dokończenie · ${dni} ${odmianaDni(dni)}`
           : 'Dokończenie · ostatnie godziny'}
-      </Link>
+      </button>
     );
   }
 
   // ── Blokada ────────────────────────────────────────────────────────
   if (!dostep.moznaPracowac) {
     return (
-      <Link
-        to={SCIEZKA_PAKIETOW}
+      <button
+        type="button"
+        onClick={() => otworzZakup({ planCode: kodPlanuZKonta, providerId })}
         className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/15"
       >
         <AlertTriangle className="h-3.5 w-3.5" />
-        {dostep.powod === 'platnosc' ? 'Płatność nieudana' : 'Brak aktywnego planu'}
-      </Link>
+        {nazwaZakupu(dostep)}
+      </button>
     );
   }
 
@@ -146,24 +149,16 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
         {/* „Przedłuż" prowadzi wprost do płatności za wybrany plan. Gdy planu
             nie znamy (rejestracja bez wyboru karty), kierujemy na cennik —
             nie zgadujemy, za co klient miałby zapłacić. */}
-        {mozliwyZakup ? (
-          <button
-            type="button"
-            disabled={!!pending}
-            onClick={() => kup(planZKonta!.code)}
-            className="inline-flex items-center gap-1 rounded-full bg-current/10 px-2 py-0.5 underline underline-offset-2 hover:bg-current/20 disabled:opacity-60"
-          >
-            {pending === planZKonta!.code && <Loader2 className="h-3 w-3 animate-spin" />}
-            Przedłuż
-          </button>
-        ) : (
-          <Link
-            to={SCIEZKA_PAKIETOW}
-            className="rounded-full bg-current/10 px-2 py-0.5 underline underline-offset-2 hover:bg-current/20"
-          >
-            Wybierz plan
-          </Link>
-        )}
+        {/* Jedna droga dla obu przypadków: z planem z konta albo bez niego.
+            Okno i tak zaczyna od wyboru planu, gdy go nie znamy — nie musimy
+            zgadywać ani rozgałęziać. */}
+        <button
+          type="button"
+          onClick={() => otworzZakup({ planCode: mozliwyZakup ? planZKonta!.code : null, providerId })}
+          className="inline-flex items-center gap-1 rounded-full bg-current/10 px-2 py-0.5 underline underline-offset-2 hover:bg-current/20"
+        >
+          {nazwaZakupu(dostep)}
+        </button>
       </span>
     );
   }

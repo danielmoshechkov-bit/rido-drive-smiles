@@ -21,6 +21,8 @@ import { useNavigate } from "react-router-dom";
 import { usePublicPricing, type PublicPlan, type ProductLine } from "@/hooks/usePublicPricing";
 import { planPriceLabels, planCtaLabel } from "@/lib/pricingCards";
 import { useJestKlientemLinii } from "@/hooks/useJestKlientemLinii";
+import { useZakup } from '@/components/billing/ZakupProvider';
+import { useCenaOkresu, zl, type Okres } from '@/hooks/useCenaOkresu';
 import { usePlanAction } from "@/hooks/usePlanAction";
 import { AuthModal } from "@/components/auth/AuthModal";
 
@@ -292,7 +294,24 @@ const aiExtras = [
   { icon: "🏦", name: "Kalkulator kredytu", price: "DARMOWY" },
 ];
 
-const PlanCard = ({ plan, onCta }: { plan: Plan; onCta: () => void }) => (
+const PlanCard = ({ plan, onCta, planCode, okres }: {
+  plan: Plan; onCta: () => void; planCode?: string; okres?: Okres;
+}) => {
+  /**
+   * Cena na karcie idzie Z BAZY, gdy znamy kod planu i okres.
+   *
+   * Kusiło, żeby pomnożyć cenę miesięczną przez dziesięć tutaj — ale wtedy
+   * rabat roczny istniałby w trzecim miejscu i cennik mógłby pokazywać coś
+   * innego niż okno zakupu i niż kwota pobrana przez operatora.
+   *
+   * `providerId` jest `null`: cennik jest stroną publiczną, więc pokazuje cenę
+   * startową. Klient po gwarancji zobaczy swoją w oknie zakupu, które zna jego
+   * warsztat.
+   */
+  const { cena } = useCenaOkresu(planCode ?? null, null, okres ?? 'miesiac');
+  const rok = okres === 'rok';
+
+  return (
   <Card
     className={`p-6 flex flex-col relative transition-all duration-300 hover:shadow-purple hover:-translate-y-1 ${
       plan.highlighted ? "border-2 border-primary shadow-purple" : "border border-border"
@@ -315,10 +334,20 @@ const PlanCard = ({ plan, onCta }: { plan: Plan; onCta: () => void }) => (
     <div className="mb-4">
       <h3 className="text-lg font-bold text-primary mb-2">{plan.name}</h3>
       <div className="flex items-baseline gap-2 flex-wrap">
-        <span className="text-3xl font-bold text-foreground">{plan.price}</span>
-        {plan.period && <span className="text-sm text-muted-foreground">{plan.period}</span>}
-        {plan.targetPrice && (
-          <span className="text-sm text-muted-foreground line-through">{plan.targetPrice}</span>
+        <span className="text-3xl font-bold text-foreground">
+          {cena ? zl(cena.netto) : plan.price}
+        </span>
+        <span className="text-sm text-muted-foreground">
+          {cena ? (rok ? 'netto / rok' : 'netto / mies.') : plan.period}
+        </span>
+        {cena && rok ? (
+          <span className="text-sm text-muted-foreground line-through">
+            {zl(cena.bezRabatuNetto)}
+          </span>
+        ) : (
+          plan.targetPrice && (
+            <span className="text-sm text-muted-foreground line-through">{plan.targetPrice}</span>
+          )
         )}
       </div>
       {plan.priceNote && (
@@ -344,7 +373,8 @@ const PlanCard = ({ plan, onCta }: { plan: Plan; onCta: () => void }) => (
       {plan.cta || "Wybieram"}
     </Button>
   </Card>
-);
+  );
+};
 
 /**
  * Sekcja „Warsztat i Detailing" — jedyna karmiona z bazy.
@@ -408,6 +438,15 @@ const WarsztatContent = ({ section, onCta, onKontakt }: { section: Section; onCt
     setAuthOpen(true);
   });
 
+  const { otworzZakup } = useZakup();
+
+  /**
+   * Domyślnie ROK — to korzystniejsza opcja i chcemy ją pokazywać pierwszą.
+   * Przełącznik steruje cenami na kartach i jedzie razem z wyborem do okna,
+   * żeby klient nie wybierał okresu dwa razy.
+   */
+  const [okres, setOkres] = useState<Okres>('rok');
+
   return (
     <div>
       <div className="text-center mb-10">
@@ -444,6 +483,31 @@ const WarsztatContent = ({ section, onCta, onKontakt }: { section: Section; onCt
         </Card>
       )}
 
+      {!loading && !error && plans.length > 0 && (
+        <div className="mb-8 flex justify-center">
+          <div className="inline-flex rounded-full border border-border bg-muted p-1">
+            {(['rok', 'miesiac'] as Okres[]).map((o) => (
+              <button
+                key={o}
+                type="button"
+                onClick={() => setOkres(o)}
+                className={
+                  'rounded-full px-4 py-1.5 text-sm font-medium transition ' +
+                  (okres === o ? 'bg-background shadow text-foreground' : 'text-muted-foreground')
+                }
+              >
+                {o === 'rok' ? 'Rok' : 'Miesiąc'}
+                {o === 'rok' && (
+                  <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                    2 miesiące gratis
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {!loading &&
         !error &&
         plans.length > 0 &&
@@ -463,7 +527,16 @@ const WarsztatContent = ({ section, onCta, onKontakt }: { section: Section; onCt
                         ? "Otwieram płatność…"
                         : toCard(plan, jestKlientemWarsztatu).cta,
                     }}
-                    onCta={() => klikPlan(plan)}
+                    planCode={plan.code}
+                    okres={okres}
+                    onCta={() =>
+                      // Plan indywidualny i darmowy nadal idą starą drogą:
+                      // pierwszy do kontaktu, drugi do założenia konta. Okno
+                      // zakupu obsługuje wyłącznie to, co da się kupić.
+                      plan.is_custom || Number(plan.price_net) === 0
+                        ? klikPlan(plan)
+                        : otworzZakup({ planCode: plan.code, okres })
+                    }
                   />
                 ))}
               </div>
