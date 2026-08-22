@@ -46,16 +46,31 @@ jobs:
       - name: Front na produkcji
         id: front
         run: |
+          # UWAGA NA PUŁAPKĘ: serwer ma przepisywanie SPA, więc KAŻDA nieistniejąca
+          # ścieżka zwraca `index.html` z kodem 200. `curl -f` tego nie wyłapie,
+          # a `curl` z kodem 0 nie znaczy „plik istnieje". Pierwszy przebieg tej
+          # kontroli wywalił się właśnie na tym: dostał HTML i próbował go
+          # sparsować jako JSON. Rozstrzyga TREŚĆ, nie kod odpowiedzi.
           set +e
           curl -fsS --max-time 20 https://getrido.pl/wersja.json -o /tmp/wersja.json
-          if [ $? -ne 0 ]; then
+          POBRANO=$?
+          set -e
+          ODCZYT=$(python3 - <<'EOP'
+          import json
+          try:
+              d = json.load(open('/tmp/wersja.json'))
+              print(f"{d.get('sha','')} {d.get('galaz','')}")
+          except Exception:
+              print("")
+          EOP
+          )
+          if [ "$POBRANO" -ne 0 ] || [ -z "$ODCZYT" ]; then
             echo "stan=nieznany" >> "$GITHUB_OUTPUT"
-            echo "opis=Brak /wersja.json na produkcji — najbliższe wdrożenie go założy." >> "$GITHUB_OUTPUT"
+            echo "opis=Brak czytelnego /wersja.json na produkcji (przepisywanie SPA zwraca index.html dla nieistniejących ścieżek). Najbliższe wdrożenie go założy." >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          set -e
-          SHA=$(python3 -c "import json;print(json.load(open('/tmp/wersja.json')).get('sha',''))")
-          GAL=$(python3 -c "import json;print(json.load(open('/tmp/wersja.json')).get('galaz',''))")
+          SHA=$(echo "$ODCZYT" | cut -d' ' -f1)
+          GAL=$(echo "$ODCZYT" | cut -d' ' -f2)
           MAIN=$(git rev-parse main)
           echo "produkcja: $GAL @ ${SHA:0:8}, main: ${MAIN:0:8}"
           if [ "$SHA" = "$MAIN" ]; then
