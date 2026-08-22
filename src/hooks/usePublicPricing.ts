@@ -87,6 +87,24 @@ export function usePublicPricing() {
         if (!row.is_enabled) continue;
         const feature = byFeatureId.get(row.feature_id);
         if (!feature) continue; // funkcja wyłączona — RLS jej nie zwrócił
+
+        /**
+         * ZEROWY PRZYDZIAŁ NIE JEST OFERTĄ.
+         *
+         * 🔴 NAPRAWIONE 22.08.2026. W cenniku stało „Dane pojazdu po VIN —
+         * 0 sprawdzeń / mies.". W bazie to poprawny zapis: zero znaczy
+         * „funkcja jest w planie, ale plan nie daje na nią przydziału" —
+         * sprawdzenia VIN sprzedajemy wyłącznie w pakietach.
+         *
+         * Tyle że w OFERCIE ta linijka nie informuje, tylko obiecuje pustkę.
+         * Klient czyta listę tego, co dostaje, a my wpisujemy tam zero.
+         *
+         * Funkcja z zerowym przydziałem znika z listy. Gdy plan naprawdę coś
+         * daje, liczba się pokaże; gdy nie daje — nie ma o czym pisać.
+         * Semantyka w bazie zostaje nietknięta, zmienia się tylko to, co
+         * pokazujemy klientowi.
+         */
+        if (Number(row.limit_value) === 0) continue;
         const list = labelsByPlan.get(row.plan_id) ?? [];
         list.push({ order: feature.sort_order, label: featureLabel(feature, row) });
         labelsByPlan.set(row.plan_id, list);
