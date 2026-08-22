@@ -482,3 +482,7 @@ verify_jwt = true
 # w tym projekcie verify_jwt jest wylaczone dla wszystkich funkcji.
 [functions.rido-help]
 verify_jwt = false
+
+# Ostrzeżenia przed końcem okresu. Sprawdza sekret zadania cyklicznego sama.
+[functions.billing-ostrzezenia]
+verify_jwt = false

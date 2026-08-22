@@ -315,6 +315,23 @@ To decyzja o warstwie zapasowej, nie naprawa dziury.
 Pojedynczych wyjątków nie robimy: jedna wyspa nie jest polityką, a następna
 migracja i tak by ją cofnęła.
 
+### 4.10a Dane firmy w trzech miejscach
+
+Te same dane żyją równolegle w `workshop_settings` (`firm_name`, `nip`, `address`,
+`city`, `postal_code`, `bank_account`) i w `service_providers` (`company_name`,
+`company_nip`, `company_address`, …), a ekran ustawień czyta je **z trzech źródeł po
+kolei** i zapisuje do jednego.
+
+To ta sama klasa co „jeden ekran ustawień zamiast trzech edytorów tych samych danych"
+(pozycja 4.7) — tylko warstwę niżej, w samych tabelach. Faktura sprzedaży platformy
+użyje **tej samej kolejności co ekran**, żeby to, co klient widzi w ustawieniach,
+trafiło na dokument. To obejście, nie rozwiązanie.
+
+**Czym grozi:** dane na fakturze mogą różnić się od danych w karcie warsztatu,
+zależnie od tego, które źródło było ostatnio zapisane.
+**Jak naprawić:** jedno źródło, pozostałe jako widok. **Pilność:** niska technicznie,
+ale rośnie z każdym miejscem, które te dane czyta.
+
 ### 4.10b Korekta faktury przy zwrocie — ODŁOŻONE ŚWIADOMIE
 
 Zwroty i obciążenia zwrotne odbierają jednostki (migracja `20260819140000`), ale
