@@ -177,7 +177,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.billing_zwrot(uuid, text, integer, text, jsonb) FROM public;
+REVOKE ALL ON FUNCTION public.billing_zwrot(uuid, text, integer, text, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.billing_zwrot(uuid, text, integer, text, jsonb) TO service_role;
 
 COMMIT;

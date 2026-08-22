@@ -104,9 +104,9 @@ AS $$
   );
 $$;
 
-REVOKE ALL ON FUNCTION public.admin_otworz_okno_serwisowe(uuid, text, integer) FROM public;
-REVOKE ALL ON FUNCTION public.admin_zamknij_okno_serwisowe(uuid) FROM public;
-REVOKE ALL ON FUNCTION public.ma_okno_serwisowe(uuid) FROM public;
+REVOKE ALL ON FUNCTION public.admin_otworz_okno_serwisowe(uuid, text, integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.admin_zamknij_okno_serwisowe(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.ma_okno_serwisowe(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_otworz_okno_serwisowe(uuid, text, integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_zamknij_okno_serwisowe(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.ma_okno_serwisowe(uuid) TO authenticated, anon, service_role;

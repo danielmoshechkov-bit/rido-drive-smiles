@@ -282,8 +282,8 @@ $function$;
 -- prawa wykonania, bo obie funkcje są SECURITY DEFINER i obchodzą RLS.
 -- voice_commit_call zakłada klientów, pojazdy, rezerwacje i zlecenia; wywołanie
 -- z anonimowego klucza byłoby zapisem do cudzego warsztatu.
-REVOKE ALL ON FUNCTION public.get_voice_context(uuid, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.voice_commit_call(text, uuid, text, text, text, text, text, text, text, date, time without time zone, integer, boolean, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.get_voice_context(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.voice_commit_call(text, uuid, text, text, text, text, text, text, text, date, time without time zone, integer, boolean, text) FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.get_voice_context(uuid, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.voice_commit_call(text, uuid, text, text, text, text, text, text, text, date, time without time zone, integer, boolean, text) TO service_role;

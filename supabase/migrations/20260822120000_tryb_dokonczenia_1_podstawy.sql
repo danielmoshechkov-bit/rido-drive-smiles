@@ -202,9 +202,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.wolno_dokanczac(uuid, text) FROM public;
+REVOKE ALL ON FUNCTION public.wolno_dokanczac(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.wolno_dokanczac(uuid, text) TO authenticated, anon, service_role;
-REVOKE ALL ON FUNCTION public.termin_dokonczenia(uuid, timestamptz, integer) FROM public;
+REVOKE ALL ON FUNCTION public.termin_dokonczenia(uuid, timestamptz, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.termin_dokonczenia(uuid, timestamptz, integer) TO service_role;
 
 COMMIT;

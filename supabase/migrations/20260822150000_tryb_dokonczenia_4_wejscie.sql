@@ -100,7 +100,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.billing_konczy_sie_trial() FROM public;
+REVOKE ALL ON FUNCTION public.billing_konczy_sie_trial() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.billing_konczy_sie_trial() TO service_role;
 
 -- ---------------------------------------------------------------------------

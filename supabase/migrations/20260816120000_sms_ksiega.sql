@@ -140,7 +140,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.grant_sms_credits(uuid, integer, text, uuid, text) FROM public;
+REVOKE ALL ON FUNCTION public.grant_sms_credits(uuid, integer, text, uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.grant_sms_credits(uuid, integer, text, uuid, text) TO service_role;
 
 -- ---------------------------------------------------------------------------

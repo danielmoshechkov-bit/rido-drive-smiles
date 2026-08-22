@@ -148,6 +148,12 @@ REVOKE ALL ON FUNCTION public.nazwa(...) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.nazwa(...) TO service_role;
 ```
 
+**Wzorzec w repozytorium poprawiony wstecz.** Trzydzieści siedem wystąpień `FROM public;`
+w wykonanych już migracjach zostało przepisanych na poprawną formę — świadomy wyjątek od
+zasady „nie edytuj starych migracji". Powód: reguła w dokumentacji nie dociera do kogoś,
+kto kopiuje istniejący kod, a wzorzec kopiuje się sam. Zmiana nie rusza semantyki: te
+migracje są zastosowane, a poprawiona linijka robi to, co zawsze deklarowała.
+
 Pilnuje tego `scripts/sql-harness/sprawdz_uprawnienia_funkcji.py` (bramka w CI, zadanie
 „Czy nowa funkcja odcina anon i authenticated"). Funkcje tylko odczytujące są na liście
 wyjątków z uzasadnieniem — dopisanie tam czegoś jest decyzją, nie formalnością.

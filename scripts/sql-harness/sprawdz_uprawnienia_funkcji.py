@@ -111,14 +111,27 @@ WYJATKI: dict[str, str] = {
 }
 
 
+RE_ZLY_REVOKE = re.compile(
+    r"REVOKE\s+ALL\s+ON\s+FUNCTION\s+(?:public\.)?(\w+)\s*\([^)]*\)\s*FROM\s+public\s*;",
+    re.I)
+
+
 def main() -> int:
     problemy: list[tuple[str, str]] = []
+    zly_wzorzec: list[tuple[str, str]] = []
 
     for plik in sorted(KATALOG.glob("*.sql")):
         if plik.name.split("_", 1)[0] < OD_WERSJI:
             continue
         tresc = plik.read_text(encoding="utf-8", errors="replace")
         bez_komentarzy = re.sub(r"--[^\n]*", " ", tresc)
+
+        # Sam wzorzec `FROM public;` — niezależnie od tego, co funkcja robi.
+        # Nie dlatego, że każda taka funkcja jest dziurawa, tylko dlatego, że
+        # każdy, kto ją skopiuje, powtórzy błąd. Wzorzec w repozytorium uczy
+        # skuteczniej niż reguła w dokumentacji.
+        for m in RE_ZLY_REVOKE.finditer(bez_komentarzy):
+            zly_wzorzec.append((plik.name, m.group(1)))
 
         for m in RE_FUNKCJA.finditer(bez_komentarzy):
             nazwa = m.group(1)
@@ -141,6 +154,17 @@ def main() -> int:
             role = (revoke.group(1) if revoke else "").lower()
             if "anon" not in role or "authenticated" not in role:
                 problemy.append((plik.name, nazwa))
+
+    if zly_wzorzec:
+        print("NIESKUTECZNY WZORZEC `REVOKE ... FROM public;`:\n")
+        for plik, nazwa in zly_wzorzec:
+            print(f"  {nazwa}\n      {plik}")
+        print("\n`PUBLIC` to osobne uprawnienie domyślne. Supabase nadaje EXECUTE")
+        print("rolom `anon` i `authenticated` JAWNIE — odebranie `PUBLIC` tego nie rusza.")
+        print("\n    REVOKE ALL ON FUNCTION public.nazwa(...) FROM PUBLIC, anon, authenticated;")
+        print("\nJeśli funkcja ma zostać otwarta dla klienta, i tak wymień role z nazwy,")
+        print("a dostęp przywróć osobnym GRANT-em. Wtedy widać decyzję, a nie przypadek.")
+        return 1
 
     if not problemy:
         print(f"zielono — każda funkcja pisząca do tabel pieniężnych odcina "

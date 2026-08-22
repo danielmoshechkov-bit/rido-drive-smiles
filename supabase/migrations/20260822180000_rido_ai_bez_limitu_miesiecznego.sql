@@ -105,7 +105,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.przyznaj_start_rido_ai(uuid, text) FROM public;
+REVOKE ALL ON FUNCTION public.przyznaj_start_rido_ai(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.przyznaj_start_rido_ai(uuid, text) TO service_role;
 
 -- ---------------------------------------------------------------------------

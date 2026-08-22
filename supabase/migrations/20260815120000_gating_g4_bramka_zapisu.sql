@@ -105,8 +105,8 @@ AS $$
   );
 $$;
 
-REVOKE ALL ON FUNCTION public.moze_pracowac(uuid, text) FROM public;
-REVOKE ALL ON FUNCTION public.jest_klientem_linii(uuid, text) FROM public;
+REVOKE ALL ON FUNCTION public.moze_pracowac(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.jest_klientem_linii(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.moze_pracowac(uuid, text)       TO authenticated, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.jest_klientem_linii(uuid, text) TO authenticated, anon, service_role;
 
