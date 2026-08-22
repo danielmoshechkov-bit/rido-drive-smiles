@@ -108,17 +108,30 @@ Deno.serve(async (req) => {
     // wyłącznie 'trialing', 'active' i 'past_due', więc nowy wiersz nie wchodzi
     // w konflikt ze starym. Wszędzie, gdzie czytamy subskrypcję, bierzemy
     // najnowszą (`ORDER BY created_at DESC LIMIT 1`) — czyli tę opłaconą.
+    // 🔴 NAPRAWIONE 22.08.2026 — TO BLOKOWAŁO CAŁĄ SPRZEDAŻ KARTĄ.
+    //
+    // Warunek brzmiał `status IN ('trialing','active','past_due')` i był
+    // poprawny dokładnie do wariantu A, który dał wiersz `trialing` KAŻDEMU
+    // warsztatowi. Od tamtej chwili każdy był „już zasubskrybowany", a klient,
+    // który chciał zapłacić, dostawał odmowę 409.
+    //
+    // Okres próbny i miesiąc kupiony BLIK-iem to stany, z KTÓRYCH klient
+    // wychodzi, kupując. Odmawiamy wyłącznie wtedy, gdy naprawdę jest już
+    // subskrypcja odnawiana u operatora — bo wtedy druga byłaby podwójnym
+    // obciążeniem, a nie zakupem.
     const { data: istniejaca } = await admin
       .from("billing_subscriptions")
-      .select("id, status")
+      .select("id, status, provider, provider_subscription_id")
       .eq("subscriber_type", "service_provider")
       .eq("subscriber_id", provider.id)
       .eq("product_line", plan.product_line)
-      .in("status", ["trialing", "active", "past_due"])
+      .in("status", ["active", "past_due"])
+      .eq("provider", "stripe")
+      .not("provider_subscription_id", "is", null)
       .maybeSingle();
     if (istniejaca) {
       return json({
-        error: "Ten warsztat ma już aktywną subskrypcję w tej linii produktowej.",
+        error: "Ten warsztat ma już subskrypcję odnawianą kartą. Zmienisz plan w panelu rozliczeń.",
         code: "ALREADY_SUBSCRIBED",
       }, 409);
     }

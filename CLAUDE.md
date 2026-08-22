@@ -120,9 +120,25 @@ zakładanie brakujących wierszy, kasowanie), przejdź po kodzie szukającym **j
 grep -rn "!szczegoly\|=== null\|== null\|IS NULL\|maybeSingle" src/
 ```
 
-Szukaj kodu sprawdzającego **samą obecność**, nie kodu czytającego treść wiersza.
-To inne zapytanie i łatwiej je przeoczyć — czytający treść zwykle i tak ma gałąź
-na `null`, sprawdzający obecność traktuje ją jako znaczącą.
+Szukaj kodu sprawdzającego **samą obecność albo brak**, nie kodu czytającego treść
+wiersza. To inne zapytanie i łatwiej je przeoczyć — czytający treść zwykle i tak ma
+gałąź na `null`, a sprawdzający istnienie traktuje je jako znaczące.
+
+**Trzeba przejść po OBU kierunkach.** Wariant A ugryzł dwa razy, w dwóch przeciwnych
+formach:
+
+| Forma | Co się stało | Czym szukać |
+|---|---|---|
+| „brak wiersza znaczy X" | `PlanBadge` przestał pokazywać licznik okresu próbnego | `grep -rn "!szczegoly\|=== null\|== null\|!dane\|IS NULL" src/ supabase/functions/` |
+| „obecność wiersza znaczy Y" | `billing-checkout` odmawiał WSZYSTKIM zakupu kartą | `grep -rn "if (istniejaca\|if (dane\|EXISTS (\|maybeSingle()" src/ supabase/functions/` |
+
+Druga forma jest groźniejsza, bo objawia się odmową, a odmowa wygląda jak zamierzone
+zabezpieczenie. Pierwsza tylko czegoś nie pokazuje.
+
+**Sprawdź też więzy i indeksy.** Poluzowanie warunku w kodzie nie wystarczyło: indeks
+`billing_subscriptions_one_active` odrzucał drugi wiersz, więc zakup trzeba było zmienić
+z „załóż subskrypcję" na „przeprowadź istniejącą w stan opłacony". Warunek w kodzie
+i więz w bazie muszą mówić to samo.
 
 ### `REVOKE ... FROM public` NIE odbiera uprawnień `anon` ani `authenticated`
 
