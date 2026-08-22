@@ -1,5 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { formatMoneyPLN } from '@/utils/formatters';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Wrench, Stethoscope, ShoppingCart } from 'lucide-react';
 import { DoladowanieModal } from '@/components/billing/DoladowanieModal';
@@ -23,6 +25,35 @@ interface Props {
 export function RidoAiCreditsModal({ open, onOpenChange, dostepne }: Props) {
   const bezLimitu = dostepne === null;
   const [doladowanie, setDoladowanie] = useState(false);
+
+  /**
+   * CENA I WIELKOŚĆ PACZKI CZYTANE Z BAZY.
+   *
+   * 🔴 NAPRAWIONE 22.08.2026. Na przycisku stało wpisane w kod „Dokup 200 pytań
+   * — 49,20 zł". Cena zmieniła się na 69 zł netto i przycisk zaczął KŁAMAĆ:
+   * klient widział jedną kwotę, a w bramce płatności drugą.
+   *
+   * Kwota w tekście, który ktoś musi pamiętać, żeby poprawić, to obietnica
+   * czekająca na złamanie. Bierzemy ją stamtąd, skąd bierze ją bramka.
+   */
+  const [pakiet, setPakiet] = useState<{ step: number; brutto: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let anulowane = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('billing_addon_products')
+        .select('step, unit_price_net, vat_rate')
+        .eq('code', 'rido_ai')
+        .eq('is_active', true)
+        .maybeSingle();
+      if (anulowane || !data) return;
+      const brutto = Number(data.step) * Number(data.unit_price_net) * (1 + Number(data.vat_rate ?? 23) / 100);
+      setPakiet({ step: Number(data.step), brutto: Math.round(brutto * 100) / 100 });
+    })();
+    return () => { anulowane = true; };
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -61,8 +92,9 @@ export function RidoAiCreditsModal({ open, onOpenChange, dostepne }: Props) {
               <div>
                 <p className="font-medium">Pomoc RIDO AI</p>
                 <p className="text-xs text-muted-foreground">
-                  Pytania o diagnostykę i naprawę. Funkcja jeszcze niedostępna —
-                  gdy ruszy, będzie liczona z tego samego licznika.
+                  Doradca naprawczy przy konkretnym aucie: opisujesz objaw, dorzucasz
+                  zdjęcie albo PDF, a Rido szuka w internecie i wraca z diagnozą,
+                  krokami i źródłami. Jedna wiadomość to jedno pytanie.
                 </p>
               </div>
             </div>
@@ -72,11 +104,15 @@ export function RidoAiCreditsModal({ open, onOpenChange, dostepne }: Props) {
             DOKUPIENIE NIE ZASTĘPUJE PLANU — DOKŁADA SIĘ DO NIEGO.
             Pakiet ma być doładowaniem awaryjnym w miesiącu, w którym limit
             skończył się wcześniej, a nie tańszą drogą naokoło abonamentu.
-            Dlatego 200 pytań, a nie 500: Pro daje 300 w cenie planu.
+            Wielkość paczki i cena stoją w `billing_addon_products` — jedno
+            miejsce dla panelu i dla bramki płatności.
           */}
           {!bezLimitu && (
             <Button className="w-full gap-2" onClick={() => setDoladowanie(true)}>
-              <ShoppingCart className="h-4 w-4" /> Dokup 200 pytań — 49,20 zł
+              <ShoppingCart className="h-4 w-4" />
+              {pakiet
+                ? `Dokup ${pakiet.step} pytań — ${formatMoneyPLN(pakiet.brutto)} brutto`
+                : 'Dokup pytania'}
             </Button>
           )}
 
