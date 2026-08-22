@@ -33,6 +33,13 @@ jobs:
       - name: Czy numer wersji jest wolny
         run: python3 scripts/sql-harness/sprawdz_prefiksy.py
 
+      # 22.08.2026: siedemnaście funkcji SECURITY DEFINER zmieniających salda było
+      # wywoływalnych przez `authenticated`, dwanaście nawet przez `anon`. Powód:
+      # `REVOKE ALL ... FROM public` nie odbiera jawnych nadań, które Supabase robi
+      # dla `anon` i `authenticated`. Linijka wyglądała jak zamknięcie i nim nie była.
+      - name: Czy nowa funkcja odcina anon i authenticated
+        run: python3 scripts/sql-harness/sprawdz_uprawnienia_funkcji.py
+
   edge:
     name: Edge functions (Deno)
     runs-on: ubuntu-latest

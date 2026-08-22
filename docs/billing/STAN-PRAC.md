@@ -315,6 +315,41 @@ To decyzja o warstwie zapasowej, nie naprawa dziury.
 Pojedynczych wyjątków nie robimy: jedna wyspa nie jest polityką, a następna
 migracja i tak by ją cofnęła.
 
+### 4.9a Zatwierdzenie cudzego przeniesienia własności pojazdu
+
+`client_vehicle_ownership_requests` ma politykę `UPDATE` z warunkiem `true` —
+*„Users can update ownership requests"*. Każde zalogowane konto może zmienić dowolny
+wniosek o przeniesienie własności pojazdu, w tym cudzy.
+
+To nie są pieniądze, ale też nie drobiazg: most warsztat→klient przenosi historię
+napraw po numerze VIN, a wniosek jest jedyną bramką w tej ścieżce.
+
+**Czym grozi:** przejęcie historii serwisowej cudzego auta albo zablokowanie
+transferu. **Jak naprawić:** warunek po właścicielu wniosku albo po warsztacie,
+który go wystawił. **Pilność:** średnia; przed uruchomieniem mostu na szerszą skalę.
+
+### 4.9b Kod współdzielony jest kopiowany PER FUNKCJA przy wdrożeniu
+
+Każda funkcja brzegowa dostaje **własny odcisk** katalogu `_shared` w chwili
+wdrożenia. Poprawka w kodzie współdzielonym dociera **wyłącznie do funkcji
+wdrożonych po niej** — pozostałe niosą starą kopię, dopóki ktoś ich nie wdroży
+ponownie.
+
+Wyszło przy `_shared/smtpSend.ts`: rozszerzyliśmy go o `replyTo` i załączniki,
+wdrożyliśmy `billing-ostrzezenia` (ma nową wersję), a `billing-price-guarantee`
+nadal niesie starą. Sprawdziłem trzynaście innych funkcji — wszystkie aktualne.
+
+Dziś bez skutku, bo tamta funkcja `replyTo` nie używa. **Ale przy poprawce
+BEZPIECZEŃSTWA w `_shared` znaczy to, że część funkcji jej nie dostaje** —
+i po numerze wersji tego nie widać.
+
+**Jak sprawdzić:** pobrać funkcję (`supabase functions download`) do czystego
+drzewa na `main` i zobaczyć, czy `git status` zostaje czysty. Uwaga: pobranie
+nadpisuje `_shared`, więc kolejne pobranie zaciera poprzednie — sprawdzać po jednej.
+
+**Co z tego wynika w praktyce:** po zmianie w `_shared` trzeba wdrożyć ponownie
+**każdą funkcję, która z niej korzysta**, nie tylko tę, dla której zmianę robiono.
+
 ### 4.10a Dane firmy w trzech miejscach
 
 Te same dane żyją równolegle w `workshop_settings` (`firm_name`, `nip`, `address`,
