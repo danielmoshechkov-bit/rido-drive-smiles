@@ -112,13 +112,17 @@ test("pierwsze trzy dni mają nazwy, weekend jest zamknięty z powodem", () => {
     sat: { open: "09:00", close: "17:00", closed: true },
     sun: { open: "09:00", close: "17:00", closed: true },
   };
-  // 2026-08-14 to piątek → jutro sobota, pojutrze niedziela
+  // 2026-08-14 to piątek → jutro sobota (zamknięta), pojutrze niedziela (zamknięta)
   const dni = zbudujDni("2026-08-14", 4, godziny, () => ["09:00"]);
   assert.equal(dni[0].klucz, "dzisiaj");
-  assert.equal(dni[1].klucz, "jutro");
+  // TEN TEST UTRWALAŁ POMYŁKĘ. Do 22.08 wymagał, żeby zamknięta sobota miała
+  // klucz „jutro" — a to jest dokładnie słowo, po które model sięgnął
+  // w rozmowie 22.08 09:32, umawiając klienta na dzień zamknięty. Kontrakt
+  // odwrócony: dzień zamknięty NIE MA etykiety względnej.
+  assert.equal(dni[1].klucz, "sat_15");
   assert.equal(dni[1].otwarte, false);
   assert.equal(dni[1].powod, "zamknięte");
-  assert.equal(dni[2].klucz, "pojutrze");
+  assert.equal(dni[2].klucz, "sun_16");
   assert.equal(dni[3].do_wypowiedzenia, "poniedziałek, siedemnastego sierpnia");
   assert.deepEqual(dni[3].wolne, ["09:00"]);
 });
@@ -247,4 +251,59 @@ test("kazdy dzien wie, ktory to tydzien", () => {
   assert.ok(nast.includes("2026-08-19"), "sroda 19.08 to nastepny tydzien — tej daty agent szukal");
   assert.ok(!nast.includes("2026-08-26"), "sroda 26.08 NIE jest nastepnym tygodniem");
   for (const d of dni) assert.ok(d.tydzien, `${d.data}: brak pola tydzien`);
+});
+
+// ============================================================================
+// ROZMOWA 22.08 09:32 (sobota) — agent umówił wizytę na NIEDZIELĘ.
+//
+// Snapshot był poprawny. Model wziął etykietę „jutro" z dnia ZAMKNIĘTEGO
+// i godziny z następnego wiersza. Test pilnuje, żeby ta etykieta nie istniała.
+// ============================================================================
+Deno.test("dzien zamkniety NIE dostaje etykiety dzisiaj/jutro/pojutrze", () => {
+  const otw = { open: "09:00", close: "17:00", closed: false };
+  const zam = { open: "09:00", close: "17:00", closed: true };
+  // sobota 2026-08-22: sob i nd zamknięte, poniedziałek otwarty
+  const dni = zbudujDni("2026-08-22", 4,
+    { mon: otw, tue: otw, wed: otw, thu: otw, fri: otw, sat: zam, sun: zam },
+    () => ["09:00", "11:00"]);
+
+  const wzgledne = new Set(["dzisiaj", "jutro", "pojutrze"]);
+  for (const d of dni) {
+    if (!d.otwarte && wzgledne.has(d.klucz)) {
+      throw new Error(`dzien zamkniety ${d.data} ma etykiete "${d.klucz}" — model po nia siegnie`);
+    }
+  }
+  // Dzień otwarty etykietę zachowuje: bez niej agent traci najprostszy sposób
+  // powiedzenia „pojutrze" i zaczyna liczyć daty sam.
+  const poniedzialek = dni.find((d) => d.data === "2026-08-24");
+  if (poniedzialek?.klucz !== "pojutrze") {
+    throw new Error(`otwarty poniedzialek stracil etykiete: ${poniedzialek?.klucz}`);
+  }
+});
+
+Deno.test("w dzien roboczy etykiety wzgledne dzialaja jak dotad", () => {
+  const otw = { open: "09:00", close: "17:00", closed: false };
+  const zam = { open: "09:00", close: "17:00", closed: true };
+  // wtorek 2026-08-25 — trzy kolejne dni robocze
+  const dni = zbudujDni("2026-08-25", 3,
+    { mon: otw, tue: otw, wed: otw, thu: otw, fri: otw, sat: zam, sun: zam },
+    () => ["09:00"]);
+  if (dni[0].klucz !== "dzisiaj" || dni[1].klucz !== "jutro" || dni[2].klucz !== "pojutrze") {
+    throw new Error(`etykiety zmienione: ${dni.map((d) => d.klucz).join(", ")}`);
+  }
+});
+
+// ŻADEN dzień zamknięty nie może nieść godzin — to one były drugą połową
+// pomyłki (etykieta z jednego wiersza, godziny z drugiego).
+Deno.test("dzien zamkniety nie niesie godzin ani propozycji", () => {
+  const zam = { open: "09:00", close: "17:00", closed: true };
+  const otw = { open: "09:00", close: "17:00", closed: false };
+  const dni = zbudujDni("2026-08-22", 2,
+    { mon: otw, tue: otw, wed: otw, thu: otw, fri: otw, sat: zam, sun: zam },
+    () => ["09:00", "11:00"]);
+  for (const d of dni) {
+    if (!d.otwarte && (d.wolne || d.godziny)) {
+      throw new Error(`dzien zamkniety ${d.data} niesie godziny`);
+    }
+  }
 });

@@ -244,8 +244,26 @@ export const zbudujDni = (
     d.setUTCDate(baza.getUTCDate() + i);
     const iso = d.toISOString().slice(0, 10);
     const g = godzinyTygodnia[kluczDnia(iso)];
+    // ETYKIETA WZGLĘDNA TYLKO DLA DNIA OTWARTEGO.
+    //
+    // Rozmowa 22.08 09:32, sobota. Snapshot był POPRAWNY: sobota zamknięta,
+    // niedziela zamknięta, poniedziałek otwarty z godzinami. Agent powiedział
+    // „mam jutro o dziewiątej albo o jedenastej" — wziął ETYKIETĘ z dnia
+    // zamkniętego („jutro" = niedziela) i GODZINY z następnego wiersza.
+    // Potem połączył nazwę dnia z jednego wiersza z datą z drugiego:
+    // „poniedziałek dwudziestego trzeciego sierpnia" (23.08 to niedziela).
+    //
+    // Słowa „dzisiaj", „jutro", „pojutrze" są dla modelu najsilniejszym
+    // uchwytem w całym snapshocie — sięga po nie, nawet gdy wiersz obok mówi
+    // „zamknięte". Więc ich tam nie ma, gdy dzień jest zamknięty: klucz staje
+    // się wtedy `niedziela_23`, tak jak dla dalszych dni.
+    //
+    // To nie zastępuje zabezpieczenia po stronie zapisu (rezerwacja w dniu
+    // zamkniętym musi być odrzucona niezależnie od tego, co powie model) —
+    // usuwa tylko okazję.
+    const otwartyDzien = !!g && !g.closed;
     const wpis: Dzien = {
-      klucz: ETYKIETY[i] ?? `${DNI_TYGODNIA[d.getUTCDay()]}_${d.getUTCDate()}`,
+      klucz: (otwartyDzien ? ETYKIETY[i] : undefined) ?? `${DNI_TYGODNIA[d.getUTCDay()]}_${d.getUTCDate()}`,
       data: iso,
       do_wypowiedzenia: doWypowiedzenia(iso),
       // KTORY TO TYDZIEN — DANA, NIE ARYTMETYKA.
@@ -266,7 +284,7 @@ export const zbudujDni = (
         const roznica = Math.round((poniedzialek(d) - poniedzialek(baza)) / 604800000);
         return roznica === 0 ? "ten" : roznica === 1 ? "nastepny" : `za_${roznica}`;
       })(),
-      otwarte: !!g && !g.closed,
+      otwarte: otwartyDzien,
     };
     if (!wpis.otwarte) {
       wpis.powod = "zamknięte";
