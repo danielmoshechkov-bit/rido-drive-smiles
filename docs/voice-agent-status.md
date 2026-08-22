@@ -3319,6 +3319,42 @@ przebiegu, także zerowym** — liczbę, nie milczenie.
 „20 numerów u operatora, 20 u nas, 0 rozbieżności" widziane codziennie znaczy,
 że kontrola chodzi. Brak wiadomości nie znaczy nic.
 
+## ZASADA 46 — walidacja wejścia musi mieć odpowiednik na wyjściu
+
+**Sprawdzamy dane, które WYSYŁAMY do modelu, a nie te, które od niego WRACAJĄ.**
+
+Snapshot pilnuje grafiku bardzo dokładnie: godziny pracy, zajętość stanowisk,
+ostatni możliwy start, dni zamknięte. Cała ta praca dotyczy jednego kierunku —
+tego, co model dostaje. To, co odsyła, szło do bazy tak, jak przyszło.
+
+Rozmowa 22.08: snapshot podał niedzielę jako zamkniętą, model i tak zaproponował
+niedzielę, a `voice_commit_call` zapisał rezerwację bez jednego sprawdzenia.
+Klient dostał SMS z datą, pod którą nikt nie otworzy.
+
+**Reguła praktyczna:** przy każdym miejscu, w którym przyjmujemy dane od modelu,
+zadaj pytanie — *czy walidacja, którą zrobiliśmy na wejściu, ma odpowiednik
+na wyjściu?* Jeśli nie, to nie jest walidacja, tylko podpowiedź.
+
+**Gdzie jeszcze to obowiązuje, a nie jest zrobione:**
+
+```
+extraction            model zwraca markę, model, rejestrację — nikt nie sprawdza,
+                      czy marka istnieje (mamy słownik marek, nieużywany tutaj)
+dopasowanie klienta   numer telefonu z ASR trafia do wyszukiwania klienta bez
+                      normalizacji odpowiadającej tej z zapisu
+dopasowanie pojazdu   rejestracja z ASR („wóód trzy pięć") bez sprawdzenia formatu
+```
+
+To są trzy osobne pozycje w backlogu, nie do zrobienia przy okazji — ale
+wszystkie trzy należą do tej samej klasy i warto je naprawiać razem.
+
+**Dlaczego to zasada, a nie wpis o commicie:** walidacja wejścia jest widoczna
+i satysfakcjonująca — piszemy ją, bo widać efekt w prompcie. Walidacja wyjścia
+jest niewidoczna, dopóki model się nie pomyli. Więc powstaje ostatnia, albo
+wcale.
+
+---
+
 ## ZASADA 45 — cudzy warsztat wchodzi za każdym razem innymi drzwiami
 
 Ta sama klasa błędu — **rozmowa jednego warsztatu obsłużona danymi drugiego** —
