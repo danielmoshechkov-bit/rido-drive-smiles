@@ -100,6 +100,42 @@ Jeśli `Cannot find project ref`, skopiuj `supabase/.temp/` z `/Users/moshechkov
   migracji ruszającej salda klientów ten jeden krok, w którym człowiek patrzy, co wykonuje,
   jest tańszy niż jego brak.
 
+### `REVOKE ... FROM public` NIE odbiera uprawnień `anon` ani `authenticated`
+
+`PUBLIC` w PostgreSQL to osobne uprawnienie domyślne. Supabase nadaje `EXECUTE`
+rolom `anon` i `authenticated` **jawnie**, dla każdej funkcji w schemacie `public` —
+a odebranie `PUBLIC` tych nadań nie rusza.
+
+Pisaliśmy to kilka razy, za każdym razem uznając sprawę za zamkniętą:
+
+```sql
+REVOKE ALL ON FUNCTION public.grant_sms_credits(...) FROM public;   -- NIC NIE ZAMYKA
+GRANT EXECUTE ON FUNCTION public.grant_sms_credits(...) TO service_role;
+```
+
+Skutek: siedemnaście funkcji `SECURITY DEFINER` zmieniających salda było wywoływalnych
+przez zalogowanego klienta, dwanaście nawet bez zalogowania — w tym nadawanie SMS-ów,
+dopisywanie kwot do portfela i prowizja z programu poleceń zamkniętego na poziomie tabeli.
+
+**Poprawnie — role wymienione z nazwy:**
+
+```sql
+REVOKE ALL ON FUNCTION public.nazwa(...) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.nazwa(...) TO service_role;
+```
+
+Pilnuje tego `scripts/sql-harness/sprawdz_uprawnienia_funkcji.py` (bramka w CI, zadanie
+„Czy nowa funkcja odcina anon i authenticated"). Funkcje tylko odczytujące są na liście
+wyjątków z uzasadnieniem — dopisanie tam czegoś jest decyzją, nie formalnością.
+
+Kontrola jest statyczna. Stan faktyczny sprawdza się zapytaniem:
+
+```sql
+SELECT p.proname, has_function_privilege('anon', p.oid, 'EXECUTE')
+FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.prosecdef;
+```
+
 ### Test RLS musi zawierać przypadek, który ma PRZEJŚĆ
 
 Sam zestaw odmów niczego nie dowodzi. Jeśli podkład testowy jest zepsuty, baza odmawia
