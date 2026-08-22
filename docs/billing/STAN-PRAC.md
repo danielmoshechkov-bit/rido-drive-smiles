@@ -315,6 +315,24 @@ To decyzja o warstwie zapasowej, nie naprawa dziury.
 Pojedynczych wyjątków nie robimy: jedna wyspa nie jest polityką, a następna
 migracja i tak by ją cofnęła.
 
+### 4.8a Śmieci w `entities` i otwarte zakładanie wystawcy
+
+Dziewięć wpisów, z czego cztery to oczywiste śmieci z testów (`asdadasdad`,
+`asdasd`, `asdasdasd`, `rdsffsd`), jeden ma zmyślony NIP `1111111111`, jeden jest
+duplikatem. **Żaden nie ma ani jednej faktury**, więc usunięcie jest bezpieczne.
+
+**Nie są widoczne dla klientów** — sprawdzone: polityka `SELECT` ogranicza do
+właściciela, księgowego przypisanego do wystawcy i administratora. Widać je tylko
+z konta administratora.
+
+Osobna sprawa: `entities` ma `INSERT` z warunkiem `true`, więc każde zalogowane
+konto może założyć wystawcę o dowolnym NIP-ie. Dziś bez skutku — widzi tylko swoje.
+**Przy fakturach sprzedaży platformy to znaczy tyle, że wystawcy GetRido nie wolno
+wybierać z listy; ma być przypięty po identyfikatorze.**
+
+**Pilność:** sprzątanie — niska, kosmetyka panelu administratora. Przypięcie
+wystawcy — wchodzi razem z fakturami.
+
 ### 4.9a Zatwierdzenie cudzego przeniesienia własności pojazdu
 
 `client_vehicle_ownership_requests` ma politykę `UPDATE` z warunkiem `true` —

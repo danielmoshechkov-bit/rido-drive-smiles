@@ -71,6 +71,28 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
 
   const planZKonta = plans.find((p) => p.code === kodPlanuZKonta);
 
+  // ── Tryb dokończenia ───────────────────────────────────────────────
+  // MUSI stać przed blokadą: `moznaPracowac` jest tu fałszem, więc bez tej
+  // gałęzi plakietka pokazywałaby „Brak aktywnego planu" — nieprawdę, bo
+  // warsztat wciąż domyka rozpoczęte zlecenia.
+  //
+  // Pasek na dole ekranu mówi to samo szerzej. Plakietka nie powtarza jego
+  // treści, tylko niesie tę jedną liczbę, która jest istotna wszędzie: ile dni.
+  if (dostep.stan === 'dokanczanie') {
+    const dni = dostep.dniDoBloku;
+    return (
+      <Link
+        to={SCIEZKA_PAKIETOW}
+        className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/15"
+      >
+        <AlertTriangle className="h-3.5 w-3.5" />
+        {dni !== null && dni > 0
+          ? `Dokończenie · ${dni} ${odmianaDni(dni)}`
+          : 'Dokończenie · ostatnie godziny'}
+      </Link>
+    );
+  }
+
   // ── Blokada ────────────────────────────────────────────────────────
   if (!dostep.moznaPracowac) {
     return (
@@ -85,9 +107,14 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
   }
 
   // ── Okres próbny ───────────────────────────────────────────────────
-  // Brak wiersza w `billing_subscriptions` przy dostępie znaczy trial:
-  // `useSubscriptionAccess` schodzi do niego dopiero przy braku tego wiersza.
-  if (!szczegoly && dostep.koniecOkresu) {
+  //
+  // 🔴 NAPRAWIONE 22.08.2026. Warunek brzmiał `!szczegoly && dostep.koniecOkresu`,
+  // czyli „brak wiersza w `billing_subscriptions` znaczy okres próbny". Była to
+  // prawda dokładnie do wariantu A, który dał wiersz KAŻDEMU warsztatowi —
+  // i licznik dni zniknął z paska wszystkim w okresie próbnym, bez śladu błędu.
+  //
+  // Stan czytamy teraz ze STATUSU. Obecność wiersza przestała cokolwiek znaczyć.
+  if (dostep.okresProbny && dostep.koniecOkresu) {
     const dni = dniDo(dostep.koniecOkresu);
     if (dni === null) return null;
 
@@ -108,6 +135,10 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
       >
         <Sparkles className="h-3.5 w-3.5 shrink-0" />
         <span>
+          {/* Nazwa planu z `user_metadata` — to, co klient wybrał przy rejestracji.
+              NIE z subskrypcji: po wariancie A stoi tam `trial_warsztat`, plan
+              techniczny spoza cennika, więc „Okres próbny — Warsztat · okres
+              próbny" brzmiałoby jak usterka. */}
           {planZKonta ? `${planZKonta.name} · ` : ''}okres próbny
           {pokazLicznik ? `, ${dni} ${odmianaDni(dni)}` : ''}
         </span>
