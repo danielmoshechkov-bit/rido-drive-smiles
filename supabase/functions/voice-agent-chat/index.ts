@@ -21,7 +21,7 @@ import {
 import { cachedContext } from "../_shared/voiceContextCache.ts";
 import { resolveVoiceProductionCanary } from "../_shared/voiceProductionCanary.ts";
 import { jezykRozmowy, snapshotWJezyku } from "../_shared/voiceJezykRozmowy.ts";
-import { wzorceWJezyku, zdanieAwarii, zdanieWylaczenia, zdanieZajetosci } from "../_shared/voiceWzorce.ts";
+import { wzorceWJezyku, zdanieAwarii, zdanieBrakMinut, zdanieWylaczenia, zdanieZajetosci } from "../_shared/voiceWzorce.ts";
 
 // Napis, który `voice-agent-init` wstawia, gdy warsztat nie napisał własnego
 // zdania. Rozpoznajemy go, żeby zamienić na wersję w języku rozmowy — a zdania
@@ -474,14 +474,25 @@ serve(async (req) => {
     // więcej — nie ma terminów, cennika ani klientów, bo nie ma czego proponować.
     let wylaczony: { zdanie: string } | null = null;
     let zajete = false;
+    let brakMinut = false;
     try {
       const s = snapshotRaw ? JSON.parse(snapshotRaw) : null;
       if (s && s.wylaczony === true) wylaczony = { zdanie: String(s.zdanie || "") };
       if (s && s.zajete === true) zajete = true;
+      if (s && s.brak_minut === true) brakMinut = true;
     } catch { /* snapshot nie jest JSON-em — zachowujemy się jak dotąd */ }
 
     let snapshotBlok = "";
-    if (zajete) {
+    if (brakMinut) {
+      // WYCZERPANY PAKIET MINUT. Zdanie z modułu wzorców, w języku rozmowy —
+      // bez słowa o pieniądzach, bez odsyłania do warsztatu (dzwoniący WŁAŚNIE
+      // tam zadzwonił) i bez obietnicy oddzwonienia, bo nikt nie oddzwoni:
+      // nie ma zgłoszenia, agent nie prowadził rozmowy.
+      snapshotBlok = `\n\n=== OBSŁUGA TELEFONICZNA NIEDOSTĘPNA ===\n`
+        + `Powiedz DOKŁADNIE to zdanie, w języku rozmowy: „${zdanieBrakMinut(jezyk)}"\n`
+        + `Potem zakończ rozmowę. NIE proponujesz terminów, NIE pytasz o dane, `
+        + `NIE zapisujesz zgłoszenia i NIE tłumaczysz, dlaczego — nie znasz powodu.\n`;
+    } else if (zajete) {
       // WSZYSTKIE LINIE ZAJĘTE. Zdanie bierzemy z modułu wzorców w JĘZYKU
       // ROZMOWY — nie z snapshotu, bo snapshot powstaje przy odebraniu,
       // a język rozpoznajemy dopiero z tego, co klient powiedział.
@@ -745,7 +756,7 @@ ${greetingRule}
     //
     // Narzędzia KLIENTA (end_call) zostają. Agent musi mieć czym się rozłączyć,
     // inaczej po jednym zdaniu zapada cisza i to klient odkłada słuchawkę.
-    const nieObslugujemy = !!wylaczony || zajete;
+    const nieObslugujemy = !!wylaczony || zajete || brakMinut;
     if (providerId && calendarAccess && !nieObslugujemy) {
       tools.push({
         name: "check_availability",

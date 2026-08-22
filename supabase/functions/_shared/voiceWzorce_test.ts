@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.190.0/testing/asserts.ts";
-import { liczbaWzorcow, wzorceWJezyku, zdanieAwarii, zdanieWylaczenia, zdanieZajetosci } from "./voiceWzorce.ts";
+import { liczbaWzorcow, wzorceWJezyku, zdanieAwarii, zdanieBrakMinut, zdanieWylaczenia, zdanieZajetosci } from "./voiceWzorce.ts";
 
 // KAZDY JEZYK DOSTAJE WYLACZNIE SWOJ BLOK.
 //
@@ -300,4 +300,52 @@ Deno.test("zdanie o wylaczeniu nie jest tym samym co o zajetosci", () => {
 Deno.test("nieznany jezyk wraca do polskiego takze przy wylaczeniu", () => {
   if (zdanieWylaczenia("de") !== zdanieWylaczenia("pl")) throw new Error("brak powrotu do polskiego");
   if (zdanieWylaczenia(null) !== zdanieWylaczenia("pl")) throw new Error("null nie wraca do polskiego");
+});
+
+// ============================================================================
+// BRAK MINUT — trzy zakazy, każdy z własnym powodem.
+// ============================================================================
+Deno.test("zdanie o braku minut istnieje w kazdym jezyku i nie jest po polsku", () => {
+  for (const j of ["en", "ru", "uk"] as const) {
+    const z = zdanieBrakMinut(j);
+    if (!z || z.length < 20) throw new Error(`${j}: brak zdania`);
+    if (z === zdanieBrakMinut("pl")) throw new Error(`${j}: to polskie zdanie`);
+  }
+});
+
+// KLIENT WARSZTATU NIE MA WIEDZIEC, ZE COS JEST NIEOPLACONE.
+Deno.test("zdanie o braku minut nie mowi o pieniadzach ani o minutach", () => {
+  const zakazane = [
+    /minut/i, /środk/i, /srodk/i, /opłat/i, /oplat/i, /płatnoś/i, /platnos/i,
+    /credit/i, /payment/i, /balance/i, /minute/i,
+    /минут/i, /оплат/i, /средств/i, /хвилин/i, /оплач/i,
+  ];
+  for (const j of ["pl", "en", "ru", "uk"] as const) {
+    const z = zdanieBrakMinut(j);
+    for (const w of zakazane) {
+      if (w.test(z)) throw new Error(`${j}: wystawia warsztat — "${z}"`);
+    }
+  }
+});
+
+// SLEPA ULICZKA: dzwoniacy WLASNIE zadzwonil pod numer warsztatu.
+Deno.test("zdanie o braku minut nie odsyla do warsztatu ani nie obiecuje oddzwonienia", () => {
+  const zakazane = [
+    /bezpośrednio/i, /bezposrednio/i, /oddzwoni/i, /skontaktujemy/i,
+    /call the workshop/i, /directly/i, /call you back/i,
+    /перезвон/i, /напряму/i, /безпосередньо/i,
+  ];
+  for (const j of ["pl", "en", "ru", "uk"] as const) {
+    const z = zdanieBrakMinut(j);
+    for (const w of zakazane) {
+      if (w.test(z)) throw new Error(`${j}: slepa uliczka albo obietnica — "${z}"`);
+    }
+  }
+});
+
+Deno.test("trzy zdania odmowy roznia sie od siebie", () => {
+  for (const j of ["pl", "en", "ru", "uk"] as const) {
+    const trzy = [zdanieBrakMinut(j), zdanieZajetosci(j), zdanieWylaczenia(j)];
+    if (new Set(trzy).size !== 3) throw new Error(`${j}: dwa zdania odmowy sa identyczne`);
+  }
 });

@@ -316,6 +316,32 @@ serve(async (req) => {
           return { wylaczony: true, zdanie };
         }
 
+        // BRAMKA MINUT — PRZED limitem rozmów i PRZED zapisem do voice_active_calls.
+        //
+        // Kolejność nie jest obojętna: rozmowa, której nie obsługujemy, nie może
+        // zajmować linii. Sprawdzenie po zapisie odjęłoby warsztatowi jedną
+        // z jego równoczesnych rozmów za połączenie, którego i tak nie obsłużył.
+        //
+        // Cała reguła siedzi w `voice_odmowic_brak_minut` — flaga, opłacona
+        // subskrypcja i saldo po odjęciu rozmów w toku. Domyślnie zwraca false,
+        // więc ten kod trafia na produkcję martwy.
+        //
+        // BŁĄD SPRAWDZENIA PRZEPUSZCZA ROZMOWĘ. Odwrotnie niż zasada 41, bo tu
+        // odmowa znaczy nieodebrany telefon klienta warsztatu, który zapłacił.
+        const { data: odmowic, error: bladBramki } = await admin
+          .rpc("voice_odmowic_brak_minut", { p_provider_id: providerId });
+        if (bladBramki) {
+          console.error("[voice-agent-init] bramka minut nieudana:", bladBramki.code, bladBramki.message);
+        } else if (odmowic === true) {
+          // MAIL RAZ NA DOBĘ, nie przy każdym telefonie. Dziesięć identycznych
+          // wiadomości uczy je kasować — a jedenasta, ta ważna, zginie z nimi.
+          const { data: zglosic } = await admin.rpc("voice_zglos_nieodebrane", { p_provider_id: providerId });
+          console.warn("[voice-agent-init]", JSON.stringify({
+            event: "brak_minut_odmowa", warsztat: "jest", mail_wyslany: zglosic === true,
+          }));
+          return { brak_minut: true };
+        }
+
         // LIMIT ROZMÓW RÓWNOCZESNYCH.
         //
         // Liczymy TYLKO okno 30 minut. Rozmowa, o której końcu nie
@@ -637,8 +663,8 @@ serve(async (req) => {
     // Rozdzielamy je JAWNIE, bo pierwsza wersja szła dalej do logu
     // z `snapshot.dni.length`, rzucała wyjątkiem i wracała pustym snapshotem —
     // awaria wyglądała identycznie jak brak danych.
-    const spec = snapshot as { wylaczony?: boolean; zajete?: boolean };
-    if (spec.wylaczony === true || spec.zajete === true) {
+    const spec = snapshot as { wylaczony?: boolean; zajete?: boolean; brak_minut?: boolean };
+    if (spec.wylaczony === true || spec.zajete === true || spec.brak_minut === true) {
       const debugW = new URL(req.url).searchParams.get("debug") === "1";
       console.info("[voice-agent-init]", JSON.stringify({
         event: "snapshot_specjalny", ms: Math.round(performance.now() - started), znakow: tekst.length,

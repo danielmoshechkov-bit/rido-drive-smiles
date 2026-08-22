@@ -385,3 +385,33 @@ const WYLACZENIE: Record<JezykWzorcow, string> = {
 export function zdanieWylaczenia(jezyk: JezykWzorcow | string | null | undefined): string {
   return WYLACZENIE[(jezyk as JezykWzorcow) in WYLACZENIE ? (jezyk as JezykWzorcow) : "pl"];
 }
+
+// ============================================================================
+// BRAK MINUT — warsztat wyczerpał pakiet i nie doładował.
+//
+// TRZY RZECZY, KTÓRYCH TU NIE MA, I KAŻDA JEST DECYZJĄ:
+//
+// 1. ŻADNEGO SŁOWA O PIENIĄDZACH. Klient warsztatu nie ma się dowiedzieć, że
+//    coś jest nieopłacone — to sprawa między nami a warsztatem. „Skończyły się
+//    minuty" albo „brak środków" wystawia warsztat przed jego własnym klientem.
+//
+// 2. ŻADNEJ PODPOWIEDZI „proszę zadzwonić bezpośrednio do warsztatu".
+//    Przy przekierowaniu dzwoniący WŁAŚNIE tam zadzwonił i trafił do nas —
+//    odesłanie go pod ten sam numer jest ślepą uliczką.
+//
+// 3. ŻADNEJ OBIETNICY ODDZWONIENIA. Nikt nie oddzwoni: nie mamy zgłoszenia,
+//    bo agent nie prowadził rozmowy.
+//
+// Zostaje „proszę spróbować później" — jedyne, co jest prawdą i da się zrobić.
+// ============================================================================
+const BRAK_MINUT: Record<JezykWzorcow, string> = {
+  pl: "Przepraszam, obsługa telefoniczna jest chwilowo niedostępna. Proszę spróbować później.",
+  en: "I'm sorry, phone service is temporarily unavailable. Please try again later.",
+  ru: "Извините, телефонное обслуживание временно недоступно. Пожалуйста, попробуйте позже.",
+  uk: "Вибачте, телефонне обслуговування тимчасово недоступне. Будь ласка, спробуйте пізніше.",
+};
+
+/** Zdanie przy wyczerpanym pakiecie minut, w języku rozmowy. Nieznany język → polski. */
+export function zdanieBrakMinut(jezyk: JezykWzorcow | string | null | undefined): string {
+  return BRAK_MINUT[(jezyk as JezykWzorcow) in BRAK_MINUT ? (jezyk as JezykWzorcow) : "pl"];
+}
