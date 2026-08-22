@@ -315,6 +315,32 @@ To decyzja o warstwie zapasowej, nie naprawa dziury.
 Pojedynczych wyjątków nie robimy: jedna wyspa nie jest polityką, a następna
 migracja i tak by ją cofnęła.
 
+### 4.7a Rabat roczny występuje w DWÓCH miejscach
+
+Rok kosztuje dziesięć miesięcy — klient płaci za 10, dostaje 12. Ta liczba stoi
+w `billing_cena_okresu` jako jedyne źródło… **prawie**.
+
+Drugie wystąpienie jest w `billing-stripe-sync`, przy liczeniu ceny DOCELOWEJ roku:
+
+```ts
+const kwotaRokTarget = grosze(Number(plan.price_net_target) * 10, plan.vat_rate);
+```
+
+Powód jest realny: `billing_cena_okresu` wycenia po gwarancji **konkretnego klienta**,
+a przy zakładaniu cennika w Stripe klienta nie ma. Cena startowa roku idzie z bazy
+(bo dla `p_provider = NULL` gwarancja nie obowiązuje i wychodzi startowa), ale
+docelowej tą drogą nie da się uzyskać.
+
+**Co z tego wynika: zmiana rabatu wymaga ruszenia OBU miejsc.** Sama zmiana stałej
+w funkcji SQL da rozjazd — nowa cena startowa roku i stara docelowa.
+
+**Jak naprawić docelowo:** dołożyć `billing_cena_okresu` trzeci argument wymuszający
+wariant ceny (`startowa` / `docelowa`) zamiast wnioskować go z gwarancji klienta.
+Wtedy synchronizacja pyta bazę o obie i mnożnik wraca do jednego miejsca.
+
+**Pilność:** niska, dopóki rabat wynosi dwa miesiące i nikt go nie zmienia.
+**Przed zmianą rabatu — obowiązkowo.**
+
 ### 4.8a Śmieci w `entities` i otwarte zakładanie wystawcy
 
 Dziewięć wpisów, z czego cztery to oczywiste śmieci z testów (`asdadasdad`,
