@@ -13,8 +13,13 @@ import { formatMoneyPLN } from '@/utils/formatters';
 
 /**
  * Doładowanie w modelu SUWAKA: licznik sztuk, stała stawka, kwota licząca się
- * na bieżąco. Świadomie NIE ma sztywnych pakietów — warsztat kupuje tyle,
+ * na bieżąco. SMS-y i sprawdzenia VIN kupuje się na sztuki — warsztat bierze tyle,
  * ile potrzebuje, a nie najbliższy wariant z listy.
+ *
+ * Rido AI jest wyjątkiem: sprzedajemy je w JEDNEJ paczce. Rozpoznaje to
+ * `max_units = min_units` w bazie — wtedy zamiast licznika stoi sama wielkość
+ * pakietu, bo nie ma czego wybierać. Warunek siedzi w danych, nie w kodzie,
+ * więc zmiana zdania co do któregokolwiek produktu nie wymaga wdrożenia.
  *
  * Kwota pokazana tutaj jest WYŁĄCZNIE podglądem. Cenę rozstrzyga
  * `billing_wylicz_doladowanie` po stronie bazy, a `billing-payu-order` liczy
@@ -26,6 +31,8 @@ interface Produkt {
   name: string;
   unit_price_net: number;
   step: number;
+  /** Sufit jednego zamówienia. Równy `min_units` znaczy PAKIET SZTYWNY. */
+  max_units: number | null;
   min_units: number;
 }
 
@@ -57,7 +64,7 @@ export function DoladowanieModal({
     (async () => {
       const { data } = await (supabase as any)
         .from('billing_addon_products')
-        .select('code, name, unit_price_net, step, min_units')
+        .select('code, name, unit_price_net, step, min_units, max_units')
         .eq('code', productCode)
         .eq('is_active', true)
         .maybeSingle();
@@ -77,12 +84,26 @@ export function DoladowanieModal({
     [produkt, ile],
   );
 
+  /**
+   * PAKIET SZTYWNY — jedna wielkość, bez suwaka.
+   *
+   * 🔴 DODANE 22.08.2026. Rido AI ma być sprzedawane wyłącznie w jednej paczce
+   * (200 pytań), a nie „na sztuki". Rozpoznajemy to po `max_units = min_units`:
+   * skoro dół i góra są równe, nie ma czego wybierać.
+   *
+   * Warunek stoi w BAZIE, nie w kodzie — dzięki temu SMS-y i sprawdzenia VIN
+   * zostają regulowane suwakiem, a zmiana zdania co do któregokolwiek produktu
+   * nie wymaga wdrożenia frontu.
+   */
+  const sztywny = !!produkt && produkt.max_units !== null && produkt.max_units === produkt.min_units;
+
   const ustaw = (nowa: number) => {
-    if (!produkt) return;
+    if (!produkt || sztywny) return;
     const dol = produkt.min_units;
+    const gora = produkt.max_units ?? 1_000_000;
     // Zaokrąglenie do kroku: wpisanie 137 daje 100, nie odmowę przy zapłacie.
     const doKroku = Math.round(nowa / produkt.step) * produkt.step;
-    const wynik = Math.max(dol, Math.min(1_000_000, doKroku));
+    const wynik = Math.max(dol, Math.min(gora, doKroku));
     setIle(wynik);
     setTekst(String(wynik));
   };
@@ -148,6 +169,17 @@ export function DoladowanieModal({
           </p>
         ) : (
           <div className="space-y-5 py-2">
+            {/*
+              PAKIET SZTYWNY NIE MA CO WYBIERAĆ.
+              Przy jednej dopuszczalnej wielkości suwak i pole liczbowe tylko
+              udają wybór: każda inna wartość i tak zostałaby odrzucona przy
+              zapłacie. Pokazujemy więc samą wielkość paczki.
+            */}
+            {sztywny ? (
+              <div className="rounded-lg border bg-primary/5 py-5 text-center">
+                <p className="text-3xl font-bold text-primary">{ile}</p>
+              </div>
+            ) : (
             <div className="flex items-center justify-center gap-3">
               <Button
                 variant="outline"
@@ -181,6 +213,7 @@ export function DoladowanieModal({
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
+            )}
 
             <p className="text-center text-sm text-muted-foreground">{jednostka}</p>
 
