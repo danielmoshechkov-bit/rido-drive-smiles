@@ -514,9 +514,29 @@ Odpowiedz TYLKO tablica JSON, w tej samej kolejnosci co lista:
               updated_at: new Date().toISOString(),
             }));
           if (doZapisu.length) {
-            void (supabase as any).from('ai_price_cache').upsert(doZapisu, { onConflict: 'cache_key' });
+            /**
+             * ZAPIS CZEKA I MELDUJE BŁĄD.
+             *
+             * 🔴 NAPRAWIONE 22.08.2026. Stało tu `void ... .upsert(...)` bez
+             * `await` i bez sprawdzenia wyniku. Tabela `ai_price_cache` jest
+             * PUSTA — ani jednego wiersza — więc zapis nie działa od początku,
+             * tylko nikt tego nie widział. Skutek: każde otwarcie Rido Wyceny
+             * pytało model od nowa i zdejmowało kredyt za tę samą odpowiedź.
+             *
+             * Pamięć nadal jest opcjonalna — jej brak nie może zablokować
+             * pokazania wyceny. Ale cicha awaria, która kosztuje klienta
+             * pieniądze przy każdym kliknięciu, przestaje być akceptowalna.
+             */
+            const { error: bladPamieci } = await (supabase as any)
+              .from('ai_price_cache')
+              .upsert(doZapisu, { onConflict: 'cache_key' });
+            if (bladPamieci) {
+              console.error('[Rido Wycena] nie zapisano do pamięci wycen:', bladPamieci);
+            }
           }
-        } catch { /* pamiec jest opcjonalna */ }
+        } catch (e) {
+          console.error('[Rido Wycena] zapis do pamięci wycen przerwany:', e);
+        }
 
         setError(null);
         return true;
