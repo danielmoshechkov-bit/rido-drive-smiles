@@ -3319,6 +3319,33 @@ przebiegu, także zerowym** — liczbę, nie milczenie.
 „20 numerów u operatora, 20 u nas, 0 rozbieżności" widziane codziennie znaczy,
 że kontrola chodzi. Brak wiadomości nie znaczy nic.
 
+## WYJĄTEK OD ZASADY 41 — trzy miejsca, gdzie brak danych ma ZNACZYĆ ZGODĘ
+
+Zasada 41 mówi: **brak danych to odmowa, nie zgoda.** Obowiązuje wszędzie poza
+trzema miejscami, wypisanymi tu wprost, żeby nikt ich nie „naprawił" przy
+refaktorze, widząc niespójność.
+
+```
+voice-agent-init  bramka minut          błąd odczytu → PRZEPUŚĆ rozmowę
+voice-agent-init  limit rozmów równocz. błąd liczenia → PRZEPUŚĆ rozmowę
+voice_odmowic_brak_minut  wyjątek SQL   → RETURN false (nie blokuj)
+```
+
+**Powód jest jeden i wspólny:** odmowa znaczy tu **nieodebrany telefon klienta
+warsztatu, który zapłacił.** Nasza awaria odczytu nie może kosztować go
+zlecenia. Przepuszczona rozmowa ponad limit kosztuje kilka groszy; nieodebrany
+telefon kosztuje klienta.
+
+**Kryterium, po którym poznać, że wyjątek jest uzasadniony:** komu szkodzi
+pomyłka w każdą stronę. Przy zakupie numeru pomyłka „na tak" wydaje NASZE
+pieniądze — tam obowiązuje odmowa. Przy odbieraniu telefonu pomyłka „na nie"
+zabiera CUDZY przychód — tam obowiązuje zgoda.
+
+Wszędzie indziej — snapshot nieznanego numeru, konfiguracja agenta, uprawnienia
+do nadawania minut, zakup u operatora — **odmowa zostaje domyślna.**
+
+---
+
 ## ZASADA 46 — walidacja wejścia musi mieć odpowiednik na wyjściu
 
 **Sprawdzamy dane, które WYSYŁAMY do modelu, a nie te, które od niego WRACAJĄ.**
