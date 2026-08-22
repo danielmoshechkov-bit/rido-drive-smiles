@@ -125,7 +125,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.billing_wylicz_doladowanie(text, integer) FROM public;
+REVOKE ALL ON FUNCTION public.billing_wylicz_doladowanie(text, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.billing_wylicz_doladowanie(text, integer)
   TO service_role, authenticated, anon;
 

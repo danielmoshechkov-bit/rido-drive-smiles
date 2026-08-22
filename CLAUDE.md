@@ -84,6 +84,29 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 ## Zasady pracy z tym repozytorium (ustalone 21.08.2026)
 
+### Warunek w kodzie i więz w bazie muszą mówić to samo
+
+Najważniejsza rzecz, jaka wyszła z tej sesji. Zmiana jednego bez drugiego nie naprawia
+błędu — **przenosi go w gorsze miejsce**.
+
+`billing-checkout` odmawiał zakupu wszystkim, bo sprawdzał obecność wiersza subskrypcji.
+Poluzowanie tego warunku wyglądało na całą naprawę. Nie było: webhook robi `INSERT`,
+a indeks `billing_subscriptions_one_active` odrzuciłby drugi wiersz. Klient zapłaciłby,
+Stripe pobrałby pieniądze, a subskrypcja by nie powstała — **ciche gubienie płatności
+zamiast widocznej odmowy**.
+
+Przy każdej zmianie warunku decydującego o zapisie sprawdź, czy baza mówi to samo:
+
+```sql
+-- więzy i indeksy na tabeli, którą ruszasz
+SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'public.tabela'::regclass;
+SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'tabela';
+```
+
+Odmowa jest stanem bezpiecznym — widać ją i ktoś ją zgłosi. Zapis, który cicho nie
+dochodzi, wychodzi na jaw przy reklamacji.
+
+
 ### Dostęp do bazy produkcyjnej
 
 Dostęp DZIAŁA: `supabase db query --linked -f plik.sql` (project ref `wclrrytmrscqvsyxyvnn`).
@@ -120,9 +143,21 @@ zakładanie brakujących wierszy, kasowanie), przejdź po kodzie szukającym **j
 grep -rn "!szczegoly\|=== null\|== null\|IS NULL\|maybeSingle" src/
 ```
 
-Szukaj kodu sprawdzającego **samą obecność**, nie kodu czytającego treść wiersza.
-To inne zapytanie i łatwiej je przeoczyć — czytający treść zwykle i tak ma gałąź
-na `null`, sprawdzający obecność traktuje ją jako znaczącą.
+Szukaj kodu sprawdzającego **samą obecność albo brak**, nie kodu czytającego treść
+wiersza. To inne zapytanie i łatwiej je przeoczyć — czytający treść zwykle i tak ma
+gałąź na `null`, a sprawdzający istnienie traktuje je jako znaczące.
+
+**Trzeba przejść po OBU kierunkach.** Wariant A ugryzł dwa razy, w dwóch przeciwnych
+formach:
+
+| Forma | Co się stało | Czym szukać |
+|---|---|---|
+| „brak wiersza znaczy X" | `PlanBadge` przestał pokazywać licznik okresu próbnego | `grep -rn "!szczegoly\|=== null\|== null\|!dane\|IS NULL" src/ supabase/functions/` |
+| „obecność wiersza znaczy Y" | `billing-checkout` odmawiał WSZYSTKIM zakupu kartą | `grep -rn "if (istniejaca\|if (dane\|EXISTS (\|maybeSingle()" src/ supabase/functions/` |
+
+Druga forma jest groźniejsza, bo objawia się odmową, a odmowa wygląda jak zamierzone
+zabezpieczenie. Pierwsza tylko czegoś nie pokazuje.
+
 
 ### `REVOKE ... FROM public` NIE odbiera uprawnień `anon` ani `authenticated`
 
@@ -147,6 +182,12 @@ dopisywanie kwot do portfela i prowizja z programu poleceń zamkniętego na pozi
 REVOKE ALL ON FUNCTION public.nazwa(...) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.nazwa(...) TO service_role;
 ```
+
+**Wzorzec w repozytorium poprawiony wstecz.** Trzydzieści siedem wystąpień `FROM public;`
+w wykonanych już migracjach zostało przepisanych na poprawną formę — świadomy wyjątek od
+zasady „nie edytuj starych migracji". Powód: reguła w dokumentacji nie dociera do kogoś,
+kto kopiuje istniejący kod, a wzorzec kopiuje się sam. Zmiana nie rusza semantyki: te
+migracje są zastosowane, a poprawiona linijka robi to, co zawsze deklarowała.
 
 Pilnuje tego `scripts/sql-harness/sprawdz_uprawnienia_funkcji.py` (bramka w CI, zadanie
 „Czy nowa funkcja odcina anon i authenticated"). Funkcje tylko odczytujące są na liście

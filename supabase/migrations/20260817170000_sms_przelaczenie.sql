@@ -232,7 +232,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.sms_dostepne(uuid) FROM public;
+REVOKE ALL ON FUNCTION public.sms_dostepne(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.sms_dostepne(uuid) TO authenticated, service_role;
 
 COMMIT;

@@ -41,7 +41,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.billing_wygas_porzucone(integer) FROM public;
+REVOKE ALL ON FUNCTION public.billing_wygas_porzucone(integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.billing_wygas_porzucone(integer) TO service_role;
 
 -- Sześć godzin, nie kilkanaście minut: BLIK potrafi czekać na potwierdzenie

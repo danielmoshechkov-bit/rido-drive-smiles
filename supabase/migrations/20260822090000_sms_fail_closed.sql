@@ -57,7 +57,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.deduct_sms_credit(uuid) FROM public;
+REVOKE ALL ON FUNCTION public.deduct_sms_credit(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.deduct_sms_credit(uuid) TO service_role;
 
 -- ---------------------------------------------------------------------------
@@ -94,7 +94,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.zwroc_sms_credit(uuid, text) FROM public;
+REVOKE ALL ON FUNCTION public.zwroc_sms_credit(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.zwroc_sms_credit(uuid, text) TO service_role;
 
 COMMIT;

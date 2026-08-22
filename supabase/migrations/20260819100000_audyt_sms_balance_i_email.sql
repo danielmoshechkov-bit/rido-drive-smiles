@@ -91,7 +91,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.grant_sms_credits(uuid, integer, text, uuid, text) FROM public;
+REVOKE ALL ON FUNCTION public.grant_sms_credits(uuid, integer, text, uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.grant_sms_credits(uuid, integer, text, uuid, text) TO service_role;
 
 -- ---------------------------------------------------------------------------
@@ -285,9 +285,9 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.przyznaj_pakiet_startowy(uuid, uuid, text, integer, integer) FROM public;
+REVOKE ALL ON FUNCTION public.przyznaj_pakiet_startowy(uuid, uuid, text, integer, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.przyznaj_pakiet_startowy(uuid, uuid, text, integer, integer) TO service_role;
-REVOKE ALL ON FUNCTION public.normalizuj_email(text) FROM public;
+REVOKE ALL ON FUNCTION public.normalizuj_email(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.normalizuj_email(text) TO service_role, authenticated;
 
 COMMIT;

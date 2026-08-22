@@ -88,7 +88,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.billing_zejdz_do_read_only() FROM public;
+REVOKE ALL ON FUNCTION public.billing_zejdz_do_read_only() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.billing_zejdz_do_read_only() TO service_role;
 
 -- ---------------------------------------------------------------------------

@@ -157,7 +157,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.zwroc_sms_credit(uuid, text) FROM public;
+REVOKE ALL ON FUNCTION public.zwroc_sms_credit(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.zwroc_sms_credit(uuid, text) TO service_role;
 
 -- ---------------------------------------------------------------------------
@@ -203,7 +203,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.sms_wygas_paczki() FROM public;
+REVOKE ALL ON FUNCTION public.sms_wygas_paczki() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.sms_wygas_paczki() TO service_role;
 
 -- ---------------------------------------------------------------------------

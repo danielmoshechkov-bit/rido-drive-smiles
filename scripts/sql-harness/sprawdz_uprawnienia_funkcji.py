@@ -52,7 +52,7 @@ KATALOG = Path(__file__).resolve().parents[2] / "supabase" / "migrations"
 #
 # Gdyby ktoś chciał sprawdzić stan faktyczny, a nie pliki, zapytanie jest
 # w nagłówku niżej.
-OD_WERSJI = "20260822180000"
+OD_WERSJI = "20260822185000"
 
 # Funkcje zamknięte hurtem przez tę migrację. Wymienione z nazwy, bo numer
 # wersji nie porządkuje ich chronologicznie: `20260823090000_ksiega_rejestr_decyzji`
@@ -67,6 +67,9 @@ ZAMKNIETE_ZBIORCZO = {
     "link_referral_on_signup", "onboarding_pojazd_za_darmo", "przyznaj_pakiet_startowy",
     "sms_wygas_paczki", "voice_nadaj_minuty", "voice_wyzeruj_minuty", "zwroc_sms_credit",
     "deduct_sms_credit", "deduct_vehicle_lookup_credit", "billing_znacznik_karencji",
+    # Domknięta osobno migracją 20260822200000 — powstała po poprawce zbiorczej,
+    # tym samym nieskutecznym wzorcem `REVOKE ... FROM public`.
+    "przyznaj_start_rido_ai",
 }
 
 # Tabele, których zapis znaczy „pieniądze albo dostęp".
@@ -108,14 +111,27 @@ WYJATKI: dict[str, str] = {
 }
 
 
+RE_ZLY_REVOKE = re.compile(
+    r"REVOKE\s+ALL\s+ON\s+FUNCTION\s+(?:public\.)?(\w+)\s*\([^)]*\)\s*FROM\s+public\s*;",
+    re.I)
+
+
 def main() -> int:
     problemy: list[tuple[str, str]] = []
+    zly_wzorzec: list[tuple[str, str]] = []
 
     for plik in sorted(KATALOG.glob("*.sql")):
         if plik.name.split("_", 1)[0] < OD_WERSJI:
             continue
         tresc = plik.read_text(encoding="utf-8", errors="replace")
         bez_komentarzy = re.sub(r"--[^\n]*", " ", tresc)
+
+        # Sam wzorzec `FROM public;` — niezależnie od tego, co funkcja robi.
+        # Nie dlatego, że każda taka funkcja jest dziurawa, tylko dlatego, że
+        # każdy, kto ją skopiuje, powtórzy błąd. Wzorzec w repozytorium uczy
+        # skuteczniej niż reguła w dokumentacji.
+        for m in RE_ZLY_REVOKE.finditer(bez_komentarzy):
+            zly_wzorzec.append((plik.name, m.group(1)))
 
         for m in RE_FUNKCJA.finditer(bez_komentarzy):
             nazwa = m.group(1)
@@ -138,6 +154,17 @@ def main() -> int:
             role = (revoke.group(1) if revoke else "").lower()
             if "anon" not in role or "authenticated" not in role:
                 problemy.append((plik.name, nazwa))
+
+    if zly_wzorzec:
+        print("NIESKUTECZNY WZORZEC `REVOKE ... FROM public;`:\n")
+        for plik, nazwa in zly_wzorzec:
+            print(f"  {nazwa}\n      {plik}")
+        print("\n`PUBLIC` to osobne uprawnienie domyślne. Supabase nadaje EXECUTE")
+        print("rolom `anon` i `authenticated` JAWNIE — odebranie `PUBLIC` tego nie rusza.")
+        print("\n    REVOKE ALL ON FUNCTION public.nazwa(...) FROM PUBLIC, anon, authenticated;")
+        print("\nJeśli funkcja ma zostać otwarta dla klienta, i tak wymień role z nazwy,")
+        print("a dostęp przywróć osobnym GRANT-em. Wtedy widać decyzję, a nie przypadek.")
+        return 1
 
     if not problemy:
         print(f"zielono — każda funkcja pisząca do tabel pieniężnych odcina "

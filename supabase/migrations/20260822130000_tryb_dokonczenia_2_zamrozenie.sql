@@ -85,7 +85,7 @@ CREATE TRIGGER trg_straz_dokanczania_zlecenia
 
 -- Wyzwalacz jest SECURITY DEFINER i woła dwie funkcje bramki; obie też są
 -- SECURITY DEFINER, więc działa niezależnie od uprawnień piszącego.
-REVOKE ALL ON FUNCTION public.straz_dokanczania_zlecenia() FROM public;
+REVOKE ALL ON FUNCTION public.straz_dokanczania_zlecenia() FROM PUBLIC, anon, authenticated;
 
 COMMIT;
 
