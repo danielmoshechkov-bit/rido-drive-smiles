@@ -34,6 +34,27 @@ jobs:
           cache: "npm"
       - name: Install dependencies
         run: npm install --no-fund --no-audit
+      # Znacznik wdrożenia. Bez niego jedyną drogą do odpowiedzi „co właściwie
+      # stoi na produkcji" jest zgadywanie po nazwach kawałków Vite — a te
+      # zmieniają się razem z treścią, więc nie da się po nich powiedzieć,
+      # z której GAŁĘZI pochodzą. 21.08.2026 wdrożenie z gałęzi roboczej zostało
+      # nadpisane wdrożeniem z main po dwóch minutach i nikt tego nie zauważył
+      # przez pół dnia.
+      #
+      # Plik ląduje w `public/`, więc Vite kopiuje go do `dist/` i FTP wgrywa
+      # razem z resztą. Czyta go kontrola zgodności (zgodnosc-produkcji.yml).
+      - name: Znacznik wdrożenia
+        run: |
+          cat > public/wersja.json <<EOF
+          {
+            "sha": "${GITHUB_SHA}",
+            "galaz": "${GITHUB_REF_NAME}",
+            "przebieg": "${GITHUB_RUN_ID}",
+            "wdrozono": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          cat public/wersja.json
+
       - name: Build project
         run: npm run build
       - name: Verify Dompdf endpoint present in dist
