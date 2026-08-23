@@ -19,6 +19,7 @@ import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { TireStorageRulesDialog } from './TireStorageRulesDialog';
 import { TireStoragePricing, useTirePricing, RODZAJE_FELG } from './TireStoragePricing';
+import { TireStorageDetailsDialog } from './TireStorageDetailsDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -214,6 +215,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [zasadyOtwarte, setZasadyOtwarte] = useState(false);
+  const [podglad, setPodglad] = useState<any>(null);
   /**
    * „W magazynie" i „Wydane" to dwa różne pytania: pierwsze zadaje magazynier szukający
    * miejsca, drugie — klient, który twierdzi, że opon nie odebrał. Dotąd lista pokazywała
@@ -373,67 +375,94 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>{t('workshop.tireStorage.col.code')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.client')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.phone')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.brandModel')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.size')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.season')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.vehicle')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.location')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.receivedDate')}</TableHead>
-                <TableHead>Przypomnienie</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.cost')}</TableHead>
-                <TableHead>Do zapłaty</TableHead>
-                <TableHead className="text-right">Akcje</TableHead>
+              {/* Trzynascie kolumn nie miescilo sie na ekranie: naglowki lamaly sie
+                  na dwie linie, a wiersze rosly do trzech. Zostaja te, ktore
+                  decyduja przy patrzeniu na liste; reszta jest w szczegolach. */}
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[104px]">Kod</TableHead>
+                <TableHead className="min-w-[150px]">Klient</TableHead>
+                <TableHead className="min-w-[170px]">Opony</TableHead>
+                <TableHead className="w-[96px]">Pojazd</TableHead>
+                <TableHead className="w-[120px]">Miejsce</TableHead>
+                <TableHead className="w-[92px]">Przyjęto</TableHead>
+                <TableHead className="w-[130px]">Przypomnienie</TableHead>
+                <TableHead className="w-[130px]">Do zapłaty</TableHead>
+                <TableHead className="w-[150px] text-right">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                     <Archive className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     {isLoading ? t('common.loading') : t('workshop.tireStorage.noData')}
                   </TableCell>
                 </TableRow>
               ) : paged.map((r: any) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-mono text-xs">{r.storage_number || '—'}</TableCell>
-                  <TableCell>{r.client_name || `${r.workshop_clients?.first_name || ''} ${r.workshop_clients?.last_name || ''}`.trim() || '—'}</TableCell>
-                  <TableCell className="text-xs">{r.client_phone || '—'}</TableCell>
-                  <TableCell>{r.tire_brand} {r.tire_model}</TableCell>
-                  <TableCell>{r.tire_size || '—'}</TableCell>
-                  <TableCell>{r.season === 'letnie' ? `☀️ ${t('workshop.tireStorage.season.summer')}` : r.season === 'zimowe' ? `❄️ ${t('workshop.tireStorage.season.winter')}` : `🔄 ${t('workshop.tireStorage.season.allSeason')}`}</TableCell>
-                  <TableCell className="text-xs">{r.workshop_vehicles ? `${r.workshop_vehicles.brand} ${r.workshop_vehicles.model} ${r.workshop_vehicles.plate}` : '—'}</TableCell>
-                  <TableCell className="text-xs">{r.location_name || '—'}</TableCell>
-                  <TableCell className="text-xs">{r.stored_at ? new Date(r.stored_at).toLocaleDateString('pl-PL') : '—'}</TableCell>
-                  <TableCell className={`text-xs ${reminderState(r).className}`}>{reminderState(r).label}</TableCell>
-                  <TableCell className="font-medium">{(r.storage_cost || 0).toFixed(2)} zł</TableCell>
-                  <TableCell>
+                <TableRow
+                  key={r.id}
+                  onClick={() => setPodglad(r)}
+                  className="cursor-pointer"
+                  title="Kliknij, aby zobaczyć szczegóły"
+                >
+                  <TableCell className="font-mono text-xs py-2">{r.storage_number || '—'}</TableCell>
+                  <TableCell className="py-2">
+                    <div className="text-sm leading-tight">
+                      {r.client_name
+                        || `${r.workshop_clients?.first_name || ''} ${r.workshop_clients?.last_name || ''}`.trim()
+                        || '—'}
+                    </div>
+                    {r.client_phone && (
+                      <div className="text-xs text-muted-foreground leading-tight">{r.client_phone}</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <div className="text-sm leading-tight">
+                      {[r.tire_brand, r.tire_model].filter(Boolean).join(' ') || '—'}
+                    </div>
+                    <div className="text-xs text-muted-foreground leading-tight">
+                      {r.tire_size || '—'}
+                      {r.season && ` · ${r.season}`}
+                      {r.quantity ? ` · ${r.quantity} szt.` : ''}
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-2">
+                    {r.workshop_vehicles?.plate ? (
+                      <span className="font-mono text-xs rounded border px-1.5 py-0.5">
+                        {r.workshop_vehicles.plate}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs py-2">{r.location_name || '—'}</TableCell>
+                  <TableCell className="text-xs py-2">
+                    {r.stored_at ? new Date(r.stored_at).toLocaleDateString('pl-PL') : '—'}
+                  </TableCell>
+                  <TableCell className={`text-xs py-2 ${reminderState(r).className}`}>
+                    {reminderState(r).label}
+                  </TableCell>
+                  <TableCell className="py-2">
                     {r.dlug ? (
-                      <div>
-                        <span className="font-medium">{Number(r.dlug.do_zaplaty ?? 0).toFixed(2)} zł</span>
+                      <div className="leading-tight">
+                        <span className="text-sm font-semibold">
+                          {Number(r.dlug.do_zaplaty ?? 0).toFixed(2)} zł
+                        </span>
                         {r.dlug.okresow > 0 && r.okres_miesiecy && (
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-[11px] text-muted-foreground">
                             {r.dlug.okresow} × {Number(r.cena_za_okres).toFixed(0)} zł
-                            {' '}(co {r.okres_miesiecy} mies.)
                           </div>
                         )}
                         {r.dlug.dni_po_terminie > 0 && (
-                          <div className="text-xs text-destructive">
+                          <div className="text-[11px] text-destructive">
                             {r.dlug.dni_po_terminie} dni po terminie
-                            {Number(r.dlug.do_zaplaty ?? 0) > Number(r.storage_cost ?? 0) &&
-                              ` · +${(Number(r.dlug.do_zaplaty) - Number(r.storage_cost ?? 0)).toFixed(2)} zł`}
                           </div>
                         )}
                         {r.dlug.nieodebrane_od && (
-                          <div className="text-xs text-amber-600">nieodebrane</div>
+                          <div className="text-[11px] text-amber-600">nieodebrane</div>
                         )}
                       </div>
-                    ) : '—'}
+                    ) : <span className="text-muted-foreground text-xs">—</span>}
                   </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
+                  <TableCell onClick={e => e.stopPropagation()} className="text-right whitespace-nowrap">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -479,6 +508,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
 
       <TireStorageDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
       <TireStorageRulesDialog open={zasadyOtwarte} onOpenChange={setZasadyOtwarte} providerId={providerId} />
+      <TireStorageDetailsDialog record={podglad} onOpenChange={(v) => !v && setPodglad(null)} providerId={providerId} />
     </div>
   );
 }
@@ -524,12 +554,18 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, pla
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-full p-0" align="start">
-          <Command>
+        <PopoverContent
+          className="w-[--radix-popover-trigger-width] p-0"
+          align="start"
+        >
+          {/* Lista jest juz przefiltrowana wyzej. Bez `shouldFilter={false}`
+              komponent filtruje ja po raz drugi po wlasnym `value` i podswietla
+              przypadkowe pozycje na zolto. */}
+          <Command shouldFilter={false}>
             <div onKeyDown={handleKeyDown}>
               <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
             </div>
-            <CommandList>
+            <CommandList className="max-h-[260px] overflow-y-auto">
               <CommandEmpty>
                 <div className="space-y-1">
                   {onCreateNew && query.trim() && (
@@ -545,7 +581,7 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, pla
               </CommandEmpty>
               <CommandGroup>
                 {filtered.map(item => (
-                  <CommandItem key={item.id} value={getLabel(item)} onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}>
+                  <CommandItem key={item.id} value={item.id} onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}>
                     <Check className={`mr-2 h-4 w-4 ${value === item.id ? 'opacity-100' : 'opacity-0'}`} />
                     {renderItem(item)}
                   </CommandItem>
@@ -593,6 +629,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
   const [storageCost, setStorageCost] = useState('150');
   const [pickupDeadline, setPickupDeadline] = useState('');
   const [reminderMonths, setReminderMonths] = useState('6');
+  const [trybPrzypomnienia, setTrybPrzypomnienia] = useState<'miesiace' | 'data'>('miesiace');
   // O sposobie kontaktu decyduje klient — 'none' to pełnoprawny wybór, nie brak danych.
   const [reminderChannel, setReminderChannel] = useState<'sms' | 'email' | 'none'>('sms');
   const [locationName, setLocationName] = useState('');
@@ -721,7 +758,9 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
           season,
           stored_at: storedAt,
           pickup_at: pickupAt || null,
-          pickup_deadline: pickupDeadline || null,
+          // W trybie miesiecy termin wylicza sie z daty przyjecia i rytmu,
+          // wiec nie zapisujemy przypadkowej daty z drugiego trybu.
+          pickup_deadline: trybPrzypomnienia === 'data' ? (pickupDeadline || null) : null,
           storage_cost: parseFloat(storageCost) || 150,
           // Stawke zamrazamy na wpisie: pozniejsza podwyzka cennika nie moze
           // podniesc ceny klientowi, ktory zostawil opony wczesniej.
@@ -757,6 +796,9 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
 
       toast.success(t('workshop.tireStorage.storageSaved'));
       queryClient.invalidateQueries({ queryKey: ['tire-storage'] });
+      // Bez tego swiezy wpis nie ma jeszcze policzonej naleznosci i w kolumnie
+      // "Do zaplaty" widac zero, mimo ze cena zostala podana.
+      queryClient.invalidateQueries({ queryKey: ['tire-storage-dues', providerId] });
       onOpenChange(false);
 
       // Offer SMS
@@ -807,7 +849,17 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               onCreateNew={handleCreateClientInline}
               onAddNew={() => setShowAddClient(true)}
               placeholder={t('workshop.tireStorage.enterFullNamePlaceholder')}
-              renderItem={(c: any) => c.company_name || `${[c.first_name, c.last_name].filter(Boolean).join(' ')}`}
+              renderItem={(c: any) => (
+                <span className="flex items-baseline gap-2 min-w-0">
+                  <span className="truncate">
+                    {c.company_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'bez nazwy'}
+                  </span>
+                  {/* Imiennicy bez telefonu sa nie do odroznienia na liscie. */}
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {c.phone || 'brak telefonu'}
+                  </span>
+                </span>
+              )}
               getLabel={(c: any) => c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()}
             />
             {!clientId && clientName && (
@@ -818,7 +870,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
           {/* Phone */}
           <div className="space-y-2">
             <Label>{t('workshop.tireStorage.phoneNumber')}</Label>
-            <Input onFocus={e => e.currentTarget.select()} value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="+48 ..." className="h-9" />
+            <Input onFocus={e => e.currentTarget.select()} value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="np. 512 345 678" className="h-9" />
           </div>
 
           {/* Vehicle */}
@@ -831,8 +883,12 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               onCreateNew={handleCreateVehicleInline}
               onAddNew={() => setShowAddVehicle(true)}
               placeholder={t('workshop.tireStorage.searchVehiclePlaceholder')}
-              renderItem={(v: any) => `${v.brand} ${v.model} — ${v.plate}`}
-              getLabel={(v: any) => `${v.brand || ''} ${v.model || ''} ${v.plate || ''}`.trim()}
+              renderItem={(v: any) => {
+                const opis = [v.brand, v.model].filter(Boolean).join(' ');
+                // Puste marka/model dawaly na liscie "null null — WY045XF".
+                return opis ? `${opis} — ${v.plate || 'bez rejestracji'}` : (v.plate || 'bez rejestracji');
+              }}
+              getLabel={(v: any) => [v.brand, v.model, v.plate].filter(Boolean).join(' ').trim()}
             />
             {!vehicleId && vehiclePlateText && (
               <div className="text-xs text-muted-foreground">{t('workshop.tireStorage.entered', { value: vehiclePlateText })}</div>
@@ -883,14 +939,51 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
             ) : null}
           </div>
 
-          {/* Reminder */}
-          <div className="space-y-2">
-            <Label>Przypomnienie o odbiorze za</Label>
+          {/* Przypomnienie: albo konkretna data, albo rytm w miesiacach */}
+          <div className="space-y-2 md:col-span-2">
+            <Label>Przypomnienie o odbiorze</Label>
+
+            <div className="flex rounded-md border overflow-hidden w-fit">
+              {([['miesiace', 'Za ile miesięcy'], ['data', 'Konkretna data']] as const).map(([w, opis]) => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => setTrybPrzypomnienia(w)}
+                  className={`px-3 py-1.5 text-sm transition-colors ${
+                    trybPrzypomnienia === w ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'
+                  }`}
+                >
+                  {opis}
+                </button>
+              ))}
+            </div>
+
             <div className="flex items-center gap-2 flex-wrap">
-              <Input onFocus={e => e.currentTarget.select()} type="number" min="1" max="12" value={reminderMonths} onChange={e => setReminderMonths(e.target.value)} className="w-20 h-9" />
-              <span className="text-sm text-muted-foreground">{t('workshop.tireStorage.months')}</span>
+              {trybPrzypomnienia === 'miesiace' ? (
+                <>
+                  <Select value={reminderMonths} onValueChange={setReminderMonths}>
+                    <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                        <SelectItem key={m} value={String(m)}>
+                          {m} {m === 1 ? 'miesiąc' : m < 5 ? 'miesiące' : 'miesięcy'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-muted-foreground">od przyjęcia</span>
+                </>
+              ) : (
+                <Input
+                  type="date"
+                  value={pickupDeadline}
+                  onChange={e => setPickupDeadline(e.target.value)}
+                  className="h-9 w-48"
+                />
+              )}
+
               <Select value={reminderChannel} onValueChange={(v) => setReminderChannel(v as any)}>
-                <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="sms">SMS-em</SelectItem>
                   <SelectItem value="email">E-mailem</SelectItem>
@@ -898,9 +991,12 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
                 </SelectContent>
               </Select>
             </div>
+
             <p className="text-[11px] text-muted-foreground">
-              Kanał wybiera klient. Wysyłka wymaga jeszcze zadania po stronie serwera —
-              na razie termin jest zapisywany i widoczny w pokwitowaniu.
+              {trybPrzypomnienia === 'miesiace'
+                ? 'Pierwsze przypomnienie po tym czasie, kolejne w tym samym rytmie.'
+                : 'Przypomnienie przed tą datą, kolejne co ' + reminderMonths + ' mies.'}
+              {' '}Po wydaniu kompletu przestają wychodzić. Historia wysyłek jest w szczegółach wpisu.
             </p>
           </div>
 
