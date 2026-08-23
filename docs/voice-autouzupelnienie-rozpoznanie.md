@@ -5,6 +5,41 @@ nie na przypuszczeniach. Decyzja po teście agenta.
 
 ---
 
+## ZAKRES — dwa doprecyzowania z 23.08, ważniejsze niż reszta dokumentu
+
+### 1. To funkcja dla KAŻDEGO usługodawcy, nie dla warsztatów
+
+Portal obsługuje wszystkie branże: warsztaty, myjnie, detailing, fryzjerów,
+kosmetyczki, hydraulików, serwisy sprzętu.
+
+**To unieważnia moje badanie jako podstawę do wyceny skuteczności.** Sprawdziłem
+dwadzieścia adresów warsztatowych — one mówią o warsztatach, nie o portalu.
+
+I jest powód, żeby spodziewać się lepszego wyniku gdzie indziej: **fryzjer
+i kosmetyczka publikują cenniki znacznie częściej niż warsztat**, bo bez ceny
+klient nie umówi wizyty online. U warsztatu cena zależy od modelu auta, u
+fryzjera strzyżenie kosztuje tyle, ile kosztuje.
+
+**Do zrobienia przed budową:** powtórzyć badanie na branżach usługowych
+(fryzjer, kosmetyka, hydraulik, serwis sprzętu), nie tylko motoryzacyjnych.
+Wynik dla warsztatów — ceny na 1 z 9 — jest prawdopodobnie **dolną granicą**,
+nie średnią.
+
+### 2. Miejsce: zakładka „Moje usługi", nie panel agenta
+
+Tam usługodawca konfiguruje ofertę niezależnie od tego, czy ma agenta
+głosowego. Autouzupełnienie ma sens dla każdego, kto zakłada konto.
+
+Agent czyta cennik ze snapshotu (`provider_services`), więc i tak dostanie to,
+co usługodawca zatwierdzi w „Moich usługach" — nie trzeba niczego dublować
+w panelu agenta.
+
+**Konsekwencja dla wyceny:** okno z dwiema zakładkami trafia do istniejącego
+ekranu „Moje usługi", a nie do zakładki „Asystent głosowy". Etapy A–D bez
+zmian, ale miejsce wpięcia inne.
+
+---
+
 ## 0. SPROSTOWANIE DO PIERWSZEJ WERSJI TEGO DOKUMENTU
 
 Napisałem „warsztaty w Polsce rzadko publikują ceny" **na podstawie trzech
