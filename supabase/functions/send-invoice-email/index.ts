@@ -1,6 +1,17 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6.9.14";
+import { GETRIDO_MASCOT_DATAURI } from "../_shared/getRidoMascot.ts";
+
+/**
+ * Identyfikator obrazka osadzonego w wiadomości (CID).
+ *
+ * Gmail USUWA obrazki podane jako `data:` — wstawienie maskotki wprost w HTML
+ * dałoby w skrzynce odbiorcy pustą ramkę z ikoną zepsutego pliku, i to
+ * dokładnie u tego odbiorcy, który to zgłosił. Załącznik `inline` z odnośnikiem
+ * `cid:` przechodzi w Gmailu, Outlooku i na telefonach.
+ */
+const CID_MASKOTKA = "maskotka-getrido";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -184,9 +195,20 @@ function generateEmailTemplate(
           <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">Faktura ${invoiceNumber}</h1>
         </div>
         <div style="padding: 28px;">
-          <p style="font-size: 15px; color: #333; margin: 0 0 8px 0;">Dzień dobry,</p>
-          <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0;">przesyłam fakturę o numerze <strong>${invoiceNumber}</strong> na kwotę <strong>${grossAmount} ${cur}</strong>.</p>
-          <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0;">Dziękujemy za zakup.</p>
+          <table role="presentation" style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="vertical-align: top;">
+                <p style="font-size: 15px; color: #333; margin: 0 0 8px 0;">Dzień dobry,</p>
+                <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0;">przesyłam fakturę o numerze <strong>${invoiceNumber}</strong> na kwotę <strong>${grossAmount} ${cur}</strong>.</p>
+                <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0;">Dziękujemy za zakup.</p>
+              </td>
+              <td style="vertical-align: middle; text-align: right; width: 76px; padding-left: 16px;">
+                <!-- 60x60 to NATYWNY rozmiar pliku. Rozciągnięcie do 72 px dałoby
+                     rozmytą maskotkę w kliencie pocztowym, który nie wygładza. -->
+                <img src="cid:${CID_MASKOTKA}" width="60" height="60" alt="GetRido" style="display: block; width: 60px; height: 60px; border: 0;" />
+              </td>
+            </tr>
+          </table>
         </div>
       </div>
     `,
@@ -381,7 +403,19 @@ serve(async (req) => {
       .replace(/\s{2,}/g, ' ')
       .trim();
 
-    const plainText = [
+    /**
+     * Wersja tekstowa. Dla faktury już opłaconej musi mówić to samo co HTML —
+     * część klientów pocztowych pokazuje wyłącznie ją, a domyślna treść niżej
+     * zawiera termin płatności i dane do przelewu, czyli wezwanie do zapłaty
+     * pieniędzy, które już wpłynęły.
+     */
+    const plainText = type === "faktura_oplacona"
+      ? [
+          `Dzień dobry,`, ``,
+          `przesyłam fakturę o numerze ${invoiceNumber} na kwotę ${grossAmount} ${currency}.`, ``,
+          `Dziękujemy za zakup.`,
+        ].join("\n")
+      : [
       `Dzień dobry,`, ``,
       `przesyłamy fakturę ${invoiceNumber} na kwotę ${grossAmount} ${currency}.`,
       `Data wystawienia: ${issueDate}`,
@@ -393,7 +427,7 @@ serve(async (req) => {
       companyAddress,
       companyEmail ? `E-mail: ${companyEmail}` : '',
       companyPhone ? `Tel: ${companyPhone}` : '',
-    ].filter(Boolean).join('\n');
+        ].filter(Boolean).join('\n');
 
     const replyTo = companyEmail || senderEmail;
 
@@ -413,16 +447,35 @@ serve(async (req) => {
       },
     };
 
+    // Załączniki zbieramy do JEDNEJ tablicy. Wcześniej PDF był tu przypisywany
+    // przez `=`, więc dołożenie czegokolwiek obok skasowałoby fakturę.
+    const zalaczniki: any[] = [];
+
     if (pdf_base64 && pdf_base64.length > 100) {
       const pdfFilename = `${invoiceNumber || 'Faktura'}.pdf`.replace(/\//g, '-');
-      mailOpts.attachments = [{
+      zalaczniki.push({
         filename: pdfFilename,
         content: pdf_base64,
         encoding: 'base64',
         contentType: 'application/pdf',
-      }];
+      });
       console.log(`Attaching PDF: ${pdfFilename} (${Math.round(pdf_base64.length / 1024)}KB base64)`);
     }
+
+    // Maskotka WYŁĄCZNIE przy podziękowaniu za zakup. Pozostałe szablony
+    // wysyłają warsztaty pod własną marką — nasz ludek nie ma się tam pojawiać.
+    if (type === "faktura_oplacona") {
+      zalaczniki.push({
+        filename: 'getrido.png',
+        content: GETRIDO_MASCOT_DATAURI.split(',')[1],
+        encoding: 'base64',
+        contentType: 'image/png',
+        cid: CID_MASKOTKA,
+        contentDisposition: 'inline',
+      });
+    }
+
+    if (zalaczniki.length) mailOpts.attachments = zalaczniki;
 
     try {
       const info = await transporter.sendMail(mailOpts);
