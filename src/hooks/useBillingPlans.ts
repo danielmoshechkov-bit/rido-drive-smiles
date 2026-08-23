@@ -30,6 +30,8 @@ export interface BillingPlan {
   is_custom: boolean;
   is_active: boolean;
   sort_order: number;
+  /** Jednorazowa pula zapytan Rido AI przy pierwszym wejsciu w plan. */
+  rido_ai_start_ile: number;
   /** Cena STARTOWA u operatora. Pusta = plan wymaga synchronizacji. */
   stripe_price_id: string | null;
   /** Cena DOCELOWA — na nią przechodzi subskrypcja po wygaśnięciu gwarancji. */

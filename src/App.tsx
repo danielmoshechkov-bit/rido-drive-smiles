@@ -49,6 +49,7 @@ const AdminMaps = lazyWithRetry(() => import("./pages/AdminMaps"));
 const AdminPortal = lazyWithRetry(() => import("./pages/AdminPortal"));
 const AdminServices = lazyWithRetry(() => import("./pages/AdminServices"));
 const AdminAIBrain = lazyWithRetry(() => import("./pages/AdminAIBrain"));
+const AdminPaymentsCenter = lazyWithRetry(() => import("./pages/AdminPaymentsCenter"));
 const FleetVehicleDetails = lazyWithRetry(() => import("./pages/FleetVehicleDetails"));
 const DriverRegister = lazyWithRetry(() => import("./pages/DriverRegister"));
 const RegisterSuccess = lazyWithRetry(() => import("./pages/RegisterSuccess"));
@@ -252,6 +253,7 @@ const App = () => (
                 <Route path="/admin/portal" element={<AdminPortal />} />
                 <Route path="/admin/uslugi" element={<AdminServices />} />
                 <Route path="/admin/ai" element={<AdminAIBrain />} />
+                <Route path="/admin/platnosci" element={<AdminPaymentsCenter />} />
                 <Route path="/admin/agenci-ai" element={<AdminAIAgentsPage />} />
                 <Route path="/admin/marketing" element={<AdminMarketing />} />
                 <Route path="/rido-ai" element={<RidoAIChat />} />

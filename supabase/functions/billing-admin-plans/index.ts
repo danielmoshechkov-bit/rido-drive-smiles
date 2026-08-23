@@ -273,6 +273,12 @@ function buildPatch(body: Record<string, any>, isCreate: boolean): Record<string
     patch.is_custom = body.is_custom === true;
     if (patch.is_custom) patch.price_net_target = null;
   }
+  if (body.rido_ai_start_ile !== undefined) {
+    // Jednorazowa pula Rido AI dla planu. Ujemna wartość odjęłaby zapytania
+    // przy pierwszym wejściu, więc podłoga to zero, nie „co przyszło".
+    const ile = Math.trunc(Number(body.rido_ai_start_ile));
+    patch.rido_ai_start_ile = Number.isFinite(ile) && ile > 0 ? ile : 0;
+  }
   if (body.sort_order !== undefined && Number.isInteger(body.sort_order)) patch.sort_order = body.sort_order;
   if (isCreate && body.is_active !== undefined) patch.is_active = body.is_active === true;
   return patch;
