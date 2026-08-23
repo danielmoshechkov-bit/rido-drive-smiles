@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Loader2, Printer, CheckCircle2, MapPin, Phone } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
 const dt = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString('pl-PL') : '—';
@@ -35,29 +34,43 @@ export default function TireReceiptPage() {
 
   useEffect(() => {
     let anulowane = false;
+    const przerwij = new AbortController();
+    // Strona publiczna nie ma po co pytac o sesje. `functions.invoke` robi to
+    // przed kazdym wywolaniem i potrafi zawisnac w przegladarce otwartej
+    // z wiadomosci (ograniczony dostep do pamieci) — wtedy zostaje samo
+    // krecace sie kolko. Zwykly fetch nie ma tego problemu.
+    const limitCzasu = setTimeout(() => przerwij.abort(), 15000);
+
     (async () => {
       setLadowanie(true);
       setBlad(null);
       try {
-        const { data, error } = await supabase.functions.invoke('tire-receipt', {
-          body: { kod },
-        });
+        const odp = await fetch(
+          `https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1/tire-receipt?kod=${encodeURIComponent(kod ?? '')}`,
+          { signal: przerwij.signal },
+        );
+        const dane = await odp.json().catch(() => null);
         if (anulowane) return;
-        if (error) throw error;
-        if ((data as any)?.error) {
-          setBlad((data as any).error === 'NIE_ZNALEZIONO'
+
+        if (!odp.ok || dane?.error) {
+          setBlad(odp.status === 404 || dane?.error === 'NIE_ZNALEZIONO'
             ? 'Nie znaleźliśmy takiego potwierdzenia. Sprawdź, czy link jest pełny.'
             : 'Ten link jest nieprawidłowy.');
         } else {
-          setPotwierdzenie(data);
+          setPotwierdzenie(dane);
         }
-      } catch {
-        if (!anulowane) setBlad('Nie udało się wczytać potwierdzenia. Spróbuj za chwilę.');
+      } catch (e) {
+        if (anulowane) return;
+        setBlad((e as Error)?.name === 'AbortError'
+          ? 'Potwierdzenie nie wczytało się w rozsądnym czasie. Odśwież stronę.'
+          : 'Nie udało się wczytać potwierdzenia. Spróbuj za chwilę.');
       } finally {
+        clearTimeout(limitCzasu);
         if (!anulowane) setLadowanie(false);
       }
     })();
-    return () => { anulowane = true; };
+
+    return () => { anulowane = true; clearTimeout(limitCzasu); przerwij.abort(); };
   }, [kod]);
 
   if (ladowanie) {

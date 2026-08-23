@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useWorkshopClients, useWorkshopVehicles } from '@/hooks/useWorkshop';
 import { Input } from '@/components/ui/input';
 import { SearchableCombobox } from './SearchableCombobox';
+import { opisRozmiaru } from './tireStorageFormat';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -297,7 +298,7 @@ export function TireStorageDetailsDialog({
             <Pole etykieta="Opony">
               {[record.tire_brand, record.tire_model].filter(Boolean).join(' ') || '—'}
             </Pole>
-            <Pole etykieta="Rozmiar">{record.tire_size || '—'}</Pole>
+            <Pole etykieta="Rozmiar">{opisRozmiaru(record) || '—'}</Pole>
             <Pole etykieta="Sztuk">{record.quantity ?? '—'}</Pole>
             <Pole etykieta="Felgi">{record.rim_type || '—'}</Pole>
             <Pole etykieta="DOT">{record.dot_code || '—'}</Pole>

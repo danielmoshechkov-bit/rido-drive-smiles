@@ -19,6 +19,7 @@ import { TireStorageRulesDialog } from './TireStorageRulesDialog';
 import { TireStoragePricing, useTirePricing, RODZAJE_FELG } from './TireStoragePricing';
 import { TireStorageDetailsDialog } from './TireStorageDetailsDialog';
 import { TireStorageSmsDialog } from './TireStorageSmsDialog';
+import { opisRozmiaru } from './tireStorageFormat';
 import { SearchableCombobox } from './SearchableCombobox';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -185,7 +186,7 @@ function printStorageReceipt(
     ${row('Telefon', record.client_phone)}
     ${row('Pojazd', vehicle)}
     ${row('Opony', [record.tire_brand, record.tire_model].filter(Boolean).join(' '))}
-    ${row('Rozmiar', record.tire_size)}
+    ${row('Rozmiar', opisRozmiaru(record))}
     ${(() => {
       const b = [
         ['LP', record.tread_lp_mm], ['PP', record.tread_pp_mm],
@@ -442,7 +443,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                       {[r.tire_brand, r.tire_model].filter(Boolean).join(' ') || '—'}
                     </div>
                     <div className="text-xs text-muted-foreground leading-tight">
-                      {r.tire_size || '—'}
+                      {opisRozmiaru(r) || '—'}
                       {r.season && ` · ${r.season}`}
                       {r.quantity ? ` · ${r.quantity} szt.` : ''}
                     </div>
@@ -608,6 +609,9 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
   const [tireBrand, setTireBrand] = useState('');
   const [tireModel, setTireModel] = useState('');
   const [tireSize, setTireSize] = useState('');
+  const [tireSizeRear, setTireSizeRear] = useState('');
+  // Wiekszosc aut ma jeden rozmiar wokolo, wiec zaczynamy od zaznaczonego.
+  const [tenSamTyl, setTenSamTyl] = useState(true);
   const [dotCode, setDotCode] = useState('');
   const [treadDepth, setTreadDepth] = useState('');
   const [rimType, setRimType] = useState('');
@@ -711,6 +715,7 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
           tire_brand: tireBrand,
           tire_model: tireModel,
           tire_size: tireSize,
+          tire_size_rear: tenSamTyl ? null : (tireSizeRear.trim() || null),
           tire_type: rimType,
           rim_type: rimType,
           rim_manufacturer: rimManufacturer,
@@ -773,6 +778,7 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
         tire_brand: tireBrand,
         tire_model: tireModel,
         tire_size: tireSize,
+        tire_size_rear: tenSamTyl ? null : (tireSizeRear.trim() || null),
         quantity: parseInt(quantity) || null,
         rim_type: rimType,
         __pojazd: pojazd ? [pojazd.brand, pojazd.model].filter(Boolean).join(' ') : '',
@@ -1014,9 +1020,43 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
               <Input onFocus={e => e.currentTarget.select()} value={tireModel} onChange={e => setTireModel(e.target.value)} placeholder="PremiumContact 6" className="h-8" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">{t('workshop.tireStorage.size')}</Label>
-              <Input onFocus={e => e.currentTarget.select()} value={tireSize} onChange={e => setTireSize(e.target.value)} placeholder="205/55R16" className="h-8" />
+              <Label className="text-xs">
+                {tenSamTyl ? t('workshop.tireStorage.size') : 'Rozmiar — przód'}
+              </Label>
+              <Input
+                onFocus={e => e.currentTarget.select()}
+                value={tireSize}
+                onChange={e => setTireSize(e.target.value)}
+                placeholder="205/55R16"
+                className="h-8"
+              />
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer pt-0.5">
+                <input
+                  type="checkbox"
+                  checked={tenSamTyl}
+                  onChange={(e) => {
+                    setTenSamTyl(e.target.checked);
+                    // Odznaczenie nie moze zostawic starego rozmiaru tylu,
+                    // bo warsztat wpisalby go raz i zapomnial poprawic.
+                    if (e.target.checked) setTireSizeRear('');
+                  }}
+                  className="h-3 w-3 accent-primary"
+                />
+                Taki sam z tyłu
+              </label>
             </div>
+            {!tenSamTyl && (
+              <div className="space-y-1">
+                <Label className="text-xs">Rozmiar — tył</Label>
+                <Input
+                  onFocus={e => e.currentTarget.select()}
+                  value={tireSizeRear}
+                  onChange={e => setTireSizeRear(e.target.value)}
+                  placeholder="275/40R19"
+                  className="h-8"
+                />
+              </div>
+            )}
             <div className="space-y-1">
               <Label className="text-xs">{t('workshop.tireStorage.dotCode')}</Label>
               <Input onFocus={e => e.currentTarget.select()} value={dotCode} onChange={e => setDotCode(e.target.value)} placeholder="3325" maxLength={4} className="h-8" />

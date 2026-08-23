@@ -8,6 +8,7 @@ import {
   Loader2, MessageSquare, Copy, Check, Phone, Mail, PackageCheck, ChevronDown,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { opisRozmiaru } from './tireStorageFormat';
 import { toast } from 'sonner';
 
 /** SMS z polskimi znakami idzie po 70 znakow na czesc, bez nich po 160. */
@@ -81,7 +82,7 @@ export function TireStorageSmsDialog({
     }) => bezOgonkow([
       [wpis.__warsztat ?? '', co.adres ? ulica : ''].filter(Boolean).join(', ') + ':',
       'przyjelismy opony',
-      co.opony ? [opony, wpis.tire_size].filter(Boolean).join(' ') : (wpis.tire_size ?? ''),
+      co.opony ? [opony, opisRozmiaru(wpis)].filter(Boolean).join(' ') : opisRozmiaru(wpis),
       wpis.quantity ? `${wpis.quantity} szt.` : '',
       co.felgi ? felgi + '.' : '.',
       co.auto && auto ? `Auto: ${auto}.` : '',
