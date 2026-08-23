@@ -1,6 +1,6 @@
 -- Zmiana planu (2/3): odłożona zmiana wchodzi w życie na ścieżce BLIK-owej.
 --
--- ⚠️ URUCHAMIAĆ PO `20260823160000_zmiana_planu_1_baza.sql`.
+-- ⚠️ URUCHAMIAĆ PO `20260823210000_zmiana_planu_1_baza.sql`.
 --
 -- Obie funkcje przenoszę Z PRODUKCJI i dokładam jedną rzecz każdej. Przepisanie
 -- ich z pamięci zgubiło mi już raz warunek `status <> 'oplacone'` w innej
