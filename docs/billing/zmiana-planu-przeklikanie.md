@@ -89,19 +89,36 @@ i psuje rachunek.
 
 ---
 
-## Krok 5 — wycofanie zejścia
+## Krok 5 — wycofanie zejścia przez wybór obecnego planu
 
 Tym samym kontem: okno zakupu → **Pro** (czyli plan, który faktycznie masz).
 
-**Co ma się stać:** odmowa **„Ten plan i okres już masz."**
+**Co ma się stać:** *„Zostajesz na planie Pro. Zaplanowana zmiana została
+odwołana i nic nie płacisz."* Bez bramki, bez obciążenia.
 
-**Uwaga — tu jest luka, o której musisz wiedzieć.** Dziś to jedyna droga
-wycofania, a ona **nie wycofuje zejścia**: odłożony Standard nadal siedzi
-w bazie i wejdzie przy odnowieniu. Funkcja `billing_wycofaj_zmiane_planu`
-istnieje i działa, ale **nic jej jeszcze nie woła z interfejsu**. Przycisku
-„wycofaj zmianę" nie ma.
+**Sprawdź u operatora:** pozycja subskrypcji wróciła na cenę **Pro**. To jest
+sedno tego kroku — samo wyczyszczenie naszej kolumny zostawiłoby klienta z Pro
+u nas i rachunkiem na Standard u operatora.
 
-Do czasu jego dorobienia wycofanie robi się zapytaniem w bazie.
+Powtórz cykl kilka razy: Standard → Pro → Standard → Pro. **Ostatni wybór wygrywa,
+odłożona zmiana jest nadpisywalna do końca opłaconego okresu.**
+
+*(Sprawdzone z linii poleceń na koncie BLIK-owym: cztery przełączenia w obie
+strony plus normalny zakup, gdy nic nie jest odłożone. U operatora nie sprawdziłem.)*
+
+## Krok 5b — plan darmowy
+
+Tym samym kontem: okno zakupu → **Darmowy**.
+
+**Co ma się stać:** osobne okienko *„Anulujesz subskrypcję"* z listą funkcji,
+które znikają, zdaniem o karcie przy powrocie i checkboxem. Przycisk „Anuluj
+subskrypcję" nieaktywny, dopóki checkbox nie jest zaznaczony.
+
+**Sprawdź u operatora:** `cancel_at_period_end = true`, cena **nietknięta**,
+żadnego zwrotu.
+
+Potem wróć na Pro — ma zadziałać jak w kroku 5 (wycofanie), łącznie ze zdjęciem
+anulowania.
 
 ---
 
@@ -116,6 +133,33 @@ doładowania, nie okresy — blokada z kroku 3 ich nie dotyczy i dotyczyć nie m
 z subskrypcją kartową.)*
 
 ---
+
+## Krok 6b — zmiana OKRESU: miesiąc → rok
+
+Tym samym kontem: okno zakupu → ten sam plan, ale okres **rok**, metoda **karta**.
+
+**Zasada: doklejamy czas, nie przesuwamy daty.** Klient płaci pełną cenę roku
+i nie traci ani dnia z opłaconego miesiąca.
+
+**Co ma się stać:**
+- brak bramki, komunikat o zmianie od razu,
+- **koniec okresu = dotychczasowy koniec + 365 dni**, nie „dziś + 365".
+  Jeśli przed zmianą miałeś 20 dni do końca miesiąca, po zmianie ma być
+  **385 dni**, nie 365.
+
+**Sprawdź u operatora** — i tu widok jest nietypowy, dlatego uprzedzam:
+- rachunek na **pełną kwotę roku**, BEZ pozycji z upustem za niewykorzystany
+  miesiąc. Upust byłby błędem: klient dostaje ten czas w naturze, nie w pieniądzu,
+- subskrypcja pokazuje status **`trialing`** z `trial_end` na dacie „stary koniec
+  + rok". **To nie jest okres próbny** — to jedyny sposób, w jaki operator
+  pozwala ustawić dowolną datę następnego pobrania. Subskrypcja niesie znacznik
+  `metadata.doklejony_czas = 1`,
+- **w naszym panelu plakietka ma pokazywać normalny plan, NIE „okres próbny".**
+  Jeśli pokaże okres próbny, znaczy, że webhook nie odczytał znacznika —
+  to jest znalezisko i chcę o nim wiedzieć.
+
+**Czerwona flaga:** pozycja „unused time" z minusem na rachunku. Znaczy, że
+poszła zwykła proporcja i klient stracił dni.
 
 ## Krok 7 — odnowienie z odłożonym zejściem
 
