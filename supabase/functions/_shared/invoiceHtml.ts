@@ -27,7 +27,7 @@
  * Sprawdzone odciskiem SHA-256 wygenerowanego HTML-a przed i po.
  */
 // Local invoice HTML generator for browser-based PDF printing
-import { GETRIDO_MASCOT_DATAURI } from './getRidoMascot.ts';
+import { GETRIDO_LUDEK_DATAURI } from './getRidoLudek.ts';
 
 export interface InvoiceItem {
   name: string;
@@ -1312,7 +1312,20 @@ export const generateInvoiceHtml = (invoice: InvoiceData): string => {
       // na linii napisu: środek maskotki = środek linii "www.GetRido.pl".
       $fy = $ph - 38;
       $mh = 22;
-      try { $pdf->image("${GETRIDO_MASCOT_DATAURI}", 22, $fy - 3, $mh, $mh); } catch (\\Throwable $ie) {}
+      // Ludek GetRido jest WYSOKI (85x132), a nie kwadratowy jak poprzedni,
+      // więc szerokość to 14 przy wysokości 22 (85/132 × 22 ≈ 14). Kwadrat
+      // spłaszczyłby maskotkę. x = 26, żeby węższy obrazek stał w tym samym
+      // miejscu co przedtem: 22 + (22 − 14) / 2.
+      //
+      // Liczby są POLICZONE TUTAJ, nie w PHP. Pierwsza wersja liczyła je
+      // wyrażeniem z intdiv() wewnątrz skryptu PHP Dompdfa — wywołanie image()
+      // MILCZĄCO padało (jest opakowane w catch) i maskotka po prostu znikała
+      // ze stopki. Wyszło dopiero przy oglądaniu wyrenderowanego PDF-u, nie
+      // przy czytaniu kodu.
+      //
+      // UWAGA: cała ta sekcja siedzi w szablonie z odwrotnymi apostrofami,
+      // więc taki znak w komentarzu ZAMYKA szablon i wywraca cały plik.
+      try { $pdf->image("${GETRIDO_LUDEK_DATAURI}", 26, $fy - 3, 14, $mh); } catch (\\Throwable $ie) {}
       $pdf->page_text(50, $fy, "www.GetRido.pl", $ff, 10, array(0,0,0));
       $pdf->page_text($pw - 96, $fy, "Strona {PAGE_NUM} z {PAGE_COUNT}", $ff, 10, array(0,0,0));
     }
