@@ -128,6 +128,9 @@ export function AdminPortalSwitcher() {
   const location = useLocation();
 
   const getCurrentPortal = () => {
+    if (location.pathname.includes('/admin/platnosci')) {
+      return portals.find((p) => p.id === 'payments');
+    }
     if (location.pathname.includes('/admin/marketing')) {
       return portals.find((p) => p.id === 'marketing');
     }

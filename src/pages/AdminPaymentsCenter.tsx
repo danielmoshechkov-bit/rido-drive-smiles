@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -9,7 +7,7 @@ import { UserDropdown } from '@/components/UserDropdown';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Loader2, Wallet, CreditCard, Gift, ShoppingCart, History, Tag,
-  Layers, Puzzle, Sparkles, FileText, ExternalLink,
+  Layers, Puzzle, Sparkles, Calculator,
 } from 'lucide-react';
 import {
   PaymentGatewayConfig, AssignCreditsPanel, CreditPackagesManager, PaymentHistory,
@@ -18,7 +16,7 @@ import { PromoCodesPanel } from '@/components/admin/PromoCodesPanel';
 import { BillingFeaturesPanel } from '@/components/admin/billing/BillingFeaturesPanel';
 import { BillingPlansPanel } from '@/components/admin/billing/BillingPlansPanel';
 import { RidoAiStartPanel } from '@/components/admin/billing/RidoAiStartPanel';
-import { InvoicesModule } from '@/components/invoices/InvoicesModule';
+import { ServiceProviderAccountingView } from '@/components/service-provider/ServiceProviderAccountingView';
 
 /**
  * Centrum Platnosci — jedno miejsce na wszystko, co dotyczy pieniedzy w portalu:
@@ -85,7 +83,7 @@ export default function AdminPaymentsCenter() {
   // wylacznie platform_admin — ukrycie ich to UX, kontrole robi baza.
   const tabs = [
     { value: 'gateways', label: 'Bramki', icon: CreditCard },
-    { value: 'invoices', label: 'Faktury', icon: FileText },
+    { value: 'ksiegowosc', label: 'Księgowość', icon: Calculator },
     { value: 'assign-credits', label: 'Kredyty', icon: Gift },
     { value: 'onetime', label: 'Pakiety', icon: ShoppingCart },
     ...(isPlatformAdmin ? [
@@ -170,21 +168,11 @@ export default function AdminPaymentsCenter() {
 
           <TabsContent value="gateways"><PaymentGatewayConfig /></TabsContent>
 
-          <TabsContent value="invoices" className="space-y-4">
-            <Card className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div>
-                <h3 className="font-semibold">Faktury wystawione przez GetRido</h3>
-                <p className="text-sm text-muted-foreground">
-                  Zakupy planów, doładowania i odnowienia — dokumenty powstają automatycznie
-                  po zaksięgowaniu wpłaty. Pełny panel księgowy ma dodatkowo koszty, KSeF i raporty.
-                </p>
-              </div>
-              <Button variant="outline" onClick={() => navigate('/ksiegowosc')}>
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Otwórz panel księgowy
-              </Button>
-            </Card>
-            <InvoicesModule source="user_invoices" />
+          {/* Caly modul ksiegowy — ten sam, ktory ma kazde konto uzytkownika.
+              Konto platformy jest wystawca faktur GetRido, wiec ten sam widok
+              pokazuje tu sprzedaz portalu razem z ustawieniami firmy i KSeF. */}
+          <TabsContent value="ksiegowosc">
+            <ServiceProviderAccountingView />
           </TabsContent>
 
           <TabsContent value="assign-credits"><AssignCreditsPanel /></TabsContent>
