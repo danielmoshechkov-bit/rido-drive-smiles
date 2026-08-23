@@ -164,7 +164,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  // Klucz serwisowy w osobnej stałej: woła nim nie tylko klient bazy, ale też
+  // funkcja wystawiająca fakturę, która przyjmuje wyłącznie takie wywołania.
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const admin = createClient(supabaseUrl, serviceKey);
 
   const sekret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
   const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -373,9 +376,81 @@ Deno.serve(async (req) => {
           console.log(JSON.stringify({ event: "subskrypcja_odtworzona", subId }));
         }
 
-        // TODO(4.17): tutaj wpina się wystawienie faktury VAT GetRido —
-        // idempotentnie, po `external_id` zdarzenia, żeby powtórna dostawa
-        // nie stworzyła drugiego dokumentu.
+        /**
+         * FAKTURA VAT GetRido — PO ZAKSIĘGOWANIU OKRESU, NIGDY JAKO WARUNEK.
+         *
+         * Ta sama zasada i ten sam kształt co przy PayU: dokument powstaje
+         * dopiero, gdy dostęp jest przedłużony, a nieudane wystawienie NIE
+         * wywraca webhooka. Klient zapłacił i ma dostęp; brak faktury naprawia
+         * się jednym wywołaniem, cofnięcie okresu — nie.
+         *
+         * IDEMPOTENCJA PO IDENTYFIKATORZE RACHUNKU U OPERATORA (`in_...`),
+         * nie po identyfikatorze zdarzenia. To samo obciążenie potrafi dojść
+         * kilkoma zdarzeniami, a faktura ma być jedna — pilnuje tego unikalny
+         * indeks na `external_payment_ref`.
+         *
+         * KWOTA Z `amount_paid`, w groszach. Bierzemy to, co operator NAPRAWDĘ
+         * pobrał, a nie cenę z cennika: przy zmianie planu rachunek opiewa na
+         * różnicę, a faktura ma zgadzać się z obciążeniem co do grosza.
+         */
+        try {
+          const { data: naszaSub } = await admin
+            .from("billing_subscriptions")
+            .select("subscriber_id, plan:billing_plans!billing_subscriptions_plan_id_fkey(name)")
+            .eq("provider", "stripe")
+            .eq("provider_subscription_id", subId)
+            .maybeSingle();
+
+          const { data: nabywca } = naszaSub?.subscriber_id
+            ? await admin
+                .from("service_providers")
+                .select("company_name, company_nip, company_address, company_city, company_postal_code, company_email, owner_email")
+                .eq("id", naszaSub.subscriber_id)
+                .maybeSingle()
+            : { data: null };
+
+          const kwota = Number(obiekt?.amount_paid ?? 0) / 100;
+          if (kwota <= 0) {
+            // Rachunek na zero (np. sam upust) nie rodzi faktury — nie ma za co.
+            console.log(JSON.stringify({ event: "stripe_faktura_pominieta", powod: "kwota_zero", subId }));
+          } else {
+            const adres = [
+              (nabywca as any)?.company_address,
+              [(nabywca as any)?.company_postal_code, (nabywca as any)?.company_city]
+                .filter(Boolean).join(" "),
+            ].filter(Boolean).join(", ");
+
+            const odp = await fetch(`${supabaseUrl}/functions/v1/billing-invoice-issue`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+              body: JSON.stringify({
+                external_payment_ref: `stripe:${obiekt.id}`,
+                buyer_name: (nabywca as any)?.company_name ?? null,
+                buyer_nip: (nabywca as any)?.company_nip ?? null,
+                buyer_address: adres || null,
+                buyer_email: (nabywca as any)?.company_email ?? (nabywca as any)?.owner_email ?? null,
+                payment_method: "stripe",
+                items: [{
+                  name: `Abonament ${(naszaSub as any)?.plan?.name ?? "GetRido"}`,
+                  quantity: 1,
+                  unit: "szt",
+                  // BRUTTO — operator pobrał konkretną kwotę i to ona rozstrzyga.
+                  unit_gross_price: kwota,
+                  vat_rate: 23,
+                }],
+              }),
+            });
+
+            const wynik = await odp.json().catch(() => ({}));
+            console.log(JSON.stringify({
+              event: odp.ok ? "stripe_faktura" : "stripe_faktura_blad",
+              subId, numer: (wynik as any)?.invoice_number ?? null, status: odp.status,
+            }));
+          }
+        } catch (bladFaktury) {
+          console.error("billing-stripe-webhook: faktura niewystawiona", bladFaktury);
+        }
+
         await zakoncz("processed");
         break;
       }

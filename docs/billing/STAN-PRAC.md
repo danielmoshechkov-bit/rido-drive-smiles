@@ -582,3 +582,21 @@ pełnej formy prawnej i puste `bank_account`.
 Domknięcie tego (trzecie ogniwo lustra + wyrównanie danych) to **etap 2** kolejności
 uzgodnionej 23.08: dane nabywcy → **lustro wystawcy** → numeracja i konto →
 wpięcie Stripe'a → przełącznik `auto_invoice_on_paid`.
+
+## ⚠️ `auto_invoice_on_paid` to martwy przełącznik
+
+Kolumna w `billing_settings` istnieje i stoi na `false`. **Nic jej nie czyta.**
+
+`billing-payu-webhook` wystawia fakturę przy każdej opłaconej sprzedaży
+bezwarunkowo, i tak samo robi teraz `billing-stripe-webhook` — świadomie, żeby
+obie metody płatności zachowywały się tak samo. Zostawienie jednej z nich
+za przełącznikiem znaczyłoby, że klient dostaje fakturę albo nie w zależności
+od tego, czym zapłacił.
+
+Do rozstrzygnięcia: **albo oba webhooki zaczynają go pytać, albo kolumna
+znika.** Przełącznik, który nic nie przełącza, przy następnym incydencie każe
+komuś stracić godzinę na sprawdzanie, czemu jego przestawienie nic nie dało.
+
+Fakturowanie jest dziś zabezpieczone od innej strony: bez kompletu danych
+nabywcy (`billing_dane_nabywcy_kompletne`) płatność w ogóle nie startuje,
+więc faktura z pustym nabywcą nie ma jak powstać.
