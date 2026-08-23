@@ -31,7 +31,7 @@ Kolor: obwódka w kolorze wiodącym (nie bursztyn — bursztyn wchodzi przy ≤ 
 **Po kliknięciu „Wybierz plan":** otwiera się okno zakupu na kroku **wyboru okresu**
 (bo plan `warsztat_pro` znamy z rejestracji), z zaznaczonym **rokiem**.
 
-**Liczniki:** 30 SMS, 5 VIN, 50 Rido AI.
+**Liczniki:** 50 SMS, 5 VIN, 50 Rido AI.
 
 ---
 

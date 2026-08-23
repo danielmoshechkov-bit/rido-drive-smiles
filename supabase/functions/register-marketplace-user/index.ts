@@ -243,9 +243,14 @@ Deno.serve(async (req) => {
           .from("service_providers").select("id").eq("user_id", userId)
           .order("created_at", { ascending: true }).limit(1).maybeSingle();
 
-        // Pakiet startowy: 20 SMS + 5 sprawdzeń VIN, raz na adres. Funkcja jest
-        // idempotentna po znormalizowanym e-mailu, więc powtórna rejestracja
-        // ani odtworzenie warsztatu nie dadzą drugiego pakietu.
+        // Pakiet startowy: 50 SMS + 5 sprawdzeń VIN + 50 pytań do Rido AI,
+        // raz na adres. Liczby to DOMYŚLNE WARTOŚCI funkcji w bazie i celowo nie
+        // powtarzamy ich w wywołaniu: inaczej zmiana pakietu wymagałaby wdrożenia
+        // dwóch funkcji brzegowych i rozjechałaby się przy pierwszej pomyłce.
+        // Ten komentarz i tak mówił o 20 SMS-ach długo po tym, jak było ich 30.
+        //
+        // Funkcja jest idempotentna po znormalizowanym e-mailu, więc
+        // powtórna rejestracja ani odtworzenie warsztatu nie dadzą drugiego pakietu.
         const { data: pakiet, error: bladPakietu } = await supabaseAdmin.rpc(
           "przyznaj_pakiet_startowy",
           { p_user_id: userId, p_provider_id: swiezyWarsztat?.id ?? null, p_email: email },

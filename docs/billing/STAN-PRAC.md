@@ -21,7 +21,7 @@ co czeka na wdrożenie, co zostało w połowie, co świadomie odłożone.
 | Migracja | Czego dotyczy |
 |---|---|
 | `20260818090000_vin_pula_warsztatu` | Sprawdzenia VIN rozliczane z puli warsztatu, nie z osobistych kredytów. Trzeci poziom (własne kredyty pracownika) za jawną zgodą — decyzja podejmowana w interfejsie, nie w `billing_consume`. |
-| `20260819…` (limity VIN w planach) | VIN nie wchodzi w abonament: limit miesięczny 0 we **wszystkich** planach. Pakiet startowy 30 SMS + 5 sprawdzeń VIN. |
+| `20260819…` (limity VIN w planach) | VIN nie wchodzi w abonament: limit miesięczny 0 we **wszystkich** planach. Pakiet startowy 50 SMS + 5 sprawdzeń VIN (30 → 50 decyzją z 23.08, migracja `20260823130000`). |
 | `20260819100000_audyt_sms_balance_i_email` | Zamknięcie darmowych SMS-ów przez `sms_balance` (kolumna zapisywalna z przeglądarki, a czytana jako pierwsze źródło bramki). Normalizacja e-maila przy rejestracji. Kontrola kwoty w webhooku. |
 | `20260819140000_zwroty` | Obsługa zwrotów i obciążeń zwrotnych — odebranie jednostek przy chargebacku. |
 | `20260819170000_referral_uses_lockdown` | Zamknięcie najkrótszej drogi do wydawalnych pieniędzy: `referral_uses` pozwalał wpisać sobie 150 + 150 zł do `pln_balance`. |
