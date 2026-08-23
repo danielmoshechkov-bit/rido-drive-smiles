@@ -489,3 +489,40 @@ i 1 towar, więc nie są puste. Do sprzątnięcia razem z tymi dokumentami albo 
 
 **`cart sp zoo`, NIP 5222884984** — literówka (prawdziwy CART to 5272884984).
 Usunięta migracją `20260823150000`.
+
+## Rejestracja — dwie sprawy otwarte (23.08)
+
+### 🔴 `InsuranceAgentRegister` pada z 500 przy niedostarczalnym mailu
+
+**Ta sama przyczyna co w oknie logowania — nie diagnozuj od nowa.** GoTrue
+WYCOFUJE utworzenie konta, gdy nie uda się wysłać maila potwierdzającego,
+i oddaje `500 Error sending confirmation email`. Konta nie ma, klient nie wie
+dlaczego. Nie da się tego skonfigurować po stronie Supabase.
+
+Sprawdzone obiema drogami na tym samym adresie w tej samej minucie:
+`auth.signUp` → 500 i brak konta; funkcja brzegowa → 200, konto jest,
+`email_sent: false`.
+
+`src/pages/InsuranceAgentRegister.tsx:132` woła `supabase.auth.signUp` wprost.
+Naprawa polega na tym samym co w `signUpClient`: przejść na funkcję brzegową,
+która zakłada konto kluczem serwisowym i traktuje wysyłkę jako osobny krok.
+
+**Nie jest to jedna linia.** Ten portal ma własne metadane
+(`company_name`, `account_type: 'insurance_agent'`) i najpewniej dokłada
+rekordy agenta po rejestracji, więc `register-marketplace-user` potrzebowałby
+kolejnej gałęzi `account_type` albo agent dostanie własną funkcję.
+
+### ⚠️ Przełącznik `marketplace_email_confirmation_required` — co po zdjęciu
+
+Dziś `true`. `register-marketplace-user` czyta go i przekazuje do
+`createUser({ email_confirm: !wymagane })`, więc **zdjęcie przełącznika sprawia,
+że konta powstają POTWIERDZONE bez żadnego maila.**
+
+Skutek: rejestracja na cudzy adres. Ktoś zakłada konto na adres firmy, dostaje
+działający dostęp od razu, a właściciel adresu nigdy się o tym nie dowiaduje —
+bo nie przychodzi żadna wiadomość. Do tego potwierdzony adres bywa u nas
+przepustką (odzyskiwanie hasła, powiązania), więc to nie jest sama niewygoda.
+
+Ten przełącznik obejmuje teraz TRZY drogi rejestracji: giełdę, warsztat
+z `module` i konto klienta z okna logowania. Zdejmowanie go bez decyzji
+o skutkach jest zmianą w bezpieczeństwie, nie w wygodzie.

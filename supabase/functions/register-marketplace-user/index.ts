@@ -75,15 +75,30 @@ Deno.serve(async (req) => {
     const planSprawdzony = await sprawdzKodPlanu(supabaseAdmin, plan);
 
     const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-    const LIMIT_NA_GODZINE = 5;
+    /**
+     * Limit rejestracji z jednego adresu IP w ciągu godziny.
+     *
+     * Podniesiony z 5 na 15: pięć odbijało uczciwe użycie. Warsztat zakładający
+     * konta sześciu pracownikom z jednego biura, sieć warsztatów, biuro
+     * rachunkowe zakładające konta klientom — wszystkie wyglądają z zewnątrz
+     * jak jedno IP. Przy pakiecie startowym 50 SMS piętnaście kont to nadal
+     * granica, za którą nadużycie przestaje się opłacać, a nie granica,
+     * o którą rozbija się zwykły dzień pracy.
+     */
+    const LIMIT_NA_GODZINE = 15;
 
     if (ip !== "unknown") {
       const godzinaTemu = new Date(Date.now() - 3600_000).toISOString();
-      const { count, error: bladLicznika } = await supabaseAdmin
+      // Czytamy też NAJSTARSZĄ próbę w oknie: bez niej nie da się powiedzieć,
+      // kiedy klient może spróbować ponownie. Okno jest przesuwne, więc
+      // „za godzinę" to nieprawda dla kogoś, kto próbował 55 minut temu.
+      const { data: proby, count, error: bladLicznika } = await supabaseAdmin
         .from("rejestracje_ip")
-        .select("id", { count: "exact", head: true })
+        .select("created_at", { count: "exact" })
         .eq("ip", ip)
-        .gte("created_at", godzinaTemu);
+        .gte("created_at", godzinaTemu)
+        .order("created_at", { ascending: true })
+        .limit(1);
 
       // Awaria licznika nie może zatrzymać rejestracji — to byłaby blokada
       // sprzedaży z powodu tabeli pomocniczej. Logujemy i przepuszczamy.
@@ -91,9 +106,22 @@ Deno.serve(async (req) => {
         console.error("⚠️ rejestracje_ip: nie udało się policzyć prób:", bladLicznika.message);
       } else if ((count ?? 0) >= LIMIT_NA_GODZINE) {
         console.warn(`🚧 Limit rejestracji dla IP ${ip}: ${count} prób w godzinę`);
+        // Godzina od NAJSTARSZEJ próby w oknie — wtedy zwolni się pierwsze
+        // miejsce. Komunikat bez godziny to ślepy zaułek: klient nie wie,
+        // czy czekać minutę, czy wrócić jutro.
+        const najstarsza = proby?.[0]?.created_at;
+        const wolne = najstarsza ? new Date(new Date(najstarsza).getTime() + 3600_000) : null;
+        const oKtorej = wolne
+          ? wolne.toLocaleTimeString("pl-PL", {
+              hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw",
+            })
+          : null;
+
         return new Response(
           JSON.stringify({
-            error: "Zbyt wiele prób rejestracji z tego adresu. Spróbuj ponownie za godzinę.",
+            error: oKtorej
+              ? `Z tego adresu założono już ${count} kont w ciągu godziny. Kolejne będzie można założyć po ${oKtorej}. Jeśli zakładasz konta zespołowi, napisz do nas — podniesiemy limit.`
+              : "Zbyt wiele prób rejestracji z tego adresu. Spróbuj ponownie za godzinę.",
             code: "RATE_LIMITED",
           }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },

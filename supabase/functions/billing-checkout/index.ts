@@ -206,7 +206,32 @@ Deno.serve(async (req) => {
       // że jest jedna i pierwsza — brak pozycji znaczy, że subskrypcja jest
       // w stanie, którego ta ścieżka nie obsługuje, i wtedy odmawiamy zamiast
       // zgadywać, co podmienić.
-      const subStripe = await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`);
+      let subStripe: any = null;
+      try {
+        subStripe = await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`);
+      } catch (bladOperatora) {
+        /**
+         * ROZJAZD MIĘDZY NASZĄ BAZĄ A OPERATOREM. Wiersz mówi „subskrypcja
+         * odnawiana kartą", a operator jej nie zna — subskrypcja została tam
+         * usunięta albo klucz wskazuje na inne środowisko.
+         *
+         * To jest ślepy zaułek dla klienta: karta prowadzi tutaj, a BLIK
+         * odmawia właśnie dlatego, że w bazie stoi karta. Dlatego mówimy wprost,
+         * co się stało, zamiast oddawać 500 z komunikatem operatora — „No such
+         * subscription" nie znaczy dla klienta nic i wygląda jak awaria.
+         */
+        console.error(JSON.stringify({
+          event: "subskrypcja_nieznana_u_operatora",
+          subskrypcja: istniejaca.provider_subscription_id,
+          provider: provider.id,
+          blad: bladOperatora instanceof Error ? bladOperatora.message : String(bladOperatora),
+        }));
+        return json({
+          error: "Twój abonament figuruje u nas jako opłacany kartą, ale operator go nie potwierdza. Nie zmieniamy planu po omacku — napisz do nas, odblokujemy to ręcznie.",
+          code: "SUBSKRYPCJA_NIEZNANA",
+        }, 409);
+      }
+
       const pozycja = subStripe?.items?.data?.[0];
       if (!pozycja?.id) {
         return json({
