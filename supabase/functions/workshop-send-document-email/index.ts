@@ -118,8 +118,9 @@ Deno.serve(async (req) => {
   </div>
 
   <p style="margin-top:18px;font-size:11px;color:#888">
-    Wiadomość wysłana automatycznie z systemu GetRido na zlecenie warsztatu.
-    Odpowiedź na tę wiadomość trafi bezpośrednio do warsztatu.
+    Wiadomość wysłana automatycznie — prosimy na nią nie odpowiadać.
+    W sprawach dotyczących zlecenia prosimy o kontakt z warsztatem
+    pod danymi powyżej.
   </p>
 </div>`.trim();
 
@@ -128,8 +129,9 @@ Deno.serve(async (req) => {
       `${opis}${numer ? ` ${numer}` : ""} — ${nazwa}`,
       tresc,
       {
-        // Klient odpisuje odruchowo w skrzynce, nie loguje sie do panelu.
-        replyTo: warsztat.company_email ?? undefined,
+        // Bez `replyTo`: to wiadomosc jednostronna — potwierdzenie, nie
+        // rozpoczecie rozmowy. Adres warsztatu jest w stopce, wiec klient
+        // wie, gdzie napisac albo zadzwonic, jesli faktycznie ma sprawe.
         zalaczniki: pdfBase64
           ? [{
               nazwa: nazwaPliku || `${opis.replace(/\s+/g, "-").toLowerCase()}.pdf`,

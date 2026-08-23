@@ -16,6 +16,8 @@ import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { Plus, ClipboardList, Loader2, Car, Users, Camera, X, MessageSquare, AlertCircle, Mail, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { zbudujProtokolPrzyjecia } from '@/utils/workshopReceptionDocument';
+import { generateReceptionProtocolHtml } from '@/utils/receptionProtocolHtml';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -431,7 +433,38 @@ export function WorkshopNewOrderDialog({ open, onOpenChange, providerId }: Props
         await qc.invalidateQueries({ queryKey: kluczJednostki('sms') });
         toast.success(t('workshop.newOrder.smsSentTo', { phone }));
       } else if (sendMethod === 'email' && email) {
-        toast.success(t('workshop.newOrder.emailSentTo', { email }));
+        // Dotad ta galaz pokazywala komunikat o wyslaniu i konczyla — mail
+        // nigdy nie powstawal. Teraz idzie naprawde, z protokolem przyjecia
+        // w zalaczniku (ten sam dokument co "Pobierz PDF" przy zleceniu).
+        const { data: pelne, error: bladZlecenia } = await (supabase as any)
+          .from('workshop_orders')
+          .select('*, client:workshop_clients(*), vehicle:workshop_vehicles(*)')
+          .eq('id', createdOrderId)
+          .maybeSingle();
+        if (bladZlecenia || !pelne) throw new Error('Nie udało się wczytać zlecenia do protokołu');
+
+        const dane = await zbudujProtokolPrzyjecia(pelne);
+        const html = generateReceptionProtocolHtml(dane);
+
+        const { data: wynik, error: bladMaila } = await supabase.functions.invoke(
+          'workshop-send-document-email',
+          {
+            body: {
+              providerId,
+              do: email,
+              html,
+              tytulDokumentu: 'Protokół przyjęcia pojazdu',
+              numer: pelne.order_number ?? null,
+              nazwaPliku: `protokol-${String(pelne.order_number ?? 'przyjecie').replace(/\//g, '-')}.pdf`,
+            },
+          },
+        );
+        if (bladMaila) throw new Error(await powodBleduFunkcji(bladMaila));
+        if ((wynik as any)?.error) throw new Error((wynik as any).error);
+
+        toast.success((wynik as any)?.zZalacznikiem
+          ? t('workshop.newOrder.emailSentTo', { email })
+          : `Mail wysłany na ${email}, ale bez załącznika — PDF się nie wygenerował`);
       } else {
         toast.info(t('workshop.newOrder.noContactData'));
       }
