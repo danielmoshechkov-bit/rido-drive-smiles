@@ -5,6 +5,68 @@ nie na przypuszczeniach. Decyzja po teście agenta.
 
 ---
 
+## 0. SPROSTOWANIE DO PIERWSZEJ WERSJI TEGO DOKUMENTU
+
+Napisałem „warsztaty w Polsce rzadko publikują ceny" **na podstawie trzech
+stron**. To jest dokładnie ten przeskok, przed którym sam ostrzegam: wniosek
+szerszy niż pomiar. Zdanie usunięte.
+
+Sprawdzenie na dwudziestu adresach — warsztaty, myjnie i detailing, sieci
+serwisowe, portale, wulkanizacje:
+
+```
+typ       | odpowiedziało | ceny w treści | godziny | JSON-LD
+warsztat  |   4 z 7       |      0        |    0    |   1
+myjnia    |   1 z 3       |      0        |    1    |   0
+sieć      |   2 z 4       |      1        |    0    |   5
+portal    |   2 z 4       |      0        |    0    |   1
+opony     |   0 z 2       |      —        |    —    |   —
+─────────────────────────────────────────────────────────────
+razem     |   9 z 20      |      1        |    1    |   7
+```
+
+**Dwie rzeczy widać wyraźniej niż kwestię cen:**
+
+1. **Ponad połowa adresów w ogóle nie odpowiedziała** — 7 błędów połączenia,
+   3 odpowiedzi 403/404. To znaczy, że mechanizm musi być odporny na to,
+   że strona nie odpowie, i **musi to jasno powiedzieć warsztatowi**.
+
+2. **Ceny znalazłem na jednym z dziewięciu, które odpowiedziały.** Sprawdziłem
+   też podstrony `/cennik`, `/uslugi`, `/oferta`, `/pricing` na pięciu
+   działających witrynach — **na żadnej nie było ani jednej ceny**.
+
+⚠️ **Czego to nadal nie dowodzi.** Dwadzieścia adresów, dobranych ręcznie,
+to wciąż mała i nielosowa próba. Wynik jest wskazówką co do rzędu wielkości,
+nie miarą rynku. **Rozstrzygnie go dopiero pomiar na prawdziwych linkach
+wklejonych przez prawdziwych warsztatów** — i dlatego mechanizm ma od
+pierwszego dnia liczyć, ile razy udało się cokolwiek wyciągnąć.
+
+### Portale rezerwacyjne — sprawdzone osobno, bo o nie pytasz
+
+```
+booksy.com/robots.txt   →  391 reguł Disallow, ale /pl-pl/ DOZWOLONE
+booksy.com/pl-pl/       →  HTTP 200, 352 542 B HTML → 8 714 znaków (2,5 %)
+                           3 bloki JSON-LD
+                           __NEXT_DATA__: BRAK — treść nie jest w HTML
+```
+
+**Odczyt jest dozwolony i technicznie możliwy, ale treść doładowuje się
+JavaScriptem.** Booksy nie umieszcza danych profilu w HTML — zwykłe pobranie
+daje szkielet strony, nie cennik. Wyciągnięcie tego wymagałoby przeglądarki
+w kontenerze, której nie mamy.
+
+**Wniosek odwrotny do Twojego przypuszczenia:** portale rezerwacyjne mają
+najlepsze dane, ale są **najtrudniejsze technicznie**, nie najłatwiejsze.
+Własne strony warsztatów są ubogie, ale czytelne.
+
+**Jasny sygnał na przyszłość:** gdyby Booksy udostępniało publiczne API profilu
+albo dane w JSON-LD na stronie profilu (nie na stronie głównej — tej nie
+sprawdziłem, bo nie mam adresu żadnego konkretnego warsztatu), byłoby to
+najlepsze źródło. **Do sprawdzenia na prawdziwym profilu**, gdy pierwszy
+warsztat wklei taki link.
+
+---
+
 ## 1. ŹRÓDŁA — co realnie da się przeczytać
 
 Sprawdzone przez pobranie, nie przez domysł:
@@ -82,12 +144,14 @@ Na podstawie jednej pełnej próby i tego, jak zbudowane są strony warsztatów:
 | godziny pracy | **niska** | zwykle grafika albo widżet |
 | **cennik z cenami** | **bardzo niska** | patrz niżej |
 
-### 🔴 Powiem wprost: cennika z większości stron NIE WYCIĄGNIEMY
+### Cennik — najsłabsze ogniwo, ale to nie powód, żeby go nie czytać
 
-Warsztaty w Polsce **rzadko publikują ceny**. Powód jest branżowy, nie
-techniczny: cena zależy od modelu auta, a podanie „wymiana oleju 150 zł"
-zmusza do trzymania się tej liczby. Strona, którą sprawdziłem, ma zakładkę
-„Oferta" z opisem usług i **ani jednej ceny**.
+W próbie dwudziestu adresów ceny znalazłem na jednym z dziewięciu, które
+odpowiedziały (patrz sekcja 0). Próba jest mała i nielosowa, więc **nie
+formułuję z niej reguły o branży** — podaję ją jako rząd wielkości.
+
+Cennik czytamy ZAWSZE, gdy się da. Gdy go nie ma, mówimy to wprost i bez
+oceniania, czy to typowe.
 
 **Konsekwencja dla przepływu:** zakładka 2 („Cennik i usługi") u większości
 warsztatów pokaże **listę usług bez cen**. To nadal ma wartość — agent musi
