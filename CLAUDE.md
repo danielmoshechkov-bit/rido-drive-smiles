@@ -182,6 +182,30 @@ odpowiedzieć na trzy pytania i zapisać odpowiedzi w nagłówku:
 Kontrola sprawdzająca **treść funkcji** nie jest kontrolą **danych**. Potrzebne są obie.
 
 
+### Pusta tabela to nie to samo co nieużywana
+
+Liczba wierszy nie mówi nic o tym, czy kod na tabeli stoi. Zero wierszy znaczy
+tylko tyle, że nikt jeszcze nie zapisał — nie że nikt nie czyta.
+
+Uznałem `invoices`, `entities` i sąsiadów za „martwy świat" na podstawie zapytania
+`count(*)` i o mało nie zaproponowałem skasowania tabel, na których stoi
+**12 plików frontu i 3 funkcje brzegowe** (`invoices`), **15 i 4** (`entities`),
+przy `purchase_invoices` z 597 wierszami wiszącymi na `entities` więzem obcym.
+
+Zanim uznasz cokolwiek w bazie za nieużywane, sprawdź **trzy** sygnały:
+
+| sygnał | czym sprawdzić |
+|---|---|
+| dane | `count(*)` |
+| kod | `.from('<tabela>')` w `src/` **i** `supabase/functions/` |
+| więzy | `pg_constraint` w obie strony — kto wskazuje i na co wskazuje |
+
+Sam ostatni wystarcza, żeby zatrzymać `DROP`. Sam pierwszy nie wystarcza do niczego.
+
+To ta sama klasa co „brak wiersza znaczy X" wyżej: **wniosek o stanie wyciągnięty
+z niewłaściwego sygnału.**
+
+
 ### `REVOKE ... FROM public` NIE odbiera uprawnień `anon` ani `authenticated`
 
 `PUBLIC` w PostgreSQL to osobne uprawnienie domyślne. Supabase nadaje `EXECUTE`

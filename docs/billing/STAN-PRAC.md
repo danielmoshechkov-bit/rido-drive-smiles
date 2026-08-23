@@ -475,3 +475,17 @@ Numer wersji nie jest dowodem — zdarzało się, że rósł przy przywróconym 
 2. Deploy `rental-portal-get` + front → migracja `20260820180000`. **Zamyka 4.1.**
 3. Wariant A z wygasaniem trialu (3.1).
 4. Limity AI (3.2).
+
+## Encje — znaleziska z 23.08 (nie naprawione, świadomie)
+
+**🔴 CAR4RIDE figuruje w `entities` DWA RAZY z tym samym NIP-em 5223252793**, a faktury
+zakupowe są między te dwa wiersze rozdzielone: **97 i 500**. To jedna firma widziana
+przez system jako dwie, więc żadne zestawienie roczne nie policzy jej poprawnie.
+Zamknięcie roku na tym zaboli. Scalenie wymaga decyzji, który wiersz jest właściwy —
+przeniesienie 97 faktur pod drugi identyfikator jest mechaniczne, wybór nie jest.
+
+**`Majewski`, NIP 1111111111** — dane testowe, ale trzymają 3 dokumenty zakupowe
+i 1 towar, więc nie są puste. Do sprzątnięcia razem z tymi dokumentami albo wcale.
+
+**`cart sp zoo`, NIP 5222884984** — literówka (prawdziwy CART to 5272884984).
+Usunięta migracją `20260823150000`.
