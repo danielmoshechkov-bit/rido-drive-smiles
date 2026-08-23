@@ -17,11 +17,12 @@ import { useProviderPrintHeader } from '@/hooks/useFiscal';
 import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
+import { TireStorageRulesDialog } from './TireStorageRulesDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import {
-  Plus, Search, Trash2, Archive, X, Check, ChevronsUpDown, Printer
+  Plus, Search, Trash2, Archive, X, Check, ChevronsUpDown, Printer, Settings
 } from 'lucide-react';
 
 interface Props {
@@ -72,6 +73,29 @@ function useTireStorageRecords(providerId: string, view: 'stored' | 'issued' = '
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
+    },
+    enabled: !!providerId,
+  });
+}
+
+/**
+ * Naleznosci: cena przechowania powiekszona o oplate za dni po terminie.
+ * Liczy je baza (widok `workshop_tire_storage_naleznosci`), bo ta sama kwota
+ * musi wyjsc w panelu, na wydruku i w przypomnieniu — trzy razy liczona
+ * w przegladarce rozjechalaby sie przy pierwszej zmianie zasad.
+ */
+function useTireDues(providerId: string) {
+  return useQuery({
+    queryKey: ['tire-storage-dues', providerId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_tire_storage_naleznosci')
+        .select('id, termin, dni_po_terminie, do_zaplaty, nieodebrane_od, reminder_count')
+        .eq('provider_id', providerId);
+      if (error) throw error;
+      const mapa: Record<string, any> = {};
+      for (const row of data || []) mapa[row.id] = row;
+      return mapa;
     },
     enabled: !!providerId,
   });
@@ -179,6 +203,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
 
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [zasadyOtwarte, setZasadyOtwarte] = useState(false);
   /**
    * „W magazynie" i „Wydane" to dwa różne pytania: pierwsze zadaje magazynier szukający
    * miejsca, drugie — klient, który twierdzi, że opon nie odebrał. Dotąd lista pokazywała
@@ -210,18 +235,49 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
+  const { data: naleznosci = {} } = useTireDues(providerId);
+  const [tylkoPoTerminie, setTylkoPoTerminie] = useState(false);
+
+  // Wpisy wzbogacone o kwote i dlug — jedno zrodlo dla tabeli, filtra i sumy.
+  const zNaleznoscia = useMemo(
+    () => records.map((r: any) => ({ ...r, dlug: naleznosci[r.id] ?? null })),
+    [records, naleznosci],
+  );
+
   const filtered = useMemo(() => {
-    if (!search) return records;
     const q = search.toLowerCase();
-    return records.filter((r: any) =>
-      (r.client_name || '').toLowerCase().includes(q) ||
-      (r.tire_brand || '').toLowerCase().includes(q) ||
-      (r.storage_number || '').toLowerCase().includes(q) ||
-      (r.workshop_clients?.first_name || '').toLowerCase().includes(q) ||
-      (r.workshop_clients?.last_name || '').toLowerCase().includes(q) ||
-      (r.workshop_vehicles?.plate || '').toLowerCase().includes(q)
-    );
-  }, [records, search]);
+    let wynik = zNaleznoscia;
+
+    if (search) {
+      wynik = wynik.filter((r: any) =>
+        (r.client_name || '').toLowerCase().includes(q) ||
+        (r.tire_brand || '').toLowerCase().includes(q) ||
+        (r.storage_number || '').toLowerCase().includes(q) ||
+        (r.workshop_clients?.first_name || '').toLowerCase().includes(q) ||
+        (r.workshop_clients?.last_name || '').toLowerCase().includes(q) ||
+        (r.workshop_vehicles?.plate || '').toLowerCase().includes(q)
+      );
+    }
+
+    if (tylkoPoTerminie) {
+      wynik = wynik.filter((r: any) => (r.dlug?.dni_po_terminie ?? 0) > 0);
+      // Najdluzej zalegajacy na gorze — to on kosztuje warsztat miejsce.
+      wynik = [...wynik].sort(
+        (a: any, b: any) => (b.dlug?.dni_po_terminie ?? 0) - (a.dlug?.dni_po_terminie ?? 0),
+      );
+    }
+
+    return wynik;
+  }, [zNaleznoscia, search, tylkoPoTerminie]);
+
+  const poTerminie = useMemo(
+    () => zNaleznoscia.filter((r: any) => (r.dlug?.dni_po_terminie ?? 0) > 0),
+    [zNaleznoscia],
+  );
+  const sumaPoTerminie = useMemo(
+    () => poTerminie.reduce((suma: number, r: any) => suma + Number(r.dlug?.do_zaplaty ?? 0), 0),
+    [poTerminie],
+  );
 
   const paged = pageSlice(filtered, page, pageSize);
   useEffect(() => { setPage(1); }, [pageSize]);
@@ -238,6 +294,9 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
         <Button onClick={() => setShowAdd(true)} className="gap-2">
           <Plus className="h-4 w-4" /> {t('workshop.tireStorage.store')}
         </Button>
+        <Button variant="outline" onClick={() => setZasadyOtwarte(true)} className="gap-2">
+          <Settings className="h-4 w-4" /> Zasady
+        </Button>
         <div className="flex rounded-md border overflow-hidden">
           {([['stored', 'W magazynie'], ['issued', 'Wydane']] as const).map(([value, label]) => (
             <button
@@ -250,6 +309,21 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
             </button>
           ))}
         </div>
+        {view === 'stored' && poTerminie.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setTylkoPoTerminie(v => !v)}
+            className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+              tylkoPoTerminie
+                ? 'bg-destructive text-destructive-foreground border-destructive'
+                : 'border-destructive/40 text-destructive hover:bg-destructive/10'
+            }`}
+            title="Pokaz wylacznie komplety po terminie, od najdluzej zalegajacych"
+          >
+            Po terminie: {poTerminie.length}
+            {sumaPoTerminie > 0 && ` · ${sumaPoTerminie.toFixed(2)} zl`}
+          </button>
+        )}
         <div className="flex-1" />
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -273,13 +347,14 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                 <TableHead>{t('workshop.tireStorage.col.receivedDate')}</TableHead>
                 <TableHead>Przypomnienie</TableHead>
                 <TableHead>{t('workshop.tireStorage.col.cost')}</TableHead>
+                <TableHead>Do zapłaty</TableHead>
                 <TableHead className="text-right">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={13} className="text-center py-12 text-muted-foreground">
                     <Archive className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     {isLoading ? t('common.loading') : t('workshop.tireStorage.noData')}
                   </TableCell>
@@ -297,6 +372,23 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                   <TableCell className="text-xs">{r.stored_at ? new Date(r.stored_at).toLocaleDateString('pl-PL') : '—'}</TableCell>
                   <TableCell className={`text-xs ${reminderState(r).className}`}>{reminderState(r).label}</TableCell>
                   <TableCell className="font-medium">{(r.storage_cost || 0).toFixed(2)} zł</TableCell>
+                  <TableCell>
+                    {r.dlug ? (
+                      <div>
+                        <span className="font-medium">{Number(r.dlug.do_zaplaty ?? 0).toFixed(2)} zł</span>
+                        {r.dlug.dni_po_terminie > 0 && (
+                          <div className="text-xs text-destructive">
+                            {r.dlug.dni_po_terminie} dni po terminie
+                            {Number(r.dlug.do_zaplaty ?? 0) > Number(r.storage_cost ?? 0) &&
+                              ` · +${(Number(r.dlug.do_zaplaty) - Number(r.storage_cost ?? 0)).toFixed(2)} zł`}
+                          </div>
+                        )}
+                        {r.dlug.nieodebrane_od && (
+                          <div className="text-xs text-amber-600">nieodebrane</div>
+                        )}
+                      </div>
+                    ) : '—'}
+                  </TableCell>
                   <TableCell className="text-right whitespace-nowrap">
                     <Button
                       variant="ghost"
@@ -328,6 +420,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
       />
 
       <TireStorageDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
+      <TireStorageRulesDialog open={zasadyOtwarte} onOpenChange={setZasadyOtwarte} providerId={providerId} />
     </div>
   );
 }
