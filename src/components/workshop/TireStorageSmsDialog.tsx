@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { opisRozmiaru } from './tireStorageFormat';
+import { buildStorageReceiptHtml } from './tireStorageReceipt';
 import { toast } from 'sonner';
 
 /** SMS z polskimi znakami idzie po 70 znakow na czesc, bez nich po 160. */
@@ -43,11 +44,15 @@ export function TireStorageSmsDialog({
   const [wysyla, setWysyla] = useState(false);
   const [skopiowane, setSkopiowane] = useState(false);
   const [pokazTresc, setPokazTresc] = useState(false);
+  const [kanal, setKanal] = useState<'sms' | 'email'>('sms');
+  const [email, setEmail] = useState('');
 
   useEffect(() => {
     if (!wpis?.id) return;
     let anulowane = false;
     setTelefon(wpis.client_phone ?? '');
+    setEmail(wpis.__email ?? '');
+    setKanal('sms');
     setPokazTresc(false);
 
     (async () => {
@@ -150,6 +155,48 @@ export function TireStorageSmsDialog({
     }
   };
 
+  const wyslijMail = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error('Podaj adres e-mail klienta');
+      return;
+    }
+    setWysyla(true);
+    try {
+      // Ten sam dokument, ktory idzie na wydruk. PDF robi z niego istniejacy
+      // generator po stronie serwera — nie budujemy drugiego.
+      const html = buildStorageReceiptHtml(wpis, 'przyjęcia', {
+        companyName: wpis.__warsztat ?? null,
+        address: wpis.__adres ?? null,
+        nip: wpis.__nip ?? null,
+        logoUrl: wpis.__logo ?? null,
+        phone: wpis.__telefonWarsztatu ?? null,
+        website: wpis.__strona ?? null,
+      });
+
+      const { data, error } = await supabase.functions.invoke('workshop-send-document-email', {
+        body: {
+          providerId,
+          do: email.trim(),
+          html,
+          tytulDokumentu: 'Potwierdzenie przechowania opon',
+          numer: wpis.storage_number ?? null,
+          nazwaPliku: `potwierdzenie-${(wpis.storage_number ?? 'opony').replace(/\//g, '-')}.pdf`,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+
+      toast.success((data as any)?.zZalacznikiem
+        ? `Mail wysłany na ${email.trim()}`
+        : `Mail wysłany, ale bez załącznika — PDF się nie wygenerował`);
+      onOpenChange(false);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Nie udało się wysłać maila');
+    } finally {
+      setWysyla(false);
+    }
+  };
+
   const kopiujLink = async () => {
     if (!kod) return;
     await navigator.clipboard.writeText(`https://getrido.pl/p/${kod}`);
@@ -177,21 +224,39 @@ export function TireStorageSmsDialog({
           <div className="space-y-4">
             <Label className="text-sm font-semibold">Sposób wysyłki</Label>
             <div className="flex gap-2 justify-center">
-              <Button variant="default" size="sm" className="gap-2">
+              <Button
+                variant={kanal === 'sms' ? 'default' : 'outline'}
+                size="sm"
+                className="gap-2"
+                onClick={() => setKanal('sms')}
+              >
                 <Phone className="h-4 w-4" /> SMS
               </Button>
               <Button
-                variant="outline"
+                variant={kanal === 'email' ? 'default' : 'outline'}
                 size="sm"
                 className="gap-2"
-                disabled
-                title="Potwierdzenie e-mailem dojdzie w kolejnym kroku"
+                onClick={() => setKanal('email')}
               >
                 <Mail className="h-4 w-4" /> E-mail
               </Button>
             </div>
 
-            {wpis.client_phone ? (
+            {kanal === 'email' ? (
+              <div className="space-y-1.5 max-w-sm mx-auto text-left">
+                <Label className="text-xs">Adres e-mail klienta</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="klient@example.com"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Klient dostanie potwierdzenie jako PDF w załączniku — ten sam
+                  dokument co z przycisku „Pokwitowanie".
+                </p>
+              </div>
+            ) : wpis.client_phone ? (
               <p className="text-sm">
                 Na numer: <span className="font-semibold text-foreground">{telefon}</span>
               </p>
@@ -208,7 +273,7 @@ export function TireStorageSmsDialog({
               </div>
             )}
 
-            {kod && (
+            {kod && kanal === 'sms' && (
               <div className="flex items-center gap-2 rounded-md border p-2 text-left">
                 <span className="text-xs text-muted-foreground shrink-0">Link:</span>
                 <span className="text-xs font-mono truncate flex-1">getrido.pl/p/{kod}</span>
@@ -220,16 +285,16 @@ export function TireStorageSmsDialog({
 
             {/* Tresc schowana, bo w zwyklym uzyciu nikt jej nie zmienia —
                 ale bywa potrzebna, wiec jest na jedno klikniecie. */}
-            <button
+            {kanal === 'sms' && <button
               type="button"
               onClick={() => setPokazTresc(v => !v)}
               className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
             >
               <ChevronDown className={`h-3 w-3 transition-transform ${pokazTresc ? 'rotate-180' : ''}`} />
               {pokazTresc ? 'Ukryj treść' : 'Podejrzyj lub zmień treść'}
-            </button>
+            </button>}
 
-            {pokazTresc && (
+            {pokazTresc && kanal === 'sms' && (
               <div className="space-y-1.5 text-left">
                 <Textarea
                   value={tresc}
@@ -249,11 +314,15 @@ export function TireStorageSmsDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Nie, pomiń
             </Button>
-            <Button onClick={wyslij} disabled={wysyla || !numerOk} className="gap-2">
+            <Button
+              onClick={kanal === 'email' ? wyslijMail : wyslij}
+              disabled={wysyla || (kanal === 'sms' ? !numerOk : !email.trim())}
+              className="gap-2"
+            >
               {wysyla
                 ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <MessageSquare className="h-4 w-4" />}
-              Wyślij SMS
+                : kanal === 'email' ? <Mail className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
+              {kanal === 'email' ? 'Wyślij e-mail' : 'Wyślij SMS'}
             </Button>
           </div>
         </div>
