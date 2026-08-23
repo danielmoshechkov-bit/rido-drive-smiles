@@ -736,7 +736,6 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
         if (taskErr) console.error('Tasks save error:', taskErr);
       }
 
-      toast.success(t('workshop.tireStorage.storageSaved'));
       queryClient.invalidateQueries({ queryKey: ['tire-storage'] });
       // Bez tego swiezy wpis nie ma jeszcze policzonej naleznosci i w kolumnie
       // "Do zaplaty" widac zero, mimo ze cena zostala podana.
