@@ -137,6 +137,29 @@ Deno.serve(async (req) => {
        * i miesiąc kupiony wcześniej BLIK-iem to stany, z których klient
        * wychodzi kupując — tych nie blokujemy.
        */
+      /**
+       * FAIL-CLOSED: BEZ DANYCH NABYWCY NIE STARTUJEMY PŁATNOŚCI.
+       *
+       * Faktury z pustym nabywcą nie da się poprawić edycją — wymaga korekty,
+       * a korekta idzie do KSeF i zostaje w ewidencji na zawsze. Taniej jest
+       * odmówić startu płatności niż wystawić dokument do naprawienia.
+       *
+       * Okno zakupu pyta o te dane w osobnym kroku przed wyborem metody, więc
+       * klient nie ma prawa tu dotrzeć bez nich. Ta kontrola jest po to, żeby
+       * ktoś, kto woła funkcję z pominięciem okna, też ich nie ominął.
+       */
+      {
+        const { data: komplet, error: bladDanych } = await admin
+          .rpc("billing_dane_nabywcy_kompletne", { p_provider_id: warsztat.id });
+        if (bladDanych) throw bladDanych;
+        if (komplet !== true) {
+          return json({
+            error: "Zanim zapłacisz, uzupełnij dane do faktury.",
+            code: "BRAK_DANYCH_NABYWCY",
+          }, 409);
+        }
+      }
+
       const { data: kartowa } = await admin
         .from('billing_subscriptions')
         .select('id')

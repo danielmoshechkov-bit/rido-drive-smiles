@@ -85,6 +85,29 @@ def main() -> int:
             print(f"  {nazwa}")
         print()
 
+    # ── znaczniki wybierane RĘCZNIE ──────────────────────────────────────
+    # Numer kończący się na `0000` to okrągła godzina, czyli człowiek wpisał go
+    # z palca. Dwie sesje pracujące tego samego dnia sięgają wtedy po tę samą
+    # najbliższą wolną godzinę — i kolizja wychodzi dopiero przy scaleniu,
+    # bo git nie widzi nic podejrzanego w dwóch plikach o różnych nazwach.
+    #
+    # To ostrzeżenie, nie błąd: cała historia repozytorium jest w takich
+    # numerach i przenumerowanie wykonanych migracji kazałoby je uruchomić
+    # ponownie. Liczy się od dnia wprowadzenia `scripts/nowa-migracja.sh`.
+    OD_KIEDY_SEKUNDY = "20260824"
+    reczne = sorted(
+        nazwa
+        for numer, pliki in wg_numeru.items()
+        for nazwa in pliki
+        if numer.endswith("0000") and numer[:8] >= OD_KIEDY_SEKUNDY
+    )
+    if reczne:
+        print("UWAGA — znaczniki wpisane z palca (okrągła godzina):")
+        for nazwa in reczne:
+            print(f"  {nazwa}")
+        print("Zakładaj migracje przez ./scripts/nowa-migracja.sh — bierze czas")
+        print("co do sekundy i sam sprawdza, czy znacznik jest wolny.\n")
+
     if not zderzenia:
         print(f"zielono — {len(wg_numeru)} pełnych znaczników czasu, każdy nosi jeden plik")
         return 0

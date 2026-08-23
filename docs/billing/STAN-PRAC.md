@@ -559,3 +559,26 @@ Czyli niewykorzystana część opłaconego miesiąca **nie dokleja się na końc
 — wraca jako **upust na rachunku** za rok. Klient nie traci pieniędzy, ale data
 odnowienia przeskakuje na dzień zmiany. Decyzja produktowa: zostawiamy tak,
 bo to jest zachowanie standardowe i najprostsze do wytłumaczenia na fakturze.
+
+## 🔴 Dane wystawcy GetRido żyją w TRZECH tabelach
+
+Jeśli znajdziesz rozjazd w danych na fakturze, zacznij tutaj, a nie od zera.
+
+| tabela | kto zapisuje | kto czyta |
+|---|---|---|
+| `company_settings` | kafel **Ustawienia** w `/admin/platnosci?tab=ksiegowosc` | ekran ustawień |
+| `entities` | wyzwalacz lustrzany z `company_settings` | moduł zakupowy, KSeF, dokumenty |
+| **`user_invoice_companies`** | **nikt automatycznie** | **`billing-invoice-issue` — czyli FAKTURA** |
+
+Pierwsze dwie łączą dwa wyzwalacze z migracji `20260823200000_dane_firmy_synchronizacja.sql`.
+Lustrują **wyłącznie kolumny, które właśnie się zmieniły**, i nie rozstrzygają
+istniejących rozbieżności.
+
+**Trzecia jest poza tym obiegiem.** Wskazuje ją `billing_settings.platform_invoice_company_id`.
+Zmiana adresu w kafelku Ustawień **nie zmienia adresu na fakturach** — bez błędu,
+bez ostrzeżenia. Rozjazd widoczny już dziś: nazwa „Getrido Sp. z o.o." zamiast
+pełnej formy prawnej i puste `bank_account`.
+
+Domknięcie tego (trzecie ogniwo lustra + wyrównanie danych) to **etap 2** kolejności
+uzgodnionej 23.08: dane nabywcy → **lustro wystawcy** → numeracja i konto →
+wpięcie Stripe'a → przełącznik `auto_invoice_on_paid`.

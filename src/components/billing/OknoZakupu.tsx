@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
 import { useSubscriptionDetails } from '@/hooks/useSubscriptionDetails';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DaneDoFaktury } from './DaneDoFaktury';
 import { usePublicPricing, type PublicPlan } from '@/hooks/usePublicPricing';
 import { useCenaOkresu, zl, type Okres } from '@/hooks/useCenaOkresu';
 import { zapamietajZamowienie, czekajNaWydanie, LIMIT_KARTY_ZAKUPU_MS } from '@/lib/doladowanie';
@@ -42,7 +43,10 @@ export interface ZadanieZakupu {
   providerId?: string | null;
 }
 
-type Krok = 'plan' | 'okres' | 'metoda' | 'podsumowanie';
+// Kolejność kroków. „dane" stoi PRZED metodą płatności świadomie: faktury
+// z pustym nabywcą nie da się poprawić edycją, a moment przed zapłatą jest
+// najtańszy w całym procesie na zapytanie o dane.
+type Krok = 'plan' | 'okres' | 'dane' | 'metoda' | 'podsumowanie';
 
 const KUPOWALNE = ['warsztat_standard', 'warsztat_pro'];
 
@@ -245,16 +249,26 @@ export function OknoZakupu({
           <DialogTitle>
             {krok === 'plan' && 'Wybierz plan'}
             {krok === 'okres' && 'Na jak długo'}
+            {krok === 'dane' && 'Dane do faktury'}
             {krok === 'metoda' && 'Jak chcesz zapłacić'}
             {krok === 'podsumowanie' && 'Sprawdź i zapłać'}
           </DialogTitle>
           <DialogDescription>
             {krok === 'plan' && 'Możesz zmienić plan później, w każdej chwili.'}
             {krok === 'okres' && 'Przy roku dwa miesiące są gratis.'}
+            {krok === 'dane' && 'Wystawimy na nie fakturę — poprawienie jej później wymaga korekty.'}
             {krok === 'metoda' && 'Obie drogi są równorzędne — wybierz, co Ci wygodniej.'}
             {krok === 'podsumowanie' && 'Kwotę wylicza serwer w chwili zakupu.'}
           </DialogDescription>
         </DialogHeader>
+
+        {krok === 'dane' && (
+          <DaneDoFaktury
+            providerId={providerId}
+            onGotowe={() => setKrok('metoda')}
+            onWstecz={() => setKrok('okres')}
+          />
+        )}
 
         {/* ── KROK 1: PLAN ─────────────────────────────────────────── */}
         {krok === 'plan' && (
@@ -322,7 +336,7 @@ export function OknoZakupu({
                 planCode={wybranyPlan.code}
                 providerId={zadanie.providerId}
                 zaznaczony={okres === o}
-                onWybierz={() => { setOkres(o); setKrok('metoda'); }}
+                onWybierz={() => { setOkres(o); setKrok('dane'); }}
               />
             ))}
           </div>
@@ -393,10 +407,14 @@ export function OknoZakupu({
           </div>
         )}
 
-        {krok !== 'plan' && (
+        {/* Krok „dane" ma własny przycisk wstecz w środku formularza —
+            drugi na dole prowadziłby do tego samego, ale wyglądał na inny. */}
+        {krok !== 'plan' && krok !== 'dane' && (
           <button
             type="button"
-            onClick={() => setKrok(krok === 'podsumowanie' ? 'metoda' : krok === 'metoda' ? 'okres' : 'plan')}
+            onClick={() => setKrok(
+              krok === 'podsumowanie' ? 'metoda' : krok === 'metoda' ? 'dane' : 'plan',
+            )}
             className="mt-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Wstecz
