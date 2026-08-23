@@ -16,6 +16,8 @@
 // pierwszej zmianie wzoru, a skutkiem byłyby dwie faktury o tym samym numerze.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+import { generateInvoiceHtml, type InvoiceData } from "../_shared/invoiceHtml.ts";
+import { buildPublicUrl } from "../_shared/publicUrl.ts";
 import {
   buildInvoiceNumber,
   DEFAULT_NUMBERING,
@@ -115,7 +117,11 @@ Deno.serve(async (req) => {
      */
     const zapytanieOFirme = admin
       .from("user_invoice_companies")
-      .select("id, name, nip, numbering_prefix, numbering_pattern, numbering_mode");
+      // Lista kolumn musi być JEDNYM literałem — sklejona z kawałków przez `+`
+      // przestaje być typem literalnym i klient Supabase gubi kształt wiersza,
+      // przez co każde `firma.cokolwiek` staje się błędem typów. Reszta pól
+      // (adres, konto, logo) jest tu dlatego, że składamy z nich nagłówek PDF-u.
+      .select("id, name, nip, numbering_prefix, numbering_pattern, numbering_mode, address_street, address_building_number, address_apartment_number, address_city, address_postal_code, bank_name, bank_account, email, phone, logo_url, vat_exemption_basis");
 
     const { data: firma } = ustawienia?.platform_invoice_company_id
       ? await zapytanieOFirme.eq("id", ustawienia.platform_invoice_company_id).maybeSingle()
@@ -291,6 +297,83 @@ Deno.serve(async (req) => {
         const mailDo = String(body?.buyer_email ?? "").trim();
         if (mailDo) {
           try {
+            /**
+             * ZAŁĄCZNIK PDF — składany TYM SAMYM generatorem co w przeglądarce.
+             *
+             * Szablon leży w `_shared/invoiceHtml.ts` jako jedyne źródło: panel
+             * i ta funkcja wołają dokładnie tę samą funkcję, więc dokument
+             * z maila i dokument z przycisku „Pobierz" nie mogą się różnić.
+             *
+             * Sam PDF robi ten sam endpoint co przeglądarka —
+             * `getrido.pl/invoice-pdf.php` (Dompdf). Nie duplikujemy renderowania,
+             * tylko wołamy je z drugiej strony.
+             *
+             * Nieudane złożenie PDF-u NIE wstrzymuje maila: klient B2B ma dostać
+             * dokument, a wiadomość bez załącznika jest lepsza niż jej brak.
+             * Księgowa i tak nie zaloguje się do panelu, więc brak maila znaczy
+             * brak faktury.
+             */
+            let pdfBase64: string | null = null;
+            try {
+              const dane: InvoiceData = {
+                invoice_number: faktura.invoice_number,
+                type: "invoice",
+                issue_date: dataWystawienia,
+                sale_date: dataWystawienia,
+                due_date: dataWystawienia,
+                payment_method: "transfer",
+                currency: "PLN",
+                paid_amount: brutto,
+                is_fully_paid: true,
+                items: doZapisu.map((p) => ({
+                  name: p.name,
+                  quantity: p.quantity,
+                  unit: p.unit,
+                  unit_net_price: p.unit_net_price,
+                  vat_rate: String(p.vat_rate),
+                  net_amount: p.net_amount,
+                  vat_amount: p.vat_amount,
+                  gross_amount: p.gross_amount,
+                })) as InvoiceData["items"],
+                seller: {
+                  name: firma.name ?? "",
+                  nip: firma.nip ?? undefined,
+                  address_street: firma.address_street ?? undefined,
+                  address_building_number: firma.address_building_number ?? undefined,
+                  address_apartment_number: firma.address_apartment_number ?? undefined,
+                  address_city: firma.address_city ?? undefined,
+                  address_postal_code: firma.address_postal_code ?? undefined,
+                  bank_name: firma.bank_name ?? undefined,
+                  bank_account: firma.bank_account ?? undefined,
+                  email: firma.email ?? undefined,
+                  phone: firma.phone ?? undefined,
+                  logo_url: firma.logo_url ?? undefined,
+                  vat_exemption_basis: firma.vat_exemption_basis ?? undefined,
+                },
+                buyer: {
+                  name: String(body?.buyer_name ?? ""),
+                  nip: body?.buyer_nip ?? undefined,
+                  address_street: body?.buyer_address ?? undefined,
+                },
+              };
+
+              const odpPdf = await fetch(buildPublicUrl("/invoice-pdf.php"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ html: generateInvoiceHtml(dane) }),
+              });
+              const wynikPdf = await odpPdf.json().catch(() => null);
+              if (typeof wynikPdf?.pdf_base64 === "string" && wynikPdf.pdf_base64.length > 100) {
+                pdfBase64 = wynikPdf.pdf_base64;
+              } else {
+                console.warn(JSON.stringify({
+                  event: "faktura_pdf_pusty", numer: faktura.invoice_number, status: odpPdf.status,
+                }));
+              }
+            } catch (bladPdf) {
+              console.error("billing-invoice-issue: PDF nie powstał, wysyłam bez załącznika", bladPdf);
+            }
+
             const odp = await fetch(`${supabaseUrl}/functions/v1/send-invoice-email`, {
               method: "POST",
               headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
@@ -298,12 +381,14 @@ Deno.serve(async (req) => {
                 invoice_id: faktura.id,
                 recipient_email: mailDo,
                 type: "faktura_oplacona",
+                ...(pdfBase64 ? { pdf_base64: pdfBase64 } : {}),
               }),
             });
             const wynikMaila = await odp.json().catch(() => ({}));
             console.log(JSON.stringify({
               event: odp.ok && (wynikMaila as any)?.success !== false ? "faktura_mail" : "faktura_mail_blad",
               numer: faktura.invoice_number, do: mailDo, status: odp.status,
+              zalacznik: pdfBase64 ? "jest" : "brak",
             }));
           } catch (bladMaila) {
             console.error("billing-invoice-issue: mail niewysłany", bladMaila);

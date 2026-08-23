@@ -601,7 +601,17 @@ Fakturowanie jest dziś zabezpieczone od innej strony: bez kompletu danych
 nabywcy (`billing_dane_nabywcy_kompletne`) płatność w ogóle nie startuje,
 więc faktura z pustym nabywcą nie ma jak powstać.
 
-## Faktura z webhooka idzie BEZ załącznika PDF
+## ~~Faktura z webhooka idzie BEZ załącznika PDF~~ — ZAMKNIĘTE 23.08
+
+Generator przeniesiony do `supabase/functions/_shared/invoiceHtml.ts` jako
+**jedyne źródło**: panel i funkcja brzegowa wołają tę samą funkcję.
+`src/utils/invoiceHtmlGenerator.ts` re-eksportuje ją i zatrzymuje wyłącznie
+`printHtmlDocument` oraz `printInvoice` — jedyne dwie rzeczy, które dotykały
+`window`. Wygląd faktury nietknięty, sprawdzone odciskiem SHA-256 przed i po.
+
+PDF składa ten sam `getrido.pl/invoice-pdf.php` co przeglądarka.
+
+<details><summary>opis sprzed naprawy</summary>
 
 `billing-invoice-issue` wysyła mail przez `send-invoice-email` z samym
 `invoice_id` — bez `pdf_base64`.
@@ -618,3 +628,5 @@ a plik pobiera z panelu.
 mail niósł załącznik. Szablon jest dziś w komponencie frontu, więc to znaczy
 albo wyciągnięcie go do `_shared/`, albo osobny generator — i w obu wypadkach
 pilnowanie, żeby dwie wersje szablonu się nie rozjechały.
+
+</details>
