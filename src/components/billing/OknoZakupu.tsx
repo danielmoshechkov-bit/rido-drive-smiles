@@ -4,9 +4,11 @@ import { Check, Loader2, CreditCard, Smartphone, ArrowLeft } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
+import { useSubscriptionDetails } from '@/hooks/useSubscriptionDetails';
+import { Checkbox } from '@/components/ui/checkbox';
 import { usePublicPricing, type PublicPlan } from '@/hooks/usePublicPricing';
 import { useCenaOkresu, zl, type Okres } from '@/hooks/useCenaOkresu';
 import { zapamietajZamowienie, czekajNaWydanie, LIMIT_KARTY_ZAKUPU_MS } from '@/lib/doladowanie';
@@ -68,6 +70,27 @@ export function OknoZakupu({
   const [wysylka, setWysylka] = useState<'blik' | 'karta' | null>(null);
   const qc = useQueryClient();
   const odswiezJednostki = useOdswiezJednostki();
+  const [pytamOFree, setPytamOFree] = useState(false);
+  const [rozumiemFree, setRozumiemFree] = useState(false);
+
+  // Warsztat rozwiązujemy sami, gdy wołający go nie podał — plakietka otwiera
+  // okno bez niego, a bez warsztatu nie wiemy, jaki plan klient MA, więc nie
+  // umielibyśmy ani podświetlić jego kafelka, ani powiedzieć, co traci.
+  const { data: mojWarsztat } = useQuery({
+    queryKey: ['warsztat-do-zakupu'],
+    enabled: otwarte && !zadanie.providerId,
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u?.user) return null;
+      const { data } = await supabase
+        .from('service_providers').select('id').eq('user_id', u.user.id)
+        .order('created_at', { ascending: true }).limit(1).maybeSingle();
+      return data?.id ?? null;
+    },
+  });
+  const providerId = zadanie.providerId ?? mojWarsztat ?? null;
+  const { data: szczegoly } = useSubscriptionDetails(providerId);
+  const obecnyKod = szczegoly?.kodPlanu ?? null;
 
   // Wejście z kafelka cennika ma pominąć krok, który klient już wykonał.
   useEffect(() => {
@@ -115,6 +138,56 @@ export function OknoZakupu({
     }
   };
 
+  /**
+   * Odpowiedź bez adresu bramki. Cztery możliwe zdania, bo klient ma się
+   * dowiedzieć, CO się właśnie stało — a nie „zapisano zmiany".
+   */
+  const pokazZmiane = (data: any) => {
+    const nazwa = data.nazwa_planu ?? data.plan;
+    if (data.zmiana === 'natychmiast') {
+      toast.success(`Plan zmieniony na ${nazwa}. Działa od teraz.`);
+    } else if (data.zmiana === 'wycofana') {
+      toast.success(`Zostajesz na planie ${nazwa}. Zaplanowana zmiana została odwołana i nic nie płacisz.`);
+    } else if (data.zmiana === 'anulowana') {
+      toast.success(
+        data.obowiazuje_od
+          ? `Subskrypcja anulowana. Działasz na obecnym planie do ${dniaSlownie(data.obowiazuje_od)}, potem przechodzisz na plan darmowy.`
+          : 'Subskrypcja anulowana. Działasz na obecnym planie do końca opłaconego okresu.',
+      );
+    } else {
+      toast.success(
+        data.obowiazuje_od
+          ? `Plan zmieni się na ${nazwa} ${dniaSlownie(data.obowiazuje_od)}. Do tego czasu działasz na obecnym — masz go opłacony.`
+          : `Plan zmieni się na ${nazwa} przy najbliższym odnowieniu.`,
+      );
+    }
+    // Plakietka przy nazwie firmy czyta subskrypcję osobnym zapytaniem —
+    // bez unieważnienia pokazywałaby stary plan aż do odświeżenia strony.
+    qc.invalidateQueries({ queryKey: ['subscription-details'] });
+    odswiezJednostki();
+    onOpenChange(false);
+  };
+
+  /** Wybór planu darmowego — po potwierdzeniu w okienku ostrzegawczym. */
+  const przejdzNaFree = async () => {
+    if (wysylka) return;
+    setWysylka('karta');
+    try {
+      const { data, error } = await supabase.functions.invoke('billing-checkout', {
+        body: { plan_code: 'warsztat_free', okres: 'miesiac' },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setPytamOFree(false);
+      setRozumiemFree(false);
+      pokazZmiane(data ?? { zmiana: 'anulowana', plan: 'warsztat_free' });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Nie udało się anulować subskrypcji.');
+    } finally {
+      setWysylka(null);
+    }
+  };
+
   const zaplacKarta = async () => {
     if (!plan || wysylka) return;
     const karta = window.open('', '_blank');
@@ -136,20 +209,7 @@ export function OknoZakupu({
        */
       if (data?.zmiana) {
         karta?.close();
-        if (data.zmiana === 'natychmiast') {
-          toast.success(`Plan zmieniony na ${data.nazwa_planu ?? data.plan}. Działa od teraz.`);
-        } else {
-          toast.success(
-            data.obowiazuje_od
-              ? `Plan zmieni się na ${data.nazwa_planu ?? data.plan} ${dniaSlownie(data.obowiazuje_od)}. Do tego czasu działasz na obecnym — masz go opłacony.`
-              : `Plan zmieni się na ${data.nazwa_planu ?? data.plan} przy najbliższym odnowieniu.`,
-          );
-        }
-        // Plakietka przy nazwie firmy czyta subskrypcję osobnym zapytaniem —
-        // bez unieważnienia pokazywałaby stary plan aż do odświeżenia strony.
-        qc.invalidateQueries({ queryKey: ['subscription-details'] });
-        odswiezJednostki();
-        onOpenChange(false);
+        pokazZmiane(data);
         return;
       }
 
@@ -166,7 +226,19 @@ export function OknoZakupu({
 
   const wybranyPlan: PublicPlan | undefined = doKupienia.find((p) => p.code === plan);
 
+  // Co dokładnie znika po przejściu na plan darmowy. Liczone z macierzy funkcji,
+  // nie wypisane w kodzie — lista wypisana zestarzałaby się przy pierwszej
+  // zmianie zakresu planu, a klient dostałby ostrzeżenie mijające się z prawdą.
+  const traconeFunkcje: string[] = (() => {
+    const obecny = plans.find((p) => p.code === obecnyKod);
+    const free = plans.find((p) => Number(p.price_net) === 0 && !p.is_custom);
+    if (!obecny || !free) return [];
+    const wFree = new Set(free.features);
+    return obecny.features.filter((f) => !wFree.has(f));
+  })();
+
   return (
+    <>
     <Dialog open={otwarte} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -188,22 +260,33 @@ export function OknoZakupu({
         {krok === 'plan' && (
           <div className="grid gap-3 sm:grid-cols-2">
             {doKupienia.map((p) => {
-              const kupowalny = KUPOWALNE.includes(p.code);
+              const darmowy = Number(p.price_net) === 0 && !p.is_custom;
+              // Plan darmowy JEST wybieralny — po drodze staje okienko
+              // z ostrzeżeniem. Wcześniej był wyszarzony z podpisem
+              // „Nie wymaga płatności", co dla klienta po wygaśnięciu
+              // wyglądało jak podpowiedź, żeby tam uciec.
+              const kupowalny = KUPOWALNE.includes(p.code) || darmowy;
+              const toTwoj = obecnyKod === p.code;
               return (
                 <button
                   key={p.code}
                   type="button"
                   disabled={!kupowalny}
-                  onClick={() => { setPlan(p.code); setKrok('okres'); }}
+                  onClick={() => {
+                    if (darmowy) { setRozumiemFree(false); setPytamOFree(true); return; }
+                    setPlan(p.code); setKrok('okres');
+                  }}
                   className={
                     'rounded-xl border p-4 text-left transition ' +
                     (kupowalny ? 'hover:border-primary hover:bg-primary/5' : 'opacity-60') +
-                    (plan === p.code ? ' border-primary bg-primary/5' : ' border-border')
+                    (plan === p.code || toTwoj ? ' border-primary bg-primary/5' : ' border-border')
                   }
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-semibold">{p.name}</span>
-                    {plan === p.code && <Check className="h-4 w-4 text-primary" />}
+                    {toTwoj
+                      ? <Badge variant="secondary">Twój plan</Badge>
+                      : plan === p.code && <Check className="h-4 w-4 text-primary" />}
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>
                   <p className="mt-2 text-sm font-medium">
@@ -215,7 +298,12 @@ export function OknoZakupu({
                   </p>
                   {!kupowalny && (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {p.is_custom ? 'Napisz do nas — dobierzemy zakres.' : 'Nie wymaga płatności.'}
+                      Napisz do nas — dobierzemy zakres.
+                    </p>
+                  )}
+                  {darmowy && !toTwoj && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Wybranie anuluje Twój abonament.
                     </p>
                   )}
                 </button>
@@ -316,6 +404,66 @@ export function OknoZakupu({
         )}
       </DialogContent>
     </Dialog>
+
+    {/* ── OSTRZEŻENIE PRZED PLANEM DARMOWYM ─────────────────────────
+        Osobne okno, nie kolejny krok tego samego. To nie jest zakup —
+        to rezygnacja, i ma wyglądać inaczej niż wybór planu.            */}
+    <Dialog open={pytamOFree} onOpenChange={(o) => { setPytamOFree(o); if (!o) setRozumiemFree(false); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Anulujesz subskrypcję</DialogTitle>
+          <DialogDescription>
+            {szczegoly?.odnowienie
+              ? `Do ${dniaSlownie(szczegoly.odnowienie)} wszystko działa jak dotąd — masz ten okres opłacony.`
+              : 'Do końca opłaconego okresu wszystko działa jak dotąd.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        {traconeFunkcje.length > 0 && (
+          <div className="rounded-lg border border-border bg-muted/40 p-3">
+            <p className="text-sm font-medium">
+              {szczegoly?.odnowienie ? `Od ${dniaSlownie(szczegoly.odnowienie)} stracisz:` : 'Potem stracisz:'}
+            </p>
+            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+              {traconeFunkcje.map((f) => <li key={f}>• {f}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {/* Klient ma wiedzieć TERAZ, że powrót nie będzie jednym kliknięciem.
+            Dowiedzenie się o tym dopiero przy powrocie jest zaskoczeniem,
+            które wygląda na sztuczkę. */}
+        <p className="text-sm text-muted-foreground">
+          Powrót na plan płatny będzie wymagał podania karty od nowa — anulowanej
+          subskrypcji nie da się wznowić.
+        </p>
+
+        <label className="flex items-start gap-2 text-sm">
+          <Checkbox
+            checked={rozumiemFree}
+            onCheckedChange={(v) => setRozumiemFree(v === true)}
+            className="mt-0.5"
+          />
+          <span>Potwierdzam, że chcę anulować subskrypcję</span>
+        </label>
+
+        <div className="flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={() => setPytamOFree(false)}>
+            Zostaję
+          </Button>
+          <Button
+            variant="destructive"
+            className="flex-1"
+            disabled={!rozumiemFree || !!wysylka}
+            onClick={przejdzNaFree}
+          >
+            {wysylka && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Anuluj subskrypcję
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

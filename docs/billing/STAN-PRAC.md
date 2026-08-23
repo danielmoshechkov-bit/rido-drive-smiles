@@ -526,3 +526,36 @@ przepustką (odzyskiwanie hasła, powiązania), więc to nie jest sama niewygoda
 Ten przełącznik obejmuje teraz TRZY drogi rejestracji: giełdę, warsztat
 z `module` i konto klienta z okna logowania. Zdejmowanie go bez decyzji
 o skutkach jest zmianą w bezpieczeństwie, nie w wygodzie.
+
+## Zmiana planu — co zostało otwarte (23.08)
+
+### Zdarzenia `pending_update_*` ze Stripe nieobsłużone
+
+Wejście w górę idzie z `payment_behavior=pending_if_incomplete`, więc operator
+stosuje zmianę **wyłącznie po udanej zapłacie** — to zamyka dziurę „plan
+zmieniony, pieniędzy nie ma". Gdy zapłata nie przejdzie, oddaje subskrypcję
+z wypełnionym `pending_update` i my odpowiadamy klientowi `402`.
+
+**Czego brakuje:** rachunek wisi u operatora **23 godziny** i klient może go
+opłacić później — z maila od Stripe albo z portalu rozliczeń. Wtedy operator
+zastosuje zmianę u siebie i wyśle `customer.subscription.pending_update_applied`,
+którego **nasz webhook nie obsługuje**. Klient miałby wyższy plan u operatora
+i niższy u nas.
+
+Do dopięcia w webhooku (`billing-stripe-webhook`):
+- `customer.subscription.pending_update_applied` → zapisać nowy `plan_id`,
+- `customer.subscription.pending_update_expired` → nic nie zmieniać, ale zalogować.
+
+Skala dzisiaj: zero, bo nikt jeszcze nie zmienił planu kartą. Przed pierwszym
+płacącym klientem to ma być zamknięte.
+
+### Zmiana okresu miesiąc → rok przesuwa datę odnowienia
+
+Nie jest to błąd, ale różni się od tego, czego można się spodziewać.
+Dokumentacja operatora: *„switching a customer from a monthly subscription to
+a yearly subscription moves the billing date to the date of the switch"*.
+
+Czyli niewykorzystana część opłaconego miesiąca **nie dokleja się na końcu roku**
+— wraca jako **upust na rachunku** za rok. Klient nie traci pieniędzy, ale data
+odnowienia przeskakuje na dzień zmiany. Decyzja produktowa: zostawiamy tak,
+bo to jest zachowanie standardowe i najprostsze do wytłumaczenia na fakturze.
