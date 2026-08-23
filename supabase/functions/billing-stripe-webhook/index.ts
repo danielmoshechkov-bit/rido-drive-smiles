@@ -401,7 +401,23 @@ Deno.serve(async (req) => {
       // -------------------------------------- zmiany cyklu życia
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const status = typ.endsWith("deleted") ? "canceled" : mapujStatus(obiekt.status);
+        /**
+         * DOKLEJONY CZAS WYGLĄDA U OPERATORA JAK OKRES PRÓBNY.
+         *
+         * Przy zmianie okresu doklejamy niewykorzystane dni, ustawiając
+         * `trial_end` — to jedyny parametr operatora przyjmujący dowolną datę
+         * (`billing_cycle_anchor` przy aktualizacji bierze tylko `now`).
+         * Skutkiem subskrypcja ma status `trialing` do tej daty.
+         *
+         * Gdybyśmy przepisali ten status wprost, klient który właśnie zapłacił
+         * za rok zobaczyłby plakietkę „okres próbny" i dostałby ostrzeżenia
+         * o jego końcu. Dlatego przy naszym znaczniku `doklejony_czas`
+         * zapisujemy `active` — bo to jest opłacony okres, nie próbny.
+         */
+        const czasDoklejony = String(obiekt?.metadata?.doklejony_czas ?? "") === "1";
+        const status = typ.endsWith("deleted")
+          ? "canceled"
+          : (czasDoklejony && obiekt.status === "trialing" ? "active" : mapujStatus(obiekt.status));
         const okres = okresSubskrypcji(obiekt);
 
         /**

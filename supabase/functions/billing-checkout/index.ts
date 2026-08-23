@@ -196,10 +196,12 @@ Deno.serve(async (req) => {
       // co klient płaci — gwarancja ceny dotyczy stawki, nie kolejności planów.
       const obecnyRok = String(obecny.billing_interval ?? "month") === "year";
       const roznicaPlanu = Number(plan.price_net) - Number(obecny.price_net);
-      const wGore = roznicaPlanu !== 0
-        ? roznicaPlanu > 0
-        : (okresRok && !obecnyRok);
       const bezZmiany = roznicaPlanu === 0 && okresRok === obecnyRok;
+      // Kierunek dotyczy WYŁĄCZNIE zmiany planu w tym samym okresie — zmiana
+      // okresu ma własną gałąź niżej i wraca z niej, więc tutaj `okresRok`
+      // zawsze równa się `obecnyRok`. Wcześniej stał tu warunek zapasowy na
+      // okres; zostawiony wyglądałby na obsługiwany przypadek, którym nie jest.
+      const wGore = roznicaPlanu > 0;
 
       /**
        * WYBÓR OBECNEGO PLANU PRZY ODŁOŻONEJ ZMIANIE = WYCOFANIE JEJ.
@@ -364,6 +366,130 @@ Deno.serve(async (req) => {
           error: "Nie umiem odczytać pozycji subskrypcji u operatora. Odezwij się do nas.",
           code: "BRAK_POZYCJI",
         }, 409);
+      }
+
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       * ZMIANA OKRESU — DOKLEJAMY CZAS, NIE PRZESUWAMY DATY
+       * ═══════════════════════════════════════════════════════════════════
+       * Klient kupuje OKRES, nie abonament od stałej daty. Kupił 30 dni,
+       * po dziesięciu kupuje rok — ma 385 dni od pierwszego zakupu. Płaci
+       * pełną cenę roku i nic mu nie przepada, bo dostaje ten czas w naturze.
+       *
+       * Tak działa już ścieżka BLIK-owa (`billing_wydaj_okres` dolicza do końca
+       * bieżącego okresu). Dwie różne mechaniki zależne od metody płatności
+       * byłyby gorsze niż ta praca.
+       *
+       * OPERATOR SAM Z SIEBIE ROBI COŚ INNEGO. Dokumentacja: „switching
+       * a customer from a monthly subscription to a yearly subscription moves
+       * the billing date to the date of the switch", a niewykorzystany czas
+       * wraca jako UPUST na rachunku. Klient nie traci pieniędzy, ale traci
+       * dni i widzi na fakturze potrącenie, którego nie rozumie.
+       *
+       * DWA WYWOŁANIA, BO JEDNO NIE WYSTARCZY:
+       *   A. cena + `proration_behavior: none` + `billing_cycle_anchor: now`
+       *      — pełna kwota nowego okresu pobrana TERAZ, bez upustu za stary,
+       *   B. `trial_end` na wyliczoną datę — bo `billing_cycle_anchor` przy
+       *      aktualizacji przyjmuje wyłącznie `now` albo `unchanged`, a
+       *      `trial_end` bierze dowolny znacznik czasu i (cytat z dokumentacji)
+       *      „The billing_cycle_anchor will be updated to the trial_end value".
+       *      Z `proration_behavior: none` to wywołanie nie rusza pieniędzy —
+       *      przesuwa wyłącznie datę następnego pobrania.
+       *
+       * Skutkiem ubocznym subskrypcja ma u operatora status `trialing` do tej
+       * daty. Dlatego niesie znacznik `doklejony_czas`, a webhook mapuje taki
+       * stan na `active` — inaczej klient, który właśnie zapłacił za rok,
+       * zobaczyłby plakietkę „okres próbny" i dostał ostrzeżenia o jego końcu.
+       */
+      const zmianaOkresu = okresRok !== obecnyRok;
+      if (zmianaOkresu) {
+        const koniecUOperatora = Number(
+          subStripe?.items?.data?.[0]?.current_period_end ?? subStripe?.current_period_end ?? 0,
+        );
+        if (!koniecUOperatora) {
+          return json({
+            error: "Nie umiem odczytać końca Twojego okresu u operatora. Napisz do nas.",
+            code: "BRAK_KONCA_OKRESU",
+          }, 409);
+        }
+
+        // Doklejamy do PÓŹNIEJSZEJ z dwóch dat. Gdyby okres zdążył minąć,
+        // liczenie od niego dałoby datę w przeszłości i klient zapłaciłby
+        // za czas, który już minął.
+        const teraz = Math.floor(Date.now() / 1000);
+        const podstawa = new Date(Math.max(koniecUOperatora, teraz) * 1000);
+        const docelowy = new Date(podstawa);
+        docelowy.setMonth(docelowy.getMonth() + (okresRok ? 12 : 1));
+        const docelowyTs = Math.floor(docelowy.getTime() / 1000);
+
+        // A. pełna kwota nowego okresu, bez upustu za niewykorzystany czas
+        const poZaplacie = await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`, {
+          "items[0][id]": pozycja.id,
+          "items[0][price]": cenaStripe!,
+          proration_behavior: "none",
+          billing_cycle_anchor: "now",
+          payment_behavior: "pending_if_incomplete",
+          "metadata[doklejony_czas]": "1",
+        });
+
+        if (poZaplacie?.pending_update) {
+          console.warn(JSON.stringify({
+            event: "zmiana_okresu_bez_zaplaty",
+            z: obecny.code, na: plan.code, provider: provider.id,
+          }));
+          return json({
+            error: "Karta nie przyjęła płatności za nowy okres, więc nic się nie zmieniło. Sprawdź kartę i spróbuj ponownie.",
+            code: "ZMIANA_BEZ_ZAPLATY",
+          }, 402);
+        }
+
+        // B. przesunięcie daty następnego pobrania o niewykorzystane dni
+        let dokleiloSie = true;
+        try {
+          await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`, {
+            trial_end: String(docelowyTs),
+            proration_behavior: "none",
+          });
+        } catch (bladDoklejenia) {
+          // Pieniądze są pobrane, okres kupiony — brakuje wyłącznie doklejenia
+          // niewykorzystanych dni. To jest do naprawienia ręcznie i klient ma
+          // się o tym dowiedzieć od nas, a nie odkryć sam za rok.
+          dokleiloSie = false;
+          console.error(JSON.stringify({
+            event: "doklejenie_dni_nieudane",
+            subskrypcja: istniejaca.provider_subscription_id,
+            provider: provider.id, docelowy: docelowy.toISOString(),
+            blad: bladDoklejenia instanceof Error ? bladDoklejenia.message : String(bladDoklejenia),
+          }));
+        }
+
+        const { error: bladZapisu } = await admin
+          .from("billing_subscriptions")
+          .update({
+            plan_id: plan.id,
+            status: "active",
+            ...(dokleiloSie ? { current_period_end: docelowy.toISOString() } : {}),
+            plan_od_nastepnego_okresu: null,
+            plan_zmiana_zgloszona_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", istniejaca.id);
+        if (bladZapisu) throw bladZapisu;
+
+        console.log(JSON.stringify({
+          event: "plan_zmieniony", kierunek: "zmiana_okresu",
+          z: obecny.code, na: plan.code, okres: okresRok ? "rok" : "miesiac",
+          do: docelowy.toISOString(), dokleilo: dokleiloSie, provider: provider.id,
+        }));
+
+        return json({
+          zmiana: "natychmiast",
+          plan: plan.code,
+          nazwa_planu: plan.name,
+          z_planu: obecny.code,
+          okres_do: dokleiloSie ? docelowy.toISOString() : null,
+          uwaga: dokleiloSie ? null : "doklejenie_dni_do_naprawy",
+        });
       }
 
       /**

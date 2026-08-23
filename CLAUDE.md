@@ -159,6 +159,37 @@ Druga forma jest groźniejsza, bo objawia się odmową, a odmowa wygląda jak za
 zabezpieczenie. Pierwsza tylko czegoś nie pokazuje.
 
 
+### ⚠️ NAJCZĘSTSZA PRZYCZYNA BŁĘDÓW W TYM PROJEKCIE — policzona
+
+Zmiana w schemacie unieważnia założenie w kodzie, **którego ta zmiana nie dotyczy**.
+W jednej sesji (23.08.2026) ten sam wzorzec wystąpił **dziewięć razy**. Żaden inny
+nie zbliżył się do trzech.
+
+Przykłady z tej sesji, wszystkie tej samej klasy:
+
+| zmiana | co po cichu przestało działać |
+|---|---|
+| wariant A dał wiersz `trialing` każdemu warsztatowi | `billing-checkout` odmawiał zakupu WSZYSTKIM |
+| ta sama zmiana | `PlanBadge` przestał pokazywać licznik okresu próbnego |
+| `grant_sms_credits` zaczęła zakładać paczkę | pakiet startowy dawał 60 SMS przy 30 w księdze |
+| druga kolumna FK do `billing_plans` | `plan:billing_plans(...)` stało się niejednoznaczne → zapytanie padało → klient chcący WYCOFAĆ zmianę dostawał bramkę płatności |
+| `product_line` z wartością domyślną `other` | nowa subskrypcja omijałaby indeks pilnujący jednej aktywnej |
+| kolumna `dokanczanie_do` + wyzwalacz na `status` | zapis ustawiający oba naraz cicho gubił termin |
+| `trial_ends_at` zakładany przy rejestracji | ostrzeżenie „kończy Ci się dostęp" w środku OPŁACONEGO okresu |
+
+**Zanim uznasz zmianę w bazie za skończoną**, przejdź te cztery pytania:
+
+1. **Kto czyta te kolumny?** `grep` po nazwie kolumny w `src/` i `supabase/functions/`.
+2. **Co znaczyła PUSTKA, a co ZNACZY TERAZ?** Wiersz, którego wcześniej nie było,
+   zmienia sens każdego `maybeSingle()`, `EXISTS` i `IS NULL` w okolicy.
+3. **Czy dołożyłeś drugi klucz obcy do tej samej tabeli?** Jeśli tak, każde
+   zagnieżdżenie PostgREST po tej relacji przestaje się rozstrzygać i pada.
+4. **Czy wartość domyślna nowej kolumny wchodzi w skład indeksu albo warunku?**
+
+I najważniejsze: **zapytanie, którego wynik decyduje o pobraniu pieniędzy albo
+o dostępie, nie ma prawa cicho zwrócić pustki.** Sprawdzaj `error`, nie tylko `data`.
+
+
 ### Migracja zmieniająca sposób NADAWANIA musi rozstrzygnąć, co z tym, co JUŻ NADANO
 
 Poprawiona funkcja działa od chwili wykonania. Wiersze założone wcześniej zostają
