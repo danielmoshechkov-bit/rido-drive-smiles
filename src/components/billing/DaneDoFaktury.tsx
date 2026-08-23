@@ -73,7 +73,7 @@ export function DaneDoFaktury({
         supabase.from('service_providers')
           .select('company_name, company_nip, company_address, company_postal_code, company_city, company_email, faktura_rodzaj_nabywcy')
           .eq('id', providerId).maybeSingle(),
-        supabase.rpc('billing_dane_nabywcy_kompletne', { p_provider_id: providerId }),
+        (supabase as any).rpc('billing_dane_nabywcy_kompletne', { p_provider_id: providerId }),
       ]);
       const w = sp as any;
       setDane({
@@ -98,7 +98,9 @@ export function DaneDoFaktury({
     }
     setZapis(true);
     try {
-      const { error } = await supabase.rpc('billing_zapisz_dane_nabywcy', {
+      // `as any`: wygenerowany `types.ts` nie zna jeszcze tej funkcji —
+      // odświeża go Lovable, a plik jest w repozytorium tylko do odczytu.
+      const { error } = await (supabase as any).rpc('billing_zapisz_dane_nabywcy', {
         p_provider_id: providerId,
         p_rodzaj: dane.rodzaj,
         p_nazwa: dane.nazwa,

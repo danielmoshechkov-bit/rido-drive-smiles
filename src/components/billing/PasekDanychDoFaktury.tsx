@@ -55,7 +55,9 @@ export function PasekDanychDoFaktury({ providerId }: { providerId: string | null
     enabled: !!providerId,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data } = await supabase.rpc('billing_dane_nabywcy_kompletne', {
+      // `as any` — patrz komentarz w DaneDoFaktury: wygenerowanych typów
+      // nie edytujemy ręcznie.
+      const { data } = await (supabase as any).rpc('billing_dane_nabywcy_kompletne', {
         p_provider_id: providerId as string,
       });
       return data === true;
