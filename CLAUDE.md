@@ -213,6 +213,34 @@ odpowiedzieć na trzy pytania i zapisać odpowiedzi w nagłówku:
 Kontrola sprawdzająca **treść funkcji** nie jest kontrolą **danych**. Potrzebne są obie.
 
 
+### Lista kolumn w `.select()` musi być JEDNYM literałem
+
+Sklejona z kawałków przez `+` przestaje być typem literalnym, klient Supabase
+gubi kształt wiersza i **każde** odwołanie do pola staje się błędem typów
+(`Property 'nip' does not exist on type 'GenericStringError'`).
+
+```ts
+// ŹLE — osiemnaście błędów typów z jednego plusa
+.select(
+  "id, name, nip, " +
+  // komentarz w środku listy
+  "address_city, bank_account",
+)
+
+// DOBRZE — jeden literał, komentarz NAD wywołaniem
+// Adres i konto są tu, bo składamy z nich nagłówek PDF-u.
+.select("id, name, nip, address_city, bank_account")
+```
+
+Objaw jest mylący: błędy pokazują się **nie w miejscu sklejenia**, tylko przy
+każdym `wiersz.kolumna` w dalszej części funkcji, więc łatwo szukać przyczyny
+nie tam, gdzie leży.
+
+To jest pułapka na kogoś, kto zechce „poprawić czytelność": długa lista kolumn
+kusi, żeby ją złamać na kilka linii. Jeśli musisz ją opisać, zrób to
+komentarzem **nad** wywołaniem — nigdy w środku łańcucha.
+
+
 ### Pusta tabela to nie to samo co nieużywana
 
 Liczba wierszy nie mówi nic o tym, czy kod na tabeli stoi. Zero wierszy znaczy

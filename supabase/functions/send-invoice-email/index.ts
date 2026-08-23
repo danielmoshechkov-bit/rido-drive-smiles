@@ -160,6 +160,39 @@ function generateEmailTemplate(
     };
   }
 
+  /**
+   * FAKTURA ZA ZAKUP JUŻ OPŁACONY — krótka wiadomość, bez wezwania do zapłaty.
+   *
+   * Osobny szablon, a nie zmiana `new_invoice`: tamten wysyłają warsztaty swoim
+   * klientom za usługi jeszcze NIEZAPŁACONE i dane do przelewu są tam potrzebne.
+   *
+   * Tutaj klient zapłacił minutę wcześniej kartą albo BLIK-iem. Wysyłanie mu
+   * numeru konta, terminu płatności i „z góry dziękuję za terminowy przelew"
+   * jest pytaniem o pieniądze, które już wpłynęły — i wygląda albo na pomyłkę,
+   * albo na próbę pobrania drugi raz.
+   *
+   * Nie ma tu też zdania o załączniku. Wiadomość z webhooka idzie BEZ PDF-u,
+   * bo składa się go w przeglądarce; obiecywanie załącznika, którego nie ma,
+   * jest gorsze od jego braku.
+   */
+  if (type === "faktura_oplacona") {
+    return {
+      subject: `Faktura ${invoiceNumber} — dziękujemy za zakup`,
+      html: `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #6C5CE7 0%, #a29bfe 100%); padding: 28px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 600;">Faktura ${invoiceNumber}</h1>
+        </div>
+        <div style="padding: 28px;">
+          <p style="font-size: 15px; color: #333; margin: 0 0 8px 0;">Dzień dobry,</p>
+          <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0;">przesyłam fakturę o numerze <strong>${invoiceNumber}</strong> na kwotę <strong>${grossAmount} ${cur}</strong>.</p>
+          <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0;">Dziękujemy za zakup.</p>
+        </div>
+      </div>
+    `,
+    };
+  }
+
   // Default: new_invoice
   return {
     subject: `Faktura ${invoiceNumber} od ${companyName}`,
