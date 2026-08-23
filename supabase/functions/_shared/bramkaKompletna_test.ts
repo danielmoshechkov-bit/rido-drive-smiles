@@ -38,6 +38,15 @@ const WYJATKI: Record<string, string> = {
     'Bufor tłumaczeń, zapisywany przez funkcję brzegową na kluczu serwisowym.',
   workshop_tire_reminders_due:
     'WIDOK, nie tabela — nie da się na nim założyć polityki.',
+  workshop_tire_location_log:
+    'Historia przeniesień opon między regałami, pisana triggerem. INSERT/UPDATE/DELETE ' +
+    'odebrane rolom klienckim, więc przez bramkę i tak nic tu nie przejdzie. ' +
+    'Gdy operacja nadrzędna (zapis wpisu) jest zablokowana, trigger nie zadziała.',
+  workshop_tire_receipts:
+    'Kopia potwierdzenia dla klienta końcowego, pisana triggerem przy przyjęciu. ' +
+    'Zapis odebrany rolom klienckim; odczyt publiczny idzie funkcją brzegową ' +
+    'na kluczu serwisowym. Ma przeżyć skasowanie wpisu — to dowód dla klienta, ' +
+    'nie dane warsztatu, więc blokada subskrypcji nie może go zabierać.',
   workshop_parts_order_items:
     'Brak kolumny właściciela; właściciela ustala się przez `workshop_parts_orders`. ' +
     'Do domknięcia przy okazji — patrz audyt.',

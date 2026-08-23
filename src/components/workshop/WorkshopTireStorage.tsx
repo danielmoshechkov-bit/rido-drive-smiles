@@ -9,8 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useWorkshopClients, useWorkshopVehicles } from '@/hooks/useWorkshop';
 import { useProviderPrintHeader } from '@/hooks/useFiscal';
@@ -20,6 +18,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { TireStorageRulesDialog } from './TireStorageRulesDialog';
 import { TireStoragePricing, useTirePricing, RODZAJE_FELG } from './TireStoragePricing';
 import { TireStorageDetailsDialog } from './TireStorageDetailsDialog';
+import { TireStorageSmsDialog } from './TireStorageSmsDialog';
+import { SearchableCombobox } from './SearchableCombobox';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -216,6 +216,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [zasadyOtwarte, setZasadyOtwarte] = useState(false);
   const [podglad, setPodglad] = useState<any>(null);
+  const [doPotwierdzenia, setDoPotwierdzenia] = useState<any>(null);
   /**
    * „W magazynie" i „Wydane" to dwa różne pytania: pierwsze zadaje magazynier szukający
    * miejsca, drugie — klient, który twierdzi, że opon nie odebrał. Dotąd lista pokazywała
@@ -386,8 +387,8 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                 <TableHead className="w-[120px]">Miejsce</TableHead>
                 <TableHead className="w-[92px]">Przyjęto</TableHead>
                 <TableHead className="w-[130px]">Przypomnienie</TableHead>
-                <TableHead className="w-[130px]">Do zapłaty</TableHead>
-                <TableHead className="w-[150px] text-right">Akcje</TableHead>
+                <TableHead className="w-[140px]">Do zapłaty</TableHead>
+                <TableHead className="w-[330px] text-right">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -443,7 +444,9 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                   <TableCell className="py-2">
                     {r.dlug ? (
                       <div className="leading-tight">
-                        <span className="text-sm font-semibold">
+                        {/* Bez `whitespace-nowrap` kwota lamala sie tak, ze
+                            "zł" ladowalo w nastepnej linii pod liczba. */}
+                        <span className="text-sm font-semibold whitespace-nowrap">
                           {Number(r.dlug.do_zaplaty ?? 0).toFixed(2)} zł
                         </span>
                         {r.dlug.okresow > 0 && r.okres_miesiecy && (
@@ -462,34 +465,46 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                       </div>
                     ) : <span className="text-muted-foreground text-xs">—</span>}
                   </TableCell>
-                  <TableCell onClick={e => e.stopPropagation()} className="text-right whitespace-nowrap">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => printStorageReceipt(r, view === 'stored' ? 'przyjęcia' : 'wydania', printHeader ?? {})}
-                    >
-                      <Printer className="h-3.5 w-3.5" /> Pokwitowanie
-                    </Button>
-                    {view === 'stored' && (
-                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => issueSet(r)}>
-                        <Check className="h-3.5 w-3.5" /> Wydaj
-                      </Button>
-                    )}
-                    {view === 'stored' && (r.dlug?.dni_po_terminie ?? 0) > 0 && (
+                  <TableCell onClick={e => e.stopPropagation()} className="py-2">
+                    {/* Staly uklad trzech miejsc: kazdy przycisk stoi w tej
+                        samej kolumnie w kazdym wierszu, a brakujaca akcje
+                        zastepuje puste miejsce zamiast przesuwac pozostale. */}
+                    <div className="grid grid-cols-3 gap-1 justify-items-stretch">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs gap-1"
-                        onClick={() => oznaczNieodebrane(r)}
-                        title={r.dlug?.nieodebrane_od
-                          ? 'Cofnij oznaczenie i wznów przypomnienia'
-                          : 'Zatrzymaj przypomnienia — nikt się nie zgłosił'}
+                        className="h-7 text-xs gap-1 justify-start"
+                        onClick={() => printStorageReceipt(r, view === 'stored' ? 'przyjęcia' : 'wydania', printHeader ?? {})}
                       >
-                        <Archive className="h-3.5 w-3.5" />
-                        {r.dlug?.nieodebrane_od ? 'Cofnij' : 'Nieodebrane'}
+                        <Printer className="h-3.5 w-3.5 shrink-0" /> Pokwitowanie
                       </Button>
-                    )}
+
+                      {view === 'stored' ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 justify-start"
+                          onClick={() => issueSet(r)}
+                        >
+                          <Check className="h-3.5 w-3.5 shrink-0" /> Wydaj
+                        </Button>
+                      ) : <span />}
+
+                      {view === 'stored' && (r.dlug?.dni_po_terminie ?? 0) > 0 ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 justify-start"
+                          onClick={() => oznaczNieodebrane(r)}
+                          title={r.dlug?.nieodebrane_od
+                            ? 'Cofnij oznaczenie i wznów przypomnienia'
+                            : 'Zatrzymaj przypomnienia — nikt się nie zgłosił'}
+                        >
+                          <Archive className="h-3.5 w-3.5 shrink-0" />
+                          {r.dlug?.nieodebrane_od ? 'Cofnij' : 'Nieodebrane'}
+                        </Button>
+                      ) : <span />}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -506,7 +521,21 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
         onPageSizeChange={setPageSize}
       />
 
-      <TireStorageDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
+      <TireStorageDialog
+        open={showAdd}
+        onOpenChange={setShowAdd}
+        providerId={providerId}
+        onZapisano={(wpis) => setDoPotwierdzenia({
+          ...wpis,
+          __warsztat: printHeader?.companyName ?? '',
+          __adres: printHeader?.address ?? '',
+        })}
+      />
+      <TireStorageSmsDialog
+        wpis={doPotwierdzenia}
+        onOpenChange={(v) => !v && setDoPotwierdzenia(null)}
+        providerId={providerId}
+      />
       <TireStorageRulesDialog open={zasadyOtwarte} onOpenChange={setZasadyOtwarte} providerId={providerId} />
       <TireStorageDetailsDialog record={podglad} onOpenChange={(v) => !v && setPodglad(null)} providerId={providerId} />
     </div>
@@ -514,94 +543,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
 }
 
 // ---- Searchable Combobox ----
-function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, placeholder, renderItem, getLabel }: {
-  items: any[];
-  value: string;
-  onSelect: (val: string) => void;
-  onCreateNew?: (query: string) => void;
-  onAddNew?: (query: string) => void;
-  placeholder: string;
-  renderItem: (item: any) => React.ReactNode;
-  getLabel: (item: any) => string;
-}) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-
-  const filtered = useMemo(() => {
-    if (!query) return items;
-    const q = query.toLowerCase();
-    return items.filter(item => getLabel(item).toLowerCase().includes(q));
-  }, [items, query, getLabel]);
-
-  const selectedLabel = items.find(i => i.id === value) ? getLabel(items.find(i => i.id === value)!) : '';
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && query.trim() && filtered.length === 0 && onCreateNew) {
-      e.preventDefault();
-      onCreateNew(query.trim());
-      setOpen(false);
-      setQuery('');
-    }
-  };
-
-  return (
-    <div className="flex items-center gap-1">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" className="w-full justify-between h-9 font-normal">
-            {selectedLabel || <span className="text-muted-foreground">{placeholder}</span>}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-[--radix-popover-trigger-width] p-0"
-          align="start"
-        >
-          {/* Lista jest juz przefiltrowana wyzej. Bez `shouldFilter={false}`
-              komponent filtruje ja po raz drugi po wlasnym `value` i podswietla
-              przypadkowe pozycje na zolto. */}
-          <Command shouldFilter={false}>
-            <div onKeyDown={handleKeyDown}>
-              <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
-            </div>
-            <CommandList className="max-h-[260px] overflow-y-auto">
-              <CommandEmpty>
-                <div className="space-y-1">
-                  {onCreateNew && query.trim() && (
-                    <button
-                      className="w-full px-3 py-2 text-sm text-left hover:bg-accent flex items-center gap-2"
-                      onClick={() => { onCreateNew(query.trim()); setOpen(false); setQuery(''); }}
-                    >
-                      <Plus className="h-4 w-4" /> {t('workshop.tireStorage.addQuery', { query: query.trim() })}
-                    </button>
-                  )}
-                  {!query.trim() && t('workshop.tireStorage.notFound')}
-                </div>
-              </CommandEmpty>
-              <CommandGroup>
-                {filtered.map(item => (
-                  <CommandItem key={item.id} value={item.id} onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}>
-                    <Check className={`mr-2 h-4 w-4 ${value === item.id ? 'opacity-100' : 'opacity-0'}`} />
-                    {renderItem(item)}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-      {onAddNew && (
-        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => onAddNew(query.trim())}>
-          <Plus className="h-4 w-4" />
-        </Button>
-      )}
-    </div>
-  );
-}
-
-// ---- Dialog ----
-function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; onOpenChange: (v: boolean) => void; providerId: string }) {
+function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { open: boolean; onOpenChange: (v: boolean) => void; providerId: string; onZapisano?: (wpis: any) => void }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
@@ -794,20 +736,27 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
         if (taskErr) console.error('Tasks save error:', taskErr);
       }
 
-      toast.success(t('workshop.tireStorage.storageSaved'));
       queryClient.invalidateQueries({ queryKey: ['tire-storage'] });
       // Bez tego swiezy wpis nie ma jeszcze policzonej naleznosci i w kolumnie
       // "Do zaplaty" widac zero, mimo ze cena zostala podana.
       queryClient.invalidateQueries({ queryKey: ['tire-storage-dues', providerId] });
       onOpenChange(false);
 
-      // Offer SMS
-      if (clientPhone) {
-        const seasonLabel = season === 'letnie' ? 'letnie' : season === 'zimowe' ? 'zimowe' : 'całoroczne';
-        toast.info(t('workshop.tireStorage.smsCanBeSent', { phone: clientPhone }), {
-          action: { label: t('workshop.tireStorage.send'), onClick: () => toast.info(t('workshop.tireStorage.smsComingSoon')) },
-        });
-      }
+      // Potwierdzenie dla klienta. Nie wysylamy samo z siebie — SMS kosztuje
+      // warsztat, wiec propozycja z gotowa trescia i decyzja po jego stronie.
+      const pojazd = rawVehicles.find((v: any) => v.id === vehicleId);
+      onZapisano?.({
+        ...(stored ?? {}),
+        client_id: clientId || null,
+        client_phone: clientPhone,
+        tire_brand: tireBrand,
+        tire_model: tireModel,
+        tire_size: tireSize,
+        quantity: parseInt(quantity) || null,
+        rim_type: rimType,
+        __pojazd: pojazd ? [pojazd.brand, pojazd.model].filter(Boolean).join(' ') : '',
+        __rejestracja: pojazd?.plate ?? '',
+      });
     } catch (e: any) {
       toast.error(e.message || t('common.saveError'));
     } finally {

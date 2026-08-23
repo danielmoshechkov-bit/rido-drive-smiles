@@ -492,3 +492,6 @@ verify_jwt = false
 # platnosci albo administrator przy naprawach, nigdy przegladarka.
 [functions.billing-invoice-issue]
 verify_jwt = false
+
+[functions.tire-receipt]
+verify_jwt = false

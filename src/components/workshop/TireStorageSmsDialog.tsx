@@ -1,0 +1,241 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Loader2, MessageSquare, Copy, Check, Phone, Mail, PackageCheck, ChevronDown,
+} from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+/** SMS z polskimi znakami idzie po 70 znakow na czesc, bez nich po 160. */
+const bezOgonkow = (t: string) =>
+  t.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l').replace(/Ł/g, 'L');
+
+const czesciSms = (t: string) => {
+  const polskie = /[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/.test(t);
+  const limit = polskie ? 70 : 160;
+  return Math.max(1, Math.ceil(t.length / limit));
+};
+
+/**
+ * Potwierdzenie przyjecia opon, proponowane zaraz po zapisaniu wpisu.
+ *
+ * Ten sam uklad co potwierdzenie zlecenia warsztatowego — warsztat zna juz
+ * ten ekran i nie musi uczyc sie drugiego.
+ *
+ * Tresc jest gotowa, ale wyslanie wymaga klikniecia: SMS kosztuje warsztat,
+ * wiec nie wychodzi sam z siebie.
+ */
+export function TireStorageSmsDialog({
+  wpis, onOpenChange, providerId,
+}: {
+  wpis: any | null;
+  onOpenChange: (v: boolean) => void;
+  providerId: string;
+}) {
+  const [telefon, setTelefon] = useState('');
+  const [tresc, setTresc] = useState('');
+  const [kod, setKod] = useState<string | null>(null);
+  const [wysyla, setWysyla] = useState(false);
+  const [skopiowane, setSkopiowane] = useState(false);
+  const [pokazTresc, setPokazTresc] = useState(false);
+
+  useEffect(() => {
+    if (!wpis?.id) return;
+    let anulowane = false;
+    setTelefon(wpis.client_phone ?? '');
+    setPokazTresc(false);
+
+    (async () => {
+      // Kod potwierdzenia tworzy trigger przy zapisie, wiec dopiero teraz
+      // mozemy go odczytac i wkleic do wiadomosci.
+      const { data } = await (supabase as any)
+        .from('workshop_tire_receipts')
+        .select('kod')
+        .eq('storage_id', wpis.id)
+        .maybeSingle();
+      if (!anulowane) setKod(data?.kod ?? null);
+    })();
+
+    return () => { anulowane = true; };
+  }, [wpis?.id]);
+
+  const domyslnaTresc = useMemo(() => {
+    if (!wpis) return '';
+    const warsztat = wpis.__warsztat ?? '';
+    const adres = wpis.__adres ?? '';
+    const opony = [wpis.tire_brand, wpis.tire_model].filter(Boolean).join(' ');
+    const felgi = (wpis.rim_type && wpis.rim_type !== 'bez felg')
+      ? `na felgach ${wpis.rim_type}`
+      : 'bez felg';
+    const auto = [wpis.__pojazd, wpis.__rejestracja].filter(Boolean).join(' ');
+
+    const czesci = [
+      [warsztat, adres].filter(Boolean).join(', ') + ':',
+      'przyjelismy opony',
+      [opony, wpis.tire_size].filter(Boolean).join(' '),
+      wpis.quantity ? `${wpis.quantity} szt.` : '',
+      felgi + '.',
+      auto ? `Auto: ${auto}.` : '',
+      wpis.storage_number ? `Nr ${wpis.storage_number}.` : '',
+      kod ? `Potwierdzenie: getrido.pl/p/${kod}` : '',
+    ].filter(Boolean).join(' ');
+
+    // Bez ogonkow miesci sie 160 znakow zamiast 70 — przy tej dlugosci
+    // roznica to jedna czesc zamiast trzech.
+    return bezOgonkow(czesci).replace(/\s+/g, ' ').trim();
+  }, [wpis, kod]);
+
+  useEffect(() => { setTresc(domyslnaTresc); }, [domyslnaTresc]);
+
+  if (!wpis) return null;
+
+  const czesci = czesciSms(tresc);
+  const numerOk = telefon.replace(/[^\d]/g, '').length >= 9;
+
+  const wyslij = async () => {
+    const nr = telefon.replace(/[^\d+]/g, '');
+    if (!numerOk) {
+      toast.error('Podaj numer telefonu klienta');
+      return;
+    }
+    if (!tresc.trim()) {
+      toast.error('Treść wiadomości jest pusta');
+      return;
+    }
+
+    setWysyla(true);
+    try {
+      const { error } = await (supabase as any).from('workshop_sms_log').insert({
+        provider_id: providerId,
+        client_id: wpis.client_id ?? null,
+        phone: nr,
+        message: tresc.trim(),
+        sms_type: 'tire_storage_confirmation',
+        status: 'scheduled',
+        scheduled_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success(`SMS wysłany na ${nr}`);
+      onOpenChange(false);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Nie udało się wysłać SMS-a');
+    } finally {
+      setWysyla(false);
+    }
+  };
+
+  const kopiujLink = async () => {
+    if (!kod) return;
+    await navigator.clipboard.writeText(`https://getrido.pl/p/${kod}`);
+    setSkopiowane(true);
+    setTimeout(() => setSkopiowane(false), 2000);
+  };
+
+  return (
+    <Dialog open={!!wpis} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md max-h-[92vh] overflow-y-auto">
+        <div className="mx-auto w-full max-w-sm space-y-6 py-4 text-center">
+          <div className="space-y-3">
+            <div className="mx-auto w-16 h-16 rounded-full bg-accent flex items-center justify-center">
+              <PackageCheck className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="text-xl font-bold">Opony przyjęte!</h3>
+            <p className="text-muted-foreground">
+              Czy wysłać klientowi potwierdzenie przechowania?
+            </p>
+            {wpis.storage_number && (
+              <p className="text-sm font-mono text-muted-foreground">{wpis.storage_number}</p>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <Label className="text-sm font-semibold">Sposób wysyłki</Label>
+            <div className="flex gap-2 justify-center">
+              <Button variant="default" size="sm" className="gap-2">
+                <Phone className="h-4 w-4" /> SMS
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled
+                title="Potwierdzenie e-mailem dojdzie w kolejnym kroku"
+              >
+                <Mail className="h-4 w-4" /> E-mail
+              </Button>
+            </div>
+
+            {wpis.client_phone ? (
+              <p className="text-sm">
+                Na numer: <span className="font-semibold text-foreground">{telefon}</span>
+              </p>
+            ) : (
+              <div className="space-y-1.5 max-w-sm mx-auto text-left">
+                <Label className="text-xs text-destructive font-medium">
+                  Klient nie ma zapisanego numeru — wpisz go
+                </Label>
+                <Input
+                  value={telefon}
+                  onChange={(e) => setTelefon(e.target.value)}
+                  placeholder="np. 512 345 678"
+                />
+              </div>
+            )}
+
+            {kod && (
+              <div className="flex items-center gap-2 rounded-md border p-2 text-left">
+                <span className="text-xs text-muted-foreground shrink-0">Link:</span>
+                <span className="text-xs font-mono truncate flex-1">getrido.pl/p/{kod}</span>
+                <Button variant="ghost" size="sm" className="h-7 shrink-0" onClick={kopiujLink}>
+                  {skopiowane ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            )}
+
+            {/* Tresc schowana, bo w zwyklym uzyciu nikt jej nie zmienia —
+                ale bywa potrzebna, wiec jest na jedno klikniecie. */}
+            <button
+              type="button"
+              onClick={() => setPokazTresc(v => !v)}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
+            >
+              <ChevronDown className={`h-3 w-3 transition-transform ${pokazTresc ? 'rotate-180' : ''}`} />
+              {pokazTresc ? 'Ukryj treść' : 'Podejrzyj lub zmień treść'}
+            </button>
+
+            {pokazTresc && (
+              <div className="space-y-1.5 text-left">
+                <Textarea
+                  value={tresc}
+                  onChange={(e) => setTresc(e.target.value)}
+                  rows={5}
+                  className="text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {tresc.length} znaków · {czesci} {czesci === 1 ? 'wiadomość' : 'części'}.
+                  Bez polskich znaków, bo wtedy mieści się 160 znaków na część zamiast 70.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Nie, pomiń
+            </Button>
+            <Button onClick={wyslij} disabled={wysyla || !numerOk} className="gap-2">
+              {wysyla
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <MessageSquare className="h-4 w-4" />}
+              Wyślij SMS
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
