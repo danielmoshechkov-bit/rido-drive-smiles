@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
         const okres = okresSubskrypcji(sub);
 
         const { data: plan } = await admin.from("billing_plans")
-          .select("code, name, price_net, price_gross, vat_rate, price_net_target")
+          .select("code, name, price_net, price_gross, vat_rate, price_net_target, product_line")
           .eq("id", planId).maybeSingle();
 
         // 4.9 — gwarancja ceny: 12 miesięcy od aktywacji, jeśli zakup nastąpił
@@ -279,7 +279,23 @@ Deno.serve(async (req) => {
           ? new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString()
           : null;
 
-        const { error: insErr } = await admin.from("billing_subscriptions").insert({
+        // CZY TO PIERWSZY WIERSZ, CZY PRZEJŚCIE Z OKRESU PRÓBNEGO.
+        //
+        // Do wariantu A klient bez zakupu nie miał żadnego wiersza, więc
+        // `INSERT` był poprawny. Teraz każdy warsztat ma wiersz `trialing` —
+        // a indeks „jedna aktywna subskrypcja na linię produktową" odrzuciłby
+        // drugi. Zakup w okresie próbnym to PRZEJŚCIE tego samego wiersza
+        // w stan opłacony, nie założenie kolejnego.
+        const { data: dotychczasowa } = await admin
+          .from("billing_subscriptions")
+          .select("id, price_guarantee_until")
+          .eq("subscriber_type", subscriberType)
+          .eq("subscriber_id", subscriberId)
+          .eq("product_line", plan?.product_line ?? "warsztat")
+          .in("status", ["trialing", "active", "past_due", "read_only"])
+          .maybeSingle();
+
+        const wiersz = {
           subscriber_type: subscriberType,
           subscriber_id: subscriberId,
           plan_id: planId,
@@ -290,7 +306,9 @@ Deno.serve(async (req) => {
           current_period_end: okres.end,
           provider: "stripe",
           provider_subscription_id: sub.id,
-          price_guarantee_until: gwarancja,
+          // Gwarancja biegnie od PIERWSZEGO zakupu klienta, nie od tego.
+          // Kto kupił wcześniej miesiąc BLIK-iem, nie dostaje jej od nowa.
+          price_guarantee_until: dotychczasowa?.price_guarantee_until ?? gwarancja,
           price_snapshot: {
             code: plan?.code ?? null,
             name: plan?.name ?? null,
@@ -301,7 +319,14 @@ Deno.serve(async (req) => {
             zrodlo: "checkout",
             data: new Date().toISOString(),
           },
-        });
+        };
+
+        // Przejście z okresu próbnego (albo z miesiąca kupionego BLIK-iem)
+        // aktualizuje istniejący wiersz. Nowy zakładamy tylko wtedy, gdy klient
+        // naprawdę nie ma jeszcze nic w tej linii.
+        const { error: insErr } = dotychczasowa
+          ? await admin.from("billing_subscriptions").update(wiersz).eq("id", dotychczasowa.id)
+          : await admin.from("billing_subscriptions").insert(wiersz);
 
         if (insErr) {
           // 23505 = indeks jednej aktywnej subskrypcji na linię produktową.

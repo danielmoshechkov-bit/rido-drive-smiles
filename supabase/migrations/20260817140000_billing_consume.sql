@@ -221,7 +221,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.billing_consume(public.billing_subscriber_type, uuid, text, numeric, boolean) FROM public;
+REVOKE ALL ON FUNCTION public.billing_consume(public.billing_subscriber_type, uuid, text, numeric, boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.billing_consume(public.billing_subscriber_type, uuid, text, numeric, boolean) TO service_role;
 
 NOTIFY pgrst, 'reload schema';

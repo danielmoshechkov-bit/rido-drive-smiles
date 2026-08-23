@@ -315,6 +315,85 @@ To decyzja o warstwie zapasowej, nie naprawa dziury.
 Pojedynczych wyjątków nie robimy: jedna wyspa nie jest polityką, a następna
 migracja i tak by ją cofnęła.
 
+### 4.7a Rabat roczny występuje w DWÓCH miejscach
+
+Rok kosztuje dziesięć miesięcy — klient płaci za 10, dostaje 12. Ta liczba stoi
+w `billing_cena_okresu` jako jedyne źródło… **prawie**.
+
+Drugie wystąpienie jest w `billing-stripe-sync`, przy liczeniu ceny DOCELOWEJ roku:
+
+```ts
+const kwotaRokTarget = grosze(Number(plan.price_net_target) * 10, plan.vat_rate);
+```
+
+Powód jest realny: `billing_cena_okresu` wycenia po gwarancji **konkretnego klienta**,
+a przy zakładaniu cennika w Stripe klienta nie ma. Cena startowa roku idzie z bazy
+(bo dla `p_provider = NULL` gwarancja nie obowiązuje i wychodzi startowa), ale
+docelowej tą drogą nie da się uzyskać.
+
+**Co z tego wynika: zmiana rabatu wymaga ruszenia OBU miejsc.** Sama zmiana stałej
+w funkcji SQL da rozjazd — nowa cena startowa roku i stara docelowa.
+
+**Jak naprawić docelowo:** dołożyć `billing_cena_okresu` trzeci argument wymuszający
+wariant ceny (`startowa` / `docelowa`) zamiast wnioskować go z gwarancji klienta.
+Wtedy synchronizacja pyta bazę o obie i mnożnik wraca do jednego miejsca.
+
+**Pilność:** niska, dopóki rabat wynosi dwa miesiące i nikt go nie zmienia.
+**Przed zmianą rabatu — obowiązkowo.**
+
+### 4.8a Śmieci w `entities` i otwarte zakładanie wystawcy
+
+Dziewięć wpisów, z czego cztery to oczywiste śmieci z testów (`asdadasdad`,
+`asdasd`, `asdasdasd`, `rdsffsd`), jeden ma zmyślony NIP `1111111111`, jeden jest
+duplikatem. **Żaden nie ma ani jednej faktury**, więc usunięcie jest bezpieczne.
+
+**Nie są widoczne dla klientów** — sprawdzone: polityka `SELECT` ogranicza do
+właściciela, księgowego przypisanego do wystawcy i administratora. Widać je tylko
+z konta administratora.
+
+Osobna sprawa: `entities` ma `INSERT` z warunkiem `true`, więc każde zalogowane
+konto może założyć wystawcę o dowolnym NIP-ie. Dziś bez skutku — widzi tylko swoje.
+**Przy fakturach sprzedaży platformy to znaczy tyle, że wystawcy GetRido nie wolno
+wybierać z listy; ma być przypięty po identyfikatorze.**
+
+**Pilność:** sprzątanie — niska, kosmetyka panelu administratora. Przypięcie
+wystawcy — wchodzi razem z fakturami.
+
+### 4.9a Zatwierdzenie cudzego przeniesienia własności pojazdu
+
+`client_vehicle_ownership_requests` ma politykę `UPDATE` z warunkiem `true` —
+*„Users can update ownership requests"*. Każde zalogowane konto może zmienić dowolny
+wniosek o przeniesienie własności pojazdu, w tym cudzy.
+
+To nie są pieniądze, ale też nie drobiazg: most warsztat→klient przenosi historię
+napraw po numerze VIN, a wniosek jest jedyną bramką w tej ścieżce.
+
+**Czym grozi:** przejęcie historii serwisowej cudzego auta albo zablokowanie
+transferu. **Jak naprawić:** warunek po właścicielu wniosku albo po warsztacie,
+który go wystawił. **Pilność:** średnia; przed uruchomieniem mostu na szerszą skalę.
+
+### 4.9b Kod współdzielony jest kopiowany PER FUNKCJA przy wdrożeniu
+
+Każda funkcja brzegowa dostaje **własny odcisk** katalogu `_shared` w chwili
+wdrożenia. Poprawka w kodzie współdzielonym dociera **wyłącznie do funkcji
+wdrożonych po niej** — pozostałe niosą starą kopię, dopóki ktoś ich nie wdroży
+ponownie.
+
+Wyszło przy `_shared/smtpSend.ts`: rozszerzyliśmy go o `replyTo` i załączniki,
+wdrożyliśmy `billing-ostrzezenia` (ma nową wersję), a `billing-price-guarantee`
+nadal niesie starą. Sprawdziłem trzynaście innych funkcji — wszystkie aktualne.
+
+Dziś bez skutku, bo tamta funkcja `replyTo` nie używa. **Ale przy poprawce
+BEZPIECZEŃSTWA w `_shared` znaczy to, że część funkcji jej nie dostaje** —
+i po numerze wersji tego nie widać.
+
+**Jak sprawdzić:** pobrać funkcję (`supabase functions download`) do czystego
+drzewa na `main` i zobaczyć, czy `git status` zostaje czysty. Uwaga: pobranie
+nadpisuje `_shared`, więc kolejne pobranie zaciera poprzednie — sprawdzać po jednej.
+
+**Co z tego wynika w praktyce:** po zmianie w `_shared` trzeba wdrożyć ponownie
+**każdą funkcję, która z niej korzysta**, nie tylko tę, dla której zmianę robiono.
+
 ### 4.10a Dane firmy w trzech miejscach
 
 Te same dane żyją równolegle w `workshop_settings` (`firm_name`, `nip`, `address`,

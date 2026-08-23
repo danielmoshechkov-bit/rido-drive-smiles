@@ -169,7 +169,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.billing_wydaj_paczke(uuid) FROM public;
+REVOKE ALL ON FUNCTION public.billing_wydaj_paczke(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.billing_wydaj_paczke(uuid) TO service_role;
 
 -- ---------------------------------------------------------------------------

@@ -365,7 +365,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           zlecenia i kartę pojazdu — więc licznik dni towarzyszy warsztatowi
           wszędzie. Dopisany do jednej gałęzi znikałby dokładnie tam, gdzie
           klient pracuje najdłużej. */}
-      <PasekDokanczania dostep={dostep} />
+      <PasekDokanczania dostep={dostep} providerId={providerId} />
       {widok}
       {wprowadzenie.aktywne && (
         <GuidedTour

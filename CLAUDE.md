@@ -84,6 +84,29 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 ## Zasady pracy z tym repozytorium (ustalone 21.08.2026)
 
+### Warunek w kodzie i więz w bazie muszą mówić to samo
+
+Najważniejsza rzecz, jaka wyszła z tej sesji. Zmiana jednego bez drugiego nie naprawia
+błędu — **przenosi go w gorsze miejsce**.
+
+`billing-checkout` odmawiał zakupu wszystkim, bo sprawdzał obecność wiersza subskrypcji.
+Poluzowanie tego warunku wyglądało na całą naprawę. Nie było: webhook robi `INSERT`,
+a indeks `billing_subscriptions_one_active` odrzuciłby drugi wiersz. Klient zapłaciłby,
+Stripe pobrałby pieniądze, a subskrypcja by nie powstała — **ciche gubienie płatności
+zamiast widocznej odmowy**.
+
+Przy każdej zmianie warunku decydującego o zapisie sprawdź, czy baza mówi to samo:
+
+```sql
+-- więzy i indeksy na tabeli, którą ruszasz
+SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'public.tabela'::regclass;
+SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'tabela';
+```
+
+Odmowa jest stanem bezpiecznym — widać ją i ktoś ją zgłosi. Zapis, który cicho nie
+dochodzi, wychodzi na jaw przy reklamacji.
+
+
 ### Dostęp do bazy produkcyjnej
 
 Dostęp DZIAŁA: `supabase db query --linked -f plik.sql` (project ref `wclrrytmrscqvsyxyvnn`).
@@ -99,6 +122,84 @@ Jeśli `Cannot find project ref`, skopiuj `supabase/.temp/` z `/Users/moshechkov
   kasującej własny wynik pomiaru). Każdy z nich wyszedł przy kolejnym podejściu — ale przy
   migracji ruszającej salda klientów ten jeden krok, w którym człowiek patrzy, co wykonuje,
   jest tańszy niż jego brak.
+
+### Migracja zmieniająca stan bazy unieważnia założenia w kodzie, który jej nie dotyczy
+
+Wariant A dał wiersz w `billing_subscriptions` **każdemu** warsztatowi. `PlanBadge`
+w zupełnie innym pliku zakładał, że **brak** tego wiersza znaczy okres próbny:
+
+```ts
+if (!szczegoly && dostep.koniecOkresu) {   // ← było prawdą do wariantu A
+```
+
+Od migracji warunek jest zawsze fałszywy. Licznik dni zniknął z paska wszystkim
+w okresie próbnym — bez błędu, bez ostrzeżenia, bez śladu w logach. Znalazł to
+dopiero test na żywym koncie.
+
+**Przy każdej migracji zmieniającej to, CZY wiersz istnieje** (uzupełnienie wsteczne,
+zakładanie brakujących wierszy, kasowanie), przejdź po kodzie szukającym **jego braku**:
+
+```
+grep -rn "!szczegoly\|=== null\|== null\|IS NULL\|maybeSingle" src/
+```
+
+Szukaj kodu sprawdzającego **samą obecność albo brak**, nie kodu czytającego treść
+wiersza. To inne zapytanie i łatwiej je przeoczyć — czytający treść zwykle i tak ma
+gałąź na `null`, a sprawdzający istnienie traktuje je jako znaczące.
+
+**Trzeba przejść po OBU kierunkach.** Wariant A ugryzł dwa razy, w dwóch przeciwnych
+formach:
+
+| Forma | Co się stało | Czym szukać |
+|---|---|---|
+| „brak wiersza znaczy X" | `PlanBadge` przestał pokazywać licznik okresu próbnego | `grep -rn "!szczegoly\|=== null\|== null\|!dane\|IS NULL" src/ supabase/functions/` |
+| „obecność wiersza znaczy Y" | `billing-checkout` odmawiał WSZYSTKIM zakupu kartą | `grep -rn "if (istniejaca\|if (dane\|EXISTS (\|maybeSingle()" src/ supabase/functions/` |
+
+Druga forma jest groźniejsza, bo objawia się odmową, a odmowa wygląda jak zamierzone
+zabezpieczenie. Pierwsza tylko czegoś nie pokazuje.
+
+
+### `REVOKE ... FROM public` NIE odbiera uprawnień `anon` ani `authenticated`
+
+`PUBLIC` w PostgreSQL to osobne uprawnienie domyślne. Supabase nadaje `EXECUTE`
+rolom `anon` i `authenticated` **jawnie**, dla każdej funkcji w schemacie `public` —
+a odebranie `PUBLIC` tych nadań nie rusza.
+
+Pisaliśmy to kilka razy, za każdym razem uznając sprawę za zamkniętą:
+
+```sql
+REVOKE ALL ON FUNCTION public.grant_sms_credits(...) FROM public;   -- NIC NIE ZAMYKA
+GRANT EXECUTE ON FUNCTION public.grant_sms_credits(...) TO service_role;
+```
+
+Skutek: siedemnaście funkcji `SECURITY DEFINER` zmieniających salda było wywoływalnych
+przez zalogowanego klienta, dwanaście nawet bez zalogowania — w tym nadawanie SMS-ów,
+dopisywanie kwot do portfela i prowizja z programu poleceń zamkniętego na poziomie tabeli.
+
+**Poprawnie — role wymienione z nazwy:**
+
+```sql
+REVOKE ALL ON FUNCTION public.nazwa(...) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.nazwa(...) TO service_role;
+```
+
+**Wzorzec w repozytorium poprawiony wstecz.** Trzydzieści siedem wystąpień `FROM public;`
+w wykonanych już migracjach zostało przepisanych na poprawną formę — świadomy wyjątek od
+zasady „nie edytuj starych migracji". Powód: reguła w dokumentacji nie dociera do kogoś,
+kto kopiuje istniejący kod, a wzorzec kopiuje się sam. Zmiana nie rusza semantyki: te
+migracje są zastosowane, a poprawiona linijka robi to, co zawsze deklarowała.
+
+Pilnuje tego `scripts/sql-harness/sprawdz_uprawnienia_funkcji.py` (bramka w CI, zadanie
+„Czy nowa funkcja odcina anon i authenticated"). Funkcje tylko odczytujące są na liście
+wyjątków z uzasadnieniem — dopisanie tam czegoś jest decyzją, nie formalnością.
+
+Kontrola jest statyczna. Stan faktyczny sprawdza się zapytaniem:
+
+```sql
+SELECT p.proname, has_function_privilege('anon', p.oid, 'EXECUTE')
+FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.prosecdef;
+```
 
 ### Test RLS musi zawierać przypadek, który ma PRZEJŚĆ
 

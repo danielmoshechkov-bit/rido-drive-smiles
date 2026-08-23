@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Lock, Loader2 } from 'lucide-react';
 import { useCheckout } from '@/hooks/useCheckout';
 import { usePublicPricing } from '@/hooks/usePublicPricing';
+import { useZakup } from '@/components/billing/ZakupProvider';
 import type { PowodBlokady, LiniaProduktowa } from '@/hooks/useSubscriptionAccess';
 
 /**
@@ -75,7 +76,7 @@ export function ModuleLock({
   wariant?: 'nakladka' | 'baner';
   children: ReactNode;
 }) {
-  const { kup, pending } = useCheckout();
+  const { otworzZakup } = useZakup();
   const { plans } = usePublicPricing();
   const [odsloniete, setOdsloniete] = useState(false);
 
@@ -91,12 +92,11 @@ export function ModuleLock({
   // u kogoś, kto NIGDY nie kupił — i to jest moment, w którym staje się klientem
   // albo odchodzi. Ten ekran ma sprzedawać, nie informować o awarii.
   const tresc = TRESC[powod ?? 'brak'];
-  const kupPlan = plan ? (
-    <Button className="shrink-0" disabled={!!pending} onClick={() => kup(plan.code)}>
-      {pending === plan.code ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+  const kupPlan = (
+    <Button className="shrink-0" onClick={() => otworzZakup({ planCode: plan?.code ?? null })}>
       {tresc.cta}
     </Button>
-  ) : null;
+  );
 
   const kartaSprzedazowa = (
     <div className="max-w-md w-full rounded-xl border bg-background/95 backdrop-blur shadow-xl p-6 text-center">
@@ -110,13 +110,19 @@ export function ModuleLock({
         {tresc.opis} Twoje dane są bezpieczne — nic nie zostało usunięte.
       </p>
 
-      {plan && (
-        <Button className="w-full" disabled={!!pending} onClick={() => kup(plan.code)}>
-          {pending === plan.code ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-          {powod === 'platnosc' ? tresc.cta : `${tresc.cta} — od ${Number(plan.price_net)} zł netto`}
-        </Button>
-      )}
+      {/* Jedno okno: plan, okres i metoda płatności wybiera się w nim.
+          Wcześniej stały tu dwa przyciski — karta i BLIK — a wybór okresu
+          nie istniał w ogóle. */}
+      <Button className="w-full" onClick={() => otworzZakup({ planCode: plan?.code ?? null })}>
+        {plan && powod !== 'platnosc'
+          ? `${tresc.cta} — od ${Number(plan.price_net)} zł netto`
+          : tresc.cta}
+      </Button>
 
+      {/* Druga droga płatności, tej samej wielkości i bez nawiasów.
+          Część warsztatów karty nie podepnie — dla nich abonament ze Stripe
+          to nie jest wyjście, tylko ta sama ściana. Po miesiącu blokada wraca
+          i klient płaci ponownie, świadomie. */}
       {/* Po zakończeniu triala klient nie wie jeszcze, CZEGO chce — jeden
           przycisk „kup najtańszy" to za mało. Link do cennika daje mu wybór,
           zamiast decydować za niego. */}

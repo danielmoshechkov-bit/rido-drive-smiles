@@ -180,7 +180,7 @@ RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$ SELECT COALESCE((SELECT is_enabled FROM referral_settings LIMIT 1), false) $$;
 
-REVOKE ALL ON FUNCTION public.program_polecen_wlaczony() FROM public;
+REVOKE ALL ON FUNCTION public.program_polecen_wlaczony() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.program_polecen_wlaczony() TO anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------------------

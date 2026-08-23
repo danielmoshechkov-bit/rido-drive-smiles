@@ -64,16 +64,33 @@ Deno.serve(async (req) => {
     const planCode = String(body?.plan_code ?? "").trim();
     if (!planCode) return json({ error: "Brak kodu planu" }, 400);
 
+    // Okres rozliczeniowy. Cokolwiek innego niż „rok" znaczy miesiąc — nie
+    // zgadujemy i nie odmawiamy, bo brak pola to po prostu starsze wywołanie.
+    const okresRok = String(body?.okres ?? "miesiac").trim() === "rok";
+
     // ---- plan ----
     const { data: plan, error: planErr } = await admin
       .from("billing_plans")
-      .select("id, code, name, product_line, price_net, is_active, is_custom, stripe_price_id")
+      .select("id, code, name, product_line, price_net, is_active, is_custom, stripe_price_id, stripe_price_id_rok")
       .eq("code", planCode)
       .maybeSingle();
     if (planErr) throw planErr;
     if (!plan || !plan.is_active) return json({ error: "Plan niedostępny" }, 404);
     if (plan.is_custom) return json({ error: "Ten plan wyceniamy indywidualnie — napisz do nas." }, 400);
     if (Number(plan.price_net) === 0) return json({ error: "Plan darmowy nie wymaga płatności" }, 400);
+    /**
+     * Cena w Stripe zależy od OKRESU, bo obiekty Price są tam niezmienne
+     * i każdy okres ma własny. Zakłada je synchronizacja cennika — jeśli
+     * roczna nie istnieje, mówimy to wprost zamiast po cichu sprzedawać
+     * miesiąc komuś, kto wybrał rok.
+     */
+    const cenaStripe = okresRok ? plan.stripe_price_id_rok : plan.stripe_price_id;
+    if (okresRok && !plan.stripe_price_id_rok) {
+      return json({
+        error: "Ten plan nie ma jeszcze ceny rocznej. Wybierz miesiąc albo odezwij się do nas.",
+        code: "PLAN_ROK_NOT_SYNCED",
+      }, 409);
+    }
     if (!plan.stripe_price_id) {
       // Plan po zmianie ceny czeka na resynchronizację — lepiej odmówić niż
       // obciążyć klienta kwotą, której nie ma już w cenniku.
@@ -108,17 +125,30 @@ Deno.serve(async (req) => {
     // wyłącznie 'trialing', 'active' i 'past_due', więc nowy wiersz nie wchodzi
     // w konflikt ze starym. Wszędzie, gdzie czytamy subskrypcję, bierzemy
     // najnowszą (`ORDER BY created_at DESC LIMIT 1`) — czyli tę opłaconą.
+    // 🔴 NAPRAWIONE 22.08.2026 — TO BLOKOWAŁO CAŁĄ SPRZEDAŻ KARTĄ.
+    //
+    // Warunek brzmiał `status IN ('trialing','active','past_due')` i był
+    // poprawny dokładnie do wariantu A, który dał wiersz `trialing` KAŻDEMU
+    // warsztatowi. Od tamtej chwili każdy był „już zasubskrybowany", a klient,
+    // który chciał zapłacić, dostawał odmowę 409.
+    //
+    // Okres próbny i miesiąc kupiony BLIK-iem to stany, z KTÓRYCH klient
+    // wychodzi, kupując. Odmawiamy wyłącznie wtedy, gdy naprawdę jest już
+    // subskrypcja odnawiana u operatora — bo wtedy druga byłaby podwójnym
+    // obciążeniem, a nie zakupem.
     const { data: istniejaca } = await admin
       .from("billing_subscriptions")
-      .select("id, status")
+      .select("id, status, provider, provider_subscription_id")
       .eq("subscriber_type", "service_provider")
       .eq("subscriber_id", provider.id)
       .eq("product_line", plan.product_line)
-      .in("status", ["trialing", "active", "past_due"])
+      .in("status", ["active", "past_due"])
+      .eq("provider", "stripe")
+      .not("provider_subscription_id", "is", null)
       .maybeSingle();
     if (istniejaca) {
       return json({
-        error: "Ten warsztat ma już aktywną subskrypcję w tej linii produktowej.",
+        error: "Ten warsztat ma już subskrypcję odnawianą kartą. Zmienisz plan w panelu rozliczeń.",
         code: "ALREADY_SUBSCRIBED",
       }, 409);
     }
@@ -147,7 +177,7 @@ Deno.serve(async (req) => {
     const sesja = await stripe(stripeKey, "/checkout/sessions", {
       mode: "subscription",
       customer: customerId!,
-      "line_items[0][price]": plan.stripe_price_id,
+      "line_items[0][price]": cenaStripe,
       "line_items[0][quantity]": "1",
       success_url: buildPublicUrl("/uslugi/panel?platnosc=ok&session_id={CHECKOUT_SESSION_ID}"),
       cancel_url: buildPublicUrl("/cennik?platnosc=anulowana"),

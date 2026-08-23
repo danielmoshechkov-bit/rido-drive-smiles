@@ -101,7 +101,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.moze_pracowac(uuid, text) FROM public;
+REVOKE ALL ON FUNCTION public.moze_pracowac(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.moze_pracowac(uuid, text) TO authenticated, anon, service_role;
 
 COMMIT;

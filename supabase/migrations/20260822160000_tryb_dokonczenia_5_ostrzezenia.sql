@@ -99,7 +99,7 @@ AS $$
   AND COALESCE(NULLIF(sp.owner_email, ''), NULLIF(sp.company_email, ''), u.email) IS NOT NULL;
 $$;
 
-REVOKE ALL ON FUNCTION public.billing_do_ostrzezenia() FROM public;
+REVOKE ALL ON FUNCTION public.billing_do_ostrzezenia() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.billing_do_ostrzezenia() TO service_role;
 
 -- ---------------------------------------------------------------------------

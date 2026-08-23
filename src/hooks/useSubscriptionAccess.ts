@@ -58,6 +58,18 @@ export interface DostepWarsztatu {
   dokanczanieDo: string | null;
   /** Ile pełnych dni zostało do bloku — do licznika w pasku. */
   dniDoBloku: number | null;
+  /**
+   * Czy to okres próbny, a nie opłacona subskrypcja.
+   *
+   * 🔴 POTRZEBNE OD WARIANTU A. `PlanBadge` rozpoznawał okres próbny po BRAKU
+   * wiersza w `billing_subscriptions` — i była to prawda, dopóki wiersz
+   * pojawiał się dopiero po zakupie. Wariant A dał wiersz KAŻDEMU warsztatowi,
+   * więc plakietka przestała rozpoznawać trial i licznik dni zniknął z paska
+   * wszystkim, którzy są w okresie próbnym.
+   *
+   * Stan trzeba czytać ze statusu, nie z obecności wiersza.
+   */
+  okresProbny: boolean;
   loading: boolean;
 }
 
@@ -69,6 +81,7 @@ const BRAK: Omit<DostepWarsztatu, 'loading'> = {
   koniecOkresu: null,
   dokanczanieDo: null,
   dniDoBloku: null,
+  okresProbny: false,
 };
 
 /** Pełne doby do terminu, zaokrąglone w górę — „został 1 dzień" do ostatniej chwili. */
@@ -148,13 +161,15 @@ export function useSubscriptionAccess(
             koniecOkresu: koniec,
             dokanczanieDo: doKiedy,
             dniDoBloku: dniDo(doKiedy),
+            okresProbny: wiersz.status === 'trialing',
           };
         }
         switch (wiersz.status) {
           case 'active':
-            return { stan: 'aktywna', powod: null, moznaPracowac: true, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null };
+            return { stan: 'aktywna', powod: null, moznaPracowac: true, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null, okresProbny: false };
 
           case 'trialing': {
+            // eslint-disable-next-line no-case-declarations
             // OKRES PRÓBNY KOŃCZY SIĘ DATĄ.
             //
             // Do wariantu A `trialing` znaczyło tu „pełny dostęp" bez patrzenia
@@ -178,28 +193,30 @@ export function useSubscriptionAccess(
             const koniecProbnego = wiersz.trial_ends_at ?? koniec;
             const trwa = !koniecProbnego || new Date(koniecProbnego) > new Date();
             return trwa
-              ? { stan: 'aktywna', powod: null, moznaPracowac: true, moznaDokanczac: false, koniecOkresu: koniecProbnego, dokanczanieDo: null, dniDoBloku: null }
-              : { stan: 'zablokowana', powod: 'trial', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniecProbnego, dokanczanieDo: null, dniDoBloku: null };
+              ? { stan: 'aktywna', powod: null, moznaPracowac: true, moznaDokanczac: false,
+                  koniecOkresu: koniecProbnego, dokanczanieDo: null, dniDoBloku: null, okresProbny: true }
+              : { stan: 'zablokowana', powod: 'trial', moznaPracowac: false, moznaDokanczac: false,
+                  koniecOkresu: koniecProbnego, dokanczanieDo: null, dniDoBloku: null, okresProbny: true };
           }
 
           case 'past_due':
             // Karencja z PEŁNYM dostępem. Operator ponawia pobranie przez kilka
             // dni i połowa nieudanych płatności naprawia się bez udziału klienta —
             // blokada w dniu odrzucenia karty byłaby zbyt agresywna.
-            return { stan: 'karencja', powod: 'platnosc', moznaPracowac: true, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null };
+            return { stan: 'karencja', powod: 'platnosc', moznaPracowac: true, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null, okresProbny: false };
 
           case 'read_only':
             // Do tego stanu dochodzi się WYŁĄCZNIE z `past_due`, czyli po nieudanej
             // płatności — stąd powód, a nie „wygasła".
-            return { stan: 'zablokowana', powod: 'platnosc', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null };
+            return { stan: 'zablokowana', powod: 'platnosc', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null, okresProbny: false };
 
           case 'canceled':
           case 'expired':
-            return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null };
+            return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null, okresProbny: false };
 
           default:
             // Nieznany status nie może dawać dostępu: brak wiedzy to nie zgoda.
-            return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null };
+            return { stan: 'zablokowana', powod: 'wygasla', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: koniec, dokanczanieDo: null, dniDoBloku: null, okresProbny: false };
         }
       }
 
@@ -223,8 +240,10 @@ export function useSubscriptionAccess(
       if (t && t.status === 'trial') {
         const trwa = !t.expires_at || new Date(t.expires_at) > new Date();
         return trwa
-          ? { stan: 'aktywna', powod: null, moznaPracowac: true, moznaDokanczac: false, koniecOkresu: t.expires_at, dokanczanieDo: null, dniDoBloku: null }
-          : { stan: 'zablokowana', powod: 'trial', moznaPracowac: false, moznaDokanczac: false, koniecOkresu: t.expires_at, dokanczanieDo: null, dniDoBloku: null };
+          ? { stan: 'aktywna', powod: null, moznaPracowac: true, moznaDokanczac: false,
+              koniecOkresu: t.expires_at, dokanczanieDo: null, dniDoBloku: null, okresProbny: true }
+          : { stan: 'zablokowana', powod: 'trial', moznaPracowac: false, moznaDokanczac: false,
+              koniecOkresu: t.expires_at, dokanczanieDo: null, dniDoBloku: null, okresProbny: true };
       }
 
       return BRAK;

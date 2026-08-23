@@ -1,6 +1,8 @@
 import { AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useZakup } from '@/components/billing/ZakupProvider';
+import { nazwaZakupu } from '@/components/billing/nazwyZakupu';
 import type { DostepWarsztatu } from '@/hooks/useSubscriptionAccess';
 
 /**
@@ -40,8 +42,10 @@ function licznik(dni: number | null): string {
   return `Zostało ${dni} dni`;
 }
 
-export function PasekDokanczania({ dostep }: { dostep: DostepWarsztatu }) {
-  const navigate = useNavigate();
+export function PasekDokanczania(
+  { dostep, providerId }: { dostep: DostepWarsztatu; providerId: string | null | undefined },
+) {
+  const { otworzZakup } = useZakup();
 
   if (dostep.stan !== 'dokanczanie') return null;
 
@@ -68,14 +72,15 @@ export function PasekDokanczania({ dostep }: { dostep: DostepWarsztatu }) {
           </div>
         </div>
 
-        {/* Prowadzi do cennika, nie kupuje od razu: wybór planu należy do
-            klienta, a przycisk kupujący „coś" byłby pułapką. */}
+        {/* Jeden przycisk, jedno okno. Wybór planu, okresu i metody płatności
+            dzieje się w nim — pasek nie decyduje za klienta i nie ma własnej
+            ścieżki do operatora. */}
         <Button
           size="sm"
-          onClick={() => navigate('/cennik')}
+          onClick={() => otworzZakup({ providerId })}
           className="shrink-0 self-start sm:self-auto"
         >
-          {t.cta}
+          {nazwaZakupu(dostep)}
         </Button>
       </div>
     </div>

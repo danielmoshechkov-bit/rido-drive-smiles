@@ -158,7 +158,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.check_usage(public.billing_subscriber_type, uuid, text, numeric) FROM public;
+REVOKE ALL ON FUNCTION public.check_usage(public.billing_subscriber_type, uuid, text, numeric) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.check_usage(public.billing_subscriber_type, uuid, text, numeric)
   TO authenticated, service_role;
 
@@ -336,7 +336,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.billing_consume(public.billing_subscriber_type, uuid, text, numeric, boolean) FROM public;
+REVOKE ALL ON FUNCTION public.billing_consume(public.billing_subscriber_type, uuid, text, numeric, boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.billing_consume(public.billing_subscriber_type, uuid, text, numeric, boolean)
   TO service_role;
 
@@ -374,7 +374,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.sms_dostepne(uuid) FROM public;
+REVOKE ALL ON FUNCTION public.sms_dostepne(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.sms_dostepne(uuid) TO authenticated, service_role;
 
 COMMIT;

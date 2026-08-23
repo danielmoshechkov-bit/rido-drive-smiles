@@ -309,10 +309,24 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Wydanie pakietu ─────────────────────────────────────────────
+    // ── Wydanie ─────────────────────────────────────────────────────
+    // Dwie rzeczy do wydania, jedna droga płatności:
+    //   • DOŁADOWANIE → paczka jednostek,
+    //   • MIESIĄC PLANU → przedłużenie okresu dostępu.
+    //
+    // O tym, co wydać, decyduje ZAMÓWIENIE, nie treść powiadomienia od
+    // operatora. Powiadomienie mówi wyłącznie, czy zapłacono.
     if (status === 'oplacone') {
-      const { data: packId, error: bladWydania } = await admin
-        .rpc('billing_wydaj_paczke', { p_order_id: zamowienie.id });
+      const { data: rodzaj } = await (admin as any)
+        .from('billing_orders')
+        .select('plan_id')
+        .eq('id', zamowienie.id)
+        .maybeSingle();
+      const miesiacPlanu = !!rodzaj?.plan_id;
+
+      const { data: packId, error: bladWydania } = miesiacPlanu
+        ? await admin.rpc('billing_wydaj_okres', { p_order_id: zamowienie.id })
+        : await admin.rpc('billing_wydaj_paczke', { p_order_id: zamowienie.id });
 
       if (bladWydania) {
         console.error('billing-payu-webhook: nie udało się wydać pakietu', bladWydania);
@@ -323,7 +337,8 @@ Deno.serve(async (req) => {
       }
 
       console.log(JSON.stringify({
-        event: 'payu_pakiet_wydany', order: zamowienie.id, pack: packId,
+        event: miesiacPlanu ? 'payu_okres_wydany' : 'payu_pakiet_wydany',
+        order: zamowienie.id, wynik: packId,
       }));
     }
 

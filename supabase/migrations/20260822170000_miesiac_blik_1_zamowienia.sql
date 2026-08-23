@@ -114,7 +114,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.billing_cena_miesiaca(text, uuid) FROM public;
+REVOKE ALL ON FUNCTION public.billing_cena_miesiaca(text, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.billing_cena_miesiaca(text, uuid) TO authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
