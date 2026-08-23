@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
               body: JSON.stringify({
                 invoice_id: faktura.id,
                 recipient_email: mailDo,
-                type: "new_invoice",
+                type: "faktura_oplacona",
               }),
             });
             const wynikMaila = await odp.json().catch(() => ({}));
