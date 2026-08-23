@@ -140,6 +140,59 @@ Deno.serve(async (req) => {
     if (!existingSub) {
       const trialDays = await resolveWorkshopTrialDays(supabaseAdmin);
       const trialEndsAt = workshopTrialExpiresAt(trialDays);
+
+      /**
+       * 🔴 WIERSZ W `billing_subscriptions` — BEZ NIEGO NOWY KLIENT NIE MA
+       * ANI OSTRZEŻEŃ, ANI TRYBU DOKOŃCZENIA.
+       *
+       * Wariant A dał taki wiersz wszystkim ISTNIEJĄCYM warsztatom, ale ta
+       * funkcja dalej zapisywała okres próbny wyłącznie do
+       * `paid_service_subscriptions`. Skutek dla każdej NOWEJ rejestracji:
+       *   • `billing_konczy_sie_trial` go nie widzi — nie wchodzi w tryb
+       *     dokończenia, więc nie dostaje trzech dni na domknięcie pracy,
+       *   • `billing_do_ostrzezenia` go nie widzi — nie dostaje ostrzeżenia
+       *     na 7 i na 1 dzień,
+       *   • w dniu wygaśnięcia gałąź zapasowa `moze_pracowac` po prostu
+       *     przestaje przepuszczać: twardy blok bez uprzedzenia.
+       *
+       * Czyli dokładnie to, czemu tryb dokończenia miał zapobiegać — tylko
+       * że wyłącznie dla klientów pozyskanych po jego zbudowaniu.
+       *
+       * Wykryte audytem ścieżki klienta na świeżo założonym koncie.
+       */
+      const { data: planProbny } = await supabaseAdmin
+        .from("billing_plans")
+        .select("id")
+        .eq("code", "trial_warsztat")
+        .maybeSingle();
+
+      const { data: warsztatDoSub } = await supabaseAdmin
+        .from("service_providers").select("id").eq("user_id", userId)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+      if (planProbny?.id && warsztatDoSub?.id) {
+        const { error: bladSub } = await supabaseAdmin.from("billing_subscriptions").insert({
+          subscriber_type: "service_provider",
+          subscriber_id: warsztatDoSub.id,
+          plan_id: planProbny.id,
+          status: "trialing",
+          current_period_start: new Date().toISOString(),
+          current_period_end: trialEndsAt,
+          trial_ends_at: trialEndsAt,
+          price_snapshot: { zrodlo: "rejestracja", plan: planSprawdzony, trial_days: trialDays },
+        });
+        // Brak subskrypcji nie może wywrócić rejestracji — konto ma powstać.
+        // Ale mówimy o tym głośno, bo klient bez tego wiersza nie dostanie
+        // ostrzeżeń przed końcem okresu próbnego.
+        if (bladSub) {
+          console.error("⚠️ billing_subscriptions:", bladSub.message);
+        } else {
+          console.log("✅ Wiersz subskrypcji (trialing) założony");
+        }
+      } else {
+        console.error("⚠️ brak planu trial_warsztat albo warsztatu — subskrypcja NIEZALOŻONA");
+      }
+
       const { error: trialError } = await supabaseAdmin.from("paid_service_subscriptions").insert({
         user_id: userId,
         status: "trial",
