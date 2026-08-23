@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6.9.14";
-import { GETRIDO_MASCOT_DATAURI } from "../_shared/getRidoMascot.ts";
+import { GETRIDO_LUDEK_DATAURI } from "../_shared/getRidoLudek.ts";
 
 /**
  * Identyfikator obrazka osadzonego w wiadomości (CID).
@@ -202,10 +202,11 @@ function generateEmailTemplate(
                 <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0;">przesyłam fakturę o numerze <strong>${invoiceNumber}</strong> na kwotę <strong>${grossAmount} ${cur}</strong>.</p>
                 <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0;">Dziękujemy za zakup.</p>
               </td>
-              <td style="vertical-align: middle; text-align: right; width: 76px; padding-left: 16px;">
-                <!-- 60x60 to NATYWNY rozmiar pliku. Rozciągnięcie do 72 px dałoby
-                     rozmytą maskotkę w kliencie pocztowym, który nie wygładza. -->
-                <img src="cid:${CID_MASKOTKA}" width="60" height="60" alt="GetRido" style="display: block; width: 60px; height: 60px; border: 0;" />
+              <td style="vertical-align: middle; text-align: right; width: 59px; padding-left: 16px;">
+                <!-- Plik ma 85x132, pokazujemy w 43x66 — podwójna gęstość, żeby
+                     nie był rozmyty na ekranach retina. Maskotka jest WYSOKA,
+                     więc trzymamy proporcje zamiast wpisywać kwadrat. -->
+                <img src="cid:${CID_MASKOTKA}" width="43" height="66" alt="GetRido" style="display: block; width: 43px; height: 66px; border: 0;" />
               </td>
             </tr>
           </table>
@@ -467,7 +468,7 @@ serve(async (req) => {
     if (type === "faktura_oplacona") {
       zalaczniki.push({
         filename: 'getrido.png',
-        content: GETRIDO_MASCOT_DATAURI.split(',')[1],
+        content: GETRIDO_LUDEK_DATAURI.split(',')[1],
         encoding: 'base64',
         contentType: 'image/png',
         cid: CID_MASKOTKA,
