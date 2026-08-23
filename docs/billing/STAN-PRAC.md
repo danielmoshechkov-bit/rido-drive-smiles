@@ -600,3 +600,21 @@ komuś stracić godzinę na sprawdzanie, czemu jego przestawienie nic nie dało.
 Fakturowanie jest dziś zabezpieczone od innej strony: bez kompletu danych
 nabywcy (`billing_dane_nabywcy_kompletne`) płatność w ogóle nie startuje,
 więc faktura z pustym nabywcą nie ma jak powstać.
+
+## Faktura z webhooka idzie BEZ załącznika PDF
+
+`billing-invoice-issue` wysyła mail przez `send-invoice-email` z samym
+`invoice_id` — bez `pdf_base64`.
+
+Powód: przycisk „Email" w panelu składa PDF **w przeglądarce** (`renderInvoicePdf`
+posyła gotowy HTML do `public/invoice-pdf.php`, Dompdf na LH.pl) i dopiero wtedy
+woła funkcję mailową z załącznikiem. Webhook przeglądarki nie ma.
+
+`send-invoice-email` obsługuje wywołanie bez załącznika — front sam z tego
+korzysta, gdy PDF się nie uda. Klient dostaje wiadomość z numerem i kwotą,
+a plik pobiera z panelu.
+
+**Do dorobienia:** serwerowe składanie HTML faktury w funkcji brzegowej, żeby
+mail niósł załącznik. Szablon jest dziś w komponencie frontu, więc to znaczy
+albo wyciągnięcie go do `_shared/`, albo osobny generator — i w obu wypadkach
+pilnowanie, żeby dwie wersje szablonu się nie rozjechały.
