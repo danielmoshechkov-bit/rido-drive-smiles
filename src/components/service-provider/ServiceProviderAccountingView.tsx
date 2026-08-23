@@ -45,6 +45,10 @@ import tileMagazynAcc from '@/assets/accounting/tile-magazyn.jpg';
 import tileEmail from '@/assets/accounting/tile-email.jpg';
 import tileKsef from '@/assets/accounting/tile-ksef.jpg';
 import tileCykliczne from '@/assets/accounting/tile-cykliczne.jpg';
+// Ten sam obrazek co kafel Ustawien w panelu warsztatu — jeden portal,
+// jedna ikona na te sama rzecz. Bez zdjecia kafel dostawal gradient
+// zastepczy i jako jedyny odstawal od reszty.
+import tileUstawienia from '@/assets/workshop/tile-ustawienia.jpg';
 
 const accountingSubTabs = [
   { value: 'przeglad', labelKey: 'cp.accounting.przeglad', label: 'Przegląd', icon: BarChart3, img: tilePrzeglad, visible: true },
@@ -57,7 +61,7 @@ const accountingSubTabs = [
   { value: 'email-faktury', labelKey: 'cp.accounting.emailInvoices', label: 'Email faktury', icon: Mail, img: tileEmail, visible: true },
   { value: 'ksef', labelKey: '', label: 'KSeF', icon: Shield, img: tileKsef, visible: true },
   { value: 'cykliczne', labelKey: 'cp.accounting.recurring', label: 'Cykliczne', icon: Clock, img: tileCykliczne, visible: true },
-  { value: 'ustawienia', labelKey: '', label: 'Ustawienia', icon: Settings, visible: true },
+  { value: 'ustawienia', labelKey: '', label: 'Ustawienia', icon: Settings, img: tileUstawienia, visible: true },
 ];
 
 export function ServiceProviderAccountingView() {
