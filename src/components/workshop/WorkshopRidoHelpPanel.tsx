@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Send, Paperclip, X, Loader2, ExternalLink, FileText } from 'lucide-react';
+import { Send, Paperclip, X, Loader2, ExternalLink, FileText, ShoppingCart } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
 import { CECHA_RIDO_AI } from '@/lib/ridoAi';
+import { DoladowanieModal } from '@/components/billing/DoladowanieModal';
 
 /**
  * Pomoc RIDO AI — rozmowa o naprawie KONKRETNEGO auta.
@@ -58,6 +59,18 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
   const [wysylanie, setWysylanie] = useState(false);
   const [wczytywanie, setWczytywanie] = useState(false);
   const [nadPolem, setNadPolem] = useState(false);
+  /**
+   * BRAK KREDYTÓW POKAZUJEMY W OKNIE, NIE W ZNIKAJĄCYM DYMKU.
+   *
+   * 🔴 NAPRAWIONE 23.08.2026. Odmowa szła jako `toast.error` — komunikat gasł
+   * po ośmiu sekundach i nie prowadził nigdzie. Mechanik zostawał z pustym
+   * oknem i bez pojęcia, co dalej.
+   *
+   * Teraz odmowa zostaje na ekranie razem z przyciskiem doładowania — czyli
+   * z drogą wyjścia, a nie samą informacją o ścianie.
+   */
+  const [brakKredytow, setBrakKredytow] = useState(false);
+  const [doladowanie, setDoladowanie] = useState(false);
   const konicRef = useRef<HTMLDivElement | null>(null);
   const plikRef = useRef<HTMLInputElement | null>(null);
   const odswiez = useOdswiezJednostki();
@@ -128,7 +141,8 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
       const blad = (data as any)?.error;
       if (error || blad) {
         const komunikat = (data as any)?.message || 'Nie udało się zapytać Rido AI';
-        toast.error(komunikat, { duration: 8000 });
+        if (blad === 'BRAK_PYTAN') setBrakKredytow(true);
+        else toast.error(komunikat, { duration: 8000 });
         // Cofamy pokazane pytanie — nie zostało zapisane po stronie serwera.
         setWiadomosci((p) => p.slice(0, -1));
         setTekst(pytanie);
@@ -252,6 +266,21 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
             </div>
           ))}
 
+          {brakKredytow && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+              <p className="text-sm font-medium text-foreground">
+                Skończyły się pytania do Rido AI.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Twoje pytanie nie zostało wysłane i nic nie zeszło z licznika. Dokup
+                pakiet, a rozmowa ruszy dalej od tego miejsca — wątek zostaje zapisany.
+              </p>
+              <Button size="sm" className="gap-2" onClick={() => setDoladowanie(true)}>
+                <ShoppingCart className="h-4 w-4" /> Dokup pytania
+              </Button>
+            </div>
+          )}
+
           {wysylanie && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -345,6 +374,14 @@ export function WorkshopRidoHelpPanel({ open, onOpenChange, orderId, opisPojazdu
           </p>
         </div>
       </DialogContent>
+
+      <DoladowanieModal
+        open={doladowanie}
+        onOpenChange={(v) => { setDoladowanie(v); if (!v) setBrakKredytow(false); }}
+        productCode="rido_ai"
+        tytul="Dokup pytania do Rido AI"
+        jednostka="pytań"
+      />
     </Dialog>
   );
 }
