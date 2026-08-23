@@ -9,9 +9,11 @@ import { Switch } from '@/components/ui/switch';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Car, History, Loader2, Save, Send, User } from 'lucide-react';
+import { Car, History, Loader2, MapPin, Save, Send, User } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useWorkshopClients, useWorkshopVehicles } from '@/hooks/useWorkshop';
+import { Input } from '@/components/ui/input';
+import { SearchableCombobox } from './SearchableCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -52,6 +54,7 @@ export function TireStorageDetailsDialog({
   const [edycja, setEdycja] = useState(false);
   const [klientId, setKlientId] = useState('');
   const [pojazdId, setPojazdId] = useState('');
+  const [miejsce, setMiejsce] = useState('');
 
   const { data: klienci = [] } = useWorkshopClients(providerId);
   const { data: pojazdy = [] } = useWorkshopVehicles(providerId);
@@ -73,6 +76,23 @@ export function TireStorageDetailsDialog({
     },
   });
 
+  // Gdzie komplet lezal wczesniej. Zapisywane triggerem w bazie, wiec
+  // przeniesienie zrobione z dowolnego ekranu tez tu widac.
+  const { data: historiaMiejsc = [] } = useQuery({
+    queryKey: ['tire-location-log', record?.id],
+    enabled: !!record?.id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_tire_location_log')
+        .select('*')
+        .eq('storage_id', record.id)
+        .order('kiedy', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   useEffect(() => {
     if (!record) return;
     const k = record.reminder_channel ?? 'sms';
@@ -81,6 +101,7 @@ export function TireStorageDetailsDialog({
     setCoIleMiesiecy(String(record.reminder_months ?? 6));
     setKlientId(record.client_id ?? '');
     setPojazdId(record.vehicle_id ?? '');
+    setMiejsce(record.location_name ?? '');
     setEdycja(false);
   }, [record]);
 
@@ -105,6 +126,7 @@ export function TireStorageDetailsDialog({
   const odswiez = () => {
     queryClient.invalidateQueries({ queryKey: ['tire-storage'] });
     queryClient.invalidateQueries({ queryKey: ['tire-storage-dues', providerId] });
+    queryClient.invalidateQueries({ queryKey: ['tire-location-log', record?.id] });
   };
 
   const zapisz = async () => {
@@ -130,6 +152,7 @@ export function TireStorageDetailsDialog({
           client_phone: klientId
             ? (klienci.find((c: any) => c.id === klientId)?.phone ?? record.client_phone)
             : record.client_phone,
+          location_name: miejsce.trim() || null,
         })
         .eq('id', record.id);
       if (error) throw error;
@@ -207,35 +230,41 @@ export function TireStorageDetailsDialog({
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Klient</Label>
-                  <Select value={klientId || 'brak'} onValueChange={v => setKlientId(v === 'brak' ? '' : v)}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="wybierz" /></SelectTrigger>
-                    <SelectContent className="max-h-[240px]">
-                      <SelectItem value="brak">— bez klienta z bazy —</SelectItem>
-                      {klienci.map((k: any) => (
-                        <SelectItem key={k.id} value={k.id}>
+                  {/* Zwykla lista przy setkach klientow zmusza do przewijania —
+                      ten sam komponent z wyszukiwarka co przy przyjeciu. */}
+                  <SearchableCombobox
+                    items={klienci}
+                    value={klientId}
+                    onSelect={setKlientId}
+                    placeholder="Wpisz imię, nazwisko lub telefon..."
+                    renderItem={(k: any) => (
+                      <span className="flex items-baseline gap-2 min-w-0">
+                        <span className="truncate">
                           {k.company_name || [k.first_name, k.last_name].filter(Boolean).join(' ') || 'bez nazwy'}
-                          {k.phone ? ` · ${k.phone}` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        </span>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {k.phone || 'brak telefonu'}
+                        </span>
+                      </span>
+                    )}
+                    getLabel={(k: any) =>
+                      [k.company_name || [k.first_name, k.last_name].filter(Boolean).join(' '), k.phone]
+                        .filter(Boolean).join(' ')}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Pojazd</Label>
-                  <Select value={pojazdId || 'brak'} onValueChange={v => setPojazdId(v === 'brak' ? '' : v)}>
-                    <SelectTrigger className="h-9"><SelectValue placeholder="wybierz" /></SelectTrigger>
-                    <SelectContent className="max-h-[240px]">
-                      <SelectItem value="brak">— bez pojazdu —</SelectItem>
-                      {pojazdy.map((v: any) => {
-                        const opis = [v.brand, v.model].filter(Boolean).join(' ');
-                        return (
-                          <SelectItem key={v.id} value={v.id}>
-                            {opis ? `${opis} — ${v.plate || 'bez rejestracji'}` : (v.plate || 'bez rejestracji')}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                  <SearchableCombobox
+                    items={pojazdy}
+                    value={pojazdId}
+                    onSelect={setPojazdId}
+                    placeholder="Wpisz rejestrację, markę lub model..."
+                    renderItem={(v: any) => {
+                      const opis = [v.brand, v.model].filter(Boolean).join(' ');
+                      return opis ? `${opis} — ${v.plate || 'bez rejestracji'}` : (v.plate || 'bez rejestracji');
+                    }}
+                    getLabel={(v: any) => [v.brand, v.model, v.plate].filter(Boolean).join(' ').trim()}
+                  />
                 </div>
               </div>
             ) : (
@@ -273,7 +302,6 @@ export function TireStorageDetailsDialog({
             <Pole etykieta="Felgi">{record.rim_type || '—'}</Pole>
             <Pole etykieta="DOT">{record.dot_code || '—'}</Pole>
             <Pole etykieta="Sezon">{record.season || '—'}</Pole>
-            <Pole etykieta="Miejsce">{record.location_name || '—'}</Pole>
             <Pole etykieta="Przyjęto">{data(record.stored_at)}</Pole>
             <Pole etykieta="Termin odbioru">
               {d.termin ? (
@@ -300,6 +328,52 @@ export function TireStorageDetailsDialog({
               </div>
             </section>
           )}
+
+          {/* Miejsce dalo sie dotad ustawic wylacznie przy przyjeciu. Po
+              przeniesieniu kompletu nie bylo jak tego zapisac, a to wlasnie
+              "gdzie to lezy" decyduje, czy da sie opony znalezc. */}
+          <section className="rounded-lg border p-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              <Label className="text-sm font-semibold">Gdzie leżą</Label>
+            </div>
+
+            <Input
+              value={miejsce}
+              onChange={(e) => setMiejsce(e.target.value)}
+              placeholder="np. Regał B, półka 3"
+              className="h-9"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Wpisz własnym opisem. Po przeniesieniu wystarczy poprawić — zmiana
+              zapisze się w historii poniżej.
+            </p>
+
+            {historiaMiejsc.length > 0 && (
+              <div className="pt-2 border-t">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 mb-1.5">
+                  <History className="h-3 w-3" /> Historia przeniesień
+                </p>
+                <ul className="space-y-1">
+                  {historiaMiejsc.map((h: any) => (
+                    <li key={h.id} className="text-xs flex items-center gap-2 flex-wrap">
+                      <span className="text-muted-foreground">
+                        {new Date(h.kiedy).toLocaleString('pl-PL')}
+                      </span>
+                      {h.z_miejsca ? (
+                        <span>
+                          {h.z_miejsca} <span className="text-muted-foreground">→</span>{' '}
+                          {h.na_miejsce || <span className="text-muted-foreground">zdjęte z regału</span>}
+                        </span>
+                      ) : (
+                        <span>przyjęto na <strong>{h.na_miejsce}</strong></span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
 
           <section className="rounded-lg border p-3 bg-muted/30">
             <div className="flex items-baseline justify-between">
