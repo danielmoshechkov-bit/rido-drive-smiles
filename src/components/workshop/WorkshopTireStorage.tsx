@@ -129,7 +129,10 @@ function useServicePoints(providerId: string) {
 function printStorageReceipt(
   record: any,
   kind: 'przyjęcia' | 'wydania',
-  header: { companyName?: string | null; nip?: string | null; address?: string | null; logoUrl?: string | null } = {},
+  header: {
+    companyName?: string | null; nip?: string | null; address?: string | null;
+    logoUrl?: string | null; phone?: string | null; website?: string | null;
+  } = {},
 ) {
   const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const client = record.client_name
@@ -154,15 +157,27 @@ function printStorageReceipt(
   .sign { margin-top: 46px; display: flex; justify-content: space-between; gap: 40px; }
   .sign div { flex: 1; border-top: 1px solid #111; padding-top: 6px; text-align: center; font-size: 11px; color: #555; }
   .footer { margin-top: 20px; font-size: 11px; color: #555; line-height: 1.6; }
+  /* Logo stalo nad banerem i zabieralo gorna czesc kartki. Teraz stoi obok
+     danych firmy i dopasowuje sie wysokoscia do tego bloku. */
+  .naglowek { display: flex; align-items: stretch; justify-content: space-between;
+              gap: 20px; margin: 14px 0 4px; }
+  .firma { font-size: 12px; color: #555; line-height: 1.55; }
+  .firma .nazwa { font-size: 16px; font-weight: 700; color: #111; margin-bottom: 3px; }
+  .logo { display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0; }
+  .logo img { max-height: 74px; max-width: 190px; object-fit: contain; }
   @media print { body { margin: 10mm; } }
 </style></head>
 <body>
-  ${header.logoUrl ? `<div style="text-align:center;margin-bottom:10px"><img src="${esc(header.logoUrl)}" alt="" style="max-height:70px;max-width:60%;object-fit:contain" /></div>` : ''}
   <div class="banner">POKWITOWANIE ${esc(kind.toUpperCase())} OPON DO PRZECHOWANIA</div>
-  ${header.companyName ? `<h1>${esc(header.companyName)}</h1>` : ''}
-  <div class="muted" style="color:#555;font-size:12px">
-    ${header.address ? esc(header.address) + '<br>' : ''}
-    ${header.nip ? 'NIP: ' + esc(header.nip) : ''}
+  <div class="naglowek">
+    <div class="firma">
+      ${header.companyName ? `<div class="nazwa">${esc(header.companyName)}</div>` : ''}
+      ${header.address ? `<div>${esc(header.address)}</div>` : ''}
+      ${header.phone ? `<div>tel. ${esc(header.phone)}</div>` : ''}
+      ${header.website ? `<div>${esc(header.website)}</div>` : ''}
+      ${header.nip ? `<div>NIP: ${esc(header.nip)}</div>` : ''}
+    </div>
+    ${header.logoUrl ? `<div class="logo"><img src="${esc(header.logoUrl)}" alt="" /></div>` : ''}
   </div>
   <h1>Nr miejsca: ${esc(record.storage_number || '—')}</h1>
   <table>
@@ -374,7 +389,12 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
+          {/* Suma szerokosci kolumn przekracza szerokosc panelu. Bez tego
+              przegladarka sciska kolumny: naglowek "Do zaplaty" lamal sie na
+              dwie linie, "zl" ladowalo pod kwota, a przyciski akcji nachodzily
+              na siebie. Zamiast sciskac — przewijamy w poziomie. */}
+          <div className="overflow-x-auto">
+          <Table className="min-w-[1240px]">
             <TableHeader>
               {/* Trzynascie kolumn nie miescilo sie na ekranie: naglowki lamaly sie
                   na dwie linie, a wiersze rosly do trzech. Zostaja te, ktore
@@ -388,7 +408,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                 <TableHead className="w-[92px]">Przyjęto</TableHead>
                 <TableHead className="w-[130px]">Przypomnienie</TableHead>
                 <TableHead className="w-[140px]">Do zapłaty</TableHead>
-                <TableHead className="w-[330px] text-right">Akcje</TableHead>
+                <TableHead className="w-[320px]">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -469,11 +489,11 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                     {/* Staly uklad trzech miejsc: kazdy przycisk stoi w tej
                         samej kolumnie w kazdym wierszu, a brakujaca akcje
                         zastepuje puste miejsce zamiast przesuwac pozostale. */}
-                    <div className="grid grid-cols-3 gap-1 justify-items-stretch">
+                    <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs gap-1 justify-start"
+                        className="h-7 text-xs gap-1 justify-start w-[124px] shrink-0"
                         onClick={() => printStorageReceipt(r, view === 'stored' ? 'przyjęcia' : 'wydania', printHeader ?? {})}
                       >
                         <Printer className="h-3.5 w-3.5 shrink-0" /> Pokwitowanie
@@ -483,18 +503,18 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs gap-1 justify-start"
+                          className="h-7 text-xs gap-1 justify-start w-[74px] shrink-0"
                           onClick={() => issueSet(r)}
                         >
                           <Check className="h-3.5 w-3.5 shrink-0" /> Wydaj
                         </Button>
-                      ) : <span />}
+                      ) : <span className="w-[74px] shrink-0" />}
 
                       {view === 'stored' && (r.dlug?.dni_po_terminie ?? 0) > 0 ? (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs gap-1 justify-start"
+                          className="h-7 text-xs gap-1 justify-start w-[116px] shrink-0"
                           onClick={() => oznaczNieodebrane(r)}
                           title={r.dlug?.nieodebrane_od
                             ? 'Cofnij oznaczenie i wznów przypomnienia'
@@ -503,13 +523,14 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                           <Archive className="h-3.5 w-3.5 shrink-0" />
                           {r.dlug?.nieodebrane_od ? 'Cofnij' : 'Nieodebrane'}
                         </Button>
-                      ) : <span />}
+                      ) : <span className="w-[116px] shrink-0" />}
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
