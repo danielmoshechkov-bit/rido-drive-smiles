@@ -98,7 +98,9 @@ export default function TireReceiptPage() {
   }
 
   const d = potwierdzenie.dane ?? {};
-  const odebrane = !!potwierdzenie.odebrano_at;
+  const odebrane = potwierdzenie.status === 'odebrane';
+  const usuniete = potwierdzenie.status === 'usuniete';
+  const poTerminie = potwierdzenie.status === 'po_terminie';
   const adres = [d.ulica, d.miasto].filter(Boolean).join(', ');
   const auto = [d.pojazd, d.rejestracja].filter(Boolean).join(' · ');
 
@@ -114,10 +116,16 @@ export default function TireReceiptPage() {
                   {d.warsztat || 'Warsztat'}
                 </p>
               </div>
-              {odebrane ? (
+              {usuniete ? (
+                <Badge variant="outline" className="shrink-0 border-muted-foreground/40 text-muted-foreground">
+                  Wpis usunięty
+                </Badge>
+              ) : odebrane ? (
                 <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600 shrink-0">
                   <CheckCircle2 className="h-3 w-3" /> Odebrane
                 </Badge>
+              ) : poTerminie ? (
+                <Badge variant="destructive" className="shrink-0">Po terminie odbioru</Badge>
               ) : (
                 <Badge variant="secondary" className="shrink-0">W przechowaniu</Badge>
               )}
@@ -125,6 +133,28 @@ export default function TireReceiptPage() {
           </CardHeader>
 
           <CardContent className="space-y-4">
+            {usuniete && (
+              <div className="rounded-lg border border-muted-foreground/25 bg-muted/40 p-3">
+                <p className="text-sm font-medium">Wpis usunięty przez warsztat</p>
+                <p className="text-sm text-muted-foreground">
+                  {dtg(potwierdzenie.usunieto_at)}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  To potwierdzenie zostaje u Ciebie i pokazuje, co zostało przyjęte.
+                  W razie wątpliwości prosimy o kontakt z warsztatem.
+                </p>
+              </div>
+            )}
+
+            {poTerminie && !usuniete && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                <p className="text-sm font-medium text-destructive">Minął termin odbioru</p>
+                <p className="text-sm text-muted-foreground">
+                  Prosimy o kontakt z warsztatem w sprawie odbioru opon.
+                </p>
+              </div>
+            )}
+
             {odebrane && (
               <div className="rounded-lg border border-emerald-600/30 bg-emerald-50 dark:bg-emerald-950/30 p-3">
                 <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">

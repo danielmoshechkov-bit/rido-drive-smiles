@@ -45,18 +45,33 @@ Deno.serve(async (req) => {
 
     const { data, error } = await admin
       .from("workshop_tire_receipts")
-      .select("kod, dane, utworzono, odebrano_at")
+      .select("kod, dane, utworzono, odebrano_at, usunieto_at")
       .eq("kod", kod)
       .maybeSingle();
 
     if (error) throw error;
     if (!data) return json({ error: "NIE_ZNALEZIONO" }, 404);
 
+    // Status liczymy tutaj, nie w przegladarce: klient ma zobaczyc to samo
+    // niezaleznie od tego, kiedy otworzyl link i co ma w pamieci podrecznej.
+    const termin = (data.dane as Record<string, unknown>)?.termin as string | null;
+    const poTerminie = !!termin && new Date(termin) < new Date();
+
+    const status = data.usunieto_at
+      ? "usuniete"
+      : data.odebrano_at
+        ? "odebrane"
+        : poTerminie
+          ? "po_terminie"
+          : "w_przechowaniu";
+
     return json({
       kod: data.kod,
       dane: data.dane,
       utworzono: data.utworzono,
       odebrano_at: data.odebrano_at,
+      usunieto_at: data.usunieto_at,
+      status,
     });
   } catch (e) {
     console.error("[tire-receipt]", e);

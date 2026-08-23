@@ -73,6 +73,7 @@ function useTireStorageRecords(providerId: string, view: 'stored' | 'issued' = '
         .from('workshop_tire_storage')
         .select('*, workshop_clients(*), workshop_vehicles(*)')
         .eq('provider_id', providerId)
+        .is('deleted_at', null)
         .eq('is_active', view === 'stored')
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -156,6 +157,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
   const [zasadyOtwarte, setZasadyOtwarte] = useState(false);
   const [podglad, setPodglad] = useState<any>(null);
   const [doPotwierdzenia, setDoPotwierdzenia] = useState<any>(null);
+  const [zaznaczone, setZaznaczone] = useState<Set<string>>(new Set());
   /**
    * „W magazynie" i „Wydane" to dwa różne pytania: pierwsze zadaje magazynier szukający
    * miejsca, drugie — klient, który twierdzi, że opon nie odebrał. Dotąd lista pokazywała
@@ -210,6 +212,35 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
     toast.success(juz ? 'Oznaczenie cofnięte.' : 'Oznaczono jako nieodebrany.');
     queryClientRef.invalidateQueries({ queryKey: ['tire-storage'] });
     queryClientRef.invalidateQueries({ queryKey: ['tire-storage-dues', providerId] });
+  };
+
+  /**
+   * Miekkie usuniecie: wpis znika z listy warsztatu, ale potwierdzenie
+   * klienta dziala dalej i mowi, ze zostal usuniety oraz kiedy. Klient
+   * dostal link SMS-em i nie moze zostac z martwa strona dlatego, ze
+   * warsztat posprzatal u siebie.
+   */
+  const usunZaznaczone = async () => {
+    const ile = zaznaczone.size;
+    if (!ile) return;
+    if (!(await confirmAction({
+      title: ile === 1 ? 'Usunąć ten wpis?' : `Usunąć ${ile} wpisy?`,
+      description: 'Wpis zniknie z listy. Klient, który dostał link, nadal go otworzy — '
+        + 'zobaczy, że wpis został usunięty i kiedy.',
+      confirmLabel: 'Usuń',
+      destructive: true,
+    }))) return;
+
+    const { error } = await (supabase as any)
+      .from('workshop_tire_storage')
+      .update({ deleted_at: new Date().toISOString() })
+      .in('id', Array.from(zaznaczone));
+    if (error) { toast.error(error.message); return; }
+
+    setZaznaczone(new Set());
+    queryClientRef.invalidateQueries({ queryKey: ['tire-storage'] });
+    queryClientRef.invalidateQueries({ queryKey: ['tire-storage-dues', providerId] });
+    toast.success(ile === 1 ? 'Wpis usunięty.' : `Usunięto wpisy: ${ile}.`);
   };
 
   const [page, setPage] = useState(1);
@@ -289,6 +320,11 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
             </button>
           ))}
         </div>
+        {zaznaczone.size > 0 && (
+          <Button variant="destructive" onClick={usunZaznaczone} className="gap-2">
+            <Trash2 className="h-4 w-4" /> Usuń zaznaczone ({zaznaczone.size})
+          </Button>
+        )}
         {view === 'stored' && poTerminie.length > 0 && (
           <button
             type="button"
@@ -318,12 +354,29 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
               dwie linie, "zl" ladowalo pod kwota, a przyciski akcji nachodzily
               na siebie. Zamiast sciskac — przewijamy w poziomie. */}
           <div className="overflow-x-auto">
-          <Table className="min-w-[1240px]">
+          <Table className="min-w-[1290px]">
             <TableHeader>
               {/* Trzynascie kolumn nie miescilo sie na ekranie: naglowki lamaly sie
                   na dwie linie, a wiersze rosly do trzech. Zostaja te, ktore
                   decyduja przy patrzeniu na liste; reszta jest w szczegolach. */}
               <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[36px]">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 accent-primary align-middle"
+                    title="Zaznacz wszystkie na tej stronie"
+                    checked={paged.length > 0 && paged.every((r: any) => zaznaczone.has(r.id))}
+                    onChange={(e) => {
+                      const kolejne = new Set(zaznaczone);
+                      // Zaznaczamy tylko to, co widac — inaczej klikniecie
+                      // na jednej stronie zabieraloby wpisy z pozostalych.
+                      for (const r of paged) {
+                        if (e.target.checked) kolejne.add(r.id); else kolejne.delete(r.id);
+                      }
+                      setZaznaczone(kolejne);
+                    }}
+                  />
+                </TableHead>
                 <TableHead className="w-[104px]">Kod</TableHead>
                 <TableHead className="min-w-[150px]">Klient</TableHead>
                 <TableHead className="min-w-[170px]">Opony</TableHead>
@@ -338,7 +391,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                     <Archive className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     {isLoading ? t('common.loading') : t('workshop.tireStorage.noData')}
                   </TableCell>
@@ -350,6 +403,18 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                   className="cursor-pointer"
                   title="Kliknij, aby zobaczyć szczegóły"
                 >
+                  <TableCell className="py-2" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5 accent-primary align-middle"
+                      checked={zaznaczone.has(r.id)}
+                      onChange={(e) => {
+                        const kolejne = new Set(zaznaczone);
+                        if (e.target.checked) kolejne.add(r.id); else kolejne.delete(r.id);
+                        setZaznaczone(kolejne);
+                      }}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs py-2">{r.storage_number || '—'}</TableCell>
                   <TableCell className="py-2">
                     <div className="text-sm leading-tight">
@@ -975,18 +1040,24 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
                 Taki sam z tyłu
               </label>
             </div>
-            {!tenSamTyl && (
-              <div className="space-y-1">
-                <Label className="text-xs">Rozmiar — tył</Label>
-                <Input
-                  onFocus={e => e.currentTarget.select()}
-                  value={tireSizeRear}
-                  onChange={e => setTireSizeRear(e.target.value)}
-                  placeholder="275/40R19"
-                  className="h-8"
-                />
-              </div>
-            )}
+            {/* Miejsce na rozmiar tylu zajmuje kolumne ZAWSZE. Gdy pole znikalo,
+                caly formularz przeskakiwal: DOT wskakiwal do gornego rzedu,
+                a reszta pol przesuwala sie o jedno miejsce. Puste miejsce
+                kosztuje nic, skaczacy uklad kosztuje uwage. */}
+            <div className="space-y-1" aria-hidden={tenSamTyl}>
+              {!tenSamTyl && (
+                <>
+                  <Label className="text-xs">Rozmiar — tył</Label>
+                  <Input
+                    onFocus={e => e.currentTarget.select()}
+                    value={tireSizeRear}
+                    onChange={e => setTireSizeRear(e.target.value)}
+                    placeholder="275/40R19"
+                    className="h-8"
+                  />
+                </>
+              )}
+            </div>
             <div className="space-y-1">
               <Label className="text-xs">{t('workshop.tireStorage.dotCode')}</Label>
               <Input onFocus={e => e.currentTarget.select()} value={dotCode} onChange={e => setDotCode(e.target.value)} placeholder="3325" maxLength={4} className="h-8" />
