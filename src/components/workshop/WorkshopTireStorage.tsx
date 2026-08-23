@@ -19,6 +19,7 @@ import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { TireStorageRulesDialog } from './TireStorageRulesDialog';
 import { TireStoragePricing, useTirePricing, RODZAJE_FELG } from './TireStoragePricing';
+import { TireStorageDetailsDialog } from './TireStorageDetailsDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -214,6 +215,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [zasadyOtwarte, setZasadyOtwarte] = useState(false);
+  const [podglad, setPodglad] = useState<any>(null);
   /**
    * „W magazynie" i „Wydane" to dwa różne pytania: pierwsze zadaje magazynier szukający
    * miejsca, drugie — klient, który twierdzi, że opon nie odebrał. Dotąd lista pokazywała
@@ -373,67 +375,94 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>{t('workshop.tireStorage.col.code')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.client')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.phone')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.brandModel')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.size')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.season')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.vehicle')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.location')}</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.receivedDate')}</TableHead>
-                <TableHead>Przypomnienie</TableHead>
-                <TableHead>{t('workshop.tireStorage.col.cost')}</TableHead>
-                <TableHead>Do zapłaty</TableHead>
-                <TableHead className="text-right">Akcje</TableHead>
+              {/* Trzynascie kolumn nie miescilo sie na ekranie: naglowki lamaly sie
+                  na dwie linie, a wiersze rosly do trzech. Zostaja te, ktore
+                  decyduja przy patrzeniu na liste; reszta jest w szczegolach. */}
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[104px]">Kod</TableHead>
+                <TableHead className="min-w-[150px]">Klient</TableHead>
+                <TableHead className="min-w-[170px]">Opony</TableHead>
+                <TableHead className="w-[96px]">Pojazd</TableHead>
+                <TableHead className="w-[120px]">Miejsce</TableHead>
+                <TableHead className="w-[92px]">Przyjęto</TableHead>
+                <TableHead className="w-[130px]">Przypomnienie</TableHead>
+                <TableHead className="w-[130px]">Do zapłaty</TableHead>
+                <TableHead className="w-[150px] text-right">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                     <Archive className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     {isLoading ? t('common.loading') : t('workshop.tireStorage.noData')}
                   </TableCell>
                 </TableRow>
               ) : paged.map((r: any) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-mono text-xs">{r.storage_number || '—'}</TableCell>
-                  <TableCell>{r.client_name || `${r.workshop_clients?.first_name || ''} ${r.workshop_clients?.last_name || ''}`.trim() || '—'}</TableCell>
-                  <TableCell className="text-xs">{r.client_phone || '—'}</TableCell>
-                  <TableCell>{r.tire_brand} {r.tire_model}</TableCell>
-                  <TableCell>{r.tire_size || '—'}</TableCell>
-                  <TableCell>{r.season === 'letnie' ? `☀️ ${t('workshop.tireStorage.season.summer')}` : r.season === 'zimowe' ? `❄️ ${t('workshop.tireStorage.season.winter')}` : `🔄 ${t('workshop.tireStorage.season.allSeason')}`}</TableCell>
-                  <TableCell className="text-xs">{r.workshop_vehicles ? `${r.workshop_vehicles.brand} ${r.workshop_vehicles.model} ${r.workshop_vehicles.plate}` : '—'}</TableCell>
-                  <TableCell className="text-xs">{r.location_name || '—'}</TableCell>
-                  <TableCell className="text-xs">{r.stored_at ? new Date(r.stored_at).toLocaleDateString('pl-PL') : '—'}</TableCell>
-                  <TableCell className={`text-xs ${reminderState(r).className}`}>{reminderState(r).label}</TableCell>
-                  <TableCell className="font-medium">{(r.storage_cost || 0).toFixed(2)} zł</TableCell>
-                  <TableCell>
+                <TableRow
+                  key={r.id}
+                  onClick={() => setPodglad(r)}
+                  className="cursor-pointer"
+                  title="Kliknij, aby zobaczyć szczegóły"
+                >
+                  <TableCell className="font-mono text-xs py-2">{r.storage_number || '—'}</TableCell>
+                  <TableCell className="py-2">
+                    <div className="text-sm leading-tight">
+                      {r.client_name
+                        || `${r.workshop_clients?.first_name || ''} ${r.workshop_clients?.last_name || ''}`.trim()
+                        || '—'}
+                    </div>
+                    {r.client_phone && (
+                      <div className="text-xs text-muted-foreground leading-tight">{r.client_phone}</div>
+                    )}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <div className="text-sm leading-tight">
+                      {[r.tire_brand, r.tire_model].filter(Boolean).join(' ') || '—'}
+                    </div>
+                    <div className="text-xs text-muted-foreground leading-tight">
+                      {r.tire_size || '—'}
+                      {r.season && ` · ${r.season}`}
+                      {r.quantity ? ` · ${r.quantity} szt.` : ''}
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-2">
+                    {r.workshop_vehicles?.plate ? (
+                      <span className="font-mono text-xs rounded border px-1.5 py-0.5">
+                        {r.workshop_vehicles.plate}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>}
+                  </TableCell>
+                  <TableCell className="text-xs py-2">{r.location_name || '—'}</TableCell>
+                  <TableCell className="text-xs py-2">
+                    {r.stored_at ? new Date(r.stored_at).toLocaleDateString('pl-PL') : '—'}
+                  </TableCell>
+                  <TableCell className={`text-xs py-2 ${reminderState(r).className}`}>
+                    {reminderState(r).label}
+                  </TableCell>
+                  <TableCell className="py-2">
                     {r.dlug ? (
-                      <div>
-                        <span className="font-medium">{Number(r.dlug.do_zaplaty ?? 0).toFixed(2)} zł</span>
+                      <div className="leading-tight">
+                        <span className="text-sm font-semibold">
+                          {Number(r.dlug.do_zaplaty ?? 0).toFixed(2)} zł
+                        </span>
                         {r.dlug.okresow > 0 && r.okres_miesiecy && (
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-[11px] text-muted-foreground">
                             {r.dlug.okresow} × {Number(r.cena_za_okres).toFixed(0)} zł
-                            {' '}(co {r.okres_miesiecy} mies.)
                           </div>
                         )}
                         {r.dlug.dni_po_terminie > 0 && (
-                          <div className="text-xs text-destructive">
+                          <div className="text-[11px] text-destructive">
                             {r.dlug.dni_po_terminie} dni po terminie
-                            {Number(r.dlug.do_zaplaty ?? 0) > Number(r.storage_cost ?? 0) &&
-                              ` · +${(Number(r.dlug.do_zaplaty) - Number(r.storage_cost ?? 0)).toFixed(2)} zł`}
                           </div>
                         )}
                         {r.dlug.nieodebrane_od && (
-                          <div className="text-xs text-amber-600">nieodebrane</div>
+                          <div className="text-[11px] text-amber-600">nieodebrane</div>
                         )}
                       </div>
-                    ) : '—'}
+                    ) : <span className="text-muted-foreground text-xs">—</span>}
                   </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
+                  <TableCell onClick={e => e.stopPropagation()} className="text-right whitespace-nowrap">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -479,6 +508,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
 
       <TireStorageDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
       <TireStorageRulesDialog open={zasadyOtwarte} onOpenChange={setZasadyOtwarte} providerId={providerId} />
+      <TireStorageDetailsDialog record={podglad} onOpenChange={(v) => !v && setPodglad(null)} providerId={providerId} />
     </div>
   );
 }
@@ -885,10 +915,14 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
 
           {/* Reminder */}
           <div className="space-y-2">
-            <Label>Przypomnienie o odbiorze za</Label>
+            <Label>Przypomnienie o odbiorze — co ile miesięcy</Label>
             <div className="flex items-center gap-2 flex-wrap">
               <Input onFocus={e => e.currentTarget.select()} type="number" min="1" max="12" value={reminderMonths} onChange={e => setReminderMonths(e.target.value)} className="w-20 h-9" />
               <span className="text-sm text-muted-foreground">{t('workshop.tireStorage.months')}</span>
+              <span className="text-xs text-muted-foreground w-full">
+                Pierwsze przypomnienie po tym czasie, kolejne w tym samym rytmie.
+                Po wydaniu kompletu przestają wychodzić.
+              </span>
               <Select value={reminderChannel} onValueChange={(v) => setReminderChannel(v as any)}>
                 <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
                 <SelectContent>

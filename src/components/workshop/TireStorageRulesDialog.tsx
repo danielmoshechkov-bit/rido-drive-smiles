@@ -183,7 +183,10 @@ export function TireStorageRulesDialog({
 
             <div className="grid grid-cols-2 gap-3 pt-2 border-t">
               <div className="space-y-1.5">
-                <Label>Przypominaj co ile dni</Label>
+                <Label>Zapasowy odstęp przypomnień (dni)</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Używany tylko wtedy, gdy komplet nie ma własnego rytmu.
+                </p>
                 <Input type="number" min={1} max={365} value={coIleDni}
                        onChange={e => setCoIleDni(e.target.value)} />
               </div>
