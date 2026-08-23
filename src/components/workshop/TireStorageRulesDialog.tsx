@@ -29,7 +29,7 @@ export function TireStorageRulesDialog({
   const [zapisuje, setZapisuje] = useState(false);
 
   const [oplata, setOplata] = useState('0');
-  const [karencja, setKarencja] = useState('0');
+  const [karencja, setKarencja] = useState('0');  // w miesiacach
   const [maks, setMaks] = useState('');
   const [coIleDni, setCoIleDni] = useState('30');
   const [ileMax, setIleMax] = useState('6');
@@ -49,8 +49,8 @@ export function TireStorageRulesDialog({
         .maybeSingle();
       if (anulowane) return;
       if (data) {
-        setOplata(String(data.oplata_za_dzien ?? 0));
-        setKarencja(String(data.dni_karencji ?? 0));
+        setOplata(String(data.oplata_za_miesiac ?? 0));
+        setKarencja(String(data.miesiace_karencji ?? 0));
         setMaks(data.oplata_maksymalna == null ? '' : String(data.oplata_maksymalna));
         setCoIleDni(String(data.co_ile_dni_przypominac ?? 30));
         setIleMax(String(data.ile_przypomnien_max ?? 6));
@@ -76,8 +76,8 @@ export function TireStorageRulesDialog({
     if (!Number.isFinite(wOplata) || wOplata < 0) {
       toast.error('Opłata za dzień nie może być ujemna'); return;
     }
-    if (!Number.isFinite(wKarencja) || wKarencja < 0) {
-      toast.error('Karencja nie może być ujemna'); return;
+    if (!Number.isFinite(wKarencja) || wKarencja < 0 || !Number.isInteger(wKarencja)) {
+      toast.error('Karencja to pełne miesiące, zero lub więcej'); return;
     }
     if (wMaks !== null && (!Number.isFinite(wMaks) || wMaks < 0)) {
       toast.error('Górna granica opłaty nie może być ujemna'); return;
@@ -95,8 +95,8 @@ export function TireStorageRulesDialog({
         .from('workshop_tire_storage_settings')
         .upsert({
           provider_id: providerId,
-          oplata_za_dzien: wOplata,
-          dni_karencji: wKarencja,
+          oplata_za_miesiac: wOplata,
+          miesiace_karencji: wKarencja,
           oplata_maksymalna: wMaks,
           co_ile_dni_przypominac: wCoIle,
           ile_przypomnien_max: wIle,
@@ -123,12 +123,15 @@ export function TireStorageRulesDialog({
     if (!Number.isFinite(st) || st <= 0) {
       return 'Naliczanie wyłączone — po terminie klient płaci tylko cenę przechowania.';
     }
-    const dni = 60;
-    const platne = Math.max(0, dni - (Number.isFinite(kar) ? kar : 0));
+    // Każdy ROZPOCZĘTY miesiąc po terminie jest płatny w całości.
+    const miesiace = 3;
+    const platne = Math.max(0, miesiace - (Number.isFinite(kar) ? kar : 0));
     let kwota = platne * st;
     const gorna = Number(maks);
     if (maks.trim() !== '' && Number.isFinite(gorna)) kwota = Math.min(kwota, gorna);
-    return `Przykład: komplet 60 dni po terminie — dopłata ${kwota.toFixed(2)} zł.`;
+    return platne === 0
+      ? `Przykład: komplet 3 miesiące po terminie mieści się w karencji — bez dopłaty.`
+      : `Przykład: komplet 3 miesiące po terminie — dopłata ${kwota.toFixed(2)} zł (${platne} × ${st.toFixed(2)} zł).`;
   })();
 
   return (
@@ -161,12 +164,12 @@ export function TireStorageRulesDialog({
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Opłata za dzień po terminie (zł)</Label>
-                <Input type="number" min={0} step="0.5" value={oplata}
+                <Label>Opłata za miesiąc po terminie (zł)</Label>
+                <Input type="number" min={0} step="10" value={oplata}
                        onChange={e => setOplata(e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label>Dni bez opłaty po terminie</Label>
+                <Label>Miesiące bez opłaty po terminie</Label>
                 <Input type="number" min={0} value={karencja}
                        onChange={e => setKarencja(e.target.value)} />
               </div>

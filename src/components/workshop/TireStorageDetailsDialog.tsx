@@ -9,7 +9,9 @@ import { Switch } from '@/components/ui/switch';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Car, Loader2, Save, Send } from 'lucide-react';
+import { Car, History, Loader2, Save, Send, User } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { useWorkshopClients, useWorkshopVehicles } from '@/hooks/useWorkshop';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -47,6 +49,29 @@ export function TireStorageDetailsDialog({
   const [kanal, setKanal] = useState('sms');
   const [zapisuje, setZapisuje] = useState(false);
   const [wysyla, setWysyla] = useState(false);
+  const [edycja, setEdycja] = useState(false);
+  const [klientId, setKlientId] = useState('');
+  const [pojazdId, setPojazdId] = useState('');
+
+  const { data: klienci = [] } = useWorkshopClients(providerId);
+  const { data: pojazdy = [] } = useWorkshopVehicles(providerId);
+
+  // Historia wysylek. Bez niej przy sporze z klientem nie da sie pokazac,
+  // ze przypomnienie w ogole poszlo.
+  const { data: historia = [] } = useQuery({
+    queryKey: ['tire-reminder-log', record?.id],
+    enabled: !!record?.id,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('workshop_tire_reminder_log')
+        .select('*')
+        .eq('storage_id', record.id)
+        .order('wyslano_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   useEffect(() => {
     if (!record) return;
@@ -54,6 +79,9 @@ export function TireStorageDetailsDialog({
     setWlaczone(k !== 'none');
     setKanal(k === 'none' ? 'sms' : k);
     setCoIleMiesiecy(String(record.reminder_months ?? 6));
+    setKlientId(record.client_id ?? '');
+    setPojazdId(record.vehicle_id ?? '');
+    setEdycja(false);
   }, [record]);
 
   if (!record) return null;
@@ -87,6 +115,21 @@ export function TireStorageDetailsDialog({
         .update({
           reminder_channel: wlaczone ? kanal : 'none',
           reminder_months: Number(coIleMiesiecy),
+          // Pomylka przy przyjeciu zdarza sie czesto, a dotad nie dalo sie jej
+          // poprawic — wpis bez pojazdu zostawal bez pojazdu na zawsze.
+          client_id: klientId || null,
+          vehicle_id: pojazdId || null,
+          client_name: klientId
+            ? (() => {
+                const k = klienci.find((c: any) => c.id === klientId);
+                return k
+                  ? (k.company_name || [k.first_name, k.last_name].filter(Boolean).join(' '))
+                  : record.client_name;
+              })()
+            : record.client_name,
+          client_phone: klientId
+            ? (klienci.find((c: any) => c.id === klientId)?.phone ?? record.client_phone)
+            : record.client_phone,
         })
         .eq('id', record.id);
       if (error) throw error;
@@ -150,6 +193,77 @@ export function TireStorageDetailsDialog({
         </DialogHeader>
 
         <div className="space-y-5">
+          {/* Klient i pojazd da sie poprawic. Dotad pomylka przy przyjeciu
+              zostawala na zawsze, a wpis bez pojazdu nie mial jak go dostac. */}
+          <section className="rounded-lg border p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold">Klient i pojazd</Label>
+              <Button variant="ghost" size="sm" onClick={() => setEdycja(v => !v)}>
+                {edycja ? 'Zostaw bez zmian' : 'Zmień'}
+              </Button>
+            </div>
+
+            {edycja ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Klient</Label>
+                  <Select value={klientId || 'brak'} onValueChange={v => setKlientId(v === 'brak' ? '' : v)}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="wybierz" /></SelectTrigger>
+                    <SelectContent className="max-h-[240px]">
+                      <SelectItem value="brak">— bez klienta z bazy —</SelectItem>
+                      {klienci.map((k: any) => (
+                        <SelectItem key={k.id} value={k.id}>
+                          {k.company_name || [k.first_name, k.last_name].filter(Boolean).join(' ') || 'bez nazwy'}
+                          {k.phone ? ` · ${k.phone}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Pojazd</Label>
+                  <Select value={pojazdId || 'brak'} onValueChange={v => setPojazdId(v === 'brak' ? '' : v)}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="wybierz" /></SelectTrigger>
+                    <SelectContent className="max-h-[240px]">
+                      <SelectItem value="brak">— bez pojazdu —</SelectItem>
+                      {pojazdy.map((v: any) => {
+                        const opis = [v.brand, v.model].filter(Boolean).join(' ');
+                        return (
+                          <SelectItem key={v.id} value={v.id}>
+                            {opis ? `${opis} — ${v.plate || 'bez rejestracji'}` : (v.plate || 'bez rejestracji')}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span>{klient}</span>
+                  {record.client_phone && (
+                    <span className="text-muted-foreground text-xs">{record.client_phone}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Car className="h-4 w-4 text-muted-foreground shrink-0" />
+                  {pojazd ? (
+                    <>
+                      <span>{[pojazd.brand, pojazd.model].filter(Boolean).join(' ') || 'pojazd'}</span>
+                      {pojazd.plate && (
+                        <span className="font-mono text-xs rounded border px-1.5 py-0.5">{pojazd.plate}</span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">brak pojazdu — kliknij „Zmień"</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+
           <section className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <Pole etykieta="Opony">
               {[record.tire_brand, record.tire_model].filter(Boolean).join(' ') || '—'}
@@ -245,11 +359,33 @@ export function TireStorageDetailsDialog({
               </div>
             )}
 
-            <p className="text-xs text-muted-foreground">
-              {record.reminder_count > 0
-                ? `Wysłano już ${record.reminder_count}, ostatnie ${data(record.reminder_sent_at)}.`
-                : 'Jeszcze nic nie wysłano.'}
-            </p>
+            <div className="pt-2 border-t">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5 mb-1.5">
+                <History className="h-3 w-3" /> Historia wysyłek
+              </p>
+              {historia.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  {record.reminder_count > 0
+                    ? `Licznik pokazuje ${record.reminder_count}, ale szczegóły nie były wtedy zapisywane.`
+                    : 'Jeszcze nic nie wysłano.'}
+                </p>
+              ) : (
+                <ul className="space-y-1">
+                  {historia.map((h: any) => (
+                    <li key={h.id} className="text-xs flex items-center gap-2">
+                      <span className={h.udane ? 'text-emerald-600' : 'text-destructive'}>
+                        {h.udane ? '✓' : '✕'}
+                      </span>
+                      <span>{new Date(h.wyslano_at).toLocaleString('pl-PL')}</span>
+                      <span className="text-muted-foreground">
+                        {h.kanal === 'email' ? 'e-mail' : 'SMS'}
+                        {h.odbiorca ? ` · ${h.odbiorca}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </section>
         </div>
 

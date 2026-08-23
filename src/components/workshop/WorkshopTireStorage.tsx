@@ -554,12 +554,18 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, pla
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-full p-0" align="start">
-          <Command>
+        <PopoverContent
+          className="w-[--radix-popover-trigger-width] p-0"
+          align="start"
+        >
+          {/* Lista jest juz przefiltrowana wyzej. Bez `shouldFilter={false}`
+              komponent filtruje ja po raz drugi po wlasnym `value` i podswietla
+              przypadkowe pozycje na zolto. */}
+          <Command shouldFilter={false}>
             <div onKeyDown={handleKeyDown}>
               <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
             </div>
-            <CommandList>
+            <CommandList className="max-h-[260px] overflow-y-auto">
               <CommandEmpty>
                 <div className="space-y-1">
                   {onCreateNew && query.trim() && (
@@ -575,7 +581,7 @@ function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddNew, pla
               </CommandEmpty>
               <CommandGroup>
                 {filtered.map(item => (
-                  <CommandItem key={item.id} value={getLabel(item)} onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}>
+                  <CommandItem key={item.id} value={item.id} onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}>
                     <Check className={`mr-2 h-4 w-4 ${value === item.id ? 'opacity-100' : 'opacity-0'}`} />
                     {renderItem(item)}
                   </CommandItem>
@@ -623,6 +629,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
   const [storageCost, setStorageCost] = useState('150');
   const [pickupDeadline, setPickupDeadline] = useState('');
   const [reminderMonths, setReminderMonths] = useState('6');
+  const [trybPrzypomnienia, setTrybPrzypomnienia] = useState<'miesiace' | 'data'>('miesiace');
   // O sposobie kontaktu decyduje klient — 'none' to pełnoprawny wybór, nie brak danych.
   const [reminderChannel, setReminderChannel] = useState<'sms' | 'email' | 'none'>('sms');
   const [locationName, setLocationName] = useState('');
@@ -751,7 +758,9 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
           season,
           stored_at: storedAt,
           pickup_at: pickupAt || null,
-          pickup_deadline: pickupDeadline || null,
+          // W trybie miesiecy termin wylicza sie z daty przyjecia i rytmu,
+          // wiec nie zapisujemy przypadkowej daty z drugiego trybu.
+          pickup_deadline: trybPrzypomnienia === 'data' ? (pickupDeadline || null) : null,
           storage_cost: parseFloat(storageCost) || 150,
           // Stawke zamrazamy na wpisie: pozniejsza podwyzka cennika nie moze
           // podniesc ceny klientowi, ktory zostawil opony wczesniej.
@@ -787,6 +796,9 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
 
       toast.success(t('workshop.tireStorage.storageSaved'));
       queryClient.invalidateQueries({ queryKey: ['tire-storage'] });
+      // Bez tego swiezy wpis nie ma jeszcze policzonej naleznosci i w kolumnie
+      // "Do zaplaty" widac zero, mimo ze cena zostala podana.
+      queryClient.invalidateQueries({ queryKey: ['tire-storage-dues', providerId] });
       onOpenChange(false);
 
       // Offer SMS
@@ -837,7 +849,17 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               onCreateNew={handleCreateClientInline}
               onAddNew={() => setShowAddClient(true)}
               placeholder={t('workshop.tireStorage.enterFullNamePlaceholder')}
-              renderItem={(c: any) => c.company_name || `${[c.first_name, c.last_name].filter(Boolean).join(' ')}`}
+              renderItem={(c: any) => (
+                <span className="flex items-baseline gap-2 min-w-0">
+                  <span className="truncate">
+                    {c.company_name || [c.first_name, c.last_name].filter(Boolean).join(' ') || 'bez nazwy'}
+                  </span>
+                  {/* Imiennicy bez telefonu sa nie do odroznienia na liscie. */}
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {c.phone || 'brak telefonu'}
+                  </span>
+                </span>
+              )}
               getLabel={(c: any) => c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim()}
             />
             {!clientId && clientName && (
@@ -848,7 +870,7 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
           {/* Phone */}
           <div className="space-y-2">
             <Label>{t('workshop.tireStorage.phoneNumber')}</Label>
-            <Input onFocus={e => e.currentTarget.select()} value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="+48 ..." className="h-9" />
+            <Input onFocus={e => e.currentTarget.select()} value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="np. 512 345 678" className="h-9" />
           </div>
 
           {/* Vehicle */}
@@ -861,8 +883,12 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               onCreateNew={handleCreateVehicleInline}
               onAddNew={() => setShowAddVehicle(true)}
               placeholder={t('workshop.tireStorage.searchVehiclePlaceholder')}
-              renderItem={(v: any) => `${v.brand} ${v.model} — ${v.plate}`}
-              getLabel={(v: any) => `${v.brand || ''} ${v.model || ''} ${v.plate || ''}`.trim()}
+              renderItem={(v: any) => {
+                const opis = [v.brand, v.model].filter(Boolean).join(' ');
+                // Puste marka/model dawaly na liscie "null null — WY045XF".
+                return opis ? `${opis} — ${v.plate || 'bez rejestracji'}` : (v.plate || 'bez rejestracji');
+              }}
+              getLabel={(v: any) => [v.brand, v.model, v.plate].filter(Boolean).join(' ').trim()}
             />
             {!vehicleId && vehiclePlateText && (
               <div className="text-xs text-muted-foreground">{t('workshop.tireStorage.entered', { value: vehiclePlateText })}</div>
@@ -913,18 +939,51 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
             ) : null}
           </div>
 
-          {/* Reminder */}
-          <div className="space-y-2">
-            <Label>Przypomnienie o odbiorze — co ile miesięcy</Label>
+          {/* Przypomnienie: albo konkretna data, albo rytm w miesiacach */}
+          <div className="space-y-2 md:col-span-2">
+            <Label>Przypomnienie o odbiorze</Label>
+
+            <div className="flex rounded-md border overflow-hidden w-fit">
+              {([['miesiace', 'Za ile miesięcy'], ['data', 'Konkretna data']] as const).map(([w, opis]) => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => setTrybPrzypomnienia(w)}
+                  className={`px-3 py-1.5 text-sm transition-colors ${
+                    trybPrzypomnienia === w ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'
+                  }`}
+                >
+                  {opis}
+                </button>
+              ))}
+            </div>
+
             <div className="flex items-center gap-2 flex-wrap">
-              <Input onFocus={e => e.currentTarget.select()} type="number" min="1" max="12" value={reminderMonths} onChange={e => setReminderMonths(e.target.value)} className="w-20 h-9" />
-              <span className="text-sm text-muted-foreground">{t('workshop.tireStorage.months')}</span>
-              <span className="text-xs text-muted-foreground w-full">
-                Pierwsze przypomnienie po tym czasie, kolejne w tym samym rytmie.
-                Po wydaniu kompletu przestają wychodzić.
-              </span>
+              {trybPrzypomnienia === 'miesiace' ? (
+                <>
+                  <Select value={reminderMonths} onValueChange={setReminderMonths}>
+                    <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                        <SelectItem key={m} value={String(m)}>
+                          {m} {m === 1 ? 'miesiąc' : m < 5 ? 'miesiące' : 'miesięcy'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-muted-foreground">od przyjęcia</span>
+                </>
+              ) : (
+                <Input
+                  type="date"
+                  value={pickupDeadline}
+                  onChange={e => setPickupDeadline(e.target.value)}
+                  className="h-9 w-48"
+                />
+              )}
+
               <Select value={reminderChannel} onValueChange={(v) => setReminderChannel(v as any)}>
-                <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="sms">SMS-em</SelectItem>
                   <SelectItem value="email">E-mailem</SelectItem>
@@ -932,9 +991,12 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
                 </SelectContent>
               </Select>
             </div>
+
             <p className="text-[11px] text-muted-foreground">
-              Kanał wybiera klient. Wysyłka wymaga jeszcze zadania po stronie serwera —
-              na razie termin jest zapisywany i widoczny w pokwitowaniu.
+              {trybPrzypomnienia === 'miesiace'
+                ? 'Pierwsze przypomnienie po tym czasie, kolejne w tym samym rytmie.'
+                : 'Przypomnienie przed tą datą, kolejne co ' + reminderMonths + ' mies.'}
+              {' '}Po wydaniu kompletu przestają wychodzić. Historia wysyłek jest w szczegółach wpisu.
             </p>
           </div>
 

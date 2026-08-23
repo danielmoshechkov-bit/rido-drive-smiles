@@ -163,6 +163,16 @@ serve(async (req) => {
         // Licznik rosnie, bo przypomnienie nie jest juz jednorazowe: kolejne
         // wychodza co ustalony odstep, az do granicy zapisanej w zasadach
         // warsztatu. Bez licznika nie dalo by sie tej granicy pilnowac.
+        // Historia wysylek: przy sporze z klientem to jedyny dowod, ze
+        // przypomnienie w ogole poszlo i na jaki numer.
+        await supabaseAdmin.from("workshop_tire_reminder_log").insert({
+          storage_id: row.id,
+          provider_id: row.provider_id,
+          kanal: row.channel,
+          odbiorca: row.channel === "email" ? row.email : row.phone,
+          udane: true,
+        });
+
         await supabaseAdmin
           .from("workshop_tire_storage")
           .update({
