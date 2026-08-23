@@ -124,6 +124,36 @@ Deno.serve(async (req) => {
 
     // ── MIESIĄC PLANU ───────────────────────────────────────────────
     if (kupujePlan) {
+      /**
+       * 🔴 WARSZTAT PŁACĄCY KARTĄ NIE KUPUJE OKRESU BLIK-IEM.
+       *
+       * Subskrypcja u operatora odnawia się sama. Doładowanie okresu BLIK-iem
+       * dołożyłoby czas na wierzchu, a karta i tak pobrałaby swoje przy
+       * najbliższym odnowieniu — klient zapłaciłby dwa razy za ten sam czas
+       * i miałby pełne prawo żądać zwrotu.
+       *
+       * Ten sam warunek co w `billing-checkout`: liczy się subskrypcja
+       * NAPRAWDĘ odnawiana u operatora, a nie sam wiersz w bazie. Okres próbny
+       * i miesiąc kupiony wcześniej BLIK-iem to stany, z których klient
+       * wychodzi kupując — tych nie blokujemy.
+       */
+      const { data: kartowa } = await admin
+        .from('billing_subscriptions')
+        .select('id')
+        .eq('subscriber_type', 'service_provider')
+        .eq('subscriber_id', warsztat.id)
+        .eq('provider', 'stripe')
+        .in('status', ['active', 'past_due'])
+        .not('provider_subscription_id', 'is', null)
+        .maybeSingle();
+
+      if (kartowa) {
+        return json({
+          error: 'Ten warsztat ma abonament odnawiany kartą. Zmiana planu odbywa się bez nowej płatności — wybierz plan, a różnicę rozliczy operator karty.',
+          code: 'MASZ_KARTE',
+        }, 409);
+      }
+
       const { data: cena, error: bladCeny } = await (admin as any)
         .rpc('billing_cena_okresu', {
           p_plan_code: plan_code.trim(), p_provider: warsztat.id, p_okres: okresZakupu,

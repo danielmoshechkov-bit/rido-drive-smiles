@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
     // obciążeniem, a nie zakupem.
     const { data: istniejaca } = await admin
       .from("billing_subscriptions")
-      .select("id, status, provider, provider_subscription_id")
+      .select("id, status, provider, provider_subscription_id, plan_id")
       .eq("subscriber_type", "service_provider")
       .eq("subscriber_id", provider.id)
       .eq("product_line", plan.product_line)
@@ -147,10 +147,130 @@ Deno.serve(async (req) => {
       .not("provider_subscription_id", "is", null)
       .maybeSingle();
     if (istniejaca) {
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       * ZMIANA PLANU — PODMIANA POZYCJI, NIE ODMOWA
+       * ═══════════════════════════════════════════════════════════════════
+       * Wcześniej stała tu odmowa 409 z komunikatem „zmienisz plan w panelu
+       * rozliczeń" — a w panelu rozliczeń nie było czym zmienić. Klient na
+       * Standardzie, który chciał Pro, nie miał żadnej drogi.
+       *
+       * W GÓRĘ OD RAZU: podmieniamy pozycję z `always_invoice`, więc operator
+       * wystawia i pobiera RÓŻNICĘ natychmiast. Klient dostaje wyższy plan
+       * w tej samej chwili, bo za niego zapłacił.
+       *
+       * W DÓŁ OD NASTĘPNEGO OKRESU: podmieniamy pozycję z `none`, więc niższa
+       * kwota wchodzi dopiero przy najbliższym rachunku, a dostęp zostaje
+       * wyższy do końca opłaconego okresu. Nie odbieramy tego, za co klient
+       * już zapłacił, i nie zwracamy pieniędzy za niewykorzystane dni —
+       * obie strony dostają dokładnie to, na co się umówiły.
+       *
+       * `plan_id` w naszej bazie przy zejściu NIE ZMIENIA SIĘ. Dostęp liczy
+       * się z niego, a odłożony plan siedzi w `plan_od_nastepnego_okresu`
+       * i wchodzi przy odnowieniu.
+       */
+      const { data: obecny } = await admin
+        .from("billing_plans")
+        .select("id, code, name, price_net, billing_interval")
+        .eq("id", istniejaca.plan_id ?? "")
+        .maybeSingle();
+
+      if (!obecny) {
+        // Fail-closed: bez wiedzy, co klient ma teraz, nie umiemy powiedzieć,
+        // czy to wejście w górę czy zejście — a od tego zależy, czy pobrać
+        // pieniądze od razu. Zgadywanie kosztowałoby klienta gotówkę.
+        return json({
+          error: "Nie umiem odczytać obecnego planu tego warsztatu. Odezwij się do nas.",
+          code: "PLAN_OBECNY_NIEZNANY",
+        }, 409);
+      }
+
+      // KIERUNEK. Najpierw cena planu; przy tym samym planie decyduje okres,
+      // bo rok to większa kwota naraz. Porównujemy ceny katalogowe, nie to,
+      // co klient płaci — gwarancja ceny dotyczy stawki, nie kolejności planów.
+      const obecnyRok = String(obecny.billing_interval ?? "month") === "year";
+      const roznicaPlanu = Number(plan.price_net) - Number(obecny.price_net);
+      const wGore = roznicaPlanu !== 0
+        ? roznicaPlanu > 0
+        : (okresRok && !obecnyRok);
+      const bezZmiany = roznicaPlanu === 0 && okresRok === obecnyRok;
+
+      if (bezZmiany) {
+        return json({
+          error: "Ten plan i okres już masz.",
+          code: "PLAN_BEZ_ZMIANY",
+        }, 409);
+      }
+
+      // Pozycja subskrypcji u operatora. Bierzemy ją z odczytu, nie zakładamy
+      // że jest jedna i pierwsza — brak pozycji znaczy, że subskrypcja jest
+      // w stanie, którego ta ścieżka nie obsługuje, i wtedy odmawiamy zamiast
+      // zgadywać, co podmienić.
+      const subStripe = await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`);
+      const pozycja = subStripe?.items?.data?.[0];
+      if (!pozycja?.id) {
+        return json({
+          error: "Nie umiem odczytać pozycji subskrypcji u operatora. Odezwij się do nas.",
+          code: "BRAK_POZYCJI",
+        }, 409);
+      }
+
+      await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`, {
+        "items[0][id]": pozycja.id,
+        "items[0][price]": cenaStripe!,
+        // `always_invoice` przy wejściu w górę: różnica idzie na rachunek OD RAZU.
+        // `none` przy zejściu: nowa kwota dopiero przy najbliższym odnowieniu.
+        proration_behavior: wGore ? "always_invoice" : "none",
+      });
+
+      if (wGore) {
+        // Baza dogania stan opłacony. Webhook zrobi to samo, gdy dojedzie —
+        // zapis jest ten sam, więc powtórzenie niczego nie psuje, a klient
+        // nie czeka na operatora, żeby zobaczyć swój nowy plan.
+        const { error: bladZapisu } = await admin
+          .from("billing_subscriptions")
+          .update({
+            plan_id: plan.id,
+            plan_od_nastepnego_okresu: null,
+            plan_zmiana_zgloszona_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", istniejaca.id);
+        if (bladZapisu) throw bladZapisu;
+
+        console.log(JSON.stringify({
+          event: "plan_zmieniony", kierunek: "w_gore",
+          z: obecny.code, na: plan.code, provider: provider.id,
+        }));
+
+        return json({
+          zmiana: "natychmiast",
+          plan: plan.code,
+          nazwa_planu: plan.name,
+          z_planu: obecny.code,
+        });
+      }
+
+      // ZEJŚCIE. Odkładamy w bazie funkcją, która bierze blokadę wiersza —
+      // zadanie odnowieniowe może właśnie stosować poprzednią zmianę.
+      const { data: wynik, error: bladPlanu } = await admin.rpc("billing_zaplanuj_zmiane_planu", {
+        p_sub_id: istniejaca.id,
+        p_plan_id: plan.id,
+      });
+      if (bladPlanu) throw bladPlanu;
+
+      console.log(JSON.stringify({
+        event: "plan_zmieniony", kierunek: "w_dol",
+        z: obecny.code, na: plan.code, provider: provider.id, wynik,
+      }));
+
       return json({
-        error: "Ten warsztat ma już subskrypcję odnawianą kartą. Zmienisz plan w panelu rozliczeń.",
-        code: "ALREADY_SUBSCRIBED",
-      }, 409);
+        zmiana: "od_nastepnego_okresu",
+        plan: plan.code,
+        nazwa_planu: plan.name,
+        z_planu: obecny.code,
+        obowiazuje_od: (wynik as any)?.obowiazuje_od ?? null,
+      });
     }
 
     // ---- klient u operatora ----

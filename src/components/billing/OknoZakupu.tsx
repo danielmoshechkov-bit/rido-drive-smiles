@@ -4,7 +4,9 @@ import { Check, Loader2, CreditCard, Smartphone, ArrowLeft } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
 import { usePublicPricing, type PublicPlan } from '@/hooks/usePublicPricing';
 import { useCenaOkresu, zl, type Okres } from '@/hooks/useCenaOkresu';
 import { zapamietajZamowienie, czekajNaWydanie, LIMIT_KARTY_ZAKUPU_MS } from '@/lib/doladowanie';
@@ -42,6 +44,16 @@ type Krok = 'plan' | 'okres' | 'metoda' | 'podsumowanie';
 
 const KUPOWALNE = ['warsztat_standard', 'warsztat_pro'];
 
+/**
+ * „22 września" zamiast „2026-09-22". Klient czyta zdanie, nie znacznik czasu,
+ * a data w formacie bazy w środku zdania wygląda jak wyciek z systemu.
+ */
+function dniaSlownie(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'przy najbliższym odnowieniu';
+  return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long' });
+}
+
 export function OknoZakupu({
   otwarte, onOpenChange, zadanie,
 }: {
@@ -54,6 +66,8 @@ export function OknoZakupu({
   const [plan, setPlan] = useState<string | null>(null);
   const [okres, setOkres] = useState<Okres>('rok');
   const [wysylka, setWysylka] = useState<'blik' | 'karta' | null>(null);
+  const qc = useQueryClient();
+  const odswiezJednostki = useOdswiezJednostki();
 
   // Wejście z kafelka cennika ma pominąć krok, który klient już wykonał.
   useEffect(() => {
@@ -111,6 +125,34 @@ export function OknoZakupu({
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      /**
+       * ZMIANA PLANU NIE PROWADZI DO BRAMKI.
+       *
+       * Warsztat z subskrypcją odnawianą kartą nie kupuje drugiej — podmienia
+       * pozycję u operatora. Wejście w górę idzie od razu (operator pobiera
+       * różnicę), zejście od następnego okresu. W obu przypadkach nie ma
+       * dokąd przekierować, więc otwarta na zapas karta ma się zamknąć.
+       */
+      if (data?.zmiana) {
+        karta?.close();
+        if (data.zmiana === 'natychmiast') {
+          toast.success(`Plan zmieniony na ${data.nazwa_planu ?? data.plan}. Działa od teraz.`);
+        } else {
+          toast.success(
+            data.obowiazuje_od
+              ? `Plan zmieni się na ${data.nazwa_planu ?? data.plan} ${dniaSlownie(data.obowiazuje_od)}. Do tego czasu działasz na obecnym — masz go opłacony.`
+              : `Plan zmieni się na ${data.nazwa_planu ?? data.plan} przy najbliższym odnowieniu.`,
+          );
+        }
+        // Plakietka przy nazwie firmy czyta subskrypcję osobnym zapytaniem —
+        // bez unieważnienia pokazywałaby stary plan aż do odświeżenia strony.
+        qc.invalidateQueries({ queryKey: ['subscription-details'] });
+        odswiezJednostki();
+        onOpenChange(false);
+        return;
+      }
+
       if (!data?.url) throw new Error('Nie udało się rozpocząć płatności.');
       if (karta) karta.location.href = data.url; else window.location.href = data.url;
       onOpenChange(false);
