@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveWorkshopTrialDays, workshopTrialExpiresAt } from "../_shared/workshopTrial.ts";
 import { sprawdzKodPlanu } from "../_shared/kodPlanu.ts";
+import { zalozSubskrypcjeProbna, zalogujSubskrypcje } from "../_shared/subskrypcjaProbna.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -165,38 +166,20 @@ Deno.serve(async (req) => {
        *
        * Wykryte audytem ścieżki klienta na świeżo założonym koncie.
        */
-      const { data: planProbny } = await supabaseAdmin
-        .from("billing_plans")
-        .select("id")
-        .eq("code", "trial_warsztat")
-        .maybeSingle();
-
+      // Warsztat odczytujemy ponownie: ten wyżej żyje w swoim bloku, a poleganie
+      // na zasięgu z sąsiedniego `if` to dokładnie ta klasa pomyłki, którą
+      // wychwycił tu `deno check`.
       const { data: warsztatDoSub } = await supabaseAdmin
         .from("service_providers").select("id").eq("user_id", userId)
         .order("created_at", { ascending: true }).limit(1).maybeSingle();
 
-      if (planProbny?.id && warsztatDoSub?.id) {
-        const { error: bladSub } = await supabaseAdmin.from("billing_subscriptions").insert({
-          subscriber_type: "service_provider",
-          subscriber_id: warsztatDoSub.id,
-          plan_id: planProbny.id,
-          status: "trialing",
-          current_period_start: new Date().toISOString(),
-          current_period_end: trialEndsAt,
-          trial_ends_at: trialEndsAt,
-          price_snapshot: { zrodlo: "rejestracja", plan: planSprawdzony, trial_days: trialDays },
-        });
-        // Brak subskrypcji nie może wywrócić rejestracji — konto ma powstać.
-        // Ale mówimy o tym głośno, bo klient bez tego wiersza nie dostanie
-        // ostrzeżeń przed końcem okresu próbnego.
-        if (bladSub) {
-          console.error("⚠️ billing_subscriptions:", bladSub.message);
-        } else {
-          console.log("✅ Wiersz subskrypcji (trialing) założony");
-        }
-      } else {
-        console.error("⚠️ brak planu trial_warsztat albo warsztatu — subskrypcja NIEZALOŻONA");
-      }
+      const wynikSub = await zalozSubskrypcjeProbna(
+        supabaseAdmin,
+        warsztatDoSub?.id,
+        trialEndsAt,
+        { zrodlo: "activate-workshop-trial", plan: planSprawdzony, trial_days: trialDays },
+      );
+      zalogujSubskrypcje(wynikSub);
 
       const { error: trialError } = await supabaseAdmin.from("paid_service_subscriptions").insert({
         user_id: userId,

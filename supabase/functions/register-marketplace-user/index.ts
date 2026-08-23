@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveWorkshopTrialDays, workshopTrialExpiresAt } from "../_shared/workshopTrial.ts";
 import { sprawdzKodPlanu } from "../_shared/kodPlanu.ts";
+import { zalozSubskrypcjeProbna, zalogujSubskrypcje } from "../_shared/subskrypcjaProbna.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -290,6 +291,21 @@ Deno.serve(async (req) => {
       } else {
         console.log("✅ Workshop trial saved, expires_at:", trialEndsAt);
       }
+
+      // Ta sama droga rejestracji, ten sam wiersz rozliczeń co przy
+      // `activate-workshop-trial`. Bez niego warsztat zapisany z AuthModal
+      // z `module: 'warsztat'` byłby niewidoczny dla ostrzeżeń i trybu
+      // dokończenia — czyli w dniu wygaśnięcia dostałby twardy blok bez słowa.
+      const { data: warsztatDoSub } = await supabaseAdmin
+        .from("service_providers").select("id").eq("user_id", userId)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+      zalogujSubskrypcje(await zalozSubskrypcjeProbna(
+        supabaseAdmin,
+        warsztatDoSub?.id,
+        trialEndsAt,
+        { zrodlo: "register-marketplace-user", plan: planSprawdzony, trial_days: trialDays },
+      ));
     }
 
     // 3b. Generate referral code for the new user (so they can refer others)

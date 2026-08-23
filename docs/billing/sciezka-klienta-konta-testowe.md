@@ -151,3 +151,18 @@ opłaconym BLIK-iem, żeby nie było puste.
 **Uwaga:** dziś **nie wysyłamy maila w chwili wejścia w tryb dokończenia ani w chwili
 blokady**. Klient dowiaduje się z panelu. Ostrzeżenia idą tylko przed końcem.
 Warto to dołożyć — zapisane w raporcie.
+
+---
+
+## Konta z wdrożenia 23.08 (dwie drogi rejestracji)
+
+Hasło to samo: `AudytRido!2026x`
+
+| Adres | Drogą | Stan |
+|---|---|---|
+| `rido.audyt.wdrozenie1@gmail.com` | `activate-workshop-trial` | próbny do 22.09, 50 SMS |
+| `rido.audyt.wdrozenie2@gmail.com` | `register-marketplace-user` z `module: 'warsztat'` | próbny do 22.09, 50 SMS |
+
+Oba mają wiersz `billing_subscriptions` w linii `warsztat`, więc widzą je
+ostrzeżenia i tryb dokończenia. Powtórne wywołanie aktywacji na każdym z nich
+**nie** zakłada drugiej subskrypcji ani drugiej paczki SMS — sprawdzone.
