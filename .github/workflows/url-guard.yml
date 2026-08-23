@@ -14,3 +14,9 @@ jobs:
         with:
           node-version: "20"
       - run: node scripts/check-public-urls.mjs
+
+      # Straznik tlumaczen. Przewraca sie na KAZDYM NOWYM kluczu, ktory
+      # wyrenderowalby uzytkownikowi wlasna nazwe zamiast tekstu, oraz na
+      # kluczu z pl.json brakujacym w innym jezyku. Dlug juz istniejacy
+      # siedzi w scripts/i18n-baseline.json i jest przepuszczany.
+      - run: node scripts/check-i18n.mjs

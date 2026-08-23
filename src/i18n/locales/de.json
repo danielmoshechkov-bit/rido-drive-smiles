@@ -150,7 +150,8 @@
     "allListings": "← Alle Anzeigen",
     "privacy": "Datenschutz",
     "terms": "Nutzungsbedingungen",
-    "contact": "Kontakt"
+    "contact": "Kontakt",
+    "dataDeletion": "Datenlöschung"
   },
   "notifications": {
     "settings": "Benachrichtigungseinstellungen",
@@ -2202,7 +2203,8 @@
         "daneNaprawcze": "Reparaturdaten",
         "pracownicy": "Mitarbeiter",
         "stanowiska": "Stationen",
-        "ustawienia": "Einstellungen"
+        "ustawienia": "Einstellungen",
+        "cennik": "Leistungspreisliste"
       },
       "freeTrialBadge": "{{days}} Tage kostenlos — unverbindlich",
       "heroTitle": "Werkstatt & Auto — alles an einem Ort",
@@ -2245,6 +2247,9 @@
       "stations": {
         "title": "Werkstattstationen",
         "desc": "Stationen (z. B. Waschanlage, Achsvermessung, Reifenservice) funktionieren wie Auftragsstatus. Weisen Sie Mitarbeiter zu — wenn ein Auftrag eine Station erreicht, erhalten sie eine Benachrichtigung und SMS."
+      },
+      "cennik": {
+        "desc": "Preise und Dauer der Leistungen. Dies ist die einzige Quelle, aus der der Sprachassistent Kunden Preise nennt — tragen Sie nur ein, was er sagen soll. Geben Sie die Dauer als BELEGUNGSZEIT DES ARBEITSPLATZES an, nicht als Arbeitszeit: Steht das Auto eine Stunde, tragen Sie 60 ein, auch wenn die Arbeit selbst 30 Minuten dauert."
       }
     },
     "settings": {
@@ -4015,5 +4020,30 @@
     "selectToActivate": "Wählen Sie das Modul, das Sie aktivieren möchten",
     "comingSoon": "Bald",
     "allAccountTypes": "Sie haben bereits alle verfügbaren Kontotypen"
+  },
+  "dataDeletion": {
+    "title": "Datenlöschung",
+    "subtitle": "Anleitung zur Löschung personenbezogener Daten — einschließlich Daten aus Facebook und Instagram (Meta)",
+    "lastUpdated": "Letzte Aktualisierung",
+    "adminTitle": "1. Verantwortlicher",
+    "rodoContact": "Kontakt in Datenschutzangelegenheiten",
+    "metaDataTitle": "2. Welche Daten wir über Facebook / Instagram erheben",
+    "metaDataIntro": "Im Zusammenhang mit der Veröffentlichung von Anzeigen auf den GetRido-Profilen in Meta-Diensten können wir über die Meta-APIs folgende Daten erheben:",
+    "metaData1": "Nutzerkennung im Meta-Dienst",
+    "metaData2": "Profilname",
+    "metaData3": "E-Mail-Adresse (sofern freigegeben)",
+    "metaData4": "Kennungen der veröffentlichten Beiträge",
+    "purposeText": "Zweck der Verarbeitung: Veröffentlichung der Nutzeranzeigen auf den GetRido-Profilen in Meta-Diensten sowie Auswertung der Veröffentlichungsstatistik.",
+    "howTitle": "3. So beantragen Sie die Löschung Ihrer Daten",
+    "howIntro": "Um die Löschung Ihrer Daten zu beantragen, gehen Sie wie folgt vor:",
+    "howStep1": "Senden Sie eine E-Mail an:",
+    "howStep2": "Geben Sie als Betreff an: „Datenlöschung\".",
+    "howStep3": "Nennen Sie im Text die E-Mail-Adresse Ihres GetRido-Kontos oder den Namen des betroffenen Facebook-Profils.",
+    "deadline": "Wir bearbeiten den Antrag unverzüglich, spätestens innerhalb von 30 Tagen nach Eingang (Art. 12 Abs. 3 DSGVO).",
+    "scopeTitle": "4. Was wir löschen und was wir aufbewahren müssen",
+    "scopeDelete": "Wir löschen alle personenbezogenen Daten, die mit dem im Antrag genannten Konto oder Profil verbunden sind, einschließlich der aus Meta-Diensten erhobenen Daten.",
+    "scopeKeep": "Ausgenommen sind Abrechnungsdaten und Rechnungen, die wir nach steuerrechtlichen Vorschriften 5 Jahre aufbewahren müssen. Nach Ablauf dieser Frist werden sie gelöscht.",
+    "altTitle": "5. Alternativ: Zugriff in den Facebook-Einstellungen widerrufen",
+    "altText": "Sie können die GetRido-App auch selbst von Ihrem Facebook-Konto trennen: Gehen Sie zu Einstellungen → Apps und Websites, suchen Sie GetRido und entfernen Sie den Zugriff. Das Trennen der App stoppt die weitere Datenerhebung; um bereits erhobene Daten zu löschen, senden Sie einen Antrag gemäß Punkt 3."
   }
 }
