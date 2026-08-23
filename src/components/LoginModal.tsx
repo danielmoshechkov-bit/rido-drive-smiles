@@ -121,7 +121,13 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
         return;
       }
 
-      toast.success(result.message || "Konto utworzone! Sprawdź email, aby potwierdzić rejestrację.");
+      // Konto powstało, ale mail nie wyszedł: zielony komunikat „gotowe" byłby
+      // nieprawdą — klient czekałby na wiadomość, która nigdy nie przyjdzie.
+      if (result.emailFailed) {
+        toast.warning(result.message || "Konto utworzone, ale mail aktywacyjny nie wyszedł.");
+      } else {
+        toast.success(result.message || "Konto utworzone! Sprawdź email, aby potwierdzić rejestrację.");
+      }
       setMode('login');
       setPassword("");
       setConfirmPassword("");

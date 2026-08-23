@@ -10,6 +10,18 @@ const corsHeaders = {
 
 interface RegisterMarketplaceUserRequest {
   first_name: string;
+  /**
+   * Rodzaj zakładanego konta. Domyślnie `marketplace` — TAK ZOSTAJE dla
+   * wszystkich dotychczasowych wywołań (giełda, nieruchomości, usługi).
+   *
+   * `client` zakłada samo konto: bez profilu giełdowego i bez roli
+   * `marketplace_user`. Ta droga istnieje, bo `supabase.auth.signUp` przy
+   * nieudanej wysyłce maila WYCOFUJE utworzenie konta i oddaje 500 —
+   * klient z adresem w firmowej domenie zostawał bez konta i bez wyjaśnienia.
+   * Tutaj konto powstaje kluczem serwisowym, a wysyłka jest osobnym krokiem
+   * meldowanym polem `email_sent`.
+   */
+  account_type?: 'marketplace' | 'client';
   last_name?: string;
   phone?: string;
   email: string;
@@ -36,7 +48,14 @@ Deno.serve(async (req) => {
     });
 
     const body: RegisterMarketplaceUserRequest = await req.json();
-    const { first_name, last_name, phone, email, password, referral_code } = body;
+    const { last_name, phone, email, password, referral_code } = body;
+    const kontoKlienta = body.account_type === 'client';
+    // Imię jest wymagane na giełdzie (widnieje przy ogłoszeniach), a przy
+    // koncie klienta z okna logowania nikt o nie nie pyta. Pusty łańcuch
+    // zamiast `undefined`, bo `marketplace_user_profiles.first_name` jest NOT NULL
+    // — i tak nie dojdziemy tam przy koncie klienta, ale wolę nie zostawiać
+    // pułapki na kogoś, kto później zdejmie warunek.
+    const first_name = body.first_name ?? '';
     const module = body.module && KNOWN_MODULES.includes(body.module) ? body.module : undefined;
     const plan = module ? (body.plan || undefined) : undefined;
 
@@ -104,7 +123,8 @@ Deno.serve(async (req) => {
       password,
       email_confirm: !requireEmailConfirmation,
       user_metadata: {
-        first_name, last_name, phone, account_type: 'marketplace',
+        first_name, last_name, phone,
+        account_type: kontoKlienta ? 'client' : 'marketplace',
         ...(module ? { module, plan: planSprawdzony } : {})
       }
     });
@@ -166,7 +186,12 @@ Deno.serve(async (req) => {
     console.log("✅ Auth user created:", userId);
 
     // 2. Create marketplace user profile
-    const { error: profileError } = await supabaseAdmin
+    //
+    // KONTO KLIENTA GO NIE DOSTAJE. Profil giełdowy i rola `marketplace_user`
+    // znaczą „ten ktoś wystawia i kupuje na giełdzie". Konto zakładane
+    // z okna logowania nie deklaruje niczego takiego i nadanie mu roli
+    // rozszerzyłoby uprawnienia bez powodu.
+    const { error: profileError } = kontoKlienta ? { error: null } : await supabaseAdmin
       .from("marketplace_user_profiles")
       .insert({
         user_id: userId,
@@ -188,10 +213,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("✅ Marketplace profile created");
+    console.log(kontoKlienta ? "✅ Konto klienta (bez profilu giełdowego)" : "✅ Marketplace profile created");
 
     // 3. Assign marketplace_user role
-    const { error: roleError } = await supabaseAdmin
+    const { error: roleError } = kontoKlienta ? { error: null } : await supabaseAdmin
       .from("user_roles")
       .upsert({
         user_id: userId,
@@ -201,7 +226,7 @@ Deno.serve(async (req) => {
     if (roleError) {
       console.error("❌ user_roles error:", roleError.message);
     } else {
-      console.log("✅ Marketplace role assigned");
+      console.log(kontoKlienta ? "ℹ️ Rola marketplace pominięta — konto klienta" : "✅ Marketplace role assigned");
     }
 
     // 3a-bis. Moduł warsztatowy: rola + wpis usługodawcy (status wstępny) + minimalny trial.
