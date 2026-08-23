@@ -18,6 +18,7 @@ import { WorkshopAddVehicleDialog } from './WorkshopAddVehicleDialog';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { TireStorageRulesDialog } from './TireStorageRulesDialog';
+import { TireStoragePricing, useTirePricing, RODZAJE_FELG } from './TireStoragePricing';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -169,6 +170,13 @@ function printStorageReceipt(
     ${row('Pojazd', vehicle)}
     ${row('Opony', [record.tire_brand, record.tire_model].filter(Boolean).join(' '))}
     ${row('Rozmiar', record.tire_size)}
+    ${(() => {
+      const b = [
+        ['LP', record.tread_lp_mm], ['PP', record.tread_pp_mm],
+        ['LT', record.tread_lt_mm], ['PT', record.tread_pt_mm],
+      ].filter(([, v]) => v != null);
+      return b.length ? row('Bieżnik', b.map(([k, v]) => `${k}: ${v} mm`).join(' · ')) : '';
+    })()}
     ${row('Sezon', seasons[record.season] ?? record.season)}
     ${row('Liczba sztuk', record.quantity ?? 4)}
     ${row('Głębokość bieżnika', record.tread_depth_mm ? `${record.tread_depth_mm} mm` : '')}
@@ -177,7 +185,9 @@ function printStorageReceipt(
     ${row('Data przyjęcia', record.stored_at ? new Date(record.stored_at).toLocaleDateString('pl-PL') : '')}
     ${row('Termin odbioru', record.pickup_deadline ? new Date(record.pickup_deadline).toLocaleDateString('pl-PL') : '')}
     ${kind === 'wydania' ? row('Data wydania', record.pickup_at ? new Date(record.pickup_at).toLocaleDateString('pl-PL') : new Date().toLocaleDateString('pl-PL')) : ''}
-    ${row('Koszt przechowania', record.storage_cost ? `${Number(record.storage_cost).toFixed(2)} zł` : '')}
+    ${row('Koszt przechowania', record.cena_za_okres && record.okres_miesiecy
+      ? `${Number(record.cena_za_okres).toFixed(2)} zł za ${record.okres_miesiecy} mies. (każdy rozpoczęty okres płatny)`
+      : record.storage_cost ? `${Number(record.storage_cost).toFixed(2)} zł` : '')}
     ${row('Lokalizacja', record.location_name)}
     ${row('Uwagi', record.notes)}
   </table>
@@ -230,6 +240,34 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
     if (error) { toast.error(error.message); return; }
     toast.success('Komplet wydany klientowi.');
     queryClientRef.invalidateQueries({ queryKey: ['tire-storage'] });
+  };
+
+  /**
+   * Komplet, po ktory nikt nie przyjechal mimo przypomnien. Oznaczenie
+   * zatrzymuje dalsze przypomnienia (nie ma sensu pisac w kolko) i wyroznia
+   * wpis na liscie, ale NIE wydaje kompletu i nie zeruje naleznosci —
+   * o losie opon decyduje warsztat, nie system.
+   */
+  const oznaczNieodebrane = async (record: any) => {
+    const nazwa = [record.tire_brand, record.tire_size].filter(Boolean).join(' ') || 'komplet';
+    const juz = !!record.dlug?.nieodebrane_od;
+    if (!(await confirmAction({
+      title: juz ? `Cofnąć oznaczenie dla ${nazwa}?` : `Uznać ${nazwa} za nieodebrany?`,
+      description: juz
+        ? 'Przypomnienia znów będą wychodzić.'
+        : 'Przypomnienia przestaną wychodzić. Komplet zostaje w magazynie, należność bez zmian.',
+      confirmLabel: juz ? 'Cofnij' : 'Uznaj za nieodebrany',
+      destructive: !juz,
+    }))) return;
+
+    const { error } = await (supabase as any)
+      .from('workshop_tire_storage')
+      .update({ nieodebrane_od: juz ? null : new Date().toISOString().slice(0, 10) })
+      .eq('id', record.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(juz ? 'Oznaczenie cofnięte.' : 'Oznaczono jako nieodebrany.');
+    queryClientRef.invalidateQueries({ queryKey: ['tire-storage'] });
+    queryClientRef.invalidateQueries({ queryKey: ['tire-storage-dues', providerId] });
   };
 
   const [page, setPage] = useState(1);
@@ -376,6 +414,12 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                     {r.dlug ? (
                       <div>
                         <span className="font-medium">{Number(r.dlug.do_zaplaty ?? 0).toFixed(2)} zł</span>
+                        {r.dlug.okresow > 0 && r.okres_miesiecy && (
+                          <div className="text-xs text-muted-foreground">
+                            {r.dlug.okresow} × {Number(r.cena_za_okres).toFixed(0)} zł
+                            {' '}(co {r.okres_miesiecy} mies.)
+                          </div>
+                        )}
                         {r.dlug.dni_po_terminie > 0 && (
                           <div className="text-xs text-destructive">
                             {r.dlug.dni_po_terminie} dni po terminie
@@ -401,6 +445,20 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                     {view === 'stored' && (
                       <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => issueSet(r)}>
                         <Check className="h-3.5 w-3.5" /> Wydaj
+                      </Button>
+                    )}
+                    {view === 'stored' && (r.dlug?.dni_po_terminie ?? 0) > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs gap-1"
+                        onClick={() => oznaczNieodebrane(r)}
+                        title={r.dlug?.nieodebrane_od
+                          ? 'Cofnij oznaczenie i wznów przypomnienia'
+                          : 'Zatrzymaj przypomnienia — nikt się nie zgłosił'}
+                      >
+                        <Archive className="h-3.5 w-3.5" />
+                        {r.dlug?.nieodebrane_od ? 'Cofnij' : 'Nieodebrane'}
                       </Button>
                     )}
                   </TableCell>
@@ -553,6 +611,37 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
   const [dotCode, setDotCode] = useState('');
   const [treadDepth, setTreadDepth] = useState('');
   const [rimType, setRimType] = useState('');
+  const [bieznikLP, setBieznikLP] = useState('');
+  const [bieznikPP, setBieznikPP] = useState('');
+  const [bieznikLT, setBieznikLT] = useState('');
+  const [bieznikPT, setBieznikPT] = useState('');
+
+  // Roznica miedzy osiami decyduje o wymianie, a jedna wartosc na komplet
+  // ja gubila. Pokazujemy ja od razu przy przyjeciu.
+  const roznicaBieznika = useMemo(() => {
+    const wartosci = [bieznikLP, bieznikPP, bieznikLT, bieznikPT]
+      .map(v => parseFloat(v))
+      .filter(v => Number.isFinite(v));
+    if (wartosci.length < 2) return null;
+    return Math.max(...wartosci) - Math.min(...wartosci);
+  }, [bieznikLP, bieznikPP, bieznikLT, bieznikPT]);
+
+  // Stawka z cennika dla wybranego rozmiaru i felgi. Trafiona -> podpowiadamy
+  // cene i okres; nietrafiona -> zostaje recznie wpisana kwota, jak dotad.
+  const { data: cennik = [] } = useTirePricing(providerId);
+  const stawka = useMemo(() => {
+    const r = tireSize.trim().toLowerCase();
+    if (!r) return null;
+    const pasujace = cennik.filter((c: any) => (c.rozmiar || '').trim().toLowerCase() === r);
+    if (pasujace.length === 0) return null;
+    return pasujace.find((c: any) => c.rodzaj_felgi === rimType)
+        ?? pasujace.find((c: any) => c.rodzaj_felgi === 'dowolne')
+        ?? null;
+  }, [cennik, tireSize, rimType]);
+
+  useEffect(() => {
+    if (stawka) setStorageCost(String(stawka.cena_za_okres));
+  }, [stawka]);
   const [rimManufacturer, setRimManufacturer] = useState('');
   const [quantity, setQuantity] = useState('4');
   const [notes, setNotes] = useState('');
@@ -634,6 +723,14 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
           pickup_at: pickupAt || null,
           pickup_deadline: pickupDeadline || null,
           storage_cost: parseFloat(storageCost) || 150,
+          // Stawke zamrazamy na wpisie: pozniejsza podwyzka cennika nie moze
+          // podniesc ceny klientowi, ktory zostawil opony wczesniej.
+          cena_za_okres: stawka ? Number(stawka.cena_za_okres) : null,
+          okres_miesiecy: stawka ? Number(stawka.okres_miesiecy) : null,
+          tread_lp_mm: parseFloat(bieznikLP) || null,
+          tread_pp_mm: parseFloat(bieznikPP) || null,
+          tread_lt_mm: parseFloat(bieznikLT) || null,
+          tread_pt_mm: parseFloat(bieznikPT) || null,
           location_name: locationName || locationDesc,
           reminder_months: parseInt(reminderMonths) || 6,
           reminder_channel: reminderChannel,
@@ -772,6 +869,18 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               <Input onFocus={e => e.currentTarget.select()} type="number" value={storageCost} onChange={e => setStorageCost(e.target.value)} className="flex-1 h-9" />
               <span className="text-sm text-muted-foreground">{t('workshop.tireStorage.plnNet')}</span>
             </div>
+            {stawka ? (
+              <p className="text-xs text-emerald-600">
+                Z cennika: {Number(stawka.cena_za_okres).toFixed(2)} zł za {stawka.okres_miesiecy}{' '}
+                {stawka.okres_miesiecy === 1 ? 'miesiąc' : stawka.okres_miesiecy < 5 ? 'miesiące' : 'miesięcy'}
+                {stawka.rodzaj_felgi === 'dowolne' && ' (stawka zapasowa dla rozmiaru)'}
+                . Kolejne okresy doliczą się same.
+              </p>
+            ) : tireSize.trim() ? (
+              <p className="text-xs text-muted-foreground">
+                Brak tego rozmiaru w cenniku — kwota jednorazowa, bez doliczania kolejnych okresów.
+              </p>
+            ) : null}
           </div>
 
           {/* Reminder */}
@@ -846,13 +955,46 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
               <Label className="text-xs">{t('workshop.tireStorage.dotCode')}</Label>
               <Input onFocus={e => e.currentTarget.select()} value={dotCode} onChange={e => setDotCode(e.target.value)} placeholder="3325" maxLength={4} className="h-8" />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">{t('workshop.tireStorage.treadDepth')}</Label>
-              <Input onFocus={e => e.currentTarget.select()} type="number" value={treadDepth} onChange={e => setTreadDepth(e.target.value)} placeholder="6.5" className="h-8" />
+            <div className="space-y-1 col-span-2">
+              <Label className="text-xs">Bieżnik na każdą oponę (mm)</Label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {([
+                  ['lp', 'Lewa przód', bieznikLP, setBieznikLP],
+                  ['pp', 'Prawa przód', bieznikPP, setBieznikPP],
+                  ['lt', 'Lewa tył', bieznikLT, setBieznikLT],
+                  ['pt', 'Prawa tył', bieznikPT, setBieznikPT],
+                ] as const).map(([klucz, opis, wartosc, ustaw]) => (
+                  <div key={klucz}>
+                    <Input
+                      onFocus={e => e.currentTarget.select()}
+                      type="number" step="0.5" min={0} max={20}
+                      value={wartosc}
+                      onChange={e => ustaw(e.target.value)}
+                      placeholder={klucz.toUpperCase()}
+                      title={opis}
+                      className="h-8 text-center"
+                    />
+                    <p className="text-[10px] text-muted-foreground text-center mt-0.5">{opis}</p>
+                  </div>
+                ))}
+              </div>
+              {roznicaBieznika !== null && roznicaBieznika >= 3 && (
+                <p className="text-[11px] text-amber-600">
+                  Różnica {roznicaBieznika.toFixed(1)} mm między oponami — warto pokazać klientowi.
+                </p>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t('workshop.tireStorage.rimType')}</Label>
-              <Input onFocus={e => e.currentTarget.select()} value={rimType} onChange={e => setRimType(e.target.value)} placeholder={t('workshop.tireStorage.rimTypePlaceholder')} className="h-8" />
+              <Select value={rimType || 'brak'} onValueChange={v => setRimType(v === 'brak' ? '' : v)}>
+                <SelectTrigger className="h-8"><SelectValue placeholder="wybierz" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="brak">— nie podano —</SelectItem>
+                  {RODZAJE_FELG.filter(r => r.value !== 'dowolne').map(r => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t('workshop.tireStorage.rimManufacturer')}</Label>

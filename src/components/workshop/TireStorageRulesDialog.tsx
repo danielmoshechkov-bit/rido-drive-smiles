@@ -5,10 +5,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { Loader2, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TireStoragePricing } from './TireStoragePricing';
 
 /**
  * Zasady przechowalni: oplata po terminie i rytm przypomnien.
@@ -29,6 +34,7 @@ export function TireStorageRulesDialog({
   const [coIleDni, setCoIleDni] = useState('30');
   const [ileMax, setIleMax] = useState('6');
   const [dniNieodebrane, setDniNieodebrane] = useState('180');
+  const [domyslnyOkres, setDomyslnyOkres] = useState('6');
 
   useEffect(() => {
     if (!open || !providerId) return;
@@ -49,6 +55,7 @@ export function TireStorageRulesDialog({
         setCoIleDni(String(data.co_ile_dni_przypominac ?? 30));
         setIleMax(String(data.ile_przypomnien_max ?? 6));
         setDniNieodebrane(String(data.dni_do_nieodebranych ?? 180));
+        setDomyslnyOkres(String(data.domyslny_okres_miesiecy ?? 6));
       }
       setLadowanie(false);
     })();
@@ -94,6 +101,7 @@ export function TireStorageRulesDialog({
           co_ile_dni_przypominac: wCoIle,
           ile_przypomnien_max: wIle,
           dni_do_nieodebranych: wNieodebrane,
+          domyslny_okres_miesiecy: Number(domyslnyOkres),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'provider_id' });
       if (error) throw error;
@@ -125,15 +133,26 @@ export function TireStorageRulesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Zasady przechowalni</DialogTitle>
           <DialogDescription>
-            Opłata za przetrzymanie i rytm przypomnień. Dotyczy wszystkich kompletów
-            w tym warsztacie.
+            Cennik przechowania, opłata za przetrzymanie i rytm przypomnień.
+            Dotyczy wszystkich kompletów w tym warsztacie.
           </DialogDescription>
         </DialogHeader>
 
+        <Tabs defaultValue="cennik" className="mt-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="cennik">Cennik przechowania</TabsTrigger>
+            <TabsTrigger value="zasady">Opłaty i przypomnienia</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="cennik" className="pt-4">
+            <TireStoragePricing providerId={providerId} />
+          </TabsContent>
+
+          <TabsContent value="zasady" className="pt-4">
         {ladowanie ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -173,14 +192,29 @@ export function TireStorageRulesDialog({
                 <Input type="number" min={0} max={60} value={ileMax}
                        onChange={e => setIleMax(e.target.value)} />
               </div>
-              <div className="space-y-1.5 col-span-2">
+              <div className="space-y-1.5">
                 <Label>Po ilu dniach proponować uznanie za nieodebrane</Label>
                 <Input type="number" min={0} value={dniNieodebrane}
                        onChange={e => setDniNieodebrane(e.target.value)} />
               </div>
+              <div className="space-y-1.5">
+                <Label>Domyślny okres rozliczeniowy</Label>
+                <Select value={domyslnyOkres} onValueChange={setDomyslnyOkres}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} {m === 1 ? 'miesiąc' : m < 5 ? 'miesiące' : 'miesięcy'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         )}
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
