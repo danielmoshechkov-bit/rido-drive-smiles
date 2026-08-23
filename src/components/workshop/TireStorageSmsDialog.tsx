@@ -65,28 +65,49 @@ export function TireStorageSmsDialog({
 
   const domyslnaTresc = useMemo(() => {
     if (!wpis) return '';
-    const warsztat = wpis.__warsztat ?? '';
-    const adres = wpis.__adres ?? '';
+
     const opony = [wpis.tire_brand, wpis.tire_model].filter(Boolean).join(' ');
     const felgi = (wpis.rim_type && wpis.rim_type !== 'bez felg')
       ? `na felgach ${wpis.rim_type}`
       : 'bez felg';
     const auto = [wpis.__pojazd, wpis.__rejestracja].filter(Boolean).join(' ');
+    const adres = wpis.__adres ?? '';
+    // Kod pocztowy i miasto nic klientowi nie mowia — zna warsztat, w ktorym
+    // wlasnie byl. Ulica wystarcza, a to 15 znakow mniej.
+    const ulica = adres.split(',')[0]?.trim() ?? '';
 
-    const czesci = [
-      [warsztat, adres].filter(Boolean).join(', ') + ':',
+    const zlozTresc = (co: {
+      adres?: boolean; opony?: boolean; felgi?: boolean; auto?: boolean; numer?: boolean;
+    }) => bezOgonkow([
+      [wpis.__warsztat ?? '', co.adres ? ulica : ''].filter(Boolean).join(', ') + ':',
       'przyjelismy opony',
-      [opony, wpis.tire_size].filter(Boolean).join(' '),
+      co.opony ? [opony, wpis.tire_size].filter(Boolean).join(' ') : (wpis.tire_size ?? ''),
       wpis.quantity ? `${wpis.quantity} szt.` : '',
-      felgi + '.',
-      auto ? `Auto: ${auto}.` : '',
-      wpis.storage_number ? `Nr ${wpis.storage_number}.` : '',
+      co.felgi ? felgi + '.' : '.',
+      co.auto && auto ? `Auto: ${auto}.` : '',
+      co.numer && wpis.storage_number ? `Nr ${wpis.storage_number}.` : '',
       kod ? `Potwierdzenie: getrido.pl/p/${kod}` : '',
-    ].filter(Boolean).join(' ');
+    ].filter(Boolean).join(' ')).replace(/\s+/g, ' ').replace(/\s\./g, '.').trim();
 
-    // Bez ogonkow miesci sie 160 znakow zamiast 70 — przy tej dlugosci
-    // roznica to jedna czesc zamiast trzech.
-    return bezOgonkow(czesci).replace(/\s+/g, ' ').trim();
+    // Skladamy od wersji pelnej i odejmujemy najmniej wazne czesci, dopoki
+    // wiadomosc nie zmiesci sie w jednej. Dwie czesci to dwa razy drozej
+    // za te sama informacje, a numer i marke opon klient ma pod linkiem.
+    const warianty = [
+      { adres: true,  opony: true,  felgi: true,  auto: true,  numer: true  },
+      { adres: true,  opony: true,  felgi: true,  auto: false, numer: true  },
+      { adres: true,  opony: true,  felgi: true,  auto: false, numer: false },
+      { adres: true,  opony: false, felgi: true,  auto: false, numer: false },
+      { adres: false, opony: false, felgi: true,  auto: false, numer: false },
+      { adres: false, opony: false, felgi: false, auto: false, numer: false },
+    ];
+
+    for (const w of warianty) {
+      const tekst = zlozTresc(w);
+      if (tekst.length <= 160) return tekst;
+    }
+    // Nawet najkrotsza wersja nie weszla — oddajemy ja i tak, licznik
+    // w oknie pokaze, ile czesci z tego wyjdzie.
+    return zlozTresc(warianty[warianty.length - 1]);
   }, [wpis, kod]);
 
   useEffect(() => { setTresc(domyslnaTresc); }, [domyslnaTresc]);
