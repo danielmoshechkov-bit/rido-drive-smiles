@@ -159,6 +159,84 @@ Druga forma jest groźniejsza, bo objawia się odmową, a odmowa wygląda jak za
 zabezpieczenie. Pierwsza tylko czegoś nie pokazuje.
 
 
+### ⚠️ NAJCZĘSTSZA PRZYCZYNA BŁĘDÓW W TYM PROJEKCIE — policzona
+
+Zmiana w schemacie unieważnia założenie w kodzie, **którego ta zmiana nie dotyczy**.
+W jednej sesji (23.08.2026) ten sam wzorzec wystąpił **dziewięć razy**. Żaden inny
+nie zbliżył się do trzech.
+
+Przykłady z tej sesji, wszystkie tej samej klasy:
+
+| zmiana | co po cichu przestało działać |
+|---|---|
+| wariant A dał wiersz `trialing` każdemu warsztatowi | `billing-checkout` odmawiał zakupu WSZYSTKIM |
+| ta sama zmiana | `PlanBadge` przestał pokazywać licznik okresu próbnego |
+| `grant_sms_credits` zaczęła zakładać paczkę | pakiet startowy dawał 60 SMS przy 30 w księdze |
+| druga kolumna FK do `billing_plans` | `plan:billing_plans(...)` stało się niejednoznaczne → zapytanie padało → klient chcący WYCOFAĆ zmianę dostawał bramkę płatności |
+| `product_line` z wartością domyślną `other` | nowa subskrypcja omijałaby indeks pilnujący jednej aktywnej |
+| kolumna `dokanczanie_do` + wyzwalacz na `status` | zapis ustawiający oba naraz cicho gubił termin |
+| `trial_ends_at` zakładany przy rejestracji | ostrzeżenie „kończy Ci się dostęp" w środku OPŁACONEGO okresu |
+
+**Zanim uznasz zmianę w bazie za skończoną**, przejdź te cztery pytania:
+
+1. **Kto czyta te kolumny?** `grep` po nazwie kolumny w `src/` i `supabase/functions/`.
+2. **Co znaczyła PUSTKA, a co ZNACZY TERAZ?** Wiersz, którego wcześniej nie było,
+   zmienia sens każdego `maybeSingle()`, `EXISTS` i `IS NULL` w okolicy.
+3. **Czy dołożyłeś drugi klucz obcy do tej samej tabeli?** Jeśli tak, każde
+   zagnieżdżenie PostgREST po tej relacji przestaje się rozstrzygać i pada.
+4. **Czy wartość domyślna nowej kolumny wchodzi w skład indeksu albo warunku?**
+
+I najważniejsze: **zapytanie, którego wynik decyduje o pobraniu pieniędzy albo
+o dostępie, nie ma prawa cicho zwrócić pustki.** Sprawdzaj `error`, nie tylko `data`.
+
+
+### Migracja zmieniająca sposób NADAWANIA musi rozstrzygnąć, co z tym, co JUŻ NADANO
+
+Poprawiona funkcja działa od chwili wykonania. Wiersze założone wcześniej zostają
+takie, jakie były — i nikt ich nie naprawi, bo migracja przeszła na zielono.
+
+Tak było z pakietem startowym: `20260823120000` usunęła podwójne zakładanie paczki
+SMS i naprawiła to skutecznie, ale jedenaście kont założonych kilka godzin wcześniej
+dalej miało po 60 SMS-ów przy 30 w księdze. Kontrola w migracji sprawdzała treść
+funkcji, więc mówiła „zielono" nad niewyrównanymi danymi.
+
+Każda migracja zmieniająca **jak coś jest nadawane, liczone albo zapisywane** ma
+odpowiedzieć na trzy pytania i zapisać odpowiedzi w nagłówku:
+
+1. **Ile wierszy powstało po staremu?** Policzyć zapytaniem, nie oszacować.
+2. **Naprawiamy je czy zostawiamy?** Zostawienie bywa słuszne (dane historyczne,
+   zbyt mały zasięg), ale ma być decyzją, nie przeoczeniem.
+3. **Jeśli naprawiamy — co, gdy stan zdążył się zmienić?** Wyrównanie zna stan,
+   który zastaje. Kontrola wstępna ma zatrzymać migrację, gdy zastanie inny,
+   zamiast „radzić sobie" arytmetyką, która komuś coś zabierze.
+
+Kontrola sprawdzająca **treść funkcji** nie jest kontrolą **danych**. Potrzebne są obie.
+
+
+### Pusta tabela to nie to samo co nieużywana
+
+Liczba wierszy nie mówi nic o tym, czy kod na tabeli stoi. Zero wierszy znaczy
+tylko tyle, że nikt jeszcze nie zapisał — nie że nikt nie czyta.
+
+Uznałem `invoices`, `entities` i sąsiadów za „martwy świat" na podstawie zapytania
+`count(*)` i o mało nie zaproponowałem skasowania tabel, na których stoi
+**12 plików frontu i 3 funkcje brzegowe** (`invoices`), **15 i 4** (`entities`),
+przy `purchase_invoices` z 597 wierszami wiszącymi na `entities` więzem obcym.
+
+Zanim uznasz cokolwiek w bazie za nieużywane, sprawdź **trzy** sygnały:
+
+| sygnał | czym sprawdzić |
+|---|---|
+| dane | `count(*)` |
+| kod | `.from('<tabela>')` w `src/` **i** `supabase/functions/` |
+| więzy | `pg_constraint` w obie strony — kto wskazuje i na co wskazuje |
+
+Sam ostatni wystarcza, żeby zatrzymać `DROP`. Sam pierwszy nie wystarcza do niczego.
+
+To ta sama klasa co „brak wiersza znaczy X" wyżej: **wniosek o stanie wyciągnięty
+z niewłaściwego sygnału.**
+
+
 ### `REVOKE ... FROM public` NIE odbiera uprawnień `anon` ani `authenticated`
 
 `PUBLIC` w PostgreSQL to osobne uprawnienie domyślne. Supabase nadaje `EXECUTE`

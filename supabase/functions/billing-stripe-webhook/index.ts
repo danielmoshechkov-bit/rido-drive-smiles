@@ -164,7 +164,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  // Klucz serwisowy w osobnej stałej: woła nim nie tylko klient bazy, ale też
+  // funkcja wystawiająca fakturę, która przyjmuje wyłącznie takie wywołania.
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const admin = createClient(supabaseUrl, serviceKey);
 
   const sekret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
   const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -373,9 +376,81 @@ Deno.serve(async (req) => {
           console.log(JSON.stringify({ event: "subskrypcja_odtworzona", subId }));
         }
 
-        // TODO(4.17): tutaj wpina się wystawienie faktury VAT GetRido —
-        // idempotentnie, po `external_id` zdarzenia, żeby powtórna dostawa
-        // nie stworzyła drugiego dokumentu.
+        /**
+         * FAKTURA VAT GetRido — PO ZAKSIĘGOWANIU OKRESU, NIGDY JAKO WARUNEK.
+         *
+         * Ta sama zasada i ten sam kształt co przy PayU: dokument powstaje
+         * dopiero, gdy dostęp jest przedłużony, a nieudane wystawienie NIE
+         * wywraca webhooka. Klient zapłacił i ma dostęp; brak faktury naprawia
+         * się jednym wywołaniem, cofnięcie okresu — nie.
+         *
+         * IDEMPOTENCJA PO IDENTYFIKATORZE RACHUNKU U OPERATORA (`in_...`),
+         * nie po identyfikatorze zdarzenia. To samo obciążenie potrafi dojść
+         * kilkoma zdarzeniami, a faktura ma być jedna — pilnuje tego unikalny
+         * indeks na `external_payment_ref`.
+         *
+         * KWOTA Z `amount_paid`, w groszach. Bierzemy to, co operator NAPRAWDĘ
+         * pobrał, a nie cenę z cennika: przy zmianie planu rachunek opiewa na
+         * różnicę, a faktura ma zgadzać się z obciążeniem co do grosza.
+         */
+        try {
+          const { data: naszaSub } = await admin
+            .from("billing_subscriptions")
+            .select("subscriber_id, plan:billing_plans!billing_subscriptions_plan_id_fkey(name)")
+            .eq("provider", "stripe")
+            .eq("provider_subscription_id", subId)
+            .maybeSingle();
+
+          const { data: nabywca } = naszaSub?.subscriber_id
+            ? await admin
+                .from("service_providers")
+                .select("company_name, company_nip, company_address, company_city, company_postal_code, company_email, owner_email")
+                .eq("id", naszaSub.subscriber_id)
+                .maybeSingle()
+            : { data: null };
+
+          const kwota = Number(obiekt?.amount_paid ?? 0) / 100;
+          if (kwota <= 0) {
+            // Rachunek na zero (np. sam upust) nie rodzi faktury — nie ma za co.
+            console.log(JSON.stringify({ event: "stripe_faktura_pominieta", powod: "kwota_zero", subId }));
+          } else {
+            const adres = [
+              (nabywca as any)?.company_address,
+              [(nabywca as any)?.company_postal_code, (nabywca as any)?.company_city]
+                .filter(Boolean).join(" "),
+            ].filter(Boolean).join(", ");
+
+            const odp = await fetch(`${supabaseUrl}/functions/v1/billing-invoice-issue`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+              body: JSON.stringify({
+                external_payment_ref: `stripe:${obiekt.id}`,
+                buyer_name: (nabywca as any)?.company_name ?? null,
+                buyer_nip: (nabywca as any)?.company_nip ?? null,
+                buyer_address: adres || null,
+                buyer_email: (nabywca as any)?.company_email ?? (nabywca as any)?.owner_email ?? null,
+                payment_method: "stripe",
+                items: [{
+                  name: `Abonament ${(naszaSub as any)?.plan?.name ?? "GetRido"}`,
+                  quantity: 1,
+                  unit: "szt",
+                  // BRUTTO — operator pobrał konkretną kwotę i to ona rozstrzyga.
+                  unit_gross_price: kwota,
+                  vat_rate: 23,
+                }],
+              }),
+            });
+
+            const wynik = await odp.json().catch(() => ({}));
+            console.log(JSON.stringify({
+              event: odp.ok ? "stripe_faktura" : "stripe_faktura_blad",
+              subId, numer: (wynik as any)?.invoice_number ?? null, status: odp.status,
+            }));
+          }
+        } catch (bladFaktury) {
+          console.error("billing-stripe-webhook: faktura niewystawiona", bladFaktury);
+        }
+
         await zakoncz("processed");
         break;
       }
@@ -401,12 +476,68 @@ Deno.serve(async (req) => {
       // -------------------------------------- zmiany cyklu życia
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const status = typ.endsWith("deleted") ? "canceled" : mapujStatus(obiekt.status);
+        /**
+         * DOKLEJONY CZAS WYGLĄDA U OPERATORA JAK OKRES PRÓBNY.
+         *
+         * Przy zmianie okresu doklejamy niewykorzystane dni, ustawiając
+         * `trial_end` — to jedyny parametr operatora przyjmujący dowolną datę
+         * (`billing_cycle_anchor` przy aktualizacji bierze tylko `now`).
+         * Skutkiem subskrypcja ma status `trialing` do tej daty.
+         *
+         * Gdybyśmy przepisali ten status wprost, klient który właśnie zapłacił
+         * za rok zobaczyłby plakietkę „okres próbny" i dostałby ostrzeżenia
+         * o jego końcu. Dlatego przy naszym znaczniku `doklejony_czas`
+         * zapisujemy `active` — bo to jest opłacony okres, nie próbny.
+         */
+        const czasDoklejony = String(obiekt?.metadata?.doklejony_czas ?? "") === "1";
+        const status = typ.endsWith("deleted")
+          ? "canceled"
+          : (czasDoklejony && obiekt.status === "trialing" ? "active" : mapujStatus(obiekt.status));
         const okres = okresSubskrypcji(obiekt);
+
+        /**
+         * 🔴 PLAN TEŻ SIĘ ZMIENIA, NIE TYLKO STATUS I OKRES.
+         *
+         * Ta gałąź aktualizowała status, okres i daty anulowania — a `plan_id`
+         * zostawiała nietknięte. Skutek: ktokolwiek zmieni plan (klient przez
+         * okno zakupu, my ręcznie w panelu Stripe), operator pobiera nową
+         * kwotę, a my dalej bramkujemy po STARYM planie.
+         *
+         * Klient płaci za Pro i widzi Standard. Pieniądze idą, dostęp nie —
+         * i nikt tego nie zauważy, bo obie strony „działają".
+         *
+         * Rozpoznajemy plan po cenie, na której subskrypcja JEST w Stripe.
+         * Cztery kolumny, bo plan ma cenę miesięczną i roczną, każdą
+         * w wariancie startowym i docelowym — a wszystkie cztery znaczą
+         * ten sam plan.
+         */
+        const cenaTeraz = obiekt?.items?.data?.[0]?.price?.id;
+        let planZeStripe: string | null = null;
+        if (cenaTeraz) {
+          const { data: dopasowany } = await admin
+            .from("billing_plans")
+            .select("id, code")
+            .or([
+              `stripe_price_id.eq.${cenaTeraz}`,
+              `stripe_price_id_target.eq.${cenaTeraz}`,
+              `stripe_price_id_rok.eq.${cenaTeraz}`,
+              `stripe_price_id_rok_target.eq.${cenaTeraz}`,
+            ].join(","))
+            .maybeSingle();
+          if (dopasowany?.id) {
+            planZeStripe = dopasowany.id;
+          } else {
+            // Cena spoza naszego cennika — NIE zgadujemy planu. Lepiej zostawić
+            // stary i zostawić ślad, niż przypisać zły zakres funkcji.
+            console.warn("billing-stripe-webhook: cena nieznana w cenniku", cenaTeraz, obiekt.id);
+          }
+        }
+
         const trafione = await aktualizujSubskrypcje(admin, obiekt.id, {
           status,
           ...(okres.start ? { current_period_start: okres.start } : {}),
           current_period_end: okres.end,
+          ...(planZeStripe ? { plan_id: planZeStripe } : {}),
           canceled_at: obiekt.canceled_at ? naDate(obiekt.canceled_at) : null,
           cancel_at: obiekt.cancel_at ? naDate(obiekt.cancel_at) : null,
         });

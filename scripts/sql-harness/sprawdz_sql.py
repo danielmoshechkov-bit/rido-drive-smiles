@@ -33,8 +33,25 @@ for st in drzewo:
     # kontrolę, przepisujemy ciało na zwykłą funkcję z NEW/OLD jako zmiennymi.
     czy_trigger = re.search(r'RETURNS\s+trigger', fragment, re.I)
     if czy_trigger:
-        ciało = fragment[fragment.index('$$') + 2: fragment.rindex('$$')]
-        ciało = re.sub(r'^\s*BEGIN', 'DECLARE NEW record; OLD record; BEGIN', ciało, count=1, flags=re.I)
+        # Znacznik cytowania czytamy z treści. Zaszyte `$$` wywracało kontrolę
+        # wyjątkiem na każdej funkcji wyzwalacza pisanej z nazwanym znacznikiem
+        # (`$FUNKCJA$`) — a kontrola, która pada zamiast ocenić, jest gorsza
+        # od jej braku: wygląda na awarię narzędzia, nie na błąd w migracji.
+        m_tag = re.search(r'\bAS\s+(\$[A-Za-z_][A-Za-z_0-9]*\$|\$\$)', fragment)
+        if not m_tag:
+            print(f"CZERWONO — plpgsql {nazwa}: nie znalazłem znacznika ciała funkcji")
+            sys.exit(1)
+        tag = m_tag.group(1)
+        ciało = fragment[fragment.index(tag, m_tag.start()) + len(tag): fragment.rindex(tag)]
+        # NEW i OLD muszą trafić do JEDNEJ sekcji DECLARE — drugie słowo
+        # `DECLARE` to błąd składni, więc funkcja z własnymi zmiennymi
+        # przechodziłaby kontrolę jako „czerwona" bez powodu.
+        m_decl = re.match(r'(\s*DECLARE\b)', ciało, flags=re.I)
+        if m_decl:
+            ciało = ciało[:m_decl.end()] + ' NEW record; OLD record;' + ciało[m_decl.end():]
+        else:
+            ciało = re.sub(r'^\s*BEGIN', 'DECLARE NEW record; OLD record; BEGIN',
+                           ciało, count=1, flags=re.I)
         fragment = "CREATE FUNCTION _ctrl() RETURNS record LANGUAGE plpgsql AS $ctrl$" + ciało + "$ctrl$;"
     try:
         parse_plpgsql(fragment)

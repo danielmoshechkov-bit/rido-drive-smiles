@@ -77,7 +77,13 @@ Deno.serve(async (req) => {
     if (planErr) throw planErr;
     if (!plan || !plan.is_active) return json({ error: "Plan niedostępny" }, 404);
     if (plan.is_custom) return json({ error: "Ten plan wyceniamy indywidualnie — napisz do nas." }, 400);
-    if (Number(plan.price_net) === 0) return json({ error: "Plan darmowy nie wymaga płatności" }, 400);
+    /**
+     * Plan darmowy NIE jest tu odrzucany. Wybór planu darmowego przez klienta,
+     * który ma abonament, znaczy „anuluj mi subskrypcję" — i to jest operacja,
+     * którą trzeba wykonać, a nie odmówić. Odmawiamy niżej, dopiero gdy okaże
+     * się, że nie ma czego anulować.
+     */
+    const planDarmowy = Number(plan.price_net) === 0;
     /**
      * Cena w Stripe zależy od OKRESU, bo obiekty Price są tam niezmienne
      * i każdy okres ma własny. Zakłada je synchronizacja cennika — jeśli
@@ -85,13 +91,13 @@ Deno.serve(async (req) => {
      * miesiąc komuś, kto wybrał rok.
      */
     const cenaStripe = okresRok ? plan.stripe_price_id_rok : plan.stripe_price_id;
-    if (okresRok && !plan.stripe_price_id_rok) {
+    if (!planDarmowy && okresRok && !plan.stripe_price_id_rok) {
       return json({
         error: "Ten plan nie ma jeszcze ceny rocznej. Wybierz miesiąc albo odezwij się do nas.",
         code: "PLAN_ROK_NOT_SYNCED",
       }, 409);
     }
-    if (!plan.stripe_price_id) {
+    if (!planDarmowy && !plan.stripe_price_id) {
       // Plan po zmianie ceny czeka na resynchronizację — lepiej odmówić niż
       // obciążyć klienta kwotą, której nie ma już w cenniku.
       return json({ error: "Plan wymaga synchronizacji ze Stripe", code: "PLAN_NOT_SYNCED" }, 409);
@@ -109,6 +115,29 @@ Deno.serve(async (req) => {
     }
     // Do czasu przełącznika podmiotu (4.1) bierzemy najstarszy warsztat konta.
     const provider = providers[0];
+
+    /**
+     * FAIL-CLOSED: BEZ DANYCH NABYWCY NIE STARTUJEMY PŁATNOŚCI.
+     *
+     * Faktury z pustym nabywcą nie da się poprawić edycją — wymaga korekty,
+     * a korekta idzie do KSeF i zostaje w ewidencji na zawsze. Taniej jest
+     * odmówić startu płatności niż wystawić dokument do naprawienia.
+     *
+     * Okno zakupu pyta o te dane w osobnym kroku przed wyborem metody, więc
+     * klient nie ma prawa tu dotrzeć bez nich. Ta kontrola jest po to, żeby
+     * ktoś, kto woła funkcję z pominięciem okna, też ich nie ominął.
+     */
+    {
+      const { data: komplet, error: bladDanych } = await admin
+        .rpc("billing_dane_nabywcy_kompletne", { p_provider_id: provider.id });
+      if (bladDanych) throw bladDanych;
+      if (komplet !== true) {
+        return json({
+          error: "Zanim zapłacisz, uzupełnij dane do faktury.",
+          code: "BRAK_DANYCH_NABYWCY",
+        }, 409);
+      }
+    }
 
     // ---- już opłacone? ----
     // Schemat dopuszcza jedną aktywną subskrypcję na linię produktową i pilnuje
@@ -138,7 +167,7 @@ Deno.serve(async (req) => {
     // obciążeniem, a nie zakupem.
     const { data: istniejaca } = await admin
       .from("billing_subscriptions")
-      .select("id, status, provider, provider_subscription_id")
+      .select("id, status, provider, provider_subscription_id, plan_id, plan_od_nastepnego_okresu")
       .eq("subscriber_type", "service_provider")
       .eq("subscriber_id", provider.id)
       .eq("product_line", plan.product_line)
@@ -147,10 +176,533 @@ Deno.serve(async (req) => {
       .not("provider_subscription_id", "is", null)
       .maybeSingle();
     if (istniejaca) {
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       * ZMIANA PLANU — PODMIANA POZYCJI, NIE ODMOWA
+       * ═══════════════════════════════════════════════════════════════════
+       * Wcześniej stała tu odmowa 409 z komunikatem „zmienisz plan w panelu
+       * rozliczeń" — a w panelu rozliczeń nie było czym zmienić. Klient na
+       * Standardzie, który chciał Pro, nie miał żadnej drogi.
+       *
+       * W GÓRĘ OD RAZU: podmieniamy pozycję z `always_invoice`, więc operator
+       * wystawia i pobiera RÓŻNICĘ natychmiast. Klient dostaje wyższy plan
+       * w tej samej chwili, bo za niego zapłacił.
+       *
+       * W DÓŁ OD NASTĘPNEGO OKRESU: podmieniamy pozycję z `none`, więc niższa
+       * kwota wchodzi dopiero przy najbliższym rachunku, a dostęp zostaje
+       * wyższy do końca opłaconego okresu. Nie odbieramy tego, za co klient
+       * już zapłacił, i nie zwracamy pieniędzy za niewykorzystane dni —
+       * obie strony dostają dokładnie to, na co się umówiły.
+       *
+       * `plan_id` w naszej bazie przy zejściu NIE ZMIENIA SIĘ. Dostęp liczy
+       * się z niego, a odłożony plan siedzi w `plan_od_nastepnego_okresu`
+       * i wchodzi przy odnowieniu.
+       */
+      const { data: obecny } = await admin
+        .from("billing_plans")
+        .select("id, code, name, price_net, billing_interval, stripe_price_id, stripe_price_id_rok")
+        .eq("id", istniejaca.plan_id ?? "")
+        .maybeSingle();
+
+      if (!obecny) {
+        // Fail-closed: bez wiedzy, co klient ma teraz, nie umiemy powiedzieć,
+        // czy to wejście w górę czy zejście — a od tego zależy, czy pobrać
+        // pieniądze od razu. Zgadywanie kosztowałoby klienta gotówkę.
+        return json({
+          error: "Nie umiem odczytać obecnego planu tego warsztatu. Odezwij się do nas.",
+          code: "PLAN_OBECNY_NIEZNANY",
+        }, 409);
+      }
+
+      // KIERUNEK. Najpierw cena planu; przy tym samym planie decyduje okres,
+      // bo rok to większa kwota naraz. Porównujemy ceny katalogowe, nie to,
+      // co klient płaci — gwarancja ceny dotyczy stawki, nie kolejności planów.
+      const obecnyRok = String(obecny.billing_interval ?? "month") === "year";
+      const roznicaPlanu = Number(plan.price_net) - Number(obecny.price_net);
+      const bezZmiany = roznicaPlanu === 0 && okresRok === obecnyRok;
+      // Kierunek dotyczy WYŁĄCZNIE zmiany planu w tym samym okresie — zmiana
+      // okresu ma własną gałąź niżej i wraca z niej, więc tutaj `okresRok`
+      // zawsze równa się `obecnyRok`. Wcześniej stał tu warunek zapasowy na
+      // okres; zostawiony wyglądałby na obsługiwany przypadek, którym nie jest.
+      const wGore = roznicaPlanu > 0;
+
+      /**
+       * WYBÓR OBECNEGO PLANU PRZY ODŁOŻONEJ ZMIANIE = WYCOFANIE JEJ.
+       *
+       * Nie ma osobnego przycisku „wycofaj" i nie ma go być: okno wyboru planów
+       * jest jedyną drogą, a ostatni wybór klienta wygrywa. Klient, który
+       * 10 września zgłosił zejście na Standard, a 15 września klika Pro,
+       * mówi „zostaję na Pro" — i to ma po prostu zadziałać, bez płatności.
+       *
+       * POZYCJĘ U OPERATORA TRZEBA COFNĄĆ RAZEM Z KOLUMNĄ. Przy zejściu
+       * podmieniliśmy ją na cenę niższego planu (bez rachunku, `none`), więc
+       * samo wyczyszczenie kolumny zostawiłoby klienta z Pro w naszej bazie
+       * i rachunkiem na Standard u operatora. Klient płaciłby mniej, niż ma —
+       * to jest dziura w przychodzie, tylko odwrócona.
+       */
+      if (bezZmiany && istniejaca.plan_od_nastepnego_okresu) {
+        const cenaObecnego = obecnyRok ? obecny.stripe_price_id_rok : obecny.stripe_price_id;
+        if (!cenaObecnego) {
+          return json({
+            error: "Nie umiem przywrócić Twojego obecnego planu u operatora. Napisz do nas.",
+            code: "BRAK_CENY_OBECNEGO",
+          }, 409);
+        }
+
+        let subDoCofniecia: any = null;
+        try {
+          subDoCofniecia = await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`);
+        } catch (bladOperatora) {
+          console.error(JSON.stringify({
+            event: "subskrypcja_nieznana_u_operatora", faza: "wycofanie",
+            subskrypcja: istniejaca.provider_subscription_id, provider: provider.id,
+            blad: bladOperatora instanceof Error ? bladOperatora.message : String(bladOperatora),
+          }));
+          return json({
+            error: "Twój abonament figuruje u nas jako opłacany kartą, ale operator go nie potwierdza. Napisz do nas, odblokujemy to ręcznie.",
+            code: "SUBSKRYPCJA_NIEZNANA",
+          }, 409);
+        }
+
+        const pozycjaCofana = subDoCofniecia?.items?.data?.[0];
+        if (!pozycjaCofana?.id) {
+          return json({
+            error: "Nie umiem odczytać pozycji subskrypcji u operatora. Napisz do nas.",
+            code: "BRAK_POZYCJI",
+          }, 409);
+        }
+
+        await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`, {
+          "items[0][id]": pozycjaCofana.id,
+          "items[0][price]": cenaObecnego,
+          proration_behavior: "none",
+          // Wycofanie zejścia zdejmuje też anulowanie — klient wybrał plan
+          // płatny, więc subskrypcja ma dalej żyć. Bez tego wybór planu
+          // darmowego, a potem powrót, zostawiłby subskrypcję do skasowania.
+          cancel_at_period_end: "false",
+        });
+
+        const { error: bladWycofania } = await admin.rpc("billing_wycofaj_zmiane_planu", {
+          p_sub_id: istniejaca.id,
+        });
+        if (bladWycofania) throw bladWycofania;
+
+        console.log(JSON.stringify({
+          event: "plan_zmieniony", kierunek: "wycofanie",
+          plan: obecny.code, provider: provider.id,
+        }));
+
+        return json({
+          zmiana: "wycofana",
+          plan: obecny.code,
+          nazwa_planu: obecny.name,
+        });
+      }
+
+      if (bezZmiany) {
+        return json({
+          error: "Ten plan i okres już masz.",
+          code: "PLAN_BEZ_ZMIANY",
+        }, 409);
+      }
+
+      /**
+       * PLAN DARMOWY = ANULOWANIE SUBSKRYPCJI, nie podmiana ceny.
+       *
+       * `cancel_at_period_end` zamiast natychmiastowego skasowania: klient ma
+       * opłacony okres i ma go domknąć. Ceny nie ruszamy — subskrypcja ma
+       * dożyć swojego końca na dotychczasowej stawce, a potem zniknąć.
+       *
+       * Skutek uboczny, o którym klient jest uprzedzony w oknie: powrót na plan
+       * płatny wymaga podania karty od nowa, bo subskrypcji już nie będzie.
+       */
+      if (planDarmowy) {
+        try {
+          await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`, {
+            cancel_at_period_end: "true",
+          });
+        } catch (bladOperatora) {
+          console.error(JSON.stringify({
+            event: "anulowanie_nieudane",
+            subskrypcja: istniejaca.provider_subscription_id, provider: provider.id,
+            blad: bladOperatora instanceof Error ? bladOperatora.message : String(bladOperatora),
+          }));
+          return json({
+            error: "Nie udało się anulować subskrypcji u operatora. Napisz do nas — nie chcemy zostawić Cię z obciążeniem, którego nie chcesz.",
+            code: "ANULOWANIE_NIEUDANE",
+          }, 409);
+        }
+
+        const { data: wynikFree, error: bladFree } = await admin.rpc("billing_zaplanuj_zmiane_planu", {
+          p_sub_id: istniejaca.id,
+          p_plan_id: plan.id,
+        });
+        if (bladFree) throw bladFree;
+
+        console.log(JSON.stringify({
+          event: "plan_zmieniony", kierunek: "anulowanie",
+          z: obecny.code, provider: provider.id,
+        }));
+
+        return json({
+          zmiana: "anulowana",
+          plan: plan.code,
+          nazwa_planu: plan.name,
+          z_planu: obecny.code,
+          obowiazuje_od: (wynikFree as any)?.obowiazuje_od ?? null,
+        });
+      }
+
+      // Pozycja subskrypcji u operatora. Bierzemy ją z odczytu, nie zakładamy
+      // że jest jedna i pierwsza — brak pozycji znaczy, że subskrypcja jest
+      // w stanie, którego ta ścieżka nie obsługuje, i wtedy odmawiamy zamiast
+      // zgadywać, co podmienić.
+      let subStripe: any = null;
+      try {
+        subStripe = await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`);
+      } catch (bladOperatora) {
+        /**
+         * ROZJAZD MIĘDZY NASZĄ BAZĄ A OPERATOREM. Wiersz mówi „subskrypcja
+         * odnawiana kartą", a operator jej nie zna — subskrypcja została tam
+         * usunięta albo klucz wskazuje na inne środowisko.
+         *
+         * To jest ślepy zaułek dla klienta: karta prowadzi tutaj, a BLIK
+         * odmawia właśnie dlatego, że w bazie stoi karta. Dlatego mówimy wprost,
+         * co się stało, zamiast oddawać 500 z komunikatem operatora — „No such
+         * subscription" nie znaczy dla klienta nic i wygląda jak awaria.
+         */
+        console.error(JSON.stringify({
+          event: "subskrypcja_nieznana_u_operatora",
+          subskrypcja: istniejaca.provider_subscription_id,
+          provider: provider.id,
+          blad: bladOperatora instanceof Error ? bladOperatora.message : String(bladOperatora),
+        }));
+        return json({
+          error: "Twój abonament figuruje u nas jako opłacany kartą, ale operator go nie potwierdza. Nie zmieniamy planu po omacku — napisz do nas, odblokujemy to ręcznie.",
+          code: "SUBSKRYPCJA_NIEZNANA",
+        }, 409);
+      }
+
+      const pozycja = subStripe?.items?.data?.[0];
+      if (!pozycja?.id) {
+        return json({
+          error: "Nie umiem odczytać pozycji subskrypcji u operatora. Odezwij się do nas.",
+          code: "BRAK_POZYCJI",
+        }, 409);
+      }
+
+      /**
+       * ═══════════════════════════════════════════════════════════════════
+       * ZMIANA OKRESU — DOKLEJAMY CZAS, NIE PRZESUWAMY DATY
+       * ═══════════════════════════════════════════════════════════════════
+       * Klient kupuje OKRES, nie abonament od stałej daty. Kupił 30 dni,
+       * po dziesięciu kupuje rok — ma 385 dni od pierwszego zakupu. Płaci
+       * pełną cenę roku i nic mu nie przepada, bo dostaje ten czas w naturze.
+       *
+       * Tak działa już ścieżka BLIK-owa (`billing_wydaj_okres` dolicza do końca
+       * bieżącego okresu). Dwie różne mechaniki zależne od metody płatności
+       * byłyby gorsze niż ta praca.
+       *
+       * OPERATOR SAM Z SIEBIE ROBI COŚ INNEGO. Dokumentacja: „switching
+       * a customer from a monthly subscription to a yearly subscription moves
+       * the billing date to the date of the switch", a niewykorzystany czas
+       * wraca jako UPUST na rachunku. Klient nie traci pieniędzy, ale traci
+       * dni i widzi na fakturze potrącenie, którego nie rozumie.
+       *
+       * DWA WYWOŁANIA, BO JEDNO NIE WYSTARCZY:
+       *   A. cena + `proration_behavior: none` + `billing_cycle_anchor: now`
+       *      — pełna kwota nowego okresu pobrana TERAZ, bez upustu za stary,
+       *   B. `trial_end` na wyliczoną datę — bo `billing_cycle_anchor` przy
+       *      aktualizacji przyjmuje wyłącznie `now` albo `unchanged`, a
+       *      `trial_end` bierze dowolny znacznik czasu i (cytat z dokumentacji)
+       *      „The billing_cycle_anchor will be updated to the trial_end value".
+       *      Z `proration_behavior: none` to wywołanie nie rusza pieniędzy —
+       *      przesuwa wyłącznie datę następnego pobrania.
+       *
+       * Skutkiem ubocznym subskrypcja ma u operatora status `trialing` do tej
+       * daty. Dlatego niesie znacznik `doklejony_czas`, a webhook mapuje taki
+       * stan na `active` — inaczej klient, który właśnie zapłacił za rok,
+       * zobaczyłby plakietkę „okres próbny" i dostał ostrzeżenia o jego końcu.
+       */
+      const zmianaOkresu = okresRok !== obecnyRok;
+      if (zmianaOkresu) {
+        const koniecUOperatora = Number(
+          subStripe?.items?.data?.[0]?.current_period_end ?? subStripe?.current_period_end ?? 0,
+        );
+        if (!koniecUOperatora) {
+          return json({
+            error: "Nie umiem odczytać końca Twojego okresu u operatora. Napisz do nas.",
+            code: "BRAK_KONCA_OKRESU",
+          }, 409);
+        }
+
+        // Doklejamy do PÓŹNIEJSZEJ z dwóch dat. Gdyby okres zdążył minąć,
+        // liczenie od niego dałoby datę w przeszłości i klient zapłaciłby
+        // za czas, który już minął.
+        const teraz = Math.floor(Date.now() / 1000);
+        const podstawa = new Date(Math.max(koniecUOperatora, teraz) * 1000);
+        const docelowy = new Date(podstawa);
+        docelowy.setMonth(docelowy.getMonth() + (okresRok ? 12 : 1));
+        const docelowyTs = Math.floor(docelowy.getTime() / 1000);
+
+        // A. pełna kwota nowego okresu, bez upustu za niewykorzystany czas
+        const poZaplacie = await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`, {
+          "items[0][id]": pozycja.id,
+          "items[0][price]": cenaStripe!,
+          proration_behavior: "none",
+          billing_cycle_anchor: "now",
+          payment_behavior: "pending_if_incomplete",
+          "metadata[doklejony_czas]": "1",
+        });
+
+        if (poZaplacie?.pending_update) {
+          console.warn(JSON.stringify({
+            event: "zmiana_okresu_bez_zaplaty",
+            z: obecny.code, na: plan.code, provider: provider.id,
+          }));
+          return json({
+            error: "Karta nie przyjęła płatności za nowy okres, więc nic się nie zmieniło. Sprawdź kartę i spróbuj ponownie.",
+            code: "ZMIANA_BEZ_ZAPLATY",
+          }, 402);
+        }
+
+        // B. przesunięcie daty następnego pobrania o niewykorzystane dni
+        let dokleiloSie = true;
+        try {
+          await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`, {
+            trial_end: String(docelowyTs),
+            proration_behavior: "none",
+          });
+        } catch (bladDoklejenia) {
+          // Pieniądze są pobrane, okres kupiony — brakuje wyłącznie doklejenia
+          // niewykorzystanych dni. To jest do naprawienia ręcznie i klient ma
+          // się o tym dowiedzieć od nas, a nie odkryć sam za rok.
+          dokleiloSie = false;
+          console.error(JSON.stringify({
+            event: "doklejenie_dni_nieudane",
+            subskrypcja: istniejaca.provider_subscription_id,
+            provider: provider.id, docelowy: docelowy.toISOString(),
+            blad: bladDoklejenia instanceof Error ? bladDoklejenia.message : String(bladDoklejenia),
+          }));
+        }
+
+        const { error: bladZapisu } = await admin
+          .from("billing_subscriptions")
+          .update({
+            plan_id: plan.id,
+            status: "active",
+            ...(dokleiloSie ? { current_period_end: docelowy.toISOString() } : {}),
+            plan_od_nastepnego_okresu: null,
+            plan_zmiana_zgloszona_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", istniejaca.id);
+        if (bladZapisu) throw bladZapisu;
+
+        console.log(JSON.stringify({
+          event: "plan_zmieniony", kierunek: "zmiana_okresu",
+          z: obecny.code, na: plan.code, okres: okresRok ? "rok" : "miesiac",
+          do: docelowy.toISOString(), dokleilo: dokleiloSie, provider: provider.id,
+        }));
+
+        return json({
+          zmiana: "natychmiast",
+          plan: plan.code,
+          nazwa_planu: plan.name,
+          z_planu: obecny.code,
+          okres_do: dokleiloSie ? docelowy.toISOString() : null,
+          uwaga: dokleiloSie ? null : "doklejenie_dni_do_naprawy",
+        });
+      }
+
+      /**
+       * `pending_if_incomplete` PRZY WEJŚCIU W GÓRĘ — ODPOWIEDŹ NA PYTANIE
+       * „CO, GDY KARTA ODRZUCI RACHUNEK ZA RÓŻNICĘ".
+       *
+       * Dokumentacja operatora mówi wprost: przy samym `always_invoice`
+       * „the subscription change request succeeds and the subscription
+       * transitions to past_due" — czyli plan JEST zmieniony, a pieniędzy nie
+       * ma. Klient dostawałby wyższy plan za darmo do czasu, aż zauważymy.
+       *
+       * Z `pending_if_incomplete` operator stosuje zmianę WYŁĄCZNIE po udanej
+       * zapłacie. Gdy zapłata się nie uda, oddaje subskrypcję z wypełnionym
+       * `pending_update` i nie zmienia niczego. Wtedy my też nie zmieniamy —
+       * ani u siebie, ani w komunikacie dla klienta.
+       *
+       * Zmiana wisi u operatora 23 godziny; potem rachunek jest unieważniany,
+       * a zmiana przepada. Zdarzenia `pending_update_applied` i
+       * `pending_update_expired` dopina 4/4 — DZIŚ ICH NIE OBSŁUGUJEMY, więc
+       * klient, który opłaci rachunek później z panelu operatora, dostanie
+       * plan u operatora, a u nas zostanie stary. To jest znany dług, opisany
+       * w STAN-PRAC.md, a nie przeoczenie.
+       */
+      const odpowiedz = await stripe(stripeKey, `/subscriptions/${istniejaca.provider_subscription_id}`, {
+        "items[0][id]": pozycja.id,
+        "items[0][price]": cenaStripe!,
+        // `always_invoice` przy wejściu w górę: różnica idzie na rachunek OD RAZU.
+        // `none` przy zejściu: nowa kwota dopiero przy najbliższym odnowieniu.
+        proration_behavior: wGore ? "always_invoice" : "none",
+        ...(wGore ? { payment_behavior: "pending_if_incomplete" } : {}),
+      });
+
+      // Wypełniony `pending_update` znaczy: zapłata NIE przeszła i operator
+      // niczego nie zmienił. Nie piszemy planu do bazy i mówimy prawdę.
+      if (wGore && odpowiedz?.pending_update) {
+        console.warn(JSON.stringify({
+          event: "zmiana_planu_bez_zaplaty",
+          z: obecny.code, na: plan.code, provider: provider.id,
+          wygasa: odpowiedz.pending_update?.expires_at ?? null,
+        }));
+        return json({
+          error: "Karta nie przyjęła płatności za różnicę, więc plan pozostaje bez zmian. Sprawdź kartę w panelu rozliczeń i spróbuj ponownie.",
+          code: "ZMIANA_BEZ_ZAPLATY",
+        }, 402);
+      }
+
+      if (wGore) {
+        // Baza dogania stan opłacony. Webhook zrobi to samo, gdy dojedzie —
+        // zapis jest ten sam, więc powtórzenie niczego nie psuje, a klient
+        // nie czeka na operatora, żeby zobaczyć swój nowy plan.
+        const { error: bladZapisu } = await admin
+          .from("billing_subscriptions")
+          .update({
+            plan_id: plan.id,
+            plan_od_nastepnego_okresu: null,
+            plan_zmiana_zgloszona_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", istniejaca.id);
+        if (bladZapisu) throw bladZapisu;
+
+        console.log(JSON.stringify({
+          event: "plan_zmieniony", kierunek: "w_gore",
+          z: obecny.code, na: plan.code, provider: provider.id,
+        }));
+
+        return json({
+          zmiana: "natychmiast",
+          plan: plan.code,
+          nazwa_planu: plan.name,
+          z_planu: obecny.code,
+        });
+      }
+
+      // ZEJŚCIE. Odkładamy w bazie funkcją, która bierze blokadę wiersza —
+      // zadanie odnowieniowe może właśnie stosować poprzednią zmianę.
+      const { data: wynik, error: bladPlanu } = await admin.rpc("billing_zaplanuj_zmiane_planu", {
+        p_sub_id: istniejaca.id,
+        p_plan_id: plan.id,
+      });
+      if (bladPlanu) throw bladPlanu;
+
+      console.log(JSON.stringify({
+        event: "plan_zmieniony", kierunek: "w_dol",
+        z: obecny.code, na: plan.code, provider: provider.id, wynik,
+      }));
+
       return json({
-        error: "Ten warsztat ma już subskrypcję odnawianą kartą. Zmienisz plan w panelu rozliczeń.",
-        code: "ALREADY_SUBSCRIBED",
-      }, 409);
+        zmiana: "od_nastepnego_okresu",
+        plan: plan.code,
+        nazwa_planu: plan.name,
+        z_planu: obecny.code,
+        obowiazuje_od: (wynik as any)?.obowiazuje_od ?? null,
+      });
+    }
+
+    /**
+     * PLAN DARMOWY BEZ SUBSKRYPCJI KARTOWEJ.
+     *
+     * Klient płacący BLIK-iem nie ma czego anulować u operatora — jego okres
+     * po prostu się skończy. Zapisujemy jednak wybór, żeby po wygaśnięciu
+     * wylądował na planie darmowym, a nie w stanie „miał Pro, nie zapłacił".
+     * To są dwie różne sytuacje i mają różne ekrany.
+     */
+    if (planDarmowy) {
+      const { data: zywa } = await admin
+        .from("billing_subscriptions")
+        .select("id")
+        .eq("subscriber_type", "service_provider")
+        .eq("subscriber_id", provider.id)
+        .eq("product_line", plan.product_line)
+        .in("status", ["trialing", "active", "past_due", "read_only"])
+        .maybeSingle();
+
+      if (!zywa) {
+        return json({
+          error: "Nie masz aktywnego abonamentu, więc nie ma czego anulować.",
+          code: "NIE_MA_CZEGO_ANULOWAC",
+        }, 409);
+      }
+
+      const { data: wynikFree, error: bladFree } = await admin.rpc("billing_zaplanuj_zmiane_planu", {
+        p_sub_id: zywa.id,
+        p_plan_id: plan.id,
+      });
+      if (bladFree) throw bladFree;
+
+      console.log(JSON.stringify({
+        event: "plan_zmieniony", kierunek: "anulowanie_bez_karty",
+        provider: provider.id,
+      }));
+
+      return json({
+        zmiana: "anulowana",
+        plan: plan.code,
+        nazwa_planu: plan.name,
+        obowiazuje_od: (wynikFree as any)?.obowiazuje_od ?? null,
+      });
+    }
+
+    /**
+     * WYCOFANIE ODŁOŻONEJ ZMIANY U KLIENTA BEZ KARTY.
+     *
+     * Wyżej ta sama zasada obsłużona jest dla subskrypcji kartowej, gdzie trzeba
+     * dodatkowo cofnąć pozycję u operatora. Tutaj nie ma czego cofać — wystarczy
+     * wyczyścić kolumnę. Bez tej gałęzi klient płacący BLIK-iem, który zgłosił
+     * zejście i się rozmyślił, zostałby wysłany do bramki i zapłacił za coś,
+     * o co nie prosił.
+     */
+    {
+      // BEZ DOŁĄCZANIA PLANU PRZEZ RELACJĘ. `billing_subscriptions` ma teraz
+      // DWA klucze obce do `billing_plans` (`plan_id` i `plan_od_nastepnego_okresu`),
+      // więc `plan:billing_plans(...)` jest niejednoznaczne i całe zapytanie pada.
+      // Pierwsza wersja połykała ten błąd i szła dalej — klient, który chciał
+      // wycofać zmianę, dostawał bramkę płatności. Dlatego błąd jest tu twardy.
+      const { data: zywaBezKarty, error: bladZywej } = await admin
+        .from("billing_subscriptions")
+        .select("id, plan_id, plan_od_nastepnego_okresu")
+        .eq("subscriber_type", "service_provider")
+        .eq("subscriber_id", provider.id)
+        .eq("product_line", plan.product_line)
+        .in("status", ["trialing", "active", "past_due", "read_only"])
+        .not("plan_od_nastepnego_okresu", "is", null)
+        .maybeSingle();
+      if (bladZywej) throw bladZywej;
+
+      const tenSamPlan = !!zywaBezKarty && zywaBezKarty.plan_id === plan.id;
+      const { data: planObecnyBezKarty } = tenSamPlan
+        ? await admin.from("billing_plans").select("billing_interval")
+            .eq("id", zywaBezKarty!.plan_id).maybeSingle()
+        : { data: null };
+      const obecnyRokBezKarty = String(planObecnyBezKarty?.billing_interval ?? "month") === "year";
+
+      if (zywaBezKarty && tenSamPlan && okresRok === obecnyRokBezKarty) {
+        const { error: bladWycofania } = await admin.rpc("billing_wycofaj_zmiane_planu", {
+          p_sub_id: zywaBezKarty.id,
+        });
+        if (bladWycofania) throw bladWycofania;
+
+        console.log(JSON.stringify({
+          event: "plan_zmieniony", kierunek: "wycofanie_bez_karty",
+          plan: plan.code, provider: provider.id,
+        }));
+
+        return json({
+          zmiana: "wycofana",
+          plan: plan.code,
+          nazwa_planu: plan.name,
+        });
+      }
     }
 
     // ---- klient u operatora ----

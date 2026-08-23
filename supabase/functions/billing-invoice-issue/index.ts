@@ -175,6 +175,16 @@ Deno.serve(async (req) => {
         vat_rate: stawka,
         net_amount: netPoz,
         vat_amount: vatPoz,
+        // 🔴 BEZ TEJ LINII FAKTURA POKAZYWAŁA „BRUTTO 0,00".
+        //
+        // Moduł faktur NIE liczy pozycji w bazie — wartość brutto jest liczona
+        // przy wypełnianiu formularza i ZAPISYWANA razem z pozycją
+        // (`CostInvoiceModal`: `gross_amount: item.grossAmount`). Kolumna ma
+        // wartość domyślną 0, więc pominięcie jej nie dawało błędu, tylko cichą
+        // zerową kwotę: netto 69,00, VAT 15,87, brutto 0,00 i „do zapłaty
+        // −84,87 zł". Nagłówek faktury był poprawny, bo sumy liczymy osobno —
+        // i właśnie dlatego nic tego nie zgłosiło.
+        gross_amount: bruttoPoz,
         sort_order: i,
       };
     });
@@ -257,6 +267,54 @@ Deno.serve(async (req) => {
           brutto,
           proba,
         }));
+
+        /**
+         * MAIL DO KLIENTA — po zapisaniu pozycji, nigdy jako warunek.
+         *
+         * Wystawienie bez wysyłki nie było błędem widocznym nigdzie: `billing_events`
+         * pokazywało `processed`, faktura leżała w panelu, a klient nie dostawał nic
+         * i nie miał skąd wiedzieć, że coś mu przysługuje.
+         *
+         * BEZ ZAŁĄCZNIKA PDF — i to jest świadome ograniczenie, nie przeoczenie.
+         * Przycisk „Email" w panelu składa PDF W PRZEGLĄDARCE (`invoice-pdf.php`
+         * dostaje gotowy HTML) i dopiero wtedy woła `send-invoice-email`
+         * z `pdf_base64`. Webhook przeglądarki nie ma. `send-invoice-email`
+         * obsługuje wywołanie bez załącznika — front sam z tego korzysta, gdy
+         * PDF się nie uda („wysyłam fakturę bez załącznika") — więc klient
+         * dostaje wiadomość z numerem, kwotą i odnośnikiem, a plik pobiera
+         * z panelu. Serwerowe składanie PDF-u to osobna praca, opisana
+         * w STAN-PRAC.md.
+         *
+         * Nieudana wysyłka NIE MOŻE wywrócić wystawienia: dokument już istnieje
+         * i ma numer, a ponowienie maila to jedno kliknięcie w panelu.
+         */
+        const mailDo = String(body?.buyer_email ?? "").trim();
+        if (mailDo) {
+          try {
+            const odp = await fetch(`${supabaseUrl}/functions/v1/send-invoice-email`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+              body: JSON.stringify({
+                invoice_id: faktura.id,
+                recipient_email: mailDo,
+                type: "new_invoice",
+              }),
+            });
+            const wynikMaila = await odp.json().catch(() => ({}));
+            console.log(JSON.stringify({
+              event: odp.ok && (wynikMaila as any)?.success !== false ? "faktura_mail" : "faktura_mail_blad",
+              numer: faktura.invoice_number, do: mailDo, status: odp.status,
+            }));
+          } catch (bladMaila) {
+            console.error("billing-invoice-issue: mail niewysłany", bladMaila);
+          }
+        } else {
+          // Brak adresu to nie awaria — ale ma zostawić ślad, bo klient
+          // spodziewa się faktury na skrzynce.
+          console.warn(JSON.stringify({
+            event: "faktura_bez_adresu", numer: faktura.invoice_number, ref,
+          }));
+        }
 
         return json({
           ok: true,

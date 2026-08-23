@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveWorkshopTrialDays, workshopTrialExpiresAt } from "../_shared/workshopTrial.ts";
 import { sprawdzKodPlanu } from "../_shared/kodPlanu.ts";
+import { zalozSubskrypcjeProbna, zalogujSubskrypcje } from "../_shared/subskrypcjaProbna.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,6 +10,18 @@ const corsHeaders = {
 
 interface RegisterMarketplaceUserRequest {
   first_name: string;
+  /**
+   * Rodzaj zakładanego konta. Domyślnie `marketplace` — TAK ZOSTAJE dla
+   * wszystkich dotychczasowych wywołań (giełda, nieruchomości, usługi).
+   *
+   * `client` zakłada samo konto: bez profilu giełdowego i bez roli
+   * `marketplace_user`. Ta droga istnieje, bo `supabase.auth.signUp` przy
+   * nieudanej wysyłce maila WYCOFUJE utworzenie konta i oddaje 500 —
+   * klient z adresem w firmowej domenie zostawał bez konta i bez wyjaśnienia.
+   * Tutaj konto powstaje kluczem serwisowym, a wysyłka jest osobnym krokiem
+   * meldowanym polem `email_sent`.
+   */
+  account_type?: 'marketplace' | 'client';
   last_name?: string;
   phone?: string;
   email: string;
@@ -35,7 +48,14 @@ Deno.serve(async (req) => {
     });
 
     const body: RegisterMarketplaceUserRequest = await req.json();
-    const { first_name, last_name, phone, email, password, referral_code } = body;
+    const { last_name, phone, email, password, referral_code } = body;
+    const kontoKlienta = body.account_type === 'client';
+    // Imię jest wymagane na giełdzie (widnieje przy ogłoszeniach), a przy
+    // koncie klienta z okna logowania nikt o nie nie pyta. Pusty łańcuch
+    // zamiast `undefined`, bo `marketplace_user_profiles.first_name` jest NOT NULL
+    // — i tak nie dojdziemy tam przy koncie klienta, ale wolę nie zostawiać
+    // pułapki na kogoś, kto później zdejmie warunek.
+    const first_name = body.first_name ?? '';
     const module = body.module && KNOWN_MODULES.includes(body.module) ? body.module : undefined;
     const plan = module ? (body.plan || undefined) : undefined;
 
@@ -55,15 +75,30 @@ Deno.serve(async (req) => {
     const planSprawdzony = await sprawdzKodPlanu(supabaseAdmin, plan);
 
     const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-    const LIMIT_NA_GODZINE = 5;
+    /**
+     * Limit rejestracji z jednego adresu IP w ciągu godziny.
+     *
+     * Podniesiony z 5 na 15: pięć odbijało uczciwe użycie. Warsztat zakładający
+     * konta sześciu pracownikom z jednego biura, sieć warsztatów, biuro
+     * rachunkowe zakładające konta klientom — wszystkie wyglądają z zewnątrz
+     * jak jedno IP. Przy pakiecie startowym 50 SMS piętnaście kont to nadal
+     * granica, za którą nadużycie przestaje się opłacać, a nie granica,
+     * o którą rozbija się zwykły dzień pracy.
+     */
+    const LIMIT_NA_GODZINE = 15;
 
     if (ip !== "unknown") {
       const godzinaTemu = new Date(Date.now() - 3600_000).toISOString();
-      const { count, error: bladLicznika } = await supabaseAdmin
+      // Czytamy też NAJSTARSZĄ próbę w oknie: bez niej nie da się powiedzieć,
+      // kiedy klient może spróbować ponownie. Okno jest przesuwne, więc
+      // „za godzinę" to nieprawda dla kogoś, kto próbował 55 minut temu.
+      const { data: proby, count, error: bladLicznika } = await supabaseAdmin
         .from("rejestracje_ip")
-        .select("id", { count: "exact", head: true })
+        .select("created_at", { count: "exact" })
         .eq("ip", ip)
-        .gte("created_at", godzinaTemu);
+        .gte("created_at", godzinaTemu)
+        .order("created_at", { ascending: true })
+        .limit(1);
 
       // Awaria licznika nie może zatrzymać rejestracji — to byłaby blokada
       // sprzedaży z powodu tabeli pomocniczej. Logujemy i przepuszczamy.
@@ -71,9 +106,22 @@ Deno.serve(async (req) => {
         console.error("⚠️ rejestracje_ip: nie udało się policzyć prób:", bladLicznika.message);
       } else if ((count ?? 0) >= LIMIT_NA_GODZINE) {
         console.warn(`🚧 Limit rejestracji dla IP ${ip}: ${count} prób w godzinę`);
+        // Godzina od NAJSTARSZEJ próby w oknie — wtedy zwolni się pierwsze
+        // miejsce. Komunikat bez godziny to ślepy zaułek: klient nie wie,
+        // czy czekać minutę, czy wrócić jutro.
+        const najstarsza = proby?.[0]?.created_at;
+        const wolne = najstarsza ? new Date(new Date(najstarsza).getTime() + 3600_000) : null;
+        const oKtorej = wolne
+          ? wolne.toLocaleTimeString("pl-PL", {
+              hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw",
+            })
+          : null;
+
         return new Response(
           JSON.stringify({
-            error: "Zbyt wiele prób rejestracji z tego adresu. Spróbuj ponownie za godzinę.",
+            error: oKtorej
+              ? `Z tego adresu założono już ${count} kont w ciągu godziny. Kolejne będzie można założyć po ${oKtorej}. Jeśli zakładasz konta zespołowi, napisz do nas — podniesiemy limit.`
+              : "Zbyt wiele prób rejestracji z tego adresu. Spróbuj ponownie za godzinę.",
             code: "RATE_LIMITED",
           }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -103,7 +151,8 @@ Deno.serve(async (req) => {
       password,
       email_confirm: !requireEmailConfirmation,
       user_metadata: {
-        first_name, last_name, phone, account_type: 'marketplace',
+        first_name, last_name, phone,
+        account_type: kontoKlienta ? 'client' : 'marketplace',
         ...(module ? { module, plan: planSprawdzony } : {})
       }
     });
@@ -165,7 +214,12 @@ Deno.serve(async (req) => {
     console.log("✅ Auth user created:", userId);
 
     // 2. Create marketplace user profile
-    const { error: profileError } = await supabaseAdmin
+    //
+    // KONTO KLIENTA GO NIE DOSTAJE. Profil giełdowy i rola `marketplace_user`
+    // znaczą „ten ktoś wystawia i kupuje na giełdzie". Konto zakładane
+    // z okna logowania nie deklaruje niczego takiego i nadanie mu roli
+    // rozszerzyłoby uprawnienia bez powodu.
+    const { error: profileError } = kontoKlienta ? { error: null } : await supabaseAdmin
       .from("marketplace_user_profiles")
       .insert({
         user_id: userId,
@@ -187,10 +241,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log("✅ Marketplace profile created");
+    console.log(kontoKlienta ? "✅ Konto klienta (bez profilu giełdowego)" : "✅ Marketplace profile created");
 
     // 3. Assign marketplace_user role
-    const { error: roleError } = await supabaseAdmin
+    const { error: roleError } = kontoKlienta ? { error: null } : await supabaseAdmin
       .from("user_roles")
       .upsert({
         user_id: userId,
@@ -200,7 +254,7 @@ Deno.serve(async (req) => {
     if (roleError) {
       console.error("❌ user_roles error:", roleError.message);
     } else {
-      console.log("✅ Marketplace role assigned");
+      console.log(kontoKlienta ? "ℹ️ Rola marketplace pominięta — konto klienta" : "✅ Marketplace role assigned");
     }
 
     // 3a-bis. Moduł warsztatowy: rola + wpis usługodawcy (status wstępny) + minimalny trial.
@@ -243,9 +297,14 @@ Deno.serve(async (req) => {
           .from("service_providers").select("id").eq("user_id", userId)
           .order("created_at", { ascending: true }).limit(1).maybeSingle();
 
-        // Pakiet startowy: 20 SMS + 5 sprawdzeń VIN, raz na adres. Funkcja jest
-        // idempotentna po znormalizowanym e-mailu, więc powtórna rejestracja
-        // ani odtworzenie warsztatu nie dadzą drugiego pakietu.
+        // Pakiet startowy: 50 SMS + 5 sprawdzeń VIN + 50 pytań do Rido AI,
+        // raz na adres. Liczby to DOMYŚLNE WARTOŚCI funkcji w bazie i celowo nie
+        // powtarzamy ich w wywołaniu: inaczej zmiana pakietu wymagałaby wdrożenia
+        // dwóch funkcji brzegowych i rozjechałaby się przy pierwszej pomyłce.
+        // Ten komentarz i tak mówił o 20 SMS-ach długo po tym, jak było ich 30.
+        //
+        // Funkcja jest idempotentna po znormalizowanym e-mailu, więc
+        // powtórna rejestracja ani odtworzenie warsztatu nie dadzą drugiego pakietu.
         const { data: pakiet, error: bladPakietu } = await supabaseAdmin.rpc(
           "przyznaj_pakiet_startowy",
           { p_user_id: userId, p_provider_id: swiezyWarsztat?.id ?? null, p_email: email },
@@ -285,6 +344,21 @@ Deno.serve(async (req) => {
       } else {
         console.log("✅ Workshop trial saved, expires_at:", trialEndsAt);
       }
+
+      // Ta sama droga rejestracji, ten sam wiersz rozliczeń co przy
+      // `activate-workshop-trial`. Bez niego warsztat zapisany z AuthModal
+      // z `module: 'warsztat'` byłby niewidoczny dla ostrzeżeń i trybu
+      // dokończenia — czyli w dniu wygaśnięcia dostałby twardy blok bez słowa.
+      const { data: warsztatDoSub } = await supabaseAdmin
+        .from("service_providers").select("id").eq("user_id", userId)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+      zalogujSubskrypcje(await zalozSubskrypcjeProbna(
+        supabaseAdmin,
+        warsztatDoSub?.id,
+        trialEndsAt,
+        { zrodlo: "register-marketplace-user", plan: planSprawdzony, trial_days: trialDays },
+      ));
     }
 
     // 3b. Generate referral code for the new user (so they can refer others)

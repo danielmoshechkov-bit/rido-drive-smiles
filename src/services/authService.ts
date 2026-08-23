@@ -32,24 +32,62 @@ export type SignupResult = {
 
 const activationRedirect = () => `${window.location.origin}/email-confirmed`;
 
-/** Rejestracja KLIENTA (LoginModal): mail potwierdzający wysyła Supabase Auth. */
+/**
+ * Rejestracja KLIENTA (LoginModal) — przez funkcję brzegową, nie przez
+ * `supabase.auth.signUp`.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DLACZEGO NIE `auth.signUp`
+ * ═══════════════════════════════════════════════════════════════════════════
+ * GoTrue WYCOFUJE utworzenie konta, gdy nie uda się wysłać maila
+ * potwierdzającego, i oddaje 500 „Error sending confirmation email".
+ * Klient z adresem w domenie, której nasz przekaźnik nie obsłuży, dostawał
+ * błąd serwera i zostawał BEZ KONTA — bez wskazówki, co dalej.
+ *
+ * Sprawdzone obiema drogami na tym samym adresie w tej samej minucie:
+ *   • `auth.signUp`               → HTTP 500, konta nie ma,
+ *   • `register-marketplace-user` → HTTP 200, konto jest, `email_sent: false`.
+ *
+ * Tego nie da się skonfigurować po stronie Supabase — funkcja brzegowa zakłada
+ * konto kluczem serwisowym i traktuje wysyłkę jako OSOBNY krok.
+ *
+ * `account_type: 'client'` znaczy: samo konto. Bez profilu giełdowego i bez
+ * roli `marketplace_user` — okno logowania nie deklaruje handlu na giełdzie.
+ */
 export async function signUpClient(email: string, password: string): Promise<SignupResult> {
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { account_type: "client" },
-      emailRedirectTo: activationRedirect(),
-    },
+  const response = await supabase.functions.invoke("register-marketplace-user", {
+    body: { email, password, first_name: "", account_type: "client" },
   });
 
-  if (error) {
-    return { success: false, error: mapAuthError(error.message) };
+  if (response.data?.error) {
+    return {
+      success: false,
+      error: response.data.error,
+      field: response.data.field,
+      code: response.data.code,
+    };
   }
+  if (response.error) {
+    // Treść odpowiedzi funkcji siedzi w `error.context`, nie w `error.message`.
+    const blad = await odczytajBladFunkcji(response.error);
+    return {
+      success: false,
+      error: blad.komunikat,
+      field: blad.pole,
+      code: typeof blad.surowe?.code === 'string' ? blad.surowe.code : undefined,
+    };
+  }
+
+  // Nieudana wysyłka NIE jest porażką rejestracji: konto istnieje i klient ma
+  // dostać przycisk „wyślij ponownie", a nie komunikat o błędzie.
+  const mailPoszedl = response.data?.email_sent !== false;
   return {
     success: true,
     requiresActivation: true,
-    message: "Konto utworzone! Sprawdź email, aby potwierdzić rejestrację.",
+    emailFailed: !mailPoszedl,
+    message: mailPoszedl
+      ? "Konto utworzone! Sprawdź email, aby potwierdzić rejestrację."
+      : "Konto utworzone, ale nie udało się wysłać maila aktywacyjnego. Użyj opcji „Wyślij link ponownie”.",
   };
 }
 

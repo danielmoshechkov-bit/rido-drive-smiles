@@ -122,8 +122,67 @@ Deno.serve(async (req) => {
     }
     let pozycja: Pozycja | null = null;
 
+    /**
+     * FAIL-CLOSED: BEZ DANYCH NABYWCY NIE STARTUJEMY PŁATNOŚCI.
+     *
+     * Kontrola stoi PRZED rozgałęzieniem na plan i paczkę, bo webhook wystawia
+     * fakturę przy KAŻDEJ opłaconej sprzedaży — także przy doładowaniu SMS-ów.
+     * Pierwsza wersja siedziała w gałęzi planu i przepuszczała paczki, czyli
+     * zostawiała otwartą dokładnie tę drogę, którą klient bez NIP-u wybierze
+     * najpierw: dokupienie stu wiadomości.
+     *
+     * Faktury z pustym nabywcą nie da się poprawić edycją — wymaga korekty,
+     * a korekta idzie do KSeF i zostaje w ewidencji na zawsze. Taniej odmówić
+     * startu płatności niż wystawić dokument do naprawienia.
+     *
+     * Okno zakupu pyta o dane w osobnym kroku przed wyborem metody, więc klient
+     * nie ma prawa tu dotrzeć bez nich. Ta kontrola jest dla wywołań
+     * z pominięciem okna.
+     */
+    {
+      const { data: komplet, error: bladDanych } = await admin
+        .rpc("billing_dane_nabywcy_kompletne", { p_provider_id: warsztat.id });
+      if (bladDanych) throw bladDanych;
+      if (komplet !== true) {
+        return json({
+          error: "Zanim zapłacisz, uzupełnij dane do faktury.",
+          code: "BRAK_DANYCH_NABYWCY",
+        }, 409);
+      }
+    }
+
     // ── MIESIĄC PLANU ───────────────────────────────────────────────
     if (kupujePlan) {
+      /**
+       * 🔴 WARSZTAT PŁACĄCY KARTĄ NIE KUPUJE OKRESU BLIK-IEM.
+       *
+       * Subskrypcja u operatora odnawia się sama. Doładowanie okresu BLIK-iem
+       * dołożyłoby czas na wierzchu, a karta i tak pobrałaby swoje przy
+       * najbliższym odnowieniu — klient zapłaciłby dwa razy za ten sam czas
+       * i miałby pełne prawo żądać zwrotu.
+       *
+       * Ten sam warunek co w `billing-checkout`: liczy się subskrypcja
+       * NAPRAWDĘ odnawiana u operatora, a nie sam wiersz w bazie. Okres próbny
+       * i miesiąc kupiony wcześniej BLIK-iem to stany, z których klient
+       * wychodzi kupując — tych nie blokujemy.
+       */
+      const { data: kartowa } = await admin
+        .from('billing_subscriptions')
+        .select('id')
+        .eq('subscriber_type', 'service_provider')
+        .eq('subscriber_id', warsztat.id)
+        .eq('provider', 'stripe')
+        .in('status', ['active', 'past_due'])
+        .not('provider_subscription_id', 'is', null)
+        .maybeSingle();
+
+      if (kartowa) {
+        return json({
+          error: 'Ten warsztat ma abonament odnawiany kartą. Zmiana planu odbywa się bez nowej płatności — wybierz plan, a różnicę rozliczy operator karty.',
+          code: 'MASZ_KARTE',
+        }, 409);
+      }
+
       const { data: cena, error: bladCeny } = await (admin as any)
         .rpc('billing_cena_okresu', {
           p_plan_code: plan_code.trim(), p_provider: warsztat.id, p_okres: okresZakupu,

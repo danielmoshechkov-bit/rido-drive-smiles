@@ -21,7 +21,7 @@ co czeka na wdrożenie, co zostało w połowie, co świadomie odłożone.
 | Migracja | Czego dotyczy |
 |---|---|
 | `20260818090000_vin_pula_warsztatu` | Sprawdzenia VIN rozliczane z puli warsztatu, nie z osobistych kredytów. Trzeci poziom (własne kredyty pracownika) za jawną zgodą — decyzja podejmowana w interfejsie, nie w `billing_consume`. |
-| `20260819…` (limity VIN w planach) | VIN nie wchodzi w abonament: limit miesięczny 0 we **wszystkich** planach. Pakiet startowy 30 SMS + 5 sprawdzeń VIN. |
+| `20260819…` (limity VIN w planach) | VIN nie wchodzi w abonament: limit miesięczny 0 we **wszystkich** planach. Pakiet startowy 50 SMS + 5 sprawdzeń VIN (30 → 50 decyzją z 23.08, migracja `20260823130000`). |
 | `20260819100000_audyt_sms_balance_i_email` | Zamknięcie darmowych SMS-ów przez `sms_balance` (kolumna zapisywalna z przeglądarki, a czytana jako pierwsze źródło bramki). Normalizacja e-maila przy rejestracji. Kontrola kwoty w webhooku. |
 | `20260819140000_zwroty` | Obsługa zwrotów i obciążeń zwrotnych — odebranie jednostek przy chargebacku. |
 | `20260819170000_referral_uses_lockdown` | Zamknięcie najkrótszej drogi do wydawalnych pieniędzy: `referral_uses` pozwalał wpisać sobie 150 + 150 zł do `pln_balance`. |
@@ -475,3 +475,146 @@ Numer wersji nie jest dowodem — zdarzało się, że rósł przy przywróconym 
 2. Deploy `rental-portal-get` + front → migracja `20260820180000`. **Zamyka 4.1.**
 3. Wariant A z wygasaniem trialu (3.1).
 4. Limity AI (3.2).
+
+## Encje — znaleziska z 23.08 (nie naprawione, świadomie)
+
+**🔴 CAR4RIDE figuruje w `entities` DWA RAZY z tym samym NIP-em 5223252793**, a faktury
+zakupowe są między te dwa wiersze rozdzielone: **97 i 500**. To jedna firma widziana
+przez system jako dwie, więc żadne zestawienie roczne nie policzy jej poprawnie.
+Zamknięcie roku na tym zaboli. Scalenie wymaga decyzji, który wiersz jest właściwy —
+przeniesienie 97 faktur pod drugi identyfikator jest mechaniczne, wybór nie jest.
+
+**`Majewski`, NIP 1111111111** — dane testowe, ale trzymają 3 dokumenty zakupowe
+i 1 towar, więc nie są puste. Do sprzątnięcia razem z tymi dokumentami albo wcale.
+
+**`cart sp zoo`, NIP 5222884984** — literówka (prawdziwy CART to 5272884984).
+Usunięta migracją `20260823150000`.
+
+## Rejestracja — dwie sprawy otwarte (23.08)
+
+### 🔴 `InsuranceAgentRegister` pada z 500 przy niedostarczalnym mailu
+
+**Ta sama przyczyna co w oknie logowania — nie diagnozuj od nowa.** GoTrue
+WYCOFUJE utworzenie konta, gdy nie uda się wysłać maila potwierdzającego,
+i oddaje `500 Error sending confirmation email`. Konta nie ma, klient nie wie
+dlaczego. Nie da się tego skonfigurować po stronie Supabase.
+
+Sprawdzone obiema drogami na tym samym adresie w tej samej minucie:
+`auth.signUp` → 500 i brak konta; funkcja brzegowa → 200, konto jest,
+`email_sent: false`.
+
+`src/pages/InsuranceAgentRegister.tsx:132` woła `supabase.auth.signUp` wprost.
+Naprawa polega na tym samym co w `signUpClient`: przejść na funkcję brzegową,
+która zakłada konto kluczem serwisowym i traktuje wysyłkę jako osobny krok.
+
+**Nie jest to jedna linia.** Ten portal ma własne metadane
+(`company_name`, `account_type: 'insurance_agent'`) i najpewniej dokłada
+rekordy agenta po rejestracji, więc `register-marketplace-user` potrzebowałby
+kolejnej gałęzi `account_type` albo agent dostanie własną funkcję.
+
+### ⚠️ Przełącznik `marketplace_email_confirmation_required` — co po zdjęciu
+
+Dziś `true`. `register-marketplace-user` czyta go i przekazuje do
+`createUser({ email_confirm: !wymagane })`, więc **zdjęcie przełącznika sprawia,
+że konta powstają POTWIERDZONE bez żadnego maila.**
+
+Skutek: rejestracja na cudzy adres. Ktoś zakłada konto na adres firmy, dostaje
+działający dostęp od razu, a właściciel adresu nigdy się o tym nie dowiaduje —
+bo nie przychodzi żadna wiadomość. Do tego potwierdzony adres bywa u nas
+przepustką (odzyskiwanie hasła, powiązania), więc to nie jest sama niewygoda.
+
+Ten przełącznik obejmuje teraz TRZY drogi rejestracji: giełdę, warsztat
+z `module` i konto klienta z okna logowania. Zdejmowanie go bez decyzji
+o skutkach jest zmianą w bezpieczeństwie, nie w wygodzie.
+
+## Zmiana planu — co zostało otwarte (23.08)
+
+### Zdarzenia `pending_update_*` ze Stripe nieobsłużone
+
+Wejście w górę idzie z `payment_behavior=pending_if_incomplete`, więc operator
+stosuje zmianę **wyłącznie po udanej zapłacie** — to zamyka dziurę „plan
+zmieniony, pieniędzy nie ma". Gdy zapłata nie przejdzie, oddaje subskrypcję
+z wypełnionym `pending_update` i my odpowiadamy klientowi `402`.
+
+**Czego brakuje:** rachunek wisi u operatora **23 godziny** i klient może go
+opłacić później — z maila od Stripe albo z portalu rozliczeń. Wtedy operator
+zastosuje zmianę u siebie i wyśle `customer.subscription.pending_update_applied`,
+którego **nasz webhook nie obsługuje**. Klient miałby wyższy plan u operatora
+i niższy u nas.
+
+Do dopięcia w webhooku (`billing-stripe-webhook`):
+- `customer.subscription.pending_update_applied` → zapisać nowy `plan_id`,
+- `customer.subscription.pending_update_expired` → nic nie zmieniać, ale zalogować.
+
+Skala dzisiaj: zero, bo nikt jeszcze nie zmienił planu kartą. Przed pierwszym
+płacącym klientem to ma być zamknięte.
+
+### Zmiana okresu miesiąc → rok przesuwa datę odnowienia
+
+Nie jest to błąd, ale różni się od tego, czego można się spodziewać.
+Dokumentacja operatora: *„switching a customer from a monthly subscription to
+a yearly subscription moves the billing date to the date of the switch"*.
+
+Czyli niewykorzystana część opłaconego miesiąca **nie dokleja się na końcu roku**
+— wraca jako **upust na rachunku** za rok. Klient nie traci pieniędzy, ale data
+odnowienia przeskakuje na dzień zmiany. Decyzja produktowa: zostawiamy tak,
+bo to jest zachowanie standardowe i najprostsze do wytłumaczenia na fakturze.
+
+## 🔴 Dane wystawcy GetRido żyją w TRZECH tabelach
+
+Jeśli znajdziesz rozjazd w danych na fakturze, zacznij tutaj, a nie od zera.
+
+| tabela | kto zapisuje | kto czyta |
+|---|---|---|
+| `company_settings` | kafel **Ustawienia** w `/admin/platnosci?tab=ksiegowosc` | ekran ustawień |
+| `entities` | wyzwalacz lustrzany z `company_settings` | moduł zakupowy, KSeF, dokumenty |
+| **`user_invoice_companies`** | **nikt automatycznie** | **`billing-invoice-issue` — czyli FAKTURA** |
+
+Pierwsze dwie łączą dwa wyzwalacze z migracji `20260823200000_dane_firmy_synchronizacja.sql`.
+Lustrują **wyłącznie kolumny, które właśnie się zmieniły**, i nie rozstrzygają
+istniejących rozbieżności.
+
+**Trzecia jest poza tym obiegiem.** Wskazuje ją `billing_settings.platform_invoice_company_id`.
+Zmiana adresu w kafelku Ustawień **nie zmienia adresu na fakturach** — bez błędu,
+bez ostrzeżenia. Rozjazd widoczny już dziś: nazwa „Getrido Sp. z o.o." zamiast
+pełnej formy prawnej i puste `bank_account`.
+
+Domknięcie tego (trzecie ogniwo lustra + wyrównanie danych) to **etap 2** kolejności
+uzgodnionej 23.08: dane nabywcy → **lustro wystawcy** → numeracja i konto →
+wpięcie Stripe'a → przełącznik `auto_invoice_on_paid`.
+
+## ⚠️ `auto_invoice_on_paid` to martwy przełącznik
+
+Kolumna w `billing_settings` istnieje i stoi na `false`. **Nic jej nie czyta.**
+
+`billing-payu-webhook` wystawia fakturę przy każdej opłaconej sprzedaży
+bezwarunkowo, i tak samo robi teraz `billing-stripe-webhook` — świadomie, żeby
+obie metody płatności zachowywały się tak samo. Zostawienie jednej z nich
+za przełącznikiem znaczyłoby, że klient dostaje fakturę albo nie w zależności
+od tego, czym zapłacił.
+
+Do rozstrzygnięcia: **albo oba webhooki zaczynają go pytać, albo kolumna
+znika.** Przełącznik, który nic nie przełącza, przy następnym incydencie każe
+komuś stracić godzinę na sprawdzanie, czemu jego przestawienie nic nie dało.
+
+Fakturowanie jest dziś zabezpieczone od innej strony: bez kompletu danych
+nabywcy (`billing_dane_nabywcy_kompletne`) płatność w ogóle nie startuje,
+więc faktura z pustym nabywcą nie ma jak powstać.
+
+## Faktura z webhooka idzie BEZ załącznika PDF
+
+`billing-invoice-issue` wysyła mail przez `send-invoice-email` z samym
+`invoice_id` — bez `pdf_base64`.
+
+Powód: przycisk „Email" w panelu składa PDF **w przeglądarce** (`renderInvoicePdf`
+posyła gotowy HTML do `public/invoice-pdf.php`, Dompdf na LH.pl) i dopiero wtedy
+woła funkcję mailową z załącznikiem. Webhook przeglądarki nie ma.
+
+`send-invoice-email` obsługuje wywołanie bez załącznika — front sam z tego
+korzysta, gdy PDF się nie uda. Klient dostaje wiadomość z numerem i kwotą,
+a plik pobiera z panelu.
+
+**Do dorobienia:** serwerowe składanie HTML faktury w funkcji brzegowej, żeby
+mail niósł załącznik. Szablon jest dziś w komponencie frontu, więc to znaczy
+albo wyciągnięcie go do `_shared/`, albo osobny generator — i w obu wypadkach
+pilnowanie, żeby dwie wersje szablonu się nie rozjechały.

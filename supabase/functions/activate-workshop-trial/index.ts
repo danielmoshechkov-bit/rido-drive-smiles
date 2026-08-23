@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { resolveWorkshopTrialDays, workshopTrialExpiresAt } from "../_shared/workshopTrial.ts";
 import { sprawdzKodPlanu } from "../_shared/kodPlanu.ts";
+import { zalozSubskrypcjeProbna, zalogujSubskrypcje } from "../_shared/subskrypcjaProbna.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -102,9 +103,14 @@ Deno.serve(async (req) => {
         .from("service_providers").select("id").eq("user_id", userId)
         .order("created_at", { ascending: true }).limit(1).maybeSingle();
 
-      // Pakiet startowy: 20 SMS + 5 sprawdzeń VIN, raz na adres. Funkcja jest
-      // idempotentna po znormalizowanym e-mailu, więc powtórna rejestracja
-      // ani odtworzenie warsztatu nie dadzą drugiego pakietu.
+      // Pakiet startowy: 50 SMS + 5 sprawdzeń VIN + 50 pytań do Rido AI,
+      // raz na adres. Liczby to DOMYŚLNE WARTOŚCI funkcji w bazie i celowo nie
+      // powtarzamy ich w wywołaniu: inaczej zmiana pakietu wymagałaby wdrożenia
+      // dwóch funkcji brzegowych i rozjechałaby się przy pierwszej pomyłce.
+      // Ten komentarz i tak mówił o 20 SMS-ach długo po tym, jak było ich 30.
+      //
+      // Funkcja jest idempotentna po znormalizowanym e-mailu, więc
+      // powtórna rejestracja ani odtworzenie warsztatu nie dadzą drugiego pakietu.
       const { data: pakiet, error: bladPakietu } = await supabaseAdmin.rpc(
         "przyznaj_pakiet_startowy",
         { p_user_id: userId, p_provider_id: warsztat?.id ?? null, p_email: user.email },
@@ -140,6 +146,41 @@ Deno.serve(async (req) => {
     if (!existingSub) {
       const trialDays = await resolveWorkshopTrialDays(supabaseAdmin);
       const trialEndsAt = workshopTrialExpiresAt(trialDays);
+
+      /**
+       * 🔴 WIERSZ W `billing_subscriptions` — BEZ NIEGO NOWY KLIENT NIE MA
+       * ANI OSTRZEŻEŃ, ANI TRYBU DOKOŃCZENIA.
+       *
+       * Wariant A dał taki wiersz wszystkim ISTNIEJĄCYM warsztatom, ale ta
+       * funkcja dalej zapisywała okres próbny wyłącznie do
+       * `paid_service_subscriptions`. Skutek dla każdej NOWEJ rejestracji:
+       *   • `billing_konczy_sie_trial` go nie widzi — nie wchodzi w tryb
+       *     dokończenia, więc nie dostaje trzech dni na domknięcie pracy,
+       *   • `billing_do_ostrzezenia` go nie widzi — nie dostaje ostrzeżenia
+       *     na 7 i na 1 dzień,
+       *   • w dniu wygaśnięcia gałąź zapasowa `moze_pracowac` po prostu
+       *     przestaje przepuszczać: twardy blok bez uprzedzenia.
+       *
+       * Czyli dokładnie to, czemu tryb dokończenia miał zapobiegać — tylko
+       * że wyłącznie dla klientów pozyskanych po jego zbudowaniu.
+       *
+       * Wykryte audytem ścieżki klienta na świeżo założonym koncie.
+       */
+      // Warsztat odczytujemy ponownie: ten wyżej żyje w swoim bloku, a poleganie
+      // na zasięgu z sąsiedniego `if` to dokładnie ta klasa pomyłki, którą
+      // wychwycił tu `deno check`.
+      const { data: warsztatDoSub } = await supabaseAdmin
+        .from("service_providers").select("id").eq("user_id", userId)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+      const wynikSub = await zalozSubskrypcjeProbna(
+        supabaseAdmin,
+        warsztatDoSub?.id,
+        trialEndsAt,
+        { zrodlo: "activate-workshop-trial", plan: planSprawdzony, trial_days: trialDays },
+      );
+      zalogujSubskrypcje(wynikSub);
+
       const { error: trialError } = await supabaseAdmin.from("paid_service_subscriptions").insert({
         user_id: userId,
         status: "trial",

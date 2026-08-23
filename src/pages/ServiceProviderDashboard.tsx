@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useUserRole } from '@/hooks/useUserRole';
 import { useSubscriptionActivation } from '@/hooks/useSubscriptionActivation';
 import { TrialPlanBanner } from '@/components/billing/TrialPlanBanner';
+import { PasekDanychDoFaktury } from '@/components/billing/PasekDanychDoFaktury';
 import { SubscriptionCard } from '@/components/billing/SubscriptionCard';
 import { PlanBadge } from '@/components/billing/PlanBadge';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
@@ -813,6 +814,7 @@ export default function ServiceProviderDashboard() {
                 rejestrację i wylądował tutaj — bez płatności i bez śladu po
                 swoim wyborze. Baner sam się nie pokaże, gdy plan już kupiony. */}
             <TrialPlanBanner providerId={providerId} />
+            <PasekDanychDoFaktury providerId={providerId} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card>
