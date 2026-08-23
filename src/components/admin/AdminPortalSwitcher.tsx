@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain, Shield, Bot, Megaphone } from 'lucide-react';
+import { Building2, Car, ShoppingCart, ChevronDown, Map, Globe, Wrench, Calculator, Briefcase, Brain, Shield, Bot, Megaphone, Wallet } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +34,14 @@ const portals: Portal[] = [
     icon: Brain,
     path: '/admin/ai',
     description: 'Mózg platformy – klucze API, routing AI',
+    isGlobal: true,
+  },
+  {
+    id: 'payments',
+    name: 'Centrum Płatności',
+    icon: Wallet,
+    path: '/admin/platnosci',
+    description: 'Bramki, plany, kredyty AI i faktury sprzedaży',
     isGlobal: true,
   },
   {
@@ -120,6 +128,9 @@ export function AdminPortalSwitcher() {
   const location = useLocation();
 
   const getCurrentPortal = () => {
+    if (location.pathname.includes('/admin/platnosci')) {
+      return portals.find((p) => p.id === 'payments');
+    }
     if (location.pathname.includes('/admin/marketing')) {
       return portals.find((p) => p.id === 'marketing');
     }

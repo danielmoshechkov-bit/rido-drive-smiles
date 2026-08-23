@@ -150,7 +150,8 @@
     "allListings": "← Tất cả tin đăng",
     "privacy": "Chính sách bảo mật",
     "terms": "Điều khoản",
-    "contact": "Liên hệ"
+    "contact": "Liên hệ",
+    "dataDeletion": "Xóa dữ liệu"
   },
   "notifications": {
     "settings": "Cài đặt thông báo",
@@ -2189,7 +2190,8 @@
         "daneNaprawcze": "Dữ liệu sửa chữa",
         "pracownicy": "Nhân viên",
         "stanowiska": "Vị trí làm việc",
-        "ustawienia": "Cài đặt"
+        "ustawienia": "Cài đặt",
+        "cennik": "Bảng giá dịch vụ"
       },
       "freeTrialBadge": "{{days}} ngày miễn phí — không ràng buộc",
       "heroTitle": "Xưởng & Ô tô — tất cả trong một nơi",
@@ -2232,6 +2234,9 @@
       "stations": {
         "title": "Vị trí làm việc của xưởng",
         "desc": "Vị trí (vd: Rửa xe, Cân chỉnh góc lái, Dịch vụ lốp) hoạt động như trạng thái đơn hàng. Phân công nhân viên — khi đơn hàng đến một vị trí, họ nhận được thông báo và SMS."
+      },
+      "cennik": {
+        "desc": "Giá và thời lượng dịch vụ. Đây là nguồn duy nhất mà trợ lý giọng nói dùng để báo giá cho khách — chỉ nhập những gì bạn muốn trợ lý nói. Ghi thời lượng là THỜI GIAN CHIẾM CHỖ KHOANG SỬA, không phải thời gian làm việc: nếu xe đứng một tiếng, hãy ghi 60, dù công việc chỉ mất 30 phút."
       }
     },
     "settings": {
@@ -3976,5 +3981,30 @@
     "selectToActivate": "Chọn mô-đun bạn muốn kích hoạt",
     "comingSoon": "Sắp có",
     "allAccountTypes": "Bạn đã có tất cả loại tài khoản khả dụng"
+  },
+  "dataDeletion": {
+    "title": "Xóa dữ liệu",
+    "subtitle": "Hướng dẫn xóa dữ liệu cá nhân — bao gồm dữ liệu từ Facebook và Instagram (Meta)",
+    "lastUpdated": "Cập nhật lần cuối",
+    "adminTitle": "1. Đơn vị quản lý dữ liệu",
+    "rodoContact": "Liên hệ về bảo vệ dữ liệu",
+    "metaDataTitle": "2. Dữ liệu chúng tôi thu thập qua Facebook / Instagram",
+    "metaDataIntro": "Liên quan đến việc đăng tin trên các trang GetRido tại dịch vụ Meta, chúng tôi có thể thu thập qua API của Meta những dữ liệu sau:",
+    "metaData1": "mã định danh người dùng trong dịch vụ Meta",
+    "metaData2": "tên trang cá nhân",
+    "metaData3": "địa chỉ email (nếu được chia sẻ)",
+    "metaData4": "mã định danh các bài đã đăng",
+    "purposeText": "Mục đích xử lý: đăng tin của người dùng trên các trang GetRido tại dịch vụ Meta và báo cáo thống kê đăng tin.",
+    "howTitle": "3. Cách yêu cầu xóa dữ liệu",
+    "howIntro": "Để yêu cầu xóa dữ liệu, hãy thực hiện các bước sau:",
+    "howStep1": "Gửi email đến địa chỉ:",
+    "howStep2": "Trong tiêu đề email ghi: „Xóa dữ liệu\".",
+    "howStep3": "Trong nội dung, ghi rõ địa chỉ email tài khoản GetRido hoặc tên trang Facebook liên quan đến yêu cầu.",
+    "deadline": "Chúng tôi sẽ xử lý yêu cầu ngay lập tức, chậm nhất trong vòng 30 ngày kể từ khi nhận được (Điều 12 khoản 3 GDPR).",
+    "scopeTitle": "4. Chúng tôi xóa gì và phải giữ lại gì",
+    "scopeDelete": "Chúng tôi xóa toàn bộ dữ liệu cá nhân gắn với tài khoản hoặc trang được nêu trong yêu cầu, bao gồm dữ liệu thu thập từ dịch vụ Meta.",
+    "scopeKeep": "Ngoại lệ là dữ liệu thanh toán và hóa đơn mà theo quy định thuế chúng tôi phải lưu giữ trong 5 năm. Sau thời hạn này, chúng sẽ được xóa.",
+    "altTitle": "5. Cách khác: thu hồi quyền truy cập trong cài đặt Facebook",
+    "altText": "Bạn cũng có thể tự ngắt kết nối ứng dụng GetRido khỏi tài khoản Facebook: vào Cài đặt → Ứng dụng và trang web, tìm GetRido và xóa quyền truy cập. Ngắt kết nối sẽ dừng việc thu thập dữ liệu tiếp theo; để xóa dữ liệu đã thu thập, hãy gửi yêu cầu theo mục 3."
   }
 }

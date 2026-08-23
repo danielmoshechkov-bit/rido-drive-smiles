@@ -26,9 +26,12 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Ta sama bramka co w dyspozytorze SMS: sekret jest opcjonalny, a publiczne
-  // wywołanie i tak jest nieszkodliwe — wyśle wyłącznie przypomnienia już należne
-  // i tylko raz (znacznik reminder_sent_at blokuje powtórkę).
+  // Ta sama bramka co w dyspozytorze SMS. Przypomnienia nie sa juz jednorazowe,
+  // wiec dawne uzasadnienie "wyjdzie i tak tylko raz" przestalo obowiazywac.
+  // Powtorki pilnuje teraz widok: kolejny wpis wraca dopiero po odstepie
+  // ustalonym przez warsztat, a licznik zatrzymuje calosc na jego granicy.
+  // Bez sekretu obcy moze wiec wywolac wysylke wczesniej, niz chcial warsztat —
+  // dlatego SCHEDULED_SMS_SECRET powinien byc ustawiony.
   const cronSecret = Deno.env.get("SCHEDULED_SMS_SECRET");
   if (cronSecret && req.headers.get("x-cron-secret") !== cronSecret) {
     return new Response(JSON.stringify({ error: "FORBIDDEN" }), {
@@ -157,9 +160,16 @@ serve(async (req) => {
 
         // Znacznik stawiamy dopiero po udanym zakolejkowaniu/wysłaniu — inaczej
         // awaria bramki oznaczyłaby przypomnienie jako doręczone.
+        // Licznik rosnie, bo przypomnienie nie jest juz jednorazowe: kolejne
+        // wychodza co ustalony odstep, az do granicy zapisanej w zasadach
+        // warsztatu. Bez licznika nie dalo by sie tej granicy pilnowac.
         await supabaseAdmin
           .from("workshop_tire_storage")
-          .update({ reminder_sent_at: now, reminder_sent: true })
+          .update({
+            reminder_sent_at: now,
+            reminder_sent: true,
+            reminder_count: Number(row.reminder_count ?? 0) + 1,
+          })
           .eq("id", row.id);
       } catch (err: any) {
         skipped++;

@@ -28,6 +28,19 @@ export function AdminPaymentsTab() {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
+      {/* Te same panele maja teraz wlasne miejsce w menu. Zostawiamy je tutaj,
+          bo to ten sam komponent i ta sama tabela — zmiana zrobiona w jednym
+          miejscu jest widoczna w drugim. */}
+      <div className="flex justify-end mb-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => { window.location.href = '/admin/platnosci'; }}
+        >
+          <Wallet className="h-4 w-4 mr-2" />
+          Otwórz Centrum Płatności
+        </Button>
+      </div>
       <TabsList className="bg-gradient-hero text-primary-foreground rounded-lg p-1 shadow-purple h-10 w-full mb-4">
         <TabsTrigger value="gateways" className="data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1">
           <div className="flex items-center gap-1.5 justify-center">
@@ -99,7 +112,7 @@ export function AdminPaymentsTab() {
 
 // ==================== Payment Gateway Config ====================
 
-function PaymentGatewayConfig() {
+export function PaymentGatewayConfig() {
   const [provider, setProvider] = useState('przelewy24');
   const [merchantId, setMerchantId] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -223,7 +236,7 @@ interface CompanyRow {
   company_phone: string | null; sms_dostepne: number | null;
 }
 
-function AssignCreditsPanel() {
+export function AssignCreditsPanel() {
   const [email, setEmail] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<{ id: string; email: string }[]>([]);
@@ -553,7 +566,7 @@ function AssignCreditsPanel() {
 
 // ==================== Credit Packages Manager ====================
 
-function CreditPackagesManager() {
+export function CreditPackagesManager() {
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -603,7 +616,7 @@ function CreditPackagesManager() {
 
 // ==================== Payment History ====================
 
-function PaymentHistory() {
+export function PaymentHistory() {
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');

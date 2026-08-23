@@ -76,12 +76,20 @@ ZASADY:
 5. Gdy pierwsze zgłoszenie jest już konkretne (objaw + warunki + ewentualne błędy), od razu uznaj obraz za kompletny.
 6. Pisz WYŁĄCZNIE po polsku. Bez wulgaryzmów.
 
-Odpowiadasz TYLKO czystym JSON-em, bez tekstu przed ani po:
-{
-  "gotowe": true albo false,
-  "odpowiedz": "treść dla mechanika — pytania i podpowiedź, gdy gotowe=false; puste, gdy gotowe=true",
-  "brief": "gdy gotowe=true: zwięzłe streszczenie CAŁEJ sprawy dla eksperta — objaw, warunki, błędy, co już sprawdzono. Gdy gotowe=false: puste"
-}`;
+═══ JAK ODPOWIADASZ ═══
+
+Piszesz ZWYCZAJNYM TEKSTEM do mechanika. Żadnego JSON-a, żadnych nawiasów klamrowych.
+
+W OSTATNIEJ LINII, samodzielnie, postaw jeden ze znaczników:
+
+[PYTAM] — gdy zadałeś pytania i czekasz na odpowiedź
+[GOTOWE] — gdy masz komplet i można stawiać diagnozę
+
+Przy [GOTOWE] w tej samej ostatniej linii dopisz po znaczniku zwięzłe streszczenie całej sprawy dla eksperta: objaw, warunki, błędy, co już sprawdzono. Przykład:
+
+[GOTOWE] Passat 1.9 TDi 2002, nierówna praca na zimnym silniku od miesiąca, błąd P0401, świece żarowe wymieniane rok temu, filtr powietrza czysty.
+
+Znacznik jest OBOWIĄZKOWY i musi stać w ostatniej linii.`;
 
 const PERSONA_ANALIZA = `Jesteś ekspertem technicznym z wieloletnią praktyką w warsztacie. Dostajesz komplet informacji o usterce i masz postawić diagnozę.
 
@@ -332,21 +340,35 @@ Deno.serve(async (req) => {
     const surowy = (Array.isArray(wynikWywiadu?.content) ? wynikWywiadu.content : [])
       .filter((b: any) => b.type === 'text').map((b: any) => b.text).join('').trim();
 
-    let plan: any = {};
-    try {
-      // Model bywa uprzejmy i opakowuje JSON w ```json — bierzemy to, co
-      // między pierwszym `{` a ostatnim `}`.
-      const od = surowy.indexOf('{');
-      const doZnaku = surowy.lastIndexOf('}');
-      plan = od >= 0 && doZnaku > od ? JSON.parse(surowy.slice(od, doZnaku + 1)) : {};
-    } catch {
-      plan = {};
-    }
+    /**
+     * ZNACZNIK W OSTATNIEJ LINII ZAMIAST JSON-a.
+     *
+     * 🔴 NAPRAWIONE 23.08.2026. Wywiad miał odpowiadać czystym JSON-em. Model
+     * czasem go psuł — i wtedy mechanik dostawał na ekran surowe
+     * `{ "gotowe": false, "odpowiedz": "...", "brief": "" }`. Wyglądało to na
+     * awarię systemu i kosztowało kredyt.
+     *
+     * Znacznika nie da się zepsuć tak jak JSON-a: albo jest w ostatniej linii,
+     * albo go nie ma. Gdy go nie ma, uznajemy obraz za KOMPLETNY i idziemy do
+     * analizy — to droższy, ale właściwy kierunek pomyłki: mechanik dostaje
+     * prawdziwą odpowiedź zamiast komunikatu o błędzie.
+     */
+    const linie = surowy.split('\n');
+    const ostatnia = linie[linie.length - 1]?.trim() ?? '';
+    const pyta = /^\[PYTAM\]/i.test(ostatnia);
+    const gotowe = /^\[GOTOWE\]/i.test(ostatnia);
 
-    // Gdy wywiad nie zwróci czytelnego JSON-a, NIE blokujemy rozmowy: traktujemy
-    // jego tekst jak zwykłą odpowiedź. Awaria formatu nie może kosztować
-    // mechanika pytania z pakietu.
-    const trzebaDopytac = plan?.gotowe !== true;
+    // Treść bez linii ze znacznikiem — mechanik nie ma go widzieć.
+    const trescWywiadu = (pyta || gotowe ? linie.slice(0, -1) : linie).join('\n').trim();
+    const streszczenie = gotowe ? ostatnia.replace(/^\[GOTOWE\]\s*/i, '').trim() : '';
+
+    const plan: any = {
+      gotowe: !pyta,
+      odpowiedz: trescWywiadu,
+      brief: streszczenie || trescWywiadu || String(pytanie),
+    };
+
+    const trzebaDopytac = pyta;
 
     if (trzebaDopytac) {
       const tresc = String(plan?.odpowiedz || surowy || '').trim();

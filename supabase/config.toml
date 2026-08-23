@@ -486,3 +486,9 @@ verify_jwt = false
 # Ostrzeżenia przed końcem okresu. Sprawdza sekret zadania cyklicznego sama.
 [functions.billing-ostrzezenia]
 verify_jwt = false
+
+# Faktura sprzedazowa GetRido — wystawiana po oplaconej platnosci.
+# Funkcja sama sprawdza klucz service_role w naglowku: woła ją wylacznie webhook
+# platnosci albo administrator przy naprawach, nigdy przegladarka.
+[functions.billing-invoice-issue]
+verify_jwt = false

@@ -2296,7 +2296,8 @@
         "daneNaprawcze": "Repair data",
         "pracownicy": "Employees",
         "stanowiska": "Stations",
-        "ustawienia": "Settings"
+        "ustawienia": "Settings",
+        "cennik": "Service price list"
       },
       "freeTrialBadge": "{{days}} days free — no commitment",
       "heroTitle": "Workshop & Auto — everything in one place",
@@ -2339,6 +2340,9 @@
       "stations": {
         "title": "Workshop stations",
         "desc": "Stations (e.g. Car wash, Wheel alignment, Tire service) work like order statuses. Assign employees — when an order reaches a station, they get a notification and SMS."
+      },
+      "cennik": {
+        "desc": "Prices and durations of services. This is the only source the voice assistant quotes prices from — enter only what you want it to say. Give the duration as the TIME THE BAY IS OCCUPIED, not the working time: if the car stands for an hour, enter 60, even though the work itself takes 30 minutes."
       }
     },
     "settings": {

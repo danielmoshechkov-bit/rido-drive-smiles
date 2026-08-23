@@ -113,9 +113,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  // Zapamiętane, bo woła je też wystawienie faktury niżej.
+  const url = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
   const admin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    url,
+    serviceKey,
   );
 
   const drugiKlucz = Deno.env.get('PAYU_SECOND_KEY') ?? '';
@@ -340,6 +344,82 @@ Deno.serve(async (req) => {
         event: miesiacPlanu ? 'payu_okres_wydany' : 'payu_pakiet_wydany',
         order: zamowienie.id, wynik: packId,
       }));
+
+      /**
+       * FAKTURA — PO WYDANIU, I NIGDY JAKO WARUNEK.
+       *
+       * 🔴 DODANE 23.08.2026. GetRido brało pieniądze i nie wystawiało
+       * dokumentu: czternaście opłaconych zamówień, zero faktur.
+       *
+       * Kolejność ma znaczenie. Faktura idzie DOPIERO po udanym wydaniu —
+       * gdyby paczka się nie wydała, wystawilibyśmy dokument za coś, czego
+       * klient nie dostał.
+       *
+       * I odwrotnie: nieudane wystawienie NIE MOŻE wywrócić webhooka. Klient
+       * zapłacił i dostał towar; brak faktury jest do naprawienia jednym
+       * wywołaniem, a wycofanie wydania — nie. Dlatego cała ta część siedzi
+       * we własnym `try` i najgorsze, co robi, to wpis w dzienniku.
+       *
+       * Idempotencja stoi po stronie funkcji wystawiającej: odnośnikiem jest
+       * identyfikator zamówienia PayU, a unikalny indeks nie dopuści drugiej
+       * faktury przy ponownej dostawie powiadomienia.
+       */
+      try {
+        // Wiersz zamówienia dociągamy w całości: typ `Zamowienie` opisuje tylko
+        // pola potrzebne do rozliczenia wydania, a faktura potrzebuje nabywcy
+        // i identyfikatora płatności u operatora.
+        const { data: pozycja } = await (admin as any)
+          .from('billing_orders')
+          .select('units, snapshot, subscriber_id, provider_order_id, billing_addon_products(name), billing_plans(name)')
+          .eq('id', zamowienie.id)
+          .maybeSingle();
+
+        const { data: nabywca } = await (admin as any)
+          .from('service_providers')
+          .select('company_name, company_nip, company_address, company_city, company_postal_code, company_email, owner_email')
+          .eq('id', pozycja?.subscriber_id)
+          .maybeSingle();
+
+        const nazwa = miesiacPlanu
+          ? `Abonament ${pozycja?.billing_plans?.name ?? 'GetRido'} — miesiąc`
+          : `${pozycja?.billing_addon_products?.name ?? 'Doładowanie GetRido'}`;
+
+        const adres = [
+          nabywca?.company_address,
+          [nabywca?.company_postal_code, nabywca?.company_city].filter(Boolean).join(' '),
+        ].filter(Boolean).join(', ');
+
+        const odp = await fetch(`${url}/functions/v1/billing-invoice-issue`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({
+            external_payment_ref: `payu:${pozycja?.provider_order_id ?? zamowienie.id}`,
+            buyer_name: nabywca?.company_name ?? null,
+            buyer_nip: nabywca?.company_nip ?? null,
+            buyer_address: adres || null,
+            buyer_email: nabywca?.company_email ?? nabywca?.owner_email ?? null,
+            payment_method: 'payu',
+            items: [{
+              name: nazwa,
+              quantity: 1,
+              unit: 'szt',
+              // BRUTTO, nie netto: operator pobrał konkretną kwotę i to ona
+              // rozstrzyga. Funkcja liczy „w stu", żeby suma faktury zgadzała
+              // się z obciążeniem co do grosza.
+              unit_gross_price: Number(zamowienie.amount_gross),
+              vat_rate: 23,
+            }],
+          }),
+        });
+
+        const wynik = await odp.json().catch(() => ({}));
+        console.log(JSON.stringify({
+          event: odp.ok ? 'payu_faktura' : 'payu_faktura_blad',
+          order: zamowienie.id, numer: wynik?.invoice_number ?? null, status: odp.status,
+        }));
+      } catch (bladFaktury) {
+        console.error('billing-payu-webhook: faktura niewystawiona', bladFaktury);
+      }
     }
 
     await zakoncz('processed');

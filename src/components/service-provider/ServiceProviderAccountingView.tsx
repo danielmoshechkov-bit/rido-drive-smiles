@@ -13,6 +13,7 @@ import { InventoryModuleView } from '@/components/inventory';
 import { InventoryPurchaseOCR } from '@/components/inventory/InventoryPurchaseOCR';
 import { PendingInvoicesReview } from '@/components/invoices/PendingInvoicesReview';
 import { InvoiceEmailSetup } from '@/components/invoices/InvoiceEmailSetup';
+import { AccountingSettingsPanel } from '@/components/accounting/AccountingSettingsPanel';
 import { InvoiceNotificationBell } from '@/components/invoices/InvoiceNotificationBell';
 import { KsefUserSettings } from '@/components/ksef/KsefUserSettings';
 import { InvoicesModule } from '@/components/invoices/InvoicesModule';
@@ -29,7 +30,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   FileText, Plus, FileSpreadsheet, BarChart3, Clock, Package,
-  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail, Shield, AlertTriangle, Download, Loader2
+  CreditCard, ShoppingBag, Calculator, Building2, ChevronRight, Mail, Shield, AlertTriangle, Download, Loader2, Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { invalidateInvoiceQueries } from '@/utils/invalidateInvoiceQueries';
@@ -56,6 +57,7 @@ const accountingSubTabs = [
   { value: 'email-faktury', labelKey: 'cp.accounting.emailInvoices', label: 'Email faktury', icon: Mail, img: tileEmail, visible: true },
   { value: 'ksef', labelKey: '', label: 'KSeF', icon: Shield, img: tileKsef, visible: true },
   { value: 'cykliczne', labelKey: 'cp.accounting.recurring', label: 'Cykliczne', icon: Clock, img: tileCykliczne, visible: true },
+  { value: 'ustawienia', labelKey: '', label: 'Ustawienia', icon: Settings, visible: true },
 ];
 
 export function ServiceProviderAccountingView() {
@@ -287,6 +289,8 @@ export function ServiceProviderAccountingView() {
 
       {/* KSeF */}
       {subTab === 'ksef' && <KsefUserSettings />}
+
+      {subTab === 'ustawienia' && <AccountingSettingsPanel />}
 
       {/* Stan magazynowy */}
       {subTab === 'magazyn' && <InventoryModuleView entityId={userEntities[0]?.id} />}

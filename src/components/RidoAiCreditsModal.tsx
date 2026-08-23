@@ -36,7 +36,7 @@ export function RidoAiCreditsModal({ open, onOpenChange, dostepne }: Props) {
    * Kwota w tekście, który ktoś musi pamiętać, żeby poprawić, to obietnica
    * czekająca na złamanie. Bierzemy ją stamtąd, skąd bierze ją bramka.
    */
-  const [pakiet, setPakiet] = useState<{ step: number; brutto: number } | null>(null);
+  const [pakiet, setPakiet] = useState<{ step: number; netto: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -49,8 +49,10 @@ export function RidoAiCreditsModal({ open, onOpenChange, dostepne }: Props) {
         .eq('is_active', true)
         .maybeSingle();
       if (anulowane || !data) return;
-      const brutto = Number(data.step) * Number(data.unit_price_net) * (1 + Number(data.vat_rate ?? 23) / 100);
-      setPakiet({ step: Number(data.step), brutto: Math.round(brutto * 100) / 100 });
+      // NETTO, bo w tym cenniku wszystkie kwoty są netto i warsztat odlicza VAT.
+      // Mieszanie netto z brutto w jednym miejscu to najprostsza droga do
+      // wrażenia, że cena się zmieniła.
+      setPakiet({ step: Number(data.step), netto: Number(data.step) * Number(data.unit_price_net) });
     })();
     return () => { anulowane = true; };
   }, [open]);
@@ -70,7 +72,7 @@ export function RidoAiCreditsModal({ open, onOpenChange, dostepne }: Props) {
               {bezLimitu ? '∞' : (dostepne ?? 0)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              {bezLimitu ? 'Twój plan nie ma limitu pytań' : 'pytań zostało w tym miesiącu'}
+              {bezLimitu ? 'Twój plan nie ma limitu pytań' : 'pytań zostało do wykorzystania'}
             </p>
           </div>
 
@@ -111,15 +113,15 @@ export function RidoAiCreditsModal({ open, onOpenChange, dostepne }: Props) {
             <Button className="w-full gap-2" onClick={() => setDoladowanie(true)}>
               <ShoppingCart className="h-4 w-4" />
               {pakiet
-                ? `Dokup ${pakiet.step} pytań — ${formatMoneyPLN(pakiet.brutto)} brutto`
+                ? `Dokup ${pakiet.step} pytań — ${formatMoneyPLN(pakiet.netto)} netto`
                 : 'Dokup pytania'}
             </Button>
           )}
 
           <p className="text-xs text-muted-foreground border-t pt-3">
-            Limit z planu odnawia się co miesiąc razem z abonamentem. Dokupione
-            pytania są bezterminowe i zużywają się dopiero po wyczerpaniu limitu
-            z planu.
+            Plan nie daje pytań co miesiąc — przy jego uruchomieniu dostajesz
+            jednorazową pulę na sprawdzenie, a dalej działa dokupienie. Dokupione
+            pytania są bezterminowe i nie przepadają na koniec miesiąca.
           </p>
         </div>
       </DialogContent>
