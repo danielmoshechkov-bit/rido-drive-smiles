@@ -50,7 +50,11 @@ export function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddN
     <div className="flex items-center gap-1">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" className="w-full justify-between h-9 font-normal">
+          <Button
+            variant="outline"
+            role="combobox"
+            className="w-full justify-between h-9 font-normal bg-background hover:bg-muted text-foreground"
+          >
             {selectedLabel || <span className="text-muted-foreground">{placeholder}</span>}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -80,9 +84,17 @@ export function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddN
                   {!query.trim() && t('workshop.tireStorage.notFound')}
                 </div>
               </CommandEmpty>
+              {/* Domyslne podswietlenie pozycji to `bg-accent`, a w tym motywie
+                  accent to zlota barwa marki (#FFD700). Na pojedynczym wierszu
+                  listy wyglada jak zakreslacz, wiec nadpisujemy je spokojnym. */}
               <CommandGroup>
                 {filtered.map(item => (
-                  <CommandItem key={item.id} value={item.id} onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}>
+                  <CommandItem
+                    key={item.id}
+                    value={item.id}
+                    onSelect={() => { onSelect(item.id); setOpen(false); setQuery(''); }}
+                    className="data-[selected=true]:bg-muted data-[selected=true]:text-foreground aria-selected:bg-muted aria-selected:text-foreground"
+                  >
                     <Check className={`mr-2 h-4 w-4 ${value === item.id ? 'opacity-100' : 'opacity-0'}`} />
                     {renderItem(item)}
                   </CommandItem>

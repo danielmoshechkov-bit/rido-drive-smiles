@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { TireStorageRulesDialog } from './TireStorageRulesDialog';
 import { TireStoragePricing, useTirePricing, RODZAJE_FELG } from './TireStoragePricing';
 import { TireStorageDetailsDialog } from './TireStorageDetailsDialog';
+import { TireStorageSmsDialog } from './TireStorageSmsDialog';
 import { SearchableCombobox } from './SearchableCombobox';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -215,6 +216,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [zasadyOtwarte, setZasadyOtwarte] = useState(false);
   const [podglad, setPodglad] = useState<any>(null);
+  const [doPotwierdzenia, setDoPotwierdzenia] = useState<any>(null);
   /**
    * „W magazynie" i „Wydane" to dwa różne pytania: pierwsze zadaje magazynier szukający
    * miejsca, drugie — klient, który twierdzi, że opon nie odebrał. Dotąd lista pokazywała
@@ -385,8 +387,8 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                 <TableHead className="w-[120px]">Miejsce</TableHead>
                 <TableHead className="w-[92px]">Przyjęto</TableHead>
                 <TableHead className="w-[130px]">Przypomnienie</TableHead>
-                <TableHead className="w-[130px]">Do zapłaty</TableHead>
-                <TableHead className="w-[150px] text-right">Akcje</TableHead>
+                <TableHead className="w-[140px]">Do zapłaty</TableHead>
+                <TableHead className="w-[330px] text-right">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -442,7 +444,9 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                   <TableCell className="py-2">
                     {r.dlug ? (
                       <div className="leading-tight">
-                        <span className="text-sm font-semibold">
+                        {/* Bez `whitespace-nowrap` kwota lamala sie tak, ze
+                            "zł" ladowalo w nastepnej linii pod liczba. */}
+                        <span className="text-sm font-semibold whitespace-nowrap">
                           {Number(r.dlug.do_zaplaty ?? 0).toFixed(2)} zł
                         </span>
                         {r.dlug.okresow > 0 && r.okres_miesiecy && (
@@ -461,34 +465,46 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                       </div>
                     ) : <span className="text-muted-foreground text-xs">—</span>}
                   </TableCell>
-                  <TableCell onClick={e => e.stopPropagation()} className="text-right whitespace-nowrap">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => printStorageReceipt(r, view === 'stored' ? 'przyjęcia' : 'wydania', printHeader ?? {})}
-                    >
-                      <Printer className="h-3.5 w-3.5" /> Pokwitowanie
-                    </Button>
-                    {view === 'stored' && (
-                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => issueSet(r)}>
-                        <Check className="h-3.5 w-3.5" /> Wydaj
-                      </Button>
-                    )}
-                    {view === 'stored' && (r.dlug?.dni_po_terminie ?? 0) > 0 && (
+                  <TableCell onClick={e => e.stopPropagation()} className="py-2">
+                    {/* Staly uklad trzech miejsc: kazdy przycisk stoi w tej
+                        samej kolumnie w kazdym wierszu, a brakujaca akcje
+                        zastepuje puste miejsce zamiast przesuwac pozostale. */}
+                    <div className="grid grid-cols-3 gap-1 justify-items-stretch">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs gap-1"
-                        onClick={() => oznaczNieodebrane(r)}
-                        title={r.dlug?.nieodebrane_od
-                          ? 'Cofnij oznaczenie i wznów przypomnienia'
-                          : 'Zatrzymaj przypomnienia — nikt się nie zgłosił'}
+                        className="h-7 text-xs gap-1 justify-start"
+                        onClick={() => printStorageReceipt(r, view === 'stored' ? 'przyjęcia' : 'wydania', printHeader ?? {})}
                       >
-                        <Archive className="h-3.5 w-3.5" />
-                        {r.dlug?.nieodebrane_od ? 'Cofnij' : 'Nieodebrane'}
+                        <Printer className="h-3.5 w-3.5 shrink-0" /> Pokwitowanie
                       </Button>
-                    )}
+
+                      {view === 'stored' ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 justify-start"
+                          onClick={() => issueSet(r)}
+                        >
+                          <Check className="h-3.5 w-3.5 shrink-0" /> Wydaj
+                        </Button>
+                      ) : <span />}
+
+                      {view === 'stored' && (r.dlug?.dni_po_terminie ?? 0) > 0 ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 justify-start"
+                          onClick={() => oznaczNieodebrane(r)}
+                          title={r.dlug?.nieodebrane_od
+                            ? 'Cofnij oznaczenie i wznów przypomnienia'
+                            : 'Zatrzymaj przypomnienia — nikt się nie zgłosił'}
+                        >
+                          <Archive className="h-3.5 w-3.5 shrink-0" />
+                          {r.dlug?.nieodebrane_od ? 'Cofnij' : 'Nieodebrane'}
+                        </Button>
+                      ) : <span />}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -505,7 +521,21 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
         onPageSizeChange={setPageSize}
       />
 
-      <TireStorageDialog open={showAdd} onOpenChange={setShowAdd} providerId={providerId} />
+      <TireStorageDialog
+        open={showAdd}
+        onOpenChange={setShowAdd}
+        providerId={providerId}
+        onZapisano={(wpis) => setDoPotwierdzenia({
+          ...wpis,
+          __warsztat: printHeader?.companyName ?? '',
+          __adres: printHeader?.address ?? '',
+        })}
+      />
+      <TireStorageSmsDialog
+        wpis={doPotwierdzenia}
+        onOpenChange={(v) => !v && setDoPotwierdzenia(null)}
+        providerId={providerId}
+      />
       <TireStorageRulesDialog open={zasadyOtwarte} onOpenChange={setZasadyOtwarte} providerId={providerId} />
       <TireStorageDetailsDialog record={podglad} onOpenChange={(v) => !v && setPodglad(null)} providerId={providerId} />
     </div>
@@ -513,7 +543,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
 }
 
 // ---- Searchable Combobox ----
-function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; onOpenChange: (v: boolean) => void; providerId: string }) {
+function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { open: boolean; onOpenChange: (v: boolean) => void; providerId: string; onZapisano?: (wpis: any) => void }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: clients = [] } = useWorkshopClients(providerId);
@@ -713,13 +743,21 @@ function TireStorageDialog({ open, onOpenChange, providerId }: { open: boolean; 
       queryClient.invalidateQueries({ queryKey: ['tire-storage-dues', providerId] });
       onOpenChange(false);
 
-      // Offer SMS
-      if (clientPhone) {
-        const seasonLabel = season === 'letnie' ? 'letnie' : season === 'zimowe' ? 'zimowe' : 'całoroczne';
-        toast.info(t('workshop.tireStorage.smsCanBeSent', { phone: clientPhone }), {
-          action: { label: t('workshop.tireStorage.send'), onClick: () => toast.info(t('workshop.tireStorage.smsComingSoon')) },
-        });
-      }
+      // Potwierdzenie dla klienta. Nie wysylamy samo z siebie — SMS kosztuje
+      // warsztat, wiec propozycja z gotowa trescia i decyzja po jego stronie.
+      const pojazd = rawVehicles.find((v: any) => v.id === vehicleId);
+      onZapisano?.({
+        ...(stored ?? {}),
+        client_id: clientId || null,
+        client_phone: clientPhone,
+        tire_brand: tireBrand,
+        tire_model: tireModel,
+        tire_size: tireSize,
+        quantity: parseInt(quantity) || null,
+        rim_type: rimType,
+        __pojazd: pojazd ? [pojazd.brand, pojazd.model].filter(Boolean).join(' ') : '',
+        __rejestracja: pojazd?.plate ?? '',
+      });
     } catch (e: any) {
       toast.error(e.message || t('common.saveError'));
     } finally {
