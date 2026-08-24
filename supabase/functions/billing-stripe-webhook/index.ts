@@ -473,6 +473,89 @@ Deno.serve(async (req) => {
         break;
       }
 
+      // ------------------------------ odłożona zmiana planu u operatora
+      /**
+       * WEJŚCIE W GÓRĘ IDZIE Z `pending_if_incomplete`, więc gdy karta odrzuci
+       * rachunek za różnicę, operator NIE stosuje zmiany — oddaje subskrypcję
+       * z wypełnionym `pending_update` i my też niczego nie zapisujemy.
+       *
+       * Ale rachunek u niego WISI i klient może go opłacić później: z maila
+       * od operatora albo z portalu rozliczeń. Wtedy zmiana wchodzi w życie
+       * po jego stronie i przychodzi to zdarzenie.
+       *
+       * Bez tej gałęzi klient miałby wyższy plan u operatora i płacił za niego,
+       * a u nas dalej niższy zakres funkcji. Pieniądze szłyby, dostęp nie —
+       * i nikt by tego nie zauważył, bo obie strony „działają".
+       *
+       * Plan rozpoznajemy po CENIE, na której subskrypcja stoi po zastosowaniu
+       * zmiany. Ta sama zasada, co przy `customer.subscription.updated`: cena
+       * spoza cennika nie pozwala zgadywać planu.
+       */
+      case "customer.subscription.pending_update_applied": {
+        const subId = obiekt.id;
+        const cenaPo = obiekt?.items?.data?.[0]?.price?.id;
+        if (!subId || !cenaPo) {
+          console.warn("billing-stripe-webhook: zastosowana zmiana bez ceny", subId);
+          await zakoncz("ignored");
+          break;
+        }
+
+        const { data: dopasowany } = await admin
+          .from("billing_plans")
+          .select("id, code")
+          .or([
+            `stripe_price_id.eq.${cenaPo}`,
+            `stripe_price_id_target.eq.${cenaPo}`,
+            `stripe_price_id_rok.eq.${cenaPo}`,
+            `stripe_price_id_rok_target.eq.${cenaPo}`,
+          ].join(","))
+          .maybeSingle();
+
+        if (!dopasowany?.id) {
+          console.error("billing-stripe-webhook: zastosowana cena spoza cennika", cenaPo, subId);
+          await zakoncz("failed", `Cena ${cenaPo} nieznana w cenniku`);
+          break;
+        }
+
+        const okresPo = okresSubskrypcji(obiekt);
+        const trafione = await aktualizujSubskrypcje(admin, subId, {
+          plan_id: dopasowany.id,
+          status: mapujStatus(obiekt.status),
+          ...(okresPo.start ? { current_period_start: okresPo.start } : {}),
+          current_period_end: okresPo.end,
+          // Zmiana weszła w życie, więc odłożona wersja przestaje obowiązywać.
+          plan_od_nastepnego_okresu: null,
+          plan_zmiana_zgloszona_at: null,
+          updated_at: new Date().toISOString(),
+        });
+
+        console.log(JSON.stringify({
+          event: trafione ? "zmiana_planu_doszla_pozniej" : "zmiana_planu_bez_wiersza",
+          subId, plan: dopasowany.code, trafione,
+        }));
+
+        await zakoncz(trafione ? "processed" : wynikBrakuWiersza(typ));
+        break;
+      }
+
+      /**
+       * Odłożona zmiana PRZEPADŁA — minęły 23 godziny i operator unieważnił
+       * rachunek. Niczego nie zmieniamy, bo u nas nic się nie zmieniło: przy
+       * nieudanej zapłacie od razu odmówiliśmy i zostawiliśmy stary plan.
+       *
+       * Zapisujemy ślad, bo to jest klient, który CHCIAŁ zapłacić więcej
+       * i mu się nie udało — najtańszy sygnał sprzedażowy, jaki mamy.
+       */
+      case "customer.subscription.pending_update_expired": {
+        console.warn(JSON.stringify({
+          event: "zmiana_planu_przepadla",
+          subId: obiekt.id,
+          klient: obiekt.customer ?? null,
+        }));
+        await zakoncz("processed");
+        break;
+      }
+
       // -------------------------------------- zmiany cyklu życia
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {

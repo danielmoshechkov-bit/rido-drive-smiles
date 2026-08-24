@@ -478,11 +478,29 @@ Numer wersji nie jest dowodem — zdarzało się, że rósł przy przywróconym 
 
 ## Encje — znaleziska z 23.08 (nie naprawione, świadomie)
 
-**🔴 CAR4RIDE figuruje w `entities` DWA RAZY z tym samym NIP-em 5223252793**, a faktury
-zakupowe są między te dwa wiersze rozdzielone: **97 i 500**. To jedna firma widziana
-przez system jako dwie, więc żadne zestawienie roczne nie policzy jej poprawnie.
-Zamknięcie roku na tym zaboli. Scalenie wymaga decyzji, który wiersz jest właściwy —
-przeniesienie 97 faktur pod drugi identyfikator jest mechaniczne, wybór nie jest.
+**🔴 CAR4RIDE figuruje w `entities` DWA RAZY z tym samym NIP-em 5223252793.**
+
+Sprawdzone 24.08 — **dokumenty NIE są zdublowane**, zdublowana jest FIRMA:
+
+| | encja A `2b4433ab` | encja B `292d23d2` |
+|---|---|---|
+| właściciel | anastasiia.shapovalova1991@gmail.com | **warsztat@test.pl** |
+| założona | 23.03.2026 | 02.04.2026 |
+| dokumentów | 97 | 500 |
+| okres zakupów | 31.03 – 29.06 | 14.01 – 17.08 |
+| brutto | 177 941,77 zł | 174 558,92 zł |
+
+Wspólny jest **jeden** dokument (369 zł) i **jeden** przypadek zgodności
+dostawca+kwota+data. Czyli koszty nie są policzone dwa razy — po prostu ta sama
+firma prowadzi księgi w dwóch miejscach, z zachodzącymi na siebie okresami.
+
+**Groźniejsze niż samo rozdzielenie:** encja B, z 500 dokumentami na 174 tys. zł,
+wisi przy koncie **`warsztat@test.pl`**. Prawdziwa księgowość na loginie testowym —
+kto skasuje to konto „bo testowe", zabierze ze sobą 500 faktur zakupowych.
+
+Scalenie wymaga decyzji właściciela, który wiersz jest właściwy, i przepisania
+`owner_user_id` na prawdziwe konto. Przeniesienie dokumentów pod jeden
+identyfikator jest mechaniczne, wybór nie jest.
 
 **`Majewski`, NIP 1111111111** — dane testowe, ale trzymają 3 dokumenty zakupowe
 i 1 towar, więc nie są puste. Do sprzątnięcia razem z tymi dokumentami albo wcale.
