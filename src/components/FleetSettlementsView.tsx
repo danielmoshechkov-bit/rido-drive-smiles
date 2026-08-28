@@ -35,6 +35,7 @@ import { FleetSettlementImport } from './fleet/FleetSettlementImport';
 import { FleetSettlementSettings } from './fleet/FleetSettlementSettings';
 import { FleetOwnerPayments } from './fleet/FleetOwnerPayments';
 import { FleetCitySettings } from './fleet/FleetCitySettings';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DriverDebtHistory } from './DriverDebtHistory';
 import { UnmappedDriversModal } from './fleet/UnmappedDriversModal';
 import { BankTransferExportDialog } from './fleet/BankTransferExportDialog';
@@ -68,6 +69,11 @@ interface DriverSettlement {
   total_cash: number;
   tax_8_percent: number;
   vat_amount: number;
+  // KROK 3: miasto kierowcy i informacja, czy ma wlasne ustawienia rozliczen.
+  // Gdy brak wiersza w fleet_city_settings, liczymy dalej jak dotad (stawka floty),
+  // ale wiersz musi byc oznaczony wykrzyknikiem — fallback nie moze byc cichy.
+  city_name?: string;
+  city_settings_missing?: boolean;
   service_fee: number;
   additional_fees: { name: string; amount: number }[];
   net_without_commission: number;
@@ -187,6 +193,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [fleetSettlementModeState, setFleetSettlementModeState] = useState<string>('single_tax');
   const [fleetSecondaryVatRateState, setFleetSecondaryVatRateState] = useState(23);
   const [fleetAdditionalPercentRateState, setFleetAdditionalPercentRateState] = useState(0);
+  // KROK 3: miasto, ktore ma sie otworzyc w "Ustawienia rozliczen" po klknieciu wykrzyknika
+  const [focusCityName, setFocusCityName] = useState<string | null>(null);
   // Column visibility state - persisted per fleet
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
     try {
@@ -1320,12 +1328,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const currentWeek = weeks.find(w => w.number === selectedWeek);
 
   useEffect(() => {
-    if (fleetId && selectedWeek !== null) {
+    // KROK 3: bez zaladowanej listy miast nie da sie rozwiazac miasta kierowcy,
+    // a stawka MUSI pochodzic z ustawien jego miasta. Wczesniej ten efekt startowal
+    // z pustym `cities` (ladowanym osobnym efektem), przez co kalkulacja po cichu
+    // spadala na ustawienia floty — stad rozne kwoty przy kolejnych odswiezeniach.
+    if (fleetId && selectedWeek !== null && cities.length > 0) {
       fetchSettlements();
       checkForNewRecordsAfterLoad();
       loadPaidStatus();
     }
-  }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek, selectedCityId]);
+  }, [fleetId, periodFrom, periodTo, selectedYear, selectedWeek, selectedCityId, cities]);
 
   const loadPaidStatus = async () => {
     const currentWeekData = weeks.find(w => w.number === selectedWeek);
@@ -1504,7 +1516,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         secondary_vat_rate: number;
         additional_percent_rate: number;
         base_fee: number;
-        uber_calculation_mode: string;
+        uber_calculation_mode: string | null;
       }>();
       if (citySettingsData) {
         const byCityName = new Map<string, any[]>();
@@ -1517,13 +1529,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           // Merge: prefer bolt settings for settlement_mode (dual_tax), otherwise first entry
           const boltEntry = entries.find((e: any) => e.platform === 'bolt') || entries[0];
           const uberEntry = entries.find((e: any) => e.platform === 'uber');
+          // KROK 3: wartosci ida WPROST z wiersza miasta. Zadnego "?? flota" —
+          // stawka ma byc dokladnie ta, ktora klient wpisal dla tego miasta.
+          // uber_calculation_mode jest NULL na wierszach bolt, wlasciwy jest wiersz uber.
           citySettingsMap.set(cityName, {
-            vat_rate: boltEntry.vat_rate ?? fleetVatRate,
-            settlement_mode: boltEntry.settlement_mode ?? fleetSettlementMode,
-            secondary_vat_rate: boltEntry.secondary_vat_rate ?? fleetSecondaryVatRate,
-            additional_percent_rate: boltEntry.additional_percent_rate ?? fleetAdditionalPercentRate,
-            base_fee: boltEntry.base_fee ?? fleetBaseFee,
-            uber_calculation_mode: uberEntry?.uber_calculation_mode ?? fleetUberCalcMode,
+            vat_rate: boltEntry.vat_rate,
+            settlement_mode: boltEntry.settlement_mode,
+            secondary_vat_rate: boltEntry.secondary_vat_rate,
+            additional_percent_rate: boltEntry.additional_percent_rate,
+            base_fee: boltEntry.base_fee,
+            uber_calculation_mode: uberEntry?.uber_calculation_mode ?? boltEntry.uber_calculation_mode ?? null,
           });
         });
       }
@@ -2096,6 +2111,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             freenow_base: 0, freenow_cash: 0, freenow_commission: 0,
             total_base: 0, total_commission: 0, total_cash: 0,
             tax_8_percent: 0, vat_amount: 0,
+            city_name: driverCityName,
+            city_settings_missing: !driverCitySettings,
             service_fee: 0,
             additional_fees: [],
             manual_week_adjustment: manualWeekAdjustment,
@@ -2138,12 +2155,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                          || driverInfo.billing_method === 'b2b' 
                          || driverInfo.b2b_enabled === true;
         const isB2BVatPayer = isB2BDriver && (driverInfo.b2b_vat_payer === true || b2bProfile?.vat_payer === true);
-        // City-specific settings already resolved above (driverCityId, driverCityName, driverCitySettings, driverBaseFee)
-        const driverVatRate = driverCitySettings?.vat_rate ?? fleetVatRate;
-        const driverSettlementMode = driverCitySettings?.settlement_mode ?? fleetSettlementMode;
-        const driverSecondaryVatRate = driverCitySettings?.secondary_vat_rate ?? fleetSecondaryVatRate;
-        const driverAdditionalPercentRate = driverCitySettings?.additional_percent_rate ?? fleetAdditionalPercentRate;
-        const driverUberCalcMode = driverCitySettings?.uber_calculation_mode ?? fleetUberCalcMode;
+        // === KROK 3: stawki wylacznie z ustawien miasta kierowcy ===
+        // Gdy miasto MA swoj wiersz w fleet_city_settings, bierzemy z niego wszystkie
+        // szesc wartosci i nie ma zadnej sciezki ucieczki na ustawienia floty.
+        // Fallback zostaje TYLKO dla miasta, ktore nie ma zadnego wiersza — i wtedy
+        // wiersz jest oznaczony wykrzyknikiem, zeby ten fallback nie byl cichy.
+        const citySettingsMissing = !driverCitySettings;
+        const driverVatRate = driverCitySettings ? driverCitySettings.vat_rate : fleetVatRate;
+        const driverSettlementMode = driverCitySettings ? driverCitySettings.settlement_mode : fleetSettlementMode;
+        const driverSecondaryVatRate = driverCitySettings ? driverCitySettings.secondary_vat_rate : fleetSecondaryVatRate;
+        const driverAdditionalPercentRate = driverCitySettings ? driverCitySettings.additional_percent_rate : fleetAdditionalPercentRate;
+        const driverUberCalcMode = driverCitySettings
+          ? (driverCitySettings.uber_calculation_mode ?? fleetUberCalcMode)
+          : fleetUberCalcMode;
         const effectiveVatRate = isB2BVatPayer ? 0 : driverVatRate;
         const hasPositivePlatformActivity =
           Math.max(0, uber_base) +
@@ -2187,6 +2211,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             total_cash: 0,
             tax_8_percent: 0,
             vat_amount: negVatAmount,
+            city_name: driverCityName,
+            city_settings_missing: citySettingsMissing,
             service_fee: 0,
             additional_fees: [],
             manual_week_adjustment: manualWeekAdjustment,
@@ -2382,6 +2408,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           total_cash,
           tax_8_percent: vat_amount,
           vat_amount,
+          city_name: driverCityName,
+          city_settings_missing: citySettingsMissing,
           service_fee: effectiveServiceFee,
           additional_fees,
           manual_week_adjustment: manualWeekAdjustment,
@@ -2505,7 +2533,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           onTabChange={setActiveSubTab}
           tabs={subTabs}
         />
-        <FleetCitySettings fleetId={fleetId} />
+        <FleetCitySettings fleetId={fleetId} focusCityName={focusCityName} />
         <div className="mt-4">
           <FleetSettlementSettings fleetId={fleetId} />
         </div>
@@ -3692,7 +3720,30 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         )}
                         {isColVisible('vat') && (
                           <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
-                            {displayValue(settlement.vat_amount, hasAnyActivity, true)}
+                            <span className="inline-flex items-center justify-end gap-1">
+                              {displayValue(settlement.vat_amount, hasAnyActivity, true)}
+                              {settlement.city_settings_missing && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFocusCityName(settlement.city_name || null);
+                                        setActiveSubTab('settings');
+                                      }}
+                                      aria-label={`Nie ustawiono stawki VAT dla miasta ${settlement.city_name || 'bez nazwy'}`}
+                                      className="text-destructive hover:opacity-70"
+                                    >
+                                      <AlertCircle className="h-3.5 w-3.5" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    Nie ustawiono stawki VAT dla miasta {settlement.city_name || 'bez nazwy'}. Kliknij, aby ustawić.
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </span>
                           </TableCell>
                         )}
                         {isColVisible('vat_refund') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
