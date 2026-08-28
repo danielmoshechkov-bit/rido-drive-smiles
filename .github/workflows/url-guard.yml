@@ -20,3 +20,9 @@ jobs:
       # kluczu z pl.json brakujacym w innym jezyku. Dlug juz istniejacy
       # siedzi w scripts/i18n-baseline.json i jest przepuszczany.
       - run: node scripts/check-i18n.mjs
+
+      # Odczyt strony rozliczen nie moze niczego zapisywac. Wejscie w
+      # "Rozliczenia kierowcow" nadpisywalo settlements.actual_payout kwota
+      # policzona w przegladarce, wiec kwoty zmienialy sie same przy kazdym
+      # odswiezeniu — takze na rozliczeniach juz oplaconych.
+      - run: node scripts/check-rozliczenia-zapis.mjs
