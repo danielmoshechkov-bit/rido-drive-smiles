@@ -187,9 +187,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [fleetSettlementModeState, setFleetSettlementModeState] = useState<string>('single_tax');
   const [fleetSecondaryVatRateState, setFleetSecondaryVatRateState] = useState(23);
   const [fleetAdditionalPercentRateState, setFleetAdditionalPercentRateState] = useState(0);
-  // KROK 1 (dryf kwot): odczyt NIE zapisuje. Gdy przeliczenie rozjezdza sie z zapisanym
-  // snapshotem, pokazujemy licznik i czekamy na jawna akcje uzytkownika ("Przelicz tydzien").
-  const [snapshotMismatchCount, setSnapshotMismatchCount] = useState(0);
   // Column visibility state - persisted per fleet
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
     try {
@@ -2443,55 +2440,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       console.log('🧹 Filtered (removed ghost drivers + owners):', filteredAggregated.length);
       console.log('✅ Sample settlement:', filteredAggregated[0]);
 
-      // === KROK 1: ODCZYT NIE ZAPISUJE ===
-      // Do 28.08.2026 ten blok wywolywal 'update-driver-debt' przy KAZDYM wejsciu na strone,
-      // a ta funkcja nadpisuje settlements.actual_payout. Kwota policzona w przegladarce
-      // (zalezna od wyscigu o `cities` — patrz KROK 3) trafiala do bazy i kolejne wejscie
-      // zapisywalo ja z powrotem. Rozliczenia "zmienialy sie same", takze juz oplacone.
-      //
-      // Teraz wykrywamy rozjazd i tylko go POKAZUJEMY. Zapis nastepuje wylacznie na jawna
-      // akcje uzytkownika: "Przelicz tydzien" (recalculate-week) albo "Generuj przelewy".
-      const resetAt = (fleetData as any)?.settlements_reset_at;
-      const isResetFleet = !!resetAt;
-      const resetDate = resetAt ? new Date(resetAt) : null;
-      const weekEnd = currentWeek?.end ? new Date(currentWeek.end) : null;
-      const isWeekBeforeOrAtReset = isResetFleet && weekEnd && resetDate && weekEnd <= resetDate;
-
-      if (isWeekBeforeOrAtReset) {
-        setSnapshotMismatchCount(0);
-      } else {
-        const mismatched = filteredAggregated.filter(row => {
-          if (!row.settlement_id || !row.period_from || !row.period_to) return false;
-
-          const snapshotRawPayout = getSnapshotRawPayout(row);
-          const expectedDebtBefore = round2(previousSnapshotDebtByWeek.get(`${row.driver_id}|${row.period_from}|${row.period_to}`) ?? 0);
-          const snapshotDebtBefore = round2(Math.max(0, row.snapshot_debt_before ?? 0));
-          const debtBeforeMismatch = Math.abs(snapshotDebtBefore - expectedDebtBefore) > 0.01;
-
-          if (snapshotRawPayout === null) {
-            return debtBeforeMismatch;
-          }
-
-          const currentRawPayout = round2(getEffectiveSettlement(row).final_payout);
-          return Math.abs(snapshotRawPayout - currentRawPayout) > 0.5 || debtBeforeMismatch;
-        });
-
-        setSnapshotMismatchCount(mismatched.length);
-
-        if (mismatched.length > 0) {
-          console.warn(
-            `[rozliczenia] Rozjazd snapshotu u ${mismatched.length} kierowcow — NIE zapisuje. ` +
-            `Zapis tylko przez "Przelicz tydzien".`,
-            mismatched.map(row => ({
-              driver_id: row.driver_id,
-              driver_name: row.driver_name,
-              okres: `${row.period_from}..${row.period_to}`,
-              zapisane: getSnapshotRawPayout(row),
-              policzone: round2(getEffectiveSettlement(row).final_payout),
-            })),
-          );
-        }
-      }
+      // KROK 1: odczyt jest wylacznie odczytem. Do 28.08.2026 bylo tu wywolanie
+      // 'update-driver-debt' przy kazdym wejsciu na strone, ktore nadpisywalo
+      // settlements.actual_payout kwota policzona w przegladarce. Zapis nastepuje
+      // teraz wylacznie na jawna akcje uzytkownika ("Przelicz tydzien", edycja komorki).
 
       setSettlements(filteredAggregated);
     } catch (error: any) {
@@ -3066,17 +3018,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   )}
                   <span className="hidden sm:inline">Sprawdź</span> nowych
                 </Button>
-                {snapshotMismatchCount > 0 && (
-                  <div
-                    className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
-                    title={'Przeliczenie rozni sie od kwot zapisanych w bazie. Nic nie zostalo zapisane. Uzyj "Przelicz tydzien", aby zapisac.'}
-                  >
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                    <span>
-                      Niezapisany rozjazd: {snapshotMismatchCount}
-                    </span>
-                  </div>
-                )}
                 <Button 
                   variant="outline" 
                   size="sm"
