@@ -187,6 +187,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [fleetSettlementModeState, setFleetSettlementModeState] = useState<string>('single_tax');
   const [fleetSecondaryVatRateState, setFleetSecondaryVatRateState] = useState(23);
   const [fleetAdditionalPercentRateState, setFleetAdditionalPercentRateState] = useState(0);
+  // KROK 1 (dryf kwot): odczyt NIE zapisuje. Gdy przeliczenie rozjezdza sie z zapisanym
+  // snapshotem, pokazujemy licznik i czekamy na jawna akcje uzytkownika ("Przelicz tydzien").
+  const [snapshotMismatchCount, setSnapshotMismatchCount] = useState(0);
   // Column visibility state - persisted per fleet
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
     try {
@@ -2440,15 +2443,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       console.log('🧹 Filtered (removed ghost drivers + owners):', filteredAggregated.length);
       console.log('✅ Sample settlement:', filteredAggregated[0]);
 
-      // Skip auto debt sync for fleets that were reset — prevents phantom debt recreation
+      // === KROK 1: ODCZYT NIE ZAPISUJE ===
+      // Do 28.08.2026 ten blok wywolywal 'update-driver-debt' przy KAZDYM wejsciu na strone,
+      // a ta funkcja nadpisuje settlements.actual_payout. Kwota policzona w przegladarce
+      // (zalezna od wyscigu o `cities` — patrz KROK 3) trafiala do bazy i kolejne wejscie
+      // zapisywalo ja z powrotem. Rozliczenia "zmienialy sie same", takze juz oplacone.
+      //
+      // Teraz wykrywamy rozjazd i tylko go POKAZUJEMY. Zapis nastepuje wylacznie na jawna
+      // akcje uzytkownika: "Przelicz tydzien" (recalculate-week) albo "Generuj przelewy".
       const resetAt = (fleetData as any)?.settlements_reset_at;
       const isResetFleet = !!resetAt;
       const resetDate = resetAt ? new Date(resetAt) : null;
       const weekEnd = currentWeek?.end ? new Date(currentWeek.end) : null;
       const isWeekBeforeOrAtReset = isResetFleet && weekEnd && resetDate && weekEnd <= resetDate;
 
-      if (!options?.skipDebtSync && !isWeekBeforeOrAtReset) {
-        const settlementsNeedingDebtSync = filteredAggregated.filter(row => {
+      if (isWeekBeforeOrAtReset) {
+        setSnapshotMismatchCount(0);
+      } else {
+        const mismatched = filteredAggregated.filter(row => {
           if (!row.settlement_id || !row.period_from || !row.period_to) return false;
 
           const snapshotRawPayout = getSnapshotRawPayout(row);
@@ -2464,44 +2476,20 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           return Math.abs(snapshotRawPayout - currentRawPayout) > 0.5 || debtBeforeMismatch;
         });
 
-        if (settlementsNeedingDebtSync.length > 0) {
-          console.log(`♻️ Debt snapshot mismatch detected for ${settlementsNeedingDebtSync.length} drivers, syncing chain...`);
+        setSnapshotMismatchCount(mismatched.length);
 
-          const syncResults = await Promise.all(
-            settlementsNeedingDebtSync.map(async (row) => {
-              try {
-                const effectiveRow = getEffectiveSettlement(row);
-                const currentRawPayout = round2(effectiveRow.final_payout);
-                const currentPayoutWithoutRental = round2(calculatePayoutWithoutRental(effectiveRow));
-                const effectiveRentalForDebt = effectiveRow.rental || 0;
-                const { error } = await supabase.functions.invoke('update-driver-debt', {
-                  body: {
-                    driver_id: row.driver_id,
-                    settlement_id: row.settlement_id,
-                    period_from: row.period_from,
-                    period_to: row.period_to,
-                    calculated_payout: currentRawPayout,
-                    calculated_payout_without_rental: currentPayoutWithoutRental,
-                    rental_fee: effectiveRentalForDebt,
-                    force_recalculate_chain: true,
-                  },
-                });
-
-                return { driverId: row.driver_id, ok: !error, error };
-              } catch (error) {
-                return { driverId: row.driver_id, ok: false, error };
-              }
-            })
+        if (mismatched.length > 0) {
+          console.warn(
+            `[rozliczenia] Rozjazd snapshotu u ${mismatched.length} kierowcow — NIE zapisuje. ` +
+            `Zapis tylko przez "Przelicz tydzien".`,
+            mismatched.map(row => ({
+              driver_id: row.driver_id,
+              driver_name: row.driver_name,
+              okres: `${row.period_from}..${row.period_to}`,
+              zapisane: getSnapshotRawPayout(row),
+              policzone: round2(getEffectiveSettlement(row).final_payout),
+            })),
           );
-
-          const failedSyncs = syncResults.filter(r => !r.ok);
-          if (failedSyncs.length === 0) {
-            await fetchSettlements({ skipDebtSync: true, silent: options?.silent });
-            return;
-          }
-
-          console.error('❌ Debt sync failed for drivers:', failedSyncs);
-          toast.error('Część długów nie została przeliczona automatycznie');
         }
       }
 
@@ -3078,6 +3066,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   )}
                   <span className="hidden sm:inline">Sprawdź</span> nowych
                 </Button>
+                {snapshotMismatchCount > 0 && (
+                  <div
+                    className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
+                    title={'Przeliczenie rozni sie od kwot zapisanych w bazie. Nic nie zostalo zapisane. Uzyj "Przelicz tydzien", aby zapisac.'}
+                  >
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>
+                      Niezapisany rozjazd: {snapshotMismatchCount}
+                    </span>
+                  </div>
+                )}
                 <Button 
                   variant="outline" 
                   size="sm"
