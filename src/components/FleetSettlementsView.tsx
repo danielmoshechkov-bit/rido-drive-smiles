@@ -1961,7 +1961,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const driverCityId = (driver as any).city_id;
         const driverCityName = cities.find(c => c.id === driverCityId)?.name || '';
         const driverCitySettings = citySettingsMap.get(driverCityName);
-        const driverBaseFee = driverCitySettings?.base_fee ?? fleetBaseFee;
+        // KROK 3: oplata takze scisle z miasta. Fallback na flote tylko dla miasta
+        // bez zadnego wiersza w fleet_city_settings — ten sam warunek co przy stawkach.
+        const driverBaseFee = driverCitySettings ? driverCitySettings.base_fee : fleetBaseFee;
         
         // fleetBaseFee może być 0 (darmowa flota) - to jest dozwolone!
         // Priority: 1) persisted manual override, 2) per-driver custom_weekly_fee, 3) city base fee, 4) fleet base fee, 5) plan fee

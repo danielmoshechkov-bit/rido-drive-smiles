@@ -26,3 +26,7 @@ jobs:
       # policzona w przegladarce, wiec kwoty zmienialy sie same przy kazdym
       # odswiezeniu — takze na rozliczeniach juz oplaconych.
       - run: node scripts/check-rozliczenia-zapis.mjs
+
+      # Stawka rozliczenia ma pochodzic z ustawien miasta kierowcy. Blokuje powrot
+      # obu przyczyn dryfu: wyscigu o `cities` i cichego fallbacku na ustawienia floty.
+      - run: node scripts/check-rozliczenia-stawki.mjs
