@@ -158,7 +158,39 @@ export function LoginModal({ open, onOpenChange, redirectTo = '/klient', onSucce
       setMode('login');
     } catch (error: any) {
       console.error("Reset password error:", error);
-      toast.error(error.message || "Błąd wysyłania linku");
+
+      /**
+       * KOMUNIKAT MA POWIEDZIEĆ, CO ZROBIĆ — nie „błąd wysyłania".
+       *
+       * Dwa realne powody, oba wyglądały dotąd tak samo:
+       *
+       *  1. LIMIT CZĘSTOTLIWOŚCI. Supabase przepuszcza jedno żądanie na minutę
+       *     dla adresu i odpowiada 429 po angielsku. Człowiek, któremu mail nie
+       *     przyszedł w pięć sekund, klika drugi raz — czyli dokładnie ten,
+       *     kto najbardziej potrzebuje pomocy, dostaje komunikat o błędzie
+       *     i przestaje próbować.
+       *
+       *  2. NIEUDANA WYSYŁKA. Przekaźnik odrzuca adres (nieistniejąca domena,
+       *     pełna skrzynka). Wtedy ponawianie nic nie da i klient ma się
+       *     dowiedzieć, że problem jest po stronie adresu, a nie kliknięcia.
+       */
+      const tresc = String(error?.message ?? "");
+      const kod = String(error?.code ?? error?.error_code ?? "");
+      const sekundy = tresc.match(/after (\d+) seconds?/i)?.[1];
+
+      if (error?.status === 429 || kod.includes("rate_limit")) {
+        toast.error(
+          sekundy
+            ? `Link można wysłać raz na minutę. Spróbuj ponownie za ${sekundy} s — poprzedni mógł już dojść, sprawdź też SPAM.`
+            : "Link można wysłać raz na minutę. Odczekaj chwilę i spróbuj ponownie — sprawdź też folder SPAM.",
+        );
+      } else if (/send|smtp|mail/i.test(tresc)) {
+        toast.error(
+          "Nie udało się wysłać wiadomości na ten adres. Sprawdź, czy nie ma literówki — jeśli jest poprawny, napisz do nas, ustawimy hasło ręcznie.",
+        );
+      } else {
+        toast.error(tresc || "Nie udało się wysłać linku. Napisz do nas, pomożemy.");
+      }
     } finally {
       setIsLoading(false);
     }
