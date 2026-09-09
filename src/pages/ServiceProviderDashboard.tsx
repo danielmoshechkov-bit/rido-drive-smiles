@@ -27,6 +27,8 @@ import { SubscriptionCard } from '@/components/billing/SubscriptionCard';
 import { PlanBadge } from '@/components/billing/PlanBadge';
 import { useFeatureToggles } from '@/hooks/useFeatureToggles';
 import { WorkshopDashboard } from '@/components/workshop/WorkshopDashboard';
+import { WorkshopCallsList } from '@/components/workshop/WorkshopCallsList';
+import { LicznikMinutAgenta } from '@/components/LicznikMinutAgenta';
 import { SettingsPanel } from '@/components/workshop/SettingsPanel';
 import { ServiceProviderAccountingView } from '@/components/service-provider/ServiceProviderAccountingView';
 import { DEFAULT_SERVICE_PROVIDER_PRIMARY_TABS, SERVICE_PROVIDER_TAB_ORDER } from '@/components/service-provider/navConfig';
@@ -128,6 +130,33 @@ export default function ServiceProviderDashboard() {
     setActiveTab('settings');
   };
   const [configData, setConfigData] = useState<any>(null);
+
+  /**
+   * Czy asystent GŁOSOWY jest włączony — do kafelka na pulpicie.
+   *
+   * 🔴 Kafelek „AI Agent" czytał `ai_agent_configs.is_active`, czyli konfigurację
+   * agenta SPRZEDAŻOWEGO (zakładka „Mój Agent"). Tej ankiety nie wypełnia nikt,
+   * więc kafelek mówił „Nieaktywny" KAŻDEMU — także warsztatowi, który ma numer,
+   * minuty i odbierającego agenta. Po zmianie panelu byłyby dwa miejsca dające
+   * dwie różne odpowiedzi na to samo pytanie.
+   *
+   * Kafelek pyta teraz o tę samą rzecz, którą przełącza wyłącznik w zakładce
+   * „Asystent głosowy": `voice_agent_configs.is_active`.
+   */
+  const { data: agentGlosowyWlaczony } = useQuery({
+    queryKey: ['voice-agent-configs', 'czy-wlaczony'],
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      // Polityka RLS przepuszcza wyłącznie konfiguracje własnych warsztatów.
+      const { data, error } = await (supabase as any)
+        .from('voice_agent_configs')
+        .select('is_active')
+        .eq('is_active', true)
+        .limit(1);
+      if (error) return false;
+      return (data?.length ?? 0) > 0;
+    },
+  });
   const [selectedAgentType, setSelectedAgentType] = useState<string | null>(null);
   const [aiAgentSubTab, setAiAgentSubTab] = useState<'overview' | 'knowledge' | 'analytics' | 'learning'>('overview');
   const [providerId, setProviderId] = useState<string | null>(null);
@@ -690,6 +719,9 @@ export default function ServiceProviderDashboard() {
             </Button>
             <ServiceProviderNotificationBell onOpenSettings={openNotificationsSettings} />
             <TopBarCredits />
+            {/* Czwarty licznik OBOK, nie w środku TopBarCredits — tamten plik zostaje
+                nietknięty razem z licznikiem zapytań Rido AI, który działa. */}
+            <LicznikMinutAgenta />
             <LanguageSwitcher />
             <MyGetRidoButton user={user} />
           </div>
@@ -831,7 +863,7 @@ export default function ServiceProviderDashboard() {
               </Card>
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{t('sp.dashboard.aiAgent')}</CardTitle></CardHeader>
-                <CardContent><div className="flex items-center gap-2"><Phone className="h-5 w-5 text-primary" /><Badge variant={configData?.is_active ? 'default' : 'secondary'}>{configData?.is_active ? t('sp.dashboard.active') : t('sp.dashboard.inactive')}</Badge></div></CardContent>
+                <CardContent><div className="flex items-center gap-2"><Phone className="h-5 w-5 text-primary" /><Badge variant={agentGlosowyWlaczony ? 'default' : 'secondary'}>{agentGlosowyWlaczony ? t('sp.dashboard.active') : t('sp.dashboard.inactive')}</Badge></div></CardContent>
               </Card>
             </div>
             <Card>
@@ -1159,10 +1191,13 @@ export default function ServiceProviderDashboard() {
           </TabsContent>
 
           {/* AI Agent Tab */}
-          <TabsContent value="ai-agent" className="mt-6">
+          <TabsContent value="ai-agent" className="mt-6 space-y-6">
             <Suspense fallback={<div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}>
               <AISalesAgentsDashboard providerId={providerId} />
             </Suspense>
+            {/* Lista WSZYSTKICH rozmów, także tych bez zlecenia — panel rozmowy
+                w karcie zlecenia pokazuje tylko te, które zlecenie utworzyły. */}
+            <WorkshopCallsList providerId={providerId} />
           </TabsContent>
 
           {/* Website Builder Tab */}
