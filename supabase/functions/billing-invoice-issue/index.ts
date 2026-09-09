@@ -197,8 +197,9 @@ Deno.serve(async (req) => {
 
     // -------------------------------------- 4. numer + zapis, z ponowieniem
     //
-    // Numer liczymy z AKTYWNYCH faktur tego konta (`deleted_at IS NULL`), tak
-    // samo jak front. Między policzeniem a zapisem może wejść inna faktura —
+    // Numer liczymy z WSZYSTKICH faktur tego konta w tej serii — łącznie
+    // z miękko skasowanymi — tak samo jak front. Między policzeniem a zapisem
+    // może wejść inna faktura —
     // wtedy trigger `trg_unique_invoice_number` odrzuci zapis, a my liczymy
     // numer OD NOWA. Ponawianie z tym samym numerem nie miałoby sensu.
     const dzis = new Date();
@@ -207,11 +208,18 @@ Deno.serve(async (req) => {
     let ostatniBlad: unknown = null;
 
     for (let proba = 1; proba <= PROB_NUMERU; proba++) {
+      /**
+       * BEZ `deleted_at IS NULL` — ŚWIADOMIE.
+       *
+       * Numer raz wystawiony jest zużyty, także gdy faktura zostanie skasowana:
+       * klient mógł już dostać dokument, a księgowa go zaksięgować. Filtr na
+       * aktywne wiersze ZWALNIAŁ numer i 09.09.2026 dał dwie faktury
+       * GR/2026/007 dwóm różnym nabywcom.
+       */
       const { data: zajete } = await admin
         .from("user_invoices")
         .select("invoice_number")
         .eq("user_id", platformUserId)
-        .is("deleted_at", null)
         .like("invoice_number", seriesLike(cfg, dzis));
 
       const seqs = (zajete ?? [])

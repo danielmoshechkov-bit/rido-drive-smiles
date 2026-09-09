@@ -13,8 +13,19 @@
 //   'NNN/RRRR'    -> FV/001/2026     (reset co rok)
 //   'NNN'         -> FV/001          (ciągły, bez resetu)
 //
-// Propozycja numeru NIE używa licznika RPC (martwy licznik zliczał usunięte
-// faktury) — zawsze liczona z AKTYWNYCH wierszy (deleted_at IS NULL).
+// 🔴 NUMER RAZ WYSTAWIONY NIE WRACA — nawet po skasowaniu faktury.
+//
+// Do 09.09.2026 propozycja liczyła się z AKTYWNYCH wierszy (`deleted_at IS NULL`),
+// więc skasowanie faktury ZWALNIAŁO jej numer. Zdarzyło się to naprawdę:
+// GR/2026/007 wystawiona 09.09 o 09:51 dla AUTO-SERWIS HAWRYLUK została
+// skasowana o 12:18, a o 12:58 ten sam numer dostał CART78GARAGE. Dwa dokumenty
+// o jednym numerze u dwóch klientów — problem przy kontroli, bo klient mógł już
+// dostać dokument, a księgowa go zaksięgować.
+//
+// Numeracja liczy się teraz z WSZYSTKICH wierszy serii, łącznie z miękko
+// skasowanymi. Skasowanie zostawia lukę i tak ma być: numer jest zużyty.
+// Więz w bazie mówi to samo — wyzwalacz `prevent_duplicate_invoice_number`
+// odrzuca numer użyty KIEDYKOLWIEK (migracja `20260909…_numer_nie_wraca`).
 
 export type NumberingPattern = 'RRRR/MM/NNN' | 'RRRR/NNN' | 'NNN/RRRR' | 'NNN';
 export type NumberingMode = 'continuous' | 'fill_gaps' | 'manual';
@@ -84,12 +95,23 @@ export function extractSeq(cfg: NumberingConfig, date: Date, invoiceNumber: stri
 }
 
 /** Następny numer: continuous/manual = max(aktywnych)+1; fill_gaps = najniższy wolny. */
-export function nextSeq(mode: NumberingMode, activeSeqs: number[]): number {
+/**
+ * Kolejny wolny numer.
+ *
+ * `uzyteSeqs` to numery UŻYTE, nie „aktywne". Różnica jest cała treścią
+ * poprawki z 09.09.2026: wywołujący MUSI podać także numery faktur miękko
+ * skasowanych, inaczej skasowanie zwolni numer i trafi on do drugiego klienta.
+ * Nazwa parametru brzmiała `activeSeqs` i to ona podpowiadała złe zapytanie.
+ *
+ * `fill_gaps` wypełnia luki tylko po numerach, których NIGDY nie użyto —
+ * luka po skasowanej fakturze luką nie jest.
+ */
+export function nextSeq(mode: NumberingMode, uzyteSeqs: number[]): number {
   if (mode === 'fill_gaps') {
-    const taken = new Set(activeSeqs);
+    const taken = new Set(uzyteSeqs);
     let n = 1;
     while (taken.has(n)) n++;
     return n;
   }
-  return (activeSeqs.length ? Math.max(...activeSeqs) : 0) + 1;
+  return (uzyteSeqs.length ? Math.max(...uzyteSeqs) : 0) + 1;
 }
