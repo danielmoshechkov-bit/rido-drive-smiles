@@ -4,6 +4,42 @@
 
 ## ⭐ AKTUALIZACJA 09.09.2026 — CZYTAJ TO NAJPIERW
 
+### Wdrożone 09.09 (SHA porównane z `main`, nie numery wersji)
+
+`billing-invoice-issue`, `billing-faktura-mail-ponow`, `rido-help` — wszystkie
+trzy zgodne bajt w bajt, bez starych kopii `_shared`.
+
+### 🔴 AUTO-SERWIS HAWRYLUK ZAPŁACIŁ I NIE MA FAKTURY
+
+Zamówienie `MF4W6851B6…` z 09.09 09:51, 84,87 zł, status `oplacone`. Faktura
+GR/2026/007 wystawiona o 09:51 została **skasowana o 12:18** i nigdy nie
+wystawiono nowej. Konto ma dziś **zero aktywnych faktur**.
+
+Samo ponowienie płatności tego nie naprawi: `billing-invoice-issue` sprawdza
+`external_payment_ref` i znajduje SKASOWANY wiersz, po czym odpowiada
+`duplicate: true` — czyli melduje sukces nad nieistniejącym dokumentem.
+Indeks `user_invoices_external_payment_ref` jest przy tym unikalny **bez
+względu na `deleted_at`**, więc drugi wiersz z tym samym odnośnikiem i tak by
+nie wszedł.
+
+Do rozstrzygnięcia: czy faktura ma zostać wystawiona ponownie (wtedy trzeba
+zwolnić odnośnik płatności skasowanego wiersza), i czy Hawryluk dostał maila
+z numerem 007 — bo ten numer należy dziś do CART78GARAGE.
+
+### Numer faktury nie wraca (09.09)
+
+Skasowanie faktury zwalniało jej numer — stąd dwa GR/2026/007. Poprawione
+w siedmiu miejscach naraz plus wyzwalacz i **unikalny** indeks (dotąd nie był
+unikalny). Istniejąca kolizja **zostaje** i czeka na decyzję księgową; migracja
+`20260909162228` wypisuje ją ostrzeżeniem przy każdym przebiegu.
+
+### KSeF: instrukcja przełączenia
+
+`docs/billing/ksef-przelaczenie-na-produkcje.md`. Konto platformowe stoi na
+`integration` z tokenem testowym; token produkcyjny jeszcze nie wpisany.
+NIP tokenu i NIP sprzedawcy są zgodne (`5223377431`).
+
+
 Dokument niżej jest z 24.08 i **w kilku miejscach nieaktualny**. Co się zmieniło:
 
 ### Zamknięte od tamtego czasu
