@@ -441,7 +441,15 @@ serve(async (req) => {
     // Fakty o czasie, bez reguł — te stoją w sekcjach 1 i 3 promptu.
     // Zostaje wyłącznie rozmowa nocna, bo to jest WYJĄTEK arytmetyczny,
     // którego nie da się wyrazić danymi: o 2 w nocy „jutro" znaczy dziś.
-    const systemTimeContext = `\n\n=== KONTEKST CZASU ===\nDziś jest ${humanDate} (${todayISO}), godzina ${nowTime} (Europa/Warszawa). Daty względne wyliczasz sam i przekazujesz narzędziom w formacie RRRR-MM-DD. Nie pytasz klienta o dzisiejszą datę.\n- Między północą a piątą rano klient mówiący "jutro" ma na myśli DZISIEJSZY dzień roboczy. Dopytaj konkretem, podając obie możliwości z dniem tygodnia i datą.`;
+    //
+    // 🔴 NAPRAWIONE 09.09.2026 — SPRZECZNOŚĆ, KTÓRA KOSZTOWAŁA ZŁE TERMINY.
+    // Stało tu „Daty względne wyliczasz sam", a sekcja 3 mówi wprost
+    // „Nie wyliczasz dat samodzielnie" i „tydzień ODCZYTUJESZ Z POLA, nie
+    // liczysz". Model dostawał oba zdania naraz i sięgał po to, które pozwala
+    // mu liczyć — stąd „poniedziałek dwudziestego trzeciego sierpnia", gdzie
+    // nazwa dnia pochodziła z jednego wiersza snapshotu, a data z drugiego.
+    // Snapshot podaje `data` dla każdego dnia; model ma ją PRZEPISAĆ.
+    const systemTimeContext = `\n\n=== KONTEKST CZASU ===\nDziś jest ${humanDate} (${todayISO}), godzina ${nowTime} (Europa/Warszawa). Datę terminu bierzesz z pola "data" przy wybranym dniu w bloku terminów i przekazujesz ją narzędziom BEZ ZMIANY. Nie przeliczasz dat samodzielnie i nie składasz dnia tygodnia z jednego wiersza z datą z drugiego. Nie pytasz klienta o dzisiejszą datę.\n- Między północą a piątą rano klient mówiący "jutro" ma na myśli DZISIEJSZY dzień roboczy. Dopytaj konkretem, podając obie możliwości z dniem tygodnia i datą.`;
     // SNAPSHOT — do CZĘŚCI ZMIENNEJ, nigdy do stałej.
     //
     // Blok stały ma `cache_control: ephemeral` i 100% trafień; terminy zmieniają się
@@ -642,7 +650,9 @@ ${greetingRule}
 === 8. ZAKOŃCZENIE ===
 - Podsumowujesz jednym zdaniem: DZIEŃ Z DATĄ I GODZINA. Nic więcej. Nie powtarzasz usługi, marki ani modelu — jeśli transkrypcja je przekręciła, klient poprawia przez trzy tury, a przy przyjęciu auta mechanik i tak wszystko ustala. Nie mówisz o przyjeździe wcześniej ani o dokumentach — to idzie SMS-em.
 - Potem zadajesz jedno pytanie domykające i MILKNIESZ. Nie dopowiadasz pożegnania w tej samej turze.
-- Dopiero gdy klient odpowie przecząco albo się pożegna — mówisz krótkie pożegnanie i W TEJ SAMEJ turze wołasz end_call.`;
+- Dopiero gdy klient odpowie przecząco albo się pożegna — mówisz krótkie pożegnanie i W TEJ SAMEJ turze wołasz end_call.
+- Gdy po pytaniu domykającym klient NIC NIE MÓWI (tura przychodzi pusta albo jako "..."), rozmowa jest skończona: mówisz krótkie pożegnanie i W TEJ SAMEJ turze wołasz end_call. Nie zadajesz pytania domykającego drugi raz i nie pytasz „halo".
+- Po pożegnaniu nie odzywasz się już ani razu, cokolwiek padnie.`;
 
     const convo: Phase1ConversationMessage[] = messages
       .filter((message): message is { role: "user" | "assistant"; content: string } =>
