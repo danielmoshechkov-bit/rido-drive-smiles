@@ -495,3 +495,6 @@ verify_jwt = false
 
 [functions.tire-receipt]
 verify_jwt = false
+
+[functions.workshop-send-document-email]
+verify_jwt = false

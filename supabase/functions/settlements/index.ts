@@ -337,12 +337,41 @@ Deno.serve(async (req) => {
         const cityNameMapForFee = new Map((citiesForFee || []).map((c: any) => [c.id, c.name]));
 
         // Fetch fleet_city_settings
+        // KROK 3: dokladamy additional_percent_rate i secondary_vat_rate — bez nich ta
+        // funkcja nie miala czym policzyc stawki miasta i brala wartosci floty.
         const { data: fleetCitySettings } = fleet_id ? await supabase
           .from('fleet_city_settings')
-          .select('city_name, base_fee, vat_rate, settlement_mode, uber_calculation_mode')
+          .select('city_name, platform, base_fee, vat_rate, settlement_mode, uber_calculation_mode, secondary_vat_rate, additional_percent_rate')
           .eq('fleet_id', fleet_id) : { data: [] };
-        const cityFeeMapForFee = new Map((fleetCitySettings || []).map((cs: any) => [cs.city_name, cs.base_fee]));
-        const citySettingsFullMapForFee = new Map((fleetCitySettings || []).map((cs: any) => [cs.city_name, cs]));
+
+        // Kazde miasto ma DWA wiersze (bolt i uber). Wczesniej budowalismy tu mape
+        // przez new Map(rows.map(cs => [cs.city_name, cs])), wiec przy powtorzonym
+        // kluczu wygrywal OSTATNI wiersz — o stawkach decydowala kolejnosc zwrocona
+        // przez PostgREST. Scalamy tak samo jak recalculate-week: wartosci z wiersza
+        // bolt, a z wiersza uber tylko uber_calculation_mode.
+        const entriesByCityForFee = new Map<string, any[]>();
+        (fleetCitySettings || []).forEach((cs: any) => {
+          const existing = entriesByCityForFee.get(cs.city_name) || [];
+          existing.push(cs);
+          entriesByCityForFee.set(cs.city_name, existing);
+        });
+        const citySettingsFullMapForFee = new Map<string, any>();
+        entriesByCityForFee.forEach((entries, cityName) => {
+          const boltEntry = entries.find((e: any) => e.platform === 'bolt') || entries[0];
+          const uberEntry = entries.find((e: any) => e.platform === 'uber');
+          citySettingsFullMapForFee.set(cityName, {
+            base_fee: boltEntry.base_fee,
+            vat_rate: boltEntry.vat_rate,
+            settlement_mode: boltEntry.settlement_mode,
+            secondary_vat_rate: boltEntry.secondary_vat_rate,
+            additional_percent_rate: boltEntry.additional_percent_rate,
+            uber_calculation_mode: uberEntry?.uber_calculation_mode ?? boltEntry.uber_calculation_mode ?? null,
+          });
+        });
+        const cityFeeMapForFee = new Map<string, number>();
+        citySettingsFullMapForFee.forEach((merged, cityName) => {
+          cityFeeMapForFee.set(cityName, merged.base_fee);
+        });
 
         // Fetch fleet global settings for VAT
         const { data: fleetSettingsForVat } = fleet_id ? await supabase
@@ -407,11 +436,18 @@ Deno.serve(async (req) => {
               const driverInfo2 = driverDetailMap.get(driverId);
               const cityName2 = driverInfo2?.city_id ? cityNameMapForFee.get(driverInfo2.city_id) : null;
               const cs2 = cityName2 ? citySettingsFullMapForFee.get(cityName2) : null;
-              const driverVatRate = cs2?.vat_rate ?? fleetVatRateForSync;
-              const driverUberCalcMode = cs2?.uber_calculation_mode ?? fleetUberCalcModeForSync;
-              const driverSettlementMode = cs2?.settlement_mode ?? fleetSettlementModeForSync;
-              const driverSecondaryVatRate = fleetSecondaryVatRateForSync;
-              const driverAdditionalPercentRate = fleetAdditionalPercentRateForSync;
+              // KROK 3: gdy miasto ma swoj wiersz, WSZYSTKIE wartosci ida z niego.
+              // Wczesniej driverSecondaryVatRate i driverAdditionalPercentRate braly
+              // wartosc floty bezwarunkowo, wiec kierowca z Wroclawia (dodatek 0%)
+              // liczyl sie dodatkiem floty (1%) — 9% zamiast 8%.
+              // Fallback na flote zostaje tylko dla miasta bez zadnego wiersza.
+              const driverVatRate = cs2 ? cs2.vat_rate : fleetVatRateForSync;
+              const driverUberCalcMode = cs2
+                ? (cs2.uber_calculation_mode ?? fleetUberCalcModeForSync)
+                : fleetUberCalcModeForSync;
+              const driverSettlementMode = cs2 ? cs2.settlement_mode : fleetSettlementModeForSync;
+              const driverSecondaryVatRate = cs2 ? cs2.secondary_vat_rate : fleetSecondaryVatRateForSync;
+              const driverAdditionalPercentRate = cs2 ? cs2.additional_percent_rate : fleetAdditionalPercentRateForSync;
 
               // B2B status (mirror UI/recalculate-week)
               const isB2BDriver =

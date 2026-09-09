@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { MessageCircle, X, Send, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,7 +21,11 @@ import {
  * KTO pisze (konto, e-mail, z której strony). Niezalogowany dostaje zaproszenie
  * do logowania zamiast anonimowego wątku bez tożsamości.
  */
+/** Adresy pokazywane klientowi koncowemu z linku — bez dymka pomocy. */
+const STRONY_BEZ_CZATU = ['/p/'];
+
 export function SupportChatWidget() {
+  const { pathname } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [isLogged, setIsLogged] = useState<boolean | null>(null);
   const [draft, setDraft] = useState('');
@@ -73,6 +78,11 @@ export function SupportChatWidget() {
     // a dopisanie jej wywoływałoby pętlę odświeżeń.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, conversation?.id, conversation?.unread_for_user]);
+
+  // Strony pokazywane klientowi koncowemu z linku (potwierdzenie przechowania)
+  // nie sluza do rozmowy z obsluga GetRido — klient trafia tu z SMS-a od
+  // warsztatu i ma zobaczyc jeden dokument, nie zaproszenie do czatu.
+  if (STRONY_BEZ_CZATU.some((p) => pathname.startsWith(p))) return null;
 
   if (isLogged === null) return null; // jeszcze nie wiemy, czy jest sesja
 

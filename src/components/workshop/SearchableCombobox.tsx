@@ -60,15 +60,23 @@ export function SearchableCombobox({ items, value, onSelect, onCreateNew, onAddN
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[--radix-popover-trigger-width] p-0"
+          className="w-[--radix-popover-trigger-width] p-0 overflow-hidden"
           align="start"
         >
           {/* Lista jest juz przefiltrowana wyzej. Bez `shouldFilter={false}`
               komponent filtruje ja po raz drugi po wlasnym `value` i podswietla
               przypadkowe pozycje na zolto. */}
           <Command shouldFilter={false}>
+            {/* Obwodka skupienia byla obcinana przez krawedz listy rozwijanej
+                — widac bylo jej polowe. Pole jest przyklejone do krawedzi,
+                wiec obwodka nie ma tu czego zaznaczac. */}
             <div onKeyDown={handleKeyDown}>
-              <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
+              <CommandInput
+                placeholder={placeholder}
+                value={query}
+                onValueChange={setQuery}
+                className="border-0 focus:ring-0 focus-visible:ring-0 focus:outline-none"
+              />
             </div>
             <CommandList className="max-h-[260px] overflow-y-auto">
               <CommandEmpty>

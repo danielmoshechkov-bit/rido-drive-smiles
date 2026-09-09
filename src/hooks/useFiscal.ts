@@ -1150,6 +1150,9 @@ export interface PrintHeader {
   nip: string | null;
   address: string | null;
   logoUrl: string | null;
+  /** Kontakt na dokumencie — klient ma wiedziec, gdzie zadzwonic. */
+  phone: string | null;
+  website: string | null;
 }
 
 /**
@@ -1170,7 +1173,7 @@ export function useProviderPrintHeader(providerId?: string) {
     queryFn: async (): Promise<PrintHeader> => {
       const { data, error } = await (supabase as any)
         .from('service_providers')
-        .select('company_name, company_nip, company_address, company_city, company_postal_code, logo_url')
+        .select('company_name, company_nip, company_address, company_city, company_postal_code, logo_url, company_phone, company_website')
         .eq('id', providerId)
         .maybeSingle();
       if (error) throw error;
@@ -1185,6 +1188,8 @@ export function useProviderPrintHeader(providerId?: string) {
         nip: data?.company_nip ?? null,
         address: address || null,
         logoUrl: data?.logo_url ?? null,
+        phone: data?.company_phone ?? null,
+        website: data?.company_website ?? null,
       };
     },
   });

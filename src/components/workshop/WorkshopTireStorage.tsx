@@ -19,6 +19,8 @@ import { TireStorageRulesDialog } from './TireStorageRulesDialog';
 import { TireStoragePricing, useTirePricing, RODZAJE_FELG } from './TireStoragePricing';
 import { TireStorageDetailsDialog } from './TireStorageDetailsDialog';
 import { TireStorageSmsDialog } from './TireStorageSmsDialog';
+import { opisRozmiaru } from './tireStorageFormat';
+import { buildStorageReceiptHtml } from './tireStorageReceipt';
 import { SearchableCombobox } from './SearchableCombobox';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -71,6 +73,7 @@ function useTireStorageRecords(providerId: string, view: 'stored' | 'issued' = '
         .from('workshop_tire_storage')
         .select('*, workshop_clients(*), workshop_vehicles(*)')
         .eq('provider_id', providerId)
+        .is('deleted_at', null)
         .eq('is_active', view === 'stored')
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -126,87 +129,24 @@ function useServicePoints(providerId: string) {
  * papieru. Pokwitowanie jest jedynym dowodem, co zostawił, w jakim stanie i do kiedy —
  * a przy sporze („zostawiłem cztery, oddajecie trzy") rozstrzyga sprawę.
  */
+/**
+ * Ten sam dokument idzie na wydruk i w zalaczniku maila. Budowanie HTML
+ * jest wiec osobno od drukowania — inaczej mail musialby generowac wlasna
+ * wersje pokwitowania i po pierwszej zmianie stylu obie by sie rozjechaly.
+ */
 function printStorageReceipt(
   record: any,
   kind: 'przyjęcia' | 'wydania',
-  header: { companyName?: string | null; nip?: string | null; address?: string | null; logoUrl?: string | null } = {},
+  header: Parameters<typeof buildStorageReceiptHtml>[2] = {},
 ) {
-  const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const client = record.client_name
-    || [record.workshop_clients?.first_name, record.workshop_clients?.last_name].filter(Boolean).join(' ')
-    || '—';
-  const vehicle = record.workshop_vehicles
-    ? [record.workshop_vehicles.brand, record.workshop_vehicles.model, record.workshop_vehicles.plate].filter(Boolean).join(' ')
-    : '—';
-  const seasons: Record<string, string> = { letnie: 'letnie', zimowe: 'zimowe', calorocze: 'całoroczne' };
-  const row = (label: string, value: unknown) =>
-    `<tr><td class="k">${esc(label)}</td><td>${esc(value) || '—'}</td></tr>`;
-
-  const html = `<!doctype html>
-<html lang="pl"><head><meta charset="utf-8"><title>Pokwitowanie ${esc(kind)} opon</title>
-<style>
-  body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; color: #111; font-size: 13px; }
-  .banner { border: 2px solid #111; padding: 8px 12px; text-align: center; font-weight: 700; letter-spacing: 1px; }
-  h1 { font-size: 16px; margin: 18px 0 6px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  td { border-bottom: 1px solid #ddd; padding: 6px 4px; vertical-align: top; }
-  td.k { width: 34%; color: #555; }
-  .sign { margin-top: 46px; display: flex; justify-content: space-between; gap: 40px; }
-  .sign div { flex: 1; border-top: 1px solid #111; padding-top: 6px; text-align: center; font-size: 11px; color: #555; }
-  .footer { margin-top: 20px; font-size: 11px; color: #555; line-height: 1.6; }
-  @media print { body { margin: 10mm; } }
-</style></head>
-<body>
-  ${header.logoUrl ? `<div style="text-align:center;margin-bottom:10px"><img src="${esc(header.logoUrl)}" alt="" style="max-height:70px;max-width:60%;object-fit:contain" /></div>` : ''}
-  <div class="banner">POKWITOWANIE ${esc(kind.toUpperCase())} OPON DO PRZECHOWANIA</div>
-  ${header.companyName ? `<h1>${esc(header.companyName)}</h1>` : ''}
-  <div class="muted" style="color:#555;font-size:12px">
-    ${header.address ? esc(header.address) + '<br>' : ''}
-    ${header.nip ? 'NIP: ' + esc(header.nip) : ''}
-  </div>
-  <h1>Nr miejsca: ${esc(record.storage_number || '—')}</h1>
-  <table>
-    ${row('Klient', client)}
-    ${row('Telefon', record.client_phone)}
-    ${row('Pojazd', vehicle)}
-    ${row('Opony', [record.tire_brand, record.tire_model].filter(Boolean).join(' '))}
-    ${row('Rozmiar', record.tire_size)}
-    ${(() => {
-      const b = [
-        ['LP', record.tread_lp_mm], ['PP', record.tread_pp_mm],
-        ['LT', record.tread_lt_mm], ['PT', record.tread_pt_mm],
-      ].filter(([, v]) => v != null);
-      return b.length ? row('Bieżnik', b.map(([k, v]) => `${k}: ${v} mm`).join(' · ')) : '';
-    })()}
-    ${row('Sezon', seasons[record.season] ?? record.season)}
-    ${row('Liczba sztuk', record.quantity ?? 4)}
-    ${row('Głębokość bieżnika', record.tread_depth_mm ? `${record.tread_depth_mm} mm` : '')}
-    ${row('DOT', record.dot_code)}
-    ${row('Stan', record.condition)}
-    ${row('Data przyjęcia', record.stored_at ? new Date(record.stored_at).toLocaleDateString('pl-PL') : '')}
-    ${row('Termin odbioru', record.pickup_deadline ? new Date(record.pickup_deadline).toLocaleDateString('pl-PL') : '')}
-    ${kind === 'wydania' ? row('Data wydania', record.pickup_at ? new Date(record.pickup_at).toLocaleDateString('pl-PL') : new Date().toLocaleDateString('pl-PL')) : ''}
-    ${row('Koszt przechowania', record.cena_za_okres && record.okres_miesiecy
-      ? `${Number(record.cena_za_okres).toFixed(2)} zł za ${record.okres_miesiecy} mies. (każdy rozpoczęty okres płatny)`
-      : record.storage_cost ? `${Number(record.storage_cost).toFixed(2)} zł` : '')}
-    ${row('Lokalizacja', record.location_name)}
-    ${row('Uwagi', record.notes)}
-  </table>
-  <div class="sign">
-    <div>podpis klienta</div>
-    <div>podpis przyjmującego</div>
-  </div>
-  <div class="footer">
-    Dokument potwierdza ${kind === 'przyjęcia' ? 'przyjęcie opon do przechowania' : 'wydanie opon właścicielowi'}.
-    Wygenerowano w GetRido: ${esc(new Date().toLocaleString('pl-PL'))}
-  </div>
-  <script>window.onload = () => window.print();</script>
-</body></html>`;
-
+  const html = buildStorageReceiptHtml(record, kind, header);
   const win = window.open('', '_blank', 'width=760,height=900');
   if (!win) { toast.error('Przeglądarka zablokowała okno wydruku.'); return; }
   win.document.write(html);
   win.document.close();
+  // Skrypt drukujacy zniknal z HTML, bo ten sam dokument idzie teraz do PDF,
+  // gdzie zadne skrypty sie nie wykonuja. Drukowaniem steruje okno.
+  win.onload = () => win.print();
 }
 
 export function WorkshopTireStorage({ providerId, onBack }: Props) {
@@ -217,6 +157,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
   const [zasadyOtwarte, setZasadyOtwarte] = useState(false);
   const [podglad, setPodglad] = useState<any>(null);
   const [doPotwierdzenia, setDoPotwierdzenia] = useState<any>(null);
+  const [zaznaczone, setZaznaczone] = useState<Set<string>>(new Set());
   /**
    * „W magazynie" i „Wydane" to dwa różne pytania: pierwsze zadaje magazynier szukający
    * miejsca, drugie — klient, który twierdzi, że opon nie odebrał. Dotąd lista pokazywała
@@ -271,6 +212,35 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
     toast.success(juz ? 'Oznaczenie cofnięte.' : 'Oznaczono jako nieodebrany.');
     queryClientRef.invalidateQueries({ queryKey: ['tire-storage'] });
     queryClientRef.invalidateQueries({ queryKey: ['tire-storage-dues', providerId] });
+  };
+
+  /**
+   * Miekkie usuniecie: wpis znika z listy warsztatu, ale potwierdzenie
+   * klienta dziala dalej i mowi, ze zostal usuniety oraz kiedy. Klient
+   * dostal link SMS-em i nie moze zostac z martwa strona dlatego, ze
+   * warsztat posprzatal u siebie.
+   */
+  const usunZaznaczone = async () => {
+    const ile = zaznaczone.size;
+    if (!ile) return;
+    if (!(await confirmAction({
+      title: ile === 1 ? 'Usunąć ten wpis?' : `Usunąć ${ile} wpisy?`,
+      description: 'Wpis zniknie z listy. Klient, który dostał link, nadal go otworzy — '
+        + 'zobaczy, że wpis został usunięty i kiedy.',
+      confirmLabel: 'Usuń',
+      destructive: true,
+    }))) return;
+
+    const { error } = await (supabase as any)
+      .from('workshop_tire_storage')
+      .update({ deleted_at: new Date().toISOString() })
+      .in('id', Array.from(zaznaczone));
+    if (error) { toast.error(error.message); return; }
+
+    setZaznaczone(new Set());
+    queryClientRef.invalidateQueries({ queryKey: ['tire-storage'] });
+    queryClientRef.invalidateQueries({ queryKey: ['tire-storage-dues', providerId] });
+    toast.success(ile === 1 ? 'Wpis usunięty.' : `Usunięto wpisy: ${ile}.`);
   };
 
   const [page, setPage] = useState(1);
@@ -350,6 +320,11 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
             </button>
           ))}
         </div>
+        {zaznaczone.size > 0 && (
+          <Button variant="destructive" onClick={usunZaznaczone} className="gap-2">
+            <Trash2 className="h-4 w-4" /> Usuń zaznaczone ({zaznaczone.size})
+          </Button>
+        )}
         {view === 'stored' && poTerminie.length > 0 && (
           <button
             type="button"
@@ -374,12 +349,34 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
 
       <Card>
         <CardContent className="p-0">
-          <Table>
+          {/* Suma szerokosci kolumn przekracza szerokosc panelu. Bez tego
+              przegladarka sciska kolumny: naglowek "Do zaplaty" lamal sie na
+              dwie linie, "zl" ladowalo pod kwota, a przyciski akcji nachodzily
+              na siebie. Zamiast sciskac — przewijamy w poziomie. */}
+          <div className="overflow-x-auto">
+          <Table className="min-w-[1290px]">
             <TableHeader>
               {/* Trzynascie kolumn nie miescilo sie na ekranie: naglowki lamaly sie
                   na dwie linie, a wiersze rosly do trzech. Zostaja te, ktore
                   decyduja przy patrzeniu na liste; reszta jest w szczegolach. */}
               <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[36px]">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 accent-primary align-middle"
+                    title="Zaznacz wszystkie na tej stronie"
+                    checked={paged.length > 0 && paged.every((r: any) => zaznaczone.has(r.id))}
+                    onChange={(e) => {
+                      const kolejne = new Set(zaznaczone);
+                      // Zaznaczamy tylko to, co widac — inaczej klikniecie
+                      // na jednej stronie zabieraloby wpisy z pozostalych.
+                      for (const r of paged) {
+                        if (e.target.checked) kolejne.add(r.id); else kolejne.delete(r.id);
+                      }
+                      setZaznaczone(kolejne);
+                    }}
+                  />
+                </TableHead>
                 <TableHead className="w-[104px]">Kod</TableHead>
                 <TableHead className="min-w-[150px]">Klient</TableHead>
                 <TableHead className="min-w-[170px]">Opony</TableHead>
@@ -388,13 +385,13 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                 <TableHead className="w-[92px]">Przyjęto</TableHead>
                 <TableHead className="w-[130px]">Przypomnienie</TableHead>
                 <TableHead className="w-[140px]">Do zapłaty</TableHead>
-                <TableHead className="w-[330px] text-right">Akcje</TableHead>
+                <TableHead className="w-[320px]">Akcje</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                     <Archive className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     {isLoading ? t('common.loading') : t('workshop.tireStorage.noData')}
                   </TableCell>
@@ -406,6 +403,18 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                   className="cursor-pointer"
                   title="Kliknij, aby zobaczyć szczegóły"
                 >
+                  <TableCell className="py-2" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5 accent-primary align-middle"
+                      checked={zaznaczone.has(r.id)}
+                      onChange={(e) => {
+                        const kolejne = new Set(zaznaczone);
+                        if (e.target.checked) kolejne.add(r.id); else kolejne.delete(r.id);
+                        setZaznaczone(kolejne);
+                      }}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs py-2">{r.storage_number || '—'}</TableCell>
                   <TableCell className="py-2">
                     <div className="text-sm leading-tight">
@@ -422,7 +431,7 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                       {[r.tire_brand, r.tire_model].filter(Boolean).join(' ') || '—'}
                     </div>
                     <div className="text-xs text-muted-foreground leading-tight">
-                      {r.tire_size || '—'}
+                      {opisRozmiaru(r) || '—'}
                       {r.season && ` · ${r.season}`}
                       {r.quantity ? ` · ${r.quantity} szt.` : ''}
                     </div>
@@ -469,11 +478,11 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                     {/* Staly uklad trzech miejsc: kazdy przycisk stoi w tej
                         samej kolumnie w kazdym wierszu, a brakujaca akcje
                         zastepuje puste miejsce zamiast przesuwac pozostale. */}
-                    <div className="grid grid-cols-3 gap-1 justify-items-stretch">
+                    <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs gap-1 justify-start"
+                        className="h-7 text-xs gap-1 justify-start w-[124px] shrink-0"
                         onClick={() => printStorageReceipt(r, view === 'stored' ? 'przyjęcia' : 'wydania', printHeader ?? {})}
                       >
                         <Printer className="h-3.5 w-3.5 shrink-0" /> Pokwitowanie
@@ -483,18 +492,18 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs gap-1 justify-start"
+                          className="h-7 text-xs gap-1 justify-start w-[74px] shrink-0"
                           onClick={() => issueSet(r)}
                         >
                           <Check className="h-3.5 w-3.5 shrink-0" /> Wydaj
                         </Button>
-                      ) : <span />}
+                      ) : <span className="w-[74px] shrink-0" />}
 
                       {view === 'stored' && (r.dlug?.dni_po_terminie ?? 0) > 0 ? (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs gap-1 justify-start"
+                          className="h-7 text-xs gap-1 justify-start w-[116px] shrink-0"
                           onClick={() => oznaczNieodebrane(r)}
                           title={r.dlug?.nieodebrane_od
                             ? 'Cofnij oznaczenie i wznów przypomnienia'
@@ -503,13 +512,14 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                           <Archive className="h-3.5 w-3.5 shrink-0" />
                           {r.dlug?.nieodebrane_od ? 'Cofnij' : 'Nieodebrane'}
                         </Button>
-                      ) : <span />}
+                      ) : <span className="w-[116px] shrink-0" />}
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -527,8 +537,14 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
         providerId={providerId}
         onZapisano={(wpis) => setDoPotwierdzenia({
           ...wpis,
+          // Dane warsztatu ida do tresci SMS-a i do naglowka pokwitowania
+          // w zalaczniku — okno nie pyta o nie bazy drugi raz.
           __warsztat: printHeader?.companyName ?? '',
           __adres: printHeader?.address ?? '',
+          __nip: printHeader?.nip ?? '',
+          __logo: printHeader?.logoUrl ?? '',
+          __telefonWarsztatu: printHeader?.phone ?? '',
+          __strona: printHeader?.website ?? '',
         })}
       />
       <TireStorageSmsDialog
@@ -587,6 +603,9 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
   const [tireBrand, setTireBrand] = useState('');
   const [tireModel, setTireModel] = useState('');
   const [tireSize, setTireSize] = useState('');
+  const [tireSizeRear, setTireSizeRear] = useState('');
+  // Wiekszosc aut ma jeden rozmiar wokolo, wiec zaczynamy od zaznaczonego.
+  const [tenSamTyl, setTenSamTyl] = useState(true);
   const [dotCode, setDotCode] = useState('');
   const [treadDepth, setTreadDepth] = useState('');
   const [rimType, setRimType] = useState('');
@@ -690,6 +709,7 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
           tire_brand: tireBrand,
           tire_model: tireModel,
           tire_size: tireSize,
+          tire_size_rear: tenSamTyl ? null : (tireSizeRear.trim() || null),
           tire_type: rimType,
           rim_type: rimType,
           rim_manufacturer: rimManufacturer,
@@ -752,10 +772,12 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
         tire_brand: tireBrand,
         tire_model: tireModel,
         tire_size: tireSize,
+        tire_size_rear: tenSamTyl ? null : (tireSizeRear.trim() || null),
         quantity: parseInt(quantity) || null,
         rim_type: rimType,
         __pojazd: pojazd ? [pojazd.brand, pojazd.model].filter(Boolean).join(' ') : '',
         __rejestracja: pojazd?.plate ?? '',
+        __email: clients.find((c: any) => c.id === clientId)?.email ?? '',
       });
     } catch (e: any) {
       toast.error(e.message || t('common.saveError'));
@@ -993,8 +1015,48 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
               <Input onFocus={e => e.currentTarget.select()} value={tireModel} onChange={e => setTireModel(e.target.value)} placeholder="PremiumContact 6" className="h-8" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">{t('workshop.tireStorage.size')}</Label>
-              <Input onFocus={e => e.currentTarget.select()} value={tireSize} onChange={e => setTireSize(e.target.value)} placeholder="205/55R16" className="h-8" />
+              <Label className="text-xs">
+                {tenSamTyl ? t('workshop.tireStorage.size') : 'Rozmiar — przód'}
+              </Label>
+              <Input
+                onFocus={e => e.currentTarget.select()}
+                value={tireSize}
+                onChange={e => setTireSize(e.target.value)}
+                placeholder="205/55R16"
+                className="h-8"
+              />
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground cursor-pointer pt-0.5">
+                <input
+                  type="checkbox"
+                  checked={tenSamTyl}
+                  onChange={(e) => {
+                    setTenSamTyl(e.target.checked);
+                    // Odznaczenie nie moze zostawic starego rozmiaru tylu,
+                    // bo warsztat wpisalby go raz i zapomnial poprawic.
+                    if (e.target.checked) setTireSizeRear('');
+                  }}
+                  className="h-3 w-3 accent-primary"
+                />
+                Taki sam z tyłu
+              </label>
+            </div>
+            {/* Miejsce na rozmiar tylu zajmuje kolumne ZAWSZE. Gdy pole znikalo,
+                caly formularz przeskakiwal: DOT wskakiwal do gornego rzedu,
+                a reszta pol przesuwala sie o jedno miejsce. Puste miejsce
+                kosztuje nic, skaczacy uklad kosztuje uwage. */}
+            <div className="space-y-1" aria-hidden={tenSamTyl}>
+              {!tenSamTyl && (
+                <>
+                  <Label className="text-xs">Rozmiar — tył</Label>
+                  <Input
+                    onFocus={e => e.currentTarget.select()}
+                    value={tireSizeRear}
+                    onChange={e => setTireSizeRear(e.target.value)}
+                    placeholder="275/40R19"
+                    className="h-8"
+                  />
+                </>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t('workshop.tireStorage.dotCode')}</Label>

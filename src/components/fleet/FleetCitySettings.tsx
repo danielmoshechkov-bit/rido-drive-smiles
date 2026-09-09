@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,9 @@ interface CitySettings {
 
 interface FleetCitySettingsProps {
   fleetId: string;
+  // KROK 3: miasto, ktore ma sie otworzyc od razu po wejsciu w zakladke.
+  // Ustawiane klknieciem wykrzyknika przy kwocie VAT w tabeli rozliczen.
+  focusCityName?: string | null;
 }
 
 interface CityGroup {
@@ -36,7 +39,7 @@ interface CityGroup {
   uber: CitySettings | null;
 }
 
-export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
+export function FleetCitySettings({ fleetId, focusCityName }: FleetCitySettingsProps) {
   const [cities, setCities] = useState<CitySettings[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -140,6 +143,24 @@ export function FleetCitySettings({ fleetId }: FleetCitySettingsProps) {
     setUberCalcMode((u?.uber_calculation_mode || "netto") as "netto" | "brutto");
     setDialogOpen(true);
   };
+
+  // KROK 3: kierowca, ktorego miasto nie ma ustawien, ma przy kwocie VAT wykrzyknik.
+  // Klikniecie prowadzi tutaj — otwieramy od razu okno tego miasta, zeby flotowy
+  // mogl wpisac stawke bez szukania.
+  const focusHandledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusCityName || loading) return;
+    if (focusHandledRef.current === focusCityName) return;
+    focusHandledRef.current = focusCityName;
+
+    const group = cityGroups.find(g => g.city_name === focusCityName);
+    if (group) {
+      openEdit(group);
+    } else {
+      openAdd();
+      setCityName(focusCityName);
+    }
+  }, [focusCityName, loading]);
 
   const handleSave = async () => {
     let finalCityName = cityName;
