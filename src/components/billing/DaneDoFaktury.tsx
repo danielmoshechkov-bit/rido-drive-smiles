@@ -237,10 +237,22 @@ export function DaneDoFaktury({
           </div>
         </div>
 
+        {/*
+          ADRES DO FAKTUR TO NIE ADRES LOGOWANIA.
+          Faktury trafiają do księgowej albo na skrzynkę firmową, a konto
+          zakłada się prywatnym adresem. Pole było opisane samym „(opcjonalnie)"
+          i nie mówiło, co się stanie po jego pominięciu — a to jest właśnie
+          ta informacja, która decyduje, czy klient je wypełni.
+        */}
         <div>
-          <Label htmlFor="nab-email">E-mail do faktur (opcjonalnie)</Label>
+          <Label htmlFor="nab-email">E-mail do faktur</Label>
           <Input id="nab-email" type="email" value={dane.email}
+            placeholder="np. ksiegowosc@firma.pl"
             onChange={(e) => setDane((d) => ({ ...d, email: e.target.value }))} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Tu wyślemy fakturę. Zostaw puste, a wyślemy ją na adres, na który
+            logujesz się do konta.
+          </p>
         </div>
       </div>
 

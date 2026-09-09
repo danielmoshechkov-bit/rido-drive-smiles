@@ -1,15 +1,24 @@
--- Pakiet startowy: 50 SMS (bez zmian), VIN 5 → 10, Rido AI 50 → 100.
+-- Pakiet startowy: 50 SMS (bez zmian), VIN 5 → 10, Rido AI ZOSTAJE 50.
+--
+-- ⚠️ TEN PLIK ZOSTAŁ PRZEPISANY 09.09.2026 PO DECYZJI. Nazwa mówi „100_ai",
+-- bo taka była pierwsza wersja — Rido AI zostaje na 50. Nazwy nie zmieniam,
+-- żeby nie zrobić drugiego pliku o tej samej treści; plik NIE BYŁ WYKONANY,
+-- więc edycja nie łamie zasady „nie ruszaj wykonanych migracji".
 --
 -- ═══════════════════════════════════════════════════════════════════════════
--- DLACZEGO 10 VIN
+-- DLACZEGO VIN TAK, A RIDO AI NIE
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Przy pięciu sprawdzeniach warsztat sprawdza trzy auta i kończy — nie zdąży
--- poczuć, do czego to służy. Dziesięć to około tygodnia normalnej pracy.
--- Koszt: sprawdzenie idzie do zewnętrznego dostawcy, więc pięć sztuk więcej
--- na konto jest wobec abonamentu 99–169 zł nieistotne.
+-- poczuć, do czego to służy. Dziesięć to około tygodnia normalnej pracy,
+-- a sprawdzenie kosztuje grosze.
+--
+-- Rido AI kosztuje inaczej. Sto zapytań to ~26 zł na konto przy typowym
+-- rozkładzie i ~102 zł, gdy klient robi same analizy (Sonnet + wyszukiwanie
+-- w sieci). Przy stu rejestracjach, z których połowa nigdy nie zapłaci,
+-- to więcej niż SMS-y i VIN razem wzięte. Zostaje 50.
 --
 -- ═══════════════════════════════════════════════════════════════════════════
--- 🔴 DLACZEGO PRZY OKAZJI ZERUJEMY PULĘ PLANÓW PRÓBNYCH
+-- 🔴 PULA PLANÓW PRÓBNYCH SCHODZI DO ZERA — I TO JEST WŁAŚCIWA NAPRAWA
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Rido AI ma DZIŚ DWA ŹRÓDŁA startowe i to jest usterka, nie zamiar:
 --
@@ -17,48 +26,37 @@
 --   2. `przyznaj_start_rido_ai` z `billing_plans.rido_ai_start_ile`
 --      dla planu próbnego, wyzwalaczem z `20260823140000`     → 50
 --
--- Zmierzone na produkcji: z siedemnastu warsztatów z pakietem startowym
--- DRUGĄ pulę dostały TRZY (daniel.m@car4ride.pl, marcin.suchlabowicz@gmail.com,
--- sofiazhovtaugc@gmail.com) — te, których wiersz subskrypcji powstał już po
--- wyzwalaczu. Czyli jedni mają 50, inni 100, za to samo.
---
--- Samo podniesienie pakietu do 100 pogłębiłoby rozjazd: część kont dostałaby
--- 150. Dlatego pula startowa planów PRÓBNYCH schodzi do zera, a całe 100
--- siedzi w jednym miejscu — w pakiecie startowym.
+-- Zmierzone na produkcji: z siedemnastu warsztatów z pakietem startowym DRUGĄ
+-- pulę dostały TRZY — te, których wiersz subskrypcji powstał już po wyzwalaczu.
+-- Jedni mają 50, inni 100, za to samo. Rozjazd jest gorszy niż sama liczba.
 --
 -- Plany PŁATNE (`warsztat_standard` 20, `warsztat_pro` 50) zostają NIETKNIĘTE.
 -- Tam pula startowa znaczy co innego: to powitanie przy wejściu w płatny plan,
 -- a nie prezent rejestracyjny, i nie nakłada się na pakiet startowy.
 --
+-- ⚠️ TRZY KONTA ZOSTAJĄ ZE 100 — świadomie. `daniel.m@car4ride.pl`,
+-- `sofiazhovtaugc@gmail.com` i `marcin.suchlabowicz@gmail.com` zdążyły dostać
+-- obie pule. Nikomu nic nie odbieramy; od tej migracji nowe konta dostają 50.
+--
 -- ═══════════════════════════════════════════════════════════════════════════
 -- CO Z TYM, CO JUŻ NADANO — trzy pytania z CLAUDE.md
 -- ═══════════════════════════════════════════════════════════════════════════
--- 1. ILE WIERSZY POWSTAŁO PO STAREMU? Policzone, nie oszacowane:
---    17 paczek VIN po 5 sztuk, 16 paczek Rido AI po 50 (+3 paczki „z planu”),
---    18 kont łącznie.
+-- 1. ILE WIERSZY POWSTAŁO PO STAREMU? Policzone: 17 paczek VIN po 5 sztuk,
+--    16 paczek Rido AI (13 po 50 + 3 konta z drugą pulą), 18 kont łącznie.
 --
--- 2. NAPRAWIAMY CZY ZOSTAWIAMY? Naprawiamy — w DWÓCH ROZDZIELNYCH BLOKACH:
+-- 2. NAPRAWIAMY CZY ZOSTAWIAMY? Nowa oferta obejmuje WYŁĄCZNIE konta zakładane
+--    od teraz. Starym kontom nie podmieniamy nic — z dwoma wyjątkami:
 --
---      BLOK A — konta audytowe/testowe (13 sztuk, `audyt.*`/`rido.audyt.*`).
---      BLOK B — konta w okresie próbnym z nietkniętym pakietem
---               (`daniel.m@car4ride.pl`, `sofiazhovtaugc@gmail.com`,
---               `marcin.suchlabowicz@gmail.com`).
+--      BLOK A — 13 kont audytowych. Mają służyć do przechodzenia ścieżki
+--               w przeglądarce, więc muszą pokazywać to, co zobaczy klient.
+--      BLOK B — `karolrzepko@go2.pl` (CART78). Jedyne konto z realnym użyciem,
+--               testuje świadomie i ma dostać to samo, co dostanie klient.
 --
---    ⚠️ BLOK B DAJE WIĘCEJ PRAWDZIWYM KLIENTOM. Jeśli nowa oferta ma objąć
---    wyłącznie konta zakładane OD TERAZ, usuń blok B przed wykonaniem —
---    reszta migracji jest od niego niezależna. Zostawienie ich na 5 VIN znaczy,
---    że trzy konta w okresie próbnym mają mniej, niż obiecuje cennik.
---
---    ŚWIADOMIE POMIJAMY `karolrzepko@go2.pl` (CART78, prawdziwy klient):
---    nosi STARY pakiet 30 SMS, ma z niego 2 sztuki zużyte i nie ma paczki
---    Rido AI w ogóle. Wyrównanie go to osobna decyzja — czy dostaje też
---    podniesienie SMS-ów z 30 do 50 — a nie skutek uboczny tej migracji.
---    `warsztat@test.pl` nie ma pakietu startowego, więc nie ma czego ruszać.
---
--- 3. CO, GDY STAN ZDĄŻYŁ SIĘ ZMIENIĆ? Kontrola wstępna zatrzymuje migrację,
---    gdy z którejkolwiek ruszanej paczki cokolwiek zeszło. Wyrównanie zna stan,
---    który zastaje; przy zużytych sztukach `amount_remaining = amount_total`
---    zabrałoby klientowi to, co już wykorzystał.
+-- 3. CO, GDY STAN ZDĄŻYŁ SIĘ ZMIENIĆ? Blok A ma kontrolę wstępną, która
+--    zatrzymuje migrację, gdy z paczki cokolwiek zeszło — wyrównanie ustawia
+--    `amount_remaining = amount_total` i przy zużytych sztukach oddałoby
+--    klientowi to, co już wykorzystał. Blok B liczy OD STANU FAKTYCZNEGO
+--    (Karol ma 2 SMS-y zużyte), więc dokłada RÓŻNICĘ i niczego mu nie zabiera.
 
 BEGIN;
 
@@ -74,7 +72,7 @@ CREATE OR REPLACE FUNCTION public.przyznaj_pakiet_startowy(
   p_email       text,
   p_sms         integer DEFAULT 50,
   p_vin         integer DEFAULT 10,
-  p_rido_ai     integer DEFAULT 100
+  p_rido_ai     integer DEFAULT 50
 )
 RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -140,8 +138,10 @@ SET rido_ai_start_ile = 0
 WHERE code IN ('trial_warsztat', 'trial_max');
 
 -- ---------------------------------------------------------------------------
--- KONTROLA WSTĘPNA — zanim ruszymy czyjekolwiek salda
+-- BLOK A — 13 kont audytowych
 -- ---------------------------------------------------------------------------
+-- Adresy wypisane WPROST, nie wzorcem po `%audyt%`: wzorzec objąłby każde
+-- przyszłe konto z tym słowem w adresie.
 CREATE TEMP TABLE cele_audyt ON COMMIT DROP AS
 SELECT sp.id AS provider_id, u.email
 FROM auth.users u
@@ -155,102 +155,145 @@ WHERE u.email IN (
   'rido.audyt.wdrozenie1@gmail.com', 'rido.audyt.wdrozenie2@gmail.com'
 );
 
--- BLOK B — usuń tę tabelę i sekcję oznaczoną „BLOK B", jeśli prawdziwi klienci
--- w okresie próbnym mają zostać na starym pakiecie.
-CREATE TEMP TABLE cele_probne ON COMMIT DROP AS
-SELECT sp.id AS provider_id, u.email
-FROM auth.users u
-JOIN service_providers sp ON sp.user_id = u.id
-WHERE u.email IN (
-  'daniel.m@car4ride.pl',
-  'sofiazhovtaugc@gmail.com',
-  'marcin.suchlabowicz@gmail.com'
-);
-
-CREATE TEMP TABLE cele_wszystkie ON COMMIT DROP AS
-SELECT * FROM cele_audyt UNION SELECT * FROM cele_probne;
-
-DO $KONTROLA$
+DO $KONTROLA_A$
 DECLARE
-  v_vin   uuid := (SELECT id FROM billing_features WHERE key = 'vehicle_lookup');
-  v_ai    uuid := (SELECT id FROM billing_features WHERE key = 'rido_ai');
-  v_audyt int;
-  v_zle   text;
+  v_vin uuid := (SELECT id FROM billing_features WHERE key = 'vehicle_lookup');
+  v_ile int;
+  v_zle text;
 BEGIN
-  IF v_vin IS NULL OR v_ai IS NULL THEN
-    RAISE EXCEPTION 'Brak cechy vehicle_lookup albo rido_ai — nie ma czego wyrównywać';
+  IF v_vin IS NULL THEN
+    RAISE EXCEPTION 'Brak cechy vehicle_lookup — nie ma czego wyrownywac';
   END IF;
 
-  SELECT count(*) INTO v_audyt FROM cele_audyt;
-  IF v_audyt <> 13 THEN
-    RAISE EXCEPTION 'Spodziewalem sie 13 kont audytowych, znalazlem %. Nie wyrownuje w ciemno.', v_audyt;
+  SELECT count(*) INTO v_ile FROM cele_audyt;
+  IF v_ile <> 13 THEN
+    RAISE EXCEPTION 'Spodziewalem sie 13 kont audytowych, znalazlem %. Nie wyrownuje w ciemno.', v_ile;
   END IF;
 
-  -- ZUŻYTA SZTUKA ZATRZYMUJE MIGRACJĘ. Wyrównanie ustawia
+  -- ZUŻYTA SZTUKA ZATRZYMUJE BLOK A. Wyrównanie ustawia
   -- `amount_remaining = amount_total`; przy częściowo zużytej paczce oddałoby
-  -- klientowi sztuki, które już wykorzystał, albo — przy innym stanie —
-  -- zabrało mu je. Kontrola ma stanąć, a nie „poradzić sobie" arytmetyką.
-  SELECT string_agg(email || ' (' || opis || ')', ', ') INTO v_zle
+  -- sztuki, które już zeszły.
+  SELECT string_agg(email || ' (VIN ' || opis || ')', ', ') INTO v_zle
   FROM (
     SELECT c.email,
-           'VIN ' || coalesce(sum(p.amount_remaining) FILTER (WHERE p.feature_id = v_vin), 0)::text ||
-           '/'    || coalesce(sum(p.amount_total)     FILTER (WHERE p.feature_id = v_vin), 0)::text ||
-           ', AI '|| coalesce(sum(p.amount_remaining) FILTER (WHERE p.feature_id = v_ai), 0)::text ||
-           '/'    || coalesce(sum(p.amount_total)     FILTER (WHERE p.feature_id = v_ai), 0)::text AS opis
-    FROM cele_wszystkie c
+           coalesce(sum(p.amount_remaining), 0)::text || '/' ||
+           coalesce(sum(p.amount_total), 0)::text AS opis
+    FROM cele_audyt c
     LEFT JOIN billing_addon_packs p
-      ON p.subscriber_id = c.provider_id
-     AND p.source = 'admin_grant'
-     AND p.feature_id IN (v_vin, v_ai)
+      ON p.subscriber_id = c.provider_id AND p.source = 'admin_grant' AND p.feature_id = v_vin
     GROUP BY c.email
-    HAVING coalesce(sum(p.amount_remaining) FILTER (WHERE p.feature_id = v_vin), 0)
-        <> coalesce(sum(p.amount_total)     FILTER (WHERE p.feature_id = v_vin), 0)
-        OR coalesce(sum(p.amount_remaining) FILTER (WHERE p.feature_id = v_ai), 0)
-        <> coalesce(sum(p.amount_total)     FILTER (WHERE p.feature_id = v_ai), 0)
+    HAVING coalesce(sum(p.amount_remaining), 0) <> coalesce(sum(p.amount_total), 0)
   ) t;
 
   IF v_zle IS NOT NULL THEN
     RAISE EXCEPTION 'Z pakietu startowego juz cos zeszlo — %', v_zle;
   END IF;
-END $KONTROLA$;
+END $KONTROLA_A$;
 
--- ---------------------------------------------------------------------------
--- 3. WYRÓWNANIE — BLOK A (konta audytowe) i BLOK B (okres próbny)
--- ---------------------------------------------------------------------------
--- Obie paczki podnosimy tym samym zapytaniem po `cele_wszystkie`. Usunięcie
--- `cele_probne` wyżej zawęża je do bloku A bez ruszania niczego tutaj.
-
--- VIN: 5 → 10.
+-- Rido AI kont audytowych ZOSTAJE na 50 — nowa wartość jest równa starej,
+-- więc nie ma czego ruszać. Zmienia się wyłącznie VIN.
 UPDATE billing_addon_packs p
 SET amount_total = 10, amount_remaining = 10
-FROM cele_wszystkie c
+FROM cele_audyt c
 WHERE p.subscriber_id = c.provider_id
   AND p.source = 'admin_grant'
   AND p.feature_id = (SELECT id FROM billing_features WHERE key = 'vehicle_lookup')
   AND p.amount_total < 10;
 
--- Rido AI: paczka rejestracyjna rośnie tak, żeby SUMA startowa wyszła 100.
--- Konta z dwiema paczkami po 50 mają już 100 — tych nie ruszamy, bo cel jest
--- osiągnięty, a podniesienie dałoby im 150.
-UPDATE billing_addon_packs p
-SET amount_total = 100, amount_remaining = 100
-FROM cele_wszystkie c
-WHERE p.subscriber_id = c.provider_id
-  AND p.source = 'admin_grant'
-  AND p.feature_id = (SELECT id FROM billing_features WHERE key = 'rido_ai')
-  AND p.note = 'Pakiet startowy przy rejestracji'
-  AND (
-    SELECT coalesce(sum(q.amount_total), 0) FROM billing_addon_packs q
-    WHERE q.subscriber_id = c.provider_id
-      AND q.source = 'admin_grant'
-      AND q.feature_id = p.feature_id
-  ) < 100;
-
--- Rejestr pakietów startowych ma mówić to samo co paczki.
 UPDATE pakiety_startowe ps
 SET vin = 10
-FROM cele_wszystkie c
+FROM cele_audyt c
 WHERE ps.provider_id = c.provider_id AND ps.vin < 10;
+
+-- ---------------------------------------------------------------------------
+-- BLOK B — karolrzepko@go2.pl, LICZONY OD STANU FAKTYCZNEGO
+-- ---------------------------------------------------------------------------
+-- Konto nosi STARY pakiet: 30 SMS (2 zużyte, 28 zostało), 5 VIN, ZERO Rido AI.
+-- Ma dostać dzisiejszy standard 50 / 10 / 50, ale bez oddawania mu zużytych
+-- sztuk. Dlatego SMS-y dostają RÓŻNICĘ do sumy nadanej (30 → 50, czyli +20
+-- i do sumy, i do reszty), a nie sztywne przypisanie.
+--
+-- To jest osobny blok właśnie dlatego, że kontrola bloku A odmówiłaby: tam
+-- „zużyte sztuki" znaczą „nie wiem, co zastałem", tu znaczą „wiem dokładnie".
+DO $BLOK_B$
+DECLARE
+  v_pid   uuid;
+  v_sms   uuid := (SELECT id FROM billing_features WHERE key = 'sms');
+  v_vin   uuid := (SELECT id FROM billing_features WHERE key = 'vehicle_lookup');
+  v_ai    uuid := (SELECT id FROM billing_features WHERE key = 'rido_ai');
+  v_nadane   numeric;
+  v_zostalo  numeric;
+  v_ksiega   numeric;
+  v_roznica  numeric;
+BEGIN
+  SELECT sp.id INTO v_pid
+  FROM auth.users u JOIN service_providers sp ON sp.user_id = u.id
+  WHERE u.email = 'karolrzepko@go2.pl';
+
+  IF v_pid IS NULL THEN
+    RAISE EXCEPTION 'Nie znalazlem warsztatu dla karolrzepko@go2.pl';
+  END IF;
+
+  -- ── SMS: dokładamy różnicę do 50 nadanych ──
+  SELECT coalesce(sum(amount_total), 0), coalesce(sum(amount_remaining), 0)
+    INTO v_nadane, v_zostalo
+  FROM billing_addon_packs
+  WHERE subscriber_id = v_pid AND source = 'admin_grant' AND feature_id = v_sms;
+
+  SELECT coalesce(sum(delta), 0) INTO v_ksiega
+  FROM sms_credit_ledger WHERE provider_id = v_pid;
+
+  -- Księga i paczki muszą mówić to samo, zanim cokolwiek dołożymy. Rozjazd
+  -- znaczy, że nie wiem, od czego liczyć — a wtedy migracja ma stanąć.
+  IF v_ksiega <> v_zostalo THEN
+    RAISE EXCEPTION 'Ksiega SMS (%) nie zgadza sie z reszta paczek (%) — nie wyrownuje', v_ksiega, v_zostalo;
+  END IF;
+
+  v_roznica := 50 - v_nadane;
+  IF v_roznica < 0 THEN
+    RAISE EXCEPTION 'Konto ma juz % nadanych SMS-ow, wiecej niz 50 — nie zabieram', v_nadane;
+  END IF;
+
+  IF v_roznica > 0 THEN
+    -- Podnosimy JEDNĄ paczkę (najstarszą), żeby suma nadana wyszła 50,
+    -- a reszta urosła o tyle samo. Zużyte 2 sztuki zostają zużyte.
+    UPDATE billing_addon_packs
+    SET amount_total = amount_total + v_roznica,
+        amount_remaining = amount_remaining + v_roznica
+    WHERE id = (
+      SELECT id FROM billing_addon_packs
+      WHERE subscriber_id = v_pid AND source = 'admin_grant' AND feature_id = v_sms
+      ORDER BY created_at LIMIT 1
+    );
+
+    -- Księga notuje RÓŻNICĘ, nie nową sumę: odpowiada na pytanie „skąd wzięło
+    -- się to, co masz", a nie „ile masz".
+    INSERT INTO sms_credit_ledger (provider_id, delta, powod, opis)
+    VALUES (v_pid, v_roznica::int, 'wyrownanie',
+            'Wyrownanie do pakietu startowego 50 SMS (bylo ' || v_nadane || ')');
+  END IF;
+
+  -- ── VIN: 5 → 10, nic nie zuzyte, wiec proste podniesienie ──
+  UPDATE billing_addon_packs
+  SET amount_total = 10, amount_remaining = amount_remaining + (10 - amount_total)
+  WHERE subscriber_id = v_pid AND source = 'admin_grant'
+    AND feature_id = v_vin AND amount_total < 10;
+
+  -- ── Rido AI: paczki nie ma, wiec zakladamy ──
+  IF NOT EXISTS (
+    SELECT 1 FROM billing_addon_packs
+    WHERE subscriber_id = v_pid AND source = 'admin_grant' AND feature_id = v_ai
+  ) THEN
+    INSERT INTO billing_addon_packs
+      (subscriber_type, subscriber_id, feature_id, amount_total, amount_remaining,
+       expires_at, source, note)
+    VALUES ('service_provider', v_pid, v_ai, 50, 50, NULL, 'admin_grant',
+            'Wyrownanie do pakietu startowego');
+  END IF;
+
+  -- Rejestr ma mowic to samo co paczki.
+  UPDATE pakiety_startowe SET sms = 50, vin = 10 WHERE provider_id = v_pid;
+END $BLOK_B$;
 
 -- ---------------------------------------------------------------------------
 -- KONTROLA KOŃCOWA — osobno funkcja, osobno DANE
@@ -263,17 +306,19 @@ DECLARE
   v_args text;
   v_zle  text;
   v_plan int;
+  v_pid  uuid;
+  v_sms_nadane numeric; v_sms_zostalo numeric; v_ksiega numeric;
+  v_vin_nadane numeric; v_ai_nadane numeric;
 BEGIN
-  -- (a) FUNKCJA: nowe wartości domyślne naprawdę tam są.
-  -- `p.oid` z nazwą tabeli, nie samo `oid`: przy złączeniu z `pg_namespace`
-  -- obie tabele mają kolumnę `oid` i Postgres odmawia („column reference oid
-  -- is ambiguous"). Parser składni tego nie widzi — wyszło przy wykonaniu.
+  -- (a) FUNKCJA: nowe wartosci domyslne naprawde tam sa.
+  -- `p.oid` z nazwa tabeli, nie samo `oid`: przy zlaczeniu z `pg_namespace`
+  -- obie tabele maja kolumne `oid` i Postgres odmawia. Parser tego nie widzi.
   v_args := pg_get_function_arguments(
     (SELECT p.oid FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'public' AND p.proname = 'przyznaj_pakiet_startowy'));
   IF v_args NOT LIKE '%p_sms integer DEFAULT 50%'
      OR v_args NOT LIKE '%p_vin integer DEFAULT 10%'
-     OR v_args NOT LIKE '%p_rido_ai integer DEFAULT 100%' THEN
+     OR v_args NOT LIKE '%p_rido_ai integer DEFAULT 50%' THEN
     RAISE EXCEPTION 'Wartosci domyslne pakietu startowego sie nie zgadzaja — %', v_args;
   END IF;
 
@@ -283,7 +328,7 @@ BEGIN
     RAISE EXCEPTION 'pakiet startowy przestal zapisywac ksiege SMS';
   END IF;
 
-  -- (c) PLANY: pula startowa planow probnych wyzerowana, platne nietkniete.
+  -- (c) PLANY: pula probnych wyzerowana, platne nietkniete.
   SELECT count(*) INTO v_plan FROM billing_plans
   WHERE code IN ('trial_warsztat', 'trial_max') AND coalesce(rido_ai_start_ile, 0) <> 0;
   IF v_plan <> 0 THEN
@@ -295,7 +340,7 @@ BEGIN
     RAISE EXCEPTION 'Ruszona zostala pula planu platnego — a miala zostac nietknieta';
   END IF;
 
-  -- (d) DANE: kazde wyrownywane konto ma 10 VIN i 100 Rido AI, nic nie zuzyte.
+  -- (d) BLOK A: kazde konto audytowe ma 10 VIN i 50 Rido AI, nic nie zuzyte.
   SELECT string_agg(email || ' → ' || opis, '; ') INTO v_zle
   FROM (
     SELECT c.email,
@@ -303,21 +348,45 @@ BEGIN
                        WHERE p.feature_id = (SELECT id FROM billing_features WHERE key='vehicle_lookup')), 0)::text ||
            ', AI ' || coalesce(sum(p.amount_total) FILTER (
                        WHERE p.feature_id = (SELECT id FROM billing_features WHERE key='rido_ai')), 0)::text AS opis
-    FROM cele_wszystkie c
+    FROM cele_audyt c
     LEFT JOIN billing_addon_packs p
       ON p.subscriber_id = c.provider_id AND p.source = 'admin_grant'
     GROUP BY c.email
     HAVING coalesce(sum(p.amount_total) FILTER (
              WHERE p.feature_id = (SELECT id FROM billing_features WHERE key='vehicle_lookup')), 0) <> 10
         OR coalesce(sum(p.amount_total) FILTER (
-             WHERE p.feature_id = (SELECT id FROM billing_features WHERE key='rido_ai')), 0) <> 100
+             WHERE p.feature_id = (SELECT id FROM billing_features WHERE key='rido_ai')), 0) <> 50
   ) t;
-
   IF v_zle IS NOT NULL THEN
-    RAISE EXCEPTION 'Wyrownanie nie doszlo do skutku: %', v_zle;
+    RAISE EXCEPTION 'Blok A nie doszedl do skutku: %', v_zle;
   END IF;
 
-  RAISE NOTICE 'Pakiet startowy: 50 SMS, 10 VIN, 100 Rido AI. Konta wyrownane, pula planow probnych wyzerowana.';
+  -- (e) BLOK B: Karol ma 50 nadanych SMS przy 48 pozostalych (2 zuzyte
+  --     ZOSTAJA zuzyte), 10 VIN, 50 Rido AI, a ksiega zgadza sie z reszta.
+  SELECT sp.id INTO v_pid FROM auth.users u
+  JOIN service_providers sp ON sp.user_id = u.id WHERE u.email = 'karolrzepko@go2.pl';
+
+  SELECT coalesce(sum(amount_total) FILTER (WHERE feature_id = (SELECT id FROM billing_features WHERE key='sms')), 0),
+         coalesce(sum(amount_remaining) FILTER (WHERE feature_id = (SELECT id FROM billing_features WHERE key='sms')), 0),
+         coalesce(sum(amount_total) FILTER (WHERE feature_id = (SELECT id FROM billing_features WHERE key='vehicle_lookup')), 0),
+         coalesce(sum(amount_total) FILTER (WHERE feature_id = (SELECT id FROM billing_features WHERE key='rido_ai')), 0)
+    INTO v_sms_nadane, v_sms_zostalo, v_vin_nadane, v_ai_nadane
+  FROM billing_addon_packs WHERE subscriber_id = v_pid AND source = 'admin_grant';
+
+  SELECT coalesce(sum(delta), 0) INTO v_ksiega FROM sms_credit_ledger WHERE provider_id = v_pid;
+
+  IF v_sms_nadane <> 50 OR v_vin_nadane <> 10 OR v_ai_nadane <> 50 THEN
+    RAISE EXCEPTION 'Karol: SMS %, VIN %, AI % — mialo byc 50/10/50',
+      v_sms_nadane, v_vin_nadane, v_ai_nadane;
+  END IF;
+  IF v_sms_zostalo <> 48 THEN
+    RAISE EXCEPTION 'Karol: zostalo % SMS-ow, a mialo 48 (50 nadanych minus 2 zuzyte)', v_sms_zostalo;
+  END IF;
+  IF v_ksiega <> v_sms_zostalo THEN
+    RAISE EXCEPTION 'Karol: ksiega (%) rozjechala sie z reszta paczek (%)', v_ksiega, v_sms_zostalo;
+  END IF;
+
+  RAISE NOTICE 'Pakiet startowy: 50 SMS, 10 VIN, 50 Rido AI. Blok A (13 kont) i Karol wyrownani, pula planow probnych wyzerowana.';
 END $KONIEC$;
 
 COMMIT;

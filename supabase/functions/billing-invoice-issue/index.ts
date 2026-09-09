@@ -275,6 +275,90 @@ Deno.serve(async (req) => {
         }));
 
         /**
+         * ═══════════════════════════════════════════════════════════════════
+         * KSEF PRZED MAILEM — I TYLKO Z JEDNEGO ŹRÓDŁA
+         * ═══════════════════════════════════════════════════════════════════
+         * 🔴 DO 09.09.2026 TA FUNKCJA W OGÓLE NIE WYSYŁAŁA DO KSEF. Nie był to
+         * źle odczytany przełącznik — wysyłki nie było w kodzie wcale, a panel
+         * pokazywał „KSeF WŁĄCZONE", bo ten napis dotyczy modułu faktur
+         * ręcznych (`SimpleFreeInvoice`), nie faktur platformy. Wszystkie
+         * GR/2026/* stały na `ksef_status = not_sent`.
+         *
+         * FLAGA JEST JEDNA: `company_settings` WIERSZA KONTA PLATFORMOWEGO,
+         * para `ksef_send_invoices_enabled` + `ksef_auto_send_enabled`. Przy
+         * nich leży token i środowisko, więc „włączone" nie może znaczyć
+         * „włączone, ale nie ma czym wysłać". `billing_settings.ksef_enabled`
+         * nie czytał nikt i zniknął migracją `20260909155654`.
+         *
+         * KOLEJNOŚĆ: wystawienie → KSeF → numer → dopiero mail. Klient nie może
+         * dostać faktury bez numeru, a potem drugiej z numerem — to dwa różne
+         * dokumenty w jego skrzynce i pytanie do księgowej, który jest ważny.
+         */
+        let numerKsef: string | null = null;
+        let ksefWstrzymuje = false;
+
+        {
+          const { data: ustKsef } = await admin
+            .from("company_settings")
+            .select("ksef_send_invoices_enabled, ksef_auto_send_enabled, ksef_environment")
+            .eq("user_id", platformUserId)
+            .maybeSingle();
+
+          const wysylamy =
+            (ustKsef as any)?.ksef_send_invoices_enabled === true &&
+            (ustKsef as any)?.ksef_auto_send_enabled === true;
+
+          /**
+           * 🔴 ŚRODOWISKO TESTOWE NIE MOŻE WSTRZYMYWAĆ POCZTY KLIENTA.
+           *
+           * Konto platformowe stoi dziś na `integration` z tokenem testowym.
+           * Numer nadany tam nie jest numerem KSeF — jest atrapą. Gdyby brak
+           * takiej atrapy blokował maila, klient przestałby dostawać faktury
+           * z powodu, który go w ogóle nie dotyczy.
+           *
+           * Na środowisku testowym wysyłamy więc do KSeF (bo po to jest test),
+           * ale mail idzie NIEZALEŻNIE od wyniku. Wstrzymywanie ma sens tylko
+           * wtedy, gdy numer jest prawdziwy, czyli na `production`.
+           */
+          const naProdukcji = String((ustKsef as any)?.ksef_environment ?? "") === "production";
+
+          if (wysylamy) {
+            try {
+              const odpKsef = await fetch(`${supabaseUrl}/functions/v1/ksef-integration`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+                body: JSON.stringify({ action: "send", invoice_id: faktura.id }),
+              });
+              const wynikKsef = await odpKsef.json().catch(() => ({}));
+              const stan = String((wynikKsef as any)?.status ?? "");
+
+              if (stan === "accepted" && (wynikKsef as any)?.ksef_reference) {
+                numerKsef = String((wynikKsef as any).ksef_reference);
+              } else {
+                /**
+                 * `processing` znaczy „wysłane, numeru jeszcze nie ma".
+                 * `rejected` znaczy „nie przyjęto". Na PRODUKCJI mail w obu
+                 * przypadkach CZEKA — dokończy go zadanie
+                 * `billing-faktura-mail-ponow`, gdy numer dojdzie albo gdy
+                 * ktoś naprawi odrzucenie. Na środowisku testowym nie czeka
+                 * na nic, bo nie ma na co.
+                 */
+                ksefWstrzymuje = naProdukcji;
+              }
+              console.log(JSON.stringify({
+                event: "faktura_ksef", numer: faktura.invoice_number,
+                stan: stan || "brak_odpowiedzi", ksef: numerKsef, http: odpKsef.status,
+                srodowisko: (ustKsef as any)?.ksef_environment ?? "brak",
+              }));
+            } catch (bladKsef) {
+              // Awaria KSeF nie wywraca wystawienia — dokument istnieje i ma numer.
+              ksefWstrzymuje = naProdukcji;
+              console.error("billing-invoice-issue: KSeF niedostępny", bladKsef);
+            }
+          }
+        }
+
+        /**
          * MAIL DO KLIENTA — po zapisaniu pozycji, nigdy jako warunek.
          *
          * Wystawienie bez wysyłki nie było błędem widocznym nigdzie: `billing_events`
@@ -295,7 +379,17 @@ Deno.serve(async (req) => {
          * i ma numer, a ponowienie maila to jedno kliknięcie w panelu.
          */
         const mailDo = String(body?.buyer_email ?? "").trim();
-        if (mailDo) {
+        if (mailDo && ksefWstrzymuje) {
+          // Dokument czeka na numer KSeF. Ślad w bazie, nie w dzienniku:
+          // `email_sent_at IS NULL` to sygnał dla ponowienia, a `email_error`
+          // mówi człowiekowi, na co czeka.
+          await admin.from("user_invoices")
+            .update({ email_error: "czeka na numer KSeF" })
+            .eq("id", faktura.id);
+          console.warn(JSON.stringify({
+            event: "faktura_mail_wstrzymany", numer: faktura.invoice_number, do: mailDo,
+          }));
+        } else if (mailDo) {
           try {
             /**
              * ZAŁĄCZNIK PDF — składany TYM SAMYM generatorem co w przeglądarce.
@@ -385,12 +479,33 @@ Deno.serve(async (req) => {
               }),
             });
             const wynikMaila = await odp.json().catch(() => ({}));
+            const poszedl = odp.ok && (wynikMaila as any)?.success !== false;
+
+            /**
+             * WYNIK WYSYŁKI ZAPISUJEMY W BAZIE, NIE TYLKO W DZIENNIKU.
+             *
+             * 🔴 09.09.2026: faktura GR/2026/007 nie doszła do klienta i nie
+             * dało się ustalić dlaczego — wynik szedł wyłącznie do
+             * `console.log`, a dziennika funkcji brzegowej nie da się odpytać
+             * zapytaniem. Reklamacja „nie dostałem faktury" nie miała się
+             * o co oprzeć. Teraz ma.
+             */
+            await admin.from("user_invoices").update(
+              poszedl
+                ? { email_sent_at: new Date().toISOString(), email_error: null }
+                : { email_error: String((wynikMaila as any)?.error ?? `HTTP ${odp.status}`).slice(0, 500) },
+            ).eq("id", faktura.id);
+
             console.log(JSON.stringify({
-              event: odp.ok && (wynikMaila as any)?.success !== false ? "faktura_mail" : "faktura_mail_blad",
+              event: poszedl ? "faktura_mail" : "faktura_mail_blad",
               numer: faktura.invoice_number, do: mailDo, status: odp.status,
               zalacznik: pdfBase64 ? "jest" : "brak",
+              ksef: numerKsef,
             }));
           } catch (bladMaila) {
+            await admin.from("user_invoices")
+              .update({ email_error: String((bladMaila as Error)?.message ?? bladMaila).slice(0, 500) })
+              .eq("id", faktura.id);
             console.error("billing-invoice-issue: mail niewysłany", bladMaila);
           }
         } else {

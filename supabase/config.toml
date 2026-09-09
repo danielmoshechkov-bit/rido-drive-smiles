@@ -493,6 +493,9 @@ verify_jwt = false
 [functions.billing-invoice-issue]
 verify_jwt = false
 
+[functions.billing-faktura-mail-ponow]
+verify_jwt = false
+
 [functions.tire-receipt]
 verify_jwt = false
 
