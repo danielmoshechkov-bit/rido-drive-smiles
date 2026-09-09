@@ -1,5 +1,77 @@
 # Stan prac — płatności, kredyty, bezpieczeństwo zapisu
 
+---
+
+## ⭐ AKTUALIZACJA 09.09.2026 — CZYTAJ TO NAJPIERW
+
+Dokument niżej jest z 24.08 i **w kilku miejscach nieaktualny**. Co się zmieniło:
+
+### Zamknięte od tamtego czasu
+
+- **4.1 „Odczyt umów najmu otwarty dla każdego" — ZAMKNIĘTE.** Sprawdzone
+  zapytaniem na produkcji: polityk `Public can read rentals with token`
+  i `Public can sign contract via portal token` **nie ma**. Migracje
+  `20260820140000` i `20260820180000` są wykonane, `rental-portal-get` wdrożona.
+- **Wszystkie migracje z repozytorium są na produkcji.** Sprawdzone przez
+  porównanie obiektów (funkcje, tabele, kolumny, polityki, wyzwalacze) ze
+  wszystkimi migracjami po `20260820` — zero braków. Rejestr
+  `supabase_migrations.schema_migrations` nadal kłamie (ostatni wpis 03.08),
+  więc **nie da się tego odczytać z rejestru** — trzeba porównywać obiekty.
+
+### Rozjazd produkcja ↔ main (zmierzony 09.09, SHA-256 kodu, nie numery wersji)
+
+Ze 193 funkcji brzegowych **181 zgodnych**, 12 rozjechanych — w OBIE strony:
+
+| kierunek | funkcje | co z tego wynika |
+|---|---|---|
+| **produkcja MA, main NIE** | `billing-stripe-webhook`, `send-invoice-email` | wdrożone z `feat/tryb-dokonczenia`; Lovable przebuduje je z `main` i **skasuje** |
+| **main MA, produkcja NIE** | 10 funkcji `voice-*` | 26 commitów pracy nad agentem głosowym (wielojęzyczność EN/RU/UK, snapshot, ścieżka odwołania wizyty) **zbudowane i niewdrożone** |
+
+Front na produkcji **jest zgodny** z `main` (`wersja.json` → `d10a57e3`, wdrożenie
+28.08). Niezgodne są wyłącznie funkcje brzegowe.
+
+### 🔴 Codzienna kontrola „Zgodność produkcji z main" DAJE FAŁSZYWE ALARMY
+
+`.github/workflows/zgodnosc-produkcji.yml` zgłasza **wszystkie 190 funkcji**
+jako rozjechane — zgłoszenie #67 jest tego pełne. Sprawdzone: `billing-checkout`
+pobrany z produkcji jest **bajt w bajt** zgodny z `main` (SHA `fca3c8fa…`),
+a kontrola i tak go zgłasza.
+
+Przyczyna: przebieg pobiera CLI z `releases/latest` (dziś v2.117), a lokalne
+v2.101 daje zgodny wynik. **Kontrola, która zapala się na wszystkim, nie zapala
+się na niczym** — nikt nie odróżni w niej prawdziwego rozjazdu. Do naprawy:
+przypiąć wersję CLI w przebiegu.
+
+### 🔴 CI `Testy i kontrola typów` na main było CZERWONE od 23.08
+
+Dwa przebiegi (`32662233541`, `33160898402`) czerwone przez dwanaście dni, nikt
+ich nie otworzył. Przyczyna: dwa błędy typów w `WorkshopTireStorage.tsx:374`.
+Naprawione 09.09. **Bramka działała — zabrakło patrzenia na jej wynik.**
+
+### Naprawione 09.09
+
+- **Odmowa płatności mówiła „Edge Function returned a non-2xx status code".**
+  Dotyczyło **25 z 30 warsztatów** (brak danych do faktury). Dwie przyczyny:
+  martwe mapy komunikatów (`functions.invoke` przy 4xx daje `data === null`,
+  a zdanie serwera chowa w `error.context`) oraz dwa przyciski omijające krok
+  „Dane do faktury" (`TrialPlanBanner`, karty planów na `/warsztat-info`).
+  Jedno źródło odczytu odmowy: `src/lib/odmowaZakupu.ts` nad istniejącym
+  `odczytajBladFunkcji`. Bramka: `npm run test:front`.
+- **Pakiet startowy: 10 VIN (było 5), 100 Rido AI (było 50).** Migracja
+  `20260909125826` — **do wykonania**. Zeruje przy okazji pulę Rido AI planów
+  próbnych, bo były DWA źródła startowe i odpalały niespójnie (3 konta z 17
+  miały 100, reszta 50).
+
+### Czego NIE MA nigdzie — ani na produkcji, ani w gałęziach
+
+**Numer techniczny z puli dla agenta głosowego** (z instrukcją przekierowania).
+Sprawdzone we wszystkich gałęziach — ta funkcja nie została zbudowana. Stoi
+w tym dokumencie jako pozycja **4.9**, pod obowiązującym zakazem zmian
+w agencie głosowym. To backlog, nie zaginione wdrożenie.
+
+---
+
+
 **Data spisania:** 19.08.2026, zaktualizowane 21.08.2026
 **Gałąź robocza:** `wdrozenie` (worktree `/Users/moshechkov/rido-pay-lock`)
 **Stan względem `origin/main`:** wszystko scalone poza jednym commitem (`c11710ba`,
