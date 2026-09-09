@@ -370,7 +370,11 @@ export function WorkshopTireStorage({ providerId, onBack }: Props) {
                       const kolejne = new Set(zaznaczone);
                       // Zaznaczamy tylko to, co widac — inaczej klikniecie
                       // na jednej stronie zabieraloby wpisy z pozostalych.
-                      for (const r of paged) {
+                      // `(r: any)` jak w sasiednich `.every` i `.map`: `pageSlice`
+                      // oddaje `unknown[]`, wiec bez adnotacji `r.id` nie przechodzi
+                      // kontroli typow. To ten blad trzymal CI na main na czerwono
+                      // od 23.08 — bramka dzialala, tylko nikt jej nie odczytal.
+                      for (const r of paged as any[]) {
                         if (e.target.checked) kolejne.add(r.id); else kolejne.delete(r.id);
                       }
                       setZaznaczone(kolejne);
