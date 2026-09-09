@@ -1,4 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+// ============================================================================
+// VoiceAgentPanel — USTAWIENIA ASYSTENTA GŁOSOWEGO WIDZIANE PRZEZ WARSZTAT.
+//
+// Panel przepisany 16.08 po audycie (docs/voice-audyt-panelu-i-kosztow.md).
+// Poprzednia wersja miała 770 linii i większość pól NIC NIE ROBIŁA: suwaki
+// brzmienia, wybór głosu, tekst do odsłuchu, tryb odbioru i liczba sygnałów
+// zapisywały się do bazy, której nikt w tych kolumnach nie czyta. Pole, które
+// nic nie robi, jest obietnicą bez pokrycia — a „Agent aktywny" był gorszy:
+// warsztat wyłączał agenta, widział wyłączony przełącznik i myślił, że telefon
+// nie jest odbierany, podczas gdy agent odbierał i umawiał wizyty.
+//
+// ZASADA 39: panel warsztatu opisuje FIRMĘ, nie agenta. Model, głos, prompt,
+// webhooki, parametry syntezy i uczenie są nasze — jedna zmiana jednego
+// warsztatu nie może psuć konfiguracji pilnowanej złotym stanem.
+//
+// USUNIĘTE, nie ukryte (ukryte pole wraca przy pierwszym refaktorze):
+//   „Trening agenta — 10/25 symulacji" — wydawał NASZE pieniądze i dopisywał
+//     reguły do voice_agent_knowledge wstrzykiwane do promptu; jedno kliknięcie
+//     przewracało wynik, który zbieraliśmy tydzień,
+//   suwaki brzmienia i wybór głosu — nieczytane; podgląd dodatkowo syntezował
+//     próbki na żywo za kredyty,
+//   sample_text, inbound_mode, inbound_rings, calling_hours — nieczytane,
+//   „Telefonia na żywo (ElevenLabs)" — nasze adresy webhooków pokazywane klientowi,
+//   „Uczenie z rozmów" — decyzja o karmieniu wspólnej bazy wiedzy jest nasza,
+//   czat testowy — warsztat testuje, dzwoniąc pod swój numer; to jest
+//     prawdziwszy test i nie kosztuje nas tokenów.
+// ============================================================================
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,769 +33,477 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CompanyInterviewChat } from "./CompanyInterviewChat";
-import { VoiceAgentTestChat } from "./VoiceAgentTestChat";
-import { NativeVoiceBrowser } from "./NativeVoiceBrowser";
 import { toast } from "sonner";
-import { Loader2, Save, Play, Phone, Volume2, Bot, Sparkles, Wand2, Building2, Search, Pause, Star, Globe, ChevronDown, CalendarCheck, ClipboardList, ShieldCheck, PhoneCall, Copy } from "lucide-react";
+import { Loader2, Save, Phone, Building2, ShieldCheck, Copy, AlertTriangle, Plane } from "lucide-react";
 
-const FUNCTIONS_BASE = "https://wclrrytmrscqvsyxyvnn.supabase.co/functions/v1";
+// JĘZYKÓW WARSZTAT NIE WYBIERA. Agent rozpoznaje język z tego, co mówi
+// dzwoniący, i odpowiada w nim — obsługa rosyjskiego i ukraińskiego jest
+// w prompcie, nie w tym polu. Pole wyboru dawało warsztatowi możliwość
+// WYŁĄCZENIA języka, którym za chwilę zadzwoni jego klient, i nic więcej.
+// W bazie zostaje ["pl"], bo tego pola i tak nikt nie czyta jako listy
+// dozwolonych — czyta je prompt jako informację, jakim językiem zaczynać.
+const JEZYKI_DOMYSLNE = ["pl"];
 
-interface Persona {
-  persona_key: string; name: string; description: string | null; direction: string;
-  default_voice_id: string | null; supported_langs: string[];
-}
-interface VerifiedPreview { lang: string; accent: string | null; preview_url: string | null; }
-interface VoiceItem {
-  voice_id: string; name: string; gender: string | null; accent: string | null; age: string | null;
-  use_case: string | null; description: string | null; preview_url: string | null; category: string | null;
-  multilingual: boolean; native_langs?: string[]; verified_langs: string[]; verified_previews: VerifiedPreview[]; recommended: boolean; score: number;
-}
+/** Limit pola „Dodatkowe informacje". To jedyne miejsce, którym warsztat
+ *  naprawdę może zepsuć agenta — jego treść idzie prosto do promptu. */
+const LIMIT_DODATKOWE = 500;
+
+/** Słowa, po których tekst przestaje opisywać firmę, a zaczyna sterować modelem. */
+const SLOWA_STERUJACE = [
+  "zawsze", "nigdy", "ignoruj", "pomiń", "nie mów", "musisz", "masz obowiązek",
+  "od teraz", "zapomnij", "system", "prompt", "instrukcja",
+];
+
+// KODY PRZEKIEROWANIA — NIEZWERYFIKOWANE.
+// `**21*numer#` i `**61*numer*11*15#` to składnia standardu GSM, a nie coś,
+// co sprawdziliśmy u polskich operatorów. Dopóki `zweryfikowane` jest false,
+// panel ich NIE POKAZUJE — instrukcja, która nie zadziała za pierwszym razem,
+// kosztuje więcej zaufania, niż jest warta. Po testach na Orange, Play, Plus
+// i T-Mobile wystarczy zmienić tę flagę.
+const PRZEKIEROWANIE = {
+  zweryfikowane: false,
+  kody: (numer: string) => [
+    { opis: "Przekierowanie po 15 sekundach (zalecane)", kod: `**61*${numer}*11*15#` },
+    { opis: "Przekierowanie natychmiastowe — wszystkie połączenia", kod: `**21*${numer}#` },
+    { opis: "Wyłączenie przekierowania", kod: "##21#" },
+  ],
+};
+
 interface BusinessContext {
   company_name: string; description: string; hours: string; location: string;
   services: string; agent_intro: string; purpose: string; roadside: string; extra_info: string;
+  urlop?: { od: string; do: string; zdanie: string };
 }
 interface VoiceConfig {
   persona_key: string; is_active: boolean; display_name: string;
-  voice_id: string; voice_mode: string; voice_per_language: Record<string, string>;
-  voice_speed: number; voice_stability: number; voice_similarity: number; voice_style: number;
-  sample_text: string; languages: string[]; inbound_mode: string; inbound_rings: number;
-  calling_hours: { from?: string; to?: string }; business_context: BusinessContext;
-  calendar_access: boolean; orders_access: boolean; learning_mode: string;
+  languages: string[]; business_context: BusinessContext;
+  calendar_access: boolean; orders_access: boolean;
 }
-
-const LANGS = [
-  { code: "pl", label: "Polski", short: "PL" },
-  { code: "en", label: "English", short: "EN" },
-  { code: "ua", label: "Українська", short: "UA" },
-  { code: "ru", label: "Русский", short: "RU" },
-];
-const SAMPLE_TEXTS: Record<string, string> = {
-  pl: "Dzień dobry, tu asystent głosowy. W czym mogę pomóc?",
-  en: "Hello, this is your AI voice assistant. How can I help you today?",
-  ua: "Доброго дня, це голосовий помічник. Чим можу допомогти?",
-  ru: "Здравствуйте, это голосовой помощник. Чем могу помочь?",
-};
-const DEFAULT_SAMPLE = SAMPLE_TEXTS.pl;
-const OPTIMAL = { voice_stability: 0.45, voice_similarity: 0.75, voice_style: 0.0, voice_speed: 1.0 };
+interface NumerWarsztatu { phone_number: string; status: string }
+interface StanAktywacji {
+  numer: string | null;
+  zadanie: { status: string; etap: string } | null;
+  miasto: string | null;
+  wymaga_miasta: boolean;
+  error?: string;
+  uwaga?: string;
+}
 
 const emptyBC = (): BusinessContext => ({
-  company_name: "", description: "", hours: "", location: "", services: "", agent_intro: "", purpose: "", roadside: "", extra_info: "",
+  company_name: "", description: "", hours: "", location: "",
+  services: "", agent_intro: "", purpose: "", roadside: "", extra_info: "",
 });
-function defaultsFor(persona: Persona | undefined): VoiceConfig {
-  return {
-    persona_key: persona?.persona_key ?? "", is_active: false, display_name: "",
-    voice_id: persona?.default_voice_id ?? "", voice_mode: "single", voice_per_language: {},
-    voice_speed: OPTIMAL.voice_speed, voice_stability: OPTIMAL.voice_stability,
-    voice_similarity: OPTIMAL.voice_similarity, voice_style: OPTIMAL.voice_style,
-    sample_text: DEFAULT_SAMPLE, languages: persona?.supported_langs?.length ? persona.supported_langs : ["pl"],
-    inbound_mode: "off", inbound_rings: 4, calling_hours: {}, business_context: emptyBC(),
-    calendar_access: false, orders_access: false, learning_mode: "per_call",
-  };
-}
+
+const ladnyNumer = (n: string) => {
+  const c = String(n || "").replace(/\D/g, "");
+  const bez = c.startsWith("48") ? c.slice(2) : c;
+  return bez.length === 9 ? `${bez.slice(0, 2)} ${bez.slice(2, 5)} ${bez.slice(5, 7)} ${bez.slice(7)}` : n;
+};
 
 export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [personas, setPersonas] = useState<Persona[]>([]);
-  const [selectedPersona, setSelectedPersona] = useState<string>("");
+  // PERSONA JEST STAŁA, NIE WYNIKIEM ZAPYTANIA.
+  //
+  // Poprzednia wersja pytała `voice_agent_personas` o personę o najwyższym
+  // priorytecie. W bazie DWIE włączone persony miały priorytet 8
+  // (workshop_secretary i sales_agent), a `order by priority desc limit 1`
+  // przy remisie nie ma zdefiniowanego zwycięzcy — decydowała fizyczna
+  // kolejność wierszy, zmieniana przez każdy UPDATE na tabeli.
+  //
+  // Gdyby wygrał `sales_agent`, ta zakładka pokazałaby warsztatowi PUSTY
+  // formularz z wyłączonym przełącznikiem, a zapis założyłby drugi wiersz
+  // konfiguracji z `is_active: false`. Stara wersja panelu miała listę person
+  // do wyboru, więc dało się z tego wyjść; ta nie ma, więc nie dałoby się.
+  //
+  // Ta zakładka obsługuje agenta warsztatu i tylko jego. Nie ma tu czego
+  // wybierać, więc nie ma czego zgadywać.
+  const personaKey = "workshop_secretary";
   const [cfg, setCfg] = useState<VoiceConfig | null>(null);
+  const [numer, setNumer] = useState<NumerWarsztatu | null>(null);
+  const [stan, setStan] = useState<StanAktywacji | null>(null);
+  const [miasto, setMiasto] = useState("");
+  const [aktywuje, setAktywuje] = useState(false);
 
-  const [voices, setVoices] = useState<VoiceItem[]>([]);
-  const [voicesLoading, setVoicesLoading] = useState(true);
-  const [voicesError, setVoicesError] = useState<string | null>(null);
-  const [fGender, setFGender] = useState("all");
-  const [fAccent, setFAccent] = useState("all");
-  const [fSearch, setFSearch] = useState("");
-  const [onlyMulti, setOnlyMulti] = useState(true);
-  const [previewLang, setPreviewLang] = useState("pl");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  const [testOpen, setTestOpen] = useState(false);
-  const [training, setTraining] = useState(false);
-  const [trainDone, setTrainDone] = useState(0);
-  const [trainTotal, setTrainTotal] = useState(0);
-  const [trainLessons, setTrainLessons] = useState(0);
-  const [trainLog, setTrainLog] = useState<string[]>([]);
-  const [knowledgeCount, setKnowledgeCount] = useState<number | null>(null);
 
-  const loadKnowledgeCount = async (persona: string) => {
-    if (!providerId || !persona) return;
-    const { count } = await (supabase as any).from("voice_agent_knowledge")
-      .select("id", { count: "exact", head: true })
-      .eq("persona_key", persona).eq("is_active", true)
-      .or(`provider_id.eq.${providerId},provider_id.is.null`);
-    setKnowledgeCount(count ?? 0);
-  };
-
-  const runTraining = async (n: number) => {
-    if (!providerId || !cfg) return;
-    setTraining(true); setTrainTotal(n); setTrainDone(0); setTrainLessons(0); setTrainLog([]);
-    let lessons = 0;
-    for (let i = 0; i < n; i++) {
-      try {
-        const { data, error } = await supabase.functions.invoke("voice-agent-simulate", {
-          body: { provider_id: providerId, persona_key: cfg.persona_key, seed: i },
-        });
-        if (!error && data?.ok) {
-          lessons += data.lessons_learned || 0;
-          setTrainLog((l) => [`✓ ${data.outcome || "rozmowa"} · +${data.lessons_learned || 0} reguł · ${data.scenario?.slice(0, 40) || ""}`, ...l].slice(0, 12));
-        } else {
-          setTrainLog((l) => [`✗ ${data?.error || error?.message || "błąd"}`, ...l].slice(0, 12));
-        }
-      } catch (e: any) {
-        setTrainLog((l) => [`✗ ${e?.message || "błąd"}`, ...l].slice(0, 12));
-      }
-      setTrainDone(i + 1); setTrainLessons(lessons);
-    }
-    setTraining(false);
-    await loadKnowledgeCount(cfg.persona_key);
-    toast.success(`Trening zakończony: ${n} rozmów, +${lessons} reguł wiedzy`);
-  };
-  const [previewing, setPreviewing] = useState(false);
-  const [playingVoice, setPlayingVoice] = useState<string | null>(null);
-  const [loadingVoice, setLoadingVoice] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const ttsCache = useRef<Map<string, string>>(new Map());
-
-  // 1) persony
   useEffect(() => {
-    (async () => {
-      const { data } = await (supabase as any)
-        .from("voice_agent_personas")
-        .select("persona_key, name, description, direction, default_voice_id, supported_langs")
-        .eq("enabled", true).order("priority", { ascending: false });
-      const list = (data as Persona[]) || [];
-      setPersonas(list);
-      if (list.length) setSelectedPersona((c) => c || list[0].persona_key);
-      else setLoading(false);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // 2) biblioteka głosów konta (na żywo)
-  const reloadVoices = async () => {
-    setVoicesLoading(true);
-    const { data, error } = await supabase.functions.invoke("voice-list", { body: {} });
-    if (error || !data?.success) { setVoicesError(data?.error || error?.message || "Nie udało się pobrać głosów"); setVoices([]); }
-    else { setVoices(data.voices as VoiceItem[]); setVoicesError(null); }
-    setVoicesLoading(false);
-  };
-  useEffect(() => { reloadVoices(); /* eslint-disable-next-line */ }, []);
-
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerLang, setPickerLang] = useState("pl");
-  const [pickerMode, setPickerMode] = useState<"native" | "multi">("native");
-  const [pickerForSingle, setPickerForSingle] = useState(false);
-  const openPicker = (forSingle: boolean, lang: string, mode: "native" | "multi") => {
-    setPickerForSingle(forSingle); setPickerLang(lang); setPickerMode(mode); setPickerOpen(true);
-  };
-
-  // 3) konfig tenanta + prefill firmy
-  useEffect(() => {
-    if (!selectedPersona || !providerId) return;
+    if (!personaKey || !providerId) return;
     (async () => {
       setLoading(true);
-      const persona = personas.find((p) => p.persona_key === selectedPersona);
-      const { data } = await (supabase as any)
-        .from("voice_agent_configs").select("*")
-        .eq("provider_id", providerId).eq("persona_key", selectedPersona).maybeSingle();
-      let loaded: VoiceConfig;
+      const [{ data }, { data: num }] = await Promise.all([
+        (supabase as any).from("voice_agent_configs").select("*")
+          .eq("provider_id", providerId).eq("persona_key", personaKey).maybeSingle(),
+        (supabase as any).from("voice_numbers").select("phone_number, status")
+          .eq("provider_id", providerId).eq("status", "aktywny").maybeSingle(),
+      ]);
+      setNumer((num as NumerWarsztatu) ?? null);
       if (data) {
-        loaded = {
-          persona_key: selectedPersona, is_active: !!data.is_active, display_name: data.display_name ?? "",
-          voice_id: data.voice_id ?? "", voice_mode: data.voice_mode ?? "single",
-          voice_per_language: data.voice_per_language ?? {},
-          voice_speed: data.voice_speed != null ? Number(data.voice_speed) : OPTIMAL.voice_speed,
-          voice_stability: data.voice_stability != null ? Number(data.voice_stability) : OPTIMAL.voice_stability,
-          voice_similarity: data.voice_similarity != null ? Number(data.voice_similarity) : OPTIMAL.voice_similarity,
-          voice_style: data.voice_style != null ? Number(data.voice_style) : OPTIMAL.voice_style,
-          sample_text: data.sample_text ?? DEFAULT_SAMPLE, languages: data.languages?.length ? data.languages : ["pl"],
-          inbound_mode: data.inbound_mode ?? "off", inbound_rings: data.inbound_rings ?? 4,
-          calling_hours: data.calling_hours ?? {}, business_context: { ...emptyBC(), ...(data.business_context ?? {}) },
-          calendar_access: !!data.calendar_access, orders_access: !!data.orders_access,
-          learning_mode: data.learning_mode || "per_call",
-        };
+        setCfg({
+          persona_key: personaKey,
+          is_active: !!data.is_active,
+          display_name: data.display_name ?? "",
+          languages: data.languages?.length ? data.languages : JEZYKI_DOMYSLNE,
+          business_context: { ...emptyBC(), ...(data.business_context ?? {}) },
+          calendar_access: !!data.calendar_access,
+          orders_access: !!data.orders_access,
+        });
       } else {
-        loaded = defaultsFor(persona);
-        // Kolumny nazywają się `company_address` i `company_city` — pytanie
-        // o `address`/`city` zwracało błąd, więc przy pierwszym otwarciu panelu
-        // agent dostawał PUSTĄ nazwę firmy, opis i adres. Nie było tego widać,
-        // bo puste pola wyglądają jak „jeszcze nieuzupełnione".
-        const { data: sp } = await (supabase as any)
-          .from("service_providers").select("company_name, description, company_address, company_city").eq("id", providerId).maybeSingle();
+        // KOLUMNY NAZYWAJĄ SIĘ `company_*`. Poprzednia wersja panelu pytała
+        // o `address, city` — takich kolumn NIE MA, więc całe zapytanie zwracało
+        // błąd i nowy warsztat dostawał pusty formularz zamiast wypełnionego
+        // danymi, które już podał. Nikt tego nie zauważył, bo błąd był
+        // ignorowany (destrukturyzacja bez `error`).
+        const { data: sp, error: bladFirmy } = await (supabase as any)
+          .from("service_providers")
+          .select("company_name, description, company_address, company_city")
+          .eq("id", providerId).maybeSingle();
+        if (bladFirmy) console.error("[panel] odczyt danych firmy:", bladFirmy.message);
+        const bc = emptyBC();
         if (sp) {
-          loaded.business_context.company_name = sp.company_name || "";
-          loaded.business_context.description = sp.description || "";
-          loaded.business_context.location = [sp.company_address, sp.company_city].filter(Boolean).join(", ");
+          bc.company_name = sp.company_name || "";
+          bc.description = sp.description || "";
+          bc.location = [sp.company_address, sp.company_city].filter(Boolean).join(", ");
         }
+        setCfg({
+          persona_key: personaKey, is_active: false, display_name: "",
+          languages: JEZYKI_DOMYSLNE, business_context: bc, calendar_access: false, orders_access: false,
+        });
       }
-      setAdvancedOpen(loaded.voice_mode === "per_language");
-      setCfg(loaded);
       setLoading(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPersona, providerId, personas]);
+  }, [personaKey, providerId]);
 
-  // 4) auto-wybór zalecanego głosu gdy brak wyboru
+  const pobierzStan = async () => {
+    const { data, error } = await supabase.functions.invoke("voice-number-activate", { body: { akcja: "status" } });
+    if (error) { console.error("[panel] status aktywacji:", error.message); return null; }
+    setStan(data as StanAktywacji);
+    if ((data as StanAktywacji)?.numer) {
+      setNumer({ phone_number: (data as StanAktywacji).numer as string, status: "aktywny" });
+    }
+    return data as StanAktywacji;
+  };
+  useEffect(() => { if (providerId) pobierzStan(); /* eslint-disable-next-line */ }, [providerId]);
+
+  // ODPYTYWANIE TYLKO W TRAKCIE AKTYWACJI. Aktywacja trwa kilkadziesiąt sekund
+  // (worker chodzi co minutę), więc panel dopytuje co 10 s i przestaje, gdy
+  // numer jest albo gdy zadanie się zamknęło. Stałe odpytywanie obciążałoby
+  // funkcję bez powodu przez cały czas, gdy warsztat po prostu patrzy na ekran.
+  const trwa = !!stan?.zadanie && ["oczekuje", "w_toku"].includes(stan.zadanie.status) && !stan?.numer;
   useEffect(() => {
-    if (cfg && !cfg.voice_id && voices.length) setCfg((c) => (c ? { ...c, voice_id: voices[0].voice_id } : c));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voices, cfg?.persona_key]);
+    if (!trwa) return;
+    const t = setInterval(pobierzStan, 10_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line
+  }, [trwa]);
 
-  // 5) licznik wiedzy persony
-  useEffect(() => { if (selectedPersona && providerId) loadKnowledgeCount(selectedPersona); /* eslint-disable-next-line */ }, [selectedPersona, providerId]);
+  const aktywuj = async () => {
+    setAktywuje(true);
+    const { data, error } = await supabase.functions.invoke("voice-number-activate", {
+      body: { akcja: "aktywuj", miasto: miasto || undefined },
+    });
+    setAktywuje(false);
+    if (error) { toast.error("Nie udało się rozpocząć aktywacji"); return; }
+    const s = data as StanAktywacji;
+    setStan(s);
+    if (s?.error) { toast.error(s.error); return; }
+    if (s?.numer) { setNumer({ phone_number: s.numer, status: "aktywny" }); toast.success("Numer przypisany"); }
+    else toast.success("Zaczynamy — numer będzie gotowy za chwilę");
+  };
 
   const update = (patch: Partial<VoiceConfig>) => setCfg((c) => (c ? { ...c, ...patch } : c));
   const updateBC = (patch: Partial<BusinessContext>) =>
     setCfg((c) => (c ? { ...c, business_context: { ...c.business_context, ...patch } } : c));
-  const setLangVoice = (lang: string, id: string) =>
-    setCfg((c) => (c ? { ...c, voice_per_language: { ...c.voice_per_language, [lang]: id } } : c));
-
-  const byId = (id: string) => voices.find((v) => v.voice_id === id);
-  const selectedVoice = byId(cfg?.voice_id || "");
-  const accents = Array.from(new Set(voices.map((v) => v.accent).filter(Boolean))) as string[];
-  const filteredVoices = voices.filter((v) => {
-    if (onlyMulti && !v.recommended) return false;
-    if (fGender !== "all" && v.gender !== fGender) return false;
-    if (fAccent !== "all" && v.accent !== fAccent) return false;
-    if (fSearch && !`${v.name} ${v.accent ?? ""} ${v.use_case ?? ""}`.toLowerCase().includes(fSearch.toLowerCase())) return false;
-    return true;
-  });
-
-  const stopAudio = () => { audioRef.current?.pause(); setPlayingVoice(null); };
-  const playSrc = (id: string, src: string) => {
-    if (!audioRef.current) audioRef.current = new Audio();
-    if (playingVoice === id) { stopAudio(); return; }
-    audioRef.current.src = src;
-    audioRef.current.onended = () => setPlayingVoice(null);
-    audioRef.current.play().then(() => setPlayingVoice(id)).catch(() => setPlayingVoice(null));
-  };
-
-  // Odsłuch głosu w WYBRANYM języku: najpierw zweryfikowana próbka, potem TTS (cache)
-  const previewVoice = async (voice: VoiceItem | undefined, lang: string) => {
-    if (!voice || !cfg) return;
-    const vp = voice.verified_previews?.find((p) => p.lang === lang && p.preview_url);
-    if (vp?.preview_url) { playSrc(voice.voice_id, vp.preview_url); return; }
-    const key = `${voice.voice_id}:${lang}`;
-    if (ttsCache.current.has(key)) { playSrc(voice.voice_id, ttsCache.current.get(key)!); return; }
-    setLoadingVoice(voice.voice_id);
-    try {
-      const { data, error } = await supabase.functions.invoke("voice-preview", {
-        body: {
-          voice_id: voice.voice_id, text: SAMPLE_TEXTS[lang] || DEFAULT_SAMPLE,
-          speed: cfg.voice_speed, stability: cfg.voice_stability, similarity_boost: cfg.voice_similarity, style: cfg.voice_style,
-        },
-      });
-      if (error || !data?.success) { toast.error("Odsłuch nieudany: " + (data?.error || error?.message || "błąd")); return; }
-      const src = `data:${data.mime || "audio/mpeg"};base64,${data.audio}`;
-      ttsCache.current.set(key, src);
-      playSrc(voice.voice_id, src);
-    } finally { setLoadingVoice(null); }
-  };
-
-  const effectiveVoiceId = () =>
-    cfg?.voice_mode === "per_language" ? (cfg.voice_per_language[previewLang] || cfg.voice_id) : (cfg?.voice_id || "");
-
-  const previewWithText = async () => {
-    const vid = effectiveVoiceId();
-    if (!vid || !cfg) { toast.error("Najpierw wybierz głos"); return; }
-    setPreviewing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("voice-preview", {
-        body: {
-          voice_id: vid, text: cfg.sample_text || DEFAULT_SAMPLE,
-          speed: cfg.voice_speed, stability: cfg.voice_stability, similarity_boost: cfg.voice_similarity, style: cfg.voice_style,
-        },
-      });
-      if (error || !data?.success) toast.error("Odsłuch nieudany: " + (data?.error || error?.message || "błąd"));
-      else { if (!audioRef.current) audioRef.current = new Audio(); audioRef.current.src = `data:${data.mime || "audio/mpeg"};base64,${data.audio}`; await audioRef.current.play(); }
-    } finally { setPreviewing(false); }
-  };
 
   const save = async () => {
     if (!providerId || !cfg) return;
     setSaving(true);
+    // Zapisujemy WYŁĄCZNIE kolumny, które ktoś czyta. Kolumny po usuniętych
+    // polach zostają w bazie nietknięte i są oznaczone komentarzem NIEUŻYWANE.
     const { error } = await (supabase as any).from("voice_agent_configs").upsert(
       {
-        provider_id: providerId, persona_key: cfg.persona_key, is_active: cfg.is_active,
-        display_name: cfg.display_name || null, voice_id: cfg.voice_id || null,
-        voice_mode: cfg.voice_mode, voice_per_language: cfg.voice_per_language,
-        voice_speed: cfg.voice_speed, voice_stability: cfg.voice_stability,
-        voice_similarity: cfg.voice_similarity, voice_style: cfg.voice_style,
-        sample_text: cfg.sample_text || null, languages: cfg.languages,
-        inbound_mode: cfg.inbound_mode, inbound_rings: cfg.inbound_rings,
-        calling_hours: cfg.calling_hours, business_context: cfg.business_context,
-        calendar_access: cfg.calendar_access, orders_access: cfg.orders_access,
-        learning_mode: cfg.learning_mode,
+        provider_id: providerId, persona_key: cfg.persona_key,
+        is_active: cfg.is_active,
+        display_name: cfg.display_name || null,
+        languages: cfg.languages,
+        business_context: cfg.business_context,
+        calendar_access: cfg.calendar_access,
+        orders_access: cfg.orders_access,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "provider_id,persona_key" },
     );
     if (error) toast.error("Błąd zapisu: " + error.message);
-    else toast.success("Zapisano ustawienia agenta głosowego");
+    else toast.success("Zapisano");
     setSaving(false);
   };
 
   if (!providerId) return <div className="py-12 text-center text-muted-foreground">Ładowanie konta usługodawcy…</div>;
+  if (loading || !cfg) return <div className="py-12 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>;
 
-  const voiceCard = (v: VoiceItem) => (
-    <div
-      key={v.voice_id}
-      className={`rounded-lg border p-3 transition cursor-pointer ${cfg?.voice_id === v.voice_id ? "border-primary ring-1 ring-primary bg-primary/5" : "hover:bg-muted/50"}`}
-      onClick={() => update({ voice_id: v.voice_id })}
-    >
-      <div className="flex items-center justify-between">
-        <span className="font-medium text-sm flex items-center gap-1">
-          {v.recommended && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />}
-          {v.name}
-        </span>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); previewVoice(v, previewLang); }}
-          className="text-primary hover:opacity-70"
-          aria-label="Odsłuchaj"
-        >
-          {loadingVoice === v.voice_id ? <Loader2 className="h-4 w-4 animate-spin" /> : playingVoice === v.voice_id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-1 mt-1.5">
-        {v.native_langs?.map((l) => <Badge key={`n-${l}`} className="text-[10px] font-normal uppercase bg-green-600 hover:bg-green-600">natywny {l}</Badge>)}
-        {v.multilingual && <Badge variant="outline" className="text-[10px] font-normal gap-0.5"><Globe className="h-2.5 w-2.5" />wielojęzyczny</Badge>}
-        {v.gender && <Badge variant="outline" className="text-[10px] font-normal">{v.gender === "male" ? "męski" : "żeński"}</Badge>}
-        {v.accent && <Badge variant="outline" className="text-[10px] font-normal">{v.accent}</Badge>}
-        {v.verified_langs?.filter((l) => !v.native_langs?.includes(l)).map((l) => <Badge key={l} variant="secondary" className="text-[10px] font-normal uppercase">{l}</Badge>)}
-      </div>
-    </div>
-  );
+  const dodatkowe = cfg.business_context.extra_info || "";
+  const sterujace = SLOWA_STERUJACE.filter((s) => dodatkowe.toLowerCase().includes(s));
+  const urlop = cfg.business_context.urlop;
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-muted/40 p-4 flex items-start gap-3">
-        <Sparkles className="h-5 w-5 text-primary mt-0.5" />
-        <div className="text-sm">
-          <p className="font-medium">Asystent głosowy AI — konfiguracja</p>
-          <p className="text-muted-foreground mt-1">
-            Domyślnie jeden wielojęzyczny głos obsługuje całą rozmowę — agent automatycznie odpowiada w języku
-            klienta (PL/EN/UA/RU). Przełącznik języka poniżej pozwala sprawdzić, jak głos brzmi w każdym z nich.
-          </p>
-        </div>
-      </div>
-
-      {/* ROLA */}
+      {/* ---------------------------------------------------------- 1. AGENT */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5" /> Rola agenta</CardTitle>
-          <CardDescription>W jakiej roli ma działać agent.</CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> Asystent głosowy</CardTitle>
+          <CardDescription>
+            Asystent odbierający telefony — odbiera połączenia od Twoich klientów i umawia wizyty.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Select value={selectedPersona} onValueChange={setSelectedPersona}>
-            <SelectTrigger><SelectValue placeholder="Wybierz rolę" /></SelectTrigger>
-            <SelectContent>
-              {personas.map((p) => (
-                <SelectItem key={p.persona_key} value={p.persona_key}>
-                  {p.name} {p.direction === "inbound" ? "(odbiera)" : p.direction === "outbound" ? "(dzwoni)" : "(odbiera + dzwoni)"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {personas.find((p) => p.persona_key === selectedPersona)?.description && (
-            <p className="text-xs text-muted-foreground mt-2">{personas.find((p) => p.persona_key === selectedPersona)?.description}</p>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label className="text-base">{cfg.is_active ? "Włączony" : "Wyłączony"}</Label>
+              <p className="text-xs text-muted-foreground">
+                {cfg.is_active
+                  ? "Agent odbiera połączenia przekierowane na Twój numer."
+                  : "Agent nie odbiera. Dzwoniący usłyszy, że nie przyjmujesz zgłoszeń telefonicznych."}
+              </p>
+            </div>
+            <Switch checked={cfg.is_active} onCheckedChange={(v) => update({ is_active: v })} />
+          </div>
+
+          {cfg.is_active && (
+            numer ? (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Twój numer techniczny</Label>
+                    <p className="text-xl font-semibold tabular-nums">{ladnyNumer(numer.phone_number)}</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="gap-1 shrink-0"
+                    onClick={() => { navigator.clipboard.writeText(numer.phone_number); toast.success("Skopiowano"); }}>
+                    <Copy className="h-3.5 w-3.5" /> Kopiuj
+                  </Button>
+                </div>
+                <div className="text-sm space-y-1.5">
+                  <p className="font-medium">Jak uruchomić przekierowanie</p>
+                  <p className="text-muted-foreground">
+                    Ustaw u swojego operatora przekierowanie połączeń z numeru firmowego na numer powyżej.
+                    Zalecamy przekierowanie <strong>po 15 sekundach</strong> — telefon najpierw dzwoni u Ciebie,
+                    a asystent odbiera dopiero wtedy, gdy nikt nie podniesie.
+                  </p>
+                  {PRZEKIEROWANIE.zweryfikowane ? (
+                    <div className="space-y-1 pt-1">
+                      {PRZEKIEROWANIE.kody(numer.phone_number.replace(/^48/, "")).map((k) => (
+                        <div key={k.kod} className="flex items-center justify-between gap-2 rounded border bg-background px-2 py-1">
+                          <span className="text-xs text-muted-foreground">{k.opis}</span>
+                          <code className="text-sm">{k.kod}</code>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Kody przekierowania różnią się między operatorami — poproś o ustawienie
+                      przekierowania na infolinii swojego operatora albo w jego aplikacji.
+                    </p>
+                  )}
+                  {/* BEZ KWOT. Widełki „0,20–0,40 zł" były wiedzą ogólną o rynku,
+                      nie odczytem z cennika. Konkretna liczba, która okaże się
+                      nieprawdziwa, kosztuje więcej niż jej brak — warsztat zapamięta,
+                      że podaliśmy cenę, a nie że była orientacyjna. */}
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Samo ustawienie przekierowania jest bezpłatne. Koszt przekierowanego
+                    połączenia zależy od Twojego operatora — zwykle naliczany jak zwykłe
+                    połączenie na numer stacjonarny. My za przekierowanie nie pobieramy nic.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed p-3 space-y-3">
+                {stan?.zadanie && ["oczekuje", "w_toku", "czeka_na_zgode"].includes(stan.zadanie.status) ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                      <span>{stan.zadanie.etap}</span>
+                    </div>
+                    {/* Ile to potrwa — bez tego klient odświeża stronę albo klika
+                        drugi raz, bo nieskończony kręciołek wygląda jak zawieszenie. */}
+                    <p className="text-xs text-muted-foreground pl-6">
+                      Zwykle trwa około minuty. Możesz zamknąć tę stronę — numer pojawi się tutaj,
+                      gdy będzie gotowy.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Nie masz jeszcze numeru. Przydzielimy Ci go teraz — zajmie to chwilę.
+                    </p>
+                    {stan?.wymaga_miasta && (
+                      <div className="space-y-1.5">
+                        <Label>Miasto</Label>
+                        <Input value={miasto} onChange={(e) => setMiasto(e.target.value)}
+                          placeholder="np. Gdańsk" />
+                        <p className="text-xs text-muted-foreground">
+                          Numer będzie z Twojego regionu — klient zobaczy lokalny numer, a nie warszawski.
+                        </p>
+                      </div>
+                    )}
+                    <Button onClick={aktywuj} disabled={aktywuje || (stan?.wymaga_miasta && miasto.trim().length < 2)} className="gap-2">
+                      {aktywuje ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                      Aktywuj agenta
+                    </Button>
+                  </>
+                )}
+              </div>
+            )
           )}
         </CardContent>
       </Card>
 
-      {loading || !cfg ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-      ) : (
-        <>
-          {/* AKTYWACJA + NAZWA */}
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div><Label>Agent aktywny</Label><p className="text-xs text-muted-foreground">Włącz, gdy konfiguracja jest gotowa.</p></div>
-                <Switch checked={cfg.is_active} onCheckedChange={(v) => update({ is_active: v })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Nazwa agenta (jak się przedstawia)</Label>
-                <Input placeholder="np. Asystentka Kasia" value={cfg.display_name} onChange={(e) => update({ display_name: e.target.value })} />
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <PhoneCall className="h-4 w-4 text-primary" />
-                  <span>Sprawdź jak agent rozmawia — napisz jak klient, zobacz/usłysz odpowiedzi.</span>
-                </div>
-                <Button variant="default" size="sm" className="gap-1.5 shrink-0" onClick={() => setTestOpen(true)}>
-                  <PhoneCall className="h-4 w-4" /> Przetestuj agenta
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <VoiceAgentTestChat
-            open={testOpen}
-            onOpenChange={setTestOpen}
-            providerId={providerId}
-            personaKey={cfg.persona_key}
-            displayName={cfg.display_name}
-            businessContext={cfg.business_context as unknown as Record<string, string>}
-            languages={cfg.languages}
-            calendarAccess={cfg.calendar_access}
-            ordersAccess={cfg.orders_access}
-            voiceId={cfg.voice_mode === "per_language" ? (cfg.voice_per_language["pl"] || cfg.voice_id) : cfg.voice_id}
-            voiceGender={byId(cfg.voice_mode === "per_language" ? (cfg.voice_per_language["pl"] || cfg.voice_id) : cfg.voice_id)?.gender || ""}
-            learningMode={cfg.learning_mode}
-            voiceSettings={{ speed: cfg.voice_speed, stability: cfg.voice_stability, similarity: cfg.voice_similarity, style: cfg.voice_style }}
-          />
-
-          <NativeVoiceBrowser
-            open={pickerOpen}
-            onOpenChange={setPickerOpen}
-            language={pickerLang}
-            initialMode={pickerMode}
-            title={pickerForSingle ? "Wybierz głos agenta" : `Wybierz głos — ${LANGS.find((l) => l.code === pickerLang)?.label ?? pickerLang}`}
-            accountVoices={voices}
-            onPicked={(id) => {
-              if (pickerForSingle) update({ voice_id: id });
-              else { setLangVoice(pickerLang, id); update({ voice_mode: "per_language" }); }
-              reloadVoices();
-            }}
-          />
-
-          {/* A) GŁOS */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Volume2 className="h-5 w-5" /> Głos agenta</CardTitle>
-              <CardDescription>Wybierz, jak agent ma brzmieć. Jeden głos na wszystko (prosto) albo natywny lektor na każdy język (lepsze brzmienie).</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {voicesError && <p className="text-sm text-red-600">{voicesError} — sprawdź klucz ElevenLabs w Centrum AI.</p>}
-
-              <RadioGroup value={cfg.voice_mode} onValueChange={(v) => update({ voice_mode: v })} className="grid sm:grid-cols-2 gap-2">
-                <label className={`flex items-start gap-2 rounded-lg border p-3 cursor-pointer ${cfg.voice_mode === "single" ? "border-primary ring-1 ring-primary bg-primary/5" : "hover:bg-muted/50"}`}>
-                  <RadioGroupItem value="single" id="vm-single" className="mt-0.5" />
-                  <div><div className="text-sm font-medium">Jeden głos na wszystko</div><p className="text-xs text-muted-foreground">Wielojęzyczny — najprościej.</p></div>
-                </label>
-                <label className={`flex items-start gap-2 rounded-lg border p-3 cursor-pointer ${cfg.voice_mode === "per_language" ? "border-primary ring-1 ring-primary bg-primary/5" : "hover:bg-muted/50"}`}>
-                  <RadioGroupItem value="per_language" id="vm-multi" className="mt-0.5" />
-                  <div><div className="text-sm font-medium">Osobny lektor na język</div><p className="text-xs text-muted-foreground">Natywni lektorzy — najlepsze brzmienie.</p></div>
-                </label>
-              </RadioGroup>
-
-              {cfg.voice_mode === "single" ? (
-                <div className="rounded-lg border p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{selectedVoice?.name || "Nie wybrano głosu"}</div>
-                      {selectedVoice && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {selectedVoice.native_langs?.map((l) => <Badge key={l} className="text-[10px] bg-green-600 hover:bg-green-600">natywny {l}</Badge>)}
-                          {selectedVoice.multilingual && <Badge variant="outline" className="text-[10px] gap-0.5"><Globe className="h-2.5 w-2.5" />wielojęzyczny</Badge>}
-                        </div>
-                      )}
-                    </div>
-                    <Button size="sm" className="shrink-0" onClick={() => openPicker(true, previewLang, "multi")}>Wybierz głos</Button>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-muted-foreground">Odsłuch:</span>
-                    <div className="inline-flex rounded-lg border p-0.5">
-                      {LANGS.map((l) => (
-                        <button key={l.code} type="button" onClick={() => setPreviewLang(l.code)}
-                          className={`px-2.5 py-0.5 text-xs rounded-md transition ${previewLang === l.code ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>{l.short}</button>
-                      ))}
-                    </div>
-                    <Button size="sm" variant="outline" className="gap-1" disabled={!selectedVoice} onClick={() => previewVoice(selectedVoice, previewLang)}>
-                      {loadingVoice === selectedVoice?.voice_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} Odsłuchaj
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {cfg.languages.length === 0 && <p className="text-sm text-muted-foreground">Najpierw zaznacz języki rozmowy (sekcja „Odbieranie i działanie").</p>}
-                  {cfg.languages.map((lang) => {
-                    const lbl = LANGS.find((l) => l.code === lang)?.label ?? lang;
-                    const cur = cfg.voice_per_language[lang] || cfg.voice_id;
-                    const v = byId(cur);
-                    const isNative = v?.native_langs?.includes(lang);
-                    return (
-                      <div key={lang} className="flex items-center gap-2 rounded-lg border p-2.5">
-                        <span className="w-24 text-sm shrink-0 font-medium">{lbl}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm truncate">{v?.name || <span className="text-muted-foreground">Nie wybrano</span>}</div>
-                          {isNative && <Badge className="text-[10px] bg-green-600 hover:bg-green-600">natywny {lang}</Badge>}
-                        </div>
-                        <Button size="sm" variant="outline" className="shrink-0" disabled={!v} onClick={() => previewVoice(v, lang)}>
-                          {loadingVoice === cur ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                        </Button>
-                        <Button size="sm" className="shrink-0" onClick={() => openPicker(false, lang, "native")}>Wybierz</Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* B) BRZMIENIE */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2"><Wand2 className="h-5 w-5" /> Brzmienie głosu</CardTitle>
-                  <CardDescription>Domyślnie dobrane na naturalne brzmienie. Możesz regulować lub przywrócić optymalne.</CardDescription>
-                </div>
-                <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => update(OPTIMAL)}>
-                  <Sparkles className="h-4 w-4" /> Optymalne ustawienia
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              {[
-                { key: "voice_stability" as const, label: "Stabilność", hint: "niżej = bardziej żywo", min: 0, max: 1, step: 0.05 },
-                { key: "voice_similarity" as const, label: "Podobieństwo", hint: "wierność barwie", min: 0, max: 1, step: 0.05 },
-                { key: "voice_style" as const, label: "Styl / ekspresja", hint: "wyżej = mocniejszy styl", min: 0, max: 1, step: 0.05 },
-                { key: "voice_speed" as const, label: "Tempo", hint: "szybkość mówienia", min: 0.7, max: 1.2, step: 0.05 },
-              ].map((s) => (
-                <div key={s.key} className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label>{s.label} <span className="text-xs text-muted-foreground font-normal">— {s.hint}</span></Label>
-                    <span className="text-sm text-muted-foreground tabular-nums">{cfg[s.key].toFixed(2)}</span>
-                  </div>
-                  <Slider min={s.min} max={s.max} step={s.step} value={[cfg[s.key]]} onValueChange={([v]) => update({ [s.key]: v } as any)} />
-                </div>
-              ))}
-              <div className="space-y-2">
-                <Label>Tekst do odsłuchu / powitanie</Label>
-                <Textarea rows={2} value={cfg.sample_text} onChange={(e) => update({ sample_text: e.target.value })} placeholder={DEFAULT_SAMPLE} />
-              </div>
-              <Button variant="outline" onClick={previewWithText} disabled={previewing} className="gap-2">
-                {previewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                Odsłuchaj z moim tekstem ({previewLang.toUpperCase()})
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* C) WYWIAD O FIRMIE */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> O Twojej firmie</CardTitle>
-              <CardDescription>Najprościej: opisz firmę lub wklej link strony AI poniżej — wyciągnie dane i dopyta o braki. Możesz też wypełnić ręcznie. Pola są zawsze edytowalne.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <CompanyInterviewChat
-                currentContext={cfg.business_context as unknown as Record<string, string>}
-                onApply={(f) => {
-                  const merged = { ...cfg.business_context, ...(f as Partial<BusinessContext>) };
-                  updateBC(f as Partial<BusinessContext>);
-                  // trwała pamięć: zapisz wiedzę od razu (bez czekania na "Zapisz ustawienia")
-                  if (providerId) {
-                    (supabase as any).from("voice_agent_configs").upsert(
-                      { provider_id: providerId, persona_key: cfg.persona_key, business_context: merged, updated_at: new Date().toISOString() },
-                      { onConflict: "provider_id,persona_key" },
-                    ).then(({ error }: any) => { if (error) console.warn("autosave business_context:", error.message); });
-                  }
-                }}
-              />
-              <div className="relative py-1">
-                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                <span className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">lub uzupełnij / popraw ręcznie</span></span>
-              </div>
-              <div className="space-y-2"><Label>Nazwa firmy</Label>
-                <Input value={cfg.business_context.company_name} onChange={(e) => updateBC({ company_name: e.target.value })} placeholder="np. Auto-Serwis Kowalski" /></div>
-              <div className="space-y-2"><Label>Czym się zajmujecie? (opis działalności)</Label>
-                <Textarea rows={2} value={cfg.business_context.description} onChange={(e) => updateBC({ description: e.target.value })} placeholder="np. Warsztat samochodowy — mechanika, diagnostyka…" /></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Godziny pracy</Label>
-                  <Input value={cfg.business_context.hours} onChange={(e) => updateBC({ hours: e.target.value })} placeholder="np. pon–pt 8–18, sob 9–14" /></div>
-                <div className="space-y-2"><Label>Lokalizacja / adres</Label>
-                  <Input value={cfg.business_context.location} onChange={(e) => updateBC({ location: e.target.value })} placeholder="np. ul. Główna 5, Warszawa" /></div>
-              </div>
-              <div className="space-y-2"><Label>Oferowane usługi (po jednej w linii)</Label>
-                <Textarea rows={3} value={cfg.business_context.services} onChange={(e) => updateBC({ services: e.target.value })} placeholder={"Wymiana oleju\nGeometria kół\nDiagnostyka komputerowa"} /></div>
-              <div className="space-y-2"><Label>Jak agent ma się przedstawiać i w jakim celu dzwoni/odbiera</Label>
-                <Textarea rows={2} value={cfg.business_context.agent_intro} onChange={(e) => updateBC({ agent_intro: e.target.value })} placeholder="np. Dzień dobry, tu Kasia z Auto-Serwis Kowalski — pomogę umówić wizytę." /></div>
-              <div className="space-y-2"><Label>Cel rozmowy</Label>
-                <Input value={cfg.business_context.purpose} onChange={(e) => updateBC({ purpose: e.target.value })} placeholder="np. umawianie klientów na serwis" /></div>
-              <div className="space-y-2"><Label>Pomoc drogowa / laweta / dojazd</Label>
-                <Input value={cfg.business_context.roadside} onChange={(e) => updateBC({ roadside: e.target.value })} placeholder="np. Tak — laweta na terenie miasta, 150 zł / Nie oferujemy" />
-                <p className="text-xs text-muted-foreground">Agent zaproponuje to tylko jeśli tu wpiszesz, że oferujecie.</p></div>
-              <div className="space-y-2"><Label>Dodatkowe informacje dla AI (ceny, promocje, zasady)</Label>
-                <Textarea rows={3} value={cfg.business_context.extra_info} onChange={(e) => updateBC({ extra_info: e.target.value })} placeholder="np. Wymiana oleju od 150 zł. Nie umawiamy na niedziele." /></div>
-            </CardContent>
-          </Card>
-
-          {/* TRENING — symulacje self-play */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> Trening agenta — AI sam testuje</CardTitle>
-              <CardDescription>
-                AI gra OBIE role: wciela się w klienta (samo wymyśla różne, też podchwytliwe scenariusze) i rozmawia z Twoim agentem. Po każdej rozmowie wyłapuje błędy i dopisuje reguły. Ty tylko uruchamiasz serię — resztę robi AI.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm">Wyuczone reguły dla tej roli: <strong>{knowledgeCount ?? "…"}</strong></span>
-                <div className="ml-auto flex gap-2">
-                  <Button size="sm" variant="outline" disabled={training} onClick={() => runTraining(10)}>{training ? <Loader2 className="h-4 w-4 animate-spin" /> : null} 10 symulacji</Button>
-                  <Button size="sm" disabled={training} onClick={() => runTraining(25)} className="gap-1.5"><Sparkles className="h-4 w-4" /> 25 symulacji</Button>
-                </div>
-              </div>
-              {training && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground"><span>Postęp: {trainDone}/{trainTotal}</span><span>+{trainLessons} reguł</span></div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${trainTotal ? (trainDone / trainTotal) * 100 : 0}%` }} /></div>
-                </div>
-              )}
-              {trainLog.length > 0 && (
-                <div className="rounded-lg border bg-muted/30 p-2 max-h-[160px] overflow-y-auto text-xs space-y-0.5">
-                  {trainLog.map((l, i) => <div key={i} className="truncate">{l}</div>)}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">Symulacje NIE tworzą realnych rezerwacji/zleceń (tryb suchy). Każda seria zużywa AI (koszt) — przy 100 rozmowach rób kilka serii.</p>
-            </CardContent>
-          </Card>
-
-          {/* UPRAWNIENIA / INTEGRACJE */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" /> Uprawnienia agenta</CardTitle>
-              <CardDescription>Co agent może robić w systemie podczas rozmowy. Domyślnie wyłączone — włącz, gdy chcesz.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex gap-3">
-                  <CalendarCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <Label>Dostęp do kalendarza firmowego</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">Agent sprawdza wolne terminy, umawia, przekłada i odwołuje wizyty w Twoim kalendarzu.</p>
-                  </div>
-                </div>
-                <Switch checked={cfg.calendar_access} onCheckedChange={(v) => update({ calendar_access: v })} />
-              </div>
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex gap-3">
-                  <ClipboardList className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <Label>Tworzenie zleceń</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">Agent zakłada nowe zlecenie z danymi z rozmowy (klient, pojazd, usterka) — trafia do systemu zleceń do przydzielenia.</p>
-                  </div>
-                </div>
-                <Switch checked={cfg.orders_access} onCheckedChange={(v) => update({ orders_access: v })} />
-              </div>
-              <div className="flex items-start justify-between gap-4 pt-2 border-t">
-                <div className="flex gap-3">
-                  <Sparkles className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <Label>Uczenie z rozmów</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">Po rozmowie system analizuje przebieg, wyciąga wnioski i błędy, i poprawia kolejne rozmowy.</p>
-                  </div>
-                </div>
-                <Select value={cfg.learning_mode} onValueChange={(v) => update({ learning_mode: v })}>
-                  <SelectTrigger className="w-[170px] h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="per_call">Po każdej rozmowie</SelectItem>
-                    <SelectItem value="batched">Wsadowo (przy skali)</SelectItem>
-                    <SelectItem value="off">Wyłączone</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* D) ODBIERANIE */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> Odbieranie i działanie</CardTitle>
-              <CardDescription>Kiedy i jak agent ma odbierać oraz w jakich językach rozmawia.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="space-y-2 max-w-sm">
-                <Label>Tryb odbioru</Label>
-                <Select value={cfg.inbound_mode} onValueChange={(v) => update({ inbound_mode: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="off">Wyłączone</SelectItem>
-                    <SelectItem value="immediate">Od razu</SelectItem>
-                    <SelectItem value="after_rings">Po kilku sygnałach</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {cfg.inbound_mode === "after_rings" && (
-                <div className="space-y-2 max-w-sm">
-                  <div className="flex justify-between"><Label>Liczba sygnałów przed odebraniem</Label><span className="text-sm text-muted-foreground tabular-nums">{cfg.inbound_rings}</span></div>
-                  <Slider min={1} max={10} step={1} value={[cfg.inbound_rings]} onValueChange={([v]) => update({ inbound_rings: v })} />
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label>Godziny aktywności agenta (kiedy odbiera)</Label>
-                <div className="flex items-center gap-2 max-w-sm">
-                  <Input type="time" value={cfg.calling_hours.from ?? ""} onChange={(e) => update({ calling_hours: { ...cfg.calling_hours, from: e.target.value } })} />
-                  <span>–</span>
-                  <Input type="time" value={cfg.calling_hours.to ?? ""} onChange={(e) => update({ calling_hours: { ...cfg.calling_hours, to: e.target.value } })} />
-                </div>
-                <p className="text-xs text-muted-foreground">Puste = bez ograniczeń godzinowych.</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Języki rozmowy</Label>
-                <div className="flex flex-wrap gap-4">
-                  {LANGS.map((l) => (
-                    <label key={l.code} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={cfg.languages.includes(l.code)}
-                        onCheckedChange={(v) => update({ languages: v ? [...cfg.languages, l.code] : cfg.languages.filter((c) => c !== l.code) })}
-                      />
-                      <span className="text-sm">{l.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* TELEFONIA — URL-e do ElevenLabs (Custom LLM + post-call webhook) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><PhoneCall className="h-5 w-5" /> Telefonia na żywo (ElevenLabs)</CardTitle>
-              <CardDescription>Wklej te adresy w ustawieniach agenta ElevenLabs. Numer Twilio importujesz w ElevenLabs.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {[
-                { label: "Custom LLM URL (Agent → Custom LLM)", url: `${FUNCTIONS_BASE}/voice-agent-llm?provider_id=${providerId}&persona_key=${cfg.persona_key}` },
-                { label: "Post-call webhook URL (Agent → Post-call webhook)", url: `${FUNCTIONS_BASE}/voice-call-postprocess?provider_id=${providerId}&persona_key=${cfg.persona_key}` },
-              ].map((row) => (
-                <div key={row.label} className="space-y-1">
-                  <Label className="text-xs">{row.label}</Label>
-                  <div className="flex gap-2">
-                    <Input readOnly value={row.url} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-                    <Button size="sm" variant="outline" className="shrink-0 gap-1" onClick={() => { navigator.clipboard.writeText(row.url); toast.success("Skopiowano"); }}>
-                      <Copy className="h-4 w-4" /> Kopiuj
-                    </Button>
-                  </div>
-                </div>
-              ))}
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
-                <p className="font-medium">Przed pierwszym telefonem:</p>
-                <p>• Wygeneruj ŚWIEŻY klucz ElevenLabs i wpisz w panelu admina (stary jest spalony).</p>
-                <p>• W agencie ElevenLabs: ZRM (Zero Retention Mode) ON + „Improve the models for everyone" OFF.</p>
-                <p>• Numer Twilio: zaimportuj w ElevenLabs i dodaj swój telefon do Verified Caller IDs (trial).</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end sticky bottom-4">
-            <Button onClick={save} disabled={saving} size="lg" className="gap-2 shadow-lg">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Zapisz ustawienia
-            </Button>
+      {/* ----------------------------------------------------- 2. TWOJA FIRMA */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> Twoja firma</CardTitle>
+          <CardDescription>To, co asystent wie o Twoim warsztacie i mówi klientom.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Jak asystent ma się przedstawiać</Label>
+            <Input placeholder="np. Asystentka Kasia" value={cfg.display_name}
+              onChange={(e) => update({ display_name: e.target.value })} />
           </div>
-        </>
-      )}
+          <div className="space-y-2">
+            <Label>Nazwa firmy</Label>
+            <Input value={cfg.business_context.company_name} onChange={(e) => updateBC({ company_name: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Czym się zajmujecie</Label>
+            <Textarea rows={2} value={cfg.business_context.description} onChange={(e) => updateBC({ description: e.target.value })} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Godziny pracy</Label>
+              <Input placeholder="np. pon–pt 8–18, sob 9–14" value={cfg.business_context.hours}
+                onChange={(e) => updateBC({ hours: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Adres</Label>
+              <Input value={cfg.business_context.location} onChange={(e) => updateBC({ location: e.target.value })} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Oferowane usługi (po jednej w linii)</Label>
+            <Textarea rows={3} value={cfg.business_context.services} onChange={(e) => updateBC({ services: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Cel rozmowy</Label>
+            <Input placeholder="np. umawianie klientów na serwis" value={cfg.business_context.purpose}
+              onChange={(e) => updateBC({ purpose: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Pomoc drogowa / laweta</Label>
+            <Input placeholder="np. Tak — laweta na terenie miasta, 150 zł / Nie oferujemy"
+              value={cfg.business_context.roadside} onChange={(e) => updateBC({ roadside: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Jak asystent ma otwierać rozmowę</Label>
+            <Textarea rows={2} placeholder="np. Dzień dobry, tu Kasia z Auto-Serwis Kowalski."
+              value={cfg.business_context.agent_intro} onChange={(e) => updateBC({ agent_intro: e.target.value })} />
+          </div>
+
+          {/* Jedyne pole, którym warsztat może zepsuć agenta — stąd limit,
+              podgląd i ostrzeżenie o słowach sterujących. */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Dodatkowe informacje (ceny, promocje, zasady)</Label>
+              <span className={`text-xs tabular-nums ${dodatkowe.length > LIMIT_DODATKOWE ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                {dodatkowe.length} / {LIMIT_DODATKOWE}
+              </span>
+            </div>
+            <Textarea rows={3} maxLength={LIMIT_DODATKOWE} value={dodatkowe}
+              placeholder="np. Wymiana oleju od 150 zł. Nie umawiamy na niedziele."
+              onChange={(e) => updateBC({ extra_info: e.target.value.slice(0, LIMIT_DODATKOWE) })} />
+            {sterujace.length > 0 && (
+              <div className="flex gap-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-2 text-xs">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-600" />
+                <span>
+                  To pole opisuje <strong>firmę</strong>, nie zachowanie asystenta. Znaleźliśmy tu:{" "}
+                  <strong>{sterujace.join(", ")}</strong>. Polecenia dla asystenta nie zadziałają stąd
+                  i mogą pogorszyć rozmowy — napisz raczej, co oferujecie i na jakich zasadach.
+                </span>
+              </div>
+            )}
+            {dodatkowe.trim() && (
+              <details className="text-xs text-muted-foreground">
+                <summary className="cursor-pointer select-none">Tak to zobaczy asystent</summary>
+                <pre className="mt-1 whitespace-pre-wrap rounded bg-muted p-2">{dodatkowe.trim()}</pre>
+              </details>
+            )}
+          </div>
+
+
+        </CardContent>
+      </Card>
+
+      {/* ------------------------------------------------------- 3. UPRAWNIENIA */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" /> Co asystent może zrobić</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label>Sprawdzanie wolnych terminów</Label>
+              <p className="text-xs text-muted-foreground">Asystent podaje godziny z Twojego kalendarza.</p>
+            </div>
+            <Switch checked={cfg.calendar_access} onCheckedChange={(v) => update({ calendar_access: v })} />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <Label>Zapisywanie zgłoszeń</Label>
+              <p className="text-xs text-muted-foreground">Po rozmowie powstaje zlecenie w panelu.</p>
+            </div>
+            <Switch checked={cfg.orders_access} onCheckedChange={(v) => update({ orders_access: v })} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ------------------------------------------------------------ 4. URLOP */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2"><Plane className="h-5 w-5" /> Urlop / przerwa</CardTitle>
+          <CardDescription>
+            Asystent dalej odbiera i mówi, kiedy wracacie — nie umawia wizyt na czas przerwy.
+            Telefon dzwoniący w pustkę jest dla klienta gorszy niż jedno zdanie o przerwie.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Od</Label>
+              <Input type="date" value={urlop?.od ?? ""}
+                onChange={(e) => updateBC({ urlop: { od: e.target.value, do: urlop?.do ?? "", zdanie: urlop?.zdanie ?? "" } })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Do</Label>
+              <Input type="date" value={urlop?.do ?? ""}
+                onChange={(e) => updateBC({ urlop: { od: urlop?.od ?? "", do: e.target.value, zdanie: urlop?.zdanie ?? "" } })} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Co asystent ma powiedzieć</Label>
+            <Input placeholder="np. Wracamy 28 sierpnia — proszę zadzwonić po tym terminie."
+              value={urlop?.zdanie ?? ""}
+              onChange={(e) => updateBC({ urlop: { od: urlop?.od ?? "", do: urlop?.do ?? "", zdanie: e.target.value } })} />
+          </div>
+          {urlop?.od && urlop?.do && (
+            <Badge variant="secondary">Przerwa: {urlop.od} → {urlop.do}</Badge>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={save} disabled={saving} className="gap-2">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Zapisz
+        </Button>
+      </div>
     </div>
   );
 }
