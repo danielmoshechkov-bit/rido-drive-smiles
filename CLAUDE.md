@@ -162,10 +162,10 @@ zabezpieczenie. Pierwsza tylko czegoś nie pokazuje.
 ### ⚠️ NAJCZĘSTSZA PRZYCZYNA BŁĘDÓW W TYM PROJEKCIE — policzona
 
 Zmiana w schemacie unieważnia założenie w kodzie, **którego ta zmiana nie dotyczy**.
-W jednej sesji (23.08.2026) ten sam wzorzec wystąpił **dziewięć razy**. Żaden inny
-nie zbliżył się do trzech.
+W jednej sesji (23.08.2026) ten sam wzorzec wystąpił **dziewięć razy**, a 09.09.2026
+doszły **dziesiąty i jedenasty**. Żaden inny nie zbliżył się do trzech.
 
-Przykłady z tej sesji, wszystkie tej samej klasy:
+Przykłady, wszystkie tej samej klasy:
 
 | zmiana | co po cichu przestało działać |
 |---|---|
@@ -176,8 +176,14 @@ Przykłady z tej sesji, wszystkie tej samej klasy:
 | `product_line` z wartością domyślną `other` | nowa subskrypcja omijałaby indeks pilnujący jednej aktywnej |
 | kolumna `dokanczanie_do` + wyzwalacz na `status` | zapis ustawiający oba naraz cicho gubił termin |
 | `trial_ends_at` zakładany przy rejestracji | ostrzeżenie „kończy Ci się dostęp" w środku OPŁACONEGO okresu |
+| **(10, 09.09)** `faktura_rodzaj_nabywcy` wszedł jako WARUNEK bramki zakupu | formularz Ustawienia → Zakład pisze te same kolumny, ale znacznika nie ustawia. Klient wpisał NIP, ulicę, miasto i kod, w bazie leżał komplet — a `billing_dane_nabywcy_kompletne` zwracała `false` i zakup był odmawiany. Kolumnę ustawiało WYŁĄCZNIE okno zakupu, o którym formularz nic nie wie |
+| **(11, 09.09)** `billing_settings.ksef_enabled` powstała razem ze schematem billingu | nie przeczytał jej NIKT — ani `src/`, ani funkcje brzegowe, ani `pg_proc.prosrc`. Panel pokazywał „KSeF WŁĄCZONE" (to napis z INNEJ flagi, `company_settings`), faktury stały na `not_sent`, a szukający przyczyny trafiał na `ksef_enabled = false` i tracił godzinę na przełączniku, który niczego nie przełącza |
 
-**Zanim uznasz zmianę w bazie za skończoną**, przejdź te cztery pytania:
+Dziesiąty i jedenasty dołożyły do listy **piąte pytanie**, którego wcześniej nie było:
+nowy warunek bramki i nowa flaga to nie to samo, co nowa kolumna. Pytanie „kto to
+CZYTA" trzeba zadać w obie strony — kto czyta, ORAZ kto **powinien pisać**, a nie pisze.
+
+**Zanim uznasz zmianę w bazie za skończoną**, przejdź te pytania:
 
 1. **Kto czyta te kolumny?** `grep` po nazwie kolumny w `src/` i `supabase/functions/`.
 2. **Co znaczyła PUSTKA, a co ZNACZY TERAZ?** Wiersz, którego wcześniej nie było,
@@ -185,6 +191,17 @@ Przykłady z tej sesji, wszystkie tej samej klasy:
 3. **Czy dołożyłeś drugi klucz obcy do tej samej tabeli?** Jeśli tak, każde
    zagnieżdżenie PostgREST po tej relacji przestaje się rozstrzygać i pada.
 4. **Czy wartość domyślna nowej kolumny wchodzi w skład indeksu albo warunku?**
+5. **Jeśli dokładasz WARUNEK albo FLAGĘ: kto ma go USTAWIAĆ?** Wypisz wszystkie
+   miejsca zapisujące sąsiednie kolumny (`grep` po nazwie tabeli, nie po nazwie
+   nowej kolumny — ona jeszcze nigdzie nie występuje). Każde z nich, które nie
+   ustawi nowego pola, zostawia dane wyglądające na kompletne i odrzucane przez
+   bramkę. Jeżeli tych miejsc jest więcej niż jedno, **właściwą naprawą jest
+   wyzwalacz w bazie, nie łatka w formularzu** — łatka staje się kolejnym
+   miejscem na tę samą decyzję.
+6. **Flaga, której nikt nie czyta, jest gorsza niż jej brak.** Zanim ją dołożysz,
+   napisz kod, który ją czyta — w tym samym zapisie. Zanim uznasz istniejącą za
+   działającą, sprawdź `grep` w `src/`, w `supabase/functions/` **oraz**
+   `SELECT proname FROM pg_proc WHERE prosrc ILIKE '%nazwa_flagi%'`.
 
 I najważniejsze: **zapytanie, którego wynik decyduje o pobraniu pieniędzy albo
 o dostępie, nie ma prawa cicho zwrócić pustki.** Sprawdzaj `error`, nie tylko `data`.
