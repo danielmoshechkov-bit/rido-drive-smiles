@@ -9,7 +9,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOdswiezJednostki } from '@/hooks/useDostepneJednostki';
 import { czekajNaWydanie, zapamietajZamowienie, LIMIT_KARTY_ZAKUPU_MS } from '@/lib/doladowanie';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 import { formatMoneyPLN } from '@/utils/formatters';
+import { KOD_BRAK_DANYCH_NABYWCY, odczytajOdmowe } from '@/lib/odmowaZakupu';
+import { DaneDoFaktury } from './DaneDoFaktury';
 
 /**
  * Doładowanie w modelu SUWAKA: licznik sztuk, stała stawka, kwota licząca się
@@ -56,6 +59,23 @@ export function DoladowanieModal({
   const [ile, setIle] = useState<number>(0);
   const [tekst, setTekst] = useState('');
   const [wysylka, setWysylka] = useState(false);
+  /** Formularz danych do faktury — otwierany DOPIERO po odmowie, nie na zapas. */
+  const [pytamODane, setPytamODane] = useState(false);
+
+  // Warsztat ustalamy tak samo jak robi to serwer: najstarszy warsztat konta.
+  // Dopiero gdy formularz jest potrzebny — doładowanie zwykle idzie bez niego.
+  const { data: mojWarsztat } = useQuery({
+    queryKey: ['warsztat-do-zakupu'],
+    enabled: pytamODane,
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u?.user) return null;
+      const { data } = await supabase
+        .from('service_providers').select('id').eq('user_id', u.user.id)
+        .order('created_at', { ascending: true }).limit(1).maybeSingle();
+      return data?.id ?? null;
+    },
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -118,8 +138,20 @@ export function DoladowanieModal({
       const { data, error } = await supabase.functions.invoke('billing-payu-order', {
         body: { product_code: produkt.code, units: ile },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error || data?.error) {
+        // Doładowanie odmawia tymi samymi kodami co zakup planu — w tym
+        // `BRAK_DANYCH_NABYWCY`. Zdanie czytamy z odpowiedzi serwera, bo
+        // `functions.invoke` przy 409 nie wypełnia `data` (patrz odmowaZakupu.ts).
+        karta?.close();
+        const odmowa = await odczytajOdmowe(error, data);
+        if (odmowa.kod === KOD_BRAK_DANYCH_NABYWCY) {
+          toast.error('Uzupełnij dane do faktury, żeby dokończyć zakup.');
+          setPytamODane(true);
+          return;
+        }
+        toast.error(odmowa.komunikat);
+        return;
+      }
       if (!data?.url) throw new Error('Nie udało się rozpocząć płatności.');
       if (karta) karta.location.href = data.url;
       else window.location.href = data.url;
@@ -148,6 +180,7 @@ export function DoladowanieModal({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -236,5 +269,24 @@ export function DoladowanieModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Formularz po odmowie „brak danych do faktury". Osobne okno, bo klient
+        wraca do doładowania — nie zaczyna zakupu od nowa. */}
+    <Dialog open={pytamODane} onOpenChange={setPytamODane}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Dane do faktury</DialogTitle>
+          <DialogDescription>
+            Wystawimy na nie fakturę — poprawienie jej później wymaga korekty.
+          </DialogDescription>
+        </DialogHeader>
+        <DaneDoFaktury
+          providerId={mojWarsztat ?? null}
+          onGotowe={() => { setPytamODane(false); void zaplac(); }}
+          onWstecz={() => setPytamODane(false)}
+        />
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

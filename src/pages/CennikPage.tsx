@@ -433,7 +433,7 @@ const WarsztatContent = ({ section, onCta, onKontakt }: { section: Section; onCt
   // jest stroną publiczną i większość wejść to niezalogowani.
   const { jestKlientem: jestKlientemWarsztatu } = useJestKlientemLinii("warsztat");
 
-  const { klik: klikPlan, pending: planPending } = usePlanAction((plan) => {
+  const { klik: klikPlan } = usePlanAction((plan) => {
     setWybranyPlan(plan.code);
     setAuthOpen(true);
   });
@@ -521,12 +521,10 @@ const WarsztatContent = ({ section, onCta, onKontakt }: { section: Section; onCt
                 {group.map((plan) => (
                   <PlanCard
                     key={plan.code}
-                    plan={{
-                      ...toCard(plan, jestKlientemWarsztatu),
-                      cta: planPending === plan.code
-                        ? "Otwieram płatność…"
-                        : toCard(plan, jestKlientemWarsztatu).cta,
-                    }}
+                    // Napis „Otwieram płatność…" zniknął razem z drugą drogą do
+                    // operatora: klik otwiera okno zakupu od razu, więc nie ma
+                    // czekania, które trzeba by czymś zasłonić.
+                    plan={toCard(plan, jestKlientemWarsztatu)}
                     planCode={plan.code}
                     okres={okres}
                     onCta={() =>

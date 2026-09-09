@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { CreditCard, Loader2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { odczytajOdmowe } from '@/lib/odmowaZakupu';
 import { useSubscriptionDetails } from '@/hooks/useSubscriptionDetails';
 import { formatMoneyPLN } from '@/utils/formatters';
 
@@ -39,8 +40,10 @@ export function SubscriptionCard({ providerId }: { providerId: string | null | u
     setOtwieranie(true);
     try {
       const { data: odp, error } = await supabase.functions.invoke('billing-portal', { body: {} });
-      if (error) throw error;
-      if (odp?.error) throw new Error(odp.error);
+      // `functions.invoke` przy odmowie 4xx zostawia `data === null`, a zdanie
+      // serwera chowa w `error.context`. Bez `odczytajOdmowe` klient dostawał tu
+      // „Edge Function returned a non-2xx status code".
+      if (error || odp?.error) { karta?.close(); toast.error((await odczytajOdmowe(error, odp)).komunikat); return; }
       if (!odp?.url) throw new Error('Nie udało się otworzyć portalu płatności.');
       if (karta) karta.location.href = odp.url;
       else window.location.href = odp.url;

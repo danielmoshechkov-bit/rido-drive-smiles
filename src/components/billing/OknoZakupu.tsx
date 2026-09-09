@@ -13,6 +13,7 @@ import { DaneDoFaktury } from './DaneDoFaktury';
 import { usePublicPricing, type PublicPlan } from '@/hooks/usePublicPricing';
 import { useCenaOkresu, zl, type Okres } from '@/hooks/useCenaOkresu';
 import { zapamietajZamowienie, czekajNaWydanie, LIMIT_KARTY_ZAKUPU_MS } from '@/lib/doladowanie';
+import { KOD_BRAK_DANYCH_NABYWCY, odczytajOdmowe } from '@/lib/odmowaZakupu';
 
 /**
  * Jedno okno dla wszystkich dróg zakupu.
@@ -41,6 +42,12 @@ export interface ZadanieZakupu {
   planCode?: string | null;
   okres?: Okres;
   providerId?: string | null;
+  /**
+   * Krok, od którego okno ma się otworzyć. Używa tego odmowa
+   * `BRAK_DANYCH_NABYWCY`: klient wraca prosto do formularza, którego mu
+   * zabrakło, a nie na początek wyboru planu, który już przeszedł.
+   */
+  zacznijOd?: Krok;
 }
 
 // Kolejność kroków. „dane" stoi PRZED metodą płatności świadomie: faktury
@@ -101,15 +108,45 @@ export function OknoZakupu({
     if (!otwarte) return;
     setPlan(zadanie.planCode ?? null);
     setOkres(zadanie.okres ?? 'rok');
-    setKrok(zadanie.planCode ? 'okres' : 'plan');
+    // `zacznijOd` wygrywa, ale tylko gdy plan jest znany — inaczej okno stanęłoby
+    // na formularzu faktury dla zakupu, o którym jeszcze nie wiadomo, czego dotyczy.
+    setKrok(
+      zadanie.zacznijOd && zadanie.planCode ? zadanie.zacznijOd
+        : zadanie.planCode ? 'okres'
+        : 'plan',
+    );
     setWysylka(null);
-  }, [otwarte, zadanie.planCode, zadanie.okres]);
+  }, [otwarte, zadanie.planCode, zadanie.okres, zadanie.zacznijOd]);
 
   const doKupienia = plans
     .filter((p) => p.product_line === 'warsztat')
     .sort((a, b) => a.sort_order - b.sort_order);
 
   const { cena, ladowanie } = useCenaOkresu(plan, zadanie.providerId, okres);
+
+  /**
+   * ODMOWA W JEDNYM MIEJSCU DLA OBU METOD PŁATNOŚCI.
+   *
+   * BLIK idzie przez `billing-payu-order`, karta przez `billing-checkout`,
+   * a obie odmawiają tak samo, kodem 409. Rozdzielona obsługa znaczyłaby, że
+   * następna poprawka trafia do jednej z nich — i klient płacący drugą drogą
+   * dalej widzi surowy błąd.
+   *
+   * `BRAK_DANYCH_NABYWCY` nie jest tu spodziewany, bo krok „Dane do faktury"
+   * stoi przed metodą płatności. Jeżeli mimo to przyjdzie, znaczy to, że dane
+   * przestały być kompletne między krokiem a zapłatą (druga karta, zmiana
+   * w ustawieniach) — wtedy cofamy do formularza, zamiast zostawiać klienta
+   * na podsumowaniu z komunikatem, którego nie ma jak spełnić.
+   */
+  const pokazOdmowe = async (error: unknown, data: any) => {
+    const odmowa = await odczytajOdmowe(error, data);
+    if (odmowa.kod === KOD_BRAK_DANYCH_NABYWCY) {
+      toast.error('Uzupełnij dane do faktury, żeby dokończyć zakup.');
+      setKrok('dane');
+      return;
+    }
+    toast.error(odmowa.komunikat);
+  };
 
   const zaplacBlik = async () => {
     if (!plan || wysylka) return;
@@ -119,8 +156,7 @@ export function OknoZakupu({
       const { data, error } = await supabase.functions.invoke('billing-payu-order', {
         body: { plan_code: plan, okres },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error || data?.error) { karta?.close(); await pokazOdmowe(error, data); return; }
       if (!data?.url) throw new Error('Nie udało się rozpocząć płatności.');
       if (karta) karta.location.href = data.url; else window.location.href = data.url;
 
@@ -180,8 +216,7 @@ export function OknoZakupu({
       const { data, error } = await supabase.functions.invoke('billing-checkout', {
         body: { plan_code: 'warsztat_free', okres: 'miesiac' },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error || data?.error) { await pokazOdmowe(error, data); return; }
       setPytamOFree(false);
       setRozumiemFree(false);
       pokazZmiane(data ?? { zmiana: 'anulowana', plan: 'warsztat_free' });
@@ -200,8 +235,7 @@ export function OknoZakupu({
       const { data, error } = await supabase.functions.invoke('billing-checkout', {
         body: { plan_code: plan, okres },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error || data?.error) { karta?.close(); await pokazOdmowe(error, data); return; }
 
       /**
        * ZMIANA PLANU NIE PROWADZI DO BRAMKI.

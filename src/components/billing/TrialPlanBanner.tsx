@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { usePublicPricing } from '@/hooks/usePublicPricing';
-import { useCheckout } from '@/hooks/useCheckout';
+import { useZakup } from '@/components/billing/ZakupProvider';
 import { formatMoneyPLN } from '@/utils/formatters';
 
 /**
@@ -26,7 +26,16 @@ export function TrialPlanBanner({ providerId }: { providerId: string | null | un
   const [planCode, setPlanCode] = useState<string | null>(null);
   const [maSubskrypcje, setMaSubskrypcje] = useState<boolean | null>(null);
   const { plans } = usePublicPricing();
-  const { kup, pending } = useCheckout();
+  /**
+   * Zakup prowadzi przez OKNO ZAKUPU, nie wprost do `billing-checkout`.
+   *
+   * 🔴 Ten przycisk wołał funkcję brzegową bezpośrednio i tym samym OMIJAŁ krok
+   * „Dane do faktury". Warsztat bez tych danych — 25 z 30 kont na produkcji —
+   * dostawał odmowę 409, którą front pokazywał jako „Edge Function returned
+   * a non-2xx status code". Okno pyta o dane przed metodą płatności, więc
+   * odmowa w ogóle nie ma jak powstać.
+   */
+  const { otworzZakup } = useZakup();
 
   useEffect(() => {
     let anulowane = false;
@@ -83,10 +92,8 @@ export function TrialPlanBanner({ providerId }: { providerId: string | null | un
         <Button
           size="sm"
           className="shrink-0"
-          disabled={!!pending}
-          onClick={() => kup(plan.code)}
+          onClick={() => otworzZakup({ planCode: plan.code, providerId })}
         >
-          {pending === plan.code ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
           Kup plan {plan.name}
         </Button>
       </CardContent>

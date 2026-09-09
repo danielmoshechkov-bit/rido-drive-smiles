@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Lock, Loader2 } from 'lucide-react';
-import { useCheckout } from '@/hooks/useCheckout';
 import { usePublicPricing } from '@/hooks/usePublicPricing';
 import { useZakup } from '@/components/billing/ZakupProvider';
 import type { PowodBlokady, LiniaProduktowa } from '@/hooks/useSubscriptionAccess';

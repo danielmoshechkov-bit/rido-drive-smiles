@@ -126,6 +126,31 @@ export function DaneDoFaktury({
     }
   };
 
+  /**
+   * BEZ WARSZTATU NIE MA CZEGO ZAPISAĆ — I TRZEBA TO POWIEDZIEĆ.
+   *
+   * `useEffect` wyżej wychodzi przy `providerId === null`, więc `komplet`
+   * zostawał `null` na zawsze, a klient patrzył na kręcące się kółko bez końca.
+   * Zdarza się to zalogowanemu bez profilu usługodawcy, który kliknie „Kup"
+   * na `/cennik`.
+   */
+  if (!providerId) {
+    return (
+      <div className="space-y-4 py-2">
+        <p className="text-sm text-muted-foreground">
+          To konto nie ma jeszcze warsztatu, a fakturę wystawiamy na niego.
+          Załóż profil usługodawcy i wróć do zakupu.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={onWstecz}>Wstecz</Button>
+          <Button className="flex-1" onClick={() => { window.location.href = '/warsztat-info'; }}>
+            Załóż warsztat
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (komplet === null) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   }

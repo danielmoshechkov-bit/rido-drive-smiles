@@ -150,3 +150,12 @@ jobs:
       - run: npm ci
       - name: Kontrola typów
         run: npm run typecheck
+
+      # 09.09.2026: cała ścieżka zakupu czytała `data.code`, a `functions.invoke`
+      # przy odmowie 409 zwraca `data === null`. Żaden komunikat odmowy nie
+      # docierał do klienta — warsztat bez danych do faktury (25 z 30 kont)
+      # widział „Edge Function returned a non-2xx status code" zamiast
+      # „uzupełnij dane do faktury". Kontrola typów tego nie widzi, bo typy się
+      # zgadzają; widać to wyłącznie po ZACHOWANIU.
+      - name: Testy frontu
+        run: npm run test:front

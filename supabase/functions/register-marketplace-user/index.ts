@@ -297,11 +297,11 @@ Deno.serve(async (req) => {
           .from("service_providers").select("id").eq("user_id", userId)
           .order("created_at", { ascending: true }).limit(1).maybeSingle();
 
-        // Pakiet startowy: 50 SMS + 5 sprawdzeń VIN + 50 pytań do Rido AI,
-        // raz na adres. Liczby to DOMYŚLNE WARTOŚCI funkcji w bazie i celowo nie
-        // powtarzamy ich w wywołaniu: inaczej zmiana pakietu wymagałaby wdrożenia
-        // dwóch funkcji brzegowych i rozjechałaby się przy pierwszej pomyłce.
-        // Ten komentarz i tak mówił o 20 SMS-ach długo po tym, jak było ich 30.
+        // Pakiet startowy, raz na adres. ILOŚCI CELOWO NIE MA W TYM KOMENTARZU.
+        // Stoją w wartościach domyślnych `przyznaj_pakiet_startowy` w bazie i tylko
+        // tam — zmiana pakietu nie wymaga wtedy wdrożenia dwóch funkcji brzegowych.
+        // Wypisane tutaj zestarzały się już dwa razy: komentarz mówił o 20 SMS-ach,
+        // gdy było ich 30, a potem o 5 sprawdzeniach VIN, gdy było ich 10.
         //
         // Funkcja jest idempotentna po znormalizowanym e-mailu, więc
         // powtórna rejestracja ani odtworzenie warsztatu nie dadzą drugiego pakietu.

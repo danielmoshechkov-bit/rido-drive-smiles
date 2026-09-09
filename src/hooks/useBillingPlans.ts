@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { odczytajOdmowe } from '@/lib/odmowaZakupu';
 import { toast } from 'sonner';
 
 export type BillingInterval = 'month' | 'year' | 'one_time';
@@ -64,8 +65,9 @@ export function useBillingPlans() {
     const { data, error } = await supabase.functions.invoke('billing-admin-plans', {
       body: { action, ...payload },
     });
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
+    // Ta sama pułapka co w ścieżce zakupu: przy odmowie 4xx `data` jest puste,
+    // a zdanie serwera siedzi w `error.context`.
+    if (error || data?.error) throw new Error((await odczytajOdmowe(error, data)).komunikat);
     return data;
   };
 
@@ -146,10 +148,12 @@ export function useBillingPlans() {
       const { data, error } = await supabase.functions.invoke('billing-stripe-sync', {
         body: planCode ? { plan_code: planCode } : {},
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error === 'GATEWAY_NOT_CONFIGURED'
-        ? 'Brak konfiguracji Stripe — uzupełnij sekret STRIPE_SECRET_KEY'
-        : data.error);
+      if (error || data?.error) {
+        const odmowa = await odczytajOdmowe(error, data);
+        throw new Error(odmowa.kod === 'GATEWAY_NOT_CONFIGURED'
+          ? 'Brak konfiguracji Stripe — uzupełnij sekret STRIPE_SECRET_KEY'
+          : odmowa.komunikat);
+      }
       return data;
     },
     onSuccess: (data) => {
@@ -177,15 +181,12 @@ export function useBillingPlans() {
       const { data, error } = await supabase.functions.invoke('billing-checkout', {
         body: { plan_code: planCode },
       });
-      if (error) throw error;
-      if (data?.error) {
-        const opis: Record<string, string> = {
-          GATEWAY_NOT_CONFIGURED: 'Brak sekretu STRIPE_SECRET_KEY',
-          PLAN_NOT_SYNCED: 'Plan wymaga synchronizacji ze Stripe',
-          NO_PROVIDER: 'To konto nie ma warsztatu — checkout ustala podmiot z service_providers',
-          ALREADY_SUBSCRIBED: 'Ten warsztat ma już subskrypcję w tej linii produktowej',
-        };
-        throw new Error(opis[data.code as string] ?? data.error);
+      // Mapa kodów stała tu i NIGDY SIĘ NIE WYKONYWAŁA: `functions.invoke` przy
+      // odmowie 409 zwraca `data === null`, więc wychodziło `throw error` wyżej,
+      // a administrator diagnozujący zakup widział „non-2xx" zamiast powodu.
+      if (error || data?.error) {
+        const odmowa = await odczytajOdmowe(error, data);
+        throw new Error(odmowa.kod ? `${odmowa.komunikat} [${odmowa.kod}]` : odmowa.komunikat);
       }
       if (!data?.url) throw new Error('Operator nie zwrócił adresu płatności');
       return data.url as string;

@@ -170,7 +170,7 @@ export default function WorkshopLanding() {
 
   // Klik w kartę planu: indywidualny → kontakt, darmowy albo niezalogowany →
   // rejestracja z zapamiętanym planem, reszta → checkout.
-  const { klik: klikPlan, pending: planPending } = usePlanAction((plan) => {
+  const { klik: klikPlan } = usePlanAction((plan) => {
     setSelectedPlan(plan.code);
     setLoginMode("register");
     setShowLoginModal(true);
@@ -315,10 +315,9 @@ export default function WorkshopLanding() {
           <Button
             className={`w-full mb-5 ${popular ? "bg-gradient-to-r from-primary to-purple-600" : ""}`}
             variant={popular ? "default" : "outline"}
-            disabled={!!planPending}
             onClick={() => klikPlan(plan)}
           >
-            {planPending === plan.code ? "Otwieram płatność…" : planCtaLabel(plan, { jestKlientem })}
+            {planCtaLabel(plan, { jestKlientem })}
           </Button>
           <ul className="space-y-2 flex-1">
             {plan.features.map((f, i) => (
