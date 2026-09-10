@@ -2,6 +2,61 @@
 
 ---
 
+## 🔴 „SUCCESS" NIE ZNACZY, ŻE MIGRACJA WESZŁA (10.09.2026)
+
+Migracja `20260909162228_numer_faktury_nie_wraca` **nigdy nie weszła w życie**,
+mimo że jej uruchomienie zwróciło „Success, no rows returned". Padała na
+ostatnim kroku:
+
+```
+ERROR: could not create unique index "idx_user_invoices_number_active"
+SZCZEGÓŁY: Key (user_id, invoice_number)=(…, FV/2026/01/001) is duplicated.
+```
+
+Konto `iwa4155@wp.pl` ma DWIE AKTYWNE faktury o tym numerze. Migracja jest
+w jednej transakcji, więc wycofywało się WSZYSTKO — razem z poprawioną funkcją
+`prevent_duplicate_invoice_number`. Przez dobę stan wyglądał na wdrożony,
+a numer skasowanej faktury dalej wracał.
+
+**Wyszło to dopiero z kontroli w NASTĘPNEJ migracji** — tej, która sprawdza
+skutek zapisem, a nie treść funkcji. Gdyby jej nie było, dowiedzielibyśmy się
+przy kolejnym duplikacie u klienta.
+
+Pierwsza diagnoza brzmiała „ktoś nadpisał funkcję" i **była błędna**.
+Nikt niczego nie nadpisywał.
+
+### Wniosek, który wchodzi do CLAUDE.md
+
+Migracja, która zmienia funkcję ORAZ zakłada więz na danych, ma dwa różne
+rodzaje kroków w jednej transakcji: pierwszy zawsze się uda, drugi zależy od
+tego, co jest w tabelach. Przy niepowodzeniu drugiego **cofa się też pierwszy**,
+a wynik wygląda jak sukces. **Rozdzielaj je: najpierw funkcje, potem dane,
+na końcu więzy.**
+
+### Kontrola, która to łapie
+
+`scripts/sql-harness/sprawdz_dryf_funkcji.py` — porównuje CIAŁO każdej funkcji
+w bazie z ostatnią definicją w migracjach. Znalazła przy okazji drugą
+rozbieżność: `warsztat_tabele_wprost` miała 26 tabel zamiast 29, czyli
+`workshop_tire_pricing`, `workshop_tire_reminder_log`
+i `workshop_tire_storage_settings` były **poza bramką zapisu**.
+
+Dwie pozostałe rozbieżności są znane i świadome: `voice_commit_call`
+(agent głosowy, zakaz zmian) i `rental_listing_availability` — obie zmieniane
+poza repozytorium.
+
+### Kolejność wykonania — obowiązuje
+
+1. `20260910124828_przywrocenie_nadpisanych_funkcji` — same funkcje
+2. `20260910104210` — wycofanie numerów ze skasowanych faktur
+3. decyzja o dwóch parach AKTYWNYCH duplikatów
+4. `20260910111807` — dopiero wtedy indeksy
+
+**`20260909162228` NIE URUCHAMIAJ PONOWNIE** — jej krok z indeksem padnie tak
+samo. Zastępuje ją punkt 1.
+
+---
+
 ## ⭐ DUPLIKATY NUMERÓW FAKTUR — stan i decyzja do podjęcia
 
 Pełny indeks unikalny padł: kolizji jest **dziewięć**, nie jedna. Cała tabela

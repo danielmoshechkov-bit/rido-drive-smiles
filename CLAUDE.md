@@ -324,6 +324,31 @@ FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.prosecdef;
 ```
 
+### Migracja zmieniająca FUNKCJĘ i zakładająca WIĘZ to dwie migracje
+
+10.09.2026: `20260909162228` zmieniała wyzwalacz i zakładała indeks unikalny —
+w jednej transakcji. Indeks padł na danych zastanych (dwie aktywne faktury
+o tym samym numerze u klienta), więc **wycofała się także poprawka wyzwalacza**.
+Uruchomienie zwróciło „Success, no rows returned", a przez dobę wyglądało to
+na stan wdrożony.
+
+Kroki w migracji dzielą się na dwa rodzaje:
+
+| rodzaj | przykład | czy może paść |
+|---|---|---|
+| **zmiana kodu** | `CREATE OR REPLACE FUNCTION`, `CREATE TRIGGER` | praktycznie nie |
+| **więz na danych** | `CREATE UNIQUE INDEX`, `ADD CONSTRAINT`, `SET NOT NULL` | **tak — zależnie od tego, co jest w tabelach** |
+
+Trzymane razem, drugi rodzaj cofa pierwszy. **Rozdzielaj: najpierw funkcje,
+potem porządkowanie danych, na końcu więzy.** Więz zakładaj migracją, która
+NAJPIERW sprawdza, czy dane na to pozwalają, i odmawia z wypisaną listą —
+zamiast padać na komunikacie o kluczu.
+
+**„Success" nie jest dowodem, że zmiana weszła.** Dowodem jest sprawdzenie
+SKUTKU — najlepiej z osobnego uruchomienia. Dla funkcji w bazie służy do tego
+`scripts/sql-harness/sprawdz_dryf_funkcji.py`: funkcja brzegowa ma SHA i da się
+ją porównać z `main`, funkcja w bazie nie ma nic.
+
 ### Bramka, która krzyczy na dobry kod, uczy ignorowania siebie
 
 Kontrola ma dwa sposoby na bycie bezużyteczną. Pierwszy jest znany: nie zapala

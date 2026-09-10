@@ -48,3 +48,42 @@ Druga pułapka: przy `UPDATE` i `DELETE` polityka RESTRICTIVE **filtruje wiersze
 nie rzuca wyjątku**. Operacja kończy się bez błędu, tylko nie dotyka niczego.
 Test łapiący wyjątki pokaże „przeszło". Dlatego `test_liczba.sql` liczy
 `RETURNING`, a nie polega na braku błędu.
+
+## Poziom 4: czy funkcja w bazie to nadal TA WERSJA
+
+`sprawdz_dryf_funkcji.py` — dodany 10.09.2026.
+
+Funkcja brzegowa ma SHA i da się ją porównać z `main`. **Funkcja w bazie nie ma
+nic.** Wgrywa się ją raz i nikt potem nie wie, czy tam jest — `CREATE OR REPLACE`
+nie zostawia śladu, a PostgreSQL nie zapisuje, kto i kiedy ją podmienił.
+
+Tego dnia wyszło, dlaczego to boli: migracja `20260909162228` **nigdy nie weszła**.
+Padała na indeksie unikalnym (dwie AKTYWNE faktury o tym samym numerze na koncie
+klienta), więc cała transakcja się wycofywała — razem z poprawioną funkcją.
+Przez dobę wyglądało to jak stan wdrożony. Tym samym porównaniem wyszła druga
+rozbieżność: `warsztat_tabele_wprost` miała 26 tabel zamiast 29, czyli trzy
+tabele przechowalni opon były poza bramką zapisu.
+
+Uruchomienie:
+
+```bash
+supabase db query --linked -f - <<'SQL' > /tmp/ciala.json
+select p.proname as nazwa, p.prosrc as cialo
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.prokind = 'f';
+SQL
+python3 scripts/sql-harness/sprawdz_dryf_funkcji.py /tmp/ciala.json
+```
+
+Porównuje CIAŁO każdej funkcji z **ostatnią** jej definicją w `supabase/migrations/`
+(po znaczniku czasu w nazwie pliku). Białe znaki i komentarze nie mają znaczenia,
+treść ma. Oddaje kod wyjścia 1 przy rozbieżności.
+
+Mówi też o dwóch rzeczach, o które nikt nie pyta, a warto wiedzieć:
+funkcjach, które są w migracjach, a w bazie ich nie ma, i funkcjach, które są
+w bazie, a nie ma ich w żadnej migracji (powstały w edytorze SQL albo przez Lovable).
+
+**Czego nie robi:** nie chodzi w CI, bo codzienny przebieg zgodności nie ma
+poświadczeń do bazy. Uruchamiaj po każdej sesji wgrywania migracji — to
+dziesięć sekund, a jest to jedyna rzecz, która odpowiada na pytanie „czy to,
+co wkleiłem, naprawdę tam jest".
