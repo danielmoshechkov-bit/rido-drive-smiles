@@ -165,12 +165,37 @@ export function WorkshopAddVehicleDialog({ open, onOpenChange, providerId, onCre
       toast.error(t('workshop.vehicles.enterPlate'));
       return;
     }
-    // AUTO POKAZOWE — dane bez odpytywania rejestru.
-    //
-    // Wprowadzenie ma pokazac, jak system dziala, a nie czekac na odpowiedz
-    // z zewnatrz i zuzywac sprawdzenie z pakietu. Kto chce zobaczyc przebieg na
-    // WLASNYM aucie, wpisuje swoj numer i idzie zwykla droga.
-    if (toAutoDemo(form.plate)) {
+    /**
+     * AUTO POKAZOWE — TYLKO WE WPROWADZENIU.
+     *
+     * ═════════════════════════════════════════════════════════════════════
+     * 🔴 TO POKAZYWAŁO KLIENTOWI CUDZE AUTO
+     * ═════════════════════════════════════════════════════════════════════
+     * Ten skrót działał ZAWSZE, nie tylko we wprowadzeniu. A `WW140TV` to
+     * PRAWDZIWA polska tablica — należy do Opla Astry IV, VIN
+     * `W0VPD5ED4JG110852`. Sprawdzone: rejestr pytany o ten numer odpowiada
+     * poprawnie „OPEL Astra IV", i tak jest w `vehicle_integration_logs`
+     * z 17.08.
+     *
+     * Warsztat, który miał na warsztacie prawdziwego Opla o tym numerze,
+     * wpisywał tablicę i dostawał TOYOTĘ AURIS HSD z wymyślonym VIN-em
+     * `SB1KZ3JE60E123456` — zapisaną od razu do kartoteki przez
+     * `autoSaveVehicle`. Rejestr nie był przy tym pytany ani razu, więc
+     * w logach nie ma po tym śladu; stąd wrażenie, że „API zwraca cudze auto".
+     * API nie miało z tym nic wspólnego.
+     *
+     * Zdarzyło się to trzem warsztatom (21 wierszy w `workshop_vehicles`).
+     *
+     * Warunek `trybProbny` zamyka to całkowicie: poza wprowadzeniem każdy
+     * numer — także pokazowy — idzie zwykłą drogą przez rejestr.
+     *
+     * ⚠️ ZOSTAJE DO ROZSTRZYGNIĘCIA: samo używanie cudzej, prawdziwej tablicy
+     * jako pokazowej. We wprowadzeniu warsztat nadal zobaczy Toyotę pod
+     * numerem należącym do kogoś innego. Właściwym domknięciem jest przycisk
+     * „Wczytaj auto pokazowe" zamiast rozpoznawania po wpisanym numerze —
+     * wtedy żadna prawdziwa tablica nie może się z tym zderzyć.
+     */
+    if (trybProbny && toAutoDemo(form.plate)) {
       applyVehicleData(POJAZD_DEMO);
       await autoSaveVehicle(POJAZD_DEMO);
       toast.success('Dane auta pokazowego wczytane');
