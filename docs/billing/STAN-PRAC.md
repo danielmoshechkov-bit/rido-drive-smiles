@@ -2,6 +2,50 @@
 
 ---
 
+## ⭐ DUPLIKATY NUMERÓW FAKTUR — stan i decyzja do podjęcia
+
+Pełny indeks unikalny padł: kolizji jest **dziewięć**, nie jedna. Cała tabela
+`user_invoices` to **69 faktur u 5 wystawców**, więc zakres jest zamknięty —
+ukrytych duplikatów nie ma i nie może być więcej.
+
+**Czy poprawka `20260909162228` objęła numerację warsztatów: TAK.** Wyzwalacz
+`prevent_duplicate_invoice_number` stoi na tabeli, więc obowiązuje każdego
+wystawcę. Numer liczą **dokładnie dwa miejsca** — `SimpleFreeInvoice`
+(moduł faktur warsztatów, razem z numeracją korekt `KOR/`) i
+`billing-invoice-issue` (faktury platformy). Oba poprawione. Pozostałe tabele
+faktur (`invoices`, `rental_booking_invoices`, `service_commission_invoices`)
+są PUSTE.
+
+### Siedem kolizji: ślad po kasowaniu — bezpieczne
+
+Wszystkie u `warsztat@test.pl` (CART78GARAGE — prawdziwa firma na loginie
+testowym, 47 faktur, 28 w KSeF) plus nasze `GR/2026/007`. Wzór jest ten sam:
+wersje robocze kasowane, wersja końcowa **wysłana do KSeF**. Skasowane wiersze
+nie mają numeru KSeF, więc nie są zamrożone i wolno je przenumerować.
+
+Migracja `20260910104210` nadaje im sufiks `-WYCOFANA-n` — numer spoza serii,
+więc `extractSeq` go ignoruje i nie wpływa na liczenie kolejnych.
+
+### Dwie kolizje: po DWIE AKTYWNE faktury — DECYZJA CZŁOWIEKA
+
+| konto | numer | dokumenty |
+|---|---|---|
+| `daniel.moshechkov@gmail.com` | `FV/2026/02/001` | 12.02 11:53 — **0,00 zł**, nabywca „sdfsdf"; 12.02 12:05 — 3313,80 zł, nabywca „asdasdad" |
+| `iwa4155@wp.pl` | `FV/2026/01/001` | 26.01 07:26 — 272,13 zł, nabywca „wqeqwe"; 26.01 07:27 — 1490,53 zł, nabywca „qweqwe" |
+
+Żadna nie ma numeru KSeF. Nazwy nabywców to uderzenia w klawiaturę, a odstęp
+w drugiej parze to **jedna minuta** — to wygląda na dwie próby tego samego
+wpisu, nie na dwie sprzedaże.
+
+`iwa4155@wp.pl`: konto z 12.12.2025, **ma dokładnie te dwie faktury i nic
+poza nimi**, ostatnia aktywność 26.01.2026, brak warsztatu. Nie ruszamy bez
+zgody właściciela konta.
+
+Dopóki te dwie grupy istnieją, pełny indeks (`20260910111807`) odmawia
+z wypisaną listą — celowo, zamiast padać na komunikacie o kluczu.
+
+---
+
 ## ⭐ AKTUALIZACJA 10.09.2026 (wieczór) — CZYTAJ TO NAJPIERW
 
 ### ⚠️ KOLEJNOŚĆ WDROŻENIA — `payment-core` DOPIERO PO MIGRACJI
