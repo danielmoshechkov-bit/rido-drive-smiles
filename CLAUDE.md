@@ -324,6 +324,58 @@ FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.prosecdef;
 ```
 
+### Migracja zmieniająca FUNKCJĘ i zakładająca WIĘZ to dwie migracje
+
+10.09.2026: `20260909162228` zmieniała wyzwalacz i zakładała indeks unikalny —
+w jednej transakcji. Indeks padł na danych zastanych (dwie aktywne faktury
+o tym samym numerze u klienta), więc **wycofała się także poprawka wyzwalacza**.
+Uruchomienie zwróciło „Success, no rows returned", a przez dobę wyglądało to
+na stan wdrożony.
+
+Kroki w migracji dzielą się na dwa rodzaje:
+
+| rodzaj | przykład | czy może paść |
+|---|---|---|
+| **zmiana kodu** | `CREATE OR REPLACE FUNCTION`, `CREATE TRIGGER` | praktycznie nie |
+| **więz na danych** | `CREATE UNIQUE INDEX`, `ADD CONSTRAINT`, `SET NOT NULL` | **tak — zależnie od tego, co jest w tabelach** |
+
+Trzymane razem, drugi rodzaj cofa pierwszy. **Rozdzielaj: najpierw funkcje,
+potem porządkowanie danych, na końcu więzy.** Więz zakładaj migracją, która
+NAJPIERW sprawdza, czy dane na to pozwalają, i odmawia z wypisaną listą —
+zamiast padać na komunikacie o kluczu.
+
+**„Success" nie jest dowodem, że zmiana weszła.** Dowodem jest sprawdzenie
+SKUTKU — najlepiej z osobnego uruchomienia. Dla funkcji w bazie służy do tego
+`scripts/sql-harness/sprawdz_dryf_funkcji.py`: funkcja brzegowa ma SHA i da się
+ją porównać z `main`, funkcja w bazie nie ma nic.
+
+### Bramka, która krzyczy na dobry kod, uczy ignorowania siebie
+
+Kontrola ma dwa sposoby na bycie bezużyteczną. Pierwszy jest znany: nie zapala
+się nigdy. Drugi jest gorszy, bo wygląda na działanie: **zapala się zawsze**.
+
+Dwa przypadki z tego repozytorium:
+
+- Codzienna kontrola „Zgodność produkcji z main" zgłasza **wszystkie 190 funkcji**
+  jako rozjechane. Sprawdzone: `billing-checkout` pobrany z produkcji jest bajt
+  w bajt zgodny z `main`. Zgłoszenie #67 jest pełne tego szumu i **nikt go nie
+  czyta** — a prawdziwego rozjazdu nie da się w nim odróżnić.
+- Bramka numeracji faktur (10.09.2026) zapaliła się na POPRAWNYM kodzie:
+  sprawdzenie `external_payment_ref` ma pełne prawo filtrować po `deleted_at`
+  (skasowana faktura zwalnia odnośnik płatności, choć nie zwalnia numeru),
+  a warunek szukał `deleted_at` w sąsiedztwie słowa `invoice_number`.
+
+**Reakcją na fałszywy alarm jest ZAWĘŻENIE warunku, nigdy jego rozluźnienie
+ani wyłączenie kontroli.** A po zawężeniu trzeba pokazać, że czułość została:
+
+1. **kontrola pozytywna** — wzorzec, o którym wiadomo, że jest zły, nadal jest
+   łapany (najlepiej w kilku kształtach),
+2. **kontrola odwrotna** — kod, o którym wiadomo, że jest dobry, NIE zapala
+   bramki.
+
+Bez punktu 2 zawężenie potrafi zjeść całą czułość i nikt tego nie zauważy —
+bo bramka nadal świeci na zielono.
+
 ### Test RLS musi zawierać przypadek, który ma PRZEJŚĆ
 
 Sam zestaw odmów niczego nie dowodzi. Jeśli podkład testowy jest zepsuty, baza odmawia
@@ -340,6 +392,29 @@ Za każdym razem zielony wynik brał się z **niedziałającego narzędzia**, ni
 kodu. Dlatego: każdy test polityk zawiera co najmniej jedną operację, która MA się udać,
 i sprawdza, że się udała. Przy `UPDATE`/`DELETE` liczy dotknięte wiersze — polityka
 `RESTRICTIVE` filtruje wiersze, nie rzuca wyjątkiem, więc brak błędu nie znaczy sukcesu.
+
+### Sprawdzanie w przeglądarce: karta sterowana narzędziem jest UKRYTA
+
+Zakładka, którą prowadzi rozszerzenie, ma `document.visibilityState === "hidden"`.
+Chrome nie odtwarza w niej animacji CSS, więc `animationend` **nigdy nie pada**.
+
+Wszystko, co Radix (i każda inna biblioteka) odmontowuje dopiero po zakończeniu
+animacji wyjścia, **zostaje w DOM na zawsze** — widoczne, klikalne, z
+`data-state="closed"`. Wygląda dokładnie jak usterka: „karta nie znika po
+zamknięciu".
+
+To kosztowało pół sesji przy podpowiedziach dotykowych. Zanim uznasz taki objaw
+za usterkę:
+
+```js
+document.visibilityState          // "hidden" → animacje nie chodzą
+```
+
+I zawsze porównuj z wersją SPRZED zmiany w tym samym przebiegu. Jeśli stara
+zachowuje się tak samo, to nie jest regresja, tylko pomiar.
+
+To ta sama klasa co „zielony wynik z niedziałającego narzędzia" wyżej, tyle że
+odwrotna: **czerwony wynik z niedziałającego narzędzia.**
 
 ### Ukończona praca wraca do `main` tego samego dnia
 

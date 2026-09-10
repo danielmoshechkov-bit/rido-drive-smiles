@@ -81,6 +81,8 @@ jobs:
                      supabase/functions/_shared/statusyDostepu_test.ts \
                      supabase/functions/_shared/vehicleIdentyfikacja.ts \
                      supabase/functions/_shared/vehicleIdentyfikacja_test.ts \
+                     supabase/functions/_shared/ksefDostep.ts \
+                     supabase/functions/_shared/ksefDostep_test.ts \
                      supabase/functions/_shared/requireRole.ts \
                      supabase/functions/_shared/requireRole_test.ts \
                      supabase/functions/billing-stripe-webhook/index.ts \

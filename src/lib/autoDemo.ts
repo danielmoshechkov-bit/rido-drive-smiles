@@ -11,7 +11,20 @@
  * drogą przez rejestr.
  */
 export const POJAZD_DEMO = {
-  registration_number: 'WW140TV',
+  /**
+   * 🔴 NIE MOŻE TO BYĆ PRAWDZIWA TABLICA.
+   *
+   * Stało tu `WW140TV` — numer należący do istniejącego Opla Astry IV. Skutek:
+   * warsztat, który miał to auto na warsztacie, wpisywał jego numer i dostawał
+   * naszą Toyotę Auris, zapisaną od razu do kartoteki. Trafiło to trzy warsztaty
+   * i 21 wierszy w `workshop_vehicles`.
+   *
+   * Myślnik jest tu celowo: polska tablica rejestracyjna nie zawiera znaku
+   * innego niż litera albo cyfra, więc `DEMO-RIDO` nie może zderzyć się
+   * z żadnym prawdziwym numerem — i to nie jest zakład o to, które serie są
+   * wydane, tylko o sam format.
+   */
+  registration_number: 'DEMO-RIDO',
   make: 'TOYOTA',
   model: 'Auris HSD',
   registration_year: 2016,

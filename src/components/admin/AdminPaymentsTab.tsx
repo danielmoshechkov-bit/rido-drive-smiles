@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star, Tag, Puzzle, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { odczytajOdmowe } from '@/lib/odmowaZakupu';
 import { PromoCodesPanel } from './PromoCodesPanel';
 import { BillingFeaturesPanel } from './billing/BillingFeaturesPanel';
 import { BillingPlansPanel } from './billing/BillingPlansPanel';
@@ -379,11 +380,23 @@ export function AssignCreditsPanel() {
     if (!foundUser || !amount || amount <= 0) return;
     setSaving(true);
     try {
-      const { error } = await supabase.functions.invoke('payment-core', {
+      const { data, error } = await supabase.functions.invoke('payment-core', {
         body: { action: 'admin_grant', user_id: foundUser.id, credit_type: creditType, amount },
       });
-      if (error) throw error;
-      toast.success(`Przyznano ${amount} kredytów (${creditType}) dla ${foundUser.email}`);
+      /**
+       * 🔴 SUKCES MELDOWANY NAD NIEUDANYM ZAPISEM.
+       *
+       * `if (error) throw error` wychodziło przed odczytaniem powodu, a przy
+       * odmowie 400 `functions.invoke` zostawia `data === null` i chowa treść
+       * w `error.context`. Administrator widział „Przyznano 50 kredytów"
+       * albo surowe „non-2xx" — nigdy zdania mówiącego, co jest nie tak.
+       */
+      if (error || (data as any)?.error) {
+        toast.error((await odczytajOdmowe(error, data)).komunikat);
+        return;
+      }
+      const gdzie = (data as any)?.warsztat ? ` — warsztat ${(data as any).warsztat}` : '';
+      toast.success(`Przyznano ${amount} × ${creditType} dla ${foundUser.email}${gdzie}`);
       setAmount('');
     } catch (e: any) {
       toast.error('Błąd: ' + (e?.message || 'Nieznany'));
@@ -391,12 +404,23 @@ export function AssignCreditsPanel() {
     setSaving(false);
   };
 
+  /**
+   * WYŁĄCZNIE ISTNIEJĄCE CECHY LICZONE NA SZTUKI.
+   *
+   * Lista zawierała `ai`, `ai_photo` i `listing_featured` — żadna z nich nie
+   * jest cechą rozliczeniową w `billing_features`, więc nadanie nie miało
+   * gdzie trafić. Wpisy zostały z czasów, gdy salda żyły w `user_credits`.
+   *
+   * `voice_minutes` i pozostałe cechy głosowe NIE SĄ tu wystawione świadomie —
+   * obowiązuje zakaz zmian w agencie głosowym.
+   */
   const creditTypes = [
     { value: 'sms', label: 'SMS', icon: MessageSquare },
     { value: 'vehicle_lookup', label: 'Sprawdzenie pojazdu (VIN/rej.)', icon: Search },
-    { value: 'ai', label: 'AI', icon: Sparkles },
-    { value: 'ai_photo', label: 'AI Zdjęcia', icon: Sparkles },
-    { value: 'listing_featured', label: 'Wyróżnienia', icon: Star },
+    { value: 'rido_ai', label: 'Rido AI — pytania', icon: Sparkles },
+    { value: 'ai_repair_help', label: 'Pomoc AI przy naprawie', icon: Sparkles },
+    { value: 'ai_labor_pricing', label: 'Ceny rynkowe usług', icon: Star },
+    { value: 'workshop_orders', label: 'Zlecenia', icon: Search },
   ];
 
   return (

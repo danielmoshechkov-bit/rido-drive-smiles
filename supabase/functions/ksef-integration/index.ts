@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // Unzip paczki eksportu KSeF — lekka biblioteka, działa na Uint8Array w Deno
 import { unzipSync } from "https://esm.sh/fflate@0.8.2";
+import { sprawdzDostepKsef } from "../_shared/ksefDostep.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1317,6 +1318,24 @@ serve(async (req) => {
 
     const body = await req.json();
     const action = body.action;
+
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     * 🔴 BRAMKA — DO 10.09.2026 TEJ FUNKCJI NIE PILNOWAŁO NIC
+     * ═══════════════════════════════════════════════════════════════════════
+     * `verify_jwt = false` i zero kontroli w kodzie. Znając identyfikator
+     * faktury dało się z zewnątrz WYSŁAĆ CUDZY DOKUMENT DO KSEF cudzym
+     * tokenem — nieodwracalnie — oraz odczytać jego pełny XML z danymi
+     * nabywcy. Szczegóły w `_shared/ksefDostep.ts`.
+     *
+     * `verify_jwt = false` zostaje: kanał wewnętrzny (`billing-invoice-issue`
+     * kluczem serwisowym) nie ma JWT użytkownika i przy bramce w gateway'u
+     * nie mógłby wołać tej funkcji wcale.
+     */
+    {
+      const bramka = await sprawdzDostepKsef(req, supabase, body, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+      if (!bramka.ok) return bramka.odp;
+    }
 
     // ========== test_connection ==========
     if (action === 'test_connection') {

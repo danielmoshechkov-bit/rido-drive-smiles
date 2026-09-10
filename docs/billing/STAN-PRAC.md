@@ -2,6 +2,269 @@
 
 ---
 
+## ⭐ DECYZJA: PAMIĘCI PODRĘCZNEJ REJESTRU NIE ROBIMY (10.09.2026)
+
+To jest **decyzja**, nie dług. Nie ma jej na żadnej liście „do zrobienia".
+
+Rozważaliśmy trzymanie u siebie odpowiedzi rejestru pojazdów (CEPiK/RegCheck),
+żeby drugie pytanie o tę samą tablicę nie kosztowało kredytu. **Odrzucone.**
+
+**Dlaczego nie:**
+
+1. **Dane rejestru się zmieniają, a my nie wiemy kiedy.** Auto zmienia
+   właściciela, przechodzi przegląd, wypada z ubezpieczenia. Odpowiedź sprzed
+   trzech miesięcy wygląda tak samo jak dzisiejsza — i nie ma po niej poznać,
+   że jest nieaktualna. Warsztat podejmuje decyzję na naszych danych.
+2. **Oszczędność jest pozorna.** Ten sam warsztat rzadko pyta dwa razy o tę
+   samą tablicę; jak pyta, to zwykle dlatego, że coś się zmieniło.
+3. **Koszt utrzymania przewyższa zysk.** Pamięć podręczna wymaga własnej
+   polityki ważności, unieważniania i RLS (dane jednego warsztatu nie mogą
+   trafić do drugiego — a to jest właśnie sens takiej pamięci, więc albo jest
+   dziurawa, albo bezużyteczna).
+
+**Co robimy zamiast:** kredyt nie schodzi za odpowiedź, która nie jest
+odpowiedzią (`_shared/vehicleIdentyfikacja.ts`, 10.09.2026). To rozwiązuje
+prawdziwy problem — klient nie płacił za brak trafienia — bez trzymania
+cudzych danych.
+
+**Kiedy wrócić do tematu:** gdy rachunek za rejestr przekroczy sensowną część
+przychodu z modułu, i wtedy z jawnym terminem ważności pokazanym użytkownikowi
+(„dane z dnia X"), nigdy po cichu.
+
+---
+
+## ⭐ FUNKCJE BAZY: 13 BEZ MIGRACJI, 12 BEZ BAZY — ROZBICIE (10.09.2026)
+
+Wynik `scripts/sql-harness/sprawdz_dryf_funkcji.py`. Rozbicie, bo sama liczba
+niczego nie mówi — a po rozbiciu okazuje się, że **żadna z 25 pozycji nie jest
+usterką**. Trzy są warte odnotowania.
+
+### A. Trzynaście funkcji W BAZIE, których nie ma w migracjach
+
+| funkcja | skąd | co z tym |
+|---|---|---|
+| `voice_nadaj_minuty`, `voice_nalicz_minuty`, `voice_numery_do_zwolnienia`, `voice_odmowic_brak_minut`, `voice_pobierz_zadanie`, `voice_rozjazd_znany`, `voice_saldo_minut`, `voice_termin_niemozliwy`, `voice_wolno_recznie`, `voice_wyzeruj_minuty`, `voice_zarezerwuj_numer`, `voice_zglos_nieodebrane` (12) | agent głosowy, wgrywany poza repozytorium | **zostawiamy** — obowiązuje zakaz zmian w agencie głosowym; ale to znaczy, że `db reset` ich nie odtworzy |
+| `billing_clear_stripe_prices` (1) | nieznane, brak w repozytorium | **udokumentowane niżej** |
+
+`billing_clear_stripe_prices` to **funkcja wyzwalacza na planach**: gdy zmieni
+się `price_net`, `price_net_target` albo `vat_rate`, zeruje odpowiadający
+`stripe_price_id`. Sprawdzone: `SECURITY INVOKER`, `anon` i `authenticated`
+NIE mają `EXECUTE` — nie jest luką. Ale **cicho unieważnia cenę u operatora
+przy każdej zmianie cennika** i nikt tego nie napisał w repozytorium. Ktokolwiek
+będzie zmieniał ceny, ma o tym wiedzieć.
+
+### B. Dwanaście funkcji W MIGRACJACH, których nie ma w bazie
+
+Rozpadają się na cztery grupy — i **żadna nie jest przeoczeniem**:
+
+| grupa | funkcje | dlaczego ich nie ma |
+|---|---|---|
+| skasowane świadomie | `billing_active_plan`, `billing_active_subscription` | usunięte przez `20260810180000_billing_revision.sql`. **To fałszywy alarm kontroli** — porównuje ostatni `CREATE`, nie widzi późniejszego `DROP` |
+| migracja świadomie nieuruchomiona | `guard_sms_balance` | z `20260805090000_payments_lockdown.sql`. Nie uruchamiamy jej, bo front zapisuje salda z przeglądarki w 14 miejscach i wyzwalacz zablokowałby działający portal |
+| cała migracja niewdrożona (adresy ogłoszeń) | `slugify`, `build_vehicle_slug`, `set_vehicle_listing_slug` | `20260616120000_vehicle_listings_slug.sql` nigdy nie weszła. Potwierdzone: `vehicle_listings.slug` też nie istnieje |
+| cała migracja niewdrożona (most warsztat→klient) | `normalize_pl_phone`, `workshop_done_statuses`, `workshop_sync_service_history`, `client_vehicle_backfill_service_history`, `current_user_pl_phone`, `workshop_create_ownership_request` | most historii napraw z 06.2026 czeka na wdrożenie. Potwierdzone: `vehicle_ownership_requests` też nie istnieje |
+
+Żadna z dwunastu nie jest wołana z `src/` ani z funkcji brzegowych — cztery
+wystąpienia w kodzie to komentarze, nie wywołania. Nic dziś nie jest zepsute.
+
+### Co z tego wynika dla narzędzia
+
+Kontrola dryfu ma nauczyć się `DROP FUNCTION` — inaczej przy każdym przebiegu
+będzie zgłaszać dwie pozycje, o których wiadomo, że są w porządku, a **kontrola,
+która regularnie krzyczy na dobry kod, uczy ignorowania siebie**.
+
+---
+
+## ⭐ UKŁAD NA TELEFONIE — ZMIERZONY ZAKRES (10.09.2026)
+
+Osobna, większa praca. **Nie robimy jej teraz**; tu jest tylko odpowiedź na
+pytanie „ile to realnie jest".
+
+Zmierzone sygnałami statycznymi (nie klikaniem po ekranach — to jest szacunek
+zakresu, nie audyt):
+
+| sygnał | panel warsztatu (70 plików) | reszta portalu |
+|---|---|---|
+| `grid-cols-3..9` bez wariantu responsywnego | **8** | **89** |
+| gołe `<table>` (bez przewijania w poziomie) | **9** | **23** |
+| sztywne szerokości ≥ 400 px | **6** (w 4 plikach, 3 w oknach dialogowych) | **20** |
+
+**Wniosek: panel warsztatu to poprawka kilkunastu miejsc, nie przegląd całego
+panelu.** Reszta portalu to przegląd całego panelu.
+
+Co ratuje sytuację: prymitywu `<Table>` z `components/ui` nie trzeba ruszać —
+opakowuje tabelę w `overflow-auto` sam. Problem mają wyłącznie te miejsca,
+które omijają prymityw i piszą `<table>` wprost.
+
+**Kolejność, gdy przyjdzie na to czas:**
+
+1. Panel warsztatu — bo to jest to, co sprzedajemy warsztatom, i to na nim
+   stoi mechanik z telefonem przy aucie. Kilkanaście miejsc.
+2. Reszta portalu — osobne zadanie, po sprzedaży.
+
+**Zrobione już z rzeczy dotykowych:** podpowiedzi (karty pojazdu i klienta)
+działają na dotyk od 10.09.2026 — `src/components/ui/hover-card.tsx` sam
+przełącza się na `Popover`, gdy urządzenie nie umie najeżdżać. Wszystkie
+cztery miejsca użycia dostały to bez zmian u siebie.
+
+---
+
+## 🔴 „SUCCESS" NIE ZNACZY, ŻE MIGRACJA WESZŁA (10.09.2026)
+
+Migracja `20260909162228_numer_faktury_nie_wraca` **nigdy nie weszła w życie**,
+mimo że jej uruchomienie zwróciło „Success, no rows returned". Padała na
+ostatnim kroku:
+
+```
+ERROR: could not create unique index "idx_user_invoices_number_active"
+SZCZEGÓŁY: Key (user_id, invoice_number)=(…, FV/2026/01/001) is duplicated.
+```
+
+Konto `iwa4155@wp.pl` ma DWIE AKTYWNE faktury o tym numerze. Migracja jest
+w jednej transakcji, więc wycofywało się WSZYSTKO — razem z poprawioną funkcją
+`prevent_duplicate_invoice_number`. Przez dobę stan wyglądał na wdrożony,
+a numer skasowanej faktury dalej wracał.
+
+**Wyszło to dopiero z kontroli w NASTĘPNEJ migracji** — tej, która sprawdza
+skutek zapisem, a nie treść funkcji. Gdyby jej nie było, dowiedzielibyśmy się
+przy kolejnym duplikacie u klienta.
+
+Pierwsza diagnoza brzmiała „ktoś nadpisał funkcję" i **była błędna**.
+Nikt niczego nie nadpisywał.
+
+### Wniosek, który wchodzi do CLAUDE.md
+
+Migracja, która zmienia funkcję ORAZ zakłada więz na danych, ma dwa różne
+rodzaje kroków w jednej transakcji: pierwszy zawsze się uda, drugi zależy od
+tego, co jest w tabelach. Przy niepowodzeniu drugiego **cofa się też pierwszy**,
+a wynik wygląda jak sukces. **Rozdzielaj je: najpierw funkcje, potem dane,
+na końcu więzy.**
+
+### Kontrola, która to łapie
+
+`scripts/sql-harness/sprawdz_dryf_funkcji.py` — porównuje CIAŁO każdej funkcji
+w bazie z ostatnią definicją w migracjach. Znalazła przy okazji drugą
+rozbieżność: `warsztat_tabele_wprost` miała 26 tabel zamiast 29, czyli
+`workshop_tire_pricing`, `workshop_tire_reminder_log`
+i `workshop_tire_storage_settings` były **poza bramką zapisu**.
+
+Dwie pozostałe rozbieżności są znane i świadome: `voice_commit_call`
+(agent głosowy, zakaz zmian) i `rental_listing_availability` — obie zmieniane
+poza repozytorium.
+
+### Kolejność wykonania — obowiązuje
+
+1. `20260910124828_przywrocenie_nadpisanych_funkcji` — same funkcje
+2. `20260910104210` — wycofanie numerów ze skasowanych faktur
+3. decyzja o dwóch parach AKTYWNYCH duplikatów
+4. `20260910111807` — dopiero wtedy indeksy
+
+**`20260909162228` NIE URUCHAMIAJ PONOWNIE** — jej krok z indeksem padnie tak
+samo. Zastępuje ją punkt 1.
+
+---
+
+## ⭐ DUPLIKATY NUMERÓW FAKTUR — stan i decyzja do podjęcia
+
+Pełny indeks unikalny padł: kolizji jest **dziewięć**, nie jedna. Cała tabela
+`user_invoices` to **69 faktur u 5 wystawców**, więc zakres jest zamknięty —
+ukrytych duplikatów nie ma i nie może być więcej.
+
+**Czy poprawka `20260909162228` objęła numerację warsztatów: TAK.** Wyzwalacz
+`prevent_duplicate_invoice_number` stoi na tabeli, więc obowiązuje każdego
+wystawcę. Numer liczą **dokładnie dwa miejsca** — `SimpleFreeInvoice`
+(moduł faktur warsztatów, razem z numeracją korekt `KOR/`) i
+`billing-invoice-issue` (faktury platformy). Oba poprawione. Pozostałe tabele
+faktur (`invoices`, `rental_booking_invoices`, `service_commission_invoices`)
+są PUSTE.
+
+### Siedem kolizji: ślad po kasowaniu — bezpieczne
+
+Wszystkie u `warsztat@test.pl` (CART78GARAGE — prawdziwa firma na loginie
+testowym, 47 faktur, 28 w KSeF) plus nasze `GR/2026/007`. Wzór jest ten sam:
+wersje robocze kasowane, wersja końcowa **wysłana do KSeF**. Skasowane wiersze
+nie mają numeru KSeF, więc nie są zamrożone i wolno je przenumerować.
+
+Migracja `20260910104210` nadaje im sufiks `-WYCOFANA-n` — numer spoza serii,
+więc `extractSeq` go ignoruje i nie wpływa na liczenie kolejnych.
+
+### Dwie kolizje: po DWIE AKTYWNE faktury — DECYZJA CZŁOWIEKA
+
+| konto | numer | dokumenty |
+|---|---|---|
+| `daniel.moshechkov@gmail.com` | `FV/2026/02/001` | 12.02 11:53 — **0,00 zł**, nabywca „sdfsdf"; 12.02 12:05 — 3313,80 zł, nabywca „asdasdad" |
+| `iwa4155@wp.pl` | `FV/2026/01/001` | 26.01 07:26 — 272,13 zł, nabywca „wqeqwe"; 26.01 07:27 — 1490,53 zł, nabywca „qweqwe" |
+
+Żadna nie ma numeru KSeF. Nazwy nabywców to uderzenia w klawiaturę, a odstęp
+w drugiej parze to **jedna minuta** — to wygląda na dwie próby tego samego
+wpisu, nie na dwie sprzedaże.
+
+`iwa4155@wp.pl`: konto z 12.12.2025, **ma dokładnie te dwie faktury i nic
+poza nimi**, ostatnia aktywność 26.01.2026, brak warsztatu. Nie ruszamy bez
+zgody właściciela konta.
+
+Dopóki te dwie grupy istnieją, pełny indeks (`20260910111807`) odmawia
+z wypisaną listą — celowo, zamiast padać na komunikacie o kluczu.
+
+---
+
+## ⭐ AKTUALIZACJA 10.09.2026 (wieczór) — CZYTAJ TO NAJPIERW
+
+### ⚠️ KOLEJNOŚĆ WDROŻENIA — `payment-core` DOPIERO PO MIGRACJI
+
+`payment-core` czeka niewdrożona. Woła `nadaj_paczke_admin`, której na
+produkcji jeszcze nie ma — wdrożenie przed migracją `20260910102714`
+zamieniłoby ciche nieprzyznawanie kredytów na twardy błąd.
+
+Kolejność: migracja `20260910102714` → wdrożenie `payment-core`.
+
+### 🔴 Kredyty z panelu admina szły do tabel, których nikt nie czyta — ZAMKNIĘTE
+
+Nie było to odcięcie ról migracją `20260822185000`: panel woła funkcję brzegową
+z kluczem serwisowym, a rola admina z `drivers.user_role` przechodzi. Zapis
+kończył się powodzeniem — tylko trafiał do `vehicle_lookup_credits` (stara)
+i `user_credits.credits_balance` (martwa, JEDNO nietypowane saldo), a liczniki
+czytają `check_usage` i `billing_addon_packs`.
+
+Ślad: 09.09 → 20 + 20, 10.09 → 50 + 50. Na koncie `bf7c8a4b…` nic z tego nie
+było widać. Naprawione: `nadaj_paczke_admin` + poprawiony `payment-core` + panel,
+który przestał meldować sukces nad nieudanym zapisem.
+
+`nadaj_numer_przechowania` z `authenticated = true` to NIE przeoczenie —
+to funkcja WYZWALACZA, ustawia numer pokwitowania i nie rusza sald.
+
+### 🔴 `ksef-integration` — ZAMKNIĘTE I WDROŻONE
+
+Bramka `_shared/ksefDostep.ts`: kanał wewnętrzny (klucz serwisowy) → admin →
+właściciel. Sprawdzone zachowaniem na produkcji: bez tokenu i z kluczem
+anonimowym odpowiedź to `401`, także przy podanym `invoice_id`.
+
+### Stan pozostałych pozycji z sekcji 4 — sprawdzony zapytaniem 10.09
+
+| pozycja | stan |
+|---|---|
+| 4.1 odczyt umów najmu | ZAMKNIĘTE (0 polityk) |
+| 4.2 `viewing_slots` | OTWARTE (2 polityki `USING(true)`) |
+| 4.3 `anonymous_service_prices` | OTWARTE (1 polityka) |
+| 4.4 tokeny w `cron.job` | OTWARTE — **7 zadań** ma token JWT w treści |
+| 4.5 `user_credits` jako piąte źródło | OTWARTE — czyta je `useUserCredits`, `creditGate` i `payment-core` |
+| 4.9a wnioski o przeniesienie własności | OTWARTE (1 polityka) |
+
+### Pamięć podręczna rejestru — ile jest warta
+
+Ze 172 sprawdzeń po tablicy **127 dotyczyło różnych numerów, 45 to powtórki**
+(26%). Z tych powtórek **38 mieści się w 30 dniach**, a 25 w dobie.
+
+Czyli pamięć podręczna z terminem ważności 30 dni oszczędziłaby ~22% wywołań
+płatnego API, dobowa ~15%. Kwoty nie podaję — nie znam stawki RegCheck za
+sprawdzenie; przy niej te procenty przeliczą się wprost.
+
+Termin ważności jest tu warunkiem, nie ozdobą: dane rejestrowe się zmieniają,
+a `vehicle_registry_cache` ma dziś **jeden wiersz z 19 marca** — czyli zapisu
+praktycznie nie ma i trzeba by go najpierw naprawić.
+
+---
+
 ## ⭐ AKTUALIZACJA 10.09.2026 — CZYTAJ TO NAJPIERW
 
 ### 🔴 Sprawdzenie po tablicy pokazywało cudze auto — ZAMKNIĘTE

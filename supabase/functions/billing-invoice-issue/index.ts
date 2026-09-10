@@ -438,6 +438,23 @@ Deno.serve(async (req) => {
               const dane: InvoiceData = {
                 invoice_number: faktura.invoice_number,
                 type: "invoice",
+                /**
+                 * NUMER KSEF I KOD QR NA DOKUMENCIE.
+                 *
+                 * 🔴 Do 10.09.2026 tych pól tu NIE BYŁO. Generator
+                 * (`_shared/invoiceHtml.ts`) umie narysować ramkę z numerem
+                 * KSeF i kodem QR do weryfikacji w `efaktura.mf.gov.pl` —
+                 * ale rysuje ją tylko wtedy, gdy dostanie `ksef_reference`.
+                 * Bez tego klient dostawał PDF wyglądający jak faktura, której
+                 * nigdy nie wysłano do KSeF, choć numer już był nadany.
+                 *
+                 * PDF składa się PO odpowiedzi z KSeF — blok wysyłki stoi
+                 * wyżej, a mail czeka na numer (na produkcji; na środowisku
+                 * testowym atrapa numeru nie wstrzymuje poczty).
+                 */
+                ksef_reference: numerKsef ?? undefined,
+                ksef_status: numerKsef ? "accepted" : undefined,
+                ksef_acceptance_date: numerKsef ? new Date().toISOString() : undefined,
                 issue_date: dataWystawienia,
                 sale_date: dataWystawienia,
                 due_date: dataWystawienia,
@@ -516,9 +533,20 @@ Deno.serve(async (req) => {
              * zapytaniem. Reklamacja „nie dostałem faktury" nie miała się
              * o co oprzeć. Teraz ma.
              */
+            /**
+             * IDENTYFIKATOR WIADOMOŚCI OD SERWERA POCZTY.
+             *
+             * `email_sent_at` mówi „SMTP przyjął", a to NIE ZNACZY „doszło".
+             * 10.09.2026 trzy faktury miały wypełnione `email_sent_at` bez
+             * błędu, a klient nie dostał żadnej. Bez identyfikatora nadanego
+             * przez serwer nie da się o nic zapytać dostawcy poczty — a to
+             * jedyne miejsce, gdzie widać, co się z wiadomością stało dalej.
+             */
+            const idWiadomosci = String((wynikMaila as any)?.messageId ?? "").slice(0, 200) || null;
+
             await admin.from("user_invoices").update(
               poszedl
-                ? { email_sent_at: new Date().toISOString(), email_error: null }
+                ? { email_sent_at: new Date().toISOString(), email_error: null, email_message_id: idWiadomosci }
                 : { email_error: String((wynikMaila as any)?.error ?? `HTTP ${odp.status}`).slice(0, 500) },
             ).eq("id", faktura.id);
 
@@ -526,7 +554,7 @@ Deno.serve(async (req) => {
               event: poszedl ? "faktura_mail" : "faktura_mail_blad",
               numer: faktura.invoice_number, do: mailDo, status: odp.status,
               zalacznik: pdfBase64 ? "jest" : "brak",
-              ksef: numerKsef,
+              ksef: numerKsef, wiadomosc: idWiadomosci,
             }));
           } catch (bladMaila) {
             await admin.from("user_invoices")

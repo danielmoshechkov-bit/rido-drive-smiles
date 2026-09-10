@@ -147,9 +147,13 @@ Deno.serve(async (req) => {
         const w = await odp.json().catch(() => ({}));
         const poszedl = odp.ok && (w as any)?.success !== false;
 
+        // Identyfikator od serwera poczty — bez niego „wyslano" jest
+        // stwierdzeniem, ktorego nie da sie u nikogo sprawdzic.
+        const idWiadomosci = String((w as any)?.messageId ?? "").slice(0, 200) || null;
+
         await admin.from("user_invoices").update(
           poszedl
-            ? { email_sent_at: new Date().toISOString(), email_error: null }
+            ? { email_sent_at: new Date().toISOString(), email_error: null, email_message_id: idWiadomosci }
             : { email_error: String((w as any)?.error ?? `HTTP ${odp.status}`).slice(0, 500) },
         ).eq("id", f.id);
 
