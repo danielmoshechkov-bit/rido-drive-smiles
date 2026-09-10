@@ -82,10 +82,28 @@ Deno.serve(async (req) => {
     // ------------------------------------------------ 1. czy już wystawiona
     // Sprawdzenie wcześniej to wygoda (czytelna odpowiedź, brak zbędnej pracy),
     // nie zabezpieczenie — właściwym zabezpieczeniem jest unikalny indeks niżej.
+    /**
+     * 🔴 `deleted_at IS NULL` — BEZ TEGO FUNKCJA MELDOWAŁA SUKCES NAD NICZYM.
+     *
+     * Warunek pytał o dowolny wiersz z tym odnośnikiem płatności, także
+     * SKASOWANY. AUTO-SERWIS HAWRYLUK zapłacił 09.09 o 09:51, jego faktura
+     * została skasowana o 12:18, a każde kolejne wywołanie odpowiadało
+     * `duplicate: true` i wskazywało nieistniejący dokument. Klient zapłacił
+     * i nie miał faktury, a system twierdził, że wszystko jest w porządku.
+     *
+     * Skasowana faktura znaczy „tego dokumentu nie ma" — a zapłata zostaje,
+     * więc dokument trzeba wystawić. Numer dostanie kolejny wolny: numer raz
+     * wystawiony nie wraca (migracja `20260909162228`).
+     *
+     * Więz w bazie mówi teraz to samo: unikalność `external_payment_ref`
+     * obejmuje wyłącznie wiersze aktywne (migracja `20260910…`). Bez tej
+     * zmiany zapis i tak by nie wszedł, a odmowa wyglądałaby na awarię.
+     */
     const { data: istnieje } = await admin
       .from("user_invoices")
       .select("id, invoice_number")
       .eq("external_payment_ref", ref)
+      .is("deleted_at", null)
       .maybeSingle();
     if (istnieje) {
       return json({ ok: true, duplicate: true, invoice_id: istnieje.id, invoice_number: istnieje.invoice_number });
