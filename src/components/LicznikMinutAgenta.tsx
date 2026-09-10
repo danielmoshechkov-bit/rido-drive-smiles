@@ -73,9 +73,10 @@ export function LicznikMinutAgenta() {
       <button
         type="button"
         onClick={() => setDoladowanie(true)}
-        // `hidden sm:flex` — na telefonie nagłówek ma już komplet ikon i czwarta
-        // by go rozepchnęła. Saldo minut jest wtedy w zakładce „Asystent głosowy".
-        className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors cursor-pointer border border-border"
+        // Ta sama konwencja co trzy pozostałe liczniki: widoczny zawsze,
+        // klikalny, otwiera doładowanie. Bez chowania na wąskim ekranie —
+        // odkrywalność paska rozstrzygamy osobno, nie chowaniem po cichu.
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-colors cursor-pointer border border-border"
         title="Minuty rozmów agenta — kliknij, żeby doładować"
       >
         <Phone className="h-4 w-4 text-foreground" />

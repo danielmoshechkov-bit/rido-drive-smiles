@@ -879,32 +879,36 @@ export default function WorkshopLanding() {
           "sm:grid-cols-2 max-w-3xl",
           "Nie udało się wczytać aktualnego cennika Agenta AI. Odśwież stronę albo napisz do nas — podamy ceny od ręki.",
         )}
-        {/* Nadwyżka i paczki — LICZONE Z CENNIKA W BAZIE.
+        {/* DOŁADOWANIE MINUT — osobna sekcja, ceny LICZONE Z CENNIKA W BAZIE.
             Stało tu zdanie wpisane ręcznie („0,60 zł/min, pakiet 100/250/500"),
             a kasa liczy według `billing_addon_products`. Strona obiecywała cenę,
-            której nikt nie policzy. Gdy produkt jest wyłączony, zdania o cenie
-            nie ma wcale — brak jest uczciwszy niż zła liczba. */}
+            której nikt nie policzy. Gdy produkt jest wyłączony, sekcji nie ma
+            wcale — brak jest uczciwszy niż zła liczba. */}
         {minuty && (
-          <div className="text-center text-sm text-muted-foreground mt-6 max-w-2xl mx-auto space-y-2">
-            <p>
+          <div className="mt-10 max-w-3xl mx-auto rounded-2xl border bg-card p-6 md:p-8">
+            <h4 className="text-xl font-bold text-center mb-1">Doładowanie minut</h4>
+            <p className="text-center text-sm text-muted-foreground mb-6">
+              Dla warsztatów z aktywnym pakietem Agent. Minuty dokupujesz w panelu,
+              w liczniku obok salda — bez zmiany abonamentu.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[1, 2, 3].map((n) => {
+                const ile = minuty.step * n;
+                return (
+                  <div key={n} className="rounded-xl border bg-background px-4 py-4 text-center">
+                    <div className="text-2xl font-extrabold">{ile} min</div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {formatMoneyPLN(ile * Number(minuty.unit_price_net))} netto
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-center text-sm text-muted-foreground mt-5">
               Po wykorzystaniu pakietu:{' '}
               <span className="font-semibold text-foreground">
                 {formatMoneyPLN(Number(minuty.unit_price_net))} netto za minutę
               </span>.
-            </p>
-            <p>
-              Doładowania:{' '}
-              {[1, 2, 3].map((n) => {
-                const ile = minuty.step * n;
-                return (
-                  <span key={n} className="whitespace-nowrap">
-                    {n > 1 && ' · '}
-                    <span className="font-semibold text-foreground">{ile} min</span>
-                    {' — '}
-                    {formatMoneyPLN(ile * Number(minuty.unit_price_net))} netto
-                  </span>
-                );
-              })}
             </p>
           </div>
         )}

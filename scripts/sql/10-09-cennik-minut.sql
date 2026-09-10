@@ -33,12 +33,32 @@ UPDATE public.billing_plans
    SET is_active = true
  WHERE code = 'agent_pro';
 
+-- ── 3. Agent Pro: JEDEN numer telefoniczny ──────────────────────────────────
+--
+-- W bazie plan ma wpisane 3 numery. Ustalenie z 10.09 mówi: 399 zł, 440 minut,
+-- 3 połączenia równoczesne, ale JEDEN numer. Trzy połączenia naraz na jednym
+-- numerze to co innego niż trzy numery — i to pierwsze było w ustaleniu.
+UPDATE public.billing_plan_features pf
+   SET limit_value = 1
+  FROM public.billing_plans p, public.billing_features f
+ WHERE pf.plan_id = p.id
+   AND pf.feature_id = f.id
+   AND p.code = 'agent_pro'
+   AND f.key  = 'voice_numbers';
+
 -- ── Kontrola po zmianie ─────────────────────────────────────────────────────
 SELECT 'doladowanie minut' AS co, code, is_active::text, step::text, min_units::text,
        unit_price_net::text
   FROM public.billing_addon_products WHERE code = 'voice_minutes'
 UNION ALL
 SELECT 'plan agenta', code, is_active::text, NULL, NULL, price_net::text
-  FROM public.billing_plans WHERE product_line = 'agent' ORDER BY 1, 2;
+  FROM public.billing_plans WHERE product_line = 'agent'
+UNION ALL
+SELECT 'agent_pro: ' || f.name, p.code, pf.is_enabled::text, NULL, NULL, pf.limit_value::text
+  FROM public.billing_plan_features pf
+  JOIN public.billing_plans p ON p.id = pf.plan_id
+  JOIN public.billing_features f ON f.id = pf.feature_id
+ WHERE p.code = 'agent_pro' AND f.key IN ('voice_minutes','voice_concurrent_calls','voice_numbers')
+ ORDER BY 1, 2;
 
 COMMIT;
