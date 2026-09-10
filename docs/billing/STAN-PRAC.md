@@ -2,6 +2,63 @@
 
 ---
 
+## ⭐ AKTUALIZACJA 10.09.2026 (wieczór) — CZYTAJ TO NAJPIERW
+
+### ⚠️ KOLEJNOŚĆ WDROŻENIA — `payment-core` DOPIERO PO MIGRACJI
+
+`payment-core` czeka niewdrożona. Woła `nadaj_paczke_admin`, której na
+produkcji jeszcze nie ma — wdrożenie przed migracją `20260910102714`
+zamieniłoby ciche nieprzyznawanie kredytów na twardy błąd.
+
+Kolejność: migracja `20260910102714` → wdrożenie `payment-core`.
+
+### 🔴 Kredyty z panelu admina szły do tabel, których nikt nie czyta — ZAMKNIĘTE
+
+Nie było to odcięcie ról migracją `20260822185000`: panel woła funkcję brzegową
+z kluczem serwisowym, a rola admina z `drivers.user_role` przechodzi. Zapis
+kończył się powodzeniem — tylko trafiał do `vehicle_lookup_credits` (stara)
+i `user_credits.credits_balance` (martwa, JEDNO nietypowane saldo), a liczniki
+czytają `check_usage` i `billing_addon_packs`.
+
+Ślad: 09.09 → 20 + 20, 10.09 → 50 + 50. Na koncie `bf7c8a4b…` nic z tego nie
+było widać. Naprawione: `nadaj_paczke_admin` + poprawiony `payment-core` + panel,
+który przestał meldować sukces nad nieudanym zapisem.
+
+`nadaj_numer_przechowania` z `authenticated = true` to NIE przeoczenie —
+to funkcja WYZWALACZA, ustawia numer pokwitowania i nie rusza sald.
+
+### 🔴 `ksef-integration` — ZAMKNIĘTE I WDROŻONE
+
+Bramka `_shared/ksefDostep.ts`: kanał wewnętrzny (klucz serwisowy) → admin →
+właściciel. Sprawdzone zachowaniem na produkcji: bez tokenu i z kluczem
+anonimowym odpowiedź to `401`, także przy podanym `invoice_id`.
+
+### Stan pozostałych pozycji z sekcji 4 — sprawdzony zapytaniem 10.09
+
+| pozycja | stan |
+|---|---|
+| 4.1 odczyt umów najmu | ZAMKNIĘTE (0 polityk) |
+| 4.2 `viewing_slots` | OTWARTE (2 polityki `USING(true)`) |
+| 4.3 `anonymous_service_prices` | OTWARTE (1 polityka) |
+| 4.4 tokeny w `cron.job` | OTWARTE — **7 zadań** ma token JWT w treści |
+| 4.5 `user_credits` jako piąte źródło | OTWARTE — czyta je `useUserCredits`, `creditGate` i `payment-core` |
+| 4.9a wnioski o przeniesienie własności | OTWARTE (1 polityka) |
+
+### Pamięć podręczna rejestru — ile jest warta
+
+Ze 172 sprawdzeń po tablicy **127 dotyczyło różnych numerów, 45 to powtórki**
+(26%). Z tych powtórek **38 mieści się w 30 dniach**, a 25 w dobie.
+
+Czyli pamięć podręczna z terminem ważności 30 dni oszczędziłaby ~22% wywołań
+płatnego API, dobowa ~15%. Kwoty nie podaję — nie znam stawki RegCheck za
+sprawdzenie; przy niej te procenty przeliczą się wprost.
+
+Termin ważności jest tu warunkiem, nie ozdobą: dane rejestrowe się zmieniają,
+a `vehicle_registry_cache` ma dziś **jeden wiersz z 19 marca** — czyli zapisu
+praktycznie nie ma i trzeba by go najpierw naprawić.
+
+---
+
 ## ⭐ AKTUALIZACJA 10.09.2026 — CZYTAJ TO NAJPIERW
 
 ### 🔴 Sprawdzenie po tablicy pokazywało cudze auto — ZAMKNIĘTE
