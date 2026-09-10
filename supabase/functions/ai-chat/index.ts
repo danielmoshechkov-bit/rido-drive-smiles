@@ -167,17 +167,82 @@ serve(async (req) => {
 
   let usedProvider = 'unknown', usedModel = 'unknown', feature = 'ai_chat'
   let userId: string | null = null
+  let providerId: string | null = null
 
   try {
+    /**
+     * 🔴 OTWARTE WEJŚCIE DO NASZEGO RACHUNKU U DOSTAWCY MODELU (do 10.09.2026).
+     *
+     * Nagłówek `Authorization` był OPCJONALNY: przy braku albo złym tokenie
+     * `userId` zostawał `null`, a funkcja szła dalej i wołała Anthropic oraz
+     * Gemini na naszych kluczach. `verify_jwt = false`, więc nie zatrzymywała
+     * tego także bramka platformy. Klucz `anon` jest w paczce aplikacji, czyli
+     * publiczny — wystarczyło znać adres.
+     *
+     * W logu `ai_requests_log` 56 z 361 wywołań nie ma użytkownika.
+     *
+     * Teraz: bez rozpoznanego użytkownika NIE MA wywołania modelu.
+     */
     const auth = req.headers.get('Authorization')
-    if (auth) {
-      const { data } = await supabase.auth.getUser(auth.replace('Bearer ', ''))
+    const token = auth?.replace(/^Bearer\s+/i, '').trim() || ''
+
+    // Wywołanie SERWISOWE — `getrido-ai-execute` podstawia klucz service_role
+    // i sam wymaga roli administratora. Tę drogę zostawiamy otwartą, bo bramka
+    // stoi tam, a nie tutaj.
+    const serwisowe = !!token && token === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    if (!serwisowe) {
+      if (!token) {
+        return new Response(JSON.stringify({
+          error: 'BRAK_LOGOWANIA',
+          message: 'Zaloguj się, żeby korzystać z Rido AI.',
+        }), { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } })
+      }
+      const { data } = await supabase.auth.getUser(token)
       userId = data?.user?.id || null
+      if (!userId) {
+        return new Response(JSON.stringify({
+          error: 'BRAK_LOGOWANIA',
+          message: 'Sesja wygasła. Zaloguj się ponownie.',
+        }), { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } })
+      }
     }
 
     const body = await req.json()
     const { taskType, query, mode, messages, stream, imageBase64, maskBase64, files, systemPrompt } = body
     feature = body.feature || 'ai_chat'
+
+    /**
+     * JEDNOSTKA `rido_ai` — ta sama pula, z której liczy `rido-help`.
+     *
+     * Pobieramy WYŁĄCZNIE warsztatom. `ai-chat` obsługuje też ekrany, które
+     * z warsztatem nie mają nic wspólnego (panel administratora, giełda,
+     * workspace) — tam nie ma komu wystawić rachunku i odmowa zabrałaby
+     * działającą funkcję. To świadoma dziura, opisana w docs/BACKLOG.md:
+     * zamykamy ją razem z bramkowaniem planów, nie przy okazji.
+     */
+    if (userId) {
+      const { data: warsztaty } = await supabase.rpc('get_user_provider_ids', { p_user_id: userId })
+      const pierwszy = Array.isArray(warsztaty)
+        ? (warsztaty[0]?.get_user_provider_ids ?? warsztaty[0] ?? null)
+        : null
+      providerId = typeof pierwszy === 'string' ? pierwszy : null
+    }
+
+    if (providerId) {
+      const { data: stan, error: bladStanu } = await supabase.rpc('check_usage', {
+        p_subscriber_type: 'service_provider',
+        p_subscriber_id: providerId,
+        p_feature_key: 'rido_ai',
+        p_amount: 1,
+      })
+      if (bladStanu || (stan as Record<string, unknown> | null)?.allowed !== true) {
+        return new Response(JSON.stringify({
+          error: 'BRAK_PYTAN',
+          message: 'Wykorzystałeś limit pytań do Rido AI. Dokup pakiet albo przejdź na wyższy plan.',
+        }), { status: 402, headers: { ...cors, 'Content-Type': 'application/json' } })
+      }
+    }
 
     // Pobierz WSZYSTKICH dostawców
     const { data: allProviders, error: provErr } = await supabase.from('ai_providers').select('*')
@@ -296,7 +361,7 @@ serve(async (req) => {
         const { mimeType, data } = inpaintImg.inlineData
         const imgUrl = `data:${mimeType};base64,${data}`
         console.log('[ai-chat] ✅ Inpainting Nano Banana Pro: sukces')
-        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, providerId, status: 'success', ms: Date.now() - t0 })
         return jsonResp({ result: inpaintText || '✨ Gotowe!', images: [imgUrl] })
       }
 
@@ -368,7 +433,7 @@ serve(async (req) => {
         const fallbackImgB64 = fallbackData?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData)?.inlineData
         if (fallbackImgB64) {
           const imgUrl = `data:${fallbackImgB64.mimeType};base64,${fallbackImgB64.data}`
-          await logReq(supabase, { feature, provider: 'gemini_nano_banana', model: 'gemini-2.5-flash-image', userId, status: 'success', ms: Date.now() - t0 })
+          await logReq(supabase, { feature, provider: 'gemini_nano_banana', model: 'gemini-2.5-flash-image', userId, providerId, status: 'success', ms: Date.now() - t0 })
           return jsonResp({ result: '✨ Gotowe! (Nano Banana)', images: [imgUrl] })
         }
         return jsonResp({ result: '⚠️ Nie udało się wygenerować obrazu.' })
@@ -383,7 +448,7 @@ serve(async (req) => {
         const { mimeType, data } = imgPart.inlineData
         const imgUrl = `data:${mimeType};base64,${data}`
         console.log('[ai-chat] ✅ Nano Banana Pro: obraz wygenerowany')
-        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+        await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, providerId, status: 'success', ms: Date.now() - t0 })
         return jsonResp({ result: textPart || '✨ Gotowe!', images: [imgUrl] })
       }
 
@@ -541,7 +606,7 @@ Odpowiadaj w tym samym języku co użytkownik.`
       const { result, winner } = await getDualAIResponse(claudeP, geminiP, history, sys, claudeModels, query || '')
       if (result) {
         console.log(`[ai-chat] Dual AI winner: ${winner}`)
-        await logReq(supabase, { feature, provider: winner === 'claude' ? claudeP.provider_key : (geminiP?.provider_key || 'gemini'), model: winner === 'claude' ? (claudeModels[claudeP.provider_key] || 'claude-haiku') : 'gemini-2.5-flash', userId, status: 'success', ms: Date.now() - t0 })
+        await logReq(supabase, { feature, provider: winner === 'claude' ? claudeP.provider_key : (geminiP?.provider_key || 'gemini'), model: winner === 'claude' ? (claudeModels[claudeP.provider_key] || 'claude-haiku') : 'gemini-2.5-flash', userId, providerId, status: 'success', ms: Date.now() - t0 })
         return jsonResp({ result })
       }
     }
@@ -592,7 +657,7 @@ Odpowiadaj w tym samym języku co użytkownik.`
           }
 
           console.log('[ai-chat] ✅ Lovable Gateway success')
-          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, providerId, status: 'success', ms: Date.now() - t0 })
           if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
           const d = await res.json()
           const answer = d.choices?.[0]?.message?.content || 'Brak odpowiedzi'
@@ -649,7 +714,7 @@ Odpowiadaj w tym samym języku co użytkownik.`
           }
 
           console.log(`[ai-chat] ✅ Claude ${p.provider_key} success`)
-          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, providerId, status: 'success', ms: Date.now() - t0 })
           if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
           const d = await res.json()
           const answer = (d.content || []).filter((block: any) => block?.type === 'text').map((block: any) => block.text).join('\n').trim() || 'Brak odpowiedzi'
@@ -701,7 +766,7 @@ Odpowiadaj w tym samym języku co użytkownik.`
           }
 
           console.log(`[ai-chat] ✅ Gemini success`)
-          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, providerId, status: 'success', ms: Date.now() - t0 })
           if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
           const d = await res.json()
           const answer = d.choices?.[0]?.message?.content || 'Brak odpowiedzi'
@@ -739,7 +804,7 @@ Odpowiadaj w tym samym języku co użytkownik.`
           }
 
           console.log(`[ai-chat] ✅ ${p.provider_key} success`)
-          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, status: 'success', ms: Date.now() - t0 })
+          await logReq(supabase, { feature, provider: usedProvider, model: usedModel, userId, providerId, status: 'success', ms: Date.now() - t0 })
           if (stream) return new Response(res.body, { headers: { ...cors, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } })
           const d = await res.json()
           const answer = d.choices?.[0]?.message?.content || 'Brak odpowiedzi'
@@ -778,6 +843,7 @@ const jsonResp = (data: unknown, status = 200) =>
 
 async function logReq(sb: any, o: {
   feature: string; provider: string; model: string; userId: string | null
+  providerId?: string | null
   status: string; ms?: number; errorMessage?: string
 }) {
   try {
@@ -787,6 +853,31 @@ async function logReq(sb: any, o: {
       response_time_ms: o.ms || null, error_message: o.errorMessage || null, cache_hit: false
     })
   } catch { /* ignore */ }
+
+  /**
+   * POBRANIE JEDNOSTKI SIEDZI TUTAJ, bo to jedyne miejsce, przez które
+   * przechodzi KAŻDA udana ścieżka `ai-chat` — a jest ich osiem (obraz,
+   * strumień, wyścig dwóch dostawców, warianty awaryjne). Rozsypanie
+   * `billing_consume` po ośmiu miejscach znaczyłoby osiem okazji do
+   * przeoczenia jednego przy następnej zmianie.
+   *
+   * Pobieramy PO udanej odpowiedzi, tak samo jak `rido-help`: nieudane
+   * wywołanie modelu nie może kosztować klienta pytania.
+   */
+  if (o.status !== 'success' || !o.providerId) return
+  try {
+    const { error } = await sb.rpc('billing_consume', {
+      p_subscriber_type: 'service_provider',
+      p_subscriber_id: o.providerId,
+      p_feature_key: 'rido_ai',
+      p_amount: 1,
+      p_pozwol_nadwyzke: true,
+    })
+    // Cisza tutaj znaczyłaby wywołania za darmo, a tego właśnie się pozbywamy.
+    if (error) console.error('[ai-chat] pobranie rido_ai nieudane:', error.code, error.message)
+  } catch (e) {
+    console.error('[ai-chat] pobranie rido_ai wyjatek:', (e as Error).message)
+  }
 }
 
 function mapError(_name: string, status: number, raw: string) {

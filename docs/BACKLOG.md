@@ -75,7 +75,34 @@ realnymi pieniędzmi u ElevenLabs. Kolejność: najpierw naliczanie, potem flaga
 
 ---
 
-## 3. `ai-chat` — zewnętrzny rachunek bez bramki i bez logowania
+## 3. ZAMKNIĘTE 10.09 — `ai-chat`. Ale to nie była jedyna taka funkcja.
+
+`ai-chat` naprawiony (odmowa bez zalogowanego użytkownika + pobranie `rido_ai`).
+Opis niżej zostaje jako zapis przyczyny.
+
+### Co pokazał przegląd pozostałych funkcji
+
+`node scripts/funkcje-bez-bramki.mjs` — **139 funkcji ma `verify_jwt = false`,
+40 z nich woła płatne API, a 23 NIE SPRAWDZAJĄ, KTO JE WOŁA.**
+
+Sprawdzone ręcznie, nie tylko heurystyką:
+
+| funkcja | co robi bez pytania o tożsamość |
+|---|---|
+| `admin-ai-agent` | mimo nazwy — brak kontroli roli; agent AI z narzędziami na kluczu `service_role` |
+| `ai-search` | bierze `userId` **z ciała żądania** i mu wierzy |
+| `seo-agent` | brak kontroli; Anthropic plus pełny dostęp do bazy |
+
+To ta sama klasa błędu, którą naprawiono 16.08 w `getrido-ai-execute`
+(„zdezorientowany zastępca"): funkcja o wysokich uprawnieniach wykonuje
+polecenia kogoś, kto ich nie ma.
+
+Kolejność: najpierw te trzy, potem reszta z listy skryptu. Skrypt nadaje się
+do CI — wtedy nowa funkcja bez bramki nie wejdzie niezauważona.
+
+---
+
+## 3a. Przyczyna (zapis historyczny) — `ai-chat`
 
 `supabase/functions/ai-chat` woła **Anthropic** (`api.anthropic.com/v1/messages`)
 i **Gemini** na naszych kluczach. Zasila Rido Wycenę (przez `useGetRidoAI`),
