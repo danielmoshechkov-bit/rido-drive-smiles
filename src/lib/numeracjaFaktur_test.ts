@@ -27,11 +27,24 @@ const PLIKI = [
 
 /**
  * Wzorce zapytań o `user_invoices` z filtrem na aktywne. Szukamy filtra
- * W SĄSIEDZTWIE numeru faktury — `deleted_at IS NULL` w innych zapytaniach
- * (lista faktur, raporty) jest poprawny i nie ma go tu ruszać.
+ * W SĄSIEDZTWIE liczenia albo sprawdzania NUMERU — `deleted_at IS NULL`
+ * w innych zapytaniach jest poprawny i nie ma go tu ruszać.
  */
 const FILTR = /\.is\(\s*['"]deleted_at['"]\s*,\s*null\s*\)|\.is\(\s*"deleted_at"\s*,\s*null\s*\)/g;
-const NUMER = /invoice_number|seriesLike|extractSeq|nextSeq/;
+
+/**
+ * Co uznajemy za „to zapytanie dotyczy numeru".
+ *
+ * ⚠️ Warunek brzmiał wcześniej po prostu `invoice_number` i był ZA SZEROKI:
+ * zapalił się na kontroli `external_payment_ref`, która ma pełne prawo
+ * filtrować po `deleted_at` (skasowana faktura ZWALNIA odnośnik płatności,
+ * choć nie zwalnia numeru) i przy okazji pobiera `invoice_number` do
+ * odpowiedzi. Bramka, która krzyczy na poprawny kod, uczy ignorowania siebie.
+ *
+ * Liczy się LICZENIE numeru (`seriesLike`/`extractSeq`/`nextSeq`) albo
+ * SPRAWDZANIE jego zajętości (`.eq('invoice_number', …)`).
+ */
+const NUMER = /seriesLike|extractSeq|nextSeq|\.eq\(\s*['"]invoice_number['"]/;
 
 /** Ile linii wokół filtra uznajemy za „to samo zapytanie". */
 const OKNO = 8;
@@ -97,6 +110,59 @@ for (const plik of PLIKI) {
     console.log('❌ KONTROLA POZYTYWNA: test nie wykrywa nawet wzorca, o którym wiadomo, że jest zły');
   } else {
     console.log('✅ kontrola pozytywna — test wykrywa zły wzorzec, więc zieleń coś znaczy');
+  }
+}
+
+// KONTROLA POZYTYWNA 2: drugi kształt złego kodu — sprawdzanie zajętości
+// numeru z filtrem na aktywne. Po zawężeniu warunku wyżej trzeba pokazać,
+// że nadal go łapiemy, a nie tylko ten z `seriesLike`.
+{
+  const zlaTresc = [
+    "let q = supabase.from('user_invoices').select('id')",
+    "  .eq('user_id', user.id)",
+    "  .eq('invoice_number', n)",
+    "  .is('deleted_at', null)",
+    "  .limit(1);",
+  ].join('\n');
+  const linie = zlaTresc.split('\n');
+  let zlapane = false;
+  linie.forEach((linia, i) => {
+    FILTR.lastIndex = 0;
+    if (!FILTR.test(linia)) return;
+    const okolica = linie.slice(Math.max(0, i - OKNO), i + OKNO).join('\n');
+    if (NUMER.test(okolica)) zlapane = true;
+  });
+  if (!zlapane) {
+    zle++;
+    console.log('❌ KONTROLA POZYTYWNA 2: test nie wykrywa sprawdzania zajętości numeru z filtrem na aktywne');
+  } else {
+    console.log('✅ kontrola pozytywna 2 — wykrywa też sprawdzanie zajętości numeru');
+  }
+}
+
+// KONTROLA ODWROTNA: zapytanie o ODNOŚNIK PŁATNOŚCI ma NIE zapalać bramki.
+// Tam filtr na aktywne jest poprawny — skasowana faktura zwalnia odnośnik.
+{
+  const dobraTresc = [
+    "const { data: istnieje } = await admin.from('user_invoices')",
+    "  .select('id, invoice_number')",
+    "  .eq('external_payment_ref', ref)",
+    "  .is('deleted_at', null)",
+    "  .maybeSingle();",
+  ].join('\n');
+  const linie = dobraTresc.split('\n');
+  let zlapane = false;
+  linie.forEach((linia, i) => {
+    FILTR.lastIndex = 0;
+    if (!FILTR.test(linia)) return;
+    const okolica = linie.slice(Math.max(0, i - OKNO), i + OKNO).join('\n');
+    if (NUMER.test(okolica)) zlapane = true;
+  });
+  if (zlapane) {
+    zle++;
+    console.log('❌ KONTROLA ODWROTNA: bramka zapala się na poprawnym zapytaniu o odnośnik płatności');
+  } else {
+    console.log('✅ kontrola odwrotna — poprawne zapytanie o odnośnik płatności nie zapala bramki');
   }
 }
 
