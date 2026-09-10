@@ -44,11 +44,14 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
     cel: 'pole-rejestracji',
     // „Dalej" wpisuje numer auta pokazowego — jego dane mamy zapisane na stałe,
     // więc nie trzeba czekać na rejestr ani zużywać sprawdzenia.
-    przykladoweWpisy: ['WW140TV'],
+    //
+    // Numer zmieniony 10.09.2026 z `WW140TV`: tamten należy do PRAWDZIWEGO
+    // Opla Astry IV i warsztat z tym autem dostawał naszą Toyotę.
+    przykladoweWpisy: ['DEMO-RIDO'],
     // ...i od razu otwiera okno zakładania auta, bo to jest czynność tego kroku.
     dalejKlikaCel: 'utworz-pojazd',
     tytul: 'Krok 1 — jakie to auto',
-    tresc: 'Kliknij „Dalej", a wpiszę numer auta pokazowego (WW140TV) — jego dane mam zapisane, więc pojawią się od razu.\n\nMożesz też wpisać PRAWDZIWY numer własnego auta: wtedy markę, model, rocznik, pojemność i VIN pobierzemy z rejestru. Zmyślony numer nic nie zwróci — po prostu uzupełnisz dane ręcznie.\n\nJeśli auta nie ma w kartotece, naciśnij Enter albo „Utwórz nowy pojazd".',
+    tresc: 'Kliknij „Dalej", a wpiszę numer auta pokazowego (DEMO-RIDO) — jego dane mam zapisane, więc pojawią się od razu.\n\nMożesz też wpisać PRAWDZIWY numer własnego auta: wtedy markę, model, rocznik, pojemność i VIN pobierzemy z rejestru. Zmyślony numer nic nie zwróci — po prostu uzupełnisz dane ręcznie.\n\nJeśli auta nie ma w kartotece, naciśnij Enter albo „Utwórz nowy pojazd".',
     akcja: 'Kliknij „Dalej" — wpiszę numer i otworzę okno zakładania auta',
   },
   {
@@ -88,11 +91,11 @@ export const TRASA_PIERWSZE_ZLECENIE: KrokTrasy[] = [
   },
   {
     cel: 'pojazd-rejestracja',
-    przykladoweWpisy: ['WW140TV'],
+    przykladoweWpisy: ['DEMO-RIDO'],
     // Pole ma lupkę w środku — „Dalej" ją naciska i dane wczytują się od razu.
     dalejKlika: true,
     tytul: 'Numer i lupka',
-    tresc: 'Właściciel jest już wybrany, więc teraz auto: wpisz numer rejestracyjny i kliknij lupkę obok pola.\n\nDla auta pokazowego (WW140TV) dane wczytają się natychmiast — mamy je zapisane. Dla prawdziwego numeru pobierzemy markę, model, rocznik, pojemność, moc i VIN z rejestru.',
+    tresc: 'Właściciel jest już wybrany, więc teraz auto: wpisz numer rejestracyjny i kliknij lupkę obok pola.\n\nDla auta pokazowego kliknij „Wczytaj auto pokazowe" pod polem numeru — dane wczytają się natychmiast, bo mamy je zapisane. Dla prawdziwego numeru pobierzemy markę, model, rocznik, pojemność, moc i VIN z rejestru.',
     akcja: 'Kliknij lupkę przy numerze',
   },
   {

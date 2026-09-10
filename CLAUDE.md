@@ -324,6 +324,33 @@ FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.prosecdef;
 ```
 
+### Bramka, która krzyczy na dobry kod, uczy ignorowania siebie
+
+Kontrola ma dwa sposoby na bycie bezużyteczną. Pierwszy jest znany: nie zapala
+się nigdy. Drugi jest gorszy, bo wygląda na działanie: **zapala się zawsze**.
+
+Dwa przypadki z tego repozytorium:
+
+- Codzienna kontrola „Zgodność produkcji z main" zgłasza **wszystkie 190 funkcji**
+  jako rozjechane. Sprawdzone: `billing-checkout` pobrany z produkcji jest bajt
+  w bajt zgodny z `main`. Zgłoszenie #67 jest pełne tego szumu i **nikt go nie
+  czyta** — a prawdziwego rozjazdu nie da się w nim odróżnić.
+- Bramka numeracji faktur (10.09.2026) zapaliła się na POPRAWNYM kodzie:
+  sprawdzenie `external_payment_ref` ma pełne prawo filtrować po `deleted_at`
+  (skasowana faktura zwalnia odnośnik płatności, choć nie zwalnia numeru),
+  a warunek szukał `deleted_at` w sąsiedztwie słowa `invoice_number`.
+
+**Reakcją na fałszywy alarm jest ZAWĘŻENIE warunku, nigdy jego rozluźnienie
+ani wyłączenie kontroli.** A po zawężeniu trzeba pokazać, że czułość została:
+
+1. **kontrola pozytywna** — wzorzec, o którym wiadomo, że jest zły, nadal jest
+   łapany (najlepiej w kilku kształtach),
+2. **kontrola odwrotna** — kod, o którym wiadomo, że jest dobry, NIE zapala
+   bramki.
+
+Bez punktu 2 zawężenie potrafi zjeść całą czułość i nikt tego nie zauważy —
+bo bramka nadal świeci na zielono.
+
 ### Test RLS musi zawierać przypadek, który ma PRZEJŚĆ
 
 Sam zestaw odmów niczego nie dowodzi. Jeśli podkład testowy jest zepsuty, baza odmawia
