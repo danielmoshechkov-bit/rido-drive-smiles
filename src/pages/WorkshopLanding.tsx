@@ -37,7 +37,8 @@ import {
 } from "lucide-react";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { UniversalHomeButton } from "@/components/UniversalHomeButton";
-import { usePublicPricing, type PublicPlan } from "@/hooks/usePublicPricing";
+import { usePublicPricing, type PublicPlan, usePubliczneDoladowania } from '@/hooks/usePublicPricing';
+import { formatMoneyPLN } from '@/utils/formatters';
 import { planPriceLabels, planCtaLabel, trialDaysFor } from "@/lib/pricingCards";
 import { useJestKlientemLinii } from "@/hooks/useJestKlientemLinii";
 import { usePlanAction } from "@/hooks/usePlanAction";
@@ -161,6 +162,8 @@ export default function WorkshopLanding() {
   // Cennik z bazy — te same dane co /cennik. Zmiana ceny w panelu wchodzi tu
   // bez deployu, a obie strony nie mają jak się rozjechać.
   const { plans, loading: pricingLoading, error: pricingError } = usePublicPricing();
+  const { doladowanie } = usePubliczneDoladowania();
+  const minuty = doladowanie('voice_minutes');
   const warsztatPlans = plans.filter((p) => p.product_line === "warsztat");
   const agentPlans = plans.filter((p) => p.product_line === "agent");
   const trialDays = trialDaysFor(plans, "warsztat");
@@ -876,8 +879,36 @@ export default function WorkshopLanding() {
           "sm:grid-cols-2 max-w-3xl",
           "Nie udało się wczytać aktualnego cennika Agenta AI. Odśwież stronę albo napisz do nas — podamy ceny od ręki.",
         )}
-        <p className="text-center text-sm text-muted-foreground mt-6 max-w-2xl mx-auto">
-          Powyżej limitu minut: 0,60 zł/min netto albo pakiet 100 / 250 / 500 minut.
+        {/* Nadwyżka i paczki — LICZONE Z CENNIKA W BAZIE.
+            Stało tu zdanie wpisane ręcznie („0,60 zł/min, pakiet 100/250/500"),
+            a kasa liczy według `billing_addon_products`. Strona obiecywała cenę,
+            której nikt nie policzy. Gdy produkt jest wyłączony, zdania o cenie
+            nie ma wcale — brak jest uczciwszy niż zła liczba. */}
+        {minuty && (
+          <div className="text-center text-sm text-muted-foreground mt-6 max-w-2xl mx-auto space-y-2">
+            <p>
+              Po wykorzystaniu pakietu:{' '}
+              <span className="font-semibold text-foreground">
+                {formatMoneyPLN(Number(minuty.unit_price_net))} netto za minutę
+              </span>.
+            </p>
+            <p>
+              Doładowania:{' '}
+              {[1, 2, 3].map((n) => {
+                const ile = minuty.step * n;
+                return (
+                  <span key={n} className="whitespace-nowrap">
+                    {n > 1 && ' · '}
+                    <span className="font-semibold text-foreground">{ile} min</span>
+                    {' — '}
+                    {formatMoneyPLN(ile * Number(minuty.unit_price_net))} netto
+                  </span>
+                );
+              })}
+            </p>
+          </div>
+        )}
+        <p className="text-center text-sm text-muted-foreground mt-4 max-w-2xl mx-auto">
           Agent nigdy nie przestaje odbierać telefonu — po wyczerpaniu minut przechodzi
           w tryb awaryjny i przekazuje wiadomość do warsztatu.
         </p>

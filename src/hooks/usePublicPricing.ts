@@ -21,6 +21,19 @@ export interface PublicPlan {
   features: string[];
 }
 
+/**
+ * Produkt doładowania widoczny publicznie (SMS-y, sprawdzenia VIN, Rido AI,
+ * minuty rozmów). Ceny w cenniku MUSZĄ pochodzić stąd, a nie z tekstu na
+ * stronie — inaczej strona obiecuje jedno, a kasa liczy drugie.
+ */
+export interface PublicDoladowanie {
+  code: string;
+  name: string;
+  unit_price_net: number;
+  step: number;
+  min_units: number;
+}
+
 interface RawFeature {
   id: string;
   name: string;
@@ -104,7 +117,21 @@ export function usePublicPricing() {
          * Semantyka w bazie zostaje nietknięta, zmienia się tylko to, co
          * pokazujemy klientowi.
          */
-        if (Number(row.limit_value) === 0) continue;
+        //
+        // 🔴 NAPRAWIONE 10.09.2026 — `Number(null)` TO ZERO.
+        //
+        // Warunek napisany wyżej miał odsiewać ZEROWY PRZYDZIAŁ. Odsiewał
+        // także `limit_value = null`, czyli KAŻDĄ funkcję włączoną bez limitu:
+        // „Baza klientów i pojazdów", „Voicebot 24/7", „Tworzenie zleceń
+        // z rozmów". A tak zapisana jest większość oferty.
+        //
+        // Skutek na żywym cenniku: Standard, Pro i Sieci pokazywały cenę
+        // i ANI JEDNEGO punktu (11, 15 i 16 funkcji zjedzonych), Agent trzy
+        // z siedmiu. Klient widział kartę z kwotą i pustą listą.
+        //
+        // `null` znaczy „bez limitu", `0` znaczy „plan nie daje przydziału".
+        // Odsiewamy wyłącznie to drugie.
+        if (row.limit_value !== null && Number(row.limit_value) === 0) continue;
         const list = labelsByPlan.get(row.plan_id) ?? [];
         list.push({ order: feature.sort_order, label: featureLabel(feature, row) });
         labelsByPlan.set(row.plan_id, list);
@@ -123,5 +150,37 @@ export function usePublicPricing() {
     plans: query.data ?? [],
     loading: query.isLoading,
     error: query.error as Error | null,
+  };
+}
+
+/**
+ * Produkty doładowania do pokazania w cenniku.
+ *
+ * 🔴 POWÓD POWSTANIA (10.09.2026). Na stronie stało zdanie wpisane ręcznie:
+ * „Powyżej limitu minut: 0,60 zł/min netto albo pakiet 100 / 250 / 500 minut".
+ * W bazie minuta kosztuje 1,15 zł netto, a paczki idą co 30. Strona obiecywała
+ * cenę, której kasa nie policzy — to gorsze niż brak zdania, bo klient ma je
+ * na piśmie.
+ *
+ * Ceny i wielkości paczek idą teraz z tego samego wiersza, z którego liczy
+ * je okno zakupu i `billing-payu-order`. Produkt wyłączony w panelu znika ze
+ * strony sam — RLS nie zwraca nieaktywnych.
+ */
+export function usePubliczneDoladowania() {
+  const query = useQuery({
+    queryKey: ['public-doladowania'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<PublicDoladowanie[]> => {
+      const { data, error } = await (supabase as any)
+        .from('billing_addon_products')
+        .select('code, name, unit_price_net, step, min_units');
+      if (error) throw error;
+      return (data ?? []) as PublicDoladowanie[];
+    },
+  });
+
+  return {
+    doladowania: query.data ?? [],
+    doladowanie: (code: string) => (query.data ?? []).find((d) => d.code === code) ?? null,
   };
 }
