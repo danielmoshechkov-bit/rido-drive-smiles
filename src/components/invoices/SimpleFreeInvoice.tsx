@@ -361,14 +361,22 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
     mode: numberingMode,
   });
 
-  // Propozycja numeru — ZAWSZE z AKTYWNYCH faktur (deleted_at IS NULL), we
-  // wszystkich trybach. continuous/manual = max+1, fill_gaps = najniższy wolny.
+  /**
+   * Propozycja numeru — z WSZYSTKICH faktur serii, także miękko skasowanych.
+   *
+   * 🔴 Stało tu `deleted_at IS NULL` i przez to skasowanie faktury ZWALNIAŁO
+   * jej numer. 09.09.2026 GR/2026/007 wystawiona rano dla jednego klienta
+   * została skasowana, a po południu ten sam numer dostał drugi. Numer raz
+   * wystawiony jest zużyty — klient mógł już dostać dokument, a księgowa go
+   * zaksięgować.
+   *
+   * continuous/manual = max+1, fill_gaps = najniższy NIGDY nieużyty.
+   */
   const proposeInvoiceNumber = async (userId: string, mode: string, cfg?: NumberingConfig): Promise<string> => {
     const c = cfg || numberingCfg();
     const now = new Date();
     const { data } = await (supabase.from('user_invoices').select('invoice_number') as any)
       .eq('user_id', userId)
-      .is('deleted_at', null)
       .like('invoice_number', seriesLike(c, now));
     const seqs = (data || [])
       .map((r: any) => extractSeq(c, now, r.invoice_number))
@@ -414,10 +422,12 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || cancelled) return;
+        // Bez filtra na aktywne: numer skasowanej faktury jest ZAJĘTY.
+        // Gdyby ostrzeżenie go przepuszczało, klient dowiadywałby się o kolizji
+        // dopiero z odmowy wyzwalacza — czyli po kliknięciu „Zapisz".
         let q = (supabase.from('user_invoices').select('id') as any)
           .eq('user_id', user.id)
           .eq('invoice_number', n)
-          .is('deleted_at', null)
           .limit(1);
         if (editInvoiceId) q = q.neq('id', editInvoiceId);
         const { data } = await q.maybeSingle();
@@ -438,9 +448,10 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         const now = new Date();
         const myNum = extractSeq(cfg, now, n);
         if (myNum !== null && issueDate) {
+          // Także tu bez filtra na aktywne: numer skasowanej faktury jest
+          // zużyty, więc ostrzeżenie o POMINIĘCIU ma go liczyć jak każdy inny.
           let cq = (supabase.from('user_invoices').select('id, invoice_number, issue_date') as any)
             .eq('user_id', user.id)
-            .is('deleted_at', null)
             .like('invoice_number', seriesLike(cfg, now));
           if (editInvoiceId) cq = cq.neq('id', editInvoiceId);
           const { data: rows } = await cq;
@@ -1219,7 +1230,6 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             .select('id') as any)
             .eq('user_id', user.id)
             .eq('invoice_number', invoiceData.invoice_number)
-            .is('deleted_at', null)
             .neq('id', editInvoiceId)
             .limit(1)
             .maybeSingle();
@@ -1298,13 +1308,14 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
         if (isCorrection && !asDraft) {
           const now = new Date();
           const year = format(now, 'yyyy');
-          // FAZA 4: numeracja korekt pomija soft-deleted (usunięta korekta zwalnia numer)
+          // 🔴 Numeracja korekt miała TĘ SAMĄ usterkę co faktury: pomijała
+          // miękko skasowane, więc usunięta korekta zwalniała swój numer.
+          // Korekta idzie do KSeF tak samo jak faktura — numer jest zużyty.
           const { data: lastCorr } = await (supabase
             .from('user_invoices')
             .select('invoice_number') as any)
             .eq('user_id', user.id)
             .eq('is_correction', true)
-            .is('deleted_at', null)
             .like('invoice_number', `KOR/${year}/%`)
             .order('invoice_number', { ascending: false })
             .limit(1)
@@ -1331,7 +1342,6 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
             .select('id') as any)
             .eq('user_id', user.id)
             .eq('invoice_number', finalInvoiceNumber)
-            .is('deleted_at', null)
             .limit(1)
             .maybeSingle();
           if (dup) {

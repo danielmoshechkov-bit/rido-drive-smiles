@@ -308,6 +308,13 @@ Deno.serve(async (req) => {
 
     const opisAuta = opiszPojazd(zlecenie);
 
+    /**
+     * Ostatni powód odmowy od modelu — potrzebny, żeby odróżnić „to konto nie
+     * umie tego narzędzia" od zwykłej awarii. Bez tego odwrót do starszego
+     * wyszukiwania musiałby być bezwarunkowy, czyli w praktyce stały.
+     */
+    let ostatniaOdmowa = '';
+
     const zapytaj = async (cfg: { klucz: string; model: string }, ciało: any) => {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -320,9 +327,11 @@ Deno.serve(async (req) => {
       });
       if (!r.ok) {
         const t = await r.text();
+        ostatniaOdmowa = `${r.status} ${t.slice(0, 400)}`;
         console.error('[rido-help]', cfg.model, r.status, t.slice(0, 400));
         return null;
       }
+      ostatniaOdmowa = '';
       return await r.json();
     };
 
@@ -432,19 +441,49 @@ Deno.serve(async (req) => {
     const analiza = await wezMapowanie('rido_help_analiza', 'claude_sonnet');
     const brief = String(plan?.brief || pytanie).trim();
 
-    const wynik = await zapytaj(
-      { klucz: analiza.klucz || wywiad.klucz, model: analiza.model },
-      {
-        max_tokens: 3000,
-        system: [analiza.prompt || PERSONA_ANALIZA, '', opisAuta].join('\n'),
-        messages: [
-          ...doModelu,
-          { role: 'user', content: [...blokiPytania.slice(0, -1), { type: 'text', text: brief }] },
-        ],
-        // Bez tego narzędzia model podaje linki z pamięci, czyli je zmyśla.
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
-      },
-    );
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     * WYSZUKIWANIE Z FILTROWANIEM WYNIKÓW — TAŃSZE PRZY TEJ SAMEJ JAKOŚCI
+     * ═══════════════════════════════════════════════════════════════════════
+     * Bez narzędzia model podaje linki z pamięci, czyli je zmyśla — dlatego
+     * wyszukiwanie zostaje. Zmienia się WERSJA narzędzia.
+     *
+     * `web_search_20250305` wrzuca KAŻDY wynik do kontekstu w całości, a przy
+     * `max_uses: 5` wyniki narastają i są przeliczane w kolejnych obrotach
+     * pętli. To one, a nie sam model, robiły z jednej analizy ~0,28 USD.
+     *
+     * `web_search_20260209` uruchamia wyszukiwanie z wnętrza wykonania kodu
+     * i filtruje wyniki, ZANIM wejdą do kontekstu. Anthropic nie liczy za to
+     * wykonanie kodu ponad zwykłe tokeny, a `max_uses` zostaje 5 — czyli model
+     * dostaje tyle samo źródeł, tylko bez balastu.
+     *
+     * ⚠️ WYMAGA MODELU 4.6+. Model analizy jest KONFIGUROWALNY z panelu
+     * (`ai_function_mapping.model_override`), więc administrator może ustawić
+     * starszy — wtedy API odpowiada 400. Odwrót niżej wraca wtedy do wersji
+     * podstawowej zamiast zostawiać mechanika bez odpowiedzi. Odwrót jest
+     * WARUNKOWY: przy zwykłej awarii sieci nie chcemy po cichu zmieniać
+     * narzędzia i płacić drożej bez powodu.
+     */
+    const cfgAnalizy = { klucz: analiza.klucz || wywiad.klucz, model: analiza.model };
+    const ciałoAnalizy = (narzedzie: string) => ({
+      max_tokens: 3000,
+      system: [analiza.prompt || PERSONA_ANALIZA, '', opisAuta].join('\n'),
+      messages: [
+        ...doModelu,
+        { role: 'user', content: [...blokiPytania.slice(0, -1), { type: 'text', text: brief }] },
+      ],
+      tools: [{ type: narzedzie, name: 'web_search', max_uses: 5 }],
+    });
+
+    let wynik = await zapytaj(cfgAnalizy, ciałoAnalizy('web_search_20260209'));
+
+    if (!wynik && /web_search_20260209|allowed_callers|tool.*not supported|unsupported/i.test(ostatniaOdmowa)) {
+      console.warn(JSON.stringify({
+        event: 'rido_help_wyszukiwanie_odwrot', model: cfgAnalizy.model,
+        powod: ostatniaOdmowa.slice(0, 200),
+      }));
+      wynik = await zapytaj(cfgAnalizy, ciałoAnalizy('web_search_20250305'));
+    }
 
     if (!wynik) return json({ error: 'Model nie odpowiedział. Spróbuj ponownie za chwilę.' }, 502);
 

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ustalKontekst, ustalZrodlo, pobierz, type Decyzja, type Kontekst } from "../_shared/vinRozliczenie.ts";
+import { odpowiedzBezVin, pojazdPotwierdzony } from "../_shared/vehicleIdentyfikacja.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -224,10 +225,23 @@ async function handleCheckRegistration(supabase: any, supabaseAdmin: any, userId
 
     const mapped = mapRegCheckVehicle(vehicleData, regNumber, null);
 
-    // Validate that we actually got useful data — only deduct credit if vehicle was found
-    if (!hasUsefulVehicleData(mapped)) {
-      await logIntegration(supabaseAdmin, userId, regNumber, null, "registration", "no_data", { raw: xmlText.substring(0, 2000), parsed: vehicleData }, "API zwróciło pustą odpowiedź — brak danych pojazdu");
-      return new Response(JSON.stringify({ error: "NOT_FOUND", message: "Nie znaleziono danych dla podanego numeru rejestracyjnego" }), {
+    // Kredyt schodzi WYŁĄCZNIE za potwierdzoną identyfikację — patrz
+    // `hasUsefulVehicleData`. Odpowiedź bez VIN-u nie jest odpowiedzią.
+    if (!hasUsefulVehicleData(mapped, true)) {
+      const bezVin = odpowiedzBezVin(mapped);
+      await logIntegration(
+        supabaseAdmin, userId, regNumber, null, "registration", "no_data",
+        { raw: xmlText.substring(0, 2000), parsed: vehicleData },
+        bezVin
+          ? "Rejestr podał markę/model bez VIN-u — nie uznajemy za identyfikację, kredyt nie schodzi"
+          : "API zwróciło pustą odpowiedź — brak danych pojazdu",
+      );
+      return new Response(JSON.stringify({
+        error: "NOT_FOUND",
+        message: bezVin
+          ? "Rejestr nie potwierdził tego pojazdu — nie podał numeru VIN. Nie pokazujemy danych, których nie potwierdził. Sprawdzenie nie zostało pobrane."
+          : "Nie znaleziono danych dla podanego numeru rejestracyjnego",
+      }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -334,7 +348,10 @@ async function handleCheckVin(supabase: any, supabaseAdmin: any, userId: string,
     }
 
     const mapped = mapRegCheckVehicle(vehicleData, null, vinNumber);
-    if (!hasUsefulVehicleData(mapped)) {
+    // Po VIN-ie numer znamy od klienta — potwierdzeniem jest to, ze rejestr
+    // cokolwiek o nim wie. Wymaganie VIN-u byloby tu tautologia: `mapRegCheckVehicle`
+    // wstawia w to pole numer z zapytania, wiec warunek zawsze bylby spelniony.
+    if (!hasUsefulVehicleData(mapped, false)) {
       await logIntegration(supabaseAdmin, userId, null, vinNumber, "vin", "no_data", { raw: xmlText.substring(0, 2000), parsed: vehicleData }, "API zwróciło pustą odpowiedź — brak danych pojazdu");
       return new Response(JSON.stringify({ error: "NOT_FOUND", message: "Nie znaleziono danych dla podanego numeru VIN" }), {
         status: 404,
@@ -438,9 +455,12 @@ function mapRegCheckVehicle(vehicleData: any, regNumber: string | null, vinNumbe
   };
 }
 
-function hasUsefulVehicleData(mapped: any) {
-  return !!(mapped.make || mapped.model || mapped.vin || mapped.engine_size || mapped.engine_power_kw);
-}
+// Reguła identyfikacji siedzi w `_shared/vehicleIdentyfikacja.ts` — to jedyna
+// rzecz decydująca w tej ścieżce o pobraniu pieniędzy, a taka rzecz ma mieć
+// test uruchamiany w CI, nie komentarz w środku funkcji na sześćset linii.
+// Tu zostaje wyłącznie alias, żeby wywołania niżej czytało się tak samo.
+const hasUsefulVehicleData = pojazdPotwierdzony;
+
 
 // Search portal's own workshop_vehicles database across ALL providers
 async function findInPortalDb(supabaseAdmin: any, plate: string | null, vin: string | null) {

@@ -2,7 +2,115 @@
 
 ---
 
-## ⭐ AKTUALIZACJA 09.09.2026 — CZYTAJ TO NAJPIERW
+## ⭐ AKTUALIZACJA 10.09.2026 — CZYTAJ TO NAJPIERW
+
+### 🔴 Sprawdzenie po tablicy pokazywało cudze auto — ZAMKNIĘTE
+
+Dwie różne przyczyny pod jednym objawem:
+
+**`WW140TV` — nasza wina, rejestr nie był pytany.** To tablica AUTA POKAZOWEGO
+z `src/lib/autoDemo.ts` (Toyota Auris HSD, VIN `SB1KZ3JE60E123456`), a skrót
+w `WorkshopAddVehicleDialog` działał ZAWSZE, nie tylko we wprowadzeniu.
+`WW140TV` jest przy tym PRAWDZIWĄ tablicą — należy do Opla Astry IV, VIN
+`W0VPD5ED4JG110852`. Rejestr pytany o nią odpowiada poprawnie i tak stoi
+w `vehicle_integration_logs` z 17.08; wpisów dla Toyoty nie ma tam w ogóle.
+Zasięg: 21 wierszy w `workshop_vehicles` u trzech warsztatów.
+Naprawa: skrót działa wyłącznie w `trybProbny`.
+
+⚠️ **Zostaje do rozstrzygnięcia:** auto pokazowe nadal używa cudzej, prawdziwej
+tablicy. Domknięciem jest przycisk „Wczytaj auto pokazowe" zamiast rozpoznawania
+po wpisanym numerze — wtedy żadna prawdziwa tablica nie może się z tym zderzyć.
+
+**`WK93400` — rejestr oddaje złe dane, my uznawaliśmy je za fakt.** Odpowiedź
+z 10.09: `CarMake BMW`, `CarModel "M 3 2.3 Kat. E30"`, VIN **pusty**,
+`ManufacturingYear "0"`. Klient ma BMW GT5. Warunek `hasUsefulVehicleData`
+brzmiał „którekolwiek pole niepuste", więc marka i model bez VIN-u przechodziły
+jako identyfikacja i schodził kredyt — dwa razy tego samego dnia.
+Reguła w `_shared/vehicleIdentyfikacja.ts`, test w CI na prawdziwych
+odpowiedziach. Zasięg: ze 172 sprawdzeń po tablicy VIN-u zabrakło w CZTERECH.
+
+**Czego NIE było, mimo podejrzeń:** dopasowania luźnego. `findInPortalDb` używa
+`ilike`, ale jest martwym kodem — nikt jej nie woła.
+
+**Osobno:** `vehicle_registry_cache` ma jeden wiersz z 19 marca. Pamięć podręczna
+praktycznie nie działa; nic z tego nie wynika dla poprawności, ale każde
+sprawdzenie idzie do płatnego API.
+
+### ✅ Trial WYGASA — poprzedni wpis (3.1) był NIEAKTUALNY
+
+Sprawdzone zachowaniem: `moze_pracowac` pobrana z produkcji i uruchomiona na
+kopii odmawia trialowi z minioną datą (`moze_pracowac = f`), przepuszcza
+trwający. `useSubscriptionAccess` mówi to samo — obie strony zamknęła migracja
+`20260821091000`. Na produkcji 11 trialów, **każdy z datą końca, żaden wygasły**.
+
+Zdanie z sekcji 3.1 („`moze_pracowac` i `useSubscriptionAccess` ignorują
+`current_period_end`") jest z 19.08 i nie obowiązuje. Powtórzyłem je 09.09 na
+liście blokerów bez sprawdzenia — błędnie.
+
+### Hawryluk — odnośnik płatności zwolniony, faktura do wystawienia
+
+Migracja `20260910095342`. Polecenie: `docs/billing/hawryluk-wystaw-fakture.md`.
+Numer 007 zostaje przy CART78GARAGE (decyzja z 10.09), Hawryluk dostaje kolejny.
+
+### 🔴 `ksef-integration` — BRAK JAKIEJKOLWIEK AUTORYZACJI
+
+`verify_jwt = false` i zero kontroli w kodzie. `getUserFromJwt` zwraca `null`
+przy braku tokenu i **funkcja idzie dalej**: gdy w ciele jest `invoice_id`,
+tożsamość ustala się z `user_invoices.user_id` TEJ FAKTURY, po czym używa
+tokenu KSeF jej właściciela.
+
+Da się z zewnątrz, znając identyfikator faktury albo encji:
+- **wysłać cudzą fakturę do KSeF** cudzym tokenem — nieodwracalnie,
+- odczytać jej pełny XML FA(3): nabywca, NIP, adres, kwoty,
+- odczytać i **nadpisać** `ksef_settings` wskazanej encji,
+- pobrać UPO i status.
+
+Ograniczenie: potrzebny jest identyfikator (UUID), więc nie da się tego
+przeglądać masowo. To zawęża zasięg, ale nie zamyka sprawy — identyfikatory
+wyciekają adresami, mailami i logami, a `send` jest nieodwracalny.
+
+**Rekomendacja: zamknąć przed uruchomieniem KSeF na produkcji.** Dopóki
+środowisko stoi na `integration`, szkoda jest odwracalna.
+
+---
+
+## ⭐ AKTUALIZACJA 09.09.2026
+
+### Wdrożone 09.09 (SHA porównane z `main`, nie numery wersji)
+
+`billing-invoice-issue`, `billing-faktura-mail-ponow`, `rido-help` — wszystkie
+trzy zgodne bajt w bajt, bez starych kopii `_shared`.
+
+### 🔴 AUTO-SERWIS HAWRYLUK ZAPŁACIŁ I NIE MA FAKTURY
+
+Zamówienie `MF4W6851B6…` z 09.09 09:51, 84,87 zł, status `oplacone`. Faktura
+GR/2026/007 wystawiona o 09:51 została **skasowana o 12:18** i nigdy nie
+wystawiono nowej. Konto ma dziś **zero aktywnych faktur**.
+
+Samo ponowienie płatności tego nie naprawi: `billing-invoice-issue` sprawdza
+`external_payment_ref` i znajduje SKASOWANY wiersz, po czym odpowiada
+`duplicate: true` — czyli melduje sukces nad nieistniejącym dokumentem.
+Indeks `user_invoices_external_payment_ref` jest przy tym unikalny **bez
+względu na `deleted_at`**, więc drugi wiersz z tym samym odnośnikiem i tak by
+nie wszedł.
+
+Do rozstrzygnięcia: czy faktura ma zostać wystawiona ponownie (wtedy trzeba
+zwolnić odnośnik płatności skasowanego wiersza), i czy Hawryluk dostał maila
+z numerem 007 — bo ten numer należy dziś do CART78GARAGE.
+
+### Numer faktury nie wraca (09.09)
+
+Skasowanie faktury zwalniało jej numer — stąd dwa GR/2026/007. Poprawione
+w siedmiu miejscach naraz plus wyzwalacz i **unikalny** indeks (dotąd nie był
+unikalny). Istniejąca kolizja **zostaje** i czeka na decyzję księgową; migracja
+`20260909162228` wypisuje ją ostrzeżeniem przy każdym przebiegu.
+
+### KSeF: instrukcja przełączenia
+
+`docs/billing/ksef-przelaczenie-na-produkcje.md`. Konto platformowe stoi na
+`integration` z tokenem testowym; token produkcyjny jeszcze nie wpisany.
+NIP tokenu i NIP sprzedawcy są zgodne (`5223377431`).
+
 
 Dokument niżej jest z 24.08 i **w kilku miejscach nieaktualny**. Co się zmieniło:
 
