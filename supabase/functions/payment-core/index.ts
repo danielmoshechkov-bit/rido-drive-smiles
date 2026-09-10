@@ -775,68 +775,91 @@ async function handleCreditsCheck(supabase: any, body: any) {
 async function handleAdminGrant(supabase: any, body: any, actorId: string | null = null) {
   const { user_id, credit_type, amount } = body;
 
-  if (credit_type === "vehicle_lookup") {
-    // Top up vehicle lookup credits (RegCheck VIN/plate)
-    const { data: existing } = await supabase
-      .from("vehicle_lookup_credits")
-      .select("remaining_credits, total_credits_purchased")
-      .eq("user_id", user_id)
-      .maybeSingle();
-    if (existing) {
-      await supabase.from("vehicle_lookup_credits").update({
-        remaining_credits: (existing.remaining_credits || 0) + amount,
-        total_credits_purchased: (existing.total_credits_purchased || 0) + amount,
-        updated_at: new Date().toISOString(),
-      }).eq("user_id", user_id);
-    } else {
-      await supabase.from("vehicle_lookup_credits").insert({
-        user_id, remaining_credits: amount, total_credits_purchased: amount,
-      });
-    }
-    await supabase.from("vehicle_lookup_credit_transactions").insert({
-      user_id, type: "admin_grant", credits: amount, source: "admin", note: `Admin grant ${amount} credits`,
-    });
-  } else if (credit_type === "sms") {
-    // Saldo SMS żyje na `service_providers.sms_balance`, ale zmieniamy je
-    // WYŁĄCZNIE przez `grant_sms_credits` — funkcja zapisuje saldo i wiersz
-    // księgi w jednej transakcji. Wcześniej był tu goły UPDATE, przez co
-    // nadanie nie zostawiało ŻADNEGO śladu (przy kredytach VIN zostawia)
-    // i na pytanie „skąd to saldo" nie dało się odpowiedzieć z bazy.
-    const { data: sp } = await supabase
-      .from("service_providers")
-      .select("id")
-      .eq("user_id", user_id)
-      // Konto może mieć więcej niż jeden warsztat — bez limitu `maybeSingle`
-      // zwróciłby błąd i nadanie po cichu poszłoby do gałęzi zapasowej.
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+  const ile = Number(amount);
+  if (!user_id || !credit_type) return json({ error: "Brak user_id albo credit_type" }, 400);
+  if (!Number.isFinite(ile) || ile <= 0) return json({ error: "Liczba sztuk musi być dodatnia" }, 400);
 
-    if (!sp) {
-      // Bez warsztatu nie ma gdzie zapisać SMS-ów. Gałąź zapasowa dopisywała
-      // je do `user_credits`, gdzie NIKT ich nie czyta przy wysyłce — kredyty
-      // znikały w tabeli, z której nie da się ich wydać.
-      console.error("payment-core: nadanie SMS bez warsztatu dla", user_id);
-      return new Response(
-        JSON.stringify({ error: "Konto nie ma warsztatu — nie ma gdzie zapisać SMS-ów." }),
-        { status: 400, headers: CORS },
-      );
-    }
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   * 🔴 NADANIE PISAŁO TAM, GDZIE NIKT NIE PATRZY
+   * ═══════════════════════════════════════════════════════════════════════
+   * Do 10.09.2026 `vehicle_lookup` szło do `vehicle_lookup_credits`, a każdy
+   * inny typ do `user_credits.credits_balance` — do tabeli z JEDNYM
+   * nietypowanym saldem, przez co ginął nawet rodzaj kredytu. Liczniki czytają
+   * `check_usage`: pulę z planu plus paczki z `billing_addon_packs`.
+   *
+   * Zapis kończył się powodzeniem, funkcja zwracała `{ ok: true }`, panel
+   * pisał „Przyznano 50 kredytów" — i było to prawdą co do zapisu, a nieprawdą
+   * co do skutku. Ten sam wzorzec co `duplicate: true` nad skasowaną fakturą.
+   *
+   * Błędów zapisu przy tym NIE SPRAWDZANO: gałąź `vehicle_lookup` ignorowała
+   * wynik `update`/`insert` całkowicie.
+   */
 
-    const { error: bladNadania } = await supabase.rpc("grant_sms_credits", {
+  // Paczka wisi przy WARSZTACIE, nie przy koncie. Konto może mieć kilka —
+  // bierzemy najstarszy, tak samo jak `billing-checkout` przy zakupie.
+  const { data: sp, error: bladWarsztatu } = await supabase
+    .from("service_providers")
+    .select("id, company_name")
+    .eq("user_id", user_id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (bladWarsztatu) {
+    console.error("payment-core: nie można odczytać warsztatu", bladWarsztatu);
+    return json({ error: "Nie udało się odczytać warsztatu tego konta." }, 503);
+  }
+  if (!sp) {
+    // Fail-closed i GŁOŚNO. Wcześniej gałąź zapasowa dopisywała jednostki do
+    // `user_credits`, skąd nie da się ich wydać — czyli znikały.
+    console.error("payment-core: nadanie bez warsztatu dla", user_id);
+    return json({ error: "To konto nie ma warsztatu — nie ma gdzie zapisać jednostek." }, 400);
+  }
+
+  if (credit_type === "sms") {
+    // SMS-y mają własną drogę: `grant_sms_credits` zapisuje paczkę I wiersz
+    // księgi w jednej transakcji. Dwie drogi do jednego salda rozjeżdżają się.
+    const { error } = await supabase.rpc("grant_sms_credits", {
       p_provider_id: sp.id,
-      p_ile: amount,
+      p_ile: ile,
       p_powod: "nadanie_admin",
       p_actor: actorId ?? null,
       p_opis: "Nadanie z panelu administratora",
     });
-    if (bladNadania) {
-      console.error("payment-core: grant_sms_credits", bladNadania);
-      return new Response(JSON.stringify({ error: "Nie udało się nadać SMS-ów" }), { status: 503, headers: CORS });
+    if (error) {
+      console.error("payment-core: grant_sms_credits", error);
+      return json({ error: "Nie udało się nadać SMS-ów." }, 503);
     }
-  } else {
-    await upsertCredits(supabase, user_id, credit_type, amount);
+    console.log(JSON.stringify({ event: "admin_grant", typ: "sms", ile, warsztat: sp.id, autor: actorId }));
+    return json({ ok: true, warsztat: sp.company_name });
   }
 
-  return new Response(JSON.stringify({ ok: true }), { headers: CORS });
+  const { data: pack, error: bladNadania } = await supabase.rpc("nadaj_paczke_admin", {
+    p_provider_id: sp.id,
+    p_cecha: credit_type,
+    p_ile: ile,
+    p_actor: actorId ?? null,
+    p_opis: "Nadanie z panelu administratora",
+  });
+
+  if (bladNadania) {
+    // Powód z bazy idzie NA WIERZCH. Odmowa „nieznana cecha" i awaria zapisu
+    // to dla administratora dwie różne sytuacje, a dotąd obie były niewidoczne.
+    const tresc = String(bladNadania.message ?? "");
+    const czytelne =
+      tresc.includes("NIEZNANA_CECHA") ? `Nie ma cechy rozliczeniowej „${credit_type}".`
+      : tresc.includes("CECHA_BEZ_SZTUK") ? `Cecha „${credit_type}" jest włączana w planie, a nie liczona na sztuki.`
+      : tresc.includes("SMS_MA_WLASNA_DROGE") ? "SMS-y nadaje się osobną drogą."
+      : tresc.includes("ZLA_ILOSC") ? "Liczba sztuk musi być dodatnia."
+      : "Nie udało się nadać jednostek.";
+    console.error("payment-core: nadaj_paczke_admin", bladNadania);
+    return json({ error: czytelne }, 400);
+  }
+
+  console.log(JSON.stringify({
+    event: "admin_grant", typ: credit_type, ile, warsztat: sp.id, paczka: pack, autor: actorId,
+  }));
+  return json({ ok: true, warsztat: sp.company_name });
 }
+
