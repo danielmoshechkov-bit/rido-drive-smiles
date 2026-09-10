@@ -393,6 +393,29 @@ kodu. Dlatego: każdy test polityk zawiera co najmniej jedną operację, która 
 i sprawdza, że się udała. Przy `UPDATE`/`DELETE` liczy dotknięte wiersze — polityka
 `RESTRICTIVE` filtruje wiersze, nie rzuca wyjątkiem, więc brak błędu nie znaczy sukcesu.
 
+### Sprawdzanie w przeglądarce: karta sterowana narzędziem jest UKRYTA
+
+Zakładka, którą prowadzi rozszerzenie, ma `document.visibilityState === "hidden"`.
+Chrome nie odtwarza w niej animacji CSS, więc `animationend` **nigdy nie pada**.
+
+Wszystko, co Radix (i każda inna biblioteka) odmontowuje dopiero po zakończeniu
+animacji wyjścia, **zostaje w DOM na zawsze** — widoczne, klikalne, z
+`data-state="closed"`. Wygląda dokładnie jak usterka: „karta nie znika po
+zamknięciu".
+
+To kosztowało pół sesji przy podpowiedziach dotykowych. Zanim uznasz taki objaw
+za usterkę:
+
+```js
+document.visibilityState          // "hidden" → animacje nie chodzą
+```
+
+I zawsze porównuj z wersją SPRZED zmiany w tym samym przebiegu. Jeśli stara
+zachowuje się tak samo, to nie jest regresja, tylko pomiar.
+
+To ta sama klasa co „zielony wynik z niedziałającego narzędzia" wyżej, tyle że
+odwrotna: **czerwony wynik z niedziałającego narzędzia.**
+
 ### Ukończona praca wraca do `main` tego samego dnia
 
 Lovable pracuje na `main`. Wszystko, co siedzi tylko na gałęzi roboczej, jest dla niego

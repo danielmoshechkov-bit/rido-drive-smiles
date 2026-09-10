@@ -2,6 +2,113 @@
 
 ---
 
+## ⭐ DECYZJA: PAMIĘCI PODRĘCZNEJ REJESTRU NIE ROBIMY (10.09.2026)
+
+To jest **decyzja**, nie dług. Nie ma jej na żadnej liście „do zrobienia".
+
+Rozważaliśmy trzymanie u siebie odpowiedzi rejestru pojazdów (CEPiK/RegCheck),
+żeby drugie pytanie o tę samą tablicę nie kosztowało kredytu. **Odrzucone.**
+
+**Dlaczego nie:**
+
+1. **Dane rejestru się zmieniają, a my nie wiemy kiedy.** Auto zmienia
+   właściciela, przechodzi przegląd, wypada z ubezpieczenia. Odpowiedź sprzed
+   trzech miesięcy wygląda tak samo jak dzisiejsza — i nie ma po niej poznać,
+   że jest nieaktualna. Warsztat podejmuje decyzję na naszych danych.
+2. **Oszczędność jest pozorna.** Ten sam warsztat rzadko pyta dwa razy o tę
+   samą tablicę; jak pyta, to zwykle dlatego, że coś się zmieniło.
+3. **Koszt utrzymania przewyższa zysk.** Pamięć podręczna wymaga własnej
+   polityki ważności, unieważniania i RLS (dane jednego warsztatu nie mogą
+   trafić do drugiego — a to jest właśnie sens takiej pamięci, więc albo jest
+   dziurawa, albo bezużyteczna).
+
+**Co robimy zamiast:** kredyt nie schodzi za odpowiedź, która nie jest
+odpowiedzią (`_shared/vehicleIdentyfikacja.ts`, 10.09.2026). To rozwiązuje
+prawdziwy problem — klient nie płacił za brak trafienia — bez trzymania
+cudzych danych.
+
+**Kiedy wrócić do tematu:** gdy rachunek za rejestr przekroczy sensowną część
+przychodu z modułu, i wtedy z jawnym terminem ważności pokazanym użytkownikowi
+(„dane z dnia X"), nigdy po cichu.
+
+---
+
+## ⭐ FUNKCJE BAZY: 13 BEZ MIGRACJI, 12 BEZ BAZY — ROZBICIE (10.09.2026)
+
+Wynik `scripts/sql-harness/sprawdz_dryf_funkcji.py`. Rozbicie, bo sama liczba
+niczego nie mówi — a po rozbiciu okazuje się, że **żadna z 25 pozycji nie jest
+usterką**. Trzy są warte odnotowania.
+
+### A. Trzynaście funkcji W BAZIE, których nie ma w migracjach
+
+| funkcja | skąd | co z tym |
+|---|---|---|
+| `voice_nadaj_minuty`, `voice_nalicz_minuty`, `voice_numery_do_zwolnienia`, `voice_odmowic_brak_minut`, `voice_pobierz_zadanie`, `voice_rozjazd_znany`, `voice_saldo_minut`, `voice_termin_niemozliwy`, `voice_wolno_recznie`, `voice_wyzeruj_minuty`, `voice_zarezerwuj_numer`, `voice_zglos_nieodebrane` (12) | agent głosowy, wgrywany poza repozytorium | **zostawiamy** — obowiązuje zakaz zmian w agencie głosowym; ale to znaczy, że `db reset` ich nie odtworzy |
+| `billing_clear_stripe_prices` (1) | nieznane, brak w repozytorium | **udokumentowane niżej** |
+
+`billing_clear_stripe_prices` to **funkcja wyzwalacza na planach**: gdy zmieni
+się `price_net`, `price_net_target` albo `vat_rate`, zeruje odpowiadający
+`stripe_price_id`. Sprawdzone: `SECURITY INVOKER`, `anon` i `authenticated`
+NIE mają `EXECUTE` — nie jest luką. Ale **cicho unieważnia cenę u operatora
+przy każdej zmianie cennika** i nikt tego nie napisał w repozytorium. Ktokolwiek
+będzie zmieniał ceny, ma o tym wiedzieć.
+
+### B. Dwanaście funkcji W MIGRACJACH, których nie ma w bazie
+
+Rozpadają się na cztery grupy — i **żadna nie jest przeoczeniem**:
+
+| grupa | funkcje | dlaczego ich nie ma |
+|---|---|---|
+| skasowane świadomie | `billing_active_plan`, `billing_active_subscription` | usunięte przez `20260810180000_billing_revision.sql`. **To fałszywy alarm kontroli** — porównuje ostatni `CREATE`, nie widzi późniejszego `DROP` |
+| migracja świadomie nieuruchomiona | `guard_sms_balance` | z `20260805090000_payments_lockdown.sql`. Nie uruchamiamy jej, bo front zapisuje salda z przeglądarki w 14 miejscach i wyzwalacz zablokowałby działający portal |
+| cała migracja niewdrożona (adresy ogłoszeń) | `slugify`, `build_vehicle_slug`, `set_vehicle_listing_slug` | `20260616120000_vehicle_listings_slug.sql` nigdy nie weszła. Potwierdzone: `vehicle_listings.slug` też nie istnieje |
+| cała migracja niewdrożona (most warsztat→klient) | `normalize_pl_phone`, `workshop_done_statuses`, `workshop_sync_service_history`, `client_vehicle_backfill_service_history`, `current_user_pl_phone`, `workshop_create_ownership_request` | most historii napraw z 06.2026 czeka na wdrożenie. Potwierdzone: `vehicle_ownership_requests` też nie istnieje |
+
+Żadna z dwunastu nie jest wołana z `src/` ani z funkcji brzegowych — cztery
+wystąpienia w kodzie to komentarze, nie wywołania. Nic dziś nie jest zepsute.
+
+### Co z tego wynika dla narzędzia
+
+Kontrola dryfu ma nauczyć się `DROP FUNCTION` — inaczej przy każdym przebiegu
+będzie zgłaszać dwie pozycje, o których wiadomo, że są w porządku, a **kontrola,
+która regularnie krzyczy na dobry kod, uczy ignorowania siebie**.
+
+---
+
+## ⭐ UKŁAD NA TELEFONIE — ZMIERZONY ZAKRES (10.09.2026)
+
+Osobna, większa praca. **Nie robimy jej teraz**; tu jest tylko odpowiedź na
+pytanie „ile to realnie jest".
+
+Zmierzone sygnałami statycznymi (nie klikaniem po ekranach — to jest szacunek
+zakresu, nie audyt):
+
+| sygnał | panel warsztatu (70 plików) | reszta portalu |
+|---|---|---|
+| `grid-cols-3..9` bez wariantu responsywnego | **8** | **89** |
+| gołe `<table>` (bez przewijania w poziomie) | **9** | **23** |
+| sztywne szerokości ≥ 400 px | **6** (w 4 plikach, 3 w oknach dialogowych) | **20** |
+
+**Wniosek: panel warsztatu to poprawka kilkunastu miejsc, nie przegląd całego
+panelu.** Reszta portalu to przegląd całego panelu.
+
+Co ratuje sytuację: prymitywu `<Table>` z `components/ui` nie trzeba ruszać —
+opakowuje tabelę w `overflow-auto` sam. Problem mają wyłącznie te miejsca,
+które omijają prymityw i piszą `<table>` wprost.
+
+**Kolejność, gdy przyjdzie na to czas:**
+
+1. Panel warsztatu — bo to jest to, co sprzedajemy warsztatom, i to na nim
+   stoi mechanik z telefonem przy aucie. Kilkanaście miejsc.
+2. Reszta portalu — osobne zadanie, po sprzedaży.
+
+**Zrobione już z rzeczy dotykowych:** podpowiedzi (karty pojazdu i klienta)
+działają na dotyk od 10.09.2026 — `src/components/ui/hover-card.tsx` sam
+przełącza się na `Popover`, gdy urządzenie nie umie najeżdżać. Wszystkie
+cztery miejsca użycia dostały to bez zmian u siebie.
+
+---
+
 ## 🔴 „SUCCESS" NIE ZNACZY, ŻE MIGRACJA WESZŁA (10.09.2026)
 
 Migracja `20260909162228_numer_faktury_nie_wraca` **nigdy nie weszła w życie**,
