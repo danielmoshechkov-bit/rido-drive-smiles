@@ -2,6 +2,55 @@
 
 ---
 
+## ⭐ DECYZJA: BIMI ODŁOŻONE, Z WARUNKIEM POWROTU (13.09.2026)
+
+**Nie robimy teraz.** To decyzja z terminem, nie dług bez daty.
+
+**Czego chcemy:** logo GetRido przy nadawcy w skrzynce odbiorcy, zamiast szarej
+ikony z inicjałem.
+
+**Co już mamy** (sprawdzone w DNS 13.09.2026):
+
+```
+_dmarc.getrido.pl   v=DMARC1; p=quarantine; rua=mailto:dmarc-report@lh.pl   ✓
+getrido.pl          v=spf1 include:_spf.lh.pl -all                          ✓
+default._domainkey  v=DKIM1; k=rsa; p=MIIBIja…                              ✓
+default._bimi       BRAK
+```
+
+`p=quarantine` to próg wymagany przez BIMI. Typowa droga zakłada 6–8 tygodni
+na dojście do egzekwowania DMARC — **tego etapu nie mamy przed sobą**.
+
+**Co blokuje:** Gmail NIE pokazuje logo bez certyfikatu. Samodzielnie
+zadeklarowane BIMI obsługuje niewielu dostawców i Gmaila wśród nich nie ma.
+
+| | CMC | VMC |
+|---|---|---|
+| efekt w Gmailu | logo | logo + niebieski znacznik |
+| warunek | logo publicznie używane **12+ miesięcy** | **zarejestrowany znak towarowy** |
+| koszt rocznie | ~1500–3000 USD | ~1500–5000+ USD |
+| wydanie | 7–10 dni | 7–10 dni |
+
+**WARUNEK POWROTU — wracamy, gdy zajdzie JEDNO z dwóch:**
+
+1. logo przekroczy **rok publicznego użycia** → bierzemy CMC,
+2. zarejestrujemy **znak towarowy** (UPRP albo EUIPO) → bierzemy VMC.
+
+Nie wcześniej. Półtora tysiąca dolarów rocznie za ikonkę przed pierwszą
+kampanią to zły wydatek, a bez certyfikatu i tak nic nie widać.
+
+**Co robimy zamiast:** darmowe konto Google na `noreply@getrido.pl` ze zdjęciem
+profilowym. Gmail dopasowuje zdjęcie po adresie nadawcy, więc logo pokaże się
+większości naszych odbiorców. Nie daje niebieskiego znacznika i nie działa poza
+Gmailem — ale kosztuje zero. Pliki: `public/brand/getrido-avatar-czarny.png`
+(zalecany) i `…-bialy.png`, 512×512, bez przezroczystości, z zapasem marginesu
+na przycięcie do koła.
+
+Gdy przyjdzie czas na BIMI, potrzebny będzie osobny plik: **SVG Tiny PS**,
+kwadratowy, poniżej 32 KB, po HTTPS.
+
+---
+
 ## ⭐ DECYZJA: PAMIĘCI PODRĘCZNEJ REJESTRU NIE ROBIMY (10.09.2026)
 
 To jest **decyzja**, nie dług. Nie ma jej na żadnej liście „do zrobienia".

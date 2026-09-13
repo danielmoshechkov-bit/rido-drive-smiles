@@ -142,6 +142,8 @@ Deno.serve(async (req) => {
             invoice_id: f.id,
             recipient_email: f.buyer_email,
             type: "faktura_oplacona",
+            // Jak w `billing-invoice-issue`: wiadomość jednostronna.
+            bez_odpowiedzi: true,
           }),
         });
         const w = await odp.json().catch(() => ({}));

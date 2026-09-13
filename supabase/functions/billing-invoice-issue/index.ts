@@ -518,6 +518,10 @@ Deno.serve(async (req) => {
                 invoice_id: faktura.id,
                 recipient_email: mailDo,
                 type: "faktura_oplacona",
+                // Faktura platformy jest wiadomością JEDNOSTRONNĄ: bez adresu
+                // zwrotnego, bo spraw fakturowych nie prowadzimy skrzynką.
+                // Treść odsyła do czatu pomocy w panelu.
+                bez_odpowiedzi: true,
                 ...(pdfBase64 ? { pdf_base64: pdfBase64 } : {}),
               }),
             });
