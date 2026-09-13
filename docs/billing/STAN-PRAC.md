@@ -2,6 +2,62 @@
 
 ---
 
+## ⭐ KARTA ZLECENIA NA TELEFONIE — ZMIERZONA I POPRAWIONA (13.09.2026)
+
+Domyka pozycję „reszta portalu" o ekran, na którym mechanik spędza najwięcej czasu.
+
+### Co było zepsute i o ile
+
+| miejsce | nadmiar przy 360 px | co zrobione |
+|---|---|---|
+| pasek „Robocizna / Usługi" i „Części i materiały" | jeden rząd chciał 524 px przy 296 dostępnych → **228 px** | nagłówek osobno, pod nim przełącznik + wyszukiwarka |
+| `WorkshopWarehouse` — pasek zakładek | **+321 px** | `flex h-auto flex-wrap` |
+| `WorkshopSales` — cztery przyciski widoku | **+71 px** | `flex-wrap` |
+| `WorkshopDashboard` (cennik) | **+71 px** | `w-full` obok `mx-auto` |
+| `WorkshopPortalBookings` — grupa nagłówka | **+20 px** | `flex-wrap` |
+
+Po zmianach: dwanaście modułów warsztatu, zero trafień. Kontrola pozytywna
+uruchomiona przed przeglądem i po nim.
+
+### 🔴 `mx-auto` w kolumnie `flex` znosi rozciąganie
+
+Najciekawsze znalezisko. Rodzic to `flex flex-col` o szerokości 328 px, a blok
+z `max-w-5xl mx-auto` miał 415 px. Marginesy `auto` w osi poprzecznej **znoszą
+`align-items: stretch`**, więc element bierze swoją szerokość MAKSYMALNĄ zamiast
+szerokości rodzica. `min-w-0` tu nie pomaga (sprawdzone na żywo: dalej 415),
+pomaga `w-full`. Wzorzec `max-w-* mx-auto` jest w tym repozytorium wszędzie —
+w kolumnie `flex` jest pułapką.
+
+### Zmierzone i ZOSTAWIONE bez zmian
+
+- **Pasek zakładek karty zlecenia**: osiem zakładek wymaga 951 px, widać 328.
+  Wygląda na ucięty i nie jest — `overflow-x: auto` działa, `scrollLeft` dochodzi
+  do 623, ostatnia zakładka („Rozmowa telefoniczna", 161 px) staje się w całości
+  widoczna. `scrollbar-hide` ukrywa pasek, nie wyłącza przewijania.
+- **Nagłówek mobilny karty zlecenia**: każdy rząd 328 px = kolumna.
+
+### Czego NIE zmierzono i dlaczego
+
+Zawartości zakładek karty zlecenia z żywymi danymi. Konto, na którym szedł
+przegląd (`daniel.moshechkov@gmail.com`), **nie ma ani jednego zlecenia**, a
+karty zlecenia nie da się otworzyć adresem — wybór zlecenia to stan komponentu,
+nie parametr trasy. Zlecenia mają: CART78GARAGE (145), AUTO-SERWIS HAWRYLUK (11),
+CART sp. z o.o. (6). Żeby zmierzyć resztę zakładek, trzeba zalogować się na
+któreś z nich.
+
+Zmierzone zostały za to same znaczniki nagłówków sekcji, wstawione do
+PRAWDZIWEJ kolumny modułu warsztatu — ta sama kolumna, w której renderuje się
+karta zlecenia, ta sama szerokość 328 px, ten sam krój i te same klasy.
+
+### Pułapka pomiarowa złapana po drodze
+
+Kolumna modułu warsztatu to `display: flex`. Element wstawiony do niej bez
+`width` jest elementem elastycznym z `min-width: auto` i **rozdyma się do swojej
+treści** — pierwsze liczby mówiły o tym, nie o układzie. Slot pomiarowy musi
+mieć `width: 328px; display: block`.
+
+---
+
 ## ⭐ UKŁAD NA TELEFONIE — RESZTA PORTALU ZMIERZONA I POPRAWIONA (13.09.2026)
 
 Zamyka pozycję „UKŁAD NA TELEFONIE — ZMIERZONY ZAKRES" z 10.09 (niżej w tym pliku).
@@ -208,6 +264,35 @@ Reszta to w większości drobiazgi.
 gwarancja nie daje żadnego sygnału aż do pierwszej złej rozmowy z klientem.
 
 ---
+
+
+### Stan testów na 13.09.2026 — od czego zacząć
+
+`npm run test:voice` (deno, `supabase/functions/_shared/`) daje
+**250 przeszło / 13 padło**. Sprawdzone osobnym drzewem roboczym na czystym
+`origin/main` — dokładnie ten sam wynik, więc czerwień przyszła z pracy nad
+agentem, nie z pracy nad rozliczeniami. Te testy NIE są w CI, więc nic ich nie
+pilnuje.
+
+Co pada:
+- `voiceProductionCanary_test.ts` — dwanaście przypadków (zdanie o awarii,
+  forma grzecznościowa, czytanie cyfr, pożegnanie razem z `end_call`, okno
+  rozmowy i pozostałe),
+- `voiceSnapshot_test.ts` — jeden: „pierwsze trzy dni mają nazwy, weekend jest
+  zamknięty z powodem".
+
+Najkrótszy przykład, od którego warto zacząć, bo mówi wprost, co się zmieniło:
+
+```
+zbudujDni("2026-08-14", 4, godziny, …)   // 2026-08-14 to piątek
+assert.equal(dni[1].klucz, "jutro")      // oczekiwane
+                                          // dostajemy: "sat_15"
+```
+
+Data w teście jest STAŁA, więc to nie jest test zależny od dnia uruchomienia.
+Zmieniło się zachowanie `zbudujDni` dla dni zamkniętych: przestały dostawać
+nazwy względne („jutro", „pojutrze"). Trzeba rozstrzygnąć, która wersja jest
+właściwa — i to jest część tego samego pogodzenia wersji, co reszta tej pozycji.
 
 ## ⭐ WIDOK KALENDARZA NA TELEFONIE — DO PRZEMYŚLENIA, NIE DO POPRAWKI CSS
 

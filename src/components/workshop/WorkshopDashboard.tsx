@@ -483,8 +483,17 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           </div>
         );
       case 'cennik':
+        /*
+         * 🔴 `mx-auto` W KOLUMNIE `flex` WYŁĄCZA ROZCIĄGANIE.
+         * Rodzic to `flex flex-col` o szerokości 328 px (telefon 360 px), ale
+         * marginesy `auto` w osi poprzecznej znoszą `align-items: stretch` —
+         * więc ten blok bierze swoją szerokość MAKSYMALNĄ, nie szerokość
+         * rodzica. Zmierzone: 415 px zamiast 328, czyli 71 px poza ekran.
+         * `min-w-0` tu NIE pomaga (sprawdzone: dalej 415), pomaga `w-full`
+         * (sprawdzone na żywo w ramce 360 px: 328 px i zero trafień).
+         */
         return (
-          <div className="max-w-5xl mx-auto py-2">
+          <div className="w-full max-w-5xl mx-auto py-2">
             <h2 className="text-xl font-semibold mb-1">{t('workshop.dashboard.tiles.cennik')}</h2>
             <p className="text-sm text-muted-foreground mb-4">
               {t('workshop.dashboard.cennik.desc')}

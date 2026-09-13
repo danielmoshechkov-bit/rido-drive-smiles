@@ -683,6 +683,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
       </div>
 
       {/* Header - mobile */}
+      {/*
+        ZMIERZONE PRZY 360 px: cały nagłówek mieści się w kolumnie 328 px.
+        Rząd z numerem i statusem 328, rząd z datą, klientem i pojazdem 328
+        (klient 127 px, pojazd 134 px — zawijanie `flex-wrap` wystarcza),
+        rząd przycisków 328 z własnym przewijaniem w poziomie.
+        Zmiana układu byłaby tu przemeblowaniem, nie naprawą.
+      */}
       <div className="md:hidden space-y-3">
         <div className="flex items-center justify-between">
           <span className="font-bold text-lg">{order.order_number}</span>
@@ -695,12 +702,31 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
             size="xs"
           />
         </div>
+        {/*
+          🔴 KARTY POJAZDU I KLIENTA — TAKŻE TU, NIE TYLKO W LIŚCIE ZLECEŃ.
+          Do 13.09.2026 ten nagłówek był jedynym miejscem w warsztacie, gdzie
+          dotknięcie pojazdu nie robiło NIC, a dotknięcie klienta otwierało od
+          razu okno edycji. Mechanik, który chciał tylko odczytać numer telefonu
+          albo VIN, trafiał do formularza, którego nie szukał — albo donikąd.
+
+          Te same komponenty co w liście zleceń, świadomie: trzecia kopia
+          znaczyłaby, że za miesiąc dwie z trzech działają inaczej.
+          Na dotyk `ui/hover-card` sam przełącza się na `Popover` i WYŁĄCZA
+          własny `onClick` wyzwalacza, więc dalsze czynności prowadzą przez
+          przyciski WEWNĄTRZ karty („Otwórz", „Zmień").
+        */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {order.created_at && <span>{format(new Date(order.created_at), 'dd.MM.yyyy')}</span>}
           {clientName ? (
-            <button type="button" onClick={() => setEditClientOpen(true)} className="flex items-center gap-1 hover:text-primary">
-              <Users className="h-3 w-3" /> {clientName}
-            </button>
+            <WorkshopClientHoverCard
+              client={order.client}
+              onEdit={() => setEditClientOpen(true)}
+              onChange={() => setPickClientOpen(true)}
+            >
+              <button type="button" onClick={() => setEditClientOpen(true)} className="flex items-center gap-1 hover:text-primary">
+                <Users className="h-3 w-3" /> {clientName}
+              </button>
+            </WorkshopClientHoverCard>
           ) : (
             <button
               type="button"
@@ -710,7 +736,13 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
               <UserPlus className="h-3 w-3" /> Dodaj klienta
             </button>
           )}
-          {vehicleName && <span className="flex items-center gap-1"><Car className="h-3 w-3" /> {vehicleName}</span>}
+          {vehicleName && (
+            <WorkshopVehicleHoverCard vehicle={order.vehicle} onEdit={() => setEditVehicleOpen(true)}>
+              <button type="button" onClick={() => setEditVehicleOpen(true)} className="flex items-center gap-1 hover:text-primary">
+                <Car className="h-3 w-3" /> {vehicleName}
+              </button>
+            </WorkshopVehicleHoverCard>
+          )}
         </div>
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
           <Button variant="outline" size="sm" className="h-7 text-xs gap-1 shrink-0" onClick={() => {
@@ -750,6 +782,22 @@ export function WorkshopOrderDetail({ order, providerId, onBack, fullOrderLoaded
       </div>
 
       {/* Tabs */}
+      {/*
+        ZMIERZONE PRZY 360 px, ZOSTAWIONE BEZ ZMIAN.
+
+        Osiem zakładek wymaga 951 px, widać 328 — więc na telefonie wygląda to
+        na ucięte i pierwszym odruchem jest „zawinąć do dwóch rzędów". Pomiar
+        mówi, że nie trzeba: `overflow-x: auto` działa, `scrollLeft` dochodzi do
+        623 px, a ostatnia zakładka („Rozmowa telefoniczna") staje się w całości
+        widoczna. Żadna nie znika.
+
+        Szerokości pojedynczych zakładek przy 360 px:
+        Wycena zlecenia 130, Podstawowe 105, Uwagi i historia 120,
+        Podsumowanie 120, Terminarz 90, Pliki 55, Dane naprawcze 128,
+        Rozmowa telefoniczna 161.
+
+        `scrollbar-hide` ukrywa pasek, ale NIE wyłącza przewijania — sprawdzone.
+      */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-transparent w-full justify-start gap-1.5 h-auto p-0 overflow-x-auto scrollbar-hide flex-nowrap mb-4">
           {[
