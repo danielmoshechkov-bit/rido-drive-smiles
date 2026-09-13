@@ -1068,10 +1068,11 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
             </div>
             <div className="space-y-1 col-span-2">
               <Label className="text-xs">Bieżnik na każdą oponę (mm)</Label>
-              {/* Tu są POLA DO WPISANIA, nie same liczby — cztery obok siebie
-                  na telefonie dają pola tak wąskie, że nie widać wpisywanej
-                  wartości. 2x2 zachowuje układ kół. */}
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {/* Zmierzone 13.09.2026 na żywym panelu: przy czterech kolumnach
+                  i szerokości telefonu pole ma 80 px i mieści SZEŚĆ znaków,
+                  a wartość bieżnika to trzy („6.5"). Układ 2x2 był tu
+                  zaproponowany i COFNIĘTY — naprawiał problem, którego nie ma. */}
+              <div className="grid grid-cols-4 gap-1.5">
                 {([
                   ['lp', 'Lewa przód', bieznikLP, setBieznikLP],
                   ['pp', 'Prawa przód', bieznikPP, setBieznikPP],

@@ -86,7 +86,7 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 > **Zanim uwierzysz zielonemu wynikowi** — przeczytaj
 > „🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA" niżej.
-> Trzynaście znanych sposobów, na jakie kontrola w tym repozytorium
+> Piętnaście znanych sposobów, na jakie kontrola w tym repozytorium
 > potrafi wypaść zielono nad zepsutym kodem.
 
 
@@ -424,6 +424,8 @@ to zauważy. Poniżej znane przypadki — każdy wyszedł drogo.
 | **`EXCEPTION WHEN … OR …`** | jeden blok łapiący `insufficient_privilege` RAZEM z `check_violation` nie odróżnia ODMOWY od ZŁEGO KSZTAŁTU DANYCH. `coin_transactions` odczytane jako bezpieczne, choć polityka przepuszczała zapis do księgi monet | „ODMOWA" przy danych, które i tak były niepoprawne | zapisz i porównaj **`SQLSTATE`**: `42501` to odmowa, `23502`/`23514` znaczą, że polityka POZWOLIŁA |
 | **Pusty obiekt jako test RLS** | `NOT NULL` sprawdza się PRZED polityką, więc `INSERT {}` daje `23502` niezależnie od tego, czy polityka przepuszcza. Przemiat dwunastu tabel „bez odmów" był z tego powodu bez wartości | wszystkie wyniki to `23502` | wysyłaj **komplet poprawnych danych**; dopiero wtedy odpowiada polityka |
 | **`Prefer: return=representation`** | `INSERT … RETURNING` podlega politykom **SELECT**, nie INSERT. Zapis przechodzi, a odczyt zaraz po nim wywraca się na `42501` — i wygląda, jakby zapis był zablokowany | ten sam `INSERT` z `return=minimal` daje 201, z `representation` 401 | testuj obiema formami; w kodzie nie proś bazy o wiersz, który sam ulepiłeś |
+| **`resize_window` w Chrome pod rozszerzeniem** | melduje sukces, `outerWidth` się zmienia, ale **`innerWidth` zostaje** — strona renderuje się w stałej szerokości. Każdy test punktu granicznego (`md:`, `sm:`) jest w tym środowisku nieważny | `resize_window(390)` → `innerWidth` nadal 1246 | sprawdzaj `window.innerWidth` po zmianie; gałąź mobilną odsłaniaj wstrzykniętym `!important`, a nie szerokością okna |
+| **Zmiana układu „bo na telefonie się nie zmieści"** | oko na zrzucie z szerokiego ekranu nie mówi nic o wąskim. Cztery pola bieżnika „wyglądały na ściśnięte" — pomiar dał 80 px i **sześć znaków** przy wartości trzyznakowej | brak liczby w uzasadnieniu | zmierz: szerokość elementu, liczbę linii tekstu, ile znaków się mieści. Bez liczby to nie jest naprawa, tylko przemeblowanie |
 
 **Reguła nadrzędna: każda bramka, kontrola i test w tym repozytorium ma mieć
 własną kontrolę pozytywną** — przypadek, o którym wiadomo, że jest zły, i który
