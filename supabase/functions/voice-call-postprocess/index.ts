@@ -49,6 +49,18 @@ async function verifySignature(rawBody: string, header: string | null, secret: s
   return timingSafeEqual(hex, v0);
 }
 
+/**
+ * Skrót numeru dzwoniącego. MUSI liczyć się tak samo jak w `voice-agent-init` —
+ * ta funkcja zapisuje skrót, tamta go szuka. Rozjazd soli albo algorytmu
+ * znaczy limit, który po cichu nie działa.
+ */
+async function skrotDzwoniacego(numer: string): Promise<string> {
+  const sol = Deno.env.get("DEMO_SOL") ?? "getrido-demo";
+  const bajty = new TextEncoder().encode(`${sol}:${numer}`);
+  const hash = await crypto.subtle.digest("SHA-256", bajty);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -249,10 +261,38 @@ serve(async (req) => {
           event: "naliczenie_bez_wiersza", conversation_id: conversationId,
         }));
       } else {
+        /**
+         * ZNACZNIK DEMA I SKRÓT DZWONIĄCEGO.
+         *
+         * Rozmowa z publicznego numeru demonstracyjnego powstaje normalnie —
+         * z prawdziwym SMS-em i prawdziwą rezerwacją, bo to jest dowód na
+         * produkt. Znacznik jest po to, żeby dało się ją odfiltrować ze
+         * statystyk warsztatu, który demo udostępnia.
+         *
+         * Skrót numeru dzwoniącego zapisujemy TUTAJ, bo tu mamy go z payloadu
+         * webhooka. Służy wyłącznie limitowi „dwie rozmowy na dobę" w demie —
+         * numer w jawnej postaci nadal nigdzie nie ląduje.
+         */
+        const { data: numerWarsztatu } = await admin.from("voice_numbers")
+          .select("demonstracyjny").eq("provider_id", providerId)
+          .eq("status", "aktywny").maybeSingle();
+
+        const dzwoniacy = String(
+          payload?.data?.metadata?.phone_call?.external_number
+          ?? payload?.data?.conversation_initiation_client_data?.dynamic_variables?.system__caller_id
+          ?? "",
+        ).replace(/\D/g, "");
+
+        const doDopisania: Record<string, unknown> = {};
         if (!Number(wiersz.duration_seconds) && sekundyZWebhooka > 0) {
-          await admin.from("voice_calls")
-            .update({ duration_seconds: sekundyZWebhooka })
-            .eq("id", wiersz.id);
+          doDopisania.duration_seconds = sekundyZWebhooka;
+        }
+        if (numerWarsztatu?.demonstracyjny) {
+          doDopisania.z_dema = true;
+          if (dzwoniacy) doDopisania.dzwoniacy_skrot = await skrotDzwoniacego(dzwoniacy);
+        }
+        if (Object.keys(doDopisania).length) {
+          await admin.from("voice_calls").update(doDopisania).eq("id", wiersz.id);
         }
         const { data: nalicz, error: bladNaliczenia } =
           await admin.rpc("voice_nalicz_minuty", { p_call_id: wiersz.id });
