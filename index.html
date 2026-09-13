@@ -2,6 +2,37 @@
 <html lang="pl">
   <head>
     <meta charset="UTF-8" />
+
+    <!--
+      ZGODA DOMYŚLNIE ODMÓWIONA — MUSI BYĆ PIERWSZE W <head>.
+
+      Consent Mode v2 działa tylko wtedy, gdy sygnał `default` dotrze do Google
+      ZANIM poleci jakikolwiek tag. Wstawiony niżej albo wysłany z Reacta jest
+      spóźniony: pierwszy strzał poszedłby bez zgody i to on liczyłby się przy
+      kontroli EU User Consent Policy.
+
+      Cztery parametry to za mało — v2 wymaga też `ad_user_data`
+      i `ad_personalization`. Odwzorowanie naszych kategorii na te parametry
+      siedzi w `src/lib/zgody.ts` i to stamtąd idzie późniejszy `update`.
+
+      `wait_for_update` daje banerowi pół sekundy na odpowiedź, zanim Google
+      uzna brak sygnału za ostateczny.
+    -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { window.dataLayer.push(arguments); }
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        analytics_storage: 'denied',
+        functionality_storage: 'granted',
+        personalization_storage: 'denied',
+        security_storage: 'granted',
+        wait_for_update: 500
+      });
+    </script>
+
     <link rel="icon" type="image/png" href="/lovable-uploads/6fb7181a-c1bd-4e7b-be77-b8bd95b04042.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
     <meta name="theme-color" content="#6C4AE2" />
