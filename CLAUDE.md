@@ -86,7 +86,7 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 > **Zanim uwierzysz zielonemu wynikowi** — przeczytaj
 > „🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA" niżej.
-> Dziesięć znanych sposobów, na jakie kontrola w tym repozytorium
+> Trzynaście znanych sposobów, na jakie kontrola w tym repozytorium
 > potrafi wypaść zielono nad zepsutym kodem.
 
 
@@ -421,6 +421,9 @@ to zauważy. Poniżej znane przypadki — każdy wyszedł drogo.
 | **`count(*)` na tabeli** | zero wierszy nie znaczy „nieużywana" — znaczy tylko „nikt jeszcze nie zapisał" | tabela z 0 wierszy, na której stoi 12 plików frontu | sprawdź TRZY sygnały: dane, kod (`.from('…')`), więzy (`pg_constraint` w obie strony) |
 | **Zielony KSeF** | schemat FA(3) przyjmie fakturę merytorycznie wadliwą, nada numer i wystawi UPO | cena jednostkowa z ułamkiem grosza przechodzi walidację | zgodność z XSD i zgodność z prawem to DWA różne sprawdzenia |
 | **Zestaw samych odmów** | gdy podkład jest zepsuty, baza odmawia wszystkiego, a test pytający „czy odmówiono" wypada zielono | żaden przypadek nie kończy się sukcesem | każdy zestaw ma zawierać operację, która MA się udać, i liczyć dotknięte wiersze |
+| **`EXCEPTION WHEN … OR …`** | jeden blok łapiący `insufficient_privilege` RAZEM z `check_violation` nie odróżnia ODMOWY od ZŁEGO KSZTAŁTU DANYCH. `coin_transactions` odczytane jako bezpieczne, choć polityka przepuszczała zapis do księgi monet | „ODMOWA" przy danych, które i tak były niepoprawne | zapisz i porównaj **`SQLSTATE`**: `42501` to odmowa, `23502`/`23514` znaczą, że polityka POZWOLIŁA |
+| **Pusty obiekt jako test RLS** | `NOT NULL` sprawdza się PRZED polityką, więc `INSERT {}` daje `23502` niezależnie od tego, czy polityka przepuszcza. Przemiat dwunastu tabel „bez odmów" był z tego powodu bez wartości | wszystkie wyniki to `23502` | wysyłaj **komplet poprawnych danych**; dopiero wtedy odpowiada polityka |
+| **`Prefer: return=representation`** | `INSERT … RETURNING` podlega politykom **SELECT**, nie INSERT. Zapis przechodzi, a odczyt zaraz po nim wywraca się na `42501` — i wygląda, jakby zapis był zablokowany | ten sam `INSERT` z `return=minimal` daje 201, z `representation` 401 | testuj obiema formami; w kodzie nie proś bazy o wiersz, który sam ulepiłeś |
 
 **Reguła nadrzędna: każda bramka, kontrola i test w tym repozytorium ma mieć
 własną kontrolę pozytywną** — przypadek, o którym wiadomo, że jest zły, i który

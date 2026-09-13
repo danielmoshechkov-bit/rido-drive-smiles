@@ -291,24 +291,42 @@ export function ServiceBookingModal({ provider, service, open, onOpenChange }: S
         source: 'portal',
       };
 
-      const bookingRequest = bookingId
-        ? supabase
+      /**
+       * 🔴 NIE PROSIMY BAZY O WIERSZ, KTÓRY SAMI ULEPILIŚMY.
+       *
+       * Do 13.09.2026 zapis kończył się `.select('booking_number, id').single()`,
+       * czyli `INSERT … RETURNING`. A `RETURNING` podlega politykom **SELECT**,
+       * nie INSERT — i niezalogowany nie spełnia żadnej z nich
+       * (`customer_user_id = auth.uid()` przy `customer_user_id = null` daje
+       * NULL, nie prawdę).
+       *
+       * Skutek: sam zapis PRZECHODZIŁ, a odczyt zaraz po nim wywracał się na
+       * `42501`, więc klient bez konta dostawał błąd mimo założonej rezerwacji.
+       * Potwierdzone kluczem `anon`: `Prefer: return=minimal` → HTTP 201,
+       * `return=representation` → HTTP 401. To była JEDYNA droga, którą klient
+       * z ogłoszenia trafia do warsztatu.
+       *
+       * Naprawa nie rusza polityk — poszerzenie SELECT dla `anon` pokazałoby mu
+       * cudze rezerwacje. Zamiast tego nadajemy identyfikator PO NASZEJ STRONIE,
+       * tak jak od dawna nadajemy numer rezerwacji, i nie potrzebujemy zwrotki.
+       */
+      const numerRezerwacji = bookingNumber || 'BK-' + Date.now().toString(36).toUpperCase();
+      const idRezerwacji = bookingId || crypto.randomUUID();
+
+      const { error } = bookingId
+        ? await supabase
             .from('service_bookings')
             .update(bookingPayload)
             .eq('id', bookingId)
-            .select('booking_number, id')
-            .single()
-        : supabase
+        : await supabase
             .from('service_bookings')
-            .insert([{ booking_number: 'BK-' + Date.now().toString(36).toUpperCase(), ...bookingPayload }])
-            .select('booking_number, id')
-            .single();
-
-      const { data: booking, error } = await bookingRequest;
+            .insert([{ id: idRezerwacji, booking_number: numerRezerwacji, ...bookingPayload }]);
 
       if (error) throw error;
-      setBookingNumber(booking.booking_number || '');
-      setBookingId(booking.id);
+      setBookingNumber(numerRezerwacji);
+      setBookingId(idRezerwacji);
+
+      const booking = { id: idRezerwacji, booking_number: numerRezerwacji };
 
       // Wyślij SMS z 4-cyfrowym kodem weryfikacji (portalowy)
       const { data: smsData, error: smsErr } = await supabase.functions.invoke('booking-send-verification', {
