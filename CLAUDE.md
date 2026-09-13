@@ -90,6 +90,36 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 > potrafi wypaść zielono nad zepsutym kodem.
 
 
+### 🔴 NAJPIERW FUNKCJA BRZEGOWA, POTEM FRONT — ODWROTNA KOLEJNOŚĆ COŚ WYKONUJE
+
+Funkcje brzegowe **nie jadą z `deploy.yml`**. Front wypuszcza GitHub Action,
+funkcje wdraża się osobno (`supabase functions deploy <nazwa>`). Wypuszczenie
+frontu przed funkcją nie jest kwestią porządku — **stara funkcja robi coś,
+czego nikt nie prosił**.
+
+13.09.2026: przycisk „Sprawdź ceny u operatora" (tylko odczyt) trafił na starą
+wersję `billing-stripe-sync`. Ta nie znała pola `akcja`, więc **zignorowała je
+i wykonała swoje działanie domyślne: pełną synchronizację cennika w Stripe**.
+Cztery wpisy `plan.stripe_synced` w księdze, z sekundy kliknięcia. Front
+przeczytał `rozjazdow ?? 0` z odpowiedzi na inne pytanie i napisał
+„ceny zgodne (0 sprawdzonych)".
+
+**Nieznane pole w ciele żądania nie jest błędem — jest ciszą.** JSON nie ma
+kontroli wersji, funkcja bierze, co zna, i robi to, co robiła zawsze. Przy
+funkcji zapisującej domyślnym działaniem jest zapis.
+
+Trzy rzeczy, które z tego wynikają:
+
+1. **Kolejność wdrożenia: funkcja, potem front.** Zawsze, nie tylko przy
+   nowych trybach — nowe pole, nowy parametr, nowa akcja to ta sama sytuacja.
+2. **Front sprawdza, czy odpowiedź jest odpowiedzią NA JEGO PYTANIE**, zanim
+   z niej cokolwiek odczyta. Funkcja odsyła znacznik (`akcja: 'sprawdz'`),
+   a front bez tego znacznika mówi „wdrożona wersja tego nie zna", nie
+   „zgodne”. Bez tego `?? 0` zamienia brak pola w zero, a zero w sukces.
+3. **Tryb tylko-do-odczytu dołożony do funkcji zapisującej jest z natury
+   niebezpieczny** do czasu wdrożenia. Jeśli przycisk ma być nieszkodliwy
+   z definicji, właściwą odpowiedzią jest OSOBNA funkcja — nie flaga.
+
 ### Warunek w kodzie i więz w bazie muszą mówić to samo
 
 Najważniejsza rzecz, jaka wyszła z tej sesji. Zmiana jednego bez drugiego nie naprawia

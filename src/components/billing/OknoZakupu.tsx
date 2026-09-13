@@ -360,6 +360,34 @@ export function OknoZakupu({
   // Co dokładnie znika po przejściu na plan darmowy. Liczone z macierzy funkcji,
   // nie wypisane w kodzie — lista wypisana zestarzałaby się przy pierwszej
   // zmianie zakresu planu, a klient dostałby ostrzeżenie mijające się z prawdą.
+  /**
+   * Czego ten plan NIE MA względem najbogatszego planu w tej samej linii.
+   *
+   * ═══════════════════════════════════════════════════════════════════════
+   * PO CO — KLIENT W OKRESIE PRÓBNYM PRACUJE NA PRO
+   * ═══════════════════════════════════════════════════════════════════════
+   * `trial_warsztat` ma dokładnie te same cechy co Pro. Warsztat testuje więc
+   * pełny zakres, kupuje Standard i dowiaduje się o brakujących funkcjach
+   * DOPIERO PO ZAKUPIE — w chwili, gdy któraś przestaje działać. To jest
+   * najgorszy możliwy moment na tę wiadomość.
+   *
+   * Porównujemy z NAJBOGATSZYM planem linii, nie z planem klienta. Dwa powody:
+   * plan próbny jest nieaktywny, więc RLS w ogóle nie wpuszcza go do `plans`
+   * (nie da się z nim porównać), a „czego nie ma względem Pro" jest zdaniem
+   * prawdziwym dla każdego — i dla testującego, i dla kupującego pierwszy raz.
+   *
+   * Zbiór cech idzie z bazy przez `usePublicPricing`, więc lista zmienia się
+   * razem z cennikiem. Nic tu nie jest wypisane z ręki.
+   */
+  const czegoBrakuje = (p: PublicPlan): string[] => {
+    const najbogatszy = doKupienia
+      .filter((k) => !k.is_custom)
+      .reduce<PublicPlan | null>((a, b) => (!a || b.features.length > a.features.length ? b : a), null);
+    if (!najbogatszy || najbogatszy.code === p.code) return [];
+    const ma = new Set(p.features);
+    return najbogatszy.features.filter((f) => !ma.has(f));
+  };
+
   const traconeFunkcje: string[] = (() => {
     const obecny = plans.find((p) => p.code === obecnyKod);
     const free = plans.find((p) => Number(p.price_net) === 0 && !p.is_custom);
@@ -469,6 +497,20 @@ export function OknoZakupu({
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>
                   <CenaNaKafelku plan={p} okres={okres} providerId={zadanie.providerId} />
+                  {(() => {
+                    const brakuje = czegoBrakuje(p);
+                    if (!brakuje.length) return null;
+                    // Trzy nazwy i liczba reszty. Pełna lista czeka na ekranie
+                    // zapłaty — osiem pozycji na kafelku zamieniłoby wybór planu
+                    // w czytanie listy strat.
+                    const widoczne = brakuje.slice(0, 3).join(', ');
+                    const reszta = brakuje.length - 3;
+                    return (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Bez: {widoczne}{reszta > 0 ? ` i ${reszta} innych` : ''}
+                      </p>
+                    );
+                  })()}
                   {!kupowalny && (
                     <p className="mt-2 text-xs text-muted-foreground">
                       Napisz do nas — dobierzemy zakres.
@@ -533,6 +575,24 @@ export function OknoZakupu({
                 {bladCeny?.message
                   ?? 'Nie udało się wyliczyć ceny tego pakietu. To nasza usterka — napisz do nas, a poprawimy.'}
               </p>
+            )}
+
+            {/* Pełna lista braków TU, a nie na kafelku: to jest ostatni ekran
+                przed pieniędzmi i jedyne miejsce, w którym jest na nią miejsce.
+                Klient w okresie próbnym pracuje na Pro — ma się dowiedzieć
+                PRZED zapłatą, nie po pierwszym „ta funkcja wymaga planu Pro". */}
+            {wybranyPlan && czegoBrakuje(wybranyPlan).length > 0 && (
+              <details className="rounded-lg border border-border bg-muted/40 p-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Czego nie ma w tym planie ({czegoBrakuje(wybranyPlan).length})
+                </summary>
+                <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                  {czegoBrakuje(wybranyPlan).map((f) => <li key={f}>• {f}</li>)}
+                </ul>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Te funkcje są w wyższym planie. Plan zmienisz w każdej chwili.
+                </p>
+              </details>
             )}
 
             {/* RÓŻNICA MIĘDZY METODAMI STOI PRZY PRZYCISKACH, nie na osobnym
