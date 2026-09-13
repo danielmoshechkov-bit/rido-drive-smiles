@@ -65,23 +65,47 @@ export function usePakietAgenta() {
        * ją wypełnia. Powód jest jeden: linia jest własnością planu i tam jest
        * prawdziwa zawsze, także dla wierszy starszych od wyzwalacza.
        */
+      /**
+       * BEZ FILTRA STATUSU — bo interesuje nas także pakiet, który WYGASŁ.
+       *
+       * „Nie masz pakietu" i „pakiet skończył się 13 października" to dla
+       * człowieka dwie różne wiadomości: pierwsza to oferta, druga to rachunek
+       * do opłacenia. Panel ma powiedzieć którą — więc czytamy wszystkie
+       * subskrypcje w linii agenta i rozstrzygamy tutaj.
+       */
       const { data: subskrypcje, error } = await (supabase as any)
         .from('billing_subscriptions')
         .select('id, status, current_period_end, plan:billing_plans!billing_subscriptions_plan_id_fkey!inner(product_line)')
         .eq('subscriber_type', 'service_provider')
         .eq('subscriber_id', sp.id)
-        .in('status', ['active', 'trialing'])
         .eq('plan.product_line', 'agent');
 
       // Błąd odczytu znaczy „nie wiem", a nie „ma dostęp". Przy pieniądzach
       // brak odpowiedzi zamykamy, nie otwieramy.
-      if (error) return false;
+      if (error) return { maPakiet: false, wygaslo: null };
 
       const teraz = Date.now();
-      return (subskrypcje ?? []).some((s: { current_period_end: string | null }) =>
-        !s.current_period_end || new Date(s.current_period_end).getTime() > teraz);
+      const wiersze = (subskrypcje ?? []) as Array<{ status: string; current_period_end: string | null }>;
+
+      const czynna = wiersze.some((s) =>
+        ['active', 'trialing'].includes(s.status)
+        && (!s.current_period_end || new Date(s.current_period_end).getTime() > teraz));
+
+      // Najpóźniejsza data końca spośród tych, które już minęły — to ona
+      // trafia na ekran jako „pakiet wygasł …".
+      const minione = wiersze
+        .map((s) => s.current_period_end)
+        .filter((d): d is string => !!d && new Date(d).getTime() <= teraz)
+        .sort();
+
+      return { maPakiet: czynna, wygaslo: czynna ? null : (minione.at(-1) ?? null) };
     },
   });
 
-  return { maPakiet: data === true, gotowe: !isLoading };
+  return {
+    maPakiet: data?.maPakiet === true,
+    /** Data końca ostatniego pakietu — tylko gdy żaden nie jest już czynny. */
+    wygaslo: data?.wygaslo ?? null,
+    gotowe: !isLoading,
+  };
 }

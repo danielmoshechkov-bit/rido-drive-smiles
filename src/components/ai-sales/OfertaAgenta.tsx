@@ -10,6 +10,7 @@ import { usePlanAction } from '@/hooks/usePlanAction';
 import { formatMoneyPLN } from '@/utils/formatters';
 import { toast } from 'sonner';
 import { StronaAgenta } from '@/components/agent/StronaAgenta';
+import { usePakietAgenta } from '@/hooks/usePakietAgenta';
 
 /**
  * Zakładka „Asystent głosowy" dla warsztatu BEZ OPŁACONEGO PAKIETU.
@@ -146,6 +147,9 @@ export function OfertaAgenta() {
   // Niezalogowanego tu nie ma — zakładka żyje wewnątrz panelu warsztatu.
   const { klik } = usePlanAction(() => toast.error('Zaloguj się, żeby kupić pakiet.'));
 
+  /** Data końca ostatniego pakietu — rozróżnia „nie masz" od „skończył się". */
+  const { wygaslo } = usePakietAgenta();
+
   // Powrót z bramki płatności (Stripe `?platnosc=ok`, PayU `?platnosc=payu`).
   useEffect(() => {
     const p = new URLSearchParams(window.location.search).get('platnosc');
@@ -211,6 +215,31 @@ export function OfertaAgenta() {
 
   return (
     <div className="space-y-8">
+      {/* ═══════════════════════════════════════════════════════════════════
+          PAKIET WYGASŁ ≠ PAKIETU NIGDY NIE BYŁO
+          ═══════════════════════════════════════════════════════════════════
+          Dla człowieka to dwie różne wiadomości: pierwsza to oferta, druga to
+          rachunek do opłacenia i konkretna data, od której telefon milczy.
+          Warsztat, który widzi samą ofertę po wygaśnięciu, nie dowie się, że
+          coś stracił — a dowie się dopiero od klienta, który nie mógł się
+          dodzwonić. */}
+      {wygaslo && (
+        <div className="max-w-2xl mx-auto rounded-xl border-2 border-destructive bg-destructive/5 px-4 py-4 text-center">
+          <p className="font-semibold text-destructive">
+            Twój pakiet wygasł {new Date(wygaslo).toLocaleDateString('pl-PL', {
+              day: 'numeric', month: 'long', year: 'numeric',
+            })}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Wirtualna asystentka nie odbiera telefonów. Przedłuż, żeby zaczęła znowu —
+            razem z numerem i ustawionymi przekierowaniami.
+          </p>
+          <Button className="mt-3 gap-2" onClick={() => pakiety[0] && kup(pakiety[0])}>
+            <Phone className="h-4 w-4" />Przedłuż pakiet
+          </Button>
+        </div>
+      )}
+
       {/* Numer trzymany po wygaśnięciu — bez tego warsztat nie wie, że ma czas
           na odnowienie, zanim straci numer i wszystkie przekierowania. */}
       {rezerwacja && (
