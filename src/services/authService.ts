@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { odczytajBladFunkcji } from '@/utils/bladFunkcji';
-import { sledzZdarzenie } from "@/lib/pikselMeta";
+import { zglos } from "@/lib/zdarzenia";
 
 /**
  * Wspólny serwis rejestracji i aktywacji kont.
@@ -67,15 +67,31 @@ const activationRedirect = () => `${window.location.origin}/email-confirmed`;
  * samo i przy odmowie zwraca `null`.
  */
 function zglosRejestracje(rodzaj: string): void {
-  sledzZdarzenie("CompleteRegistration", { content_name: rodzaj });
+  zglos("rejestracja", { nazwa: rodzaj });
+}
+
+/**
+ * Krok lejka rejestracji.
+ *
+ * Mierzenie samego SUKCESU mówi, ilu doszło do końca — nie mówi, gdzie
+ * odpadli. Bez kroków „gdzie się gubią w rejestracji" jest pytaniem bez
+ * odpowiedzi, a to jest główny powód, dla którego wpinamy GA4.
+ *
+ * Kroki mają wartość ZERO — patrz `lib/zdarzenia.ts`. Mierzymy je, żeby
+ * zobaczyć lejek, a nie żeby algorytm zaczął kupować porzucenia.
+ */
+export function zglosKrokRejestracji(krok: "start" | "wyslany" | "odmowa"): void {
+  zglos("rejestracja_krok", { nazwa: krok });
 }
 
 export async function signUpClient(email: string, password: string): Promise<SignupResult> {
+  zglosKrokRejestracji("wyslany");
   const response = await supabase.functions.invoke("register-marketplace-user", {
     body: { email, password, first_name: "", account_type: "client" },
   });
 
   if (response.data?.error) {
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: response.data.error,
@@ -122,6 +138,7 @@ export type MarketplaceSignupPayload = {
 
 /** Rejestracja KLIENTA GIEŁDY przez edge fn (konto + profil + rola + referral + mail). */
 export async function signUpMarketplace(payload: MarketplaceSignupPayload): Promise<SignupResult> {
+  zglosKrokRejestracji("wyslany");
   const response = await supabase.functions.invoke("register-marketplace-user", { body: payload });
 
   if (response.data?.error) {

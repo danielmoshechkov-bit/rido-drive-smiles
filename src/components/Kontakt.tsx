@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LEGAL_ENTITY } from "@/config/legal";
-import { sledzZdarzenie } from "@/lib/pikselMeta";
+import { zglos } from "@/lib/zdarzenia";
 
 const emptyForm = { name: '', phone: '', email: '', city: '', message: '' };
 
@@ -57,7 +57,7 @@ const Kontakt = () => {
 
       // Zapytanie przyjęte przez serwer — dopiero to jest kontakt, nie samo
       // kliknięcie „Wyślij".
-      sledzZdarzenie("Lead", { content_name: "formularz kontaktowy" });
+      zglos("kontakt", { nazwa: "formularz kontaktowy" });
       toast({
         title: "Wiadomość wysłana!",
         description: "Skontaktujemy się z Tobą w ciągu 24 godzin roboczych.",

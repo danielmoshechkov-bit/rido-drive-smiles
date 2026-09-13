@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { sledzZdarzenie } from '@/lib/pikselMeta';
+import { zglos } from '@/lib/zdarzenia';
 
 /**
  * Czuwanie nad doładowaniem: od kliknięcia „Zapłać" do chwili, gdy paczka
@@ -192,12 +192,12 @@ export async function czekajNaWydanie({
        * identyfikatorem, nie umawiając się z przeglądarką o nic — a Meta
        * połączy je w jedno zamiast policzyć konwersję dwa razy.
        */
-      sledzZdarzenie(
-        'Purchase',
+      zglos(
+        'zakup',
         {
           value: Number(ostatni.amount_gross ?? 0),
           currency: ostatni.currency ?? 'PLN',
-          content_ids: [ostatni.id],
+          identyfikatory: [ostatni.id],
         },
         ostatni.id,
       );

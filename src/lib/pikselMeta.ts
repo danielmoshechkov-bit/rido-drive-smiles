@@ -41,6 +41,7 @@
  */
 
 import { czyWolno, subskrybujZgode } from "@/lib/zgody";
+import { czyProdukcja } from "@/lib/srodowisko";
 
 export const ID_PIKSELA = "1095723286464143";
 
@@ -124,6 +125,9 @@ function wstawSkrypt(): void {
  */
 export function uruchomPiksel(): void {
   if (zaladowany) return;
+  // 🔴 Serwer deweloperski i podgląd NIE raportują. Zaśmieconych danych nie da
+  // się po fakcie odróżnić od prawdziwego ruchu — zostają w koncie na zawsze.
+  if (!czyProdukcja()) return;
   if (!czyWolno("marketingowe")) return;
 
   wstawSkrypt();

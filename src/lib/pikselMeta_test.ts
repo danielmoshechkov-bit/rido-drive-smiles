@@ -19,7 +19,10 @@ const wstawioneSkrypty: string[] = [];
   },
   gtag: () => {},
 };
-(globalThis as any).location = { href: "https://getrido.pl/gielda" };
+(globalThis as any).location = { href: "https://getrido.pl/gielda", hostname: "getrido.pl" };
+// `czyProdukcja()` czyta `window.location.hostname` — bez tego caly zestaw
+// przeszedlby z niewlasciwego powodu: piksel nie ladowalby sie NIGDY.
+(globalThis as any).window.location = (globalThis as any).location;
 (globalThis as any).document = {
   createElement: () => ({ set src(v: string) { wstawioneSkrypty.push(v); }, async: false }),
   head: { appendChild: () => {} },
@@ -201,6 +204,30 @@ const przypadki: Array<[string, () => void]> = [
     () => {
       const zbior = new Set(Array.from({ length: 200 }, () => nowyIdZdarzenia()));
       if (zbior.size !== 200) throw new Error("nowyIdZdarzenia zwraca duplikaty");
+    },
+  ],
+  [
+    "POZA PRODUKCJA piksel sie NIE laduje, nawet przy pelnej zgodzie",
+    () => {
+      wyczysc();
+      zapiszZgode(ZGODA_PELNA);
+      const byl = (globalThis as any).window.location.hostname;
+      (globalThis as any).window.location.hostname = "localhost";
+      try {
+        uruchomPiksel();
+        if (wstawioneSkrypty.length !== 0) throw new Error("piksel ruszyl na localhoscie");
+      } finally {
+        (globalThis as any).window.location.hostname = byl;
+      }
+    },
+  ],
+  [
+    "KONTROLA ODWROTNA: na getrido.pl ten sam kod laduje piksel",
+    () => {
+      wyczysc();
+      zapiszZgode(ZGODA_PELNA);
+      uruchomPiksel();
+      if (wstawioneSkrypty.length !== 1) throw new Error("piksel nie ruszyl na produkcji");
     },
   ],
   [

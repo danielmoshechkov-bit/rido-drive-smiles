@@ -22,10 +22,10 @@ import { OnboardingWidget } from "@/components/onboarding";
 // siedział w `Index.tsx`, więc ktokolwiek wchodził z linku na ogłoszenie
 // albo do panelu, nie widział go nigdy.
 import { ZgodyCookies } from "@/components/ZgodyCookies";
-// Piksel Meta — ładuje się WYŁĄCZNIE po zgodzie marketingowej i sam śledzi
-// zmiany tras (aplikacja jednostronicowa: bez tego widać tylko wejścia
-// na stronę główną).
-import { PikselMeta } from "@/components/PikselMeta";
+// Analityka — piksel Meta i GA4 w JEDNYM miejscu. Każde pilnuje swojej zgody,
+// oba śledzą zmiany tras (aplikacja jednostronicowa: bez tego widać tylko
+// wejścia na stronę główną). Poza produkcją nie wysyłają nic.
+import { Analityka } from "@/components/Analityka";
 import { useUISettings } from "@/hooks/useUISettings";
 import { useDynamicTranslations } from "@/hooks/useDynamicTranslations";
 import { useDisableNumberInputScroll } from "@/hooks/useDisableNumberInputScroll";
@@ -332,7 +332,7 @@ const App = () => (
               <OnboardingWidget />
               {/* Zgody na cookies — pasek na dole, na każdej trasie */}
               <ZgodyCookies />
-              <PikselMeta />
+              <Analityka />
             </CompareProvider>
             </ZakupProvider>
             </QuotaGuardProvider>
