@@ -393,6 +393,55 @@ kodu. Dlatego: każdy test polityk zawiera co najmniej jedną operację, która 
 i sprawdza, że się udała. Przy `UPDATE`/`DELETE` liczy dotknięte wiersze — polityka
 `RESTRICTIVE` filtruje wiersze, nie rzuca wyjątkiem, więc brak błędu nie znaczy sukcesu.
 
+### Odczyt treści funkcji łapie KOMENTARZE — rozstrzyga uruchomienie
+
+`pg_proc.prosrc` to ciało funkcji **razem z komentarzami**. Zapytanie o wzorzec
+trafia więc także w zdanie, które mówi, że tego wzorca NIE MA:
+
+```sql
+-- ta kontrola zwraca TRUE dla POPRAWNEJ wersji funkcji
+SELECT prosrc LIKE '%deleted_at IS NULL%' FROM pg_proc
+WHERE proname = 'prevent_duplicate_invoice_number';
+```
+
+…bo poprawna wersja zawiera linię:
+
+```
+-- BEZ `AND deleted_at IS NULL` — numer skasowanej faktury pozostaje ZAJĘTY.
+```
+
+13.09.2026 na tej podstawie uznaliśmy, że migracja nie weszła. Weszła.
+
+**To trzeci raz w tym projekcie, gdy odczyt mylił, a uruchomienie rozstrzygało**
+(wcześniej: `deduct_sms_credit` uznana za cofniętą przez złą heurystykę grep,
+`prevent_duplicate_invoice_number` uznana za nadpisaną przez kogoś). Za każdym
+razem prawdziwa odpowiedź wyszła z WYKONANIA, nie z czytania.
+
+Kolejność, w jakiej się pyta o stan funkcji:
+
+1. **zachowanie** — zapisz coś i sprawdź, czy baza się zachowała jak trzeba
+   (przy `INSERT`/`UPDATE` licz wiersze albo łap wyjątek, nie ufaj brakowi błędu),
+2. **porównanie treści z migracją** — `scripts/sql-harness/sprawdz_dryf_funkcji.py`,
+   które normalizuje komentarze i białe znaki,
+3. **`LIKE` po `prosrc`** — ostatnia deska ratunku, i wtedy z odsianiem
+   komentarzy: `regexp_replace(prosrc, '--[^\n]*', '', 'g')`.
+
+### Supabase NIE zapisuje nieudanych logowań ani adresów IP
+
+`auth.audit_log_entries` zawiera wyłącznie: `login`, `logout`, `token_refreshed`,
+`token_revoked`, `user_signedup`, `user_recovery_requested`, `user_modified`.
+Kolumna `ip_address` jest **pusta**.
+
+Czego się stamtąd NIE dowiesz:
+- ile było prób z błędnym hasłem i czyich,
+- czy ktoś wpadł na limit prób z jednego adresu,
+- z jakiego adresu ktokolwiek się łączył.
+
+Co z tego wynika przy zgłoszeniu „nie mogę się zalogować": obecność wpisów
+`login` i `token_refreshed` dla danego konta **dowodzi, że uwierzytelnianie
+działa**, i przenosi poszukiwania na to, co dzieje się PO zalogowaniu. Brak
+wpisów nie dowodzi niczego — nieudanej próby i tak by tam nie było.
+
 ### Sprawdzanie w przeglądarce: karta sterowana narzędziem jest UKRYTA
 
 Zakładka, którą prowadzi rozszerzenie, ma `document.visibilityState === "hidden"`.
