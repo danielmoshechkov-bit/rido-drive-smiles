@@ -98,9 +98,24 @@ Deno.serve(async (req) => {
       }, 409);
     }
     if (!planDarmowy && !plan.stripe_price_id) {
-      // Plan po zmianie ceny czeka na resynchronizację — lepiej odmówić niż
-      // obciążyć klienta kwotą, której nie ma już w cenniku.
-      return json({ error: "Plan wymaga synchronizacji ze Stripe", code: "PLAN_NOT_SYNCED" }, 409);
+      /**
+       * Plan po zmianie ceny czeka na resynchronizację — lepiej odmówić niż
+       * obciążyć klienta kwotą, której nie ma już w cenniku.
+       *
+       * ZDANIE JEST DLA KLIENTA, NIE DLA NAS. Stało tu „Plan wymaga
+       * synchronizacji ze Stripe" — nazwa operatora i nasze pojęcie, z którym
+       * kupujący nie ma co zrobić. Brakująca cena jest ZAWSZE naszą zaległością
+       * w konfiguracji, nigdy winą klienta, więc mówimy mu to wprost i dajemy
+       * drogę, która działa: BLIK wycenia z naszej bazy i ceny u operatora
+       * kart nie potrzebuje.
+       */
+      console.error(
+        `billing-checkout: plan ${plan.code} nie ma stripe_price_id — uruchom synchronizację cennika`,
+      );
+      return json({
+        error: "Ta pozycja nie ma jeszcze ceny u operatora kart — to nasza zaległość. Zapłać BLIK-iem albo napisz do nas, poprawimy w kilka minut.",
+        code: "PLAN_NOT_SYNCED",
+      }, 409);
     }
 
     // ---- podmiot: wyłącznie z serwera ----

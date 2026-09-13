@@ -1,11 +1,15 @@
 /**
- * SCIEZKA ZAKUPU PAKIETU AGENT — straznik trzech bledow z 13.09.2026.
+ * SCIEZKA ZAKUPU PAKIETU AGENT — straznik bledow z 13.09.2026.
  *
  * Objaw zgloszony przez uzytkownika: klikniecie pakietu nie prowadzilo do
  * platnosci, pokazywalo obcy naglowek „Na jak dlugo" i zawieszalo sie na
  * ekranie „Przetwarzamy platnosc".
  *
- * Trzy przyczyny, wszystkie tutaj upilnowane.
+ * Trzy przyczyny, wszystkie tutaj upilnowane. Czwarty punkt doszedl tego
+ * samego dnia i jest ta sama klasa: SERWER ODMAWIA ZDANIEM, A FRONT GO NIE
+ * CZYTA. `functions.invoke` przy kazdej odpowiedzi spoza 2xx zostawia
+ * `data === null`, wiec `data?.message` czyta z pustki i czlowiek dostaje
+ * zdanie o niczym zamiast powodu.
  *
  * Uruchomienie: node scripts/test-zakup-agenta.mjs
  */
@@ -18,6 +22,9 @@ const plik = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const okno = plik('src/components/billing/OknoZakupu.tsx');
 const oferta = plik('src/components/ai-sales/OfertaAgenta.tsx');
 const cennik = plik('src/hooks/usePublicPricing.ts');
+const strona = plik('src/components/agent/StronaAgenta.tsx');
+const checkout = plik('supabase/functions/billing-checkout/index.ts');
+const synchro = plik('supabase/functions/billing-stripe-sync/index.ts');
 
 // 1. Okno znalo tylko linie „warsztat" — dla agenta `wybranyPlan` byl undefined
 //    i caly krok „okres" renderowal sie pusty.
@@ -42,6 +49,28 @@ sprawdz(!/setOczekuje\(true\); klik/.test(oferta),
 const poPowrocie = oferta.slice(oferta.indexOf("platnosc"));
 sprawdz(/zapamietajZakup\(\)/.test(poPowrocie),
   'poczekalnia ma jeden wyzwalacz: powrot z bramki platnosci');
+
+// 4. Odmowa serwera ma DOCHODZIC DO EKRANU — i ma byc zdaniem, nie kodem.
+sprawdz(!/data\?\.message \|\|/.test(strona),
+  'formularz dema nie czyta `data?.message` — przy odmowie 4xx to zawsze pustka');
+sprawdz(/odczytajBladFunkcji\(error\)/.test(strona),
+  'formularz dema pokazuje zdanie, ktore napisal serwer');
+
+const brakCeny = checkout.slice(checkout.indexOf('PLAN_NOT_SYNCED') - 900, checkout.indexOf('PLAN_NOT_SYNCED') + 60);
+sprawdz(/error: "[^"]{40,}"/.test(brakCeny),
+  'brak ceny u operatora tlumaczy sie klientowi zdaniem, nie nazwa systemu');
+sprawdz(!/error: "Plan wymaga synchronizacji ze Stripe"/.test(checkout),
+  'stary komunikat techniczny nie wrocil');
+sprawdz(/console\.error\([^)]*stripe_price_id/.test(checkout),
+  'brak ceny zostawia slad w logach — to nasza zaleglosc, nie blad klienta');
+
+// 5. Cennik u operatora: nazwa produktu to nazwa, ktora klient czyta przy platnosci.
+sprawdz(/const nazwa = `GetRido \$\{plan\.name\}`/.test(synchro) && /wyrownajNazwe/.test(synchro),
+  'synchronizacja wyrownuje nazwe produktu, nie tylko ustawia ja przy zakladaniu');
+sprawdz(/zKluczaSerwisowego/.test(synchro) && /accessToken === kluczSerwisowy/.test(synchro),
+  'cennik da sie zsynchronizowac kluczem serwisowym — bez czlowieka przy klawiaturze');
+sprawdz(/if \(!accessToken\) return json\(\{ error: "Unauthorized" \}, 401\);/.test(synchro),
+  'wywolanie bez zadnego tokenu nadal jest odrzucane');
 
 console.log(bledy ? `\n${bledy} BLEDOW` : '\nSCIEZKA ZAKUPU: wszystko przeszlo');
 process.exit(bledy ? 1 : 0);

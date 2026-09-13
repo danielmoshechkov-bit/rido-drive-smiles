@@ -12,6 +12,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { usePublicPricing, usePubliczneDoladowania, type PublicPlan } from '@/hooks/usePublicPricing';
 import { usePlanAction } from '@/hooks/usePlanAction';
+import { odczytajBladFunkcji } from '@/utils/bladFunkcji';
 import { formatMoneyPLN } from '@/utils/formatters';
 import { toast } from 'sonner';
 
@@ -75,8 +76,22 @@ function Demo() {
       const { data, error } = await supabase.functions.invoke('agent-demo-lead', {
         body: { imie, telefon, zgoda_dane: zgodaDane, zgoda_telefon: zgodaTelefon },
       });
+      /**
+       * 🔴 ZDANIE Z SERWERA NIE DOCHODZIŁO DO EKRANU (naprawione 13.09.2026).
+       *
+       * Stało tu `data?.message`, a `functions.invoke` przy KAŻDEJ odpowiedzi
+       * spoza 2xx zostawia `data === null` — więc przy odmowie czytaliśmy pole
+       * z pustki. `agent-demo-lead` odmawia gotową polszczyzną („Podaj numer
+       * telefonu — dziewięć cyfr.", „Demo jest chwilowo niedostępne."), a
+       * człowiek i tak widział jedno zdanie o niczym: „Sprawdź dane".
+       *
+       * Czyta to `odczytajBladFunkcji` — ta sama warstwa, co w całej aplikacji.
+       * NIE `odczytajOdmowe`: tamta jest nadbudową dla ścieżki PŁATNOŚCI i jej
+       * ostatecznym zdaniem jest „Nie udało się rozpocząć płatności", a tu nikt
+       * niczego nie kupuje.
+       */
       if (error || !data?.numer) {
-        toast.error(data?.message || 'Nie udało się. Sprawdź dane i spróbuj jeszcze raz.');
+        toast.error((await odczytajBladFunkcji(error)).komunikat);
         return;
       }
       setNumer(String(data.numer));

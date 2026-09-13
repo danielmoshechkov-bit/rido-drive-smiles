@@ -103,6 +103,35 @@ realnymi pieniędzmi u ElevenLabs. Kolejność: najpierw naliczanie, potem flaga
 
 ---
 
+## 2a. Przejście na klucz produkcyjny Stripe = cały cennik od nowa
+
+Produkty i ceny w Stripe żyją **osobno w trybie testowym i produkcyjnym**.
+Wszystko, co dziś stoi w `billing_plans` w kolumnach `stripe_product_id`,
+`stripe_price_id`, `stripe_price_id_target`, `stripe_price_id_rok`
+i `stripe_price_id_rok_target`, wskazuje na obiekty założone kluczem
+**testowym** (`sk_test_…`) i po podmianie sekretu na produkcyjny przestanie
+istnieć po stronie operatora.
+
+Objaw, gdyby o tym zapomnieć: klient klika „Kup", `billing-checkout` wysyła
+cenę, której w produkcyjnym Stripie nie ma, i dostaje odmowę na ostatnim kroku
+— czyli dokładnie tam, gdzie najdrożej.
+
+**Co zrobić w dniu przełączenia**, w tej kolejności:
+
+1. podmienić `STRIPE_SECRET_KEY` (i `STRIPE_WEBHOOK_SECRET`) na produkcyjne,
+2. **wyczyścić** wszystkie pięć kolumn Stripe w `billing_plans` — inaczej
+   `ensureProduct` znajdzie stary identyfikator, dostanie od operatora błąd
+   i zostawi plan bez ceny,
+3. uruchomić synchronizację cennika (`billing-stripe-sync`) — przyciskiem
+   w panelu admina (Płatności → Plany) albo wołając funkcję kluczem serwisowym,
+4. sprawdzić, że każdy aktywny plan ma `stripe_price_id`, i dopiero potem
+   wpuszczać klientów.
+
+Odpowiedź funkcji podaje `tryb` („test" albo „produkcja") — to jest miejsce,
+w którym widać, czy klucz naprawdę się zmienił.
+
+---
+
 ## 3. ZAMKNIĘTE 10.09 — `ai-chat`. Ale to nie była jedyna taka funkcja.
 
 `ai-chat` naprawiony (odmowa bez zalogowanego użytkownika + pobranie `rido_ai`).
