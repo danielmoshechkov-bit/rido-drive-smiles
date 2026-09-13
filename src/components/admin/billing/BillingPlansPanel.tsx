@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { CreditCard, Layers, Loader2, Plus, RefreshCw, Save, SlidersHorizontal } from 'lucide-react';
+import { CreditCard, Layers, Loader2, Plus, RefreshCw, Save, Search, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useBillingPlans, PRODUCT_LINE_LABEL, type BillingPlan, type ProductLine,
@@ -46,7 +46,7 @@ const fmt = (v: number | null | undefined) =>
  * RPC billing_set_plan_features, żeby DELETE i INSERT poszły w jednej transakcji.
  */
 export function BillingPlansPanel() {
-  const { plans, matrix, loading, create, update, setActive, setFeatures, syncStripe, testCheckout } = useBillingPlans();
+  const { plans, matrix, loading, create, update, setActive, setFeatures, syncStripe, sprawdzStripe, testCheckout } = useBillingPlans();
   const { features, loading: featuresLoading } = useBillingFeatures();
 
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -144,7 +144,22 @@ export function BillingPlansPanel() {
             te trzymają cenę z chwili zakupu.
           </CardDescription>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sprawdzenie stoi PRZED synchronizacją, bo to ono odpowiada na
+              pytanie „czy u operatora jest to, co u nas". Synchronizacja
+              zakłada i nadpisuje; sprawdzenie tylko czyta. */}
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={sprawdzStripe.isPending}
+            onClick={() => sprawdzStripe.mutate(undefined)}
+            className="gap-2"
+          >
+            {sprawdzStripe.isPending
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <Search className="h-4 w-4" />}
+            Sprawdź ceny u operatora
+          </Button>
           <Button
             size="sm"
             variant="outline"

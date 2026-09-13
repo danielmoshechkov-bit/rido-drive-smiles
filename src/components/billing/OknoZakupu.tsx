@@ -468,13 +468,7 @@ export function OknoZakupu({
                       : plan === p.code && <Check className="h-4 w-4 text-primary" />}
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>
-                  <p className="mt-2 text-sm font-medium">
-                    {/* Plan indywidualny i darmowy mówią, co dalej — zamiast
-                        pokazywać przycisk płatności, który by odmówił. */}
-                    {p.is_custom ? 'Wycena indywidualna' :
-                      Number(p.price_net) === 0 ? 'Za darmo' :
-                      `od ${zl(Number(p.price_net))} netto / mies.`}
-                  </p>
+                  <CenaNaKafelku plan={p} okres={okres} providerId={zadanie.providerId} />
                   {!kupowalny && (
                     <p className="mt-2 text-xs text-muted-foreground">
                       Napisz do nas — dobierzemy zakres.
@@ -658,6 +652,52 @@ function Wiersz({ etykieta, wartosc }: { etykieta: string; wartosc: string }) {
 }
 
 /** Karta okresu z ceną z bazy — także tu kwota nie jest liczona w przeglądarce. */
+/**
+ * Cena na kafelku planu — Z BAZY, dla wybranego okresu.
+ *
+ * 🔴 RABAT ROCZNY LICZY `billing_cena_okresu`, NIE TEN PLIK. Kuszące byłoby
+ * pomnożyć cenę miesięczną przez dziesięć — i wtedy reguła „dwa miesiące
+ * gratis" istniałaby w trzecim miejscu (baza, cennik, okno zakupu), a przy
+ * pierwszej zmianie promocji dwa z nich pokazywałyby co innego niż kasa.
+ *
+ * Dlatego to jest OSOBNY komponent: `useCenaOkresu` to hak, a haka nie wolno
+ * wywołać w pętli `map`. Ten sam wzorzec co `PlanCard` na `/cennik` — i to
+ * jest powód, dla którego nie dokładam ceny rocznej do `usePublicPricing`:
+ * mechanizm już istnieje i jest jeden.
+ */
+function CenaNaKafelku({ plan, okres, providerId }: {
+  plan: PublicPlan;
+  okres: Okres;
+  providerId?: string | null;
+}) {
+  // Plan bez ceny rocznej wyceniamy miesięcznie, choćby przełącznik stał na roku.
+  const okresPlanu: Okres = plan.ma_cene_roczna === false ? 'miesiac' : okres;
+  const { cena } = useCenaOkresu(plan.is_custom ? null : plan.code, providerId ?? null, okresPlanu);
+  const rok = okresPlanu === 'rok';
+
+  if (plan.is_custom) return <p className="mt-2 text-sm font-medium">Wycena indywidualna</p>;
+  if (Number(plan.price_net) === 0) return <p className="mt-2 text-sm font-medium">Za darmo</p>;
+
+  // Dopóki baza nie odpowie, pokazujemy cenę miesięczną z cennika — pusty
+  // kafelek wygląda jak plan bez ceny, czyli jak usterka.
+  if (!cena) {
+    return <p className="mt-2 text-sm font-medium">od {zl(Number(plan.price_net))} netto / mies.</p>;
+  }
+
+  return (
+    <p className="mt-2 flex flex-wrap items-baseline gap-x-2 text-sm font-medium">
+      <span>{zl(cena.netto)}</span>
+      <span className="text-muted-foreground">{rok ? 'netto / rok' : 'netto / mies.'}</span>
+      {rok && cena.bezRabatuNetto > cena.netto && (
+        <span className="text-muted-foreground line-through">{zl(cena.bezRabatuNetto)}</span>
+      )}
+      {plan.ma_cene_roczna === false && okres === 'rok' && (
+        <span className="text-xs text-muted-foreground">(tylko miesięcznie)</span>
+      )}
+    </p>
+  );
+}
+
 function WyborOkresu({
   okres, planCode, providerId, zaznaczony, onWybierz,
 }: {

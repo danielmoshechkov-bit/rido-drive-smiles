@@ -243,6 +243,18 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({})) as Record<string, any>;
     const tylkoPlan: string | undefined = body?.plan_code;
+    /**
+     * `akcja: 'sprawdz'` — TYLKO ODCZYT, nic nie zakłada i nic nie zapisuje.
+     *
+     * 🔴 PO CO. Kolumna `stripe_price_id_rok` wypełniona nie dowodzi, że
+     * u operatora stoi tam cena ROCZNA i we właściwej kwocie. To jest dokładnie
+     * ta klasa usterki, która wygląda na działającą: klient płaci za rok, Stripe
+     * rozlicza miesiąc, a dowiadujemy się od klienta.
+     *
+     * Sprawdzenie po kolumnach nie odpowiada na to pytanie — odpowiada na nie
+     * WYŁĄCZNIE zapytanie do operatora o `recurring.interval` i `unit_amount`.
+     */
+    const tylkoSprawdzenie = body?.akcja === 'sprawdz';
 
     // Plany indywidualne (is_custom) nie mają ceny, więc nie mają czego
     // synchronizować — kwota jest ustalana per umowa poza operatorem.
@@ -255,6 +267,54 @@ Deno.serve(async (req) => {
     if (plansErr) throw plansErr;
 
     const wynik: Array<Record<string, unknown>> = [];
+
+    // ── TRYB SPRAWDZENIA — czytamy ceny u operatora i porównujemy z bazą ──
+    if (tylkoSprawdzenie) {
+      for (const plan of plans ?? []) {
+        const pola: Array<[string, string | null, 'month' | 'year', number | null]> = [
+          ['stripe_price_id',            plan.stripe_price_id,            'month', grosze(plan.price_net, plan.vat_rate)],
+          ['stripe_price_id_target',     plan.stripe_price_id_target,     'month', plan.price_net_target != null ? grosze(plan.price_net_target, plan.vat_rate) : null],
+          ['stripe_price_id_rok',        plan.stripe_price_id_rok,        'year',  null],
+          ['stripe_price_id_rok_target', plan.stripe_price_id_rok_target, 'year',  null],
+        ];
+
+        // Kwotę roczną liczy BAZA — tą samą funkcją, którą liczy ją przy zakupie.
+        let oczekiwanyRok: number | null = null;
+        if (plan.stripe_price_id_rok) {
+          const { data: wycena } = await (admin as any)
+            .rpc('billing_cena_okresu', { p_plan_code: plan.code, p_provider: null, p_okres: 'rok' })
+            .maybeSingle();
+          if (wycena?.cena_brutto) oczekiwanyRok = Math.round(Number(wycena.cena_brutto) * 100);
+        }
+
+        for (const [pole, priceId, oczekiwanyOkres, oczekiwanaKwota] of pola) {
+          if (!priceId) { wynik.push({ plan: plan.code, pole, stan: 'brak w bazie' }); continue; }
+          try {
+            const cena = await stripe(stripeKey, { path: `/prices/${priceId}` });
+            const interval = cena?.recurring?.interval ?? null;
+            const kwota = typeof cena?.unit_amount === 'number' ? cena.unit_amount : null;
+            const spodziewana = pole === 'stripe_price_id_rok' ? oczekiwanyRok : oczekiwanaKwota;
+            const bledy: string[] = [];
+            if (interval !== oczekiwanyOkres) bledy.push(`okres u operatora: ${interval}, ma być ${oczekiwanyOkres}`);
+            if (cena?.active === false) bledy.push('cena wyłączona u operatora');
+            if (spodziewana != null && kwota !== spodziewana) {
+              bledy.push(`kwota u operatora: ${(kwota ?? 0) / 100}, u nas: ${spodziewana / 100}`);
+            }
+            wynik.push({
+              plan: plan.code, pole, price_id: priceId,
+              okres: interval, kwota_brutto: kwota != null ? kwota / 100 : null,
+              waluta: cena?.currency ?? null,
+              stan: bledy.length ? '🔴 ROZJAZD' : 'zgodne',
+              ...(bledy.length ? { bledy } : {}),
+            });
+          } catch (e) {
+            wynik.push({ plan: plan.code, pole, price_id: priceId, stan: '🔴 BŁĄD ODCZYTU', blad: String(e).slice(0, 160) });
+          }
+        }
+      }
+      const rozjazdy = wynik.filter((w) => String(w.stan).startsWith('🔴')).length;
+      return json({ tryb, akcja: 'sprawdz', rozjazdow: rozjazdy, sprawdzono: wynik.length, wynik });
+    }
 
     for (const plan of plans ?? []) {
       try {

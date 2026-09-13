@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star, Tag, Puzzle, Layers } from 'lucide-react';
+import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star, Tag, Puzzle, Layers, CalendarPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { odczytajOdmowe } from '@/lib/odmowaZakupu';
@@ -246,6 +246,11 @@ export function AssignCreditsPanel() {
   const [foundUser, setFoundUser] = useState<{ id: string; email: string; company_name?: string | null } | null>(null);
   const [creditType, setCreditType] = useState('sms');
   const [amount, setAmount] = useState<number | ''>('');
+  // Dni dostępu — osobny formularz obok kredytów, ta sama wyszukiwarka konta.
+  const [liniaDni, setLiniaDni] = useState<'warsztat' | 'agent'>('warsztat');
+  const [dni, setDni] = useState<number | ''>('');
+  const [powodDni, setPowodDni] = useState('');
+  const [zapisDni, setZapisDni] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Companies list + filters
@@ -404,6 +409,40 @@ export function AssignCreditsPanel() {
       toast.error('Błąd: ' + (e?.message || 'Nieznany'));
     }
     setSaving(false);
+  };
+
+  /**
+   * Przyznanie dni dostępu.
+   *
+   * Granice (1–365, istnienie subskrypcji, doklejanie do ważnej daty) pilnuje
+   * `billing_przyznaj_dni_admin` w bazie. Tutaj nie powtarzamy warunków —
+   * poza jednym, który chroni przed pustym kliknięciem — bo dwa miejsca na tę
+   * samą decyzję rozjeżdżają się przy pierwszej zmianie.
+   */
+  const przyznajDni = async () => {
+    if (!foundUser || !dni || dni < 1) return;
+    setZapisDni(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('billing-przyznaj-dni', {
+        body: { user_id: foundUser.id, linia: liniaDni, dni, powod: powodDni || null },
+      });
+      // Odmowa 4xx zostawia `data === null`, a treść siedzi w `error.context` —
+      // patrz komentarz przy `handleAssign`.
+      if (error || (data as any)?.error) {
+        toast.error((await odczytajOdmowe(error, data)).komunikat);
+        return;
+      }
+      const koniec = (data as any)?.wynik?.nowy_koniec;
+      toast.success(
+        `Przyznano ${dni} dni (${liniaDni})` +
+        (koniec ? ` — dostęp do ${new Date(koniec).toLocaleDateString('pl-PL')}` : ''),
+      );
+      setDni('');
+      setPowodDni('');
+    } catch (e: any) {
+      toast.error('Błąd: ' + (e?.message || 'Nieznany'));
+    }
+    setZapisDni(false);
   };
 
   /**
@@ -582,6 +621,55 @@ export function AssignCreditsPanel() {
             <Button onClick={handleAssign} disabled={saving || !amount || amount <= 0} className="gap-2">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
               Przyznaj {amount || 0} kredytów
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {foundUser && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarPlus className="h-4 w-4" /> Przyznaj dni dostępu
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Dni DOKLEJAJĄ się do ważnej daty, nie zastępują jej — konto
+                z opłaconym miesiącem dostaje dni PO nim, a nie zamiast niego.
+                Zdanie stoi tu, bo bez niego administrator musiałby zgadywać. */}
+            <p className="text-sm text-muted-foreground">
+              Dni doliczamy do końca bieżącego okresu, a gdy okres już minął — od dziś.
+              Przyznanie zdejmuje tryb dokończenia i twardy blok.
+            </p>
+            <div className="space-y-2">
+              <Label>Linia produktowa</Label>
+              <Select value={liniaDni} onValueChange={(v) => setLiniaDni(v as 'warsztat' | 'agent')}>
+                <SelectTrigger className="max-w-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="warsztat">Warsztat</SelectItem>
+                  <SelectItem value="agent">Agent AI</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Liczba dni (1–365)</Label>
+              <Input
+                type="number" min={1} max={365} className="max-w-xs" placeholder="np. 30"
+                value={dni}
+                onChange={(e) => setDni(e.target.value === '' ? '' : Math.max(1, Math.min(365, parseInt(e.target.value) || 1)))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Powód (nieobowiązkowy)</Label>
+              <Input
+                className="max-w-md" placeholder="np. przedłużenie testów, naprawa po nieudanej płatności"
+                value={powodDni}
+                onChange={(e) => setPowodDni(e.target.value)}
+              />
+            </div>
+            <Button onClick={przyznajDni} disabled={zapisDni || !dni || dni < 1} className="gap-2">
+              {zapisDni ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
+              Przyznaj {dni || 0} dni
             </Button>
           </CardContent>
         </Card>
