@@ -2,6 +2,50 @@
 
 ---
 
+## 🔴 AUDYT RLS 13.09.2026 — JEDENAŚCIE NA JEDENAŚCIE BYŁO OTWARTYCH
+
+Zamknięte migracją `20260913133057`. Każdą pozycję potwierdzono **pełnymi,
+poprawnymi danymi** w transakcji wycofanej na produkcji, pod rolą `anon`
+albo `authenticated` (obie mają `rolbypassrls = false`), z kontrolą pozytywną
+(`car_brands` widoczne) i negatywną (`user_invoices` odmawia, 42501).
+
+| tabela | co było możliwe bez uprawnień |
+|---|---|
+| `viewing_slots` | czytanie i **zmiana cudzych terminów oglądania** |
+| `client_vehicle_ownership_requests` | czytanie i **zmiana cudzego przeniesienia własności pojazdu**, z numerem telefonu — dla każdego zalogowanego |
+| `coin_transactions` | **dopisanie sobie monet** — księga rozliczeniowa |
+| `audit_log` | podrobienie wpisu w dzienniku zdarzeń |
+| `ai_call_audit_log` | dopisanie do dziennika połączeń AI |
+| `ai_guest_usage` | pełne zarządzanie licznikiem użycia dla gości |
+| `ksef_monitor_alerts` | podrobienie alertu KSeF |
+| `ksef_monitor_scans` | podrobienie wyniku skanowania KSeF |
+| `voice_phrase_cache` | zatruwanie pamięci podręcznej agenta głosowego |
+| `workspace_task_history` | dopisanie do historii zadań |
+| `universal_listing_numbers` | dopisanie numeru ogłoszenia |
+
+**Świadomie zostawione otwarte:** `service_bookings`,
+`service_provider_requests`, `real_estate_listing_interactions` — to publiczne
+formularze, składa je ktoś bez konta. Ryzyko to zaśmiecanie, nie wyciek;
+ograniczenie tempa jest osobną sprawą.
+
+### Trzy metody, które dały fałszywy obraz — zanim wynik był miarodajny
+
+Pierwszy przemiat („zero odmów na dwanaście prób") był **bez wartości**, choć
+wniosek okazał się trafny. Powody wypisane w CLAUDE.md, sekcja „JAK NARZĘDZIA
+W TYM PROJEKCIE KŁAMIĄ": `EXCEPTION` łapiący wszystko naraz, pusty obiekt jako
+test RLS (`NOT NULL` sprawdza się przed polityką) i `Prefer:
+return=representation` dorzucający sprawdzenie SELECT.
+
+### Znalezione przy okazji, starsze od migracji
+
+`ServiceBookingModal` kończył zapis przez `INSERT … RETURNING`, a `RETURNING`
+podlega politykom SELECT. Niezalogowany dostawał `42501` **mimo założonej
+rezerwacji** — wpis leżał w bazie, klient widział błąd, warsztat nic nie
+wiedział. Naprawione nadaniem `id` po stronie przeglądarki, bez ruszania
+polityk.
+
+---
+
 ## ⭐ DECYZJA: BIMI ODŁOŻONE, Z WARUNKIEM POWROTU (13.09.2026)
 
 **Nie robimy teraz.** To decyzja z terminem, nie dług bez daty.
