@@ -132,6 +132,16 @@ serve(async (req) => {
       }, 400);
     }
 
+    // ZWOLNIENIE LINII. Wiersz w `voice_active_calls` powstaje przy odebraniu
+    // i liczy się do limitu rozmów równoczesnych. Kasujemy go TU, przed
+    // wszystkimi wcześniejszymi wyjściami z funkcji — rozmowa bez transkryptu
+    // też się skończyła i też ma zwolnić linię. Gdyby kasowanie stało niżej,
+    // krótka rozmowa blokowałaby warsztat do wygaśnięcia okna 30 minut.
+    if (conversationId) {
+      const { error: delErr } = await admin.from("voice_active_calls").delete().eq("conversation_id", conversationId);
+      if (delErr) console.error("[voice-call-postprocess] zwolnienie linii nieudane:", delErr.code, delErr.message);
+    }
+
     if (messages.length < 2) {
       console.warn("[voice-call-postprocess]", JSON.stringify({
         event: "transcript_too_short", conversation_id: conversationId, turns: messages.length,
@@ -201,6 +211,67 @@ serve(async (req) => {
       call_id: out?.call_id || null, lessons: out?.lessons_learned || 0,
     }));
     // O powodzeniu webhooka decyduje COMMIT, nie analyze.
+    /**
+     * NALICZENIE MINUT — PO ANALIZIE, NIE PRZED NIĄ.
+     *
+     * 🔴 NAPRAWIONE 13.09.2026. Blok stał PRZED `voice-call-analyze`, z
+     * uzasadnieniem „minuty muszą się naliczyć niezależnie od tego, czy model
+     * wyciągnął z rozmowy wnioski". Uzasadnienie było słuszne, miejsce nie:
+     * to WŁAŚNIE `voice-call-analyze` dopisuje wierszowi rozmowy
+     * `elevenlabs_conversation_id` ORAZ `duration_seconds`.
+     *
+     * Dwa objawy jednej przyczyny, zmierzone na 10 rozmowach od 22.08:
+     *   • 9 rozmów BEZ ŚLADU naliczenia — wyszukanie po `conversation_id` nie
+     *     znajdowało wiersza, bo identyfikatora jeszcze na nim nie było,
+     *     a `if (wiersz?.id)` po cichu pomijał naliczenie;
+     *   • 1 rozmowa (55 s) naliczona na 0 minut — wiersz miał już identyfikator
+     *     (założyły go narzędzia agenta w trakcie rozmowy), ale nie miał
+     *     długości, więc `CEIL(0/60)` dało zero. Znacznik `minutes_charged_at`
+     *     został przy tym postawiony i zamknął tę rozmowę na zawsze.
+     *
+     * Niezależność od analizy zostaje, tylko inaczej: długość bierzemy
+     * Z PAYLOADU webhooka, który mamy w ręku, i dopisujemy ją sami, gdy analiza
+     * tego nie zrobiła. Naliczenie nie potrzebuje już niczyjej uprzejmości.
+     *
+     * BŁĄD NALICZENIA NIE WYWRACA WEBHOOKA — rozmowa jest zapisana, a ponowienie
+     * przez ElevenLabs powtórzyłoby commit.
+     */
+    try {
+      const sekundyZWebhooka = Number(payload?.data?.metadata?.call_duration_secs) || 0;
+      const { data: wiersz } = await admin.from("voice_calls")
+        .select("id, duration_seconds")
+        .eq("elevenlabs_conversation_id", conversationId)
+        .maybeSingle();
+
+      if (!wiersz?.id) {
+        // Cisza w tym miejscu kosztowała dziewięć nienaliczonych rozmów.
+        console.error("[voice-call-postprocess]", JSON.stringify({
+          event: "naliczenie_bez_wiersza", conversation_id: conversationId,
+        }));
+      } else {
+        if (!Number(wiersz.duration_seconds) && sekundyZWebhooka > 0) {
+          await admin.from("voice_calls")
+            .update({ duration_seconds: sekundyZWebhooka })
+            .eq("id", wiersz.id);
+        }
+        const { data: nalicz, error: bladNaliczenia } =
+          await admin.rpc("voice_nalicz_minuty", { p_call_id: wiersz.id });
+        if (bladNaliczenia) {
+          console.error("[voice-call-postprocess] naliczenie minut nieudane:",
+            bladNaliczenia.code, bladNaliczenia.message);
+        } else {
+          console.info("[voice-call-postprocess]", JSON.stringify({
+            event: "minuty_naliczone", conversation_id: conversationId,
+            sekundy: sekundyZWebhooka,
+            minuty: (nalicz as Record<string, unknown> | null)?.minuty ?? null,
+            pominiete: (nalicz as Record<string, unknown> | null)?.pominiete ?? null,
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("[voice-call-postprocess] naliczenie minut wyjatek:", (e as Error).message);
+    }
+
     if (!commitRes.ok) {
       return json({
         ok: false, error: commitOut?.error || "voice-call-commit nie powiódł się",
