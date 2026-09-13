@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Phone } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useDostepneJednostki } from '@/hooks/useDostepneJednostki';
+import { usePakietAgenta } from '@/hooks/usePakietAgenta';
 import { DoladowanieModal } from '@/components/billing/DoladowanieModal';
 
 /**
@@ -23,12 +22,11 @@ import { DoladowanieModal } from '@/components/billing/DoladowanieModal';
  * nie mówi — to licznik produktu, którego nie mają, a nagłówek ma dziś cztery
  * inne rzeczy po prawej stronie i na wąskim ekranie zaczyna się robić ciasno.
  *
- * Warunkiem jest WŁĄCZONY AGENT (`voice_agent_configs.is_active`), a nie sam
- * przydzielony numer. Numer dostaje się przy zakładaniu, zanim ktokolwiek
- * włączy wyłącznik — a licznik minut przy wyłączonym agencie pokazywałby stan
- * czegoś, co nie działa. To ten sam warunek, który przełącza wyłącznik
- * w zakładce „Asystent głosowy" i który pokazuje kafelek na Pulpicie: jedno
- * pytanie, jedna odpowiedź w trzech miejscach.
+ * Warunkiem jest OPŁACONY PAKIET. Wcześniej stał tu włączony przełącznik
+ * agenta, a jeszcze wcześniej sam przydzielony numer — obie te rzeczy dawały
+ * się mieć bez pakietu, więc licznik pokazywał saldo produktu, którego nikt
+ * nie kupił. Pytamy tym samym `moze_pracowac('agent')`, co zakładka i bramka
+ * na serwerze: jedno pytanie, jedna odpowiedź w trzech miejscach.
  *
  * Liczba pochodzi z tego samego źródła co pozostałe liczniki
  * (`useDostepneJednostki` → `check_usage`) — sprawdzone na produkcji, że dla
@@ -39,34 +37,26 @@ import { DoladowanieModal } from '@/components/billing/DoladowanieModal';
  * co przy SMS-ach, sprawdzeniach VIN i Rido AI (`DoladowanieModal` czyta
  * warunki sprzedaży z `billing_addon_products`, a cenę rozstrzyga serwer).
  *
- * ⚠️ WYMAGA WŁĄCZENIA PRODUKTU W BAZIE: `billing_addon_products.voice_minutes`
- * ma dziś `is_active = false`, więc do czasu jej włączenia okno powie, że
- * doładowanie jest niedostępne. Bez tego warsztat, któremu skończą się minuty,
- * nie ma jak ich kupić — agent przestaje odbierać i nic z tym nie zrobi.
+ * Produkt doładowania jest włączony od 10.09.2026 (paczki 30/60/90 minut po
+ * 1,15 zł netto za minutę). Bez niego warsztat, któremu skończą się minuty,
+ * nie miałby jak ich kupić — agent przestaje odbierać i nic z tym nie zrobi.
  */
 export function LicznikMinutAgenta() {
   const [doladowanie, setDoladowanie] = useState(false);
 
-  // Czy warsztat WŁĄCZYŁ agenta. Polityka RLS na `voice_agent_configs`
-  // przepuszcza wyłącznie konfiguracje własnych warsztatów, więc zapytanie nie
-  // wymaga przekazywania identyfikatora ani sprawdzania uprawnień tutaj.
-  const { data: agentWlaczony } = useQuery({
-    queryKey: ['voice-agent-configs', 'czy-wlaczony'],
-    staleTime: 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('voice_agent_configs')
-        .select('is_active')
-        .eq('is_active', true)
-        .limit(1);
-      if (error) return false;
-      return (data?.length ?? 0) > 0;
-    },
-  });
+  /**
+   * Licznik widzi WYŁĄCZNIE warsztat z opłaconym pakietem.
+   *
+   * Wcześniej warunkiem był włączony przełącznik agenta, a jeszcze wcześniej
+   * sam przydzielony numer. Obie te rzeczy dawały się dziś mieć bez pakietu,
+   * więc licznik pokazywał saldo produktu, którego nikt nie kupił. Pytamy tym
+   * samym `moze_pracowac('agent')`, co zakładka i bramka na serwerze.
+   */
+  const { maPakiet } = usePakietAgenta();
 
   const { dostepne: minuty } = useDostepneJednostki('voice_minutes');
 
-  if (!agentWlaczony) return null;
+  if (!maPakiet) return null;
 
   return (
     <>

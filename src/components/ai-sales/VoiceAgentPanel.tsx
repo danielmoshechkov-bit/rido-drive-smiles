@@ -36,6 +36,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Save, Phone, Building2, ShieldCheck, Copy, AlertTriangle, Plane } from "lucide-react";
+import { usePakietAgenta } from "@/hooks/usePakietAgenta";
+import { OfertaAgenta } from "./OfertaAgenta";
 
 // JĘZYKÓW WARSZTAT NIE WYBIERA. Agent rozpoznaje język z tego, co mówi
 // dzwoniący, i odpowiada w nim — obsługa rosyjskiego i ukraińskiego jest
@@ -102,6 +104,18 @@ const ladnyNumer = (n: string) => {
 };
 
 export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
+  /**
+   * DWA STANY TEJ ZAKŁADKI.
+   *
+   * Bez opłaconego pakietu warsztat widzi OFERTĘ — co agent robi, ile kosztuje,
+   * co jest w którym pakiecie — a nie ustawienia z zablokowanymi polami.
+   * Zablokowane pole mówi „nie możesz"; oferta mówi „oto co dostaniesz".
+   *
+   * Po opłaceniu widok przełącza się sam: pytanie o pakiet ma krótką pamięć,
+   * więc powrót z płatności nie wymaga odświeżania strony. W drugą stronę
+   * działa tak samo — gdy subskrypcja wygaśnie, wraca oferta odnowienia.
+   */
+  const { maPakiet, gotowe: pakietSprawdzony } = usePakietAgenta();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   // PERSONA JEST STAŁA, NIE WYNIKIEM ZAPYTANIA.
@@ -245,6 +259,18 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const dodatkowe = cfg.business_context.extra_info || "";
   const sterujace = SLOWA_STERUJACE.filter((s) => dodatkowe.toLowerCase().includes(s));
   const urlop = cfg.business_context.urlop;
+
+  // Dopóki nie wiemy, nie pokazujemy ani oferty, ani ustawień — mignięcie
+  // ofertą warsztatowi, który ma pakiet, wygląda na utratę dostępu.
+  if (!pakietSprawdzony) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!maPakiet) return <OfertaAgenta />;
 
   return (
     <div className="space-y-6">
