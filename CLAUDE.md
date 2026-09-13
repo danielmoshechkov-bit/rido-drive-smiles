@@ -672,6 +672,39 @@ zachowuje się tak samo, to nie jest regresja, tylko pomiar.
 To ta sama klasa co „zielony wynik z niedziałającego narzędzia" wyżej, tyle że
 odwrotna: **czerwony wynik z niedziałającego narzędzia.**
 
+### Pusty wpis w `config.toml` znaczy wartość DOMYŚLNĄ, nie „zostaw jak jest"
+
+13.09.2026: wdrożenie sześciu funkcji z tego repozytorium odcięło przychodzące
+telefony. W `supabase/config.toml` stało:
+
+```toml
+[functions.voice-agent-init]
+                              # ← i nic pod spodem
+```
+
+Pusty wpis nałożył wartość domyślną `verify_jwt = true`, a webhook operatora
+telefonicznego żadnego tokenu Supabase nie ma. Skutek: **401 przy każdym
+połączeniu**, w panelu cisza, w logach funkcji pusto — bo do naszego kodu nie
+docierało żadne wywołanie. Trzy inne funkcje (w tym worker, który KUPUJE numery
+za nasze pieniądze) nie miały wpisu wcale.
+
+Dopóki funkcje wdrażał ktoś inny niż CLI, pusty wpis nie miał skutku. Pierwsze
+wdrożenie z repozytorium go uruchomiło. To jest ta sama klasa co reszta tej
+sekcji: **zmiana w jednym miejscu unieważnia założenie w kodzie, którego ta
+zmiana nie dotyczy** — tyle że tutaj „kodem" jest konfiguracja bramy.
+
+Przed każdym wdrożeniem z repozytorium wypisz, **kto woła** wdrażaną funkcję.
+Jeśli choć jeden wołający nie ma tokenu Supabase — operator telefoniczny,
+operator płatności, zegar bazy (`pg_cron` + `pg_net`), strona publiczna przed
+zalogowaniem — wpis musi mieć **jawne** `verify_jwt = false`.
+
+Pilnuje tego `scripts/test-bramki-jwt.mjs` (w CI jako „Bramki JWT funkcji
+brzegowych"). Ma kontrolę pozytywną i odwrotną: skasowanie linii `verify_jwt`
+pod `voice-agent-init` zapala bramkę, poprawny plik jej nie zapala.
+
+`verify_jwt = false` nie znaczy „bez zabezpieczeń" — znaczy, że tożsamość
+sprawdza sama funkcja, bo brama nie ma czego sprawdzić.
+
 ### Ukończona praca wraca do `main` tego samego dnia
 
 Lovable pracuje na `main`. Wszystko, co siedzi tylko na gałęzi roboczej, jest dla niego
