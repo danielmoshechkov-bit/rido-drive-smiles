@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star, Tag, Puzzle, Layers, CalendarPlus } from 'lucide-react';
+import { Loader2, CreditCard, Save, Wallet, History, ShoppingCart, RefreshCw, Gift, Search, MessageSquare, Sparkles, Star, Tag, Puzzle, Layers, CalendarPlus, Infinity } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { odczytajOdmowe } from '@/lib/odmowaZakupu';
@@ -247,10 +247,7 @@ export function AssignCreditsPanel() {
   const [creditType, setCreditType] = useState('sms');
   const [amount, setAmount] = useState<number | ''>('');
   // Dni dostępu — osobny formularz obok kredytów, ta sama wyszukiwarka konta.
-  const [liniaDni, setLiniaDni] = useState<'warsztat' | 'agent'>('warsztat');
-  const [dni, setDni] = useState<number | ''>('');
   const [powodDni, setPowodDni] = useState('');
-  const [zapisDni, setZapisDni] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Companies list + filters
@@ -383,13 +380,46 @@ export function AssignCreditsPanel() {
     );
   });
 
+  /** Typy, które nie są jednostkami — idą inną funkcją i mają własne reguły. */
+  const TYPY_DOSTEPU: Record<string, { linia?: string; dozywotni?: boolean }> = {
+    dni_warsztat: { linia: 'warsztat' },
+    dni_agent: { linia: 'agent' },
+    dozywotni: { dozywotni: true },
+  };
+
   const handleAssign = async () => {
-    if (!foundUser || !amount || amount <= 0) return;
+    if (!foundUser) return;
+    const dostep = TYPY_DOSTEPU[creditType];
+
+    // Dożywotni nie ma liczby; pozostałe typy bez dodatniej liczby nie mają sensu.
+    if (!dostep?.dozywotni && (!amount || amount <= 0)) return;
+    // Powód jest obowiązkowy przy DOSTĘPIE, bo to oddanie produktu za darmo.
+    // Serwer i tak odmówi bez niego — przycisk jest nieaktywny, żeby nie uczyć
+    // klikania na oślep.
+    if (dostep && powodDni.trim().length < 3) return;
+
     setSaving(true);
     try {
-      const { data, error } = await supabase.functions.invoke('payment-core', {
-        body: { action: 'admin_grant', user_id: foundUser.id, credit_type: creditType, amount },
-      });
+      /**
+       * DWA TYPY, DWIE FUNKCJE — ten sam formularz.
+       *
+       * Jednostki (SMS, VIN, Rido AI) dopisują paczkę i idą przez
+       * `payment-core`. Dni dostępu i dożywotni zmieniają PRAWO DO PRODUKTU
+       * i mają węższą bramę: wyłącznie właściciel platformy, powód
+       * obowiązkowy. Formularz jest wspólny, bo nawyk administratora jest
+       * jeden; drogi są różne, bo różne są konsekwencje.
+       */
+      const { data, error } = dostep
+        ? await supabase.functions.invoke('billing-przyznaj-dni', {
+            body: {
+              user_id: foundUser.id,
+              ...(dostep.dozywotni ? { dozywotni: true } : { linia: dostep.linia, dni: amount }),
+              powod: powodDni.trim(),
+            },
+          })
+        : await supabase.functions.invoke('payment-core', {
+            body: { action: 'admin_grant', user_id: foundUser.id, credit_type: creditType, amount },
+          });
       /**
        * 🔴 SUKCES MELDOWANY NAD NIEUDANYM ZAPISEM.
        *
@@ -402,52 +432,29 @@ export function AssignCreditsPanel() {
         toast.error((await odczytajOdmowe(error, data)).komunikat);
         return;
       }
-      const gdzie = (data as any)?.warsztat ? ` — warsztat ${(data as any).warsztat}` : '';
-      toast.success(`Przyznano ${amount} × ${creditType} dla ${foundUser.email}${gdzie}`);
-      setAmount('');
+      if (dostep) {
+        const w = (data as any)?.wynik ?? {};
+        toast.success(
+          dostep.dozywotni
+            ? `Konto ${foundUser.email} ma teraz dostęp dożywotni.`
+            : `Przyznano ${amount} dni (${dostep.linia}) dla ${foundUser.email}`
+              + (w.nowy_koniec ? ` — dostęp do ${new Date(w.nowy_koniec).toLocaleDateString('pl-PL')}` : ''),
+        );
+        // Uwagi z serwera — założenie subskrypcji od zera albo ostrzeżenie,
+        // że operator nadpisze datę przy najbliższym odnowieniu. Milczenie
+        // o nich znaczyłoby, że administrator dowie się dopiero z pretensji.
+        if (w.uwaga) toast.warning(String(w.uwaga), { duration: 8000 });
+        setAmount('');
+        setPowodDni('');
+      } else {
+        const gdzie = (data as any)?.warsztat ? ` — warsztat ${(data as any).warsztat}` : '';
+        toast.success(`Przyznano ${amount} × ${creditType} dla ${foundUser.email}${gdzie}`);
+        setAmount('');
+      }
     } catch (e: any) {
       toast.error('Błąd: ' + (e?.message || 'Nieznany'));
     }
     setSaving(false);
-  };
-
-  /**
-   * Przyznanie dni dostępu.
-   *
-   * Granice (1–365, istnienie subskrypcji, doklejanie do ważnej daty) pilnuje
-   * `billing_przyznaj_dni_admin` w bazie. Tutaj nie powtarzamy warunków —
-   * poza jednym, który chroni przed pustym kliknięciem — bo dwa miejsca na tę
-   * samą decyzję rozjeżdżają się przy pierwszej zmianie.
-   */
-  const przyznajDni = async () => {
-    if (!foundUser || !dni || dni < 1) return;
-    setZapisDni(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('billing-przyznaj-dni', {
-        body: { user_id: foundUser.id, linia: liniaDni, dni, powod: powodDni || null },
-      });
-      // Odmowa 4xx zostawia `data === null`, a treść siedzi w `error.context` —
-      // patrz komentarz przy `handleAssign`.
-      if (error || (data as any)?.error) {
-        toast.error((await odczytajOdmowe(error, data)).komunikat);
-        return;
-      }
-      const koniec = (data as any)?.wynik?.nowy_koniec;
-      const uwaga = (data as any)?.wynik?.uwaga;
-      toast.success(
-        `Przyznano ${dni} dni (${liniaDni})` +
-        (koniec ? ` — dostęp do ${new Date(koniec).toLocaleDateString('pl-PL')}` : ''),
-      );
-      // Konto płacące kartą odnowi się u operatora i nadpisze tę datę.
-      // Milczenie o tym znaczyłoby, że administrator dowiaduje się o tym
-      // dopiero wtedy, gdy klient wróci z pretensją.
-      if (uwaga) toast.warning(String(uwaga), { duration: 8000 });
-      setDni('');
-      setPowodDni('');
-    } catch (e: any) {
-      toast.error('Błąd: ' + (e?.message || 'Nieznany'));
-    }
-    setZapisDni(false);
   };
 
   /**
@@ -461,6 +468,23 @@ export function AssignCreditsPanel() {
    * obowiązuje zakaz zmian w agencie głosowym.
    */
   const creditTypes = [
+    /**
+     * DNI DOSTĘPU I DOŻYWOTNI SĄ TU, A NIE W OSOBNEJ KARCIE.
+     *
+     * Administrator ma jeden nawyk: znajdź warsztat, wybierz co nadać, wpisz
+     * ile, zatwierdź. Osobny formularz obok znaczyłby drugi zestaw pól, drugą
+     * walidację i drugie miejsce na poprawkę przy następnej zmianie.
+     *
+     * LINIA PRODUKTOWA JEST W NAZWIE POZYCJI, nie w dodatkowym polu. Pole
+     * pojawiające się tylko przy jednym typie to formularz, który zmienia
+     * kształt pod ręką; nazwa mówi wprost, co dostanie warsztat.
+     *
+     * DOŻYWOTNI NIE JEST LICZBĄ. Wpisywanie 36500 dni to pułapka na literówkę
+     * — 3650 i 36500 wyglądają podobnie, a różnią się o dziewięćdziesiąt lat.
+     */
+    { value: 'dni_warsztat', label: 'Dni dostępu — moduł warsztatowy', icon: CalendarPlus },
+    { value: 'dni_agent', label: 'Dni dostępu — pakiet agenta', icon: CalendarPlus },
+    { value: 'dozywotni', label: 'Dostęp dożywotni (całe konto)', icon: Infinity },
     { value: 'sms', label: 'SMS', icon: MessageSquare },
     { value: 'vehicle_lookup', label: 'Sprawdzenie pojazdu (VIN/rej.)', icon: Search },
     { value: 'rido_ai', label: 'Rido AI — pytania', icon: Sparkles },
@@ -619,74 +643,55 @@ export function AssignCreditsPanel() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Ilość</Label>
-              <Input type="number" value={amount} onChange={e => setAmount(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))} placeholder="np. 50" className="max-w-xs" min={1} />
-            </div>
-            <Button onClick={handleAssign} disabled={saving || !amount || amount <= 0} className="gap-2">
+            {/* Dożywotni nie ma liczby — pytanie „ile" przy dostępie bez końca
+                nie ma odpowiedzi, a puste pole obok przycisku wygląda na usterkę. */}
+            {creditType !== 'dozywotni' && (
+              <div className="space-y-2">
+                <Label>{TYPY_DOSTEPU[creditType] ? 'Liczba dni' : 'Ilość'}</Label>
+                <Input type="number" value={amount} onChange={e => setAmount(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))} placeholder={TYPY_DOSTEPU[creditType] ? 'np. 30' : 'np. 50'} className="max-w-xs" min={1} />
+              </div>
+            )}
+
+            {/* POWÓD TYLKO PRZY DOSTĘPIE. Przy jednostkach nadanie kosztuje
+                grosze i ma stały opis; przy dostępie oddajemy produkt za darmo
+                i po miesiącu ktoś musi umieć odczytać, czemu. */}
+            {TYPY_DOSTEPU[creditType] && (
+              <div className="space-y-2">
+                <Label>Powód (obowiązkowy)</Label>
+                <Input
+                  value={powodDni}
+                  onChange={e => setPowodDni(e.target.value)}
+                  placeholder="np. klient testowy, reklamacja, warsztat partnerski"
+                  className="max-w-md"
+                />
+                {creditType === 'dozywotni' && (
+                  <p className="text-xs text-muted-foreground">
+                    Konto przestaje podlegać wygasaniu, karencji i blokadzie — we wszystkich produktach.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <Button
+              onClick={handleAssign}
+              disabled={
+                saving
+                || (creditType !== 'dozywotni' && (!amount || amount <= 0))
+                || (!!TYPY_DOSTEPU[creditType] && powodDni.trim().length < 3)
+              }
+              className="gap-2"
+            >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
-              Przyznaj {amount || 0} kredytów
+              {creditType === 'dozywotni'
+                ? 'Nadaj dostęp dożywotni'
+                : TYPY_DOSTEPU[creditType]
+                  ? `Przyznaj ${amount || 0} dni`
+                  : `Przyznaj ${amount || 0} kredytów`}
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {foundUser && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarPlus className="h-4 w-4" /> Przyznaj dni dostępu
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Dni DOKLEJAJĄ się do ważnej daty, nie zastępują jej — konto
-                z opłaconym miesiącem dostaje dni PO nim, a nie zamiast niego.
-                Zdanie stoi tu, bo bez niego administrator musiałby zgadywać. */}
-            <p className="text-sm text-muted-foreground">
-              Dni doliczamy do końca bieżącego okresu, a gdy okres już minął — od dziś.
-              Przyznanie zdejmuje tryb dokończenia i twardy blok.
-            </p>
-            <div className="space-y-2">
-              <Label>Linia produktowa</Label>
-              <Select value={liniaDni} onValueChange={(v) => setLiniaDni(v as 'warsztat' | 'agent')}>
-                <SelectTrigger className="max-w-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="warsztat">Warsztat</SelectItem>
-                  <SelectItem value="agent">Agent AI</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Liczba dni (1–365)</Label>
-              <Input
-                type="number" min={1} max={365} className="max-w-xs" placeholder="np. 30"
-                value={dni}
-                onChange={(e) => setDni(e.target.value === '' ? '' : Math.max(1, Math.min(365, parseInt(e.target.value) || 1)))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Powód (nieobowiązkowy)</Label>
-              <Input
-                className="max-w-md" placeholder="np. przedłużenie testów, naprawa po nieudanej płatności"
-                value={powodDni}
-                onChange={(e) => setPowodDni(e.target.value)}
-              />
-            </div>
-            {/* Powód jest OBOWIĄZKOWY — serwer i tak odmówi bez niego, ale
-                przycisk, który prowadzi do odmowy, uczy klikania na oślep.
-                Nadanie bez powodu przestaje być wpisem audytowym: po miesiącu
-                nikt nie odczyta, czy to była reklamacja, czy pomyłka. */}
-            <Button
-              onClick={przyznajDni}
-              disabled={zapisDni || !dni || dni < 1 || powodDni.trim().length < 3}
-              className="gap-2"
-            >
-              {zapisDni ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
-              Przyznaj {dni || 0} dni
-            </Button>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
