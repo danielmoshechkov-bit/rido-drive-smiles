@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     const baza = bramka.is_sandbox ? PAYU_SANDBOX : PAYU_PRODUKCJA;
 
     // ── Produkt, liczba jednostek i kwota ───────────────────────────
-    const { product_code, units, plan_code, okres } = await req.json().catch(() => ({}));
+    const { product_code, units, plan_code, okres, meta_fbp, meta_fbc } = await req.json().catch(() => ({}));
 
     // Dwie rzeczy do kupienia, jedna droga płatności:
     //   • DOŁADOWANIE — produkt z `billing_addon_products`, liczony w sztukach,
@@ -286,22 +286,70 @@ Deno.serve(async (req) => {
     // ── Zamówienie u nas — PRZED wyjściem do operatora ───────────────
     // Wiersz powstaje najpierw, żeby powiadomienie miało do czego wrócić,
     // nawet gdyby odpowiedź operatora zaginęła po drodze.
-    const { data: zamowienie, error: bladZam } = await (admin as any)
-      .from('billing_orders')
-      .insert({
-        subscriber_type: 'service_provider',
-        subscriber_id: warsztat.id,
-        user_id: caller.id,
-        ...(pozycja.product_id ? { product_id: pozycja.product_id } : {}),
-        ...(pozycja.plan_id ? { plan_id: pozycja.plan_id } : {}),
-        units: pozycja.units,
-        amount_gross: pozycja.amount_gross,
-        status: 'nowe',
-        provider: 'payu',
-        snapshot: pozycja.snapshot,
-      })
-      .select('id')
-      .maybeSingle();
+    const wiersz: Record<string, unknown> = {
+      subscriber_type: 'service_provider',
+      subscriber_id: warsztat.id,
+      user_id: caller.id,
+      ...(pozycja.product_id ? { product_id: pozycja.product_id } : {}),
+      ...(pozycja.plan_id ? { plan_id: pozycja.plan_id } : {}),
+      units: pozycja.units,
+      amount_gross: pozycja.amount_gross,
+      status: 'nowe',
+      provider: 'payu',
+      snapshot: pozycja.snapshot,
+    };
+
+    /**
+     * Ciasteczka piksela zapamiętane TERAZ, bo przy WYDANIU zamówienia
+     * przeglądarki może już nie być — klient płaci BLIK-iem i zamyka kartę.
+     * Bez nich Conversions API nie ma czego dopasować, a to dokładnie te
+     * przypadki, dla których serwerowa kopia zdarzenia powstała.
+     *
+     * Puste = piksel się nie uruchomił, czyli nie było zgody marketingowej.
+     * `meta-capi` traktuje to jako powód, żeby NIE wysyłać niczego.
+     *
+     * ⚠️ TO JUŻ RAZ ZNIKŁO. 13.09.2026 scalenie gałęzi agenta głosowego
+     * skasowało tę część — zostały ciasteczka we froncie, wywołanie w webhooku
+     * i sama funkcja `meta-capi`, ale NIKT ich nie zapisywał. Cały łańcuch
+     * wyglądał na kompletny, a każda konwersja kończyła się „brak_zgody".
+     * Jeśli znów zniknie, szukaj tego samego objawu w dzienniku.
+     */
+    const ciasteczkaPiksela = {
+      meta_fbp: typeof meta_fbp === 'string' ? meta_fbp.slice(0, 200) : null,
+      meta_fbc: typeof meta_fbc === 'string' ? meta_fbc.slice(0, 400) : null,
+    };
+
+    const zaloz = (dane: Record<string, unknown>) =>
+      (admin as any).from('billing_orders').insert(dane).select('id').maybeSingle();
+
+    let { data: zamowienie, error: bladZam } = await zaloz({ ...wiersz, ...ciasteczkaPiksela });
+
+    /**
+     * 🔴 KOLEJNOŚĆ WDROŻENIA NIE MOŻE KOSZTOWAĆ SPRZEDAŻY.
+     *
+     * Kolumny `meta_fbp`/`meta_fbc` dokłada migracja `20260913154236`. Gdyby
+     * ta funkcja pojechała na produkcję PRZED nią, PostgREST odrzuciłby CAŁY
+     * `INSERT` (`PGRST204`, „column not found" — sprawdzone zachowaniem:
+     * nieznana kolumna jest łapana PRZED RLS, klucz anon dostaje 400, nie 401).
+     * Czyli każdy klient zobaczyłby „Nie udało się rozpocząć płatności",
+     * a przyczyną byłoby pole analityczne.
+     *
+     * Dlatego przy TEJ jednej klasie błędu zakładamy zamówienie jeszcze raz,
+     * bez pól analitycznych. Pierwsza próba nie zostawiła wiersza, więc nie ma
+     * mowy o podwójnym zamówieniu. Tracimy dopasowanie konwersji do czasu
+     * wykonania migracji — nie tracimy zakupu.
+     *
+     * Wpis w dzienniku jest KRZYKLIWY celowo: to stan przejściowy, który ma
+     * zniknąć po migracji, a nie cicha degradacja na stałe.
+     */
+    if (bladZam && String((bladZam as any).code) === 'PGRST204') {
+      console.error(
+        'billing-payu-order: BRAK KOLUMN meta_fbp/meta_fbc — wykonaj migrację 20260913154236. ' +
+        'Zamówienie zakładam bez nich, konwersja do Meta nie pojedzie.',
+        (bladZam as any).message,
+      );
+      ({ data: zamowienie, error: bladZam } = await zaloz(wiersz));
+    }
 
     if (bladZam || !zamowienie) {
       console.error('billing-payu-order: nie udało się założyć zamówienia', bladZam);
