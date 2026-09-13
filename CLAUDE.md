@@ -399,6 +399,38 @@ kodu. Dlatego: każdy test polityk zawiera co najmniej jedną operację, która 
 i sprawdza, że się udała. Przy `UPDATE`/`DELETE` liczy dotknięte wiersze — polityka
 `RESTRICTIVE` filtruje wiersze, nie rzuca wyjątkiem, więc brak błędu nie znaczy sukcesu.
 
+### Bez liczby to nie naprawa, tylko przemeblowanie
+
+Dotyczy każdej zmiany uzasadnionej tym, że „się nie mieści", „jest za wąskie",
+„źle wygląda na telefonie". Oko na zrzucie z szerokiego ekranu nie mówi nic
+o wąskim, a przemiat `grep` mówi tylko, gdzie patrzeć — nie co jest zepsute.
+
+13.09.2026 napisałem, że cztery pola bieżnika w rzędzie są „tak wąskie, że nie
+widać wpisywanej wartości", i przerobiłem je na 2×2. Pomiar na żywym panelu:
+**pole ma 80 px i mieści sześć znaków**, a wartość bieżnika to trzy („6.5").
+Etykiety mieściły się w jednej linii. Zmiana została cofnięta.
+
+W tej samej turze przemiat dał dziewięć trafień. Po obejrzeniu każdego zostały
+trzy, po zmierzeniu — **jedna**.
+
+**Zanim zmienisz układ, zmierz i zapisz liczbę:**
+
+```js
+element.getBoundingClientRect().width          // ile realnie ma miejsca
+Math.round(rect.height / lineHeight)           // na ile linii łamie się tekst
+Math.floor(dostepne / ctx.measureText('8').width)  // ile znaków wejdzie
+```
+
+Uzasadnienie bez liczby jest hipotezą, nie diagnozą. Liczba idzie do commita
+i do komentarza w kodzie — także wtedy, gdy każe zostawić rzeczy takie, jakie
+są. Komentarz z pomiarem przy niezmienionym kodzie oszczędza następnej osobie
+tej samej rundy.
+
+⚠️ W tej przeglądarce `resize_window` **nie zmienia `innerWidth`**, więc
+punktów granicznych (`sm:`, `md:`) nie da się wywołać. Mierz na wymuszonej
+szerokości kontenera albo odsłaniaj gałąź wstrzykniętym `!important` — patrz
+lista niżej.
+
 ### 🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA
 
 W jednej sesji (13.09.2026) **pięć razy** wynik był zielony, bo narzędzie nie
