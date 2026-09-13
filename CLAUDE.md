@@ -393,6 +393,79 @@ kodu. Dlatego: każdy test polityk zawiera co najmniej jedną operację, która 
 i sprawdza, że się udała. Przy `UPDATE`/`DELETE` liczy dotknięte wiersze — polityka
 `RESTRICTIVE` filtruje wiersze, nie rzuca wyjątkiem, więc brak błędu nie znaczy sukcesu.
 
+### KSeF sprawdza XML, nie prawo podatkowe
+
+Schemat FA(3) przyjmie fakturę merytorycznie wadliwą, nada jej numer i wystawi
+UPO. Zielone KSeF **nie jest** dowodem poprawności dokumentu.
+
+Przykład, na którym to wyszło (13.09.2026): `P_9A` (cena jednostkowa netto) ma
+w FA(3) typ `TKwotowy2` z ośmioma miejscami po przecinku. Tymczasem Dyrektor KIS
+(interpretacje 12.2025 i 08.2026) rozstrzygnął, że **cena jednostkowa netto
+w złotych z dokładnością większą niż dwa miejsca jest niedopuszczalna** — złoty
+nie ma nominału mniejszego niż grosz. Faktura z ceną 0,3450 zł przeszłaby przez
+KSeF i byłaby wadliwa.
+
+Przy zmianach w generatorze faktur trzeba więc sprawdzić DWIE rzeczy osobno:
+
+| pytanie | czym sprawdzić |
+|---|---|
+| czy KSeF to przyjmie | walidacja XSD / wysyłka na `integration` |
+| czy dokument jest zgodny z prawem | ustawa o VAT art. 106e + interpretacje |
+
+Drugie nie wynika z pierwszego. Wskazane przez KIS wyjście przy cenach poniżej
+grosza to **zmiana jednostki miary** — sprzedaż w paczkach, nie zwiększanie
+liczby miejsc po przecinku.
+
+### Hak po wczesnym `return` przewraca widok DOPIERO U KLIENTA
+
+13.09.2026 klienci, kierowcy i pracownicy warsztatów nie mogli wejść do systemu.
+Jeden objaw („Ten widok się nie wczytał"), dwie niezależne przyczyny tej samej
+klasy — hak wywołany ZA wczesnym `return`.
+
+**Numer w komunikacie mówi, w którą stronę:**
+
+| kod | znaczenie | kiedy widać |
+|---|---|---|
+| **#300** | „Rendered fewer hooks than expected" | wyjście POJAWIŁO się między renderami |
+| **#310** | „Rendered more hooks than during the previous render" | wyjście PRZESTAŁO obowiązywać |
+
+**#310 jest podstępniejszy, bo u nas nie wystąpi.** Pierwszy render kończy się
+na `if (loading) return <spinner/>` i haków niżej nie ma. Drugi, po wczytaniu
+danych, idzie dalej i odpala je wszystkie — React dostaje ich nagle więcej
+i przewraca widok. Deweloper z gotowymi danymi w pamięci podręcznej może tego
+nie zobaczyć ani razu.
+
+Trzy różne zgłoszenia okazały się przy tym JEDNYM miejscem plus jednym drugim:
+`Auth.tsx` po zalogowaniu kieruje na `/klient` **każdego, kto nie ma pasującej
+roli** — więc klient i pracownik warsztatu lądowali w tym samym padającym
+komponencie. „Trzy widoki, jeden błąd" znaczyło „jeden cel, nie jeden komponent".
+
+**Bramka:** `npm run test:haki` (`scripts/sprawdz-haki.mjs`, zadanie w CI).
+Reguła `react-hooks/rules-of-hooks` jest na zerze, więc bramka jest twarda —
+w odróżnieniu od pełnego `npm run lint`, który ma ponad cztery tysiące błędów
+i jako bramka uczyłby tylko ignorowania siebie.
+
+Bramka ma WŁASNĄ kontrolę pozytywną i przy pierwszym uruchomieniu ta kontrola
+PADŁA: kod kontrolny leżał w `/tmp`, a płaska konfiguracja ESLint dopasowuje
+reguły po ścieżce, więc plik spoza projektu nie łapał się na
+`files: ["**/*.{ts,tsx}"]`. Bramka milczała nad kodem, o którym wiadomo, że jest
+zły. Stąd `lintText` ze ścieżką wewnątrz `src/`.
+
+### Błąd renderowania ma zostawić ślad W BAZIE, nie w konsoli klienta
+
+`console.error` zostaje w przeglądarce tego, komu się wywróciło. Ustalenie
+przyczyny #310 zajęło dwie rundy pytań o zrzut ekranu, przy ludziach, którzy
+w tym czasie nie mogli pracować.
+
+`AppErrorBoundary` zapisuje teraz do `bledy_widoku`: ścieżkę, role, nazwę
+komponentu i treść błędu. Role są tam nie dla ozdoby — „nie działa klientom"
+i „nie działa kierowcom" to dwa różne zgłoszenia i bez ról nie da się ich
+rozróżnić.
+
+Zapis wymaga zalogowania i obejmuje tylko własny wiersz. Tabela zapisywalna
+przez `anon` to zaproszenie do zapchania bazy, a ta klasa usterek z definicji
+dotyczy zalogowanych.
+
 ### Odczyt treści funkcji łapie KOMENTARZE — rozstrzyga uruchomienie
 
 `pg_proc.prosrc` to ciało funkcji **razem z komentarzami**. Zapytanie o wzorzec

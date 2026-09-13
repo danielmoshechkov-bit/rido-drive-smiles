@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { zglosBladWidoku } from '@/lib/zglosBladWidoku';
 
 /**
  * Granica błędu dla całej aplikacji.
@@ -7,6 +8,12 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
  * wiedział, czy aplikacja padła, czy jeszcze się ładuje, i nie miał co zrobić.
  * Tutaj: czytelny komunikat, przycisk odświeżenia i powrót do panelu, a treść
  * błędu ląduje w konsoli (do zgłoszenia), zamiast znikać bez śladu.
+ *
+ * OD 13.09.2026 błąd trafia TAKŻE DO BAZY (`bledy_widoku`). Powód: konsola
+ * zostaje w przeglądarce klienta. Trzy grupy użytkowników nie mogły wejść do
+ * systemu przez błąd React #310, a ustalenie tego zajęło dwie rundy pytań
+ * o zrzut ekranu. Zapis niesie ścieżkę, role i nazwę komponentu — czyli to,
+ * co pozwala odróżnić „nie działa klientom" od „nie działa kierowcom".
  */
 
 interface Props { children: ReactNode }
@@ -21,6 +28,10 @@ export class AppErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[GetRido] Błąd renderowania:', error, info.componentStack);
+    // Świadomie bez `await` i bez `catch` tutaj: zgłoszenie samo w sobie nie ma
+    // prawa niczego rzucić (patrz `zglosBladWidoku`), a czekanie na sieć
+    // opóźniałoby pokazanie komunikatu komuś, kto właśnie patrzy na pustkę.
+    void zglosBladWidoku(error, info.componentStack);
   }
 
   render() {

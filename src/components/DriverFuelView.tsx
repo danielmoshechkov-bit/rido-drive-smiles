@@ -30,18 +30,21 @@ interface FuelTransaction {
 
 export function DriverFuelView({ fuelCardNumber, fuelCardPin }: DriverFuelViewProps) {
   const { t } = useTranslation();
-  
-  // Early return if no fuel card assigned
-  if (!fuelCardNumber) {
-    return (
-      <Card>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          {t('fuel.noFuelCard')}
-        </CardContent>
-      </Card>
-    );
-  }
-  
+
+  /**
+   * 🔴 WSZYSTKIE HAKI PRZED JAKIMKOLWIEK `return`.
+   *
+   * Wyjście „brak karty paliwowej" stało TUTAJ, nad pięcioma `useState`
+   * i `useEffect` — i to była przyczyna błędu React #310 u kierowców.
+   * Kierowca bez karty renderował ZERO haków, a ten sam kierowca po nadaniu
+   * karty (albo gdy `fuelCardNumber` dojechał jednym renderem później, bo
+   * przychodzi z zapytania) renderował SZEŚĆ. React liczy haki po kolejności
+   * i przewracał widok: „Ten widok się nie wczytał" zamiast wyników kierowcy.
+   *
+   * Wyjście przeniesione POD haki. Kod niżej i tak nie robi nic bez numeru
+   * karty (`useEffect` sprawdza `fuelCardNumber`), więc przeniesienie nic
+   * nie kosztuje.
+   */
   const [transactions, setTransactions] = useState<FuelTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -102,6 +105,18 @@ export function DriverFuelView({ fuelCardNumber, fuelCardPin }: DriverFuelViewPr
       setLoading(false);
     }
   };
+
+  // Brak karty paliwowej — komunikat zamiast pustej tabeli. Wyjście stoi TU,
+  // pod wszystkimi hakami, a nie nad nimi (patrz komentarz przy `useState`).
+  if (!fuelCardNumber) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-muted-foreground">
+          {t('fuel.noFuelCard')}
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (loading) {
     return (
