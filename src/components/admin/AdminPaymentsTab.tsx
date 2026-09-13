@@ -672,7 +672,15 @@ export function AssignCreditsPanel() {
                 onChange={(e) => setPowodDni(e.target.value)}
               />
             </div>
-            <Button onClick={przyznajDni} disabled={zapisDni || !dni || dni < 1} className="gap-2">
+            {/* Powód jest OBOWIĄZKOWY — serwer i tak odmówi bez niego, ale
+                przycisk, który prowadzi do odmowy, uczy klikania na oślep.
+                Nadanie bez powodu przestaje być wpisem audytowym: po miesiącu
+                nikt nie odczyta, czy to była reklamacja, czy pomyłka. */}
+            <Button
+              onClick={przyznajDni}
+              disabled={zapisDni || !dni || dni < 1 || powodDni.trim().length < 3}
+              className="gap-2"
+            >
               {zapisDni ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
               Przyznaj {dni || 0} dni
             </Button>

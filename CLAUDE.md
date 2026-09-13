@@ -712,6 +712,36 @@ zachowuje się tak samo, to nie jest regresja, tylko pomiar.
 To ta sama klasa co „zielony wynik z niedziałającego narzędzia" wyżej, tyle że
 odwrotna: **czerwony wynik z niedziałającego narzędzia.**
 
+### Jeśli coś da się zrobić ZMIANĄ KLUCZA, nie rób tego osobną operacją
+
+Operacja może się nie wykonać albo wykonać dwa razy. Klucz albo jest, albo go
+nie ma — nie ma czego powtórzyć.
+
+13.09.2026, reset puli minut przy odnowieniu abonamentu. Naturalne rozwiązanie:
+w webhooku `invoice.paid` wyzerować licznik. Ma dwie wady i obie są ciche —
+wysyłka może nie dojść (klient zapłacił, minut nie ma), a operator ponawia
+nieodebrane powiadomienia, więc to samo zdarzenie potrafi przyjść drugi raz
+(pula wyzerowana dwa razy, klient dostaje podwójnie).
+
+Zamiast tego zmieniliśmy to, **czym kluczowany jest licznik**: z „pierwszy dzień
+miesiąca" na „początek bieżącego okresu subskrypcji". Gdy operator przedłuża
+okres, klucz się zmienia, wiersza dla nowego okresu jeszcze nie ma i pula rusza
+od zera. Reset jest SKUTKIEM odnowienia, nie czynnością obok niego.
+
+Ten sam wzorzec działa wszędzie, gdzie kusi „a potem to wyczyścimy": zamiast
+kasować stan zadaniem cyklicznym, wpisz go w klucz, po którym i tak pytasz.
+
+### Migrację zmieniającą DŁUGĄ funkcję składaj z żywej definicji
+
+`pg_get_functiondef()` oddaje to, co naprawdę stoi w bazie. Przepisywanie
+stukilkudziesięciolinijkowej funkcji z ekranu po to, żeby zmienić jedną linijkę,
+to zaproszenie do literówki w kodzie decydującym o pobieraniu pieniędzy.
+
+Sposób: pobierz definicję, podmień skryptem dokładnie to, co ma się zmienić,
+i **wstaw asercje** — że kotwica wystąpiła dokładnie raz i że zmienna nie jest
+czytana przed przypisaniem. Gdy kotwica nie trafi, skrypt ma paść, a nie
+wyprodukować SQL, który się wykona.
+
 ### Pusty wpis w `config.toml` znaczy wartość DOMYŚLNĄ, nie „zostaw jak jest"
 
 13.09.2026: wdrożenie sześciu funkcji z tego repozytorium odcięło przychodzące
