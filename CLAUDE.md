@@ -84,6 +84,12 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 ## Zasady pracy z tym repozytorium (ustalone 21.08.2026)
 
+> **Zanim uwierzysz zielonemu wynikowi** — przeczytaj
+> „🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA" niżej.
+> Dziesięć znanych sposobów, na jakie kontrola w tym repozytorium
+> potrafi wypaść zielono nad zepsutym kodem.
+
+
 ### Warunek w kodzie i więz w bazie muszą mówić to samo
 
 Najważniejsza rzecz, jaka wyszła z tej sesji. Zmiana jednego bez drugiego nie naprawia
@@ -392,6 +398,34 @@ Za każdym razem zielony wynik brał się z **niedziałającego narzędzia**, ni
 kodu. Dlatego: każdy test polityk zawiera co najmniej jedną operację, która MA się udać,
 i sprawdza, że się udała. Przy `UPDATE`/`DELETE` liczy dotknięte wiersze — polityka
 `RESTRICTIVE` filtruje wiersze, nie rzuca wyjątkiem, więc brak błędu nie znaczy sukcesu.
+
+### 🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA
+
+W jednej sesji (13.09.2026) **pięć razy** wynik był zielony, bo narzędzie nie
+działało — a nie dlatego, że kod był dobry. To nie jest przypadek, tylko
+najkosztowniejszy wzorzec w tym repozytorium: **fałszywe potwierdzenie kosztuje
+więcej niż brak potwierdzenia**, bo po nim się nie sprawdza dalej.
+
+Zanim uwierzysz zielonemu wynikowi, zepsuj coś celowo i sprawdź, czy narzędzie
+to zauważy. Poniżej znane przypadki — każdy wyszedł drogo.
+
+| narzędzie | jak kłamie | jak to poznać | co robić |
+|---|---|---|---|
+| **`npx tsc --noEmit`** | kod wyjścia 0 nad plikiem z niedomkniętym JSX — główny `tsconfig.json` ma `"files": []` i same `references`, więc sprawdza PUSTY ZBIÓR | usuń tag zamykający, wynik nadal 0 | **zawsze `npm run typecheck`** (to samo, co CI) |
+| **`… \| tail`, `… \| head`, `… \| grep`** | `$?` po potoku to kod OSTATNIEGO polecenia, nie tego, które sprawdzasz. `polecenie \| tail -3; echo "OK: $?"` wypisze `OK: 0`, choć polecenie padło | `echo` z `$?` zaraz po potoku pokazuje 0 zawsze | **`polecenie > /tmp/log 2>&1; echo $?`**, dopiero potem czytaj plik |
+| **`pg_proc.prosrc` + `LIKE`** | `prosrc` to ciało RAZEM z komentarzami, więc wzorzec trafia w zdanie mówiące, że tego wzorca NIE MA | funkcja z komentarzem „BEZ `deleted_at IS NULL`" pasuje do `LIKE '%deleted_at IS NULL%'` | najpierw **zachowanie** (zapisz i sprawdź), potem `sprawdz_dryf_funkcji.py`, `LIKE` na końcu i z `regexp_replace(prosrc, '--[^\n]*', '', 'g')` |
+| **ESLint na pliku spoza projektu** | płaska konfiguracja dopasowuje reguły po ścieżce; plik w `/tmp` nie łapie się na `files: ["**/*.{ts,tsx}"]` i lint milczy nad kodem, o którym wiadomo, że jest zły | kontrola pozytywna nie zapala się | `lintText` ze ścieżką **wewnątrz** `src/` |
+| **Migracja z „Success"** | krok na danych (`CREATE UNIQUE INDEX`, `ADD CONSTRAINT`) cofa w tej samej transakcji krok z kodem (`CREATE OR REPLACE FUNCTION`) — a wynik wygląda na sukces | funkcja w bazie jest stara mimo zielonego przebiegu | **rozdziel migracje**: funkcje, dane, więzy. Dowodem jest SKUTEK z osobnego uruchomienia |
+| **Karta prowadzona przez rozszerzenie** | `document.visibilityState === "hidden"`, więc animacje CSS nie chodzą i `animationend` nie pada. Wszystko, co odmontowuje się po animacji wyjścia, ZOSTAJE w DOM — wygląda jak usterka | `data-state="closed"`, a węzeł nadal w drzewie | sprawdź `document.visibilityState` i **porównaj z wersją SPRZED zmiany w tym samym przebiegu** |
+| **`auth.audit_log_entries`** | nie ma tam nieudanych logowań ani adresów IP — brak wpisów NIE dowodzi, że nikt nie próbował | `ip_address` puste dla wszystkich wierszy | obecność `login`/`token_refreshed` dowodzi, że auth DZIAŁA; braku nie interpretuj |
+| **`count(*)` na tabeli** | zero wierszy nie znaczy „nieużywana" — znaczy tylko „nikt jeszcze nie zapisał" | tabela z 0 wierszy, na której stoi 12 plików frontu | sprawdź TRZY sygnały: dane, kod (`.from('…')`), więzy (`pg_constraint` w obie strony) |
+| **Zielony KSeF** | schemat FA(3) przyjmie fakturę merytorycznie wadliwą, nada numer i wystawi UPO | cena jednostkowa z ułamkiem grosza przechodzi walidację | zgodność z XSD i zgodność z prawem to DWA różne sprawdzenia |
+| **Zestaw samych odmów** | gdy podkład jest zepsuty, baza odmawia wszystkiego, a test pytający „czy odmówiono" wypada zielono | żaden przypadek nie kończy się sukcesem | każdy zestaw ma zawierać operację, która MA się udać, i liczyć dotknięte wiersze |
+
+**Reguła nadrzędna: każda bramka, kontrola i test w tym repozytorium ma mieć
+własną kontrolę pozytywną** — przypadek, o którym wiadomo, że jest zły, i który
+MUSI zapalić. Bez niej zielony wynik nie znaczy nic. `scripts/sprawdz-haki.mjs`
+robi to jako pierwszy krok i przy pierwszym uruchomieniu ta kontrola padła.
 
 ### `npx tsc --noEmit` NIE SPRAWDZA NICZEGO — używaj `npm run typecheck`
 

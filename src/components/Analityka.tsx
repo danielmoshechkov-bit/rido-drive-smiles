@@ -1,7 +1,8 @@
 import * as React from "react";
 import { useLocation } from "react-router-dom";
 import { pilnujZgody, sledzOdslone } from "@/lib/pikselMeta";
-import { odslonaGa4, pilnujZgodyAnalityki } from "@/lib/zdarzenia";
+import { odslonaGa4, pilnujZgodyAnalityki, ustawDaneKupujacego } from "@/lib/zdarzenia";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Analityka — montowana RAZ, globalnie, pod routerem.
@@ -29,6 +30,31 @@ export function Analityka() {
 
   React.useEffect(() => pilnujZgody(), []);
   React.useEffect(() => pilnujZgodyAnalityki(), []);
+
+  /**
+   * KONWERSJE ROZSZERZONE — adres kupującego podajemy przy zalogowaniu.
+   *
+   * Musi trafić do Google PRZED zdarzeniem konwersji, a zakup dzieje się długo
+   * później, więc logowanie jest tu naturalnym momentem. Mamy przewagę nad
+   * większością sklepów: adres bierzemy z KONTA, nie z formularza — jest
+   * zawsze i jest prawdziwy.
+   *
+   * `getSession` na starcie łapie kogoś, kto wchodzi już zalogowany;
+   * `onAuthStateChange` łapie logowanie w trakcie.
+   */
+  React.useEffect(() => {
+    let zywy = true;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (zywy) ustawDaneKupujacego(data.session?.user?.email);
+    });
+    const { data: nasluch } = supabase.auth.onAuthStateChange((_zdarzenie, sesja) => {
+      ustawDaneKupujacego(sesja?.user?.email);
+    });
+    return () => {
+      zywy = false;
+      nasluch.subscription.unsubscribe();
+    };
+  }, []);
 
   React.useEffect(() => {
     if (pierwszeWywolanie.current) {

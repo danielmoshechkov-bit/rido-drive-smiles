@@ -34,10 +34,11 @@
 
 import { czyWolno, subskrybujZgode } from "@/lib/zgody";
 import { czyProdukcja } from "@/lib/srodowisko";
+import { normalizujEmail, normalizujTelefon } from "@/lib/daneUzytkownikaDoReklam";
 import { nowyIdZdarzenia, sledzZdarzenie as doMety, type ZdarzenieMeta } from "@/lib/pikselMeta";
 
 /** Identyfikator pomiaru GA4. Pusty = GA4 wyłączone i nic się nie ładuje. */
-export const ID_GA4 = "";
+export const ID_GA4 = "G-TKX3R49RBY";
 
 /** Nazwy zdarzeń tak, jak MY o nich mówimy. Jedyna lista. */
 export type Zdarzenie =
@@ -124,6 +125,34 @@ function gtag(...args: unknown[]): void {
 export function pilnujZgodyAnalityki(): () => void {
   wstawGa4();
   return subskrybujZgode(() => wstawGa4());
+}
+
+/**
+ * KONWERSJE ROZSZERZONE — dane kupującego dla Google.
+ *
+ * Google haszuje je SAM, po stronie przeglądarki: adres jawny nie opuszcza
+ * urządzenia. My tylko normalizujemy (małe litery, obcięte spacje, kropki
+ * z Gmaila) — bo `gtag` zrobi to poprawnie, ale ta sama funkcja pojedzie
+ * potem do Conversions API, gdzie nikt tego za nas nie poprawi.
+ *
+ * Bramka to zgoda MARKETINGOWA, bo z niej wynika `ad_user_data` — a bez
+ * `ad_user_data` konwersje rozszerzone nie działają w EOG.
+ *
+ * Wywoływać PRZED zdarzeniem konwersji. U nas dzieje się to przy zalogowaniu,
+ * czyli długo wcześniej niż zakup.
+ */
+export function ustawDaneKupujacego(email?: string | null, telefon?: string | null): void {
+  if (!ga4Zaladowany || !czyWolno("marketingowe")) return;
+
+  const dane: Record<string, string> = {};
+  const e = normalizujEmail(email);
+  const t = normalizujTelefon(telefon);
+  if (e) dane.email = e;
+  if (t) dane.phone_number = t;
+
+  // Pusty obiekt tylko nadpisałby wcześniejsze dane pustką.
+  if (Object.keys(dane).length === 0) return;
+  gtag("set", "user_data", dane);
 }
 
 /** Odsłona do GA4 — przy zmianie trasy. */
