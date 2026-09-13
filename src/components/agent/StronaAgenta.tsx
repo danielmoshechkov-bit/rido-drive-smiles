@@ -184,7 +184,7 @@ function KartaPakietu({ plan, wyrozniony, stawka, onKup }: {
           </p>
         )}
         <Button className="w-full mt-4" variant={wyrozniony ? 'default' : 'outline'} onClick={() => onKup(plan)}>
-          Wybieram {plan.name}
+          Wybierz pakiet
         </Button>
       </CardContent>
     </Card>

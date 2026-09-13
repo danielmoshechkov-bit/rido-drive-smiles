@@ -25,7 +25,7 @@
 //   czat testowy — warsztat testuje, dzwoniąc pod swój numer; to jest
 //     prawdziwszy test i nie kosztuje nas tokenów.
 // ============================================================================
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -212,6 +212,28 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
     // eslint-disable-next-line
   }, [trwa]);
 
+  /**
+   * NUMER ZAMAWIA SIĘ SAM PO OPŁACENIU PAKIETU.
+   *
+   * Warsztat płaci raz i ma działającego agenta — nie dwa osobne kroki
+   * z przyciskiem „Aktywuj" pośrodku. Ten panel widzą wyłącznie warsztaty
+   * z opłaconym pakietem (bez niego zakładka pokazuje ofertę), więc samo
+   * wejście tutaj znaczy „należy Ci się numer".
+   *
+   * Wywołanie jest idempotentne po stronie serwera: drugie zamówienie zwraca
+   * „numer juz przypisany" albo „aktywacja juz trwa" i nie zakłada niczego
+   * drugi raz. Miasto jest jedynym powodem, dla którego trzeba tu jeszcze
+   * kliknąć — bez niego nie dobierzemy numeru z właściwego regionu.
+   */
+  const zamowionoRef = useRef(false);
+  useEffect(() => {
+    if (!stan || zamowionoRef.current) return;
+    if (stan.numer || stan.zadanie || stan.wymaga_miasta) return;
+    zamowionoRef.current = true;
+    void aktywuj();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stan]);
+
   const aktywuj = async () => {
     setAktywuje(true);
     const { data, error } = await supabase.functions.invoke("voice-number-activate", {
@@ -358,8 +380,17 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                   </div>
                 ) : (
                   <>
+                    {/* PRZYCISKU „AKTYWUJ AGENTA" JUŻ NIE MA.
+                        Warsztat płaci RAZ i dostaje działającego agenta, a nie dwa
+                        osobne kroki. Numer zamawia się sam, gdy tylko pakiet jest
+                        opłacony — poniżej jest informacja o przebiegu, nie zadanie
+                        do wykonania. Miasto pytamy tylko wtedy, gdy naprawdę go
+                        brakuje w kartotece, bo bez niego nie dobierzemy numeru
+                        z właściwego regionu. */}
                     <p className="text-sm text-muted-foreground">
-                      Nie masz jeszcze numeru. Przydzielimy Ci go teraz — zajmie to chwilę.
+                      {stan?.wymaga_miasta
+                        ? 'Zostało jedno: podaj miasto, a numer dobierzemy z Twojego regionu.'
+                        : 'Zamawiamy Twój numer — zajmie to chwilę. Możesz zamknąć tę stronę.'}
                     </p>
                     {stan?.wymaga_miasta && (
                       <div className="space-y-1.5">
@@ -367,14 +398,23 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                         <Input value={miasto} onChange={(e) => setMiasto(e.target.value)}
                           placeholder="np. Gdańsk" />
                         <p className="text-xs text-muted-foreground">
-                          Numer będzie z Twojego regionu — klient zobaczy lokalny numer, a nie warszawski.
+                          Klient zobaczy lokalny numer, a nie warszawski.
                         </p>
+                        <Button
+                          onClick={aktywuj}
+                          disabled={aktywuje || miasto.trim().length < 2}
+                          className="gap-2 mt-2"
+                        >
+                          {aktywuje ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                          Zamów numer
+                        </Button>
                       </div>
                     )}
-                    <Button onClick={aktywuj} disabled={aktywuje || (stan?.wymaga_miasta && miasto.trim().length < 2)} className="gap-2">
-                      {aktywuje ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
-                      Aktywuj agenta
-                    </Button>
+                    {!stan?.wymaga_miasta && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Trwa przydzielanie numeru…
+                      </div>
+                    )}
                   </>
                 )}
               </div>
