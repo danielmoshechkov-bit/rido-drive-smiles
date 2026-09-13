@@ -157,7 +157,7 @@ export function OknoZakupu({
     .filter((p) => p.product_line === 'warsztat')
     .sort((a, b) => a.sort_order - b.sort_order);
 
-  const { cena, ladowanie } = useCenaOkresu(plan, zadanie.providerId, okres);
+  const { cena, ladowanie, blad: bladCeny } = useCenaOkresu(plan, zadanie.providerId, okres);
 
   /**
    * ODMOWA W JEDNYM MIEJSCU DLA OBU METOD PŁATNOŚCI.
@@ -472,6 +472,17 @@ export function OknoZakupu({
                   {' '}(orientacyjnie — dokładną datę wyliczymy po zaksięgowaniu wpłaty).
                 </p>
               </div>
+            )}
+
+            {/* BEZ CENY NIE MA PRZYCISKÓW — jest ZDANIE.
+                Dwa wyszarzone przyciski wyglądają jak gotowy ekran i nie mówią
+                nic. Tak właśnie pękł zakup agenta: baza przestała wyceniać
+                pakiet, okno wyłączyło płatność i zamilkło. */}
+            {!ladowanie && !cena && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {bladCeny?.message
+                  ?? 'Nie udało się wyliczyć ceny tego pakietu. To nasza usterka — napisz do nas, a poprawimy.'}
+              </p>
             )}
 
             <div className="grid gap-2 sm:grid-cols-2">
