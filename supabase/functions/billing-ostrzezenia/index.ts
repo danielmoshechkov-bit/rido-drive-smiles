@@ -42,9 +42,49 @@ const json = (dane: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-/** „za 7 dni" / „jutro" — liczba dni brzmi sztucznie przy jedynce. */
+/** „za 7 dni" / „jutro" / „dziś" — liczba dni brzmi sztucznie przy jedynce i zerze. */
 function kiedy(prog: number): string {
+  if (prog === 0) return "dziś";
   return prog === 1 ? "jutro" : `za ${prog} dni`;
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * PAKIET AGENTA MA WŁASNE ZDANIA — bo kończy się inaczej
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Abonament warsztatowy ODNAWIA SIĘ SAM i ostrzeżenie jest uprzejmością.
+ * Pakiet agenta kupiony BLIK-iem NIE ODNOWI SIĘ SAM — tam ostrzeżenie jest
+ * jedynym powodem, dla którego klient w ogóle zdąży. Dlatego inne progi
+ * (3 dni i dzień wygaśnięcia) i inna treść: mówimy wprost, co przestanie
+ * działać i że nic nie pobierze się samo.
+ *
+ * Zdanie o numerze jest tu najważniejsze. Klient, który stracił numer, stracił
+ * też wszystkie wizytówki, naklejki i wpisy z tym numerem — a tego nie cofnie
+ * żadna płatność.
+ */
+function trescAgenta(nazwaFirmy: string, prog: number, koniec: string): string {
+  const naglowek = prog === 0
+    ? "Pakiet wygasł — asystentka nie odbiera"
+    : `Pakiet Agent AI kończy się ${kiedy(prog)}`;
+
+  const wstep = prog === 0
+    ? `pakiet <strong>Agent AI</strong> dla <strong>${nazwaFirmy}</strong> wygasł ${koniec}.
+       Od dziś wirtualna asystentka nie odbiera telefonów.`
+    : `pakiet <strong>Agent AI</strong> dla <strong>${nazwaFirmy}</strong> działa do <strong>${koniec}</strong>.
+       Po tym dniu wirtualna asystentka przestanie odbierać telefony.`;
+
+  return emailShell(naglowek, `
+    <p>Dzień dobry,</p>
+    <p>${wstep}</p>
+    <p><strong>Nic nie pobierze się samo.</strong> Jeżeli płaciłeś BLIK-iem, to była
+    płatność jednorazowa — przedłużenie wymaga jednego kliknięcia w panelu,
+    w zakładce asystentki.</p>
+    <p>Numer trzymamy dla Ciebie przez trzydzieści dni. Po tym czasie wraca do puli
+    i nie będziemy mogli go przywrócić — klienci, którzy go zapisali, trafią w pustkę.</p>
+    <p>Jeśli wolisz, żeby odnawiało się samo, przy kolejnym zakupie wybierz kartę.</p>
+    <p>Gdyby coś się nie zgadzało, napisz do nas w panelu — dymek „Pomoc” w prawym dolnym rogu.</p>
+    <p>Zespół GetRido</p>
+  `);
 }
 
 function tresc(nazwaFirmy: string, prog: number, koniec: string, powod: string): string {
@@ -105,12 +145,26 @@ Deno.serve(async (req) => {
       const koniec = new Date(o.koniec).toLocaleDateString("pl-PL", {
         day: "numeric", month: "long", year: "numeric",
       });
-      const temat = o.prog_dni === 1
-        ? "Jutro kończy się Twój dostęp — GetRido"
-        : `Za ${o.prog_dni} dni kończy się Twój dostęp — GetRido`;
+      // Linia produktowa rozstrzyga treść. `billing_do_ostrzezenia` podaje ją
+      // wprost, żeby ten kod nie zgadywał po nazwie planu.
+      const agent = (o as { linia?: string }).linia === "agent";
+
+      const temat = agent
+        ? (o.prog_dni === 0
+            ? "Pakiet wygasł — asystentka nie odbiera — GetRido"
+            : `Pakiet Agent AI kończy się ${kiedy(o.prog_dni)} — GetRido`)
+        : (o.prog_dni === 1
+            ? "Jutro kończy się Twój dostęp — GetRido"
+            : `Za ${o.prog_dni} dni kończy się Twój dostęp — GetRido`);
 
       try {
-        await sendMail(o.email, temat, tresc(o.nazwa_firmy, o.prog_dni, koniec, o.powod));
+        await sendMail(
+          o.email,
+          temat,
+          agent
+            ? trescAgenta(o.nazwa_firmy, o.prog_dni, koniec)
+            : tresc(o.nazwa_firmy, o.prog_dni, koniec, o.powod),
+        );
       } catch (e) {
         // Jeden nieudany adres nie może zatrzymać reszty listy.
         problemy.push(`${o.email}: ${e instanceof Error ? e.message : String(e)}`);
