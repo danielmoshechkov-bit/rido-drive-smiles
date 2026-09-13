@@ -446,7 +446,9 @@ export function WorkshopPortalBookings({
     <Card className="border-primary/30">
       <CardContent className="p-0">
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b bg-primary/5 flex-wrap">
-          <div className="flex items-center gap-2">
+          {/* Zmierzone przy 360 px: rodzic zawijał, ta grupa nie — nagłówek,
+              plakietka, wybór miesiąca i „wszystkie" wychodziły o 20 px. */}
+          <div className="flex flex-wrap items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" />
             <h3 className="font-semibold text-sm">{t('workshop.bookings.portalBookings')}</h3>
             <Badge variant="secondary" className="text-xs">{view.length}</Badge>

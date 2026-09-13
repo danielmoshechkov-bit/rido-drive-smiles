@@ -79,7 +79,9 @@ export function WorkshopSales({ providerId: _providerId, onBack }: Props) {
   const totalToPay = totalGross - totalPaid;
 
   const viewToggle = (
-    <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1">
+    /* Zmierzone przy 360 px: cztery przyciski w jednej linii wychodziły o 71 px.
+       Na telefonie zawijają się do dwóch rzędów. */
+    <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
       <Button variant={view === 'kasa' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('kasa')}>Kasa</Button>
       <Button variant={view === 'sprzedaz' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('sprzedaz')}>Sprzedaż</Button>
       <Button variant={view === 'zakup' ? 'default' : 'ghost'} size="sm" className="h-9 px-4 font-medium" onClick={() => setView('zakup')}>Opłaty stałe</Button>

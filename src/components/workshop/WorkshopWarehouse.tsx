@@ -38,7 +38,10 @@ export function WorkshopWarehouse({ providerId, onBack }: Props) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        {/* Zmierzone przy 360 px: pasek zakładek wychodził o 321 px — najwięcej
+            w całym panelu warsztatu. `h-auto` jest konieczne razem z `flex-wrap`,
+            bo bez niego druga linia wychodzi poza stałą wysokość paska. */}
+        <TabsList className="flex h-auto flex-wrap">
           <TabsTrigger value="stany" className="gap-1.5">
             <Boxes className="h-4 w-4" /> {t('workshop.warehouse.tabs.stock')}
           </TabsTrigger>

@@ -1719,20 +1719,43 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       <div ref={serviceCardRef} data-tour="tabela-robocizny">
       <Card className="border-l-4 border-l-primary">
         <CardContent className="p-0">
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-            <div className="flex items-center gap-2">
-              <Wrench className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-base">{t('workshop.orderTasks.laborServicesHeading')}</h3>
-              <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
+          {/*
+            ZMIERZONE PRZY 360 px, w prawdziwej kolumnie modułu warsztatu (328 px).
+
+            Jeden rząd chciał 524 px treści przy 296 px dostępnych (328 minus
+            wyściółka `px-4`): nagłówek z plakietką 210 + przełącznik
+            NETTO/BRUTTO 146 + wyszukiwarka 160 + odstępy. Brakowało 228 px.
+
+            Flexbox nie zgłasza tego błędem — ściska. Zmierzone skutki:
+            wyszukiwarka kurczy się ze 160 px do 46 px, jej prawa krawędź ląduje
+            dokładnie na 360 px (sam brzeg ekranu), a nagłówek łamie się na dwie
+            linie. Stąd „Szukaj usługi…" ucięte i bez prawej ramki.
+
+            Zmierzone warianty, obie sekcje tak samo:
+              • jak było                           → wyszukiwarka 46 px, krawędź na 360
+              • nagłówek + przełącznik w jednym rzędzie, wyszukiwarka pod spodem
+                                                   → nagłówek łamie się na dwie linie
+              • nagłówek osobno, pod nim przełącznik i wyszukiwarka obok siebie
+                                                   → nagłówek w JEDNEJ linii,
+                                                     wyszukiwarka 140 px,
+                                                     prawa krawędź 327 px  ✅
+
+            Od `md` wracamy do jednego rzędu — tam mieści się z zapasem.
+          */}
+          <div className="flex flex-col gap-2 px-4 py-3 border-b bg-muted/30 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-2">
+              <Wrench className="h-5 w-5 shrink-0 text-primary" />
+              <h3 className="min-w-0 font-semibold text-base">{t('workshop.orderTasks.laborServicesHeading')}</h3>
+              <Badge variant="secondary" className="shrink-0 text-xs">{tasks.length}</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+              <div className="flex shrink-0 items-center gap-1 bg-muted rounded-lg p-0.5">
                 <Button variant={taskPriceMode === 'net' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setTaskPriceMode('net')}>{t('workshop.orderTasks.net')}</Button>
                 <Button variant={taskPriceMode === 'gross' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setTaskPriceMode('gross')}>{t('workshop.orderTasks.gross')}</Button>
               </div>
-              <div className="relative">
+              <div className="relative min-w-0 flex-1 md:w-40 md:flex-none">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input onFocus={e => e.currentTarget.select()} value={taskSearch} onChange={e => setTaskSearch(e.target.value)} placeholder={t('workshop.orderTasks.searchServicePlaceholder')} className="pl-8 h-8 w-40 text-xs" />
+                <Input onFocus={e => e.currentTarget.select()} value={taskSearch} onChange={e => setTaskSearch(e.target.value)} placeholder={t('workshop.orderTasks.searchServicePlaceholder')} className="pl-8 h-8 w-full text-xs" />
               </div>
             </div>
           </div>
@@ -2197,20 +2220,43 @@ export function WorkshopOrderTasksTab({ order, providerId }: Props) {
       <div ref={goodsCardRef} data-tour="tabela-czesci">
       <Card className="border-l-4 border-l-amber-500">
         <CardContent className="p-0">
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-            <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-amber-500" />
-              <h3 className="font-semibold text-base">{t('workshop.orderTasks.partsMaterialsHeading')}</h3>
-              <Badge variant="secondary" className="text-xs">{goods.length}</Badge>
+          {/*
+            ZMIERZONE PRZY 360 px, w prawdziwej kolumnie modułu warsztatu (328 px).
+
+            Jeden rząd chciał 524 px treści przy 296 px dostępnych (328 minus
+            wyściółka `px-4`): nagłówek z plakietką 210 + przełącznik
+            NETTO/BRUTTO 146 + wyszukiwarka 160 + odstępy. Brakowało 228 px.
+
+            Flexbox nie zgłasza tego błędem — ściska. Zmierzone skutki:
+            wyszukiwarka kurczy się ze 160 px do 46 px, jej prawa krawędź ląduje
+            dokładnie na 360 px (sam brzeg ekranu), a nagłówek łamie się na dwie
+            linie. Stąd „Szukaj usługi…" ucięte i bez prawej ramki.
+
+            Zmierzone warianty, obie sekcje tak samo:
+              • jak było                           → wyszukiwarka 46 px, krawędź na 360
+              • nagłówek + przełącznik w jednym rzędzie, wyszukiwarka pod spodem
+                                                   → nagłówek łamie się na dwie linie
+              • nagłówek osobno, pod nim przełącznik i wyszukiwarka obok siebie
+                                                   → nagłówek w JEDNEJ linii,
+                                                     wyszukiwarka 140 px,
+                                                     prawa krawędź 327 px  ✅
+
+            Od `md` wracamy do jednego rzędu — tam mieści się z zapasem.
+          */}
+          <div className="flex flex-col gap-2 px-4 py-3 border-b bg-muted/30 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-2">
+              <Package className="h-5 w-5 shrink-0 text-amber-500" />
+              <h3 className="min-w-0 font-semibold text-base">{t('workshop.orderTasks.partsMaterialsHeading')}</h3>
+              <Badge variant="secondary" className="shrink-0 text-xs">{goods.length}</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+              <div className="flex shrink-0 items-center gap-1 bg-muted rounded-lg p-0.5">
                 <Button variant={goodsPriceMode === 'net' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setGoodsPriceMode('net')}>{t('workshop.orderTasks.net')}</Button>
                 <Button variant={goodsPriceMode === 'gross' ? 'default' : 'ghost'} size="sm" className="text-xs h-7" onClick={() => setGoodsPriceMode('gross')}>{t('workshop.orderTasks.gross')}</Button>
               </div>
-              <div className="relative">
+              <div className="relative min-w-0 flex-1 md:w-40 md:flex-none">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input onFocus={e => e.currentTarget.select()} value={goodsSearch} onChange={e => setGoodsSearch(e.target.value)} placeholder={t('workshop.orderTasks.searchPartPlaceholder')} className="pl-8 h-8 w-40 text-xs" />
+                <Input onFocus={e => e.currentTarget.select()} value={goodsSearch} onChange={e => setGoodsSearch(e.target.value)} placeholder={t('workshop.orderTasks.searchPartPlaceholder')} className="pl-8 h-8 w-full text-xs" />
               </div>
             </div>
           </div>
