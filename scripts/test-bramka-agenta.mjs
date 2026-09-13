@@ -35,14 +35,15 @@ sprawdz(!/voice_agent_configs/.test(licznik),
   'licznik nie opiera sie juz na wlaczonym przelaczniku (dal sie miec bez pakietu)');
 
 const oferta = plik('src/components/ai-sales/OfertaAgenta.tsx');
-sprawdz(/usePublicPricing/.test(oferta) && /usePubliczneDoladowania/.test(oferta),
+const strona = plik('src/components/agent/StronaAgenta.tsx');
+sprawdz(/usePublicPricing/.test(strona) && /usePubliczneDoladowania/.test(strona),
   'ceny i pakiety ida z cennika w bazie, nie z tekstu w kodzie');
-sprawdz(!/199|399|1[,.]15/.test(oferta.replace(/\/\*[\s\S]*?\*\//g, '')),
+sprawdz(!/199|399|1[,.]15/.test(strona.replace(/\/\*[\s\S]*?\*\//g, '')),
   'zadnej ceny wpisanej na sztywno w widoku sprzedazowym');
-sprawdz(/usePlanAction/.test(oferta), 'przycisk zakupu idzie ta sama droga co cennik');
-sprawdz(!/probka|Posluchaj|Posłuchaj|Audio\(/.test(oferta),
+sprawdz(/usePlanAction/.test(strona), 'przycisk zakupu idzie ta sama droga co cennik');
+sprawdz(!/probka|Posluchaj|Posłuchaj|Audio\(/.test(strona),
   'brak odsluchu w ofercie — demo idzie osobna droga, nie synteza za nasze kredyty');
-sprawdz(!/Doładowanie minut/.test(oferta) && /Po wykorzystaniu pakietu/.test(oferta),
+sprawdz(!/Doładowanie minut/.test(strona) && /Po wykorzystaniu pakietu/.test(strona),
   'stawka po wyczerpaniu jest NA KARCIE pakietu, bez osobnej sekcji');
 sprawdz(/zarezerwowany/.test(oferta) && /voice_numbers/.test(oferta),
   'wygasla subskrypcja mowi, ile dni numer jest jeszcze trzymany');
@@ -50,6 +51,14 @@ sprawdz(/Przetwarzamy płatność/.test(oferta) && /platnosc/.test(oferta),
   'po powrocie z bramki widac stan przejsciowy, a nie znowu cennik');
 sprawdz(/invalidateQueries/.test(oferta) && /pakiet-agenta/.test(oferta),
   'stan przejsciowy sam dopytuje o pakiet i przelacza widok bez odswiezania');
+
+// Jedna tresc, dwa wejscia: strona publiczna i panel. Dwie kopie rozjechalyby
+// sie przy pierwszej zmianie ceny.
+sprawdz(/StronaAgenta/.test(oferta), 'panel pokazuje TE SAMA strone co /ai-agent, nie wlasna kopie');
+sprawdz(/wPanelu/.test(strona), 'wspolna strona zachowuje sie inaczej w panelu niz publicznie');
+sprawdz(/zgoda_telefon/.test(strona) && /agent-demo-lead/.test(strona),
+  'numer demo wydaje sie dopiero po kontakcie, z osobna zgoda na telefon');
+sprawdz(!/4822101589/.test(strona), 'numeru demo NIE MA w kodzie strony — wydaje go funkcja brzegowa');
 
 console.log(bledy ? `\n${bledy} BLEDOW` : '\nBRAMKA AGENTA: wszystko przeszlo');
 process.exit(bledy ? 1 : 0);

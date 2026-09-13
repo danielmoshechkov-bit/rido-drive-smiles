@@ -6,36 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { 
-  Car, 
-  Building2, 
-  User, 
-  Sparkles, 
-  Search,
-  ArrowRight,
-  MessageCircle,
-  Building,
-  Map,
-  ArrowLeft,
-  Wrench,
-  Shield,
-  Palette,
-  Paintbrush,
-  HardHat,
-  Receipt,
-  ShoppingCart,
-  Calculator,
-  Droplets,
-  Layers,
-  Home,
-  Wallet,
-  Settings,
-  CheckCircle,
-  LogIn,
-  Share,
-  MoreVertical,
-  ArrowLeft as ArrowLeftIcon
-} from "lucide-react";
+import { Car, Building2, User, Sparkles, Search, ArrowRight, MessageCircle, Building, Map, ArrowLeft, Wrench, Shield, Palette, Paintbrush, HardHat, Receipt, ShoppingCart, Calculator, Droplets, Layers, Home, Wallet, Settings, CheckCircle, LogIn, Share, MoreVertical, ArrowLeft as ArrowLeftIcon, Phone } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import Footer from "@/components/Footer";
 import { useModuleVisibility } from "@/hooks/useModuleVisibility";
@@ -101,6 +72,7 @@ function buildMainTiles(t: (key: string) => string): MarketplaceTile[] {
 function buildBiznesSubTiles(t: (key: string) => string): MarketplaceTile[] {
   return [
     { id: 'biz-warsztat-detailing', title: t('home.bizWarsztatDetailing'), description: t('home.bizWarsztatDetailingDesc'), icon: Wrench, image: tileWorkshop, link: '/warsztat-info', available: true },
+    { id: 'biz-ai-agent', title: t('home.bizAiAgent'), description: t('home.bizAiAgentDesc'), icon: Phone, image: tileWorkshop, link: '/ai-agent', available: true },
     { id: 'biz-ksiegowosc', title: t('home.bizKsiegowosc'), description: t('home.bizKsiegowoscDesc'), icon: Calculator, image: tileInvoicing, link: '/ksiegowosc-info', available: true },
     { id: 'biz-flota', title: t('home.bizFlota'), description: t('home.bizFlotaDesc'), icon: Calculator, image: tileFleet, link: '/fleet', available: true },
     { id: 'biz-kierowca', title: t('home.bizKierowca'), description: t('home.bizKierowcaDesc'), icon: User, image: tileDriver, link: '/kierowca-info', available: true },

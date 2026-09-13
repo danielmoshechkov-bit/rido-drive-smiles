@@ -9,6 +9,7 @@ import { usePublicPricing, usePubliczneDoladowania, type PublicPlan } from '@/ho
 import { usePlanAction } from '@/hooks/usePlanAction';
 import { formatMoneyPLN } from '@/utils/formatters';
 import { toast } from 'sonner';
+import { StronaAgenta } from '@/components/agent/StronaAgenta';
 
 /**
  * Zakładka „Asystent głosowy" dla warsztatu BEZ OPŁACONEGO PAKIETU.
@@ -200,18 +201,6 @@ export function OfertaAgenta() {
 
   return (
     <div className="space-y-8">
-      <div className="text-center max-w-2xl mx-auto">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm text-primary font-medium mb-3">
-          <Phone className="h-4 w-4" /> Asystent głosowy
-        </div>
-        <h2 className="text-3xl font-extrabold tracking-tight">Odbiera telefon, gdy Ty jesteś pod autem</h2>
-        <p className="mt-3 text-muted-foreground leading-relaxed">
-          Agent odbiera połączenia całą dobę, rozmawia z klientem po ludzku, umawia wizytę
-          w Twoim terminarzu i zakłada zlecenie. Nie zmieniasz numeru ani niczego nie instalujesz —
-          ustawiasz przekierowanie u swojego operatora i tyle.
-        </p>
-      </div>
-
       {/* Numer trzymany po wygaśnięciu — bez tego warsztat nie wie, że ma czas
           na odnowienie, zanim straci numer i wszystkie przekierowania. */}
       {rezerwacja && (
@@ -222,23 +211,9 @@ export function OfertaAgenta() {
         </div>
       )}
 
-      {pakiety.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-3xl mx-auto">
-          {pakiety.map((p) => (
-            <KartaPakietu
-              key={p.code}
-              plan={p}
-              wyrozniony={p.code === 'agent'}
-              stawkaPoPakiecie={stawka != null ? Number(stawka) : null}
-              onKup={kup}
-            />
-          ))}
-        </div>
-      ) : (
-        <p className="text-center text-sm text-muted-foreground">
-          Nie udało się wczytać cennika. Odśwież stronę albo napisz do nas — podamy ceny od ręki.
-        </p>
-      )}
+      {/* Treść oferty jest WSPÓLNA ze stroną publiczną `/ai-agent` — dwie kopie
+          rozjechałyby się przy pierwszej zmianie ceny. */}
+      <StronaAgenta wPanelu onKup={kup} />
     </div>
   );
 }

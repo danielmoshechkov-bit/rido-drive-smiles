@@ -1118,6 +1118,8 @@
     "dlaBiznesuDesc": "Systems: workshop, detailing, accounting, fleet",
     "bizWarsztatDetailing": "Workshop and detailing management system",
     "bizWarsztatDetailingDesc": "Orders, appointments, SMS reminders, parts inventory, AI quotes",
+    "bizAiAgent": "AI receptionist",
+    "bizAiAgentDesc": "Answers calls 24/7, books visits and creates orders",
     "bizKsiegowosc": "Accounting Software",
     "bizKsiegowoscDesc": "Online invoices, KSeF, JPK_V7 — accounting automation",
     "bizFlota": "Fleet Management",
