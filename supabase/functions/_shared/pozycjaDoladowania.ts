@@ -1,79 +1,80 @@
 /**
- * POZYCJA FAKTURY ZA DOŁADOWANIE — ILOŚĆ I CENA JEDNOSTKOWA, NIE „1 × całość".
+ * POZYCJA FAKTURY ZA DOŁADOWANIE — ZAWSZE JEDEN PAKIET.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * CO BYŁO ŹLE (13.09.2026)
  * ═══════════════════════════════════════════════════════════════════════════
- * Na fakturze stało „Minuty rozmów agenta", ilość 1, cena 42,44 zł. Klient nie
- * wie, ile minut kupił; księgowa też nie. Art. 106e ust. 1 pkt 8 ustawy o VAT
- * wymaga podania MIARY I ILOŚCI albo zakresu usługi, a pkt 9 — CENY
- * JEDNOSTKOWEJ netto. Jedno i drugie było fikcją: „1 sztuka po 42,44".
+ * Na fakturze stało „Minuty rozmów agenta", ilość 1, cena 42,44 zł — bez
+ * liczby minut. Klient nie wiedział, za co zapłacił; księgowa też nie.
+ * Art. 106e ust. 1 pkt 8 ustawy o VAT wymaga podania miary i ilości albo
+ * ZAKRESU wykonanych usług.
  *
- * Gorzej: przy `vehicle_lookup` sprzedawanym po 10 sztuk ktoś kupił 30 i na
- * dokumencie nie było po tym żadnego śladu.
- *
- * ═══════════════════════════════════════════════════════════════════════════
- * DLACZEGO NIE „PO PROSTU ILOŚĆ = LICZBA JEDNOSTEK"
- * ═══════════════════════════════════════════════════════════════════════════
- * Bo `rido_ai` kosztuje 0,3450 zł za pytanie, a Dyrektor KIS (interpretacje
- * z 12.2025 i 08.2026) rozstrzygnął, że **cena jednostkowa netto w złotych
- * z dokładnością większą niż dwa miejsca po przecinku jest niedopuszczalna** —
- * złoty nie ma nominału mniejszego niż grosz. Schemat FA(3) przyjmie osiem
- * miejsc (`P_9A` to `TKwotowy2`), faktura dostanie numer KSeF i będzie
- * merytorycznie wadliwa. **KSeF sprawdza XML, nie prawo podatkowe.**
- *
- * Zaokrąglenie 0,3450 → 0,35 też nie wchodzi: 200 × 0,35 = 70,00 zł przy
- * pobranych 69,00 zł netto. Dokument przestałby się zgadzać z przelewem.
- *
- * Wskazane przez KIS wyjście to ZMIANA JEDNOSTKI MIARY — sprzedaż w paczkach.
- * Dlatego reguła jest jedna i wynika z danych, nie z listy wyjątków:
- *
- *   cena za jednostkę mieści się w groszach  → ilość = liczba jednostek
- *   nie mieści się                           → ilość = 1, jednostka = paczka
- *
- * Dziś daje to:
- *   voice_minutes  30 min × 1,15 zł      (0,3450 to jedyny wyjątek)
- *   sms           100 szt. × 0,20 zł
- *   vehicle_lookup 30 szt. × 1,70 zł
- *   rido_ai        1 × „pakiet (200 pytań)" × 69,00 zł
+ * Gorzej: `vehicle_lookup` nie ma `max_units`, więc ktoś kupił trzydzieści
+ * sprawdzeń i na dokumencie nie było po tym żadnego śladu.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * KWOTA POBRANA JEST ŚWIĘTA
+ * DLACZEGO PAKIET, A NIE SZTUKI
  * ═══════════════════════════════════════════════════════════════════════════
- * Rozbicie na ilość i cenę liczy się od kwoty, którą operator NAPRAWDĘ pobrał,
- * i na końcu SPRAWDZA, czy suma wraca do tej samej złotówki. Gdy nie wraca —
- * schodzimy na jedną pozycję z ceną brutto, czyli zachowanie sprzed tej zmiany.
- * Nieczytelna faktura jest zła; faktura na inną kwotę niż przelew jest gorsza.
+ * Bo tak wygląda sprzedaż. Klient nie może dokupić jednego SMS-a ani jednego
+ * sprawdzenia — bierze cały pakiet albo nic (`min_units` = `step`). Faktura ma
+ * odzwierciedlać to, co się faktycznie sprzedało, a sprzedał się pakiet.
+ *
+ * Zakres usługi z pkt 8 niesie NAZWA: „Pakiet SMS — 100 wiadomości" mówi
+ * dokładnie, co klient dostał.
+ *
+ * Zaletą uboczną jest to, że znika cała klasa błędów z groszami. Gdyby liczyć
+ * po sztuce, `rido_ai` kosztuje 0,3450 zł za pytanie — a Dyrektor KIS
+ * (interpretacje 12.2025 i 08.2026) rozstrzygnął, że cena jednostkowa netto
+ * w złotych z dokładnością większą niż dwa miejsca po przecinku jest
+ * NIEDOPUSZCZALNA, bo złoty nie ma nominału mniejszego niż grosz. Zaokrąglenie
+ * do 0,35 dałoby 200 × 0,35 = 70,00 zł przy pobranych 69,00 — dokument
+ * niezgodny z przelewem.
+ *
+ * Przy jednym pakiecie cena pakietu JEST kwotą pobraną, więc żadne mnożenie
+ * nie ma jak się rozjechać.
+ *
+ * ⚠️ To nie znaczy, że schemat by tego nie przyjął. `P_9A` w FA(3) ma typ
+ * `TKwotowy2` z ośmioma miejscami po przecinku — wadliwa faktura dostałaby
+ * numer KSeF i UPO. **KSeF sprawdza XML, nie prawo podatkowe.**
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * POLA KSEF PRZY TYM PODEJŚCIU
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Nic ponad to, co już wysyłamy, i wszystko zgodne:
+ *   P_7  nazwa      → „Pakiet SMS — 100 wiadomości" (zakres usługi)
+ *   P_8A miara      → „pakiet"
+ *   P_8B ilość      → 1
+ *   P_9A cena netto → cena pakietu, dwa miejsca po przecinku
+ *   P_11 wartość    → ta sama kwota; 1 × cena zawsze się zgadza
  */
 
-/** Jednostki miary per produkt. Domyślnie `szt.`, ale patrz test kompletności. */
-export const JEDNOSTKI: Record<string, { jednostka: string; wPaczce: string }> = {
-  voice_minutes: { jednostka: "min", wPaczce: "minut" },
-  sms: { jednostka: "szt.", wPaczce: "SMS-ów" },
-  vehicle_lookup: { jednostka: "szt.", wPaczce: "sprawdzeń" },
-  rido_ai: { jednostka: "pyt.", wPaczce: "pytań" },
+/**
+ * Nazwa pakietu i słowo opisujące jednostkę — per produkt.
+ *
+ * Nazwy z cennika („Wiadomości SMS") zostają nietknięte: tam sprzedają,
+ * tutaj opisują dokument. To dwie różne role tego samego produktu.
+ */
+export const PAKIETY: Record<string, { nazwa: string; jednostka: string }> = {
+  voice_minutes: { nazwa: "Pakiet minut agenta", jednostka: "minut" },
+  sms: { nazwa: "Pakiet SMS", jednostka: "wiadomości" },
+  vehicle_lookup: { nazwa: "Pakiet sprawdzeń pojazdu", jednostka: "VIN" },
+  rido_ai: { nazwa: "Pakiet Rido AI", jednostka: "pytań" },
 };
-
-export const JEDNOSTKA_DOMYSLNA = { jednostka: "szt.", wPaczce: "szt." };
 
 export interface PozycjaFaktury {
   name: string;
   quantity: number;
   unit: string;
   vat_rate: number;
-  unit_net_price?: number;
-  unit_gross_price?: number;
+  unit_gross_price: number;
 }
 
-const zaokr = (v: number) => Math.round(v * 100) / 100;
-
 /**
- * Nazwa produktu bez doklejonej liczby.
+ * Nazwa produktu bez doklejonej liczby — dla kodów spoza `PAKIETY`.
  *
- * `rido_ai` nazywa się „Pakiet Rido AI — 200 pytań", bo tak brzmi w cenniku.
- * Na fakturze liczba stoi już w kolumnie ilości albo w jednostce, więc
- * zostawienie jej w nazwie dawałoby „…200 pytań | pakiet (200 pytań) | 1".
- * Ucinamy WYŁĄCZNIE końcówkę „— <liczba> <słowo>" — reszty nazwy nie ruszamy.
+ * `rido_ai` nazywa się w cenniku „Pakiet Rido AI — 200 pytań". Gdyby taka
+ * nazwa trafiła na fakturę razem z doklejaną tu liczbą, wyszłoby
+ * „…— 200 pytań — 200 pytań". Ucinamy WYŁĄCZNIE końcówkę „— <liczba> <słowo>".
  */
 export function nazwaBezLiczby(nazwa: string): string {
   return nazwa.replace(/\s*[—–-]\s*\d+\s+\p{L}+\s*$/u, "").trim() || nazwa.trim();
@@ -82,11 +83,11 @@ export function nazwaBezLiczby(nazwa: string): string {
 /**
  * Rozbicie doładowania na pozycję faktury.
  *
- * @param kod          kod produktu (`billing_addon_products.code`)
- * @param nazwa        nazwa produktu z cennika
- * @param jednostek    ile jednostek kupiono (`billing_orders.units`)
+ * @param kod           kod produktu (`billing_addon_products.code`)
+ * @param nazwa         nazwa produktu z cennika (użyta, gdy kod nieznany)
+ * @param jednostek     ile jednostek kupiono (`billing_orders.units`)
  * @param bruttoPobrane kwota, którą operator faktycznie pobrał
- * @param stawkaVat    stawka w procentach
+ * @param stawkaVat     stawka w procentach
  */
 export function pozycjaDoladowania(
   kod: string | null | undefined,
@@ -95,40 +96,20 @@ export function pozycjaDoladowania(
   bruttoPobrane: number,
   stawkaVat = 23,
 ): PozycjaFaktury {
-  const nazwaCzysta = nazwaBezLiczby(nazwa);
-  const opis = JEDNOSTKI[String(kod ?? "")] ?? JEDNOSTKA_DOMYSLNA;
+  const pakiet = PAKIETY[String(kod ?? "")];
+  const podstawa = pakiet?.nazwa ?? nazwaBezLiczby(nazwa);
   const sztuk = Math.floor(Number(jednostek ?? 0));
 
-  // Jedna pozycja z ceną brutto — zachowanie zapasowe. Zawsze zgadza się
-  // z kwotą pobraną, bo bierze ją wprost.
-  const zapasowa: PozycjaFaktury = {
-    name: sztuk > 0 ? `${nazwaCzysta} — ${sztuk} ${opis.wPaczce}` : nazwaCzysta,
-    quantity: 1,
-    unit: sztuk > 0 ? `pakiet (${sztuk} ${opis.wPaczce})` : "szt.",
-    unit_gross_price: bruttoPobrane,
-    vat_rate: stawkaVat,
-  };
-
-  if (sztuk <= 0 || !(bruttoPobrane > 0)) return zapasowa;
-
-  // Netto „w stu" z kwoty pobranej — tak samo liczy `billing-invoice-issue`.
-  const nettoRazem = zaokr(bruttoPobrane / (1 + stawkaVat / 100));
-  const cenaJednostkowa = zaokr(nettoRazem / sztuk);
-
-  // Czy rozbicie wraca do tej samej kwoty CO DO GROSZA — i netto, i brutto.
-  const nettoZRozbicia = zaokr(sztuk * cenaJednostkowa);
-  const vatZRozbicia = zaokr(nettoZRozbicia * stawkaVat / 100);
-  const bruttoZRozbicia = zaokr(nettoZRozbicia + vatZRozbicia);
-
-  if (nettoZRozbicia !== nettoRazem || bruttoZRozbicia !== zaokr(bruttoPobrane)) {
-    return zapasowa;
-  }
-
   return {
-    name: nazwaCzysta,
-    quantity: sztuk,
-    unit: opis.jednostka,
-    unit_net_price: cenaJednostkowa,
+    // Liczba w nazwie, bo to ona niesie ZAKRES USŁUGI. Bez znanej liczby
+    // jednostek nie zmyślamy jej — zostaje sama nazwa.
+    name: sztuk > 0 ? `${podstawa} — ${sztuk} ${pakiet?.jednostka ?? "szt."}` : podstawa,
+    quantity: 1,
+    unit: "pakiet",
+    // BRUTTO, nie netto: operator pobrał konkretną kwotę i to ona rozstrzyga.
+    // `billing-invoice-issue` liczy „w stu", więc suma faktury zgadza się
+    // z obciążeniem co do grosza.
+    unit_gross_price: bruttoPobrane,
     vat_rate: stawkaVat,
   };
 }

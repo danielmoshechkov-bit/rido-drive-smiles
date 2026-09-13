@@ -1,5 +1,5 @@
 /**
- * Testy rozbicia doładowania na pozycję faktury.
+ * Testy pozycji faktury za doładowanie.
  *
  * Dane wejściowe to PRAWDZIWE zamówienia z produkcji (13.09.2026), nie
  * wymyślone liczby — inaczej test dowodziłby zgodności z moim wyobrażeniem
@@ -7,7 +7,7 @@
  */
 
 import {
-  JEDNOSTKI,
+  PAKIETY,
   nazwaBezLiczby,
   pozycjaDoladowania,
 } from "./pozycjaDoladowania.ts";
@@ -20,18 +20,14 @@ const sprawdz = (nazwa: string, warunek: boolean, szczegol = "") => {
 
 const zaokr = (v: number) => Math.round(v * 100) / 100;
 
-/** Odtworzenie tego, co z pozycją zrobi `billing-invoice-issue`. */
-function sumyJakWFakturze(p: ReturnType<typeof pozycjaDoladowania>) {
-  const ilosc = p.quantity;
-  const stawka = p.vat_rate;
-  if (p.unit_gross_price != null) {
-    const brutto = zaokr(ilosc * p.unit_gross_price);
-    const netto = zaokr(brutto / (1 + stawka / 100));
-    return { netto, brutto };
-  }
-  const netto = zaokr(ilosc * (p.unit_net_price ?? 0));
-  const vat = zaokr(netto * stawka / 100);
-  return { netto, brutto: zaokr(netto + vat) };
+/**
+ * Odtworzenie tego, co z pozycją zrobi `billing-invoice-issue` — łącznie
+ * z `unit_net_price`, bo to ono trafia do `P_9A` w KSeF.
+ */
+function jakWFakturze(p: ReturnType<typeof pozycjaDoladowania>) {
+  const brutto = zaokr(p.quantity * p.unit_gross_price);
+  const netto = zaokr(brutto / (1 + p.vat_rate / 100));
+  return { netto, brutto, cenaJednostkowa: zaokr(netto / (p.quantity || 1)) };
 }
 
 // ---------------------------------------------------------------------------
@@ -39,83 +35,65 @@ function sumyJakWFakturze(p: ReturnType<typeof pozycjaDoladowania>) {
 // ---------------------------------------------------------------------------
 const rzeczywiste: Array<{
   kod: string; nazwa: string; jednostek: number; brutto: number;
-  oczekIlosc: number; oczekJedn: string; oczekCena: number;
+  oczekNazwa: string; oczekNetto: number;
 }> = [
-  { kod: "voice_minutes", nazwa: "Minuty rozmów agenta", jednostek: 30, brutto: 42.44,
-    oczekIlosc: 30, oczekJedn: "min", oczekCena: 1.15 },
   { kod: "sms", nazwa: "Wiadomości SMS", jednostek: 100, brutto: 24.60,
-    oczekIlosc: 100, oczekJedn: "szt.", oczekCena: 0.20 },
-  { kod: "vehicle_lookup", nazwa: "Sprawdzenia pojazdu (VIN)", jednostek: 10, brutto: 20.91,
-    oczekIlosc: 10, oczekJedn: "szt.", oczekCena: 1.70 },
+    oczekNazwa: "Pakiet SMS — 100 wiadomości", oczekNetto: 20.00 },
   { kod: "vehicle_lookup", nazwa: "Sprawdzenia pojazdu (VIN)", jednostek: 30, brutto: 62.73,
-    oczekIlosc: 30, oczekJedn: "szt.", oczekCena: 1.70 },
+    oczekNazwa: "Pakiet sprawdzeń pojazdu — 30 VIN", oczekNetto: 51.00 },
+  { kod: "vehicle_lookup", nazwa: "Sprawdzenia pojazdu (VIN)", jednostek: 10, brutto: 20.91,
+    oczekNazwa: "Pakiet sprawdzeń pojazdu — 10 VIN", oczekNetto: 17.00 },
+  { kod: "voice_minutes", nazwa: "Minuty rozmów agenta", jednostek: 30, brutto: 42.44,
+    oczekNazwa: "Pakiet minut agenta — 30 minut", oczekNetto: 34.50 },
+  { kod: "rido_ai", nazwa: "Pakiet Rido AI — 200 pytań", jednostek: 200, brutto: 84.87,
+    oczekNazwa: "Pakiet Rido AI — 200 pytań", oczekNetto: 69.00 },
 ];
 
 for (const z of rzeczywiste) {
   const p = pozycjaDoladowania(z.kod, z.nazwa, z.jednostek, z.brutto);
-  sprawdz(
-    `${z.kod} ${z.jednostek}: ilość ${z.oczekIlosc} ${z.oczekJedn} po ${z.oczekCena}`,
-    p.quantity === z.oczekIlosc && p.unit === z.oczekJedn && p.unit_net_price === z.oczekCena,
-    JSON.stringify(p),
-  );
-  const sumy = sumyJakWFakturze(p);
-  sprawdz(
-    `${z.kod} ${z.jednostek}: suma faktury = kwota pobrana (${z.brutto})`,
-    sumy.brutto === z.brutto,
-    `wyszło ${sumy.brutto}`,
-  );
+  const s = jakWFakturze(p);
+
+  sprawdz(`${z.kod} ${z.jednostek}: nazwa niesie zakres usługi`,
+    p.name === z.oczekNazwa, `wyszło „${p.name}"`);
+  sprawdz(`${z.kod} ${z.jednostek}: 1 pakiet`,
+    p.quantity === 1 && p.unit === "pakiet", JSON.stringify(p));
+  sprawdz(`${z.kod} ${z.jednostek}: suma faktury = kwota pobrana (${z.brutto})`,
+    s.brutto === z.brutto, `wyszło ${s.brutto}`);
+  sprawdz(`${z.kod} ${z.jednostek}: netto ${z.oczekNetto}`,
+    s.netto === z.oczekNetto, `wyszło ${s.netto}`);
+  // P_9A w KSeF bierze się z `unit_net_price`, czyli z tej właśnie liczby.
+  sprawdz(`${z.kod} ${z.jednostek}: cena jednostkowa w pełnych groszach`,
+    zaokr(s.cenaJednostkowa) === s.cenaJednostkowa && s.cenaJednostkowa === z.oczekNetto,
+    `wyszło ${s.cenaJednostkowa}`);
 }
 
 // ---------------------------------------------------------------------------
-// PRZYPADEK, KTÓRY MUSI ZEJŚĆ NA PACZKĘ
+// KONTROLA ODWROTNA — liczba MUSI się pojawić, a nie zniknąć razem ze sztukami
 // ---------------------------------------------------------------------------
 {
-  // 0,3450 zł za pytanie — cena jednostkowa poniżej grosza jest niedopuszczalna
-  // (interpretacje KIS 12.2025 i 08.2026), a 0,35 × 200 = 70,00 ≠ 69,00.
-  const p = pozycjaDoladowania("rido_ai", "Pakiet Rido AI — 200 pytań", 200, 84.87);
-  sprawdz("rido_ai: schodzi na paczkę, nie na cenę z ułamkiem grosza",
-    p.quantity === 1 && p.unit_net_price === undefined, JSON.stringify(p));
-  sprawdz("rido_ai: jednostka mówi, ile jest w paczce",
-    p.unit === "pakiet (200 pytań)", p.unit);
-  sprawdz("rido_ai: nazwa nie dubluje liczby",
-    p.name === "Pakiet Rido AI — 200 pytań", p.name);
-  const sumy = sumyJakWFakturze(p);
-  sprawdz("rido_ai: suma faktury = kwota pobrana (84,87)", sumy.brutto === 84.87, `wyszło ${sumy.brutto}`);
-  sprawdz("rido_ai: netto wraca do 69,00", sumy.netto === 69.00, `wyszło ${sumy.netto}`);
+  const p = pozycjaDoladowania("vehicle_lookup", "Sprawdzenia pojazdu (VIN)", 30, 62.73);
+  sprawdz("KONTROLA ODWROTNA: liczba jednostek jest na dokumencie",
+    /\b30\b/.test(p.name), `nazwa „${p.name}" nie mówi, ile sprawdzeń`);
 }
 
 // ---------------------------------------------------------------------------
-// KONTROLA ODWROTNA — cena z ułamkiem grosza NIGDY nie wychodzi na fakturę
+// ŻADNA LICZBA JEDNOSTEK NIE ROZJEŻDŻA KWOTY
 // ---------------------------------------------------------------------------
 {
-  let znalezione: string[] = [];
-  // Przemiatamy wszystkie sensowne kombinacje: cztery produkty × liczby
-  // jednostek od 1 do 500, przy cenach z cennika.
   const cennik: Array<[string, number]> = [
     ["voice_minutes", 1.15], ["sms", 0.20], ["vehicle_lookup", 1.70], ["rido_ai", 0.3450],
   ];
+  const zle2: string[] = [];
   for (const [kod, cenaNetto] of cennik) {
     for (let n = 1; n <= 500; n++) {
       const brutto = zaokr(zaokr(n * cenaNetto) * 1.23);
-      const p = pozycjaDoladowania(kod, "Produkt", n, brutto);
-      const cena = p.unit_net_price;
-      if (cena != null && zaokr(cena) !== cena) znalezione.push(`${kod}×${n} → ${cena}`);
-      const sumy = sumyJakWFakturze(p);
-      if (sumy.brutto !== brutto) znalezione.push(`${kod}×${n}: suma ${sumy.brutto} ≠ pobrane ${brutto}`);
+      const s = jakWFakturze(pozycjaDoladowania(kod, "Produkt", n, brutto));
+      if (s.brutto !== brutto) zle2.push(`${kod}×${n}: ${s.brutto} ≠ ${brutto}`);
+      if (zaokr(s.cenaJednostkowa) !== s.cenaJednostkowa) zle2.push(`${kod}×${n}: ułamek grosza`);
     }
   }
-  sprawdz("2000 kombinacji: żadna cena jednostkowa nie ma ułamka grosza i każda suma zgadza się z kwotą pobraną",
-    znalezione.length === 0, znalezione.slice(0, 5).join("; "));
-}
-
-// ---------------------------------------------------------------------------
-// KONTROLA POZYTYWNA — rozbicie NAPRAWDĘ zachodzi, a nie wszystko leci na paczkę
-// ---------------------------------------------------------------------------
-{
-  const p = pozycjaDoladowania("sms", "Wiadomości SMS", 100, 24.60);
-  sprawdz("KONTROLA POZYTYWNA: przynajmniej jeden produkt dostaje prawdziwą ilość",
-    p.quantity === 100 && p.unit_net_price === 0.20 && p.unit_gross_price === undefined,
-    JSON.stringify(p));
+  sprawdz("2000 kombinacji: suma zawsze równa kwocie pobranej, cena zawsze w groszach",
+    zle2.length === 0, zle2.slice(0, 5).join("; "));
 }
 
 // ---------------------------------------------------------------------------
@@ -123,22 +101,20 @@ for (const z of rzeczywiste) {
 // ---------------------------------------------------------------------------
 {
   const bezJednostek = pozycjaDoladowania("sms", "Wiadomości SMS", null, 24.60);
-  sprawdz("brak liczby jednostek → jedna pozycja, nazwa bez zmyślonej liczby",
-    bezJednostek.quantity === 1 && bezJednostek.unit === "szt." && bezJednostek.name === "Wiadomości SMS",
-    JSON.stringify(bezJednostek));
+  sprawdz("brak liczby jednostek → nazwa bez zmyślonej liczby",
+    bezJednostek.name === "Pakiet SMS" && bezJednostek.quantity === 1, bezJednostek.name);
 
   const nieznany = pozycjaDoladowania("nowy_produkt", "Coś nowego", 5, 12.30);
-  sprawdz("nieznany kod dostaje jednostkę domyślną, nie wywraca się",
-    nieznany.unit === "szt." || nieznany.unit.startsWith("pakiet"), JSON.stringify(nieznany));
+  sprawdz("nieznany kod: nazwa z cennika plus liczba, bez wywrotki",
+    nieznany.name === "Coś nowego — 5 szt." && nieznany.unit === "pakiet", nieznany.name);
 
   const zeroKwoty = pozycjaDoladowania("sms", "Wiadomości SMS", 100, 0);
-  sprawdz("kwota zero → pozycja zapasowa, bez dzielenia przez zero",
-    zeroKwoty.quantity === 1 && Number.isFinite(zeroKwoty.unit_gross_price ?? 0),
-    JSON.stringify(zeroKwoty));
+  sprawdz("kwota zero nie wywraca składania pozycji",
+    zeroKwoty.quantity === 1 && zeroKwoty.unit_gross_price === 0, JSON.stringify(zeroKwoty));
 }
 
 // ---------------------------------------------------------------------------
-// NAZWA BEZ DOKLEJONEJ LICZBY
+// NAZWA BEZ DOKLEJONEJ LICZBY (ścieżka dla kodów spoza słownika)
 // ---------------------------------------------------------------------------
 sprawdz("ucinamy końcówkę „— 200 pytań”",
   nazwaBezLiczby("Pakiet Rido AI — 200 pytań") === "Pakiet Rido AI");
@@ -150,16 +126,16 @@ sprawdz("nie zostawiamy pustej nazwy",
   nazwaBezLiczby("— 200 pytań").length > 0);
 
 // ---------------------------------------------------------------------------
-// BRAMKA: każdy AKTYWNY produkt z cennika ma jednostkę
+// BRAMKA: każdy AKTYWNY produkt z cennika ma opisany pakiet
 // ---------------------------------------------------------------------------
-// Lista wzięta z produkcji 13.09.2026. Dodanie produktu bez jednostki ma
-// ZAPALIĆ ten test, a nie po cichu wystawić fakturę w „szt.".
+// Lista wzięta z produkcji 13.09.2026. Dodanie produktu bez wpisu ma ZAPALIĆ
+// ten test, a nie po cichu wystawić fakturę z nazwą z cennika i „szt.".
 {
   const zProdukcji = ["voice_minutes", "sms", "vehicle_lookup", "rido_ai"];
-  const brakujace = zProdukcji.filter((k) => !(k in JEDNOSTKI));
-  sprawdz("każdy aktywny produkt ma opisaną jednostkę miary",
+  const brakujace = zProdukcji.filter((k) => !(k in PAKIETY));
+  sprawdz("każdy aktywny produkt ma opisany pakiet i jednostkę",
     brakujace.length === 0, `brakuje: ${brakujace.join(", ")}`);
 }
 
-if (zle > 0) throw new Error(`${zle} niezgodności w rozbiciu doładowania`);
+if (zle > 0) throw new Error(`${zle} niezgodności w pozycji doładowania`);
 console.log("\nWSZYSTKO ZIELONE");
