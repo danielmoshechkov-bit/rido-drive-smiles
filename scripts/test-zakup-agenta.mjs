@@ -91,6 +91,12 @@ sprawdz(!/^\s*if \(blad \|\| !w\) return null;/m.test(wycena),
 sprawdz(/!ladowanie && !cena &&/.test(okno) && /bladCeny/.test(okno),
   'brak ceny daje ZDANIE na ekranie, nie dwa wyszarzone przyciski');
 
+// 4d. Metoda platnosci ustalana PRZEZ NAS, nie przez panel operatora.
+sprawdz(/"payment_method_types\[0\]": "card"/.test(checkout),
+  'sesja abonamentowa prosi wprost o karte — jedyna metode, ktora umie cykl');
+sprawdz((checkout.match(/payment_method_types/g) || []).length === 1,
+  'wymuszenie metody stoi w JEDNYM miejscu — sciezki PayU (SMS, doladowania) nietkniete');
+
 // 5. Cennik u operatora: nazwa produktu to nazwa, ktora klient czyta przy platnosci.
 sprawdz(/const nazwa = `GetRido \$\{plan\.name\}`/.test(synchro) && /wyrownajNazwe/.test(synchro),
   'synchronizacja wyrownuje nazwe produktu, nie tylko ustawia ja przy zakladaniu');
