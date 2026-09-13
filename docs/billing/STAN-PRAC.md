@@ -2,6 +2,38 @@
 
 ---
 
+## ⭐ WIDOK KALENDARZA NA TELEFONIE — DO PRZEMYŚLENIA, NIE DO POPRAWKI CSS
+
+Osobna pozycja, bo to **decyzja projektowa**, nie usterka układu.
+
+`WorkshopScheduler`, widok miesiąca: siatka `grid-cols-7` w kontenerze
+`overflow-auto`. Na 360 px wychodzi ~51 px na dzień, przy komórkach
+`min-h-[80px]` z plakietkami zleceń.
+
+**Dlaczego NIE dołożyliśmy `min-w` z przewijaniem w poziomie:** dla kalendarza
+to jest gorsze niż ściskanie. Przewijanie w bok rozbija układ tygodnia —
+a układ tygodnia jest jedyną rzeczą, po co się na kalendarz patrzy. Człowiek
+przestaje widzieć „poniedziałek obok wtorku" i zaczyna zgadywać, gdzie jest.
+
+**Co trzeba rozstrzygnąć, zanim ktokolwiek to ruszy:**
+
+1. Czy na telefonie w ogóle pokazujemy miesiąc, czy przełączamy na listę dni
+   („dziś / jutro / ten tydzień")? Mechanik przy aucie patrzy na najbliższe
+   godziny, nie na cały miesiąc.
+2. Jeśli miesiąc zostaje — co pokazuje komórka dnia przy 51 px? Liczba zleceń
+   zamiast plakietek, z rozwinięciem po dotknięciu?
+3. Czy widok tygodnia (`viewMode`) nie jest lepszym domyślnym na wąskim
+   ekranie?
+
+Trzy pytania do produktu, nie do CSS. Dopóki nie ma na nie odpowiedzi, każda
+zmiana będzie zgadywaniem — dlatego zostaje jak jest.
+
+**Reszta panelu warsztatu na telefonie jest zrobiona** (13.09.2026): kosztorys
+dostał przewijanie w poziomie, dwie siatki opon układ 2×2. Przemiat dawał
+dziewięć trafień; po obejrzeniu każdego zostały trzy prawdziwe.
+
+---
+
 ## 🔴 AUDYT RLS 13.09.2026 — JEDENAŚCIE NA JEDENAŚCIE BYŁO OTWARTYCH
 
 Zamknięte migracją `20260913133057`. Każdą pozycję potwierdzono **pełnymi,
