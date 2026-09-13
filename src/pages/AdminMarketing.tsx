@@ -115,7 +115,8 @@ export default function AdminMarketing() {
                 <p className="text-xs text-muted-foreground">Agencja reklamowa i kampanie AI</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            {/* Zmierzone przy 360 px: wystawało o 38 px. */}
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <MyGetRidoButton user={user} />
               <UserDropdown
                 userName="Administrator"

@@ -186,7 +186,8 @@ export default function SalesPortal() {
               <UniversalHomeButton />
               <span className="text-sm font-semibold text-primary">Sprzedaż</span>
             </div>
-            <div className="flex items-center gap-2">
+            {/* Zmierzone przy 360 px: wystawało o 74 px. */}
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {pendingCallbacksCount > 0 && (
                 <Button 
                   variant="outline" 

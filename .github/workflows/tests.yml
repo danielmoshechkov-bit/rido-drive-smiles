@@ -169,5 +169,14 @@ jobs:
       - name: Zasady hakow Reacta
         run: npm run test:haki
 
+      # 13.09.2026: scalenie galezi agenta glosowego skasowalo JEDNO ogniwo
+      # lancucha Conversions API — zapis ciasteczek piksela na zamowieniu.
+      # Po scaleniu wszystko wygladalo na kompletne: front wysylal, webhook
+      # wolal, funkcja stala na miejscu. A kazda konwersja konczyla sie cicho
+      # na „brak_zgody", bo kolumny byly puste. Zero bledow, zero konwersji.
+      # Kazdy plik z osobna byl poprawny — brakowalo POLACZENIA.
+      - name: Lancuch Conversions API
+        run: npm run test:capi
+
       - name: Testy frontu
         run: npm run test:front

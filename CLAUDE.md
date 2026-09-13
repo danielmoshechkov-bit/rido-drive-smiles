@@ -86,7 +86,7 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 > **Zanim uwierzysz zielonemu wynikowi** — przeczytaj
 > „🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA" niżej.
-> Szesnaście znanych sposobów, na jakie kontrola w tym repozytorium
+> Dziewiętnaście znanych sposobów, na jakie kontrola w tym repozytorium
 > potrafi wypaść zielono nad zepsutym kodem.
 
 
@@ -355,6 +355,44 @@ SKUTKU — najlepiej z osobnego uruchomienia. Dla funkcji w bazie służy do teg
 `scripts/sql-harness/sprawdz_dryf_funkcji.py`: funkcja brzegowa ma SHA i da się
 ją porównać z `main`, funkcja w bazie nie ma nic.
 
+### Układ na telefonie mierzy się RAMKĄ 360 px, nie okiem i nie rachunkiem
+
+`resize_window` w tym środowisku nie zmienia `innerWidth` (patrz tabela wyżej),
+więc przez długi czas nie było czym mierzyć punktów granicznych. Jest:
+
+```js
+const r = document.createElement('iframe');
+r.style.cssText = 'position:fixed;left:-9999px;width:360px;height:800px';
+document.body.appendChild(r);   // ramka ma WŁASNY viewport — `sm:`/`md:` liczą się naprawdę
+```
+
+Gotowe narzędzie: **`scripts/pomiar-mobilny.js`** — wkleja się do konsoli na
+`npm run dev`, obchodzi 85 tras i wskazuje winowajcę przez `data-lov-id`
+(`plik:linia`), bo `lovable-tagger` wstawia ten atrybut w trybie deweloperskim.
+Ma wbudowaną kontrolę pozytywną; uruchamiaj ją PRZED przeglądem i PO nim.
+
+Czego ten przegląd (13.09.2026) nauczył o samym wykazie podejrzanych:
+
+| sygnał ze statycznego `grep` | ile było naprawdę zepsute |
+|---|---|
+| 106 kratek `grid-cols-N` bez wariantu responsywnego | **0** z 25 usterek znalezionych pomiarem |
+| w tym `grid-cols-12` (komórka „20 px”) | 0 — dzieci mają `col-span-12` na telefonie, to JEST układ responsywny |
+| w tym `grid-cols-9` (komórka „36 px”) | 0 — wszystkie napisy są `hidden sm:inline`, zostaje sama ikona |
+
+**Wszystkie 25 usterek miało ten sam kształt: wiersz `flex` bez `flex-wrap`** —
+najczęściej prawa grupa ikon w pasku nagłówka albo para „treść + przyciski akcji”.
+Na `/admin/system-alerts` przyciski „Rozwiąż” i „Ignoruj” leżały 332 px za krawędzią,
+czyli na telefonie alertu **nie dało się zamknąć**.
+
+Wniosek na przyszłość: szukaj `flex items-center justify-between` w nagłówkach,
+nie `grid-cols-N`. I zawsze **zmierz po zmianie** — dwie z pierwszych poprawek nie
+zadziałały: raz brakowało `min-w-0` o poziom głębiej, raz winne było zupełnie co
+innego, niż wskazywało pierwsze podejrzenie (blok zadłużenia u kierowcy).
+
+Czego ten przegląd NIE objął, więc nie jest zmierzone: okna dialogowe i arkusze
+(trzeba je otworzyć kliknięciem), trasy z parametrem w adresie oraz widoki
+wymagające innej roli albo innych danych niż konto, na którym szedł przegląd.
+
 ### Bramka, która krzyczy na dobry kod, uczy ignorowania siebie
 
 Kontrola ma dwa sposoby na bycie bezużyteczną. Pierwszy jest znany: nie zapala
@@ -459,6 +497,9 @@ to zauważy. Poniżej znane przypadki — każdy wyszedł drogo.
 | **`resize_window` w Chrome pod rozszerzeniem** | melduje sukces, `outerWidth` się zmienia, ale **`innerWidth` zostaje** — strona renderuje się w stałej szerokości. Każdy test punktu granicznego (`md:`, `sm:`) jest w tym środowisku nieważny | `resize_window(390)` → `innerWidth` nadal 1246 | sprawdzaj `window.innerWidth` po zmianie; gałąź mobilną odsłaniaj wstrzykniętym `!important`, a nie szerokością okna |
 | **Zmiana układu „bo na telefonie się nie zmieści"** | oko na zrzucie z szerokiego ekranu nie mówi nic o wąskim. Cztery pola bieżnika „wyglądały na ściśnięte" — pomiar dał 80 px i **sześć znaków** przy wartości trzyznakowej | brak liczby w uzasadnieniu | zmierz: szerokość elementu, liczbę linii tekstu, ile znaków się mieści. Bez liczby to nie jest naprawa, tylko przemeblowanie |
 | **zsh nie dzieli niecytowanej zmiennej** | `LISTA="a b c"; for f in $LISTA` daje JEDEN element `"a b c"`, nie trzy. Pętla porównująca SHA porównała dwa NIEISTNIEJĄCE pliki i wypisała ✅ | jedna linia wyniku zamiast dziesięciu; nazwa „pliku" jest sklejeniem całej listy | używaj tablicy: `LISTA=(a b c); for f in "${LISTA[@]}"`. I **każda kontrola porównująca pliki ma padać, gdy pliku nie ma** — `[ -f "$a" ] \|\| { echo BRAK; exit 1; }` przed porównaniem |
+| **`documentElement.scrollWidth`** | w tej aplikacji `html` i `body` mają `overflow-x: hidden`, więc `scrollWidth` ZAWSZE równa się szerokości ekranu — nawet gdy pół panelu leży poza nim. Kontrola pozytywna z elementem 500 px NIE zapaliła się przy tej metodzie | wstaw element `width:500px` — `scrollWidth` dalej 360 | mierz `getBoundingClientRect().right` KAŻDEGO elementu. Objawem nie jest pasek przewijania, tylko **treść ucięta i niedostępna** |
+| **Stopień pisma odczytany z bloku JSX** | rachunek statyczny brał `text-*` z otaczającego bloku, a prymitywy mają WŁASNY: `<Label>` to `text-sm font-medium`, `TabsTrigger` tak samo. Przy 16 px zamiast 14 px wyraz „Powierzchnia” wyszedł na 101 px i oblał komórkę 98,7 px — a naprawdę ma 89,9 px i mieści się | fałszywy alarm na polu, które działa | czytaj krój z **wyrenderowanego** elementu (`getComputedStyle`), nie z klas w kodzie |
+| **`flex-1` bez `min-w-0`** | element z `flex-1` NIE kurczy się poniżej swojej treści. Zawinięcie rodzica wygląda na naprawę i nią nie jest — po pierwszej poprawce alert dalej wystawał o 99 px | zmiana weszła, a pomiar pokazuje ten sam nadmiar | `min-w-0` na **każdym** poziomie zagnieżdżenia. Jeden pominięty poziom kasuje całą naprawę |
 
 **Reguła nadrzędna: każda bramka, kontrola i test w tym repozytorium ma mieć
 własną kontrolę pozytywną** — przypadek, o którym wiadomo, że jest zły, i który

@@ -440,7 +440,9 @@ const DriverDashboard = () => {
                 </SheetContent>
               </Sheet>
             </div>
-            <div className="flex items-center space-x-2">
+            {/* Zmierzone przy 360 px: wystawało o 61 px. `space-x-*` przy zawijaniu
+                gubi odstęp w nowej linii, więc zamieniamy na `gap`. */}
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {driverData?.driver_id && (
                 <DriverNotificationBell driverId={driverData.driver_id} />
               )}

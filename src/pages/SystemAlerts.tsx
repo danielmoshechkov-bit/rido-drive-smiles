@@ -100,7 +100,11 @@ export default function SystemAlerts() {
       </div>
 
       <Tabs value={filter} onValueChange={(v) => setFilter(v as any)} className="w-full">
-        <TabsList>
+        {/* Zmierzone przy 360 px: pasek zakładek wystawał o 192 px — cztery
+            zakładki z liczbami w nawiasach nie mieszczą się w jednej linii.
+            `h-auto` jest konieczne razem z `flex-wrap`: bez niego druga linia
+            wychodzi poza stałą wysokość paska. */}
+        <TabsList className="flex h-auto flex-wrap">
           <TabsTrigger value="all">
             Wszystkie ({alerts.length})
           </TabsTrigger>
@@ -132,15 +136,28 @@ export default function SystemAlerts() {
                 alert.type === 'new_driver' && 'border-l-green-500'
               )}>
                 <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1">
+                  {/* Zmierzone przy 360 px: treść alertu i przyciski akcji stoją
+                      obok siebie, więc „Rozwiąż" i „Ignoruj" wychodziły o 332 px
+                      poza ekran — na telefonie alertu NIE DAŁO SIĘ zamknąć.
+                      `min-w-0` przy treści jest tu równie ważne co zawijanie:
+                      bez niego kolumna z opisem nie kurczy się i przyciski
+                      i tak nie mają dokąd zejść. */}
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
                       {getAlertIcon(alert.type)}
-                      <div className="flex-1 space-y-1">
+                      {/* Zmierzone po pierwszej poprawce: nadal wystawało o 99 px.
+                          `flex-1` NIE pozwala kurczyć się poniżej treści — dopiero
+                          `min-w-0` na KAŻDYM poziomie zagnieżdżenia to odblokowuje.
+                          Jeden pominięty poziom wystarczy, żeby cała naprawa nie
+                          zadziałała. */}
+                      <div className="min-w-0 flex-1 space-y-1">
                         <CardTitle className="text-lg">{alert.title}</CardTitle>
                         <p className="text-sm text-muted-foreground">
                           {alert.description}
                         </p>
-                        <div className="flex items-center gap-2 mt-2">
+                        {/* Zmierzone przy 360 px: dwie plakietki plus data
+                            wystawały o 134 px. */}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
                           <Badge variant={getAlertBadgeVariant(alert.type)}>
                             {alert.type}
                           </Badge>
@@ -155,7 +172,7 @@ export default function SystemAlerts() {
                     </div>
                     
                     {alert.status === 'pending' && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {(alert.type === 'error' && (alert.category === 'matching' || alert.category === 'validation')) && (
                           <Button
                             size="sm"

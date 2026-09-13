@@ -698,7 +698,12 @@ export default function ServiceProviderDashboard() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          {/* Zmierzone przy 360 px: prawa grupa wystawała o 186 px — cztery
+              liczniki, dzwonek, język i konto nie mieszczą się w jednej linii
+              na telefonie. Zawijamy zamiast chować: mechanik przy aucie ma
+              widzieć stan SMS-ów i minut, a nie szukać ich w zakładce konta.
+              Pasek rośnie wtedy o jedną linię i tyle. */}
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             {/* Plan i licznik dni okresu próbnego stoją PRZED ikonami, a nie
                 przy nazwie firmy. Przy nazwie rozpychały lewą stronę paska
                 („okres próbny, 503 dni · Wybierz plan" to długi napis) i cały

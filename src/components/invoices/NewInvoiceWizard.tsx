@@ -435,6 +435,19 @@ export function NewInvoiceWizard({ open, onOpenChange, entityId, onCreated, onOp
                 {items.map((item, index) => (
                   <Card key={index}>
                     <CardContent className="p-3">
+                      {/* ZMIERZONE, ZOSTAWIONE BEZ ZMIAN — i tak samo w pozostałych
+                          edytorach pozycji faktury (InvoiceEditor, CostInvoiceModal,
+                          InvoiceEditDialog, AIAgentBusinessProfile).
+
+                          `grid-cols-12` wygląda w wykazie najgorzej ze wszystkiego
+                          (komórka 20 px!), ale rachunek „1/12" tu nie obowiązuje:
+                          dzieci mają `col-span-*`, a na telefonie każde bierze
+                          `col-span-12`, czyli całą szerokość. To JEST układ
+                          responsywny, tylko zapisany rozpiętościami zamiast
+                          punktem granicznym na samej kratce.
+
+                          Bramka wykluczyła te miejsca z werdyktu automatycznego
+                          właśnie dlatego — patrz scripts/pomiar-mobilny.js. */}
                       <div className="grid grid-cols-12 gap-2">
                         <div className="col-span-12 sm:col-span-4">
                           <Label className="text-xs">Nazwa *</Label>

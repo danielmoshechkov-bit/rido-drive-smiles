@@ -215,7 +215,9 @@ export default function AdminAIAgentsPage() {
               {agents.length} agentów • {agents.filter(a => a.is_active).length} aktywnych
             </p>
           </div>
-          <div className="flex gap-2">
+          {/* Zmierzone przy 360 px: dwa przyciski z długimi napisami wystawały
+              o 250 px. */}
+          <div className="flex w-full flex-wrap gap-2 [&>button]:max-w-full [&>button]:whitespace-normal sm:w-auto">
             <Button
               variant="outline"
               onClick={async () => {
@@ -294,8 +296,10 @@ export default function AdminAIAgentsPage() {
             return (
               <Card key={agent.id} className={!agent.is_active ? 'opacity-50' : ''}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
+                  {/* Zmierzone przy 360 px: nagłówek karty agenta wystawał o 90 px
+                      — nazwa agenta i moduł nie kurczyły się bez `min-w-0`. */}
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                         <IconComponent className="h-5 w-5 text-primary" />
                       </div>

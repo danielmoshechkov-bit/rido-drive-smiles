@@ -15,7 +15,9 @@ export default function PaymentCancel() {
           <XCircle className="h-16 w-16 text-muted-foreground mx-auto" />
           <h2 className="text-xl font-bold">Płatność anulowana</h2>
           <p className="text-muted-foreground">Twoja płatność została anulowana. Żadne środki nie zostały pobrane.</p>
-          <div className="flex gap-2 mt-4">
+          {/* Zmierzone przy 360 px: dwa przyciski z ikoną i napisem obok siebie
+              wychodziły o 30 px. Na telefonie stają jeden pod drugim. */}
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Button variant="outline" className="flex-1" onClick={() => navigate("/")}>
               <ArrowLeft className="h-4 w-4 mr-2" /> Strona główna
             </Button>

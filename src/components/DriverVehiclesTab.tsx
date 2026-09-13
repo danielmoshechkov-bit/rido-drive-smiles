@@ -245,7 +245,12 @@ export function DriverVehiclesTab() {
             <CollapsibleContent>
               <div className="border-t p-4">
                 <Tabs defaultValue="info" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4 rounded-lg bg-muted/50 p-1">
+                  {/* Zmierzone: przy 360 px na kratkę o czterech kolumnach wypada
+                      82 px, a „Dokumenty" w kroju zakładki (14 px, waga 500) to 77 px
+                      SAMEGO NAPISU — do tego 24 px wyściółki `px-3`. „Historia
+                      Kierowców" nie ma nawet jak się złamać, bo `TabsTrigger` ma
+                      `whitespace-nowrap`. Dwie kolumny na telefonie, cztery od `sm`. */}
+                  <TabsList className="grid h-auto w-full grid-cols-2 rounded-lg bg-muted/50 p-1 sm:grid-cols-4">
                     <TabsTrigger value="info" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Info</TabsTrigger>
                     <TabsTrigger value="documents" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Dokumenty</TabsTrigger>
                     <TabsTrigger value="history" className="data-[state=active]:bg-[var(--nav-bar-color)] data-[state=active]:text-white hover:bg-[#F5C842] hover:text-gray-900 transition-colors rounded-md">Historia Kierowców</TabsTrigger>

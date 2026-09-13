@@ -104,6 +104,11 @@ export function AIAgentDashboard() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
+        {/* ZMIERZONE, ZOSTAWIONE BEZ ZMIAN. Dziewięć kolumn bez wariantu
+            responsywnego to najbardziej podejrzany wpis z całego wykazu —
+            i działa, bo KAŻDY napis jest `hidden sm:inline`. Przy 360 px w
+            komórce zostaje sama ikona 16 px. Przegląd 85 tras przy 360 px nie
+            zgłosił tu niczego. Nie „naprawiaj" tego dodaniem `sm:grid-cols-9`. */}
         <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="config" className="gap-2">
             <Settings className="h-4 w-4" />

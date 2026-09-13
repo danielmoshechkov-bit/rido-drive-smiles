@@ -110,8 +110,9 @@ export default function BuyCredits() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 py-3 flex items-center gap-4">
+          {/* Zmierzone przy 360 px: pasek wystawał o 16 px. */}
           <UniversalHomeButton />
-          <span className="font-bold text-lg text-primary">Kup kredyty</span>
+          <span className="truncate font-bold text-lg text-primary">Kup kredyty</span>
           <div className="flex-1" />
           <LanguageSwitcher variant="outline" />
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>

@@ -275,7 +275,11 @@ export function RentalSubjectsList({ companyId }: Props) {
             {/* Stawki + kaucja */}
             <div>
               <div className="text-xs font-semibold text-muted-foreground mb-2">Stawki domyślne (zł) + kaucja</div>
-              <div className="grid grid-cols-4 gap-4">
+              {/* Zmierzone: „Tygodniowa" to 81,6 px w kroju etykiety
+                  (14 px, waga 500), a cztery kolumny z odstępem 16 px dają przy
+                  360 px po 70 px na komórkę — i to licząc najkorzystniej, bez
+                  wyściółki okna dialogowego. Dwie kolumny na telefonie. */}
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div className="space-y-1.5">
                   <Label>Dzienna</Label>
                   <Input type="text" inputMode="decimal" onWheel={noScroll} value={form.rate_daily} onChange={e => set('rate_daily', e.target.value)} />

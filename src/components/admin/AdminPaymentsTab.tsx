@@ -205,7 +205,9 @@ export function PaymentGatewayConfig() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6 pt-2">
+        {/* Zmierzone przy 360 px: plakietka „○ Nieaktywna" wypychana przez
+            `ml-auto` wychodziła o 38 px poza kartę. */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2">
           <div className="flex items-center gap-2">
             <Switch checked={isSandbox} onCheckedChange={setIsSandbox} />
             <Label>Tryb sandbox</Label>

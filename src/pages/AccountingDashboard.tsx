@@ -231,13 +231,19 @@ export default function AccountingDashboard() {
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          {/* Zmierzone przy 360 px: pasek wystawał o 575 px. Winna była lista
+              firm — jej naturalna szerokość to najdłuższa nazwa spółki
+              („AUTO-SERWIS HAWRYLUK SPÓŁKA Z OGRANICZONĄ…"), a element formularza
+              nie kurczy się poniżej swojej treści, dopóki nie dostanie `min-w-0`.
+              Ograniczenie szerokości plus `truncate` zostawia wybór działający,
+              a pełną nazwę widać po rozwinięciu. */}
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 sm:gap-4">
             {/* Entity Selector */}
             {entities.length > 0 && (
               <select
                 value={selectedEntityId || ''}
                 onChange={(e) => setSelectedEntityId(e.target.value)}
-                className="h-9 rounded-full border-2 border-primary/20 bg-primary/5 px-4 text-sm font-medium focus:border-primary focus:outline-none"
+                className="h-9 min-w-0 max-w-[38vw] truncate rounded-full border-2 border-primary/20 bg-primary/5 px-4 text-sm font-medium focus:border-primary focus:outline-none sm:max-w-none"
               >
                 {entities.map((entity) => (
                   <option key={entity.id} value={entity.id}>
