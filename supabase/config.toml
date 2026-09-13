@@ -530,3 +530,9 @@ verify_jwt = false
 # doslownie dopisywalby nam konwersje do konta reklamowego.
 [functions.meta-capi]
 verify_jwt = false
+
+# Przyznanie dni dostepu z panelu administratora.
+# `verify_jwt = false`, bo brama Supabase i tak nie sprawdza roli — funkcja
+# sprawdza `platform_admin` SAMA, a druga droga to klucz serwisowy do napraw.
+[functions.billing-przyznaj-dni]
+verify_jwt = false

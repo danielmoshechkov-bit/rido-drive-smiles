@@ -143,6 +143,40 @@ export function useBillingPlans() {
    * na plan (startową i docelową). Bez ceny docelowej wygaśnięcie gwarancji
    * po 12 miesiącach oznaczałoby zakładanie cen ręcznie dla każdego klienta.
    */
+  /**
+   * SPRAWDZENIE CEN U OPERATORA — tylko odczyt, nic nie zakłada.
+   *
+   * 🔴 Wypełniona kolumna `stripe_price_id_rok` NIE dowodzi, że u operatora
+   * stoi tam cena ROCZNA i we właściwej kwocie. Klient płaciłby za rok, Stripe
+   * rozliczałby miesiąc, a dowiedzielibyśmy się od klienta. Jedyna odpowiedź
+   * na to pytanie to zapytanie do Stripe o `recurring.interval` i `unit_amount`.
+   */
+  const sprawdzStripe = useMutation({
+    mutationFn: async (planCode?: string) => {
+      const { data, error } = await supabase.functions.invoke('billing-stripe-sync', {
+        body: { akcja: 'sprawdz', ...(planCode ? { plan_code: planCode } : {}) },
+      });
+      if (error || data?.error) {
+        const odmowa = await odczytajOdmowe(error, data);
+        throw new Error(odmowa.kod === 'GATEWAY_NOT_CONFIGURED'
+          ? 'Brak konfiguracji Stripe — uzupełnij sekret STRIPE_SECRET_KEY'
+          : odmowa.komunikat);
+      }
+      return data;
+    },
+    onSuccess: (data) => {
+      const rozjazdy = data?.rozjazdow ?? 0;
+      if (rozjazdy > 0) {
+        // Wypisujemy do konsoli, bo rozjazd trzeba PRZECZYTAĆ, a nie tylko policzyć.
+        console.warn('Rozjazdy cen u operatora:', data?.wynik);
+        toast.error(`${rozjazdy} rozjazdów cen u operatora — szczegóły w konsoli przeglądarki`);
+      } else {
+        toast.success(`Ceny zgodne z operatorem (${data?.sprawdzono ?? 0} sprawdzonych, ${data?.tryb})`);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const syncStripe = useMutation({
     mutationFn: async (planCode?: string) => {
       const { data, error } = await supabase.functions.invoke('billing-stripe-sync', {
@@ -204,6 +238,7 @@ export function useBillingPlans() {
     setActive,
     setFeatures,
     syncStripe,
+    sprawdzStripe,
     testCheckout,
     refetch: query.refetch,
   };
