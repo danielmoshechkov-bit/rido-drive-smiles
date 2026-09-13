@@ -1118,6 +1118,8 @@
     "dlaBiznesuDesc": "Systemy: warsztat, detailing, księgowość, flota",
     "bizWarsztatDetailing": "System do zarządzania warsztatem i detailingiem",
     "bizWarsztatDetailingDesc": "Zlecenia, terminy, przypomnienia SMS, magazyn części, wyceny AI",
+    "bizAiAgent": "Wirtualna asystentka",
+    "bizAiAgentDesc": "Odbiera telefon 24/7, umawia wizyty i zakłada zlecenia",
     "bizKsiegowosc": "Program Księgowy",
     "bizKsiegowoscDesc": "Faktury online, KSeF, JPK_V7 — automatyzacja księgowości",
     "bizFlota": "Zarządzanie Flotą",

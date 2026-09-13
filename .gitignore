@@ -34,3 +34,4 @@ public/invoice-pdf-lib/vendor/
 ksef-przyklady/
 .env*
 !.env.example
+deno.lock

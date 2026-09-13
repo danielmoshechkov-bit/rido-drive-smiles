@@ -485,6 +485,8 @@
     "dlaBiznesuDesc": "Hệ thống: xưởng dịch vụ, detailing, kế toán, đội xe",
     "bizWarsztatDetailing": "Hệ thống quản lý xưởng dịch vụ và detailing",
     "bizWarsztatDetailingDesc": "Đơn hàng, lịch hẹn, nhắc SMS, kho phụ tùng, báo giá AI",
+    "bizAiAgent": "Lễ tân AI",
+    "bizAiAgentDesc": "Nghe máy 24/7, đặt lịch hẹn và tạo đơn hàng",
     "bizKsiegowosc": "Phần mềm kế toán",
     "bizKsiegowoscDesc": "Hóa đơn trực tuyến, KSeF, JPK_V7 — tự động hóa kế toán",
     "bizFlota": "Quản lý đội xe",

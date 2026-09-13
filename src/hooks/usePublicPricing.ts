@@ -19,6 +19,15 @@ export interface PublicPlan {
   sort_order: number;
   /** Gotowe etykiety funkcji, w kolejności z katalogu funkcji. */
   features: string[];
+  /**
+   * Czy plan da się kupić na rok.
+   *
+   * Nie każda linia produktowa ma abonament roczny — pakiety agenta są
+   * wyłącznie miesięczne. Okno zakupu pyta o okres tylko wtedy, gdy jest
+   * z czego wybierać; reguła siedzi w DANYCH, a nie w nazwie linii, żeby
+   * następny produkt nie wymagał kolejnego warunku w kodzie.
+   */
+  ma_cene_roczna: boolean;
 }
 
 /**
@@ -73,7 +82,8 @@ export function usePublicPricing() {
           .from('billing_plans' as any)
           .select(
             'id, code, name, description, product_line, price_net, price_gross, ' +
-              'price_net_target, price_gross_target, is_custom, trial_days, sort_order',
+              'price_net_target, price_gross_target, is_custom, trial_days, sort_order, ' +
+              'stripe_price_id_rok',
           )
           .order('sort_order'),
         supabase
@@ -137,8 +147,9 @@ export function usePublicPricing() {
         labelsByPlan.set(row.plan_id, list);
       }
 
-      return ((plansRes.data ?? []) as unknown as PublicPlan[]).map((p) => ({
+      return ((plansRes.data ?? []) as unknown as Array<PublicPlan & { stripe_price_id_rok?: string | null }>).map((p) => ({
         ...p,
+        ma_cene_roczna: !!p.stripe_price_id_rok,
         features: (labelsByPlan.get(p.id) ?? [])
           .sort((a, b) => a.order - b.order)
           .map((x) => x.label),

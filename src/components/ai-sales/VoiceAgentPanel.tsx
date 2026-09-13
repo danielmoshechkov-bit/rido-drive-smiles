@@ -25,7 +25,7 @@
 //   czat testowy — warsztat testuje, dzwoniąc pod swój numer; to jest
 //     prawdziwszy test i nie kosztuje nas tokenów.
 // ============================================================================
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,9 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Save, Phone, Building2, ShieldCheck, Copy, AlertTriangle, Plane } from "lucide-react";
+import { usePakietAgenta } from "@/hooks/usePakietAgenta";
+import { odczytajOdmowe } from "@/lib/odmowaZakupu";
+import { OfertaAgenta } from "./OfertaAgenta";
 
 // JĘZYKÓW WARSZTAT NIE WYBIERA. Agent rozpoznaje język z tego, co mówi
 // dzwoniący, i odpowiada w nim — obsługa rosyjskiego i ukraińskiego jest
@@ -102,6 +105,18 @@ const ladnyNumer = (n: string) => {
 };
 
 export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
+  /**
+   * DWA STANY TEJ ZAKŁADKI.
+   *
+   * Bez opłaconego pakietu warsztat widzi OFERTĘ — co agent robi, ile kosztuje,
+   * co jest w którym pakiecie — a nie ustawienia z zablokowanymi polami.
+   * Zablokowane pole mówi „nie możesz"; oferta mówi „oto co dostaniesz".
+   *
+   * Po opłaceniu widok przełącza się sam: pytanie o pakiet ma krótką pamięć,
+   * więc powrót z płatności nie wymaga odświeżania strony. W drugą stronę
+   * działa tak samo — gdy subskrypcja wygaśnie, wraca oferta odnowienia.
+   */
+  const { maPakiet, gotowe: pakietSprawdzony } = usePakietAgenta();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   // PERSONA JEST STAŁA, NIE WYNIKIEM ZAPYTANIA.
@@ -125,6 +140,8 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const [stan, setStan] = useState<StanAktywacji | null>(null);
   const [miasto, setMiasto] = useState("");
   const [aktywuje, setAktywuje] = useState(false);
+  /** Zdanie serwera po nieudanym zamówieniu numeru — zostaje na ekranie. */
+  const [odmowaNumeru, setOdmowaNumeru] = useState<string | null>(null);
 
 
 
@@ -198,19 +215,75 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
     // eslint-disable-next-line
   }, [trwa]);
 
+  /**
+   * NUMER ZAMAWIA SIĘ SAM PO OPŁACENIU PAKIETU.
+   *
+   * Warsztat płaci raz i ma działającego agenta — nie dwa osobne kroki
+   * z przyciskiem „Aktywuj" pośrodku. Ten panel widzą wyłącznie warsztaty
+   * z opłaconym pakietem (bez niego zakładka pokazuje ofertę), więc samo
+   * wejście tutaj znaczy „należy Ci się numer".
+   *
+   * Wywołanie jest idempotentne po stronie serwera: drugie zamówienie zwraca
+   * „numer juz przypisany" albo „aktywacja juz trwa" i nie zakłada niczego
+   * drugi raz. Miasto jest jedynym powodem, dla którego trzeba tu jeszcze
+   * kliknąć — bez niego nie dobierzemy numeru z właściwego regionu.
+   */
+  const zamowionoRef = useRef(false);
+  useEffect(() => {
+    if (!stan || zamowionoRef.current) return;
+    if (stan.numer || stan.zadanie || stan.wymaga_miasta) return;
+    zamowionoRef.current = true;
+    void aktywuj();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stan]);
+
+  /**
+   * ZAMÓWIENIE NUMERU — I CO WIDAĆ, GDY SERWER ODMÓWI.
+   *
+   * ═══════════════════════════════════════════════════════════════════════════
+   * 🔴 PANEL PISAŁ „ZAMAWIAMY TWÓJ NUMER" TAKŻE PO ODMOWIE (naprawione 13.09.2026)
+   * ═══════════════════════════════════════════════════════════════════════════
+   * Zamówienie leci samo przy wejściu. Gdy serwer odmawiał — brak pakietu (402),
+   * brak miasta (400), błąd zapisu (500) — leciał toast, znikał po kilku
+   * sekundach, a ekran ZOSTAWAŁ na zdaniu „Zamawiamy Twój numer — zajmie to
+   * chwilę". Warsztat czekał na coś, co nigdy nie zostało rozpoczęte. Dokładnie
+   * ta sama klasa co połknięty błąd: optymistyczny stan po odmowie.
+   *
+   * Teraz odmowa ZOSTAJE NA EKRANIE, ze zdaniem serwera i przyciskiem ponowienia.
+   *
+   * Zdanie czyta `odczytajOdmowe`, bo `functions.invoke` przy odpowiedzi spoza
+   * 2xx zostawia `data === null` — a `voice-number-activate` odmawia parą
+   * `error: "BRAK_PAKIETU"` + `message: "Numer przydzielamy do opłaconego
+   * pakietu…"`. Bez tej warstwy na ekran trafiłby albo goły kod, albo nic.
+   */
   const aktywuj = async () => {
     setAktywuje(true);
+    setOdmowaNumeru(null);
     const { data, error } = await supabase.functions.invoke("voice-number-activate", {
       body: { akcja: "aktywuj", miasto: miasto || undefined },
     });
     setAktywuje(false);
-    if (error) { toast.error("Nie udało się rozpocząć aktywacji"); return; }
-    const s = data as StanAktywacji;
-    setStan(s);
-    if (s?.error) { toast.error(s.error); return; }
+
+    const s = data as StanAktywacji | null;
+    if (error || s?.error) {
+      const odmowa = await odczytajOdmowe(
+        error,
+        s,
+        "Nie udało się zamówić numeru. Spróbuj ponownie za chwilę.",
+      );
+      if (s) setStan(s);
+      setOdmowaNumeru(odmowa.komunikat);
+      toast.error(odmowa.komunikat);
+      return;
+    }
+
+    setStan(s as StanAktywacji);
     if (s?.numer) { setNumer({ phone_number: s.numer, status: "aktywny" }); toast.success("Numer przypisany"); }
     else toast.success("Zaczynamy — numer będzie gotowy za chwilę");
   };
+
+  /** Ponowienie po odmowie — ręczne, bo automat spróbował już raz. */
+  const ponowZamowienie = () => { zamowionoRef.current = true; void aktywuj(); };
 
   const update = (patch: Partial<VoiceConfig>) => setCfg((c) => (c ? { ...c, ...patch } : c));
   const updateBC = (patch: Partial<BusinessContext>) =>
@@ -245,6 +318,18 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const dodatkowe = cfg.business_context.extra_info || "";
   const sterujace = SLOWA_STERUJACE.filter((s) => dodatkowe.toLowerCase().includes(s));
   const urlop = cfg.business_context.urlop;
+
+  // Dopóki nie wiemy, nie pokazujemy ani oferty, ani ustawień — mignięcie
+  // ofertą warsztatowi, który ma pakiet, wygląda na utratę dostępu.
+  if (!pakietSprawdzony) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!maPakiet) return <OfertaAgenta />;
 
   return (
     <div className="space-y-6">
@@ -332,23 +417,61 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                   </div>
                 ) : (
                   <>
-                    <p className="text-sm text-muted-foreground">
-                      Nie masz jeszcze numeru. Przydzielimy Ci go teraz — zajmie to chwilę.
-                    </p>
+                    {/* PRZYCISKU „AKTYWUJ AGENTA" JUŻ NIE MA.
+                        Warsztat płaci RAZ i dostaje działającego agenta, a nie dwa
+                        osobne kroki. Numer zamawia się sam, gdy tylko pakiet jest
+                        opłacony — poniżej jest informacja o przebiegu, nie zadanie
+                        do wykonania. Miasto pytamy tylko wtedy, gdy naprawdę go
+                        brakuje w kartotece, bo bez niego nie dobierzemy numeru
+                        z właściwego regionu. */}
+                    {/* ODMOWA ZOSTAJE NA EKRANIE, nie znika razem z powiadomieniem.
+                        Zdanie „Zamawiamy Twój numer" stało tu BEZWARUNKOWO — także
+                        wtedy, gdy zamówienie zostało odrzucone. Warsztat czekał
+                        wtedy na coś, czego nikt nie rozpoczął. */}
+                    {odmowaNumeru && !stan?.wymaga_miasta ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-destructive">{odmowaNumeru}</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={ponowZamowienie}
+                          disabled={aktywuje}
+                          className="gap-2"
+                        >
+                          {aktywuje && <Loader2 className="h-4 w-4 animate-spin" />}
+                          Spróbuj ponownie
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {stan?.wymaga_miasta
+                          ? 'Zostało jedno: podaj miasto, a numer dobierzemy z Twojego regionu.'
+                          : 'Zamawiamy Twój numer — zajmie to chwilę. Możesz zamknąć tę stronę.'}
+                      </p>
+                    )}
                     {stan?.wymaga_miasta && (
                       <div className="space-y-1.5">
                         <Label>Miasto</Label>
                         <Input value={miasto} onChange={(e) => setMiasto(e.target.value)}
                           placeholder="np. Gdańsk" />
                         <p className="text-xs text-muted-foreground">
-                          Numer będzie z Twojego regionu — klient zobaczy lokalny numer, a nie warszawski.
+                          Klient zobaczy lokalny numer, a nie warszawski.
                         </p>
+                        <Button
+                          onClick={aktywuj}
+                          disabled={aktywuje || miasto.trim().length < 2}
+                          className="gap-2 mt-2"
+                        >
+                          {aktywuje ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
+                          Zamów numer
+                        </Button>
                       </div>
                     )}
-                    <Button onClick={aktywuj} disabled={aktywuje || (stan?.wymaga_miasta && miasto.trim().length < 2)} className="gap-2">
-                      {aktywuje ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
-                      Aktywuj agenta
-                    </Button>
+                    {!stan?.wymaga_miasta && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Trwa przydzielanie numeru…
+                      </div>
+                    )}
                   </>
                 )}
               </div>

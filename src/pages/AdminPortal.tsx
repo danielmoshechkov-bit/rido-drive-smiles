@@ -19,6 +19,7 @@ import { AdminIntegrationsTab } from '@/components/admin/AdminIntegrationsTab';
 import { KsefAdminPanel } from '@/components/admin/KsefAdminPanel';
 import { AdminPaymentsTab } from '@/components/admin/AdminPaymentsTab';
 import { AIAgentsPanel } from '@/components/admin/AIAgentsPanel';
+import { LeadyAgentaPanel } from '@/components/admin/LeadyAgentaPanel';
 import { SeoAgent } from '@/components/admin/SeoAgent';
 import { WeeklyDebtRebuildPanel } from '@/components/admin/WeeklyDebtRebuildPanel';
 import { ReferralSystemPanel } from '@/components/admin/ReferralSystemPanel';
@@ -107,6 +108,7 @@ export default function AdminPortal() {
     { value: 'workspace', label: 'Workspace', icon: Briefcase },
     { value: 'ksef-admin', label: 'KSeF Admin', icon: Shield },
     { value: 'ai-agents', label: 'Agenci AI', icon: Cpu },
+    { value: 'leady-agenta', label: 'Leady asystentki', icon: Cpu },
     { value: 'seo-agent', label: 'Agent SEO', icon: Globe },
     { value: 'fleet-debt-rebuild', label: 'Przebudowa długów', icon: RefreshCcw },
     { value: 'referrals', label: 'Polecenia', icon: Gift },
@@ -274,6 +276,10 @@ export default function AdminPortal() {
           </TabsContent>
 
           {/* AI Agents Tab */}
+          <TabsContent value="leady-agenta">
+            <LeadyAgentaPanel />
+          </TabsContent>
+
           <TabsContent value="ai-agents">
             <AIAgentsPanel />
           </TabsContent>

@@ -209,6 +209,8 @@ export const wolneGodziny = (
 
 export type Dzien = {
   klucz: string;
+  /** „ten" | „nastepny" | „za_N" — liczone w kodzie, nie przez model. */
+  tydzien?: string;
   data: string;
   do_wypowiedzenia: string;
   otwarte: boolean;
@@ -242,11 +244,47 @@ export const zbudujDni = (
     d.setUTCDate(baza.getUTCDate() + i);
     const iso = d.toISOString().slice(0, 10);
     const g = godzinyTygodnia[kluczDnia(iso)];
+    // ETYKIETA WZGLĘDNA TYLKO DLA DNIA OTWARTEGO.
+    //
+    // Rozmowa 22.08 09:32, sobota. Snapshot był POPRAWNY: sobota zamknięta,
+    // niedziela zamknięta, poniedziałek otwarty z godzinami. Agent powiedział
+    // „mam jutro o dziewiątej albo o jedenastej" — wziął ETYKIETĘ z dnia
+    // zamkniętego („jutro" = niedziela) i GODZINY z następnego wiersza.
+    // Potem połączył nazwę dnia z jednego wiersza z datą z drugiego:
+    // „poniedziałek dwudziestego trzeciego sierpnia" (23.08 to niedziela).
+    //
+    // Słowa „dzisiaj", „jutro", „pojutrze" są dla modelu najsilniejszym
+    // uchwytem w całym snapshocie — sięga po nie, nawet gdy wiersz obok mówi
+    // „zamknięte". Więc ich tam nie ma, gdy dzień jest zamknięty: klucz staje
+    // się wtedy `niedziela_23`, tak jak dla dalszych dni.
+    //
+    // To nie zastępuje zabezpieczenia po stronie zapisu (rezerwacja w dniu
+    // zamkniętym musi być odrzucona niezależnie od tego, co powie model) —
+    // usuwa tylko okazję.
+    const otwartyDzien = !!g && !g.closed;
     const wpis: Dzien = {
-      klucz: ETYKIETY[i] ?? `${DNI_TYGODNIA[d.getUTCDay()]}_${d.getUTCDate()}`,
+      klucz: (otwartyDzien ? ETYKIETY[i] : undefined) ?? `${DNI_TYGODNIA[d.getUTCDay()]}_${d.getUTCDate()}`,
       data: iso,
       do_wypowiedzenia: doWypowiedzenia(iso),
-      otwarte: !!g && !g.closed,
+      // KTORY TO TYDZIEN — DANA, NIE ARYTMETYKA.
+      //
+      // Rozmowa 17.08 po angielsku: klient poprosil o „next week, Wednesday",
+      // a agent podal 26., potem 24., potem 19. — trzy razy zla date i trzy
+      // razy przyznal klientowi racje. Liczyl „nastepny tydzien" sam, choc
+      // wszystkie czternascie dni ma w snapshocie.
+      //
+      // Poniedzialek jako pierwszy dzien tygodnia (norma polska i ISO).
+      tydzien: (() => {
+        const poniedzialek = (x: Date) => {
+          const k = new Date(x);
+          k.setUTCDate(k.getUTCDate() - ((k.getUTCDay() + 6) % 7));
+          k.setUTCHours(0, 0, 0, 0);
+          return k.getTime();
+        };
+        const roznica = Math.round((poniedzialek(d) - poniedzialek(baza)) / 604800000);
+        return roznica === 0 ? "ten" : roznica === 1 ? "nastepny" : `za_${roznica}`;
+      })(),
+      otwarte: otwartyDzien,
     };
     if (!wpis.otwarte) {
       wpis.powod = "zamknięte";
@@ -361,4 +399,32 @@ const liczbaSlownie = (n: number, dopelniacz: boolean): string => {
 export const cenaDoWypowiedzenia = (od: number, do_: number | null): string => {
   if (!do_ || do_ === od) return `${liczbaSlownie(od, false)} złotych`;
   return `od ${liczbaSlownie(od, true)} do ${liczbaSlownie(do_, true)} złotych`;
+};
+
+/**
+ * DWIE GODZINY DO WYPOWIEDZENIA — wybrane w KODZIE, nie przez model.
+ *
+ * FAZA C, zasada „co da się wyrazić danymi, nie jest instrukcją".
+ * Reguła „podawaj DWIE godziny, nigdy trzy" była w prompcie dwa razy, za
+ * każdym razem mocniej sformułowana, i łamała się 3/3 na trzech przebiegach
+ * symulacji. Pole `wolne` ma do trzech pozycji, a model czytał je jako listę
+ * do odczytania, nie jako zapas do wyboru.
+ *
+ * Teraz zapas i propozycja to DWA RÓŻNE POLA. `wolne` zostaje pełne — służy
+ * do dopasowania tego, co powie klient, i do wyboru, gdy klient wskaże porę
+ * dnia. `zaproponuj` ma najwyżej dwie pozycje i to je agent wypowiada.
+ *
+ * Wybieramy DWIE PIERWSZE, licząc od najwcześniejszej wolnej.
+ *
+ * ZMIANA 16.08: wcześniej braliśmy pierwszą i OSTATNIĄ. W prawdziwej rozmowie
+ * dało to „o dziewiątej czy o szesnastej?" — dwie skrajności, między którymi
+ * klient musi wybrać, nie wiedząc, że jest jeszcze jedenasta i trzynasta.
+ * Dwie bliskie godziny brzmią jak propozycja, dwie skrajne jak ultimatum.
+ *
+ * Gdy klient odrzuci obie, agent pyta wprost, która pora by pasowała —
+ * i wtedy dopiero sięga po resztę pola `wolne` albo po check_availability.
+ */
+export const doZaproponowania = (wolne: string[], maks = 2): string[] => {
+  if (!Array.isArray(wolne) || wolne.length === 0) return [];
+  return wolne.slice(0, maks);
 };

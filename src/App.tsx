@@ -81,6 +81,7 @@ const VehicleCompare = lazyWithRetry(() => import("./pages/VehicleCompare"));
 const MarketplaceRegister = lazyWithRetry(() => import("./pages/MarketplaceRegister"));
 const MarketplaceAuth = lazyWithRetry(() => import("./pages/MarketplaceAuth"));
 const WorkshopLanding = lazyWithRetry(() => import("./pages/WorkshopLanding"));
+const AiAgentLanding = lazyWithRetry(() => import("./pages/AiAgentLanding"));
 const RealEstateMarketplace = lazyWithRetry(() => import("./pages/RealEstateMarketplace"));
 const RealEstateLanding = lazyWithRetry(() => import("./pages/RealEstateLanding"));
 const OfertaPage = lazyWithRetry(() => import("./pages/OfertaPage"));
@@ -244,6 +245,7 @@ const App = () => (
                 <Route path="/ksiegowosc" element={<AccountingDashboard />} />
                 <Route path="/ksiegowosc-info" element={<InvoicingLanding />} />
                 <Route path="/warsztat-info" element={<WorkshopLanding />} />
+                <Route path="/ai-agent" element={<AiAgentLanding />} />
                 <Route path="/faktury" element={<InvoiceProgram />} />
                 <Route path="/klient" element={<ClientPortal />} />
                 <Route path="/ai-pro" element={<AIProPage />} />

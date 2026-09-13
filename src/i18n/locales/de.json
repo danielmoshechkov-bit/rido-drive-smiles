@@ -485,6 +485,8 @@
     "dlaBiznesuDesc": "Systeme: Werkstatt, Aufbereitung, Buchhaltung, Flotte",
     "bizWarsztatDetailing": "System zur Verwaltung von Werkstatt und Aufbereitung",
     "bizWarsztatDetailingDesc": "Aufträge, Termine, SMS-Erinnerungen, Teilelager, KI-Kostenvoranschläge",
+    "bizAiAgent": "KI-Empfang",
+    "bizAiAgentDesc": "Nimmt rund um die Uhr Anrufe an, vereinbart Termine und legt Aufträge an",
     "bizKsiegowosc": "Buchhaltungsprogramm",
     "bizKsiegowoscDesc": "Online-Rechnungen, KSeF, JPK_V7 — Buchhaltungsautomatisierung",
     "bizFlota": "Flottenmanagement",

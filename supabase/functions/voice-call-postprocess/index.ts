@@ -49,6 +49,18 @@ async function verifySignature(rawBody: string, header: string | null, secret: s
   return timingSafeEqual(hex, v0);
 }
 
+/**
+ * Skrót numeru dzwoniącego. MUSI liczyć się tak samo jak w `voice-agent-init` —
+ * ta funkcja zapisuje skrót, tamta go szuka. Rozjazd soli albo algorytmu
+ * znaczy limit, który po cichu nie działa.
+ */
+async function skrotDzwoniacego(numer: string): Promise<string> {
+  const sol = Deno.env.get("DEMO_SOL") ?? "getrido-demo";
+  const bajty = new TextEncoder().encode(`${sol}:${numer}`);
+  const hash = await crypto.subtle.digest("SHA-256", bajty);
+  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -132,6 +144,16 @@ serve(async (req) => {
       }, 400);
     }
 
+    // ZWOLNIENIE LINII. Wiersz w `voice_active_calls` powstaje przy odebraniu
+    // i liczy się do limitu rozmów równoczesnych. Kasujemy go TU, przed
+    // wszystkimi wcześniejszymi wyjściami z funkcji — rozmowa bez transkryptu
+    // też się skończyła i też ma zwolnić linię. Gdyby kasowanie stało niżej,
+    // krótka rozmowa blokowałaby warsztat do wygaśnięcia okna 30 minut.
+    if (conversationId) {
+      const { error: delErr } = await admin.from("voice_active_calls").delete().eq("conversation_id", conversationId);
+      if (delErr) console.error("[voice-call-postprocess] zwolnienie linii nieudane:", delErr.code, delErr.message);
+    }
+
     if (messages.length < 2) {
       console.warn("[voice-call-postprocess]", JSON.stringify({
         event: "transcript_too_short", conversation_id: conversationId, turns: messages.length,
@@ -201,6 +223,95 @@ serve(async (req) => {
       call_id: out?.call_id || null, lessons: out?.lessons_learned || 0,
     }));
     // O powodzeniu webhooka decyduje COMMIT, nie analyze.
+    /**
+     * NALICZENIE MINUT — PO ANALIZIE, NIE PRZED NIĄ.
+     *
+     * 🔴 NAPRAWIONE 13.09.2026. Blok stał PRZED `voice-call-analyze`, z
+     * uzasadnieniem „minuty muszą się naliczyć niezależnie od tego, czy model
+     * wyciągnął z rozmowy wnioski". Uzasadnienie było słuszne, miejsce nie:
+     * to WŁAŚNIE `voice-call-analyze` dopisuje wierszowi rozmowy
+     * `elevenlabs_conversation_id` ORAZ `duration_seconds`.
+     *
+     * Dwa objawy jednej przyczyny, zmierzone na 10 rozmowach od 22.08:
+     *   • 9 rozmów BEZ ŚLADU naliczenia — wyszukanie po `conversation_id` nie
+     *     znajdowało wiersza, bo identyfikatora jeszcze na nim nie było,
+     *     a `if (wiersz?.id)` po cichu pomijał naliczenie;
+     *   • 1 rozmowa (55 s) naliczona na 0 minut — wiersz miał już identyfikator
+     *     (założyły go narzędzia agenta w trakcie rozmowy), ale nie miał
+     *     długości, więc `CEIL(0/60)` dało zero. Znacznik `minutes_charged_at`
+     *     został przy tym postawiony i zamknął tę rozmowę na zawsze.
+     *
+     * Niezależność od analizy zostaje, tylko inaczej: długość bierzemy
+     * Z PAYLOADU webhooka, który mamy w ręku, i dopisujemy ją sami, gdy analiza
+     * tego nie zrobiła. Naliczenie nie potrzebuje już niczyjej uprzejmości.
+     *
+     * BŁĄD NALICZENIA NIE WYWRACA WEBHOOKA — rozmowa jest zapisana, a ponowienie
+     * przez ElevenLabs powtórzyłoby commit.
+     */
+    try {
+      const sekundyZWebhooka = Number(payload?.data?.metadata?.call_duration_secs) || 0;
+      const { data: wiersz } = await admin.from("voice_calls")
+        .select("id, duration_seconds")
+        .eq("elevenlabs_conversation_id", conversationId)
+        .maybeSingle();
+
+      if (!wiersz?.id) {
+        // Cisza w tym miejscu kosztowała dziewięć nienaliczonych rozmów.
+        console.error("[voice-call-postprocess]", JSON.stringify({
+          event: "naliczenie_bez_wiersza", conversation_id: conversationId,
+        }));
+      } else {
+        /**
+         * ZNACZNIK DEMA I SKRÓT DZWONIĄCEGO.
+         *
+         * Rozmowa z publicznego numeru demonstracyjnego powstaje normalnie —
+         * z prawdziwym SMS-em i prawdziwą rezerwacją, bo to jest dowód na
+         * produkt. Znacznik jest po to, żeby dało się ją odfiltrować ze
+         * statystyk warsztatu, który demo udostępnia.
+         *
+         * Skrót numeru dzwoniącego zapisujemy TUTAJ, bo tu mamy go z payloadu
+         * webhooka. Służy wyłącznie limitowi „dwie rozmowy na dobę" w demie —
+         * numer w jawnej postaci nadal nigdzie nie ląduje.
+         */
+        const { data: numerWarsztatu } = await admin.from("voice_numbers")
+          .select("demonstracyjny").eq("provider_id", providerId)
+          .eq("status", "aktywny").maybeSingle();
+
+        const dzwoniacy = String(
+          payload?.data?.metadata?.phone_call?.external_number
+          ?? payload?.data?.conversation_initiation_client_data?.dynamic_variables?.system__caller_id
+          ?? "",
+        ).replace(/\D/g, "");
+
+        const doDopisania: Record<string, unknown> = {};
+        if (!Number(wiersz.duration_seconds) && sekundyZWebhooka > 0) {
+          doDopisania.duration_seconds = sekundyZWebhooka;
+        }
+        if (numerWarsztatu?.demonstracyjny) {
+          doDopisania.z_dema = true;
+          if (dzwoniacy) doDopisania.dzwoniacy_skrot = await skrotDzwoniacego(dzwoniacy);
+        }
+        if (Object.keys(doDopisania).length) {
+          await admin.from("voice_calls").update(doDopisania).eq("id", wiersz.id);
+        }
+        const { data: nalicz, error: bladNaliczenia } =
+          await admin.rpc("voice_nalicz_minuty", { p_call_id: wiersz.id });
+        if (bladNaliczenia) {
+          console.error("[voice-call-postprocess] naliczenie minut nieudane:",
+            bladNaliczenia.code, bladNaliczenia.message);
+        } else {
+          console.info("[voice-call-postprocess]", JSON.stringify({
+            event: "minuty_naliczone", conversation_id: conversationId,
+            sekundy: sekundyZWebhooka,
+            minuty: (nalicz as Record<string, unknown> | null)?.minuty ?? null,
+            pominiete: (nalicz as Record<string, unknown> | null)?.pominiete ?? null,
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("[voice-call-postprocess] naliczenie minut wyjatek:", (e as Error).message);
+    }
+
     if (!commitRes.ok) {
       return json({
         ok: false, error: commitOut?.error || "voice-call-commit nie powiódł się",

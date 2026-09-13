@@ -70,6 +70,26 @@ async function stripe(key: string, { path, method = "GET", form }: StripeCall): 
  * zmiana go nie dotyka.
  */
 async function ensureProduct(key: string, plan: any): Promise<string> {
+  /**
+   * NAZWA PRODUKTU U OPERATORA TO NAZWA, KTÓRĄ KLIENT CZYTA PRZY PŁACENIU.
+   *
+   * Jedno źródło: `billing_plans.name`. Dotąd nazwa trafiała do Stripe'a
+   * WYŁĄCZNIE przy zakładaniu produktu, więc zmiana nazwy planu w cenniku
+   * rozjeżdżała się ze stroną płatności i nikt tego nie widział — my patrzymy
+   * na cennik, klient na kasę operatora.
+   */
+  const nazwa = `GetRido ${plan.name}`;
+
+  const wyrownajNazwe = async (productId: string, obecna: string | null) => {
+    if (obecna === nazwa) return;
+    try {
+      await stripe(key, { path: `/products/${productId}`, method: "POST", form: { name: nazwa } });
+    } catch (e) {
+      // Jak przy opisie: nieudane wyrównanie nie może wywrócić cennika.
+      console.warn(`ensureProduct: nie udało się wyrównać nazwy produktu ${productId}:`, e);
+    }
+  };
+
   // Produkty założone WCZEŚNIEJ mają opis zapisany po stronie operatora.
   // Samo przestanie go wysyłać nic by nie dało — trzeba go aktywnie wyczyścić,
   // bo `ensureProduct` przy znalezionym produkcie i tak kończy działanie.
@@ -93,6 +113,7 @@ async function ensureProduct(key: string, plan: any): Promise<string> {
       const existing = await stripe(key, { path: `/products/${plan.stripe_product_id}` });
       if (existing && !existing.deleted) {
         if (existing.description) await wyczyscOpis(existing.id);
+        await wyrownajNazwe(existing.id, existing.name ?? null);
         return existing.id;
       }
     } catch {
@@ -106,6 +127,7 @@ async function ensureProduct(key: string, plan: any): Promise<string> {
   if (found?.data?.length) {
     const znaleziony = found.data[0];
     if (znaleziony.description) await wyczyscOpis(znaleziony.id);
+    await wyrownajNazwe(znaleziony.id, znaleziony.name ?? null);
     return znaleziony.id;
   }
 
@@ -113,7 +135,7 @@ async function ensureProduct(key: string, plan: any): Promise<string> {
     path: "/products",
     method: "POST",
     form: {
-      name: `GetRido ${plan.name}`,
+      name: nazwa,
       "metadata[plan_code]": plan.code,
       "metadata[product_line]": plan.product_line ?? "other",
     },
@@ -169,24 +191,47 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // ---- brama ----
+    //
+    // DWIE DROGI, TA SAMA ZASADA: CENNIK U OPERATORA ZMIENIA WŁAŚCICIEL PLATFORMY.
+    //
+    // Człowiek wchodzi z panelu i przedstawia swój token — pytamy `user_roles`
+    // o rolę `platform_admin`, dokładnie jak dotąd.
+    //
+    // Druga droga to KLUCZ SERWISOWY — ten sam wzorzec, co w `ai-chat` i `send-sms`.
+    // Kto ma ten klucz, ma już pełny dostęp do bazy, więc dopuszczenie go tutaj
+    // nie daje żadnego nowego uprawnienia. Daje natomiast możliwość założenia
+    // produktów u operatora bez człowieka klikającego w panelu — a to nie jest
+    // wygoda na jeden raz: przy przejściu na klucz produkcyjny cały cennik trzeba
+    // w Stripe założyć od nowa.
     const accessToken = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
     if (!accessToken) return json({ error: "Unauthorized" }, 401);
 
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: `Bearer ${accessToken}` } },
-    });
-    const { data: userData } = await userClient.auth.getUser(accessToken);
-    const caller = userData?.user;
-    if (!caller) return json({ error: "Unauthorized" }, 401);
+    const kluczSerwisowy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const zKluczaSerwisowego = kluczSerwisowy.length > 0 && accessToken === kluczSerwisowy;
 
-    const { data: roleRow, error: roleErr } = await admin
-      .from("user_roles").select("role")
-      .eq("user_id", caller.id).eq("role", "platform_admin").maybeSingle();
-    if (roleErr) {
-      console.error("billing-stripe-sync: nie można potwierdzić roli", roleErr);
-      return json({ error: "Nie można potwierdzić uprawnień" }, 503);
+    // Kto wykonał zmianę — do księgi zdarzeń. Przy kluczu serwisowym człowieka
+    // nie ma, więc zostaje puste (kolumna na to pozwala), a pole `zrodlo`
+    // w zapisie mówi, którą drogą przyszło wywołanie.
+    let callerId: string | null = null;
+
+    if (!zKluczaSerwisowego) {
+      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: `Bearer ${accessToken}` } },
+      });
+      const { data: userData } = await userClient.auth.getUser(accessToken);
+      const caller = userData?.user;
+      if (!caller) return json({ error: "Unauthorized" }, 401);
+
+      const { data: roleRow, error: roleErr } = await admin
+        .from("user_roles").select("role")
+        .eq("user_id", caller.id).eq("role", "platform_admin").maybeSingle();
+      if (roleErr) {
+        console.error("billing-stripe-sync: nie można potwierdzić roli", roleErr);
+        return json({ error: "Nie można potwierdzić uprawnień" }, 503);
+      }
+      if (!roleRow) return json({ error: "Forbidden" }, 403);
+      callerId = caller.id;
     }
-    if (!roleRow) return json({ error: "Forbidden" }, 403);
 
     // ---- konfiguracja ----
     // Fail-closed: brak klucza to odmowa, nie ciche pominięcie synchronizacji.
@@ -290,7 +335,7 @@ Deno.serve(async (req) => {
         if (updErr) throw updErr;
 
         await admin.from("billing_audit_log").insert({
-          actor_id: caller.id,
+          actor_id: callerId,
           action: "plan.stripe_synced",
           target_table: "billing_plans",
           target_id: plan.id,
@@ -299,7 +344,7 @@ Deno.serve(async (req) => {
             stripe_price_id: plan.stripe_price_id,
             stripe_price_id_target: plan.stripe_price_id_target,
           },
-          after: { ...patch, tryb },
+          after: { ...patch, tryb, zrodlo: zKluczaSerwisowego ? "klucz_serwisowy" : "panel" },
         });
 
         wynik.push({ plan: plan.code, ...patch });
