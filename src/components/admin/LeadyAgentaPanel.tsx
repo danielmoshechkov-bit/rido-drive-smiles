@@ -20,25 +20,17 @@ import { toast } from 'sonner';
  */
 interface Lead {
   id: string;
-  name: string | null;
-  phone: string | null;
-  message: string | null;
-  status: string | null;
-  contacted_at: string | null;
-  created_at: string;
+  imie: string | null;
+  telefon: string | null;
+  zrodlo: string;
+  zgoda_telefon: boolean;
+  status: string;
+  notatka: string | null;
+  obsluzony_at: string | null;
+  utworzony_at: string;
 }
 
-const czytajZgody = (message: string | null) => {
-  try {
-    const m = JSON.parse(message ?? '{}');
-    return {
-      telefon: m?.zgoda_telefon?.udzielona === true,
-      kiedy: m?.kiedy as string | undefined,
-    };
-  } catch {
-    return { telefon: false, kiedy: undefined };
-  }
-};
+
 
 export function LeadyAgentaPanel() {
   const qc = useQueryClient();
@@ -48,10 +40,9 @@ export function LeadyAgentaPanel() {
     queryKey: ['leady-agenta'],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from('marketing_leads')
-        .select('id, name, phone, message, status, contacted_at, created_at')
-        .eq('source_platform', 'demo-agenta')
-        .order('created_at', { ascending: false })
+        .from('leady')
+        .select('id, imie, telefon, zrodlo, zgoda_telefon, status, notatka, obsluzony_at, utworzony_at')
+        .order('utworzony_at', { ascending: false })
         .limit(200);
       if (error) throw error;
       return (data ?? []) as Lead[];
@@ -62,8 +53,8 @@ export function LeadyAgentaPanel() {
     setZapisywany(lead.id);
     try {
       const { error } = await (supabase as any)
-        .from('marketing_leads')
-        .update({ contacted_at: new Date().toISOString(), status: 'contacted' })
+        .from('leady')
+        .update({ obsluzony_at: new Date().toISOString(), status: 'oddzwonilismy' })
         .eq('id', lead.id);
       if (error) { toast.error('Nie udało się zapisać'); return; }
       await qc.invalidateQueries({ queryKey: ['leady-agenta'] });
@@ -72,7 +63,7 @@ export function LeadyAgentaPanel() {
     }
   };
 
-  const doOddzwonienia = leady.filter((l) => !l.contacted_at && czytajZgody(l.message).telefon).length;
+  const doOddzwonienia = leady.filter((l) => !l.obsluzony_at && l.zgoda_telefon).length;
 
   return (
     <Card>
@@ -102,16 +93,15 @@ export function LeadyAgentaPanel() {
               </TableHeader>
               <TableBody>
                 {leady.map((l) => {
-                  const zgody = czytajZgody(l.message);
                   return (
                     <TableRow key={l.id}>
                       <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                        {new Date(l.created_at).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}
+                        {new Date(l.utworzony_at).toLocaleString('pl-PL', { dateStyle: 'short', timeStyle: 'short' })}
                       </TableCell>
-                      <TableCell className="font-medium">{l.name || '—'}</TableCell>
-                      <TableCell className="tabular-nums">{zgody.telefon ? (l.phone || '—') : '—'}</TableCell>
+                      <TableCell className="font-medium">{l.imie || '—'}</TableCell>
+                      <TableCell className="tabular-nums">{l.zgoda_telefon ? (l.telefon || '—') : '—'}</TableCell>
                       <TableCell>
-                        {zgody.telefon ? (
+                        {l.zgoda_telefon ? (
                           <Badge variant="outline" className="border-emerald-500 text-emerald-600 gap-1">
                             <PhoneCall className="h-3 w-3" /> można dzwonić
                           </Badge>
@@ -122,11 +112,11 @@ export function LeadyAgentaPanel() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {l.contacted_at ? (
+                        {l.obsluzony_at ? (
                           <span className="text-sm text-muted-foreground">
-                            {new Date(l.contacted_at).toLocaleDateString('pl-PL')}
+                            {new Date(l.obsluzony_at).toLocaleDateString('pl-PL')}
                           </span>
-                        ) : zgody.telefon ? (
+                        ) : l.zgoda_telefon ? (
                           <Button size="sm" variant="outline" disabled={zapisywany === l.id} onClick={() => oznacz(l)}>
                             {zapisywany === l.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
                             Oznacz

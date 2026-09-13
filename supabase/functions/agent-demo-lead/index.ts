@@ -67,19 +67,27 @@ Deno.serve(async (req) => {
       return json({ error: "BRAK_NUMERU", message: "Demo jest chwilowo niedostępne. Spróbuj później." }, 503);
     }
 
-    const { error } = await admin.from("marketing_leads").insert({
-      name: imie,
-      phone: telefon,
-      source_platform: "demo-agenta",
-      status: "new",
-      // Ślad zgód w treści, z datą. `zgoda_telefon: false` znaczy „NIE WOLNO
-      // ODDZWANIAĆ" — i ma to być widoczne dla człowieka, który otworzy leada.
-      message: JSON.stringify({
-        zgoda_dane: { udzielona: true, tresc: ZGODY.dane },
-        zgoda_telefon: { udzielona: zgodaTelefon, tresc: ZGODY.telefon },
+    /**
+     * Piszemy do `leady`, nie do `marketing_leads`.
+     *
+     * Tamta tabela ma pięć własnych ścieżek zapisu (webhook Meta Ads, leady
+     * zewnętrzne, synchronizacja, scoring AI, kolejka obdzwaniania) i własny
+     * interfejs. Kontakt z dema wpadłby przy pierwszej kampanii do
+     * automatycznego obdzwaniania razem z leadami reklamowymi.
+     */
+    const { error } = await admin.from("leady").insert({
+      imie,
+      telefon,
+      zrodlo: "demo-agenta",
+      // Osobna kolumna, bo to jest ZAKAZ, a nie szczegół: bez tej zgody
+      // oddzwonienie jest naruszeniem.
+      zgoda_telefon: zgodaTelefon,
+      zgody: {
+        dane: { udzielona: true, tresc: ZGODY.dane },
+        telefon: { udzielona: zgodaTelefon, tresc: ZGODY.telefon },
         kiedy: new Date().toISOString(),
         skad: "/ai-agent",
-      }),
+      },
     });
     if (error) {
       console.error("[agent-demo-lead] zapis leada nieudany:", error.code, error.message);
