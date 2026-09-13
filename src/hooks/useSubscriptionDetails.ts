@@ -32,7 +32,12 @@ export function useSubscriptionDetails(providerId: string | null | undefined) {
       const { data, error } = await supabase
         .from('billing_subscriptions' as any)
         .select(
-          'status, current_period_end, price_snapshot, price_guarantee_until, provider, provider_subscription_id, plan:billing_plans(name, code, price_net)',
+          // Więz NAZWANY z rozmysłem: z `billing_subscriptions` prowadzą do
+          // `billing_plans` dwa klucze obce (`plan_id` i `plan_od_nastepnego_okresu`),
+          // więc samo `billing_plans(...)` nie rozstrzyga się i PostgREST odsyła
+          // PGRST201 zamiast danych. Bez nazwy to zapytanie NIGDY nie wracało
+          // z wierszem — patrz usePakietAgenta i pułapka nr 4 w CLAUDE.md.
+          'status, current_period_end, price_snapshot, price_guarantee_until, provider, provider_subscription_id, plan:billing_plans!billing_subscriptions_plan_id_fkey(name, code, price_net)',
         )
         .eq('subscriber_type', 'service_provider')
         .eq('subscriber_id', providerId)

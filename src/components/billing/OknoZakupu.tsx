@@ -52,10 +52,19 @@ export interface ZadanieZakupu {
   zacznijOd?: Krok;
 }
 
-// Kolejność kroków. „dane" stoi PRZED metodą płatności świadomie: faktury
-// z pustym nabywcą nie da się poprawić edycją, a moment przed zapłatą jest
-// najtańszy w całym procesie na zapytanie o dane.
-type Krok = 'plan' | 'okres' | 'dane' | 'metoda' | 'podsumowanie';
+/**
+ * Kolejność kroków. „dane" stoi PRZED zapłatą świadomie: faktury z pustym
+ * nabywcą nie da się poprawić edycją, a moment przed zapłatą jest najtańszy
+ * w całym procesie na zapytanie o dane. Ale pokazujemy ten krok WYŁĄCZNIE
+ * wtedy, gdy czegoś brakuje — patrz `krokPoDanych`.
+ *
+ * OSOBNY KROK „METODA" ZNIKNĄŁ (13.09.2026). Był ekranem z dwoma kafelkami,
+ * z których KAŻDY prowadził w to samo miejsce — prawdziwy wybór i tak dział
+ * się niżej, na przyciskach „Zapłać BLIK-iem" / „Zapłać kartą". Klikaliśmy
+ * więc tę samą decyzję dwa razy. Zostało: wybór pakietu → ekran z kwotą
+ * i dwoma przyciskami → bramka.
+ */
+type Krok = 'plan' | 'okres' | 'dane' | 'podsumowanie';
 
 const KUPOWALNE = ['warsztat_standard', 'warsztat_pro'];
 
@@ -105,6 +114,44 @@ export function OknoZakupu({
   const { data: szczegoly } = useSubscriptionDetails(providerId);
   const obecnyKod = szczegoly?.kodPlanu ?? null;
 
+  /**
+   * FORMULARZ FAKTURY POKAZUJEMY TYLKO WTEDY, GDY CZEGOŚ BRAKUJE.
+   *
+   * Warsztat z wypełnioną kartoteką (nazwa, NIP, adres) i tak musiał
+   * przeklikać ekran „Dane do faktury" i potwierdzić „To się zgadza".
+   * Ekran, który przy poprawnych danych nie ma o co zapytać, jest przeszkodą,
+   * nie zabezpieczeniem — a w ścieżce zakupu każda przeszkoda kosztuje.
+   *
+   * Pytamy tę samą funkcję, która strzeże zakupu po stronie serwera
+   * (`billing_dane_nabywcy_kompletne`), więc pominięcie kroku nie może
+   * rozminąć się z tym, co zaraz sprawdzi `billing-checkout`. Gdy odpowiedź
+   * jeszcze nie doszła albo brzmi „nie", pokazujemy formularz.
+   */
+  const { data: daneKompletne } = useQuery({
+    queryKey: ['dane-nabywcy-kompletne', providerId],
+    enabled: otwarte && !!providerId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .rpc('billing_dane_nabywcy_kompletne', { p_provider_id: providerId });
+      if (error) return false;
+      return data === true;
+    },
+  });
+
+  /** Dokąd po wyborze planu i okresu: do formularza czy prosto do zapłaty. */
+  const krokPoDanych = (): Krok => (daneKompletne === true ? 'podsumowanie' : 'dane');
+
+  /**
+   * Odpowiedź o kompletność danych bywa wolniejsza niż otwarcie okna. Gdy
+   * przyjdzie już po tym, jak stanęliśmy na formularzu, i mówi „komplet" —
+   * przechodzimy dalej sami. Formularz przy kompletnych danych i tak nie ma
+   * o co zapytać; jego jedyną treścią byłby przycisk „To się zgadza".
+   */
+  useEffect(() => {
+    if (krok === 'dane' && daneKompletne === true) setKrok('podsumowanie');
+  }, [krok, daneKompletne]);
+
   // Wejście z kafelka cennika ma pominąć krok, który klient już wykonał.
   useEffect(() => {
     if (!otwarte) return;
@@ -130,7 +177,7 @@ export function OknoZakupu({
     // na formularzu faktury dla zakupu, o którym jeszcze nie wiadomo, czego dotyczy.
     setKrok(
       zadanie.zacznijOd && zadanie.planCode ? zadanie.zacznijOd
-        : zadanie.planCode ? (rocznyMozliwy ? 'okres' : 'dane')
+        : zadanie.planCode ? (rocznyMozliwy ? 'okres' : krokPoDanych())
         : 'plan',
     );
     setWysylka(null);
@@ -330,14 +377,12 @@ export function OknoZakupu({
             {krok === 'plan' && 'Wybierz plan'}
             {krok === 'okres' && 'Na jak długo'}
             {krok === 'dane' && 'Dane do faktury'}
-            {krok === 'metoda' && 'Jak chcesz zapłacić'}
             {krok === 'podsumowanie' && 'Sprawdź i zapłać'}
           </DialogTitle>
           <DialogDescription>
             {krok === 'plan' && 'Możesz zmienić plan później, w każdej chwili.'}
             {krok === 'okres' && 'Przy roku dwa miesiące są gratis.'}
             {krok === 'dane' && 'Wystawimy na nie fakturę — poprawienie jej później wymaga korekty.'}
-            {krok === 'metoda' && 'Obie drogi są równorzędne — wybierz, co Ci wygodniej.'}
             {krok === 'podsumowanie' && 'Kwotę wylicza serwer w chwili zakupu.'}
           </DialogDescription>
         </DialogHeader>
@@ -345,7 +390,7 @@ export function OknoZakupu({
         {krok === 'dane' && (
           <DaneDoFaktury
             providerId={providerId}
-            onGotowe={() => setKrok('metoda')}
+            onGotowe={() => setKrok('podsumowanie')}
             onWstecz={() => setKrok(wybranyPlan?.ma_cene_roczna === false ? 'plan' : 'okres')}
           />
         )}
@@ -416,39 +461,9 @@ export function OknoZakupu({
                 planCode={wybranyPlan.code}
                 providerId={zadanie.providerId}
                 zaznaczony={okres === o}
-                onWybierz={() => { setOkres(o); setKrok('dane'); }}
+                onWybierz={() => { setOkres(o); setKrok(krokPoDanych()); }}
               />
             ))}
-          </div>
-        )}
-
-        {/* ── KROK 3: METODA ───────────────────────────────────────── */}
-        {krok === 'metoda' && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => setKrok('podsumowanie')}
-              className="rounded-xl border border-border p-4 text-left hover:border-primary hover:bg-primary/5"
-            >
-              <div className="flex items-center gap-2 font-semibold">
-                <Smartphone className="h-4 w-4" /> BLIK
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Płacisz raz. Przed końcem okresu przypomnimy o kolejnej płatności.
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setWysylka(null); setKrok('podsumowanie'); }}
-              className="rounded-xl border border-border p-4 text-left hover:border-primary hover:bg-primary/5"
-            >
-              <div className="flex items-center gap-2 font-semibold">
-                <CreditCard className="h-4 w-4" /> Karta
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Odnawiamy automatycznie. Możesz anulować w każdej chwili.
-              </p>
-            </button>
           </div>
         )}
 
@@ -485,15 +500,31 @@ export function OknoZakupu({
               </p>
             )}
 
+            {/* RÓŻNICA MIĘDZY METODAMI STOI PRZY PRZYCISKACH, nie na osobnym
+                ekranie. Klient czyta ją w chwili wyboru, a nie krok wcześniej. */}
             <div className="grid gap-2 sm:grid-cols-2">
-              <Button onClick={zaplacBlik} disabled={!!wysylka || !cena}>
-                {wysylka === 'blik' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Zapłać BLIK-iem
-              </Button>
-              <Button variant="outline" onClick={zaplacKarta} disabled={!!wysylka || !cena}>
-                {wysylka === 'karta' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Zapłać kartą
-              </Button>
+              <div className="space-y-1.5">
+                <Button className="w-full" onClick={zaplacBlik} disabled={!!wysylka || !cena}>
+                  {wysylka === 'blik'
+                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    : <Smartphone className="mr-2 h-4 w-4" />}
+                  Zapłać BLIK-iem
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Płacisz raz. Przed końcem okresu przypomnimy o kolejnej płatności.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Button className="w-full" variant="outline" onClick={zaplacKarta} disabled={!!wysylka || !cena}>
+                  {wysylka === 'karta'
+                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    : <CreditCard className="mr-2 h-4 w-4" />}
+                  Zapłać kartą
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Odnawiamy automatycznie. Możesz anulować w każdej chwili.
+                </p>
+              </div>
             </div>
           </div>
         )}
@@ -504,7 +535,7 @@ export function OknoZakupu({
           <button
             type="button"
             onClick={() => setKrok(
-              krok === 'podsumowanie' ? 'metoda' : krok === 'metoda' ? 'dane' : 'plan',
+              krok === 'podsumowanie'&&daneKompletne !== true ? 'dane' : wybranyPlan?.ma_cene_roczna === false ? 'plan' : 'okres',
             )}
             className="mt-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >

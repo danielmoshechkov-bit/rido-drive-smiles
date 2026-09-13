@@ -55,13 +55,28 @@ export function usePakietAgenta() {
        * Pytamy więc przez złączenie z `billing_plans` — to działa niezależnie
        * od tego, czy ktoś kiedyś wypełni tę kolumnę.
        *
-       * Sama kolumna nadal wymaga naprawy w webhooku: bez niej nie zadziała
-       * bramka odmowy po wyczerpaniu minut (`voice_odmowic_brak_minut` filtruje
-       * po `product_line`). Opisane w docs/BACKLOG.md.
+       * (Kolumnę `product_line` ustawia wyzwalacz w bazie — sprawdzone; ten
+       * zapis i tak jest odporny na jej stan, więc zostaje.)
+       *
+       * ═══════════════════════════════════════════════════════════════════════
+       * 🔴 KLUCZ OBCY MUSI BYĆ NAZWANY (naprawione 13.09.2026)
+       * ═══════════════════════════════════════════════════════════════════════
+       * Stało tu `billing_plans!inner(...)` bez nazwy więzu. Z tabeli
+       * `billing_subscriptions` prowadzą do `billing_plans` DWA klucze obce —
+       * `plan_id` i `plan_od_nastepnego_okresu` — więc PostgREST nie ma jak
+       * rozstrzygnąć, po którym złączyć, i odsyła `PGRST201` zamiast danych.
+       *
+       * Skutek: warsztat OPŁACIŁ pakiet, subskrypcja stanęła w bazie jako
+       * `active`, a panel dalej pokazywał ofertę — bo to zapytanie NIGDY nie
+       * zwracało wiersza, tylko błąd, a błąd czytamy jako „nie ma pakietu".
+       *
+       * To jest pułapka nr 4 z CLAUDE.md: druga kolumna FK do tej samej tabeli
+       * unieważnia każde zagnieżdżenie po tej relacji. Reszta kodu nazywa więz
+       * (`billing_stripe-webhook` robi to od początku) — ten jeden nie nazywał.
        */
       const { data: subskrypcje, error } = await (supabase as any)
         .from('billing_subscriptions')
-        .select('id, status, current_period_end, plan:billing_plans!inner(product_line)')
+        .select('id, status, current_period_end, plan:billing_plans!billing_subscriptions_plan_id_fkey!inner(product_line)')
         .eq('subscriber_type', 'service_provider')
         .eq('subscriber_id', sp.id)
         .in('status', ['active', 'trialing'])
