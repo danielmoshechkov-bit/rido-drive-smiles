@@ -36,8 +36,12 @@ sprawdz(!/const wybranyPlan[^=]*= doKupienia\.find/.test(okno),
 
 // 2. Pytanie o okres przy produkcie, ktory ma tylko cene miesieczna.
 sprawdz(/ma_cene_roczna/.test(cennik), 'cennik mowi, czy plan da sie kupic na rok');
-sprawdz(/rocznyMozliwy/.test(okno) && /rocznyMozliwy \? 'okres' : 'dane'/.test(okno),
+sprawdz(/rocznyMozliwy/.test(okno) && /rocznyMozliwy \? 'okres' : krokPoDanych\(\)/.test(okno),
   'plan bez ceny rocznej pomija krok „na jak dlugo"');
+sprawdz(/krokPoDanych = \(\): Krok => \(daneKompletne === true \? 'podsumowanie' : 'dane'\)/.test(okno),
+  'formularz faktury pokazuje sie TYLKO przy niekompletnych danych');
+sprawdz(!/'metoda'/.test(okno),
+  'osobny ekran wyboru metody zniknal — decyzja zapada na przyciskach z kwota');
 sprawdz(/zadanie\.okres \?\? \(rocznyMozliwy \? 'rok' : 'miesiac'\)/.test(okno),
   'domyslny okres to miesiac, gdy rocznego nie ma — inaczej serwer szukalby ceny, ktorej nie ma');
 
@@ -96,6 +100,27 @@ sprawdz(/"payment_method_types\[0\]": "card"/.test(checkout),
   'sesja abonamentowa prosi wprost o karte — jedyna metode, ktora umie cykl');
 sprawdz((checkout.match(/payment_method_types/g) || []).length === 1,
   'wymuszenie metody stoi w JEDNYM miejscu — sciezki PayU (SMS, doladowania) nietkniete');
+
+// 4e. 🔴 ZAGNIEZDZENIE PO `billing_plans` MUSI NAZYWAC WIEZ.
+//     Z `billing_subscriptions` prowadza do `billing_plans` DWA klucze obce
+//     (`plan_id` i `plan_od_nastepnego_okresu`), wiec samo `billing_plans(...)`
+//     nie rozstrzyga sie i PostgREST odsyla PGRST201 zamiast danych.
+//     Skutek w produkcji: warsztat OPLACIL pakiet, subskrypcja stanela w bazie
+//     jako `active`, a panel dalej pokazywal oferte — bo zapytanie zwracalo
+//     blad, a blad czytamy jako „nie ma pakietu".
+const pakiet = plik('src/hooks/usePakietAgenta.ts');
+const szczegoly = plik('src/hooks/useSubscriptionDetails.ts');
+// KOMENTARZE ODCINAMY, bo opisuja bledny ksztalt slowo w slowo — bez tego
+// bramka zapala sie na wlasnym opisie naprawy. (Zapalila sie. Stad ta linia.)
+const bezKomentarzy = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+for (const [nazwa, plikTresc] of [['usePakietAgenta', pakiet], ['useSubscriptionDetails', szczegoly]]) {
+  const tresc = bezKomentarzy(plikTresc);
+  const zagniezdzenia = tresc.match(/billing_plans(?:![A-Za-z_]+)*\(/g) || [];
+  const bezNazwy = zagniezdzenia.filter((z) => !z.includes('billing_subscriptions_plan_id_fkey'));
+  sprawdz(zagniezdzenia.length > 0 && bezNazwy.length === 0,
+    `${nazwa}: zagniezdzenie po billing_plans nazywa wiez (inaczej PGRST201 zamiast danych)`);
+}
 
 // 5. Cennik u operatora: nazwa produktu to nazwa, ktora klient czyta przy platnosci.
 sprawdz(/const nazwa = `GetRido \$\{plan\.name\}`/.test(synchro) && /wyrownajNazwe/.test(synchro),

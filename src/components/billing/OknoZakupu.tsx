@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Check, Loader2, ArrowLeft } from 'lucide-react';
+import { Check, Loader2, CreditCard, Smartphone, ArrowLeft } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,9 +28,7 @@ import { ciasteczkaDoZamowienia } from '@/lib/ciasteczkaMeta';
  * Każde z nich miało własną drogę — a przy pierwszej poprawce w płatnościach
  * rozjechałyby się między sobą i naprawialibyśmy to pięć razy.
  *
- * Tu jest jedna droga i najwyżej trzy kroki: plan, okres, zapłata. Formularz
- * danych do faktury wchodzi między nie TYLKO wtedy, gdy danych brakuje —
- * warsztat z kompletem w ustawieniach konta go nie zobaczy.
+ * Tu jest jedna droga i cztery kroki: plan, okres, metoda, podsumowanie.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * CENA JEST TU TYLKO POKAZANA
@@ -55,25 +53,16 @@ export interface ZadanieZakupu {
 }
 
 /**
- * Kolejność kroków: plan → okres → (dane, TYLKO gdy ich brakuje) → zapłata.
+ * Kolejność kroków. „dane" stoi PRZED zapłatą świadomie: faktury z pustym
+ * nabywcą nie da się poprawić edycją, a moment przed zapłatą jest najtańszy
+ * w całym procesie na zapytanie o dane. Ale pokazujemy ten krok WYŁĄCZNIE
+ * wtedy, gdy czegoś brakuje — patrz `krokPoDanych`.
  *
- * ═══════════════════════════════════════════════════════════════════════════
- * DWA EKRANY ZNIKŁY (13.09.2026)
- * ═══════════════════════════════════════════════════════════════════════════
- * Był osobny krok „Jak chcesz zapłacić" z dwoma kaflami — i oba prowadziły
- * DOKŁADNIE w to samo miejsce, na podsumowanie, gdzie i tak stały oba
- * przyciski płatności. Ekran nie podejmował żadnej decyzji; kosztował
- * kliknięcie i nic nie dawał.
- *
- * „Dane do faktury" pokazujemy WYŁĄCZNIE wtedy, gdy naprawdę ich brakuje.
- * Pytamy o to `billing_dane_nabywcy_kompletne` — tej samej funkcji używa
- * bramka zakupu na serwerze, więc okno i serwer nie mogą odpowiedzieć inaczej.
- * Warsztat, który ma komplet w ustawieniach konta, przechodzi od wyboru
- * pakietu wprost do zapłaty.
- *
- * Krok „dane" nadal stoi PRZED zapłatą, nie po: faktury z pustym nabywcą nie
- * da się poprawić edycją, a moment przed zapłatą jest najtańszy w całym
- * procesie na zapytanie o dane.
+ * OSOBNY KROK „METODA" ZNIKNĄŁ (13.09.2026). Był ekranem z dwoma kafelkami,
+ * z których KAŻDY prowadził w to samo miejsce — prawdziwy wybór i tak dział
+ * się niżej, na przyciskach „Zapłać BLIK-iem" / „Zapłać kartą". Klikaliśmy
+ * więc tę samą decyzję dwa razy. Zostało: wybór pakietu → ekran z kwotą
+ * i dwoma przyciskami → bramka.
  */
 type Krok = 'plan' | 'okres' | 'dane' | 'podsumowanie';
 
@@ -122,20 +111,26 @@ export function OknoZakupu({
     },
   });
   const providerId = zadanie.providerId ?? mojWarsztat ?? null;
+  const { data: szczegoly } = useSubscriptionDetails(providerId);
+  const obecnyKod = szczegoly?.kodPlanu ?? null;
 
   /**
-   * Czy warsztat ma komplet danych do faktury. `null` = jeszcze nie wiadomo.
+   * FORMULARZ FAKTURY POKAZUJEMY TYLKO WTEDY, GDY CZEGOŚ BRAKUJE.
    *
-   * Bez odpowiedzi NIE pomijamy kroku: pominięcie w niewiedzy kończy się
-   * odmową bramki tuż przed bramką płatności, czyli w najgorszym możliwym
-   * momencie. Niewiedza prowadzi więc do formularza, nie obok niego.
+   * Warsztat z wypełnioną kartoteką (nazwa, NIP, adres) i tak musiał
+   * przeklikać ekran „Dane do faktury" i potwierdzić „To się zgadza".
+   * Ekran, który przy poprawnych danych nie ma o co zapytać, jest przeszkodą,
+   * nie zabezpieczeniem — a w ścieżce zakupu każda przeszkoda kosztuje.
+   *
+   * Pytamy tę samą funkcję, która strzeże zakupu po stronie serwera
+   * (`billing_dane_nabywcy_kompletne`), więc pominięcie kroku nie może
+   * rozminąć się z tym, co zaraz sprawdzi `billing-checkout`. Gdy odpowiedź
+   * jeszcze nie doszła albo brzmi „nie", pokazujemy formularz.
    */
   const { data: daneKompletne } = useQuery({
     queryKey: ['dane-nabywcy-kompletne', providerId],
     enabled: otwarte && !!providerId,
-    // Klient może uzupełnić dane w drugiej karcie — po zamknięciu i otwarciu
-    // okna pytamy od nowa, zamiast pokazywać formularz, który już wypełnił.
-    staleTime: 0,
+    staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .rpc('billing_dane_nabywcy_kompletne', { p_provider_id: providerId });
@@ -144,11 +139,18 @@ export function OknoZakupu({
     },
   });
 
-  const { data: szczegoly } = useSubscriptionDetails(providerId);
-  const obecnyKod = szczegoly?.kodPlanu ?? null;
+  /** Dokąd po wyborze planu i okresu: do formularza czy prosto do zapłaty. */
+  const krokPoDanych = (): Krok => (daneKompletne === true ? 'podsumowanie' : 'dane');
 
-  /** Następny krok po wyborze pakietu: formularz tylko wtedy, gdy trzeba. */
-  const krokPoWyborze = (): Krok => (daneKompletne === true ? 'podsumowanie' : 'dane');
+  /**
+   * Odpowiedź o kompletność danych bywa wolniejsza niż otwarcie okna. Gdy
+   * przyjdzie już po tym, jak stanęliśmy na formularzu, i mówi „komplet" —
+   * przechodzimy dalej sami. Formularz przy kompletnych danych i tak nie ma
+   * o co zapytać; jego jedyną treścią byłby przycisk „To się zgadza".
+   */
+  useEffect(() => {
+    if (krok === 'dane' && daneKompletne === true) setKrok('podsumowanie');
+  }, [krok, daneKompletne]);
 
   // Wejście z kafelka cennika ma pominąć krok, który klient już wykonał.
   useEffect(() => {
@@ -175,7 +177,7 @@ export function OknoZakupu({
     // na formularzu faktury dla zakupu, o którym jeszcze nie wiadomo, czego dotyczy.
     setKrok(
       zadanie.zacznijOd && zadanie.planCode ? zadanie.zacznijOd
-        : zadanie.planCode ? (rocznyMozliwy ? 'okres' : krokPoWyborze())
+        : zadanie.planCode ? (rocznyMozliwy ? 'okres' : krokPoDanych())
         : 'plan',
     );
     setWysylka(null);
@@ -459,13 +461,13 @@ export function OknoZakupu({
                 planCode={wybranyPlan.code}
                 providerId={zadanie.providerId}
                 zaznaczony={okres === o}
-                onWybierz={() => { setOkres(o); setKrok(krokPoWyborze()); }}
+                onWybierz={() => { setOkres(o); setKrok(krokPoDanych()); }}
               />
             ))}
           </div>
         )}
 
-        {/* ── KROK 3: KWOTA I ZAPŁATA ──────────────────────────────── */}
+        {/* ── KROK 4: PODSUMOWANIE ─────────────────────────────────── */}
         {krok === 'podsumowanie' && (
           <div className="space-y-4">
             {ladowanie && <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />}
@@ -498,32 +500,42 @@ export function OknoZakupu({
               </p>
             )}
 
+            {/* RÓŻNICA MIĘDZY METODAMI STOI PRZY PRZYCISKACH, nie na osobnym
+                ekranie. Klient czyta ją w chwili wyboru, a nie krok wcześniej. */}
             <div className="grid gap-2 sm:grid-cols-2">
-              <Button onClick={zaplacBlik} disabled={!!wysylka || !cena}>
-                {wysylka === 'blik' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Zapłać BLIK-iem
-              </Button>
-              <Button variant="outline" onClick={zaplacKarta} disabled={!!wysylka || !cena}>
-                {wysylka === 'karta' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Zapłać kartą
-              </Button>
+              <div className="space-y-1.5">
+                <Button className="w-full" onClick={zaplacBlik} disabled={!!wysylka || !cena}>
+                  {wysylka === 'blik'
+                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    : <Smartphone className="mr-2 h-4 w-4" />}
+                  Zapłać BLIK-iem
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Płacisz raz. Przed końcem okresu przypomnimy o kolejnej płatności.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Button className="w-full" variant="outline" onClick={zaplacKarta} disabled={!!wysylka || !cena}>
+                  {wysylka === 'karta'
+                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    : <CreditCard className="mr-2 h-4 w-4" />}
+                  Zapłać kartą
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Odnawiamy automatycznie. Możesz anulować w każdej chwili.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
         {/* Krok „dane" ma własny przycisk wstecz w środku formularza —
             drugi na dole prowadziłby do tego samego, ale wyglądał na inny. */}
-        {/* Wstecz z zapłaty prowadzi tam, skąd klient przyszedł: do formularza
-            danych, jeśli go wypełniał, a poza tym do wyboru okresu albo planu. */}
         {krok !== 'plan' && krok !== 'dane' && (
           <button
             type="button"
             onClick={() => setKrok(
-              krok === 'podsumowanie'
-                ? (daneKompletne === true
-                    ? (wybranyPlan?.ma_cene_roczna === false ? 'plan' : 'okres')
-                    : 'dane')
-                : 'plan',
+              krok === 'podsumowanie'&&daneKompletne !== true ? 'dane' : wybranyPlan?.ma_cene_roczna === false ? 'plan' : 'okres',
             )}
             className="mt-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >

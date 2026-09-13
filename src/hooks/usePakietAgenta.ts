@@ -54,6 +54,12 @@ export function usePakietAgenta() {
        * Sprawdzone zachowaniem, nie odczytem: to samo zapytanie z jawnym
        * kluczem zwraca 200, bez klucza 300.
        *
+       * To jest pułapka nr 4 z CLAUDE.md: druga kolumna klucza obcego do tej
+       * samej tabeli unieważnia KAŻDE zagnieżdżenie po tej relacji. Reszta
+       * kodu nazywa więz (`billing-stripe-webhook` robi to od początku) — te
+       * dwa haki nie nazywały, i dlatego pierwszy prawdziwy zakup skończył się
+       * ofertą zamiast ustawień.
+       *
        * Pytamy o linię produktową PLANU, nie o kolumnę `product_line` na
        * subskrypcji, choć wyzwalacz `trg_billing_subscriptions_product_line`
        * ją wypełnia. Powód jest jeden: linia jest własnością planu i tam jest

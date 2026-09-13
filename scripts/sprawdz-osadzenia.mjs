@@ -101,7 +101,20 @@ export function znajdzNaruszenia(tresc, nazwa = '') {
       else if (ogon[i] === ')') { glebokosc--; if (glebokosc === 0) { koniec = i; break; } }
     }
     if (koniec === -1) continue;
-    const lista = ogon.slice(iSel + '.select('.length, koniec);
+    /**
+     * KOMENTARZE W ŚRODKU `.select(` ODCINAMY — ale ZNAK W ZNAK, na spacje.
+     *
+     * Drugi fałszywy alarm tej bramki (13.09.2026): w `useSubscriptionDetails`
+     * nad listą kolumn stoi komentarz tłumaczący, czemu więz jest nazwany —
+     * i cytuje w nim BŁĘDNY kształt `billing_plans(...)`. Bramka zapaliła się
+     * na opisie własnej naprawy, przy poprawnym kodzie linijkę niżej.
+     *
+     * Podmiana na spacje o tej samej długości (z zachowaniem końców linii)
+     * zamiast wycięcia: numer linii w zgłoszeniu liczy się z przesunięć
+     * w tekście, a skrócenie go przesunęłoby wszystkie kolejne.
+     */
+    const naSpacje = (t) => t.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (k) => k.replace(/[^\n]/g, ' '));
+    const lista = naSpacje(ogon.slice(iSel + '.select('.length, koniec));
 
     // Osadzenia: `alias:tabela!klucz!inner(` albo `tabela(`
     const wzorOsad = /(?:([A-Za-z0-9_]+)\s*:\s*)?([A-Za-z0-9_]+)((?:\s*![A-Za-z0-9_]+)*)\s*\(/g;
