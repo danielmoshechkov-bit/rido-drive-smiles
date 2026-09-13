@@ -34,9 +34,15 @@
 -- (dostałby zakres, którego nikt mu nie obiecał). Brak wiersza kończy się
 -- czytelną odmową: „najpierw wybierz plan dla tego konta".
 --
--- 🔴 NIE DOTYKA operatora płatności. To jest dostęp z ręki, nie subskrypcja —
--- `provider` zostaje taki, jaki był. Konto ze Stripe'em nadal odnowi się samo,
--- a przyznane dni tylko przesuwają koniec okresu do przodu.
+-- 🔴 NIE DOTYKA operatora płatności — i to ma KONSEKWENCJĘ, o której trzeba
+-- wiedzieć. Przy koncie płacącym kartą przez Stripe kolejne `invoice.paid`
+-- NADPISZE `current_period_end` datą od operatora. Przyznane dni znikną przy
+-- najbliższym odnowieniu.
+--
+-- Dla kont na okresie próbnym i płacących BLIK-iem (bez subskrypcji u Stripe)
+-- dni trzymają się na stałe — i to jest ten przypadek, dla którego ta funkcja
+-- powstała. Dlatego zamiast blokować, ZWRACAMY OSTRZEŻENIE: panel pokazuje je
+-- administratorowi, a decyzja zostaje przy nim.
 --
 -- 🔴 NIE PRZYJMUJE mniej niż 1 i więcej niż 365 dni. Pomyłka w polu nie może
 -- dać komuś dostępu na dziesięć lat, a odmowa jest tu tańsza niż cofanie.
@@ -125,7 +131,12 @@ BEGIN
     'linia', p_linia,
     'dni', p_dni,
     'poprzedni_koniec', v_sub.current_period_end,
-    'nowy_koniec', v_do
+    'nowy_koniec', v_do,
+    -- Patrz nagłówek: przy subskrypcji prowadzonej przez operatora kolejne
+    -- `invoice.paid` nadpisze tę datę. Mówimy o tym wprost, zamiast milczeć.
+    'uwaga', CASE WHEN v_sub.provider_subscription_id IS NOT NULL
+                  THEN 'Konto ma subskrypcję u operatora — przy najbliższym odnowieniu data zostanie nadpisana przez Stripe.'
+                  ELSE NULL END
   );
 END;
 $funkcja$;

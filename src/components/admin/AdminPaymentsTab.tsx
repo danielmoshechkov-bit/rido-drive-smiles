@@ -433,10 +433,15 @@ export function AssignCreditsPanel() {
         return;
       }
       const koniec = (data as any)?.wynik?.nowy_koniec;
+      const uwaga = (data as any)?.wynik?.uwaga;
       toast.success(
         `Przyznano ${dni} dni (${liniaDni})` +
         (koniec ? ` — dostęp do ${new Date(koniec).toLocaleDateString('pl-PL')}` : ''),
       );
+      // Konto płacące kartą odnowi się u operatora i nadpisze tę datę.
+      // Milczenie o tym znaczyłoby, że administrator dowiaduje się o tym
+      // dopiero wtedy, gdy klient wróci z pretensją.
+      if (uwaga) toast.warning(String(uwaga), { duration: 8000 });
       setDni('');
       setPowodDni('');
     } catch (e: any) {
