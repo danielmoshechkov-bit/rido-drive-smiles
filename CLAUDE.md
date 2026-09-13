@@ -86,7 +86,7 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 > **Zanim uwierzysz zielonemu wynikowi** — przeczytaj
 > „🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA" niżej.
-> Dziewiętnaście znanych sposobów, na jakie kontrola w tym repozytorium
+> Dwadzieścia jeden znanych sposobów, na jakie kontrola w tym repozytorium
 > potrafi wypaść zielono nad zepsutym kodem.
 
 
@@ -500,6 +500,8 @@ to zauważy. Poniżej znane przypadki — każdy wyszedł drogo.
 | **`documentElement.scrollWidth`** | w tej aplikacji `html` i `body` mają `overflow-x: hidden`, więc `scrollWidth` ZAWSZE równa się szerokości ekranu — nawet gdy pół panelu leży poza nim. Kontrola pozytywna z elementem 500 px NIE zapaliła się przy tej metodzie | wstaw element `width:500px` — `scrollWidth` dalej 360 | mierz `getBoundingClientRect().right` KAŻDEGO elementu. Objawem nie jest pasek przewijania, tylko **treść ucięta i niedostępna** |
 | **Stopień pisma odczytany z bloku JSX** | rachunek statyczny brał `text-*` z otaczającego bloku, a prymitywy mają WŁASNY: `<Label>` to `text-sm font-medium`, `TabsTrigger` tak samo. Przy 16 px zamiast 14 px wyraz „Powierzchnia” wyszedł na 101 px i oblał komórkę 98,7 px — a naprawdę ma 89,9 px i mieści się | fałszywy alarm na polu, które działa | czytaj krój z **wyrenderowanego** elementu (`getComputedStyle`), nie z klas w kodzie |
 | **`flex-1` bez `min-w-0`** | element z `flex-1` NIE kurczy się poniżej swojej treści. Zawinięcie rodzica wygląda na naprawę i nią nie jest — po pierwszej poprawce alert dalej wystawał o 99 px | zmiana weszła, a pomiar pokazuje ten sam nadmiar | `min-w-0` na **każdym** poziomie zagnieżdżenia. Jeden pominięty poziom kasuje całą naprawę |
+| **`mx-auto` w kolumnie `flex`** | marginesy `auto` w osi poprzecznej ZNOSZĄ `align-items: stretch`, więc `max-w-5xl mx-auto` w rodzicu `flex flex-col` bierze szerokość MAKSYMALNĄ, nie szerokość rodzica. Zmierzone: 415 px w kolumnie 328 px | blok szerszy od rodzica, choć nie ma w nim nic szerokiego; `min-w-0` nic nie zmienia | dopisz `w-full`. Wzorzec `max-w-* mx-auto` jest w tym repozytorium wszędzie i w kolumnie `flex` zawsze jest pułapką |
+| **Slot pomiarowy wstawiony do kontenera `flex`** | element bez `width` jest elementem elastycznym z `min-width: auto` i rozdyma się do swojej treści. Pasek zakładek „potrzebował” 951 px przy „widocznych” 951 — obie liczby były o moim slocie, nie o układzie | `clientWidth` slotu nie równa się szerokości kolumny, w której mierzysz | slot ZAWSZE `width: <szerokość kolumny>px; min-width: 0; display: block`, a szerokość kolumny odczytana z prawdziwego elementu |
 
 **Reguła nadrzędna: każda bramka, kontrola i test w tym repozytorium ma mieć
 własną kontrolę pozytywną** — przypadek, o którym wiadomo, że jest zły, i który
