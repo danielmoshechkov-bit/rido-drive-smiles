@@ -14,6 +14,7 @@ import { usePublicPricing, type PublicPlan } from '@/hooks/usePublicPricing';
 import { useCenaOkresu, zl, type Okres } from '@/hooks/useCenaOkresu';
 import { zapamietajZamowienie, czekajNaWydanie, LIMIT_KARTY_ZAKUPU_MS } from '@/lib/doladowanie';
 import { KOD_BRAK_DANYCH_NABYWCY, odczytajOdmowe } from '@/lib/odmowaZakupu';
+import { sledzZdarzenie } from '@/lib/pikselMeta';
 
 /**
  * Jedno okno dla wszystkich dróg zakupu.
@@ -158,6 +159,9 @@ export function OknoZakupu({
       });
       if (error || data?.error) { karta?.close(); await pokazOdmowe(error, data); return; }
       if (!data?.url) throw new Error('Nie udało się rozpocząć płatności.');
+      // Wejście na bramkę operatora — dopiero TU, po potwierdzeniu adresu.
+      // Samo otwarcie okna zakupu to jeszcze nie zamiar zapłaty.
+      sledzZdarzenie('InitiateCheckout', { content_name: plan, content_category: okres });
       if (karta) karta.location.href = data.url; else window.location.href = data.url;
 
       zapamietajZamowienie(data.order_id);
@@ -252,6 +256,9 @@ export function OknoZakupu({
       }
 
       if (!data?.url) throw new Error('Nie udało się rozpocząć płatności.');
+      // Wejście na bramkę operatora — dopiero TU, po potwierdzeniu adresu.
+      // Samo otwarcie okna zakupu to jeszcze nie zamiar zapłaty.
+      sledzZdarzenie('InitiateCheckout', { content_name: plan, content_category: okres });
       if (karta) karta.location.href = data.url; else window.location.href = data.url;
       onOpenChange(false);
     } catch (e) {

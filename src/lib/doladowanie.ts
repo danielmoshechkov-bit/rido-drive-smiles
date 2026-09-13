@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { sledzZdarzenie } from '@/lib/pikselMeta';
 
 /**
  * Czuwanie nad doładowaniem: od kliknięcia „Zapłać" do chwili, gdy paczka
@@ -93,7 +94,14 @@ export type WynikCzuwania =
   | 'odrzucone'         // płatność anulowana albo odrzucona
   | 'brak';             // nie znaleźliśmy zamówienia
 
-type Zamowienie = { id: string; status: string; wydane_at: string | null };
+type Zamowienie = {
+  id: string;
+  status: string;
+  wydane_at: string | null;
+  /** Kwota i waluta — Meta nie policzy przychodu ze zdarzenia bez nich. */
+  amount_gross: number | null;
+  currency: string | null;
+};
 
 /** Rozgłoszenie do pozostałych kart tej samej przeglądarki. */
 export function rozglosDoladowanie() {
@@ -129,7 +137,9 @@ async function pobierzZamowienie(orderId?: string | null): Promise<Zamowienie | 
   // przy `viewing_requests` i pozostałych młodszych tabelach.
   const zapytanie = (supabase as any)
     .from('billing_orders')
-    .select('id, status, wydane_at');
+    // Kwota i waluta są tu wyłącznie po to, żeby zdarzenie `Purchase` do Meta
+    // niosło przychód. Jeden literał — sklejanie listy przez `+` gubi typ wiersza.
+    .select('id, status, wydane_at, amount_gross, currency');
 
   const { data } = orderId
     ? await zapytanie.eq('id', orderId).maybeSingle()
@@ -169,6 +179,28 @@ export async function czekajNaWydanie({
 
     if (ostatni?.wydane_at) {
       zapomnijZamowienie();
+      /**
+       * ZAKUP DO META — TU I TYLKO TU.
+       *
+       * To jedyne miejsce w aplikacji, w którym wiadomo, że zamówienie zostało
+       * WYDANE. Łapie oba sposoby zapłaty: BLIK (okno zakupu czeka samo)
+       * i kartę (klient wraca z bramki, a `TopBarCredits` dopytuje globalnie).
+       * Wpięcie tego w okno zakupu ominęłoby powrót z karty.
+       *
+       * `event_id` to IDENTYFIKATOR ZAMÓWIENIA, nie losowy ciąg. Dzięki temu
+       * Conversions API wyśle później to samo zdarzenie z tym samym
+       * identyfikatorem, nie umawiając się z przeglądarką o nic — a Meta
+       * połączy je w jedno zamiast policzyć konwersję dwa razy.
+       */
+      sledzZdarzenie(
+        'Purchase',
+        {
+          value: Number(ostatni.amount_gross ?? 0),
+          currency: ostatni.currency ?? 'PLN',
+          content_ids: [ostatni.id],
+        },
+        ostatni.id,
+      );
       gdyWydane();
       rozglosDoladowanie();
       return 'wydane';

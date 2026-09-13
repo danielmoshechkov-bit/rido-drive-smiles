@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { odczytajBladFunkcji } from '@/utils/bladFunkcji';
+import { sledzZdarzenie } from "@/lib/pikselMeta";
 
 /**
  * Wspólny serwis rejestracji i aktywacji kont.
@@ -54,6 +55,21 @@ const activationRedirect = () => `${window.location.origin}/email-confirmed`;
  * `account_type: 'client'` znaczy: samo konto. Bez profilu giełdowego i bez
  * roli `marketplace_user` — okno logowania nie deklaruje handlu na giełdzie.
  */
+/**
+ * Rejestracja do Meta — JEDNA decyzja, trzy wywołania.
+ *
+ * `CompleteRegistration` leci dopiero po założeniu konta, nie po wysłaniu
+ * formularza: zdarzenie ma opisywać skutek, nie zamiar. Wpięcie tego
+ * w komponenty formularzy dałoby cztery miejsca decydujące o tym samym —
+ * a wtedy nowy formularz rejestracji po prostu przestałby się liczyć.
+ *
+ * Zdarzenie nie idzie bez zgody marketingowej; `sledzZdarzenie` pilnuje tego
+ * samo i przy odmowie zwraca `null`.
+ */
+function zglosRejestracje(rodzaj: string): void {
+  sledzZdarzenie("CompleteRegistration", { content_name: rodzaj });
+}
+
 export async function signUpClient(email: string, password: string): Promise<SignupResult> {
   const response = await supabase.functions.invoke("register-marketplace-user", {
     body: { email, password, first_name: "", account_type: "client" },
@@ -81,6 +97,7 @@ export async function signUpClient(email: string, password: string): Promise<Sig
   // Nieudana wysyłka NIE jest porażką rejestracji: konto istnieje i klient ma
   // dostać przycisk „wyślij ponownie", a nie komunikat o błędzie.
   const mailPoszedl = response.data?.email_sent !== false;
+  zglosRejestracje("klient");
   return {
     success: true,
     requiresActivation: true,
@@ -127,6 +144,7 @@ export async function signUpMarketplace(payload: MarketplaceSignupPayload): Prom
       code: typeof blad.surowe?.code === 'string' ? blad.surowe.code : undefined,
     };
   }
+  zglosRejestracje("gielda");
   return {
     success: true,
     requiresActivation: response.data?.requires_activation !== false,
@@ -161,6 +179,7 @@ export async function signUpFleet(payload: FleetSignupPayload): Promise<SignupRe
       code: typeof blad.surowe?.code === 'string' ? blad.surowe.code : undefined,
     };
   }
+  zglosRejestracje("flota");
   return {
     success: true,
     requiresActivation: response.data?.requires_activation === true,
