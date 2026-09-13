@@ -86,7 +86,7 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 > **Zanim uwierzysz zielonemu wynikowi** — przeczytaj
 > „🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA" niżej.
-> Piętnaście znanych sposobów, na jakie kontrola w tym repozytorium
+> Szesnaście znanych sposobów, na jakie kontrola w tym repozytorium
 > potrafi wypaść zielono nad zepsutym kodem.
 
 
@@ -458,6 +458,7 @@ to zauważy. Poniżej znane przypadki — każdy wyszedł drogo.
 | **`Prefer: return=representation`** | `INSERT … RETURNING` podlega politykom **SELECT**, nie INSERT. Zapis przechodzi, a odczyt zaraz po nim wywraca się na `42501` — i wygląda, jakby zapis był zablokowany | ten sam `INSERT` z `return=minimal` daje 201, z `representation` 401 | testuj obiema formami; w kodzie nie proś bazy o wiersz, który sam ulepiłeś |
 | **`resize_window` w Chrome pod rozszerzeniem** | melduje sukces, `outerWidth` się zmienia, ale **`innerWidth` zostaje** — strona renderuje się w stałej szerokości. Każdy test punktu granicznego (`md:`, `sm:`) jest w tym środowisku nieważny | `resize_window(390)` → `innerWidth` nadal 1246 | sprawdzaj `window.innerWidth` po zmianie; gałąź mobilną odsłaniaj wstrzykniętym `!important`, a nie szerokością okna |
 | **Zmiana układu „bo na telefonie się nie zmieści"** | oko na zrzucie z szerokiego ekranu nie mówi nic o wąskim. Cztery pola bieżnika „wyglądały na ściśnięte" — pomiar dał 80 px i **sześć znaków** przy wartości trzyznakowej | brak liczby w uzasadnieniu | zmierz: szerokość elementu, liczbę linii tekstu, ile znaków się mieści. Bez liczby to nie jest naprawa, tylko przemeblowanie |
+| **zsh nie dzieli niecytowanej zmiennej** | `LISTA="a b c"; for f in $LISTA` daje JEDEN element `"a b c"`, nie trzy. Pętla porównująca SHA porównała dwa NIEISTNIEJĄCE pliki i wypisała ✅ | jedna linia wyniku zamiast dziesięciu; nazwa „pliku" jest sklejeniem całej listy | używaj tablicy: `LISTA=(a b c); for f in "${LISTA[@]}"`. I **każda kontrola porównująca pliki ma padać, gdy pliku nie ma** — `[ -f "$a" ] \|\| { echo BRAK; exit 1; }` przed porównaniem |
 
 **Reguła nadrzędna: każda bramka, kontrola i test w tym repozytorium ma mieć
 własną kontrolę pozytywną** — przypadek, o którym wiadomo, że jest zły, i który

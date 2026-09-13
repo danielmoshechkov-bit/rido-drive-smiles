@@ -2,6 +2,90 @@
 
 ---
 
+## 🔴 AGENT GŁOSOWY MA DWIE ROZBIEŻNE WERSJE — DO POGODZENIA PO STARCIE
+
+**Jeśli czytasz to bez kontekstu, przeczytaj całość, zanim cokolwiek ruszysz.
+Nadpisanie jednej strony drugą kasuje pracę.**
+
+### Co się stało
+
+13.09.2026 porównaliśmy wszystkie 209 funkcji brzegowych z `main` po SHA-256.
+197 zgodnych, 12 rozjazdów. Dziesięć z tych dwunastu to funkcje agenta
+głosowego — i okazało się, że **to nie jest „produkcja jest nowsza", tylko
+FORK**: obie strony mają treść, której nie ma druga.
+
+| funkcja | linii tylko w `main` | linii tylko na produkcji |
+|---|---|---|
+| `voice-agent-chat` | **43** | **266** |
+| `voice-agent-init` | 11 | 253 |
+| `voice-agent-llm` | 3 | 62 |
+| `voice-call-commit` | 4 | 60 |
+| `voice-call-postprocess` | 0 | 71 |
+| `voice-call-analyze` | 1 | 18 |
+| `voice-agent-tools` | 2 | 10 |
+| `voice-call-audio` | 1 | 4 |
+| `voice-call-reconcile` | 1 | 3 |
+| `voice-call-summary` | 0 | 1 |
+
+### Gdzie jest migawka
+
+Gałąź **`snapshot/produkcja-glosowa-2026-09-13`** (commit `1b735522`),
+wypchnięta. Zawiera dziesięć plików pobranych z produkcji **bajt w bajt**
+(SHA-256 sprawdzone, 10 z 10) plus pięć modułów `_shared`, których `main`
+nie ma.
+
+**NIE WDRAŻAĆ z tej gałęzi** — produkcja już ma te wersje. Gałąź istnieje po
+to, żeby kod produkcyjny nie żył wyłącznie na produkcji.
+
+### Co jest tylko w `main` (43 linie w `voice-agent-chat`)
+
+Blok promptu z regułami dopisywanymi po konkretnych incydentach. Najważniejsza,
+bo pilnuje jej test: **`FORMA OFICJALNA — BEZWZGLĘDNIE`** — zakaz zwracania się
+per „ty". W tym samym bloku: zakaz zgadywania płci przed poznaniem imienia,
+zakaz liczby mnogiej, zakaz relacjonowania własnych działań, reguła
+„pożegnanie i `end_call` w tej samej turze", czytanie ceny dosłownie z pola
+`do_powiedzenia` zamiast przeliczania, dzień miesiąca w dopełniaczu.
+
+Każda z nich ma w komentarzu opis prawdziwej rozmowy, w której poszło źle.
+
+**Nadpisanie `main` produkcją usuwa te reguły z repozytorium i wywala 13
+testów** (`voiceProductionCanary_test.ts` 12, `voiceSnapshot_test.ts` 1).
+Czyste `main` ma 263/263 zielono.
+
+### Co jest tylko na produkcji (266 linii)
+
+Nie przejrzane linia po linii. Wiadomo tyle, że pięć modułów `_shared` istnieje
+wyłącznie tam i w niewypchniętym commicie `d83d9dff`:
+`voiceWzorce`, `voiceDopasowanie`, `voicePersona`, `voiceRozpoznanieWarsztatu`
+oraz nowsza wersja `voiceSnapshot` (z eksportem `doZaproponowania`).
+
+`voiceSnapshot` z `d83d9dff` niesie **udokumentowaną naprawę**: agent brał
+etykietę „jutro" z dnia ZAMKNIĘTEGO i godziny z następnego wiersza, przez co
+proponował wizytę w niedzielę. Poprawka odbiera nazwy dniom zamkniętym.
+Test w `main` nadal wymaga starego zachowania.
+
+### Czego NIE DA SIĘ ustalić
+
+`supabase functions download` oddaje wyłącznie `index.ts` — modułów `_shared`
+z produkcji **nie da się pobrać**, a `--legacy-bundle` pada na błędzie eszip.
+Pięć modułów w migawce pochodzi z `d83d9dff`; wszystkie 57 symboli
+importowanych przez produkcję w nich jest, ale **nie ma dowodu, że produkcja
+uruchamia dokładnie te wersje**.
+
+### Jak to pogodzić (wariant A, uzgodniony 13.09)
+
+Plik po pliku, dziesięć funkcji. Dla każdego fragmentu występującego tylko po
+jednej stronie — decyzja człowieka znającego agenta, co zostaje. Nie da się
+tego zrobić automatem, bo obie strony to świadome zmiany.
+
+**Kolejność:** zacząć od `voice-agent-chat` (43 vs 266) — tam jest cała stawka.
+Reszta to w większości drobiazgi.
+
+**Nie robić pod presją czasu.** Prompt agenta to miejsce, w którym wyłączona
+gwarancja nie daje żadnego sygnału aż do pierwszej złej rozmowy z klientem.
+
+---
+
 ## ⭐ WIDOK KALENDARZA NA TELEFONIE — DO PRZEMYŚLENIA, NIE DO POPRAWKI CSS
 
 Osobna pozycja, bo to **decyzja projektowa**, nie usterka układu.
