@@ -289,8 +289,10 @@ export default function InvoicingLanding() {
             ))}
           </div>
 
+          {/* Zmierzone przy 360 px: wystawał o 4 px — ten sam przycisk co na
+              stronie warsztatu, ta sama poprawka. */}
           <div className="mt-12 text-center">
-            <Button size="lg" onClick={handleIssueInvoice} className="gap-3 h-16 md:h-20 px-8 md:px-14 text-lg md:text-2xl font-extrabold rounded-2xl bg-gradient-to-r from-primary via-purple-600 to-primary text-primary-foreground shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all">
+            <Button size="lg" onClick={handleIssueInvoice} className="max-w-full gap-3 h-auto py-4 md:h-20 px-5 sm:px-8 md:px-14 text-base sm:text-lg md:text-2xl font-extrabold whitespace-normal rounded-2xl bg-gradient-to-r from-primary via-purple-600 to-primary text-primary-foreground shadow-xl hover:shadow-2xl hover:scale-[1.02] transition-all">
               <FileText className="h-6 w-6 md:h-7 md:w-7" />
               Wystaw pierwszą fakturę
               <ArrowRight className="h-6 w-6 md:h-7 md:w-7" />

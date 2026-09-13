@@ -271,7 +271,8 @@ export default function RidoMailPage() {
             </h1>
             <p className="text-[11px] text-muted-foreground">Asystent poczty</p>
           </div>
-          <div className="flex items-center gap-2">
+          {/* Zmierzone przy 360 px: wystawało o 37 px. */}
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing || !selectedAccount}>
               <RefreshCw className={cn("h-3.5 w-3.5 mr-1", syncing && "animate-spin")} />
               Sync

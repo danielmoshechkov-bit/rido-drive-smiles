@@ -719,7 +719,10 @@ export default function RealEstateAgentRegister() {
         </div>
 
         {/* Progress steps - clickable */}
-        <div className="flex items-center justify-between mb-8">
+        {/* Zmierzone przy 360 px: ostatni krok wychodził o 8 px. Kroków jest
+            stała liczba i mają się mieścić w jednej linii, więc zamiast zawijać
+            (co zgubiłoby sens paska postępu) pozwalamy mu się przewinąć. */}
+        <div className="-mx-1 mb-8 flex items-center justify-between overflow-x-auto px-1">
           {STEPS.map((step, index) => {
             const StepIcon = step.icon;
             const stepNumber = index + 1;

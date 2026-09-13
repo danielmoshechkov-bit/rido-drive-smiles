@@ -472,6 +472,13 @@ export function AgentCRM({ agentId }: AgentCRMProps) {
                   <Input value={newListing.title} onChange={e => setNewListing(p => ({ ...p, title: e.target.value }))} placeholder="np. Przestronne mieszkanie z widokiem" />
                 </div>
 
+                {/* ZMIERZONE, ZOSTAWIONE BEZ ZMIAN. Trzy kolumny bez wariantu
+                    responsywnego wyglądają na kandydata do poprawki i nim NIE SĄ:
+                    przy 360 px na komórkę wypada 98,7 px, a najdłuższy nierozrywalny
+                    wyraz („Powierzchnia") to 89,9 px w kroju etykiety — mieści się.
+                    Pierwszy rachunek oblał to miejsce, bo wziął 16 px zamiast 14 px:
+                    `<Label>` ma WŁASNY stopień pisma (`text-sm font-medium`) i nie
+                    dziedziczy go z bloku. Nie zmieniaj tego bez ponownego pomiaru. */}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label>Cena (PLN)</Label>

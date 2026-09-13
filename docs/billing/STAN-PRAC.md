@@ -2,6 +2,77 @@
 
 ---
 
+## ⭐ UKŁAD NA TELEFONIE — RESZTA PORTALU ZMIERZONA I POPRAWIONA (13.09.2026)
+
+Zamyka pozycję „UKŁAD NA TELEFONIE — ZMIERZONY ZAKRES" z 10.09 (niżej w tym pliku).
+Tamten wpis szacował zakres `grep`-em. Ten jest z pomiaru.
+
+### Jak mierzone
+
+Ramka `<iframe width=360>` na `npm run dev`. Ramka ma WŁASNY viewport, więc
+`sm:`/`md:` liczą się naprawdę — czego nie dawało `resize_window` (melduje sukces,
+`innerWidth` się nie zmienia). Narzędzie zostaje w repozytorium:
+**`scripts/pomiar-mobilny.js`**, z wbudowaną kontrolą pozytywną.
+
+Przeszło 85 tras bez parametrów w adresie, zalogowany.
+
+### Wynik
+
+| | przed | po |
+|---|---|---|
+| tras z ucięciem treści | 26 / 85 | **0 / 85** |
+| trafień | 92 | 0 |
+| miejsc w kodzie | 25 | 0 |
+
+Kontrola pozytywna uruchomiona na końcu: wykrywacz nadal łapie podstawiony
+element 500 px, więc zero znaczy „układ dobry”, a nie „narzędzie przestało działać”.
+
+### Co się okazało
+
+🔴 **W tej aplikacji strona NIGDY nie przewija się w poziomie** — `html` i `body`
+mają `overflow-x: hidden`. Zbyt szeroka treść nie daje paska przewijania, tylko
+zostaje **ucięta i niedostępna**. Na `/admin/system-alerts` przyciski „Rozwiąż”
+i „Ignoruj” leżały 332 px za krawędzią: na telefonie alertu nie dało się zamknąć,
+i nic tego nie sygnalizowało.
+
+🔴 **Wykaz podejrzanych ze statycznego `grep`-a wskazywał nie tam.** Ze 106 kratek
+`grid-cols-N` bez wariantu responsywnego **żadna** nie odpowiadała za którąkolwiek
+z 25 usterek. Wszystkie 25 to ten sam kształt: **wiersz `flex` bez `flex-wrap`**,
+najczęściej prawa grupa ikon w pasku nagłówka.
+
+Dlatego kratki, które wyglądają najgorzej, zostały BEZ ZMIAN, z komentarzem
+i liczbą przy każdej — żeby następny nie proponował tego samego:
+`grid-cols-12` w edytorach pozycji faktury (dzieci mają `col-span-12` na telefonie),
+`grid-cols-9` w panelu agenta AI (napisy są `hidden sm:inline`),
+`grid-cols-3` w AgentCRM (najdłuższy wyraz 89,9 px w komórce 98,7 px).
+
+### Cztery kratki zmienione — bo pomiar tekstu je oblał
+
+`DriverVehiclesTab`, `MeetingsPage`, `RentalAddVehicleModal`, `RentalSubjectsList`
+— zakładki i pola stawek, gdzie nierozrywalny wyraz („Dokumenty”, „Podsumowanie”,
+„Tygodniowa”) jest szerszy od komórki. Wszystkie na `grid-cols-2 sm:grid-cols-4`.
+
+### Dwie poprawki, które NIE zadziałały za pierwszym razem
+
+Warte zapamiętania, bo obie wyglądały na skończone:
+
+1. **Alerty systemowe** — zawinięcie rodzica nie wystarczyło, dalej wystawało
+   o 99 px. `flex-1` nie kurczy się poniżej treści; `min-w-0` musi być na KAŻDYM
+   poziomie zagnieżdżenia.
+2. **Blok zadłużenia u kierowcy** — pierwsze podejrzenie (wiersze „etykieta —
+   kwota”) było błędne: po zmianie pomiar dał te same 26 px. Winny był sam blok,
+   element wiersza `flex flex-wrap`, bez `min-w-0`. Zawijanie wierszy zostało
+   COFNIĘTE, bo pomiar go nie uzasadniał.
+
+### Czego pomiar NIE objął
+
+Okna dialogowe i arkusze (trzeba je otworzyć kliknięciem), trasy z parametrem
+w adresie, widoki wymagające innej roli albo innych danych. Kalendarz na telefonie
+zostaje osobną pozycją do przemyślenia (patrz niżej) — pomiar go nie zgłosił,
+bo mieści się w ekranie; problemem jest czytelność, nie szerokość.
+
+---
+
 ## 🔴 CONVERSIONS API GOTOWE W KODZIE — CZEKA NA TRZY RZECZY OD CZŁOWIEKA (13.09.2026)
 
 Kod jest w `main` (commit `b575a957`). **Na produkcji nie działa jeszcze nic** —

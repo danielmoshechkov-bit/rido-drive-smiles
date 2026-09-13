@@ -875,7 +875,9 @@ export default function MeetingsPage() {
             </div>
 
             <Tabs key={selectedMeeting.id} defaultValue={selectedMeeting.summary ? 'summary' : 'transcript'} className="space-y-4">
-              <TabsList className="grid grid-cols-4 w-full">
+              {/* Zmierzone: „📋 Podsumowanie" to 102 px napisu plus wyściółka,
+                  a kratka o czterech kolumnach daje przy 360 px po 82 px. */}
+              <TabsList className="grid h-auto w-full grid-cols-2 sm:grid-cols-4">
                 <TabsTrigger value="summary">📋 Podsumowanie</TabsTrigger>
                 <TabsTrigger value="tasks">🎯 Zadania ({tasks.length})</TabsTrigger>
                 <TabsTrigger value="decisions">📌 Decyzje ({decisions.length})</TabsTrigger>

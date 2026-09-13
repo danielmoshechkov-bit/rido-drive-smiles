@@ -453,7 +453,8 @@ export default function VehicleMarketplace() {
               {t('home.motoryzacja', 'Giełda Aut')}
             </span>
           </div>
-          <div className="flex items-center gap-1 sm:gap-2">
+          {/* Zmierzone przy 360 px: wystawało o 111 px. */}
+          <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
             <LanguageSwitcher />
             <MyGetRidoButton user={user} />
             <AddListingModal user={user} />

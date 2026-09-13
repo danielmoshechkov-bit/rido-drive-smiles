@@ -369,7 +369,8 @@ export default function WorkshopSmsCenter() {
               <p className="text-xs text-muted-foreground">Wysłane, zaplanowane i nowe wiadomości warsztatu</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          {/* Zmierzone przy 360 px: wystawało o 54 px. */}
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate('/uslugi/panel')}>← Panel</Button>
             <TopBarCredits />
             <MyGetRidoButton user={user} />

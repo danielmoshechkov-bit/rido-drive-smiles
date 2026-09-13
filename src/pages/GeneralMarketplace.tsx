@@ -277,7 +277,8 @@ export default function GeneralMarketplace() {
               RidoMarket
             </span>
           </div>
-          <div className="flex items-center gap-1 sm:gap-2">
+          {/* Zmierzone przy 360 px: wystawało o 37 px. */}
+          <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
             {/* Cart icon */}
             <Button
               variant="ghost"
@@ -357,7 +358,9 @@ export default function GeneralMarketplace() {
           <main className="flex-1 min-w-0">
             {/* Top bar — view toggle + sort LEFT, count RIGHT (like Nieruchomości) */}
             <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-              <div className="flex items-center gap-3">
+              {/* Zmierzone przy 360 px: rodzic już zawijał, ale ta grupa nie —
+                  filtr plus przełącznik widoku plus sortowanie wychodziły o 14 px. */}
+              <div className="flex flex-wrap items-center gap-3">
                 {/* Mobile filter button */}
                 <Sheet>
                   <SheetTrigger asChild>

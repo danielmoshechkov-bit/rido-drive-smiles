@@ -203,7 +203,8 @@ export default function RealEstateAgentDashboard() {
               Aby korzystać z panelu agenta, zarejestruj swoją agencję nieruchomości.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex gap-3">
+          {/* Zmierzone przy 360 px: „Zarejestruj agencję" wychodziło o 52 px. */}
+          <CardContent className="flex flex-col gap-3 sm:flex-row">
             <Button 
               variant="outline" 
               onClick={() => navigate("/nieruchomosci")} 

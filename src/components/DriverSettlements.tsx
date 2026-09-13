@@ -1764,8 +1764,22 @@ export const DriverSettlements = ({
                         const hasAnyDebtInfo = debtBefore > 0 || livePayment > 0 || remainingDebt > 0;
 
                         if (hasAnyDebtInfo) {
+                          /*
+                           * Zmierzone przy 360 px: blok zadłużenia wychodził o 26 px
+                           * poza kartę (345 px przy rodzicu 278 px).
+                           *
+                           * PIERWSZE PODEJRZENIE BYŁO BŁĘDNE. Zawinięcie wierszy
+                           * „etykieta — kwota" niczego nie dało: pomiar po zmianie
+                           * pokazał te same 26 px. Winny jest sam blok — jest
+                           * elementem wiersza `flex flex-wrap gap-4` i bez `min-w-0`
+                           * nie kurczy się poniżej swojej treści. `basis-full`
+                           * stawia go na własnej linii, gdzie ma całą szerokość.
+                           *
+                           * Sprawdzone na żywo w przeglądarce przed zmianą w kodzie:
+                           * 345 px → 278 px, dokładnie tyle, ile ma rodzic.
+                           */
                           return (
-                            <div className="border-t bg-red-50 p-3">
+                            <div className="min-w-0 basis-full border-t bg-red-50 p-3">
                               <div className="space-y-2">
                                 <div className="font-semibold text-red-800 mb-2">💳 {t('weekly.debt')}</div>
 

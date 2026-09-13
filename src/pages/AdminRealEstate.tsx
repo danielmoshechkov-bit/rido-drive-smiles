@@ -350,7 +350,8 @@ const AdminRealEstate = () => {
                 Admin Nieruchomości
               </span>
             </div>
-            <div className="flex items-center space-x-2">
+            {/* Zmierzone przy 360 px: wystawało o 53 px. */}
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <AdminPortalSwitcher />
               <SystemAlertsButton />
               <MyGetRidoButton user={user} />
