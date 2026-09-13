@@ -165,7 +165,9 @@ export const extractFromTranscript = async (
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) {
-    console.error("[voiceExtraction]", JSON.stringify({ event: "model_failed", status: res.status }));
+    // TRESC BLEDU, NIE TYLKO STATUS (16.08) — patrz voice-agent-chat.
+    const tresc = await res.clone().text().catch(() => "");
+    console.error("[voiceExtraction]", JSON.stringify({ event: "model_failed", status: res.status, tresc: tresc.slice(0, 300) }));
     return { ...EMPTY };
   }
   const body = await res.json().catch(() => ({}));
