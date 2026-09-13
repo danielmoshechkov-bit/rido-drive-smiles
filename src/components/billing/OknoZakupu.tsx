@@ -107,17 +107,50 @@ export function OknoZakupu({
   useEffect(() => {
     if (!otwarte) return;
     setPlan(zadanie.planCode ?? null);
-    setOkres(zadanie.okres ?? 'rok');
+
+    /**
+     * PLAN BEZ CENY ROCZNEJ NIE MA O CO PYTAĆ.
+     *
+     * Pakiety agenta są wyłącznie miesięczne. Pytanie „na jak długo" przy
+     * jednej możliwej odpowiedzi to ekran do przeklikania, a domyślny „rok"
+     * kazałby serwerowi szukać ceny rocznej, której w Stripe nie ma.
+     *
+     * Reguła z DANYCH, nie z nazwy linii — następny produkt bez abonamentu
+     * rocznego zadziała bez zmiany w kodzie.
+     */
+    const planWejscia = zadanie.planCode
+      ? plans.find((p) => p.code === zadanie.planCode)
+      : undefined;
+    const rocznyMozliwy = planWejscia?.ma_cene_roczna !== false;
+
+    setOkres(zadanie.okres ?? (rocznyMozliwy ? 'rok' : 'miesiac'));
     // `zacznijOd` wygrywa, ale tylko gdy plan jest znany — inaczej okno stanęłoby
     // na formularzu faktury dla zakupu, o którym jeszcze nie wiadomo, czego dotyczy.
     setKrok(
       zadanie.zacznijOd && zadanie.planCode ? zadanie.zacznijOd
-        : zadanie.planCode ? 'okres'
+        : zadanie.planCode ? (rocznyMozliwy ? 'okres' : 'dane')
         : 'plan',
     );
     setWysylka(null);
-  }, [otwarte, zadanie.planCode, zadanie.okres, zadanie.zacznijOd]);
+    // `plans` w zależnościach: przy pierwszym otwarciu cennik bywa jeszcze
+    // w locie, a od niego zależy, czy pytamy o okres.
+  }, [otwarte, zadanie.planCode, zadanie.okres, zadanie.zacznijOd, plans]);
 
+  /**
+   * 🔴 OKNO ZNAŁO TYLKO JEDNĄ LINIĘ PRODUKTOWĄ (naprawione 13.09.2026).
+   *
+   * Stało tu `filter(p => p.product_line === 'warsztat')`, a `wybranyPlan`
+   * szukał w tej liście. Dla pakietu Agent wychodziło `undefined`: okno
+   * otwierało się na kroku „okres", rysowało nagłówek „Na jak długo" i ANI
+   * JEDNEJ opcji pod nim, bo cała zawartość kroku stoi pod `wybranyPlan &&`.
+   * Ślepa uliczka — do `billing-checkout` nie docierało nic, bez błędu
+   * w konsoli i bez komunikatu.
+   *
+   * Lista do wyboru (krok „plan") pokazuje linię warsztatową, bo to jest
+   * cennik, z którego klient wybiera. Ale gdy plan JEST ZNANY z wejścia,
+   * szukamy go wśród wszystkich — inaczej każda nowa linia trafi na tę samą
+   * ścianę.
+   */
   const doKupienia = plans
     .filter((p) => p.product_line === 'warsztat')
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -262,7 +295,8 @@ export function OknoZakupu({
     }
   };
 
-  const wybranyPlan: PublicPlan | undefined = doKupienia.find((p) => p.code === plan);
+  const wybranyPlan: PublicPlan | undefined =
+    plans.find((p) => p.code === plan) ?? doKupienia.find((p) => p.code === plan);
 
   // Co dokładnie znika po przejściu na plan darmowy. Liczone z macierzy funkcji,
   // nie wypisane w kodzie — lista wypisana zestarzałaby się przy pierwszej
@@ -300,7 +334,7 @@ export function OknoZakupu({
           <DaneDoFaktury
             providerId={providerId}
             onGotowe={() => setKrok('metoda')}
-            onWstecz={() => setKrok('okres')}
+            onWstecz={() => setKrok(wybranyPlan?.ma_cene_roczna === false ? 'plan' : 'okres')}
           />
         )}
 

@@ -169,7 +169,17 @@ export function OfertaAgenta() {
     return () => window.clearInterval(t);
   }, [oczekuje, qc]);
 
-  const kup = (p: PublicPlan) => { zapamietajZakup(); setOczekuje(true); klik(p); };
+  /**
+   * 🔴 EKRAN „PRZETWARZAMY PŁATNOŚĆ" WŁĄCZAŁ SIĘ PRZY KLIKNIĘCIU (naprawione
+   * 13.09.2026), czyli ZANIM cokolwiek poszło do operatora. Warsztat klikał
+   * pakiet, oferta znikała, a na jej miejscu stawał ekran czekający
+   * w nieskończoność na płatność, której nikt nie rozpoczął.
+   *
+   * Stan przejściowy ma JEDEN wyzwalacz: powrót z bramki (`?platnosc=ok`
+   * albo `?platnosc=payu`). Kliknięcie otwiera okno zakupu i nic więcej —
+   * jeśli człowiek je zamknie, wraca do oferty, a nie do poczekalni.
+   */
+  const kup = (p: PublicPlan) => klik(p);
 
   if (loading) {
     return (
