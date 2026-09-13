@@ -313,7 +313,27 @@ Deno.serve(async (req) => {
         }
       }
       const rozjazdy = wynik.filter((w) => String(w.stan).startsWith('🔴')).length;
-      return json({ tryb, akcja: 'sprawdz', rozjazdow: rozjazdy, sprawdzono: wynik.length, wynik });
+      /**
+       * 🔴 ZERO ODPYTAŃ TO NIE JEST ZGODNOŚĆ — KONTROLA POZYTYWNA TEJ BRAMKI.
+       *
+       * `wynik` zbiera także wiersze „brak w bazie", które o operatorze nie
+       * mówią NIC. Zgodność wolno ogłosić wyłącznie wtedy, gdy naprawdę
+       * zapytaliśmy Stripe o choć jedną cenę. Pusty zestaw przechodzi zawsze
+       * — i dokładnie tak wyglądała pierwsza wersja tego trybu: „ceny zgodne
+       * (0 sprawdzonych)".
+       */
+      const odpytanych = wynik.filter((w) => !!w.price_id).length;
+      if (odpytanych === 0) {
+        return json({
+          tryb, akcja: 'sprawdz', rozjazdow: 0, sprawdzono: 0, odpytanych: 0,
+          nic_nie_sprawdzono: true,
+          powod: (plans ?? []).length === 0
+            ? 'Zapytanie o plany nie zwróciło żadnego wiersza (aktywne, nieindywidualne).'
+            : 'Żaden plan nie ma zapisanego identyfikatora ceny — nie było o co zapytać operatora.',
+          wynik,
+        });
+      }
+      return json({ tryb, akcja: 'sprawdz', rozjazdow: rozjazdy, sprawdzono: wynik.length, odpytanych, wynik });
     }
 
     for (const plan of plans ?? []) {

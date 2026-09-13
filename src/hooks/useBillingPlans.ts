@@ -165,13 +165,39 @@ export function useBillingPlans() {
       return data;
     },
     onSuccess: (data) => {
+      /**
+       * 🔴 ODPOWIEDŹ, KTÓREJ NIE ROZUMIEMY, NIE JEST SUKCESEM.
+       *
+       * 13.09.2026 ten przycisk powiedział „Ceny zgodne z operatorem
+       * (0 sprawdzonych)". Wdrożona funkcja była STARA — nie znała pola
+       * `akcja`, więc je zignorowała i wykonała PEŁNĄ SYNCHRONIZACJĘ, po czym
+       * odesłała `{ zsynchronizowano }`. Tutaj `rozjazdow ?? 0` dało zero,
+       * `sprawdzono ?? 0` dało zero i wyszło „zgodne" — nad czymś, czego
+       * nikt nie sprawdził, a przy okazji nad zapisem do Stripe zrobionym
+       * przyciskiem, który obiecywał sam odczyt.
+       *
+       * Dlatego najpierw pytamy, CZY to jest w ogóle odpowiedź na nasze
+       * pytanie, a dopiero potem czytamy liczby.
+       */
+      if (data?.akcja !== 'sprawdz') {
+        toast.error(
+          'Wdrożona wersja billing-stripe-sync nie zna trybu sprawdzenia — trzeba ją wdrożyć. '
+          + 'UWAGA: stara wersja mogła właśnie wykonać pełną synchronizację cennika.',
+          { duration: 12000 },
+        );
+        return;
+      }
+      if (data?.nic_nie_sprawdzono) {
+        toast.error(`Nie znalazłem żadnej ceny do porównania. ${data?.powod ?? ''}`, { duration: 10000 });
+        return;
+      }
       const rozjazdy = data?.rozjazdow ?? 0;
       if (rozjazdy > 0) {
         // Wypisujemy do konsoli, bo rozjazd trzeba PRZECZYTAĆ, a nie tylko policzyć.
         console.warn('Rozjazdy cen u operatora:', data?.wynik);
         toast.error(`${rozjazdy} rozjazdów cen u operatora — szczegóły w konsoli przeglądarki`);
       } else {
-        toast.success(`Ceny zgodne z operatorem (${data?.sprawdzono ?? 0} sprawdzonych, ${data?.tryb})`);
+        toast.success(`Ceny zgodne z operatorem (odpytano ${data?.odpytanych} cen, ${data?.tryb})`);
       }
     },
     onError: (e: Error) => toast.error(e.message),
