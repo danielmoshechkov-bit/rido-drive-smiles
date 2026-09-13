@@ -15,8 +15,10 @@ const sprawdz = (w, opis) => { if (w) console.log('OK: ' + opis); else { console
 const plik = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 const hak = plik('src/hooks/usePakietAgenta.ts');
-sprawdz(/moze_pracowac/.test(hak) && /p_linia: 'agent'/.test(hak),
-  'pytamy ta sama funkcja co bramka na serwerze, o linie „agent"');
+sprawdz(/billing_plans!inner/.test(hak) && /plan\.product_line', 'agent'/.test(hak),
+  'pytamy o LINIE PLANU, nie o kolumne product_line (webhook jej nie ustawia)');
+sprawdz(/current_period_end/.test(hak),
+  'wygasly okres nie liczy sie jako aktywny pakiet');
 sprawdz(/if \(error\) return false/.test(hak),
   'blad odczytu znaczy BRAK dostepu, nie dostep');
 
