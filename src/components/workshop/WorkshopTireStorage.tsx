@@ -1068,6 +1068,10 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
             </div>
             <div className="space-y-1 col-span-2">
               <Label className="text-xs">Bieżnik na każdą oponę (mm)</Label>
+              {/* Zmierzone 13.09.2026 na żywym panelu: przy czterech kolumnach
+                  i szerokości telefonu pole ma 80 px i mieści SZEŚĆ znaków,
+                  a wartość bieżnika to trzy („6.5"). Układ 2x2 był tu
+                  zaproponowany i COFNIĘTY — naprawiał problem, którego nie ma. */}
               <div className="grid grid-cols-4 gap-1.5">
                 {([
                   ['lp', 'Lewa przód', bieznikLP, setBieznikLP],

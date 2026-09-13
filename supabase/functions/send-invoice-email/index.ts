@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6.9.14";
 import { GETRIDO_LUDEK_DATAURI } from "../_shared/getRidoLudek.ts";
+import { adresZwrotny } from '../_shared/adresZwrotny.ts';
 
 /**
  * Identyfikator obrazka osadzonego w wiadomości (CID).
@@ -200,7 +201,13 @@ function generateEmailTemplate(
               <td style="vertical-align: top;">
                 <p style="font-size: 15px; color: #333; margin: 0 0 8px 0;">Dzień dobry,</p>
                 <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0;">przesyłam fakturę o numerze <strong>${invoiceNumber}</strong> na kwotę <strong>${grossAmount} ${cur}</strong>.</p>
-                <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0;">Dziękujemy za zakup.</p>
+                <p style="color: #555; font-size: 14px; line-height: 1.6; margin: 0 0 8px 0;">Dziękujemy za zakup.</p>
+                <!-- Ta wiadomość nie ma adresu zwrotnego (pole bez_odpowiedzi),
+                     więc MUSI powiedzieć, gdzie napisać. Odsyłamy do dymka
+                     „Pomoc" w prawym dolnym rogu panelu — tak nazywa się on na
+                     ekranie. NIE „zakładka Wsparcie": takiej zakładki nie ma
+                     i klient szukałby jej na próżno. -->
+                <p style="color: #888; font-size: 13px; line-height: 1.6; margin: 0;">Gdyby coś się nie zgadzało, napisz do nas w panelu — dymek „Pomoc” w prawym dolnym rogu.</p>
               </td>
               <td style="vertical-align: middle; text-align: right; width: 59px; padding-left: 16px;">
                 <!-- Plik ma 85x132, pokazujemy w 43x66 — podwójna gęstość, żeby
@@ -255,7 +262,7 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { invoice_id, type = "new_invoice", custom_message, recipient_email, pdf_base64,
-            panel_platnosci_url } = body;
+            panel_platnosci_url, bez_odpowiedzi } = body;
 
     if (!invoice_id) {
       throw new Error("Missing required field: invoice_id");
@@ -414,7 +421,8 @@ serve(async (req) => {
       ? [
           `Dzień dobry,`, ``,
           `przesyłam fakturę o numerze ${invoiceNumber} na kwotę ${grossAmount} ${currency}.`, ``,
-          `Dziękujemy za zakup.`,
+          `Dziękujemy za zakup.`, ``,
+          `Gdyby coś się nie zgadzało, napisz do nas w panelu — dymek „Pomoc” w prawym dolnym rogu.`,
         ].join("\n")
       : [
       `Dzień dobry,`, ``,
@@ -430,18 +438,47 @@ serve(async (req) => {
       companyPhone ? `Tel: ${companyPhone}` : '',
         ].filter(Boolean).join('\n');
 
-    const replyTo = companyEmail || senderEmail;
+    /**
+     * ADRES ZWROTNY — TYLKO TAM, GDZIE KTOŚ NAPRAWDĘ CZYTA.
+     *
+     * 🔴 TA FUNKCJA MA DWÓCH NADAWCÓW i to jest tu najważniejsze:
+     *
+     *   • WARSZTAT wystawiający fakturę SWOJEMU klientowi (przycisk „Email"
+     *     w panelu, trzy miejsca we froncie) — `Reply-To` wskazuje na warsztat
+     *     i MUSI zostać. Bez niego klient warsztatu nie ma jak odpisać.
+     *   • PLATFORMA wystawiająca fakturę za abonament albo doładowanie
+     *     (`billing-invoice-issue`, `billing-faktura-mail-ponow`) — tu adresu
+     *     zwrotnego NIE MA, bo sprawy faktur platformy prowadzi czat pomocy,
+     *     nie skrzynka.
+     *
+     * Dlatego decyduje WYWOŁUJĄCY przez `bez_odpowiedzi`, a nie ta funkcja.
+     * Domyślnie zachowanie zostaje takie jak było — nowy przełącznik nie może
+     * po cichu odciąć warsztatom korespondencji.
+     */
+    const replyTo = adresZwrotny({
+      bezOdpowiedzi: bez_odpowiedzi,
+      emailFirmy: companyEmail,
+      emailNadawcy: senderEmail,
+    });
 
     const mailOpts: any = {
       from: fromAddress,
       to: toEmail,
-      replyTo,
+      ...(replyTo ? { replyTo } : {}),
       subject,
       text: plainText,
       html: minifiedHtml,
       headers: {
-        'List-Unsubscribe': `<mailto:${replyTo}?subject=Unsubscribe>`,
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        // `List-Unsubscribe` wskazujący na skrzynkę, której nikt nie czyta,
+        // jest gorszy niż jego brak — dlatego na ścieżce jednostronnej znika.
+        // Faktura to wiadomość transakcyjna, więc nagłówek i tak nie jest
+        // dla niej wymagany.
+        ...(replyTo
+          ? {
+              'List-Unsubscribe': `<mailto:${replyTo}?subject=Unsubscribe>`,
+              'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+            }
+          : {}),
         'X-Entity-Ref-ID': `${invoice_id}`,
         'X-Mailer': 'GetRido Invoicing',
         'Auto-Submitted': 'auto-generated',

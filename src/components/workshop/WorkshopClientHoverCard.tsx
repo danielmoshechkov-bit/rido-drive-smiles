@@ -1,16 +1,26 @@
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Button } from '@/components/ui/button';
-import { Copy, ExternalLink, Phone, Mail, Building, User, MapPin } from 'lucide-react';
+import { Copy, ExternalLink, Phone, Mail, Building, User, MapPin, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
+/**
+ * Karta klienta — JEDNA na cały warsztat.
+ *
+ * Używają jej: karta zlecenia, tabela zleceń na komputerze i lista zleceń
+ * na telefonie. Do 13.09.2026 lista zleceń miała WŁASNĄ kopię wklejoną
+ * w JSX tabeli, przez co na telefonie nie było jej wcale.
+ */
 interface Props {
   client: any;
   children: React.ReactNode;
+  /** „Otwórz" — karta klienta. */
   onEdit?: () => void;
+  /** „Zmień" — podmiana klienta przypisanego do zlecenia. Tylko w liście zleceń. */
+  onChange?: () => void;
 }
 
-export function WorkshopClientHoverCard({ client, children, onEdit }: Props) {
+export function WorkshopClientHoverCard({ client, children, onEdit, onChange }: Props) {
   const { t } = useTranslation();
   if (!client) return <>{children}</>;
 
@@ -94,6 +104,33 @@ export function WorkshopClientHoverCard({ client, children, onEdit }: Props) {
               </div>
             )}
           </div>
+
+          {/* Przyciski na dole, a nie tylko ikona w nagłówku: na telefonie to
+              JEDYNA droga dalej, bo dotknięcie wyzwalacza otwiera kartę
+              i nie odpala jego własnego `onClick`. Wysokość 32 px — palec. */}
+          {onChange && (
+            <div className="flex gap-2 pt-1">
+              {onEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 flex-1 gap-1 text-xs"
+                  onClick={onEdit}
+                >
+                  <ExternalLink className="h-3 w-3" /> {t('workshop.orders.open')}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 flex-1 gap-1 border-primary/40 text-xs text-primary hover:bg-primary/10"
+                onClick={onChange}
+                title={t('workshop.orders.changeClientTitle')}
+              >
+                <Search className="h-3 w-3" /> {t('workshop.orders.change')}
+              </Button>
+            </div>
+          )}
         </div>
       </HoverCardContent>
     </HoverCard>

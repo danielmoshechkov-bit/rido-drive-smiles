@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { odczytajBladFunkcji } from '@/utils/bladFunkcji';
+import { zglos } from "@/lib/zdarzenia";
 
 /**
  * Wspólny serwis rejestracji i aktywacji kont.
@@ -54,12 +55,43 @@ const activationRedirect = () => `${window.location.origin}/email-confirmed`;
  * `account_type: 'client'` znaczy: samo konto. Bez profilu giełdowego i bez
  * roli `marketplace_user` — okno logowania nie deklaruje handlu na giełdzie.
  */
+/**
+ * Rejestracja do Meta — JEDNA decyzja, trzy wywołania.
+ *
+ * `CompleteRegistration` leci dopiero po założeniu konta, nie po wysłaniu
+ * formularza: zdarzenie ma opisywać skutek, nie zamiar. Wpięcie tego
+ * w komponenty formularzy dałoby cztery miejsca decydujące o tym samym —
+ * a wtedy nowy formularz rejestracji po prostu przestałby się liczyć.
+ *
+ * Zdarzenie nie idzie bez zgody marketingowej; `sledzZdarzenie` pilnuje tego
+ * samo i przy odmowie zwraca `null`.
+ */
+function zglosRejestracje(rodzaj: string): void {
+  zglos("rejestracja", { nazwa: rodzaj });
+}
+
+/**
+ * Krok lejka rejestracji.
+ *
+ * Mierzenie samego SUKCESU mówi, ilu doszło do końca — nie mówi, gdzie
+ * odpadli. Bez kroków „gdzie się gubią w rejestracji" jest pytaniem bez
+ * odpowiedzi, a to jest główny powód, dla którego wpinamy GA4.
+ *
+ * Kroki mają wartość ZERO — patrz `lib/zdarzenia.ts`. Mierzymy je, żeby
+ * zobaczyć lejek, a nie żeby algorytm zaczął kupować porzucenia.
+ */
+export function zglosKrokRejestracji(krok: "start" | "wyslany" | "odmowa"): void {
+  zglos("rejestracja_krok", { nazwa: krok });
+}
+
 export async function signUpClient(email: string, password: string): Promise<SignupResult> {
+  zglosKrokRejestracji("wyslany");
   const response = await supabase.functions.invoke("register-marketplace-user", {
     body: { email, password, first_name: "", account_type: "client" },
   });
 
   if (response.data?.error) {
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: response.data.error,
@@ -70,6 +102,7 @@ export async function signUpClient(email: string, password: string): Promise<Sig
   if (response.error) {
     // Treść odpowiedzi funkcji siedzi w `error.context`, nie w `error.message`.
     const blad = await odczytajBladFunkcji(response.error);
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: blad.komunikat,
@@ -81,6 +114,7 @@ export async function signUpClient(email: string, password: string): Promise<Sig
   // Nieudana wysyłka NIE jest porażką rejestracji: konto istnieje i klient ma
   // dostać przycisk „wyślij ponownie", a nie komunikat o błędzie.
   const mailPoszedl = response.data?.email_sent !== false;
+  zglosRejestracje("klient");
   return {
     success: true,
     requiresActivation: true,
@@ -105,9 +139,11 @@ export type MarketplaceSignupPayload = {
 
 /** Rejestracja KLIENTA GIEŁDY przez edge fn (konto + profil + rola + referral + mail). */
 export async function signUpMarketplace(payload: MarketplaceSignupPayload): Promise<SignupResult> {
+  zglosKrokRejestracji("wyslany");
   const response = await supabase.functions.invoke("register-marketplace-user", { body: payload });
 
   if (response.data?.error) {
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: response.data.error,
@@ -120,6 +156,7 @@ export async function signUpMarketplace(payload: MarketplaceSignupPayload): Prom
     // — bez tego użytkownik widzi „Edge Function returned a non-2xx status
     // code" zamiast zdania, które funkcja naprawdę odesłała.
     const blad = await odczytajBladFunkcji(response.error);
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: blad.komunikat,
@@ -127,6 +164,7 @@ export async function signUpMarketplace(payload: MarketplaceSignupPayload): Prom
       code: typeof blad.surowe?.code === 'string' ? blad.surowe.code : undefined,
     };
   }
+  zglosRejestracje("gielda");
   return {
     success: true,
     requiresActivation: response.data?.requires_activation !== false,
@@ -139,9 +177,11 @@ export type FleetSignupPayload = Record<string, unknown>;
 
 /** Rejestracja BIZNESU (floty) przez edge fn. */
 export async function signUpFleet(payload: FleetSignupPayload): Promise<SignupResult> {
+  zglosKrokRejestracji("wyslany");
   const response = await supabase.functions.invoke("register-fleet", { body: payload });
 
   if (response.data?.error) {
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: response.data.error,
@@ -154,6 +194,7 @@ export async function signUpFleet(payload: FleetSignupPayload): Promise<SignupRe
     // — bez tego użytkownik widzi „Edge Function returned a non-2xx status
     // code" zamiast zdania, które funkcja naprawdę odesłała.
     const blad = await odczytajBladFunkcji(response.error);
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: blad.komunikat,
@@ -161,6 +202,7 @@ export async function signUpFleet(payload: FleetSignupPayload): Promise<SignupRe
       code: typeof blad.surowe?.code === 'string' ? blad.surowe.code : undefined,
     };
   }
+  zglosRejestracje("flota");
   return {
     success: true,
     requiresActivation: response.data?.requires_activation === true,

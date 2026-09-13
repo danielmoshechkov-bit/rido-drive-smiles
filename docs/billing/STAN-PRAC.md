@@ -2,6 +2,215 @@
 
 ---
 
+## 🔴 AGENT GŁOSOWY MA DWIE ROZBIEŻNE WERSJE — DO POGODZENIA PO STARCIE
+
+**Jeśli czytasz to bez kontekstu, przeczytaj całość, zanim cokolwiek ruszysz.
+Nadpisanie jednej strony drugą kasuje pracę.**
+
+### Co się stało
+
+13.09.2026 porównaliśmy wszystkie 209 funkcji brzegowych z `main` po SHA-256.
+197 zgodnych, 12 rozjazdów. Dziesięć z tych dwunastu to funkcje agenta
+głosowego — i okazało się, że **to nie jest „produkcja jest nowsza", tylko
+FORK**: obie strony mają treść, której nie ma druga.
+
+| funkcja | linii tylko w `main` | linii tylko na produkcji |
+|---|---|---|
+| `voice-agent-chat` | **43** | **266** |
+| `voice-agent-init` | 11 | 253 |
+| `voice-agent-llm` | 3 | 62 |
+| `voice-call-commit` | 4 | 60 |
+| `voice-call-postprocess` | 0 | 71 |
+| `voice-call-analyze` | 1 | 18 |
+| `voice-agent-tools` | 2 | 10 |
+| `voice-call-audio` | 1 | 4 |
+| `voice-call-reconcile` | 1 | 3 |
+| `voice-call-summary` | 0 | 1 |
+
+### Gdzie jest migawka
+
+Gałąź **`snapshot/produkcja-glosowa-2026-09-13`** (commit `1b735522`),
+wypchnięta. Zawiera dziesięć plików pobranych z produkcji **bajt w bajt**
+(SHA-256 sprawdzone, 10 z 10) plus pięć modułów `_shared`, których `main`
+nie ma.
+
+**NIE WDRAŻAĆ z tej gałęzi** — produkcja już ma te wersje. Gałąź istnieje po
+to, żeby kod produkcyjny nie żył wyłącznie na produkcji.
+
+### Co jest tylko w `main` (43 linie w `voice-agent-chat`)
+
+Blok promptu z regułami dopisywanymi po konkretnych incydentach. Najważniejsza,
+bo pilnuje jej test: **`FORMA OFICJALNA — BEZWZGLĘDNIE`** — zakaz zwracania się
+per „ty". W tym samym bloku: zakaz zgadywania płci przed poznaniem imienia,
+zakaz liczby mnogiej, zakaz relacjonowania własnych działań, reguła
+„pożegnanie i `end_call` w tej samej turze", czytanie ceny dosłownie z pola
+`do_powiedzenia` zamiast przeliczania, dzień miesiąca w dopełniaczu.
+
+Każda z nich ma w komentarzu opis prawdziwej rozmowy, w której poszło źle.
+
+**Nadpisanie `main` produkcją usuwa te reguły z repozytorium i wywala 13
+testów** (`voiceProductionCanary_test.ts` 12, `voiceSnapshot_test.ts` 1).
+Czyste `main` ma 263/263 zielono.
+
+### Co jest tylko na produkcji (266 linii)
+
+Nie przejrzane linia po linii. Wiadomo tyle, że pięć modułów `_shared` istnieje
+wyłącznie tam i w niewypchniętym commicie `d83d9dff`:
+`voiceWzorce`, `voiceDopasowanie`, `voicePersona`, `voiceRozpoznanieWarsztatu`
+oraz nowsza wersja `voiceSnapshot` (z eksportem `doZaproponowania`).
+
+`voiceSnapshot` z `d83d9dff` niesie **udokumentowaną naprawę**: agent brał
+etykietę „jutro" z dnia ZAMKNIĘTEGO i godziny z następnego wiersza, przez co
+proponował wizytę w niedzielę. Poprawka odbiera nazwy dniom zamkniętym.
+Test w `main` nadal wymaga starego zachowania.
+
+### Czego NIE DA SIĘ ustalić
+
+`supabase functions download` oddaje wyłącznie `index.ts` — modułów `_shared`
+z produkcji **nie da się pobrać**, a `--legacy-bundle` pada na błędzie eszip.
+Pięć modułów w migawce pochodzi z `d83d9dff`; wszystkie 57 symboli
+importowanych przez produkcję w nich jest, ale **nie ma dowodu, że produkcja
+uruchamia dokładnie te wersje**.
+
+### Jak to pogodzić (wariant A, uzgodniony 13.09)
+
+Plik po pliku, dziesięć funkcji. Dla każdego fragmentu występującego tylko po
+jednej stronie — decyzja człowieka znającego agenta, co zostaje. Nie da się
+tego zrobić automatem, bo obie strony to świadome zmiany.
+
+**Kolejność:** zacząć od `voice-agent-chat` (43 vs 266) — tam jest cała stawka.
+Reszta to w większości drobiazgi.
+
+**Nie robić pod presją czasu.** Prompt agenta to miejsce, w którym wyłączona
+gwarancja nie daje żadnego sygnału aż do pierwszej złej rozmowy z klientem.
+
+---
+
+## ⭐ WIDOK KALENDARZA NA TELEFONIE — DO PRZEMYŚLENIA, NIE DO POPRAWKI CSS
+
+Osobna pozycja, bo to **decyzja projektowa**, nie usterka układu.
+
+`WorkshopScheduler`, widok miesiąca: siatka `grid-cols-7` w kontenerze
+`overflow-auto`. Na 360 px wychodzi ~51 px na dzień, przy komórkach
+`min-h-[80px]` z plakietkami zleceń.
+
+**Dlaczego NIE dołożyliśmy `min-w` z przewijaniem w poziomie:** dla kalendarza
+to jest gorsze niż ściskanie. Przewijanie w bok rozbija układ tygodnia —
+a układ tygodnia jest jedyną rzeczą, po co się na kalendarz patrzy. Człowiek
+przestaje widzieć „poniedziałek obok wtorku" i zaczyna zgadywać, gdzie jest.
+
+**Co trzeba rozstrzygnąć, zanim ktokolwiek to ruszy:**
+
+1. Czy na telefonie w ogóle pokazujemy miesiąc, czy przełączamy na listę dni
+   („dziś / jutro / ten tydzień")? Mechanik przy aucie patrzy na najbliższe
+   godziny, nie na cały miesiąc.
+2. Jeśli miesiąc zostaje — co pokazuje komórka dnia przy 51 px? Liczba zleceń
+   zamiast plakietek, z rozwinięciem po dotknięciu?
+3. Czy widok tygodnia (`viewMode`) nie jest lepszym domyślnym na wąskim
+   ekranie?
+
+Trzy pytania do produktu, nie do CSS. Dopóki nie ma na nie odpowiedzi, każda
+zmiana będzie zgadywaniem — dlatego zostaje jak jest.
+
+**Reszta panelu warsztatu na telefonie jest zrobiona** (13.09.2026): kosztorys
+dostał przewijanie w poziomie, dwie siatki opon układ 2×2. Przemiat dawał
+dziewięć trafień; po obejrzeniu każdego zostały trzy prawdziwe.
+
+---
+
+## 🔴 AUDYT RLS 13.09.2026 — JEDENAŚCIE NA JEDENAŚCIE BYŁO OTWARTYCH
+
+Zamknięte migracją `20260913133057`. Każdą pozycję potwierdzono **pełnymi,
+poprawnymi danymi** w transakcji wycofanej na produkcji, pod rolą `anon`
+albo `authenticated` (obie mają `rolbypassrls = false`), z kontrolą pozytywną
+(`car_brands` widoczne) i negatywną (`user_invoices` odmawia, 42501).
+
+| tabela | co było możliwe bez uprawnień |
+|---|---|
+| `viewing_slots` | czytanie i **zmiana cudzych terminów oglądania** |
+| `client_vehicle_ownership_requests` | czytanie i **zmiana cudzego przeniesienia własności pojazdu**, z numerem telefonu — dla każdego zalogowanego |
+| `coin_transactions` | **dopisanie sobie monet** — księga rozliczeniowa |
+| `audit_log` | podrobienie wpisu w dzienniku zdarzeń |
+| `ai_call_audit_log` | dopisanie do dziennika połączeń AI |
+| `ai_guest_usage` | pełne zarządzanie licznikiem użycia dla gości |
+| `ksef_monitor_alerts` | podrobienie alertu KSeF |
+| `ksef_monitor_scans` | podrobienie wyniku skanowania KSeF |
+| `voice_phrase_cache` | zatruwanie pamięci podręcznej agenta głosowego |
+| `workspace_task_history` | dopisanie do historii zadań |
+| `universal_listing_numbers` | dopisanie numeru ogłoszenia |
+
+**Świadomie zostawione otwarte:** `service_bookings`,
+`service_provider_requests`, `real_estate_listing_interactions` — to publiczne
+formularze, składa je ktoś bez konta. Ryzyko to zaśmiecanie, nie wyciek;
+ograniczenie tempa jest osobną sprawą.
+
+### Trzy metody, które dały fałszywy obraz — zanim wynik był miarodajny
+
+Pierwszy przemiat („zero odmów na dwanaście prób") był **bez wartości**, choć
+wniosek okazał się trafny. Powody wypisane w CLAUDE.md, sekcja „JAK NARZĘDZIA
+W TYM PROJEKCIE KŁAMIĄ": `EXCEPTION` łapiący wszystko naraz, pusty obiekt jako
+test RLS (`NOT NULL` sprawdza się przed polityką) i `Prefer:
+return=representation` dorzucający sprawdzenie SELECT.
+
+### Znalezione przy okazji, starsze od migracji
+
+`ServiceBookingModal` kończył zapis przez `INSERT … RETURNING`, a `RETURNING`
+podlega politykom SELECT. Niezalogowany dostawał `42501` **mimo założonej
+rezerwacji** — wpis leżał w bazie, klient widział błąd, warsztat nic nie
+wiedział. Naprawione nadaniem `id` po stronie przeglądarki, bez ruszania
+polityk.
+
+---
+
+## ⭐ DECYZJA: BIMI ODŁOŻONE, Z WARUNKIEM POWROTU (13.09.2026)
+
+**Nie robimy teraz.** To decyzja z terminem, nie dług bez daty.
+
+**Czego chcemy:** logo GetRido przy nadawcy w skrzynce odbiorcy, zamiast szarej
+ikony z inicjałem.
+
+**Co już mamy** (sprawdzone w DNS 13.09.2026):
+
+```
+_dmarc.getrido.pl   v=DMARC1; p=quarantine; rua=mailto:dmarc-report@lh.pl   ✓
+getrido.pl          v=spf1 include:_spf.lh.pl -all                          ✓
+default._domainkey  v=DKIM1; k=rsa; p=MIIBIja…                              ✓
+default._bimi       BRAK
+```
+
+`p=quarantine` to próg wymagany przez BIMI. Typowa droga zakłada 6–8 tygodni
+na dojście do egzekwowania DMARC — **tego etapu nie mamy przed sobą**.
+
+**Co blokuje:** Gmail NIE pokazuje logo bez certyfikatu. Samodzielnie
+zadeklarowane BIMI obsługuje niewielu dostawców i Gmaila wśród nich nie ma.
+
+| | CMC | VMC |
+|---|---|---|
+| efekt w Gmailu | logo | logo + niebieski znacznik |
+| warunek | logo publicznie używane **12+ miesięcy** | **zarejestrowany znak towarowy** |
+| koszt rocznie | ~1500–3000 USD | ~1500–5000+ USD |
+| wydanie | 7–10 dni | 7–10 dni |
+
+**WARUNEK POWROTU — wracamy, gdy zajdzie JEDNO z dwóch:**
+
+1. logo przekroczy **rok publicznego użycia** → bierzemy CMC,
+2. zarejestrujemy **znak towarowy** (UPRP albo EUIPO) → bierzemy VMC.
+
+Nie wcześniej. Półtora tysiąca dolarów rocznie za ikonkę przed pierwszą
+kampanią to zły wydatek, a bez certyfikatu i tak nic nie widać.
+
+**Co robimy zamiast:** darmowe konto Google na `noreply@getrido.pl` ze zdjęciem
+profilowym. Gmail dopasowuje zdjęcie po adresie nadawcy, więc logo pokaże się
+większości naszych odbiorców. Nie daje niebieskiego znacznika i nie działa poza
+Gmailem — ale kosztuje zero. Pliki: `public/brand/getrido-avatar-czarny.png`
+(zalecany) i `…-bialy.png`, 512×512, bez przezroczystości, z zapasem marginesu
+na przycięcie do koła.
+
+Gdy przyjdzie czas na BIMI, potrzebny będzie osobny plik: **SVG Tiny PS**,
+kwadratowy, poniżej 32 KB, po HTTPS.
+
+---
+
 ## ⭐ DECYZJA: PAMIĘCI PODRĘCZNEJ REJESTRU NIE ROBIMY (10.09.2026)
 
 To jest **decyzja**, nie dług. Nie ma jej na żadnej liście „do zrobienia".

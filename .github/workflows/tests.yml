@@ -161,5 +161,13 @@ jobs:
       # widział „Edge Function returned a non-2xx status code" zamiast
       # „uzupełnij dane do faktury". Kontrola typów tego nie widzi, bo typy się
       # zgadzają; widać to wyłącznie po ZACHOWANIU.
+      # 13.09.2026: trzy grupy uzytkownikow nie mogly wejsc do systemu przez
+      # blad React #310 w dwoch miejscach naraz. Hak stal za wczesnym `return`,
+      # wiec widok przewracal sie DOPIERO po zalogowaniu — u klienta, nie u nas.
+      # Kontrola typow tego nie widzi. Ta bramka widzi i ma wlasna kontrole
+      # pozytywna, zeby zielony wynik nie brał sie z niedzialajacego narzedzia.
+      - name: Zasady hakow Reacta
+        run: npm run test:haki
+
       - name: Testy frontu
         run: npm run test:front

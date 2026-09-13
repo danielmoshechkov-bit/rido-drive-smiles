@@ -42,6 +42,8 @@ w edytorze SQL albo przez Lovable) — o nich mówi osobno, jako o „nieznanych
 pochodzeniu", bo to też jest informacja.
 """
 import json
+import shutil
+import tempfile
 import re
 import sys
 from pathlib import Path
@@ -65,15 +67,88 @@ def znormalizuj(cialo: str) -> str:
     return re.sub(r"\s+", " ", bez_liniowych).strip().lower()
 
 
-def z_migracji() -> dict[str, tuple[str, str]]:
-    """nazwa -> (znormalizowane ciało, plik). Wygrywa NAJPÓŹNIEJSZA migracja."""
+# `DROP FUNCTION` liczy się tak samo jak `CREATE` — decyduje PÓŹNIEJSZA
+# migracja. Bez tego funkcja skasowana świadomie wygląda jak brakująca.
+WZORZEC_DROP = re.compile(
+    r"DROP\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?(?:public\.)?\"?([A-Za-z_]\w*)\"?",
+    re.I,
+)
+
+
+def z_migracji() -> tuple[dict[str, tuple[str, str]], dict[str, str]]:
+    """(nazwa -> (ciało, plik), nazwa -> plik_kasujący). Wygrywa NAJPÓŹNIEJSZA migracja.
+
+    🔴 POPRAWIONE 13.09.2026. Wcześniej brany był pod uwagę wyłącznie ostatni
+    `CREATE`, więc `billing_active_plan` i `billing_active_subscription` —
+    skasowane świadomie migracją `20260810180000_billing_revision.sql` —
+    były zgłaszane jako „są w migracjach, nie ma ich w bazie" PRZY KAŻDYM
+    PRZEBIEGU. Bramka krzycząca bez powodu uczy ignorowania siebie, a wtedy
+    prawdziwego rozjazdu nikt w tym szumie nie zobaczy.
+    """
     ostatnie: dict[str, tuple[str, str]] = {}
+    skasowane: dict[str, str] = {}
     for plik in sorted(KATALOG.glob("*.sql")):
         tresc = plik.read_text(encoding="utf-8", errors="replace")
+        bez_komentarzy = re.sub(r"--[^\n]*", " ", tresc)
         for dopasowanie in WZORZEC.finditer(tresc):
             nazwa = dopasowanie.group(1).lower()
             ostatnie[nazwa] = (znormalizuj(dopasowanie.group(3)), plik.name)
-    return ostatnie
+            skasowane.pop(nazwa, None)          # późniejszy CREATE unieważnia DROP
+        for dopasowanie in WZORZEC_DROP.finditer(bez_komentarzy):
+            nazwa = dopasowanie.group(1).lower()
+            # `DROP IF EXISTS` tuż przed `CREATE` w tym samym pliku to zwykłe
+            # przygotowanie gruntu, nie skasowanie — stąd sprawdzenie kolejności.
+            if nazwa in ostatnie and ostatnie[nazwa][1] == plik.name:
+                continue
+            skasowane[nazwa] = plik.name
+            ostatnie.pop(nazwa, None)
+    return ostatnie, skasowane
+
+
+def _kontrola_wlasna() -> bool:
+    """Czy bramka W OGÓLE rozróżnia trzy przypadki, o które tu chodzi.
+
+    Bez tego zielony wynik znaczyłby tylko tyle, że skrypt się nie wywrócił.
+    W tym repozytorium pięć razy w jednej sesji zielono brało się z narzędzia,
+    które nie działało — stąd kontrola przed właściwym przebiegiem.
+    """
+    global KATALOG
+    prawdziwy = KATALOG
+    katalog = Path(tempfile.mkdtemp(prefix="kontrola-dryfu-"))
+    try:
+        (katalog / "20200101000000_a.sql").write_text(
+            "CREATE OR REPLACE FUNCTION public.zostaje() RETURNS int LANGUAGE sql AS $$ SELECT 1; $$;\n"
+            "CREATE OR REPLACE FUNCTION public.kasowana() RETURNS int LANGUAGE sql AS $$ SELECT 2; $$;\n"
+            "CREATE OR REPLACE FUNCTION public.wraca() RETURNS int LANGUAGE sql AS $$ SELECT 3; $$;\n",
+            encoding="utf-8")
+        (katalog / "20200102000000_b.sql").write_text(
+            "DROP FUNCTION IF EXISTS public.kasowana();\n"
+            "DROP FUNCTION IF EXISTS public.wraca();\n",
+            encoding="utf-8")
+        (katalog / "20200103000000_c.sql").write_text(
+            "CREATE OR REPLACE FUNCTION public.wraca() RETURNS int LANGUAGE sql AS $$ SELECT 4; $$;\n",
+            encoding="utf-8")
+
+        KATALOG = katalog
+        repo, skasowane = z_migracji()
+    finally:
+        KATALOG = prawdziwy
+        shutil.rmtree(katalog, ignore_errors=True)
+
+    bledy = []
+    if "zostaje" not in repo:
+        bledy.append("zwykła funkcja zniknęła z zestawienia")
+    if "kasowana" in repo or "kasowana" not in skasowane:
+        bledy.append("DROP nie został zauważony — fałszywe alarmy wrócą")
+    if "wraca" not in repo:
+        bledy.append("CREATE po DROPie nie unieważnił skasowania")
+
+    if bledy:
+        print("❌ KONTROLA WŁASNA PADŁA — wynik na prawdziwych migracjach jest bez wartości:")
+        for b in bledy:
+            print(f"     {b}")
+        return False
+    return True
 
 
 def main() -> int:
@@ -81,11 +156,14 @@ def main() -> int:
         print("Podaj plik ze stanem bazy (JSON z pól nazwa/cialo).", file=sys.stderr)
         return 2
 
+    if not _kontrola_wlasna():
+        return 2
+
     dane = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
     wiersze = dane["rows"] if isinstance(dane, dict) and "rows" in dane else dane
     baza = {w["nazwa"].lower(): w.get("cialo") or "" for w in wiersze}
 
-    repo = z_migracji()
+    repo, skasowane = z_migracji()
 
     dryf: list[tuple[str, str]] = []
     brakuje: list[str] = []

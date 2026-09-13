@@ -90,7 +90,11 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
           {tasks.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t('workshop.estimatePreview.noItems')}</p>
           ) : (
-            <table className="w-full text-sm">
+            /* Kosztorys ogląda klient na telefonie, często z parkingu.
+               Bez przewijania w poziomie kolumny ściskają się tak, że nazwa
+               usługi łamie się po jednym słowie na linię. */
+            <div className="-mx-1 overflow-x-auto px-1">
+            <table className="w-full min-w-[20rem] text-sm">
               <thead>
                 <tr className="text-xs text-muted-foreground border-b">
                   <th className="text-left py-1 pr-2">{t('workshop.estimatePreview.colNo')}</th>
@@ -114,6 +118,7 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
                 </tr>
               </tfoot>
             </table>
+            </div>
           )}
         </div>
 
@@ -127,7 +132,8 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
           {parts.length === 0 ? (
             <p className="text-xs text-muted-foreground">{t('workshop.estimatePreview.noItems')}</p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="-mx-1 overflow-x-auto px-1">
+            <table className="w-full min-w-[28rem] text-sm">
               <thead>
                 <tr className="text-xs text-muted-foreground border-b">
                   <th className="text-left py-1 pr-2">{t('workshop.estimatePreview.colNo')}</th>
@@ -155,6 +161,7 @@ export function WorkshopEstimatePreviewDialog({ open, onOpenChange, order }: Pro
                 </tr>
               </tfoot>
             </table>
+            </div>
           )}
         </div>
 

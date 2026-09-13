@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { WorkshopVehicleHoverCard } from './WorkshopVehicleHoverCard';
+import { WorkshopClientHoverCard } from './WorkshopClientHoverCard';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -637,8 +638,27 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       {getVehicleName(order) && (
-                        <span className="flex items-center gap-1 truncate">
-                          <Car className="h-3 w-3 shrink-0" /> {getVehicleName(order)}
+                        /**
+                         * 🔴 DOTKNIĘCIE POJAZDU MA OTWIERAĆ KARTĘ, NIE ZLECENIE.
+                         *
+                         * Do 13.09.2026 tej karty na telefonie NIE BYŁO WCALE —
+                         * obie podpowiedzi siedziały w gałęzi `hidden md:block`,
+                         * czyli w tabeli komputerowej. Mechanik przy aucie nie
+                         * miał jak odczytać VIN-u bez wchodzenia w zlecenie.
+                         *
+                         * `stopPropagation` jest tu konieczne: cała karta ma
+                         * własny `onClick` otwierający zlecenie i bez tego
+                         * dotknięcie robiłoby OBIE rzeczy naraz.
+                         */
+                        <span onClick={(e) => e.stopPropagation()} className="min-w-0">
+                          <WorkshopVehicleHoverCard
+                            vehicle={order.vehicle}
+                            onEdit={() => order.vehicle && setEditVehicle(order.vehicle)}
+                          >
+                            <span className="flex items-center gap-1 truncate">
+                              <Car className="h-3 w-3 shrink-0" /> {getVehicleName(order)}
+                            </span>
+                          </WorkshopVehicleHoverCard>
                         </span>
                       )}
                     </div>
@@ -648,7 +668,15 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
                     {getClientName(order) ? (
-                      <span>{getClientName(order)}</span>
+                      <span onClick={(e) => e.stopPropagation()} className="min-w-0">
+                        <WorkshopClientHoverCard
+                          client={order.client}
+                          onEdit={() => order.client && setEditClient(order.client)}
+                          onChange={() => setAssignClientOrderId(order.id)}
+                        >
+                          <span className="truncate">{getClientName(order)}</span>
+                        </WorkshopClientHoverCard>
+                      </span>
                     ) : (
                       <button
                         type="button"
@@ -737,8 +765,12 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
                     </TableCell>
 
                     <TableCell onClick={e => e.stopPropagation()}>
-                      <HoverCard openDelay={400} closeDelay={200}>
-                        <HoverCardTrigger asChild>
+                      {/* Ta sama karta co na telefonie i w karcie zlecenia —
+                          jeden komponent, nie kopia wklejona w tabelę. */}
+                      <WorkshopVehicleHoverCard
+                        vehicle={order.vehicle}
+                        onEdit={() => order.vehicle && setEditVehicle(order.vehicle)}
+                      >
                           <div
                             className="flex items-center gap-1.5 cursor-pointer hover:text-primary transition-colors"
                             onClick={() => order.vehicle && setEditVehicle(order.vehicle)}
@@ -766,148 +798,22 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
                               <span className="text-sm text-muted-foreground">—</span>
                             )}
                           </div>
-                        </HoverCardTrigger>
-                        {order.vehicle && (
-                          <HoverCardContent className="w-96 max-w-[calc(100vw-2rem)] p-4" side="bottom" align="start">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="font-semibold text-base">{order.vehicle.brand} {order.vehicle.model}</p>
-                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setEditVehicle(order.vehicle)}>
-                                <ExternalLink className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            <div className="grid grid-cols-[auto,minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
-                              {order.vehicle.plate && (
-                                <>
-                                  <span className="text-muted-foreground">{t('workshop.orders.plate')}</span>
-                                  <button className="text-left font-semibold text-foreground hover:text-primary flex items-center gap-1.5" onClick={() => { navigator.clipboard.writeText(order.vehicle.plate); toast.success(t('workshop.orders.copiedPlate')); }}>
-                                    {order.vehicle.plate} <Copy className="h-3 w-3 opacity-50 shrink-0" />
-                                  </button>
-                                </>
-                              )}
-                              {order.vehicle.vin && (
-                                <>
-                                  <span className="text-muted-foreground">{t('workshop.orders.vin')}</span>
-                                  <button className="text-left font-semibold text-foreground hover:text-primary flex items-center justify-between gap-2 min-w-0" onClick={() => { navigator.clipboard.writeText(order.vehicle.vin); toast.success(t('workshop.orders.copiedVin')); }}>
-                                    <span className="break-all">{order.vehicle.vin}</span> <Copy className="h-3 w-3 opacity-50 shrink-0" />
-                                  </button>
-                                </>
-                              )}
-                              {order.vehicle.year && (
-                                <>
-                                  <span className="text-muted-foreground">{t('workshop.orders.yearOfProd')}</span>
-                                  <span className="font-semibold text-foreground">{order.vehicle.year}</span>
-                                </>
-                              )}
-                              {order.vehicle.engine_capacity && (
-                                <>
-                                  <span className="text-muted-foreground">{t('workshop.orders.capacity')}</span>
-                                  <span className="font-semibold text-foreground">{order.vehicle.engine_capacity} cc</span>
-                                </>
-                              )}
-                              {order.vehicle.engine_power && (
-                                <>
-                                  <span className="text-muted-foreground">{t('workshop.orders.power')}</span>
-                                  <span className="font-semibold text-foreground">{order.vehicle.engine_power} kW</span>
-                                </>
-                              )}
-                              {order.vehicle.fuel_type && (
-                                <>
-                                  <span className="text-muted-foreground">{t('workshop.orders.fuel')}</span>
-                                  <span className="font-semibold text-foreground">{order.vehicle.fuel_type}</span>
-                                </>
-                              )}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full mt-3 h-7 text-xs gap-1"
-                              onClick={() => setEditVehicle(order.vehicle)}
-                            >
-                              <ExternalLink className="h-3 w-3" /> {t('workshop.orders.openVehicleCard')}
-                            </Button>
-                          </HoverCardContent>
-                        )}
-                      </HoverCard>
+                      </WorkshopVehicleHoverCard>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       {order.client ? (
-                      <HoverCard openDelay={400} closeDelay={200}>
-                        <HoverCardTrigger asChild>
+                      <WorkshopClientHoverCard
+                        client={order.client}
+                        onEdit={() => order.client && setEditClient(order.client)}
+                        onChange={() => setAssignClientOrderId(order.id)}
+                      >
                           <span
                             className="text-sm font-medium text-foreground cursor-pointer hover:text-primary transition-colors"
                             onClick={() => order.client && setEditClient(order.client)}
                           >
                             {getClientName(order)}
                           </span>
-                        </HoverCardTrigger>
-                        {order.client && (
-                          <HoverCardContent className="w-72 p-3" side="bottom" align="start">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                {order.client.client_type === 'company' ? (
-                                  <Building className="h-4 w-4 text-muted-foreground" />
-                                ) : (
-                                  <User className="h-4 w-4 text-muted-foreground" />
-                                )}
-                                <span className="font-semibold text-sm">{getClientName(order)}</span>
-                              </div>
-                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setEditClient(order.client)}>
-                                <ExternalLink className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            {order.client.company_name && order.client.client_type === 'company' && (
-                              <p className="text-xs text-muted-foreground mb-2">{order.client.company_name}</p>
-                            )}
-                            <div className="space-y-1.5 text-xs">
-                              {order.client.phone && (
-                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.phone); toast.success(t('workshop.orders.copiedPhone')); }}>
-                                  <Phone className="h-3 w-3 text-muted-foreground" />
-                                  <span>{order.client.phone}</span>
-                                  <Copy className="h-2.5 w-2.5 opacity-50 ml-auto" />
-                                </button>
-                              )}
-                              {order.client.email && (
-                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.email); toast.success(t('workshop.orders.copiedEmail')); }}>
-                                  <Mail className="h-3 w-3 text-muted-foreground" />
-                                  <span className="truncate">{order.client.email}</span>
-                                  <Copy className="h-2.5 w-2.5 opacity-50 ml-auto" />
-                                </button>
-                              )}
-                              {order.client.nip && (
-                                <button className="flex items-center gap-2 hover:text-primary w-full text-left" onClick={() => { navigator.clipboard.writeText(order.client.nip); toast.success(t('workshop.orders.copiedNip')); }}>
-                                  <span className="text-muted-foreground">{t('workshop.orders.nip')}</span>
-                                  <span>{order.client.nip}</span>
-                                  <Copy className="h-2.5 w-2.5 opacity-50 ml-auto" />
-                                </button>
-                              )}
-                              {order.client.city && (
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                  <span>📍 {order.client.city}</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex gap-2 mt-3">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 h-7 text-xs gap-1"
-                                onClick={() => setEditClient(order.client)}
-                              >
-                                <ExternalLink className="h-3 w-3" /> {t('workshop.orders.open')}
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex-1 h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10"
-                                onClick={() => setAssignClientOrderId(order.id)}
-                                title={t('workshop.orders.changeClientTitle')}
-                              >
-                                <Search className="h-3 w-3" /> {t('workshop.orders.change')}
-                              </Button>
-                            </div>
-                          </HoverCardContent>
-                        )}
-                      </HoverCard>
+                      </WorkshopClientHoverCard>
                       ) : (
                         <button
                           type="button"

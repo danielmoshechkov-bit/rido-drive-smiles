@@ -433,7 +433,9 @@ Deno.serve(async (req) => {
                 items: [{
                   name: `Abonament ${(naszaSub as any)?.plan?.name ?? "GetRido"}`,
                   quantity: 1,
-                  unit: "szt",
+                  // Miesiąc abonamentu, nie „sztuka" — kolumna j.m. na fakturze
+                  // ma mówić, za jaki okres klient zapłacił.
+                  unit: "mies.",
                   // BRUTTO — operator pobrał konkretną kwotę i to ona rozstrzyga.
                   unit_gross_price: kwota,
                   vat_rate: 23,

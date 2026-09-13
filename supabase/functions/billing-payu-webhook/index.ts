@@ -15,6 +15,7 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { corsHeaders } from '../_shared/cors.ts';
+import { pozycjaDoladowania } from '../_shared/pozycjaDoladowania.ts';
 import {
   sprawdzPodpisPayu, mapujStatusPayu, potwierdzOdbior, tokenPayu,
   PAYU_SANDBOX, PAYU_PRODUKCJA,
@@ -370,7 +371,7 @@ Deno.serve(async (req) => {
         // i identyfikatora płatności u operatora.
         const { data: pozycja } = await (admin as any)
           .from('billing_orders')
-          .select('units, snapshot, subscriber_id, provider_order_id, billing_addon_products(name), billing_plans(name)')
+          .select('units, snapshot, subscriber_id, provider_order_id, billing_addon_products(code, name), billing_plans(name)')
           .eq('id', zamowienie.id)
           .maybeSingle();
 
@@ -380,9 +381,34 @@ Deno.serve(async (req) => {
           .eq('id', pozycja?.subscriber_id)
           .maybeSingle();
 
-        const nazwa = miesiacPlanu
-          ? `Abonament ${pozycja?.billing_plans?.name ?? 'GetRido'} — miesiąc`
-          : `${pozycja?.billing_addon_products?.name ?? 'Doładowanie GetRido'}`;
+        /**
+         * POZYCJA FAKTURY — ILOŚĆ I CENA JEDNOSTKOWA, NIE „1 × całość".
+         *
+         * Do 13.09.2026 każde doładowanie szło jako jedna sztuka w cenie całego
+         * zamówienia: „Sprawdzenia pojazdu (VIN), 1 szt., 62,73 zł" — bez śladu,
+         * że chodzi o trzydzieści sprawdzeń. Art. 106e ust. 1 pkt 8 i 9 wymaga
+         * miary, ilości i ceny jednostkowej.
+         *
+         * Rozbicie robi `_shared/pozycjaDoladowania.ts`, bo wybór między
+         * „ilość = liczba jednostek" a „ilość = 1 paczka" wynika z tego, czy
+         * cena jednostkowa mieści się w groszach — i ma być JEDNĄ decyzją,
+         * nie kopią w każdym webhooku.
+         */
+        const pozycjaFaktury = miesiacPlanu
+          ? {
+              name: `Abonament ${pozycja?.billing_plans?.name ?? 'GetRido'} — miesiąc`,
+              quantity: 1,
+              unit: 'mies.',
+              unit_gross_price: Number(zamowienie.amount_gross),
+              vat_rate: 23,
+            }
+          : pozycjaDoladowania(
+              pozycja?.billing_addon_products?.code,
+              pozycja?.billing_addon_products?.name ?? 'Doładowanie GetRido',
+              pozycja?.units,
+              Number(zamowienie.amount_gross),
+              23,
+            );
 
         const adres = [
           nabywca?.company_address,
@@ -399,16 +425,7 @@ Deno.serve(async (req) => {
             buyer_address: adres || null,
             buyer_email: nabywca?.company_email ?? nabywca?.owner_email ?? null,
             payment_method: 'payu',
-            items: [{
-              name: nazwa,
-              quantity: 1,
-              unit: 'szt',
-              // BRUTTO, nie netto: operator pobrał konkretną kwotę i to ona
-              // rozstrzyga. Funkcja liczy „w stu", żeby suma faktury zgadzała
-              // się z obciążeniem co do grosza.
-              unit_gross_price: Number(zamowienie.amount_gross),
-              vat_rate: 23,
-            }],
+            items: [pozycjaFaktury],
           }),
         });
 
@@ -419,6 +436,45 @@ Deno.serve(async (req) => {
         }));
       } catch (bladFaktury) {
         console.error('billing-payu-webhook: faktura niewystawiona', bladFaktury);
+      }
+
+      /**
+       * KONWERSJA DO META — SERWEROWA KOPIA ZDARZENIA `Purchase`.
+       *
+       * 🔴 To NIE jest duplikat zdarzenia z przeglądarki. Piksel gubi 20–40%
+       * zakupów (Safari, blokery, zapłata na telefonie po kliknięciu reklamy
+       * na komputerze). `event_id` po obu stronach to IDENTYFIKATOR ZAMÓWIENIA,
+       * więc Meta skleja te dwa zgłoszenia w jedną konwersję — a gdy
+       * przeglądarkowe nie dojdzie, zostaje to.
+       *
+       * Tu, a nie w oknie zakupu, bo tylko webhook wie o wydaniu NA PEWNO
+       * i działa też wtedy, gdy klient zamknął kartę zaraz po zapłacie.
+       *
+       * Zgodę sprawdza `meta-capi`: brak obu ciasteczek piksela na zamówieniu
+       * znaczy, że piksel się nie uruchomił, czyli nie było zgody
+       * marketingowej — i wtedy nic nie wychodzi.
+       *
+       * Osobny `try`, tak jak faktura: klient ma już swoje jednostki, więc
+       * awaria Meta nie ma prawa zmienić wyniku webhooka.
+       */
+      try {
+        const odpCapi = await fetch(`${url}/functions/v1/meta-capi`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+          // Podajemy WYŁĄCZNIE identyfikator. Kwotę i dane nabywcy `meta-capi`
+          // czyta z bazy — wzięte z tego ciała dałyby się podmienić.
+          body: JSON.stringify({ order_id: zamowienie.id }),
+        });
+        const wynikCapi = await odpCapi.json().catch(() => ({}));
+        console.log(JSON.stringify({
+          event: 'payu_capi',
+          order: zamowienie.id,
+          http: odpCapi.status,
+          przyjete: wynikCapi?.przyjete ?? 0,
+          pominiete: wynikCapi?.pominiete ?? null,
+        }));
+      } catch (bladCapi) {
+        console.error('billing-payu-webhook: konwersja do Meta nie doszła', bladCapi);
       }
     }
 

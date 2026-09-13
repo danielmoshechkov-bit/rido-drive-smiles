@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { otworzUstawieniaZgod } from "@/components/ZgodyCookies";
 
 const Footer = () => {
   const { t } = useTranslation();
@@ -70,6 +71,16 @@ const Footer = () => {
               <Link to="/usuwanie-danych" className="text-primary-foreground/90 hover:text-primary-foreground hover:underline transition-colors">
                 {t('footer.dataDeletion', 'Usuwanie danych')}
               </Link>
+              {/* Wycofanie zgody musi być tak samo łatwe jak jej udzielenie —
+                  bez tego odnośnika zgoda raz udzielona byłaby nie do cofnięcia
+                  inaczej niż przez wyczyszczenie danych witryny. */}
+              <button
+                type="button"
+                onClick={otworzUstawieniaZgod}
+                className="text-left text-primary-foreground/90 hover:text-primary-foreground hover:underline transition-colors"
+              >
+                {t('footer.cookieSettings', 'Ustawienia cookies')}
+              </button>
             </nav>
           </div>
         </div>

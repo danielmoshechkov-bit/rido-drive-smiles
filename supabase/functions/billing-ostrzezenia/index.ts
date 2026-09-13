@@ -24,7 +24,17 @@ import { sendMail, emailShell } from "../_shared/smtpSend.ts";
  * a klient nigdy się nie dowie. Lepiej wysłać dwa razy niż ani razu.
  */
 
-const ADRES_ZWROTNY = "kontakt@getrido.pl";
+/**
+ * 🔴 BEZ ADRESU ZWROTNEGO — ŚWIADOMIE.
+ *
+ * Do 13.09.2026 ostrzeżenia miały `Reply-To: kontakt@getrido.pl` i zdanie
+ * „odpisz na tego maila". Sprawy abonamentowe nie mają iść na skrzynkę
+ * kontaktową: mieszają się tam z korespondencją prowadzoną do czego innego.
+ *
+ * Skoro nie ma dokąd odpisać, treść MUSI powiedzieć, gdzie napisać — i mówi
+ * to nazwą, którą klient widzi na ekranie: dymek „Pomoc" w prawym dolnym
+ * rogu panelu. NIE „zakładka Wsparcie" — takiej zakładki w panelu nie ma.
+ */
 
 const json = (dane: unknown, status = 200) =>
   new Response(JSON.stringify(dane), {
@@ -60,7 +70,7 @@ function tresc(nazwaFirmy: string, prog: number, koniec: string, powod: string):
     <p><strong>Co zrobić</strong></p>
     <p>Wybierz plan w panelu, w zakładce Rozliczenia. Zajmuje to chwilę
     i nie przerywa pracy.</p>
-    <p>Gdyby coś się nie zgadzało, odpisz na tego maila.</p>
+    <p>Gdyby coś się nie zgadzało, napisz do nas w panelu — dymek „Pomoc” w prawym dolnym rogu.</p>
     <p>Zespół GetRido</p>
   `);
 }
@@ -100,9 +110,7 @@ Deno.serve(async (req) => {
         : `Za ${o.prog_dni} dni kończy się Twój dostęp — GetRido`;
 
       try {
-        await sendMail(o.email, temat, tresc(o.nazwa_firmy, o.prog_dni, koniec, o.powod), {
-          replyTo: ADRES_ZWROTNY,
-        });
+        await sendMail(o.email, temat, tresc(o.nazwa_firmy, o.prog_dni, koniec, o.powod));
       } catch (e) {
         // Jeden nieudany adres nie może zatrzymać reszty listy.
         problemy.push(`${o.email}: ${e instanceof Error ? e.message : String(e)}`);

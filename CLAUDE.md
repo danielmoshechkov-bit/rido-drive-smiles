@@ -84,6 +84,12 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 ## Zasady pracy z tym repozytorium (ustalone 21.08.2026)
 
+> **Zanim uwierzysz zielonemu wynikowi** — przeczytaj
+> „🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA" niżej.
+> Szesnaście znanych sposobów, na jakie kontrola w tym repozytorium
+> potrafi wypaść zielono nad zepsutym kodem.
+
+
 ### Warunek w kodzie i więz w bazie muszą mówić to samo
 
 Najważniejsza rzecz, jaka wyszła z tej sesji. Zmiana jednego bez drugiego nie naprawia
@@ -392,6 +398,215 @@ Za każdym razem zielony wynik brał się z **niedziałającego narzędzia**, ni
 kodu. Dlatego: każdy test polityk zawiera co najmniej jedną operację, która MA się udać,
 i sprawdza, że się udała. Przy `UPDATE`/`DELETE` liczy dotknięte wiersze — polityka
 `RESTRICTIVE` filtruje wiersze, nie rzuca wyjątkiem, więc brak błędu nie znaczy sukcesu.
+
+### Bez liczby to nie naprawa, tylko przemeblowanie
+
+Dotyczy każdej zmiany uzasadnionej tym, że „się nie mieści", „jest za wąskie",
+„źle wygląda na telefonie". Oko na zrzucie z szerokiego ekranu nie mówi nic
+o wąskim, a przemiat `grep` mówi tylko, gdzie patrzeć — nie co jest zepsute.
+
+13.09.2026 napisałem, że cztery pola bieżnika w rzędzie są „tak wąskie, że nie
+widać wpisywanej wartości", i przerobiłem je na 2×2. Pomiar na żywym panelu:
+**pole ma 80 px i mieści sześć znaków**, a wartość bieżnika to trzy („6.5").
+Etykiety mieściły się w jednej linii. Zmiana została cofnięta.
+
+W tej samej turze przemiat dał dziewięć trafień. Po obejrzeniu każdego zostały
+trzy, po zmierzeniu — **jedna**.
+
+**Zanim zmienisz układ, zmierz i zapisz liczbę:**
+
+```js
+element.getBoundingClientRect().width          // ile realnie ma miejsca
+Math.round(rect.height / lineHeight)           // na ile linii łamie się tekst
+Math.floor(dostepne / ctx.measureText('8').width)  // ile znaków wejdzie
+```
+
+Uzasadnienie bez liczby jest hipotezą, nie diagnozą. Liczba idzie do commita
+i do komentarza w kodzie — także wtedy, gdy każe zostawić rzeczy takie, jakie
+są. Komentarz z pomiarem przy niezmienionym kodzie oszczędza następnej osobie
+tej samej rundy.
+
+⚠️ W tej przeglądarce `resize_window` **nie zmienia `innerWidth`**, więc
+punktów granicznych (`sm:`, `md:`) nie da się wywołać. Mierz na wymuszonej
+szerokości kontenera albo odsłaniaj gałąź wstrzykniętym `!important` — patrz
+lista niżej.
+
+### 🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA
+
+W jednej sesji (13.09.2026) **pięć razy** wynik był zielony, bo narzędzie nie
+działało — a nie dlatego, że kod był dobry. To nie jest przypadek, tylko
+najkosztowniejszy wzorzec w tym repozytorium: **fałszywe potwierdzenie kosztuje
+więcej niż brak potwierdzenia**, bo po nim się nie sprawdza dalej.
+
+Zanim uwierzysz zielonemu wynikowi, zepsuj coś celowo i sprawdź, czy narzędzie
+to zauważy. Poniżej znane przypadki — każdy wyszedł drogo.
+
+| narzędzie | jak kłamie | jak to poznać | co robić |
+|---|---|---|---|
+| **`npx tsc --noEmit`** | kod wyjścia 0 nad plikiem z niedomkniętym JSX — główny `tsconfig.json` ma `"files": []` i same `references`, więc sprawdza PUSTY ZBIÓR | usuń tag zamykający, wynik nadal 0 | **zawsze `npm run typecheck`** (to samo, co CI) |
+| **`… \| tail`, `… \| head`, `… \| grep`** | `$?` po potoku to kod OSTATNIEGO polecenia, nie tego, które sprawdzasz. `polecenie \| tail -3; echo "OK: $?"` wypisze `OK: 0`, choć polecenie padło | `echo` z `$?` zaraz po potoku pokazuje 0 zawsze | **`polecenie > /tmp/log 2>&1; echo $?`**, dopiero potem czytaj plik |
+| **`pg_proc.prosrc` + `LIKE`** | `prosrc` to ciało RAZEM z komentarzami, więc wzorzec trafia w zdanie mówiące, że tego wzorca NIE MA | funkcja z komentarzem „BEZ `deleted_at IS NULL`" pasuje do `LIKE '%deleted_at IS NULL%'` | najpierw **zachowanie** (zapisz i sprawdź), potem `sprawdz_dryf_funkcji.py`, `LIKE` na końcu i z `regexp_replace(prosrc, '--[^\n]*', '', 'g')` |
+| **ESLint na pliku spoza projektu** | płaska konfiguracja dopasowuje reguły po ścieżce; plik w `/tmp` nie łapie się na `files: ["**/*.{ts,tsx}"]` i lint milczy nad kodem, o którym wiadomo, że jest zły | kontrola pozytywna nie zapala się | `lintText` ze ścieżką **wewnątrz** `src/` |
+| **Migracja z „Success"** | krok na danych (`CREATE UNIQUE INDEX`, `ADD CONSTRAINT`) cofa w tej samej transakcji krok z kodem (`CREATE OR REPLACE FUNCTION`) — a wynik wygląda na sukces | funkcja w bazie jest stara mimo zielonego przebiegu | **rozdziel migracje**: funkcje, dane, więzy. Dowodem jest SKUTEK z osobnego uruchomienia |
+| **Karta prowadzona przez rozszerzenie** | `document.visibilityState === "hidden"`, więc animacje CSS nie chodzą i `animationend` nie pada. Wszystko, co odmontowuje się po animacji wyjścia, ZOSTAJE w DOM — wygląda jak usterka | `data-state="closed"`, a węzeł nadal w drzewie | sprawdź `document.visibilityState` i **porównaj z wersją SPRZED zmiany w tym samym przebiegu** |
+| **`auth.audit_log_entries`** | nie ma tam nieudanych logowań ani adresów IP — brak wpisów NIE dowodzi, że nikt nie próbował | `ip_address` puste dla wszystkich wierszy | obecność `login`/`token_refreshed` dowodzi, że auth DZIAŁA; braku nie interpretuj |
+| **`count(*)` na tabeli** | zero wierszy nie znaczy „nieużywana" — znaczy tylko „nikt jeszcze nie zapisał" | tabela z 0 wierszy, na której stoi 12 plików frontu | sprawdź TRZY sygnały: dane, kod (`.from('…')`), więzy (`pg_constraint` w obie strony) |
+| **Zielony KSeF** | schemat FA(3) przyjmie fakturę merytorycznie wadliwą, nada numer i wystawi UPO | cena jednostkowa z ułamkiem grosza przechodzi walidację | zgodność z XSD i zgodność z prawem to DWA różne sprawdzenia |
+| **Zestaw samych odmów** | gdy podkład jest zepsuty, baza odmawia wszystkiego, a test pytający „czy odmówiono" wypada zielono | żaden przypadek nie kończy się sukcesem | każdy zestaw ma zawierać operację, która MA się udać, i liczyć dotknięte wiersze |
+| **`EXCEPTION WHEN … OR …`** | jeden blok łapiący `insufficient_privilege` RAZEM z `check_violation` nie odróżnia ODMOWY od ZŁEGO KSZTAŁTU DANYCH. `coin_transactions` odczytane jako bezpieczne, choć polityka przepuszczała zapis do księgi monet | „ODMOWA" przy danych, które i tak były niepoprawne | zapisz i porównaj **`SQLSTATE`**: `42501` to odmowa, `23502`/`23514` znaczą, że polityka POZWOLIŁA |
+| **Pusty obiekt jako test RLS** | `NOT NULL` sprawdza się PRZED polityką, więc `INSERT {}` daje `23502` niezależnie od tego, czy polityka przepuszcza. Przemiat dwunastu tabel „bez odmów" był z tego powodu bez wartości | wszystkie wyniki to `23502` | wysyłaj **komplet poprawnych danych**; dopiero wtedy odpowiada polityka |
+| **`Prefer: return=representation`** | `INSERT … RETURNING` podlega politykom **SELECT**, nie INSERT. Zapis przechodzi, a odczyt zaraz po nim wywraca się na `42501` — i wygląda, jakby zapis był zablokowany | ten sam `INSERT` z `return=minimal` daje 201, z `representation` 401 | testuj obiema formami; w kodzie nie proś bazy o wiersz, który sam ulepiłeś |
+| **`resize_window` w Chrome pod rozszerzeniem** | melduje sukces, `outerWidth` się zmienia, ale **`innerWidth` zostaje** — strona renderuje się w stałej szerokości. Każdy test punktu granicznego (`md:`, `sm:`) jest w tym środowisku nieważny | `resize_window(390)` → `innerWidth` nadal 1246 | sprawdzaj `window.innerWidth` po zmianie; gałąź mobilną odsłaniaj wstrzykniętym `!important`, a nie szerokością okna |
+| **Zmiana układu „bo na telefonie się nie zmieści"** | oko na zrzucie z szerokiego ekranu nie mówi nic o wąskim. Cztery pola bieżnika „wyglądały na ściśnięte" — pomiar dał 80 px i **sześć znaków** przy wartości trzyznakowej | brak liczby w uzasadnieniu | zmierz: szerokość elementu, liczbę linii tekstu, ile znaków się mieści. Bez liczby to nie jest naprawa, tylko przemeblowanie |
+| **zsh nie dzieli niecytowanej zmiennej** | `LISTA="a b c"; for f in $LISTA` daje JEDEN element `"a b c"`, nie trzy. Pętla porównująca SHA porównała dwa NIEISTNIEJĄCE pliki i wypisała ✅ | jedna linia wyniku zamiast dziesięciu; nazwa „pliku" jest sklejeniem całej listy | używaj tablicy: `LISTA=(a b c); for f in "${LISTA[@]}"`. I **każda kontrola porównująca pliki ma padać, gdy pliku nie ma** — `[ -f "$a" ] \|\| { echo BRAK; exit 1; }` przed porównaniem |
+
+**Reguła nadrzędna: każda bramka, kontrola i test w tym repozytorium ma mieć
+własną kontrolę pozytywną** — przypadek, o którym wiadomo, że jest zły, i który
+MUSI zapalić. Bez niej zielony wynik nie znaczy nic. `scripts/sprawdz-haki.mjs`
+robi to jako pierwszy krok i przy pierwszym uruchomieniu ta kontrola padła.
+
+### `npx tsc --noEmit` NIE SPRAWDZA NICZEGO — używaj `npm run typecheck`
+
+Główny `tsconfig.json` ma `"files": []` i wyłącznie `references` do
+`tsconfig.app.json` i `tsconfig.node.json`. Gołe `tsc --noEmit` w katalogu
+projektu przechodzi więc **zawsze**, także nad plikiem z niedomkniętym JSX:
+
+```
+npx tsc --noEmit      → kod wyjścia 0 przy `<span>` bez `</span>`
+npm run typecheck     → error TS17008: JSX element 'span' has no closing tag
+```
+
+13.09.2026 kosztowało to całą rundę fałszywych „TYPY OK" — kilkanaście razy
+w jednej sesji, na podstawie ciszy narzędzia, które nie patrzyło na kod.
+
+**Jedyna poprawna komenda to `npm run typecheck`** (to samo uruchamia CI).
+Jeśli chcesz sprawdzić pojedynczy projekt: `tsc --noEmit -p tsconfig.app.json`.
+
+Ta sama zasada co przy bramkach: zanim uwierzysz zielonemu wynikowi, zepsuj
+coś celowo i sprawdź, czy narzędzie to zauważy. Tutaj wystarczy usunąć jeden
+tag zamykający.
+
+### KSeF sprawdza XML, nie prawo podatkowe
+
+Schemat FA(3) przyjmie fakturę merytorycznie wadliwą, nada jej numer i wystawi
+UPO. Zielone KSeF **nie jest** dowodem poprawności dokumentu.
+
+Przykład, na którym to wyszło (13.09.2026): `P_9A` (cena jednostkowa netto) ma
+w FA(3) typ `TKwotowy2` z ośmioma miejscami po przecinku. Tymczasem Dyrektor KIS
+(interpretacje 12.2025 i 08.2026) rozstrzygnął, że **cena jednostkowa netto
+w złotych z dokładnością większą niż dwa miejsca jest niedopuszczalna** — złoty
+nie ma nominału mniejszego niż grosz. Faktura z ceną 0,3450 zł przeszłaby przez
+KSeF i byłaby wadliwa.
+
+Przy zmianach w generatorze faktur trzeba więc sprawdzić DWIE rzeczy osobno:
+
+| pytanie | czym sprawdzić |
+|---|---|
+| czy KSeF to przyjmie | walidacja XSD / wysyłka na `integration` |
+| czy dokument jest zgodny z prawem | ustawa o VAT art. 106e + interpretacje |
+
+Drugie nie wynika z pierwszego. Wskazane przez KIS wyjście przy cenach poniżej
+grosza to **zmiana jednostki miary** — sprzedaż w paczkach, nie zwiększanie
+liczby miejsc po przecinku.
+
+### Hak po wczesnym `return` przewraca widok DOPIERO U KLIENTA
+
+13.09.2026 klienci, kierowcy i pracownicy warsztatów nie mogli wejść do systemu.
+Jeden objaw („Ten widok się nie wczytał"), dwie niezależne przyczyny tej samej
+klasy — hak wywołany ZA wczesnym `return`.
+
+**Numer w komunikacie mówi, w którą stronę:**
+
+| kod | znaczenie | kiedy widać |
+|---|---|---|
+| **#300** | „Rendered fewer hooks than expected" | wyjście POJAWIŁO się między renderami |
+| **#310** | „Rendered more hooks than during the previous render" | wyjście PRZESTAŁO obowiązywać |
+
+**#310 jest podstępniejszy, bo u nas nie wystąpi.** Pierwszy render kończy się
+na `if (loading) return <spinner/>` i haków niżej nie ma. Drugi, po wczytaniu
+danych, idzie dalej i odpala je wszystkie — React dostaje ich nagle więcej
+i przewraca widok. Deweloper z gotowymi danymi w pamięci podręcznej może tego
+nie zobaczyć ani razu.
+
+Trzy różne zgłoszenia okazały się przy tym JEDNYM miejscem plus jednym drugim:
+`Auth.tsx` po zalogowaniu kieruje na `/klient` **każdego, kto nie ma pasującej
+roli** — więc klient i pracownik warsztatu lądowali w tym samym padającym
+komponencie. „Trzy widoki, jeden błąd" znaczyło „jeden cel, nie jeden komponent".
+
+**Bramka:** `npm run test:haki` (`scripts/sprawdz-haki.mjs`, zadanie w CI).
+Reguła `react-hooks/rules-of-hooks` jest na zerze, więc bramka jest twarda —
+w odróżnieniu od pełnego `npm run lint`, który ma ponad cztery tysiące błędów
+i jako bramka uczyłby tylko ignorowania siebie.
+
+Bramka ma WŁASNĄ kontrolę pozytywną i przy pierwszym uruchomieniu ta kontrola
+PADŁA: kod kontrolny leżał w `/tmp`, a płaska konfiguracja ESLint dopasowuje
+reguły po ścieżce, więc plik spoza projektu nie łapał się na
+`files: ["**/*.{ts,tsx}"]`. Bramka milczała nad kodem, o którym wiadomo, że jest
+zły. Stąd `lintText` ze ścieżką wewnątrz `src/`.
+
+### Błąd renderowania ma zostawić ślad W BAZIE, nie w konsoli klienta
+
+`console.error` zostaje w przeglądarce tego, komu się wywróciło. Ustalenie
+przyczyny #310 zajęło dwie rundy pytań o zrzut ekranu, przy ludziach, którzy
+w tym czasie nie mogli pracować.
+
+`AppErrorBoundary` zapisuje teraz do `bledy_widoku`: ścieżkę, role, nazwę
+komponentu i treść błędu. Role są tam nie dla ozdoby — „nie działa klientom"
+i „nie działa kierowcom" to dwa różne zgłoszenia i bez ról nie da się ich
+rozróżnić.
+
+Zapis wymaga zalogowania i obejmuje tylko własny wiersz. Tabela zapisywalna
+przez `anon` to zaproszenie do zapchania bazy, a ta klasa usterek z definicji
+dotyczy zalogowanych.
+
+### Odczyt treści funkcji łapie KOMENTARZE — rozstrzyga uruchomienie
+
+`pg_proc.prosrc` to ciało funkcji **razem z komentarzami**. Zapytanie o wzorzec
+trafia więc także w zdanie, które mówi, że tego wzorca NIE MA:
+
+```sql
+-- ta kontrola zwraca TRUE dla POPRAWNEJ wersji funkcji
+SELECT prosrc LIKE '%deleted_at IS NULL%' FROM pg_proc
+WHERE proname = 'prevent_duplicate_invoice_number';
+```
+
+…bo poprawna wersja zawiera linię:
+
+```
+-- BEZ `AND deleted_at IS NULL` — numer skasowanej faktury pozostaje ZAJĘTY.
+```
+
+13.09.2026 na tej podstawie uznaliśmy, że migracja nie weszła. Weszła.
+
+**To trzeci raz w tym projekcie, gdy odczyt mylił, a uruchomienie rozstrzygało**
+(wcześniej: `deduct_sms_credit` uznana za cofniętą przez złą heurystykę grep,
+`prevent_duplicate_invoice_number` uznana za nadpisaną przez kogoś). Za każdym
+razem prawdziwa odpowiedź wyszła z WYKONANIA, nie z czytania.
+
+Kolejność, w jakiej się pyta o stan funkcji:
+
+1. **zachowanie** — zapisz coś i sprawdź, czy baza się zachowała jak trzeba
+   (przy `INSERT`/`UPDATE` licz wiersze albo łap wyjątek, nie ufaj brakowi błędu),
+2. **porównanie treści z migracją** — `scripts/sql-harness/sprawdz_dryf_funkcji.py`,
+   które normalizuje komentarze i białe znaki,
+3. **`LIKE` po `prosrc`** — ostatnia deska ratunku, i wtedy z odsianiem
+   komentarzy: `regexp_replace(prosrc, '--[^\n]*', '', 'g')`.
+
+### Supabase NIE zapisuje nieudanych logowań ani adresów IP
+
+`auth.audit_log_entries` zawiera wyłącznie: `login`, `logout`, `token_refreshed`,
+`token_revoked`, `user_signedup`, `user_recovery_requested`, `user_modified`.
+Kolumna `ip_address` jest **pusta**.
+
+Czego się stamtąd NIE dowiesz:
+- ile było prób z błędnym hasłem i czyich,
+- czy ktoś wpadł na limit prób z jednego adresu,
+- z jakiego adresu ktokolwiek się łączył.
+
+Co z tego wynika przy zgłoszeniu „nie mogę się zalogować": obecność wpisów
+`login` i `token_refreshed` dla danego konta **dowodzi, że uwierzytelnianie
+działa**, i przenosi poszukiwania na to, co dzieje się PO zalogowaniu. Brak
+wpisów nie dowodzi niczego — nieudanej próby i tak by tam nie było.
 
 ### Sprawdzanie w przeglądarce: karta sterowana narzędziem jest UKRYTA
 

@@ -18,6 +18,14 @@ import { ReferralCapture } from "@/components/ReferralCapture";
 import { PwaUpdater } from "@/components/PwaUpdater";
 
 import { OnboardingWidget } from "@/components/onboarding";
+// Zgody na cookies — CAŁY portal, nie tylko strona główna. Poprzedni baner
+// siedział w `Index.tsx`, więc ktokolwiek wchodził z linku na ogłoszenie
+// albo do panelu, nie widział go nigdy.
+import { ZgodyCookies } from "@/components/ZgodyCookies";
+// Analityka — piksel Meta i GA4 w JEDNYM miejscu. Każde pilnuje swojej zgody,
+// oba śledzą zmiany tras (aplikacja jednostronicowa: bez tego widać tylko
+// wejścia na stronę główną). Poza produkcją nie wysyłają nic.
+import { Analityka } from "@/components/Analityka";
 import { useUISettings } from "@/hooks/useUISettings";
 import { useDynamicTranslations } from "@/hooks/useDynamicTranslations";
 import { useDisableNumberInputScroll } from "@/hooks/useDisableNumberInputScroll";
@@ -324,6 +332,9 @@ const App = () => (
               <SupportChatWidget />
               {/* Global Onboarding Widget */}
               <OnboardingWidget />
+              {/* Zgody na cookies — pasek na dole, na każdej trasie */}
+              <ZgodyCookies />
+              <Analityka />
             </CompareProvider>
             </ZakupProvider>
             </QuotaGuardProvider>

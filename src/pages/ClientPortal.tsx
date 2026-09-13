@@ -126,6 +126,21 @@ export default function ClientPortal() {
   const [accountingSubTab, setAccountingSubTab] = useState('przeglad');
   const [settingsSubTab, setSettingsSubTab] = useState<'firma' | 'konto' | 'powiadomienia' | 'preferencje' | 'ksef'>('firma');
   const { count: ksefUnread, markAllRead: markKsefRead } = useKsefUnreadCount();
+  /**
+   * 🔴 TEN HAK MUSI STAĆ PRZED `if (loading) return` NIŻEJ.
+   *
+   * Stał ZA nim (przy budowaniu listy zakładek) i to była przyczyna błędu
+   * React #310 „Rendered more hooks than during the previous render" na
+   * `/klient`. Pierwszy render kończył się na spinnerze i nie dochodził tutaj;
+   * drugi, po wczytaniu danych, szedł dalej i odpalał hak, którego w pierwszym
+   * nie było. React liczy haki po kolejności, więc dostawał ich nagle więcej
+   * i przewracał cały widok — klient widział „Ten widok się nie wczytał".
+   *
+   * Numer w komunikacie jest mylący: #300 to „mniej haków" (klasyczny hak po
+   * wczesnym wyjściu), a #310 to „WIĘCEJ" — czyli wczesne wyjście, które
+   * PRZESTAŁO obowiązywać. Objawia się dopiero po zalogowaniu, nigdy przed.
+   */
+  const { wlaczony: programPolecen } = useProgramPolecen();
   
   // Account types
   const [isDriverAccount, setIsDriverAccount] = useState(false);
@@ -573,8 +588,6 @@ export default function ClientPortal() {
     // Fallback to email username
     return userData?.email?.split('@')[0] || t('cp.userFallback');
   };
-
-  const { wlaczony: programPolecen } = useProgramPolecen();
 
   // Build tabs dynamically - Księgowość only for users with company setup, Ulubione moved to Ogłoszenia
   const mainTabs = [
