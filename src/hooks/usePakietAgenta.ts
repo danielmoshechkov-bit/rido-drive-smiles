@@ -28,7 +28,7 @@ export function usePakietAgenta() {
     staleTime: 30 * 1000,
     queryFn: async () => {
       const { data: u } = await supabase.auth.getUser();
-      if (!u?.user) return false;
+      if (!u?.user) return { maPakiet: false, wygaslo: null };
 
       // Warsztat ustalamy tak samo jak wszędzie indziej: najstarszy konta.
       const { data: sp } = await supabase
@@ -38,7 +38,7 @@ export function usePakietAgenta() {
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle();
-      if (!sp?.id) return false;
+      if (!sp?.id) return { maPakiet: false, wygaslo: null };
 
       /**
        * 🔴 OSADZENIE MUSI WSKAZAĆ KLUCZ OBCY Z NAZWY.
