@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       .select(
         "id, subscriber_id, status, provider_subscription_id, price_guarantee_until, " +
           "price_guarantee_notified_at, price_target_applied_at, price_snapshot, " +
-          "plan:billing_plans(id, code, name, price_net, price_net_target, vat_rate, " +
+          "plan:billing_plans!billing_subscriptions_plan_id_fkey(id, code, name, price_net, price_net_target, vat_rate, " +
           "stripe_price_id, stripe_price_id_target, stripe_price_id_rok, stripe_price_id_rok_target)",
       )
       .eq("provider", "stripe")

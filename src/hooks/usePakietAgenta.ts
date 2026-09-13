@@ -41,38 +41,29 @@ export function usePakietAgenta() {
       if (!sp?.id) return false;
 
       /**
-       * 🔴 PYTAMY O PLAN, NIE O KOLUMNĘ `product_line`.
+       * 🔴 OSADZENIE MUSI WSKAZAĆ KLUCZ OBCY Z NAZWY.
        *
-       * Naturalne byłoby zawołać `moze_pracowac(warsztat, 'agent')` — tej samej
-       * funkcji używa bramka na serwerze. Nie robimy tego, bo ona czyta
-       * `billing_subscriptions.product_line`, a webhook Stripe TEJ KOLUMNY NIE
-       * USTAWIA przy pierwszym zakupie: buduje wiersz bez niej, a kolumna ma
-       * wartość domyślną `'other'`. Pierwszy w historii zakup pakietu Agent
-       * poszedłby właśnie tą ścieżką i panel po opłaceniu dalej pokazywałby
-       * ofertę.
+       * `billing_subscriptions` ma DWA klucze obce do `billing_plans`:
+       * `plan_id` i `plan_od_nastepnego_okresu`. Przy zapisie
+       * `plan:billing_plans(...)` PostgREST nie wie, o który chodzi, i odsyła
+       * **HTTP 300 / PGRST201** — czyli `error`, czyli `return false` niżej,
+       * czyli OFERTA MIMO OPŁACONEGO PAKIETU. Bez żadnego objawu w bazie:
+       * subskrypcja jest, minuty są, panel pokazuje cennik.
        *
-       * Linia produktowa jest własnością PLANU i tam jest zawsze prawdziwa.
-       * Pytamy więc przez złączenie z `billing_plans` — to działa niezależnie
-       * od tego, czy ktoś kiedyś wypełni tę kolumnę.
+       * Tak było 13.09.2026 przy pierwszym prawdziwym zakupie Agenta kartą.
+       * Sprawdzone zachowaniem, nie odczytem: to samo zapytanie z jawnym
+       * kluczem zwraca 200, bez klucza 300.
        *
-       * (Kolumnę `product_line` ustawia wyzwalacz w bazie — sprawdzone; ten
-       * zapis i tak jest odporny na jej stan, więc zostaje.)
+       * To jest pułapka nr 4 z CLAUDE.md: druga kolumna klucza obcego do tej
+       * samej tabeli unieważnia KAŻDE zagnieżdżenie po tej relacji. Reszta
+       * kodu nazywa więz (`billing-stripe-webhook` robi to od początku) — te
+       * dwa haki nie nazywały, i dlatego pierwszy prawdziwy zakup skończył się
+       * ofertą zamiast ustawień.
        *
-       * ═══════════════════════════════════════════════════════════════════════
-       * 🔴 KLUCZ OBCY MUSI BYĆ NAZWANY (naprawione 13.09.2026)
-       * ═══════════════════════════════════════════════════════════════════════
-       * Stało tu `billing_plans!inner(...)` bez nazwy więzu. Z tabeli
-       * `billing_subscriptions` prowadzą do `billing_plans` DWA klucze obce —
-       * `plan_id` i `plan_od_nastepnego_okresu` — więc PostgREST nie ma jak
-       * rozstrzygnąć, po którym złączyć, i odsyła `PGRST201` zamiast danych.
-       *
-       * Skutek: warsztat OPŁACIŁ pakiet, subskrypcja stanęła w bazie jako
-       * `active`, a panel dalej pokazywał ofertę — bo to zapytanie NIGDY nie
-       * zwracało wiersza, tylko błąd, a błąd czytamy jako „nie ma pakietu".
-       *
-       * To jest pułapka nr 4 z CLAUDE.md: druga kolumna FK do tej samej tabeli
-       * unieważnia każde zagnieżdżenie po tej relacji. Reszta kodu nazywa więz
-       * (`billing_stripe-webhook` robi to od początku) — ten jeden nie nazywał.
+       * Pytamy o linię produktową PLANU, nie o kolumnę `product_line` na
+       * subskrypcji, choć wyzwalacz `trg_billing_subscriptions_product_line`
+       * ją wypełnia. Powód jest jeden: linia jest własnością planu i tam jest
+       * prawdziwa zawsze, także dla wierszy starszych od wyzwalacza.
        */
       const { data: subskrypcje, error } = await (supabase as any)
         .from('billing_subscriptions')

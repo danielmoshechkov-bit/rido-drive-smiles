@@ -26,6 +26,7 @@
     "test:front": "node scripts/test-front.mjs",
     "test:haki": "node scripts/sprawdz-haki.mjs",
     "test:capi": "node scripts/sprawdz-lancuch-capi.mjs",
+    "test:osadzenia": "node scripts/sprawdz-osadzenia.mjs",
     "test:bramki": "node scripts/test-bramki-jwt.mjs"
   },
   "dependencies": {
