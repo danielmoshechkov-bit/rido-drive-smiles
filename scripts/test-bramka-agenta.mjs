@@ -38,6 +38,16 @@ sprawdz(/usePublicPricing/.test(oferta) && /usePubliczneDoladowania/.test(oferta
 sprawdz(!/199|399|1[,.]15/.test(oferta.replace(/\/\*[\s\S]*?\*\//g, '')),
   'zadnej ceny wpisanej na sztywno w widoku sprzedazowym');
 sprawdz(/usePlanAction/.test(oferta), 'przycisk zakupu idzie ta sama droga co cennik');
+sprawdz(!/probka|Posluchaj|Posłuchaj|Audio\(/.test(oferta),
+  'brak odsluchu w ofercie — demo idzie osobna droga, nie synteza za nasze kredyty');
+sprawdz(!/Doładowanie minut/.test(oferta) && /Po wykorzystaniu pakietu/.test(oferta),
+  'stawka po wyczerpaniu jest NA KARCIE pakietu, bez osobnej sekcji');
+sprawdz(/zarezerwowany/.test(oferta) && /voice_numbers/.test(oferta),
+  'wygasla subskrypcja mowi, ile dni numer jest jeszcze trzymany');
+sprawdz(/Przetwarzamy płatność/.test(oferta) && /platnosc/.test(oferta),
+  'po powrocie z bramki widac stan przejsciowy, a nie znowu cennik');
+sprawdz(/invalidateQueries/.test(oferta) && /pakiet-agenta/.test(oferta),
+  'stan przejsciowy sam dopytuje o pakiet i przelacza widok bez odswiezania');
 
 console.log(bledy ? `\n${bledy} BLEDOW` : '\nBRAMKA AGENTA: wszystko przeszlo');
 process.exit(bledy ? 1 : 0);

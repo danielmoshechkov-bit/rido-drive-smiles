@@ -7,6 +7,34 @@ Spisane 10.09.2026.
 
 ---
 
+## 0. Demo agenta na numerze CART78GARAGE
+
+Landing agenta dla wszystkich branż, z numerem demonstracyjnym, pod który
+każdy może zadzwonić. Zamiast odsłuchu w panelu — prawdziwa rozmowa.
+
+Zabezpieczenia do zaprojektowania **przed** uruchomieniem, bo każda rozmowa
+kosztuje nas minuty u ElevenLabs:
+
+- najwyżej 2 rozmowy z jednego numeru dzwoniącego,
+- limit dzienny na cały numer (rząd 50 rozmów),
+- rozłączanie przy ciszy.
+
+**Rozłączanie przy ciszy JUŻ DZIAŁA i jest globalne:**
+`conversation_config.turn.silence_end_call_timeout = 20 s` (zapisane
+w `docs/voice-agent-status.md`, pilnowane przez złoty stan i
+`scripts/voice-restore-golden.mjs`).
+
+⚠️ Ale to nie znaczy, że cisza jest darmowa. Naliczanie zaokrągla **w górę do
+pełnych minut**, więc rozmowa, w której klient milczy przez 20 sekund, kosztuje
+warsztat CAŁĄ MINUTĘ. Przy demo na naszym numerze zapłacimy za to my. Przy
+zwykłym warsztacie płaci on — i nie wie za co, bo w historii zobaczy rozmowę
+bez ani jednego zdania.
+
+Do rozstrzygnięcia razem z demem: czy rozmowa bez wypowiedzi klienta ma się
+w ogóle naliczać.
+
+---
+
 ## 1. Cennik obiecuje limity, których system nie pilnuje
 
 > **„Cennik obiecuje limity, których system nie pilnuje. Darmowy plan mówi
