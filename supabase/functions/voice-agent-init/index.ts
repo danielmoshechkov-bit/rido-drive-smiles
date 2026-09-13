@@ -31,7 +31,11 @@ import { getPhase1Secret } from "../_shared/voicePhase1SecretReader.ts";
 import {
   cenaDoWypowiedzenia, czasDoWypowiedzenia, czasUslugi, hhmm, kluczDnia, minuty, ostatniStart,
   wolneGodziny, zbudujDni, godzinaDoWypowiedzenia, type GodzinyDnia, type Usluga,
+  doZaproponowania,
 } from "../_shared/voiceSnapshot.ts";
+import { dopasowanieUslugi } from "../_shared/voiceDopasowanie.ts";
+import { rozpoznajWarsztat } from "../_shared/voiceRozpoznanieWarsztatu.ts";
+import { wybierzKonfiguracjeWarsztatu } from "../_shared/voicePersona.ts";
 // ANGIELSKI — OSOBNY MODUŁ, DOKŁADANY OBOK. Moduł polski zostaje nietknięty:
 // ma 22 asercje i trzy dni poprawek za sobą, a uogólnianie go na drugi język
 // znaczyłoby przepisanie kodu sprawdzonego na produkcji dla języka, który
@@ -172,6 +176,22 @@ serve(async (req) => {
     ?? (body as Record<string, unknown>)?.from_number ?? "";
   const callerId = tylkoCyfry(callerRaw);
 
+  // JAKIE POLA W OGOLE DOSTAJEMY OD PLATFORMY.
+  //
+  // Architektura multi-tenancy zalezy od tego, czy webhook inicjujacy niesie
+  // NUMER, NA KTORY klient zadzwonil. Diversion od SuperVoIP nie przychodzi
+  // (sprawdzone 17.08 na dziewieciu rozmowach), wiec numer docelowy jest
+  // jedynym kandydatem na rozpoznanie warsztatu. Logujemy KLUCZE, nie
+  // wartosci — numery telefonu nie maja prawa trafic do logu.
+  console.info("[voice-agent-init]", JSON.stringify({
+    event: "pola_webhooka",
+    klucze: Object.keys((body as Record<string, unknown>) || {}),
+    ma_called_number: (body as Record<string, unknown>)?.called_number != null,
+    ma_agent_number: (body as Record<string, unknown>)?.agent_number != null,
+    ma_to_number: (body as Record<string, unknown>)?.to_number != null,
+    klucze_call: Object.keys(((body as Record<string, Record<string, unknown>>)?.call) || {}),
+  }));
+
   // Pusty snapshot to POPRAWNA odpowiedź, nie awaria. Agent wraca wtedy do
   // check_availability i do „wycenimy po obejrzeniu auta".
   const pusty = (powod: string) => {
@@ -192,13 +212,177 @@ serve(async (req) => {
   };
 
   try {
+    // POWÓD PUSTEGO SNAPSHOTU. Jedna etykieta na trzy różne sytuacje jest
+    // diagnostycznym kłamstwem: „przekroczony budżet 300 ms albo brak
+    // konfiguracji agenta" mówiło o progu, którego od dawna nie ma, i zlewało
+    // timeout z nieznanym numerem. Pusty snapshot z KAŻDEGO z tych powodów
+    // wygląda w słuchawce tak samo — w logu nie ma prawa.
+    let powodPustego: string | null = null;
     const zbuduj = async () => {
-      const { data: cfg } = await admin.from("voice_agent_configs")
-        .select("provider_id, persona_key")
-        .eq(agentId ? "elevenlabs_agent_id" : "persona_key", agentId || "workshop_secretary")
-        .limit(1);
-      const providerId = cfg?.[0]?.provider_id as string | undefined;
-      if (!providerId) return null;
+      // KTÓRY WARSZTAT ODBIERA. Numer, NA KTÓRY zadzwoniono, ma pierwszeństwo
+      // przed `agent_id` — agent jest wspólny dla wszystkich warsztatów i mówi
+      // tylko, która persona odbiera. Fallback na `agent_id` zostaje, dopóki
+      // log nie pokaże, że nikt już tędy nie chodzi.
+      const rozpoznanie = await rozpoznajWarsztat(
+        body as Record<string, unknown>,
+        async (numer) => {
+          const { data, error } = await admin.from("voice_numbers")
+            .select("provider_id").eq("phone_number", numer).eq("status", "aktywny").limit(1);
+          // Błąd odczytu NIE MOŻE wyglądać jak „numeru nie ma" — to po cichu
+          // przełączyłoby rozmowę na fallback i podało CUDZY snapshot.
+          if (error) {
+            console.error("[voice-agent-init] odczyt voice_numbers nieudany:", error.code, error.message);
+            throw error;
+          }
+          return (data?.[0]?.provider_id as string | undefined) ?? null;
+        },
+        async () => {
+          const { data: cfg } = await admin.from("voice_agent_configs")
+            .select("provider_id, persona_key")
+            .eq(agentId ? "elevenlabs_agent_id" : "persona_key", agentId || "workshop_secretary")
+            .limit(1);
+          return (cfg?.[0]?.provider_id as string | undefined) ?? null;
+        },
+      );
+      console.info("[voice-agent-init]", JSON.stringify({
+        event: "rozpoznanie_warsztatu",
+        droga: rozpoznanie.droga,
+        ma_numer: rozpoznanie.numer != null,   // numer DZWONIĄCEGO nie trafia do logu nigdy
+        warsztat: rozpoznanie.providerId ? "jest" : "brak",
+      }));
+      if (rozpoznanie.droga === "nieznany_numer") {
+        // TU NUMER WYPISUJEMY W CAŁOŚCI — i jest to świadomy wyjątek.
+        // To numer DOCELOWY, czyli nasz albo niczyj: numer firmowy, nie dane
+        // osobowe dzwoniącego. Bez niego wiemy tylko, że „ktoś zadzwonił pod
+        // nieznany numer", a to zdanie nic nie daje. Z nim wiemy, czy to
+        // pomyłka klienta, czy numer, który kupiliśmy i zgubiliśmy.
+        console.warn("[voice-agent-init]", JSON.stringify({
+          event: "polaczenie_na_nieznany_numer",
+          numer: rozpoznanie.numer,
+          skutek: "pusty snapshot — fallback zakazany, zeby nie podac cudzych danych",
+        }));
+      }
+      const providerId = rozpoznanie.providerId ?? undefined;
+      if (providerId) {
+        // WYŁĄCZNIK WARSZTATU MA DZIAŁAĆ NAPRAWDĘ.
+        //
+        // Do 16.08 `is_active` nie było czytane przez nikogo: warsztat wyłączał
+        // agenta, widział wyłączony przełącznik i był przekonany, że telefon
+        // nie jest odbierany — a agent odbierał i umawiał wizyty. Pole, które
+        // kłamie o stanie, jest gorsze niż brak pola.
+        //
+        // Wyłączony agent NIE PRZESTAJE ODBIERAĆ (tego nie umiemy z poziomu
+        // webhooka), tylko dostaje snapshot z jednym zdaniem do powiedzenia.
+        // WSZYSTKIE wiersze warsztatu, nie `limit(1)`.
+        //
+        // `limit(1)` bez sortowania oddaje wiersz, który baza akurat ma pod
+        // ręką. Gdy warsztat ma dwa wiersze (patrz voicePersona.ts), rzut
+        // monetą decydował, czy agent jest włączony. Wierszy są jednostki,
+        // więc odczyt całości nic nie kosztuje, a wynik przestaje zależeć
+        // od fizycznej kolejności w tabeli.
+        const { data: wiersze, error: stanErr } = await admin.from("voice_agent_configs")
+          .select("persona_key, is_active, business_context, max_rozmow_rownoczesnie")
+          .eq("provider_id", providerId);
+        if (stanErr) {
+          console.error("[voice-agent-init] odczyt is_active nieudany:", stanErr.code, stanErr.message);
+          throw stanErr;
+        }
+        // BRAK KONFIGURACJI = WYŁĄCZONY, ale tylko na ścieżce „po numerze".
+        //
+        // Warsztat, który aktywował numer i nigdy nie zapisał ustawień, nie ma
+        // wiersza w `voice_agent_configs`. Pierwsza wersja tego warunku
+        // (`stan?.[0] && is_active === false`) traktowała taki przypadek jak
+        // agenta WŁĄCZONEGO — czyli panel pokazywałby „Wyłączony", a telefon
+        // byłby odbierany. To ta sama nieprawda, którą właśnie naprawiliśmy,
+        // wchodząca innymi drzwiami.
+        //
+        // Domyślną odpowiedzią na brak danych jest ODMOWA (zasada 41).
+        // Wyjątek dla ścieżki `agent_id`: tam brak wiersza znaczy „stara
+        // konfiguracja", a nie „nowy warsztat" — i nie wolno nam zabrać
+        // obsługi komuś, kto ją dziś ma.
+        const stan = wybierzKonfiguracjeWarsztatu(wiersze);
+        const brakKonfiguracji = !stan;
+        const wylaczonyPrzezWarsztat = brakKonfiguracji
+          ? rozpoznanie.droga === "numer"
+          : stan.is_active === false;
+        if (wylaczonyPrzezWarsztat) {
+          const bc = (stan?.business_context ?? {}) as Record<string, unknown>;
+          const zdanie = String((bc?.wylaczony_zdanie as string) || "")
+            || "Przepraszam, w tej chwili nie przyjmujemy zgłoszeń telefonicznych.";
+          console.info("[voice-agent-init]", JSON.stringify({
+            event: "agent_wylaczony_przez_warsztat",
+            powod: brakKonfiguracji ? "brak wiersza konfiguracji" : "warsztat wylaczyl przelacznik",
+          }));
+          return { wylaczony: true, zdanie };
+        }
+
+        // BRAMKA MINUT — PRZED limitem rozmów i PRZED zapisem do voice_active_calls.
+        //
+        // Kolejność nie jest obojętna: rozmowa, której nie obsługujemy, nie może
+        // zajmować linii. Sprawdzenie po zapisie odjęłoby warsztatowi jedną
+        // z jego równoczesnych rozmów za połączenie, którego i tak nie obsłużył.
+        //
+        // Cała reguła siedzi w `voice_odmowic_brak_minut` — flaga, opłacona
+        // subskrypcja i saldo po odjęciu rozmów w toku. Domyślnie zwraca false,
+        // więc ten kod trafia na produkcję martwy.
+        //
+        // BŁĄD SPRAWDZENIA PRZEPUSZCZA ROZMOWĘ. Odwrotnie niż zasada 41, bo tu
+        // odmowa znaczy nieodebrany telefon klienta warsztatu, który zapłacił.
+        const { data: odmowic, error: bladBramki } = await admin
+          .rpc("voice_odmowic_brak_minut", { p_provider_id: providerId });
+        if (bladBramki) {
+          console.error("[voice-agent-init] bramka minut nieudana:", bladBramki.code, bladBramki.message);
+        } else if (odmowic === true) {
+          // MAIL RAZ NA DOBĘ, nie przy każdym telefonie. Dziesięć identycznych
+          // wiadomości uczy je kasować — a jedenasta, ta ważna, zginie z nimi.
+          const { data: zglosic } = await admin.rpc("voice_zglos_nieodebrane", { p_provider_id: providerId });
+          console.warn("[voice-agent-init]", JSON.stringify({
+            event: "brak_minut_odmowa", warsztat: "jest", mail_wyslany: zglosic === true,
+          }));
+          return { brak_minut: true };
+        }
+
+        // LIMIT ROZMÓW RÓWNOCZESNYCH.
+        //
+        // Liczymy TYLKO okno 30 minut. Rozmowa, o której końcu nie
+        // dowiedzieliśmy się (padł webhook, zerwane połączenie), ma wygasać
+        // sama — inaczej jeden zgubiony wiersz blokuje warsztatowi telefon
+        // na zawsze, a to gorsza awaria niż ta, przed którą chronimy.
+        const limit = Math.max(1, Number(stan?.max_rozmow_rownoczesnie ?? 1));
+        const odKiedy = new Date(Date.now() - 30 * 60_000).toISOString();
+        const { count, error: cntErr } = await admin.from("voice_active_calls")
+          .select("conversation_id", { count: "exact", head: true })
+          .eq("provider_id", providerId).gte("started_at", odKiedy);
+        if (cntErr) {
+          // Błąd liczenia NIE MOŻE blokować rozmowy. Wpuszczamy i logujemy —
+          // przepuszczona rozmowa ponad limit jest tańsza niż odmowa obsługi
+          // z powodu naszej awarii.
+          console.error("[voice-agent-init] liczenie rozmow nieudane:", cntErr.code, cntErr.message);
+        } else if ((count ?? 0) >= limit) {
+          console.info("[voice-agent-init]", JSON.stringify({
+            event: "limit_rozmow_przekroczony", w_toku: count, limit,
+          }));
+          return { zajete: true };
+        }
+
+        // ŚLAD ROZMOWY. `conversation_id` bywa nieobecny w ładunku — wtedy
+        // klucz losowy: wiersz i tak wygaśnie z oknem, a bez niego ta rozmowa
+        // nie liczyłaby się do limitu następnej.
+        const idRozmowy = String(
+          (body as Record<string, unknown>)?.conversation_id
+          ?? ((body as Record<string, Record<string, unknown>>)?.call)?.conversation_id
+          ?? `bez-id-${crypto.randomUUID()}`,
+        );
+        const { error: insErr } = await admin.from("voice_active_calls")
+          .upsert({ conversation_id: idRozmowy, provider_id: providerId, phone_number: rozpoznanie.numer }, { onConflict: "conversation_id" });
+        if (insErr) console.error("[voice-agent-init] zapis voice_active_calls nieudany:", insErr.code, insErr.message);
+      }
+      if (!providerId) {
+        powodPustego = rozpoznanie.droga === "nieznany_numer"
+          ? "numer spoza tabeli numerow — fallback zakazany, zeby nie podac cudzych danych"
+          : "brak konfiguracji agenta dla tego agent_id/persony";
+        return null;
+      }
 
       const dzisiaj = dzisiajWarszawa();
       const koniecOkna = new Date(new Date(dzisiaj + "T12:00:00Z").getTime() + DNI_W_PRZOD * 864e5)
@@ -288,6 +472,18 @@ serve(async (req) => {
         polityka_wyceny: "kosztorys_przed_naprawa",
         polityka_wyceny_tekst: POLITYKI.kosztorys_przed_naprawa,
         oplata_za_diagnoze_bez_usterki: "zalezy",
+        // TYMCZASOWE — wartosc w kodzie do czasu zakladki ustawien warsztatu.
+        //
+        // "do_uzgodnienia" jest domyslne i celowo OSTROZNE: agent moze wspomniec
+        // o zostawieniu auta, ale zaznacza, ze ustala to mechanik przy przyjeciu.
+        // "nie"  — agent nie wspomina o tym w ogole.
+        // "tak"  — agent moze powiedziec wprost, ze auto da sie zostawic.
+        //
+        // Powod: ostatni_mozliwy_start odpowiada na "do ktorej przyjmujemy",
+        // ale nie na "a jesli potrzebuje pozniej". Bez tego pola agent konczy
+        // rozmowe na "najpozniej szesnasta" i klient odklada sluchawke, choc
+        // warsztat czesto przyjmuje auto na noc.
+        przyjmowanie_na_noc: "do_uzgodnienia" as "tak" | "nie" | "do_uzgodnienia",
       };
 
       const zajeteWgDnia: Record<string, string[]> = {};
@@ -336,6 +532,12 @@ serve(async (req) => {
         // snapshot podał „12:30", agent powiedział „o półtorej" i klient dostał
         // potwierdzenie wizyty z godziną, która nie istnieje.
         ...(d.wolne ? { wolne_do_wypowiedzenia: d.wolne.map(godzinaDoWypowiedzenia) } : {}),
+        // ZAPAS I PROPOZYCJA TO DWA ROZNE POLA (FAZA C).
+        // `wolne` sluzy do dopasowania tego, co powie klient, i do wyboru, gdy
+        // klient wskaze pore dnia. `zaproponuj` ma najwyzej dwie pozycje i to je
+        // agent wypowiada — regula „dwie godziny, nigdy trzy" lamala sie 3/3.
+        ...(d.wolne ? { zaproponuj: doZaproponowania(d.wolne) } : {}),
+        ...(d.wolne ? { zaproponuj_do_wypowiedzenia: doZaproponowania(d.wolne).map(godzinaDoWypowiedzenia) } : {}),
         ...(d.ostatni_mozliwy_start
           ? { ostatni_mozliwy_start_do_wypowiedzenia: godzinaDoWypowiedzenia(d.ostatni_mozliwy_start) }
           : {}),
@@ -363,6 +565,15 @@ serve(async (req) => {
         const widelki = maCene && typeof do_ === "number" && do_ > 0 && do_ !== od;
         return {
           nazwa: usluga.nazwa,
+          // SLOWA DO ROZPOZNANIA, NIE DO WYPOWIEDZENIA.
+          // Snapshot po angielsku mial przetlumaczona CENE i nieprzetlumaczona
+          // NAZWE — „engine check" nie mialo jak trafic na „Diagnoza usterki"
+          // i agent dwa razy odmowil ceny, ktora stala w cenniku (17.08).
+          // Kazdy jezyk dostaje swoja liste; zostaja tylko niepuste.
+          ...(dopasowanieUslugi(usluga.nazwa, "pl").length ? { dopasowanie: dopasowanieUslugi(usluga.nazwa, "pl") } : {}),
+          ...(dopasowanieUslugi(usluga.nazwa, "en").length ? { dopasowanie_en: dopasowanieUslugi(usluga.nazwa, "en") } : {}),
+          ...(jezykSlow && dopasowanieUslugi(usluga.nazwa, jezykSlow).length
+            ? { [`dopasowanie_${jezykSlow}`]: dopasowanieUslugi(usluga.nazwa, jezykSlow) } : {}),
           cena: maCene
             ? {
               od, do: widelki ? do_ : od, typ: widelki ? "widelki" : "stala",
@@ -438,14 +649,45 @@ serve(async (req) => {
       zbuduj(),
       new Promise<null>((r) => setTimeout(() => r(null), BUDZET_MS)),
     ]);
-    if (!snapshot) return pusty("przekroczony budżet 300 ms albo brak konfiguracji agenta");
+    if (!snapshot) return pusty(powodPustego ?? `przekroczony budzet ${BUDZET_MS} ms`);
 
     const tekst = JSON.stringify(snapshot);
+
+    // AGENT WYŁĄCZONY PRZEZ WARSZTAT — snapshot ma wtedy dwa pola i nic więcej.
+    // Pierwsza wersja tej gałęzi przechodziła dalej, do logu z `snapshot.dni.length`,
+    // co rzucało wyjątkiem, wpadało w ogólny `catch` i zwracało pusty snapshot.
+    // Wyglądało to identycznie jak „nie zdążyliśmy zbudować" — czyli awaria
+    // udawała normalne działanie. Sprawdzone: zdanie o wyłączeniu nie docierało.
+    // `zbuduj()` zwraca ALBO pełny snapshot, ALBO jeden z dwóch krótkich
+    // kształtów specjalnych (agent wyłączony / wszystkie linie zajęte).
+    // Rozdzielamy je JAWNIE, bo pierwsza wersja szła dalej do logu
+    // z `snapshot.dni.length`, rzucała wyjątkiem i wracała pustym snapshotem —
+    // awaria wyglądała identycznie jak brak danych.
+    const spec = snapshot as { wylaczony?: boolean; zajete?: boolean; brak_minut?: boolean };
+    if (spec.wylaczony === true || spec.zajete === true || spec.brak_minut === true) {
+      const debugW = new URL(req.url).searchParams.get("debug") === "1";
+      console.info("[voice-agent-init]", JSON.stringify({
+        event: "snapshot_specjalny", ms: Math.round(performance.now() - started), znakow: tekst.length,
+      }));
+      return json({
+        type: "conversation_initiation_client_data",
+        dynamic_variables: { rido_snapshot: tekst, rido_caller_znany: callerId ? "tak" : "nie" },
+        ...(debugW ? { _ms: Math.round(performance.now() - started) } : {}),
+      });
+    }
+
+    // Od tego miejsca snapshot jest NA PEWNO pełny — kształty specjalne
+    // odpadły wyżej. Jedno rzutowanie zamiast pytajnika przy każdym polu:
+    // pytajniki ukryłyby prawdziwy brak pola, gdyby budowa się zmieniła.
+    const pelny = snapshot as {
+      dni: unknown[]; uslugi: unknown[]; zasoby: unknown[];
+      klient: { caller_id_znany: boolean };
+    };
     console.info("[voice-agent-init]", JSON.stringify({
       event: "snapshot", ms: Math.round(performance.now() - started),
-      dni: snapshot.dni.length, uslugi: snapshot.uslugi.length,
-      zasoby: snapshot.zasoby.length, znakow: tekst.length,
-      caller_znany: snapshot.klient.caller_id_znany,
+      dni: pelny.dni.length, uslugi: pelny.uslugi.length,
+      zasoby: pelny.zasoby.length, znakow: tekst.length,
+      caller_znany: pelny.klient.caller_id_znany,
     }));
     // Odpowiedź w kształcie WYMAGANYM przez ElevenLabs — bez dodatkowych pól.
     // `_ms` (czas budowy) dokładamy WYŁĄCZNIE przy ręcznym wywołaniu z ?debug=1,
@@ -455,7 +697,7 @@ serve(async (req) => {
       type: "conversation_initiation_client_data",
       dynamic_variables: {
         rido_snapshot: tekst,
-        rido_caller_znany: snapshot.klient.caller_id_znany ? "tak" : "nie",
+        rido_caller_znany: pelny.klient.caller_id_znany ? "tak" : "nie",
       },
       ...(debug ? { _ms: Math.round(performance.now() - started) } : {}),
     });

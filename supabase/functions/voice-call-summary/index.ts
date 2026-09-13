@@ -85,6 +85,7 @@ serve(async (req) => {
 
     return json({ ok: true, summary, source: "generated" });
   } catch (e) {
+    console.error("[voice-call-summary]", JSON.stringify({ event: "unhandled", blad: (e as Error)?.message?.slice(0, 200) }));
     return json({ ok: false, error: (e as Error).message }, 500);
   }
 });
