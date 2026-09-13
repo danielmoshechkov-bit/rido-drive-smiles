@@ -187,5 +187,14 @@ jobs:
       - name: Niejednoznaczne osadzenia PostgREST
         run: npm run test:osadzenia
 
+      # 13.09.2026: wdrozenie szesciu funkcji z repozytorium odcielo przychodzace
+      # telefony. `[functions.voice-agent-init]` mial w config.toml PUSTE cialo,
+      # a pusty wpis nie znaczy „zostaw jak jest" — znaczy wartosc domyslna,
+      # czyli verify_jwt = true. Brama zaczela odrzucac webhook operatora,
+      # ktory zadnego tokenu Supabase nie ma. 401 przy kazdym telefonie,
+      # w logach funkcji nic, bo nie docieralo do naszego kodu.
+      - name: Bramki JWT funkcji brzegowych
+        run: npm run test:bramki
+
       - name: Testy frontu
         run: npm run test:front
