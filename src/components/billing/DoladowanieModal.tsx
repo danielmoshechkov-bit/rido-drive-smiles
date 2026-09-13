@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { formatMoneyPLN } from '@/utils/formatters';
 import { KOD_BRAK_DANYCH_NABYWCY, odczytajOdmowe } from '@/lib/odmowaZakupu';
+import { ciasteczkaDoZamowienia } from '@/lib/ciasteczkaMeta';
 import { DaneDoFaktury } from './DaneDoFaktury';
 
 /**
@@ -136,7 +137,9 @@ export function DoladowanieModal({
     setWysylka(true);
     try {
       const { data, error } = await supabase.functions.invoke('billing-payu-order', {
-        body: { product_code: produkt.code, units: ile },
+        // Patrz OknoZakupu: ciasteczka piksela zapamiętujemy przy ZAKŁADANIU
+        // zamówienia, nie przy wydaniu — wtedy karty może już nie być.
+        body: { product_code: produkt.code, units: ile, ...ciasteczkaDoZamowienia() },
       });
       if (error || data?.error) {
         // Doładowanie odmawia tymi samymi kodami co zakup planu — w tym

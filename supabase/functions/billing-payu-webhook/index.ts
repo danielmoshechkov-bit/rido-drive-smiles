@@ -437,6 +437,45 @@ Deno.serve(async (req) => {
       } catch (bladFaktury) {
         console.error('billing-payu-webhook: faktura niewystawiona', bladFaktury);
       }
+
+      /**
+       * KONWERSJA DO META — SERWEROWA KOPIA ZDARZENIA `Purchase`.
+       *
+       * 🔴 To NIE jest duplikat zdarzenia z przeglądarki. Piksel gubi 20–40%
+       * zakupów (Safari, blokery, zapłata na telefonie po kliknięciu reklamy
+       * na komputerze). `event_id` po obu stronach to IDENTYFIKATOR ZAMÓWIENIA,
+       * więc Meta skleja te dwa zgłoszenia w jedną konwersję — a gdy
+       * przeglądarkowe nie dojdzie, zostaje to.
+       *
+       * Tu, a nie w oknie zakupu, bo tylko webhook wie o wydaniu NA PEWNO
+       * i działa też wtedy, gdy klient zamknął kartę zaraz po zapłacie.
+       *
+       * Zgodę sprawdza `meta-capi`: brak obu ciasteczek piksela na zamówieniu
+       * znaczy, że piksel się nie uruchomił, czyli nie było zgody
+       * marketingowej — i wtedy nic nie wychodzi.
+       *
+       * Osobny `try`, tak jak faktura: klient ma już swoje jednostki, więc
+       * awaria Meta nie ma prawa zmienić wyniku webhooka.
+       */
+      try {
+        const odpCapi = await fetch(`${url}/functions/v1/meta-capi`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+          // Podajemy WYŁĄCZNIE identyfikator. Kwotę i dane nabywcy `meta-capi`
+          // czyta z bazy — wzięte z tego ciała dałyby się podmienić.
+          body: JSON.stringify({ order_id: zamowienie.id }),
+        });
+        const wynikCapi = await odpCapi.json().catch(() => ({}));
+        console.log(JSON.stringify({
+          event: 'payu_capi',
+          order: zamowienie.id,
+          http: odpCapi.status,
+          przyjete: wynikCapi?.przyjete ?? 0,
+          pominiete: wynikCapi?.pominiete ?? null,
+        }));
+      } catch (bladCapi) {
+        console.error('billing-payu-webhook: konwersja do Meta nie doszła', bladCapi);
+      }
     }
 
     await zakoncz('processed');

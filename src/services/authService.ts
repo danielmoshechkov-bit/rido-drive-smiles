@@ -102,6 +102,7 @@ export async function signUpClient(email: string, password: string): Promise<Sig
   if (response.error) {
     // Treść odpowiedzi funkcji siedzi w `error.context`, nie w `error.message`.
     const blad = await odczytajBladFunkcji(response.error);
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: blad.komunikat,
@@ -142,6 +143,7 @@ export async function signUpMarketplace(payload: MarketplaceSignupPayload): Prom
   const response = await supabase.functions.invoke("register-marketplace-user", { body: payload });
 
   if (response.data?.error) {
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: response.data.error,
@@ -154,6 +156,7 @@ export async function signUpMarketplace(payload: MarketplaceSignupPayload): Prom
     // — bez tego użytkownik widzi „Edge Function returned a non-2xx status
     // code" zamiast zdania, które funkcja naprawdę odesłała.
     const blad = await odczytajBladFunkcji(response.error);
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: blad.komunikat,
@@ -174,9 +177,11 @@ export type FleetSignupPayload = Record<string, unknown>;
 
 /** Rejestracja BIZNESU (floty) przez edge fn. */
 export async function signUpFleet(payload: FleetSignupPayload): Promise<SignupResult> {
+  zglosKrokRejestracji("wyslany");
   const response = await supabase.functions.invoke("register-fleet", { body: payload });
 
   if (response.data?.error) {
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: response.data.error,
@@ -189,6 +194,7 @@ export async function signUpFleet(payload: FleetSignupPayload): Promise<SignupRe
     // — bez tego użytkownik widzi „Edge Function returned a non-2xx status
     // code" zamiast zdania, które funkcja naprawdę odesłała.
     const blad = await odczytajBladFunkcji(response.error);
+    zglosKrokRejestracji("odmowa");
     return {
       success: false,
       error: blad.komunikat,
