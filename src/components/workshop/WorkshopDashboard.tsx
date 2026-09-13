@@ -21,6 +21,7 @@ import { GuidedTour } from '@/components/onboarding/GuidedTour';
 import { TRASA_PIERWSZE_ZLECENIE } from '@/components/onboarding/trasaPierwszeZlecenie';
 import { useWprowadzenie } from '@/hooks/useWprowadzenie';
 import { TrybProbnyProvider } from '@/components/onboarding/TrybProbny';
+import { useNowePolaczenia } from '@/lib/nowePolaczenia';
 
 // PERF C1: wszystkie podmoduły warsztatu były importowane statycznie — 14
 // komponentów (w tym 1890-liniowy Scheduler i Reports→recharts) lądowało w
@@ -42,6 +43,9 @@ const WorkshopWarehouse = lazyNamed(() => import('./WorkshopWarehouse'), 'Worksh
 const WorkshopTireStorage = lazyNamed(() => import('./WorkshopTireStorage'), 'WorkshopTireStorage');
 const WorkshopRepairData = lazyNamed(() => import('./WorkshopRepairData'), 'WorkshopRepairData');
 const WorkshopSettingsStandalone = lazyNamed(() => import('./WorkshopSettingsStandalone'), 'WorkshopSettingsStandalone');
+// Widok agenta ciągnie panel ustawień i listę rozmów — osobny chunk, ładowany
+// dopiero przy wejściu w kafelek, tak jak reszta modułów warsztatu.
+const WidokAgentaWarsztatu = lazyNamed(() => import('./WidokAgentaWarsztatu'), 'WidokAgentaWarsztatu');
 const MyServicesPanel = lazy(() => import('@/components/services/MyServicesPanel').then(m => ({ default: m.MyServicesPanel })));
 const WorkshopEmployeesPage = lazyNamed(() => import('./WorkshopEmployeesPage'), 'WorkshopEmployeesPage');
 const WorkshopStationsManager = lazyNamed(() => import('./WorkshopStationsManager'), 'WorkshopStationsManager');
@@ -72,6 +76,13 @@ const modules = [
   { key: 'zlecenia', labelKey: 'workshop.dashboard.tiles.zlecenia', img: tileZlecenia, ready: true },
   { key: 'terminarz', labelKey: 'workshop.dashboard.tiles.terminarz', img: tileTerminarz, ready: true },
   { key: 'sprzedaz', labelKey: 'workshop.dashboard.tiles.sprzedaz', label: 'Kasa', img: tileSprzedaz, ready: true },
+  /**
+   * DRUGIE WEJŚCIE do asystentki — obok Kasy, bo tam warsztat zagląda co dzień.
+   * Pierwszym i głównym zostaje zakładka „Asystent głosowy": warsztat może mieć
+   * sam pakiet agenta, bez modułu warsztatowego, i wtedy tego menu nie widzi
+   * w ogóle. Kafelek to skrót dla tych, którzy mają oba produkty.
+   */
+  { key: 'ai-agent', labelKey: 'workshop.dashboard.tiles.aiAgent', label: 'AI Agent', img: tileZadania, ready: true },
   { key: 'klienci', labelKey: 'workshop.dashboard.tiles.klienci', img: tileKlienci, ready: true },
   { key: 'pojazdy', labelKey: 'workshop.dashboard.tiles.pojazdy', img: tilePojazdy, ready: true },
   { key: 'raporty', labelKey: 'workshop.dashboard.tiles.raporty', img: tileRaporty, ready: true },
@@ -97,8 +108,22 @@ interface WorkshopDashboardProps {
 const COMING_SOON_MODULE_KEYS = ['dane-naprawcze'];
 const COMING_SOON_MSG = 'Już wkrótce — funkcja w przygotowaniu';
 
-function WorkshopSidebar({ activeModule, onNavigate, lockedKeys = [] }: { activeModule: string; onNavigate: (key: string | null) => void; lockedKeys?: string[] }) {
+function WorkshopSidebar({ activeModule, onNavigate, lockedKeys = [], providerId }: { activeModule: string; onNavigate: (key: string | null) => void; lockedKeys?: string[]; providerId?: string | null }) {
   const { t } = useTranslation();
+  /**
+   * POWIADOMIENIE O NOWEJ ROZMOWIE.
+   *
+   * Rozmowa, której nikt nie przeczyta, jest gorsza niż jej brak: klient
+   * zostawił sprawę, a warsztat o niej nie wie. Wykrzyknik gaśnie po wejściu
+   * w widok — nie po przewinięciu listy, nie po godzinie.
+   *
+   * Czerwień i miganie rezerwujemy dla rozmów WYMAGAJĄCYCH UWAGI. Zwykłe nowe
+   * połączenie dostaje spokojną kropkę z liczbą: gdyby migało wszystko, nie
+   * migałoby nic.
+   */
+  const { data: nowe } = useNowePolaczenia(providerId);
+  const doUwagi = nowe?.doUwagi ?? 0;
+  const nowych = nowe?.nowe ?? 0;
   return (
     <div className="hidden md:block w-[200px] flex-shrink-0 pr-3 border-r border-border">
       <div className="grid grid-cols-2 gap-1.5">
@@ -109,9 +134,23 @@ function WorkshopSidebar({ activeModule, onNavigate, lockedKeys = [] }: { active
             className={`relative rounded-lg overflow-hidden h-20 transition-all group ${
               activeModule === m.key
                 ? 'ring-2 ring-[hsl(45,100%,50%)] shadow-md shadow-[hsl(45,100%,50%)]/30'
-                : 'hover:ring-2 hover:ring-[hsl(45,100%,70%)] hover:shadow-sm'
+                : m.key === 'ai-agent' && doUwagi > 0
+                  ? 'ring-2 ring-destructive shadow-md shadow-destructive/40 animate-pulse'
+                  : 'hover:ring-2 hover:ring-[hsl(45,100%,70%)] hover:shadow-sm'
             }`}
           >
+            {m.key === 'ai-agent' && nowych > 0 && (
+              <span
+                className={`absolute right-1 top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white ${
+                  doUwagi > 0 ? 'bg-destructive' : 'bg-primary'
+                }`}
+                title={doUwagi > 0
+                  ? `${doUwagi} z ${nowych} nowych rozmów wymaga uwagi`
+                  : `${nowych} nowych rozmów`}
+              >
+                {doUwagi > 0 ? '!' : nowych}
+              </span>
+            )}
             <img src={m.img} alt={t(m.labelKey)} className="w-full h-full object-cover" />
             {/* Readable label overlay (tile size unchanged): strong dark gradient
                 anchored to the bottom of the tile + a heavy text-shadow, so the white
@@ -388,7 +427,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   if (currentSelectedOrder) {
     return zOpieka(
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
-        <WorkshopSidebar activeModule="zlecenia" lockedKeys={lockedKeys} onNavigate={(key) => { setSelectedOrder(null); goTo(key); }} />
+        <WorkshopSidebar activeModule="zlecenia" providerId={providerId} lockedKeys={lockedKeys} onNavigate={(key) => { setSelectedOrder(null); goTo(key); }} />
         <div className="flex-1 md:pl-3 min-w-0">
           <MobileBackButton onBack={() => setSelectedOrder(null)} label={t('workshop.dashboard.tiles.zlecenia')} />
           {/* PERF pkt 2: karta renderuje się OD RAZU z danych listy (wiersz bez
@@ -413,7 +452,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
   if (selectedVehicle) {
     return zOpieka(
       <div className="flex gap-0 min-h-[calc(100vh-200px)]">
-        <WorkshopSidebar activeModule="pojazdy" lockedKeys={lockedKeys} onNavigate={(key) => { setSelectedVehicle(null); goTo(key); }} />
+        <WorkshopSidebar activeModule="pojazdy" providerId={providerId} lockedKeys={lockedKeys} onNavigate={(key) => { setSelectedVehicle(null); goTo(key); }} />
         <div className="flex-1 md:pl-3 min-w-0">
           <MobileBackButton onBack={() => setSelectedVehicle(null)} label={t('workshop.dashboard.tiles.pojazdy')} />
           <Suspense fallback={<ModuleFallback />}>
@@ -462,6 +501,10 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         return <WorkshopScheduler providerId={providerId} onBack={() => goTo(null)} />;
       case 'sprzedaz':
         return <WorkshopSales providerId={providerId} onBack={() => goTo(null)} />;
+      case 'ai-agent':
+        // Ten sam komponent, co w zakładce „Asystent głosowy" — widok tylko
+        // składa listę rozmów i ustawienia, nie powtarza ani jednego pola.
+        return <WidokAgentaWarsztatu providerId={providerId!} onBack={() => goTo(null)} onOpenOrder={setSelectedOrder} />;
       case 'raporty':
         return <WorkshopReports providerId={providerId} onBack={() => goTo(null)} />;
       case 'magazyn':
@@ -574,7 +617,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
           wprowadzenie.zacznij();
         }}
       />
-      <WorkshopSidebar activeModule={activeModule} lockedKeys={lockedKeys} onNavigate={goTo} />
+      <WorkshopSidebar activeModule={activeModule} providerId={providerId} lockedKeys={lockedKeys} onNavigate={goTo} />
       <div className={isSchedulerModule ? 'flex-1 md:pl-3 min-w-0 flex h-full min-h-0 flex-col overflow-hidden' : 'flex-1 md:pl-3 min-w-0 flex flex-col'}>
         <MobileBackButton onBack={() => goTo(null)} />
         <Suspense fallback={<ModuleFallback />}>

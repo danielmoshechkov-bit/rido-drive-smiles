@@ -2206,7 +2206,8 @@
         "pracownicy": "Mitarbeiter",
         "stanowiska": "Stationen",
         "ustawienia": "Einstellungen",
-        "cennik": "Leistungspreisliste"
+        "cennik": "Leistungspreisliste",
+        "aiAgent": "AI Agent"
       },
       "freeTrialBadge": "{{days}} Tage kostenlos — unverbindlich",
       "heroTitle": "Werkstatt & Auto — alles an einem Ort",
