@@ -330,6 +330,41 @@ FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.prosecdef;
 ```
 
+### Zanim dołożysz wyzwalacz, sprawdź, czy ten problem nie ma już swojego
+
+13.09.2026 napisałem migrację zakładającą wyzwalacz ustawiający
+`faktura_rodzaj_nabywcy`. Taki wyzwalacz istniał od 09.09 — z tej samej
+potrzeby, z tym samym rozumowaniem w nagłówku, tyle że z odwrotnym wnioskiem
+w jednym przypadku. Migracja padła na WŁASNEJ kontroli odwrotnej: wiersz próbny
+bez NIP-u dostał znacznik „osoba", bo ustawił go stary wyzwalacz.
+
+Kontrola zadziałała dokładnie tak, jak miała — zatrzymała zmianę, o której
+autor sądził, że wchodzi na czysto. Ale sprawdzenie kosztuje jedno zapytanie
+i robi się je PRZED pisaniem, nie po:
+
+```sql
+-- co już wisi na tej tabeli
+SELECT tgname, pg_get_triggerdef(oid)
+FROM pg_trigger WHERE tgrelid = 'public.<tabela>'::regclass AND NOT tgisinternal;
+
+-- kto już rusza tę kolumnę
+SELECT proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.prosrc ILIKE '%<nazwa_kolumny>%';
+```
+
+Dwa wyzwalacze na tej samej kolumnie to nie jest podwójna ochrona, tylko
+niewiadoma: kolejność zależy od nazw, a wynik od tego, który zdążył pierwszy.
+**Poprawiaj istniejący (`CREATE OR REPLACE FUNCTION`), nie dokładaj drugiego.**
+
+Migracja, która zakłada wyzwalacz, ma to sprawdzać także w swojej kontroli:
+
+```sql
+SELECT count(*) FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
+WHERE t.tgrelid = 'public.<tabela>'::regclass AND NOT t.tgisinternal
+  AND p.prosrc ILIKE '%<kolumna>%';
+-- <> 1 → RAISE EXCEPTION
+```
+
 ### Migracja zmieniająca FUNKCJĘ i zakładająca WIĘZ to dwie migracje
 
 10.09.2026: `20260909162228` zmieniała wyzwalacz i zakładała indeks unikalny —
