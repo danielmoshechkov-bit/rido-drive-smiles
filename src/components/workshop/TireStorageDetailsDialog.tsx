@@ -319,7 +319,10 @@ export function TireStorageDetailsDialog({
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">
                 Bieżnik
               </p>
-              <div className="grid grid-cols-4 gap-2">
+              {/* 2x2 na telefonie: górny rząd to przód, dolny tył — czyli
+                  ten sam układ co w aucie. Cztery kafelki w rzędzie na 360 px
+                  ściskają etykietę „Lewa przód" do dwóch linii. */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {bieznik.map(([opis, v]) => (
                   <div key={opis} className="rounded-md border p-2 text-center">
                     <p className="text-sm font-semibold">{Number(v).toFixed(1)} mm</p>

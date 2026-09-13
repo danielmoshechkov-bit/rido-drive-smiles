@@ -1068,7 +1068,10 @@ function TireStorageDialog({ open, onOpenChange, providerId, onZapisano }: { ope
             </div>
             <div className="space-y-1 col-span-2">
               <Label className="text-xs">Bieżnik na każdą oponę (mm)</Label>
-              <div className="grid grid-cols-4 gap-1.5">
+              {/* Tu są POLA DO WPISANIA, nie same liczby — cztery obok siebie
+                  na telefonie dają pola tak wąskie, że nie widać wpisywanej
+                  wartości. 2x2 zachowuje układ kół. */}
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                 {([
                   ['lp', 'Lewa przód', bieznikLP, setBieznikLP],
                   ['pp', 'Prawa przód', bieznikPP, setBieznikPP],
