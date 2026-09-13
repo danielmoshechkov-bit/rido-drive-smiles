@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Check, Loader2, CreditCard, Smartphone, ArrowLeft } from 'lucide-react';
+import { Check, Loader2, ArrowLeft } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,9 @@ import { ciasteczkaDoZamowienia } from '@/lib/ciasteczkaMeta';
  * Każde z nich miało własną drogę — a przy pierwszej poprawce w płatnościach
  * rozjechałyby się między sobą i naprawialibyśmy to pięć razy.
  *
- * Tu jest jedna droga i cztery kroki: plan, okres, metoda, podsumowanie.
+ * Tu jest jedna droga i najwyżej trzy kroki: plan, okres, zapłata. Formularz
+ * danych do faktury wchodzi między nie TYLKO wtedy, gdy danych brakuje —
+ * warsztat z kompletem w ustawieniach konta go nie zobaczy.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * CENA JEST TU TYLKO POKAZANA
@@ -52,10 +54,28 @@ export interface ZadanieZakupu {
   zacznijOd?: Krok;
 }
 
-// Kolejność kroków. „dane" stoi PRZED metodą płatności świadomie: faktury
-// z pustym nabywcą nie da się poprawić edycją, a moment przed zapłatą jest
-// najtańszy w całym procesie na zapytanie o dane.
-type Krok = 'plan' | 'okres' | 'dane' | 'metoda' | 'podsumowanie';
+/**
+ * Kolejność kroków: plan → okres → (dane, TYLKO gdy ich brakuje) → zapłata.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DWA EKRANY ZNIKŁY (13.09.2026)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Był osobny krok „Jak chcesz zapłacić" z dwoma kaflami — i oba prowadziły
+ * DOKŁADNIE w to samo miejsce, na podsumowanie, gdzie i tak stały oba
+ * przyciski płatności. Ekran nie podejmował żadnej decyzji; kosztował
+ * kliknięcie i nic nie dawał.
+ *
+ * „Dane do faktury" pokazujemy WYŁĄCZNIE wtedy, gdy naprawdę ich brakuje.
+ * Pytamy o to `billing_dane_nabywcy_kompletne` — tej samej funkcji używa
+ * bramka zakupu na serwerze, więc okno i serwer nie mogą odpowiedzieć inaczej.
+ * Warsztat, który ma komplet w ustawieniach konta, przechodzi od wyboru
+ * pakietu wprost do zapłaty.
+ *
+ * Krok „dane" nadal stoi PRZED zapłatą, nie po: faktury z pustym nabywcą nie
+ * da się poprawić edycją, a moment przed zapłatą jest najtańszy w całym
+ * procesie na zapytanie o dane.
+ */
+type Krok = 'plan' | 'okres' | 'dane' | 'podsumowanie';
 
 const KUPOWALNE = ['warsztat_standard', 'warsztat_pro'];
 
@@ -102,8 +122,33 @@ export function OknoZakupu({
     },
   });
   const providerId = zadanie.providerId ?? mojWarsztat ?? null;
+
+  /**
+   * Czy warsztat ma komplet danych do faktury. `null` = jeszcze nie wiadomo.
+   *
+   * Bez odpowiedzi NIE pomijamy kroku: pominięcie w niewiedzy kończy się
+   * odmową bramki tuż przed bramką płatności, czyli w najgorszym możliwym
+   * momencie. Niewiedza prowadzi więc do formularza, nie obok niego.
+   */
+  const { data: daneKompletne } = useQuery({
+    queryKey: ['dane-nabywcy-kompletne', providerId],
+    enabled: otwarte && !!providerId,
+    // Klient może uzupełnić dane w drugiej karcie — po zamknięciu i otwarciu
+    // okna pytamy od nowa, zamiast pokazywać formularz, który już wypełnił.
+    staleTime: 0,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .rpc('billing_dane_nabywcy_kompletne', { p_provider_id: providerId });
+      if (error) return false;
+      return data === true;
+    },
+  });
+
   const { data: szczegoly } = useSubscriptionDetails(providerId);
   const obecnyKod = szczegoly?.kodPlanu ?? null;
+
+  /** Następny krok po wyborze pakietu: formularz tylko wtedy, gdy trzeba. */
+  const krokPoWyborze = (): Krok => (daneKompletne === true ? 'podsumowanie' : 'dane');
 
   // Wejście z kafelka cennika ma pominąć krok, który klient już wykonał.
   useEffect(() => {
@@ -130,7 +175,7 @@ export function OknoZakupu({
     // na formularzu faktury dla zakupu, o którym jeszcze nie wiadomo, czego dotyczy.
     setKrok(
       zadanie.zacznijOd && zadanie.planCode ? zadanie.zacznijOd
-        : zadanie.planCode ? (rocznyMozliwy ? 'okres' : 'dane')
+        : zadanie.planCode ? (rocznyMozliwy ? 'okres' : krokPoWyborze())
         : 'plan',
     );
     setWysylka(null);
@@ -330,14 +375,12 @@ export function OknoZakupu({
             {krok === 'plan' && 'Wybierz plan'}
             {krok === 'okres' && 'Na jak długo'}
             {krok === 'dane' && 'Dane do faktury'}
-            {krok === 'metoda' && 'Jak chcesz zapłacić'}
             {krok === 'podsumowanie' && 'Sprawdź i zapłać'}
           </DialogTitle>
           <DialogDescription>
             {krok === 'plan' && 'Możesz zmienić plan później, w każdej chwili.'}
             {krok === 'okres' && 'Przy roku dwa miesiące są gratis.'}
             {krok === 'dane' && 'Wystawimy na nie fakturę — poprawienie jej później wymaga korekty.'}
-            {krok === 'metoda' && 'Obie drogi są równorzędne — wybierz, co Ci wygodniej.'}
             {krok === 'podsumowanie' && 'Kwotę wylicza serwer w chwili zakupu.'}
           </DialogDescription>
         </DialogHeader>
@@ -345,7 +388,7 @@ export function OknoZakupu({
         {krok === 'dane' && (
           <DaneDoFaktury
             providerId={providerId}
-            onGotowe={() => setKrok('metoda')}
+            onGotowe={() => setKrok('podsumowanie')}
             onWstecz={() => setKrok(wybranyPlan?.ma_cene_roczna === false ? 'plan' : 'okres')}
           />
         )}
@@ -416,43 +459,13 @@ export function OknoZakupu({
                 planCode={wybranyPlan.code}
                 providerId={zadanie.providerId}
                 zaznaczony={okres === o}
-                onWybierz={() => { setOkres(o); setKrok('dane'); }}
+                onWybierz={() => { setOkres(o); setKrok(krokPoWyborze()); }}
               />
             ))}
           </div>
         )}
 
-        {/* ── KROK 3: METODA ───────────────────────────────────────── */}
-        {krok === 'metoda' && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => setKrok('podsumowanie')}
-              className="rounded-xl border border-border p-4 text-left hover:border-primary hover:bg-primary/5"
-            >
-              <div className="flex items-center gap-2 font-semibold">
-                <Smartphone className="h-4 w-4" /> BLIK
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Płacisz raz. Przed końcem okresu przypomnimy o kolejnej płatności.
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setWysylka(null); setKrok('podsumowanie'); }}
-              className="rounded-xl border border-border p-4 text-left hover:border-primary hover:bg-primary/5"
-            >
-              <div className="flex items-center gap-2 font-semibold">
-                <CreditCard className="h-4 w-4" /> Karta
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Odnawiamy automatycznie. Możesz anulować w każdej chwili.
-              </p>
-            </button>
-          </div>
-        )}
-
-        {/* ── KROK 4: PODSUMOWANIE ─────────────────────────────────── */}
+        {/* ── KROK 3: KWOTA I ZAPŁATA ──────────────────────────────── */}
         {krok === 'podsumowanie' && (
           <div className="space-y-4">
             {ladowanie && <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />}
@@ -500,11 +513,17 @@ export function OknoZakupu({
 
         {/* Krok „dane" ma własny przycisk wstecz w środku formularza —
             drugi na dole prowadziłby do tego samego, ale wyglądał na inny. */}
+        {/* Wstecz z zapłaty prowadzi tam, skąd klient przyszedł: do formularza
+            danych, jeśli go wypełniał, a poza tym do wyboru okresu albo planu. */}
         {krok !== 'plan' && krok !== 'dane' && (
           <button
             type="button"
             onClick={() => setKrok(
-              krok === 'podsumowanie' ? 'metoda' : krok === 'metoda' ? 'dane' : 'plan',
+              krok === 'podsumowanie'
+                ? (daneKompletne === true
+                    ? (wybranyPlan?.ma_cene_roczna === false ? 'plan' : 'okres')
+                    : 'dane')
+                : 'plan',
             )}
             className="mt-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
