@@ -53,10 +53,29 @@ export function useCenaOkresu(
         })
         .maybeSingle();
 
-      // Plan darmowy i indywidualny ODMAWIAJĄ wyceny — to nie jest awaria,
-      // tylko poprawna odpowiedź „tego nie da się kupić". Zwracamy `null`,
-      // a okno pokazuje przy nich co innego niż przycisk płatności.
-      if (blad || !w) return null;
+      /**
+       * 🔴 DWA POWODY BRAKU CENY, JEDNA ODPOWIEDŹ — i stąd martwe przyciski.
+       *
+       * Stało tu `if (blad || !w) return null;`, więc KAŻDA odmowa wyceny
+       * wyglądała jak „tego planu nie da się kupić". Gdy baza przestała
+       * wyceniać pakiet Agent (`PLAN_NIEZNANY`, bo wycena znała tylko linię
+       * warsztatową), okno wyłączyło oba przyciski płatności i zamilkło:
+       * klient klikał „Zapłać", nic się nie działo, w konsoli pusto, do
+       * serwera nie szło ani jedno żądanie.
+       *
+       * Teraz rozróżniamy:
+       *   • PLAN_NIE_DO_KUPIENIA — poprawna odpowiedź (darmowy, indywidualny).
+       *     `null`, a okno pokazuje przy nich co innego niż przycisk płatności.
+       *   • cokolwiek innego — AWARIA. Podnosimy ją, żeby okno powiedziało
+       *     człowiekowi, że to nie on źle klika.
+       */
+      if (blad) {
+        const tresc = String((blad as { message?: string })?.message ?? '');
+        if (tresc.includes('PLAN_NIE_DO_KUPIENIA')) return null;
+        console.error('[useCenaOkresu] wycena odmówiła:', tresc);
+        throw new Error('Nie udało się wyliczyć ceny tego pakietu. To nasza usterka — napisz do nas, a poprawimy.');
+      }
+      if (!w) return null;
 
       return {
         planId: w.plan_id,

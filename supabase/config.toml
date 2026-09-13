@@ -407,7 +407,29 @@ verify_jwt = false
 [functions.voice-call-reconcile]
 verify_jwt = false
 
+# ═══════════════════════════════════════════════════════════════════════════
+# BRAK LINII `verify_jwt` ZNACZY `true` — i to jest pułapka (13.09.2026)
+# ═══════════════════════════════════════════════════════════════════════════
+# `[functions.voice-agent-init]` stało tu z PUSTYM ciałem. Dopóki funkcję
+# wdrażał ktoś inny niż CLI, nie miało to skutku. Pierwsze wdrożenie z tego
+# repozytorium nałożyło wartość domyślną — i bramka zaczęła odrzucać webhook
+# od ElevenLabs, bo on nie przedstawia tokenu Supabase. Efekt: 401 przy KAŻDYM
+# przychodzącym telefonie, a w panelu cisza, bo to nie nasz kod odmawiał.
+#
+# Te trzy funkcje wołają: operator telefoniczny (init), zegar bazy (worker)
+# i strona publiczna (demo-lead) — żadne z nich nie ma tokenu użytkownika.
+# Tożsamość sprawdzają same, w pierwszych liniach kodu.
 [functions.voice-agent-init]
+verify_jwt = false
+
+[functions.voice-number-activate]
+verify_jwt = false
+
+[functions.voice-numbers-worker]
+verify_jwt = false
+
+[functions.agent-demo-lead]
+verify_jwt = false
 
 [functions.support-notify]
 verify_jwt = false

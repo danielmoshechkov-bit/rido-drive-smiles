@@ -743,6 +743,26 @@ Deno.serve(async (req) => {
     // powrocie. Bez tego klient widzi brak dostępu i płaci drugi raz.
     const sesja = await stripe(stripeKey, "/checkout/sessions", {
       mode: "subscription",
+      /**
+       * KARTA WPROST, NIE „CO OPERATOR AKURAT WŁĄCZY".
+       *
+       * Bez tej linii listę metod ustala panel Stripe'a — a tam włączone są
+       * też metody jednorazowe (BLIK). Przy `mode: "subscription"` operator
+       * musi je wtedy odfiltrować sam i potrafi odmówić założenia sesji,
+       * zamiast po prostu ich nie pokazać. Odmowa wraca do nas jako błąd
+       * bez związku z tym, co klient widzi na ekranie.
+       *
+       * Ta ścieżka sprzedaje ABONAMENT — odnawiany co miesiąc bez udziału
+       * klienta — więc metoda musi umieć cykl. Karta umie.
+       *
+       * BLIK dostanie WŁASNĄ ścieżkę (`mode: "payment"`, dostęp na 30 dni
+       * z ręcznym przedłużeniem), bo cyklicznych nie obsługuje. Nie da się
+       * tego pogodzić w jednej sesji i nie warto próbować.
+       *
+       * ŚWIADOMIE NIE RUSZAM pozostałych dróg do płatności: doładowania
+       * i SMS-y idą przez PayU, nie przez tę funkcję, i działają.
+       */
+      "payment_method_types[0]": "card",
       customer: customerId!,
       "line_items[0][price]": cenaStripe,
       "line_items[0][quantity]": "1",

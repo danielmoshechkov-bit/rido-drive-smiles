@@ -77,6 +77,26 @@ sprawdz(/ponowZamowienie/.test(panel),
 sprawdz(!/if \(error\) \{ toast\.error\("Nie udalo sie rozpoczac aktywacji"\); return; \}/.test(panel),
   'stare polkniecie zdania serwera przy aktywacji nie wrocilo');
 
+// 4c. MARTWY PRZYCISK. Oba przyciski platnosci stoja pod `!cena`, a wycena
+//     oddawala `null` zarowno przy planie nie do kupienia, jak i przy AWARII.
+//     Gdy baza przestala wyceniac pakiet agenta, okno wygasilo platnosc
+//     i zamilklo: do serwera nie szlo ani jedno zadanie.
+const wycena = plik('src/hooks/useCenaOkresu.ts');
+sprawdz(/PLAN_NIE_DO_KUPIENIA/.test(wycena) && /throw new Error/.test(wycena),
+  'wycena odroznia „nie do kupienia" od awarii — awarie podnosi, zamiast ja polykac');
+// Wzorzec zakotwiczony na POCZATKU LINII — inaczej lapie sam siebie w komentarzu,
+// ktory opisuje, co tu stalo. (Zlapal. Stad ta uwaga.)
+sprawdz(!/^\s*if \(blad \|\| !w\) return null;/m.test(wycena),
+  'stare polkniecie kazdej odmowy wyceny nie wrocilo');
+sprawdz(/!ladowanie && !cena &&/.test(okno) && /bladCeny/.test(okno),
+  'brak ceny daje ZDANIE na ekranie, nie dwa wyszarzone przyciski');
+
+// 4d. Metoda platnosci ustalana PRZEZ NAS, nie przez panel operatora.
+sprawdz(/"payment_method_types\[0\]": "card"/.test(checkout),
+  'sesja abonamentowa prosi wprost o karte — jedyna metode, ktora umie cykl');
+sprawdz((checkout.match(/payment_method_types/g) || []).length === 1,
+  'wymuszenie metody stoi w JEDNYM miejscu — sciezki PayU (SMS, doladowania) nietkniete');
+
 // 5. Cennik u operatora: nazwa produktu to nazwa, ktora klient czyta przy platnosci.
 sprawdz(/const nazwa = `GetRido \$\{plan\.name\}`/.test(synchro) && /wyrownajNazwe/.test(synchro),
   'synchronizacja wyrownuje nazwe produktu, nie tylko ustawia ja przy zakladaniu');
