@@ -4,10 +4,50 @@ import { Car, Copy, ExternalLink, Fuel, Gauge, Calendar, Hash } from 'lucide-rea
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
+/**
+ * Karta pojazdu — JEDNA na cały warsztat.
+ *
+ * Używają jej: karta zlecenia, tabela zleceń na komputerze i lista zleceń
+ * na telefonie. Do 13.09.2026 lista zleceń miała WŁASNĄ kopię wklejoną
+ * w JSX tabeli — i właśnie dlatego na telefonie nie było jej wcale:
+ * kopia siedziała w gałęzi `hidden md:block`, a widok mobilny to osobny
+ * blok `md:hidden`, do którego nikt jej nie przeniósł.
+ *
+ * Dotknięcie na telefonie otwiera tę kartę zamiast najeżdżania —
+ * przełącza to sam prymityw `ui/hover-card`, bez zmian tutaj.
+ */
 interface Props {
   vehicle: any;
   children: React.ReactNode;
   onEdit?: () => void;
+}
+
+/**
+ * Pole, które da się skopiować dotknięciem.
+ *
+ * Mechanik stoi przy aucie i przepisuje VIN do systemu dostawcy części —
+ * kopiowanie ma działać na KAŻDEJ pozycji, nie tylko na tablicy i VIN-ie.
+ * Cel dotyku ma co najmniej 32 px wysokości, bo palec to nie kursor.
+ */
+function PoleDoSkopiowania({
+  wartosc,
+  komunikat,
+  copy,
+}: {
+  wartosc: string;
+  komunikat: string;
+  copy: (text: string, message: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex min-h-[32px] w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left font-medium transition-colors hover:bg-accent/50 hover:text-primary"
+      onClick={() => copy(wartosc, komunikat)}
+    >
+      <span className="truncate">{wartosc}</span>
+      <Copy className="h-3 w-3 shrink-0 opacity-60" />
+    </button>
+  );
 }
 
 export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
@@ -74,7 +114,11 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Calendar className="h-2.5 w-2.5" /> {t('workshop.orders.yearOfProd')}
                 </span>
-                <span className="px-2 py-1 font-medium">{vehicle.year}</span>
+                <PoleDoSkopiowania
+                  wartosc={String(vehicle.year)}
+                  komunikat={t('workshop.orders.yearOfProd')}
+                  copy={copy}
+                />
               </>
             )}
             {(vehicle.engine_capacity_cm3 || vehicle.engine_capacity) && (
@@ -82,7 +126,11 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Gauge className="h-2.5 w-2.5" /> {t('workshop.orders.capacity')}
                 </span>
-                <span className="px-2 py-1 font-medium">{vehicle.engine_capacity_cm3 || vehicle.engine_capacity}</span>
+                <PoleDoSkopiowania
+                  wartosc={String(vehicle.engine_capacity_cm3 || vehicle.engine_capacity)}
+                  komunikat={t('workshop.orders.capacity')}
+                  copy={copy}
+                />
               </>
             )}
             {vehicle.fuel_type && (
@@ -90,7 +138,11 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Fuel className="h-2.5 w-2.5" /> {t('workshop.vehicles.engine')}
                 </span>
-                <span className="px-2 py-1 font-medium">{vehicle.fuel_type}</span>
+                <PoleDoSkopiowania
+                  wartosc={String(vehicle.fuel_type)}
+                  komunikat={t('workshop.vehicles.engine')}
+                  copy={copy}
+                />
               </>
             )}
             {(vehicle.engine_power_kw || vehicle.engine_power) && (
@@ -98,7 +150,11 @@ export function WorkshopVehicleHoverCard({ vehicle, children, onEdit }: Props) {
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Gauge className="h-2.5 w-2.5" /> {t('workshop.orders.power')}
                 </span>
-                <span className="px-2 py-1 font-medium">{vehicle.engine_power_kw || vehicle.engine_power} kW</span>
+                <PoleDoSkopiowania
+                  wartosc={`${vehicle.engine_power_kw || vehicle.engine_power} kW`}
+                  komunikat={t('workshop.orders.power')}
+                  copy={copy}
+                />
               </>
             )}
           </div>

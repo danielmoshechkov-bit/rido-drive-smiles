@@ -393,6 +393,27 @@ kodu. Dlatego: każdy test polityk zawiera co najmniej jedną operację, która 
 i sprawdza, że się udała. Przy `UPDATE`/`DELETE` liczy dotknięte wiersze — polityka
 `RESTRICTIVE` filtruje wiersze, nie rzuca wyjątkiem, więc brak błędu nie znaczy sukcesu.
 
+### `npx tsc --noEmit` NIE SPRAWDZA NICZEGO — używaj `npm run typecheck`
+
+Główny `tsconfig.json` ma `"files": []` i wyłącznie `references` do
+`tsconfig.app.json` i `tsconfig.node.json`. Gołe `tsc --noEmit` w katalogu
+projektu przechodzi więc **zawsze**, także nad plikiem z niedomkniętym JSX:
+
+```
+npx tsc --noEmit      → kod wyjścia 0 przy `<span>` bez `</span>`
+npm run typecheck     → error TS17008: JSX element 'span' has no closing tag
+```
+
+13.09.2026 kosztowało to całą rundę fałszywych „TYPY OK" — kilkanaście razy
+w jednej sesji, na podstawie ciszy narzędzia, które nie patrzyło na kod.
+
+**Jedyna poprawna komenda to `npm run typecheck`** (to samo uruchamia CI).
+Jeśli chcesz sprawdzić pojedynczy projekt: `tsc --noEmit -p tsconfig.app.json`.
+
+Ta sama zasada co przy bramkach: zanim uwierzysz zielonemu wynikowi, zepsuj
+coś celowo i sprawdź, czy narzędzie to zauważy. Tutaj wystarczy usunąć jeden
+tag zamykający.
+
 ### KSeF sprawdza XML, nie prawo podatkowe
 
 Schemat FA(3) przyjmie fakturę merytorycznie wadliwą, nada jej numer i wystawi
