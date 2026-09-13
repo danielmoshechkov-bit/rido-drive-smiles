@@ -81,6 +81,25 @@ Deno.serve(async (req) => {
         return json({ error: "Nie można potwierdzić uprawnień" }, 503);
       }
       if (!rola) return json({ error: "Forbidden" }, 403);
+
+      /**
+       * BRAMA WĘŻSZA NIŻ PRZY JEDNOSTKACH — decyzja właściciela z 13.09.2026.
+       *
+       * Nadanie SMS-ów kosztuje grosze i robi je każdy administrator platformy.
+       * Dni dostępu to oddanie całego produktu za darmo, więc zostaje przy
+       * właścicielu. Adres nadpisuje sekret `PORTAL_ADMIN_EMAIL`, żeby zmiana
+       * właściciela nie wymagała wdrożenia — ten sam wzorzec, co
+       * w `submit-category-request`.
+       */
+      const wlasciciel = (Deno.env.get("PORTAL_ADMIN_EMAIL") || "daniel.moshechkov@gmail.com").toLowerCase();
+      if ((kto.user.email ?? "").toLowerCase() !== wlasciciel) {
+        console.warn("billing-przyznaj-dni: odrzucone dla", kto.user.id);
+        return json({
+          error: "Dni dostępu przyznaje wyłącznie właściciel platformy.",
+          code: "NIE_WLASCICIEL",
+        }, 403);
+      }
+
       actorId = kto.user.id;
     }
 
@@ -104,7 +123,20 @@ Deno.serve(async (req) => {
       subscriberId = warsztat.id as string;
     }
     const dni = Number(body.dni);
-    const powod = typeof body.powod === "string" && body.powod.trim() ? body.powod.trim().slice(0, 500) : null;
+    /**
+     * POWÓD JEST OBOWIĄZKOWY i sprawdzamy go TUTAJ, nie w przeglądarce.
+     *
+     * Pole w formularzu da się ominąć, wołając funkcję wprost. A nadanie bez
+     * powodu przestaje być wpisem audytowym: po miesiącu nikt nie odczyta,
+     * czy to była reklamacja, gest handlowy, czy pomyłka.
+     */
+    const powod = typeof body.powod === "string" ? body.powod.trim().slice(0, 500) : "";
+    if (powod.length < 3) {
+      return json({
+        error: "Podaj powód — bez niego po miesiącu nikt nie odczyta, czemu to konto dostało dostęp.",
+        code: "BRAK_POWODU",
+      }, 400);
+    }
 
     if (!subscriberId || !linia) return json({ error: "BRAK_DANYCH" }, 400);
 

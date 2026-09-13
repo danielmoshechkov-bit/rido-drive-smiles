@@ -168,7 +168,7 @@ BEGIN
   VALUES
     (v_sub, 'service_provider', v_provider, v_plan, 'read_only', 'warsztat',
      now() - interval '60 days', now() - interval '10 days',
-     now() - interval '3 days', 'okres próbny', now() - interval '10 days', '{}'::jsonb);
+     now() - interval '3 days', 'trial', now() - interval '10 days', '{}'::jsonb);
 
   -- 1. PRZYPADEK, KTÓRY MA SIĘ UDAĆ
   v_wynik := public.billing_przyznaj_dni_admin(v_provider, 'warsztat', 14, 'kontrola migracji', NULL);
