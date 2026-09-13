@@ -19,6 +19,8 @@
 // Nigdy nie ufamy treści zdarzenia bez potwierdzenia, że pochodzi od operatora.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
+// Mail o nieudanej płatności idzie TEGO SAMEGO DNIA — patrz `invoice.payment_failed`.
+import { sendMail, emailShell } from "../_shared/smtpSend.ts";
 import {
   czyDuplikat,
   mapujStatus,
@@ -468,8 +470,66 @@ Deno.serve(async (req) => {
           break;
         }
 
-        // Karencja (billing_settings.grace_period_days, domyślnie 7 dni) z pełnym
-        // dostępem; zejście na read_only robi zadanie cykliczne z 4.16, nie webhook.
+        /**
+         * MAIL TEGO SAMEGO DNIA, NIE NAZAJUTRZ.
+         *
+         * Karencja to od 13.09.2026 JEDEN dzień roboczy — klient ma tyle czasu,
+         * ile trwa doba, żeby poprawić kartę. Wiadomość wysłana rano następnego
+         * dnia przez zadanie cykliczne przyszłaby razem z blokadą albo po niej,
+         * czyli nie byłaby ostrzeżeniem, tylko zawiadomieniem o stracie.
+         *
+         * Wysyłka stoi we WŁASNYM `try` i nie ma prawa wywrócić webhooka:
+         * operator ponawia nieodebrane powiadomienia, a powtórzone
+         * `payment_failed` przy niedziałającej poczcie znaczyłoby, że status
+         * `past_due` nie zostaje zapisany. Lepszy brak maila niż brak karencji.
+         */
+        try {
+          const { data: kto } = await admin
+            .from("billing_subscriptions")
+            .select("subscriber_id")
+            .eq("provider_subscription_id", subId)
+            .maybeSingle();
+
+          const { data: sp } = kto?.subscriber_id
+            ? await admin
+                .from("service_providers")
+                .select("company_name, owner_email, company_email")
+                .eq("id", kto.subscriber_id)
+                .maybeSingle()
+            : { data: null };
+
+          const adres = sp?.owner_email || sp?.company_email || null;
+          if (adres) {
+            await sendMail(
+              adres,
+              "Płatność nie przeszła — masz jeden dzień na poprawienie karty — GetRido",
+              emailShell("Płatność nie przeszła", `
+                <p>Dzień dobry,</p>
+                <p>nie udało się pobrać opłaty za kolejny okres dla konta
+                <strong>${sp?.company_name || "Twojego warsztatu"}</strong>.</p>
+                <p><strong>Konto działa dalej.</strong> Spróbujemy jeszcze raz jutro.
+                Jeśli druga próba też się nie powiedzie, dostęp zostanie wstrzymany —
+                a jeżeli masz pakiet Agent AI, wirtualna asystentka przestanie
+                odbierać telefony.</p>
+                <p><strong>Co zrobić</strong></p>
+                <p>Popraw dane karty w panelu, w zakładce Rozliczenia. Zajmuje to chwilę
+                i nie przerywa pracy.</p>
+                <p>Twoje dane zostają nietknięte w każdym przypadku — wracają w całości
+                po opłaceniu.</p>
+                <p>Zespół GetRido</p>
+              `),
+            );
+            console.log(JSON.stringify({ event: "platnosc_nieudana_mail", subId }));
+          } else {
+            console.warn("billing-stripe-webhook: brak adresu do maila o nieudanej płatności", subId);
+          }
+        } catch (e) {
+          console.error("billing-stripe-webhook: mail o nieudanej płatności nie poszedł",
+            subId, e instanceof Error ? e.message : String(e));
+        }
+
+        // Karencja (jeden dzień roboczy) z pełnym dostępem; zejście na read_only
+        // robi zadanie cykliczne z 4.16, nie webhook.
         console.log(JSON.stringify({ event: "platnosc_nieudana", subId }));
         await zakoncz("processed");
         break;
