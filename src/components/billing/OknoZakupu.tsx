@@ -397,6 +397,38 @@ export function OknoZakupu({
 
         {/* ── KROK 1: PLAN ─────────────────────────────────────────── */}
         {krok === 'plan' && (
+          <div className="space-y-3">
+            {/*
+              PRZEŁĄCZNIK OKRESU NAD KAFELKAMI, nie na osobnym ekranie.
+              Klient po wygaśnięciu ma w jednym miejscu zobaczyć, co może kupić
+              i ile to kosztuje przy roku — to jest moment, w którym rabat roczny
+              w ogóle ma szansę zadziałać. Pokazujemy go tylko wtedy, gdy jest
+              z czego wybierać (pakiety agenta są wyłącznie miesięczne).
+
+              Kwoty rocznej NIE liczymy tutaj. Rabat („dwa miesiące gratis")
+              mieszka w `billing_cena_okresu` po stronie bazy i ma tam zostać
+              jeden — przemnożenie ceny przez dziesięć w kafelku byłoby drugą
+              kopią tej reguły. Dokładną kwotę wylicza serwer i pokazuje ją
+              ekran „Sprawdź i zapłać".
+            */}
+            {doKupienia.some((p) => p.ma_cene_roczna !== false) && (
+              <div className="flex items-center justify-center gap-1 rounded-lg border bg-muted/40 p-1">
+                {(['miesiac', 'rok'] as Okres[]).map((o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => setOkres(o)}
+                    className={
+                      'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition ' +
+                      (okres === o ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')
+                    }
+                  >
+                    {o === 'rok' ? 'Rok' : 'Miesiąc'}
+                    {o === 'rok' && <span className="ml-2 text-xs font-normal text-primary">2 miesiące gratis</span>}
+                  </button>
+                ))}
+              </div>
+            )}
           <div className="grid gap-3 sm:grid-cols-2">
             {doKupienia.map((p) => {
               const darmowy = Number(p.price_net) === 0 && !p.is_custom;
@@ -413,7 +445,15 @@ export function OknoZakupu({
                   disabled={!kupowalny}
                   onClick={() => {
                     if (darmowy) { setRozumiemFree(false); setPytamOFree(true); return; }
-                    setPlan(p.code); setKrok('okres');
+                    setPlan(p.code);
+                    /**
+                     * Okres jest już wybrany przełącznikiem nad kafelkami, więc
+                     * osobny ekran „Na jak długo" nie ma o co pytać. Plan bez
+                     * ceny rocznej wymusza miesiąc — inaczej serwer szukałby
+                     * w Stripe ceny, której tam nie ma.
+                     */
+                    if (p.ma_cene_roczna === false) setOkres('miesiac');
+                    setKrok(krokPoDanych());
                   }}
                   className={
                     'rounded-xl border p-4 text-left transition ' +
@@ -449,9 +489,10 @@ export function OknoZakupu({
               );
             })}
           </div>
+          </div>
         )}
 
-        {/* ── KROK 2: OKRES ────────────────────────────────────────── */}
+        {/* ── KROK 2: OKRES ─── zostaje dla wejść z `zacznijOd` ────── */}
         {krok === 'okres' && wybranyPlan && (
           <div className="space-y-3">
             {(['rok', 'miesiac'] as Okres[]).map((o) => (

@@ -1130,3 +1130,15 @@ body[data-wprowadzenie] [data-toast-viewport] {
   width: auto !important;
   max-width: min(420px, 92vw) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TRYB ODCZYTU — ZABLOKOWANE MA BYĆ WIDAĆ, NIE TYLKO CZUĆ PO KLIKNIĘCIU
+   ═══════════════════════════════════════════════════════════════════════════
+   Znacznik `data-zablokowane-odczytem` nadaje `ModuleLock` tą samą regułą,
+   którą blokuje kliknięcia (`src/lib/trybOdczytu.ts`). Nie powtarzamy tu
+   warunku „co jest zapisem" — wygląd i zachowanie mają jedno źródło. */
+[data-tryb-odczytu] [data-zablokowane-odczytem] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}

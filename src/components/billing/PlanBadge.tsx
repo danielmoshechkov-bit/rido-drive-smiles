@@ -100,7 +100,11 @@ export function PlanBadge({ providerId }: { providerId: string | null | undefine
     return (
       <button
         type="button"
-        onClick={() => otworzZakup({ planCode: kodPlanuZKonta, providerId })}
+        // Blokada znaczy, że planu już NIE MA. Podanie kodu starego planu
+        // kazałoby oknu pominąć wybór i pokazać wyłącznie to, co klient miał —
+        // a to jest moment, w którym najłatwiej sprzedać wyższy plan.
+        // Ta sama poprawka co w `ModuleLock` (13.09.2026).
+        onClick={() => otworzZakup({ planCode: null, providerId })}
         className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/15"
       >
         <AlertTriangle className="h-3.5 w-3.5" />

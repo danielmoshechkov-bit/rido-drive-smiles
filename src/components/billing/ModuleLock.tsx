@@ -1,6 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Lock, Loader2 } from 'lucide-react';
+import { czyWolnoWTrybieOdczytu } from '@/lib/trybOdczytu';
 import { usePublicPricing } from '@/hooks/usePublicPricing';
 import { useZakup } from '@/components/billing/ZakupProvider';
 import type { PowodBlokady, LiniaProduktowa } from '@/hooks/useSubscriptionAccess';
@@ -19,10 +21,82 @@ import type { PowodBlokady, LiniaProduktowa } from '@/hooks/useSubscriptionAcces
  * obiecujemy nie robić. Po odsłonięciu zostaje pasek przypominający i przycisk
  * zakupu, więc powód blokady nie znika z ekranu.
  *
+ * 🔴 PO ODSŁONIĘCIU ZAPIS MUSI BYĆ NAPRAWDĘ WYŁĄCZONY (13.09.2026).
+ * Do dziś pasek mówił „zapis i edycja są wyłączone", a panel pod spodem był
+ * w pełni używalny: dało się kliknąć „Dodaj zlecenie", wypełnić formularz
+ * i dopiero wtedy dostać odmowę z bazy. Obietnica na pasku była nieprawdą,
+ * a wyłączony przycisk jest uczciwszy niż formularz odrzucany na końcu.
+ *
+ * Teraz odsłonięte poddrzewo dostaje `StrazOdczytu`: przechwytuje kliknięcia
+ * i wysyłki formularzy w fazie przechwytywania, przepuszcza wyłącznie to, co
+ * `lib/trybOdczytu.ts` rozpoznaje jako czytanie, a resztę wygasza wizualnie.
+ *
  * Odsłonięcie NIE jest luką: to warstwa wyglądu. Właściwym zabezpieczeniem jest
  * RLS i bramka w edge functions — zapis ma odbić się od bazy niezależnie od tego,
  * co widać na ekranie. Ktoś z narzędziami deweloperskimi i tak usunąłby ten div.
  */
+
+/**
+ * Straż trybu odczytu — jedno miejsce, w którym „tylko podgląd i eksport"
+ * przestaje być napisem, a staje się zachowaniem.
+ *
+ * Decyzję podejmuje `czyWolnoWTrybieOdczytu`; tutaj jest tylko podpięcie jej
+ * pod zdarzenia i oznaczenie zablokowanych elementów, żeby było je WIDAĆ,
+ * a nie tylko czuć po kliknięciu.
+ */
+function StrazOdczytu({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const ostatniKomunikat = useRef(0);
+
+  const zatrzymaj = useCallback((e: Event) => {
+    if (czyWolnoWTrybieOdczytu(e.target as Element | null)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Bez zdania klient widzi tylko przycisk, który „nie działa", i klika dalej.
+    // Jeden komunikat na dwie sekundy — inaczej seria kliknięć zasypuje ekran.
+    if (Date.now() - ostatniKomunikat.current > 2000) {
+      ostatniKomunikat.current = Date.now();
+      toast.info('Tryb odczytu — zapis i edycja wrócą po opłaceniu abonamentu.');
+    }
+  }, []);
+
+  /**
+   * Oznaczenie tego, co zablokowane, TĄ SAMĄ regułą co blokada. Gdyby wygląd
+   * miał własny warunek, po pierwszej zmianie reguły jedno mówiłoby co innego
+   * niż drugie — a klient patrzyłby na aktywny przycisk, który nic nie robi.
+   */
+  useEffect(() => {
+    const korzen = ref.current;
+    if (!korzen) return;
+    const oznacz = () => {
+      korzen.querySelectorAll('button, [role="button"], input, select, textarea').forEach((el) => {
+        const wolno = czyWolnoWTrybieOdczytu(el);
+        if (wolno) el.removeAttribute('data-zablokowane-odczytem');
+        else el.setAttribute('data-zablokowane-odczytem', '');
+      });
+    };
+    oznacz();
+    // Panel dociąga dane i przerysowuje listy — bez obserwatora nowe przyciski
+    // wyglądałyby na czynne.
+    const obserwator = new MutationObserver(oznacz);
+    obserwator.observe(korzen, { childList: true, subtree: true });
+    return () => obserwator.disconnect();
+  }, [children]);
+
+  return (
+    <div
+      ref={ref}
+      data-tryb-odczytu=""
+      onClickCapture={(e) => zatrzymaj(e.nativeEvent)}
+      // Klawiatura nie potrzebuje osobnej obsługi: Enter i spacja na przycisku
+      // wywołują `click` (łapie `onClickCapture`), a Enter w polu formularza
+      // wywołuje `submit` (łapie `onSubmitCapture`).
+      onSubmitCapture={(e) => zatrzymaj(e.nativeEvent)}
+    >
+      {children}
+    </div>
+  );
+}
 const TRESC = {
   platnosc: {
     naglowek: 'Nie udało się pobrać płatności',
@@ -91,8 +165,22 @@ export function ModuleLock({
   // u kogoś, kto NIGDY nie kupił — i to jest moment, w którym staje się klientem
   // albo odchodzi. Ten ekran ma sprzedawać, nie informować o awarii.
   const tresc = TRESC[powod ?? 'brak'];
+  /**
+   * 🔴 OTWIERAMY NA WYBORZE PLANU, NIE NA OKRESIE (poprawione 13.09.2026).
+   *
+   * Stało tu `planCode: plan?.code`, czyli kod NAJTAŃSZEGO planu — a okno
+   * zakupu, dostając kod, pomija krok wyboru i staje od razu na „Na jak długo".
+   * Klient po wygaśnięciu widział więc dwie ceny Standardu i nie miał jak
+   * wybrać Pro ani zobaczyć, co który plan zawiera.
+   *
+   * To jest moment, w którym najłatwiej sprzedać wyższy plan, a pokazywaliśmy
+   * wyłącznie ten, który klient już miał. `planCode: null` otwiera okno na
+   * kafelkach planów — tak jak z cennika.
+   *
+   * Cena w napisie przycisku ZOSTAJE: „od 99 zł netto" to zachęta, nie wybór.
+   */
   const kupPlan = (
-    <Button className="shrink-0" onClick={() => otworzZakup({ planCode: plan?.code ?? null })}>
+    <Button className="shrink-0" onClick={() => otworzZakup({ planCode: null })}>
       {tresc.cta}
     </Button>
   );
@@ -112,7 +200,7 @@ export function ModuleLock({
       {/* Jedno okno: plan, okres i metoda płatności wybiera się w nim.
           Wcześniej stały tu dwa przyciski — karta i BLIK — a wybór okresu
           nie istniał w ogóle. */}
-      <Button className="w-full" onClick={() => otworzZakup({ planCode: plan?.code ?? null })}>
+      <Button className="w-full" onClick={() => otworzZakup({ planCode: null })}>
         {plan && powod !== 'platnosc'
           ? `${tresc.cta} — od ${Number(plan.price_net)} zł netto`
           : tresc.cta}
@@ -152,7 +240,7 @@ export function ModuleLock({
           </p>
           {kupPlan}
         </div>
-        {children}
+        <StrazOdczytu>{children}</StrazOdczytu>
       </div>
     );
   }
