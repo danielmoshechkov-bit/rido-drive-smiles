@@ -138,7 +138,59 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    if (!subscriberId || !linia) return json({ error: "BRAK_DANYCH" }, 400);
+    if (!subscriberId) return json({ error: "BRAK_DANYCH" }, 400);
+
+    /**
+     * DOŻYWOTNI JAKO OSOBNA POZYCJA, NIE JAKO 36500 DNI.
+     *
+     * Wpisanie tysięcy dni w pole liczby to pułapka na literówkę: 3650 i 36500
+     * wyglądają podobnie, a różnią się o dziewięćdziesiąt lat. Dożywotni jest
+     * więc WYBOREM z listy, a nie liczbą — i nie dotyka żadnej daty, tylko
+     * ustawia znacznik, który wszystkie bramki czytają przed regułami
+     * wygaśnięcia (patrz komentarz przy `service_providers.dostep_dozywotni`).
+     */
+    if (body.dozywotni === true) {
+      const { data: przed } = await admin
+        .from("service_providers")
+        .select("dostep_dozywotni, company_name")
+        .eq("id", subscriberId)
+        .maybeSingle();
+
+      const { error: bladZnacznika } = await admin
+        .from("service_providers")
+        .update({ dostep_dozywotni: true })
+        .eq("id", subscriberId);
+
+      if (bladZnacznika) {
+        console.error("billing-przyznaj-dni: nie zapisano znacznika", bladZnacznika);
+        return json({ error: "Nie udało się nadać dostępu dożywotniego." }, 503);
+      }
+
+      // Wpis do księgi z powodem — nadanie bez śladu nie jest nadaniem,
+      // tylko zmianą, której po miesiącu nikt nie wytłumaczy.
+      await admin.from("billing_audit_log").insert({
+        actor_id: actorId,
+        action: "konto.dostep_dozywotni",
+        target_table: "service_providers",
+        target_id: subscriberId,
+        before: { dostep_dozywotni: przed?.dostep_dozywotni ?? false },
+        after: { dostep_dozywotni: true, powod },
+      });
+
+      console.log(JSON.stringify({
+        event: "dostep_dozywotni", warsztat: subscriberId, autor: actorId,
+      }));
+      return json({
+        ok: true,
+        wynik: {
+          dozywotni: true,
+          uwaga: `Konto ${przed?.company_name ?? ""} ma teraz dostęp bez końca — `
+            + "żadna reguła wygaśnięcia, karencji ani blokady go nie dotyczy.",
+        },
+      });
+    }
+
+    if (!linia) return json({ error: "BRAK_DANYCH" }, 400);
 
     const { data, error } = await (admin as any).rpc("billing_przyznaj_dni_admin", {
       p_subscriber_id: subscriberId,
