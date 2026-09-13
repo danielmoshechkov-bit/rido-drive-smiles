@@ -86,7 +86,7 @@ Deployment to production (`getrido.pl` on LH.pl shared hosting) is the **GitHub 
 
 > **Zanim uwierzysz zielonemu wynikowi** — przeczytaj
 > „🔴 JAK NARZĘDZIA W TYM PROJEKCIE KŁAMIĄ — JEDNA LISTA" niżej.
-> Dwadzieścia jeden znanych sposobów, na jakie kontrola w tym repozytorium
+> Dwadzieścia dwa znane sposoby, na jakie kontrola w tym repozytorium
 > potrafi wypaść zielono nad zepsutym kodem.
 
 
@@ -502,6 +502,7 @@ to zauważy. Poniżej znane przypadki — każdy wyszedł drogo.
 | **`flex-1` bez `min-w-0`** | element z `flex-1` NIE kurczy się poniżej swojej treści. Zawinięcie rodzica wygląda na naprawę i nią nie jest — po pierwszej poprawce alert dalej wystawał o 99 px | zmiana weszła, a pomiar pokazuje ten sam nadmiar | `min-w-0` na **każdym** poziomie zagnieżdżenia. Jeden pominięty poziom kasuje całą naprawę |
 | **`mx-auto` w kolumnie `flex`** | marginesy `auto` w osi poprzecznej ZNOSZĄ `align-items: stretch`, więc `max-w-5xl mx-auto` w rodzicu `flex flex-col` bierze szerokość MAKSYMALNĄ, nie szerokość rodzica. Zmierzone: 415 px w kolumnie 328 px | blok szerszy od rodzica, choć nie ma w nim nic szerokiego; `min-w-0` nic nie zmienia | dopisz `w-full`. Wzorzec `max-w-* mx-auto` jest w tym repozytorium wszędzie i w kolumnie `flex` zawsze jest pułapką |
 | **Slot pomiarowy wstawiony do kontenera `flex`** | element bez `width` jest elementem elastycznym z `min-width: auto` i rozdyma się do swojej treści. Pasek zakładek „potrzebował” 951 px przy „widocznych” 951 — obie liczby były o moim slocie, nie o układzie | `clientWidth` slotu nie równa się szerokości kolumny, w której mierzysz | slot ZAWSZE `width: <szerokość kolumny>px; min-width: 0; display: block`, a szerokość kolumny odczytana z prawdziwego elementu |
+| **Osadzenie PostgREST przy dwóch kluczach obcych** | `plan:billing_plans(...)` przy DWÓCH kluczach z `billing_subscriptions` daje **HTTP 300 / PGRST201** — nie pustkę, tylko błąd. Kod z `if (error) return false` czyta to jako „nie ma dostępu": opłacone konto widziało cennik, a cron ceny docelowej padał po cichu przy każdym przebiegu | zapytanie zwraca 300 zamiast 200; w kodzie `error`, w bazie wszystko na miejscu | wskaż klucz z nazwy: `billing_plans!billing_subscriptions_plan_id_fkey`. Pilnuje tego `npm run test:osadzenia` (13 par tabel odczytanych z bazy) |
 
 **Reguła nadrzędna: każda bramka, kontrola i test w tym repozytorium ma mieć
 własną kontrolę pozytywną** — przypadek, o którym wiadomo, że jest zły, i który

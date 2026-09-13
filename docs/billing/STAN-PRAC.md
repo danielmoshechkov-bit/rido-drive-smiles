@@ -2,6 +2,80 @@
 
 ---
 
+## 🔴 „ZAPŁACIŁEM KARTĄ, PANEL POKAZUJE CENNIK" — DIAGNOZA I NAPRAWA (13.09.2026)
+
+Pierwszy prawdziwy zakup pakietu Agenta kartą. Warto zapamiętać cały ślad,
+bo sześć kroków wyglądało na zepsute, a zepsuty był siódmy, o który nikt nie pytał.
+
+### Ślad, krok po kroku
+
+| krok | wynik | dowód |
+|---|---|---|
+| 1. sesja Stripe | ✅ | `payment_status: paid`, 306,27 zł, tryb `subscription` |
+| 2. webhook doszedł | ✅ | `billing_events`, `checkout.session.completed`, status `processed`, 20:24:52 |
+| 3. rozpoznanie planu | ✅ | metadane: `plan_code: agent`, `product_line: agent`, `subscriber_id` |
+| 4. subskrypcja | ✅ | powstała 20:24:55, `active`, `product_line: agent`, okres do 13.10 |
+| 5. minuty | ✅ | `voice_saldo_minut` → `dostepne: 250`, `ma_limit: true` |
+| 6. aktywacja numeru | — | zero zdarzeń, ale uruchamia ją CZŁOWIEK przyciskiem w panelu |
+| 7. panel | 🔴 | `usePakietAgenta` dostawał HTTP 300 i czytał to jako „brak pakietu" |
+
+### Dwa własne błędne tropy, warte zapamiętania
+
+**„Brak wiersza w `billing_addon_packs` = minuty nienadane".** Nieprawda.
+250 minut idzie z LIMITU PLANU (`billing_plan_features`), a paczki powstają
+wyłącznie przy doładowaniach. Rozstrzygnęła dopiero `voice_saldo_minut`, nie
+zawartość tabeli. Wniosek: pytaj funkcji, która liczy saldo, a nie tabeli,
+w której spodziewasz się zapisu.
+
+**„Aktywacja numeru nie ruszyła = kolejna usterka".** Nieprawda — aktywację
+uruchamia warsztat przyciskiem w panelu, a panel pokazywał cennik. Skutek
+wzięty za przyczynę.
+
+### Przyczyna
+
+`billing_subscriptions` ma DWA klucze obce do `billing_plans` (`plan_id`
+i `plan_od_nastepnego_okresu`). `plan:billing_plans(...)` jest wtedy
+niejednoznaczne, PostgREST odsyła **HTTP 300 / PGRST201**, a hak miał
+`if (error) return false`. Opłacone konto widziało cennik.
+
+Trzy miejsca naraz: `usePakietAgenta` (to zgłosił klient),
+`useSubscriptionDetails` (rzucał wyjątkiem), `billing-price-guarantee`
+(cron ceny docelowej padał po cichu przy każdym przebiegu).
+
+### Bramka
+
+`npm run test:osadzenia` + `scripts/niejednoznaczne-osadzenia.json`
+(13 par tabel z wieloma kluczami obcymi, odczytane z bazy). W CI.
+Sprawdzone wstecz: łapie wszystkie trzy prawdziwe błędy.
+
+Pierwsza wersja bramki dała FAŁSZYWY ALARM — sięgała 2000 znaków w przód od
+`.from(`, więc zapytaniu `.update()` bez własnego `.select(` przypisała cudze
+osadzenie z dalszej części pliku. Zakres kończy się teraz na następnym
+`.from(`, a druga kontrola pozytywna pilnuje, że zawężenie nie zjadło czułości.
+
+### Ścieżka zakupu skrócona
+
+Ekran „Jak chcesz zapłacić" usunięty — oba kafle prowadziły w to samo miejsce,
+gdzie i tak stały oba przyciski. Formularz danych do faktury pokazuje się
+tylko, gdy `billing_dane_nabywcy_kompletne` mówi, że czegoś brakuje.
+
+⚠️ Robione RÓWNOLEGLE w drugiej sesji, dwa razy to samo. Ich wersja weszła do
+`main` pierwsza i ma własną bramkę, moja została odrzucona przy scaleniu.
+Przy dwóch sesjach na jednym repozytorium warto zapytać, kto co bierze.
+
+### Do wykonania: migracja `20260913204817_znacznik_nabywcy_z_danych`
+
+Samo pominięcie formularza nie wystarczy: `billing_dane_nabywcy_kompletne`
+wymaga kolumny `faktura_rodzaj_nabywcy`, którą ustawia WYŁĄCZNIE okno zakupu,
+a te same kolumny firmowe zapisuje dziesięć innych miejsc. Migracja zakłada
+wyzwalacz: komplet danych + poprawny NIP → `firma` ustawia się samo.
+Nie zgaduje `osoba` — brak NIP-u nie dowodzi, że nabywca jest osobą prywatną.
+
+Policzone: 31 warsztatów, 7 ze znacznikiem, 24 bez, a z tych 24 komplet danych
+firmowych ma **zero**. Wyrównanie wsteczne nie ruszy dziś ani jednego wiersza.
+
+---
+
 ## ⭐ KARTA ZLECENIA NA TELEFONIE — ZMIERZONA I POPRAWIONA (13.09.2026)
 
 Domyka pozycję „reszta portalu" o ekran, na którym mechanik spędza najwięcej czasu.
