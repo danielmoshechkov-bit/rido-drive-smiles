@@ -2,6 +2,58 @@
 
 ---
 
+## 🔴 CONVERSIONS API GOTOWE W KODZIE — CZEKA NA TRZY RZECZY OD CZŁOWIEKA (13.09.2026)
+
+Kod jest w `main` (commit `b575a957`). **Na produkcji nie działa jeszcze nic** —
+i to jest stan zamierzony, bo trzy kroki wymagają decyzji człowieka.
+
+### Kolejność wykonania — obowiązuje
+
+1. **Migracja `20260913154236_ciasteczka_piksela_na_zamowieniu.sql`** —
+   dokłada `billing_orders.meta_fbp` i `meta_fbc`.
+2. **Dwa sekrety** w projekcie Supabase: `META_PIXEL_ID` (to `1095723286464143`)
+   oraz `META_CAPI_TOKEN` — token systemowy z Menedżera zdarzeń Meta,
+   Ustawienia → Conversions API → Wygeneruj token dostępu.
+3. **Wdrożenie trzech funkcji brzegowych**: `meta-capi` (nowa),
+   `billing-payu-order`, `billing-payu-webhook`.
+
+Odwrotna kolejność (funkcje przed migracją) **nie wywraca sprzedaży** — patrz
+niżej — ale wtedy przez ten czas żadna konwersja nie pojedzie.
+
+### Dlaczego zła kolejność nie kosztuje zakupów
+
+`billing-payu-order` zapisuje ciasteczka piksela na wierszu zamówienia. Bez
+migracji PostgREST odrzuca **cały** `INSERT` kodem `PGRST204` (sprawdzone
+zachowaniem: nieznana kolumna jest łapana PRZED RLS, anon dostaje 400, nie 401).
+Bez zabezpieczenia każdy klient zobaczyłby „Nie udało się rozpocząć płatności"
+— z powodu pola analitycznego.
+
+Dlatego funkcja przy **tym jednym** kodzie zakłada zamówienie po raz drugi, bez
+pól analitycznych, i pisze krzykliwie do dziennika. Pierwsza próba nie zostawia
+wiersza, więc nie ma mowy o podwójnym zamówieniu.
+
+### Jak sprawdzić, że działa — bez czekania na klienta
+
+W Menedżerze zdarzeń Meta, karta **Testuj zdarzenia**, nie ma sensu: ta funkcja
+nie wysyła `test_event_code`. Sprawdzać dziennikiem funkcji:
+
+- `payu_capi` z `przyjete: 1` → Meta przyjęła zdarzenie,
+- `capi_pominiete` z `powod: "brak_zgody"` → klient nie zgodził się na marketing
+  (to jest **poprawne zachowanie**, nie usterka),
+- `capi_pominiete` z `powod: "brak_sekretow"` → punkt 2 wyżej niezrobiony,
+- w `billing-payu-order`: `BRAK KOLUMN meta_fbp/meta_fbc` → punkt 1 niezrobiony.
+
+W panelu Meta jakość dopasowania rośnie z opóźnieniem kilkunastu godzin — brak
+zmiany tego samego dnia nic nie znaczy.
+
+### Czego CAPI NIE robi
+
+Nie omija RODO. Klient bez zgody marketingowej nie ma `fbp` ani `fbc`, więc
+`meta-capi` **nie wysyła o nim niczego**, mimo że zna jego adres z konta. Adres
+znamy z umowy o świadczenie usługi, nie ze zgody na marketing — i tak zostaje.
+
+---
+
 ## 🔴 AGENT GŁOSOWY MA DWIE ROZBIEŻNE WERSJE — DO POGODZENIA PO STARCIE
 
 **Jeśli czytasz to bez kontekstu, przeczytaj całość, zanim cokolwiek ruszysz.
