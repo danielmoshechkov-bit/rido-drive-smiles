@@ -17,6 +17,46 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    /**
+     * 🔴 KTO WOŁA — SPRAWDZANE PRZED WYSŁANIEM CZEGOKOLWIEK (10.09.2026).
+     *
+     * `verify_jwt = false`, a rozliczenie było warunkowe: bez nagłówka
+     * `Authorization` `warsztatDoRozliczenia` zostawało puste, `deduct_sms_credit`
+     * się nie wykonywało — i funkcja SZŁA DALEJ, wysyłając SMS przez bramkę
+     * na naszym koncie. Klucz `anon` jest w paczce aplikacji, więc publiczny.
+     *
+     * Nie da się tego naprawić samym rozliczeniem: dziesięć funkcji brzegowych
+     * (przypomnienia o wizytach, powiadomienia agenta, zaproszenia pracowników)
+     * woła tę funkcję z serwera kluczem `service_role` i one MUSZĄ działać.
+     * Dlatego wpuszczamy dwie drogi i zamykamy trzecią:
+     *   • klucz serwisowy — wywołanie z naszego serwera,
+     *   • token zalogowanego użytkownika — wywołanie z przeglądarki,
+     *   • wszystko inne — odmowa.
+     */
+    const naglowekAutoryzacji = req.headers.get('Authorization');
+    const tokenAutoryzacji = naglowekAutoryzacji?.replace(/^Bearer\s+/i, '').trim() || '';
+    const wywolanieSerwisowe =
+      !!tokenAutoryzacji && tokenAutoryzacji === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!wywolanieSerwisowe) {
+      const anonDoSprawdzenia = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
+      let rozpoznany = false;
+      if (tokenAutoryzacji && anonDoSprawdzenia) {
+        const klientUzytkownika = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '', anonDoSprawdzenia,
+          { global: { headers: { Authorization: `Bearer ${tokenAutoryzacji}` } } },
+        );
+        const { data: { user } } = await klientUzytkownika.auth.getUser();
+        rozpoznany = !!user;
+      }
+      if (!rozpoznany) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'BRAK_LOGOWANIA', message: 'Zaloguj się, żeby wysyłać wiadomości.' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
+
     const { phone, message, driver_id, fleet_id, type = 'generic', sender, dry_run = false } = await req.json();
 
     if (!phone || !message) {
