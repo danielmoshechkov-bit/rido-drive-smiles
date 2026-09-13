@@ -25,7 +25,8 @@
     "lint:i18n": "node scripts/check-i18n.mjs",
     "test:front": "node scripts/test-front.mjs",
     "test:haki": "node scripts/sprawdz-haki.mjs",
-    "test:capi": "node scripts/sprawdz-lancuch-capi.mjs"
+    "test:capi": "node scripts/sprawdz-lancuch-capi.mjs",
+    "test:osadzenia": "node scripts/sprawdz-osadzenia.mjs"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.14.1",

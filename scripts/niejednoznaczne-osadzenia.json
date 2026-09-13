@@ -1,0 +1,113 @@
+{
+ "opis": "Pary tabel, miedzy ktorymi jest WIECEJ NIZ JEDEN klucz obcy. Osadzenie PostgREST miedzy nimi MUSI wskazac klucz z nazwy, inaczej zapytanie konczy sie HTTP 300 / PGRST201.",
+ "zrodlo": "pg_constraint, projekt wclrrytmrscqvsyxyvnn",
+ "odczytane": "2026-09-13",
+ "jak_odswiezyc": "zapytanie w naglowku scripts/sprawdz-osadzenia.mjs",
+ "pary": [
+  {
+   "dziecko": "ai_routing_rules",
+   "rodzic": "ai_providers",
+   "klucze": [
+    "ai_routing_rules_primary_provider_key_fkey",
+    "ai_routing_rules_secondary_provider_key_fkey",
+    "ai_routing_rules_tertiary_provider_key_fkey"
+   ]
+  },
+  {
+   "dziecko": "billing_subscriptions",
+   "rodzic": "billing_plans",
+   "klucze": [
+    "billing_subscriptions_plan_id_fkey",
+    "billing_subscriptions_plan_od_nastepnego_okresu_fkey"
+   ]
+  },
+  {
+   "dziecko": "driver_fleet_partnerships",
+   "rodzic": "fleets",
+   "klucze": [
+    "driver_fleet_partnerships_managing_fleet_id_fkey",
+    "driver_fleet_partnerships_partner_fleet_id_fkey"
+   ]
+  },
+  {
+   "dziecko": "marketplace_conversations",
+   "rodzic": "marketplace_user_profiles",
+   "klucze": [
+    "marketplace_conversations_buyer_profile_id_fkey",
+    "marketplace_conversations_seller_profile_id_fkey"
+   ]
+  },
+  {
+   "dziecko": "real_estate_listings",
+   "rodzic": "real_estate_agents",
+   "klucze": [
+    "real_estate_listings_agency_id_fkey",
+    "real_estate_listings_agent_id_fkey"
+   ]
+  },
+  {
+   "dziecko": "settlement_import_diagnostics",
+   "rodzic": "drivers",
+   "klucze": [
+    "settlement_import_diagnostics_created_driver_id_fkey",
+    "settlement_import_diagnostics_matched_driver_id_fkey"
+   ]
+  },
+  {
+   "dziecko": "settlement_plan_changes",
+   "rodzic": "settlement_plans",
+   "klucze": [
+    "settlement_plan_changes_new_plan_id_fkey",
+    "settlement_plan_changes_old_plan_id_fkey"
+   ]
+  },
+  {
+   "dziecko": "unmapped_settlement_drivers",
+   "rodzic": "drivers",
+   "klucze": [
+    "unmapped_settlement_drivers_driver_id_fkey",
+    "unmapped_settlement_drivers_linked_driver_id_fkey"
+   ]
+  },
+  {
+   "dziecko": "user_invoices",
+   "rodzic": "user_invoices",
+   "klucze": [
+    "user_invoices_advance_invoice_id_fkey",
+    "user_invoices_corrected_invoice_id_fkey"
+   ]
+  },
+  {
+   "dziecko": "voice_numbers",
+   "rodzic": "service_providers",
+   "klucze": [
+    "voice_numbers_poprzedni_provider_id_fkey",
+    "voice_numbers_provider_id_fkey"
+   ]
+  },
+  {
+   "dziecko": "workspace_messages",
+   "rodzic": "workspace_messages",
+   "klucze": [
+    "workspace_messages_reply_to_id_fkey",
+    "workspace_messages_thread_parent_id_fkey"
+   ]
+  },
+  {
+   "dziecko": "workspace_task_dependencies",
+   "rodzic": "workspace_tasks",
+   "klucze": [
+    "workspace_task_dependencies_depends_on_task_id_fkey",
+    "workspace_task_dependencies_task_id_fkey"
+   ]
+  },
+  {
+   "dziecko": "workspace_tasks",
+   "rodzic": "workspace_tasks",
+   "klucze": [
+    "workspace_tasks_blocked_by_task_id_fkey",
+    "workspace_tasks_parent_task_id_fkey"
+   ]
+  }
+ ]
+}

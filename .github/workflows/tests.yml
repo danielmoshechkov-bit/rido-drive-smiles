@@ -178,5 +178,14 @@ jobs:
       - name: Lancuch Conversions API
         run: npm run test:capi
 
+      # 13.09.2026: pierwszy prawdziwy zakup pakietu Agenta karta przeszedl,
+      # subskrypcja powstala, minuty byly — a panel dalej pokazywal cennik.
+      # `billing_subscriptions` ma DWA klucze obce do `billing_plans`, wiec
+      # `plan:billing_plans(...)` konczy sie HTTP 300 / PGRST201, a hak czytal
+      # `if (error) return false`. Trzy miejsca mialy ten sam blad naraz,
+      # w tym cron ceny docelowej, ktory padal po cichu przy kazdym przebiegu.
+      - name: Niejednoznaczne osadzenia PostgREST
+        run: npm run test:osadzenia
+
       - name: Testy frontu
         run: npm run test:front

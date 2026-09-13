@@ -41,27 +41,27 @@ export function usePakietAgenta() {
       if (!sp?.id) return false;
 
       /**
-       * 🔴 PYTAMY O PLAN, NIE O KOLUMNĘ `product_line`.
+       * 🔴 OSADZENIE MUSI WSKAZAĆ KLUCZ OBCY Z NAZWY.
        *
-       * Naturalne byłoby zawołać `moze_pracowac(warsztat, 'agent')` — tej samej
-       * funkcji używa bramka na serwerze. Nie robimy tego, bo ona czyta
-       * `billing_subscriptions.product_line`, a webhook Stripe TEJ KOLUMNY NIE
-       * USTAWIA przy pierwszym zakupie: buduje wiersz bez niej, a kolumna ma
-       * wartość domyślną `'other'`. Pierwszy w historii zakup pakietu Agent
-       * poszedłby właśnie tą ścieżką i panel po opłaceniu dalej pokazywałby
-       * ofertę.
+       * `billing_subscriptions` ma DWA klucze obce do `billing_plans`:
+       * `plan_id` i `plan_od_nastepnego_okresu`. Przy zapisie
+       * `plan:billing_plans(...)` PostgREST nie wie, o który chodzi, i odsyła
+       * **HTTP 300 / PGRST201** — czyli `error`, czyli `return false` niżej,
+       * czyli OFERTA MIMO OPŁACONEGO PAKIETU. Bez żadnego objawu w bazie:
+       * subskrypcja jest, minuty są, panel pokazuje cennik.
        *
-       * Linia produktowa jest własnością PLANU i tam jest zawsze prawdziwa.
-       * Pytamy więc przez złączenie z `billing_plans` — to działa niezależnie
-       * od tego, czy ktoś kiedyś wypełni tę kolumnę.
+       * Tak było 13.09.2026 przy pierwszym prawdziwym zakupie Agenta kartą.
+       * Sprawdzone zachowaniem, nie odczytem: to samo zapytanie z jawnym
+       * kluczem zwraca 200, bez klucza 300.
        *
-       * Sama kolumna nadal wymaga naprawy w webhooku: bez niej nie zadziała
-       * bramka odmowy po wyczerpaniu minut (`voice_odmowic_brak_minut` filtruje
-       * po `product_line`). Opisane w docs/BACKLOG.md.
+       * Pytamy o linię produktową PLANU, nie o kolumnę `product_line` na
+       * subskrypcji, choć wyzwalacz `trg_billing_subscriptions_product_line`
+       * ją wypełnia. Powód jest jeden: linia jest własnością planu i tam jest
+       * prawdziwa zawsze, także dla wierszy starszych od wyzwalacza.
        */
       const { data: subskrypcje, error } = await (supabase as any)
         .from('billing_subscriptions')
-        .select('id, status, current_period_end, plan:billing_plans!inner(product_line)')
+        .select('id, status, current_period_end, plan:billing_plans!billing_subscriptions_plan_id_fkey!inner(product_line)')
         .eq('subscriber_type', 'service_provider')
         .eq('subscriber_id', sp.id)
         .in('status', ['active', 'trialing'])

@@ -32,7 +32,7 @@ export function useSubscriptionDetails(providerId: string | null | undefined) {
       const { data, error } = await supabase
         .from('billing_subscriptions' as any)
         .select(
-          'status, current_period_end, price_snapshot, price_guarantee_until, provider, provider_subscription_id, plan:billing_plans(name, code, price_net)',
+          'status, current_period_end, price_snapshot, price_guarantee_until, provider, provider_subscription_id, plan:billing_plans!billing_subscriptions_plan_id_fkey(name, code, price_net)',
         )
         .eq('subscriber_type', 'service_provider')
         .eq('subscriber_id', providerId)
