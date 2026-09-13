@@ -2299,7 +2299,8 @@
         "pracownicy": "Employees",
         "stanowiska": "Stations",
         "ustawienia": "Settings",
-        "cennik": "Service price list"
+        "cennik": "Service price list",
+        "aiAgent": "AI Agent"
       },
       "freeTrialBadge": "{{days}} days free — no commitment",
       "heroTitle": "Workshop & Auto — everything in one place",

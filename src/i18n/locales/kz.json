@@ -2299,7 +2299,8 @@
         "pracownicy": "Қызметкерлер",
         "stanowiska": "Стансалар",
         "ustawienia": "Параметрлер",
-        "cennik": "Қызметтер бағасы"
+        "cennik": "Қызметтер бағасы",
+        "aiAgent": "AI Agent"
       },
       "freeTrialBadge": "{{days}} күн тегін — міндеттемесіз",
       "heroTitle": "Шеберхана және авто — бәрі бір жерде",

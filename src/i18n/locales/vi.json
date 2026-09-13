@@ -2193,7 +2193,8 @@
         "pracownicy": "Nhân viên",
         "stanowiska": "Vị trí làm việc",
         "ustawienia": "Cài đặt",
-        "cennik": "Bảng giá dịch vụ"
+        "cennik": "Bảng giá dịch vụ",
+        "aiAgent": "AI Agent"
       },
       "freeTrialBadge": "{{days}} ngày miễn phí — không ràng buộc",
       "heroTitle": "Xưởng & Ô tô — tất cả trong một nơi",
