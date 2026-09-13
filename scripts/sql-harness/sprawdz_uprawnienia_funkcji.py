@@ -116,6 +116,21 @@ RE_ZLY_REVOKE = re.compile(
     re.I)
 
 
+def _cialo_funkcji(tresc: str, od: int) -> str:
+    """Treść między znacznikiem dolarowym otwierającym ciało a jego domknięciem.
+
+    Zwraca fragment do końca pliku, gdy znacznika nie ma (np. funkcja w SQL
+    bez `$$`) — wtedy zachowujemy się jak dawniej, czyli ostrożniej.
+    """
+    otwarcie = re.search(r"\$([A-Za-z_]\w*)?\$", tresc[od:])
+    if not otwarcie:
+        return tresc[od:]
+    znacznik = otwarcie.group(0)
+    poczatek = od + otwarcie.end()
+    koniec = tresc.find(znacznik, poczatek)
+    return tresc[poczatek:koniec] if koniec != -1 else tresc[poczatek:]
+
+
 def main() -> int:
     problemy: list[tuple[str, str]] = []
     zly_wzorzec: list[tuple[str, str]] = []
@@ -138,12 +153,18 @@ def main() -> int:
             if nazwa in WYJATKI or nazwa in ZAMKNIETE_ZBIORCZO:
                 continue
 
-            # Ciało funkcji: od jej początku do końca pliku wystarczy — szukamy,
-            # czy gdziekolwiek dalej pisze do tabeli pieniężnej przed kolejną
-            # definicją funkcji.
-            reszta = bez_komentarzy[m.end():]
-            nastepna = RE_FUNKCJA.search(reszta)
-            cialo = reszta[: nastepna.start()] if nastepna else reszta
+            # Ciało funkcji kończy się na SWOIM znaczniku dolarowym, nie „gdzieś
+            # przed następną funkcją".
+            #
+            # 🔴 POPRAWIONE 13.09.2026 PO FAŁSZYWYM ALARMIE. Wcześniej ciałem
+            # ostatniej funkcji w pliku było WSZYSTKO DO KOŃCA PLIKU — więc
+            # `current_user_pl_phone`, która czyta wyłącznie własny numer
+            # telefonu, została zgłoszona jako pisząca do `coin_transactions`,
+            # bo dalej w tym samym pliku stało `DROP POLICY … ON coin_transactions`.
+            #
+            # Odpowiedzią na fałszywy alarm jest ZAWĘŻENIE warunku, nie wyjątek:
+            # wyjątek uciszyłby tę jedną funkcję i zostawił pułapkę następnej.
+            cialo = _cialo_funkcji(bez_komentarzy, m.end())
             if not RE_ZAPIS.search(cialo):
                 continue
 
