@@ -85,8 +85,17 @@ const toKod = (t: unknown): boolean =>
  *
  * Wołane przy KAŻDEJ odmowie — także tej z kodem 200 i polem `error` — żeby
  * jedno miejsce odpowiadało za wszystkie drogi do operatora płatności.
+ *
+ * `domyslne` jest dla wywołań, które ODMOWĘ czytają tak samo, ale PŁATNOŚCIĄ
+ * nie są — jak zamówienie numeru dla agenta. Zdanie ostatniej szansy ma wtedy
+ * pasować do tego, co człowiek właśnie robił; „Nie udało się rozpocząć
+ * płatności" przy zamawianiu numeru myli bardziej, niż pomaga.
  */
-export async function odczytajOdmowe(error: unknown, data?: any): Promise<Odmowa> {
+export async function odczytajOdmowe(
+  error: unknown,
+  data?: any,
+  domyslne: string = DOMYSLNE,
+): Promise<Odmowa> {
   // Odmowa z kodem 200: `error` jest puste, całość siedzi w `data`.
   const zCiala = error ? await odczytajBladFunkcji(error) : null;
   const surowe: any = zCiala?.surowe ?? data ?? null;
@@ -109,7 +118,7 @@ export async function odczytajOdmowe(error: unknown, data?: any): Promise<Odmowa
     // Zdanie wg statusu HTTP z `odczytajBladFunkcji` — ale tylko wtedy, gdy nie
     // jest samym kodem, który ta funkcja oddaje bez oceny.
     (zCiala && !toKod(zCiala.komunikat) ? zCiala.komunikat : null) ||
-    DOMYSLNE;
+    domyslne;
 
   return { kod, komunikat, status: zCiala?.status ?? null };
 }

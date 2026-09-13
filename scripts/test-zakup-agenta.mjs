@@ -23,6 +23,7 @@ const okno = plik('src/components/billing/OknoZakupu.tsx');
 const oferta = plik('src/components/ai-sales/OfertaAgenta.tsx');
 const cennik = plik('src/hooks/usePublicPricing.ts');
 const strona = plik('src/components/agent/StronaAgenta.tsx');
+const panel = plik('src/components/ai-sales/VoiceAgentPanel.tsx');
 const checkout = plik('supabase/functions/billing-checkout/index.ts');
 const synchro = plik('supabase/functions/billing-stripe-sync/index.ts');
 
@@ -63,6 +64,18 @@ sprawdz(!/error: "Plan wymaga synchronizacji ze Stripe"/.test(checkout),
   'stary komunikat techniczny nie wrocil');
 sprawdz(/console\.error\([^)]*stripe_price_id/.test(checkout),
   'brak ceny zostawia slad w logach — to nasza zaleglosc, nie blad klienta');
+
+// 4b. Optymistyczny stan po odmowie — ta sama klasa, tylko widoczna dluzej.
+//     Panel pisal „Zamawiamy Twoj numer" takze wtedy, gdy serwer zamowienie
+//     ODRZUCIL: toast znikal, zdanie zostawalo, warsztat czekal na nic.
+sprawdz(/odmowaNumeru/.test(panel) && /setOdmowaNumeru\(odmowa\.komunikat\)/.test(panel),
+  'odmowa zamowienia numeru zostaje na ekranie, nie tylko w znikajacym powiadomieniu');
+sprawdz(/odmowaNumeru && !stan\?\.wymaga_miasta \?/.test(panel),
+  '„Zamawiamy Twoj numer" nie pokazuje sie po odmowie');
+sprawdz(/ponowZamowienie/.test(panel),
+  'po odmowie jest czym sprobowac ponownie — automat probowal juz raz');
+sprawdz(!/if \(error\) \{ toast\.error\("Nie udalo sie rozpoczac aktywacji"\); return; \}/.test(panel),
+  'stare polkniecie zdania serwera przy aktywacji nie wrocilo');
 
 // 5. Cennik u operatora: nazwa produktu to nazwa, ktora klient czyta przy platnosci.
 sprawdz(/const nazwa = `GetRido \$\{plan\.name\}`/.test(synchro) && /wyrownajNazwe/.test(synchro),

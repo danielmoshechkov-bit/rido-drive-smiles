@@ -37,6 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Save, Phone, Building2, ShieldCheck, Copy, AlertTriangle, Plane } from "lucide-react";
 import { usePakietAgenta } from "@/hooks/usePakietAgenta";
+import { odczytajOdmowe } from "@/lib/odmowaZakupu";
 import { OfertaAgenta } from "./OfertaAgenta";
 
 // JĘZYKÓW WARSZTAT NIE WYBIERA. Agent rozpoznaje język z tego, co mówi
@@ -139,6 +140,8 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
   const [stan, setStan] = useState<StanAktywacji | null>(null);
   const [miasto, setMiasto] = useState("");
   const [aktywuje, setAktywuje] = useState(false);
+  /** Zdanie serwera po nieudanym zamówieniu numeru — zostaje na ekranie. */
+  const [odmowaNumeru, setOdmowaNumeru] = useState<string | null>(null);
 
 
 
@@ -234,19 +237,53 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stan]);
 
+  /**
+   * ZAMÓWIENIE NUMERU — I CO WIDAĆ, GDY SERWER ODMÓWI.
+   *
+   * ═══════════════════════════════════════════════════════════════════════════
+   * 🔴 PANEL PISAŁ „ZAMAWIAMY TWÓJ NUMER" TAKŻE PO ODMOWIE (naprawione 13.09.2026)
+   * ═══════════════════════════════════════════════════════════════════════════
+   * Zamówienie leci samo przy wejściu. Gdy serwer odmawiał — brak pakietu (402),
+   * brak miasta (400), błąd zapisu (500) — leciał toast, znikał po kilku
+   * sekundach, a ekran ZOSTAWAŁ na zdaniu „Zamawiamy Twój numer — zajmie to
+   * chwilę". Warsztat czekał na coś, co nigdy nie zostało rozpoczęte. Dokładnie
+   * ta sama klasa co połknięty błąd: optymistyczny stan po odmowie.
+   *
+   * Teraz odmowa ZOSTAJE NA EKRANIE, ze zdaniem serwera i przyciskiem ponowienia.
+   *
+   * Zdanie czyta `odczytajOdmowe`, bo `functions.invoke` przy odpowiedzi spoza
+   * 2xx zostawia `data === null` — a `voice-number-activate` odmawia parą
+   * `error: "BRAK_PAKIETU"` + `message: "Numer przydzielamy do opłaconego
+   * pakietu…"`. Bez tej warstwy na ekran trafiłby albo goły kod, albo nic.
+   */
   const aktywuj = async () => {
     setAktywuje(true);
+    setOdmowaNumeru(null);
     const { data, error } = await supabase.functions.invoke("voice-number-activate", {
       body: { akcja: "aktywuj", miasto: miasto || undefined },
     });
     setAktywuje(false);
-    if (error) { toast.error("Nie udało się rozpocząć aktywacji"); return; }
-    const s = data as StanAktywacji;
-    setStan(s);
-    if (s?.error) { toast.error(s.error); return; }
+
+    const s = data as StanAktywacji | null;
+    if (error || s?.error) {
+      const odmowa = await odczytajOdmowe(
+        error,
+        s,
+        "Nie udało się zamówić numeru. Spróbuj ponownie za chwilę.",
+      );
+      if (s) setStan(s);
+      setOdmowaNumeru(odmowa.komunikat);
+      toast.error(odmowa.komunikat);
+      return;
+    }
+
+    setStan(s as StanAktywacji);
     if (s?.numer) { setNumer({ phone_number: s.numer, status: "aktywny" }); toast.success("Numer przypisany"); }
     else toast.success("Zaczynamy — numer będzie gotowy za chwilę");
   };
+
+  /** Ponowienie po odmowie — ręczne, bo automat spróbował już raz. */
+  const ponowZamowienie = () => { zamowionoRef.current = true; void aktywuj(); };
 
   const update = (patch: Partial<VoiceConfig>) => setCfg((c) => (c ? { ...c, ...patch } : c));
   const updateBC = (patch: Partial<BusinessContext>) =>
@@ -387,11 +424,31 @@ export function VoiceAgentPanel({ providerId }: { providerId: string | null }) {
                         do wykonania. Miasto pytamy tylko wtedy, gdy naprawdę go
                         brakuje w kartotece, bo bez niego nie dobierzemy numeru
                         z właściwego regionu. */}
-                    <p className="text-sm text-muted-foreground">
-                      {stan?.wymaga_miasta
-                        ? 'Zostało jedno: podaj miasto, a numer dobierzemy z Twojego regionu.'
-                        : 'Zamawiamy Twój numer — zajmie to chwilę. Możesz zamknąć tę stronę.'}
-                    </p>
+                    {/* ODMOWA ZOSTAJE NA EKRANIE, nie znika razem z powiadomieniem.
+                        Zdanie „Zamawiamy Twój numer" stało tu BEZWARUNKOWO — także
+                        wtedy, gdy zamówienie zostało odrzucone. Warsztat czekał
+                        wtedy na coś, czego nikt nie rozpoczął. */}
+                    {odmowaNumeru && !stan?.wymaga_miasta ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-destructive">{odmowaNumeru}</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={ponowZamowienie}
+                          disabled={aktywuje}
+                          className="gap-2"
+                        >
+                          {aktywuje && <Loader2 className="h-4 w-4 animate-spin" />}
+                          Spróbuj ponownie
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {stan?.wymaga_miasta
+                          ? 'Zostało jedno: podaj miasto, a numer dobierzemy z Twojego regionu.'
+                          : 'Zamawiamy Twój numer — zajmie to chwilę. Możesz zamknąć tę stronę.'}
+                      </p>
+                    )}
                     {stan?.wymaga_miasta && (
                       <div className="space-y-1.5">
                         <Label>Miasto</Label>
