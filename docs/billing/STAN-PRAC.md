@@ -203,57 +203,36 @@ bo mieści się w ekranie; problemem jest czytelność, nie szerokość.
 
 ---
 
-## 🔴 CONVERSIONS API GOTOWE W KODZIE — CZEKA NA TRZY RZECZY OD CZŁOWIEKA (13.09.2026)
+## ✅ CONVERSIONS API — ŁAŃCUCH SPRAWDZONY WYWOŁANIEM (14.09.2026)
 
-Kod jest w `main` (commit `b575a957`). **Na produkcji nie działa jeszcze nic** —
-i to jest stan zamierzony, bo trzy kroki wymagają decyzji człowieka.
+Migracja `20260913154236` wykonana, oba sekrety dodane, sześć funkcji
+brzegowych wdrożonych. Sprawdzone WYWOŁANIEM, nie odczytem kolumn:
 
-### Kolejność wykonania — obowiązuje
+| ogniwo | dowód |
+|---|---|
+| front wysyła ciasteczka | `meta_fbp` i `getrido-fbclid` w ŻYWYM pakiecie `index-IzgHwRFc.js` |
+| kolumny w bazie | `meta_fbp`, `meta_fbc` w `information_schema` |
+| PostgREST WIDZI kolumny | ten sam `INSERT`, który przed migracją dawał **PGRST204**, daje teraz **42501** (odmowa uprawnień) — pamięć podręczna schematu odświeżona |
+| `billing-payu-order` zapisuje | SHA-256 `index.ts` zgodny z repozytorium |
+| webhook woła `meta-capi` | SHA-256 zgodny z repozytorium |
+| `meta-capi` wdrożona i zamknięta | bez nagłówka → **401 BRAK_UPRAWNIEN**; kluczem anon → **401**; kontrola: nieistniejąca funkcja → **404**, więc 401 znaczy „jest i odmawia", nie „nie ma" |
+| sekrety | `META_PIXEL_ID`, `META_CAPI_TOKEN` na liście |
 
-1. **Migracja `20260913154236_ciasteczka_piksela_na_zamowieniu.sql`** —
-   dokłada `billing_orders.meta_fbp` i `meta_fbc`.
-2. **Dwa sekrety** w projekcie Supabase: `META_PIXEL_ID` (to `1095723286464143`)
-   oraz `META_CAPI_TOKEN` — token systemowy z Menedżera zdarzeń Meta,
-   Ustawienia → Conversions API → Wygeneruj token dostępu.
-3. **Wdrożenie trzech funkcji brzegowych**: `meta-capi` (nowa),
-   `billing-payu-order`, `billing-payu-webhook`.
+### Czego NIE da się sprawdzić bez prawdziwego zakupu
 
-Odwrotna kolejność (funkcje przed migracją) **nie wywraca sprzedaży** — patrz
-niżej — ale wtedy przez ten czas żadna konwersja nie pojedzie.
+Że Meta PRZYJMIE zdarzenie. To jedyne ogniwo, którego nie potwierdzi żadne
+wywołanie z zewnątrz — `meta-capi` wpuszcza wyłącznie klucz serwisowy.
 
-### Dlaczego zła kolejność nie kosztuje zakupów
+Po zakupie testowym szukać w dzienniku `billing-payu-webhook` wpisu `payu_capi`:
 
-`billing-payu-order` zapisuje ciasteczka piksela na wierszu zamówienia. Bez
-migracji PostgREST odrzuca **cały** `INSERT` kodem `PGRST204` (sprawdzone
-zachowaniem: nieznana kolumna jest łapana PRZED RLS, anon dostaje 400, nie 401).
-Bez zabezpieczenia każdy klient zobaczyłby „Nie udało się rozpocząć płatności"
-— z powodu pola analitycznego.
+- `przyjete: 1` → Meta przyjęła, koniec tematu;
+- `pominiete: "brak_zgody"` → na zamówieniu nie ma ciasteczek piksela, czyli
+  kupujący nie zgodził się na marketing (to jest POPRAWNE zachowanie);
+- `pominiete: "brak_sekretow"` → sekrety nie doszły do funkcji;
+- `http: 400` → Meta odrzuciła ładunek, treść błędu w dzienniku `meta-capi`.
 
-Dlatego funkcja przy **tym jednym** kodzie zakłada zamówienie po raz drugi, bez
-pól analitycznych, i pisze krzykliwie do dziennika. Pierwsza próba nie zostawia
-wiersza, więc nie ma mowy o podwójnym zamówieniu.
-
-### Jak sprawdzić, że działa — bez czekania na klienta
-
-W Menedżerze zdarzeń Meta, karta **Testuj zdarzenia**, nie ma sensu: ta funkcja
-nie wysyła `test_event_code`. Sprawdzać dziennikiem funkcji:
-
-- `payu_capi` z `przyjete: 1` → Meta przyjęła zdarzenie,
-- `capi_pominiete` z `powod: "brak_zgody"` → klient nie zgodził się na marketing
-  (to jest **poprawne zachowanie**, nie usterka),
-- `capi_pominiete` z `powod: "brak_sekretow"` → punkt 2 wyżej niezrobiony,
-- w `billing-payu-order`: `BRAK KOLUMN meta_fbp/meta_fbc` → punkt 1 niezrobiony.
-
-W panelu Meta jakość dopasowania rośnie z opóźnieniem kilkunastu godzin — brak
-zmiany tego samego dnia nic nie znaczy.
-
-### Czego CAPI NIE robi
-
-Nie omija RODO. Klient bez zgody marketingowej nie ma `fbp` ani `fbc`, więc
-`meta-capi` **nie wysyła o nim niczego**, mimo że zna jego adres z konta. Adres
-znamy z umowy o świadczenie usługi, nie ze zgody na marketing — i tak zostaje.
-
----
+W panelu Meta jakość dopasowania rośnie z opóźnieniem kilkunastu godzin —
+brak zmiany tego samego dnia nic nie znaczy.
 
 ## 🔴 AGENT GŁOSOWY MA DWIE ROZBIEŻNE WERSJE — DO POGODZENIA PO STARCIE
 
