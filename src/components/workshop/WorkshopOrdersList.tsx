@@ -5,6 +5,7 @@ import { WorkshopPager, pageSlice } from './WorkshopPager';
 import { useOrdersPaidMap } from '@/hooks/useFiscalCash';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useNowePolaczenia } from '@/lib/nowePolaczenia';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -38,7 +39,7 @@ import { useWorkshopFinanceSettings } from '@/hooks/useWorkshopFinance';
 import { returnStock } from '@/utils/workshopStock';
 import {
   Plus, Search, Car, Trash2,
-  Wrench, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar,
+  Wrench, Loader2, Copy, Phone, Mail, User, ExternalLink, Building, Save, Calendar, AlertTriangle,
   FileText, Receipt, ChevronDown, ClipboardCheck
 } from 'lucide-react';
 import { format, isFuture, isPast } from 'date-fns';
@@ -59,6 +60,11 @@ interface Props {
    * nakładką, i wyłącza je tutaj — inaczej pojawiłyby się dwa razy.
    */
   ukryjRezerwacje?: boolean;
+  /**
+   * Przejście do listy połączeń. Bez tego przycisk się nie pokazuje — lista
+   * zleceń bywa renderowana też tam, gdzie nie ma dokąd przejść.
+   */
+  onOpenCalls?: () => void;
 }
 
 // A: derive the displayed amount straight from the order's line items instead of the
@@ -68,7 +74,12 @@ interface Props {
 const orderGrossAmount = (o: any) =>
   Array.isArray(o?.items) ? computeOrderTotals(o.items).total_gross : (o?.total_gross || 0);
 
-export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje }: Props) {
+export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje, onOpenCalls }: Props) {
+  // Licznik nieobsłużonych połączeń — ten sam hak, co przy kafelku w menu,
+  // żeby obie liczby nie mogły się rozjechać.
+  const { data: nowe } = useNowePolaczenia(providerId);
+  const nowePolaczenia = nowe?.nowe ?? 0;
+  const doUwagi = nowe?.doUwagi ?? 0;
   const { t } = useTranslation();  const confirmAction = useConfirm();
 
   const queryClient = useQueryClient();
@@ -588,6 +599,32 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje 
             className="pl-9 w-full sm:w-[200px] h-8"
           />
         </div>
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            POŁĄCZENIA WIDOCZNE STAMTĄD, GDZIE WARSZTAT PRACUJE
+            ═══════════════════════════════════════════════════════════════════
+            Warsztat siedzi w zleceniach, nie w ustawieniach asystentki. Jeżeli
+            o nieobsłużonym połączeniu dowiaduje się dopiero po wejściu
+            w zakładkę agenta, to dowiaduje się za późno — a klient, który prosił
+            o oddzwonienie, zdążył zadzwonić gdzie indziej.
+
+            Czerwień i miganie WYŁĄCZNIE dla rozmów wymagających uwagi. Zwykłe
+            nowe połączenie to spokojna liczba: gdyby migało wszystko, nie
+            migałoby nic. */}
+        {onOpenCalls && nowePolaczenia > 0 && (
+          <Button
+            size="sm"
+            variant={doUwagi > 0 ? 'destructive' : 'outline'}
+            onClick={onOpenCalls}
+            className={`h-8 gap-2 ${doUwagi > 0 ? 'animate-pulse' : ''}`}
+            title={doUwagi > 0
+              ? `${doUwagi} z ${nowePolaczenia} nowych rozmów wymaga uwagi`
+              : `${nowePolaczenia} nowych połączeń`}
+          >
+            {doUwagi > 0 ? <AlertTriangle className="h-4 w-4" /> : <Phone className="h-4 w-4" />}
+            Połączenia ({nowePolaczenia})
+          </Button>
+        )}
       </div>
 
       {/* Mobile card view */}
