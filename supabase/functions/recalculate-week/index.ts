@@ -313,7 +313,7 @@ serve(async (req) => {
       // Dwa niezależne powody zerowego podatku: plan ryczałtowy i B2B (kierowca
       // wystawia flocie fakturę, VAT jest po jego stronie). Sposób rozliczenia
       // — gotówka czy przelew — nie ma z tym nic wspólnego.
-      const podatekNaliczany = czyNaliczacPodatek(plan, { jestB2B: isB2BDriver, stawkaProcent: vatRate });
+      const podatekNaliczany = czyNaliczacPodatek(plan, { jestB2B: isB2BDriver });
       const effectiveVatRate = podatekNaliczany ? vatRate : 0;
 
       const uberBase = Number(amounts?.uber_base || 0);

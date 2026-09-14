@@ -209,13 +209,18 @@ export function trybZPlanu(plan: PlanRozliczen | null | undefined, trybMiasta: s
  *   - plan ryczałtowy (`tax_enabled = false`),
  *   - B2B: kierowca wystawia flocie fakturę, VAT jest po jego stronie.
  * Sposób rozliczenia (gotówka / przelew) NIE ma z tym nic wspólnego.
+ *
+ * Stawka 0% NIE jest tu powodem i nie ma prawa nim być. W trybie „dwa podatki"
+ * drugi podatek (23% od kampanii i rekompensat) ma własną stawkę, niezależną od
+ * pierwszej — wciągnięcie „stawka = 0" do tej decyzji wyzerowałoby go po cichu
+ * flocie, która pierwszej stawki nie nalicza. Zerowa stawka i tak daje zero
+ * z samego mnożenia.
  */
 export function czyNaliczacPodatek(
   plan: PlanRozliczen | null | undefined,
-  opcje: { jestB2B?: boolean; stawkaProcent?: number },
+  opcje: { jestB2B?: boolean },
 ): boolean {
   if (plan?.tax_enabled === false) return false;
   if (opcje.jestB2B) return false;
-  if (opcje.stawkaProcent !== undefined && liczba(opcje.stawkaProcent) <= 0) return false;
   return true;
 }

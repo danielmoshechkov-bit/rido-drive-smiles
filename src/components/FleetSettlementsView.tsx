@@ -2241,10 +2241,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Sposób rozliczenia (gotówka/przelew) nie ma z tym nic wspólnego —
         // w arkuszu wzorcowym Patryk Matusik ma przelew i podatek, a Dmytro
         // Agafonov przelew i zero podatku.
-        const podatekNaliczany = czyNaliczacPodatek(plan, {
-          jestB2B: isB2BDriver,
-          stawkaProcent: planVatRate,
-        });
+        const podatekNaliczany = czyNaliczacPodatek(plan, { jestB2B: isB2BDriver });
         const effectiveVatRate = podatekNaliczany ? planVatRate : 0;
         const hasPositivePlatformActivity =
           Math.max(0, uber_base) +

@@ -495,10 +495,7 @@ Deno.serve(async (req) => {
               const planKierowcy = planMapForSync.get(driverId) || null;
               const stawkaPoPlanie = stawkaZPlanu(planKierowcy, driverVatRate);
               const trybPoPlanie = trybZPlanu(planKierowcy, driverSettlementMode);
-              const podatekNaliczany = czyNaliczacPodatek(planKierowcy, {
-                jestB2B: isB2BDriver,
-                stawkaProcent: stawkaPoPlanie,
-              });
+              const podatekNaliczany = czyNaliczacPodatek(planKierowcy, { jestB2B: isB2BDriver });
               const effectiveVatRate = podatekNaliczany ? stawkaPoPlanie : 0;
 
               // === VAT calculation by settlement_mode (matches recalculate-week + UI) ===

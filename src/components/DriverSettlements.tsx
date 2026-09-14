@@ -4,7 +4,6 @@ import {
   odliczenieVatOdPaliwa,
   oplataZPlanu,
   pomniejszOPaliwo,
-  stawkaZPlanu,
   wyplataTygodniowa,
 } from '@/lib/rozliczenia';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1133,10 +1132,7 @@ export const DriverSettlements = ({
     // MINUS 50% VAT-u od paliwa. Bez tego kierowca widział u siebie inną kwotę
     // podatku niż flota u siebie — ta sama liczba musi być po obu stronach.
     // Plan ryczałtowy („159 zł bez podatku") i B2B zerują podatek i odliczenie.
-    const podatekNaliczany = czyNaliczacPodatek(driverPlan, {
-      jestB2B: isB2BDriverLocal,
-      stawkaProcent: stawkaZPlanu(driverPlan, effectiveVatRate),
-    });
+    const podatekNaliczany = czyNaliczacPodatek(driverPlan, { jestB2B: isB2BDriverLocal });
     const wynikPodatku = pomniejszOPaliwo(
       uberTaxBrutto + boltTaxBrutto + freenowTaxBrutto,
       fuel,

@@ -290,6 +290,17 @@ Deno.test("plan nadpisuje tylko to, co sam ustala", () => {
 Deno.test("podatku nie naliczamy przy planie ryczałtowym ani przy B2B", () => {
   assertEquals(czyNaliczacPodatek({ tax_enabled: false }, {}), false);
   assertEquals(czyNaliczacPodatek({ tax_enabled: true }, { jestB2B: true }), false);
-  assertEquals(czyNaliczacPodatek({ tax_enabled: true }, { jestB2B: false, stawkaProcent: 8 }), true);
-  assertEquals(czyNaliczacPodatek(null, { stawkaProcent: 0 }), false);
+  assertEquals(czyNaliczacPodatek({ tax_enabled: true }, { jestB2B: false }), true);
+  assertEquals(czyNaliczacPodatek(null, {}), true);
+});
+
+Deno.test("stawka 0% nie jest powodem do wyłączenia podatku", () => {
+  // W trybie „dwa podatki" drugi podatek ma własną stawkę. Gdyby zerowa
+  // stawka pierwszego wyłączała naliczanie, flota z 0% straciłaby po cichu
+  // drugi podatek — a tego nikt nie prosił.
+  assertEquals(czyNaliczacPodatek(null, { jestB2B: false }), true);
+  const { podatek } = policzPodatek({
+    przychod: 5000, stawkaProcent: 0, wydanoNaPaliwo: 400, podatekNaliczany: true,
+  });
+  assertEquals(podatek, 0); // samo mnożenie daje zero, bez zerowania odliczeń obok
 });
