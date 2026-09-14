@@ -1094,6 +1094,8 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                   <Banknote size={14} />
                                   <span className="text-xs font-medium">Plan rozliczeń</span>
                                 </div>
+                                {/* Bez `odTygodnia` komponent bierze bieżący tydzień —
+                                    lista kierowców nie stoi na żadnym konkretnym. */}
                                 <WyborPlanuRozliczen
                                   driverId={driver.id}
                                   fleetId={(driver as any).fleet_id}

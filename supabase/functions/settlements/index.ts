@@ -2,10 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.56.0';
 import {
   czyNaliczacPodatek,
   odliczenieVatOdPaliwa,
-  oplataZPlanu,
   pomniejszOPaliwo,
-  stawkaZPlanu,
-  trybZPlanu,
+  ustawieniaKierowcy,
   wyplataTygodniowa,
 } from "../_shared/rozliczenia.ts";
 import { normalizePolishName, levenshtein, fuzzyMatchDriver } from './fuzzyMatch.ts';
@@ -337,33 +335,66 @@ Deno.serve(async (req) => {
           .in('id', insertedDriverIds);
         const driverDetailMap = new Map((driverDetails || []).map((d: any) => [d.id, d]));
 
-        // Plany rozliczeń kierowców. Kolumna `drivers.settlement_plan_id` wchodzi
-        // migracją 20260914090000_plany_rozliczen_kierowcy.sql; funkcja musi
-        // działać także przed jej wykonaniem, więc brak kolumny = brak planu.
-        const planMapForSync = new Map<string, any>();
-        {
-          const { data: przypisania, error: bladPrzypisan } = await supabase
-            .from('drivers')
-            .select('id, settlement_plan_id')
-            .in('id', insertedDriverIds);
-          if (bladPrzypisan) {
-            console.warn('⚠️ drivers.settlement_plan_id niedostępne — liczę bez planów:', bladPrzypisan.message);
+        // ── Plany rozliczeń i przypisania obowiązujące w liczonym tygodniu ──
+        // Plan niesie komplet stawek i obowiązuje od `effective_from` w przód.
+        // Tabele wchodzą migracjami 20260914120000 / 20260914120100; funkcja
+        // musi działać także przed nimi, więc ich brak znaczy „licz po mieście".
+        const planUstawieniaMap = new Map<string, any>();
+        let przypisaniaPlanow: Array<{ driver_id: string; plan_id: string | null; effective_from: string }> = [];
+        if (fleet_id) {
+          const { data: plany, error: bladPlanow } = await supabase
+            .from('fleet_settlement_plans')
+            .select('id, is_active')
+            .eq('fleet_id', fleet_id)
+            .eq('is_active', true);
+
+          if (bladPlanow) {
+            console.warn('⚠️ fleet_settlement_plans niedostępna — liczę po ustawieniach miasta:', bladPlanow.message);
           } else {
-            const { data: plany, error: bladPlanow } = await supabase.from('settlement_plans').select('*');
-            if (bladPlanow) {
-              console.warn('⚠️ settlement_plans nieczytelne — liczę bez planów:', bladPlanow.message);
+            const { data: ustawieniaPlanow } = await supabase
+              .from('fleet_city_settings')
+              .select('plan_id, platform, vat_rate, settlement_mode, secondary_vat_rate, additional_percent_rate, base_fee, uber_calculation_mode')
+              .eq('fleet_id', fleet_id)
+              .eq('is_active', true);
+
+            for (const plan of ((plany || []) as any[])) {
+              const wiersze = ((ustawieniaPlanow || []) as any[]).filter((u) => u.plan_id === plan.id);
+              const bolt = wiersze.find((w) => w.platform === 'bolt') || wiersze[0];
+              const uber = wiersze.find((w) => w.platform === 'uber');
+              if (!bolt) continue;
+              planUstawieniaMap.set(plan.id, {
+                vat_rate: bolt.vat_rate,
+                settlement_mode: bolt.settlement_mode,
+                secondary_vat_rate: bolt.secondary_vat_rate,
+                additional_percent_rate: bolt.additional_percent_rate,
+                base_fee: bolt.base_fee,
+                uber_calculation_mode: uber?.uber_calculation_mode ?? bolt.uber_calculation_mode ?? null,
+              });
+            }
+
+            const { data: przypisania, error: bladPrzypisan } = await supabase
+              .from('driver_plan_assignments')
+              .select('driver_id, plan_id, effective_from')
+              .in('driver_id', insertedDriverIds);
+            if (bladPrzypisan) {
+              console.warn('⚠️ driver_plan_assignments niedostępne:', bladPrzypisan.message);
             } else {
-              const poId = new Map((plany || []).map((plan: any) => [plan.id, plan]));
-              for (const wiersz of (przypisania || []) as any[]) {
-                const plan = wiersz.settlement_plan_id ? poId.get(wiersz.settlement_plan_id) : null;
-                // Plan innej floty nie ma prawa liczyć naszych kierowców.
-                if (plan && (!plan.fleet_id || !fleet_id || plan.fleet_id === fleet_id)) {
-                  planMapForSync.set(wiersz.id, plan);
-                }
-              }
+              przypisaniaPlanow = (przypisania || []) as any[];
             }
           }
         }
+
+        /** Plan obowiązujący dla kierowcy w tygodniu zaczynającym się `poczatek`. */
+        const planNaTydzien = (driverId: string, poczatek: string) => {
+          let wybrany: { plan_id: string | null; effective_from: string } | null = null;
+          for (const p of przypisaniaPlanow) {
+            if (p.driver_id !== driverId) continue;
+            if (p.effective_from > poczatek) continue;
+            if (!wybrany || p.effective_from > wybrany.effective_from) wybrany = p;
+          }
+          if (!wybrany?.plan_id) return null;
+          return planUstawieniaMap.get(wybrany.plan_id) ?? null;
+        };
 
         // Fetch city names
         const driverCityIds = [...new Set((driverDetails || []).map((d: any) => d.city_id).filter(Boolean))];
@@ -492,11 +523,36 @@ Deno.serve(async (req) => {
                 driverInfo2?.b2b_enabled === true;
               // Plan rozliczeń kierowcy nadpisuje tylko to, co sam ustala.
               // Zero podatku z dwóch niezależnych powodów: plan ryczałtowy albo B2B.
-              const planKierowcy = planMapForSync.get(driverId) || null;
-              const stawkaPoPlanie = stawkaZPlanu(planKierowcy, driverVatRate);
-              const trybPoPlanie = trybZPlanu(planKierowcy, driverSettlementMode);
-              const podatekNaliczany = czyNaliczacPodatek(planKierowcy, { jestB2B: isB2BDriver });
-              const effectiveVatRate = podatekNaliczany ? stawkaPoPlanie : 0;
+              // Stawki: plan obowiązujący W TYM tygodniu → miasto → flota.
+              // Rozstrzyga jedno źródło z całym kompletem wartości.
+              const planKierowcy = planNaTydzien(driverId, fullSettlement.period_from);
+              const ustawieniaFloty = {
+                vat_rate: fleetVatRateForSync,
+                settlement_mode: fleetSettlementModeForSync,
+                secondary_vat_rate: fleetSecondaryVatRateForSync,
+                additional_percent_rate: fleetAdditionalPercentRateForSync,
+                base_fee: 50,
+                uber_calculation_mode: fleetUberCalcModeForSync,
+              };
+              const ustawieniaMiasta = cs2
+                ? {
+                    vat_rate: driverVatRate,
+                    settlement_mode: driverSettlementMode,
+                    secondary_vat_rate: driverSecondaryVatRate,
+                    additional_percent_rate: driverAdditionalPercentRate,
+                    base_fee: cs2.base_fee,
+                    uber_calculation_mode: driverUberCalcMode,
+                  }
+                : null;
+              const { ustawienia: ustawieniaTygodnia } = ustawieniaKierowcy(
+                planKierowcy,
+                ustawieniaMiasta,
+                ustawieniaFloty,
+              );
+              const trybPoPlanie = ustawieniaTygodnia.settlement_mode;
+              // Jedyny powód zerowego podatku to B2B; ryczałt to plan ze stawką 0%.
+              const podatekNaliczany = czyNaliczacPodatek({ jestB2B: isB2BDriver });
+              const effectiveVatRate = podatekNaliczany ? ustawieniaTygodnia.vat_rate : 0;
 
               // === VAT calculation by settlement_mode (matches recalculate-week + UI) ===
               const uberBaseVal = amounts.uber_base || 0;
@@ -559,10 +615,11 @@ Deno.serve(async (req) => {
                 } else {
                   if (driverInfo2?.custom_weekly_fee !== null && driverInfo2?.custom_weekly_fee !== undefined) {
                     serviceFee = Number(driverInfo2.custom_weekly_fee);
+                  } else if (planKierowcy) {
+                    serviceFee = Number(ustawieniaTygodnia.base_fee);  // opłata z planu tego tygodnia
                   } else {
                     const cityFee = cityName2 ? cityFeeMapForFee.get(cityName2) : undefined;
-                    const oplataMiasta = (cityFee !== null && cityFee !== undefined) ? Number(cityFee) : 50;
-                    serviceFee = oplataZPlanu(planKierowcy, oplataMiasta);
+                    serviceFee = (cityFee !== null && cityFee !== undefined) ? Number(cityFee) : 50;
                   }
                 }
               }

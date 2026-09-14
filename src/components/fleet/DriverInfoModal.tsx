@@ -33,6 +33,12 @@ interface DriverInfoPopoverProps {
   driverId: string;
   driverName: string;
   fleetId?: string;
+  /**
+   * Poniedziałek tygodnia, na którym stoi panel. Plan przypisany w tym oknie
+   * obowiązuje OD TEGO TYGODNIA w przód — bez tej daty przypisanie działałoby
+   * wstecz na tygodnie już rozliczone.
+   */
+  odTygodnia?: string | null;
   onComplete?: () => void;
   children: React.ReactNode;
 }
@@ -41,6 +47,7 @@ export function DriverInfoPopover({
   driverId,
   driverName,
   fleetId,
+  odTygodnia,
   onComplete,
   children,
 }: DriverInfoPopoverProps) {
@@ -609,11 +616,12 @@ export function DriverInfoPopover({
               <WyborPlanuRozliczen
                 driverId={driverId}
                 fleetId={fleetId ?? (driverData as any)?.fleet_id ?? null}
+                odTygodnia={odTygodnia}
                 rozmiar="maly"
                 onZmieniono={onComplete}
               />
               <p className="text-[9px] text-muted-foreground">
-                Plan ustala stawkę podatku, opłatę stałą i tryb rozliczeń. Pole puste w planie = wartość z ustawień miasta.
+                Plan ustala stawkę podatku, opłatę stałą i tryb rozliczeń — osobno dla Bolta i Ubera.
               </p>
             </div>
 

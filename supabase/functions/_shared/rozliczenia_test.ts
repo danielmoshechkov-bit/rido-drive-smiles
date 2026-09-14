@@ -9,10 +9,9 @@ import { assert, assertAlmostEquals, assertEquals } from "https://deno.land/std@
 import {
   czyNaliczacPodatek,
   odliczenieVatOdPaliwa,
-  oplataZPlanu,
   policzPodatek,
   przychodLaczny,
-  stawkaZPlanu,
+  ustawieniaKierowcy,
   vatOdPaliwa,
   wyplataTygodniowa,
 } from "./rozliczenia.ts";
@@ -311,30 +310,46 @@ Deno.test("podatek nigdy nie wychodzi ujemny", () => {
   assertEquals(podatek, 0);
 });
 
-Deno.test("plan nadpisuje tylko to, co sam ustala", () => {
-  assertEquals(stawkaZPlanu(null, 8), 8);
-  assertEquals(stawkaZPlanu({ tax_enabled: true, tax_percentage: null }, 8), 8);
-  assertEquals(stawkaZPlanu({ tax_enabled: true, tax_percentage: 5 }, 8), 5);
-  assertEquals(stawkaZPlanu({ tax_enabled: false, tax_percentage: 8 }, 8), 0);
-  assertEquals(oplataZPlanu({ base_fee: null }, 50), 50);
-  assertEquals(oplataZPlanu({ base_fee: 159 }, 50), 159);
-  assertEquals(oplataZPlanu({ base_fee: 0 }, 50), 0);
+const MIASTO = {
+  vat_rate: 8, settlement_mode: "single_tax", secondary_vat_rate: 23,
+  additional_percent_rate: 0, base_fee: 50, uber_calculation_mode: "netto",
+};
+const FLOTA = {
+  vat_rate: 9, settlement_mode: "dual_tax", secondary_vat_rate: 23,
+  additional_percent_rate: 1, base_fee: 70, uber_calculation_mode: "brutto",
+};
+const RYCZALT = {
+  vat_rate: 0, settlement_mode: "single_tax", secondary_vat_rate: 23,
+  additional_percent_rate: 0, base_fee: 159, uber_calculation_mode: "netto",
+};
+
+Deno.test("stawki bierze się z JEDNEGO źródła: plan → miasto → flota", () => {
+  assertEquals(ustawieniaKierowcy(RYCZALT, MIASTO, FLOTA), { ustawienia: RYCZALT, zrodlo: "plan" });
+  assertEquals(ustawieniaKierowcy(null, MIASTO, FLOTA), { ustawienia: MIASTO, zrodlo: "miasto" });
+  assertEquals(ustawieniaKierowcy(null, null, FLOTA), { ustawienia: FLOTA, zrodlo: "flota" });
 });
 
-Deno.test("podatku nie naliczamy przy planie ryczałtowym ani przy B2B", () => {
-  assertEquals(czyNaliczacPodatek({ tax_enabled: false }, {}), false);
-  assertEquals(czyNaliczacPodatek({ tax_enabled: true }, { jestB2B: true }), false);
-  assertEquals(czyNaliczacPodatek({ tax_enabled: true }, { jestB2B: false }), true);
-  assertEquals(czyNaliczacPodatek(null, {}), true);
+Deno.test("KONTROLA POZYTYWNA: pola nie mieszają się między źródłami", () => {
+  // Sierpień 2026: kierowca z Wrocławia (dodatek 0%) liczył się dodatkiem floty
+  // (1%) — 9% zamiast 8%. Wygrywa CAŁE źródło, nie pole po polu.
+  const { ustawienia } = ustawieniaKierowcy(null, MIASTO, FLOTA);
+  assertEquals(ustawienia.additional_percent_rate, 0);
+  assertEquals(ustawienia.settlement_mode, "single_tax");
+  assert(ustawienia.additional_percent_rate !== FLOTA.additional_percent_rate,
+    "miasto i flota mają tę samą wartość — test nic nie pilnuje");
 });
 
-Deno.test("stawka 0% nie jest powodem do wyłączenia podatku", () => {
-  // W trybie „dwa podatki" drugi podatek ma własną stawkę. Gdyby zerowa
-  // stawka pierwszego wyłączała naliczanie, flota z 0% straciłaby po cichu
-  // drugi podatek — a tego nikt nie prosił.
-  assertEquals(czyNaliczacPodatek(null, { jestB2B: false }), true);
-  const { podatek } = policzPodatek({
-    przychod: 5000, stawkaProcent: 0, wydanoNaPaliwo: 400, podatekNaliczany: true,
+Deno.test("ryczałt to plan ze stawką 0%, nie osobna flaga", () => {
+  const { podatek, odliczenieVatPaliwa } = policzPodatek({
+    przychod: 5969.95, stawkaProcent: RYCZALT.vat_rate, wydanoNaPaliwo: 1070.69, podatekNaliczany: true,
   });
-  assertEquals(podatek, 0); // samo mnożenie daje zero, bez zerowania odliczeń obok
+  assertEquals(podatek, 0);
+  // Brak podatku = brak odliczenia. Paliwo potrącane w pełnej kwocie.
+  assertEquals(odliczenieVatPaliwa, 0);
+});
+
+Deno.test("podatku nie naliczamy przy B2B", () => {
+  assertEquals(czyNaliczacPodatek({ jestB2B: true }), false);
+  assertEquals(czyNaliczacPodatek({ jestB2B: false }), true);
+  assertEquals(czyNaliczacPodatek({}), true);
 });

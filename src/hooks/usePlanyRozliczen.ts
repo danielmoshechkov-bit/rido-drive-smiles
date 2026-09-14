@@ -1,122 +1,218 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { wykonajZapis } from '@/lib/zapisRozliczen';
+import type { UstawieniaRozliczen } from '@/lib/rozliczenia';
 
 /**
- * Plany rozliczeń floty i przypisanie planu do kierowcy.
+ * Plany rozliczeń floty i przypisania planów do kierowców.
  *
- * Plan wybiera się w DWÓCH miejscach — w popoverze „i" przy kierowcy w tabeli
- * rozliczeń i na karcie kierowcy na liście kierowców. Oba czytają TĘ SAMĄ
- * pamięć podręczną TanStack Query, a zapis unieważnia ją w całości, więc
- * zmiana w jednym miejscu jest natychmiast widoczna w drugim.
+ * MODEL: plan (`fleet_settlement_plans`) ma nazwę, opcjonalne miasto
+ * i przełącznik „domyślny". Ustawienia Bolt/Uber leżą tam, gdzie leżały —
+ * w `fleet_city_settings`, tylko z `plan_id` wskazującym rodzica.
  *
- * Kolumny `settlement_plans.fleet_id`, `settlement_plans.tax_enabled`
- * i `drivers.settlement_plan_id` wchodzą migracjami 20260914090000 i
- * 20260914090100. Do czasu ich wykonania hooki zwracają pustkę i mówią
- * o tym w konsoli — zamiast wywracać cały ekran.
+ * PRZYPISANIE MA DATĘ. `driver_plan_assignments` trzyma historię: plan
+ * obowiązujący w tygodniu W to wiersz o największym `effective_from <= W`.
+ * Nie ma pola „plan kierowcy" — jedno pole obok historii to dwa źródła prawdy.
+ *
+ * Tabele wchodzą migracjami 20260914120000 i 20260914120100. Do czasu ich
+ * wykonania hooki zwracają pustkę i mówią o tym w konsoli, zamiast wywracać
+ * ekran — panel liczy wtedy po ustawieniach miasta, czyli jak dotąd.
  */
 
-export interface PlanRozliczenWiersz {
+export interface UstawieniaPlatformy extends UstawieniaRozliczen {
   id: string;
-  name: string;
-  fleet_id: string | null;
-  tax_enabled: boolean;
-  tax_percentage: number | null;
-  base_fee: number | null;
-  settlement_mode: string | null;
-  is_default: boolean;
-  is_active: boolean;
-  description: string | null;
+  platform: 'bolt' | 'uber';
+  invoice_email: string | null;
 }
 
-export const KLUCZ_PLANY = 'plany-rozliczen';
-export const KLUCZ_PLAN_KIEROWCY = 'plan-kierowcy';
+export interface PlanFloty {
+  id: string;
+  fleet_id: string;
+  name: string;
+  city_name: string | null;
+  is_default: boolean;
+  is_active: boolean;
+  bolt: UstawieniaPlatformy | null;
+  uber: UstawieniaPlatformy | null;
+}
 
-/** Krótki opis planu do listy: „8% · 50 zł" albo „bez podatku · 159 zł". */
-export function opisPlanu(plan: PlanRozliczenWiersz): string {
-  const czesci: string[] = [];
-  czesci.push(plan.tax_enabled
-    ? (plan.tax_percentage === null || plan.tax_percentage === undefined
-      ? 'podatek wg miasta'
-      : `podatek ${plan.tax_percentage}%`)
-    : 'bez podatku');
-  czesci.push(plan.base_fee === null || plan.base_fee === undefined
-    ? 'opłata wg miasta'
-    : `opłata ${plan.base_fee} zł`);
-  if (plan.settlement_mode === 'dual_tax') czesci.push('dwa podatki');
+export interface PrzypisaniePlanu {
+  driver_id: string;
+  plan_id: string | null;
+  effective_from: string; // YYYY-MM-DD, poniedziałek
+}
+
+export const KLUCZ_PLANY = 'plany-floty';
+export const KLUCZ_PRZYPISANIA = 'przypisania-planow';
+
+/** Poniedziałek tygodnia, w którym wypada podana data (albo dziś). */
+export function poniedzialekTygodnia(data?: Date | string | null): string {
+  const d = data ? new Date(data) : new Date();
+  const dzien = d.getDay(); // 0 = niedziela
+  const doPoniedzialku = dzien === 0 ? -6 : 1 - dzien;
+  const poniedzialek = new Date(d);
+  poniedzialek.setDate(d.getDate() + doPoniedzialku);
+  return poniedzialek.toISOString().split('T')[0];
+}
+
+/**
+ * Plan obowiązujący w danym tygodniu: wiersz o największym `effective_from`
+ * nie późniejszym niż początek tygodnia. Brak wiersza = brak planu, czyli
+ * liczenie po ustawieniach miasta (tak samo jak przed wprowadzeniem planów).
+ */
+export function planNaTydzien(
+  przypisania: PrzypisaniePlanu[] | undefined,
+  driverId: string,
+  poczatekTygodnia: string,
+): string | null {
+  if (!przypisania || !poczatekTygodnia) return null;
+  let wybrany: PrzypisaniePlanu | null = null;
+  for (const p of przypisania) {
+    if (p.driver_id !== driverId) continue;
+    if (p.effective_from > poczatekTygodnia) continue;
+    if (!wybrany || p.effective_from > wybrany.effective_from) wybrany = p;
+  }
+  return wybrany?.plan_id ?? null;
+}
+
+/** Krótki opis planu do listy: „8% · 50 zł · Bolt+Uber". */
+export function opisPlanu(plan: PlanFloty): string {
+  const zrodlo = plan.bolt ?? plan.uber;
+  if (!zrodlo) return 'brak ustawień';
+  const czesci = [
+    zrodlo.vat_rate === 0 ? 'bez podatku' : `podatek ${zrodlo.vat_rate}%`,
+    `opłata ${zrodlo.base_fee} zł`,
+  ];
+  if (zrodlo.settlement_mode === 'dual_tax') czesci.push('dwa podatki');
+  if (plan.city_name) czesci.push(plan.city_name);
   return czesci.join(' · ');
 }
 
-export function usePlanyRozliczen(fleetId?: string | null) {
+function zlozPlany(plany: any[], ustawienia: any[]): PlanFloty[] {
+  const poPlanie = new Map<string, any[]>();
+  for (const u of ustawienia) {
+    if (!u.plan_id) continue;
+    const lista = poPlanie.get(u.plan_id) || [];
+    lista.push(u);
+    poPlanie.set(u.plan_id, lista);
+  }
+  return plany
+    .map((p) => {
+      const dzieci = poPlanie.get(p.id) || [];
+      return {
+        id: p.id,
+        fleet_id: p.fleet_id,
+        name: p.name,
+        city_name: p.city_name ?? null,
+        is_default: !!p.is_default,
+        is_active: p.is_active !== false,
+        bolt: (dzieci.find((d) => d.platform === 'bolt') as UstawieniaPlatformy) ?? null,
+        uber: (dzieci.find((d) => d.platform === 'uber') as UstawieniaPlatformy) ?? null,
+      };
+    })
+    .sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.name.localeCompare(b.name, 'pl'));
+}
+
+export function usePlanyFloty(fleetId?: string | null) {
   return useQuery({
     queryKey: [KLUCZ_PLANY, fleetId ?? 'brak'],
-    enabled: true,
-    queryFn: async (): Promise<PlanRozliczenWiersz[]> => {
-      const { data, error } = await supabase.from('settlement_plans').select('*');
-      if (error) {
-        console.error('Nie udało się wczytać planów rozliczeń:', error.message);
-        throw error;
-      }
-      const wiersze = ((data as any[]) || []).map((p) => ({
-        id: p.id,
-        name: p.name,
-        fleet_id: p.fleet_id ?? null,
-        // Przed migracją kolumny `tax_enabled` nie ma. Stare znaczenie było
-        // takie samo: brak stawki = plan bez podatku.
-        tax_enabled: p.tax_enabled ?? (p.tax_percentage !== null && p.tax_percentage !== undefined),
-        tax_percentage: p.tax_percentage ?? null,
-        base_fee: p.base_fee ?? null,
-        settlement_mode: p.settlement_mode ?? null,
-        is_default: p.is_default ?? false,
-        is_active: p.is_active ?? true,
-        description: p.description ?? null,
-      })) as PlanRozliczenWiersz[];
+    enabled: !!fleetId,
+    queryFn: async (): Promise<PlanFloty[]> => {
+      const { data: plany, error: bladPlanow } = await (supabase as any)
+        .from('fleet_settlement_plans')
+        .select('*')
+        .eq('fleet_id', fleetId)
+        .eq('is_active', true);
 
-      return wiersze
-        .filter((p) => p.is_active && (!p.fleet_id || !fleetId || p.fleet_id === fleetId))
-        .sort((a, b) => Number(b.is_default) - Number(a.is_default) || a.name.localeCompare(b.name, 'pl'));
+      if (bladPlanow) {
+        // Tabela wchodzi migracją — brak tabeli to nie awaria panelu.
+        console.warn('fleet_settlement_plans niedostępna (migracja planów niewykonana?):', bladPlanow.message);
+        return [];
+      }
+
+      const { data: ustawienia, error: bladUstawien } = await (supabase as any)
+        .from('fleet_city_settings')
+        .select('*')
+        .eq('fleet_id', fleetId)
+        .eq('is_active', true);
+
+      if (bladUstawien) {
+        console.error('Nie udało się wczytać ustawień planów:', bladUstawien.message);
+        throw bladUstawien;
+      }
+
+      return zlozPlany((plany as any[]) || [], (ustawienia as any[]) || []);
     },
   });
 }
 
-/** Plan przypisany kierowcy. `null` = brak przypisania (liczymy po mieście). */
-export function usePlanKierowcy(driverId?: string | null) {
+export function usePrzypisaniaPlanow(fleetId?: string | null) {
   return useQuery({
-    queryKey: [KLUCZ_PLAN_KIEROWCY, driverId ?? 'brak'],
-    enabled: !!driverId,
-    queryFn: async (): Promise<string | null> => {
-      const { data, error } = await (supabase as any)
+    queryKey: [KLUCZ_PRZYPISANIA, fleetId ?? 'brak'],
+    enabled: !!fleetId,
+    queryFn: async (): Promise<PrzypisaniePlanu[]> => {
+      const { data: kierowcy, error: bladKierowcow } = await supabase
         .from('drivers')
-        .select('settlement_plan_id')
-        .eq('id', driverId)
-        .maybeSingle();
+        .select('id')
+        .eq('fleet_id', fleetId);
+      if (bladKierowcow) throw bladKierowcow;
+
+      const idKierowcow = ((kierowcy as any[]) || []).map((d) => d.id);
+      if (idKierowcow.length === 0) return [];
+
+      const { data, error } = await (supabase as any)
+        .from('driver_plan_assignments')
+        .select('driver_id, plan_id, effective_from')
+        .in('driver_id', idKierowcow);
+
       if (error) {
-        console.warn('drivers.settlement_plan_id niedostępne (migracja planów niewykonana?):', error.message);
-        return null;
+        console.warn('driver_plan_assignments niedostępne (migracja planów niewykonana?):', error.message);
+        return [];
       }
-      return (data as any)?.settlement_plan_id ?? null;
+      return (data as PrzypisaniePlanu[]) || [];
     },
   });
 }
 
+/**
+ * Przypisuje plan od wskazanego tygodnia w przód.
+ *
+ * Wcześniejsze tygodnie zostają nietknięte — mają własne wiersze albo nie mają
+ * żadnego i liczą się po mieście. Ponowne przypisanie w tym samym tygodniu
+ * nadpisuje wiersz tego tygodnia, nie zakłada drugiego.
+ */
 export function useUstawPlanKierowcy() {
   const klient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ driverId, planId }: { driverId: string; planId: string | null }) => {
-      // Zapis z potwierdzeniem liczby wierszy: UPDATE odrzucony przez RLS
-      // wraca bez błędu i bez wierszy, a użytkownik zobaczyłby „zapisano".
+    mutationFn: async ({
+      driverId,
+      planId,
+      odTygodnia,
+    }: {
+      driverId: string;
+      planId: string | null;
+      odTygodnia: string;
+    }) => {
+      const { data: uzytkownik } = await supabase.auth.getUser();
       await wykonajZapis(
         (supabase as any)
-          .from('drivers')
-          .update({ settlement_plan_id: planId })
-          .eq('id', driverId)
+          .from('driver_plan_assignments')
+          .upsert(
+            {
+              driver_id: driverId,
+              plan_id: planId,
+              effective_from: odTygodnia,
+              created_by: uzytkownik?.user?.id ?? null,
+            },
+            { onConflict: 'driver_id,effective_from' },
+          )
           .select('id'),
-        'Zmiana planu rozliczeń',
+        `Przypisanie planu od ${odTygodnia}`,
       );
-      return { driverId, planId };
+      return { driverId, planId, odTygodnia };
     },
-    onSuccess: ({ driverId }) => {
-      klient.invalidateQueries({ queryKey: [KLUCZ_PLAN_KIEROWCY, driverId] });
+    onSuccess: () => {
+      klient.invalidateQueries({ queryKey: [KLUCZ_PRZYPISANIA] });
       klient.invalidateQueries({ queryKey: [KLUCZ_PLANY] });
     },
   });

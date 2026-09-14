@@ -126,6 +126,11 @@ export function pomniejszOPaliwo(
     return { podatekOdPrzychodu: 0, odliczenieVatPaliwa: 0, podatek: 0 };
   }
   const brutto = Math.max(0, liczba(podatekOdPrzychodu));
+  // Plan ryczałtowy (stawka 0%) nie daje podatku, więc nie ma czego pomniejszać.
+  // Bez tego panel pokazywałby „odliczono 36,58 zł" przy podatku 0,00.
+  if (brutto <= 0) {
+    return { podatekOdPrzychodu: 0, odliczenieVatPaliwa: 0, podatek: 0 };
+  }
   const odliczenieVatPaliwa = odliczenieVatOdPaliwa(wydanoNaPaliwo);
   return {
     podatekOdPrzychodu: brutto,
@@ -179,61 +184,64 @@ export function wyplataTygodniowa(s: SkladnikiWyplaty): number {
   );
 }
 
-export interface PlanRozliczen {
-  id?: string;
-  name?: string;
-  /** `false` = plan ryczałtowy: opłata stała zamiast procentu, zero podatku. */
-  tax_enabled?: boolean | null;
-  /** Stawka procentowa planu. NULL = bierzemy stawkę miasta/floty. */
-  tax_percentage?: number | null;
-  /** Opłata stała planu. NULL = bierzemy opłatę miasta/floty. */
-  base_fee?: number | null;
-  /** 'single_tax' | 'dual_tax'. NULL = tryb miasta/floty. */
-  settlement_mode?: string | null;
+export interface UstawieniaRozliczen {
+  /** Stawka podatku w procentach. 0 = plan ryczałtowy (bez podatku). */
+  vat_rate: number;
+  /** 'single_tax' | 'dual_tax' */
+  settlement_mode: string;
+  /** Stawka drugiego podatku (kampanie, rekompensaty Bolta) w trybie „dwa podatki". */
+  secondary_vat_rate: number;
+  /** Dodatkowy procent od brutto w trybie „dwa podatki". */
+  additional_percent_rate: number;
+  /** Opłata stała floty za tydzień. */
+  base_fee: number;
+  /** 'netto' | 'brutto' | 'gross_total' — sposób liczenia podstawy Ubera. */
+  uber_calculation_mode: string | null;
+}
+
+/** Skąd wzięły się stawki, którymi policzono kierowcę. Nie do ozdoby — patrz niżej. */
+export type ZrodloUstawien = 'plan' | 'miasto' | 'flota';
+
+export interface RozstrzygnieteUstawienia {
+  ustawienia: UstawieniaRozliczen;
+  zrodlo: ZrodloUstawien;
 }
 
 /**
- * Plan kierowcy nadpisuje TYLKO to, co sam ustala. Pole puste w planie znaczy
- * „zostaw jak było" — czyli stawkę miasta kierowcy, a dla miasta bez własnego
- * wiersza stawkę floty. Dzięki temu przypisanie planu bez wypełnionych pól
- * niczego nie przelicza.
- */
-export function stawkaZPlanu(plan: PlanRozliczen | null | undefined, stawkaMiasta: number): number {
-  if (!plan) return stawkaMiasta;
-  if (plan.tax_enabled === false) return 0;
-  if (plan.tax_percentage === null || plan.tax_percentage === undefined) return stawkaMiasta;
-  return liczba(plan.tax_percentage);
-}
-
-export function oplataZPlanu(plan: PlanRozliczen | null | undefined, oplataMiasta: number): number {
-  if (!plan) return oplataMiasta;
-  if (plan.base_fee === null || plan.base_fee === undefined) return oplataMiasta;
-  return liczba(plan.base_fee);
-}
-
-export function trybZPlanu(plan: PlanRozliczen | null | undefined, trybMiasta: string): string {
-  if (!plan || !plan.settlement_mode) return trybMiasta;
-  return plan.settlement_mode;
-}
-
-/**
- * Czy kierowcy w ogóle naliczamy podatek.
- * Dwa niezależne powody, żeby go NIE naliczać:
- *   - plan ryczałtowy (`tax_enabled = false`),
- *   - B2B: kierowca wystawia flocie fakturę, VAT jest po jego stronie.
- * Sposób rozliczenia (gotówka / przelew) NIE ma z tym nic wspólnego.
+ * Skąd kierowca bierze stawki w danym tygodniu.
  *
- * Stawka 0% NIE jest tu powodem i nie ma prawa nim być. W trybie „dwa podatki"
- * drugi podatek (23% od kampanii i rekompensat) ma własną stawkę, niezależną od
- * pierwszej — wciągnięcie „stawka = 0" do tej decyzji wyzerowałoby go po cichu
- * flocie, która pierwszej stawki nie nalicza. Zerowa stawka i tak daje zero
- * z samego mnożenia.
+ * KOLEJNOŚĆ: plan przypisany na ten tydzień → ustawienia jego miasta → flota.
+ *
+ * Rozstrzygnięcie jest CAŁOŚCIOWE: wygrywa jedno źródło ze wszystkimi sześcioma
+ * wartościami. Mieszanie pól między źródłami było przyczyną usterki z sierpnia
+ * 2026 — kierowca z Wrocławia (dodatek 0%) liczył się dodatkiem floty (1%),
+ * czyli 9% zamiast 8%, i nikt tego nie widział, bo fallback był cichy.
+ *
+ * Zwracane `zrodlo` NIE jest ozdobą: panel oznacza nim wiersz, gdy stawki
+ * przyszły z floty, a nie z planu ani z miasta. Fallback ma być widoczny.
  */
-export function czyNaliczacPodatek(
-  plan: PlanRozliczen | null | undefined,
-  opcje: { jestB2B?: boolean },
-): boolean {
-  if (plan?.tax_enabled === false) return false;
-  if (opcje.jestB2B) return false;
-  return true;
+export function ustawieniaKierowcy(
+  plan: UstawieniaRozliczen | null | undefined,
+  miasto: UstawieniaRozliczen | null | undefined,
+  flota: UstawieniaRozliczen,
+): RozstrzygnieteUstawienia {
+  if (plan) return { ustawienia: plan, zrodlo: 'plan' };
+  if (miasto) return { ustawienia: miasto, zrodlo: 'miasto' };
+  return { ustawienia: flota, zrodlo: 'flota' };
+}
+
+/**
+ * Czy kierowcy naliczamy podatek.
+ *
+ * Jedyny powód, żeby nie naliczać: B2B — kierowca wystawia flocie fakturę,
+ * VAT jest po jego stronie. Plan ryczałtowy NIE jest tu wyjątkiem: to po prostu
+ * plan ze stawką 0%, więc zero wychodzi z samego mnożenia i nie trzeba do tego
+ * osobnej flagi.
+ *
+ * Sposób rozliczenia (gotówka / przelew) NIE ma z tym nic wspólnego — w arkuszu
+ * wzorcowym Patryk Matusik ma przelew i podatek, a Dmytro Agafonov przelew
+ * i zero podatku.
+ */
+export function czyNaliczacPodatek(opcje: { jestB2B?: boolean }): boolean {
+  return !opcje.jestB2B;
 }

@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import {
   czyNaliczacPodatek,
   odliczenieVatOdPaliwa,
-  oplataZPlanu,
   pomniejszOPaliwo,
   wyplataTygodniowa,
 } from '@/lib/rozliczenia';
@@ -81,7 +80,8 @@ export const DriverSettlements = ({
   const [selectedWeek, setSelectedWeek] = useState<number | null>(preSelectedWeek ?? null);
   const [isDefaultsInitialized, setIsDefaultsInitialized] = useState(false);
   const [feeFormulas, setFeeFormulas] = useState<FeeFormulas>({});
-  const [driverPlan, setDriverPlan] = useState<any>(null);
+  const [planyFloty, setPlanyFloty] = useState<Map<string, any>>(new Map());
+  const [przypisaniaPlanu, setPrzypisaniaPlanu] = useState<Array<{ plan_id: string | null; effective_from: string }>>([]);
   const [csvMapping, setCsvMapping] = useState<CsvColumnMapping | null>(null);
   const [rentalFee, setRentalFee] = useState<number>(0);
   const [additionalFees, setAdditionalFees] = useState<number>(0);
@@ -701,45 +701,71 @@ export const DriverSettlements = ({
     }
   };
 
+  /**
+   * Plany floty i historia przypisań kierowcy.
+   *
+   * Plan obowiązuje od wskazanego tygodnia w przód, więc nie da się go trzymać
+   * w jednej zmiennej „plan kierowcy" — każdy tydzień na liście może mieć swój.
+   * Tabele wchodzą migracjami 20260914120000 / 20260914120100; ich brak znaczy
+   * „liczymy jak dotąd, po ustawieniach floty", a nie awarię ekranu.
+   */
   const loadDriverPlan = async () => {
     if (!driverId) return;
 
-    // Plan jest przypisany do KIEROWCY (drivers.settlement_plan_id). Konto
-    // w aplikacji zostaje jako zapas dla przypisań sprzed migracji planów.
-    let planId: string | null = null;
-    const { data: kierowca, error: bladKierowcy } = await (supabase as any)
+    const { data: kierowca } = await supabase
       .from('drivers')
-      .select('settlement_plan_id')
+      .select('fleet_id')
       .eq('id', driverId)
       .maybeSingle();
-    if (bladKierowcy) {
-      console.warn('drivers.settlement_plan_id niedostępne — plan z konta kierowcy:', bladKierowcy.message);
-    } else {
-      planId = (kierowca as any)?.settlement_plan_id ?? null;
+    const flota = (kierowca as any)?.fleet_id;
+    if (!flota) return;
+
+    const { data: plany, error: bladPlanow } = await (supabase as any)
+      .from('fleet_settlement_plans')
+      .select('id, name, city_name')
+      .eq('fleet_id', flota)
+      .eq('is_active', true);
+    if (bladPlanow) {
+      console.warn('fleet_settlement_plans niedostępna (migracja planów niewykonana?):', bladPlanow.message);
+      return;
     }
 
-    if (!planId) {
-      const { data: appUser, error: appUserError } = await supabase
-        .from('driver_app_users')
-        .select('settlement_plan_id')
-        .eq('driver_id', driverId)
-        .maybeSingle();
-      if (appUserError || !appUser?.settlement_plan_id) {
-        console.log('No settlement plan assigned to driver');
-        return;
-      }
-      planId = appUser.settlement_plan_id;
+    const { data: ustawienia } = await (supabase as any)
+      .from('fleet_city_settings')
+      .select('plan_id, platform, vat_rate, base_fee, settlement_mode')
+      .eq('fleet_id', flota)
+      .eq('is_active', true);
+
+    const { data: przypisania, error: bladPrzypisan } = await (supabase as any)
+      .from('driver_plan_assignments')
+      .select('plan_id, effective_from')
+      .eq('driver_id', driverId);
+    if (bladPrzypisan) {
+      console.warn('driver_plan_assignments niedostępne:', bladPrzypisan.message);
+      return;
     }
 
-    const { data: plan, error: planError } = await supabase
-      .from('settlement_plans')
-      .select('*')
-      .eq('id', planId)
-      .single();
-
-    if (!planError && plan) {
-      setDriverPlan(plan);
+    const poId = new Map<string, any>();
+    for (const plan of ((plany as any[]) || [])) {
+      const wiersze = ((ustawienia as any[]) || []).filter((u: any) => u.plan_id === plan.id);
+      const bolt = wiersze.find((w: any) => w.platform === 'bolt') || wiersze[0];
+      if (!bolt) continue;
+      poId.set(plan.id, { id: plan.id, name: plan.name, vat_rate: bolt.vat_rate, base_fee: bolt.base_fee });
     }
+    setPlanyFloty(poId);
+    setPrzypisaniaPlanu(((przypisania as any[]) || []) as Array<{ plan_id: string | null; effective_from: string }>);
+  };
+
+  /** Plan obowiązujący w tygodniu zaczynającym się `poczatek` (albo null). */
+  const planNaOkres = (poczatek?: string | null) => {
+    if (!poczatek) return null;
+    let wybrany: { plan_id: string | null; effective_from: string } | null = null;
+    for (const p of przypisaniaPlanu) {
+      if (p.effective_from > poczatek) continue;
+      if (!wybrany || p.effective_from > wybrany.effective_from) wybrany = p;
+    }
+    if (!wybrany?.plan_id) return null;
+    return planyFloty.get(wybrany.plan_id) ?? null;
   };
 
   const loadAdditionalFees = async () => {
@@ -1097,7 +1123,9 @@ export const DriverSettlements = ({
 
   // Calculate payout using new structure with 8% tax
   // NOW: reads persisted fee overrides from settlement amounts JSON to match fleet panel exactly
-  const calculatePayout = (amounts: any): { payout: number; fee: number; totalTax: number; breakdown: any } => {
+  const calculatePayout = (amounts: any, periodFrom?: string | null): { payout: number; fee: number; totalTax: number; breakdown: any } => {
+    // Plan obowiązujący w TYM tygodniu — nie „aktualny plan kierowcy".
+    const driverPlan = planNaOkres(periodFrom);
     if (!amounts) {
       return { payout: 0, fee: 0, totalTax: 0, breakdown: {} };
     }
@@ -1112,7 +1140,9 @@ export const DriverSettlements = ({
     
     // Get taxes - dynamically calculate based on fleet VAT rate if different from 8%
     const isB2BVatPayer = isB2BDriverLocal && b2bVatPayer === true;
-    const effectiveVatRate = isB2BVatPayer ? 0 : (fleetVatRate ?? 8);
+    // Stawka: plan tego tygodnia → ustawienia floty. B2B zeruje podatek.
+    const stawkaZrodlowa = driverPlan ? Number(driverPlan.vat_rate) : (fleetVatRate ?? 8);
+    const effectiveVatRate = isB2BVatPayer ? 0 : stawkaZrodlowa;
     
     const calculateDynamicTax = (netAmount: number, originalTax8: number) => {
       if (effectiveVatRate === 0) return 0;
@@ -1132,7 +1162,7 @@ export const DriverSettlements = ({
     // MINUS 50% VAT-u od paliwa. Bez tego kierowca widział u siebie inną kwotę
     // podatku niż flota u siebie — ta sama liczba musi być po obu stronach.
     // Plan ryczałtowy („159 zł bez podatku") i B2B zerują podatek i odliczenie.
-    const podatekNaliczany = czyNaliczacPodatek(driverPlan, { jestB2B: isB2BDriverLocal });
+    const podatekNaliczany = czyNaliczacPodatek({ jestB2B: isB2BDriverLocal });
     const wynikPodatku = pomniejszOPaliwo(
       uberTaxBrutto + boltTaxBrutto + freenowTaxBrutto,
       fuel,
@@ -1153,7 +1183,9 @@ export const DriverSettlements = ({
       ? persistedServiceFee
       : (driverCustomWeeklyFee !== null && driverCustomWeeklyFee !== undefined)
         ? driverCustomWeeklyFee
-        : oplataZPlanu(driverPlan, (fleetBaseFee !== null && fleetBaseFee !== undefined) ? fleetBaseFee : 50);
+        : (driverPlan
+            ? Number(driverPlan.base_fee)
+            : ((fleetBaseFee !== null && fleetBaseFee !== undefined) ? fleetBaseFee : 50));
     
     // ✅ SYNC FIX: Use persisted rental from settlement record (set by fleet manager)
     const persistedRentalFee = amounts.manual_rental_fee;
@@ -1161,7 +1193,7 @@ export const DriverSettlements = ({
       ? persistedRentalFee
       : rentalFee;
     
-    const planName = driverPlan?.name ?? 'Domyślny (50+8%)';
+    const planName = driverPlan?.name ?? 'Bez planu (ustawienia floty)';
     
     // Przychód i prowizje liczymy z tych samych kolumn, co panel flotowy —
     // wcześniej ta funkcja szła od kwot „netto" (już po podatku brutto),
@@ -1547,7 +1579,7 @@ export const DriverSettlements = ({
                 const rawAmounts = settlement.amounts || {};
                 // Pass dynamic fuel data to normalizeAmounts if available
                 const amounts = normalizeAmounts(rawAmounts, driverFuelData || undefined);
-                const { payout, fee, totalTax, breakdown } = calculatePayout(amounts);
+                const { payout, fee, totalTax, breakdown } = calculatePayout(amounts, settlement.period_from);
 
                 // Use authoritative actual_payout from DB (matches fleet panel exactly,
                 // already has debt_payment + service_fee + rental subtracted).

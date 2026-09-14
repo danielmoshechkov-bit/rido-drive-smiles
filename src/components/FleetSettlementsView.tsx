@@ -34,7 +34,6 @@ import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { FleetSettlementImport } from './fleet/FleetSettlementImport';
 import { FleetSettlementSettings } from './fleet/FleetSettlementSettings';
 import { FleetOwnerPayments } from './fleet/FleetOwnerPayments';
-import { FleetCitySettings } from './fleet/FleetCitySettings';
 import { FleetSettlementPlans } from './fleet/FleetSettlementPlans';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DriverDebtHistory } from './DriverDebtHistory';
@@ -47,13 +46,11 @@ import { useUserRole } from '@/hooks/useUserRole';
 import {
   czyNaliczacPodatek,
   odliczenieVatOdPaliwa,
-  oplataZPlanu,
-  policzPodatek,
-  stawkaZPlanu,
-  trybZPlanu,
   pomniejszOPaliwo,
+  ustawieniaKierowcy,
   wyplataTygodniowa,
 } from '@/lib/rozliczenia';
+import { planNaTydzien } from '@/hooks/usePlanyRozliczen';
 import { getAvailableWeeks, getCurrentWeekNumber, getSettlementExecutionDate, getWeekDates } from '@/lib/utils';
 import { buildWeeklyDebtSplit } from '@/lib/fleetDebtSplit';
 
@@ -1524,11 +1521,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       setFleetAdditionalPercentRateState(fleetAdditionalPercentRate);
 
       // Fetch city-specific overrides for this fleet
+      // `order('created_at')` nie jest ozdobą: od czasu planów jedno miasto może
+      // mieć KILKA kompletów ustawień (np. „Warszawa 8% + 50" i „Ryczałt 159").
+      // Tygodnie sprzed pierwszego przypisania planu liczą się po mieście, więc
+      // rozstrzygnięcie musi być deterministyczne — wygrywa NAJSTARSZY komplet,
+      // czyli ten, który obowiązywał, zanim plany w ogóle powstały.
       const { data: citySettingsData } = await supabase
         .from('fleet_city_settings' as any)
         .select('*')
         .eq('fleet_id', fleetId)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('created_at', { ascending: true });
 
       // Build city settings map: city_name -> merged settings (take most specific per platform)
       const citySettingsMap = new Map<string, {
@@ -1659,40 +1662,69 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       console.log('💰 Settlements found:', settlementsData?.length || 0);
       console.log('📊 Settlement sample:', settlementsData?.[0]);
 
-      // Plany rozliczeń: własne tej floty + ogólnoplatformowe (fleet_id IS NULL).
-      // Filtrujemy po stronie klienta, bo kolumna `fleet_id` wchodzi migracją
-      // planów — przed jej wykonaniem zapytanie z `.or(fleet_id…)` padłoby na
-      // 42703 i panel zostałby bez planów.
-      // Błąd odczytu nie ma prawa przejść po cichu: bez planu kierowca na
-      // ryczałcie policzyłby się stawką miasta.
-      const { data: plansDataRaw, error: plansError } = await supabase
-        .from('settlement_plans')
-        .select('*');
-      if (plansError) {
-        console.error('Błąd odczytu planów rozliczeń:', plansError);
-        toast.error('Nie udało się wczytać planów rozliczeń — kwoty policzone bez planów');
+      // ── Plany rozliczeń floty i przypisania z datą obowiązywania ──────────
+      // Plan niesie KOMPLET stawek (Bolt + Uber). Obowiązuje od tygodnia
+      // wskazanego w `driver_plan_assignments.effective_from` w przód —
+      // tygodnie wcześniejsze liczą się tym, co obowiązywało wtedy.
+      //
+      // Obie tabele wchodzą migracjami 20260914120000 / 20260914120100.
+      // Dopóki ich nie ma, panel liczy po ustawieniach miasta, czyli jak dotąd,
+      // i mówi o tym w konsoli — zamiast wywracać ekran.
+      const { data: planyFlotyData, error: planyError } = await (supabase as any)
+        .from('fleet_settlement_plans')
+        .select('id, name, city_name, is_default, is_active')
+        .eq('fleet_id', fleetId)
+        .eq('is_active', true);
+      if (planyError) {
+        console.warn('fleet_settlement_plans niedostępna (migracja planów niewykonana?):', planyError.message);
       }
-      const plansData = (plansDataRaw as any[] | null)?.filter(
-        (plan) => !plan.fleet_id || plan.fleet_id === fleetId,
-      ) ?? null;
 
-      // Przypisanie planu do kierowcy siedzi w `drivers.settlement_plan_id`
-      // (migracja 20260914090000_plany_rozliczen_kierowcy.sql). Dopóki kolumny
-      // nie ma, czytamy stare miejsce — konto kierowcy w aplikacji — i mówimy
-      // o tym w konsoli, zamiast cicho policzyć wszystkich stawką miasta.
-      const { data: planyKierowcowData, error: planyKierowcowError } = await (supabase as any)
-        .from('drivers')
-        .select('id, settlement_plan_id')
-        .eq('fleet_id', fleetId);
-      if (planyKierowcowError) {
-        console.warn(
-          'drivers.settlement_plan_id niedostępne (migracja planów niewykonana?) — plan czytany z konta kierowcy:',
-          planyKierowcowError.message,
-        );
+      const { data: przypisaniaData, error: przypisaniaError } = await (supabase as any)
+        .from('driver_plan_assignments')
+        .select('driver_id, plan_id, effective_from')
+        .in('driver_id', driverIds);
+      if (przypisaniaError) {
+        console.warn('driver_plan_assignments niedostępne (migracja planów niewykonana?):', przypisaniaError.message);
       }
-      const planKierowcyMap = new Map<string, string | null>(
-        ((planyKierowcowData as any[]) || []).map((r: any) => [r.id, r.settlement_plan_id ?? null]),
-      );
+      const przypisaniaPlanow = ((przypisaniaData as any[]) || []) as
+        Array<{ driver_id: string; plan_id: string | null; effective_from: string }>;
+
+      // Ustawienia planu: te same wiersze `fleet_city_settings`, tylko pogrupowane
+      // po `plan_id` zamiast po nazwie miasta.
+      const planUstawieniaMap = new Map<string, {
+        name: string;
+        vat_rate: number;
+        settlement_mode: string;
+        secondary_vat_rate: number;
+        additional_percent_rate: number;
+        base_fee: number;
+        uber_calculation_mode: string | null;
+      }>();
+      for (const plan of ((planyFlotyData as any[]) || [])) {
+        const wiersze = ((citySettingsData as any[]) || []).filter((cs: any) => cs.plan_id === plan.id);
+        const boltEntry = wiersze.find((e: any) => e.platform === 'bolt') || wiersze[0];
+        const uberEntry = wiersze.find((e: any) => e.platform === 'uber');
+        if (!boltEntry) continue; // plan bez ustawień nie ma czym liczyć — pomijamy
+        planUstawieniaMap.set(plan.id, {
+          name: plan.name,
+          vat_rate: boltEntry.vat_rate,
+          settlement_mode: boltEntry.settlement_mode,
+          secondary_vat_rate: boltEntry.secondary_vat_rate,
+          additional_percent_rate: boltEntry.additional_percent_rate,
+          base_fee: boltEntry.base_fee,
+          uber_calculation_mode: uberEntry?.uber_calculation_mode ?? boltEntry.uber_calculation_mode ?? null,
+        });
+      }
+
+      // Ustawienia floty jako ostatnia deska ratunku — jeden komplet, nie pole po polu.
+      const fleetSettings = {
+        vat_rate: fleetVatRate,
+        settlement_mode: fleetSettlementMode,
+        secondary_vat_rate: fleetSecondaryVatRate,
+        additional_percent_rate: fleetAdditionalPercentRate,
+        base_fee: fleetBaseFee,
+        uber_calculation_mode: fleetUberCalcMode,
+      };
 
       // Pobierz aktywne przypisania pojazdów z opłatą wynajmu i datą przypisania
       const { data: assignmentsData } = await supabase
@@ -2001,11 +2033,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         // Pobierz service_fee - PRIORYTET: zapisana wartość z amounts JSON, potem opłata flotowa, potem plan
         const driverAppUser = (driver as any).driver_app_users;
-        // Plan jest przypisany DO KIEROWCY (drivers.settlement_plan_id). Konto
-        // w aplikacji kierowcy (driver_app_users) zostaje jako zapas dla kont
-        // sprzed migracji — nie każdy kierowca w ogóle takie konto ma.
-        const driverPlanId = planKierowcyMap.get(driver.id) || driverAppUser?.settlement_plan_id || null;
-        const plan = plansData?.find(p => p.id === driverPlanId) || null;
+        // Plan obowiązujący W TYM tygodniu — wiersz o największym
+        // `effective_from` nie późniejszym niż początek tygodnia. Brak wiersza
+        // znaczy „bez planu", czyli liczenie po ustawieniach miasta.
+        const driverPlanId = currentWeek?.start
+          ? planNaTydzien(przypisaniaPlanow, driver.id, currentWeek.start)
+          : null;
+        const planKierowcy = driverPlanId ? planUstawieniaMap.get(driverPlanId) ?? null : null;
+        const planUstawienia = planKierowcy;
         
         // Check if there's a persisted override in settlement record (amounts JSON)
         const persistedServiceFee = snapshotAmounts.manual_service_fee;
@@ -2016,25 +2051,33 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const driverCityId = (driver as any).city_id;
         const driverCityName = cities.find(c => c.id === driverCityId)?.name || '';
         const driverCitySettings = citySettingsMap.get(driverCityName);
-        // KROK 3: oplata takze scisle z miasta. Fallback na flote tylko dla miasta
-        // bez zadnego wiersza w fleet_city_settings — ten sam warunek co przy stawkach.
-        const driverBaseFee = driverCitySettings ? driverCitySettings.base_fee : fleetBaseFee;
+
+        // === Skąd kierowca bierze stawki W TYM tygodniu ===
+        // Plan przypisany na ten tydzień → ustawienia jego miasta → flota.
+        // Rozstrzyga JEDNO źródło, z całym kompletem wartości: mieszanie pól
+        // między źródłami było przyczyną usterki z sierpnia 2026 (kierowca
+        // z Wrocławia liczył się dodatkiem floty — 9% zamiast 8%).
+        const { ustawienia: driverSettings, zrodlo: zrodloStawek } = ustawieniaKierowcy(
+          planUstawienia,
+          driverCitySettings,
+          fleetSettings,
+        );
+        // Fallback na flotę nie ma prawa być cichy — wiersz dostaje wykrzyknik.
+        const citySettingsMissing = zrodloStawek === 'flota';
+
+        // Opłata stała pochodzi z TEGO SAMEGO źródła co stawki — nie z innego.
+        const driverBaseFee = driverSettings.base_fee;
         
         // fleetBaseFee może być 0 (darmowa flota) - to jest dozwolone!
         // Priority: 1) persisted manual override, 2) per-driver custom_weekly_fee, 3) city base fee, 4) fleet base fee, 5) plan fee
         const driverCustomFee = (driver as any).custom_weekly_fee;
         // Opłata stała, od najbardziej szczegółowej: ręczna korekta tygodnia →
-        // własna opłata kierowcy → opłata z jego PLANU → opłata miasta → floty.
-        // Plan wchodzi tylko wtedy, gdy sam ustala opłatę (`base_fee`); plan
-        // z pustym polem zostawia stawkę miasta bez zmian.
-        const oplataMiastaLubFloty = driverBaseFee !== null && driverBaseFee !== undefined
-          ? driverBaseFee
-          : (plan?.service_fee ?? 50);
+        // własna opłata kierowcy → opłata z rozstrzygniętego źródła.
         const service_fee = persistedServiceFee !== null && persistedServiceFee !== undefined
           ? persistedServiceFee
           : (driverCustomFee !== null && driverCustomFee !== undefined
             ? driverCustomFee
-            : oplataZPlanu(plan, oplataMiastaLubFloty));
+            : driverBaseFee);
 
         // Pobierz wynajem z przypisanego pojazdu lub z zapisanego override
         // Sprawdź manual_rental_fee w amounts JSON - to jest marker ręcznego nadpisania
@@ -2222,27 +2265,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // szesc wartosci i nie ma zadnej sciezki ucieczki na ustawienia floty.
         // Fallback zostaje TYLKO dla miasta, ktore nie ma zadnego wiersza — i wtedy
         // wiersz jest oznaczony wykrzyknikiem, zeby ten fallback nie byl cichy.
-        const citySettingsMissing = !driverCitySettings;
-        const driverVatRate = driverCitySettings ? driverCitySettings.vat_rate : fleetVatRate;
-        const driverSettlementMode = driverCitySettings ? driverCitySettings.settlement_mode : fleetSettlementMode;
-        const driverSecondaryVatRate = driverCitySettings ? driverCitySettings.secondary_vat_rate : fleetSecondaryVatRate;
-        const driverAdditionalPercentRate = driverCitySettings ? driverCitySettings.additional_percent_rate : fleetAdditionalPercentRate;
-        const driverUberCalcMode = driverCitySettings
-          ? (driverCitySettings.uber_calculation_mode ?? fleetUberCalcMode)
-          : fleetUberCalcMode;
-        // === Plan rozliczeń kierowcy ===
-        // Plan nadpisuje TYLKO to, co sam ustala: puste pole planu = stawka miasta.
-        // Dzięki temu przypisanie „planu podstawowego" niczego nie przelicza.
-        const planVatRate = stawkaZPlanu(plan, driverVatRate);
-        const planSettlementMode = trybZPlanu(plan, driverSettlementMode);
-        // Dwa niezależne powody, żeby NIE naliczać podatku:
-        //  - plan ryczałtowy („159 zł bez podatku", tax_enabled = false),
-        //  - B2B: kierowca wystawia flocie fakturę, VAT jest po jego stronie.
-        // Sposób rozliczenia (gotówka/przelew) nie ma z tym nic wspólnego —
+        const driverSecondaryVatRate = driverSettings.secondary_vat_rate;
+        const driverAdditionalPercentRate = driverSettings.additional_percent_rate;
+        const driverUberCalcMode = driverSettings.uber_calculation_mode ?? 'netto';
+        const planSettlementMode = driverSettings.settlement_mode;
+        // Jedyny powód, żeby nie naliczać podatku, to B2B — kierowca wystawia
+        // flocie fakturę. Plan ryczałtowy to po prostu plan ze stawką 0%.
+        // Sposób rozliczenia (gotówka/przelew) nie ma z tym nic wspólnego:
         // w arkuszu wzorcowym Patryk Matusik ma przelew i podatek, a Dmytro
         // Agafonov przelew i zero podatku.
-        const podatekNaliczany = czyNaliczacPodatek(plan, { jestB2B: isB2BDriver });
-        const effectiveVatRate = podatekNaliczany ? planVatRate : 0;
+        const podatekNaliczany = czyNaliczacPodatek({ jestB2B: isB2BDriver });
+        const effectiveVatRate = podatekNaliczany ? driverSettings.vat_rate : 0;
         const hasPositivePlatformActivity =
           Math.max(0, uber_base) +
           Math.max(0, bolt_base) +
@@ -2512,7 +2545,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           fuel: total_fuel,
           fuel_vat_deduction: total_fuel_vat_deduction,
           podatek_od_przychodu,
-          plan_name: plan?.name ?? null,
+          plan_name: planKierowcy?.name ?? null,
           net_without_commission: netto,
           final_payout: payout,
           has_negative_balance: hasNegativeBalance,
@@ -2630,12 +2663,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           onTabChange={setActiveSubTab}
           tabs={subTabs}
         />
-        <FleetCitySettings fleetId={fleetId} focusCityName={focusCityName} />
-        <div className="mt-4">
-          {/* Plany rozliczeń — tu je definiujesz, a przypisujesz kierowcy
-              na jego karcie albo w popoverze „i" w tabeli rozliczeń. */}
-          <FleetSettlementPlans fleetId={fleetId} />
-        </div>
+        {/* JEDNA karta: plan ma nazwę, własne stawki Bolt i Uber oraz opcjonalne
+            miasto. Przypisujesz go kierowcy na jego karcie albo w popoverze „i"
+            w tabeli rozliczeń — obowiązuje od tygodnia, na którym stoisz. */}
+        <FleetSettlementPlans fleetId={fleetId} focusCityName={focusCityName} />
         <div className="mt-4">
           <FleetSettlementSettings fleetId={fleetId} />
         </div>
@@ -3728,6 +3759,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               driverId={settlement.driver_id}
                               driverName={settlement.driver_name}
                               fleetId={fleetId}
+                              odTygodnia={currentWeek?.start}
                               onComplete={() => fetchSettlements()}
                             >
                               <button
