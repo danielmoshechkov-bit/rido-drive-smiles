@@ -46,6 +46,22 @@ verify_jwt = false
 [functions.update-driver-debt]
 verify_jwt = false
 
+# 14.09.2026: wpisu tu NIE BYŁO, a pusty/brakujący wpis znaczy wartość DOMYŚLNĄ
+# (verify_jwt = true), nie „zostaw jak jest". Produkcja stoi dziś na
+# verify_jwt = false — sprawdzone żądaniem bez tokenu, które dochodzi do kodu
+# funkcji (odpowiada jej własnym komunikatem walidacji, nie 401 bramy).
+# Wpisujemy to JAWNIE, żeby wdrożenie z repozytorium nie przestawiło bramki
+# przy okazji zmiany wzorów podatkowych.
+#
+# UWAGA, DŁUG DO ROZSTRZYGNIĘCIA: ta funkcja NIE sprawdza tożsamości sama.
+# Przy verify_jwt = false każdy może podać `fleet_id` i wywołać przeliczenie
+# cudzych rozliczeń. Woła ją dziś wyłącznie panel (FleetSettlementsView,
+# DriverDebtHistory) z tokenem zalogowanego użytkownika — ani jeden cron,
+# ani jedna inna funkcja. Zamknięcie bramki jest więc wykonalne, ale to
+# osobna decyzja i osobne wdrożenie, nie skutek uboczny tego.
+[functions.recalculate-week]
+verify_jwt = false
+
 [functions.rebuild-drivers]
 verify_jwt = false
 
