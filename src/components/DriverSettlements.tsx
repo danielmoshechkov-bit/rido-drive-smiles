@@ -1,4 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
+import {
+  czyNaliczacPodatek,
+  odliczenieVatOdPaliwa,
+  oplataZPlanu,
+  pomniejszOPaliwo,
+  stawkaZPlanu,
+  wyplataTygodniowa,
+} from '@/lib/rozliczenia';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, ChevronDown, ChevronUp, CreditCard, Banknote, AlertTriangle, Phone } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -628,8 +636,8 @@ export const DriverSettlements = ({
       
       if (matchingFuel.length > 0) {
         const totalFuel = matchingFuel.reduce((sum, tx) => sum + (tx.total_amount || 0), 0);
-        // VAT refund formula: (fuel - fuel/1.23) / 2 = 50% of VAT
-        const fuelVatRefund = (totalFuel - totalFuel / 1.23) / 2;
+        // 50% VAT-u od paliwa — wzór ma jedno miejsce w całym projekcie.
+        const fuelVatRefund = odliczenieVatOdPaliwa(totalFuel);
         
         console.log('⛽ Dynamic fuel data loaded:', {
           cardNumber,
@@ -697,21 +705,37 @@ export const DriverSettlements = ({
   const loadDriverPlan = async () => {
     if (!driverId) return;
 
-    const { data: appUser, error: appUserError } = await supabase
-      .from('driver_app_users')
+    // Plan jest przypisany do KIEROWCY (drivers.settlement_plan_id). Konto
+    // w aplikacji zostaje jako zapas dla przypisań sprzed migracji planów.
+    let planId: string | null = null;
+    const { data: kierowca, error: bladKierowcy } = await (supabase as any)
+      .from('drivers')
       .select('settlement_plan_id')
-      .eq('driver_id', driverId)
+      .eq('id', driverId)
       .maybeSingle();
+    if (bladKierowcy) {
+      console.warn('drivers.settlement_plan_id niedostępne — plan z konta kierowcy:', bladKierowcy.message);
+    } else {
+      planId = (kierowca as any)?.settlement_plan_id ?? null;
+    }
 
-    if (appUserError || !appUser?.settlement_plan_id) {
-      console.log('No settlement plan assigned to driver');
-      return;
+    if (!planId) {
+      const { data: appUser, error: appUserError } = await supabase
+        .from('driver_app_users')
+        .select('settlement_plan_id')
+        .eq('driver_id', driverId)
+        .maybeSingle();
+      if (appUserError || !appUser?.settlement_plan_id) {
+        console.log('No settlement plan assigned to driver');
+        return;
+      }
+      planId = appUser.settlement_plan_id;
     }
 
     const { data: plan, error: planError } = await supabase
       .from('settlement_plans')
       .select('*')
-      .eq('id', appUser.settlement_plan_id)
+      .eq('id', planId)
       .single();
 
     if (!planError && plan) {
@@ -1098,14 +1122,30 @@ export const DriverSettlements = ({
       return grossBase * (effectiveVatRate / 100);
     };
     
-    const uberTax = calculateDynamicTax(uberNet, amounts.uber_tax_8 || 0);
-    const boltTax = calculateDynamicTax(boltNet, amounts.bolt_tax_8 || 0);
-    const freenowTax = calculateDynamicTax(freenowNet, amounts.freenow_tax_8 || 0);
-    const totalTax = uberTax + boltTax + freenowTax;
+    const uberTaxBrutto = calculateDynamicTax(uberNet, amounts.uber_tax_8 || 0);
+    const boltTaxBrutto = calculateDynamicTax(boltNet, amounts.bolt_tax_8 || 0);
+    const freenowTaxBrutto = calculateDynamicTax(freenowNet, amounts.freenow_tax_8 || 0);
     
     // Get other values
     const fuel = amounts.fuel || 0;
-    const fuelVatRefund = amounts.fuel_vat_refund || 0;
+
+    // Podatek liczony tak samo jak w panelu flotowym: procent od przychodu
+    // MINUS 50% VAT-u od paliwa. Bez tego kierowca widział u siebie inną kwotę
+    // podatku niż flota u siebie — ta sama liczba musi być po obu stronach.
+    // Plan ryczałtowy („159 zł bez podatku") i B2B zerują podatek i odliczenie.
+    const podatekNaliczany = czyNaliczacPodatek(driverPlan, {
+      jestB2B: isB2BDriverLocal,
+      stawkaProcent: stawkaZPlanu(driverPlan, effectiveVatRate),
+    });
+    const wynikPodatku = pomniejszOPaliwo(
+      uberTaxBrutto + boltTaxBrutto + freenowTaxBrutto,
+      fuel,
+      podatekNaliczany,
+    );
+    const totalTax = wynikPodatku.podatek;
+    const uberTax = podatekNaliczany ? uberTaxBrutto : 0;
+    const boltTax = podatekNaliczany ? boltTaxBrutto : 0;
+    const freenowTax = podatekNaliczany ? freenowTaxBrutto : 0;
     
     // Cash collected on platforms (always reduce payout)
     const cashTotal = Math.abs(amounts.uber_cash_f || amounts.uber_cash || 0) + Math.abs(amounts.bolt_cash || 0) + Math.abs(amounts.freenow_cash_f || 0);
@@ -1117,9 +1157,7 @@ export const DriverSettlements = ({
       ? persistedServiceFee
       : (driverCustomWeeklyFee !== null && driverCustomWeeklyFee !== undefined)
         ? driverCustomWeeklyFee
-        : (fleetBaseFee !== null && fleetBaseFee !== undefined)
-          ? fleetBaseFee
-          : (driverPlan?.base_fee ?? 50);
+        : oplataZPlanu(driverPlan, (fleetBaseFee !== null && fleetBaseFee !== undefined) ? fleetBaseFee : 50);
     
     // ✅ SYNC FIX: Use persisted rental from settlement record (set by fleet manager)
     const persistedRentalFee = amounts.manual_rental_fee;
@@ -1129,18 +1167,13 @@ export const DriverSettlements = ({
     
     const planName = driverPlan?.name ?? 'Domyślny (50+8%)';
     
-    // Calculate total earnings before any deductions
-    let earningsForPayout: number;
-    if (isB2BVatPayer) {
-      const uberBase = amounts.uber_base || 0;
-      const boltBase = amounts.bolt_projected_d || 0;
-      const freenowBase = amounts.freenow_base_s || 0;
-      earningsForPayout = uberBase + boltBase + freenowBase;
-    } else {
-      earningsForPayout = uberNet + boltNet + freenowNet;
-    }
-    
-    const totalEarnings = earningsForPayout;
+    // Przychód i prowizje liczymy z tych samych kolumn, co panel flotowy —
+    // wcześniej ta funkcja szła od kwot „netto" (już po podatku brutto),
+    // przez co kierowca i flota widzieli dwie różne wypłaty.
+    const przychodBrutto = (amounts.uber_base || 0) + (amounts.bolt_projected_d || 0) + (amounts.freenow_base_s || 0);
+    const prowizje = (amounts.uber_commission || 0) + (amounts.bolt_commission || 0) + (amounts.freenow_commission_t || 0);
+
+    const totalEarnings = przychodBrutto;
     
     if (totalEarnings === 0) {
       return { 
@@ -1156,16 +1189,29 @@ export const DriverSettlements = ({
       };
     }
     
-    const payout = earningsForPayout - cashTotal + fuelVatRefund - fuel - planFee - effectiveRentalFee - additionalFees;
+    // Ten sam wzór i ten sam moduł, co w panelu flotowym i w funkcjach
+    // brzegowych. Paliwo w pełnej kwocie — odliczenie 50% VAT-u siedzi
+    // w `totalTax`, więc nie ma go czym doliczać drugi raz.
+    const payout = wyplataTygodniowa({
+      przychodBazowy: przychodBrutto,
+      prowizje,
+      gotowka: cashTotal,
+      podatek: totalTax,
+      oplataStala: planFee,
+      oplatyDodatkowe: additionalFees,
+      wynajem: effectiveRentalFee,
+      paliwo: fuel,
+    });
     
     console.log(`💰 Payout calculation (Plan: ${planName}):
       Uber Net (after 8% tax): ${uberNet.toFixed(2)} (tax: ${uberTax.toFixed(2)})
       Bolt Net (after 8% tax): ${boltNet.toFixed(2)} (tax: ${boltTax.toFixed(2)})
       FreeNow Net (after 8% tax): ${freenowNet.toFixed(2)} (tax: ${freenowTax.toFixed(2)})
-      Total Tax 8%: ${totalTax.toFixed(2)}
+      Podatek po odliczeniu VAT od paliwa: ${totalTax.toFixed(2)}
+      Prowizje platform: -${prowizje.toFixed(2)}
       Cash collected (reduces payout): -${cashTotal.toFixed(2)}
       Fuel: -${fuel.toFixed(2)}
-      VAT refund: +${fuelVatRefund.toFixed(2)}
+      Odliczenie 50% VAT od paliwa (w podatku): ${wynikPodatku.odliczenieVatPaliwa.toFixed(2)}
       Plan fee: -${planFee.toFixed(2)}
       Rental: -${rentalFee.toFixed(2)}
       Additional fees: -${additionalFees.toFixed(2)}
@@ -1183,7 +1229,7 @@ export const DriverSettlements = ({
         additionalFees: additionalFees,
         income: { uber: uberNet, bolt: boltNet, freenow: freenowNet },
         taxes: { uber: uberTax, bolt: boltTax, freenow: freenowTax, total: totalTax },
-        deductions: { fuel, fuelVatRefund }
+        deductions: { fuel, odliczenieVatPaliwa: wynikPodatku.odliczenieVatPaliwa }
       }
     };
   };
@@ -1594,11 +1640,12 @@ export const DriverSettlements = ({
                           </div>
                         )}
                         
-                        {/* Zwrot VAT paliwo - DUŻA CZCIONKA */}
+                        {/* 50% VAT-u od paliwa jest już ODJĘTE od podatku wyżej —
+                            osobna dodatnia pozycja liczyłaby to samo drugi raz. */}
                         {amounts.fuel_vat_refund > 0 && (
-                          <div className="flex justify-between text-base font-bold pb-3 border-b border-dashed border-gray-300">
-                            <span className="font-bold">{t('weekly.fuelVatRefund')}:</span>
-                            <span className="font-bold text-green-600 text-lg">+{amounts.fuel_vat_refund.toFixed(2)} zł</span>
+                          <div className="flex justify-between text-xs text-muted-foreground pb-3 border-b border-dashed border-gray-300">
+                            <span>{t('weekly.fuelVatRefund')} (odliczone w podatku):</span>
+                            <span className="tabular-nums">{amounts.fuel_vat_refund.toFixed(2)} zł</span>
                           </div>
                         )}
                         

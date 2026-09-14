@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { WyborPlanuRozliczen } from '@/components/fleet/WyborPlanuRozliczen';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1082,6 +1083,21 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                       refetch();
                                     }
                                   }}
+                                />
+                              </div>
+
+                              {/* Plan rozliczeń — obok przełącznika B2B.
+                                  Ten sam komponent i ta sama pamięć podręczna,
+                                  co w popoverze „i" w tabeli rozliczeń. */}
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Banknote size={14} />
+                                  <span className="text-xs font-medium">Plan rozliczeń</span>
+                                </div>
+                                <WyborPlanuRozliczen
+                                  driverId={driver.id}
+                                  fleetId={(driver as any).fleet_id}
+                                  onZmieniono={refetch}
                                 />
                               </div>
 

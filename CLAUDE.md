@@ -502,6 +502,94 @@ kodu. Dlatego: każdy test polityk zawiera co najmniej jedną operację, która 
 i sprawdza, że się udała. Przy `UPDATE`/`DELETE` liczy dotknięte wiersze — polityka
 `RESTRICTIVE` filtruje wiersze, nie rzuca wyjątkiem, więc brak błędu nie znaczy sukcesu.
 
+### RLS nie rzuca wyjątkiem przy UPDATE i DELETE — ona FILTRUJE wiersze
+
+14.09.2026, ustawienia rozliczeń per miasto. Kosz przy Warszawie → „Usunięto" →
+wiersz zostaje. Dodanie drugiego miasta → „zapisano" → lista dalej pokazuje
+jedno. I dopiero przy trzeciej próbie prawdziwy komunikat:
+`new row violates row-level security policy for table "fleet_city_settings"`.
+
+Jedna przyczyna, trzy różne objawy. Migracja `20260507184637` zamknęła zapis
+na tej tabeli do administratora platformy, a flotowy dostawał:
+
+| operacja | co robi RLS | co widział kod |
+|---|---|---|
+| `INSERT` | odmawia | błąd 42501 — jedyny uczciwy objaw |
+| `UPDATE` | **filtruje wiersze** | `error === null`, zero wierszy → „zapisano" |
+| `DELETE` | **filtruje wiersze** | `error === null`, zero wierszy → „Usunięto" |
+
+**Sprawdzanie samego `error` przy UPDATE i DELETE nie wykrywa braku uprawnień.**
+Trzeba policzyć wiersze, a do tego potrzebny jest `.select(...)`:
+
+```ts
+const { data, error } = await supabase.from('tabela')
+  .delete().eq('id', id).select('id');
+if (error) throw error;
+if (!data || data.length === 0) throw new Error('nic nie skasowano — uprawnienia?');
+```
+
+W tym module przechodzi to przez `src/lib/zapisRozliczen.ts` (`wykonajZapis`).
+
+Dwie rzeczy, które z tego wynikają:
+
+1. **Toast „zapisano" ma prawo się pokazać dopiero po policzeniu wierszy.**
+   Fałszywe potwierdzenie jest gorsze od błędu: po nim nikt nie sprawdza dalej.
+2. **Tabela flotowa bez polityki dla ról `fleet_settlement` / `fleet_rental`
+   jest tabelą tylko do odczytu.** Wzorzec, który działa, stoi na
+   `fleet_settlement_fees` — ten sam ekran, te same dane, polityka po
+   `user_roles`. Przy zamykaniu zapisu „do admina" trzeba przejść po sąsiednich
+   tabelach tego samego ekranu i sprawdzić, czy nie zostawia się połowy panelu.
+
+### Ten sam podatek liczony w czterech miejscach rozjedzie się w czterech
+
+Panel flotowy, ekran kierowcy i dwie funkcje brzegowe liczyły podatek osobno.
+Wypłata wychodziła ta sama, więc przez miesiące nikt nie zauważył, że kolumna
+„Podatek" pokazuje co innego niż arkusz, którym flota rozlicza się naprawdę.
+
+Dwie usterki wyszły dopiero z porównania z arkuszem co do grosza:
+
+- **50% VAT-u od paliwa POMNIEJSZA PODATEK**, a nie dopisuje się do wypłaty
+  jako „zwrot VAT". Arytmetycznie to samo (`− (podatek − odliczenie)` =
+  `− podatek + odliczenie`), ale tylko pierwsza postać daje kwotę, którą da się
+  wytłumaczyć kierowcy. Przy kierowcy BEZ podatku różnica przestaje być
+  kosmetyczna: zwrot doliczyłby mu pieniądze, których arkusz nie zna.
+- **Podstawą Ubera jest kolumna D RAZEM z gotówką z kolumny F.** Gotówka
+  odebrana od pasażerów jest zarobkiem, choć Uber potrąca ją z przelewu.
+  Tryb „netto" brał samo D i zaniżał podatek o procent od gotówki
+  (Dawid Czostek 42,02 zamiast 49,22).
+
+Wzory mają jedno miejsce: `supabase/functions/_shared/rozliczenia.ts`,
+re-eksportowane do frontu przez `src/lib/rozliczenia.ts` (ten sam wzorzec, co
+`invoiceNumbering`). Testy liczą na PRAWDZIWYM arkuszu
+(`fixtures/wzorzec-rozliczenia.csv`): `npm run test:rozliczenia`. Bramka
+`scripts/check-rozliczenia-podatek.mjs` pilnuje, żeby kopie nie odrosły — ma
+kontrolę pozytywną i odwrotną.
+
+**Zasada: kwota, którą widzi flota, i kwota, którą widzi kierowca, mają
+pochodzić z jednego wywołania tej samej funkcji.** Jeśli dwa ekrany liczą to
+samo osobno, prędzej czy później pokażą dwie różne prawdy — a klient zgłosi to
+jako „system się myli", nie jako „dwa ekrany się nie zgadzają".
+
+### Komponent zdefiniowany w ciele innego komponentu gubi ognisko przy każdym znaku
+
+`PlatformPanel` siedział wewnątrz `FleetCitySettings`, więc każdy render
+tworzył NOWY typ komponentu. React nie dopasowywał starego drzewa do nowego,
+tylko odmontowywał je i montował od zera — pole „Opłata stała" traciło ognisko
+po KAŻDEJ cyfrze.
+
+Objaw jest łatwy do pomylenia z „przeglądarka głupieje": wpisujesz jeden znak
+i kursor wyskakuje. Rozpoznanie: szukaj `const Cos = (...) => (` **wewnątrz**
+ciała komponentu, nie na poziomie modułu.
+
+Drugi wariant tej samej klasy: pole edycji, którego tekst trzyma stan wielkiego
+rodzica. Nic się nie odmontowuje, ale każdy znak przerenderowuje pół ekranu
+i wystarczy, że cokolwiek przejmie ognisko. Lekarstwo to samo co przy zapisie
+w tle: **stan wpisywanego tekstu należy do pola** (`src/components/fleet/KomorkaKwoty.tsx`),
+a rodzic dowiaduje się o kwocie RAZ, przy wyjściu z pola.
+
+I nigdy nie `await`-uj zapisu w obsłudze edycji: kliknięcie w kolejne pole
+czekało wtedy na zapis, przeliczenie długu i pełne odświeżenie listy.
+
 ### Bez liczby to nie naprawa, tylko przemeblowanie
 
 Dotyczy każdej zmiany uzasadnionej tym, że „się nie mieści", „jest za wąskie",

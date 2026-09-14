@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Plus, Edit, Trash2, MapPin } from "lucide-react";
 import { useCities } from "@/hooks/useCities";
+import { BladZapisu, wykonajZapis } from "@/lib/zapisRozliczen";
 
 interface CitySettings {
   id: string;
@@ -25,6 +26,101 @@ interface CitySettings {
   uber_calculation_mode: string | null;
   is_active: boolean;
 }
+
+/**
+ * Panel jednej platformy (Bolt albo Uber) w oknie ustawień miasta.
+ *
+ * MUSI być zdefiniowany POZA `FleetCitySettings`. Gdy siedział w ciele tamtego
+ * komponentu, każdy render tworzył NOWY typ komponentu, więc React nie
+ * dopasowywał starego drzewa do nowego, tylko odmontowywał je i montował od
+ * nowa. Skutek: pole „Opłata stała" gubiło ognisko po KAŻDYM znaku — trzeba
+ * było klikać w nie przed każdą cyfrą, także przy kasowaniu.
+ */
+const PanelPlatformy = ({ platform, mode, setMode, vat, setVat, baseFee, setBaseFee, additional, setAdditional, secondaryVat, setSecondaryVat, email, setEmail, calcMode, setCalcMode }: {
+  platform: "bolt" | "uber";
+  mode: string; setMode: (v: "single_tax" | "dual_tax") => void;
+  vat: string; setVat: (v: string) => void;
+  baseFee: string; setBaseFee: (v: string) => void;
+  additional: string; setAdditional: (v: string) => void;
+  secondaryVat: string; setSecondaryVat: (v: string) => void;
+  email?: string; setEmail?: (v: string) => void;
+  calcMode?: string; setCalcMode?: (v: "netto" | "brutto") => void;
+}) => (
+  <div className="space-y-3">
+    <div className="flex items-center gap-2">
+      {platform === "bolt" ? (
+        <Badge className="bg-green-600 text-white">Bolt</Badge>
+      ) : (
+        <Badge className="bg-black text-white">Uber</Badge>
+      )}
+    </div>
+
+    <div>
+      <Label className="text-xs">Tryb rozliczeń</Label>
+      <div className="grid grid-cols-2 gap-2 mt-1">
+        <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${mode === "single_tax" ? "border-primary bg-primary/10" : "hover:bg-muted"}`}>
+          <input type="radio" className="sr-only" checked={mode === "single_tax"} onChange={() => setMode("single_tax")} />
+          <span className="text-xs font-medium">Jeden podatek</span>
+          <span className="text-[10px] text-muted-foreground">{platform === "bolt" ? "VAT od brutto" : "VAT od netto"}</span>
+        </label>
+        <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${mode === "dual_tax" ? "border-primary bg-primary/10" : "hover:bg-muted"}`}>
+          <input type="radio" className="sr-only" checked={mode === "dual_tax"} onChange={() => setMode("dual_tax")} />
+          <span className="text-xs font-medium">Dwa podatki</span>
+          <span className="text-[10px] text-muted-foreground">{platform === "bolt" ? "8% + 23%" : "netto/brutto + kampanie"}</span>
+        </label>
+      </div>
+    </div>
+
+    {platform === "uber" && mode === "dual_tax" && calcMode !== undefined && setCalcMode && (
+      <div>
+        <Label className="text-xs">Sposób obliczania</Label>
+        <div className="grid grid-cols-2 gap-2 mt-1">
+          <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${calcMode === "netto" ? "border-primary bg-primary/10" : "hover:bg-muted"}`}>
+            <input type="radio" className="sr-only" checked={calcMode === "netto"} onChange={() => setCalcMode("netto")} />
+            <span className="text-xs font-medium">Od netto</span>
+            <span className="text-[10px] text-muted-foreground">netto + 25%</span>
+          </label>
+          <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${calcMode === "brutto" ? "border-primary bg-primary/10" : "hover:bg-muted"}`}>
+            <input type="radio" className="sr-only" checked={calcMode === "brutto"} onChange={() => setCalcMode("brutto")} />
+            <span className="text-xs font-medium">Od brutto</span>
+            <span className="text-[10px] text-muted-foreground">kol. G z CSV</span>
+          </label>
+        </div>
+      </div>
+    )}
+
+    <div className="grid grid-cols-2 gap-2">
+      <div>
+        <Label className="text-xs">VAT (%)</Label>
+        <Input type="number" value={vat} onChange={(e) => setVat(e.target.value)} />
+      </div>
+      <div>
+        <Label className="text-xs">Opłata stała (zł)</Label>
+        <Input type="number" value={baseFee} onChange={(e) => setBaseFee(e.target.value)} />
+      </div>
+    </div>
+
+    {mode === "dual_tax" && (
+      <div className="grid grid-cols-2 gap-2 border-t pt-2">
+        <div>
+          <Label className="text-xs">Dod. % od brutto</Label>
+          <Input type="number" value={additional} onChange={(e) => setAdditional(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">VAT kampanie (%)</Label>
+          <Input type="number" value={secondaryVat} onChange={(e) => setSecondaryVat(e.target.value)} />
+        </div>
+      </div>
+    )}
+
+    {platform === "bolt" && email !== undefined && setEmail && (
+      <div>
+        <Label className="text-xs">Mail do faktur (B2B)</Label>
+        <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="faktury@firma.pl" />
+      </div>
+    )}
+  </div>
+);
 
 interface FleetCitySettingsProps {
   fleetId: string;
@@ -81,8 +177,9 @@ export function FleetCitySettings({ fleetId, focusCityName }: FleetCitySettingsP
         .order("city_name");
       if (error) throw error;
       setCities((data as unknown as CitySettings[]) || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching city settings:", error);
+      toast.error(`Nie udało się wczytać ustawień miast: ${error?.message || "nieznany błąd"}`);
     } finally {
       setLoading(false);
     }
@@ -191,12 +288,19 @@ export function FleetCitySettings({ fleetId, focusCityName }: FleetCitySettingsP
         uber_calculation_mode: null,
       };
 
+      // Każdy zapis musi wrócić z wierszem. Samo `error === null` nie dowodzi
+      // niczego: RLS filtruje wiersze, więc UPDATE bez uprawnień kończy się
+      // sukcesem na zerze wierszy.
       if (existingGroup?.bolt) {
-        const { error } = await supabase.from("fleet_city_settings" as any).update(boltPayload).eq("id", existingGroup.bolt.id);
-        if (error) throw error;
+        await wykonajZapis(
+          supabase.from("fleet_city_settings" as any).update(boltPayload).eq("id", existingGroup.bolt.id).select("id"),
+          `Zapis ustawień Bolt dla ${finalCityName}`,
+        );
       } else {
-        const { error } = await supabase.from("fleet_city_settings" as any).insert([boltPayload]);
-        if (error) throw error;
+        await wykonajZapis(
+          supabase.from("fleet_city_settings" as any).insert([boltPayload]).select("id"),
+          `Dodanie ustawień Bolt dla ${finalCityName}`,
+        );
       }
 
       // Save Uber
@@ -214,18 +318,23 @@ export function FleetCitySettings({ fleetId, focusCityName }: FleetCitySettingsP
       };
 
       if (existingGroup?.uber) {
-        const { error } = await supabase.from("fleet_city_settings" as any).update(uberPayload).eq("id", existingGroup.uber.id);
-        if (error) throw error;
+        await wykonajZapis(
+          supabase.from("fleet_city_settings" as any).update(uberPayload).eq("id", existingGroup.uber.id).select("id"),
+          `Zapis ustawień Uber dla ${finalCityName}`,
+        );
       } else {
-        const { error } = await supabase.from("fleet_city_settings" as any).insert([uberPayload]);
-        if (error) throw error;
+        await wykonajZapis(
+          supabase.from("fleet_city_settings" as any).insert([uberPayload]).select("id"),
+          `Dodanie ustawień Uber dla ${finalCityName}`,
+        );
       }
 
       toast.success(editingCity ? "Ustawienia zaktualizowane" : "Ustawienia dodane");
       setDialogOpen(false);
-      fetchCities();
+      await fetchCities();
     } catch (error: any) {
-      toast.error(error.message);
+      // Komunikat z `BladZapisu` mówi wprost, co się nie udało i dlaczego.
+      toast.error(error instanceof BladZapisu ? error.message : `Błąd zapisu: ${error?.message || "nieznany"}`);
     } finally {
       setSaving(false);
     }
@@ -235,102 +344,25 @@ export function FleetCitySettings({ fleetId, focusCityName }: FleetCitySettingsP
     if (!confirm(`Usunąć ustawienia dla ${group.city_name}?`)) return;
     try {
       const ids = [group.bolt?.id, group.uber?.id].filter(Boolean);
+      let skasowane = 0;
       for (const id of ids) {
-        const { error } = await supabase.from("fleet_city_settings" as any).delete().eq("id", id);
-        if (error) throw error;
+        // `.select("id")` jest tu warunkiem uczciwego komunikatu: bez niego
+        // DELETE zablokowany przez RLS wraca bez błędu i bez wierszy, a panel
+        // meldował „Usunięto" nad wierszem, który został na liście.
+        const { ile } = await wykonajZapis(
+          supabase.from("fleet_city_settings" as any).delete().eq("id", id).select("id"),
+          `Usunięcie ustawień ${group.city_name}`,
+        );
+        skasowane += ile;
       }
-      toast.success("Usunięto");
-      fetchCities();
+      toast.success(`Usunięto ustawienia ${group.city_name} (${skasowane} wpisy)`);
+      await fetchCities();
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error instanceof BladZapisu ? error.message : `Błąd usuwania: ${error?.message || "nieznany"}`);
+      // Lista musi pokazać stan z bazy, a nie to, co chcieliśmy osiągnąć.
+      await fetchCities();
     }
   };
-
-  const PlatformPanel = ({ platform, mode, setMode, vat, setVat, baseFee, setBaseFee, additional, setAdditional, secondaryVat, setSecondaryVat, email, setEmail, calcMode, setCalcMode }: {
-    platform: "bolt" | "uber";
-    mode: string; setMode: (v: "single_tax" | "dual_tax") => void;
-    vat: string; setVat: (v: string) => void;
-    baseFee: string; setBaseFee: (v: string) => void;
-    additional: string; setAdditional: (v: string) => void;
-    secondaryVat: string; setSecondaryVat: (v: string) => void;
-    email?: string; setEmail?: (v: string) => void;
-    calcMode?: string; setCalcMode?: (v: "netto" | "brutto") => void;
-  }) => (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        {platform === "bolt" ? (
-          <Badge className="bg-green-600 text-white">Bolt</Badge>
-        ) : (
-          <Badge className="bg-black text-white">Uber</Badge>
-        )}
-      </div>
-
-      <div>
-        <Label className="text-xs">Tryb rozliczeń</Label>
-        <div className="grid grid-cols-2 gap-2 mt-1">
-          <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${mode === "single_tax" ? "border-primary bg-primary/10" : "hover:bg-muted"}`}>
-            <input type="radio" className="sr-only" checked={mode === "single_tax"} onChange={() => setMode("single_tax")} />
-            <span className="text-xs font-medium">Jeden podatek</span>
-            <span className="text-[10px] text-muted-foreground">{platform === "bolt" ? "VAT od brutto" : "VAT od netto"}</span>
-          </label>
-          <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${mode === "dual_tax" ? "border-primary bg-primary/10" : "hover:bg-muted"}`}>
-            <input type="radio" className="sr-only" checked={mode === "dual_tax"} onChange={() => setMode("dual_tax")} />
-            <span className="text-xs font-medium">Dwa podatki</span>
-            <span className="text-[10px] text-muted-foreground">{platform === "bolt" ? "8% + 23%" : "netto/brutto + kampanie"}</span>
-          </label>
-        </div>
-      </div>
-
-      {platform === "uber" && mode === "dual_tax" && calcMode !== undefined && setCalcMode && (
-        <div>
-          <Label className="text-xs">Sposób obliczania</Label>
-          <div className="grid grid-cols-2 gap-2 mt-1">
-            <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${calcMode === "netto" ? "border-primary bg-primary/10" : "hover:bg-muted"}`}>
-              <input type="radio" className="sr-only" checked={calcMode === "netto"} onChange={() => setCalcMode("netto")} />
-              <span className="text-xs font-medium">Od netto</span>
-              <span className="text-[10px] text-muted-foreground">netto + 25%</span>
-            </label>
-            <label className={`flex flex-col items-center p-2 border rounded-lg cursor-pointer transition-colors text-center ${calcMode === "brutto" ? "border-primary bg-primary/10" : "hover:bg-muted"}`}>
-              <input type="radio" className="sr-only" checked={calcMode === "brutto"} onChange={() => setCalcMode("brutto")} />
-              <span className="text-xs font-medium">Od brutto</span>
-              <span className="text-[10px] text-muted-foreground">kol. G z CSV</span>
-            </label>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label className="text-xs">VAT (%)</Label>
-          <Input type="number" value={vat} onChange={(e) => setVat(e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Opłata stała (zł)</Label>
-          <Input type="number" value={baseFee} onChange={(e) => setBaseFee(e.target.value)} />
-        </div>
-      </div>
-
-      {mode === "dual_tax" && (
-        <div className="grid grid-cols-2 gap-2 border-t pt-2">
-          <div>
-            <Label className="text-xs">Dod. % od brutto</Label>
-            <Input type="number" value={additional} onChange={(e) => setAdditional(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">VAT kampanie (%)</Label>
-            <Input type="number" value={secondaryVat} onChange={(e) => setSecondaryVat(e.target.value)} />
-          </div>
-        </div>
-      )}
-
-      {platform === "bolt" && email !== undefined && setEmail && (
-        <div>
-          <Label className="text-xs">Mail do faktur (B2B)</Label>
-          <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="faktury@firma.pl" />
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <Card>
@@ -446,7 +478,7 @@ export function FleetCitySettings({ fleetId, focusCityName }: FleetCitySettingsP
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
             <Card className="border-green-500/30">
               <CardContent className="pt-4 pb-3">
-                <PlatformPanel
+                <PanelPlatformy
                   platform="bolt"
                   mode={boltMode} setMode={setBoltMode}
                   vat={boltVat} setVat={setBoltVat}
@@ -459,7 +491,7 @@ export function FleetCitySettings({ fleetId, focusCityName }: FleetCitySettingsP
             </Card>
             <Card className="border-black/20">
               <CardContent className="pt-4 pb-3">
-                <PlatformPanel
+                <PanelPlatformy
                   platform="uber"
                   mode={uberMode} setMode={setUberMode}
                   vat={uberVat} setVat={setUberVat}

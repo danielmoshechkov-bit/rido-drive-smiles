@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { computeExcelDebtValues, round2 } from "../_shared/driverDebtExcel.ts";
+import {
+  czyNaliczacPodatek,
+  oplataZPlanu,
+  pomniejszOPaliwo,
+  stawkaZPlanu,
+  trybZPlanu,
+  wyplataTygodniowa,
+} from "../_shared/rozliczenia.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,6 +75,36 @@ serve(async (req) => {
 
     const driverIds = drivers.map(d => d.id);
     const driverMap = new Map(drivers.map(d => [d.id, d]));
+
+    // Plan rozliczeń kierowcy — decyduje o stawce, opłacie i o tym, czy podatek
+    // w ogóle się nalicza. Kolumna `drivers.settlement_plan_id` i `settlement_plans.fleet_id`
+    // wchodzą migracją 20260914090000_plany_rozliczen_kierowcy.sql. Ta funkcja
+    // musi działać także PRZED jej wykonaniem (wdrożenie funkcji idzie pierwsze),
+    // więc brak kolumny traktujemy jak brak planu i mówimy o tym w logu.
+    const planMap = new Map<string, any>();
+    {
+      const { data: przypisania, error: bladPrzypisan } = await supabase
+        .from('drivers')
+        .select('id, settlement_plan_id')
+        .eq('fleet_id', fleet_id);
+      if (bladPrzypisan) {
+        console.warn('⚠️ drivers.settlement_plan_id niedostępne — liczę bez planów:', bladPrzypisan.message);
+      } else {
+        const { data: plany, error: bladPlanow } = await supabase
+          .from('settlement_plans')
+          .select('*');
+        if (bladPlanow) {
+          console.warn('⚠️ settlement_plans nieczytelne — liczę bez planów:', bladPlanow.message);
+        } else {
+          const poId = new Map((plany || []).map((plan: any) => [plan.id, plan]));
+          for (const wiersz of (przypisania || []) as any[]) {
+            const plan = wiersz.settlement_plan_id ? poId.get(wiersz.settlement_plan_id) : null;
+            // Plan innej floty nie ma prawa liczyć naszych kierowców.
+            if (plan && (!plan.fleet_id || plan.fleet_id === fleet_id)) planMap.set(wiersz.id, plan);
+          }
+        }
+      }
+    }
 
     const { data: assignmentsData } = await supabase
       .from('driver_vehicle_assignments')
@@ -169,12 +207,17 @@ serve(async (req) => {
       const driver = driverMap.get(driverId);
       const cityName = driver?.city_id ? cityNameMap.get(driver.city_id) : null;
       const cs = cityName ? citySettingsFullMap.get(cityName) : null;
+      const plan = planMap.get(driverId) || null;
+      const stawkaMiasta = cs?.vat_rate ?? fleetVatRate;
+      const trybMiasta = cs?.settlement_mode ?? fleetSettlementMode;
       return {
-        vatRate: cs?.vat_rate ?? fleetVatRate,
-        settlementMode: cs?.settlement_mode ?? fleetSettlementMode,
+        // Plan nadpisuje TYLKO to, co sam ustala — puste pole planu zostawia miasto.
+        vatRate: stawkaZPlanu(plan, stawkaMiasta),
+        settlementMode: trybZPlanu(plan, trybMiasta),
         uberCalcMode: cs?.uber_calculation_mode ?? fleetUberCalcMode,
         secondaryVatRate: cs?.secondary_vat_rate ?? fleetSecondaryVatRate,
         additionalPercentRate: cs?.additional_percent_rate ?? fleetAdditionalPercentRate,
+        plan,
       };
     };
 
@@ -187,11 +230,13 @@ serve(async (req) => {
         return Number(driver.custom_weekly_fee);
       }
       const cityName = cityNameMap.get(driver.city_id);
+      let oplataMiasta = 50;
       if (cityName) {
         const cityFee = cityFeeMap.get(cityName);
-        if (cityFee !== null && cityFee !== undefined) return Number(cityFee);
+        if (cityFee !== null && cityFee !== undefined) oplataMiasta = Number(cityFee);
       }
-      return 50;
+      // Opłata z planu wchodzi PO własnej opłacie kierowcy, a przed opłatą miasta.
+      return oplataZPlanu(planMap.get(driverId) || null, oplataMiasta);
     };
 
     // 2. Get settlements for this week
@@ -260,13 +305,16 @@ serve(async (req) => {
       }
 
       // Get driver-specific VAT settings
-      const { vatRate, settlementMode, uberCalcMode, secondaryVatRate, additionalPercentRate } = getDriverSettings(settlement.driver_id);
+      const { vatRate, settlementMode, uberCalcMode, secondaryVatRate, additionalPercentRate, plan } = getDriverSettings(settlement.driver_id);
       
       // Check B2B status
       const driver = driverMap.get(settlement.driver_id);
       const isB2BDriver = driver?.payment_method === 'b2b' || driver?.billing_method === 'b2b' || driver?.b2b_enabled === true;
-      const isB2BVatPayer = isB2BDriver && driver?.b2b_vat_payer === true;
-      const effectiveVatRate = isB2BVatPayer ? 0 : vatRate;
+      // Dwa niezależne powody zerowego podatku: plan ryczałtowy i B2B (kierowca
+      // wystawia flocie fakturę, VAT jest po jego stronie). Sposób rozliczenia
+      // — gotówka czy przelew — nie ma z tym nic wspólnego.
+      const podatekNaliczany = czyNaliczacPodatek(plan, { jestB2B: isB2BDriver, stawkaProcent: vatRate });
+      const effectiveVatRate = podatekNaliczany ? vatRate : 0;
 
       const uberBase = Number(amounts?.uber_base || 0);
       const uberPayoutD = Number(amounts?.uber_payout_d || 0);
@@ -296,7 +344,9 @@ serve(async (req) => {
         Math.abs(totalCommissionRaw) < 0.01;
 
       const fuel = Number(amounts?.fuel || 0);
-      const fuelVatRefund = Number(amounts?.fuel_vat_refund || 0);
+      // `amounts.fuel_vat_refund` z importu celowo NIE jest tu czytane: 50% VAT-u
+      // od paliwa pomniejsza podatek (patrz `pomniejszOPaliwo`), a nie wypłatę.
+      // Doliczenie go tutaj liczyłoby ten sam grosz drugi raz.
       const manualAdj = Number(amounts?.manual_week_adjustment || 0);
 
       // === CALCULATE VAT BASED ON SETTLEMENT MODE ===
@@ -306,32 +356,38 @@ serve(async (req) => {
       if (settlementMode === 'dual_tax') {
         // Combined VAT% + Additional% from Bolt D
         const combinedVatRate = effectiveVatRate + additionalPercentRate;
-        const boltVatEf = isB2BVatPayer ? 0 : Math.max(0, boltBase) * (combinedVatRate / 100);
+        const boltVatEf = !podatekNaliczany ? 0 : Math.max(0, boltBase) * (combinedVatRate / 100);
         
         // Secondary 23% VAT on campaigns(I) + returns(J) + cancellations(K)
         const boltI = Math.abs(Number(amounts?.bolt_col_i || 0));
         const boltJ = Math.abs(Number(amounts?.bolt_col_j || 0));
         const boltK = Math.abs(Number(amounts?.bolt_col_k || 0));
-        secondaryVatAmount = isB2BVatPayer ? 0 : round2((boltI + boltJ + boltK) * (secondaryVatRate / 100));
+        secondaryVatAmount = !podatekNaliczany ? 0 : round2((boltI + boltJ + boltK) * (secondaryVatRate / 100));
 
         // Uber VAT in dual_tax: use uber_base * 1.25 for 'netto', uber_gross_total for 'brutto'
         const uberVatBase = uberCalcMode === 'brutto'
           ? Math.max(0, (uberGrossTotal > 0) ? uberGrossTotal : Math.max(0, uberBase) * 1.25)
           : Math.max(0, uberBase) * 1.25;
         const uberFreenowBase = uberVatBase + Math.max(0, freenowBase);
-        const uberFreenowVat = isB2BVatPayer ? 0 : round2(uberFreenowBase * (effectiveVatRate / 100));
+        const uberFreenowVat = !podatekNaliczany ? 0 : round2(uberFreenowBase * (effectiveVatRate / 100));
 
         vatAmount = round2(boltVatEf + uberFreenowVat);
       } else {
-        // Single tax mode
-        const uberVatBaseSingle = uberCalcMode === 'netto'
-          ? Math.max(0, uberPayoutD || uberBase)
-          : uberCalcMode === 'gross_total'
-            ? Math.max(0, uberGrossTotal > 0 ? uberGrossTotal : uberBase * 1.25)
-            : Math.max(0, uberBase);
+        // Jeden podatek. Podstawa Ubera to ZAWSZE przelew (D) RAZEM z gotówką (F)
+        // odebraną od pasażerów — `uber_base` w amounts to dokładnie ta suma.
+        // Tryb „netto" brał samo D i zaniżał podatek o 8% gotówki (Dawid Czostek
+        // 42,02 zamiast 49,22). Osobno zostaje tylko 'gross_total' — kolumna G.
+        const uberVatBaseSingle = uberCalcMode === 'gross_total'
+          ? Math.max(0, uberGrossTotal > 0 ? uberGrossTotal : uberBase * 1.25)
+          : Math.max(0, uberBase);
         const adjustedVatBase = uberVatBaseSingle + Math.max(0, boltBase) + Math.max(0, freenowBase);
         vatAmount = round2(adjustedVatBase * (effectiveVatRate / 100));
       }
+
+      // 50% VAT-u od paliwa POMNIEJSZA PODATEK, nie dopisuje się do wypłaty.
+      // Kierowca bez podatku nie dostaje odliczenia wcale.
+      const wynikPodatku = pomniejszOPaliwo(vatAmount, fuel, podatekNaliczany);
+      vatAmount = round2(wynikPodatku.podatek);
 
       // Calculate net (netto)
       const nettoCalc = totalBase - totalCommissionRaw;
@@ -390,34 +446,23 @@ serve(async (req) => {
         // Negative platform net path: VAT from negative amount, no fees
         const negVatAmount = platformNet * (effectiveVatRate / 100);
         rawPayout = round2(platformNet - negVatAmount - manualAdj);
-      } else if (settlementMode === 'dual_tax') {
-        // Dual tax: Netto - Cash - VAT(combined) - SecondaryVAT - fees - rental
-        rawPayout = round2(
-          nettoCalc 
-          - totalCashRaw 
-          - vatAmount 
-          - secondaryVatAmount 
-          - effectiveServiceFee 
-          - additionalFeesTotal 
-          - manualAdj 
-          - rentalFee 
-          - fuel 
-          + fuelVatRefund
-        );
       } else {
-        // Single tax
-        rawPayout = round2(
-          totalBase 
-          - totalCommissionRaw 
-          - vatAmount 
-          - effectiveServiceFee 
-          - additionalFeesTotal 
-          - manualAdj 
-          - totalCashRaw 
-          - rentalFee 
-          - fuel 
-          + fuelVatRefund
-        );
+        // Jedno wyrażenie dla obu trybów — „dwa podatki" różnią się wyłącznie
+        // drugim podatkiem. Paliwo potrącamy w PEŁNEJ kwocie: odliczenie 50%
+        // VAT-u zostało już zdjęte z `vatAmount` wyżej, doliczanie go tutaj
+        // liczyłoby ten sam grosz dwa razy.
+        rawPayout = round2(wyplataTygodniowa({
+          przychodBazowy: totalBase,
+          prowizje: totalCommissionRaw,
+          gotowka: totalCashRaw,
+          podatek: vatAmount,
+          podatekDodatkowy: settlementMode === 'dual_tax' ? secondaryVatAmount : 0,
+          oplataStala: effectiveServiceFee,
+          oplatyDodatkowe: additionalFeesTotal,
+          korektaReczna: manualAdj,
+          wynajem: rentalFee,
+          paliwo: fuel,
+        }));
       }
 
       console.log(`💰 Driver ${settlement.driver_id}: mode=${settlementMode}, base=${totalBase}, vat=${vatAmount}(${vatRate}%), secVat=${secondaryVatAmount}, svcFee=${effectiveServiceFee}, addFees=${additionalFeesTotal}, rental=${rentalFee}, rawPayout=${rawPayout}`);
