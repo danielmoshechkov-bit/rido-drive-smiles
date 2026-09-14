@@ -356,7 +356,8 @@ serve(async (req) => {
       if (settlementMode === 'dual_tax') {
         // Combined VAT% + Additional% from Bolt D
         const combinedVatRate = effectiveVatRate + additionalPercentRate;
-        const boltVatEf = !podatekNaliczany ? 0 : Math.max(0, boltBase) * (combinedVatRate / 100);
+        // Kwoty platform wchodzą do podstawy ZE SWOIM ZNAKIEM (patrz `przychodLaczny`).
+        const boltVatEf = !podatekNaliczany ? 0 : boltBase * (combinedVatRate / 100);
         
         // Secondary 23% VAT on campaigns(I) + returns(J) + cancellations(K)
         const boltI = Math.abs(Number(amounts?.bolt_col_i || 0));
@@ -366,9 +367,9 @@ serve(async (req) => {
 
         // Uber VAT in dual_tax: use uber_base * 1.25 for 'netto', uber_gross_total for 'brutto'
         const uberVatBase = uberCalcMode === 'brutto'
-          ? Math.max(0, (uberGrossTotal > 0) ? uberGrossTotal : Math.max(0, uberBase) * 1.25)
-          : Math.max(0, uberBase) * 1.25;
-        const uberFreenowBase = uberVatBase + Math.max(0, freenowBase);
+          ? ((uberGrossTotal > 0) ? uberGrossTotal : uberBase * 1.25)
+          : uberBase * 1.25;
+        const uberFreenowBase = uberVatBase + freenowBase;
         const uberFreenowVat = !podatekNaliczany ? 0 : round2(uberFreenowBase * (effectiveVatRate / 100));
 
         vatAmount = round2(boltVatEf + uberFreenowVat);
@@ -378,9 +379,9 @@ serve(async (req) => {
         // Tryb „netto" brał samo D i zaniżał podatek o 8% gotówki (Dawid Czostek
         // 42,02 zamiast 49,22). Osobno zostaje tylko 'gross_total' — kolumna G.
         const uberVatBaseSingle = uberCalcMode === 'gross_total'
-          ? Math.max(0, uberGrossTotal > 0 ? uberGrossTotal : uberBase * 1.25)
-          : Math.max(0, uberBase);
-        const adjustedVatBase = uberVatBaseSingle + Math.max(0, boltBase) + Math.max(0, freenowBase);
+          ? (uberGrossTotal > 0 ? uberGrossTotal : uberBase * 1.25)
+          : uberBase;
+        const adjustedVatBase = uberVatBaseSingle + boltBase + freenowBase;
         vatAmount = round2(adjustedVatBase * (effectiveVatRate / 100));
       }
 

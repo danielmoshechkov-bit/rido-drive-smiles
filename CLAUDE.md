@@ -565,6 +565,15 @@ re-eksportowane do frontu przez `src/lib/rozliczenia.ts` (ten sam wzorzec, co
 `scripts/check-rozliczenia-podatek.mjs` pilnuje, żeby kopie nie odrosły — ma
 kontrolę pozytywną i odwrotną.
 
+**Trzecia usterka z tej samej rodziny (14.09.2026): `Math.max(0, …)` na kwotach
+platform.** Ujemna kwota od platformy (korekta, zwrot, potrącenie) znikała
+z podstawy podatku, ale z wypłaty była potrącana normalnie — `total_base` nigdy
+nie było obcinane. Kierowca płacił więc podatek od przychodu, którego nie
+dostał. Na produkcji: 8 rozliczeń, 3 kierowców, 66,34 zł ukrytych minusów,
+5,31 zł nadpłaconego podatku w 90 dni. Obcięcie zostaje wyłącznie tam, gdzie
+pyta o AKTYWNOŚĆ (`hasPositivePlatformActivity`) — to inne pytanie niż „ile
+kierowca zarobił".
+
 **Zasada: kwota, którą widzi flota, i kwota, którą widzi kierowca, mają
 pochodzić z jednego wywołania tej samej funkcji.** Jeśli dwa ekrany liczą to
 samo osobno, prędzej czy później pokażą dwie różne prawdy — a klient zgłosi to

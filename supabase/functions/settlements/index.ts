@@ -510,7 +510,8 @@ Deno.serve(async (req) => {
               if (trybPoPlanie === 'dual_tax') {
                 // Combined VAT% + Additional% on Bolt brutto (D)
                 const combinedVatRate = effectiveVatRate + driverAdditionalPercentRate;
-                const boltVatEf = !podatekNaliczany ? 0 : Math.max(0, effectiveBoltBase) * (combinedVatRate / 100);
+                // Kwoty platform wchodzą do podstawy ZE SWOIM ZNAKIEM (patrz `przychodLaczny`).
+                const boltVatEf = !podatekNaliczany ? 0 : effectiveBoltBase * (combinedVatRate / 100);
 
                 // Secondary 23% VAT on bolt I + J + K (campaigns / cancellations / returns)
                 const boltI = Math.abs(Number(amounts.bolt_col_i || 0));
@@ -522,9 +523,9 @@ Deno.serve(async (req) => {
 
                 // Uber VAT base in dual_tax: 'netto' → base*1.25, 'brutto' → gross_total (or base*1.25 fallback)
                 const uberVatBaseDual = driverUberCalcMode === 'brutto'
-                  ? Math.max(0, uberGrossVal > 0 ? uberGrossVal : Math.max(0, uberBaseVal) * 1.25)
-                  : Math.max(0, uberBaseVal) * 1.25;
-                const uberFreenowBase = uberVatBaseDual + Math.max(0, freenowBaseVal);
+                  ? (uberGrossVal > 0 ? uberGrossVal : uberBaseVal * 1.25)
+                  : uberBaseVal * 1.25;
+                const uberFreenowBase = uberVatBaseDual + freenowBaseVal;
                 const uberFreenowVat = !podatekNaliczany ? 0 : round2(uberFreenowBase * (effectiveVatRate / 100));
 
                 vat8 = round2(boltVatEf + uberFreenowVat);
@@ -533,9 +534,9 @@ Deno.serve(async (req) => {
                 // — czyli `uber_base`. Tryb „netto" brał samo D i zaniżał podatek
                 // o 8% gotówki. Osobno zostaje 'gross_total' (kolumna G z CSV).
                 const uberVatBaseSingle = driverUberCalcMode === 'gross_total'
-                  ? Math.max(0, uberGrossVal > 0 ? uberGrossVal : uberBaseVal * 1.25)
-                  : Math.max(0, uberBaseVal);
-                const adjustedVatBase = uberVatBaseSingle + Math.max(0, effectiveBoltBase) + Math.max(0, freenowBaseVal);
+                  ? (uberGrossVal > 0 ? uberGrossVal : uberBaseVal * 1.25)
+                  : uberBaseVal;
+                const adjustedVatBase = uberVatBaseSingle + effectiveBoltBase + freenowBaseVal;
                 vat8 = round2(adjustedVatBase * (effectiveVatRate / 100));
               }
 

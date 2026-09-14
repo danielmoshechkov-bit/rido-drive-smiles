@@ -53,13 +53,26 @@ export interface SkladnikiPrzychodu {
   freeNowPrzedProwizja: number;
 }
 
-/** Przychód łączny = podstawa opodatkowania kierowcy za tydzień. */
+/**
+ * Przychód łączny = podstawa opodatkowania kierowcy za tydzień.
+ *
+ * UJEMNA KWOTA OD PLATFORMY WCHODZI DO PODSTAWY ZE SWOIM ZNAKIEM.
+ *
+ * Do 14.09.2026 każdy składnik przechodził przez `Math.max(0, …)`, więc ujemna
+ * kwota (korekta, zwrot, potrącenie platformy) znikała z podstawy podatku, choć
+ * z wypłaty kierowcy była potrącana normalnie — `total_base` nigdy nie było
+ * obcinane. Kierowca płacił więc podatek od przychodu, którego nie dostał.
+ *
+ * Gotówka Ubera (kolumna F) jest osobnym przypadkiem i zostaje przy wartości
+ * bezwzględnej: w CSV bywa ujemna, bo Uber potrąca ją z przelewu, ale kierowca
+ * ma te pieniądze u siebie — to zarobek, nie potrącenie.
+ */
 export function przychodLaczny(s: SkladnikiPrzychodu): number {
   return (
-    Math.max(0, liczba(s.uberWyplacono)) +
+    liczba(s.uberWyplacono) +
     Math.abs(liczba(s.uberGotowka)) +
-    Math.max(0, liczba(s.boltBrutto)) +
-    Math.max(0, liczba(s.freeNowPrzedProwizja))
+    liczba(s.boltBrutto) +
+    liczba(s.freeNowPrzedProwizja)
   );
 }
 

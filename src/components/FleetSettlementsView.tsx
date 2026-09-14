@@ -2360,7 +2360,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           // e.g. 8% VAT + 1% additional = 9% total
           const combinedVatRate = effectiveVatRate + driverAdditionalPercentRate;
           // Use bolt_base (Column D) for primary VAT calculation
-          const bolt_vat_ef = !podatekNaliczany ? 0 : Math.max(0, bolt_base) * (combinedVatRate / 100);
+          // Kwoty platform wchodzą do podstawy ZE SWOIM ZNAKIEM — ujemna korekta
+          // pomniejsza przychód, tak jak pomniejsza wypłatę (`total_base`).
+          const bolt_vat_ef = !podatekNaliczany ? 0 : bolt_base * (combinedVatRate / 100);
           additional_percent_amount = 0;
           // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
           secondary_vat_amount = !podatekNaliczany ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (driverSecondaryVatRate / 100);
@@ -2369,9 +2371,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           // 'netto' (Od netto): kolumna E + 25% → VAT od tego
           // 'brutto' (Od brutto): kolumna G z CSV Uber → VAT od tego
           const uber_vat_base = driverUberCalcMode === 'brutto' 
-            ? Math.max(0, (uber_gross_total != null && uber_gross_total > 0) ? uber_gross_total : Math.max(0, uber_base) * 1.25)
-            : Math.max(0, uber_base) * 1.25;
-          const uber_freenow_base = uber_vat_base + Math.max(0, freenow_base);
+            ? ((uber_gross_total != null && uber_gross_total > 0) ? uber_gross_total : uber_base * 1.25)
+            : uber_base * 1.25;
+          const uber_freenow_base = uber_vat_base + freenow_base;
           const uber_freenow_vat = !podatekNaliczany ? 0 : uber_freenow_base * (effectiveVatRate / 100);
           
           podatek_brutto = bolt_vat_ef + uber_freenow_vat;
@@ -2389,9 +2391,11 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           // 'gross_total' zostaje osobno: tam podstawą jest kolumna G z CSV,
           // czyli kwota brutto razem z VAT-em pasażera.
           const uber_vat_base_single = driverUberCalcMode === 'gross_total'
-            ? Math.max(0, (uber_gross_total > 0 ? uber_gross_total : uber_base * 1.25))
-            : Math.max(0, uber_base);
-          const adjusted_vat_base = uber_vat_base_single + Math.max(0, bolt_base) + Math.max(0, freenow_base);
+            ? (uber_gross_total > 0 ? uber_gross_total : uber_base * 1.25)
+            : uber_base;
+          // Bez obcinania do zera: ujemna kwota od platformy to realne potrącenie
+          // i ma pomniejszyć podstawę podatku, a nie zostać po stronie floty.
+          const adjusted_vat_base = uber_vat_base_single + bolt_base + freenow_base;
           podatek_brutto = adjusted_vat_base * (effectiveVatRate / 100);
         }
 

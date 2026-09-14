@@ -127,6 +127,20 @@ const Z_PODATKIEM = [
   "Dawid Czostek",
   "Patryk Matusik",
   "Maciej Świstro",
+  // ── kierowcy z UJEMNĄ kwotą od platformy ──────────────────────────────────
+  // Damian Juźwiak ma FreeNow −1,80, Patryk Korzeniowski −9,22. Do 14.09.2026
+  // kod obcinał ujemne składniki do zera (`Math.max(0, …)`), więc liczył im
+  // podatek od przychodu wyższego, niż dostali: 219,94 zamiast 219,79
+  // i 96,01 zamiast 95,27. Z wypłaty te minusy były potrącane normalnie
+  // (`total_base` nigdy nie było obcinane) — obcięcie dotyczyło WYŁĄCZNIE
+  // podstawy podatku.
+  //
+  // Te dwa wiersze są tu po to, żeby obcięcie nie wróciło niezauważone.
+  // Arkusz wzorcowy liczy je tak samo jak kod po poprawce — jego kolumna
+  // „Przychó łacznie" dla Damiana to 148,76 + 2600,47 − 1,80 = 2747,43,
+  // czyli minus JEST w niej odjęty.
+  "Damian Juźwiak",
+  "Patryk Korzeniowski",
 ];
 
 for (const nazwa of Z_PODATKIEM) {
@@ -268,6 +282,26 @@ Deno.test("VAT od paliwa to 23/123 kwoty brutto", () => {
   assertAlmostEquals(vatOdPaliwa(251.61), 47.04902439, 0.0001);
   assertEquals(vatOdPaliwa(0), 0);
   assertEquals(vatOdPaliwa(-10), 0);
+});
+
+Deno.test("ujemna kwota od platformy pomniejsza podstawę, nie znika", () => {
+  // Rdzeń poprawki z 14.09.2026, w oderwaniu od arkusza.
+  const zMinusem = przychodLaczny({
+    uberWyplacono: 1000, uberGotowka: 0, boltBrutto: 500, freeNowPrzedProwizja: -100,
+  });
+  assertEquals(zMinusem, 1400);
+  // Kontrola pozytywna: stary wzór (z obcięciem) dałby 1500 i podatek wyższy o 8 zł.
+  const poStaremu = Math.max(0, 1000) + Math.max(0, 500) + Math.max(0, -100);
+  assertEquals(poStaremu, 1500);
+  assert(Math.abs(poStaremu - zMinusem) > 0.005, "obcięcie nie odróżnia się — test nic nie pilnuje");
+});
+
+Deno.test("gotówka Ubera zostaje dodatnia mimo minusa w CSV", () => {
+  // Kolumna F bywa ujemna, bo Uber potrąca gotówkę z przelewu — ale kierowca
+  // ma te pieniądze u siebie. To zarobek, nie potrącenie.
+  assertEquals(przychodLaczny({
+    uberWyplacono: 500, uberGotowka: -200, boltBrutto: 0, freeNowPrzedProwizja: 0,
+  }), 700);
 });
 
 Deno.test("podatek nigdy nie wychodzi ujemny", () => {
