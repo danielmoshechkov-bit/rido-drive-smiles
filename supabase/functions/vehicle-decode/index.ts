@@ -1,3 +1,24 @@
+/**
+ * ⚠️ TA FUNKCJA NIE MA WPISU W `supabase/config.toml` — NIE WDRAŻAJ JEJ
+ *    Z REPOZYTORIUM, DOPÓKI GO NIE DOPISZESZ.
+ *
+ * Brak sekcji `[functions.<nazwa>]` NIE znaczy „domyślnie jak wszystkie".
+ * Znaczy `verify_jwt = true`: bramka Supabase zacznie odrzucać każde wywołanie
+ * bez ważnego tokenu użytkownika, zanim kod tej funkcji w ogóle się uruchomi.
+ * Wersja chodząca dziś na produkcji tej bramki nie ma, więc wdrożenie z repo
+ * ZMIENIŁOBY zachowanie — cicho, bez błędu w kodzie, widoczne dopiero jako
+ * 401 u wywołującego.
+ *
+ * Skąd ten plik: funkcja istniała WYŁĄCZNIE na produkcji i została ściągnięta
+ * do repozytorium bez zmian (`supabase functions download`), żeby przestała
+ * być niewidoczna dla Lovable i dla przeglądu. Nic w `src/` ani w innych
+ * funkcjach nie woła jej dziś po nazwie — wywołujący jest poza tym repo albo
+ * już nie istnieje. Zanim ją wdrożysz, ustal jedno i drugie: kto ją woła
+ * i z jakim tokenem.
+ *
+ * Kolejność przy wdrożeniu: najpierw wpis w `config.toml`, potem deploy.
+ */
+
 // Decoder nr rej (RegCheck Poland) z rozliczeniem 5 kredytów z user_credits (creditGate/ai_pricing).
 // Reużywa integracji portal_integrations (regcheck_poland). Mapuje vehicleJson z tolerancją braków.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";

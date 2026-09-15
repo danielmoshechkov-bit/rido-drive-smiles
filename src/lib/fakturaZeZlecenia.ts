@@ -61,6 +61,10 @@ export async function znajdzFaktureZlecenia(orderId: string): Promise<any | null
   return data ?? null;
 }
 
+// Data sprzedaży na fakturze ze zlecenia siedzi w `@/lib/dataSprzedazy` —
+// osobno, bo ten plik ciągnie klienta Supabase, a tamten ma mieć test
+// uruchamialny bez przeglądarki i bez bazy.
+
 /** Dane do NOWEJ faktury, gdy do zlecenia nie wystawiono jeszcze żadnej. */
 export async function przygotujFaktureZeZlecenia(order: any): Promise<PrzygotowanaFaktura> {
   const { data: pozycjeZlecenia } = await (supabase as any)

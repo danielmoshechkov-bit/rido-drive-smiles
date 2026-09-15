@@ -178,6 +178,19 @@ interface SimpleFreeInvoiceProps {
   prefillOrderNumber?: string;
   prefillWorkshopOrderId?: string;
   /**
+   * DATA SPRZEDAŻY ZE ZLECENIA, nie z dnia wystawienia.
+   *
+   * 🔴 Art. 106e ust. 1 pkt 6 ustawy o VAT: faktura zawiera datę DOKONANIA
+   * dostawy albo WYKONANIA USŁUGI, gdy różni się od daty wystawienia.
+   * Obowiązek podatkowy powstaje w dniu wykonania usługi — spóźnione
+   * wystawienie faktury go NIE przesuwa. Faktura wystawiona dziś do zlecenia
+   * zakończonego w lipcu ma w polu sprzedaży lipiec, a VAT idzie do lipca.
+   *
+   * Bez tego pola warsztat wystawiający dokument do starszego zlecenia
+   * dostawał datę dzisiejszą i musiał ją poprawiać ręcznie — albo nie poprawiał.
+   */
+  prefillSaleDate?: string;
+  /**
    * Faktura wystawiana DO PARAGONU fiskalnego. Sprzedaż jest już w raporcie dobowym,
    * więc powiązanie musi zostać zapisane — inaczej księgowa policzy obrót dwa razy.
    */
@@ -188,7 +201,7 @@ interface SimpleFreeInvoiceProps {
 const VEHICLE_NOTES_PREF_KEY = 'invoice_include_vehicle_notes';
 const ORDER_NOTES_PREF_KEY = 'invoice_include_order_notes';
 
-export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillVehicleNotes, prefillOrderNotes, prefillOrderNumber, prefillWorkshopOrderId, prefillFiscalReceiptId, prefillFiscalReceiptNumber }: SimpleFreeInvoiceProps = {}) {
+export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItems, prefillBuyer, prefillNotes, prefillVehicleNotes, prefillOrderNotes, prefillOrderNumber, prefillWorkshopOrderId, prefillSaleDate, prefillFiscalReceiptId, prefillFiscalReceiptNumber }: SimpleFreeInvoiceProps = {}) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const defaultDueDate = format(addDays(new Date(), 7), 'yyyy-MM-dd');
   
@@ -208,7 +221,9 @@ export function SimpleFreeInvoice({ onClose, onSaved, editInvoiceId, prefillItem
   // przelicz (po załadowaniu ustawień firmy) nie był potraktowany jak ręczna zmiana.
   const autoNumberRef = useRef<string>(`FV/${format(new Date(), 'yyyy/MM')}/001`);
   const [issueDate, setIssueDate] = useState(today);
-  const [saleDate, setSaleDate] = useState(today);
+  // Data sprzedaży: ze zlecenia, gdy je znamy (patrz `prefillSaleDate`),
+  // a w zwykłej sprzedaży — dzisiaj.
+  const [saleDate, setSaleDate] = useState(prefillSaleDate || today);
   const [dueDate, setDueDate] = useState(defaultDueDate);
   const [issuePlace, setIssuePlace] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'cash' | 'card'>('transfer');

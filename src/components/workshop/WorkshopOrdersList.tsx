@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNowePolaczenia } from '@/lib/nowePolaczenia';
 import { przygotujFaktureZeZlecenia, znajdzFaktureZlecenia } from '@/lib/fakturaZeZlecenia';
+import { dataSprzedazyZeZlecenia } from '@/lib/dataSprzedazy';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -1035,6 +1036,9 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje,
               prefillOrderNotes={invoiceOrderNotes}
               prefillOrderNumber={invoiceOrder?.order_number}
               prefillWorkshopOrderId={invoiceOrder?.id}
+              /* Data sprzedaży = dzień wykonania usługi. Ta sama funkcja, co
+                 przy wystawianiu zbiorczym — jedna decyzja, jedno miejsce. */
+              prefillSaleDate={dataSprzedazyZeZlecenia(invoiceOrder)}
             />
           </DialogContent>
         </Dialog>

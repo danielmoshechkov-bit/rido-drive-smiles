@@ -34,8 +34,21 @@ export function ExistingInvoiceModal({ open, onOpenChange, invoice, orderNumber,
     const email = invoice.buyer_email || prompt(t('workshop.existingInvoice.enterRecipientEmail'));
     if (!email) return;
     try {
+      /**
+       * 🔴 POLE NAZYWA SIĘ `recipient_email`, NIE `email`.
+       *
+       * Funkcja czyta `recipient_email`, a przy jego braku sięga po adres
+       * z faktury. Wysyłane stąd `email` było więc po cichu ignorowane:
+       * użytkownik wpisywał adres w okienku, a poczta i tak szła do nabywcy
+       * z faktury — albo kończyła się odmową „brak adresu email odbiorcy”
+       * przy fakturze bez adresu. Bez błędu, bez śladu.
+       *
+       * Pozostałe dwa miejsca w aplikacji (`InvoiceExpandableRow`,
+       * `InvoiceProgram`) wołały tę funkcję poprawnie — to była jedyna
+       * rozjechana nazwa.
+       */
       const { error } = await supabase.functions.invoke('send-invoice-email', {
-        body: { invoice_id: invoice.id, email },
+        body: { invoice_id: invoice.id, recipient_email: email },
       });
       if (error) throw error;
       toast.success(t('workshop.existingInvoice.invoiceSentTo', { email }));

@@ -1659,3 +1659,39 @@ albo wyciągnięcie go do `_shared/`, albo osobny generator — i w obu wypadkac
 pilnowanie, żeby dwie wersje szablonu się nie rozjechały.
 
 </details>
+
+## Wystawianie zbiorcze do kilku zleceń — ZROBIONE 15.09.2026
+
+Warsztat zaznacza w historii zleceń pojazdu kilka pozycji i wybiera rodzaj
+dokumentu. Dla **każdego zlecenia osobno** system pyta, czy taki dokument już
+istnieje: jeśli tak — wydaje TEN SAM (ten sam numer, treść i data, bez żadnego
+zapisu), jeśli nie — wystawia nowy. Nie ma trybu „wystaw wszystkim nowe".
+
+**Data sprzedaży na nowym dokumencie to dzień zakończenia zlecenia**, nie dzień
+wystawienia. Art. 106e ust. 1 pkt 6 ustawy o VAT każe podać datę wykonania
+usługi, gdy różni się od daty wystawienia, a obowiązek podatkowy powstaje
+z chwilą wykonania — późniejsze wystawienie faktury go nie przesuwa. Data
+wystawienia i numer są bieżące (dzisiejszy dzień, kolejny wolny numer), więc
+wystawianie wstecz nie rusza numeracji.
+
+Rozstrzygnięte przy okazji:
+
+- **Limit zaznaczeń: 20.** Tyle da się przejrzeć w podsumowaniu, zanim
+  dokumenty pójdą do rejestru i do KSeF; sto zaznaczeń to sto korekt, gdyby
+  w treści była pomyłka.
+- **Paragon fiskalny zostaje pojedynczy** — drukuje się na urządzeniu, jeden po
+  drugim, a wydruk jest nieodwracalny.
+- **Faktura z numerem KSeF**: ścieżka „istnieje" nie robi żadnego zapisu,
+  otwiera podgląd z PDF-em i wysyłką. Rejestr zostaje nietknięty.
+- **Przerwanie w połowie nie wycofuje niczego.** Wystawione zostają; podsumowanie
+  mówi, przy którym zleceniu stanęło i dlaczego.
+- **Wysyłka zbiorcza mailem jest**, jako pętla po `send-invoice-email`.
+  **Pobrania wszystkich jednym plikiem NIE MA**: każdy PDF powstaje osobno
+  (`/faktury/:id/pdf`), a archiwum trzeba by składać po stronie serwera — nowa
+  funkcja brzegowa, kilkanaście dokumentów w jednym żądaniu i miejsce na plik.
+
+Przy okazji znaleziona i naprawiona cicha usterka: `ExistingInvoiceModal`
+wysyłał do `send-invoice-email` pole `email`, a funkcja czyta `recipient_email`.
+Adres wpisany w okienku był więc ignorowany — poczta szła do nabywcy z faktury
+albo kończyła się odmową „brak adresu email odbiorcy". Dwa pozostałe miejsca
+w aplikacji wołały tę funkcję poprawnie.

@@ -133,9 +133,12 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
    */
   const { data: plakietki } = useOrderDocumentBadges(providerId, 'workshop_order');
   const [zaznaczone, setZaznaczone] = useState<Set<string>>(new Set());
-  const zaznaczoneZlecenie = zaznaczone.size === 1
-    ? vehicleOrders.find((o: any) => zaznaczone.has(o.id)) ?? null
-    : null;
+  /**
+   * Zaznaczone zlecenia W KOLEJNOŚCI, W JAKIEJ SĄ NA LIŚCIE — nie w kolejności
+   * klikania. Podsumowanie po wystawieniu ma się czytać razem z tabelą, którą
+   * warsztat ma przed oczami.
+   */
+  const zaznaczoneZlecenia = vehicleOrders.filter((o: any) => zaznaczone.has(o.id));
 
   /** „FV 12/2026", „Paragon 41", „Potwierdzenie" — albo myślnik. */
   const opisDokumentow = (orderId: string): string[] => {
@@ -390,10 +393,11 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
               <Button className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.vehicles.newOrder')}</Button>
               {/* Ten sam mechanizm co w liście zleceń — wspólny komponent,
                   nie druga kopia. Przy zleceniu, do którego fakturę już
-                  wystawiono, otwiera JĄ, zamiast tworzyć drugą. */}
+                  wystawiono, otwiera JĄ, zamiast tworzyć drugą — także wtedy,
+                  gdy zaznaczono kilka zleceń naraz. */}
               <WorkshopDokumentyZlecenia
                 providerId={providerId}
-                zlecenie={zaznaczoneZlecenie}
+                zlecenia={zaznaczoneZlecenia}
               />
               {zaznaczone.size > 0 && (
                 <span className="text-sm text-muted-foreground">
