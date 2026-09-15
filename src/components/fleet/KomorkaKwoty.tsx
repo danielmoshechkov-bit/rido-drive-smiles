@@ -93,7 +93,10 @@ function KomorkaKwotyBase({ driverId, pole, indeks, wartosc, maAktywnosc, nadpis
   }
 
   return (
+    // `data-bez-zaznaczenia`: kliknięcie w kwotę otwiera edycję i NIE ma zaznaczać
+    // wiersza — wiersz pomija elementy z tym atrybutem (patrz `klikniecieWWiersz`).
     <span
+      data-bez-zaznaczenia=""
       className={`cursor-pointer hover:bg-primary/10 rounded px-1 py-0.5 transition-colors ${
         nadpisana ? 'bg-yellow-100 dark:bg-yellow-900/30 font-semibold' : ''
       }`}

@@ -1232,6 +1232,28 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   const [przeliczaniKierowcy, setPrzeliczaniKierowcy] = useState<Set<string>>(new Set());
 
   /**
+   * Trwale zaznaczony wiersz — jeden naraz. Zaznaczenie zostaje po odjechaniu
+   * myszą, więc przy szerokiej tabeli widać, czyje kwoty się czyta.
+   */
+  const [zaznaczonyKierowca, setZaznaczonyKierowca] = useState<string | null>(null);
+
+  /**
+   * Kliknięcie w wiersz zaznacza; ponowne odznacza. Kliknięcie w cokolwiek
+   * działającego W ŚRODKU wiersza — przycisk, pole edycji kwoty, „i",
+   * wykrzyknik, przełącznik „opłacony" — ma robić swoje i NIE ruszać
+   * zaznaczenia. Stąd sprawdzenie, czy kliknięto element interaktywny:
+   * `stopPropagation` w każdym z nich osobno byłoby łatwiejsze do przeoczenia
+   * przy dokładaniu kolejnej kontrolki.
+   */
+  const klikniecieWWiersz = (driverId: string) => (zdarzenie: React.MouseEvent<HTMLTableRowElement>) => {
+    const cel = zdarzenie.target as HTMLElement | null;
+    if (cel?.closest('button, a, input, select, textarea, label, [role="checkbox"], [role="combobox"], [data-bez-zaznaczenia]')) {
+      return;
+    }
+    setZaznaczonyKierowca(prev => (prev === driverId ? null : driverId));
+  };
+
+  /**
    * Przelicza JEDNEGO kierowcę w TYM tygodniu: zapisuje w bazie kwotę policzoną
    * obowiązującym planem, przelicza łańcuch długu i stempluje wiersz planem,
    * którym liczyliśmy. Nie rusza innych kierowców ani innych tygodni.
@@ -4018,7 +4040,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       const hasAnyActivity = maAktywnosc(settlement);
                       
                       return (
-                      <TableRow key={settlement.driver_id} className="hover:bg-primary/10 transition-colors cursor-pointer">
+                      // Zaznaczenie ma INNY odcień niż podświetlenie pod kursorem,
+                      // żeby dało się widzieć oba naraz: gdzie jestem i co wybrałem.
+                      <TableRow
+                        key={settlement.driver_id}
+                        onClick={klikniecieWWiersz(settlement.driver_id)}
+                        aria-selected={zaznaczonyKierowca === settlement.driver_id}
+                        className={`transition-colors cursor-pointer hover:bg-primary/10 ${
+                          zaznaczonyKierowca === settlement.driver_id
+                            ? 'bg-sky-100 dark:bg-sky-950/40 ring-1 ring-inset ring-sky-400/60'
+                            : ''
+                        }`}
+                      >
                         <TableCell className="font-medium px-2 py-1.5 text-xs whitespace-nowrap">
                           <span className="flex items-center gap-1">
                             {settlement.driver_name}
@@ -4029,7 +4062,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                                     type="button"
                                     aria-label={`Kwoty ${settlement.driver_name} policzone innym planem — kliknij, żeby przeliczyć`}
                                     disabled={przeliczaniKierowcy.has(settlement.driver_id)}
-                                    className="text-amber-600 hover:text-amber-700 disabled:opacity-50 shrink-0"
+                                    className="inline-flex items-center justify-center h-5 w-5 shrink-0 rounded-full border border-amber-400 bg-amber-50 text-amber-700 cursor-pointer transition-colors hover:bg-amber-100 hover:border-amber-500 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 disabled:cursor-default dark:bg-amber-950/40 dark:border-amber-700"
                                     onClick={async (e) => {
                                       e.stopPropagation();
                                       if (await przeliczKierowce(settlement.driver_id)) {
@@ -4043,15 +4076,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                                       : <AlertTriangle className="h-3.5 w-3.5" />}
                                   </button>
                                 </TooltipTrigger>
-                                <TooltipContent className="max-w-xs text-xs">
+                                <TooltipContent className="w-[420px] max-w-[90vw] whitespace-normal break-words text-xs leading-relaxed">
                                   Kwoty policzone {settlement.plan_uzyty_name
                                     ? <>planem „{settlement.plan_uzyty_name}"</>
                                     : <>po ustawieniach miasta</>}
                                   , a od tego tygodnia obowiązuje {settlement.plan_name
                                     ? <>„{settlement.plan_name}"</>
                                     : <>ustawienia miasta</>}.
-                                  {' '}Kliknij, żeby przeliczyć tego kierowcę w tym tygodniu —
-                                  zapisze wypłatę i dług policzone obowiązującym planem.
+                                  {' '}Przeliczenie zapisze wypłatę i dług policzone obowiązującym planem —
+                                  tylko dla tego kierowcy i tylko w tym tygodniu.
+                                  {' '}<span className="font-medium">Kliknij ten wykrzyknik, żeby przeliczyć.</span>
                                 </TooltipContent>
                               </Tooltip>
                             )}
@@ -4181,7 +4215,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                                 <TooltipTrigger asChild>
                                   <span>{displayValue(settlement.vat_amount, hasAnyActivity, true)}</span>
                                 </TooltipTrigger>
-                                <TooltipContent className="text-xs">
+                                <TooltipContent className="w-[380px] max-w-[90vw] whitespace-normal break-words text-xs leading-relaxed">
                                   {settlement.vat_amount === 0 && settlement.podatek_od_przychodu === 0 ? (
                                     <span>
                                       Bez podatku{settlement.plan_name ? ` — plan „${settlement.plan_name}"` : ''}
@@ -4214,7 +4248,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                                       <AlertCircle className="h-3.5 w-3.5" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent>
+                                  <TooltipContent className="w-[320px] max-w-[90vw] whitespace-normal break-words text-xs leading-relaxed">
                                     Nie ustawiono stawki VAT dla miasta {settlement.city_name || 'bez nazwy'}. Kliknij, aby ustawić.
                                   </TooltipContent>
                                 </Tooltip>
@@ -4229,7 +4263,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             <TooltipTrigger asChild>
                               <span>{settlement.fuel_vat_deduction > 0 ? formatCurrency(settlement.fuel_vat_deduction) : (hasAnyActivity ? '0,00' : '-')}</span>
                             </TooltipTrigger>
-                            <TooltipContent>
+                            <TooltipContent className="w-[320px] max-w-[90vw] whitespace-normal break-words text-xs leading-relaxed">
                               50% VAT-u od paliwa — odliczone już w kolumnie „Podatek", nie doliczane do wypłaty.
                             </TooltipContent>
                           </Tooltip>
