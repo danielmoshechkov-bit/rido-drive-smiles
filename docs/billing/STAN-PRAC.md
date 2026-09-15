@@ -258,27 +258,12 @@ faktur, z tego z KSeF **zero**.
 
 ---
 
-## 🔴 TRZYDZIEŚCI DWIE FAKTURY SĄ W PRODUKCYJNYM KSeF (15.09.2026)
+## ✅ KSeF NA PRODUKCJI DO 21.08.2026 — SPRAWDZONE I ZAMKNIĘTE (15.09.2026)
 
-Sprawdzone, bo wyglądało na wartość domyślną kolumny. **Nie jest.**
-`user_invoices.ksef_environment` nie ma wartości domyślnej — wypełnia się przy
-wysyłce.
-
-```
-production   32 faktury   status accepted   2 użytkowników
-             30.04.2026 – 21.08.2026        250 424 zł brutto
-test          8 faktur    10.09 – 14.09.2026
-(puste)      35 faktur    nigdy nie wysłane
-```
-
-Referencje mają prawdziwy kształt produkcyjny (`NIP-data-skrót-sufiks`,
-NIP-y 5223252793 i 5223247450).
-
-**To są prawdziwe faktury w krajowym rejestrze.** KSeF stoi dziś na testowym,
-ale do 21.08 chodził na produkcji. Trzeba o tym pamiętać przy przełączaniu:
-te 32 dokumenty są nieodwracalne, a numeracja, z której korzystały, jest zużyta
-na zawsze — niezależnie od tego, co zdecydujemy o regule wyżej.
-
+KSeF chodził na produkcji do 21.08.2026, w rejestrze są 32 faktury, stan
+sprawdzony przez właściciela i zamknięty — **nie ruszamy**. Nie analizujemy
+tamtego okresu, nie proponujemy napraw wstecz, nie liczymy numeracji od tamtych
+dokumentów. Liczy się od 15.09.2026.
 ---
 
 ## ⭐ WI658ME — BMW Z VIN-em AUDI, DO SPRAWDZENIA U WARSZTATU (15.09.2026)

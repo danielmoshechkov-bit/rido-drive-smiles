@@ -120,6 +120,53 @@ Trzy rzeczy, które z tego wynikają:
    niebezpieczny** do czasu wdrożenia. Jeśli przycisk ma być nieszkodliwy
    z definicji, właściwą odpowiedzią jest OSOBNA funkcja — nie flaga.
 
+### 🔴 KONTROLA MA WOŁAĆ TO, CO WOŁA APLIKACJA — NIE TO, CO WŁAŚNIE ZMIENIŁEŚ
+
+15.09.2026 migracja poprawiła `get_next_invoice_number`, a jej kontrola wywołała
+tę samą funkcję i zameldowała sukces. Sukces był prawdziwy i bezużyteczny:
+kontrola zapytała „czy mój nowy kod robi to, co napisałem", a taka odpowiedź
+jest zielona zawsze. Nie zapytała „czy system podaje teraz właściwy numer" —
+a gdyby zapytała, wyszłoby, że aplikacja tej funkcji **w ogóle nie używa**.
+
+Numer liczy `extractSeq` z `_shared/invoiceNumbering.ts` i liczy go poprawnie
+od początku. Poprawiona została martwa funkcja, a druga martwa
+(`peek_next_invoice_number`) została z tym samym błędem — bo miała własną kopię
+tej samej logiki.
+
+**Zanim napiszesz kontrolę, ustal, którędy ta wartość naprawdę płynie do
+klienta.** Kontrola wołająca zmieniony kawałek mierzy własną zmianę, a nie
+skutek. Jedno `grep` po nazwie funkcji w `src/` i `supabase/functions/`
+rozstrzyga, czy ktokolwiek ją woła.
+
+### 🔴 TA SAMA WARTOŚĆ LICZONA W KILKU MIEJSCACH — POPRAWKA W JEDNYM NIC NIE DAJE
+
+To jest ta sama sprawa widziana z drugiej strony i kosztowała już dwa razy.
+
+09.09.2026: numer `GR/2026/007` dostały dwa dokumenty u dwóch nabywców. Przyczyną
+nie był błąd w kodzie, tylko REGUŁA — wszystkie miejsca liczące numer pytały
+o faktury AKTYWNE, więc skasowanie faktury zwalniało numer. **Miejsc było
+SIEDEM.** Poprawka w jednym nic by nie dała, a poprawka w sześciu byłaby GORSZA
+niż żadna: propozycja numeru i więz w bazie mówiłyby co innego, więc klient
+dostawałby odmowę zapisu przy każdej fakturze po skasowanej.
+
+15.09.2026 powtórzyłem dokładnie ten błąd, mając to ostrzeżenie w repozytorium
+— siedziało w nagłówku `src/lib/numeracjaFaktur_test.ts`, czyli w pliku, do
+którego zagląda się dopiero, gdy bramka zapali. Dlatego stoi teraz tutaj.
+
+**Zanim poprawisz wyliczenie czegokolwiek, policz, ile jest miejsc, które to
+liczą** — w kodzie frontu, w funkcjach brzegowych i w funkcjach bazy:
+
+```
+grep -rn "<nazwa funkcji albo wzorzec>" src/ supabase/functions/
+SELECT proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname = 'public' AND p.prosrc ILIKE '%<wzorzec>%';
+```
+
+Jeżeli miejsc jest więcej niż jedno, poprawką NIE jest zmiana w każdym z nich,
+tylko **sprowadzenie ich do jednego** — wspólny moduł, jak
+`_shared/invoiceNumbering.ts`, albo funkcja w bazie. Inaczej przy następnej
+zmianie rozjadą się znowu, a rozjazd zobaczy klient, nie my.
+
 ### Warunek w kodzie i więz w bazie muszą mówić to samo
 
 Najważniejsza rzecz, jaka wyszła z tej sesji. Zmiana jednego bez drugiego nie naprawia
