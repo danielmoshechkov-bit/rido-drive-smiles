@@ -534,10 +534,88 @@ export function useWorkshopVehicles(providerId: string | undefined) {
   });
 }
 
+/** Tablica bez spacji i myślników, wielkimi literami — jedna postać do porównań. */
+function normalizujTablice(t: unknown): string {
+  return String(t ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * Dodanie pojazdu do kartoteki warsztatu.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🔴 SZUKA ISTNIEJĄCEGO, ZANIM DODA — I TO JEST CAŁA POPRAWKA (15.09.2026)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Do dziś był tu goły `insert`. Skutek: w kartotece 5 warsztatów siedziało
+ * 65 nadmiarowych pojazdów, czyli co piąty wiersz tabeli — każde auto dwa razy,
+ * raz z właścicielem, raz bez.
+ *
+ * Powstawały tak: `WorkshopAddVehicleDialog` zapisuje pojazd DWA RAZY.
+ * Najpierw `autoSaveVehicle`, zaraz po wyszukaniu auta po tablicy — wtedy
+ * klienta jeszcze nie ma, więc wiersz idzie bez właściciela. Ta droga
+ * sprawdzała duplikat i była w porządku. Potem klient klika „Zapisz" i wchodzi
+ * TA funkcja, która nie sprawdzała nic — więc dokładała drugi wiersz, tym razem
+ * z właścicielem. Do niego podpinało się zlecenie, a historia napraw rozjeżdżała
+ * się na dwa wpisy.
+ *
+ * Sygnatura w danych zgadzała się co do wiersza: 33 z 34 czystych par miały
+ * kopię bez właściciela jako PIERWSZĄ, a odstęp między zapisami wynosił
+ * kilkanaście do kilkudziesięciu sekund — tyle, ile zajmuje dopisanie reszty
+ * formularza.
+ *
+ * ⚠️ TO NIE JEST ZABEZPIECZENIE, TYLKO UPRZEJMOŚĆ. Właściwą bramką jest
+ * indeks unikalny na `(provider_id, tablica)` w bazie — ten obowiązuje każdą
+ * drogę zapisu, także tę, której jeszcze nie ma. Tutaj szukamy po to, żeby
+ * warsztat dostał cichy `update` zamiast odmowy z bazy.
+ */
 export function useCreateWorkshopVehicle() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vehicle: any) => {
+      const tablica = normalizujTablice(vehicle?.plate);
+      const vin = String(vehicle?.vin ?? '').toUpperCase().trim();
+
+      // Szukamy w obrębie TEGO warsztatu — ta sama tablica u dwóch warsztatów
+      // to dwa różne auta w dwóch różnych kartotekach.
+      let istniejacy: string | null = null;
+      if (vehicle?.provider_id && tablica) {
+        const { data: po } = await (supabase as any)
+          .from('workshop_vehicles')
+          .select('id, plate')
+          .eq('provider_id', vehicle.provider_id);
+        istniejacy = (po ?? []).find((w: any) => normalizujTablice(w.plate) === tablica)?.id ?? null;
+      }
+      if (!istniejacy && vehicle?.provider_id && vin) {
+        const { data: po } = await (supabase as any)
+          .from('workshop_vehicles')
+          .select('id')
+          .eq('provider_id', vehicle.provider_id)
+          .ilike('vin', vin)
+          .limit(1)
+          .maybeSingle();
+        istniejacy = po?.id ?? null;
+      }
+
+      if (istniejacy) {
+        /**
+         * UZUPEŁNIAMY, NIE KASUJEMY. Pola puste w formularzu nie mogą wyczyścić
+         * tego, co już stoi w kartotece — właściciel dopisany przy poprzednim
+         * przyjęciu ma zostać, gdy teraz nikogo nie wybrano.
+         */
+        const dopisz: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(vehicle ?? {})) {
+          if (k === 'provider_id' || k === 'id') continue;
+          if (v !== null && v !== undefined && v !== '') dopisz[k] = v;
+        }
+        const { data, error } = await (supabase as any)
+          .from('workshop_vehicles')
+          .update(dopisz)
+          .eq('id', istniejacy)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      }
+
       const { data, error } = await (supabase as any)
         .from('workshop_vehicles')
         .insert(vehicle)
