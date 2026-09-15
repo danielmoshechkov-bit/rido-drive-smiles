@@ -123,35 +123,35 @@ export function useAIPro(entityId?: string) {
     }
   };
 
+  /**
+   * 🔴 OKRESU PRÓBNEGO NIE URUCHAMIA JUŻ PRZEGLĄDARKA (15.09.2026).
+   *
+   * Do tej pory ta funkcja robiła `upsert` na `ai_pro_subscriptions` z datą
+   * końca policzoną W PRZEGLĄDARCE. Polityka „Users can manage their entity
+   * AI PRO subscriptions" na to pozwalała, więc właściciel encji mógł wpisać
+   * sobie okres próbny z dowolną datą — sprawdzone: zapis z końcem w 2099 roku
+   * przechodził. `upsert` z `onConflict: entity_id` odnawiał go dodatkowo bez
+   * końca, bo nadpisywał `trial_started_at` i `trial_ends_at` istniejącego
+   * wiersza.
+   *
+   * Polityka zdjęta; zapis został przy kluczu serwisowym i przy administratorze
+   * (`AIProManagementPanel`). Tabela była w chwili zamknięcia pusta, więc nikt
+   * z tego nie zdążył skorzystać.
+   *
+   * Zostawiam tę funkcję zamiast kasować, bo woła ją `AIProPage` i bez niej
+   * przycisk wywracałby widok. Mówi wprost, co się stało — surowy komunikat
+   * RLS („new row violates row-level security policy") nie mówi klientowi nic.
+   *
+   * Gdy AI PRO ma wrócić do samoobsługi: osobna funkcja brzegowa, która liczy
+   * datę po stronie serwera i pilnuje, żeby jeden okres próbny wypadł raz —
+   * tak samo jak `billing_zajmij_nip_okresu_probnego` przy warsztacie.
+   */
   const startTrial = async () => {
     if (!entityId) return { success: false, error: 'No entity selected' };
-    
-    const trialDays = pricing?.trial_days || 14;
-    const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
-
-    try {
-      const { data, error } = await supabase
-        .from('ai_pro_subscriptions')
-        .upsert({
-          entity_id: entityId,
-          status: 'trial_active',
-          trial_started_at: new Date().toISOString(),
-          trial_ends_at: trialEndsAt.toISOString(),
-        }, { onConflict: 'entity_id' })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setSubscription(data as AIProSubscription);
-      setHasAccess(true);
-
-      return { success: true };
-    } catch (error: any) {
-      console.error('Error starting trial:', error);
-      return { success: false, error: error.message };
-    }
+    return {
+      success: false,
+      error: 'Okres próbny AI PRO włącza administrator — napisz do nas, uruchomimy go na Twoim koncie.',
+    };
   };
 
   const logAIJob = async (jobType: string, provider: string, input: any, output: any, status: 'success' | 'failed') => {
