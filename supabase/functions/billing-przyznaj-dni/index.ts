@@ -40,6 +40,14 @@ function komunikat(blad: string): { kod: string; zdanie: string; status: number 
   if (blad.includes("ZLA_LINIA")) {
     return { kod: "ZLA_LINIA", zdanie: "Nieznana linia produktowa.", status: 400 };
   }
+  if (blad.includes("WYBIERZ_PLAN")) {
+    // Treść wyjątku niesie listę kodów do wyboru — przepisujemy ją, bo to
+    // jedyna informacja, która mówi administratorowi, CO ma teraz zrobić.
+    return { kod: "WYBIERZ_PLAN", zdanie: blad.replace(/^.*WYBIERZ_PLAN:\s*/, ""), status: 409 };
+  }
+  if (blad.includes("ZLY_PLAN")) {
+    return { kod: "ZLY_PLAN", zdanie: blad.replace(/^.*ZLY_PLAN:\s*/, ""), status: 400 };
+  }
   if (blad.includes("BRAK_SUBSKRYPCJI")) {
     return {
       kod: "BRAK_SUBSKRYPCJI",
@@ -192,12 +200,23 @@ Deno.serve(async (req) => {
 
     if (!linia) return json({ error: "BRAK_DANYCH" }, 400);
 
+    /**
+     * `p_plan_code` obowiązuje TYLKO wtedy, gdy konto nie ma jeszcze
+     * subskrypcji w tej linii. Przy przedłużeniu baza go ignoruje i oddaje
+     * plan, który konto NAPRAWDĘ ma — żeby administrator nie wyszedł
+     * z przekonaniem, że przy okazji zmienił plan.
+     */
+    const planCode = typeof body.plan_code === "string" && body.plan_code.trim()
+      ? body.plan_code.trim()
+      : null;
+
     const { data, error } = await (admin as any).rpc("billing_przyznaj_dni_admin", {
       p_subscriber_id: subscriberId,
       p_linia: linia,
       p_dni: Number.isFinite(dni) ? Math.trunc(dni) : null,
       p_powod: powod,
       p_actor: actorId,
+      p_plan_code: planCode,
     });
 
     if (error) {

@@ -203,57 +203,71 @@ bo mieści się w ekranie; problemem jest czytelność, nie szerokość.
 
 ---
 
-## 🔴 CONVERSIONS API GOTOWE W KODZIE — CZEKA NA TRZY RZECZY OD CZŁOWIEKA (13.09.2026)
+## ⭐ WI658ME — BMW Z VIN-em AUDI, DO SPRAWDZENIA U WARSZTATU (15.09.2026)
 
-Kod jest w `main` (commit `b575a957`). **Na produkcji nie działa jeszcze nic** —
-i to jest stan zamierzony, bo trzy kroki wymagają decyzji człowieka.
+Znalezione przy scalaniu zduplikowanych pojazdów, **nie naprawione** — bo to
+nie jest usterka systemu, tylko dane wpisane przez człowieka.
 
-### Kolejność wykonania — obowiązuje
+CART78GARAGE sp. z o.o., tablica **WI658ME**, oba wiersze opisane jako
+„BMW X3 Diesel", oba założone 1.09.2026 w tej samej minucie:
 
-1. **Migracja `20260913154236_ciasteczka_piksela_na_zamowieniu.sql`** —
-   dokłada `billing_orders.meta_fbp` i `meta_fbc`.
-2. **Dwa sekrety** w projekcie Supabase: `META_PIXEL_ID` (to `1095723286464143`)
-   oraz `META_CAPI_TOKEN` — token systemowy z Menedżera zdarzeń Meta,
-   Ustawienia → Conversions API → Wygeneruj token dostępu.
-3. **Wdrożenie trzech funkcji brzegowych**: `meta-capi` (nowa),
-   `billing-payu-order`, `billing-payu-webhook`.
+```
+WBAWZ510100M31178   ← prefiks WBA = BMW
+WAUZZZ4M0HD045245   ← prefiks WAU = AUDI
+```
 
-Odwrotna kolejność (funkcje przed migracją) **nie wywraca sprzedaży** — patrz
-niżej — ale wtedy przez ten czas żadna konwersja nie pojedzie.
+Po scaleniu został jeden wiersz z **dłuższym** VIN-em (oba mają 17 znaków, więc
+zadecydowała kolejność) — czyli równie dobrze mógł zostać ten niewłaściwy.
 
-### Dlaczego zła kolejność nie kosztuje zakupów
+Pozostałe cztery przypadki „różne VIN-y pod jedną tablicą" były obciętymi
+odczytami tego samego numeru (`WMW0489` obok `WMWXR5C05L2L70489`) i scalenie
+wybrało pełny. Ten jeden jest inny: to dwa RÓŻNE, pełne numery, z których
+jeden należy do innego samochodu.
 
-`billing-payu-order` zapisuje ciasteczka piksela na wierszu zamówienia. Bez
-migracji PostgREST odrzuca **cały** `INSERT` kodem `PGRST204` (sprawdzone
-zachowaniem: nieznana kolumna jest łapana PRZED RLS, anon dostaje 400, nie 401).
-Bez zabezpieczenia każdy klient zobaczyłby „Nie udało się rozpocząć płatności"
-— z powodu pola analitycznego.
+**Co z tym zrobić:** zapytać warsztat, który VIN jest prawdziwy, i poprawić
+ręcznie. Jednym zapytaniem:
 
-Dlatego funkcja przy **tym jednym** kodzie zakłada zamówienie po raz drugi, bez
-pól analitycznych, i pisze krzykliwie do dziennika. Pierwsza próba nie zostawia
-wiersza, więc nie ma mowy o podwójnym zamówieniu.
+```sql
+SELECT id, vin, brand, model, created_at
+FROM workshop_vehicles
+WHERE upper(regexp_replace(coalesce(plate,''),'[^A-Za-z0-9]','','g')) = 'WI658ME';
+```
 
-### Jak sprawdzić, że działa — bez czekania na klienta
-
-W Menedżerze zdarzeń Meta, karta **Testuj zdarzenia**, nie ma sensu: ta funkcja
-nie wysyła `test_event_code`. Sprawdzać dziennikiem funkcji:
-
-- `payu_capi` z `przyjete: 1` → Meta przyjęła zdarzenie,
-- `capi_pominiete` z `powod: "brak_zgody"` → klient nie zgodził się na marketing
-  (to jest **poprawne zachowanie**, nie usterka),
-- `capi_pominiete` z `powod: "brak_sekretow"` → punkt 2 wyżej niezrobiony,
-- w `billing-payu-order`: `BRAK KOLUMN meta_fbp/meta_fbc` → punkt 1 niezrobiony.
-
-W panelu Meta jakość dopasowania rośnie z opóźnieniem kilkunastu godzin — brak
-zmiany tego samego dnia nic nie znaczy.
-
-### Czego CAPI NIE robi
-
-Nie omija RODO. Klient bez zgody marketingowej nie ma `fbp` ani `fbc`, więc
-`meta-capi` **nie wysyła o nim niczego**, mimo że zna jego adres z konta. Adres
-znamy z umowy o świadczenie usługi, nie ze zgody na marketing — i tak zostaje.
+Dopóki VIN jest zły, dane naprawcze i katalogi części dla tego auta pokażą
+nie ten samochód.
 
 ---
+
+## ✅ CONVERSIONS API — ŁAŃCUCH SPRAWDZONY WYWOŁANIEM (14.09.2026)
+
+Migracja `20260913154236` wykonana, oba sekrety dodane, sześć funkcji
+brzegowych wdrożonych. Sprawdzone WYWOŁANIEM, nie odczytem kolumn:
+
+| ogniwo | dowód |
+|---|---|
+| front wysyła ciasteczka | `meta_fbp` i `getrido-fbclid` w ŻYWYM pakiecie `index-IzgHwRFc.js` |
+| kolumny w bazie | `meta_fbp`, `meta_fbc` w `information_schema` |
+| PostgREST WIDZI kolumny | ten sam `INSERT`, który przed migracją dawał **PGRST204**, daje teraz **42501** (odmowa uprawnień) — pamięć podręczna schematu odświeżona |
+| `billing-payu-order` zapisuje | SHA-256 `index.ts` zgodny z repozytorium |
+| webhook woła `meta-capi` | SHA-256 zgodny z repozytorium |
+| `meta-capi` wdrożona i zamknięta | bez nagłówka → **401 BRAK_UPRAWNIEN**; kluczem anon → **401**; kontrola: nieistniejąca funkcja → **404**, więc 401 znaczy „jest i odmawia", nie „nie ma" |
+| sekrety | `META_PIXEL_ID`, `META_CAPI_TOKEN` na liście |
+
+### Czego NIE da się sprawdzić bez prawdziwego zakupu
+
+Że Meta PRZYJMIE zdarzenie. To jedyne ogniwo, którego nie potwierdzi żadne
+wywołanie z zewnątrz — `meta-capi` wpuszcza wyłącznie klucz serwisowy.
+
+Po zakupie testowym szukać w dzienniku `billing-payu-webhook` wpisu `payu_capi`:
+
+- `przyjete: 1` → Meta przyjęła, koniec tematu;
+- `pominiete: "brak_zgody"` → na zamówieniu nie ma ciasteczek piksela, czyli
+  kupujący nie zgodził się na marketing (to jest POPRAWNE zachowanie);
+- `pominiete: "brak_sekretow"` → sekrety nie doszły do funkcji;
+- `http: 400` → Meta odrzuciła ładunek, treść błędu w dzienniku `meta-capi`.
+
+W panelu Meta jakość dopasowania rośnie z opóźnieniem kilkunastu godzin —
+brak zmiany tego samego dnia nic nie znaczy.
 
 ## 🔴 AGENT GŁOSOWY MA DWIE ROZBIEŻNE WERSJE — DO POGODZENIA PO STARCIE
 

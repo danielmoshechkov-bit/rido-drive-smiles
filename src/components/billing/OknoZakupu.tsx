@@ -581,7 +581,19 @@ export function OknoZakupu({
                 przed pieniędzmi i jedyne miejsce, w którym jest na nią miejsce.
                 Klient w okresie próbnym pracuje na Pro — ma się dowiedzieć
                 PRZED zapłatą, nie po pierwszym „ta funkcja wymaga planu Pro". */}
-            {wybranyPlan && czegoBrakuje(wybranyPlan).length > 0 && (
+            {/* ═══════════════════════════════════════════════════════════════
+                TYLKO W LINII WARSZTATOWEJ (14.09.2026)
+                ═══════════════════════════════════════════════════════════════
+                Lista braków porównuje plan z najwyższym planem WARSZTATOWYM.
+                W ścieżce agenta znaczyło to piętnaście pozycji o bazie klientów,
+                zleceniach, fakturach, KSeF i magazynie — czyli o module, którego
+                klient w ogóle nie kupuje. Zamiast powiedzieć mu, co dostaje,
+                ekran przed zapłatą wyliczał, czego NIE dostaje, i to z zupełnie
+                innego produktu.
+
+                Porównanie ma sens wyłącznie wewnątrz jednej linii: Standard
+                kontra Pro. Między liniami nie ma czego porównywać. */}
+            {wybranyPlan?.product_line === 'warsztat' && czegoBrakuje(wybranyPlan).length > 0 && (
               <details className="rounded-lg border border-border bg-muted/40 p-3">
                 <summary className="cursor-pointer text-sm font-medium">
                   Czego nie ma w tym planie ({czegoBrakuje(wybranyPlan).length})

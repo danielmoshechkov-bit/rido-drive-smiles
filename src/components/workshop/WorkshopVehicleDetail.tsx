@@ -9,6 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useWorkshopOrders, useWorkshopClients } from '@/hooks/useWorkshop';
+import { useOrderDocumentBadges } from '@/hooks/useFiscal';
+import { Checkbox } from '@/components/ui/checkbox';
+import { WorkshopDokumentyZlecenia } from './WorkshopDokumentyZlecenia';
 import { WorkshopAddClientDialog } from './WorkshopAddClientDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -121,6 +124,30 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
   const set = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
 
   const vehicleOrders = allOrders.filter((o: any) => o.vehicle_id === vehicle.id);
+
+  /**
+   * Plakietki dokumentów — TEN SAM hak, którego używa lista zleceń.
+   * Osobne zapytanie o faktury i paragony byłoby drugim miejscem na tę samą
+   * decyzję („czy to zlecenie ma już fakturę"), a te dwa miejsca musiałyby
+   * potem odpowiadać tak samo. Jedno zapytanie, jedna odpowiedź.
+   */
+  const { data: plakietki } = useOrderDocumentBadges(providerId, 'workshop_order');
+  const [zaznaczone, setZaznaczone] = useState<Set<string>>(new Set());
+  const zaznaczoneZlecenie = zaznaczone.size === 1
+    ? vehicleOrders.find((o: any) => zaznaczone.has(o.id)) ?? null
+    : null;
+
+  /** „FV 12/2026", „Paragon 41", „Potwierdzenie" — albo myślnik. */
+  const opisDokumentow = (orderId: string): string[] => {
+    const b = plakietki?.get(orderId);
+    if (!b) return [];
+    const opisy: string[] = [];
+    if (b.hasInvoice) opisy.push(b.invoiceNumber ? `Faktura ${b.invoiceNumber}` : 'Faktura');
+    if (b.hasReceipt) opisy.push(b.receiptNumber ? `Paragon ${b.receiptNumber}` : 'Paragon');
+    if (b.hasCorrection) opisy.push('Korekta');
+    if (b.hasReturn) opisy.push('Zwrot');
+    return opisy;
+  };
 
   const selectedOwner = clients.find((c: any) => c.id === ownerClientId);
   const ownerLabel = selectedOwner
@@ -359,8 +386,20 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
         {/* Order history */}
         <TabsContent value="zlecenia">
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button className="gap-2"><Plus className="h-4 w-4" /> {t('workshop.vehicles.newOrder')}</Button>
+              {/* Ten sam mechanizm co w liście zleceń — wspólny komponent,
+                  nie druga kopia. Przy zleceniu, do którego fakturę już
+                  wystawiono, otwiera JĄ, zamiast tworzyć drugą. */}
+              <WorkshopDokumentyZlecenia
+                providerId={providerId}
+                zlecenie={zaznaczoneZlecenie}
+              />
+              {zaznaczone.size > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  zaznaczono {zaznaczone.size}
+                </span>
+              )}
               <div className="flex-1" />
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -373,9 +412,11 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-10"></TableHead>
                       <TableHead>{t('workshop.orders.colOrderNumber')}</TableHead>
                       <TableHead>{t('workshop.vehicles.colCreated')}</TableHead>
                       <TableHead>{t('workshop.vehicles.colCompleted')}</TableHead>
+                      <TableHead>Dokument</TableHead>
                       <TableHead>{t('workshop.orders.colStatus')}</TableHead>
                       <TableHead>{t('workshop.orders.colClient')}</TableHead>
                       <TableHead>{t('workshop.orders.colReceived')}</TableHead>
@@ -389,9 +430,35 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                         className="cursor-pointer hover:bg-accent/50"
                         onClick={() => onOpenOrder?.(order)}
                       >
+                        {/* Kliknięcie w pole wyboru NIE otwiera zlecenia — inaczej
+                            zaznaczenie zawsze kończyłoby się wyjściem z listy. */}
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={zaznaczone.has(order.id)}
+                            onCheckedChange={(v) => setZaznaczone((poprz) => {
+                              const n = new Set(poprz);
+                              if (v) n.add(order.id); else n.delete(order.id);
+                              return n;
+                            })}
+                          />
+                        </TableCell>
                         <TableCell className="font-medium">{order.order_number}</TableCell>
                         <TableCell>{order.created_at?.split('T')[0]}</TableCell>
                         <TableCell>{order.completed_at?.split('T')[0] || '—'}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            const opisy = opisDokumentow(order.id);
+                            if (!opisy.length) return <span className="text-muted-foreground">—</span>;
+                            return (
+                              <div className="flex flex-wrap items-center gap-1">
+                                <Badge variant="secondary" className="text-xs">{opisy[0]}</Badge>
+                                {opisy.length > 1 && (
+                                  <span className="text-xs text-muted-foreground">+{opisy.length - 1}</span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="destructive" className="text-xs">{translateWorkshopStatus(order.status_name, t)}</Badge>
                         </TableCell>
@@ -414,7 +481,7 @@ export function WorkshopVehicleDetail({ vehicle, providerId, onBack, onOpenOrder
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           {t('workshop.vehicles.noOrdersForVehicle')}
                         </TableCell>
                       </TableRow>

@@ -16,6 +16,7 @@ import { PromoCodesPanel } from './PromoCodesPanel';
 import { BillingFeaturesPanel } from './billing/BillingFeaturesPanel';
 import { BillingPlansPanel } from './billing/BillingPlansPanel';
 import { useUserRole } from '@/hooks/useUserRole';
+import { usePublicPricing } from '@/hooks/usePublicPricing';
 
 const TAB_CLASS =
   'data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:bg-accent/20 rounded-md transition-colors px-2.5 py-1.5 text-sm font-medium flex-1';
@@ -381,6 +382,10 @@ export function AssignCreditsPanel() {
   });
 
   /** Typy, które nie są jednostkami — idą inną funkcją i mają własne reguły. */
+  // Plan obowiązuje wyłącznie przy koncie BEZ subskrypcji — patrz pole niżej.
+  const [planDni, setPlanDni] = useState<string>('');
+  const { plans: planyDoNadania } = usePublicPricing();
+
   const TYPY_DOSTEPU: Record<string, { linia?: string; dozywotni?: boolean }> = {
     dni_warsztat: { linia: 'warsztat' },
     dni_agent: { linia: 'agent' },
@@ -413,7 +418,9 @@ export function AssignCreditsPanel() {
         ? await supabase.functions.invoke('billing-przyznaj-dni', {
             body: {
               user_id: foundUser.id,
-              ...(dostep.dozywotni ? { dozywotni: true } : { linia: dostep.linia, dni: amount }),
+              ...(dostep.dozywotni
+                ? { dozywotni: true }
+                : { linia: dostep.linia, dni: amount, plan_code: planDni || null }),
               powod: powodDni.trim(),
             },
           })
@@ -437,8 +444,12 @@ export function AssignCreditsPanel() {
         toast.success(
           dostep.dozywotni
             ? `Konto ${foundUser.email} ma teraz dostęp dożywotni.`
-            : `Przyznano ${amount} dni (${dostep.linia}) dla ${foundUser.email}`
-              + (w.nowy_koniec ? ` — dostęp do ${new Date(w.nowy_koniec).toLocaleDateString('pl-PL')}` : ''),
+            // Nazwa planu W KOMUNIKACIE, zawsze. Przy przedłużeniu jest to plan,
+            // który konto MA — a nie ten, który stoi w polu obok. Administrator
+            // ma zobaczyć, czego naprawdę przyznał.
+            : `Przyznano ${amount} dni — ${w.plan ?? dostep.linia} dla ${foundUser.email}`
+              + (w.zalozono ? ' (założono nową subskrypcję)' : '')
+              + (w.nowy_koniec ? `, dostęp do ${new Date(w.nowy_koniec).toLocaleDateString('pl-PL')}` : ''),
         );
         // Uwagi z serwera — założenie subskrypcji od zera albo ostrzeżenie,
         // że operator nadpisze datę przy najbliższym odnowieniu. Milczenie
@@ -649,6 +660,41 @@ export function AssignCreditsPanel() {
               <div className="space-y-2">
                 <Label>{TYPY_DOSTEPU[creditType] ? 'Liczba dni' : 'Ilość'}</Label>
                 <Input type="number" value={amount} onChange={e => setAmount(e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1))} placeholder={TYPY_DOSTEPU[creditType] ? 'np. 30' : 'np. 50'} className="max-w-xs" min={1} />
+              </div>
+            )}
+
+            {/*
+              🔴 PLAN WYBIERA CZŁOWIEK, NIE FUNKCJA.
+              Pierwsza wersja przyznawania dni kontu bez subskrypcji brała
+              NAJTAŃSZY płatny plan linii — czyli Standard. Administrator dający
+              „trzydzieści dni" znajomemu warsztatowi dawał trzydzieści dni
+              Standardu, przekonany, że daje Pro, i dowiadywał się o tym dopiero
+              od klienta. Koszt pomyłki jest niesymetryczny: zgadnięty plan to
+              zakres, którego nikt nie obiecał; zapytanie to jedno pole.
+
+              Przy koncie, które JUŻ MA subskrypcję, baza to pole ignoruje
+              i przedłuża plan, który konto naprawdę ma.
+            */}
+            {TYPY_DOSTEPU[creditType] && !TYPY_DOSTEPU[creditType].dozywotni && (
+              <div className="space-y-2">
+                <Label>Plan (gdy konto nie ma jeszcze subskrypcji w tej linii)</Label>
+                <Select value={planDni || 'brak'} onValueChange={(v) => setPlanDni(v === 'brak' ? '' : v)}>
+                  <SelectTrigger className="max-w-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="brak">Nie wybrano — tylko przedłużenie</SelectItem>
+                    {planyDoNadania
+                      .filter((p) => p.product_line === TYPY_DOSTEPU[creditType].linia
+                        && !p.is_custom && Number(p.price_net) > 0)
+                      .map((p) => (
+                        <SelectItem key={p.code} value={p.code}>
+                          {p.name} — {Number(p.price_net)} zł netto
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Konto z subskrypcją dostaje przedłużenie swojego planu — to pole jest wtedy pomijane.
+                </p>
               </div>
             )}
 
