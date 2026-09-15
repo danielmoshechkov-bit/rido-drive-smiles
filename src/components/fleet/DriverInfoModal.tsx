@@ -14,6 +14,7 @@ import { useGusLookup } from '@/hooks/useGusLookup';
 import { ShortenLegalFormCheckbox } from '@/components/shared/ShortenLegalFormCheckbox';
 import { format } from 'date-fns';
 import { AddVehicleModal } from '@/components/AddVehicleModal';
+import { WyborPlanuRozliczen } from '@/components/fleet/WyborPlanuRozliczen';
 import { pl } from 'date-fns/locale';
 
 interface DebtTransaction {
@@ -32,7 +33,18 @@ interface DriverInfoPopoverProps {
   driverId: string;
   driverName: string;
   fleetId?: string;
+  /**
+   * Poniedziałek tygodnia, na którym stoi panel. Plan przypisany w tym oknie
+   * obowiązuje OD TEGO TYGODNIA w przód — bez tej daty przypisanie działałoby
+   * wstecz na tygodnie już rozliczone.
+   */
+  odTygodnia?: string | null;
   onComplete?: () => void;
+  /**
+   * Wołane po zmianie planu, z wybranym planem. Osobno od `onComplete`, bo zmiana
+   * planu ma przeliczyć JEDEN wiersz na miejscu, a nie przeładować całą tabelę.
+   */
+  onPlanZmieniony?: (driverId: string, plan: any | null) => void;
   children: React.ReactNode;
 }
 
@@ -40,7 +52,9 @@ export function DriverInfoPopover({
   driverId,
   driverName,
   fleetId,
+  odTygodnia,
   onComplete,
+  onPlanZmieniony,
   children,
 }: DriverInfoPopoverProps) {
   const [open, setOpen] = useState(false);
@@ -242,7 +256,7 @@ export function DriverInfoPopover({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error: driverErr } = await supabase
+      const { data: zapisanyKierowca, error: driverErr } = await supabase
         .from('drivers')
         .update({
           first_name: firstName,
@@ -255,16 +269,28 @@ export function DriverInfoPopover({
           b2b_enabled: paymentMethod === 'b2b' || b2bEnabled,
           fleet_id: selectedFleetId === 'none' ? null : selectedFleetId,
         } as any)
-        .eq('id', driverId);
+        .eq('id', driverId)
+        .select('id');
       // Bez tego RLS-owy brak uprawnień (0 wierszy/odmowa) był cichy → fałszywe „Zapisano".
       if (driverErr) throw driverErr;
+      // Sam brak błędu nie wystarcza: polityka RLS FILTRUJE wiersze, więc UPDATE
+      // bez uprawnień kończy się sukcesem na zerze wierszy.
+      if (!zapisanyKierowca || zapisanyKierowca.length === 0) {
+        throw new Error('baza nie zmieniła żadnego wiersza — brak uprawnień do tego kierowcy');
+      }
 
       const appUser = driverData?.driver_app_users;
       if (appUser?.user_id && email !== appUser.email) {
-        await supabase
+        const { error: bladEmaila } = await supabase
           .from('driver_app_users')
           .update({ email } as any)
           .eq('user_id', appUser.user_id);
+        // Adres e-mail to osobna tabela i osobne uprawnienia — gdy się nie uda,
+        // reszta zapisu jest ważna, ale użytkownik musi o tym wiedzieć.
+        if (bladEmaila) {
+          console.error('Nie udało się zapisać adresu e-mail:', bladEmaila);
+          toast.warning('Dane kierowcy zapisane, ale adresu e-mail nie udało się zmienić');
+        }
       }
 
       const currentVehicleAssignment = driverData?.driver_vehicle_assignments?.find(
@@ -359,20 +385,23 @@ export function DriverInfoPopover({
       const today = new Date().toISOString().split('T')[0];
 
       if (debtAction === 'add') {
-        await supabase.rpc('increment_driver_debt', {
+        // Ruch na saldzie kierowcy — każdy krok musi potwierdzić, że wszedł.
+        const { error: bladDodania } = await supabase.rpc('increment_driver_debt', {
           p_driver_id: driverId,
           p_amount: amount,
         });
+        if (bladDodania) throw bladDodania;
 
-        const { data: debtData } = await supabase
+        const { data: debtData, error: bladOdczytu } = await supabase
           .from('driver_debts')
           .select('current_balance')
           .eq('driver_id', driverId)
           .maybeSingle();
+        if (bladOdczytu) throw bladOdczytu;
 
         const newBalance = debtData?.current_balance || amount;
 
-        await supabase.from('driver_debt_transactions').insert({
+        const { error: bladWpisu } = await supabase.from('driver_debt_transactions').insert({
           driver_id: driverId,
           type: 'manual_add' as any,
           amount: amount,
@@ -383,17 +412,24 @@ export function DriverInfoPopover({
           description: debtReason,
           debt_category: 'settlement',
         } as any);
+        // Saldo bez wpisu w księdze to saldo, którego nikt później nie wytłumaczy.
+        if (bladWpisu) throw bladWpisu;
 
         setCurrentDebt(newBalance);
         toast.success(`Dług ${amount.toFixed(2)} zł dodany`);
       } else if (debtAction === 'payment') {
         const newBalance = Math.max(0, currentDebt - amount);
-        await supabase
+        const { data: zapisaneSaldo, error: bladSalda } = await supabase
           .from('driver_debts')
           .update({ current_balance: newBalance, updated_at: new Date().toISOString() })
-          .eq('driver_id', driverId);
+          .eq('driver_id', driverId)
+          .select('driver_id');
+        if (bladSalda) throw bladSalda;
+        if (!zapisaneSaldo || zapisaneSaldo.length === 0) {
+          throw new Error('baza nie zmieniła salda — brak uprawnień albo brak wiersza długu');
+        }
 
-        await supabase.from('driver_debt_transactions').insert({
+        const { error: bladWpisuWplaty } = await supabase.from('driver_debt_transactions').insert({
           driver_id: driverId,
           type: 'payment' as any,
           amount: -amount,
@@ -404,6 +440,7 @@ export function DriverInfoPopover({
           description: debtReason,
           debt_category: 'settlement',
         } as any);
+        if (bladWpisuWplaty) throw bladWpisuWplaty;
 
         setCurrentDebt(newBalance);
         toast.success(`Wpłata ${amount.toFixed(2)} zł zarejestrowana`);
@@ -421,9 +458,9 @@ export function DriverInfoPopover({
         .limit(50);
       setDebtHistory((txData as DebtTransaction[]) || []);
       onComplete?.();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error managing debt:', err);
-      toast.error('Błąd operacji');
+      toast.error(`Operacja na długu NIE została zapisana: ${err?.message || 'nieznany błąd'}`);
     } finally {
       setSavingDebt(false);
     }
@@ -575,6 +612,23 @@ export function DriverInfoPopover({
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Plan rozliczeń — ten sam komponent, co na karcie kierowcy.
+                Zmiana tutaj jest natychmiast widoczna na liście kierowców
+                i odwrotnie (wspólna pamięć podręczna zapytań). */}
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Plan rozliczeń:</Label>
+              <WyborPlanuRozliczen
+                driverId={driverId}
+                fleetId={fleetId ?? (driverData as any)?.fleet_id ?? null}
+                odTygodnia={odTygodnia}
+                rozmiar="maly"
+                onZmieniono={(plan) => onPlanZmieniony?.(driverId, plan)}
+              />
+              <p className="text-[9px] text-muted-foreground">
+                Plan ustala stawkę podatku, opłatę stałą i tryb rozliczeń — osobno dla Bolta i Ubera.
+              </p>
             </div>
 
             {/* B2B details */}

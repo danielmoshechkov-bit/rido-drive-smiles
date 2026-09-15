@@ -34,14 +34,25 @@ import { FleetVehicleRevenue } from './FleetVehicleRevenue';
 import { FleetSettlementImport } from './fleet/FleetSettlementImport';
 import { FleetSettlementSettings } from './fleet/FleetSettlementSettings';
 import { FleetOwnerPayments } from './fleet/FleetOwnerPayments';
-import { FleetCitySettings } from './fleet/FleetCitySettings';
+import { FleetSettlementPlans } from './fleet/FleetSettlementPlans';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DriverDebtHistory } from './DriverDebtHistory';
 import { UnmappedDriversModal } from './fleet/UnmappedDriversModal';
 import { BankTransferExportDialog } from './fleet/BankTransferExportDialog';
 import { AddDriverChargeModal } from './fleet/AddDriverChargeModal';
 import { DriverInfoPopover } from './fleet/DriverInfoModal';
+import { KomorkaKwoty } from './fleet/KomorkaKwoty';
 import { useUserRole } from '@/hooks/useUserRole';
+import { BladZapisu, wykonajZapis } from '@/lib/zapisRozliczen';
+import {
+  czyNaliczacPodatek,
+  odliczenieVatOdPaliwa,
+  podatekTygodnia,
+  ustawieniaKierowcy,
+  wyplataTygodniowa,
+} from '@/lib/rozliczenia';
+import { planNaTydzien, usePrzypisaniaPlanow } from '@/hooks/usePlanyRozliczen';
+import { useWybranyTydzienStore } from '@/hooks/useWybranyTydzien';
 import { getAvailableWeeks, getCurrentWeekNumber, getSettlementExecutionDate, getWeekDates } from '@/lib/utils';
 import { buildWeeklyDebtSplit } from '@/lib/fleetDebtSplit';
 
@@ -80,7 +91,30 @@ interface DriverSettlement {
   final_payout: number;
   rental?: number;
   fuel: number;
-  fuel_vat_refund: number;
+  /**
+   * 50% VAT-u od paliwa. To NIE jest zwrot dla kierowcy — ta kwota jest już
+   * ODJĘTA od podatku (patrz `podatek_od_przychodu`). Nie wolno jej nigdzie
+   * dodawać do wypłaty, bo odliczenie policzyłoby się dwa razy.
+   */
+  fuel_vat_deduction: number;
+  /** Sam procent od przychodu, przed odliczeniem VAT-u od paliwa. Do podpowiedzi. */
+  podatek_od_przychodu: number;
+  /** Nazwa planu rozliczeń kierowcy (do podpowiedzi przy kolumnie VAT). */
+  plan_name?: string | null;
+  /** Plan OBOWIĄZUJĄCY w tym tygodniu (z historii przypisań). */
+  plan_obowiazujacy_id?: string | null;
+  /** Plan, którym policzono kwoty zapisane w bazie. NULL = ustawienia miasta. */
+  plan_uzyty_id?: string | null;
+  /** Nazwa planu, którym policzono kwoty — do podpowiedzi przy wykrzykniku. */
+  plan_uzyty_name?: string | null;
+  // Poniższe trzy pola są po to, żeby dało się przeliczyć TEN wiersz po zmianie
+  // planu bez ponownego pobierania całej tabeli (patrz `zastosujPlanDoWiersza`).
+  /** Uber, kolumna G z CSV — potrzebna w trybach liczących od brutto. */
+  uber_gross_total?: number;
+  /** Bolt: |kampanie| + |anulacje| + |rekompensaty| — podstawa drugiego podatku. */
+  bolt_kampanie?: number;
+  /** Skąd wzięła się opłata stała: ręczna korekta, własna stawka kierowcy czy plan. */
+  service_fee_source?: 'reczna' | 'kierowca' | 'plan';
   // For rental view
   vehicle?: string;
   weekly_rental_fee?: number;
@@ -181,8 +215,6 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     service_fee?: number;
     rental?: number;
   }>>({});
-  const [editingCell, setEditingCell] = useState<{ driverId: string; field: string; index?: number } | null>(null);
-  const [editValue, setEditValue] = useState('');
   const [chargeModalOpen, setChargeModalOpen] = useState(false);
   const [chargeDriver, setChargeDriver] = useState<{id: string, name: string, settlementId?: string, rawPayout?: number, payoutWithoutRental?: number, rental?: number} | null>(null);
   // Info popover is now inline - no separate state needed
@@ -204,6 +236,31 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return new Set();
   });
   // Toggle between detailed (with rental columns) and simple view
+  /**
+   * „Pokaż tylko aktywnych" — chowa kierowców, którzy w tym tygodniu nic nie
+   * wyjeździli (same kreski w każdej kolumnie). Wybór zostaje na kolejne tygodnie
+   * i kolejne wejścia, bo to ustawienie widoku, nie filtr jednorazowy.
+   */
+  /**
+   * Przypisania planów czytane z tej samej pamięci podręcznej, co popover „i"
+   * i karta kierowcy. Tabela liczy kwoty z własnego pobrania, ale MUSI dowiedzieć
+   * się o zmianie zrobionej na drugim ekranie — inaczej „jedno źródło prawdy"
+   * kończy się na bazie, a na ekranach stoją dwie różne prawdy.
+   *
+   * Zmiana pamięci podręcznej planuje ciche odświeżenie (bez spinnera), a nie
+   * przeładowanie widoku.
+   */
+  const { dataUpdatedAt: przypisaniaZmienioneO } = usePrzypisaniaPlanow(fleetId);
+  const przypisaniaZnaneRef = useRef<number>(0);
+
+  const [tylkoAktywni, setTylkoAktywni] = useState<boolean>(() => {
+    try { return localStorage.getItem(`fleet_tylko_aktywni_${fleetId}`) === '1'; } catch { return false; }
+  });
+  const przelaczTylkoAktywni = (wlaczone: boolean) => {
+    setTylkoAktywni(wlaczone);
+    try { localStorage.setItem(`fleet_tylko_aktywni_${fleetId}`, wlaczone ? '1' : '0'); } catch {}
+  };
+
   const [showRentalColumns, setShowRentalColumns] = useState<boolean>(() => {
     try {
       return localStorage.getItem(`fleet_show_rental_${fleetId}`) !== 'false';
@@ -249,8 +306,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       { key: 'rekompensaty', label: 'Rekomp.' },
     ] : []),
     { key: 'fuel', label: 'Paliwo' },
-    { key: 'vat', label: 'VAT' },
-    { key: 'vat_refund', label: 'VAT zwrot' },
+    { key: 'vat', label: 'Podatek' },
+    { key: 'vat_refund', label: 'VAT paliwo' },
     { key: 'service_fee', label: 'Opłata' },
     { key: 'manual_charges', label: 'Doliczone' },
     { key: 'payout', label: 'Rozliczenie' },
@@ -298,18 +355,43 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       else next.delete(driverId);
       return next;
     });
-    // Persist to DB
+    // Zapis do bazy. Do 14.09.2026 wynik tego zapytania nie był w ogóle
+    // sprawdzany: przy braku uprawnień „ptaszek" zostawał na ekranie, a po
+    // odświeżeniu znikał — bez jednego komunikatu.
+    const cofnijZnacznik = () => {
+      setPaidDrivers(prev => {
+        const next = new Set(prev);
+        if (newPaid) next.delete(driverId);
+        else next.add(driverId);
+        return next;
+      });
+    };
+
     try {
       const currentWeekData = weeks.find(w => w.number === selectedWeek);
       if (!currentWeekData) return;
-      await supabase
+      const { data, error } = await supabase
         .from('settlements')
         .update({ is_paid: newPaid, paid_at: newPaid ? new Date().toISOString() : null } as any)
         .eq('driver_id', driverId)
         .gte('period_from', currentWeekData.start)
-        .lte('period_to', currentWeekData.end);
-    } catch (e) {
+        .lte('period_to', currentWeekData.end)
+        .select('id');
+
+      if (error) {
+        console.error('Error saving paid status:', error);
+        toast.error('Nie udało się zapisać oznaczenia: ' + error.message);
+        cofnijZnacznik();
+        return;
+      }
+      if (!data || data.length === 0) {
+        toast.error('Oznaczenie NIE zostało zapisane — baza nie zmieniła żadnego wiersza');
+        cofnijZnacznik();
+      }
+    } catch (e: any) {
       console.error('Error saving paid status:', e);
+      toast.error('Nie udało się zapisać oznaczenia');
+      cofnijZnacznik();
     }
   };
 
@@ -429,6 +511,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   };
 
   // Color amounts based on value
+  /**
+   * Czy kierowca w ogóle jeździł w tym tygodniu. JEDEN warunek na dwa zastosowania:
+   * czy wiersz pokazuje kwoty czy kreski, i czy filtr „tylko aktywni" go zostawia.
+   * Dwie kopie tego warunku skończyłyby się listą, która chowa kogoś z kwotami.
+   */
+  const maAktywnosc = (s: DriverSettlement): boolean =>
+    s.uber_base !== 0 || s.uber_cash !== 0 ||
+    s.bolt_base !== 0 || s.bolt_cash !== 0 ||
+    s.freenow_base !== 0 || s.freenow_cash !== 0;
+
   const getAmountColor = (amount: number) => {
     if (amount > 0) return 'text-green-600 font-semibold';
     if (amount < 0) return 'text-red-600 font-semibold';
@@ -851,14 +943,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       }
 
       // 4. Delete settlements from database
-      const { error: deleteError } = await supabase
+      // `.select('id')` jest tu konieczne: DELETE odrzucony przez RLS wraca bez
+      // błędu i bez wierszy, a komunikat mówiłby „usunięto" nad nienaruszonymi
+      // danymi.
+      const { data: skasowane, error: deleteError } = await supabase
         .from('settlements')
         .delete()
-        .in('id', settlementIds);
+        .in('id', settlementIds)
+        .select('id');
 
       if (deleteError) throw deleteError;
+      if (!skasowane || skasowane.length === 0) {
+        throw new Error('baza nie usunęła żadnego wiersza (uprawnienia?)');
+      }
+      if (skasowane.length !== settlementsToDelete.length) {
+        toast.warning(`Usunięto ${skasowane.length} z ${settlementsToDelete.length} rozliczeń — reszta pozostała`);
+      }
 
-      toast.success(`✅ Usunięto ${settlementsToDelete.length} rozliczeń`);
+      toast.success(`✅ Usunięto ${skasowane.length} rozliczeń`);
       setDeleteDialogOpen(false);
       setDeleteCityId('all');
       
@@ -901,34 +1003,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return s;
   };
 
+  // Obie postacie — „jeden podatek" i „dwa podatki" — to to samo wyrażenie:
+  // baza − prowizje − gotówka − podatki − opłaty − wynajem − paliwo. Liczy je
+  // `wyplataTygodniowa` ze wspólnego modułu, sprawdzona na arkuszu wzorcowym.
+  // Paliwo potrącamy w PEŁNEJ kwocie — odliczenie 50% VAT-u siedzi w podatku.
   const calculateRawPayout = (settlement: DriverSettlement): number => {
-    const totalAdditional = settlement.additional_fees.reduce((sum, f) => sum + f.amount, 0);
-    const manualWeekAdjustment = settlement.manual_week_adjustment || 0;
-
-    if (fleetSettlementModeState === 'dual_tax') {
-      const nettoCalc = settlement.total_base - settlement.total_commission;
-      return nettoCalc
-        - settlement.total_cash
-        - settlement.vat_amount
-        - (settlement.secondary_vat_amount || 0)
-        - settlement.service_fee
-        - totalAdditional
-        - manualWeekAdjustment
-        - (settlement.rental || 0)
-        - settlement.fuel
-        + settlement.fuel_vat_refund;
-    }
-
-    return settlement.total_base
-      - settlement.total_commission
-      - settlement.vat_amount
-      - settlement.service_fee
-      - totalAdditional
-      - manualWeekAdjustment
-      - (settlement.rental || 0)
-      - settlement.total_cash
-      - settlement.fuel
-      + settlement.fuel_vat_refund;
+    return wyplataTygodniowa({
+      przychodBazowy: settlement.total_base,
+      prowizje: settlement.total_commission,
+      gotowka: settlement.total_cash,
+      podatek: settlement.vat_amount,
+      podatekDodatkowy: settlement.secondary_vat_amount || 0,
+      oplataStala: settlement.service_fee,
+      oplatyDodatkowe: settlement.additional_fees.reduce((sum, f) => sum + f.amount, 0),
+      korektaReczna: settlement.manual_week_adjustment || 0,
+      wynajem: settlement.rental || 0,
+      paliwo: settlement.fuel,
+    });
   };
 
   const getEffectiveSettlement = (settlement: DriverSettlement) => {
@@ -963,29 +1054,18 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
   // Calculate payout WITHOUT rental (Part 1 of settlement)
   const calculatePayoutWithoutRental = (settlement: DriverSettlement): number => {
-    const totalAdditional = settlement.additional_fees.reduce((sum, f) => sum + f.amount, 0);
-    const manualWeekAdjustment = settlement.manual_week_adjustment || 0;
-    if (fleetSettlementModeState === 'dual_tax') {
-      const nettoCalc = settlement.total_base - settlement.total_commission;
-      return nettoCalc
-        - settlement.total_cash
-        - settlement.vat_amount
-        - (settlement.secondary_vat_amount || 0)
-        - settlement.service_fee
-        - totalAdditional
-        - manualWeekAdjustment
-        - settlement.fuel
-        + settlement.fuel_vat_refund;
-    }
-    return settlement.total_base
-      - settlement.total_commission
-      - settlement.vat_amount
-      - settlement.service_fee
-      - totalAdditional
-      - manualWeekAdjustment
-      - settlement.total_cash
-      - settlement.fuel
-      + settlement.fuel_vat_refund;
+    return wyplataTygodniowa({
+      przychodBazowy: settlement.total_base,
+      prowizje: settlement.total_commission,
+      gotowka: settlement.total_cash,
+      podatek: settlement.vat_amount,
+      podatekDodatkowy: settlement.secondary_vat_amount || 0,
+      oplataStala: settlement.service_fee,
+      oplatyDodatkowe: settlement.additional_fees.reduce((sum, f) => sum + f.amount, 0),
+      korektaReczna: settlement.manual_week_adjustment || 0,
+      wynajem: 0,
+      paliwo: settlement.fuel,
+    });
   };
 
   // Wypłata 1: payout without rental minus settlement debt
@@ -1116,29 +1196,345 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  // Track pending cell to open after current save completes
-  const pendingEditRef = useRef<{ driverId: string; field: string; currentValue: number; index?: number } | null>(null);
-  const isSavingRef = useRef(false);
+  // ═══════════════════════════════════════════════════════════════════════
+  // Edycja kwot w tabeli — stan pola siedzi w `KomorkaKwoty`, nie tutaj
+  // ═══════════════════════════════════════════════════════════════════════
+  // Do 14.09.2026 wpisywany tekst trzymał stan tego komponentu, a zapis był
+  // `await`-owany razem z przeliczeniem długu i pełnym odświeżeniem. Przez to
+  // pole gubiło ognisko przy każdym znaku, a kliknięcie w kolejną komórkę
+  // czekało w kolejce (`pendingEditRef`), aż tamto się skończy.
+  //
+  // Teraz: `KomorkaKwoty` oddaje gotową kwotę raz, przy wyjściu z pola. Panel
+  // od razu przelicza się lokalnie (`manualOverrides`), a baza i łańcuch długu
+  // dostają zmianę w tle, po chwili bezczynności. Interfejs nie czeka na nic.
+  const zapisyOdroczoneRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const odswiezenieRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const startEditing = (driverId: string, field: string, currentValue: number, index?: number) => {
-    if (isSavingRef.current) {
-      // Queue this click — it will be opened after the current save finishes
-      pendingEditRef.current = { driverId, field, currentValue, index };
+  useEffect(() => {
+    // Wyjście z ekranu w trakcie odliczania nie ma prawa zostawić timerów.
+    return () => {
+      zapisyOdroczoneRef.current.forEach(t => clearTimeout(t));
+      zapisyOdroczoneRef.current.clear();
+      if (odswiezenieRef.current) clearTimeout(odswiezenieRef.current);
+    };
+  }, []);
+
+  /**
+   * Czy zapisane kwoty policzono innym planem, niż obowiązuje w tym tygodniu.
+   *
+   * Plan działa od swojego tygodnia W PRZÓD, więc zmiana zrobiona na tygodniu 30
+   * zostawia tygodnie 31+ z nowym planem i starymi kwotami. Nie przeliczamy ich
+   * automatycznie — część jest już wypłacona — tylko pokazujemy wykrzyknik.
+   */
+  const wymagaPrzeliczenia = (w: DriverSettlement): boolean =>
+    (w.plan_obowiazujacy_id ?? null) !== (w.plan_uzyty_id ?? null);
+
+  const [przeliczaniKierowcy, setPrzeliczaniKierowcy] = useState<Set<string>>(new Set());
+
+  /**
+   * Trwale zaznaczony wiersz — jeden naraz. Zaznaczenie zostaje po odjechaniu
+   * myszą, więc przy szerokiej tabeli widać, czyje kwoty się czyta.
+   */
+  const [zaznaczonyKierowca, setZaznaczonyKierowca] = useState<string | null>(null);
+
+  /**
+   * Kliknięcie w wiersz zaznacza; ponowne odznacza. Kliknięcie w cokolwiek
+   * działającego W ŚRODKU wiersza — przycisk, pole edycji kwoty, „i",
+   * wykrzyknik, przełącznik „opłacony" — ma robić swoje i NIE ruszać
+   * zaznaczenia. Stąd sprawdzenie, czy kliknięto element interaktywny:
+   * `stopPropagation` w każdym z nich osobno byłoby łatwiejsze do przeoczenia
+   * przy dokładaniu kolejnej kontrolki.
+   */
+  const klikniecieWWiersz = (driverId: string) => (zdarzenie: React.MouseEvent<HTMLTableRowElement>) => {
+    const cel = zdarzenie.target as HTMLElement | null;
+    if (cel?.closest('button, a, input, select, textarea, label, [role="checkbox"], [role="combobox"], [data-bez-zaznaczenia]')) {
       return;
     }
-    setEditingCell({ driverId, field, index });
-    setEditValue(currentValue !== 0 ? currentValue.toString() : '');
+    setZaznaczonyKierowca(prev => (prev === driverId ? null : driverId));
   };
 
-  const commitEdit = async () => {
-    if (!editingCell) return;
-    isSavingRef.current = true;
-    const val = parseLocalizedNumber(editValue);
-    const { driverId, field, index } = editingCell;
-    
-    // Immediately clear editing state so next cell can open
-    setEditingCell(null);
+  /**
+   * Przelicza JEDNEGO kierowcę w TYM tygodniu: zapisuje w bazie kwotę policzoną
+   * obowiązującym planem, przelicza łańcuch długu i stempluje wiersz planem,
+   * którym liczyliśmy. Nie rusza innych kierowców ani innych tygodni.
+   */
+  const przeliczKierowce = async (driverId: string): Promise<boolean> => {
+    const wiersz = settlements.find(w => w.driver_id === driverId);
+    if (!wiersz || !currentWeek) return false;
+    if (!wiersz.settlement_id) {
+      toast.error('Brak rekordu rozliczenia do zapisu');
+      return false;
+    }
 
+    setPrzeliczaniKierowcy(prev => new Set(prev).add(driverId));
+    try {
+      const efektywny = getEffectiveSettlement(wiersz);
+      const wyplata = calculateRawPayout(efektywny);
+      const wyplataBezWynajmu = calculatePayoutWithoutRental(efektywny);
+
+      // Ta sama droga, którą panel zapisuje ręczną korektę kwoty — wdrożona
+      // i sprawdzona. Nie dokładamy nowego trybu do funkcji przeliczającej
+      // cały tydzień: nieznane pole w ciele żądania stara wersja funkcji
+      // zignorowałaby i przeliczyła WSZYSTKICH.
+      const { data: dlug, error: bladDlugu } = await supabase.functions.invoke('update-driver-debt', {
+        body: {
+          driver_id: driverId,
+          settlement_id: wiersz.settlement_id,
+          period_from: currentWeek.start,
+          period_to: currentWeek.end,
+          calculated_payout: wyplata,
+          calculated_payout_without_rental: wyplataBezWynajmu,
+          rental_fee: efektywny.rental || 0,
+          force_recalculate_chain: true,
+        },
+      });
+      if (bladDlugu || (dlug as any)?.error) {
+        console.error('Błąd przeliczania długu:', bladDlugu || dlug);
+        toast.error(`${wiersz.driver_name}: nie udało się przeliczyć długu`);
+        return false;
+      }
+
+      // Stempel „policzone tym planem" — bez niego wykrzyknik zostałby mimo
+      // przeliczenia. `.select` jest tu warunkiem uczciwości: UPDATE odrzucony
+      // przez RLS wraca bez błędu i bez wierszy.
+      await wykonajZapis(
+        (supabase as any)
+          .from('settlements')
+          .update({ settlement_plan_id_uzyty: wiersz.plan_obowiazujacy_id ?? null })
+          .eq('id', wiersz.settlement_id)
+          .select('id'),
+        `Zapis planu użytego do przeliczenia (${wiersz.driver_name})`,
+      );
+
+      // Wykrzyknik gaśnie od razu, bez czekania na odświeżenie.
+      setSettlements(prev => prev.map(w =>
+        w.driver_id === driverId ? { ...w, plan_uzyty_id: w.plan_obowiazujacy_id ?? null, plan_uzyty_name: w.plan_name ?? null } : w,
+      ));
+      return true;
+    } catch (blad: any) {
+      console.error('Błąd przeliczania kierowcy:', blad);
+      toast.error(blad instanceof BladZapisu ? blad.message : `Nie udało się przeliczyć: ${blad?.message || 'nieznany błąd'}`);
+      return false;
+    } finally {
+      setPrzeliczaniKierowcy(prev => {
+        const next = new Set(prev);
+        next.delete(driverId);
+        return next;
+      });
+    }
+  };
+
+  /** Przelicza wszystkich oznaczonych w tym tygodniu, po kolei. */
+  const przeliczOznaczonych = async () => {
+    const doPrzeliczenia = settlements.filter(wymagaPrzeliczenia);
+    if (doPrzeliczenia.length === 0) return;
+    let udane = 0;
+    for (const w of doPrzeliczenia) {
+      // Po kolei, nie równolegle: każdy przelicza łańcuch długu tego kierowcy,
+      // a równoległe wywołania potrafią sobie nawzajem nadpisać wynik.
+      if (await przeliczKierowce(w.driver_id)) udane++;
+    }
+    if (udane === doPrzeliczenia.length) {
+      toast.success(`Przeliczono ${udane} ${udane === 1 ? 'kierowcę' : 'kierowców'}`);
+    } else {
+      toast.warning(`Przeliczono ${udane} z ${doPrzeliczenia.length} — resztę zostawiono bez zmian`);
+    }
+    zaplanujOdswiezenie();
+  };
+
+  /**
+   * Zmiana planu kierowcy — przeliczamy JEDEN wiersz na miejscu.
+   *
+   * Do 15.09.2026 po wyborze planu leciało pełne `fetchSettlements()`: kilkanaście
+   * zapytań, spinner i wywrócenie całej tabeli, żeby zmienić jedną kwotę.
+   * Teraz liczymy ten wiersz tą samą funkcją, którą liczy go tabela
+   * (`podatekTygodnia` ze wspólnego modułu), a z bazy dociągamy po cichu w tle.
+   *
+   * `ustawienia === null` znaczy „bez planu": wracamy do stawek miasta, których
+   * z wiersza nie odtworzymy — wtedy jedyne, co możemy zrobić uczciwie, to
+   * odświeżyć w tle i do tego czasu pokazać kwoty sprzed zmiany.
+   */
+  const zastosujPlanDoWiersza = (
+    driverId: string,
+    ustawienia: { vat_rate: number; settlement_mode: string; secondary_vat_rate: number;
+                  additional_percent_rate: number; base_fee: number; uber_calculation_mode: string | null } | null,
+    nazwaPlanu: string | null,
+  ) => {
+    if (ustawienia) {
+      setSettlements(prev => prev.map(w => {
+        if (w.driver_id !== driverId) return w;
+        const podatekNaliczany = w.payment_method !== 'b2b';
+        const wynik = podatekTygodnia(
+          {
+            uberBase: w.uber_base,
+            uberGrossTotal: w.uber_gross_total ?? 0,
+            boltBase: w.bolt_base,
+            freeNowBase: w.freenow_base,
+            boltKampanie: w.bolt_kampanie ?? 0,
+          },
+          ustawienia,
+          { paliwo: w.fuel, podatekNaliczany },
+        );
+        // Opłatę z planu bierzemy tylko wtedy, gdy nie nadpisuje jej ręczna
+        // korekta tygodnia ani własna stawka kierowcy — ta sama kolejność,
+        // co przy liczeniu całej tabeli.
+        const oplata = w.service_fee_source === 'plan' ? Number(ustawienia.base_fee) : w.service_fee;
+        const przeliczony: DriverSettlement = {
+          ...w,
+          plan_name: nazwaPlanu,
+          service_fee: oplata,
+          vat_amount: wynik.podatek,
+          tax_8_percent: wynik.podatek,
+          podatek_od_przychodu: wynik.podatekOdPrzychodu,
+          fuel_vat_deduction: wynik.odliczenieVatPaliwa,
+          secondary_vat_amount: wynik.podatekDodatkowy,
+        };
+        return { ...przeliczony, final_payout: calculateRawPayout(przeliczony) };
+      }));
+    }
+    // Baza dostaje zmianę w tle — bez spinnera i bez przeliczania łańcucha długu.
+    zaplanujOdswiezenie();
+  };
+
+  useEffect(() => {
+    // Pierwsze wczytanie nie jest zmianą — nie odświeżamy po nim tabeli.
+    if (przypisaniaZnaneRef.current === 0) {
+      przypisaniaZnaneRef.current = przypisaniaZmienioneO;
+      return;
+    }
+    if (przypisaniaZmienioneO && przypisaniaZmienioneO !== przypisaniaZnaneRef.current) {
+      przypisaniaZnaneRef.current = przypisaniaZmienioneO;
+      zaplanujOdswiezenie();
+    }
+  }, [przypisaniaZmienioneO]);
+
+  /** Odświeżenie z bazy raz, po serii edycji — nie po każdej z osobna. */
+  const zaplanujOdswiezenie = () => {
+    if (odswiezenieRef.current) clearTimeout(odswiezenieRef.current);
+    odswiezenieRef.current = setTimeout(() => {
+      odswiezenieRef.current = null;
+      fetchSettlements({ skipDebtSync: true, silent: true });
+    }, 1500);
+  };
+
+  /** Zapis jednej kwoty do bazy + przeliczenie długu. Wywoływany z tła. */
+  const utrwalNadpisanie = async (driverId: string, field: string, val: number, index?: number) => {
+    if (!currentWeek) {
+      toast.error('Brak wybranego okresu — zmiana nie została zapisana');
+      return;
+    }
+
+    try {
+      const { data: existingSettlements, error: fetchErr } = await supabase
+        .from('settlements')
+        .select('id, amounts')
+        .eq('driver_id', driverId)
+        .gte('period_from', currentWeek.start)
+        .lte('period_to', currentWeek.end);
+
+      if (fetchErr) {
+        console.error('Error fetching settlements for save:', fetchErr);
+        toast.error('Błąd odczytu rozliczenia — zmiana nie została zapisana');
+        return;
+      }
+
+      if (!existingSettlements || existingSettlements.length === 0) {
+        toast.error('Brak rekordu rozliczenia do zapisu');
+        return;
+      }
+
+      const targetId = existingSettlements[0].id;
+      const updateData: any = {};
+      const amounts = (existingSettlements[0].amounts as any) || {};
+
+      if (field === 'rental') {
+        updateData.rental_fee = val;
+        amounts.manual_rental_fee = val;
+        updateData.amounts = amounts;
+      }
+
+      if (field === 'service_fee') {
+        amounts.manual_service_fee = val;
+        updateData.amounts = amounts;
+      }
+
+      if (field === 'additional_fee' && index !== undefined) {
+        amounts[`manual_fee_${index}`] = val;
+        updateData.amounts = amounts;
+      }
+
+      if (Object.keys(updateData).length === 0) return;
+
+      // `.select('id')` jest tu warunkiem uczciwego komunikatu: bez niego
+      // UPDATE odrzucony przez RLS wraca bez błędu i bez wierszy, a panel
+      // pokazałby zmianę, której w bazie nie ma.
+      const { data: zapisane, error: updateErr } = await supabase
+        .from('settlements')
+        .update(updateData)
+        .eq('id', targetId)
+        .select('id');
+
+      if (updateErr) {
+        console.error('Error saving override:', updateErr);
+        toast.error('Błąd zapisu: ' + updateErr.message);
+        return;
+      }
+      if (!zapisane || zapisane.length === 0) {
+        toast.error('Zmiana NIE została zapisana — baza nie zmieniła żadnego wiersza (uprawnienia?)');
+        await fetchSettlements({ skipDebtSync: true, silent: true });
+        return;
+      }
+
+      const currentSettlement = settlements.find(s => s.driver_id === driverId);
+      if (currentSettlement) {
+        const overridePatch: {
+          additional_fees?: Record<number, number>;
+          service_fee?: number;
+          rental?: number;
+        } = {};
+
+        if (field === 'rental') overridePatch.rental = val;
+        if (field === 'service_fee') overridePatch.service_fee = val;
+        if (field === 'additional_fee' && index !== undefined) {
+          overridePatch.additional_fees = { [index]: val };
+        }
+
+        const settlementForRecalc = applyOverridesToSettlement(currentSettlement, overridePatch);
+        const recalculatedPayout = calculateRawPayout(settlementForRecalc);
+        const recalculatedPayoutWithoutRental = calculatePayoutWithoutRental(settlementForRecalc);
+        const effectiveRentalForDebt = getEffectiveSettlement(settlementForRecalc).rental || 0;
+
+        const { data: debtSyncData, error: debtSyncError } = await supabase.functions.invoke('update-driver-debt', {
+          body: {
+            driver_id: driverId,
+            settlement_id: targetId,
+            period_from: currentWeek.start,
+            period_to: currentWeek.end,
+            calculated_payout: recalculatedPayout,
+            calculated_payout_without_rental: recalculatedPayoutWithoutRental,
+            rental_fee: effectiveRentalForDebt,
+            force_recalculate_chain: true,
+          },
+        });
+
+        if (debtSyncError || (debtSyncData as any)?.error) {
+          console.error('Error syncing debt chain after override:', debtSyncError || debtSyncData);
+          toast.error('Zapisano zmianę, ale nie udało się przeliczyć długu');
+        }
+      }
+
+      zaplanujOdswiezenie();
+    } catch (err) {
+      console.error('Error saving override:', err);
+      toast.error('Błąd zapisu');
+    }
+  };
+
+  /**
+   * Wywoływane przez komórkę po wyjściu z pola. Nic tu nie jest `await`-owane —
+   * kolejne pole można kliknąć natychmiast.
+   */
+  const zapiszNadpisanie = (driverId: string, field: string, val: number, index?: number) => {
     setManualOverrides(prev => {
       const existing = prev[driverId] || {};
       if (field === 'additional_fee' && index !== undefined) {
@@ -1146,170 +1542,32 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       }
       return { ...prev, [driverId]: { ...existing, [field]: val } };
     });
-    
-    // Persist to settlements table in background
-    try {
-      if (!currentWeek) {
-        console.error('No currentWeek for saving');
-        toast.error('Brak wybranego okresu');
-        isSavingRef.current = false;
-        openPendingEdit();
-        return;
-      }
-      
-      const { data: existingSettlements, error: fetchErr } = await supabase
-        .from('settlements')
-        .select('id, amounts')
-        .eq('driver_id', driverId)
-        .gte('period_from', currentWeek.start)
-        .lte('period_to', currentWeek.end);
-      
-      if (fetchErr) {
-        console.error('Error fetching settlements for save:', fetchErr);
-        toast.error('Błąd odczytu rozliczenia');
-        isSavingRef.current = false;
-        openPendingEdit();
-        return;
-      }
 
-      if (!existingSettlements || existingSettlements.length === 0) {
-        console.error('No settlement records found for driver', driverId, 'period', currentWeek);
-        toast.error('Brak rekordu rozliczenia do zapisu');
-        isSavingRef.current = false;
-        openPendingEdit();
-        return;
-      }
-      
-      const targetId = existingSettlements[0].id;
-      const updateData: any = {};
-      
-      if (field === 'rental') {
-        updateData.rental_fee = val;
-        const amounts = (existingSettlements[0].amounts as any) || {};
-        amounts.manual_rental_fee = val;
-        updateData.amounts = amounts;
-      }
-      
-      if (field === 'service_fee' || (field === 'additional_fee' && index !== undefined)) {
-        const amounts = (existingSettlements[0].amounts as any) || {};
-        if (field === 'service_fee') {
-          amounts.manual_service_fee = val;
-        } else if (field === 'additional_fee' && index !== undefined) {
-          amounts[`manual_fee_${index}`] = val;
-        }
-        updateData.amounts = amounts;
-      }
-      
-      if (Object.keys(updateData).length > 0) {
-        const { error: updateErr } = await supabase
-          .from('settlements')
-          .update(updateData)
-          .eq('id', targetId);
-
-        if (updateErr) {
-          console.error('Error saving override:', updateErr);
-          toast.error('Błąd zapisu: ' + updateErr.message);
-        } else {
-          console.log('✅ Saved override for driver', driverId, field, val, 'to settlement', targetId);
-
-          const currentSettlement = settlements.find(s => s.driver_id === driverId);
-          if (currentSettlement) {
-            const overridePatch: {
-              additional_fees?: Record<number, number>;
-              service_fee?: number;
-              rental?: number;
-            } = {};
-
-            if (field === 'rental') overridePatch.rental = val;
-            if (field === 'service_fee') overridePatch.service_fee = val;
-            if (field === 'additional_fee' && index !== undefined) {
-              overridePatch.additional_fees = { [index]: val };
-            }
-
-            const settlementForRecalc = applyOverridesToSettlement(currentSettlement, overridePatch);
-            const recalculatedPayout = calculateRawPayout(settlementForRecalc);
-
-            const recalculatedPayoutWithoutRental = calculatePayoutWithoutRental(settlementForRecalc);
-            const effectiveRentalForDebt = getEffectiveSettlement(settlementForRecalc).rental || 0;
-
-            const { data: debtSyncData, error: debtSyncError } = await supabase.functions.invoke('update-driver-debt', {
-              body: {
-                driver_id: driverId,
-                settlement_id: targetId,
-                period_from: currentWeek.start,
-                period_to: currentWeek.end,
-                calculated_payout: recalculatedPayout,
-                calculated_payout_without_rental: recalculatedPayoutWithoutRental,
-                rental_fee: effectiveRentalForDebt,
-                force_recalculate_chain: true,
-              },
-            });
-
-            if (debtSyncError || (debtSyncData as any)?.error) {
-              console.error('Error syncing debt chain after override:', debtSyncError || debtSyncData);
-              toast.error('Zapisano zmianę, ale nie udało się przeliczyć długu');
-            }
-          }
-
-          await fetchSettlements({ skipDebtSync: true, silent: true });
-        }
-      }
-    } catch (err) {
-      console.error('Error saving override:', err);
-      toast.error('Błąd zapisu');
-    }
-    
-    isSavingRef.current = false;
-    openPendingEdit();
+    // Odroczenie zbija serię poprawek tej samej komórki do jednego zapisu.
+    const klucz = `${driverId}:${field}:${index ?? ''}`;
+    const poprzedni = zapisyOdroczoneRef.current.get(klucz);
+    if (poprzedni) clearTimeout(poprzedni);
+    zapisyOdroczoneRef.current.set(klucz, setTimeout(() => {
+      zapisyOdroczoneRef.current.delete(klucz);
+      void utrwalNadpisanie(driverId, field, val, index);
+    }, 400));
   };
-
-  const openPendingEdit = () => {
-    const pending = pendingEditRef.current;
-    if (pending) {
-      pendingEditRef.current = null;
-      setEditingCell({ driverId: pending.driverId, field: pending.field, index: pending.index });
-      setEditValue(pending.currentValue !== 0 ? pending.currentValue.toString() : '');
-    }
-  };
-
-  const cancelEdit = () => setEditingCell(null);
 
   // Render an editable cell
   const renderEditableCell = (driverId: string, field: string, value: number, hasActivity: boolean, index?: number) => {
-    const isEditing = editingCell?.driverId === driverId && editingCell?.field === field && editingCell?.index === index;
     const isOverridden = !!manualOverrides[driverId]?.[field === 'additional_fee' ? 'additional_fees' : field as keyof typeof manualOverrides[string]];
-    
-    if (isEditing) {
-      return (
-        <Input
-          type="text"
-          inputMode="decimal"
-          value={editValue}
-          onChange={(e) => {
-            // Allow only numbers, dots and commas
-            const v = e.target.value.replace(/[^0-9.,]/g, '');
-            setEditValue(v);
-          }}
-          onBlur={commitEdit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commitEdit();
-            if (e.key === 'Escape') cancelEdit();
-          }}
-          placeholder="0.00"
-          className="h-6 w-24 text-xs text-right px-1 py-0"
-          autoFocus
-        />
-      );
-    }
-    
     return (
-      <span 
-        className={`cursor-pointer hover:bg-primary/10 rounded px-1 py-0.5 transition-colors ${isOverridden ? 'bg-yellow-100 dark:bg-yellow-900/30 font-semibold' : ''}`}
-        onClick={() => startEditing(driverId, field, value, index)}
-        title="Kliknij aby edytować"
-      >
-        {value > 0 ? `-${formatCurrency(value)}` : (hasActivity ? '0,00' : '-')}
-      </span>
+      <KomorkaKwoty
+        driverId={driverId}
+        pole={field}
+        indeks={index}
+        wartosc={value}
+        maAktywnosc={hasActivity}
+        nadpisana={isOverridden}
+        onZapisz={zapiszNadpisanie}
+        formatuj={formatCurrency}
+        parsuj={parseLocalizedNumber}
+      />
     );
   };
 
@@ -1326,6 +1584,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   // Generate week options for the selected year
   const weeks = getAvailableWeeks(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
+
+  // Wybrany tydzień idzie do wspólnego stanu, żeby karta kierowcy na Liście
+  // kierowców zapisywała plan od TEGO SAMEGO tygodnia co popover „i" tutaj.
+  // Bez tego lista brała bieżący poniedziałek i przypisanie lądowało w innym
+  // tygodniu niż to z tabeli — wyglądało to jak brak synchronizacji planów.
+  const ustawWybranyTydzien = useWybranyTydzienStore(s => s.ustawTydzien);
+  useEffect(() => {
+    if (!currentWeek) return;
+    ustawWybranyTydzien({
+      rok: selectedYear,
+      numer: currentWeek.number,
+      start: currentWeek.start,
+      koniec: currentWeek.end,
+    });
+  }, [selectedYear, currentWeek?.number, currentWeek?.start, currentWeek?.end]);
 
   useEffect(() => {
     // KROK 3: bez zaladowanej listy miast nie da sie rozwiazac miasta kierowcy,
@@ -1503,11 +1776,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       setFleetAdditionalPercentRateState(fleetAdditionalPercentRate);
 
       // Fetch city-specific overrides for this fleet
+      // `order('created_at')` nie jest ozdobą: od czasu planów jedno miasto może
+      // mieć KILKA kompletów ustawień (np. „Warszawa 8% + 50" i „Ryczałt 159").
+      // Tygodnie sprzed pierwszego przypisania planu liczą się po mieście, więc
+      // rozstrzygnięcie musi być deterministyczne — wygrywa NAJSTARSZY komplet,
+      // czyli ten, który obowiązywał, zanim plany w ogóle powstały.
       const { data: citySettingsData } = await supabase
         .from('fleet_city_settings' as any)
         .select('*')
         .eq('fleet_id', fleetId)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('created_at', { ascending: true });
 
       // Build city settings map: city_name -> merged settings (take most specific per platform)
       const citySettingsMap = new Map<string, {
@@ -1634,14 +1913,86 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
       const { data: settlementsData, error: settlementsError } = await query;
 
+      // Wykrzyknik „wymaga przeliczenia" opiera się na kolumnie
+      // `settlements.settlement_plan_id_uzyty` (migracja 20260915100000).
+      // Dopóki jej nie ma, KAŻDY kierowca z planem wyglądałby na rozjechanego,
+      // a kliknięcie i tak nie miałoby gdzie zapisać stempla. Do czasu migracji
+      // znacznik jest więc wyłączony — cisza jest uczciwsza niż alarm, którego
+      // nie da się wygasić.
+      const stempelPlanuDostepny = (settlementsData && settlementsData.length > 0)
+        ? Object.prototype.hasOwnProperty.call(settlementsData[0], 'settlement_plan_id_uzyty')
+        : false;
+      if (settlementsData && settlementsData.length > 0 && !stempelPlanuDostepny) {
+        console.warn('Brak kolumny settlements.settlement_plan_id_uzyty (migracja 20260915100000?) — znacznik „wymaga przeliczenia" wyłączony.');
+      }
+
       if (settlementsError) throw settlementsError;
       console.log('💰 Settlements found:', settlementsData?.length || 0);
       console.log('📊 Settlement sample:', settlementsData?.[0]);
 
-      // Pobierz plany rozliczeniowe
-      const { data: plansData } = await supabase
-        .from('settlement_plans')
-        .select('*');
+      // ── Plany rozliczeń floty i przypisania z datą obowiązywania ──────────
+      // Plan niesie KOMPLET stawek (Bolt + Uber). Obowiązuje od tygodnia
+      // wskazanego w `driver_plan_assignments.effective_from` w przód —
+      // tygodnie wcześniejsze liczą się tym, co obowiązywało wtedy.
+      //
+      // Obie tabele wchodzą migracjami 20260914120000 / 20260914120100.
+      // Dopóki ich nie ma, panel liczy po ustawieniach miasta, czyli jak dotąd,
+      // i mówi o tym w konsoli — zamiast wywracać ekran.
+      const { data: planyFlotyData, error: planyError } = await (supabase as any)
+        .from('fleet_settlement_plans')
+        .select('id, name, city_name, is_default, is_active')
+        .eq('fleet_id', fleetId)
+        .eq('is_active', true);
+      if (planyError) {
+        console.warn('fleet_settlement_plans niedostępna (migracja planów niewykonana?):', planyError.message);
+      }
+
+      const { data: przypisaniaData, error: przypisaniaError } = await (supabase as any)
+        .from('driver_plan_assignments')
+        .select('driver_id, plan_id, effective_from')
+        .in('driver_id', driverIds);
+      if (przypisaniaError) {
+        console.warn('driver_plan_assignments niedostępne (migracja planów niewykonana?):', przypisaniaError.message);
+      }
+      const przypisaniaPlanow = ((przypisaniaData as any[]) || []) as
+        Array<{ driver_id: string; plan_id: string | null; effective_from: string }>;
+
+      // Ustawienia planu: te same wiersze `fleet_city_settings`, tylko pogrupowane
+      // po `plan_id` zamiast po nazwie miasta.
+      const planUstawieniaMap = new Map<string, {
+        name: string;
+        vat_rate: number;
+        settlement_mode: string;
+        secondary_vat_rate: number;
+        additional_percent_rate: number;
+        base_fee: number;
+        uber_calculation_mode: string | null;
+      }>();
+      for (const plan of ((planyFlotyData as any[]) || [])) {
+        const wiersze = ((citySettingsData as any[]) || []).filter((cs: any) => cs.plan_id === plan.id);
+        const boltEntry = wiersze.find((e: any) => e.platform === 'bolt') || wiersze[0];
+        const uberEntry = wiersze.find((e: any) => e.platform === 'uber');
+        if (!boltEntry) continue; // plan bez ustawień nie ma czym liczyć — pomijamy
+        planUstawieniaMap.set(plan.id, {
+          name: plan.name,
+          vat_rate: boltEntry.vat_rate,
+          settlement_mode: boltEntry.settlement_mode,
+          secondary_vat_rate: boltEntry.secondary_vat_rate,
+          additional_percent_rate: boltEntry.additional_percent_rate,
+          base_fee: boltEntry.base_fee,
+          uber_calculation_mode: uberEntry?.uber_calculation_mode ?? boltEntry.uber_calculation_mode ?? null,
+        });
+      }
+
+      // Ustawienia floty jako ostatnia deska ratunku — jeden komplet, nie pole po polu.
+      const fleetSettings = {
+        vat_rate: fleetVatRate,
+        settlement_mode: fleetSettlementMode,
+        secondary_vat_rate: fleetSecondaryVatRate,
+        additional_percent_rate: fleetAdditionalPercentRate,
+        base_fee: fleetBaseFee,
+        uber_calculation_mode: fleetUberCalcMode,
+      };
 
       // Pobierz aktywne przypisania pojazdów z opłatą wynajmu i datą przypisania
       const { data: assignmentsData } = await supabase
@@ -1934,23 +2285,30 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // Aggregate fuel costs and VAT refunds - DYNAMICZNIE z fuel_transactions
         const driverCardNumber = driverFuelCards[driver.id];
         let total_fuel = 0;
-        let total_fuel_vat_refund = 0;
 
         if (driverCardNumber && fuelTransactions) {
           const matchingFuel = fuelTransactions.filter(tx => 
             tx.card_number?.replace(/^0+/, '') === driverCardNumber
           );
           total_fuel = matchingFuel.reduce((sum, tx) => sum + (tx.total_amount || 0), 0);
-          // VAT refund = (fuel - fuel/1.23) / 2 (50% zwrotu VAT)
-          total_fuel_vat_refund = (total_fuel - total_fuel / 1.23) / 2;
         }
+        // 50% VAT-u od paliwa POMNIEJSZA PODATEK (art. 86a ust. 1 ustawy o VAT),
+        // a nie dopisuje się do wypłaty. Kwota liczona niżej razem z podatkiem,
+        // bo przy kierowcy bez podatku odliczenia nie ma wcale.
 
         // Tax is now calculated as vat_amount below with B2B support
         // The 'tax' field from edge function is no longer used to avoid double taxation
 
         // Pobierz service_fee - PRIORYTET: zapisana wartość z amounts JSON, potem opłata flotowa, potem plan
         const driverAppUser = (driver as any).driver_app_users;
-        const plan = plansData?.find(p => p.id === driverAppUser?.settlement_plan_id);
+        // Plan obowiązujący W TYM tygodniu — wiersz o największym
+        // `effective_from` nie późniejszym niż początek tygodnia. Brak wiersza
+        // znaczy „bez planu", czyli liczenie po ustawieniach miasta.
+        const driverPlanId = currentWeek?.start
+          ? planNaTydzien(przypisaniaPlanow, driver.id, currentWeek.start)
+          : null;
+        const planKierowcy = driverPlanId ? planUstawieniaMap.get(driverPlanId) ?? null : null;
+        const planUstawienia = planKierowcy;
         
         // Check if there's a persisted override in settlement record (amounts JSON)
         const persistedServiceFee = snapshotAmounts.manual_service_fee;
@@ -1961,20 +2319,33 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         const driverCityId = (driver as any).city_id;
         const driverCityName = cities.find(c => c.id === driverCityId)?.name || '';
         const driverCitySettings = citySettingsMap.get(driverCityName);
-        // KROK 3: oplata takze scisle z miasta. Fallback na flote tylko dla miasta
-        // bez zadnego wiersza w fleet_city_settings — ten sam warunek co przy stawkach.
-        const driverBaseFee = driverCitySettings ? driverCitySettings.base_fee : fleetBaseFee;
+
+        // === Skąd kierowca bierze stawki W TYM tygodniu ===
+        // Plan przypisany na ten tydzień → ustawienia jego miasta → flota.
+        // Rozstrzyga JEDNO źródło, z całym kompletem wartości: mieszanie pól
+        // między źródłami było przyczyną usterki z sierpnia 2026 (kierowca
+        // z Wrocławia liczył się dodatkiem floty — 9% zamiast 8%).
+        const { ustawienia: driverSettings, zrodlo: zrodloStawek } = ustawieniaKierowcy(
+          planUstawienia,
+          driverCitySettings,
+          fleetSettings,
+        );
+        // Fallback na flotę nie ma prawa być cichy — wiersz dostaje wykrzyknik.
+        const citySettingsMissing = zrodloStawek === 'flota';
+
+        // Opłata stała pochodzi z TEGO SAMEGO źródła co stawki — nie z innego.
+        const driverBaseFee = driverSettings.base_fee;
         
         // fleetBaseFee może być 0 (darmowa flota) - to jest dozwolone!
         // Priority: 1) persisted manual override, 2) per-driver custom_weekly_fee, 3) city base fee, 4) fleet base fee, 5) plan fee
         const driverCustomFee = (driver as any).custom_weekly_fee;
+        // Opłata stała, od najbardziej szczegółowej: ręczna korekta tygodnia →
+        // własna opłata kierowcy → opłata z rozstrzygniętego źródła.
         const service_fee = persistedServiceFee !== null && persistedServiceFee !== undefined
           ? persistedServiceFee
           : (driverCustomFee !== null && driverCustomFee !== undefined
             ? driverCustomFee
-            : (driverBaseFee !== null && driverBaseFee !== undefined 
-              ? driverBaseFee 
-              : (plan?.service_fee ?? 50)));
+            : driverBaseFee);
 
         // Pobierz wynajem z przypisanego pojazdu lub z zapisanego override
         // Sprawdź manual_rental_fee w amounts JSON - to jest marker ręcznego nadpisania
@@ -2119,7 +2490,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             additional_fees: [],
             manual_week_adjustment: manualWeekAdjustment,
             rental: 0,
-            fuel: 0, fuel_vat_refund: 0,
+            fuel: 0, fuel_vat_deduction: 0, podatek_od_przychodu: 0,
             net_without_commission: 0,
             final_payout: zeroBaseManualPayout,
             has_negative_balance: false,
@@ -2162,15 +2533,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
         // szesc wartosci i nie ma zadnej sciezki ucieczki na ustawienia floty.
         // Fallback zostaje TYLKO dla miasta, ktore nie ma zadnego wiersza — i wtedy
         // wiersz jest oznaczony wykrzyknikiem, zeby ten fallback nie byl cichy.
-        const citySettingsMissing = !driverCitySettings;
-        const driverVatRate = driverCitySettings ? driverCitySettings.vat_rate : fleetVatRate;
-        const driverSettlementMode = driverCitySettings ? driverCitySettings.settlement_mode : fleetSettlementMode;
-        const driverSecondaryVatRate = driverCitySettings ? driverCitySettings.secondary_vat_rate : fleetSecondaryVatRate;
-        const driverAdditionalPercentRate = driverCitySettings ? driverCitySettings.additional_percent_rate : fleetAdditionalPercentRate;
-        const driverUberCalcMode = driverCitySettings
-          ? (driverCitySettings.uber_calculation_mode ?? fleetUberCalcMode)
-          : fleetUberCalcMode;
-        const effectiveVatRate = isB2BVatPayer ? 0 : driverVatRate;
+        const driverSecondaryVatRate = driverSettings.secondary_vat_rate;
+        const driverAdditionalPercentRate = driverSettings.additional_percent_rate;
+        const driverUberCalcMode = driverSettings.uber_calculation_mode ?? 'netto';
+        const planSettlementMode = driverSettings.settlement_mode;
+        // Jedyny powód, żeby nie naliczać podatku, to B2B — kierowca wystawia
+        // flocie fakturę. Plan ryczałtowy to po prostu plan ze stawką 0%.
+        // Sposób rozliczenia (gotówka/przelew) nie ma z tym nic wspólnego:
+        // w arkuszu wzorcowym Patryk Matusik ma przelew i podatek, a Dmytro
+        // Agafonov przelew i zero podatku.
+        const podatekNaliczany = czyNaliczacPodatek({ jestB2B: isB2BDriver });
+        const effectiveVatRate = podatekNaliczany ? driverSettings.vat_rate : 0;
         const hasPositivePlatformActivity =
           Math.max(0, uber_base) +
           Math.max(0, bolt_base) +
@@ -2220,7 +2593,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
             manual_week_adjustment: manualWeekAdjustment,
             rental: 0,
             fuel: 0,
-            fuel_vat_refund: 0,
+            fuel_vat_deduction: 0,
+            podatek_od_przychodu: Math.abs(negVatAmount),
             net_without_commission: platform_net,
             final_payout: negFinalPayout,
             has_negative_balance: true,
@@ -2245,74 +2619,46 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         // B2B/VAT already calculated above (before negative balance check)
 
-        // === DUAL TAX MODE: Calculate from specific Bolt CSV columns ===
-        let vat_amount = 0;
-        let bolt_ef_base = 0;
-        let bolt_ijk_base = 0;
-        let additional_percent_amount = 0;
-        let secondary_vat_amount = 0;
+        // === Podatek za tydzień ===
+        // Różnica między trybem „jeden podatek" a „dwa podatki" żyje w JEDNYM
+        // miejscu — `podatekTygodnia` we wspólnym module, sprawdzonym na arkuszu.
+        // Ta sama funkcja liczy wiersz po zmianie planu (bez przeładowania
+        // tabeli), więc obie ścieżki nie mają jak się rozjechać.
+        const bolt_i_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_i || '0');
+        }, 0);
+        const bolt_j_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_j || '0');
+        }, 0);
+        const bolt_k_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_k || '0');
+        }, 0);
+        const bolt_ef_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_e || '0') + parseFloat(amounts.bolt_col_f || '0');
+        }, 0);
+        const bolt_ijk_base = bolt_i_base + bolt_j_base + bolt_k_base;
+        const additional_percent_amount = 0;
 
-        if (driverSettlementMode === 'dual_tax') {
-          // Aggregate Bolt columns E, F, G, I, J, K from amounts JSON
-          bolt_ef_base = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_e || '0') + parseFloat(amounts.bolt_col_f || '0');
-          }, 0);
-          
-          // Bonusy (I) + Rekompensaty (K) - these are 23% VAT items, FULLY deducted from payout
-          const bolt_i_base = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_i || '0');
-          }, 0);
-          const bolt_k_base = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_k || '0');
-          }, 0);
-          // Anulacje (J) - informational only, already reflected in Bolt payout S
-          const bolt_j_base = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_j || '0');
-          }, 0);
-          // Napiwki (G) - informational, included in S
-          const bolt_g_tips = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_g || '0');
-          }, 0);
-          
-          bolt_ijk_base = bolt_i_base + bolt_j_base + bolt_k_base; // Keep for backward compat
-          
-          // Tax 1: Combined VAT% + Additional% from Bolt D (brutto)
-          // e.g. 8% VAT + 1% additional = 9% total
-          const combinedVatRate = effectiveVatRate + driverAdditionalPercentRate;
-          // Use bolt_base (Column D) for primary VAT calculation
-          const bolt_vat_ef = isB2BVatPayer ? 0 : Math.max(0, bolt_base) * (combinedVatRate / 100);
-          additional_percent_amount = 0;
-          // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
-          secondary_vat_amount = isB2BVatPayer ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (driverSecondaryVatRate / 100);
-          
-          // For Uber in DUAL TAX mode:
-          // 'netto' (Od netto): kolumna E + 25% → VAT od tego
-          // 'brutto' (Od brutto): kolumna G z CSV Uber → VAT od tego
-          const uber_vat_base = driverUberCalcMode === 'brutto' 
-            ? Math.max(0, (uber_gross_total != null && uber_gross_total > 0) ? uber_gross_total : Math.max(0, uber_base) * 1.25)
-            : Math.max(0, uber_base) * 1.25;
-          const uber_freenow_base = uber_vat_base + Math.max(0, freenow_base);
-          const uber_freenow_vat = isB2BVatPayer ? 0 : uber_freenow_base * (effectiveVatRate / 100);
-          
-          vat_amount = bolt_vat_ef + uber_freenow_vat;
-        } else {
-          // === SINGLE TAX MODE: VAT base depends on uber_calculation_mode setting ===
-          // 'netto' → column D (uber_payout_d, "Paid to you")
-          // 'brutto' → column E (uber_base)
-          // 'gross_total' → column G (uber_gross_total, or E * 1.25 fallback)
-          const uber_vat_base_single = driverUberCalcMode === 'netto'
-            ? Math.max(0, uber_payout_d || uber_base)
-            : driverUberCalcMode === 'gross_total'
-              ? Math.max(0, (uber_gross_total > 0 ? uber_gross_total : uber_base * 1.25))
-              : Math.max(0, uber_base);
-          const adjusted_vat_base = uber_vat_base_single + Math.max(0, bolt_base) + Math.max(0, freenow_base);
-          vat_amount = adjusted_vat_base * (effectiveVatRate / 100);
-        }
+        const {
+          podatekOdPrzychodu: podatek_od_przychodu,
+          odliczenieVatPaliwa: total_fuel_vat_deduction,
+          podatek: vat_amount,
+          podatekDodatkowy: secondary_vat_amount,
+        } = podatekTygodnia(
+          {
+            uberBase: uber_base,
+            uberGrossTotal: uber_gross_total ?? 0,
+            boltBase: bolt_base,
+            freeNowBase: freenow_base,
+            boltKampanie: Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base),
+          },
+          { ...driverSettings, vat_rate: effectiveVatRate },
+          { paliwo: total_fuel, podatekNaliczany },
+        );
 
         // Helper: sprawdź czy tydzień jest pierwszym pełnym tygodniem miesiąca
         const isFirstFullWeekOfMonth = (weekStart: string): boolean => {
@@ -2350,23 +2696,22 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         const total_additional_fees = additional_fees.reduce((sum, f) => sum + f.amount, 0);
 
-        // Calculate payout based on mode
-        let payout: number;
-        if (driverSettlementMode === 'dual_tax') {
-          // Correct formula: Netto(R) - Cash(G) - 9%(D) - 23%(I+J+K) - fees
-          // netto_calc = total_base - total_commission (= bolt_net + uber_net + freenow_net)
-          const netto_calc = total_base - total_commission;
-          
-          payout = netto_calc 
-                   - total_cash                   // Cash (G) from all platforms
-                   - vat_amount                   // Combined VAT% of Brutto (D)
-                   - secondary_vat_amount         // 23% of (I+J+K)
-                   - effectiveServiceFee - total_additional_fees - manualWeekAdjustment - rental 
-                   - total_fuel + total_fuel_vat_refund;
-        } else {
-          // Single tax (current formula)
-          payout = total_base - total_commission - vat_amount - effectiveServiceFee - total_additional_fees - manualWeekAdjustment - rental - total_cash - total_fuel + total_fuel_vat_refund;
-        }
+        // Wypłata — jedno wyrażenie dla obu trybów, ze wspólnego modułu.
+        // „Dwa podatki" różnią się tylko tym, że dochodzi drugi podatek; reszta
+        // składników jest identyczna. Paliwo potrącamy w pełnej kwocie, bo
+        // odliczenie 50% VAT-u zostało już zdjęte z podatku wyżej.
+        const payout = wyplataTygodniowa({
+          przychodBazowy: total_base,
+          prowizje: total_commission,
+          gotowka: total_cash,
+          podatek: vat_amount,
+          podatekDodatkowy: planSettlementMode === 'dual_tax' ? secondary_vat_amount : 0,
+          oplataStala: effectiveServiceFee,
+          oplatyDodatkowe: total_additional_fees,
+          korektaReczna: manualWeekAdjustment,
+          wynajem: rental,
+          paliwo: total_fuel,
+        });
 
         // debtBeforeForDisplay/currentDebtForDisplay wyliczone wyżej (także dla tygodni bez jazdy)
         // Store raw payout (can be negative) — debt adjustment happens at render time via getDoWyplaty()
@@ -2417,7 +2762,23 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           manual_week_adjustment: manualWeekAdjustment,
           rental,
           fuel: total_fuel,
-          fuel_vat_refund: total_fuel_vat_refund,
+          fuel_vat_deduction: total_fuel_vat_deduction,
+          podatek_od_przychodu,
+          plan_name: planKierowcy?.name ?? null,
+          // Rozjazd „plan zapisany ≠ plan obowiązujący" zapala wykrzyknik przy
+          // nazwisku. Nic nie przeliczamy sami: część tych tygodni jest już
+          // wypłacona, więc decyzję podejmuje człowiek.
+          plan_obowiazujacy_id: stempelPlanuDostepny ? driverPlanId : null,
+          plan_uzyty_id: (settlementSnapshot as any)?.settlement_plan_id_uzyty ?? null,
+          plan_uzyty_name: (settlementSnapshot as any)?.settlement_plan_id_uzyty
+            ? (planUstawieniaMap.get((settlementSnapshot as any).settlement_plan_id_uzyty)?.name ?? 'plan usunięty')
+            : null,
+          uber_gross_total,
+          bolt_kampanie: Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base),
+          service_fee_source: ((persistedServiceFee !== null && persistedServiceFee !== undefined)
+            ? 'reczna'
+            : ((driverCustomFee !== null && driverCustomFee !== undefined) ? 'kierowca' : 'plan')) as
+              'reczna' | 'kierowca' | 'plan',
           net_without_commission: netto,
           final_payout: payout,
           has_negative_balance: hasNegativeBalance,
@@ -2535,7 +2896,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           onTabChange={setActiveSubTab}
           tabs={subTabs}
         />
-        <FleetCitySettings fleetId={fleetId} focusCityName={focusCityName} />
+        {/* JEDNA karta: plan ma nazwę, własne stawki Bolt i Uber oraz opcjonalne
+            miasto. Przypisujesz go kierowcy na jego karcie albo w popoverze „i"
+            w tabeli rozliczeń — obowiązuje od tygodnia, na którym stoisz. */}
+        <FleetSettlementPlans fleetId={fleetId} focusCityName={focusCityName} />
         <div className="mt-4">
           <FleetSettlementSettings fleetId={fleetId} />
         </div>
@@ -3071,6 +3435,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <Trash2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Usuń rozliczenie</span>
                 </Button>
+                {/* Filtr nie ma prawa chować ludzi po cichu — przy przełączniku
+                    stoi liczba ukrytych w tym tygodniu. */}
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap">
+                  <Checkbox
+                    checked={tylkoAktywni}
+                    onCheckedChange={(v) => przelaczTylkoAktywni(v === true)}
+                  />
+                  Pokaż tylko aktywnych
+                  {(() => {
+                    const nieaktywni = settlements.filter(s => !maAktywnosc(s)).length;
+                    if (nieaktywni === 0) return null;
+                    return (
+                      <span className="text-muted-foreground">
+                        ({tylkoAktywni ? `ukryto ${nieaktywni}` : `${nieaktywni} bez aktywności`})
+                      </span>
+                    );
+                  })()}
+                </label>
                 {!settlementsResetDone && (
                   <Button 
                     variant="destructive" 
@@ -3084,7 +3466,41 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 )}
               </div>
             </div>
-            
+
+            {/* Licznik rozjazdów planu. Nic nie przelicza sam — pokazuje, ilu
+                kierowców ma kwoty policzone innym planem, niż obowiązuje w tym
+                tygodniu, i daje jeden przycisk na wszystkich oznaczonych. */}
+            {(() => {
+              const doPrzeliczenia = settlements.filter(wymagaPrzeliczenia);
+              if (doPrzeliczenia.length === 0) return null;
+              const ilu = doPrzeliczenia.length;
+              const slowo = ilu === 1 ? 'kierowca wymaga' : 'kierowców wymaga';
+              const wTrakcie = doPrzeliczenia.some(w => przeliczaniKierowcy.has(w.driver_id));
+              return (
+                <div className="flex items-center justify-between gap-3 flex-wrap rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-2">
+                  <span className="flex items-center gap-2 text-xs min-w-0">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span>
+                      <span className="font-medium">{ilu} {slowo} przeliczenia</span>
+                      <span className="text-muted-foreground">
+                        {' '}— kwoty policzono innym planem, niż obowiązuje w tym tygodniu.
+                      </span>
+                    </span>
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs shrink-0"
+                    disabled={wTrakcie}
+                    onClick={przeliczOznaczonych}
+                  >
+                    {wTrakcie ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    Przelicz oznaczonych
+                  </Button>
+                </div>
+              );
+            })()}
+
             {/* Mobile action buttons - 2 rows */}
             <div className="md:hidden grid grid-cols-2 gap-2">
               <Button 
@@ -3304,6 +3720,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 if (s.payment_method !== 'transfer') return false;
               }
             }
+            // Tylko aktywni: ten sam warunek, którym wiersz decyduje, czy pokazać
+            // kwotę, czy kreskę (`hasAnyActivity` niżej) — żeby lista i wiersze
+            // mówiły to samo.
+            if (tylkoAktywni && !maAktywnosc(s)) return false;
             return true;
            }).sort((a, b) => {
             if (!sortColumn) return a.driver_name.localeCompare(b.driver_name, 'pl');
@@ -3410,15 +3830,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               <span className="text-red-600 font-medium tabular-nums">-{formatCurrency(settlement.fuel)}</span>
                             </div>
                           )}
-                          {settlement.fuel_vat_refund > 0 && (
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">VAT zwrot:</span>
-                              <span className="text-green-600 font-medium tabular-nums">+{formatCurrency(settlement.fuel_vat_refund)}</span>
-                            </div>
-                          )}
                           {settlement.vat_amount > 0 && (
                             <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">VAT:</span>
+                              <span className="text-muted-foreground">
+                                Podatek:
+                                {settlement.fuel_vat_deduction > 0 && (
+                                  <span className="block text-[10px] text-muted-foreground">
+                                    {formatCurrency(settlement.podatek_od_przychodu)} − {formatCurrency(settlement.fuel_vat_deduction)} (50% VAT od paliwa)
+                                  </span>
+                                )}
+                              </span>
                               <span className="text-red-600 font-medium tabular-nums">-{formatCurrency(settlement.vat_amount)}</span>
                             </div>
                           )}
@@ -3568,9 +3989,9 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-red-600 whitespace-nowrap">Paliwo</TableHead>
                       )}
                       {isColVisible('vat') && (
-                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">VAT {fleetVatRateState}%</TableHead>
+                        <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-purple-600 whitespace-nowrap">Podatek</TableHead>
                       )}
-                      {isColVisible('vat_refund') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-green-600 whitespace-nowrap">VAT zwrot</TableHead>}
+                      {isColVisible('vat_refund') && <TableHead className="text-right px-2 py-1.5 text-xs font-medium text-muted-foreground whitespace-nowrap">VAT paliwo</TableHead>}
                       {activeFees.filter(fee => {
                         // Sprawdź valid_from/valid_to
                         const weekStart = currentWeek?.start ? new Date(currentWeek.start) : new Date();
@@ -3616,18 +4037,85 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       const hasUberActivity = settlement.uber_base !== 0 || settlement.uber_cash !== 0;
                       const hasBoltActivity = settlement.bolt_base !== 0 || settlement.bolt_cash !== 0;
                       const hasFreenowActivity = settlement.freenow_base !== 0 || settlement.freenow_cash !== 0;
-                      const hasAnyActivity = hasUberActivity || hasBoltActivity || hasFreenowActivity;
+                      const hasAnyActivity = maAktywnosc(settlement);
                       
                       return (
-                      <TableRow key={settlement.driver_id} className="hover:bg-primary/10 transition-colors cursor-pointer">
+                      // Zaznaczenie ma INNY odcień niż podświetlenie pod kursorem,
+                      // żeby dało się widzieć oba naraz: gdzie jestem i co wybrałem.
+                      <TableRow
+                        key={settlement.driver_id}
+                        onClick={klikniecieWWiersz(settlement.driver_id)}
+                        aria-selected={zaznaczonyKierowca === settlement.driver_id}
+                        className={`transition-colors cursor-pointer hover:bg-primary/10 ${
+                          zaznaczonyKierowca === settlement.driver_id
+                            ? 'bg-sky-100 dark:bg-sky-950/40 ring-1 ring-inset ring-sky-400/60'
+                            : ''
+                        }`}
+                      >
                         <TableCell className="font-medium px-2 py-1.5 text-xs whitespace-nowrap">
                           <span className="flex items-center gap-1">
                             {settlement.driver_name}
+                            {wymagaPrzeliczenia(settlement) && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label={`Kwoty ${settlement.driver_name} policzone innym planem — kliknij, żeby przeliczyć`}
+                                    disabled={przeliczaniKierowcy.has(settlement.driver_id)}
+                                    className="inline-flex items-center justify-center h-5 w-5 shrink-0 rounded-full border border-amber-400 bg-amber-50 text-amber-700 cursor-pointer transition-colors hover:bg-amber-100 hover:border-amber-500 hover:text-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 disabled:cursor-default dark:bg-amber-950/40 dark:border-amber-700"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (await przeliczKierowce(settlement.driver_id)) {
+                                        toast.success(`Przeliczono: ${settlement.driver_name}`);
+                                        zaplanujOdswiezenie();
+                                      }
+                                    }}
+                                  >
+                                    {przeliczaniKierowcy.has(settlement.driver_id)
+                                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      : <AlertTriangle className="h-3.5 w-3.5" />}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent className="w-[420px] max-w-[90vw] whitespace-normal break-words text-xs leading-relaxed">
+                                  Kwoty policzone {settlement.plan_uzyty_name
+                                    ? <>planem „{settlement.plan_uzyty_name}"</>
+                                    : <>po ustawieniach miasta</>}
+                                  , a od tego tygodnia obowiązuje {settlement.plan_name
+                                    ? <>„{settlement.plan_name}"</>
+                                    : <>ustawienia miasta</>}.
+                                  {' '}Przeliczenie zapisze wypłatę i dług policzone obowiązującym planem —
+                                  tylko dla tego kierowcy i tylko w tym tygodniu.
+                                  {' '}<span className="font-medium">Kliknij ten wykrzyknik, żeby przeliczyć.</span>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <DriverInfoPopover
                               driverId={settlement.driver_id}
                               driverName={settlement.driver_name}
                               fleetId={fleetId}
+                              odTygodnia={currentWeek?.start}
                               onComplete={() => fetchSettlements()}
+                              onPlanZmieniony={(driverId, plan) => {
+                                // Zmiana planu przelicza TEN wiersz na miejscu.
+                                // Pełne `fetchSettlements()` (kilkanaście zapytań
+                                // i spinner) zostaje wyłącznie dla zapisu danych
+                                // kierowcy, gdzie naprawdę zmienia się wszystko.
+                                const ust = plan?.bolt ?? plan?.uber ?? null;
+                                zastosujPlanDoWiersza(
+                                  driverId,
+                                  ust
+                                    ? {
+                                        vat_rate: ust.vat_rate,
+                                        settlement_mode: ust.settlement_mode,
+                                        secondary_vat_rate: ust.secondary_vat_rate,
+                                        additional_percent_rate: ust.additional_percent_rate,
+                                        base_fee: ust.base_fee,
+                                        uber_calculation_mode: plan?.uber?.uber_calculation_mode ?? ust.uber_calculation_mode ?? null,
+                                      }
+                                    : null,
+                                  plan?.name ?? null,
+                                );
+                              }}
                             >
                               <button
                               type="button"
@@ -3723,7 +4211,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         {isColVisible('vat') && (
                           <TableCell className="text-right px-2 py-1.5 text-xs text-purple-600 tabular-nums whitespace-nowrap">
                             <span className="inline-flex items-center justify-end gap-1">
-                              {displayValue(settlement.vat_amount, hasAnyActivity, true)}
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>{displayValue(settlement.vat_amount, hasAnyActivity, true)}</span>
+                                </TooltipTrigger>
+                                <TooltipContent className="w-[380px] max-w-[90vw] whitespace-normal break-words text-xs leading-relaxed">
+                                  {settlement.vat_amount === 0 && settlement.podatek_od_przychodu === 0 ? (
+                                    <span>
+                                      Bez podatku{settlement.plan_name ? ` — plan „${settlement.plan_name}"` : ''}
+                                      {settlement.payment_method === 'b2b' ? ' (B2B: fakturę wystawia kierowca)' : ''}
+                                    </span>
+                                  ) : (
+                                    <span>
+                                      {formatCurrency(settlement.podatek_od_przychodu)} od przychodu
+                                      {settlement.fuel_vat_deduction > 0
+                                        ? ` − ${formatCurrency(settlement.fuel_vat_deduction)} (50% VAT od paliwa) = ${formatCurrency(settlement.vat_amount)}`
+                                        : ''}
+                                      {settlement.plan_name ? ` · plan „${settlement.plan_name}"` : ''}
+                                    </span>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
                               {settlement.city_settings_missing && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -3740,7 +4248,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                                       <AlertCircle className="h-3.5 w-3.5" />
                                     </button>
                                   </TooltipTrigger>
-                                  <TooltipContent>
+                                  <TooltipContent className="w-[320px] max-w-[90vw] whitespace-normal break-words text-xs leading-relaxed">
                                     Nie ustawiono stawki VAT dla miasta {settlement.city_name || 'bez nazwy'}. Kliknij, aby ustawić.
                                   </TooltipContent>
                                 </Tooltip>
@@ -3748,8 +4256,17 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                             </span>
                           </TableCell>
                         )}
-                        {isColVisible('vat_refund') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                          {settlement.fuel_vat_refund > 0 ? `+${formatCurrency(settlement.fuel_vat_refund)}` : (hasAnyActivity ? '0,00' : '-')}
+                        {/* Informacyjnie: ta kwota jest już ODJĘTA od podatku w kolumnie obok.
+                            Nie wolno jej nigdzie dodawać do wypłaty. */}
+                        {isColVisible('vat_refund') && <TableCell className="text-right px-2 py-1.5 text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>{settlement.fuel_vat_deduction > 0 ? formatCurrency(settlement.fuel_vat_deduction) : (hasAnyActivity ? '0,00' : '-')}</span>
+                            </TooltipTrigger>
+                            <TooltipContent className="w-[320px] max-w-[90vw] whitespace-normal break-words text-xs leading-relaxed">
+                              50% VAT-u od paliwa — odliczone już w kolumnie „Podatek", nie doliczane do wypłaty.
+                            </TooltipContent>
+                          </Tooltip>
                         </TableCell>}
                         {/* Editable: additional fees (składka ZUS etc.) - always match header count */}
                         {activeFees.filter(fee => {
@@ -4000,8 +4517,8 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                           -{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.vat_amount, 0))}
                         </TableCell>
                       )}
-                      {isColVisible('vat_refund') && <TableCell className="text-right px-2 py-1.5 text-xs text-green-600 tabular-nums whitespace-nowrap">
-                        +{formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.fuel_vat_refund, 0))}
+                      {isColVisible('vat_refund') && <TableCell className="text-right px-2 py-1.5 text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                        {formatCurrency(filteredSettlements.reduce((sum, s) => sum + s.fuel_vat_deduction, 0))}
                       </TableCell>}
                       {activeFees.filter(fee => {
                         const weekStart = currentWeek?.start ? new Date(currentWeek.start) : new Date();

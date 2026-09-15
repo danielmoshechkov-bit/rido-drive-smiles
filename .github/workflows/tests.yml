@@ -129,6 +129,13 @@ jobs:
       - name: Testy
         run: deno test --allow-read supabase/functions/_shared/
 
+      # Wzory rozliczen kierowcow, liczone na PRAWDZIWYM arkuszu floty
+      # (fixtures/wzorzec-rozliczenia.csv). Osobny krok, zeby wynik bylo widac
+      # nawet wtedy, gdy pada ktorys z testow agenta glosowego obok — inaczej
+      # jedna czerwona lampka zasloniłaby druga.
+      - name: Wzory rozliczen kierowcow
+        run: deno test --allow-read supabase/functions/_shared/rozliczenia_test.ts
+
   front:
     name: Kontrola typów (front)
     runs-on: ubuntu-latest
@@ -198,3 +205,26 @@ jobs:
 
       - name: Testy frontu
         run: npm run test:front
+
+      # 14.09.2026: ten sam podatek liczyly CZTERY miejsca — panel flotowy,
+      # ekran kierowcy i dwie funkcje brzegowe — kazde troche inaczej. Kolumna
+      # „Podatek" pokazywala 400,08 tam, gdzie arkusz floty ma 363,50 (50% VAT-u
+      # od paliwa bylo doliczane do WYPLATY zamiast pomniejszac PODATEK),
+      # a podstawa Ubera pomijala gotowke odebrana od pasazerow, wiec podatek
+      # byl zanizony o 8% tej gotowki. Wyplata wychodzila „prawie dobrze", wiec
+      # przez miesiace nikt tego nie zlapal. Testy licza na PRAWDZIWYM arkuszu
+      # (fixtures/wzorzec-rozliczenia.csv), a bramka pilnuje, zeby kopie wzorow
+      # nie odrosly — ma kontrole pozytywna i odwrotna.
+      # Same wzory licza sie w zadaniu „Funkcje brzegowe" — `deno test` po
+      # katalogu `_shared/` bierze `rozliczenia_test.ts` automatycznie. Tutaj
+      # zostaje bramka, ktora nie potrzebuje Deno.
+      - name: Wzory rozliczen kierowcow (bramka)
+        run: node scripts/check-rozliczenia-podatek.mjs
+
+      # Ta sama sesja: „Usunieto" nad wierszem, ktory zostawal na liscie.
+      # RLS przy UPDATE i DELETE nie rzuca wyjatkiem, tylko FILTRUJE wiersze —
+      # zapis bez uprawnien konczyl sie bez bledu i bez zmian, a panel meldowal
+      # sukces. Ta bramka pilnuje, ze stawki ida z ustawien miasta, a odczyt
+      # rozliczen niczego nie zapisuje.
+      - name: Bramki modulu rozliczen
+        run: npm run lint:rozliczenia
