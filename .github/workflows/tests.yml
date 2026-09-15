@@ -133,7 +133,13 @@ jobs:
       # (fixtures/wzorzec-rozliczenia.csv). Osobny krok, zeby wynik bylo widac
       # nawet wtedy, gdy pada ktorys z testow agenta glosowego obok — inaczej
       # jedna czerwona lampka zasloniłaby druga.
+      # `if: always()` NIE jest ozdoba. Bez niego krok jest POMIJANY, gdy padnie
+      # krok „Testy" wyzej — a on pada od tygodni na testach agenta glosowego.
+      # 15.09.2026 wyszlo to na pierwszym przebiegu po scaleniu: krok mial byc
+      # osobny wlasnie po to, zeby jedna czerwona lampka nie zaslaniala drugiej,
+      # i zostal pominiety. Krok pominiety nie pilnuje niczego.
       - name: Wzory rozliczen kierowcow
+        if: always()
         run: deno test --allow-read supabase/functions/_shared/rozliczenia_test.ts
 
   front:
