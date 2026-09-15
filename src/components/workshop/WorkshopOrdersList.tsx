@@ -6,6 +6,7 @@ import { useOrdersPaidMap } from '@/hooks/useFiscalCash';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNowePolaczenia } from '@/lib/nowePolaczenia';
+import { przygotujFaktureZeZlecenia, znajdzFaktureZlecenia } from '@/lib/fakturaZeZlecenia';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,7 +26,6 @@ import { WorkshopEditClientDialog } from './WorkshopEditClientDialog';
 import { WorkshopAssignClientDialog } from './WorkshopAssignClientDialog';
 import { useVehicleLookup } from '@/hooks/useVehicleLookup';
 import { zbudujDokumentZlecenia } from '@/utils/workshopOrderDocument';
-import { rozbijAdres } from '@/utils/adresKlienta';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { SimpleFreeInvoice } from '@/components/invoices/SimpleFreeInvoice';
@@ -310,95 +310,28 @@ export function WorkshopOrdersList({ providerId, onSelectOrder, ukryjRezerwacje,
     handleStatusChanged(orderId, newStatus);
   };
 
-  const openInvoiceForOrder = async (order: any, docType: 'invoice' | 'receipt' = 'invoice') => {
+  /**
+   * Faktura do zlecenia.
+   *
+   * 🔴 SZUKANIE ISTNIEJĄCEJ I SKŁADANIE NOWEJ SIEDZĄ W `lib/fakturaZeZlecenia.ts`.
+   * Te same dokumenty wystawia się też z historii zleceń przy pojeździe
+   * (`WorkshopDokumentyZlecenia`). Dopóki obie drogi wołają tę samą funkcję,
+   * poprawka trafia w obie naraz — a było tu już parę takich poprawek, w tym
+   * `deleted_at IS NULL` i rozbicie adresu nabywcy na pola wymagane przez KSeF.
+   */
+  const openInvoiceForOrder = async (order: any, _docType: 'invoice' | 'receipt' = 'invoice') => {
     try {
-      // Blokada drugiej faktury do tego samego zlecenia.
-      //
-      // 🔴 NAPRAWIONE 17.08.2026: brakowało `deleted_at IS NULL`. Usuwanie
-      // faktury jest MIĘKKIE — ustawia `deleted_at`, a wiersz zostaje. Wszystkie
-      // listy faktur to filtrują, ta blokada nie. Skutek: użytkownik kasował
-      // błędną fakturę (numeracja poprawnie wracała), a do zlecenia NIE DAŁO
-      // SIĘ wystawić nowej — system pokazywał tę usuniętą, razem z jej numerem
-      // i kwotą. Dotyczyło też faktur nigdy niewysłanych do KSeF, czyli takich,
-      // które wolno usuwać bez żadnych konsekwencji.
-      const { data: existing } = await (supabase as any)
-        .from('user_invoices')
-        .select('*')
-        .eq('workshop_order_id', order.id)
-        .neq('is_correction', true)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (existing) {
-        setExistingInvoice(existing);
+      const istniejaca = await znajdzFaktureZlecenia(order.id);
+      if (istniejaca) {
+        setExistingInvoice(istniejaca);
         setExistingInvoiceOrder(order);
         return;
       }
-
-      // Load order items
-      const { data: orderItems } = await (supabase as any)
-        .from('workshop_order_items')
-        .select('*')
-        .eq('order_id', order.id)
-        .order('sort_order');
-
-      // FAZA 5: puste wiersze z zestawienia (bez nazwy i bez ceny) nie wchodzą
-      // na fakturę — inaczej lądowały jako "1 | 0,00 zł" bez nazwy na PDF/KSeF.
-      const prefillItems = (orderItems || [])
-        .filter((item: any) => (item.name || '').trim() || item.unit_price_net || item.unit_price_gross)
-        .map((item: any) => ({
-          name: item.name || '',
-          quantity: item.quantity || 1,
-          unit: item.unit || 'usł.',
-          unit_net_price: item.unit_price_net || 0,
-          unit_gross_price: item.unit_price_gross || 0,
-          vat_rate: '23',
-          discount_percent: item.discount_percent || 0,
-        }));
-
-      const buyer: any = {};
-      if (order.client) {
-        buyer.name = order.client.client_type === 'company'
-          ? order.client.company_name
-          : `${order.client.first_name || ''} ${order.client.last_name || ''}`.trim();
-        buyer.nip = order.client.nip || '';
-
-        // 🔴 NAPRAWIONE 17.08.2026. Było `order.client.address` — KOLUMNY O TEJ
-        // NAZWIE NIE MA. Kartoteka trzyma adres w `street`, i to sklejony:
-        // ulica, numer domu i lokalu lądują tam jednym ciągiem. Faktura
-        // potrzebuje ich osobno (wymaga tego też KSeF).
-        //
-        // Skutek był taki, że na fakturze dochodziły tylko miasto i kod
-        // pocztowy, a użytkownik przy każdym dokumencie musiał klikać lupę
-        // przy NIP-ie i pobierać dane z GUS-u — mimo że w kartotece były.
-        const adres = rozbijAdres(order.client.street);
-        buyer.address_street = adres.ulica;
-        buyer.address_building_number = adres.numerBudynku;
-        buyer.address_apartment_number = adres.numerLokalu;
-        buyer.address_city = order.client.city || '';
-        buyer.address_postal_code = order.client.postal_code || '';
-        buyer.country = order.client.country || 'Polska';
-        buyer.email = order.client.email || '';
-      }
-
-      // Dane pojazdu i nr zlecenia NIE trafiają do uwag automatycznie — SimpleFreeInvoice
-      // pokaże dwa niezależne checkboxy (stany pamiętane między fakturami).
-      // Tylko wypełnione pola — bez pustych etykiet typu "Marka: ,".
-      const vehicleDesc = order.vehicle
-        ? [
-            order.vehicle.brand ? `Marka: ${order.vehicle.brand}` : '',
-            order.vehicle.model ? `Model: ${order.vehicle.model}` : '',
-            order.vehicle.plate ? `Nr rej: ${order.vehicle.plate}` : '',
-            order.vehicle.vin ? `VIN: ${order.vehicle.vin}` : '',
-          ].filter(Boolean).join(', ')
-        : '';
-
-      setInvoiceItems(prefillItems);
-      setInvoiceBuyer(buyer);
-      setInvoiceVehicleNotes(vehicleDesc);
-      setInvoiceOrderNotes(order.order_number ? `Do zlecenia: ${order.order_number}` : '');
+      const dane = await przygotujFaktureZeZlecenia(order);
+      setInvoiceItems(dane.pozycje);
+      setInvoiceBuyer(dane.nabywca);
+      setInvoiceVehicleNotes(dane.uwagiPojazd);
+      setInvoiceOrderNotes(dane.uwagiZlecenie);
       setInvoiceOrder(order);
     } catch (e: any) {
       toast.error(t('workshop.orders.loadItemsError'));

@@ -587,6 +587,8 @@ export interface DocumentBadges {
   receiptId: string | null;
   hasReceipt: boolean;
   hasInvoice: boolean;
+  /** Numer wystawionej faktury — to o niego pyta klient przez telefon. */
+  invoiceNumber?: string | null;
   hasReturn: boolean;
   hasCorrection: boolean;
 }
@@ -606,7 +608,10 @@ export function useOrderDocumentBadges(providerId?: string, documentType = 'work
           .in('status', ['printing', 'printed']),
         // `deleted_at IS NULL` — bez tego zlecenie z USUNIĘTĄ fakturą nadal dostawało
         // plakietkę „ma fakturę".
-        (supabase as any).from('user_invoices').select('workshop_order_id')
+        // `invoice_number` dochodzi tu po to, żeby historia zleceń przy pojeździe
+        // mogła pokazać NUMER dokumentu, a nie samo „jest faktura". Numer jest
+        // tym, o co pyta klient przez telefon.
+        (supabase as any).from('user_invoices').select('workshop_order_id, invoice_number')
           .not('workshop_order_id', 'is', null).is('deleted_at', null),
         (supabase as any).from('fiscal_returns').select('receipt_id').eq('provider_id', providerId),
         (supabase as any).from('fiscal_corrections').select('receipt_id').eq('provider_id', providerId),
@@ -624,6 +629,7 @@ export function useOrderDocumentBadges(providerId?: string, documentType = 'work
           receiptNumber: row.printer_receipt_number ?? null,
           hasReceipt: true,
           hasInvoice: false,
+          invoiceNumber: null,
           hasReturn: false,
           hasCorrection: false,
         });
@@ -637,6 +643,7 @@ export function useOrderDocumentBadges(providerId?: string, documentType = 'work
           receiptNumber: null,
           hasReceipt: false,
           hasInvoice: false,
+          invoiceNumber: null,
           hasReturn: false,
           hasCorrection: false,
         };
@@ -645,7 +652,10 @@ export function useOrderDocumentBadges(providerId?: string, documentType = 'work
       };
 
       for (const row of ((invoices.data as any[]) ?? [])) {
-        if (row.workshop_order_id) ensure(row.workshop_order_id).hasInvoice = true;
+        if (!row.workshop_order_id) continue;
+        const b = ensure(row.workshop_order_id);
+        b.hasInvoice = true;
+        b.invoiceNumber = row.invoice_number ?? b.invoiceNumber ?? null;
       }
       for (const row of ((returns.data as any[]) ?? [])) {
         const documentId = receiptToDocument.get(row.receipt_id);

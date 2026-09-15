@@ -203,6 +203,41 @@ bo mieści się w ekranie; problemem jest czytelność, nie szerokość.
 
 ---
 
+## ⭐ WI658ME — BMW Z VIN-em AUDI, DO SPRAWDZENIA U WARSZTATU (15.09.2026)
+
+Znalezione przy scalaniu zduplikowanych pojazdów, **nie naprawione** — bo to
+nie jest usterka systemu, tylko dane wpisane przez człowieka.
+
+CART78GARAGE sp. z o.o., tablica **WI658ME**, oba wiersze opisane jako
+„BMW X3 Diesel", oba założone 1.09.2026 w tej samej minucie:
+
+```
+WBAWZ510100M31178   ← prefiks WBA = BMW
+WAUZZZ4M0HD045245   ← prefiks WAU = AUDI
+```
+
+Po scaleniu został jeden wiersz z **dłuższym** VIN-em (oba mają 17 znaków, więc
+zadecydowała kolejność) — czyli równie dobrze mógł zostać ten niewłaściwy.
+
+Pozostałe cztery przypadki „różne VIN-y pod jedną tablicą" były obciętymi
+odczytami tego samego numeru (`WMW0489` obok `WMWXR5C05L2L70489`) i scalenie
+wybrało pełny. Ten jeden jest inny: to dwa RÓŻNE, pełne numery, z których
+jeden należy do innego samochodu.
+
+**Co z tym zrobić:** zapytać warsztat, który VIN jest prawdziwy, i poprawić
+ręcznie. Jednym zapytaniem:
+
+```sql
+SELECT id, vin, brand, model, created_at
+FROM workshop_vehicles
+WHERE upper(regexp_replace(coalesce(plate,''),'[^A-Za-z0-9]','','g')) = 'WI658ME';
+```
+
+Dopóki VIN jest zły, dane naprawcze i katalogi części dla tego auta pokażą
+nie ten samochód.
+
+---
+
 ## ✅ CONVERSIONS API — ŁAŃCUCH SPRAWDZONY WYWOŁANIEM (14.09.2026)
 
 Migracja `20260913154236` wykonana, oba sekrety dodane, sześć funkcji
