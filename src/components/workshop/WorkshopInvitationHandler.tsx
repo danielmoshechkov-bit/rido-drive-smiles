@@ -8,10 +8,28 @@ import { Loader2, CheckCircle2, Users, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 /**
- * Global handler for `?invitation=<id>` from email links.
- * Token-based: works even when the user is NOT logged in. The acceptance
- * is performed server-side using the invitation UUID as token.
+ * Obsługa `?invitation=<id>` z linku w mailu albo w SMS-ie.
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * DWIE DROGI DO TEGO SAMEGO — OBIE POTRZEBNE
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 1. ŻETON Z LINKU. Kliknięcie działa bez zalogowania, ale wtedy nie ma kogo
+ *    przypiąć — zaproszenie zostaje otwarte (patrz funkcja brzegowa), a my
+ *    ZAPAMIĘTUJEMY jego numer w przeglądarce. Po założeniu konta wołamy
+ *    przyjęcie jeszcze raz, już z sesją: dowodem jest link, który przyszedł
+ *    na numer albo na adres zaproszonego.
+ * 2. DOPASOWANIE PO ZALOGOWANIU (`powiaz_pracownika_po_zalogowaniu`) — dla
+ *    wszystkich, którzy zakładali konto gdzie indziej niż klikali link.
+ *    Dopasowuje po POTWIERDZONYM adresie konta, nigdy po numerze wpisanym
+ *    przy rejestracji: ten jest własnym oświadczeniem zakładającego.
+ *
+ * Do 15.09.2026 nie działała żadna: przyjęcie zamykało zaproszenie, zanim
+ * powstało konto, a skan po zalogowaniu ponawiał wyłącznie te `pending`.
+ * W bazie: dziesięć zaproszeń przyjętych, dwóch pracowników powiązanych.
  */
+
+/** Numer zaproszenia przeczekuje w przeglądarce rejestrację. */
+const KLUCZ_ZAPROSZENIA = 'getrido.zaproszenie.pracownik';
 export function WorkshopInvitationHandler() {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
@@ -24,6 +42,8 @@ export function WorkshopInvitationHandler() {
   const [invitedEmail, setInvitedEmail] = useState<string>('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [emailMatchesUser, setEmailMatchesUser] = useState(false);
+  /** Zaproszenie przyjęte, ale nie ma jeszcze konta, do którego je przypiąć. */
+  const [czekaNaKonto, setCzekaNaKonto] = useState(false);
 
   const acceptInvitation = useCallback(async (invId: string) => {
     const { data, error } = await supabase.functions.invoke('workshop-accept-employee-invitation', {
@@ -45,6 +65,16 @@ export function WorkshopInvitationHandler() {
       try {
         const res = await acceptInvitation(invitationId);
         if (cancelled) return;
+
+        // Bez konta zaproszenie zostaje otwarte — a żeton czeka w przeglądarce
+        // na powrót po rejestracji. Bez tego zapisu link zadziałałby raz
+        // i nigdy więcej, bo drugi raz nikt go już nie otworzy.
+        setCzekaNaKonto(!!res.czeka_na_konto);
+        if (res.czeka_na_konto) {
+          try { localStorage.setItem(KLUCZ_ZAPROSZENIA, invitationId); } catch { /* prywatne okno */ }
+        } else {
+          try { localStorage.removeItem(KLUCZ_ZAPROSZENIA); } catch { /* jw. */ }
+        }
 
         setCompanyName(res.company_name || t('workshop.invitation.workshopFallback'));
         setInvitedEmail(res.invited_email || '');
@@ -73,28 +103,49 @@ export function WorkshopInvitationHandler() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invitationId]);
 
-  // After login (or token refresh), link any accepted-but-unlinked invitations to the user
+  // Po zalogowaniu: dopasowanie po stronie bazy + dokończenie zaproszenia,
+  // którego link kliknięto przed założeniem konta.
   useEffect(() => {
     let cancelled = false;
-    const scan = async () => {
+
+    const dopnij = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || cancelled) return;
-        const email = (user.email || '').toLowerCase();
-        const { data: invs } = await (supabase.from('workshop_employee_invitations') as any)
-          .select('id, status, invited_email')
-          .or(`invited_email.eq.${email},invited_user_id.eq.${user.id}`);
-        if (!invs || cancelled) return;
-        for (const inv of invs as any[]) {
-          if (inv.status === 'pending') {
-            try { await acceptInvitation(inv.id); } catch (e) { console.warn('auto-accept failed', e); }
+
+        // 1. Dopasowanie po potwierdzonej tożsamości konta. Funkcja nie
+        //    przyjmuje parametrów — działa wyłącznie na `auth.uid()`, więc nie
+        //    ma czego podstawić, żeby wejść do cudzego warsztatu.
+        const { data: powiazane, error } = await (supabase as any)
+          .rpc('powiaz_pracownika_po_zalogowaniu');
+        if (error) {
+          console.warn('powiaz_pracownika_po_zalogowaniu', error.message);
+        } else if (Array.isArray(powiazane) && powiazane.length > 0) {
+          toast.success(
+            powiazane.length === 1
+              ? `Dołączono do zespołu: ${powiazane[0].warsztat}`
+              : `Dołączono do ${powiazane.length} zespołów`,
+          );
+        }
+
+        // 2. Zaproszenie zapamiętane przed rejestracją — teraz jest kogo przypiąć.
+        const zapamietane = localStorage.getItem(KLUCZ_ZAPROSZENIA);
+        if (zapamietane) {
+          try {
+            const res = await acceptInvitation(zapamietane);
+            if (res?.user_linked) localStorage.removeItem(KLUCZ_ZAPROSZENIA);
+          } catch (e) {
+            console.warn('dokończenie zaproszenia nie doszło', e);
           }
         }
-      } catch (e) { console.warn('auto-link scan failed', e); }
+      } catch (e) {
+        console.warn('dopięcie po zalogowaniu nie doszło', e);
+      }
     };
-    scan();
+
+    dopnij();
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') scan();
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') dopnij();
     });
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, [acceptInvitation]);
@@ -142,6 +193,16 @@ export function WorkshopInvitationHandler() {
             <div className="space-y-3 text-sm">
               {!isLoggedIn ? (
                 <>
+                  {czekaNaKonto && (
+                    // Hardkod po polsku świadomie: zdanie powstało 15.09.2026
+                    // i ma trafić do ludzi od razu, a nie po siedmiu tłumaczeniach.
+                    // Zaproszenie ZOSTAJE otwarte — link zadziała jeszcze raz.
+                    <p className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                      Zaproszenie czeka na Twoje konto. Załóż je albo zaloguj się
+                      <strong> w tej samej przeglądarce</strong> — dokończymy dołączenie
+                      do zespołu automatycznie. Link z wiadomości nadal działa.
+                    </p>
+                  )}
                   <p className="font-medium">{t('workshop.invitation.howToStart')}</p>
                   <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                     <li><Trans i18nKey="workshop.invitation.stepLoginEmail" values={{ email: invitedEmail }} components={{ strong: <strong /> }} /></li>
