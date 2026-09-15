@@ -28,7 +28,7 @@
     "test:capi": "node scripts/sprawdz-lancuch-capi.mjs",
     "test:osadzenia": "node scripts/sprawdz-osadzenia.mjs",
     "test:bramki": "node scripts/test-bramki-jwt.mjs",
-    "test:rozliczenia": "DENO_NO_PACKAGE_JSON=1 deno test --allow-read supabase/functions/_shared/rozliczenia_test.ts && node scripts/check-rozliczenia-podatek.mjs"
+    "test:rozliczenia": "DENO_NO_PACKAGE_JSON=1 deno test --allow-read supabase/functions/_shared/rozliczenia_test.ts && node scripts/check-rozliczenia-podatek.mjs && node scripts/test-tydzien-zapisu.mjs"
   },
   "dependencies": {
     "@elevenlabs/react": "^0.14.1",

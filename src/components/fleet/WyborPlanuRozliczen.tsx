@@ -12,6 +12,7 @@ import {
   useUstawPlanKierowcy,
   useUsunPrzypisanie,
 } from '@/hooks/usePlanyRozliczen';
+import { tydzienZDaty, useTydzienZapisu, zdanieOTygodniu } from '@/hooks/useWybranyTydzien';
 
 /**
  * Wybór planu rozliczeń kierowcy — JEDEN komponent na dwa miejsca: popover „i"
@@ -20,10 +21,18 @@ import {
  * Zmiana zrobiona w jednym miejscu jest natychmiast widoczna w drugim, bo oba
  * czytają tę samą pamięć podręczną zapytań.
  *
- * PLAN OBOWIĄZUJE OD TYGODNIA, NA KTÓRYM STOISZ, W PRZÓD. Wcześniejsze tygodnie
- * zostają nietknięte — są rozliczone. Dlatego komponent MUSI dostać `odTygodnia`
- * z ekranu, na którym go otwarto; brak tej daty to cichy powrót do „zmiana
- * działa wstecz na wszystko", czyli dokładnie to, co naprawiamy.
+ * PLAN OBOWIĄZUJE OD TYGODNIA WYBRANEGO W MODULE ROZLICZEŃ, W PRZÓD.
+ * Wcześniejsze tygodnie zostają nietknięte — są rozliczone.
+ *
+ * OBA MIEJSCA ZAPISUJĄ OD TEGO SAMEGO TYGODNIA. Lista kierowców nie ma własnego
+ * wyboru tygodnia, więc bierze go ze wspólnego stanu (`useTydzienZapisu`), a nie
+ * z dzisiejszej daty. Do 15.09.2026 brała bieżący poniedziałek i przez to
+ * ustawienie zrobione na liście lądowało w innym tygodniu niż to z tabeli —
+ * wyglądało, jakby plan „nie synchronizował się" między ekranami.
+ *
+ * Zdanie o dacie obowiązywania stoi NAD wyborem planu, nie pod nim: zapis
+ * dzieje się w chwili wyboru z listy, więc użytkownik musi wiedzieć wcześniej,
+ * czego dotknie.
  */
 export function WyborPlanuRozliczen({
   driverId,
@@ -34,13 +43,21 @@ export function WyborPlanuRozliczen({
 }: {
   driverId: string;
   fleetId?: string | null;
-  /** Poniedziałek tygodnia, od którego plan ma obowiązywać. Domyślnie bieżący tydzień. */
+  /**
+   * Poniedziałek tygodnia, od którego plan ma obowiązywać. Pominięty — bierzemy
+   * tydzień wybrany w module rozliczeń (wspólny stan), a gdy nikt nic nie wybrał,
+   * tydzień bieżący.
+   */
   odTygodnia?: string | null;
   rozmiar?: 'maly' | 'normalny';
   /** Dostaje wybrany plan, żeby wywołujący mógł przeliczyć swój widok bez przeładowania. */
   onZmieniono?: (plan: PlanFloty | null) => void;
 }) {
-  const tydzien = odTygodnia || poniedzialekTygodnia();
+  const tydzienZeStanu = useTydzienZapisu();
+  // Prop wygrywa (ekran, który zna swój tydzień), ale domyślnie bierzemy TEN SAM
+  // tydzień, co tabela rozliczeń — żeby oba miejsca zapisywały w to samo miejsce.
+  const tydzienZapisu = odTygodnia ? tydzienZDaty(odTygodnia) : tydzienZeStanu;
+  const tydzien = tydzienZapisu.start;
   const { data: plany, isLoading: ladujePlany, error: bladPlanow } = usePlanyFloty(fleetId);
   const { data: przypisania, isLoading: ladujePrzypisania } = usePrzypisaniaPlanow(fleetId);
   const ustawPlan = useUstawPlanKierowcy();
@@ -73,7 +90,10 @@ export function WyborPlanuRozliczen({
   const dataPl = new Date(tydzien).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium rounded-md border border-primary/30 bg-primary/5 px-2 py-1.5">
+        {zdanieOTygodniu(tydzienZapisu)}
+      </p>
       <Select
         value={biezacyPlan ?? 'brak'}
         disabled={ustawPlan.isPending}
@@ -113,9 +133,8 @@ export function WyborPlanuRozliczen({
           ))}
         </SelectContent>
       </Select>
-      <p className="text-[10px]">
-        <span className="font-medium">Zmiana obowiązuje od tygodnia {dataPl}</span>
-        <span className="text-muted-foreground"> w przód. Wcześniejsze tygodnie zostają bez zmian.</span>
+      <p className="text-[10px] text-muted-foreground">
+        Wcześniejsze tygodnie zostają bez zmian.
       </p>
 
       {/* Historia przypisań. Bez niej nie widać, dlaczego tabela pokazuje inny plan

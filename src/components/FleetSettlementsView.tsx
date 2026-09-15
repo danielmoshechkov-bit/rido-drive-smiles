@@ -51,6 +51,7 @@ import {
   wyplataTygodniowa,
 } from '@/lib/rozliczenia';
 import { planNaTydzien, usePrzypisaniaPlanow } from '@/hooks/usePlanyRozliczen';
+import { useWybranyTydzienStore } from '@/hooks/useWybranyTydzien';
 import { getAvailableWeeks, getCurrentWeekNumber, getSettlementExecutionDate, getWeekDates } from '@/lib/utils';
 import { buildWeeklyDebtSplit } from '@/lib/fleetDebtSplit';
 
@@ -1453,6 +1454,21 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   // Generate week options for the selected year
   const weeks = getAvailableWeeks(selectedYear);
   const currentWeek = weeks.find(w => w.number === selectedWeek);
+
+  // Wybrany tydzień idzie do wspólnego stanu, żeby karta kierowcy na Liście
+  // kierowców zapisywała plan od TEGO SAMEGO tygodnia co popover „i" tutaj.
+  // Bez tego lista brała bieżący poniedziałek i przypisanie lądowało w innym
+  // tygodniu niż to z tabeli — wyglądało to jak brak synchronizacji planów.
+  const ustawWybranyTydzien = useWybranyTydzienStore(s => s.ustawTydzien);
+  useEffect(() => {
+    if (!currentWeek) return;
+    ustawWybranyTydzien({
+      rok: selectedYear,
+      numer: currentWeek.number,
+      start: currentWeek.start,
+      koniec: currentWeek.end,
+    });
+  }, [selectedYear, currentWeek?.number, currentWeek?.start, currentWeek?.end]);
 
   useEffect(() => {
     // KROK 3: bez zaladowanej listy miast nie da sie rozwiazac miasta kierowcy,
