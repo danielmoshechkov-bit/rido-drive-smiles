@@ -217,3 +217,41 @@ export function useUstawPlanKierowcy() {
     },
   });
 }
+
+/**
+ * Kasuje JEDNO przypisanie (wiersz historii). Po skasowaniu obowiązuje wcześniejszy
+ * wiersz, a gdy go nie ma — ustawienia miasta.
+ *
+ * Potrzebne, bo pomyłka w dacie inaczej zostaje na zawsze: przypisanie zrobione
+ * na złym tygodniu da się tylko nadpisać innym planem, nie cofnąć.
+ */
+export function useUsunPrzypisanie() {
+  const klient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ driverId, odTygodnia }: { driverId: string; odTygodnia: string }) => {
+      await wykonajZapis(
+        (supabase as any)
+          .from('driver_plan_assignments')
+          .delete()
+          .eq('driver_id', driverId)
+          .eq('effective_from', odTygodnia)
+          .select('id'),
+        `Usunięcie przypisania od ${odTygodnia}`,
+      );
+      return { driverId, odTygodnia };
+    },
+    onSuccess: () => {
+      klient.invalidateQueries({ queryKey: [KLUCZ_PRZYPISANIA] });
+    },
+  });
+}
+
+/** Historia przypisań jednego kierowcy, od najnowszego. */
+export function historiaKierowcy(
+  przypisania: PrzypisaniePlanu[] | undefined,
+  driverId: string,
+): PrzypisaniePlanu[] {
+  return (przypisania || [])
+    .filter((p) => p.driver_id === driverId)
+    .sort((a, b) => b.effective_from.localeCompare(a.effective_from));
+}

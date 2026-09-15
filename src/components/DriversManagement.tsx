@@ -1094,12 +1094,14 @@ export const DriversManagement = ({ cityId, cityName, onDriverUpdate, fleetId, m
                                   <Banknote size={14} />
                                   <span className="text-xs font-medium">Plan rozliczeń</span>
                                 </div>
-                                {/* Bez `odTygodnia` komponent bierze bieżący tydzień —
-                                    lista kierowców nie stoi na żadnym konkretnym. */}
+                                {/* Lista kierowców nie stoi na żadnym tygodniu, więc zapis
+                                    idzie z BIEŻĄCEGO tygodnia — komponent wypisuje tę datę
+                                    pod polem i pokazuje historię przypisań. Odświeżania listy
+                                    nie wołamy: plan czyta się ze wspólnej pamięci podręcznej,
+                                    którą zapis sam unieważnia. */}
                                 <WyborPlanuRozliczen
                                   driverId={driver.id}
                                   fleetId={(driver as any).fleet_id}
-                                  onZmieniono={refetch}
                                 />
                               </div>
 

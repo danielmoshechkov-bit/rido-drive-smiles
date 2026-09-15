@@ -46,11 +46,11 @@ import { useUserRole } from '@/hooks/useUserRole';
 import {
   czyNaliczacPodatek,
   odliczenieVatOdPaliwa,
-  pomniejszOPaliwo,
+  podatekTygodnia,
   ustawieniaKierowcy,
   wyplataTygodniowa,
 } from '@/lib/rozliczenia';
-import { planNaTydzien } from '@/hooks/usePlanyRozliczen';
+import { planNaTydzien, usePrzypisaniaPlanow } from '@/hooks/usePlanyRozliczen';
 import { getAvailableWeeks, getCurrentWeekNumber, getSettlementExecutionDate, getWeekDates } from '@/lib/utils';
 import { buildWeeklyDebtSplit } from '@/lib/fleetDebtSplit';
 
@@ -99,6 +99,14 @@ interface DriverSettlement {
   podatek_od_przychodu: number;
   /** Nazwa planu rozliczeń kierowcy (do podpowiedzi przy kolumnie VAT). */
   plan_name?: string | null;
+  // Poniższe trzy pola są po to, żeby dało się przeliczyć TEN wiersz po zmianie
+  // planu bez ponownego pobierania całej tabeli (patrz `zastosujPlanDoWiersza`).
+  /** Uber, kolumna G z CSV — potrzebna w trybach liczących od brutto. */
+  uber_gross_total?: number;
+  /** Bolt: |kampanie| + |anulacje| + |rekompensaty| — podstawa drugiego podatku. */
+  bolt_kampanie?: number;
+  /** Skąd wzięła się opłata stała: ręczna korekta, własna stawka kierowcy czy plan. */
+  service_fee_source?: 'reczna' | 'kierowca' | 'plan';
   // For rental view
   vehicle?: string;
   weekly_rental_fee?: number;
@@ -220,6 +228,31 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
     return new Set();
   });
   // Toggle between detailed (with rental columns) and simple view
+  /**
+   * „Pokaż tylko aktywnych" — chowa kierowców, którzy w tym tygodniu nic nie
+   * wyjeździli (same kreski w każdej kolumnie). Wybór zostaje na kolejne tygodnie
+   * i kolejne wejścia, bo to ustawienie widoku, nie filtr jednorazowy.
+   */
+  /**
+   * Przypisania planów czytane z tej samej pamięci podręcznej, co popover „i"
+   * i karta kierowcy. Tabela liczy kwoty z własnego pobrania, ale MUSI dowiedzieć
+   * się o zmianie zrobionej na drugim ekranie — inaczej „jedno źródło prawdy"
+   * kończy się na bazie, a na ekranach stoją dwie różne prawdy.
+   *
+   * Zmiana pamięci podręcznej planuje ciche odświeżenie (bez spinnera), a nie
+   * przeładowanie widoku.
+   */
+  const { dataUpdatedAt: przypisaniaZmienioneO } = usePrzypisaniaPlanow(fleetId);
+  const przypisaniaZnaneRef = useRef<number>(0);
+
+  const [tylkoAktywni, setTylkoAktywni] = useState<boolean>(() => {
+    try { return localStorage.getItem(`fleet_tylko_aktywni_${fleetId}`) === '1'; } catch { return false; }
+  });
+  const przelaczTylkoAktywni = (wlaczone: boolean) => {
+    setTylkoAktywni(wlaczone);
+    try { localStorage.setItem(`fleet_tylko_aktywni_${fleetId}`, wlaczone ? '1' : '0'); } catch {}
+  };
+
   const [showRentalColumns, setShowRentalColumns] = useState<boolean>(() => {
     try {
       return localStorage.getItem(`fleet_show_rental_${fleetId}`) !== 'false';
@@ -470,6 +503,16 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   };
 
   // Color amounts based on value
+  /**
+   * Czy kierowca w ogóle jeździł w tym tygodniu. JEDEN warunek na dwa zastosowania:
+   * czy wiersz pokazuje kwoty czy kreski, i czy filtr „tylko aktywni" go zostawia.
+   * Dwie kopie tego warunku skończyłyby się listą, która chowa kogoś z kwotami.
+   */
+  const maAktywnosc = (s: DriverSettlement): boolean =>
+    s.uber_base !== 0 || s.uber_cash !== 0 ||
+    s.bolt_base !== 0 || s.bolt_cash !== 0 ||
+    s.freenow_base !== 0 || s.freenow_cash !== 0;
+
   const getAmountColor = (amount: number) => {
     if (amount > 0) return 'text-green-600 font-semibold';
     if (amount < 0) return 'text-red-600 font-semibold';
@@ -1167,6 +1210,72 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       if (odswiezenieRef.current) clearTimeout(odswiezenieRef.current);
     };
   }, []);
+
+  /**
+   * Zmiana planu kierowcy — przeliczamy JEDEN wiersz na miejscu.
+   *
+   * Do 15.09.2026 po wyborze planu leciało pełne `fetchSettlements()`: kilkanaście
+   * zapytań, spinner i wywrócenie całej tabeli, żeby zmienić jedną kwotę.
+   * Teraz liczymy ten wiersz tą samą funkcją, którą liczy go tabela
+   * (`podatekTygodnia` ze wspólnego modułu), a z bazy dociągamy po cichu w tle.
+   *
+   * `ustawienia === null` znaczy „bez planu": wracamy do stawek miasta, których
+   * z wiersza nie odtworzymy — wtedy jedyne, co możemy zrobić uczciwie, to
+   * odświeżyć w tle i do tego czasu pokazać kwoty sprzed zmiany.
+   */
+  const zastosujPlanDoWiersza = (
+    driverId: string,
+    ustawienia: { vat_rate: number; settlement_mode: string; secondary_vat_rate: number;
+                  additional_percent_rate: number; base_fee: number; uber_calculation_mode: string | null } | null,
+    nazwaPlanu: string | null,
+  ) => {
+    if (ustawienia) {
+      setSettlements(prev => prev.map(w => {
+        if (w.driver_id !== driverId) return w;
+        const podatekNaliczany = w.payment_method !== 'b2b';
+        const wynik = podatekTygodnia(
+          {
+            uberBase: w.uber_base,
+            uberGrossTotal: w.uber_gross_total ?? 0,
+            boltBase: w.bolt_base,
+            freeNowBase: w.freenow_base,
+            boltKampanie: w.bolt_kampanie ?? 0,
+          },
+          ustawienia,
+          { paliwo: w.fuel, podatekNaliczany },
+        );
+        // Opłatę z planu bierzemy tylko wtedy, gdy nie nadpisuje jej ręczna
+        // korekta tygodnia ani własna stawka kierowcy — ta sama kolejność,
+        // co przy liczeniu całej tabeli.
+        const oplata = w.service_fee_source === 'plan' ? Number(ustawienia.base_fee) : w.service_fee;
+        const przeliczony: DriverSettlement = {
+          ...w,
+          plan_name: nazwaPlanu,
+          service_fee: oplata,
+          vat_amount: wynik.podatek,
+          tax_8_percent: wynik.podatek,
+          podatek_od_przychodu: wynik.podatekOdPrzychodu,
+          fuel_vat_deduction: wynik.odliczenieVatPaliwa,
+          secondary_vat_amount: wynik.podatekDodatkowy,
+        };
+        return { ...przeliczony, final_payout: calculateRawPayout(przeliczony) };
+      }));
+    }
+    // Baza dostaje zmianę w tle — bez spinnera i bez przeliczania łańcucha długu.
+    zaplanujOdswiezenie();
+  };
+
+  useEffect(() => {
+    // Pierwsze wczytanie nie jest zmianą — nie odświeżamy po nim tabeli.
+    if (przypisaniaZnaneRef.current === 0) {
+      przypisaniaZnaneRef.current = przypisaniaZmienioneO;
+      return;
+    }
+    if (przypisaniaZmienioneO && przypisaniaZmienioneO !== przypisaniaZnaneRef.current) {
+      przypisaniaZnaneRef.current = przypisaniaZmienioneO;
+      zaplanujOdswiezenie();
+    }
+  }, [przypisaniaZmienioneO]);
 
   /** Odświeżenie z bazy raz, po serii edycji — nie po każdej z osobna. */
   const zaplanujOdswiezenie = () => {
@@ -2351,95 +2460,46 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
 
         // B2B/VAT already calculated above (before negative balance check)
 
-        // === DUAL TAX MODE: Calculate from specific Bolt CSV columns ===
-        // `podatek_brutto` to sam procent od przychodu. Odliczenie 50% VAT-u od
-        // paliwa dokładamy niżej, jednym wywołaniem dla obu trybów.
-        let podatek_brutto = 0;
-        let bolt_ef_base = 0;
-        let bolt_ijk_base = 0;
-        let additional_percent_amount = 0;
-        let secondary_vat_amount = 0;
+        // === Podatek za tydzień ===
+        // Różnica między trybem „jeden podatek" a „dwa podatki" żyje w JEDNYM
+        // miejscu — `podatekTygodnia` we wspólnym module, sprawdzonym na arkuszu.
+        // Ta sama funkcja liczy wiersz po zmianie planu (bez przeładowania
+        // tabeli), więc obie ścieżki nie mają jak się rozjechać.
+        const bolt_i_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_i || '0');
+        }, 0);
+        const bolt_j_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_j || '0');
+        }, 0);
+        const bolt_k_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_k || '0');
+        }, 0);
+        const bolt_ef_base = driverSettlements.reduce((sum, s) => {
+          const amounts = s.amounts as any || {};
+          return sum + parseFloat(amounts.bolt_col_e || '0') + parseFloat(amounts.bolt_col_f || '0');
+        }, 0);
+        const bolt_ijk_base = bolt_i_base + bolt_j_base + bolt_k_base;
+        const additional_percent_amount = 0;
 
-        if (planSettlementMode === 'dual_tax') {
-          // Aggregate Bolt columns E, F, G, I, J, K from amounts JSON
-          bolt_ef_base = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_e || '0') + parseFloat(amounts.bolt_col_f || '0');
-          }, 0);
-          
-          // Bonusy (I) + Rekompensaty (K) - these are 23% VAT items, FULLY deducted from payout
-          const bolt_i_base = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_i || '0');
-          }, 0);
-          const bolt_k_base = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_k || '0');
-          }, 0);
-          // Anulacje (J) - informational only, already reflected in Bolt payout S
-          const bolt_j_base = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_j || '0');
-          }, 0);
-          // Napiwki (G) - informational, included in S
-          const bolt_g_tips = driverSettlements.reduce((sum, s) => {
-            const amounts = s.amounts as any || {};
-            return sum + parseFloat(amounts.bolt_col_g || '0');
-          }, 0);
-          
-          bolt_ijk_base = bolt_i_base + bolt_j_base + bolt_k_base; // Keep for backward compat
-          
-          // Tax 1: Combined VAT% + Additional% from Bolt D (brutto)
-          // e.g. 8% VAT + 1% additional = 9% total
-          const combinedVatRate = effectiveVatRate + driverAdditionalPercentRate;
-          // Use bolt_base (Column D) for primary VAT calculation
-          // Kwoty platform wchodzą do podstawy ZE SWOIM ZNAKIEM — ujemna korekta
-          // pomniejsza przychód, tak jak pomniejsza wypłatę (`total_base`).
-          const bolt_vat_ef = !podatekNaliczany ? 0 : bolt_base * (combinedVatRate / 100);
-          additional_percent_amount = 0;
-          // Tax 2: 23% VAT on campaigns(I) + returns(J) + cancellations(K)
-          secondary_vat_amount = !podatekNaliczany ? 0 : (Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base)) * (driverSecondaryVatRate / 100);
-          
-          // For Uber in DUAL TAX mode:
-          // 'netto' (Od netto): kolumna E + 25% → VAT od tego
-          // 'brutto' (Od brutto): kolumna G z CSV Uber → VAT od tego
-          const uber_vat_base = driverUberCalcMode === 'brutto' 
-            ? ((uber_gross_total != null && uber_gross_total > 0) ? uber_gross_total : uber_base * 1.25)
-            : uber_base * 1.25;
-          const uber_freenow_base = uber_vat_base + freenow_base;
-          const uber_freenow_vat = !podatekNaliczany ? 0 : uber_freenow_base * (effectiveVatRate / 100);
-          
-          podatek_brutto = bolt_vat_ef + uber_freenow_vat;
-        } else {
-          // === SINGLE TAX MODE ===
-          // Podstawa Ubera to ZAWSZE to, co kierowca zarobił: przelew (kolumna D)
-          // RAZEM z gotówką odebraną od pasażerów (kolumna F). Uber potrąca tę
-          // gotówkę z przelewu, ale zarobkiem być nie przestaje.
-          //
-          // Do 14.09.2026 tryb „netto" brał samo D i zaniżał podatek dokładnie
-          // o 8% gotówki: Dawid Czostek 42,02 zamiast 49,22 (podstawa 525,23
-          // zamiast 615,20), Barys Mileuski 315,23 zamiast 331,26. Arkusz
-          // wzorcowy rozstrzyga to jednoznacznie — patrz rozliczenia_test.ts.
-          //
-          // 'gross_total' zostaje osobno: tam podstawą jest kolumna G z CSV,
-          // czyli kwota brutto razem z VAT-em pasażera.
-          const uber_vat_base_single = driverUberCalcMode === 'gross_total'
-            ? (uber_gross_total > 0 ? uber_gross_total : uber_base * 1.25)
-            : uber_base;
-          // Bez obcinania do zera: ujemna kwota od platformy to realne potrącenie
-          // i ma pomniejszyć podstawę podatku, a nie zostać po stronie floty.
-          const adjusted_vat_base = uber_vat_base_single + bolt_base + freenow_base;
-          podatek_brutto = adjusted_vat_base * (effectiveVatRate / 100);
-        }
-
-        // 50% VAT-u od paliwa POMNIEJSZA PODATEK — nie jest zwrotem doliczanym
-        // do wypłaty. Kierowca bez podatku nie dostaje odliczenia w ogóle,
-        // a podatek nigdy nie wychodzi ujemny.
         const {
           podatekOdPrzychodu: podatek_od_przychodu,
           odliczenieVatPaliwa: total_fuel_vat_deduction,
           podatek: vat_amount,
-        } = pomniejszOPaliwo(podatek_brutto, total_fuel, podatekNaliczany);
+          podatekDodatkowy: secondary_vat_amount,
+        } = podatekTygodnia(
+          {
+            uberBase: uber_base,
+            uberGrossTotal: uber_gross_total ?? 0,
+            boltBase: bolt_base,
+            freeNowBase: freenow_base,
+            boltKampanie: Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base),
+          },
+          { ...driverSettings, vat_rate: effectiveVatRate },
+          { paliwo: total_fuel, podatekNaliczany },
+        );
 
         // Helper: sprawdź czy tydzień jest pierwszym pełnym tygodniem miesiąca
         const isFirstFullWeekOfMonth = (weekStart: string): boolean => {
@@ -2546,6 +2606,12 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           fuel_vat_deduction: total_fuel_vat_deduction,
           podatek_od_przychodu,
           plan_name: planKierowcy?.name ?? null,
+          uber_gross_total,
+          bolt_kampanie: Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base),
+          service_fee_source: ((persistedServiceFee !== null && persistedServiceFee !== undefined)
+            ? 'reczna'
+            : ((driverCustomFee !== null && driverCustomFee !== undefined) ? 'kierowca' : 'plan')) as
+              'reczna' | 'kierowca' | 'plan',
           net_without_commission: netto,
           final_payout: payout,
           has_negative_balance: hasNegativeBalance,
@@ -3202,6 +3268,24 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                   <Trash2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Usuń rozliczenie</span>
                 </Button>
+                {/* Filtr nie ma prawa chować ludzi po cichu — przy przełączniku
+                    stoi liczba ukrytych w tym tygodniu. */}
+                <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap">
+                  <Checkbox
+                    checked={tylkoAktywni}
+                    onCheckedChange={(v) => przelaczTylkoAktywni(v === true)}
+                  />
+                  Pokaż tylko aktywnych
+                  {(() => {
+                    const nieaktywni = settlements.filter(s => !maAktywnosc(s)).length;
+                    if (nieaktywni === 0) return null;
+                    return (
+                      <span className="text-muted-foreground">
+                        ({tylkoAktywni ? `ukryto ${nieaktywni}` : `${nieaktywni} bez aktywności`})
+                      </span>
+                    );
+                  })()}
+                </label>
                 {!settlementsResetDone && (
                   <Button 
                     variant="destructive" 
@@ -3435,6 +3519,10 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 if (s.payment_method !== 'transfer') return false;
               }
             }
+            // Tylko aktywni: ten sam warunek, którym wiersz decyduje, czy pokazać
+            // kwotę, czy kreskę (`hasAnyActivity` niżej) — żeby lista i wiersze
+            // mówiły to samo.
+            if (tylkoAktywni && !maAktywnosc(s)) return false;
             return true;
            }).sort((a, b) => {
             if (!sortColumn) return a.driver_name.localeCompare(b.driver_name, 'pl');
@@ -3748,7 +3836,7 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                       const hasUberActivity = settlement.uber_base !== 0 || settlement.uber_cash !== 0;
                       const hasBoltActivity = settlement.bolt_base !== 0 || settlement.bolt_cash !== 0;
                       const hasFreenowActivity = settlement.freenow_base !== 0 || settlement.freenow_cash !== 0;
-                      const hasAnyActivity = hasUberActivity || hasBoltActivity || hasFreenowActivity;
+                      const hasAnyActivity = maAktywnosc(settlement);
                       
                       return (
                       <TableRow key={settlement.driver_id} className="hover:bg-primary/10 transition-colors cursor-pointer">
@@ -3761,6 +3849,27 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                               fleetId={fleetId}
                               odTygodnia={currentWeek?.start}
                               onComplete={() => fetchSettlements()}
+                              onPlanZmieniony={(driverId, plan) => {
+                                // Zmiana planu przelicza TEN wiersz na miejscu.
+                                // Pełne `fetchSettlements()` (kilkanaście zapytań
+                                // i spinner) zostaje wyłącznie dla zapisu danych
+                                // kierowcy, gdzie naprawdę zmienia się wszystko.
+                                const ust = plan?.bolt ?? plan?.uber ?? null;
+                                zastosujPlanDoWiersza(
+                                  driverId,
+                                  ust
+                                    ? {
+                                        vat_rate: ust.vat_rate,
+                                        settlement_mode: ust.settlement_mode,
+                                        secondary_vat_rate: ust.secondary_vat_rate,
+                                        additional_percent_rate: ust.additional_percent_rate,
+                                        base_fee: ust.base_fee,
+                                        uber_calculation_mode: plan?.uber?.uber_calculation_mode ?? ust.uber_calculation_mode ?? null,
+                                      }
+                                    : null,
+                                  plan?.name ?? null,
+                                );
+                              }}
                             >
                               <button
                               type="button"

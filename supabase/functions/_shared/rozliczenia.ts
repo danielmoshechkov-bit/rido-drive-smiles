@@ -245,3 +245,69 @@ export function ustawieniaKierowcy(
 export function czyNaliczacPodatek(opcje: { jestB2B?: boolean }): boolean {
   return !opcje.jestB2B;
 }
+
+export interface PodstawyPlatform {
+  /** Uber: kolumna D razem z gotówką z kolumny F (czyli `amounts.uber_base`). */
+  uberBase: number;
+  /** Uber: kolumna G z CSV — kwota brutto razem z VAT-em pasażera. 0, gdy brak. */
+  uberGrossTotal: number;
+  /** Bolt: kolumna D (zarobki brutto). */
+  boltBase: number;
+  /** FreeNow: kolumna S (zarobki przed prowizją). */
+  freeNowBase: number;
+  /** Bolt: |kampanie| + |anulacje| + |rekompensaty| — podstawa DRUGIEGO podatku. */
+  boltKampanie?: number;
+}
+
+export interface WynikPodatkuTygodnia extends WynikPodatku {
+  /** Drugi podatek (tryb „dwa podatki"): procent od kampanii i rekompensat Bolta. */
+  podatekDodatkowy: number;
+}
+
+/**
+ * Podatek za tydzień — JEDNO miejsce, w którym żyje różnica między trybem
+ * „jeden podatek" a „dwa podatki".
+ *
+ * Powstało 15.09.2026, gdy panel musiał przeliczyć wiersz po zmianie planu
+ * BEZ pełnego przeładowania. Alternatywą była druga kopia tego rozgałęzienia
+ * w obsłudze kliknięcia — czyli dokładnie to, co w tym module właśnie
+ * zlikwidowaliśmy. Podstawy wchodzą ZE SWOIM ZNAKIEM (patrz `przychodLaczny`).
+ */
+export function podatekTygodnia(
+  podstawy: PodstawyPlatform,
+  ustawienia: UstawieniaRozliczen,
+  opcje: { paliwo: number; podatekNaliczany: boolean },
+): WynikPodatkuTygodnia {
+  const stawka = liczba(ustawienia.vat_rate);
+  const uberBase = liczba(podstawy.uberBase);
+  const uberGross = liczba(podstawy.uberGrossTotal);
+  const boltBase = liczba(podstawy.boltBase);
+  const freeNow = liczba(podstawy.freeNowBase);
+
+  let brutto: number;
+  let podatekDodatkowy = 0;
+
+  if (ustawienia.settlement_mode === 'dual_tax') {
+    const stawkaLaczna = stawka + liczba(ustawienia.additional_percent_rate);
+    const podatekBolta = boltBase * (stawkaLaczna / 100);
+    // Uber: „od brutto" bierze kolumnę G, pozostałe tryby dokładają 25% do D+F.
+    const podstawaUbera = ustawienia.uber_calculation_mode === 'brutto'
+      ? (uberGross > 0 ? uberGross : uberBase * 1.25)
+      : uberBase * 1.25;
+    brutto = podatekBolta + (podstawaUbera + freeNow) * (stawka / 100);
+    podatekDodatkowy = liczba(podstawy.boltKampanie) * (liczba(ustawienia.secondary_vat_rate) / 100);
+  } else {
+    // Jeden podatek. Podstawa Ubera to D RAZEM z gotówką (F), czyli `uberBase`.
+    // Osobno zostaje 'gross_total' — kolumna G z CSV.
+    const podstawaUbera = ustawienia.uber_calculation_mode === 'gross_total'
+      ? (uberGross > 0 ? uberGross : uberBase * 1.25)
+      : uberBase;
+    brutto = (podstawaUbera + boltBase + freeNow) * (stawka / 100);
+  }
+
+  if (!opcje.podatekNaliczany) {
+    return { podatekOdPrzychodu: 0, odliczenieVatPaliwa: 0, podatek: 0, podatekDodatkowy: 0 };
+  }
+
+  return { ...pomniejszOPaliwo(brutto, opcje.paliwo, true), podatekDodatkowy };
+}

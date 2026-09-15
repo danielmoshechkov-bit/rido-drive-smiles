@@ -10,6 +10,7 @@ import {
   czyNaliczacPodatek,
   odliczenieVatOdPaliwa,
   policzPodatek,
+  podatekTygodnia,
   przychodLaczny,
   ustawieniaKierowcy,
   vatOdPaliwa,
@@ -352,4 +353,59 @@ Deno.test("podatku nie naliczamy przy B2B", () => {
   assertEquals(czyNaliczacPodatek({ jestB2B: true }), false);
   assertEquals(czyNaliczacPodatek({ jestB2B: false }), true);
   assertEquals(czyNaliczacPodatek({}), true);
+});
+
+// ── podatekTygodnia: jedno miejsce na różnicę „jeden podatek" / „dwa podatki" ──
+
+Deno.test("podatekTygodnia liczy tryb „jeden podatek” tak samo jak arkusz", () => {
+  const w = wiersz("ASHRAF ABDELBAKY KHALIL MOHAMED");
+  const { podatek } = podatekTygodnia(
+    { uberBase: w.uberD + Math.abs(w.uberF), uberGrossTotal: 0, boltBase: w.boltD, freeNowBase: w.freeNowS },
+    { vat_rate: STAWKA, settlement_mode: "single_tax", secondary_vat_rate: 23,
+      additional_percent_rate: 0, base_fee: 50, uber_calculation_mode: "netto" },
+    { paliwo: w.paliwo, podatekNaliczany: true },
+  );
+  assertAlmostEquals(podatek, w.podatek!, GROSZ);
+});
+
+Deno.test("podatekTygodnia: plan ze stawką 0% daje zero i zero odliczenia", () => {
+  const w = wiersz("Dmytro Agafonov");
+  const wynik = podatekTygodnia(
+    { uberBase: 0, uberGrossTotal: 0, boltBase: w.boltD, freeNowBase: 0 },
+    { vat_rate: 0, settlement_mode: "single_tax", secondary_vat_rate: 23,
+      additional_percent_rate: 0, base_fee: 159, uber_calculation_mode: "netto" },
+    { paliwo: w.paliwo, podatekNaliczany: true },
+  );
+  assertEquals(wynik.podatek, 0);
+  assertEquals(wynik.odliczenieVatPaliwa, 0);
+  assertEquals(wynik.podatekDodatkowy, 0);
+});
+
+Deno.test("podatekTygodnia: „dwa podatki” doliczają dodatkowy procent i drugi podatek", () => {
+  const ustawienia = {
+    vat_rate: 8, settlement_mode: "dual_tax", secondary_vat_rate: 23,
+    additional_percent_rate: 1, base_fee: 25, uber_calculation_mode: "brutto",
+  };
+  const wynik = podatekTygodnia(
+    { uberBase: 1000, uberGrossTotal: 1250, boltBase: 2000, freeNowBase: 0, boltKampanie: 100 },
+    ustawienia,
+    { paliwo: 0, podatekNaliczany: true },
+  );
+  // Bolt: 2000 × 9% = 180; Uber „od brutto": 1250 × 8% = 100; razem 280.
+  assertAlmostEquals(wynik.podatek, 280, GROSZ);
+  assertAlmostEquals(wynik.podatekDodatkowy, 23, GROSZ);
+  // KONTROLA POZYTYWNA: bez dodatkowego procentu wyszłoby 260, nie 280.
+  assert(Math.abs(wynik.podatek - 260) > GROSZ, "dodatkowy procent nie wszedł — test nic nie pilnuje");
+});
+
+Deno.test("podatekTygodnia: B2B zeruje oba podatki", () => {
+  const wynik = podatekTygodnia(
+    { uberBase: 1000, uberGrossTotal: 0, boltBase: 2000, freeNowBase: 0, boltKampanie: 100 },
+    { vat_rate: 8, settlement_mode: "dual_tax", secondary_vat_rate: 23,
+      additional_percent_rate: 1, base_fee: 25, uber_calculation_mode: "brutto" },
+    { paliwo: 300, podatekNaliczany: false },
+  );
+  assertEquals(wynik.podatek, 0);
+  assertEquals(wynik.podatekDodatkowy, 0);
+  assertEquals(wynik.odliczenieVatPaliwa, 0);
 });

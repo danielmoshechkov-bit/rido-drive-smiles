@@ -40,6 +40,11 @@ interface DriverInfoPopoverProps {
    */
   odTygodnia?: string | null;
   onComplete?: () => void;
+  /**
+   * Wołane po zmianie planu, z wybranym planem. Osobno od `onComplete`, bo zmiana
+   * planu ma przeliczyć JEDEN wiersz na miejscu, a nie przeładować całą tabelę.
+   */
+  onPlanZmieniony?: (driverId: string, plan: any | null) => void;
   children: React.ReactNode;
 }
 
@@ -49,6 +54,7 @@ export function DriverInfoPopover({
   fleetId,
   odTygodnia,
   onComplete,
+  onPlanZmieniony,
   children,
 }: DriverInfoPopoverProps) {
   const [open, setOpen] = useState(false);
@@ -618,7 +624,7 @@ export function DriverInfoPopover({
                 fleetId={fleetId ?? (driverData as any)?.fleet_id ?? null}
                 odTygodnia={odTygodnia}
                 rozmiar="maly"
-                onZmieniono={onComplete}
+                onZmieniono={(plan) => onPlanZmieniony?.(driverId, plan)}
               />
               <p className="text-[9px] text-muted-foreground">
                 Plan ustala stawkę podatku, opłatę stałą i tryb rozliczeń — osobno dla Bolta i Ubera.
