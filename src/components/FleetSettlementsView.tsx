@@ -43,6 +43,7 @@ import { AddDriverChargeModal } from './fleet/AddDriverChargeModal';
 import { DriverInfoPopover } from './fleet/DriverInfoModal';
 import { KomorkaKwoty } from './fleet/KomorkaKwoty';
 import { useUserRole } from '@/hooks/useUserRole';
+import { BladZapisu, wykonajZapis } from '@/lib/zapisRozliczen';
 import {
   czyNaliczacPodatek,
   odliczenieVatOdPaliwa,
@@ -100,6 +101,12 @@ interface DriverSettlement {
   podatek_od_przychodu: number;
   /** Nazwa planu rozliczeń kierowcy (do podpowiedzi przy kolumnie VAT). */
   plan_name?: string | null;
+  /** Plan OBOWIĄZUJĄCY w tym tygodniu (z historii przypisań). */
+  plan_obowiazujacy_id?: string | null;
+  /** Plan, którym policzono kwoty zapisane w bazie. NULL = ustawienia miasta. */
+  plan_uzyty_id?: string | null;
+  /** Nazwa planu, którym policzono kwoty — do podpowiedzi przy wykrzykniku. */
+  plan_uzyty_name?: string | null;
   // Poniższe trzy pola są po to, żeby dało się przeliczyć TEN wiersz po zmianie
   // planu bez ponownego pobierania całej tabeli (patrz `zastosujPlanDoWiersza`).
   /** Uber, kolumna G z CSV — potrzebna w trybach liczących od brutto. */
@@ -1213,6 +1220,107 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
   }, []);
 
   /**
+   * Czy zapisane kwoty policzono innym planem, niż obowiązuje w tym tygodniu.
+   *
+   * Plan działa od swojego tygodnia W PRZÓD, więc zmiana zrobiona na tygodniu 30
+   * zostawia tygodnie 31+ z nowym planem i starymi kwotami. Nie przeliczamy ich
+   * automatycznie — część jest już wypłacona — tylko pokazujemy wykrzyknik.
+   */
+  const wymagaPrzeliczenia = (w: DriverSettlement): boolean =>
+    (w.plan_obowiazujacy_id ?? null) !== (w.plan_uzyty_id ?? null);
+
+  const [przeliczaniKierowcy, setPrzeliczaniKierowcy] = useState<Set<string>>(new Set());
+
+  /**
+   * Przelicza JEDNEGO kierowcę w TYM tygodniu: zapisuje w bazie kwotę policzoną
+   * obowiązującym planem, przelicza łańcuch długu i stempluje wiersz planem,
+   * którym liczyliśmy. Nie rusza innych kierowców ani innych tygodni.
+   */
+  const przeliczKierowce = async (driverId: string): Promise<boolean> => {
+    const wiersz = settlements.find(w => w.driver_id === driverId);
+    if (!wiersz || !currentWeek) return false;
+    if (!wiersz.settlement_id) {
+      toast.error('Brak rekordu rozliczenia do zapisu');
+      return false;
+    }
+
+    setPrzeliczaniKierowcy(prev => new Set(prev).add(driverId));
+    try {
+      const efektywny = getEffectiveSettlement(wiersz);
+      const wyplata = calculateRawPayout(efektywny);
+      const wyplataBezWynajmu = calculatePayoutWithoutRental(efektywny);
+
+      // Ta sama droga, którą panel zapisuje ręczną korektę kwoty — wdrożona
+      // i sprawdzona. Nie dokładamy nowego trybu do funkcji przeliczającej
+      // cały tydzień: nieznane pole w ciele żądania stara wersja funkcji
+      // zignorowałaby i przeliczyła WSZYSTKICH.
+      const { data: dlug, error: bladDlugu } = await supabase.functions.invoke('update-driver-debt', {
+        body: {
+          driver_id: driverId,
+          settlement_id: wiersz.settlement_id,
+          period_from: currentWeek.start,
+          period_to: currentWeek.end,
+          calculated_payout: wyplata,
+          calculated_payout_without_rental: wyplataBezWynajmu,
+          rental_fee: efektywny.rental || 0,
+          force_recalculate_chain: true,
+        },
+      });
+      if (bladDlugu || (dlug as any)?.error) {
+        console.error('Błąd przeliczania długu:', bladDlugu || dlug);
+        toast.error(`${wiersz.driver_name}: nie udało się przeliczyć długu`);
+        return false;
+      }
+
+      // Stempel „policzone tym planem" — bez niego wykrzyknik zostałby mimo
+      // przeliczenia. `.select` jest tu warunkiem uczciwości: UPDATE odrzucony
+      // przez RLS wraca bez błędu i bez wierszy.
+      await wykonajZapis(
+        (supabase as any)
+          .from('settlements')
+          .update({ settlement_plan_id_uzyty: wiersz.plan_obowiazujacy_id ?? null })
+          .eq('id', wiersz.settlement_id)
+          .select('id'),
+        `Zapis planu użytego do przeliczenia (${wiersz.driver_name})`,
+      );
+
+      // Wykrzyknik gaśnie od razu, bez czekania na odświeżenie.
+      setSettlements(prev => prev.map(w =>
+        w.driver_id === driverId ? { ...w, plan_uzyty_id: w.plan_obowiazujacy_id ?? null, plan_uzyty_name: w.plan_name ?? null } : w,
+      ));
+      return true;
+    } catch (blad: any) {
+      console.error('Błąd przeliczania kierowcy:', blad);
+      toast.error(blad instanceof BladZapisu ? blad.message : `Nie udało się przeliczyć: ${blad?.message || 'nieznany błąd'}`);
+      return false;
+    } finally {
+      setPrzeliczaniKierowcy(prev => {
+        const next = new Set(prev);
+        next.delete(driverId);
+        return next;
+      });
+    }
+  };
+
+  /** Przelicza wszystkich oznaczonych w tym tygodniu, po kolei. */
+  const przeliczOznaczonych = async () => {
+    const doPrzeliczenia = settlements.filter(wymagaPrzeliczenia);
+    if (doPrzeliczenia.length === 0) return;
+    let udane = 0;
+    for (const w of doPrzeliczenia) {
+      // Po kolei, nie równolegle: każdy przelicza łańcuch długu tego kierowcy,
+      // a równoległe wywołania potrafią sobie nawzajem nadpisać wynik.
+      if (await przeliczKierowce(w.driver_id)) udane++;
+    }
+    if (udane === doPrzeliczenia.length) {
+      toast.success(`Przeliczono ${udane} ${udane === 1 ? 'kierowcę' : 'kierowców'}`);
+    } else {
+      toast.warning(`Przeliczono ${udane} z ${doPrzeliczenia.length} — resztę zostawiono bez zmian`);
+    }
+    zaplanujOdswiezenie();
+  };
+
+  /**
    * Zmiana planu kierowcy — przeliczamy JEDEN wiersz na miejscu.
    *
    * Do 15.09.2026 po wyborze planu leciało pełne `fetchSettlements()`: kilkanaście
@@ -1782,6 +1890,19 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
       }
 
       const { data: settlementsData, error: settlementsError } = await query;
+
+      // Wykrzyknik „wymaga przeliczenia" opiera się na kolumnie
+      // `settlements.settlement_plan_id_uzyty` (migracja 20260915100000).
+      // Dopóki jej nie ma, KAŻDY kierowca z planem wyglądałby na rozjechanego,
+      // a kliknięcie i tak nie miałoby gdzie zapisać stempla. Do czasu migracji
+      // znacznik jest więc wyłączony — cisza jest uczciwsza niż alarm, którego
+      // nie da się wygasić.
+      const stempelPlanuDostepny = (settlementsData && settlementsData.length > 0)
+        ? Object.prototype.hasOwnProperty.call(settlementsData[0], 'settlement_plan_id_uzyty')
+        : false;
+      if (settlementsData && settlementsData.length > 0 && !stempelPlanuDostepny) {
+        console.warn('Brak kolumny settlements.settlement_plan_id_uzyty (migracja 20260915100000?) — znacznik „wymaga przeliczenia" wyłączony.');
+      }
 
       if (settlementsError) throw settlementsError;
       console.log('💰 Settlements found:', settlementsData?.length || 0);
@@ -2622,6 +2743,14 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
           fuel_vat_deduction: total_fuel_vat_deduction,
           podatek_od_przychodu,
           plan_name: planKierowcy?.name ?? null,
+          // Rozjazd „plan zapisany ≠ plan obowiązujący" zapala wykrzyknik przy
+          // nazwisku. Nic nie przeliczamy sami: część tych tygodni jest już
+          // wypłacona, więc decyzję podejmuje człowiek.
+          plan_obowiazujacy_id: stempelPlanuDostepny ? driverPlanId : null,
+          plan_uzyty_id: (settlementSnapshot as any)?.settlement_plan_id_uzyty ?? null,
+          plan_uzyty_name: (settlementSnapshot as any)?.settlement_plan_id_uzyty
+            ? (planUstawieniaMap.get((settlementSnapshot as any).settlement_plan_id_uzyty)?.name ?? 'plan usunięty')
+            : null,
           uber_gross_total,
           bolt_kampanie: Math.abs(bolt_i_base) + Math.abs(bolt_j_base) + Math.abs(bolt_k_base),
           service_fee_source: ((persistedServiceFee !== null && persistedServiceFee !== undefined)
@@ -3315,7 +3444,41 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                 )}
               </div>
             </div>
-            
+
+            {/* Licznik rozjazdów planu. Nic nie przelicza sam — pokazuje, ilu
+                kierowców ma kwoty policzone innym planem, niż obowiązuje w tym
+                tygodniu, i daje jeden przycisk na wszystkich oznaczonych. */}
+            {(() => {
+              const doPrzeliczenia = settlements.filter(wymagaPrzeliczenia);
+              if (doPrzeliczenia.length === 0) return null;
+              const ilu = doPrzeliczenia.length;
+              const slowo = ilu === 1 ? 'kierowca wymaga' : 'kierowców wymaga';
+              const wTrakcie = doPrzeliczenia.some(w => przeliczaniKierowcy.has(w.driver_id));
+              return (
+                <div className="flex items-center justify-between gap-3 flex-wrap rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-2">
+                  <span className="flex items-center gap-2 text-xs min-w-0">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span>
+                      <span className="font-medium">{ilu} {slowo} przeliczenia</span>
+                      <span className="text-muted-foreground">
+                        {' '}— kwoty policzono innym planem, niż obowiązuje w tym tygodniu.
+                      </span>
+                    </span>
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-xs shrink-0"
+                    disabled={wTrakcie}
+                    onClick={przeliczOznaczonych}
+                  >
+                    {wTrakcie ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    Przelicz oznaczonych
+                  </Button>
+                </div>
+              );
+            })()}
+
             {/* Mobile action buttons - 2 rows */}
             <div className="md:hidden grid grid-cols-2 gap-2">
               <Button 
@@ -3859,6 +4022,39 @@ export function FleetSettlementsView({ fleetId, viewType, periodFrom, periodTo }
                         <TableCell className="font-medium px-2 py-1.5 text-xs whitespace-nowrap">
                           <span className="flex items-center gap-1">
                             {settlement.driver_name}
+                            {wymagaPrzeliczenia(settlement) && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    aria-label={`Kwoty ${settlement.driver_name} policzone innym planem — kliknij, żeby przeliczyć`}
+                                    disabled={przeliczaniKierowcy.has(settlement.driver_id)}
+                                    className="text-amber-600 hover:text-amber-700 disabled:opacity-50 shrink-0"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (await przeliczKierowce(settlement.driver_id)) {
+                                        toast.success(`Przeliczono: ${settlement.driver_name}`);
+                                        zaplanujOdswiezenie();
+                                      }
+                                    }}
+                                  >
+                                    {przeliczaniKierowcy.has(settlement.driver_id)
+                                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      : <AlertTriangle className="h-3.5 w-3.5" />}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs text-xs">
+                                  Kwoty policzone {settlement.plan_uzyty_name
+                                    ? <>planem „{settlement.plan_uzyty_name}"</>
+                                    : <>po ustawieniach miasta</>}
+                                  , a od tego tygodnia obowiązuje {settlement.plan_name
+                                    ? <>„{settlement.plan_name}"</>
+                                    : <>ustawienia miasta</>}.
+                                  {' '}Kliknij, żeby przeliczyć tego kierowcę w tym tygodniu —
+                                  zapisze wypłatę i dług policzone obowiązującym planem.
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <DriverInfoPopover
                               driverId={settlement.driver_id}
                               driverName={settlement.driver_name}

@@ -384,6 +384,29 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Kolumna `settlements.settlement_plan_id_uzyty` (migracja 20260915100000)
+        // zapisuje, którym planem policzono kwoty. Sprawdzamy raz — na bazie bez
+        // tej migracji liczymy normalnie, tylko bez stempla.
+        let mozeStemplowacPlan = true;
+        {
+          const { error } = await supabase.from('settlements').select('settlement_plan_id_uzyty').limit(1);
+          if (error) {
+            mozeStemplowacPlan = false;
+            console.warn('⚠️ Brak kolumny settlement_plan_id_uzyty (migracja 20260915100000?) — nie stempluję planu:', error.message);
+          }
+        }
+
+        /** Identyfikator planu obowiązującego w tym tygodniu (do stempla). */
+        const idPlanuNaTydzien = (driverId: string, poczatek: string): string | null => {
+          let wybrany: { plan_id: string | null; effective_from: string } | null = null;
+          for (const p of przypisaniaPlanow) {
+            if (p.driver_id !== driverId) continue;
+            if (p.effective_from > poczatek) continue;
+            if (!wybrany || p.effective_from > wybrany.effective_from) wybrany = p;
+          }
+          return wybrany?.plan_id ?? null;
+        };
+
         /** Plan obowiązujący dla kierowcy w tygodniu zaczynającym się `poczatek`. */
         const planNaTydzien = (driverId: string, poczatek: string) => {
           let wybrany: { plan_id: string | null; effective_from: string } | null = null;
@@ -643,6 +666,19 @@ Deno.serve(async (req) => {
                 wynajem: rentalFee,
                 paliwo: fuel,
               }));
+
+              // Stempel „policzone tym planem" — inaczej panel po imporcie
+              // zapaliłby wykrzyknik przy każdym kierowcy z planem, choć kwoty
+              // są policzone właśnie tym planem.
+              if (mozeStemplowacPlan) {
+                const { error: bladStempla } = await supabase
+                  .from('settlements')
+                  .update({ settlement_plan_id_uzyty: idPlanuNaTydzien(driverId, fullSettlement.period_from) })
+                  .eq('id', settlement.id);
+                if (bladStempla) {
+                  console.warn(`⚠️ Nie udało się zapisać planu użytego (${driverId}):`, bladStempla.message);
+                }
+              }
 
               console.log(`📊 Driver ${driverId}: mode=${driverSettlementMode}, base=${totalBase}, cash=${totalCash}, vat=${vat8}, secVat=${secondaryVatAmount}, service=${serviceFee}, rental=${rentalFee}, fuel=${fuel}, payout=${calculatedPayout}`);
               

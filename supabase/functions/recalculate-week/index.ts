@@ -127,6 +127,24 @@ serve(async (req) => {
       }
     }
 
+    // Kolumna `settlements.settlement_plan_id_uzyty` wchodzi migracją
+    // 20260915100000 i zapisuje, KTÓRYM planem policzono kwoty w wierszu.
+    // Panel po niej poznaje, że plan się zmienił, a kwoty są sprzed zmiany.
+    //
+    // Sprawdzamy JEDEN raz, zamiast wywracać się na każdym wierszu: gdy funkcja
+    // trafi na bazę bez tej migracji, liczy normalnie i tylko nie stempluje.
+    let mozeStemplowacPlan = true;
+    {
+      const { error } = await supabase
+        .from('settlements')
+        .select('settlement_plan_id_uzyty')
+        .limit(1);
+      if (error) {
+        mozeStemplowacPlan = false;
+        console.warn('⚠️ Brak kolumny settlement_plan_id_uzyty (migracja 20260915100000?) — nie stempluję planu:', error.message);
+      }
+    }
+
     /** Plan obowiązujący dla kierowcy w tygodniu zaczynającym się `poczatek`. */
     const planNaTydzien = (driverId: string, poczatek: string) => {
       let wybrany: { plan_id: string | null; effective_from: string } | null = null;
@@ -250,6 +268,17 @@ serve(async (req) => {
      * Rozstrzyga JEDNO źródło z całym kompletem — pola nie mieszają się między
      * źródłami (usterka z sierpnia 2026: dodatek floty doliczany do stawki miasta).
      */
+    /** Identyfikator planu obowiązującego w tym tygodniu (do stempla). */
+    const idPlanuNaTydzien = (driverId: string, poczatek: string): string | null => {
+      let wybrany: { plan_id: string | null; effective_from: string } | null = null;
+      for (const p of przypisaniaPlanow) {
+        if (p.driver_id !== driverId) continue;
+        if (p.effective_from > poczatek) continue;
+        if (!wybrany || p.effective_from > wybrany.effective_from) wybrany = p;
+      }
+      return wybrany?.plan_id ?? null;
+    };
+
     const getDriverSettings = (driverId: string, poczatekTygodnia: string) => {
       const driver = driverMap.get(driverId);
       const cityName = driver?.city_id ? cityNameMap.get(driver.city_id) : null;
@@ -552,6 +581,11 @@ serve(async (req) => {
           debt_after: computed.remainingDebt,
           actual_payout: computed.actualPayout,
           rental_fee: rentalFee,
+          // Stempel: tym planem policzono powyższe kwoty. Bez niego panel nie
+          // odróżni wiersza świeżo przeliczonego od sprzed zmiany planu.
+          ...(mozeStemplowacPlan
+            ? { settlement_plan_id_uzyty: idPlanuNaTydzien(settlement.driver_id, settlement.period_from) }
+            : {}),
         })
         .eq('id', settlement.id);
 
