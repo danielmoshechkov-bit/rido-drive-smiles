@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { activateWorkshopTrial } from "@/services/authService";
 import { wyczyscPamiecRol } from "@/hooks/useUserRole";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DaneDoFaktury } from "@/components/billing/DaneDoFaktury";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -158,6 +160,16 @@ export default function WorkshopLanding() {
   const [isProvider, setIsProvider] = useState(false);
   const [activating, setActivating] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  /**
+   * Bramka okresu próbnego (15.09.2026). Dwa stany, dwa różne zachowania:
+   *   • brak danych firmy → TEN SAM formularz, co przy zakupie, a po zapisaniu
+   *     wracamy do aktywacji. Odmowa w tym miejscu byłaby ślepą uliczką:
+   *     klient chce zacząć, a system mówi „nie" i nie mówi jak.
+   *   • NIP już wykorzystany → zdanie o tym, co się stało, i droga dalej
+   *     (zakup), a nie surowy błąd.
+   */
+  const [daneDoUzupelnienia, setDaneDoUzupelnienia] = useState<string | null>(null);
+  const [nipWykorzystany, setNipWykorzystany] = useState<string | null>(null);
 
   // Cennik z bazy — te same dane co /cennik. Zmiana ceny w panelu wchodzi tu
   // bez deployu, a obie strony nie mają jak się rozjechać.
@@ -224,6 +236,27 @@ export default function WorkshopLanding() {
     setActivating(true);
     try {
       const result = await activateWorkshopTrial(plan);
+
+      if (!result.success && result.powod === "BRAK_DANYCH_FIRMY") {
+        // Warsztat i rola już istnieją (funkcja zakłada je także przy odmowie),
+        // więc formularz ma gdzie zapisać. Bez tego pytalibyśmy o dane, których
+        // nie da się odłożyć.
+        const { data: warsztat } = await (supabase as any)
+          .from("service_providers").select("id").eq("user_id", session.user.id)
+          .order("created_at", { ascending: true }).limit(1).maybeSingle();
+        if (warsztat?.id) {
+          setDaneDoUzupelnienia(warsztat.id);
+        } else {
+          toast.error(result.error);
+        }
+        return;
+      }
+
+      if (!result.success && result.powod === "NIP_WYKORZYSTANY") {
+        setNipWykorzystany(result.kiedy ?? "");
+        return;
+      }
+
       if (result.success) {
         // Rola `service_provider` właśnie powstała — zapamiętana lista ról jest
         // już nieaktualna. Bez tego panel warsztatu odsyła świeżo aktywowane
@@ -968,6 +1001,51 @@ export default function WorkshopLanding() {
           </div>
         </div>
       </section>
+
+      {/* Dane firmy — ten sam komponent, co w oknie zakupu. */}
+      <Dialog open={!!daneDoUzupelnienia} onOpenChange={(v) => { if (!v) setDaneDoUzupelnienia(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Jeszcze dane firmy</DialogTitle>
+            <DialogDescription>
+              Okres próbny przypisujemy do firmy, nie do adresu e-mail — dlatego
+              potrzebujemy nazwy, NIP-u i adresu. Te same dane trafią potem na fakturę.
+            </DialogDescription>
+          </DialogHeader>
+          {daneDoUzupelnienia && (
+            <DaneDoFaktury
+              providerId={daneDoUzupelnienia}
+              onGotowe={() => {
+                setDaneDoUzupelnienia(null);
+                // Wracamy tam, gdzie klient był: do uruchomienia okresu próbnego.
+                void handleStartTrial(selectedPlan ?? undefined);
+              }}
+              onWstecz={() => setDaneDoUzupelnienia(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* NIP już wykorzystany — mówimy co i kiedy, i pokazujemy drogę dalej. */}
+      <Dialog open={nipWykorzystany !== null} onOpenChange={(v) => { if (!v) setNipWykorzystany(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Okres próbny został już wykorzystany dla tego NIP-u</DialogTitle>
+            <DialogDescription>
+              {nipWykorzystany
+                ? `Ta firma korzystała z okresu próbnego ${nipWykorzystany}. Drugiego nie uruchamiamy.`
+                : "Ta firma korzystała już z okresu próbnego. Drugiego nie uruchamiamy."}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Moduł warsztatowy możesz włączyć od razu, wykupując dostęp. Jeśli to
+            pomyłka — napisz do nas, sprawdzimy.
+          </p>
+          <Button onClick={() => { setNipWykorzystany(null); navigate("/cennik"); }}>
+            Zobacz cennik
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <AuthModal
         open={showLoginModal}

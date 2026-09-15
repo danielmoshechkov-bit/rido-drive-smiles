@@ -13,14 +13,26 @@ const corsHeaders = {
  * (landing /warsztat-info dla usera z sesją oraz ServiceRegistrationModal).
  *
  * Idempotentna: rola/provider/trial zakładane tylko, jeśli ich brak.
- * UWAGA: minimalny trial — tylko zapis expires_at, bez logiki wygasania.
  * Długość okresu bierze się z billing_plans.trial_days (patrz _shared/workshopTrial.ts),
  * nie z liczby w kodzie.
  *
- * TODO (odłożone, do wdrożenia później): wymagać danych firmy (NIP, REGON, dane
- * rejestrowe) ZANIM trial ruszy — żeby użytkownicy nie zakładali kont na marne /
- * przypadkiem. Dziś trial startuje od razu; docelowo aktywacja powinna być bramkowana
- * kompletem danych firmowych (walidacja NIP/REGON, np. przez GUS).
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🔴 BRAMKA: KOMPLET DANYCH FIRMY I JEDEN OKRES PRÓBNY NA NIP (15.09.2026)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Do dziś okres próbny dostawał KAŻDY zalogowany, jednym kliknięciem, bez
+ * żadnego warunku — 21 z 31 okresów próbnych w bazie powstało właśnie tędy.
+ * Liczony był NA KONTO, więc po wygaśnięciu wystarczyło założyć drugie.
+ * W danych ten wzorzec już jest: dwa NIP-y występują na dwóch kontach.
+ *
+ * Teraz decyduje `billing_zajmij_nip_okresu_probnego` — JEDNO miejsce na całą
+ * regułę, w bazie, z unikalnym kluczem na NIP-ie (więc dwa równoczesne
+ * kliknięcia nie przepchną dwóch okresów).
+ *
+ * 🔴 ROLA I WARSZTAT POWSTAJĄ TAKŻE PRZY ODMOWIE — i tak ma być. Klient bez
+ * danych firmy musi mieć GDZIE je wpisać: formularz zapisuje do
+ * `service_providers`, więc wiersz musi istnieć, zanim o dane poprosimy.
+ * Odmowa dotyczy wyłącznie OKRESU PRÓBNEGO, nie założenia konta warsztatu.
+ * Bez dostępu i tak nic nie zrobi — pilnuje tego `moze_pracowac`.
  */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -144,6 +156,58 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!existingSub) {
+      // ── BRAMKA ────────────────────────────────────────────────────────────
+      // Cała reguła siedzi w bazie: komplet danych (ta sama funkcja, co przy
+      // zakupie) plus zajęcie NIP-u w rejestrze. Tu tylko pytamy i tłumaczymy
+      // odpowiedź na język okna.
+      const { data: warsztatDoBramki } = await supabaseAdmin
+        .from("service_providers").select("id").eq("user_id", userId)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+
+      const { data: bramka, error: bladBramki } = await supabaseAdmin.rpc(
+        "billing_zajmij_nip_okresu_probnego",
+        { p_provider: warsztatDoBramki?.id ?? null, p_user: userId },
+      );
+
+      if (bladBramki) {
+        // Błąd bramki NIE MOŻE cicho przepuścić okresu próbnego. Odmowa jest
+        // stanem bezpiecznym: widać ją i ktoś ją zgłosi.
+        console.error("❌ bramka okresu próbnego:", bladBramki.message);
+        return new Response(
+          JSON.stringify({ success: false, powod: "BRAMKA_NIEDOSTEPNA",
+            error: "Nie udało się sprawdzić uprawnienia do okresu próbnego. Spróbuj za chwilę." }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const stan = (bramka as any)?.stan;
+      console.log(JSON.stringify({ event: "bramka_okresu_probnego", user: user.email, stan }));
+
+      if (stan === "brak_danych" || stan === "brak_nipu" || stan === "brak_warsztatu") {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            powod: "BRAK_DANYCH_FIRMY",
+            // Moduł JEST założony — brakuje tylko danych do uruchomienia okresu
+            // próbnego. Front pokazuje ten sam formularz, co przy zakupie.
+            error: "Uzupełnij dane firmy, żeby uruchomić okres próbny.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      if (stan === "nip_wykorzystany") {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            powod: "NIP_WYKORZYSTANY",
+            kiedy: (bramka as any)?.kiedy ?? null,
+            error: "Okres próbny został już wykorzystany dla tego NIP-u.",
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       const trialDays = await resolveWorkshopTrialDays(supabaseAdmin);
       const trialEndsAt = workshopTrialExpiresAt(trialDays);
 

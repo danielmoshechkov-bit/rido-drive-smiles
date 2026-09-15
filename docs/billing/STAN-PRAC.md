@@ -1695,3 +1695,54 @@ wysyłał do `send-invoice-email` pole `email`, a funkcja czyta `recipient_email
 Adres wpisany w okienku był więc ignorowany — poczta szła do nabywcy z faktury
 albo kończyła się odmową „brak adresu email odbiorcy". Dwa pozostałe miejsca
 w aplikacji wołały tę funkcję poprawnie.
+
+## Samoobsługowy abonament zamknięty + bramka okresu próbnego — 15.09.2026
+
+**Co było otwarte.** Polityka `INSERT WITH CHECK (user_id = auth.uid())` na
+`paid_service_subscriptions` pozwalała każdemu zalogowanemu wpisać sobie
+abonament z przeglądarki. To nie było odblokowanie samego interfejsu:
+`moze_pracowac` czyta tę tabelę jako drugie źródło, więc otwierało się także
+po stronie serwera. Sprawdzone zachowaniem (rola `authenticated`, prawdziwy
+`auth.uid()`, transakcja wycofana): po usunięciu okresu próbnego
+`moze_pracowac = false`, po własnym zapisie do 2099 — `true`. Powtarzalne bez
+końca: `UPDATE` RLS odfiltrowuje, ale DRUGI wiersz obok wygasłego przechodzi.
+To samo w `ai_pro_subscriptions` (polityka ALL, okres próbny zapisywany wprost
+z przeglądarki). Obie zdjęte; zapis został przy kluczu serwisowym i adminie.
+
+**Bramka.** Okres próbny wiesza się teraz na NIP-ie, nie na koncie
+(`billing_nip_okresu_probnego` + `billing_zajmij_nip_okresu_probnego`).
+Adres e-mail mnoży się w nieskończoność, NIP nie — a wzorzec „drugie konto, ta
+sama firma" był już w danych: dwa NIP-y na dwóch kontach. Rejestr nie ma klucza
+obcego świadomie: skasowanie warsztatu NIE zwalnia NIP-u, tak samo jak
+skasowanie faktury nie zwalnia numeru.
+
+**Czego bramka NIE obejmuje:** warsztatu prowadzonego bez firmy. Okres próbny
+wymaga NIP-u, bo nie ma innego trwałego uchwytu; osoba prywatna nadal może
+KUPIĆ dostęp (bramka zakupu przyjmuje `rodzaj = 'osoba'`). Do decyzji, jeśli
+kiedyś okaże się to za wąskie.
+
+**Skala przy wdrożeniu:** 31 warsztatów, z tego 6 z poprawnym NIP-em i 7
+z kompletem danych nabywcy. Formularz danych firmy będzie więc regułą przy
+aktywacji, nie wyjątkiem.
+
+## Pracownik warsztatu — dowiązanie konta, 15.09.2026
+
+`workshop_employees.user_id` wypełniało JEDNO miejsce (przyjęcie zaproszenia,
+dopasowanie po adresie), a wszystko inne pyta o `user_id = auth.uid()`. Stan
+zastany: 9 pracowników, 7 bez `user_id`; 10 zaproszeń, wszystkie `accepted`;
+dwóch pracowników w całym systemie widziało swój moduł.
+
+Trzy przyczyny, wszystkie usunięte: zaproszenie SMS-owe nie miało adresu, więc
+nie miało czego dopasować; przyjęcie zamykało zaproszenie, zanim powstało konto
+(a skan po zalogowaniu ponawiał tylko `pending`); szukanie pracownika po samym
+adresie zakładało DRUGI wiersz zamiast dopasować istniejący.
+
+**Świadomie NIE dopasowujemy po numerze podanym przy rejestracji** — to
+oświadczenie zakładającego konto, więc kto zna numer zaproszonego, wszedłby do
+cudzej kartoteki klientów. Dopasowanie idzie po potwierdzonym adresie konta,
+po potwierdzonym `auth.users.phone` i po żetonie z linku (dla SMS-ów).
+
+**Drobiazg do poprawienia:** pracownik zatrudniony w dwóch warsztatach widzi
+pod kafelkiem „Moja praca" nazwę tylko pierwszego (`records[0].provider_name`
+w `AccountSwitcherPanel`). Sam panel pracownika obsługuje oba poprawnie —
+zlecenia pobiera `.in('provider_id', providerIds)`. To kosmetyka, nie blokada.

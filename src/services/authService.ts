@@ -234,14 +234,35 @@ export async function resendActivationEmail(email: string, language = "pl"): Pro
   };
 }
 
-/** Aktywacja modułu warsztatowego na istniejącym, zalogowanym koncie (rola + provider + trial). */
-export async function activateWorkshopTrial(plan?: string): Promise<SignupResult> {
+/**
+ * Aktywacja modułu warsztatowego na istniejącym, zalogowanym koncie
+ * (rola + warsztat + okres próbny).
+ *
+ * `powod` mówi, DLACZEGO nie wyszło, i front ma się tym kierować zamiast
+ * pokazywać surowy komunikat:
+ *   • `BRAK_DANYCH_FIRMY`  — pokaż formularz danych, nie odmowę,
+ *   • `NIP_WYKORZYSTANY`   — ten NIP już raz próbował (`kiedy` = data),
+ *   • `BRAMKA_NIEDOSTEPNA` — bramka nie odpowiedziała; nie przepuszczamy.
+ * Funkcja odpowiada na te przypadki kodem 200, więc `response.error` jest
+ * pusty — decyduje treść, nie status.
+ */
+export async function activateWorkshopTrial(
+  plan?: string,
+): Promise<SignupResult & { powod?: string; kiedy?: string | null }> {
   const response = await supabase.functions.invoke("activate-workshop-trial", {
     body: { plan },
   });
   if (response.error) {
     const blad = await odczytajBladFunkcji(response.error);
     return { success: false, error: blad.komunikat };
+  }
+  if (response.data?.success === false) {
+    return {
+      success: false,
+      error: response.data?.error || "Nie udało się uruchomić okresu próbnego.",
+      powod: response.data?.powod,
+      kiedy: response.data?.kiedy ?? null,
+    };
   }
   return { success: true, message: response.data?.message };
 }
