@@ -203,6 +203,84 @@ bo mieści się w ekranie; problemem jest czytelność, nie szerokość.
 
 ---
 
+## ⭐ DECYZJA: NUMER SKASOWANEJ FAKTURY NIE WRACA — WRACAMY DO TEGO PO KSeF (15.09.2026)
+
+Pytanie brzmiało: czy numer faktury, która nigdy nie weszła do obiegu (nie poszła
+do KSeF, nie została wysłana mailem), może zostać użyty ponownie po skasowaniu.
+
+**Decyzja: zostaje jak jest — numer raz wystawiony nie wraca.** Do rozstrzygnięcia
+ponownie po przełączeniu KSeF na produkcję.
+
+### Stan prawny — sprawdzony, nie zgadnięty
+
+Zasada ogólna: **numeru anulowanej faktury nie wolno użyć ponownie**, bo narusza
+to chronologię numeracji. Luka jest dopuszczalna, ale wymaga dokumentacji —
+w praktyce oświadczenia wyjaśniającego dołączonego do dokumentacji podatkowej.
+Brak ciągłości numeracji jest traktowany jako „wadliwość mniejszej wagi".
+
+KSeF zmienia punkt wyjścia: w trybie online faktura jest uznana za wystawioną
+**w chwili przesłania do KSeF i nadania numeru KSeF**. Dopóki go nie ma,
+formalnie nie istnieje — samo przygotowanie pliku nie jest wystawieniem.
+
+Czyli po przełączeniu na produkcję argument za odzyskiwaniem numeru robi się
+mocny: dokument, który nigdy nie poszedł, nie był fakturą.
+
+### Dlaczego mimo to zostaje jak jest
+
+1. Dziś część dokumentów powstaje **poza KSeF-em**, a wtedy obowiązuje zasada
+   ogólna — i system nie umie udowodnić, że faktura nie weszła do obiegu.
+   Wie o mailu (`email_sent_at`), nie wie o wydruku i wręczeniu.
+2. Koszt pomyłki jest niesymetryczny: **dwóch dokumentów o tym samym numerze
+   nie da się naprawić korektą**; luka to jedno oświadczenie w dokumentacji.
+3. Zmierzony zysk: wszystkie 16 skasowanych faktur ma `ksef_reference` i
+   `email_sent_at` puste, ale 13 numerów odzyskano już ręcznie (sufiks
+   `-WYCOFANA-n`). Realny zysk dziś to **trzy numery**:
+   `FV/2026/08/002`, `GR/2026/08/001`, `KOR/2026/002`.
+
+### Reguła do wdrożenia, gdy wrócimy
+
+Numer wraca do puli, gdy faktura jest skasowana ORAZ:
+
+```sql
+ksef_reference IS NULL AND email_sent_at IS NULL
+```
+
+Zmienić trzeba `prevent_duplicate_invoice_number` (dziś sprawdza kolizję bez
+żadnego z tych warunków) oraz miejsca liczące kolejny numer — patrz bramka
+`src/lib/numeracjaFaktur_test.ts`, która pilnuje, żeby filtr „tylko aktywne"
+nie wrócił tylnymi drzwiami.
+
+🔴 Kasowanie faktury wysłanej do KSeF jest JUŻ niemożliwe i ma takie zostać:
+`prevent_ksef_frozen_invoice_delete` blokuje `DELETE`, a
+`prevent_ksef_frozen_invoice_update` miękkie kasowanie oraz zmianę pól — także
+gdy do faktury istnieje korekta w KSeF. Sprawdzone danymi: 16 skasowanych
+faktur, z tego z KSeF **zero**.
+
+---
+
+## 🔴 TRZYDZIEŚCI DWIE FAKTURY SĄ W PRODUKCYJNYM KSeF (15.09.2026)
+
+Sprawdzone, bo wyglądało na wartość domyślną kolumny. **Nie jest.**
+`user_invoices.ksef_environment` nie ma wartości domyślnej — wypełnia się przy
+wysyłce.
+
+```
+production   32 faktury   status accepted   2 użytkowników
+             30.04.2026 – 21.08.2026        250 424 zł brutto
+test          8 faktur    10.09 – 14.09.2026
+(puste)      35 faktur    nigdy nie wysłane
+```
+
+Referencje mają prawdziwy kształt produkcyjny (`NIP-data-skrót-sufiks`,
+NIP-y 5223252793 i 5223247450).
+
+**To są prawdziwe faktury w krajowym rejestrze.** KSeF stoi dziś na testowym,
+ale do 21.08 chodził na produkcji. Trzeba o tym pamiętać przy przełączaniu:
+te 32 dokumenty są nieodwracalne, a numeracja, z której korzystały, jest zużyta
+na zawsze — niezależnie od tego, co zdecydujemy o regule wyżej.
+
+---
+
 ## ⭐ WI658ME — BMW Z VIN-em AUDI, DO SPRAWDZENIA U WARSZTATU (15.09.2026)
 
 Znalezione przy scalaniu zduplikowanych pojazdów, **nie naprawione** — bo to
