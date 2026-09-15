@@ -483,6 +483,7 @@ export function WorkshopDashboard({ providerId: propProviderId }: WorkshopDashbo
         return (
           <WorkshopOrdersList
             providerId={providerId}
+            onOpenCalls={() => goTo('ai-agent')}
             onSelectOrder={setSelectedOrder}
             ukryjRezerwacje={zablokowany}
           />

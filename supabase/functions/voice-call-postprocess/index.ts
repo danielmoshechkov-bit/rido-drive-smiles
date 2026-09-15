@@ -251,7 +251,7 @@ serve(async (req) => {
     try {
       const sekundyZWebhooka = Number(payload?.data?.metadata?.call_duration_secs) || 0;
       const { data: wiersz } = await admin.from("voice_calls")
-        .select("id, duration_seconds")
+        .select("id, duration_seconds, from_number")
         .eq("elevenlabs_conversation_id", conversationId)
         .maybeSingle();
 
@@ -286,6 +286,28 @@ serve(async (req) => {
         const doDopisania: Record<string, unknown> = {};
         if (!Number(wiersz.duration_seconds) && sekundyZWebhooka > 0) {
           doDopisania.duration_seconds = sekundyZWebhooka;
+        }
+
+        /**
+         * 🔴 NUMER DZWONIĄCEGO NIE TRAFIAŁ DO BAZY W OGÓLE (naprawione 14.09.2026).
+         *
+         * Lista połączeń pokazywała „numer zastrzeżony" przy KAŻDEJ rozmowie —
+         * sprawdzone: 65 wierszy, 65 razy `from_number IS NULL`. To nie było
+         * ukrycie ze względu na dane osobowe; numeru po prostu nikt nie
+         * zapisywał. Dwa miejsca, które zakładają wiersz rozmowy
+         * (`voice-agent-tools` i `voice-call-analyze`), nie mają go pod ręką,
+         * a tutaj przychodzi w ładunku webhooka i już go czytamy — na skrót
+         * do limitu dema.
+         *
+         * Skutek dla warsztatu był prosty i kosztowny: klient dzwonił, agent
+         * nie umiał czegoś dokończyć, a warsztat nie miał JAK oddzwonić.
+         *
+         * Zapisujemy tylko wtedy, gdy pole jest puste — wiersz mógł dostać
+         * numer wcześniej, z innej drogi, i nadpisywanie go tutaj znaczyłoby,
+         * że ostatni webhook wygrywa z tym, co wiemy na pewno.
+         */
+        if (!wiersz.from_number && dzwoniacy) {
+          doDopisania.from_number = dzwoniacy;
         }
         if (numerWarsztatu?.demonstracyjny) {
           doDopisania.z_dema = true;
