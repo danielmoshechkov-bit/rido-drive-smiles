@@ -262,6 +262,12 @@ const App = () => (
                 <Route path="/admin/nieruchomosci" element={<AdminRealEstate />} />
                 <Route path="/admin/mapy" element={<AdminMaps />} />
                 <Route path="/admin/portal" element={<AdminPortal />} />
+                {/* Skrót z SMS-a o nowej wiadomości od klienta. Panel otwiera się
+                    na zakładce „AI Asystent", więc sam adres panelu przyprowadzał
+                    admina na ekran, na którym rozmowy nie widać. Krótki adres jest
+                    tu wartością samą w sobie: SMS ma budżet 160 znaków, a każdy
+                    znak doklejki zabiera znak z treści pytania klienta. */}
+                <Route path="/admin/czat" element={<Navigate to="/admin/portal?tab=support-inbox" replace />} />
                 <Route path="/admin/uslugi" element={<AdminServices />} />
                 <Route path="/admin/ai" element={<AdminAIBrain />} />
                 <Route path="/admin/platnosci" element={<AdminPaymentsCenter />} />

@@ -24,6 +24,7 @@ import { SeoAgent } from '@/components/admin/SeoAgent';
 import { WeeklyDebtRebuildPanel } from '@/components/admin/WeeklyDebtRebuildPanel';
 import { ReferralSystemPanel } from '@/components/admin/ReferralSystemPanel';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { useSupportInbox } from '@/hooks/useSupportChat';
 import { UserDropdown } from '@/components/UserDropdown';
 import { Loader2, Palette, Users, Wrench, Calculator, LayoutGrid, Bot, Key, TicketCheck, Briefcase, Plug, Wallet, Shield, Cpu, Globe, RefreshCcw, Gift, MessageSquare } from 'lucide-react';
 
@@ -33,6 +34,20 @@ export default function AdminPortal() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('ai-assistant');
+
+  /**
+   * Nieprzeczytane rozmowy — liczba WPROST NA PASKU.
+   *
+   * 16.09.2026 klient napisał na czacie, SMS przyszedł, a wiadomość „zniknęła":
+   * była w bazie i na swoim ekranie, tylko nic w panelu nie mówiło, że tam na
+   * kogoś czeka. Panel otwiera się na „AI Asystent", więc bez tej liczby trzeba
+   * wiedzieć, że ma się gdzie kliknąć.
+   *
+   * To ten sam klucz zapytania, którego używa sama skrzynka (`useSupportInbox`),
+   * więc TanStack nie robi drugiego odpytania — jedno źródło, jedna liczba.
+   */
+  const { data: rozmowy = [] } = useSupportInbox();
+  const nieprzeczytane = rozmowy.reduce((suma, r) => suma + (r.unread_for_admin || 0), 0);
   const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
@@ -95,7 +110,9 @@ export default function AdminPortal() {
 
   const tabs: { value: string; label: string; icon: React.ComponentType<any> }[] = [
     { value: 'ai-assistant', label: 'AI Asystent', icon: Bot },
-    { value: 'support-inbox', label: 'Czat', icon: MessageSquare },
+    // Nazwa „Czat" myliła się z dymkiem na stronie — a to jest SKRZYNKA rozmów
+    // z klientami. `value` zostaje: trzyma je adres `?tab=support-inbox` i SMS.
+    { value: 'support-inbox', label: 'Komunikacja', icon: MessageSquare },
     { value: 'tickets', label: 'Zgłoszenia', icon: TicketCheck },
     { value: 'api', label: 'Klucze API', icon: Key },
     { value: 'integrations', label: 'Integracje', icon: Plug },
@@ -168,8 +185,14 @@ export default function AdminPortal() {
               className="rounded-full p-1 shadow-lg"
               style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
             >
+              {/* ZAWIJANIE ZAMIAST PRZEWIJANIA W BOK.
+                  Osiemnaście pigułek nie mieści się w jednym rzędzie, a przy
+                  `overflow-x-auto scrollbar-hide` nie było ŻADNEGO sygnału, że
+                  pasek jedzie dalej — zakładka mogła stać poza ekranem i nic tego
+                  nie zdradzało. Zawinięty pasek zajmuje dwa rzędy i pokazuje
+                  wszystko naraz. */}
               <TabsList 
-                className="flex w-full items-center gap-1 overflow-x-auto scrollbar-hide rounded-full px-1 min-h-[44px] bg-transparent"
+                className="flex w-full flex-wrap items-center gap-1 rounded-[22px] px-1 py-1 min-h-[44px] bg-transparent"
               >
                 {tabs.map((tab) => (
                   <TabsTrigger
@@ -179,6 +202,11 @@ export default function AdminPortal() {
                   >
                     <tab.icon className="h-4 w-4" />
                     {tab.label}
+                    {tab.value === 'support-inbox' && nieprzeczytane > 0 && (
+                      <span className="ml-1 min-w-5 h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[11px] font-bold inline-flex items-center justify-center">
+                        {nieprzeczytane}
+                      </span>
+                    )}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -200,6 +228,11 @@ export default function AdminPortal() {
                 >
                   <tab.icon className="h-3 w-3" />
                   {tab.label.split(' ')[0]}
+                  {tab.value === 'support-inbox' && nieprzeczytane > 0 && (
+                    <span className="min-w-4 h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold inline-flex items-center justify-center">
+                      {nieprzeczytane}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

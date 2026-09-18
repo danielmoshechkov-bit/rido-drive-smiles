@@ -22,7 +22,19 @@ import { corsHeaders } from '../_shared/cors.ts';
  * fragmentu wiadomości do tego, co zostało z budżetu.
  */
 const SMS_LIMIT = 160;
-const SMS_TAIL = ' Odp: getrido.pl/admin/portal';
+/**
+ * 🔴 ADRES MA PROWADZIĆ DO CZATU, NIE DO PANELU.
+ *
+ * Do 16.09.2026 stało tu `getrido.pl/admin/portal`. Panel otwiera się na
+ * zakładce „AI Asystent", a rozmowy są zakładkę dalej — więc SMS przyprowadzał
+ * admina na ekran, na którym wiadomości nie widać. Zgłoszone jako „klient
+ * napisał, a u mnie tego nie ma": wiadomość była w bazie od początku.
+ *
+ * `/admin/czat` to przekierowanie na `?tab=support-inbox` (patrz `App.tsx`).
+ * Krótki adres, bo tu liczy się każdy znak: przy 160 znakach na jedną
+ * wiadomość każdy znak doklejki zabiera znak z treści pytania klienta.
+ */
+const SMS_TAIL = ' Odp: getrido.pl/admin/czat';
 
 const asciiOnly = (text: string) =>
   text
