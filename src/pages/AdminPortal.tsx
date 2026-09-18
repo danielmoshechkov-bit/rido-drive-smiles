@@ -182,7 +182,7 @@ export default function AdminPortal() {
           {/* Desktop - Purple pill tabs */}
           <div className="hidden md:block">
             <div 
-              className="rounded-full p-1 shadow-lg"
+              className="rounded-3xl p-1.5 shadow-lg"
               style={{ backgroundColor: 'var(--nav-bar-color, #6C3CF0)' }}
             >
               {/* ZAWIJANIE ZAMIAST PRZEWIJANIA W BOK.
@@ -191,8 +191,16 @@ export default function AdminPortal() {
                   pasek jedzie dalej — zakładka mogła stać poza ekranem i nic tego
                   nie zdradzało. Zawinięty pasek zajmuje dwa rzędy i pokazuje
                   wszystko naraz. */}
+              {/* 🔴 `h-auto` JEST TU NAJWAŻNIEJSZE.
+                  Prymityw `TabsList` z shadcn ma w bazowych klasach `h-10`,
+                  czyli SZTYWNE 40 px. `min-h-[44px]` tego nie zdejmuje — to inna
+                  właściwość, więc `tailwind-merge` zostawia obie i element ma
+                  44 px niezależnie od zawartości. Drugi rząd pigułek wychodził
+                  wtedy poza fioletowe tło i nachodził na kartę pod spodem.
+                  `h-auto` wygrywa z `h-10` przy scalaniu klas i pasek rośnie
+                  razem z rzędami. `gap-y` daje odstęp MIĘDZY rzędami. */}
               <TabsList 
-                className="flex w-full flex-wrap items-center gap-1 rounded-[22px] px-1 py-1 min-h-[44px] bg-transparent"
+                className="flex w-full h-auto flex-wrap items-center gap-x-1 gap-y-1.5 rounded-[18px] px-1 py-1 bg-transparent"
               >
                 {tabs.map((tab) => (
                   <TabsTrigger
